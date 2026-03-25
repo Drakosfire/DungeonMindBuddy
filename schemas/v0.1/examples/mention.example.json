@@ -1,0 +1,19 @@
+{
+  "schema_version": "0.1.0",
+  "extraction_pass_id": "pass_2026_03_25_a",
+  "created_at": "2026-03-25T19:31:00Z",
+  "updated_at": "2026-03-25T19:31:00Z",
+  "record_status": "active",
+  "mention_id": "m_lysandra_001",
+  "evidence_id": "evid_lysandra_001",
+  "surface_form": "Lysandra",
+  "normalized_form": "lysandra",
+  "mention_type": "named",
+  "entity_type_hint": "npc",
+  "candidate_entity_ids": [
+    "ent_lysandra_ironveil"
+  ],
+  "linked_entity_id": "ent_lysandra_ironveil",
+  "resolution_status": "linked",
+  "confidence": 0.98
+}

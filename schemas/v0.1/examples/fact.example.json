@@ -1,0 +1,33 @@
+{
+  "schema_version": "0.1.0",
+  "extraction_pass_id": "pass_2026_03_25_a",
+  "created_at": "2026-03-25T19:33:00Z",
+  "updated_at": "2026-03-25T19:33:00Z",
+  "record_status": "active",
+  "fact_id": "fact_lysandra_state_003",
+  "subject_entity_id": "ent_lysandra_ironveil",
+  "attribute": "mental_state",
+  "value": {
+    "kind": "state",
+    "label": "emotionally overloaded",
+    "normalized": "emotionally_overloaded",
+    "category": "psychological_state",
+    "confidence": 0.86,
+    "interpretation_level": "derived_summary",
+    "strength": "strong"
+  },
+  "truth_state": "OBSERVED",
+  "source_authority": "observed_recap",
+  "evidence_ids": [
+    "evid_lysandra_001"
+  ],
+  "asserted_in_session": 20,
+  "valid_from_session": 20,
+  "valid_to_session": null,
+  "sequence_index_within_session": 27,
+  "validity_state": "active",
+  "derived_from_event_ids": [
+    "evt_lysandra_breakdown_001"
+  ],
+  "manually_overridden": false
+}

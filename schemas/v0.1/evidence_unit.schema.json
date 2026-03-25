@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "evidence_unit.schema.json",
+  "title": "DungeonBuddy EvidenceUnit v0.1",
+  "allOf": [
+    {
+      "$ref": "common.schema.json#/$defs/baseRecord"
+    }
+  ],
+  "type": "object",
+  "required": [
+    "evidence_id",
+    "document_id",
+    "document_type",
+    "source_class",
+    "text",
+    "section_path",
+    "paragraph_index",
+    "source_order_index"
+  ],
+  "properties": {
+    "evidence_id": {
+      "$ref": "common.schema.json#/$defs/idString"
+    },
+    "document_id": {
+      "$ref": "common.schema.json#/$defs/idString"
+    },
+    "document_type": {
+      "$ref": "common.schema.json#/$defs/nonEmptyString"
+    },
+    "document_title": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "source_class": {
+      "$ref": "common.schema.json#/$defs/sourceClass"
+    },
+    "text": {
+      "type": "string",
+      "minLength": 1
+    },
+    "section_path": {
+      "type": "array",
+      "items": {
+        "$ref": "common.schema.json#/$defs/nonEmptyString"
+      }
+    },
+    "paragraph_index": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "source_order_index": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "line_span": {
+      "oneOf": [
+        {
+          "$ref": "common.schema.json#/$defs/lineSpan"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "char_span": {
+      "oneOf": [
+        {
+          "$ref": "common.schema.json#/$defs/charSpan"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "inferred_session": {
+      "$ref": "common.schema.json#/$defs/sessionIntOrNull"
+    },
+    "speaker_or_subject": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "notes": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "unevaluatedProperties": false
+}

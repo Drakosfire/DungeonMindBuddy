@@ -1,0 +1,20 @@
+{
+  "schema_version": "0.1.0",
+  "extraction_pass_id": "pass_2026_03_25_a",
+  "created_at": "2026-03-25T19:32:00Z",
+  "updated_at": "2026-03-25T19:32:00Z",
+  "record_status": "active",
+  "entity_id": "ent_lysandra_ironveil",
+  "entity_type": "npc",
+  "display_name": "Lysandra Ironveil",
+  "canonical_name": "Lysandra Ironveil",
+  "aliases": [
+    "Lysandra",
+    "Captain Lysandra Ironveil"
+  ],
+  "entity_status": "canonical",
+  "source_mention_ids": [
+    "m_lysandra_001"
+  ],
+  "review_state": "approved"
+}

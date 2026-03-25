@@ -1,0 +1,124 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "conflict.schema.json",
+  "title": "DungeonBuddy Conflict v0.1",
+  "allOf": [
+    {
+      "$ref": "common.schema.json#/$defs/baseRecord"
+    },
+    {
+      "if": {
+        "properties": {
+          "conflict_type": {
+            "enum": [
+              "hard_conflict",
+              "temporal_conflict",
+              "soft_conflict",
+              "source_conflict"
+            ]
+          }
+        },
+        "required": [
+          "conflict_type"
+        ]
+      },
+      "then": {
+        "required": [
+          "entity_id",
+          "attribute",
+          "fact_ids"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "conflict_type": {
+            "const": "identity_conflict"
+          }
+        },
+        "required": [
+          "conflict_type"
+        ]
+      },
+      "then": {
+        "required": [
+          "mention_ids"
+        ]
+      }
+    }
+  ],
+  "type": "object",
+  "required": [
+    "conflict_id",
+    "conflict_type",
+    "conflict_status",
+    "blocking"
+  ],
+  "properties": {
+    "conflict_id": {
+      "$ref": "common.schema.json#/$defs/idString"
+    },
+    "conflict_type": {
+      "type": "string",
+      "enum": [
+        "hard_conflict",
+        "temporal_conflict",
+        "identity_conflict",
+        "soft_conflict",
+        "source_conflict"
+      ]
+    },
+    "entity_id": {
+      "$ref": "common.schema.json#/$defs/nullableId"
+    },
+    "attribute": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "fact_ids": {
+      "$ref": "common.schema.json#/$defs/idArray"
+    },
+    "mention_ids": {
+      "$ref": "common.schema.json#/$defs/idArray"
+    },
+    "candidate_entity_ids": {
+      "$ref": "common.schema.json#/$defs/idArray"
+    },
+    "blocking": {
+      "type": "boolean"
+    },
+    "severity": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "info",
+        "warning",
+        "error",
+        null
+      ]
+    },
+    "resolution_decision_id": {
+      "$ref": "common.schema.json#/$defs/nullableId"
+    },
+    "notes": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "conflict_status": {
+      "type": "string",
+      "enum": [
+        "open",
+        "resolved",
+        "deferred"
+      ]
+    }
+  },
+  "unevaluatedProperties": false
+}

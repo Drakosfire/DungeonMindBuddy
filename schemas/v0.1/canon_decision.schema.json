@@ -1,0 +1,166 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "canon_decision.schema.json",
+  "title": "DungeonBuddy CanonDecision v0.1",
+  "allOf": [
+    {
+      "$ref": "common.schema.json#/$defs/baseRecord"
+    },
+    {
+      "if": {
+        "properties": {
+          "decision_kind": {
+            "enum": [
+              "select_canon_fact",
+              "override_attribute"
+            ]
+          }
+        },
+        "required": [
+          "decision_kind"
+        ]
+      },
+      "then": {
+        "required": [
+          "entity_id",
+          "attribute"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "decision_kind": {
+            "const": "merge_entity"
+          }
+        },
+        "required": [
+          "decision_kind"
+        ]
+      },
+      "then": {
+        "properties": {
+          "effect": {
+            "required": [
+              "merged_entity_ids",
+              "result_entity_id"
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "type": "object",
+  "required": [
+    "decision_id",
+    "decision_kind",
+    "target_type",
+    "target_id",
+    "rationale",
+    "decided_at",
+    "decided_by",
+    "effect"
+  ],
+  "properties": {
+    "decision_id": {
+      "$ref": "common.schema.json#/$defs/idString"
+    },
+    "decision_kind": {
+      "type": "string",
+      "enum": [
+        "select_canon_fact",
+        "resolve_conflict",
+        "merge_entity",
+        "split_entity",
+        "retract_fact",
+        "backdate_validity",
+        "override_attribute"
+      ]
+    },
+    "target_type": {
+      "type": "string",
+      "enum": [
+        "entity",
+        "fact",
+        "conflict",
+        "attribute_projection"
+      ]
+    },
+    "target_id": {
+      "$ref": "common.schema.json#/$defs/idString"
+    },
+    "entity_id": {
+      "$ref": "common.schema.json#/$defs/nullableId"
+    },
+    "attribute": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "resolves_conflict_ids": {
+      "$ref": "common.schema.json#/$defs/idArray"
+    },
+    "rationale": {
+      "$ref": "common.schema.json#/$defs/nonEmptyString"
+    },
+    "decided_at": {
+      "$ref": "common.schema.json#/$defs/timestamp"
+    },
+    "decided_by": {
+      "$ref": "common.schema.json#/$defs/nonEmptyString"
+    },
+    "supersedes_decision_id": {
+      "$ref": "common.schema.json#/$defs/nullableId"
+    },
+    "effect": {
+      "type": "object",
+      "required": [
+        "scope",
+        "action_summary"
+      ],
+      "properties": {
+        "scope": {
+          "type": "string",
+          "enum": [
+            "global",
+            "time_slice",
+            "current_projection"
+          ]
+        },
+        "action_summary": {
+          "$ref": "common.schema.json#/$defs/nonEmptyString"
+        },
+        "selected_fact_ids": {
+          "$ref": "common.schema.json#/$defs/idArray"
+        },
+        "rejected_fact_ids": {
+          "$ref": "common.schema.json#/$defs/idArray"
+        },
+        "retracted_fact_ids": {
+          "$ref": "common.schema.json#/$defs/idArray"
+        },
+        "merged_entity_ids": {
+          "$ref": "common.schema.json#/$defs/idArray"
+        },
+        "result_entity_id": {
+          "$ref": "common.schema.json#/$defs/nullableId"
+        },
+        "effective_from_session": {
+          "$ref": "common.schema.json#/$defs/sessionIntOrNull"
+        },
+        "effective_to_session": {
+          "$ref": "common.schema.json#/$defs/sessionIntOrNull"
+        }
+      },
+      "unevaluatedProperties": false
+    },
+    "notes": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "unevaluatedProperties": false
+}

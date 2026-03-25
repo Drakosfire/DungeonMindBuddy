@@ -1,0 +1,114 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "entity.schema.json",
+  "title": "DungeonBuddy Entity v0.1",
+  "allOf": [
+    {
+      "$ref": "common.schema.json#/$defs/baseRecord"
+    },
+    {
+      "if": {
+        "properties": {
+          "entity_status": {
+            "const": "canonical"
+          }
+        },
+        "required": [
+          "entity_status"
+        ]
+      },
+      "then": {
+        "required": [
+          "canonical_name"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "entity_status": {
+            "const": "merged_into_other"
+          }
+        },
+        "required": [
+          "entity_status"
+        ]
+      },
+      "then": {
+        "required": [
+          "merged_into_entity_id"
+        ]
+      }
+    }
+  ],
+  "type": "object",
+  "required": [
+    "entity_id",
+    "entity_type",
+    "display_name",
+    "aliases",
+    "entity_status",
+    "source_mention_ids"
+  ],
+  "properties": {
+    "entity_id": {
+      "$ref": "common.schema.json#/$defs/idString"
+    },
+    "entity_type": {
+      "type": "string",
+      "enum": [
+        "npc",
+        "location",
+        "faction",
+        "item",
+        "other"
+      ]
+    },
+    "display_name": {
+      "$ref": "common.schema.json#/$defs/nonEmptyString"
+    },
+    "canonical_name": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "aliases": {
+      "$ref": "common.schema.json#/$defs/stringArray"
+    },
+    "entity_status": {
+      "type": "string",
+      "enum": [
+        "provisional",
+        "canonical",
+        "merged_into_other",
+        "ambiguous"
+      ]
+    },
+    "merged_into_entity_id": {
+      "$ref": "common.schema.json#/$defs/nullableId"
+    },
+    "source_mention_ids": {
+      "$ref": "common.schema.json#/$defs/idArray"
+    },
+    "review_state": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "unreviewed",
+        "reviewed",
+        "approved",
+        null
+      ]
+    },
+    "notes": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "unevaluatedProperties": false
+}

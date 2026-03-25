@@ -1,0 +1,367 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "common.schema.json",
+  "title": "DungeonBuddy Common Definitions v0.1",
+  "$defs": {
+    "idString": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9_.:-]+$"
+    },
+    "nullableId": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9_.:-]+$"
+    },
+    "nonEmptyString": {
+      "type": "string",
+      "minLength": 1
+    },
+    "nullableString": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "schemaVersion": {
+      "type": "string",
+      "pattern": "^0\\.1\\.\\d+$"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "superseded",
+        "retracted",
+        "merged",
+        "ambiguous",
+        "deprecated"
+      ]
+    },
+    "truthState": {
+      "type": "string",
+      "enum": [
+        "IDEA",
+        "PREP",
+        "OBSERVED",
+        "CANON",
+        "CANON_CANDIDATE",
+        "OVERRIDDEN",
+        "RETRACTED"
+      ]
+    },
+    "sourceClass": {
+      "type": "string",
+      "enum": [
+        "seed_reference",
+        "planning_document",
+        "observed_session_recap",
+        "ledger_or_dossier",
+        "other"
+      ]
+    },
+    "authorityTier": {
+      "type": "string",
+      "enum": [
+        "manual_override",
+        "observed_recap",
+        "observed_derived",
+        "seed_prep",
+        "planning_prep",
+        "idea",
+        "unknown"
+      ]
+    },
+    "certainty": {
+      "type": "string",
+      "enum": [
+        "confirmed",
+        "partial",
+        "uncertain",
+        "disputed"
+      ]
+    },
+    "interpretationLevel": {
+      "type": "string",
+      "enum": [
+        "direct_assertion",
+        "derived_summary",
+        "interpretive_inference"
+      ]
+    },
+    "validityState": {
+      "type": "string",
+      "enum": [
+        "historical",
+        "active",
+        "expired",
+        "tentative",
+        "unknown_validity"
+      ]
+    },
+    "charSpan": {
+      "type": "object",
+      "required": [
+        "start",
+        "end"
+      ],
+      "properties": {
+        "start": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "end": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "lineSpan": {
+      "type": "object",
+      "required": [
+        "start",
+        "end"
+      ],
+      "properties": {
+        "start": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "end": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "sessionIntOrNull": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 1
+    },
+    "stringArray": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/nonEmptyString"
+      },
+      "uniqueItems": true
+    },
+    "idArray": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/idString"
+      },
+      "uniqueItems": true
+    },
+    "baseRecord": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "created_at",
+        "updated_at",
+        "record_status"
+      ],
+      "properties": {
+        "schema_version": {
+          "$ref": "#/$defs/schemaVersion"
+        },
+        "extraction_pass_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.:-]+$"
+        },
+        "created_at": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "updated_at": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "record_status": {
+          "$ref": "#/$defs/status"
+        }
+      }
+    },
+    "factValue": {
+      "type": "object",
+      "required": [
+        "kind",
+        "label"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "scalar",
+            "state",
+            "entity_ref",
+            "set",
+            "interpretive"
+          ]
+        },
+        "label": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "normalized": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "category": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "entity_id": {
+          "$ref": "#/$defs/nullableId"
+        },
+        "values": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/nonEmptyString"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "confidence": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "interpretation_level": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/interpretationLevel"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "strength": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "weak",
+            "moderate",
+            "strong",
+            null
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "entity_ref"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "entity_id"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "set"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "values"
+            ]
+          }
+        }
+      ],
+      "additionalProperties": false
+    },
+    "participant": {
+      "type": "object",
+      "required": [
+        "entity_id",
+        "role"
+      ],
+      "properties": {
+        "entity_id": {
+          "$ref": "#/$defs/idString"
+        },
+        "role": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "certainty": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/certainty"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "temporalFields": {
+      "type": "object",
+      "properties": {
+        "asserted_in_session": {
+          "$ref": "#/$defs/sessionIntOrNull"
+        },
+        "valid_from_session": {
+          "$ref": "#/$defs/sessionIntOrNull"
+        },
+        "valid_to_session": {
+          "$ref": "#/$defs/sessionIntOrNull"
+        },
+        "sequence_index_within_session": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "validity_state": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/validityState"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "schema_version": "0.1.0",
+  "extraction_pass_id": "pass_2026_03_25_a",
+  "created_at": "2026-03-25T19:35:00Z",
+  "updated_at": "2026-03-25T19:35:00Z",
+  "conflict_id": "conf_lysandra_rank_001",
+  "conflict_type": "temporal_conflict",
+  "entity_id": "ent_lysandra_ironveil",
+  "attribute": "rank_or_title",
+  "fact_ids": [
+    "fact_rank_001",
+    "fact_rank_117"
+  ],
+  "blocking": false,
+  "severity": "warning",
+  "notes": "Could reflect promotion, demotion, or draft drift.",
+  "conflict_status": "open",
+  "record_status": "active"
+}

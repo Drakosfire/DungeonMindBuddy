@@ -1,0 +1,123 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "event.schema.json",
+  "title": "DungeonBuddy Event v0.1",
+  "allOf": [
+    {
+      "$ref": "common.schema.json#/$defs/baseRecord"
+    }
+  ],
+  "type": "object",
+  "required": [
+    "event_id",
+    "event_kind",
+    "label",
+    "session_id",
+    "sequence_index_within_session",
+    "participants",
+    "source_evidence_ids",
+    "certainty"
+  ],
+  "properties": {
+    "event_id": {
+      "$ref": "common.schema.json#/$defs/idString"
+    },
+    "event_kind": {
+      "$ref": "common.schema.json#/$defs/nonEmptyString"
+    },
+    "label": {
+      "$ref": "common.schema.json#/$defs/nonEmptyString"
+    },
+    "session_id": {
+      "$ref": "common.schema.json#/$defs/nonEmptyString"
+    },
+    "session_number": {
+      "$ref": "common.schema.json#/$defs/sessionIntOrNull"
+    },
+    "sequence_index_within_session": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "participants": {
+      "type": "array",
+      "items": {
+        "$ref": "common.schema.json#/$defs/participant"
+      },
+      "minItems": 1
+    },
+    "source_evidence_ids": {
+      "type": "array",
+      "items": {
+        "$ref": "common.schema.json#/$defs/idString"
+      },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "certainty": {
+      "$ref": "common.schema.json#/$defs/certainty"
+    },
+    "location_id": {
+      "$ref": "common.schema.json#/$defs/nullableId"
+    },
+    "subevent_ids": {
+      "$ref": "common.schema.json#/$defs/idArray"
+    },
+    "outcome_summary": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "state_changes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "subject_entity_id",
+          "attribute",
+          "proposed_value"
+        ],
+        "properties": {
+          "subject_entity_id": {
+            "$ref": "common.schema.json#/$defs/idString"
+          },
+          "attribute": {
+            "type": "string",
+            "enum": [
+              "species",
+              "role",
+              "rank_or_title",
+              "faction",
+              "current_location",
+              "physical_condition",
+              "mental_state",
+              "loyalty_or_alignment_context",
+              "relationship_tags",
+              "operational_status",
+              "portrayal_notes",
+              "unresolved_questions",
+              "source_comments"
+            ]
+          },
+          "proposed_value": {
+            "$ref": "common.schema.json#/$defs/factValue"
+          },
+          "proposed_fact_id": {
+            "$ref": "common.schema.json#/$defs/nullableId"
+          }
+        },
+        "unevaluatedProperties": false
+      }
+    },
+    "related_fact_ids": {
+      "$ref": "common.schema.json#/$defs/idArray"
+    },
+    "notes": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "unevaluatedProperties": false
+}

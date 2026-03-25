@@ -1,0 +1,43 @@
+{
+  "schema_version": "0.1.0",
+  "extraction_pass_id": "pass_2026_03_25_a",
+  "created_at": "2026-03-25T19:34:00Z",
+  "updated_at": "2026-03-25T19:34:00Z",
+  "record_status": "active",
+  "event_id": "evt_lysandra_breakdown_001",
+  "event_kind": "scene_incident",
+  "label": "Lysandra breakdown at the wagon",
+  "session_id": "session_20",
+  "session_number": 20,
+  "sequence_index_within_session": 27,
+  "participants": [
+    {
+      "entity_id": "ent_lysandra_ironveil",
+      "role": "subject",
+      "certainty": "confirmed"
+    }
+  ],
+  "source_evidence_ids": [
+    "evid_lysandra_001"
+  ],
+  "certainty": "confirmed",
+  "outcome_summary": "Lysandra is operating in a visibly unstable state while trying to build a hovel.",
+  "state_changes": [
+    {
+      "subject_entity_id": "ent_lysandra_ironveil",
+      "attribute": "mental_state",
+      "proposed_value": {
+        "kind": "state",
+        "label": "emotionally overloaded",
+        "normalized": "emotionally_overloaded",
+        "category": "psychological_state",
+        "confidence": 0.86,
+        "interpretation_level": "derived_summary"
+      },
+      "proposed_fact_id": "fact_lysandra_state_003"
+    }
+  ],
+  "related_fact_ids": [
+    "fact_lysandra_state_003"
+  ]
+}

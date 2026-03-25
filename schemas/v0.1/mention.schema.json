@@ -1,0 +1,117 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "mention.schema.json",
+  "title": "DungeonBuddy Mention v0.1",
+  "allOf": [
+    {
+      "$ref": "common.schema.json#/$defs/baseRecord"
+    },
+    {
+      "if": {
+        "properties": {
+          "resolution_status": {
+            "const": "linked"
+          }
+        },
+        "required": [
+          "resolution_status"
+        ]
+      },
+      "then": {
+        "required": [
+          "linked_entity_id"
+        ]
+      }
+    }
+  ],
+  "type": "object",
+  "required": [
+    "mention_id",
+    "evidence_id",
+    "surface_form",
+    "normalized_form",
+    "mention_type",
+    "resolution_status",
+    "candidate_entity_ids"
+  ],
+  "properties": {
+    "mention_id": {
+      "$ref": "common.schema.json#/$defs/idString"
+    },
+    "evidence_id": {
+      "$ref": "common.schema.json#/$defs/idString"
+    },
+    "surface_form": {
+      "$ref": "common.schema.json#/$defs/nonEmptyString"
+    },
+    "normalized_form": {
+      "$ref": "common.schema.json#/$defs/nonEmptyString"
+    },
+    "mention_type": {
+      "type": "string",
+      "enum": [
+        "named",
+        "title",
+        "pronoun",
+        "nominal",
+        "alias",
+        "unknown"
+      ]
+    },
+    "entity_type_hint": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "npc",
+        "location",
+        "faction",
+        "item",
+        "other",
+        null
+      ]
+    },
+    "char_span": {
+      "oneOf": [
+        {
+          "$ref": "common.schema.json#/$defs/charSpan"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "candidate_entity_ids": {
+      "$ref": "common.schema.json#/$defs/idArray"
+    },
+    "linked_entity_id": {
+      "$ref": "common.schema.json#/$defs/nullableId"
+    },
+    "resolution_status": {
+      "type": "string",
+      "enum": [
+        "unresolved",
+        "linked",
+        "provisional",
+        "ambiguous",
+        "rejected"
+      ]
+    },
+    "confidence": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0,
+      "maximum": 1
+    },
+    "notes": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "unevaluatedProperties": false
+}

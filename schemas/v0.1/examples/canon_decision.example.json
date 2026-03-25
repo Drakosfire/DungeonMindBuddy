@@ -1,0 +1,31 @@
+{
+  "schema_version": "0.1.0",
+  "extraction_pass_id": null,
+  "created_at": "2026-03-25T19:36:00Z",
+  "updated_at": "2026-03-25T19:36:00Z",
+  "record_status": "active",
+  "decision_id": "dec_lysandra_rank_001",
+  "decision_kind": "resolve_conflict",
+  "target_type": "conflict",
+  "target_id": "conf_lysandra_rank_001",
+  "entity_id": "ent_lysandra_ironveil",
+  "attribute": "rank_or_title",
+  "resolves_conflict_ids": [
+    "conf_lysandra_rank_001"
+  ],
+  "rationale": "Use the later observed recap as current canon and preserve the earlier title as historical.",
+  "decided_at": "2026-03-25T19:36:00Z",
+  "decided_by": "gm_manual",
+  "effect": {
+    "scope": "current_projection",
+    "action_summary": "Select the later observed title as active canon.",
+    "selected_fact_ids": [
+      "fact_rank_117"
+    ],
+    "rejected_fact_ids": [
+      "fact_rank_001"
+    ],
+    "effective_from_session": 20
+  },
+  "notes": "Do not delete the losing fact; keep it as historical evidence."
+}

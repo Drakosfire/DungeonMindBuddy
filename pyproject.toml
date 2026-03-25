@@ -1,0 +1,15 @@
+[project]
+name = "dungeonmindbuddy"
+version = "0.1.0"
+description = "Narrative knowledge graph extraction and canon reduction for TTRPG campaigns"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "pydantic>=2.0.0",
+    "blake3>=0.3.3",
+    "pytest>=9.0.2",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
