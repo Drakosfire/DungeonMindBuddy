@@ -1,56 +1,84 @@
-# DungeonBuddy JSON Schemas v0.1
+# DungeonMindBuddy
 
-This bundle turns the Phase 1 narrative architecture into enforceable JSON contracts.
+DungeonMindBuddy is a narrative knowledge graph and canon-reduction project for TTRPG campaign material. It converts source documents into schema-validated evidence and fact records, then derives campaign-specific projections with deterministic conflict handling.
 
-Included schemas:
-- `common.schema.json` — shared enums, temporal fields, and reusable definitions.
-- `evidence_unit.schema.json`
-- `mention.schema.json`
-- `entity.schema.json`
-- `fact.schema.json`
-- `event.schema.json`
-- `conflict.schema.json`
-- `canon_decision.schema.json`
+## Current implemented scope
 
-Included examples:
-- one minimal example instance for each schema, using Lysandra-flavored placeholder data.
+- Versioned schema contracts in `schemas/v0.1/`
+- Canon layering model:
+  - world layer (`canon_layer=world`, `campaign_id=null`)
+  - campaign layer (`canon_layer=campaign`, `campaign_id=<id>`)
+- Deterministic reducer and benchmark harness:
+  - `src/reducer/canon_projection.py`
+  - `evals/canon_layering/`
+- Remote corpus inventory + normalization tooling:
+  - `evals/corpus_remote/build_remote_inventory.py`
+  - `evals/corpus_remote/validate_remote_artifacts.py`
+  - `evals/corpus_remote/run_remote_snapshot_pipeline.py`
+  - `scripts/run_remote_snapshot_from_env.sh`
 
-## Design notes
+## Project structure
 
-These schemas intentionally split identity from state:
-- `Entity` holds identity and merge status.
-- `Fact` holds attribute claims, truth state, authority, and validity windows.
-- `Event` holds scene-level incidents and candidate state changes.
-- `Conflict` preserves unresolved contradiction rather than flattening it.
-- `CanonDecision` records manual intervention so canon stays rebuildable.
+- `schemas/v0.1/` - normative JSON schema contracts and examples
+- `src/contracts/` - schema validation helpers
+- `src/reducer/` - deterministic projection logic
+- `tests/` - contract, reducer, benchmark, and remote-ingestion tests
+- `evals/canon_layering/` - hard-gated benchmark scenarios and runner
+- `evals/corpus_remote/` - remote corpus inventory and validation pipeline
+- `out/` - generated artifacts (gitignored)
 
-## Important constraints in v0.1
+## Setup
 
-- IDs are opaque strings. They are stable references, not semantic keys.
-- Session time is modeled as integer session numbers for facts, with optional string `session_id` on events.
-- Facts are Phase 1 NPC-centric and use a controlled attribute set.
-- `Entity` is intentionally lean. Typed character state belongs in `Fact`, not on the entity object.
-- `CANON` is allowed as a stored truth state, but the safer default is still to derive canon through the reducer and recorded decisions.
-- Lifecycle metadata uses `record_status` to avoid colliding with domain-specific status fields such as `conflict_status`.
+This repository uses `uv` for Python dependency and environment management.
 
-## Known limitations
+```bash
+uv sync
+```
 
-- Query request/response contracts are not included yet.
-- Planning validation request/response contracts are not included yet.
-- Attribute enums are Phase 1 scoped and intentionally NPC-heavy.
-- Location / faction / item typed profiles are deferred.
-- Some workflow invariants still live outside schema and must be enforced in code, especially:
-  - reducer ordering
-  - no silent overwrite
-  - provisional entity quarantine rules
-  - event immutability semantics
+## Verification commands
 
-## Suggested next document
+```bash
+uv run ruff check .
+uv run pytest tests/ --maxfail=1
+uv run python evals/canon_layering/run_benchmarks.py
+```
 
-`DungeonBuddy Reducer + Validation Contracts v0.1`
+## Remote snapshot pipeline
 
-That doc should define:
-- deterministic canon reducer input/output
-- planning validation input/output
-- conflict report output
-- entity profile query output
+### Environment file
+
+Create `.env.ssh` in repo root:
+
+```bash
+SSH_PRIVATE_KEY=<ssh_password_or_secret>
+SSH_HOST=<host_or_tailscale_ip>
+SSH_ALIAS=<ssh_username>
+```
+
+### One-command run
+
+```bash
+scripts/run_remote_snapshot_from_env.sh
+```
+
+Optional arguments:
+
+```bash
+scripts/run_remote_snapshot_from_env.sh "<remote_docs_root>" <sample_size>
+```
+
+Default remote docs root:
+
+`/media/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/Docs/Eldyrwild and Campaign Context`
+
+### Output artifacts
+
+- `out/evals/corpus_remote/remote_inventory.json`
+- `out/evals/corpus_remote/normalization_manifest.json`
+- `out/evals/corpus_remote/reproducibility_report.json`
+
+## Notes and limitations
+
+- Current normalization sampling is deterministic by sorted path and may bias toward world documents unless stratified sampling is enabled.
+- Source classification (`source_class`) still uses heuristic inference and should be hardened with path policy rules.
+- This project is pipeline-first; no API or UI layer is implemented in this repository.
