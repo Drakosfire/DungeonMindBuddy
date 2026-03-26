@@ -57,6 +57,13 @@
         "RETRACTED"
       ]
     },
+    "canonLayer": {
+      "type": "string",
+      "enum": [
+        "world",
+        "campaign"
+      ]
+    },
     "sourceClass": {
       "type": "string",
       "enum": [

@@ -1,0 +1,45 @@
+[
+  {
+    "schema_version": "0.1.0",
+    "created_at": "2026-03-25T18:05:00Z",
+    "updated_at": "2026-03-25T18:05:00Z",
+    "record_status": "active",
+    "fact_id": "fact_campaign_rank_014",
+    "subject_entity_id": "ent_lysandra_ironveil",
+    "attribute": "rank_or_title",
+    "value": {
+      "kind": "state",
+      "label": "Sergeant",
+      "normalized": "sergeant"
+    },
+    "truth_state": "OBSERVED",
+    "source_authority": "observed_recap",
+    "evidence_ids": [
+      "evid_campaign_rank_014"
+    ],
+    "asserted_in_session": 14,
+    "sequence_index_within_session": 11
+  },
+  {
+    "schema_version": "0.1.0",
+    "created_at": "2026-03-25T19:55:00Z",
+    "updated_at": "2026-03-25T19:55:00Z",
+    "record_status": "active",
+    "fact_id": "fact_campaign_rank_020",
+    "subject_entity_id": "ent_lysandra_ironveil",
+    "attribute": "rank_or_title",
+    "value": {
+      "kind": "state",
+      "label": "Lieutenant",
+      "normalized": "lieutenant"
+    },
+    "truth_state": "OBSERVED",
+    "source_authority": "observed_recap",
+    "evidence_ids": [
+      "evid_campaign_rank_020"
+    ],
+    "asserted_in_session": 20,
+    "sequence_index_within_session": 5
+  }
+]
+

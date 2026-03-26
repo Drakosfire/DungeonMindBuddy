@@ -10,6 +10,7 @@
   "target_id": "conf_lysandra_rank_001",
   "entity_id": "ent_lysandra_ironveil",
   "attribute": "rank_or_title",
+  "campaign_id": "campaign_2",
   "resolves_conflict_ids": [
     "conf_lysandra_rank_001"
   ],

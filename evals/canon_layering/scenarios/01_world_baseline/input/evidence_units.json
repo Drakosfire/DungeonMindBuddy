@@ -1,0 +1,25 @@
+[
+  {
+    "schema_version": "0.1.0",
+    "created_at": "2026-03-25T19:30:00Z",
+    "updated_at": "2026-03-25T19:30:00Z",
+    "record_status": "active",
+    "evidence_id": "evid_world_lysandra_001",
+    "document_id": "elyr_world_dossier",
+    "document_type": "world_dossier",
+    "document_title": "Elderwyld NPC Dossier",
+    "source_class": "seed_reference",
+    "canon_layer": "world",
+    "campaign_id": null,
+    "text": "Lysandra Ironveil is composed and disciplined.",
+    "section_path": [
+      "NPCs",
+      "Lysandra"
+    ],
+    "paragraph_index": 0,
+    "source_order_index": 0,
+    "inferred_session": null,
+    "speaker_or_subject": "gm"
+  }
+]
+

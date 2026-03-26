@@ -1,0 +1,30 @@
+{
+  "campaign_id": "campaign_2",
+  "entities": {
+    "ent_lysandra_ironveil": {
+      "attributes": {
+        "mental_state": {
+          "selected_fact_id": "fact_world_mental_001",
+          "value_label": "disciplined",
+          "value_normalized": "disciplined",
+          "source_layer": "world",
+          "source_campaign_id": null,
+          "fact_ids": [
+            "fact_world_mental_001"
+          ],
+          "provenance_evidence_ids": [
+            "evid_world_lysandra_001"
+          ],
+          "conflict_ids": []
+        }
+      }
+    }
+  },
+  "conflicts": [],
+  "metrics": {
+    "open_conflicts": 0,
+    "resolved_conflicts": 0,
+    "projected_entities": 1
+  }
+}
+

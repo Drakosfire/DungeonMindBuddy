@@ -1,0 +1,16 @@
+{
+  "snapshot_id": "snapshot_yyyy_mm_dd_hhmmss",
+  "source_host": "gpu_desktop",
+  "captured_at": "2026-03-25T00:00:00Z",
+  "documents": [
+    {
+      "document_id": "campaign2_session20",
+      "remote_path": "/remote/path/session20.docx",
+      "source_class": "observed_session_recap",
+      "canon_layer": "campaign",
+      "campaign_id": "campaign_2",
+      "campaign_group": "longmont_campaign_2"
+    }
+  ]
+}
+

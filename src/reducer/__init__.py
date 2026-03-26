@@ -1,0 +1,2 @@
+"""Canon projection reducer utilities."""
+

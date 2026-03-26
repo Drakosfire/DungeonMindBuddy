@@ -1,0 +1,47 @@
+[
+  {
+    "schema_version": "0.1.0",
+    "created_at": "2026-03-25T18:00:00Z",
+    "updated_at": "2026-03-25T18:00:00Z",
+    "record_status": "active",
+    "evidence_id": "evid_campaign_rank_014",
+    "document_id": "campaign2_session14",
+    "document_type": "session_recap",
+    "document_title": "Campaign 2 Session 14",
+    "source_class": "observed_session_recap",
+    "canon_layer": "campaign",
+    "campaign_id": "campaign_2",
+    "text": "Lysandra appears as Sergeant Ironveil.",
+    "section_path": [
+      "Session 14",
+      "Council Briefing"
+    ],
+    "paragraph_index": 2,
+    "source_order_index": 11,
+    "inferred_session": 14,
+    "speaker_or_subject": "narrator"
+  },
+  {
+    "schema_version": "0.1.0",
+    "created_at": "2026-03-25T19:50:00Z",
+    "updated_at": "2026-03-25T19:50:00Z",
+    "record_status": "active",
+    "evidence_id": "evid_campaign_rank_020",
+    "document_id": "campaign2_session20",
+    "document_type": "session_recap",
+    "document_title": "Campaign 2 Session 20",
+    "source_class": "observed_session_recap",
+    "canon_layer": "campaign",
+    "campaign_id": "campaign_2",
+    "text": "Lysandra has now been promoted to Lieutenant.",
+    "section_path": [
+      "Session 20",
+      "Arrival"
+    ],
+    "paragraph_index": 1,
+    "source_order_index": 5,
+    "inferred_session": 20,
+    "speaker_or_subject": "narrator"
+  }
+]
+

@@ -52,6 +52,29 @@ This is a **pipeline/library project**, not a web application. There is no front
 - **Truth is derived, not stored.** Canon state is computed by the reducer from Facts + CanonDecisions. `CANON` as a stored truth_state is allowed but the safer default is derivation.
 - **Every claim traces to evidence.** Facts require `evidence_ids` (minItems: 1). Events require `source_evidence_ids` (minItems: 1). No orphan assertions.
 - **EvidenceUnits are the only admissible evidence layer.** All downstream objects (Mentions, Facts, Events) must reference EvidenceUnit IDs, not raw document text.
+- **World canon and campaign canon are distinct layers.** See "Canon Layering" section below.
+
+### Canon Layering: World vs Campaign
+
+The system distinguishes two canon layers:
+
+- **World layer** (`canon_layer: "world"`, `campaign_id: null`): GM-authored world-building that exists independent of any campaign. Seed reference documents, location dossiers, world lore. Sticky to the original corpus — never altered by play.
+- **Campaign layer** (`canon_layer: "campaign"`, `campaign_id: "<id>"`): Emergent truth from actual play sessions in a specific campaign. Session recaps, campaign-specific dossier updates, in-play canon decisions. Can override world-layer facts for this campaign's projection without erasing the world-layer originals.
+
+**Where the layer lives:** On the `EvidenceUnit`, not on the Fact. Layer is a property of the *source document*, not the extracted knowledge. Facts inherit their layer from their evidence chain.
+
+**Reducer behavior:**
+1. World-layer facts form the baseline projection for all campaigns.
+2. Campaign-layer facts overlay on top for their specific campaign.
+3. When a campaign fact contradicts a world fact, a Conflict is created (type `source_conflict` or `temporal_conflict`).
+4. CanonDecisions resolve these conflicts. A CanonDecision with `campaign_id` scopes the resolution to that campaign only — the world-layer fact remains unchanged for other campaigns or the world baseline.
+5. A CanonDecision with `campaign_id: null` is a world-level decision (applies everywhere).
+
+**Querying:**
+- "Show entity X state" requires a campaign context parameter (or defaults to world-only baseline).
+- The projection for campaign C = world-layer facts + campaign C facts + CanonDecisions where `campaign_id` is null or matches C.
+
+**Key invariant:** Campaign canon never mutates world canon. It only creates an override visible within that campaign's projection.
 
 ---
 
@@ -81,13 +104,13 @@ Each stage:
 
 The real corpus contains these document types that map to `source_class`:
 
-| Document format | Schema `source_class` | Examples |
-|---|---|---|
-| Session recaps (.docx) | `observed_session_recap` | Session summaries, play-by-play accounts |
-| NPC dossiers (.md, .docx) | `ledger_or_dossier` | Character profiles, narrative ledgers |
-| Session prep (.md, .docx) | `planning_document` | Pre-session reference packets |
-| World/location docs (.docx) | `seed_reference` | City descriptions, location dossiers |
-| Scene scripts (.docx) | `planning_document` | Scripted encounters, scene blueprints |
+| Document format | Schema `source_class` | `canon_layer` | Examples |
+|---|---|---|---|
+| Session recaps (.docx) | `observed_session_recap` | `campaign` | Session summaries, play-by-play accounts |
+| NPC dossiers (.md, .docx) | `ledger_or_dossier` | `world` or `campaign` | Character profiles, narrative ledgers |
+| Session prep (.md, .docx) | `planning_document` | `campaign` | Pre-session reference packets |
+| World/location docs (.docx) | `seed_reference` | `world` | City descriptions, location dossiers |
+| Scene scripts (.docx) | `planning_document` | `campaign` | Scripted encounters, scene blueprints |
 
 The corpus is **106 .docx files**, **4 .md files**, plus images/PDFs/3D models (non-text, ignored for extraction). A `.docx → text` stage is needed before evidence extraction.
 
@@ -170,6 +193,8 @@ DungeonMindBuddy/
 - **Entity merging:** Two mentions may initially create two entities that are later discovered to be the same person. The `merged_into_other` entity status and `merged_into_entity_id` field handle this. Original entity and all its linked facts/mentions must be preserved.
 - **Conflict types matter:** `hard_conflict` (mutually exclusive values), `temporal_conflict` (same attribute changed over time), `identity_conflict` (are these the same entity?), `soft_conflict` (interpretive disagreement), `source_conflict` (different documents disagree). Each has different resolution semantics.
 - **CanonDecision audit trail:** Every manual override must be recorded as a CanonDecision with rationale, decided_by, and effect. Canon must be rebuildable by replaying decisions.
+- **Cross-layer conflicts:** When a campaign session recap contradicts a world-building document (e.g., "Ironveil was destroyed in session 14" vs. world doc says "Ironveil is a thriving fortress"), a Conflict is created. The CanonDecision resolving it carries `campaign_id` — so Ironveil remains standing in the world baseline and in other campaigns, but is destroyed in Campaign 2's projection.
+- **Dossier ambiguity:** NPC dossiers may be world-layer (initial GM creation) or campaign-layer (updated after play events). The `canon_layer` on the EvidenceUnit disambiguates. A single dossier document could be re-ingested as campaign-layer if the GM updates it post-session.
 
 ### Vertical Slice Definition
 

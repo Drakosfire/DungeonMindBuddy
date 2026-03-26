@@ -1,0 +1,11 @@
+{
+  "campaign_id": null,
+  "entities": {},
+  "conflicts": [],
+  "metrics": {
+    "open_conflicts": 0,
+    "resolved_conflicts": 0,
+    "projected_entities": 0
+  }
+}
+

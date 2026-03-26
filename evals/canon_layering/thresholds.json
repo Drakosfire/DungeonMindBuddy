@@ -1,0 +1,9 @@
+{
+  "layer_isolation_accuracy": 1.0,
+  "decision_scope_correctness": 1.0,
+  "provenance_completeness": 1.0,
+  "conflict_detection_seeded": 1.0,
+  "determinism_runs": 5,
+  "determinism_hash_match_rate": 1.0
+}
+

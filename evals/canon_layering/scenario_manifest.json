@@ -1,0 +1,72 @@
+{
+  "schema_version": "0.1.0",
+  "required_behavior_tags": [
+    "layering",
+    "conflict",
+    "decision_scope",
+    "provenance"
+  ],
+  "scenarios": [
+    {
+      "id": "01_world_baseline",
+      "campaign_id": "campaign_2",
+      "behavior_tags": [
+        "layering",
+        "conflict",
+        "decision_scope",
+        "provenance"
+      ]
+    },
+    {
+      "id": "02_campaign_override",
+      "campaign_id": "campaign_2",
+      "behavior_tags": [
+        "layering",
+        "conflict",
+        "decision_scope",
+        "provenance"
+      ]
+    },
+    {
+      "id": "03_trait_drift_conflict",
+      "campaign_id": "campaign_2",
+      "behavior_tags": [
+        "layering",
+        "conflict",
+        "decision_scope",
+        "provenance"
+      ]
+    },
+    {
+      "id": "04_temporal_promotion",
+      "campaign_id": "campaign_2",
+      "behavior_tags": [
+        "layering",
+        "conflict",
+        "decision_scope",
+        "provenance"
+      ]
+    },
+    {
+      "id": "05_campaign_scoped_decision",
+      "campaign_id": "campaign_2",
+      "behavior_tags": [
+        "layering",
+        "conflict",
+        "decision_scope",
+        "provenance"
+      ]
+    },
+    {
+      "id": "06_global_decision",
+      "campaign_id": "campaign_2",
+      "behavior_tags": [
+        "layering",
+        "conflict",
+        "decision_scope",
+        "provenance"
+      ]
+    }
+  ]
+}
+

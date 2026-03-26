@@ -1,0 +1,45 @@
+{
+  "campaign_id": "campaign_2",
+  "entities": {
+    "ent_lysandra_ironveil": {
+      "attributes": {
+        "current_location": {
+          "selected_fact_id": "fact_campaign_loc_021",
+          "value_label": "Ashfen Wilds",
+          "value_normalized": "ashfen_wilds",
+          "source_layer": "campaign",
+          "source_campaign_id": "campaign_2",
+          "fact_ids": [
+            "fact_campaign_loc_021",
+            "fact_world_loc_001"
+          ],
+          "provenance_evidence_ids": [
+            "evid_campaign_loc_021",
+            "evid_world_loc_001"
+          ],
+          "conflict_ids": [
+            "auto_conflict_001"
+          ]
+        }
+      }
+    }
+  },
+  "conflicts": [
+    {
+      "conflict_id": "auto_conflict_001",
+      "entity_id": "ent_lysandra_ironveil",
+      "attribute": "current_location",
+      "fact_ids": [
+        "fact_campaign_loc_021",
+        "fact_world_loc_001"
+      ],
+      "status": "open"
+    }
+  ],
+  "metrics": {
+    "open_conflicts": 1,
+    "resolved_conflicts": 0,
+    "projected_entities": 1
+  }
+}
+

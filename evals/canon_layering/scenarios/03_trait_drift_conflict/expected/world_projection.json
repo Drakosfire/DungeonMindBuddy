@@ -1,0 +1,30 @@
+{
+  "campaign_id": null,
+  "entities": {
+    "ent_lysandra_ironveil": {
+      "attributes": {
+        "current_location": {
+          "selected_fact_id": "fact_world_loc_001",
+          "value_label": "Ironveil Keep",
+          "value_normalized": "ironveil_keep",
+          "source_layer": "world",
+          "source_campaign_id": null,
+          "fact_ids": [
+            "fact_world_loc_001"
+          ],
+          "provenance_evidence_ids": [
+            "evid_world_loc_001"
+          ],
+          "conflict_ids": []
+        }
+      }
+    }
+  },
+  "conflicts": [],
+  "metrics": {
+    "open_conflicts": 0,
+    "resolved_conflicts": 0,
+    "projected_entities": 1
+  }
+}
+

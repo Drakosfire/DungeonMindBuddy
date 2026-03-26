@@ -98,6 +98,9 @@
         "null"
       ]
     },
+    "campaign_id": {
+      "$ref": "common.schema.json#/$defs/nullableId"
+    },
     "resolves_conflict_ids": {
       "$ref": "common.schema.json#/$defs/idArray"
     },

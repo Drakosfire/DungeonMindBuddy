@@ -1,0 +1,45 @@
+[
+  {
+    "schema_version": "0.1.0",
+    "created_at": "2026-03-25T19:33:00Z",
+    "updated_at": "2026-03-25T19:33:00Z",
+    "record_status": "active",
+    "fact_id": "fact_world_mental_001",
+    "subject_entity_id": "ent_lysandra_ironveil",
+    "attribute": "mental_state",
+    "value": {
+      "kind": "state",
+      "label": "disciplined",
+      "normalized": "disciplined"
+    },
+    "truth_state": "CANON",
+    "source_authority": "seed_prep",
+    "evidence_ids": [
+      "evid_world_lysandra_001"
+    ],
+    "asserted_in_session": null,
+    "sequence_index_within_session": null
+  },
+  {
+    "schema_version": "0.1.0",
+    "created_at": "2026-03-25T19:46:00Z",
+    "updated_at": "2026-03-25T19:46:00Z",
+    "record_status": "active",
+    "fact_id": "fact_campaign_mental_020",
+    "subject_entity_id": "ent_lysandra_ironveil",
+    "attribute": "mental_state",
+    "value": {
+      "kind": "state",
+      "label": "frantic",
+      "normalized": "frantic"
+    },
+    "truth_state": "OBSERVED",
+    "source_authority": "observed_recap",
+    "evidence_ids": [
+      "evid_campaign_lysandra_020"
+    ],
+    "asserted_in_session": 20,
+    "sequence_index_within_session": 27
+  }
+]
+

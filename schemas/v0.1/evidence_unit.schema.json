@@ -5,6 +5,26 @@
   "allOf": [
     {
       "$ref": "common.schema.json#/$defs/baseRecord"
+    },
+    {
+      "if": {
+        "properties": {
+          "canon_layer": {
+            "const": "campaign"
+          }
+        },
+        "required": ["canon_layer"]
+      },
+      "then": {
+        "properties": {
+          "campaign_id": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          }
+        },
+        "required": ["campaign_id"]
+      }
     }
   ],
   "type": "object",
@@ -13,6 +33,7 @@
     "document_id",
     "document_type",
     "source_class",
+    "canon_layer",
     "text",
     "section_path",
     "paragraph_index",
@@ -36,6 +57,12 @@
     },
     "source_class": {
       "$ref": "common.schema.json#/$defs/sourceClass"
+    },
+    "canon_layer": {
+      "$ref": "common.schema.json#/$defs/canonLayer"
+    },
+    "campaign_id": {
+      "$ref": "common.schema.json#/$defs/nullableId"
     },
     "text": {
       "type": "string",

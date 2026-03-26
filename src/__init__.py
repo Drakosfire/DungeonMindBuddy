@@ -1,0 +1,2 @@
+"""DungeonMindBuddy source package."""
+

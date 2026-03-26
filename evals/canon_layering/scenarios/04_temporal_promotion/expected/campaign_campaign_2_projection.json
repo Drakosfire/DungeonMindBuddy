@@ -1,0 +1,45 @@
+{
+  "campaign_id": "campaign_2",
+  "entities": {
+    "ent_lysandra_ironveil": {
+      "attributes": {
+        "rank_or_title": {
+          "selected_fact_id": "fact_campaign_rank_020",
+          "value_label": "Lieutenant",
+          "value_normalized": "lieutenant",
+          "source_layer": "campaign",
+          "source_campaign_id": "campaign_2",
+          "fact_ids": [
+            "fact_campaign_rank_014",
+            "fact_campaign_rank_020"
+          ],
+          "provenance_evidence_ids": [
+            "evid_campaign_rank_014",
+            "evid_campaign_rank_020"
+          ],
+          "conflict_ids": [
+            "auto_conflict_001"
+          ]
+        }
+      }
+    }
+  },
+  "conflicts": [
+    {
+      "conflict_id": "auto_conflict_001",
+      "entity_id": "ent_lysandra_ironveil",
+      "attribute": "rank_or_title",
+      "fact_ids": [
+        "fact_campaign_rank_014",
+        "fact_campaign_rank_020"
+      ],
+      "status": "open"
+    }
+  ],
+  "metrics": {
+    "open_conflicts": 1,
+    "resolved_conflicts": 0,
+    "projected_entities": 1
+  }
+}
+

@@ -1,0 +1,207 @@
+from __future__ import annotations
+
+from collections import defaultdict
+from dataclasses import dataclass
+from typing import Any
+
+
+ACTIVE_TRUTH_STATES = {"OBSERVED", "CANON", "CANON_CANDIDATE", "PREP", "IDEA"}
+REJECTED_TRUTH_STATES = {"OVERRIDDEN", "RETRACTED"}
+
+
+@dataclass(frozen=True)
+class FactWithLayer:
+    fact: dict[str, Any]
+    layer: str
+    campaign_id: str | None
+
+
+def _fact_sort_key(fact: dict[str, Any]) -> tuple[int, int, str]:
+    session = fact.get("asserted_in_session")
+    if session is None:
+        session = 0
+    seq = fact.get("sequence_index_within_session")
+    if seq is None:
+        seq = 0
+    return int(session), int(seq), str(fact["fact_id"])
+
+
+def _canonical_json_value(value: dict[str, Any]) -> tuple[str | None, str]:
+    normalized = value.get("normalized")
+    return normalized, str(value.get("label", ""))
+
+
+def _pick_selected_fact(
+    facts: list[FactWithLayer],
+    selected_fact_ids: set[str],
+) -> FactWithLayer:
+    selected = [fact for fact in facts if fact.fact["fact_id"] in selected_fact_ids]
+    if selected:
+        return sorted(selected, key=lambda entry: _fact_sort_key(entry.fact))[-1]
+    return sorted(facts, key=lambda entry: _fact_sort_key(entry.fact))[-1]
+
+
+def _group_facts(facts: list[FactWithLayer]) -> dict[tuple[str, str], list[FactWithLayer]]:
+    groups: dict[tuple[str, str], list[FactWithLayer]] = defaultdict(list)
+    for fact in facts:
+        key = (str(fact.fact["subject_entity_id"]), str(fact.fact["attribute"]))
+        groups[key].append(fact)
+    return groups
+
+
+def _derive_conflicts(
+    grouped_facts: dict[tuple[str, str], list[FactWithLayer]],
+    provided_conflicts: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    conflicts_by_id: dict[str, dict[str, Any]] = {
+        conflict["conflict_id"]: conflict for conflict in provided_conflicts
+    }
+    generated_idx = 0
+    for (entity_id, attribute), facts in grouped_facts.items():
+        distinct = {
+            _canonical_json_value(entry.fact["value"]): entry.fact["fact_id"] for entry in facts
+        }
+        if len(distinct) <= 1:
+            continue
+        fact_ids = sorted(entry.fact["fact_id"] for entry in facts)
+        generated_idx += 1
+        conflict_id = f"auto_conflict_{generated_idx:03d}"
+        conflicts_by_id[conflict_id] = {
+            "conflict_id": conflict_id,
+            "conflict_type": "source_conflict",
+            "entity_id": entity_id,
+            "attribute": attribute,
+            "fact_ids": fact_ids,
+            "conflict_status": "open",
+            "blocking": False,
+            "record_status": "active",
+        }
+    return [conflicts_by_id[key] for key in sorted(conflicts_by_id)]
+
+
+def _fact_layers_by_evidence(
+    evidence_by_id: dict[str, dict[str, Any]],
+    facts: list[dict[str, Any]],
+) -> list[FactWithLayer]:
+    output: list[FactWithLayer] = []
+    for fact in facts:
+        evidence_ids = fact.get("evidence_ids", [])
+        if not evidence_ids:
+            raise ValueError(f"Fact {fact.get('fact_id')} has no evidence_ids")
+        layers = {(evidence_by_id[evidence_id]["canon_layer"], evidence_by_id[evidence_id]["campaign_id"]) for evidence_id in evidence_ids}
+        if len(layers) != 1:
+            raise ValueError(
+                f"Fact {fact.get('fact_id')} mixes evidence layers: {sorted(layers)}"
+            )
+        layer, campaign_id = next(iter(layers))
+        output.append(FactWithLayer(fact=fact, layer=layer, campaign_id=campaign_id))
+    return output
+
+
+def _applicable_fact(
+    fact: FactWithLayer,
+    campaign_id: str | None,
+) -> bool:
+    if fact.fact.get("truth_state") in REJECTED_TRUTH_STATES:
+        return False
+    if fact.fact.get("truth_state") not in ACTIVE_TRUTH_STATES:
+        return False
+    if fact.fact.get("record_status") != "active":
+        return False
+    if fact.layer == "world":
+        return True
+    if fact.layer == "campaign":
+        return campaign_id is not None and fact.campaign_id == campaign_id
+    return False
+
+
+def _applicable_decision(decision: dict[str, Any], campaign_id: str | None) -> bool:
+    decision_campaign_id = decision.get("campaign_id")
+    if decision_campaign_id is None:
+        return True
+    if campaign_id is None:
+        return False
+    return decision_campaign_id == campaign_id
+
+
+def project_entity_state(
+    evidence_units: list[dict[str, Any]],
+    facts: list[dict[str, Any]],
+    conflicts: list[dict[str, Any]],
+    canon_decisions: list[dict[str, Any]],
+    campaign_id: str | None,
+) -> dict[str, Any]:
+    evidence_by_id = {entry["evidence_id"]: entry for entry in evidence_units}
+    layered_facts = _fact_layers_by_evidence(evidence_by_id=evidence_by_id, facts=facts)
+    active_facts = [fact for fact in layered_facts if _applicable_fact(fact=fact, campaign_id=campaign_id)]
+    grouped = _group_facts(facts=active_facts)
+    all_conflicts = _derive_conflicts(grouped_facts=grouped, provided_conflicts=conflicts)
+
+    applicable_decisions = [
+        decision
+        for decision in canon_decisions
+        if decision.get("record_status") == "active" and _applicable_decision(decision, campaign_id)
+    ]
+    selected_fact_ids: set[str] = set()
+    resolved_conflict_ids: set[str] = set()
+    for decision in applicable_decisions:
+        effect = decision.get("effect", {})
+        selected_fact_ids.update(effect.get("selected_fact_ids", []))
+        resolved_conflict_ids.update(decision.get("resolves_conflict_ids", []))
+
+    projection_entities: dict[str, dict[str, Any]] = {}
+    for (entity_id, attribute), entries in sorted(grouped.items()):
+        picked = _pick_selected_fact(facts=entries, selected_fact_ids=selected_fact_ids)
+        layer = picked.layer
+        value = picked.fact["value"]
+        if entity_id not in projection_entities:
+            projection_entities[entity_id] = {"attributes": {}}
+        projection_entities[entity_id]["attributes"][attribute] = {
+            "selected_fact_id": picked.fact["fact_id"],
+            "value_label": value.get("label"),
+            "value_normalized": value.get("normalized"),
+            "source_layer": layer,
+            "source_campaign_id": picked.campaign_id,
+            "fact_ids": sorted(entry.fact["fact_id"] for entry in entries),
+            "provenance_evidence_ids": sorted(
+                {evidence_id for entry in entries for evidence_id in entry.fact["evidence_ids"]}
+            ),
+            "conflict_ids": sorted(
+                conflict["conflict_id"]
+                for conflict in all_conflicts
+                if conflict.get("entity_id") == entity_id
+                and conflict.get("attribute") == attribute
+                and any(fact_id in conflict.get("fact_ids", []) for fact_id in [entry.fact["fact_id"] for entry in entries])
+            ),
+        }
+
+    projection_conflicts = []
+    open_conflicts = 0
+    resolved_conflicts = 0
+    for conflict in sorted(all_conflicts, key=lambda item: str(item["conflict_id"])):
+        is_resolved = conflict["conflict_id"] in resolved_conflict_ids
+        projection_conflicts.append(
+            {
+                "conflict_id": conflict["conflict_id"],
+                "entity_id": conflict.get("entity_id"),
+                "attribute": conflict.get("attribute"),
+                "fact_ids": sorted(conflict.get("fact_ids", [])),
+                "status": "resolved" if is_resolved else "open",
+            }
+        )
+        if is_resolved:
+            resolved_conflicts += 1
+        else:
+            open_conflicts += 1
+
+    return {
+        "campaign_id": campaign_id,
+        "entities": projection_entities,
+        "conflicts": projection_conflicts,
+        "metrics": {
+            "open_conflicts": open_conflicts,
+            "resolved_conflicts": resolved_conflicts,
+            "projected_entities": len(projection_entities),
+        },
+    }
+
