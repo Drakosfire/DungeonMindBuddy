@@ -421,7 +421,7 @@ Before running the automated pipeline, hand-author gold expected outputs:
 | Phase | What | Depends On | Gate |
 |---|---|---|---|
 | A | Fact store + docx-to-markdown + chunker | Nothing | Chunker produces evidence units from Mirathorn.docx structurally similar to hand-authored Step 1 units |
-| B | Entity extraction (Pass 1) | Phase A + `openai` dep | Entity recall ≥90% against Mirathorn gold entity list |
+| B | Entity extraction (Pass 1) | Phase A + `openai` dep | Strict recall ≥0.90 and loose recall ≥0.95 against Mirathorn gold entity list, with entity density ≤1.80 per evidence unit (OpenAI-backed eval path only) |
 | C | Fact extraction (Pass 2) | Phase B | Automated projection covers same ground as Step 1 hand-authored projection. Attribute classification reasonable. |
 | D | Synthesis + CLI (`ingest`, `ask`) | Phase C | `ingest` Mirathorn.docx then `ask "Catch me up on Mirathorn"` produces grounded prose |
 | E | `plan`, `play`, `provenance` | Phase D | Full CLI loop from design doc example works end-to-end |
@@ -459,6 +459,19 @@ evals/
     eval_entity_recall.py   # Phase B
     eval_fact_quality.py    # Phase C
 ```
+
+### Phase B Status (2026-03-27)
+
+Phase B (Pass 1 entity extraction) is implemented and validated.
+
+- OpenAI Responses structured parse adapter is wired (`responses.parse` + Pydantic model output).
+- Eval gate now loads `.env.development`, requires `OPENAI_API_KEY`, and disables heuristic fallback.
+- Gate reports strict recall, loose recall, and entity-density guardrail.
+- Current Mirathorn strict gate result:
+  - strict recall: `1.000`
+  - loose recall: `1.000`
+  - entity density: `1.603` (threshold `<= 1.80`)
+  - gate: PASS
 
 ## Relationship to Original Plan
 
