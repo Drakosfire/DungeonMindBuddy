@@ -55,7 +55,9 @@ This is the gate. If an agent fed the projection can produce a description the G
 **Input:** 5–10 hand-authored facts and evidence units extracted from the Mirathorn doc.
 **Process:** Feed through existing reducer with `canon_layer=world`, `campaign_id=null`.
 **Output:** A projection of Mirathorn.
-**Gate:** Does the projection contain everything an agent would need to write an accurate description of Mirathorn? PASSED — Step 1 complete.
+**Gate:** Does the projection contain everything an agent would need to write accurate, grounded prose about Mirathorn? PASSED — Step 1 complete.
+
+**Finding:** Initial hand-authoring only extracted entities that were *subjects* of multiple facts (Mirathorn, Shepherd's Flock) and skipped entities that were merely *mentioned* (Lake Mirathorn, Stormspire Peaks, Lundayell Empire, Festival of Expansion). This was wrong — mentioned entities are graph nodes that other documents connect to later. The ingestion pipeline must cast a wide net on entity extraction. This informed the two-pass extraction architecture in Step 4.
 
 Scope: ~1–2 hours. No LLM. No new code. Just JSON fixtures through existing infrastructure.
 
@@ -77,14 +79,62 @@ Scope: ~1–2 hours. Same infrastructure, new fixtures.
 
 Scope: ~1–2 hours. May need minor reducer extension for event application.
 
-### Step 4: Decide on Ingestion Automation
+### Step 4: Ingestion Automation
 
 **Only after Steps 1–3 pass.** At this point you know:
 - The projection shape gives an agent sufficient grounded context
 - The layer boundaries hold with real content
 - What the LLM extraction pipeline needs to produce
 
-Then build the ingestion loop, leveraging patterns from RulesIngestion (chunking, evidence unit extraction, schema validation). The extraction target is narrative facts rather than mechanical rules, but the pipeline shape is transferable.
+#### GM Input Convention
+
+GMs provide markdown documents with frontmatter declaring the layer:
+
+```markdown
+---
+canon_layer: world              # world | campaign
+campaign_id: null               # null for world, required for campaign
+source_class: seed_reference    # seed_reference | planning_document | observed_session_recap | ledger_or_dossier
+document_title: "The City of Mirathorn"
+---
+
+## Mirathorn Overview
+### Origin and History
+Founded over 200 years ago by settlers fleeing...
+```
+
+The GM declares the layer. The system never guesses it. `truth_state` is derived from layer + source_class (`world` + `seed_reference` → `CANON`; `campaign` + `planning_document` → `PREP`).
+
+#### Two-Pass Extraction Architecture
+
+Ingestion splits into two agent passes over each section-level chunk:
+
+**Pass 1 — Entity Extraction (wide net, high gate):**
+- Identify every named entity in the text: people, places, factions, items, events
+- Cast wide — every proper noun, every named thing. Entities that are merely *mentioned* still get created as provisional nodes
+- Output: entity records with display_name, entity_type, aliases
+- A mention of "Stormspire Peaks" in a geography fact about Mirathorn creates `ent_stormspire_peaks` even if this document says nothing else about it. Other documents fill in facts later.
+
+**Pass 1 quality gate:** Comprehensiveness is the priority. A missed entity is a missing node in the graph — facts from other documents have nothing to attach to. Validate against gold-authored entity lists for the Mirathorn slice. The gate is recall-oriented: every named thing in the source text must appear in the entity output. False positives (extracting "the gates" as an entity) are cheaper to prune than false negatives are to recover.
+
+**Pass 2 — Fact Extraction (per entity):**
+- For each entity identified, extract what this text asserts about it
+- Classify into attribute enum (geography, history, demographics, defenses, economy, goals, etc.)
+- Assign value shape: scalar, state, set, or interpretive
+- Link facts to evidence units (the source chunk)
+- Use `entity_ref` value kind to create cross-references between entities (Mirathorn's geography references Stormspire Peaks and Lake Mirathorn as entity_refs, not just text)
+
+**Why two passes:**
+- Pass 1 is cheaper (NER + classification), can use a smaller/faster model
+- Pass 2 is interpretive, benefits from a more capable model
+- Entity list from Pass 1 primes Pass 2 with known subjects to extract facts about
+- Keeps entity coverage high even when a document only mentions something in passing
+
+#### Chunking Strategy
+
+Section-level chunking using heading structure. One heading section → one evidence unit → typically 1–3 facts per entity mentioned. The heading hierarchy provides the `section_path` for provenance.
+
+Leverage patterns from RulesIngestion (section-aware splitting, schema validation). The extraction target is narrative facts rather than mechanical rules, but the pipeline shape is transferable.
 
 ### Step 5: Event Sourcing and Infrastructure
 
