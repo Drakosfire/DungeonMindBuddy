@@ -23,10 +23,9 @@ from src.ingestion.chunker import chunk_document  # noqa: E402
 from src.ingestion.entity_extractor import OpenAIResponsesEntityClient, run_entity_extraction  # noqa: E402
 from src.store import FactStore  # noqa: E402
 
-MIRATHORN_DOCX = Path(
-    "/media/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/Docs/"
-    "Eldyrwild and Campaign Context/Elderwyld/Cities and Towns/Mirathorn/"
-    "The City of Mirathorn.docx"
+MIRATHORN_SOURCE = PROJECT_ROOT / Path(
+    "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/"
+    "The City of Mirathorn.md"
 )
 STRICT_RECALL_THRESHOLD = 0.90
 LOOSE_RECALL_THRESHOLD = 0.95
@@ -63,8 +62,8 @@ def main() -> int:
     if env_file.exists():
         load_dotenv(env_file, override=True)
 
-    if not MIRATHORN_DOCX.exists():
-        print(f"ERROR: Mirathorn docx not found: {MIRATHORN_DOCX}")
+    if not MIRATHORN_SOURCE.exists():
+        print(f"ERROR: Mirathorn markdown not found: {MIRATHORN_SOURCE}")
         return 1
     if not GOLD_PATH.exists():
         print(f"ERROR: Gold entity file missing: {GOLD_PATH}")
@@ -75,7 +74,7 @@ def main() -> int:
         return 1
 
     evidence_units = chunk_document(
-        docx_path=MIRATHORN_DOCX,
+        docx_path=MIRATHORN_SOURCE,
         document_id="doc_city_of_mirathorn",
         document_title="The City of Mirathorn",
         canon_layer="world",

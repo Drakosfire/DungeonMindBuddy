@@ -69,7 +69,7 @@ scripts/run_remote_snapshot_from_env.sh "<remote_docs_root>" <sample_size>
 
 Default remote docs root:
 
-`/media/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/Docs/Eldyrwild and Campaign Context`
+`/media/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/corpus/eldyrwild-markdown`
 
 ### Output artifacts
 

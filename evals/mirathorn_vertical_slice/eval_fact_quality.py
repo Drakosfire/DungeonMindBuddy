@@ -29,10 +29,9 @@ from src.ingestion.fact_extractor import (  # noqa: E402
 )
 from src.reducer.canon_projection import project_entity_state  # noqa: E402
 
-MIRATHORN_DOCX = Path(
-    "/media/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/Docs/"
-    "Eldyrwild and Campaign Context/Elderwyld/Cities and Towns/Mirathorn/"
-    "The City of Mirathorn.docx"
+MIRATHORN_SOURCE = PROJECT_ROOT / Path(
+    "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/"
+    "The City of Mirathorn.md"
 )
 
 FACT_COVERAGE_THRESHOLD = 0.90
@@ -178,7 +177,7 @@ def _run_pipeline(
 ) -> tuple[list[dict], list[dict], list[dict]]:
     """Run chunk -> entity -> fact pipeline. Returns (evidence_units, entities, facts)."""
     evidence_units = chunk_document(
-        docx_path=MIRATHORN_DOCX,
+        docx_path=MIRATHORN_SOURCE,
         document_id="doc_city_of_mirathorn",
         document_title="The City of Mirathorn",
         canon_layer="world",
@@ -215,8 +214,8 @@ def main() -> int:
     if env_file.exists():
         load_dotenv(env_file, override=True)
 
-    if not MIRATHORN_DOCX.exists():
-        print(f"ERROR: Mirathorn docx not found: {MIRATHORN_DOCX}")
+    if not MIRATHORN_SOURCE.exists():
+        print(f"ERROR: Mirathorn markdown not found: {MIRATHORN_SOURCE}")
         return 1
     if not GOLD_PATH.exists():
         print(f"ERROR: Gold fact file missing: {GOLD_PATH}")

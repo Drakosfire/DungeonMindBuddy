@@ -5,7 +5,7 @@ set -euo pipefail
 #   scripts/run_remote_snapshot_from_env.sh [remote_root] [sample_size]
 #
 # Defaults:
-#   remote_root=/media/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/Docs/Eldyrwild and Campaign Context
+#   remote_root=/media/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/corpus/eldyrwild-markdown
 #   sample_size=40
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -25,7 +25,7 @@ if [[ -z "${SSH_HOST:-}" || -z "${SSH_ALIAS:-}" || -z "${SSH_PRIVATE_KEY:-}" ]];
   exit 1
 fi
 
-REMOTE_ROOT_DEFAULT="/media/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/Docs/Eldyrwild and Campaign Context"
+REMOTE_ROOT_DEFAULT="/media/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/corpus/eldyrwild-markdown"
 REMOTE_ROOT="${1:-${REMOTE_ROOT_DEFAULT}}"
 SAMPLE_SIZE="${2:-40}"
 

@@ -70,7 +70,7 @@ def test_generate_remote_artifacts_produces_required_files(tmp_path: Path) -> No
 
 def test_campaign_context_folder_name_does_not_force_campaign_layer() -> None:
     layer, campaign_id = _infer_canon_layer(
-        "Docs/Eldyrwild and Campaign Context/Elderwyld/World Lore/stonebridge.md"
+        "corpus/eldyrwild-markdown/Elderwyld/World Lore/stonebridge.md"
     )
     assert layer == "world"
     assert campaign_id is None

@@ -13,13 +13,12 @@ INPUT_DIR = Path(__file__).resolve().parent / "input"
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.ingestion.chunker import chunk_document  # noqa: E402
-from src.ingestion.docx_converter import docx_to_markdown  # noqa: E402
+from src.ingestion.docx_converter import markdown_passthrough  # noqa: E402
 
 
-MIRATHORN_DOCX = Path(
-    "/media/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/Docs/"
-    "Eldyrwild and Campaign Context/Elderwyld/Cities and Towns/Mirathorn/"
-    "The City of Mirathorn.docx"
+MIRATHORN_SOURCE = PROJECT_ROOT / Path(
+    "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/"
+    "The City of Mirathorn.md"
 )
 
 
@@ -59,15 +58,15 @@ def _non_empty_lines(text: str) -> list[str]:
 
 
 def main() -> int:
-    if not MIRATHORN_DOCX.exists():
-        print(f"ERROR: Mirathorn docx not found: {MIRATHORN_DOCX}")
+    if not MIRATHORN_SOURCE.exists():
+        print(f"ERROR: Mirathorn markdown not found: {MIRATHORN_SOURCE}")
         return 1
 
     hand_authored = _load_json("evidence_units.json")
     hand_authored = [u for u in hand_authored if u.get("document_id") == "doc_city_of_mirathorn"]
 
     auto_units = chunk_document(
-        docx_path=MIRATHORN_DOCX,
+        docx_path=MIRATHORN_SOURCE,
         document_id="doc_city_of_mirathorn",
         document_title="The City of Mirathorn",
         canon_layer="world",
@@ -85,7 +84,7 @@ def main() -> int:
     overlaps = [(_normalize_path(unit["section_path"]), _best_overlap_ratio(unit["text"], auto_units)) for unit in hand_authored]
     weak_overlaps = [item for item in overlaps if item[1] < 0.45]
 
-    markdown = docx_to_markdown(MIRATHORN_DOCX)
+    markdown = markdown_passthrough(MIRATHORN_SOURCE)
     lines = _non_empty_lines(markdown)
     joined_chunk_text = "\n".join(unit["text"] for unit in auto_units)
     first_line_present = lines[0] in joined_chunk_text if lines else False
