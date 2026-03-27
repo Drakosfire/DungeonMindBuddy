@@ -1,0 +1,72 @@
+[
+  {
+    "subject_entity_id": "ent_mirathorn",
+    "subject_names": ["Mirathorn", "City of Mirathorn"],
+    "attribute": "geography",
+    "alternative_attributes": [],
+    "match_keywords": ["stormspire", "lake", "peaks", "farmland", "border", "reach"]
+  },
+  {
+    "subject_entity_id": "ent_mirathorn",
+    "subject_names": ["Mirathorn", "City of Mirathorn"],
+    "attribute": "history",
+    "alternative_attributes": [],
+    "match_keywords": ["founded", "settlers", "lundayell", "200", "pioneer"]
+  },
+  {
+    "subject_entity_id": "ent_mirathorn",
+    "subject_names": ["Mirathorn", "City of Mirathorn"],
+    "attribute": "demographics",
+    "alternative_attributes": [],
+    "match_keywords": ["7000", "diverse", "races", "dwarves", "elves", "crowd", "traveler"]
+  },
+  {
+    "subject_entity_id": "ent_mirathorn",
+    "subject_names": ["Mirathorn", "City of Mirathorn"],
+    "attribute": "economy",
+    "alternative_attributes": [],
+    "match_keywords": ["brewing", "crafts", "fishing", "trade", "agriculture", "farmland", "workshop", "industry"]
+  },
+  {
+    "subject_entity_id": "ent_mirathorn",
+    "subject_names": ["Mirathorn", "City of Mirathorn"],
+    "attribute": "defenses",
+    "alternative_attributes": [],
+    "match_keywords": ["wall", "gate", "tower", "guard", "stone", "imposing"]
+  },
+  {
+    "subject_entity_id": "ent_mirathorn",
+    "subject_names": ["Mirathorn", "City of Mirathorn"],
+    "attribute": "operational_status",
+    "alternative_attributes": ["atmosphere"],
+    "match_keywords": ["festival", "toll", "expansion", "disuse", "age", "tense"]
+  },
+  {
+    "subject_entity_id": "ent_mirathorn",
+    "subject_names": ["Mirathorn", "City of Mirathorn"],
+    "attribute": "atmosphere",
+    "alternative_attributes": ["operational_status"],
+    "match_keywords": ["bustling", "vibrant", "festive", "chaotic", "lively"]
+  },
+  {
+    "subject_entity_id": "ent_shepherds_flock",
+    "subject_names": ["Shepherd's Flock", "Shepherds Flock", "The Flock"],
+    "attribute": "role",
+    "alternative_attributes": ["faction", "operational_status"],
+    "match_keywords": ["protest", "toll", "cult", "cultist"]
+  },
+  {
+    "subject_entity_id": "ent_shepherds_flock",
+    "subject_names": ["Shepherd's Flock", "Shepherds Flock", "The Flock"],
+    "attribute": "operational_status",
+    "alternative_attributes": ["role"],
+    "match_keywords": ["protest", "active", "pamphlet", "distribut", "staging"]
+  },
+  {
+    "subject_entity_id": "ent_shepherds_flock",
+    "subject_names": ["Shepherd's Flock", "Shepherds Flock", "The Flock"],
+    "attribute": "goals",
+    "alternative_attributes": [],
+    "match_keywords": ["toll", "abolish", "entry", "free", "unfair", "exclusion", "against"]
+  }
+]

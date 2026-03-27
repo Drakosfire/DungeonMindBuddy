@@ -6,6 +6,11 @@ from src.ingestion.entity_extractor import (
     extract_entities_batch,
     run_entity_extraction,
 )
+from src.ingestion.fact_extractor import (
+    OpenAIResponsesFactClient,
+    extract_facts_batch,
+    run_fact_extraction,
+)
 
 __all__ = [
     "docx_to_markdown",
@@ -13,4 +18,7 @@ __all__ = [
     "OpenAIResponsesEntityClient",
     "extract_entities_batch",
     "run_entity_extraction",
+    "OpenAIResponsesFactClient",
+    "extract_facts_batch",
+    "run_fact_extraction",
 ]

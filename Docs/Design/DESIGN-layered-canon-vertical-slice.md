@@ -473,6 +473,18 @@ Phase B (Pass 1 entity extraction) is implemented and validated.
   - entity density: `1.603` (threshold `<= 1.80`)
   - gate: PASS
 
+### Phase B Complete Checkpoint
+
+Phase B is complete and accepted as the baseline for Phase C.
+
+- Pass 1 entity loop is production-shaped (async bounded concurrency, structured parse, deterministic cache, known-entity ID reuse, post-dedup via store merge).
+- Evaluation is OpenAI-backed only (heuristic fallback disabled) and now enforces strict+loose recall plus density guardrail.
+- Mirathorn Set A benchmark evidence:
+  - strict recall: `1.000`
+  - loose recall: `1.000`
+  - entities per unit: `1.603` (limit `<= 1.80`)
+  - result: PASS
+
 ## Relationship to Original Plan
 
 The original Mirathorn event-sourced slice plan is architecturally sound. This design doesn't reject it — it resequences it to answer the highest-risk question first (does the output work for a GM?) before committing to infrastructure.
