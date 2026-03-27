@@ -130,7 +130,33 @@ Ingestion splits into two agent passes over each section-level chunk:
 - Entity list from Pass 1 primes Pass 2 with known subjects to extract facts about
 - Keeps entity coverage high even when a document only mentions something in passing
 
-#### Chunking Strategy
+#### Two Granularities: Ingestion vs. Retrieval
+
+Evidence units and facts serve different roles and have different size pressures.
+
+**Ingestion chunks (evidence units)** are the input to the extraction LLM. They are light provenance records — a receipt of what was said where. Heading-bounded sections from the GM's markdown, preserving section_path for traceability. Larger is better here: the LLM extracting facts benefits from seeing a full section with its heading context for entity identification and attribute classification.
+
+**Retrieval chunks (projected facts)** are what the agent queries over at runtime. Each fact is a self-contained, attributed assertion with provenance links back to evidence. Facts are denser and more semantically precise than raw text chunks — closer to the "clause family" projection that RulesIngestion research identified as the next retrieval quality frontier.
+
+```
+GM markdown  ──►  evidence units (light records, provenance)
+                       │
+                  extraction LLM
+                       │
+                       ▼
+                  facts (structured assertions)  ──►  agent queries here
+                       │
+                  linked by evidence_ids
+                       │
+                       ▼
+                  evidence units  ──►  provenance trail on demand
+```
+
+The evidence unit exists so you can trace *why* a fact exists. The fact exists so the agent can find and use it. Two different jobs, two different granularities, linked by `evidence_ids`.
+
+**Informed by RulesIngestion findings:** Raw atomic evidence units are too fine for retrieval (micro-chunk pollution, duplicate collisions in top-K results). The canonical fix there was fold + merge to ~2000 char units. Here, the projected facts are a natural retrieval unit that sidesteps the problem entirely — each fact is already semantically self-contained with its label and attribute classification.
+
+#### Chunking Strategy (Ingestion)
 
 Section-level chunking using heading structure. One heading section → one evidence unit → typically 1–3 facts per entity mentioned. The heading hierarchy provides the `section_path` for provenance.
 
@@ -153,12 +179,18 @@ The original Mirathorn event-sourced slice plan is architecturally sound. This d
 
 ## Applicable Knowledge from RulesIngestion
 
-- Evidence unit extraction patterns (chunking, section-aware splitting)
-- Schema validation and contract-first design
-- Gold-anchored evaluation (benchmark against hand-curated expected outputs)
-- Embedding and retrieval patterns (when the canon layer needs to be queried, not just projected)
+**Directly transferable:**
+- Section-aware splitting by heading structure (the chunking pipeline shape)
+- Schema validation and contract-first design (validate before persist)
+- Gold-anchored evaluation (benchmark extraction against hand-curated expected outputs)
+- Chunk quality gates (reject micro-chunks, detect duplicates before indexing)
 
-The key difference: RulesIngestion extracts deterministic mechanical rules. DungeonMindBuddy extracts narrative, interpretive, layered world-state. The pipeline shape transfers; the extraction prompts and target schemas do not.
+**Key findings that shaped this design:**
+- Raw atomic evidence units pollute retrieval pools (190/1000 top-K results ≤40 chars in Starfinder). Fix: fold short units, merge by heading. Here, we sidestep this by querying over projected facts, not raw evidence units.
+- Compositional queries need co-retrieval of multiple units. Here, the projection reducer assembles multi-evidence facts at projection time, so the agent gets composed answers directly.
+- Chunk recipe must be locked before comparing anything else. Applies equally to extraction eval: lock the chunking before comparing extraction model performance.
+
+**Key difference:** RulesIngestion extracts deterministic mechanical rules. DungeonMindBuddy extracts narrative, interpretive, layered world-state. The pipeline shape transfers; the extraction prompts and target schemas do not.
 
 ## Architecture: Projection → Agent → GM
 
@@ -179,12 +211,105 @@ The default GM experience is prose from the agent. The projection lives in the b
 
 Logging is critical to this. Without high-quality logs of what the system did — which facts were projected, which layers contributed, which conflicts were resolved — there's no way to audit or correct the agent's output. The provenance isn't decoration; it's the mechanism by which the GM maintains authority over the system.
 
-## Success Criteria
+## Success Criteria: The CLI Chat Loop
 
-After Step 3, an agent given the three-layer projection can:
-1. Describe Mirathorn accurately from canon, citing sources
-2. Distinguish world truth from GM planning intent from live session events
-3. Never hallucinate beyond what the projection contains
-4. Each layer is clearly separated, provenance is traceable, and canon was never corrupted by higher layers
+The vertical slice is successful when it works as a command-line chat loop. If the core loop works in a terminal, it can be wired to the frontend later — that's just UI.
 
-If that demo works, the rest is execution.
+### The Loop
+
+```
+$ dungeonbuddy
+
+> ingest "The City of Mirathorn.md"
+  Ingested 8 evidence units, 12 entities, 27 facts (world canon)
+
+> ingest "Campaign 1 Notes.md"
+  Ingested 5 evidence units, 4 entities, 11 facts (campaign: longmont_01)
+
+> ask "Catch me up on Mirathorn. What do I need to know?"
+  Mirathorn sits at the base of the Stormspire Peaks...
+  [grounded prose from projection, citing canon + campaign history]
+
+> plan "The Shepherd's Flock protest will escalate into a riot tonight.
+        Brother Ashwood will attempt to poison the water supply during
+        the closing ceremony."
+  Added 3 planning facts (campaign: longmont_01, truth_state: PREP)
+
+> ask "What NPCs should I have ready for tomorrow?"
+  [prose incorporating world canon NPCs + planning context]
+
+> play "The party infiltrated the Shepherd's Flock. They learned about
+        the water poisoning from inside. Brother Ashwood is the cell leader."
+  Added 4 observed facts (campaign: longmont_01, truth_state: OBSERVED)
+  Brother Ashwood: new entity created
+
+> ask "What happened vs. what I planned?"
+  [prose distinguishing PREP facts from OBSERVED facts, showing where
+   play diverged from plan]
+
+> provenance "Brother Ashwood"
+  Entity: Brother Ashwood (ent_brother_ashwood)
+  Facts:
+    role: Shepherd's Flock cell leader [OBSERVED, session 5]
+      ← evidence: "play" input, 2026-03-29
+    goals: orchestrating water supply poisoning [PREP → OBSERVED]
+      ← evidence: planning input + play confirmation
+```
+
+### What This Requires
+
+1. **A fact store** — persists ingested evidence units, entities, and facts across commands
+2. **The existing reducer** — projects current state from the store on each query
+3. **An LLM call** — takes the projection as context, answers the question as grounded prose
+4. **Ingestion pipeline** — parses markdown with frontmatter, extracts entities/facts via LLM
+5. **Plan/play shortcuts** — lighter-weight ingestion for inline planning and session notes
+
+### What "Works" Means
+
+- `ingest` adds facts that show up in subsequent `ask` responses
+- `ask` produces prose that is grounded in the projection (doesn't hallucinate beyond it)
+- `plan` adds PREP-layer facts that the agent can distinguish from CANON
+- `play` adds OBSERVED-layer facts without corrupting canon or planning
+- `provenance` traces any claim back to its source evidence
+- The same Mirathorn corpus produces consistent answers across sessions
+
+If this loop works in a terminal, the frontend is just wiring. The core problem — layered, grounded, provenance-traced GM context — is solved.
+
+## Evaluation: Blind A/B Corpus Split
+
+The pipeline is validated against a development set and evaluated against a held-out blind set from the same corpus. The blind set is never touched during pipeline development.
+
+### Set A — Development (tune against these)
+
+| Document | Role |
+|---|---|
+| `The City of Mirathorn.docx` | Primary world canon doc. Step 1 gold fixtures authored from this. |
+| `The City Council.docx` | NPC-heavy sub-doc. Council members referenced in Mirathorn facts. |
+| `Longmont Campaign General Notes.docx` | Campaign-layer source. Tests campaign vs. world layer handling. |
+| `lieutenant_lysandra_ironveil_character_dossier.md` | NPC dossier. Used in existing 6 reducer scenarios. |
+
+Prompts are tuned, edge cases are fixed, and gold artifacts are authored against Set A docs. These are the training set.
+
+### Set B — Blind (evaluate generalization)
+
+| Document | What it tests |
+|---|---|
+| **Mossford Gazetteer + 12 location dossiers** | Complete separate city with same structure as Mirathorn. Tests generalization to a different place. 12 sub-docs (Copper Moss Brewery, Temple of the Nameless Stone, Watch Tower, etc.) test entity-linking across related documents. |
+| **The cult of the Great Shepherd.docx** | Faction doc. Tests faction entity extraction, goals/methods attributes, and cross-entity links to Mirathorn entities (Ashenvale, corrupted guards). |
+| **Festival of Expansion event docs** | Event-type content. Tests event entity extraction, schedule/mechanics, NPC participants across scenes. |
+| **Stonebridge and The Wizard Tower Brewing Co.docx** | Another location. Tests generalization beyond cities. |
+| **Campaign 2 Session Recaps / Narrative Ledger** | Campaign-layer content. Tests `truth_state: OBSERVED` fact production from session recaps. |
+
+Mossford is the ideal blind anchor: a full town with a gazetteer and 12 location dossiers, structurally similar to Mirathorn but with different content. If the pipeline produces a Mossford projection the GM agrees with — without ever having tuned against it — that's real evidence of generalization.
+
+### Benchmark Protocol
+
+1. Build the pipeline against Set A. Tune prompts, fix edge cases, get entity recall and fact quality where you want them.
+2. Freeze the pipeline. No more changes.
+3. Run it on Set B.
+4. GM evaluates blind output:
+   - **Entity recall:** did it find everything named? (recall-oriented gate)
+   - **Fact accuracy:** are the labels faithful to the source text?
+   - **Attribute classification:** did geography go to `geography`, defenses to `defenses`?
+   - **Cross-doc linking:** do entities mentioned in multiple Set B docs get connected?
+5. Any failure in Set B that requires a pipeline fix → re-run Set B after the fix to confirm it didn't just overfit to the new case.
