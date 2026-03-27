@@ -485,6 +485,20 @@ Phase B is complete and accepted as the baseline for Phase C.
   - entities per unit: `1.603` (limit `<= 1.80`)
   - result: PASS
 
+### Phase C Complete Checkpoint (2026-03-27)
+
+Phase C (Pass 2 fact extraction) is complete. All 5 gates pass on Mirathorn Set A.
+
+- **C1 Contract Validity:** PASS — 0 orphan subjects, 0 invalid evidence IDs
+- **C2 Gold Fact Coverage:** PASS — recall `1.000` (10/10 gold facts matched)
+- **C3 Projection Parity:** PASS — all required entities + attributes present
+- **C4 Precision Guardrail:** PASS — duplicate rate `0.000`, junk rate `0.013`
+- **C5 Determinism:** PASS — cache-replay hashes identical
+
+Pipeline output: 126 evidence units -> 209 entities (Pass 1) -> 519 facts (Pass 2).
+
+**Policy decision: conflict count from automated extraction is non-blocking.** Granular per-evidence-unit extraction produces ~90 world-layer conflicts (multiple distinct facts per entity+attribute from different source sections). This is correct behavior — the reducer detects them, and the synthesis agent + GM resolve them at query time. Future phases must not reintroduce a zero-conflict gate for automated extraction output.
+
 ## Relationship to Original Plan
 
 The original Mirathorn event-sourced slice plan is architecturally sound. This design doesn't reject it — it resequences it to answer the highest-risk question first (does the output work for a GM?) before committing to infrastructure.

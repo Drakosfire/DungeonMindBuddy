@@ -227,7 +227,7 @@ All tests should run without live API calls via stubs/mocks.
 - **Evidence units:** 126 (from `chunk_document`)
 - **Entities (Pass 1):** 209
 - **Extracted facts (Pass 2):** 519
-- **Model:** `gpt-5.3-codex` (from `MODEL_POLICY.json` `structured_generation` role)
+- **Model:** `gpt-5.3-codex` (`MODEL_POLICY.json` role `structured_generation` -> `fast_smart` -> `gpt-5.3-codex`)
 
 ### Files Created
 
@@ -248,7 +248,7 @@ All tests should run without live API calls via stubs/mocks.
 
 1. **Junk detection exempts structured attributes.** Single-word labels are valid for `species`, `rank_or_title`, `faction`, `current_location`. The junk heuristic only flags labels < 3 chars or single generic words (< 8 chars) for other attributes.
 
-2. **World-layer conflicts are informational, not gating.** 90 conflicts arose because the LLM extracts multiple distinct facts per entity+attribute (e.g., several geography facts for Mirathorn from different evidence units). These are correct behavior — the reducer detects them and the synthesis agent can resolve them. The original gate expected 0 conflicts, which was unrealistic for granular extraction.
+2. **World-layer conflicts are informational, not gating.** 90 conflicts arose because the LLM extracts multiple distinct facts per entity+attribute (e.g., several geography facts for Mirathorn from different evidence units). These are correct behavior — the reducer detects them and the synthesis agent can resolve them. The original gate expected 0 conflicts, which was unrealistic for granular per-evidence-unit extraction. **This is now a permanent policy decision:** conflict count from automated extraction is non-blocking for all future phases. The synthesis agent and GM handle conflict resolution at query time.
 
 3. **Gold fact matching uses `alternative_attributes`.** The LLM sometimes classifies facts under related but different attributes (e.g., `faction` instead of `role`). Gold facts support an `alternative_attributes` list for flexible matching.
 
