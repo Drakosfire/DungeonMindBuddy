@@ -1,0 +1,197 @@
+[
+  {
+    "schema_version": "0.1.0",
+    "created_at": "2026-03-26T20:00:00Z",
+    "updated_at": "2026-03-26T20:00:00Z",
+    "record_status": "active",
+    "fact_id": "fact_mirathorn_geography_001",
+    "subject_entity_id": "ent_mirathorn",
+    "attribute": "geography",
+    "value": {
+      "kind": "scalar",
+      "label": "At the base of the Stormspire Peaks, by Lake Mirathorn; strategic position with access to rivers, mountain passes, and well-maintained roads",
+      "normalized": "stormspire_peaks_base:lake_mirathorn"
+    },
+    "truth_state": "CANON",
+    "source_authority": "seed_prep",
+    "evidence_ids": ["evid_mirathorn_location_001"],
+    "asserted_in_session": null,
+    "sequence_index_within_session": null
+  },
+  {
+    "schema_version": "0.1.0",
+    "created_at": "2026-03-26T20:00:00Z",
+    "updated_at": "2026-03-26T20:00:00Z",
+    "record_status": "active",
+    "fact_id": "fact_mirathorn_economy_001",
+    "subject_entity_id": "ent_mirathorn",
+    "attribute": "economy",
+    "value": {
+      "kind": "scalar",
+      "label": "Major industries include brewing, craftsmanship, fishing, agriculture, and magical goods; key trade hub",
+      "normalized": "trade_hub:brewing:crafts:fishing:agriculture:magical_goods"
+    },
+    "truth_state": "CANON",
+    "source_authority": "seed_prep",
+    "evidence_ids": ["evid_mirathorn_economy_001"],
+    "asserted_in_session": null,
+    "sequence_index_within_session": null
+  },
+  {
+    "schema_version": "0.1.0",
+    "created_at": "2026-03-26T20:00:00Z",
+    "updated_at": "2026-03-26T20:00:00Z",
+    "record_status": "active",
+    "fact_id": "fact_mirathorn_demographics_001",
+    "subject_entity_id": "ent_mirathorn",
+    "attribute": "demographics",
+    "value": {
+      "kind": "set",
+      "label": "~7000 residents of diverse races",
+      "normalized": "7000:multi_racial",
+      "values": ["humans", "dwarves", "elves", "gnomes", "halflings", "dragonborn", "goblins", "bugbears"]
+    },
+    "truth_state": "CANON",
+    "source_authority": "seed_prep",
+    "evidence_ids": ["evid_mirathorn_population_001"],
+    "asserted_in_session": null,
+    "sequence_index_within_session": null
+  },
+  {
+    "schema_version": "0.1.0",
+    "created_at": "2026-03-26T20:00:00Z",
+    "updated_at": "2026-03-26T20:00:00Z",
+    "record_status": "active",
+    "fact_id": "fact_mirathorn_defenses_001",
+    "subject_entity_id": "ent_mirathorn",
+    "attribute": "defenses",
+    "value": {
+      "kind": "state",
+      "label": "Ancient stone walls showing age and disuse with ivy and moss; guard towers now mostly symbolic; grand iron-reinforced gates flanked by founder statues",
+      "normalized": "aged_walls:symbolic_towers:reinforced_gates"
+    },
+    "truth_state": "CANON",
+    "source_authority": "seed_prep",
+    "evidence_ids": ["evid_mirathorn_walls_001"],
+    "asserted_in_session": null,
+    "sequence_index_within_session": null
+  },
+  {
+    "schema_version": "0.1.0",
+    "created_at": "2026-03-26T20:00:00Z",
+    "updated_at": "2026-03-26T20:00:00Z",
+    "record_status": "active",
+    "fact_id": "fact_mirathorn_history_001",
+    "subject_entity_id": "ent_mirathorn",
+    "attribute": "history",
+    "value": {
+      "kind": "scalar",
+      "label": "Founded 200+ years ago by settlers fleeing the Lundayell Empire who repaired an ancient airship to discover the continent, cutting off contact with the Empire to start anew",
+      "normalized": null
+    },
+    "truth_state": "CANON",
+    "source_authority": "seed_prep",
+    "evidence_ids": ["evid_mirathorn_overview_001"],
+    "asserted_in_session": null,
+    "sequence_index_within_session": null
+  },
+  {
+    "schema_version": "0.1.0",
+    "created_at": "2026-03-26T20:00:00Z",
+    "updated_at": "2026-03-26T20:00:00Z",
+    "record_status": "active",
+    "fact_id": "fact_mirathorn_status_001",
+    "subject_entity_id": "ent_mirathorn",
+    "attribute": "operational_status",
+    "value": {
+      "kind": "state",
+      "label": "Active and preparing for Festival of Expansion; gates congested, steep toll causing discontent",
+      "normalized": "festival_preparation"
+    },
+    "truth_state": "CANON",
+    "source_authority": "seed_prep",
+    "evidence_ids": ["evid_mirathorn_toll_001", "evid_mirathorn_approach_scene_001"],
+    "asserted_in_session": null,
+    "sequence_index_within_session": null
+  },
+  {
+    "schema_version": "0.1.0",
+    "created_at": "2026-03-26T20:00:00Z",
+    "updated_at": "2026-03-26T20:00:00Z",
+    "record_status": "active",
+    "fact_id": "fact_mirathorn_atmosphere_001",
+    "subject_entity_id": "ent_mirathorn",
+    "attribute": "atmosphere",
+    "value": {
+      "kind": "interpretive",
+      "label": "Vibrant and bustling farmlands and workshops on approach; chaotic but festive out-town of tents and stalls; bottleneck at gates with tension from Shepherd's Flock protest; rich sensory scene of sounds, smells, crowds",
+      "normalized": null,
+      "interpretation_level": "direct_assertion",
+      "strength": "strong"
+    },
+    "truth_state": "CANON",
+    "source_authority": "seed_prep",
+    "evidence_ids": ["evid_mirathorn_approach_scene_001"],
+    "asserted_in_session": null,
+    "sequence_index_within_session": null
+  },
+  {
+    "schema_version": "0.1.0",
+    "created_at": "2026-03-26T20:00:00Z",
+    "updated_at": "2026-03-26T20:00:00Z",
+    "record_status": "active",
+    "fact_id": "fact_shepherds_flock_role_001",
+    "subject_entity_id": "ent_shepherds_flock",
+    "attribute": "role",
+    "value": {
+      "kind": "scalar",
+      "label": "Cult staging protests against the city entry toll outside the main gate",
+      "normalized": "protest_cult"
+    },
+    "truth_state": "CANON",
+    "source_authority": "seed_prep",
+    "evidence_ids": ["evid_shepherds_flock_protest_001"],
+    "asserted_in_session": null,
+    "sequence_index_within_session": null
+  },
+  {
+    "schema_version": "0.1.0",
+    "created_at": "2026-03-26T20:00:00Z",
+    "updated_at": "2026-03-26T20:00:00Z",
+    "record_status": "active",
+    "fact_id": "fact_shepherds_flock_status_001",
+    "subject_entity_id": "ent_shepherds_flock",
+    "attribute": "operational_status",
+    "value": {
+      "kind": "state",
+      "label": "Active; led by charismatic leaders stirring crowds, distributing pamphlets, demanding toll-free entry; guards tense, scuffles breaking out",
+      "normalized": "active_protest"
+    },
+    "truth_state": "CANON",
+    "source_authority": "seed_prep",
+    "evidence_ids": ["evid_shepherds_flock_protest_001"],
+    "asserted_in_session": null,
+    "sequence_index_within_session": null
+  },
+  {
+    "schema_version": "0.1.0",
+    "created_at": "2026-03-26T20:00:00Z",
+    "updated_at": "2026-03-26T20:00:00Z",
+    "record_status": "active",
+    "fact_id": "fact_shepherds_flock_goals_001",
+    "subject_entity_id": "ent_shepherds_flock",
+    "attribute": "goals",
+    "value": {
+      "kind": "interpretive",
+      "label": "Surface goal: abolish the entry toll as unfair and exclusionary; underlying cult agenda not yet visible to public",
+      "normalized": null,
+      "interpretation_level": "interpretive_inference",
+      "strength": "moderate"
+    },
+    "truth_state": "CANON",
+    "source_authority": "seed_prep",
+    "evidence_ids": ["evid_shepherds_flock_protest_001"],
+    "asserted_in_session": null,
+    "sequence_index_within_session": null
+  }
+]

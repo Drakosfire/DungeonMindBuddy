@@ -113,6 +113,32 @@
         "unknown_validity"
       ]
     },
+    "attribute": {
+      "type": "string",
+      "enum": [
+        "species",
+        "role",
+        "rank_or_title",
+        "faction",
+        "current_location",
+        "physical_condition",
+        "mental_state",
+        "loyalty_or_alignment_context",
+        "relationship_tags",
+        "operational_status",
+        "portrayal_notes",
+        "unresolved_questions",
+        "source_comments",
+        "history",
+        "geography",
+        "demographics",
+        "defenses",
+        "economy",
+        "governance",
+        "atmosphere",
+        "goals"
+      ]
+    },
     "charSpan": {
       "type": "object",
       "required": [

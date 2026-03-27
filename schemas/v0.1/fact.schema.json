@@ -28,22 +28,7 @@
       "$ref": "common.schema.json#/$defs/idString"
     },
     "attribute": {
-      "type": "string",
-      "enum": [
-        "species",
-        "role",
-        "rank_or_title",
-        "faction",
-        "current_location",
-        "physical_condition",
-        "mental_state",
-        "loyalty_or_alignment_context",
-        "relationship_tags",
-        "operational_status",
-        "portrayal_notes",
-        "unresolved_questions",
-        "source_comments"
-      ]
+      "$ref": "common.schema.json#/$defs/attribute"
     },
     "value": {
       "$ref": "common.schema.json#/$defs/factValue"
