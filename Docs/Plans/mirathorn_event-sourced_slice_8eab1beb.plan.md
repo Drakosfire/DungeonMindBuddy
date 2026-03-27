@@ -25,6 +25,15 @@ isProject: false
 
 # Mirathorn Event-Sourced Vertical Slice Plan
 
+## Current Status
+
+- Planning is complete and sources are locked.
+- Implementation has not started for the Mirathorn event-sourced slice.
+- Next action is to build the Milestone-1 artifact set from the locked documents:
+  - `Docs/Eldyrwild and Campaign Context/Elderwyld/Cities and Towns/Mirathorn/The City of Mirathorn.docx`
+  - `Docs/Eldyrwild and Campaign Context/Longmont Campaign/Campaign 1/Longmont Campaign General Notes.docx`
+- Canon anchor for world instantiation is the `Approach to Mirathorn` section from `The City of Mirathorn.docx`.
+
 ## Objective
 
 Implement a vertical slice that mirrors your GM workflow: ingest world canon and campaign recap context, instantiate a graph at campaign start, and progress state through planning, zero-tick, and live updates using an event-sourced model.
@@ -148,6 +157,7 @@ flowchart LR
 ## Notes On Rules Corpus (Current Decision)
 
 - For Milestone 1, core rules are included as referenced context metadata only (not first-class nodes), to keep proof focused on world/campaign state correctness.
+- Backward compatibility is not a goal for this effort. Build and fix forward with the cleanest implementation path.
 
 ## Verification Commands
 
@@ -160,4 +170,10 @@ flowchart LR
 - You can demo one end-to-end run from source docs to live-state projection in under 2 minutes.
 - Report clearly shows what changed from world baseline to campaign live state and why (event provenance + decisions).
 - Canon layering invariant holds under replay: campaign drift never rewrites world canon.
+
+## Implementation Policy
+
+- Build forward, not around legacy constraints.
+- Prefer replacing provisional scaffolds over preserving temporary structures.
+- Keep hard pass/fail gates strict; do not relax thresholds to preserve older behavior.
 
