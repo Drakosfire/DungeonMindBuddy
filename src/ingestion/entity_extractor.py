@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import inspect
 import json
+import logging
 import re
 from datetime import datetime, timezone
 from pathlib import Path
@@ -152,6 +153,8 @@ _TYPE_KEYWORDS: dict[str, set[str]] = {
     "item": {"artifact", "relic", "vial", "toxin", "weapon", "blade", "sword"},
 }
 
+logger = logging.getLogger(__name__)
+
 
 class ExtractedEntity(BaseModel):
     entity_id: str | None = None
@@ -190,6 +193,48 @@ class OpenAIResponsesEntityClient:
         prompt_id: str,
     ) -> dict[str, Any]:
         response = self._client.responses.parse(
+            model=model,
+            input=[
+                {
+                    "role": "user",
+                    "content": prompt,
+                }
+            ],
+            text_format=EntityExtractionResult,
+        )
+        parsed = getattr(response, "output_parsed", None)
+        if parsed is None:
+            raise ValueError("OpenAI response parse did not return output_parsed.")
+        if isinstance(parsed, EntityExtractionResult):
+            return parsed.model_dump()
+        return EntityExtractionResult.model_validate(parsed).model_dump()
+
+
+class AsyncOpenAIResponsesEntityClient:
+    """Async adapter for OpenAI Responses API structured parsing."""
+
+    def __init__(self, *, api_key: str | None = None, sdk_client: Any | None = None) -> None:
+        if sdk_client is not None:
+            self._client = sdk_client
+            return
+        try:
+            from openai import AsyncOpenAI  # type: ignore
+        except Exception as exc:  # pragma: no cover
+            raise RuntimeError(
+                "OpenAI SDK is required for AsyncOpenAIResponsesEntityClient. Install dependency 'openai'."
+            ) from exc
+        self._client = AsyncOpenAI(api_key=api_key)
+
+    async def extract_entities(
+        self,
+        *,
+        model: str,
+        prompt: str,
+        evidence_unit: dict[str, Any],
+        known_entities: list[dict[str, Any]],
+        prompt_id: str,
+    ) -> dict[str, Any]:
+        response = await self._client.responses.parse(
             model=model,
             input=[
                 {
@@ -485,16 +530,39 @@ async def extract_entities_batch(
     cache_root.mkdir(parents=True, exist_ok=True)
     semaphore = asyncio.Semaphore(max(1, concurrency))
     known_lookup = _build_known_lookup(known_entities)
+    stats = {"completed": 0, "cache_hits": 0, "cache_misses": 0}
+    progress_step = max(10, len(evidence_units) // 10) if evidence_units else 10
+    logger.info(
+        "entity_extractor start units=%d concurrency=%d model=%s cache_dir=%s",
+        len(evidence_units),
+        concurrency,
+        model_id,
+        cache_root,
+    )
 
     async def process_unit(unit: dict[str, Any]) -> EntityExtractionResult:
+        evidence_id = str(unit.get("evidence_id", "unknown"))
         cache_key = _cache_key(unit, model_id)
         cache_file = _cache_path(cache_root, cache_key)
         if cache_file.exists():
+            stats["cache_hits"] += 1
+            stats["completed"] += 1
+            logger.debug("entity_extractor unit=%s cache=hit", evidence_id)
+            if stats["completed"] % progress_step == 0:
+                logger.info(
+                    "entity_extractor progress completed=%d/%d cache_hits=%d cache_misses=%d",
+                    stats["completed"],
+                    len(evidence_units),
+                    stats["cache_hits"],
+                    stats["cache_misses"],
+                )
             return EntityExtractionResult.model_validate(
                 json.loads(cache_file.read_text(encoding="utf-8"))
             )
 
         async with semaphore:
+            stats["cache_misses"] += 1
+            logger.debug("entity_extractor unit=%s cache=miss", evidence_id)
             result = await _call_extractor(
                 unit=unit,
                 known_entities=known_entities,
@@ -506,6 +574,20 @@ async def extract_entities_batch(
                 result.model_dump_json(indent=2),
                 encoding="utf-8",
             )
+            stats["completed"] += 1
+            logger.debug(
+                "entity_extractor unit=%s extracted_entities=%d",
+                evidence_id,
+                len(result.entities),
+            )
+            if stats["completed"] % progress_step == 0:
+                logger.info(
+                    "entity_extractor progress completed=%d/%d cache_hits=%d cache_misses=%d",
+                    stats["completed"],
+                    len(evidence_units),
+                    stats["cache_hits"],
+                    stats["cache_misses"],
+                )
             return result
 
     results = await asyncio.gather(*(process_unit(unit) for unit in evidence_units))
@@ -546,7 +628,16 @@ async def extract_entities_batch(
     validate_many(records, "entity.schema.json")
     deduper = FactStore(cache_root / "_dedupe")
     deduper.add_entities(records)
-    return deduper.list_entities()
+    deduped = deduper.list_entities()
+    logger.info(
+        "entity_extractor done units=%d extracted=%d deduped=%d cache_hits=%d cache_misses=%d",
+        len(evidence_units),
+        len(records),
+        len(deduped),
+        stats["cache_hits"],
+        stats["cache_misses"],
+    )
+    return deduped
 
 
 def run_entity_extraction(

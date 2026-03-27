@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import inspect
 import json
+import logging
 import re
 from datetime import datetime, timezone
 from pathlib import Path
@@ -45,6 +46,8 @@ _TRUTH_STATE_MAP: dict[tuple[str, str], tuple[str, str]] = {
     ("campaign", "observed_session_recap"): ("OBSERVED", "observed_recap"),
     ("campaign", "ledger_or_dossier"): ("OBSERVED", "observed_recap"),
 }
+
+logger = logging.getLogger(__name__)
 
 AttributeType = Literal[
     "species",
@@ -119,6 +122,43 @@ class OpenAIResponsesFactClient:
         prompt_id: str,
     ) -> dict[str, Any]:
         response = self._client.responses.parse(
+            model=model,
+            input=[{"role": "user", "content": prompt}],
+            text_format=FactExtractionResult,
+        )
+        parsed = getattr(response, "output_parsed", None)
+        if parsed is None:
+            raise ValueError("OpenAI response parse did not return output_parsed.")
+        if isinstance(parsed, FactExtractionResult):
+            return parsed.model_dump()
+        return FactExtractionResult.model_validate(parsed).model_dump()
+
+
+class AsyncOpenAIResponsesFactClient:
+    """Async adapter for OpenAI Responses API structured fact extraction."""
+
+    def __init__(self, *, api_key: str | None = None, sdk_client: Any | None = None) -> None:
+        if sdk_client is not None:
+            self._client = sdk_client
+            return
+        try:
+            from openai import AsyncOpenAI  # type: ignore[import-untyped]
+        except Exception as exc:  # pragma: no cover
+            raise RuntimeError(
+                "OpenAI SDK is required for AsyncOpenAIResponsesFactClient. Install 'openai'."
+            ) from exc
+        self._client = AsyncOpenAI(api_key=api_key)
+
+    async def extract_facts(
+        self,
+        *,
+        model: str,
+        prompt: str,
+        evidence_unit: dict[str, Any],
+        entities: list[dict[str, Any]],
+        prompt_id: str,
+    ) -> dict[str, Any]:
+        response = await self._client.responses.parse(
             model=model,
             input=[{"role": "user", "content": prompt}],
             text_format=FactExtractionResult,
@@ -361,15 +401,39 @@ async def extract_facts_batch(
     entity_fp = _entity_context_fingerprint(entities)
     entity_id_set = {str(e.get("entity_id", "")) for e in entities}
     truth_state, source_authority = derive_truth_state(canon_layer, source_class)
+    stats = {"completed": 0, "cache_hits": 0, "cache_misses": 0}
+    progress_step = max(10, len(evidence_units) // 10) if evidence_units else 10
+    logger.info(
+        "fact_extractor start units=%d entities=%d concurrency=%d model=%s cache_dir=%s",
+        len(evidence_units),
+        len(entities),
+        concurrency,
+        model_id,
+        cache_root,
+    )
 
     async def process_unit(unit: dict[str, Any]) -> FactExtractionResult:
+        evidence_id = str(unit.get("evidence_id", "unknown"))
         key = _cache_key(unit, model_id, entity_fp)
         cache_file = _cache_path(cache_root, key)
         if cache_file.exists():
+            stats["cache_hits"] += 1
+            stats["completed"] += 1
+            logger.debug("fact_extractor unit=%s cache=hit", evidence_id)
+            if stats["completed"] % progress_step == 0:
+                logger.info(
+                    "fact_extractor progress completed=%d/%d cache_hits=%d cache_misses=%d",
+                    stats["completed"],
+                    len(evidence_units),
+                    stats["cache_hits"],
+                    stats["cache_misses"],
+                )
             return FactExtractionResult.model_validate(
                 json.loads(cache_file.read_text(encoding="utf-8"))
             )
         async with semaphore:
+            stats["cache_misses"] += 1
+            logger.debug("fact_extractor unit=%s cache=miss", evidence_id)
             result = await _call_extractor(
                 unit=unit,
                 entities=entities,
@@ -381,6 +445,20 @@ async def extract_facts_batch(
                 result.model_dump_json(indent=2),
                 encoding="utf-8",
             )
+            stats["completed"] += 1
+            logger.debug(
+                "fact_extractor unit=%s extracted_facts=%d",
+                evidence_id,
+                len(result.facts),
+            )
+            if stats["completed"] % progress_step == 0:
+                logger.info(
+                    "fact_extractor progress completed=%d/%d cache_hits=%d cache_misses=%d",
+                    stats["completed"],
+                    len(evidence_units),
+                    stats["cache_hits"],
+                    stats["cache_misses"],
+                )
             return result
 
     results = await asyncio.gather(*(process_unit(unit) for unit in evidence_units))
@@ -401,6 +479,14 @@ async def extract_facts_batch(
 
     records = _deduplicate_facts(records)
     validate_many(records, "fact.schema.json")
+    logger.info(
+        "fact_extractor done units=%d records=%d cache_hits=%d cache_misses=%d truth_state=%s",
+        len(evidence_units),
+        len(records),
+        stats["cache_hits"],
+        stats["cache_misses"],
+        truth_state,
+    )
     return records
 
 
