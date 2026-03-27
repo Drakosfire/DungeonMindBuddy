@@ -158,13 +158,307 @@ The evidence unit exists so you can trace *why* a fact exists. The fact exists s
 
 #### Chunking Strategy (Ingestion)
 
-Section-level chunking using heading structure. One heading section → one evidence unit → typically 1–3 facts per entity mentioned. The heading hierarchy provides the `section_path` for provenance.
+Section-level chunking via `docx_to_markdown()` → AST parser → evidence unit builder (adapts RulesIngestion's `ast_parser.py` → `stage_b.py` chain). One heading section → one evidence unit → typically 1–3 facts per entity mentioned. The heading hierarchy provides `section_path` for provenance.
 
-Leverage patterns from RulesIngestion (section-aware splitting, schema validation). The extraction target is narrative facts rather than mechanical rules, but the pipeline shape is transferable.
+**Two-tier heading detection** (corpus has inconsistent heading styles):
+1. **Docx paragraph styles first.** If a paragraph has style `Heading 1`–`Heading 4`, map to markdown `#`–`####`. Build `section_path` from the heading hierarchy.
+2. **Fallback: detect section patterns in text.** For docs like the Mossford gazetteer where everything is `Normal` style, detect numbered sections (`1. Watch Tower`, `2. Temple of the Nameless Stone`) or bold-text section headers. These become section boundaries.
+
+**Minimum chunk:** If a heading section is under 50 characters, merge with the next section (avoid micro-chunks).
+
+**Maximum chunk:** If a section exceeds ~3000 characters, keep it as-is — bigger is better for extraction context. Do not split large sections.
+
+**Enrichment pipeline reuse:** Entity and fact extraction use the `enrich_units_batch` async semaphore pattern from `stage_a_prime.py` — swap prompts and Pydantic output schemas, same concurrency/caching/gate infrastructure. See Step 4 experiment design below.
+
+#### Phase A Decisions (Implemented)
+
+The initial deterministic implementation of Phase A introduced a few concrete decisions that now become part of the contract:
+
+1. **Heading-only sections emit fallback evidence units.**  
+   If a heading has no child paragraph content, emit an evidence unit for that heading so it still appears in provenance and `section_path` coverage checks.
+
+2. **Heading absorption separator is ` -- `.**  
+   During AST walk, heading text is prefixed into the first child paragraph using `heading -- child_text` to preserve context even when downstream systems only read `text`.
+
+3. **Minimum-size merge preserves the earlier section path.**  
+   When a section under 50 chars merges into the next chunk, the merged chunk keeps the original (small section's) `section_path` and earliest paragraph index.
+
+4. **Gate comparison is structural/comparability, not strict path equality.**  
+   Hand-authored Step 1 evidence uses some semantic labels not present as literal headings in source docs. The evaluation gate therefore checks:
+   - automated output count exceeds hand-authored count,
+   - hand section *leaf* coverage against automated path components is acceptable,
+   - no weak text-overlap gaps against hand-authored evidence,
+   - first and last non-empty markdown lines are covered.
+
+This keeps the gate faithful to the intent ("structurally comparable and complete coverage") while avoiding false failures from naming abstraction differences.
 
 ### Step 5: Event Sourcing and Infrastructure
 
 **Only after Step 4 works.** Event sourcing, hard gates, determinism replay, gold artifact packs — all the infrastructure from the original plan — gets built once the core model is validated and the ingestion pipeline produces usable output.
+
+---
+
+## Step 4 Experiment Design: Ingestion Automation + CLI Chat Loop
+
+### What Exists (Reuse from RulesIngestion)
+
+The RulesIngestion Mark III pipeline has proven infrastructure for exactly the pattern we need. The following are directly transferable:
+
+| RI Component | File | What It Does | DungeonMindBuddy Use |
+|---|---|---|---|
+| `enrich_units_batch` | `extraction/stage_a_prime.py` | Async semaphore-limited LLM calls over evidence units with structured Pydantic output, input fingerprinting, cache-on-disk | Entity extraction (Pass 1) and fact extraction (Pass 2) — swap prompts and output schemas |
+| `_responses_parse_sync` | `extraction/stage_a_prime.py` | OpenAI Responses API with `text_format=PydanticModel` for structured outputs, refusal detection | All LLM calls use this pattern |
+| `ast_parser.py` | `extraction/ast_parser.py` | Markdown → heading tree (SurfaceAST) via `^#{1,6}\s+` regex, line classification, tree building | Chunking: docx → markdown → AST → evidence units |
+| `stage_b.py` | `extraction/stage_b.py` | SurfaceAST → flat EvidenceUnits with `structural_path` provenance. Headings absorbed into first child, tables never split, monotonic ordering | Evidence unit production from heading tree |
+| Pipeline orchestration | `extraction/pipeline.py` | Stage A → B → A′ chaining with gates at each stage, artifact writing | Pipeline shape: chunk → extract entities → extract facts → store |
+| Gate diagnostics | `extraction/schemas.py` | `GateDiagnostic(name, passed, detail)` pattern for pass/fail checks | Entity recall gates, fact quality gates |
+
+**Key difference:** RI ingests PDFs via OCR → markdown. DungeonMindBuddy ingests `.docx` files. We need one new function — `docx_to_markdown()` — and then the existing AST parser handles the rest.
+
+### What Needs To Be Built
+
+#### Component 1: `docx_to_markdown()` (`src/ingestion/docx_converter.py`)
+
+Converts a `.docx` file to markdown with proper heading markers.
+
+```python
+def docx_to_markdown(docx_path: Path) -> str:
+    """Convert docx to markdown, mapping paragraph styles to # headings.
+    
+    Fallback: detect numbered sections (e.g. '1. Watch Tower') in Normal-style
+    paragraphs for documents without proper heading styles.
+    """
+```
+
+- Maps `Heading 1` → `#`, `Heading 2` → `##`, etc.
+- Detects numbered section patterns (`^\d+\.\s+\w`) in `Normal` paragraphs as heading fallback
+- Preserves bold text as `**bold**` (may help section detection)
+- Output: markdown string ready for `parse_markdown_to_ast()`
+
+#### Component 2: Chunking Pipeline (`src/ingestion/chunker.py`)
+
+Adapts RI's `ast_parser.py` → `stage_b.py` chain for DungeonMindBuddy evidence units.
+
+```python
+def chunk_document(
+    docx_path: Path,
+    document_id: str,
+    document_title: str,
+    canon_layer: str,
+    campaign_id: str | None,
+    source_class: str,
+) -> list[dict]:
+    """docx → markdown → AST → evidence units (v0.1 schema)."""
+```
+
+- Calls `docx_to_markdown()` → simplified AST parser → evidence unit builder
+- Each chunk gets: `evidence_id`, `document_id`, `section_path`, `text`, `canon_layer`, etc.
+- Minimum chunk: 50 chars (merge with next). Maximum: no split (bigger is better for extraction).
+- Validates output against `evidence_unit.schema.json`
+
+#### Component 3: Entity Extraction — Pass 1 (`src/ingestion/entity_extractor.py`)
+
+Adapts `enrich_units_batch` pattern. Swap prompt and output schema.
+
+**LLM prompt shape:**
+```
+System: You are an entity extraction agent for a TTRPG worldbuilding system.
+Extract every named entity from the text. Include people, places, factions,
+items, events. Cast a WIDE net — mentions count.
+
+Known entities (reuse IDs if recognized):
+{existing_entities_json}
+
+For new entities: entity_id = "ent_" + snake_case(display_name)
+```
+
+**Pydantic output schema:**
+```python
+class ExtractedEntity(BaseModel):
+    entity_id: str
+    entity_type: Literal["npc", "location", "faction", "item", "other"]
+    display_name: str
+    aliases: list[str]
+    is_new: bool  # false if reusing existing entity_id
+```
+
+**Model:** `fast_smart_mini` (gpt-5.4-mini) — NER + classification, fast and cheap.
+
+**Infrastructure:** `enrich_units_batch` with `ExtractedEntity` output schema instead of `APrimeEnrichment`. Same async semaphore, same caching, same fingerprinting.
+
+**Per chunk:** One LLM call. All chunks parallelized.
+
+**Gate:** Entity recall ≥90% against gold entity list (for Set A docs).
+
+#### Component 4: Fact Extraction — Pass 2 (`src/ingestion/fact_extractor.py`)
+
+Same `enrich_units_batch` pattern, different prompt and schema. Depends on Pass 1 output.
+
+**LLM prompt shape:**
+```
+System: You are a fact extraction agent for a TTRPG worldbuilding system.
+For each entity mentioned in this text, extract what this text ASSERTS about it.
+
+Entities found in this text: {entities_json}
+
+Attribute enum: [species, role, rank_or_title, faction, current_location,
+  physical_condition, mental_state, loyalty_or_alignment_context,
+  relationship_tags, operational_status, portrayal_notes, unresolved_questions,
+  source_comments, history, geography, demographics, defenses, economy,
+  governance, atmosphere, goals]
+
+Value kinds: scalar | state | set | interpretive
+  interpretive requires: interpretation_level + strength
+
+Evidence unit ID: {evidence_id}
+```
+
+**Pydantic output schema:**
+```python
+class ExtractedFact(BaseModel):
+    fact_id: str
+    subject_entity_id: str
+    attribute: str  # from enum
+    value: FactValue  # kind + label + normalized + optional entity_refs
+```
+
+**Model:** `fast_smart` (gpt-5.3-codex) — interpretive, needs to classify attributes correctly.
+
+**Per chunk:** One LLM call. All chunks parallelized (they share the entity list from Pass 1).
+
+**Post-extraction:** Assign `truth_state` and `source_authority` from document metadata:
+- `world` + `seed_reference` → `CANON` / `seed_prep`
+- `campaign` + `planning_document` → `PREP` / `planning_prep`
+- `campaign` + `observed_session_recap` → `OBSERVED` / `observed_recap`
+
+Validate all outputs against `fact.schema.json`.
+
+#### Component 5: Fact Store (`src/store.py`)
+
+JSON files on disk. No database needed for the vertical slice.
+
+```python
+class FactStore:
+    def __init__(self, store_dir: Path)
+    
+    def load(self) -> None
+    def save(self) -> None
+    def add_evidence_units(self, units: list[dict]) -> None
+    def add_entities(self, entities: list[dict]) -> None
+    def add_facts(self, facts: list[dict]) -> None
+    def get_entity_by_name(self, name: str) -> dict | None
+    def list_entities(self) -> list[dict]
+    def project(self, campaign_id: str | None) -> dict
+        # Delegates to project_entity_state()
+```
+
+Entity deduplication on `add_entities`: case-insensitive match on `display_name` or any alias. Merge aliases, return existing `entity_id`.
+
+#### Component 6: Synthesis Agent (`src/agent/synthesis.py`)
+
+The `ask` command. Projection → formatted context → LLM → grounded prose.
+
+**Context formatting:** Render projection as structured text:
+```
+Entity: Shepherd's Flock (Faction)
+  operational_status: Protest dispersed by party diplomacy...
+    [OBSERVED, session 7, from: Session 7 Recap]
+    competing: CANON=active_protest, PREP=riot_escalation
+  goals: Surface: toll abolition. Observed deeper: secret base with cells...
+    [OBSERVED, session 7]
+```
+
+**LLM prompt:**
+```
+System: You are a GM assistant. Answer using ONLY the facts in the projection.
+Cite truth_states (CANON/PREP/OBSERVED). If facts conflict, explain which is current.
+Do not invent beyond what is stated.
+```
+
+**Model:** `retrieval_synthesis` (gpt-5.3-chat-latest) — grounded response synthesis.
+
+#### Component 7: CLI Loop (`src/cli.py`)
+
+```
+$ uv run python -m dungeonbuddy --store ./my_campaign
+
+dungeonbuddy> ingest "path/to/doc.docx" --layer world
+dungeonbuddy> ask "What do I need to know about Mirathorn?" --campaign longmont_01
+dungeonbuddy> plan "The protest will escalate" --campaign longmont_01
+dungeonbuddy> play "The party stopped the riot" --campaign longmont_01 --session 7
+dungeonbuddy> provenance "Brother Ashwood"
+dungeonbuddy> entities
+dungeonbuddy> projection --campaign longmont_01
+```
+
+| Command | Pipeline |
+|---|---|
+| `ingest` | docx → chunk → Pass 1 → Pass 2 → store |
+| `ask` | store.project() → format context → LLM synthesis → print prose |
+| `plan` | inline text → single evidence unit (planning_document) → Pass 1 → Pass 2 → store (PREP) |
+| `play` | inline text → single evidence unit (observed_session_recap) → Pass 1 → Pass 2 → store (OBSERVED) |
+| `provenance` | find entity → list facts → trace evidence_ids → print chain |
+| `entities` | list all entities with fact counts |
+| `projection` | run reducer → print formatted projection |
+
+### Gold Artifacts for Set A Evaluation
+
+Before running the automated pipeline, hand-author gold expected outputs:
+
+**`The City of Mirathorn.docx` gold:**
+- Gold entity list: Mirathorn, Lake Mirathorn, Stormspire Peaks, Lundayell Empire, Festival of Expansion, Shepherd's Flock, Wizard's Tower Brewing Co., and every NPC from City Council. (~15-20 entities)
+- Gold fact set: Extend the 10 Step 1 facts with additional facts for skipped entities.
+
+**`The City Council.docx` gold:**
+- Gold entity list: every council member, the council as a faction, The Wolf, referenced locations.
+- Gold fact set: role/rank_or_title for each council member, governance for Mirathorn.
+
+**`lieutenant_lysandra_ironveil_character_dossier.md` gold:**
+- Already has 6 golden scenario tests. Extend with gold entity list and fact set.
+
+### Build Order
+
+| Phase | What | Depends On | Gate |
+|---|---|---|---|
+| A | Fact store + docx-to-markdown + chunker | Nothing | Chunker produces evidence units from Mirathorn.docx structurally similar to hand-authored Step 1 units |
+| B | Entity extraction (Pass 1) | Phase A + `openai` dep | Entity recall ≥90% against Mirathorn gold entity list |
+| C | Fact extraction (Pass 2) | Phase B | Automated projection covers same ground as Step 1 hand-authored projection. Attribute classification reasonable. |
+| D | Synthesis + CLI (`ingest`, `ask`) | Phase C | `ingest` Mirathorn.docx then `ask "Catch me up on Mirathorn"` produces grounded prose |
+| E | `plan`, `play`, `provenance` | Phase D | Full CLI loop from design doc example works end-to-end |
+| F | Blind eval (Set B) | Phase E frozen | GM evaluates Mossford projection without pipeline changes |
+
+### Files to Create
+
+```
+src/
+  ingestion/
+    __init__.py
+    docx_converter.py       # Phase A — docx → markdown
+    chunker.py              # Phase A — markdown → AST → evidence units
+    entity_extractor.py     # Phase B — Pass 1 LLM, adapts enrich_units_batch
+    fact_extractor.py       # Phase C — Pass 2 LLM, adapts enrich_units_batch
+    pipeline.py             # Phase C — orchestrates chunk → Pass 1 → Pass 2
+  agent/
+    __init__.py
+    synthesis.py            # Phase D — projection → LLM → prose
+    context_formatter.py    # Phase D — projection dict → text for LLM
+  store.py                  # Phase A — JSON fact store
+  cli.py                    # Phase D — CLI REPL
+  __main__.py               # Phase D — `python -m dungeonbuddy`
+
+tests/
+  test_store.py             # Phase A
+  test_chunker.py           # Phase A
+  test_docx_converter.py    # Phase A
+
+evals/
+  mirathorn_vertical_slice/
+    gold/
+      gold_entities.json    # Phase B
+      gold_facts.json       # Phase C
+    eval_entity_recall.py   # Phase B
+    eval_fact_quality.py    # Phase C
+```
 
 ## Relationship to Original Plan
 
