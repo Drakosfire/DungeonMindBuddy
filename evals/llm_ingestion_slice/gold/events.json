@@ -1,0 +1,236 @@
+[
+  {
+    "certainty": "confirmed",
+    "created_at": "2026-03-27T00:00:00Z",
+    "event_id": "evt_evu_world_approach",
+    "event_kind": "world_baseline_capture",
+    "label": "The City of Mirathorn :: evu_world_approach",
+    "location_id": "ent_mirathorn",
+    "notes": null,
+    "outcome_summary": "#### You know you are approaching Mirathorn for a few reasons. The sound, you can hear it from at least a few kilometers.",
+    "participants": [
+      {
+        "certainty": "confirmed",
+        "entity_id": "ent_mirathorn",
+        "role": "subject"
+      }
+    ],
+    "record_status": "active",
+    "related_fact_ids": [],
+    "schema_version": "0.1.0",
+    "sequence_index_within_session": 0,
+    "session_id": "instantiation",
+    "session_number": null,
+    "source_evidence_ids": [
+      "evu_world_approach"
+    ],
+    "state_changes": [
+      {
+        "attribute": "atmosphere",
+        "proposed_value": {
+          "kind": "state",
+          "label": "Approach to Mirathorn carries a city-wide thunderous sound",
+          "normalized": "thunderous_city_approach"
+        },
+        "subject_entity_id": "ent_mirathorn"
+      }
+    ],
+    "subevent_ids": [],
+    "updated_at": "2026-03-27T00:00:00Z"
+  },
+  {
+    "certainty": "confirmed",
+    "created_at": "2026-03-27T00:00:00Z",
+    "event_id": "evt_evu_world_governance",
+    "event_kind": "world_baseline_capture",
+    "label": "The City of Mirathorn :: evu_world_governance",
+    "location_id": "ent_mirathorn",
+    "notes": null,
+    "outcome_summary": "A democratic city-state governed by a council representing various races and guilds.",
+    "participants": [
+      {
+        "certainty": "confirmed",
+        "entity_id": "ent_mirathorn",
+        "role": "subject"
+      }
+    ],
+    "record_status": "active",
+    "related_fact_ids": [],
+    "schema_version": "0.1.0",
+    "sequence_index_within_session": 1,
+    "session_id": "instantiation",
+    "session_number": null,
+    "source_evidence_ids": [
+      "evu_world_governance"
+    ],
+    "state_changes": [
+      {
+        "attribute": "governance",
+        "proposed_value": {
+          "kind": "scalar",
+          "label": "Democratic city-state council represents races and guilds",
+          "normalized": "democratic_city_council"
+        },
+        "subject_entity_id": "ent_mirathorn"
+      }
+    ],
+    "subevent_ids": [],
+    "updated_at": "2026-03-27T00:00:00Z"
+  },
+  {
+    "certainty": "confirmed",
+    "created_at": "2026-03-27T00:00:00Z",
+    "event_id": "evt_evu_campaign_planning_cult",
+    "event_kind": "planning_signal",
+    "label": "Longmont Campaign General Notes :: evu_campaign_planning_cult",
+    "location_id": null,
+    "notes": null,
+    "outcome_summary": "**Twisted Meat Distribution:** As part of their devotion, the Shepherds are involved in the distribution of the twisted meat. This meat comes from creatures that are either from beyond our dimension or have been transformed by eldritch energies. The meat is subtly introduced into local markets and food supplies, masquerading as ordinary game or livestock.",
+    "participants": [
+      {
+        "certainty": "confirmed",
+        "entity_id": "ent_secure_shipment_shepherds",
+        "role": "subject"
+      }
+    ],
+    "record_status": "active",
+    "related_fact_ids": [],
+    "schema_version": "0.1.0",
+    "sequence_index_within_session": 2,
+    "session_id": "zero_tick_plan",
+    "session_number": null,
+    "source_evidence_ids": [
+      "evu_campaign_planning_cult"
+    ],
+    "state_changes": [
+      {
+        "attribute": "goals",
+        "proposed_value": {
+          "kind": "interpretive",
+          "label": "Distribute twisted meat while advancing human supremacy",
+          "normalized": "twisted_meat_distribution_human_supremacy"
+        },
+        "subject_entity_id": "ent_secure_shipment_shepherds"
+      }
+    ],
+    "subevent_ids": [],
+    "updated_at": "2026-03-27T00:00:00Z"
+  },
+  {
+    "certainty": "confirmed",
+    "created_at": "2026-03-27T00:00:00Z",
+    "event_id": "evt_evu_campaign_planning_vane",
+    "event_kind": "planning_signal",
+    "label": "Longmont Campaign General Notes :: evu_campaign_planning_vane",
+    "location_id": null,
+    "notes": null,
+    "outcome_summary": "**Dual Leadership:** Commander Vane is not only a tactical leader but also a high priest in the cult. His charisma masks his true devotion to Maelthor, and he personally oversees the rituals involving the twisted meat.",
+    "participants": [
+      {
+        "certainty": "confirmed",
+        "entity_id": "ent_commander_elric_vane",
+        "role": "subject"
+      }
+    ],
+    "record_status": "active",
+    "related_fact_ids": [],
+    "schema_version": "0.1.0",
+    "sequence_index_within_session": 3,
+    "session_id": "zero_tick_plan",
+    "session_number": null,
+    "source_evidence_ids": [
+      "evu_campaign_planning_vane"
+    ],
+    "state_changes": [
+      {
+        "attribute": "role",
+        "proposed_value": {
+          "kind": "scalar",
+          "label": "Dual role: tactical commander and high priest of the Shepherds",
+          "normalized": "dual_leader_high_priest"
+        },
+        "subject_entity_id": "ent_commander_elric_vane"
+      }
+    ],
+    "subevent_ids": [],
+    "updated_at": "2026-03-27T00:00:00Z"
+  },
+  {
+    "certainty": "confirmed",
+    "created_at": "2026-03-27T00:00:00Z",
+    "event_id": "evt_evu_campaign_live_arrival",
+    "event_kind": "live_session_update",
+    "label": "Longmont Campaign General Notes :: evu_campaign_live_arrival",
+    "location_id": "ent_mirathorn",
+    "notes": null,
+    "outcome_summary": "## Go to the gate, see the beginning of the protest",
+    "participants": [
+      {
+        "certainty": "confirmed",
+        "entity_id": "ent_mirathorn",
+        "role": "subject"
+      }
+    ],
+    "record_status": "active",
+    "related_fact_ids": [],
+    "schema_version": "0.1.0",
+    "sequence_index_within_session": 4,
+    "session_id": "live_session_06",
+    "session_number": 6,
+    "source_evidence_ids": [
+      "evu_campaign_live_arrival"
+    ],
+    "state_changes": [
+      {
+        "attribute": "atmosphere",
+        "proposed_value": {
+          "kind": "state",
+          "label": "Gate approach is marked by active protest pressure",
+          "normalized": "gate_protest_pressure"
+        },
+        "subject_entity_id": "ent_mirathorn"
+      }
+    ],
+    "subevent_ids": [],
+    "updated_at": "2026-03-27T00:00:00Z"
+  },
+  {
+    "certainty": "confirmed",
+    "created_at": "2026-03-27T00:00:00Z",
+    "event_id": "evt_evu_campaign_live_guard",
+    "event_kind": "live_session_update",
+    "label": "Longmont Campaign General Notes :: evu_campaign_live_guard",
+    "location_id": null,
+    "notes": null,
+    "outcome_summary": "## Talked to Captain Lysandra Ironveil",
+    "participants": [
+      {
+        "certainty": "confirmed",
+        "entity_id": "ent_captain_lysandra_ironveil",
+        "role": "subject"
+      }
+    ],
+    "record_status": "active",
+    "related_fact_ids": [],
+    "schema_version": "0.1.0",
+    "sequence_index_within_session": 5,
+    "session_id": "live_session_06",
+    "session_number": 6,
+    "source_evidence_ids": [
+      "evu_campaign_live_guard"
+    ],
+    "state_changes": [
+      {
+        "attribute": "role",
+        "proposed_value": {
+          "kind": "scalar",
+          "label": "Gate captain coordinating arrivals during unrest",
+          "normalized": "gate_captain_arrival_coordination"
+        },
+        "subject_entity_id": "ent_captain_lysandra_ironveil"
+      }
+    ],
+    "subevent_ids": [],
+    "updated_at": "2026-03-27T00:00:00Z"
+  }
+]

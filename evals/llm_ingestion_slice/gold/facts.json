@@ -1,0 +1,182 @@
+[
+  {
+    "asserted_in_session": null,
+    "attribute": "atmosphere",
+    "created_at": "2026-03-27T00:00:00Z",
+    "derived_from_event_ids": [
+      "evt_evu_world_approach"
+    ],
+    "evidence_ids": [
+      "evu_world_approach"
+    ],
+    "fact_id": "fact_evt_evu_world_approach_0",
+    "manually_overridden": false,
+    "notes": null,
+    "record_status": "active",
+    "related_conflict_ids": [],
+    "schema_version": "0.1.0",
+    "sequence_index_within_session": 0,
+    "source_authority": "seed_prep",
+    "subject_entity_id": "ent_mirathorn",
+    "truth_state": "CANON",
+    "updated_at": "2026-03-27T00:00:00Z",
+    "valid_from_session": null,
+    "valid_to_session": null,
+    "validity_state": "active",
+    "value": {
+      "kind": "state",
+      "label": "Approach to Mirathorn carries a city-wide thunderous sound",
+      "normalized": "thunderous_city_approach"
+    }
+  },
+  {
+    "asserted_in_session": null,
+    "attribute": "governance",
+    "created_at": "2026-03-27T00:00:00Z",
+    "derived_from_event_ids": [
+      "evt_evu_world_governance"
+    ],
+    "evidence_ids": [
+      "evu_world_governance"
+    ],
+    "fact_id": "fact_evt_evu_world_governance_0",
+    "manually_overridden": false,
+    "notes": null,
+    "record_status": "active",
+    "related_conflict_ids": [],
+    "schema_version": "0.1.0",
+    "sequence_index_within_session": 1,
+    "source_authority": "seed_prep",
+    "subject_entity_id": "ent_mirathorn",
+    "truth_state": "CANON",
+    "updated_at": "2026-03-27T00:00:00Z",
+    "valid_from_session": null,
+    "valid_to_session": null,
+    "validity_state": "active",
+    "value": {
+      "kind": "scalar",
+      "label": "Democratic city-state council represents races and guilds",
+      "normalized": "democratic_city_council"
+    }
+  },
+  {
+    "asserted_in_session": null,
+    "attribute": "goals",
+    "created_at": "2026-03-27T00:00:00Z",
+    "derived_from_event_ids": [
+      "evt_evu_campaign_planning_cult"
+    ],
+    "evidence_ids": [
+      "evu_campaign_planning_cult"
+    ],
+    "fact_id": "fact_evt_evu_campaign_planning_cult_0",
+    "manually_overridden": false,
+    "notes": null,
+    "record_status": "active",
+    "related_conflict_ids": [],
+    "schema_version": "0.1.0",
+    "sequence_index_within_session": 2,
+    "source_authority": "planning_prep",
+    "subject_entity_id": "ent_secure_shipment_shepherds",
+    "truth_state": "PREP",
+    "updated_at": "2026-03-27T00:00:00Z",
+    "valid_from_session": null,
+    "valid_to_session": null,
+    "validity_state": "active",
+    "value": {
+      "kind": "interpretive",
+      "label": "Distribute twisted meat while advancing human supremacy",
+      "normalized": "twisted_meat_distribution_human_supremacy"
+    }
+  },
+  {
+    "asserted_in_session": null,
+    "attribute": "role",
+    "created_at": "2026-03-27T00:00:00Z",
+    "derived_from_event_ids": [
+      "evt_evu_campaign_planning_vane"
+    ],
+    "evidence_ids": [
+      "evu_campaign_planning_vane"
+    ],
+    "fact_id": "fact_evt_evu_campaign_planning_vane_0",
+    "manually_overridden": false,
+    "notes": null,
+    "record_status": "active",
+    "related_conflict_ids": [],
+    "schema_version": "0.1.0",
+    "sequence_index_within_session": 3,
+    "source_authority": "planning_prep",
+    "subject_entity_id": "ent_commander_elric_vane",
+    "truth_state": "PREP",
+    "updated_at": "2026-03-27T00:00:00Z",
+    "valid_from_session": null,
+    "valid_to_session": null,
+    "validity_state": "active",
+    "value": {
+      "kind": "scalar",
+      "label": "Dual role: tactical commander and high priest of the Shepherds",
+      "normalized": "dual_leader_high_priest"
+    }
+  },
+  {
+    "asserted_in_session": 6,
+    "attribute": "atmosphere",
+    "created_at": "2026-03-27T00:00:00Z",
+    "derived_from_event_ids": [
+      "evt_evu_campaign_live_arrival"
+    ],
+    "evidence_ids": [
+      "evu_campaign_live_arrival"
+    ],
+    "fact_id": "fact_evt_evu_campaign_live_arrival_0",
+    "manually_overridden": false,
+    "notes": null,
+    "record_status": "active",
+    "related_conflict_ids": [],
+    "schema_version": "0.1.0",
+    "sequence_index_within_session": 4,
+    "source_authority": "observed_recap",
+    "subject_entity_id": "ent_mirathorn",
+    "truth_state": "OBSERVED",
+    "updated_at": "2026-03-27T00:00:00Z",
+    "valid_from_session": 6,
+    "valid_to_session": null,
+    "validity_state": "active",
+    "value": {
+      "kind": "state",
+      "label": "Gate approach is marked by active protest pressure",
+      "normalized": "gate_protest_pressure"
+    }
+  },
+  {
+    "asserted_in_session": 6,
+    "attribute": "role",
+    "created_at": "2026-03-27T00:00:00Z",
+    "derived_from_event_ids": [
+      "evt_evu_campaign_live_guard"
+    ],
+    "evidence_ids": [
+      "evu_campaign_live_guard"
+    ],
+    "fact_id": "fact_evt_evu_campaign_live_guard_0",
+    "manually_overridden": false,
+    "notes": null,
+    "record_status": "active",
+    "related_conflict_ids": [],
+    "schema_version": "0.1.0",
+    "sequence_index_within_session": 5,
+    "source_authority": "observed_recap",
+    "subject_entity_id": "ent_captain_lysandra_ironveil",
+    "truth_state": "OBSERVED",
+    "updated_at": "2026-03-27T00:00:00Z",
+    "valid_from_session": 6,
+    "valid_to_session": null,
+    "validity_state": "active",
+    "value": {
+      "kind": "scalar",
+      "label": "Gate captain coordinating arrivals during unrest",
+      "normalized": "gate_captain_arrival_coordination"
+    }
+  }
+]

@@ -1,0 +1,123 @@
+{
+  "campaign_id": "longmont-c1",
+  "conflicts": [
+    {
+      "attribute": "atmosphere",
+      "conflict_id": "auto_conflict_001",
+      "entity_id": "ent_mirathorn",
+      "fact_ids": [
+        "fact_evt_evu_campaign_live_arrival_0",
+        "fact_evt_evu_world_approach_0"
+      ],
+      "status": "open"
+    },
+    {
+      "attribute": "atmosphere",
+      "conflict_id": "conf_ent_mirathorn_atmosphere",
+      "entity_id": "ent_mirathorn",
+      "fact_ids": [
+        "fact_evt_evu_campaign_live_arrival_0",
+        "fact_evt_evu_world_approach_0"
+      ],
+      "status": "resolved"
+    }
+  ],
+  "entities": {
+    "ent_captain_lysandra_ironveil": {
+      "attributes": {
+        "role": {
+          "conflict_ids": [],
+          "fact_ids": [
+            "fact_evt_evu_campaign_live_guard_0"
+          ],
+          "provenance_evidence_ids": [
+            "evu_campaign_live_guard"
+          ],
+          "selected_fact_id": "fact_evt_evu_campaign_live_guard_0",
+          "source_campaign_id": "longmont-c1",
+          "source_layer": "campaign",
+          "value_label": "Gate captain coordinating arrivals during unrest",
+          "value_normalized": "gate_captain_arrival_coordination"
+        }
+      }
+    },
+    "ent_commander_elric_vane": {
+      "attributes": {
+        "role": {
+          "conflict_ids": [],
+          "fact_ids": [
+            "fact_evt_evu_campaign_planning_vane_0"
+          ],
+          "provenance_evidence_ids": [
+            "evu_campaign_planning_vane"
+          ],
+          "selected_fact_id": "fact_evt_evu_campaign_planning_vane_0",
+          "source_campaign_id": "longmont-c1",
+          "source_layer": "campaign",
+          "value_label": "Dual role: tactical commander and high priest of the Shepherds",
+          "value_normalized": "dual_leader_high_priest"
+        }
+      }
+    },
+    "ent_mirathorn": {
+      "attributes": {
+        "atmosphere": {
+          "conflict_ids": [
+            "auto_conflict_001",
+            "conf_ent_mirathorn_atmosphere"
+          ],
+          "fact_ids": [
+            "fact_evt_evu_campaign_live_arrival_0",
+            "fact_evt_evu_world_approach_0"
+          ],
+          "provenance_evidence_ids": [
+            "evu_campaign_live_arrival",
+            "evu_world_approach"
+          ],
+          "selected_fact_id": "fact_evt_evu_campaign_live_arrival_0",
+          "source_campaign_id": "longmont-c1",
+          "source_layer": "campaign",
+          "value_label": "Gate approach is marked by active protest pressure",
+          "value_normalized": "gate_protest_pressure"
+        },
+        "governance": {
+          "conflict_ids": [],
+          "fact_ids": [
+            "fact_evt_evu_world_governance_0"
+          ],
+          "provenance_evidence_ids": [
+            "evu_world_governance"
+          ],
+          "selected_fact_id": "fact_evt_evu_world_governance_0",
+          "source_campaign_id": null,
+          "source_layer": "world",
+          "value_label": "Democratic city-state council represents races and guilds",
+          "value_normalized": "democratic_city_council"
+        }
+      }
+    },
+    "ent_secure_shipment_shepherds": {
+      "attributes": {
+        "goals": {
+          "conflict_ids": [],
+          "fact_ids": [
+            "fact_evt_evu_campaign_planning_cult_0"
+          ],
+          "provenance_evidence_ids": [
+            "evu_campaign_planning_cult"
+          ],
+          "selected_fact_id": "fact_evt_evu_campaign_planning_cult_0",
+          "source_campaign_id": "longmont-c1",
+          "source_layer": "campaign",
+          "value_label": "Distribute twisted meat while advancing human supremacy",
+          "value_normalized": "twisted_meat_distribution_human_supremacy"
+        }
+      }
+    }
+  },
+  "metrics": {
+    "open_conflicts": 1,
+    "projected_entities": 4,
+    "resolved_conflicts": 1
+  }
+}

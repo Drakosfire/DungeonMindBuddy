@@ -1,0 +1,43 @@
+{
+  "campaign_id": "longmont-c1",
+  "conflicts": [],
+  "entities": {
+    "ent_mirathorn": {
+      "attributes": {
+        "atmosphere": {
+          "conflict_ids": [],
+          "fact_ids": [
+            "fact_evt_evu_world_approach_0"
+          ],
+          "provenance_evidence_ids": [
+            "evu_world_approach"
+          ],
+          "selected_fact_id": "fact_evt_evu_world_approach_0",
+          "source_campaign_id": null,
+          "source_layer": "world",
+          "value_label": "Approach to Mirathorn carries a city-wide thunderous sound",
+          "value_normalized": "thunderous_city_approach"
+        },
+        "governance": {
+          "conflict_ids": [],
+          "fact_ids": [
+            "fact_evt_evu_world_governance_0"
+          ],
+          "provenance_evidence_ids": [
+            "evu_world_governance"
+          ],
+          "selected_fact_id": "fact_evt_evu_world_governance_0",
+          "source_campaign_id": null,
+          "source_layer": "world",
+          "value_label": "Democratic city-state council represents races and guilds",
+          "value_normalized": "democratic_city_council"
+        }
+      }
+    }
+  },
+  "metrics": {
+    "open_conflicts": 0,
+    "projected_entities": 1,
+    "resolved_conflicts": 0
+  }
+}

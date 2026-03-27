@@ -1,0 +1,23 @@
+[
+  {
+    "attribute": "atmosphere",
+    "blocking": false,
+    "candidate_entity_ids": [],
+    "conflict_id": "conf_ent_mirathorn_atmosphere",
+    "conflict_status": "open",
+    "conflict_type": "source_conflict",
+    "created_at": "2026-03-27T00:00:00Z",
+    "entity_id": "ent_mirathorn",
+    "fact_ids": [
+      "fact_evt_evu_campaign_live_arrival_0",
+      "fact_evt_evu_world_approach_0"
+    ],
+    "mention_ids": [],
+    "notes": "Auto-detected attribute divergence across canon layers.",
+    "record_status": "active",
+    "resolution_decision_id": null,
+    "schema_version": "0.1.0",
+    "severity": "warning",
+    "updated_at": "2026-03-27T00:00:00Z"
+  }
+]

@@ -1,0 +1,79 @@
+{
+  "campaign_id": "longmont-c1",
+  "conflicts": [],
+  "entities": {
+    "ent_commander_elric_vane": {
+      "attributes": {
+        "role": {
+          "conflict_ids": [],
+          "fact_ids": [
+            "fact_evt_evu_campaign_planning_vane_0"
+          ],
+          "provenance_evidence_ids": [
+            "evu_campaign_planning_vane"
+          ],
+          "selected_fact_id": "fact_evt_evu_campaign_planning_vane_0",
+          "source_campaign_id": "longmont-c1",
+          "source_layer": "campaign",
+          "value_label": "Dual role: tactical commander and high priest of the Shepherds",
+          "value_normalized": "dual_leader_high_priest"
+        }
+      }
+    },
+    "ent_mirathorn": {
+      "attributes": {
+        "atmosphere": {
+          "conflict_ids": [],
+          "fact_ids": [
+            "fact_evt_evu_world_approach_0"
+          ],
+          "provenance_evidence_ids": [
+            "evu_world_approach"
+          ],
+          "selected_fact_id": "fact_evt_evu_world_approach_0",
+          "source_campaign_id": null,
+          "source_layer": "world",
+          "value_label": "Approach to Mirathorn carries a city-wide thunderous sound",
+          "value_normalized": "thunderous_city_approach"
+        },
+        "governance": {
+          "conflict_ids": [],
+          "fact_ids": [
+            "fact_evt_evu_world_governance_0"
+          ],
+          "provenance_evidence_ids": [
+            "evu_world_governance"
+          ],
+          "selected_fact_id": "fact_evt_evu_world_governance_0",
+          "source_campaign_id": null,
+          "source_layer": "world",
+          "value_label": "Democratic city-state council represents races and guilds",
+          "value_normalized": "democratic_city_council"
+        }
+      }
+    },
+    "ent_secure_shipment_shepherds": {
+      "attributes": {
+        "goals": {
+          "conflict_ids": [],
+          "fact_ids": [
+            "fact_evt_evu_campaign_planning_cult_0"
+          ],
+          "provenance_evidence_ids": [
+            "evu_campaign_planning_cult"
+          ],
+          "selected_fact_id": "fact_evt_evu_campaign_planning_cult_0",
+          "source_campaign_id": "longmont-c1",
+          "source_layer": "campaign",
+          "value_label": "Distribute twisted meat while advancing human supremacy",
+          "value_normalized": "twisted_meat_distribution_human_supremacy"
+        }
+      }
+    }
+  },
+  "metrics": {
+    "open_conflicts": 0,
+    "projected_entities": 3,
+    "resolved_conflicts": 0
+  }
+}

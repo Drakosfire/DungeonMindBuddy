@@ -1,0 +1,6 @@
+{
+  "max_duplicate_fact_ratio": 0.35,
+  "max_conflicts": 12,
+  "min_conflicts": 1,
+  "min_entity_density": 0.2
+}

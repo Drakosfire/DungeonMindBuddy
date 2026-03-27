@@ -1,0 +1,36 @@
+[
+  {
+    "attribute": "atmosphere",
+    "campaign_id": "longmont-c1",
+    "created_at": "2026-03-27T00:00:00Z",
+    "decided_at": "2026-03-27T00:00:00Z",
+    "decided_by": "slice_hard_gate",
+    "decision_id": "dec_mirathorn_atmosphere_live_override",
+    "decision_kind": "select_canon_fact",
+    "effect": {
+      "action_summary": "Select campaign live atmosphere fact over world baseline.",
+      "effective_from_session": 6,
+      "effective_to_session": null,
+      "merged_entity_ids": [],
+      "rejected_fact_ids": [],
+      "result_entity_id": null,
+      "retracted_fact_ids": [],
+      "scope": "current_projection",
+      "selected_fact_ids": [
+        "fact_evt_evu_campaign_live_arrival_0"
+      ]
+    },
+    "entity_id": "ent_mirathorn",
+    "notes": null,
+    "rationale": "Current campaign session establishes gate protest as active atmosphere.",
+    "record_status": "active",
+    "resolves_conflict_ids": [
+      "conf_ent_mirathorn_atmosphere"
+    ],
+    "schema_version": "0.1.0",
+    "supersedes_decision_id": null,
+    "target_id": "ent_mirathorn:atmosphere",
+    "target_type": "attribute_projection",
+    "updated_at": "2026-03-27T00:00:00Z"
+  }
+]

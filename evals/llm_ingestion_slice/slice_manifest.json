@@ -1,0 +1,14 @@
+{
+  "slice_id": "mirathorn-event-sourced-m1",
+  "campaign_id": "longmont-c1",
+  "sources": {
+    "world_markdown": {
+      "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/The City of Mirathorn.md",
+      "sha256": "963097c7522bd5dc25e29f3216b1f05919f4d1ce5ef52b75eb5b021b5f4bace5"
+    },
+    "campaign_markdown": {
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Longmont Campaign General Notes.md",
+      "sha256": "f0f49498aca31931365a0c24ec33d2f9b933254fef81d9401481a7fef7b6a682"
+    }
+  }
+}
