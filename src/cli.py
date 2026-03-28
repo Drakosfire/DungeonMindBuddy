@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import hashlib
 import json
 import logging
 import os
@@ -58,6 +59,14 @@ def _utc_now_iso() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
+def _file_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(65536), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
 class DungeonBuddyCLI:
     def __init__(self, *, store_dir: Path, verbose: bool = False) -> None:
         _load_env()
@@ -112,6 +121,9 @@ class DungeonBuddyCLI:
         if command == "projection":
             self._cmd_projection(args)
             return True
+        if command == "compact":
+            self._cmd_compact(args)
+            return True
 
         print(f"Error: unknown command '{command}'")
         return True
@@ -125,6 +137,7 @@ class DungeonBuddyCLI:
         parser.add_argument("--campaign")
         parser.add_argument("--source-class")
         parser.add_argument("--title")
+        parser.add_argument("--force", action="store_true")
         parsed = self._safe_parse(parser, args)
         if parsed is None:
             return
@@ -181,9 +194,30 @@ class DungeonBuddyCLI:
         title = parsed.title or source_path.stem
         document_id = f"doc_{_snake_case(source_path.stem)}"
         campaign_id = parsed.campaign
+        source_fingerprint = _file_sha256(source_path)
+        ingest_key = (
+            f"{source_fingerprint}|layer={parsed.layer}|campaign={campaign_id}|source_class={source_class}"
+        )
 
         self.store_dir.mkdir(parents=True, exist_ok=True)
         cache_dir = self.store_dir / ".cache"
+        if self.store.has_ingest_fingerprint(ingest_key) and not parsed.force:
+            print("Error: duplicate ingest detected for identical source fingerprint/scope. Use --force to reingest.")
+            self._record_event(
+                "ingest_runs",
+                {
+                    "run_id": run_id,
+                    "timestamp": _utc_now_iso(),
+                    "status": "error",
+                    "error": "duplicate_ingest",
+                    "source_path": str(source_path),
+                    "layer": parsed.layer,
+                    "campaign_id": campaign_id,
+                    "source_class": source_class,
+                    "source_fingerprint": source_fingerprint,
+                },
+            )
+            return
         self.logger.info("Ingest start run_id=%s source=%s", run_id, source_path)
         self._record_event(
             "ingest_runs",
@@ -197,6 +231,7 @@ class DungeonBuddyCLI:
                 "source_class": source_class,
                 "title": title,
                 "document_id": document_id,
+                "source_fingerprint": source_fingerprint,
             },
         )
 
@@ -316,6 +351,18 @@ class DungeonBuddyCLI:
         self.store.add_evidence_units(evidence_units)
         self.store.add_entities(entities)
         self.store.add_facts(facts)
+        self.store.record_ingest_fingerprint(
+            ingest_key,
+            {
+                "source_path": str(source_path),
+                "layer": parsed.layer,
+                "campaign_id": campaign_id,
+                "source_class": source_class,
+                "document_id": document_id,
+                "recorded_at": _utc_now_iso(),
+                "source_fingerprint": source_fingerprint,
+            },
+        )
         self.store.save()
         print(
             "  Stored. Total: "
@@ -336,6 +383,7 @@ class DungeonBuddyCLI:
                 "campaign_id": campaign_id,
                 "source_class": source_class,
                 "document_id": document_id,
+                "source_fingerprint": source_fingerprint,
                 "counts": {
                     "evidence_units_extracted": len(evidence_units),
                     "entities_extracted": len(entities),
@@ -354,8 +402,24 @@ class DungeonBuddyCLI:
         parser = argparse.ArgumentParser(prog="ask", add_help=False)
         parser.add_argument("question")
         parser.add_argument("--campaign")
+        parser.add_argument("--require-campaign", action="store_true")
         parsed = self._safe_parse(parser, args)
         if parsed is None:
+            return
+
+        if parsed.require_campaign and not parsed.campaign:
+            print("Error: campaign scope is required for this ask run.")
+            self._record_event(
+                "ask_runs",
+                {
+                    "run_id": run_id,
+                    "timestamp": _utc_now_iso(),
+                    "status": "error",
+                    "error": "missing_campaign_scope",
+                    "question": parsed.question,
+                    "campaign_id": parsed.campaign,
+                },
+            )
             return
 
         if not os.getenv("OPENAI_API_KEY"):
@@ -493,6 +557,18 @@ class DungeonBuddyCLI:
             projection.get("metrics", {}).get("projected_entities"),
             projection.get("metrics", {}).get("open_conflicts"),
             len(context),
+        )
+
+    def _cmd_compact(self, args: Sequence[str]) -> None:
+        if args:
+            print("Error: compact takes no arguments")
+            return
+        stats = self.store.compact()
+        self.store.save()
+        print(
+            "Compaction complete: "
+            f"evidence {stats['evidence_before']} -> {stats['evidence_after']}, "
+            f"facts {stats['facts_before']} -> {stats['facts_after']}."
         )
 
     @staticmethod

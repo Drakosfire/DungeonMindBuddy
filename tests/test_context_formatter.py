@@ -15,6 +15,8 @@ def _projection_template() -> dict:
                         "value_normalized": "founded_200_years",
                         "source_layer": "world",
                         "source_campaign_id": None,
+                        "source_class": "seed_reference",
+                        "source_truth_state": "CANON",
                         "fact_ids": ["fact_m_hist"],
                         "provenance_evidence_ids": ["evid_1"],
                         "conflict_ids": [],
@@ -25,6 +27,8 @@ def _projection_template() -> dict:
                         "value_normalized": "stormspire_base",
                         "source_layer": "world",
                         "source_campaign_id": None,
+                        "source_class": "seed_reference",
+                        "source_truth_state": "CANON",
                         "fact_ids": ["fact_m_geo"],
                         "provenance_evidence_ids": ["evid_2"],
                         "conflict_ids": ["auto_conflict_001"],
@@ -51,7 +55,7 @@ def test_formats_minimal_projection_shape() -> None:
     assert "Question: Catch me up" in output
     assert "== Entity: Mirathorn (location) ==" in output
     assert "history: Founded over 200 years ago." in output
-    assert "[CANON, from: layer=world, fact=fact_m_hist]" in output
+    assert "[CANON, from: layer=world, source_class=seed_reference, fact=fact_m_hist]" in output
 
 
 def test_includes_entity_type_from_metadata() -> None:
@@ -93,6 +97,8 @@ def test_respects_entity_cap_with_truncation_note() -> None:
                     "value_normalized": None,
                     "source_layer": "world",
                     "source_campaign_id": None,
+                    "source_class": "seed_reference",
+                    "source_truth_state": "CANON",
                     "fact_ids": [f"fact_{idx:03d}"],
                     "provenance_evidence_ids": [f"evid_{idx:03d}"],
                     "conflict_ids": [],
@@ -108,3 +114,29 @@ def test_respects_entity_cap_with_truncation_note() -> None:
 
     assert output.count("== Entity:") == 50
     assert "Context truncated to top 50 entities by fact count" in output
+
+
+def test_campaign_truth_state_is_rendered_when_present() -> None:
+    projection = {
+        "entities": {
+            "ent_wolf": {
+                "attributes": {
+                    "physical_condition": {
+                        "selected_fact_id": "fact_wolf_obs",
+                        "value_label": "receives a killing blow (dies)",
+                        "value_normalized": "dead",
+                        "source_layer": "campaign",
+                        "source_campaign_id": "longmont-c1",
+                        "source_class": "observed_session_recap",
+                        "source_truth_state": "OBSERVED",
+                        "fact_ids": ["fact_wolf_obs"],
+                        "provenance_evidence_ids": ["evid_wolf"],
+                        "conflict_ids": [],
+                    }
+                }
+            }
+        }
+    }
+    entities = [{"entity_id": "ent_wolf", "entity_type": "npc", "display_name": "the Wolf"}]
+    output = format_projection_context(projection, entities)
+    assert "[OBSERVED, from: layer=campaign, campaign=longmont-c1, source_class=observed_session_recap, fact=fact_wolf_obs]" in output

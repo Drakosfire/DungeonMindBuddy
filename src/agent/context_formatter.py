@@ -18,11 +18,14 @@ def _entity_meta_by_id(entities: list[dict[str, Any]]) -> dict[str, dict[str, st
     return lookup
 
 
-def _truth_state_from_source_layer(source_layer: str) -> str:
+def _truth_state_from_payload(attribute_payload: dict[str, Any]) -> str:
+    explicit = str(attribute_payload.get("source_truth_state", "")).strip()
+    if explicit:
+        return explicit
+    source_layer = str(attribute_payload.get("source_layer", "unknown"))
     if source_layer == "world":
         return "CANON"
     if source_layer == "campaign":
-        # The reducer currently preserves layer but not detailed campaign truth_state.
         return "CAMPAIGN"
     return "UNKNOWN"
 
@@ -81,12 +84,15 @@ def format_projection_context(
         for attribute, attribute_payload in sorted(attributes.items()):
             value_label = str(attribute_payload.get("value_label", "")).strip() or "(no value)"
             source_layer = str(attribute_payload.get("source_layer", "unknown"))
-            truth_state = _truth_state_from_source_layer(source_layer)
+            truth_state = _truth_state_from_payload(attribute_payload)
             selected_fact_id = str(attribute_payload.get("selected_fact_id", ""))
             source_campaign_id = attribute_payload.get("source_campaign_id")
+            source_class = str(attribute_payload.get("source_class", "")).strip()
             source_summary = f"layer={source_layer}"
             if source_campaign_id:
                 source_summary += f", campaign={source_campaign_id}"
+            if source_class:
+                source_summary += f", source_class={source_class}"
             if selected_fact_id:
                 source_summary += f", fact={selected_fact_id}"
             lines.append(f"  {attribute}: {value_label}")

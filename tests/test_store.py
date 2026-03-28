@@ -36,11 +36,16 @@ def _sample_evidence(evidence_id: str = "evid_store_001") -> dict[str, object]:
     }
 
 
-def _sample_entity(entity_id: str, name: str, aliases: list[str]) -> dict[str, object]:
+def _sample_entity(
+    entity_id: str,
+    name: str,
+    aliases: list[str],
+    entity_type: str = "location",
+) -> dict[str, object]:
     return {
         **_base_record(),
         "entity_id": entity_id,
-        "entity_type": "location",
+        "entity_type": entity_type,
         "display_name": name,
         "canonical_name": None,
         "aliases": aliases,
@@ -66,6 +71,8 @@ def _sample_fact(fact_id: str = "fact_store_001") -> dict[str, object]:
         "truth_state": "CANON",
         "source_authority": "seed_prep",
         "evidence_ids": ["evid_store_001"],
+        "asserted_in_session": None,
+        "sequence_index_within_session": None,
     }
 
 
@@ -111,3 +118,44 @@ def test_project_delegates_to_reducer(tmp_path: Path) -> None:
     assert "ent_mirathorn" in projection["entities"]
     attrs = projection["entities"]["ent_mirathorn"]["attributes"]
     assert attrs["operational_status"]["value_normalized"] == "prosperous"
+
+
+def test_entity_merge_is_blocked_when_types_conflict(tmp_path: Path) -> None:
+    store = FactStore(tmp_path / "store")
+    wolf = _sample_entity("ent_the_wolf", "the Wolf", ["wolf"], entity_type="npc")
+    council_room = _sample_entity(
+        "ent_council_room",
+        "Council Room",
+        ["wolf"],
+        entity_type="location",
+    )
+    store.add_entities([wolf, council_room])
+    assert len(store.entities) == 2
+
+
+def test_compact_deduplicates_facts_and_merges_evidence_ids(tmp_path: Path) -> None:
+    store = FactStore(tmp_path / "store")
+    store.add_evidence_units([_sample_evidence("evid_1"), _sample_evidence("evid_2")])
+    fact1 = _sample_fact("fact_1")
+    fact2 = _sample_fact("fact_2")
+    fact1["evidence_ids"] = ["evid_1"]
+    fact2["evidence_ids"] = ["evid_2"]
+    store.add_facts([fact1, fact2])
+    stats = store.compact()
+
+    assert stats["facts_before"] == 2
+    assert stats["facts_after"] == 1
+    assert set(store.facts[0]["evidence_ids"]) == {"evid_1", "evid_2"}
+
+
+def test_ingest_index_persists_across_save_load(tmp_path: Path) -> None:
+    store = FactStore(tmp_path / "store")
+    store.record_ingest_fingerprint(
+        "fingerprint-key",
+        {"source_path": "foo.md", "layer": "campaign"},
+    )
+    store.save()
+
+    reloaded = FactStore(tmp_path / "store")
+    reloaded.load()
+    assert reloaded.has_ingest_fingerprint("fingerprint-key")
