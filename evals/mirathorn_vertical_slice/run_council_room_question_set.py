@@ -14,6 +14,111 @@ if str(PROJECT_ROOT) not in sys.path:
 
 DungeonBuddyCLI = importlib.import_module("src.cli").DungeonBuddyCLI
 DEFAULT_CAMPAIGN_ID = "longmont-c1"
+GLOBAL_STALE_PATTERNS = (
+    "nothing changed",
+    "no changes",
+    "no observed or prep",
+    "no observed updates",
+    "no observed facts",
+    "architecturally unchanged",
+)
+UPDATE_SIGNAL_TOKENS = (
+    "observed",
+    "disheveled",
+    "activated",
+    "fireball",
+    "killing blow",
+    "decapitated",
+    "dead",
+    "fades",
+)
+
+SEMANTIC_EQUIVALENCES: dict[str, list[str]] = {
+    "killing blow": ["decapitated", "head removed", "struck down", "killed"],
+    "dead": ["decapitated", "head removed", "death", "killed", "no longer active"],
+    "oily sheen fades": ["oily sheen", "sheen fades", "corruption.*fades"],
+    "oily sheen": ["oily sheen"],
+    "arched ceilings": ["arched", "vaulted ceiling"],
+    "floating chandelier": ["chandelier"],
+    "secret passage": ["secret passage", "hidden passage", "concealed passage"],
+    "chandelier": ["chandelier"],
+    "before": ["before", "prior to", "pre-fight", "lead-in"],
+    "after": ["after", "post-fight", "outcome", "end of"],
+}
+
+
+def classify_answer(
+    *,
+    must_tokens: list[str],
+    stale_tokens: list[str],
+    answer: str,
+    has_error: bool,
+) -> tuple[str, list[str], list[str], list[str]]:
+    lower_answer = answer.lower()
+    must_hits = [token for token in must_tokens if token.lower() in lower_answer]
+    stale_hits = [token for token in stale_tokens if token.lower() in lower_answer]
+    global_stale_hits = [p for p in GLOBAL_STALE_PATTERNS if p in lower_answer]
+    update_signal_hits = [t for t in UPDATE_SIGNAL_TOKENS if t in lower_answer]
+
+    # Stale should indicate globally stale state, not localized unchanged traits.
+    stale_state = bool(global_stale_hits) or (
+        bool(stale_hits) and not must_hits and not update_signal_hits
+    )
+    if has_error:
+        verdict = "fail_error"
+    elif (
+        len(must_hits) >= max(1, len(must_tokens) - 1)
+        and not stale_state
+    ):
+        verdict = "pass_updated"
+    elif stale_state:
+        verdict = "fail_stale"
+    else:
+        verdict = "fail_incomplete"
+
+    return verdict, must_hits, stale_hits, global_stale_hits
+
+
+def _semantic_token_present(token: str, answer_lower: str) -> bool:
+    """Check if *token* or any of its semantic equivalents appear in *answer_lower*."""
+    if token.lower() in answer_lower:
+        return True
+    for equiv in SEMANTIC_EQUIVALENCES.get(token.lower(), []):
+        if re.search(equiv, answer_lower, re.IGNORECASE):
+            return True
+    return False
+
+
+def classify_answer_semantic(
+    *,
+    must_tokens: list[str],
+    stale_tokens: list[str],
+    answer: str,
+    has_error: bool,
+) -> tuple[str, list[str], list[str], list[str]]:
+    """Semantic scoring pass: uses equivalence groups instead of literal matching."""
+    lower_answer = answer.lower()
+    must_hits = [t for t in must_tokens if _semantic_token_present(t, lower_answer)]
+    stale_hits = [t for t in stale_tokens if t.lower() in lower_answer]
+    global_stale_hits = [p for p in GLOBAL_STALE_PATTERNS if p in lower_answer]
+    update_signal_hits = [t for t in UPDATE_SIGNAL_TOKENS if t in lower_answer]
+
+    stale_state = bool(global_stale_hits) or (
+        bool(stale_hits) and not must_hits and not update_signal_hits
+    )
+    if has_error:
+        verdict = "fail_error"
+    elif (
+        len(must_hits) >= max(1, len(must_tokens) - 1)
+        and not stale_state
+    ):
+        verdict = "pass_updated"
+    elif stale_state:
+        verdict = "fail_stale"
+    else:
+        verdict = "fail_incomplete"
+
+    return verdict, must_hits, stale_hits, global_stale_hits
 
 
 def run() -> dict:
@@ -66,41 +171,45 @@ def run() -> dict:
         answer = capture.getvalue().strip()
         has_error = bool(re.search(r"Error:\s*(.*)", answer, re.IGNORECASE))
 
-        lower_answer = answer.lower()
-        must_hits = [token for token in row["must"] if token.lower() in lower_answer]
-        stale_hits = [token for token in row["stale"] if token.lower() in lower_answer]
+        verdict, must_hits, stale_hits, global_stale_hits = classify_answer(
+            must_tokens=row["must"],
+            stale_tokens=row["stale"],
+            answer=answer,
+            has_error=has_error,
+        )
 
-        if (
-            len(must_hits) >= max(1, len(row["must"]) - 1)
-            and not stale_hits
-            and not has_error
-        ):
-            verdict = "pass_updated"
-        elif stale_hits:
-            verdict = "fail_stale"
-        elif has_error:
-            verdict = "fail_error"
-        else:
-            verdict = "fail_incomplete"
+        sem_verdict, sem_must_hits, sem_stale_hits, sem_global_stale = classify_answer_semantic(
+            must_tokens=row["must"],
+            stale_tokens=row["stale"],
+            answer=answer,
+            has_error=has_error,
+        )
 
         results.append(
             {
                 "id": row["id"],
                 "question": row["question"],
-                "verdict": verdict,
+                "strict_verdict": verdict,
+                "semantic_verdict": sem_verdict,
                 "must_hits": must_hits,
+                "semantic_must_hits": sem_must_hits,
                 "stale_hits": stale_hits,
+                "global_stale_hits": global_stale_hits,
                 "answer": answer,
             }
         )
 
+    def _tally(key: str) -> dict[str, int]:
+        return {
+            "pass_updated": sum(1 for r in results if r[key] == "pass_updated"),
+            "fail_stale": sum(1 for r in results if r[key] == "fail_stale"),
+            "fail_incomplete": sum(1 for r in results if r[key] == "fail_incomplete"),
+            "fail_error": sum(1 for r in results if r[key] == "fail_error"),
+        }
+
     summary = {
-        "overall": {
-            "pass_updated": sum(1 for r in results if r["verdict"] == "pass_updated"),
-            "fail_stale": sum(1 for r in results if r["verdict"] == "fail_stale"),
-            "fail_incomplete": sum(1 for r in results if r["verdict"] == "fail_incomplete"),
-            "fail_error": sum(1 for r in results if r["verdict"] == "fail_error"),
-        },
+        "overall_strict": _tally("strict_verdict"),
+        "overall_semantic": _tally("semantic_verdict"),
         "results": results,
     }
 
@@ -108,19 +217,32 @@ def run() -> dict:
         json.dumps(summary, indent=2), encoding="utf-8"
     )
 
+    s = summary["overall_strict"]
+    sem = summary["overall_semantic"]
     lines = ["# Council Room Question Set Results", ""]
-    lines.append(f"- pass_updated: {summary['overall']['pass_updated']}")
-    lines.append(f"- fail_stale: {summary['overall']['fail_stale']}")
-    lines.append(f"- fail_incomplete: {summary['overall']['fail_incomplete']}")
-    lines.append(f"- fail_error: {summary['overall']['fail_error']}")
+    lines.append("## Strict scoring")
+    lines.append(f"- pass_updated: {s['pass_updated']}")
+    lines.append(f"- fail_stale: {s['fail_stale']}")
+    lines.append(f"- fail_incomplete: {s['fail_incomplete']}")
+    lines.append(f"- fail_error: {s['fail_error']}")
+    lines.append("")
+    lines.append("## Semantic scoring")
+    lines.append(f"- pass_updated: {sem['pass_updated']}")
+    lines.append(f"- fail_stale: {sem['fail_stale']}")
+    lines.append(f"- fail_incomplete: {sem['fail_incomplete']}")
+    lines.append(f"- fail_error: {sem['fail_error']}")
     lines.append("")
 
     for row in results:
-        lines.append(f"## {row['id']} - {row['verdict']}")
+        lines.append(f"## {row['id']} — strict: {row['strict_verdict']} | semantic: {row['semantic_verdict']}")
         lines.append(f"- question: {row['question']}")
         lines.append(
-            "- must_hits: "
+            "- strict must_hits: "
             + (", ".join(row["must_hits"]) if row["must_hits"] else "(none)")
+        )
+        lines.append(
+            "- semantic must_hits: "
+            + (", ".join(row["semantic_must_hits"]) if row["semantic_must_hits"] else "(none)")
         )
         lines.append(
             "- stale_hits: "
@@ -139,4 +261,8 @@ def run() -> dict:
 
 
 if __name__ == "__main__":
-    print(json.dumps(run()["overall"], indent=2))
+    out = run()
+    print("=== STRICT ===")
+    print(json.dumps(out["overall_strict"], indent=2))
+    print("=== SEMANTIC ===")
+    print(json.dumps(out["overall_semantic"], indent=2))

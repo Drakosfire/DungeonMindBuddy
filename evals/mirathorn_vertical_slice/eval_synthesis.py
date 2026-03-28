@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import argparse
+import hashlib
 import io
+import json
 import os
 import sys
 from contextlib import redirect_stdout
@@ -34,13 +37,17 @@ MIN_ANSWER_CHARS = 200
 ATTRIBUTE_KEYWORDS = ("history", "geography", "demographics", "economy", "defenses")
 
 
+def _sha256_text(value: str) -> str:
+    return hashlib.sha256(value.encode("utf-8")).hexdigest()
+
+
 def _contains_any(haystack: str, needles: tuple[str, ...]) -> bool:
     lowered = haystack.lower()
     return any(needle in lowered for needle in needles)
 
 
-def _run_ingest(cli: DungeonBuddyCLI) -> tuple[bool, str]:
-    cmd = f'ingest "{MIRATHORN_SOURCE}" --layer world --source-class seed_reference'
+def _run_ingest(cli: DungeonBuddyCLI, source_path: Path) -> tuple[bool, str]:
+    cmd = f'ingest "{source_path}" --layer world --source-class seed_reference'
     capture = io.StringIO()
     with redirect_stdout(capture):
         keep_running = cli.handle_line(cmd)
@@ -129,7 +136,33 @@ def _gate_d4(cli: DungeonBuddyCLI, api_key: str) -> tuple[bool, str]:
     return passed, f"sequence_ok={sequence_ok} {' '.join(details)}"
 
 
-def main() -> int:
+def _artifact_paths() -> dict[str, str]:
+    return {
+        "context_path": str(OUTPUT_DIR / "phase_d_context.txt"),
+        "answer_path": str(OUTPUT_DIR / "phase_d_answer.txt"),
+        "summary_path": str(OUTPUT_DIR / "phase_d_summary.json"),
+    }
+
+
+def _print_artifact_locations() -> None:
+    artifacts = _artifact_paths()
+    print("\n=== PHASE D ARTIFACTS ===")
+    print(f"context: {artifacts['context_path']}")
+    print(f"answer:  {artifacts['answer_path']}")
+    print(f"summary: {artifacts['summary_path']}")
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="Phase D synthesis eval runner")
+    parser.add_argument(
+        "--source",
+        type=Path,
+        default=MIRATHORN_SOURCE,
+        help="Markdown source to ingest for Phase D eval",
+    )
+    args = parser.parse_args(argv)
+    source_path = args.source
+
     env_candidates = [
         REPO_ROOT / ".env.development",
         REPO_ROOT.parent / ".env.development",
@@ -138,8 +171,8 @@ def main() -> int:
         if env_file.exists():
             load_dotenv(env_file, override=True)
 
-    if not MIRATHORN_SOURCE.exists():
-        print(f"ERROR: Mirathorn source markdown not found: {MIRATHORN_SOURCE}")
+    if not source_path.exists():
+        print(f"ERROR: source markdown not found: {source_path}")
         return 1
 
     api_key = os.getenv("OPENAI_API_KEY")
@@ -150,32 +183,70 @@ def main() -> int:
     store_dir = OUTPUT_DIR / "phase_d_store"
     cli = DungeonBuddyCLI(store_dir=store_dir, verbose=True)
 
-    _, ingest_output = _run_ingest(cli)
+    _, ingest_output = _run_ingest(cli, source_path)
     print("=== INGEST OUTPUT ===")
     print(ingest_output.strip())
     if "Error:" in ingest_output:
         print("EARLY EXIT: ingest command failed.")
         print("\n=== PHASE D RESULT ===")
         print("OVERALL: FAIL")
+        _print_artifact_locations()
         return 1
 
     gate_d1_passed, gate_d1_detail = _gate_d1(cli)
     print(f"D1 Ingest round-trip: {'PASS' if gate_d1_passed else 'FAIL'} ({gate_d1_detail})")
     if not gate_d1_passed:
         print("EARLY EXIT: D1 failed.")
+        OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+        summary = {
+            "overall_pass": False,
+            "early_exit": "D1",
+            "source_path": str(source_path),
+            "gates": {
+                "D1": {"pass": gate_d1_passed, "detail": gate_d1_detail},
+            },
+            "artifacts": _artifact_paths(),
+        }
+        (OUTPUT_DIR / "phase_d_summary.json").write_text(
+            json.dumps(summary, indent=2, sort_keys=True),
+            encoding="utf-8",
+        )
         print("\n=== PHASE D RESULT ===")
         print("OVERALL: FAIL")
+        _print_artifact_locations()
         return 1
 
     projection = cli.store.project(None)
     context = format_projection_context(projection, cli.store.list_entities(), "Catch me up on Mirathorn")
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    (OUTPUT_DIR / "phase_d_context.txt").write_text(context, encoding="utf-8")
     try:
         answer = synthesize_answer(context, "Catch me up on Mirathorn")
     except Exception as exc:
+        summary = {
+            "overall_pass": False,
+            "early_exit": "synthesis",
+            "error": str(exc),
+            "source_path": str(source_path),
+            "gates": {
+                "D1": {"pass": gate_d1_passed, "detail": gate_d1_detail},
+            },
+            "artifacts": _artifact_paths(),
+            "context_stats": {
+                "chars": len(context),
+                "sha256": _sha256_text(context),
+            },
+        }
+        (OUTPUT_DIR / "phase_d_summary.json").write_text(
+            json.dumps(summary, indent=2, sort_keys=True),
+            encoding="utf-8",
+        )
         print(f"EARLY EXIT: synthesis failed: {exc}")
         print("\n=== PHASE D RESULT ===")
         print("OVERALL: FAIL")
+        _print_artifact_locations()
         return 1
+    (OUTPUT_DIR / "phase_d_answer.txt").write_text(answer, encoding="utf-8")
     print("\n=== ASK OUTPUT ===")
     print(answer.strip())
 
@@ -187,11 +258,35 @@ def main() -> int:
     print(f"D4 CLI stability: {'PASS' if gate_d4_passed else 'FAIL'} ({gate_d4_detail})")
 
     all_passed = gate_d1_passed and gate_d2_passed and gate_d3_passed and gate_d4_passed
+    summary = {
+        "overall_pass": all_passed,
+        "source_path": str(source_path),
+        "gates": {
+            "D1": {"pass": gate_d1_passed, "detail": gate_d1_detail},
+            "D2": {"pass": gate_d2_passed, "detail": gate_d2_detail},
+            "D3": {"pass": gate_d3_passed, "detail": gate_d3_detail},
+            "D4": {"pass": gate_d4_passed, "detail": gate_d4_detail},
+        },
+        "artifacts": _artifact_paths(),
+        "context_stats": {
+            "chars": len(context),
+            "sha256": _sha256_text(context),
+        },
+        "answer_stats": {
+            "chars": len(answer),
+            "sha256": _sha256_text(answer),
+        },
+    }
+    (OUTPUT_DIR / "phase_d_summary.json").write_text(
+        json.dumps(summary, indent=2, sort_keys=True),
+        encoding="utf-8",
+    )
     print("\n=== PHASE D RESULT ===")
     print(f"OVERALL: {'PASS' if all_passed else 'FAIL'}")
+    _print_artifact_locations()
 
     return 0 if all_passed else 1
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(main(sys.argv[1:]))

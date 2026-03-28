@@ -21,4 +21,5 @@ def test_runner_enforces_campaign_scope(monkeypatch) -> None:
     assert len(ask_commands) == 5
     assert all("--campaign longmont-c1" in cmd for cmd in ask_commands)
     assert all("--require-campaign" in cmd for cmd in ask_commands)
-    assert "overall" in summary
+    assert "overall_strict" in summary
+    assert "overall_semantic" in summary
