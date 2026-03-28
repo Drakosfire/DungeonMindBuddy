@@ -13,7 +13,9 @@ from src.ingestion.fact_extractor import (
 )
 
 
-def _evidence(evidence_id: str, text: str, index: int) -> dict[str, Any]:
+def _evidence(
+    evidence_id: str, text: str, index: int, inferred_session: int | None = None
+) -> dict[str, Any]:
     return {
         "schema_version": "0.1.0",
         "created_at": "2026-03-27T00:00:00Z",
@@ -32,7 +34,7 @@ def _evidence(evidence_id: str, text: str, index: int) -> dict[str, Any]:
         "source_order_index": index,
         "line_span": None,
         "char_span": None,
-        "inferred_session": None,
+        "inferred_session": inferred_session,
         "speaker_or_subject": None,
         "notes": None,
     }
@@ -396,3 +398,18 @@ def test_world_canon_facts_have_correct_truth_state(tmp_path: Path) -> None:
     assert facts
     assert all(f["truth_state"] == "CANON" for f in facts)
     assert all(f["source_authority"] == "seed_prep" for f in facts)
+
+
+def test_temporal_provenance_copied_from_evidence_unit(tmp_path: Path) -> None:
+    facts = run_fact_extraction(
+        [_evidence("evid_1", "Geography: near Stormspire Peaks.", 7, inferred_session=12)],
+        entities=ENTITIES,
+        canon_layer="campaign",
+        campaign_id="longmont-c1",
+        source_class="observed_session_recap",
+        cache_dir=tmp_path / "cache",
+        openai_client=_StubFactClient(),
+    )
+    assert facts
+    assert all(f["asserted_in_session"] == 12 for f in facts)
+    assert all(f["sequence_index_within_session"] == 7 for f in facts)

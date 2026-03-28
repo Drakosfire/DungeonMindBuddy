@@ -14,6 +14,8 @@ class FactWithLayer:
     fact: dict[str, Any]
     layer: str
     campaign_id: str | None
+    source_class: str
+    truth_state: str
 
 
 def _fact_sort_key(fact: dict[str, Any]) -> tuple[int, int, str]:
@@ -26,6 +28,51 @@ def _fact_sort_key(fact: dict[str, Any]) -> tuple[int, int, str]:
     return int(session), int(seq), str(fact["fact_id"])
 
 
+def _is_terminal_observed_value(label: str) -> bool:
+    lowered = label.lower()
+    terminal_markers = (
+        "killing blow",
+        "dies",
+        "dead",
+        "decapitated",
+        "oily sheen in eyes fades",
+        "oily sheen fades",
+    )
+    return any(marker in lowered for marker in terminal_markers)
+
+
+def _contains_temporal_ordering(entries: list[FactWithLayer]) -> bool:
+    return any(
+        entry.fact.get("asserted_in_session") is not None
+        or entry.fact.get("sequence_index_within_session") is not None
+        for entry in entries
+    )
+
+
+def _selection_priority(
+    entry: FactWithLayer,
+    *,
+    campaign_id: str | None,
+    contradiction_detected: bool,
+) -> tuple[int, int, int, int, str]:
+    session, seq, fid = _fact_sort_key(entry.fact)
+    if not contradiction_detected:
+        return session, seq, 0, 0, fid
+
+    label = str(entry.fact.get("value", {}).get("label", ""))
+    terminal_rank = 1 if _is_terminal_observed_value(label) else 0
+    campaign_observed_rank = (
+        1
+        if campaign_id is not None
+        and entry.layer == "campaign"
+        and entry.campaign_id == campaign_id
+        and entry.truth_state == "OBSERVED"
+        else 0
+    )
+    truth_rank = 1 if entry.truth_state == "OBSERVED" else 0
+    return session, seq, campaign_observed_rank, terminal_rank + truth_rank, fid
+
+
 def _canonical_json_value(value: dict[str, Any]) -> tuple[str | None, str]:
     normalized = value.get("normalized")
     return normalized, str(value.get("label", ""))
@@ -34,11 +81,23 @@ def _canonical_json_value(value: dict[str, Any]) -> tuple[str | None, str]:
 def _pick_selected_fact(
     facts: list[FactWithLayer],
     selected_fact_ids: set[str],
+    campaign_id: str | None,
 ) -> FactWithLayer:
     selected = [fact for fact in facts if fact.fact["fact_id"] in selected_fact_ids]
-    if selected:
-        return sorted(selected, key=lambda entry: _fact_sort_key(entry.fact))[-1]
-    return sorted(facts, key=lambda entry: _fact_sort_key(entry.fact))[-1]
+    candidates = selected if selected else facts
+
+    contradiction_detected = (
+        len({_canonical_json_value(entry.fact["value"]) for entry in candidates}) > 1
+        and not _contains_temporal_ordering(candidates)
+    )
+    return sorted(
+        candidates,
+        key=lambda entry: _selection_priority(
+            entry,
+            campaign_id=campaign_id,
+            contradiction_detected=contradiction_detected,
+        ),
+    )[-1]
 
 
 def _group_facts(facts: list[FactWithLayer]) -> dict[tuple[str, str], list[FactWithLayer]]:
@@ -94,7 +153,15 @@ def _fact_layers_by_evidence(
                 f"Fact {fact.get('fact_id')} mixes evidence layers: {sorted(layers)}"
             )
         layer, campaign_id = next(iter(layers))
-        output.append(FactWithLayer(fact=fact, layer=layer, campaign_id=campaign_id))
+        output.append(
+            FactWithLayer(
+                fact=fact,
+                layer=layer,
+                campaign_id=campaign_id,
+                source_class=str(evidence_by_id[evidence_ids[0]].get("source_class", "unknown")),
+                truth_state=str(fact.get("truth_state", "CANON")),
+            )
+        )
     return output
 
 
@@ -102,9 +169,9 @@ def _applicable_fact(
     fact: FactWithLayer,
     campaign_id: str | None,
 ) -> bool:
-    if fact.fact.get("truth_state") in REJECTED_TRUTH_STATES:
+    if fact.truth_state in REJECTED_TRUTH_STATES:
         return False
-    if fact.fact.get("truth_state") not in ACTIVE_TRUTH_STATES:
+    if fact.truth_state not in ACTIVE_TRUTH_STATES:
         return False
     if fact.fact.get("record_status") != "active":
         return False
@@ -151,7 +218,11 @@ def project_entity_state(
 
     projection_entities: dict[str, dict[str, Any]] = {}
     for (entity_id, attribute), entries in sorted(grouped.items()):
-        picked = _pick_selected_fact(facts=entries, selected_fact_ids=selected_fact_ids)
+        picked = _pick_selected_fact(
+            facts=entries,
+            selected_fact_ids=selected_fact_ids,
+            campaign_id=campaign_id,
+        )
         layer = picked.layer
         value = picked.fact["value"]
         if entity_id not in projection_entities:
@@ -162,6 +233,8 @@ def project_entity_state(
             "value_normalized": value.get("normalized"),
             "source_layer": layer,
             "source_campaign_id": picked.campaign_id,
+            "source_class": picked.source_class,
+            "source_truth_state": picked.truth_state,
             "fact_ids": sorted(entry.fact["fact_id"] for entry in entries),
             "provenance_evidence_ids": sorted(
                 {evidence_id for entry in entries for evidence_id in entry.fact["evidence_ids"]}

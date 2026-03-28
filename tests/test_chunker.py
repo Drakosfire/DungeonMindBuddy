@@ -4,7 +4,12 @@ from pathlib import Path
 
 import pytest
 
-from src.ingestion.chunker import _build_heading_tree, _segment_blocks, chunk_document
+from src.ingestion.chunker import (
+    _build_heading_tree,
+    _infer_session_from_section_path,
+    _segment_blocks,
+    chunk_document,
+)
 
 
 def test_build_heading_tree_nests_children() -> None:
@@ -61,3 +66,34 @@ def test_chunk_document_outputs_schema_valid_units_for_mirathorn() -> None:
     assert units
     assert any("Mirathorn Overview" in unit["section_path"] for unit in units)
     assert all(unit["schema_version"] == "0.1.0" for unit in units)
+
+
+def test_infer_session_from_section_path() -> None:
+    assert _infer_session_from_section_path(["Campaign 1", "Session 11 Recap"]) == 11
+    assert _infer_session_from_section_path(["Longmont", "Session 12 - Aftermath"]) == 12
+    assert _infer_session_from_section_path(["Longmont", "Recap"]) is None
+
+
+def test_chunk_document_sets_inferred_session_from_headings(tmp_path: Path) -> None:
+    md_path = tmp_path / "sessions.md"
+    md_path.write_text(
+        (
+            "# Session 11 Recap\n\n"
+            "The council meets and reviews long-form strategic notes for the city defenses.\n\n"
+            "## Session 12 Recap\n\n"
+            "The wolf is down and the party catalogs extensive post-fight aftermath details.\n"
+        ),
+        encoding="utf-8",
+    )
+    units = chunk_document(
+        docx_path=md_path,
+        document_id="doc_sessions",
+        document_title="Sessions",
+        canon_layer="campaign",
+        campaign_id="longmont-c1",
+        source_class="observed_session_recap",
+    )
+
+    sessions = {unit["inferred_session"] for unit in units}
+    assert 11 in sessions
+    assert 12 in sessions

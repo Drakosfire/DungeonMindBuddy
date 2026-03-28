@@ -291,7 +291,7 @@ def _build_fact_value_dict(fv: FactValueOutput) -> dict[str, Any]:
 def _build_fact_record(
     extracted: ExtractedFact,
     *,
-    evidence_id: str,
+    evidence_unit: dict[str, Any],
     truth_state: str,
     source_authority: str,
     entity_id_set: set[str],
@@ -302,6 +302,18 @@ def _build_fact_record(
         return None
 
     now_iso = _now_utc_iso()
+    evidence_id = str(evidence_unit.get("evidence_id", "unknown"))
+    inferred_session = evidence_unit.get("inferred_session")
+    try:
+        asserted_in_session = int(inferred_session) if inferred_session is not None else None
+    except (TypeError, ValueError):
+        asserted_in_session = None
+    source_order = evidence_unit.get("source_order_index")
+    try:
+        sequence_index = int(source_order) if source_order is not None else None
+    except (TypeError, ValueError):
+        sequence_index = None
+
     fact_id = _compute_fact_id(
         extracted.subject_entity_id, extracted.attribute, extracted.value.label
     )
@@ -319,8 +331,8 @@ def _build_fact_record(
         "truth_state": truth_state,
         "source_authority": source_authority,
         "evidence_ids": [evidence_id],
-        "asserted_in_session": None,
-        "sequence_index_within_session": None,
+        "asserted_in_session": asserted_in_session,
+        "sequence_index_within_session": sequence_index,
     }
 
 
@@ -465,11 +477,10 @@ async def extract_facts_batch(
 
     records: list[dict[str, Any]] = []
     for unit, result in zip(evidence_units, results, strict=False):
-        evidence_id = str(unit.get("evidence_id", "unknown"))
         for extracted in result.facts:
             record = _build_fact_record(
                 extracted,
-                evidence_id=evidence_id,
+                evidence_unit=unit,
                 truth_state=truth_state,
                 source_authority=source_authority,
                 entity_id_set=entity_id_set,

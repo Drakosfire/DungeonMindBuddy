@@ -13,6 +13,7 @@ from src.ingestion.docx_converter import docx_to_markdown, markdown_passthrough
 
 
 _HEADING_RE = re.compile(r"^(#{1,6})\s+(.+?)\s*$")
+_SESSION_RE = re.compile(r"\bsession\s+(\d+)\b", re.IGNORECASE)
 
 
 @dataclass
@@ -113,6 +114,14 @@ def _compute_evidence_id(document_id: str, section_path: list[str], text: str) -
     return f"evid_{digest}"
 
 
+def _infer_session_from_section_path(section_path: list[str]) -> int | None:
+    for section in reversed(section_path):
+        match = _SESSION_RE.search(section)
+        if match:
+            return int(match.group(1))
+    return None
+
+
 def _walk_tree(
     node: _ASTNode,
     path: list[str],
@@ -187,7 +196,7 @@ def _walk_tree(
                     "source_order_index": counter[0],
                     "line_span": None,
                     "char_span": None,
-                    "inferred_session": None,
+                    "inferred_session": _infer_session_from_section_path(child_path),
                     "speaker_or_subject": None,
                     "notes": None,
                 }
@@ -224,7 +233,7 @@ def _walk_tree(
             "source_order_index": counter[0],
             "line_span": None,
             "char_span": None,
-            "inferred_session": None,
+            "inferred_session": _infer_session_from_section_path(section_path),
             "speaker_or_subject": None,
             "notes": None,
         }
