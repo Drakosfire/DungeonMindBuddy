@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
-MAX_ENTITIES = 50
+MAX_ENTITIES = 200
+MAX_VALUES_PER_ATTRIBUTE = 5
 
 
 def _entity_meta_by_id(entities: list[dict[str, Any]]) -> dict[str, dict[str, str]]:
@@ -82,6 +83,7 @@ def format_projection_context(
 
         conflict_lines: list[str] = []
         for attribute, attribute_payload in sorted(attributes.items()):
+            all_labels = attribute_payload.get("all_value_labels")
             value_label = str(attribute_payload.get("value_label", "")).strip() or "(no value)"
             source_layer = str(attribute_payload.get("source_layer", "unknown"))
             truth_state = _truth_state_from_payload(attribute_payload)
@@ -95,7 +97,15 @@ def format_projection_context(
                 source_summary += f", source_class={source_class}"
             if selected_fact_id:
                 source_summary += f", fact={selected_fact_id}"
-            lines.append(f"  {attribute}: {value_label}")
+
+            if all_labels and len(all_labels) > 1:
+                shown = all_labels[:MAX_VALUES_PER_ATTRIBUTE]
+                display_value = "; ".join(shown)
+                if len(all_labels) > MAX_VALUES_PER_ATTRIBUTE:
+                    display_value += f" (+{len(all_labels) - MAX_VALUES_PER_ATTRIBUTE} more)"
+            else:
+                display_value = value_label
+            lines.append(f"  {attribute}: {display_value}")
             lines.append(f"    [{truth_state}, from: {source_summary}]")
 
             conflict_ids = attribute_payload.get("conflict_ids", [])

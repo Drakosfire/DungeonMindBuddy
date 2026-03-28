@@ -28,17 +28,19 @@ def _fact_sort_key(fact: dict[str, Any]) -> tuple[int, int, str]:
     return int(session), int(seq), str(fact["fact_id"])
 
 
-def _is_terminal_observed_value(label: str) -> bool:
+def _terminal_observed_rank(label: str) -> int:
     lowered = label.lower()
-    terminal_markers = (
+    death_markers = (
         "killing blow",
         "dies",
         "dead",
         "decapitated",
-        "oily sheen in eyes fades",
-        "oily sheen fades",
     )
-    return any(marker in lowered for marker in terminal_markers)
+    if any(marker in lowered for marker in death_markers):
+        return 3
+    if "oily sheen in eyes fades" in lowered or "oily sheen fades" in lowered:
+        return 2
+    return 0
 
 
 def _contains_temporal_ordering(entries: list[FactWithLayer]) -> bool:
@@ -60,7 +62,7 @@ def _selection_priority(
         return session, seq, 0, 0, fid
 
     label = str(entry.fact.get("value", {}).get("label", ""))
-    terminal_rank = 1 if _is_terminal_observed_value(label) else 0
+    terminal_rank = _terminal_observed_rank(label)
     campaign_observed_rank = (
         1
         if campaign_id is not None
@@ -227,10 +229,24 @@ def project_entity_state(
         value = picked.fact["value"]
         if entity_id not in projection_entities:
             projection_entities[entity_id] = {"attributes": {}}
+        observed_labels: list[str] = []
+        canon_labels: list[str] = []
+        seen_labels: set[str] = set()
+        for entry in entries:
+            label = str(entry.fact["value"].get("label", "")).strip()
+            if not label or label in seen_labels:
+                continue
+            seen_labels.add(label)
+            if entry.truth_state == "OBSERVED":
+                observed_labels.append(label)
+            else:
+                canon_labels.append(label)
+        all_labels = sorted(observed_labels) + sorted(canon_labels)
         projection_entities[entity_id]["attributes"][attribute] = {
             "selected_fact_id": picked.fact["fact_id"],
             "value_label": value.get("label"),
             "value_normalized": value.get("normalized"),
+            "all_value_labels": all_labels,
             "source_layer": layer,
             "source_campaign_id": picked.campaign_id,
             "source_class": picked.source_class,

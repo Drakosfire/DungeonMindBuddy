@@ -154,3 +154,42 @@ def test_temporal_metadata_takes_precedence_when_available() -> None:
     attr = projection["entities"]["ent_the_wolf"]["attributes"]["physical_condition"]
     assert attr["selected_fact_id"] == "fact_new"
 
+
+def test_death_outcome_beats_fading_corruption_without_temporal_metadata() -> None:
+    evidence_units = [
+        _evidence(
+            "evid_campaign_fades",
+            layer="campaign",
+            campaign_id="longmont-c1",
+            source_class="observed_session_recap",
+        ),
+        _evidence(
+            "evid_campaign_dead",
+            layer="campaign",
+            campaign_id="longmont-c1",
+            source_class="observed_session_recap",
+        ),
+    ]
+    facts = [
+        _fact(
+            "fact_the_wolf_physical_condition_9563b9aa57b3",
+            "oily sheen in eyes fades",
+            evidence_id="evid_campaign_fades",
+        ),
+        _fact(
+            "fact_the_wolf_physical_condition_0bff1a76ba2e",
+            "receives a killing blow (dies)",
+            evidence_id="evid_campaign_dead",
+        ),
+    ]
+
+    projection = project_entity_state(
+        evidence_units=evidence_units,
+        facts=facts,
+        conflicts=[],
+        canon_decisions=[],
+        campaign_id="longmont-c1",
+    )
+    attr = projection["entities"]["ent_the_wolf"]["attributes"]["physical_condition"]
+    assert attr["selected_fact_id"] == "fact_the_wolf_physical_condition_0bff1a76ba2e"
+

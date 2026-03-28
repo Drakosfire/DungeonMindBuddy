@@ -13,6 +13,7 @@ def _normalize_projection_for_compare(projection: dict) -> dict:
             cleaned = dict(attr_payload)
             cleaned.pop("source_class", None)
             cleaned.pop("source_truth_state", None)
+            cleaned.pop("all_value_labels", None)
             attrs[attr_name] = cleaned
         payload["entities"][entity_id] = {"attributes": attrs}
     return payload

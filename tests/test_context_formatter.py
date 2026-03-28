@@ -85,22 +85,25 @@ def test_handles_empty_projection() -> None:
 
 
 def test_respects_entity_cap_with_truncation_note() -> None:
+    from src.agent.context_formatter import MAX_ENTITIES
+
+    total = MAX_ENTITIES + 5
     entities_payload: dict[str, dict] = {}
     metadata: list[dict] = []
-    for idx in range(55):
-        entity_id = f"ent_{idx:03d}"
+    for idx in range(total):
+        entity_id = f"ent_{idx:04d}"
         entities_payload[entity_id] = {
             "attributes": {
                 "history": {
-                    "selected_fact_id": f"fact_{idx:03d}",
+                    "selected_fact_id": f"fact_{idx:04d}",
                     "value_label": f"History {idx}",
                     "value_normalized": None,
                     "source_layer": "world",
                     "source_campaign_id": None,
                     "source_class": "seed_reference",
                     "source_truth_state": "CANON",
-                    "fact_ids": [f"fact_{idx:03d}"],
-                    "provenance_evidence_ids": [f"evid_{idx:03d}"],
+                    "fact_ids": [f"fact_{idx:04d}"],
+                    "provenance_evidence_ids": [f"evid_{idx:04d}"],
                     "conflict_ids": [],
                 }
             }
@@ -112,8 +115,8 @@ def test_respects_entity_cap_with_truncation_note() -> None:
     projection = {"entities": entities_payload}
     output = format_projection_context(projection, metadata)
 
-    assert output.count("== Entity:") == 50
-    assert "Context truncated to top 50 entities by fact count" in output
+    assert output.count("== Entity:") == MAX_ENTITIES
+    assert f"Context truncated to top {MAX_ENTITIES} entities by fact count" in output
 
 
 def test_campaign_truth_state_is_rendered_when_present() -> None:
