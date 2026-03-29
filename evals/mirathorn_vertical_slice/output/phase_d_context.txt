@@ -1,0 +1,1048 @@
+Question: Catch me up on Mirathorn
+
+== Entity: Float Goats (item) ==
+  atmosphere: Their playful antics delight children and adults during festivals and celebrations.
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_float_goats_atmosphere_151cbd4702f4]
+  demographics: highly social animals
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_float_goats_demographics_207e1b5369af]
+  economy: The fur of Float Goats is used as Water-Walking Wool.
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_float_goats_economy_941a02497c8c]
+  geography: Commonly used in the Elderwyld
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_float_goats_geography_a91759fe0e77]
+  goals: Used for transporting goods across bodies of water
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_float_goats_goals_d75b437a4aa5]
+  history: Often feature in local myths
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_float_goats_history_6b2bd4979929]
+  loyalty_or_alignment_context: Some communities believe Float Goats have a spiritual connection to water and nature
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_float_goats_loyalty_or_alignment_context_ce04d81f7396]
+  mental_state: playful and curious nature
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_float_goats_mental_state_62379e73d2d0]
+  physical_condition: Have water-walking abilities
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_float_goats_physical_condition_ba646c9b37f3]
+  portrayal_notes: Considered symbols of joy and lightness of being.
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_float_goats_portrayal_notes_e32cd4aae4de]
+  relationship_tags: Serve as companions to clerics and druids
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_float_goats_relationship_tags_a9c153185dca]
+  role: Commonly used to transport goods across lakes and rivers
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_float_goats_role_0afa8fdcbe5a]
+  species: goat-like creatures
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_float_goats_species_86ae14d070ba]
+  CONFLICTS:
+    atmosphere: 1 competing facts (auto_conflict_125)
+    economy: 1 competing facts (auto_conflict_110)
+    geography: 1 competing facts (auto_conflict_101)
+    goals: 1 competing facts (auto_conflict_123)
+    history: 1 competing facts (auto_conflict_126)
+    mental_state: 1 competing facts (auto_conflict_102)
+    physical_condition: 1 competing facts (auto_conflict_099)
+    portrayal_notes: 1 competing facts (auto_conflict_100)
+    relationship_tags: 1 competing facts (auto_conflict_124)
+    role: 1 competing facts (auto_conflict_103)
+
+== Entity: Players (faction) ==
+  current_location: amidst the throng at the main gates
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_players_current_location_a0f029143edd]
+  defenses: If players do not have the amulets, traps may target them.
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_players_defenses_88fe24caf86c]
+  goals: navigate their way into Mirathorn
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_players_goals_c898ec0f37f5]
+  governance: Given more weight in the discussion on Success (DC 15+).
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_players_governance_8339b8386419]
+  mental_state: Under extra pressure to act quickly.
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_players_mental_state_d2d693436b79]
+  operational_status: are delayed by guards using dark magic
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_players_operational_status_ed2a49d5d9f3]
+  physical_condition: Can take 2d6 force damage from arcane trap bursts
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_players_physical_condition_fd38c4d11d1b]
+  portrayal_notes: may hear footsteps echoing indicating incoming reinforcements
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_players_portrayal_notes_f8b2e3ba0a5f]
+  relationship_tags: notice the protest by the Shepherd's Flock
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_players_relationship_tags_8350631c618b]
+  role: May be called upon to help set up or maintain magical wards
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_players_role_ea482fe55677]
+  CONFLICTS:
+    current_location: 1 competing facts (auto_conflict_207)
+    goals: 1 competing facts (auto_conflict_275)
+    governance: 1 competing facts (auto_conflict_425)
+    mental_state: 1 competing facts (auto_conflict_324)
+    operational_status: 1 competing facts (auto_conflict_337)
+    physical_condition: 1 competing facts (auto_conflict_347)
+    portrayal_notes: 1 competing facts (auto_conflict_230)
+    relationship_tags: 1 competing facts (auto_conflict_343)
+    role: 1 competing facts (auto_conflict_386)
+
+== Entity: Headmaster Tinkerbright (npc) ==
+  faction: Wizard’s College
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_headmaster_tinkerbright_faction_f7c170f1a39b]
+  goals: Eager to deploy Wizard’s College resources to detect and counteract the cult’s influence
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_headmaster_tinkerbright_goals_7ab59a644773]
+  governance: on a successful persuasion, offers to use the Wizards’ College detection spell
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_headmaster_tinkerbright_governance_7569d29a582a]
+  loyalty_or_alignment_context: takes any threat to the city seriously
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_headmaster_tinkerbright_loyalty_or_alignment_context_40738db9bf03]
+  mental_state: Deeply troubled by the dark magic at play
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_headmaster_tinkerbright_mental_state_52f4e35a097c]
+  portrayal_notes: Views the corrupted meat as a perversion of magic
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_headmaster_tinkerbright_portrayal_notes_e17a1a6d46b9]
+  rank_or_title: Headmaster
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_headmaster_tinkerbright_rank_or_title_f94d142ff0be]
+  relationship_tags: Seeks to deploy the resources of the Wizard’s College
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_headmaster_tinkerbright_relationship_tags_73dd6645c3e1]
+  role: Representative of the Arcane
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_headmaster_tinkerbright_role_230368b8e598]
+  species: Gnome
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_headmaster_tinkerbright_species_206949091940]
+  CONFLICTS:
+    goals: 1 competing facts (auto_conflict_161)
+    loyalty_or_alignment_context: 1 competing facts (auto_conflict_299)
+    mental_state: 1 competing facts (auto_conflict_160)
+    portrayal_notes: 1 competing facts (auto_conflict_159)
+    role: 1 competing facts (auto_conflict_157)
+
+== Entity: the city (location) ==
+  atmosphere: High toll has caused discontent among many visitors.
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_the_city_atmosphere_a50dac09edce]
+  defenses: Proposed arcane lockdown
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_the_city_defenses_bec1deca15e2]
+  demographics: has a diverse mix of people from frontier towns present
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_the_city_demographics_6c43919f02ea]
+  economy: The city’s economy significantly depends on the festival.
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_the_city_economy_8462c331493a]
+  geography: City layout includes hidden passages and sewers
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_the_city_geography_67f6acf5076b]
+  goals: Ensure only those with means can enter easily
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_the_city_goals_8c2a03fbdacb]
+  governance: The city has a steep entry toll intended to regulate influx and favor entrants with financial means.
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_the_city_governance_5497679b74a4]
+  history: The city's growth is commemorated by the Festival of Expansion
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_the_city_history_6c9fe54d6eb9]
+  operational_status: day-to-day functioning would be impacted by restrictions on magic use
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_the_city_operational_status_fc8c636cda81]
+  physical_condition: Damage to the city would be minimized
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_the_city_physical_condition_b55ff939162d]
+  portrayal_notes: the constant hum of wall-embedded gears is a reminder of the city's technological pulse
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_the_city_portrayal_notes_f7ed079741fd]
+  relationship_tags: entry to the city requires a high toll
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_the_city_relationship_tags_ea1ec099c21e]
+  CONFLICTS:
+    atmosphere: 1 competing facts (auto_conflict_156)
+    defenses: 1 competing facts (auto_conflict_382)
+    demographics: 1 competing facts (auto_conflict_317)
+    economy: 1 competing facts (auto_conflict_022)
+    geography: 1 competing facts (auto_conflict_021)
+    goals: 1 competing facts (auto_conflict_320)
+    governance: 1 competing facts (auto_conflict_256)
+    history: 1 competing facts (auto_conflict_016)
+    operational_status: 1 competing facts (auto_conflict_384)
+    portrayal_notes: 1 competing facts (auto_conflict_333)
+    relationship_tags: 1 competing facts (auto_conflict_151)
+
+== Entity: Mirathorn (location) ==
+  atmosphere: vibrant and bustling
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_mirathorn_atmosphere_7f25219bf306]
+  current_location: Road to Mirathorn is crowded
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_mirathorn_current_location_2c4c99e90b7d]
+  defenses: Main gates are grand and sturdy, made of reinforced wood and iron
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_mirathorn_defenses_c50dc09e2b63]
+  demographics: diverse population
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_mirathorn_demographics_5bc18f9bb671]
+  economy: Strategic trade hub
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_mirathorn_economy_96094710cda3]
+  geography: Approach scene includes farmlands and workshops
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_mirathorn_geography_0d0373517a6f]
+  goals: The people of Mirathorn get ready for a city-wide battle.
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_mirathorn_goals_4d977426ef16]
+  history: In Mirathorn lore, stories tell of first pioneers measuring progress in Reaches while enduring peril and hardship to establish a safe haven from wild lands.
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_mirathorn_history_f6317b914b1f]
+  portrayal_notes: The term 'Reaches' symbolizes the bravery and determination of Mirathorn's early settlers.
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_mirathorn_portrayal_notes_639fc3f72e23]
+  relationship_tags: destination the players are navigating into
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_mirathorn_relationship_tags_eac748281d18]
+  CONFLICTS:
+    atmosphere: 1 competing facts (auto_conflict_199)
+    current_location: 1 competing facts (auto_conflict_315)
+    defenses: 1 competing facts (auto_conflict_232)
+    demographics: 1 competing facts (auto_conflict_272)
+    geography: 1 competing facts (auto_conflict_015)
+    goals: 1 competing facts (auto_conflict_398)
+    history: 1 competing facts (auto_conflict_198)
+    portrayal_notes: 1 competing facts (auto_conflict_311)
+    relationship_tags: 1 competing facts (auto_conflict_319)
+
+== Entity: Grobnok the Goblin (npc) ==
+  atmosphere: Always looks ready to dance, drink, have sex, and fight
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_grobnok_the_goblin_atmosphere_fb72fa163a97]
+  geography: guerrilla tactics from the Undercity
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_grobnok_the_goblin_geography_a73c8c249f2d]
+  goals: Eager to root out the cult
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_grobnok_the_goblin_goals_dc989eb2bb52]
+  governance: Maintains order in the city's nightlife
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_grobnok_the_goblin_governance_049ea8440d0b]
+  mental_state: Wary of the cult's influence creeping into his territory
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_grobnok_the_goblin_mental_state_8c2c13f7177f]
+  operational_status: Knows how to navigate illicit and hidden parts of the city
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_grobnok_the_goblin_operational_status_cb12c5e3512c]
+  physical_condition: Large, wiry build
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_grobnok_the_goblin_physical_condition_e7f73200cad7]
+  portrayal_notes: Lively and cunning personality traits
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_grobnok_the_goblin_portrayal_notes_4751da75e725]
+  relationship_tags: Has strong awareness/connection to the city's underbelly
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_grobnok_the_goblin_relationship_tags_bd28ffd6504e]
+  role: Representative of the Undercity and Cultural Sectors
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_grobnok_the_goblin_role_00b7b180bb07]
+  species: Goblin
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_grobnok_the_goblin_species_54f11efe505f]
+  unresolved_questions: His plan may not account for the cult's full power or strategy
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_grobnok_the_goblin_unresolved_questions_872529d4cd51]
+  CONFLICTS:
+    goals: 1 competing facts (auto_conflict_153)
+    governance: 1 competing facts (auto_conflict_154)
+    mental_state: 1 competing facts (auto_conflict_152)
+    portrayal_notes: 1 competing facts (auto_conflict_150)
+    relationship_tags: 1 competing facts (auto_conflict_149)
+    role: 1 competing facts (auto_conflict_148)
+
+== Entity: Flutter Ferrets (faction) ==
+  demographics: highly social
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_flutter_ferrets_demographics_c689517f25df]
+  economy: Dust collected from their wings has minor buoyancy properties.
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_flutter_ferrets_economy_a9b771a221c0]
+  goals: Trained to help search for lost items
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_flutter_ferrets_goals_773713346523]
+  history: Dust from their wings can be used to create magical powder.
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_flutter_ferrets_history_d5203b193920]
+  mental_state: highly social
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_flutter_ferrets_mental_state_8170c84a5a8a]
+  physical_condition: have butterfly-like wings
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_flutter_ferrets_physical_condition_ec58bec5e00d]
+  portrayal_notes: have a playful nature
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_flutter_ferrets_portrayal_notes_bedcbc3bfe02]
+  role: excellent searchers
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_flutter_ferrets_role_6e4b295a98a8]
+  source_comments: Flutter Ferrets are cited as the source of wing dust used in an agility potion example.
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_flutter_ferrets_source_comments_1c964eb84763]
+  species: creatures
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_flutter_ferrets_species_4b6ce178e551]
+  CONFLICTS:
+    demographics: 1 competing facts (auto_conflict_286)
+    economy: 1 competing facts (auto_conflict_095)
+    history: 1 competing facts (auto_conflict_121)
+    physical_condition: 1 competing facts (auto_conflict_090)
+    portrayal_notes: 1 competing facts (auto_conflict_089)
+    role: 1 competing facts (auto_conflict_091)
+
+== Entity: the cult (faction) ==
+  current_location: is using hidden routes
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_the_cult_current_location_d1a416e2be44]
+  goals: engaged in recruitment
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_the_cult_goals_55c47dfeb05b]
+  loyalty_or_alignment_context: Associated with dark magic and corrupting influence
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_the_cult_loyalty_or_alignment_context_9ae7f0298a4a]
+  operational_status: The cult is believed to be using hidden passageways and tunnels for its schemes.
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_the_cult_operational_status_0eda96545afc]
+  portrayal_notes: The cult has full power/strategy that Grobnok's plan may fail to account for
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_the_cult_portrayal_notes_f3abb05149c8]
+  relationship_tags: Cult members have influence in the council
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_the_cult_relationship_tags_f6cedfae54fe]
+  source_comments: Context is a stance on a cult-related issue
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_the_cult_source_comments_a5fd580a67f3]
+  CONFLICTS:
+    current_location: 1 competing facts (auto_conflict_405)
+    goals: 1 competing facts (auto_conflict_147)
+    loyalty_or_alignment_context: 1 competing facts (auto_conflict_155)
+    operational_status: 1 competing facts (auto_conflict_191)
+    relationship_tags: 1 competing facts (auto_conflict_388)
+
+== Entity: Rurik Stonehammer (npc) ==
+  geography: Has deep understanding of city layout including hidden passages and sewers
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_rurik_stonehammer_geography_d20567dc21aa]
+  goals: Values strength and honor
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_rurik_stonehammer_goals_32c192376ea9]
+  governance: Responsible for the city's structural integrity
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_rurik_stonehammer_governance_380b1ea8bb1b]
+  loyalty_or_alignment_context: Concerned about integrity of city defenses and safety of the city's people
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_rurik_stonehammer_loyalty_or_alignment_context_75c6c8d1f681]
+  mental_state: Views tainted meat being distributed in his city as an affront
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_rurik_stonehammer_mental_state_26134edbb825]
+  portrayal_notes: Meticulous and detail-oriented
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_rurik_stonehammer_portrayal_notes_f5c2e5951228]
+  rank_or_title: Chief Architect
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_rurik_stonehammer_rank_or_title_cc7a30c31034]
+  relationship_tags: Deep understanding of sewers
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_rurik_stonehammer_relationship_tags_773a2f66e7bb]
+  role: Representative of Infrastructure
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_rurik_stonehammer_role_2741a858baa0]
+  species: Dwarf
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_rurik_stonehammer_species_70d41fb2c264]
+  CONFLICTS:
+    geography: 1 competing facts (auto_conflict_305)
+    goals: 1 competing facts (auto_conflict_306)
+    governance: 1 competing facts (auto_conflict_189)
+    loyalty_or_alignment_context: 1 competing facts (auto_conflict_302)
+    mental_state: 1 competing facts (auto_conflict_188)
+    portrayal_notes: 1 competing facts (auto_conflict_304)
+    relationship_tags: 1 competing facts (auto_conflict_190)
+
+== Entity: Torrin Flamescale (npc) ==
+  faction: the Guilds
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_torrin_flamescale_faction_b43f24903a4d]
+  goals: Has a passion for his craft
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_torrin_flamescale_goals_cfa81eaef563]
+  history: His arms bear signs of countless hours at the forge
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_torrin_flamescale_history_a792a594e141]
+  mental_state: stern
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_torrin_flamescale_mental_state_61286323c1b0]
+  physical_condition: Face lined with marks of age and experience
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_torrin_flamescale_physical_condition_504ce881bf09]
+  portrayal_notes: Regal and intimidating presence
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_torrin_flamescale_portrayal_notes_eefebab37974]
+  rank_or_title: Master Smith
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_torrin_flamescale_rank_or_title_6a53d8a8f185]
+  relationship_tags: respected (by others in the city context)
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_torrin_flamescale_relationship_tags_f7bddb2634c4]
+  role: Representative of the Craft Guilds
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_torrin_flamescale_role_ced4a729f144]
+  species: Dragonborn
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_torrin_flamescale_species_7e30e30df43d]
+  CONFLICTS:
+    goals: 1 competing facts (auto_conflict_179)
+    mental_state: 1 competing facts (auto_conflict_301)
+    physical_condition: 1 competing facts (auto_conflict_436)
+    portrayal_notes: 1 competing facts (auto_conflict_178)
+    relationship_tags: 1 competing facts (auto_conflict_177)
+    role: 1 competing facts (auto_conflict_176)
+
+== Entity: Thalia (npc) ==
+  faction: Guard
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_thalia_faction_496f8990c0b9]
+  goals: strong sense of duty
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_thalia_goals_6df3f62d4128]
+  loyalty_or_alignment_context: fiercely protective of the city and its inhabitants
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_thalia_loyalty_or_alignment_context_c6885fc68e16]
+  mental_state: resistant to believing accusations
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_thalia_mental_state_e365cbb8af73]
+  physical_condition: ensorcelled
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_thalia_physical_condition_37299e37302c]
+  portrayal_notes: overlooks corruption within the guard due to ensorcellment
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_thalia_portrayal_notes_24b4928db700]
+  rank_or_title: Commander of the Guard
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_thalia_rank_or_title_e787644e4850]
+  relationship_tags: ensorcelled by the Wolf
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_thalia_relationship_tags_33e6755a6405]
+  role: Representative of Law and Order
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_thalia_role_21a69a500a3b]
+  species: Half-Elf
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_thalia_species_bf363dce9769]
+  CONFLICTS:
+    goals: 1 competing facts (auto_conflict_168)
+    mental_state: 1 competing facts (auto_conflict_167)
+    physical_condition: 1 competing facts (auto_conflict_169)
+    relationship_tags: 1 competing facts (auto_conflict_170)
+
+== Entity: the Wolf (npc) ==
+  current_location: The Wolf has fled to the sewers
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_the_wolf_current_location_cffec065eead]
+  goals: Can attempt to steer discussion in the wrong direction via Deception checks
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_the_wolf_goals_d9798e27c2dc]
+  history: Betrayal (as presented to Thalia)
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_the_wolf_history_821262c5df28]
+  loyalty_or_alignment_context: The Wolf may be a cult sympathizer working to sabotage council decision-making
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_the_wolf_loyalty_or_alignment_context_c918ab2baba5]
+  operational_status: The Wolf attempts escape once at a critical point: below 50% HP or after enough time has been stalled.
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_the_wolf_operational_status_a9620b635961]
+  physical_condition: Corrupted
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_the_wolf_physical_condition_bf103ae53327]
+  portrayal_notes: Takes every opportunity to create confusion
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_the_wolf_portrayal_notes_f11eb31b0fca]
+  relationship_tags: ensorcelled Thalia
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_the_wolf_relationship_tags_da2dcc709451]
+  role: Central subject of the battle in this outline
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_the_wolf_role_ec6c66d7b220]
+  CONFLICTS:
+    current_location: 1 competing facts (auto_conflict_358)
+    goals: 1 competing facts (auto_conflict_336)
+    operational_status: 1 competing facts (auto_conflict_349)
+    portrayal_notes: 1 competing facts (auto_conflict_342)
+    relationship_tags: 1 competing facts (auto_conflict_171)
+    role: 1 competing facts (auto_conflict_300)
+
+== Entity: Guards (other) ==
+  current_location: on their way to the council chamber as reinforcements
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_guards_current_location_8d77bf7a9faf]
+  defenses: can gain temporary HP when near corrupted meat
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_guards_defenses_929fb9dfee5d]
+  demographics: Group composition: 8 regular guards (half corrupted) and 2 elite guards (heavily corrupted).
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_guards_demographics_c71d431abe8c]
+  goals: trying to maintain order
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_guards_goals_6afe30618902]
+  governance: trying to prevent the protest from turning into a riot
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_guards_governance_cdf58b564958]
+  mental_state: visibly tense
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_guards_mental_state_7ddc99ed10aa]
+  operational_status: working diligently to manage the crowd
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_guards_operational_status_2b1f94473a4f]
+  physical_condition: dead_bodies_present
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_guards_physical_condition_b891b6799bcc]
+  relationship_tags: Trusted guards are identified as friendly to the chamber's defenses via amulets.
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_guards_relationship_tags_9f691850b2da]
+  role: Manage the flow at the gates
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_guards_role_bd4e0fd9b77b]
+  CONFLICTS:
+    current_location: 1 competing facts (auto_conflict_344)
+    goals: 1 competing facts (auto_conflict_322)
+    governance: 1 competing facts (auto_conflict_270)
+    mental_state: 1 competing facts (auto_conflict_269)
+    operational_status: 1 competing facts (auto_conflict_274)
+    physical_condition: 1 competing facts (auto_conflict_353)
+    relationship_tags: 1 competing facts (auto_conflict_354)
+    role: 1 competing facts (auto_conflict_255)
+
+== Entity: Merril Tealeaf (npc) ==
+  faction: Agricultural Union
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_merril_tealeaf_faction_69a1bbfabf4b]
+  goals: Focuses on the well-being of the city's populace through food and agriculture
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_merril_tealeaf_goals_3b2ebd57d306]
+  mental_state: deeply troubled
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_merril_tealeaf_mental_state_9ad7fc702e7e]
+  portrayal_notes: Known for her green thumb
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_merril_tealeaf_portrayal_notes_614b437a5127]
+  rank_or_title: Leader of the Agricultural Union
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_merril_tealeaf_rank_or_title_9ccd49eeb7f6]
+  role: Representative of Agriculture and Food Production
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_merril_tealeaf_role_4259d52cf06f]
+  species: Gnome
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_merril_tealeaf_species_234719a6d7c3]
+  CONFLICTS:
+    goals: 1 competing facts (auto_conflict_185)
+    portrayal_notes: 1 competing facts (auto_conflict_184)
+    rank_or_title: 1 competing facts (auto_conflict_303)
+    role: 1 competing facts (auto_conflict_182)
+
+== Entity: Commander Thalia Ashenvale (npc) ==
+  faction: Guard
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_commander_thalia_ashenvale_faction_d0c49ec76a45]
+  goals: Will listen to solid evidence
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_commander_thalia_ashenvale_goals_8600c23701d7]
+  governance: Has votes that can be redirected
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_commander_thalia_ashenvale_governance_847cdca68126]
+  mental_state: Defensive about accusations against her guard
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_commander_thalia_ashenvale_mental_state_d52a91658bee]
+  physical_condition: Always upright and alert
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_commander_thalia_ashenvale_physical_condition_73f758e885db]
+  portrayal_notes: Tall and statuesque; sharp, chiseled features; stern expression
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_commander_thalia_ashenvale_portrayal_notes_feeeefff6603]
+  rank_or_title: Commander
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_commander_thalia_ashenvale_rank_or_title_14d06c047fe5]
+  relationship_tags: Enscorceled by the Wolf
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_commander_thalia_ashenvale_relationship_tags_3fd796707ed7]
+  role: Representative of Law and Order
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_commander_thalia_ashenvale_role_553b1a01840b]
+  species: Half-Elf
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_commander_thalia_ashenvale_species_411686bdde74]
+  CONFLICTS:
+    faction: 1 competing facts (auto_conflict_165)
+    goals: 1 competing facts (auto_conflict_174)
+    mental_state: 1 competing facts (auto_conflict_173)
+    physical_condition: 1 competing facts (auto_conflict_412)
+    portrayal_notes: 1 competing facts (auto_conflict_329)
+    rank_or_title: 1 competing facts (auto_conflict_163)
+    role: 1 competing facts (auto_conflict_164)
+    species: 1 competing facts (auto_conflict_166)
+
+== Entity: Tidal Turtles (item) ==
+  current_location: in farmers' homes
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_tidal_turtles_current_location_34e5439f7427]
+  geography: They thrive in both water and land habitats.
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_tidal_turtles_geography_c82892d93fad]
+  portrayal_notes: Their behavior and shell color changes provide early warnings for storms or other weather events
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_tidal_turtles_portrayal_notes_4638dc8baeca]
+  relationship_tags: Secretes mucus used medicinally
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_tidal_turtles_relationship_tags_dd37bbc9119c]
+  role: Natural weather predictors
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_tidal_turtles_role_244759df10ab]
+  species: small amphibious creatures
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_tidal_turtles_species_15285824a9e8]
+  CONFLICTS:
+    current_location: 1 competing facts (auto_conflict_058)
+    geography: 1 competing facts (auto_conflict_050)
+    portrayal_notes: 1 competing facts (auto_conflict_049)
+    relationship_tags: 1 competing facts (auto_conflict_054)
+
+== Entity: Barin (npc) ==
+  goals: Understands the importance of trade and business to the city
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_barin_goals_3b720dfab32e]
+  governance: Maintains order in the city’s nightlife
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_barin_governance_be4f7284da9a]
+  loyalty_or_alignment_context: Barin is concerned about the economic impact of the cult’s actions.
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_barin_loyalty_or_alignment_context_5366fb4fb7ef]
+  mental_state: concerned about potential disruption of the festival
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_barin_mental_state_543ae4a624fe]
+  portrayal_notes: shrewd
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_barin_portrayal_notes_cf557ed365ad]
+  relationship_tags: Well-liked for fairness
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_barin_relationship_tags_88dc7f1c078b]
+  role: Calls for covert operations
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_barin_role_57c51b5040b0]
+  CONFLICTS:
+    goals: 1 competing facts (auto_conflict_144)
+    loyalty_or_alignment_context: 1 competing facts (auto_conflict_411)
+    mental_state: 1 competing facts (auto_conflict_143)
+    portrayal_notes: 1 competing facts (auto_conflict_297)
+    relationship_tags: 1 competing facts (auto_conflict_145)
+
+== Entity: Mayor Elara Swiftwind (npc) ==
+  faction: city council
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_mayor_elara_swiftwind_faction_57e380d4438d]
+  goals: Determined to address the cult problem swiftly
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_mayor_elara_swiftwind_goals_c4a47f813129]
+  governance: Adept at navigating the city's complex political landscape
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_mayor_elara_swiftwind_governance_5ca99bcea6e2]
+  mental_state: Deeply concerned about the cult's threat to city stability and well-being
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_mayor_elara_swiftwind_mental_state_281f6765ab3b]
+  portrayal_notes: Charismatic
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_mayor_elara_swiftwind_portrayal_notes_7a4866fc6225]
+  rank_or_title: Mayor
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_mayor_elara_swiftwind_rank_or_title_2a39ddf03307]
+  relationship_tags: Leader of City Council
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_mayor_elara_swiftwind_relationship_tags_fd41da3be683]
+  role: leader of the city council
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_mayor_elara_swiftwind_role_e543b65519d6]
+  species: Gnome
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_mayor_elara_swiftwind_species_70753cb4da32]
+  CONFLICTS:
+    faction: 1 competing facts (auto_conflict_296)
+    goals: 1 competing facts (auto_conflict_431)
+    portrayal_notes: 1 competing facts (auto_conflict_141)
+    relationship_tags: 1 competing facts (auto_conflict_140)
+    role: 1 competing facts (auto_conflict_139)
+
+== Entity: Out Town (location) ==
+  atmosphere: chaotic but festive
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_out_town_atmosphere_f41dabdfc7f6]
+  demographics: Contains an influx of visitors
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_out_town_demographics_f85681abb985]
+  geography: mix of tents and stalls
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_out_town_geography_61cda5376183]
+  operational_status: Set up with temporary structures due to influx of visitors
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_out_town_operational_status_b7b27056c706]
+  portrayal_notes: Described as sprawling, chaotic, and colorful
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_out_town_portrayal_notes_855695dfb69f]
+  CONFLICTS:
+    atmosphere: 1 competing facts (auto_conflict_243)
+    demographics: 1 competing facts (auto_conflict_244)
+    geography: 1 competing facts (auto_conflict_242)
+    operational_status: 1 competing facts (auto_conflict_241)
+    portrayal_notes: 1 competing facts (auto_conflict_245)
+
+== Entity: City Council (faction) ==
+  atmosphere: Tension within the council could increase
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_city_council_atmosphere_b03080ddb0f8]
+  defenses: Council members wear amulets that mark them as friendly to the chamber's defenses.
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_city_council_defenses_3d8ef4966f53]
+  demographics: Represents various races and guilds
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_city_council_demographics_febc8993eea8]
+  goals: Council members have different motivations
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_city_council_goals_8a9f29a07d91]
+  governance: Led by Mayor Elara Swiftwind
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_city_council_governance_8e10ad7f0ace]
+  loyalty_or_alignment_context: There may be cult sympathizers within the council
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_city_council_loyalty_or_alignment_context_da77f136c74f]
+  operational_status: On success, the council initiates a raid, magical search, or covert ops.
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_city_council_operational_status_f347715936aa]
+  portrayal_notes: Council members have individual perspectives, biases, and approaches
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_city_council_portrayal_notes_f71e7f9e3e7b]
+  relationship_tags: protected by ancient defensive wards
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_city_council_relationship_tags_ffbcebec77be]
+  role: Governing council of the city-state
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_city_council_role_4015f1318d48]
+  CONFLICTS:
+    demographics: 1 competing facts (auto_conflict_130)
+    goals: 1 competing facts (auto_conflict_409)
+    governance: 1 competing facts (auto_conflict_129)
+    operational_status: 1 competing facts (auto_conflict_389)
+    relationship_tags: 1 competing facts (auto_conflict_348)
+
+== Entity: Ancient Walls (location) ==
+  defenses: Walls have guard towers interspersed along them
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_ancient_walls_defenses_45d923ba1664]
+  demographics: Guards are positioned along the walls.
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_ancient_walls_demographics_ff56ed22d05e]
+  history: The ancient city walls are a testament to the city's rich history
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_ancient_walls_history_294642cd0f59]
+  physical_condition: Ivy and moss are creeping up their surfaces
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_ancient_walls_physical_condition_c9b760a103ca]
+  portrayal_notes: Tall and imposing
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_ancient_walls_portrayal_notes_31e6d1288132]
+  CONFLICTS:
+    defenses: 1 competing facts (auto_conflict_237)
+    history: 1 competing facts (auto_conflict_233)
+    physical_condition: 1 competing facts (auto_conflict_234)
+    portrayal_notes: 1 competing facts (auto_conflict_273)
+
+== Entity: Floating Cheese (item) ==
+  atmosphere: Known for its unique texture and enchanting taste
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_floating_cheese_atmosphere_62f1f3f61382]
+  economy: Served at high-end feasts and gatherings
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_floating_cheese_economy_34f690b5fac1]
+  portrayal_notes: Known for its unique texture
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_floating_cheese_portrayal_notes_d8e02e15b928]
+  relationship_tags: Served at high-end feasts and gatherings
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_floating_cheese_relationship_tags_679038f2d879]
+  CONFLICTS:
+    economy: 1 competing facts (auto_conflict_119)
+    portrayal_notes: 1 competing facts (auto_conflict_118)
+
+== Entity: Sunflower Ducks (npc) ==
+  history: Sunflower Ducks lay photosynthetic eggs with unique properties.
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_sunflower_ducks_history_c7e21e7aa6f2]
+  mental_state: Friendly
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_sunflower_ducks_mental_state_1bf6e0809f6a]
+  operational_status: Have a unique ability to photosynthesize
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_sunflower_ducks_operational_status_711f02b990f3]
+  physical_condition: Exhibit a mild glow
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_sunflower_ducks_physical_condition_09a0f5d87e65]
+  portrayal_notes: Have bright yellow feathers resembling sunflower petals
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_sunflower_ducks_portrayal_notes_e946c61f3e09]
+  role: Often kept as pets and companions
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_sunflower_ducks_role_98517e4e05a2]
+  species: Ducks
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_sunflower_ducks_species_e7d5e3a99b3a]
+  CONFLICTS:
+    physical_condition: 1 competing facts (auto_conflict_077)
+    portrayal_notes: 1 competing facts (auto_conflict_078)
+
+== Entity: the continent (location) ==
+  atmosphere: Herders and farmhands are seen tending animals and working fields
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_the_continent_atmosphere_ac61809e0cbd]
+  demographics: Grazing livestock present include cows, sheep, and goats
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_the_continent_demographics_a085c7f13084]
+  economy: The landscape supports livestock herding and field agriculture
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_the_continent_economy_619f68c5ea58]
+  geography: Includes an agricultural and industrial landscape area on approach to Mirathorn
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_the_continent_geography_80c05b7e50df]
+  history: In early settlement, journeys beyond initial outposts were perceived as reaching into the unknown.
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_the_continent_history_8b67ca6e4958]
+  portrayal_notes: The once-dangerous "Reaches" later became associated with progress and exploration.
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_the_continent_portrayal_notes_d010046641bf]
+  CONFLICTS:
+    atmosphere: 1 competing facts (auto_conflict_312)
+    demographics: 1 competing facts (auto_conflict_208)
+    economy: 1 competing facts (auto_conflict_313)
+    history: 1 competing facts (auto_conflict_019)
+
+== Entity: Council Chambers (location) ==
+  atmosphere: The room is designed so voices carry clearly to every corner.
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_council_room_atmosphere_ce9cf1ff580d]
+  current_location: in the heart of the city
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_council_room_current_location_373ed9922702]
+  defenses: council chamber has magical defenses affecting the battle environment
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_council_room_defenses_fcfda55ca319]
+  geography: A large, circular table dominates the center of the room
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_council_room_geography_d5c9f91e33bb]
+  governance: Designed for transparency and collaboration
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_council_room_governance_488472d5ac94]
+  history: Architecture blends ancient roots of Mirathorn
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_council_room_history_f53e9d05bd1f]
+  portrayal_notes: Private conversations are difficult in the room unless hushed or moved elsewhere.
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_council_room_portrayal_notes_f70eb8feae16]
+  role: Location
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_council_room_role_1771ce294345]
+  CONFLICTS:
+    atmosphere: 1 competing facts (auto_conflict_328)
+    current_location: 1 competing facts (auto_conflict_341)
+    defenses: 1 competing facts (auto_conflict_334)
+    geography: 1 competing facts (auto_conflict_325)
+    governance: 1 competing facts (auto_conflict_335)
+    history: 1 competing facts (auto_conflict_326)
+    portrayal_notes: 1 competing facts (auto_conflict_327)
+
+== Entity: Celestial Cheese (item) ==
+  economy: Served at special occasions and feasts
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_celestial_cheese_economy_c95eb66511dc]
+  portrayal_notes: A popular delicacy at festivals
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_celestial_cheese_portrayal_notes_e631b42793e5]
+  role: Served at special occasions and feasts
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_celestial_cheese_role_ddf3334a930b]
+  CONFLICTS:
+    portrayal_notes: 1 competing facts (auto_conflict_076)
+
+== Entity: Buoyancy Dust (item) ==
+  economy: Used in various alchemical concoctions
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_buoyancy_dust_economy_c8a635069903]
+  goals: Crucial crafting component for potions of water walking and other flotation/swimming-enhancing spells
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_buoyancy_dust_goals_2da3ee050ef1]
+  physical_condition: Has minor buoyancy properties
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_buoyancy_dust_physical_condition_dd0fd01bb14d]
+  CONFLICTS:
+    economy: 1 competing facts (auto_conflict_122)
+    goals: 1 competing facts (auto_conflict_290)
+
+== Entity: The Elderwyld (location) ==
+  geography: A continent on the edge of reality
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_the_elderwyld_geography_03bf506a953b]
+  goals: to turn these Elderwylds to garden
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_the_elderwyld_goals_deb982fbe5dd]
+  history: A new land and home for all was forged, referred to in relation to the Elderwylds.
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_the_elderwyld_history_fd46fe1f91e3]
+  relationship_tags: Presented as having fantastic livestock (including Luminox Sheep)
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_the_elderwyld_relationship_tags_649c470fc1bc]
+  source_comments: The evidence text is generic and does not directly assert facts about any listed entity.
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_the_elderwyld_source_comments_d8b666a7f1ec]
+  unresolved_questions: Magical disturbances are natural disasters that hint at dark magic.
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_the_elderwyld_unresolved_questions_1086a27a5ede]
+  CONFLICTS:
+    geography: 1 competing facts (auto_conflict_011)
+    goals: 1 competing facts (auto_conflict_002)
+    history: 1 competing facts (auto_conflict_001)
+    source_comments: 1 competing facts (auto_conflict_028)
+
+== Entity: sewers (location) ==
+  atmosphere: faint chanting echoing from deeper below
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_sewers_atmosphere_c18f53b75544]
+  defenses: contains traps
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_sewers_defenses_05caa6a12fb3]
+  geography: Included in the city's layout
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_sewers_geography_336594305634]
+  goals: Sealing the sewers is intended to trap the cult below the city.
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_sewers_goals_a3702cdb9608]
+  governance: Cult-controlled area
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_sewers_governance_590552ca4ddf]
+  history: The sewers beneath Mirathorn are ancient.
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_sewers_history_7f4c73995037]
+  operational_status: Targeted for guard sweep in the proposed strike
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_sewers_operational_status_ddbd9b898fde]
+  relationship_tags: Targeted for break-ins as part of covert ops
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_sewers_relationship_tags_f9d58563179c]
+  CONFLICTS:
+    atmosphere: 1 competing facts (auto_conflict_373)
+    geography: 1 competing facts (auto_conflict_356)
+    goals: 1 competing facts (auto_conflict_372)
+    operational_status: 1 competing facts (auto_conflict_395)
+    relationship_tags: 1 competing facts (auto_conflict_339)
+
+== Entity: Cultist Leader (faction) ==
+  current_location: outside the main gate
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_shepherds_flock_cultists_current_location_243e6cd2c8a1]
+  faction: Shepherd's Flock
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_shepherds_flock_cultists_faction_f6d34ded1f5a]
+  goals: oppose the toll as unfair and exclusionary
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_shepherds_flock_cultists_goals_f9b75d3ab5a0]
+  mental_state: vocal and passionate
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_shepherds_flock_cultists_mental_state_26052fa1a8e1]
+  operational_status: staging a protest
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_shepherds_flock_cultists_operational_status_fa9464dc51b4]
+  portrayal_notes: vocal and passionate
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_shepherds_flock_cultists_portrayal_notes_1f39d59150d8]
+  CONFLICTS:
+    goals: 1 competing facts (auto_conflict_262)
+    operational_status: 1 competing facts (auto_conflict_261)
+
+== Entity: Merril (npc) ==
+  goals: advocating for immediate measures to cleanse the food supplies
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_merril_goals_4c4437483b69]
+  governance: Merril Tealeaf can be convinced to vote for a purification ritual.
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_merril_governance_642caebe7dad]
+  mental_state: deeply troubled
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_merril_mental_state_5cae3fe75d88]
+  physical_condition: Dark skinned
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_merril_physical_condition_4b5e8cb1de17]
+  portrayal_notes: Has ability to cultivate rare and magical plants
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_merril_portrayal_notes_fbe1b9abbb58]
+  relationship_tags: Wears earth-toned dress
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_merril_relationship_tags_f258a25e458f]
+  role: representative of the Agricultural Union
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_merril_role_c8e3f59201ec]
+  species: Gnome
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_merril_species_85ccadcdf61a]
+  CONFLICTS:
+    goals: 1 competing facts (auto_conflict_186)
+    portrayal_notes: 1 competing facts (auto_conflict_437)
+    relationship_tags: 1 competing facts (auto_conflict_438)
+    role: 1 competing facts (auto_conflict_183)
+
+== Entity: oils (item) ==
+  economy: Used in potions
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_sunflower_oil_economy_853fbc5c7e92]
+  goals: is a key ingredient in rejuvenation potions
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_sunflower_oil_goals_d4e9933c44e1]
+  history: Extracted from ducks' skin
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_sunflower_oil_history_f231f8d97e22]
+  portrayal_notes: Has rejuvenating properties
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_sunflower_oil_portrayal_notes_e5037a703e8f]
+  CONFLICTS:
+    economy: 1 competing facts (auto_conflict_086)
+    goals: 1 competing facts (auto_conflict_087)
+    history: 1 competing facts (auto_conflict_085)
+
+== Entity: Float Goat wool (item) ==
+  economy: Used to make cloaks and garments
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_float_goat_wool_economy_ea7e6367be07]
+  physical_condition: Incredibly soft and lightweight
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_float_goat_wool_physical_condition_d4a9bc1f0e09]
+  portrayal_notes: Provides comfort and mobility without added bulk when used in cloaks/garments
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_float_goat_wool_portrayal_notes_59ce87df0074]
+  CONFLICTS:
+    economy: 1 competing facts (auto_conflict_104)
+    physical_condition: 1 competing facts (auto_conflict_105)
+    portrayal_notes: 1 competing facts (auto_conflict_106)
+
+== Entity: Guard (faction) ==
+  atmosphere: Could experience major internal strife if the Wolf is confronted
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_guard_atmosphere_33cc21ff02f5]
+  goals: The non-corrupted guard are empowered to fight back.
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_guard_goals_e50b9a6a9d49]
+  loyalty_or_alignment_context: non-corrupted
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_guard_loyalty_or_alignment_context_cf1ffb8ccc91]
+  operational_status: corruption within the guard
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_guard_operational_status_03fb615dacb6]
+  rank_or_title: Has a commander
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_guard_rank_or_title_1171fb2c4dc2]
+  relationship_tags: Accusations have been made against the guard
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_guard_relationship_tags_a49ae4bebc0f]
+  CONFLICTS:
+    goals: 1 competing facts (auto_conflict_399)
+    operational_status: 1 competing facts (auto_conflict_172)
+    relationship_tags: 1 competing facts (auto_conflict_175)
+
+== Entity: Luminox Sheep (npc) ==
+  atmosphere: Their glow creates a beautiful, soothing spectacle at night
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_luminox_sheep_atmosphere_366570a546be]
+  economy: Produce Luminox Milk
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_luminox_sheep_economy_123be7ffa7e7]
+  physical_condition: emit a gentle bioluminescent glow
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_luminox_sheep_physical_condition_b022afaa9a1f]
+  portrayal_notes: Described as fluffy and woolly
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_luminox_sheep_portrayal_notes_f6ddfa4ed9c4]
+  relationship_tags: produce Luminox Milk
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_luminox_sheep_relationship_tags_135ac2ec39f1]
+  species: sheep-like creatures
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_luminox_sheep_species_5b590ba6bf7a]
+  CONFLICTS:
+    physical_condition: 1 competing facts (auto_conflict_025)
+    species: 1 competing facts (auto_conflict_024)
+
+== Entity: Main Gates (location) ==
+  atmosphere: The main gates are a bottleneck of people and carts
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_main_gates_atmosphere_4c098668c14f]
+  defenses: Flanked by statues of the city's founders
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_main_gates_defenses_daf29a9c6d3b]
+  relationship_tags: Flanked by statues of the city's founders
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_main_gates_relationship_tags_685012e3f590]
+  CONFLICTS:
+    atmosphere: 1 competing facts (auto_conflict_239)
+    defenses: 1 competing facts (auto_conflict_238)
+
+== Entity: Sewer Meat Monster (item) ==
+  goals: The kaiju’s summoning might be prevented by purification.
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_the_kaiju_formation_goals_6e05e722c137]
+  operational_status: The kaiju could still be summoned even if ward issues occur
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_the_kaiju_formation_operational_status_faad6279f605]
+  physical_condition: If the ritual is disrupted, the kaiju might emerge even more powerful.
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_the_kaiju_formation_physical_condition_b56fd3cece90]
+  relationship_tags: May absorb magic from the purifying cauldrons.
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_the_kaiju_formation_relationship_tags_e13cf9c08f96]
+  CONFLICTS:
+    goals: 1 competing facts (auto_conflict_364)
+    operational_status: 1 competing facts (auto_conflict_378)
+    relationship_tags: 1 competing facts (auto_conflict_340)
+
+== Entity: Frontier Folk (faction) ==
+  demographics: a diverse mix of people from the frontier towns
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_frontier_folk_demographics_f478e7cd4137]
+  economy: they bring goods to the city
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_frontier_folk_economy_2a61e636ae80]
+  geography: from the frontier towns
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_frontier_folk_geography_888e26be5fb8]
+  portrayal_notes: each brings unique culture
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_frontier_folk_portrayal_notes_dfb610726f07]
+  relationship_tags: from the frontier towns
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_frontier_folk_relationship_tags_5164ae3e0d7f]
+  CONFLICTS:
+    demographics: 1 competing facts (auto_conflict_226)
+    economy: 1 competing facts (auto_conflict_229)
+    portrayal_notes: 1 competing facts (auto_conflict_228)
+    relationship_tags: 1 competing facts (auto_conflict_227)
+
+== Entity: summoning ritual (item) ==
+  current_location: Real summoning happens elsewhere
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_ritual_of_expansion_current_location_ff7c273a9a99]
+  goals: purification ritual
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_ritual_of_expansion_goals_e16602ec83cb]
+  operational_status: If the ritual is disrupted, it may lead to worse outcomes.
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_ritual_of_expansion_operational_status_d2a6f6b1d1c3]
+  portrayal_notes: symbolic
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_ritual_of_expansion_portrayal_notes_0ad93df238a5]
+  role: Key Event
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_ritual_of_expansion_role_a86ee843a16b]
+  CONFLICTS:
+    goals: 1 competing facts (auto_conflict_404)
+    operational_status: 1 competing facts (auto_conflict_376)
+    portrayal_notes: 1 competing facts (auto_conflict_135)
+    role: 1 competing facts (auto_conflict_134)
+
+== Entity: Starry Milk (item) ==
+  economy: Key ingredient in many magical potions
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_starry_milk_economy_eff163bb00b5]
+  portrayal_notes: Believed to enhance night vision and improve sleep quality
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_starry_milk_portrayal_notes_5902075bff2c]
+  relationship_tags: Milk used to make Celestial Cheese
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_starry_milk_relationship_tags_b10c43bd90bb]
+  source_comments: Believed to enhance night vision
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_starry_milk_source_comments_a80d860b9c1d]
+  CONFLICTS:
+    economy: 1 competing facts (auto_conflict_066)
+    portrayal_notes: 1 competing facts (auto_conflict_065)
+    source_comments: 1 competing facts (auto_conflict_281)
+
+== Entity: Festival of Expansion (other) ==
+  goals: Commemorates the city's growth
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_festival_of_expansion_goals_2ba0b5e5fb5b]
+  history: Initially tied to expanding Aspitome’s bubble
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_festival_of_expansion_history_a49ada266b72]
+  relationship_tags: players are heading into Mirathorn for the Festival of Expansion
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_festival_of_expansion_relationship_tags_34062e1c96de]
+  role: Event the players are navigating into Mirathorn for
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_festival_of_expansion_role_b7613e310f7c]
+  CONFLICTS:
+    goals: 1 competing facts (auto_conflict_292)
+    history: 1 competing facts (auto_conflict_132)
+    relationship_tags: 1 competing facts (auto_conflict_276)
+
+== Entity: Luminox Milk (item) ==
+  economy: Often used in special potions and recipes
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_luminox_milk_economy_b03b62caee54]
+  goals: Often used in special potions and recipes
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_luminox_milk_goals_eebd2d02d08c]
+  history: Used to make healing salve
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_luminox_milk_history_a0dd39c36871]
+  portrayal_notes: Believed to have mild healing properties
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_luminox_milk_portrayal_notes_8317f0319f82]
+  CONFLICTS:
+    economy: 1 competing facts (auto_conflict_036)
+    history: 1 competing facts (auto_conflict_040)
+    portrayal_notes: 1 competing facts (auto_conflict_035)
+
+== Entity: Temple of the Nameless Goddess (location) ==
+  geography: Key features include The Great Hall, The Altar of Sacrifice, The Reflection Pool, and The Sanctuary
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_temple_of_the_nameless_goddess_geography_57a3b8e11074]
+  goals: Honors the Nameless Goddess
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_temple_of_the_nameless_goddess_goals_bfbb0ee9e47d]
+  history: Built with murals transported tile-by-tile from the Lundayell Empire
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_temple_of_the_nameless_goddess_history_6b08e8bcc505]
+  portrayal_notes: Listed as a key location
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_temple_of_the_nameless_goddess_portrayal_notes_364f48660c86]
+  role: Key location
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_temple_of_the_nameless_goddess_role_18e1a44cc524]
+  CONFLICTS:
+    history: 1 competing facts (auto_conflict_136)
+
+== Entity: Wizard’s College (faction) ==
+  defenses: Provides immediate magical detection of cultists or tainted goods
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_wizards_college_defenses_751bac308c74]
+  goals: Its resources are intended to be deployed to detect and counteract the cult’s influence
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_wizards_college_goals_45f5d1851bce]
+  governance: Proposes an arcane lockdown of the city
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_wizards_college_governance_aa15d2e031cb]
+  loyalty_or_alignment_context: Aligned with agricultural district
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_wizards_college_loyalty_or_alignment_context_a12bb2f4ca86]
+  operational_status: Its resources can be deployed to detect and counteract cult influence
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_wizards_college_operational_status_c75e1e8b7c78]
+  relationship_tags: provides magical runes used by players
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_wizards_college_relationship_tags_9cee4287b55f]
+  role: Example of safe hands for Torbin
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_wizards_college_role_55cdf99ce1b7]
+  CONFLICTS:
+    goals: 1 competing facts (auto_conflict_381)
+    governance: 1 competing facts (auto_conflict_158)
+    operational_status: 1 competing facts (auto_conflict_162)
+    relationship_tags: 1 competing facts (auto_conflict_360)
+
+== Entity: Luminous Wool (item) ==
+  economy: Highly sought after
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_luminous_wool_economy_f28bc5266599]
+  goals: Used to create luminescent textiles
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_luminous_wool_goals_f2ac436ac212]
+  physical_condition: Different wool colors provide different light intensities and hues
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_luminous_wool_physical_condition_c384bfbca25b]
+  portrayal_notes: Has a natural glow
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_luminous_wool_portrayal_notes_f2bc32e41b8f]
+  relationship_tags: Used to create Luminescent Textiles
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_luminous_wool_relationship_tags_bd769716aca4]
+  CONFLICTS:
+    economy: 1 competing facts (auto_conflict_029)
+    physical_condition: 1 competing facts (auto_conflict_442)
+    portrayal_notes: 1 competing facts (auto_conflict_030)
+
+== Entity: Other place (location) ==
+  atmosphere: Not Fae or other planar; more like undefined
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_other_place_atmosphere_859f2b2cd44a]
+  demographics: Things born from there can include giant fish or packs of wolves
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_other_place_demographics_1296e5ce39c8]
+  history: A spark/concentration of chaos and unreality there gives rise to things that crawl out
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_other_place_history_2cebdf395833]
+  operational_status: Mostly non-existence and mostly inert
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_other_place_operational_status_afc4ffb08381]
+  physical_condition: Mostly non-existence and mostly inert
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_other_place_physical_condition_030ad4c5f93e]
+  portrayal_notes: Contains a spark, a concentration of chaos and unreality
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_other_place_portrayal_notes_66a85394d9c1]
+  CONFLICTS:
+    history: 1 competing facts (auto_conflict_014)
+    operational_status: 1 competing facts (auto_conflict_013)
+    portrayal_notes: 1 competing facts (auto_conflict_009)
+
+== Entity: Population (location) ==
+  defenses: Would receive immediate protection
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_population_defenses_474af08c9d41]
+  demographics: Increased traffic on the road to Mirathorn
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_population_demographics_60e7da3a5a08]
+  mental_state: panic and frustration
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_population_mental_state_dc5ad9856c70]
+  physical_condition: people are included as targets of magical cleansing
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_population_physical_condition_4be34f6fd4a0]
+  CONFLICTS:
+    demographics: 1 competing facts (auto_conflict_023)
+
+== Entity: Shepherd's Flock Protest (other) ==
+  atmosphere: adds a layer of tension and urgency to the scene
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_shepherds_flock_protest_atmosphere_282169d57f27]
+  current_location: outside the main gate
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_shepherds_flock_protest_current_location_5f5598250f2f]
+  goals: argue the toll is unfair and exclusionary
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_shepherds_flock_protest_goals_9fcae235d260]
+  operational_status: being staged
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_shepherds_flock_protest_operational_status_a270a370d692]
+  CONFLICTS:
+    atmosphere: 1 competing facts (auto_conflict_257)
+    current_location: 1 competing facts (auto_conflict_258)
+    goals: 1 competing facts (auto_conflict_259)
+
+== Entity: Travelers (other) ==
+  current_location: Making their way to the festival via the road to Mirathorn
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_travelers_current_location_88f4b69c40f0]
+  mental_state: Many visitors are discontent due to the high toll
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_travelers_mental_state_74628f2ee8cc]
+  portrayal_notes: favor energizing elixir
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_travelers_portrayal_notes_55a226fbc037]
+  relationship_tags: Prefer/popular use of Float Goat wool cloaks and garments
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_travelers_relationship_tags_5662cba57dc4]
+  CONFLICTS:
+    current_location: 1 competing facts (auto_conflict_316)
+    portrayal_notes: 1 competing facts (auto_conflict_288)
+    relationship_tags: 1 competing facts (auto_conflict_034)
+
+== Entity: Water-Walking Wool (item) ==
+  economy: Ideal for crafting airy garments and textiles
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_water_walking_wool_economy_ef2aa4dbfb46]
+  physical_condition: Incredibly soft and lightweight
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_water_walking_wool_physical_condition_af9d7e1a8e75]
+  portrayal_notes: Provides warmth without weight
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_water_walking_wool_portrayal_notes_2ded28e0682e]
+  relationship_tags: Water-Walking Wool is the fur/wool of Float Goats.
+    [CANON, from: layer=world, source_class=seed_reference, fact=fact_water_walking_wool_relationship_tags_e4b3a9cf11d9]
+  CONFLICTS:
+    economy: 1 competing facts (auto_conflict_108)
+    physical_condition: 1 competing facts (auto_conflict_107)
+    portrayal_notes: 1 competing facts (auto_conflict_109)
+
+[Context truncated to top 50 entities by fact count; 307 more entities omitted.]

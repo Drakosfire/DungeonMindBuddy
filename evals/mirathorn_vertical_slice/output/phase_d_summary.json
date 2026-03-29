@@ -1,0 +1,35 @@
+{
+  "answer_stats": {
+    "chars": 1383,
+    "sha256": "89736f2f3372090e12fe1516c87e193ba2d6bbacbf4f3a1f9b254303cb3a0cab"
+  },
+  "artifacts": {
+    "answer_path": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/mirathorn_vertical_slice/output/phase_d_answer.txt",
+    "context_path": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/mirathorn_vertical_slice/output/phase_d_context.txt",
+    "summary_path": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/mirathorn_vertical_slice/output/phase_d_summary.json"
+  },
+  "context_stats": {
+    "chars": 71845,
+    "sha256": "37052f8ffdb5f71c4c7207b8fb82f35b651c2654572ee6e0e34001ec4e2c61dd"
+  },
+  "gates": {
+    "D1": {
+      "detail": "counts evidence=1115 entities=798 facts=5470",
+      "pass": true
+    },
+    "D2": {
+      "detail": "mentions_mirathorn=True attributes_hit=5 length=1383",
+      "pass": true
+    },
+    "D3": {
+      "detail": "entity_header=True provenance=True conflicts=True",
+      "pass": true
+    },
+    "D4": {
+      "detail": "sequence_ok=True missing_file=True missing_key=True",
+      "pass": true
+    }
+  },
+  "overall_pass": true,
+  "source_path": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/The City of Mirathorn.md"
+}
