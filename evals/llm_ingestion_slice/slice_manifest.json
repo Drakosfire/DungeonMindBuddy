@@ -4,11 +4,11 @@
   "sources": {
     "world_markdown": {
       "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/The City of Mirathorn.md",
-      "sha256": "963097c7522bd5dc25e29f3216b1f05919f4d1ce5ef52b75eb5b021b5f4bace5"
+      "sha256": "6ed5cc335da5737e633973d8d09bc988b0c32a2daf80b807dd03e71ef60921b9"
     },
     "campaign_markdown": {
       "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Longmont Campaign General Notes.md",
-      "sha256": "f0f49498aca31931365a0c24ec33d2f9b933254fef81d9401481a7fef7b6a682"
+      "sha256": "c1cf4de78a5b0b9e916c9cd4e9a0d8cffecdfa7d1d7b3457c888409a9f7a7e31"
     }
   }
 }

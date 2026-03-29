@@ -1,3 +1,12 @@
+---
+title: "The City of Mirathorn"
+document_class: world
+canon_layer: world
+campaign_id: null
+session: null
+source_class: seed_reference
+---
+
 The Elderwyld
 
 Long ago, the gods lost to the other things. Beyond the planes, and the fae, and the gods was something else. First the Demons, Devils, and Chaos were allied with it. Growing their own domains on the complete besieging of all reality, growing with each god slain. Too late they understood,  too late to act, that Other thing, Other place, turned and consumed them too. All that was left was the Aspitome and it’s defenders. The nameless goddess gone, given their life to save everything. We remember her, we remember them. We remember our heritage.  Just as they forged a new land, and a new home for all, we will turn these Elderwylds to garden.

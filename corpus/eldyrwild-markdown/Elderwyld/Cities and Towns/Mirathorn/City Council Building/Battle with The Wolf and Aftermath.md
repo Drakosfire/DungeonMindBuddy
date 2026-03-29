@@ -1,3 +1,12 @@
+---
+title: "Battle with The Wolf and Aftermath"
+document_class: play
+canon_layer: campaign
+campaign_id: longmont-c1
+session: 9
+source_class: observed_session_recap
+---
+
 ### Session Outline: Battle with The Wolf and Aftermath
 
 ### 1. Battle with The Wolf in the Council Chamber

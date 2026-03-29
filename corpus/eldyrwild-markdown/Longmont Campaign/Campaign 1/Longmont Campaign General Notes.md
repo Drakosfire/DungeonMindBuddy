@@ -1,3 +1,12 @@
+---
+title: "Longmont Campaign General Notes"
+document_class: reference
+canon_layer: campaign
+campaign_id: longmont-c1
+session: null
+source_class: ledger_or_dossier
+---
+
 Stafl
 
 Map making tools :
