@@ -105,6 +105,9 @@
     "inferred_session": {
       "$ref": "common.schema.json#/$defs/sessionIntOrNull"
     },
+    "document_session": {
+      "$ref": "common.schema.json#/$defs/sessionIntOrNull"
+    },
     "speaker_or_subject": {
       "type": [
         "string",

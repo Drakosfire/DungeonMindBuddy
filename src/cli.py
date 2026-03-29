@@ -19,8 +19,19 @@ from dotenv import load_dotenv
 from src.agent.context_formatter import format_projection_context
 from src.agent.synthesis import synthesize_answer_async
 from src.ingestion.chunker import chunk_document
+from src.ingestion.frontmatter import (
+    FrontmatterError,
+    load_document_frontmatter,
+    write_document_with_frontmatter,
+)
+from src.ingestion.frontmatter_inference import (
+    OpenAIFrontmatterInferenceClient,
+    infer_frontmatter_metadata,
+    metadata_preview,
+)
 from src.ingestion.entity_extractor import AsyncOpenAIResponsesEntityClient, run_entity_extraction
 from src.ingestion.fact_extractor import AsyncOpenAIResponsesFactClient, run_fact_extraction
+from src.contracts.schema_validation import validate_many
 from src.store import FactStore
 
 LOGGER_FORMAT = "%(asctime)s %(levelname)s [%(name)s] %(message)s"
@@ -80,6 +91,54 @@ class DungeonBuddyCLI:
         self.logger = logging.getLogger("dungeonbuddy.cli")
         self.logger.setLevel(logging.DEBUG if verbose else logging.INFO)
 
+    @staticmethod
+    def _metadata_conflicts(
+        *,
+        provided_layer: str | None,
+        provided_campaign: str | None,
+        provided_source_class: str | None,
+        provided_title: str | None,
+        metadata: dict[str, str | int | None],
+    ) -> list[str]:
+        conflicts: list[str] = []
+        if provided_layer and provided_layer != metadata["canon_layer"]:
+            conflicts.append(
+                f"--layer={provided_layer} conflicts with frontmatter canon_layer={metadata['canon_layer']}"
+            )
+        if provided_campaign is not None and provided_campaign != metadata["campaign_id"]:
+            conflicts.append(
+                f"--campaign={provided_campaign} conflicts with frontmatter campaign_id={metadata['campaign_id']}"
+            )
+        if provided_source_class and provided_source_class != metadata["source_class"]:
+            conflicts.append(
+                f"--source-class={provided_source_class} conflicts with frontmatter source_class={metadata['source_class']}"
+            )
+        if provided_title and provided_title != metadata["title"]:
+            conflicts.append(
+                f"--title={provided_title} conflicts with frontmatter title={metadata['title']}"
+            )
+        return conflicts
+
+    def _confirm_inferred_frontmatter(self, source_path: Path, text: str) -> bool:
+        inference_client = None
+        api_key = os.getenv("OPENAI_API_KEY")
+        if api_key:
+            inference_client = OpenAIFrontmatterInferenceClient(api_key=api_key)
+        inferred = infer_frontmatter_metadata(
+            path=source_path,
+            text=text,
+            openai_client=inference_client,
+        )
+        print("Proposed frontmatter metadata:")
+        print(metadata_preview(inferred))
+        answer = input("Apply this frontmatter to the document? [y/N]: ").strip().lower()
+        if answer not in {"y", "yes"}:
+            print("Error: frontmatter inference not confirmed.")
+            return False
+        write_document_with_frontmatter(source_path, metadata=inferred, body=text)
+        print(f"Frontmatter written to {source_path}")
+        return True
+
     def run(self) -> int:
         while True:
             try:
@@ -124,6 +183,9 @@ class DungeonBuddyCLI:
         if command == "compact":
             self._cmd_compact(args)
             return True
+        if command == "canon-decision":
+            self._cmd_canon_decision(args)
+            return True
 
         print(f"Error: unknown command '{command}'")
         return True
@@ -133,10 +195,12 @@ class DungeonBuddyCLI:
         started = time.perf_counter()
         parser = argparse.ArgumentParser(prog="ingest", add_help=False)
         parser.add_argument("path")
-        parser.add_argument("--layer", required=True, choices=["world", "campaign"])
+        parser.add_argument("--layer", choices=["world", "campaign"])
         parser.add_argument("--campaign")
         parser.add_argument("--source-class")
         parser.add_argument("--title")
+        parser.add_argument("--chunk-min-chars", type=int, default=50)
+        parser.add_argument("--no-frontmatter", action="store_true")
         parser.add_argument("--force", action="store_true")
         parsed = self._safe_parse(parser, args)
         if parsed is None:
@@ -157,8 +221,91 @@ class DungeonBuddyCLI:
             )
             return
 
-        if parsed.layer == "campaign" and not parsed.campaign:
-            print("Error: --campaign is required when --layer=campaign")
+        metadata_layer = parsed.layer
+        metadata_campaign_id = parsed.campaign
+        metadata_source_class = parsed.source_class
+        metadata_title = parsed.title or source_path.stem
+
+        if source_path.suffix.lower() == ".md":
+            try:
+                metadata, body = load_document_frontmatter(source_path)
+            except FrontmatterError as exc:
+                print(f"Error: invalid frontmatter: {exc}")
+                self._record_event(
+                    "ingest_runs",
+                    {
+                        "run_id": run_id,
+                        "timestamp": _utc_now_iso(),
+                        "status": "error",
+                        "error": "invalid_frontmatter",
+                        "detail": str(exc),
+                        "source_path": str(source_path),
+                    },
+                )
+                return
+            if metadata is None and not parsed.no_frontmatter:
+                if not self._confirm_inferred_frontmatter(source_path, body):
+                    self._record_event(
+                        "ingest_runs",
+                        {
+                            "run_id": run_id,
+                            "timestamp": _utc_now_iso(),
+                            "status": "error",
+                            "error": "frontmatter_inference_declined",
+                            "source_path": str(source_path),
+                        },
+                    )
+                    return
+                metadata, _ = load_document_frontmatter(source_path)
+
+            if metadata is not None:
+                md = metadata.to_dict()
+                conflicts = self._metadata_conflicts(
+                    provided_layer=parsed.layer,
+                    provided_campaign=parsed.campaign,
+                    provided_source_class=parsed.source_class,
+                    provided_title=parsed.title,
+                    metadata=md,
+                )
+                if conflicts:
+                    print("Error: frontmatter conflicts with CLI arguments:")
+                    for conflict in conflicts:
+                        print(f"  - {conflict}")
+                    self._record_event(
+                        "ingest_runs",
+                        {
+                            "run_id": run_id,
+                            "timestamp": _utc_now_iso(),
+                            "status": "error",
+                            "error": "frontmatter_cli_conflict",
+                            "source_path": str(source_path),
+                            "conflicts": conflicts,
+                        },
+                    )
+                    return
+                metadata_layer = str(md["canon_layer"])
+                metadata_campaign_id = (
+                    str(md["campaign_id"]) if md.get("campaign_id") is not None else None
+                )
+                metadata_source_class = str(md["source_class"])
+                metadata_title = str(md["title"])
+
+        if metadata_layer is None:
+            print("Error: --layer is required when frontmatter is absent or bypassed.")
+            self._record_event(
+                "ingest_runs",
+                {
+                    "run_id": run_id,
+                    "timestamp": _utc_now_iso(),
+                    "status": "error",
+                    "error": "missing_layer",
+                    "source_path": str(source_path),
+                },
+            )
+            return
+
+        if metadata_layer == "campaign" and not metadata_campaign_id:
+            print("Error: campaign metadata is required for campaign-layer ingest.")
             self._record_event(
                 "ingest_runs",
                 {
@@ -167,7 +314,21 @@ class DungeonBuddyCLI:
                     "status": "error",
                     "error": "missing_campaign_id",
                     "source_path": str(source_path),
-                    "layer": parsed.layer,
+                    "layer": metadata_layer,
+                },
+            )
+            return
+        if parsed.chunk_min_chars < 1:
+            print("Error: --chunk-min-chars must be >= 1.")
+            self._record_event(
+                "ingest_runs",
+                {
+                    "run_id": run_id,
+                    "timestamp": _utc_now_iso(),
+                    "status": "error",
+                    "error": "invalid_chunk_min_chars",
+                    "source_path": str(source_path),
+                    "chunk_min_chars": parsed.chunk_min_chars,
                 },
             )
             return
@@ -187,16 +348,16 @@ class DungeonBuddyCLI:
             )
             return
 
-        source_class = parsed.source_class
+        source_class = metadata_source_class
         if not source_class:
-            source_class = "seed_reference" if parsed.layer == "world" else "planning_document"
+            source_class = "seed_reference" if metadata_layer == "world" else "planning_document"
 
-        title = parsed.title or source_path.stem
+        title = metadata_title
         document_id = f"doc_{_snake_case(source_path.stem)}"
-        campaign_id = parsed.campaign
+        campaign_id = metadata_campaign_id
         source_fingerprint = _file_sha256(source_path)
         ingest_key = (
-            f"{source_fingerprint}|layer={parsed.layer}|campaign={campaign_id}|source_class={source_class}"
+            f"{source_fingerprint}|layer={metadata_layer}|campaign={campaign_id}|source_class={source_class}"
         )
 
         self.store_dir.mkdir(parents=True, exist_ok=True)
@@ -211,7 +372,7 @@ class DungeonBuddyCLI:
                     "status": "error",
                     "error": "duplicate_ingest",
                     "source_path": str(source_path),
-                    "layer": parsed.layer,
+                    "layer": metadata_layer,
                     "campaign_id": campaign_id,
                     "source_class": source_class,
                     "source_fingerprint": source_fingerprint,
@@ -226,11 +387,12 @@ class DungeonBuddyCLI:
                 "timestamp": _utc_now_iso(),
                 "status": "started",
                 "source_path": str(source_path),
-                "layer": parsed.layer,
+                "layer": metadata_layer,
                 "campaign_id": campaign_id,
                 "source_class": source_class,
                 "title": title,
                 "document_id": document_id,
+                "chunk_min_chars": parsed.chunk_min_chars,
                 "source_fingerprint": source_fingerprint,
             },
         )
@@ -241,9 +403,10 @@ class DungeonBuddyCLI:
                 docx_path=source_path,
                 document_id=document_id,
                 document_title=title,
-                canon_layer=parsed.layer,
+                canon_layer=metadata_layer,
                 campaign_id=campaign_id,
                 source_class=source_class,
+                min_chars=parsed.chunk_min_chars,
             )
             chunk_ms = int((time.perf_counter() - t0) * 1000)
             self._record_event(
@@ -303,7 +466,7 @@ class DungeonBuddyCLI:
             facts = run_fact_extraction(
                 evidence_units,
                 entities=entities,
-                canon_layer=parsed.layer,
+                canon_layer=metadata_layer,
                 campaign_id=campaign_id,
                 source_class=source_class,
                 cache_dir=cache_dir,
@@ -355,7 +518,7 @@ class DungeonBuddyCLI:
             ingest_key,
             {
                 "source_path": str(source_path),
-                "layer": parsed.layer,
+                    "layer": metadata_layer,
                 "campaign_id": campaign_id,
                 "source_class": source_class,
                 "document_id": document_id,
@@ -379,10 +542,11 @@ class DungeonBuddyCLI:
                 "status": "completed",
                 "duration_ms": total_ms,
                 "source_path": str(source_path),
-                "layer": parsed.layer,
+                "layer": metadata_layer,
                 "campaign_id": campaign_id,
                 "source_class": source_class,
                 "document_id": document_id,
+                "chunk_min_chars": parsed.chunk_min_chars,
                 "source_fingerprint": source_fingerprint,
                 "counts": {
                     "evidence_units_extracted": len(evidence_units),
@@ -558,6 +722,34 @@ class DungeonBuddyCLI:
             projection.get("metrics", {}).get("open_conflicts"),
             len(context),
         )
+
+    def _cmd_canon_decision(self, args: Sequence[str]) -> None:
+        parser = argparse.ArgumentParser(prog="canon-decision", add_help=False)
+        parser.add_argument("action", choices=["add"])
+        parser.add_argument("json_path", type=Path)
+        parsed = self._safe_parse(parser, args)
+        if parsed is None:
+            return
+        path = parsed.json_path
+        if not path.exists():
+            print(f"Error: file not found: {path}")
+            return
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as exc:
+            print(f"Error: invalid JSON: {exc}")
+            return
+        if not isinstance(payload, list):
+            print("Error: canon decision file must be a JSON array of decisions.")
+            return
+        try:
+            validate_many(payload, "canon_decision.schema.json")
+        except Exception as exc:
+            print(f"Error: schema validation failed: {exc}")
+            return
+        self.store.add_canon_decisions(payload)
+        self.store.save()
+        print(f"Added {len(payload)} canon decision record(s); store saved.")
 
     def _cmd_compact(self, args: Sequence[str]) -> None:
         if args:

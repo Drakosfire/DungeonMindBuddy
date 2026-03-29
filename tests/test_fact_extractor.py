@@ -14,7 +14,11 @@ from src.ingestion.fact_extractor import (
 
 
 def _evidence(
-    evidence_id: str, text: str, index: int, inferred_session: int | None = None
+    evidence_id: str,
+    text: str,
+    index: int,
+    inferred_session: int | None = None,
+    document_session: int | None = None,
 ) -> dict[str, Any]:
     return {
         "schema_version": "0.1.0",
@@ -35,6 +39,7 @@ def _evidence(
         "line_span": None,
         "char_span": None,
         "inferred_session": inferred_session,
+        "document_session": document_session,
         "speaker_or_subject": None,
         "notes": None,
     }
@@ -57,6 +62,10 @@ def _entity(entity_id: str, display_name: str, entity_type: str = "location") ->
         "review_state": "unreviewed",
         "notes": None,
     }
+
+
+def _extra_entity(entity_id: str, display_name: str, entity_type: str = "npc") -> dict[str, Any]:
+    return _entity(entity_id=entity_id, display_name=display_name, entity_type=entity_type)
 
 
 class _StubFactClient:
@@ -413,3 +422,59 @@ def test_temporal_provenance_copied_from_evidence_unit(tmp_path: Path) -> None:
     assert facts
     assert all(f["asserted_in_session"] == 12 for f in facts)
     assert all(f["sequence_index_within_session"] == 7 for f in facts)
+
+
+def test_document_session_takes_precedence_for_asserted_session(tmp_path: Path) -> None:
+    facts = run_fact_extraction(
+        [
+            _evidence(
+                "evid_1",
+                "Geography: near Stormspire Peaks.",
+                9,
+                inferred_session=3,
+                document_session=14,
+            )
+        ],
+        entities=ENTITIES,
+        canon_layer="campaign",
+        campaign_id="longmont-c1",
+        source_class="observed_session_recap",
+        cache_dir=tmp_path / "cache",
+        openai_client=_StubFactClient(),
+    )
+    assert facts
+    assert all(f["asserted_in_session"] == 14 for f in facts)
+    assert all(f["sequence_index_within_session"] == 9 for f in facts)
+
+
+def test_cache_key_scoping_ignores_unrelated_entity_additions(tmp_path: Path) -> None:
+    client = _StubFactClient()
+    evidence = [_evidence("evid_1", "Mirathorn geography near Stormspire Peaks.", 0)]
+    cache_dir = tmp_path / "cache"
+    first_entities = [_entity("ent_mirathorn", "Mirathorn")]
+    second_entities = [
+        _entity("ent_mirathorn", "Mirathorn"),
+        _extra_entity("ent_unrelated_npc", "Unrelated NPC"),
+    ]
+
+    first = run_fact_extraction(
+        evidence,
+        entities=first_entities,
+        canon_layer="world",
+        campaign_id=None,
+        source_class="seed_reference",
+        cache_dir=cache_dir,
+        openai_client=client,
+    )
+    second = run_fact_extraction(
+        evidence,
+        entities=second_entities,
+        canon_layer="world",
+        campaign_id=None,
+        source_class="seed_reference",
+        cache_dir=cache_dir,
+        openai_client=client,
+    )
+
+    assert first == second
+    assert client.calls == 1

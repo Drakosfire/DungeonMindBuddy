@@ -10,6 +10,7 @@ import blake3
 
 from src.contracts.schema_validation import validate_many
 from src.ingestion.docx_converter import docx_to_markdown, markdown_passthrough
+from src.ingestion.frontmatter import DocumentMetadata, parse_document_frontmatter
 
 
 _HEADING_RE = re.compile(r"^(#{1,6})\s+(.+?)\s*$")
@@ -133,6 +134,7 @@ def _walk_tree(
     source_class: str,
     canon_layer: str,
     campaign_id: str | None,
+    document_session: int | None,
 ) -> None:
     if node.node_type == "root":
         for child in node.children:
@@ -147,6 +149,7 @@ def _walk_tree(
                 source_class=source_class,
                 canon_layer=canon_layer,
                 campaign_id=campaign_id,
+                document_session=document_session,
             )
         return
 
@@ -169,6 +172,7 @@ def _walk_tree(
                     source_class=source_class,
                     canon_layer=canon_layer,
                     campaign_id=campaign_id,
+                    document_session=document_session,
                 )
         else:
             now_iso = _now_utc_iso()
@@ -196,7 +200,12 @@ def _walk_tree(
                     "source_order_index": counter[0],
                     "line_span": None,
                     "char_span": None,
-                    "inferred_session": _infer_session_from_section_path(child_path),
+                    "inferred_session": (
+                        document_session
+                        if document_session is not None
+                        else _infer_session_from_section_path(child_path)
+                    ),
+                    "document_session": document_session,
                     "speaker_or_subject": None,
                     "notes": None,
                 }
@@ -233,7 +242,12 @@ def _walk_tree(
             "source_order_index": counter[0],
             "line_span": None,
             "char_span": None,
-            "inferred_session": _infer_session_from_section_path(section_path),
+            "inferred_session": (
+                document_session
+                if document_session is not None
+                else _infer_session_from_section_path(section_path)
+            ),
+            "document_session": document_session,
             "speaker_or_subject": None,
             "notes": None,
         }
@@ -279,18 +293,94 @@ def _load_markdown(source_path: Path) -> str:
     return docx_to_markdown(source_path)
 
 
+def _coalesce_metadata(
+    frontmatter: DocumentMetadata | None,
+    *,
+    fallback_document_id: str | None,
+    fallback_document_title: str | None,
+    fallback_canon_layer: str | None,
+    fallback_campaign_id: str | None,
+    fallback_source_class: str | None,
+) -> tuple[str, str, str, str | None, str, int | None]:
+    if frontmatter is not None:
+        document_title = frontmatter.title
+        document_id = (
+            fallback_document_id
+            if fallback_document_id is not None and fallback_document_id.strip()
+            else f"doc_{_sanitize(frontmatter.title)}"
+        )
+        return (
+            document_id,
+            document_title,
+            frontmatter.canon_layer,
+            frontmatter.campaign_id,
+            frontmatter.source_class,
+            frontmatter.session,
+        )
+
+    missing = []
+    if not fallback_document_id:
+        missing.append("document_id")
+    if not fallback_document_title:
+        missing.append("document_title")
+    if not fallback_canon_layer:
+        missing.append("canon_layer")
+    if not fallback_source_class:
+        missing.append("source_class")
+    if missing:
+        missing_csv = ", ".join(missing)
+        raise ValueError(
+            f"Missing metadata and no frontmatter available: {missing_csv}. "
+            "Provide metadata args or add document frontmatter."
+        )
+    return (
+        str(fallback_document_id),
+        str(fallback_document_title),
+        str(fallback_canon_layer),
+        fallback_campaign_id,
+        str(fallback_source_class),
+        None,
+    )
+
+
+def _sanitize(raw: str) -> str:
+    cleaned = re.sub(r"[^A-Za-z0-9]+", "_", raw.strip().lower())
+    cleaned = re.sub(r"_+", "_", cleaned).strip("_")
+    return cleaned or "document"
+
+
 def chunk_document(
     docx_path: Path,
-    document_id: str,
-    document_title: str,
-    canon_layer: str,
-    campaign_id: str | None,
-    source_class: str,
+    document_id: str | None = None,
+    document_title: str | None = None,
+    canon_layer: str | None = None,
+    campaign_id: str | None = None,
+    source_class: str | None = None,
     document_type: str = "world_reference",
+    min_chars: int = 50,
 ) -> list[dict[str, Any]]:
     """Create evidence units from a source document using heading-based chunking."""
     markdown = _load_markdown(Path(docx_path))
+    metadata, body = parse_document_frontmatter(markdown)
+    (
+        resolved_document_id,
+        resolved_document_title,
+        resolved_canon_layer,
+        resolved_campaign_id,
+        resolved_source_class,
+        resolved_document_session,
+    ) = _coalesce_metadata(
+        metadata,
+        fallback_document_id=document_id,
+        fallback_document_title=document_title,
+        fallback_canon_layer=canon_layer,
+        fallback_campaign_id=campaign_id,
+        fallback_source_class=source_class,
+    )
     lines = markdown.splitlines()
+    if metadata is not None:
+        lines = body.splitlines()
+        document_type = f"{metadata.document_class}_document"
     blocks = _segment_blocks(lines)
     root = _build_heading_tree(blocks)
 
@@ -300,13 +390,16 @@ def chunk_document(
         path=[],
         units=units,
         counter=[0],
-        document_id=document_id,
+        document_id=resolved_document_id,
         document_type=document_type,
-        document_title=document_title,
-        source_class=source_class,
-        canon_layer=canon_layer,
-        campaign_id=campaign_id,
+        document_title=resolved_document_title,
+        source_class=resolved_source_class,
+        canon_layer=resolved_canon_layer,
+        campaign_id=resolved_campaign_id,
+        document_session=resolved_document_session,
     )
-    units = _merge_small_units(units, min_chars=50)
+    if min_chars < 1:
+        raise ValueError("min_chars must be >= 1")
+    units = _merge_small_units(units, min_chars=min_chars)
     validate_many(units, "evidence_unit.schema.json")
     return units

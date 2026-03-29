@@ -213,6 +213,56 @@ def _entity_context_fingerprint(entities: list[dict[str, Any]]) -> str:
     return blake3.blake3("|".join(ids).encode("utf-8")).hexdigest()[:16]
 
 
+def _entity_aliases(entity: dict[str, Any]) -> list[str]:
+    aliases: list[str] = []
+    display_name = str(entity.get("display_name", "")).strip()
+    if display_name:
+        aliases.append(display_name)
+    for alias in entity.get("aliases", []):
+        name = str(alias).strip()
+        if name:
+            aliases.append(name)
+    deduped: list[str] = []
+    seen: set[str] = set()
+    for name in aliases:
+        key = name.lower()
+        if key in seen:
+            continue
+        deduped.append(name)
+        seen.add(key)
+    return deduped
+
+
+def _build_entity_matchers(
+    entities: list[dict[str, Any]],
+) -> dict[str, list[re.Pattern[str]]]:
+    matchers: dict[str, list[re.Pattern[str]]] = {}
+    for entity in entities:
+        entity_id = str(entity.get("entity_id", "")).strip()
+        if not entity_id:
+            continue
+        patterns: list[re.Pattern[str]] = []
+        for name in _entity_aliases(entity):
+            escaped = re.escape(name)
+            if not escaped:
+                continue
+            patterns.append(re.compile(rf"(?<!\w){escaped}(?!\w)", re.IGNORECASE))
+        if patterns:
+            matchers[entity_id] = patterns
+    return matchers
+
+
+def _candidate_entity_ids_for_text(
+    text: str,
+    matchers: dict[str, list[re.Pattern[str]]],
+) -> list[str]:
+    matched: list[str] = []
+    for entity_id, patterns in matchers.items():
+        if any(pattern.search(text) for pattern in patterns):
+            matched.append(entity_id)
+    return sorted(matched)
+
+
 def _cache_key(unit: dict[str, Any], model_id: str, entity_fp: str) -> str:
     text_fp = blake3.blake3(str(unit.get("text", "")).encode("utf-8")).hexdigest()
     payload = f"{text_fp}|{_PROMPT_ID}|{model_id}|{entity_fp}"
@@ -303,7 +353,9 @@ def _build_fact_record(
 
     now_iso = _now_utc_iso()
     evidence_id = str(evidence_unit.get("evidence_id", "unknown"))
-    inferred_session = evidence_unit.get("inferred_session")
+    inferred_session = evidence_unit.get("document_session")
+    if inferred_session is None:
+        inferred_session = evidence_unit.get("inferred_session")
     try:
         asserted_in_session = int(inferred_session) if inferred_session is not None else None
     except (TypeError, ValueError):
@@ -411,9 +463,15 @@ async def extract_facts_batch(
     cache_root.mkdir(parents=True, exist_ok=True)
     semaphore = asyncio.Semaphore(max(1, concurrency))
     entity_fp = _entity_context_fingerprint(entities)
+    entities_by_id = {
+        str(entity.get("entity_id", "")).strip(): entity
+        for entity in entities
+        if str(entity.get("entity_id", "")).strip()
+    }
+    entity_matchers = _build_entity_matchers(entities)
     entity_id_set = {str(e.get("entity_id", "")) for e in entities}
     truth_state, source_authority = derive_truth_state(canon_layer, source_class)
-    stats = {"completed": 0, "cache_hits": 0, "cache_misses": 0}
+    stats = {"completed": 0, "cache_hits": 0, "cache_misses": 0, "scoped_prompts": 0}
     progress_step = max(10, len(evidence_units) // 10) if evidence_units else 10
     logger.info(
         "fact_extractor start units=%d entities=%d concurrency=%d model=%s cache_dir=%s",
@@ -426,7 +484,17 @@ async def extract_facts_batch(
 
     async def process_unit(unit: dict[str, Any]) -> FactExtractionResult:
         evidence_id = str(unit.get("evidence_id", "unknown"))
-        key = _cache_key(unit, model_id, entity_fp)
+        unit_text = str(unit.get("text", ""))
+        candidate_entity_ids = _candidate_entity_ids_for_text(unit_text, entity_matchers)
+        prompt_entities = (
+            [entities_by_id[entity_id] for entity_id in candidate_entity_ids if entity_id in entities_by_id]
+            if candidate_entity_ids
+            else entities
+        )
+        prompt_entity_fp = _entity_context_fingerprint(prompt_entities) if prompt_entities else entity_fp
+        if candidate_entity_ids:
+            stats["scoped_prompts"] += 1
+        key = _cache_key(unit, model_id, prompt_entity_fp)
         cache_file = _cache_path(cache_root, key)
         if cache_file.exists():
             stats["cache_hits"] += 1
@@ -448,7 +516,7 @@ async def extract_facts_batch(
             logger.debug("fact_extractor unit=%s cache=miss", evidence_id)
             result = await _call_extractor(
                 unit=unit,
-                entities=entities,
+                entities=prompt_entities,
                 model_id=model_id,
                 openai_client=openai_client,
                 allow_heuristic_fallback=allow_heuristic_fallback,
@@ -491,11 +559,12 @@ async def extract_facts_batch(
     records = _deduplicate_facts(records)
     validate_many(records, "fact.schema.json")
     logger.info(
-        "fact_extractor done units=%d records=%d cache_hits=%d cache_misses=%d truth_state=%s",
+        "fact_extractor done units=%d records=%d cache_hits=%d cache_misses=%d scoped_prompts=%d truth_state=%s",
         len(evidence_units),
         len(records),
         stats["cache_hits"],
         stats["cache_misses"],
+        stats["scoped_prompts"],
         truth_state,
     )
     return records

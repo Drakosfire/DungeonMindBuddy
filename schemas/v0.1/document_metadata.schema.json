@@ -1,0 +1,170 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "document_metadata.schema.json",
+  "title": "DungeonBuddy Document Metadata v0.1",
+  "type": "object",
+  "required": [
+    "title",
+    "document_class",
+    "canon_layer",
+    "source_class"
+  ],
+  "properties": {
+    "title": {
+      "$ref": "common.schema.json#/$defs/nonEmptyString"
+    },
+    "document_class": {
+      "type": "string",
+      "enum": [
+        "world",
+        "play",
+        "planning",
+        "reference"
+      ]
+    },
+    "canon_layer": {
+      "$ref": "common.schema.json#/$defs/canonLayer"
+    },
+    "campaign_id": {
+      "$ref": "common.schema.json#/$defs/nullableId"
+    },
+    "session": {
+      "$ref": "common.schema.json#/$defs/sessionIntOrNull"
+    },
+    "source_class": {
+      "$ref": "common.schema.json#/$defs/sourceClass"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "canon_layer": {
+            "const": "world"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "campaign_id": {
+            "type": "null"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "canon_layer": {
+            "const": "campaign"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "campaign_id"
+        ],
+        "properties": {
+          "campaign_id": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "document_class": {
+            "const": "play"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "session"
+        ],
+        "properties": {
+          "session": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "canon_layer": {
+            "const": "campaign"
+          },
+          "source_class": {
+            "const": "observed_session_recap"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "document_class": {
+            "const": "planning"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "canon_layer": {
+            "const": "campaign"
+          },
+          "source_class": {
+            "const": "planning_document"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "document_class": {
+            "const": "reference"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "canon_layer": {
+            "const": "campaign"
+          },
+          "source_class": {
+            "enum": [
+              "ledger_or_dossier",
+              "other"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "document_class": {
+            "const": "world"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "canon_layer": {
+            "const": "world"
+          },
+          "source_class": {
+            "const": "seed_reference"
+          },
+          "campaign_id": {
+            "type": "null"
+          },
+          "session": {
+            "type": "null"
+          }
+        }
+      }
+    }
+  ],
+  "unevaluatedProperties": false
+}
