@@ -86,3 +86,20 @@ def test_semantic_does_not_weaken_stale_detection() -> None:
         has_error=False,
     )
     assert sem_v == "fail_stale"
+
+
+def test_semantic_dead_not_satisfied_by_vague_no_longer_active() -> None:
+    assert not _semantic_token_present("dead", "the shop is no longer active this season")
+
+
+def test_semantic_after_not_satisfied_by_generic_end_of_phrase() -> None:
+    assert not _semantic_token_present("after", "at the end of the day the party rested")
+
+
+def test_semantic_before_not_satisfied_by_lead_in_alone() -> None:
+    assert not _semantic_token_present("before", "during the lead-in music")
+
+
+def test_semantic_killing_blow_still_matches_real_death_paraphrase() -> None:
+    """Guardrail: tightening broad tokens must not break real wolf-death paraphrases."""
+    assert _semantic_token_present("killing blow", "he took a killing blow and fell")

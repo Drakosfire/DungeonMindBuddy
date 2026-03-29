@@ -148,6 +148,20 @@ def test_compact_deduplicates_facts_and_merges_evidence_ids(tmp_path: Path) -> N
     assert set(store.facts[0]["evidence_ids"]) == {"evid_1", "evid_2"}
 
 
+def test_merge_quality_signals_reports_alias_cardinality(tmp_path: Path) -> None:
+    store = FactStore(tmp_path / "store")
+    store.add_entities(
+        [
+            _sample_entity("ent_a", "Alpha", ["a1", "a2", "a3", "a4", "a5", "a6", "a7", "a8"]),
+            _sample_entity("ent_b", "Beta", ["b1"]),
+        ]
+    )
+    sig = store.merge_quality_signals()
+    assert sig["max_alias_count"] == 8
+    assert sig["entities_with_alias_count_ge_8"] == 1
+    assert sig["top_alias_counts"][0]["entity_id"] == "ent_a"
+
+
 def test_ingest_index_persists_across_save_load(tmp_path: Path) -> None:
     store = FactStore(tmp_path / "store")
     store.record_ingest_fingerprint(

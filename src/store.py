@@ -33,6 +33,7 @@ class FactStore:
         self.evidence_units: list[dict[str, Any]] = []
         self.entities: list[dict[str, Any]] = []
         self.facts: list[dict[str, Any]] = []
+        self.canon_decisions: list[dict[str, Any]] = []
         self.ingest_index: dict[str, dict[str, Any]] = {}
 
     def _path(self, name: str) -> Path:
@@ -50,6 +51,11 @@ class FactStore:
         self.evidence_units = self._read_json_list(self._path("evidence_units"))
         self.entities = self._read_json_list(self._path("entities"))
         self.facts = self._read_json_list(self._path("facts"))
+        canon_path = self._path("canon_decisions")
+        if canon_path.exists():
+            self.canon_decisions = self._read_json_list(canon_path)
+        else:
+            self.canon_decisions = []
         ingest_index_path = self._path("ingest_index")
         if ingest_index_path.exists():
             payload = json.loads(ingest_index_path.read_text(encoding="utf-8"))
@@ -72,6 +78,10 @@ class FactStore:
         )
         self._path("facts").write_text(
             json.dumps(self.facts, indent=2, ensure_ascii=False),
+            encoding="utf-8",
+        )
+        self._path("canon_decisions").write_text(
+            json.dumps(self.canon_decisions, indent=2, ensure_ascii=False),
             encoding="utf-8",
         )
         self._path("ingest_index").write_text(
@@ -218,6 +228,43 @@ class FactStore:
         validate_many(facts, "fact.schema.json")
         self.facts.extend(deepcopy(facts))
 
+    def add_canon_decisions(self, decisions: list[dict[str, Any]]) -> None:
+        validate_many(decisions, "canon_decision.schema.json")
+        self.canon_decisions.extend(deepcopy(decisions))
+
+    def merge_quality_signals(self) -> dict[str, Any]:
+        """Lightweight merge-hygiene metrics (alias cardinality; audit tail)."""
+        alias_counts: list[tuple[str, int]] = []
+        for entity in self.entities:
+            eid = str(entity.get("entity_id", ""))
+            aliases = [a for a in entity.get("aliases", []) if isinstance(a, str)]
+            alias_counts.append((eid, len(aliases)))
+        alias_counts.sort(key=lambda row: row[1], reverse=True)
+        top = [{"entity_id": eid, "alias_count": n} for eid, n in alias_counts[:8]]
+        max_aliases = alias_counts[0][1] if alias_counts else 0
+        heavy = sum(1 for _, n in alias_counts if n >= 8)
+        audit_path = self.logs_dir / "entity_merge_audit.jsonl"
+        merge_events = 0
+        blocked_events = 0
+        if audit_path.exists():
+            tail = audit_path.read_text(encoding="utf-8").strip().splitlines()[-200:]
+            for line in tail:
+                try:
+                    row = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if row.get("action") == "merged":
+                    merge_events += 1
+                elif row.get("action") == "blocked":
+                    blocked_events += 1
+        return {
+            "max_alias_count": max_aliases,
+            "entities_with_alias_count_ge_8": heavy,
+            "top_alias_counts": top,
+            "merge_audit_tail_merged": merge_events,
+            "merge_audit_tail_blocked": blocked_events,
+        }
+
     @staticmethod
     def _fact_compaction_key(fact: dict[str, Any]) -> tuple[str, str, str]:
         value = fact.get("value", {})
@@ -285,6 +332,6 @@ class FactStore:
             evidence_units=self.evidence_units,
             facts=self.facts,
             conflicts=[],
-            canon_decisions=[],
+            canon_decisions=self.canon_decisions,
             campaign_id=campaign_id,
         )

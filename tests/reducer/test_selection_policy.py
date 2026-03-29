@@ -155,6 +155,102 @@ def test_temporal_metadata_takes_precedence_when_available() -> None:
     assert attr["selected_fact_id"] == "fact_new"
 
 
+def test_non_terminal_competing_resolved_by_evidence_ordering_not_fact_id() -> None:
+    """Fact IDs are deliberately inverted: zzz_later is the lexicographic winner but
+    is linked to the EARLIER evidence (source_order_index=0).  The correct winner
+    is aaa_earlier (linked to source_order_index=1) because evidence ordering, not
+    fact_id, must determine recency."""
+    evidence_units = [
+        {
+            **_evidence(
+                "evid_first",
+                layer="campaign",
+                campaign_id="longmont-c1",
+                source_class="observed_session_recap",
+            ),
+            "source_order_index": 0,
+            "inferred_session": None,
+        },
+        {
+            **_evidence(
+                "evid_second",
+                layer="campaign",
+                campaign_id="longmont-c1",
+                source_class="observed_session_recap",
+            ),
+            "source_order_index": 1,
+            "inferred_session": None,
+        },
+    ]
+    facts = [
+        _fact(
+            "fact_zzz_later_lexically",
+            "Invisible",
+            evidence_id="evid_first",
+        ),
+        _fact(
+            "fact_aaa_earlier_lexically",
+            "Wounded but standing",
+            evidence_id="evid_second",
+        ),
+    ]
+
+    projection = project_entity_state(
+        evidence_units=evidence_units,
+        facts=facts,
+        conflicts=[],
+        canon_decisions=[],
+        campaign_id="longmont-c1",
+    )
+    attr = projection["entities"]["ent_the_wolf"]["attributes"]["physical_condition"]
+    assert attr["selected_fact_id"] == "fact_aaa_earlier_lexically"
+
+
+def test_evidence_ordering_fallback_with_session_docs() -> None:
+    """When session headings ARE present and facts carry temporal metadata,
+    session+seq ordering still takes precedence over evidence source_order_index."""
+    evidence_units = [
+        _evidence(
+            "evid_session11",
+            layer="campaign",
+            campaign_id="longmont-c1",
+            source_class="observed_session_recap",
+        ),
+        _evidence(
+            "evid_session12",
+            layer="campaign",
+            campaign_id="longmont-c1",
+            source_class="observed_session_recap",
+        ),
+    ]
+    facts = [
+        _fact(
+            "fact_old",
+            "Invisible",
+            evidence_id="evid_session11",
+            session=12,
+            seq=5,
+        ),
+        _fact(
+            "fact_new",
+            "Wounded",
+            evidence_id="evid_session12",
+            session=11,
+            seq=99,
+        ),
+    ]
+
+    projection = project_entity_state(
+        evidence_units=evidence_units,
+        facts=facts,
+        conflicts=[],
+        canon_decisions=[],
+        campaign_id="longmont-c1",
+    )
+    attr = projection["entities"]["ent_the_wolf"]["attributes"]["physical_condition"]
+    assert attr["selected_fact_id"] == "fact_old", "session 12 > session 11 regardless of seq"
+
+
 def test_death_outcome_beats_fading_corruption_without_temporal_metadata() -> None:
     evidence_units = [
         _evidence(

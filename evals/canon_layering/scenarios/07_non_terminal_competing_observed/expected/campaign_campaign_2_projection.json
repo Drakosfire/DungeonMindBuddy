@@ -1,0 +1,44 @@
+{
+  "campaign_id": "campaign_2",
+  "entities": {
+    "ent_test_yard_gate": {
+      "attributes": {
+        "operational_status": {
+          "selected_fact_id": "fact_yard_gate_omega",
+          "value_label": "barred",
+          "value_normalized": "barred",
+          "source_layer": "campaign",
+          "source_campaign_id": "campaign_2",
+          "fact_ids": [
+            "fact_yard_gate_alpha",
+            "fact_yard_gate_omega"
+          ],
+          "provenance_evidence_ids": [
+            "evid_gate_barred",
+            "evid_gate_open"
+          ],
+          "conflict_ids": [
+            "auto_conflict_001"
+          ]
+        }
+      }
+    }
+  },
+  "conflicts": [
+    {
+      "conflict_id": "auto_conflict_001",
+      "entity_id": "ent_test_yard_gate",
+      "attribute": "operational_status",
+      "fact_ids": [
+        "fact_yard_gate_alpha",
+        "fact_yard_gate_omega"
+      ],
+      "status": "open"
+    }
+  ],
+  "metrics": {
+    "open_conflicts": 1,
+    "resolved_conflicts": 0,
+    "projected_entities": 1
+  }
+}

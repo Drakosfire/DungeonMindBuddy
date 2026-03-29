@@ -11,11 +11,19 @@ ROOT = Path(__file__).resolve().parents[2]
 try:
     from src.contracts.schema_validation import validate_many
     from src.reducer.canon_projection import project_entity_state
+    from src.reducer.projection_compare import (
+        assert_attribute_keys_match_golden_contract,
+        normalize_projection_for_compare,
+    )
 except ModuleNotFoundError:
     if str(ROOT) not in sys.path:
         sys.path.insert(0, str(ROOT))
     from src.contracts.schema_validation import validate_many
     from src.reducer.canon_projection import project_entity_state
+    from src.reducer.projection_compare import (
+        assert_attribute_keys_match_golden_contract,
+        normalize_projection_for_compare,
+    )
 
 EVAL_DIR = ROOT / "evals" / "canon_layering"
 SCENARIOS_DIR = EVAL_DIR / "scenarios"
@@ -31,25 +39,6 @@ def _load_json(path: Path) -> Any:
 def _canonical_hash(value: Any) -> str:
     payload = json.dumps(value, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
-
-
-def _normalize_projection_for_compare(projection: dict[str, Any]) -> dict[str, Any]:
-    payload = {
-        "campaign_id": projection.get("campaign_id"),
-        "entities": {},
-        "conflicts": projection.get("conflicts", []),
-        "metrics": projection.get("metrics", {}),
-    }
-    for entity_id, entity_payload in projection.get("entities", {}).items():
-        attrs: dict[str, Any] = {}
-        for attr_name, attr_payload in entity_payload.get("attributes", {}).items():
-            cleaned = dict(attr_payload)
-            cleaned.pop("source_class", None)
-            cleaned.pop("source_truth_state", None)
-            cleaned.pop("all_value_labels", None)
-            attrs[attr_name] = cleaned
-        payload["entities"][entity_id] = {"attributes": attrs}
-    return payload
 
 
 def _run_scenario(scenario_id: str, campaign_id: str) -> dict[str, Any]:
@@ -86,8 +75,18 @@ def _run_scenario(scenario_id: str, campaign_id: str) -> dict[str, Any]:
         scenario_dir / "expected" / f"campaign_{campaign_id}_projection.json"
     )
 
-    world_match = _normalize_projection_for_compare(world_projection) == expected_world
-    campaign_match = _normalize_projection_for_compare(campaign_projection) == expected_campaign
+    assert_attribute_keys_match_golden_contract(
+        actual_projection=world_projection,
+        expected_projection=expected_world,
+        label=f"{scenario_id}/world",
+    )
+    assert_attribute_keys_match_golden_contract(
+        actual_projection=campaign_projection,
+        expected_projection=expected_campaign,
+        label=f"{scenario_id}/campaign",
+    )
+    world_match = normalize_projection_for_compare(world_projection) == expected_world
+    campaign_match = normalize_projection_for_compare(campaign_projection) == expected_campaign
 
     return {
         "scenario_id": scenario_id,

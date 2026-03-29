@@ -1,22 +1,11 @@
 from __future__ import annotations
 
 from src.reducer.canon_projection import project_entity_state
+from src.reducer.projection_compare import (
+    assert_attribute_keys_match_golden_contract,
+    normalize_projection_for_compare,
+)
 from tests.evals.scenario_utils import load_json, load_manifest, scenario_paths
-
-
-def _normalize_projection_for_compare(projection: dict) -> dict:
-    # local deep copy without importing copy for a tiny fixture-sized payload
-    payload = {"campaign_id": projection.get("campaign_id"), "entities": {}, "conflicts": projection.get("conflicts", []), "metrics": projection.get("metrics", {})}
-    for entity_id, entity_payload in projection.get("entities", {}).items():
-        attrs = {}
-        for attr_name, attr_payload in entity_payload.get("attributes", {}).items():
-            cleaned = dict(attr_payload)
-            cleaned.pop("source_class", None)
-            cleaned.pop("source_truth_state", None)
-            cleaned.pop("all_value_labels", None)
-            attrs[attr_name] = cleaned
-        payload["entities"][entity_id] = {"attributes": attrs}
-    return payload
 
 
 def test_projection_matches_all_golden_outputs() -> None:
@@ -38,7 +27,12 @@ def test_projection_matches_all_golden_outputs() -> None:
             campaign_id=None,
         )
         expected_world = load_json(paths["world_expected"])
-        assert _normalize_projection_for_compare(world_projection) == expected_world, (
+        assert_attribute_keys_match_golden_contract(
+            actual_projection=world_projection,
+            expected_projection=expected_world,
+            label=f"{scenario['id']}/world",
+        )
+        assert normalize_projection_for_compare(world_projection) == expected_world, (
             f"world mismatch in {scenario['id']}"
         )
 
@@ -52,7 +46,11 @@ def test_projection_matches_all_golden_outputs() -> None:
         expected_campaign = load_json(
             paths["world_expected"].parent / f"campaign_{campaign_id}_projection.json"
         )
-        assert _normalize_projection_for_compare(campaign_projection) == expected_campaign, (
+        assert_attribute_keys_match_golden_contract(
+            actual_projection=campaign_projection,
+            expected_projection=expected_campaign,
+            label=f"{scenario['id']}/campaign",
+        )
+        assert normalize_projection_for_compare(campaign_projection) == expected_campaign, (
             f"campaign mismatch in {scenario['id']}"
         )
-

@@ -5,9 +5,9 @@ from pathlib import Path
 from tests.evals.scenario_utils import load_manifest, scenario_paths
 
 
-def test_manifest_has_exactly_six_required_scenarios() -> None:
+def test_manifest_has_expected_scenario_count() -> None:
     manifest = load_manifest()
-    assert len(manifest["scenarios"]) == 6
+    assert len(manifest["scenarios"]) == 7
 
 
 def test_all_scenarios_have_required_behavior_tags() -> None:

@@ -66,6 +66,17 @@
         "decision_scope",
         "provenance"
       ]
+    },
+    {
+      "id": "07_non_terminal_competing_observed",
+      "campaign_id": "campaign_2",
+      "behavior_tags": [
+        "layering",
+        "conflict",
+        "decision_scope",
+        "provenance",
+        "selection_lexical_fallback"
+      ]
     }
   ]
 }

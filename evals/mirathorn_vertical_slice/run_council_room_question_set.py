@@ -3,6 +3,7 @@ from __future__ import annotations
 import io
 import importlib
 import json
+import os
 import re
 import sys
 from contextlib import redirect_stdout
@@ -14,6 +15,11 @@ if str(PROJECT_ROOT) not in sys.path:
 
 DungeonBuddyCLI = importlib.import_module("src.cli").DungeonBuddyCLI
 DEFAULT_CAMPAIGN_ID = "longmont-c1"
+# Artifact writes are opt-in so dry runs / CI / unset shell keys cannot clobber trusted
+# bench output when dotenv (e.g. .env.development) repopulates OPENAI_API_KEY.
+WRITE_COUNCIL_ROOM_QUESTION_SET_ARTIFACTS_ENV = (
+    "DMB_WRITE_COUNCIL_ROOM_QUESTION_SET_ARTIFACTS"
+)
 GLOBAL_STALE_PATTERNS = (
     "nothing changed",
     "no changes",
@@ -35,15 +41,15 @@ UPDATE_SIGNAL_TOKENS = (
 
 SEMANTIC_EQUIVALENCES: dict[str, list[str]] = {
     "killing blow": ["decapitated", "head removed", "struck down", "killed"],
-    "dead": ["decapitated", "head removed", "death", "killed", "no longer active"],
+    "dead": ["decapitated", "head removed", "death", "killed"],
     "oily sheen fades": ["oily sheen", "sheen fades", "corruption.*fades"],
     "oily sheen": ["oily sheen"],
     "arched ceilings": ["arched", "vaulted ceiling"],
     "floating chandelier": ["chandelier"],
     "secret passage": ["secret passage", "hidden passage", "concealed passage"],
     "chandelier": ["chandelier"],
-    "before": ["before", "prior to", "pre-fight", "lead-in"],
-    "after": ["after", "post-fight", "outcome", "end of"],
+    "before": ["before", "prior to", "pre-fight"],
+    "after": ["after", "post-fight"],
 }
 
 
@@ -213,9 +219,34 @@ def run() -> dict:
         "results": results,
     }
 
-    (outdir / "council_room_question_set.json").write_text(
-        json.dumps(summary, indent=2), encoding="utf-8"
-    )
+    def _artifact_write_ok() -> tuple[bool, str]:
+        opt = (os.environ.get(WRITE_COUNCIL_ROOM_QUESTION_SET_ARTIFACTS_ENV) or "").strip()
+        if opt != "1":
+            return (
+                False,
+                f"{WRITE_COUNCIL_ROOM_QUESTION_SET_ARTIFACTS_ENV} is not set to 1; refusing "
+                "to write council_room_question_set artifacts (explicit opt-in required).",
+            )
+        if all(not (row.get("answer") or "").strip() for row in results):
+            return (
+                False,
+                "All answers empty; refusing to overwrite council_room_question_set artifacts.",
+            )
+        return True, ""
+
+    write_ok, write_reason = _artifact_write_ok()
+    if not write_ok:
+        summary["artifact_write_skipped"] = True
+        summary["artifact_write_reason"] = write_reason
+        print(f"WARNING: {write_reason}", file=sys.stderr)
+    else:
+        summary["artifact_write_skipped"] = False
+        summary["artifact_write_reason"] = ""
+
+    if write_ok:
+        (outdir / "council_room_question_set.json").write_text(
+            json.dumps(summary, indent=2), encoding="utf-8"
+        )
 
     s = summary["overall_strict"]
     sem = summary["overall_semantic"]
@@ -232,6 +263,11 @@ def run() -> dict:
     lines.append(f"- fail_incomplete: {sem['fail_incomplete']}")
     lines.append(f"- fail_error: {sem['fail_error']}")
     lines.append("")
+
+    if not write_ok:
+        lines.append("## Artifact write")
+        lines.append(f"- skipped: {write_reason}")
+        lines.append("")
 
     for row in results:
         lines.append(f"## {row['id']} — strict: {row['strict_verdict']} | semantic: {row['semantic_verdict']}")
@@ -253,9 +289,10 @@ def run() -> dict:
         lines.append(row["answer"])
         lines.append("")
 
-    (outdir / "council_room_question_set.md").write_text(
-        "\n".join(lines), encoding="utf-8"
-    )
+    if write_ok:
+        (outdir / "council_room_question_set.md").write_text(
+            "\n".join(lines), encoding="utf-8"
+        )
 
     return summary
 

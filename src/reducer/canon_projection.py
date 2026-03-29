@@ -18,11 +18,23 @@ class FactWithLayer:
     truth_state: str
 
 
-def _fact_sort_key(fact: dict[str, Any]) -> tuple[int, int, str]:
+def _fact_sort_key(
+    fact: dict[str, Any],
+    evidence_by_id: dict[str, dict[str, Any]] | None = None,
+) -> tuple[int, int, str]:
     session = fact.get("asserted_in_session")
     if session is None:
         session = 0
     seq = fact.get("sequence_index_within_session")
+    if seq is None and evidence_by_id is not None:
+        evidence_ids = fact.get("evidence_ids", [])
+        orders = [
+            int(evidence_by_id[eid]["source_order_index"])
+            for eid in evidence_ids
+            if eid in evidence_by_id
+            and evidence_by_id[eid].get("source_order_index") is not None
+        ]
+        seq = max(orders) if orders else 0
     if seq is None:
         seq = 0
     return int(session), int(seq), str(fact["fact_id"])
@@ -43,21 +55,14 @@ def _terminal_observed_rank(label: str) -> int:
     return 0
 
 
-def _contains_temporal_ordering(entries: list[FactWithLayer]) -> bool:
-    return any(
-        entry.fact.get("asserted_in_session") is not None
-        or entry.fact.get("sequence_index_within_session") is not None
-        for entry in entries
-    )
-
-
 def _selection_priority(
     entry: FactWithLayer,
     *,
     campaign_id: str | None,
     contradiction_detected: bool,
+    evidence_by_id: dict[str, dict[str, Any]] | None = None,
 ) -> tuple[int, int, int, int, str]:
-    session, seq, fid = _fact_sort_key(entry.fact)
+    session, seq, fid = _fact_sort_key(entry.fact, evidence_by_id=evidence_by_id)
     if not contradiction_detected:
         return session, seq, 0, 0, fid
 
@@ -84,13 +89,13 @@ def _pick_selected_fact(
     facts: list[FactWithLayer],
     selected_fact_ids: set[str],
     campaign_id: str | None,
+    evidence_by_id: dict[str, dict[str, Any]] | None = None,
 ) -> FactWithLayer:
     selected = [fact for fact in facts if fact.fact["fact_id"] in selected_fact_ids]
     candidates = selected if selected else facts
 
     contradiction_detected = (
         len({_canonical_json_value(entry.fact["value"]) for entry in candidates}) > 1
-        and not _contains_temporal_ordering(candidates)
     )
     return sorted(
         candidates,
@@ -98,6 +103,7 @@ def _pick_selected_fact(
             entry,
             campaign_id=campaign_id,
             contradiction_detected=contradiction_detected,
+            evidence_by_id=evidence_by_id,
         ),
     )[-1]
 
@@ -224,6 +230,7 @@ def project_entity_state(
             facts=entries,
             selected_fact_ids=selected_fact_ids,
             campaign_id=campaign_id,
+            evidence_by_id=evidence_by_id,
         )
         layer = picked.layer
         value = picked.fact["value"]
