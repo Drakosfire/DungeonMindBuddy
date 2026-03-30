@@ -12,7 +12,7 @@ import time
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Sequence
+from typing import Any, Sequence
 
 from dotenv import load_dotenv
 
@@ -76,6 +76,99 @@ def _file_sha256(path: Path) -> str:
         for chunk in iter(lambda: handle.read(65536), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def _write_json(path: Path, payload: Any) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(payload, indent=2, sort_keys=True, ensure_ascii=False),
+        encoding="utf-8",
+    )
+
+
+def _schema_gate(name: str, records: list[dict[str, Any]], schema_name: str) -> dict[str, Any]:
+    errors: list[str] = []
+    try:
+        validate_many(records, schema_name)
+    except Exception as exc:  # pragma: no cover - exercised by ingest gate failure tests.
+        errors.append(str(exc))
+    return {
+        "name": name,
+        "pass": not errors,
+        "schema": schema_name,
+        "errors": errors,
+        "count": len(records),
+    }
+
+
+def _build_ingest_gate_report(
+    *,
+    evidence_units: list[dict[str, Any]],
+    entities: list[dict[str, Any]],
+    facts: list[dict[str, Any]],
+) -> dict[str, Any]:
+    layer_errors: list[str] = []
+    for unit in evidence_units:
+        evidence_id = str(unit.get("evidence_id", "unknown"))
+        layer = str(unit.get("canon_layer", ""))
+        campaign_id = unit.get("campaign_id")
+        if layer == "world" and campaign_id is not None:
+            layer_errors.append(f"{evidence_id}: world evidence has campaign_id")
+        if layer == "campaign" and not campaign_id:
+            layer_errors.append(f"{evidence_id}: campaign evidence missing campaign_id")
+
+    gates = [
+        {
+            "name": "stage_chunk_build_non_empty",
+            "pass": len(evidence_units) > 0,
+            "errors": [] if evidence_units else ["chunking produced zero evidence units"],
+            "count": len(evidence_units),
+        },
+        {
+            "name": "stage_chunk_layer_integrity",
+            "pass": not layer_errors,
+            "errors": layer_errors,
+            "count": len(evidence_units),
+        },
+        _schema_gate("stage_chunk_schema", evidence_units, "evidence_unit.schema.json"),
+        {
+            "name": "stage_entity_extraction_non_empty",
+            "pass": len(entities) > 0,
+            "errors": [] if entities else ["entity extraction produced zero entities"],
+            "count": len(entities),
+        },
+        _schema_gate("stage_entity_schema", entities, "entity.schema.json"),
+        {
+            "name": "stage_fact_extraction_non_empty",
+            "pass": len(facts) > 0,
+            "errors": [] if facts else ["fact extraction produced zero facts"],
+            "count": len(facts),
+        },
+        _schema_gate("stage_fact_schema", facts, "fact.schema.json"),
+    ]
+    return {
+        "overall_pass": all(gate["pass"] for gate in gates),
+        "gates": gates,
+        "counts": {
+            "evidence_units": len(evidence_units),
+            "entities": len(entities),
+            "facts": len(facts),
+        },
+    }
+
+
+def _write_ingest_stage_artifacts(
+    *,
+    artifacts_dir: Path,
+    evidence_units: list[dict[str, Any]],
+    entities: list[dict[str, Any]],
+    facts: list[dict[str, Any]],
+    gate_report: dict[str, Any],
+) -> None:
+    _write_json(artifacts_dir / "stage_chunks.json", evidence_units)
+    _write_json(artifacts_dir / "stage_entities.json", entities)
+    _write_json(artifacts_dir / "stage_facts.json", facts)
+    _write_json(artifacts_dir / "gate_report.json", gate_report)
 
 
 class DungeonBuddyCLI:
@@ -200,6 +293,8 @@ class DungeonBuddyCLI:
         parser.add_argument("--source-class")
         parser.add_argument("--title")
         parser.add_argument("--chunk-min-chars", type=int, default=50)
+        parser.add_argument("--entity-concurrency", type=int, default=8)
+        parser.add_argument("--fact-concurrency", type=int, default=8)
         parser.add_argument("--no-frontmatter", action="store_true")
         parser.add_argument("--force", action="store_true")
         parsed = self._safe_parse(parser, args)
@@ -332,6 +427,34 @@ class DungeonBuddyCLI:
                 },
             )
             return
+        if parsed.entity_concurrency < 1:
+            print("Error: --entity-concurrency must be >= 1.")
+            self._record_event(
+                "ingest_runs",
+                {
+                    "run_id": run_id,
+                    "timestamp": _utc_now_iso(),
+                    "status": "error",
+                    "error": "invalid_entity_concurrency",
+                    "source_path": str(source_path),
+                    "entity_concurrency": parsed.entity_concurrency,
+                },
+            )
+            return
+        if parsed.fact_concurrency < 1:
+            print("Error: --fact-concurrency must be >= 1.")
+            self._record_event(
+                "ingest_runs",
+                {
+                    "run_id": run_id,
+                    "timestamp": _utc_now_iso(),
+                    "status": "error",
+                    "error": "invalid_fact_concurrency",
+                    "source_path": str(source_path),
+                    "fact_concurrency": parsed.fact_concurrency,
+                },
+            )
+            return
 
         api_key = os.getenv("OPENAI_API_KEY")
         if not api_key:
@@ -393,6 +516,8 @@ class DungeonBuddyCLI:
                 "title": title,
                 "document_id": document_id,
                 "chunk_min_chars": parsed.chunk_min_chars,
+                "entity_concurrency": parsed.entity_concurrency,
+                "fact_concurrency": parsed.fact_concurrency,
                 "source_fingerprint": source_fingerprint,
             },
         )
@@ -434,6 +559,7 @@ class DungeonBuddyCLI:
             entities = run_entity_extraction(
                 evidence_units,
                 known_entities=self.store.list_entities(),
+                concurrency=parsed.entity_concurrency,
                 cache_dir=cache_dir,
                 openai_client=entity_client,
                 allow_heuristic_fallback=False,
@@ -469,6 +595,7 @@ class DungeonBuddyCLI:
                 canon_layer=metadata_layer,
                 campaign_id=campaign_id,
                 source_class=source_class,
+                concurrency=parsed.fact_concurrency,
                 cache_dir=cache_dir,
                 openai_client=fact_client,
                 allow_heuristic_fallback=False,
@@ -494,8 +621,6 @@ class DungeonBuddyCLI:
                 len(facts),
                 fact_ms,
             )
-            if len(facts) == 0:
-                raise RuntimeError("Early exit: fact extraction produced zero facts.")
         except Exception as exc:
             print(f"Error: ingest failed: {exc}")
             self.logger.exception("Ingest failed run_id=%s", run_id)
@@ -507,6 +632,36 @@ class DungeonBuddyCLI:
                     "status": "error",
                     "error": str(exc),
                     "source_path": str(source_path),
+                },
+            )
+            return
+
+        artifacts_dir = self.logs_dir / "ingest_artifacts" / run_id
+        gate_report = _build_ingest_gate_report(
+            evidence_units=evidence_units,
+            entities=entities,
+            facts=facts,
+        )
+        _write_ingest_stage_artifacts(
+            artifacts_dir=artifacts_dir,
+            evidence_units=evidence_units,
+            entities=entities,
+            facts=facts,
+            gate_report=gate_report,
+        )
+        if not gate_report["overall_pass"]:
+            print(f"Error: ingest stage gates failed. See {artifacts_dir / 'gate_report.json'}")
+            self.logger.error("Ingest gate failure run_id=%s", run_id)
+            self._record_event(
+                "ingest_runs",
+                {
+                    "run_id": run_id,
+                    "timestamp": _utc_now_iso(),
+                    "status": "error",
+                    "error": "stage_gates_failed",
+                    "source_path": str(source_path),
+                    "artifact_dir": str(artifacts_dir),
+                    "gate_report_path": str(artifacts_dir / "gate_report.json"),
                 },
             )
             return
@@ -547,7 +702,11 @@ class DungeonBuddyCLI:
                 "source_class": source_class,
                 "document_id": document_id,
                 "chunk_min_chars": parsed.chunk_min_chars,
+                "entity_concurrency": parsed.entity_concurrency,
+                "fact_concurrency": parsed.fact_concurrency,
                 "source_fingerprint": source_fingerprint,
+                "artifact_dir": str(artifacts_dir),
+                "gate_report_path": str(artifacts_dir / "gate_report.json"),
                 "counts": {
                     "evidence_units_extracted": len(evidence_units),
                     "entities_extracted": len(entities),
