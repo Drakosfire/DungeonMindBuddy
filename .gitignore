@@ -43,6 +43,9 @@ evals/**/output/automated_*.json
 evals/mirathorn_vertical_slice/output/phase_d_store/
 evals/llm_ingestion_slice/output/current/
 
+# Local fact stores from dev / batch ingests (large JSON + LLM cache)
+dungeonbuddy_store_nano_full/
+
 # Legacy source corpus location (binary-heavy originals)
 Docs/Eldyrwild and Campaign Context/
 
