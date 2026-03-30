@@ -1,3 +1,12 @@
+---
+title: "Copy of Item  PeaceMaker, the Timeless Fiddle"
+document_class: reference
+canon_layer: campaign
+campaign_id: longmont-c2
+session: null
+source_class: ledger_or_dossier
+---
+
 **Item: PeaceMaker, the Timeless Fiddle
 **“When its strings are struck, the world’s own heart skips a beat.”
 

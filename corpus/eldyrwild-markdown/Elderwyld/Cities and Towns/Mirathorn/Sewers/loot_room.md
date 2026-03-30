@@ -1,3 +1,12 @@
+---
+title: "The Loot Room: The Terrifying Meat Room"
+document_class: world
+canon_layer: world
+campaign_id: null
+session: null
+source_class: seed_reference
+---
+
 # The Loot Room: The Terrifying Meat Room
 
 ## General Description

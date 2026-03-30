@@ -1,3 +1,12 @@
+---
+title: "The Migrating Forest — Keyed Hex Expansion"
+document_class: world
+canon_layer: world
+campaign_id: null
+session: null
+source_class: seed_reference
+---
+
 # The Migrating Forest — Keyed Hex Expansion
 
 Designed for rapid table use. Each hex below provides:

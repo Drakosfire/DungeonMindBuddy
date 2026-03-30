@@ -1,3 +1,12 @@
+---
+title: "Dense Worker Housing"
+document_class: world
+canon_layer: world
+campaign_id: null
+session: null
+source_class: seed_reference
+---
+
 ## Dense Worker Housing
 
 North-bank labor rows and family courts

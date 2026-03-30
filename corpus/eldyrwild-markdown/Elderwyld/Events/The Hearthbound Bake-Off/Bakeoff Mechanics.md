@@ -1,3 +1,12 @@
+---
+title: "Bakeoff Structure:"
+document_class: world
+canon_layer: world
+campaign_id: null
+session: null
+source_class: seed_reference
+---
+
 ### Bakeoff Structure:
 
 The bakeoff is broken into stages w/ points awarded by the judges (ie, roleplay the judges, but the points are all imaginary, creating criteria for pretend baked goods is more work) and audience applause taken as it’s own vote at the end.

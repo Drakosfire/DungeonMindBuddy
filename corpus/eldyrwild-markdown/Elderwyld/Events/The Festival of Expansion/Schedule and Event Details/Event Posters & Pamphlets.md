@@ -1,3 +1,12 @@
+---
+title: "Festival of Expansion - Event Posters & Pamphlets"
+document_class: world
+canon_layer: world
+campaign_id: null
+session: null
+source_class: seed_reference
+---
+
 ### Festival of Expansion - Event Posters & Pamphlets
 
 Each event has an accompanying **vibrant pamphlet, poster, or banner** scattered around the city. These are posted in **shop windows, market stalls, tavern walls, and notice boards**, with some even **handed out by street criers or magically projected onto fabric banners by minor illusion charms**.

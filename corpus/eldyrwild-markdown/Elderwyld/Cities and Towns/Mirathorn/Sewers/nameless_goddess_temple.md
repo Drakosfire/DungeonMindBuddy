@@ -1,3 +1,12 @@
+---
+title: "The Hidden Temple of the Nameless Goddess"
+document_class: world
+canon_layer: world
+campaign_id: null
+session: null
+source_class: seed_reference
+---
+
 # The Hidden Temple of the Nameless Goddess
 
 ## General Description

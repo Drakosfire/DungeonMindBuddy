@@ -1,3 +1,12 @@
+---
+title: "The Scale of the Hollow Wyrm"
+document_class: reference
+canon_layer: campaign
+campaign_id: longmont-c2
+session: null
+source_class: ledger_or_dossier
+---
+
 ### Stafl’s Mysterious Scale – The Scale of the Hollow Wyrm
 
 (An enormous scale, perhaps from a dragon. Real, valuable, incredibly hard.)

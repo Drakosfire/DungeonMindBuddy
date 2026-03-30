@@ -1,3 +1,12 @@
+---
+title: "Festival of Expansion Schedule"
+document_class: world
+canon_layer: world
+campaign_id: null
+session: null
+source_class: seed_reference
+---
+
 ### Festival of Expansion Schedule
 
 ## Days 1-5

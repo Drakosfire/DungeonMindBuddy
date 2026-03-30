@@ -1,3 +1,12 @@
+---
+title: "📐 Conventions (read first)"
+document_class: world
+canon_layer: world
+campaign_id: null
+session: null
+source_class: seed_reference
+---
+
 # 📐 Conventions (read first)
 
 Grid: 5-ft squares.

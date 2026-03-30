@@ -1,3 +1,12 @@
+---
+title: "The town of Stonebridge"
+document_class: world
+canon_layer: world
+campaign_id: null
+session: null
+source_class: seed_reference
+---
+
 ### The town of Stonebridge
 
 ### Environment: Positioned at a strategic crossing of a wide, tumultuous river, Stonebridge is a vital waypoint for caravans. Its sturdy stone architecture reflects its name, and the town is a hub of trade and information.

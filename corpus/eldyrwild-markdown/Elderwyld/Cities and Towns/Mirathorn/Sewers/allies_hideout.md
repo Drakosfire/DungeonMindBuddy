@@ -1,3 +1,12 @@
+---
+title: "The Allies' Hideout: Refuge of the Resilient"
+document_class: world
+canon_layer: world
+campaign_id: null
+session: null
+source_class: seed_reference
+---
+
 # The Allies' Hideout: Refuge of the Resilient
 
 ## General Description

@@ -1,3 +1,12 @@
+---
+title: "Elderwyld Narrative Ledger — Campaign 2 Living Record"
+document_class: reference
+canon_layer: campaign
+campaign_id: longmont-c2
+session: null
+source_class: ledger_or_dossier
+---
+
 # 📜 Elderwyld Narrative Ledger  
 ## Campaign 2 — Living World Record
 ### Sessions 8-14
@@ -278,4 +287,3 @@ It is waiting.
 ---
 
 ## END OF LEDGER — Campaign 2 (Sessions 1–14)
-

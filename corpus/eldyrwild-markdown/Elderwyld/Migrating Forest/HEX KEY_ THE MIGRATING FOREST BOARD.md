@@ -1,3 +1,12 @@
+---
+title: "HEX KEY: THE MIGRATING FOREST BOARD"
+document_class: world
+canon_layer: world
+campaign_id: null
+session: null
+source_class: seed_reference
+---
+
 # HEX KEY: THE MIGRATING FOREST BOARD
 
 ## 1. The Root Argument (Central Triple Spiral)

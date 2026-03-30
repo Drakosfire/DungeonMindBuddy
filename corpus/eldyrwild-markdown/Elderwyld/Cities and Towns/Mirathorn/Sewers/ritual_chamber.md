@@ -1,3 +1,12 @@
+---
+title: "The Pre-Kaiju Ritual Chamber: Description and Mechanics"
+document_class: world
+canon_layer: world
+campaign_id: null
+session: null
+source_class: seed_reference
+---
+
 ### The Pre-Kaiju Ritual Chamber: Description and Mechanics
 
 #### Description of the Cistern Chamber

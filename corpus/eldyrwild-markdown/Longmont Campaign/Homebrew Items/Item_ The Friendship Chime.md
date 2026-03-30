@@ -1,3 +1,12 @@
+---
+title: "Item  The Friendship Chime"
+document_class: reference
+canon_layer: campaign
+campaign_id: longmont-c2
+session: null
+source_class: ledger_or_dossier
+---
+
 ### Item: The Friendship Chime
 
 “When you need a friend, sometimes all it takes is a little jingle.”

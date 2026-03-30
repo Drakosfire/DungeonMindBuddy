@@ -1,3 +1,12 @@
+---
+title: "Unique Ingredients and Flavors"
+document_class: world
+canon_layer: world
+campaign_id: null
+session: null
+source_class: seed_reference
+---
+
 ### Unique Ingredients and Flavors
 
 **Glowberries** – Luminescent berries found in the shadowy forests near the Veiled Fen, known for their tangy-sweet taste and faint glow.

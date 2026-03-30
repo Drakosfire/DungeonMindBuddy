@@ -1,3 +1,12 @@
+---
+title: "Torbin Characteristics"
+document_class: reference
+canon_layer: campaign
+campaign_id: longmont-c2
+session: null
+source_class: ledger_or_dossier
+---
+
 ### Basic Needs and Care Mechanics for Torbin
 
 To keep both you and the players alert to Torbin's presence and needs, here are some basic mechanics and guidelines:

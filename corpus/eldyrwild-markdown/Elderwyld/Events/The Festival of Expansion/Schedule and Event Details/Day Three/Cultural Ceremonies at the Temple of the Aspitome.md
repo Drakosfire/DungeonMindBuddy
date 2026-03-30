@@ -1,3 +1,12 @@
+---
+title: "Cultural Ceremonies at the Temple of the Aspitome"
+document_class: world
+canon_layer: world
+campaign_id: null
+session: null
+source_class: seed_reference
+---
+
 ## Cultural Ceremonies at the Temple of the Aspitome
 
 ### I. Stories in Shadow

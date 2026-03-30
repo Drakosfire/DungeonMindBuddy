@@ -1,3 +1,12 @@
+---
+title: "Tilly Tuffcrust"
+document_class: world
+canon_layer: world
+campaign_id: null
+session: null
+source_class: seed_reference
+---
+
 ### Tilly Tuffcrust
 
 **Affiliation:** The Mirathorn Gazette

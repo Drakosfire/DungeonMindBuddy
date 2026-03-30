@@ -1,3 +1,12 @@
+---
+title: "lieutenant lysandra ironveil character dossier"
+document_class: reference
+canon_layer: campaign
+campaign_id: longmont-c2
+session: null
+source_class: other
+---
+
 # DOSSIER
 ## Lieutenant Lysandra Ironveil
 *Mirathorn City Guard*

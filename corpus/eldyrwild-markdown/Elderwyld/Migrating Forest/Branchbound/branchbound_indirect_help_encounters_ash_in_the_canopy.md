@@ -1,3 +1,12 @@
+---
+title: "Branchbound Encounter Seeds & Elder Sign"
+document_class: world
+canon_layer: world
+campaign_id: null
+session: null
+source_class: seed_reference
+---
+
 # Branchbound Encounter Seeds & Elder Sign
 
 This document formalizes **six encounter seeds** that only resolve if players accept **indirect help**, followed by the design of a single Branchbound elder whose presence quietly predicts collapse.

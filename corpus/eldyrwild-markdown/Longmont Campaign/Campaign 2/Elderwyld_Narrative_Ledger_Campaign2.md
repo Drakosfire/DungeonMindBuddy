@@ -1,3 +1,12 @@
+---
+title: "Elderwyld Narrative Ledger (Campaign 2)"
+document_class: reference
+canon_layer: campaign
+campaign_id: longmont-c2
+session: null
+source_class: ledger_or_dossier
+---
+
 # Elderwyld — Narrative Ledger (Campaign 2)
 
 _Last updated: 2025-11-08_
@@ -350,4 +359,3 @@ _Last updated: 2025-11-08_
 - [ ] Zilla’s Fen burial request
 - [ ] Festival Finale “choral oath” tampering
 - [ ] Lake triangle ritual nodes
-

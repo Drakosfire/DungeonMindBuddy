@@ -1,3 +1,12 @@
+---
+title: "UnRefined Heading into the Flesh Kaiju"
+document_class: world
+canon_layer: world
+campaign_id: null
+session: null
+source_class: seed_reference
+---
+
 Context, While resting at the Grit and Grime the players will witness Grobnok getting annoyed at something buzzing around his head. It’s an enchanted paper bird flying around.
 
 In the city of Mirathorn, the Wizards’ College employs a unique and whimsical method to summon council members and important individuals to an emergency meeting, especially during the night. They use enchanted paper birds, known as Arcane Couriers, to deliver messages.

@@ -1,3 +1,12 @@
+---
+title: "The Migrating Forest"
+document_class: world
+canon_layer: world
+campaign_id: null
+session: null
+source_class: seed_reference
+---
+
 # The Migrating Forest
 
 ## Executive DM Summary (Read Before Play)

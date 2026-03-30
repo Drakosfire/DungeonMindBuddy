@@ -1,3 +1,12 @@
+---
+title: "Framework for Engaging Dungeon Design: The Sewers Beneath Mirathorn"
+document_class: world
+canon_layer: world
+campaign_id: null
+session: null
+source_class: seed_reference
+---
+
 ### Framework for Engaging Dungeon Design: The Sewers Beneath Mirathorn
 
 ## Core Goals for the Dungeon

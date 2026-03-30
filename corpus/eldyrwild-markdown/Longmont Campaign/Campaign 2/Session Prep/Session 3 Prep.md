@@ -1,3 +1,12 @@
+---
+title: "Session 3 Prep"
+document_class: planning
+canon_layer: campaign
+campaign_id: longmont-c2
+session: 3
+source_class: planning_document
+---
+
 # 🎭 Session 3: Feasts & Forges
 
 **Festival of Expansion – Day 2

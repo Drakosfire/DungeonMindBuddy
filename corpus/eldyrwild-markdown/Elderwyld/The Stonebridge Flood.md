@@ -1,3 +1,12 @@
+---
+title: "The Stonebridge Flood"
+document_class: world
+canon_layer: world
+campaign_id: null
+session: null
+source_class: seed_reference
+---
+
 The Stonebridge Flood
 
 ## Opening
