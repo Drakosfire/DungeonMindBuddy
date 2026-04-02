@@ -134,7 +134,10 @@ def _walk_tree(
     source_class: str,
     canon_layer: str,
     campaign_id: str | None,
+    document_temporal_scope: str | None,
     document_session: int | None,
+    document_origin_session: int | None,
+    document_last_updated_session: int | None,
 ) -> None:
     if node.node_type == "root":
         for child in node.children:
@@ -149,7 +152,10 @@ def _walk_tree(
                 source_class=source_class,
                 canon_layer=canon_layer,
                 campaign_id=campaign_id,
+                document_temporal_scope=document_temporal_scope,
                 document_session=document_session,
+                document_origin_session=document_origin_session,
+                document_last_updated_session=document_last_updated_session,
             )
         return
 
@@ -172,7 +178,10 @@ def _walk_tree(
                     source_class=source_class,
                     canon_layer=canon_layer,
                     campaign_id=campaign_id,
+                    document_temporal_scope=document_temporal_scope,
                     document_session=document_session,
+                    document_origin_session=document_origin_session,
+                    document_last_updated_session=document_last_updated_session,
                 )
         else:
             now_iso = _now_utc_iso()
@@ -191,6 +200,9 @@ def _walk_tree(
                     "document_id": document_id,
                     "document_type": document_type,
                     "document_title": document_title,
+                    "document_temporal_scope": document_temporal_scope,
+                    "document_origin_session": document_origin_session,
+                    "document_last_updated_session": document_last_updated_session,
                     "source_class": source_class,
                     "canon_layer": canon_layer,
                     "campaign_id": campaign_id,
@@ -233,6 +245,9 @@ def _walk_tree(
             "document_id": document_id,
             "document_type": document_type,
             "document_title": document_title,
+            "document_temporal_scope": document_temporal_scope,
+            "document_origin_session": document_origin_session,
+            "document_last_updated_session": document_last_updated_session,
             "source_class": source_class,
             "canon_layer": canon_layer,
             "campaign_id": campaign_id,
@@ -301,7 +316,18 @@ def _coalesce_metadata(
     fallback_canon_layer: str | None,
     fallback_campaign_id: str | None,
     fallback_source_class: str | None,
-) -> tuple[str, str, str, str | None, str, int | None]:
+) -> tuple[
+    str,
+    str,
+    str,
+    str | None,
+    str,
+    str | None,
+    int | None,
+    int | None,
+    int | None,
+]:
+    """Resolve metadata from frontmatter, else CLI fallback."""
     if frontmatter is not None:
         document_title = frontmatter.title
         document_id = (
@@ -315,7 +341,10 @@ def _coalesce_metadata(
             frontmatter.canon_layer,
             frontmatter.campaign_id,
             frontmatter.source_class,
+            frontmatter.temporal_scope,
             frontmatter.session,
+            frontmatter.origin_session,
+            frontmatter.last_updated_session,
         )
 
     missing = []
@@ -333,12 +362,17 @@ def _coalesce_metadata(
             f"Missing metadata and no frontmatter available: {missing_csv}. "
             "Provide metadata args or add document frontmatter."
         )
+    fallback_layer = str(fallback_canon_layer)
+    fallback_scope = "evergreen" if fallback_layer == "world" else "campaign_stateful"
     return (
         str(fallback_document_id),
         str(fallback_document_title),
-        str(fallback_canon_layer),
+        fallback_layer,
         fallback_campaign_id,
         str(fallback_source_class),
+        fallback_scope,
+        None,
+        None,
         None,
     )
 
@@ -368,7 +402,10 @@ def chunk_document(
         resolved_canon_layer,
         resolved_campaign_id,
         resolved_source_class,
+        resolved_document_temporal_scope,
         resolved_document_session,
+        resolved_document_origin_session,
+        resolved_document_last_updated_session,
     ) = _coalesce_metadata(
         metadata,
         fallback_document_id=document_id,
@@ -396,7 +433,10 @@ def chunk_document(
         source_class=resolved_source_class,
         canon_layer=resolved_canon_layer,
         campaign_id=resolved_campaign_id,
+        document_temporal_scope=resolved_document_temporal_scope,
         document_session=resolved_document_session,
+        document_origin_session=resolved_document_origin_session,
+        document_last_updated_session=resolved_document_last_updated_session,
     )
     if min_chars < 1:
         raise ValueError("min_chars must be >= 1")

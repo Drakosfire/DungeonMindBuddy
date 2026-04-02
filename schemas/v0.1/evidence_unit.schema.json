@@ -55,6 +55,24 @@
         "null"
       ]
     },
+    "document_temporal_scope": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "session_specific",
+        "campaign_stateful",
+        "evergreen",
+        null
+      ]
+    },
+    "document_origin_session": {
+      "$ref": "common.schema.json#/$defs/sessionIntOrNull"
+    },
+    "document_last_updated_session": {
+      "$ref": "common.schema.json#/$defs/sessionIntOrNull"
+    },
     "source_class": {
       "$ref": "common.schema.json#/$defs/sourceClass"
     },

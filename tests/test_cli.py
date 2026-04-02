@@ -5,7 +5,239 @@ import json
 from contextlib import redirect_stdout
 from pathlib import Path
 
-from src.cli import DungeonBuddyCLI
+from src.cli import DungeonBuddyCLI, _build_ingest_gate_report
+
+
+def test_ingest_gate_report_fails_when_campaign_fact_lacks_temporal_tick() -> None:
+    evidence = [
+        {
+            "schema_version": "0.1.0",
+            "created_at": "2026-03-27T00:00:00Z",
+            "updated_at": "2026-03-27T00:00:00Z",
+            "record_status": "active",
+            "evidence_id": "evid_camp",
+            "document_id": "doc_c",
+            "document_type": "campaign_notes",
+            "document_title": "Notes",
+            "source_class": "planning_document",
+            "canon_layer": "campaign",
+            "campaign_id": "longmont-c1",
+            "text": "Something happened.",
+            "section_path": ["S6"],
+            "paragraph_index": 0,
+            "source_order_index": 0,
+            "line_span": None,
+            "char_span": None,
+            "inferred_session": None,
+            "document_session": None,
+            "speaker_or_subject": None,
+            "notes": None,
+        }
+    ]
+    entities = [
+        {
+            "schema_version": "0.1.0",
+            "created_at": "2026-03-27T00:00:00Z",
+            "updated_at": "2026-03-27T00:00:00Z",
+            "record_status": "active",
+            "entity_id": "ent_x",
+            "entity_type": "location",
+            "display_name": "X",
+            "canonical_name": None,
+            "aliases": ["X"],
+            "entity_status": "provisional",
+            "merged_into_entity_id": None,
+            "source_mention_ids": ["m1"],
+            "review_state": "unreviewed",
+            "entity_tags": [],
+            "notes": None,
+        }
+    ]
+    facts = [
+        {
+            "schema_version": "0.1.0",
+            "created_at": "2026-03-27T00:00:00Z",
+            "updated_at": "2026-03-27T00:00:00Z",
+            "record_status": "active",
+            "fact_id": "fact_bad",
+            "subject_entity_id": "ent_x",
+            "attribute": "history",
+            "value": {"kind": "scalar", "label": "Y", "normalized": "y"},
+            "truth_state": "CAMPAIGN",
+            "source_authority": "gm_notes",
+            "evidence_ids": ["evid_camp"],
+            "asserted_in_session": None,
+            "sequence_index_within_session": None,
+        }
+    ]
+    report = _build_ingest_gate_report(evidence_units=evidence, entities=entities, facts=facts)
+    assert report["overall_pass"] is False
+    tick = next(g for g in report["gates"] if g["name"] == "stage_campaign_narrative_temporal_tick")
+    assert tick["pass"] is False
+    assert tick["errors"]
+
+
+def test_ingest_gate_report_passes_when_campaign_fact_has_sequence_tick() -> None:
+    evidence = [
+        {
+            "schema_version": "0.1.0",
+            "created_at": "2026-03-27T00:00:00Z",
+            "updated_at": "2026-03-27T00:00:00Z",
+            "record_status": "active",
+            "evidence_id": "evid_camp",
+            "document_id": "doc_c",
+            "document_type": "campaign_notes",
+            "document_title": "Notes",
+            "source_class": "planning_document",
+            "canon_layer": "campaign",
+            "campaign_id": "longmont-c1",
+            "text": "Something happened.",
+            "section_path": ["S6"],
+            "paragraph_index": 0,
+            "source_order_index": 0,
+            "line_span": None,
+            "char_span": None,
+            "inferred_session": None,
+            "document_session": None,
+            "speaker_or_subject": None,
+            "notes": None,
+        }
+    ]
+    entities = [
+        {
+            "schema_version": "0.1.0",
+            "created_at": "2026-03-27T00:00:00Z",
+            "updated_at": "2026-03-27T00:00:00Z",
+            "record_status": "active",
+            "entity_id": "ent_x",
+            "entity_type": "location",
+            "display_name": "X",
+            "canonical_name": None,
+            "aliases": ["X"],
+            "entity_status": "provisional",
+            "merged_into_entity_id": None,
+            "source_mention_ids": ["m1"],
+            "review_state": "unreviewed",
+            "entity_tags": [],
+            "notes": None,
+        }
+    ]
+    facts = [
+        {
+            "schema_version": "0.1.0",
+            "created_at": "2026-03-27T00:00:00Z",
+            "updated_at": "2026-03-27T00:00:00Z",
+            "record_status": "active",
+            "fact_id": "fact_ok",
+            "subject_entity_id": "ent_x",
+            "attribute": "history",
+            "value": {"kind": "scalar", "label": "Y", "normalized": "y"},
+            "truth_state": "CAMPAIGN",
+            "source_authority": "gm_notes",
+            "evidence_ids": ["evid_camp"],
+            "asserted_in_session": None,
+            "sequence_index_within_session": 0,
+        }
+    ]
+    report = _build_ingest_gate_report(evidence_units=evidence, entities=entities, facts=facts)
+    tick = next(g for g in report["gates"] if g["name"] == "stage_campaign_narrative_temporal_tick")
+    assert tick["pass"] is True
+    assert tick["errors"] == []
+    quality = next(g for g in report["gates"] if g["name"] == "stage_campaign_temporal_quality_warning")
+    assert quality["pass"] is True
+    assert quality["metrics"]["sequence_only_count"] == 1
+    assert quality["warnings"]
+
+
+def test_ingest_gate_report_fails_when_campaign_fact_evidence_sessions_conflict() -> None:
+    evidence = [
+        {
+            "schema_version": "0.1.0",
+            "created_at": "2026-03-27T00:00:00Z",
+            "updated_at": "2026-03-27T00:00:00Z",
+            "record_status": "active",
+            "evidence_id": "evid_camp_1",
+            "document_id": "doc_c",
+            "document_type": "campaign_notes",
+            "document_title": "Notes",
+            "source_class": "planning_document",
+            "canon_layer": "campaign",
+            "campaign_id": "longmont-c1",
+            "text": "Something happened.",
+            "section_path": ["S6"],
+            "paragraph_index": 0,
+            "source_order_index": 0,
+            "line_span": None,
+            "char_span": None,
+            "inferred_session": None,
+            "document_session": 6,
+            "speaker_or_subject": None,
+            "notes": None,
+        },
+        {
+            "schema_version": "0.1.0",
+            "created_at": "2026-03-27T00:00:00Z",
+            "updated_at": "2026-03-27T00:00:00Z",
+            "record_status": "active",
+            "evidence_id": "evid_camp_2",
+            "document_id": "doc_c",
+            "document_type": "campaign_notes",
+            "document_title": "Notes",
+            "source_class": "planning_document",
+            "canon_layer": "campaign",
+            "campaign_id": "longmont-c1",
+            "text": "Something else happened.",
+            "section_path": ["S7"],
+            "paragraph_index": 1,
+            "source_order_index": 1,
+            "line_span": None,
+            "char_span": None,
+            "inferred_session": None,
+            "document_session": 7,
+            "speaker_or_subject": None,
+            "notes": None,
+        },
+    ]
+    entities = [
+        {
+            "schema_version": "0.1.0",
+            "created_at": "2026-03-27T00:00:00Z",
+            "updated_at": "2026-03-27T00:00:00Z",
+            "record_status": "active",
+            "entity_id": "ent_x",
+            "entity_type": "location",
+            "display_name": "X",
+            "canonical_name": None,
+            "aliases": ["X"],
+            "entity_status": "provisional",
+            "merged_into_entity_id": None,
+            "source_mention_ids": ["m1"],
+            "review_state": "unreviewed",
+            "entity_tags": [],
+            "notes": None,
+        }
+    ]
+    facts = [
+        {
+            "schema_version": "0.1.0",
+            "created_at": "2026-03-27T00:00:00Z",
+            "updated_at": "2026-03-27T00:00:00Z",
+            "record_status": "active",
+            "fact_id": "fact_conflict",
+            "subject_entity_id": "ent_x",
+            "attribute": "history",
+            "value": {"kind": "scalar", "label": "Y", "normalized": "y"},
+            "truth_state": "CAMPAIGN",
+            "source_authority": "gm_notes",
+            "evidence_ids": ["evid_camp_1", "evid_camp_2"],
+            "asserted_in_session": 6,
+            "sequence_index_within_session": 0,
+        }
+    ]
+    report = _build_ingest_gate_report(evidence_units=evidence, entities=entities, facts=facts)
+    consistency = next(g for g in report["gates"] if g["name"] == "stage_campaign_temporal_consistency")
+    assert consistency["pass"] is False
+    assert any("conflicting sessions" in err for err in consistency["errors"])
 
 
 def test_ask_require_campaign_fails_fast_without_campaign(tmp_path: Path, monkeypatch) -> None:
@@ -49,7 +281,10 @@ def test_ingest_frontmatter_makes_layer_optional(tmp_path: Path, monkeypatch) ->
             "document_class: play\n"
             "canon_layer: campaign\n"
             "campaign_id: longmont-c1\n"
+            "temporal_scope: session_specific\n"
             "session: 8\n"
+            "origin_session: 8\n"
+            "last_updated_session: 8\n"
             "source_class: observed_session_recap\n"
             "---\n\n"
             "# Encounter\n\n"
@@ -78,7 +313,10 @@ def test_ingest_frontmatter_conflict_with_cli_flags_fails(tmp_path: Path) -> Non
             "document_class: play\n"
             "canon_layer: campaign\n"
             "campaign_id: longmont-c1\n"
+            "temporal_scope: session_specific\n"
             "session: 8\n"
+            "origin_session: 8\n"
+            "last_updated_session: 8\n"
             "source_class: observed_session_recap\n"
             "---\n\n"
             "# Encounter\n\n"
@@ -111,7 +349,10 @@ def test_ingest_missing_frontmatter_runs_inference_loop(tmp_path: Path, monkeypa
                 "document_class: play\n"
                 "canon_layer: campaign\n"
                 "campaign_id: longmont-c1\n"
+                "temporal_scope: session_specific\n"
                 "session: 2\n"
+                "origin_session: 2\n"
+                "last_updated_session: 2\n"
                 "source_class: observed_session_recap\n"
                 "---\n\n"
                 "# Session 2 Recap\n\nThe council reconvenes.\n"
@@ -139,6 +380,11 @@ def test_ingest_writes_stage_artifacts_and_gate_report(tmp_path: Path, monkeypat
             'title: "Mirathorn Primer"\n'
             "document_class: world\n"
             "canon_layer: world\n"
+                "campaign_id: null\n"
+                "temporal_scope: evergreen\n"
+                "session: null\n"
+                "origin_session: null\n"
+                "last_updated_session: null\n"
             "source_class: seed_reference\n"
             "---\n\n"
             "# Primer\n\n"
@@ -173,6 +419,7 @@ def test_ingest_writes_stage_artifacts_and_gate_report(tmp_path: Path, monkeypat
                 "merged_into_entity_id": None,
                 "source_mention_ids": ["men_ent_mirathorn"],
                 "review_state": "unreviewed",
+                "entity_tags": [],
                 "notes": None,
             }
         ]
@@ -231,6 +478,11 @@ def test_ingest_gate_failure_prevents_store_mutation(tmp_path: Path, monkeypatch
             'title: "Mirathorn Primer"\n'
             "document_class: world\n"
             "canon_layer: world\n"
+                "campaign_id: null\n"
+                "temporal_scope: evergreen\n"
+                "session: null\n"
+                "origin_session: null\n"
+                "last_updated_session: null\n"
             "source_class: seed_reference\n"
             "---\n\n"
             "# Primer\n\n"
@@ -265,6 +517,7 @@ def test_ingest_gate_failure_prevents_store_mutation(tmp_path: Path, monkeypatch
                 "merged_into_entity_id": None,
                 "source_mention_ids": ["men_ent_mirathorn"],
                 "review_state": "unreviewed",
+                "entity_tags": [],
                 "notes": None,
             }
         ]
@@ -295,6 +548,11 @@ def test_ingest_invalid_concurrency_fails_fast(tmp_path: Path) -> None:
             'title: "Mirathorn Primer"\n'
             "document_class: world\n"
             "canon_layer: world\n"
+                "campaign_id: null\n"
+                "temporal_scope: evergreen\n"
+                "session: null\n"
+                "origin_session: null\n"
+                "last_updated_session: null\n"
             "source_class: seed_reference\n"
             "---\n\n"
             "# Primer\n\n"
@@ -320,6 +578,11 @@ def test_ingest_passes_concurrency_options_to_extractors(tmp_path: Path, monkeyp
             'title: "Mirathorn Primer"\n'
             "document_class: world\n"
             "canon_layer: world\n"
+                "campaign_id: null\n"
+                "temporal_scope: evergreen\n"
+                "session: null\n"
+                "origin_session: null\n"
+                "last_updated_session: null\n"
             "source_class: seed_reference\n"
             "---\n\n"
             "# Primer\n\n"
@@ -357,6 +620,7 @@ def test_ingest_passes_concurrency_options_to_extractors(tmp_path: Path, monkeyp
                 "merged_into_entity_id": None,
                 "source_mention_ids": ["men_ent_mirathorn"],
                 "review_state": "unreviewed",
+                "entity_tags": [],
                 "notes": None,
             }
         ]

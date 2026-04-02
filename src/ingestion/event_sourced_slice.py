@@ -21,6 +21,10 @@ class SliceEvidenceSeed:
     source_class: str
     canon_layer: str
     campaign_id: str | None
+    document_temporal_scope: str | None
+    document_origin_session: int | None
+    document_last_updated_session: int | None
+    document_session: int | None
     section_path: list[str]
     source_order_index: int
     inferred_session: int | None
@@ -54,6 +58,10 @@ _EVIDENCE_SEEDS: list[SliceEvidenceSeed] = [
         source_class="seed_reference",
         canon_layer="world",
         campaign_id=None,
+        document_temporal_scope="evergreen",
+        document_origin_session=None,
+        document_last_updated_session=None,
+        document_session=None,
         section_path=["Mirathorn Overview", "Approach to Mirathorn"],
         source_order_index=0,
         inferred_session=None,
@@ -69,6 +77,10 @@ _EVIDENCE_SEEDS: list[SliceEvidenceSeed] = [
         source_class="seed_reference",
         canon_layer="world",
         campaign_id=None,
+        document_temporal_scope="evergreen",
+        document_origin_session=None,
+        document_last_updated_session=None,
+        document_session=None,
         section_path=["Governance"],
         source_order_index=1,
         inferred_session=None,
@@ -84,6 +96,10 @@ _EVIDENCE_SEEDS: list[SliceEvidenceSeed] = [
         source_class="planning_document",
         canon_layer="campaign",
         campaign_id="longmont-c1",
+        document_temporal_scope="session_specific",
+        document_origin_session=6,
+        document_last_updated_session=6,
+        document_session=6,
         section_path=["Cult Activities and Beliefs"],
         source_order_index=2,
         inferred_session=6,
@@ -99,6 +115,10 @@ _EVIDENCE_SEEDS: list[SliceEvidenceSeed] = [
         source_class="planning_document",
         canon_layer="campaign",
         campaign_id="longmont-c1",
+        document_temporal_scope="session_specific",
+        document_origin_session=6,
+        document_last_updated_session=6,
+        document_session=6,
         section_path=["Commander Elric Vane's Role"],
         source_order_index=3,
         inferred_session=6,
@@ -114,6 +134,10 @@ _EVIDENCE_SEEDS: list[SliceEvidenceSeed] = [
         source_class="observed_session_recap",
         canon_layer="campaign",
         campaign_id="longmont-c1",
+        document_temporal_scope="session_specific",
+        document_origin_session=6,
+        document_last_updated_session=6,
+        document_session=6,
         section_path=["Session 6", "The Road to Miraholm"],
         source_order_index=4,
         inferred_session=6,
@@ -129,6 +153,10 @@ _EVIDENCE_SEEDS: list[SliceEvidenceSeed] = [
         source_class="observed_session_recap",
         canon_layer="campaign",
         campaign_id="longmont-c1",
+        document_temporal_scope="session_specific",
+        document_origin_session=6,
+        document_last_updated_session=6,
+        document_session=6,
         section_path=["Session 6", "The Road to Miraholm"],
         source_order_index=5,
         inferred_session=6,
@@ -275,6 +303,9 @@ def _build_evidence(
                 "document_id": seed.document_id,
                 "document_type": seed.document_type,
                 "document_title": seed.document_title,
+                "document_temporal_scope": seed.document_temporal_scope,
+                "document_origin_session": seed.document_origin_session,
+                "document_last_updated_session": seed.document_last_updated_session,
                 "source_class": seed.source_class,
                 "canon_layer": seed.canon_layer,
                 "campaign_id": evidence_campaign_id,
@@ -284,6 +315,7 @@ def _build_evidence(
                 "source_order_index": seed.source_order_index,
                 "line_span": None,
                 "char_span": None,
+                "document_session": seed.document_session,
                 "inferred_session": seed.inferred_session,
                 "speaker_or_subject": None,
                 "notes": None,
@@ -300,6 +332,13 @@ def _build_entities(evidence_units: list[dict[str, Any]]) -> list[dict[str, Any]
         for entity_id, entry in _ENTITY_CATALOG.items():
             if entry["display_name"].lower() in lower_text:
                 used_entity_ids.add(entity_id)
+        # Deterministic slice state changes are canonical; include their subject IDs
+        # so short-form mentions ("Shepherds", "Commander Vane") still retain the
+        # intended canonical entities from the seeded event design.
+        for change in _state_changes_for(str(unit["evidence_id"])):
+            subject_entity_id = str(change.get("subject_entity_id", ""))
+            if subject_entity_id in _ENTITY_CATALOG:
+                used_entity_ids.add(subject_entity_id)
         if unit["evidence_id"] == "evu_campaign_live_arrival":
             used_entity_ids.add("ent_mirathorn")
     entities: list[dict[str, Any]] = []
@@ -320,6 +359,7 @@ def _build_entities(evidence_units: list[dict[str, Any]]) -> list[dict[str, Any]
                 "merged_into_entity_id": None,
                 "source_mention_ids": [f"men_{entity_id}"],
                 "review_state": "reviewed",
+                "entity_tags": [],
                 "notes": None,
             }
         )
@@ -394,6 +434,15 @@ def _build_facts(
         )
         for idx, state_change in enumerate(event.get("state_changes", [])):
             fact_id = _sanitize_id(f"fact_{event_id}_{idx}", "fact")
+            inferred_session = evidence.get("document_session")
+            if inferred_session is None:
+                inferred_session = evidence.get("inferred_session")
+            try:
+                asserted_in_session = (
+                    int(inferred_session) if inferred_session is not None else None
+                )
+            except (TypeError, ValueError):
+                asserted_in_session = None
             facts.append(
                 {
                     "schema_version": _SCHEMA_VERSION,
@@ -411,8 +460,8 @@ def _build_facts(
                     "related_conflict_ids": [],
                     "manually_overridden": False,
                     "notes": None,
-                    "asserted_in_session": event.get("session_number"),
-                    "valid_from_session": event.get("session_number"),
+                    "asserted_in_session": asserted_in_session,
+                    "valid_from_session": asserted_in_session,
                     "valid_to_session": None,
                     "sequence_index_within_session": event["sequence_index_within_session"],
                     "validity_state": "active",

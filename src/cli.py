@@ -32,6 +32,11 @@ from src.ingestion.frontmatter_inference import (
 from src.ingestion.entity_extractor import AsyncOpenAIResponsesEntityClient, run_entity_extraction
 from src.ingestion.fact_extractor import AsyncOpenAIResponsesFactClient, run_fact_extraction
 from src.contracts.schema_validation import validate_many
+from src.contracts.temporal_tick_gate import (
+    campaign_temporal_quality_summary,
+    campaign_temporal_consistency_violations,
+    campaign_temporal_tick_violations,
+)
 from src.store import FactStore
 
 LOGGER_FORMAT = "%(asctime)s %(levelname)s [%(name)s] %(message)s"
@@ -146,6 +151,34 @@ def _build_ingest_gate_report(
         },
         _schema_gate("stage_fact_schema", facts, "fact.schema.json"),
     ]
+    tick_errors = campaign_temporal_tick_violations(evidence_units, facts)
+    gates.append(
+        {
+            "name": "stage_campaign_narrative_temporal_tick",
+            "pass": not tick_errors,
+            "errors": tick_errors,
+            "count": len(facts),
+        }
+    )
+    consistency_errors = campaign_temporal_consistency_violations(evidence_units, facts)
+    gates.append(
+        {
+            "name": "stage_campaign_temporal_consistency",
+            "pass": not consistency_errors,
+            "errors": consistency_errors,
+            "count": len(facts),
+        }
+    )
+    quality_summary = campaign_temporal_quality_summary(evidence_units, facts)
+    gates.append(
+        {
+            "name": "stage_campaign_temporal_quality_warning",
+            "pass": True,
+            "warnings": quality_summary["warnings"],
+            "metrics": quality_summary["metrics"],
+            "count": len(facts),
+        }
+    )
     return {
         "overall_pass": all(gate["pass"] for gate in gates),
         "gates": gates,
