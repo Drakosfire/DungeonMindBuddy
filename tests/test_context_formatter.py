@@ -58,6 +58,20 @@ def test_formats_minimal_projection_shape() -> None:
     assert "[CANON, from: layer=world, source_class=seed_reference, fact=fact_m_hist]" in output
 
 
+def test_includes_entity_tags_in_header_when_present() -> None:
+    projection = _projection_template()
+    entities = [
+        {
+            "entity_id": "ent_mirathorn",
+            "entity_type": "other",
+            "display_name": "Nameless Goddess",
+            "entity_tags": ["deity", "lore_figure"],
+        }
+    ]
+    output = format_projection_context(projection, entities)
+    assert "== Entity: Nameless Goddess (other) [deity, lore_figure] ==" in output
+
+
 def test_includes_entity_type_from_metadata() -> None:
     projection = _projection_template()
     entities = [

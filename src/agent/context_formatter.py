@@ -12,9 +12,12 @@ def _entity_meta_by_id(entities: list[dict[str, Any]]) -> dict[str, dict[str, st
         entity_id = str(entity.get("entity_id", "")).strip()
         if not entity_id:
             continue
+        tags = entity.get("entity_tags")
+        tag_list = [str(t).strip() for t in tags if str(t).strip()] if isinstance(tags, list) else []
         lookup[entity_id] = {
             "display_name": str(entity.get("display_name", entity_id)).strip() or entity_id,
             "entity_type": str(entity.get("entity_type", "other")).strip() or "other",
+            "entity_tags": tag_list,
         }
     return lookup
 
@@ -69,11 +72,16 @@ def format_projection_context(
     for entity_id, entity_payload in ordered:
         metadata = meta_by_id.get(
             entity_id,
-            {"display_name": entity_id, "entity_type": "other"},
+            {"display_name": entity_id, "entity_type": "other", "entity_tags": []},
         )
         display_name = metadata["display_name"]
         entity_type = metadata["entity_type"]
-        lines.append(f"== Entity: {display_name} ({entity_type}) ==")
+        tag_list = metadata.get("entity_tags") or []
+        if tag_list:
+            tag_suffix = " [" + ", ".join(tag_list) + "]"
+        else:
+            tag_suffix = ""
+        lines.append(f"== Entity: {display_name} ({entity_type}){tag_suffix} ==")
 
         attributes = entity_payload.get("attributes", {})
         if not attributes:

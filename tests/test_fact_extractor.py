@@ -60,6 +60,7 @@ def _entity(entity_id: str, display_name: str, entity_type: str = "location") ->
         "merged_into_entity_id": None,
         "source_mention_ids": ["men_test_0"],
         "review_state": "unreviewed",
+        "entity_tags": [],
         "notes": None,
     }
 

@@ -53,6 +53,7 @@ def _sample_entity(
         "merged_into_entity_id": None,
         "source_mention_ids": [f"men_{entity_id}"],
         "review_state": "unreviewed",
+        "entity_tags": [],
         "notes": None,
     }
 
@@ -160,6 +161,31 @@ def test_merge_quality_signals_reports_alias_cardinality(tmp_path: Path) -> None
     assert sig["max_alias_count"] == 8
     assert sig["entities_with_alias_count_ge_8"] == 1
     assert sig["top_alias_counts"][0]["entity_id"] == "ent_a"
+
+
+def test_entity_tags_union_on_merge(tmp_path: Path) -> None:
+    store = FactStore(tmp_path / "store")
+    a = _sample_entity("ent_alpha", "Alpha Node", [], entity_type="other")
+    a["entity_tags"] = ["deity", "lore"]
+    b = _sample_entity("ent_alpha_dup", "Alpha Node", [], entity_type="other")
+    b["entity_tags"] = ["patron", "deity"]
+    store.add_entities([a, b])
+    assert len(store.entities) == 1
+    tags = store.entities[0]["entity_tags"]
+    assert set(tags) == {"deity", "lore", "patron"}
+
+
+def test_alias_cap_enforced_during_merge(tmp_path: Path) -> None:
+    store = FactStore(tmp_path / "store")
+    many_aliases = [f"alias_{i}" for i in range(30)]
+    first = _sample_entity("ent_mirathorn", "Mirathorn", many_aliases[:15])
+    second = _sample_entity("ent_city_m", "Mirathorn", many_aliases[15:])
+    store.add_entities([first, second])
+
+    assert len(store.entities) == 1
+    assert len(store.entities[0]["aliases"]) == FactStore._MAX_ALIASES_PER_ENTITY
+    for alias in store.entities[0]["aliases"]:
+        assert len(alias) <= max(len(a) for a in store.entities[0]["aliases"])
 
 
 def test_ingest_index_persists_across_save_load(tmp_path: Path) -> None:

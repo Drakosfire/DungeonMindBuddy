@@ -12,10 +12,11 @@ from typing import Any, Literal
 import blake3
 from pydantic import BaseModel, Field
 
+from src.contracts.entity_tags import DEFAULT_MAX_ENTITY_TAGS, normalize_entity_tags
 from src.contracts.schema_validation import validate_many
 from src.store import FactStore
 
-_PROMPT_ID = "phase_b_pass1_entity_extraction_v1"
+_PROMPT_ID = "phase_b_pass1_entity_extraction_v2_entity_tags"
 _STOPWORDS = {
     "A",
     "An",
@@ -39,6 +40,32 @@ _STOPWORDS = {
     "With",
 }
 _CONNECTORS = {"of", "the", "and", "for", "to", "in", "at", "by"}
+_PRONOUNS = {
+    "he",
+    "she",
+    "they",
+    "it",
+    "him",
+    "her",
+    "them",
+    "his",
+    "hers",
+    "their",
+    "theirs",
+    "its",
+    "we",
+    "us",
+    "our",
+    "ours",
+    "i",
+    "me",
+    "my",
+    "mine",
+    "you",
+    "your",
+    "yours",
+}
+_MAX_ENTITY_NAME_LENGTH = 60
 _JUNK_ENTITY_EXACT = {
     "background",
     "description",
@@ -161,6 +188,7 @@ class ExtractedEntity(BaseModel):
     entity_type: Literal["npc", "location", "faction", "item", "other"] = "other"
     display_name: str
     aliases: list[str] = Field(default_factory=list)
+    entity_tags: list[str] = Field(default_factory=list)
     is_new: bool = True
 
 
@@ -378,23 +406,46 @@ def _cache_path(cache_dir: Path, key: str) -> Path:
     return cache_dir / f"{key}.json"
 
 
+_MAX_ALIASES_IN_PROMPT = 3
+
+
+def _relevant_known_entities(
+    known_entities: list[dict[str, Any]], unit_text: str
+) -> list[dict[str, Any]]:
+    """Return only entities whose display_name appears in the evidence unit text."""
+    text_lower = unit_text.lower()
+    relevant: list[dict[str, Any]] = []
+    for entity in known_entities:
+        display = str(entity.get("display_name", "")).strip()
+        if not display or len(display) < 3:
+            continue
+        if display.lower() in text_lower:
+            aliases = entity.get("aliases", [])
+            short_aliases = sorted(aliases, key=len)[:_MAX_ALIASES_IN_PROMPT]
+            relevant.append(
+                {
+                    "entity_id": entity.get("entity_id"),
+                    "display_name": display,
+                    "aliases": short_aliases,
+                }
+            )
+    return relevant
+
+
 def _build_prompt(unit: dict[str, Any], known_entities: list[dict[str, Any]]) -> str:
-    known_minimal = [
-        {
-            "entity_id": entity.get("entity_id"),
-            "display_name": entity.get("display_name"),
-            "aliases": entity.get("aliases", []),
-        }
-        for entity in known_entities
-    ]
+    unit_text = unit.get("text", "")
+    known_minimal = _relevant_known_entities(known_entities, unit_text)
     return (
         "You are an entity extraction agent for a TTRPG worldbuilding system.\n"
         "Extract every named entity from the text. Include people, places, factions, items, events.\n"
         "Cast a WIDE net; mentions count.\n\n"
         f"Known entities (reuse IDs if recognized):\n{json.dumps(known_minimal, ensure_ascii=False)}\n\n"
         "Return JSON with shape: {\"entities\": [...]} where each entity has:\n"
-        "entity_id (optional), entity_type, display_name, aliases, is_new.\n\n"
-        f"Evidence unit:\n{unit.get('text', '')}"
+        "entity_id (optional), entity_type, display_name, aliases, is_new, "
+        "entity_tags (optional array of snake_case strings).\n"
+        "Use entity_tags for fine-grained labels when entity_type is other "
+        "(e.g. deity, patron, eldritch_entity, creature_species); omit or [] otherwise.\n\n"
+        f"Evidence unit:\n{unit_text}"
     )
 
 
@@ -458,6 +509,9 @@ def _entity_record_from_extracted(
         "merged_into_entity_id": None,
         "source_mention_ids": [_sanitize_id(mention_id, prefix="men")],
         "review_state": "unreviewed",
+        "entity_tags": normalize_entity_tags(
+            list(extracted.entity_tags), max_tags=DEFAULT_MAX_ENTITY_TAGS
+        ),
         "notes": None,
     }
 
@@ -479,6 +533,12 @@ def _is_plausible_entity_name(
         return True
 
     lowered = normalized.lower()
+
+    if lowered in _PRONOUNS:
+        return False
+
+    if len(normalized) > _MAX_ENTITY_NAME_LENGTH:
+        return False
     if lowered in _JUNK_ENTITY_EXACT:
         return False
     if lowered in _LOW_SIGNAL_PHRASES:

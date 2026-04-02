@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from src.contracts.schema_validation import validate_many
+from src.contracts.entity_tags import normalize_entity_tags
 from src.reducer.canon_projection import project_entity_state
 
 
@@ -26,6 +27,8 @@ class FactStore:
         "their",
         "theirs",
     }
+    _MAX_ALIASES_PER_ENTITY = 20
+    _MAX_ENTITY_TAGS_MERGED = 20
 
     def __init__(self, store_dir: Path) -> None:
         self.store_dir = Path(store_dir)
@@ -211,12 +214,19 @@ class FactStore:
                 str(candidate.get("display_name", "")),
             }
             merged_aliases.discard("")
-            matched["aliases"] = sorted(merged_aliases)
+            all_sorted = sorted(merged_aliases, key=len)
+            matched["aliases"] = all_sorted[: self._MAX_ALIASES_PER_ENTITY]
             mention_ids = {
                 *[str(mid) for mid in matched.get("source_mention_ids", [])],
                 *[str(mid) for mid in candidate.get("source_mention_ids", [])],
             }
             matched["source_mention_ids"] = sorted(mention_ids)
+            merged_tags = list(matched.get("entity_tags") or []) + list(
+                candidate.get("entity_tags") or []
+            )
+            matched["entity_tags"] = normalize_entity_tags(
+                merged_tags, max_tags=self._MAX_ENTITY_TAGS_MERGED
+            )
             if (
                 matched.get("entity_status") == "provisional"
                 and candidate.get("entity_status") in {"canonical", "ambiguous"}
