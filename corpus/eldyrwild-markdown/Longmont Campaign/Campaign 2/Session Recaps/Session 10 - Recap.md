@@ -3,10 +3,12 @@ title: "Session 10 - Recap:"
 document_class: play
 canon_layer: campaign
 campaign_id: longmont-c2
+temporal_scope: session_specific
 session: 10
+origin_session: 10
+last_updated_session: 10
 source_class: observed_session_recap
 ---
-
 # Session 10 Recap:
 Let’s Go Crafting
  Originally set in the town square, the crafting sessions were moved due to the large hole still in the ground. Flyers all over the square advertised the new location and all the booths that would be available. Each booth would have a crafting station and for 2 silver each person could attempt to craft an item. The items are meant to be introductions to the craft, with maybe a little bit of magic. Bonogo is first to head to the goblin alchemy booth to find out about making and using poison. A middle aged goblin shows him how to craft a potion for endless bubbles. Bonogo ends up making something far more interesting: a green goo that has a mind of its own and is able to clean as it moves around. Ephanna sees a booth featuring runic wood carving. The booth has a very large crowd, mostly sailors looking to make charms to take on their next sea voyage. The individual running the booth, Splitbark, is surprised to see the group approaching. He excitedly explains the challenge is to carve a coaster that, with a matching rune, could make a mug hot or cold. He explains the danger in making runes and shows how challenging they can be. Ephanna, Karsemine and Caelynn all join in. With a little help from their Fey connection, Ephanna does extremely well and is rewarded with a Warding Rune. Caelynn also does well, while Karsemine has some trouble getting the rune just right.

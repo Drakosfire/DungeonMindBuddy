@@ -3,10 +3,12 @@ title: "Player Copy of Item  The Scimitars of Cold Regard"
 document_class: reference
 canon_layer: campaign
 campaign_id: longmont-c2
+temporal_scope: evergreen
 session: null
+origin_session: null
+last_updated_session: null
 source_class: other
 ---
-
 ### Item: The Scimitars of Cold Regard
 
 “Even steel can be cold-blooded when it’s on the hunt.”

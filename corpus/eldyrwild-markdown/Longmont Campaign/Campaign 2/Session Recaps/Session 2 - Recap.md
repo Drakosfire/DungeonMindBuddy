@@ -3,10 +3,12 @@ title: "Session 2 - Recap:"
 document_class: play
 canon_layer: campaign
 campaign_id: longmont-c2
+temporal_scope: session_specific
 session: 2
+origin_session: 2
+last_updated_session: 2
 source_class: observed_session_recap
 ---
-
 # Session 2 Recap:
 
 Ephanna and Stafl took their seats in the stands, but not before Ephanna casts Summon Fey and creates a nice copy of Bonogo - affectionately called “Ogonob”. Bonogo, Baergrom and “Ogonob” enter the arena to face their first challenge: a one-on-one wrestling match. Across from the team enter the challengers - a feared and seasoned team known for their unorthodox tactics and fierce arena presence.

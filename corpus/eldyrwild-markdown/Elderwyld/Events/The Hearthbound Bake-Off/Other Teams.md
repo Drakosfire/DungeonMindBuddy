@@ -3,10 +3,12 @@ title: "The Kobold Bakers – The Cinderbite Collective"
 document_class: world
 canon_layer: world
 campaign_id: null
+temporal_scope: evergreen
 session: null
+origin_session: null
+last_updated_session: null
 source_class: seed_reference
 ---
-
 ### The Kobold Bakers – The Cinderbite Collective
 
 **Bakery Name:** **The Cinderbite Collective

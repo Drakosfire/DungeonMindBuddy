@@ -3,10 +3,12 @@ title: "Council Room Description:"
 document_class: world
 canon_layer: world
 campaign_id: null
+temporal_scope: evergreen
 session: null
+origin_session: null
+last_updated_session: null
 source_class: seed_reference
 ---
-
 ### Council Room Description:
 
 Upon entering the council chamber, one is immediately struck by the **high, arched ceilings** that seem to stretch endlessly upwards. The architecture blends the ancient roots of Mirathorn with its gnomish engineering prowess—intricate stonework carved by dwarves, adorned with **gleaming metal inlays** that shimmer faintly with magical glyphs. The walls, thick with history, are lined with **tapestries** that depict the founding of Mirathorn, the exodus from the Lundayell Empire, and various pivotal moments in the city's rise to prominence.

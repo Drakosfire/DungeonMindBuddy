@@ -3,10 +3,12 @@ title: "Session 11 - Recap:"
 document_class: play
 canon_layer: campaign
 campaign_id: longmont-c2
+temporal_scope: session_specific
 session: 11
+origin_session: 11
+last_updated_session: 11
 source_class: observed_session_recap
 ---
-
 # Session 11 Recap:
 
 The Coliseum Championship Suddenly the terrain changes: a huge meteor crashes down into the arena, splashing smaller pieces all over the ground. The teams make impressive dodges, but the ground is now covered in burning piles of rock. Bonogo uses his short bow to attack the Storm Elemental. Despite passing through it, he does deal some good damage, however the elemental now cracks with lightning and separates into two identical forms. It forms a whip of lightning and attacks Ogonob dealing massive lightning damage. The lighting then arcs to Bonogo, dealing damage to him as well. Ogonob teleports behind the elemental then attacks using force damage. Finally, Baergrom uses his action surge and swings his warhammer at the Stone Elemental 3 separate times, dealing a good amount of damage. The Stone Elemental attempts to hit him back, but misses.

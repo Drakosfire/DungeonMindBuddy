@@ -3,10 +3,12 @@ title: "Session 17 - Migrating Forest and Thrin"
 document_class: play
 canon_layer: campaign
 campaign_id: longmont-c2
+temporal_scope: session_specific
 session: 17
+origin_session: 17
+last_updated_session: 17
 source_class: observed_session_recap
 ---
-
 Session 17 Recap: 
 
 Caelynn and Bonogo approach the large dinosaur-like creatures. At over 15 feet long they appear intimidating, but welcome Caelynn while Bonogo picks up a broken piece of plate armor from the baby. The ankylosaurus family then wanders back into the trees and the group looks for the next path forward. Darkness is starting to fall over the forest, but a clear path is illuminated by patches of bioluminescence in the trees. Just as the group decides on a path forward, Karsemine and Bonogo see a stealthy shape climbing down a tree in the distance. In one quick motion, Bonogo releases an arrow from his short bow. The shot flies true and the shape falls from the tree. The rest of the group approach the humanoid form writhing on the ground, speaking in a series of clicks. The figure looks like a woodland elf and they can see it is wearing a cloak of shimmering leaves. It also carries a short bow and a leaf shaped short sword. With some broken words in Common he begs for peace and Stafl casts Healing Word to close the wound. Both Caelynn and Karesmine try to determine the language it is speaking, but cannot. Through gestures and a few words, Stafl is able to determine his name is Thrin, he lives in the trees and wants to leave the forest with us because of some rules that he broke. He tries to convince the group to stop and sleep for the night, but the group must keep moving if they are going to save Mossford.

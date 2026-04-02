@@ -3,10 +3,12 @@ title: "session 20 stacey stuart marla reference"
 document_class: planning
 canon_layer: campaign
 campaign_id: longmont-c2
+temporal_scope: session_specific
 session: 20
+origin_session: 20
+last_updated_session: 20
 source_class: planning_document
 ---
-
 # Session 20 Reference: Stacey, Stuart, and Marla Brambleback
 
 ## Purpose

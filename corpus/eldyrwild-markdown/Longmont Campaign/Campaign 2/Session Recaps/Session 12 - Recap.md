@@ -3,10 +3,12 @@ title: "Session 12 - Recap:"
 document_class: play
 canon_layer: campaign
 campaign_id: longmont-c2
+temporal_scope: session_specific
 session: 12
+origin_session: 12
+last_updated_session: 12
 source_class: observed_session_recap
 ---
-
 # Session 12 Recap:
 
 The Battle of the Bards By now the party is in full swing at the Copper and Quartz. Almost all the patrons are drinking and enjoying stories and music. Bonogo, using the paper he acquired earlier in the city, makes some “Wanted” posters of the hooded figure. He hangs up a couple around the Inn then hangs on to the rest. Stafl then whips the crowd up and he leads them down the street to the Glimmering Globe for the Bardic Storytelling Competition. By the time the crowd enters the building Stafl is being carried in and anyone on the street is curious about the competition. Once Stafl is on stage the crowd finds seats or joins a group up near the front, standing. Caelynn moves through the crowd getting them involved and hyped up. Bonogo takes the opportunity to view the seats from the top row and, for only a brief second, sees the hooded figure down in the front. Baergrom joins a group of dwarves, attempting to sway them to Stafl.

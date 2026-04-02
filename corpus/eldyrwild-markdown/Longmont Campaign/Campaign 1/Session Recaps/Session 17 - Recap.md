@@ -3,10 +3,12 @@ title: "Session 17 - Recap"
 document_class: play
 canon_layer: campaign
 campaign_id: longmont-c1
+temporal_scope: session_specific
 session: 17
+origin_session: 17
+last_updated_session: 17
 source_class: observed_session_recap
 ---
-
 Session 17:
 
 The centipede-like creature begins to vibrate, trying to shake off its adversaries. Bonogo just manages to hang on, however the creature begins to pull Ephanna further into the giant pile on the center platform until only Ephanna’s head remains visible. As Bonogo clings to the creature climbing the wall, a large lump begins shifting around and suddenly a head materializes right in front of him. It pushes against the skin of the creature, revealing itself to be the Wolf and begging to be killed. Dark energy pulses through the room and along the creature, curing a large portion of damage.

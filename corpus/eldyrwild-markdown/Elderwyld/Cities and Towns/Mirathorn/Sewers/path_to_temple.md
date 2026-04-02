@@ -3,10 +3,12 @@ title: "Path Exploration to the Temple"
 document_class: world
 canon_layer: world
 campaign_id: null
+temporal_scope: evergreen
 session: null
+origin_session: null
+last_updated_session: null
 source_class: seed_reference
 ---
-
 # Path Exploration to the Temple
 
 ## General Atmosphere

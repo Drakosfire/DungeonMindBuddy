@@ -1,13 +1,14 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "document_metadata.schema.json",
-  "title": "DungeonBuddy Document Metadata v0.1",
+  "title": "DungeonBuddy Document Metadata v0.2",
   "type": "object",
   "required": [
     "title",
     "document_class",
     "canon_layer",
-    "source_class"
+    "source_class",
+    "temporal_scope"
   ],
   "properties": {
     "title": {
@@ -28,7 +29,21 @@
     "campaign_id": {
       "$ref": "common.schema.json#/$defs/nullableId"
     },
+    "temporal_scope": {
+      "type": "string",
+      "enum": [
+        "session_specific",
+        "campaign_stateful",
+        "evergreen"
+      ]
+    },
     "session": {
+      "$ref": "common.schema.json#/$defs/sessionIntOrNull"
+    },
+    "origin_session": {
+      "$ref": "common.schema.json#/$defs/sessionIntOrNull"
+    },
+    "last_updated_session": {
       "$ref": "common.schema.json#/$defs/sessionIntOrNull"
     },
     "source_class": {
@@ -47,6 +62,18 @@
       "then": {
         "properties": {
           "campaign_id": {
+            "type": "null"
+          },
+          "temporal_scope": {
+            "const": "evergreen"
+          },
+          "session": {
+            "type": "null"
+          },
+          "origin_session": {
+            "type": "null"
+          },
+          "last_updated_session": {
             "type": "null"
           }
         }
@@ -76,6 +103,45 @@
     {
       "if": {
         "properties": {
+          "temporal_scope": {
+            "const": "session_specific"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "session"
+        ],
+        "properties": {
+          "session": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "temporal_scope": {
+            "enum": [
+              "campaign_stateful",
+              "evergreen"
+            ]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "session": {
+            "type": "null"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
           "document_class": {
             "const": "play"
           }
@@ -95,6 +161,9 @@
           },
           "source_class": {
             "const": "observed_session_recap"
+          },
+          "temporal_scope": {
+            "const": "session_specific"
           }
         }
       }
@@ -160,6 +229,15 @@
             "type": "null"
           },
           "session": {
+            "type": "null"
+          },
+          "temporal_scope": {
+            "const": "evergreen"
+          },
+          "origin_session": {
+            "type": "null"
+          },
+          "last_updated_session": {
             "type": "null"
           }
         }

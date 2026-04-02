@@ -24,7 +24,10 @@ class DocumentMetadata:
     document_class: str
     canon_layer: str
     campaign_id: str | None
+    temporal_scope: str
     session: int | None
+    origin_session: int | None
+    last_updated_session: int | None
     source_class: str
 
     def to_dict(self) -> dict[str, str | int | None]:
@@ -33,7 +36,10 @@ class DocumentMetadata:
             "document_class": self.document_class,
             "canon_layer": self.canon_layer,
             "campaign_id": self.campaign_id,
+            "temporal_scope": self.temporal_scope,
             "session": self.session,
+            "origin_session": self.origin_session,
+            "last_updated_session": self.last_updated_session,
             "source_class": self.source_class,
         }
 
@@ -84,7 +90,16 @@ def _metadata_from_payload(payload: dict[str, str | int | None]) -> DocumentMeta
         campaign_id=(
             str(payload["campaign_id"]) if payload.get("campaign_id") is not None else None
         ),
+        temporal_scope=str(payload["temporal_scope"]),
         session=int(payload["session"]) if payload.get("session") is not None else None,
+        origin_session=(
+            int(payload["origin_session"]) if payload.get("origin_session") is not None else None
+        ),
+        last_updated_session=(
+            int(payload["last_updated_session"])
+            if payload.get("last_updated_session") is not None
+            else None
+        ),
         source_class=str(payload["source_class"]),
     )
 
@@ -128,13 +143,20 @@ def load_document_frontmatter(path: Path) -> tuple[DocumentMetadata | None, str]
 def render_frontmatter(metadata: DocumentMetadata) -> str:
     campaign_id = "null" if metadata.campaign_id is None else metadata.campaign_id
     session = "null" if metadata.session is None else str(metadata.session)
+    origin_session = "null" if metadata.origin_session is None else str(metadata.origin_session)
+    last_updated_session = (
+        "null" if metadata.last_updated_session is None else str(metadata.last_updated_session)
+    )
     return (
         "---\n"
         f'title: "{metadata.title}"\n'
         f"document_class: {metadata.document_class}\n"
         f"canon_layer: {metadata.canon_layer}\n"
         f"campaign_id: {campaign_id}\n"
+        f"temporal_scope: {metadata.temporal_scope}\n"
         f"session: {session}\n"
+        f"origin_session: {origin_session}\n"
+        f"last_updated_session: {last_updated_session}\n"
         f"source_class: {metadata.source_class}\n"
         "---\n"
     )

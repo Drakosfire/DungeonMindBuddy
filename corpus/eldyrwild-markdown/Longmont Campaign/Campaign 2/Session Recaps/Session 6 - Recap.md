@@ -3,10 +3,12 @@ title: "Session 6 - Recap:"
 document_class: play
 canon_layer: campaign
 campaign_id: longmont-c2
+temporal_scope: session_specific
 session: 6
+origin_session: 6
+last_updated_session: 6
 source_class: observed_session_recap
 ---
-
 # Session 6 Recap:
 
 The Dustwalker’s music not only seeps into every inch of the rooftop, it also seems to invade the mind. Little parchments begin floating around proclaiming that any true believer should stick around after the party for a chance to be enlightened. It is clear by looking at all the eyes that something needs to be done to keep the guards from transforming into monsters. The most likely, and in some ways most unlikely, member of the Questionable Company is chosen for this task - Bonogo. They must get the antidote to all the people at the party and the best way is through the beer. With just those sparse details, Bonogo comes up with a plan. First, still being invisible, he hands Stafl a dart and instructs him to miss the dartboard and hit the beer keg instead, creating a small opening that he can exploit. Despite the looks Stafl gets he does hit the keg, but only leaves a tiny hole. Bonogo then uses a file from his pack to make the hole a little bigger until beer starts to flow out. That’s when he initiates phase two of his plan: touching his Slinkstone he disappears only to appear again inside the keg!

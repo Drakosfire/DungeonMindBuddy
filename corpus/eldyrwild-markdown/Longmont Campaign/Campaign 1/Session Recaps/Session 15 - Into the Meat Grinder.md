@@ -3,10 +3,12 @@ title: "Session 15 - Into the Meat Grinder"
 document_class: play
 canon_layer: campaign
 campaign_id: longmont-c1
+temporal_scope: session_specific
 session: 15
+origin_session: 15
+last_updated_session: 15
 source_class: observed_session_recap
 ---
-
 ## Session 15: Into the Meat Grinder
 
 ## Major Beats:

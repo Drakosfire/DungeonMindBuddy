@@ -3,10 +3,12 @@ title: "Session 2 Prep"
 document_class: planning
 canon_layer: campaign
 campaign_id: longmont-c2
+temporal_scope: session_specific
 session: 2
+origin_session: 2
+last_updated_session: 2
 source_class: planning_document
 ---
-
 ### 🌆 Evening Events – Day 1
 
 #### 🪕 5:00 PM – Bardic Showcase at the Glimmering Globe

@@ -3,10 +3,12 @@ title: "Session 1 - Recap 3/27/24"
 document_class: play
 canon_layer: campaign
 campaign_id: longmont-c1
+temporal_scope: session_specific
 session: 1
+origin_session: 1
+last_updated_session: 1
 source_class: observed_session_recap
 ---
-
 ### Session 1 Recap 3/27/24
 
 After traveling together for some time together as merchant guards, our mish mash of travelers;  Karsemine the Tiefling Ranger, Stafl the 'Human' Bard, Caelynn the Half Elf Sorcerer, Ephanna the Kenku Warlock, Bonogo the Bugbear Rogue, and Baergrom the Dwarf Fighter, found themselves outside the town of Stonebridge.

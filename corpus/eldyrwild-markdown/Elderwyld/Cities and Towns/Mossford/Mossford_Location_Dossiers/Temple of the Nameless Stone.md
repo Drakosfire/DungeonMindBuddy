@@ -3,10 +3,12 @@ title: "Temple of the Nameless Stone"
 document_class: world
 canon_layer: world
 campaign_id: null
+temporal_scope: evergreen
 session: null
+origin_session: null
+last_updated_session: null
 source_class: seed_reference
 ---
-
 ## Temple of the Nameless Stone
 
 Hill Shrine and River Chapel

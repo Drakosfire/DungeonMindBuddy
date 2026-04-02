@@ -3,10 +3,12 @@ title: "The Ember Crust Pie"
 document_class: world
 canon_layer: world
 campaign_id: null
+temporal_scope: evergreen
 session: null
+origin_session: null
+last_updated_session: null
 source_class: seed_reference
 ---
-
 ### The Ember Crust Pie
 
 The Ember Crust Pie is not just a dish—it is an ode to Mirathorn’s winters, a celebration of warmth amid the cold, and a challenge that separates the truly skilled bakers from the rest.

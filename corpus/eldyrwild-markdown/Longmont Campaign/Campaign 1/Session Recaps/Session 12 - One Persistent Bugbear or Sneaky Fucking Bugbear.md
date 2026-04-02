@@ -3,10 +3,12 @@ title: "Session 12 - One Persistent Bugbear or Sneaky Fucking Bugbear"
 document_class: play
 canon_layer: campaign
 campaign_id: longmont-c1
+temporal_scope: session_specific
 session: 12
+origin_session: 12
+last_updated_session: 12
 source_class: observed_session_recap
 ---
-
 ## Session 12: One Persistent Bugbear or Sneaky Fucking Bugbear
 
 ## Major Beats:

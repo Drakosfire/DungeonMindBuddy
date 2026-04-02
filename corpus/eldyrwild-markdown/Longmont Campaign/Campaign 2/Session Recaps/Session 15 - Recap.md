@@ -3,10 +3,12 @@ title: "Session 15 - Recap"
 document_class: play
 canon_layer: campaign
 campaign_id: longmont-c2
+temporal_scope: session_specific
 session: 15
+origin_session: 15
+last_updated_session: 15
 source_class: observed_session_recap
 ---
-
 # Session 15 Recap
 
 After negotiating the transfer of the potion cart from Blizzy, Stafl and Baergrom quickly get the cart back to the guard house to load up on the wagon. They are met by Lysandra, now in her new uniform and sporting her new rank. Sargent Fabio takes Bonogo back in to get his badge updated. A “picture” is taken using magic then burned on to the blank badge he was given. This magic will last for two weeks. With everyone present and ready to go, Lysandra reminds the group that she is in command and gives a speech about the quest they have been given.

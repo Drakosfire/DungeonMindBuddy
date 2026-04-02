@@ -3,10 +3,12 @@ title: "Session 2 - Finishing the Job"
 document_class: play
 canon_layer: campaign
 campaign_id: longmont-c1
+temporal_scope: session_specific
 session: 2
+origin_session: 2
+last_updated_session: 2
 source_class: observed_session_recap
 ---
-
 ### Session 2 : Finishing the Job
 
 The gang survived, they kinda even thrived. Compared to the rats, the Giant Flaming Spider, the Giant Centipede that crawled out of the well, and the rat that absolutely was NOT about to mutate were no big deal.

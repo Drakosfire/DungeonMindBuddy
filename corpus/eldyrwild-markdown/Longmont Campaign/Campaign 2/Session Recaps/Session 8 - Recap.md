@@ -3,10 +3,12 @@ title: "Session 8 - Recap:"
 document_class: play
 canon_layer: campaign
 campaign_id: longmont-c2
+temporal_scope: session_specific
 session: 8
+origin_session: 8
+last_updated_session: 8
 source_class: observed_session_recap
 ---
-
 # Session 8 Recap:
 
 Stafl moves within range and casts Healing Word on Caelynn, thus saving her from death. Karsemine turns her attacks on the nearby rip in space. After a flurry of attacks, including a critical hit, she destroys the portal and severs the arms. Ephanna moves within range of the monster attacking Bonogo and hits it with two Eldritch Blast attacks, killing the monster and freeing Bonogo. Ephanna’s Fey attacks one of the remaining Cultists and lands a killing blow after using Misty Step and Charming one of the monsters.

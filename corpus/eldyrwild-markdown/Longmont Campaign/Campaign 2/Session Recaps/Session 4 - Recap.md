@@ -3,10 +3,12 @@ title: "Session 4 - Recap:"
 document_class: play
 canon_layer: campaign
 campaign_id: longmont-c2
+temporal_scope: session_specific
 session: 4
+origin_session: 4
+last_updated_session: 4
 source_class: observed_session_recap
 ---
-
 # Session 4 Recap:
 
 With the sun almost hitting noon, the group heads to the next event on their list - the Acrobatics Extravaganza at the Glimmering Globe. Stafl begins busking on the street, hoping to gain some intel on the Shepherd and his “Flock”. Earning 33 gold in the process. Karsemine is very excited to participate, until she finds out that it is not a competition, but a show. Ephanna convinces her to slip into the show and participate. They walk around to the back of the Globe and find a door standing open. As Karsemine and Ephanna walk through the back door, they are greeted yet again by a familiar face behind a desk - Winna. Dressed in all black and with a magic earpiece, she is clearly helping to run the event. Her expression at seeing Karsemine and Ephanna is exasperation. She is again stressed out that they would like to bend the rules to get into the show. Ephanna quickly comes up with a plan. While Karesmine performs some acrobatics to show off, they will forge her name into the list of performers. With an impressive leap, Karsemine is able to parkour off three sets of beams and lands on a beam high up above Winna. Here she begins to juggle some unlit torches, dropping one and barely managing to catch her balance. While Winna is distracted, Ephanna sneaks over to the list and quickly writes in Karsemine’s name. Karsemine again attempts to juggle, using her hands as well as her tail, and drops a torch again, nearly falling in the process. After failing another time at juggling, Karsemine makes her way back down.

@@ -3,10 +3,12 @@ title: "Session 7 - Recap:"
 document_class: play
 canon_layer: campaign
 campaign_id: longmont-c2
+temporal_scope: session_specific
 session: 7
+origin_session: 7
+last_updated_session: 7
 source_class: observed_session_recap
 ---
-
 # Session 7 Recap:
 
 Outside Karsemine attacks the Cultist, but misses. Instead hits with Horde Breaker and then again with Nick and finishes him off. Inside the barn Stafl escapes the grapple and flies back up again and then throws a potion at Caelynn, knocking her unconscious and then reviving her all in one action. Both Stafl and Caelynn are attacked by Cultists with daggers. Bonogo unchains the goblin children and then instructs them to use the chain to lock the doors. Finding the hole in the side of the barn he then uses his short bow, equipped with poison, and attacks the Dustwalker. He then lays prone below the hole, attempting to use it as cover. On the other end of the barn Ephanna summons their Fey and then they both attack and kill a Cultist. Caelynn is going to teleport using Thunder Step but has a very difficult decision to make: she can either take Stafl or Lysandra with her. She chooses Stalf and they teleport out of the hole by Bonogo and out into the field. The thunderous boom left behind damages all the Cultists and Fleshborn within a 10 foot range. Baergorm chooses to rescue the trapped Lysandra by cutting a hole right through the barn wall. He grabs her and pulls her through the hole and outside the barn.

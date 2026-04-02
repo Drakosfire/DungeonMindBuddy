@@ -3,10 +3,12 @@ title: "Session 16 - Recap:"
 document_class: play
 canon_layer: campaign
 campaign_id: longmont-c2
+temporal_scope: session_specific
 session: 16
+origin_session: 16
+last_updated_session: 16
 source_class: observed_session_recap
 ---
-
 # Session 16 Recap:
 
 At this point it is getting late in the day and starting to get dark. The group must make a final decision on the next steps. Stafl asks Lysandra about any landmarks between where they are and the town of Mossford and she is able to provide a good picture of the land around them. But much of the path ahead is broken up and very difficult to navigate thanks to the large roots of the trees. Based on their current distance to the town and how fast the trees appear to be moving, the trees would reach Mossford in a day and a half. As the group looks into the dark and mysterious forest, they decide to enter together and, using Karsemine’s ability, sneak through to the other side. As the group enters the first thing they notice is the amount of plants and other vegetation hanging from the trees, making it difficult to see very far. There is no immediate threat, but there is a feeling they are unwelcome. There is lots of movement and activity, just outside line of sight. Even the sounds are distorted, movements in the trees take much longer to hear after they are seen.

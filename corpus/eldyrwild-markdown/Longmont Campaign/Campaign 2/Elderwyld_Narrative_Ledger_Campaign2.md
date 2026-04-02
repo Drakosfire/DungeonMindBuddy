@@ -3,10 +3,12 @@ title: "Elderwyld Narrative Ledger (Campaign 2)"
 document_class: reference
 canon_layer: campaign
 campaign_id: longmont-c2
+temporal_scope: campaign_stateful
 session: null
+origin_session: null
+last_updated_session: null
 source_class: ledger_or_dossier
 ---
-
 # Elderwyld — Narrative Ledger (Campaign 2)
 
 _Last updated: 2025-11-08_

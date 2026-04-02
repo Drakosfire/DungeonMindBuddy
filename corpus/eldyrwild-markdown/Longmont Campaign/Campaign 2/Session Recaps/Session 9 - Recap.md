@@ -3,10 +3,12 @@ title: "Session 9 - Recap"
 document_class: play
 canon_layer: campaign
 campaign_id: longmont-c2
+temporal_scope: session_specific
 session: 9
+origin_session: 9
+last_updated_session: 9
 source_class: observed_session_recap
 ---
-
 # Session 9 Recap
 
 After a long night's rest Karsemine, Ephanna and Bonogo head to Miss Thistlebottom’s Emporium to sign up for the costume contest. Wait in a long line to enter one at a time. In front of them is a Tiefling with an elaborate feather costume and comments that everyone has heard of them - they won last year’s competition. They suggest not trusting anyone and make sure to sabotage anyone they can. Behind them is a small gnome covered in glitter. They tell them not to trust the Tiefling. Bonogo and Karsemine tell others that their costume is a secret.

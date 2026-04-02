@@ -3,10 +3,12 @@ title: "Session 14 - Recap:"
 document_class: play
 canon_layer: campaign
 campaign_id: longmont-c2
+temporal_scope: session_specific
 session: 14
+origin_session: 14
+last_updated_session: 14
 source_class: observed_session_recap
 ---
-
 # Session 14 Recap:
 
 Karsemine is rushing to the Academy with Winna, fearing more corruption from the guards watching the Dustwalker. Winna is even more stressed out than usual and she is very short with the young sorcerer at the front desk. They are informed that a group of guards came in shortly after Karsemine left earlier. After some back and forth, Karsemine eventually reveals what really happened with her, Bonogo, and the guard (minus the fact that they attacked the guard and she knocked him out). Even though the story doesn't sound good for Karsemine, Winna trusts her judgment and believes that she did the right thing in the situation. And despite still being upset about being told the guards were corrupt, Winna is convinced that everything is under control and she can finally go get some rest. Karsemine leaves her danger necklace with Winna then hurries out to join up with the other members of Questionable Company. The group, led by Lysandra, head for the old guard tower where they will be able to stock up on supplies for their journey. Despite the bad weather and late hour, the old guard station is fairly busy with soldiers. An old gnome gives a questioning look to Lysandra as the group enters the building. Again Lysandra begins to break down and the group is suddenly surrounded by guards. Stalf, seeing Lysandra is unable to defend the group, speaks up and demands Sergeant Fabio speak with the Mayor and all the questions will be sorted out.

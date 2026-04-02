@@ -3,10 +3,12 @@ title: "Copper Moss Brewery & Waterwheel Mill"
 document_class: world
 canon_layer: world
 campaign_id: null
+temporal_scope: evergreen
 session: null
+origin_session: null
+last_updated_session: null
 source_class: seed_reference
 ---
-
 ## Copper Moss Brewery & Waterwheel Mill
 
 Brewhouse, mill, and social hinge of the north bank

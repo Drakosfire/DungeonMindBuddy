@@ -3,10 +3,12 @@ title: "Player Copy Item  The Friendship Chime"
 document_class: reference
 canon_layer: campaign
 campaign_id: longmont-c2
+temporal_scope: evergreen
 session: null
+origin_session: null
+last_updated_session: null
 source_class: other
 ---
-
 ### Item: The Friendship Chime
 
 “When you need a friend, sometimes all it takes is a little jingle.”

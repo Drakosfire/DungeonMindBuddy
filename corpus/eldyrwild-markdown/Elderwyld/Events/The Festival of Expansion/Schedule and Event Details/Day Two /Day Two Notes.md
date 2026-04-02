@@ -3,10 +3,12 @@ title: "🥧 9:00 AM – The Great Bake-Off: Preliminary Rounds"
 document_class: world
 canon_layer: world
 campaign_id: null
+temporal_scope: evergreen
 session: null
+origin_session: null
+last_updated_session: null
 source_class: seed_reference
 ---
-
 ## 🥧 9:00 AM – The Great Bake-Off: Preliminary Rounds
 
 **Location:** Market Plaza – three enormous enchanted baking tents, each one a riot of color, smells, and magical mishaps.

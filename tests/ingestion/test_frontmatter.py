@@ -21,7 +21,10 @@ def test_parse_document_frontmatter_valid_block() -> None:
         "document_class: play\n"
         "canon_layer: campaign\n"
         "campaign_id: longmont-c1\n"
+        "temporal_scope: session_specific\n"
         "session: 8\n"
+        "origin_session: 8\n"
+        "last_updated_session: 8\n"
         "source_class: observed_session_recap\n"
         "---\n"
         "# Body\n\nDetails.\n"
@@ -30,7 +33,10 @@ def test_parse_document_frontmatter_valid_block() -> None:
     assert metadata is not None
     assert metadata.document_class == "play"
     assert metadata.campaign_id == "longmont-c1"
+    assert metadata.temporal_scope == "session_specific"
     assert metadata.session == 8
+    assert metadata.origin_session == 8
+    assert metadata.last_updated_session == 8
     assert body.startswith("# Body")
 
 
@@ -92,6 +98,9 @@ def test_infer_frontmatter_heuristic_world_default() -> None:
     assert metadata.canon_layer == "world"
     assert metadata.campaign_id is None
     assert metadata.session is None
+    assert metadata.temporal_scope == "evergreen"
+    assert metadata.origin_session is None
+    assert metadata.last_updated_session is None
     assert metadata.source_class == "seed_reference"
 
 
@@ -104,5 +113,8 @@ def test_infer_frontmatter_heuristic_campaign_play() -> None:
     assert metadata.canon_layer == "campaign"
     assert metadata.campaign_id == "longmont-c1"
     assert metadata.session == 8
+    assert metadata.temporal_scope == "session_specific"
+    assert metadata.origin_session == 8
+    assert metadata.last_updated_session == 8
     assert metadata.source_class == "observed_session_recap"
 

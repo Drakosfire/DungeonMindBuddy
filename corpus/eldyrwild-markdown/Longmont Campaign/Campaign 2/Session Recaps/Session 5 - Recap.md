@@ -3,10 +3,12 @@ title: "Session 5 - Recap:"
 document_class: play
 canon_layer: campaign
 campaign_id: longmont-c2
+temporal_scope: session_specific
 session: 5
+origin_session: 5
+last_updated_session: 5
 source_class: observed_session_recap
 ---
-
 # Session 5 Recap:
 
 The fighters exit the arena to thunderous applause from the crowd. As Ephanna, Bonogo, Stafl and Baergrom are outside they are approached by Lysandra. The group almost mistakes her for someone else. She is dressed in very casual looking clothes, a stark contrast from her usual military outfit. She looks to be very uncomfortable and very anxious. The small group tells her that they are headed over to the Evergreen Apothecary for the Herbal Tea Workshop to catch up with Caelynn and Karsemine. Lysandra decides to join them on their walk to the Apothecary. As Ephanna, Bonogo, Stafl and Baergrom are walking to the tea workshop it becomes clear that Lysandra is trying to tell them something important, but uncomfortable. She reveals that she needs help from the group again as there is no one else she can trust. She explains that during the festivals each guardhouse hosts a music festival, however this time it is for guards only - something that has not happened before. And to make matters worse, only humans are invited. She explains that she needs help infiltrating a guardhouse to determine what is actually happening. Caelynn and Karsemine enter the courtyard of the Evergreen Apothecary and are greeted by a very enthusiastic elf named Elowyn Vireleaf. She will be leading the workshop and explaining all about the leaves in the surrounding area and how to get the most out of any brew. The smell is almost overpowering. There are numerous tables set up around the courtyard with bowls of leaves and pots of steaming water. Each table is also equipped with a mortar and pestle with which to grind up their leaves. (edited)

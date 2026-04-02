@@ -3,10 +3,12 @@ title: "Stormspire Academy"
 document_class: world
 canon_layer: world
 campaign_id: null
+temporal_scope: evergreen
 session: null
+origin_session: null
+last_updated_session: null
 source_class: seed_reference
 ---
-
 **The Stormspire Academy** is a venerable institution, over 150 years old, known for its arcane prowess and magical innovation. Located on the edge of reality, it’s one of the most powerful establishments in the region, housing a wealth of knowledge, artifacts, and spellcasters skilled in a variety of disciplines. However, while the Academy has immense resources, it must balance aiding the players with maintaining its defenses and secrecy. Here’s how it can equip and support the adventurers without overshadowing their level.
 
 **1. Traversing from the Council Building to the Academy**

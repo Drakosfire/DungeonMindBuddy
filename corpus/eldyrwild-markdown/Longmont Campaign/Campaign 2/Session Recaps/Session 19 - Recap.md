@@ -3,10 +3,12 @@ title: "Session 19 - Recap"
 document_class: play
 canon_layer: campaign
 campaign_id: longmont-c2
+temporal_scope: session_specific
 session: 19
+origin_session: 19
+last_updated_session: 19
 source_class: observed_session_recap
 ---
-
 # Session 19 Recap
 
 The redscale Dragonborn Mayor and the dark skinned, graying human Sheriff are speaking with Stafl when Caelynn investigates the sky. She can see a very large storm rolling in from the North and the air is already starting to cool. The mayor is worried about another problem with the storm; telling the group that they had terrible storms in the last two weeks. The group comes up with a basic plan: they will ask Thrin about the Vanguard trees and how to divert them while the rest of the group gets the townsfolk to gather supplies. Just then Bonogo smells the tantalizing smell of cooking meat coming from the Inn nearby. He immediately heads off to get something to eat.

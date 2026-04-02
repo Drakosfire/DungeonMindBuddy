@@ -3,10 +3,12 @@ title: "Session 7 - Passing Mirathorn Gates"
 document_class: play
 canon_layer: campaign
 campaign_id: longmont-c1
+temporal_scope: session_specific
 session: 7
+origin_session: 7
+last_updated_session: 7
 source_class: observed_session_recap
 ---
-
 ### Session 7 : Passing Mirathorn Gates
 
 ## Major Beats:

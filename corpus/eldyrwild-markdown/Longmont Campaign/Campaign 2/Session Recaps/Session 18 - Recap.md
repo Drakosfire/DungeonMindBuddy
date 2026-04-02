@@ -3,10 +3,12 @@ title: "Session 18 - Recap:"
 document_class: play
 canon_layer: campaign
 campaign_id: longmont-c2
+temporal_scope: session_specific
 session: 18
+origin_session: 18
+last_updated_session: 18
 source_class: observed_session_recap
 ---
-
 # Session 18 Recap:
 
 Session 18 Recap After taking cold damage from Ephanna’s spell, the gigantic creature reorients itself in the darkness, then climbs up the side of the log and lunges out at Bonogo. It attacks with three fierce attacks all at once. Bonogo is able to avoid the bite and one of the claws, but is hit by a punishing blow from the second claw swipe. Bonogo is able to use his Uncanny Dodge and reduce the massive damage, then dodges out of the creature's grasp. He then steady’s his short bow and waits for a chance to take a shot. Karsemine fires two arrows into the dark sphere where she last saw the creature, but both miss. Stafl also takes a shot with his crossbow into the darkness, while Thrin fires off two arrows, but both miss as well. Caelynn casts Snowball into the same spot, hoping the spell’s area of effect will hit, and hits the creature, applying additional cold damage.

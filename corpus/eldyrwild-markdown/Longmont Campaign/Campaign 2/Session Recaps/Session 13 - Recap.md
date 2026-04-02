@@ -3,10 +3,12 @@ title: "Session 13 - Recap:"
 document_class: play
 canon_layer: campaign
 campaign_id: longmont-c2
+temporal_scope: session_specific
 session: 13
+origin_session: 13
+last_updated_session: 13
 source_class: observed_session_recap
 ---
-
 # Session 13 Recap:
 
 As people are milling in the city center after escaping the fight in the Glimmering Globe, an announcement comes through the magical lights up and down each street. The Mirathorn Council has instituted a curfew and the festival has been postponed. The Questionable Company is instructed to meet with the Council immediately. In the distance they can hear a storm building again and sorcerers preparing to protect the city. Stafl, Baergrom, Caelynn and Ephanna head across the city square to the council building, hoping to catch up with Bonogo and Karesmine when they get there. Caelynn, looking for some extra help with the council, attempts to find Winna in the large crowd. Baergrom helps out by instructing his raven to fly up and search for her. They see the bird land off in the crowd so they start to make their way over to Winna. Concerned about the curfew, she is already headed back to the Academy. Knowing that she is a rule follower, Caelynn uses her badge to convince her that she should ignore the curfew and come with us to the council. The group finds Bonogo and Karsemine waiting in the shadows. They tell the rest of the group about the guard and how the other Dustwalker also turned to goo. Bonogo declares that the guard was corrupt, causing Winna to become upset and worried about the others at the Academy. She hurries back to the academy with Karsemine following to help her. Back inside the council building the group finds the entire council waiting. This time they are meeting in a much smaller room, though still lined with guards. Ephanna quickly checks each one, but everything seems fine. The council, Elara, Barin, Grobnok, Tinkerbright, Thalia, Torrin, Merril, and Rurik, are all waiting quietly as thunder rumbles outside.

@@ -3,10 +3,12 @@ title: "Session 9 - Battle with the Meat Monsters"
 document_class: play
 canon_layer: campaign
 campaign_id: longmont-c1
+temporal_scope: session_specific
 session: 9
+origin_session: 9
+last_updated_session: 9
 source_class: observed_session_recap
 ---
-
 ## Session 9: Battle with the Meat Monsters
 
 ## Major Beats:

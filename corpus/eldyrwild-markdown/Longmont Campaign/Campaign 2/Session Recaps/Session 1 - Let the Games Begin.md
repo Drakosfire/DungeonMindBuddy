@@ -3,10 +3,12 @@ title: "Session 1 - Let the Games Begin"
 document_class: play
 canon_layer: campaign
 campaign_id: longmont-c2
+temporal_scope: session_specific
 session: 1
+origin_session: 1
+last_updated_session: 1
 source_class: observed_session_recap
 ---
-
 Session 1: Let the Games Begin Despite all the merriment of a huge festival beginning, the group decided to head back to the Inn first and get some much needed rest before heading back out to partake in the plethora of events. As the group weaved their way through the crowd to the center of the city they could see all the paths leading off in every direction; over-filled with people and noise. The paths were packed with colorful tents. As they passed by groups they could overhear joy mixed with some unease. Some people had begun to notice fewer guards were patrolling and it seemed far fewer party-goers than expected. The adventurers took their long rest and awoke with excitement, ready to take in the remainder of the first day’s activities. While each member of the party looked over the list of things to see and do, Stafl began casting Identify on a scale he had been carrying around for a long time.
  The dragon scale turned out to be a real dragon scale, however it was not of a dragon that currently exists. It is possible the scale was from an ancient dragon that is long extinct. While holding the scale Stafl could feel vast and unseen power as well as a steady vibration, almost like breathing. Meanwhile, Ephanna and Caelynn decide to see if they can still make it into the Mage’s Duel. As they approach the Arcane Arena outside the Stormspire Academy they can see statues of Mages from famous duels and an overly enthusiastic apprentice yelling to every passerby. As they enter through the doors they can hear the boom of magic spells as they take in the beautiful surroundings. They also see a friendly face from their previous trip to the Academy: Head Clerk Mossglade. She is standing behind an enormous desk placing name cards on a wall forming a large tournament bracket as other apprentices come running in and out with results from the qualifying rounds.
 

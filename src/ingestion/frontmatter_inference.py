@@ -14,7 +14,10 @@ class ProposedDocumentMetadata(BaseModel):
     document_class: str
     canon_layer: str
     campaign_id: str | None = None
+    temporal_scope: str
     session: int | None = None
+    origin_session: int | None = None
+    last_updated_session: int | None = None
     source_class: str
 
 
@@ -69,12 +72,24 @@ def _load_model_id() -> str:
 def infer_frontmatter_metadata_heuristic(path: Path, text: str) -> DocumentMetadata:
     document_class, canon_layer, campaign_id, session = _heuristic_document_class(path, text)
     title = path.stem.replace("_", " ").strip() or "Untitled Document"
+    temporal_scope = "session_specific" if session is not None else "evergreen"
+    origin_session = session
+    last_updated_session = session
+    if document_class == "reference" and session is None:
+        temporal_scope = "campaign_stateful"
+    if document_class == "world":
+        temporal_scope = "evergreen"
+        origin_session = None
+        last_updated_session = None
     return DocumentMetadata(
         title=title,
         document_class=document_class,
         canon_layer=canon_layer,
         campaign_id=campaign_id,
+        temporal_scope=temporal_scope,
         session=session,
+        origin_session=origin_session,
+        last_updated_session=last_updated_session,
         source_class=_source_class_for(document_class),
     )
 
@@ -93,9 +108,10 @@ class OpenAIFrontmatterInferenceClient:
     def propose(self, *, model: str, path: Path, text: str) -> DocumentMetadata:
         prompt = (
             "Infer frontmatter metadata for a markdown source document.\n"
-            "Return JSON with keys: title, document_class, canon_layer, campaign_id, session, source_class.\n"
+            "Return JSON with keys: title, document_class, canon_layer, campaign_id, temporal_scope, session, origin_session, last_updated_session, source_class.\n"
             "Allowed document_class: world|play|planning|reference.\n"
             "Allowed canon_layer: world|campaign.\n"
+            "Allowed temporal_scope: session_specific|campaign_stateful|evergreen.\n"
             "Allowed source_class: seed_reference|observed_session_recap|planning_document|ledger_or_dossier|other.\n"
             f"Path: {path}\n\n"
             f"Document excerpt:\n{text[:4000]}"
@@ -118,7 +134,10 @@ class OpenAIFrontmatterInferenceClient:
             document_class=payload["document_class"],
             canon_layer=payload["canon_layer"],
             campaign_id=payload["campaign_id"],
+            temporal_scope=payload["temporal_scope"],
             session=payload["session"],
+            origin_session=payload.get("origin_session"),
+            last_updated_session=payload.get("last_updated_session"),
             source_class=payload["source_class"],
         )
 

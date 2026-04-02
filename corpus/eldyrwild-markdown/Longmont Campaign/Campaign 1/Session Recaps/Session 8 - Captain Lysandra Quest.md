@@ -3,10 +3,12 @@ title: "Session 8 - Captain Lysandra Quest"
 document_class: play
 canon_layer: campaign
 campaign_id: longmont-c1
+temporal_scope: session_specific
 session: 8
+origin_session: 8
+last_updated_session: 8
 source_class: observed_session_recap
 ---
-
 ## Session 8: Captain Lysandra's Quest
 
 When we resume we find our party (except for Ephanna) wrapping up their activities at the Copper and Quartz. It is getting later into the evening, Stafl is still playing when Captain Lysandra and a few of her guards enter the Inn. She seems anxious to the group as we come downstairs after our meeting with Berin about the cultists activities in town. We grab a table in the corner so we can talk quietly with Lysandra. She tells us that she feels there is something wrong happening in the city, and worse, something happening to her own guards. She asks for our help taking a look at the guards she brought.

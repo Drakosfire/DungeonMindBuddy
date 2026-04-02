@@ -3,10 +3,12 @@ title: "Session 6 - The Road to Miraholm"
 document_class: play
 canon_layer: campaign
 campaign_id: longmont-c1
+temporal_scope: session_specific
 session: 6
+origin_session: 6
+last_updated_session: 6
 source_class: observed_session_recap
 ---
-
 ### Session 6 : The Road to Miraholm
 
 ## Major Beats:

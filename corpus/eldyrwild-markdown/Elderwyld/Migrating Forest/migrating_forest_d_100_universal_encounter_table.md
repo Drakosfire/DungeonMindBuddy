@@ -3,10 +3,12 @@ title: "d100 Universal Forest Encounter Table — The Migrating Forest"
 document_class: world
 canon_layer: world
 campaign_id: null
+temporal_scope: evergreen
 session: null
+origin_session: null
+last_updated_session: null
 source_class: seed_reference
 ---
-
 # d100 Universal Forest Encounter Table — The Migrating Forest
 
 Use this table for **any unkeyed hex**, or when the party lingers, rests, backtracks, causes damage, or draws attention.
