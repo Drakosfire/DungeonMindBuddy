@@ -17,7 +17,13 @@ def _entity_meta_by_id(entities: list[dict[str, Any]]) -> dict[str, dict[str, st
         lookup[entity_id] = {
             "display_name": str(entity.get("display_name", entity_id)).strip() or entity_id,
             "entity_type": str(entity.get("entity_type", "other")).strip() or "other",
+            "entity_kind": str(entity.get("entity_kind", "unknown")).strip() or "unknown",
             "entity_tags": tag_list,
+            "semantic_facets": [
+                str(t).strip()
+                for t in (entity.get("semantic_facets") or [])
+                if str(t).strip()
+            ],
         }
     return lookup
 
@@ -72,16 +78,30 @@ def format_projection_context(
     for entity_id, entity_payload in ordered:
         metadata = meta_by_id.get(
             entity_id,
-            {"display_name": entity_id, "entity_type": "other", "entity_tags": []},
+            {
+                "display_name": entity_id,
+                "entity_type": "other",
+                "entity_kind": "unknown",
+                "entity_tags": [],
+                "semantic_facets": [],
+            },
         )
         display_name = metadata["display_name"]
         entity_type = metadata["entity_type"]
+        entity_kind = metadata.get("entity_kind") or "unknown"
         tag_list = metadata.get("entity_tags") or []
+        facet_list = metadata.get("semantic_facets") or []
         if tag_list:
             tag_suffix = " [" + ", ".join(tag_list) + "]"
         else:
             tag_suffix = ""
-        lines.append(f"== Entity: {display_name} ({entity_type}){tag_suffix} ==")
+        if facet_list:
+            facet_suffix = " {" + ", ".join(facet_list) + "}"
+        else:
+            facet_suffix = ""
+        lines.append(
+            f"== Entity: {display_name} ({entity_type}/{entity_kind}){tag_suffix}{facet_suffix} =="
+        )
 
         attributes = entity_payload.get("attributes", {})
         if not attributes:

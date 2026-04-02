@@ -352,6 +352,17 @@ def _build_entities(evidence_units: list[dict[str, Any]]) -> list[dict[str, Any]
                 "record_status": "active",
                 "entity_id": entity_id,
                 "entity_type": entry["entity_type"],
+                "entity_kind": (
+                    "actor"
+                    if entry["entity_type"] == "npc"
+                    else "place"
+                    if entry["entity_type"] == "location"
+                    else "group"
+                    if entry["entity_type"] == "faction"
+                    else "object"
+                    if entry["entity_type"] == "item"
+                    else "unknown"
+                ),
                 "display_name": entry["display_name"],
                 "canonical_name": None,
                 "aliases": [entry["display_name"]],
@@ -360,6 +371,7 @@ def _build_entities(evidence_units: list[dict[str, Any]]) -> list[dict[str, Any]
                 "source_mention_ids": [f"men_{entity_id}"],
                 "review_state": "reviewed",
                 "entity_tags": [],
+                "semantic_facets": [],
                 "notes": None,
             }
         )

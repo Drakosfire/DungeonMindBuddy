@@ -64,6 +64,24 @@
         "other"
       ]
     },
+    "entity_kind": {
+      "description": "Stable high-level ontology bucket used for cross-document taxonomy consistency.",
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "actor",
+        "group",
+        "place",
+        "object",
+        "event",
+        "concept",
+        "document_anchor",
+        "unknown",
+        null
+      ]
+    },
     "display_name": {
       "$ref": "common.schema.json#/$defs/nonEmptyString"
     },
@@ -78,6 +96,10 @@
     },
     "entity_tags": {
       "description": "Optional facets when entity_type is other or for cross-cutting labels (e.g. deity, creature_species, patron). Prefer snake_case tokens; empty array omits distinction.",
+      "$ref": "common.schema.json#/$defs/stringArray"
+    },
+    "semantic_facets": {
+      "description": "Controlled semantic facets for taxonomy refinement. Prefer approved facets and `domain:*` namespace for campaign-specific extensions.",
       "$ref": "common.schema.json#/$defs/stringArray"
     },
     "entity_status": {

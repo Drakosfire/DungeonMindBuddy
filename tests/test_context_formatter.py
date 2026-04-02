@@ -53,7 +53,7 @@ def test_formats_minimal_projection_shape() -> None:
     output = format_projection_context(projection, entities, question="Catch me up")
 
     assert "Question: Catch me up" in output
-    assert "== Entity: Mirathorn (location) ==" in output
+    assert "== Entity: Mirathorn (location/unknown) ==" in output
     assert "history: Founded over 200 years ago." in output
     assert "[CANON, from: layer=world, source_class=seed_reference, fact=fact_m_hist]" in output
 
@@ -69,7 +69,7 @@ def test_includes_entity_tags_in_header_when_present() -> None:
         }
     ]
     output = format_projection_context(projection, entities)
-    assert "== Entity: Nameless Goddess (other) [deity, lore_figure] ==" in output
+    assert "== Entity: Nameless Goddess (other/unknown) [deity, lore_figure] ==" in output
 
 
 def test_includes_entity_type_from_metadata() -> None:
@@ -79,7 +79,7 @@ def test_includes_entity_type_from_metadata() -> None:
     ]
     output = format_projection_context(projection, entities)
 
-    assert "(location)" in output
+    assert "(location/unknown)" in output
 
 
 def test_surfaces_conflicts_in_output() -> None:

@@ -13,10 +13,14 @@ import blake3
 from pydantic import BaseModel, Field
 
 from src.contracts.entity_tags import DEFAULT_MAX_ENTITY_TAGS, normalize_entity_tags
+from src.contracts.entity_taxonomy import (
+    EntityKind,
+    normalize_semantic_facets,
+)
 from src.contracts.schema_validation import validate_many
 from src.store import FactStore
 
-_PROMPT_ID = "phase_b_pass1_entity_extraction_v2_entity_tags"
+_PROMPT_ID = "phase_b_pass1_entity_extraction_v3_taxonomy_refresh"
 _STOPWORDS = {
     "A",
     "An",
@@ -186,9 +190,11 @@ logger = logging.getLogger(__name__)
 class ExtractedEntity(BaseModel):
     entity_id: str | None = None
     entity_type: Literal["npc", "location", "faction", "item", "other"] = "other"
+    entity_kind: EntityKind | None = None
     display_name: str
     aliases: list[str] = Field(default_factory=list)
     entity_tags: list[str] = Field(default_factory=list)
+    semantic_facets: list[str] = Field(default_factory=list)
     is_new: bool = True
 
 
@@ -437,14 +443,27 @@ def _build_prompt(unit: dict[str, Any], known_entities: list[dict[str, Any]]) ->
     known_minimal = _relevant_known_entities(known_entities, unit_text)
     return (
         "You are an entity extraction agent for a TTRPG worldbuilding system.\n"
-        "Extract every named entity from the text. Include people, places, factions, items, events.\n"
-        "Cast a WIDE net; mentions count.\n\n"
+        "Extract named entities from the text with high precision and stable taxonomy.\n"
+        "Include proper names and durable named concepts that matter for retrieval across sessions.\n"
+        "DO NOT output full-sentence fragments, generic prose phrases, or purely descriptive clauses.\n\n"
+        "Taxonomy policy:\n"
+        "- entity_type must be one of: npc, location, faction, item, other.\n"
+        "- entity_kind must be one of: actor, group, place, object, event, concept, document_anchor, unknown.\n"
+        "- Prefer entity_kind=event for named events/festivals/battles.\n"
+        "- Prefer entity_kind=concept for named rituals/doctrines/themes/cosmology concepts.\n"
+        "- Use entity_type=other only when npc/location/faction/item do not fit.\n"
+        "- Keep entity_type stable and use semantic_facets for nuance.\n"
+        "- semantic_facets should use controlled tokens when possible:\n"
+        "  deity, species, creature_species, profession, title, festival, ritual, ceremony,\n"
+        "  organization, government, trade_good, consumable, artifact, weapon,\n"
+        "  document_section, plot_hook, theme, conflict, route, settlement.\n"
+        "- Campaign-specific facets may be emitted as domain:<token> (example: domain:eldyrwild_cult).\n"
+        "- Do not invent facets unrelated to the text.\n\n"
         f"Known entities (reuse IDs if recognized):\n{json.dumps(known_minimal, ensure_ascii=False)}\n\n"
         "Return JSON with shape: {\"entities\": [...]} where each entity has:\n"
-        "entity_id (optional), entity_type, display_name, aliases, is_new, "
-        "entity_tags (optional array of snake_case strings).\n"
-        "Use entity_tags for fine-grained labels when entity_type is other "
-        "(e.g. deity, patron, eldritch_entity, creature_species); omit or [] otherwise.\n\n"
+        "entity_id (optional), entity_type, entity_kind, display_name, aliases, is_new, "
+        "entity_tags (legacy optional), semantic_facets (optional).\n"
+        "entity_tags may be kept for backward compatibility, but semantic_facets are preferred.\n\n"
         f"Evidence unit:\n{unit_text}"
     )
 
@@ -495,6 +514,25 @@ def _entity_record_from_extracted(
             break
     entity_id = matched_id or extracted.entity_id or _entity_id_for_name(display_name)
     now_iso = _now_utc_iso()
+    raw_facets = list(extracted.semantic_facets) + list(extracted.entity_tags)
+    semantic_facets = normalize_semantic_facets(raw_facets)
+    legacy_tags = normalize_entity_tags(raw_facets, max_tags=DEFAULT_MAX_ENTITY_TAGS)
+    mapped_kind: EntityKind | None = extracted.entity_kind
+    if mapped_kind is None:
+        type_to_kind: dict[str, EntityKind] = {
+            "npc": "actor",
+            "location": "place",
+            "faction": "group",
+            "item": "object",
+            "other": "unknown",
+        }
+        mapped_kind = type_to_kind.get(extracted.entity_type, "unknown")
+        if extracted.entity_type == "other":
+            facet_set = set(semantic_facets)
+            if "festival" in facet_set or "ritual" in facet_set or "ceremony" in facet_set:
+                mapped_kind = "event"
+            elif "deity" in facet_set or "theme" in facet_set:
+                mapped_kind = "concept"
     return {
         "schema_version": "0.1.0",
         "created_at": now_iso,
@@ -502,6 +540,7 @@ def _entity_record_from_extracted(
         "record_status": "active",
         "entity_id": _sanitize_id(entity_id),
         "entity_type": extracted.entity_type,
+        "entity_kind": mapped_kind,
         "display_name": display_name,
         "canonical_name": None,
         "aliases": aliases,
@@ -509,9 +548,8 @@ def _entity_record_from_extracted(
         "merged_into_entity_id": None,
         "source_mention_ids": [_sanitize_id(mention_id, prefix="men")],
         "review_state": "unreviewed",
-        "entity_tags": normalize_entity_tags(
-            list(extracted.entity_tags), max_tags=DEFAULT_MAX_ENTITY_TAGS
-        ),
+        "entity_tags": legacy_tags,
+        "semantic_facets": semantic_facets,
         "notes": None,
     }
 

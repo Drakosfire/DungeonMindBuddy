@@ -8,6 +8,7 @@ from typing import Any
 
 from src.contracts.schema_validation import validate_many
 from src.contracts.entity_tags import normalize_entity_tags
+from src.contracts.entity_taxonomy import normalize_semantic_facets
 from src.reducer.canon_projection import project_entity_state
 
 
@@ -29,6 +30,7 @@ class FactStore:
     }
     _MAX_ALIASES_PER_ENTITY = 20
     _MAX_ENTITY_TAGS_MERGED = 20
+    _MAX_SEMANTIC_FACETS_MERGED = 24
 
     def __init__(self, store_dir: Path) -> None:
         self.store_dir = Path(store_dir)
@@ -227,6 +229,14 @@ class FactStore:
             matched["entity_tags"] = normalize_entity_tags(
                 merged_tags, max_tags=self._MAX_ENTITY_TAGS_MERGED
             )
+            merged_facets = list(matched.get("semantic_facets") or []) + list(
+                candidate.get("semantic_facets") or []
+            )
+            matched["semantic_facets"] = normalize_semantic_facets(
+                merged_facets, max_facets=self._MAX_SEMANTIC_FACETS_MERGED
+            )
+            if not matched.get("entity_kind") and candidate.get("entity_kind"):
+                matched["entity_kind"] = candidate.get("entity_kind")
             if (
                 matched.get("entity_status") == "provisional"
                 and candidate.get("entity_status") in {"canonical", "ambiguous"}

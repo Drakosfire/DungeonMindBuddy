@@ -6,6 +6,7 @@
   "record_status": "active",
   "entity_id": "ent_lysandra_ironveil",
   "entity_type": "npc",
+  "entity_kind": "actor",
   "display_name": "Lysandra Ironveil",
   "canonical_name": "Lysandra Ironveil",
   "aliases": [
@@ -13,6 +14,9 @@
     "Captain Lysandra Ironveil"
   ],
   "entity_tags": [],
+  "semantic_facets": [
+    "title"
+  ],
   "entity_status": "canonical",
   "source_mention_ids": [
     "m_lysandra_001"
