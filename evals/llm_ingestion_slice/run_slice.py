@@ -12,6 +12,15 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 validate_many = importlib.import_module("src.contracts.schema_validation").validate_many
+campaign_temporal_tick_violations = importlib.import_module(
+    "src.contracts.temporal_tick_gate"
+).campaign_temporal_tick_violations
+campaign_temporal_consistency_violations = importlib.import_module(
+    "src.contracts.temporal_tick_gate"
+).campaign_temporal_consistency_violations
+campaign_temporal_quality_summary = importlib.import_module(
+    "src.contracts.temporal_tick_gate"
+).campaign_temporal_quality_summary
 build_mirathorn_event_slice = importlib.import_module(
     "src.ingestion.event_sourced_slice"
 ).build_mirathorn_event_slice
@@ -21,6 +30,11 @@ GOLD_DIR = EVAL_DIR / "gold"
 OUTPUT_DIR = EVAL_DIR / "output" / "current"
 MANIFEST_PATH = EVAL_DIR / "slice_manifest.json"
 VIABILITY_THRESHOLDS_PATH = EVAL_DIR / "viability_thresholds.json"
+GOLD_SCORE_THRESHOLDS = {
+    "min_core_recall": 0.10,
+    "min_temporal_accuracy": 1.0,
+    "min_catalog_recall": 1.0,
+}
 
 
 def _load_json(path: Path) -> Any:
@@ -321,6 +335,87 @@ def _gate_d_workflow_state_progression(payload: dict[str, Any]) -> dict[str, Any
     }
 
 
+def _gate_temporal_narrative_tick(
+    *,
+    evidence_units: list[dict[str, Any]],
+    facts: list[dict[str, Any]],
+) -> dict[str, Any]:
+    errors = campaign_temporal_tick_violations(evidence_units, facts)
+    return {
+        "name": "Gate T - narrative temporal tick",
+        "pass": not errors,
+        "errors": errors,
+        "fact_count": len(facts),
+    }
+
+
+def _gate_temporal_consistency(
+    *,
+    evidence_units: list[dict[str, Any]],
+    facts: list[dict[str, Any]],
+) -> dict[str, Any]:
+    errors = campaign_temporal_consistency_violations(evidence_units, facts)
+    return {
+        "name": "Gate TC - campaign temporal consistency",
+        "pass": not errors,
+        "errors": errors,
+        "fact_count": len(facts),
+    }
+
+
+def _gate_temporal_quality_warning(
+    *,
+    evidence_units: list[dict[str, Any]],
+    facts: list[dict[str, Any]],
+) -> dict[str, Any]:
+    quality = campaign_temporal_quality_summary(evidence_units, facts)
+    return {
+        "name": "Gate TW - sequence-only temporal warning",
+        "pass": True,
+        "warnings": quality["warnings"],
+        "metrics": quality["metrics"],
+        "fact_count": len(facts),
+    }
+
+
+def _gate_g_gold_scoring(
+    *,
+    stage_entities: list[dict[str, Any]],
+    stage_facts: list[dict[str, Any]],
+    stage_chunks: list[dict[str, Any]],
+) -> dict[str, Any]:
+    gold_module = __import__("evals.llm_ingestion_slice.score_gold", fromlist=["GOLD_PATH", "_load_json", "score"])
+    gold = gold_module._load_json(gold_module.GOLD_PATH)
+    score_report = gold_module.score(
+        gold=gold,
+        stage_entities_payload=stage_entities,
+        stage_facts=stage_facts,
+        stage_chunks=stage_chunks,
+        eval_mode="deterministic_slice",
+        min_core_recall=float(GOLD_SCORE_THRESHOLDS["min_core_recall"]),
+        min_temporal_accuracy=float(GOLD_SCORE_THRESHOLDS["min_temporal_accuracy"]),
+        min_catalog_recall=float(GOLD_SCORE_THRESHOLDS["min_catalog_recall"]),
+    )
+    failed_subgates = [
+        gate["name"] for gate in score_report["pass_fail"]["gates"] if not bool(gate.get("pass"))
+    ]
+    errors = [f"failed gold sub-gates: {', '.join(failed_subgates)}"] if failed_subgates else []
+    return {
+        "name": "Gate G - gold scoring",
+        "pass": bool(score_report["pass_fail"]["overall_pass"]),
+        "errors": errors,
+        "metrics": {
+            "core_recall": score_report["entity_metrics"]["core"]["metrics"]["recall"],
+            "temporal_field_accuracy": score_report["temporal"]["metrics"]["field_accuracy"],
+            "catalog_recall": score_report["catalog_recall"]["metrics"]["recall"],
+            "negative_violations": len(score_report["negative_examples"]["violations"]),
+        },
+        "thresholds": GOLD_SCORE_THRESHOLDS,
+        "subgates": score_report["pass_fail"]["gates"],
+        "score_report": score_report,
+    }
+
+
 def _render_report(gates: list[dict[str, Any]]) -> str:
     lines = ["# Mirathorn LLM Ingestion Slice Report", ""]
     overall = all(gate["pass"] for gate in gates)
@@ -333,6 +428,10 @@ def _render_report(gates: list[dict[str, Any]]) -> str:
         if errors:
             for error in errors:
                 lines.append(f"- error: {error}")
+        warnings = gate.get("warnings", [])
+        if warnings:
+            for warning in warnings:
+                lines.append(f"- warning: {warning}")
         if gate.get("metrics"):
             lines.append(f"- metrics: {json.dumps(gate['metrics'], sort_keys=True)}")
         if gate.get("thresholds"):
@@ -386,13 +485,30 @@ def main() -> int:
         conflicts=run_payload["conflicts"],
         thresholds=viability_thresholds,
     )
-    gates = [gate_a, gate_v]
+    gate_t = _gate_temporal_narrative_tick(
+        evidence_units=run_payload["evidence_units"],
+        facts=run_payload["facts"],
+    )
+    gate_tc = _gate_temporal_consistency(
+        evidence_units=run_payload["evidence_units"],
+        facts=run_payload["facts"],
+    )
+    gate_tw = _gate_temporal_quality_warning(
+        evidence_units=run_payload["evidence_units"],
+        facts=run_payload["facts"],
+    )
+    gates = [gate_a, gate_v, gate_t, gate_tc, gate_tw]
 
-    if gate_a["pass"] and gate_v["pass"]:
+    if gate_a["pass"] and gate_v["pass"] and gate_t["pass"] and gate_tc["pass"]:
         gate_b = _gate_b_event_contract_integrity(run_payload["events"])
         gate_c = _gate_c_hybrid_correctness(run_payload=run_payload, gold_payload=gold_payload)
         gate_d = _gate_d_workflow_state_progression(run_payload)
-        gates.extend([gate_b, gate_c, gate_d])
+        gate_g = _gate_g_gold_scoring(
+            stage_entities=run_payload["stage_artifacts"]["entities"],
+            stage_facts=run_payload["stage_artifacts"]["facts"],
+            stage_chunks=run_payload["stage_artifacts"]["chunks"],
+        )
+        gates.extend([gate_b, gate_c, gate_d, gate_g])
 
     overall_pass = all(gate["pass"] for gate in gates)
 
@@ -406,6 +522,9 @@ def main() -> int:
         OUTPUT_DIR / "projection_deltas.json",
         run_payload["projection_deltas"],
     )
+    gate_g_payload = next((gate for gate in gates if gate["name"] == "Gate G - gold scoring"), None)
+    if gate_g_payload is not None:
+        _write_json(OUTPUT_DIR / "gold_score.json", gate_g_payload["score_report"])
     (OUTPUT_DIR / "report.md").write_text(_render_report(gates), encoding="utf-8")
     return 0 if overall_pass else 1
 

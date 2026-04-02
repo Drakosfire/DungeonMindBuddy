@@ -30,9 +30,20 @@ def test_llm_ingestion_slice_main_passes_and_writes_artifacts() -> None:
     assert (OUTPUT_DIR / "stage_facts.json").exists()
     assert (OUTPUT_DIR / "stage_events.json").exists()
     assert (OUTPUT_DIR / "projection_deltas.json").exists()
+    assert (OUTPUT_DIR / "gold_score.json").exists()
 
     gate_report = json.loads((OUTPUT_DIR / "gate_report.json").read_text(encoding="utf-8"))
     assert gate_report["overall_pass"] is True
+    gate_t = next(g for g in gate_report["gates"] if g["name"] == "Gate T - narrative temporal tick")
+    assert gate_t["pass"] is True
+    gate_tc = next(g for g in gate_report["gates"] if g["name"] == "Gate TC - campaign temporal consistency")
+    assert gate_tc["pass"] is True
+    gate_tw = next(g for g in gate_report["gates"] if g["name"] == "Gate TW - sequence-only temporal warning")
+    assert gate_tw["pass"] is True
+    assert "metrics" in gate_tw
+    gate_g = next(g for g in gate_report["gates"] if g["name"] == "Gate G - gold scoring")
+    assert gate_g["pass"] is True
+    assert "metrics" in gate_g
 
 
 def test_gate_a_fails_when_source_fingerprint_changes() -> None:
@@ -155,6 +166,37 @@ def test_main_fails_fast_when_viability_fails(monkeypatch) -> None:
     gate_names = [gate["name"] for gate in gate_report["gates"]]
     assert "Gate A - source and layer integrity" in gate_names
     assert "Gate V - extraction viability" in gate_names
+    assert "Gate T - narrative temporal tick" in gate_names
+    assert "Gate TC - campaign temporal consistency" in gate_names
+    assert "Gate TW - sequence-only temporal warning" in gate_names
+    assert "Gate G - gold scoring" not in gate_names
     assert "Gate B - event contract integrity" not in gate_names
     assert "Gate C - hybrid correctness" not in gate_names
     assert "Gate D - workflow state progression" not in gate_names
+
+
+def test_campaign_planning_facts_copy_asserted_session_from_evidence() -> None:
+    payload = run_slice()
+    planning_facts = [
+        fact
+        for fact in payload["stage_artifacts"]["facts"]
+        if "evu_campaign_planning_cult" in fact.get("evidence_ids", [])
+    ]
+    assert planning_facts, "expected at least one fact for evu_campaign_planning_cult"
+    assert all(fact["asserted_in_session"] == 6 for fact in planning_facts)
+
+
+def test_all_fact_subject_entities_exist_in_stage_entities() -> None:
+    payload = run_slice()
+    entity_ids = {
+        str(entity.get("entity_id"))
+        for entity in payload["stage_artifacts"]["entities"]
+        if entity.get("entity_id") is not None
+    }
+    subject_ids = {
+        str(fact.get("subject_entity_id"))
+        for fact in payload["stage_artifacts"]["facts"]
+        if fact.get("subject_entity_id") is not None
+    }
+    missing = sorted(subject_ids - entity_ids)
+    assert not missing, f"missing subject entities in stage_entities: {missing}"

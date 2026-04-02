@@ -1,0 +1,546 @@
+{
+  "schema_version": "1.1",
+  "title": "Manual entity-extraction gold (Mirathorn M1 vertical slice sources)",
+  "purpose": "Human-authored expected entities plus temporal provenance targets so LLM ingest can be scored against narrative-state needs (session ordering, OBSERVED vs planning). Pair with evidence units and fact_extractor inheritance rules; not fully wired into CI yet.",
+  "aligned_manifest": "evals/llm_ingestion_slice/slice_manifest.json",
+  "corpus_gaps": [
+    "event_sourced_slice seeds evu_campaign_live_arrival and evu_campaign_live_guard anchor on Session 6 / Miraholm language that does not appear in Longmont Campaign General Notes.md; the deterministic slice uses fallback_text for those units. Full-ingest validation should use Session recap files under Session Recaps/ for live-session entities (e.g. Captain Lysandra at the gate).",
+    "Longmont Campaign General Notes.md frontmatter has session: null and source_class: ledger_or_dossier while the deterministic benchmark seeds use inferred_session=6 and planning_document / observed_session_recap. Until recap files (or frontmatter/session splits) populate evidence.document_session or inferred_session per chunk, facts from a raw ingest of General Notes alone will often have asserted_in_session null and will not reproduce Gate D narrative ordering benchmarks."
+  ],
+  "temporal_provenance": {
+    "fact_extractor_source": "src/ingestion/fact_extractor.py::_build_fact_record",
+    "inheritance": {
+      "asserted_in_session": "evidence.document_session if not null else evidence.inferred_session (coerced to int or null)",
+      "sequence_index_within_session": "evidence.source_order_index (global chunk order index for that ingest; deterministic slice fixes six units with indices 0–5)"
+    },
+    "reducer_projection": "src/reducer/canon_projection.py uses fact.asserted_in_session and fact.sequence_index_within_session when ordering OBSERVED / competing campaign facts—without these fields narrative 'what changed when' cannot be recovered from facts alone.",
+    "ingest_gates": "CLI ingest runs gate stage_campaign_narrative_temporal_tick (src/contracts/temporal_tick_gate.py); evals/llm_ingestion_slice runs Gate T - narrative temporal tick. Any fact whose evidence_ids include campaign-layer evidence must have asserted_in_session and/or sequence_index_within_session non-null.",
+    "deterministic_slice_evidence_gold": [
+      {
+        "evidence_id": "evu_world_approach",
+        "document_id": "doc_city_of_mirathorn",
+        "canon_layer": "world",
+        "campaign_id": null,
+        "source_class": "seed_reference",
+        "inferred_session": null,
+        "document_session": null,
+        "source_order_index": 0,
+        "projection_stage": "instantiation",
+        "facts_derived_must_include_temporal": {
+          "asserted_in_session": null,
+          "sequence_index_within_session": 0
+        }
+      },
+      {
+        "evidence_id": "evu_world_governance",
+        "document_id": "doc_city_of_mirathorn",
+        "canon_layer": "world",
+        "campaign_id": null,
+        "source_class": "seed_reference",
+        "inferred_session": null,
+        "document_session": null,
+        "source_order_index": 1,
+        "projection_stage": "instantiation",
+        "facts_derived_must_include_temporal": {
+          "asserted_in_session": null,
+          "sequence_index_within_session": 1
+        }
+      },
+      {
+        "evidence_id": "evu_campaign_planning_cult",
+        "document_id": "doc_longmont_campaign_general_notes",
+        "canon_layer": "campaign",
+        "campaign_id": "longmont-c1",
+        "source_class": "planning_document",
+        "inferred_session": 6,
+        "document_session": null,
+        "source_order_index": 2,
+        "projection_stage": "zero_tick",
+        "facts_derived_must_include_temporal": {
+          "asserted_in_session": 6,
+          "sequence_index_within_session": 2
+        }
+      },
+      {
+        "evidence_id": "evu_campaign_planning_vane",
+        "document_id": "doc_longmont_campaign_general_notes",
+        "canon_layer": "campaign",
+        "campaign_id": "longmont-c1",
+        "source_class": "planning_document",
+        "inferred_session": 6,
+        "document_session": null,
+        "source_order_index": 3,
+        "projection_stage": "zero_tick",
+        "facts_derived_must_include_temporal": {
+          "asserted_in_session": 6,
+          "sequence_index_within_session": 3
+        }
+      },
+      {
+        "evidence_id": "evu_campaign_live_arrival",
+        "document_id": "doc_longmont_campaign_general_notes",
+        "canon_layer": "campaign",
+        "campaign_id": "longmont-c1",
+        "source_class": "observed_session_recap",
+        "inferred_session": 6,
+        "document_session": null,
+        "source_order_index": 4,
+        "projection_stage": "live",
+        "facts_derived_must_include_temporal": {
+          "asserted_in_session": 6,
+          "sequence_index_within_session": 4
+        }
+      },
+      {
+        "evidence_id": "evu_campaign_live_guard",
+        "document_id": "doc_longmont_campaign_general_notes",
+        "canon_layer": "campaign",
+        "campaign_id": "longmont-c1",
+        "source_class": "observed_session_recap",
+        "inferred_session": 6,
+        "document_session": null,
+        "source_order_index": 5,
+        "projection_stage": "live",
+        "facts_derived_must_include_temporal": {
+          "asserted_in_session": 6,
+          "sequence_index_within_session": 5
+        }
+      }
+    ]
+  },
+  "entity_types_allowed": ["npc", "location", "faction", "item", "other"],
+  "sources": [
+    {
+      "key": "world_markdown",
+      "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/The City of Mirathorn.md",
+      "document_id": "doc_city_of_mirathorn",
+      "segments": [
+        {
+          "segment_id": "mirathorn_world_intro",
+          "section_hint": "The Elderwyld (opening cosmology)",
+          "anchor_substrings": ["Elderwyld", "Aspitome", "Nameless Goddess"],
+          "expected_entities": [
+            {
+              "display_name": "The Elderwyld",
+              "entity_type": "location",
+              "importance": "core",
+              "notes": "Continent / setting frame; distinct from the city Mirathorn."
+            },
+            {
+              "display_name": "Aspitome",
+              "entity_type": "location",
+              "importance": "supporting",
+              "notes": "Refuge land forged after the cosmic war; lore anchor."
+            },
+            {
+              "display_name": "Nameless Goddess",
+              "entity_type": "other",
+              "entity_tags": ["deity", "lore_figure"],
+              "importance": "supporting",
+              "aliases_suggested": ["the nameless goddess"],
+              "notes": "Use entity_type other with entity_tags for divine figures until a dedicated type exists."
+            }
+          ]
+        },
+        {
+          "segment_id": "mirathorn_approach_sound",
+          "section_hint": "Mirathorn Overview / approach",
+          "anchor_substrings": ["approaching Mirathorn", "kilometers"],
+          "aligns_with_slice_evidence_id": "evu_world_approach",
+          "expected_evidence_temporal": {
+            "canon_layer": "world",
+            "campaign_id": null,
+            "source_class": "seed_reference",
+            "document_session": null,
+            "inferred_session": null,
+            "source_order_index": 0
+          },
+          "expected_fact_temporal": {
+            "asserted_in_session": null,
+            "sequence_index_within_session": 0
+          },
+          "expected_entities": [
+            {
+              "display_name": "Mirathorn",
+              "entity_type": "location",
+              "importance": "core",
+              "notes": "Primary settlement node; must appear for approach and governance segments."
+            }
+          ]
+        },
+        {
+          "segment_id": "mirathorn_origin",
+          "section_hint": "Origin and History",
+          "anchor_substrings": ["Lundayell Empire", "airship"],
+          "expected_entities": [
+            {
+              "display_name": "Mirathorn",
+              "entity_type": "location",
+              "importance": "core"
+            },
+            {
+              "display_name": "Lundayell Empire",
+              "entity_type": "faction",
+              "importance": "supporting",
+              "notes": "Former empire settlers fled; political predecessor."
+            }
+          ]
+        },
+        {
+          "segment_id": "mirathorn_geography",
+          "section_hint": "Location",
+          "anchor_substrings": ["Stormspire Peaks", "Lake Mirathorn"],
+          "expected_entities": [
+            {
+              "display_name": "Mirathorn",
+              "entity_type": "location",
+              "importance": "core"
+            },
+            {
+              "display_name": "Stormspire Peaks",
+              "entity_type": "location",
+              "importance": "supporting"
+            },
+            {
+              "display_name": "Lake Mirathorn",
+              "entity_type": "location",
+              "importance": "supporting"
+            }
+          ]
+        },
+        {
+          "segment_id": "mirathorn_governance",
+          "section_hint": "Governance",
+          "anchor_substrings": ["democratic city-state", "council"],
+          "aligns_with_slice_evidence_id": "evu_world_governance",
+          "expected_evidence_temporal": {
+            "canon_layer": "world",
+            "campaign_id": null,
+            "source_class": "seed_reference",
+            "document_session": null,
+            "inferred_session": null,
+            "source_order_index": 1
+          },
+          "expected_fact_temporal": {
+            "asserted_in_session": null,
+            "sequence_index_within_session": 1
+          },
+          "expected_entities": [
+            {
+              "display_name": "Mirathorn",
+              "entity_type": "location",
+              "importance": "core"
+            },
+            {
+              "display_name": "Council",
+              "entity_type": "faction",
+              "importance": "core",
+              "aliases_suggested": ["city council"],
+              "notes": "Governing body; merge policy should not absorb this into Mirathorn as the same entity."
+            }
+          ]
+        },
+        {
+          "segment_id": "mirathorn_key_locations",
+          "section_hint": "Key Locations",
+          "anchor_substrings": ["Grand Market", "Stormspire Academy", "Broken Blade Inn"],
+          "expected_entities": [
+            {
+              "display_name": "The Grand Market",
+              "entity_type": "location",
+              "importance": "supporting",
+              "aliases_suggested": ["Grand Market"]
+            },
+            {
+              "display_name": "Stormspire Academy",
+              "entity_type": "location",
+              "importance": "supporting"
+            },
+            {
+              "display_name": "Lake Mirathorn Docks",
+              "entity_type": "location",
+              "importance": "supporting"
+            },
+            {
+              "display_name": "The Broken Blade Inn",
+              "entity_type": "location",
+              "importance": "supporting",
+              "aliases_suggested": ["Broken Blade Inn"]
+            },
+            {
+              "display_name": "Temple of the Nameless Goddess",
+              "entity_type": "location",
+              "importance": "supporting"
+            }
+          ]
+        },
+        {
+          "segment_id": "mirathorn_key_npcs",
+          "section_hint": "Key NPCs",
+          "anchor_substrings": ["Mayor Elara Swiftwind", "Merril Tealeaf"],
+          "expected_entities": [
+            {
+              "display_name": "Mayor Elara Swiftwind",
+              "entity_type": "npc",
+              "importance": "core"
+            },
+            {
+              "display_name": "Barin Stonefoot",
+              "entity_type": "npc",
+              "importance": "supporting",
+              "notes": "Copper and Quartz Inn proprietor."
+            },
+            {
+              "display_name": "Grobnok the Goblin",
+              "entity_type": "npc",
+              "importance": "supporting",
+              "notes": "Grit and Grime owner."
+            },
+            {
+              "display_name": "Headmaster Tinkerbright",
+              "entity_type": "npc",
+              "importance": "supporting"
+            },
+            {
+              "display_name": "Commander Thalia Ashenvale",
+              "entity_type": "npc",
+              "importance": "core",
+              "notes": "Guard commander; Wolf ensorcellment hook."
+            },
+            {
+              "display_name": "Torrin Flamescale",
+              "entity_type": "npc",
+              "importance": "supporting"
+            },
+            {
+              "display_name": "Merril Tealeaf",
+              "entity_type": "npc",
+              "importance": "core"
+            },
+            {
+              "display_name": "Rurik Stonehammer",
+              "entity_type": "npc",
+              "importance": "supporting"
+            }
+          ]
+        },
+        {
+          "segment_id": "mirathorn_inns_and_venues",
+          "section_hint": "Key NPCs (venues named with NPCs)",
+          "anchor_substrings": ["Copper and Quartz Inn", "Grit and Grime", "Wizard’s College"],
+          "expected_entities": [
+            {
+              "display_name": "The Copper and Quartz Inn",
+              "entity_type": "location",
+              "importance": "supporting",
+              "aliases_suggested": ["Copper and Quartz Inn"]
+            },
+            {
+              "display_name": "Grit and Grime",
+              "entity_type": "location",
+              "importance": "supporting"
+            },
+            {
+              "display_name": "Wizard’s College",
+              "entity_type": "location",
+              "importance": "supporting",
+              "aliases_suggested": ["Wizard's College", "Wizards' College"]
+            }
+          ]
+        },
+        {
+          "segment_id": "mirathorn_gate_protest",
+          "section_hint": "Approach to Mirathorn / Shepherd's Flock Protest",
+          "anchor_substrings": ["Shepherd's Flock", "main gate"],
+          "expected_entities": [
+            {
+              "display_name": "Mirathorn",
+              "entity_type": "location",
+              "importance": "core"
+            },
+            {
+              "display_name": "Shepherd's Flock",
+              "entity_type": "faction",
+              "importance": "core",
+              "aliases_suggested": ["Shepherds Flock", "Shepherd's Flock cultists"],
+              "notes": "Aligns with campaign doc naming variant Secure Shipment Shepherds as organization; this is the in-city protest name."
+            }
+          ]
+        },
+        {
+          "segment_id": "mirathorn_fantastic_livestock",
+          "section_hint": "Fantastic Livestock for the Elderwyld",
+          "anchor_substrings": ["Luminox Sheep", "Float Goats"],
+          "expected_entities": [
+            {
+              "display_name": "Luminox Sheep",
+              "entity_type": "other",
+              "importance": "supporting",
+              "notes": "Creature species; other until a creature type exists."
+            },
+            {
+              "display_name": "Tidal Turtles",
+              "entity_type": "other",
+              "importance": "optional"
+            },
+            {
+              "display_name": "Starling Cows",
+              "entity_type": "other",
+              "importance": "optional"
+            },
+            {
+              "display_name": "Sunflower Ducks",
+              "entity_type": "other",
+              "importance": "optional"
+            },
+            {
+              "display_name": "Flutter Ferrets",
+              "entity_type": "other",
+              "importance": "optional"
+            },
+            {
+              "display_name": "Float Goats",
+              "entity_type": "other",
+              "importance": "supporting",
+              "aliases_suggested": ["Floatgoats"]
+            }
+          ]
+        },
+        {
+          "segment_id": "mirathorn_wizard_brewing",
+          "section_hint": "Approach / industrial",
+          "anchor_substrings": ["Wizard's Tower Brewing Co"],
+          "expected_entities": [
+            {
+              "display_name": "Wizard's Tower Brewing Co",
+              "entity_type": "faction",
+              "importance": "supporting",
+              "notes": "Named brewery; treat as faction or location depending on extractor policy."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "campaign_markdown",
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Longmont Campaign General Notes.md",
+      "document_id": "doc_longmont_campaign_general_notes",
+      "segments": [
+        {
+          "segment_id": "longmont_cult_core",
+          "section_hint": "Cult Activities and Beliefs / organization name",
+          "anchor_substrings": ["Secure Shipment Shepherds", "Maelthor", "twisted meat"],
+          "aligns_with_slice_evidence_id": "evu_campaign_planning_cult",
+          "expected_evidence_temporal": {
+            "canon_layer": "campaign",
+            "campaign_id": "longmont-c1",
+            "source_class": "planning_document",
+            "document_session": null,
+            "inferred_session": 6,
+            "source_order_index": 2
+          },
+          "expected_fact_temporal": {
+            "asserted_in_session": 6,
+            "sequence_index_within_session": 2
+          },
+          "expected_entities": [
+            {
+              "display_name": "Secure Shipment Shepherds",
+              "entity_type": "faction",
+              "importance": "core",
+              "aliases_suggested": ["Shepherds", "the Shepherds"],
+              "notes": "Canonical org name in this doc; ties to world-doc Shepherd's Flock naming."
+            },
+            {
+              "display_name": "Maelthor",
+              "entity_type": "other",
+              "entity_tags": ["patron", "eldritch_entity"],
+              "importance": "core",
+              "notes": "Patron-like power; tags carry the semantic role without widening entity_type enum."
+            }
+          ]
+        },
+        {
+          "segment_id": "longmont_commander_vane",
+          "section_hint": "Commander Elric Vane's Role",
+          "anchor_substrings": ["Commander Vane", "Elric Vane"],
+          "aligns_with_slice_evidence_id": "evu_campaign_planning_vane",
+          "expected_evidence_temporal": {
+            "canon_layer": "campaign",
+            "campaign_id": "longmont-c1",
+            "source_class": "planning_document",
+            "document_session": null,
+            "inferred_session": 6,
+            "source_order_index": 3
+          },
+          "expected_fact_temporal": {
+            "asserted_in_session": 6,
+            "sequence_index_within_session": 3
+          },
+          "expected_entities": [
+            {
+              "display_name": "Commander Elric Vane",
+              "entity_type": "npc",
+              "importance": "core",
+              "aliases_suggested": ["Commander Vane", "Vane"],
+              "notes": "Matches deterministic slice catalog ent_commander_elric_vane."
+            },
+            {
+              "display_name": "Maelthor",
+              "entity_type": "other",
+              "importance": "supporting"
+            }
+          ]
+        },
+        {
+          "segment_id": "longmont_session_pointer",
+          "section_hint": "Session recap documents (meta section)",
+          "anchor_substrings": ["Session Recaps", "Captain Lysandra"],
+          "expected_entities": [],
+          "notes": "This segment is documentary only; Captain Lysandra appears in referenced recap file, not in the body of General Notes. Do not require her extraction from this file alone."
+        }
+      ]
+    }
+  ],
+  "slice_evidence_catalog_entities": {
+    "description": "Entities the deterministic event_sourced_slice _ENTITY_CATALOG uses; LLM extraction should be able to reconcile to these names when ingesting the two manifest sources.",
+    "entities": [
+      {
+        "entity_id": "ent_mirathorn",
+        "display_name": "Mirathorn",
+        "entity_type": "location"
+      },
+      {
+        "entity_id": "ent_secure_shipment_shepherds",
+        "display_name": "Secure Shipment Shepherds",
+        "entity_type": "faction"
+      },
+      {
+        "entity_id": "ent_commander_elric_vane",
+        "display_name": "Commander Elric Vane",
+        "entity_type": "npc"
+      },
+      {
+        "entity_id": "ent_captain_lysandra_ironveil",
+        "display_name": "Captain Lysandra Ironveil",
+        "entity_type": "npc",
+        "notes": "Expect only when Session recap or other doc containing her is ingested—not from General Notes alone."
+      }
+    ]
+  },
+  "negative_examples": {
+    "description": "Strings that should not become standalone entity nodes (filters or merge policy).",
+    "must_not_extract_as_entities": [
+      "his",
+      "her",
+      "they",
+      "the players",
+      "the party",
+      "Reaches",
+      "4 Reaches",
+      "human supremacy",
+      "twisted meat"
+    ],
+    "notes": "Some negatives are valid as fact values or attributes, not as entity display_name. 'twisted meat' is conceptually important but is usually an item/substance reference rather than a proper-named NPC."
+  }
+}
