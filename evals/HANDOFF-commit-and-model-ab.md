@@ -2,8 +2,38 @@
 
 **Date:** 2026-04-02  
 **Repo:** `DungeonMindBuddy` (`/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy`)  
-**Branch:** `main` — 153 modified, 22 untracked. Not pushed.  
-**Audience:** Next agent packaging commits and/or running model quality comparison.
+**Branch:** `main` — ahead of `origin/main` (not pushed). Working tree should be clean except optional local artifacts below.  
+**Audience:** Next agent pushing `main`, or continuing entity/temporal work.
+
+## Status Update (2026-04-02)
+
+Task A is complete and committed on `main` in this sequence:
+- `cb75e7a` `docs: temporal metadata design doc, status report, handoffs`
+- `ec3ca3f` `feat(evals): gold scoring eval with entity recall, temporal accuracy, Gate G`
+- `e5fddfd` `feat(temporal): tick gate, consistency gate, quality warning, evidence metadata propagation`
+- `f788cc1` `feat(entities): prompt narrowing, hygiene filters, entity_tags, alias caps`
+- `3c4767d` `feat(corpus): upgrade frontmatter to temporal metadata v0.2`
+- `2430957` `feat(entities): add entity_kind and semantic_facets with taxonomy normalization`
+
+Verification after commit packaging:
+- `uv run pytest tests/ -q` -> `170 passed, 2 skipped`
+- `uv run python evals/llm_ingestion_slice/run_slice.py` -> exit `0`
+
+Remaining untracked artifacts intentionally excluded from version control:
+- `.cursor/agents/*.md`
+- `evals/mirathorn_vertical_slice/output/council_room_*`
+- `evals/mirathorn_vertical_slice/output/q_wolf_status_*`
+- `evals/mirathorn_vertical_slice/output/post_play_delta_*`
+
+Task B is complete. A/B report written to:
+- `evals/MODEL_AB_COMPARISON.md`
+
+Task B headline results (3-file slice):
+- Weighted `other` entity rate improved from `33.4%` (nano) to `16.8%` (fast_smart)
+- Aggregate counts dropped on fast_smart: entities `410 -> 280`, facts `949 -> 741`
+- Aggregate ingest wall time increased on fast_smart: `195115ms -> 224755ms`
+- Gold-score recall is mixed by source; see report table for per-file core recall/precision/F1
+- Token-cost and hygiene-blocked counts are currently `n/a` because those metrics are not persisted in logs
 
 ---
 
@@ -11,7 +41,7 @@
 
 ```bash
 cd /home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy
-uv run pytest tests/ -q                                 # 168 passed, 2 skipped
+uv run pytest tests/ -q                                 # 170 passed, 2 skipped
 uv run python evals/llm_ingestion_slice/run_slice.py     # exit 0, all 9 gates pass (A/V/T/TC/TW/B/C/D/G)
 ```
 
@@ -129,7 +159,7 @@ evals/mirathorn_vertical_slice/output/post_play_delta_* # investigation notes
 ### After all commits
 
 ```bash
-uv run pytest tests/ -q                                 # full suite: 168 passed, 2 skipped
+uv run pytest tests/ -q                                 # full suite: 170 passed, 2 skipped
 uv run python evals/llm_ingestion_slice/run_slice.py     # exit 0, all gates pass
 git log --oneline -5                                     # verify commit sequence
 ```
