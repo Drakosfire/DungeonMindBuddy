@@ -5,8 +5,15 @@
   "updated_at": "2026-03-25T19:32:00Z",
   "record_status": "active",
   "entity_id": "ent_lysandra_ironveil",
+  "entity_class": "actor",
   "entity_type": "npc",
   "entity_kind": "actor",
+  "decision": "entity",
+  "exclude_reason": null,
+  "source_profile": "session_recap",
+  "authority": "play_record",
+  "confidence": 0.96,
+  "span_text": "The party talked to Captain Lysandra Ironveil at the gate.",
   "display_name": "Lysandra Ironveil",
   "canonical_name": "Lysandra Ironveil",
   "aliases": [
@@ -14,9 +21,22 @@
     "Captain Lysandra Ironveil"
   ],
   "entity_tags": [],
+  "subtype_facets": [
+    "title"
+  ],
   "semantic_facets": [
     "title"
   ],
+  "narrative_tags": [],
+  "document_tags": [],
+  "provenance": {
+    "doc_id": "doc_longmont_campaign_general_notes",
+    "chunk_id": "evu_campaign_live_guard",
+    "section_path": [
+      "Session 6",
+      "The Road to Miraholm"
+    ]
+  },
   "entity_status": "canonical",
   "source_mention_ids": [
     "m_lysandra_001"

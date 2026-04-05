@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "event_record.schema.json",
+  "title": "DungeonBuddy Event Record v0.1",
+  "type": "object",
+  "required": [
+    "event_class",
+    "time_scope",
+    "certainty"
+  ],
+  "properties": {
+    "event_name": {
+      "type": ["string", "null"]
+    },
+    "event_class": {
+      "type": "string",
+      "enum": [
+        "conversation",
+        "travel",
+        "combat",
+        "discovery",
+        "transfer",
+        "ritual",
+        "betrayal",
+        "disaster",
+        "investigation",
+        "social_conflict"
+      ]
+    },
+    "participants": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "location": {
+      "type": ["string", "null"]
+    },
+    "outcomes": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "time_scope": {
+      "type": "string",
+      "enum": ["scene", "session", "historical_reference"]
+    },
+    "certainty": {
+      "type": "string",
+      "enum": ["observed", "inferred", "uncertain"]
+    },
+    "evidence_id": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false
+}

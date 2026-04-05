@@ -44,7 +44,7 @@
   "type": "object",
   "required": [
     "entity_id",
-    "entity_type",
+    "entity_class",
     "display_name",
     "aliases",
     "entity_status",
@@ -54,7 +54,20 @@
     "entity_id": {
       "$ref": "common.schema.json#/$defs/idString"
     },
+    "entity_class": {
+      "description": "Canonical ontology bucket for world-facing entity identity.",
+      "type": "string",
+      "enum": [
+        "actor",
+        "group",
+        "place",
+        "object",
+        "event",
+        "concept"
+      ]
+    },
     "entity_type": {
+      "description": "Deprecated legacy alias; retained for migration compatibility.",
       "type": "string",
       "enum": [
         "npc",
@@ -65,7 +78,7 @@
       ]
     },
     "entity_kind": {
-      "description": "Stable high-level ontology bucket used for cross-document taxonomy consistency.",
+      "description": "Deprecated legacy alias for entity_class.",
       "type": [
         "string",
         "null"
@@ -77,8 +90,6 @@
         "object",
         "event",
         "concept",
-        "document_anchor",
-        "unknown",
         null
       ]
     },
@@ -95,12 +106,118 @@
       "$ref": "common.schema.json#/$defs/stringArray"
     },
     "entity_tags": {
-      "description": "Optional facets when entity_type is other or for cross-cutting labels (e.g. deity, creature_species, patron). Prefer snake_case tokens; empty array omits distinction.",
+      "description": "Legacy tag bucket retained for compatibility. Prefer subtype_facets, narrative_tags, and document_tags.",
       "$ref": "common.schema.json#/$defs/stringArray"
     },
     "semantic_facets": {
-      "description": "Controlled semantic facets for taxonomy refinement. Prefer approved facets and `domain:*` namespace for campaign-specific extensions.",
+      "description": "Deprecated alias for subtype_facets.",
       "$ref": "common.schema.json#/$defs/stringArray"
+    },
+    "subtype_facets": {
+      "description": "Ontology facets describing what the entity is (deity, festival, guild, doctrine, etc).",
+      "$ref": "common.schema.json#/$defs/stringArray"
+    },
+    "narrative_tags": {
+      "description": "Story-function tags; usually better attached to claims/events than identity.",
+      "$ref": "common.schema.json#/$defs/stringArray"
+    },
+    "document_tags": {
+      "description": "Document-structure tags; typically chunk-level metadata.",
+      "$ref": "common.schema.json#/$defs/stringArray"
+    },
+    "decision": {
+      "type": "string",
+      "enum": [
+        "entity",
+        "exclude"
+      ]
+    },
+    "exclude_reason": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "generic_noun",
+        "descriptive_phrase",
+        "document_structure",
+        "game_mechanic",
+        "sentence_fragment",
+        "temporal_connector",
+        "underspecified_collective",
+        null
+      ]
+    },
+    "source_profile": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "worldbuilding",
+        "session_recap",
+        "npc_dossier",
+        "item_card",
+        "encounter_table",
+        "cultural_event_doc",
+        null
+      ]
+    },
+    "authority": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "canon_reference",
+        "planning_note",
+        "play_record",
+        "rumor_or_belief",
+        "mechanic_reference",
+        null
+      ]
+    },
+    "confidence": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "span_text": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "extraction_method": {
+      "description": "How this entity was extracted: llm or heuristic fallback.",
+      "type": "string",
+      "enum": [
+        "llm",
+        "heuristic"
+      ]
+    },
+    "provenance": {
+      "type": "object",
+      "properties": {
+        "doc_id": {
+          "type": "string"
+        },
+        "chunk_id": {
+          "type": "string"
+        },
+        "section_path": {
+          "$ref": "common.schema.json#/$defs/stringArray"
+        }
+      },
+      "required": [
+        "doc_id",
+        "chunk_id",
+        "section_path"
+      ],
+      "additionalProperties": false
     },
     "entity_status": {
       "type": "string",

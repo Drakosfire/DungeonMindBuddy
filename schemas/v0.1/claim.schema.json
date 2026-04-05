@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "claim.schema.json",
+  "title": "DungeonBuddy Claim Record v0.1",
+  "type": "object",
+  "required": [
+    "subject",
+    "predicate",
+    "object",
+    "claim_type",
+    "speaker_or_source",
+    "certainty"
+  ],
+  "properties": {
+    "subject": {
+      "type": "string",
+      "minLength": 1
+    },
+    "predicate": {
+      "type": "string",
+      "minLength": 1
+    },
+    "object": {
+      "type": "string",
+      "minLength": 1
+    },
+    "claim_type": {
+      "type": "string",
+      "enum": ["fact", "suspicion", "rumor", "intent", "memory"]
+    },
+    "speaker_or_source": {
+      "type": "string",
+      "minLength": 1
+    },
+    "certainty": {
+      "type": "string",
+      "enum": ["high", "medium", "low"]
+    },
+    "evidence_id": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false
+}

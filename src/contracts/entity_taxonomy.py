@@ -1,45 +1,99 @@
-"""Shared taxonomy normalization for entity kinds and semantic facets."""
+"""Shared taxonomy normalization for entity classes and subtype facets."""
 
 from __future__ import annotations
 
 import re
 from typing import Literal
 
-EntityKind = Literal[
+EntityClass = Literal[
     "actor",
     "group",
     "place",
     "object",
     "event",
     "concept",
-    "document_anchor",
-    "unknown",
 ]
 
 DEFAULT_MAX_SEMANTIC_FACETS = 16
 
-ALLOWED_SEMANTIC_FACETS: set[str] = {
+SourceProfile = Literal[
+    "worldbuilding",
+    "session_recap",
+    "npc_dossier",
+    "item_card",
+    "encounter_table",
+    "cultural_event_doc",
+]
+
+Authority = Literal[
+    "canon_reference",
+    "planning_note",
+    "play_record",
+    "rumor_or_belief",
+    "mechanic_reference",
+]
+
+ExcludeReason = Literal[
+    "generic_noun",
+    "descriptive_phrase",
+    "document_structure",
+    "game_mechanic",
+    "sentence_fragment",
+    "temporal_connector",
+    "underspecified_collective",
+]
+
+ALLOWED_SUBTYPE_FACETS: set[str] = {
     "deity",
     "species",
-    "creature_species",
-    "profession",
-    "title",
     "festival",
     "ritual",
-    "ceremony",
+    "artifact",
+    "settlement",
+    "building",
+    "vehicle",
+    "cult",
+    "guild",
+    "family",
+    "title",
+    "law",
+    "doctrine",
+    "prophecy",
+    "curse",
+    "institution",
+    "profession",
     "organization",
     "government",
     "trade_good",
     "consumable",
-    "artifact",
     "weapon",
-    "document_section",
+    "route",
+}
+
+ALLOWED_NARRATIVE_TAGS: set[str] = {
     "plot_hook",
     "theme",
     "conflict",
-    "route",
-    "settlement",
+    "mystery",
+    "foreshadowing",
+    "reveal",
+    "threat",
+    "goal",
+    "secret",
 }
+
+ALLOWED_DOCUMENT_TAGS: set[str] = {
+    "summary",
+    "prep_note",
+    "boxed_text",
+    "branch_point",
+    "section_header",
+    "timeline_note",
+}
+
+# Backward-compat alias for callers not yet migrated.
+EntityKind = EntityClass
+ALLOWED_SEMANTIC_FACETS = ALLOWED_SUBTYPE_FACETS
 
 
 def normalize_semantic_facets(
@@ -50,7 +104,7 @@ def normalize_semantic_facets(
     """Normalize and constrain semantic facets.
 
     Allowed shape:
-    - controlled tokens in ALLOWED_SEMANTIC_FACETS
+    - controlled tokens in ALLOWED_SUBTYPE_FACETS
     - namespaced facets in `domain:*` form for campaign-specific extensions
     """
     if not raw:
@@ -68,7 +122,7 @@ def normalize_semantic_facets(
         if not token:
             continue
 
-        if token in ALLOWED_SEMANTIC_FACETS:
+        if token in ALLOWED_SUBTYPE_FACETS:
             normalized = token
         elif token.startswith("domain:"):
             suffix = token.split(":", 1)[1].strip()

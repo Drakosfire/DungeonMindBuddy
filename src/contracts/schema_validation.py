@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from jsonschema import Draft202012Validator
+from jsonschema.exceptions import ValidationError
 from referencing import Registry, Resource
 
 
@@ -43,4 +44,30 @@ def validate_instance(instance: dict[str, Any], schema_filename: str) -> None:
 def validate_many(instances: list[dict[str, Any]], schema_filename: str) -> None:
     for instance in instances:
         validate_instance(instance, schema_filename)
+
+
+def format_validation_error(exc: ValidationError) -> str:
+    lines: list[str] = [exc.message]
+    if exc.absolute_path:
+        lines.append(f"JSON path: /{'/'.join(str(p) for p in exc.absolute_path)}")
+    if exc.validator:
+        lines.append(f"validator: {exc.validator}")
+    if exc.validator_value is not None:
+        lines.append(f"constraint: {exc.validator_value!r}")
+    lines.append(f"invalid value: {exc.instance!r}")
+    return "\n".join(lines)
+
+
+def list_validation_failures(
+    instances: list[dict[str, Any]],
+    schema_filename: str,
+) -> list[tuple[int, dict[str, Any], str]]:
+    """Return (index, instance, formatted_error) for each instance that fails validation."""
+    bad: list[tuple[int, dict[str, Any], str]] = []
+    for i, instance in enumerate(instances):
+        try:
+            validate_instance(instance, schema_filename)
+        except ValidationError as e:
+            bad.append((i, instance, format_validation_error(e)))
+    return bad
 
