@@ -1,0 +1,32 @@
+{
+  "thresholds": {
+    "fact_coverage_recall_min": 0.9,
+    "projection_required_attrs": {
+      "ent_mirathorn": [
+        "history",
+        "geography",
+        "demographics",
+        "economy",
+        "defenses"
+      ],
+      "ent_shepherds_flock": [
+        "operational_status",
+        "goals"
+      ]
+    }
+  },
+  "gate_metrics": {
+    "c2_recall": 1.0,
+    "c3_failures": 0
+  },
+  "c2": {
+    "missing": [],
+    "reason_counts": {},
+    "mismatches": []
+  },
+  "c3": {
+    "failures": [],
+    "reason_counts": {},
+    "mismatches": []
+  }
+}

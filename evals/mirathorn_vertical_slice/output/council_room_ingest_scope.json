@@ -1,0 +1,66 @@
+[
+  {
+    "source_path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/City Council Building/The Council Room.md",
+    "layer": "world",
+    "campaign_id": null,
+    "source_class": "seed_reference",
+    "facts_extracted": 76,
+    "entities_extracted": 38
+  },
+  {
+    "source_path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/City Council Building/Battle with The Wolf and Aftermath.md",
+    "layer": "world",
+    "campaign_id": null,
+    "source_class": "seed_reference",
+    "facts_extracted": 285,
+    "entities_extracted": 85
+  },
+  {
+    "source_path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/City Council Building/The Emergency Council Meeting.md",
+    "layer": "world",
+    "campaign_id": null,
+    "source_class": "seed_reference",
+    "facts_extracted": 423,
+    "entities_extracted": 111
+  },
+  {
+    "source_path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/City Council Building/The City Council.md",
+    "layer": "world",
+    "campaign_id": null,
+    "source_class": "seed_reference",
+    "facts_extracted": 185,
+    "entities_extracted": 69
+  },
+  {
+    "source_path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/City Council Building/The Emergency Council Meeting.md",
+    "layer": "world",
+    "campaign_id": null,
+    "source_class": "seed_reference",
+    "facts_extracted": 424,
+    "entities_extracted": 111
+  },
+  {
+    "source_path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/City Council Building/The City Council.md",
+    "layer": "world",
+    "campaign_id": null,
+    "source_class": "seed_reference",
+    "facts_extracted": 185,
+    "entities_extracted": 69
+  },
+  {
+    "source_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Longmont Campaign General Notes.md",
+    "layer": "campaign",
+    "campaign_id": "longmont-c1",
+    "source_class": "observed_session_recap",
+    "facts_extracted": 1938,
+    "entities_extracted": 555
+  },
+  {
+    "source_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Longmont Campaign General Notes.md",
+    "layer": "campaign",
+    "campaign_id": "longmont-c1",
+    "source_class": "observed_session_recap",
+    "facts_extracted": 1944,
+    "entities_extracted": 554
+  }
+]

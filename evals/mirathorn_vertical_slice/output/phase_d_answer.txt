@@ -1,19 +1,62 @@
-Here’s a quick snapshot of **Mirathorn** based on current CANON context:
+Here’s a tight refresher on **Mirathorn** based on current CANON:
 
 **Overview**
-- A **vibrant, bustling city** and major **trade hub**.
-- The party is approaching during a crowded festival period, with the **road and gates packed**.
-- The city is **preparing for a potential large-scale conflict**.
+- **Mirathorn** is a major city-state and **strategic trade hub**, founded over 200 years ago by settlers fleeing the **Lundayell Empire**.
+- It’s currently in a **high-tension state**: a festival is underway, but cult activity, political conflict, and public unrest are all converging.
 
-**Key Attributes**
-- **History:** Mirathorn was founded by pioneers who pushed into dangerous lands (“the Reaches”) to build a safe haven. That legacy of endurance and expansion is central to its identity.
-- **Geography:** The approach includes **farmlands and workshops**, signaling a mix of agriculture and industry feeding into the city.
-- **Demographics:** A **diverse population**, currently swelling with incoming travelers and festival-goers.
-- **Economy:** Functions as a **strategic trade hub**, with activity heavily tied to incoming goods and large events like festivals.
-- **Defenses:** The **main gates are grand and reinforced (wood and iron)**, designed for strength and control of entry.
+---
 
-**Current Situation**
-- The **roads and gates are overcrowded**, creating delays and tension.
-- The **players are at the main gates**, trying to gain entry.
-- The **city’s people are preparing for a city-wide battle**, suggesting imminent danger or escalation.
-- Mirathorn remains lively on the surface, but underlying pressures (crowds, conflict readiness) are building.
+### Key Attributes
+
+**History**
+- Founded by settlers fleeing the **Lundayell Empire**.
+- Early settlers endured peril to carve out a safe haven; this is reflected in the cultural idea of **“Reaches”** symbolizing bravery and progress.
+- Growth is commemorated by the **Festival of Expansion**, tied to the sacrifice of the **Nameless Goddess**.
+
+**Geography**
+- Located **by Lake Mirathorn** and at the base of the **Stormspire Peaks**.
+- Approached through **expansive farmlands and workshops**, then into a crowded perimeter settlement (**Out Town**) that encircles the city.
+- The city itself includes **hidden passages, sewers, and underground infrastructure**—currently exploited by the cult.
+
+**Demographics**
+- Population ~**7000 residents**, plus a surge of visitors for the festival.
+- Highly **diverse**: humans, dwarves, elves, gnomes, halflings, dragonborn, plus some goblins and bugbears.
+- Currently swollen with **frontier folk, merchants, and travelers**.
+
+**Economy**
+- A **key trade hub** with industries like brewing, craftsmanship, fishing, agriculture, and magical goods.
+- The **Festival of Expansion is crucial** to the city’s economy.
+- Trade flows in from frontier towns; congestion at the gates is impacting commerce.
+
+**Defenses**
+- Surrounded by **ancient stone walls** with guard towers (now mostly symbolic/lookout).
+- **Main gates** are reinforced wood and iron—currently a bottleneck.
+- Defense integrity is a **major concern**, with proposals like **arcane lockdowns** and ward activation.
+- The city has **less fortified areas**—a vulnerability the cult may exploit.
+
+---
+
+### Current Situation (Important for Play)
+- **Crowded gates + high toll** → unrest and protests (led by **Shepherd’s Flock cultists**).
+- **Cult threat**:
+  - Operating **beneath the city via sewers and hidden routes**.
+  - Distributing **corrupted meat** causing illness (notably among non-humans).
+  - Attempting a **kaiju summoning ritual**.
+- **Political tension**:
+  - City Council is divided on how to respond (military strike, purification, covert ops, arcane solutions).
+  - Possible **cult influence within the council**.
+- **City stability at risk**:
+  - “Will fall if immediate action is not taken.”
+  - Debates and delays worsen the situation.
+
+---
+
+### Vibe Snapshot
+- Outside: **festive chaos**—tents, performers, traders, protests.
+- At the gates: **bottleneck + agitation**.
+- Inside: **political intrigue + looming crisis**.
+- Underneath: **cult activity and ritual buildup**.
+
+---
+
+If you need, I can break this down into “what the players currently see vs. what’s actually happening underneath.”

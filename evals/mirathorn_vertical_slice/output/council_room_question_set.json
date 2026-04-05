@@ -1,0 +1,105 @@
+{
+  "overall_strict": {
+    "pass_updated": 2,
+    "fail_stale": 0,
+    "fail_incomplete": 3,
+    "fail_error": 0
+  },
+  "overall_semantic": {
+    "pass_updated": 5,
+    "fail_stale": 0,
+    "fail_incomplete": 0,
+    "fail_error": 0
+  },
+  "results": [
+    {
+      "id": "q_arch_current",
+      "question": "What is the Council Room architecture like right now after the wolf fight?",
+      "strict_verdict": "fail_incomplete",
+      "semantic_verdict": "pass_updated",
+      "must_hits": [
+        "arched ceilings"
+      ],
+      "semantic_must_hits": [
+        "arched ceilings",
+        "floating chandelier"
+      ],
+      "stale_hits": [],
+      "global_stale_hits": [],
+      "answer": "Right now, the **Council Chambers** still retain their grand design, but the fight has visibly wrecked the space.\n\n- The room is a **large circular chamber** with a **central table** and **high, arched ceilings** (CANON: Council Chambers geography).\n- Architecturally, it\u2019s still defined by **intricate dwarven stonework** and **gleaming metal inlays with magical glyphs**, reflecting **gnomish engineering** (CANON: Council Chambers portrayal_notes).\n- **Tapestries line the walls**, depicting major historical events (CANON: tapestry).\n\nHowever, post-fight conditions have altered how it feels and functions:\n\n- The chamber is now **Disheveled** (OBSERVED: Council Chambers physical_condition).\n- **Almost the entire room is lit up by Fireball** (CANON: Council Chambers atmosphere), implying scorch marks, harsh lighting, and blown-out shadows.\n- **Chandeliers have fallen from the ceiling** (CANON: chandelier operational_status), adding debris and hazards.\n- **Runes along the walls activated when Caelynn cast her spell**, and **ancient defensive wards are active**, making the environment unstable and dangerous (CANON: Council Chambers defenses; council chamber\u2019s magical defenses operational_status).\n- **Illusory Walls** are present in parts of the room, contributing to disorientation (CANON: Council Chambers defenses).\n\nThere is also still a **hidden trapdoor** integrated into the structure (CANON: Council Chambers geography), relevant to the Wolf\u2019s escape routes.\n\nOverall: the architecture remains grand and circular, but it\u2019s now scorched, debris-strewn, magically volatile, and partially obscured by illusions.\n\nKey Attributes:\n- geography: large circular room; central table; high arched ceilings; hidden trapdoor\n- defenses: activated wall runes; illusory walls; ancient wards active and affecting the environment\n- physical_condition: Disheveled\n- atmosphere: almost the entire room is lit up by Fireball; tense, hazardous, unstable\n- history: architecture blends ancient roots of Mirathorn; rich in history"
+    },
+    {
+      "id": "q_arch_delta",
+      "question": "What physical changes to the Council Room happened during Session 12?",
+      "strict_verdict": "pass_updated",
+      "semantic_verdict": "pass_updated",
+      "must_hits": [
+        "chandelier",
+        "runes"
+      ],
+      "semantic_must_hits": [
+        "chandelier",
+        "runes"
+      ],
+      "stale_hits": [],
+      "global_stale_hits": [],
+      "answer": "**Physical Changes (Session 12 \u2013 OBSERVED + CANON context)**\n\n- **Council Chambers** became **Disheveled** (OBSERVED).\n- **Chandelier**: *fell from the ceiling and crashed near Caelynn* (CANON event realized in play context).\n- **Magical runes**: *began to glow along the walls around the room*, shifting **purple then red** (OBSERVED).\n- **Lighting/impact**: *almost the entire room is lit up by Fireball* (CANON event manifested during combat).\n\nThese reflect active combat damage and triggered defenses rather than permanent structural redesign.\n\n---\n\n**Key Attributes (Council Chambers)**  \n- **Geography**: large circular room; central table; high, arched ceilings; hidden trapdoor  \n- **Defenses**: runes along the walls activated; illusory walls; ancient defensive wards affecting the battle  \n- **History**: architecture blends ancient roots of Mirathorn; rich in history  \n\nNo additional attributes beyond these are explicitly present in the context."
+    },
+    {
+      "id": "q_wolf_status",
+      "question": "What is the Wolf's status at the end of Session 12, including corruption state?",
+      "strict_verdict": "fail_incomplete",
+      "semantic_verdict": "pass_updated",
+      "must_hits": [
+        "dead"
+      ],
+      "semantic_must_hits": [
+        "killing blow",
+        "dead",
+        "oily sheen fades"
+      ],
+      "stale_hits": [],
+      "global_stale_hits": [],
+      "answer": "**Wolf status at end of Session 12**\n\n- **Physical condition (current, OBSERVED + CANON):** The Wolf is **\u201cDecapitated; head removed from body.\u201d**  \n  - This is reinforced by OBSERVED play: *Bonogo \u201cRemoved the Wolf\u2019s head to transport it.\u201d*  \n  - This represents the final, overriding state.\n\n- **Corruption state (CANON):** The Wolf **\u201chas an oily sheen to his eyes,\u201d** indicating active corruption tied to the cult\u2019s influence.\n\n- **Mental state prior to death (CANON):** He was **desperate, begging for release, and begging to be killed**, suggesting awareness of his corruption before death.\n\n- **Operational status (CANON \u2192 overridden):** While earlier plans and possibilities include escape via invisibility, these are superseded by the OBSERVED outcome of decapitation. The Wolf is no longer active.\n\n**Conclusion:**  \nAt the end of Session 12, the Wolf is dead\u2014**\u201cDecapitated; head removed from body\u201d**\u2014and was confirmed to be corrupted (oily sheen in eyes) at the time of death.\n\n---\n\n### Key Attributes\n- **history:** The Wolf is tied to betrayal and conflict with the party; his betrayal is a central claim and confrontation point.  \n- **defenses:** Creates illusory duplicates to confuse enemies.  \n- **role:** Enemy, saboteur, and central adversary in the council chamber battle.  \n- **loyalty_or_alignment_context:** Cultist / cult sympathizer who betrayed the city of Mirathorn."
+    },
+    {
+      "id": "q_pre_post",
+      "question": "Contrast the Wolf before the council fight versus after it ends.",
+      "strict_verdict": "fail_incomplete",
+      "semantic_verdict": "pass_updated",
+      "must_hits": [
+        "before",
+        "after"
+      ],
+      "semantic_must_hits": [
+        "before",
+        "after",
+        "killing blow"
+      ],
+      "stale_hits": [],
+      "global_stale_hits": [],
+      "answer": "**Before the Council Fight (The Wolf)**  \n- **Role/Position (CANON/OBSERVED):** Second-in-command of the guard; a **saboteur** within the council process, attempting to mislead discussion and downplay the cult.  \n- **Mental State (CANON):** Calculating but pressured \u2014 \u201csensed danger,\u201d yet still actively deceiving and manipulating.  \n- **Operational Status (CANON):** Active agent \u2014 using **Invisibility**, creating **illusory duplicates**, attempting escape via a **secret passage to the sewers**, and directing allies (e.g., ordering Thalia to attack).  \n- **Defenses (CANON):** Illusion-based misdirection (duplicates, confusion tactics).  \n- **Physical Condition (CANON):** Alive, mobile, and magically empowered (invisible, evasive).\n\n**After the Council Fight Ends (The Wolf)**  \n- **Physical Condition (CANON):** **\u201cDecapitated; head removed from body\u201d** \u2014 definitive terminal state.  \n- **Operational Status (CANON/OBSERVED):** No longer active; escape and manipulation attempts end with death.  \n- **Mental State (CANON):** At the end, described as **desperate, begging for release or death, and feeling regret** (final moments context).  \n- **Role (CANON \u2192 OBSERVED outcome):** Transitions from active antagonist to **defeated target**, later used for interrogation (players planned Speak with Dead).\n\n---\n\n### Key Attributes\n- **history:** The Wolf\u2019s betrayal of the city and role as a cult sympathizer sabotaging the council (CANON/OBSERVED).  \n- **defenses:** Illusory duplicates and confusion tactics before the fight (CANON).  \n- **operational_status:** Pre-fight escape attempt via invisibility and secret passage \u2192 post-fight fully neutralized (CANON/OBSERVED).  \n- **physical_condition:** Alive and evasive \u2192 **\u201cDecapitated; head removed from body\u201d** (CANON)."
+    },
+    {
+      "id": "q_thalia",
+      "question": "Was Thalia corrupted or manipulated, and how does that relate to Wolf evidence?",
+      "strict_verdict": "pass_updated",
+      "semantic_verdict": "pass_updated",
+      "must_hits": [
+        "ensorcelled",
+        "wolf",
+        "not corrupted"
+      ],
+      "semantic_must_hits": [
+        "ensorcelled",
+        "wolf",
+        "not corrupted"
+      ],
+      "stale_hits": [],
+      "global_stale_hits": [],
+      "answer": "**Short Answer:**  \nThalia was **manipulated (ensorcelled) by the Wolf**, not inherently corrupted. This is directly supported by the contrast with **the Wolf\u2019s physical corruption (oily sheen in eyes)** and her lack of that trait.\n\n---\n\n## Key Attributes\n\n**Thalia (Commander of the Guard)**  \n- **history:** Can be convinced of *The Wolf\u2019s betrayal* (CANON)  \n- **demographics:** N/A (not provided)  \n- **defenses:** N/A (not provided)  \n- **physical_condition:** *\u201cThalia does not have an oily sheen to her eyes\u201d; \u201censorcelled by the Wolf\u201d* (CANON)  \n- **mental_state:** *Innocent; ensorcelled to be ignorant; has no idea they are being manipulated by the Wolf* (CANON)  \n\n**the Wolf (NPC)**  \n- **history:** *Betrayal (as presented to Thalia)* (CANON)  \n- **demographics:** N/A  \n- **defenses:** *Creates illusory duplicates* (CANON)  \n- **physical_condition:** *\u201cWolf has an oily sheen to his eyes.\u201d* (CANON)  \n- **loyalty_or_alignment_context:** *Cult sympathizer; betrayed the city* (OBSERVED)  \n\n---\n\n## Interpretation for GM\n\n- **Manipulated, not corrupted:**  \n  - Thalia is explicitly **\u201censorcelled by the Wolf\u201d** and **\u201cinnocent\u201d** (CANON).  \n  - She lacks the key corruption marker: *\u201coily sheen to her eyes.\u201d*\n\n- **Wolf evidence connection:**  \n  - The Wolf **does** show corruption via *\u201coily sheen to his eyes\u201d* (CANON), aligning with known guard corruption indicators.  \n  - He actively **orders Thalia and deceives others**, reinforcing that her actions stem from manipulation, not allegiance.\n\n- **Practical takeaway:**  \n  - Evidence of the Wolf\u2019s corruption (oily eyes, cult ties, deception) supports arguments that **Thalia is a victim/witness**, not a traitor.  \n  - This aligns with the note that **Thalia can be convinced of the Wolf\u2019s betrayal**.\n\n---\n\n**Bottom line:**  \nThalia is a **controlled asset**, while the Wolf is a **corrupted manipulator**\u2014and the \u201coily eyes\u201d evidence is a key differentiator the players can use."
+    }
+  ],
+  "artifact_write_skipped": false,
+  "artifact_write_reason": ""
+}

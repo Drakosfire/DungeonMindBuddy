@@ -1,0 +1,553 @@
+{
+  "counts": {
+    "evidence_units": 989,
+    "entities": 795,
+    "facts": 4982,
+    "campaign_facts": 1944,
+    "campaign_facts_with_asserted_in_session": 0,
+    "campaign_facts_with_sequence_index_within_session": 0
+  },
+  "ratios": {
+    "campaign_asserted_in_session_ratio": 0.0,
+    "campaign_sequence_index_ratio": 0.0,
+    "duplicate_fact_ratio": 0.24849458048976314
+  },
+  "projection_metrics": {
+    "no_campaign": {
+      "open_conflicts": 374,
+      "resolved_conflicts": 0,
+      "projected_entities": 353
+    },
+    "longmont_c1": {
+      "open_conflicts": 642,
+      "resolved_conflicts": 0,
+      "projected_entities": 718
+    }
+  },
+  "entity_merge_targets": {
+    "ent_the_wolf": {
+      "display_name": "the Wolf",
+      "alias_count": 26,
+      "sample_aliases": [
+        "Bonogo",
+        "Bonogo the Bugbear Rogue",
+        "Bonogo\u2019s",
+        "Grishna",
+        "Grishna the Half-orc",
+        "Half-Orc",
+        "He",
+        "The Half-Orc",
+        "Torbin",
+        "Torbin as a ward",
+        "Torbin\u2019s",
+        "Torbin\u2019s Visions",
+        "Torbin\u2019s visions",
+        "Wolf",
+        "Wolf had",
+        "Wolf\u2019s",
+        "he",
+        "head of Wolf",
+        "him",
+        "his",
+        "kid Torbin",
+        "the Half-orc",
+        "the Wolf",
+        "the Wolf\u2019s",
+        "the higher up",
+        "visions"
+      ],
+      "pronoun_aliases": [
+        "He",
+        "he",
+        "him"
+      ]
+    },
+    "ent_council_room": {
+      "display_name": "Council Chambers",
+      "alias_count": 2,
+      "sample_aliases": [
+        "Council Chambers",
+        "disheveled Council Chambers"
+      ],
+      "pronoun_aliases": []
+    }
+  },
+  "selection_traces": [
+    {
+      "campaign_id": null,
+      "entity_id": "ent_the_wolf",
+      "attribute": "physical_condition",
+      "candidate_count": 1,
+      "candidates": [
+        {
+          "fact_id": "fact_the_wolf_physical_condition_bf103ae53327",
+          "truth_state": "CANON",
+          "layer": "world",
+          "campaign_id": null,
+          "asserted_in_session": null,
+          "sequence_index_within_session": null,
+          "value_label": "Corrupted"
+        }
+      ],
+      "selected": {
+        "fact_id": "fact_the_wolf_physical_condition_bf103ae53327",
+        "truth_state": "CANON",
+        "layer": "world",
+        "campaign_id": null,
+        "asserted_in_session": null,
+        "sequence_index_within_session": null,
+        "value_label": "Corrupted"
+      }
+    },
+    {
+      "campaign_id": "longmont-c1",
+      "entity_id": "ent_the_wolf",
+      "attribute": "physical_condition",
+      "candidate_count": 11,
+      "candidates": [
+        {
+          "fact_id": "fact_the_wolf_physical_condition_9563b9aa57b3",
+          "truth_state": "OBSERVED",
+          "layer": "campaign",
+          "campaign_id": "longmont-c1",
+          "asserted_in_session": null,
+          "sequence_index_within_session": null,
+          "value_label": "oily sheen in eyes fades"
+        },
+        {
+          "fact_id": "fact_the_wolf_physical_condition_9705f5820700",
+          "truth_state": "OBSERVED",
+          "layer": "campaign",
+          "campaign_id": "longmont-c1",
+          "asserted_in_session": null,
+          "sequence_index_within_session": null,
+          "value_label": "head materializes from within the creature\u2019s shifting mass"
+        },
+        {
+          "fact_id": "fact_the_wolf_physical_condition_98aae03cd39f",
+          "truth_state": "OBSERVED",
+          "layer": "campaign",
+          "campaign_id": "longmont-c1",
+          "asserted_in_session": null,
+          "sequence_index_within_session": null,
+          "value_label": "Disappeared (became invisible)"
+        },
+        {
+          "fact_id": "fact_the_wolf_physical_condition_aeab3179732a",
+          "truth_state": "OBSERVED",
+          "layer": "campaign",
+          "campaign_id": "longmont-c1",
+          "asserted_in_session": null,
+          "sequence_index_within_session": null,
+          "value_label": "Wolf has an oily sheen to his eyes."
+        },
+        {
+          "fact_id": "fact_the_wolf_physical_condition_bf103ae53327",
+          "truth_state": "CANON",
+          "layer": "world",
+          "campaign_id": null,
+          "asserted_in_session": null,
+          "sequence_index_within_session": null,
+          "value_label": "Corrupted"
+        },
+        {
+          "fact_id": "fact_the_wolf_physical_condition_c7c158908f42",
+          "truth_state": "OBSERVED",
+          "layer": "campaign",
+          "campaign_id": "longmont-c1",
+          "asserted_in_session": null,
+          "sequence_index_within_session": null,
+          "value_label": "disgusting head appears from the Meat Pile"
+        },
+        {
+          "fact_id": "fact_the_wolf_physical_condition_f7e55572d433",
+          "truth_state": "OBSERVED",
+          "layer": "campaign",
+          "campaign_id": "longmont-c1",
+          "asserted_in_session": null,
+          "sequence_index_within_session": null,
+          "value_label": "Takes major damage from Bonogo's dagger attack"
+        },
+        {
+          "fact_id": "fact_the_wolf_physical_condition_f8fe558847d0",
+          "truth_state": "OBSERVED",
+          "layer": "campaign",
+          "campaign_id": "longmont-c1",
+          "asserted_in_session": null,
+          "sequence_index_within_session": null,
+          "value_label": "Invisible"
+        }
+      ],
+      "selected": {
+        "fact_id": "fact_the_wolf_physical_condition_f8fe558847d0",
+        "truth_state": "OBSERVED",
+        "layer": "campaign",
+        "campaign_id": "longmont-c1",
+        "asserted_in_session": null,
+        "sequence_index_within_session": null,
+        "value_label": "Invisible"
+      }
+    },
+    {
+      "campaign_id": null,
+      "entity_id": "ent_the_wolf",
+      "attribute": "operational_status",
+      "candidate_count": 9,
+      "candidates": [
+        {
+          "fact_id": "fact_the_wolf_operational_status_3168b36bcbf0",
+          "truth_state": "CANON",
+          "layer": "world",
+          "campaign_id": null,
+          "asserted_in_session": null,
+          "sequence_index_within_session": null,
+          "value_label": "Uses illusion decoys (illusory duplicates) as an active tactic."
+        },
+        {
+          "fact_id": "fact_the_wolf_operational_status_38afc35bdb2b",
+          "truth_state": "CANON",
+          "layer": "world",
+          "campaign_id": null,
+          "asserted_in_session": null,
+          "sequence_index_within_session": null,
+          "value_label": "Has fled"
+        },
+        {
+          "fact_id": "fact_the_wolf_operational_status_46c6dd5490b6",
+          "truth_state": "CANON",
+          "layer": "world",
+          "campaign_id": null,
+          "asserted_in_session": null,
+          "sequence_index_within_session": null,
+          "value_label": "Acts each round via GM-rolled checks"
+        },
+        {
+          "fact_id": "fact_the_wolf_operational_status_56a78cbefcc1",
+          "truth_state": "CANON",
+          "layer": "world",
+          "campaign_id": null,
+          "asserted_in_session": null,
+          "sequence_index_within_session": null,
+          "value_label": "may cast Charm Person on Thalia"
+        },
+        {
+          "fact_id": "fact_the_wolf_operational_status_584d4e4c08d9",
+          "truth_state": "CANON",
+          "layer": "world",
+          "campaign_id": null,
+          "asserted_in_session": null,
+          "sequence_index_within_session": null,
+          "value_label": "may use Hold Person on key players"
+        },
+        {
+          "fact_id": "fact_the_wolf_operational_status_70b3790e95df",
+          "truth_state": "CANON",
+          "layer": "world",
+          "campaign_id": null,
+          "asserted_in_session": null,
+          "sequence_index_within_session": null,
+          "value_label": "Has not escaped yet at the time the early-leave lock condition applies."
+        },
+        {
+          "fact_id": "fact_the_wolf_operational_status_92ea244810ba",
+          "truth_state": "CANON",
+          "layer": "world",
+          "campaign_id": null,
+          "asserted_in_session": null,
+          "sequence_index_within_session": null,
+          "value_label": "Uses a combination of Invisibility and Illusion during escape."
+        },
+        {
+          "fact_id": "fact_the_wolf_operational_status_a9620b635961",
+          "truth_state": "CANON",
+          "layer": "world",
+          "campaign_id": null,
+          "asserted_in_session": null,
+          "sequence_index_within_session": null,
+          "value_label": "The Wolf attempts escape once at a critical point: below 50% HP or after enough time has been stalled."
+        }
+      ],
+      "selected": {
+        "fact_id": "fact_the_wolf_operational_status_a9620b635961",
+        "truth_state": "CANON",
+        "layer": "world",
+        "campaign_id": null,
+        "asserted_in_session": null,
+        "sequence_index_within_session": null,
+        "value_label": "The Wolf attempts escape once at a critical point: below 50% HP or after enough time has been stalled."
+      }
+    },
+    {
+      "campaign_id": "longmont-c1",
+      "entity_id": "ent_the_wolf",
+      "attribute": "operational_status",
+      "candidate_count": 15,
+      "candidates": [
+        {
+          "fact_id": "fact_the_wolf_operational_status_6b40a77e8bbb",
+          "truth_state": "OBSERVED",
+          "layer": "campaign",
+          "campaign_id": "longmont-c1",
+          "asserted_in_session": null,
+          "sequence_index_within_session": null,
+          "value_label": "Downed an Invisibility Potion"
+        },
+        {
+          "fact_id": "fact_the_wolf_operational_status_70b3790e95df",
+          "truth_state": "CANON",
+          "layer": "world",
+          "campaign_id": null,
+          "asserted_in_session": null,
+          "sequence_index_within_session": null,
+          "value_label": "Has not escaped yet at the time the early-leave lock condition applies."
+        },
+        {
+          "fact_id": "fact_the_wolf_operational_status_80fec834c3c8",
+          "truth_state": "OBSERVED",
+          "layer": "campaign",
+          "campaign_id": "longmont-c1",
+          "asserted_in_session": null,
+          "sequence_index_within_session": null,
+          "value_label": "escapes"
+        },
+        {
+          "fact_id": "fact_the_wolf_operational_status_92ea244810ba",
+          "truth_state": "CANON",
+          "layer": "world",
+          "campaign_id": null,
+          "asserted_in_session": null,
+          "sequence_index_within_session": null,
+          "value_label": "Uses a combination of Invisibility and Illusion during escape."
+        },
+        {
+          "fact_id": "fact_the_wolf_operational_status_9bda6551223e",
+          "truth_state": "OBSERVED",
+          "layer": "campaign",
+          "campaign_id": "longmont-c1",
+          "asserted_in_session": null,
+          "sequence_index_within_session": null,
+          "value_label": "alerted to the party"
+        },
+        {
+          "fact_id": "fact_the_wolf_operational_status_a9620b635961",
+          "truth_state": "CANON",
+          "layer": "world",
+          "campaign_id": null,
+          "asserted_in_session": null,
+          "sequence_index_within_session": null,
+          "value_label": "The Wolf attempts escape once at a critical point: below 50% HP or after enough time has been stalled."
+        },
+        {
+          "fact_id": "fact_the_wolf_operational_status_ba7250692158",
+          "truth_state": "OBSERVED",
+          "layer": "campaign",
+          "campaign_id": "longmont-c1",
+          "asserted_in_session": null,
+          "sequence_index_within_session": null,
+          "value_label": "Attempting to escape through a secret passage while invisible"
+        },
+        {
+          "fact_id": "fact_the_wolf_operational_status_c13b2f7ee8f9",
+          "truth_state": "OBSERVED",
+          "layer": "campaign",
+          "campaign_id": "longmont-c1",
+          "asserted_in_session": null,
+          "sequence_index_within_session": null,
+          "value_label": "rushes by Bonogo and attempts to disengage to run"
+        }
+      ],
+      "selected": {
+        "fact_id": "fact_the_wolf_operational_status_c13b2f7ee8f9",
+        "truth_state": "OBSERVED",
+        "layer": "campaign",
+        "campaign_id": "longmont-c1",
+        "asserted_in_session": null,
+        "sequence_index_within_session": null,
+        "value_label": "rushes by Bonogo and attempts to disengage to run"
+      }
+    },
+    {
+      "campaign_id": null,
+      "entity_id": "ent_the_wolf",
+      "attribute": "current_location",
+      "candidate_count": 5,
+      "candidates": [
+        {
+          "fact_id": "fact_the_wolf_current_location_120240d2c1fb",
+          "truth_state": "CANON",
+          "layer": "world",
+          "campaign_id": null,
+          "asserted_in_session": null,
+          "sequence_index_within_session": null,
+          "value_label": "eventually disappears into the ritual chamber"
+        },
+        {
+          "fact_id": "fact_the_wolf_current_location_18ca40a9fec2",
+          "truth_state": "CANON",
+          "layer": "world",
+          "campaign_id": null,
+          "asserted_in_session": null,
+          "sequence_index_within_session": null,
+          "value_label": "at the kaiju summoning ritual during later confrontation"
+        },
+        {
+          "fact_id": "fact_the_wolf_current_location_94ac51790c27",
+          "truth_state": "CANON",
+          "layer": "world",
+          "campaign_id": null,
+          "asserted_in_session": null,
+          "sequence_index_within_session": null,
+          "value_label": "hidden trapdoor"
+        },
+        {
+          "fact_id": "fact_the_wolf_current_location_b7de2bdd13f9",
+          "truth_state": "CANON",
+          "layer": "world",
+          "campaign_id": null,
+          "asserted_in_session": null,
+          "sequence_index_within_session": null,
+          "value_label": "sewers (during the chase)"
+        },
+        {
+          "fact_id": "fact_the_wolf_current_location_cffec065eead",
+          "truth_state": "CANON",
+          "layer": "world",
+          "campaign_id": null,
+          "asserted_in_session": null,
+          "sequence_index_within_session": null,
+          "value_label": "The Wolf has fled to the sewers"
+        }
+      ],
+      "selected": {
+        "fact_id": "fact_the_wolf_current_location_cffec065eead",
+        "truth_state": "CANON",
+        "layer": "world",
+        "campaign_id": null,
+        "asserted_in_session": null,
+        "sequence_index_within_session": null,
+        "value_label": "The Wolf has fled to the sewers"
+      }
+    },
+    {
+      "campaign_id": "longmont-c1",
+      "entity_id": "ent_the_wolf",
+      "attribute": "current_location",
+      "candidate_count": 9,
+      "candidates": [
+        {
+          "fact_id": "fact_the_wolf_current_location_18ca40a9fec2",
+          "truth_state": "CANON",
+          "layer": "world",
+          "campaign_id": null,
+          "asserted_in_session": null,
+          "sequence_index_within_session": null,
+          "value_label": "at the kaiju summoning ritual during later confrontation"
+        },
+        {
+          "fact_id": "fact_the_wolf_current_location_6c5f019c502e",
+          "truth_state": "OBSERVED",
+          "layer": "campaign",
+          "campaign_id": "longmont-c1",
+          "asserted_in_session": null,
+          "sequence_index_within_session": null,
+          "value_label": "in/near the next hallway and at the door while fleeing"
+        },
+        {
+          "fact_id": "fact_the_wolf_current_location_94ac51790c27",
+          "truth_state": "CANON",
+          "layer": "world",
+          "campaign_id": null,
+          "asserted_in_session": null,
+          "sequence_index_within_session": null,
+          "value_label": "hidden trapdoor"
+        },
+        {
+          "fact_id": "fact_the_wolf_current_location_9e78edb4d60f",
+          "truth_state": "OBSERVED",
+          "layer": "campaign",
+          "campaign_id": "longmont-c1",
+          "asserted_in_session": null,
+          "sequence_index_within_session": null,
+          "value_label": "With the group"
+        },
+        {
+          "fact_id": "fact_the_wolf_current_location_ac372635ea5e",
+          "truth_state": "OBSERVED",
+          "layer": "campaign",
+          "campaign_id": "longmont-c1",
+          "asserted_in_session": null,
+          "sequence_index_within_session": null,
+          "value_label": "At the top of the stairs during Bonogo's pursuit"
+        },
+        {
+          "fact_id": "fact_the_wolf_current_location_ac80a5b5570e",
+          "truth_state": "OBSERVED",
+          "layer": "campaign",
+          "campaign_id": "longmont-c1",
+          "asserted_in_session": null,
+          "sequence_index_within_session": null,
+          "value_label": "Wolf is standing at Thalia\u2019s shoulder."
+        },
+        {
+          "fact_id": "fact_the_wolf_current_location_b7de2bdd13f9",
+          "truth_state": "CANON",
+          "layer": "world",
+          "campaign_id": null,
+          "asserted_in_session": null,
+          "sequence_index_within_session": null,
+          "value_label": "sewers (during the chase)"
+        },
+        {
+          "fact_id": "fact_the_wolf_current_location_cffec065eead",
+          "truth_state": "CANON",
+          "layer": "world",
+          "campaign_id": null,
+          "asserted_in_session": null,
+          "sequence_index_within_session": null,
+          "value_label": "The Wolf has fled to the sewers"
+        }
+      ],
+      "selected": {
+        "fact_id": "fact_the_wolf_current_location_cffec065eead",
+        "truth_state": "CANON",
+        "layer": "world",
+        "campaign_id": null,
+        "asserted_in_session": null,
+        "sequence_index_within_session": null,
+        "value_label": "The Wolf has fled to the sewers"
+      }
+    },
+    {
+      "campaign_id": null,
+      "entity_id": "ent_council_room",
+      "attribute": "architecture",
+      "candidate_count": 0,
+      "candidates": [],
+      "selected": null
+    },
+    {
+      "campaign_id": "longmont-c1",
+      "entity_id": "ent_council_room",
+      "attribute": "architecture",
+      "candidate_count": 0,
+      "candidates": [],
+      "selected": null
+    },
+    {
+      "campaign_id": null,
+      "entity_id": "ent_council_room",
+      "attribute": "physical_changes",
+      "candidate_count": 0,
+      "candidates": [],
+      "selected": null
+    },
+    {
+      "campaign_id": "longmont-c1",
+      "entity_id": "ent_council_room",
+      "attribute": "physical_changes",
+      "candidate_count": 0,
+      "candidates": [],
+      "selected": null
+    }
+  ]
+}

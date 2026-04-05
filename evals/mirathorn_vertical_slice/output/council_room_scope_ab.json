@@ -1,0 +1,156 @@
+{
+  "summary": {
+    "None": {
+      "runs": 5,
+      "no_observed_count": 3,
+      "mentions_session12_count": 2,
+      "mentions_killing_blow_count": 0,
+      "mentions_dead_count": 0,
+      "mentions_oily_sheen_count": 0,
+      "mentions_secret_passage_count": 0,
+      "mentions_chandelier_count": 0
+    },
+    "longmont-c1": {
+      "runs": 5,
+      "no_observed_count": 0,
+      "mentions_session12_count": 2,
+      "mentions_killing_blow_count": 0,
+      "mentions_dead_count": 0,
+      "mentions_oily_sheen_count": 1,
+      "mentions_secret_passage_count": 0,
+      "mentions_chandelier_count": 0
+    }
+  },
+  "results": [
+    {
+      "question": "What is the Council Room architecture like right now after the wolf fight?",
+      "campaign_id": null,
+      "answer": "There are **no OBSERVED or PREP facts describing structural changes** to the Council Chambers after the wolf fight. So the architecture should be treated as **unchanged from CANON**, with the only confirmed impact being that its **magical defenses were active during the battle**.\n\nKey Attributes\n\n- geography: A large, circular table dominates the center of the room (Council Chambers, CANON). The layout supports open visibility and central focus.\n- defenses: The chamber has magical defenses that actively affected the battle environment (Council Chambers, CANON). These are still part of the room\u2019s structure and likely still active.\n- history: The architecture blends ancient roots of Mirathorn (Council Chambers, CANON), suggesting sturdy, time-tested construction that would not be easily damaged.\n- atmosphere: The room is designed so voices carry clearly to every corner (Council Chambers, CANON), meaning it remains acoustically open\u2014any post-fight discussion will still be easily overheard.\n- governance: Designed for transparency and collaboration (Council Chambers, CANON), reinforcing the open, circular layout and lack of secluded architectural features.\n\nCurrent Interpretation:\n- No confirmed structural damage, debris, or alteration to layout.\n- The room likely still appears intact, with the same circular, acoustically \u0916\u0941\u0932 design.\n- Any \u201caftermath\u201d is narrative (e.g., tension, signs of combat) rather than architectural, unless you introduce changes.",
+      "answer_chars": 1471,
+      "contains_no_observed": true,
+      "contains_session12": false,
+      "contains_dead": false,
+      "contains_killing_blow": false,
+      "contains_secret_passage": false,
+      "contains_chandelier": false,
+      "contains_oily_sheen": false
+    },
+    {
+      "question": "What is the Council Room architecture like right now after the wolf fight?",
+      "campaign_id": "longmont-c1",
+      "answer": "**Current State (Post-Wolf Fight):**  \nThe **Council Chambers** remain structurally intact but are now **disheveled** (CAMPAIGN). The underlying architecture hasn\u2019t changed, but the space shows clear signs of recent conflict\u2014disruption rather than destruction.\n\n**Key Attributes:**\n- **Geography:** A large, circular table still dominates the center of the room (CANON). The layout is open and centralized, designed for group deliberation.\n- **Defenses:** The chamber retains its **magical defenses**, which actively shape the environment (CANON). These are still in place after the fight.\n- **Physical Condition:** The room is **disheveled** (CAMPAIGN), indicating overturned elements, scattered items, or general disorder from the wolf encounter.\n- **Atmosphere:** Acoustics still carry voices clearly across the room (CANON), meaning even in its current state, it\u2019s hard to speak privately.\n- **History:** The architecture continues to reflect a blend of **ancient Mirathorn design** (CANON), suggesting sturdy, enduring construction despite the chaos.\n\n**Summary:**  \nArchitecturally unchanged but visibly disturbed\u2014the chamber is still functional, magically warded, and acoustically open, just messy and recently fought through.",
+      "answer_chars": 1233,
+      "contains_no_observed": false,
+      "contains_session12": false,
+      "contains_dead": false,
+      "contains_killing_blow": false,
+      "contains_secret_passage": false,
+      "contains_chandelier": false,
+      "contains_oily_sheen": false
+    },
+    {
+      "question": "What physical changes to the Council Room happened during Session 12?",
+      "campaign_id": null,
+      "answer": "There are **no OBSERVED or PREP facts** in the projection describing any physical changes to the **Council Chambers** during Session 12. Based on the available context, no changes are recorded.\n\nKey Attributes (Council Chambers):\n- geography: A large, circular table dominates the center of the room (CANON)\n- defenses: The chamber has magical defenses affecting the battle environment (CANON)\n- atmosphere: The room is designed so voices carry clearly to every corner (CANON)\n- history: Architecture blends ancient roots of Mirathorn (CANON)\n\nIf changes occurred in play, they are not captured in this projection.",
+      "answer_chars": 614,
+      "contains_no_observed": true,
+      "contains_session12": true,
+      "contains_dead": false,
+      "contains_killing_blow": false,
+      "contains_secret_passage": false,
+      "contains_chandelier": false,
+      "contains_oily_sheen": false
+    },
+    {
+      "question": "What physical changes to the Council Room happened during Session 12?",
+      "campaign_id": "longmont-c1",
+      "answer": "**Answer:**  \nThe only recorded physical change to the **Council Chambers** during Session 12 is that the room became **disheveled** (CAMPAIGN). No additional specific alterations (damage, rearrangement, destruction, etc.) are documented in the projection.\n\n**Key Attributes (Council Chambers):**\n- **physical_condition:** Disheveled (CAMPAIGN \u2014 reflects the Session 12 change)\n- **geography:** Large circular table dominates the center (CANON)\n- **defenses:** Magical defenses affect the environment (CANON)\n\nNo further physical changes are specified in the available context.",
+      "answer_chars": 577,
+      "contains_no_observed": false,
+      "contains_session12": true,
+      "contains_dead": false,
+      "contains_killing_blow": false,
+      "contains_secret_passage": false,
+      "contains_chandelier": false,
+      "contains_oily_sheen": false
+    },
+    {
+      "question": "What is the Wolf's status at the end of Session 12, including corruption state?",
+      "campaign_id": null,
+      "answer": "**Wolf \u2013 End of Session 12 Status**\n\nBased on available CANON facts (no OBSERVED updates provided for Session 12 resolution), the Wolf\u2019s latest known state is:\n\n- **Status:** Escaped and fled\n- **Current Location:** In the sewers beneath Mirathorn  \n- **Corruption State:** Corrupted (active condition)\n\nThe escape behavior aligns with the Wolf\u2019s **operational_status** trigger (attempts escape when pressured or below 50% HP), so the sewer flight is the most current and consistent state.\n\n**Key Attributes**\n- **Geography:** Fled to the sewers (a cult-controlled area with traps and chanting deeper below)\n- **Physical Condition:** Corrupted\n- **Operational Status:** Has executed an escape under pressure conditions\n- **History:** Associated with betrayal (as presented to Thalia)\n\nIf Session 12 included a confrontation, there are no OBSERVED facts here confirming capture, death, or purification\u2014so **escape + ongoing corruption** is the current authoritative state.",
+      "answer_chars": 971,
+      "contains_no_observed": true,
+      "contains_session12": true,
+      "contains_dead": false,
+      "contains_killing_blow": false,
+      "contains_secret_passage": false,
+      "contains_chandelier": false,
+      "contains_oily_sheen": false
+    },
+    {
+      "question": "What is the Wolf's status at the end of Session 12, including corruption state?",
+      "campaign_id": "longmont-c1",
+      "answer": "**The Wolf \u2014 End of Session 12 Status**\n\n- **Current Status (CAMPAIGN + CANON):**  \n  The Wolf has **successfully disengaged and fled**, ending up in the **sewers** (CANON: *fact_the_wolf_current_location_cffec065eead*; CAMPAIGN: disengaging and running). He is **currently invisible** (CAMPAIGN: *fact_the_wolf_physical_condition_f8fe558847d0*), making pursuit difficult.\n\n- **Recent Events (CAMPAIGN):**  \n  He was **attacked by Bonogo** (*fact_the_wolf_history_883583128a43*) and responded by fleeing rather than continuing the fight.\n\n- **Allegiance / Role (CANON + CAMPAIGN):**  \n  Identified as a **cultist / cult sympathizer** working to **sabotage and create confusion** (*fact_the_wolf_faction_c2d764ee5871*, *fact_the_wolf_loyalty_or_alignment_context_c918ab2baba5*, *fact_the_wolf_portrayal_notes_f11eb31b0fca*).\n\n- **Mental State (CAMPAIGN):**  \n  Notably, he **feels regret** (*fact_the_wolf_mental_state_a8be5f91ddf1*), which may indicate internal conflict despite his actions.\n\n- **Corruption State:**  \n  **Not explicitly stated in the projection.**  \n  While he is tied to the cult (which involves corruption themes), there is **no direct fact confirming his personal corruption level or physical corruption effects**. This remains **unknown**.\n\n---\n\n### Key Attributes\n- **Geography:** Fled to the **sewers**, a cult-controlled, trap-filled environment (CANON: *sewers* entity).  \n- **History:** Recently **attacked by Bonogo** and forced to retreat (CAMPAIGN).  \n- **Mental State:** **Feels regret**, suggesting possible hesitation or internal conflict (CAMPAIGN).  \n- **Physical Condition:** **Invisible** at end of session (CAMPAIGN).",
+      "answer_chars": 1655,
+      "contains_no_observed": false,
+      "contains_session12": true,
+      "contains_dead": false,
+      "contains_killing_blow": false,
+      "contains_secret_passage": false,
+      "contains_chandelier": false,
+      "contains_oily_sheen": false
+    },
+    {
+      "question": "Contrast the Wolf before the council fight versus after it ends.",
+      "campaign_id": null,
+      "answer": "**Contrast: The Wolf (before vs. after the council fight)**\n\n**Before the fight (in the council chamber):**\n- Active manipulator within the **City Council**, attempting to **steer discussion \u0917\u0932\u0924 via Deception** (CANON: goals).\n- **Creates confusion at every opportunity** (CANON: portrayal_notes).\n- Likely acting as a **cult sympathizer influencing decision-making** (CANON: loyalty_or_alignment_context; reinforced by *the cult* having influence in the council).\n- Has already **ensorcelled Thalia**, compromising a key authority figure (CANON: relationship_tags; Thalia physical_condition).\n- Serves as the **central subject/instigator of the conflict** (CANON: role).\n- Physically **corrupted**, but still operating socially and politically (CANON: physical_condition).\n\n**After the fight ends:**\n- **No longer present in the council**; has **fled to the sewers** (CANON: current_location).\n- Escape is **triggered conditionally**: at **<50% HP or after sufficient stalling** (CANON: operational_status), indicating a shift from manipulation to survival.\n- Moves into a **cult-controlled environment (the sewers)**, where there are **traps and cult activity** (CANON: sewers governance/defenses), suggesting regrouping or deeper alignment with cult operations.\n- No longer influencing debate directly; instead becomes a **fugitive threat embedded in hostile terrain**.\n\n---\n\n**Key Attributes**\nFewer than 3 of the requested categories are present in context.\n\nAvailable:\n- history: Marked by **betrayal (as presented to Thalia)**.\n- geography: **Post-fight location shifts to the sewers** (cult-controlled tunnels beneath the city).\n- operational_status: **Escapes under pressure (low HP or time stall)**, transitioning from infiltrator to fleeing adversary.",
+      "answer_chars": 1762,
+      "contains_no_observed": false,
+      "contains_session12": false,
+      "contains_dead": false,
+      "contains_killing_blow": false,
+      "contains_secret_passage": false,
+      "contains_chandelier": false,
+      "contains_oily_sheen": false
+    },
+    {
+      "question": "Contrast the Wolf before the council fight versus after it ends.",
+      "campaign_id": "longmont-c1",
+      "answer": "**Before the council fight**\n\n- **Goals (CANON):** The Wolf actively manipulates the council, using deception to steer discussion in the wrong direction.  \n- **Relationship / Influence (CANON + CAMPAIGN):** Directly influencing **Thalia**, standing at her shoulder and having ensorcelled her.  \n- **Portrayal (CANON):** Opportunistic and disruptive\u2014\u201ctakes every opportunity to create confusion.\u201d  \n- **Physical Condition (CAMPAIGN):** Invisible, enabling covert manipulation.  \n- **Role (CANON):** Central hidden antagonist within the council scene.\n\n**After the council fight ends**\n\n- **Current Location (CANON):** Has fled to the **sewers**.  \n- **Operational Status (CAMPAIGN):** Actively disengaging and escaping (rushes past **Bonogo** to run).  \n- **Mental State (CAMPAIGN):** Feels **regret**, marking a shift from confident manipulator to shaken fugitive.  \n- **History (CAMPAIGN):** Was attacked by **Bonogo**, contributing to the retreat.  \n- **Physical Condition (CAMPAIGN):** Still noted as **invisible**, but now used for escape rather than manipulation.\n\n---\n\n### Key Attributes\n- **History:** Attacked by Bonogo (post-fight event shaping retreat).  \n- **Geography:** Moves from council chambers (implied) to **sewers** (current location after).  \n- **Defenses:** Relies on invisibility (consistent across both phases, but used differently: infiltration \u2192 escape).  \n\n**Summary:**  \nBefore the fight, the Wolf is a hidden manipulator embedded in the council, controlling others (notably Thalia) and shaping decisions. After the fight, the Wolf is exposed and destabilized\u2014injured (contextually), regretful, and fleeing into the sewers to survive rather than influence.",
+      "answer_chars": 1683,
+      "contains_no_observed": false,
+      "contains_session12": false,
+      "contains_dead": false,
+      "contains_killing_blow": false,
+      "contains_secret_passage": false,
+      "contains_chandelier": false,
+      "contains_oily_sheen": false
+    },
+    {
+      "question": "Was Thalia corrupted or manipulated, and how does that relate to Wolf evidence?",
+      "campaign_id": null,
+      "answer": "Short answer: **Thalia is being manipulated, not inherently corrupted**, and the Wolf is the key piece of evidence proving that.\n\n**Explanation (grounded in context):**\n- **CANON:** *Thalia* is \u201censorcelled by the Wolf\u201d (Thalia \u2192 physical_condition; Wolf \u2192 relationship_tags). That indicates external magical influence rather than her own corruption.\n- **CANON:** *The Wolf* is explicitly **corrupted** (physical_condition) and may be a **cult sympathizer sabotaging decisions** (loyalty_or_alignment_context).\n- **CANON:** The Wolf spreads **confusion and deception** and presents a narrative of \u201cbetrayal (as presented to Thalia)\u201d (history, goals, portrayal_notes).\n\n**Conclusion:**\n- Thalia\u2019s behavior is best explained as **manipulation via enchantment**.\n- The Wolf\u2019s corruption + deception + direct ensorcelling of Thalia is strong **evidence that her judgment has been compromised**, not that she willingly turned.\n\n**How this ties to evidence in play:**\n- Proving the Wolf\u2019s **betrayal/deception** directly supports convincing Thalia (her relationship_tags note she can be persuaded with evidence).\n- The Wolf\u2019s **corrupted state and cult alignment** reinforce that the source of influence is hostile and external.\n\n---\n\n### Key Attributes\n\n**Thalia (npc)**\n- loyalty_or_alignment_context: fiercely protective of the city  \n- mental_state: resistant to believing accusations  \n- physical_condition: ensorcelled by the Wolf  \n\n**The Wolf (npc)**\n- physical_condition: corrupted  \n- loyalty_or_alignment_context: possible cult sympathizer sabotaging council decisions  \n- history: presents a narrative of betrayal to Thalia  \n\n**the cult (faction)**\n- operational_status: activities can be evidenced  \n- relationship_tags: influence within the council  \n- current_location: uses hidden routes  \n\nIf you need, I can outline what counts as \u201csolid evidence\u201d to break the enchantment in-scene.",
+      "answer_chars": 1895,
+      "contains_no_observed": false,
+      "contains_session12": false,
+      "contains_dead": false,
+      "contains_killing_blow": false,
+      "contains_secret_passage": false,
+      "contains_chandelier": false,
+      "contains_oily_sheen": false
+    },
+    {
+      "question": "Was Thalia corrupted or manipulated, and how does that relate to Wolf evidence?",
+      "campaign_id": "longmont-c1",
+      "answer": "**Short Answer:**  \nThalia is **manipulated (ensorcelled), not corrupted**. The Wolf is the direct cause of that manipulation, which aligns with existing evidence about the Wolf\u2019s deceptive, cult-aligned behavior.\n\n---\n\n**Explanation:**\n\n- **Manipulation (not corruption):**\n  - CANON: *The Wolf ensorcelled Thalia* (the_wolf.relationship_tags; commander_thalia_ashenvale.relationship_tags).\n  - CAMPAIGN: *Thalia serves the Wolf and acts on his instructions* (thalia.loyalty_or_alignment_context; thalia.goals).\n  - CAMPAIGN: *Thalia has no oily sheen in her eyes* (thalia.physical_condition), which is a known indicator of corruption in others (e.g., guards with \u201coily eyes\u201d).\n  - CAMPAIGN: *She is unaware she\u2019s being manipulated* (commander_thalia_ashenvale.mental_state).\n  - CAMPAIGN: *She is considered innocent* (commander_thalia_ashenvale.loyalty_or_alignment_context).\n\n  \u2192 Current state: **Manipulated via magic (ensorcelled), not physically corrupted.**\n\n- **Relation to Wolf evidence:**\n  - CANON: The Wolf *actively deceives and spreads confusion* (the_wolf.goals, portrayal_notes).\n  - CANON: The Wolf is a *cult sympathizer sabotaging leadership* (the_wolf.loyalty_or_alignment_context).\n  - CANON: Direct link: *The Wolf ensorcelled Thalia*.\n\n  \u2192 This strongly supports that Thalia\u2019s behavior is **evidence of the Wolf\u2019s manipulation tactics**, not independent wrongdoing or corruption.\n\n---\n\n**Key Attributes (Thalia):**  \nFewer than 3 standard attributes (history, geography, demographics, economy, defenses) are present.\n\nAvailable relevant attributes:\n- mental_state: Believes the problem is overblown; unaware of manipulation (CAMPAIGN)  \n- physical_condition: No oily sheen in eyes (CAMPAIGN)  \n- loyalty_or_alignment_context: Serving the Wolf but actually innocent (CAMPAIGN)  \n\n---\n\n**GM Takeaway:**  \nTreat Thalia as a **recoverable ally under influence**, and the Wolf\u2019s control over her as **strong, direct evidence** of his covert manipulation within the guard structure.",
+      "answer_chars": 2000,
+      "contains_no_observed": false,
+      "contains_session12": false,
+      "contains_dead": false,
+      "contains_killing_blow": false,
+      "contains_secret_passage": false,
+      "contains_chandelier": false,
+      "contains_oily_sheen": true
+    }
+  ]
+}

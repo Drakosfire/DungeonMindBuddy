@@ -1,7 +1,7 @@
 {
   "answer_stats": {
-    "chars": 1383,
-    "sha256": "89736f2f3372090e12fe1516c87e193ba2d6bbacbf4f3a1f9b254303cb3a0cab"
+    "chars": 2996,
+    "sha256": "6a43bda1184c4a6b9641c3f11f993da436bbf50c141b1f3dc99ab39aa0c05ccb"
   },
   "artifacts": {
     "answer_path": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/mirathorn_vertical_slice/output/phase_d_answer.txt",
@@ -9,16 +9,16 @@
     "summary_path": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/mirathorn_vertical_slice/output/phase_d_summary.json"
   },
   "context_stats": {
-    "chars": 71845,
-    "sha256": "37052f8ffdb5f71c4c7207b8fb82f35b651c2654572ee6e0e34001ec4e2c61dd"
+    "chars": 261787,
+    "sha256": "4c746181d57bfe0e7309cb186a063ad89d8be3bce466fa99fe2eaf9a0618cded"
   },
   "gates": {
     "D1": {
-      "detail": "counts evidence=1115 entities=798 facts=5470",
+      "detail": "counts evidence=1313 entities=1006 facts=6331",
       "pass": true
     },
     "D2": {
-      "detail": "mentions_mirathorn=True attributes_hit=5 length=1383",
+      "detail": "mentions_mirathorn=True attributes_hit=5 length=2996",
       "pass": true
     },
     "D3": {

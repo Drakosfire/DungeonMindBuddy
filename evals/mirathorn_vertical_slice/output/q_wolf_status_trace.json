@@ -1,0 +1,167 @@
+{
+  "question": "What is the Wolf's status at the end of Session 12, including corruption state?",
+  "selected_fact_id": "fact_the_wolf_physical_condition_9563b9aa57b3",
+  "selected_value_label": "oily sheen in eyes fades",
+  "projection_attribute": {
+    "selected_fact_id": "fact_the_wolf_physical_condition_9563b9aa57b3",
+    "value_label": "oily sheen in eyes fades",
+    "value_normalized": "oily_sheen_faded_from_eyes",
+    "source_layer": "campaign",
+    "source_campaign_id": "longmont-c1",
+    "source_class": "observed_session_recap",
+    "source_truth_state": "OBSERVED",
+    "fact_ids": [
+      "fact_the_wolf_physical_condition_0bff1a76ba2e",
+      "fact_the_wolf_physical_condition_1e7acf4d0aef",
+      "fact_the_wolf_physical_condition_8c7cf420d0bd",
+      "fact_the_wolf_physical_condition_9563b9aa57b3",
+      "fact_the_wolf_physical_condition_9705f5820700",
+      "fact_the_wolf_physical_condition_98aae03cd39f",
+      "fact_the_wolf_physical_condition_aeab3179732a",
+      "fact_the_wolf_physical_condition_bf103ae53327",
+      "fact_the_wolf_physical_condition_c7c158908f42",
+      "fact_the_wolf_physical_condition_f7e55572d433",
+      "fact_the_wolf_physical_condition_f8fe558847d0"
+    ],
+    "provenance_evidence_ids": [
+      "evid_0d675abafc0947bf",
+      "evid_18b5851b42563586",
+      "evid_1e67cad30b8289e4",
+      "evid_23f81f7566ae5c30",
+      "evid_41cbd8c7a6096846",
+      "evid_43179ca0955d748c",
+      "evid_90de9533fac5d7b9",
+      "evid_a627779b5534d72a",
+      "evid_d92d73016a37beba",
+      "evid_ef7c14d1833cc6b2"
+    ],
+    "conflict_ids": [
+      "auto_conflict_356"
+    ]
+  },
+  "candidate_count": 11,
+  "candidates": [
+    {
+      "fact_id": "fact_the_wolf_physical_condition_0bff1a76ba2e",
+      "truth_state": "OBSERVED",
+      "value_label": "receives a killing blow (dies)",
+      "asserted_in_session": null,
+      "sequence_index_within_session": null,
+      "layer": "campaign",
+      "campaign_id": "longmont-c1",
+      "source_class": "observed_session_recap",
+      "is_selected": false
+    },
+    {
+      "fact_id": "fact_the_wolf_physical_condition_1e7acf4d0aef",
+      "truth_state": "OBSERVED",
+      "value_label": "stabbed by Bonogo again with a knife",
+      "asserted_in_session": null,
+      "sequence_index_within_session": null,
+      "layer": "campaign",
+      "campaign_id": "longmont-c1",
+      "source_class": "observed_session_recap",
+      "is_selected": false
+    },
+    {
+      "fact_id": "fact_the_wolf_physical_condition_8c7cf420d0bd",
+      "truth_state": "OBSERVED",
+      "value_label": "Decapitated; head removed from body",
+      "asserted_in_session": null,
+      "sequence_index_within_session": null,
+      "layer": "campaign",
+      "campaign_id": "longmont-c1",
+      "source_class": "observed_session_recap",
+      "is_selected": false
+    },
+    {
+      "fact_id": "fact_the_wolf_physical_condition_9563b9aa57b3",
+      "truth_state": "OBSERVED",
+      "value_label": "oily sheen in eyes fades",
+      "asserted_in_session": null,
+      "sequence_index_within_session": null,
+      "layer": "campaign",
+      "campaign_id": "longmont-c1",
+      "source_class": "observed_session_recap",
+      "is_selected": true
+    },
+    {
+      "fact_id": "fact_the_wolf_physical_condition_9705f5820700",
+      "truth_state": "OBSERVED",
+      "value_label": "head materializes from within the creature’s shifting mass",
+      "asserted_in_session": null,
+      "sequence_index_within_session": null,
+      "layer": "campaign",
+      "campaign_id": "longmont-c1",
+      "source_class": "observed_session_recap",
+      "is_selected": false
+    },
+    {
+      "fact_id": "fact_the_wolf_physical_condition_98aae03cd39f",
+      "truth_state": "OBSERVED",
+      "value_label": "Disappeared (became invisible)",
+      "asserted_in_session": null,
+      "sequence_index_within_session": null,
+      "layer": "campaign",
+      "campaign_id": "longmont-c1",
+      "source_class": "observed_session_recap",
+      "is_selected": false
+    },
+    {
+      "fact_id": "fact_the_wolf_physical_condition_aeab3179732a",
+      "truth_state": "OBSERVED",
+      "value_label": "Wolf has an oily sheen to his eyes.",
+      "asserted_in_session": null,
+      "sequence_index_within_session": null,
+      "layer": "campaign",
+      "campaign_id": "longmont-c1",
+      "source_class": "observed_session_recap",
+      "is_selected": false
+    },
+    {
+      "fact_id": "fact_the_wolf_physical_condition_bf103ae53327",
+      "truth_state": "CANON",
+      "value_label": "Corrupted",
+      "asserted_in_session": null,
+      "sequence_index_within_session": null,
+      "layer": "world",
+      "campaign_id": null,
+      "source_class": "seed_reference",
+      "is_selected": false
+    },
+    {
+      "fact_id": "fact_the_wolf_physical_condition_c7c158908f42",
+      "truth_state": "OBSERVED",
+      "value_label": "disgusting head appears from the Meat Pile",
+      "asserted_in_session": null,
+      "sequence_index_within_session": null,
+      "layer": "campaign",
+      "campaign_id": "longmont-c1",
+      "source_class": "observed_session_recap",
+      "is_selected": false
+    },
+    {
+      "fact_id": "fact_the_wolf_physical_condition_f7e55572d433",
+      "truth_state": "OBSERVED",
+      "value_label": "Takes major damage from Bonogo's dagger attack",
+      "asserted_in_session": null,
+      "sequence_index_within_session": null,
+      "layer": "campaign",
+      "campaign_id": "longmont-c1",
+      "source_class": "observed_session_recap",
+      "is_selected": false
+    },
+    {
+      "fact_id": "fact_the_wolf_physical_condition_f8fe558847d0",
+      "truth_state": "OBSERVED",
+      "value_label": "Invisible",
+      "asserted_in_session": null,
+      "sequence_index_within_session": null,
+      "layer": "campaign",
+      "campaign_id": "longmont-c1",
+      "source_class": "observed_session_recap",
+      "is_selected": false
+    }
+  ],
+  "answer": "**Wolf — End of Session 12 Status**\n\n- **Operational Status (OBSERVED):** The Wolf rushes past Bonogo and attempts to disengage and flee.\n- **Current Location (OBSERVED):** Last seen at Thalia’s shoulder as the situation breaks, transitioning into escape.\n- **Mental State (OBSERVED):** Feels regret.\n- **Faction / Alignment (OBSERVED):** Cultist; has betrayed Mirathorn.\n- **Corruption State (OBSERVED):** The “oily sheen in eyes fades,” indicating the corruption is weakening or partially lifted by the end of the session (not fully confirmed as removed).\n\n**Interpretation:**  \nBy session end, the Wolf is **alive, attempting escape, and no longer fully under visible corruption**, with signs of internal conflict (regret).\n\n---\n\n**Key Attributes**\nFewer than 3 of the requested categories are available in the context.\n\n- **history:** Was attacked by Bonogo (OBSERVED)"
+}

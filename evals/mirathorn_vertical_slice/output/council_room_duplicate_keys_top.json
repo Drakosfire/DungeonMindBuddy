@@ -1,0 +1,122 @@
+[
+  {
+    "subject_entity_id": "ent_headmaster_tinkerbright",
+    "attribute": "rank_or_title",
+    "value": "headmaster",
+    "count": 7
+  },
+  {
+    "subject_entity_id": "ent_commander_thalia_ashenvale",
+    "attribute": "rank_or_title",
+    "value": "commander",
+    "count": 7
+  },
+  {
+    "subject_entity_id": "ent_mayor_elara_swiftwind",
+    "attribute": "rank_or_title",
+    "value": "mayor",
+    "count": 6
+  },
+  {
+    "subject_entity_id": "ent_grobnok_the_goblin",
+    "attribute": "role",
+    "value": "owner_of_grit_and_grime",
+    "count": 6
+  },
+  {
+    "subject_entity_id": "ent_headmaster_tinkerbright",
+    "attribute": "role",
+    "value": "head_of_wizards_college",
+    "count": 6
+  },
+  {
+    "subject_entity_id": "ent_commander_thalia_ashenvale",
+    "attribute": "role",
+    "value": "commander_of_the_guard",
+    "count": 6
+  },
+  {
+    "subject_entity_id": "ent_torrin_flamescale",
+    "attribute": "role",
+    "value": "representative_of_the_guilds",
+    "count": 6
+  },
+  {
+    "subject_entity_id": "ent_merril_tealeaf",
+    "attribute": "faction",
+    "value": "agricultural_union",
+    "count": 6
+  },
+  {
+    "subject_entity_id": "ent_rurik_stonehammer",
+    "attribute": "rank_or_title",
+    "value": "chief_architect",
+    "count": 6
+  },
+  {
+    "subject_entity_id": "ent_mayor_elara_swiftwind",
+    "attribute": "species",
+    "value": "gnome",
+    "count": 5
+  },
+  {
+    "subject_entity_id": "ent_the_festival",
+    "attribute": "economy",
+    "value": "crucial_to_city_economy",
+    "count": 5
+  },
+  {
+    "subject_entity_id": "ent_grobnok_the_goblin",
+    "attribute": "species",
+    "value": "goblin",
+    "count": 5
+  },
+  {
+    "subject_entity_id": "ent_headmaster_tinkerbright",
+    "attribute": "species",
+    "value": "gnome",
+    "count": 5
+  },
+  {
+    "subject_entity_id": "ent_commander_thalia_ashenvale",
+    "attribute": "faction",
+    "value": "guard",
+    "count": 5
+  },
+  {
+    "subject_entity_id": "ent_thalia",
+    "attribute": "mental_state",
+    "value": "disciplined_authoritative",
+    "count": 5
+  },
+  {
+    "subject_entity_id": "ent_thalia",
+    "attribute": "goals",
+    "value": "strong_sense_of_duty",
+    "count": 5
+  },
+  {
+    "subject_entity_id": "ent_thalia",
+    "attribute": "loyalty_or_alignment_context",
+    "value": "protective_of_city_and_inhabitants",
+    "count": 5
+  },
+  {
+    "subject_entity_id": "ent_torrin_flamescale",
+    "attribute": "species",
+    "value": "dragonborn",
+    "count": 5
+  },
+  {
+    "subject_entity_id": "ent_torrin_flamescale",
+    "attribute": "goals",
+    "value": "passion_for_craft",
+    "count": 5
+  },
+  {
+    "subject_entity_id": "ent_torrin_flamescale",
+    "attribute": "portrayal_notes",
+    "value": "respected_for_craftsmanship",
+    "count": 5
+  }
+]

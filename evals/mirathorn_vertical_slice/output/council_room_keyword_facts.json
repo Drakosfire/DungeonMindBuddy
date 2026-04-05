@@ -1,0 +1,587 @@
+[
+  {
+    "fact_id": "fact_enchantments_role_1e5cf0406b81",
+    "entity_id": "ent_enchantments",
+    "entity_name": "Enchantments",
+    "attribute": "role",
+    "truth_state": "CANON",
+    "session": null,
+    "seq": null,
+    "value_label": "subtle magical enchantments keep the chandelier floating",
+    "hits": [
+      "chandelier"
+    ]
+  },
+  {
+    "fact_id": "fact_chandelier_portrayal_notes_d7f7b8b6c500",
+    "entity_id": "ent_chandelier",
+    "entity_name": "chandelier",
+    "attribute": "portrayal_notes",
+    "truth_state": "CANON",
+    "session": null,
+    "seq": null,
+    "value_label": "The chandelier is floating and emits soft lighting.",
+    "hits": [
+      "chandelier"
+    ]
+  },
+  {
+    "fact_id": "fact_hidden_passages_geography_bed7a3ab818d",
+    "entity_id": "ent_hidden_passages",
+    "entity_name": "hidden trapdoor",
+    "attribute": "geography",
+    "truth_state": "CANON",
+    "session": null,
+    "seq": null,
+    "value_label": "A secret passage leads to the sewers.",
+    "hits": [
+      "secret passage"
+    ]
+  },
+  {
+    "fact_id": "fact_sewers_geography_c6a319a23efd",
+    "entity_id": "ent_sewers",
+    "entity_name": "sewers",
+    "attribute": "geography",
+    "truth_state": "CANON",
+    "session": null,
+    "seq": null,
+    "value_label": "The sewers are reachable via a secret passage used in The Wolf’s escape.",
+    "hits": [
+      "secret passage"
+    ]
+  },
+  {
+    "fact_id": "fact_the_wolfs_escape_history_8788f7f98ecb",
+    "entity_id": "ent_the_wolfs_escape",
+    "entity_name": "The Wolf’s Escape",
+    "attribute": "history",
+    "truth_state": "CANON",
+    "session": null,
+    "seq": null,
+    "value_label": "The Wolf disappears into a secret passage leading to the sewers using Invisibility and Illusion at a critical point.",
+    "hits": [
+      "secret passage"
+    ]
+  },
+  {
+    "fact_id": "fact_wizards_college_relationship_tags_9cee4287b55f",
+    "entity_id": "ent_wizards_college",
+    "entity_name": "Wizard’s College",
+    "attribute": "relationship_tags",
+    "truth_state": "CANON",
+    "session": null,
+    "seq": null,
+    "value_label": "provides magical runes used by players",
+    "hits": [
+      "runes"
+    ]
+  },
+  {
+    "fact_id": "fact_covert_ops_mission_goals_57811e18a1c2",
+    "entity_id": "ent_covert_ops_mission",
+    "entity_name": "Covert Ops Mission",
+    "attribute": "goals",
+    "truth_state": "CANON",
+    "session": null,
+    "seq": null,
+    "value_label": "Mission proceeds using magical runes to find corrupted meat",
+    "hits": [
+      "runes"
+    ]
+  },
+  {
+    "fact_id": "fact_corrupted_meat_operational_status_4d67e9c77b10",
+    "entity_id": "ent_corrupted_meat",
+    "entity_name": "corrupted meat",
+    "attribute": "operational_status",
+    "truth_state": "CANON",
+    "session": null,
+    "seq": null,
+    "value_label": "Being sought/found via magical runes in the covert ops mission",
+    "hits": [
+      "runes"
+    ]
+  },
+  {
+    "fact_id": "fact_sewers_geography_40a9e30d8e52",
+    "entity_id": "ent_sewers",
+    "entity_name": "sewers",
+    "attribute": "geography",
+    "truth_state": "CANON",
+    "session": null,
+    "seq": null,
+    "value_label": "The sewers have a mix of stonework and magical runes.",
+    "hits": [
+      "runes"
+    ]
+  },
+  {
+    "fact_id": "fact_magical_runes_current_location_5bf293bec164",
+    "entity_id": "ent_magical_runes",
+    "entity_name": "Rune alarms",
+    "attribute": "current_location",
+    "truth_state": "CANON",
+    "session": null,
+    "seq": null,
+    "value_label": "Magical runes are present in the sewers beneath Mirathorn.",
+    "hits": [
+      "runes"
+    ]
+  },
+  {
+    "fact_id": "fact_guards_physical_condition_b891b6799bcc",
+    "entity_id": "ent_guards",
+    "entity_name": "Guards",
+    "attribute": "physical_condition",
+    "truth_state": "CANON",
+    "session": null,
+    "seq": null,
+    "value_label": "dead_bodies_present",
+    "hits": [
+      "dead"
+    ]
+  },
+  {
+    "fact_id": "fact_dead_horse_physical_condition_65c7676d6840",
+    "entity_id": "ent_dead_horse",
+    "entity_name": "dead horse",
+    "attribute": "physical_condition",
+    "truth_state": "OBSERVED",
+    "session": null,
+    "seq": null,
+    "value_label": "Dead",
+    "hits": [
+      "dead"
+    ]
+  },
+  {
+    "fact_id": "fact_bonogo_operational_status_ec9c77120775",
+    "entity_id": "ent_bonogo",
+    "entity_name": null,
+    "attribute": "operational_status",
+    "truth_state": "OBSERVED",
+    "session": null,
+    "seq": null,
+    "value_label": "Was served dead horse by Ephanna",
+    "hits": [
+      "dead"
+    ]
+  },
+  {
+    "fact_id": "fact_ephana_operational_status_8147ff61ccea",
+    "entity_id": "ent_ephana",
+    "entity_name": "Ephana",
+    "attribute": "operational_status",
+    "truth_state": "OBSERVED",
+    "session": null,
+    "seq": null,
+    "value_label": "Served dead horse to Bonogo",
+    "hits": [
+      "dead"
+    ]
+  },
+  {
+    "fact_id": "fact_stafl_operational_status_6e20875bb908",
+    "entity_id": "ent_stafl",
+    "entity_name": "Stafl",
+    "attribute": "operational_status",
+    "truth_state": "OBSERVED",
+    "session": null,
+    "seq": null,
+    "value_label": "Likely turned an escalation with the dead horse’s owner friendly",
+    "hits": [
+      "dead"
+    ]
+  },
+  {
+    "fact_id": "fact_bill_physical_condition_70a7846d097e",
+    "entity_id": "ent_bill",
+    "entity_name": "Bill",
+    "attribute": "physical_condition",
+    "truth_state": "OBSERVED",
+    "session": null,
+    "seq": null,
+    "value_label": "eyes have a slight oily sheen",
+    "hits": [
+      "oily sheen"
+    ]
+  },
+  {
+    "fact_id": "fact_guards_physical_condition_13622495d182",
+    "entity_id": "ent_guards",
+    "entity_name": "Guards",
+    "attribute": "physical_condition",
+    "truth_state": "OBSERVED",
+    "session": null,
+    "seq": null,
+    "value_label": "All checked guards have an oily sheen to their eyes.",
+    "hits": [
+      "oily sheen"
+    ]
+  },
+  {
+    "fact_id": "fact_thalia_physical_condition_f13bd7e6c3b2",
+    "entity_id": "ent_thalia",
+    "entity_name": "Thalia",
+    "attribute": "physical_condition",
+    "truth_state": "OBSERVED",
+    "session": null,
+    "seq": null,
+    "value_label": "Thalia does not have an oily sheen to her eyes.",
+    "hits": [
+      "oily sheen"
+    ]
+  },
+  {
+    "fact_id": "fact_the_wolf_physical_condition_aeab3179732a",
+    "entity_id": "ent_the_wolf",
+    "entity_name": "the Wolf",
+    "attribute": "physical_condition",
+    "truth_state": "OBSERVED",
+    "session": null,
+    "seq": null,
+    "value_label": "Wolf has an oily sheen to his eyes.",
+    "hits": [
+      "oily sheen"
+    ]
+  },
+  {
+    "fact_id": "fact_barin_goals_84db9fb0f9ad",
+    "entity_id": "ent_barin",
+    "entity_name": "Barin",
+    "attribute": "goals",
+    "truth_state": "OBSERVED",
+    "session": null,
+    "seq": null,
+    "value_label": "Proposes a covert operation to go to each guardhouse and use magic runes to locate and dispose of the meat",
+    "hits": [
+      "runes"
+    ]
+  },
+  {
+    "fact_id": "fact_the_cult_operational_status_d2d84de02e99",
+    "entity_id": "ent_the_cult",
+    "entity_name": "the cult",
+    "attribute": "operational_status",
+    "truth_state": "OBSERVED",
+    "session": null,
+    "seq": null,
+    "value_label": "Intended target to be located via magic runes during covert operation",
+    "hits": [
+      "runes"
+    ]
+  },
+  {
+    "fact_id": "fact_ceiling_history_a06fe5323e67",
+    "entity_id": "ent_ceiling",
+    "entity_name": "ceiling",
+    "attribute": "history",
+    "truth_state": "OBSERVED",
+    "session": null,
+    "seq": null,
+    "value_label": "the giant chandelier fell from it",
+    "hits": [
+      "chandelier"
+    ]
+  },
+  {
+    "fact_id": "fact_council_room_defenses_072a6ffd7884",
+    "entity_id": "ent_council_room",
+    "entity_name": "Council Chambers",
+    "attribute": "defenses",
+    "truth_state": "OBSERVED",
+    "session": null,
+    "seq": null,
+    "value_label": "runes along the walls activated when Caelynn cast her spell",
+    "hits": [
+      "runes"
+    ]
+  },
+  {
+    "fact_id": "fact_thalia_goals_48f15540ae69",
+    "entity_id": "ent_thalia",
+    "entity_name": "Thalia",
+    "attribute": "goals",
+    "truth_state": "OBSERVED",
+    "session": null,
+    "seq": null,
+    "value_label": "warns the group about the runes' function and targeting",
+    "hits": [
+      "runes"
+    ]
+  },
+  {
+    "fact_id": "fact_amulet_of_council_operational_status_11f83b5b3785",
+    "entity_id": "ent_amulet_of_council",
+    "entity_name": "amulet of council",
+    "attribute": "operational_status",
+    "truth_state": "OBSERVED",
+    "session": null,
+    "seq": null,
+    "value_label": "wearing an amulet prevents being targeted by the runes",
+    "hits": [
+      "runes"
+    ]
+  },
+  {
+    "fact_id": "fact_magical_runes_operational_status_13dae086d4d6",
+    "entity_id": "ent_magical_runes",
+    "entity_name": "Rune alarms",
+    "attribute": "operational_status",
+    "truth_state": "OBSERVED",
+    "session": null,
+    "seq": null,
+    "value_label": "Runes begin to glow, first purple then red",
+    "hits": [
+      "runes"
+    ]
+  },
+  {
+    "fact_id": "fact_magical_runes_goals_05d94072b22c",
+    "entity_id": "ent_magical_runes",
+    "entity_name": "Rune alarms",
+    "attribute": "goals",
+    "truth_state": "OBSERVED",
+    "session": null,
+    "seq": null,
+    "value_label": "Purple runes produce force attacks",
+    "hits": [
+      "runes"
+    ]
+  },
+  {
+    "fact_id": "fact_magical_runes_goals_d855c14468dd",
+    "entity_id": "ent_magical_runes",
+    "entity_name": "Rune alarms",
+    "attribute": "goals",
+    "truth_state": "OBSERVED",
+    "session": null,
+    "seq": null,
+    "value_label": "Red runes produce paralysis spells",
+    "hits": [
+      "runes"
+    ]
+  },
+  {
+    "fact_id": "fact_ephanna_the_kenku_warlock_operational_status_383d00e99be0",
+    "entity_id": "ent_ephanna_the_kenku_warlock",
+    "entity_name": "Ephanna the Kenku Warlock",
+    "attribute": "operational_status",
+    "truth_state": "OBSERVED",
+    "session": null,
+    "seq": null,
+    "value_label": "used a deadly burst of Eldritch Blast",
+    "hits": [
+      "dead"
+    ]
+  },
+  {
+    "fact_id": "fact_baergrom_the_dwarf_fighter_operational_status_5d8a997d5307",
+    "entity_id": "ent_baergrom_the_dwarf_fighter",
+    "entity_name": "Baergrom the Dwarf Fighter",
+    "attribute": "operational_status",
+    "truth_state": "OBSERVED",
+    "session": null,
+    "seq": null,
+    "value_label": "Retaliates with a killing blow against the final Guard",
+    "hits": [
+      "killing blow"
+    ]
+  },
+  {
+    "fact_id": "fact_bonogo_current_location_bf2ed76f3152",
+    "entity_id": "ent_bonogo",
+    "entity_name": null,
+    "attribute": "current_location",
+    "truth_state": "OBSERVED",
+    "session": null,
+    "seq": null,
+    "value_label": "Moved into a hallway leading to stairs via a secret passage",
+    "hits": [
+      "secret passage"
+    ]
+  },
+  {
+    "fact_id": "fact_the_wolf_operational_status_ba7250692158",
+    "entity_id": "ent_the_wolf",
+    "entity_name": "the Wolf",
+    "attribute": "operational_status",
+    "truth_state": "OBSERVED",
+    "session": null,
+    "seq": null,
+    "value_label": "Attempting to escape through a secret passage while invisible",
+    "hits": [
+      "secret passage"
+    ]
+  },
+  {
+    "fact_id": "fact_secret_hideout_role_0a8992b8dd55",
+    "entity_id": "ent_secret_hideout",
+    "entity_name": "secret hideout",
+    "attribute": "role",
+    "truth_state": "OBSERVED",
+    "session": null,
+    "seq": null,
+    "value_label": "Secret passage used by the Wolf to attempt escape",
+    "hits": [
+      "secret passage"
+    ]
+  },
+  {
+    "fact_id": "fact_bonogo_role_2726a86b4e20",
+    "entity_id": "ent_bonogo",
+    "entity_name": null,
+    "attribute": "role",
+    "truth_state": "OBSERVED",
+    "session": null,
+    "seq": null,
+    "value_label": "deals the killing blow",
+    "hits": [
+      "killing blow"
+    ]
+  },
+  {
+    "fact_id": "fact_the_wolf_physical_condition_0bff1a76ba2e",
+    "entity_id": "ent_the_wolf",
+    "entity_name": "the Wolf",
+    "attribute": "physical_condition",
+    "truth_state": "OBSERVED",
+    "session": null,
+    "seq": null,
+    "value_label": "receives a killing blow (dies)",
+    "hits": [
+      "killing blow"
+    ]
+  },
+  {
+    "fact_id": "fact_the_wolf_physical_condition_9563b9aa57b3",
+    "entity_id": "ent_the_wolf",
+    "entity_name": "the Wolf",
+    "attribute": "physical_condition",
+    "truth_state": "OBSERVED",
+    "session": null,
+    "seq": null,
+    "value_label": "oily sheen in eyes fades",
+    "hits": [
+      "oily sheen"
+    ]
+  },
+  {
+    "fact_id": "fact_session_13_the_meaty_and_the_dead_source_comments_c2df1f23530a",
+    "entity_id": "ent_session_13_the_meaty_and_the_dead",
+    "entity_name": "Session 13: The Meaty and the Dead",
+    "attribute": "source_comments",
+    "truth_state": "OBSERVED",
+    "session": null,
+    "seq": null,
+    "value_label": "Title given as 'Session 13: The Meaty and the Dead'",
+    "hits": [
+      "dead"
+    ]
+  },
+  {
+    "fact_id": "fact_speak_with_dead_role_a697a24eb563",
+    "entity_id": "ent_speak_with_dead",
+    "entity_name": "Speak with Dead",
+    "attribute": "role",
+    "truth_state": "OBSERVED",
+    "session": null,
+    "seq": null,
+    "value_label": "Referenced as “Speak with Dead”",
+    "hits": [
+      "dead"
+    ]
+  },
+  {
+    "fact_id": "fact_players_goals_1adffe66adee",
+    "entity_id": "ent_players",
+    "entity_name": "Players",
+    "attribute": "goals",
+    "truth_state": "OBSERVED",
+    "session": null,
+    "seq": null,
+    "value_label": "Decided best course of action is to take the Wolf to Stormspire Academy to seek help casting Speak with Dead and learn the Wolf’s plans.",
+    "hits": [
+      "dead"
+    ]
+  },
+  {
+    "fact_id": "fact_stormspire_academy_goals_1f97948eee11",
+    "entity_id": "ent_stormspire_academy",
+    "entity_name": "Stormspire Academy",
+    "attribute": "goals",
+    "truth_state": "OBSERVED",
+    "session": null,
+    "seq": null,
+    "value_label": "Intended destination where someone may help cast Speak with Dead",
+    "hits": [
+      "dead"
+    ]
+  },
+  {
+    "fact_id": "fact_council_room_physical_condition_63991d6e9d72",
+    "entity_id": "ent_council_room",
+    "entity_name": "Council Chambers",
+    "attribute": "physical_condition",
+    "truth_state": "OBSERVED",
+    "session": null,
+    "seq": null,
+    "value_label": "Disheveled",
+    "hits": [
+      "disheveled"
+    ]
+  },
+  {
+    "fact_id": "fact_wizards_college_operational_status_839d91c641db",
+    "entity_id": "ent_wizards_college",
+    "entity_name": "Wizard’s College",
+    "attribute": "operational_status",
+    "truth_state": "OBSERVED",
+    "session": null,
+    "seq": null,
+    "value_label": "busy making potions, crafting runes, and working on wards",
+    "hits": [
+      "runes"
+    ]
+  },
+  {
+    "fact_id": "fact_stafl_goals_00ae6b3ca8e5",
+    "entity_id": "ent_stafl",
+    "entity_name": "Stafl",
+    "attribute": "goals",
+    "truth_state": "OBSERVED",
+    "session": null,
+    "seq": null,
+    "value_label": "promised one of the Speak with Dead questions to the Necromancer",
+    "hits": [
+      "dead"
+    ]
+  },
+  {
+    "fact_id": "fact_necromancer_relationship_tags_28fe0e35cc7b",
+    "entity_id": "ent_necromancer",
+    "entity_name": "Necromancer",
+    "attribute": "relationship_tags",
+    "truth_state": "OBSERVED",
+    "session": null,
+    "seq": null,
+    "value_label": "Stafl promised the Necromancer one question from Speak with Dead",
+    "hits": [
+      "dead"
+    ]
+  },
+  {
+    "fact_id": "fact_corrupted_meat_operational_status_1348bb466931",
+    "entity_id": "ent_corrupted_meat",
+    "entity_name": "corrupted meat",
+    "attribute": "operational_status",
+    "truth_state": "OBSERVED",
+    "session": null,
+    "seq": null,
+    "value_label": "being detected by glowing runes",
+    "hits": [
+      "runes"
+    ]
+  }
+]

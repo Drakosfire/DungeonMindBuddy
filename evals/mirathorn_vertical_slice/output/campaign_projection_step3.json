@@ -7,8 +7,13 @@
           "selected_fact_id": "fact_brother_ashwood_goals_001",
           "value_label": "Poison the main water supply with slow-acting blight toxin during the closing ceremony while the riot at the gates diverts guards; if uninterrupted, illness spreads through lower districts within two days",
           "value_normalized": null,
+          "all_value_labels": [
+            "Poison the main water supply with slow-acting blight toxin during the closing ceremony while the riot at the gates diverts guards; if uninterrupted, illness spreads through lower districts within two days"
+          ],
           "source_layer": "campaign",
           "source_campaign_id": "longmont_01",
+          "source_class": "planning_document",
+          "source_truth_state": "PREP",
           "fact_ids": [
             "fact_brother_ashwood_goals_001"
           ],
@@ -21,8 +26,13 @@
           "selected_fact_id": "fact_brother_ashwood_role_001",
           "value_label": "Shepherd's Flock cell leader operating inside Mirathorn; orchestrating the water supply poisoning during the Festival closing ceremony",
           "value_normalized": "cult_cell_leader",
+          "all_value_labels": [
+            "Shepherd's Flock cell leader operating inside Mirathorn; orchestrating the water supply poisoning during the Festival closing ceremony"
+          ],
           "source_layer": "campaign",
           "source_campaign_id": "longmont_01",
+          "source_class": "planning_document",
+          "source_truth_state": "PREP",
           "fact_ids": [
             "fact_brother_ashwood_role_001"
           ],
@@ -39,8 +49,13 @@
           "selected_fact_id": "fact_mirathorn_atmosphere_001",
           "value_label": "Vibrant and bustling farmlands and workshops on approach; chaotic but festive out-town of tents and stalls; bottleneck at gates with tension from Shepherd's Flock protest; rich sensory scene of sounds, smells, crowds",
           "value_normalized": null,
+          "all_value_labels": [
+            "Vibrant and bustling farmlands and workshops on approach; chaotic but festive out-town of tents and stalls; bottleneck at gates with tension from Shepherd's Flock protest; rich sensory scene of sounds, smells, crowds"
+          ],
           "source_layer": "world",
           "source_campaign_id": null,
+          "source_class": "seed_reference",
+          "source_truth_state": "CANON",
           "fact_ids": [
             "fact_mirathorn_atmosphere_001"
           ],
@@ -53,8 +68,13 @@
           "selected_fact_id": "fact_mirathorn_defenses_001",
           "value_label": "Ancient stone walls showing age and disuse with ivy and moss; guard towers now mostly symbolic; grand iron-reinforced gates flanked by founder statues",
           "value_normalized": "aged_walls:symbolic_towers:reinforced_gates",
+          "all_value_labels": [
+            "Ancient stone walls showing age and disuse with ivy and moss; guard towers now mostly symbolic; grand iron-reinforced gates flanked by founder statues"
+          ],
           "source_layer": "world",
           "source_campaign_id": null,
+          "source_class": "seed_reference",
+          "source_truth_state": "CANON",
           "fact_ids": [
             "fact_mirathorn_defenses_001"
           ],
@@ -67,8 +87,13 @@
           "selected_fact_id": "fact_mirathorn_demographics_001",
           "value_label": "~7000 residents of diverse races",
           "value_normalized": "7000:multi_racial",
+          "all_value_labels": [
+            "~7000 residents of diverse races"
+          ],
           "source_layer": "world",
           "source_campaign_id": null,
+          "source_class": "seed_reference",
+          "source_truth_state": "CANON",
           "fact_ids": [
             "fact_mirathorn_demographics_001"
           ],
@@ -81,8 +106,13 @@
           "selected_fact_id": "fact_mirathorn_economy_001",
           "value_label": "Major industries include brewing, craftsmanship, fishing, agriculture, and magical goods; key trade hub",
           "value_normalized": "trade_hub:brewing:crafts:fishing:agriculture:magical_goods",
+          "all_value_labels": [
+            "Major industries include brewing, craftsmanship, fishing, agriculture, and magical goods; key trade hub"
+          ],
           "source_layer": "world",
           "source_campaign_id": null,
+          "source_class": "seed_reference",
+          "source_truth_state": "CANON",
           "fact_ids": [
             "fact_mirathorn_economy_001"
           ],
@@ -95,8 +125,13 @@
           "selected_fact_id": "fact_mirathorn_geography_001",
           "value_label": "At the base of the Stormspire Peaks, by Lake Mirathorn; strategic position with access to rivers, mountain passes, and well-maintained roads",
           "value_normalized": "stormspire_peaks_base:lake_mirathorn",
+          "all_value_labels": [
+            "At the base of the Stormspire Peaks, by Lake Mirathorn; strategic position with access to rivers, mountain passes, and well-maintained roads"
+          ],
           "source_layer": "world",
           "source_campaign_id": null,
+          "source_class": "seed_reference",
+          "source_truth_state": "CANON",
           "fact_ids": [
             "fact_mirathorn_geography_001"
           ],
@@ -109,8 +144,13 @@
           "selected_fact_id": "fact_mirathorn_history_001",
           "value_label": "Founded 200+ years ago by settlers fleeing the Lundayell Empire who repaired an ancient airship to discover the continent, cutting off contact with the Empire to start anew",
           "value_normalized": null,
+          "all_value_labels": [
+            "Founded 200+ years ago by settlers fleeing the Lundayell Empire who repaired an ancient airship to discover the continent, cutting off contact with the Empire to start anew"
+          ],
           "source_layer": "world",
           "source_campaign_id": null,
+          "source_class": "seed_reference",
+          "source_truth_state": "CANON",
           "fact_ids": [
             "fact_mirathorn_history_001"
           ],
@@ -123,8 +163,13 @@
           "selected_fact_id": "fact_mirathorn_status_001",
           "value_label": "Active and preparing for Festival of Expansion; gates congested, steep toll causing discontent",
           "value_normalized": "festival_preparation",
+          "all_value_labels": [
+            "Active and preparing for Festival of Expansion; gates congested, steep toll causing discontent"
+          ],
           "source_layer": "world",
           "source_campaign_id": null,
+          "source_class": "seed_reference",
+          "source_truth_state": "CANON",
           "fact_ids": [
             "fact_mirathorn_status_001"
           ],
@@ -142,8 +187,14 @@
           "selected_fact_id": "fact_shepherds_flock_goals_observed_001",
           "value_label": "Surface: toll abolition through public protest. Observed deeper activity: maintaining secret base with prison cells, capturing people, force-feeding captives meat; connected to The Shepherd in the Swamp to the north; agenda extends well beyond toll protest",
           "value_normalized": null,
+          "all_value_labels": [
+            "Surface: toll abolition through public protest. Observed deeper activity: maintaining secret base with prison cells, capturing people, force-feeding captives meat; connected to The Shepherd in the Swamp to the north; agenda extends well beyond toll protest",
+            "Surface goal: abolish the entry toll as unfair and exclusionary; underlying cult agenda not yet visible to public"
+          ],
           "source_layer": "campaign",
           "source_campaign_id": "longmont_01",
+          "source_class": "observed_session_recap",
+          "source_truth_state": "OBSERVED",
           "fact_ids": [
             "fact_shepherds_flock_goals_001",
             "fact_shepherds_flock_goals_observed_001"
@@ -160,8 +211,15 @@
           "selected_fact_id": "fact_shepherds_flock_status_observed_001",
           "value_label": "Protest of ~50 people dispersed by party diplomacy at the gates; leader Lyra retreated to base with followers; cult operating a hidden base with prison cells, capturing people and force-feeding them meat",
           "value_normalized": "protest_dispersed:covert_base_operations",
+          "all_value_labels": [
+            "Protest of ~50 people dispersed by party diplomacy at the gates; leader Lyra retreated to base with followers; cult operating a hidden base with prison cells, capturing people and force-feeding them meat",
+            "Active; led by charismatic leaders stirring crowds, distributing pamphlets, demanding toll-free entry; guards tense, scuffles breaking out",
+            "Escalating from protest to full riot during Festival closing ceremony; weapons stockpiled in disguised merchant carts; riot is a diversion for the water poisoning plot"
+          ],
           "source_layer": "campaign",
           "source_campaign_id": "longmont_01",
+          "source_class": "observed_session_recap",
+          "source_truth_state": "OBSERVED",
           "fact_ids": [
             "fact_shepherds_flock_status_001",
             "fact_shepherds_flock_status_observed_001",
@@ -181,8 +239,13 @@
           "selected_fact_id": "fact_shepherds_flock_role_001",
           "value_label": "Cult staging protests against the city entry toll outside the main gate",
           "value_normalized": "protest_cult",
+          "all_value_labels": [
+            "Cult staging protests against the city entry toll outside the main gate"
+          ],
           "source_layer": "world",
           "source_campaign_id": null,
+          "source_class": "seed_reference",
+          "source_truth_state": "CANON",
           "fact_ids": [
             "fact_shepherds_flock_role_001"
           ],
@@ -199,8 +262,13 @@
           "selected_fact_id": "fact_the_shepherd_role_observed_001",
           "value_label": "Leader of the Shepherd's Flock cult; based in the Swamp to the north; commands cells operating inside Mirathorn",
           "value_normalized": "cult_leader",
+          "all_value_labels": [
+            "Leader of the Shepherd's Flock cult; based in the Swamp to the north; commands cells operating inside Mirathorn"
+          ],
           "source_layer": "campaign",
           "source_campaign_id": "longmont_01",
+          "source_class": "observed_session_recap",
+          "source_truth_state": "OBSERVED",
           "fact_ids": [
             "fact_the_shepherd_role_observed_001"
           ],
