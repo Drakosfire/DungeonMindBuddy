@@ -1,0 +1,56 @@
+{
+  "generated_at": "2026-04-03T16:58:07.241126+00:00",
+  "run_window": {
+    "started_at": "2026-04-03T16:58:07.236797+00:00",
+    "ended_at": "2026-04-03T16:58:07.240939+00:00",
+    "elapsed_seconds": 0.004
+  },
+  "files": {
+    "total": 1,
+    "succeeded": 0,
+    "failed": 0,
+    "skipped": 1,
+    "zero_output": 0
+  },
+  "api_calls": {
+    "total": 0,
+    "entity_extraction": 0,
+    "fact_extraction": 0
+  },
+  "tokens": {
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "cached_tokens": 0,
+    "cache_rate": 0.0
+  },
+  "cost_estimate": {
+    "model_name": "(unknown)",
+    "input_cost_per_1m": 0.0,
+    "cached_input_cost_per_1m": 0.0,
+    "output_cost_per_1m": 0.0,
+    "estimated_cost_usd": 0.0,
+    "without_caching_cost_usd": 0.0,
+    "savings_pct": 0.0,
+    "openai_batch_discount_applied": false,
+    "openai_batch_pricing_multiplier": 1.0,
+    "estimated_cost_before_openai_batch_usd": 0.0
+  },
+  "local_cache": {
+    "entity_hits": 0,
+    "entity_misses": 0,
+    "fact_hits": 0,
+    "fact_misses": 0,
+    "overall_hit_rate": 0.0
+  },
+  "timing": {
+    "entity_extraction_ms": 0,
+    "fact_extraction_ms": 0,
+    "total_model_ms": 0,
+    "overhead_ms": 4
+  },
+  "entity_class_distribution": {},
+  "recap": {
+    "event_records_total": 0,
+    "claims_total": 0
+  }
+}
