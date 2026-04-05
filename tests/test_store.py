@@ -42,10 +42,25 @@ def _sample_entity(
     aliases: list[str],
     entity_type: str = "location",
 ) -> dict[str, object]:
+    entity_class = (
+        "actor"
+        if entity_type == "npc"
+        else "place"
+        if entity_type == "location"
+        else "group"
+        if entity_type == "faction"
+        else "object"
+        if entity_type == "item"
+        else "concept"
+    )
     return {
         **_base_record(),
         "entity_id": entity_id,
+        "entity_class": entity_class,
         "entity_type": entity_type,
+        "entity_kind": entity_class,
+        "decision": "entity",
+        "exclude_reason": None,
         "display_name": name,
         "canonical_name": None,
         "aliases": aliases,
@@ -54,6 +69,9 @@ def _sample_entity(
         "source_mention_ids": [f"men_{entity_id}"],
         "review_state": "unreviewed",
         "entity_tags": [],
+        "subtype_facets": [],
+        "narrative_tags": [],
+        "document_tags": [],
         "notes": None,
     }
 

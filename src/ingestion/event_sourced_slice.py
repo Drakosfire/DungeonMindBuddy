@@ -34,18 +34,18 @@ class SliceEvidenceSeed:
 
 
 _ENTITY_CATALOG: dict[str, dict[str, Any]] = {
-    "ent_mirathorn": {"display_name": "Mirathorn", "entity_type": "location"},
+    "ent_mirathorn": {"display_name": "Mirathorn", "entity_class": "place"},
     "ent_secure_shipment_shepherds": {
         "display_name": "Secure Shipment Shepherds",
-        "entity_type": "faction",
+        "entity_class": "group",
     },
     "ent_commander_elric_vane": {
         "display_name": "Commander Elric Vane",
-        "entity_type": "npc",
+        "entity_class": "actor",
     },
     "ent_captain_lysandra_ironveil": {
         "display_name": "Captain Lysandra Ironveil",
-        "entity_type": "npc",
+        "entity_class": "actor",
     },
 }
 
@@ -351,18 +351,21 @@ def _build_entities(evidence_units: list[dict[str, Any]]) -> list[dict[str, Any]
                 "updated_at": _NOW,
                 "record_status": "active",
                 "entity_id": entity_id,
-                "entity_type": entry["entity_type"],
-                "entity_kind": (
-                    "actor"
-                    if entry["entity_type"] == "npc"
-                    else "place"
-                    if entry["entity_type"] == "location"
-                    else "group"
-                    if entry["entity_type"] == "faction"
-                    else "object"
-                    if entry["entity_type"] == "item"
-                    else "unknown"
+                "entity_class": entry["entity_class"],
+                "entity_type": (
+                    "npc"
+                    if entry["entity_class"] == "actor"
+                    else "location"
+                    if entry["entity_class"] == "place"
+                    else "faction"
+                    if entry["entity_class"] == "group"
+                    else "item"
+                    if entry["entity_class"] == "object"
+                    else "other"
                 ),
+                "entity_kind": entry["entity_class"],
+                "decision": "entity",
+                "exclude_reason": None,
                 "display_name": entry["display_name"],
                 "canonical_name": None,
                 "aliases": [entry["display_name"]],
@@ -371,6 +374,9 @@ def _build_entities(evidence_units: list[dict[str, Any]]) -> list[dict[str, Any]
                 "source_mention_ids": [f"men_{entity_id}"],
                 "review_state": "reviewed",
                 "entity_tags": [],
+                "subtype_facets": [],
+                "narrative_tags": [],
+                "document_tags": [],
                 "semantic_facets": [],
                 "notes": None,
             }

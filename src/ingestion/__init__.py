@@ -4,6 +4,7 @@ from src.ingestion.docx_converter import docx_to_markdown, markdown_passthrough
 from src.ingestion.entity_extractor import (
     AsyncOpenAIResponsesEntityClient,
     OpenAIResponsesEntityClient,
+    UsageStats,
     extract_entities_batch,
     run_entity_extraction,
 )
@@ -34,6 +35,7 @@ __all__ = [
     "markdown_passthrough",
     "AsyncOpenAIResponsesEntityClient",
     "OpenAIResponsesEntityClient",
+    "UsageStats",
     "extract_entities_batch",
     "run_entity_extraction",
     "AsyncOpenAIResponsesFactClient",

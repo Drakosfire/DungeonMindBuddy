@@ -16,12 +16,12 @@ def _entity_meta_by_id(entities: list[dict[str, Any]]) -> dict[str, dict[str, st
         tag_list = [str(t).strip() for t in tags if str(t).strip()] if isinstance(tags, list) else []
         lookup[entity_id] = {
             "display_name": str(entity.get("display_name", entity_id)).strip() or entity_id,
-            "entity_type": str(entity.get("entity_type", "other")).strip() or "other",
-            "entity_kind": str(entity.get("entity_kind", "unknown")).strip() or "unknown",
+            "entity_class": str(entity.get("entity_class", entity.get("entity_type", "concept"))).strip()
+            or "concept",
             "entity_tags": tag_list,
-            "semantic_facets": [
+            "subtype_facets": [
                 str(t).strip()
-                for t in (entity.get("semantic_facets") or [])
+                for t in (entity.get("subtype_facets") or entity.get("semantic_facets") or [])
                 if str(t).strip()
             ],
         }
@@ -80,17 +80,15 @@ def format_projection_context(
             entity_id,
             {
                 "display_name": entity_id,
-                "entity_type": "other",
-                "entity_kind": "unknown",
+                "entity_class": "concept",
                 "entity_tags": [],
-                "semantic_facets": [],
+                "subtype_facets": [],
             },
         )
         display_name = metadata["display_name"]
-        entity_type = metadata["entity_type"]
-        entity_kind = metadata.get("entity_kind") or "unknown"
+        entity_class = metadata["entity_class"]
         tag_list = metadata.get("entity_tags") or []
-        facet_list = metadata.get("semantic_facets") or []
+        facet_list = metadata.get("subtype_facets") or []
         if tag_list:
             tag_suffix = " [" + ", ".join(tag_list) + "]"
         else:
@@ -99,9 +97,7 @@ def format_projection_context(
             facet_suffix = " {" + ", ".join(facet_list) + "}"
         else:
             facet_suffix = ""
-        lines.append(
-            f"== Entity: {display_name} ({entity_type}/{entity_kind}){tag_suffix}{facet_suffix} =="
-        )
+        lines.append(f"== Entity: {display_name} ({entity_class}){tag_suffix}{facet_suffix} ==")
 
         attributes = entity_payload.get("attributes", {})
         if not attributes:

@@ -46,14 +46,14 @@ def test_formats_minimal_projection_shape() -> None:
     entities = [
         {
             "entity_id": "ent_mirathorn",
-            "entity_type": "location",
+            "entity_class": "place",
             "display_name": "Mirathorn",
         }
     ]
     output = format_projection_context(projection, entities, question="Catch me up")
 
     assert "Question: Catch me up" in output
-    assert "== Entity: Mirathorn (location/unknown) ==" in output
+    assert "== Entity: Mirathorn (place) ==" in output
     assert "history: Founded over 200 years ago." in output
     assert "[CANON, from: layer=world, source_class=seed_reference, fact=fact_m_hist]" in output
 
@@ -63,29 +63,29 @@ def test_includes_entity_tags_in_header_when_present() -> None:
     entities = [
         {
             "entity_id": "ent_mirathorn",
-            "entity_type": "other",
+            "entity_class": "concept",
             "display_name": "Nameless Goddess",
             "entity_tags": ["deity", "lore_figure"],
         }
     ]
     output = format_projection_context(projection, entities)
-    assert "== Entity: Nameless Goddess (other/unknown) [deity, lore_figure] ==" in output
+    assert "== Entity: Nameless Goddess (concept) [deity, lore_figure] ==" in output
 
 
-def test_includes_entity_type_from_metadata() -> None:
+def test_includes_entity_class_from_metadata() -> None:
     projection = _projection_template()
     entities = [
-        {"entity_id": "ent_mirathorn", "entity_type": "location", "display_name": "Mirathorn"}
+        {"entity_id": "ent_mirathorn", "entity_class": "place", "display_name": "Mirathorn"}
     ]
     output = format_projection_context(projection, entities)
 
-    assert "(location/unknown)" in output
+    assert "(place)" in output
 
 
 def test_surfaces_conflicts_in_output() -> None:
     projection = _projection_template()
     entities = [
-        {"entity_id": "ent_mirathorn", "entity_type": "location", "display_name": "Mirathorn"}
+        {"entity_id": "ent_mirathorn", "entity_class": "place", "display_name": "Mirathorn"}
     ]
     output = format_projection_context(projection, entities)
 
@@ -123,7 +123,7 @@ def test_respects_entity_cap_with_truncation_note() -> None:
             }
         }
         metadata.append(
-            {"entity_id": entity_id, "entity_type": "other", "display_name": f"Entity {idx}"}
+            {"entity_id": entity_id, "entity_class": "concept", "display_name": f"Entity {idx}"}
         )
 
     projection = {"entities": entities_payload}
@@ -154,6 +154,6 @@ def test_campaign_truth_state_is_rendered_when_present() -> None:
             }
         }
     }
-    entities = [{"entity_id": "ent_wolf", "entity_type": "npc", "display_name": "the Wolf"}]
+    entities = [{"entity_id": "ent_wolf", "entity_class": "actor", "display_name": "the Wolf"}]
     output = format_projection_context(projection, entities)
     assert "[OBSERVED, from: layer=campaign, campaign=longmont-c1, source_class=observed_session_recap, fact=fact_wolf_obs]" in output

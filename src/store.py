@@ -39,6 +39,8 @@ class FactStore:
         self.entities: list[dict[str, Any]] = []
         self.facts: list[dict[str, Any]] = []
         self.canon_decisions: list[dict[str, Any]] = []
+        self.event_records: list[dict[str, Any]] = []
+        self.claims: list[dict[str, Any]] = []
         self.ingest_index: dict[str, dict[str, Any]] = {}
 
     def _path(self, name: str) -> Path:
@@ -61,6 +63,8 @@ class FactStore:
             self.canon_decisions = self._read_json_list(canon_path)
         else:
             self.canon_decisions = []
+        self.event_records = self._read_json_list(self._path("event_records"))
+        self.claims = self._read_json_list(self._path("claims"))
         ingest_index_path = self._path("ingest_index")
         if ingest_index_path.exists():
             payload = json.loads(ingest_index_path.read_text(encoding="utf-8"))
@@ -87,6 +91,14 @@ class FactStore:
         )
         self._path("canon_decisions").write_text(
             json.dumps(self.canon_decisions, indent=2, ensure_ascii=False),
+            encoding="utf-8",
+        )
+        self._path("event_records").write_text(
+            json.dumps(self.event_records, indent=2, ensure_ascii=False),
+            encoding="utf-8",
+        )
+        self._path("claims").write_text(
+            json.dumps(self.claims, indent=2, ensure_ascii=False),
             encoding="utf-8",
         )
         self._path("ingest_index").write_text(
@@ -137,8 +149,8 @@ class FactStore:
             "reason_code": reason_code,
             "existing_entity_id": existing.get("entity_id"),
             "candidate_entity_id": candidate.get("entity_id"),
-            "existing_type": existing.get("entity_type"),
-            "candidate_type": candidate.get("entity_type"),
+            "existing_class": existing.get("entity_class", existing.get("entity_type")),
+            "candidate_class": candidate.get("entity_class", candidate.get("entity_type")),
             "overlap": sorted(overlap),
         }
         with audit_path.open("a", encoding="utf-8") as handle:
@@ -148,7 +160,10 @@ class FactStore:
         names = self._filtered_entity_names(candidate)
         if not names:
             return None
-        candidate_type = str(candidate.get("entity_type", "other")).strip().lower() or "other"
+        candidate_class = (
+            str(candidate.get("entity_class", candidate.get("entity_type", "concept"))).strip().lower()
+            or "concept"
+        )
 
         for existing in self.entities:
             existing_names = self._filtered_entity_names(existing)
@@ -156,11 +171,14 @@ class FactStore:
             if not overlap:
                 continue
 
-            existing_type = str(existing.get("entity_type", "other")).strip().lower() or "other"
+            existing_class = (
+                str(existing.get("entity_class", existing.get("entity_type", "concept"))).strip().lower()
+                or "concept"
+            )
             if (
-                existing_type != candidate_type
-                and existing_type != "other"
-                and candidate_type != "other"
+                existing_class != candidate_class
+                and existing_class != "concept"
+                and candidate_class != "concept"
             ):
                 self._audit_entity_merge(
                     action="blocked",
@@ -232,9 +250,20 @@ class FactStore:
             merged_facets = list(matched.get("semantic_facets") or []) + list(
                 candidate.get("semantic_facets") or []
             )
+            merged_facets += list(matched.get("subtype_facets") or []) + list(
+                candidate.get("subtype_facets") or []
+            )
             matched["semantic_facets"] = normalize_semantic_facets(
                 merged_facets, max_facets=self._MAX_SEMANTIC_FACETS_MERGED
             )
+            matched["subtype_facets"] = list(matched["semantic_facets"])
+            for tag_field in ("narrative_tags", "document_tags"):
+                merged_field_tags = list(matched.get(tag_field) or []) + list(candidate.get(tag_field) or [])
+                matched[tag_field] = normalize_entity_tags(
+                    merged_field_tags, max_tags=self._MAX_ENTITY_TAGS_MERGED
+                )
+            if not matched.get("entity_class") and candidate.get("entity_class"):
+                matched["entity_class"] = candidate.get("entity_class")
             if not matched.get("entity_kind") and candidate.get("entity_kind"):
                 matched["entity_kind"] = candidate.get("entity_kind")
             if (
@@ -251,6 +280,14 @@ class FactStore:
     def add_canon_decisions(self, decisions: list[dict[str, Any]]) -> None:
         validate_many(decisions, "canon_decision.schema.json")
         self.canon_decisions.extend(deepcopy(decisions))
+
+    def add_event_records(self, records: list[dict[str, Any]]) -> None:
+        validate_many(records, "event_record.schema.json")
+        self.event_records.extend(deepcopy(records))
+
+    def add_claims(self, claims: list[dict[str, Any]]) -> None:
+        validate_many(claims, "claim.schema.json")
+        self.claims.extend(deepcopy(claims))
 
     def merge_quality_signals(self) -> dict[str, Any]:
         """Lightweight merge-hygiene metrics (alias cardinality; audit tail)."""
