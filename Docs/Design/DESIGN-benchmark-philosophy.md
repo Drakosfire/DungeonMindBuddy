@@ -1,7 +1,7 @@
 # Benchmark Philosophy and Lessons Learned
 
 **Date created:** 2026-03-28
-**Last updated:** 2026-03-28
+**Last updated:** 2026-04-03
 **Status:** Living document — update after each benchmark iteration
 
 ---
@@ -10,12 +10,111 @@
 
 DungeonMindBuddy's benchmark suite validates a multi-stage pipeline: raw corpus documents go in, and grounded GM-ready answers come out. Each benchmark tier tests a different contract along that pipeline.
 
+### Mirathorn Vertical Slice: Three-Gate Model (Canonical Framing)
+
+The Mirathorn vertical slice should be treated as **three separate gates**, not one blended pass/fail.
+
+#### Gate 1: Ingestion Quality (API-backed)
+
+**Suite:** `evals/mirathorn_vertical_slice/eval_entity_recall.py` + `eval_fact_quality.py`  
+**Primary question:** Can the system convert real corpus text into high-quality, schema-valid, benchmark-usable entities/facts?
+
+What it validates:
+
+- Pass 1 entity recall against Mirathorn gold (`strict`, `loose`, density guardrail).
+- Pass 2 fact quality gates (contract validity, gold coverage, projection parity, precision, cache-replay determinism).
+- That extraction runs through real OpenAI-backed paths (no heuristic fallback for strict gates).
+
+Critical examination:
+
+- **Strength:** Closest to production ingestion behavior.
+- **Weakness:** Slowest and most brittle due to external API/network dependencies.
+- **Failure ambiguity risk:** API/network outages can fail the gate without a code regression.
+- **Mitigation:** Keep fixture-only projection gates separate so ingestion failures do not obscure reducer health.
+
+#### Gate 2: Projection Semantics (deterministic)
+
+**Suite:** `evals/mirathorn_vertical_slice/run_step1.py`, `run_step2.py`, `run_step3.py`  
+**Primary question:** Given fixed inputs, does layered projection logic behave correctly and deterministically?
+
+What it validates:
+
+- World baseline integrity.
+- Campaign overlay behavior without mutating world canon.
+- Truth-state precedence (`CANON`, `PREP`, `OBSERVED`).
+- Expected conflict behavior and competing fact surfaces.
+
+Critical examination:
+
+- **Strength:** Fast, stable, deterministic, ideal for logic regressions.
+- **Weakness:** Fixture-driven; may not reflect extraction drift in live corpora.
+- **False confidence risk:** Projection can be green while ingestion is red.
+- **Mitigation:** Never treat projection pass as end-to-end pass without Gate 1.
+
+#### Gate 3: QA/Synthesis Usability (end-user contract)
+
+**Suite:** `evals/mirathorn_vertical_slice/eval_synthesis.py`  
+**Primary question:** After ingest/projection, does a GM-facing `ask` flow produce grounded, usable answers with stable CLI behavior?
+
+What it validates:
+
+- Ingest round-trip minimum counts.
+- Grounded answer heuristics.
+- Provenance/conflict visibility in context.
+- CLI command-path and error-path stability.
+
+Critical examination:
+
+- **Strength:** Directly tests user-visible behavior.
+- **Weakness:** Some scoring is heuristic and can pass mediocre prose.
+- **Gap:** Does not yet enforce citation-grade factual QA against a strict answer gold set.
+- **Mitigation:** Keep rubric diagnostics machine-readable and pair with targeted question-set regressions.
+
+#### Operational Rule
+
+The Mirathorn vertical slice is only "green" when **all three gates** pass independently. Report gate-level status before any aggregate status.
+
+#### Current State (latest validated run)
+
+Latest full-chain execution attempt:
+
+```bash
+env PYTHONPATH=. uv run python evals/mirathorn_vertical_slice/run_step1.py \
+&& env PYTHONPATH=. uv run python evals/mirathorn_vertical_slice/run_step2.py \
+&& env PYTHONPATH=. uv run python evals/mirathorn_vertical_slice/run_step3.py \
+&& env PYTHONPATH=. uv run python evals/mirathorn_vertical_slice/eval_entity_recall.py \
+&& env PYTHONPATH=. uv run python evals/mirathorn_vertical_slice/eval_fact_quality.py \
+&& env PYTHONPATH=. uv run python evals/mirathorn_vertical_slice/eval_synthesis.py
+```
+
+Observed gate status snapshot:
+
+- **Gate 1 (Ingestion Quality): PASS**
+  - `eval_entity_recall.py`: **PASS**
+    - strict recall `1.000`
+    - loose recall `1.000`
+    - density guardrail: PASS
+  - `eval_fact_quality.py`: **PASS** (C1-C5 all PASS)
+    - C2 Coverage recall `1.000`
+    - C3 Projection parity: PASS
+- **Gate 2 (Projection Semantics): PASS**
+  - `run_step1.py` / `run_step2.py` / `run_step3.py` deterministic semantics: PASS
+- **Gate 3 (QA/Synthesis): PASS**
+  - `eval_synthesis.py`: overall PASS
+
+Current implication:
+
+- All three Mirathorn gates currently pass independently.
+- Aggregate vertical slice verdict is **GREEN**.
+- This run meets the benchmark rule: gate-level proof first, aggregate status second.
+
 ### Tier 1: Deterministic Projection (no LLM, no network)
 
 **Suite:** `evals/canon_layering/run_benchmarks.py`
 **Runs:** 6 golden scenarios with hand-authored inputs and expected outputs.
 
 What it validates:
+
 - **Layer isolation:** World-layer projection never contains campaign-layer facts. Campaign facts cannot mutate world canon.
 - **Provenance completeness:** Every projected attribute traces back to at least one evidence ID.
 - **Conflict detection:** When two facts compete for the same (entity, attribute) slot, the system detects and records the conflict.
@@ -31,6 +130,7 @@ Why it matters: The projection is the single source of truth that feeds synthesi
 **Runs:** End-to-end ingestion of a locked source document through chunking, entity extraction, fact extraction, and projection.
 
 What it validates:
+
 - **Gate A — Source integrity:** SHA-256 fingerprint of the source document matches the locked reference. Prevents drift when corpus files move or get edited.
 - **Gate V — Extraction viability:** Entity count > 0, fact count > 0, duplicate fact ratio below threshold, conflict count within expected band. Catches catastrophic extraction regressions.
 - **Gate B — Event contract integrity:** Every event has required schema fields, proper ordering, and valid layer/campaign references.
@@ -39,12 +139,26 @@ What it validates:
 
 Why it matters: This tier catches regressions in the LLM-dependent extraction pipeline. Because LLM outputs are non-deterministic, gates use threshold bands rather than exact equality. The viability gate was added specifically to fail fast on "zero entities extracted" scenarios that would otherwise produce misleading downstream results.
 
+### Tier 2.5: Mirathorn Ingestion + Projection + QA Vertical Slice
+
+**Suite:** `evals/mirathorn_vertical_slice/`  
+**Runs:** A constrained but realistic end-to-end benchmark over Mirathorn using the three-gate model above.
+
+Recommended execution order:
+
+1. Projection semantics gate (`run_step1.py` -> `run_step2.py` -> `run_step3.py`)
+2. Ingestion quality gate (`eval_entity_recall.py` -> `eval_fact_quality.py`)
+3. QA/synthesis usability gate (`eval_synthesis.py`)
+
+Why this order: deterministic failures should be triaged before API-backed failures, and QA should only be interpreted after ingestion + projection are known-good.
+
 ### Tier 3: Synthesis Quality (requires API, question-answer evaluation)
 
 **Suite:** `evals/mirathorn_vertical_slice/eval_synthesis.py` + `run_council_room_question_set.py`
 **Runs:** Ingests corpus, asks GM-style questions, scores answers against rubrics.
 
 What it validates:
+
 - **Gate D1 — Ingest round-trip:** Minimum evidence units, entities, and facts extracted from the source document.
 - **Gate D2 — Grounded prose:** The synthesized answer mentions key domain terms, meets minimum length, and contains no error stubs.
 - **Gate D3 — Provenance in context:** The formatted context contains entity headers, truth-state annotations, and conflict markers.
@@ -90,6 +204,7 @@ Why it matters: Distinguishing "the pipeline is broken" from "the data isn't the
 **Root cause:** LLMs are trained to paraphrase. Given evidence that says "Bonogo deals the killing blow," the model synthesizes "the Wolf was decapitated" because that's what killing blow means in context.
 
 **Fix (two-pronged):**
+
 1. **Synthesis prompt tuning:** Added a "terminal outcome rule" instructing the model to include terminal phrases verbatim from projection evidence. This caused the model to write `"deals the killing blow"` as a direct quote.
 2. **Semantic scoring:** Added `SEMANTIC_EQUIVALENCES` mapping tokens to regex groups (e.g., "killing blow" → ["decapitated", "head removed"]). The semantic scorer acts as a safety net when the model paraphrases despite the prompt instruction.
 
@@ -152,38 +267,44 @@ Why it matters: Distinguishing "the pipeline is broken" from "the data isn't the
 These are the principles we've validated empirically. They apply to any new benchmark added to the suite.
 
 1. **Score semantics, not tokens.** Use equivalence groups for must-hit tokens. Keep strict scoring as a canary, not the primary signal.
-
 2. **Classify failures, don't just count them.** At minimum: `pass_updated`, `fail_stale`, `fail_incomplete`, `fail_error`. Different failure classes point to different system layers.
-
 3. **Tighten the contract, don't loosen the rubric.** When the model paraphrases, add synthesis prompt rules. When the data is missing, ingest more corpus. Don't lower the bar to make the number go up.
-
 4. **Emit machine-readable diagnostics.** Every verdict should include `must_hits`, `stale_hits`, `global_stale_hits`, `semantic_must_hits`. Regressions should be diagnosable from the JSON output alone.
-
 5. **Verify data before debugging code.** The fastest benchmark triage is: does the expected fact exist in the projection context? If no, `rg` the corpus. If it's not in the corpus, it's a coverage gap. If it's in the corpus but not in the projection, it's an extraction/projection bug.
-
 6. **Normalize golden outputs.** New metadata fields should not break existing golden output tests. Keep a strip list and update it when schema evolves.
-
 7. **Keep an adversarial fixture.** Maintain at least one test case where the answer contains both updated deltas and a localized unchanged trait. This prevents the stale detector from being too aggressive.
-
 8. **Test scoring logic with unit tests.** The `classify_answer` and `classify_answer_semantic` functions have their own test file (`tests/evals/test_council_room_scoring.py`). Scoring drift is silent and dangerous — unit tests catch it before the benchmark runs.
+9. **Separate external-dependency failures from logic failures.** Network/API outages are not reducer regressions. Keep gate status split so operational failures do not contaminate logic confidence.
+10. **Require gate-level reporting.** Every benchmark run should emit: `gate_ingestion`, `gate_projection`, `gate_qa`, and only then an optional aggregate.
 
 ---
 
 ## Appendix: Current Benchmark Inventory
 
-| Suite | Location | Requires API | Runtime | What it tests |
-|-------|----------|-------------|---------|---------------|
-| Canon layering (golden) | `evals/canon_layering/` | No | ~1s | Projection determinism, layer isolation, conflict detection |
-| LLM ingestion slice | `evals/llm_ingestion_slice/` | Yes | ~30s | Source integrity, extraction viability, event contracts, workflow progression |
-| Synthesis eval (Phase D) | `evals/mirathorn_vertical_slice/eval_synthesis.py` | Yes | ~45s | Ingest round-trip, grounded prose, provenance, CLI stability |
-| Council Room questions | `evals/mirathorn_vertical_slice/run_council_room_question_set.py` | Yes | ~40s | Dual-signal answer quality for 5 targeted GM questions |
-| Corpus remote | `evals/corpus_remote/` | Varies | ~10s | Remote artifact validation, inventory building |
+
+| Suite                           | Location                                                                       | Requires API | Runtime | What it tests                                                                 |
+| ------------------------------- | ------------------------------------------------------------------------------ | ------------ | ------- | ----------------------------------------------------------------------------- |
+| Canon layering (golden)         | `evals/canon_layering/`                                                        | No           | ~1s     | Projection determinism, layer isolation, conflict detection                   |
+| LLM ingestion slice             | `evals/llm_ingestion_slice/`                                                   | Yes          | ~30s    | Source integrity, extraction viability, event contracts, workflow progression |
+| Mirathorn gate 1 (ingestion)    | `evals/mirathorn_vertical_slice/eval_entity_recall.py`, `eval_fact_quality.py` | Yes          | minutes | API-backed extraction quality and guardrails                                  |
+| Mirathorn gate 2 (projection)   | `evals/mirathorn_vertical_slice/run_step1.py`, `run_step2.py`, `run_step3.py`  | No           | ~1-2s   | Layer semantics and conflict behavior over fixed fixtures                     |
+| Mirathorn gate 3 (QA/synthesis) | `evals/mirathorn_vertical_slice/eval_synthesis.py`                             | Yes          | ~45s+   | End-user ingest -> ask usability contract                                     |
+| Council Room questions          | `evals/mirathorn_vertical_slice/run_council_room_question_set.py`              | Yes          | ~40s    | Dual-signal answer quality for targeted GM questions                          |
+| Corpus remote                   | `evals/corpus_remote/`                                                         | Varies       | ~10s    | Remote artifact validation, inventory building                                |
+
 
 Commands:
+
 ```bash
 uv run pytest tests/                                                    # All unit tests (~2s)
 uv run python evals/canon_layering/run_benchmarks.py                    # Golden projections (~1s)
 uv run python evals/llm_ingestion_slice/run_slice.py                    # Ingestion gates (~30s)
+uv run python evals/mirathorn_vertical_slice/run_step1.py               # Mirathorn projection gate
+uv run python evals/mirathorn_vertical_slice/run_step2.py
+uv run python evals/mirathorn_vertical_slice/run_step3.py
+uv run python evals/mirathorn_vertical_slice/eval_entity_recall.py      # Mirathorn ingestion gate
+uv run python evals/mirathorn_vertical_slice/eval_fact_quality.py
 uv run python evals/mirathorn_vertical_slice/eval_synthesis.py          # Synthesis gates (~45s)
 uv run python evals/mirathorn_vertical_slice/run_council_room_question_set.py  # Question set (~40s)
 ```
+
