@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any, Sequence
 
 from dotenv import load_dotenv
+from openai import OpenAI
 
 from src.agent.context_formatter import format_projection_context
 from src.agent.synthesis import synthesize_answer_async
@@ -29,8 +30,21 @@ from src.ingestion.frontmatter_inference import (
     infer_frontmatter_metadata,
     metadata_preview,
 )
-from src.ingestion.entity_extractor import AsyncOpenAIResponsesEntityClient, run_entity_extraction
-from src.ingestion.fact_extractor import AsyncOpenAIResponsesFactClient, run_fact_extraction
+from src.ingestion.entity_extractor import (
+    AsyncOpenAIResponsesEntityClient,
+    apply_entity_batch_outputs_to_cache,
+    prepare_entity_batch_requests,
+    run_entity_extraction,
+    _load_fast_smart_model_id,
+)
+from src.ingestion.fact_extractor import (
+    AsyncOpenAIResponsesFactClient,
+    apply_fact_batch_outputs_to_cache,
+    prepare_fact_batch_requests,
+    run_fact_extraction,
+    _load_model_id as _load_fact_structured_model_id,
+)
+from src.ingestion.openai_batch_pipeline import run_batch_job
 from src.contracts.schema_validation import validate_many
 from src.contracts.temporal_tick_gate import (
     campaign_temporal_quality_summary,
@@ -58,7 +72,14 @@ def _load_env() -> None:
     ]
     for env_file in env_candidates:
         if env_file.exists():
-            load_dotenv(env_file, override=True)
+            try:
+                load_dotenv(env_file, override=True)
+            except OSError as exc:
+                logging.getLogger(__name__).warning(
+                    "Could not load env file %s: %s. Continuing with process environment.",
+                    env_file,
+                    exc,
+                )
 
 
 def _fact_counts_by_entity(store: FactStore) -> dict[str, int]:
@@ -81,6 +102,76 @@ def _file_sha256(path: Path) -> str:
         for chunk in iter(lambda: handle.read(65536), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def compute_ingest_key_for_path(
+    source_path: Path,
+    *,
+    layer: str | None = None,
+    campaign: str | None = None,
+    source_class_cli: str | None = None,
+    title: str | None = None,
+    no_frontmatter: bool = False,
+) -> str | None:
+    """Return the ingest_key used in ``FactStore.ingest_index`` when scope is known without user input.
+
+    Matches ``DungeonBuddyCLI._cmd_ingest`` for the same path and CLI overrides. Returns ``None`` when
+    ingest would require interaction (missing frontmatter), invalid frontmatter, metadata/CLI conflicts,
+    or incomplete scope — callers should run normal ingest in those cases.
+    """
+    if not source_path.exists():
+        return None
+
+    metadata_layer = layer
+    metadata_campaign_id = campaign
+    metadata_source_class = source_class_cli
+
+    if source_path.suffix.lower() == ".md":
+        try:
+            metadata, _body = load_document_frontmatter(source_path)
+        except FrontmatterError:
+            return None
+        if metadata is None and not no_frontmatter:
+            return None
+        if metadata is not None:
+            md = metadata.to_dict()
+            conflicts: list[str] = []
+            if layer and layer != md["canon_layer"]:
+                conflicts.append(
+                    f"--layer={layer} conflicts with frontmatter canon_layer={md['canon_layer']}"
+                )
+            if campaign is not None and campaign != md["campaign_id"]:
+                conflicts.append(
+                    f"--campaign={campaign} conflicts with frontmatter campaign_id={md['campaign_id']}"
+                )
+            if source_class_cli and source_class_cli != md["source_class"]:
+                conflicts.append(
+                    f"--source-class={source_class_cli} conflicts with frontmatter "
+                    f"source_class={md['source_class']}"
+                )
+            if title and title != md["title"]:
+                conflicts.append(f"--title={title} conflicts with frontmatter title={md['title']}")
+            if conflicts:
+                return None
+            metadata_layer = str(md["canon_layer"])
+            metadata_campaign_id = (
+                str(md["campaign_id"]) if md.get("campaign_id") is not None else None
+            )
+            metadata_source_class = str(md["source_class"])
+
+    if metadata_layer is None:
+        return None
+    if metadata_layer == "campaign" and not metadata_campaign_id:
+        return None
+
+    source_class = metadata_source_class
+    if not source_class:
+        source_class = "seed_reference" if metadata_layer == "world" else "planning_document"
+
+    source_fingerprint = _file_sha256(source_path)
+    return (
+        f"{source_fingerprint}|layer={metadata_layer}|campaign={metadata_campaign_id}|source_class={source_class}"
+    )
 
 
 def _write_json(path: Path, payload: Any) -> None:
@@ -328,8 +419,19 @@ class DungeonBuddyCLI:
         parser.add_argument("--chunk-min-chars", type=int, default=50)
         parser.add_argument("--entity-concurrency", type=int, default=8)
         parser.add_argument("--fact-concurrency", type=int, default=8)
+        parser.add_argument(
+            "--batch-size",
+            type=int,
+            default=5,
+            help="Evidence units per LLM call for entity/fact extraction (default 5)",
+        )
         parser.add_argument("--no-frontmatter", action="store_true")
         parser.add_argument("--force", action="store_true")
+        parser.add_argument(
+            "--use-openai-batch-api",
+            action="store_true",
+            help="Use OpenAI Batch API for entity/fact extraction (async, ~50%% cost vs realtime)",
+        )
         parsed = self._safe_parse(parser, args)
         if parsed is None:
             return
@@ -488,6 +590,20 @@ class DungeonBuddyCLI:
                 },
             )
             return
+        if parsed.batch_size < 1:
+            print("Error: --batch-size must be >= 1.")
+            self._record_event(
+                "ingest_runs",
+                {
+                    "run_id": run_id,
+                    "timestamp": _utc_now_iso(),
+                    "status": "error",
+                    "error": "invalid_batch_size",
+                    "source_path": str(source_path),
+                    "batch_size": parsed.batch_size,
+                },
+            )
+            return
 
         api_key = os.getenv("OPENAI_API_KEY")
         if not api_key:
@@ -551,6 +667,7 @@ class DungeonBuddyCLI:
                 "chunk_min_chars": parsed.chunk_min_chars,
                 "entity_concurrency": parsed.entity_concurrency,
                 "fact_concurrency": parsed.fact_concurrency,
+                "extraction_batch_size": parsed.batch_size,
                 "source_fingerprint": source_fingerprint,
             },
         )
@@ -587,66 +704,263 @@ class DungeonBuddyCLI:
             if len(evidence_units) == 0:
                 raise RuntimeError("Early exit: chunking produced zero evidence units.")
 
-            entity_client = AsyncOpenAIResponsesEntityClient(api_key=api_key)
-            t1 = time.perf_counter()
-            entities = run_entity_extraction(
-                evidence_units,
-                known_entities=self.store.list_entities(),
-                concurrency=parsed.entity_concurrency,
-                cache_dir=cache_dir,
-                openai_client=entity_client,
-                allow_heuristic_fallback=False,
-            )
-            entity_ms = int((time.perf_counter() - t1) * 1000)
-            self._record_event(
-                "model_calls",
-                {
-                    "run_id": run_id,
-                    "timestamp": _utc_now_iso(),
-                    "stage": "entity_extraction",
-                    "duration_ms": entity_ms,
-                    "input_units": len(evidence_units),
-                    "output_entities": len(entities),
-                    "model_role": "structured_generation",
-                },
-            )
-            print(f"  Pass 1 entity extraction... {len(entities)} entities")
-            self.logger.info(
-                "Ingest run_id=%s stage=entity_extraction entities=%d duration_ms=%d",
-                run_id,
-                len(entities),
-                entity_ms,
-            )
+            recap_artifacts: dict[str, list[dict[str, Any]]] = {
+                "event_records": [],
+                "claims": [],
+            }
+            entity_model = _load_fast_smart_model_id()
+            fact_model = _load_fact_structured_model_id()
+
+            if parsed.use_openai_batch_api:
+                batch_work = self.logs_dir / "openai_batch" / run_id
+                batch_work.mkdir(parents=True, exist_ok=True)
+
+                t1 = time.perf_counter()
+                ent_lines, ent_manifest = prepare_entity_batch_requests(
+                    evidence_units,
+                    known_entities=self.store.list_entities(),
+                    model=entity_model,
+                    batch_size=parsed.batch_size,
+                    cache_dir=cache_dir,
+                )
+                _write_json(batch_work / "entity_batch_manifest.json", ent_manifest)
+                ent_batch_usage = {"input_tokens": 0, "output_tokens": 0, "cached_tokens": 0}
+                entity_batch_api_calls = 0
+                if ent_lines:
+                    batch_client = OpenAI(api_key=api_key)
+                    out_rows, err_rows, _meta = run_batch_job(
+                        batch_client,
+                        lines=ent_lines,
+                        work_dir=batch_work,
+                        file_prefix="entity",
+                    )
+                    if err_rows:
+                        print(
+                            f"  Warning: entity batch error file has {len(err_rows)} row(s).",
+                            flush=True,
+                        )
+                    fails, ent_batch_usage = apply_entity_batch_outputs_to_cache(
+                        out_rows,
+                        ent_manifest,
+                        model_id=entity_model,
+                        cache_dir=cache_dir,
+                    )
+                    if fails:
+                        raise RuntimeError(
+                            "OpenAI Batch entity step failed for custom_id(s): " + ", ".join(fails)
+                        )
+                    entity_batch_api_calls = 1
+
+                entity_result = run_entity_extraction(
+                    evidence_units,
+                    known_entities=self.store.list_entities(),
+                    model=entity_model,
+                    concurrency=parsed.entity_concurrency,
+                    batch_size=parsed.batch_size,
+                    cache_dir=cache_dir,
+                    openai_client=None,
+                    allow_heuristic_fallback=False,
+                    recap_artifacts=recap_artifacts,
+                )
+                entities = entity_result["entities"]
+                entity_ms = int((time.perf_counter() - t1) * 1000)
+                self._record_event(
+                    "model_calls",
+                    {
+                        "run_id": run_id,
+                        "timestamp": _utc_now_iso(),
+                        "stage": "entity_extraction",
+                        "duration_ms": entity_ms,
+                        "input_units": len(evidence_units),
+                        "output_entities": len(entities),
+                        "model_role": "structured_generation",
+                        "usage": ent_batch_usage,
+                        "cache_hits": entity_result["cache_hits"],
+                        "cache_misses": entity_result["cache_misses"],
+                        "model_name": entity_result.get("model_name", ""),
+                        "event_records_count": len(recap_artifacts["event_records"]),
+                        "claims_count": len(recap_artifacts["claims"]),
+                        "openai_batch": True,
+                        "api_calls": entity_batch_api_calls,
+                    },
+                )
+                print(f"  Pass 1 entity extraction (OpenAI Batch)... {len(entities)} entities")
+                self.logger.info(
+                    "Ingest run_id=%s stage=entity_extraction batch_api entities=%d duration_ms=%d",
+                    run_id,
+                    len(entities),
+                    entity_ms,
+                )
+            else:
+                entity_client = AsyncOpenAIResponsesEntityClient(api_key=api_key)
+                t1 = time.perf_counter()
+                entity_result = run_entity_extraction(
+                    evidence_units,
+                    known_entities=self.store.list_entities(),
+                    model=entity_model,
+                    concurrency=parsed.entity_concurrency,
+                    batch_size=parsed.batch_size,
+                    cache_dir=cache_dir,
+                    openai_client=entity_client,
+                    allow_heuristic_fallback=False,
+                    recap_artifacts=recap_artifacts,
+                )
+                entities = entity_result["entities"]
+                entity_usage = entity_result["usage"]
+                entity_ms = int((time.perf_counter() - t1) * 1000)
+                self._record_event(
+                    "model_calls",
+                    {
+                        "run_id": run_id,
+                        "timestamp": _utc_now_iso(),
+                        "stage": "entity_extraction",
+                        "duration_ms": entity_ms,
+                        "input_units": len(evidence_units),
+                        "output_entities": len(entities),
+                        "model_role": "structured_generation",
+                        "usage": entity_usage,
+                        "cache_hits": entity_result["cache_hits"],
+                        "cache_misses": entity_result["cache_misses"],
+                        "model_name": entity_result.get("model_name", ""),
+                        "event_records_count": len(recap_artifacts["event_records"]),
+                        "claims_count": len(recap_artifacts["claims"]),
+                    },
+                )
+                print(f"  Pass 1 entity extraction... {len(entities)} entities")
+                self.logger.info(
+                    "Ingest run_id=%s stage=entity_extraction entities=%d duration_ms=%d",
+                    run_id,
+                    len(entities),
+                    entity_ms,
+                )
+
             if len(entities) == 0:
                 raise RuntimeError("Early exit: entity extraction produced zero entities.")
 
-            fact_client = AsyncOpenAIResponsesFactClient(api_key=api_key)
-            t2 = time.perf_counter()
-            facts = run_fact_extraction(
-                evidence_units,
-                entities=entities,
-                canon_layer=metadata_layer,
-                campaign_id=campaign_id,
-                source_class=source_class,
-                concurrency=parsed.fact_concurrency,
-                cache_dir=cache_dir,
-                openai_client=fact_client,
-                allow_heuristic_fallback=False,
-            )
-            fact_ms = int((time.perf_counter() - t2) * 1000)
-            self._record_event(
-                "model_calls",
-                {
-                    "run_id": run_id,
-                    "timestamp": _utc_now_iso(),
-                    "stage": "fact_extraction",
-                    "duration_ms": fact_ms,
-                    "input_units": len(evidence_units),
-                    "input_entities": len(entities),
-                    "output_facts": len(facts),
-                    "model_role": "structured_generation",
-                },
-            )
+            if parsed.use_openai_batch_api:
+                batch_work = self.logs_dir / "openai_batch" / run_id
+                t2 = time.perf_counter()
+                fact_lines, fact_manifest = prepare_fact_batch_requests(
+                    evidence_units,
+                    entities=entities,
+                    model=fact_model,
+                    batch_size=parsed.batch_size,
+                    cache_dir=cache_dir,
+                )
+                _write_json(batch_work / "fact_batch_manifest.json", fact_manifest)
+                fact_batch_usage = {"input_tokens": 0, "output_tokens": 0, "cached_tokens": 0}
+                fact_batch_api_calls = 0
+                if fact_lines:
+                    batch_client = OpenAI(api_key=api_key)
+                    out_rows, err_rows, _meta = run_batch_job(
+                        batch_client,
+                        lines=fact_lines,
+                        work_dir=batch_work,
+                        file_prefix="fact",
+                    )
+                    if err_rows:
+                        print(
+                            f"  Warning: fact batch error file has {len(err_rows)} row(s).",
+                            flush=True,
+                        )
+                    fails, fact_batch_usage = apply_fact_batch_outputs_to_cache(
+                        out_rows,
+                        fact_manifest,
+                        model_id=fact_model,
+                        cache_dir=cache_dir,
+                    )
+                    if fails:
+                        raise RuntimeError(
+                            "OpenAI Batch fact step failed for custom_id(s): " + ", ".join(fails)
+                        )
+                    fact_batch_api_calls = 1
+
+                fact_result = run_fact_extraction(
+                    evidence_units,
+                    entities=entities,
+                    canon_layer=metadata_layer,
+                    campaign_id=campaign_id,
+                    source_class=source_class,
+                    model=fact_model,
+                    concurrency=parsed.fact_concurrency,
+                    batch_size=parsed.batch_size,
+                    cache_dir=cache_dir,
+                    openai_client=None,
+                    allow_heuristic_fallback=False,
+                )
+                facts = fact_result["facts"]
+                fact_ms = int((time.perf_counter() - t2) * 1000)
+                self._record_event(
+                    "model_calls",
+                    {
+                        "run_id": run_id,
+                        "timestamp": _utc_now_iso(),
+                        "stage": "fact_extraction",
+                        "duration_ms": fact_ms,
+                        "input_units": len(evidence_units),
+                        "input_entities": len(entities),
+                        "output_facts": len(facts),
+                        "model_role": "structured_generation",
+                        "usage": fact_batch_usage,
+                        "cache_hits": fact_result["cache_hits"],
+                        "cache_misses": fact_result["cache_misses"],
+                        "scoped_prompts": fact_result["scoped_prompts"],
+                        "model_name": fact_result.get("model_name", ""),
+                        "openai_batch": True,
+                        "api_calls": fact_batch_api_calls,
+                    },
+                )
+                print(f"  Pass 2 fact extraction (OpenAI Batch)... {len(facts)} facts")
+                self.logger.info(
+                    "Ingest run_id=%s stage=fact_extraction batch_api facts=%d duration_ms=%d",
+                    run_id,
+                    len(facts),
+                    fact_ms,
+                )
+            else:
+                fact_client = AsyncOpenAIResponsesFactClient(api_key=api_key)
+                t2 = time.perf_counter()
+                fact_result = run_fact_extraction(
+                    evidence_units,
+                    entities=entities,
+                    canon_layer=metadata_layer,
+                    campaign_id=campaign_id,
+                    source_class=source_class,
+                    model=fact_model,
+                    concurrency=parsed.fact_concurrency,
+                    batch_size=parsed.batch_size,
+                    cache_dir=cache_dir,
+                    openai_client=fact_client,
+                    allow_heuristic_fallback=False,
+                )
+                facts = fact_result["facts"]
+                fact_usage = fact_result["usage"]
+                fact_ms = int((time.perf_counter() - t2) * 1000)
+                self._record_event(
+                    "model_calls",
+                    {
+                        "run_id": run_id,
+                        "timestamp": _utc_now_iso(),
+                        "stage": "fact_extraction",
+                        "duration_ms": fact_ms,
+                        "input_units": len(evidence_units),
+                        "input_entities": len(entities),
+                        "output_facts": len(facts),
+                        "model_role": "structured_generation",
+                        "usage": fact_usage,
+                        "cache_hits": fact_result["cache_hits"],
+                        "cache_misses": fact_result["cache_misses"],
+                        "scoped_prompts": fact_result["scoped_prompts"],
+                        "model_name": fact_result.get("model_name", ""),
+                    },
+                )
+                print(f"  Pass 2 fact extraction... {len(facts)} facts")
+                self.logger.info(
+                    "Ingest run_id=%s stage=fact_extraction facts=%d duration_ms=%d",
+                    run_id,
+                    len(facts),
+                    fact_ms,
+                )
             print(f"  Pass 2 fact extraction... {len(facts)} facts")
             self.logger.info(
                 "Ingest run_id=%s stage=fact_extraction facts=%d duration_ms=%d",
@@ -702,6 +1016,10 @@ class DungeonBuddyCLI:
         self.store.add_evidence_units(evidence_units)
         self.store.add_entities(entities)
         self.store.add_facts(facts)
+        if recap_artifacts["event_records"]:
+            self.store.add_event_records(recap_artifacts["event_records"])
+        if recap_artifacts["claims"]:
+            self.store.add_claims(recap_artifacts["claims"])
         self.store.record_ingest_fingerprint(
             ingest_key,
             {
@@ -719,7 +1037,9 @@ class DungeonBuddyCLI:
             "  Stored. Total: "
             f"{len(self.store.evidence_units)} evidence units, "
             f"{len(self.store.entities)} entities, "
-            f"{len(self.store.facts)} facts."
+            f"{len(self.store.facts)} facts, "
+            f"{len(recap_artifacts['event_records'])} event_records, "
+            f"{len(recap_artifacts['claims'])} claims."
         )
         total_ms = int((time.perf_counter() - started) * 1000)
         self._record_event(
@@ -737,6 +1057,7 @@ class DungeonBuddyCLI:
                 "chunk_min_chars": parsed.chunk_min_chars,
                 "entity_concurrency": parsed.entity_concurrency,
                 "fact_concurrency": parsed.fact_concurrency,
+                "extraction_batch_size": parsed.batch_size,
                 "source_fingerprint": source_fingerprint,
                 "artifact_dir": str(artifacts_dir),
                 "gate_report_path": str(artifacts_dir / "gate_report.json"),
@@ -893,9 +1214,9 @@ class DungeonBuddyCLI:
         for entity in entities:
             entity_id = str(entity.get("entity_id", ""))
             display_name = str(entity.get("display_name", entity_id))
-            entity_type = str(entity.get("entity_type", "other"))
+            entity_class = str(entity.get("entity_class", entity.get("entity_type", "concept")))
             fact_count = counts.get(entity_id, 0)
-            print(f"- {display_name} ({entity_type}) [{entity_id}] facts={fact_count}")
+            print(f"- {display_name} ({entity_class}) [{entity_id}] facts={fact_count}")
         self.logger.info("Entities listed count=%d", len(entities))
 
     def _cmd_projection(self, args: Sequence[str]) -> None:
@@ -970,9 +1291,17 @@ class DungeonBuddyCLI:
             handle.write(json.dumps(payload, ensure_ascii=False) + "\n")
 
 
+DEFAULT_STORE_DIR = Path("out/stores/dungeonbuddy_store")
+
+
 def _build_root_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="DungeonMindBuddy CLI")
-    parser.add_argument("--store", type=Path, default=Path("./dungeonbuddy_store"))
+    parser.add_argument(
+        "--store",
+        type=Path,
+        default=DEFAULT_STORE_DIR,
+        help="Fact store directory (default: out/stores/dungeonbuddy_store)",
+    )
     parser.add_argument("--verbose", action="store_true", help="Enable debug-level logs.")
     return parser
 
