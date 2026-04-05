@@ -1,0 +1,122 @@
+[
+  {
+    "anchor_id": "mirathorn_city",
+    "intent": "Mirathorn should be extracted as a place.",
+    "expected_class": "place",
+    "expected_names": ["Mirathorn", "City of Mirathorn"],
+    "source_text_marker": "Mirathorn is a fortified city",
+    "source_file": "The City of Mirathorn.md",
+    "resolution_strategy": "name_in_store",
+    "min_fact_count": 5,
+    "surface": "core_extraction"
+  },
+  {
+    "anchor_id": "lake_mirathorn",
+    "intent": "Lake Mirathorn should be extracted as a place.",
+    "expected_class": "place",
+    "expected_names": ["Lake Mirathorn"],
+    "source_file": "The City of Mirathorn.md",
+    "resolution_strategy": "name_in_store",
+    "surface": "core_extraction"
+  },
+  {
+    "anchor_id": "stormspire_peaks",
+    "intent": "Stormspire Peaks should be extracted as a place.",
+    "expected_class": "place",
+    "expected_names": ["Stormspire Peaks"],
+    "source_file": "The City of Mirathorn.md",
+    "resolution_strategy": "name_in_store",
+    "surface": "core_extraction"
+  },
+  {
+    "anchor_id": "lundayell_empire",
+    "intent": "Lundayell Empire should be extracted as a group.",
+    "expected_class": "group",
+    "expected_names": ["Lundayell Empire"],
+    "source_file": "The City of Mirathorn.md",
+    "resolution_strategy": "name_in_store",
+    "surface": "core_extraction"
+  },
+  {
+    "anchor_id": "festival_of_expansion",
+    "intent": "Festival of Expansion should be extracted as an event.",
+    "expected_class": "event",
+    "expected_names": ["Festival of Expansion"],
+    "source_file": "The City of Mirathorn.md",
+    "resolution_strategy": "name_in_store",
+    "surface": "core_extraction"
+  },
+  {
+    "anchor_id": "shepherds_flock",
+    "intent": "Shepherd's Flock should be extracted as a group.",
+    "expected_class": "group",
+    "expected_names": ["Shepherd's Flock", "Shepherds Flock", "The Flock"],
+    "source_file": "The City of Mirathorn.md",
+    "resolution_strategy": "name_in_store",
+    "min_fact_count": 2,
+    "surface": "core_extraction"
+  },
+  {
+    "anchor_id": "mayor_elara_swiftwind",
+    "intent": "Mayor Elara Swiftwind should be extracted as an actor.",
+    "expected_class": "actor",
+    "expected_names": ["Mayor Elara Swiftwind", "Elara Swiftwind"],
+    "source_file": "The City of Mirathorn.md",
+    "resolution_strategy": "name_in_store",
+    "surface": "core_extraction"
+  },
+  {
+    "anchor_id": "commander_thalia_ashenvale",
+    "intent": "Commander Thalia Ashenvale should be extracted as an actor.",
+    "expected_class": "actor",
+    "expected_names": ["Commander Thalia Ashenvale", "Thalia Ashenvale"],
+    "source_file": "The City of Mirathorn.md",
+    "resolution_strategy": "name_in_store",
+    "surface": "core_extraction"
+  },
+  {
+    "anchor_id": "rurik_stonehammer",
+    "intent": "Rurik Stonehammer should be extracted as an actor.",
+    "expected_class": "actor",
+    "expected_names": ["Rurik Stonehammer"],
+    "source_file": "The City of Mirathorn.md",
+    "resolution_strategy": "name_in_store",
+    "surface": "core_extraction"
+  },
+  {
+    "anchor_id": "barin_stonefoot",
+    "intent": "Barin Stonefoot should be extracted as an actor.",
+    "expected_class": "actor",
+    "expected_names": ["Barin Stonefoot"],
+    "source_file": "The City of Mirathorn.md",
+    "resolution_strategy": "name_in_store",
+    "surface": "core_extraction"
+  },
+  {
+    "anchor_id": "grobnok_the_goblin",
+    "intent": "Grobnok the Goblin should be extracted as an actor.",
+    "expected_class": "actor",
+    "expected_names": ["Grobnok the Goblin", "Grobnok"],
+    "source_file": "The City of Mirathorn.md",
+    "resolution_strategy": "name_in_store",
+    "surface": "core_extraction"
+  },
+  {
+    "anchor_id": "headmaster_tinkerbright",
+    "intent": "Headmaster Tinkerbright should be extracted as an actor.",
+    "expected_class": "actor",
+    "expected_names": ["Headmaster Tinkerbright", "Tinkerbright"],
+    "source_file": "The City of Mirathorn.md",
+    "resolution_strategy": "name_in_store",
+    "surface": "core_extraction"
+  },
+  {
+    "anchor_id": "merril_tealeaf",
+    "intent": "Merril Tealeaf should be extracted as an actor.",
+    "expected_class": "actor",
+    "expected_names": ["Merril Tealeaf"],
+    "source_file": "The City of Mirathorn.md",
+    "resolution_strategy": "name_in_store",
+    "surface": "core_extraction"
+  }
+]

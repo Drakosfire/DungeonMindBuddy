@@ -1,0 +1,103 @@
+[
+  {
+    "anchor_id": "mirathorn_geography",
+    "intent": "Mirathorn geography should be captured.",
+    "subject_anchor": "mirathorn_city",
+    "expected_attribute": "geography",
+    "match_keywords": ["stormspire", "lake", "peaks", "farmland", "border", "reach"],
+    "alternative_attributes": [],
+    "source_text_marker": "Stormspire Peaks and Lake Mirathorn",
+    "source_file": "The City of Mirathorn.md",
+    "surface": "core_extraction"
+  },
+  {
+    "anchor_id": "mirathorn_history",
+    "intent": "Mirathorn history should be captured.",
+    "subject_anchor": "mirathorn_city",
+    "expected_attribute": "history",
+    "match_keywords": ["founded", "settlers", "lundayell", "200", "pioneer"],
+    "alternative_attributes": [],
+    "source_file": "The City of Mirathorn.md",
+    "surface": "core_extraction"
+  },
+  {
+    "anchor_id": "mirathorn_demographics",
+    "intent": "Mirathorn demographics should be captured.",
+    "subject_anchor": "mirathorn_city",
+    "expected_attribute": "demographics",
+    "match_keywords": ["7000", "diverse", "races", "dwarves", "elves", "crowd", "traveler"],
+    "alternative_attributes": [],
+    "source_file": "The City of Mirathorn.md",
+    "surface": "core_extraction"
+  },
+  {
+    "anchor_id": "mirathorn_economy",
+    "intent": "Mirathorn economy should be captured.",
+    "subject_anchor": "mirathorn_city",
+    "expected_attribute": "economy",
+    "match_keywords": ["brewing", "crafts", "fishing", "trade", "agriculture", "farmland", "workshop", "industry"],
+    "alternative_attributes": [],
+    "source_file": "The City of Mirathorn.md",
+    "surface": "core_extraction"
+  },
+  {
+    "anchor_id": "mirathorn_defenses",
+    "intent": "Mirathorn defenses should be captured.",
+    "subject_anchor": "mirathorn_city",
+    "expected_attribute": "defenses",
+    "match_keywords": ["wall", "gate", "tower", "guard", "stone", "imposing"],
+    "alternative_attributes": [],
+    "source_file": "The City of Mirathorn.md",
+    "surface": "core_extraction"
+  },
+  {
+    "anchor_id": "mirathorn_operational_status",
+    "intent": "Mirathorn operational status should be captured.",
+    "subject_anchor": "mirathorn_city",
+    "expected_attribute": "operational_status",
+    "match_keywords": ["festival", "toll", "expansion", "disuse", "age", "tense"],
+    "alternative_attributes": ["atmosphere"],
+    "source_file": "The City of Mirathorn.md",
+    "surface": "core_extraction"
+  },
+  {
+    "anchor_id": "mirathorn_atmosphere",
+    "intent": "Mirathorn atmosphere should be captured.",
+    "subject_anchor": "mirathorn_city",
+    "expected_attribute": "atmosphere",
+    "match_keywords": ["bustling", "vibrant", "festive", "chaotic", "lively"],
+    "alternative_attributes": ["operational_status"],
+    "source_file": "The City of Mirathorn.md",
+    "surface": "core_extraction"
+  },
+  {
+    "anchor_id": "flock_role",
+    "intent": "Shepherd's Flock role should be captured.",
+    "subject_anchor": "shepherds_flock",
+    "expected_attribute": "role",
+    "match_keywords": ["protest", "toll", "cult", "cultist"],
+    "alternative_attributes": ["faction", "operational_status"],
+    "source_file": "The City of Mirathorn.md",
+    "surface": "core_extraction"
+  },
+  {
+    "anchor_id": "flock_operational_status",
+    "intent": "Shepherd's Flock operational status should be captured.",
+    "subject_anchor": "shepherds_flock",
+    "expected_attribute": "operational_status",
+    "match_keywords": ["protest", "active", "pamphlet", "distribut", "staging"],
+    "alternative_attributes": ["role"],
+    "source_file": "The City of Mirathorn.md",
+    "surface": "core_extraction"
+  },
+  {
+    "anchor_id": "flock_goals",
+    "intent": "Shepherd's Flock goals should be captured.",
+    "subject_anchor": "shepherds_flock",
+    "expected_attribute": "goals",
+    "match_keywords": ["toll", "abolish", "entry", "free", "unfair", "exclusion", "against"],
+    "alternative_attributes": [],
+    "source_file": "The City of Mirathorn.md",
+    "surface": "core_extraction"
+  }
+]

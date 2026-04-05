@@ -35,13 +35,13 @@ def test_manual_entity_gold_matches_manifest_paths() -> None:
 
 def test_manual_entity_gold_segment_shape() -> None:
     gold = _load_gold()
-    allowed = set(gold["entity_types_allowed"])
+    allowed = set(gold.get("entity_classes_allowed", gold.get("entity_types_allowed", [])))
     for src in gold["sources"]:
         for seg in src["segments"]:
             assert "segment_id" in seg
             for ent in seg.get("expected_entities", []):
                 assert "display_name" in ent and ent["display_name"].strip()
-                assert ent["entity_type"] in allowed
+                assert ent.get("entity_class", ent.get("entity_type")) in allowed
                 tags = ent.get("entity_tags")
                 if tags is not None:
                     assert isinstance(tags, list)

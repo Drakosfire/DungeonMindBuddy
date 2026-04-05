@@ -32,6 +32,11 @@ LOOSE_RECALL_THRESHOLD = 0.95
 MAX_ENTITIES_PER_UNIT = 1.80
 
 
+def _vlog(message: str) -> None:
+    """Emit a flushed timestamped progress line for long benchmark runs."""
+    print(message, flush=True)
+
+
 def _load_gold() -> list[dict]:
     return json.loads(GOLD_PATH.read_text(encoding="utf-8"))
 
@@ -58,10 +63,20 @@ def _has_match_loose(gold_name: str, candidates: set[str]) -> bool:
 
 
 def main() -> int:
+    _vlog("=== ENTITY RECALL EVALUATION (Mirathorn) ===")
+    _vlog("[1/7] Loading environment...")
     env_file = REPO_ROOT / ".env.development"
     if env_file.exists():
-        load_dotenv(env_file, override=True)
+        try:
+            load_dotenv(env_file, override=True)
+            _vlog(f"  Loaded env file: {env_file}")
+        except OSError as exc:
+            _vlog(f"  WARNING: could not load env file {env_file}: {exc}")
+            _vlog("  Continuing with existing process environment.")
+    else:
+        _vlog("  No .env.development file found; using process environment.")
 
+    _vlog("[2/7] Validating required inputs...")
     if not MIRATHORN_SOURCE.exists():
         print(f"ERROR: Mirathorn markdown not found: {MIRATHORN_SOURCE}")
         return 1
@@ -73,6 +88,7 @@ def main() -> int:
         print("ERROR: OPENAI_API_KEY is required for strict Phase B gate.")
         return 1
 
+    _vlog("[3/7] Chunking Mirathorn source into evidence units...")
     evidence_units = chunk_document(
         docx_path=MIRATHORN_SOURCE,
         document_id="doc_city_of_mirathorn",
@@ -81,9 +97,14 @@ def main() -> int:
         campaign_id=None,
         source_class="seed_reference",
     )
+    _vlog(f"  Chunking complete: {len(evidence_units)} evidence units")
+
+    _vlog("[4/7] Running Pass 1 entity extraction (OpenAI path, no heuristic fallback)...")
     cache_dir = OUTPUT_DIR / "entity_cache"
     client = OpenAIResponsesEntityClient(api_key=api_key)
     model = os.getenv("DMB_ENTITY_MODEL")
+    _vlog(f"  Entity model: {model or '<default>'}")
+    _vlog(f"  Cache dir: {cache_dir}")
     try:
         entities = run_entity_extraction(
             evidence_units,
@@ -92,18 +113,21 @@ def main() -> int:
             openai_client=client,
             # Phase B strict gate should validate true extraction path, not regex fallback.
             allow_heuristic_fallback=False,
-        )
+        )["entities"]
     except ValueError as exc:
-        print("=== ENTITY RECALL EVALUATION (Mirathorn) ===")
         print("FAIL: extraction gate refused heuristic fallback.")
         print(f"Detail: {exc}")
         return 1
+    _vlog(f"  Extraction complete: {len(entities)} raw entities")
 
     # Exercise persistence/dedup path in the gate, as required by Phase B integration.
+    _vlog("[5/7] Persisting and deduplicating entities through FactStore...")
     store = FactStore(OUTPUT_DIR / "entity_recall_store")
     store.add_entities(entities)
     extracted = store.list_entities()
+    _vlog(f"  Store dedup complete: {len(extracted)} entities")
 
+    _vlog("[6/7] Scoring against Mirathorn gold set...")
     candidate_names: set[str] = set()
     for entity in extracted:
         display = str(entity.get("display_name", "")).strip()
@@ -142,7 +166,7 @@ def main() -> int:
         and entity_density <= MAX_ENTITIES_PER_UNIT
     )
 
-    print("=== ENTITY RECALL EVALUATION (Mirathorn) ===")
+    _vlog("[7/7] Final metrics:")
     print(f"Evidence units: {len(evidence_units)}")
     print(f"Extracted entities (deduped): {len(extracted)}")
     print(f"Entities per evidence unit: {entity_density:.3f} (max {MAX_ENTITIES_PER_UNIT:.2f})")

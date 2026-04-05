@@ -1,0 +1,7 @@
+# Mirathorn vertical slice — unique sources from council_room_ingest_scope.json
+# (evals/mirathorn_vertical_slice/output/council_room_ingest_scope.json)
+Elderwyld/Cities and Towns/Mirathorn/City Council Building/The Council Room.md
+Elderwyld/Cities and Towns/Mirathorn/City Council Building/Battle with The Wolf and Aftermath.md
+Elderwyld/Cities and Towns/Mirathorn/City Council Building/The Emergency Council Meeting.md
+Elderwyld/Cities and Towns/Mirathorn/City Council Building/The City Council.md
+Longmont Campaign/Campaign 1/Longmont Campaign General Notes.md

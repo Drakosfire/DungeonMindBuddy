@@ -35,6 +35,50 @@ Task B headline results (3-file slice):
 - Gold-score recall is mixed by source; see report table for per-file core recall/precision/F1
 - Token-cost and hygiene-blocked counts are currently `n/a` because those metrics are not persisted in logs
 
+## Status Update (2026-04-03): Auto-escalation pilot + full corpus
+
+Auto-escalation policy design, implementation, pilot, and full-corpus run are complete.
+
+Primary report:
+- `evals/AUTO_ESCALATION_FULL_CORPUS_REPORT.md`
+
+Key run facts:
+- **Pilot (10 files):**
+  - `flagged_count=9`, `escalation_runs_count=9`, runtime `~14.0m`
+  - run used `--escalate-world=true` (intentional stress test)
+- **Full corpus (130 files):**
+  - `decisions_count=121`, `flagged_count=40`, `escalation_runs_count=40`, runtime `~94.2m`
+  - `--escalate-world=false` (as requested), base=`fast_smart_mini`, escalation=`highest_intelligence`
+  - `9` corpus files produced zero-output deltas (non-ingestible card/template/token-style docs)
+
+Observed quality vs throughput tradeoff on escalated subset (full run, 40 files):
+- Throughput improved: `entities_per_chunk 1.066 -> 1.229`, `facts_per_chunk 3.326 -> 3.782`
+- Taxonomy quality worsened:
+  - `other_rate 36.91% -> 42.45%` (worse)
+  - `other_missing_facets_rate 8.41% -> 23.59%` (worse)
+  - `unknown_kind_rate 0.07% -> 0.29%` (worse)
+- Pairwise quality outcomes:
+  - `other_rate`: improved `9`, worsened `30`, same `1`
+  - `other_missing_facets_rate`: improved `8`, worsened `29`, same `3`
+
+Escalation trigger distribution (full run):
+- `other_rate>0.30`: `32`
+- `entities_per_chunk<0.80`: `9`
+- `other_missing_facets_rate>0.40`: `6`
+- `facts_per_chunk<2.00`: `2`
+
+Learnings:
+- Current policy improves volume but often regresses taxonomy quality.
+- Blanket world escalation is not worth the cost/quality risk and should stay disabled.
+- Acceptance gating is required before trusting escalated output.
+
+Recommended next implementation:
+- Add acceptance gate in `tools/batch_ingest_corpus.py`:
+  - keep escalation only if `other_rate` and `other_missing_facets_rate` are non-worse (or within tolerance),
+  - otherwise keep base pass output.
+- Write `escalation_acceptance.json` with accepted/rejected decision and metric deltas.
+- Based on completed full-run data, strict non-worse acceptance would have accepted only `3/40` escalations.
+
 ---
 
 ## 0. Verify baseline

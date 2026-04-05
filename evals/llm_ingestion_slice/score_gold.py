@@ -28,22 +28,34 @@ def _norm(value: Any) -> str:
     return str(value or "").strip().lower()
 
 
+def _normalize_entity_class(value: Any) -> str:
+    raw = _norm(value)
+    legacy_map = {
+        "npc": "actor",
+        "location": "place",
+        "faction": "group",
+        "item": "object",
+        "other": "concept",
+    }
+    return legacy_map.get(raw, raw)
+
+
 @dataclass(frozen=True)
 class GoldEntityExpectation:
     display_name: str
-    entity_type: str
+    entity_class: str
     importance: str
     aliases_suggested: tuple[str, ...]
 
     @property
     def key(self) -> tuple[str, str]:
-        return (_norm(self.display_name), _norm(self.entity_type))
+        return (_norm(self.display_name), _norm(self.entity_class))
 
 
 @dataclass(frozen=True)
 class StageEntity:
     display_name: str
-    entity_type: str
+    entity_class: str
     aliases: tuple[str, ...]
 
 
@@ -55,7 +67,9 @@ def _iter_gold_expected_entities(gold: dict[str, Any]) -> list[GoldEntityExpecta
                 rows.append(
                     GoldEntityExpectation(
                         display_name=str(entity.get("display_name", "")),
-                        entity_type=str(entity.get("entity_type", "")),
+                        entity_class=_normalize_entity_class(
+                            entity.get("entity_class", entity.get("entity_type", ""))
+                        ),
                         importance=str(entity.get("importance") or "optional"),
                         aliases_suggested=tuple(str(a) for a in entity.get("aliases_suggested", [])),
                     )
@@ -88,7 +102,9 @@ def _parse_stage_entities(stage_entities: list[dict[str, Any]]) -> list[StageEnt
         parsed.append(
             StageEntity(
                 display_name=str(row.get("display_name", "")),
-                entity_type=str(row.get("entity_type", "")),
+                entity_class=_normalize_entity_class(
+                    row.get("entity_class", row.get("entity_type", ""))
+                ),
                 aliases=tuple(str(a) for a in row.get("aliases", [])),
             )
         )
@@ -144,9 +160,9 @@ def _match_gold_entities_to_stage(
         matched_gold.append(
             {
                 "gold_display_name": gold_entity.display_name,
-                "gold_entity_type": gold_entity.entity_type,
+                "gold_entity_class": gold_entity.entity_class,
                 "stage_display_name": stage_entities[best_stage_idx].display_name,
-                "stage_entity_type": stage_entities[best_stage_idx].entity_type,
+                "stage_entity_class": stage_entities[best_stage_idx].entity_class,
                 "match_strength": best_score[0],
             }
         )
@@ -310,7 +326,9 @@ def _compute_catalog_recall(gold: dict[str, Any], stage_entities: list[StageEnti
     catalog_rows = [
         GoldEntityExpectation(
             display_name=str(row.get("display_name", "")),
-            entity_type=str(row.get("entity_type", "")),
+            entity_class=_normalize_entity_class(
+                row.get("entity_class", row.get("entity_type", ""))
+            ),
             importance="core",
             aliases_suggested=(),
         )
@@ -324,6 +342,76 @@ def _compute_catalog_recall(gold: dict[str, Any], stage_entities: list[StageEnti
         "counts": {"gold_catalog_entities": total, "matched_catalog_entities": matched},
         "metrics": {"recall": recall},
         "details": match,
+    }
+
+
+def _concept_event_confusion(
+    gold_entities: list[GoldEntityExpectation],
+    stage_entities: list[StageEntity],
+) -> dict[str, Any]:
+    """For each gold entity classified as event or concept, check if stage classified it as the other."""
+    confusion_pairs: list[dict[str, str]] = []
+    confusable_classes = {"event", "concept"}
+
+    gold_deduped = _unique_gold_entities_for_tier(gold_entities, "all")
+    match_result = _match_gold_entities_to_stage(gold_deduped, stage_entities)
+
+    for matched in match_result["matched_gold"]:
+        gold_class = _norm(matched["gold_entity_class"])
+        stage_class = _norm(matched["stage_entity_class"])
+        if gold_class in confusable_classes and stage_class in confusable_classes and gold_class != stage_class:
+            confusion_pairs.append({
+                "display_name": matched["gold_display_name"],
+                "gold_class": gold_class,
+                "stage_class": stage_class,
+            })
+
+    return {
+        "confusion_count": len(confusion_pairs),
+        "confusion_pairs": confusion_pairs,
+    }
+
+
+def _exclude_path_metrics(
+    stage_entities_payload: list[dict[str, Any]],
+    excluded_candidates: list[dict[str, Any]] | None,
+    gold: dict[str, Any],
+) -> dict[str, Any]:
+    """Compute false positive rates for entities that should have been excluded."""
+    forbidden_names = {_norm(name) for name in gold.get("negative_examples", {}).get("must_not_extract_as_entities", [])}
+
+    stage_names_in_output = {_norm(e.get("display_name", "")) for e in stage_entities_payload}
+    false_positives_in_output = sorted(name for name in forbidden_names if name in stage_names_in_output)
+
+    doc_structure_fps = 0
+    mechanic_fps = 0
+    total_excluded = 0
+    if excluded_candidates:
+        total_excluded = len(excluded_candidates)
+        for c in excluded_candidates:
+            reason = _norm(c.get("exclude_reason", ""))
+            if reason == "document_structure":
+                doc_structure_fps += 1
+            elif reason == "game_mechanic":
+                mechanic_fps += 1
+
+    heuristic_count = sum(
+        1 for e in stage_entities_payload if e.get("extraction_method") == "heuristic"
+    )
+    llm_count = sum(
+        1 for e in stage_entities_payload if e.get("extraction_method", "llm") == "llm"
+    )
+
+    return {
+        "non_entity_false_positives": false_positives_in_output,
+        "non_entity_false_positive_count": len(false_positives_in_output),
+        "total_excluded_candidates": total_excluded,
+        "document_structure_excluded": doc_structure_fps,
+        "game_mechanic_excluded": mechanic_fps,
+        "extraction_method_counts": {
+            "llm": llm_count,
+            "heuristic": heuristic_count,
+        },
     }
 
 
@@ -416,6 +504,7 @@ def score(
     min_core_recall: float,
     min_temporal_accuracy: float,
     min_catalog_recall: float,
+    excluded_candidates: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     stage_entities = _parse_stage_entities(stage_entities_payload)
     gold_entities = _iter_gold_expected_entities(gold)
@@ -439,6 +528,8 @@ def score(
     temporal = _check_temporal_accuracy(gold=gold, stage_facts=stage_facts, stage_chunks=stage_chunks)
     catalog = _compute_catalog_recall(gold=gold, stage_entities=stage_entities)
     negatives = _negative_violations(gold=gold, stage_entities=stage_entities)
+    concept_event = _concept_event_confusion(gold_entities, stage_entities)
+    exclude_metrics = _exclude_path_metrics(stage_entities_payload, excluded_candidates, gold)
     pass_fail = _evaluate_gates(
         tier_metrics=tier_metrics,
         temporal=temporal,
@@ -459,6 +550,8 @@ def score(
         "catalog_recall": catalog,
         "temporal": temporal,
         "negative_examples": {"violations": negatives},
+        "concept_event_confusion": concept_event,
+        "exclude_path_metrics": exclude_metrics,
         "pass_fail": pass_fail,
     }
 
@@ -479,6 +572,9 @@ def main(
     stage_facts = _load_json(artifacts_dir / "stage_facts.json")
     stage_chunks = _load_json(artifacts_dir / "stage_chunks.json")
 
+    excluded_path = artifacts_dir / "excluded_candidates.json"
+    excluded_candidates = _load_json(excluded_path) if excluded_path.exists() else None
+
     report = score(
         gold=gold,
         stage_entities_payload=stage_entities,
@@ -488,6 +584,7 @@ def main(
         min_core_recall=min_core_recall,
         min_temporal_accuracy=min_temporal_accuracy,
         min_catalog_recall=min_catalog_recall,
+        excluded_candidates=excluded_candidates,
     )
     _write_json(artifacts_dir / "gold_score.json", report)
     print(_render_summary(report))

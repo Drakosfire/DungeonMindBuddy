@@ -7,6 +7,7 @@ import hashlib
 import io
 import json
 import os
+import shutil
 import sys
 from contextlib import redirect_stdout
 from pathlib import Path
@@ -37,6 +38,11 @@ MIN_ANSWER_CHARS = 200
 ATTRIBUTE_KEYWORDS = ("history", "geography", "demographics", "economy", "defenses")
 
 
+def _vlog(message: str) -> None:
+    """Emit flushed progress logs for long-running Gate 3 runs."""
+    print(message, flush=True)
+
+
 def _sha256_text(value: str) -> str:
     return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
@@ -48,17 +54,21 @@ def _contains_any(haystack: str, needles: tuple[str, ...]) -> bool:
 
 def _run_ingest(cli: DungeonBuddyCLI, source_path: Path) -> tuple[bool, str]:
     cmd = f'ingest "{source_path}" --layer world --source-class seed_reference'
+    _vlog(f"[ingest] command: {cmd}")
     capture = io.StringIO()
     with redirect_stdout(capture):
         keep_running = cli.handle_line(cmd)
+    _vlog(f"[ingest] completed keep_running={keep_running}")
     return keep_running, capture.getvalue()
 
 
 def _run_ask(cli: DungeonBuddyCLI, question: str) -> tuple[bool, str]:
     cmd = f'ask "{question}"'
+    _vlog(f"[ask] command: {cmd}")
     capture = io.StringIO()
     with redirect_stdout(capture):
         keep_running = cli.handle_line(cmd)
+    _vlog(f"[ask] completed keep_running={keep_running}")
     return keep_running, capture.getvalue()
 
 
@@ -153,6 +163,8 @@ def _print_artifact_locations() -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
+    _vlog("=== MIRATHORN GATE 3 (SYNTHESIS) ===")
+    _vlog("[1/10] Parsing arguments...")
     parser = argparse.ArgumentParser(description="Phase D synthesis eval runner")
     parser.add_argument(
         "--source",
@@ -160,17 +172,31 @@ def main(argv: list[str] | None = None) -> int:
         default=MIRATHORN_SOURCE,
         help="Markdown source to ingest for Phase D eval",
     )
+    parser.add_argument(
+        "--reuse-store",
+        action="store_true",
+        help="Reuse existing phase_d_store instead of resetting it at startup.",
+    )
     args = parser.parse_args(argv)
     source_path = args.source
 
+    _vlog("[2/10] Loading environment candidates...")
     env_candidates = [
         REPO_ROOT / ".env.development",
         REPO_ROOT.parent / ".env.development",
     ]
     for env_file in env_candidates:
         if env_file.exists():
-            load_dotenv(env_file, override=True)
+            try:
+                load_dotenv(env_file, override=True)
+                _vlog(f"  loaded env file: {env_file}")
+            except OSError as exc:
+                _vlog(f"  WARNING: could not load env file {env_file}: {exc}")
+                _vlog("  Continuing with existing process environment.")
+        else:
+            _vlog(f"  env file missing: {env_file}")
 
+    _vlog("[3/10] Validating source and API key...")
     if not source_path.exists():
         print(f"ERROR: source markdown not found: {source_path}")
         return 1
@@ -180,19 +206,32 @@ def main(argv: list[str] | None = None) -> int:
         print("ERROR: OPENAI_API_KEY is required for Phase D synthesis eval.")
         return 1
 
+    _vlog("[4/10] Initializing CLI and store...")
     store_dir = OUTPUT_DIR / "phase_d_store"
+    if store_dir.exists() and not args.reuse_store:
+        _vlog(f"  resetting existing store_dir: {store_dir}")
+        shutil.rmtree(store_dir)
+    elif store_dir.exists() and args.reuse_store:
+        _vlog(f"  reusing existing store_dir: {store_dir}")
     cli = DungeonBuddyCLI(store_dir=store_dir, verbose=True)
+    _vlog(f"  store_dir: {store_dir}")
+    _vlog(f"  source: {source_path}")
 
+    _vlog("[5/10] Running ingest...")
     _, ingest_output = _run_ingest(cli, source_path)
     print("=== INGEST OUTPUT ===")
     print(ingest_output.strip())
-    if "Error:" in ingest_output:
+    duplicate_ingest = "duplicate ingest detected" in ingest_output.lower()
+    if duplicate_ingest:
+        _vlog("  duplicate ingest detected; continuing with existing store state.")
+    if "Error:" in ingest_output and not duplicate_ingest:
         print("EARLY EXIT: ingest command failed.")
         print("\n=== PHASE D RESULT ===")
         print("OVERALL: FAIL")
         _print_artifact_locations()
         return 1
 
+    _vlog("[6/10] Running D1 ingest-roundtrip gate...")
     gate_d1_passed, gate_d1_detail = _gate_d1(cli)
     print(f"D1 Ingest round-trip: {'PASS' if gate_d1_passed else 'FAIL'} ({gate_d1_detail})")
     if not gate_d1_passed:
@@ -216,10 +255,12 @@ def main(argv: list[str] | None = None) -> int:
         _print_artifact_locations()
         return 1
 
+    _vlog("[7/10] Building projection/context and running synthesis...")
     projection = cli.store.project(None)
     context = format_projection_context(projection, cli.store.list_entities(), "Catch me up on Mirathorn")
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     (OUTPUT_DIR / "phase_d_context.txt").write_text(context, encoding="utf-8")
+    _vlog(f"  context chars: {len(context)}")
     try:
         answer = synthesize_answer(context, "Catch me up on Mirathorn")
     except Exception as exc:
@@ -247,9 +288,11 @@ def main(argv: list[str] | None = None) -> int:
         _print_artifact_locations()
         return 1
     (OUTPUT_DIR / "phase_d_answer.txt").write_text(answer, encoding="utf-8")
+    _vlog(f"  answer chars: {len(answer)}")
     print("\n=== ASK OUTPUT ===")
     print(answer.strip())
 
+    _vlog("[8/10] Evaluating D2/D3/D4 gates...")
     gate_d2_passed, gate_d2_detail = _gate_d2(answer)
     gate_d3_passed, gate_d3_detail = _gate_d3(context)
     gate_d4_passed, gate_d4_detail = _gate_d4(cli, api_key)
@@ -281,9 +324,11 @@ def main(argv: list[str] | None = None) -> int:
         json.dumps(summary, indent=2, sort_keys=True),
         encoding="utf-8",
     )
+    _vlog("[9/10] Wrote summary artifact.")
     print("\n=== PHASE D RESULT ===")
     print(f"OVERALL: {'PASS' if all_passed else 'FAIL'}")
     _print_artifact_locations()
+    _vlog("[10/10] Gate 3 run complete.")
 
     return 0 if all_passed else 1
 
