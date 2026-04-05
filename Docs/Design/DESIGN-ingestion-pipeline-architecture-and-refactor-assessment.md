@@ -11,9 +11,11 @@ The current DungeonMindBuddy ingestion flow works, but cost and throughput are i
 ## DungeonMindBuddy ingestion architecture (today)
 
 Primary entrypoint:
+
 - `src/cli.py` (`ingest` command)
 
 Core pipeline modules:
+
 - `src/ingestion/chunker.py`
 - `src/ingestion/frontmatter.py`
 - `src/ingestion/frontmatter_inference.py`
@@ -49,6 +51,8 @@ flowchart TD
     storeWrite --> projection[Projection/ask path]
 ```
 
+
+
 ### What is already improved versus the earlier design draft
 
 - Frontmatter is now a first-class ingest contract for markdown sources, with schema validation and optional inference workflow.
@@ -80,9 +84,11 @@ This means repeated ingests intentionally produce separate run artifacts even wh
 ## RulesIngestion architecture (reference pattern)
 
 Primary design pattern:
+
 - Explicit stage separation with deterministic artifacts and gate diagnostics.
 
 Representative modules:
+
 - `extraction/pipeline.py`
 - `extraction/stage_a.py`
 - `extraction/stage_b.py`
@@ -90,6 +96,7 @@ Representative modules:
 - `retrieval_lab/run_experiment.py`
 
 Key characteristics:
+
 - Staged artifacts (`stageA.*`, `stageB.evidence_units.json`, summaries).
 - Gate-first diagnostics and rerun scripts.
 - Content-addressed cache for LLM enrichment stages.
@@ -124,51 +131,45 @@ Short answer: yes, but targeted refactoring is sufficient. A full rewrite is not
 ### Refactor now (high ROI)
 
 1. Add batch extraction mode for evidence bundles
-   - Replace strictly one-call-per-unit with N-unit structured batch calls.
-   - Keep deterministic per-unit outputs in stage artifacts.
-   - Status: not started.
-
+  - Replace strictly one-call-per-unit with N-unit structured batch calls.
+  - Keep deterministic per-unit outputs in stage artifacts.
+  - Status: not started.
 2. Promote staged artifact contracts in DungeonMindBuddy ingest
-   - Persist deterministic intermediate artifacts:
-     - `stage_chunks.json`
-     - `stage_entities.json`
-     - `stage_facts.json`
-   - Add machine-readable gate diagnostics for each stage.
-   - Status: implemented in initial refactor slice.
-
+  - Persist deterministic intermediate artifacts:
+    - `stage_chunks.json`
+    - `stage_entities.json`
+    - `stage_facts.json`
+  - Add machine-readable gate diagnostics for each stage.
+  - Status: implemented in initial refactor slice.
 3. Strengthen cache boundaries
-   - Keep cache key tied to prompt/model/input fingerprint.
-   - Ensure unrelated context changes do not invalidate per-unit results.
-   - Add explicit cache hit-rate metrics in run summaries.
-   - Status: partially complete. Fingerprint-driven duplicate protection exists, but explicit cache hit-rate telemetry is still pending.
-
+  - Keep cache key tied to prompt/model/input fingerprint.
+  - Ensure unrelated context changes do not invalidate per-unit results.
+  - Add explicit cache hit-rate metrics in run summaries.
+  - Status: partially complete. Fingerprint-driven duplicate protection exists, but explicit cache hit-rate telemetry is still pending.
 4. Add ingestion profile controls
-   - Maintain chunk-collapse control (`--chunk-min-chars`).
-   - Add explicit extraction bundle size and concurrency controls.
-   - Status: partially complete. Concurrency controls are implemented; bundle size controls are still pending.
-
+  - Maintain chunk-collapse control (`--chunk-min-chars`).
+  - Add explicit extraction bundle size and concurrency controls.
+  - Status: partially complete. Concurrency controls are implemented; bundle size controls are still pending.
 5. Preserve chronology/document identity as a hard ingest contract
-   - Require frontmatter-validated document metadata for markdown ingest.
-   - Preserve `document_session` through evidence and fact extraction.
-   - Prefer document/session provenance in chronology-sensitive reducers.
-   - Status: implemented.
+  - Require frontmatter-validated document metadata for markdown ingest.
+  - Preserve `document_session` through evidence and fact extraction.
+  - Prefer document/session provenance in chronology-sensitive reducers.
+  - Status: implemented.
 
 ### Refactor next (medium ROI)
 
 1. Split substrate build from store mutation mode
-   - Optional "build substrate only" run that does not immediately mutate live store.
-   - Enables dry-run cost analysis, gate review, and promotion.
-   - Status: pending.
-
+  - Optional "build substrate only" run that does not immediately mutate live store.
+  - Enables dry-run cost analysis, gate review, and promotion.
+  - Status: pending.
 2. Introduce stage rerun commands
-   - Rerun from cached chunks/facts without full ingest.
-   - Improve debugging speed and cost containment.
-   - Status: pending.
-
+  - Rerun from cached chunks/facts without full ingest.
+  - Improve debugging speed and cost containment.
+  - Status: pending.
 3. Add run manifest contract
-   - Record command/config/model/cache fingerprints in one run manifest.
-   - Improve auditability for benchmark comparisons.
-   - Status: pending.
+  - Record command/config/model/cache fingerprints in one run manifest.
+  - Improve auditability for benchmark comparisons.
+  - Status: pending.
 
 ### Refactor later (strategic)
 
@@ -190,7 +191,10 @@ flowchart TD
     gates -->|fail| halt[Fail fast with diagnostics]
 ```
 
+
+
 Design intent:
+
 - Deterministic artifacts first.
 - Hard gates before store mutation.
 - Batching + scoped context for LLM efficiency.
@@ -228,6 +232,7 @@ Design intent:
 ## Decision
 
 Refactor is warranted and should remain incremental:
+
 - preserve the now-landed frontmatter/chronology guarantees,
 - preserve the now-landed staged artifact and hard-gate behavior,
 - add batched extraction and substrate/promotion separation next,
