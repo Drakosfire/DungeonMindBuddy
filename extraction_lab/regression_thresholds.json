@@ -1,0 +1,24 @@
+{
+  "core_extraction": {
+    "hard_fail": {
+      "entity_anchor_recall_drop_pct": 10.0,
+      "fact_anchor_recall_drop_pct": 12.0,
+      "unresolved_core_anchors_increase": 0
+    },
+    "warning": {
+      "total_entity_count_drift_pct": 15.0,
+      "total_fact_count_drift_pct": 20.0
+    }
+  },
+  "vertical_slice": {
+    "warning": {
+      "question_pass_rate_drop_pct": 10.0
+    }
+  },
+  "recap_lane": {
+    "warning": {
+      "event_record_recall_drop_pct": 15.0
+    }
+  },
+  "working_set": {}
+}

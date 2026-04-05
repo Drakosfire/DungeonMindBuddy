@@ -1,0 +1,14 @@
+[
+  {
+    "entity_id": "ent_mirathorn",
+    "display_name": "Mirathorn",
+    "entity_class": "place",
+    "aliases": ["City of Mirathorn"]
+  },
+  {
+    "entity_id": "ent_shepherds_flock",
+    "display_name": "Shepherd's Flock",
+    "entity_class": "group",
+    "aliases": ["Shepherds Flock", "The Flock"]
+  }
+]

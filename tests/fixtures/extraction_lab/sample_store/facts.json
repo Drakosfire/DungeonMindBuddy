@@ -1,0 +1,20 @@
+[
+  {
+    "fact_id": "fact_mirathorn_geography",
+    "subject_entity_id": "ent_mirathorn",
+    "attribute": "geography",
+    "value": {
+      "label": "Mirathorn lies near the Stormspire Peaks and Lake Mirathorn",
+      "normalized": "stormspire_peaks_lake_mirathorn"
+    }
+  },
+  {
+    "fact_id": "fact_flock_goals",
+    "subject_entity_id": "ent_shepherds_flock",
+    "attribute": "goals",
+    "value": {
+      "label": "The Flock protests city entry tolls",
+      "normalized": "protest_city_entry_tolls"
+    }
+  }
+]
