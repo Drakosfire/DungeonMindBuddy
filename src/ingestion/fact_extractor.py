@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field
 from src.contracts.schema_validation import validate_many
 from src.ingestion.entity_extractor import UsageStats, _usage_dict_from_openai_response
 
-_PROMPT_ID = "phase_c_pass2_fact_extraction_v2_prompt_cache"
+_PROMPT_ID = "phase_c_pass2_fact_extraction_v3_prompt_cache"
 
 _VALID_ATTRIBUTES = {
     "species",
@@ -28,6 +28,8 @@ _VALID_ATTRIBUTES = {
     "loyalty_or_alignment_context",
     "relationship_tags",
     "operational_status",
+    "event_outcome",
+    "event_progression",
     "portrayal_notes",
     "unresolved_questions",
     "source_comments",
@@ -61,6 +63,8 @@ AttributeType = Literal[
     "loyalty_or_alignment_context",
     "relationship_tags",
     "operational_status",
+    "event_outcome",
+    "event_progression",
     "portrayal_notes",
     "unresolved_questions",
     "source_comments",
@@ -525,7 +529,8 @@ def _build_fact_system_prompt() -> str:
         "OUTPUT: Return JSON {\"facts\": [...]} with no markdown fences.\n\n"
         "ATTRIBUTE ENUM (subject_entity_id must be one of the provided entity_id values):\n"
         "species, role, rank_or_title, faction, current_location, physical_condition, mental_state, "
-        "loyalty_or_alignment_context, relationship_tags, operational_status, portrayal_notes, "
+        "loyalty_or_alignment_context, relationship_tags, operational_status, event_outcome, "
+        "event_progression, portrayal_notes, "
         "unresolved_questions, source_comments, history, geography, demographics, defenses, economy, "
         "governance, atmosphere, goals\n\n"
         "ATTRIBUTE GUIDANCE:\n"
@@ -537,6 +542,8 @@ def _build_fact_system_prompt() -> str:
         "- loyalty_or_alignment_context: devotion, moral stance, political leaning when explicit.\n"
         "- relationship_tags: named relationships (ally, rival, sibling) when explicit.\n"
         "- operational_status: readiness, siege state, business open/closed, etc.\n"
+        "- event_outcome: terminal or consequential result of an event/scene for the subject.\n"
+        "- event_progression: sequence step, transition, or before/after movement in an event timeline.\n"
         "- portrayal_notes: how something is depicted (tone, aesthetic) when factual in text.\n"
         "- unresolved_questions: explicit open threads the text raises.\n"
         "- source_comments: meta about the document itself if present.\n"
@@ -580,6 +587,8 @@ def _build_fact_system_prompt() -> str:
         "NORMALIZATION EXAMPLES:\n"
         "- 'Temple District' near waterways -> normalized like 'district:temple:waterfront' when sensible.\n"
         "- Military readiness -> operational_status with scalar or state as fits the wording.\n"
+        "- 'The Wolf was killed by Bonogo' -> event_outcome, kind=state or scalar.\n"
+        "- 'After stalling in council chamber, he fled to sewers' -> event_progression.\n"
         "- Population counts -> demographics with numeric label preserved in label field.\n"
     )
 

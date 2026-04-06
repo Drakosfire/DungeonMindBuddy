@@ -37,7 +37,7 @@ These schemas intentionally split identity from state:
 
 - Query request/response contracts are not included yet.
 - Planning validation request/response contracts are not included yet.
-- Attribute enums are Phase 1 scoped and intentionally NPC-heavy.
+- Attribute enums are Phase 1 scoped and intentionally NPC-heavy, with initial event-state support (`event_outcome`, `event_progression`).
 - Location / faction / item typed profiles are deferred.
 - Some workflow invariants still live outside schema and must be enforced in code, especially:
   - reducer ordering

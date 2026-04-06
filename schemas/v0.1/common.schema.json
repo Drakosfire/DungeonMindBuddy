@@ -126,6 +126,8 @@
         "loyalty_or_alignment_context",
         "relationship_tags",
         "operational_status",
+        "event_outcome",
+        "event_progression",
         "portrayal_notes",
         "unresolved_questions",
         "source_comments",

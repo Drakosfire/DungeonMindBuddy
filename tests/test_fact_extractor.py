@@ -638,6 +638,50 @@ def test_interpretive_value_includes_required_fields(tmp_path: Path) -> None:
     validate_many(facts, "fact.schema.json")
 
 
+def test_event_taxonomy_attributes_validate_against_schema(tmp_path: Path) -> None:
+    class EventAttrClient:
+        def extract_facts(self, **kwargs: Any) -> dict[str, Any]:
+            return {
+                "facts": [
+                    {
+                        "fact_id": "fact_mirathorn_event_outcome_001",
+                        "subject_entity_id": "ent_mirathorn",
+                        "attribute": "event_outcome",
+                        "value": {
+                            "kind": "state",
+                            "label": "Council strike fails to stop cult timeline",
+                            "normalized": "strike_fails_stop_cult_timeline",
+                        },
+                    },
+                    {
+                        "fact_id": "fact_mirathorn_event_progression_001",
+                        "subject_entity_id": "ent_mirathorn",
+                        "attribute": "event_progression",
+                        "value": {
+                            "kind": "scalar",
+                            "label": "Deliberation rounds advance the summoning countdown",
+                            "normalized": "deliberation_advances_countdown",
+                        },
+                    },
+                ]
+            }
+
+    facts = run_fact_extraction(
+        [_evidence("evid_1", "Event timeline text.", 0)],
+        entities=ENTITIES,
+        canon_layer="campaign",
+        campaign_id="longmont-c1",
+        source_class="observed_session_recap",
+        cache_dir=tmp_path / "cache",
+        openai_client=EventAttrClient(),
+    )["facts"]
+    assert facts
+    attrs = {fact["attribute"] for fact in facts}
+    assert "event_outcome" in attrs
+    assert "event_progression" in attrs
+    validate_many(facts, "fact.schema.json")
+
+
 def test_openai_responses_adapter_parses_structured_output() -> None:
     class _FakeInputTokenDetails:
         cached_tokens = 4
