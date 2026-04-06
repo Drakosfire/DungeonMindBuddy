@@ -1,0 +1,1087 @@
+{
+  "totals": {
+    "candidate_questions": 20,
+    "missing_entity_attribute_pairs": 47,
+    "recoverable_pairs_via_temporal_proxy": 20,
+    "recoverable_ratio": 0.425531914893617
+  },
+  "temporal_metadata_coverage": {
+    "facts_total": 6331,
+    "facts_with_sequence_index_within_session": 1349,
+    "facts_with_asserted_in_session": 0,
+    "asserted_session_coverage_ratio": 0.0
+  },
+  "missing_pairs_by_attribute": {
+    "status": 10,
+    "combat_outcome": 1,
+    "combat_context": 2,
+    "event_sequence": 9,
+    "strategy": 2,
+    "faction": 4,
+    "goals": 1,
+    "ritual": 2,
+    "beliefs": 2,
+    "methods": 1,
+    "governance": 2,
+    "personality": 2,
+    "rank_or_title": 2,
+    "visual_description": 2,
+    "geography": 1,
+    "sensory_description": 1,
+    "culture": 2,
+    "history": 1
+  },
+  "recoverable_pairs_by_attribute": {
+    "status": 9,
+    "combat_outcome": 1,
+    "event_sequence": 9,
+    "ritual": 1
+  },
+  "question_level": [
+    {
+      "id": "q_battle_with_the_wolf_and_aftermath_1",
+      "coverage_status": "unanswerable",
+      "preflight_support_status": "weakly_supported",
+      "missing_pairs": 2,
+      "recoverable_missing_pairs": 2,
+      "missing_details": [
+        {
+          "subject_entity_id": "ent_the_wolf",
+          "missing_attribute": "status",
+          "recoverable_via_temporal_proxy": true,
+          "proxy_hits": [
+            {
+              "proxy_attribute": "mental_state",
+              "fact_id": "fact_the_wolf_mental_state_12eac2b05c1c",
+              "label": "begging to be killed",
+              "sequence_index_within_session": null,
+              "asserted_in_session": null
+            },
+            {
+              "proxy_attribute": "mental_state",
+              "fact_id": "fact_the_wolf_mental_state_11c9e1330d54",
+              "label": "suffering from visions and mental manipulation",
+              "sequence_index_within_session": 36,
+              "asserted_in_session": null
+            },
+            {
+              "proxy_attribute": "mental_state",
+              "fact_id": "fact_the_wolf_mental_state_fa4fb19d8e1c",
+              "label": "hearing nightmares",
+              "sequence_index_within_session": 43,
+              "asserted_in_session": null
+            },
+            {
+              "proxy_attribute": "mental_state",
+              "fact_id": "fact_the_wolf_mental_state_ad439b717c87",
+              "label": "mentally manipulated by the Shepherd",
+              "sequence_index_within_session": 43,
+              "asserted_in_session": null
+            },
+            {
+              "proxy_attribute": "mental_state",
+              "fact_id": "fact_the_wolf_mental_state_4f8e1e46edd2",
+              "label": "Experiencing visions",
+              "sequence_index_within_session": 44,
+              "asserted_in_session": null
+            },
+            {
+              "proxy_attribute": "mental_state",
+              "fact_id": "fact_the_wolf_mental_state_c62026e0c66c",
+              "label": "Nightmares intensify",
+              "sequence_index_within_session": 60,
+              "asserted_in_session": null
+            }
+          ]
+        },
+        {
+          "subject_entity_id": "ent_the_wolf",
+          "missing_attribute": "combat_outcome",
+          "recoverable_via_temporal_proxy": true,
+          "proxy_hits": [
+            {
+              "proxy_attribute": "goals",
+              "fact_id": "fact_the_wolf_goals_285da0d9ee98",
+              "label": "stall the players",
+              "sequence_index_within_session": null,
+              "asserted_in_session": null
+            },
+            {
+              "proxy_attribute": "goals",
+              "fact_id": "fact_the_wolf_goals_0f49d807a8a5",
+              "label": "escape into the sewers",
+              "sequence_index_within_session": null,
+              "asserted_in_session": null
+            },
+            {
+              "proxy_attribute": "goals",
+              "fact_id": "fact_the_wolf_goals_d864cc84356d",
+              "label": "complete a kaiju-scale ritual in the sewers",
+              "sequence_index_within_session": null,
+              "asserted_in_session": null
+            },
+            {
+              "proxy_attribute": "goals",
+              "fact_id": "fact_the_wolf_goals_cf959058ae35",
+              "label": "Work toward an escape route",
+              "sequence_index_within_session": null,
+              "asserted_in_session": null
+            },
+            {
+              "proxy_attribute": "goals",
+              "fact_id": "fact_the_wolf_goals_490fa04511d1",
+              "label": "After casting Invisibility, The Wolf makes his way toward the secret escape tunnel beneath the council chamber.",
+              "sequence_index_within_session": null,
+              "asserted_in_session": null
+            },
+            {
+              "proxy_attribute": "goals",
+              "fact_id": "fact_the_wolf_goals_30e219510ddc",
+              "label": "escape",
+              "sequence_index_within_session": null,
+              "asserted_in_session": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "q_battle_with_the_wolf_and_aftermath_2",
+      "coverage_status": "partially_answerable",
+      "preflight_support_status": "supported",
+      "missing_pairs": 2,
+      "recoverable_missing_pairs": 0,
+      "missing_details": [
+        {
+          "subject_entity_id": "ent_council_room",
+          "missing_attribute": "combat_context",
+          "recoverable_via_temporal_proxy": false,
+          "proxy_hits": []
+        },
+        {
+          "subject_entity_id": "ent_the_wolf",
+          "missing_attribute": "combat_context",
+          "recoverable_via_temporal_proxy": false,
+          "proxy_hits": []
+        }
+      ]
+    },
+    {
+      "id": "q_battle_with_the_wolf_and_aftermath_3",
+      "coverage_status": "partially_answerable",
+      "preflight_support_status": "supported",
+      "missing_pairs": 2,
+      "recoverable_missing_pairs": 2,
+      "missing_details": [
+        {
+          "subject_entity_id": "ent_commander_thalia_ashenvale",
+          "missing_attribute": "status",
+          "recoverable_via_temporal_proxy": true,
+          "proxy_hits": [
+            {
+              "proxy_attribute": "mental_state",
+              "fact_id": "fact_commander_thalia_ashenvale_mental_state_d52a91658bee",
+              "label": "Defensive about accusations against her guard",
+              "sequence_index_within_session": 80,
+              "asserted_in_session": null
+            },
+            {
+              "proxy_attribute": "mental_state",
+              "fact_id": "fact_commander_thalia_ashenvale_mental_state_bba4bb5f2802",
+              "label": "May dismiss or be unaware of signs of internal corruption due to magical manipulation",
+              "sequence_index_within_session": 80,
+              "asserted_in_session": null
+            },
+            {
+              "proxy_attribute": "mental_state",
+              "fact_id": "fact_commander_thalia_ashenvale_mental_state_42d7712dcd13",
+              "label": "Thalia is disciplined and authoritative",
+              "sequence_index_within_session": 79,
+              "asserted_in_session": null
+            },
+            {
+              "proxy_attribute": "mental_state",
+              "fact_id": "fact_commander_thalia_ashenvale_mental_state_c41f6ca60212",
+              "label": "She is resistant to believing any accusations",
+              "sequence_index_within_session": 79,
+              "asserted_in_session": null
+            }
+          ]
+        },
+        {
+          "subject_entity_id": "ent_the_wolf",
+          "missing_attribute": "status",
+          "recoverable_via_temporal_proxy": true,
+          "proxy_hits": [
+            {
+              "proxy_attribute": "mental_state",
+              "fact_id": "fact_the_wolf_mental_state_12eac2b05c1c",
+              "label": "begging to be killed",
+              "sequence_index_within_session": null,
+              "asserted_in_session": null
+            },
+            {
+              "proxy_attribute": "mental_state",
+              "fact_id": "fact_the_wolf_mental_state_11c9e1330d54",
+              "label": "suffering from visions and mental manipulation",
+              "sequence_index_within_session": 36,
+              "asserted_in_session": null
+            },
+            {
+              "proxy_attribute": "mental_state",
+              "fact_id": "fact_the_wolf_mental_state_fa4fb19d8e1c",
+              "label": "hearing nightmares",
+              "sequence_index_within_session": 43,
+              "asserted_in_session": null
+            },
+            {
+              "proxy_attribute": "mental_state",
+              "fact_id": "fact_the_wolf_mental_state_ad439b717c87",
+              "label": "mentally manipulated by the Shepherd",
+              "sequence_index_within_session": 43,
+              "asserted_in_session": null
+            },
+            {
+              "proxy_attribute": "mental_state",
+              "fact_id": "fact_the_wolf_mental_state_4f8e1e46edd2",
+              "label": "Experiencing visions",
+              "sequence_index_within_session": 44,
+              "asserted_in_session": null
+            },
+            {
+              "proxy_attribute": "mental_state",
+              "fact_id": "fact_the_wolf_mental_state_c62026e0c66c",
+              "label": "Nightmares intensify",
+              "sequence_index_within_session": 60,
+              "asserted_in_session": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "q_battle_with_the_wolf_and_aftermath_4",
+      "coverage_status": "partially_answerable",
+      "preflight_support_status": "supported",
+      "missing_pairs": 1,
+      "recoverable_missing_pairs": 1,
+      "missing_details": [
+        {
+          "subject_entity_id": "ent_the_wolf",
+          "missing_attribute": "event_sequence",
+          "recoverable_via_temporal_proxy": true,
+          "proxy_hits": [
+            {
+              "proxy_attribute": "goals",
+              "fact_id": "fact_the_wolf_goals_285da0d9ee98",
+              "label": "stall the players",
+              "sequence_index_within_session": null,
+              "asserted_in_session": null
+            },
+            {
+              "proxy_attribute": "goals",
+              "fact_id": "fact_the_wolf_goals_0f49d807a8a5",
+              "label": "escape into the sewers",
+              "sequence_index_within_session": null,
+              "asserted_in_session": null
+            },
+            {
+              "proxy_attribute": "goals",
+              "fact_id": "fact_the_wolf_goals_d864cc84356d",
+              "label": "complete a kaiju-scale ritual in the sewers",
+              "sequence_index_within_session": null,
+              "asserted_in_session": null
+            },
+            {
+              "proxy_attribute": "goals",
+              "fact_id": "fact_the_wolf_goals_cf959058ae35",
+              "label": "Work toward an escape route",
+              "sequence_index_within_session": null,
+              "asserted_in_session": null
+            },
+            {
+              "proxy_attribute": "goals",
+              "fact_id": "fact_the_wolf_goals_490fa04511d1",
+              "label": "After casting Invisibility, The Wolf makes his way toward the secret escape tunnel beneath the council chamber.",
+              "sequence_index_within_session": null,
+              "asserted_in_session": null
+            },
+            {
+              "proxy_attribute": "goals",
+              "fact_id": "fact_the_wolf_goals_30e219510ddc",
+              "label": "escape",
+              "sequence_index_within_session": null,
+              "asserted_in_session": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "q_the_emergency_council_meeting_1",
+      "coverage_status": "partially_answerable",
+      "preflight_support_status": "supported",
+      "missing_pairs": 2,
+      "recoverable_missing_pairs": 0,
+      "missing_details": [
+        {
+          "subject_entity_id": "ent_headmaster_tinkerbright",
+          "missing_attribute": "strategy",
+          "recoverable_via_temporal_proxy": false,
+          "proxy_hits": []
+        },
+        {
+          "subject_entity_id": "ent_wizards_college",
+          "missing_attribute": "strategy",
+          "recoverable_via_temporal_proxy": false,
+          "proxy_hits": []
+        }
+      ]
+    },
+    {
+      "id": "q_the_emergency_council_meeting_2",
+      "coverage_status": "unanswerable",
+      "preflight_support_status": "supported",
+      "missing_pairs": 4,
+      "recoverable_missing_pairs": 4,
+      "missing_details": [
+        {
+          "subject_entity_id": "ent_commander_thalia_ashenvale",
+          "missing_attribute": "status",
+          "recoverable_via_temporal_proxy": true,
+          "proxy_hits": [
+            {
+              "proxy_attribute": "mental_state",
+              "fact_id": "fact_commander_thalia_ashenvale_mental_state_d52a91658bee",
+              "label": "Defensive about accusations against her guard",
+              "sequence_index_within_session": 80,
+              "asserted_in_session": null
+            },
+            {
+              "proxy_attribute": "mental_state",
+              "fact_id": "fact_commander_thalia_ashenvale_mental_state_bba4bb5f2802",
+              "label": "May dismiss or be unaware of signs of internal corruption due to magical manipulation",
+              "sequence_index_within_session": 80,
+              "asserted_in_session": null
+            },
+            {
+              "proxy_attribute": "mental_state",
+              "fact_id": "fact_commander_thalia_ashenvale_mental_state_42d7712dcd13",
+              "label": "Thalia is disciplined and authoritative",
+              "sequence_index_within_session": 79,
+              "asserted_in_session": null
+            },
+            {
+              "proxy_attribute": "mental_state",
+              "fact_id": "fact_commander_thalia_ashenvale_mental_state_c41f6ca60212",
+              "label": "She is resistant to believing any accusations",
+              "sequence_index_within_session": 79,
+              "asserted_in_session": null
+            }
+          ]
+        },
+        {
+          "subject_entity_id": "ent_commander_thalia_ashenvale",
+          "missing_attribute": "event_sequence",
+          "recoverable_via_temporal_proxy": true,
+          "proxy_hits": [
+            {
+              "proxy_attribute": "goals",
+              "fact_id": "fact_commander_thalia_ashenvale_goals_8600c23701d7",
+              "label": "Will listen to solid evidence",
+              "sequence_index_within_session": 80,
+              "asserted_in_session": null
+            },
+            {
+              "proxy_attribute": "history",
+              "fact_id": "fact_commander_thalia_ashenvale_history_962f3dbeb739",
+              "label": "She has been ensorcelled by the Wolf to overlook corruption within the guard",
+              "sequence_index_within_session": 79,
+              "asserted_in_session": null
+            }
+          ]
+        },
+        {
+          "subject_entity_id": "ent_the_wolf",
+          "missing_attribute": "status",
+          "recoverable_via_temporal_proxy": true,
+          "proxy_hits": [
+            {
+              "proxy_attribute": "mental_state",
+              "fact_id": "fact_the_wolf_mental_state_12eac2b05c1c",
+              "label": "begging to be killed",
+              "sequence_index_within_session": null,
+              "asserted_in_session": null
+            },
+            {
+              "proxy_attribute": "mental_state",
+              "fact_id": "fact_the_wolf_mental_state_11c9e1330d54",
+              "label": "suffering from visions and mental manipulation",
+              "sequence_index_within_session": 36,
+              "asserted_in_session": null
+            },
+            {
+              "proxy_attribute": "mental_state",
+              "fact_id": "fact_the_wolf_mental_state_fa4fb19d8e1c",
+              "label": "hearing nightmares",
+              "sequence_index_within_session": 43,
+              "asserted_in_session": null
+            },
+            {
+              "proxy_attribute": "mental_state",
+              "fact_id": "fact_the_wolf_mental_state_ad439b717c87",
+              "label": "mentally manipulated by the Shepherd",
+              "sequence_index_within_session": 43,
+              "asserted_in_session": null
+            },
+            {
+              "proxy_attribute": "mental_state",
+              "fact_id": "fact_the_wolf_mental_state_4f8e1e46edd2",
+              "label": "Experiencing visions",
+              "sequence_index_within_session": 44,
+              "asserted_in_session": null
+            },
+            {
+              "proxy_attribute": "mental_state",
+              "fact_id": "fact_the_wolf_mental_state_c62026e0c66c",
+              "label": "Nightmares intensify",
+              "sequence_index_within_session": 60,
+              "asserted_in_session": null
+            }
+          ]
+        },
+        {
+          "subject_entity_id": "ent_the_wolf",
+          "missing_attribute": "event_sequence",
+          "recoverable_via_temporal_proxy": true,
+          "proxy_hits": [
+            {
+              "proxy_attribute": "goals",
+              "fact_id": "fact_the_wolf_goals_285da0d9ee98",
+              "label": "stall the players",
+              "sequence_index_within_session": null,
+              "asserted_in_session": null
+            },
+            {
+              "proxy_attribute": "goals",
+              "fact_id": "fact_the_wolf_goals_0f49d807a8a5",
+              "label": "escape into the sewers",
+              "sequence_index_within_session": null,
+              "asserted_in_session": null
+            },
+            {
+              "proxy_attribute": "goals",
+              "fact_id": "fact_the_wolf_goals_d864cc84356d",
+              "label": "complete a kaiju-scale ritual in the sewers",
+              "sequence_index_within_session": null,
+              "asserted_in_session": null
+            },
+            {
+              "proxy_attribute": "goals",
+              "fact_id": "fact_the_wolf_goals_cf959058ae35",
+              "label": "Work toward an escape route",
+              "sequence_index_within_session": null,
+              "asserted_in_session": null
+            },
+            {
+              "proxy_attribute": "goals",
+              "fact_id": "fact_the_wolf_goals_490fa04511d1",
+              "label": "After casting Invisibility, The Wolf makes his way toward the secret escape tunnel beneath the council chamber.",
+              "sequence_index_within_session": null,
+              "asserted_in_session": null
+            },
+            {
+              "proxy_attribute": "goals",
+              "fact_id": "fact_the_wolf_goals_30e219510ddc",
+              "label": "escape",
+              "sequence_index_within_session": null,
+              "asserted_in_session": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "q_the_emergency_council_meeting_3",
+      "coverage_status": "partially_answerable",
+      "preflight_support_status": "weakly_supported",
+      "missing_pairs": 4,
+      "recoverable_missing_pairs": 0,
+      "missing_details": [
+        {
+          "subject_entity_id": "ent_rurik_stonehammer",
+          "missing_attribute": "faction",
+          "recoverable_via_temporal_proxy": false,
+          "proxy_hits": []
+        },
+        {
+          "subject_entity_id": "ent_barin_coppergleam",
+          "missing_attribute": "faction",
+          "recoverable_via_temporal_proxy": false,
+          "proxy_hits": []
+        },
+        {
+          "subject_entity_id": "ent_barin_coppergleam",
+          "missing_attribute": "goals",
+          "recoverable_via_temporal_proxy": false,
+          "proxy_hits": []
+        },
+        {
+          "subject_entity_id": "ent_grobnok_the_goblin",
+          "missing_attribute": "faction",
+          "recoverable_via_temporal_proxy": false,
+          "proxy_hits": []
+        }
+      ]
+    },
+    {
+      "id": "q_the_emergency_council_meeting_4",
+      "coverage_status": "unanswerable",
+      "preflight_support_status": "weakly_supported",
+      "missing_pairs": 4,
+      "recoverable_missing_pairs": 3,
+      "missing_details": [
+        {
+          "subject_entity_id": "ent_city_council",
+          "missing_attribute": "event_sequence",
+          "recoverable_via_temporal_proxy": true,
+          "proxy_hits": [
+            {
+              "proxy_attribute": "relationship_tags",
+              "fact_id": "fact_city_council_relationship_tags_fd6a51f69c01",
+              "label": "Council members are recipients of amulet of council",
+              "sequence_index_within_session": 8,
+              "asserted_in_session": null
+            },
+            {
+              "proxy_attribute": "relationship_tags",
+              "fact_id": "fact_city_council_relationship_tags_e703ac8a0011",
+              "label": "Intended beneficiary of the ancient defensive wards",
+              "sequence_index_within_session": 22,
+              "asserted_in_session": null
+            },
+            {
+              "proxy_attribute": "relationship_tags",
+              "fact_id": "fact_city_council_relationship_tags_7ddc784ef5c9",
+              "label": "wear amulets",
+              "sequence_index_within_session": 23,
+              "asserted_in_session": null
+            }
+          ]
+        },
+        {
+          "subject_entity_id": "ent_city_council",
+          "missing_attribute": "ritual",
+          "recoverable_via_temporal_proxy": false,
+          "proxy_hits": []
+        },
+        {
+          "subject_entity_id": "ent_maelthor",
+          "missing_attribute": "event_sequence",
+          "recoverable_via_temporal_proxy": true,
+          "proxy_hits": [
+            {
+              "proxy_attribute": "goals",
+              "fact_id": "fact_maelthor_goals_4d8dcf6b8112",
+              "label": "Its emergence into the world is being hastened by ritual sacrifices.",
+              "sequence_index_within_session": null,
+              "asserted_in_session": null
+            }
+          ]
+        },
+        {
+          "subject_entity_id": "ent_maelthor",
+          "missing_attribute": "ritual",
+          "recoverable_via_temporal_proxy": true,
+          "proxy_hits": [
+            {
+              "proxy_attribute": "goals",
+              "fact_id": "fact_maelthor_goals_4d8dcf6b8112",
+              "label": "Its emergence into the world is being hastened by ritual sacrifices.",
+              "sequence_index_within_session": null,
+              "asserted_in_session": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "q_longmont_campaign_general_notes_1",
+      "coverage_status": "partially_answerable",
+      "preflight_support_status": "supported",
+      "missing_pairs": 2,
+      "recoverable_missing_pairs": 0,
+      "missing_details": [
+        {
+          "subject_entity_id": "ent_shepherds_flock",
+          "missing_attribute": "beliefs",
+          "recoverable_via_temporal_proxy": false,
+          "proxy_hits": []
+        },
+        {
+          "subject_entity_id": "ent_maelthor",
+          "missing_attribute": "beliefs",
+          "recoverable_via_temporal_proxy": false,
+          "proxy_hits": []
+        }
+      ]
+    },
+    {
+      "id": "q_longmont_campaign_general_notes_2",
+      "coverage_status": "unanswerable",
+      "preflight_support_status": "supported",
+      "missing_pairs": 2,
+      "recoverable_missing_pairs": 1,
+      "missing_details": [
+        {
+          "subject_entity_id": "ent_shepherds_flock",
+          "missing_attribute": "methods",
+          "recoverable_via_temporal_proxy": false,
+          "proxy_hits": []
+        },
+        {
+          "subject_entity_id": "ent_shepherds_flock",
+          "missing_attribute": "event_sequence",
+          "recoverable_via_temporal_proxy": true,
+          "proxy_hits": [
+            {
+              "proxy_attribute": "relationship_tags",
+              "fact_id": "fact_shepherds_flock_relationship_tags_795307a7b2b3",
+              "label": "is conducting the protest",
+              "sequence_index_within_session": 125,
+              "asserted_in_session": null
+            },
+            {
+              "proxy_attribute": "relationship_tags",
+              "fact_id": "fact_shepherds_flock_relationship_tags_8e0df842c1b0",
+              "label": "Hid the corrupted meat",
+              "sequence_index_within_session": 39,
+              "asserted_in_session": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "q_longmont_campaign_general_notes_4",
+      "coverage_status": "partially_answerable",
+      "preflight_support_status": "weakly_supported",
+      "missing_pairs": 8,
+      "recoverable_missing_pairs": 5,
+      "missing_details": [
+        {
+          "subject_entity_id": "ent_city_council",
+          "missing_attribute": "event_sequence",
+          "recoverable_via_temporal_proxy": true,
+          "proxy_hits": [
+            {
+              "proxy_attribute": "relationship_tags",
+              "fact_id": "fact_city_council_relationship_tags_fd6a51f69c01",
+              "label": "Council members are recipients of amulet of council",
+              "sequence_index_within_session": 8,
+              "asserted_in_session": null
+            },
+            {
+              "proxy_attribute": "relationship_tags",
+              "fact_id": "fact_city_council_relationship_tags_e703ac8a0011",
+              "label": "Intended beneficiary of the ancient defensive wards",
+              "sequence_index_within_session": 22,
+              "asserted_in_session": null
+            },
+            {
+              "proxy_attribute": "relationship_tags",
+              "fact_id": "fact_city_council_relationship_tags_7ddc784ef5c9",
+              "label": "wear amulets",
+              "sequence_index_within_session": 23,
+              "asserted_in_session": null
+            }
+          ]
+        },
+        {
+          "subject_entity_id": "ent_city_council",
+          "missing_attribute": "status",
+          "recoverable_via_temporal_proxy": false,
+          "proxy_hits": []
+        },
+        {
+          "subject_entity_id": "ent_shepherds_flock",
+          "missing_attribute": "governance",
+          "recoverable_via_temporal_proxy": false,
+          "proxy_hits": []
+        },
+        {
+          "subject_entity_id": "ent_shepherds_flock",
+          "missing_attribute": "event_sequence",
+          "recoverable_via_temporal_proxy": true,
+          "proxy_hits": [
+            {
+              "proxy_attribute": "relationship_tags",
+              "fact_id": "fact_shepherds_flock_relationship_tags_795307a7b2b3",
+              "label": "is conducting the protest",
+              "sequence_index_within_session": 125,
+              "asserted_in_session": null
+            },
+            {
+              "proxy_attribute": "relationship_tags",
+              "fact_id": "fact_shepherds_flock_relationship_tags_8e0df842c1b0",
+              "label": "Hid the corrupted meat",
+              "sequence_index_within_session": 39,
+              "asserted_in_session": null
+            }
+          ]
+        },
+        {
+          "subject_entity_id": "ent_shepherds_flock",
+          "missing_attribute": "status",
+          "recoverable_via_temporal_proxy": true,
+          "proxy_hits": [
+            {
+              "proxy_attribute": "mental_state",
+              "fact_id": "fact_shepherds_flock_mental_state_a1c64ca351de",
+              "label": "They are vocal and passionate during the protest",
+              "sequence_index_within_session": 121,
+              "asserted_in_session": null
+            }
+          ]
+        },
+        {
+          "subject_entity_id": "ent_the_wolf",
+          "missing_attribute": "governance",
+          "recoverable_via_temporal_proxy": false,
+          "proxy_hits": []
+        },
+        {
+          "subject_entity_id": "ent_the_wolf",
+          "missing_attribute": "event_sequence",
+          "recoverable_via_temporal_proxy": true,
+          "proxy_hits": [
+            {
+              "proxy_attribute": "goals",
+              "fact_id": "fact_the_wolf_goals_285da0d9ee98",
+              "label": "stall the players",
+              "sequence_index_within_session": null,
+              "asserted_in_session": null
+            },
+            {
+              "proxy_attribute": "goals",
+              "fact_id": "fact_the_wolf_goals_0f49d807a8a5",
+              "label": "escape into the sewers",
+              "sequence_index_within_session": null,
+              "asserted_in_session": null
+            },
+            {
+              "proxy_attribute": "goals",
+              "fact_id": "fact_the_wolf_goals_d864cc84356d",
+              "label": "complete a kaiju-scale ritual in the sewers",
+              "sequence_index_within_session": null,
+              "asserted_in_session": null
+            },
+            {
+              "proxy_attribute": "goals",
+              "fact_id": "fact_the_wolf_goals_cf959058ae35",
+              "label": "Work toward an escape route",
+              "sequence_index_within_session": null,
+              "asserted_in_session": null
+            },
+            {
+              "proxy_attribute": "goals",
+              "fact_id": "fact_the_wolf_goals_490fa04511d1",
+              "label": "After casting Invisibility, The Wolf makes his way toward the secret escape tunnel beneath the council chamber.",
+              "sequence_index_within_session": null,
+              "asserted_in_session": null
+            },
+            {
+              "proxy_attribute": "goals",
+              "fact_id": "fact_the_wolf_goals_30e219510ddc",
+              "label": "escape",
+              "sequence_index_within_session": null,
+              "asserted_in_session": null
+            }
+          ]
+        },
+        {
+          "subject_entity_id": "ent_the_wolf",
+          "missing_attribute": "status",
+          "recoverable_via_temporal_proxy": true,
+          "proxy_hits": [
+            {
+              "proxy_attribute": "mental_state",
+              "fact_id": "fact_the_wolf_mental_state_12eac2b05c1c",
+              "label": "begging to be killed",
+              "sequence_index_within_session": null,
+              "asserted_in_session": null
+            },
+            {
+              "proxy_attribute": "mental_state",
+              "fact_id": "fact_the_wolf_mental_state_11c9e1330d54",
+              "label": "suffering from visions and mental manipulation",
+              "sequence_index_within_session": 36,
+              "asserted_in_session": null
+            },
+            {
+              "proxy_attribute": "mental_state",
+              "fact_id": "fact_the_wolf_mental_state_fa4fb19d8e1c",
+              "label": "hearing nightmares",
+              "sequence_index_within_session": 43,
+              "asserted_in_session": null
+            },
+            {
+              "proxy_attribute": "mental_state",
+              "fact_id": "fact_the_wolf_mental_state_ad439b717c87",
+              "label": "mentally manipulated by the Shepherd",
+              "sequence_index_within_session": 43,
+              "asserted_in_session": null
+            },
+            {
+              "proxy_attribute": "mental_state",
+              "fact_id": "fact_the_wolf_mental_state_4f8e1e46edd2",
+              "label": "Experiencing visions",
+              "sequence_index_within_session": 44,
+              "asserted_in_session": null
+            },
+            {
+              "proxy_attribute": "mental_state",
+              "fact_id": "fact_the_wolf_mental_state_c62026e0c66c",
+              "label": "Nightmares intensify",
+              "sequence_index_within_session": 60,
+              "asserted_in_session": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "q_the_city_council_1",
+      "coverage_status": "partially_answerable",
+      "preflight_support_status": "supported",
+      "missing_pairs": 3,
+      "recoverable_missing_pairs": 0,
+      "missing_details": [
+        {
+          "subject_entity_id": "ent_mayor_elara_swiftwind",
+          "missing_attribute": "personality",
+          "recoverable_via_temporal_proxy": false,
+          "proxy_hits": []
+        },
+        {
+          "subject_entity_id": "ent_city_council",
+          "missing_attribute": "rank_or_title",
+          "recoverable_via_temporal_proxy": false,
+          "proxy_hits": []
+        },
+        {
+          "subject_entity_id": "ent_city_council",
+          "missing_attribute": "personality",
+          "recoverable_via_temporal_proxy": false,
+          "proxy_hits": []
+        }
+      ]
+    },
+    {
+      "id": "q_the_city_council_2",
+      "coverage_status": "partially_answerable",
+      "preflight_support_status": "supported",
+      "missing_pairs": 1,
+      "recoverable_missing_pairs": 0,
+      "missing_details": [
+        {
+          "subject_entity_id": "ent_wizards_college",
+          "missing_attribute": "rank_or_title",
+          "recoverable_via_temporal_proxy": false,
+          "proxy_hits": []
+        }
+      ]
+    },
+    {
+      "id": "q_the_city_council_3",
+      "coverage_status": "partially_answerable",
+      "preflight_support_status": "supported",
+      "missing_pairs": 2,
+      "recoverable_missing_pairs": 2,
+      "missing_details": [
+        {
+          "subject_entity_id": "ent_commander_thalia_ashenvale",
+          "missing_attribute": "status",
+          "recoverable_via_temporal_proxy": true,
+          "proxy_hits": [
+            {
+              "proxy_attribute": "mental_state",
+              "fact_id": "fact_commander_thalia_ashenvale_mental_state_d52a91658bee",
+              "label": "Defensive about accusations against her guard",
+              "sequence_index_within_session": 80,
+              "asserted_in_session": null
+            },
+            {
+              "proxy_attribute": "mental_state",
+              "fact_id": "fact_commander_thalia_ashenvale_mental_state_bba4bb5f2802",
+              "label": "May dismiss or be unaware of signs of internal corruption due to magical manipulation",
+              "sequence_index_within_session": 80,
+              "asserted_in_session": null
+            },
+            {
+              "proxy_attribute": "mental_state",
+              "fact_id": "fact_commander_thalia_ashenvale_mental_state_42d7712dcd13",
+              "label": "Thalia is disciplined and authoritative",
+              "sequence_index_within_session": 79,
+              "asserted_in_session": null
+            },
+            {
+              "proxy_attribute": "mental_state",
+              "fact_id": "fact_commander_thalia_ashenvale_mental_state_c41f6ca60212",
+              "label": "She is resistant to believing any accusations",
+              "sequence_index_within_session": 79,
+              "asserted_in_session": null
+            }
+          ]
+        },
+        {
+          "subject_entity_id": "ent_the_wolf",
+          "missing_attribute": "status",
+          "recoverable_via_temporal_proxy": true,
+          "proxy_hits": [
+            {
+              "proxy_attribute": "mental_state",
+              "fact_id": "fact_the_wolf_mental_state_12eac2b05c1c",
+              "label": "begging to be killed",
+              "sequence_index_within_session": null,
+              "asserted_in_session": null
+            },
+            {
+              "proxy_attribute": "mental_state",
+              "fact_id": "fact_the_wolf_mental_state_11c9e1330d54",
+              "label": "suffering from visions and mental manipulation",
+              "sequence_index_within_session": 36,
+              "asserted_in_session": null
+            },
+            {
+              "proxy_attribute": "mental_state",
+              "fact_id": "fact_the_wolf_mental_state_fa4fb19d8e1c",
+              "label": "hearing nightmares",
+              "sequence_index_within_session": 43,
+              "asserted_in_session": null
+            },
+            {
+              "proxy_attribute": "mental_state",
+              "fact_id": "fact_the_wolf_mental_state_ad439b717c87",
+              "label": "mentally manipulated by the Shepherd",
+              "sequence_index_within_session": 43,
+              "asserted_in_session": null
+            },
+            {
+              "proxy_attribute": "mental_state",
+              "fact_id": "fact_the_wolf_mental_state_4f8e1e46edd2",
+              "label": "Experiencing visions",
+              "sequence_index_within_session": 44,
+              "asserted_in_session": null
+            },
+            {
+              "proxy_attribute": "mental_state",
+              "fact_id": "fact_the_wolf_mental_state_c62026e0c66c",
+              "label": "Nightmares intensify",
+              "sequence_index_within_session": 60,
+              "asserted_in_session": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "q_the_city_council_4",
+      "coverage_status": "partially_answerable",
+      "preflight_support_status": "supported",
+      "missing_pairs": 1,
+      "recoverable_missing_pairs": 0,
+      "missing_details": [
+        {
+          "subject_entity_id": "ent_rurik_stonehammer",
+          "missing_attribute": "faction",
+          "recoverable_via_temporal_proxy": false,
+          "proxy_hits": []
+        }
+      ]
+    },
+    {
+      "id": "q_the_council_room_1",
+      "coverage_status": "partially_answerable",
+      "preflight_support_status": "supported",
+      "missing_pairs": 2,
+      "recoverable_missing_pairs": 0,
+      "missing_details": [
+        {
+          "subject_entity_id": "ent_council_room",
+          "missing_attribute": "visual_description",
+          "recoverable_via_temporal_proxy": false,
+          "proxy_hits": []
+        },
+        {
+          "subject_entity_id": "ent_mirathorn",
+          "missing_attribute": "visual_description",
+          "recoverable_via_temporal_proxy": false,
+          "proxy_hits": []
+        }
+      ]
+    },
+    {
+      "id": "q_the_council_room_2",
+      "coverage_status": "partially_answerable",
+      "preflight_support_status": "supported",
+      "missing_pairs": 1,
+      "recoverable_missing_pairs": 0,
+      "missing_details": [
+        {
+          "subject_entity_id": "ent_city_council",
+          "missing_attribute": "geography",
+          "recoverable_via_temporal_proxy": false,
+          "proxy_hits": []
+        }
+      ]
+    },
+    {
+      "id": "q_the_council_room_3",
+      "coverage_status": "partially_answerable",
+      "preflight_support_status": "supported",
+      "missing_pairs": 1,
+      "recoverable_missing_pairs": 0,
+      "missing_details": [
+        {
+          "subject_entity_id": "ent_council_room",
+          "missing_attribute": "sensory_description",
+          "recoverable_via_temporal_proxy": false,
+          "proxy_hits": []
+        }
+      ]
+    },
+    {
+      "id": "q_the_council_room_4",
+      "coverage_status": "partially_answerable",
+      "preflight_support_status": "supported",
+      "missing_pairs": 3,
+      "recoverable_missing_pairs": 0,
+      "missing_details": [
+        {
+          "subject_entity_id": "ent_mirathorn",
+          "missing_attribute": "culture",
+          "recoverable_via_temporal_proxy": false,
+          "proxy_hits": []
+        },
+        {
+          "subject_entity_id": "ent_city_council",
+          "missing_attribute": "history",
+          "recoverable_via_temporal_proxy": false,
+          "proxy_hits": []
+        },
+        {
+          "subject_entity_id": "ent_city_council",
+          "missing_attribute": "culture",
+          "recoverable_via_temporal_proxy": false,
+          "proxy_hits": []
+        }
+      ]
+    }
+  ],
+  "notes": [
+    "No API calls were made; this is derived from existing phase_d_store facts only.",
+    "Recoverable means at least one temporal/state proxy fact exists for the entity with sequence or temporal lexical signal.",
+    "Low asserted_in_session coverage limits true cross-session transition confidence."
+  ]
+}

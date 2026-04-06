@@ -1,0 +1,2509 @@
+[
+  {
+    "id": "q_battle_with_the_wolf_and_aftermath_1",
+    "document_source": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/City Council Building/Battle with The Wolf and Aftermath.md",
+    "document_title": "Battle with The Wolf and Aftermath",
+    "question": "What happens to The Wolf by the end of the council chamber fight?",
+    "expected_answer_summary": "The Wolf is ultimately killed, with Bonogo delivering the killing blow and decapitation-style terminal outcome.",
+    "must_hit_tokens": [
+      "killed",
+      "killing blow",
+      "bonogo",
+      "decapitated"
+    ],
+    "stale_tokens": [
+      "escaped safely",
+      "still alive",
+      "still stalling"
+    ],
+    "update_signal_tokens": [
+      "terminal outcome",
+      "aftermath",
+      "dead"
+    ],
+    "semantic_equivalences": {
+      "killing blow": [
+        "fatal strike",
+        "final blow",
+        "decapitated"
+      ],
+      "killed": [
+        "dead",
+        "slain"
+      ]
+    },
+    "target_entities": [
+      "ent_the_wolf"
+    ],
+    "target_entity_names_requested": [
+      "The Wolf",
+      "Bonogo"
+    ],
+    "unresolved_target_entity_names": [],
+    "target_attributes": [
+      "status",
+      "combat_outcome"
+    ],
+    "surface": "core_extraction",
+    "tier": "must_pass",
+    "preflight_support_status": "weakly_supported",
+    "preflight_support_details": [
+      {
+        "requested_name": "The Wolf",
+        "resolved_entity_id": "ent_the_wolf",
+        "status": "supported",
+        "exact_hits": {
+          "The Wolf": 26,
+          "He": 3,
+          "him": 6
+        },
+        "best_fuzzy_variant": "The Wolf",
+        "best_fuzzy_score": 1.0
+      },
+      {
+        "requested_name": "Bonogo",
+        "resolved_entity_id": null,
+        "status": "unsupported",
+        "exact_hits": {},
+        "best_fuzzy_variant": "",
+        "best_fuzzy_score": 0.0
+      }
+    ],
+    "coverage_status": "unanswerable",
+    "coverage_match_ratio": 0.0,
+    "coverage_pair_totals": {
+      "matched_pairs": 0,
+      "total_pairs": 2
+    },
+    "coverage_details": [
+      {
+        "subject_entity_id": "ent_the_wolf",
+        "attribute": "status",
+        "fact_count": 0
+      },
+      {
+        "subject_entity_id": "ent_the_wolf",
+        "attribute": "combat_outcome",
+        "fact_count": 0
+      }
+    ],
+    "closest_match_facts": []
+  },
+  {
+    "id": "q_battle_with_the_wolf_and_aftermath_2",
+    "document_source": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/City Council Building/Battle with The Wolf and Aftermath.md",
+    "document_title": "Battle with The Wolf and Aftermath",
+    "question": "Which environmental defenses in the council chamber change the battle flow?",
+    "expected_answer_summary": "Arcane traps, falling debris, alarm pulses, and illusory walls force positioning and can trigger reinforcements.",
+    "must_hit_tokens": [
+      "arcane traps",
+      "falling debris",
+      "alarm pulses",
+      "illusory walls"
+    ],
+    "stale_tokens": [
+      "normal battlefield",
+      "no magical defenses"
+    ],
+    "update_signal_tokens": [
+      "defenses activate",
+      "runes",
+      "reinforcements"
+    ],
+    "semantic_equivalences": {
+      "arcane traps": [
+        "rune traps",
+        "magical traps"
+      ],
+      "alarm pulses": [
+        "sonic pulses",
+        "arcane alarm"
+      ]
+    },
+    "target_entities": [
+      "ent_council_room",
+      "ent_the_wolf"
+    ],
+    "target_entity_names_requested": [
+      "Council Chamber",
+      "The Wolf"
+    ],
+    "unresolved_target_entity_names": [],
+    "target_attributes": [
+      "defenses",
+      "combat_context"
+    ],
+    "surface": "core_extraction",
+    "tier": "must_pass",
+    "preflight_support_status": "supported",
+    "preflight_support_details": [
+      {
+        "requested_name": "Council Chamber",
+        "resolved_entity_id": "ent_council_room",
+        "status": "supported",
+        "exact_hits": {
+          "Council Chamber": 9
+        },
+        "best_fuzzy_variant": "Council Chamber",
+        "best_fuzzy_score": 1.0
+      },
+      {
+        "requested_name": "The Wolf",
+        "resolved_entity_id": "ent_the_wolf",
+        "status": "supported",
+        "exact_hits": {
+          "The Wolf": 26,
+          "He": 3,
+          "him": 6
+        },
+        "best_fuzzy_variant": "The Wolf",
+        "best_fuzzy_score": 1.0
+      }
+    ],
+    "coverage_status": "partially_answerable",
+    "coverage_match_ratio": 0.5,
+    "coverage_pair_totals": {
+      "matched_pairs": 2,
+      "total_pairs": 4
+    },
+    "coverage_details": [
+      {
+        "subject_entity_id": "ent_council_room",
+        "attribute": "defenses",
+        "fact_count": 8
+      },
+      {
+        "subject_entity_id": "ent_council_room",
+        "attribute": "combat_context",
+        "fact_count": 0
+      },
+      {
+        "subject_entity_id": "ent_the_wolf",
+        "attribute": "defenses",
+        "fact_count": 1
+      },
+      {
+        "subject_entity_id": "ent_the_wolf",
+        "attribute": "combat_context",
+        "fact_count": 0
+      }
+    ],
+    "closest_match_facts": [
+      {
+        "fact_id": "fact_council_room_defenses_e551a53f0471",
+        "subject_entity_id": "ent_council_room",
+        "attribute": "defenses",
+        "value_label": "had to double as a fortress during the city's more tumultuous years",
+        "truth_state": "CANON"
+      },
+      {
+        "fact_id": "fact_council_room_defenses_fcfda55ca319",
+        "subject_entity_id": "ent_council_room",
+        "attribute": "defenses",
+        "value_label": "council chamber has magical defenses affecting the battle environment",
+        "truth_state": "CANON"
+      },
+      {
+        "fact_id": "fact_the_wolf_defenses_404fce4db422",
+        "subject_entity_id": "ent_the_wolf",
+        "attribute": "defenses",
+        "value_label": "Creates illusory duplicates of himself as decoys",
+        "truth_state": "CANON"
+      }
+    ]
+  },
+  {
+    "id": "q_battle_with_the_wolf_and_aftermath_3",
+    "document_source": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/City Council Building/Battle with The Wolf and Aftermath.md",
+    "document_title": "Battle with The Wolf and Aftermath",
+    "question": "How does Thalia's condition differ from fully corrupted guards during this encounter?",
+    "expected_answer_summary": "Thalia is presented as ensorcelled/manipulated rather than fully corrupted, while many guards are explicitly corrupted.",
+    "must_hit_tokens": [
+      "thalia",
+      "ensorcelled",
+      "not fully corrupted",
+      "corrupted guards"
+    ],
+    "stale_tokens": [
+      "thalia fully corrupted",
+      "all guards uncorrupted"
+    ],
+    "update_signal_tokens": [
+      "manipulated",
+      "influence",
+      "wolf betrayal"
+    ],
+    "semantic_equivalences": {
+      "ensorcelled": [
+        "charmed",
+        "magically manipulated"
+      ],
+      "not fully corrupted": [
+        "influenced but not corrupted",
+        "controlled rather than corrupted"
+      ]
+    },
+    "target_entities": [
+      "ent_commander_thalia_ashenvale",
+      "ent_the_wolf"
+    ],
+    "target_entity_names_requested": [
+      "Commander Thalia Ashenvale",
+      "The Wolf"
+    ],
+    "unresolved_target_entity_names": [],
+    "target_attributes": [
+      "status",
+      "loyalty_or_alignment_context"
+    ],
+    "surface": "vertical_slice",
+    "tier": "must_pass",
+    "preflight_support_status": "supported",
+    "preflight_support_details": [
+      {
+        "requested_name": "Commander Thalia Ashenvale",
+        "resolved_entity_id": "ent_commander_thalia_ashenvale",
+        "status": "supported",
+        "exact_hits": {
+          "Thalia": 3
+        },
+        "best_fuzzy_variant": "Thalia",
+        "best_fuzzy_score": 1.0
+      },
+      {
+        "requested_name": "The Wolf",
+        "resolved_entity_id": "ent_the_wolf",
+        "status": "supported",
+        "exact_hits": {
+          "The Wolf": 26,
+          "He": 3,
+          "him": 6
+        },
+        "best_fuzzy_variant": "The Wolf",
+        "best_fuzzy_score": 1.0
+      }
+    ],
+    "coverage_status": "partially_answerable",
+    "coverage_match_ratio": 0.5,
+    "coverage_pair_totals": {
+      "matched_pairs": 2,
+      "total_pairs": 4
+    },
+    "coverage_details": [
+      {
+        "subject_entity_id": "ent_commander_thalia_ashenvale",
+        "attribute": "status",
+        "fact_count": 0
+      },
+      {
+        "subject_entity_id": "ent_commander_thalia_ashenvale",
+        "attribute": "loyalty_or_alignment_context",
+        "fact_count": 3
+      },
+      {
+        "subject_entity_id": "ent_the_wolf",
+        "attribute": "status",
+        "fact_count": 0
+      },
+      {
+        "subject_entity_id": "ent_the_wolf",
+        "attribute": "loyalty_or_alignment_context",
+        "fact_count": 2
+      }
+    ],
+    "closest_match_facts": [
+      {
+        "fact_id": "fact_commander_thalia_ashenvale_loyalty_or_alignment_context_e1f6f512a4a6",
+        "subject_entity_id": "ent_commander_thalia_ashenvale",
+        "attribute": "loyalty_or_alignment_context",
+        "value_label": "innocent",
+        "truth_state": "OBSERVED"
+      },
+      {
+        "fact_id": "fact_commander_thalia_ashenvale_loyalty_or_alignment_context_9e42ad264879",
+        "subject_entity_id": "ent_commander_thalia_ashenvale",
+        "attribute": "loyalty_or_alignment_context",
+        "value_label": "She has a strong sense of duty",
+        "truth_state": "CANON"
+      },
+      {
+        "fact_id": "fact_the_wolf_loyalty_or_alignment_context_c918ab2baba5",
+        "subject_entity_id": "ent_the_wolf",
+        "attribute": "loyalty_or_alignment_context",
+        "value_label": "The Wolf may be a cult sympathizer working to sabotage council decision-making",
+        "truth_state": "CANON"
+      },
+      {
+        "fact_id": "fact_the_wolf_loyalty_or_alignment_context_89c9a9938501",
+        "subject_entity_id": "ent_the_wolf",
+        "attribute": "loyalty_or_alignment_context",
+        "value_label": "betrayed the city of Mirathorn",
+        "truth_state": "OBSERVED"
+      }
+    ]
+  },
+  {
+    "id": "q_battle_with_the_wolf_and_aftermath_4",
+    "document_source": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/City Council Building/Battle with The Wolf and Aftermath.md",
+    "document_title": "Battle with The Wolf and Aftermath",
+    "question": "After the chamber fight, what are the main branch paths that still converge on the sewers?",
+    "expected_answer_summary": "Chasing the Wolf, covert operations, or helping Torbin all eventually lead players to sewer entrances and ritual clues.",
+    "must_hit_tokens": [
+      "chase",
+      "covert ops",
+      "torbin",
+      "sewers"
+    ],
+    "stale_tokens": [
+      "single linear path",
+      "no sewer link"
+    ],
+    "update_signal_tokens": [
+      "branch",
+      "converge",
+      "ritual clues"
+    ],
+    "semantic_equivalences": {
+      "covert ops": [
+        "covert operations",
+        "surgical raids"
+      ],
+      "converge": [
+        "all paths lead",
+        "eventual convergence"
+      ]
+    },
+    "target_entities": [
+      "ent_the_wolf"
+    ],
+    "target_entity_names_requested": [
+      "The Wolf",
+      "Torbin"
+    ],
+    "unresolved_target_entity_names": [],
+    "target_attributes": [
+      "event_sequence",
+      "goals"
+    ],
+    "surface": "vertical_slice",
+    "tier": "should_pass",
+    "preflight_support_status": "supported",
+    "preflight_support_details": [
+      {
+        "requested_name": "The Wolf",
+        "resolved_entity_id": "ent_the_wolf",
+        "status": "supported",
+        "exact_hits": {
+          "The Wolf": 26,
+          "He": 3,
+          "him": 6
+        },
+        "best_fuzzy_variant": "The Wolf",
+        "best_fuzzy_score": 1.0
+      },
+      {
+        "requested_name": "Torbin",
+        "resolved_entity_id": null,
+        "status": "supported",
+        "exact_hits": {
+          "Torbin": 10
+        },
+        "best_fuzzy_variant": "Torbin",
+        "best_fuzzy_score": 1.0
+      }
+    ],
+    "coverage_status": "partially_answerable",
+    "coverage_match_ratio": 0.5,
+    "coverage_pair_totals": {
+      "matched_pairs": 1,
+      "total_pairs": 2
+    },
+    "coverage_details": [
+      {
+        "subject_entity_id": "ent_the_wolf",
+        "attribute": "event_sequence",
+        "fact_count": 0
+      },
+      {
+        "subject_entity_id": "ent_the_wolf",
+        "attribute": "goals",
+        "fact_count": 38
+      }
+    ],
+    "closest_match_facts": [
+      {
+        "fact_id": "fact_the_wolf_goals_285da0d9ee98",
+        "subject_entity_id": "ent_the_wolf",
+        "attribute": "goals",
+        "value_label": "stall the players",
+        "truth_state": "CANON"
+      },
+      {
+        "fact_id": "fact_the_wolf_goals_0f49d807a8a5",
+        "subject_entity_id": "ent_the_wolf",
+        "attribute": "goals",
+        "value_label": "escape into the sewers",
+        "truth_state": "CANON"
+      }
+    ]
+  },
+  {
+    "id": "q_the_emergency_council_meeting_1",
+    "document_source": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/City Council Building/The Emergency Council Meeting.md",
+    "document_title": "The Emergency Council Meeting",
+    "question": "What strategy does the Wizards' College propose during the emergency meeting, and what is the key tradeoff?",
+    "expected_answer_summary": "They propose arcane lockdown wards for detection and containment, but at the cost of citywide disruption, panic risk, and festival cancellation.",
+    "must_hit_tokens": [
+      "wizards' college",
+      "arcane lockdown",
+      "wards",
+      "tradeoff"
+    ],
+    "stale_tokens": [
+      "no magical proposal",
+      "cost-free solution"
+    ],
+    "update_signal_tokens": [
+      "detection",
+      "restrictions",
+      "festival"
+    ],
+    "semantic_equivalences": {
+      "arcane lockdown": [
+        "magical lockdown",
+        "ward lockdown"
+      ],
+      "tradeoff": [
+        "drawback",
+        "cost"
+      ]
+    },
+    "target_entities": [
+      "ent_headmaster_tinkerbright",
+      "ent_wizards_college"
+    ],
+    "target_entity_names_requested": [
+      "Headmaster Tinkerbright",
+      "Wizards' College"
+    ],
+    "unresolved_target_entity_names": [],
+    "target_attributes": [
+      "goals",
+      "strategy"
+    ],
+    "surface": "core_extraction",
+    "tier": "must_pass",
+    "preflight_support_status": "supported",
+    "preflight_support_details": [
+      {
+        "requested_name": "Headmaster Tinkerbright",
+        "resolved_entity_id": "ent_headmaster_tinkerbright",
+        "status": "supported",
+        "exact_hits": {
+          "Headmaster Tinkerbright": 1,
+          "Headmaster": 2,
+          "Tinkerbright": 1
+        },
+        "best_fuzzy_variant": "Headmaster Tinkerbright",
+        "best_fuzzy_score": 1.0
+      },
+      {
+        "requested_name": "Wizards' College",
+        "resolved_entity_id": "ent_wizards_college",
+        "status": "supported",
+        "exact_hits": {
+          "Wizards' College": 4,
+          "Wizards": 7
+        },
+        "best_fuzzy_variant": "Wizards' College",
+        "best_fuzzy_score": 1.0
+      }
+    ],
+    "coverage_status": "partially_answerable",
+    "coverage_match_ratio": 0.5,
+    "coverage_pair_totals": {
+      "matched_pairs": 2,
+      "total_pairs": 4
+    },
+    "coverage_details": [
+      {
+        "subject_entity_id": "ent_headmaster_tinkerbright",
+        "attribute": "goals",
+        "fact_count": 13
+      },
+      {
+        "subject_entity_id": "ent_headmaster_tinkerbright",
+        "attribute": "strategy",
+        "fact_count": 0
+      },
+      {
+        "subject_entity_id": "ent_wizards_college",
+        "attribute": "goals",
+        "fact_count": 5
+      },
+      {
+        "subject_entity_id": "ent_wizards_college",
+        "attribute": "strategy",
+        "fact_count": 0
+      }
+    ],
+    "closest_match_facts": [
+      {
+        "fact_id": "fact_headmaster_tinkerbright_goals_075ba1e49901",
+        "subject_entity_id": "ent_headmaster_tinkerbright",
+        "attribute": "goals",
+        "value_label": "Takes threats to the city seriously",
+        "truth_state": "CANON"
+      },
+      {
+        "fact_id": "fact_headmaster_tinkerbright_goals_7ab59a644773",
+        "subject_entity_id": "ent_headmaster_tinkerbright",
+        "attribute": "goals",
+        "value_label": "Eager to deploy Wizard\u2019s College resources to detect and counteract the cult\u2019s influence",
+        "truth_state": "CANON"
+      },
+      {
+        "fact_id": "fact_wizards_college_goals_9a178a300bd8",
+        "subject_entity_id": "ent_wizards_college",
+        "attribute": "goals",
+        "value_label": "Wants magical control",
+        "truth_state": "CANON"
+      },
+      {
+        "fact_id": "fact_wizards_college_goals_16862eac6a9b",
+        "subject_entity_id": "ent_wizards_college",
+        "attribute": "goals",
+        "value_label": "May need to be convinced by technical knowledge or evidence of the cult\u2019s activities.",
+        "truth_state": "CANON"
+      }
+    ]
+  },
+  {
+    "id": "q_the_emergency_council_meeting_2",
+    "document_source": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/City Council Building/The Emergency Council Meeting.md",
+    "document_title": "The Emergency Council Meeting",
+    "question": "How does Thalia's proposed guard sweep become a hidden failure mode?",
+    "expected_answer_summary": "Because Thalia is under the Wolf's influence, guard strike teams can be redirected to wrong locations, delaying response and enabling summoning.",
+    "must_hit_tokens": [
+      "thalia",
+      "wolf influence",
+      "wrong locations",
+      "delay"
+    ],
+    "stale_tokens": [
+      "thalia fully reliable",
+      "no internal sabotage"
+    ],
+    "update_signal_tokens": [
+      "hidden failure",
+      "manipulation",
+      "misdirection"
+    ],
+    "semantic_equivalences": {
+      "wolf influence": [
+        "ensorcelled by the wolf",
+        "wolf manipulation"
+      ],
+      "wrong locations": [
+        "misdirected strike teams",
+        "sent to false targets"
+      ]
+    },
+    "target_entities": [
+      "ent_commander_thalia_ashenvale",
+      "ent_the_wolf"
+    ],
+    "target_entity_names_requested": [
+      "Commander Thalia Ashenvale",
+      "The Wolf"
+    ],
+    "unresolved_target_entity_names": [],
+    "target_attributes": [
+      "status",
+      "event_sequence"
+    ],
+    "surface": "vertical_slice",
+    "tier": "must_pass",
+    "preflight_support_status": "supported",
+    "preflight_support_details": [
+      {
+        "requested_name": "Commander Thalia Ashenvale",
+        "resolved_entity_id": "ent_commander_thalia_ashenvale",
+        "status": "supported",
+        "exact_hits": {
+          "Thalia": 5,
+          "Thalia\u2019s": 1
+        },
+        "best_fuzzy_variant": "Thalia",
+        "best_fuzzy_score": 1.0
+      },
+      {
+        "requested_name": "The Wolf",
+        "resolved_entity_id": "ent_the_wolf",
+        "status": "supported",
+        "exact_hits": {
+          "The Wolf": 13,
+          "He": 3
+        },
+        "best_fuzzy_variant": "The Wolf",
+        "best_fuzzy_score": 1.0
+      }
+    ],
+    "coverage_status": "unanswerable",
+    "coverage_match_ratio": 0.0,
+    "coverage_pair_totals": {
+      "matched_pairs": 0,
+      "total_pairs": 4
+    },
+    "coverage_details": [
+      {
+        "subject_entity_id": "ent_commander_thalia_ashenvale",
+        "attribute": "status",
+        "fact_count": 0
+      },
+      {
+        "subject_entity_id": "ent_commander_thalia_ashenvale",
+        "attribute": "event_sequence",
+        "fact_count": 0
+      },
+      {
+        "subject_entity_id": "ent_the_wolf",
+        "attribute": "status",
+        "fact_count": 0
+      },
+      {
+        "subject_entity_id": "ent_the_wolf",
+        "attribute": "event_sequence",
+        "fact_count": 0
+      }
+    ],
+    "closest_match_facts": []
+  },
+  {
+    "id": "q_the_emergency_council_meeting_3",
+    "document_source": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/City Council Building/The Emergency Council Meeting.md",
+    "document_title": "The Emergency Council Meeting",
+    "question": "Which council alignments emerge around purification, arming citizens, and covert operations?",
+    "expected_answer_summary": "Wizards and agriculture align on purification pressure, while goblin/undercity factions can align with Torrin and Rurik; Barin aligns with covert actions.",
+    "must_hit_tokens": [
+      "wizards and agriculture aligned",
+      "goblins",
+      "torrin",
+      "rurik",
+      "barin"
+    ],
+    "stale_tokens": [
+      "all factions isolated",
+      "no cross-faction alignment"
+    ],
+    "update_signal_tokens": [
+      "aligned",
+      "coalition",
+      "proposal blocs"
+    ],
+    "semantic_equivalences": {
+      "aligned": [
+        "coalition",
+        "voting bloc"
+      ]
+    },
+    "target_entities": [
+      "ent_merril_tealeaf",
+      "ent_torrin_flamescale",
+      "ent_rurik_stonehammer",
+      "ent_barin_coppergleam",
+      "ent_grobnok_the_goblin"
+    ],
+    "target_entity_names_requested": [
+      "Merril Tealeaf",
+      "Torrin Flamescale",
+      "Rurik Stonehammer",
+      "Barin Coppergleam",
+      "Grobnok"
+    ],
+    "unresolved_target_entity_names": [],
+    "target_attributes": [
+      "faction",
+      "goals"
+    ],
+    "surface": "core_extraction",
+    "tier": "should_pass",
+    "preflight_support_status": "weakly_supported",
+    "preflight_support_details": [
+      {
+        "requested_name": "Merril Tealeaf",
+        "resolved_entity_id": "ent_merril_tealeaf",
+        "status": "supported",
+        "exact_hits": {
+          "Merril Tealeaf": 2,
+          "Merril": 3,
+          "Tealeaf": 2
+        },
+        "best_fuzzy_variant": "Merril Tealeaf",
+        "best_fuzzy_score": 1.0
+      },
+      {
+        "requested_name": "Torrin Flamescale",
+        "resolved_entity_id": "ent_torrin_flamescale",
+        "status": "supported",
+        "exact_hits": {
+          "Torrin Flamescale": 1,
+          "Torrin": 2,
+          "Torin Flamescale": 1
+        },
+        "best_fuzzy_variant": "Torrin Flamescale",
+        "best_fuzzy_score": 1.0
+      },
+      {
+        "requested_name": "Rurik Stonehammer",
+        "resolved_entity_id": "ent_rurik_stonehammer",
+        "status": "supported",
+        "exact_hits": {
+          "Rurik Stonehammer": 1,
+          "Rurik": 3
+        },
+        "best_fuzzy_variant": "Rurik Stonehammer",
+        "best_fuzzy_score": 1.0
+      },
+      {
+        "requested_name": "Barin Coppergleam",
+        "resolved_entity_id": "ent_barin_coppergleam",
+        "status": "unsupported",
+        "exact_hits": {},
+        "best_fuzzy_variant": "Barin Coppergleam",
+        "best_fuzzy_score": 0.5
+      },
+      {
+        "requested_name": "Grobnok",
+        "resolved_entity_id": "ent_grobnok_the_goblin",
+        "status": "supported",
+        "exact_hits": {
+          "Grobnok": 5,
+          "Grobnok the Goblin": 1,
+          "Grobnok\u2019s": 3,
+          "His": 2
+        },
+        "best_fuzzy_variant": "Grobnok",
+        "best_fuzzy_score": 1.0
+      }
+    ],
+    "coverage_status": "partially_answerable",
+    "coverage_match_ratio": 0.6,
+    "coverage_pair_totals": {
+      "matched_pairs": 6,
+      "total_pairs": 10
+    },
+    "coverage_details": [
+      {
+        "subject_entity_id": "ent_merril_tealeaf",
+        "attribute": "faction",
+        "fact_count": 7
+      },
+      {
+        "subject_entity_id": "ent_merril_tealeaf",
+        "attribute": "goals",
+        "fact_count": 9
+      },
+      {
+        "subject_entity_id": "ent_torrin_flamescale",
+        "attribute": "faction",
+        "fact_count": 1
+      },
+      {
+        "subject_entity_id": "ent_torrin_flamescale",
+        "attribute": "goals",
+        "fact_count": 6
+      },
+      {
+        "subject_entity_id": "ent_rurik_stonehammer",
+        "attribute": "faction",
+        "fact_count": 0
+      },
+      {
+        "subject_entity_id": "ent_rurik_stonehammer",
+        "attribute": "goals",
+        "fact_count": 5
+      },
+      {
+        "subject_entity_id": "ent_barin_coppergleam",
+        "attribute": "faction",
+        "fact_count": 0
+      },
+      {
+        "subject_entity_id": "ent_barin_coppergleam",
+        "attribute": "goals",
+        "fact_count": 0
+      },
+      {
+        "subject_entity_id": "ent_grobnok_the_goblin",
+        "attribute": "faction",
+        "fact_count": 0
+      },
+      {
+        "subject_entity_id": "ent_grobnok_the_goblin",
+        "attribute": "goals",
+        "fact_count": 16
+      }
+    ],
+    "closest_match_facts": [
+      {
+        "fact_id": "fact_merril_tealeaf_faction_69a1bbfabf4b",
+        "subject_entity_id": "ent_merril_tealeaf",
+        "attribute": "faction",
+        "value_label": "Agricultural Union",
+        "truth_state": "CANON"
+      },
+      {
+        "fact_id": "fact_merril_tealeaf_faction_69a1bbfabf4b",
+        "subject_entity_id": "ent_merril_tealeaf",
+        "attribute": "faction",
+        "value_label": "Agricultural Union",
+        "truth_state": "CANON"
+      },
+      {
+        "fact_id": "fact_merril_tealeaf_goals_3b2ebd57d306",
+        "subject_entity_id": "ent_merril_tealeaf",
+        "attribute": "goals",
+        "value_label": "Focuses on the well-being of the city's populace through food and agriculture",
+        "truth_state": "CANON"
+      },
+      {
+        "fact_id": "fact_merril_tealeaf_goals_3b2ebd57d306",
+        "subject_entity_id": "ent_merril_tealeaf",
+        "attribute": "goals",
+        "value_label": "Focuses on the well-being of the city's populace through food and agriculture",
+        "truth_state": "CANON"
+      },
+      {
+        "fact_id": "fact_torrin_flamescale_faction_b43f24903a4d",
+        "subject_entity_id": "ent_torrin_flamescale",
+        "attribute": "faction",
+        "value_label": "the Guilds",
+        "truth_state": "CANON"
+      },
+      {
+        "fact_id": "fact_torrin_flamescale_goals_cfa81eaef563",
+        "subject_entity_id": "ent_torrin_flamescale",
+        "attribute": "goals",
+        "value_label": "Has a passion for his craft",
+        "truth_state": "CANON"
+      }
+    ]
+  },
+  {
+    "id": "q_the_emergency_council_meeting_4",
+    "document_source": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/City Council Building/The Emergency Council Meeting.md",
+    "document_title": "The Emergency Council Meeting",
+    "question": "What time-pressure mechanic drives urgency during emergency council deliberation?",
+    "expected_answer_summary": "Each discussion round consumes in-game time and advances a countdown roll toward the kaiju summoning trigger.",
+    "must_hit_tokens": [
+      "time pressure",
+      "discussion rounds",
+      "countdown",
+      "kaiju summoning"
+    ],
+    "stale_tokens": [
+      "unlimited deliberation",
+      "no countdown"
+    ],
+    "update_signal_tokens": [
+      "d4",
+      "d6",
+      "ticks down"
+    ],
+    "semantic_equivalences": {
+      "countdown": [
+        "timer",
+        "tick-down"
+      ]
+    },
+    "target_entities": [
+      "ent_city_council",
+      "ent_maelthor"
+    ],
+    "target_entity_names_requested": [
+      "City Council",
+      "Maelthor"
+    ],
+    "unresolved_target_entity_names": [],
+    "target_attributes": [
+      "event_sequence",
+      "ritual"
+    ],
+    "surface": "vertical_slice",
+    "tier": "must_pass",
+    "preflight_support_status": "weakly_supported",
+    "preflight_support_details": [
+      {
+        "requested_name": "City Council",
+        "resolved_entity_id": "ent_city_council",
+        "status": "supported",
+        "exact_hits": {
+          "Council": 39
+        },
+        "best_fuzzy_variant": "Council",
+        "best_fuzzy_score": 1.0
+      },
+      {
+        "requested_name": "Maelthor",
+        "resolved_entity_id": "ent_maelthor",
+        "status": "unsupported",
+        "exact_hits": {},
+        "best_fuzzy_variant": "",
+        "best_fuzzy_score": 0.0
+      }
+    ],
+    "coverage_status": "unanswerable",
+    "coverage_match_ratio": 0.0,
+    "coverage_pair_totals": {
+      "matched_pairs": 0,
+      "total_pairs": 4
+    },
+    "coverage_details": [
+      {
+        "subject_entity_id": "ent_city_council",
+        "attribute": "event_sequence",
+        "fact_count": 0
+      },
+      {
+        "subject_entity_id": "ent_city_council",
+        "attribute": "ritual",
+        "fact_count": 0
+      },
+      {
+        "subject_entity_id": "ent_maelthor",
+        "attribute": "event_sequence",
+        "fact_count": 0
+      },
+      {
+        "subject_entity_id": "ent_maelthor",
+        "attribute": "ritual",
+        "fact_count": 0
+      }
+    ],
+    "closest_match_facts": []
+  },
+  {
+    "id": "q_longmont_campaign_general_notes_1",
+    "document_source": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Longmont Campaign General Notes.md",
+    "document_title": "Longmont Campaign General Notes",
+    "question": "What does the Longmont campaign note establish about the Shepherds' ideology and patron?",
+    "expected_answer_summary": "The Shepherds follow Maelthor and frame atrocities as ritual sacrifices for ascension, tied to human supremacy and otherworldly power.",
+    "must_hit_tokens": [
+      "shepherds",
+      "maelthor",
+      "ritual sacrifices",
+      "ascension"
+    ],
+    "stale_tokens": [
+      "purely political gang",
+      "no patron"
+    ],
+    "update_signal_tokens": [
+      "cult beliefs",
+      "human supremacy",
+      "resurrection"
+    ],
+    "semantic_equivalences": {
+      "ritual sacrifices": [
+        "sacrificial burnings",
+        "ritual violence"
+      ]
+    },
+    "target_entities": [
+      "ent_shepherds_flock",
+      "ent_maelthor"
+    ],
+    "target_entity_names_requested": [
+      "The Shepherds",
+      "Maelthor"
+    ],
+    "unresolved_target_entity_names": [],
+    "target_attributes": [
+      "beliefs",
+      "goals"
+    ],
+    "surface": "core_extraction",
+    "tier": "must_pass",
+    "preflight_support_status": "supported",
+    "preflight_support_details": [
+      {
+        "requested_name": "The Shepherds",
+        "resolved_entity_id": "ent_shepherds_flock",
+        "status": "supported",
+        "exact_hits": {
+          "The Shepherds": 6,
+          "Shepherds": 7
+        },
+        "best_fuzzy_variant": "The Shepherds",
+        "best_fuzzy_score": 1.0
+      },
+      {
+        "requested_name": "Maelthor",
+        "resolved_entity_id": "ent_maelthor",
+        "status": "supported",
+        "exact_hits": {
+          "Maelthor": 5,
+          "Maelthor\u2019s": 2
+        },
+        "best_fuzzy_variant": "Maelthor",
+        "best_fuzzy_score": 1.0
+      }
+    ],
+    "coverage_status": "partially_answerable",
+    "coverage_match_ratio": 0.5,
+    "coverage_pair_totals": {
+      "matched_pairs": 2,
+      "total_pairs": 4
+    },
+    "coverage_details": [
+      {
+        "subject_entity_id": "ent_shepherds_flock",
+        "attribute": "beliefs",
+        "fact_count": 0
+      },
+      {
+        "subject_entity_id": "ent_shepherds_flock",
+        "attribute": "goals",
+        "fact_count": 8
+      },
+      {
+        "subject_entity_id": "ent_maelthor",
+        "attribute": "beliefs",
+        "fact_count": 0
+      },
+      {
+        "subject_entity_id": "ent_maelthor",
+        "attribute": "goals",
+        "fact_count": 2
+      }
+    ],
+    "closest_match_facts": [
+      {
+        "fact_id": "fact_shepherds_flock_goals_c8df6430bc3c",
+        "subject_entity_id": "ent_shepherds_flock",
+        "attribute": "goals",
+        "value_label": "Protest the high toll to enter the city",
+        "truth_state": "CANON"
+      },
+      {
+        "fact_id": "fact_shepherds_flock_goals_3d83bebb3412",
+        "subject_entity_id": "ent_shepherds_flock",
+        "attribute": "goals",
+        "value_label": "involved in distribution of twisted meat as part of their devotion",
+        "truth_state": "OBSERVED"
+      },
+      {
+        "fact_id": "fact_maelthor_goals_4763c0b56d17",
+        "subject_entity_id": "ent_maelthor",
+        "attribute": "goals",
+        "value_label": "promises ascension and transcendence to those who aid in its resurrection or awakening on earth",
+        "truth_state": "OBSERVED"
+      },
+      {
+        "fact_id": "fact_maelthor_goals_4d8dcf6b8112",
+        "subject_entity_id": "ent_maelthor",
+        "attribute": "goals",
+        "value_label": "Its emergence into the world is being hastened by ritual sacrifices.",
+        "truth_state": "OBSERVED"
+      }
+    ]
+  },
+  {
+    "id": "q_longmont_campaign_general_notes_2",
+    "document_source": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Longmont Campaign General Notes.md",
+    "document_title": "Longmont Campaign General Notes",
+    "question": "How does twisted meat function as a corruption vector in campaign-layer notes?",
+    "expected_answer_summary": "Twisted meat is distributed covertly through markets, producing dreams, behavioral changes, and eventual cult recruitment.",
+    "must_hit_tokens": [
+      "twisted meat",
+      "distributed",
+      "dreams",
+      "behavioral changes",
+      "recruitment"
+    ],
+    "stale_tokens": [
+      "direct military invasion only",
+      "no food corruption"
+    ],
+    "update_signal_tokens": [
+      "tainted food",
+      "transformation over time"
+    ],
+    "semantic_equivalences": {
+      "behavioral changes": [
+        "aggression",
+        "disconnected from reality"
+      ],
+      "recruitment": [
+        "inducted into cult ranks"
+      ]
+    },
+    "target_entities": [
+      "ent_shepherds_flock"
+    ],
+    "target_entity_names_requested": [
+      "The Shepherds"
+    ],
+    "unresolved_target_entity_names": [],
+    "target_attributes": [
+      "methods",
+      "event_sequence"
+    ],
+    "surface": "core_extraction",
+    "tier": "must_pass",
+    "preflight_support_status": "supported",
+    "preflight_support_details": [
+      {
+        "requested_name": "The Shepherds",
+        "resolved_entity_id": "ent_shepherds_flock",
+        "status": "supported",
+        "exact_hits": {
+          "The Shepherds": 6,
+          "Shepherds": 7
+        },
+        "best_fuzzy_variant": "The Shepherds",
+        "best_fuzzy_score": 1.0
+      }
+    ],
+    "coverage_status": "unanswerable",
+    "coverage_match_ratio": 0.0,
+    "coverage_pair_totals": {
+      "matched_pairs": 0,
+      "total_pairs": 2
+    },
+    "coverage_details": [
+      {
+        "subject_entity_id": "ent_shepherds_flock",
+        "attribute": "methods",
+        "fact_count": 0
+      },
+      {
+        "subject_entity_id": "ent_shepherds_flock",
+        "attribute": "event_sequence",
+        "fact_count": 0
+      }
+    ],
+    "closest_match_facts": []
+  },
+  {
+    "id": "q_longmont_campaign_general_notes_3",
+    "document_source": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Longmont Campaign General Notes.md",
+    "document_title": "Longmont Campaign General Notes",
+    "question": "What dual role does Commander Elric Vane play in the campaign notes?",
+    "expected_answer_summary": "Elric Vane is both a tactical commander and a cult priest coordinating rituals and spread operations.",
+    "must_hit_tokens": [
+      "elric vane",
+      "dual leadership",
+      "tactical leader",
+      "high priest"
+    ],
+    "stale_tokens": [
+      "single civilian role",
+      "unrelated to rituals"
+    ],
+    "update_signal_tokens": [
+      "secret meetings",
+      "inner circle",
+      "ritual oversight"
+    ],
+    "semantic_equivalences": {
+      "high priest": [
+        "cult priest",
+        "ritual authority"
+      ]
+    },
+    "target_entities": [
+      "ent_commander_elric_vane",
+      "ent_shepherds_flock"
+    ],
+    "target_entity_names_requested": [
+      "Commander Elric Vane",
+      "The Shepherds"
+    ],
+    "unresolved_target_entity_names": [],
+    "target_attributes": [
+      "rank_or_title",
+      "goals"
+    ],
+    "surface": "vertical_slice",
+    "tier": "should_pass",
+    "preflight_support_status": "supported",
+    "preflight_support_details": [
+      {
+        "requested_name": "Commander Elric Vane",
+        "resolved_entity_id": "ent_commander_elric_vane",
+        "status": "supported",
+        "exact_hits": {
+          "Commander Elric Vane": 1,
+          "Commander Vane": 1,
+          "Vane": 3
+        },
+        "best_fuzzy_variant": "Commander Elric Vane",
+        "best_fuzzy_score": 1.0
+      },
+      {
+        "requested_name": "The Shepherds",
+        "resolved_entity_id": "ent_shepherds_flock",
+        "status": "supported",
+        "exact_hits": {
+          "The Shepherds": 6,
+          "Shepherds": 7
+        },
+        "best_fuzzy_variant": "The Shepherds",
+        "best_fuzzy_score": 1.0
+      }
+    ],
+    "coverage_status": "answerable",
+    "coverage_match_ratio": 1.0,
+    "coverage_pair_totals": {
+      "matched_pairs": 4,
+      "total_pairs": 4
+    },
+    "coverage_details": [
+      {
+        "subject_entity_id": "ent_commander_elric_vane",
+        "attribute": "rank_or_title",
+        "fact_count": 2
+      },
+      {
+        "subject_entity_id": "ent_commander_elric_vane",
+        "attribute": "goals",
+        "fact_count": 3
+      },
+      {
+        "subject_entity_id": "ent_shepherds_flock",
+        "attribute": "rank_or_title",
+        "fact_count": 1
+      },
+      {
+        "subject_entity_id": "ent_shepherds_flock",
+        "attribute": "goals",
+        "fact_count": 8
+      }
+    ],
+    "closest_match_facts": [
+      {
+        "fact_id": "fact_commander_elric_vane_rank_or_title_6b606b2e1610",
+        "subject_entity_id": "ent_commander_elric_vane",
+        "attribute": "rank_or_title",
+        "value_label": "Commander",
+        "truth_state": "OBSERVED"
+      },
+      {
+        "fact_id": "fact_commander_elric_vane_rank_or_title_e788235a7aa1",
+        "subject_entity_id": "ent_commander_elric_vane",
+        "attribute": "rank_or_title",
+        "value_label": "high priest in the cult",
+        "truth_state": "OBSERVED"
+      },
+      {
+        "fact_id": "fact_commander_elric_vane_goals_d2550ab30856",
+        "subject_entity_id": "ent_commander_elric_vane",
+        "attribute": "goals",
+        "value_label": "Discusses progress of their plans in meetings",
+        "truth_state": "OBSERVED"
+      },
+      {
+        "fact_id": "fact_commander_elric_vane_goals_24e760cd650a",
+        "subject_entity_id": "ent_commander_elric_vane",
+        "attribute": "goals",
+        "value_label": "Coordinates the spread of tainted meat",
+        "truth_state": "OBSERVED"
+      },
+      {
+        "fact_id": "fact_shepherds_flock_rank_or_title_02e436090654",
+        "subject_entity_id": "ent_shepherds_flock",
+        "attribute": "rank_or_title",
+        "value_label": "group is called The Shepherds Flock",
+        "truth_state": "OBSERVED"
+      },
+      {
+        "fact_id": "fact_shepherds_flock_goals_c8df6430bc3c",
+        "subject_entity_id": "ent_shepherds_flock",
+        "attribute": "goals",
+        "value_label": "Protest the high toll to enter the city",
+        "truth_state": "CANON"
+      }
+    ]
+  },
+  {
+    "id": "q_longmont_campaign_general_notes_4",
+    "document_source": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Longmont Campaign General Notes.md",
+    "document_title": "Longmont Campaign General Notes",
+    "question": "How should a GM reconcile world-canon council politics with campaign-layer cult operations in Longmont?",
+    "expected_answer_summary": "World-canon defines institutional roles, while campaign notes overlay evolving cult methods, actor corruption, and session-specific escalation.",
+    "must_hit_tokens": [
+      "world canon",
+      "campaign layer",
+      "overlay",
+      "institutional roles",
+      "cult operations"
+    ],
+    "stale_tokens": [
+      "layers are identical",
+      "no campaign-specific state"
+    ],
+    "update_signal_tokens": [
+      "session state",
+      "observed updates",
+      "layer separation"
+    ],
+    "semantic_equivalences": {
+      "overlay": [
+        "applies on top",
+        "layered on top"
+      ],
+      "layer separation": [
+        "world vs campaign distinction"
+      ]
+    },
+    "target_entities": [
+      "ent_city_council",
+      "ent_shepherds_flock",
+      "ent_the_wolf"
+    ],
+    "target_entity_names_requested": [
+      "City Council",
+      "The Shepherds",
+      "The Wolf"
+    ],
+    "unresolved_target_entity_names": [],
+    "target_attributes": [
+      "governance",
+      "event_sequence",
+      "status"
+    ],
+    "surface": "vertical_slice",
+    "tier": "must_pass",
+    "preflight_support_status": "weakly_supported",
+    "preflight_support_details": [
+      {
+        "requested_name": "City Council",
+        "resolved_entity_id": "ent_city_council",
+        "status": "unsupported",
+        "exact_hits": {},
+        "best_fuzzy_variant": "",
+        "best_fuzzy_score": 0.0
+      },
+      {
+        "requested_name": "The Shepherds",
+        "resolved_entity_id": "ent_shepherds_flock",
+        "status": "supported",
+        "exact_hits": {
+          "The Shepherds": 6,
+          "Shepherds": 7
+        },
+        "best_fuzzy_variant": "The Shepherds",
+        "best_fuzzy_score": 1.0
+      },
+      {
+        "requested_name": "The Wolf",
+        "resolved_entity_id": "ent_the_wolf",
+        "status": "supported",
+        "exact_hits": {
+          "He": 1
+        },
+        "best_fuzzy_variant": "",
+        "best_fuzzy_score": 0.0
+      }
+    ],
+    "coverage_status": "partially_answerable",
+    "coverage_match_ratio": 0.1111111111111111,
+    "coverage_pair_totals": {
+      "matched_pairs": 1,
+      "total_pairs": 9
+    },
+    "coverage_details": [
+      {
+        "subject_entity_id": "ent_city_council",
+        "attribute": "governance",
+        "fact_count": 22
+      },
+      {
+        "subject_entity_id": "ent_city_council",
+        "attribute": "event_sequence",
+        "fact_count": 0
+      },
+      {
+        "subject_entity_id": "ent_city_council",
+        "attribute": "status",
+        "fact_count": 0
+      },
+      {
+        "subject_entity_id": "ent_shepherds_flock",
+        "attribute": "governance",
+        "fact_count": 0
+      },
+      {
+        "subject_entity_id": "ent_shepherds_flock",
+        "attribute": "event_sequence",
+        "fact_count": 0
+      },
+      {
+        "subject_entity_id": "ent_shepherds_flock",
+        "attribute": "status",
+        "fact_count": 0
+      },
+      {
+        "subject_entity_id": "ent_the_wolf",
+        "attribute": "governance",
+        "fact_count": 0
+      },
+      {
+        "subject_entity_id": "ent_the_wolf",
+        "attribute": "event_sequence",
+        "fact_count": 0
+      },
+      {
+        "subject_entity_id": "ent_the_wolf",
+        "attribute": "status",
+        "fact_count": 0
+      }
+    ],
+    "closest_match_facts": [
+      {
+        "fact_id": "fact_city_council_governance_4d1bb83f4b3a",
+        "subject_entity_id": "ent_city_council",
+        "attribute": "governance",
+        "value_label": "Governing body of the city-state",
+        "truth_state": "CANON"
+      },
+      {
+        "fact_id": "fact_city_council_governance_dc37ffdd4738",
+        "subject_entity_id": "ent_city_council",
+        "attribute": "governance",
+        "value_label": "Governing council of the city-state",
+        "truth_state": "CANON"
+      }
+    ]
+  },
+  {
+    "id": "q_the_city_council_1",
+    "document_source": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/City Council Building/The City Council.md",
+    "document_title": "The City Council",
+    "question": "Who chairs Mirathorn's council, and how is her leadership style described?",
+    "expected_answer_summary": "Mayor Elara Swiftwind chairs the council and is characterized as diplomatic, charismatic, and focused on unity and stability.",
+    "must_hit_tokens": [
+      "elara swiftwind",
+      "mayor",
+      "chairs council",
+      "diplomatic"
+    ],
+    "stale_tokens": [
+      "anonymous leadership",
+      "military dictatorship"
+    ],
+    "update_signal_tokens": [
+      "unity",
+      "prosperity",
+      "order"
+    ],
+    "semantic_equivalences": {
+      "diplomatic": [
+        "charismatic leader",
+        "political mediator"
+      ]
+    },
+    "target_entities": [
+      "ent_mayor_elara_swiftwind",
+      "ent_city_council"
+    ],
+    "target_entity_names_requested": [
+      "Mayor Elara Swiftwind",
+      "City Council"
+    ],
+    "unresolved_target_entity_names": [],
+    "target_attributes": [
+      "rank_or_title",
+      "personality"
+    ],
+    "surface": "core_extraction",
+    "tier": "must_pass",
+    "preflight_support_status": "supported",
+    "preflight_support_details": [
+      {
+        "requested_name": "Mayor Elara Swiftwind",
+        "resolved_entity_id": "ent_mayor_elara_swiftwind",
+        "status": "supported",
+        "exact_hits": {
+          "Mayor Elara Swiftwind": 1,
+          "Elara": 3,
+          "Mayor": 3
+        },
+        "best_fuzzy_variant": "Mayor Elara Swiftwind",
+        "best_fuzzy_score": 1.0
+      },
+      {
+        "requested_name": "City Council",
+        "resolved_entity_id": "ent_city_council",
+        "status": "supported",
+        "exact_hits": {
+          "City Council": 2,
+          "Council": 2
+        },
+        "best_fuzzy_variant": "City Council",
+        "best_fuzzy_score": 1.0
+      }
+    ],
+    "coverage_status": "partially_answerable",
+    "coverage_match_ratio": 0.25,
+    "coverage_pair_totals": {
+      "matched_pairs": 1,
+      "total_pairs": 4
+    },
+    "coverage_details": [
+      {
+        "subject_entity_id": "ent_mayor_elara_swiftwind",
+        "attribute": "rank_or_title",
+        "fact_count": 8
+      },
+      {
+        "subject_entity_id": "ent_mayor_elara_swiftwind",
+        "attribute": "personality",
+        "fact_count": 0
+      },
+      {
+        "subject_entity_id": "ent_city_council",
+        "attribute": "rank_or_title",
+        "fact_count": 0
+      },
+      {
+        "subject_entity_id": "ent_city_council",
+        "attribute": "personality",
+        "fact_count": 0
+      }
+    ],
+    "closest_match_facts": [
+      {
+        "fact_id": "fact_mayor_elara_swiftwind_rank_or_title_2a39ddf03307",
+        "subject_entity_id": "ent_mayor_elara_swiftwind",
+        "attribute": "rank_or_title",
+        "value_label": "Mayor",
+        "truth_state": "CANON"
+      },
+      {
+        "fact_id": "fact_mayor_elara_swiftwind_rank_or_title_2a39ddf03307",
+        "subject_entity_id": "ent_mayor_elara_swiftwind",
+        "attribute": "rank_or_title",
+        "value_label": "Mayor",
+        "truth_state": "CANON"
+      }
+    ]
+  },
+  {
+    "id": "q_the_city_council_2",
+    "document_source": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/City Council Building/The City Council.md",
+    "document_title": "The City Council",
+    "question": "Which council member represents arcane response, and what is his position on cult corruption?",
+    "expected_answer_summary": "Headmaster Tinkerbright represents arcane interests and supports deploying wizard resources to detect and counter corruption.",
+    "must_hit_tokens": [
+      "headmaster tinkerbright",
+      "wizard's college",
+      "detect",
+      "counter corruption"
+    ],
+    "stale_tokens": [
+      "arcane neutrality",
+      "no magic response"
+    ],
+    "update_signal_tokens": [
+      "arcane resources",
+      "dark magic concern"
+    ],
+    "semantic_equivalences": {
+      "counter corruption": [
+        "counteract cult influence",
+        "oppose dark magic spread"
+      ]
+    },
+    "target_entities": [
+      "ent_headmaster_tinkerbright",
+      "ent_wizards_college"
+    ],
+    "target_entity_names_requested": [
+      "Headmaster Tinkerbright",
+      "Wizards' College"
+    ],
+    "unresolved_target_entity_names": [],
+    "target_attributes": [
+      "rank_or_title",
+      "goals"
+    ],
+    "surface": "core_extraction",
+    "tier": "must_pass",
+    "preflight_support_status": "supported",
+    "preflight_support_details": [
+      {
+        "requested_name": "Headmaster Tinkerbright",
+        "resolved_entity_id": "ent_headmaster_tinkerbright",
+        "status": "supported",
+        "exact_hits": {
+          "Headmaster Tinkerbright": 2,
+          "Headmaster": 2,
+          "Tinkerbright": 3
+        },
+        "best_fuzzy_variant": "Headmaster Tinkerbright",
+        "best_fuzzy_score": 1.0
+      },
+      {
+        "requested_name": "Wizards' College",
+        "resolved_entity_id": "ent_wizards_college",
+        "status": "supported",
+        "exact_hits": {
+          "Wizard\u2019s College": 2
+        },
+        "best_fuzzy_variant": "Wizard\u2019s College",
+        "best_fuzzy_score": 0.667
+      }
+    ],
+    "coverage_status": "partially_answerable",
+    "coverage_match_ratio": 0.75,
+    "coverage_pair_totals": {
+      "matched_pairs": 3,
+      "total_pairs": 4
+    },
+    "coverage_details": [
+      {
+        "subject_entity_id": "ent_headmaster_tinkerbright",
+        "attribute": "rank_or_title",
+        "fact_count": 10
+      },
+      {
+        "subject_entity_id": "ent_headmaster_tinkerbright",
+        "attribute": "goals",
+        "fact_count": 13
+      },
+      {
+        "subject_entity_id": "ent_wizards_college",
+        "attribute": "rank_or_title",
+        "fact_count": 0
+      },
+      {
+        "subject_entity_id": "ent_wizards_college",
+        "attribute": "goals",
+        "fact_count": 5
+      }
+    ],
+    "closest_match_facts": [
+      {
+        "fact_id": "fact_headmaster_tinkerbright_rank_or_title_f94d142ff0be",
+        "subject_entity_id": "ent_headmaster_tinkerbright",
+        "attribute": "rank_or_title",
+        "value_label": "Headmaster",
+        "truth_state": "CANON"
+      },
+      {
+        "fact_id": "fact_headmaster_tinkerbright_rank_or_title_f94d142ff0be",
+        "subject_entity_id": "ent_headmaster_tinkerbright",
+        "attribute": "rank_or_title",
+        "value_label": "Headmaster",
+        "truth_state": "CANON"
+      },
+      {
+        "fact_id": "fact_headmaster_tinkerbright_goals_075ba1e49901",
+        "subject_entity_id": "ent_headmaster_tinkerbright",
+        "attribute": "goals",
+        "value_label": "Takes threats to the city seriously",
+        "truth_state": "CANON"
+      },
+      {
+        "fact_id": "fact_headmaster_tinkerbright_goals_7ab59a644773",
+        "subject_entity_id": "ent_headmaster_tinkerbright",
+        "attribute": "goals",
+        "value_label": "Eager to deploy Wizard\u2019s College resources to detect and counteract the cult\u2019s influence",
+        "truth_state": "CANON"
+      },
+      {
+        "fact_id": "fact_wizards_college_goals_9a178a300bd8",
+        "subject_entity_id": "ent_wizards_college",
+        "attribute": "goals",
+        "value_label": "Wants magical control",
+        "truth_state": "CANON"
+      },
+      {
+        "fact_id": "fact_wizards_college_goals_16862eac6a9b",
+        "subject_entity_id": "ent_wizards_college",
+        "attribute": "goals",
+        "value_label": "May need to be convinced by technical knowledge or evidence of the cult\u2019s activities.",
+        "truth_state": "CANON"
+      }
+    ]
+  },
+  {
+    "id": "q_the_city_council_3",
+    "document_source": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/City Council Building/The City Council.md",
+    "document_title": "The City Council",
+    "question": "How is Thalia's public duty in conflict with her hidden manipulation by the Wolf?",
+    "expected_answer_summary": "She is duty-bound and protective as guard commander, but ensorcelment by the Wolf biases her against recognizing guard corruption.",
+    "must_hit_tokens": [
+      "thalia",
+      "commander of the guard",
+      "ensorcelled",
+      "overlook corruption"
+    ],
+    "stale_tokens": [
+      "thalia fully impartial",
+      "no manipulation"
+    ],
+    "update_signal_tokens": [
+      "hidden influence",
+      "guard corruption"
+    ],
+    "semantic_equivalences": {
+      "overlook corruption": [
+        "dismiss accusations",
+        "fails to detect corruption"
+      ]
+    },
+    "target_entities": [
+      "ent_commander_thalia_ashenvale",
+      "ent_the_wolf"
+    ],
+    "target_entity_names_requested": [
+      "Commander Thalia Ashenvale",
+      "The Wolf"
+    ],
+    "unresolved_target_entity_names": [],
+    "target_attributes": [
+      "rank_or_title",
+      "status"
+    ],
+    "surface": "vertical_slice",
+    "tier": "must_pass",
+    "preflight_support_status": "supported",
+    "preflight_support_details": [
+      {
+        "requested_name": "Commander Thalia Ashenvale",
+        "resolved_entity_id": "ent_commander_thalia_ashenvale",
+        "status": "supported",
+        "exact_hits": {
+          "Commander Thalia Ashenvale": 1,
+          "Thalia": 2
+        },
+        "best_fuzzy_variant": "Commander Thalia Ashenvale",
+        "best_fuzzy_score": 1.0
+      },
+      {
+        "requested_name": "The Wolf",
+        "resolved_entity_id": "ent_the_wolf",
+        "status": "supported",
+        "exact_hits": {
+          "The Wolf": 1,
+          "He": 22,
+          "him": 2
+        },
+        "best_fuzzy_variant": "The Wolf",
+        "best_fuzzy_score": 1.0
+      }
+    ],
+    "coverage_status": "partially_answerable",
+    "coverage_match_ratio": 0.5,
+    "coverage_pair_totals": {
+      "matched_pairs": 2,
+      "total_pairs": 4
+    },
+    "coverage_details": [
+      {
+        "subject_entity_id": "ent_commander_thalia_ashenvale",
+        "attribute": "rank_or_title",
+        "fact_count": 11
+      },
+      {
+        "subject_entity_id": "ent_commander_thalia_ashenvale",
+        "attribute": "status",
+        "fact_count": 0
+      },
+      {
+        "subject_entity_id": "ent_the_wolf",
+        "attribute": "rank_or_title",
+        "fact_count": 3
+      },
+      {
+        "subject_entity_id": "ent_the_wolf",
+        "attribute": "status",
+        "fact_count": 0
+      }
+    ],
+    "closest_match_facts": [
+      {
+        "fact_id": "fact_commander_thalia_ashenvale_rank_or_title_14d06c047fe5",
+        "subject_entity_id": "ent_commander_thalia_ashenvale",
+        "attribute": "rank_or_title",
+        "value_label": "Commander",
+        "truth_state": "CANON"
+      },
+      {
+        "fact_id": "fact_commander_thalia_ashenvale_rank_or_title_14d06c047fe5",
+        "subject_entity_id": "ent_commander_thalia_ashenvale",
+        "attribute": "rank_or_title",
+        "value_label": "Commander",
+        "truth_state": "CANON"
+      },
+      {
+        "fact_id": "fact_the_wolf_rank_or_title_9e6b9ca265d6",
+        "subject_entity_id": "ent_the_wolf",
+        "attribute": "rank_or_title",
+        "value_label": "higher up",
+        "truth_state": "OBSERVED"
+      },
+      {
+        "fact_id": "fact_the_wolf_rank_or_title_7d4c15b2328c",
+        "subject_entity_id": "ent_the_wolf",
+        "attribute": "rank_or_title",
+        "value_label": "second in command of the guard",
+        "truth_state": "OBSERVED"
+      }
+    ]
+  },
+  {
+    "id": "q_the_city_council_4",
+    "document_source": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/City Council Building/The City Council.md",
+    "document_title": "The City Council",
+    "question": "Which roles do Merril, Torrin, and Rurik hold in city governance?",
+    "expected_answer_summary": "Merril leads agriculture/food interests, Torrin represents guild crafts, and Rurik represents infrastructure and city planning.",
+    "must_hit_tokens": [
+      "merril",
+      "agricultural union",
+      "torrin",
+      "guilds",
+      "rurik",
+      "infrastructure"
+    ],
+    "stale_tokens": [
+      "roles unknown",
+      "all three in same role"
+    ],
+    "update_signal_tokens": [
+      "representative",
+      "city governance"
+    ],
+    "semantic_equivalences": {
+      "agricultural union": [
+        "agriculture and food production"
+      ],
+      "guilds": [
+        "craft guilds"
+      ]
+    },
+    "target_entities": [
+      "ent_merril_tealeaf",
+      "ent_torrin_flamescale",
+      "ent_rurik_stonehammer"
+    ],
+    "target_entity_names_requested": [
+      "Merril Tealeaf",
+      "Torrin Flamescale",
+      "Rurik Stonehammer"
+    ],
+    "unresolved_target_entity_names": [],
+    "target_attributes": [
+      "rank_or_title",
+      "faction"
+    ],
+    "surface": "core_extraction",
+    "tier": "must_pass",
+    "preflight_support_status": "supported",
+    "preflight_support_details": [
+      {
+        "requested_name": "Merril Tealeaf",
+        "resolved_entity_id": "ent_merril_tealeaf",
+        "status": "supported",
+        "exact_hits": {
+          "Merril Tealeaf": 1,
+          "Merril": 3,
+          "Tealeaf": 1
+        },
+        "best_fuzzy_variant": "Merril Tealeaf",
+        "best_fuzzy_score": 1.0
+      },
+      {
+        "requested_name": "Torrin Flamescale",
+        "resolved_entity_id": "ent_torrin_flamescale",
+        "status": "supported",
+        "exact_hits": {
+          "Torrin Flamescale": 1,
+          "Torrin": 2
+        },
+        "best_fuzzy_variant": "Torrin Flamescale",
+        "best_fuzzy_score": 1.0
+      },
+      {
+        "requested_name": "Rurik Stonehammer",
+        "resolved_entity_id": "ent_rurik_stonehammer",
+        "status": "supported",
+        "exact_hits": {
+          "Rurik Stonehammer": 1,
+          "Rurik": 2
+        },
+        "best_fuzzy_variant": "Rurik Stonehammer",
+        "best_fuzzy_score": 1.0
+      }
+    ],
+    "coverage_status": "partially_answerable",
+    "coverage_match_ratio": 0.8333333333333334,
+    "coverage_pair_totals": {
+      "matched_pairs": 5,
+      "total_pairs": 6
+    },
+    "coverage_details": [
+      {
+        "subject_entity_id": "ent_merril_tealeaf",
+        "attribute": "rank_or_title",
+        "fact_count": 6
+      },
+      {
+        "subject_entity_id": "ent_merril_tealeaf",
+        "attribute": "faction",
+        "fact_count": 7
+      },
+      {
+        "subject_entity_id": "ent_torrin_flamescale",
+        "attribute": "rank_or_title",
+        "fact_count": 4
+      },
+      {
+        "subject_entity_id": "ent_torrin_flamescale",
+        "attribute": "faction",
+        "fact_count": 1
+      },
+      {
+        "subject_entity_id": "ent_rurik_stonehammer",
+        "attribute": "rank_or_title",
+        "fact_count": 7
+      },
+      {
+        "subject_entity_id": "ent_rurik_stonehammer",
+        "attribute": "faction",
+        "fact_count": 0
+      }
+    ],
+    "closest_match_facts": [
+      {
+        "fact_id": "fact_merril_tealeaf_rank_or_title_52e07e4a869d",
+        "subject_entity_id": "ent_merril_tealeaf",
+        "attribute": "rank_or_title",
+        "value_label": "Leader",
+        "truth_state": "CANON"
+      },
+      {
+        "fact_id": "fact_merril_tealeaf_rank_or_title_52e07e4a869d",
+        "subject_entity_id": "ent_merril_tealeaf",
+        "attribute": "rank_or_title",
+        "value_label": "Leader",
+        "truth_state": "CANON"
+      },
+      {
+        "fact_id": "fact_merril_tealeaf_faction_69a1bbfabf4b",
+        "subject_entity_id": "ent_merril_tealeaf",
+        "attribute": "faction",
+        "value_label": "Agricultural Union",
+        "truth_state": "CANON"
+      },
+      {
+        "fact_id": "fact_merril_tealeaf_faction_69a1bbfabf4b",
+        "subject_entity_id": "ent_merril_tealeaf",
+        "attribute": "faction",
+        "value_label": "Agricultural Union",
+        "truth_state": "CANON"
+      },
+      {
+        "fact_id": "fact_torrin_flamescale_rank_or_title_6a53d8a8f185",
+        "subject_entity_id": "ent_torrin_flamescale",
+        "attribute": "rank_or_title",
+        "value_label": "Master Smith",
+        "truth_state": "CANON"
+      },
+      {
+        "fact_id": "fact_torrin_flamescale_rank_or_title_6a53d8a8f185",
+        "subject_entity_id": "ent_torrin_flamescale",
+        "attribute": "rank_or_title",
+        "value_label": "Master Smith",
+        "truth_state": "OBSERVED"
+      }
+    ]
+  },
+  {
+    "id": "q_the_council_room_1",
+    "document_source": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/City Council Building/The Council Room.md",
+    "document_title": "Council Room Description:",
+    "question": "What visual details should players notice first when they enter the Council Room?",
+    "expected_answer_summary": "The room features high arched ceilings, a floating chandelier, historical tapestries, and a circular oak table with metal and quartz detailing.",
+    "must_hit_tokens": [
+      "arched ceilings",
+      "floating chandelier",
+      "tapestries",
+      "circular table"
+    ],
+    "stale_tokens": [
+      "plain room",
+      "bare walls",
+      "no magical lighting"
+    ],
+    "update_signal_tokens": [
+      "floating",
+      "enchantments",
+      "industrial gears"
+    ],
+    "semantic_equivalences": {
+      "arched ceilings": [
+        "vaulted ceilings",
+        "high arches"
+      ],
+      "floating chandelier": [
+        "levitating chandelier",
+        "magically suspended chandelier"
+      ],
+      "circular table": [
+        "round table",
+        "ringed council table"
+      ]
+    },
+    "target_entities": [
+      "ent_council_room",
+      "ent_mirathorn"
+    ],
+    "target_entity_names_requested": [
+      "Council Chamber",
+      "Mirathorn"
+    ],
+    "unresolved_target_entity_names": [],
+    "target_attributes": [
+      "geography",
+      "visual_description"
+    ],
+    "surface": "core_extraction",
+    "tier": "must_pass",
+    "preflight_support_status": "supported",
+    "preflight_support_details": [
+      {
+        "requested_name": "Council Chamber",
+        "resolved_entity_id": "ent_council_room",
+        "status": "supported",
+        "exact_hits": {
+          "Council Chamber": 2
+        },
+        "best_fuzzy_variant": "Council Chamber",
+        "best_fuzzy_score": 1.0
+      },
+      {
+        "requested_name": "Mirathorn",
+        "resolved_entity_id": "ent_mirathorn",
+        "status": "supported",
+        "exact_hits": {
+          "Mirathorn": 3,
+          "Mirathorn\u2019s": 1
+        },
+        "best_fuzzy_variant": "Mirathorn",
+        "best_fuzzy_score": 1.0
+      }
+    ],
+    "coverage_status": "partially_answerable",
+    "coverage_match_ratio": 0.5,
+    "coverage_pair_totals": {
+      "matched_pairs": 2,
+      "total_pairs": 4
+    },
+    "coverage_details": [
+      {
+        "subject_entity_id": "ent_council_room",
+        "attribute": "geography",
+        "fact_count": 7
+      },
+      {
+        "subject_entity_id": "ent_council_room",
+        "attribute": "visual_description",
+        "fact_count": 0
+      },
+      {
+        "subject_entity_id": "ent_mirathorn",
+        "attribute": "geography",
+        "fact_count": 28
+      },
+      {
+        "subject_entity_id": "ent_mirathorn",
+        "attribute": "visual_description",
+        "fact_count": 0
+      }
+    ],
+    "closest_match_facts": [
+      {
+        "fact_id": "fact_council_room_geography_c54befb6d97b",
+        "subject_entity_id": "ent_council_room",
+        "attribute": "geography",
+        "value_label": "Has high, arched ceilings that stretch upward",
+        "truth_state": "CANON"
+      },
+      {
+        "fact_id": "fact_council_room_geography_d5c9f91e33bb",
+        "subject_entity_id": "ent_council_room",
+        "attribute": "geography",
+        "value_label": "A large, circular table dominates the center of the room",
+        "truth_state": "CANON"
+      },
+      {
+        "fact_id": "fact_mirathorn_geography_58bb3a783080",
+        "subject_entity_id": "ent_mirathorn",
+        "attribute": "geography",
+        "value_label": "Mirathorn can be heard from at least a few kilometers away when approaching it",
+        "truth_state": "CANON"
+      },
+      {
+        "fact_id": "fact_mirathorn_geography_f9608fe23b36",
+        "subject_entity_id": "ent_mirathorn",
+        "attribute": "geography",
+        "value_label": "The borders of Mirathorn extend 20 Reaches from the city center.",
+        "truth_state": "CANON"
+      }
+    ]
+  },
+  {
+    "id": "q_the_council_room_2",
+    "document_source": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/City Council Building/The Council Room.md",
+    "document_title": "Council Room Description:",
+    "question": "How does the council chamber support political transparency while still allowing private deliberation?",
+    "expected_answer_summary": "The main room is open and built for collaboration, while side chambers allow private discussions when needed.",
+    "must_hit_tokens": [
+      "transparency",
+      "collaboration",
+      "side chambers",
+      "private deliberations"
+    ],
+    "stale_tokens": [
+      "sealed bunker",
+      "no side rooms"
+    ],
+    "update_signal_tokens": [
+      "open design",
+      "side chambers"
+    ],
+    "semantic_equivalences": {
+      "transparency": [
+        "open proceedings",
+        "public-facing deliberation"
+      ],
+      "side chambers": [
+        "adjacent rooms",
+        "private rooms"
+      ]
+    },
+    "target_entities": [
+      "ent_city_council",
+      "ent_council_room"
+    ],
+    "target_entity_names_requested": [
+      "City Council",
+      "Council Chamber"
+    ],
+    "unresolved_target_entity_names": [],
+    "target_attributes": [
+      "governance",
+      "geography"
+    ],
+    "surface": "core_extraction",
+    "tier": "must_pass",
+    "preflight_support_status": "supported",
+    "preflight_support_details": [
+      {
+        "requested_name": "City Council",
+        "resolved_entity_id": "ent_city_council",
+        "status": "supported",
+        "exact_hits": {
+          "Council": 7
+        },
+        "best_fuzzy_variant": "Council",
+        "best_fuzzy_score": 1.0
+      },
+      {
+        "requested_name": "Council Chamber",
+        "resolved_entity_id": "ent_council_room",
+        "status": "supported",
+        "exact_hits": {
+          "Council Chamber": 2
+        },
+        "best_fuzzy_variant": "Council Chamber",
+        "best_fuzzy_score": 1.0
+      }
+    ],
+    "coverage_status": "partially_answerable",
+    "coverage_match_ratio": 0.75,
+    "coverage_pair_totals": {
+      "matched_pairs": 3,
+      "total_pairs": 4
+    },
+    "coverage_details": [
+      {
+        "subject_entity_id": "ent_city_council",
+        "attribute": "governance",
+        "fact_count": 22
+      },
+      {
+        "subject_entity_id": "ent_city_council",
+        "attribute": "geography",
+        "fact_count": 0
+      },
+      {
+        "subject_entity_id": "ent_council_room",
+        "attribute": "governance",
+        "fact_count": 4
+      },
+      {
+        "subject_entity_id": "ent_council_room",
+        "attribute": "geography",
+        "fact_count": 7
+      }
+    ],
+    "closest_match_facts": [
+      {
+        "fact_id": "fact_city_council_governance_4d1bb83f4b3a",
+        "subject_entity_id": "ent_city_council",
+        "attribute": "governance",
+        "value_label": "Governing body of the city-state",
+        "truth_state": "CANON"
+      },
+      {
+        "fact_id": "fact_city_council_governance_dc37ffdd4738",
+        "subject_entity_id": "ent_city_council",
+        "attribute": "governance",
+        "value_label": "Governing council of the city-state",
+        "truth_state": "CANON"
+      },
+      {
+        "fact_id": "fact_council_room_governance_3acb50bcd583",
+        "subject_entity_id": "ent_council_room",
+        "attribute": "governance",
+        "value_label": "Open chamber design",
+        "truth_state": "CANON"
+      },
+      {
+        "fact_id": "fact_council_room_governance_488472d5ac94",
+        "subject_entity_id": "ent_council_room",
+        "attribute": "governance",
+        "value_label": "Designed for transparency and collaboration",
+        "truth_state": "CANON"
+      },
+      {
+        "fact_id": "fact_council_room_geography_c54befb6d97b",
+        "subject_entity_id": "ent_council_room",
+        "attribute": "geography",
+        "value_label": "Has high, arched ceilings that stretch upward",
+        "truth_state": "CANON"
+      },
+      {
+        "fact_id": "fact_council_room_geography_d5c9f91e33bb",
+        "subject_entity_id": "ent_council_room",
+        "attribute": "geography",
+        "value_label": "A large, circular table dominates the center of the room",
+        "truth_state": "CANON"
+      }
+    ]
+  },
+  {
+    "id": "q_the_council_room_3",
+    "document_source": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/City Council Building/The Council Room.md",
+    "document_title": "Council Room Description:",
+    "question": "What sensory cues in the Council Room increase tension during roleplay scenes?",
+    "expected_answer_summary": "Acoustics carry voices, the chandelier can flicker, and the walls hum with embedded gears, creating pressure and atmosphere.",
+    "must_hit_tokens": [
+      "acoustics",
+      "voices carry",
+      "flicker",
+      "hum of gears"
+    ],
+    "stale_tokens": [
+      "silent room",
+      "steady lighting",
+      "no ambient sound"
+    ],
+    "update_signal_tokens": [
+      "flicker",
+      "hum",
+      "carry clearly"
+    ],
+    "semantic_equivalences": {
+      "voices carry": [
+        "sound carries",
+        "clear acoustics"
+      ],
+      "hum of gears": [
+        "industrial hum",
+        "mechanical resonance"
+      ]
+    },
+    "target_entities": [
+      "ent_council_room"
+    ],
+    "target_entity_names_requested": [
+      "Council Chamber"
+    ],
+    "unresolved_target_entity_names": [],
+    "target_attributes": [
+      "sensory_description",
+      "defenses"
+    ],
+    "surface": "vertical_slice",
+    "tier": "should_pass",
+    "preflight_support_status": "supported",
+    "preflight_support_details": [
+      {
+        "requested_name": "Council Chamber",
+        "resolved_entity_id": "ent_council_room",
+        "status": "supported",
+        "exact_hits": {
+          "Council Chamber": 2
+        },
+        "best_fuzzy_variant": "Council Chamber",
+        "best_fuzzy_score": 1.0
+      }
+    ],
+    "coverage_status": "partially_answerable",
+    "coverage_match_ratio": 0.5,
+    "coverage_pair_totals": {
+      "matched_pairs": 1,
+      "total_pairs": 2
+    },
+    "coverage_details": [
+      {
+        "subject_entity_id": "ent_council_room",
+        "attribute": "sensory_description",
+        "fact_count": 0
+      },
+      {
+        "subject_entity_id": "ent_council_room",
+        "attribute": "defenses",
+        "fact_count": 8
+      }
+    ],
+    "closest_match_facts": [
+      {
+        "fact_id": "fact_council_room_defenses_e551a53f0471",
+        "subject_entity_id": "ent_council_room",
+        "attribute": "defenses",
+        "value_label": "had to double as a fortress during the city's more tumultuous years",
+        "truth_state": "CANON"
+      },
+      {
+        "fact_id": "fact_council_room_defenses_fcfda55ca319",
+        "subject_entity_id": "ent_council_room",
+        "attribute": "defenses",
+        "value_label": "council chamber has magical defenses affecting the battle environment",
+        "truth_state": "CANON"
+      }
+    ]
+  },
+  {
+    "id": "q_the_council_room_4",
+    "document_source": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/City Council Building/The Council Room.md",
+    "document_title": "Council Room Description:",
+    "question": "Which symbolic features in the room reinforce Mirathorn's civic history?",
+    "expected_answer_summary": "Founding tapestries and statues of gnome and dragonborn founders emphasize historical continuity and civic responsibility.",
+    "must_hit_tokens": [
+      "founding tapestries",
+      "statues",
+      "gnomes",
+      "dragonborn founders"
+    ],
+    "stale_tokens": [
+      "no historical symbols",
+      "generic decor"
+    ],
+    "update_signal_tokens": [
+      "founding",
+      "heroes",
+      "history"
+    ],
+    "semantic_equivalences": {
+      "founding tapestries": [
+        "historical tapestries",
+        "city founding tapestries"
+      ],
+      "statues": [
+        "stone statues",
+        "founder monuments"
+      ]
+    },
+    "target_entities": [
+      "ent_mirathorn",
+      "ent_city_council"
+    ],
+    "target_entity_names_requested": [
+      "Mirathorn",
+      "City Council"
+    ],
+    "unresolved_target_entity_names": [],
+    "target_attributes": [
+      "history",
+      "culture"
+    ],
+    "surface": "core_extraction",
+    "tier": "must_pass",
+    "preflight_support_status": "supported",
+    "preflight_support_details": [
+      {
+        "requested_name": "Mirathorn",
+        "resolved_entity_id": "ent_mirathorn",
+        "status": "supported",
+        "exact_hits": {
+          "Mirathorn": 3,
+          "Mirathorn\u2019s": 1
+        },
+        "best_fuzzy_variant": "Mirathorn",
+        "best_fuzzy_score": 1.0
+      },
+      {
+        "requested_name": "City Council",
+        "resolved_entity_id": "ent_city_council",
+        "status": "supported",
+        "exact_hits": {
+          "Council": 7
+        },
+        "best_fuzzy_variant": "Council",
+        "best_fuzzy_score": 1.0
+      }
+    ],
+    "coverage_status": "partially_answerable",
+    "coverage_match_ratio": 0.25,
+    "coverage_pair_totals": {
+      "matched_pairs": 1,
+      "total_pairs": 4
+    },
+    "coverage_details": [
+      {
+        "subject_entity_id": "ent_mirathorn",
+        "attribute": "history",
+        "fact_count": 19
+      },
+      {
+        "subject_entity_id": "ent_mirathorn",
+        "attribute": "culture",
+        "fact_count": 0
+      },
+      {
+        "subject_entity_id": "ent_city_council",
+        "attribute": "history",
+        "fact_count": 0
+      },
+      {
+        "subject_entity_id": "ent_city_council",
+        "attribute": "culture",
+        "fact_count": 0
+      }
+    ],
+    "closest_match_facts": [
+      {
+        "fact_id": "fact_mirathorn_history_3e0a5f9b3cda",
+        "subject_entity_id": "ent_mirathorn",
+        "attribute": "history",
+        "value_label": "In Mirathorn lore, tales are often told of first pioneers who measured progress in Reaches.",
+        "truth_state": "CANON"
+      },
+      {
+        "fact_id": "fact_mirathorn_history_4558519393b9",
+        "subject_entity_id": "ent_mirathorn",
+        "attribute": "history",
+        "value_label": "Early settlers faced peril and hardship to carve out a safe haven from the wild lands.",
+        "truth_state": "CANON"
+      }
+    ]
+  }
+]

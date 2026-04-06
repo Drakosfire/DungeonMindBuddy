@@ -1,0 +1,26 @@
+{
+  "corpus_documents_profiled": 130,
+  "priority_documents_used": [
+    "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/City Council Building/Battle with The Wolf and Aftermath.md",
+    "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/City Council Building/The Emergency Council Meeting.md",
+    "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Longmont Campaign General Notes.md",
+    "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/City Council Building/The City Council.md",
+    "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/City Council Building/The Council Room.md"
+  ],
+  "candidate_questions_generated": 20,
+  "sample_questions_for_review": 10,
+  "coverage_status_counts": {
+    "unanswerable": 4,
+    "partially_answerable": 15,
+    "answerable": 1
+  },
+  "preflight_support_status_counts": {
+    "weakly_supported": 4,
+    "supported": 16
+  },
+  "artifacts": {
+    "manifest": "evals/mirathorn_vertical_slice/output/phase6_corpus_manifest.json",
+    "candidates": "evals/mirathorn_vertical_slice/output/phase6_candidate_questions.json",
+    "sample_review": "evals/mirathorn_vertical_slice/output/phase6_sample_review.md"
+  }
+}

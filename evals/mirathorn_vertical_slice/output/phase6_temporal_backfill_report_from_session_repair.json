@@ -1,0 +1,21 @@
+{
+  "facts_source": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/mirathorn_vertical_slice/output/phase_d_store/facts.json",
+  "evidence_source": "evals/mirathorn_vertical_slice/output/phase_d_store/evidence_units_session_backfilled.json",
+  "output_facts": "evals/mirathorn_vertical_slice/output/phase_d_store/facts_temporal_backfilled_from_session_repair.json",
+  "facts_total": 6331,
+  "asserted_in_session": {
+    "before_non_null": 0,
+    "after_non_null": 1100,
+    "filled_count": 1100
+  },
+  "sequence_index_within_session": {
+    "before_non_null": 1349,
+    "after_non_null": 6331,
+    "filled_count": 4982
+  },
+  "notes": [
+    "No API calls were made.",
+    "asserted_in_session is inferred from evidence document_session, then inferred_session.",
+    "sequence_index_within_session backfills from minimum source_order_index among evidence_ids."
+  ]
+}

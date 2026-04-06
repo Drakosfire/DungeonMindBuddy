@@ -1,0 +1,25 @@
+{
+  "evidence_source": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/mirathorn_vertical_slice/output/phase_d_store/evidence_units.json",
+  "ingest_index_source": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/mirathorn_vertical_slice/output/phase_d_store/ingest_index.json",
+  "output_evidence": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/mirathorn_vertical_slice/output/phase_d_store/evidence_units_session_backfilled.json",
+  "evidence_units_total": 1313,
+  "inferred_session": {
+    "before_non_null": 0,
+    "after_non_null": 200,
+    "filled_count": 200
+  },
+  "document_session": {
+    "before_non_null": 0,
+    "after_non_null": 0
+  },
+  "fill_reason_counts": {
+    "from_source_frontmatter": 124,
+    "from_section_path": 74,
+    "from_text_prefix": 2
+  },
+  "notes": [
+    "No API calls were made.",
+    "Backfill priority: document_session -> source frontmatter -> section/title/path/text regex.",
+    "Regex pattern: session <number> (case-insensitive, tolerant punctuation)."
+  ]
+}
