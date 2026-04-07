@@ -157,3 +157,179 @@ def test_campaign_truth_state_is_rendered_when_present() -> None:
     entities = [{"entity_id": "ent_wolf", "entity_class": "actor", "display_name": "the Wolf"}]
     output = format_projection_context(projection, entities)
     assert "[OBSERVED, from: layer=campaign, campaign=longmont-c1, source_class=observed_session_recap, fact=fact_wolf_obs]" in output
+
+
+def test_scope_hard_excludes_confident_out_of_scope_entity() -> None:
+    projection = {
+        "entities": {
+            "ent_the_wolf": {
+                "attributes": {
+                    "role": {
+                        "selected_fact_id": "fact_wolf_role",
+                        "value_label": "central adversary",
+                        "source_layer": "world",
+                        "source_truth_state": "CANON",
+                        "source_class": "seed_reference",
+                        "fact_ids": ["fact_wolf_role"],
+                        "provenance_evidence_ids": ["evid_battle_1", "evid_battle_2"],
+                        "conflict_ids": [],
+                    }
+                }
+            },
+            "ent_commander_elric_vane": {
+                "attributes": {
+                    "rank_or_title": {
+                        "selected_fact_id": "fact_elric_rank",
+                        "value_label": "Commander",
+                        "source_layer": "campaign",
+                        "source_truth_state": "OBSERVED",
+                        "source_class": "observed_session_recap",
+                        "fact_ids": ["fact_elric_rank"],
+                        "provenance_evidence_ids": ["evid_notes_1", "evid_notes_2"],
+                        "conflict_ids": [],
+                    }
+                }
+            },
+        }
+    }
+    entities = [
+        {"entity_id": "ent_the_wolf", "entity_class": "actor", "display_name": "the Wolf"},
+        {
+            "entity_id": "ent_commander_elric_vane",
+            "entity_class": "actor",
+            "display_name": "Commander Elric Vane",
+        },
+    ]
+    evidence_units = [
+        {"evidence_id": "evid_battle_1", "document_id": "doc_battle_with_the_wolf_and_aftermath"},
+        {"evidence_id": "evid_battle_2", "document_id": "doc_battle_with_the_wolf_and_aftermath"},
+        {"evidence_id": "evid_notes_1", "document_id": "doc_longmont_campaign_general_notes"},
+        {"evidence_id": "evid_notes_2", "document_id": "doc_longmont_campaign_general_notes"},
+    ]
+    output = format_projection_context(
+        projection,
+        entities,
+        question="Catch me up on the council room battle",
+        evidence_units=evidence_units,
+        scope_document_ids={"doc_battle_with_the_wolf_and_aftermath"},
+        hard_exclude_out_of_scope=True,
+    )
+    assert "== Entity: the Wolf (actor) ==" in output
+    assert "== Entity: Commander Elric Vane (actor) ==" not in output
+
+
+def test_scope_keeps_unknown_when_scope_confidence_is_low() -> None:
+    projection = {
+        "entities": {
+            "ent_commander_elric_vane": {
+                "attributes": {
+                    "rank_or_title": {
+                        "selected_fact_id": "fact_elric_rank",
+                        "value_label": "Commander",
+                        "source_layer": "campaign",
+                        "source_truth_state": "OBSERVED",
+                        "source_class": "observed_session_recap",
+                        "fact_ids": ["fact_elric_rank"],
+                        "provenance_evidence_ids": ["evid_notes_1", "evid_notes_2"],
+                        "conflict_ids": [],
+                    }
+                }
+            }
+        }
+    }
+    entities = [
+        {
+            "entity_id": "ent_commander_elric_vane",
+            "entity_class": "actor",
+            "display_name": "Commander Elric Vane",
+        }
+    ]
+    evidence_units = [
+        {"evidence_id": "evid_notes_1", "document_id": "doc_longmont_campaign_general_notes"},
+        {"evidence_id": "evid_notes_2", "document_id": "doc_longmont_campaign_general_notes"},
+    ]
+    output = format_projection_context(
+        projection,
+        entities,
+        question="What matters in this new region?",
+        evidence_units=evidence_units,
+        scope_document_ids={"doc_new_region_scene_notes"},
+        scope_confidence=0.2,
+        hard_exclude_out_of_scope=True,
+    )
+    assert "== Entity: Commander Elric Vane (actor) ==" in output
+
+
+def test_scope_mention_protects_entity_from_hard_exclusion() -> None:
+    projection = {
+        "entities": {
+            "ent_commander_elric_vane": {
+                "attributes": {
+                    "rank_or_title": {
+                        "selected_fact_id": "fact_elric_rank",
+                        "value_label": "Commander",
+                        "source_layer": "campaign",
+                        "source_truth_state": "OBSERVED",
+                        "source_class": "observed_session_recap",
+                        "fact_ids": ["fact_elric_rank"],
+                        "provenance_evidence_ids": ["evid_notes_1", "evid_notes_2"],
+                        "conflict_ids": [],
+                    }
+                }
+            }
+        }
+    }
+    entities = [
+        {
+            "entity_id": "ent_commander_elric_vane",
+            "entity_class": "actor",
+            "display_name": "Commander Elric Vane",
+            "aliases": ["Elric"],
+        }
+    ]
+    evidence_units = [
+        {"evidence_id": "evid_notes_1", "document_id": "doc_longmont_campaign_general_notes"},
+        {"evidence_id": "evid_notes_2", "document_id": "doc_longmont_campaign_general_notes"},
+    ]
+    output = format_projection_context(
+        projection,
+        entities,
+        question="What was Elric doing during this scene?",
+        evidence_units=evidence_units,
+        scope_document_ids={"doc_battle_with_the_wolf_and_aftermath"},
+        hard_exclude_out_of_scope=True,
+    )
+    assert "== Entity: Commander Elric Vane (actor) ==" in output
+
+
+def test_scope_annotations_include_classification_when_enabled() -> None:
+    projection = {
+        "entities": {
+            "ent_the_wolf": {
+                "attributes": {
+                    "role": {
+                        "selected_fact_id": "fact_wolf_role",
+                        "value_label": "central adversary",
+                        "source_layer": "world",
+                        "source_truth_state": "CANON",
+                        "source_class": "seed_reference",
+                        "fact_ids": ["fact_wolf_role"],
+                        "provenance_evidence_ids": ["evid_battle_1"],
+                        "conflict_ids": [],
+                    }
+                }
+            }
+        }
+    }
+    entities = [{"entity_id": "ent_the_wolf", "entity_class": "actor", "display_name": "the Wolf"}]
+    evidence_units = [
+        {"evidence_id": "evid_battle_1", "document_id": "doc_battle_with_the_wolf_and_aftermath"}
+    ]
+    output = format_projection_context(
+        projection,
+        entities,
+        evidence_units=evidence_units,
+        scope_document_ids={"doc_battle_with_the_wolf_and_aftermath"},
+        include_scope_annotations=True,
+    )
+    assert "scope_relevance: classification=in_scope" in output

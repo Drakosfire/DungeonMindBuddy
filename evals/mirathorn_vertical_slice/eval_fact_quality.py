@@ -21,6 +21,7 @@ MISMATCH_REPORT_PATH = OUTPUT_DIR / "fact_quality_mismatch_report.json"
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.ingestion.chunker import chunk_document  # noqa: E402
+from src.agent.context_formatter import format_projection_context  # noqa: E402
 from src.ingestion.entity_extractor import (  # noqa: E402
     OpenAIResponsesEntityClient,
     run_entity_extraction,
@@ -411,6 +412,91 @@ def _run_pipeline(
     return evidence_units, entities, facts
 
 
+def _gate_c6_scope_precision_safety() -> tuple[bool, dict]:
+    """Deterministic guardrail checks for confidence-aware scope gating."""
+    projection = {
+        "entities": {
+            "ent_the_wolf": {
+                "attributes": {
+                    "role": {
+                        "selected_fact_id": "fact_wolf_role",
+                        "value_label": "central adversary",
+                        "source_layer": "world",
+                        "source_truth_state": "CANON",
+                        "source_class": "seed_reference",
+                        "fact_ids": ["fact_wolf_role"],
+                        "provenance_evidence_ids": ["evid_battle_1", "evid_battle_2"],
+                        "conflict_ids": [],
+                    }
+                }
+            },
+            "ent_commander_elric_vane": {
+                "attributes": {
+                    "rank_or_title": {
+                        "selected_fact_id": "fact_elric_rank",
+                        "value_label": "Commander",
+                        "source_layer": "campaign",
+                        "source_truth_state": "OBSERVED",
+                        "source_class": "observed_session_recap",
+                        "fact_ids": ["fact_elric_rank"],
+                        "provenance_evidence_ids": ["evid_notes_1", "evid_notes_2"],
+                        "conflict_ids": [],
+                    }
+                }
+            },
+        }
+    }
+    entities = [
+        {"entity_id": "ent_the_wolf", "display_name": "the Wolf", "entity_class": "actor"},
+        {
+            "entity_id": "ent_commander_elric_vane",
+            "display_name": "Commander Elric Vane",
+            "entity_class": "actor",
+            "aliases": ["Elric"],
+        },
+    ]
+    evidence_units = [
+        {"evidence_id": "evid_battle_1", "document_id": "doc_battle_with_the_wolf_and_aftermath"},
+        {"evidence_id": "evid_battle_2", "document_id": "doc_battle_with_the_wolf_and_aftermath"},
+        {"evidence_id": "evid_notes_1", "document_id": "doc_longmont_campaign_general_notes"},
+        {"evidence_id": "evid_notes_2", "document_id": "doc_longmont_campaign_general_notes"},
+    ]
+
+    strict_context = format_projection_context(
+        projection,
+        entities,
+        question="Catch me up on the council room battle",
+        evidence_units=evidence_units,
+        scope_document_ids={"doc_battle_with_the_wolf_and_aftermath"},
+        hard_exclude_out_of_scope=True,
+    ).lower()
+    cold_start_context = format_projection_context(
+        projection,
+        entities,
+        question="I am starting a fresh world and need anchors",
+        evidence_units=evidence_units,
+        scope_document_ids={"doc_new_world_bootstrap"},
+        scope_confidence=0.2,
+        hard_exclude_out_of_scope=True,
+    ).lower()
+    mention_context = format_projection_context(
+        projection,
+        entities,
+        question="What is Elric doing in this room?",
+        evidence_units=evidence_units,
+        scope_document_ids={"doc_battle_with_the_wolf_and_aftermath"},
+        hard_exclude_out_of_scope=True,
+    ).lower()
+
+    checks = {
+        "confident_exclusion": "commander elric vane" not in strict_context,
+        "cold_start_safety": "commander elric vane" in cold_start_context,
+        "mention_bypass_safety": "commander elric vane" in mention_context,
+        "relevant_retained": "the wolf" in strict_context,
+    }
+    return all(checks.values()), checks
+
+
 def main() -> int:
     _vlog("=== FACT QUALITY EVALUATION (Mirathorn) ===")
     _vlog("[1/8] Loading environment...")
@@ -461,7 +547,7 @@ def main() -> int:
     print(f"Extracted facts: {len(facts)}")
     print()
 
-    gates_total = 5
+    gates_total = 6
 
     # --- Gate C1: Contract Validity ---
     _vlog("[5/8] Evaluating Gate C1: Contract Validity...")
@@ -609,10 +695,18 @@ def main() -> int:
     print(f"  Gate C5: {'PASS' if c5_passed else 'FAIL'}")
     print()
 
+    # --- Gate C6: Scope Precision + Recall Safety ---
+    print("=== Gate C6: Scope Precision + Recall Safety ===")
+    c6_passed, c6_checks = _gate_c6_scope_precision_safety()
+    for check_name, check_pass in c6_checks.items():
+        print(f"  {check_name}: {'PASS' if check_pass else 'FAIL'}")
+    print(f"  Gate C6: {'PASS' if c6_passed else 'FAIL'}")
+    print()
+
     # --- Summary ---
     _vlog("[8/8] Writing artifacts and final summary...")
-    gates_passed = sum([c1_passed, c2_passed, c3_passed, c4_passed, c5_passed])
-    all_passed = all([c1_passed, c2_passed, c3_passed, c4_passed, c5_passed])
+    gates_passed = sum([c1_passed, c2_passed, c3_passed, c4_passed, c5_passed, c6_passed])
+    all_passed = all([c1_passed, c2_passed, c3_passed, c4_passed, c5_passed, c6_passed])
     print("=" * 60)
     print(f"  Gates passed: {gates_passed}/{gates_total}")
     print(f"  C1 Contract:    {'PASS' if c1_passed else 'FAIL'}")
@@ -620,6 +714,7 @@ def main() -> int:
     print(f"  C3 Projection:  {'PASS' if c3_passed else 'FAIL'}")
     print(f"  C4 Precision:   {'PASS' if c4_passed else 'FAIL'} (dup={dup_rate:.3f}, junk={junk_rate:.3f})")
     print(f"  C5 Determinism: {'PASS' if c5_passed else 'FAIL'}")
+    print(f"  C6 ScopeSafety: {'PASS' if c6_passed else 'FAIL'}")
     print(f"  OVERALL: {'PASS' if all_passed else 'FAIL'}")
     print("=" * 60)
 

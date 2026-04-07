@@ -1,8 +1,18 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from copy import deepcopy
 from dataclasses import dataclass
 from typing import Any
+
+from src.agent.scope_relevance import (
+    build_entity_document_index,
+    build_entity_evidence_index,
+    build_evidence_document_index,
+    compute_scope_relevance,
+    normalize_scope_document_ids,
+    scope_relevance_to_dict,
+)
 
 
 ACTIVE_TRUTH_STATES = {"OBSERVED", "CANON", "CANON_CANDIDATE", "PREP", "IDEA"}
@@ -300,4 +310,57 @@ def project_entity_state(
             "projected_entities": len(projection_entities),
         },
     }
+
+
+def attach_scope_relevance_metadata(
+    *,
+    projection: dict[str, Any],
+    evidence_units: list[dict[str, Any]],
+    scope_document_ids: list[str] | set[str] | None,
+    scope_confidence: float = 1.0,
+    min_scope_confidence: float = 0.75,
+    min_entity_evidence_count: int = 2,
+    mentioned_entity_ids: set[str] | None = None,
+) -> dict[str, Any]:
+    """Attach confidence-aware scope relevance metadata to projection entities."""
+    projection_copy = deepcopy(projection)
+    projection_entities = projection_copy.get("entities", {})
+    if not isinstance(projection_entities, dict):
+        return projection_copy
+
+    scope_doc_ids = normalize_scope_document_ids(scope_document_ids)
+    if not scope_doc_ids:
+        return projection_copy
+
+    evidence_document_by_id = build_evidence_document_index(evidence_units)
+    entity_evidence_index = build_entity_evidence_index(projection_entities)
+    entity_document_index = build_entity_document_index(entity_evidence_index, evidence_document_by_id)
+    mentioned = mentioned_entity_ids or set()
+    pruning_candidates: list[str] = []
+
+    for entity_id, entity_payload in projection_entities.items():
+        if not isinstance(entity_payload, dict):
+            continue
+        relevance = compute_scope_relevance(
+            entity_document_ids=entity_document_index.get(entity_id, set()),
+            entity_evidence_count=len(entity_evidence_index.get(entity_id, set())),
+            scope_document_ids=scope_doc_ids,
+            scope_confidence=scope_confidence,
+            min_scope_confidence=min_scope_confidence,
+            min_entity_evidence_count=min_entity_evidence_count,
+            mentioned_in_question=entity_id in mentioned,
+        )
+        relevance_payload = scope_relevance_to_dict(relevance)
+        entity_payload["scope_relevance"] = relevance_payload
+        if relevance_payload.get("pruning_candidate"):
+            pruning_candidates.append(entity_id)
+
+    projection_copy["scope_relevance"] = {
+        "scope_document_ids": sorted(scope_doc_ids),
+        "scope_confidence": scope_confidence,
+        "min_scope_confidence": min_scope_confidence,
+        "min_entity_evidence_count": min_entity_evidence_count,
+        "pruning_candidates": sorted(pruning_candidates),
+    }
+    return projection_copy
 

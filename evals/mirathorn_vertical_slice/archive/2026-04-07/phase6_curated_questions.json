@@ -1,0 +1,552 @@
+[
+  {
+    "id": "q_longmont_session_12_council_chamber_roster",
+    "document_source": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Longmont Campaign General Notes.md",
+    "document_title": "Longmont Campaign General Notes",
+    "question": "Who's actually in the council chamber for the Session 12 fight with the Wolf?",
+    "expected_answer_summary": "PCs Bonogo, Caelynn, Ephanna, Stafl, Karsemine, and Baergrom; Commander Thalia; the Wolf; and multiple city guards (including elite guards).",
+    "must_hit_tokens": [
+      "bonogo",
+      "caelynn",
+      "thalia",
+      "wolf",
+      "guards",
+      "ephanna"
+    ],
+    "stale_tokens": [
+      "empty room",
+      "nobody present",
+      "elric vane"
+    ],
+    "update_signal_tokens": [
+      "observed",
+      "thunderwave",
+      "chandelier"
+    ],
+    "semantic_equivalences": {
+      "wolf": [
+        "the wolf"
+      ],
+      "guards": [
+        "elite guard",
+        "eight guards"
+      ]
+    },
+    "target_entities": [
+      "ent_council_room",
+      "ent_the_wolf",
+      "ent_commander_thalia_ashenvale",
+      "ent_bonogo",
+      "ent_caelynn_the_half_elf_sorcerer"
+    ],
+    "target_entity_names_requested": [
+      "Council Room",
+      "the Wolf",
+      "Commander Thalia Ashenvale",
+      "Bonogo",
+      "Caelynn"
+    ],
+    "unresolved_target_entity_names": [],
+    "target_attributes": [
+      "current_location",
+      "operational_status"
+    ],
+    "surface": "vertical_slice",
+    "tier": "should_pass",
+    "editorial_verdict": "accept",
+    "editorial_notes": "Session 12 roster question (replaced Elric Vane Q1). Table-speak rephrase. Scoring via council-room runner; preflight/coverage not re-run.",
+    "replaces_id": "q_longmont_campaign_general_notes_3",
+    "coverage_status": "unverified",
+    "coverage_match_ratio": 0.0
+  },
+  {
+    "id": "q_the_emergency_council_meeting_1",
+    "document_source": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/City Council Building/The Emergency Council Meeting.md",
+    "document_title": "The Emergency Council Meeting",
+    "question": "What are the wizards asking the council to do in the emergency meeting—and what's the catch?",
+    "expected_answer_summary": "They propose arcane lockdown wards for detection and containment, but at the cost of citywide disruption, panic risk, and festival cancellation.",
+    "must_hit_tokens": [
+      "wizards' college",
+      "arcane lockdown",
+      "wards",
+      "tradeoff"
+    ],
+    "stale_tokens": [
+      "no magical proposal",
+      "cost-free solution"
+    ],
+    "update_signal_tokens": [
+      "detection",
+      "restrictions",
+      "festival"
+    ],
+    "semantic_equivalences": {
+      "arcane lockdown": [
+        "magical lockdown",
+        "ward lockdown"
+      ],
+      "tradeoff": [
+        "drawback",
+        "cost"
+      ]
+    },
+    "target_entities": [
+      "ent_headmaster_tinkerbright",
+      "ent_wizards_college"
+    ],
+    "target_entity_names_requested": [
+      "Headmaster Tinkerbright",
+      "Wizards' College"
+    ],
+    "unresolved_target_entity_names": [],
+    "target_attributes": [
+      "goals"
+    ],
+    "surface": "core_extraction",
+    "tier": "must_pass",
+    "editorial_verdict": "accept",
+    "editorial_notes": "Attribute fix: removed `strategy` (not in taxonomy). `goals` covers strategic intent and has strong coverage (13 Tinkerbright facts, 5 Wizards' College facts). Partially answerable.",
+    "original_target_attributes": [
+      "goals",
+      "strategy"
+    ],
+    "attribute_remapping": {
+      "strategy": "dropped (not in taxonomy; goals already covers strategic intent)"
+    },
+    "coverage_status": "partially_answerable",
+    "coverage_match_ratio": 0.5
+  },
+  {
+    "id": "q_longmont_campaign_general_notes_1",
+    "document_source": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Longmont Campaign General Notes.md",
+    "document_title": "Longmont Campaign General Notes",
+    "question": "Who are the Shepherds, and what god or power do they answer to?",
+    "expected_answer_summary": "The Shepherd's Flock (the Shepherds) is a cult; they answer to Maelthor as patron and pursue ascension through atrocities framed as ritual sacrifice, tied to human supremacy.",
+    "must_hit_tokens": [
+      "shepherds",
+      "maelthor",
+      "worship",
+      "cult"
+    ],
+    "stale_tokens": [
+      "purely political gang",
+      "no patron",
+      "worship nobody"
+    ],
+    "update_signal_tokens": [
+      "cult beliefs",
+      "human supremacy",
+      "ritual"
+    ],
+    "semantic_equivalences": {
+      "worship": [
+        "worships",
+        "patron",
+        "serve",
+        "venerate"
+      ],
+      "cult": [
+        "shepherd's flock",
+        "shepherds' flock"
+      ]
+    },
+    "target_entities": [
+      "ent_shepherds_flock",
+      "ent_maelthor"
+    ],
+    "target_entity_names_requested": [
+      "The Shepherds",
+      "Maelthor"
+    ],
+    "unresolved_target_entity_names": [],
+    "target_attributes": [
+      "loyalty_or_alignment_context",
+      "goals"
+    ],
+    "surface": "core_extraction",
+    "tier": "must_pass",
+    "editorial_verdict": "accept",
+    "editorial_notes": "Rephrased question to GM-table wording (who + worship). Attribute fix: remapped `beliefs` -> `loyalty_or_alignment_context`. goals has 8 Shepherds facts + 2 Maelthor facts; loyalty_or_alignment_context coverage TBD. must_hit_tokens updated for new phrasing.",
+    "original_target_attributes": [
+      "beliefs",
+      "goals"
+    ],
+    "attribute_remapping": {
+      "beliefs": "loyalty_or_alignment_context"
+    },
+    "coverage_status": "partially_answerable",
+    "coverage_match_ratio": 0.5
+  },
+  {
+    "id": "q_the_city_council_2",
+    "document_source": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/City Council Building/The City Council.md",
+    "document_title": "The City Council",
+    "question": "Who speaks for the wizards on the council, and what's his angle on the cult?",
+    "expected_answer_summary": "Headmaster Tinkerbright represents arcane interests and supports deploying wizard resources to detect and counter corruption.",
+    "must_hit_tokens": [
+      "headmaster tinkerbright",
+      "wizard's college",
+      "detect",
+      "counter corruption"
+    ],
+    "stale_tokens": [
+      "arcane neutrality",
+      "no magic response"
+    ],
+    "update_signal_tokens": [
+      "arcane resources",
+      "dark magic concern"
+    ],
+    "semantic_equivalences": {
+      "counter corruption": [
+        "counteract cult influence",
+        "oppose dark magic spread"
+      ]
+    },
+    "target_entities": [
+      "ent_headmaster_tinkerbright",
+      "ent_wizards_college"
+    ],
+    "target_entity_names_requested": [
+      "Headmaster Tinkerbright",
+      "Wizards' College"
+    ],
+    "unresolved_target_entity_names": [],
+    "target_attributes": [
+      "rank_or_title",
+      "goals"
+    ],
+    "surface": "core_extraction",
+    "tier": "must_pass",
+    "editorial_verdict": "accept",
+    "editorial_notes": "All target_attributes valid. 75% coverage (3/4 pairs). rank_or_title has 10 facts for Tinkerbright, goals has 13+5 facts. Only gap: wizards_college rank_or_title (0 facts).",
+    "coverage_status": "partially_answerable",
+    "coverage_match_ratio": 0.75
+  },
+  {
+    "id": "q_the_city_council_4",
+    "document_source": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/City Council Building/The City Council.md",
+    "document_title": "The City Council",
+    "question": "Merril, Torrin, Rurik—what's each one's job on the council?",
+    "expected_answer_summary": "Merril leads agriculture/food interests, Torrin represents guild crafts, and Rurik represents infrastructure and city planning.",
+    "must_hit_tokens": [
+      "merril",
+      "agricultural union",
+      "torrin",
+      "guilds",
+      "rurik",
+      "infrastructure"
+    ],
+    "stale_tokens": [
+      "roles unknown",
+      "all three in same role"
+    ],
+    "update_signal_tokens": [
+      "representative",
+      "city governance"
+    ],
+    "semantic_equivalences": {
+      "agricultural union": [
+        "agriculture and food production"
+      ],
+      "guilds": [
+        "craft guilds"
+      ]
+    },
+    "target_entities": [
+      "ent_merril_tealeaf",
+      "ent_torrin_flamescale",
+      "ent_rurik_stonehammer"
+    ],
+    "target_entity_names_requested": [
+      "Merril Tealeaf",
+      "Torrin Flamescale",
+      "Rurik Stonehammer"
+    ],
+    "unresolved_target_entity_names": [],
+    "target_attributes": [
+      "rank_or_title",
+      "faction"
+    ],
+    "surface": "core_extraction",
+    "tier": "must_pass",
+    "editorial_verdict": "accept",
+    "editorial_notes": "All target_attributes valid. 83% coverage (5/6 pairs). Only gap: Rurik faction (0 facts). Strong rank_or_title coverage across all three.",
+    "coverage_status": "partially_answerable",
+    "coverage_match_ratio": 0.83
+  },
+  {
+    "id": "q_battle_with_the_wolf_and_aftermath_1",
+    "document_source": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/City Council Building/Battle with The Wolf and Aftermath.md",
+    "document_title": "Battle with The Wolf and Aftermath",
+    "question": "When the council-chamber fight ends, where does that leave the Wolf—dead, fled, what?",
+    "expected_answer_summary": "The Wolf is ultimately killed, with Bonogo delivering the killing blow and decapitation-style terminal outcome.",
+    "must_hit_tokens": [
+      "killed",
+      "killing blow",
+      "bonogo",
+      "decapitated"
+    ],
+    "stale_tokens": [
+      "escaped safely",
+      "still alive",
+      "still stalling"
+    ],
+    "update_signal_tokens": [
+      "terminal outcome",
+      "aftermath",
+      "dead"
+    ],
+    "semantic_equivalences": {
+      "killing blow": [
+        "fatal strike",
+        "final blow",
+        "decapitated"
+      ],
+      "killed": [
+        "dead",
+        "slain"
+      ]
+    },
+    "target_entities": [
+      "ent_the_wolf",
+      "ent_bonogo"
+    ],
+    "target_entity_names_requested": [
+      "The Wolf",
+      "Bonogo"
+    ],
+    "unresolved_target_entity_names": [],
+    "target_attributes": [
+      "event_outcome",
+      "event_progression"
+    ],
+    "surface": "core_extraction",
+    "tier": "must_pass",
+    "editorial_verdict": "revised",
+    "editorial_notes": "Remapped `status` + `combat_outcome` -> `event_outcome` + `event_progression` (neither original attr in taxonomy). Added ent_bonogo to target_entities (confirmed in fact store as ent_bonogo with operational_status, current_location, role facts; Phase 6 preflight name resolution failed but entity exists). The Wolf has physical_condition facts confirming decapitation.",
+    "original_target_attributes": [
+      "status",
+      "combat_outcome"
+    ],
+    "attribute_remapping": {
+      "status": "event_outcome",
+      "combat_outcome": "event_progression"
+    },
+    "bonogo_entity_status": "EXISTS as ent_bonogo in fact store. Phase 6 preflight name resolution failed (fuzzy=0.0) — entity resolution gap, not missing entity."
+  },
+  {
+    "id": "q_battle_with_the_wolf_and_aftermath_3",
+    "document_source": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/City Council Building/Battle with The Wolf and Aftermath.md",
+    "document_title": "Battle with The Wolf and Aftermath",
+    "question": "In that fight, is Thalia corrupted like the guards, or is it something different?",
+    "expected_answer_summary": "Thalia is presented as ensorcelled/manipulated rather than fully corrupted, while many guards are explicitly corrupted.",
+    "must_hit_tokens": [
+      "thalia",
+      "ensorcelled",
+      "not fully corrupted",
+      "corrupted guards"
+    ],
+    "stale_tokens": [
+      "thalia fully corrupted",
+      "all guards uncorrupted"
+    ],
+    "update_signal_tokens": [
+      "manipulated",
+      "influence",
+      "wolf betrayal"
+    ],
+    "semantic_equivalences": {
+      "ensorcelled": [
+        "charmed",
+        "magically manipulated"
+      ],
+      "not fully corrupted": [
+        "influenced but not corrupted",
+        "controlled rather than corrupted"
+      ]
+    },
+    "target_entities": [
+      "ent_commander_thalia_ashenvale",
+      "ent_the_wolf"
+    ],
+    "target_entity_names_requested": [
+      "Commander Thalia Ashenvale",
+      "The Wolf"
+    ],
+    "unresolved_target_entity_names": [],
+    "target_attributes": [
+      "loyalty_or_alignment_context"
+    ],
+    "surface": "vertical_slice",
+    "tier": "must_pass",
+    "editorial_verdict": "revised",
+    "editorial_notes": "Remapped: dropped `status` (not in taxonomy, 0 facts for both entities). Kept `loyalty_or_alignment_context` (3 facts for Thalia: innocent/duty, 2 for Wolf: cult sympathizer/betrayed city). Strong coverage for the loyalty question.",
+    "original_target_attributes": [
+      "status",
+      "loyalty_or_alignment_context"
+    ],
+    "attribute_remapping": {
+      "status": "dropped (not in taxonomy; 0 facts)"
+    },
+    "coverage_status": "partially_answerable",
+    "coverage_match_ratio": 1.0
+  },
+  {
+    "id": "q_battle_with_the_wolf_and_aftermath_2",
+    "document_source": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/City Council Building/Battle with The Wolf and Aftermath.md",
+    "document_title": "Battle with The Wolf and Aftermath",
+    "question": "What does the council room itself throw at us that screws with the fight?",
+    "expected_answer_summary": "Arcane traps, falling debris, alarm pulses, and illusory walls force positioning and can trigger reinforcements.",
+    "must_hit_tokens": [
+      "arcane traps",
+      "falling debris",
+      "alarm pulses",
+      "illusory walls"
+    ],
+    "stale_tokens": [
+      "normal battlefield",
+      "no magical defenses"
+    ],
+    "update_signal_tokens": [
+      "defenses activate",
+      "runes",
+      "reinforcements"
+    ],
+    "semantic_equivalences": {
+      "arcane traps": [
+        "rune traps",
+        "magical traps"
+      ],
+      "alarm pulses": [
+        "sonic pulses",
+        "arcane alarm"
+      ]
+    },
+    "target_entities": [
+      "ent_council_room",
+      "ent_the_wolf"
+    ],
+    "target_entity_names_requested": [
+      "Council Chamber",
+      "The Wolf"
+    ],
+    "unresolved_target_entity_names": [],
+    "target_attributes": [
+      "defenses"
+    ],
+    "surface": "core_extraction",
+    "tier": "must_pass",
+    "editorial_verdict": "revised",
+    "editorial_notes": "Dropped `combat_context` (not in taxonomy, 0 facts for both entities). Kept `defenses` (8 facts for council_room, 1 for Wolf). Good coverage for the core question.",
+    "original_target_attributes": [
+      "defenses",
+      "combat_context"
+    ],
+    "attribute_remapping": {
+      "combat_context": "dropped (not in taxonomy; 0 facts)"
+    },
+    "coverage_status": "partially_answerable",
+    "coverage_match_ratio": 0.5
+  },
+  {
+    "id": "q_the_emergency_council_meeting_2_v2",
+    "document_source": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/City Council Building/The Emergency Council Meeting.md",
+    "document_title": "The Emergency Council Meeting",
+    "question": "Can we trust Thalia in this emergency meeting, or is something off?",
+    "expected_answer_summary": "Thalia appears duty-bound and protective as guard commander, but she is under the Wolf's influence and may unknowingly misdirect guard operations, making her reliability uncertain.",
+    "must_hit_tokens": [
+      "thalia",
+      "wolf influence",
+      "guard operations",
+      "uncertain reliability"
+    ],
+    "stale_tokens": [
+      "thalia fully reliable",
+      "no hidden influence"
+    ],
+    "update_signal_tokens": [
+      "ensorcelled",
+      "compromised",
+      "manipulation"
+    ],
+    "semantic_equivalences": {
+      "wolf influence": [
+        "ensorcelled by the wolf",
+        "wolf's manipulation"
+      ],
+      "uncertain reliability": [
+        "compromised",
+        "not fully trustworthy",
+        "questionable loyalty"
+      ]
+    },
+    "target_entities": [
+      "ent_commander_thalia_ashenvale",
+      "ent_the_wolf"
+    ],
+    "target_entity_names_requested": [
+      "Commander Thalia Ashenvale",
+      "The Wolf"
+    ],
+    "unresolved_target_entity_names": [],
+    "target_attributes": [
+      "loyalty_or_alignment_context"
+    ],
+    "surface": "vertical_slice",
+    "tier": "must_pass",
+    "editorial_verdict": "replacement",
+    "editorial_notes": "Replaced design-document question 'How does Thalia's proposed guard sweep become a hidden failure mode?' with GM-realistic trust question. Uses loyalty_or_alignment_context (3 facts for Thalia, 2 for Wolf). Both entities supported in Emergency Council doc.",
+    "replaces_id": "q_the_emergency_council_meeting_2",
+    "rejection_reason": "Original question was design-document phrasing ('hidden failure mode') — not how a GM would ask."
+  },
+  {
+    "id": "q_the_emergency_council_meeting_4_v2",
+    "document_source": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/City Council Building/The Emergency Council Meeting.md",
+    "document_title": "The Emergency Council Meeting",
+    "question": "If the council keeps talking and doesn't act, what bites us?",
+    "expected_answer_summary": "Prolonged deliberation advances an in-game countdown toward the cult's summoning ritual, increasing danger and limiting time for response.",
+    "must_hit_tokens": [
+      "time pressure",
+      "countdown",
+      "summoning",
+      "consequences"
+    ],
+    "stale_tokens": [
+      "unlimited deliberation",
+      "no time limit"
+    ],
+    "update_signal_tokens": [
+      "urgency",
+      "ritual advances",
+      "ticking clock"
+    ],
+    "semantic_equivalences": {
+      "countdown": [
+        "timer",
+        "tick-down"
+      ],
+      "summoning": [
+        "ritual completion",
+        "kaiju summoning"
+      ]
+    },
+    "target_entities": [
+      "ent_city_council"
+    ],
+    "target_entity_names_requested": [
+      "City Council"
+    ],
+    "unresolved_target_entity_names": [],
+    "target_attributes": [
+      "event_outcome",
+      "goals"
+    ],
+    "surface": "vertical_slice",
+    "tier": "must_pass",
+    "editorial_verdict": "replacement",
+    "editorial_notes": "Replaced meta-design question 'What time-pressure mechanic drives urgency?' with GM-realistic consequence question. Removed unsupported Maelthor entity (not found in Emergency Council doc preflight). Remapped attrs: event_sequence/ritual -> event_outcome/goals (both valid). city_council goals coverage TBD.",
+    "replaces_id": "q_the_emergency_council_meeting_4",
+    "rejection_reason": "Original question asked about game-mechanics meta-design ('time-pressure mechanic'). Maelthor unsupported in Emergency Council doc."
+  }
+]

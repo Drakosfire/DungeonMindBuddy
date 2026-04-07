@@ -103,3 +103,35 @@ def test_semantic_before_not_satisfied_by_lead_in_alone() -> None:
 def test_semantic_killing_blow_still_matches_real_death_paraphrase() -> None:
     """Guardrail: tightening broad tokens must not break real wolf-death paraphrases."""
     assert _semantic_token_present("killing blow", "he took a killing blow and fell")
+
+
+def test_semantic_uses_question_level_equivalences() -> None:
+    assert _semantic_token_present(
+        "arcane lockdown",
+        "the city enacted lock wards overnight",
+        {"arcane lockdown": ["lock wards"]},
+    )
+
+
+def test_strict_normalizes_unicode_apostrophe() -> None:
+    verdict, must_hits, *_ = classify_answer(
+        must_tokens=["wizards' college", "arcane lockdown"],
+        stale_tokens=[],
+        answer="The Wizards\u2019 College proposes an arcane lockdown.",
+        has_error=False,
+    )
+    assert "wizards' college" in must_hits
+    assert verdict == "pass_updated"
+
+
+def test_must_not_cooccur_blocks_absent_false_positive() -> None:
+    verdict, must_hits, *_ = classify_answer(
+        must_tokens=["bonogo", "ephanna"],
+        stale_tokens=[],
+        answer="Bonogo was there, but Ephanna was absent from the chamber.",
+        has_error=False,
+        must_not_cooccur={"ephanna": ["absent"]},
+    )
+    assert "bonogo" in must_hits
+    assert "ephanna" not in must_hits
+    assert verdict == "pass_updated"

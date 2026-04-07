@@ -5,10 +5,23 @@ import json
 from pathlib import Path
 
 
+class _StubStore:
+    """Minimal store for council-room runner scope block (real CLI not used in stubs)."""
+
+    evidence_units: list = []
+
+    def project(self, campaign_id: str) -> dict:  # noqa: ARG002
+        return {"entities": {}}
+
+    def list_entities(self) -> list:
+        return []
+
+
 def _install_stub_cli(module, monkeypatch, answer: str = "stub answer with observed chandelier") -> None:
     class _StubCLI:
         def __init__(self, *, store_dir, verbose) -> None:  # noqa: ANN001
             _ = (store_dir, verbose)
+            self.store = _StubStore()
 
         def handle_line(self, line: str) -> bool:
             _ = line
@@ -42,6 +55,7 @@ def test_runner_enforces_campaign_scope(monkeypatch, tmp_path) -> None:
     class _StubCLI:
         def __init__(self, *, store_dir, verbose) -> None:  # noqa: ANN001
             _ = (store_dir, verbose)
+            self.store = _StubStore()
 
         def handle_line(self, line: str) -> bool:
             observed_commands.append(line)
@@ -53,7 +67,8 @@ def test_runner_enforces_campaign_scope(monkeypatch, tmp_path) -> None:
     monkeypatch.delenv(module.WRITE_COUNCIL_ROOM_QUESTION_SET_ARTIFACTS_ENV, raising=False)
     summary = module.run()
     ask_commands = [cmd for cmd in observed_commands if cmd.startswith("ask ")]
-    assert len(ask_commands) == 5
+    expected_questions = module._load_gold_questions(module.GOLD_QUESTIONS_PATH)
+    assert len(ask_commands) == len(expected_questions)
     assert all("--campaign longmont-c1" in cmd for cmd in ask_commands)
     assert all("--require-campaign" in cmd for cmd in ask_commands)
     assert "overall_strict" in summary

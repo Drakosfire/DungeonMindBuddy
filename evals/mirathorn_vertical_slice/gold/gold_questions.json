@@ -1,0 +1,402 @@
+[
+  {
+    "id": "q_the_emergency_council_meeting_1",
+    "question": "What are the wizards asking the council to do in the emergency meeting-and what's the catch?",
+    "must_hit_tokens": [
+      "wizards' college",
+      "arcane lockdown",
+      "wards",
+      "tradeoff"
+    ],
+    "stale_tokens": [
+      "no magical proposal",
+      "cost-free solution"
+    ],
+    "update_signal_tokens": [
+      "detection",
+      "restrictions",
+      "festival"
+    ],
+    "semantic_equivalences": {
+      "wizards' college": [
+        "wizards college",
+        "headmaster tinkerbright"
+      ],
+      "arcane lockdown": [
+        "magical lockdown",
+        "ward lockdown"
+      ],
+      "tradeoff": [
+        "drawback",
+        "cost"
+      ]
+    }
+  },
+  {
+    "id": "q_longmont_session_12_council_chamber_roster",
+    "question": "Who's actually in the council chamber for the Session 12 fight with the Wolf?",
+    "must_hit_tokens": [
+      "bonogo",
+      "caelynn",
+      "thalia",
+      "wolf",
+      "guards",
+      "ephanna"
+    ],
+    "stale_tokens": [
+      "empty room",
+      "nobody present",
+      "elric vane"
+    ],
+    "update_signal_tokens": [
+      "observed",
+      "thunderwave",
+      "chandelier"
+    ],
+    "semantic_equivalences": {
+      "wolf": [
+        "the wolf"
+      ],
+      "guards": [
+        "elite guard",
+        "eight guards"
+      ]
+    },
+    "must_not_cooccur": {
+      "ephanna": [
+        "ephanna was absent",
+        "ephanna is absent",
+        "ephanna wasn't present",
+        "ephanna was not present",
+        "ephanna did not appear",
+        "without ephanna"
+      ]
+    }
+  },
+  {
+    "id": "q_longmont_campaign_general_notes_1",
+    "question": "Who are the Shepherds, and what god or power do they answer to?",
+    "must_hit_tokens": [
+      "shepherds",
+      "maelthor",
+      "worship",
+      "cult"
+    ],
+    "stale_tokens": [
+      "purely political gang",
+      "no patron",
+      "worship nobody"
+    ],
+    "update_signal_tokens": [
+      "cult beliefs",
+      "human supremacy",
+      "ritual"
+    ],
+    "semantic_equivalences": {
+      "worship": [
+        "worships",
+        "patron",
+        "serve",
+        "venerate"
+      ],
+      "cult": [
+        "shepherd's flock",
+        "shepherds' flock"
+      ]
+    }
+  },
+  {
+    "id": "q_the_city_council_2",
+    "question": "Who speaks for the wizards on the council, and what's his angle on the cult?",
+    "must_hit_tokens": [
+      "headmaster tinkerbright",
+      "wizard's college",
+      "detect",
+      "counter corruption"
+    ],
+    "stale_tokens": [
+      "arcane neutrality",
+      "no magic response"
+    ],
+    "update_signal_tokens": [
+      "arcane resources",
+      "dark magic concern"
+    ],
+    "semantic_equivalences": {
+      "counter corruption": [
+        "counteract cult influence",
+        "oppose dark magic spread"
+      ]
+    }
+  },
+  {
+    "id": "q_the_city_council_4",
+    "question": "Merril, Torrin, Rurik-what's each one's job on the council?",
+    "must_hit_tokens": [
+      "merril",
+      "agricultural union",
+      "torrin",
+      "guilds",
+      "rurik",
+      "infrastructure"
+    ],
+    "stale_tokens": [
+      "roles unknown",
+      "all three in same role"
+    ],
+    "update_signal_tokens": [
+      "representative",
+      "city governance"
+    ],
+    "semantic_equivalences": {
+      "agricultural union": [
+        "agriculture and food production"
+      ],
+      "guilds": [
+        "craft guilds"
+      ]
+    }
+  },
+  {
+    "id": "q_battle_with_the_wolf_and_aftermath_1",
+    "question": "When the council-chamber fight ends, where does that leave the Wolf-dead, fled, what?",
+    "must_hit_tokens": [
+      "killed",
+      "killing blow",
+      "bonogo",
+      "decapitated"
+    ],
+    "stale_tokens": [
+      "escaped safely",
+      "still alive",
+      "still stalling"
+    ],
+    "update_signal_tokens": [
+      "terminal outcome",
+      "aftermath",
+      "dead"
+    ],
+    "semantic_equivalences": {
+      "killing blow": [
+        "fatal strike",
+        "final blow",
+        "decapitated"
+      ],
+      "killed": [
+        "dead",
+        "slain"
+      ]
+    }
+  },
+  {
+    "id": "q_battle_with_the_wolf_and_aftermath_3",
+    "question": "In that fight, is Thalia corrupted like the guards, or is it something different?",
+    "must_hit_tokens": [
+      "thalia",
+      "ensorcelled",
+      "not fully corrupted",
+      "corrupted guards"
+    ],
+    "stale_tokens": [
+      "thalia fully corrupted",
+      "all guards uncorrupted"
+    ],
+    "update_signal_tokens": [
+      "manipulated",
+      "influence",
+      "wolf betrayal"
+    ],
+    "semantic_equivalences": {
+      "ensorcelled": [
+        "charmed",
+        "magically manipulated"
+      ],
+      "not fully corrupted": [
+        "influenced but not corrupted",
+        "controlled rather than corrupted"
+      ]
+    }
+  },
+  {
+    "id": "q_battle_with_the_wolf_and_aftermath_2",
+    "question": "What does the council room itself throw at us that screws with the fight?",
+    "must_hit_tokens": [
+      "arcane traps",
+      "falling debris",
+      "alarm pulses",
+      "illusory walls"
+    ],
+    "stale_tokens": [
+      "normal battlefield",
+      "no magical defenses"
+    ],
+    "update_signal_tokens": [
+      "defenses activate",
+      "runes",
+      "reinforcements"
+    ],
+    "semantic_equivalences": {
+      "arcane traps": [
+        "rune traps",
+        "magical traps"
+      ],
+      "alarm pulses": [
+        "sonic pulses",
+        "arcane alarm"
+      ]
+    }
+  },
+  {
+    "id": "q_the_emergency_council_meeting_2_v2",
+    "question": "Can we trust Thalia in this emergency meeting, or is something off?",
+    "must_hit_tokens": [
+      "thalia",
+      "wolf influence",
+      "guard operations",
+      "uncertain reliability"
+    ],
+    "stale_tokens": [
+      "thalia fully reliable",
+      "no hidden influence"
+    ],
+    "update_signal_tokens": [
+      "ensorcelled",
+      "compromised",
+      "manipulation"
+    ],
+    "semantic_equivalences": {
+      "wolf influence": [
+        "ensorcelled by the wolf",
+        "wolf's manipulation"
+      ],
+      "uncertain reliability": [
+        "compromised",
+        "not fully trustworthy",
+        "questionable loyalty"
+      ]
+    }
+  },
+  {
+    "id": "q_the_emergency_council_meeting_4_v2",
+    "question": "If the council keeps talking and doesn't act, what bites us?",
+    "must_hit_tokens": [
+      "time pressure",
+      "countdown",
+      "summoning",
+      "consequences"
+    ],
+    "stale_tokens": [
+      "unlimited deliberation",
+      "no time limit"
+    ],
+    "update_signal_tokens": [
+      "urgency",
+      "ritual advances",
+      "ticking clock"
+    ],
+    "semantic_equivalences": {
+      "countdown": [
+        "timer",
+        "tick-down"
+      ],
+      "summoning": [
+        "ritual completion",
+        "kaiju summoning"
+      ]
+    }
+  },
+  {
+    "id": "q_arch_current",
+    "question": "What does the Council Room look like after the wolf fight-what should we notice?",
+    "must_hit_tokens": [
+      "arched ceilings",
+      "floating chandelier",
+      "secret passage"
+    ],
+    "stale_tokens": [
+      "undamaged",
+      "unchanged"
+    ],
+    "update_signal_tokens": [
+      "observed",
+      "disheveled",
+      "activated"
+    ],
+    "semantic_equivalences": {}
+  },
+  {
+    "id": "q_arch_delta",
+    "question": "What got wrecked or changed in the Council Room during Session 12?",
+    "must_hit_tokens": [
+      "chandelier",
+      "runes",
+      "secret passage"
+    ],
+    "stale_tokens": [
+      "no damage",
+      "nothing changed"
+    ],
+    "update_signal_tokens": [
+      "observed",
+      "disheveled",
+      "activated"
+    ],
+    "semantic_equivalences": {}
+  },
+  {
+    "id": "q_wolf_status",
+    "question": "End of Session 12: is the Wolf alive, dead, still corrupted-what's his state?",
+    "must_hit_tokens": [
+      "killing blow",
+      "dead",
+      "oily sheen fades"
+    ],
+    "stale_tokens": [
+      "alive",
+      "uncorrupted throughout"
+    ],
+    "update_signal_tokens": [
+      "killing blow",
+      "decapitated",
+      "dead"
+    ],
+    "semantic_equivalences": {}
+  },
+  {
+    "id": "q_pre_post",
+    "question": "Before vs after the council fight-how's the Wolf different?",
+    "must_hit_tokens": [
+      "before",
+      "after",
+      "oily sheen",
+      "killing blow"
+    ],
+    "stale_tokens": [
+      "same state"
+    ],
+    "update_signal_tokens": [
+      "before",
+      "after",
+      "killing blow"
+    ],
+    "semantic_equivalences": {}
+  },
+  {
+    "id": "q_thalia",
+    "question": "Was Thalia corrupted or just played-and how does that tie to the Wolf?",
+    "must_hit_tokens": [
+      "ensorcelled",
+      "wolf",
+      "not corrupted"
+    ],
+    "stale_tokens": [
+      "thalia was corrupted"
+    ],
+    "update_signal_tokens": [
+      "ensorcelled",
+      "influence",
+      "manipulated"
+    ],
+    "semantic_equivalences": {}
+  }
+]

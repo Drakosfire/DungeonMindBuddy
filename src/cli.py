@@ -18,6 +18,7 @@ from dotenv import load_dotenv
 from openai import OpenAI
 
 from src.agent.context_formatter import format_projection_context
+from src.agent.scope_relevance import question_mentioned_entity_ids
 from src.agent.synthesis import synthesize_answer_async
 from src.ingestion.chunker import chunk_document
 from src.ingestion.frontmatter import (
@@ -51,6 +52,7 @@ from src.contracts.temporal_tick_gate import (
     campaign_temporal_consistency_violations,
     campaign_temporal_tick_violations,
 )
+from src.reducer.canon_projection import attach_scope_relevance_metadata
 from src.store import FactStore
 
 LOGGER_FORMAT = "%(asctime)s %(levelname)s [%(name)s] %(message)s"
@@ -1080,6 +1082,46 @@ class DungeonBuddyCLI:
         parser.add_argument("question")
         parser.add_argument("--campaign")
         parser.add_argument("--require-campaign", action="store_true")
+        parser.add_argument(
+            "--scope-document",
+            action="append",
+            default=[],
+            help="Document ID to prioritize for scoped retrieval (repeatable).",
+        )
+        parser.add_argument(
+            "--scope-confidence",
+            type=float,
+            default=1.0,
+            help="Confidence in scope inference [0.0, 1.0].",
+        )
+        parser.add_argument(
+            "--min-scope-confidence",
+            type=float,
+            default=0.75,
+            help="Minimum scope confidence required for hard out-of-scope exclusion.",
+        )
+        parser.add_argument(
+            "--min-entity-evidence-count",
+            type=int,
+            default=2,
+            help="Minimum evidence count before confident out-of-scope classification.",
+        )
+        parser.add_argument(
+            "--hard-exclude-out-of-scope",
+            action="store_true",
+            help="Hard-exclude confidently out-of-scope entities from context.",
+        )
+        parser.add_argument(
+            "--unknown-exploration-quota",
+            type=int,
+            default=10,
+            help="Reserve top-context slots for unknown-signal entities.",
+        )
+        parser.add_argument(
+            "--include-scope-annotations",
+            action="store_true",
+            help="Show per-entity scope relevance annotations in rendered context.",
+        )
         parsed = self._safe_parse(parser, args)
         if parsed is None:
             return
@@ -1099,6 +1141,19 @@ class DungeonBuddyCLI:
             )
             return
 
+        if parsed.scope_confidence < 0.0 or parsed.scope_confidence > 1.0:
+            print("Error: --scope-confidence must be between 0.0 and 1.0.")
+            return
+        if parsed.min_scope_confidence < 0.0 or parsed.min_scope_confidence > 1.0:
+            print("Error: --min-scope-confidence must be between 0.0 and 1.0.")
+            return
+        if parsed.min_entity_evidence_count < 1:
+            print("Error: --min-entity-evidence-count must be >= 1.")
+            return
+        if parsed.unknown_exploration_quota < 0:
+            print("Error: --unknown-exploration-quota must be >= 0.")
+            return
+
         if not os.getenv("OPENAI_API_KEY"):
             print("Error: OPENAI_API_KEY is required for ask.")
             self._record_event(
@@ -1115,6 +1170,19 @@ class DungeonBuddyCLI:
             return
 
         projection = self.store.project(parsed.campaign)
+        scope_document_ids = [str(doc_id).strip() for doc_id in parsed.scope_document if str(doc_id).strip()]
+        if scope_document_ids:
+            projection = attach_scope_relevance_metadata(
+                projection=projection,
+                evidence_units=self.store.evidence_units,
+                scope_document_ids=scope_document_ids,
+                scope_confidence=parsed.scope_confidence,
+                min_scope_confidence=parsed.min_scope_confidence,
+                min_entity_evidence_count=parsed.min_entity_evidence_count,
+                mentioned_entity_ids=question_mentioned_entity_ids(
+                    parsed.question, self.store.list_entities()
+                ),
+            )
         self._record_event(
             "ask_runs",
             {
@@ -1123,6 +1191,9 @@ class DungeonBuddyCLI:
                 "status": "started",
                 "question": parsed.question,
                 "campaign_id": parsed.campaign,
+                "scope_document_ids": scope_document_ids,
+                "scope_confidence": parsed.scope_confidence,
+                "hard_exclude_out_of_scope": parsed.hard_exclude_out_of_scope,
                 "projection_metrics": projection.get("metrics", {}),
             },
         )
@@ -1135,7 +1206,19 @@ class DungeonBuddyCLI:
         )
         try:
             format_started = time.perf_counter()
-            context = format_projection_context(projection, self.store.list_entities(), parsed.question)
+            context = format_projection_context(
+                projection,
+                self.store.list_entities(),
+                parsed.question,
+                evidence_units=self.store.evidence_units,
+                scope_document_ids=scope_document_ids,
+                scope_confidence=parsed.scope_confidence,
+                min_scope_confidence=parsed.min_scope_confidence,
+                min_entity_evidence_count=parsed.min_entity_evidence_count,
+                hard_exclude_out_of_scope=parsed.hard_exclude_out_of_scope,
+                unknown_exploration_quota=parsed.unknown_exploration_quota,
+                include_scope_annotations=parsed.include_scope_annotations,
+            )
             context_chars = len(context)
             format_ms = int((time.perf_counter() - format_started) * 1000)
             self.logger.info(
@@ -1222,11 +1305,56 @@ class DungeonBuddyCLI:
     def _cmd_projection(self, args: Sequence[str]) -> None:
         parser = argparse.ArgumentParser(prog="projection", add_help=False)
         parser.add_argument("--campaign")
+        parser.add_argument(
+            "--scope-document",
+            action="append",
+            default=[],
+            help="Document ID to prioritize for scoped retrieval (repeatable).",
+        )
+        parser.add_argument("--scope-confidence", type=float, default=1.0)
+        parser.add_argument("--min-scope-confidence", type=float, default=0.75)
+        parser.add_argument("--min-entity-evidence-count", type=int, default=2)
+        parser.add_argument("--hard-exclude-out-of-scope", action="store_true")
+        parser.add_argument("--unknown-exploration-quota", type=int, default=10)
+        parser.add_argument("--include-scope-annotations", action="store_true")
         parsed = self._safe_parse(parser, args)
         if parsed is None:
             return
+        if parsed.scope_confidence < 0.0 or parsed.scope_confidence > 1.0:
+            print("Error: --scope-confidence must be between 0.0 and 1.0.")
+            return
+        if parsed.min_scope_confidence < 0.0 or parsed.min_scope_confidence > 1.0:
+            print("Error: --min-scope-confidence must be between 0.0 and 1.0.")
+            return
+        if parsed.min_entity_evidence_count < 1:
+            print("Error: --min-entity-evidence-count must be >= 1.")
+            return
+        if parsed.unknown_exploration_quota < 0:
+            print("Error: --unknown-exploration-quota must be >= 0.")
+            return
         projection = self.store.project(parsed.campaign)
-        context = format_projection_context(projection, self.store.list_entities())
+        scope_document_ids = [str(doc_id).strip() for doc_id in parsed.scope_document if str(doc_id).strip()]
+        if scope_document_ids:
+            projection = attach_scope_relevance_metadata(
+                projection=projection,
+                evidence_units=self.store.evidence_units,
+                scope_document_ids=scope_document_ids,
+                scope_confidence=parsed.scope_confidence,
+                min_scope_confidence=parsed.min_scope_confidence,
+                min_entity_evidence_count=parsed.min_entity_evidence_count,
+            )
+        context = format_projection_context(
+            projection,
+            self.store.list_entities(),
+            evidence_units=self.store.evidence_units,
+            scope_document_ids=scope_document_ids,
+            scope_confidence=parsed.scope_confidence,
+            min_scope_confidence=parsed.min_scope_confidence,
+            min_entity_evidence_count=parsed.min_entity_evidence_count,
+            hard_exclude_out_of_scope=parsed.hard_exclude_out_of_scope,
+            unknown_exploration_quota=parsed.unknown_exploration_quota,
+            include_scope_annotations=parsed.include_scope_annotations,
+        )
         print(context)
         self.logger.info(
             "Projection printed campaign_id=%s projected_entities=%s open_conflicts=%s context_chars=%d",
