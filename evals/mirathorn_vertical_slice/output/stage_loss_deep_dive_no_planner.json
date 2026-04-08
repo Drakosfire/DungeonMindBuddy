@@ -1,0 +1,980 @@
+{
+  "pipeline": "retrieval_only_no_planner",
+  "stage_counts": {
+    "hit": 37,
+    "retriever_gap": 10,
+    "synthesis_gap": 7,
+    "store_gap": 6
+  },
+  "stage_rates": {
+    "hit": 0.6167,
+    "retriever_gap": 0.1667,
+    "synthesis_gap": 0.1167,
+    "store_gap": 0.1
+  },
+  "top_tokens_by_stage": {
+    "store_gap": [
+      {
+        "token": "counter corruption",
+        "count": 1
+      },
+      {
+        "token": "decapitated",
+        "count": 1
+      },
+      {
+        "token": "not fully corrupted",
+        "count": 1
+      },
+      {
+        "token": "guard operations",
+        "count": 1
+      },
+      {
+        "token": "uncertain reliability",
+        "count": 1
+      },
+      {
+        "token": "not corrupted",
+        "count": 1
+      }
+    ],
+    "retriever_gap": [
+      {
+        "token": "tradeoff",
+        "count": 1
+      },
+      {
+        "token": "arcane traps",
+        "count": 1
+      },
+      {
+        "token": "alarm pulses",
+        "count": 1
+      },
+      {
+        "token": "illusory walls",
+        "count": 1
+      },
+      {
+        "token": "time pressure",
+        "count": 1
+      },
+      {
+        "token": "countdown",
+        "count": 1
+      },
+      {
+        "token": "consequences",
+        "count": 1
+      },
+      {
+        "token": "arched ceilings",
+        "count": 1
+      },
+      {
+        "token": "floating chandelier",
+        "count": 1
+      },
+      {
+        "token": "chandelier",
+        "count": 1
+      }
+    ],
+    "synthesis_gap": [
+      {
+        "token": "bonogo",
+        "count": 2
+      },
+      {
+        "token": "secret passage",
+        "count": 2
+      },
+      {
+        "token": "caelynn",
+        "count": 1
+      },
+      {
+        "token": "ephanna",
+        "count": 1
+      },
+      {
+        "token": "corrupted guards",
+        "count": 1
+      }
+    ]
+  },
+  "retrieval_gap_root_summary": {
+    "count": 10,
+    "top_missing_entity_classes": [
+      [
+        "unknown",
+        14
+      ]
+    ],
+    "examples": [
+      {
+        "question_id": "q_the_emergency_council_meeting_1",
+        "token": "tradeoff",
+        "holders_total": 1,
+        "holders_missing": 1,
+        "missing_holder_examples": [
+          {
+            "entity_id": "ent_lock_picking_spell",
+            "display_name": "lock picking spell",
+            "entity_class": ""
+          }
+        ],
+        "retrieved_count": 60
+      },
+      {
+        "question_id": "q_battle_with_the_wolf_and_aftermath_2",
+        "token": "arcane traps",
+        "holders_total": 2,
+        "holders_missing": 2,
+        "missing_holder_examples": [
+          {
+            "entity_id": "ent_examples_of_environmental_hazards",
+            "display_name": "Examples of Environmental Hazards",
+            "entity_class": ""
+          },
+          {
+            "entity_id": "ent_magical_environmental_hazards",
+            "display_name": "Magical Environmental Hazards",
+            "entity_class": ""
+          }
+        ],
+        "retrieved_count": 68
+      },
+      {
+        "question_id": "q_battle_with_the_wolf_and_aftermath_2",
+        "token": "alarm pulses",
+        "holders_total": 1,
+        "holders_missing": 1,
+        "missing_holder_examples": [
+          {
+            "entity_id": "ent_magic_pulse_alarms",
+            "display_name": "Magic Pulse Alarms",
+            "entity_class": ""
+          }
+        ],
+        "retrieved_count": 68
+      },
+      {
+        "question_id": "q_battle_with_the_wolf_and_aftermath_2",
+        "token": "illusory walls",
+        "holders_total": 1,
+        "holders_missing": 1,
+        "missing_holder_examples": [
+          {
+            "entity_id": "ent_illusory_walls",
+            "display_name": "Illusory Walls",
+            "entity_class": ""
+          }
+        ],
+        "retrieved_count": 68
+      },
+      {
+        "question_id": "q_the_emergency_council_meeting_4_v2",
+        "token": "time pressure",
+        "holders_total": 1,
+        "holders_missing": 1,
+        "missing_holder_examples": [
+          {
+            "entity_id": "ent_time_pressure_mechanic",
+            "display_name": "Time Pressure Mechanic",
+            "entity_class": ""
+          }
+        ],
+        "retrieved_count": 56
+      },
+      {
+        "question_id": "q_the_emergency_council_meeting_4_v2",
+        "token": "countdown",
+        "holders_total": 2,
+        "holders_missing": 2,
+        "missing_holder_examples": [
+          {
+            "entity_id": "ent_the_kaiju_formation",
+            "display_name": "Sewer Meat Monster",
+            "entity_class": ""
+          },
+          {
+            "entity_id": "ent_timer",
+            "display_name": "timer",
+            "entity_class": ""
+          }
+        ],
+        "retrieved_count": 56
+      },
+      {
+        "question_id": "q_the_emergency_council_meeting_4_v2",
+        "token": "consequences",
+        "holders_total": 1,
+        "holders_missing": 1,
+        "missing_holder_examples": [
+          {
+            "entity_id": "ent_step_5_consequences_escalation",
+            "display_name": "Step 5: Consequences & Escalation",
+            "entity_class": ""
+          }
+        ],
+        "retrieved_count": 56
+      },
+      {
+        "question_id": "q_arch_current",
+        "token": "arched ceilings",
+        "holders_total": 1,
+        "holders_missing": 1,
+        "missing_holder_examples": [
+          {
+            "entity_id": "ent_tripwire",
+            "display_name": "tripwire",
+            "entity_class": ""
+          }
+        ],
+        "retrieved_count": 65
+      },
+      {
+        "question_id": "q_arch_current",
+        "token": "floating chandelier",
+        "holders_total": 2,
+        "holders_missing": 2,
+        "missing_holder_examples": [
+          {
+            "entity_id": "ent_ceiling",
+            "display_name": "ceiling",
+            "entity_class": ""
+          },
+          {
+            "entity_id": "ent_chandelier",
+            "display_name": "chandelier",
+            "entity_class": ""
+          }
+        ],
+        "retrieved_count": 65
+      },
+      {
+        "question_id": "q_arch_delta",
+        "token": "chandelier",
+        "holders_total": 2,
+        "holders_missing": 2,
+        "missing_holder_examples": [
+          {
+            "entity_id": "ent_ceiling",
+            "display_name": "ceiling",
+            "entity_class": ""
+          },
+          {
+            "entity_id": "ent_chandelier",
+            "display_name": "chandelier",
+            "entity_class": ""
+          }
+        ],
+        "retrieved_count": 72
+      }
+    ]
+  },
+  "questions": [
+    {
+      "id": "q_the_emergency_council_meeting_1",
+      "semantic_verdict": "pass_updated",
+      "semantic_hits": [
+        "wizards' college",
+        "arcane lockdown",
+        "wards"
+      ],
+      "must_count": 4,
+      "stage_counts": {
+        "hit": 3,
+        "retriever_gap": 1
+      },
+      "token_stage": {
+        "wizards' college": "hit",
+        "arcane lockdown": "hit",
+        "wards": "hit",
+        "tradeoff": "retriever_gap"
+      },
+      "retrieval": {
+        "post_filter_count": 60,
+        "pre_filter_count": 732,
+        "top_5": [
+          [
+            "ent_summons",
+            1.0
+          ],
+          [
+            "ent_emergency_council_of_mirathorn",
+            1.0
+          ],
+          [
+            "ent_wizards_college",
+            0.9589
+          ],
+          [
+            "ent_mayor_elara_swiftwind",
+            0.6478
+          ],
+          [
+            "ent_city_council",
+            0.6282
+          ]
+        ]
+      },
+      "context_chars": 80014
+    },
+    {
+      "id": "q_longmont_session_12_council_chamber_roster",
+      "semantic_verdict": "fail_incomplete",
+      "semantic_hits": [
+        "thalia",
+        "wolf",
+        "guards"
+      ],
+      "must_count": 6,
+      "stage_counts": {
+        "synthesis_gap": 3,
+        "hit": 3
+      },
+      "token_stage": {
+        "bonogo": "synthesis_gap",
+        "caelynn": "synthesis_gap",
+        "thalia": "hit",
+        "wolf": "hit",
+        "guards": "hit",
+        "ephanna": "synthesis_gap"
+      },
+      "retrieval": {
+        "post_filter_count": 61,
+        "pre_filter_count": 732,
+        "top_5": [
+          [
+            "ent_the_wolf",
+            1.2561
+          ],
+          [
+            "ent_city_council",
+            1.1605
+          ],
+          [
+            "ent_grobnok_the_goblin",
+            1.0431
+          ],
+          [
+            "ent_branching_paths_after_the_fight",
+            1.0017
+          ],
+          [
+            "ent_battle_with_the_wolf_in_the_council_chamber",
+            1.0
+          ]
+        ]
+      },
+      "context_chars": 88542
+    },
+    {
+      "id": "q_longmont_campaign_general_notes_1",
+      "semantic_verdict": "pass_updated",
+      "semantic_hits": [
+        "shepherds",
+        "maelthor",
+        "worship",
+        "cult"
+      ],
+      "must_count": 4,
+      "stage_counts": {
+        "hit": 4
+      },
+      "token_stage": {
+        "shepherds": "hit",
+        "maelthor": "hit",
+        "worship": "hit",
+        "cult": "hit"
+      },
+      "retrieval": {
+        "post_filter_count": 51,
+        "pre_filter_count": 732,
+        "top_5": [
+          [
+            "ent_shepherds_flock",
+            1.6918
+          ],
+          [
+            "ent_maelthor",
+            1.0
+          ],
+          [
+            "ent_the_shepherd",
+            0.72
+          ],
+          [
+            "ent_tidal_turtles",
+            0.7104
+          ],
+          [
+            "ent_frontier_folk",
+            0.7104
+          ]
+        ]
+      },
+      "context_chars": 72093
+    },
+    {
+      "id": "q_the_city_council_2",
+      "semantic_verdict": "pass_updated",
+      "semantic_hits": [
+        "headmaster tinkerbright",
+        "wizard's college",
+        "detect"
+      ],
+      "must_count": 4,
+      "stage_counts": {
+        "hit": 3,
+        "store_gap": 1
+      },
+      "token_stage": {
+        "headmaster tinkerbright": "hit",
+        "wizard's college": "hit",
+        "detect": "hit",
+        "counter corruption": "store_gap"
+      },
+      "retrieval": {
+        "post_filter_count": 75,
+        "pre_filter_count": 732,
+        "top_5": [
+          [
+            "ent_the_cult",
+            1.7599
+          ],
+          [
+            "ent_city_council",
+            1.6199
+          ],
+          [
+            "ent_grobnok_the_goblin",
+            1.4285
+          ],
+          [
+            "ent_wizards_college",
+            1.42
+          ],
+          [
+            "ent_barin",
+            1.2485
+          ]
+        ]
+      },
+      "context_chars": 109216
+    },
+    {
+      "id": "q_the_city_council_4",
+      "semantic_verdict": "pass_updated",
+      "semantic_hits": [
+        "merril",
+        "agricultural union",
+        "torrin",
+        "guilds",
+        "rurik",
+        "infrastructure"
+      ],
+      "must_count": 6,
+      "stage_counts": {
+        "hit": 6
+      },
+      "token_stage": {
+        "merril": "hit",
+        "agricultural union": "hit",
+        "torrin": "hit",
+        "guilds": "hit",
+        "rurik": "hit",
+        "infrastructure": "hit"
+      },
+      "retrieval": {
+        "post_filter_count": 59,
+        "pre_filter_count": 732,
+        "top_5": [
+          [
+            "ent_torrin",
+            1.2232
+          ],
+          [
+            "ent_torrin_flamescale",
+            1.2232
+          ],
+          [
+            "ent_merril",
+            1.1502
+          ],
+          [
+            "ent_merril_tealeaf",
+            1.1502
+          ],
+          [
+            "ent_rurik",
+            1.1226
+          ]
+        ]
+      },
+      "context_chars": 73030
+    },
+    {
+      "id": "q_battle_with_the_wolf_and_aftermath_1",
+      "semantic_verdict": "pass_updated",
+      "semantic_hits": [
+        "killed",
+        "killing blow",
+        "decapitated"
+      ],
+      "must_count": 4,
+      "stage_counts": {
+        "hit": 2,
+        "synthesis_gap": 1,
+        "store_gap": 1
+      },
+      "token_stage": {
+        "killed": "hit",
+        "killing blow": "hit",
+        "bonogo": "synthesis_gap",
+        "decapitated": "store_gap"
+      },
+      "retrieval": {
+        "post_filter_count": 61,
+        "pre_filter_count": 732,
+        "top_5": [
+          [
+            "ent_dead_horse",
+            1.4526
+          ],
+          [
+            "ent_fight",
+            1.404
+          ],
+          [
+            "ent_corrupted_guard_patrol",
+            1.0431
+          ],
+          [
+            "ent_battle_with_the_wolf_in_the_council_chamber",
+            1.0
+          ],
+          [
+            "ent_arcane_locks",
+            1.0
+          ]
+        ]
+      },
+      "context_chars": 87679
+    },
+    {
+      "id": "q_battle_with_the_wolf_and_aftermath_3",
+      "semantic_verdict": "fail_incomplete",
+      "semantic_hits": [
+        "thalia",
+        "ensorcelled"
+      ],
+      "must_count": 4,
+      "stage_counts": {
+        "hit": 2,
+        "store_gap": 1,
+        "synthesis_gap": 1
+      },
+      "token_stage": {
+        "thalia": "hit",
+        "ensorcelled": "hit",
+        "not fully corrupted": "store_gap",
+        "corrupted guards": "synthesis_gap"
+      },
+      "retrieval": {
+        "post_filter_count": 60,
+        "pre_filter_count": 732,
+        "top_5": [
+          [
+            "ent_thalia",
+            1.3853
+          ],
+          [
+            "ent_flesh_golem",
+            1.3028
+          ],
+          [
+            "ent_corrupted_guard_patrol",
+            1.2
+          ],
+          [
+            "ent_magical_alarm_system",
+            1.2
+          ],
+          [
+            "ent_guards",
+            1.1775
+          ]
+        ]
+      },
+      "context_chars": 96469
+    },
+    {
+      "id": "q_battle_with_the_wolf_and_aftermath_2",
+      "semantic_verdict": "fail_incomplete",
+      "semantic_hits": [
+        "falling debris",
+        "illusory walls"
+      ],
+      "must_count": 4,
+      "stage_counts": {
+        "retriever_gap": 3,
+        "hit": 1
+      },
+      "token_stage": {
+        "arcane traps": "retriever_gap",
+        "falling debris": "hit",
+        "alarm pulses": "retriever_gap",
+        "illusory walls": "retriever_gap"
+      },
+      "retrieval": {
+        "post_filter_count": 68,
+        "pre_filter_count": 732,
+        "top_5": [
+          [
+            "ent_flesh_golem",
+            1.8743
+          ],
+          [
+            "ent_grobnok_the_goblin",
+            1.2
+          ],
+          [
+            "ent_the_city",
+            1.2
+          ],
+          [
+            "ent_tapestries",
+            1.1739
+          ],
+          [
+            "ent_fight",
+            1.1136
+          ]
+        ]
+      },
+      "context_chars": 98090
+    },
+    {
+      "id": "q_the_emergency_council_meeting_2_v2",
+      "semantic_verdict": "pass_updated",
+      "semantic_hits": [
+        "thalia",
+        "wolf influence",
+        "uncertain reliability"
+      ],
+      "must_count": 4,
+      "stage_counts": {
+        "hit": 2,
+        "store_gap": 2
+      },
+      "token_stage": {
+        "thalia": "hit",
+        "wolf influence": "hit",
+        "guard operations": "store_gap",
+        "uncertain reliability": "store_gap"
+      },
+      "retrieval": {
+        "post_filter_count": 48,
+        "pre_filter_count": 732,
+        "top_5": [
+          [
+            "ent_emergency_council_of_mirathorn",
+            1.0
+          ],
+          [
+            "ent_summons",
+            1.0
+          ],
+          [
+            "ent_thalia",
+            0.9101
+          ],
+          [
+            "ent_commander_thalia_ashenvale",
+            0.8301
+          ],
+          [
+            "ent_mayor_elara_swiftwind",
+            0.5341
+          ]
+        ]
+      },
+      "context_chars": 75331
+    },
+    {
+      "id": "q_the_emergency_council_meeting_4_v2",
+      "semantic_verdict": "fail_incomplete",
+      "semantic_hits": [
+        "summoning"
+      ],
+      "must_count": 4,
+      "stage_counts": {
+        "retriever_gap": 3,
+        "hit": 1
+      },
+      "token_stage": {
+        "time pressure": "retriever_gap",
+        "countdown": "retriever_gap",
+        "summoning": "hit",
+        "consequences": "retriever_gap"
+      },
+      "retrieval": {
+        "post_filter_count": 56,
+        "pre_filter_count": 732,
+        "top_5": [
+          [
+            "ent_city_council",
+            1.42
+          ],
+          [
+            "ent_persuasion_charisma",
+            1.0
+          ],
+          [
+            "ent_panic_and_chaos",
+            1.0
+          ],
+          [
+            "ent_convincing_the_council",
+            1.0
+          ],
+          [
+            "ent_kaelyn",
+            0.7908
+          ]
+        ]
+      },
+      "context_chars": 64425
+    },
+    {
+      "id": "q_arch_current",
+      "semantic_verdict": "fail_incomplete",
+      "semantic_hits": [
+        "arched ceilings"
+      ],
+      "must_count": 3,
+      "stage_counts": {
+        "retriever_gap": 2,
+        "synthesis_gap": 1
+      },
+      "token_stage": {
+        "arched ceilings": "retriever_gap",
+        "floating chandelier": "retriever_gap",
+        "secret passage": "synthesis_gap"
+      },
+      "retrieval": {
+        "post_filter_count": 65,
+        "pre_filter_count": 732,
+        "top_5": [
+          [
+            "ent_statues",
+            1.28
+          ],
+          [
+            "ent_corrupted_meat",
+            1.28
+          ],
+          [
+            "ent_meat_piles",
+            1.2181
+          ],
+          [
+            "ent_branching_paths_after_the_fight",
+            1.1794
+          ],
+          [
+            "ent_grobnok_the_goblin",
+            1.1135
+          ]
+        ]
+      },
+      "context_chars": 96766
+    },
+    {
+      "id": "q_arch_delta",
+      "semantic_verdict": "fail_incomplete",
+      "semantic_hits": [
+        "runes"
+      ],
+      "must_count": 3,
+      "stage_counts": {
+        "retriever_gap": 1,
+        "hit": 1,
+        "synthesis_gap": 1
+      },
+      "token_stage": {
+        "chandelier": "retriever_gap",
+        "runes": "hit",
+        "secret passage": "synthesis_gap"
+      },
+      "retrieval": {
+        "post_filter_count": 72,
+        "pre_filter_count": 732,
+        "top_5": [
+          [
+            "ent_players",
+            1.2
+          ],
+          [
+            "ent_tapestries",
+            1.0448
+          ],
+          [
+            "ent_political_intrigue_among_the_council",
+            0.9912
+          ],
+          [
+            "ent_gnome",
+            0.9648
+          ],
+          [
+            "ent_city_council",
+            0.9451
+          ]
+        ]
+      },
+      "context_chars": 99107
+    },
+    {
+      "id": "q_wolf_status",
+      "semantic_verdict": "pass_updated",
+      "semantic_hits": [
+        "killing blow",
+        "dead",
+        "oily sheen fades"
+      ],
+      "must_count": 3,
+      "stage_counts": {
+        "hit": 3
+      },
+      "token_stage": {
+        "killing blow": "hit",
+        "dead": "hit",
+        "oily sheen fades": "hit"
+      },
+      "retrieval": {
+        "post_filter_count": 74,
+        "pre_filter_count": 732,
+        "top_5": [
+          [
+            "ent_the_wolf",
+            1.0276
+          ],
+          [
+            "ent_battle_with_the_wolf_in_the_council_chamber",
+            1.0
+          ],
+          [
+            "ent_guards",
+            0.9858
+          ],
+          [
+            "ent_stone_bridge",
+            0.9238
+          ],
+          [
+            "ent_guard",
+            0.8894
+          ]
+        ]
+      },
+      "context_chars": 121275
+    },
+    {
+      "id": "q_pre_post",
+      "semantic_verdict": "pass_updated",
+      "semantic_hits": [
+        "before",
+        "after",
+        "oily sheen",
+        "killing blow"
+      ],
+      "must_count": 4,
+      "stage_counts": {
+        "hit": 4
+      },
+      "token_stage": {
+        "before": "hit",
+        "after": "hit",
+        "oily sheen": "hit",
+        "killing blow": "hit"
+      },
+      "retrieval": {
+        "post_filter_count": 59,
+        "pre_filter_count": 732,
+        "top_5": [
+          [
+            "ent_political_intrigue_among_the_council",
+            1.2
+          ],
+          [
+            "ent_the_wolf",
+            0.9786
+          ],
+          [
+            "ent_fight",
+            0.8996
+          ],
+          [
+            "ent_branching_paths_after_the_fight",
+            0.8981
+          ],
+          [
+            "ent_city_council",
+            0.8716
+          ]
+        ]
+      },
+      "context_chars": 85887
+    },
+    {
+      "id": "q_thalia",
+      "semantic_verdict": "pass_updated",
+      "semantic_hits": [
+        "ensorcelled",
+        "wolf"
+      ],
+      "must_count": 3,
+      "stage_counts": {
+        "hit": 2,
+        "store_gap": 1
+      },
+      "token_stage": {
+        "ensorcelled": "hit",
+        "wolf": "hit",
+        "not corrupted": "store_gap"
+      },
+      "retrieval": {
+        "post_filter_count": 64,
+        "pre_filter_count": 732,
+        "top_5": [
+          [
+            "ent_thalia",
+            1.52
+          ],
+          [
+            "ent_the_wolf",
+            1.48
+          ],
+          [
+            "ent_commander_thalia_ashenvale",
+            1.36
+          ],
+          [
+            "ent_battle_with_the_wolf_in_the_council_chamber",
+            0.8216
+          ],
+          [
+            "ent_flesh_golem",
+            0.7226
+          ]
+        ]
+      },
+      "context_chars": 95042
+    }
+  ]
+}
