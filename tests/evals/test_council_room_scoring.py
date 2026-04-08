@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from evals.mirathorn_vertical_slice.run_council_room_question_set import (
+    EMBEDDING_WATCH_THRESHOLD,
+    _extract_tldr_line,
     classify_answer,
     classify_answer_semantic,
     _semantic_token_present,
@@ -135,3 +137,27 @@ def test_must_not_cooccur_blocks_absent_false_positive() -> None:
     assert "bonogo" in must_hits
     assert "ephanna" not in must_hits
     assert verdict == "pass_updated"
+
+
+def test_extract_tldr_line_prefers_explicit_tldr_prefix() -> None:
+    answer = (
+        "TL;DR: The Wolf is dead and the oily sheen fades.\n"
+        "## Details\n"
+        "Bonogo lands the killing blow."
+    )
+    assert _extract_tldr_line(answer) == "TL;DR: The Wolf is dead and the oily sheen fades."
+
+
+def test_extract_tldr_line_supports_tldr_without_semicolon() -> None:
+    answer = "tldr: Thalia is ensorcelled, not fully corrupted.\nMore detail."
+    assert _extract_tldr_line(answer) == "tldr: Thalia is ensorcelled, not fully corrupted."
+
+
+def test_extract_tldr_line_returns_empty_when_missing() -> None:
+    answer = "No short summary line here.\nOnly body text."
+    assert _extract_tldr_line(answer) == ""
+
+
+def test_embedding_watch_threshold_calibrated_to_outlier_band() -> None:
+    # Calibrated from current post-core-claims score distribution.
+    assert EMBEDDING_WATCH_THRESHOLD == 0.55

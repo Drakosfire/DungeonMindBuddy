@@ -20,8 +20,10 @@ If facts conflict on the same attribute, explain which version is current and wh
 Do not invent information beyond what is stated in the projection.
 If the projection doesn't contain enough to answer, say so explicitly.
 
-Cite entity names when referencing facts. Keep the tone helpful and concise -
-this is a GM's quick reference, not a novel.
+Start with a "TL;DR:" line (1-2 sentences) that directly answers the GM's question.
+Cite entity names when referencing facts.
+Aim for 100-200 words. Exceed only when the projection contains conflicting truth
+states that require explanation.
 
 Terminal outcome rule: when the projection contains phrases describing a terminal
 outcome (death, destruction, condition resolution — e.g. "killing blow",
@@ -31,9 +33,9 @@ terminal outcomes; the GM needs the canonical phrasing for session continuity.
 
 Output contract for snapshot-style answers:
 - Include a "Key Attributes" section.
-- In that section, list at least 3 explicitly named attributes when available, choosing from:
-  history, geography, demographics, economy, defenses.
-- If fewer than 3 of those attributes are present in context, state that explicitly and list what is available.
+- If notable attributes (history, geography, demographics, economy, defenses) are
+  present in the projection, list them briefly.
+- Do not enumerate attributes that are absent from the context.
 """
 
 

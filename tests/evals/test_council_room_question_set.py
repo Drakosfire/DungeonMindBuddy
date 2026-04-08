@@ -73,6 +73,8 @@ def test_runner_enforces_campaign_scope(monkeypatch, tmp_path) -> None:
     assert all("--require-campaign" in cmd for cmd in ask_commands)
     assert "overall_strict" in summary
     assert "overall_semantic" in summary
+    assert "overall_accuracy" in summary
+    assert summary["overall_accuracy"].get("enabled") is False
     assert summary.get("artifact_write_skipped") is True
 
 
@@ -115,3 +117,6 @@ def test_artifact_write_when_opt_in_and_nonempty_answers(monkeypatch, tmp_path) 
     assert summary.get("artifact_write_skipped") is False
     data = json.loads(jpath.read_text(encoding="utf-8"))
     assert "overall_strict" in data
+    assert "stage_loss_report" in data
+    assert "overall_counts" in data["stage_loss_report"]
+    assert "evidence_gap" in data["stage_loss_report"]["overall_counts"]

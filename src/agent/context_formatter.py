@@ -78,6 +78,8 @@ def format_projection_context(
     hard_exclude_out_of_scope: bool = False,
     unknown_exploration_quota: int = DEFAULT_UNKNOWN_EXPLORATION_QUOTA,
     include_scope_annotations: bool = False,
+    max_entities: int | None = None,
+    priority_entity_ids: list[str] | set[str] | None = None,
 ) -> str:
     """Render projection as structured text for the synthesis LLM."""
     projection_entities = projection.get("entities", {})
@@ -89,6 +91,13 @@ def format_projection_context(
     scope_enabled = bool(scope_doc_ids and evidence_units)
     mentioned_entity_ids = question_mentioned_entity_ids(question, entities) if scope_enabled else set()
     scope_relevance_by_entity: dict[str, dict[str, Any]] = {}
+    entity_cap = max_entities if isinstance(max_entities, int) and max_entities > 0 else MAX_ENTITIES
+    priority_ids = {
+        str(entity_id).strip()
+        for entity_id in (priority_entity_ids or [])
+        if str(entity_id).strip()
+    }
+
     if scope_enabled:
         evidence_document_by_id = build_evidence_document_index(evidence_units or [])
         entity_evidence_index = build_entity_evidence_index(projection_entities)
@@ -125,7 +134,7 @@ def format_projection_context(
         unknown_quota = max(0, int(unknown_exploration_quota))
         if unknown_quota and unknown:
             unknown_reserved = min(unknown_quota, len(unknown))
-            in_scope_budget = max(0, MAX_ENTITIES - unknown_reserved)
+            in_scope_budget = max(0, entity_cap - unknown_reserved)
             pre_truncation_ordered = (
                 in_scope[:in_scope_budget]
                 + unknown[:unknown_reserved]
@@ -144,9 +153,19 @@ def format_projection_context(
             reverse=True,
         )
 
-    truncated = len(ordered) > MAX_ENTITIES
+    if priority_ids:
+        priority_bucket: list[tuple[str, dict[str, Any]]] = []
+        regular_bucket: list[tuple[str, dict[str, Any]]] = []
+        for item in ordered:
+            if item[0] in priority_ids:
+                priority_bucket.append(item)
+            else:
+                regular_bucket.append(item)
+        ordered = priority_bucket + regular_bucket
+
+    truncated = len(ordered) > entity_cap
     if truncated:
-        ordered = ordered[:MAX_ENTITIES]
+        ordered = ordered[:entity_cap]
 
     lines: list[str] = []
     if question:
@@ -243,9 +262,9 @@ def format_projection_context(
         lines.append("")
 
     if truncated:
-        remaining = len(projection_entities) - MAX_ENTITIES
+        remaining = len(projection_entities) - entity_cap
         lines.append(
-            f"[Context truncated to top {MAX_ENTITIES} entities by fact count; {remaining} more entities omitted.]"
+            f"[Context truncated to top {entity_cap} entities by fact count; {remaining} more entities omitted.]"
         )
 
     return "\n".join(lines).strip()

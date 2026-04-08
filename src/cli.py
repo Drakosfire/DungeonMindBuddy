@@ -18,9 +18,14 @@ from dotenv import load_dotenv
 from openai import OpenAI
 
 from src.agent.context_formatter import format_projection_context
+from src.agent.evidence_retriever import (
+    rank_entities_by_evidence_overlap,
+    retrieve_relevant_evidence,
+)
 from src.agent.retriever import (
     filter_projection,
     retrieve_relevant_entities,
+    semantic_rerank_entities,
 )
 from src.agent.scope_relevance import question_mentioned_entity_ids
 from src.agent.synthesis import synthesize_answer_async
@@ -313,6 +318,104 @@ class DungeonBuddyCLI:
             self.store.load()
         self.logger = logging.getLogger("dungeonbuddy.cli")
         self.logger.setLevel(logging.DEBUG if verbose else logging.INFO)
+        self._retrieval_embedding_model: Any | None = None
+        self._retrieval_embedding_model_id: str | None = None
+
+    def _load_retrieval_embedding_model(self, model_id: str) -> Any | None:
+        """Load and cache retrieval embedding model; return None on failure."""
+        if self._retrieval_embedding_model is not None and self._retrieval_embedding_model_id == model_id:
+            return self._retrieval_embedding_model
+        try:
+            from evals.mirathorn_vertical_slice.embedding_scorer import (
+                embedding_available,
+                load_embedding_model,
+            )
+        except Exception as exc:
+            self.logger.warning(
+                "Semantic rerank unavailable (embedding loader import failed): %s",
+                exc,
+            )
+            return None
+        if not embedding_available():
+            self.logger.warning(
+                "Semantic rerank requested but sentence-transformers is unavailable"
+            )
+            return None
+        try:
+            model = load_embedding_model(model_id=model_id)
+        except Exception as exc:
+            self.logger.warning("Failed to load retrieval embedding model %s: %s", model_id, exc)
+            return None
+        self._retrieval_embedding_model = model
+        self._retrieval_embedding_model_id = model_id
+        return model
+
+    @staticmethod
+    def _fuse_ranked_entities(
+        ranked_entities: list[tuple[str, float]],
+        evidence_overlap_scores: dict[str, float],
+        *,
+        evidence_boost: float,
+        cap: int,
+    ) -> list[tuple[str, float]]:
+        if not ranked_entities:
+            return ranked_entities
+        score_map: dict[str, float] = {eid: float(score) for eid, score in ranked_entities}
+        floor = min(score_map.values()) if score_map else 0.01
+        for entity_id, overlap_score in evidence_overlap_scores.items():
+            score_map[entity_id] = score_map.get(entity_id, floor * 0.75) + (
+                max(0.0, overlap_score) * max(0.0, evidence_boost)
+            )
+        reranked = sorted(score_map.items(), key=lambda row: row[1], reverse=True)
+        if cap > 0:
+            return reranked[:cap]
+        return reranked
+
+    @staticmethod
+    def _fit_context_budget(
+        *,
+        projection: dict[str, Any],
+        entities: list[dict[str, Any]],
+        question: str,
+        evidence_units: list[dict[str, Any]],
+        scope_document_ids: list[str],
+        scope_confidence: float,
+        min_scope_confidence: float,
+        min_entity_evidence_count: int,
+        hard_exclude_out_of_scope: bool,
+        unknown_exploration_quota: int,
+        include_scope_annotations: bool,
+        priority_entity_ids: list[str] | None,
+        max_entities: int,
+        max_chars: int,
+    ) -> tuple[str, int, bool]:
+        cap = max(1, int(max_entities))
+        context = ""
+        truncated = False
+        while True:
+            context = format_projection_context(
+                projection,
+                entities,
+                question,
+                evidence_units=evidence_units,
+                scope_document_ids=scope_document_ids,
+                scope_confidence=scope_confidence,
+                min_scope_confidence=min_scope_confidence,
+                min_entity_evidence_count=min_entity_evidence_count,
+                hard_exclude_out_of_scope=hard_exclude_out_of_scope,
+                unknown_exploration_quota=unknown_exploration_quota,
+                include_scope_annotations=include_scope_annotations,
+                max_entities=cap,
+                priority_entity_ids=priority_entity_ids,
+            )
+            if len(context) <= max_chars or cap <= 5:
+                truncated = cap < max_entities or len(context) > max_chars
+                break
+            next_cap = max(5, int(cap * 0.75))
+            if next_cap == cap:
+                next_cap = cap - 1
+            cap = max(5, next_cap)
+        return context, cap, truncated
 
     @staticmethod
     def _metadata_conflicts(
@@ -1144,6 +1247,72 @@ class DungeonBuddyCLI:
             default=30,
             help="Max entities to retrieve (before graph expansion). Default: 30.",
         )
+        parser.add_argument(
+            "--evidence-first",
+            action="store_true",
+            default=False,
+            help="Run organization-first evidence retrieval before entity ranking.",
+        )
+        parser.add_argument(
+            "--evidence-top-k",
+            type=int,
+            default=24,
+            help="Top evidence units to seed before neighbor expansion. Default: 24.",
+        )
+        parser.add_argument(
+            "--evidence-neighbor-window",
+            type=int,
+            default=1,
+            help="Source-order window for evidence neighbor expansion. Default: 1.",
+        )
+        parser.add_argument(
+            "--evidence-max-neighbors",
+            type=int,
+            default=24,
+            help="Maximum evidence neighbors to add. Default: 24.",
+        )
+        parser.add_argument(
+            "--evidence-entity-boost",
+            type=float,
+            default=0.8,
+            help="Boost weight when evidence links to entity provenance. Default: 0.8.",
+        )
+        parser.add_argument(
+            "--semantic-rerank",
+            action="store_true",
+            default=False,
+            help="Apply embedding-based rerank over top lexical retrieval candidates.",
+        )
+        parser.add_argument(
+            "--semantic-rerank-top-k",
+            type=int,
+            default=24,
+            help="How many retrieved entities to rerank semantically. Default: 24.",
+        )
+        parser.add_argument(
+            "--semantic-rerank-weight",
+            type=float,
+            default=0.6,
+            help="Weight for semantic similarity when fusing rerank score. Default: 0.6.",
+        )
+        parser.add_argument(
+            "--semantic-rerank-model",
+            type=str,
+            default="perplexity-ai/pplx-embed-v1-0.6B",
+            help="Embedding model ID for semantic reranking.",
+        )
+        parser.add_argument(
+            "--context-max-entities",
+            type=int,
+            default=80,
+            help="Hard cap for entities passed to context formatter. Default: 80.",
+        )
+        parser.add_argument(
+            "--context-max-chars",
+            type=int,
+            default=20000,
+            help="Hard cap target for formatted context chars. Default: 20000.",
+        )
         parsed = self._safe_parse(parser, args)
         if parsed is None:
             return
@@ -1174,6 +1343,30 @@ class DungeonBuddyCLI:
             return
         if parsed.unknown_exploration_quota < 0:
             print("Error: --unknown-exploration-quota must be >= 0.")
+            return
+        if parsed.semantic_rerank_top_k < 1:
+            print("Error: --semantic-rerank-top-k must be >= 1.")
+            return
+        if parsed.semantic_rerank_weight < 0:
+            print("Error: --semantic-rerank-weight must be >= 0.")
+            return
+        if parsed.evidence_top_k < 1:
+            print("Error: --evidence-top-k must be >= 1.")
+            return
+        if parsed.evidence_neighbor_window < 0:
+            print("Error: --evidence-neighbor-window must be >= 0.")
+            return
+        if parsed.evidence_max_neighbors < 0:
+            print("Error: --evidence-max-neighbors must be >= 0.")
+            return
+        if parsed.evidence_entity_boost < 0:
+            print("Error: --evidence-entity-boost must be >= 0.")
+            return
+        if parsed.context_max_entities < 1:
+            print("Error: --context-max-entities must be >= 1.")
+            return
+        if parsed.context_max_chars < 1000:
+            print("Error: --context-max-chars must be >= 1000.")
             return
 
         if not os.getenv("OPENAI_API_KEY"):
@@ -1207,8 +1400,43 @@ class DungeonBuddyCLI:
             )
         use_retrieval = parsed.retrieval and not parsed.no_retrieval
         retrieval_meta: dict[str, Any] = {"enabled": False}
+        priority_entity_ids: list[str] = []
         if use_retrieval:
             retrieval_started = time.perf_counter()
+            evidence_meta: dict[str, Any] = {"enabled": False}
+            evidence_entity_scores: dict[str, float] = {}
+            if parsed.evidence_first:
+                evidence_started = time.perf_counter()
+                evidence_result = retrieve_relevant_evidence(
+                    parsed.question,
+                    self.store.evidence_units,
+                    campaign_id=parsed.campaign,
+                    scope_document_ids=scope_document_ids,
+                    top_k=parsed.evidence_top_k,
+                    neighbor_window=parsed.evidence_neighbor_window,
+                    max_neighbors=parsed.evidence_max_neighbors,
+                )
+                evidence_entity_scores = rank_entities_by_evidence_overlap(
+                    projection,
+                    set(evidence_result.selected_evidence_ids),
+                )
+                priority_entity_ids = sorted(
+                    evidence_entity_scores,
+                    key=lambda entity_id: evidence_entity_scores[entity_id],
+                    reverse=True,
+                )
+                evidence_meta = {
+                    "enabled": True,
+                    "duration_ms": int((time.perf_counter() - evidence_started) * 1000),
+                    "top_k": parsed.evidence_top_k,
+                    "neighbor_window": parsed.evidence_neighbor_window,
+                    "max_neighbors": parsed.evidence_max_neighbors,
+                    "selected_count": len(evidence_result.selected_evidence_ids),
+                    "seeded_count": len(evidence_result.seeded_evidence_ids),
+                    "selected_evidence_ids": evidence_result.selected_evidence_ids,
+                    "selected_document_ids": evidence_result.selected_document_ids,
+                    "debug": evidence_result.debug,
+                }
             ranked, self._entity_index = retrieve_relevant_entities(
                 parsed.question,
                 projection,
@@ -1216,6 +1444,41 @@ class DungeonBuddyCLI:
                 top_k=parsed.retrieval_top_k,
                 index=getattr(self, "_entity_index", None),
             )
+            if evidence_entity_scores:
+                ranked = self._fuse_ranked_entities(
+                    ranked,
+                    evidence_entity_scores,
+                    evidence_boost=parsed.evidence_entity_boost,
+                    cap=parsed.retrieval_top_k,
+                )
+            semantic_rerank_meta: dict[str, Any] = {
+                "enabled": False,
+            }
+            if parsed.semantic_rerank and ranked:
+                emb_model = self._load_retrieval_embedding_model(parsed.semantic_rerank_model)
+                if emb_model is not None:
+                    rerank_started = time.perf_counter()
+                    ranked = semantic_rerank_entities(
+                        parsed.question,
+                        ranked,
+                        index=self._entity_index,
+                        embedding_model=emb_model,
+                        rerank_top_k=parsed.semantic_rerank_top_k,
+                        blend_weight=parsed.semantic_rerank_weight,
+                    )
+                    semantic_rerank_meta = {
+                        "enabled": True,
+                        "top_k": parsed.semantic_rerank_top_k,
+                        "weight": parsed.semantic_rerank_weight,
+                        "model": parsed.semantic_rerank_model,
+                        "duration_ms": int((time.perf_counter() - rerank_started) * 1000),
+                    }
+                else:
+                    semantic_rerank_meta = {
+                        "enabled": False,
+                        "requested": True,
+                        "reason": "embedding_unavailable",
+                    }
             selected_ids = {eid for eid, _ in ranked}
             pre_count = len(projection.get("entities", {}))
             projection = filter_projection(projection, selected_ids)
@@ -1227,6 +1490,9 @@ class DungeonBuddyCLI:
                 "post_filter_count": len(selected_ids),
                 "duration_ms": retrieval_ms,
                 "top_5": [(eid, round(s, 4)) for eid, s in ranked[:5]],
+                "selected_entity_ids": [eid for eid, _ in ranked],
+                "semantic_rerank": semantic_rerank_meta,
+                "evidence_first": evidence_meta,
             }
             self.logger.info(
                 "Ask run_id=%s stage=retrieval entities=%d/%d duration_ms=%d",
@@ -1260,10 +1526,10 @@ class DungeonBuddyCLI:
         )
         try:
             format_started = time.perf_counter()
-            context = format_projection_context(
-                projection,
-                self.store.list_entities(),
-                parsed.question,
+            context, context_entity_cap, context_budget_truncated = self._fit_context_budget(
+                projection=projection,
+                entities=self.store.list_entities(),
+                question=parsed.question,
                 evidence_units=self.store.evidence_units,
                 scope_document_ids=scope_document_ids,
                 scope_confidence=parsed.scope_confidence,
@@ -1272,6 +1538,9 @@ class DungeonBuddyCLI:
                 hard_exclude_out_of_scope=parsed.hard_exclude_out_of_scope,
                 unknown_exploration_quota=parsed.unknown_exploration_quota,
                 include_scope_annotations=parsed.include_scope_annotations,
+                priority_entity_ids=priority_entity_ids,
+                max_entities=parsed.context_max_entities,
+                max_chars=parsed.context_max_chars,
             )
             context_chars = len(context)
             format_ms = int((time.perf_counter() - format_started) * 1000)
@@ -1317,9 +1586,29 @@ class DungeonBuddyCLI:
                     "campaign_id": parsed.campaign,
                 },
             )
+            self._last_ask_meta = {
+                "run_id": run_id,
+                "question": parsed.question,
+                "status": "error",
+                "error": str(exc),
+                "retrieval": retrieval_meta,
+            }
             return
         print(answer)
         total_ms = int((time.perf_counter() - started) * 1000)
+        self._last_ask_meta = {
+            "run_id": run_id,
+            "question": parsed.question,
+            "status": "completed",
+            "duration_ms": total_ms,
+            "context_chars": context_chars,
+            "context_text": context,
+            "context_entity_cap": context_entity_cap,
+            "context_budget_truncated": context_budget_truncated,
+            "answer_chars": len(answer),
+            "retrieval": retrieval_meta,
+            "projection_metrics": projection.get("metrics", {}),
+        }
         self._record_event(
             "ask_runs",
             {

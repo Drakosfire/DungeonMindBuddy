@@ -55,6 +55,41 @@ _STOPWORDS = frozenset({
 })
 
 _WORD_RE = re.compile(r"[a-z][a-z']{2,}")
+_TERMINAL_MARKERS = (
+    "killing blow",
+    "dies",
+    "dead",
+    "decapitated",
+    "slain",
+    "executed",
+)
+_ROSTER_HINTS = (
+    "who",
+    "present",
+    "roster",
+    "in the room",
+    "in the chamber",
+    "in the council chamber",
+    "participants",
+)
+_EVENT_HINTS = (
+    "fight",
+    "battle",
+    "encounter",
+    "aftermath",
+    "before",
+    "after",
+    "during",
+)
+_HAZARD_HINTS = (
+    "hazard",
+    "trap",
+    "ward",
+    "alarm",
+    "defense",
+    "defences",
+    "danger",
+)
 
 
 def _tokenize(text: str) -> set[str]:
@@ -72,6 +107,27 @@ def _is_noise_fact(attribute: str, label: str) -> bool:
     if len(lowered) < 5:
         return True
     return any(lowered.startswith(p) for p in _NOISE_LABEL_PREFIXES)
+
+
+def _question_intent(question: str) -> dict[str, bool]:
+    lowered = question.lower()
+    is_roster = any(hint in lowered for hint in _ROSTER_HINTS)
+    is_event = any(hint in lowered for hint in _EVENT_HINTS)
+    is_hazard = any(hint in lowered for hint in _HAZARD_HINTS)
+    return {
+        "roster": is_roster,
+        "event": is_event,
+        "hazard": is_hazard,
+    }
+
+
+def _terminal_outcome_rank(label: str) -> int:
+    lowered = label.lower()
+    if any(marker in lowered for marker in _TERMINAL_MARKERS):
+        return 2
+    if "oily sheen fades" in lowered or "oily sheen in eyes fades" in lowered:
+        return 1
+    return 0
 
 
 def build_entity_summary(
@@ -128,6 +184,7 @@ class EntityIndex:
 
     def __init__(self) -> None:
         self.entity_ids: list[str] = []
+        self.id_to_pos: dict[str, int] = {}
         self.summaries: list[str] = []
         self.summary_tokens: list[set[str]] = []
         self.embeddings: Any = None
@@ -157,6 +214,7 @@ class EntityIndex:
             summary = build_entity_summary(meta, entity_data)
 
             self.entity_ids.append(entity_id)
+            self.id_to_pos[entity_id] = len(self.entity_ids) - 1
             self.summaries.append(summary)
             self.summary_tokens.append(_tokenize(summary))
 
@@ -253,6 +311,44 @@ class EntityIndex:
         sims = (q_emb @ self.embeddings.T).flatten()
         top_indices = np.argsort(sims)[::-1][:top_k]
         return [(self.entity_ids[int(i)], float(sims[i])) for i in top_indices]
+
+
+def semantic_rerank_entities(
+    question: str,
+    ranked_entities: list[tuple[str, float]],
+    *,
+    index: EntityIndex,
+    embedding_model: Any,
+    rerank_top_k: int = 24,
+    blend_weight: float = 0.6,
+) -> list[tuple[str, float]]:
+    """Rerank lexical candidates via semantic similarity on a narrowed subset."""
+    if not ranked_entities or rerank_top_k <= 0:
+        return ranked_entities
+
+    if index.embeddings is None:
+        index.compute_embeddings(embedding_model)
+    if index.embeddings is None:
+        return ranked_entities
+
+    import numpy as np
+
+    q_emb = _embed_texts(embedding_model, [question])[0]
+    head = ranked_entities[:rerank_top_k]
+    tail = ranked_entities[rerank_top_k:]
+
+    reranked: list[tuple[str, float]] = []
+    for eid, lexical_score in head:
+        pos = index.id_to_pos.get(eid)
+        if pos is None:
+            reranked.append((eid, lexical_score))
+            continue
+        semantic_score = float(np.dot(q_emb, index.embeddings[pos]))
+        fused = lexical_score + max(0.0, semantic_score) * blend_weight
+        reranked.append((eid, fused))
+
+    reranked.sort(key=lambda x: x[1], reverse=True)
+    return reranked + tail
 
 
 def _expand_via_relationships(
@@ -363,6 +459,14 @@ def retrieve_relevant_entities(
         embedding_scores = dict(emb_results)
 
     all_ids = set(name_scores) | set(keyword_scores) | set(embedding_scores)
+    intent = _question_intent(question)
+    q_tokens = _tokenize(question)
+    proj_entities = projection.get("entities", {})
+    meta_by_id = {
+        str(e.get("entity_id", "")): e
+        for e in entities
+        if str(e.get("entity_id", "")).strip()
+    }
     combined: list[tuple[str, float]] = []
     for eid in all_ids:
         score = 0.0
@@ -372,6 +476,34 @@ def retrieve_relevant_entities(
             score += keyword_scores[eid] * keyword_weight
         if eid in embedding_scores:
             score += max(0.0, embedding_scores[eid]) * embedding_weight
+
+        attrs = proj_entities.get(eid, {}).get("attributes", {})
+        cls = str(meta_by_id.get(eid, {}).get("entity_class", "")).lower()
+        if intent["roster"] and cls in {"actor", "group"}:
+            score += 0.35
+        if intent["event"] and ("operational_status" in attrs or "physical_condition" in attrs):
+            score += 0.2
+        if intent["hazard"] and ("defenses" in attrs or "atmosphere" in attrs):
+            score += 0.25
+
+        if q_tokens and "current_location" in attrs:
+            location_label = str(attrs["current_location"].get("value_label", "")).lower()
+            overlap = sum(1 for token in q_tokens if token in location_label)
+            if overlap:
+                score += min(0.25, 0.08 * overlap)
+
+        for terminal_attr in ("operational_status", "physical_condition"):
+            if terminal_attr not in attrs:
+                continue
+            label = str(attrs[terminal_attr].get("value_label", ""))
+            rank = _terminal_outcome_rank(label)
+            if rank <= 0:
+                continue
+            if intent["event"]:
+                score += 0.4 * rank
+            else:
+                score += 0.15 * rank
+
         if score >= min_score:
             combined.append((eid, score))
 
@@ -383,20 +515,24 @@ def retrieve_relevant_entities(
     expansion_count = 0
     if expand_relationships and selected_ids:
         rel_expanded = _expand_via_relationships(selected_ids, projection, index)
+        rel_expansion_score = max(min_score * 2.0, 0.05)
         for eid in rel_expanded:
             if eid not in selected_ids:
                 selected_ids.add(eid)
-                selected.append((eid, min_score * 0.5))
+                selected.append((eid, rel_expansion_score))
                 expansion_count += 1
 
     if expand_evidence and selected_ids:
         ev_expanded = _expand_via_shared_evidence(
             selected_ids, projection, max_expansion=max_evidence_expansion
         )
+        ev_expansion_score = max(min_score, 0.03)
+        if intent["roster"]:
+            ev_expansion_score = max(ev_expansion_score, 0.15)
         for eid in ev_expanded:
             if eid not in selected_ids:
                 selected_ids.add(eid)
-                selected.append((eid, min_score * 0.1))
+                selected.append((eid, ev_expansion_score))
                 expansion_count += 1
 
     selected.sort(key=lambda x: x[1], reverse=True)
@@ -420,13 +556,44 @@ def retrieve_relevant_entities(
 def filter_projection(
     projection: dict[str, Any],
     entity_ids: set[str],
+    *,
+    attribute_filter: list[str] | set[str] | None = None,
 ) -> dict[str, Any]:
-    """Return a copy of projection containing only the specified entity_ids."""
-    filtered_entities = {
-        eid: data
-        for eid, data in projection.get("entities", {}).items()
-        if eid in entity_ids
-    }
+    """Return a copy of projection containing only the specified entity_ids.
+
+    If *attribute_filter* is provided, only those attribute types are kept
+    per entity (e.g., ["role", "goals", "relationship_tags"]).
+    """
+    attr_set = set(attribute_filter) if attribute_filter else None
+    terminal_guard_count = 0
+
+    filtered_entities: dict[str, Any] = {}
+    for eid, data in projection.get("entities", {}).items():
+        if eid not in entity_ids:
+            continue
+        if attr_set is not None:
+            attrs = data.get("attributes", {})
+            effective_attr_set = set(attr_set)
+            for attr_name in ("operational_status", "physical_condition"):
+                payload = attrs.get(attr_name)
+                if not isinstance(payload, dict):
+                    continue
+                label = str(payload.get("value_label", ""))
+                if _terminal_outcome_rank(label) > 0:
+                    if attr_name not in effective_attr_set:
+                        terminal_guard_count += 1
+                    effective_attr_set.add(attr_name)
+            filtered_entities[eid] = {
+                **data,
+                "attributes": {
+                    k: v
+                    for k, v in attrs.items()
+                    if k in effective_attr_set
+                },
+            }
+        else:
+            filtered_entities[eid] = data
+
     return {
         **projection,
         "entities": filtered_entities,
@@ -435,5 +602,7 @@ def filter_projection(
             "projected_entities": len(filtered_entities),
             "retrieval_filtered": True,
             "pre_filter_count": len(projection.get("entities", {})),
+            "attribute_filter": sorted(attr_set) if attr_set else None,
+            "terminal_attribute_guard_applied": terminal_guard_count,
         },
     }

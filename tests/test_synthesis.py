@@ -55,8 +55,9 @@ def test_system_prompt_contains_grounding_requirements() -> None:
     assert "CANON" in SYSTEM_PROMPT
     assert "PREP" in SYSTEM_PROMPT
     assert "OBSERVED" in SYSTEM_PROMPT
+    assert 'Start with a "TL;DR:" line' in SYSTEM_PROMPT
     assert "Key Attributes" in SYSTEM_PROMPT
-    assert "at least 3 explicitly named attributes" in SYSTEM_PROMPT
+    assert "Do not enumerate attributes that are absent" in SYSTEM_PROMPT
 
 
 def test_formatted_context_and_question_are_sent_to_model() -> None:

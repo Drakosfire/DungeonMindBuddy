@@ -9,10 +9,12 @@ from src.agent.retriever import (
     _expand_via_relationships,
     _expand_via_shared_evidence,
     _is_noise_fact,
+    _question_intent,
     _tokenize,
     build_entity_summary,
     filter_projection,
     retrieve_relevant_entities,
+    semantic_rerank_entities,
 )
 
 
@@ -334,6 +336,37 @@ class TestFilterProjection:
         assert filtered["campaign_id"] == PROJECTION["campaign_id"]
         assert "conflicts" in filtered
 
+    def test_terminal_outcome_attrs_preserved_under_attribute_filter(self):
+        projection = {
+            **PROJECTION,
+            "entities": {
+                **PROJECTION["entities"],
+                "ent_shepherds_flock": _make_projected_entity({
+                    "operational_status": _make_attr("Decapitated by a killing blow"),
+                    "history": _make_attr("Once served the shepherd"),
+                }),
+            },
+        }
+        filtered = filter_projection(
+            projection,
+            {"ent_shepherds_flock"},
+            attribute_filter=["history"],
+        )
+        attrs = filtered["entities"]["ent_shepherds_flock"]["attributes"]
+        assert "history" in attrs
+        assert "operational_status" in attrs
+        assert filtered["metrics"]["terminal_attribute_guard_applied"] >= 1
+
+
+class TestQuestionIntent:
+    def test_detects_roster_question(self):
+        intent = _question_intent("Who is present in the council chamber?")
+        assert intent["roster"] is True
+
+    def test_detects_event_question(self):
+        intent = _question_intent("What happened after the battle?")
+        assert intent["event"] is True
+
 
 # ---------------------------------------------------------------------------
 # retrieve_relevant_entities (integration)
@@ -421,3 +454,52 @@ class TestRetrieveRelevantEntities:
             expand_evidence=False,
         )
         assert len(ranked) == 0
+
+
+class _FakeEmbeddingModel:
+    def encode(self, texts, show_progress_bar=False):  # noqa: ARG002
+        vectors = []
+        for text in texts:
+            t = text.lower()
+            if t.startswith("what does elara"):
+                vectors.append([0.0, 1.0])
+            elif t.startswith("elara swiftwind"):
+                vectors.append([0.0, 1.0])
+            elif t.startswith("mirathorn"):
+                vectors.append([1.0, 0.0])
+            else:
+                vectors.append([0.2, 0.2])
+        return vectors
+
+
+class TestSemanticRerank:
+    def test_reranks_top_subset_with_semantic_signal(self):
+        idx = EntityIndex()
+        idx.build(PROJECTION, ENTITIES)
+        ranked = [
+            ("ent_mirathorn", 0.9),  # lexical winner
+            ("ent_elara", 0.8),  # should win after semantic rerank for Elara query
+        ]
+        reranked = semantic_rerank_entities(
+            "what does Elara want",
+            ranked,
+            index=idx,
+            embedding_model=_FakeEmbeddingModel(),
+            rerank_top_k=2,
+            blend_weight=0.6,
+        )
+        assert reranked[0][0] == "ent_elara"
+
+    def test_rerank_disabled_for_empty_input(self):
+        idx = EntityIndex()
+        idx.build(PROJECTION, ENTITIES)
+        assert (
+            semantic_rerank_entities(
+                "anything",
+                [],
+                index=idx,
+                embedding_model=_FakeEmbeddingModel(),
+                rerank_top_k=2,
+            )
+            == []
+        )

@@ -2,6 +2,14 @@
   {
     "id": "q_the_emergency_council_meeting_1",
     "question": "What are the wizards asking the council to do in the emergency meeting-and what's the catch?",
+    "expected_answer_summary": "They propose arcane lockdown wards for detection and containment, but at the cost of citywide disruption, panic risk, and festival cancellation.",
+    "core_claims": [
+      "Headmaster Tinkerbright and the Wizard's College push the arcane response",
+      "They propose a magical lockdown with ward-based detection and containment",
+      "The wards can hit friend and foe alike rather than only enemies",
+      "The plan introduces citywide disruption and restrictions on ordinary magic use",
+      "The council faces tradeoffs including panic risk and festival cancellation"
+    ],
     "must_hit_tokens": [
       "wizards' college",
       "arcane lockdown",
@@ -35,6 +43,14 @@
   {
     "id": "q_longmont_session_12_council_chamber_roster",
     "question": "Who's actually in the council chamber for the Session 12 fight with the Wolf?",
+    "expected_answer_summary": "PCs Bonogo, Caelynn, Ephanna, Stafl, Karsemine, and Baergrom; Commander Thalia; the Wolf; and multiple city guards including elite guards.",
+    "core_claims": [
+      "Bonogo, Caelynn, Ephanna, Stafl, Karsemine, and Baergrom are present in the chamber fight",
+      "Commander Thalia is present during the Session 12 battle",
+      "The Wolf is present in the council chamber confrontation",
+      "Multiple city guards are present, including elite guards",
+      "Elric Vane is not part of that chamber roster"
+    ],
     "must_hit_tokens": [
       "bonogo",
       "caelynn",
@@ -76,6 +92,14 @@
   {
     "id": "q_longmont_campaign_general_notes_1",
     "question": "Who are the Shepherds, and what god or power do they answer to?",
+    "expected_answer_summary": "The Shepherd's Flock is a cult that answers to Maelthor as patron and pursues ascension through atrocities framed as ritual sacrifice, tied to human supremacy.",
+    "core_claims": [
+      "The Shepherd's Flock is a cult organization",
+      "The cult answers to or venerates Maelthor as patron power",
+      "Its ideology frames atrocities as ritual sacrifice",
+      "The group ties its goals to human supremacy themes",
+      "The cult pursues a form of ascension through violent doctrine"
+    ],
     "must_hit_tokens": [
       "shepherds",
       "maelthor",
@@ -108,6 +132,13 @@
   {
     "id": "q_the_city_council_2",
     "question": "Who speaks for the wizards on the council, and what's his angle on the cult?",
+    "expected_answer_summary": "Headmaster Tinkerbright represents arcane interests and supports deploying wizard resources to detect and counter corruption.",
+    "core_claims": [
+      "Headmaster Tinkerbright is the wizard representative on the council",
+      "He speaks for the Wizard's College and arcane interests",
+      "He advocates using arcane resources for detection",
+      "His policy angle is active counter-corruption response rather than neutrality"
+    ],
     "must_hit_tokens": [
       "headmaster tinkerbright",
       "wizard's college",
@@ -125,13 +156,27 @@
     "semantic_equivalences": {
       "counter corruption": [
         "counteract cult influence",
-        "oppose dark magic spread"
+        "oppose dark magic spread",
+        "anti-cult",
+        "aggressively anti-cult",
+        "detect corruption",
+        "containment",
+        "detect corrupted meat",
+        "magical lockdown",
+        "contain cult spread"
       ]
     }
   },
   {
     "id": "q_the_city_council_4",
     "question": "Merril, Torrin, Rurik-what's each one's job on the council?",
+    "expected_answer_summary": "Merril leads agriculture and food interests, Torrin represents guild crafts, and Rurik represents infrastructure and city planning.",
+    "core_claims": [
+      "Merril represents agriculture and food-production interests",
+      "Torrin represents craft guild and trade-guild interests",
+      "Rurik represents infrastructure and city-planning concerns",
+      "The three councilors hold distinct governance portfolios"
+    ],
     "must_hit_tokens": [
       "merril",
       "agricultural union",
@@ -160,6 +205,13 @@
   {
     "id": "q_battle_with_the_wolf_and_aftermath_1",
     "question": "When the council-chamber fight ends, where does that leave the Wolf-dead, fled, what?",
+    "expected_answer_summary": "The Wolf is ultimately killed, with Bonogo delivering the killing blow and decapitation-style terminal outcome.",
+    "core_claims": [
+      "The Wolf is dead by the end of the council-chamber fight",
+      "Bonogo delivers the terminal killing blow",
+      "The terminal outcome includes explicit decapitation phrasing",
+      "The outcome is not an escape or unresolved withdrawal"
+    ],
     "must_hit_tokens": [
       "killed",
       "killing blow",
@@ -185,12 +237,26 @@
       "killed": [
         "dead",
         "slain"
+      ],
+      "decapitated": [
+        "head removed from body",
+        "head removed",
+        "killing blow",
+        "dead",
+        "slain"
       ]
     }
   },
   {
     "id": "q_battle_with_the_wolf_and_aftermath_3",
     "question": "In that fight, is Thalia corrupted like the guards, or is it something different?",
+    "expected_answer_summary": "Thalia is presented as ensorcelled or manipulated rather than fully corrupted, while many guards are explicitly corrupted.",
+    "core_claims": [
+      "Thalia is characterized as ensorcelled or manipulated",
+      "Thalia is not described as fully corrupted in the same sense as corrupted guards",
+      "Multiple guards are explicitly described as corrupted",
+      "The Wolf's influence is relevant to Thalia's compromised state"
+    ],
     "must_hit_tokens": [
       "thalia",
       "ensorcelled",
@@ -213,13 +279,24 @@
       ],
       "not fully corrupted": [
         "influenced but not corrupted",
-        "controlled rather than corrupted"
+        "controlled rather than corrupted",
+        "ensorcelled",
+        "not corrupted like the guards",
+        "does not have an oily sheen"
       ]
     }
   },
   {
     "id": "q_battle_with_the_wolf_and_aftermath_2",
     "question": "What does the council room itself throw at us that screws with the fight?",
+    "expected_answer_summary": "Arcane traps, falling debris, alarm pulses, and illusory walls force positioning and can trigger reinforcements.",
+    "core_claims": [
+      "The chamber presents arcane traps during combat",
+      "Falling debris is an active battlefield hazard",
+      "Alarm pulses or ward alarms can trigger reinforcements",
+      "Illusory walls alter movement and positioning",
+      "The room has active magical defenses rather than being a neutral space"
+    ],
     "must_hit_tokens": [
       "arcane traps",
       "falling debris",
@@ -249,6 +326,13 @@
   {
     "id": "q_the_emergency_council_meeting_2_v2",
     "question": "Can we trust Thalia in this emergency meeting, or is something off?",
+    "expected_answer_summary": "Thalia appears duty-bound and protective as guard commander, but she is under the Wolf's influence and may unknowingly misdirect guard operations, making her reliability uncertain.",
+    "core_claims": [
+      "Thalia presents as duty-bound and protective in her commander role",
+      "Thalia is under the Wolf's influence or ensorcelment",
+      "That influence can distort guard operations even without open betrayal",
+      "Her reliability is therefore uncertain rather than fully trusted"
+    ],
     "must_hit_tokens": [
       "thalia",
       "wolf influence",
@@ -272,13 +356,33 @@
       "uncertain reliability": [
         "compromised",
         "not fully trustworthy",
-        "questionable loyalty"
+        "questionable loyalty",
+        "cannot be fully trusted",
+        "judgment is compromised",
+        "something is off",
+        "cannot trust",
+        "trust is uncertain",
+        "wolf influence",
+        "ensorcelled by the wolf"
+      ],
+      "guard operations": [
+        "commander of the guard",
+        "guard commander",
+        "city guard command",
+        "guard response"
       ]
     }
   },
   {
     "id": "q_the_emergency_council_meeting_4_v2",
     "question": "If the council keeps talking and doesn't act, what bites us?",
+    "expected_answer_summary": "Prolonged deliberation advances an in-game countdown toward the cult's summoning ritual, increasing danger and limiting time for response.",
+    "core_claims": [
+      "There is real time pressure rather than unlimited deliberation time",
+      "Delay advances a countdown tied to a summoning ritual",
+      "As the ritual clock advances, consequences and danger increase",
+      "Inaction reduces the council's available response window"
+    ],
     "must_hit_tokens": [
       "time pressure",
       "countdown",
@@ -308,6 +412,14 @@
   {
     "id": "q_arch_current",
     "question": "What does the Council Room look like after the wolf fight-what should we notice?",
+    "expected_answer_summary": "The council room features high arched ceilings, a floating arcane chandelier, and a concealed secret passage, with visible battle damage and activated defensive runes.",
+    "core_claims": [
+      "The room has high arched ceilings",
+      "A floating arcane chandelier is a notable feature",
+      "A secret passage is present or revealed",
+      "Post-fight condition includes visible disarray or battle damage",
+      "Defensive runes are activated in the aftermath"
+    ],
     "must_hit_tokens": [
       "arched ceilings",
       "floating chandelier",
@@ -327,6 +439,13 @@
   {
     "id": "q_arch_delta",
     "question": "What got wrecked or changed in the Council Room during Session 12?",
+    "expected_answer_summary": "The chandelier was disturbed during combat, defensive runes were activated, and a secret passage was discovered or revealed.",
+    "core_claims": [
+      "The chandelier is disturbed or damaged during Session 12 combat",
+      "Defensive runes activate during the battle",
+      "A secret passage is discovered or revealed in-session",
+      "The room state changes materially rather than staying unchanged"
+    ],
     "must_hit_tokens": [
       "chandelier",
       "runes",
@@ -346,6 +465,13 @@
   {
     "id": "q_wolf_status",
     "question": "End of Session 12: is the Wolf alive, dead, still corrupted-what's his state?",
+    "expected_answer_summary": "The Wolf is dead, killed by a decisive killing blow; the oily sheen of corruption fades from his body after death.",
+    "core_claims": [
+      "The Wolf is dead at end of Session 12",
+      "A decisive killing blow causes the terminal outcome",
+      "The oily sheen of corruption fades after death",
+      "The final state is not alive or actively corrupted"
+    ],
     "must_hit_tokens": [
       "killing blow",
       "dead",
@@ -365,6 +491,13 @@
   {
     "id": "q_pre_post",
     "question": "Before vs after the council fight-how's the Wolf different?",
+    "expected_answer_summary": "Before the fight the Wolf bore an oily sheen of corruption; after the killing blow, the sheen fades and he is dead.",
+    "core_claims": [
+      "Before the fight, the Wolf is described with an oily corruption sheen",
+      "After the fight, a killing blow is delivered",
+      "After death, the oily sheen fades",
+      "The answer should distinguish pre-fight and post-fight states explicitly"
+    ],
     "must_hit_tokens": [
       "before",
       "after",
@@ -384,6 +517,13 @@
   {
     "id": "q_thalia",
     "question": "Was Thalia corrupted or just played-and how does that tie to the Wolf?",
+    "expected_answer_summary": "Thalia was ensorcelled by the Wolf rather than truly corrupted; her actions were the result of magical manipulation, not willful betrayal.",
+    "core_claims": [
+      "Thalia is ensorcelled or manipulated by the Wolf",
+      "Her condition is not framed as true corruption",
+      "Her behavior results from magical influence rather than intentional betrayal",
+      "The Wolf is the direct causal link to Thalia's compromised actions"
+    ],
     "must_hit_tokens": [
       "ensorcelled",
       "wolf",
@@ -397,6 +537,13 @@
       "influence",
       "manipulated"
     ],
-    "semantic_equivalences": {}
+    "semantic_equivalences": {
+      "not corrupted": [
+        "ensorcelled",
+        "manipulated by the wolf",
+        "not truly corrupted",
+        "not corrupted like the guards"
+      ]
+    }
   }
 ]
