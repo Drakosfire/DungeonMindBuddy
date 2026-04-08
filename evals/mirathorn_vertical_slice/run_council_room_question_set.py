@@ -6,6 +6,7 @@ import json
 import os
 import re
 import sys
+import time
 from contextlib import redirect_stdout
 from pathlib import Path
 from typing import Any
@@ -28,6 +29,13 @@ GOLD_QUESTIONS_PATH = Path(__file__).resolve().parent / "gold" / "gold_questions
 WRITE_COUNCIL_ROOM_QUESTION_SET_ARTIFACTS_ENV = (
     "DMB_WRITE_COUNCIL_ROOM_QUESTION_SET_ARTIFACTS"
 )
+RETRIEVAL_ENV = "DMB_RETRIEVAL"
+RETRIEVAL_TOP_K_ENV = "DMB_RETRIEVAL_TOP_K"
+EMBEDDING_SCORING_ENV = "DMB_EMBEDDING_SCORING"
+EMBEDDING_USE_TLDR_ONLY_ENV = "DMB_EMBEDDING_USE_TLDR_ONLY"
+CLAIM_VERIFICATION_ENV = "DMB_CLAIM_VERIFICATION"
+CLAIM_VERIFICATION_USE_LLM_EXTRACTOR_ENV = "DMB_CLAIM_VERIFICATION_USE_LLM_EXTRACTOR"
+EMBEDDING_WATCH_THRESHOLD = 0.55
 GLOBAL_STALE_PATTERNS = (
     "nothing changed",
     "no changes",
@@ -86,6 +94,8 @@ def _load_gold_questions(path: Path) -> list[dict[str, Any]]:
             {
                 "id": item["id"],
                 "question": item["question"],
+                "expected_answer_summary": item.get("expected_answer_summary", ""),
+                "core_claims": item.get("core_claims", []),
                 "must": item.get("must_hit_tokens", item.get("must", [])),
                 "stale": item.get("stale_tokens", item.get("stale", [])),
                 "semantic_equivalences": item.get("semantic_equivalences", {}),
@@ -98,6 +108,18 @@ def _load_gold_questions(path: Path) -> list[dict[str, Any]]:
     if not rows:
         raise ValueError(f"No gold questions loaded from {path}")
     return rows
+
+
+def _extract_tldr_line(answer: str) -> str:
+    """Extract the first TL;DR line from an answer, else empty string."""
+    for raw_line in answer.splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        lowered = line.lower()
+        if lowered.startswith("tl;dr:") or lowered.startswith("tldr:"):
+            return line
+    return ""
 
 
 def _token_negated_by_cooccurrence(
@@ -260,11 +282,20 @@ def run() -> dict:
     cli = DungeonBuddyCLI(store_dir=store, verbose=False)
     results: list[dict] = []
 
+    retrieval_mode = os.environ.get(RETRIEVAL_ENV, "1").strip()
+    retrieval_flag = "" if retrieval_mode == "1" else " --no-retrieval"
+    retrieval_top_k = os.environ.get(RETRIEVAL_TOP_K_ENV, "").strip()
+    if retrieval_top_k:
+        retrieval_flag += f" --retrieval-top-k {retrieval_top_k}"
+    if retrieval_flag:
+        print(f"Retrieval config:{retrieval_flag}", file=sys.stderr, flush=True)
+
     for row in questions:
         capture = io.StringIO()
         with redirect_stdout(capture):
             cli.handle_line(
-                f'ask "{row["question"]}" --campaign {DEFAULT_CAMPAIGN_ID} --require-campaign'
+                f'ask "{row["question"]}" --campaign {DEFAULT_CAMPAIGN_ID}'
+                f' --require-campaign{retrieval_flag}'
             )
         answer = capture.getvalue().strip()
         has_error = bool(re.search(r"Error:\s*(.*)", answer, re.IGNORECASE))
@@ -302,6 +333,195 @@ def run() -> dict:
             }
         )
 
+    # --- Embedding similarity scoring (opt-in) ---
+    embedding_enabled = (
+        os.environ.get(EMBEDDING_SCORING_ENV, "").strip() == "1"
+    )
+    embedding_scores: list[float | None] = [None] * len(results)
+    embedding_skipped_reason = ""
+
+    if embedding_enabled:
+        try:
+            from evals.mirathorn_vertical_slice.embedding_scorer import (
+                embedding_available,
+                load_embedding_model,
+                score_batch,
+            )
+
+            if not embedding_available():
+                embedding_skipped_reason = (
+                    "sentence-transformers not installed; skipping embedding scoring."
+                )
+                print(f"WARNING: {embedding_skipped_reason}", file=sys.stderr)
+            else:
+                expected_summaries: list[str] = []
+                for row in questions:
+                    core_claims = row.get("core_claims")
+                    if isinstance(core_claims, list):
+                        joined = " ".join(
+                            str(claim).strip() for claim in core_claims if str(claim).strip()
+                        ).strip()
+                        expected_summaries.append(
+                            joined or str(row.get("expected_answer_summary", "")).strip()
+                        )
+                    else:
+                        expected_summaries.append(str(row.get("expected_answer_summary", "")).strip())
+                answers = [r["answer"] for r in results]
+                use_tldr_only = (
+                    os.environ.get(EMBEDDING_USE_TLDR_ONLY_ENV, "").strip() == "1"
+                )
+                tldr_fallback_count = 0
+                if use_tldr_only:
+                    embedding_answers: list[str] = []
+                    for ans in answers:
+                        tldr = _extract_tldr_line(ans)
+                        if tldr:
+                            embedding_answers.append(tldr)
+                        else:
+                            # Fallback avoids blank embeddings when prompt noncompliance happens.
+                            embedding_answers.append(ans)
+                            tldr_fallback_count += 1
+                else:
+                    embedding_answers = answers
+                has_all_summaries = all(s.strip() for s in expected_summaries)
+                if not has_all_summaries:
+                    embedding_skipped_reason = (
+                        "Some questions missing expected_answer_summary; "
+                        "skipping embedding scoring."
+                    )
+                    print(f"WARNING: {embedding_skipped_reason}", file=sys.stderr)
+                else:
+                    print("Loading embedding model...", file=sys.stderr, flush=True)
+                    t_load = time.perf_counter()
+                    emb_model = load_embedding_model()
+                    print(
+                        f"INFO: Embedding model loaded in {time.perf_counter() - t_load:.1f}s",
+                        file=sys.stderr,
+                        flush=True,
+                    )
+                    print("Scoring answers via embedding similarity...", file=sys.stderr, flush=True)
+                    t_score = time.perf_counter()
+                    embedding_scores = [
+                        float(s)
+                        for s in score_batch(
+                            emb_model, expected_summaries, embedding_answers
+                        )
+                    ]
+                    print(
+                        f"INFO: Embedding scoring completed in "
+                        f"{time.perf_counter() - t_score:.1f}s",
+                        file=sys.stderr,
+                        flush=True,
+                    )
+                    for i, score in enumerate(embedding_scores):
+                        qid = questions[i]["id"]
+                        if score is not None:
+                            flag = (
+                                " (!)"
+                                if score < EMBEDDING_WATCH_THRESHOLD
+                                else ""
+                            )
+                            print(
+                                f"  [{qid}] embedding similarity: {score:.3f}{flag}",
+                                file=sys.stderr,
+                                flush=True,
+                            )
+                        else:
+                            print(
+                                f"  [{qid}] embedding similarity: (skipped)",
+                                file=sys.stderr,
+                                flush=True,
+                            )
+                    if use_tldr_only:
+                        print(
+                            "INFO: Embedding used TL;DR-only mode "
+                            f"(fallback_to_full_answer={tldr_fallback_count})",
+                            file=sys.stderr,
+                            flush=True,
+                        )
+        except Exception as exc:
+            embedding_skipped_reason = f"Embedding scoring failed: {exc}"
+            print(f"WARNING: {embedding_skipped_reason}", file=sys.stderr)
+    else:
+        embedding_skipped_reason = (
+            f"{EMBEDDING_SCORING_ENV} is not set to 1; skipping embedding scoring."
+        )
+        print(f"INFO: {embedding_skipped_reason}", file=sys.stderr, flush=True)
+
+    def _embedding_tally() -> dict[str, Any]:
+        scored = [s for s in embedding_scores if s is not None]
+        tldr_mode_enabled = (
+            os.environ.get(EMBEDDING_USE_TLDR_ONLY_ENV, "").strip() == "1"
+        )
+        if not scored:
+            return {"enabled": embedding_enabled, "scored_count": 0,
+                    "skipped_reason": embedding_skipped_reason,
+                    "tldr_only_mode": tldr_mode_enabled}
+        scored_sorted = sorted(scored)
+        n = len(scored_sorted)
+        return {
+            "enabled": True,
+            "tldr_only_mode": tldr_mode_enabled,
+            "scored_count": n,
+            "mean": round(sum(scored_sorted) / n, 4),
+            "min": round(scored_sorted[0], 4),
+            "p25": round(scored_sorted[max(0, n // 4 - 1)], 4),
+            "median": round(scored_sorted[n // 2], 4),
+            "max": round(scored_sorted[-1], 4),
+            "below_watch_threshold": sum(
+                1 for s in scored_sorted if s < EMBEDDING_WATCH_THRESHOLD
+            ),
+            "watch_threshold": EMBEDDING_WATCH_THRESHOLD,
+        }
+
+    for i, score in enumerate(embedding_scores):
+        results[i]["embedding_similarity"] = score
+
+    claim_verification_enabled = (
+        os.environ.get(CLAIM_VERIFICATION_ENV, "").strip() == "1"
+    )
+    claim_verification_skipped_reason = ""
+    claim_results: list[dict[str, Any]] = []
+    if claim_verification_enabled:
+        try:
+            from evals.mirathorn_vertical_slice.claim_verifier import (
+                aggregate_accuracy,
+                evaluate_answer_accuracy,
+            )
+
+            use_llm_extractor = (
+                os.environ.get(CLAIM_VERIFICATION_USE_LLM_EXTRACTOR_ENV, "").strip() == "1"
+            )
+            projection = cli.store.project(DEFAULT_CAMPAIGN_ID)
+            entities = cli.store.list_entities()
+            for row_result in results:
+                claim_eval = evaluate_answer_accuracy(
+                    answer=row_result["answer"],
+                    projection=projection,
+                    entities=entities,
+                    use_llm_extractor=use_llm_extractor,
+                )
+                row_result["claim_verification"] = claim_eval
+                claim_results.append(claim_eval)
+            claim_summary = aggregate_accuracy(claim_results)
+            claim_summary["extractor"] = "llm" if use_llm_extractor else "heuristic"
+        except Exception as exc:
+            claim_verification_skipped_reason = f"Claim verification failed: {exc}"
+            print(f"WARNING: {claim_verification_skipped_reason}", file=sys.stderr, flush=True)
+            claim_summary = {
+                "enabled": False,
+                "skipped_reason": claim_verification_skipped_reason,
+            }
+    else:
+        claim_verification_skipped_reason = (
+            f"{CLAIM_VERIFICATION_ENV} is not set to 1; skipping claim verification."
+        )
+        print(f"INFO: {claim_verification_skipped_reason}", file=sys.stderr, flush=True)
+        claim_summary = {
+            "enabled": False,
+            "skipped_reason": claim_verification_skipped_reason,
+        }
+
     def _tally(key: str) -> dict[str, int]:
         return {
             "pass_updated": sum(1 for r in results if r[key] == "pass_updated"),
@@ -313,6 +533,8 @@ def run() -> dict:
     summary = {
         "overall_strict": _tally("strict_verdict"),
         "overall_semantic": _tally("semantic_verdict"),
+        "overall_embedding": _embedding_tally(),
+        "overall_accuracy": claim_summary,
         "results": results,
     }
 
@@ -428,6 +650,7 @@ def run() -> dict:
 
     s = summary["overall_strict"]
     sem = summary["overall_semantic"]
+    emb = summary["overall_embedding"]
     lines = ["# Council Room Question Set Results", ""]
     lines.append("## Strict scoring")
     lines.append(f"- pass_updated: {s['pass_updated']}")
@@ -441,6 +664,43 @@ def run() -> dict:
     lines.append(f"- fail_incomplete: {sem['fail_incomplete']}")
     lines.append(f"- fail_error: {sem['fail_error']}")
     lines.append("")
+    lines.append("## Embedding similarity scoring")
+    if emb.get("scored_count", 0) > 0:
+        lines.append(f"- scored: {emb['scored_count']}")
+        lines.append(f"- mean: {emb['mean']}")
+        lines.append(f"- min: {emb['min']}")
+        lines.append(f"- p25: {emb['p25']}")
+        lines.append(f"- median: {emb['median']}")
+        lines.append(f"- max: {emb['max']}")
+        lines.append(f"- below watch threshold ({emb['watch_threshold']}): {emb['below_watch_threshold']}")
+    else:
+        lines.append(f"- skipped: {emb.get('skipped_reason', 'not enabled')}")
+    lines.append("")
+    lines.append("## Claim verification accuracy")
+    if summary["overall_accuracy"].get("enabled"):
+        accuracy = summary["overall_accuracy"]
+        lines.append(
+            f"- total factual claims: {accuracy.get('total_factual_claims', 0)}"
+        )
+        lines.append(
+            f"- hallucination_rate: {accuracy.get('hallucination_rate', 0.0)}"
+        )
+        lines.append(f"- completeness: {accuracy.get('completeness', 0.0)}")
+        lines.append(
+            f"- provenance_accuracy: {accuracy.get('provenance_accuracy', 0.0)}"
+        )
+        lines.append(
+            "- status_counts: "
+            + ", ".join(
+                f"{k}={v}"
+                for k, v in (accuracy.get("status_counts", {}) or {}).items()
+            )
+        )
+    else:
+        lines.append(
+            f"- skipped: {summary['overall_accuracy'].get('skipped_reason', 'not enabled')}"
+        )
+    lines.append("")
 
     if not write_ok:
         lines.append("## Artifact write")
@@ -448,7 +708,15 @@ def run() -> dict:
         lines.append("")
 
     for row in results:
-        lines.append(f"## {row['id']} — strict: {row['strict_verdict']} | semantic: {row['semantic_verdict']}")
+        emb_label = ""
+        if row.get("embedding_similarity") is not None:
+            sim = row["embedding_similarity"]
+            flag = " (!)" if sim < EMBEDDING_WATCH_THRESHOLD else ""
+            emb_label = f" | emb: {sim:.3f}{flag}"
+        lines.append(
+            f"## {row['id']} — strict: {row['strict_verdict']}"
+            f" | semantic: {row['semantic_verdict']}{emb_label}"
+        )
         lines.append(f"- question: {row['question']}")
         lines.append(
             "- strict must_hits: "
@@ -462,6 +730,13 @@ def run() -> dict:
             "- stale_hits: "
             + (", ".join(row["stale_hits"]) if row["stale_hits"] else "(none)")
         )
+        claim_eval = row.get("claim_verification")
+        if isinstance(claim_eval, dict):
+            lines.append(
+                f"- claim_verification: total={claim_eval.get('total_factual_claims', 0)}, "
+                f"hallucination_rate={claim_eval.get('hallucination_rate', 0.0)}, "
+                f"completeness={claim_eval.get('completeness', 0.0)}"
+            )
         lines.append("")
         lines.append("### answer")
         lines.append(row["answer"])
@@ -477,7 +752,9 @@ def run() -> dict:
 
 if __name__ == "__main__":
     out = run()
-    print("=== STRICT ===")
-    print(json.dumps(out["overall_strict"], indent=2))
-    print("=== SEMANTIC ===")
-    print(json.dumps(out["overall_semantic"], indent=2))
+    print("=== STRICT ===", file=sys.stderr, flush=True)
+    print(json.dumps(out["overall_strict"], indent=2), file=sys.stderr, flush=True)
+    print("=== SEMANTIC ===", file=sys.stderr, flush=True)
+    print(json.dumps(out["overall_semantic"], indent=2), file=sys.stderr, flush=True)
+    print("=== EMBEDDING ===", file=sys.stderr, flush=True)
+    print(json.dumps(out["overall_embedding"], indent=2), file=sys.stderr, flush=True)

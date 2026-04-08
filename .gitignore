@@ -38,6 +38,9 @@ out/
 # Legacy: fact stores created at repo root (prefer out/stores/)
 dungeonbuddy_store*/
 
+# HuggingFace / embedding model caches
+.cache/
+
 # Eval caches (regenerated from deterministic pipeline runs)
 evals/**/output/*_cache/
 evals/**/output/**/.cache/

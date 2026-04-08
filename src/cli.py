@@ -18,6 +18,10 @@ from dotenv import load_dotenv
 from openai import OpenAI
 
 from src.agent.context_formatter import format_projection_context
+from src.agent.retriever import (
+    filter_projection,
+    retrieve_relevant_entities,
+)
 from src.agent.scope_relevance import question_mentioned_entity_ids
 from src.agent.synthesis import synthesize_answer_async
 from src.ingestion.chunker import chunk_document
@@ -1122,6 +1126,24 @@ class DungeonBuddyCLI:
             action="store_true",
             help="Show per-entity scope relevance annotations in rendered context.",
         )
+        parser.add_argument(
+            "--retrieval",
+            action="store_true",
+            default=True,
+            help="Use question-aware retrieval to select relevant entities (default).",
+        )
+        parser.add_argument(
+            "--no-retrieval",
+            action="store_true",
+            default=False,
+            help="Disable retrieval; send full projection to the LLM.",
+        )
+        parser.add_argument(
+            "--retrieval-top-k",
+            type=int,
+            default=30,
+            help="Max entities to retrieve (before graph expansion). Default: 30.",
+        )
         parsed = self._safe_parse(parser, args)
         if parsed is None:
             return
@@ -1183,6 +1205,37 @@ class DungeonBuddyCLI:
                     parsed.question, self.store.list_entities()
                 ),
             )
+        use_retrieval = parsed.retrieval and not parsed.no_retrieval
+        retrieval_meta: dict[str, Any] = {"enabled": False}
+        if use_retrieval:
+            retrieval_started = time.perf_counter()
+            ranked, self._entity_index = retrieve_relevant_entities(
+                parsed.question,
+                projection,
+                self.store.list_entities(),
+                top_k=parsed.retrieval_top_k,
+                index=getattr(self, "_entity_index", None),
+            )
+            selected_ids = {eid for eid, _ in ranked}
+            pre_count = len(projection.get("entities", {}))
+            projection = filter_projection(projection, selected_ids)
+            retrieval_ms = int((time.perf_counter() - retrieval_started) * 1000)
+            retrieval_meta = {
+                "enabled": True,
+                "top_k": parsed.retrieval_top_k,
+                "pre_filter_count": pre_count,
+                "post_filter_count": len(selected_ids),
+                "duration_ms": retrieval_ms,
+                "top_5": [(eid, round(s, 4)) for eid, s in ranked[:5]],
+            }
+            self.logger.info(
+                "Ask run_id=%s stage=retrieval entities=%d/%d duration_ms=%d",
+                run_id,
+                len(selected_ids),
+                pre_count,
+                retrieval_ms,
+            )
+
         self._record_event(
             "ask_runs",
             {
@@ -1195,6 +1248,7 @@ class DungeonBuddyCLI:
                 "scope_confidence": parsed.scope_confidence,
                 "hard_exclude_out_of_scope": parsed.hard_exclude_out_of_scope,
                 "projection_metrics": projection.get("metrics", {}),
+                "retrieval": retrieval_meta,
             },
         )
         self.logger.info(
@@ -1277,6 +1331,7 @@ class DungeonBuddyCLI:
                 "campaign_id": parsed.campaign,
                 "answer_chars": len(answer),
                 "projection_metrics": projection.get("metrics", {}),
+                "retrieval": retrieval_meta,
             },
         )
         self.logger.info("Ask completed run_id=%s duration_ms=%d", run_id, total_ms)
