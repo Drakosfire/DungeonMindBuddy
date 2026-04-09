@@ -1,0 +1,754 @@
+{
+  "runs": [
+    {
+      "phase_name": "phase0_diagnostics",
+      "hypothesis": "Diagnostics-only run should preserve stage-loss behavior while adding richer metrics.",
+      "pipeline_config": "--evidence-first",
+      "overall_semantic": {
+        "pass_updated": 8,
+        "fail_stale": 0,
+        "fail_incomplete": 7,
+        "fail_error": 0
+      },
+      "overall_context_support": {
+        "avg_support_ratio": 0.7278,
+        "full_support_count": 8,
+        "support_ge_0_75_count": 9,
+        "questions": 15
+      },
+      "overall_failure_surface": {
+        "pass": 8,
+        "retrieval_gap": 4,
+        "synthesis_gap": 3
+      },
+      "stage_loss_report": {
+        "store_gap": 0,
+        "evidence_gap": 20,
+        "retriever_gap": 8,
+        "synthesis_gap": 2,
+        "hit": 30
+      },
+      "timestamp": "2026-04-09T01:21:49Z"
+    },
+    {
+      "phase_name": "phase1_lexicon_boost",
+      "hypothesis": "Lexicon phrase boosting should reduce evidence_gap without large context/latency regression.",
+      "pipeline_config": "--evidence-first --corpus-lexicon-boost --corpus-lexicon-path evals/mirathorn_vertical_slice/output/phase_d_store/corpus_lexicon.json",
+      "overall_semantic": {
+        "pass_updated": 7,
+        "fail_stale": 0,
+        "fail_incomplete": 8,
+        "fail_error": 0
+      },
+      "overall_context_support": {
+        "avg_support_ratio": 0.7278,
+        "full_support_count": 8,
+        "support_ge_0_75_count": 9,
+        "questions": 15
+      },
+      "overall_failure_surface": {
+        "pass": 7,
+        "retrieval_gap": 4,
+        "synthesis_gap": 4
+      },
+      "stage_loss_report": {
+        "store_gap": 0,
+        "evidence_gap": 20,
+        "retriever_gap": 8,
+        "synthesis_gap": 3,
+        "hit": 29
+      },
+      "timestamp": "2026-04-09T01:23:40Z"
+    },
+    {
+      "phase_name": "phase2_alias_norm",
+      "hypothesis": "Alias/acronym normalization should reduce lexical zero-score misses and evidence_gap.",
+      "pipeline_config": "--evidence-first --corpus-lexicon-boost --corpus-lexicon-path evals/mirathorn_vertical_slice/output/phase_d_store/corpus_lexicon.json --alias-normalization --alias-match-weight 0.06",
+      "overall_semantic": {
+        "pass_updated": 8,
+        "fail_stale": 0,
+        "fail_incomplete": 7,
+        "fail_error": 0
+      },
+      "overall_context_support": {
+        "avg_support_ratio": 0.7389,
+        "full_support_count": 6,
+        "support_ge_0_75_count": 11,
+        "questions": 15
+      },
+      "overall_failure_surface": {
+        "pass": 8,
+        "retrieval_gap": 3,
+        "synthesis_gap": 4
+      },
+      "stage_loss_report": {
+        "store_gap": 0,
+        "evidence_gap": 15,
+        "retriever_gap": 7,
+        "synthesis_gap": 8,
+        "hit": 30
+      },
+      "timestamp": "2026-04-09T01:25:26Z"
+    },
+    {
+      "phase_name": "phase3_adaptive_topk",
+      "hypothesis": "Adaptive top-k should cut evidence_gap by expanding seed coverage while staying within context guardrails.",
+      "pipeline_config": "--evidence-first --evidence-adaptive-top-k --evidence-adaptive-top-k-max 48 --evidence-density-threshold 0.3",
+      "overall_semantic": {
+        "pass_updated": 9,
+        "fail_stale": 0,
+        "fail_incomplete": 6,
+        "fail_error": 0
+      },
+      "overall_context_support": {
+        "avg_support_ratio": 0.7389,
+        "full_support_count": 7,
+        "support_ge_0_75_count": 9,
+        "questions": 15
+      },
+      "overall_failure_surface": {
+        "pass": 9,
+        "retrieval_gap": 3,
+        "synthesis_gap": 3
+      },
+      "stage_loss_report": {
+        "store_gap": 0,
+        "evidence_gap": 13,
+        "retriever_gap": 8,
+        "synthesis_gap": 5,
+        "hit": 34
+      },
+      "timestamp": "2026-04-09T01:27:11Z"
+    },
+    {
+      "phase_name": "phase4_entity_aware",
+      "hypothesis": "Entity-aware provenance expansion should reduce retriever_gap by preserving entity-linked evidence IDs.",
+      "pipeline_config": "--evidence-first --evidence-adaptive-top-k --evidence-adaptive-top-k-max 48 --evidence-density-threshold 0.3 --evidence-entity-aware --evidence-entity-quota 10 --evidence-entity-evidence-quota 12",
+      "overall_semantic": {
+        "pass_updated": 8,
+        "fail_stale": 0,
+        "fail_incomplete": 7,
+        "fail_error": 0
+      },
+      "overall_context_support": {
+        "avg_support_ratio": 0.7,
+        "full_support_count": 7,
+        "support_ge_0_75_count": 9,
+        "questions": 15
+      },
+      "overall_failure_surface": {
+        "pass": 8,
+        "retrieval_gap": 4,
+        "synthesis_gap": 3
+      },
+      "stage_loss_report": {
+        "store_gap": 0,
+        "evidence_gap": 9,
+        "retriever_gap": 8,
+        "synthesis_gap": 10,
+        "hit": 33
+      },
+      "timestamp": "2026-04-09T01:28:58Z"
+    },
+    {
+      "phase_name": "phase5_synthesis_profile",
+      "hypothesis": "Corpus-specific synthesis profile and verbosity should reduce synthesis_gap without increasing stale outputs.",
+      "pipeline_config": "--evidence-first --evidence-adaptive-top-k --evidence-adaptive-top-k-max 48 --evidence-density-threshold 0.3 --evidence-entity-aware --evidence-entity-quota 10 --evidence-entity-evidence-quota 12 --synthesis-profile mirathorn --synthesis-verbosity verbose",
+      "overall_semantic": {
+        "pass_updated": 7,
+        "fail_stale": 1,
+        "fail_incomplete": 7,
+        "fail_error": 0
+      },
+      "overall_context_support": {
+        "avg_support_ratio": 0.6889,
+        "full_support_count": 6,
+        "support_ge_0_75_count": 9,
+        "questions": 15
+      },
+      "overall_failure_surface": {
+        "pass": 7,
+        "retrieval_gap": 4,
+        "synthesis_gap": 4
+      },
+      "stage_loss_report": {
+        "store_gap": 0,
+        "evidence_gap": 9,
+        "retriever_gap": 8,
+        "synthesis_gap": 10,
+        "hit": 33
+      },
+      "timestamp": "2026-04-09T01:31:07Z"
+    },
+    {
+      "phase_name": "phase6_embedding_hybrid",
+      "hypothesis": "Embedding similarity vs core_claims (TL;DR-only) measures answer alignment; combined with Phase 5 retrieval stack.",
+      "pipeline_config": "--evidence-first --evidence-adaptive-top-k --evidence-adaptive-top-k-max 48 --evidence-density-threshold 0.3 --evidence-entity-aware --evidence-entity-quota 10 --evidence-entity-evidence-quota 12 --synthesis-profile mirathorn --synthesis-verbosity verbose",
+      "overall_semantic": {
+        "pass_updated": 8,
+        "fail_stale": 0,
+        "fail_incomplete": 7,
+        "fail_error": 0
+      },
+      "overall_context_support": {
+        "avg_support_ratio": 0.7055,
+        "full_support_count": 6,
+        "support_ge_0_75_count": 9,
+        "questions": 15
+      },
+      "overall_failure_surface": {
+        "pass": 8,
+        "retrieval_gap": 4,
+        "synthesis_gap": 3
+      },
+      "stage_loss_report": {
+        "store_gap": 0,
+        "evidence_gap": 9,
+        "retriever_gap": 8,
+        "synthesis_gap": 12,
+        "hit": 31
+      },
+      "timestamp": "2026-04-09T01:57:24Z"
+    },
+    {
+      "phase_name": "exp1a_phase3_stability_run1",
+      "hypothesis": "Phase 3 stability check run 1 of 3.",
+      "pipeline_config": "--evidence-first --evidence-adaptive-top-k --evidence-adaptive-top-k-max 48 --evidence-density-threshold 0.3",
+      "overall_semantic": {
+        "pass_updated": 8,
+        "fail_stale": 0,
+        "fail_incomplete": 7,
+        "fail_error": 0
+      },
+      "overall_context_support": {
+        "avg_support_ratio": 0.75,
+        "full_support_count": 8,
+        "support_ge_0_75_count": 9,
+        "questions": 15
+      },
+      "overall_failure_surface": {
+        "pass": 8,
+        "retrieval_gap": 3,
+        "synthesis_gap": 4
+      },
+      "stage_loss_report": {
+        "store_gap": 0,
+        "evidence_gap": 13,
+        "retriever_gap": 8,
+        "synthesis_gap": 7,
+        "hit": 32
+      },
+      "timestamp": "2026-04-09T02:27:55Z"
+    },
+    {
+      "phase_name": "exp1a_phase3_stability_run2",
+      "hypothesis": "Phase 3 stability check run 2 of 3.",
+      "pipeline_config": "--evidence-first --evidence-adaptive-top-k --evidence-adaptive-top-k-max 48 --evidence-density-threshold 0.3",
+      "overall_semantic": {
+        "pass_updated": 0,
+        "fail_stale": 0,
+        "fail_incomplete": 0,
+        "fail_error": 15
+      },
+      "overall_context_support": {
+        "avg_support_ratio": 0.0,
+        "full_support_count": 0,
+        "support_ge_0_75_count": 0,
+        "questions": 15
+      },
+      "overall_failure_surface": {
+        "pass": 0,
+        "retrieval_gap": 15,
+        "synthesis_gap": 0
+      },
+      "stage_loss_report": {
+        "store_gap": 0,
+        "evidence_gap": 13,
+        "retriever_gap": 8,
+        "synthesis_gap": 39,
+        "hit": 0
+      },
+      "timestamp": "2026-04-09T02:37:27Z"
+    },
+    {
+      "phase_name": "exp1a_phase3_stability_run2",
+      "hypothesis": "Phase 3 stability check run 2 of 3.",
+      "pipeline_config": "--evidence-first --evidence-adaptive-top-k --evidence-adaptive-top-k-max 48 --evidence-density-threshold 0.3",
+      "overall_semantic": {
+        "pass_updated": 8,
+        "fail_stale": 0,
+        "fail_incomplete": 7,
+        "fail_error": 0
+      },
+      "overall_context_support": {
+        "avg_support_ratio": 0.7389,
+        "full_support_count": 7,
+        "support_ge_0_75_count": 9,
+        "questions": 15
+      },
+      "overall_failure_surface": {
+        "pass": 8,
+        "retrieval_gap": 3,
+        "synthesis_gap": 4
+      },
+      "stage_loss_report": {
+        "store_gap": 0,
+        "evidence_gap": 13,
+        "retriever_gap": 8,
+        "synthesis_gap": 7,
+        "hit": 32
+      },
+      "timestamp": "2026-04-09T02:40:20Z"
+    },
+    {
+      "phase_name": "exp1a_phase3_stability_run3",
+      "hypothesis": "Phase 3 stability check run 3 of 3.",
+      "pipeline_config": "--evidence-first --evidence-adaptive-top-k --evidence-adaptive-top-k-max 48 --evidence-density-threshold 0.3",
+      "overall_semantic": {
+        "pass_updated": 8,
+        "fail_stale": 0,
+        "fail_incomplete": 7,
+        "fail_error": 0
+      },
+      "overall_context_support": {
+        "avg_support_ratio": 0.7222,
+        "full_support_count": 7,
+        "support_ge_0_75_count": 9,
+        "questions": 15
+      },
+      "overall_failure_surface": {
+        "pass": 8,
+        "retrieval_gap": 3,
+        "synthesis_gap": 4
+      },
+      "stage_loss_report": {
+        "store_gap": 0,
+        "evidence_gap": 13,
+        "retriever_gap": 8,
+        "synthesis_gap": 5,
+        "hit": 34
+      },
+      "timestamp": "2026-04-09T02:41:57Z"
+    },
+    {
+      "phase_name": "exp1b_tighter_topk_32",
+      "hypothesis": "Lower adaptive max (32) should reduce dilution and synthesis_gap.",
+      "pipeline_config": "--evidence-first --evidence-adaptive-top-k --evidence-adaptive-top-k-max 32 --evidence-density-threshold 0.3",
+      "overall_semantic": {
+        "pass_updated": 7,
+        "fail_stale": 0,
+        "fail_incomplete": 8,
+        "fail_error": 0
+      },
+      "overall_context_support": {
+        "avg_support_ratio": 0.75,
+        "full_support_count": 8,
+        "support_ge_0_75_count": 9,
+        "questions": 15
+      },
+      "overall_failure_surface": {
+        "pass": 7,
+        "retrieval_gap": 3,
+        "synthesis_gap": 5
+      },
+      "stage_loss_report": {
+        "store_gap": 0,
+        "evidence_gap": 20,
+        "retriever_gap": 8,
+        "synthesis_gap": 3,
+        "hit": 29
+      },
+      "timestamp": "2026-04-09T02:45:40Z"
+    },
+    {
+      "phase_name": "exp1c_density_0_5",
+      "hypothesis": "Stricter density (0.5) prunes dilution tail from adaptive top-k.",
+      "pipeline_config": "--evidence-first --evidence-adaptive-top-k --evidence-adaptive-top-k-max 48 --evidence-density-threshold 0.5",
+      "overall_semantic": {
+        "pass_updated": 7,
+        "fail_stale": 0,
+        "fail_incomplete": 8,
+        "fail_error": 0
+      },
+      "overall_context_support": {
+        "avg_support_ratio": 0.7222,
+        "full_support_count": 7,
+        "support_ge_0_75_count": 9,
+        "questions": 15
+      },
+      "overall_failure_surface": {
+        "pass": 7,
+        "retrieval_gap": 3,
+        "synthesis_gap": 5
+      },
+      "stage_loss_report": {
+        "store_gap": 0,
+        "evidence_gap": 18,
+        "retriever_gap": 8,
+        "synthesis_gap": 4,
+        "hit": 30
+      },
+      "timestamp": "2026-04-09T02:48:13Z"
+    },
+    {
+      "phase_name": "exp1d_phase3_compact",
+      "hypothesis": "Compact verbosity on Phase 3 retrieval should reduce synthesis_gap.",
+      "pipeline_config": "--evidence-first --evidence-adaptive-top-k --evidence-adaptive-top-k-max 48 --evidence-density-threshold 0.3 --synthesis-profile mirathorn --synthesis-verbosity compact",
+      "overall_semantic": {
+        "pass_updated": 8,
+        "fail_stale": 0,
+        "fail_incomplete": 7,
+        "fail_error": 0
+      },
+      "overall_context_support": {
+        "avg_support_ratio": 0.7389,
+        "full_support_count": 7,
+        "support_ge_0_75_count": 9,
+        "questions": 15
+      },
+      "overall_failure_surface": {
+        "pass": 8,
+        "retrieval_gap": 3,
+        "synthesis_gap": 4
+      },
+      "stage_loss_report": {
+        "store_gap": 0,
+        "evidence_gap": 13,
+        "retriever_gap": 8,
+        "synthesis_gap": 6,
+        "hit": 33
+      },
+      "timestamp": "2026-04-09T02:50:44Z"
+    },
+    {
+      "phase_name": "exp1e_phase3_default_verbosity",
+      "hypothesis": "Default verbosity (no verbose flag) on Phase 3 to isolate verbosity effect.",
+      "pipeline_config": "--evidence-first --evidence-adaptive-top-k --evidence-adaptive-top-k-max 48 --evidence-density-threshold 0.3 --synthesis-profile mirathorn",
+      "overall_semantic": {
+        "pass_updated": 8,
+        "fail_stale": 0,
+        "fail_incomplete": 7,
+        "fail_error": 0
+      },
+      "overall_context_support": {
+        "avg_support_ratio": 0.75,
+        "full_support_count": 8,
+        "support_ge_0_75_count": 9,
+        "questions": 15
+      },
+      "overall_failure_surface": {
+        "pass": 8,
+        "retrieval_gap": 3,
+        "synthesis_gap": 4
+      },
+      "stage_loss_report": {
+        "store_gap": 0,
+        "evidence_gap": 13,
+        "retriever_gap": 8,
+        "synthesis_gap": 6,
+        "hit": 33
+      },
+      "timestamp": "2026-04-09T02:55:28Z"
+    },
+    {
+      "phase_name": "exp1f_context_budget_10k",
+      "hypothesis": "Halving context budget (10k chars) forces tighter pruning, may improve synthesis.",
+      "pipeline_config": "--evidence-first --evidence-adaptive-top-k --evidence-adaptive-top-k-max 48 --evidence-density-threshold 0.3 --context-max-chars 10000",
+      "overall_semantic": {
+        "pass_updated": 8,
+        "fail_stale": 0,
+        "fail_incomplete": 7,
+        "fail_error": 0
+      },
+      "overall_context_support": {
+        "avg_support_ratio": 0.7389,
+        "full_support_count": 7,
+        "support_ge_0_75_count": 9,
+        "questions": 15
+      },
+      "overall_failure_surface": {
+        "pass": 8,
+        "retrieval_gap": 3,
+        "synthesis_gap": 4
+      },
+      "stage_loss_report": {
+        "store_gap": 0,
+        "evidence_gap": 13,
+        "retriever_gap": 8,
+        "synthesis_gap": 5,
+        "hit": 34
+      },
+      "timestamp": "2026-04-09T02:58:05Z"
+    },
+    {
+      "phase_name": "exp1g_claim_verification",
+      "hypothesis": "Claim verification as second axis catches hallucinations missed by token tests.",
+      "pipeline_config": "--evidence-first --evidence-adaptive-top-k --evidence-adaptive-top-k-max 48 --evidence-density-threshold 0.3",
+      "overall_semantic": {
+        "pass_updated": 8,
+        "fail_stale": 0,
+        "fail_incomplete": 7,
+        "fail_error": 0
+      },
+      "overall_context_support": {
+        "avg_support_ratio": 0.7333,
+        "full_support_count": 8,
+        "support_ge_0_75_count": 9,
+        "questions": 15
+      },
+      "overall_failure_surface": {
+        "pass": 8,
+        "retrieval_gap": 3,
+        "synthesis_gap": 4
+      },
+      "stage_loss_report": {
+        "store_gap": 0,
+        "evidence_gap": 13,
+        "retriever_gap": 8,
+        "synthesis_gap": 6,
+        "hit": 33
+      },
+      "timestamp": "2026-04-09T03:05:28Z"
+    },
+    {
+      "phase_name": "exp2a_two_step_synthesis",
+      "hypothesis": "Two-step extract-then-answer should reduce synthesis_gap.",
+      "pipeline_config": "--evidence-first --evidence-adaptive-top-k --evidence-adaptive-top-k-max 48 --evidence-density-threshold 0.3 --two-step-synthesis",
+      "overall_semantic": {
+        "pass_updated": 7,
+        "fail_stale": 0,
+        "fail_incomplete": 8,
+        "fail_error": 0
+      },
+      "overall_context_support": {
+        "avg_support_ratio": 0.7389,
+        "full_support_count": 7,
+        "support_ge_0_75_count": 9,
+        "questions": 15
+      },
+      "overall_failure_surface": {
+        "pass": 7,
+        "retrieval_gap": 3,
+        "synthesis_gap": 5
+      },
+      "stage_loss_report": {
+        "store_gap": 0,
+        "evidence_gap": 13,
+        "retriever_gap": 8,
+        "synthesis_gap": 8,
+        "hit": 31
+      },
+      "timestamp": "2026-04-09T03:29:06Z"
+    },
+    {
+      "phase_name": "exp2b_citation_structure",
+      "hypothesis": "TL;DR + Evidence bullets + Analysis should align output with core_claims and reduce synthesis_gap.",
+      "pipeline_config": "--evidence-first --evidence-adaptive-top-k --evidence-adaptive-top-k-max 48 --evidence-density-threshold 0.3 --synthesis-profile mirathorn --synthesis-citation-structure",
+      "overall_semantic": {
+        "pass_updated": 8,
+        "fail_stale": 0,
+        "fail_incomplete": 7,
+        "fail_error": 0
+      },
+      "overall_context_support": {
+        "avg_support_ratio": 0.7222,
+        "full_support_count": 7,
+        "support_ge_0_75_count": 9,
+        "questions": 15
+      },
+      "overall_failure_surface": {
+        "pass": 8,
+        "retrieval_gap": 3,
+        "synthesis_gap": 4
+      },
+      "stage_loss_report": {
+        "store_gap": 0,
+        "evidence_gap": 13,
+        "retriever_gap": 8,
+        "synthesis_gap": 6,
+        "hit": 33
+      },
+      "timestamp": "2026-04-09T03:38:01Z"
+    },
+    {
+      "phase_name": "exp3a_per_seed_budget",
+      "hypothesis": "Per-seed neighbor budgeting prevents top seeds from starving lower seeds.",
+      "pipeline_config": "--evidence-first --evidence-adaptive-top-k --evidence-adaptive-top-k-max 48 --evidence-density-threshold 0.3",
+      "overall_semantic": {
+        "pass_updated": 9,
+        "fail_stale": 0,
+        "fail_incomplete": 6,
+        "fail_error": 0
+      },
+      "overall_context_support": {
+        "avg_support_ratio": 0.75,
+        "full_support_count": 8,
+        "support_ge_0_75_count": 10,
+        "questions": 15
+      },
+      "overall_failure_surface": {
+        "pass": 9,
+        "retrieval_gap": 3,
+        "synthesis_gap": 3
+      },
+      "stage_loss_report": {
+        "store_gap": 0,
+        "evidence_gap": 13,
+        "retriever_gap": 7,
+        "synthesis_gap": 5,
+        "hit": 35
+      },
+      "timestamp": "2026-04-09T03:48:57Z"
+    },
+    {
+      "phase_name": "exp3b_two_pass_evidence",
+      "hypothesis": "Two-pass: BM25+neighbors then entity provenance expansion.",
+      "pipeline_config": "--evidence-first --evidence-adaptive-top-k --evidence-adaptive-top-k-max 48 --evidence-density-threshold 0.3 --evidence-two-pass",
+      "overall_semantic": {
+        "pass_updated": 8,
+        "fail_stale": 0,
+        "fail_incomplete": 7,
+        "fail_error": 0
+      },
+      "overall_context_support": {
+        "avg_support_ratio": 0.7389,
+        "full_support_count": 7,
+        "support_ge_0_75_count": 9,
+        "questions": 15
+      },
+      "overall_failure_surface": {
+        "pass": 8,
+        "retrieval_gap": 3,
+        "synthesis_gap": 4
+      },
+      "stage_loss_report": {
+        "store_gap": 0,
+        "evidence_gap": 9,
+        "retriever_gap": 8,
+        "synthesis_gap": 10,
+        "hit": 33
+      },
+      "timestamp": "2026-04-09T03:51:32Z"
+    },
+    {
+      "phase_name": "exp3c_doc_quotas",
+      "hypothesis": "Cap chunks per document at 12 to limit single-source dominance.",
+      "pipeline_config": "--evidence-first --evidence-adaptive-top-k --evidence-adaptive-top-k-max 48 --evidence-density-threshold 0.3",
+      "overall_semantic": {
+        "pass_updated": 9,
+        "fail_stale": 0,
+        "fail_incomplete": 6,
+        "fail_error": 0
+      },
+      "overall_context_support": {
+        "avg_support_ratio": 0.7055,
+        "full_support_count": 6,
+        "support_ge_0_75_count": 9,
+        "questions": 15
+      },
+      "overall_failure_surface": {
+        "pass": 9,
+        "retrieval_gap": 4,
+        "synthesis_gap": 2
+      },
+      "stage_loss_report": {
+        "store_gap": 0,
+        "evidence_gap": 24,
+        "retriever_gap": 5,
+        "synthesis_gap": 4,
+        "hit": 27
+      },
+      "timestamp": "2026-04-09T03:53:41Z"
+    },
+    {
+      "phase_name": "exp4a_document_planner",
+      "hypothesis": "LLM document planner pre-filters chunk pool before evidence-first retrieval.",
+      "pipeline_config": "--evidence-first --evidence-adaptive-top-k --evidence-adaptive-top-k-max 48 --evidence-density-threshold 0.3 --document-planner",
+      "overall_semantic": {
+        "pass_updated": 6,
+        "fail_stale": 0,
+        "fail_incomplete": 9,
+        "fail_error": 0
+      },
+      "overall_context_support": {
+        "avg_support_ratio": 0.7611,
+        "full_support_count": 7,
+        "support_ge_0_75_count": 9,
+        "questions": 15
+      },
+      "overall_failure_surface": {
+        "pass": 6,
+        "retrieval_gap": 2,
+        "synthesis_gap": 7
+      },
+      "stage_loss_report": {
+        "store_gap": 0,
+        "evidence_gap": 14,
+        "retriever_gap": 8,
+        "synthesis_gap": 8,
+        "hit": 30
+      },
+      "timestamp": "2026-04-09T04:01:10Z"
+    },
+    {
+      "phase_name": "exp4b_embedding_rerank",
+      "hypothesis": "Chunk-level embedding rerank on top BM25 candidates improves evidence ordering.",
+      "pipeline_config": "--evidence-first --evidence-adaptive-top-k --evidence-adaptive-top-k-max 48 --evidence-density-threshold 0.3",
+      "overall_semantic": {
+        "pass_updated": 8,
+        "fail_stale": 0,
+        "fail_incomplete": 7,
+        "fail_error": 0
+      },
+      "overall_context_support": {
+        "avg_support_ratio": 0.7167,
+        "full_support_count": 7,
+        "support_ge_0_75_count": 9,
+        "questions": 15
+      },
+      "overall_failure_surface": {
+        "pass": 8,
+        "retrieval_gap": 4,
+        "synthesis_gap": 3
+      },
+      "stage_loss_report": {
+        "store_gap": 0,
+        "evidence_gap": 10,
+        "retriever_gap": 8,
+        "synthesis_gap": 9,
+        "hit": 33
+      },
+      "timestamp": "2026-04-09T04:11:43Z"
+    },
+    {
+      "phase_name": "exp4c_planner_per_seed",
+      "hypothesis": "Document planner plus per-seed neighbor budget (3A stack).",
+      "pipeline_config": "--evidence-first --evidence-adaptive-top-k --evidence-adaptive-top-k-max 48 --evidence-density-threshold 0.3 --document-planner",
+      "overall_semantic": {
+        "pass_updated": 6,
+        "fail_stale": 0,
+        "fail_incomplete": 9,
+        "fail_error": 0
+      },
+      "overall_context_support": {
+        "avg_support_ratio": 0.7611,
+        "full_support_count": 7,
+        "support_ge_0_75_count": 9,
+        "questions": 15
+      },
+      "overall_failure_surface": {
+        "pass": 6,
+        "retrieval_gap": 2,
+        "synthesis_gap": 7
+      },
+      "stage_loss_report": {
+        "store_gap": 0,
+        "evidence_gap": 14,
+        "retriever_gap": 7,
+        "synthesis_gap": 10,
+        "hit": 29
+      },
+      "timestamp": "2026-04-09T04:14:16Z"
+    }
+  ]
+}

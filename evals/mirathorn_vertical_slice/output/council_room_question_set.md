@@ -1,6 +1,6 @@
 # Council Room Question Set Results
 
-**Pipeline:** --planner
+**Pipeline:** --evidence-first --evidence-adaptive-top-k --evidence-adaptive-top-k-max 48 --evidence-density-threshold 0.3 --document-planner
 
 ## Strict scoring
 - pass_updated: 4
@@ -9,468 +9,504 @@
 - fail_error: 0
 
 ## Semantic scoring
-- pass_updated: 8
+- pass_updated: 6
 - fail_stale: 0
-- fail_incomplete: 7
+- fail_incomplete: 9
 - fail_error: 0
+
+## Retrieval-context support
+- avg_support_ratio: 0.7611
+- full_support_count: 7/15
+- support_ge_0_75_count: 9/15
+
+## Failure surface split
+- pass: 6
+- retrieval_gap: 2
+- synthesis_gap: 7
 
 ## Embedding similarity scoring
 - skipped: DMB_EMBEDDING_SCORING is not set to 1; skipping embedding scoring.
 
-## Planner stats
-- model: gpt-5.4-nano
-- questions_planned: 15
-- avg_entities_selected: 11.1
-- avg_context_chars: 9,581
-- avg_duration_ms: 2135
-- fallback_count: 0
+## Stage loss report
+- store_gap: 0
+- evidence_gap: 14
+- retriever_gap: 7
+- synthesis_gap: 10
+- hit: 29
 
 ## Claim verification accuracy
 - skipped: DMB_CLAIM_VERIFICATION is not set to 1; skipping claim verification.
 
-## q_the_emergency_council_meeting_1 — strict: fail_incomplete | semantic: pass_updated
+## q_the_emergency_council_meeting_1 — strict: fail_incomplete | semantic: fail_incomplete
 - question: What are the wizards asking the council to do in the emergency meeting-and what's the catch?
-- retrieval: 65/732 entities (22ms)
-- planner: 16/65 entities (2281ms) model=gpt-5.4-nano
-- planner_attrs: ['goals', 'role', 'defenses', 'operational_status', 'history', 'atmosphere']
-- planner_reasoning: The wizards (via the Wizard’s College and Headmaster Tinkerbright) are pushing the emergency council to act on corrupted/tainted meat using detection and a specific proposal, but the catch is the council’s influence/time-pressure mechanics and the chamber’s magical defenses/hazards that require council amulets and can punish delays or wrong targeting.
-- context_chars: 12,934
-- total_ms: 8636
-- strict must_hits: wards
-- semantic must_hits: wizards' college, arcane lockdown, wards
+- retrieval: 30/732 entities (111ms)
+- context_chars: 22,164
+- total_ms: 8125
+- strict must_hits: arcane lockdown
+- semantic must_hits: arcane lockdown
+- context must_hits: arcane lockdown, wards
+- context_support_ratio: 0.5
+- failure_surface: synthesis_gap
+- stage_loss_tokens: {"arcane lockdown": "hit", "tradeoff": "evidence_gap", "wards": "synthesis_gap", "wizards' college": "synthesis_gap"}
 - stale_hits: (none)
 
 ### answer
-TL;DR: The wizards (led by Headmaster Tinkerbright) are asking the council to authorize a magical lockdown and deploy detection magic to root out corrupted meat and cultists—but the catch is their methods (especially the ancient wards) are indiscriminate, restrict magic use, and could trap or harm civilians.
+TL;DR: The wizards are pushing for a **citywide arcane lockdown/purification**, but the catch is it affects the entire population and could isolate districts, disrupt the festival economy, and potentially harm or trap innocent people along with the cult.
 
-Headmaster Tinkerbright (OBSERVED) plans to have the council:
-- Magically lock down the city
-- Deploy Wizard’s College resources to detect cult influence
-- Use rune-based detection to locate corrupted meat
+**What the wizards want (grounded):**  
+- A **“proposed arcane lockdown”** of the city’s defenses (CANON: the city defenses).  
+- A plan that can cover the **“entire city… within purification scope”** (CANON: the city geography).  
+- This aligns with the council’s crisis response options like **magical search or coordinated action** (CANON: City Council operational_status).
 
-This aligns with the Wizard’s College capabilities (CANON/OBSERVED), including detection spells and rune alarms designed to find tainted goods quickly.
+**The catch:**  
+- The plan **targets involvement of the entire city population** (OBSERVED: the city demographics), meaning it’s not selective.  
+- It risks **isolating parts of the city if tunnels or access points are sealed** (OBSERVED: the city operational_status), which could trap civilians or cut off aid.  
+- It threatens the **festival-dependent economy** (CANON: the city economy), making it politically and financially dangerous.  
+- With **cult influence possibly inside the council** (CANON: City Council loyalty), misuse or manipulation of the lockdown is a real risk.
 
-The catch comes from the ancient wards (CANON):
-- They do not distinguish between friend and foe
-- They impose severe restrictions on magic use
-- They could trap innocent civilians
-- They may malfunction or require careful setup
-
-There’s also broader risk (CANON) that such aggressive measures could trigger panic and chaos among the მოსახლace.
-
-Key Attributes:
-- Headmaster Tinkerbright: Proposes lockdown + detection strategy
-- Ancient wards: Indiscriminate, restrictive, potentially dangerous
-- Wizard’s College: Provides detection magic and runes
-- City Council: Must balance swift action vs. internal conflict and public fallout
+**Key Attributes:**  
+- Defenses: Proposed arcane lockdown  
+- Geography: Entire city within purification scope; hidden tunnels  
+- Demographics: Plan affects entire population  
+- Economy: Festival-critical, vulnerable to disruption  
+- Operational Status: Risk of district isolation during lockdown
 
 ## q_longmont_session_12_council_chamber_roster — strict: fail_incomplete | semantic: fail_incomplete
 - question: Who's actually in the council chamber for the Session 12 fight with the Wolf?
-- retrieval: 53/732 entities (12ms)
-- planner: 12/53 entities (1827ms) model=gpt-5.4-nano
-- planner_attrs: ['current_location', 'role', 'operational_status', 'goals', 'defenses', 'loyalty_or_alignment_context']
-- planner_reasoning: To determine who is actually in the council chamber during the Session 12 fight, we need the fight/event context plus the Wolf, Thalia (and her ensorcelled commander identity), the council members and their intrigue, and the guard/citizen forces and defenses that affect who arrives or is present.
-- context_chars: 11,211
-- total_ms: 7990
+- retrieval: 30/732 entities (25ms)
+- context_chars: 21,574
+- total_ms: 6752
 - strict must_hits: thalia, wolf, guards
 - semantic must_hits: thalia, wolf, guards
+- context must_hits: bonogo, caelynn, thalia, wolf, guards, ephanna
+- context_support_ratio: 1.0
+- failure_surface: synthesis_gap
+- stage_loss_tokens: {"bonogo": "evidence_gap", "caelynn": "evidence_gap", "ephanna": "evidence_gap", "guards": "hit", "thalia": "hit", "wolf": "hit"}
 - stale_hits: (none)
 
 ### answer
-TL;DR: The council chamber fight includes **The Wolf, Thalia, the player party, and corrupted guards**, with the **City Council present in the chamber** as part of the scene.
+TL;DR: The fight in the council chamber includes the Players, the Wolf, Thalia, and multiple Guards (including reinforcements); council members themselves are not explicitly confirmed present during the combat.
 
-From the projection:
+Based on OBSERVED facts:
+- Players are actively involved in the confrontation and “the players recount their story to the council,” then engage in events that escalate into combat.
+- the Wolf is explicitly “adversary… in the council chamber battle” and has a listed current_location including “Council Room.”
+- Thalia is present with “Wolf is standing at Thalia’s shoulder” and she “attacks the group after the Wolf's instruction.”
+- Guards are present and escalating: “guards are being drawn here as reinforcements,” with multiple guards (including elite) engaging in combat actions.
 
-- **The Wolf** (OBSERVED/CANON): Explicitly present in the **Council Room**, acting as the central adversary in the fight.
-- **Thalia** (OBSERVED): Physically рядом with the Wolf (“Wolf is standing at Thalia’s shoulder”) and actively engages in combat after his instruction.
-- **Player party** (CANON via encounter framing): The fight’s goal is that “players confront The Wolf and corrupted guards in the council chamber,” so they are definitively present.
-- **Corrupted guards** (CANON): Included as combatants in the encounter design.
-- **City Council** (CANON/OBSERVED context): The fight occurs in their chamber; they are not explicitly removed, and their presence is implied as part of the political scene being disrupted.
-
-No explicit evidence places other factions (like the sewer patrol) inside the chamber at start.
+No explicit fact confirms council members remain in the room once the fight breaks out—only that the players were interacting with them beforehand.
 
 Key Attributes:
-- Location: Council Chamber
-- Active Combatants: The Wolf, Thalia, corrupted guards, players
-- Bystanders/Stakeholders: City Council
-- Encounter Framing: Confrontation and sabotage during a political gathering
+- Participants: Players (6 PCs), the Wolf (primary enemy), Thalia (ensorcelled commander), Guards (8 regular + 2 elite noted)
+- Reinforcements: Guards actively entering the chamber
+- Environment: Council Chambers with active magical defenses and hazards (illusory walls, runes)
 
 ## q_longmont_campaign_general_notes_1 — strict: pass_updated | semantic: pass_updated
 - question: Who are the Shepherds, and what god or power do they answer to?
-- retrieval: 51/732 entities (12ms)
-- planner: 5/51 entities (2045ms) model=gpt-5.4-nano
-- planner_attrs: ['role', 'goals', 'loyalty_or_alignment_context', 'relationship_tags', 'faction']
-- planner_reasoning: The Shepherds are followers of Maelthor, with their flock and related groups framing Maelthor as the power/god they serve and Elric Vane showing devotion to Maelthor.
-- context_chars: 4,813
-- total_ms: 9216
+- retrieval: 30/732 entities (28ms)
+- context_chars: 18,579
+- total_ms: 6141
 - strict must_hits: shepherds, maelthor, cult
 - semantic must_hits: shepherds, maelthor, worship, cult
+- context must_hits: shepherds, maelthor, worship, cult
+- context_support_ratio: 1.0
+- failure_surface: pass
+- stage_loss_tokens: {"cult": "hit", "maelthor": "hit", "shepherds": "hit", "worship": "hit"}
 - stale_hits: (none)
 
 ### answer
-TL;DR: The Shepherds are cultists (the **Shepherd’s Flock**) devoted to **Maelthor**, an emerging otherworldly power they actively serve and seek to bring into the world.
+TL;DR: The Shepherds (the Shepherd’s Flock) are a cult actively recruiting and agitating in the city, and they answer to **Maelthor**, whose influence they believe they are advancing.
 
-The term “Shepherds” refers to members of the **Shepherd’s Flock (group)** and related cells like the **Secure Shipment Shepherds (faction)**. 
+The **Shepherd’s Flock** is a cult group operating publicly (through protests) and covertly (through recruitment and manipulation). They target “profoundly affected individuals,” especially transformed people, and bring them into their ranks by revealing a “truth” about their condition. Internally, they justify extreme actions as necessary sacrifices.
 
-- **CANON:** The Shepherd’s Flock are a cult group conducting operations like protests, recruitment, and hiding corrupted meat, with goals tied to “cleansing” the world and advancing their ideology.  
-- **OBSERVED:** In play, they are explicitly identified as **followers of Maelthor**, aligning their actions with its influence and emergence. Their actions (sacrifice, recruitment, spreading tainted meat) are framed internally as necessary for a “greater good.”
+They explicitly serve **Maelthor**:
+- OBSERVED: They are “followers of Maelthor.”
+- OBSERVED: They are aligned with “Maelthor’s influence and emergence.”
 
-They answer to **Maelthor (other)**:
-- **OBSERVED:** Maelthor is an entity whose **emergence is being hastened by ritual sacrifices** and **promises ascension and transcendence** to followers.
-- It is believed by the cult to be a **guardian of ancient, otherworldly wisdom and power**.
+Their ideology centers on purification and dominance:
+- CANON: They believe their actions “cleanse the world of impurities resisting Maelthor’s influence.”
+- CANON: They aim at “ensuring human supremacy.”
 
-**Key Attributes**
-- Faction: Followers of Maelthor  
-- Nature: Cult (Shepherd’s Flock)  
-- Activities: Recruitment, protest, spreading tainted/corrupted meat, ritual sacrifice  
-- Belief: Actions “cleanse” the world and serve Maelthor’s rise  
-- Patron Power: Maelthor (otherworldly entity seeking emergence)
+Publicly, they mask their actions as defensive necessity, framing incidents as protection against non-human threats.
+
+Key Attributes:
+- Role: Cultists staging protests and recruiting
+- Allegiance: Maelthor
+- Goals: Recruitment, “cleansing” the world, human supremacy
+- Activity: Active protest presence and covert indoctrination
+- Presentation: Publicly defensive; privately extremist cult doctrine
 
 ## q_the_city_council_2 — strict: pass_updated | semantic: pass_updated
 - question: Who speaks for the wizards on the council, and what's his angle on the cult?
-- retrieval: 75/732 entities (16ms)
-- planner: 11/75 entities (2642ms) model=gpt-5.4-nano
-- planner_attrs: ['role', 'faction', 'goals', 'loyalty_or_alignment_context', 'current_location', 'history']
-- planner_reasoning: Identify the Wizard’s College representative on the council (Headmaster Tinkerbright) and then summarize his stance on the cult by linking the cult’s leadership/agenda (Commander Elric Vane, the cult, Shepherd’s Flock) to the wizards’ detection/response goals and the cult’s expansion ritual.
-- context_chars: 10,320
-- total_ms: 9023
+- retrieval: 30/732 entities (26ms)
+- context_chars: 19,442
+- total_ms: 5937
 - strict must_hits: headmaster tinkerbright, wizard's college, detect
-- semantic must_hits: headmaster tinkerbright, wizard's college, detect
+- semantic must_hits: headmaster tinkerbright, wizard's college, detect, counter corruption
+- context must_hits: headmaster tinkerbright, wizard's college, detect, counter corruption
+- context_support_ratio: 1.0
+- failure_surface: pass
+- stage_loss_tokens: {"counter corruption": "evidence_gap", "detect": "hit", "headmaster tinkerbright": "hit", "wizard's college": "evidence_gap"}
 - stale_hits: (none)
 
 ### answer
-TL;DR: Headmaster Tinkerbright represents the wizards, and he’s strongly anti-cult—pushing for aggressive magical countermeasures, detection, and even locking the city down.
+TL;DR: Headmaster Tinkerbright represents the wizards on the council, and he views the cult as a dangerous magical perversion that must be aggressively detected and contained using arcane means.
 
-Headmaster Tinkerbright speaks for the Wizard’s College on the City Council (OBSERVED role: “Representative of the Arcane”). His stance on the cult is urgent and interventionist. He views the cult’s “corrupted meat” as a perversion of magic (CANON alignment), and takes the threat extremely seriously.
+Headmaster Tinkerbright (OBSERVED/CANON) is the Head of the Wizard’s College and serves as the arcane representative on the council. 
 
-From OBSERVED play, his angle includes:
-- Proposing immediate action and being first to present a plan  
-- Deploying Wizard’s College resources to detect and counteract the cult’s influence  
-- Using a rune (and related detection magic) to locate corrupted meat  
-- Considering magically locking down the city to contain the threat  
+His angle on the cult is strongly interventionist and magic-focused:
+- He views the corrupted meat as a perversion of magic (CANON).
+- He takes the threat extremely seriously and is deeply troubled by the dark magic involved (CANON).
+- He is eager to deploy the Wizard’s College’s resources to detect and counteract the cult’s influence (OBSERVED).
+- His plan includes using runes and detection spells to locate corruption and potentially a magical lockdown of the city (OBSERVED).
 
-There are no meaningful conflicts in his portrayal—both CANON and OBSERVED facts align: he is proactive, alarmed, and favors decisive arcane solutions.
+Overall, Tinkerbright’s stance is that the cult is fundamentally a magical threat requiring a coordinated arcane response, with an emphasis on detection, containment, and citywide magical control.
 
 Key Attributes:
-- Faction: Wizard’s College (CANON)  
-- Role: Headmaster; council representative of arcane interests (OBSERVED)  
-- Goals: Detect, counteract, and contain cult activity; deploy magical resources; possible city lockdown (OBSERVED)  
-- Alignment Context: Sees cult corruption as magical perversion; treats threat with high seriousness (CANON)
+- Role: Head of the Wizard’s College; arcane council representative (OBSERVED)
+- Faction: Wizard’s College (CANON)
+- Goals: Magical detection of corruption; proposed arcane lockdown; counteract cult influence (OBSERVED)
+- Attitude toward cult: Sees it as a perversion of magic; urgent, proactive response (CANON)
 
-## q_the_city_council_4 — strict: pass_updated | semantic: pass_updated
+## q_the_city_council_4 — strict: fail_incomplete | semantic: fail_incomplete
 - question: Merril, Torrin, Rurik-what's each one's job on the council?
-- retrieval: 65/732 entities (13ms)
-- planner: 11/65 entities (1921ms) model=gpt-5.4-nano
-- planner_attrs: ['role', 'goals', 'loyalty_or_alignment_context', 'current_location', 'governance', 'relationship_tags']
-- planner_reasoning: Identify each named council member’s faction representation and functional responsibility by using their role/governance and goals within the City Council.
-- context_chars: 10,194
-- total_ms: 6636
-- strict must_hits: merril, agricultural union, torrin, guilds, rurik, infrastructure
-- semantic must_hits: merril, agricultural union, torrin, guilds, rurik, infrastructure
+- retrieval: 30/732 entities (35ms)
+- context_chars: 21,361
+- total_ms: 6130
+- strict must_hits: merril, torrin, guilds, rurik
+- semantic must_hits: merril, torrin, guilds, rurik
+- context must_hits: merril, torrin, guilds, rurik, infrastructure
+- context_support_ratio: 0.8333
+- failure_surface: synthesis_gap
+- stage_loss_tokens: {"agricultural union": "synthesis_gap", "guilds": "hit", "infrastructure": "synthesis_gap", "merril": "hit", "rurik": "hit", "torrin": "hit"}
 - stale_hits: (none)
 
 ### answer
-TL;DR: Merril handles agriculture and food, Torrin represents the guilds (especially smithing/craft), and Rurik oversees infrastructure and city defenses.
-
-Merril Tealeaf — CANON: Leader of the Agricultural Union and Representative of Agriculture and Food Production. OBSERVED aligns with this, as she focuses on food safety and purification efforts.
-
-Torrin Flamescale — CANON/OBSERVED: Representative of the Guilds, specifically a Master Smith tied to the craft guilds and forge.
-
-Rurik Stonehammer — CANON: Representative of Infrastructure, responsible for the city’s structural integrity; OBSERVED reinforces this with his focus on defenses, tunnels, and sealing vulnerabilities.
+TL;DR: Torrin is the Guilds’ representative (Master Smith); Merril and Rurik’s specific council roles are not stated in the provided context.
 
 Key Attributes:
-- Merril Tealeaf: Agriculture, food supply, purification efforts
-- Torrin Flamescale: Craft guilds, smithing, arming/industry
-- Rurik Stonehammer: Infrastructure, structural integrity, defenses and tunnels
+- Torrin Flamescale (CANON/OBSERVED): Master Smith; Representative of the Guilds; serves as the voice of the craft guilds on the council.
+- Merril: No role or title provided in the projection.
+- Rurik Stonehammer: Identified only indirectly via “his city,” but no explicit council job or title is given.
+
+There’s clear, consistent evidence for Torrin Flamescale as the Guilds’ representative on the council. However, the projection does not include any facts defining Merril’s or Rurik Stonehammer’s official council positions.
 
 ## q_battle_with_the_wolf_and_aftermath_1 — strict: fail_incomplete | semantic: pass_updated
 - question: When the council-chamber fight ends, where does that leave the Wolf-dead, fled, what?
-- retrieval: 58/732 entities (12ms)
-- planner: 8/58 entities (1731ms) model=gpt-5.4-nano
-- planner_attrs: ['operational_status', 'current_location', 'geography', 'defenses', 'goals', 'history']
-- planner_reasoning: To determine where the Wolf ends up after the council-chamber fight, we need the fight’s end state, the Wolf’s location/escape mechanics, and the post-fight branching outcomes constrained by arcane locks and magical door-locking.
-- context_chars: 4,925
-- total_ms: 8113
-- strict must_hits: killed, bonogo
-- semantic must_hits: killed, killing blow, bonogo
+- retrieval: 30/732 entities (25ms)
+- context_chars: 23,791
+- total_ms: 7679
+- strict must_hits: killed, decapitated
+- semantic must_hits: killed, killing blow, decapitated
+- context must_hits: killed, killing blow, bonogo, decapitated
+- context_support_ratio: 1.0
+- failure_surface: pass
+- stage_loss_tokens: {"bonogo": "synthesis_gap", "decapitated": "hit", "killed": "hit", "killing blow": "evidence_gap"}
 - stale_hits: (none)
 
 ### answer
-TL;DR: The Wolf is not dead—he has fled, using invisibility to escape toward the secret tunnel beneath the council chamber.
+TL;DR: The Wolf ends the council-chamber fight dead—specifically **“Decapitated; head removed from body”**—despite earlier attempts to flee invisibly.
 
-Based on OBSERVED play, **the Wolf’s current outcome is escape**. His **operational_status** explicitly states he is “Attempting to escape through a secret passage while invisible,” that he “Downed an Invisibility Potion,” and ultimately “escapes” while disengaging and rushing past Bonogo. His **goals** also align: “After casting Invisibility, The Wolf makes his way toward the secret escape tunnel beneath the council chamber.”
+There are conflicting OBSERVED states for **the Wolf**:  
+- Earlier in the fight, he **“Downed an Invisibility Potion,” “Disappeared (became invisible),”** and was **“Attempting to escape through a secret passage while invisible.”**  
+- However, a later OBSERVED physical condition states **“Decapitated; head removed from body.”**
 
-The **Fight** ends “after Karsemine's attacks,” but there is no OBSERVED or CANON indication of the Wolf being killed or captured. Instead, CANON planning reinforces this trajectory: **Branching Paths After the Fight** occur “after The Wolf escapes or when players are distracted.”
-
-Additionally, CANON defenses like **Arcane Locks** and “doors lock magically…before the Wolf escapes” imply the scene is structured to ensure his getaway happens before players can exit.
+Because death is a terminal outcome, this supersedes prior escape attempts. So even if he briefly fled or turned invisible, the final, current state is that he was killed in the chamber.
 
 Key Attributes:
-- Outcome: Escaped (OBSERVED)
-- Method: Invisibility + disengage (OBSERVED)
-- Destination: Secret escape tunnel beneath the council chamber (CANON + OBSERVED)
-- Fight End Trigger: After Karsemine’s attacks (OBSERVED)
-- Scene Transition: Branching paths begin after escape (CANON)
+- Role: Central adversary in the council chamber battle  
+- Tactics: Illusory duplicates; invisibility; escape via secret passage  
+- Alignment: Cultist, saboteur of the council  
+- Mental State: Desperate, regretful, begging for release  
+- Final Condition: **“Decapitated; head removed from body”** (current, overriding state)
 
 ## q_battle_with_the_wolf_and_aftermath_3 — strict: fail_incomplete | semantic: fail_incomplete
 - question: In that fight, is Thalia corrupted like the guards, or is it something different?
-- retrieval: 60/732 entities (12ms)
-- planner: 8/60 entities (1604ms) model=gpt-5.4-nano
-- planner_attrs: ['loyalty_or_alignment_context', 'mental_state', 'operational_status', 'goals', 'relationship_tags', 'history']
-- planner_reasoning: To determine whether Thalia is corrupted like the guards or affected differently, we need Thalia’s ensorcelment/loyalty context, her mental/behavioral state, and how the corrupted guards and the Wolf’s alarm/commands drive the fight.
-- context_chars: 9,625
-- total_ms: 7556
-- strict must_hits: thalia, ensorcelled
-- semantic must_hits: thalia, ensorcelled
+- retrieval: 30/732 entities (32ms)
+- context_chars: 24,855
+- total_ms: 6538
+- strict must_hits: thalia
+- semantic must_hits: thalia
+- context must_hits: thalia, ensorcelled, not fully corrupted
+- context_support_ratio: 0.75
+- failure_surface: synthesis_gap
+- stage_loss_tokens: {"corrupted guards": "synthesis_gap", "ensorcelled": "evidence_gap", "not fully corrupted": "evidence_gap", "thalia": "hit"}
 - stale_hits: (none)
 
 ### answer
-TL;DR: Thalia is **not corrupted like the guards**—she is **ensorcelled by the Wolf**, meaning magically influenced rather than physically corrupted.
+TL;DR: There’s no evidence that Thalia is corrupted like the guards; what’s shown suggests something different—likely influence or control by **the Wolf**, not the same “oily sheen” corruption.
 
-Thalia’s state is consistently described as **ensnared by the Wolf’s magic**, not afflicted by the same corruption affecting the guards. CANON establishes she “has been ensorcelled by the Wolf to overlook corruption,” and OBSERVED confirms she is **innocent**, **defensive**, and operating under distorted judgment rather than visible corruption (like the guards’ “oily eyes”).
+From the projection, **Guards** have a clearly defined corruption state: “All checked guards have an oily sheen to their eyes,” and their abilities interact with corrupted meat. **The Wolf** also shares this marker (“Wolf has an oily sheen to his eyes”), tying him to that same corruption source.
 
-In the fight, her aggression (e.g., attacking the group after the Wolf’s instruction, using Commander’s Strike) aligns with this influence. Importantly, OBSERVED notes her **“Charmed status ended”** and that she **“realizes how dire the situation truly is,”** indicating her condition can lift and is not a permanent corruption.
+For **Thalia**, there is no mention of oily eyes or corruption markers. Instead, the only relevant fact is that **“the Wolf orders Thalia to attack the group”** (OBSERVED). That implies external direction or influence rather than confirmed physiological corruption.
 
-By contrast, the guards are explicitly tied to **corruption mechanics** (e.g., oily eyes, interaction with corrupted systems), which Thalia is not.
+So based on available facts:
+- Guards: explicitly corrupted (oily sheen, systemic effect)
+- Wolf: also shows corruption markers
+- Thalia: no stated corruption traits; behavior is explained by the Wolf’s command
 
 Key Attributes:
-- Condition: Enscorcelled (CANON, OBSERVED), not corrupted  
-- Alignment: Innocent, protective of the city (OBSERVED)  
-- Behavior in fight: Acting under the Wolf’s influence, then recovering (OBSERVED)  
-- Contrast: Guards show physical corruption markers; Thalia does not
+- Guards (OBSERVED): oily sheen corruption; tied to tainted meat
+- The Wolf (OBSERVED): oily sheen in eyes; issues commands; cultist
+- Thalia (OBSERVED via Wolf interaction): acts under orders; no listed corruption markers
+
+If Thalia were corrupted in the same way, the projection would likely include the same “oily sheen” indicator—but it doesn’t.
 
 ## q_battle_with_the_wolf_and_aftermath_2 — strict: fail_incomplete | semantic: fail_incomplete
 - question: What does the council room itself throw at us that screws with the fight?
-- retrieval: 63/732 entities (13ms)
-- planner: 11/63 entities (1721ms) model=gpt-5.4-nano
-- planner_attrs: ['atmosphere', 'defenses', 'geography', 'operational_status', 'role', 'portrayal_notes']
-- planner_reasoning: The council room’s hazards and defenses—activated wall runes, illusory wall effects, and battle hazards like falling debris with DCs—are what actively disrupt the fight.
-- context_chars: 7,709
-- total_ms: 9010
+- retrieval: 30/732 entities (22ms)
+- context_chars: 21,854
+- total_ms: 8037
 - strict must_hits: falling debris, illusory walls
 - semantic must_hits: falling debris, illusory walls
+- context must_hits: falling debris, illusory walls
+- context_support_ratio: 0.5
+- failure_surface: synthesis_gap
+- stage_loss_tokens: {"alarm pulses": "retriever_gap", "arcane traps": "retriever_gap", "falling debris": "hit", "illusory walls": "retriever_gap"}
 - stale_hits: (none)
 
 ### answer
-TL;DR: The chamber actively interferes via **activated runic defenses, illusory walls that disorient positioning, and falling debris hazards**, all layered into a loud, exposed circular space.
+TL;DR: The chamber itself fights back with **activated runes, arcane trap bursts, and illusory walls**, plus environmental chaos like debris, visibility swings, and incoming reinforcements.
 
-The **Council Chambers** (OBSERVED) are not passive—they’re magically reactive. When Caelynn cast her spell, **runes along the walls activated**, part of the chamber’s **ancient defensive wards**, which directly affect the battlefield. These runes can target combatants unless they’re protected—**amulet of council** (CANON/OBSERVED) prevents being targeted by these arcane effects.
+From the **Council Chambers (OBSERVED)**:
+- **Runes along the walls activated when Caelynn cast her spell** → this suggests reactive magical defenses tied to spellcasting.
+- **Ancient defensive wards** + **magical defenses affecting the battle environment** → these manifest as **arcane trap bursts** (seen affecting Players: 2d6 force damage, temporary paralysis).
+- **Illusory Walls** → actively disorient positioning and line of sight (Players are already noted as disoriented by illusion effects).
+- **Hidden trapdoor** → potential sudden terrain shift or ambush vector.
 
-Spatially, **Illusory Walls** (CANON + OBSERVED presence) cause parts of the room to flicker, making it hard to tell real from false barriers. This can break line of sight, mislead movement, or cause wasted actions.
+Environmental complications:
+- **“almost the entire room is lit up by Fireball”** → extreme visibility swings, possible collateral ignition.
+- **Disheveled physical condition** + Players “forced to dodge falling debris hazards” → unstable battlefield.
+- **High, arched ceilings** → vertical separation (Players already “unable to reach Karsemine due to height”).
+- **Sound carries clearly** → makes stealth or coordination difficult.
+- **Guards are being drawn here as reinforcements (CANON)** → escalating pressure mid-fight.
 
-On top of that, **Falling Debris** (CANON) triggers as the fight escalates, forcing **DC 15 Dexterity saving throws** to avoid damage—adding constant environmental pressure.
-
-The room’s **large circular layout with high ceilings** and **voice-carrying acoustics** (OBSERVED) also make stealth or coordination harder, while the **Fireball-lit space** removes shadows and concealment.
+Interaction with Council mechanics:
+- **Council members’ amulets mark them safe from defenses (CANON)**, while **Players without amulets may be targeted (CANON)**.
 
 Key Attributes:
-- Defenses: activated runes, illusory walls, ancient wards  
-- Hazards: falling debris (DC 15 Dex)  
-- Geography: circular room, high ceilings, central table, trapdoor  
-- Atmosphere: loud, fully lit, no privacy, high tension
+- Defenses: Runes, ancient wards, illusory walls, trap bursts
+- Geography: Circular room, high ceilings, central table, hidden trapdoor
+- Atmosphere: Fireball-lit chaos, sound-carrying acoustics
+- Physical Condition: Disheveled, debris hazards
+- External Pressure: Incoming reinforcements
 
-## q_the_emergency_council_meeting_2_v2 — strict: fail_incomplete | semantic: pass_updated
+## q_the_emergency_council_meeting_2_v2 — strict: fail_incomplete | semantic: fail_incomplete
 - question: Can we trust Thalia in this emergency meeting, or is something off?
-- retrieval: 48/732 entities (12ms)
-- planner: 12/48 entities (1782ms) model=gpt-5.4-nano
-- planner_attrs: ['loyalty_or_alignment_context', 'goals', 'current_location', 'operational_status', 'defenses', 'history']
-- planner_reasoning: To judge whether Thalia can be trusted at the emergency meeting, we need her ties to the Wolf, her stated goals/behavior during the council, and how the meeting’s location and defenses (amulets/wards/communications) could enable or mask manipulation.
-- context_chars: 9,951
-- total_ms: 8287
+- retrieval: 30/732 entities (23ms)
+- context_chars: 22,862
+- total_ms: 6497
 - strict must_hits: thalia
-- semantic must_hits: thalia, wolf influence, uncertain reliability
+- semantic must_hits: thalia, uncertain reliability
+- context must_hits: thalia
+- context_support_ratio: 0.25
+- failure_surface: retrieval_gap
+- stage_loss_tokens: {"guard operations": "synthesis_gap", "thalia": "hit", "uncertain reliability": "hit", "wolf influence": "synthesis_gap"}
 - stale_hits: (none)
 
 ### answer
-TL;DR: Something is definitely off—Thalia isn’t acting independently and cannot be fully trusted in this meeting, even though she isn’t knowingly a traitor.
+TL;DR: You should not fully trust Thalia right now—there are strong signs something is off, likely external influence from the Wolf.
 
-Thalia’s behavior is compromised by **the Wolf’s influence**.  
-- CANON: *Commander Thalia Ashenvale* “has been ensorcelled by the Wolf to overlook corruption within the guard,” meaning her judgment is magically distorted.  
-- OBSERVED: She **serves the Wolf** and even **attacks the group after the Wolf’s instruction**, showing direct manipulation in play.  
-- OBSERVED: The Wolf is physically present, “standing at Thalia’s shoulder,” and actively attempting to **steer discussion and sabotage decisions**.
+Based on OBSERVED facts, the Wolf is **standing at Thalia’s shoulder** and has previously **ordered Thalia to attack the group**. The Wolf is also a confirmed **cultist**, actively working to **deceive and misdirect the council** and sabotage decision-making. That proximity plus direct influence strongly suggests Thalia may be compromised, manipulated, or under pressure.
 
-At the same time:  
-- OBSERVED: Thalia is still **loyal and protective of the city**, indicating her core alignment hasn’t changed—just her perception and decisions.
+Additionally, the broader context shows **corruption spreading among guards (oily sheen in eyes)** and active deception within the council chamber, reinforcing that people in positions of authority may not be acting freely or truthfully.
 
-Conclusion: Thalia is not a willing enemy, but in this emergency meeting she is an **unreliable actor under influence**, likely to push harmful or misleading actions.
+There are no direct facts confirming Thalia’s intentions or mental state, so her loyalty is **uncertain**, not definitively hostile—but the situation around her is highly suspect.
 
 Key Attributes:
-- Loyalty: Innocent but compromised (CANON + OBSERVED)
-- Influence: Enscorcelled and directed by the Wolf
-- Behavior: Follows Wolf’s instructions, even to violence
-- Situation: Wolf actively present and manipulating proceedings
+- Influence: The Wolf is physically close to Thalia and has issued commands to her (OBSERVED)
+- Threat Context: The Wolf is a cultist actively deceiving the council (OBSERVED)
+- Environment: Widespread corruption affecting officials (OBSERVED)
+
+Bottom line: Treat Thalia as potentially compromised until proven otherwise.
 
 ## q_the_emergency_council_meeting_4_v2 — strict: fail_incomplete | semantic: fail_incomplete
 - question: If the council keeps talking and doesn't act, what bites us?
-- retrieval: 58/732 entities (13ms)
-- planner: 11/58 entities (2544ms) model=gpt-5.4-nano
-- planner_attrs: ['atmosphere', 'operational_status', 'goals', 'defenses', 'current_location', 'mental_state']
-- planner_reasoning: To determine what “bites us” if the council keeps talking, we need the council’s stalling consequences (panic/chaos and time pressure), the resulting escalation mechanics, and the chamber/cult defenses and hazards that trigger or worsen during inaction.
-- context_chars: 9,532
-- total_ms: 9419
-- strict must_hits: time pressure, summoning
-- semantic must_hits: time pressure, summoning
+- retrieval: 30/732 entities (23ms)
+- context_chars: 24,121
+- total_ms: 6740
+- strict must_hits: summoning
+- semantic must_hits: summoning
+- context must_hits: summoning
+- context_support_ratio: 0.25
+- failure_surface: retrieval_gap
+- stage_loss_tokens: {"consequences": "evidence_gap", "countdown": "evidence_gap", "summoning": "retriever_gap", "time pressure": "evidence_gap"}
 - stale_hits: (none)
 
 ### answer
-TL;DR: Every round of inaction ramps the **Time Pressure Mechanic**, advancing the cult’s plan to summon the flesh kaiju, while increasing chances of **panic and chaos** and preventing the council from launching any effective response.
+TL;DR: Delay gives **the cult** time to advance their plan—using hidden routes and council influence to sabotage defenses, corrupt infrastructure, and potentially complete their summoning—while the **city’s instability worsens with every unresolved debate**.
 
-If the **City Council** keeps debating, the **Time Pressure Mechanic** (CANON) explicitly builds each round, representing the growing risk of a flesh kaiju summoning. That means the **cult**—already active, using hidden routes, and pursuing summoning/sabotage goals (CANON + OBSERVED)—gets closer to success unchecked.
+What bites you is momentum. **The city (location)** is already “brought closer to disaster by each failed or unresolved debate” (OBSERVED), and its defenses have “less fortified parts” with integrity concerns (CANON). Meanwhile, **the cult (group)** is actively operating “below the city” and “using hidden routes” (CANON), with goals to “access the heart of the city,” “sabotage or corrupt the cauldrons,” and “complete their summoning” (CANON). They also “have influence in the council” (CANON), meaning inaction may not be neutral—it may be compromised.
 
-At the same time, failure to act swiftly triggers **Panic and Chaos** (CANON), leading to widespread disorder in the city. Internally, the council’s coordination strain (CANON) can worsen, further delaying action instead of initiating raids, magical searches, or covert ops.
+Operationally, delays allow:
+- Expansion via sewers/hidden infrastructure (CANON)
+- Workarounds if routes are blocked (CANON)
+- Escalation toward a citywide event (summoning / coordinated attacks)
 
-Net effect: the enemy advances, the city destabilizes, and the window for clean intervention closes.
+Compounding this, **the players (group)** are already “delayed by lengthy deliberation” (OBSERVED), reducing their ability to disrupt these timelines.
 
 Key Attributes:
-- Time Pressure Mechanic: builds each discussion round; tied to flesh kaiju risk  
-- the cult: active, covert, progressing goals beneath the city  
-- City Council: intended to act decisively but hindered by internal conflict  
-- Panic and Chaos: triggered by inaction, causes widespread instability
+- City Defenses: Integrity concerns; vulnerable sections (CANON)
+- City Operational Status: Worsens with unresolved debate (OBSERVED)
+- Cult Goals: Summoning, sabotage, infiltration (CANON)
+- Cult Methods: Hidden routes, council influence (CANON)
+- Geography: Sewers/hidden infrastructure enable movement (CANON)
 
 ## q_arch_current — strict: fail_incomplete | semantic: fail_incomplete
 - question: What does the Council Room look like after the wolf fight-what should we notice?
-- retrieval: 69/732 entities (14ms)
-- planner: 15/69 entities (3168ms) model=gpt-5.4-nano
-- planner_attrs: ['current_location', 'physical_condition', 'defenses', 'atmosphere', 'operational_status', 'portrayal_notes']
-- planner_reasoning: To describe what the Council Room looks like after the wolf fight, we need the room’s post-fight state (lighting, active effects, and damage), plus the visible remnants (wolf head/meat/appendages), defensive markers (runes/locks/amulets), and any ongoing reinforcements or lingering illusions.
-- context_chars: 11,350
-- total_ms: 11781
+- retrieval: 30/732 entities (22ms)
+- context_chars: 22,653
+- total_ms: 7368
 - strict must_hits: (none)
 - semantic must_hits: (none)
+- context must_hits: arched ceilings, secret passage
+- context_support_ratio: 0.6667
+- failure_surface: synthesis_gap
+- stage_loss_tokens: {"arched ceilings": "retriever_gap", "floating chandelier": "retriever_gap", "secret passage": "synthesis_gap"}
 - stale_hits: (none)
 
 ### answer
-TL;DR: The Council Chambers are scorched, chaotic, and magically active—firelight, writhing meat piles, and triggered defenses leave the room feeling both damaged and still dangerously alive.
+TL;DR: The Council Chamber is scorched, disrupted, and magically unstable after the fight—burn marks, lingering illusions, and activated wards make it clear something powerful and chaotic just happened, culminating in the Wolf being **“Decapitated; head removed from body.”**
 
-After the fight (OBSERVED), the **Council Chambers** are **Disheveled**, with the aftermath of a **Fireball lighting almost the entire room**. The usual grand, circular stone architecture (CANON) is still visible beneath the damage—gleaming metal inlays and carved stonework—but now disrupted by battle.
+What you should emphasize:
+The large circular room is **disheveled**, with the aftermath of a Fireball evident—scorching across the floor, walls, and possibly the central table. The usual polished grandeur (metal inlays and carved stonework) is now marred by soot and blast damage.
 
-The **Meat Piles (OBSERVED)** dominate attention: an **enormous meat pile in the center is on fire**, previously **exploded by Shatter**, yet in places **looks as if it never took any damage at all**. It has exhibited unnatural behavior—**spawning appendages climbing the walls** and **emitting screams**—suggesting it may not be inert.
+Magical effects are still noticeable:
+- **Runes along the walls activated** during the fight may still glow faintly or flicker.
+- **Illusory walls** may linger or glitch, creating uncertainty about what’s real.
+- The air still feels charged, like the defenses were recently triggered.
 
-Magical elements remain active: **runes along the walls activated**, **illusory walls** and **illusion spells** distort parts of the chamber, and the defenses still influence the space (OBSERVED + CANON). The air remains **thick with anticipation**, now mixed with destruction.
+The space itself tells a story:
+- The **central table** may be shifted or damaged.
+- The **hidden trapdoor** beneath the chamber is especially important if discovered or disturbed.
+- The room, designed for clear speech, now carries echoes of the chaos.
 
-Around the edges, **tapestries (CANON)**—some faintly glowing—depict historical scenes, now flickering in firelight, while **large statues in each corner** stand intact but looming over the wreckage.
-
-Finally, **guards are being drawn here as reinforcements (CANON)**, meaning the room is not secure—this aftermath is temporary and tense.
+And most importantly, the body:
+- The Wolf lies where he fell, **“Decapitated; head removed from body.”**
 
 Key Attributes:
-- Physical Condition: Disheveled; fire-lit; battle damage present
-- Active Threats: Burning, regenerating Meat Piles with unnatural behavior
-- Magical Defenses: Activated runes, illusion effects, warded environment
-- Visual Anchors: Glowing historical tapestries; large corner statues
-- Atmosphere: Heavy, tense, and still charged with magic and incoming danger
+- Geography: Large circular chamber, central table, high ceilings, hidden trapdoor
+- Defenses: Activated runes, illusory walls, ancient wards
+- Atmosphere: Fireball-scorched, tense, magically unstable
+- Physical Condition: Disheveled, visibly damaged from combat
 
 ## q_arch_delta — strict: fail_incomplete | semantic: fail_incomplete
 - question: What got wrecked or changed in the Council Room during Session 12?
-- retrieval: 58/732 entities (12ms)
-- planner: 15/58 entities (3065ms) model=gpt-5.4-nano
-- planner_attrs: ['atmosphere', 'current_location', 'defenses', 'goals', 'operational_status', 'physical_condition']
-- planner_reasoning: Session 12’s Council Room changes are driven by the Wolf’s confrontation and tactics (including illusions and the Wolf’s head), the guards/council response (amulets and lockdown), and the state of corrupted/tainted meat and resulting branching outcomes.
-- context_chars: 14,111
-- total_ms: 8390
+- retrieval: 30/732 entities (24ms)
+- context_chars: 21,840
+- total_ms: 6447
 - strict must_hits: runes
 - semantic must_hits: runes
+- context must_hits: runes, secret passage
+- context_support_ratio: 0.6667
+- failure_surface: synthesis_gap
+- stage_loss_tokens: {"chandelier": "retriever_gap", "runes": "hit", "secret passage": "synthesis_gap"}
 - stale_hits: (none)
 
 ### answer
-TL;DR: The Council Chamber was heavily disrupted—lit up by a Fireball, its defensive runes activated, illusion effects in play, and left generally disheveled after the fight.
+TL;DR: The Council Room was heavily disrupted—“almost the entire room is lit up by Fireball,” its magical defenses activated, and the space left **Disheveled**.
 
-During Session 12 (OBSERVED), several environmental changes occurred in the Council Chambers:
-- “almost the entire room is lit up by Fireball,” indicating significant explosive magical impact across the space.
-- “runes along the walls activated when Caelynn cast her spell,” meaning the chamber’s magical defenses were triggered mid-conflict.
-- Illusory elements were active (“Illusory Walls” and illusion spells in portions of the room), affecting visibility and movement.
-- The room’s overall physical state is explicitly “Disheveled,” reflecting the aftermath of combat and magical disruption.
+During Session 12 (OBSERVED), several clear changes occurred in the **Council Chambers**:
+- A major destructive event: “almost the entire room is lit up by Fireball,” implying widespread scorch or blast impact across the chamber.
+- Defensive systems triggered: “runes along the walls activated when Caelynn cast her spell,” shifting the room into an active magical defense state.
+- Illusory terrain became relevant: “Illusory Walls are present in portions of the room,” affecting movement and perception mid-conflict.
+- Overall condition degraded: the room is explicitly noted as **Disheveled**.
 
-These OBSERVED changes reflect active battle conditions overriding the chamber’s usual CANON state as a formal, controlled political space.
+No CANON features (like structure or layout) are stated as permanently destroyed, so the changes are primarily battle damage and activated defenses rather than structural collapse.
 
 Key Attributes:
-- Atmosphere: Fireball illumination; heightened tension
-- Defenses: Activated wall runes; illusory walls/spells
+- Atmosphere: “almost the entire room is lit up by Fireball”
+- Defenses: Wall runes activated; Illusory Walls in effect
 - Physical Condition: Disheveled
+- Geography: Large circular room with central table (unchanged, but impacted by events)
 
 ## q_wolf_status — strict: fail_incomplete | semantic: pass_updated
 - question: End of Session 12: is the Wolf alive, dead, still corrupted-what's his state?
-- retrieval: 74/732 entities (13ms)
-- planner: 9/74 entities (1940ms) model=gpt-5.4-nano
-- planner_attrs: ['operational_status', 'physical_condition', 'current_location', 'defenses', 'goals', 'loyalty_or_alignment_context']
-- planner_reasoning: To determine whether the Wolf is alive, dead, or still corrupted at the end of Session 12, we need his current state and condition plus the fight context and any evidence of his death/corruption (e.g., his head being stabbed) and ongoing effects/continuations into branching outcomes.
-- context_chars: 9,251
-- total_ms: 8708
+- retrieval: 30/732 entities (25ms)
+- context_chars: 22,872
+- total_ms: 6447
 - strict must_hits: dead
 - semantic must_hits: killing blow, dead, oily sheen fades
+- context must_hits: killing blow, dead, oily sheen fades
+- context_support_ratio: 1.0
+- failure_surface: pass
+- stage_loss_tokens: {"dead": "hit", "killing blow": "hit", "oily sheen fades": "hit"}
 - stale_hits: (none)
 
 ### answer
-TL;DR: The Wolf is dead at end of Session 12—**“Decapitated; head removed from body”**—and no longer an active threat, though he was previously corrupted (oily sheen).
-
-OBSERVED facts show multiple states (invisible, escaping, taking damage), but the terminal outcome **“Decapitated; head removed from body”** supersedes earlier conditions. His head exists separately as an item (“the Wolf’s head”), confirming the kill is final in-play continuity.
-
-Corruption: Prior to death, the Wolf **“has an oily sheen to his eyes,”** indicating he was still under corrupting influence. No OBSERVED fact states that corruption was cleansed before death, so he died corrupted.
-
-Operationally, earlier escape attempts and invisibility are outdated due to the terminal outcome. Current state is a corpse (in two parts), with the head being actively transported/handled by the party.
+TL;DR: The Wolf is dead at the end of Session 12—**“Decapitated; head removed from body”**—and there’s no evidence the corruption was cured before death.
 
 Key Attributes:
-- Physical Condition: **“Decapitated; head removed from body”;** previously had **“an oily sheen to his eyes.”**
-- Operational Status: No longer active; prior escape/invisibility overridden by death.
-- Related Object: “the Wolf’s head” exists separately and is in party circulation.
+- physical_condition (OBSERVED): **“Decapitated; head removed from body”**; previously had **“oily sheen to his eyes.”**
+- mental_state (OBSERVED): desperate, **begging to be killed**, regretful
+- operational_status (OBSERVED): was attempting escape while invisible before being stopped
+- faction/alignment (OBSERVED): cultist; betrayer of Mirathorn
 
-## q_pre_post — strict: fail_incomplete | semantic: fail_incomplete
+Explanation:
+The most current and terminal outcome is the Wolf being **“Decapitated; head removed from body”**, reinforced by Bonogo’s action of removing the head. This overrides earlier states like invisibility or escape. The **“oily sheen to his eyes”** indicates he was still corrupted prior to death, and there is no stated resolution of that condition. Combined with his pleas (begging for death), it suggests he died while still under that corrupting influence.
+
+## q_pre_post — strict: pass_updated | semantic: pass_updated
 - question: Before vs after the council fight-how's the Wolf different?
-- retrieval: 63/732 entities (13ms)
-- planner: 14/63 entities (1828ms) model=gpt-5.4-nano
-- planner_attrs: ['operational_status', 'current_location', 'defenses', 'goals', 'history', 'atmosphere']
-- planner_reasoning: To compare the Wolf before vs after the council fight, track his state, tactics/defenses, location and escape timing, and how the fight’s outcome branches change his influence and objectives.
-- context_chars: 9,661
-- total_ms: 8498
-- strict must_hits: before, after
-- semantic must_hits: before, after
+- retrieval: 30/732 entities (25ms)
+- context_chars: 24,659
+- total_ms: 6823
+- strict must_hits: before, after, oily sheen
+- semantic must_hits: before, after, oily sheen, killing blow
+- context must_hits: before, after, oily sheen, killing blow
+- context_support_ratio: 1.0
+- failure_surface: pass
+- stage_loss_tokens: {"after": "hit", "before": "hit", "killing blow": "evidence_gap", "oily sheen": "evidence_gap"}
 - stale_hits: (none)
 
 ### answer
-TL;DR: Before the council fight, the Wolf is an embedded manipulator influencing events and people; after, he’s exposed, actively fleeing, and operating as a revealed antagonist in escape mode.
+TL;DR: Before the council fight, the Wolf is a deceptive, in-control saboteur manipulating events; after, he’s exposed, desperate, corrupted, and ultimately **“Decapitated; head removed from body;”**.
 
-Before the fight:
-- The Wolf operates covertly within the Council context, using Deception/Persuasion to steer discussion and “downplay the threat of the cult” (OBSERVED goals).
-- He exerts control through others, notably ordering Thalia to attack (OBSERVED goals), and his corruption can be uncovered but isn’t yet (CANON: The Wolf’s corruption).
-- Defensively, he relies on illusions and misdirection (CANON defenses), maintaining mystery and influence.
+**Before (Council Chamber, pre-fight):**  
+- OBSERVED: The Wolf is a **cultist** and **second-in-command of the guard**, actively **steering council discussion** via Deception and downplaying the cult threat.  
+- CANON: Uses **illusory duplicates** to confuse and control the scene.  
+- OBSERVED: Issues commands (e.g., ordering Thalia to attack), acting with authority and intent.  
+- Overall: Calculated, manipulative, and embedded within power structures.
 
-After the fight:
-- His position shifts to exposed and reactive: “alerted to the party,” “rushes by Bonogo,” and “attempts to disengage to run” (OBSERVED operational_status).
-- He transitions into escape behavior: “Downed an Invisibility Potion” and is “Attempting to escape through a secret passage while invisible” (OBSERVED operational_status).
-- Canon trajectory confirms: “The Wolf disappears into a secret passage leading to the sewers using Invisibility and Illusion” and “The Wolf escapes” (CANON: The Wolf’s Escape).
-- His influence becomes more fragile if his corruption is uncovered (CANON).
+**After (During/after fight):**  
+- OBSERVED: Becomes **desperate**, “begging for someone to release him” and “begging to be killed,” showing **regret**.  
+- OBSERVED: Displays corruption: **“oily sheen to his eyes.”**  
+- OBSERVED: Shifts to survival mode—**Invisibility**, fleeing, attempting escape via secret passage.  
+- OBSERVED (terminal outcome): **“Decapitated; head removed from body;”**
 
-Key Attributes:
-- Defenses: Illusory duplicates (CANON)
-- Goals: Manipulation → escape (OBSERVED shift)
-- History: Betrayal framing with Thalia; attacked by Bonogo (OBSERVED)
-- Operational Status: Hidden influencer → exposed fugitive escaping via secret passage (OBSERVED + CANON)
+**Key Attributes:**  
+- Role: Saboteur → Exposed enemy  
+- Mental State: Controlled/deceptive → Desperate/regretful  
+- Tactics: Political manipulation → Illusions + escape  
+- Physical Condition: Intact → Corrupted → **Decapitated; head removed from body;**
 
 ## q_thalia — strict: pass_updated | semantic: pass_updated
 - question: Was Thalia corrupted or just played-and how does that tie to the Wolf?
-- retrieval: 62/732 entities (13ms)
-- planner: 8/62 entities (1933ms) model=gpt-5.4-nano
-- planner_attrs: ['loyalty_or_alignment_context', 'goals', 'history', 'current_location', 'role', 'operational_status']
-- planner_reasoning: To determine whether Thalia is corrupted or merely compelled, we need Thalia’s alignment/loyalty context and history with the Wolf, plus the Wolf’s orders and the council-chamber battle context and Thalia’s Guard role.
-- context_chars: 8,127
-- total_ms: 8395
-- strict must_hits: ensorcelled, wolf
-- semantic must_hits: ensorcelled, wolf
+- retrieval: 30/732 entities (25ms)
+- context_chars: 23,033
+- total_ms: 7397
+- strict must_hits: ensorcelled, wolf, not corrupted
+- semantic must_hits: ensorcelled, wolf, not corrupted
+- context must_hits: ensorcelled, wolf, not corrupted
+- context_support_ratio: 1.0
+- failure_surface: pass
+- stage_loss_tokens: {"ensorcelled": "hit", "not corrupted": "hit", "wolf": "hit"}
 - stale_hits: (none)
 
 ### answer
-TL;DR: Thalia was **not truly corrupted**—she was **ensorcelled and manipulated by the Wolf**, acting under his influence while still fundamentally loyal to the city.
+TL;DR: Thalia was not corrupted like the guards—she was **ensorcelled and manipulated by the Wolf**, who used her as a tool while he himself shows signs of true corruption.
 
-Thalia’s state is best understood as **magically influenced rather than willingly complicit**. CANON establishes that *Commander Thalia Ashenvale “has been ensorcelled by the Wolf to overlook corruption within the guard”*, while OBSERVED play shows she *“serves the Wolf”* and *“attacks the group after the Wolf's instruction.”* These align: her actions follow his commands, but her core alignment remains **innocent and duty-bound**.
+**Answer:**
+- **OBSERVED:** Thalia is explicitly “ensorcelled by the Wolf” and even “ensorcelled (unbeknownst to her).”
+- **OBSERVED:** She “does not have an oily sheen to her eyes,” which is the established marker of corruption seen in guards and the Wolf.
+- **OBSERVED:** Her mental state includes “Innocent” and later “Realizes how dire the situation truly is,” and her “Charmed status ended,” indicating the influence was external and reversible.
+- **OBSERVED:** She “attacks the group after the Wolf’s instruction,” showing direct control rather than independent allegiance.
 
-This ties directly to the Wolf’s role as a **corrupting influence and manipulator**. He:
-- Stands physically at her shoulder (OBSERVED), reinforcing control/presence
-- Issues direct commands (OBSERVED: orders Thalia to attack)
-- Is aligned with betrayal and possible cult sabotage (OBSERVED)
+By contrast:
+- **OBSERVED:** The Wolf has “an oily sheen to his eyes” and is tied to cult activity and betrayal, marking him as **actually corrupted or aligned with the corrupting force**.
 
-The cult connection strengthens this: the cult is defined by **“corrupting influence”**, and the Wolf appears to act as an **agent or extension of that influence within the city’s leadership**.
+**Conclusion:** Thalia was **played, not corrupted**—a loyal commander magically influenced by the Wolf. The Wolf’s role is the source of that influence, using ensorcellment to weaponize her authority.
 
-So in play terms: Thalia is a **puppet, not a traitor**—her behavior reflects the Wolf’s control, not her own intent.
+---
 
-Key Attributes:
-- History: “ensorcelled by the Wolf to overlook corruption within the guard” (CANON)
-- Loyalty: Innocent; protective of the city (OBSERVED)
-- Behavior: Attacks on the Wolf’s command (OBSERVED)
-- Wolf Role: Corrupting manipulator; possible cult-aligned saboteur (CANON/OBSERVED)
+**Key Attributes:**
+- Thalia: Commander of the Guard; ensorcelled; no oily eyes; initially defensive but can be convinced of betrayal  
+- The Wolf: cultist; oily sheen in eyes; manipulator; issues commands to Thalia; deceptive and corrupting influence

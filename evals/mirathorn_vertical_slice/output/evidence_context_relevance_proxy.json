@@ -1,0 +1,181 @@
+{
+  "overall": {
+    "selected_chunks": 1401,
+    "relevant_chunks": 257,
+    "superfluous_chunks": 1144,
+    "relevant_chunk_ratio": 0.1834,
+    "superfluous_chunk_ratio": 0.8166,
+    "selected_chars": 368559,
+    "relevant_chars": 62372,
+    "superfluous_chars": 306187,
+    "relevant_char_ratio": 0.1692,
+    "superfluous_char_ratio": 0.8308
+  },
+  "per_question": [
+    {
+      "id": "q_the_emergency_council_meeting_1",
+      "selected_chunks": 75,
+      "relevant_chunks": 13,
+      "superfluous_chunks": 62,
+      "relevant_chunk_ratio": 0.1733,
+      "selected_chars": 15783,
+      "relevant_chars": 4062,
+      "superfluous_chars": 11721,
+      "relevant_char_ratio": 0.2574
+    },
+    {
+      "id": "q_longmont_session_12_council_chamber_roster",
+      "selected_chunks": 83,
+      "relevant_chunks": 55,
+      "superfluous_chunks": 28,
+      "relevant_chunk_ratio": 0.6627,
+      "selected_chars": 17923,
+      "relevant_chars": 10893,
+      "superfluous_chars": 7030,
+      "relevant_char_ratio": 0.6078
+    },
+    {
+      "id": "q_longmont_campaign_general_notes_1",
+      "selected_chunks": 83,
+      "relevant_chunks": 16,
+      "superfluous_chunks": 67,
+      "relevant_chunk_ratio": 0.1928,
+      "selected_chars": 23100,
+      "relevant_chars": 4402,
+      "superfluous_chars": 18698,
+      "relevant_char_ratio": 0.1906
+    },
+    {
+      "id": "q_the_city_council_2",
+      "selected_chunks": 96,
+      "relevant_chunks": 8,
+      "superfluous_chunks": 88,
+      "relevant_chunk_ratio": 0.0833,
+      "selected_chars": 20219,
+      "relevant_chars": 1842,
+      "superfluous_chars": 18377,
+      "relevant_char_ratio": 0.0911
+    },
+    {
+      "id": "q_the_city_council_4",
+      "selected_chunks": 81,
+      "relevant_chunks": 43,
+      "superfluous_chunks": 38,
+      "relevant_chunk_ratio": 0.5309,
+      "selected_chars": 15526,
+      "relevant_chars": 6757,
+      "superfluous_chars": 8769,
+      "relevant_char_ratio": 0.4352
+    },
+    {
+      "id": "q_battle_with_the_wolf_and_aftermath_1",
+      "selected_chunks": 103,
+      "relevant_chunks": 17,
+      "superfluous_chunks": 86,
+      "relevant_chunk_ratio": 0.165,
+      "selected_chars": 21962,
+      "relevant_chars": 7185,
+      "superfluous_chars": 14777,
+      "relevant_char_ratio": 0.3272
+    },
+    {
+      "id": "q_battle_with_the_wolf_and_aftermath_3",
+      "selected_chunks": 98,
+      "relevant_chunks": 14,
+      "superfluous_chunks": 84,
+      "relevant_chunk_ratio": 0.1429,
+      "selected_chars": 32559,
+      "relevant_chars": 4183,
+      "superfluous_chars": 28376,
+      "relevant_char_ratio": 0.1285
+    },
+    {
+      "id": "q_battle_with_the_wolf_and_aftermath_2",
+      "selected_chunks": 96,
+      "relevant_chunks": 8,
+      "superfluous_chunks": 88,
+      "relevant_chunk_ratio": 0.0833,
+      "selected_chars": 22074,
+      "relevant_chars": 1770,
+      "superfluous_chars": 20304,
+      "relevant_char_ratio": 0.0802
+    },
+    {
+      "id": "q_the_emergency_council_meeting_2_v2",
+      "selected_chunks": 91,
+      "relevant_chunks": 12,
+      "superfluous_chunks": 79,
+      "relevant_chunk_ratio": 0.1319,
+      "selected_chars": 32151,
+      "relevant_chars": 2148,
+      "superfluous_chars": 30003,
+      "relevant_char_ratio": 0.0668
+    },
+    {
+      "id": "q_the_emergency_council_meeting_4_v2",
+      "selected_chunks": 104,
+      "relevant_chunks": 1,
+      "superfluous_chunks": 103,
+      "relevant_chunk_ratio": 0.0096,
+      "selected_chars": 33073,
+      "relevant_chars": 95,
+      "superfluous_chars": 32978,
+      "relevant_char_ratio": 0.0029
+    },
+    {
+      "id": "q_arch_current",
+      "selected_chunks": 98,
+      "relevant_chunks": 10,
+      "superfluous_chunks": 88,
+      "relevant_chunk_ratio": 0.102,
+      "selected_chars": 28458,
+      "relevant_chars": 3951,
+      "superfluous_chars": 24507,
+      "relevant_char_ratio": 0.1388
+    },
+    {
+      "id": "q_arch_delta",
+      "selected_chunks": 90,
+      "relevant_chunks": 6,
+      "superfluous_chunks": 84,
+      "relevant_chunk_ratio": 0.0667,
+      "selected_chars": 29705,
+      "relevant_chars": 2215,
+      "superfluous_chars": 27490,
+      "relevant_char_ratio": 0.0746
+    },
+    {
+      "id": "q_wolf_status",
+      "selected_chunks": 87,
+      "relevant_chunks": 11,
+      "superfluous_chunks": 76,
+      "relevant_chunk_ratio": 0.1264,
+      "selected_chars": 32498,
+      "relevant_chars": 3510,
+      "superfluous_chars": 28988,
+      "relevant_char_ratio": 0.108
+    },
+    {
+      "id": "q_pre_post",
+      "selected_chunks": 126,
+      "relevant_chunks": 7,
+      "superfluous_chunks": 119,
+      "relevant_chunk_ratio": 0.0556,
+      "selected_chars": 22393,
+      "relevant_chars": 1174,
+      "superfluous_chars": 21219,
+      "relevant_char_ratio": 0.0524
+    },
+    {
+      "id": "q_thalia",
+      "selected_chunks": 90,
+      "relevant_chunks": 36,
+      "superfluous_chunks": 54,
+      "relevant_chunk_ratio": 0.4,
+      "selected_chars": 21135,
+      "relevant_chars": 8185,
+      "superfluous_chars": 12950,
+      "relevant_char_ratio": 0.3873
+    }
+  ]
+}

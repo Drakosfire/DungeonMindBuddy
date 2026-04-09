@@ -1,0 +1,258 @@
+{
+  "overall_per_question_average": {
+    "questions": 15,
+    "avg_selected_chunks": 101.8,
+    "avg_selected_chars": 25887,
+    "avg_whole_doc_chunks_if_golden": 1054.87,
+    "avg_whole_doc_chars_if_golden": 219481,
+    "avg_char_multiplier_vs_selected": 8.48
+  },
+  "unique_docs_across_all_questions": {
+    "doc_count": 6,
+    "docs": [
+      "doc_battle_with_the_wolf_and_aftermath",
+      "doc_longmont_campaign_general_notes",
+      "doc_the_city_council",
+      "doc_the_city_of_mirathorn",
+      "doc_the_council_room",
+      "doc_the_emergency_council_meeting"
+    ],
+    "total_chunks_if_all_golden_once": 1313,
+    "total_chars_if_all_golden_once": 265963
+  },
+  "per_question": [
+    {
+      "id": "q_the_emergency_council_meeting_1",
+      "selected_document_ids": [
+        "doc_battle_with_the_wolf_and_aftermath",
+        "doc_longmont_campaign_general_notes",
+        "doc_the_city_of_mirathorn",
+        "doc_the_council_room",
+        "doc_the_emergency_council_meeting"
+      ],
+      "selected_doc_count": 5,
+      "selected_chunks": 78,
+      "selected_chars": 16183,
+      "whole_doc_chunks_if_golden": 1274,
+      "whole_doc_chars_if_golden": 257732,
+      "char_multiplier_vs_selected": 15.93
+    },
+    {
+      "id": "q_longmont_session_12_council_chamber_roster",
+      "selected_document_ids": [
+        "doc_battle_with_the_wolf_and_aftermath",
+        "doc_longmont_campaign_general_notes",
+        "doc_the_council_room"
+      ],
+      "selected_doc_count": 3,
+      "selected_chunks": 84,
+      "selected_chars": 18156,
+      "whole_doc_chunks_if_golden": 427,
+      "whole_doc_chars_if_golden": 111162,
+      "char_multiplier_vs_selected": 6.12
+    },
+    {
+      "id": "q_longmont_campaign_general_notes_1",
+      "selected_document_ids": [
+        "doc_longmont_campaign_general_notes",
+        "doc_the_city_council",
+        "doc_the_city_of_mirathorn",
+        "doc_the_emergency_council_meeting"
+      ],
+      "selected_doc_count": 4,
+      "selected_chunks": 133,
+      "selected_chars": 30520,
+      "whole_doc_chunks_if_golden": 1169,
+      "whole_doc_chars_if_golden": 237521,
+      "char_multiplier_vs_selected": 7.78
+    },
+    {
+      "id": "q_the_city_council_2",
+      "selected_document_ids": [
+        "doc_battle_with_the_wolf_and_aftermath",
+        "doc_longmont_campaign_general_notes",
+        "doc_the_city_council",
+        "doc_the_city_of_mirathorn",
+        "doc_the_council_room",
+        "doc_the_emergency_council_meeting"
+      ],
+      "selected_doc_count": 6,
+      "selected_chunks": 111,
+      "selected_chars": 21659,
+      "whole_doc_chunks_if_golden": 1313,
+      "whole_doc_chars_if_golden": 265963,
+      "char_multiplier_vs_selected": 12.28
+    },
+    {
+      "id": "q_the_city_council_4",
+      "selected_document_ids": [
+        "doc_longmont_campaign_general_notes",
+        "doc_the_city_council",
+        "doc_the_city_of_mirathorn",
+        "doc_the_emergency_council_meeting"
+      ],
+      "selected_doc_count": 4,
+      "selected_chunks": 111,
+      "selected_chars": 20751,
+      "whole_doc_chunks_if_golden": 1169,
+      "whole_doc_chars_if_golden": 237521,
+      "char_multiplier_vs_selected": 11.45
+    },
+    {
+      "id": "q_battle_with_the_wolf_and_aftermath_1",
+      "selected_document_ids": [
+        "doc_battle_with_the_wolf_and_aftermath",
+        "doc_longmont_campaign_general_notes",
+        "doc_the_emergency_council_meeting"
+      ],
+      "selected_doc_count": 3,
+      "selected_chunks": 104,
+      "selected_chars": 22246,
+      "whole_doc_chunks_if_golden": 498,
+      "whole_doc_chars_if_golden": 120894,
+      "char_multiplier_vs_selected": 5.43
+    },
+    {
+      "id": "q_battle_with_the_wolf_and_aftermath_3",
+      "selected_document_ids": [
+        "doc_battle_with_the_wolf_and_aftermath",
+        "doc_longmont_campaign_general_notes",
+        "doc_the_city_of_mirathorn",
+        "doc_the_council_room",
+        "doc_the_emergency_council_meeting"
+      ],
+      "selected_doc_count": 5,
+      "selected_chunks": 106,
+      "selected_chars": 34350,
+      "whole_doc_chunks_if_golden": 1274,
+      "whole_doc_chars_if_golden": 257732,
+      "char_multiplier_vs_selected": 7.5
+    },
+    {
+      "id": "q_battle_with_the_wolf_and_aftermath_2",
+      "selected_document_ids": [
+        "doc_battle_with_the_wolf_and_aftermath",
+        "doc_longmont_campaign_general_notes",
+        "doc_the_city_of_mirathorn",
+        "doc_the_council_room",
+        "doc_the_emergency_council_meeting"
+      ],
+      "selected_doc_count": 5,
+      "selected_chunks": 100,
+      "selected_chars": 22887,
+      "whole_doc_chunks_if_golden": 1274,
+      "whole_doc_chars_if_golden": 257732,
+      "char_multiplier_vs_selected": 11.26
+    },
+    {
+      "id": "q_the_emergency_council_meeting_2_v2",
+      "selected_document_ids": [
+        "doc_battle_with_the_wolf_and_aftermath",
+        "doc_longmont_campaign_general_notes",
+        "doc_the_city_of_mirathorn",
+        "doc_the_council_room",
+        "doc_the_emergency_council_meeting"
+      ],
+      "selected_doc_count": 5,
+      "selected_chunks": 92,
+      "selected_chars": 32384,
+      "whole_doc_chunks_if_golden": 1274,
+      "whole_doc_chars_if_golden": 257732,
+      "char_multiplier_vs_selected": 7.96
+    },
+    {
+      "id": "q_the_emergency_council_meeting_4_v2",
+      "selected_document_ids": [
+        "doc_battle_with_the_wolf_and_aftermath",
+        "doc_longmont_campaign_general_notes",
+        "doc_the_city_of_mirathorn",
+        "doc_the_council_room",
+        "doc_the_emergency_council_meeting"
+      ],
+      "selected_doc_count": 5,
+      "selected_chunks": 104,
+      "selected_chars": 33073,
+      "whole_doc_chunks_if_golden": 1274,
+      "whole_doc_chars_if_golden": 257732,
+      "char_multiplier_vs_selected": 7.79
+    },
+    {
+      "id": "q_arch_current",
+      "selected_document_ids": [
+        "doc_battle_with_the_wolf_and_aftermath",
+        "doc_longmont_campaign_general_notes",
+        "doc_the_council_room",
+        "doc_the_emergency_council_meeting"
+      ],
+      "selected_doc_count": 4,
+      "selected_chunks": 98,
+      "selected_chars": 28458,
+      "whole_doc_chunks_if_golden": 518,
+      "whole_doc_chars_if_golden": 128174,
+      "char_multiplier_vs_selected": 4.5
+    },
+    {
+      "id": "q_arch_delta",
+      "selected_document_ids": [
+        "doc_battle_with_the_wolf_and_aftermath",
+        "doc_longmont_campaign_general_notes",
+        "doc_the_council_room",
+        "doc_the_emergency_council_meeting"
+      ],
+      "selected_doc_count": 4,
+      "selected_chunks": 91,
+      "selected_chars": 29968,
+      "whole_doc_chunks_if_golden": 518,
+      "whole_doc_chars_if_golden": 128174,
+      "char_multiplier_vs_selected": 4.28
+    },
+    {
+      "id": "q_wolf_status",
+      "selected_document_ids": [
+        "doc_battle_with_the_wolf_and_aftermath",
+        "doc_longmont_campaign_general_notes",
+        "doc_the_city_of_mirathorn",
+        "doc_the_emergency_council_meeting"
+      ],
+      "selected_doc_count": 4,
+      "selected_chunks": 89,
+      "selected_chars": 32800,
+      "whole_doc_chunks_if_golden": 1254,
+      "whole_doc_chars_if_golden": 250452,
+      "char_multiplier_vs_selected": 7.64
+    },
+    {
+      "id": "q_pre_post",
+      "selected_document_ids": [
+        "doc_battle_with_the_wolf_and_aftermath",
+        "doc_longmont_campaign_general_notes",
+        "doc_the_city_of_mirathorn",
+        "doc_the_council_room",
+        "doc_the_emergency_council_meeting"
+      ],
+      "selected_doc_count": 5,
+      "selected_chunks": 126,
+      "selected_chars": 22393,
+      "whole_doc_chunks_if_golden": 1274,
+      "whole_doc_chars_if_golden": 257732,
+      "char_multiplier_vs_selected": 11.51
+    },
+    {
+      "id": "q_thalia",
+      "selected_document_ids": [
+        "doc_battle_with_the_wolf_and_aftermath",
+        "doc_longmont_campaign_general_notes",
+        "doc_the_city_council",
+        "doc_the_city_of_mirathorn",
+        "doc_the_council_room",
+        "doc_the_emergency_council_meeting"
+      ],
+      "selected_doc_count": 6,
+      "selected_chunks": 100,
+      "selected_chars": 22475,
+      "whole_doc_chunks_if_golden": 1313,
+      "whole_doc_chars_if_golden": 265963,
+      "char_multiplier_vs_selected": 11.83
+    }
+  ]
+}

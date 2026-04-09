@@ -5,9 +5,11 @@ import importlib
 import json
 import os
 import re
+import shlex
 import sys
 import time
 from contextlib import redirect_stdout
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -43,6 +45,22 @@ EVIDENCE_TOP_K_ENV = "DMB_EVIDENCE_TOP_K"
 EVIDENCE_NEIGHBOR_WINDOW_ENV = "DMB_EVIDENCE_NEIGHBOR_WINDOW"
 EVIDENCE_MAX_NEIGHBORS_ENV = "DMB_EVIDENCE_MAX_NEIGHBORS"
 EVIDENCE_ENTITY_BOOST_ENV = "DMB_EVIDENCE_ENTITY_BOOST"
+CORPUS_LEXICON_BOOST_ENV = "DMB_CORPUS_LEXICON_BOOST"
+CORPUS_LEXICON_PATH_ENV = "DMB_CORPUS_LEXICON_PATH"
+ALIAS_NORMALIZATION_ENV = "DMB_ALIAS_NORMALIZATION"
+ALIAS_MATCH_WEIGHT_ENV = "DMB_ALIAS_MATCH_WEIGHT"
+CORPUS_LEXICON_MAX_BOOST_ENV = "DMB_CORPUS_LEXICON_MAX_BOOST"
+EVIDENCE_ADAPTIVE_TOP_K_ENV = "DMB_EVIDENCE_ADAPTIVE_TOP_K"
+EVIDENCE_ADAPTIVE_TOP_K_MAX_ENV = "DMB_EVIDENCE_ADAPTIVE_TOP_K_MAX"
+EVIDENCE_DENSITY_THRESHOLD_ENV = "DMB_EVIDENCE_DENSITY_THRESHOLD"
+EVIDENCE_ENTITY_AWARE_ENV = "DMB_EVIDENCE_ENTITY_AWARE"
+EVIDENCE_ENTITY_QUOTA_ENV = "DMB_EVIDENCE_ENTITY_QUOTA"
+EVIDENCE_ENTITY_EVIDENCE_QUOTA_ENV = "DMB_EVIDENCE_ENTITY_EVIDENCE_QUOTA"
+SYNTHESIS_PROFILE_ENV = "DMB_SYNTHESIS_PROFILE"
+SYNTHESIS_VERBOSITY_ENV = "DMB_SYNTHESIS_VERBOSITY"
+PHASE_NAME_ENV = "DMB_PHASE_NAME"
+PHASE_HYPOTHESIS_ENV = "DMB_PHASE_HYPOTHESIS"
+PHASE_WRITE_LEDGER_ENV = "DMB_PHASE_WRITE_LEDGER"
 CONTEXT_MAX_ENTITIES_ENV = "DMB_CONTEXT_MAX_ENTITIES"
 CONTEXT_MAX_CHARS_ENV = "DMB_CONTEXT_MAX_CHARS"
 COMPARE_EVIDENCE_FIRST_ENV = "DMB_COMPARE_EVIDENCE_FIRST"
@@ -50,6 +68,11 @@ EMBEDDING_SCORING_ENV = "DMB_EMBEDDING_SCORING"
 EMBEDDING_USE_TLDR_ONLY_ENV = "DMB_EMBEDDING_USE_TLDR_ONLY"
 CLAIM_VERIFICATION_ENV = "DMB_CLAIM_VERIFICATION"
 CLAIM_VERIFICATION_USE_LLM_EXTRACTOR_ENV = "DMB_CLAIM_VERIFICATION_USE_LLM_EXTRACTOR"
+TWO_STEP_SYNTHESIS_ENV = "DMB_TWO_STEP_SYNTHESIS"
+SYNTHESIS_CITATION_STRUCTURE_ENV = "DMB_SYNTHESIS_CITATION_STRUCTURE"
+EVIDENCE_TWO_PASS_ENV = "DMB_EVIDENCE_TWO_PASS"
+DOCUMENT_PLANNER_ENV = "DMB_DOCUMENT_PLANNER"
+DOCUMENT_PLANNER_MODEL_ENV = "DMB_DOCUMENT_PLANNER_MODEL"
 EMBEDDING_WATCH_THRESHOLD = 0.55
 GLOBAL_STALE_PATTERNS = (
     "nothing changed",
@@ -99,6 +122,10 @@ def _normalize_text(text: str) -> str:
         .replace("\u201c", '"')
         .replace("\u201d", '"')
     )
+
+
+def _utc_now_iso() -> str:
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
 def _load_gold_questions(path: Path) -> list[dict[str, Any]]:
@@ -394,19 +421,69 @@ def run() -> dict:
         evidence_entity_boost = os.environ.get(EVIDENCE_ENTITY_BOOST_ENV, "").strip()
         if evidence_entity_boost:
             evidence_first_flag += f" --evidence-entity-boost {evidence_entity_boost}"
+        if os.environ.get(CORPUS_LEXICON_BOOST_ENV, "").strip() == "1":
+            evidence_first_flag += " --corpus-lexicon-boost"
+        corpus_lexicon_path = os.environ.get(CORPUS_LEXICON_PATH_ENV, "").strip()
+        if corpus_lexicon_path:
+            evidence_first_flag += f" --corpus-lexicon-path {shlex.quote(corpus_lexicon_path)}"
+        if os.environ.get(ALIAS_NORMALIZATION_ENV, "").strip() == "1":
+            evidence_first_flag += " --alias-normalization"
+        alias_match_weight = os.environ.get(ALIAS_MATCH_WEIGHT_ENV, "").strip()
+        if alias_match_weight:
+            evidence_first_flag += f" --alias-match-weight {alias_match_weight}"
+        lexicon_max_boost = os.environ.get(CORPUS_LEXICON_MAX_BOOST_ENV, "").strip()
+        if lexicon_max_boost:
+            evidence_first_flag += f" --corpus-lexicon-max-boost {lexicon_max_boost}"
+        if os.environ.get(EVIDENCE_ADAPTIVE_TOP_K_ENV, "").strip() == "1":
+            evidence_first_flag += " --evidence-adaptive-top-k"
+        adaptive_top_k_max = os.environ.get(EVIDENCE_ADAPTIVE_TOP_K_MAX_ENV, "").strip()
+        if adaptive_top_k_max:
+            evidence_first_flag += f" --evidence-adaptive-top-k-max {adaptive_top_k_max}"
+        density_threshold = os.environ.get(EVIDENCE_DENSITY_THRESHOLD_ENV, "").strip()
+        if density_threshold:
+            evidence_first_flag += f" --evidence-density-threshold {density_threshold}"
+        if os.environ.get(EVIDENCE_ENTITY_AWARE_ENV, "").strip() == "1":
+            evidence_first_flag += " --evidence-entity-aware"
+        entity_quota = os.environ.get(EVIDENCE_ENTITY_QUOTA_ENV, "").strip()
+        if entity_quota:
+            evidence_first_flag += f" --evidence-entity-quota {entity_quota}"
+        entity_evidence_quota = os.environ.get(EVIDENCE_ENTITY_EVIDENCE_QUOTA_ENV, "").strip()
+        if entity_evidence_quota:
+            evidence_first_flag += f" --evidence-entity-evidence-quota {entity_evidence_quota}"
         context_max_entities = os.environ.get(CONTEXT_MAX_ENTITIES_ENV, "").strip()
         if context_max_entities:
             evidence_first_flag += f" --context-max-entities {context_max_entities}"
         context_max_chars = os.environ.get(CONTEXT_MAX_CHARS_ENV, "").strip()
         if context_max_chars:
             evidence_first_flag += f" --context-max-chars {context_max_chars}"
+        synthesis_profile = os.environ.get(SYNTHESIS_PROFILE_ENV, "").strip()
+        if synthesis_profile:
+            evidence_first_flag += f" --synthesis-profile {shlex.quote(synthesis_profile)}"
+        synthesis_verbosity = os.environ.get(SYNTHESIS_VERBOSITY_ENV, "").strip()
+        if synthesis_verbosity:
+            evidence_first_flag += f" --synthesis-verbosity {shlex.quote(synthesis_verbosity)}"
+        if os.environ.get(TWO_STEP_SYNTHESIS_ENV, "").strip() == "1":
+            evidence_first_flag += " --two-step-synthesis"
+        if os.environ.get(SYNTHESIS_CITATION_STRUCTURE_ENV, "").strip() == "1":
+            evidence_first_flag += " --synthesis-citation-structure"
+        if os.environ.get(EVIDENCE_TWO_PASS_ENV, "").strip() == "1":
+            evidence_first_flag += " --evidence-two-pass"
+
+    document_planner_flag = ""
+    if os.environ.get(DOCUMENT_PLANNER_ENV, "").strip() == "1":
+        document_planner_flag = " --document-planner"
+        dp_model = os.environ.get(DOCUMENT_PLANNER_MODEL_ENV, "").strip()
+        if dp_model:
+            document_planner_flag += f" --document-planner-model {shlex.quote(dp_model)}"
 
     compare_evidence_first = (
         os.environ.get(COMPARE_EVIDENCE_FIRST_ENV, "").strip() == "1"
         and evidence_first_mode == "1"
     )
 
-    config_flags = f"{retrieval_flag}{semantic_rerank_flag}{evidence_first_flag}".strip()
+    config_flags = (
+        f"{retrieval_flag}{semantic_rerank_flag}{evidence_first_flag}{document_planner_flag}"
+    ).strip()
     if config_flags:
         print(f"Pipeline config: {config_flags}", file=sys.stderr, flush=True)
 
@@ -447,7 +524,8 @@ def run() -> dict:
         with redirect_stdout(capture):
             cli.handle_line(
                 f'ask "{row["question"]}" --campaign {DEFAULT_CAMPAIGN_ID}'
-                f' --require-campaign{retrieval_flag}{semantic_rerank_flag}{evidence_first_flag}'
+                f' --require-campaign{retrieval_flag}{semantic_rerank_flag}'
+                f'{evidence_first_flag}{document_planner_flag}'
             )
         answer = capture.getvalue().strip()
         has_error = bool(re.search(r"Error:\s*(.*)", answer, re.IGNORECASE))
@@ -489,6 +567,16 @@ def run() -> dict:
                     file=sys.stderr,
                     flush=True,
                 )
+            doc_plan = retrieval_info.get("document_planner") or {}
+            if doc_plan.get("enabled"):
+                sel = doc_plan.get("selected_document_ids") or []
+                fb = doc_plan.get("fallback")
+                print(
+                    f"    document-planner: n={len(sel)} fallback={fb}"
+                    f" ({doc_plan.get('duration_ms', '?')}ms)",
+                    file=sys.stderr,
+                    flush=True,
+                )
 
         ctx_chars = ask_meta.get("context_chars", 0)
         total_ms = ask_meta.get("duration_ms", 0)
@@ -506,6 +594,7 @@ def run() -> dict:
             "answer": answer,
             "has_error": has_error,
             "retrieval": retrieval_info,
+            "document_planner": retrieval_info.get("document_planner"),
             "context_chars": ctx_chars,
             "duration_ms": total_ms,
         })
@@ -830,6 +919,43 @@ def run() -> dict:
         keys = ("pass", "retrieval_gap", "synthesis_gap")
         return {k: sum(1 for r in results if r.get("failure_surface") == k) for k in keys}
 
+    def _phase0_diagnostics() -> dict[str, Any]:
+        if not trace_rows:
+            return {
+                "per_question": [],
+                "avg_context_chars": 0,
+                "avg_total_ms": 0,
+            }
+        per_question: list[dict[str, Any]] = []
+        context_chars_list: list[int] = []
+        total_ms_list: list[int] = []
+        for row in trace_rows:
+            retrieval = row.get("retrieval") or {}
+            evidence_first = retrieval.get("evidence_first") or {}
+            debug = evidence_first.get("debug") or {}
+            context_chars = int(row.get("context_chars", 0) or 0)
+            total_ms = int(row.get("duration_ms", 0) or 0)
+            context_chars_list.append(context_chars)
+            total_ms_list.append(total_ms)
+            per_question.append(
+                {
+                    "id": row.get("id"),
+                    "context_chars": context_chars,
+                    "total_ms": total_ms,
+                    "evidence_selected": evidence_first.get("selected_count", 0),
+                    "evidence_seeded": evidence_first.get("seeded_count", 0),
+                    "effective_top_k": debug.get("effective_top_k"),
+                    "requested_top_k": debug.get("requested_top_k"),
+                    "expanded_neighbors": debug.get("expanded_neighbors"),
+                    "expanded_entity_provenance": debug.get("expanded_entity_provenance"),
+                }
+            )
+        return {
+            "per_question": per_question,
+            "avg_context_chars": round(sum(context_chars_list) / max(1, len(context_chars_list))),
+            "avg_total_ms": round(sum(total_ms_list) / max(1, len(total_ms_list))),
+        }
+
     summary = {
         "pipeline_config": config_flags or "(defaults)",
         "overall_strict": _tally("strict_verdict"),
@@ -838,6 +964,7 @@ def run() -> dict:
         "overall_accuracy": claim_summary,
         "overall_context_support": _context_support_summary(),
         "overall_failure_surface": _failure_surface_summary(),
+        "diagnostics": _phase0_diagnostics(),
         "stage_loss_report": {
             "overall_counts": stage_loss_counts,
             "evidence_stage_enabled": bool(evidence_first_mode == "1"),
@@ -851,6 +978,14 @@ def run() -> dict:
         },
         "results": results,
     }
+    phase_name = os.environ.get(PHASE_NAME_ENV, "").strip()
+    phase_hypothesis = os.environ.get(PHASE_HYPOTHESIS_ENV, "").strip()
+    if phase_name or phase_hypothesis:
+        summary["phase_checkpoint"] = {
+            "phase_name": phase_name,
+            "hypothesis": phase_hypothesis,
+            "timestamp": _utc_now_iso(),
+        }
     if compare_evidence_first and baseline_shadow_rows:
         summary["evidence_first_comparison"] = {
             "enabled": True,
@@ -987,6 +1122,32 @@ def run() -> dict:
                 "\n".join(json.dumps(row, ensure_ascii=False) for row in trace_rows) + "\n",
                 encoding="utf-8",
             )
+        if os.environ.get(PHASE_WRITE_LEDGER_ENV, "").strip() == "1":
+            ledger_path = outdir / "evidence_gap_phase_ledger.json"
+            if ledger_path.exists():
+                try:
+                    ledger_payload = json.loads(ledger_path.read_text(encoding="utf-8"))
+                except json.JSONDecodeError:
+                    ledger_payload = {"runs": []}
+            else:
+                ledger_payload = {"runs": []}
+            runs = ledger_payload.get("runs")
+            if not isinstance(runs, list):
+                runs = []
+            runs.append(
+                {
+                    "phase_name": phase_name or "(unspecified)",
+                    "hypothesis": phase_hypothesis,
+                    "pipeline_config": summary.get("pipeline_config"),
+                    "overall_semantic": summary.get("overall_semantic"),
+                    "overall_context_support": summary.get("overall_context_support"),
+                    "overall_failure_surface": summary.get("overall_failure_surface"),
+                    "stage_loss_report": summary.get("stage_loss_report", {}).get("overall_counts", {}),
+                    "timestamp": _utc_now_iso(),
+                }
+            )
+            ledger_payload["runs"] = runs
+            ledger_path.write_text(json.dumps(ledger_payload, indent=2), encoding="utf-8")
 
     s = summary["overall_strict"]
     sem = summary["overall_semantic"]
