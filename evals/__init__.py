@@ -1,2 +1,1 @@
-"""Evaluation harness package."""
-
+"""Eval harnesses and fixtures (non-production)."""

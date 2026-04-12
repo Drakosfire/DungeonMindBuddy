@@ -1,0 +1,90 @@
+{
+  "schema_version": "0.1.0",
+  "created_at": "2026-04-09T18:00:00Z",
+  "updated_at": "2026-04-09T18:00:00Z",
+  "record_status": "active",
+  "extraction_pass_id": null,
+  "profile_kind": "corpus_entity_audit",
+  "entity_id": "ent_mirathorn",
+  "display_name": "Mirathorn",
+  "entity_class": "place",
+  "cohort": {
+    "manifest_id": "entity_audit_2026-04-09",
+    "wiki_connectivity_score": 1.56371,
+    "list_wiki_targets_params": {
+      "campaign_id": "longmont-c1",
+      "min_connectivity": 0.3
+    },
+    "store_path": "evals/mirathorn_vertical_slice/output/phase_d_store",
+    "store_git_commit": "3f108761355344b2ca3bf5793c866d3508ef4059"
+  },
+  "evidence_sufficiency": "sufficient",
+  "insufficient_evidence_note": null,
+  "integrated_summary": "Mirathorn is the principal city setting for the Longmont campaigns: a walled city with toll gates, festival ribbons, vendor streets, the Copper and Quartz Inn, and steampunk-flavored inner districts where Questionable Company first enters in Campaign 1 Session 7. Later corpus positions it inside Eldyrwyld as a rebel city under civic strain—magical storms, cult infiltration, festivals used as control surfaces, and martial law after the Festival of Expansion is disrupted. The party secures an in-city base (Wolf's Manor deed) as a reward for defending the population. The name also attaches to Lake Mirathorn and surrounding geography in festival set-pieces; context usually disambiguates city versus body of water.",
+  "narrative_layers": {
+    "dossier": "Campaign 2 GM notes list Mirathorn civic and military leadership (Thalia Ashenvale, Lysandra Ironveil), academy figures, and citywide concerns such as reduced guard presence, Outtown unrest, and unnatural magical storms tied to the Shepherd and Maelthor.",
+    "observed_play": "Session 7 (C1): toll riot at the gates, magical celebration ribbons, vendors, Copper and Quartz full, distant steampunk rings of streets. Session 3 (C2 recap): deed to Wolf's Manor places the heroes with a home base inside Mirathorn after cult losses. Session 2 recap: Glimmering Globe at the edge of Lake Mirathorn; fireworks display over the lake.",
+    "ledger_or_world": "Elderwyld Narrative Ledger (C2): Mirathorn as primary location—festival postponed, guard compromised, martial law, tunnels mapped—framed as a rebel city that escaped authoritarian utopia and now risks rigidification under pressure."
+  },
+  "relationships": [
+    {
+      "related_entity_id": null,
+      "related_display_name": "Lake Mirathorn",
+      "relation_summary": "Festival geography and fireworks in C2 session recaps; distinct landmark from the walled city proper but same civic region."
+    },
+    {
+      "related_entity_id": "ent_the_wolf",
+      "related_display_name": "the Wolf",
+      "relation_summary": "Antagonist officer's death beat explicitly names betrayal of the city of Mirathorn (C1 Session 12 recap)."
+    }
+  ],
+  "terminal_beats": [],
+  "citations": [
+    {
+      "corpus_relative_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Session Recaps/Session 7 - Passing Mirathorn Gates.md",
+      "layer_tags": ["observed_play"],
+      "authority": "play_record",
+      "quote": "Gates, toll riot, magical ribbons, vendors, Copper and Quartz, steampunk inner districts",
+      "session": 7,
+      "campaign_id": "longmont-c1"
+    },
+    {
+      "corpus_relative_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 3 - Recap.md",
+      "layer_tags": ["observed_play"],
+      "authority": "play_record",
+      "quote": "Deed to Wolf's Manor; adventures have a home base inside Mirathorn",
+      "session": 3,
+      "campaign_id": "longmont-c2"
+    },
+    {
+      "corpus_relative_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 2 - Recap.md",
+      "layer_tags": ["observed_play"],
+      "authority": "play_record",
+      "quote": "Glimmering Globe at the edge of Lake Mirathorn; fireworks display over Lake Mirathorn",
+      "session": 2,
+      "campaign_id": "longmont-c2"
+    },
+    {
+      "corpus_relative_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Campaign 2 Notes.md",
+      "layer_tags": ["dossier"],
+      "authority": "canon_reference",
+      "quote": "Mirathorn Civic and Military; Magical Storms; citywide concerns (guard presence, Outtown unrest, Stormspire)",
+      "session": null,
+      "campaign_id": "longmont-c2"
+    },
+    {
+      "corpus_relative_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Elderwyld_Narrative_Ledger_2.md",
+      "layer_tags": ["ledger"],
+      "authority": "canon_reference",
+      "quote": "Mirathorn — rebel city escaped authoritarian utopia; festival disrupted; martial law; tunnels",
+      "session": null,
+      "campaign_id": "longmont-c2"
+    }
+  ],
+  "store_reliability": {
+    "caveat_kind": "referent_mixing",
+    "detail": "Corpus uses Mirathorn for the city, civic institutions, and nearby geography (e.g. Lake Mirathorn). Automated extraction or high connectivity on the place node may blend those referents or attach population-level facts that belong to sub-locations; treat projected wiki text as hints and prefer file-level citations."
+  },
+  "review_state": "draft",
+  "author": "agent:cursor"
+}

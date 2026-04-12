@@ -28,6 +28,11 @@ filter_projection = importlib.import_module(
     "src.agent.retriever"
 ).filter_projection
 DEFAULT_CAMPAIGN_ID = "longmont-c1"
+STORE_PATH_ENV = "DMB_STORE_PATH"
+CAMPAIGN_ID_ENV = "DMB_CAMPAIGN_ID"
+PROJECTION_ENRICHED_ENV = "DMB_PROJECTION_ENRICHED"
+RICH_ENTITY_SUMMARIES_ENV = "DMB_RICH_ENTITY_SUMMARIES"
+USE_WIKI_ENV = "DMB_USE_WIKI"
 GOLD_QUESTIONS_PATH = Path(__file__).resolve().parent / "gold" / "gold_questions.json"
 # Artifact writes are opt-in so dry runs / CI / unset shell keys cannot clobber trusted
 # bench output when dotenv (e.g. .env.development) repopulates OPENAI_API_KEY.
@@ -375,12 +380,30 @@ def _projection_search_text(
     return _normalize_text("\n".join(parts)).lower()
 
 
+def _resolve_store_path() -> Path:
+    """Fact store directory; default slice store. Override with DMB_STORE_PATH (repo-relative or absolute)."""
+    raw = os.environ.get(STORE_PATH_ENV, "").strip()
+    if not raw:
+        return PROJECT_ROOT / "evals/mirathorn_vertical_slice/output/phase_d_store"
+    p = Path(raw)
+    if not p.is_absolute():
+        return (PROJECT_ROOT / p).resolve()
+    return p.resolve()
+
+
 def run() -> dict:
-    store = Path("evals/mirathorn_vertical_slice/output/phase_d_store")
+    store = _resolve_store_path()
+    campaign_id = os.environ.get(CAMPAIGN_ID_ENV, "").strip() or DEFAULT_CAMPAIGN_ID
     outdir = Path("evals/mirathorn_vertical_slice/output")
     outdir.mkdir(parents=True, exist_ok=True)
 
     questions = _load_gold_questions(GOLD_QUESTIONS_PATH)
+
+    print(
+        f"Store: {store} | campaign: {campaign_id}",
+        file=sys.stderr,
+        flush=True,
+    )
 
     cli = DungeonBuddyCLI(store_dir=store, verbose=False)
     results: list[dict] = []
@@ -476,6 +499,18 @@ def run() -> dict:
         if dp_model:
             document_planner_flag += f" --document-planner-model {shlex.quote(dp_model)}"
 
+    projection_enriched_flag = ""
+    if os.environ.get(PROJECTION_ENRICHED_ENV, "").strip() == "1":
+        projection_enriched_flag = " --projection-enriched"
+
+    rich_summaries_flag = ""
+    if os.environ.get(RICH_ENTITY_SUMMARIES_ENV, "").strip() == "1":
+        rich_summaries_flag = " --rich-entity-summaries"
+
+    use_wiki_flag = ""
+    if os.environ.get(USE_WIKI_ENV, "").strip() == "1":
+        use_wiki_flag = " --use-wiki"
+
     compare_evidence_first = (
         os.environ.get(COMPARE_EVIDENCE_FIRST_ENV, "").strip() == "1"
         and evidence_first_mode == "1"
@@ -483,6 +518,7 @@ def run() -> dict:
 
     config_flags = (
         f"{retrieval_flag}{semantic_rerank_flag}{evidence_first_flag}{document_planner_flag}"
+        f"{projection_enriched_flag}{rich_summaries_flag}{use_wiki_flag}"
     ).strip()
     if config_flags:
         print(f"Pipeline config: {config_flags}", file=sys.stderr, flush=True)
@@ -495,7 +531,7 @@ def run() -> dict:
         "synthesis_gap": 0,
         "hit": 0,
     }
-    base_projection = cli.store.project(DEFAULT_CAMPAIGN_ID)
+    base_projection = cli.store.project(campaign_id)
     entities = cli.store.list_entities()
     entity_meta_by_id: dict[str, dict[str, Any]] = {}
     for entity in entities:
@@ -523,9 +559,10 @@ def run() -> dict:
         capture = io.StringIO()
         with redirect_stdout(capture):
             cli.handle_line(
-                f'ask "{row["question"]}" --campaign {DEFAULT_CAMPAIGN_ID}'
+                f'ask "{row["question"]}" --campaign {campaign_id}'
                 f' --require-campaign{retrieval_flag}{semantic_rerank_flag}'
                 f'{evidence_first_flag}{document_planner_flag}'
+                f'{projection_enriched_flag}{rich_summaries_flag}{use_wiki_flag}'
             )
         answer = capture.getvalue().strip()
         has_error = bool(re.search(r"Error:\s*(.*)", answer, re.IGNORECASE))
@@ -662,7 +699,7 @@ def run() -> dict:
             base_capture = io.StringIO()
             with redirect_stdout(base_capture):
                 cli.handle_line(
-                    f'ask "{row["question"]}" --campaign {DEFAULT_CAMPAIGN_ID}'
+                    f'ask "{row["question"]}" --campaign {campaign_id}'
                     f" --require-campaign{retrieval_flag}{semantic_rerank_flag}"
                 )
             baseline_answer = base_capture.getvalue().strip()
@@ -861,7 +898,7 @@ def run() -> dict:
             use_llm_extractor = (
                 os.environ.get(CLAIM_VERIFICATION_USE_LLM_EXTRACTOR_ENV, "").strip() == "1"
             )
-            projection = cli.store.project(DEFAULT_CAMPAIGN_ID)
+            projection = cli.store.project(campaign_id)
             entities = cli.store.list_entities()
             for row_result in results:
                 claim_eval = evaluate_answer_accuracy(
@@ -957,6 +994,8 @@ def run() -> dict:
         }
 
     summary = {
+        "store_path": str(store),
+        "campaign_id": campaign_id,
         "pipeline_config": config_flags or "(defaults)",
         "overall_strict": _tally("strict_verdict"),
         "overall_semantic": _tally("semantic_verdict"),
@@ -1008,7 +1047,7 @@ def run() -> dict:
     elif compare_evidence_first:
         summary["evidence_first_comparison"] = {"enabled": False}
 
-    projection = cli.store.project(DEFAULT_CAMPAIGN_ID)
+    projection = cli.store.project(campaign_id)
     scope_cases = [
         {
             "id": "scope_precision_elric_excluded",

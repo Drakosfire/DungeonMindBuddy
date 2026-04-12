@@ -25,6 +25,7 @@ pythonpath = ["."]
 testpaths = ["tests"]
 markers = [
     "embedding_smoke: live load of HF embedding model; requires DMB_SMOKE_EMBEDDING_MODEL=1 and embedding extras",
+    "integration: live OpenAI or external I/O; opt-in via env vars documented per test",
 ]
 
 [tool.ruff]

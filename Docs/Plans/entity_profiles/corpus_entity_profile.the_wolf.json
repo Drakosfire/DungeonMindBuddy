@@ -1,0 +1,101 @@
+{
+  "schema_version": "0.1.0",
+  "created_at": "2026-04-09T18:00:00Z",
+  "updated_at": "2026-04-09T18:00:00Z",
+  "record_status": "active",
+  "extraction_pass_id": null,
+  "profile_kind": "corpus_entity_audit",
+  "entity_id": "ent_the_wolf",
+  "display_name": "the Wolf",
+  "entity_class": "actor",
+  "cohort": {
+    "manifest_id": "entity_audit_2026-04-09",
+    "wiki_connectivity_score": 1.876055,
+    "list_wiki_targets_params": {
+      "campaign_id": "longmont-c1",
+      "min_connectivity": 0.3
+    },
+    "store_path": "evals/mirathorn_vertical_slice/output/phase_d_store",
+    "store_git_commit": "3f108761355344b2ca3bf5793c866d3508ef4059"
+  },
+  "evidence_sufficiency": "sufficient",
+  "insufficient_evidence_note": null,
+  "integrated_summary": "In Campaign 1 corpus, the Wolf is a senior guard officer aligned with the Shepherd cult: session framing names him second-in-command of the guard and a cult contact, while the guard leadership is kept ignorant and magically resistant to the truth. Play records tie cult surveillance to an oily sheen in guards eyes, storeroom tunnels, and smuggled otherworldly meat. In the council-chamber fight he drinks invisibility, flees through a secret passage, and dies when Bonogo runs him down; the recap states the oily sheen leaves his eyes and is replaced by regret at betraying Mirathorn. Engineering documentation warns the knowledge graph may have merged unrelated proper names onto the Wolf node, so narrative identity should be anchored on these session files rather than store aliases alone. Corpus also uses Wolf family naming for a manor and estate in Campaign 2; that is a separate in-world thread from this antagonist officer.",
+  "narrative_layers": {
+    "dossier": "Session 9 recap section states the Wolf is second in command of the guard and a cultist, with the guard leader innocent but ensorcelled into ignorance and magical resistance to believing the guard is compromised.",
+    "observed_play": "Session 8: guards show an oily sheen; the party bluffs entry to the storeroom for the morning when Wolf (the higher up) expects preparations; hidden stairs lead to wrong-looking meat and a tunnel. Session 12: council battle with rune defenses, Thalia briefly dominated, Heat Metal and Hunter's Mark pressure, Wolf invisible and escaping through sliding stone; Bonogo pursues, caltrops, oil fire, and a final knife kill with the oily sheen fading to regret toward Mirathorn."
+  },
+  "relationships": [
+    {
+      "related_entity_id": "ent_bonogo",
+      "related_display_name": "Bonogo",
+      "relation_summary": "Bonogo tracks the Wolf through the secret passage and delivers the killing blow in Campaign 1 Session 12."
+    },
+    {
+      "related_entity_id": null,
+      "related_display_name": "Thalia",
+      "relation_summary": "During the council fight the Wolf speaks through Thalia, ordering her to attack the party until Stafl breaks the charm."
+    },
+    {
+      "related_entity_id": "ent_mirathorn",
+      "related_display_name": "Mirathorn",
+      "relation_summary": "Terminal beat: eyes clear of the oily sheen and show regret at betraying the city of Mirathorn."
+    }
+  ],
+  "terminal_beats": [
+    {
+      "summary": "Killed after invisible escape attempt through secret passage; oily sheen fades, replaced by regret at betraying Mirathorn.",
+      "session": 12,
+      "campaign_id": "longmont-c1"
+    }
+  ],
+  "citations": [
+    {
+      "corpus_relative_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Session Recaps/Session 9 - Battle with the Meat Monsters.md",
+      "layer_tags": ["observed_play"],
+      "authority": "play_record",
+      "quote": "The Wolf who is the second in command of the guard and a cultist is also alerted to the party",
+      "session": 9,
+      "campaign_id": "longmont-c1"
+    },
+    {
+      "corpus_relative_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Session Recaps/Session 8 - Captain Lysandra Quest.md",
+      "layer_tags": ["observed_play"],
+      "authority": "play_record",
+      "quote": "Oily sheen to eyes; storeroom bluff for Wolf the higher up; hidden stairs to wrong-looking meat and tunnel",
+      "session": 8,
+      "campaign_id": "longmont-c1"
+    },
+    {
+      "corpus_relative_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Session Recaps/Session 12 - One Persistent Bugbear or Sneaky Fucking Bugbear.md",
+      "layer_tags": ["observed_play"],
+      "authority": "play_record",
+      "quote": "As Bonogo deals the killing blow the oily sheen fades from the Wolf's eyes and is replaced with only regret at betraying the city of Mirathorn",
+      "session": 12,
+      "campaign_id": "longmont-c1"
+    },
+    {
+      "corpus_relative_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Campaign 2 Notes.md",
+      "layer_tags": ["ledger"],
+      "authority": "canon_reference",
+      "quote": "The Wolf's Estate (Party Home) — distinct family property thread from C1 guard antagonist",
+      "session": null,
+      "campaign_id": "longmont-c2"
+    },
+    {
+      "corpus_relative_path": "Docs/Design/REPORT-benchmark-shortcomings-and-successes.md",
+      "layer_tags": ["design_report"],
+      "authority": null,
+      "quote": "S5 — Wolf alias set incorrectly included Bonogo, Grishna, Torbin; proper-name pollution",
+      "session": null,
+      "campaign_id": null
+    }
+  ],
+  "store_reliability": {
+    "caveat_kind": "alias_pollution",
+    "detail": "REPORT documents that the Wolf entity's alias set incorrectly included distinct PCs and other proper names after aggressive fuzzy matching; pronoun filtering and type conflict blocking reduced but did not eliminate pollution. Wiki and projected facts for ent_the_wolf must be cross-checked against session recaps. Corpus additionally uses Wolf as a family/manor name in Campaign 2, which is easy to conflate with the officer unless citations separate them.",
+    "design_report_paths": ["Docs/Design/REPORT-benchmark-shortcomings-and-successes.md"]
+  },
+  "review_state": "draft",
+  "author": "agent:cursor"
+}

@@ -1,7 +1,7 @@
 {
   "store_path": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/out/stores/dungeonbuddy_store_escalation_full_mini_to_54",
   "campaign_id": "longmont-c1",
-  "pipeline_config": "--rich-entity-summaries",
+  "pipeline_config": "--evidence-first --evidence-adaptive-top-k --evidence-adaptive-top-k-max 48 --evidence-density-threshold 0.3 --document-planner",
   "overall_strict": {
     "pass_updated": 1,
     "fail_stale": 0,
@@ -9,9 +9,9 @@
     "fail_error": 0
   },
   "overall_semantic": {
-    "pass_updated": 2,
+    "pass_updated": 3,
     "fail_stale": 0,
-    "fail_incomplete": 13,
+    "fail_incomplete": 12,
     "fail_error": 0
   },
   "overall_embedding": {
@@ -25,196 +25,196 @@
     "skipped_reason": "DMB_CLAIM_VERIFICATION is not set to 1; skipping claim verification."
   },
   "overall_context_support": {
-    "avg_support_ratio": 0.5056,
-    "full_support_count": 2,
-    "support_ge_0_75_count": 4,
+    "avg_support_ratio": 0.5889,
+    "full_support_count": 4,
+    "support_ge_0_75_count": 6,
     "questions": 15
   },
   "overall_failure_surface": {
-    "pass": 2,
+    "pass": 3,
     "retrieval_gap": 5,
-    "synthesis_gap": 8
+    "synthesis_gap": 7
   },
   "diagnostics": {
     "per_question": [
       {
         "id": "q_the_emergency_council_meeting_1",
-        "context_chars": 32358,
-        "total_ms": 9673,
-        "evidence_selected": 0,
-        "evidence_seeded": 0,
-        "effective_top_k": null,
-        "requested_top_k": null,
-        "expanded_neighbors": null,
-        "expanded_entity_provenance": null
+        "context_chars": 28963,
+        "total_ms": 10716,
+        "evidence_selected": 51,
+        "evidence_seeded": 24,
+        "effective_top_k": 24,
+        "requested_top_k": 24,
+        "expanded_neighbors": 20,
+        "expanded_entity_provenance": 0
       },
       {
         "id": "q_longmont_session_12_council_chamber_roster",
-        "context_chars": 27780,
-        "total_ms": 6745,
-        "evidence_selected": 0,
-        "evidence_seeded": 0,
-        "effective_top_k": null,
-        "requested_top_k": null,
-        "expanded_neighbors": null,
-        "expanded_entity_provenance": null
+        "context_chars": 29007,
+        "total_ms": 8699,
+        "evidence_selected": 73,
+        "evidence_seeded": 48,
+        "effective_top_k": 48,
+        "requested_top_k": 24,
+        "expanded_neighbors": 20,
+        "expanded_entity_provenance": 0
       },
       {
         "id": "q_longmont_campaign_general_notes_1",
-        "context_chars": 30093,
-        "total_ms": 6343,
-        "evidence_selected": 0,
-        "evidence_seeded": 0,
-        "effective_top_k": null,
-        "requested_top_k": null,
-        "expanded_neighbors": null,
-        "expanded_entity_provenance": null
+        "context_chars": 29647,
+        "total_ms": 8186,
+        "evidence_selected": 31,
+        "evidence_seeded": 24,
+        "effective_top_k": 24,
+        "requested_top_k": 24,
+        "expanded_neighbors": 7,
+        "expanded_entity_provenance": 0
       },
       {
         "id": "q_the_city_council_2",
-        "context_chars": 30052,
-        "total_ms": 5939,
-        "evidence_selected": 0,
-        "evidence_seeded": 0,
-        "effective_top_k": null,
-        "requested_top_k": null,
-        "expanded_neighbors": null,
-        "expanded_entity_provenance": null
+        "context_chars": 30648,
+        "total_ms": 7182,
+        "evidence_selected": 83,
+        "evidence_seeded": 48,
+        "effective_top_k": 48,
+        "requested_top_k": 24,
+        "expanded_neighbors": 24,
+        "expanded_entity_provenance": 0
       },
       {
         "id": "q_the_city_council_4",
-        "context_chars": 30756,
-        "total_ms": 7140,
-        "evidence_selected": 0,
-        "evidence_seeded": 0,
-        "effective_top_k": null,
-        "requested_top_k": null,
-        "expanded_neighbors": null,
-        "expanded_entity_provenance": null
+        "context_chars": 32524,
+        "total_ms": 8350,
+        "evidence_selected": 58,
+        "evidence_seeded": 35,
+        "effective_top_k": 35,
+        "requested_top_k": 24,
+        "expanded_neighbors": 21,
+        "expanded_entity_provenance": 0
       },
       {
         "id": "q_battle_with_the_wolf_and_aftermath_1",
-        "context_chars": 28231,
-        "total_ms": 5322,
-        "evidence_selected": 0,
-        "evidence_seeded": 0,
-        "effective_top_k": null,
-        "requested_top_k": null,
-        "expanded_neighbors": null,
-        "expanded_entity_provenance": null
+        "context_chars": 28751,
+        "total_ms": 7351,
+        "evidence_selected": 59,
+        "evidence_seeded": 42,
+        "effective_top_k": 42,
+        "requested_top_k": 24,
+        "expanded_neighbors": 17,
+        "expanded_entity_provenance": 0
       },
       {
         "id": "q_battle_with_the_wolf_and_aftermath_3",
-        "context_chars": 29204,
-        "total_ms": 6432,
-        "evidence_selected": 0,
-        "evidence_seeded": 0,
-        "effective_top_k": null,
-        "requested_top_k": null,
-        "expanded_neighbors": null,
-        "expanded_entity_provenance": null
+        "context_chars": 28052,
+        "total_ms": 7480,
+        "evidence_selected": 72,
+        "evidence_seeded": 48,
+        "effective_top_k": 48,
+        "requested_top_k": 24,
+        "expanded_neighbors": 24,
+        "expanded_entity_provenance": 0
       },
       {
         "id": "q_battle_with_the_wolf_and_aftermath_2",
-        "context_chars": 29094,
-        "total_ms": 6838,
-        "evidence_selected": 0,
-        "evidence_seeded": 0,
-        "effective_top_k": null,
-        "requested_top_k": null,
-        "expanded_neighbors": null,
-        "expanded_entity_provenance": null
+        "context_chars": 27899,
+        "total_ms": 9816,
+        "evidence_selected": 39,
+        "evidence_seeded": 24,
+        "effective_top_k": 24,
+        "requested_top_k": 24,
+        "expanded_neighbors": 15,
+        "expanded_entity_provenance": 0
       },
       {
         "id": "q_the_emergency_council_meeting_2_v2",
-        "context_chars": 30833,
-        "total_ms": 5824,
-        "evidence_selected": 0,
-        "evidence_seeded": 0,
-        "effective_top_k": null,
-        "requested_top_k": null,
-        "expanded_neighbors": null,
-        "expanded_entity_provenance": null
+        "context_chars": 28903,
+        "total_ms": 8278,
+        "evidence_selected": 77,
+        "evidence_seeded": 48,
+        "effective_top_k": 48,
+        "requested_top_k": 24,
+        "expanded_neighbors": 24,
+        "expanded_entity_provenance": 0
       },
       {
         "id": "q_the_emergency_council_meeting_4_v2",
-        "context_chars": 30036,
-        "total_ms": 5885,
-        "evidence_selected": 0,
-        "evidence_seeded": 0,
-        "effective_top_k": null,
-        "requested_top_k": null,
-        "expanded_neighbors": null,
-        "expanded_entity_provenance": null
+        "context_chars": 31273,
+        "total_ms": 7947,
+        "evidence_selected": 81,
+        "evidence_seeded": 48,
+        "effective_top_k": 48,
+        "requested_top_k": 24,
+        "expanded_neighbors": 19,
+        "expanded_entity_provenance": 0
       },
       {
         "id": "q_arch_current",
-        "context_chars": 30042,
-        "total_ms": 5726,
-        "evidence_selected": 0,
-        "evidence_seeded": 0,
-        "effective_top_k": null,
-        "requested_top_k": null,
-        "expanded_neighbors": null,
-        "expanded_entity_provenance": null
+        "context_chars": 30211,
+        "total_ms": 9118,
+        "evidence_selected": 75,
+        "evidence_seeded": 48,
+        "effective_top_k": 48,
+        "requested_top_k": 24,
+        "expanded_neighbors": 24,
+        "expanded_entity_provenance": 0
       },
       {
         "id": "q_arch_delta",
-        "context_chars": 28893,
-        "total_ms": 5217,
-        "evidence_selected": 0,
-        "evidence_seeded": 0,
-        "effective_top_k": null,
-        "requested_top_k": null,
-        "expanded_neighbors": null,
-        "expanded_entity_provenance": null
+        "context_chars": 29376,
+        "total_ms": 7317,
+        "evidence_selected": 74,
+        "evidence_seeded": 48,
+        "effective_top_k": 48,
+        "requested_top_k": 24,
+        "expanded_neighbors": 24,
+        "expanded_entity_provenance": 0
       },
       {
         "id": "q_wolf_status",
-        "context_chars": 30039,
-        "total_ms": 5107,
-        "evidence_selected": 0,
-        "evidence_seeded": 0,
-        "effective_top_k": null,
-        "requested_top_k": null,
-        "expanded_neighbors": null,
-        "expanded_entity_provenance": null
+        "context_chars": 27110,
+        "total_ms": 6699,
+        "evidence_selected": 52,
+        "evidence_seeded": 28,
+        "effective_top_k": 28,
+        "requested_top_k": 24,
+        "expanded_neighbors": 24,
+        "expanded_entity_provenance": 0
       },
       {
         "id": "q_pre_post",
-        "context_chars": 30052,
-        "total_ms": 6453,
-        "evidence_selected": 0,
-        "evidence_seeded": 0,
-        "effective_top_k": null,
-        "requested_top_k": null,
-        "expanded_neighbors": null,
-        "expanded_entity_provenance": null
+        "context_chars": 29200,
+        "total_ms": 10236,
+        "evidence_selected": 56,
+        "evidence_seeded": 48,
+        "effective_top_k": 48,
+        "requested_top_k": 24,
+        "expanded_neighbors": 8,
+        "expanded_entity_provenance": 0
       },
       {
         "id": "q_thalia",
-        "context_chars": 30063,
-        "total_ms": 7468,
-        "evidence_selected": 0,
-        "evidence_seeded": 0,
-        "effective_top_k": null,
-        "requested_top_k": null,
-        "expanded_neighbors": null,
-        "expanded_entity_provenance": null
+        "context_chars": 27417,
+        "total_ms": 9529,
+        "evidence_selected": 58,
+        "evidence_seeded": 48,
+        "effective_top_k": 48,
+        "requested_top_k": 24,
+        "expanded_neighbors": 10,
+        "expanded_entity_provenance": 0
       }
     ],
-    "avg_context_chars": 29835,
-    "avg_total_ms": 6407
+    "avg_context_chars": 29265,
+    "avg_total_ms": 8460
   },
   "stage_loss_report": {
     "overall_counts": {
       "store_gap": 4,
-      "evidence_gap": 0,
-      "retriever_gap": 14,
-      "synthesis_gap": 20,
-      "hit": 22
+      "evidence_gap": 13,
+      "retriever_gap": 7,
+      "synthesis_gap": 18,
+      "hit": 18
     },
-    "evidence_stage_enabled": false,
+    "evidence_stage_enabled": true,
     "questions": [
       {
         "id": "q_the_emergency_council_meeting_1",
@@ -222,35 +222,35 @@
           "wizards' college": "synthesis_gap",
           "arcane lockdown": "store_gap",
           "wards": "synthesis_gap",
-          "tradeoff": "retriever_gap"
+          "tradeoff": "evidence_gap"
         }
       },
       {
         "id": "q_longmont_session_12_council_chamber_roster",
         "stage_loss_tokens": {
-          "bonogo": "hit",
-          "caelynn": "synthesis_gap",
+          "bonogo": "evidence_gap",
+          "caelynn": "evidence_gap",
           "thalia": "synthesis_gap",
           "wolf": "hit",
-          "guards": "synthesis_gap",
-          "ephanna": "synthesis_gap"
+          "guards": "hit",
+          "ephanna": "evidence_gap"
         }
       },
       {
         "id": "q_longmont_campaign_general_notes_1",
         "stage_loss_tokens": {
           "shepherds": "hit",
-          "maelthor": "hit",
-          "worship": "hit",
+          "maelthor": "evidence_gap",
+          "worship": "retriever_gap",
           "cult": "hit"
         }
       },
       {
         "id": "q_the_city_council_2",
         "stage_loss_tokens": {
-          "headmaster tinkerbright": "retriever_gap",
-          "wizard's college": "retriever_gap",
-          "detect": "hit",
+          "headmaster tinkerbright": "synthesis_gap",
+          "wizard's college": "evidence_gap",
+          "detect": "synthesis_gap",
           "counter corruption": "store_gap"
         }
       },
@@ -262,15 +262,15 @@
           "torrin": "hit",
           "guilds": "synthesis_gap",
           "rurik": "hit",
-          "infrastructure": "hit"
+          "infrastructure": "synthesis_gap"
         }
       },
       {
         "id": "q_battle_with_the_wolf_and_aftermath_1",
         "stage_loss_tokens": {
           "killed": "hit",
-          "killing blow": "synthesis_gap",
-          "bonogo": "synthesis_gap",
+          "killing blow": "evidence_gap",
+          "bonogo": "evidence_gap",
           "decapitated": "hit"
         }
       },
@@ -280,7 +280,7 @@
           "thalia": "hit",
           "ensorcelled": "synthesis_gap",
           "not fully corrupted": "synthesis_gap",
-          "corrupted guards": "synthesis_gap"
+          "corrupted guards": "hit"
         }
       },
       {
@@ -288,7 +288,7 @@
         "stage_loss_tokens": {
           "arcane traps": "store_gap",
           "falling debris": "retriever_gap",
-          "alarm pulses": "retriever_gap",
+          "alarm pulses": "synthesis_gap",
           "illusory walls": "store_gap"
         }
       },
@@ -296,32 +296,32 @@
         "id": "q_the_emergency_council_meeting_2_v2",
         "stage_loss_tokens": {
           "thalia": "hit",
-          "wolf influence": "synthesis_gap",
+          "wolf influence": "evidence_gap",
           "guard operations": "synthesis_gap",
-          "uncertain reliability": "hit"
+          "uncertain reliability": "evidence_gap"
         }
       },
       {
         "id": "q_the_emergency_council_meeting_4_v2",
         "stage_loss_tokens": {
-          "time pressure": "synthesis_gap",
+          "time pressure": "evidence_gap",
           "countdown": "retriever_gap",
           "summoning": "hit",
-          "consequences": "retriever_gap"
+          "consequences": "evidence_gap"
         }
       },
       {
         "id": "q_arch_current",
         "stage_loss_tokens": {
-          "arched ceilings": "synthesis_gap",
-          "floating chandelier": "retriever_gap",
-          "secret passage": "retriever_gap"
+          "arched ceilings": "retriever_gap",
+          "floating chandelier": "synthesis_gap",
+          "secret passage": "synthesis_gap"
         }
       },
       {
         "id": "q_arch_delta",
         "stage_loss_tokens": {
-          "chandelier": "retriever_gap",
+          "chandelier": "synthesis_gap",
           "runes": "retriever_gap",
           "secret passage": "retriever_gap"
         }
@@ -339,7 +339,7 @@
         "stage_loss_tokens": {
           "before": "hit",
           "after": "hit",
-          "oily sheen": "retriever_gap",
+          "oily sheen": "evidence_gap",
           "killing blow": "synthesis_gap"
         }
       },
@@ -370,11 +370,11 @@
         "wizards' college": "synthesis_gap",
         "arcane lockdown": "store_gap",
         "wards": "synthesis_gap",
-        "tradeoff": "retriever_gap"
+        "tradeoff": "evidence_gap"
       },
       "stale_hits": [],
       "global_stale_hits": [],
-      "answer": "TL;DR: The wizards are pushing for a **city-wide purification (and likely lockdown)** to flush out the cult\u2014but the catch is it targets the entire population and risks harming or isolating innocent citizens while the council is divided and under time pressure.\n\nFrom the available context, the Wizard\u2019s College is involved in **detecting and counteracting the cult** (CANON: the cult is \u201csubject of detection and counteraction by Tinkerbright and the Wizard\u2019s College\u201d). In the emergency council meeting, this aligns with proposals already on the table for the city:  \n- A **\u201ccity-wide purification effort\u201d** (CANON: city operational_status)  \n- A **\u201ccity-wide lockdown\u201d being pushed for** (CANON: city operational_status)\n\nThe catch comes from who and what this affects:  \n- The city\u2019s **own population is a target of purification-related plans** (OBSERVED: demographics), meaning innocent citizens could be swept up.  \n- Lockdown/purification could **isolate parts of the city if tunnels or access points are sealed** (CANON: operational_status), disrupting defenses and movement.  \n- The council itself is **divided and may include cult sympathizers** (CANON: loyalty context), increasing the risk of misuse or delay.\n\nKey Attributes:\n- Governance: Emergency council actively debating plans under time pressure  \n- Operational Status: Proposed city-wide purification and lockdown  \n- Demographics: Citizens may be directly targeted by purification efforts  \n- Conflict: Cult embedded in sewers and infrastructure; detection is difficult  \n- Risk: Internal division and possible cult sympathizers within the Council",
+      "answer": "TL;DR: The wizards are pushing for a city-wide magical purification/detection sweep, but the catch is it affects the entire population and may require lockdowns or sealing parts of the city, risking panic, isolation, and collateral harm.\n\nFrom the available facts, the Wizard\u2019s College (referenced alongside Tinkerbright as actively detecting the cult) is tied to proposals that the city is \u201csubject of a proposed city-wide purification effort\u201d and that it \u201crequires purification of the entire city\u201d (CANON: the city operational_status, physical_condition). This strongly indicates they want sweeping magical action to expose or eliminate cult influence\u2014likely leveraging the fact that \u201ccultists can be immediately detected by magic\u201d (CANON: the cult operational_status).\n\nThe catch is embedded in the same cluster of consequences:\n- A \u201ccity-wide lockdown is being pushed for\u201d (CANON: the city operational_status)\n- \u201cParts of the city could be left isolated if key tunnels or access points are sealed\u201d (CANON)\n- The city risks being \u201cbrought closer to disaster by each failed or unresolved debate\u201d (CANON)\n\nSo while effective against the cult, the plan risks mass disruption, harming or targeting ordinary citizens, and potentially accelerating chaos the cult can exploit.\n\nKey Attributes:\n- Defenses: Magical detection can identify cultists\n- Operational Status: Proposed city-wide purification; lockdown pressure; risk of isolation\n- Conflict: Active cult threat beneath the city; coordinated attacks ongoing\n- Governance: Council under time pressure, divided on action",
       "embedding_similarity": null
     },
     {
@@ -383,32 +383,32 @@
       "strict_verdict": "fail_incomplete",
       "semantic_verdict": "fail_incomplete",
       "must_hits": [
-        "bonogo",
-        "wolf"
+        "wolf",
+        "guards"
       ],
       "semantic_must_hits": [
-        "bonogo",
-        "wolf"
+        "wolf",
+        "guards"
       ],
       "context_must_hits": [
         "bonogo",
-        "caelynn",
         "wolf",
-        "guards"
+        "guards",
+        "ephanna"
       ],
       "context_support_ratio": 0.6667,
       "failure_surface": "synthesis_gap",
       "stage_loss_tokens": {
-        "bonogo": "hit",
-        "caelynn": "synthesis_gap",
+        "bonogo": "evidence_gap",
+        "caelynn": "evidence_gap",
         "thalia": "synthesis_gap",
         "wolf": "hit",
-        "guards": "synthesis_gap",
-        "ephanna": "synthesis_gap"
+        "guards": "hit",
+        "ephanna": "evidence_gap"
       },
       "stale_hits": [],
       "global_stale_hits": [],
-      "answer": "TL;DR: The chamber definitively contains **Council members** (CANON) and **Bonogo** and **Stafl** (OBSERVED, involved in the Wolf confrontation), but the projection does not explicitly confirm any cultists or a full roster for the fight.\n\nBased on the projection:\n\n- **Council (npc)** \u2014 CANON/OBSERVED  \n  The council is meeting in the **Council Chamber**, a large, central room under tension with active decision-making and possible internal conflict. They are physically present for Session 12.\n\n- **Bonogo** \u2014 OBSERVED  \n  Directly involved in the fight: *\u201cAttacks Wolf from behind\u201d* and *\u201cChasing/attacking Wolf.\u201d* This places Bonogo in the chamber during the encounter.\n\n- **Stafl** \u2014 OBSERVED  \n  Has a defined role tied to the encounter: *\u201cSet up to distract Wolf.\u201d* This strongly indicates presence in the chamber during the fight.\n\nWhat is **not confirmed**:\n- No explicit OBSERVED evidence that **cultists** are in the council chamber during this fight (their locations are elsewhere: warehouses, tunnels, etc.).\n- No explicit entity entry confirming the Wolf\u2019s chamber presence (though implied by the question and Bonogo/Stafl interactions).\n\nKey Attributes:\n- Governance: Council meeting in a large circular chamber (OBSERVED)\n- Defenses: Arcane locks, wards (OBSERVED)\n- Atmosphere: High tension, time pressure, conflicting motivations (CANON)\n\nIf you need the exact roster including named council members or the Wolf\u2019s status, the projection doesn\u2019t currently specify it.",
+      "answer": "TL;DR: The chamber contains the Council members and multiple **Elite Corrupted Guards**, including **3\u20134 additional guards revealed by hidden doors behind council banners**; beyond that, the projection does not explicitly confirm other \u0909\u092a\u0938\u094d\u0925\u093f\u0924 combatants (including the Wolf).\n\nBased on OBSERVED facts tied to the council chamber scene:\n- **Council (npc)**: Present in the **Council Chamber** during an active, high-tension emergency meeting with internal disagreement and time pressure.\n- **Elite Corrupted Guards (npc)**: Actively engaged as enemies in the chamber:\n  - Positioned along the walls / perimeter\n  - Reinforcements are **\u201c3-4 additional corrupted elite guards\u2026 revealed by hidden doors behind council banners\u201d**\n  - Entering via hidden passages and responding to alarms\n\nThere is **no explicit mention in the projection** confirming:\n- The Wolf\u2019s physical presence in the chamber at that moment\n- Player characters or other named NPCs inside during the fight\n\nKey Attributes:\n- Location: Council Chamber (center of Mirathorn)\n- Defenses: Arcane locks, magical wards\n- Hidden Features: Doors behind council banners (used by corrupted guard reinforcements)\n- \u05de\u05e6\u05d1: High tension, active conflict, guarded perimeter with ambush/reinforcement behavior\n\nIf you need exact positioning or initiative setup, the projection doesn\u2019t provide that level of detail.",
       "embedding_similarity": null
     },
     {
@@ -438,13 +438,13 @@
       "failure_surface": "pass",
       "stage_loss_tokens": {
         "shepherds": "hit",
-        "maelthor": "hit",
-        "worship": "hit",
+        "maelthor": "evidence_gap",
+        "worship": "retriever_gap",
         "cult": "hit"
       },
       "stale_hits": [],
       "global_stale_hits": [],
-      "answer": "TL;DR: The Shepherds are cult leaders/recruiters within the Shepherd\u2019s Flock, a human-supremacist, flesh-warping cult, and they ultimately serve and worship the entity Maelthor.\n\nThe Shepherds are **hardy human cult figures** (CANON: Shepherd.species, Shepherd.demographics) who act as **leaders, recruiters, and agents of transformation** within the cult (OBSERVED: Shepherd.role). They are part of **the Shepherd\u2019s Flock** (CANON: the cult.faction) and help spread its influence through manipulation, indoctrination, and distribution of corrupted flesh.\n\nThey are **warped individuals**, both mentally and physically, shaped by their discovery and devotion (CANON: Shepherd.mental_state, Shepherd.physical_condition). Their ideology includes **human supremacy and violent \u201cpurification\u201d**, justifying atrocities as necessary sacrifices (OBSERVED: Shepherd.loyalty_or_alignment_context).\n\nThe power they answer to is **Maelthor**:\n- The cult explicitly identifies the Shepherds as **followers of Maelthor** (CANON: the cult.source_comments).\n- Maelthor is described as an **otherworldly entity promising ascension and transcendence** to its followers (CANON: the cult.source_comments).\n- The Shepherds treat Maelthor as a **godlike or godling force tied to ancient, eldritch power** (OBSERVED: Shepherd.faction, Shepherd.rank_or_title).\n\nKey Attributes:\n- Nature: Human cult leaders and agents of transformation\n- Affiliation: Shepherd\u2019s Flock (cult)\n- Beliefs: Human supremacy, purification through destruction\n- Condition: Mentally and physically warped\n- Patron/Deity: Maelthor (otherworldly, ascension-granting entity)",
+      "answer": "TL;DR: The Shepherds are cult leaders and agents of the Shepherd\u2019s Flock\u2014primarily disillusioned humans\u2014who serve and worship the entity Maelthor, a being promising ascension through transformation and sacrifice.\n\nThe **Shepherds** are a central leadership and ideological force within the cult known as the **Shepherd\u2019s Flock** (CANON). They are described as **mostly disillusioned humans\u2014especially veterans, laborers, and apprentices** (CANON), often warped physically and mentally by their discoveries and practices (CANON). In play, they act as **recruiters, manipulators, and orchestrators of events**, spreading influence through tainted flesh, sermons, and psychological control (OBSERVED).\n\nThey present their actions\u2014such as violence, sacrifice, and human supremacy\u2014as necessary for a greater transformation, often under a **benevolent guise** (OBSERVED).\n\nThe power they answer to is **Maelthor**:\n- The cult explicitly identifies as followers of **Maelthor** (CANON, OBSERVED).\n- Maelthor is believed to be a **guardian of ancient, otherworldly wisdom and power** who promises **ascension and transcendence** (CANON).\n- The Shepherds\u2019 actions\u2014sacrifice, corruption, and transformation\u2014are all in service of **Maelthor\u2019s awakening or resurrection** (CANON).\n\nKey Attributes:\n- Demographics: Disillusioned humans (veterans, laborers, apprentices)\n- Role: Cult leaders, recruiters, manipulators\n- Alignment: Human-supremacist, sacrificial, fanatical\n- Goals: Spread corruption, enable transformation, prepare for emergence \u201cfrom below\u201d\n- Patron Power: Maelthor (otherworldly entity promising ascension)",
       "embedding_similarity": null
     },
     {
@@ -452,14 +452,8 @@
       "question": "Who speaks for the wizards on the council, and what's his angle on the cult?",
       "strict_verdict": "fail_incomplete",
       "semantic_verdict": "fail_incomplete",
-      "must_hits": [
-        "wizard's college",
-        "detect"
-      ],
-      "semantic_must_hits": [
-        "wizard's college",
-        "detect"
-      ],
+      "must_hits": [],
+      "semantic_must_hits": [],
       "context_must_hits": [
         "wizard's college",
         "detect"
@@ -467,14 +461,14 @@
       "context_support_ratio": 0.5,
       "failure_surface": "synthesis_gap",
       "stage_loss_tokens": {
-        "headmaster tinkerbright": "retriever_gap",
-        "wizard's college": "retriever_gap",
-        "detect": "hit",
+        "headmaster tinkerbright": "synthesis_gap",
+        "wizard's college": "evidence_gap",
+        "detect": "synthesis_gap",
         "counter corruption": "store_gap"
       },
       "stale_hits": [],
       "global_stale_hits": [],
-      "answer": "TL;DR: The projection does not identify who represents the wizards on the council or their stance on the cult.\n\nThere are no explicit facts in the provided context naming a wizard representative on the Council or describing their perspective on the cult. While the Council is established as a knowledgeable, technically skilled body (CANON: Council demographics) and the cult is known to be \u201csubject of detection and counteraction by Tinkerbright and the Wizard\u2019s College\u201d (CANON: the cult loyalty/alignment context), no specific individual speaker or agenda tied to \u201cthe wizards\u201d is given.\n\nKey Attributes:\n- Council: Emergency governing body with internal disagreement and possible cult sympathizers (CANON).\n- Cult: Active threat beneath the city, opposed in part by the Wizard\u2019s College (CANON).\n- Gap: No named wizard delegate or stated political angle within the council discussions.",
+      "answer": "TL;DR: The projection does not identify who represents the wizards on the council or their stance on the cult.\n\nThere are no explicit facts naming a wizard representative among the **Council** members, nor any description of a specific individual speaking on behalf of a wizard faction. Additionally, no council member is tied to a clear \u201cangle\u201d or policy position regarding **the cult**.\n\nWhat we do know:\n- CANON: The **Council** includes knowledgeable, technically skilled members and may contain **cult sympathizers**.\n- CANON: Some council factions **do not fully accept the cult as a threat**, suggesting internal disagreement.\n- OBSERVED: The council is under **time pressure**, with **hesitation and tension** affecting decisions about responding to the cult.\n\nHowever, none of these facts are attributed to a specific wizard or spokesperson.\n\nKey Attributes:\n- Governance: City Council with voting procedures and internal debate\n- Demographics: Knowledgeable members with technical expertise\n- Loyalty/Alignment: Possible cult sympathizers; uneven belief in the threat\n- Operational Status: Active emergency deliberation under time pressure\n\nIf you need a wizard delegate, you\u2019ll have to define them\u2014there\u2019s no established NPC for that role in the current projection.",
       "embedding_similarity": null
     },
     {
@@ -485,14 +479,12 @@
       "must_hits": [
         "merril",
         "torrin",
-        "rurik",
-        "infrastructure"
+        "rurik"
       ],
       "semantic_must_hits": [
         "merril",
         "torrin",
-        "rurik",
-        "infrastructure"
+        "rurik"
       ],
       "context_must_hits": [
         "merril",
@@ -508,21 +500,24 @@
         "torrin": "hit",
         "guilds": "synthesis_gap",
         "rurik": "hit",
-        "infrastructure": "hit"
+        "infrastructure": "synthesis_gap"
       },
       "stale_hits": [],
       "global_stale_hits": [],
-      "answer": "TL;DR: The projection does not explicitly state the council roles for Merril, Torrin, or Rurik; only partial clues exist (Torrin = craftsman voice, Merril = tied to a purification plan), and Rurik has no defined role here.\n\nFrom the available facts:\n\n- **Torrin**:  \n  - CANON: \u201crespected for his craftsmanship and blunt speech about city issues.\u201d  \n  \u2192 This suggests he likely represents a **craftsman/industry or infrastructure perspective** on the council, but no formal title or office is given.\n\n- **Merril**:  \n  - OBSERVED: associated with a \u201cpurification-related plan\u201d targeting members of the city.  \n  \u2192 This implies a **policy advocate (possibly public safety, arcane, or ideological purification)**, but again no official council position is defined.\n\n- **Rurik**:  \n  - No facts in the projection describe Rurik\u2019s role, profession, or council function.\n\nThere are **no explicit council jobs/titles** listed for any of the three, so their exact positions cannot be confirmed from current context.\n\nKey Attributes:\n- Governance: City governed by a **City Council** (CANON)\n- Council Function: Members debate and allocate influence toward proposals (CANON/OBSERVED)\n- Known Traits:\n  - Torrin: craftsmanship, blunt speaker\n  - Merril: linked to purification plan\n  - Rurik: no data available",
+      "answer": "TL;DR: The projection does not explicitly state the council roles/jobs for Merril, Torrin, or Rurik; only partial contextual clues exist (mainly for Torrin and Merril), not formal positions.\n\nBased on available facts:\n\n- **Torrin** \u2014 CANON: He is \u201crespected for his craftsmanship and blunt speech about city issues.\u201d This suggests influence tied to industry or engineering, but **no official council title or job is stated**.\n- **Merril** \u2014 OBSERVED: Associated with a \u201cpurification-related plan\u201d targeting elements within the city. This implies a policy stance or proposal focus, **not a defined council role**.\n- **Rurik** \u2014 No relevant facts found in the projection regarding role, profession, or council duties.\n\nThere are **no explicit council job titles (e.g., treasurer, marshal, etc.)** assigned to any of the three in the provided context.\n\nKey Attributes:\n- Governance: City council exists; members debate and allocate influence on proposals.\n- Demographics: Council members are knowledgeable, with technical expertise.\n- Atmosphere: High tension, time pressure, and conflicting motivations during decision-making.\n\nIf you need, I can help you define fitting roles consistent with what\u2019s implied.",
       "embedding_similarity": null
     },
     {
       "id": "q_battle_with_the_wolf_and_aftermath_1",
       "question": "When the council-chamber fight ends, where does that leave the Wolf-dead, fled, what?",
       "strict_verdict": "fail_incomplete",
-      "semantic_verdict": "fail_incomplete",
-      "must_hits": [],
+      "semantic_verdict": "pass_updated",
+      "must_hits": [
+        "killing blow"
+      ],
       "semantic_must_hits": [
         "killed",
+        "killing blow",
         "decapitated"
       ],
       "context_must_hits": [
@@ -532,16 +527,16 @@
         "decapitated"
       ],
       "context_support_ratio": 1.0,
-      "failure_surface": "synthesis_gap",
+      "failure_surface": "pass",
       "stage_loss_tokens": {
         "killed": "hit",
-        "killing blow": "synthesis_gap",
-        "bonogo": "synthesis_gap",
+        "killing blow": "evidence_gap",
+        "bonogo": "evidence_gap",
         "decapitated": "hit"
       },
       "stale_hits": [],
       "global_stale_hits": [],
-      "answer": "TL;DR: The projection contains no explicit outcome for the Wolf in the council-chamber fight, so its status (dead, fled, etc.) is unknown.\n\nThere are no CANON, PREP, or OBSERVED facts describing the resolution of the council-chamber fight or the Wolf\u2019s fate. While the cult\u2019s history notes that \u201cThe Wolf has been subtly leading key figures of the city guard into the cult\u2019s fold\u201d (CANON, the cult), nothing in the OBSERVED session recap records what happens to the Wolf during or after that specific encounter.\n\nBecause no terminal outcome phrases (e.g., death or escape) are present, you cannot conclude whether the Wolf is dead, fled, captured, or still active. You\u2019ll need to establish or recall that outcome separately from session notes.\n\nKey Attributes:\n- Wolf: No recorded operational_status or outcome in this projection\n- Council Chamber: Active, high-tension location with defenses and possible combat (OBSERVED/CANON)\n- The Cult: The Wolf is an influential agent tied to corruption of the guard (CANON history)",
+      "answer": "TL;DR: The Wolf is not dead\u2014he **flees**, escaping the council chamber via illusion and invisibility into the secret passage/sewers.\n\nBased on OBSERVED facts, The Wolf\u2019s behavior in the council-chamber fight is explicitly escape-focused. When pressured (especially below ~50% HP or if stalled), he uses illusion magic (e.g., a massive distraction like an explosion or fire) and invisibility to disengage. His goal is to reach the **secret escape tunnel beneath the council chamber**, and his operational status confirms he **escapes via secret passage into sewers using invisibility and illusion**.\n\nThere is no evidence of a killing blow or defeat outcome in the projection\u2014his arc continues beyond this encounter, including prior/ongoing activity in the sewers and future confrontation tied to the ritual.\n\nKey Attributes:\n- Current Location: Council chamber \u2192 secret passage \u2192 sewers (OBSERVED progression)\n- Operational Status: escapes; continues to stall and evade\n- Goals: create confusion, delay players, reach escape tunnel\n- Tactics: illusion distractions, invisibility, decoys\n- Role: recurring antagonist; second-in-command tied to cult activity\n\nSo at fight\u2019s end: he\u2019s gone, not finished.",
       "embedding_similarity": null
     },
     {
@@ -550,26 +545,29 @@
       "strict_verdict": "fail_incomplete",
       "semantic_verdict": "fail_incomplete",
       "must_hits": [
-        "thalia"
+        "thalia",
+        "corrupted guards"
       ],
       "semantic_must_hits": [
-        "thalia"
+        "thalia",
+        "corrupted guards"
       ],
       "context_must_hits": [
         "thalia",
-        "ensorcelled"
+        "ensorcelled",
+        "corrupted guards"
       ],
-      "context_support_ratio": 0.5,
+      "context_support_ratio": 0.75,
       "failure_surface": "synthesis_gap",
       "stage_loss_tokens": {
         "thalia": "hit",
         "ensorcelled": "synthesis_gap",
         "not fully corrupted": "synthesis_gap",
-        "corrupted guards": "synthesis_gap"
+        "corrupted guards": "hit"
       },
       "stale_hits": [],
       "global_stale_hits": [],
-      "answer": "TL;DR: The projection does not state that Thalia is corrupted like the guards; there isn\u2019t enough information to confirm her condition, and it may be something different.\n\nBased on OBSERVED facts, we only know that **Ephanna convinces Thalia to look at the guards\u2019 eyes**, implying the guards show visible signs of corruption. However, there are **no facts describing Thalia herself as corrupted**, nor any description of her condition during the fight.\n\nBecause the guards are explicitly tied to **\u201ccorruption of the guard\u201d** (OBSERVED, city governance), and Thalia is only reacting to that (via Ephanna\u2019s prompt), the current evidence suggests:\n- Guard corruption is a known, visible phenomenon.\n- Thalia\u2019s state is **not established** as the same phenomenon.\n\nThere is also no conflicting truth state here\u2014just a gap in information.\n\nKey Attributes:\n- Guards: explicitly affected by \u201ccorruption of the guard\u201d (OBSERVED)\n- Thalia: present in scene, prompted to observe corruption, but no condition defined\n- Scene context: coordinated attacks and manipulation in the city (OBSERVED)\n\nConclusion: You\u2019ll need to decide\u2014projection leaves Thalia\u2019s condition intentionally undefined.",
+      "answer": "TL;DR: The projection contains no information about Thalia, so you cannot confirm her state; only the guards are explicitly described as corrupted, and Thalia may be something different\u2014but that\u2019s not established here.\n\nBased on the provided context, **Elite Corrupted Guards** are clearly defined as corrupted: they have \u201coily sheen to their eyes,\u201d \u201cdistorted features,\u201d and are \u201ctoo lost to be saved,\u201d with corruption tied to tainted meat and abyssal influence.\n\nHowever, there are **no entries or facts about Thalia** in this projection. That means:\n- There is no evidence she shares those physical or behavioral corruption markers.\n- There is no confirmation she is unaffected either.\n\nSo strictly from the data available, her condition is **unknown**, and you should not assume she is corrupted like the guards unless that was established elsewhere in play.\n\nKey Attributes:\n- Elite Corrupted Guards:\n  - Physical: oily, opalescent eyes; distorted features\n  - Mental: trance-like, \u201ccalled to the abyssal gathering\u201d\n  - Status: explicitly corrupted, often beyond saving\n\n- Thalia:\n  - No data available in projection (state undetermined)",
       "embedding_similarity": null
     },
     {
@@ -585,12 +583,12 @@
       "stage_loss_tokens": {
         "arcane traps": "store_gap",
         "falling debris": "retriever_gap",
-        "alarm pulses": "retriever_gap",
+        "alarm pulses": "synthesis_gap",
         "illusory walls": "store_gap"
       },
       "stale_hits": [],
       "global_stale_hits": [],
-      "answer": "TL;DR: The council chamber fights back mainly through **magical defenses (wards) and arcane-locked exits**, plus its layout (circular, high-ceilinged) and political chaos creating time pressure and interference.\n\nThe room itself interferes in a few concrete, grounded ways:\n\n- **Magical defenses / ancient wards (OBSERVED \u2013 Council defenses):** These are the biggest wildcard. They can actively disrupt combat\u2014likely triggering effects, resisting damage, or complicating movement/targeting.\n- **Arcane locks on the doors (OBSERVED \u2013 Council defenses):** Movement gets constrained fast. Entrances/exits can seal mid-fight, trapping PCs or splitting the party.\n- **Secret escape tunnel (OBSERVED \u2013 Council relationship_tags):** Not neutral terrain\u2014combatants can suddenly reposition, flee, or flank through it.\n- **Large circular chamber with high arched ceilings (OBSERVED \u2013 Council governance & portrayal_notes):** Open sightlines and vertical space favor ranged attacks, spellcasting, or anything dropping/attacking from above.\n\nOn top of the physical space:\n- **Time pressure and tense council dynamics (CANON \u2013 Council atmosphere & operational_status):** Members hesitating, arguing, or interfering can actively stall or complicate player actions mid-fight.\n\nKey Attributes:\n- Defenses: Arcane locks; magical/ancient wards  \n- Geography: Large circular chamber; high arched ceilings  \n- Features: Secret escape tunnel  \n- Atmosphere: High tension; time pressure; conflicting motivations",
+      "answer": "TL;DR: The council chamber interferes via unstable, living energy (quakes + swelling tendrils), disruptive lighting/acoustics, and built-in magical defenses and escape routes that favor confusion, miscommunication, and sudden repositioning.\n\n**What the room throws into the fight:**\n- **Unstable energy + tendrils (OBSERVED):** \u201cThe room quakes, the tendrils squirm, and then begin to swell with energy.\u201d This can physically disrupt positioning, create hazards, or spike unpredictably if interacted with.\n- **Lighting shifts (OBSERVED):** Soft, shifting illumination with dimming/brightening can obscure vision, enable stealth, or mess with targeting.\n- **Acoustic carry (OBSERVED + CANON):** Voices carry clearly and private communication is difficult, making coordination hard and letting enemies track plans or bait reactions.\n- **Magical defenses (OBSERVED via Council):** **Defensive wards and arcane locks** can block movement, seal exits, or interfere with spellcasting/escape timing.\n- **Hidden routes (OBSERVED):** A **secret escape tunnel / second underground entrance** enables sudden enemy repositioning or escape mid-fight.\n- **Layout obstacles (OBSERVED):** Large circular table and central raised pedestal create cover, choke points, and elevation advantages.\n- **Instability trigger (CANON):** \u201cAt risk of unstable energy if the crystal is removed,\u201d meaning player interaction can escalate hazards.\n- **Social volatility (CANON):** Potential **cult sympathizers in the room** can turn the fight chaotic at any moment.\n\nKey Attributes:\n- Geography: Circular chamber, central table, raised pedestal, hidden tunnel\n- Defenses: Arcane locks, defensive wards\n- Atmosphere: Quaking, energy-swollen tendrils, shifting light, sound-carrying acoustics\n- History: Secret second entrance discovered\n- Operational Status: Haphazardly fortified hideout\n- Physical Condition: Energy instability tied to crystal",
       "embedding_similarity": null
     },
     {
@@ -606,20 +604,19 @@
         "uncertain reliability"
       ],
       "context_must_hits": [
-        "thalia",
-        "guard operations"
+        "thalia"
       ],
-      "context_support_ratio": 0.5,
-      "failure_surface": "synthesis_gap",
+      "context_support_ratio": 0.25,
+      "failure_surface": "retrieval_gap",
       "stage_loss_tokens": {
         "thalia": "hit",
-        "wolf influence": "synthesis_gap",
+        "wolf influence": "evidence_gap",
         "guard operations": "synthesis_gap",
-        "uncertain reliability": "hit"
+        "uncertain reliability": "evidence_gap"
       },
       "stale_hits": [],
       "global_stale_hits": [],
-      "answer": "TL;DR: There\u2019s no direct information about Thalia, but the council environment is explicitly compromised\u2014so you should treat her as potentially untrustworthy until proven otherwise.\n\nThere are **no facts in the projection about Thalia specifically**, so her behavior, loyalties, or condition can\u2019t be confirmed.\n\nHowever, the **Council** context strongly suggests risk:\n- CANON: \u201cmay include cult sympathizers within the council\u201d\n- CANON: \u201cSome factions may not fully accept the cult as a threat\u201d\n- CANON: ongoing hesitation and stalled decisions under pressure\n- OBSERVED/CANON: the meeting is happening during **coordinated attacks across the city** and internal corruption (e.g., City Guard infiltration)\n\nAdditionally, the **City Guard** shows clear signs of corruption (\u201call seem to have the same oily eyes,\u201d \u201csecretly corrupted by tainted meat\u201d), reinforcing that infiltration is already active within trusted institutions.\n\nSo while Thalia herself is unknown, the **current state of Mirathorn\u2019s leadership makes blind trust unsafe**. Treat her as uncertain: watch for inconsistencies, physical tells, or alignment with suspicious factions.\n\nKey Attributes:\n- Governance: Emergency council meeting under time pressure\n- Conflict: Active infiltration (cult sympathizers \u0938\u0902\u092d\u0935)\n- Defenses: Warded council chamber, but internal threats remain\n- Operational Status: Decision paralysis risks worsening the crisis",
+      "answer": "TL;DR: There\u2019s no direct information about Thalia, but CANON context says the Council may include cult sympathizers\u2014so caution is warranted.\n\nBased on the projection, **Thalia is not mentioned**, so there\u2019s no specific evidence about her behavior, loyalty, or current state. That means you cannot definitively confirm trustworthiness.\n\nHowever, broader context around the **Council** is important:\n- CANON: The Council \u201cmay include cult sympathizers within the council.\u201d\n- CANON: Some members \u201cmay not fully accept the cult as a threat.\u201d\n- CANON: The meeting is under **time pressure and tension**, with hesitation and conflicting motivations.\n\nTaken together, even without direct evidence about Thalia, the environment strongly supports suspicion: it is entirely plausible that *someone* in the room is compromised or misaligned.\n\nSo the grounded answer is: **you can\u2019t safely assume Thalia is trustworthy**, but there\u2019s also no proof she\u2019s compromised. Treat her as uncertain\u2014watch for inconsistencies, evasiveness, or alignment with minimizing the cult threat.\n\nKey Attributes:\n- Council loyalty context: possible cult sympathizers (CANON)\n- Council mental state: hesitant, divided, under tension (CANON)\n- Council situation: emergency decision-making under time pressure (CANON)\n- Thalia: no data present in projection",
       "embedding_similarity": null
     },
     {
@@ -643,14 +640,14 @@
       "context_support_ratio": 0.75,
       "failure_surface": "synthesis_gap",
       "stage_loss_tokens": {
-        "time pressure": "synthesis_gap",
+        "time pressure": "evidence_gap",
         "countdown": "retriever_gap",
         "summoning": "hit",
-        "consequences": "retriever_gap"
+        "consequences": "evidence_gap"
       },
       "stale_hits": [],
       "global_stale_hits": [],
-      "answer": "TL;DR: If the Council stalls, the cult advances toward success\u2014escalating coordinated attacks and increasing the risk of the flesh kaiju emerging as the city is pushed closer to disaster.\n\nThe current state already shows **\u201cSeveral coordinated attacks are taking place across the city\u201d** (OBSERVED, the city), and the cult is actively **\u201cattempting to summon the flesh kaiju at the ritual site\u201d** (OBSERVED, the cult). CANON stakes are explicit: the city is **\u201cbrought closer to disaster by each failed or unresolved debate\u201d** and a **\u201cDisaster countdown advances after failed or unresolved debates\u201d** (the city). At the same time, **the cult \u201cadvances toward success as the city moves closer to disaster\u201d** (CANON, the cult).\n\nCompounding this, there may be **cult sympathizers within the Council** (CANON, Council), meaning delays aren\u2019t neutral\u2014they may actively benefit the enemy. Meanwhile, cult operations are already entrenched **below the city in sewers and tunnels** (CANON, the cult), giving them time to complete rituals unchallenged.\n\nKey Attributes:\n- Threat: flesh kaiju summoning (OBSERVED, the cult)\n- Active danger: coordinated citywide attacks (OBSERVED, the city)\n- Escalation: disaster countdown tied to council inaction (CANON, the city)\n- Infiltration risk: possible cult sympathizers in Council (CANON, Council)\n- Battlefield: underground infrastructure control (CANON, the cult)",
+      "answer": "TL;DR: If the Council stalls, the cult\u2019s plan advances unchecked\u2014leading to coordinated attacks escalating, deeper corruption, and a real risk of a flesh kaiju emerging beneath the city.\n\nHere\u2019s what \u201cbites you\u201d if they keep talking:\n\n- The city is already under pressure: \u201cseveral coordinated attacks are taking place across the city\u201d (OBSERVED: the city), and delay means those continue or worsen without unified response.  \n- The disaster clock is explicit: the city is \u201cbrought closer to disaster by each failed or unresolved debate\u201d (CANON: the city).  \n- The cult directly benefits: it \u201cadvances toward success as the city moves closer to disaster\u201d and is actively \u201cattempting to summon the flesh kaiju at the ritual site\u201d (CANON/OBSERVED: the cult).  \n- Internal collapse risk rises: \u201ccould descend into chaos before the cult strikes\u201d and guard corruption is already in play (CANON/OBSERVED: the city).  \n- Worst-case outcome is on the table: \u201cPossibility of flesh kaiju emerging due to delayed or failed action\u201d (CANON: Council).\n\nKey Attributes:\n- Threat: Flesh kaiju summoning (the cult goals)  \n- Pressure: Disaster countdown tied to debate failure (the city operational_status)  \n- Active danger: Coordinated citywide attacks (the city current_location)  \n- Internal risk: Corruption within guards and possibly council (the city governance, Council loyalty)  \n- Terrain: Cult operating beneath the city via sewers/tunnels (the cult current_location)",
       "embedding_similarity": null
     },
     {
@@ -658,19 +655,26 @@
       "question": "What does the Council Room look like after the wolf fight-what should we notice?",
       "strict_verdict": "fail_incomplete",
       "semantic_verdict": "fail_incomplete",
-      "must_hits": [],
-      "semantic_must_hits": [],
-      "context_must_hits": [],
-      "context_support_ratio": 0.0,
-      "failure_surface": "retrieval_gap",
+      "must_hits": [
+        "arched ceilings"
+      ],
+      "semantic_must_hits": [
+        "arched ceilings"
+      ],
+      "context_must_hits": [
+        "arched ceilings",
+        "secret passage"
+      ],
+      "context_support_ratio": 0.6667,
+      "failure_surface": "synthesis_gap",
       "stage_loss_tokens": {
-        "arched ceilings": "synthesis_gap",
-        "floating chandelier": "retriever_gap",
-        "secret passage": "retriever_gap"
+        "arched ceilings": "retriever_gap",
+        "floating chandelier": "synthesis_gap",
+        "secret passage": "synthesis_gap"
       },
       "stale_hits": [],
       "global_stale_hits": [],
-      "answer": "TL;DR: The projection doesn\u2019t explicitly describe the Council Room aftermath, but you should emphasize signs of violent disruption tied to the wolf and guard corruption\u2014especially the fact that **Bonogo removed the Wolf\u2019s head to take it to the academy**, leaving the scene visibly altered and suspicious.\n\nBased on OBSERVED facts, the key anchor is that the Wolf was a corrupting influence over the guard (\u201cguards_and_college_activated_and_guard_manipulated_by_wolf\u201d). After the fight, the room should reflect that influence breaking.\n\nWhat you can confidently include:\n- Physical aftermath of a violent struggle (disruption is consistent with multiple coordinated attacks across the city).\n- Missing centerpiece evidence: **the Wolf\u2019s body is incomplete because Bonogo removed the Wolf\u2019s head to take it to the academy** (OBSERVED).\n- Guard-related unease: this connects to ongoing corruption in the city guard (OBSERVED governance).\n\nWhat you cannot confirm from projection:\n- Specific room layout, furnishings, or exact damage details.\n- Any confirmed corpses, blood patterns, or magical effects in this specific room.\n\nKey Attributes:\n- Governance: City council tied to guard corruption and crisis response (OBSERVED)\n- Conflict: Coordinated attacks across the city; wolf influence on guards (OBSERVED)\n- Atmosphere: Something is wrong; tension beneath a festival-ready city (OBSERVED)",
+      "answer": "TL;DR: The Council Chamber shows signs of a breached, tense stronghold\u2014hidden threats exposed behind banners, evidence of internal corruption, and a space built for order now clearly disrupted by violence.\n\nAfter the fight, the **Council Chamber** (Council) still carries its **large circular layout, high arched ceilings, and ancient gnomish-influenced architecture** (OBSERVED), but that formal gravitas is broken. The most important detail to notice is that **hidden doors behind council banners** have been revealed (OBSERVED via Elite Corrupted Guards), signaling the chamber was compromised from within.\n\nYou should emphasize:\n- **Council banners disturbed or torn**, no longer just symbolic\u2014now clearly concealing passageways.\n- **Signs of combat** (implied by the fight): displaced furniture, scuffed floors within the circular meeting space.\n- **Evidence of corruption among defenders**: the presence or aftermath of **Elite Corrupted Guards**, known for their **oily, opalescent eyes and distorted features** (OBSERVED).\n- A lingering sense that this \u201csecure\u201d room wasn\u2019t secure at all\u2014its **arcane locks and wards** (OBSERVED) failed to prevent infiltration.\n\nThere\u2019s also narrative weight: this is a place meant for deliberation and control, now visibly undermined by **internal betrayal and hidden infrastructure**.\n\nKey Attributes:\n- Geography: Large circular council chamber, high arched ceilings, banners\n- Defenses: Arcane locks, magical wards (breached/undermined)\n- Notable Features: Hidden doors behind council banners; possible secret escape tunnel\n- Atmosphere: Formerly serious and controlled, now tense and violated",
       "embedding_similarity": null
     },
     {
@@ -684,13 +688,13 @@
       "context_support_ratio": 0.0,
       "failure_surface": "retrieval_gap",
       "stage_loss_tokens": {
-        "chandelier": "retriever_gap",
+        "chandelier": "synthesis_gap",
         "runes": "retriever_gap",
         "secret passage": "retriever_gap"
       },
       "stale_hits": [],
       "global_stale_hits": [],
-      "answer": "TL;DR: There\u2019s no explicit record of physical damage or destruction to the Council Room in Session 12; the main change was procedural\u2014Ephanna ushering council members out, altering how the space was used.\n\nKey Attributes:\n- Governance (OBSERVED): Ephanna \u201cushers the other council members out,\u201d indicating the chamber was actively cleared during proceedings.\n- Defenses (OBSERVED): The Council Chamber still has \u201carcane locks on council chamber doors\u201d and \u201cdefensive wards,\u201d with no note of \u0564\u0580\u0561\u0576\u0584 being broken or bypassed.\n- Geography (OBSERVED): The Council meets in a \u201clarge circular room\u201d with no noted structural changes.\n- Relationship Tags (OBSERVED): A \u201csecret escape tunnel\u201d exists, but there\u2019s no indication it was revealed or used in a way that changed the room.\n\nConclusion: No confirmed wreckage or permanent alteration to the Council Room itself; the only change is in who occupied it and how it was used during the session.",
+      "answer": "TL;DR: The projection does not record any specific damage or physical changes to the Council Room during Session 12.\n\nBased on the available **OBSERVED** facts for the **Council**, there are details about atmosphere (increased tension, time pressure), defenses (arcane locks, wards), and interactions (debates, hesitation, influence mechanics), but **no entries describing the room being damaged, altered, or \u201cwrecked.\u201d**\n\nThere are also no terminal outcome phrases or environmental changes tied to the Council Chamber itself in Session 12. Any destruction noted in the projection (e.g., rooms \u201clit up almost entirely and took major damage in the spell attack\u201d) applies to **other locations** like the hidden basements, not the Council Room.\n\nKey Attributes:\n- Atmosphere: Increased tension, time pressure during deliberation (CANON/OBSERVED)\n- Defenses: Arcane locks and magical wards intact (OBSERVED)\n- Geography: Large circular chamber with high ceilings (OBSERVED)\n- Governance/Use: Active emergency decision-making space (OBSERVED)\n\nIf something was damaged in play, it isn\u2019t captured in this projection.",
       "embedding_similarity": null
     },
     {
@@ -707,18 +711,21 @@
       ],
       "context_must_hits": [
         "killing blow",
-        "dead"
+        "dead",
+        "oily sheen fades"
       ],
-      "context_support_ratio": 0.6667,
+      "context_support_ratio": 1.0,
       "failure_surface": "pass",
       "stage_loss_tokens": {
         "killing blow": "hit",
         "dead": "hit",
         "oily sheen fades": "retriever_gap"
       },
-      "stale_hits": [],
+      "stale_hits": [
+        "alive"
+      ],
       "global_stale_hits": [],
-      "answer": "TL;DR: The Wolf is **dead**\u2014Bonogo **\u201cRemoved the Wolf\u2019s head to take it to the academy\u201d**. There\u2019s no evidence his corruption was lifted before death, so he likely died still corrupted.\n\nKey Attributes:\n- Operational Status (OBSERVED): Killed \u2014 **\u201cRemoved the Wolf\u2019s head to take it to the academy\u201d** (Bonogo)\n- Physical Condition (inferred from terminal outcome): Decapitated (implied by head removal)\n- Corruption State: No OBSERVED evidence of purification or recovery; CANON context indicates he was tied to cult corruption (\u201cThe Wolf has been subtly leading key figures of the city guard into the cult\u2019s fold\u201d)\n\nConclusion:\nAs of Session 12\u2019s end state, the Wolf is definitively dead due to decapitation. There are no facts indicating any reversal of his corruption prior to death, so his last known state is corrupted and killed.",
+      "answer": "TL;DR: The Wolf is dead at the end of Session 12; Bonogo \u201cRemoved the Wolf\u2019s head to take it to the academy,\u201d indicating a clear terminal outcome.\n\nBased on OBSERVED facts, Bonogo is explicitly noted to have \u201cRemoved the Wolf\u2019s head to take it to the academy.\u201d This is a definitive terminal outcome (decapitation), so the Wolf is no longer alive. There are no conflicting entries suggesting survival or escape.\n\nThere is no explicit statement about the Wolf\u2019s corruption state at the moment of death. However, since no resolution of corruption is described, the safest grounded read is: he died in whatever state he was previously in (likely still corrupted, but not explicitly updated).\n\nKey Attributes:\n- Status: Dead (decapitated; \u201cRemoved the Wolf\u2019s head to take it to the academy\u201d)\n- Body Condition: Decapitated (terminal outcome)\n- Corruption: Not explicitly resolved in projection (no change recorded)\n- Killer: Bonogo (OBSERVED action)",
       "embedding_similarity": null
     },
     {
@@ -737,19 +744,20 @@
       "context_must_hits": [
         "before",
         "after",
+        "oily sheen",
         "killing blow"
       ],
-      "context_support_ratio": 0.75,
+      "context_support_ratio": 1.0,
       "failure_surface": "synthesis_gap",
       "stage_loss_tokens": {
         "before": "hit",
         "after": "hit",
-        "oily sheen": "retriever_gap",
+        "oily sheen": "evidence_gap",
         "killing blow": "synthesis_gap"
       },
       "stale_hits": [],
       "global_stale_hits": [],
-      "answer": "TL;DR: Before the council fight, the Wolf is an active manipulator and combat threat; after, he\u2019s been neutralized\u2014\u201cRemoved the Wolf\u2019s head to take it to the academy.\u201d\n\n**Before the council fight**\n- **CANON (the cult history):** The Wolf \u201chas been subtly leading key figures of the city guard into the cult\u2019s fold,\u201d making him a behind-the-scenes corrupter and strategic threat.\n- **OBSERVED (combat context):** He is an active combatant being pursued and attacked (Bonogo is \u201cChasing/attacking Wolf\u201d and \u201cDealing major damage to Wolf\u201d).\n\n**After the council fight**\n- **OBSERVED (terminal outcome):** Bonogo \u201cRemoved the Wolf\u2019s head to take it to the academy.\u201d This indicates the Wolf is no longer an active agent in the conflict.\n- The shift is from an influential infiltrator and battlefield target to a neutralized figure, removing his direct influence on both the council situation and cult operations.\n\nKey Attributes:\n- History: Led guard members into the cult (CANON)\n- Role: Active target/combatant during encounter (OBSERVED)\n- Physical Condition: \u201cRemoved the Wolf\u2019s head to take it to the academy\u201d (OBSERVED, terminal)",
+      "answer": "TL;DR: Before the council fight, The Wolf is an active saboteur stalling and manipulating inside the chamber; after it, he\u2019s a fleeing, wounded escapee who successfully slipped into the sewers and shifted into pursuit/ritual-phase play.\n\n**Before the council fight (OBSERVED):**  \n- **Location:** In the council chamber during the encounter.  \n- **Role/Behavior:** \u0645\u0628\u0627\u0634\u0631 disruption\u2014creates confusion, delays players, and pressures the council situation.  \n- **Tactics:** Heavy use of illusion and misdirection (illusory duplicates, large-scale distractions).  \n- **Goal:** Reach the **secret escape tunnel beneath the council chamber** while stalling the party.  \n- **State:** Engaged but cautious\u2014plans to disengage once pressured.\n\n**After the council fight (OBSERVED):**  \n- **Location:** Escaped via **secret passage** into the **sewers**; later part of a chase sequence and tied to a **ritual chamber**.  \n- **Role/Behavior:** No longer holding ground\u2014now evading and progressing the larger cult plan.  \n- **Tactics Shift:** Triggers **invisibility when below 50% HP**, uses a **massive illusion** to cover escape.  \n- **Goal:** Continue toward the **kaiju summoning ritual** and regroup.  \n- **State:** Successfully escaped, transitioning from encounter boss \u2192 ongoing threat.\n\n**Key Attributes:**  \n- **Faction:** Cultist  \n- **Rank/Title:** Second in command of the guard  \n- **Core Tactics:** Illusion, invisibility, delay \u2192 escape  \n- **Arc Shift:** Saboteur in control \u2192 wounded escapee advancing the next phase",
       "embedding_similarity": null
     },
     {
@@ -773,16 +781,18 @@
         "wolf": "hit",
         "not corrupted": "synthesis_gap"
       },
-      "stale_hits": [],
+      "stale_hits": [
+        "thalia was corrupted"
+      ],
       "global_stale_hits": [],
-      "answer": "TL;DR: There\u2019s no direct evidence about Thalia, but CANON shows the Wolf manipulates guard figures into the cult\u2014so if Thalia was involved, she was likely being played as part of that pattern rather than independently corrupted.\n\nBased on the projection, **Thalia is not mentioned at all**, so her exact state (corrupted vs. manipulated) cannot be confirmed.\n\nHowever, relevant CANON context:\n- The cult\u2019s history states: **\u201cThe Wolf has been subtly leading key figures of the city guard into the cult\u2019s fold.\u201d**\n- Cultists themselves are described as **\u201ccorrupted\u201d** and sometimes in a **\u201ctrance\u201d** (OBSERVED), suggesting loss of agency in at least some cases.\n\nInterpretation grounded in that:\n- If Thalia is a guard or connected figure, the Wolf\u2019s established method is **manipulation and recruitment**, not necessarily immediate full corruption.\n- The observed trance-like states imply that **true corruption may occur after being drawn in**, not at the start.\n\nSo the cleanest reading:\n- **Played first (by the Wolf), potentially corrupted later (by the cult).**\n- Without direct evidence, you should treat her status as **ambiguous but following the Wolf\u2019s known pattern of influence.**\n\nKey Attributes:\n- the cult (faction)\n  - history: \u201cThe Wolf has been subtly leading key figures of the city guard into the cult\u2019s fold\u201d (CANON)\n  - portrayal_notes: uses dark magic, insidious influence (CANON)\n- cultists (npc)\n  - mental_state: trance-like, reverent, fearful (OBSERVED)\n  - portrayal_notes: explicitly \u201cCorrupted\u201d (OBSERVED)",
+      "answer": "TL;DR: There\u2019s no evidence Thalia was corrupted; the projection supports that she was **manipulated/played by the Wolf (Eirik)**, who explicitly exerts influence over her.\n\nFrom the available facts:\n\n- **Eirik = The Wolf (CANON)** and is a cult-aligned manipulator whose \u201crole: \u2026 exerts influence over Thalia.\u201d\n- **The Wolf has \u201cBetrayal of Thalia\u201d (OBSERVED)**, which strongly implies a relationship where trust or cooperation was exploited.\n- Eirik is tied to **subtle sabotage and delaying tactics** and operates through influence rather than overt corruption when possible.\n\nThere is **no explicit mention** of Thalia showing physical corruption signs (like the guards\u2019 \u201coily sheen to their eyes\u201d) or being transformed/controlled in the same way as corrupted guards.\n\n**Conclusion:**  \n- **Current best-supported state:** Thalia was **played/manipulated**, not confirmed corrupted.  \n- **Tie to the Wolf:** The Wolf (Eirik) is directly responsible\u2014he **influenced her and then betrayed her**, fitting his established pattern of deception and control.\n\nKey Attributes:\n- Thalia: Influenced by Eirik (The Wolf); victim of betrayal (OBSERVED)\n- The Wolf (Eirik): Cultist manipulator; uses deception and influence (CANON/OBSERVED)\n- Corruption markers: Present in guards, **not evidenced for Thalia** (OBSERVED absence)",
       "embedding_similarity": null
     }
   ],
   "phase_checkpoint": {
-    "phase_name": "exp5f_full_corpus_rich_entity_summaries",
-    "hypothesis": "Richer compiled-layer entity summaries for lexical retrieval.",
-    "timestamp": "2026-04-09T23:44:02Z"
+    "phase_name": "exp5d_full_corpus_doc_planner_evidence_per_seed",
+    "hypothesis": "Doc planner + evidence-first + adaptive top-k + per-seed on full corpus.",
+    "timestamp": "2026-04-09T23:32:56Z"
   },
   "scope_precision_gate": {
     "pass": false,

@@ -1,0 +1,24 @@
+{
+  "schema": "lysandra_vertical_slice_step0_v1",
+  "description": "Step 0 — corpus pin + environment gates (DESIGN-lysandra-statblock-vertical-slice-benchmark.md §6 Step 0).",
+  "corpus_root_relpath": "corpus/eldyrwild-markdown",
+  "expected_fingerprint": "eb56338954230847a282b25cba165d7e",
+  "allow_fingerprint_drift": false,
+  "statblock_service_gate": {
+    "description": "G0.3 — live Statblock HTTP URL, explicit mock mode, or CI skip flag.",
+    "pass_if_any": [
+      {
+        "env": "DUNGEONMIND_STATBLOCK_URL",
+        "require_non_empty": true
+      },
+      {
+        "env": "LYSANDRA_SLICE_MOCK_STATBLOCK",
+        "require_one_of": ["1", "true", "yes"]
+      },
+      {
+        "env": "LYSANDRA_SLICE_SKIP_STATBLOCK_URL_GATE",
+        "require_one_of": ["1", "true", "yes"]
+      }
+    ]
+  }
+}
