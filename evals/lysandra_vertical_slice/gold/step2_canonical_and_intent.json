@@ -1,0 +1,57 @@
+{
+  "schema": "lysandra_vertical_slice_step2_v1",
+  "description": "Step 2 — deterministic canonical statblock path + marker checks + intent/power-axis classification (G2.* / G2.4.* draft implementation).",
+  "required_statblock_markers": [
+    "Armor Class",
+    "Hit Points",
+    "Challenge Rating"
+  ],
+  "expected_challenge_rating": 4,
+  "fixtures": [
+    {
+      "id": "planner_step1_autonomous_user_line",
+      "user_line": "Grab the most recent and relevant information about **Captain Lysandra** — we're going to discuss her, her traits, and how she might level up.\n\nWhat level is she right now anyway?",
+      "expect": {
+        "intent_mode": "upgrade_request",
+        "power_axis": "unknown",
+        "clarifier_required": true
+      }
+    },
+    {
+      "id": "explicit_cr_upgrade",
+      "user_line": "For tomorrow's boss fight, bump Captain Lysandra to CR 4 and regenerate her statblock.",
+      "expect": {
+        "intent_mode": "upgrade_request",
+        "power_axis": "challenge_rating",
+        "clarifier_required": false
+      }
+    },
+    {
+      "id": "explicit_class_levels",
+      "user_line": "Give Lysandra three more fighter levels for the siege arc.",
+      "expect": {
+        "intent_mode": "upgrade_request",
+        "power_axis": "class_level",
+        "clarifier_required": false
+      }
+    },
+    {
+      "id": "factual_cr_question",
+      "user_line": "What is Lysandra's current challenge rating in the Mirathorn statblock?",
+      "expect": {
+        "intent_mode": "factual_lookup",
+        "power_axis": "challenge_rating",
+        "clarifier_required": false
+      }
+    },
+    {
+      "id": "comparison_language",
+      "user_line": "Compare Lysandra's CR 2 sheet vs what we ran at the table last session.",
+      "expect": {
+        "intent_mode": "comparison_request",
+        "power_axis": "hybrid",
+        "clarifier_required": false
+      }
+    }
+  ]
+}

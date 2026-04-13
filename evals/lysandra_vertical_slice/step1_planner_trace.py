@@ -52,11 +52,11 @@ from src.agent.planner_telemetry import text_sig  # noqa: E402
 _SLICE_DIR = Path(__file__).resolve().parent
 
 _PLANNER_STEP1_SCENARIO_ENV = "LYSANDRA_PLANNER_STEP1_SCENARIO"
-_VALID_PLANNER_STEP1_SCENARIOS = frozenset({"directed", "autonomous"})
+_VALID_PLANNER_STEP1_SCENARIOS = frozenset({"directed", "autonomous", "stat_check"})
 
 
 def default_planner_step1_scenario_key() -> str:
-    """``directed`` = path-spelled user ask; ``autonomous`` = human-style ask (default)."""
+    """``directed`` = path-spelled user ask; ``autonomous`` = general prep (default); ``stat_check`` = targeted stat question."""
     raw = os.environ.get(_PLANNER_STEP1_SCENARIO_ENV, "autonomous").strip().lower()
     return raw if raw in _VALID_PLANNER_STEP1_SCENARIOS else "autonomous"
 

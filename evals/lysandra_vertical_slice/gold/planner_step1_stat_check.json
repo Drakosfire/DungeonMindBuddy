@@ -1,0 +1,19 @@
+{
+  "id": "lysandra_planner_step1_stat_check",
+  "version": 1,
+  "fixture_role": "stat_check",
+  "fixture_note": "Targeted stat question — model must open the actual statblock file to answer AC, HP, saves, etc. correctly. Cannot be answered from README prose alone. Gates require the statblock path in tool_trace.",
+  "input": {
+    "user_message": "I need to prep a combat encounter with **Captain Lysandra Ironveil** for next session. What are her AC, hit points, and saving throw bonuses? Use her current statblock."
+  },
+  "steps": [],
+  "final": {
+    "require": {
+      "min_output_chars": 120,
+      "tool_trace_must_include_tool": "read_corpus_file",
+      "read_corpus_paths_must_include": [
+        "captain_lysandra_ironveil_statblock_cr"
+      ]
+    }
+  }
+}

@@ -44,7 +44,7 @@ Until all step gates pass, the benchmark **fails**; partial progress is reported
 | **Structured object**             | JSON (or equivalent) matching a **versioned schema** (e.g. `statblock_project.state.statblock` shape or a narrowed **NPC export** schema agreed with StatblockGenerator). Markdown alone is **not** sufficient for final success.                                                                  |
 | **Valid**                         | Parses against the JSON schema for the agreed `schema_version`.                                                                                                                                                                                                                                    |
 | **Legal**                         | Passes deterministic **5e legality** checks appropriate to the data we send (class/level bounds, proficiency bonus consistency, skill cap rules, etc.). Exact rule depth is a **product knob**; the design requires a **named** legality profile (e.g. `legality_profile: "npc_sheet_v1_strict"`). |
-| **Level up**                      | Monotonic increase in character level (or explicit “add N class levels” to a defined multiclass) **justified** by a corpus-attested event or an explicit **benchmark-injected** scenario note (see Section 8).                                                                                     |
+| **Level up**                      | Increase in NPC **power state**. By default this is CR-oriented for NPC statblocks; class-level progression is optional and must be explicit. Ambiguous user language (“level her up”) requires intent disambiguation before legality gates are applied.                                                |
 
 ### 3.1 Target corpus hierarchy (setting seed vs campaign lives)
 
@@ -203,30 +203,57 @@ Step 1 is intentionally **two lanes**. Only **Lane A** is the product-shaped ret
 | `G2.3`  | **Single** selection: selector does not return ties without a documented tie-break; if ties, fail with diagnostic.                                           |
 
 
-### Step 3 — Identify current level (pre-level-up)
+### Step 2.4 — Intent disambiguation (level language)
+
+**Inputs:** Original user ask + canonical statblock selection from Step 2 + corpus policy defaults.  
+**Outputs:** `intent_mode`, `power_axis`, optional `clarifier_question`, `clarifier_required`.
+
+
+| Gate ID  | Predicate                                                                                                                                                                                                 |
+| -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `G2.4.1` | Classifier emits one of: `factual_lookup`, `upgrade_request`, `comparison_request`.                                                                                                                      |
+| `G2.4.2` | `power_axis` is one of: `challenge_rating`, `class_level`, `hybrid`, `unknown`.                                                                                                                          |
+| `G2.4.3` | If mode implies **upgrade** and axis is `unknown` or ambiguous from corpus/user text, `clarifier_required == true` and `clarifier_question` is non-empty (single concise question).                    |
+| `G2.4.4` | If mode is **factual lookup**, system does not force a class-level interpretation when only CR evidence exists; output must permit `class_level_current: null` with CR evidence preserved.                |
+
+
+### Step 3 — Identify current power baseline (pre-upgrade)
 
 **Inputs:** Canonical content (and optionally recap text from `session_anchor`).  
-**Outputs:** `pre_level: int`, `evidence_spans[]` (path + char offsets or quoted snippets).
+**Outputs:** `power_baseline`, `evidence_spans[]` (path + char offsets or quoted snippets).
+
+Suggested `power_baseline` shape:
+
+```json
+{
+  "challenge_rating_current": 2,
+  "class_level_current": null,
+  "axis_source": "canonical_statblock",
+  "extraction_method": "statblock_marker_parse"
+}
+```
 
 
-| Gate ID | Predicate                                                                                                                                                      |
-| ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `G3.1`  | `pre_level == gold.pre_level` (gold is source of truth for benchmark v1).                                                                                      |
-| `G3.2`  | Evidence spans resolve to **verbatim** substrings in corpus files (substring check).                                                                           |
-| `G3.3`  | If level absent from statblock, fallback rule documented in gold (e.g. parse from recap) and gate asserts that rule was applied (`extraction_method` matches). |
+| Gate ID | Predicate                                                                                                                                                                                                 |
+| ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `G3.1`  | `challenge_rating_current` equals gold expectation when CR is present in canonical statblock.                                                                                                            |
+| `G3.2`  | Evidence spans resolve to **verbatim** substrings in corpus files (substring check).                                                                                                                      |
+| `G3.3`  | `class_level_current` may be `null`; if non-null, source evidence and extraction method must be explicit and gold-approved.                                                                              |
+| `G3.4`  | If CR is absent in canonical sheet, fallback rule documented in gold is applied and `axis_source` reflects fallback source (e.g. recap/dossier).                                                     |
 
 
 ### Step 4 — Level-up specification
 
-**Inputs:** `pre_level`, gold `target_level` or `level_delta`, optional narrative constraint text from corpus.  
-**Outputs:** `target_level`, `description_for_statblock` (rich text per existing planner tool expectations) **or** structured `level_up_request` if server accepts JSON body.
+**Inputs:** `intent_mode`, `power_axis`, `power_baseline`, gold target (`target_cr`, `target_class_level`, or `power_delta`), optional narrative constraints.  
+**Outputs:** `power_target`, `description_for_statblock` (rich text per existing planner tool expectations) **or** structured `level_up_request` if server accepts JSON body.
 
 
-| Gate ID | Predicate                                                                                                                                                                                    |
-| ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `G4.1`  | `target_level > pre_level` and within `gold.max_level` / system caps.                                                                                                                        |
-| `G4.2`  | Description includes **only** claims supported by allowed corpus paths (automated check: proper nouns / numbers whitelist or LLM-judge **disabled** for v1; prefer deterministic templates). |
-| `G4.3`  | If structured intermediate exists, it validates against `schemas/level_up_request_v*.json`.                                                                                                  |
+| Gate ID | Predicate                                                                                                                                                                                                     |
+| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `G4.1`  | Target is monotonic on the chosen axis (`target_cr > challenge_rating_current` for CR mode, `target_class_level > class_level_current` for class-level mode when class-level exists).                    |
+| `G4.2`  | If `clarifier_required == true` from `G2.4.3`, Step 4 cannot proceed until clarifier answer is supplied (fail closed with actionable diagnostic).                                                          |
+| `G4.3`  | Description includes **only** claims supported by allowed corpus paths (deterministic checks preferred over LLM judge for v1).                                                                               |
+| `G4.4`  | If structured intermediate exists, it validates against `schemas/level_up_request_v*.json` and includes `power_axis`.                                                                                         |
 
 
 ### Step 5 — Statblock service call (DungeonMindServer)
@@ -344,7 +371,7 @@ When campaign text changes, **gates fail until gold is updated**; that is intent
 ## 11. Open questions (to lock before implementation)
 
 1. **Final JSON schema:** StatblockGenerator project state vs a slim **NPC export** schema?
-2. **Multiclass / NPC “levels”:** Do we use CR + spellcaster level, or true class levels only?
+2. **NPC “level” language policy:** Default to CR axis, class-level axis, or require clarifier for ambiguous “level up” asks every time?
 3. **Store backend:** Local JSON under `out/`, SQLite, or Firestore namespace; who owns writes in CI?
 4. **Who runs legality:** Server only, client duplicate, or both?
 5. **Copyright:** SRD-safe output requirement vs full homebrew names in traits?
@@ -355,7 +382,7 @@ When campaign text changes, **gates fail until gold is updated**; that is intent
 
 1. **Gold pack + Step 0** (**DONE** — `evals/lysandra_vertical_slice/GATES.md`, `gold/step0_status.json`): corpus survey, `gold/corpus_policy.json`, `gold/step0_environment.json`, `step0_corpus_environment.py`, `tests/test_lysandra_vertical_slice_step0.py`.
 2. **Step 1 retrieval** (**DONE** — `gold/step1_status.json`): `gold/step1_retrieval.json`, `step1_retrieval.py`, `tests/test_lysandra_vertical_slice_step1.py` (keyword scan + G1.1–G1.3).
-3. **Step 2** next: canonical pre-level statblock selection (`G2.`*) when gold defines extractors or `canonical_statblock_relpath` is set.
+3. **Step 2 (v1 deterministic scaffold — DONE in Buddy repo):** `evals/lysandra_vertical_slice/step2_canonical_intent.py` + `gold/step2_canonical_and_intent.json` assert `corpus_policy.canonical_statblock_relpath` on disk, marker substrings + parsed CR, and gold **intent fixtures** (heuristic classifier; no LLM). **Next:** merge classifier with Lane A planner harness / richer extraction rules.
 4. **Step 3–4** with frozen gold levels and templated level-up description.
 5. **Contract + mock server** for Steps 5–7 (schema + legality fixtures).
 6. **StatblockGenerator** changes for structured response + validate/compute.
@@ -370,9 +397,9 @@ When campaign text changes, **gates fail until gold is updated**; that is intent
 - Stepped eval pattern: `evals/planner_slice/live_eval.py`, `evals/planner_slice/EVAL_DEFINITION.md`.  
 - Engineering triad reference: workspace `QUICK-REFERENCE-DungeonMind.mdc` (`/constraints` → `/validate` → `/compute` pattern for rules-heavy generators).  
 - **Corpus survey + Step 0 gold:** `evals/lysandra_vertical_slice/SURVEY-captain_lysandra_corpus.md`, `evals/lysandra_vertical_slice/README.md`.  
-- **Gate completion signpost:** `evals/lysandra_vertical_slice/GATES.md`, `evals/lysandra_vertical_slice/gold/step0_status.json`, `evals/lysandra_vertical_slice/gold/step1_status.json`.
+- **Gate completion signpost:** `evals/lysandra_vertical_slice/GATES.md`, `evals/lysandra_vertical_slice/gold/step0_status.json`, `evals/lysandra_vertical_slice/gold/step1_status.json`, `evals/lysandra_vertical_slice/gold/step2_status.json`.
 
 ---
 
 **Document owner:** DungeonMindBuddy / vertical slice workstream.  
-**Next action:** Lock Open Questions §11.1–11.3; implement **Step 2** (`G2.`*) — canonical sheet selection / extraction against `corpus_policy.json` when a statblock path or extractors exist; add an authored statblock path when ready (`canonical_statblock_relpath`).
+**Next action:** Lock Open Questions §11.1–11.3; extend Step 2 v1 with planner-trace integration and Step 3 `power_baseline` extraction gates (beyond heuristic fixtures).

@@ -4,7 +4,7 @@ Canonical “is this step done?” answers for humans and agents.
 
 **Planner alignment (one line):** Production-style document choice in Buddy is **`run_planning_turn_detailed`** → **`read_corpus_file`** → **`tool_trace`**. Prefer extending benchmarks with **trace-based gates**; Step 1 keyword scan is an **offline baseline** only (`step1_retrieval.py`). Details: `Docs/Plans/DESIGN-lysandra-statblock-vertical-slice-benchmark.md` → subsection *Planner alignment — one line*.
 
-**Machine hooks:** `gold/step0_status.json`, `gold/step1_status.json`, `gold/planner_step1_status.json`.
+**Machine hooks:** `gold/step0_status.json`, `gold/step1_status.json`, `gold/planner_step1_status.json`, `gold/step2_status.json`.
 
 ---
 
@@ -77,11 +77,34 @@ uv run pytest tests/test_lysandra_vertical_slice_step1.py -q
 
 ---
 
-## Step 2 — Canonical statblock selection (next)
+## Step 2 — Canonical statblock + intent classification (v1)
 
-**Status: NOT STARTED.**
+**Status: IMPLEMENTED (deterministic; no LLM).**
 
-Implement `G2.*` when a machine-readable statblock path exists or when gold defines extractors for narrative-only sources.
+Draft gate updates (aligned to CR-first NPC workflow and ambiguous "level" language):
+
+| Gate | Question | Done when |
+|------|----------|-----------|
+| **G2.1** | Is canonical statblock selected deterministically? | Selected path matches `corpus_policy.canonical_statblock_relpath` or deterministic selection rule. |
+| **G2.2** | Is extracted canonical content structurally valid? | Required statblock markers are present (`Armor Class`, `Hit Points`, `Challenge Rating`, etc., per gold). |
+| **G2.3** | Is canonical selection unique? | No unresolved ties; tie-break rule is explicit and logged. |
+| **G2.4.1** | Is user intent mode classified? | Classifier emits one of `factual_lookup`, `upgrade_request`, `comparison_request`. |
+| **G2.4.2** | Is power axis classified? | Axis is one of `challenge_rating`, `class_level`, `hybrid`, `unknown`. |
+| **G2.4.3** | Is clarifier required when axis is ambiguous for upgrade asks? | For upgrade asks with `unknown` axis, set `clarifier_required=true` and emit one concise clarifier question. |
+| **G2.4.4** | Are factual asks CR-safe? | Factual mode does not force class-level when only CR evidence exists (permits `class_level_current=null`). |
+
+**Step 3 draft shift:** treat baseline as `power_baseline` (`challenge_rating_current`, optional `class_level_current`) instead of `pre_level: int`.
+
+**Step 4 draft shift:** require monotonic upgrade on selected axis (`target_cr` or `target_class_level`), and block if clarifier is required but unanswered.
+
+**Verify:**
+
+```bash
+uv run pytest tests/test_lysandra_vertical_slice_step2.py -q
+uv run python evals/lysandra_vertical_slice/step2_canonical_intent.py
+```
+
+**Artifacts:** `gold/step2_canonical_and_intent.json`, `step2_canonical_intent.py`, `tests/test_lysandra_vertical_slice_step2.py`.
 
 ---
 
