@@ -1,0 +1,31 @@
+---
+description: DungeonMindBuddy — local secrets and OpenAI; use repo .env files, not manual export.
+alwaysApply: true
+---
+
+# DungeonMindBuddy — environment and API keys
+
+## OpenAI and other secrets
+
+- **Do not** tell the user they must `export OPENAI_API_KEY` for normal local runs.
+- **Do** load keys from repo env files using the same pattern as the CLI:
+
+  **`src.bootstrap_env.load_dungeonmindbuddy_dotenv()`**
+
+  That loads, in order (later overrides when `override=True`), the first existing paths among:
+
+  - `<DungeonMindBuddy repo root>/.env`
+  - `<DungeonMindBuddy repo root>/.env.development`
+  - `<parent of repo root>/.env.development` (shared monorepo dev env)
+
+- **Entry points:** `src/cli.py` calls this via `_load_env()`. Eval harnesses (e.g. `evals/lysandra_vertical_slice/step1_planner_trace.py`) and **pytest** (`tests/conftest.py`, session autouse) call it so live tests see keys from disk without exporting.
+
+- **CI / automation:** inject `OPENAI_API_KEY` in the job environment when no `.env` is present; `load_dotenv` is a no-op if files are missing.
+
+- **Security:** never commit real `.env` contents; `.gitignore` should keep `.env` and `.env.development` local.
+
+## Corpus PDFs (statblocks)
+
+- **Cursor:** this repo does **not** use `.cursorignore` to hide PDFs.
+- **Git (standalone Buddy repo):** `DungeonMindBuddy/.gitignore` does **not** ignore `*.pdf`.
+- **Git (DungeonOverMind monorepo root):** root `.gitignore` historically had a blanket `*.pdf` (Java template cruft). It now includes `!/DungeonMindBuddy/corpus/**/*.pdf` so paths like `corpus/eldyrwild-markdown/Longmont Campaign/NPCs/` can be committed.

@@ -333,3 +333,27 @@ def test_scope_annotations_include_classification_when_enabled() -> None:
         include_scope_annotations=True,
     )
     assert "scope_relevance: classification=in_scope" in output
+
+
+def test_wiki_pages_emit_article_instead_of_attributes() -> None:
+    projection = _projection_template()
+    entities = [
+        {
+            "entity_id": "ent_mirathorn",
+            "entity_class": "place",
+            "display_name": "Mirathorn",
+            "aliases": [],
+            "entity_tags": [],
+            "subtype_facets": [],
+        }
+    ]
+    wiki = {"ent_mirathorn": "Mirathorn is a prosperous trade city."}
+    out = format_projection_context(
+        projection,
+        entities,
+        question="Tell me about Mirathorn",
+        wiki_pages=wiki,
+    )
+    assert "(wiki article)" in out
+    assert "prosperous trade city" in out
+    assert "history:" not in out  # attribute lines skipped when wiki present

@@ -1,0 +1,22 @@
+{
+  "id": "live_migrating_forest_branchbound_plan",
+  "version": 1,
+  "input": {
+    "prior_session_path": "Longmont Campaign/Campaign 2/Session Recaps/Session 17 - Migrating Forest and Thrin.md",
+    "planning_ask": "Context above is the last session we played (recap loaded from the corpus).\n\n1) Read the Migrating Forest executive DM summary from the corpus.\n2) Read something Branchbound-specific from the corpus.\n3) Call generate_statblock for a CR 2 patrol mount appropriate to that context (give the creature a short name in the tool).\n4) In your final reply, explicitly mention the Witness Seed and cite which corpus paths you read.\n\nYou may interleave tools across model rounds; ordering is not asserted per step—only that the full turn satisfies the final checks."
+  },
+  "steps": [],
+  "final": {
+    "require": {
+      "output_text_contains_any": ["Witness", "witness", "Seed", "seed"],
+      "min_output_chars": 120,
+      "tool_trace_must_include_tool": "generate_statblock",
+      "tool_trace_must_include_tools": ["read_corpus_file", "generate_statblock"],
+      "read_corpus_paths_must_include": [
+        "migrating_forest_executive_dm_summary",
+        "branchbound"
+      ],
+      "cited_paths_must_match_reads": true
+    }
+  }
+}

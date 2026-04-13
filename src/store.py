@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import re
 from copy import deepcopy
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -31,6 +32,10 @@ class FactStore:
     _MAX_ALIASES_PER_ENTITY = 20
     _MAX_ENTITY_TAGS_MERGED = 20
     _MAX_SEMANTIC_FACETS_MERGED = 24
+    _LEXICON_WORD_RE = re.compile(r"[a-z][a-z']{2,}")
+    _LEXICON_ACRONYM_RE = re.compile(r"\b[A-Z]{2,8}\b")
+    _LEXICON_MAX_TERMS = 512
+    _LEXICON_MIN_NGRAM_FREQ = 3
 
     def __init__(self, store_dir: Path) -> None:
         self.store_dir = Path(store_dir)
@@ -42,6 +47,10 @@ class FactStore:
         self.event_records: list[dict[str, Any]] = []
         self.claims: list[dict[str, Any]] = []
         self.ingest_index: dict[str, dict[str, Any]] = {}
+        self.corpus_lexicon: dict[str, Any] = {}
+        # LLM-authored wiki pages (entity_id -> prose); optional compiled layer
+        self.wiki_pages: dict[str, str] = {}
+        self.wiki_manifest: dict[str, Any] = {}
 
     def _path(self, name: str) -> Path:
         return self.store_dir / f"{name}.json"
@@ -74,6 +83,34 @@ class FactStore:
                 self.ingest_index = {}
         else:
             self.ingest_index = {}
+        lexicon_path = self._path("corpus_lexicon")
+        if lexicon_path.exists():
+            payload = json.loads(lexicon_path.read_text(encoding="utf-8"))
+            if isinstance(payload, dict):
+                self.corpus_lexicon = payload
+            else:
+                self.corpus_lexicon = {}
+        else:
+            self.corpus_lexicon = {}
+        wiki_path = self._path("wiki_pages")
+        if wiki_path.exists():
+            payload = json.loads(wiki_path.read_text(encoding="utf-8"))
+            if isinstance(payload, dict):
+                self.wiki_pages = {str(k): str(v) for k, v in payload.items()}
+            else:
+                self.wiki_pages = {}
+        else:
+            self.wiki_pages = {}
+        manifest_path = self._path("wiki_manifest")
+        if manifest_path.exists():
+            mp = json.loads(manifest_path.read_text(encoding="utf-8"))
+            self.wiki_manifest = mp if isinstance(mp, dict) else {}
+        else:
+            self.wiki_manifest = {}
+
+    def has_wiki(self) -> bool:
+        """True when at least one compiled wiki page exists."""
+        return bool(self.wiki_pages)
 
     def save(self) -> None:
         self.store_dir.mkdir(parents=True, exist_ok=True)
@@ -105,6 +142,146 @@ class FactStore:
             json.dumps(self.ingest_index, indent=2, ensure_ascii=False, sort_keys=True),
             encoding="utf-8",
         )
+        self.corpus_lexicon = self.build_corpus_lexicon()
+        self._path("corpus_lexicon").write_text(
+            json.dumps(self.corpus_lexicon, indent=2, ensure_ascii=False, sort_keys=True),
+            encoding="utf-8",
+        )
+        self._path("wiki_pages").write_text(
+            json.dumps(self.wiki_pages, indent=2, ensure_ascii=False, sort_keys=True),
+            encoding="utf-8",
+        )
+        self._path("wiki_manifest").write_text(
+            json.dumps(self.wiki_manifest, indent=2, ensure_ascii=False, sort_keys=True),
+            encoding="utf-8",
+        )
+
+    @staticmethod
+    def _lexicon_tokens(text: str) -> list[str]:
+        return FactStore._LEXICON_WORD_RE.findall((text or "").lower())
+
+    @staticmethod
+    def _normalize_lexicon_phrase(value: str) -> str:
+        phrase = re.sub(r"[^a-z0-9']+", " ", (value or "").strip().lower())
+        return re.sub(r"\s+", " ", phrase).strip()
+
+    @staticmethod
+    def _make_acronym(phrase: str) -> str:
+        parts = [p for p in FactStore._normalize_lexicon_phrase(phrase).split(" ") if p]
+        if len(parts) < 2:
+            return ""
+        acronym = "".join(part[0] for part in parts).upper()
+        return acronym if 2 <= len(acronym) <= 8 else ""
+
+    @classmethod
+    def _add_lexicon_mapping(
+        cls,
+        *,
+        mapping: dict[str, set[str]],
+        canonical: str,
+        alias: str,
+    ) -> None:
+        norm_canonical = cls._normalize_lexicon_phrase(canonical)
+        norm_alias = cls._normalize_lexicon_phrase(alias)
+        if not norm_canonical or not norm_alias:
+            return
+        if norm_canonical not in mapping:
+            mapping[norm_canonical] = set()
+        mapping[norm_canonical].add(norm_alias)
+
+    def build_corpus_lexicon(self) -> dict[str, Any]:
+        canonical_to_aliases: dict[str, set[str]] = {}
+        alias_to_canonical: dict[str, str] = {}
+        acronym_to_canonical: dict[str, str] = {}
+
+        for entity in self.entities:
+            display_name = str(entity.get("display_name", "")).strip()
+            aliases = [str(a).strip() for a in (entity.get("aliases") or []) if str(a).strip()]
+            all_names = [display_name, *aliases]
+            canonical = self._normalize_lexicon_phrase(display_name or aliases[0] if aliases else "")
+            if not canonical:
+                continue
+            for alias in all_names:
+                self._add_lexicon_mapping(
+                    mapping=canonical_to_aliases,
+                    canonical=canonical,
+                    alias=alias,
+                )
+                acronym = self._make_acronym(alias)
+                if acronym:
+                    acronym_to_canonical.setdefault(acronym, canonical)
+
+        for unit in self.evidence_units:
+            for raw in self._LEXICON_ACRONYM_RE.findall(str(unit.get("text", ""))):
+                if raw not in acronym_to_canonical:
+                    acronym_to_canonical[raw] = raw.lower()
+                    canonical_to_aliases.setdefault(raw.lower(), set()).add(raw.lower())
+
+        ngram_counts: dict[str, int] = {}
+        for unit in self.evidence_units:
+            text = str(unit.get("text", ""))
+            section = " ".join(str(p) for p in (unit.get("section_path") or []))
+            tokens = self._lexicon_tokens(f"{text} {section}")
+            for n in (2, 3):
+                if len(tokens) < n:
+                    continue
+                for i in range(0, len(tokens) - n + 1):
+                    phrase = " ".join(tokens[i : i + n]).strip()
+                    if phrase:
+                        ngram_counts[phrase] = ngram_counts.get(phrase, 0) + 1
+
+        frequent_phrases = sorted(
+            (
+                (phrase, count)
+                for phrase, count in ngram_counts.items()
+                if count >= self._LEXICON_MIN_NGRAM_FREQ
+            ),
+            key=lambda row: row[1],
+            reverse=True,
+        )
+
+        for phrase, _ in frequent_phrases[: self._LEXICON_MAX_TERMS]:
+            canonical_to_aliases.setdefault(phrase, set()).add(phrase)
+
+        for acronym, canonical in acronym_to_canonical.items():
+            norm_canonical = self._normalize_lexicon_phrase(canonical)
+            if not norm_canonical:
+                continue
+            canonical_to_aliases.setdefault(norm_canonical, set()).add(acronym.lower())
+
+        terms: list[dict[str, Any]] = []
+        for canonical in sorted(canonical_to_aliases):
+            aliases = sorted(
+                {
+                    self._normalize_lexicon_phrase(alias)
+                    for alias in canonical_to_aliases[canonical]
+                    if self._normalize_lexicon_phrase(alias)
+                }
+            )
+            if not aliases:
+                continue
+            terms.append(
+                {
+                    "canonical": canonical,
+                    "aliases": aliases,
+                }
+            )
+            for alias in aliases:
+                alias_to_canonical.setdefault(alias, canonical)
+
+        return {
+            "version": 1,
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "source_counts": {
+                "evidence_units": len(self.evidence_units),
+                "entities": len(self.entities),
+            },
+            "terms": terms[: self._LEXICON_MAX_TERMS],
+            "alias_to_canonical": alias_to_canonical,
+            "acronym_to_canonical": {
+                key: value for key, value in sorted(acronym_to_canonical.items())
+            },
+        }
 
     def add_evidence_units(self, units: list[dict[str, Any]]) -> None:
         validate_many(units, "evidence_unit.schema.json")

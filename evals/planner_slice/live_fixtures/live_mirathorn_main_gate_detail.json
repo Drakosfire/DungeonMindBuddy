@@ -1,0 +1,30 @@
+{
+  "id": "live_mirathorn_main_gate_detail",
+  "version": 1,
+  "input": {
+    "prior_session_path": "Longmont Campaign/Campaign 1/Session Recaps/Session 7 - Passing Mirathorn Gates.md",
+    "planning_ask": "The table wants a **detailed, runnable-at-the-table** description of Mirathorn’s **main / front gates** (what PCs see, hear, and navigate): architecture, materials, statuary or other landmarks, guard presence, crowd and toll behavior, and any protest or faction color that the corpus ties to that entrance.\n\n1) Use **read_corpus_file** to load the Elderwyld Mirathorn city guide (`The City of Mirathorn.md` under `Elderwyld/Cities and Towns/Mirathorn/`).\n2) Optionally read other corpus files with **read_corpus_file** if they sharpen the gate scene.\n3) **Do not** call `generate_statblock`.\n4) When you mention corpus `.md` paths, name only files you opened with **read_corpus_file** this turn; the eval report will append the full retrieved-path list automatically."
+  },
+  "steps": [],
+  "final": {
+    "require": {
+      "min_output_chars": 650,
+      "output_text_contains_any": [
+        "reinforced wood",
+        "reinforced wood and iron",
+        "founders",
+        "founder",
+        "ancient stone",
+        "Shepherd",
+        "toll",
+        "Festival of Expansion",
+        "Burgundy",
+        "Black and Gold"
+      ],
+      "tool_trace_must_include_tool": "read_corpus_file",
+      "read_corpus_paths_must_include": ["the city of mirathorn"],
+      "cited_paths_must_match_reads": true,
+      "min_cited_markdown_paths": 1
+    }
+  }
+}

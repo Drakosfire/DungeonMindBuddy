@@ -1,0 +1,45 @@
+{
+  "id": "bad_corpus_path_scripted",
+  "description": "Model requests a non-existent corpus path; dispatcher returns Error string; eval checks fail-loud error text propagates.",
+  "user_message": "Open this file: Elderwyld/This_File_Does_Not_Exist_12345.md",
+  "statblock_stub": null,
+  "mock_responses": [
+    {
+      "id": "resp-b1",
+      "output": [
+        {
+          "type": "function_call",
+          "name": "read_corpus_file",
+          "call_id": "fc-bad",
+          "arguments": "{\"path\": \"Elderwyld/This_File_Does_Not_Exist_12345.md\"}"
+        }
+      ]
+    },
+    {
+      "id": "resp-b2",
+      "output": [
+        {
+          "type": "message",
+          "content": [
+            {
+              "type": "output_text",
+              "text": "The corpus path failed; see tool output (Error:)."
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "expect": {
+    "tool_names_in_order": ["read_corpus_file"],
+    "tool_outputs_must_include_substrings": [
+      {
+        "tool_index": 0,
+        "substring": "Error"
+      }
+    ],
+    "final_text_must_include": ["failed"],
+    "all_scripted_responses_consumed": true,
+    "previous_response_id_chained_after_first_call": true
+  }
+}

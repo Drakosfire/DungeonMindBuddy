@@ -1,5 +1,6 @@
 # Main DungeonBuddy agent documentation
-_Exported on 3/27/2026 at 14:28:51 MDT from Cursor (2.6.21)_
+
+*Exported on 3/27/2026 at 14:28:51 MDT from Cursor (2.6.21)*
 
 ---
 
@@ -15,6 +16,7 @@ This is the main DungeonBuddy agent
 Understood — I’ll treat `DungeonMindBuddy/Docs/Agent Transcripts/cursor_dungeonbuddy_main.md` as the primary DungeonBuddy agent context.
 
 If you want, I can now:
+
 - extract a concise operating profile of this agent,
 - review it for gaps/inconsistencies,
 - or apply updates directly based on your next instruction.
@@ -85,21 +87,26 @@ What is next?
 ## Next
 
 1. **Harden extraction viability gates (recommended first)**
+
 - Add deterministic checks for `entity_density`, duplicate-fact ratio, and conflict-volume bands before event projection.
 - Fail fast if extraction is non-viable (e.g., zero entities/facts) in the slice runner.
 
-2. **Wire event-first slice to real extraction outputs**
+1. **Wire event-first slice to real extraction outputs**
+
 - Replace the current seeded event builder with stage artifacts generated from actual `chunks -> entities -> facts -> events`.
 - Keep deterministic artifact paths in `evals/llm_ingestion_slice/output/current/`.
 
-3. **Run blind replay against moved corpus path**
+1. **Run blind replay against moved corpus path**
+
 - Validate everything runs exclusively from `corpus/eldyrwild-markdown/` with no `Docs/...` dependency.
 - Re-run: `uv run python evals/llm_ingestion_slice/run_slice.py` and verify gate report stays `OVERALL: PASS`.
 
-4. **Add one determinism/replay test**
+1. **Add one determinism/replay test**
+
 - Assert hash-stable outputs across N runs (same inputs/config => same `gate_report` + projections).
 
-5. **Then do your commit sequence**
+1. **Then do your commit sequence**
+
 - **A:** scaffold + gold contracts (already done)
 - **B:** ingestion loop + stage artifacts (next)
 - **C:** hard gates + replay tests + projection deltas (mostly done; finalize after B)
@@ -174,6 +181,3 @@ It now captures:
 - test/lint outcomes,
 - Gate A/V/B/C/D pass state with metrics,
 - and the note that `evals/llm_ingestion_slice/output/current/` was refreshed as untracked runtime artifacts.
-
-
-

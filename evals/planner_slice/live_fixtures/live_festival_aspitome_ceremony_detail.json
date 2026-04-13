@@ -1,0 +1,19 @@
+{
+  "id": "live_festival_aspitome_ceremony_detail",
+  "version": 1,
+  "input": {
+    "planning_goal": "Next session includes the Festival of Expansion **Day Three** beat at the **Temple of the Aspitome** (cultural ceremonies). I need a GM-ready plan: what the space feels like, how the ceremony runs, and concrete PC hooks—without you being told which corpus files to open."
+  },
+  "steps": [],
+  "final": {
+    "require": {
+      "min_output_chars": 500,
+      "min_h2_headings": 3,
+      "output_text_contains_all": ["Aspitome"],
+      "tool_trace_must_include_tool": "read_corpus_file",
+      "read_corpus_paths_must_include": ["cultural ceremonies at the temple of the aspitome"],
+      "cited_paths_must_match_reads": true,
+      "min_cited_markdown_paths": 1
+    }
+  }
+}

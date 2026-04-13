@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from src.agent.synthesis import SYSTEM_PROMPT, synthesize_answer
+from src.agent.synthesis import SYSTEM_PROMPT, SYSTEM_PROMPT_WIKI, synthesize_answer
 
 
 class _FakeResponse:
@@ -73,6 +73,20 @@ def test_formatted_context_and_question_are_sent_to_model() -> None:
     assert "Projection context:" in call["messages"][1]["content"]
     assert context in call["messages"][1]["content"]
     assert question in call["messages"][1]["content"]
+
+
+def test_synthesize_wiki_mode_uses_wiki_system_prompt() -> None:
+    client = _FakeOpenAIClient()
+    synthesize_answer(
+        "wiki text here",
+        "What about the Wolf?",
+        model="test-model",
+        openai_client=client,
+        wiki_mode=True,
+    )
+    call = client.chat.completions.calls[0]
+    assert SYSTEM_PROMPT_WIKI.strip() in call["messages"][0]["content"]
+    assert "Campaign context (wiki articles" in call["messages"][1]["content"]
 
 
 def test_returns_llm_response_content() -> None:

@@ -1,0 +1,19 @@
+{
+  "id": "live_festival_tindlewix_illusionist_detail",
+  "version": 1,
+  "input": {
+    "planning_goal": "Same session arc: I need focused GM prep on **Master Tindlewix** at the Aspitome ceremony—who they are in play, how they open the ritual, what they want from the crowd, and how PCs can interact—without naming which markdown files you must read."
+  },
+  "steps": [],
+  "final": {
+    "require": {
+      "min_output_chars": 400,
+      "min_h2_headings": 3,
+      "output_text_contains_all": ["Tindlewix"],
+      "tool_trace_must_include_tool": "read_corpus_file",
+      "read_corpus_paths_must_include": ["cultural ceremonies at the temple of the aspitome"],
+      "cited_paths_must_match_reads": true,
+      "min_cited_markdown_paths": 1
+    }
+  }
+}

@@ -1,0 +1,135 @@
+{
+  "schema_version": "0.1.0",
+  "created_at": "2026-04-09T12:00:00Z",
+  "updated_at": "2026-04-09T12:00:00Z",
+  "record_status": "active",
+  "extraction_pass_id": null,
+  "profile_kind": "corpus_entity_audit",
+  "entity_id": "ent_bonogo",
+  "display_name": "Bonogo",
+  "entity_class": "actor",
+  "cohort": {
+    "manifest_id": "entity_audit_2026-04-09",
+    "wiki_connectivity_score": 1.5428,
+    "list_wiki_targets_params": {
+      "campaign_id": "longmont-c1",
+      "min_connectivity": 0.3
+    },
+    "store_path": "evals/mirathorn_vertical_slice/output/phase_d_store",
+    "store_git_commit": "3f108761355344b2ca3bf5793c866d3508ef4059"
+  },
+  "evidence_sufficiency": "sufficient",
+  "insufficient_evidence_note": null,
+  "integrated_summary": "Bonogo is documented as a Longmont PC whose written character sheet (evil-leaning retribution ideal, deep trust issues, malnourished bugbear-ish background, escape from elven captivity) lives in Longmont Campaign General Notes. In session recaps, the same name is the playable character who crafts, steals, performs in arenas, fights with daggers and whip, and—in C1 Session 12—is the agent of the Wolf’s terminal defeat, including the oily sheen / regret beat in the Campaign 1 Session 12 recap. Prep docs add social tone for specific scenes (e.g. Stacey) in session_20_stacey_stuart_marla_reference. Engineering documentation (REPORT §S5) warns that automated entity merging may have polluted Wolf ↔ Bonogo linking in the store, so corpus markdown remains the clearest intentional definition of Bonogo as a person while structured extraction should be validated separately.",
+  "narrative_layers": {
+    "dossier": "Under “Bonogo Characteristics” in General Notes: Personality—hides scraps of food and trinkets in pockets. Ideals—retribution: the rich must be shown what life and death are like in the gutters (Evil). Bonds—no one else should endure the hardships I’ve been through. Flaws—will never fully trust anyone other than myself. Appearance—tall and gangly from a malnourished upbringing. Backstory—recently escaped elves who held him captive in a “shitty zoo.”",
+    "observed_play": "Session recaps (observed_session_recap where frontmatter exists) show a bugbear-typed, rogue-flavored PC: sneak, daggers, theft, arena/combat. C2 Session 10 (longmont-c2): goblin alchemy booth (green goo with a mind of its own); candy tent (lollipop → hair/fur monster; steals a child’s lollipop; feels watched); bone jewelry (ring whispers compliments); coliseum fight with Ogonob and Baergrom—strikes first vs glass-of-ale elemental, whip, crowd cheers; hooded figure watches again. C1 Session 7 Passing Mirathorn Gates: solid black ribbon vs faction colors; carnival game for toy airship (fails then wins). C2 Session 8: prone fight; crossbow/steady aim; kills priest with dagger through the eye, quip “Now I’m in your head”; ties Dustwalker with chain; maps with Bonogo; Mountain Iron Vale Gate. C1 Session 12: surprise round vs the Wolf; secret passage chase; caltrops, oil fire, knives; killing blow—oily sheen fades from Wolf’s eyes, regret at betraying Mirathorn (Mirathorn eval gold beat). C2 Session 12 (different file): Wanted posters; daggers at Dustwalker in bard competition; heavy melee vs Dustwalker and red cloaks; Academy cell check with Karsemine (Dustwalker apparently in cell). Consistent identity: crafting mishaps, theft and swagger, whip/dagger, recurring watched/paranoia, major violence including Wolf kill.",
+    "gm_prep": "session_20_stacey_stuart_marla_reference: Bonogo should relate to Stacey as a fellow goblinoid chaos peer (“menace with promise”), not as generic adult authority. Scripted joke beat and Marla riposte as tone samples for one session—directorial, not guaranteed in-world canon.",
+    "ledger_or_world": "Same General Notes file pivots under “Main World and Story Themes” to Shepherds/Maelthor, twisted meat, etc.—ambient campaign context adjacent to the Bonogo trait block; not mechanically the same as Bonogo-only paragraphs."
+  },
+  "relationships": [
+    {
+      "related_entity_id": "ent_the_wolf",
+      "related_display_name": "the Wolf",
+      "relation_summary": "Bonogo lands the killing blow after chase through secret passage (caltrops, oil fire, knives); recap states oily sheen fades from the Wolf’s eyes and regret at betraying Mirathorn (C1 Session 12)."
+    },
+    {
+      "related_entity_id": null,
+      "related_display_name": "Stacey",
+      "relation_summary": "Prep: peer relationship—fellow goblinoid chaos, “menace with promise,” not generic adult authority (session_20 prep)."
+    },
+    {
+      "related_entity_id": null,
+      "related_display_name": "Dustwalker",
+      "relation_summary": "C2 Session 8: helps tie up with chain after barn fight. C2 Session 12: Wanted posters, bard-competition daggers, melee; cell check with Karsemine."
+    }
+  ],
+  "terminal_beats": [
+    {
+      "summary": "Killing blow on the Wolf: oily sheen fades from the Wolf’s eyes, replaced with regret at betraying Mirathorn.",
+      "session": 12,
+      "campaign_id": "longmont-c1"
+    }
+  ],
+  "citations": [
+    {
+      "corpus_relative_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Longmont Campaign General Notes.md",
+      "layer_tags": ["dossier"],
+      "authority": "canon_reference",
+      "quote": "Bonogo Characteristics — Personality, Ideals, Bonds, Flaws, Appearance; GM-facing ledger_or_dossier",
+      "session": null,
+      "campaign_id": "longmont-c1"
+    },
+    {
+      "corpus_relative_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Longmont Campaign General Notes.md",
+      "layer_tags": ["ledger"],
+      "authority": "canon_reference",
+      "quote": "Main World and Story Themes — Shepherds, Maelthor, twisted meat (ambient; not Bonogo-only block)",
+      "session": null,
+      "campaign_id": "longmont-c1"
+    },
+    {
+      "corpus_relative_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 10 - Recap.md",
+      "layer_tags": ["observed_play"],
+      "authority": "play_record",
+      "quote": "Goblin alchemy, candy tent, bone ring, coliseum elemental fight, whip, watched/hooded figure",
+      "session": 10,
+      "campaign_id": "longmont-c2"
+    },
+    {
+      "corpus_relative_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Session Recaps/Session 7 - Passing Mirathorn Gates.md",
+      "layer_tags": ["observed_play"],
+      "authority": "play_record",
+      "quote": "Black ribbon; carnival toy airship game",
+      "session": 7,
+      "campaign_id": "longmont-c1"
+    },
+    {
+      "corpus_relative_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 8 - Recap.md",
+      "layer_tags": ["observed_play"],
+      "authority": "play_record",
+      "quote": "Dagger through the eye — Now I’m in your head; tie Dustwalker; Mountain Iron Vale Gate",
+      "session": 8,
+      "campaign_id": "longmont-c2"
+    },
+    {
+      "corpus_relative_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Session Recaps/Session 12 - One Persistent Bugbear or Sneaky Fucking Bugbear.md",
+      "layer_tags": ["observed_play"],
+      "authority": "play_record",
+      "quote": "As Bonogo deals the killing blow the oily sheen fades from the Wolf’s eyes",
+      "session": 12,
+      "campaign_id": "longmont-c1"
+    },
+    {
+      "corpus_relative_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 12 - Recap.md",
+      "layer_tags": ["observed_play"],
+      "authority": "play_record",
+      "quote": "Wanted posters, bard competition daggers vs Dustwalker, Academy cell with Karsemine",
+      "session": 12,
+      "campaign_id": "longmont-c2"
+    },
+    {
+      "corpus_relative_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_20_stacey_stuart_marla_reference.md",
+      "layer_tags": ["gm_prep"],
+      "authority": "planning_note",
+      "quote": "Bonogo × Stacey as goblinoid chaos peers; joke beat / Marla riposte tone samples",
+      "session": null,
+      "campaign_id": "longmont-c2"
+    },
+    {
+      "corpus_relative_path": "Docs/Design/REPORT-benchmark-shortcomings-and-successes.md",
+      "layer_tags": ["design_report"],
+      "authority": null,
+      "quote": "§S5 — Wolf alias set incorrectly included Bonogo, Grishna, Torbin; proper-name pollution",
+      "session": null,
+      "campaign_id": null
+    }
+  ],
+  "store_reliability": {
+    "caveat_kind": "alias_pollution",
+    "detail": "The knowledge graph must not be assumed to match narrative identity without audit: REPORT §S5 states the Wolf’s alias set incorrectly included distinct character names including Bonogo (along with Grishna, Torbin) due to over-aggressive fuzzy matching; proper-name pollution persists after mitigations. Wiki compiler input for ent_bonogo is projected facts, not full Session 12 markdown—definition-by-docs and definition-by-store can diverge (e.g. mixed bugbear vs location style labels).",
+    "design_report_paths": ["Docs/Design/REPORT-benchmark-shortcomings-and-successes.md"]
+  },
+  "review_state": "draft",
+  "author": "handoff:exemplar"
+}

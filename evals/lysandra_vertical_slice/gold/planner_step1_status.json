@@ -1,0 +1,14 @@
+{
+  "schema": "lysandra_vertical_slice_gate_status_v1",
+  "step": 1,
+  "lane": "planner_tool_trace",
+  "label": "step1_lane_a_planner_reads",
+  "implementation_complete": true,
+  "human_signpost": "evals/lysandra_vertical_slice/GATES.md",
+  "verification": {
+    "unit_command": "uv run pytest tests/test_lysandra_vertical_slice_planner_step1.py -q",
+    "live_note": "Set LYSANDRA_PLANNER_STEP1_LIVE=1 and OPENAI_API_KEY; same pytest file runs the live test.",
+    "last_verified_outcome": "unit: 3 passed 1 skipped; live: passed when opt-in + key (2026-04-11)"
+  },
+  "depends_on": ["gold/planner_step1.json", "step1_planner_trace.py"]
+}

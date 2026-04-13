@@ -1,0 +1,12 @@
+{
+  "schema": "lysandra_vertical_slice_gate_status_v1",
+  "step": 0,
+  "label": "corpus_pin_and_environment",
+  "implementation_complete": true,
+  "human_signpost": "evals/lysandra_vertical_slice/GATES.md",
+  "verification": {
+    "command": "uv run pytest tests/test_lysandra_vertical_slice_step0.py -q",
+    "last_verified_outcome": "5 passed"
+  },
+  "notes": "G0.3 is satisfied in CI via LYSANDRA_SLICE_SKIP_STATBLOCK_URL_GATE in tests; full pipeline requires DUNGEONMIND_STATBLOCK_URL or mock per gold/step0_environment.json."
+}

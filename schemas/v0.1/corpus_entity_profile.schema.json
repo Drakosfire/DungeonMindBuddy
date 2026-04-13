@@ -1,0 +1,244 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "corpus_entity_profile.schema.json",
+  "title": "Corpus entity profile (narrative audit) v0.1",
+  "description": "Curated, citation-backed narrative summary for an entity, complementing lean identity in entity.schema.json. Intended for eval interpretability, wiki QA, and retrieval — not a replacement for Fact rows. Each profile ties prose to corpus paths and optional store/KB caveats.",
+  "allOf": [
+    {
+      "$ref": "common.schema.json#/$defs/baseRecord"
+    }
+  ],
+  "type": "object",
+  "required": [
+    "profile_kind",
+    "entity_id",
+    "display_name",
+    "integrated_summary",
+    "citations",
+    "evidence_sufficiency",
+    "store_reliability"
+  ],
+  "properties": {
+    "schema_version": {
+      "$ref": "common.schema.json#/$defs/schemaVersion"
+    },
+    "created_at": {
+      "$ref": "common.schema.json#/$defs/timestamp"
+    },
+    "updated_at": {
+      "$ref": "common.schema.json#/$defs/timestamp"
+    },
+    "record_status": {
+      "$ref": "common.schema.json#/$defs/status"
+    },
+    "extraction_pass_id": {
+      "type": ["string", "null"],
+      "description": "Optional link to an ingest pass; for audits often null."
+    },
+    "profile_kind": {
+      "type": "string",
+      "const": "corpus_entity_audit"
+    },
+    "entity_id": {
+      "$ref": "common.schema.json#/$defs/idString"
+    },
+    "display_name": {
+      "$ref": "common.schema.json#/$defs/nonEmptyString"
+    },
+    "entity_class": {
+      "description": "Optional copy of ontology bucket from the entity record for query filters.",
+      "type": ["string", "null"],
+      "enum": ["actor", "group", "place", "object", "event", "concept", null]
+    },
+    "cohort": {
+      "type": "object",
+      "description": "Reproducibility and wiki-target selection metadata for this audit row.",
+      "properties": {
+        "manifest_id": {
+          "type": ["string", "null"]
+        },
+        "wiki_connectivity_score": {
+          "type": ["number", "null"],
+          "minimum": 0
+        },
+        "list_wiki_targets_params": {
+          "type": "object",
+          "properties": {
+            "campaign_id": { "type": ["string", "null"] },
+            "min_connectivity": { "type": ["number", "null"] }
+          },
+          "additionalProperties": true
+        },
+        "store_path": {
+          "type": ["string", "null"],
+          "description": "FactStore directory used when the cohort was frozen."
+        },
+        "store_git_commit": {
+          "type": ["string", "null"]
+        }
+      },
+      "additionalProperties": true
+    },
+    "evidence_sufficiency": {
+      "type": "string",
+      "enum": ["sufficient", "thin", "absent"],
+      "description": "Whether corpus prose supports a real definition vs stub."
+    },
+    "insufficient_evidence_note": {
+      "type": ["string", "null"],
+      "description": "When evidence_sufficiency is not sufficient, why (e.g. only store projection, no name hits)."
+    },
+    "integrated_summary": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Docs-only synthesis: identity, role, relationships, fate when known (HANDOFF §6 paragraph)."
+    },
+    "narrative_layers": {
+      "type": "object",
+      "description": "Optional decomposition matching the audit exemplar: dossier vs play vs prep vs ledger.",
+      "properties": {
+        "dossier": {
+          "type": "string",
+          "description": "GM-facing character/world notes (General Notes, dossiers)."
+        },
+        "observed_play": {
+          "type": "string",
+          "description": "What happened in session recaps."
+        },
+        "gm_prep": {
+          "type": "string",
+          "description": "Director voice — may not have happened in play."
+        },
+        "ledger_or_world": {
+          "type": "string",
+          "description": "Living ledger / cosmology framing when used."
+        }
+      },
+      "additionalProperties": false
+    },
+    "relationships": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["related_display_name", "relation_summary"],
+        "properties": {
+          "related_entity_id": {
+            "$ref": "common.schema.json#/$defs/nullableId"
+          },
+          "related_display_name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "relation_summary": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "terminal_beats": {
+      "type": "array",
+      "description": "Major outcomes with session pointers when relevant (death, exile, destruction).",
+      "items": {
+        "type": "object",
+        "required": ["summary"],
+        "properties": {
+          "summary": { "type": "string", "minLength": 1 },
+          "session": { "type": ["integer", "null"] },
+          "campaign_id": { "type": ["string", "null"] }
+        },
+        "additionalProperties": false
+      }
+    },
+    "citations": {
+      "type": "array",
+      "minItems": 1,
+      "description": "File-level evidence for claims in integrated_summary and layers. Query surface: filter by layer_tags or corpus path prefix.",
+      "items": {
+        "type": "object",
+        "required": ["corpus_relative_path"],
+        "properties": {
+          "corpus_relative_path": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Path relative to repo root (e.g. corpus/eldyrwild-markdown/...)."
+          },
+          "layer_tags": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "dossier",
+                "observed_play",
+                "gm_prep",
+                "ledger",
+                "item_or_mechanics",
+                "design_report"
+              ]
+            },
+            "description": "Which narrative bucket(s) this file supports."
+          },
+          "authority": {
+            "description": "Optional alignment with entity extraction authority (entity.schema.json).",
+            "type": ["string", "null"],
+            "enum": [
+              "canon_reference",
+              "planning_note",
+              "play_record",
+              "rumor_or_belief",
+              "mechanic_reference",
+              null
+            ]
+          },
+          "quote": {
+            "type": ["string", "null"],
+            "description": "Short excerpt or section title anchor."
+          },
+          "session": {
+            "type": ["integer", "null"]
+          },
+          "campaign_id": {
+            "type": ["string", "null"]
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "store_reliability": {
+      "type": "object",
+      "required": ["caveat_kind"],
+      "properties": {
+        "caveat_kind": {
+          "type": "string",
+          "enum": [
+            "none",
+            "alias_pollution",
+            "referent_mixing",
+            "thin_evidence",
+            "projection_divergence"
+          ]
+        },
+        "detail": {
+          "type": ["string", "null"],
+          "description": "One paragraph explaining the caveat when kind is not none."
+        },
+        "design_report_paths": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "e.g. Docs/Design/REPORT-benchmark-shortcomings-and-successes.md"
+        }
+      },
+      "additionalProperties": false
+    },
+    "review_state": {
+      "type": ["string", "null"],
+      "enum": ["draft", "reviewed", "approved", null]
+    },
+    "author": {
+      "type": ["string", "null"],
+      "description": "human:gm, agent:cursor, or pipeline id."
+    }
+  },
+  "unevaluatedProperties": false
+}

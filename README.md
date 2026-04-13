@@ -35,6 +35,8 @@ This repository uses `uv` for Python dependency and environment management.
 uv sync
 ```
 
+**OpenAI (local):** put `OPENAI_API_KEY` in a repo-root `.env` or `.env.development` file. The CLI, eval harnesses, and pytest load these via `src.bootstrap_env.load_dungeonmindbuddy_dotenv()` — you do not need to `export` the key in your shell for normal development. Cursor rule: `.cursor/rules/dungeonbuddy-environment.mdc`.
+
 ## Verification commands
 
 ```bash
