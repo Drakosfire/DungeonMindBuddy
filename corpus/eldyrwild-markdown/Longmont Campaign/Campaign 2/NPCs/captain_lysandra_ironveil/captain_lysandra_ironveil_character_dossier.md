@@ -1,5 +1,5 @@
 ---
-title: "lieutenant lysandra ironveil character dossier"
+title: "captain lysandra ironveil character dossier"
 document_class: reference
 canon_layer: campaign
 campaign_id: longmont-c2

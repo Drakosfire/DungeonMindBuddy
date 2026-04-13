@@ -1,6 +1,6 @@
-<!-- Source: Captain Lysandra Ironveil.pdf | RulesIngestion Mark III Stage A surface -->
+<!-- Source: captain_lysandra_ironveil_statblock_cr2.pdf (export of this sheet) | RulesIngestion Mark III Stage A surface -->
 
-<!-- RulesIngestion page 0 (Captain Lysandra Ironveil_p0) -->
+<!-- RulesIngestion page 0 (Captain Lysandra Ironveil_p0) — corpus path: Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_statblock_cr2.md (CR 2, Mirathorn setting sheet) -->
 
 ![](images/0.jpg)
 
