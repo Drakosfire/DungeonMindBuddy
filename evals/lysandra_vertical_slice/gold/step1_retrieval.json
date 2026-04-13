@@ -7,7 +7,8 @@
   "required_paths_retrieved": [
     "Longmont Campaign/Campaign 2/NPC Dossier/lieutenant_lysandra_ironveil_character_dossier.md",
     "Longmont Campaign/Campaign 2/Session Recaps/Session 18 - Recap.md",
-    "Longmont Campaign/Campaign 2/Campaign 2 Notes.md"
+    "Longmont Campaign/Campaign 2/Campaign 2 Notes.md",
+    "Longmont Campaign/NPCs/Captain Lysandra Ironveil.md"
   ],
-  "notes": "G1.2: when corpus_policy.canonical_statblock_relpath is null, require primary_reference_relpath and session_anchor_relpath in top_k (same as deterministic Step-2 seeds)."
+  "notes": "G1.2: canonical_statblock_relpath must be in top_k. Includes RulesIngestion Stage A .md beside PDF under Longmont Campaign/NPCs/."
 }

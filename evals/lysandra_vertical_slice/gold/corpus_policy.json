@@ -16,8 +16,8 @@
   ],
   "session_anchor_relpath": "Longmont Campaign/Campaign 2/Session Recaps/Session 18 - Recap.md",
   "primary_reference_relpath": "Longmont Campaign/Campaign 2/NPC Dossier/lieutenant_lysandra_ironveil_character_dossier.md",
-  "statblock_status": "no_machine_readable_statblock_in_corpus_v0",
-  "canonical_statblock_relpath": null,
+  "statblock_status": "machine_readable_statblock_md_from_pdf_rules_ingestion",
+  "canonical_statblock_relpath": "Longmont Campaign/NPCs/Captain Lysandra Ironveil.md",
   "recency_policy": "explicit_session_anchor_and_dossier_until_statblock_authored",
-  "notes": "Statblock PDFs may live under corpus/.../Longmont Campaign/NPCs/ (git: monorepo root .gitignore allows DungeonMindBuddy/corpus/**/*.pdf). For planner reads, add or convert to .md or extend tools. When a canonical machine-readable sheet path exists, set canonical_statblock_relpath and statblock_status."
+  "notes": "Canonical sheet is RulesIngestion Stage A .md; PDF kept alongside under Longmont Campaign/NPCs/. Re-run ingestion to refresh .md from PDF when the sheet changes."
 }

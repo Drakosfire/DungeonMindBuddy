@@ -42,8 +42,12 @@ Paths are relative to `corpus/eldyrwild-markdown/`.
 | `Longmont Campaign/Campaign 1/Session Recaps/Session 6 - The Road to Miraholm.md` | Recap | Toll protest; **Captain Lysandra Ironveil** at gate. |
 | `Longmont Campaign/Campaign 1/Longmont Campaign General Notes.md` | Meta | Points to C1 Session 8 recap path. |
 | `Elderwyld/UnRefined Heading into the Flesh Kaiju.md` | World draft | Council color: Lysandra reports guard disappearances. |
+| `Longmont Campaign/NPCs/Captain Lysandra Ironveil.md` | Statblock (RulesIngestion Stage A) | **Machine-readable sheet** from `Captain Lysandra Ironveil.pdf` (AC, HP, stats, actions). Source-of-truth for vertical-slice `canonical_statblock_relpath`. |
+| `Longmont Campaign/NPCs/Captain Lysandra Ironveil.pdf` | Statblock PDF | Original export; paired with `.md`. |
+| `Longmont Campaign/NPCs/Torbin Jove/Torbin Jove.md` | Statblock (RulesIngestion Stage A) | From `Torbin Jove.pdf`. |
+| `Longmont Campaign/NPCs/Torbin Jove/Torbin Jove.pdf` | Statblock PDF | Original export. |
 
-**Mention count (ripgrep `Lysandra` in `*.md` under this corpus root):** 19 files; per-file hit counts range from 1–11 (highest in `Campaign 2 Notes.md`).
+**Mention count (ripgrep `Lysandra` in `*.md` under this corpus root):** 19 files; per-file hit counts range from 1–11 (highest in `Campaign 2 Notes.md`). **Plus** `Captain Lysandra Ironveil.md` (filename + body).
 
 ---
 
