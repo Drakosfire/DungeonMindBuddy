@@ -1,0 +1,80 @@
+[
+  {
+    "gate_name": "orphan",
+    "passed": true,
+    "detail": {
+      "total_units": 6,
+      "orphan_count": 0,
+      "orphan_rate": 0.0,
+      "fail_threshold": 1.0,
+      "warn_threshold": 0.5,
+      "warned": false,
+      "orphans": []
+    }
+  },
+  {
+    "gate_name": "bleed",
+    "passed": true,
+    "detail": {
+      "total_units": 6,
+      "overlap_count": 0,
+      "overlaps": []
+    }
+  },
+  {
+    "gate_name": "table_integrity",
+    "passed": true,
+    "detail": {
+      "table_unit_count": 0,
+      "issue_count": 0,
+      "issues": []
+    }
+  },
+  {
+    "gate_name": "unit_size",
+    "passed": true,
+    "detail": {
+      "total_units": 6,
+      "min_chars": 20,
+      "max_chars": 5000,
+      "max_table_chars": 12000,
+      "undersized_count": 5,
+      "oversized_count": 0,
+      "undersized_ratio": 0.8333,
+      "undersized_fail_ratio": 1.0,
+      "undersized": [
+        {
+          "unit_id": "541e708fec46a185",
+          "unit_type": "prose",
+          "char_count": 15,
+          "text_preview": "CRUMBLING\nCRYPT"
+        },
+        {
+          "unit_id": "b68818f7d88bb0c5",
+          "unit_type": "prose",
+          "char_count": 12,
+          "text_preview": "CONSERVATORY"
+        },
+        {
+          "unit_id": "336150b836a96685",
+          "unit_type": "prose",
+          "char_count": 7,
+          "text_preview": "KITCHEN"
+        },
+        {
+          "unit_id": "40b2724e88795521",
+          "unit_type": "prose",
+          "char_count": 6,
+          "text_preview": "PARLOR"
+        },
+        {
+          "unit_id": "85ce71166554ca16",
+          "unit_type": "prose",
+          "char_count": 10,
+          "text_preview": "MAIN STAIR"
+        }
+      ],
+      "oversized": []
+    }
+  }
+]

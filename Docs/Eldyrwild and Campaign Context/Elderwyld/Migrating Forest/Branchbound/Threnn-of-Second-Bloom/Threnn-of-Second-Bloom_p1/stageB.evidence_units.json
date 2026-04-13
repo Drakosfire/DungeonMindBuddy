@@ -1,0 +1,116 @@
+{
+  "unit_count": 4,
+  "units": [
+    {
+      "unit_id": "d3e0e16da0f68420b67fa44ae5b0f2c545f69369e43c4c7fb10a1bb72e6c84f0",
+      "unit_type": "prose",
+      "text": "LAIR ACTIONS — The Canopy of Second Bloom — The Canopy of Second Bloom is a lush, vibrant network of interconnected platforms and bridges high above the forest floor. The air is filled with the scent of blooming flowers and the rustling of leaves, creating a serene yet ominous atmosphere. The platforms are alive with subtle, natural movements, as if the forest itself is watching.",
+      "structural_path": [
+        "The Canopy of Second Bloom"
+      ],
+      "ordering_key": 0,
+      "page_fingerprint": "b6c79cb211ae1170a948ade93f92ad926128b5ea77c7cef90cbb734d15c5b0c5",
+      "content_hash": "39eb278ef00d085889d0d2f2e6d091568a2cb10b2eafc09893199b0c97cab9ee",
+      "source_line_start": 1,
+      "source_line_end": 8,
+      "anomaly_flags": [],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    },
+    {
+      "unit_id": "41cfb6d79cde9292ffffe8cc8c55bb203a73328b50ac2adbfe77a9066677801f",
+      "unit_type": "prose",
+      "text": "Grasping Vines — The forest floor in a 20-foot radius within line of sight becomes difficult terrain as vines and roots animate. Each creature in the area must succeed on a DC 13 Strength saving throw or be restrained until the end of its next turn.",
+      "structural_path": [
+        "Grasping Vines"
+      ],
+      "ordering_key": 1,
+      "page_fingerprint": "b6c79cb211ae1170a948ade93f92ad926128b5ea77c7cef90cbb734d15c5b0c5",
+      "content_hash": "049fe634113d19983abcdf18d720004e29923013223de55ed004e4383759bb08",
+      "source_line_start": 10,
+      "source_line_end": 14,
+      "anomaly_flags": [],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    },
+    {
+      "unit_id": "4b613c86284e8b454b2b56d5657cd7aa3fbe2f157c475f37e34934d14b3772d7",
+      "unit_type": "prose",
+      "text": "Shifting Canopy — The branches and leaves above shift and obscure vision. Until initiative count 20 on the next round, all creatures within the lair have disadvantage on Wisdom (Perception) checks that rely on sight.",
+      "structural_path": [
+        "Shifting Canopy"
+      ],
+      "ordering_key": 2,
+      "page_fingerprint": "b6c79cb211ae1170a948ade93f92ad926128b5ea77c7cef90cbb734d15c5b0c5",
+      "content_hash": "c8236a68e77dec1571a25a98cd44e9af7c5bfe0af3b8b1c8831a07ac0755cf9e",
+      "source_line_start": 16,
+      "source_line_end": 20,
+      "anomaly_flags": [],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    },
+    {
+      "unit_id": "d1e0db37601eedcb2a4c2765c35411388dc26828fe45e734d17572a47593689a",
+      "unit_type": "prose",
+      "text": "Sap Burst — The forest releases a burst of sap in a 15-foot radius sphere centered on a point Threnn can see within 60 feet. Each creature in that area must make a DC 13 Dexterity saving throw, taking 10 (3d6) acid damage on a failed save, or half as much damage on a successful one. Damage: 3d6",
+      "structural_path": [
+        "Sap Burst"
+      ],
+      "ordering_key": 3,
+      "page_fingerprint": "b6c79cb211ae1170a948ade93f92ad926128b5ea77c7cef90cbb734d15c5b0c5",
+      "content_hash": "2dc47ac0f5f5107010afa743f74fda06b2f5ae7b8f616ef348250cb152c1dc0c",
+      "source_line_start": 22,
+      "source_line_end": 26,
+      "anomaly_flags": [],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    }
+  ],
+  "gate_diagnostics": [
+    {
+      "gate_name": "orphan",
+      "passed": true,
+      "detail": {
+        "total_units": 4,
+        "orphan_count": 0,
+        "orphan_rate": 0.0,
+        "fail_threshold": 1.0,
+        "warn_threshold": 0.5,
+        "warned": false,
+        "orphans": []
+      }
+    },
+    {
+      "gate_name": "bleed",
+      "passed": true,
+      "detail": {
+        "total_units": 4,
+        "overlap_count": 0,
+        "overlaps": []
+      }
+    },
+    {
+      "gate_name": "table_integrity",
+      "passed": true,
+      "detail": {
+        "table_unit_count": 0,
+        "issue_count": 0,
+        "issues": []
+      }
+    },
+    {
+      "gate_name": "unit_size",
+      "passed": true,
+      "detail": {
+        "total_units": 4,
+        "min_chars": 20,
+        "max_chars": 5000,
+        "max_table_chars": 12000,
+        "undersized_count": 0,
+        "oversized_count": 0,
+        "undersized_ratio": 0.0,
+        "undersized_fail_ratio": 1.0,
+        "undersized": [],
+        "oversized": []
+      }
+    }
+  ],
+  "gates_passed": true,
+  "salvage_score": 1.0
+}

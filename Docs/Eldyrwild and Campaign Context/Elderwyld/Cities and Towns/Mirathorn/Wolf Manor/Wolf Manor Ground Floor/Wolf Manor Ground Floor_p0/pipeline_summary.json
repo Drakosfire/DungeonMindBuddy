@@ -1,0 +1,228 @@
+{
+  "stage_a": {
+    "gates_passed": true,
+    "node_count": 8,
+    "table_count": 0,
+    "content_hash": "37882da6b700328c6eeb1a2c563c75c645c7a4033f4fb9a781b85569f08b784a",
+    "gate_details": [
+      {
+        "gate_name": "coverage",
+        "passed": true,
+        "detail": {
+          "raw_content_chars": 69,
+          "ast_content_chars": 69,
+          "ratio": 1.0,
+          "threshold": 0.95
+        }
+      },
+      {
+        "gate_name": "ordering",
+        "passed": true,
+        "detail": {
+          "leaf_count": 6,
+          "inversion_count": 0,
+          "inversions": []
+        }
+      },
+      {
+        "gate_name": "table_parse",
+        "passed": true,
+        "detail": {
+          "raw_table_count": 0,
+          "ast_table_count": 0,
+          "count_match": true,
+          "raw_row_counts": [],
+          "ast_row_counts": [],
+          "row_mismatches": []
+        }
+      }
+    ]
+  },
+  "stage_b": {
+    "units": [
+      {
+        "unit_id": "9e7c6b38e289a70c896303d9350fed0bb0a4b329b8e8a796a169eb53f367104d",
+        "unit_type": "prose",
+        "text": "GROUND FLOOR — TROPPY\nROOM",
+        "structural_path": [
+          "GROUND FLOOR"
+        ],
+        "ordering_key": 0,
+        "page_fingerprint": "af68a33c5451d2a4cf0695f015a02628cc6e3819a15331a560cfb42f76f3a49e",
+        "content_hash": "18bc2cd9770448d7b5d5d36f21644f97b8f69afed9fe24d7dac95a1535f20378",
+        "source_line_start": 1,
+        "source_line_end": 6,
+        "anomaly_flags": [],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "541e708fec46a18556dc9f3866ded5f2082aea2289cee99019793e01df326437",
+        "unit_type": "prose",
+        "text": "CRUMBLING\nCRYPT",
+        "structural_path": [
+          "GROUND FLOOR"
+        ],
+        "ordering_key": 1,
+        "page_fingerprint": "af68a33c5451d2a4cf0695f015a02628cc6e3819a15331a560cfb42f76f3a49e",
+        "content_hash": "3e857a3a2c2eafcd9bf32a1b179ad90e0a5dc09af9967196068ac527b47ff8af",
+        "source_line_start": 8,
+        "source_line_end": 10,
+        "anomaly_flags": [
+          "undersized"
+        ],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "b68818f7d88bb0c5a6cb87a08cb5c8eba477562757c2396daf023e806b2ab2eb",
+        "unit_type": "prose",
+        "text": "CONSERVATORY",
+        "structural_path": [
+          "GROUND FLOOR"
+        ],
+        "ordering_key": 2,
+        "page_fingerprint": "af68a33c5451d2a4cf0695f015a02628cc6e3819a15331a560cfb42f76f3a49e",
+        "content_hash": "e3bbcf91e8bd293c73a4bfd2f5a413774135392417737a77556d875ec7cffa04",
+        "source_line_start": 12,
+        "source_line_end": 13,
+        "anomaly_flags": [
+          "undersized"
+        ],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "336150b836a96685ff893ecfe9ce6c86f6a44f3ef35a5b2a576c877129019193",
+        "unit_type": "prose",
+        "text": "KITCHEN",
+        "structural_path": [
+          "GROUND FLOOR"
+        ],
+        "ordering_key": 3,
+        "page_fingerprint": "af68a33c5451d2a4cf0695f015a02628cc6e3819a15331a560cfb42f76f3a49e",
+        "content_hash": "e8fea8573b2fb52e0ce59cb5bd594bd1beb99049b5bace94591cf54bebc40bb8",
+        "source_line_start": 15,
+        "source_line_end": 16,
+        "anomaly_flags": [
+          "undersized"
+        ],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "40b2724e88795521093b704c8b52287e74ab1f652505350fb83659a84706c9e8",
+        "unit_type": "prose",
+        "text": "PARLOR",
+        "structural_path": [
+          "GROUND FLOOR"
+        ],
+        "ordering_key": 4,
+        "page_fingerprint": "af68a33c5451d2a4cf0695f015a02628cc6e3819a15331a560cfb42f76f3a49e",
+        "content_hash": "fa59352f8c5c9671d2902accbdfd70c30904e56fe473f8620cf2293908b7df29",
+        "source_line_start": 18,
+        "source_line_end": 19,
+        "anomaly_flags": [
+          "undersized"
+        ],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "85ce71166554ca164d0ff9a0b9d0ee096ea62a24cb188906a8d9a369c8277845",
+        "unit_type": "prose",
+        "text": "MAIN STAIR",
+        "structural_path": [
+          "GROUND FLOOR"
+        ],
+        "ordering_key": 5,
+        "page_fingerprint": "af68a33c5451d2a4cf0695f015a02628cc6e3819a15331a560cfb42f76f3a49e",
+        "content_hash": "70ddddda65e2f1f3dd1fa98eeaa3ba722e436e93b307db9f58da2a8905e5cb30",
+        "source_line_start": 21,
+        "source_line_end": 22,
+        "anomaly_flags": [
+          "undersized"
+        ],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      }
+    ],
+    "gates_passed": true,
+    "gate_details": [
+      {
+        "gate_name": "orphan",
+        "passed": true,
+        "detail": {
+          "total_units": 6,
+          "orphan_count": 0,
+          "orphan_rate": 0.0,
+          "fail_threshold": 1.0,
+          "warn_threshold": 0.5,
+          "warned": false,
+          "orphans": []
+        }
+      },
+      {
+        "gate_name": "bleed",
+        "passed": true,
+        "detail": {
+          "total_units": 6,
+          "overlap_count": 0,
+          "overlaps": []
+        }
+      },
+      {
+        "gate_name": "table_integrity",
+        "passed": true,
+        "detail": {
+          "table_unit_count": 0,
+          "issue_count": 0,
+          "issues": []
+        }
+      },
+      {
+        "gate_name": "unit_size",
+        "passed": true,
+        "detail": {
+          "total_units": 6,
+          "min_chars": 20,
+          "max_chars": 5000,
+          "max_table_chars": 12000,
+          "undersized_count": 5,
+          "oversized_count": 0,
+          "undersized_ratio": 0.8333,
+          "undersized_fail_ratio": 1.0,
+          "undersized": [
+            {
+              "unit_id": "541e708fec46a185",
+              "unit_type": "prose",
+              "char_count": 15,
+              "text_preview": "CRUMBLING\nCRYPT"
+            },
+            {
+              "unit_id": "b68818f7d88bb0c5",
+              "unit_type": "prose",
+              "char_count": 12,
+              "text_preview": "CONSERVATORY"
+            },
+            {
+              "unit_id": "336150b836a96685",
+              "unit_type": "prose",
+              "char_count": 7,
+              "text_preview": "KITCHEN"
+            },
+            {
+              "unit_id": "40b2724e88795521",
+              "unit_type": "prose",
+              "char_count": 6,
+              "text_preview": "PARLOR"
+            },
+            {
+              "unit_id": "85ce71166554ca16",
+              "unit_type": "prose",
+              "char_count": 10,
+              "text_preview": "MAIN STAIR"
+            }
+          ],
+          "oversized": []
+        }
+      }
+    ],
+    "salvage_score": 1.0
+  },
+  "all_gates_passed": true
+}

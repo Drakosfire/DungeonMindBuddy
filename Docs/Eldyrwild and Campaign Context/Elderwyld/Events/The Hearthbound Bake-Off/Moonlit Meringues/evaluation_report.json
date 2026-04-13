@@ -1,0 +1,247 @@
+{
+  "pdf": "/media/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/Docs/Eldyrwild and Campaign Context/Elderwyld/Events/The Hearthbound Bake-Off/Moonlit Meringues.pdf",
+  "stem": "Moonlit Meringues",
+  "num_pages": 1,
+  "total_elapsed_sec": 25.076,
+  "valid_pages": 1,
+  "error_pages": 0,
+  "stage_a_gate_rates": {
+    "coverage": 1.0,
+    "ordering": 1.0,
+    "table_parse": 1.0
+  },
+  "stage_b_gate_rates": {
+    "orphan": 1.0,
+    "bleed": 1.0,
+    "table_integrity": 1.0,
+    "unit_size": 1.0,
+    "cross_page_join_rate": 0.0,
+    "join_unit_id_conservation": 0.0,
+    "join_page_fingerprint_conservation": 0.0,
+    "join_table_unit_conservation": 0.0,
+    "toc_binding_coverage": 0.0,
+    "orphan_after_toc": 0.0
+  },
+  "salvage_score_mean": 1.0,
+  "salvage_score_median": 1.0,
+  "salvage_score_min": 1.0,
+  "salvage_score_max": 1.0,
+  "unit_count_total": 16,
+  "unit_count_per_page_mean": 16,
+  "all_a_gates_pass_count": 1,
+  "all_b_gates_pass_count": 1,
+  "all_ab_gates_pass_count": 1,
+  "per_page_results": [
+    {
+      "label": "Moonlit Meringues_p0",
+      "pdf": "/media/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/Docs/Eldyrwild and Campaign Context/Elderwyld/Events/The Hearthbound Bake-Off/Moonlit Meringues.pdf",
+      "page": 0,
+      "elapsed_sec": 25.076,
+      "error": null,
+      "stage_a": {
+        "gates_passed": true,
+        "node_count": 19,
+        "table_count": 1,
+        "content_hash": "07bedfa928f190b3b749c0e1cacb96798448d7e7e5c9b824b8325899a602caa5",
+        "gate_details": [
+          {
+            "gate_name": "coverage",
+            "passed": true,
+            "detail": {
+              "raw_content_chars": 1257,
+              "ast_content_chars": 1257,
+              "ratio": 1.0,
+              "threshold": 0.95
+            }
+          },
+          {
+            "gate_name": "ordering",
+            "passed": true,
+            "detail": {
+              "leaf_count": 16,
+              "inversion_count": 0,
+              "inversions": []
+            }
+          },
+          {
+            "gate_name": "table_parse",
+            "passed": true,
+            "detail": {
+              "raw_table_count": 1,
+              "ast_table_count": 1,
+              "count_match": true,
+              "raw_row_counts": [
+                2
+              ],
+              "ast_row_counts": [
+                2
+              ],
+              "row_mismatches": []
+            }
+          }
+        ]
+      },
+      "stage_b": {
+        "unit_count": 16,
+        "gates_passed": true,
+        "salvage_score": 1.0,
+        "gate_details": [
+          {
+            "gate_name": "orphan",
+            "passed": true,
+            "detail": {
+              "total_units": 16,
+              "orphan_count": 13,
+              "orphan_rate": 0.8125,
+              "fail_threshold": 1.0,
+              "warn_threshold": 0.5,
+              "warned": true,
+              "orphans": [
+                {
+                  "unit_id": "a529398ada5aef6d",
+                  "unit_type": "prose",
+                  "ordering_key": 0,
+                  "text_preview": "MOONLIT MERINGUES"
+                },
+                {
+                  "unit_id": "8112a9f3c129dbf4",
+                  "unit_type": "prose",
+                  "ordering_key": 1,
+                  "text_preview": "Medium, Construct, Fae, Neutral"
+                },
+                {
+                  "unit_id": "febe3c01d6749c65",
+                  "unit_type": "prose",
+                  "ordering_key": 2,
+                  "text_preview": "![](images/0.jpg)"
+                },
+                {
+                  "unit_id": "92eb6caf2c377bdd",
+                  "unit_type": "prose",
+                  "ordering_key": 3,
+                  "text_preview": "MOONLIT MERINGUES ARE MAGICAL CONFECTIONS ANIMATED BY ETHEREAL FAE FLOUR, GLOWIN"
+                },
+                {
+                  "unit_id": "aac67d5044a5d1e7",
+                  "unit_type": "prose",
+                  "ordering_key": 4,
+                  "text_preview": "Armor Class : 12"
+                },
+                {
+                  "unit_id": "7147a2dd29ad6fe8",
+                  "unit_type": "prose",
+                  "ordering_key": 5,
+                  "text_preview": "Hit Points: 40 Hit Dice : 5d8\nSpeed: walk : 30"
+                },
+                {
+                  "unit_id": "45f8dbb9a06029b0",
+                  "unit_type": "table",
+                  "ordering_key": 6,
+                  "text_preview": "<table><tr><td>STR</td><td>DEX</td><td>CON</td><td>INT</td><td>WIS</td><td>CHA</"
+                },
+                {
+                  "unit_id": "4a0ddfcb4b0f130b",
+                  "unit_type": "prose",
+                  "ordering_key": 7,
+                  "text_preview": "Saving Throws : str : 0, dex : 4, wis : 1"
+                },
+                {
+                  "unit_id": "e0bdd2eda7af2147",
+                  "unit_type": "prose",
+                  "ordering_key": 8,
+                  "text_preview": "Skills : perception : 3"
+                },
+                {
+                  "unit_id": "ad1c8330474e007b",
+                  "unit_type": "prose",
+                  "ordering_key": 9,
+                  "text_preview": "Resistances :"
+                }
+              ]
+            }
+          },
+          {
+            "gate_name": "bleed",
+            "passed": true,
+            "detail": {
+              "total_units": 16,
+              "overlap_count": 0,
+              "overlaps": []
+            }
+          },
+          {
+            "gate_name": "table_integrity",
+            "passed": true,
+            "detail": {
+              "table_unit_count": 1,
+              "issue_count": 0,
+              "issues": []
+            }
+          },
+          {
+            "gate_name": "unit_size",
+            "passed": true,
+            "detail": {
+              "total_units": 16,
+              "min_chars": 20,
+              "max_chars": 5000,
+              "max_table_chars": 12000,
+              "undersized_count": 4,
+              "oversized_count": 0,
+              "undersized_ratio": 0.25,
+              "undersized_fail_ratio": 1.0,
+              "undersized": [
+                {
+                  "unit_id": "a529398ada5aef6d",
+                  "unit_type": "prose",
+                  "char_count": 17,
+                  "text_preview": "MOONLIT MERINGUES"
+                },
+                {
+                  "unit_id": "febe3c01d6749c65",
+                  "unit_type": "prose",
+                  "char_count": 17,
+                  "text_preview": "![](images/0.jpg)"
+                },
+                {
+                  "unit_id": "aac67d5044a5d1e7",
+                  "unit_type": "prose",
+                  "char_count": 16,
+                  "text_preview": "Armor Class : 12"
+                },
+                {
+                  "unit_id": "ad1c8330474e007b",
+                  "unit_type": "prose",
+                  "char_count": 13,
+                  "text_preview": "Resistances :"
+                }
+              ],
+              "oversized": []
+            }
+          }
+        ]
+      },
+      "all_gates_passed": true
+    }
+  ],
+  "error_labels": [],
+  "stage_a_failed_pages": {
+    "coverage": [],
+    "ordering": [],
+    "table_parse": []
+  },
+  "stage_b_failed_pages": {
+    "orphan": [],
+    "bleed": [],
+    "table_integrity": [],
+    "unit_size": [],
+    "cross_page_join_rate": [],
+    "join_unit_id_conservation": [],
+    "join_page_fingerprint_conservation": [],
+    "join_table_unit_conservation": [],
+    "toc_binding_coverage": [],
+    "orphan_after_toc": []
+  },
+  "orphan_header_results": [],
+  "toc_enrichment": null
+}

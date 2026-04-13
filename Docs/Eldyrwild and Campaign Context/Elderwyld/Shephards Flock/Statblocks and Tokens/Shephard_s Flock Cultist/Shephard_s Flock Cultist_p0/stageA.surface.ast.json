@@ -1,0 +1,122 @@
+{
+  "page_fingerprint": "468537cbfea2f4a63cb1df25a00b39b1ca4fac0b3da90cb5ebd2cc527871401a",
+  "content_hash": "c64d0a14d2f0f0f9737eb4b58185896521c33ef6efc68cfa5edbc7e2c7aeb370",
+  "root": {
+    "node_type": "root",
+    "level": 0,
+    "text": "",
+    "source_line_start": 0,
+    "source_line_end": 47,
+    "children": [
+      {
+        "node_type": "paragraph",
+        "level": 0,
+        "text": "Sheppard's Flock Cultist",
+        "source_line_start": 1,
+        "source_line_end": 2
+      },
+      {
+        "node_type": "paragraph",
+        "level": 0,
+        "text": "Medium, Humanoid, Human, Chaotic Evil",
+        "source_line_start": 4,
+        "source_line_end": 5
+      },
+      {
+        "node_type": "image_ref",
+        "level": 0,
+        "text": "![](images/0.jpg)",
+        "source_line_start": 6,
+        "source_line_end": 7
+      },
+      {
+        "node_type": "paragraph",
+        "level": 0,
+        "text": "THE CULTIST MINION IS A GAUNT, PALE HUMAN FEMALE WITH DARK CIRCLES UNDER THEIR EYES AND A VACANT, ALMOST FANATICAL EXPRESSION. THEY WEAR TATTERED ROBES ADORNED WITH STRANGE, ELDRITCH SYMBOLS THAT SEEM TO WRITE AND SHIFT WHEN OBSERVED CLOSELY. A CRUDE, BLOOD-STAINED DAGGER HANGS AT THEIR WAIST, AND THEIR HANDS ARE OFTEN STAINED WITH DARK, OILY RESIDUE.",
+        "source_line_start": 11,
+        "source_line_end": 12
+      },
+      {
+        "node_type": "paragraph",
+        "level": 0,
+        "text": "Armor Class : 12\nHit Points: 12 Hit Dice : 4d8\nSpeed: walk : 30",
+        "source_line_start": 14,
+        "source_line_end": 17
+      },
+      {
+        "node_type": "table",
+        "level": 0,
+        "text": "<table><tr><td>STR</td><td>DEX</td><td>CON</td><td>INT</td><td>WIS</td><td>CHA</td></tr><tr><td>8</td><td>14</td><td>10</td><td>11</td><td>12</td><td>13</td></tr></table>",
+        "source_line_start": 19,
+        "source_line_end": 20
+      },
+      {
+        "node_type": "paragraph",
+        "level": 0,
+        "text": "Saving Throws : str : 0, dex : 2, wis : 1",
+        "source_line_start": 22,
+        "source_line_end": 23
+      },
+      {
+        "node_type": "paragraph",
+        "level": 0,
+        "text": "Skills : perception : 2",
+        "source_line_start": 25,
+        "source_line_end": 26
+      },
+      {
+        "node_type": "paragraph",
+        "level": 0,
+        "text": "Resistances :",
+        "source_line_start": 28,
+        "source_line_end": 29
+      },
+      {
+        "node_type": "paragraph",
+        "level": 0,
+        "text": "Senses : darkvision : 60",
+        "source_line_start": 31,
+        "source_line_end": 32
+      },
+      {
+        "node_type": "paragraph",
+        "level": 0,
+        "text": "Languages : Common",
+        "source_line_start": 34,
+        "source_line_end": 35
+      },
+      {
+        "node_type": "paragraph",
+        "level": 0,
+        "text": "Challenge Rating : 1 (200)",
+        "source_line_start": 37,
+        "source_line_end": 38
+      },
+      {
+        "node_type": "heading",
+        "level": 2,
+        "text": "ACTIONS",
+        "source_line_start": 40,
+        "source_line_end": 41,
+        "children": [
+          {
+            "node_type": "paragraph",
+            "level": 0,
+            "text": "Chant of Dread: 'The cultist chants an eerie, unsettling incantation affecting those within 20 feet. Creatures that can hear the chant must make a DC 12 Wisdom saving throw or be frightened for 1 minute. Frightened creatures can repeat the saving throw at the end of each of their turns, ending the effect on a success.",
+            "source_line_start": 43,
+            "source_line_end": 44
+          },
+          {
+            "node_type": "paragraph",
+            "level": 0,
+            "text": "Dark Whisper: 'The cultist whispers a single, disturbing word in an eldritch tongue. One creature within 30 feet must make a DC 12 Charisma saving throw or take 1d4 psychic damage and have disadvantage on their next attack roll or ability check.",
+            "source_line_start": 46,
+            "source_line_end": 47
+          }
+        ]
+      }
+    ]
+  },
+  "node_count": 16,
+  "table_count": 1
+}

@@ -1,0 +1,257 @@
+{
+  "unit_count": 10,
+  "units": [
+    {
+      "unit_id": "9291e8c48b83b6f0e946fb9f396c6095530825f455f245f6cbb9355124a19623",
+      "unit_type": "prose",
+      "text": "![](images/0.jpg)",
+      "structural_path": [],
+      "ordering_key": 0,
+      "page_fingerprint": "11f849589dc5486847dabeabe2559a2c14175cdc0ea07c7be63affa8815ea86d",
+      "content_hash": "c677736a74e2c31c881f5694921f60c254795dcd1c2625d47967117900d6aece",
+      "source_line_start": 0,
+      "source_line_end": 1,
+      "anomaly_flags": [
+        "undersized",
+        "no_heading_parent"
+      ],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    },
+    {
+      "unit_id": "5cfccf238c915e53d755cb4bbeab929f18d55966811f95b232f4620597a573ee",
+      "unit_type": "prose",
+      "text": "THRAXX, A MASSIVE, INTIMIDATING BUGBEAR, STANDS AS A LOOMING FIGURE WITH A MECHANICAL ARM GLINTING MENACINGLY IN THE LIGHT. HIS RUGGED FUR IS MATTED FROM COUNTLESS BRAWLS, AND HIS NOSE TWITCHES CONSTANTLY, AN UNCANNY KNACK FOR SNIFFING OUT TROUBLEMAKERS. RECRUITED BY THE PARTY FOR HIS BRUTE STRENGTH AND SHARP SENSES, THRAXX IS A FORMIDABLE ADVERSARY TO ANY WHO DARE CAUSE UNREST.",
+      "structural_path": [],
+      "ordering_key": 1,
+      "page_fingerprint": "11f849589dc5486847dabeabe2559a2c14175cdc0ea07c7be63affa8815ea86d",
+      "content_hash": "b2a0762ebb144ca20fbbc78c8e4b2b6be927844a829a69728130ac799a843644",
+      "source_line_start": 5,
+      "source_line_end": 6,
+      "anomaly_flags": [
+        "no_heading_parent"
+      ],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    },
+    {
+      "unit_id": "723763d7a5c1343cb11b437ae60719526cf472d7a96e5967a6dd24d5755b2b08",
+      "unit_type": "prose",
+      "text": "Armor Class : 13\nHit Points: 28 Hit Dice : 4d10 + 8\nSpeed: walk : 30",
+      "structural_path": [],
+      "ordering_key": 2,
+      "page_fingerprint": "11f849589dc5486847dabeabe2559a2c14175cdc0ea07c7be63affa8815ea86d",
+      "content_hash": "4fe997846c78c9e50d4c41c749f6bd033cb1227b4490238762610b284bd7cf02",
+      "source_line_start": 8,
+      "source_line_end": 11,
+      "anomaly_flags": [
+        "no_heading_parent"
+      ],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    },
+    {
+      "unit_id": "48823ebf0e506623f01823b75289a099487f06539ab04a716e225a5505178d90",
+      "unit_type": "table",
+      "text": "<table><tr><td>STR</td><td>DEX</td><td>CON</td><td>INT</td><td>WIS</td><td>CHA</td></tr><tr><td>16</td><td>14</td><td>15</td><td>10</td><td>12</td><td>8</td></tr></table>",
+      "structural_path": [],
+      "ordering_key": 3,
+      "page_fingerprint": "11f849589dc5486847dabeabe2559a2c14175cdc0ea07c7be63affa8815ea86d",
+      "content_hash": "16d31f062e9d4f7b225c7254d4f4a19deb96bc3cdc4bf39192665bdbce685529",
+      "source_line_start": 13,
+      "source_line_end": 14,
+      "anomaly_flags": [
+        "no_heading_parent"
+      ],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    },
+    {
+      "unit_id": "2d0751dd4cb3220d52e339c2b7baf3def5ad6d626eb6773b4e8efa273bb53243",
+      "unit_type": "prose",
+      "text": "Saving Throws : str : 5, dex : 4, wis : 3",
+      "structural_path": [],
+      "ordering_key": 4,
+      "page_fingerprint": "11f849589dc5486847dabeabe2559a2c14175cdc0ea07c7be63affa8815ea86d",
+      "content_hash": "f5f8d59a976a12174d2db8f2ff615d99274337ba4b91f3d0724d2dfee503d6bf",
+      "source_line_start": 16,
+      "source_line_end": 17,
+      "anomaly_flags": [
+        "no_heading_parent"
+      ],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    },
+    {
+      "unit_id": "45ff819cbbca86fcd908a0931337ecde56c14d4a5e1b7f749bb15817867ab69b",
+      "unit_type": "prose",
+      "text": "Skills : perception : 4\nResistances :\nSenses : darkvision : 60",
+      "structural_path": [],
+      "ordering_key": 5,
+      "page_fingerprint": "11f849589dc5486847dabeabe2559a2c14175cdc0ea07c7be63affa8815ea86d",
+      "content_hash": "2fbe5cb6643a88cb768d1c0e7b23707448dc91967f94e8acf1f00ffa379a7279",
+      "source_line_start": 19,
+      "source_line_end": 22,
+      "anomaly_flags": [
+        "no_heading_parent"
+      ],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    },
+    {
+      "unit_id": "9cf7d8edf3cef96bbe8e9d2d661317d5c61490d21eae1858c50f17818c962ec3",
+      "unit_type": "prose",
+      "text": "Languages : Common, Goblin\nChallenge Rating : 2 (450)",
+      "structural_path": [],
+      "ordering_key": 6,
+      "page_fingerprint": "11f849589dc5486847dabeabe2559a2c14175cdc0ea07c7be63affa8815ea86d",
+      "content_hash": "4fc5680126bcc4084fb079e8af7a73cf0c58415d5dc9c04ff949931a8d47c92e",
+      "source_line_start": 24,
+      "source_line_end": 26,
+      "anomaly_flags": [
+        "no_heading_parent"
+      ],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    },
+    {
+      "unit_id": "cfba1497a5a225fc45d6d5bbb630e20c87f550136ae51e449b6bba3ba2db5163",
+      "unit_type": "prose",
+      "text": "ACTIONS — Multiattack : 'Thrax makes two melee attacks.",
+      "structural_path": [
+        "ACTIONS"
+      ],
+      "ordering_key": 7,
+      "page_fingerprint": "11f849589dc5486847dabeabe2559a2c14175cdc0ea07c7be63affa8815ea86d",
+      "content_hash": "8bab9f7b7f7c6f44238481ca6847c153c5ce7eada63cf7029a01f153fd057ba9",
+      "source_line_start": 28,
+      "source_line_end": 32,
+      "anomaly_flags": [],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    },
+    {
+      "unit_id": "509ac04368274ac564d06cfb34377bdf4d5e5b52d948f8762640e26fd6e0270e",
+      "unit_type": "prose",
+      "text": "Mechanical Arm Strike : 'Melee Weapon Attack: +5 to hit, reach 10 ft., one target. Hit: 10 (1d12 + 4) bludgeoning damage.",
+      "structural_path": [
+        "ACTIONS"
+      ],
+      "ordering_key": 8,
+      "page_fingerprint": "11f849589dc5486847dabeabe2559a2c14175cdc0ea07c7be63affa8815ea86d",
+      "content_hash": "07d8e9e46683f6b968d94b417a275339167d5407051467883056a78cd58f7486",
+      "source_line_start": 34,
+      "source_line_end": 35,
+      "anomaly_flags": [],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    },
+    {
+      "unit_id": "557dd799ae1ff15b3301da14c533955e04ddc2afc12de1128906b668e2a23c71",
+      "unit_type": "prose",
+      "text": "Sniff Out Trouble : 'Thrax uses his keen sense of smell to detect hidden creatures or objects within 30 feet. He has advantage on Wisdom (Perception) checks that rely on smell.",
+      "structural_path": [
+        "ACTIONS"
+      ],
+      "ordering_key": 9,
+      "page_fingerprint": "11f849589dc5486847dabeabe2559a2c14175cdc0ea07c7be63affa8815ea86d",
+      "content_hash": "52b27a6c85ee1c96a1f5946aa18abc24f25b22bfa2e3b7f49fd67293070f828a",
+      "source_line_start": 37,
+      "source_line_end": 38,
+      "anomaly_flags": [],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    }
+  ],
+  "gate_diagnostics": [
+    {
+      "gate_name": "orphan",
+      "passed": true,
+      "detail": {
+        "total_units": 10,
+        "orphan_count": 7,
+        "orphan_rate": 0.7,
+        "fail_threshold": 1.0,
+        "warn_threshold": 0.5,
+        "warned": true,
+        "orphans": [
+          {
+            "unit_id": "9291e8c48b83b6f0",
+            "unit_type": "prose",
+            "ordering_key": 0,
+            "text_preview": "![](images/0.jpg)"
+          },
+          {
+            "unit_id": "5cfccf238c915e53",
+            "unit_type": "prose",
+            "ordering_key": 1,
+            "text_preview": "THRAXX, A MASSIVE, INTIMIDATING BUGBEAR, STANDS AS A LOOMING FIGURE WITH A MECHA"
+          },
+          {
+            "unit_id": "723763d7a5c1343c",
+            "unit_type": "prose",
+            "ordering_key": 2,
+            "text_preview": "Armor Class : 13\nHit Points: 28 Hit Dice : 4d10 + 8\nSpeed: walk : 30"
+          },
+          {
+            "unit_id": "48823ebf0e506623",
+            "unit_type": "table",
+            "ordering_key": 3,
+            "text_preview": "<table><tr><td>STR</td><td>DEX</td><td>CON</td><td>INT</td><td>WIS</td><td>CHA</"
+          },
+          {
+            "unit_id": "2d0751dd4cb3220d",
+            "unit_type": "prose",
+            "ordering_key": 4,
+            "text_preview": "Saving Throws : str : 5, dex : 4, wis : 3"
+          },
+          {
+            "unit_id": "45ff819cbbca86fc",
+            "unit_type": "prose",
+            "ordering_key": 5,
+            "text_preview": "Skills : perception : 4\nResistances :\nSenses : darkvision : 60"
+          },
+          {
+            "unit_id": "9cf7d8edf3cef96b",
+            "unit_type": "prose",
+            "ordering_key": 6,
+            "text_preview": "Languages : Common, Goblin\nChallenge Rating : 2 (450)"
+          }
+        ]
+      }
+    },
+    {
+      "gate_name": "bleed",
+      "passed": true,
+      "detail": {
+        "total_units": 10,
+        "overlap_count": 0,
+        "overlaps": []
+      }
+    },
+    {
+      "gate_name": "table_integrity",
+      "passed": true,
+      "detail": {
+        "table_unit_count": 1,
+        "issue_count": 0,
+        "issues": []
+      }
+    },
+    {
+      "gate_name": "unit_size",
+      "passed": true,
+      "detail": {
+        "total_units": 10,
+        "min_chars": 20,
+        "max_chars": 5000,
+        "max_table_chars": 12000,
+        "undersized_count": 1,
+        "oversized_count": 0,
+        "undersized_ratio": 0.1,
+        "undersized_fail_ratio": 1.0,
+        "undersized": [
+          {
+            "unit_id": "9291e8c48b83b6f0",
+            "unit_type": "prose",
+            "char_count": 17,
+            "text_preview": "![](images/0.jpg)"
+          }
+        ],
+        "oversized": []
+      }
+    }
+  ],
+  "gates_passed": true,
+  "salvage_score": 1.0
+}

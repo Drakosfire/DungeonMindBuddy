@@ -1,0 +1,11 @@
+{
+  "page_fingerprint": "437cf8fd546ae851c7cddfbac4a7ccfad5fb0dd359c01832ca3a43fe99a7b939",
+  "source_pdf": "/media/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/Docs/Eldyrwild and Campaign Context/Elderwyld/Inns and Shops/Grit and Grime.pdf",
+  "page_index": 2,
+  "model_id": "deepseek-ai/DeepSeek-OCR-2",
+  "prompt": "<image>\n<|grounding|>Convert the document to markdown.",
+  "raw_markdown": "![](images/0.jpg)\n\n\n\n\n## BOGBUG\n\n\nEmployee\nRole\nSpecies\nDescription\n\n\nPersonality\n\n\nBogbug\nDancer\nGoblin\n\n\nA lithe goblin with mesmerizing, neon-painted skin and wild hair, constantly in motion to the beat.\n\n\nEccentric and exuberant, Bogbug lives to perform and entertain.\n\n![](images/1.jpg)\n\n\n\n\n## THRAXX\n\n\nEmployee Thraxx\nRole Bugbear Bouncer\nSpecies Bugbear\n\n\nSpecies Bugbear\nDescription A massive, intimidating bugbear with a mechanical arm and an uncanny knack for sniffing out troublemakers.\nPersonality Gruff but fair, Thraxx takes his job seriously but enjoys the occasional dance.\n\n\n## CUSTOMERS\n\n\n## SKIZZLE\n\n\nDescription: A jittery goblin always up for a dance. Known for her fast footwork and faster wit.\nInfluence: Regular\n\n\n## ZORAK BEATCRUSHER\n\n\nDescription: An ancient hobgoblin who claims to have been partying since the first beats were dropped.\nInfluence: Legendary\n\n\n## STORE QUESTS\n\n\n## THE GEAR GRIND\n\n\nDescription: A goblin inventor working on a colossal musical contraption needs rare cogwheels that only form deep within the Crystal Caverns. Retrieve them without getting ensnared by the cave's enchanted flora.\n\n\nReward: A rare, vibrating crystal that enhances any auditory experience, making music sound divine.\n\n\n## SERVICES\n\n\n## VIP ROOM\n\n\nDescription: A luxurious, secluded area with private service and premium drinks.\nPrice: 25 gold per hour\n\n\n## SPECIAL LIGHTING EFFECTS\n\n\nDescription: Customized light shows for your personal dance experience.\n\n\nPrice: 10 gold per hour",
+  "inference_elapsed_sec": 17.283,
+  "content_hash": "c52cc16f68943072b8292d08d217575af5590ad16fce79f91960ae5439112b11",
+  "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+}

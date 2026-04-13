@@ -1,0 +1,67 @@
+{
+  "unit_count": 1,
+  "units": [
+    {
+      "unit_id": "507c83c2e9286a49e944c9e25639c4e10026068c131986a5c5e9a82be71482db",
+      "unit_type": "prose",
+      "text": "BASEMENT — ![](images/0.jpg)",
+      "structural_path": [
+        "BASEMENT"
+      ],
+      "ordering_key": 0,
+      "page_fingerprint": "bcb8d8a95bd244d386888270e85591d9c0e6db62515ec2f0a2700b273b68e107",
+      "content_hash": "35095ac59ccea58f5a16109c86a9c4cb8f8f0759ff088f05ce94189dc239cd1f",
+      "source_line_start": 1,
+      "source_line_end": 4,
+      "anomaly_flags": [],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    }
+  ],
+  "gate_diagnostics": [
+    {
+      "gate_name": "orphan",
+      "passed": true,
+      "detail": {
+        "total_units": 1,
+        "orphan_count": 0,
+        "note": "single-unit page exempted"
+      }
+    },
+    {
+      "gate_name": "bleed",
+      "passed": true,
+      "detail": {
+        "total_units": 1,
+        "overlap_count": 0,
+        "overlaps": []
+      }
+    },
+    {
+      "gate_name": "table_integrity",
+      "passed": true,
+      "detail": {
+        "table_unit_count": 0,
+        "issue_count": 0,
+        "issues": []
+      }
+    },
+    {
+      "gate_name": "unit_size",
+      "passed": true,
+      "detail": {
+        "total_units": 1,
+        "min_chars": 20,
+        "max_chars": 5000,
+        "max_table_chars": 12000,
+        "undersized_count": 0,
+        "oversized_count": 0,
+        "undersized_ratio": 0.0,
+        "undersized_fail_ratio": 1.0,
+        "undersized": [],
+        "oversized": []
+      }
+    }
+  ],
+  "gates_passed": true,
+  "salvage_score": 1.0
+}

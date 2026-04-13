@@ -1,0 +1,349 @@
+{
+  "unit_count": 14,
+  "units": [
+    {
+      "unit_id": "04cda3b4efdbdcbe2860a767bb31a9af12d4f458d015d868e4b360ce93510964",
+      "unit_type": "prose",
+      "text": "Stone Colossus",
+      "structural_path": [],
+      "ordering_key": 0,
+      "page_fingerprint": "a16a9cf243fedcfe00a03769ef5bc9e08763af84733a3f99a526c90de52e4f51",
+      "content_hash": "c1258bd7303acf792a396902c968d937fb47b223779853a6a4c4ea574347346d",
+      "source_line_start": 1,
+      "source_line_end": 2,
+      "anomaly_flags": [
+        "undersized",
+        "no_heading_parent"
+      ],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    },
+    {
+      "unit_id": "f082cb83a395498e5de92463d3867a08578eba1b451c4501b1214968c160e840",
+      "unit_type": "prose",
+      "text": "Large, Elemental, Neutral",
+      "structural_path": [],
+      "ordering_key": 1,
+      "page_fingerprint": "a16a9cf243fedcfe00a03769ef5bc9e08763af84733a3f99a526c90de52e4f51",
+      "content_hash": "5f4b61cf794bc5066c0e861daf0cd66b0959b86fdf32d1aca89580fa3752c59e",
+      "source_line_start": 4,
+      "source_line_end": 5,
+      "anomaly_flags": [
+        "no_heading_parent"
+      ],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    },
+    {
+      "unit_id": "869eb2f1efe75302ce6fc13393878ccea082f489593f3a53119d58e66fa4d07d",
+      "unit_type": "prose",
+      "text": "![](images/0.jpg)",
+      "structural_path": [],
+      "ordering_key": 2,
+      "page_fingerprint": "a16a9cf243fedcfe00a03769ef5bc9e08763af84733a3f99a526c90de52e4f51",
+      "content_hash": "c677736a74e2c31c881f5694921f60c254795dcd1c2625d47967117900d6aece",
+      "source_line_start": 6,
+      "source_line_end": 7,
+      "anomaly_flags": [
+        "undersized",
+        "no_heading_parent"
+      ],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    },
+    {
+      "unit_id": "315e1446b4fabf965faf8268f197391697ec92fc9e799ed7e6fe87e7b49909f2",
+      "unit_type": "prose",
+      "text": "THE STONE COLOSSUS LOOMS AS A SLOW-MOVING JUGGERNAUT OF FUSED BOULDERS AND GLOWING MOLTEN SEAMS, ITS STEPS SENDING TREMORS THROUGH EARTH AND BONE ALIKE. A LIVING MONUMENT TO RAW FORCE, IT CRUSHES BARRIERS AND COMPETITORS WITH UNWAVERING RESOLVE, SHAPING THE BATTLEFIELD WITH WALL-RAISING POWER AND SHATTERING THE GROUND BENEATH ITS FOES. THE MERE ACT OF ITS ADVANCE IS AN EVENT—INEVITABLE, IMPLACABLE, AND THRILLING TO BEHOLD IN THE ARENA'S THUNDEROUS ATMOSPHERE.\nArmor Class : 12\nHit Points: 38 Hit Dice : 7d10+7\nSpeed: walk : 30",
+      "structural_path": [],
+      "ordering_key": 3,
+      "page_fingerprint": "a16a9cf243fedcfe00a03769ef5bc9e08763af84733a3f99a526c90de52e4f51",
+      "content_hash": "4217bdc29762cc31a0cba2832b6101441e4fe6fcc8ab0ab38f82a2d26a23e047",
+      "source_line_start": 11,
+      "source_line_end": 15,
+      "anomaly_flags": [
+        "no_heading_parent"
+      ],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    },
+    {
+      "unit_id": "264a06e90d2826afdae77ba17c8dce75427ac8da3078bd6074f242effb4f4ef9",
+      "unit_type": "table",
+      "text": "<table><tr><td>STR</td><td>DEX</td><td>CON</td><td>INT</td><td>WIS</td><td>CHA</td></tr><tr><td>20</td><td>8</td><td>13</td><td>6</td><td>12</td><td>6</td></tr></table>",
+      "structural_path": [],
+      "ordering_key": 4,
+      "page_fingerprint": "a16a9cf243fedcfe00a03769ef5bc9e08763af84733a3f99a526c90de52e4f51",
+      "content_hash": "53608a0daf0f0b106aa6d1338730769281cbd1963d319216bc49052e7fde0516",
+      "source_line_start": 17,
+      "source_line_end": 18,
+      "anomaly_flags": [
+        "no_heading_parent"
+      ],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    },
+    {
+      "unit_id": "0eea16922677d2dd7de1bd6daef1bc7905a57cd6e77b3bf6d2bc3676cade51c2",
+      "unit_type": "prose",
+      "text": "Saving Throws : str : 5, dex : -1, wis : 1",
+      "structural_path": [],
+      "ordering_key": 5,
+      "page_fingerprint": "a16a9cf243fedcfe00a03769ef5bc9e08763af84733a3f99a526c90de52e4f51",
+      "content_hash": "dc2e3324ea243a25ad3fada4f869677c4c14d0bc03b5145bc5881b1fe71d5f56",
+      "source_line_start": 20,
+      "source_line_end": 21,
+      "anomaly_flags": [
+        "no_heading_parent"
+      ],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    },
+    {
+      "unit_id": "5f8b036a8abd510717394418a523d276ec37eb85b1df7ef5f9a33abf26b175d5",
+      "unit_type": "prose",
+      "text": "Skills : perception : 2",
+      "structural_path": [],
+      "ordering_key": 6,
+      "page_fingerprint": "a16a9cf243fedcfe00a03769ef5bc9e08763af84733a3f99a526c90de52e4f51",
+      "content_hash": "3e35eb81ceea5dd1b00c73ee47b8803af0669dd502137ccaf60476e4f68b6eec",
+      "source_line_start": 23,
+      "source_line_end": 24,
+      "anomaly_flags": [
+        "no_heading_parent"
+      ],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    },
+    {
+      "unit_id": "abb294b3577693bef2c699118d0a8bf9aab8008741d6a3c7f081594739598fc7",
+      "unit_type": "prose",
+      "text": "Resistances :",
+      "structural_path": [],
+      "ordering_key": 7,
+      "page_fingerprint": "a16a9cf243fedcfe00a03769ef5bc9e08763af84733a3f99a526c90de52e4f51",
+      "content_hash": "48168db49032d8b5431291e26ecea04489f1af36e6a3d7a41471df6146d1d6b0",
+      "source_line_start": 26,
+      "source_line_end": 27,
+      "anomaly_flags": [
+        "undersized",
+        "no_heading_parent"
+      ],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    },
+    {
+      "unit_id": "7061c0edccd510624ca7539b6202e26db42fb226fafc533592804068d0cc086b",
+      "unit_type": "prose",
+      "text": "Senses : darkvision : 60",
+      "structural_path": [],
+      "ordering_key": 8,
+      "page_fingerprint": "a16a9cf243fedcfe00a03769ef5bc9e08763af84733a3f99a526c90de52e4f51",
+      "content_hash": "064e15d7da2cf4f725ef9f6249035b70f4dd0f1175a8fed5b6cdabf80e05b75c",
+      "source_line_start": 29,
+      "source_line_end": 30,
+      "anomaly_flags": [
+        "no_heading_parent"
+      ],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    },
+    {
+      "unit_id": "0d0112113cc4c2c81f262e00dc4b372a6957f9ba77f08d14c589258313e1fdf8",
+      "unit_type": "prose",
+      "text": "Languages : Terran, understands but does not speak Common Challenge Rating : 3 (700)",
+      "structural_path": [],
+      "ordering_key": 9,
+      "page_fingerprint": "a16a9cf243fedcfe00a03769ef5bc9e08763af84733a3f99a526c90de52e4f51",
+      "content_hash": "a5156979b7a52c7aa946a3a3c60c196dd7e632a04582f164add21609cf2fad67",
+      "source_line_start": 32,
+      "source_line_end": 33,
+      "anomaly_flags": [
+        "no_heading_parent"
+      ],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    },
+    {
+      "unit_id": "f75eaaf3252738262f167590929602a1198b4ae64bce198ba1fc39c52ae2aedc",
+      "unit_type": "prose",
+      "text": "ACTIONS — Slam: ‘Melee Weapon Attack: +7 to hit, reach 5 ft., one target. Hit: 16 (2d10+5) bludgeoning damage. The target must succeed on a DC 15 Strength saving throw or be knocked prone.",
+      "structural_path": [
+        "ACTIONS"
+      ],
+      "ordering_key": 10,
+      "page_fingerprint": "a16a9cf243fedcfe00a03769ef5bc9e08763af84733a3f99a526c90de52e4f51",
+      "content_hash": "64c77911a3e615fde3fbd6bc1e07763417c4936f6a37e11b8d548d1f1b1101c9",
+      "source_line_start": 35,
+      "source_line_end": 39,
+      "anomaly_flags": [],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    },
+    {
+      "unit_id": "59dc3cb77d1be5477b1bb498b7b51620756c43b61a67eb68526b185476d76a86",
+      "unit_type": "prose",
+      "text": "Earthshatter (Recharge 5–6) : ‘The Stone Colossus slams both fists into the ground. Each creature within 15 feet of it must make a DC 15 Dexterity saving throw, taking 13 (3d8) bludgeoning damage and falling prone on a failed save, or half as much damage and not falling prone on a successful one. The ground in the area becomes difficult terrain until cleared.",
+      "structural_path": [
+        "ACTIONS"
+      ],
+      "ordering_key": 11,
+      "page_fingerprint": "a16a9cf243fedcfe00a03769ef5bc9e08763af84733a3f99a526c90de52e4f51",
+      "content_hash": "40021b36f8b4c392fb18e89253fc465230df286f212de4a49fa5d7f46b09abc9",
+      "source_line_start": 41,
+      "source_line_end": 42,
+      "anomaly_flags": [],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    },
+    {
+      "unit_id": "3a351642353813f72ff495b4ad536a71d6a63f99237f6fa9910556e321095282",
+      "unit_type": "prose",
+      "text": "Raise Wall (1/Short Rest) : ‘The Colossus raises a wall of stone (15 ft. long, 10 ft. high, 1 ft. thick) from the ground as an action. The wall provides total cover and blocks line of sight. After 3 rounds, the wall crumbles to rubble, creating difficult terrain.",
+      "structural_path": [
+        "ACTIONS"
+      ],
+      "ordering_key": 12,
+      "page_fingerprint": "a16a9cf243fedcfe00a03769ef5bc9e08763af84733a3f99a526c90de52e4f51",
+      "content_hash": "91b2d7c7c126ffdb95d42ccc0aa2f8eb97c77781352cfe2b95007479cbff717e",
+      "source_line_start": 44,
+      "source_line_end": 45,
+      "anomaly_flags": [],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    },
+    {
+      "unit_id": "8427a8b88a2fb82567e218940e825398a7b2d6dff30b6f83aa271dd56c3c2a67",
+      "unit_type": "prose",
+      "text": "Unstoppable Advance : ‘The Colossus is immune to being restrained, grappled, slowed, or pushed by non-legendary effects. At the start of each of its turns, it automatically ends any such effects currently affecting it.",
+      "structural_path": [
+        "ACTIONS"
+      ],
+      "ordering_key": 13,
+      "page_fingerprint": "a16a9cf243fedcfe00a03769ef5bc9e08763af84733a3f99a526c90de52e4f51",
+      "content_hash": "66dee1e79e68725f2f539385206f4c60776a65fa6aad1e155ec717fc65e0cb77",
+      "source_line_start": 47,
+      "source_line_end": 48,
+      "anomaly_flags": [],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    }
+  ],
+  "gate_diagnostics": [
+    {
+      "gate_name": "orphan",
+      "passed": true,
+      "detail": {
+        "total_units": 14,
+        "orphan_count": 10,
+        "orphan_rate": 0.7143,
+        "fail_threshold": 1.0,
+        "warn_threshold": 0.5,
+        "warned": true,
+        "orphans": [
+          {
+            "unit_id": "04cda3b4efdbdcbe",
+            "unit_type": "prose",
+            "ordering_key": 0,
+            "text_preview": "Stone Colossus"
+          },
+          {
+            "unit_id": "f082cb83a395498e",
+            "unit_type": "prose",
+            "ordering_key": 1,
+            "text_preview": "Large, Elemental, Neutral"
+          },
+          {
+            "unit_id": "869eb2f1efe75302",
+            "unit_type": "prose",
+            "ordering_key": 2,
+            "text_preview": "![](images/0.jpg)"
+          },
+          {
+            "unit_id": "315e1446b4fabf96",
+            "unit_type": "prose",
+            "ordering_key": 3,
+            "text_preview": "THE STONE COLOSSUS LOOMS AS A SLOW-MOVING JUGGERNAUT OF FUSED BOULDERS AND GLOWI"
+          },
+          {
+            "unit_id": "264a06e90d2826af",
+            "unit_type": "table",
+            "ordering_key": 4,
+            "text_preview": "<table><tr><td>STR</td><td>DEX</td><td>CON</td><td>INT</td><td>WIS</td><td>CHA</"
+          },
+          {
+            "unit_id": "0eea16922677d2dd",
+            "unit_type": "prose",
+            "ordering_key": 5,
+            "text_preview": "Saving Throws : str : 5, dex : -1, wis : 1"
+          },
+          {
+            "unit_id": "5f8b036a8abd5107",
+            "unit_type": "prose",
+            "ordering_key": 6,
+            "text_preview": "Skills : perception : 2"
+          },
+          {
+            "unit_id": "abb294b3577693be",
+            "unit_type": "prose",
+            "ordering_key": 7,
+            "text_preview": "Resistances :"
+          },
+          {
+            "unit_id": "7061c0edccd51062",
+            "unit_type": "prose",
+            "ordering_key": 8,
+            "text_preview": "Senses : darkvision : 60"
+          },
+          {
+            "unit_id": "0d0112113cc4c2c8",
+            "unit_type": "prose",
+            "ordering_key": 9,
+            "text_preview": "Languages : Terran, understands but does not speak Common Challenge Rating : 3 ("
+          }
+        ]
+      }
+    },
+    {
+      "gate_name": "bleed",
+      "passed": true,
+      "detail": {
+        "total_units": 14,
+        "overlap_count": 0,
+        "overlaps": []
+      }
+    },
+    {
+      "gate_name": "table_integrity",
+      "passed": true,
+      "detail": {
+        "table_unit_count": 1,
+        "issue_count": 0,
+        "issues": []
+      }
+    },
+    {
+      "gate_name": "unit_size",
+      "passed": true,
+      "detail": {
+        "total_units": 14,
+        "min_chars": 20,
+        "max_chars": 5000,
+        "max_table_chars": 12000,
+        "undersized_count": 3,
+        "oversized_count": 0,
+        "undersized_ratio": 0.2143,
+        "undersized_fail_ratio": 1.0,
+        "undersized": [
+          {
+            "unit_id": "04cda3b4efdbdcbe",
+            "unit_type": "prose",
+            "char_count": 14,
+            "text_preview": "Stone Colossus"
+          },
+          {
+            "unit_id": "869eb2f1efe75302",
+            "unit_type": "prose",
+            "char_count": 17,
+            "text_preview": "![](images/0.jpg)"
+          },
+          {
+            "unit_id": "abb294b3577693be",
+            "unit_type": "prose",
+            "char_count": 13,
+            "text_preview": "Resistances :"
+          }
+        ],
+        "oversized": []
+      }
+    }
+  ],
+  "gates_passed": true,
+  "salvage_score": 1.0
+}

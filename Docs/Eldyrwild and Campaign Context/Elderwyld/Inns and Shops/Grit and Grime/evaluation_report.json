@@ -1,0 +1,726 @@
+{
+  "pdf": "/media/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/Docs/Eldyrwild and Campaign Context/Elderwyld/Inns and Shops/Grit and Grime.pdf",
+  "stem": "Grit and Grime",
+  "num_pages": 4,
+  "total_elapsed_sec": 88.255,
+  "valid_pages": 4,
+  "error_pages": 0,
+  "stage_a_gate_rates": {
+    "coverage": 1.0,
+    "ordering": 1.0,
+    "table_parse": 1.0
+  },
+  "stage_b_gate_rates": {
+    "orphan": 1.0,
+    "bleed": 1.0,
+    "table_integrity": 1.0,
+    "unit_size": 1.0,
+    "cross_page_join_rate": 1.0,
+    "join_unit_id_conservation": 1.0,
+    "join_page_fingerprint_conservation": 1.0,
+    "join_table_unit_conservation": 1.0,
+    "toc_binding_coverage": 0.0,
+    "orphan_after_toc": 0.0
+  },
+  "salvage_score_mean": 1.0,
+  "salvage_score_median": 1.0,
+  "salvage_score_min": 1.0,
+  "salvage_score_max": 1.0,
+  "unit_count_total": 44,
+  "unit_count_per_page_mean": 11,
+  "all_a_gates_pass_count": 4,
+  "all_b_gates_pass_count": 4,
+  "all_ab_gates_pass_count": 4,
+  "per_page_results": [
+    {
+      "label": "Grit and Grime_p0",
+      "pdf": "/media/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/Docs/Eldyrwild and Campaign Context/Elderwyld/Inns and Shops/Grit and Grime.pdf",
+      "page": 0,
+      "elapsed_sec": 19.948,
+      "error": null,
+      "stage_a": {
+        "gates_passed": true,
+        "node_count": 6,
+        "table_count": 1,
+        "content_hash": "dc817efb4d3b198773187ef83f6a9458853c086010ca6cc78c295bf803f4f7de",
+        "gate_details": [
+          {
+            "gate_name": "coverage",
+            "passed": true,
+            "detail": {
+              "raw_content_chars": 1053,
+              "ast_content_chars": 1053,
+              "ratio": 1.0,
+              "threshold": 0.95
+            }
+          },
+          {
+            "gate_name": "ordering",
+            "passed": true,
+            "detail": {
+              "leaf_count": 4,
+              "inversion_count": 0,
+              "inversions": []
+            }
+          },
+          {
+            "gate_name": "table_parse",
+            "passed": true,
+            "detail": {
+              "raw_table_count": 1,
+              "ast_table_count": 1,
+              "count_match": true,
+              "raw_row_counts": [
+                13
+              ],
+              "ast_row_counts": [
+                13
+              ],
+              "row_mismatches": []
+            }
+          }
+        ]
+      },
+      "stage_b": {
+        "unit_count": 4,
+        "gates_passed": true,
+        "salvage_score": 1.0,
+        "gate_details": [
+          {
+            "gate_name": "orphan",
+            "passed": true,
+            "detail": {
+              "total_units": 4,
+              "orphan_count": 0,
+              "orphan_rate": 0.0,
+              "fail_threshold": 1.0,
+              "warn_threshold": 0.5,
+              "warned": false,
+              "orphans": []
+            }
+          },
+          {
+            "gate_name": "bleed",
+            "passed": true,
+            "detail": {
+              "total_units": 4,
+              "overlap_count": 0,
+              "overlaps": []
+            }
+          },
+          {
+            "gate_name": "table_integrity",
+            "passed": true,
+            "detail": {
+              "table_unit_count": 1,
+              "issue_count": 0,
+              "issues": []
+            }
+          },
+          {
+            "gate_name": "unit_size",
+            "passed": true,
+            "detail": {
+              "total_units": 4,
+              "min_chars": 20,
+              "max_chars": 5000,
+              "max_table_chars": 12000,
+              "undersized_count": 1,
+              "oversized_count": 0,
+              "undersized_ratio": 0.25,
+              "undersized_fail_ratio": 1.0,
+              "undersized": [
+                {
+                  "unit_id": "7cfdcc2a3fd0d2de",
+                  "unit_type": "prose",
+                  "char_count": 17,
+                  "text_preview": "![](images/0.jpg)"
+                }
+              ],
+              "oversized": []
+            }
+          },
+          {
+            "gate_name": "cross_page_join_rate",
+            "passed": true,
+            "detail": {
+              "total_units": 43,
+              "cross_page_join_count": 1,
+              "cross_page_join_rate": 0.0233,
+              "fail_threshold": 0.3
+            }
+          },
+          {
+            "gate_name": "join_unit_id_conservation",
+            "passed": true,
+            "detail": {
+              "stage_b_unit_count": 44,
+              "represented_unit_count": 44,
+              "missing_unit_count": 0,
+              "missing_unit_ids": []
+            }
+          },
+          {
+            "gate_name": "join_page_fingerprint_conservation",
+            "passed": true,
+            "detail": {
+              "stage_b_fingerprint_count": 4,
+              "joined_fingerprint_count": 4,
+              "missing_fingerprint_count": 0,
+              "missing_fingerprints": []
+            }
+          },
+          {
+            "gate_name": "join_table_unit_conservation",
+            "passed": true,
+            "detail": {
+              "stage_b_table_unit_count": 2,
+              "missing_table_unit_count": 0,
+              "missing_table_unit_ids": []
+            }
+          }
+        ]
+      },
+      "all_gates_passed": true
+    },
+    {
+      "label": "Grit and Grime_p1",
+      "pdf": "/media/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/Docs/Eldyrwild and Campaign Context/Elderwyld/Inns and Shops/Grit and Grime.pdf",
+      "page": 1,
+      "elapsed_sec": 19.965,
+      "error": null,
+      "stage_a": {
+        "gates_passed": true,
+        "node_count": 18,
+        "table_count": 0,
+        "content_hash": "0edb9327a5346a8f50026f66bb6d8a2e55022004cd37664dbe0a077bb13d4db6",
+        "gate_details": [
+          {
+            "gate_name": "coverage",
+            "passed": true,
+            "detail": {
+              "raw_content_chars": 769,
+              "ast_content_chars": 769,
+              "ratio": 1.0,
+              "threshold": 0.95
+            }
+          },
+          {
+            "gate_name": "ordering",
+            "passed": true,
+            "detail": {
+              "leaf_count": 17,
+              "inversion_count": 0,
+              "inversions": []
+            }
+          },
+          {
+            "gate_name": "table_parse",
+            "passed": true,
+            "detail": {
+              "raw_table_count": 0,
+              "ast_table_count": 0,
+              "count_match": true,
+              "raw_row_counts": [],
+              "ast_row_counts": [],
+              "row_mismatches": []
+            }
+          }
+        ]
+      },
+      "stage_b": {
+        "unit_count": 17,
+        "gates_passed": true,
+        "salvage_score": 1.0,
+        "gate_details": [
+          {
+            "gate_name": "orphan",
+            "passed": true,
+            "detail": {
+              "total_units": 17,
+              "orphan_count": 0,
+              "orphan_rate": 0.0,
+              "fail_threshold": 1.0,
+              "warn_threshold": 0.5,
+              "warned": false,
+              "orphans": []
+            }
+          },
+          {
+            "gate_name": "bleed",
+            "passed": true,
+            "detail": {
+              "total_units": 17,
+              "overlap_count": 0,
+              "overlaps": []
+            }
+          },
+          {
+            "gate_name": "table_integrity",
+            "passed": true,
+            "detail": {
+              "table_unit_count": 0,
+              "issue_count": 0,
+              "issues": []
+            }
+          },
+          {
+            "gate_name": "unit_size",
+            "passed": true,
+            "detail": {
+              "total_units": 17,
+              "min_chars": 20,
+              "max_chars": 5000,
+              "max_table_chars": 12000,
+              "undersized_count": 10,
+              "oversized_count": 0,
+              "undersized_ratio": 0.5882,
+              "undersized_fail_ratio": 1.0,
+              "undersized": [
+                {
+                  "unit_id": "01171cb5927791f6",
+                  "unit_type": "prose",
+                  "char_count": 17,
+                  "text_preview": "![](images/0.jpg)"
+                },
+                {
+                  "unit_id": "cbb38b03e6581e50",
+                  "unit_type": "prose",
+                  "char_count": 5,
+                  "text_preview": "Owner"
+                },
+                {
+                  "unit_id": "80396fd703518006",
+                  "unit_type": "prose",
+                  "char_count": 7,
+                  "text_preview": "GROBNOK"
+                },
+                {
+                  "unit_id": "719c63170efd0701",
+                  "unit_type": "prose",
+                  "char_count": 13,
+                  "text_preview": "Owner Grobnik"
+                },
+                {
+                  "unit_id": "6ff6cc4847ac192d",
+                  "unit_type": "prose",
+                  "char_count": 17,
+                  "text_preview": "![](images/1.jpg)"
+                },
+                {
+                  "unit_id": "6ed182dc8e72f729",
+                  "unit_type": "prose",
+                  "char_count": 9,
+                  "text_preview": "EMPLOYEES"
+                },
+                {
+                  "unit_id": "d08a09b1131bb346",
+                  "unit_type": "prose",
+                  "char_count": 10,
+                  "text_preview": "GLIMMETRIX"
+                },
+                {
+                  "unit_id": "94c425ded7e54804",
+                  "unit_type": "prose",
+                  "char_count": 19,
+                  "text_preview": "Employee Glimmetrix"
+                },
+                {
+                  "unit_id": "aa2fb85afa06a25c",
+                  "unit_type": "prose",
+                  "char_count": 7,
+                  "text_preview": "Role DJ"
+                },
+                {
+                  "unit_id": "a195f7dec4935919",
+                  "unit_type": "prose",
+                  "char_count": 17,
+                  "text_preview": "Species Hobgoblin"
+                }
+              ],
+              "oversized": []
+            }
+          },
+          {
+            "gate_name": "cross_page_join_rate",
+            "passed": true,
+            "detail": {
+              "total_units": 43,
+              "cross_page_join_count": 1,
+              "cross_page_join_rate": 0.0233,
+              "fail_threshold": 0.3
+            }
+          },
+          {
+            "gate_name": "join_unit_id_conservation",
+            "passed": true,
+            "detail": {
+              "stage_b_unit_count": 44,
+              "represented_unit_count": 44,
+              "missing_unit_count": 0,
+              "missing_unit_ids": []
+            }
+          },
+          {
+            "gate_name": "join_page_fingerprint_conservation",
+            "passed": true,
+            "detail": {
+              "stage_b_fingerprint_count": 4,
+              "joined_fingerprint_count": 4,
+              "missing_fingerprint_count": 0,
+              "missing_fingerprints": []
+            }
+          },
+          {
+            "gate_name": "join_table_unit_conservation",
+            "passed": true,
+            "detail": {
+              "stage_b_table_unit_count": 2,
+              "missing_table_unit_count": 0,
+              "missing_table_unit_ids": []
+            }
+          }
+        ]
+      },
+      "all_gates_passed": true
+    },
+    {
+      "label": "Grit and Grime_p2",
+      "pdf": "/media/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/Docs/Eldyrwild and Campaign Context/Elderwyld/Inns and Shops/Grit and Grime.pdf",
+      "page": 2,
+      "elapsed_sec": 25.815,
+      "error": null,
+      "stage_a": {
+        "gates_passed": true,
+        "node_count": 27,
+        "table_count": 0,
+        "content_hash": "25c8ba3af7827cfa4763d65ceb20b66d72fd41a50c2ee5035e2f884f71788fc6",
+        "gate_details": [
+          {
+            "gate_name": "coverage",
+            "passed": true,
+            "detail": {
+              "raw_content_chars": 1183,
+              "ast_content_chars": 1183,
+              "ratio": 1.0,
+              "threshold": 0.95
+            }
+          },
+          {
+            "gate_name": "ordering",
+            "passed": true,
+            "detail": {
+              "leaf_count": 19,
+              "inversion_count": 0,
+              "inversions": []
+            }
+          },
+          {
+            "gate_name": "table_parse",
+            "passed": true,
+            "detail": {
+              "raw_table_count": 0,
+              "ast_table_count": 0,
+              "count_match": true,
+              "raw_row_counts": [],
+              "ast_row_counts": [],
+              "row_mismatches": []
+            }
+          }
+        ]
+      },
+      "stage_b": {
+        "unit_count": 16,
+        "gates_passed": true,
+        "salvage_score": 1.0,
+        "gate_details": [
+          {
+            "gate_name": "orphan",
+            "passed": true,
+            "detail": {
+              "total_units": 16,
+              "orphan_count": 1,
+              "orphan_rate": 0.0625,
+              "fail_threshold": 1.0,
+              "warn_threshold": 0.5,
+              "warned": false,
+              "orphans": [
+                {
+                  "unit_id": "1176a89e52c4abf5",
+                  "unit_type": "prose",
+                  "ordering_key": 0,
+                  "text_preview": "![](images/0.jpg)"
+                }
+              ]
+            }
+          },
+          {
+            "gate_name": "bleed",
+            "passed": true,
+            "detail": {
+              "total_units": 16,
+              "overlap_count": 0,
+              "overlaps": []
+            }
+          },
+          {
+            "gate_name": "table_integrity",
+            "passed": true,
+            "detail": {
+              "table_unit_count": 0,
+              "issue_count": 0,
+              "issues": []
+            }
+          },
+          {
+            "gate_name": "unit_size",
+            "passed": true,
+            "detail": {
+              "total_units": 16,
+              "min_chars": 20,
+              "max_chars": 5000,
+              "max_table_chars": 12000,
+              "undersized_count": 3,
+              "oversized_count": 0,
+              "undersized_ratio": 0.1875,
+              "undersized_fail_ratio": 1.0,
+              "undersized": [
+                {
+                  "unit_id": "1176a89e52c4abf5",
+                  "unit_type": "prose",
+                  "char_count": 17,
+                  "text_preview": "![](images/0.jpg)"
+                },
+                {
+                  "unit_id": "a53287a12ffe360a",
+                  "unit_type": "prose",
+                  "char_count": 11,
+                  "text_preview": "Personality"
+                },
+                {
+                  "unit_id": "cfc41c0532c386cc",
+                  "unit_type": "prose",
+                  "char_count": 17,
+                  "text_preview": "![](images/1.jpg)"
+                }
+              ],
+              "oversized": []
+            }
+          },
+          {
+            "gate_name": "cross_page_join_rate",
+            "passed": true,
+            "detail": {
+              "total_units": 43,
+              "cross_page_join_count": 1,
+              "cross_page_join_rate": 0.0233,
+              "fail_threshold": 0.3
+            }
+          },
+          {
+            "gate_name": "join_unit_id_conservation",
+            "passed": true,
+            "detail": {
+              "stage_b_unit_count": 44,
+              "represented_unit_count": 44,
+              "missing_unit_count": 0,
+              "missing_unit_ids": []
+            }
+          },
+          {
+            "gate_name": "join_page_fingerprint_conservation",
+            "passed": true,
+            "detail": {
+              "stage_b_fingerprint_count": 4,
+              "joined_fingerprint_count": 4,
+              "missing_fingerprint_count": 0,
+              "missing_fingerprints": []
+            }
+          },
+          {
+            "gate_name": "join_table_unit_conservation",
+            "passed": true,
+            "detail": {
+              "stage_b_table_unit_count": 2,
+              "missing_table_unit_count": 0,
+              "missing_table_unit_ids": []
+            }
+          }
+        ]
+      },
+      "all_gates_passed": true
+    },
+    {
+      "label": "Grit and Grime_p3",
+      "pdf": "/media/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/Docs/Eldyrwild and Campaign Context/Elderwyld/Inns and Shops/Grit and Grime.pdf",
+      "page": 3,
+      "elapsed_sec": 22.526,
+      "error": null,
+      "stage_a": {
+        "gates_passed": true,
+        "node_count": 14,
+        "table_count": 1,
+        "content_hash": "7e5ae35b17834316d49f175b579923b51ab173e8771828375ffd4bb65aca4456",
+        "gate_details": [
+          {
+            "gate_name": "coverage",
+            "passed": true,
+            "detail": {
+              "raw_content_chars": 1095,
+              "ast_content_chars": 1095,
+              "ratio": 1.0,
+              "threshold": 0.95
+            }
+          },
+          {
+            "gate_name": "ordering",
+            "passed": true,
+            "detail": {
+              "leaf_count": 9,
+              "inversion_count": 0,
+              "inversions": []
+            }
+          },
+          {
+            "gate_name": "table_parse",
+            "passed": true,
+            "detail": {
+              "raw_table_count": 1,
+              "ast_table_count": 1,
+              "count_match": true,
+              "raw_row_counts": [
+                10
+              ],
+              "ast_row_counts": [
+                10
+              ],
+              "row_mismatches": []
+            }
+          }
+        ]
+      },
+      "stage_b": {
+        "unit_count": 7,
+        "gates_passed": true,
+        "salvage_score": 1.0,
+        "gate_details": [
+          {
+            "gate_name": "orphan",
+            "passed": true,
+            "detail": {
+              "total_units": 7,
+              "orphan_count": 0,
+              "orphan_rate": 0.0,
+              "fail_threshold": 1.0,
+              "warn_threshold": 0.5,
+              "warned": false,
+              "orphans": []
+            }
+          },
+          {
+            "gate_name": "bleed",
+            "passed": true,
+            "detail": {
+              "total_units": 7,
+              "overlap_count": 0,
+              "overlaps": []
+            }
+          },
+          {
+            "gate_name": "table_integrity",
+            "passed": true,
+            "detail": {
+              "table_unit_count": 1,
+              "issue_count": 0,
+              "issues": []
+            }
+          },
+          {
+            "gate_name": "unit_size",
+            "passed": true,
+            "detail": {
+              "total_units": 7,
+              "min_chars": 20,
+              "max_chars": 5000,
+              "max_table_chars": 12000,
+              "undersized_count": 0,
+              "oversized_count": 0,
+              "undersized_ratio": 0.0,
+              "undersized_fail_ratio": 1.0,
+              "undersized": [],
+              "oversized": []
+            }
+          },
+          {
+            "gate_name": "cross_page_join_rate",
+            "passed": true,
+            "detail": {
+              "total_units": 43,
+              "cross_page_join_count": 1,
+              "cross_page_join_rate": 0.0233,
+              "fail_threshold": 0.3
+            }
+          },
+          {
+            "gate_name": "join_unit_id_conservation",
+            "passed": true,
+            "detail": {
+              "stage_b_unit_count": 44,
+              "represented_unit_count": 44,
+              "missing_unit_count": 0,
+              "missing_unit_ids": []
+            }
+          },
+          {
+            "gate_name": "join_page_fingerprint_conservation",
+            "passed": true,
+            "detail": {
+              "stage_b_fingerprint_count": 4,
+              "joined_fingerprint_count": 4,
+              "missing_fingerprint_count": 0,
+              "missing_fingerprints": []
+            }
+          },
+          {
+            "gate_name": "join_table_unit_conservation",
+            "passed": true,
+            "detail": {
+              "stage_b_table_unit_count": 2,
+              "missing_table_unit_count": 0,
+              "missing_table_unit_ids": []
+            }
+          }
+        ]
+      },
+      "all_gates_passed": true
+    }
+  ],
+  "error_labels": [],
+  "stage_a_failed_pages": {
+    "coverage": [],
+    "ordering": [],
+    "table_parse": []
+  },
+  "stage_b_failed_pages": {
+    "orphan": [],
+    "bleed": [],
+    "table_integrity": [],
+    "unit_size": [],
+    "cross_page_join_rate": [],
+    "join_unit_id_conservation": [],
+    "join_page_fingerprint_conservation": [],
+    "join_table_unit_conservation": [],
+    "toc_binding_coverage": [],
+    "orphan_after_toc": []
+  },
+  "orphan_header_results": [
+    {
+      "label": "Grit and Grime_p1",
+      "status": "assigned",
+      "heading": "Grit and Grime",
+      "reason": "The orphan page expands the same location's entry by detailing its owner and staff, continuing the Grit and Grime page introduced on the prior page.",
+      "raw_response": "heading: \"Grit and Grime\"\nreason: \"The orphan page expands the same location's entry by detailing its owner and staff, continuing the Grit and Grime page introduced on the prior page.\""
+    }
+  ],
+  "toc_enrichment": null
+}

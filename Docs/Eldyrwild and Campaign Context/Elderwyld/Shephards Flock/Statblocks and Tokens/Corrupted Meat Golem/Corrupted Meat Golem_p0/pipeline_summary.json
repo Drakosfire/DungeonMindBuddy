@@ -1,0 +1,379 @@
+{
+  "stage_a": {
+    "gates_passed": true,
+    "node_count": 15,
+    "table_count": 1,
+    "content_hash": "9064e695a7091450e7867fe82dfa9a90f148911f7c2469f48b850d242f902ab9",
+    "gate_details": [
+      {
+        "gate_name": "coverage",
+        "passed": true,
+        "detail": {
+          "raw_content_chars": 1024,
+          "ast_content_chars": 1024,
+          "ratio": 1.0,
+          "threshold": 0.95
+        }
+      },
+      {
+        "gate_name": "ordering",
+        "passed": true,
+        "detail": {
+          "leaf_count": 13,
+          "inversion_count": 0,
+          "inversions": []
+        }
+      },
+      {
+        "gate_name": "table_parse",
+        "passed": true,
+        "detail": {
+          "raw_table_count": 1,
+          "ast_table_count": 1,
+          "count_match": true,
+          "raw_row_counts": [
+            2
+          ],
+          "ast_row_counts": [
+            2
+          ],
+          "row_mismatches": []
+        }
+      }
+    ]
+  },
+  "stage_b": {
+    "units": [
+      {
+        "unit_id": "36c53ccdf2cd1d59f3b514c853cf7b99d118fa030d3e6a3b9f2a08941b5f6e1d",
+        "unit_type": "prose",
+        "text": "![](images/0.jpg)",
+        "structural_path": [],
+        "ordering_key": 0,
+        "page_fingerprint": "9a297230713ca07f816171a4cfd26bc67ef6c9304ba5b99ad3d5b45f5ff30f94",
+        "content_hash": "c677736a74e2c31c881f5694921f60c254795dcd1c2625d47967117900d6aece",
+        "source_line_start": 0,
+        "source_line_end": 1,
+        "anomaly_flags": [
+          "undersized",
+          "no_heading_parent"
+        ],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "4cca68ceadf4133cab117a0269df54abe63f704024571a93bcb96c9b51fccf3b",
+        "unit_type": "prose",
+        "text": "THE CORRUPTED MEAT GOLEM IS A GROTESQUE AND NIGHTMARISH ABOMINATION, COMPOSED OF VARIOUS CHUNKS OF CORRUPTED FLESH, SINEW, AND BONE. THE FLESH IS AN UNNATURAL MIX OF COLORS, RANGING FROM SICKLY GREENS TO BRUISED PURPLES, WITH PATCHES OF GLISTENING, OILY OPALESCENCE THAT GIVE IT AN ALMOST OTHERWORLDLY SHEEN. THIS GLOSSY, IRIDESCENT QUALITY MAKES THE MEAT APPEAR BOTH ROTTEN AND BIZARRELY BEAUTIFUL, AS IF TAINTED BY SOME ELDRITCH ESSENCE. STRIPS OF MUSCLE AND TENDON ARE HAPHAZARDLY STITCHED TOGETHER BY AN UNKNOWN FORCE, CREATING A HULKING, MISSHAPEN FORM THAT STANDS OVER SEVEN FEET TALL.",
+        "structural_path": [],
+        "ordering_key": 1,
+        "page_fingerprint": "9a297230713ca07f816171a4cfd26bc67ef6c9304ba5b99ad3d5b45f5ff30f94",
+        "content_hash": "35550a5b1aff08da8e41066f359eb2e75aa6fe0901b47a98a30ec31c0d1871dc",
+        "source_line_start": 5,
+        "source_line_end": 6,
+        "anomaly_flags": [
+          "no_heading_parent"
+        ],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "1bd76e1020ea5f51ba10b66c1d80cb9520e5bb562a8261649e49eb1f5d8da1f8",
+        "unit_type": "prose",
+        "text": "Armor Class : 12\nHit Points: 55 Hit Dice : 5d10+10\nSpeed: walk : 20",
+        "structural_path": [],
+        "ordering_key": 2,
+        "page_fingerprint": "9a297230713ca07f816171a4cfd26bc67ef6c9304ba5b99ad3d5b45f5ff30f94",
+        "content_hash": "b4043b86f0b6c2f3f01fd08e94a48d194d928f97fdb73cd36aab90b9b73cf157",
+        "source_line_start": 8,
+        "source_line_end": 11,
+        "anomaly_flags": [
+          "no_heading_parent"
+        ],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "b0eca7283f696bde0759a81985303d494020cab2c43f96c78cabd37de654ca2a",
+        "unit_type": "table",
+        "text": "<table><tr><td>STR</td><td>DEX</td><td>CON</td><td>INT</td><td>WIS</td><td>CHA</td></tr><tr><td>18</td><td>7</td><td>14</td><td>6</td><td>8</td><td>5</td></tr></table>",
+        "structural_path": [],
+        "ordering_key": 3,
+        "page_fingerprint": "9a297230713ca07f816171a4cfd26bc67ef6c9304ba5b99ad3d5b45f5ff30f94",
+        "content_hash": "70e9ba589c329325c42a586b78e10f36e2c7716e214428d83984b61715cec497",
+        "source_line_start": 13,
+        "source_line_end": 14,
+        "anomaly_flags": [
+          "no_heading_parent"
+        ],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "44a6e5a38ab8847fd4731dc2c40426e6ea5e62ebfa4e6c55b1c54218abcb07c6",
+        "unit_type": "prose",
+        "text": "Saving Throws : str : 6, dex : -2, wis : -1",
+        "structural_path": [],
+        "ordering_key": 4,
+        "page_fingerprint": "9a297230713ca07f816171a4cfd26bc67ef6c9304ba5b99ad3d5b45f5ff30f94",
+        "content_hash": "bc2b47c672897900a93336016c9616f3c1471aa3b3abe17c4efc454718edd1b5",
+        "source_line_start": 16,
+        "source_line_end": 17,
+        "anomaly_flags": [
+          "no_heading_parent"
+        ],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "368101be1ef81a1e04457184892f3f4148ab378b5dddb3f2ed09d21c660ba5b9",
+        "unit_type": "prose",
+        "text": "Skills : perception : 4",
+        "structural_path": [],
+        "ordering_key": 5,
+        "page_fingerprint": "9a297230713ca07f816171a4cfd26bc67ef6c9304ba5b99ad3d5b45f5ff30f94",
+        "content_hash": "31905cf2e254383bfe419b8fdc96814b04eaa40120d885d751bfe4e32d972b4b",
+        "source_line_start": 19,
+        "source_line_end": 20,
+        "anomaly_flags": [
+          "no_heading_parent"
+        ],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "eb8e1ac0bae377a28b19d97fd257379db50db84a6b6e41c39dea3574c7c7f5f9",
+        "unit_type": "prose",
+        "text": "Resistances :",
+        "structural_path": [],
+        "ordering_key": 6,
+        "page_fingerprint": "9a297230713ca07f816171a4cfd26bc67ef6c9304ba5b99ad3d5b45f5ff30f94",
+        "content_hash": "48168db49032d8b5431291e26ecea04489f1af36e6a3d7a41471df6146d1d6b0",
+        "source_line_start": 22,
+        "source_line_end": 23,
+        "anomaly_flags": [
+          "undersized",
+          "no_heading_parent"
+        ],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "647e3a9861b3326e2e5353593efb4bf080fb66cc96f10e874b9ffee6b095c128",
+        "unit_type": "prose",
+        "text": "Senses : darkvision : 60",
+        "structural_path": [],
+        "ordering_key": 7,
+        "page_fingerprint": "9a297230713ca07f816171a4cfd26bc67ef6c9304ba5b99ad3d5b45f5ff30f94",
+        "content_hash": "064e15d7da2cf4f725ef9f6249035b70f4dd0f1175a8fed5b6cdabf80e05b75c",
+        "source_line_start": 25,
+        "source_line_end": 26,
+        "anomaly_flags": [
+          "no_heading_parent"
+        ],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "a70d9145b519884cf39c1accee13dfa8dd5501b27763611b09b4f77e68e7ef96",
+        "unit_type": "prose",
+        "text": "Languages :",
+        "structural_path": [],
+        "ordering_key": 8,
+        "page_fingerprint": "9a297230713ca07f816171a4cfd26bc67ef6c9304ba5b99ad3d5b45f5ff30f94",
+        "content_hash": "a3403d8ad30adfcf9461dade1c113b538fcfbc4db4aa54389cef708af3216939",
+        "source_line_start": 28,
+        "source_line_end": 29,
+        "anomaly_flags": [
+          "undersized",
+          "no_heading_parent"
+        ],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "9e3473b490634f9c7c25a69331ea34315a093536547e29104cf50279034efd5b",
+        "unit_type": "prose",
+        "text": "Challenge Rating : 3 (700)",
+        "structural_path": [],
+        "ordering_key": 9,
+        "page_fingerprint": "9a297230713ca07f816171a4cfd26bc67ef6c9304ba5b99ad3d5b45f5ff30f94",
+        "content_hash": "027d638ae435145218736febc811ec68901eef023aecc95ad98d1da370fc9dfb",
+        "source_line_start": 31,
+        "source_line_end": 32,
+        "anomaly_flags": [
+          "no_heading_parent"
+        ],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "414b1f096de1d0a2aaf814fb774125bd9761fd4cc8f72765f17958f642481e25",
+        "unit_type": "prose",
+        "text": "ACTIONS — Multiattack : 'The Corrupted Meat Golem can make two Slam attacks.",
+        "structural_path": [
+          "ACTIONS"
+        ],
+        "ordering_key": 10,
+        "page_fingerprint": "9a297230713ca07f816171a4cfd26bc67ef6c9304ba5b99ad3d5b45f5ff30f94",
+        "content_hash": "20d4adacf9d0e0495a624b93bb909745111e4d61db20e6913a1f2b3ef50b190f",
+        "source_line_start": 34,
+        "source_line_end": 38,
+        "anomaly_flags": [],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "852c6a6863e47bc24d530d0e42d416b423c80ce66c104c398e71a71fd00bf252",
+        "unit_type": "prose",
+        "text": "Slam : 'Melee Weapon Attack: +6 to hit, reach 5 ft., one target. Hit: 12 (2d6+5) bludgeoning damage.",
+        "structural_path": [
+          "ACTIONS"
+        ],
+        "ordering_key": 11,
+        "page_fingerprint": "9a297230713ca07f816171a4cfd26bc67ef6c9304ba5b99ad3d5b45f5ff30f94",
+        "content_hash": "d236f7473d35507ba876c0c61eccfc92fa98e3b7046acb5b5fc50fd78a7dc41b",
+        "source_line_start": 40,
+        "source_line_end": 41,
+        "anomaly_flags": [],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "a74a77706b4932d18c8bbfadb2858e2363f2f5e731b90a52a39c3865de2b421f",
+        "unit_type": "prose",
+        "text": "Noxious Burst : 'When the Corrupted Meat Golem is hit by an attack, it emits a burst of noxious gas. All creatures within 5 feet must succeed on a DC 13 Constitution saving throw or be poisoned until the end of their next turn.",
+        "structural_path": [
+          "ACTIONS"
+        ],
+        "ordering_key": 12,
+        "page_fingerprint": "9a297230713ca07f816171a4cfd26bc67ef6c9304ba5b99ad3d5b45f5ff30f94",
+        "content_hash": "6eb705591bf90dda4e51695af91bba9898ab4636335b101a0981d66746cf2e75",
+        "source_line_start": 43,
+        "source_line_end": 44,
+        "anomaly_flags": [],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      }
+    ],
+    "gates_passed": true,
+    "gate_details": [
+      {
+        "gate_name": "orphan",
+        "passed": true,
+        "detail": {
+          "total_units": 13,
+          "orphan_count": 10,
+          "orphan_rate": 0.7692,
+          "fail_threshold": 1.0,
+          "warn_threshold": 0.5,
+          "warned": true,
+          "orphans": [
+            {
+              "unit_id": "36c53ccdf2cd1d59",
+              "unit_type": "prose",
+              "ordering_key": 0,
+              "text_preview": "![](images/0.jpg)"
+            },
+            {
+              "unit_id": "4cca68ceadf4133c",
+              "unit_type": "prose",
+              "ordering_key": 1,
+              "text_preview": "THE CORRUPTED MEAT GOLEM IS A GROTESQUE AND NIGHTMARISH ABOMINATION, COMPOSED OF"
+            },
+            {
+              "unit_id": "1bd76e1020ea5f51",
+              "unit_type": "prose",
+              "ordering_key": 2,
+              "text_preview": "Armor Class : 12\nHit Points: 55 Hit Dice : 5d10+10\nSpeed: walk : 20"
+            },
+            {
+              "unit_id": "b0eca7283f696bde",
+              "unit_type": "table",
+              "ordering_key": 3,
+              "text_preview": "<table><tr><td>STR</td><td>DEX</td><td>CON</td><td>INT</td><td>WIS</td><td>CHA</"
+            },
+            {
+              "unit_id": "44a6e5a38ab8847f",
+              "unit_type": "prose",
+              "ordering_key": 4,
+              "text_preview": "Saving Throws : str : 6, dex : -2, wis : -1"
+            },
+            {
+              "unit_id": "368101be1ef81a1e",
+              "unit_type": "prose",
+              "ordering_key": 5,
+              "text_preview": "Skills : perception : 4"
+            },
+            {
+              "unit_id": "eb8e1ac0bae377a2",
+              "unit_type": "prose",
+              "ordering_key": 6,
+              "text_preview": "Resistances :"
+            },
+            {
+              "unit_id": "647e3a9861b3326e",
+              "unit_type": "prose",
+              "ordering_key": 7,
+              "text_preview": "Senses : darkvision : 60"
+            },
+            {
+              "unit_id": "a70d9145b519884c",
+              "unit_type": "prose",
+              "ordering_key": 8,
+              "text_preview": "Languages :"
+            },
+            {
+              "unit_id": "9e3473b490634f9c",
+              "unit_type": "prose",
+              "ordering_key": 9,
+              "text_preview": "Challenge Rating : 3 (700)"
+            }
+          ]
+        }
+      },
+      {
+        "gate_name": "bleed",
+        "passed": true,
+        "detail": {
+          "total_units": 13,
+          "overlap_count": 0,
+          "overlaps": []
+        }
+      },
+      {
+        "gate_name": "table_integrity",
+        "passed": true,
+        "detail": {
+          "table_unit_count": 1,
+          "issue_count": 0,
+          "issues": []
+        }
+      },
+      {
+        "gate_name": "unit_size",
+        "passed": true,
+        "detail": {
+          "total_units": 13,
+          "min_chars": 20,
+          "max_chars": 5000,
+          "max_table_chars": 12000,
+          "undersized_count": 3,
+          "oversized_count": 0,
+          "undersized_ratio": 0.2308,
+          "undersized_fail_ratio": 1.0,
+          "undersized": [
+            {
+              "unit_id": "36c53ccdf2cd1d59",
+              "unit_type": "prose",
+              "char_count": 17,
+              "text_preview": "![](images/0.jpg)"
+            },
+            {
+              "unit_id": "eb8e1ac0bae377a2",
+              "unit_type": "prose",
+              "char_count": 13,
+              "text_preview": "Resistances :"
+            },
+            {
+              "unit_id": "a70d9145b519884c",
+              "unit_type": "prose",
+              "char_count": 11,
+              "text_preview": "Languages :"
+            }
+          ],
+          "oversized": []
+        }
+      }
+    ],
+    "salvage_score": 1.0
+  },
+  "all_gates_passed": true
+}

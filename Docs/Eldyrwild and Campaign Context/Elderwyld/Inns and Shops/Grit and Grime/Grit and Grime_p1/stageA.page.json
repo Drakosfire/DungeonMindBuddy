@@ -1,0 +1,11 @@
+{
+  "page_fingerprint": "0b41a51cbcd2260a1b3e6338acfd64c306485fae36583e7e56985ac2f2dbdc35",
+  "source_pdf": "/media/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/Docs/Eldyrwild and Campaign Context/Elderwyld/Inns and Shops/Grit and Grime.pdf",
+  "page_index": 1,
+  "model_id": "deepseek-ai/DeepSeek-OCR-2",
+  "prompt": "<image>\n<|grounding|>Convert the document to markdown.",
+  "raw_markdown": "![](images/0.jpg)\n\n\n\n\nOwner\n\n\nGROBNOK\n\n\nOwner Grobnik\n\n\nSpecies Goblin\nClass Bard\n\n\nDescription A small, wiry goblin with neon-green hair, sharp teeth, and a mashed-up steampunk outfit perpetually stained with mysterious fluids from crazy concoctions.\n\n\nPersonality Charismatic, chaotic, and brimming with wild energy, Grobnik has a talent for making friends and enemies in equal measure.\n\n\nSecrets Grobnik is rumored to have a stash of magical crystals that can create hallucinatory light shows.\n\n\nSecrets He once accidentally concocted a potion that made everyone in the club glow for a week.\n\n![](images/1.jpg)\n\n\n\n\nEMPLOYEES\n\n\nGLIMMETRIX\n\n\nEmployee Glimmetrix\n\n\nRole DJ\n\n\nSpecies Hobgoblin\n\n\nDescription A tall, muscular hobgoblin with an intricate, brass-knobbed DJ helmet and a thick apron covered in glowing glyphs.\nPersonality Stoic and unflappable, but deeply passionate about his beats.\n\n\nPersonality\nStoic and unflappable, but deeply passionate about his beats.",
+  "inference_elapsed_sec": 11.314,
+  "content_hash": "b1fcff050b07b8d5db4ef58af4eddd6e1487d0e76bcf5bb47f5b0771d91b30f0",
+  "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+}

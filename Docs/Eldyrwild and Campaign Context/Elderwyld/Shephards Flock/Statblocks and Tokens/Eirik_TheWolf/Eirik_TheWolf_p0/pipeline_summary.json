@@ -1,0 +1,464 @@
+{
+  "stage_a": {
+    "gates_passed": true,
+    "node_count": 24,
+    "table_count": 1,
+    "content_hash": "868920700da376ecdb05d8c304727d05b8e3caff55992d07937923675d294a52",
+    "gate_details": [
+      {
+        "gate_name": "coverage",
+        "passed": true,
+        "detail": {
+          "raw_content_chars": 1906,
+          "ast_content_chars": 1906,
+          "ratio": 1.0,
+          "threshold": 0.95
+        }
+      },
+      {
+        "gate_name": "ordering",
+        "passed": true,
+        "detail": {
+          "leaf_count": 19,
+          "inversion_count": 0,
+          "inversions": []
+        }
+      },
+      {
+        "gate_name": "table_parse",
+        "passed": true,
+        "detail": {
+          "raw_table_count": 1,
+          "ast_table_count": 1,
+          "count_match": true,
+          "raw_row_counts": [
+            2
+          ],
+          "ast_row_counts": [
+            2
+          ],
+          "row_mismatches": []
+        }
+      }
+    ]
+  },
+  "stage_b": {
+    "units": [
+      {
+        "unit_id": "8bfce42ce88e731a70d0c077c95226c026927c309316ca0f649dde3503d89d8e",
+        "unit_type": "prose",
+        "text": "![](images/0.jpg)",
+        "structural_path": [],
+        "ordering_key": 0,
+        "page_fingerprint": "7daec3cdaa201b766c680f4970024fc03a04583a24753bc038c787d16773ce2a",
+        "content_hash": "c677736a74e2c31c881f5694921f60c254795dcd1c2625d47967117900d6aece",
+        "source_line_start": 0,
+        "source_line_end": 1,
+        "anomaly_flags": [
+          "undersized",
+          "no_heading_parent"
+        ],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "f206cabad63ae9ec4543476e76154b868f86a2d05cb9521e45f1d9bc4fed7605",
+        "unit_type": "prose",
+        "text": "THE WOLF IS SEREN'S TRUSTED LIEUTENANT AND THE HIGHEST-RANKING INFLTRATOR WITHIN MIRATHORN ITSELF. ONCE A LOYAL SOLDIER OF MIRATHORN, THEY WERE CAPTURED BY THE SHEPHERDS, FED THE CORRUPTED MEAT, AND TURNED INTO ONE OF THE CULT'S MOST DANGEROUS ASSETS. THEIR POSITION WITHIN THE CITY GUARD ALLOWS THEM TO SUBTLY INFLUENCE THE CITY'S SECURITY AND SABOTAGE INVESTIGATIONS. WHILE OUTWARDLY APPEARING LOYAL TO MIRATHORN, THEY ARE SECRETLY ORCHESTRATING THE CULT'S OPERATIONS FROM WITHIN, CONTROLLING A NETWORK OF SLEEPER AGENTS AND PLANTING FALSE INFORMATION TO PROTECT THE CULT.\nArmor Class : 14\nHit Points: 50 Hit Dice : 7d8+14\nSpeed: walk : 30",
+        "structural_path": [],
+        "ordering_key": 1,
+        "page_fingerprint": "7daec3cdaa201b766c680f4970024fc03a04583a24753bc038c787d16773ce2a",
+        "content_hash": "87d33ea916fed9621068c228e132f9177b894fb2604822d7ca67a6e3aa184afb",
+        "source_line_start": 5,
+        "source_line_end": 9,
+        "anomaly_flags": [
+          "no_heading_parent"
+        ],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "9996223e2426f5036cf588bd4232a55e9cb3bb5e112af3e12cc8aeed24c77d4e",
+        "unit_type": "table",
+        "text": "<table><tr><td>STR</td><td>DEX</td><td>CON</td><td>INT</td><td>WIS</td><td>CHA</td></tr><tr><td>14</td><td>16</td><td>14</td><td>12</td><td>10</td><td>14</td></tr></table>",
+        "structural_path": [],
+        "ordering_key": 2,
+        "page_fingerprint": "7daec3cdaa201b766c680f4970024fc03a04583a24753bc038c787d16773ce2a",
+        "content_hash": "f30a5191597a55c362f37287a2065b8aa793fcf69365dc987975bc5fa9b4b56c",
+        "source_line_start": 11,
+        "source_line_end": 12,
+        "anomaly_flags": [
+          "no_heading_parent"
+        ],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "e465570e90f693fde7761d751e6fea6e367d20ce54642c715f81d24c96ee3894",
+        "unit_type": "prose",
+        "text": "Saving Throws : str : 4, dex : 5, wis : 3",
+        "structural_path": [],
+        "ordering_key": 3,
+        "page_fingerprint": "7daec3cdaa201b766c680f4970024fc03a04583a24753bc038c787d16773ce2a",
+        "content_hash": "d28d496d896deee7b86642f45f3a0a278091e2ebc1fcf3a515572a9957f8738f",
+        "source_line_start": 14,
+        "source_line_end": 15,
+        "anomaly_flags": [
+          "no_heading_parent"
+        ],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "f1821474ba2ff2d9cd241dfca55686306029bfc1755476e10fd483524c3bcb33",
+        "unit_type": "prose",
+        "text": "Skills : perception : 4",
+        "structural_path": [],
+        "ordering_key": 4,
+        "page_fingerprint": "7daec3cdaa201b766c680f4970024fc03a04583a24753bc038c787d16773ce2a",
+        "content_hash": "31905cf2e254383bfe419b8fdc96814b04eaa40120d885d751bfe4e32d972b4b",
+        "source_line_start": 17,
+        "source_line_end": 18,
+        "anomaly_flags": [
+          "no_heading_parent"
+        ],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "a64f7090607d97cd6b886e6786b8dd2638263fef88de172bae8f84bcda194334",
+        "unit_type": "prose",
+        "text": "Resistances :",
+        "structural_path": [],
+        "ordering_key": 5,
+        "page_fingerprint": "7daec3cdaa201b766c680f4970024fc03a04583a24753bc038c787d16773ce2a",
+        "content_hash": "48168db49032d8b5431291e26ecea04489f1af36e6a3d7a41471df6146d1d6b0",
+        "source_line_start": 20,
+        "source_line_end": 21,
+        "anomaly_flags": [
+          "undersized",
+          "no_heading_parent"
+        ],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "ed8cc0622cce8372459bc05fbc84c6066b5e891a879f10352dc3da77d5f32da5",
+        "unit_type": "prose",
+        "text": "Senses : darkvision : 60",
+        "structural_path": [],
+        "ordering_key": 6,
+        "page_fingerprint": "7daec3cdaa201b766c680f4970024fc03a04583a24753bc038c787d16773ce2a",
+        "content_hash": "064e15d7da2cf4f725ef9f6249035b70f4dd0f1175a8fed5b6cdabf80e05b75c",
+        "source_line_start": 23,
+        "source_line_end": 24,
+        "anomaly_flags": [
+          "no_heading_parent"
+        ],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "d13bf2292fe636e26cb051dd3d323b1c5a2b78ef887750738adc16c82103d756",
+        "unit_type": "prose",
+        "text": "Languages : Common, Thieves' Cant",
+        "structural_path": [],
+        "ordering_key": 7,
+        "page_fingerprint": "7daec3cdaa201b766c680f4970024fc03a04583a24753bc038c787d16773ce2a",
+        "content_hash": "af5e26a3d7cba7d25770958b5838271186be92715da400fcc2d6a824810f1c26",
+        "source_line_start": 26,
+        "source_line_end": 27,
+        "anomaly_flags": [
+          "no_heading_parent"
+        ],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "62071d2aeca6ece149ff8762474b673181bdb6420364fd8b1ff3b9e86ecc1530",
+        "unit_type": "prose",
+        "text": "Challenge Rating : 4 (1100)",
+        "structural_path": [],
+        "ordering_key": 8,
+        "page_fingerprint": "7daec3cdaa201b766c680f4970024fc03a04583a24753bc038c787d16773ce2a",
+        "content_hash": "b2b673dfdee7e433281a82ffad7951a83433774a9846aaff122c4b6721ba192e",
+        "source_line_start": 29,
+        "source_line_end": 30,
+        "anomaly_flags": [
+          "no_heading_parent"
+        ],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "9e2e0994094dae7fc8a3dec8b94df2733ab565f168dfce774804fd1879dc15c8",
+        "unit_type": "prose",
+        "text": "ACTIONS — Multiattack : ‘Eirik makes two melee attacks with his shortsword or two ranged attacks with his hand crossbow.",
+        "structural_path": [
+          "ACTIONS"
+        ],
+        "ordering_key": 9,
+        "page_fingerprint": "7daec3cdaa201b766c680f4970024fc03a04583a24753bc038c787d16773ce2a",
+        "content_hash": "7d67529e2ff1291c3cb39801270b98253f743c4fd62df18121e55cba9b0fc3dd",
+        "source_line_start": 32,
+        "source_line_end": 36,
+        "anomaly_flags": [],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "9ba41e88fd042c7f8c28f06ee2312dff71797eae0fdcdaf101624d340ab166ad",
+        "unit_type": "prose",
+        "text": "Shortsword : ‘Melee Weapon Attack: +5 to hit, reach 5 ft., one target. Hit: 7 (1d6 + 3) piercing damage, plus 3 (1d6) poison damage.",
+        "structural_path": [
+          "ACTIONS"
+        ],
+        "ordering_key": 10,
+        "page_fingerprint": "7daec3cdaa201b766c680f4970024fc03a04583a24753bc038c787d16773ce2a",
+        "content_hash": "c9b7d84134b25ebb7ac0ce2dcc50db27bf469fc7059e5b5766c15177ae475f4d",
+        "source_line_start": 38,
+        "source_line_end": 39,
+        "anomaly_flags": [],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "9a59e6ce2d1df17d914dafefea95e3d471d9c02a32014a2800200da6f3c15ce2",
+        "unit_type": "prose",
+        "text": "Hand Crossbow : ‘Ranged Weapon Attack: +5 to hit, range 30/120 ft., one target. Hit: 7 (1d6 + 3) piercing damage.",
+        "structural_path": [
+          "ACTIONS"
+        ],
+        "ordering_key": 11,
+        "page_fingerprint": "7daec3cdaa201b766c680f4970024fc03a04583a24753bc038c787d16773ce2a",
+        "content_hash": "06ac1b1a38e50487e61997ce1bd95cbc65d629414cba6a9bfd42e3cf76417995",
+        "source_line_start": 41,
+        "source_line_end": 42,
+        "anomaly_flags": [],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "ffcdd5061e0a015c1726a13b0b793863b1f78646408cc192b0f75d9224c33b07",
+        "unit_type": "prose",
+        "text": "Infiltrator's Strike : ‘Eirik can make a sneak attack dealing an additional 2d6 damage if he has advantage on the attack roll. The attack must use a finesse or a ranged weapon.",
+        "structural_path": [
+          "ACTIONS"
+        ],
+        "ordering_key": 12,
+        "page_fingerprint": "7daec3cdaa201b766c680f4970024fc03a04583a24753bc038c787d16773ce2a",
+        "content_hash": "fafaa9bf33de4addabffe77a528249bfac516ff30aae05352835e2ccdc86b961",
+        "source_line_start": 44,
+        "source_line_end": 45,
+        "anomaly_flags": [],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "465f3ea18f5daf93841380d9c2e23acf67bb5fc9d4a550a9f309767aafb29775",
+        "unit_type": "prose",
+        "text": "CANTRIPS — Control Flame : ‘You choose a nonmagical flame that you can see within range and that fits within a 5-foot cube. You can extinguish the flames, double or halve the area of bright light, change its color, or cause simple shapes (such as lines or words) to appear in it,’",
+        "structural_path": [
+          "CANTRIPS"
+        ],
+        "ordering_key": 13,
+        "page_fingerprint": "7daec3cdaa201b766c680f4970024fc03a04583a24753bc038c787d16773ce2a",
+        "content_hash": "c36c8e3dc2957be0b0d7152cad1dc0caa9af35870b27695415d36489cb9afa30",
+        "source_line_start": 47,
+        "source_line_end": 51,
+        "anomaly_flags": [],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "b5db50b83f09afb46500c91b70d90fdceb1538971da78c4038c15efafae01ab9",
+        "unit_type": "prose",
+        "text": "Known Spells — Charm Person : ‘Level : 1st You attempt to charm a humanoid you can see within range. It must make a Wisdom saving throw, and does so with advantage if you or your companions are fighting it,’",
+        "structural_path": [
+          "Known Spells"
+        ],
+        "ordering_key": 14,
+        "page_fingerprint": "7daec3cdaa201b766c680f4970024fc03a04583a24753bc038c787d16773ce2a",
+        "content_hash": "567612e85fea35bf6ecc18bd002815b2eedbaf17ad800b0dbfc06785c99de24a",
+        "source_line_start": 53,
+        "source_line_end": 57,
+        "anomaly_flags": [],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "ec7fb03db151172ade2dab2432132f879c5aaf5bd96d860c563e940962f1fac9",
+        "unit_type": "prose",
+        "text": "Disguise Self : ‘Level : 1st You make yourself—including your clothing, armor, weapons, and other belongings on your person—look different until the spell ends or until you use your action to dismiss it,’",
+        "structural_path": [
+          "Known Spells"
+        ],
+        "ordering_key": 15,
+        "page_fingerprint": "7daec3cdaa201b766c680f4970024fc03a04583a24753bc038c787d16773ce2a",
+        "content_hash": "02b6b629978b270a62424c1d9a44ce9d4feb0c1d23487e555ac70a1913bfa223",
+        "source_line_start": 59,
+        "source_line_end": 60,
+        "anomaly_flags": [],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "033a53e26cce35552e9b4d9a066b8d47259ed02775ef91268e5a7ffd9240eb8c",
+        "unit_type": "prose",
+        "text": "Suggestion : ‘Level : 2nd You suggest a course of activity (limited to a sentence or two) and magically influence a creature you can see within range that can hear and understand you,’",
+        "structural_path": [
+          "Known Spells"
+        ],
+        "ordering_key": 16,
+        "page_fingerprint": "7daec3cdaa201b766c680f4970024fc03a04583a24753bc038c787d16773ce2a",
+        "content_hash": "8829b2dd4c9d549d720679225ae3606c76a1c03e2d23d2ba0020eeb8e8da7309",
+        "source_line_start": 62,
+        "source_line_end": 63,
+        "anomaly_flags": [],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "8bc7718cc82f7775d8de436cf24aff21978734f74553f12280ad98c8bf370ddf",
+        "unit_type": "prose",
+        "text": "SPELL SLOTS — 1st level: '4,'",
+        "structural_path": [
+          "SPELL SLOTS"
+        ],
+        "ordering_key": 17,
+        "page_fingerprint": "7daec3cdaa201b766c680f4970024fc03a04583a24753bc038c787d16773ce2a",
+        "content_hash": "98209017d5a16e9734e7209cdfd6688bd236d01ff795a4d9a886970652f9b5e4",
+        "source_line_start": 65,
+        "source_line_end": 69,
+        "anomaly_flags": [],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "e0a3d9d4fe0db55feb63f68dbca399c49847c47ab8cfa0d3edd00143b01ceaeb",
+        "unit_type": "prose",
+        "text": "2nd level: '3,'",
+        "structural_path": [
+          "SPELL SLOTS"
+        ],
+        "ordering_key": 18,
+        "page_fingerprint": "7daec3cdaa201b766c680f4970024fc03a04583a24753bc038c787d16773ce2a",
+        "content_hash": "3b54c3dc7009efc93664c75f7e7bfb2f09eec55d3ab9feef5c5607518d703f41",
+        "source_line_start": 71,
+        "source_line_end": 72,
+        "anomaly_flags": [
+          "undersized"
+        ],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      }
+    ],
+    "gates_passed": true,
+    "gate_details": [
+      {
+        "gate_name": "orphan",
+        "passed": true,
+        "detail": {
+          "total_units": 19,
+          "orphan_count": 9,
+          "orphan_rate": 0.4737,
+          "fail_threshold": 1.0,
+          "warn_threshold": 0.5,
+          "warned": false,
+          "orphans": [
+            {
+              "unit_id": "8bfce42ce88e731a",
+              "unit_type": "prose",
+              "ordering_key": 0,
+              "text_preview": "![](images/0.jpg)"
+            },
+            {
+              "unit_id": "f206cabad63ae9ec",
+              "unit_type": "prose",
+              "ordering_key": 1,
+              "text_preview": "THE WOLF IS SEREN'S TRUSTED LIEUTENANT AND THE HIGHEST-RANKING INFLTRATOR WITHIN"
+            },
+            {
+              "unit_id": "9996223e2426f503",
+              "unit_type": "table",
+              "ordering_key": 2,
+              "text_preview": "<table><tr><td>STR</td><td>DEX</td><td>CON</td><td>INT</td><td>WIS</td><td>CHA</"
+            },
+            {
+              "unit_id": "e465570e90f693fd",
+              "unit_type": "prose",
+              "ordering_key": 3,
+              "text_preview": "Saving Throws : str : 4, dex : 5, wis : 3"
+            },
+            {
+              "unit_id": "f1821474ba2ff2d9",
+              "unit_type": "prose",
+              "ordering_key": 4,
+              "text_preview": "Skills : perception : 4"
+            },
+            {
+              "unit_id": "a64f7090607d97cd",
+              "unit_type": "prose",
+              "ordering_key": 5,
+              "text_preview": "Resistances :"
+            },
+            {
+              "unit_id": "ed8cc0622cce8372",
+              "unit_type": "prose",
+              "ordering_key": 6,
+              "text_preview": "Senses : darkvision : 60"
+            },
+            {
+              "unit_id": "d13bf2292fe636e2",
+              "unit_type": "prose",
+              "ordering_key": 7,
+              "text_preview": "Languages : Common, Thieves' Cant"
+            },
+            {
+              "unit_id": "62071d2aeca6ece1",
+              "unit_type": "prose",
+              "ordering_key": 8,
+              "text_preview": "Challenge Rating : 4 (1100)"
+            }
+          ]
+        }
+      },
+      {
+        "gate_name": "bleed",
+        "passed": true,
+        "detail": {
+          "total_units": 19,
+          "overlap_count": 0,
+          "overlaps": []
+        }
+      },
+      {
+        "gate_name": "table_integrity",
+        "passed": true,
+        "detail": {
+          "table_unit_count": 1,
+          "issue_count": 0,
+          "issues": []
+        }
+      },
+      {
+        "gate_name": "unit_size",
+        "passed": true,
+        "detail": {
+          "total_units": 19,
+          "min_chars": 20,
+          "max_chars": 5000,
+          "max_table_chars": 12000,
+          "undersized_count": 3,
+          "oversized_count": 0,
+          "undersized_ratio": 0.1579,
+          "undersized_fail_ratio": 1.0,
+          "undersized": [
+            {
+              "unit_id": "8bfce42ce88e731a",
+              "unit_type": "prose",
+              "char_count": 17,
+              "text_preview": "![](images/0.jpg)"
+            },
+            {
+              "unit_id": "a64f7090607d97cd",
+              "unit_type": "prose",
+              "char_count": 13,
+              "text_preview": "Resistances :"
+            },
+            {
+              "unit_id": "e0a3d9d4fe0db55f",
+              "unit_type": "prose",
+              "char_count": 15,
+              "text_preview": "2nd level: '3,'"
+            }
+          ],
+          "oversized": []
+        }
+      }
+    ],
+    "salvage_score": 1.0
+  },
+  "all_gates_passed": true
+}
