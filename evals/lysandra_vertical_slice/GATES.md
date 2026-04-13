@@ -37,7 +37,7 @@ uv run pytest tests/test_lysandra_vertical_slice_step0.py -q
 
 | Check | Question | Done when |
 |-------|----------|-----------|
-| **Lane A** | Did the real planner loop open the dossier and Session 18 recap? | `read_corpus_file` paths in `PlanningTurnDetail.tool_trace` match `gold/planner_step1.json` → `final.require` (substring checks + `read_corpus_file` present + `min_output_chars`; `hit_tool_round_limit` fails via shared live_eval rules). |
+| **Lane A** | Did the planner loop open the right corpus files for the scenario? | `read_corpus_file` paths in `PlanningTurnDetail.tool_trace` match the chosen gold fixture → `final.require` (substring checks + `read_corpus_file` present + `min_output_chars`; `hit_tool_round_limit` fails via shared live_eval rules). **Directed** (`gold/planner_step1_directed.json`): user message spells paths — proves tool loop follows explicit filenames. **Autonomous** (`gold/planner_step1_autonomous.json`, default): human-style ask — gates require the Mirathorn NPC-hub CR2 statblock path, the C2 NPC-hub dossier path, and some C2 recap under `Session Recaps/`. Env: `LYSANDRA_PLANNER_STEP1_SCENARIO` = `directed` or `autonomous` (default **autonomous**). |
 
 **Harness:** `step1_planner_trace.py` → `run_planner_step1_turn()` (same wiring as planner live eval: manifest, tools, `make_tool_dispatcher`).
 
@@ -47,11 +47,11 @@ uv run pytest tests/test_lysandra_vertical_slice_step0.py -q
 uv run pytest tests/test_lysandra_vertical_slice_planner_step1.py -q
 ```
 
-**Verify (live model, costs money):** `LYSANDRA_PLANNER_STEP1_LIVE=1`, corpus present, and `OPENAI_API_KEY` in `.env` / `.env.development` (loaded by pytest `conftest` + harness — no `export` required) — same pytest file runs `test_planner_step1_live_passes_with_model`.
+**Verify (live model, costs money):** `LYSANDRA_PLANNER_STEP1_LIVE=1`, optional `LYSANDRA_PLANNER_STEP1_SCENARIO` (default **autonomous**), corpus present, and `OPENAI_API_KEY` in `.env` / `.env.development` (loaded by pytest `conftest` + harness — no `export` required) — same pytest file runs `test_planner_step1_live_passes_with_model`.
 
 **CLI (manual, from repo root):** `uv run python evals/lysandra_vertical_slice/step1_planner_trace.py` — prints a review (turns, per-round `input_tokens`, replayed corpus bodies, final answer) and emits `dmb.planner` JSON telemetry on stderr. Optional: `PLANNER_LOG_FULL_IO=1` for larger telemetry payloads.
 
-**Artifacts:** `gold/planner_step1.json`, `step1_planner_trace.py`, `tests/test_lysandra_vertical_slice_planner_step1.py`.
+**Artifacts:** `gold/planner_step1_directed.json`, `gold/planner_step1_autonomous.json`, `step1_planner_trace.py`, `tests/test_lysandra_vertical_slice_planner_step1.py`.
 
 ---
 

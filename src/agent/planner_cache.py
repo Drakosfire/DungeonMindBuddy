@@ -7,6 +7,7 @@ from pathlib import Path
 import blake3
 
 from src.agent.planner import _build_system_prompt, build_corpus_manifest
+from src.prompts.corpus_session_planner import INSTRUCTIONS_TEMPLATE_ID
 
 
 def corpus_fingerprint(corpus_dir: Path) -> str:
@@ -52,8 +53,10 @@ def load_or_build_planner_instructions(
     if inst_path.is_file() and meta_path.is_file():
         try:
             meta = json.loads(meta_path.read_text(encoding="utf-8"))
-            if str(meta.get("fingerprint")) == fp and str(meta.get("corpus_root")) == str(
-                corpus_dir.resolve()
+            if (
+                str(meta.get("fingerprint")) == fp
+                and str(meta.get("corpus_root")) == str(corpus_dir.resolve())
+                and str(meta.get("instructions_template_id", "")) == INSTRUCTIONS_TEMPLATE_ID
             ):
                 return inst_path.read_text(encoding="utf-8"), fp
         except (OSError, json.JSONDecodeError):
@@ -68,6 +71,7 @@ def load_or_build_planner_instructions(
                 "fingerprint": fp,
                 "corpus_root": str(corpus_dir.resolve()),
                 "format": "planner_instructions_v1",
+                "instructions_template_id": INSTRUCTIONS_TEMPLATE_ID,
             },
             indent=2,
         ),

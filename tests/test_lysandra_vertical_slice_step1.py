@@ -43,11 +43,11 @@ def test_g1_1_fails_when_required_missing_from_top_k(tmp_path: Path) -> None:
     g1 = dict(load_step1_gold())
     g1["top_k"] = 1
     g1["required_paths_retrieved"] = [
-        "Longmont Campaign/Campaign 2/NPC Dossier/lieutenant_lysandra_ironveil_character_dossier.md",
+        "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_character_dossier.md",
         "Longmont Campaign/Campaign 2/Campaign 2 Notes.md",
     ]
     ranked = [
-        ("Longmont Campaign/Campaign 2/NPC Dossier/lieutenant_lysandra_ironveil_character_dossier.md", 100),
+        ("Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_character_dossier.md", 100),
         ("Longmont Campaign/Campaign 2/Campaign 2 Notes.md", 50),
     ]
     ok, viol = run_step1_gates(ranked, corpus_policy=policy, step1_gold=g1)
@@ -65,4 +65,4 @@ def test_step1_real_corpus_keyword_scan_passes_gates() -> None:
     assert len(ranked) >= 10
     assert ok, viol
     top_paths = [p for p, _ in ranked[:10]]
-    assert any("lieutenant_lysandra" in p for p in top_paths)
+    assert any("captain_lysandra_ironveil_character_dossier" in p for p in top_paths)

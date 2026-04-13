@@ -7,7 +7,7 @@
 - **Corpus survey:** `SURVEY-captain_lysandra_corpus.md`
 - **Gold:** `gold/corpus_policy.json`, `gold/step0_environment.json`
 - **Step 0 implementation:** `step0_corpus_environment.py` — `run_step0_gates()`
-- **Step 1 Lane A:** `step1_planner_trace.py` — `run_planner_step1_turn()` → `PlannerStep1Run` (includes `detail.usage_rounds` per API completion); CLI prints review + enables `dmb.planner` INFO telemetry; loads `OPENAI_API_KEY` from `.env` via `src.bootstrap_env` · `gold/planner_step1.json` · `tests/test_lysandra_vertical_slice_planner_step1.py`
+- **Step 1 Lane A:** `step1_planner_trace.py` — `run_planner_step1_turn()` → `PlannerStep1Run` (includes `detail.usage_rounds` per API completion); CLI prints review + enables `dmb.planner` INFO telemetry; loads `OPENAI_API_KEY` from `.env` via `src.bootstrap_env` · `gold/planner_step1_directed.json` (path-steered smoke) and `gold/planner_step1_autonomous.json` (human-style ask; default via `LYSANDRA_PLANNER_STEP1_SCENARIO`) · `tests/test_lysandra_vertical_slice_planner_step1.py`
 - **Step 1 Lane B:** `step1_retrieval.py` — `run_step1_keyword_scan_and_gates()`
 - **Tests:** `tests/test_lysandra_vertical_slice_step0.py`, `tests/test_lysandra_vertical_slice_step1.py`, `tests/test_lysandra_vertical_slice_planner_step1.py`
 

@@ -14,10 +14,12 @@ from evals.planner_slice.live_eval import collect_scenario_violations
 from src.agent.planner import PlanningModelStepRecord, PlanningTurnDetail
 
 
-def test_planner_step1_fixture_shape() -> None:
-    sc = load_planner_step1_scenario()
+@pytest.mark.parametrize("scenario_key", ("directed", "autonomous"))
+def test_planner_step1_fixture_shape(scenario_key: str) -> None:
+    sc = load_planner_step1_scenario(scenario_key)
     assert sc.get("version") == 1
     assert sc.get("id")
+    assert sc.get("fixture_role") == scenario_key
     inp = sc["input"]
     assert str(inp.get("user_message", "")).strip()
     req = (sc.get("final") or {}).get("require") or {}
@@ -26,8 +28,8 @@ def test_planner_step1_fixture_shape() -> None:
     assert len(subs) >= 2
 
 
-def test_planner_step1_gates_pass_synthetic_trace() -> None:
-    sc = load_planner_step1_scenario()
+def test_planner_step1_gates_pass_synthetic_trace_directed() -> None:
+    sc = load_planner_step1_scenario("directed")
     detail = PlanningTurnDetail(
         final_text="## Summary\n" + ("x" * 200),
         last_response_id="r1",
@@ -35,7 +37,7 @@ def test_planner_step1_gates_pass_synthetic_trace() -> None:
             {
                 "tool": "read_corpus_file",
                 "arguments": {
-                    "path": "Longmont Campaign/Campaign 2/NPC Dossier/lieutenant_lysandra_ironveil_character_dossier.md"
+                    "path": "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_character_dossier.md"
                 },
                 "output_chars": 100,
             },
@@ -61,8 +63,43 @@ def test_planner_step1_gates_pass_synthetic_trace() -> None:
     assert viol == {}
 
 
-def test_planner_step1_gates_fail_missing_session_read() -> None:
-    sc = load_planner_step1_scenario()
+def test_planner_step1_gates_pass_synthetic_trace_autonomous() -> None:
+    sc = load_planner_step1_scenario("autonomous")
+    detail = PlanningTurnDetail(
+        final_text="## Summary\n" + ("x" * 200),
+        last_response_id="r1",
+        tool_trace=[
+            {
+                "tool": "read_corpus_file",
+                "arguments": {
+                    "path": "Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_statblock_cr2.md"
+                },
+                "output_chars": 80,
+            },
+            {
+                "tool": "read_corpus_file",
+                "arguments": {
+                    "path": "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_character_dossier.md"
+                },
+                "output_chars": 100,
+            },
+            {
+                "tool": "read_corpus_file",
+                "arguments": {
+                    "path": "Longmont Campaign/Campaign 2/Session Recaps/Session 18 - Recap.md"
+                },
+                "output_chars": 50,
+            },
+        ],
+        steps=[],
+        hit_tool_round_limit=False,
+    )
+    viol = collect_scenario_violations(sc, detail)
+    assert viol == {}
+
+
+def test_planner_step1_gates_fail_missing_session_read_directed() -> None:
+    sc = load_planner_step1_scenario("directed")
     detail = PlanningTurnDetail(
         final_text="y" * 200,
         last_response_id="r1",
@@ -70,7 +107,35 @@ def test_planner_step1_gates_fail_missing_session_read() -> None:
             {
                 "tool": "read_corpus_file",
                 "arguments": {
-                    "path": "Longmont Campaign/Campaign 2/NPC Dossier/lieutenant_lysandra_ironveil_character_dossier.md"
+                    "path": "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_character_dossier.md"
+                },
+                "output_chars": 10,
+            },
+        ],
+        steps=[],
+        hit_tool_round_limit=False,
+    )
+    viol = collect_scenario_violations(sc, detail)
+    assert viol.get("final")
+
+
+def test_planner_step1_gates_fail_missing_statblock_autonomous() -> None:
+    sc = load_planner_step1_scenario("autonomous")
+    detail = PlanningTurnDetail(
+        final_text="z" * 200,
+        last_response_id="r1",
+        tool_trace=[
+            {
+                "tool": "read_corpus_file",
+                "arguments": {
+                    "path": "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_character_dossier.md"
+                },
+                "output_chars": 10,
+            },
+            {
+                "tool": "read_corpus_file",
+                "arguments": {
+                    "path": "Longmont Campaign/Campaign 2/Session Recaps/Session 18 - Recap.md"
                 },
                 "output_chars": 10,
             },
@@ -86,6 +151,8 @@ def test_planner_step1_gates_fail_missing_session_read() -> None:
 def test_planner_step1_live_passes_with_model() -> None:
     """
     Real OpenAI + corpus. Opt-in: LYSANDRA_PLANNER_STEP1_LIVE=1 and OPENAI_API_KEY.
+
+    Scenario: ``LYSANDRA_PLANNER_STEP1_SCENARIO`` (default **autonomous** — human-style ask).
     """
     if os.environ.get("LYSANDRA_PLANNER_STEP1_LIVE", "").strip().lower() not in ("1", "true", "yes"):
         pytest.skip("set LYSANDRA_PLANNER_STEP1_LIVE=1 to run planner Step 1 live")

@@ -1,5 +1,8 @@
 """Step 1 Lane A — planner ``tool_trace`` gates (Lysandra vertical slice).
 
+Two gold scenarios: **directed** (user names files) vs **autonomous** (human-style ask;
+default via ``LYSANDRA_PLANNER_STEP1_SCENARIO``). See ``gold/planner_step1_*.json``.
+
 Reuses ``evals.planner_slice.live_eval`` scenario shape and matchers.
 
 **Review / logging**
@@ -25,6 +28,7 @@ if _REPO_ROOT not in sys.path:
 
 import json  # noqa: E402
 import logging  # noqa: E402
+import os  # noqa: E402
 from dataclasses import dataclass, replace  # noqa: E402
 from typing import Any  # noqa: E402
 
@@ -47,13 +51,25 @@ from src.agent.planner_telemetry import text_sig  # noqa: E402
 
 _SLICE_DIR = Path(__file__).resolve().parent
 
+_PLANNER_STEP1_SCENARIO_ENV = "LYSANDRA_PLANNER_STEP1_SCENARIO"
+_VALID_PLANNER_STEP1_SCENARIOS = frozenset({"directed", "autonomous"})
 
-def planner_step1_fixture_path() -> Path:
-    return _SLICE_DIR / "gold" / "planner_step1.json"
+
+def default_planner_step1_scenario_key() -> str:
+    """``directed`` = path-spelled user ask; ``autonomous`` = human-style ask (default)."""
+    raw = os.environ.get(_PLANNER_STEP1_SCENARIO_ENV, "autonomous").strip().lower()
+    return raw if raw in _VALID_PLANNER_STEP1_SCENARIOS else "autonomous"
 
 
-def load_planner_step1_scenario() -> dict[str, Any]:
-    return json.loads(planner_step1_fixture_path().read_text(encoding="utf-8"))
+def planner_step1_gold_path(scenario_key: str | None = None) -> Path:
+    key = scenario_key if scenario_key is not None else default_planner_step1_scenario_key()
+    if key not in _VALID_PLANNER_STEP1_SCENARIOS:
+        key = "autonomous"
+    return _SLICE_DIR / "gold" / f"planner_step1_{key}.json"
+
+
+def load_planner_step1_scenario(scenario_key: str | None = None) -> dict[str, Any]:
+    return json.loads(planner_step1_gold_path(scenario_key).read_text(encoding="utf-8"))
 
 
 def configure_planner_review_logging() -> None:
@@ -102,15 +118,29 @@ def run_planner_step1_turn(
     model_id: str,
     cache_root: Path | None = None,
     scenario: dict[str, Any] | None = None,
+    scenario_key: str | None = None,
 ) -> PlannerStep1Run:
     """
     One ``run_planning_turn_detailed`` with the Lane A fixture; score with ``evaluate_scenario_detail``.
+
+    **Scenarios** (see ``gold/planner_step1_directed.json`` vs ``planner_step1_autonomous.json``):
+
+    - ``directed`` — user message names folders/filenames to open (strong smoke, not autonomy).
+    - ``autonomous`` — human-style ask; gates require statblock ``.md``, dossier, and some C2 recap.
+
+    Pick with env ``LYSANDRA_PLANNER_STEP1_SCENARIO=directed|autonomous`` (default **autonomous**),
+    or pass ``scenario_key``, or pass a full ``scenario`` dict.
 
     Loads ``.env`` / ``.env.development`` via ``load_dungeonmindbuddy_dotenv()`` so
     ``OPENAI_API_KEY`` does not require shell ``export``.
     """
     load_dungeonmindbuddy_dotenv()
-    sc = scenario or load_planner_step1_scenario()
+    if scenario is not None:
+        sc = scenario
+    elif scenario_key is not None:
+        sc = load_planner_step1_scenario(scenario_key)
+    else:
+        sc = load_planner_step1_scenario()
     corpus_path = corpus_dir.resolve()
     sid = str(sc.get("id", "lysandra_planner_step1"))
     user_message, input_violations = resolve_planner_user_message(sc, corpus_path)
@@ -320,6 +350,11 @@ def main() -> None:
 
     load_dungeonmindbuddy_dotenv()
     configure_planner_review_logging()
+    sk = default_planner_step1_scenario_key()
+    print(
+        f"[scenario] LYSANDRA_PLANNER_STEP1_SCENARIO={sk!r} (gold: {planner_step1_gold_path(sk).name})\n",
+        file=sys.stderr,
+    )
     print(
         "[logging] dmb.planner + dmb.planner.live_eval at INFO; "
         "set PLANNER_LOG_FULL_IO=1 for larger bodies inside telemetry JSON lines.\n",

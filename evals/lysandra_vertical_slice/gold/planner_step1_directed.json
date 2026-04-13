@@ -1,0 +1,20 @@
+{
+  "id": "lysandra_planner_step1_directed",
+  "version": 1,
+  "fixture_role": "directed",
+  "fixture_note": "Planner is told exactly which two markdown files to open (path-level instructions). Proves the tool loop can follow explicit corpus paths; not autonomous retrieval.",
+  "input": {
+    "user_message": "Captain Lysandra Ironveil — prep her **level-up** for the next session.\n\nBefore you summarize, use **read_corpus_file** to load evidence from:\n1) her NPC dossier markdown under `Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/` whose filename contains `captain_lysandra_ironveil_character_dossier`, and\n2) the **Session 18** recap markdown under `Longmont Campaign/Campaign 2/Session Recaps/`.\n\nThen reply in short markdown bullets (story hooks, any mechanical hints visible in the dossier, open questions). **Do not** call `generate_statblock`."
+  },
+  "steps": [],
+  "final": {
+    "require": {
+      "min_output_chars": 120,
+      "tool_trace_must_include_tool": "read_corpus_file",
+      "read_corpus_paths_must_include": [
+        "captain_lysandra_ironveil_character_dossier",
+        "session 18"
+      ]
+    }
+  }
+}

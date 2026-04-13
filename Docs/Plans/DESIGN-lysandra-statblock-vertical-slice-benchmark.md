@@ -46,6 +46,35 @@ Until all step gates pass, the benchmark **fails**; partial progress is reported
 | **Legal**                         | Passes deterministic **5e legality** checks appropriate to the data we send (class/level bounds, proficiency bonus consistency, skill cap rules, etc.). Exact rule depth is a **product knob**; the design requires a **named** legality profile (e.g. `legality_profile: "npc_sheet_v1_strict"`). |
 | **Level up**                      | Monotonic increase in character level (or explicit “add N class levels” to a defined multiclass) **justified** by a corpus-attested event or an explicit **benchmark-injected** scenario note (see Section 8).                                                                                     |
 
+### 3.1 Target corpus hierarchy (setting seed vs campaign lives)
+
+This is the **directory schema we want when serious writing and ingestion catch up**. It separates **world bible** (pre–player-contact) from **table canon** (what happened in each Longmont campaign), so statblocks and timelines do not fight each other.
+
+**1. Elderwyld / Mirathorn (setting — character seed)**  
+- **Purpose:** Who the NPC is in *your* narrative world **before** meaningful contact with the players; Mirathorn-local context.  
+- **Suggested layout** (under something like `Elderwyld/Cities and Towns/Mirathorn/NPCs/<npc_slug>/`):  
+  - `README.md` — one-screen map of files below.  
+  - **Character seed** (prose or structured notes): baseline concept, role in the city, hooks before the party arrives.  
+  - **Original statblock** — first mechanical export you treat as the setting’s “day zero” sheet.  
+  - **Mirathorn-facing CR2 sheet** (or equivalent) — the concrete **CR 2** (or other fixed tier) statblock that belongs to the *setting* presentation (e.g. city guard stat block as published in the world), distinct from “whatever the table is using after six sessions.”  
+- **Rule:** Do not bury the only copy of a **campaign-specific level-up** here; those belong under the campaign that earned them (below).
+
+**2. Longmont Campaign / Campaign `<n>` / NPCs / `<npc_slug>` (per-campaign package)**  
+- **Purpose:** Everything the **table** needs for that campaign: continuity, prep, mechanical history **for that timeline**.  
+- **Suggested layout** (e.g. `Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/`):  
+  - `README.md` — links into recaps, Mirathorn seed folder, and “which statblock is current for C2.”  
+  - `timeline.md` (or session-indexed notes) — what changed **in this campaign** and when.  
+  - **Character dossier** — voice, psychology, table-use (can remain one canonical `*_character_dossier.md`).  
+  - **Level-up statblocks** — **one file per campaign-locked mechanical state** (e.g. after a specific arc or session); name with campaign + tier or level so gates and humans agree (`*_statblock_c2_post_sess17_cr3.md`, etc.). If the same NPC levels in **Campaign 1** and **Campaign 2**, each level-up sheet lives **only** under the folder for the campaign where that progression happened.
+
+**3. Policy / benchmark implication**  
+- `corpus_policy` (or gold) should be able to name **several** mechanical paths with **roles**: e.g. `setting_original_statblock`, `setting_mirathorn_cr2`, `campaign_c2_current_statblock`, so retrieval does not conflate “CR as creature” with “class level at the table.”  
+- Fingerprint and eval gold must be refreshed whenever files move under `corpus/eldyrwild-markdown/`.
+
+**4. Current corpus (implemented hub layout)**  
+- **Setting:** `Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/` — `character_seed.md`, `captain_lysandra_ironveil_statblock_cr2.md`, `README.md`.  
+- **Campaign 2 table:** `Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/` — `captain_lysandra_ironveil_character_dossier.md`, `README.md`, `timeline.md`.  
+- **C2 level-up exports:** add under the C2 hub when authored. **Distinct `statblock_original`:** add under the Mirathorn hub when you split it from CR2.
 
 ---
 

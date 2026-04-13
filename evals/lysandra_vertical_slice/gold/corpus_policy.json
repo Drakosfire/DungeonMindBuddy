@@ -15,9 +15,9 @@
     "Elderwyld/"
   ],
   "session_anchor_relpath": "Longmont Campaign/Campaign 2/Session Recaps/Session 18 - Recap.md",
-  "primary_reference_relpath": "Longmont Campaign/Campaign 2/NPC Dossier/lieutenant_lysandra_ironveil_character_dossier.md",
+  "primary_reference_relpath": "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_character_dossier.md",
   "statblock_status": "machine_readable_statblock_md_from_pdf_rules_ingestion",
-  "canonical_statblock_relpath": "Longmont Campaign/NPCs/Captain Lysandra Ironveil.md",
+  "canonical_statblock_relpath": "Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_statblock_cr2.md",
   "recency_policy": "explicit_session_anchor_and_dossier_until_statblock_authored",
-  "notes": "Canonical sheet is RulesIngestion Stage A .md; PDF kept alongside under Longmont Campaign/NPCs/. Re-run ingestion to refresh .md from PDF when the sheet changes."
+  "notes": "CR2 sheet lives under Elderwyld/Mirathorn/NPCs (setting); C2 dossier and timeline under Longmont/Campaign 2/NPCs/captain_lysandra_ironveil/. PDF export name: captain_lysandra_ironveil_statblock_cr2.pdf beside ingestion pipeline when committed."
 }

@@ -164,6 +164,24 @@ This is not nostalgia. It is a practiced method of regaining equilibrium.
 
 ---
 
+## CAMPAIGN 2 GM LEDGER (SOURCED)
+
+The following bullets were **distilled** from `Longmont Campaign/Campaign 2/Campaign 2 Notes.md` before Lysandra-specific prose there was **moved or replaced by pointers** to this folder. They **do not** replace session recaps; use `Session Recaps/` for played chronology. Reconcile rank/title with table continuity as needed.
+
+**Roster / authority (ledger):**
+- Delivers **deed to Wolf’s Estate** to the party; treats them as a **stoic, duty-bound** ally.
+- **Formal patron of the party’s deputy status** — watches outcomes carefully; deputizes them to **investigate cult / Shepherd’s Flock** threats with official leverage.
+
+**Prep beats (festival era, same ledger):**
+- Approaches after the Colosseum bout **dressed down** (simple leathers), tired smile; teases **“Questionable Company”** nickname.
+- Pulls them aside: **cannot trust her own** people; word of a **Shepherd’s Flock** gathering (**human-only**); asks for **disguises** (including herself — guards would recognize her). Offers to cover costume-shop coin in Outtown.
+- **Insight (DC 12)** in prep: this ask reads **personal / nervous**, not purely procedural.
+
+**After major cult confrontation (prep outro, same file):**
+- Described as **wounded, angry, and fully committed** to the fight against the threat; later beat: **wounded but fiercely loyal** to the party’s effort.
+
+---
+
 ## KNOWN GAPS / TODOs (INTENTIONALLY UNFILLED)
 
 These are explicitly open and should not be assumed until played or authored:

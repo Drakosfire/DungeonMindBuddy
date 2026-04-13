@@ -1,0 +1,85 @@
+---
+description: Corpus file naming, hub folder structure, and README conventions for LLM-grounded planning.
+alwaysApply: true
+---
+
+# Corpus Layout Conventions
+
+Prescriptive rules for organizing markdown corpus files so the planner model navigates efficiently. For rationale, evidence, and anti-patterns see `Docs/Learnings/LEARNINGS-Corpus-Layout-For-LLM-Grounding.md`.
+
+---
+
+## Hub folder per entity
+
+Group all files for one entity into a **named folder** using the entity slug:
+
+```
+.../NPCs/captain_lysandra_ironveil/
+  README.md
+  captain_lysandra_ironveil_statblock_cr2.md
+  captain_lysandra_ironveil_character_dossier.md
+  character_seed.md
+  timeline.md
+```
+
+One folder per entity. One `README.md` per folder.
+
+## File naming: `{entity_slug}_{document_type}_{variant}.md`
+
+| Component | Rule | Example |
+|-----------|------|---------|
+| `entity_slug` | Lowercase, underscores, matches folder name | `captain_lysandra_ironveil` |
+| `document_type` | What the file is (`statblock`, `character_dossier`, `timeline`) | `statblock` |
+| `variant` | Tier, campaign, or session tag (omit if only one exists) | `cr2`, `c2_post_sess15` |
+
+Short utility files (`character_seed.md`, `timeline.md`, `README.md`) may omit the entity slug when they live inside the entity's own folder.
+
+## README structure
+
+Every hub `README.md` must contain:
+
+### 1. Suggested reads (in order)
+
+Numbered list. Each item = **full corpus-relative path** + one-line annotation.
+
+```markdown
+1. `Elderwyld/.../captain_lysandra_ironveil_statblock_cr2.md` — CR 2 mechanical sheet.
+2. `Longmont Campaign/.../captain_lysandra_ironveil_character_dossier.md` — table-facing dossier.
+```
+
+### 2. Mechanical sheets (priority — highest first)
+
+Table with columns: **Priority**, **Path** (or prose pattern), **Role**.
+
+- Priority 1 = canonical or most-current for this hub's context.
+- Describe filename families in **prose** — never embed shell globs (`*`, `?`) in paths the model might copy into `read_corpus_file`.
+
+### 3. Session recaps (no pinned default)
+
+Do **not** hardcode a session number. Tell the model to use the corpus tree and pick the **largest session number** in filenames, or follow `timeline.md` pointers. Hardcoded recap paths become stale the moment a new session is added.
+
+## Setting vs table: two hubs, cross-linked
+
+When an entity spans a world-bible layer and a campaign layer:
+
+- **Setting hub** (e.g. `Elderwyld/.../Mirathorn/NPCs/entity/`): world-level seed, canonical statblock export.
+- **Campaign hub** (e.g. `Longmont Campaign/Campaign 2/NPCs/entity/`): table dossier, timeline, campaign-specific statblock overrides.
+
+Each README cross-links to the other with full paths. Priority tables define which statblock is canonical **from that hub's perspective**.
+
+## Planner instruction alignment
+
+When adding or restructuring hub folders, verify these planner-instruction rules still hold in `src/prompts/corpus_session_planner.py`:
+
+- **README first**: open hub `README.md` in the first read batch.
+- **Mandatory statblock read**: if a README lists `*_statblock_*.md`, open it before answering CR/HP/AC/saves — README prose alone is insufficient.
+- **No globs**: use exact paths from the tree or README.
+- **Recency from the tree**: for "most recent" recap, compare session numbers in filenames.
+
+## Fingerprint hygiene
+
+Every corpus content edit (including whitespace) changes `corpus_fingerprint`. After any corpus edit:
+
+1. Recompute: `uv run python -c "from pathlib import Path; from src.agent.planner_cache import corpus_fingerprint; print(corpus_fingerprint(Path('corpus/eldyrwild-markdown')))"`
+2. Update `evals/lysandra_vertical_slice/gold/step0_environment.json` → `expected_fingerprint`.
+3. Run `uv run pytest tests/test_lysandra_vertical_slice_step0.py`.

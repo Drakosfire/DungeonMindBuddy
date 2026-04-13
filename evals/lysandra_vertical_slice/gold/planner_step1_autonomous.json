@@ -1,0 +1,21 @@
+{
+  "id": "lysandra_planner_step1_autonomous",
+  "version": 1,
+  "fixture_role": "autonomous",
+  "fixture_note": "Pure user-style ask. Gates: Mirathorn NPC hub statblock CR2 path, C2 NPC hub dossier path, C2 session recap path.",
+  "input": {
+    "user_message": "Grab the most recent and relevant information about **Captain Lysandra** — we're going to discuss her, her traits, and how she might level up.\n\nWhat level is she right now anyway?"
+  },
+  "steps": [],
+  "final": {
+    "require": {
+      "min_output_chars": 180,
+      "tool_trace_must_include_tool": "read_corpus_file",
+      "read_corpus_paths_must_include": [
+        "mirathorn/npcs/captain_lysandra_ironveil/captain_lysandra_ironveil_statblock_cr2",
+        "campaign 2/npcs/captain_lysandra_ironveil/captain_lysandra_ironveil_character_dossier",
+        "campaign 2/session recaps"
+      ]
+    }
+  }
+}

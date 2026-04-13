@@ -413,7 +413,7 @@ Before running the automated pipeline, hand-author gold expected outputs:
 - Gold entity list: every council member, the council as a faction, The Wolf, referenced locations.
 - Gold fact set: role/rank_or_title for each council member, governance for Mirathorn.
 
-**`lieutenant_lysandra_ironveil_character_dossier.md` gold:**
+**`Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_character_dossier.md` gold:**
 - Already has 6 golden scenario tests. Extend with gold entity list and fact set.
 
 ### Build Order
@@ -619,7 +619,7 @@ The pipeline is validated against a development set and evaluated against a held
 | `The City of Mirathorn.docx` | Primary world canon doc. Step 1 gold fixtures authored from this. |
 | `The City Council.docx` | NPC-heavy sub-doc. Council members referenced in Mirathorn facts. |
 | `Longmont Campaign General Notes.docx` | Campaign-layer source. Tests campaign vs. world layer handling. |
-| `lieutenant_lysandra_ironveil_character_dossier.md` | NPC dossier. Used in existing 6 reducer scenarios. |
+| `Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_character_dossier.md` | NPC dossier (C2 hub). Used in existing reducer scenarios. |
 
 Prompts are tuned, edge cases are fixed, and gold artifacts are authored against Set A docs. These are the training set.
 

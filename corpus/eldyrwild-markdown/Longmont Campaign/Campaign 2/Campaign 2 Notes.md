@@ -21,7 +21,7 @@ Campaign 2 Threads, NPCs
 
 **Thalia Ashenvale** – Commander of the city guard; respected, decisive leader. Authorized gifting the Wolf’s estate to the party.
 
-**Captain Lysandra Ironveil** – Delivered the deed to the Wolf’s estate. Stoic, duty-bound, potentially useful future ally.
+**Captain Lysandra Ironveil** — *Dossier, timeline, and prep beats:* `NPCs/captain_lysandra_ironveil/` (see `README.md` there). *Setting seed + CR2 sheet:* `Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/`.
 
 **Zyla Cinderbranch** – Necromancy professor at Stormspire. Brilliant and blunt; seems to respect Karsemine. Has quietly approved of Mossglade.
 
@@ -137,7 +137,7 @@ Potential rival or counter to more structured party members.
 
 **Thalia Ashenvale** – Commander of the city guard. Authorized gifting the Wolf’s Estate. Future political pivot point; may pull party into official city politics.
 
-**Captain Lysandra Ironveil** – Delivered deed to the Wolf’s Estate. Stoic, duty-bound. Now formal patron of the party’s deputy status. Watches results carefully.
+**Captain Lysandra Ironveil** — *Dossier, timeline, and prep beats:* `NPCs/captain_lysandra_ironveil/` (see `README.md` there). *Setting seed + CR2 sheet:* `Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/`.
 
 **Zyla Cinderbranch** – Necromancy professor at Stormspire Academy. Respects Karsemine; secretly battling rising magical anomalies inside the Academy.
 
@@ -263,7 +263,7 @@ Session 3 DM Prep Notes
 
 ## 🪶 Previously, in Mirathorn...
 
-After uncovering the spreading corruption behind the magical storms, the heroes visited young Torbin and Ethel Thistlebloom at Stormspire Academy, lifting lingering curses and hearing dark whispers of Maelthor and the Shepherd. Returning to the Festival of Expansion, Bonogo briefly became an accidental bake-off judge—before overeating himself sick—and discovered that his cursed invitation may trace back to the exclusive Gilded Fold. Meanwhile, Karsemine sought advice about matters of the heart, and the party reunited with Captain Lysandra, receiving a powerful reward: Wolf’s Manor, a new home in the city, and deputy badges authorizing them to hunt down the Shepherd’s Flock. Spirits high, they dove into festival games, from axe-throwing glory (and spoon-stealing heroics) to growing tensions beneath Mirathorn’s colorful celebrations. Now, the afternoon’s contests loom—and somewhere, the shadows watch.
+After uncovering the spreading corruption behind the magical storms, the heroes visited young Torbin and Ethel Thistlebloom at Stormspire Academy, lifting lingering curses and hearing dark whispers of Maelthor and the Shepherd. Returning to the Festival of Expansion, Bonogo briefly became an accidental bake-off judge—before overeating himself sick—and discovered that his cursed invitation may trace back to the exclusive Gilded Fold. Meanwhile, Karsemine sought advice about matters of the heart. The party secured **Wolf’s Manor**, **deputy badges**, and a charter to pursue the **Shepherd’s Flock** (guard liaison thread summarized under `NPCs/captain_lysandra_ironveil/`). Spirits high, they dove into festival games, from axe-throwing glory (and spoon-stealing heroics) to growing tensions beneath Mirathorn’s colorful celebrations. Now, the afternoon’s contests loom—and somewhere, the shadows watch.
 
 # GM Quick Check-In Script: Eldyrwyld Campaign
 
@@ -271,7 +271,7 @@ After uncovering the spreading corruption behind the magical storms, the heroes 
  The city is vibrant but strained, political tensions are simmering, and magical storms connected to Maelthor are growing stronger."
 
 **Where is the Party?** "They just secured Wolf’s Manor as a base.
- They have been deputized by Captain Lysandra to investigate cult threats.
+ They hold deputy authority to investigate cult threats.
  They are still participating in festival games while gathering information on the Shepherd’s Flock and the Dustwalker."
 
 ## Major Threads Right Now:
@@ -340,9 +340,7 @@ Is there a small way to hint that the city leadership is fracturing?
 
 ## Starter :
 
-As the magical illusion of the tavern flickers and fades, the roaring crowd of the Colosseum of the Storm still echoes with the thrill of shattered bottles, barstool brawls, and one hell of a fey-powered knockout. Dust and pride settle as Questionable Company steps off the conjured floor, bruised but triumphant. The cheers still linger, but the air outside the arena feels heavier — quieter, more real. The festival's warmth presses against the city's simmering tensions, and somewhere beneath it all, the heartbeat of the Shepherd’s influence still pulses. As the group exits the arena gates, laughter and pain shared between them, a familiar voice cuts through the crowd. **Captain Lysandra Ironveil**, dressed down in simple leathers and a loose shirt, walks toward them with a tired smile and a raised brow — eyes flicking over the group’s scuffed armor and broken bottle wounds.
-
-## “So, Questionable Company, is it? Seems appropriate!”
+As the magical illusion of the tavern flickers and fades, the roaring crowd of the Colosseum of the Storm still echoes with the thrill of shattered bottles, barstool brawls, and one hell of a fey-powered knockout. Dust and pride settle as Questionable Company steps off the conjured floor, bruised but triumphant. The cheers still linger, but the air outside the arena feels heavier — quieter, more real. The festival's warmth presses against the city's simmering tensions, and somewhere beneath it all, the heartbeat of the Shepherd’s influence still pulses. As the group exits the arena gates, laughter and pain shared between them. *(Colosseum exit / guard liaison beat, dialogue, disguise ask → `NPCs/captain_lysandra_ironveil/timeline.md` + dossier.)*
 
 ## Outline :
 
@@ -350,29 +348,7 @@ As the magical illusion of the tavern flickers and fades, the roaring crowd of t
 
 ### 🟨 BEAT 1: Disguises and the Ask
 
-**Scene**: Just outside the Colosseum, post-fight, fading crowd noise, bruised but victorious.
-
-**Captain Lysandra Ironveil** approaches:
-
-**Lysandra** (half-smiling): “So, Questionable Company, is it? Seems appropriate. You looked like you had a great time in there… even if half the bottles were aimed at your heads.”
-
-She pulls them aside for a walk—through the crowd, toward Outtown, voice low as they reach a quieter alley.
-
-**Lysandra**: “Something's happening, and I can't trust my own. I’ve got word of a… gathering. The Shepherd’s Flock. They've been whispering into ears all over town.”
-
-“It’s human-only. You’ll need disguises. And I’ll need one, too—some of those guards will recognize me.”
-
-## If players hesitate or stall:
-
-“There’s a costume shop down in the Outtown stalls—big felt hats, face powders, that sort of thing. Festival tradition. I’ll cover the coin.”
-
-🧠 Optional rolls:
-
-**Insight (DC 12)**: Lysandra is nervous—this is personal.
-
-**Investigation/Streetwise (DC 12)**: They remember the costume shop from earlier festival days.
-
-⏩ Let them play with disguises: prosthetics, glamours, masks. Add fun/absurdity here before things turn serious.
+*Moved to `NPCs/captain_lysandra_ironveil/` (timeline + dossier “GM ledger” section).*
 
 ### 🟧 BEAT 2: The Guard Tower Performance
 
@@ -552,7 +528,7 @@ If they survive or escape:
 
 They carry **marked invitations, corrupted meat, or scrolls**.
 
-**Lysandra** is wounded, angry, and fully in now.
+*(Guard liaison emotional beat after this fight → `NPCs/captain_lysandra_ironveil/timeline.md`.)*
 
 The cult is **active**, **growing**, and **organized**.
 
@@ -792,7 +768,7 @@ Surviving twins, rescued NPCs, and wounded cultists. The barn burns, the cult fl
 
 The tunnel’s exit (via a fork) leads to the secret passage beneath Wolf Manor—big reveal for future sessions.
 
-Lysandra is wounded but fiercely loyal now.
+*(Guard liaison loyalty / injury beat → `NPCs/captain_lysandra_ironveil/timeline.md`.)*
 
 Defeat/Capture:
 
