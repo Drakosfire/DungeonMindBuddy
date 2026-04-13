@@ -217,3 +217,17 @@ def test_ingest_index_persists_across_save_load(tmp_path: Path) -> None:
     reloaded = FactStore(tmp_path / "store")
     reloaded.load()
     assert reloaded.has_ingest_fingerprint("fingerprint-key")
+
+
+def test_wiki_pages_roundtrip(tmp_path: Path) -> None:
+    store = FactStore(tmp_path / "store")
+    store.wiki_pages = {"ent_a": "Article about A."}
+    store.wiki_manifest = {"ent_a": {"compiled_at": "2026-01-01T00:00:00Z", "fact_hash": "abc"}}
+    assert store.has_wiki()
+
+    store.save()
+    reloaded = FactStore(tmp_path / "store")
+    reloaded.load()
+    assert reloaded.has_wiki()
+    assert reloaded.wiki_pages["ent_a"] == "Article about A."
+    assert reloaded.wiki_manifest["ent_a"]["fact_hash"] == "abc"

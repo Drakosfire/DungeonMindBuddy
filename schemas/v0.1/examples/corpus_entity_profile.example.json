@@ -1,0 +1,60 @@
+{
+  "schema_version": "0.1.0",
+  "created_at": "2026-04-09T12:00:00Z",
+  "updated_at": "2026-04-09T12:00:00Z",
+  "record_status": "active",
+  "extraction_pass_id": null,
+  "profile_kind": "corpus_entity_audit",
+  "entity_id": "ent_bonogo",
+  "display_name": "Bonogo",
+  "entity_class": "actor",
+  "cohort": {
+    "manifest_id": "entity_audit_2026-04-09",
+    "wiki_connectivity_score": 1.5428,
+    "list_wiki_targets_params": {
+      "campaign_id": "longmont-c1",
+      "min_connectivity": 0.3
+    },
+    "store_path": "evals/mirathorn_vertical_slice/output/phase_d_store",
+    "store_git_commit": "3f108761355344b2ca3bf5793c866d3508ef4059"
+  },
+  "evidence_sufficiency": "sufficient",
+  "insufficient_evidence_note": null,
+  "integrated_summary": "Bonogo is a player-character in the Longmont campaigns—a stealth-capable, shadow-leaning adventurer tied to items such as the Slinkstone and the Blood-Edged Invitation plot. In play he fights cultists with Questionable Company. In Campaign 1 he lands the killing blow on the Wolf; corpus treats Bonogo as distinct from the Wolf.",
+  "narrative_layers": {
+    "observed_play": "Warehouse/barn fights in C2; killing blow vs the Wolf in C1 Session 12."
+  },
+  "relationships": [
+    {
+      "related_entity_id": "ent_the_wolf",
+      "related_display_name": "the Wolf",
+      "relation_summary": "Delivered the killing blow in council-chamber pursuit (C1)."
+    }
+  ],
+  "terminal_beats": [],
+  "citations": [
+    {
+      "corpus_relative_path": "corpus/eldyrwild-markdown/Longmont Campaign/Homebrew Items/Item_ The Slinkstone.md",
+      "layer_tags": ["item_or_mechanics"],
+      "authority": "mechanic_reference",
+      "quote": "pulse faintly, as if resonating with Bonogo's heartbeat",
+      "session": null,
+      "campaign_id": null
+    },
+    {
+      "corpus_relative_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Session Recaps/Session 12 - One Persistent Bugbear or Sneaky Fucking Bugbear.md",
+      "layer_tags": ["observed_play"],
+      "authority": "play_record",
+      "quote": "As Bonogo deals the killing blow the oily sheen fades from the Wolf's eyes",
+      "session": 12,
+      "campaign_id": "longmont-c1"
+    }
+  ],
+  "store_reliability": {
+    "caveat_kind": "alias_pollution",
+    "detail": "Store may list Bonogo on the Wolf entity due to fuzzy merge (REPORT S5); corpus keeps them separate.",
+    "design_report_paths": ["Docs/Design/REPORT-benchmark-shortcomings-and-successes.md"]
+  },
+  "review_state": "draft",
+  "author": "agent:cursor"
+}

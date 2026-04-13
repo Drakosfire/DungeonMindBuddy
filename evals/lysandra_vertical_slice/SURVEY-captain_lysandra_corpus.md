@@ -1,7 +1,8 @@
 # Corpus survey: Captain Lysandra Ironveil (as-is)
 
-**Scope:** `corpus/eldyrwild-markdown/` markdown only, survey date aligned with repo state.  
-**Canonical naming in corpus:** “Captain Lysandra Ironveil”, “Lysandra Ironveil”, “Lysandra”, dossier title “Lieutenant Lysandra Ironveil”. No occurrences of “Lysandara” found.
+**Scope:** `corpus/eldyrwild-markdown/` **markdown** (this survey lists `.md`); **PDF statblocks** are expected under `Longmont Campaign/NPCs/` (and similar) when present on disk. **Monorepo note:** if you clone `DungeonOverMind` as the git root, root `.gitignore` used to block all `*.pdf`; it now **allows** `DungeonMindBuddy/corpus/**/*.pdf` so those files can be committed. **Standalone `DungeonMindBuddy` repo:** Buddy’s own `.gitignore` never ignored PDFs.
+
+**Canonical naming in corpus:** “Captain Lysandra Ironveil”, “Lysandra Ironveil”, “Lysandra”, dossier title “Lieutenant Lysandra Ironveil”. **Typo:** `Session 15 - Recap.md` uses “**Lysandara**” once; `gold/corpus_policy.json` includes that string in `aliases` for retrieval recall.
 
 ---
 
@@ -77,10 +78,17 @@ Mechanical **character level** is **not** stated as an integer in the surveyed f
 
 1. Re-run: `uv run python -c "from pathlib import Path; from src.agent.planner_cache import corpus_fingerprint; print(corpus_fingerprint(Path('corpus/eldyrwild-markdown')))"` from repo root.  
 2. Update `evals/lysandra_vertical_slice/gold/step0_environment.json` → `expected_fingerprint`.  
-3. Re-scan `rg Lysandra corpus/eldyrwild-markdown --glob '*.md'` and update this survey if new files appear.
+3. Re-scan `rg Lysandra corpus/eldyrwild-markdown --glob '*.md'` and update this survey if new files appear.  
+4. If statblock **PDFs** are added under the corpus tree (or converted to `.md`), re-run a repo-wide `*.pdf` inventory and update §2 + `gold/corpus_policy.json` (`canonical_statblock_relpath`, `statblock_status`).
 
 ---
 
-## 7. Related design
+## 7. Planner vs this survey
+
+This file inventories **on-disk markdown**. In the running product, **which files get read** is normally chosen by the **session planner tool loop** (`read_corpus_file` + `tool_trace` in `src/agent/planner.py`). For benchmark design, see the design doc subsection **Planner alignment — one line**.
+
+---
+
+## 8. Related design
 
 See `Docs/Plans/DESIGN-lysandra-statblock-vertical-slice-benchmark.md` for stepped gates G0–G8.

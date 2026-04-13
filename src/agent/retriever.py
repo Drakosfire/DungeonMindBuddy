@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import logging
 import math
+import os
 import re
 import time
 from collections import Counter
@@ -133,11 +134,23 @@ def _terminal_outcome_rank(label: str) -> int:
 def build_entity_summary(
     meta: dict[str, Any],
     entity_data: dict[str, Any],
+    *,
+    wiki_pages: dict[str, str] | None = None,
 ) -> str:
     """Build searchable text from entity metadata and projected attributes.
 
     Filters out noise facts to produce a cleaner signal for search.
+    Set DMB_RICH_ENTITY_SUMMARIES=1 for denser summaries (normalized values, fewer noise drops).
+    When *wiki_pages* contains the entity_id, use that prose as the index text (Karpathy wiki layer).
     """
+    eid = str(meta.get("entity_id", "")).strip()
+    if wiki_pages and eid:
+        page = (wiki_pages.get(eid) or "").strip()
+        if page:
+            name = str(meta.get("display_name", eid)).strip() or eid
+            return f"{name}\n\n{page}"
+
+    rich = os.environ.get("DMB_RICH_ENTITY_SUMMARIES", "").strip() == "1"
     parts: list[str] = []
     name = meta.get("display_name", "Unknown")
     cls = meta.get("entity_class", "")
@@ -158,12 +171,22 @@ def build_entity_summary(
     attributes = entity_data.get("attributes", {})
     for attr in sorted(attributes):
         payload = attributes[attr]
-        label = payload.get("value_label", "")
-        if _is_noise_fact(attr, label):
+        label = str(payload.get("value_label", "") or "").strip()
+        normalized = str(payload.get("value_normalized", "") or "").strip()
+        if not rich and _is_noise_fact(attr, label):
+            continue
+        if rich and attr in _NOISE_ATTRIBUTES:
+            continue
+        if rich and not label and not normalized:
+            continue
+        if not rich and not label:
             continue
         if len(label) > 300:
             label = label[:300] + "..."
-        parts.append(f"{attr}: {label}")
+        line = f"{attr}: {label}" if label else f"{attr}:"
+        if rich and normalized and normalized.lower() != label.lower():
+            line += f" | normalized: {normalized[:400]}"
+        parts.append(line)
 
     return "\n".join(parts)
 
@@ -199,19 +222,21 @@ class EntityIndex:
         self,
         projection: dict[str, Any],
         entities: list[dict[str, Any]],
+        *,
+        wiki_pages: dict[str, str] | None = None,
     ) -> None:
         """Build index from a projection and entity metadata list."""
         meta_by_id: dict[str, dict[str, Any]] = {}
         for e in entities:
             eid = e.get("entity_id", "")
             if eid:
-                meta_by_id[eid] = e
+                meta_by_id[eid] = {**e, "entity_id": eid}
 
         proj_entities = projection.get("entities", {})
         for entity_id in sorted(proj_entities):
             entity_data = proj_entities[entity_id]
             meta = meta_by_id.get(entity_id, {})
-            summary = build_entity_summary(meta, entity_data)
+            summary = build_entity_summary(meta, entity_data, wiki_pages=wiki_pages)
 
             self.entity_ids.append(entity_id)
             self.id_to_pos[entity_id] = len(self.entity_ids) - 1
@@ -428,6 +453,7 @@ def retrieve_relevant_entities(
     max_evidence_expansion: int = 10,
     min_score: float = 0.01,
     index: EntityIndex | None = None,
+    wiki_pages: dict[str, str] | None = None,
 ) -> tuple[list[tuple[str, float]], EntityIndex]:
     """Retrieve entity IDs relevant to a question, ranked by combined score.
 
@@ -438,7 +464,7 @@ def retrieve_relevant_entities(
 
     if index is None:
         index = EntityIndex()
-        index.build(projection, entities)
+        index.build(projection, entities, wiki_pages=wiki_pages)
 
     name_scores = index.search_by_name(question)
 

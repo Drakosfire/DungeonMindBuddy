@@ -1,0 +1,28 @@
+---
+description: DungeonMindBuddy git and branch conventions; complements DungeonOverMind workspace rules.
+alwaysApply: true
+---
+
+# DungeonMindBuddy — Git and branch model
+
+## Inheritance
+
+This repo does **not** duplicate DungeonOverMind-wide standards (engineering principles, development workflow patterns, service boundaries). When your Cursor workspace includes the **DungeonOverMind** tree, agents should still follow:
+
+- `.cursor/rules/engineering-principles.mdc`
+- `.cursor/rules/development.mdc`
+- `.cursor/rules/dungeonmind.mdc` (and related `PATTERNS-*`, `QUICK-REFERENCE-*`, etc.)
+
+Those live under `DungeonOverMind/.cursor/rules/` on disk. **Buddy-only rules in this repo:** `dungeonbuddy-environment.mdc` (OpenAI / `.env` loading). **This file** only adds Buddy-specific **git** expectations where they differ from or narrow the parent doc’s generic “`main` always deployable / short-lived branches” ideal.
+
+## Single line of work (until release discipline is needed)
+
+For **DungeonMindBuddy** right now:
+
+- **`main` is not treated as sacred.** It is the default integration line, not a protected production gate.
+- Prefer a **single active branch** (often `main`, or one long-lived `cursor/…` / feature branch) and **small, frequent merges** over many parallel long-lived branches.
+- Avoid heavy ceremony: mandatory PR queues, strict “only merge to `main` when release-ready,” or multiple tiered branches **until** you explicitly adopt them for this repo.
+
+**Still do:** clear commit messages, atomic-ish commits where practical, and don’t push secrets.
+
+**When this rule should be revisited:** the first time Buddy ships on a schedule, shares `main` with another team, or CI must block merges—then tighten branch policy and document the change here or in a short ADR.

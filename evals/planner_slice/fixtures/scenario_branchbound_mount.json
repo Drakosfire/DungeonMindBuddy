@@ -1,0 +1,73 @@
+{
+  "id": "branchbound_mount_scripted",
+  "description": "Session-style handoff plus encounter ask; scripted model reads Migrating Forest then Branchbound then requests statblock.",
+  "user_message": "--- Prior session (handoff) ---\nCombat wrapped at the Fallen Spine; party is pushing into Branchbound territory next session.\n\n--- Planning ask ---\nI need a CR 2 dinosaur-style mount for a Branchbound patrol leader near the Witness Seed. Ground it in corpus tone.\n\nName the mount \"Branchbound War-Strider Okapi\" in the statblock tool.",
+  "statblock_stub": "## Branchbound War-Strider Okapi (eval stub)\n*Large beast, unaligned*\n**Armor Class** 14 — **Hit Points** 42 — **Speed** 40 ft.\n_Mock statblock for eval only._",
+  "mock_responses": [
+    {
+      "id": "resp-1",
+      "output": [
+        {
+          "type": "function_call",
+          "name": "read_corpus_file",
+          "call_id": "fc-read-1",
+          "arguments": "{\"path\": \"Elderwyld/Migrating Forest/the_migrating_forest_executive_dm_summary.md\"}"
+        }
+      ]
+    },
+    {
+      "id": "resp-2",
+      "output": [
+        {
+          "type": "function_call",
+          "name": "read_corpus_file",
+          "call_id": "fc-read-2",
+          "arguments": "{\"path\": \"Elderwyld/Migrating Forest/Branchbound/branchbound_culture_pack.md\"}"
+        }
+      ]
+    },
+    {
+      "id": "resp-3",
+      "output": [
+        {
+          "type": "function_call",
+          "name": "generate_statblock",
+          "call_id": "fc-stat-1",
+          "arguments": "{\"creature_name\": \"Branchbound War-Strider Okapi\", \"description\": \"Branchbound patrol mount; canopy intimidation tactics from culture pack.\", \"challenge_rating\": \"2\"}"
+        }
+      ]
+    },
+    {
+      "id": "resp-4",
+      "output": [
+        {
+          "type": "message",
+          "content": [
+            {
+              "type": "output_text",
+              "text": "Grounded plan: use the Migrating Forest executive summary plus Branchbound culture pack. Patrol near Witness Seed; mount statblock is the Branchbound War-Strider Okapi (CR 2) in tool output."
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "expect": {
+    "tool_names_in_order": [
+      "read_corpus_file",
+      "read_corpus_file",
+      "generate_statblock"
+    ],
+    "read_paths_must_include_substrings": [
+      "Migrating Forest/the_migrating_forest_executive_dm_summary.md",
+      "Branchbound/branchbound_culture_pack.md"
+    ],
+    "statblock_args": {
+      "creature_name_contains": "okapi",
+      "description_contains_any": ["Branchbound", "canopy", "patrol"]
+    },
+    "final_text_must_include": ["Witness", "Branchbound"],
+    "all_scripted_responses_consumed": true,
+    "previous_response_id_chained_after_first_call": true
+  }
+}

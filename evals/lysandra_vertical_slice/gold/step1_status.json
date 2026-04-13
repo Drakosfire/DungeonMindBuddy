@@ -1,0 +1,12 @@
+{
+  "schema": "lysandra_vertical_slice_gate_status_v1",
+  "step": 1,
+  "label": "retrieval_keyword_recall",
+  "implementation_complete": true,
+  "human_signpost": "evals/lysandra_vertical_slice/GATES.md",
+  "verification": {
+    "command": "uv run pytest tests/test_lysandra_vertical_slice_step1.py -q",
+    "last_verified_outcome": "10 passed (step0 + step1 tests)"
+  },
+  "notes": "Lane B only: keyword scan over Longmont Campaign + Elderwyld (~130 md). Lane A (planner tool_trace): see gold/planner_step1_status.json and step1_planner_trace.py."
+}

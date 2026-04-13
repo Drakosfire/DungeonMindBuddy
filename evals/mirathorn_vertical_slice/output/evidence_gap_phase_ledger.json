@@ -749,6 +749,186 @@
         "hit": 29
       },
       "timestamp": "2026-04-09T04:14:16Z"
+    },
+    {
+      "phase_name": "exp5a_full_corpus_projection_only",
+      "hypothesis": "Projection-only retrieval on full corpus (compiled layer).",
+      "pipeline_config": "(defaults)",
+      "overall_semantic": {
+        "pass_updated": 2,
+        "fail_stale": 1,
+        "fail_incomplete": 12,
+        "fail_error": 0
+      },
+      "overall_context_support": {
+        "avg_support_ratio": 0.5056,
+        "full_support_count": 2,
+        "support_ge_0_75_count": 4,
+        "questions": 15
+      },
+      "overall_failure_surface": {
+        "pass": 2,
+        "retrieval_gap": 5,
+        "synthesis_gap": 8
+      },
+      "stage_loss_report": {
+        "store_gap": 4,
+        "evidence_gap": 0,
+        "retriever_gap": 14,
+        "synthesis_gap": 21,
+        "hit": 21
+      },
+      "timestamp": "2026-04-09T22:46:54Z"
+    },
+    {
+      "phase_name": "exp5b_full_corpus_evidence_per_seed",
+      "hypothesis": "Evidence-first + adaptive top-k + per-seed neighbors on full corpus.",
+      "pipeline_config": "--evidence-first --evidence-adaptive-top-k --evidence-adaptive-top-k-max 48 --evidence-density-threshold 0.3",
+      "overall_semantic": {
+        "pass_updated": 3,
+        "fail_stale": 1,
+        "fail_incomplete": 11,
+        "fail_error": 0
+      },
+      "overall_context_support": {
+        "avg_support_ratio": 0.5389,
+        "full_support_count": 3,
+        "support_ge_0_75_count": 5,
+        "questions": 15
+      },
+      "overall_failure_surface": {
+        "pass": 3,
+        "retrieval_gap": 6,
+        "synthesis_gap": 6
+      },
+      "stage_loss_report": {
+        "store_gap": 4,
+        "evidence_gap": 12,
+        "retriever_gap": 9,
+        "synthesis_gap": 16,
+        "hit": 19
+      },
+      "timestamp": "2026-04-09T23:16:38Z"
+    },
+    {
+      "phase_name": "exp5c_full_corpus_doc_planner_projection_only",
+      "hypothesis": "Doc planner scopes docs; compiled projection path only (no evidence-first).",
+      "pipeline_config": "--document-planner",
+      "overall_semantic": {
+        "pass_updated": 2,
+        "fail_stale": 0,
+        "fail_incomplete": 13,
+        "fail_error": 0
+      },
+      "overall_context_support": {
+        "avg_support_ratio": 0.3444,
+        "full_support_count": 2,
+        "support_ge_0_75_count": 3,
+        "questions": 15
+      },
+      "overall_failure_surface": {
+        "pass": 2,
+        "retrieval_gap": 9,
+        "synthesis_gap": 4
+      },
+      "stage_loss_report": {
+        "store_gap": 4,
+        "evidence_gap": 0,
+        "retriever_gap": 13,
+        "synthesis_gap": 25,
+        "hit": 18
+      },
+      "timestamp": "2026-04-09T23:30:36Z"
+    },
+    {
+      "phase_name": "exp5d_full_corpus_doc_planner_evidence_per_seed",
+      "hypothesis": "Doc planner + evidence-first + adaptive top-k + per-seed on full corpus.",
+      "pipeline_config": "--evidence-first --evidence-adaptive-top-k --evidence-adaptive-top-k-max 48 --evidence-density-threshold 0.3 --document-planner",
+      "overall_semantic": {
+        "pass_updated": 3,
+        "fail_stale": 0,
+        "fail_incomplete": 12,
+        "fail_error": 0
+      },
+      "overall_context_support": {
+        "avg_support_ratio": 0.5889,
+        "full_support_count": 4,
+        "support_ge_0_75_count": 6,
+        "questions": 15
+      },
+      "overall_failure_surface": {
+        "pass": 3,
+        "retrieval_gap": 5,
+        "synthesis_gap": 7
+      },
+      "stage_loss_report": {
+        "store_gap": 4,
+        "evidence_gap": 13,
+        "retriever_gap": 7,
+        "synthesis_gap": 18,
+        "hit": 18
+      },
+      "timestamp": "2026-04-09T23:32:58Z"
+    },
+    {
+      "phase_name": "exp5e_full_corpus_projection_enriched",
+      "hypothesis": "Append provenance-backed evidence after context budget (projection path).",
+      "pipeline_config": "--projection-enriched",
+      "overall_semantic": {
+        "pass_updated": 2,
+        "fail_stale": 1,
+        "fail_incomplete": 12,
+        "fail_error": 0
+      },
+      "overall_context_support": {
+        "avg_support_ratio": 0.4889,
+        "full_support_count": 2,
+        "support_ge_0_75_count": 4,
+        "questions": 15
+      },
+      "overall_failure_surface": {
+        "pass": 2,
+        "retrieval_gap": 6,
+        "synthesis_gap": 7
+      },
+      "stage_loss_report": {
+        "store_gap": 4,
+        "evidence_gap": 0,
+        "retriever_gap": 14,
+        "synthesis_gap": 23,
+        "hit": 19
+      },
+      "timestamp": "2026-04-09T23:40:52Z"
+    },
+    {
+      "phase_name": "exp5f_full_corpus_rich_entity_summaries",
+      "hypothesis": "Richer compiled-layer entity summaries for lexical retrieval.",
+      "pipeline_config": "--rich-entity-summaries",
+      "overall_semantic": {
+        "pass_updated": 2,
+        "fail_stale": 0,
+        "fail_incomplete": 13,
+        "fail_error": 0
+      },
+      "overall_context_support": {
+        "avg_support_ratio": 0.5056,
+        "full_support_count": 2,
+        "support_ge_0_75_count": 4,
+        "questions": 15
+      },
+      "overall_failure_surface": {
+        "pass": 2,
+        "retrieval_gap": 5,
+        "synthesis_gap": 8
+      },
+      "stage_loss_report": {
+        "store_gap": 4,
+        "evidence_gap": 0,
+        "retriever_gap": 14,
+        "synthesis_gap": 20,
+        "hit": 22
+      },
+      "timestamp": "2026-04-09T23:44:03Z"
     }
   ]
 }

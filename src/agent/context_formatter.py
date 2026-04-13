@@ -80,8 +80,13 @@ def format_projection_context(
     include_scope_annotations: bool = False,
     max_entities: int | None = None,
     priority_entity_ids: list[str] | set[str] | None = None,
+    wiki_pages: dict[str, str] | None = None,
 ) -> str:
-    """Render projection as structured text for the synthesis LLM."""
+    """Render projection as structured text for the synthesis LLM.
+
+    When *wiki_pages* is set and contains an entry for an entity, emit the LLM-authored
+    article instead of raw attribute lines (hybrid Karpathy wiki + structured fallback).
+    """
     projection_entities = projection.get("entities", {})
     if not projection_entities:
         return "No projected entities are available for this campaign scope."
@@ -215,6 +220,13 @@ def format_projection_context(
                 f"reason={relevance.get('decision_reason', 'n/a')}, "
                 f"pruning_candidate={relevance.get('pruning_candidate', False)}]"
             )
+
+        wiki_text = (wiki_pages or {}).get(entity_id, "").strip() if wiki_pages else ""
+        if wiki_text:
+            lines.append("(wiki article)")
+            lines.append(wiki_text)
+            lines.append("")
+            continue
 
         attributes = entity_payload.get("attributes", {})
         if not attributes:

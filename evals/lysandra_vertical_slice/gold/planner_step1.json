@@ -1,0 +1,18 @@
+{
+  "id": "lysandra_planner_step1_level_up_reads",
+  "version": 1,
+  "input": {
+    "user_message": "Captain Lysandra Ironveil — prep her **level-up** for the next session.\n\nBefore you summarize, use **read_corpus_file** to load evidence from:\n1) her NPC dossier markdown under `Longmont Campaign/Campaign 2/NPC Dossier/` whose filename contains `lieutenant_lysandra_ironveil_character_dossier`, and\n2) the **Session 18** recap markdown under `Longmont Campaign/Campaign 2/Session Recaps/`.\n\nThen reply in short markdown bullets (story hooks, any mechanical hints visible in the dossier, open questions). **Do not** call `generate_statblock`."
+  },
+  "steps": [],
+  "final": {
+    "require": {
+      "min_output_chars": 120,
+      "tool_trace_must_include_tool": "read_corpus_file",
+      "read_corpus_paths_must_include": [
+        "lieutenant_lysandra_ironveil_character_dossier",
+        "session 18"
+      ]
+    }
+  }
+}

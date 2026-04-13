@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+from dataclasses import replace
 import hashlib
 import json
 import logging
@@ -14,11 +15,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Sequence
 
-from dotenv import load_dotenv
 from openai import OpenAI
 
 from src.agent.context_formatter import format_projection_context
+from src.agent.document_planner import build_document_roster, plan_documents_async
 from src.agent.evidence_retriever import (
+    collect_provenance_evidence_for_entities,
     rank_entities_by_evidence_overlap,
     retrieve_relevant_evidence,
 )
@@ -28,7 +30,9 @@ from src.agent.retriever import (
     semantic_rerank_entities,
 )
 from src.agent.scope_relevance import question_mentioned_entity_ids
+from src.agent.planner import run_planning_session
 from src.agent.synthesis import synthesize_answer_async
+from src.compiler.wiki_compiler import compile_wiki, list_wiki_targets
 from src.ingestion.chunker import chunk_document
 from src.ingestion.frontmatter import (
     FrontmatterError,
@@ -76,21 +80,9 @@ def _snake_case(value: str) -> str:
 
 
 def _load_env() -> None:
-    project_root = Path(__file__).resolve().parents[1]
-    env_candidates = [
-        project_root / ".env.development",
-        project_root.parents[0] / ".env.development",
-    ]
-    for env_file in env_candidates:
-        if env_file.exists():
-            try:
-                load_dotenv(env_file, override=True)
-            except OSError as exc:
-                logging.getLogger(__name__).warning(
-                    "Could not load env file %s: %s. Continuing with process environment.",
-                    env_file,
-                    exc,
-                )
+    from src.bootstrap_env import load_dungeonmindbuddy_dotenv
+
+    load_dungeonmindbuddy_dotenv()
 
 
 def _fact_counts_by_entity(store: FactStore) -> dict[str, int]:
@@ -388,6 +380,7 @@ class DungeonBuddyCLI:
         priority_entity_ids: list[str] | None,
         max_entities: int,
         max_chars: int,
+        wiki_pages: dict[str, str] | None = None,
     ) -> tuple[str, int, bool]:
         cap = max(1, int(max_entities))
         context = ""
@@ -407,6 +400,7 @@ class DungeonBuddyCLI:
                 include_scope_annotations=include_scope_annotations,
                 max_entities=cap,
                 priority_entity_ids=priority_entity_ids,
+                wiki_pages=wiki_pages,
             )
             if len(context) <= max_chars or cap <= 5:
                 truncated = cap < max_entities or len(context) > max_chars
@@ -416,6 +410,63 @@ class DungeonBuddyCLI:
                 next_cap = cap - 1
             cap = max(5, next_cap)
         return context, cap, truncated
+
+    @staticmethod
+    def _build_provenance_appendix(
+        *,
+        projection: dict[str, Any],
+        evidence_units: list[dict[str, Any]],
+        max_total_chars: int,
+        base_context_len: int,
+    ) -> tuple[str, dict[str, Any]]:
+        """Append raw evidence text for provenance IDs on retrieved (filtered) entities."""
+        budget = max(0, max_total_chars - base_context_len - 4)
+        stats: dict[str, Any] = {
+            "appendix_chars": 0,
+            "provenance_evidence_ids_seen": 0,
+            "provenance_evidence_ids_included": 0,
+        }
+        if budget < 120:
+            return "", stats
+
+        evidence_by_id = {
+            str(u.get("evidence_id", "")).strip(): str(u.get("text", "")).strip()
+            for u in evidence_units
+            if str(u.get("evidence_id", "")).strip()
+        }
+        ordered_ids: list[str] = []
+        seen: set[str] = set()
+        for _eid, payload in (projection.get("entities") or {}).items():
+            for _attr, ap in (payload.get("attributes") or {}).items():
+                for ev in ap.get("provenance_evidence_ids") or []:
+                    eid = str(ev).strip()
+                    if eid and eid not in seen:
+                        seen.add(eid)
+                        ordered_ids.append(eid)
+        stats["provenance_evidence_ids_seen"] = len(ordered_ids)
+
+        chunks: list[str] = ["## Supporting evidence excerpts"]
+        total = len(chunks[0])
+        included = 0
+        for eid in ordered_ids:
+            text = evidence_by_id.get(eid, "")
+            if not text:
+                continue
+            block = f"[{eid}] {text}"
+            add = len(block) + (2 if len(chunks) else 0)
+            if total + add > budget:
+                remain = budget - total - 2
+                if remain > 80:
+                    chunks.append(f"[{eid}] {text[:remain]}...")
+                    included += 1
+                break
+            chunks.append(block)
+            total += add
+            included += 1
+        appendix = "\n\n".join(chunks) if len(chunks) > 1 else ""
+        stats["appendix_chars"] = len(appendix)
+        stats["provenance_evidence_ids_included"] = included
+        return appendix, stats
 
     @staticmethod
     def _metadata_conflicts(
@@ -500,6 +551,9 @@ class DungeonBuddyCLI:
         if command == "ask":
             self._cmd_ask(args)
             return True
+        if command == "plan":
+            self._cmd_plan(args)
+            return True
         if command == "entities":
             self._cmd_entities(args)
             return True
@@ -512,9 +566,34 @@ class DungeonBuddyCLI:
         if command == "canon-decision":
             self._cmd_canon_decision(args)
             return True
+        if command == "compile-wiki":
+            self._cmd_compile_wiki(args)
+            return True
 
         print(f"Error: unknown command '{command}'")
         return True
+
+    def _cmd_plan(self, args: Sequence[str]) -> None:
+        parser = argparse.ArgumentParser(prog="plan", add_help=False)
+        parser.add_argument(
+            "--corpus-dir",
+            type=str,
+            default="corpus/eldyrwild-markdown",
+            help="Directory relative to project root (default: corpus/eldyrwild-markdown).",
+        )
+        parser.add_argument(
+            "--model",
+            type=str,
+            default="",
+            help="Optional OpenAI model id override.",
+        )
+        parsed = self._safe_parse(parser, args)
+        if parsed is None:
+            return
+        project_root = Path(__file__).resolve().parents[1]
+        corpus_dir = (project_root / parsed.corpus_dir).resolve()
+        model = parsed.model.strip() or None
+        run_planning_session(corpus_dir, model)
 
     def _cmd_ingest(self, args: Sequence[str]) -> None:
         run_id = f"ingest-{uuid.uuid4().hex[:10]}"
@@ -1278,6 +1357,81 @@ class DungeonBuddyCLI:
             help="Boost weight when evidence links to entity provenance. Default: 0.8.",
         )
         parser.add_argument(
+            "--corpus-lexicon-boost",
+            action="store_true",
+            default=False,
+            help="Enable corpus-lexicon phrase boosts for evidence retrieval.",
+        )
+        parser.add_argument(
+            "--corpus-lexicon-path",
+            type=str,
+            default="",
+            help="Optional path to corpus lexicon JSON (defaults to store/corpus_lexicon.json).",
+        )
+        parser.add_argument(
+            "--alias-normalization",
+            action="store_true",
+            default=False,
+            help="Enable alias/acronym normalization from corpus lexicon.",
+        )
+        parser.add_argument(
+            "--alias-match-weight",
+            type=float,
+            default=0.06,
+            help="Per-hit score boost for corpus alias phrase matches. Default: 0.06.",
+        )
+        parser.add_argument(
+            "--corpus-lexicon-max-boost",
+            type=float,
+            default=0.35,
+            help="Max total corpus lexicon phrase boost per unit. Default: 0.35.",
+        )
+        parser.add_argument(
+            "--evidence-adaptive-top-k",
+            action="store_true",
+            default=False,
+            help="Enable adaptive evidence top-k up to a bounded maximum.",
+        )
+        parser.add_argument(
+            "--evidence-adaptive-top-k-max",
+            type=int,
+            default=48,
+            help="Upper cap for adaptive evidence top-k. Default: 48.",
+        )
+        parser.add_argument(
+            "--evidence-density-threshold",
+            type=float,
+            default=0.3,
+            help="Adaptive threshold as max_score multiplier. Default: 0.3.",
+        )
+        parser.add_argument(
+            "--evidence-entity-aware",
+            action="store_true",
+            default=False,
+            help="Enable provenance-aware evidence second pass from top entities.",
+        )
+        parser.add_argument(
+            "--evidence-two-pass",
+            action="store_true",
+            default=False,
+            help=(
+                "Run evidence without entity-aware expansion, then add provenance chunks "
+                "from top overlap entities (ordered two-pass; use instead of --evidence-entity-aware)."
+            ),
+        )
+        parser.add_argument(
+            "--evidence-entity-quota",
+            type=int,
+            default=10,
+            help="How many top overlap entities to inspect for evidence expansion.",
+        )
+        parser.add_argument(
+            "--evidence-entity-evidence-quota",
+            type=int,
+            default=12,
+            help="How many provenance evidence IDs to add in entity-aware pass.",
+        )
+        parser.add_argument(
             "--semantic-rerank",
             action="store_true",
             default=False,
@@ -1312,6 +1466,60 @@ class DungeonBuddyCLI:
             type=int,
             default=20000,
             help="Hard cap target for formatted context chars. Default: 20000.",
+        )
+        parser.add_argument(
+            "--synthesis-profile",
+            type=str,
+            default="",
+            help="Optional synthesis prompt profile (e.g. mirathorn).",
+        )
+        parser.add_argument(
+            "--synthesis-verbosity",
+            type=str,
+            default="",
+            help="Optional synthesis verbosity mode (default|compact|verbose).",
+        )
+        parser.add_argument(
+            "--two-step-synthesis",
+            action="store_true",
+            default=False,
+            help="First LLM call extracts claims from context; second call answers from claims.",
+        )
+        parser.add_argument(
+            "--synthesis-citation-structure",
+            action="store_true",
+            default=False,
+            help="Append Evidence/Analysis structure requirements to the synthesis system prompt.",
+        )
+        parser.add_argument(
+            "--document-planner",
+            action="store_true",
+            default=False,
+            help="LLM-select scope documents before evidence-first chunk retrieval.",
+        )
+        parser.add_argument(
+            "--document-planner-model",
+            type=str,
+            default="",
+            help="Optional model override for document planner (default from MODEL_POLICY).",
+        )
+        parser.add_argument(
+            "--projection-enriched",
+            action="store_true",
+            default=False,
+            help="Append provenance evidence text for retrieved entities to context.",
+        )
+        parser.add_argument(
+            "--rich-entity-summaries",
+            action="store_true",
+            default=False,
+            help="Use denser entity summaries for retrieval (keyword/index signal).",
+        )
+        parser.add_argument(
+            "--use-wiki",
+            action="store_true",
+            default=False,
+            help="Use LLM-authored wiki pages for retrieval index and context when wiki_pages.json exists.",
         )
         parsed = self._safe_parse(parser, args)
         if parsed is None:
@@ -1362,6 +1570,24 @@ class DungeonBuddyCLI:
         if parsed.evidence_entity_boost < 0:
             print("Error: --evidence-entity-boost must be >= 0.")
             return
+        if parsed.alias_match_weight < 0:
+            print("Error: --alias-match-weight must be >= 0.")
+            return
+        if parsed.corpus_lexicon_max_boost < 0:
+            print("Error: --corpus-lexicon-max-boost must be >= 0.")
+            return
+        if parsed.evidence_adaptive_top_k_max < 1:
+            print("Error: --evidence-adaptive-top-k-max must be >= 1.")
+            return
+        if parsed.evidence_density_threshold <= 0 or parsed.evidence_density_threshold > 1:
+            print("Error: --evidence-density-threshold must be in (0, 1].")
+            return
+        if parsed.evidence_entity_quota < 0:
+            print("Error: --evidence-entity-quota must be >= 0.")
+            return
+        if parsed.evidence_entity_evidence_quota < 0:
+            print("Error: --evidence-entity-evidence-quota must be >= 0.")
+            return
         if parsed.context_max_entities < 1:
             print("Error: --context-max-entities must be >= 1.")
             return
@@ -1384,8 +1610,55 @@ class DungeonBuddyCLI:
             )
             return
 
+        if parsed.rich_entity_summaries:
+            os.environ["DMB_RICH_ENTITY_SUMMARIES"] = "1"
+            self._entity_index = None
+        else:
+            os.environ.pop("DMB_RICH_ENTITY_SUMMARIES", None)
+
+        use_wiki = bool(parsed.use_wiki) or os.environ.get("DMB_USE_WIKI", "").strip() == "1"
+        wiki_pages_for_context: dict[str, str] | None = None
+        if use_wiki:
+            if self.store.has_wiki():
+                wiki_pages_for_context = dict(self.store.wiki_pages)
+                self._entity_index = None
+            else:
+                print(
+                    "Warning: --use-wiki / DMB_USE_WIKI but store has no wiki pages; "
+                    "run `compile-wiki` first. Using projection only.",
+                    file=sys.stderr,
+                )
+                use_wiki = False
+
         projection = self.store.project(parsed.campaign)
         scope_document_ids = [str(doc_id).strip() for doc_id in parsed.scope_document if str(doc_id).strip()]
+        document_planner_meta: dict[str, Any] = {"enabled": False}
+        if parsed.document_planner:
+            roster, candidate_doc_ids = build_document_roster(
+                self.store.evidence_units,
+                campaign_id=parsed.campaign,
+            )
+            dpmodel = (parsed.document_planner_model or "").strip() or None
+            doc_plan = asyncio.run(
+                plan_documents_async(
+                    parsed.question,
+                    roster,
+                    candidate_doc_ids,
+                    model=dpmodel,
+                )
+            )
+            document_planner_meta = {
+                "enabled": True,
+                "selected_document_ids": list(doc_plan.selected_document_ids),
+                "reasoning": doc_plan.reasoning,
+                "duration_ms": doc_plan.duration_ms,
+                "fallback": doc_plan.fallback,
+                "model": doc_plan.model,
+            }
+            if not doc_plan.fallback:
+                scope_document_ids = sorted(
+                    set(scope_document_ids) | set(doc_plan.selected_document_ids)
+                )
         if scope_document_ids:
             projection = attach_scope_relevance_metadata(
                 projection=projection,
@@ -1399,14 +1672,41 @@ class DungeonBuddyCLI:
                 ),
             )
         use_retrieval = parsed.retrieval and not parsed.no_retrieval
-        retrieval_meta: dict[str, Any] = {"enabled": False}
+        retrieval_meta: dict[str, Any] = {
+            "enabled": False,
+            "document_planner": document_planner_meta,
+            "wiki": {
+                "enabled": bool(use_wiki and wiki_pages_for_context),
+                "page_count": len(wiki_pages_for_context or {}),
+            },
+        }
         priority_entity_ids: list[str] = []
+        corpus_lexicon: dict[str, Any] | None = None
+        if parsed.corpus_lexicon_boost or parsed.alias_normalization:
+            lexicon_path = (
+                Path(parsed.corpus_lexicon_path).expanduser()
+                if parsed.corpus_lexicon_path
+                else self.store.store_dir / "corpus_lexicon.json"
+            )
+            if lexicon_path.exists():
+                try:
+                    payload = json.loads(lexicon_path.read_text(encoding="utf-8"))
+                    if isinstance(payload, dict):
+                        corpus_lexicon = payload
+                except json.JSONDecodeError:
+                    self.logger.warning("Invalid corpus lexicon JSON at %s", lexicon_path)
+            else:
+                self.logger.info("Corpus lexicon path not found: %s", lexicon_path)
         if use_retrieval:
             retrieval_started = time.perf_counter()
             evidence_meta: dict[str, Any] = {"enabled": False}
             evidence_entity_scores: dict[str, float] = {}
             if parsed.evidence_first:
                 evidence_started = time.perf_counter()
+                two_pass_provenance_added = 0
+                entity_aware_pass1 = (
+                    bool(parsed.evidence_entity_aware) and not bool(parsed.evidence_two_pass)
+                )
                 evidence_result = retrieve_relevant_evidence(
                     parsed.question,
                     self.store.evidence_units,
@@ -1415,7 +1715,60 @@ class DungeonBuddyCLI:
                     top_k=parsed.evidence_top_k,
                     neighbor_window=parsed.evidence_neighbor_window,
                     max_neighbors=parsed.evidence_max_neighbors,
+                    corpus_lexicon=(
+                        corpus_lexicon
+                        if (parsed.corpus_lexicon_boost or parsed.alias_normalization)
+                        else None
+                    ),
+                    enable_alias_normalization=parsed.alias_normalization,
+                    alias_match_weight=parsed.alias_match_weight,
+                    lexicon_max_boost=parsed.corpus_lexicon_max_boost,
+                    include_legacy_phrase_boost=True,
+                    adaptive_top_k=parsed.evidence_adaptive_top_k,
+                    adaptive_top_k_max=parsed.evidence_adaptive_top_k_max,
+                    adaptive_density_threshold=parsed.evidence_density_threshold,
+                    projection=projection,
+                    entity_awareness_enabled=entity_aware_pass1,
+                    entity_quota=parsed.evidence_entity_quota,
+                    entity_evidence_quota=parsed.evidence_entity_evidence_quota,
                 )
+                if parsed.evidence_two_pass:
+                    base_ids = list(evidence_result.selected_evidence_ids)
+                    seen: set[str] = set(base_ids)
+                    overlap_scores = rank_entities_by_evidence_overlap(projection, seen)
+                    top_entities = sorted(
+                        overlap_scores,
+                        key=lambda eid: overlap_scores[eid],
+                        reverse=True,
+                    )[: max(1, int(parsed.evidence_entity_quota))]
+                    provenance_ids = collect_provenance_evidence_for_entities(
+                        projection,
+                        top_entities,
+                    )
+                    quota = max(0, int(parsed.evidence_entity_evidence_quota))
+                    merged = list(base_ids)
+                    for eid in provenance_ids:
+                        if eid in seen:
+                            continue
+                        if two_pass_provenance_added >= quota:
+                            break
+                        merged.append(eid)
+                        seen.add(eid)
+                        two_pass_provenance_added += 1
+                    doc_set: set[str] = set()
+                    for unit in self.store.evidence_units:
+                        ue = str(unit.get("evidence_id", "")).strip()
+                        if ue in seen:
+                            doc_set.add(str(unit.get("document_id", "")).strip())
+                    dbg = dict(evidence_result.debug)
+                    dbg["two_pass"] = True
+                    dbg["two_pass_provenance_added"] = two_pass_provenance_added
+                    evidence_result = replace(
+                        evidence_result,
+                        selected_evidence_ids=merged,
+                        selected_document_ids=sorted(doc_set),
+                        debug=dbg,
+                    )
                 evidence_entity_scores = rank_entities_by_evidence_overlap(
                     projection,
                     set(evidence_result.selected_evidence_ids),
@@ -1436,6 +1789,12 @@ class DungeonBuddyCLI:
                     "selected_evidence_ids": evidence_result.selected_evidence_ids,
                     "selected_document_ids": evidence_result.selected_document_ids,
                     "debug": evidence_result.debug,
+                    "corpus_lexicon_boost": bool(parsed.corpus_lexicon_boost),
+                    "alias_normalization": bool(parsed.alias_normalization),
+                    "evidence_adaptive_top_k": bool(parsed.evidence_adaptive_top_k),
+                    "evidence_entity_aware": bool(parsed.evidence_entity_aware),
+                    "evidence_two_pass": bool(parsed.evidence_two_pass),
+                    "two_pass_provenance_added": two_pass_provenance_added,
                 }
             ranked, self._entity_index = retrieve_relevant_entities(
                 parsed.question,
@@ -1443,6 +1802,7 @@ class DungeonBuddyCLI:
                 self.store.list_entities(),
                 top_k=parsed.retrieval_top_k,
                 index=getattr(self, "_entity_index", None),
+                wiki_pages=wiki_pages_for_context if use_wiki else None,
             )
             if evidence_entity_scores:
                 ranked = self._fuse_ranked_entities(
@@ -1493,6 +1853,11 @@ class DungeonBuddyCLI:
                 "selected_entity_ids": [eid for eid, _ in ranked],
                 "semantic_rerank": semantic_rerank_meta,
                 "evidence_first": evidence_meta,
+                "document_planner": document_planner_meta,
+                "wiki": {
+                    "enabled": bool(use_wiki and wiki_pages_for_context),
+                    "page_count": len(wiki_pages_for_context or {}),
+                },
             }
             self.logger.info(
                 "Ask run_id=%s stage=retrieval entities=%d/%d duration_ms=%d",
@@ -1541,6 +1906,7 @@ class DungeonBuddyCLI:
                 priority_entity_ids=priority_entity_ids,
                 max_entities=parsed.context_max_entities,
                 max_chars=parsed.context_max_chars,
+                wiki_pages=wiki_pages_for_context if use_wiki else None,
             )
             context_chars = len(context)
             format_ms = int((time.perf_counter() - format_started) * 1000)
@@ -1550,8 +1916,43 @@ class DungeonBuddyCLI:
                 context_chars,
                 format_ms,
             )
+            projection_enriched_meta: dict[str, Any] = {"enabled": False}
+            if parsed.projection_enriched and use_retrieval:
+                appendix, pe_stats = DungeonBuddyCLI._build_provenance_appendix(
+                    projection=projection,
+                    evidence_units=self.store.evidence_units,
+                    max_total_chars=parsed.context_max_chars,
+                    base_context_len=len(context),
+                )
+                if appendix:
+                    combined = context + "\n\n" + appendix
+                    if len(combined) > parsed.context_max_chars:
+                        combined = combined[: parsed.context_max_chars]
+                    context = combined
+                    context_chars = len(context)
+                    projection_enriched_meta = {"enabled": True, **pe_stats}
+            elif parsed.projection_enriched:
+                projection_enriched_meta = {
+                    "enabled": False,
+                    "reason": "requires_retrieval",
+                }
+            retrieval_meta["projection_enriched"] = projection_enriched_meta
+            retrieval_meta["rich_entity_summaries"] = bool(parsed.rich_entity_summaries)
+
             model_started = time.perf_counter()
-            answer = asyncio.run(synthesize_answer_async(context, parsed.question))
+            synthesis_meta: dict[str, Any] = {}
+            answer = asyncio.run(
+                synthesize_answer_async(
+                    context,
+                    parsed.question,
+                    synthesis_profile=(parsed.synthesis_profile or None),
+                    verbosity=(parsed.synthesis_verbosity or None),
+                    two_step=True if parsed.two_step_synthesis else None,
+                    citation_structure=True if parsed.synthesis_citation_structure else None,
+                    synthesis_meta_out=synthesis_meta,
+                    wiki_mode=bool(use_wiki and wiki_pages_for_context),
+                )
+            )
             model_ms = int((time.perf_counter() - model_started) * 1000)
             self._record_event(
                 "model_calls",
@@ -1564,6 +1965,9 @@ class DungeonBuddyCLI:
                     "context_chars": len(context),
                     "question_chars": len(parsed.question),
                     "answer_chars": len(answer),
+                    "synthesis_profile": parsed.synthesis_profile or "",
+                    "synthesis_verbosity": parsed.synthesis_verbosity or "",
+                    "synthesis_meta": synthesis_meta,
                 },
             )
             self.logger.info(
@@ -1592,6 +1996,9 @@ class DungeonBuddyCLI:
                 "status": "error",
                 "error": str(exc),
                 "retrieval": retrieval_meta,
+                "synthesis_profile": parsed.synthesis_profile or "",
+                "synthesis_verbosity": parsed.synthesis_verbosity or "",
+                "synthesis_meta": {},
             }
             return
         print(answer)
@@ -1608,6 +2015,9 @@ class DungeonBuddyCLI:
             "answer_chars": len(answer),
             "retrieval": retrieval_meta,
             "projection_metrics": projection.get("metrics", {}),
+            "synthesis_profile": parsed.synthesis_profile or "",
+            "synthesis_verbosity": parsed.synthesis_verbosity or "",
+            "synthesis_meta": synthesis_meta,
         }
         self._record_event(
             "ask_runs",
@@ -1621,6 +2031,8 @@ class DungeonBuddyCLI:
                 "answer_chars": len(answer),
                 "projection_metrics": projection.get("metrics", {}),
                 "retrieval": retrieval_meta,
+                "synthesis_profile": parsed.synthesis_profile or "",
+                "synthesis_verbosity": parsed.synthesis_verbosity or "",
             },
         )
         self.logger.info("Ask completed run_id=%s duration_ms=%d", run_id, total_ms)
@@ -1747,6 +2159,93 @@ class DungeonBuddyCLI:
             f"evidence {stats['evidence_before']} -> {stats['evidence_after']}, "
             f"facts {stats['facts_before']} -> {stats['facts_after']}."
         )
+
+    def _cmd_compile_wiki(self, args: Sequence[str]) -> None:
+        parser = argparse.ArgumentParser(prog="compile-wiki", add_help=False)
+        parser.add_argument("--campaign", type=str, default="", help="Campaign id for projection (e.g. longmont-c1).")
+        parser.add_argument(
+            "--min-connectivity",
+            type=float,
+            default=0.3,
+            help="Composite connectivity threshold (default 0.3). Ignored with --full.",
+        )
+        parser.add_argument(
+            "--full",
+            action="store_true",
+            help="Compile wiki for every projected entity (ignores connectivity threshold).",
+        )
+        parser.add_argument(
+            "--entity",
+            action="append",
+            default=[],
+            help="Compile only this entity_id (repeatable).",
+        )
+        parser.add_argument(
+            "--list",
+            action="store_true",
+            dest="list_only",
+            help="List entity_ids that would be compiled; do not call the model.",
+        )
+        parser.add_argument(
+            "--no-incremental",
+            action="store_true",
+            help="Recompile all targets even when fact hash unchanged.",
+        )
+        parser.add_argument(
+            "--max-workers",
+            type=int,
+            default=8,
+            help="Parallel LLM calls (default 8).",
+        )
+        parser.add_argument(
+            "--include-generic-names",
+            action="store_true",
+            help="Do not skip generic display names (she, meat, group, ...).",
+        )
+        parsed = self._safe_parse(parser, args)
+        if parsed is None:
+            return
+
+        if not os.getenv("OPENAI_API_KEY"):
+            print("Error: OPENAI_API_KEY is required for compile-wiki.")
+            return
+
+        campaign_id = str(parsed.campaign).strip() or None
+        entity_ids = [str(e).strip() for e in parsed.entity if str(e).strip()]
+
+        if parsed.list_only:
+            rows = list_wiki_targets(
+                self.store,
+                campaign_id=campaign_id,
+                min_connectivity=parsed.min_connectivity,
+                full=parsed.full,
+                skip_generic_names=not parsed.include_generic_names,
+            )
+            print(f"Would compile {len(rows)} entity wiki page(s):")
+            for eid, score, dn in rows[:500]:
+                print(f"  {eid}\tscore={score:.4f}\t{dn}")
+            if len(rows) > 500:
+                print(f"  ... and {len(rows) - 500} more")
+            return
+
+        try:
+            new_pages = compile_wiki(
+                self.store,
+                campaign_id,
+                entity_ids=entity_ids or None,
+                min_connectivity=parsed.min_connectivity,
+                full=parsed.full,
+                incremental=not parsed.no_incremental,
+                max_workers=max(1, int(parsed.max_workers)),
+                skip_generic_names=not parsed.include_generic_names,
+            )
+        except Exception as exc:
+            print(f"Error: compile-wiki failed: {exc}")
+            self.logger.exception("compile-wiki failed")
+            return
+
+        self.store.save()
+        print(f"compile-wiki: wrote {len(new_pages)} page(s); total wiki pages={len(self.store.wiki_pages)}.")
 
     @staticmethod
     def _safe_parse(

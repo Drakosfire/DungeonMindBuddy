@@ -6,7 +6,8 @@
     "Lysandra Ironveil",
     "Lieutenant Lysandra Ironveil",
     "Lysandra",
-    "Captain Lysandra"
+    "Captain Lysandra",
+    "Lysandara"
   ],
   "corpus_root_relpath": "corpus/eldyrwild-markdown",
   "corpus_roots_allowed_prefixes": [
@@ -18,5 +19,5 @@
   "statblock_status": "no_machine_readable_statblock_in_corpus_v0",
   "canonical_statblock_relpath": null,
   "recency_policy": "explicit_session_anchor_and_dossier_until_statblock_authored",
-  "notes": "When a true statblock markdown or JSON is added, set canonical_statblock_relpath and update statblock_status; tighten Step 2 gates."
+  "notes": "Statblock PDFs may live under corpus/.../Longmont Campaign/NPCs/ (git: monorepo root .gitignore allows DungeonMindBuddy/corpus/**/*.pdf). For planner reads, add or convert to .md or extend tools. When a canonical machine-readable sheet path exists, set canonical_statblock_relpath and statblock_status."
 }

@@ -4,6 +4,12 @@
 **Scope:** DungeonMindBuddy corpus + retrieval path, optional synthesis, DungeonMindServer StatblockGenerator (or successor HTTP surface), and a durable **store** record.  
 **Primary NPC:** Captain Lysandra Ironveil (corpus naming; avoid alternate spellings in fixtures).
 
+### Planner alignment — one line (read when this work resurfaces)
+
+**DungeonMindBuddy already selects documents in a tight tool loop:** OpenAI `responses.create` + corpus manifest in `instructions` + the `read_corpus_file` tool + `PlanningTurnDetail.tool_trace`. **This vertical slice should treat that as the primary retrieval story:** hang gates (and optional keyword/BM25 baselines) off `**tool_trace` and the user prompt** via `run_planning_turn_detailed` / planner-live-eval patterns—not only offline keyword scans—unless you explicitly split “benchmark without model” vs “benchmark with model.”
+
+**Code:** `src/agent/planner.py` (`run_planning_turn_detailed`, `make_tool_dispatcher`, `_planner_tools_responses`).
+
 ---
 
 ## 1. Executive summary
@@ -108,8 +114,44 @@ Each step produces a **structured trace record** (`step_id`, `inputs_sig`, `outp
 
 ### Step 1 — Retrieval (recall + grounding)
 
-**Inputs:** Query pack from gold (keywords, entity id if graph-backed, optional embedding seed).  
-**Outputs:** Ranked list of `{path, score, spans}` (minimum: ordered paths).
+Step 1 is intentionally **two lanes**. Only **Lane A** is the product-shaped retrieval story; **Lane B** is an optional **cheap, model-free** check unless you explicitly require both (e.g. CI without API keys).
+
+#### Lane A — Planner retrieval (primary; “Step 1” in the one-line sense)
+
+**Mechanism:** One bounded `run_planning_turn_detailed` call (or harness-identical loop) with a **gold `user_line`** (Lysandra level-up ask) + normal planner `instructions` + tools + `dispatch_tool` → `**PlanningTurnDetail.tool_trace**`.
+
+**Inputs:** Pinned `user_line`, corpus root (Step 0), model id policy (or scripted client for determinism).  
+**Outputs:** `tool_trace` (ordered `read_corpus_file` rows), `steps`, `final_text` (may be ignored for Step 1-only scoring), `hit_tool_round_limit`.
+
+**What a passing Lane A must convince us of**
+
+1. **Grounded file choice under the real manifest + tool contract** — the model actually **opened** markdown via `read_corpus_file` with valid relative paths, not only hallucinated paths in prose.
+2. **Recall adequacy for the slice** — every path in `gold.planner_step1.required_read_paths` (maintainer set: dossier, session anchor, etc.) appears **somewhere** in the **deduped** `read_corpus_file` path list (order-agnostic), or appears within the **first N** reads if you want to penalize “read the whole corpus.”
+3. **No runaway loop** — `hit_tool_round_limit` is false for this scenario (or you document an allowed waiver and still assert minimal reads).
+4. **Optional efficiency / focus** — caps on `read_corpus_file` count or token estimate, or “must not open paths on denylist” (product knobs).
+
+**Suggested gate IDs (Lane A)** — rename in implementation as you like:
+
+
+| Gate ID | Predicate                                                                                                                                                                                                                                         |
+| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `P1.1`  | Deduped `read_corpus_file` paths from `tool_trace` ⊇ `gold.planner_step1.required_read_paths` (subset as defined in gold).                                                                                                                        |
+| `P1.2`  | If `corpus_policy.canonical_statblock_relpath` is set, that path appears in deduped reads; else **both** `primary_reference_relpath` and `session_anchor_relpath` appear (same rule as offline G1.2, but applied to **trace**, not keyword rank). |
+| `P1.3`  | Every read path is under allowed corpus prefixes (same spirit as G1.3).                                                                                                                                                                           |
+| `P1.4`  | `hit_tool_round_limit` is false (unless gold documents an exception).                                                                                                                                                                             |
+
+
+**What passing does *not* prove:** final answer quality, correct level-up math, or statblock legality — only **which files the tight loop chose to load** for this user prompt.
+
+**Split “with model” vs “without”:** Lane A needs either a **live model** (integration) or a **scripted `responses` harness** that replays tool calls (`tests/test_planner_eval_scenarios.py` style). Same gate predicates on `tool_trace`; different cost and flake profile.
+
+---
+
+#### Lane B — Offline keyword / BM25 baseline (optional)
+
+**Mechanism:** No planner; score markdown files under scoped subtrees (today: `evals/lysandra_vertical_slice/step1_retrieval.py`).
+
+**What passing convinces us of:** **Lexical signal exists** in the corpus for the NPC and anchors — useful for **gold authoring**, **regressions when corpus text moves**, and **CI without LLM**. It does **not** prove the production planner would open those files under the same `user_line`.
 
 
 | Gate ID | Predicate                                                                                                                      |
@@ -196,7 +238,7 @@ Each step produces a **structured trace record** (`step_id`, `inputs_sig`, `outp
 | `G7.2`  | If server performs legality, duplicate check on client is optional but recommended with **same** golden violations list for regression. |
 
 
-*Implementation note:* Prefer StatblockGenerator’s existing or planned `**/validate`** + `**/compute**` style endpoints so “legal” is not defined only by an LLM rubric.
+*Implementation note:* Prefer StatblockGenerator’s existing or planned `**/validate`** + `**/compute`** style endpoints so “legal” is not defined only by an LLM rubric.
 
 ### Step 8 — Store write and read-back
 
@@ -282,12 +324,14 @@ When campaign text changes, **gates fail until gold is updated**; that is intent
 
 ## 12. Implementation phases (suggested)
 
-1. **Gold pack + Step 0** (implemented): corpus survey, `gold/corpus_policy.json`, `gold/step0_environment.json`, `evals/lysandra_vertical_slice/step0_corpus_environment.py` + `tests/test_lysandra_vertical_slice_step0.py`. **Step 1–2** next: retrieval + canonical selection gates.
-2. **Step 3–4** with frozen gold levels and templated level-up description.
-3. **Contract + mock server** for Steps 5–7 (schema + legality fixtures).
-4. **StatblockGenerator** changes for structured response + validate/compute.
-5. **Step 8** store + read-back + full integration gate.
-6. **Optional:** planner or CLI entrypoint that runs the full pipeline for human demos.
+1. **Gold pack + Step 0** (**DONE** — `evals/lysandra_vertical_slice/GATES.md`, `gold/step0_status.json`): corpus survey, `gold/corpus_policy.json`, `gold/step0_environment.json`, `step0_corpus_environment.py`, `tests/test_lysandra_vertical_slice_step0.py`.
+2. **Step 1 retrieval** (**DONE** — `gold/step1_status.json`): `gold/step1_retrieval.json`, `step1_retrieval.py`, `tests/test_lysandra_vertical_slice_step1.py` (keyword scan + G1.1–G1.3).
+3. **Step 2** next: canonical pre-level statblock selection (`G2.`*) when gold defines extractors or `canonical_statblock_relpath` is set.
+4. **Step 3–4** with frozen gold levels and templated level-up description.
+5. **Contract + mock server** for Steps 5–7 (schema + legality fixtures).
+6. **StatblockGenerator** changes for structured response + validate/compute.
+7. **Step 8** store + read-back + full integration gate.
+8. **Optional:** planner or CLI entrypoint that runs the full pipeline for human demos.
 
 ---
 
@@ -296,9 +340,10 @@ When campaign text changes, **gates fail until gold is updated**; that is intent
 - Planner statblock HTTP expectations: `src/agent/planner.py` (`_generate_statblock_http`).  
 - Stepped eval pattern: `evals/planner_slice/live_eval.py`, `evals/planner_slice/EVAL_DEFINITION.md`.  
 - Engineering triad reference: workspace `QUICK-REFERENCE-DungeonMind.mdc` (`/constraints` → `/validate` → `/compute` pattern for rules-heavy generators).  
-- **Corpus survey + Step 0 gold:** `evals/lysandra_vertical_slice/SURVEY-captain_lysandra_corpus.md`, `evals/lysandra_vertical_slice/README.md`.
+- **Corpus survey + Step 0 gold:** `evals/lysandra_vertical_slice/SURVEY-captain_lysandra_corpus.md`, `evals/lysandra_vertical_slice/README.md`.  
+- **Gate completion signpost:** `evals/lysandra_vertical_slice/GATES.md`, `evals/lysandra_vertical_slice/gold/step0_status.json`, `evals/lysandra_vertical_slice/gold/step1_status.json`.
 
 ---
 
 **Document owner:** DungeonMindBuddy / vertical slice workstream.  
-**Next action:** Lock Open Questions §11.1–11.3; implement **Step 1** retrieval gate using `gold/corpus_policy.json` aliases + `required_paths` from the survey inventory; add an authored statblock path when ready (`canonical_statblock_relpath`).
+**Next action:** Lock Open Questions §11.1–11.3; implement **Step 2** (`G2.`*) — canonical sheet selection / extraction against `corpus_policy.json` when a statblock path or extractors exist; add an authored statblock path when ready (`canonical_statblock_relpath`).

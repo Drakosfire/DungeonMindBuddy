@@ -503,3 +503,19 @@ class TestSemanticRerank:
             )
             == []
         )
+
+
+def test_build_entity_summary_prefers_wiki_pages() -> None:
+    meta = {
+        "entity_id": "ent_wolf",
+        "display_name": "The Wolf",
+        "entity_class": "actor",
+        "aliases": [],
+    }
+    entity_data = _make_projected_entity(
+        {"role": _make_attr("antagonist")},
+    )
+    wiki = {"ent_wolf": "The Wolf is a recurring antagonist in Mirathorn."}
+    text = build_entity_summary(meta, entity_data, wiki_pages=wiki)
+    assert "recurring antagonist" in text
+    assert "role:" not in text.lower() or "antagonist" in text  # wiki path skips attribute dump

@@ -49,6 +49,9 @@ evals/**/output/automated_*.json
 evals/mirathorn_vertical_slice/output/phase_d_store/
 evals/llm_ingestion_slice/output/current/
 
+# Corpus PDFs (statblocks, handouts) under corpus/ are tracked, e.g.
+# corpus/eldyrwild-markdown/Longmont Campaign/NPCs/*.pdf — do not add a blanket *.pdf here.
+
 # Legacy source corpus location (binary-heavy originals)
 Docs/Eldyrwild and Campaign Context/
 
