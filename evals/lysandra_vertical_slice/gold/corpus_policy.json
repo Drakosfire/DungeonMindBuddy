@@ -16,8 +16,9 @@
   ],
   "session_anchor_relpath": "Longmont Campaign/Campaign 2/Session Recaps/Session 19 - Recap.md",
   "primary_reference_relpath": "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_character_dossier.md",
+  "timeline_relpath": "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/timeline.md",
   "statblock_status": "machine_readable_statblock_md_from_pdf_rules_ingestion",
   "canonical_statblock_relpath": "Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_statblock_cr4.md",
   "recency_policy": "session_number_from_tree_with_explicit_anchor_for_gold_stability",
-  "notes": "CR4 leveled sheet (Level-Up Version) under Elderwyld/Mirathorn/NPCs is canonical for mechanics; CR2 baseline in same folder for comparison. C2 dossier and timeline under Longmont/Campaign 2/NPCs/captain_lysandra_ironveil/. session_anchor_relpath is Session 19 (policy narrative bound). Step 1 keyword gold may still require Session 18 recap for G1.1 alias-hit recall until Session 19 body mentions Lysandra aliases enough to rank in top_k."
+  "notes": "CR4 leveled sheet (Level-Up Version) under Elderwyld/Mirathorn/NPCs is canonical for mechanics; CR2 baseline in same folder for comparison. C2 dossier and timeline under Longmont/Campaign 2/NPCs/captain_lysandra_ironveil/. session_anchor_relpath is Session 19 (policy narrative bound). Step 1 keyword gold may still require Session 18 recap for G1.1 alias-hit recall until Session 19 body mentions Lysandra aliases enough to rank in top_k. timeline_relpath: authoritative path for benchmark/context-bundle tools and tests; the planner should still discover artifacts via hub README + corpus layout breadcrumbs, not by embedding this JSON in model instructions."
 }

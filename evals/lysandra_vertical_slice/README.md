@@ -2,7 +2,7 @@
 
 **Planner alignment:** Buddy’s canonical “which documents?” path is the **Responses tool loop** (`read_corpus_file` + `tool_trace` in `run_planning_turn_detailed`, `src/agent/planner.py`). This slice should **prefer gates on that trace**; keyword scoring here is a **baseline**, not the definition of retrieval—see design doc “Planner alignment — one line”.
 
-- **Gate status (signpost):** `[GATES.md](GATES.md)` · `[gold/step0_status.json](gold/step0_status.json)` · `[gold/step1_status.json](gold/step1_status.json)` · `[gold/planner_step1_status.json](gold/planner_step1_status.json)` · `[gold/step2_status.json](gold/step2_status.json)` · `[gold/step3_status.json](gold/step3_status.json)` · `[gold/step4_status.json](gold/step4_status.json)` — **Steps 0–4 v1 done** through deterministic **level-up context bundle** (Step 4 = recap keyword rank + theme-boosted paragraph snippets + dossier/statblock excerpts + `model_context_plaintext`).
+- **Gate status (signpost):** `[GATES.md](GATES.md)` · `[gold/step0_status.json](gold/step0_status.json)` · `[gold/step1_status.json](gold/step1_status.json)` · `[gold/planner_step1_status.json](gold/planner_step1_status.json)` · `[gold/step2_status.json](gold/step2_status.json)` · `[gold/step3_status.json](gold/step3_status.json)` · `[gold/step4_status.json](gold/step4_status.json)` — **Steps 0–4 v1 done** through deterministic **level-up context bundle** (Step 4 = recap keyword rank + theme-boosted paragraph snippets + dossier/statblock excerpts).
 - **Design:** `Docs/Plans/DESIGN-lysandra-statblock-vertical-slice-benchmark.md`
 - **Corpus survey:** `SURVEY-captain_lysandra_corpus.md`
 - **Gold:** `gold/corpus_policy.json`, `gold/step0_environment.json`
@@ -11,7 +11,7 @@
 - **Step 1 Lane B:** `step1_retrieval.py` — `run_step1_keyword_scan_and_gates()`
 - **Step 2 (deterministic):** `step2_canonical_intent.py` — `run_step2_all()`; `canonical_detail` includes `selection_reason`, `extracted_markdown`, `extracted_section_span` (optional gold `detail_max_extracted_markdown_chars` truncates extract only; gates scan full file). CLI: `uv run python evals/lysandra_vertical_slice/step2_canonical_intent.py` · `gold/step2_canonical_and_intent.json` · `tests/test_lysandra_vertical_slice_step2.py`
 - **Step 3 (deterministic):** `step3_power_baseline.py` — `run_step3_power_baseline_gates()` / `run_step2_and_step3()`; `gold/step3_power_baseline.json` · CLI `uv run python evals/lysandra_vertical_slice/step3_power_baseline.py` · `tests/test_lysandra_vertical_slice_step3.py`
-- **Step 4 (deterministic):** `step4_levelup_context.py` — `run_step4_levelup_context_gates()` / `run_step2_through_step4()` · `gold/step4_levelup_context.json` · CLI `uv run python evals/lysandra_vertical_slice/step4_levelup_context.py` (stdout slim: excerpt lengths) · `tests/test_lysandra_vertical_slice_step4.py`
+- **Step 4 (deterministic):** `step4_levelup_context.py` — gates + bundle JSON (excerpts, snippets for regression/humans only; nothing assembled for an agent) · CLI `uv run python evals/lysandra_vertical_slice/step4_levelup_context.py` · `tests/test_lysandra_vertical_slice_step4.py`
 - **Tests:** `tests/test_lysandra_vertical_slice_step0.py`, `tests/test_lysandra_vertical_slice_step1.py`, `tests/test_lysandra_vertical_slice_planner_step1.py`, `tests/test_lysandra_vertical_slice_step2.py`, `tests/test_lysandra_vertical_slice_step3.py`, `tests/test_lysandra_vertical_slice_step4.py`
 
 Refresh fingerprint in `gold/step0_environment.json` after corpus edits (see survey §6).

@@ -138,8 +138,9 @@ uv run python evals/lysandra_vertical_slice/step3_power_baseline.py
 |-------|----------|-----------|
 | **G4.1** | Is target CR strictly above baseline? | `target_challenge_rating` from `gold/step4_levelup_context.json` exceeds `power_baseline.challenge_rating_current` from Step 3 (baseline must be numeric). |
 | **G4_RECAP** | Does the recap bundle meet gold assertions? | At least `min_recap_snippets` snippets; union of `verbatim` contains every `assert_snippets_union_contains_substrings` entry; at least one of `assert_snippets_union_contains_one_of`. |
+| **G4_TIMELINE** | Is campaign continuity included when gold requires it? | If `gold/step4_levelup_context.json` → `require_timeline_excerpt` is true: `corpus_policy.json` → `timeline_relpath` is non-empty, file exists under the corpus root, and the bundle’s `timeline_excerpt.text` is non-empty. |
 
-**Harness:** `step4_levelup_context.py` — `build_levelup_context_bundle`, `run_step4_levelup_context_gates`, `run_step2_through_step4`, `assemble_model_context_plaintext`.
+**Harness:** `step4_levelup_context.py` — `build_levelup_context_bundle`, `run_step4_levelup_context_gates`, `run_step2_through_step4`. Bundle JSON excerpts are for gates / humans only — nothing here is assembled for an agent.
 
 **Verify:**
 
@@ -148,7 +149,7 @@ uv run pytest tests/test_lysandra_vertical_slice_step4.py -q
 uv run python evals/lysandra_vertical_slice/step4_levelup_context.py
 ```
 
-**Artifacts:** `gold/step4_levelup_context.json`, `gold/step4_status.json`, `step4_levelup_context.py`, `tests/test_lysandra_vertical_slice_step4.py`.
+**Artifacts:** `gold/step4_levelup_context.json`, `gold/step4_status.json`, `gold/corpus_policy.json` (`timeline_relpath` for bundle), `step4_levelup_context.py`, `tests/test_lysandra_vertical_slice_step4.py`.
 
 ---
 

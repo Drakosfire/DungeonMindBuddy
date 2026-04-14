@@ -1,9 +1,11 @@
 """Step 4 — deterministic **level-up context bundle** (Lysandra vertical slice).
 
-Assembles grounding for a downstream model or HTTP pipeline: ``power_baseline``,
-``target_challenge_rating``, canonical statblock excerpt, campaign dossier, optional
-``session_anchor`` excerpt from ``corpus_policy``, and **keyword-ranked** session
-recap snippets (policy aliases + optional theme-keyword score boosts; default **best-scoring paragraph** per file, anchored-window fallback).
+Assembles a **structured bundle** for gates, regression, and tooling: ``power_baseline``,
+``target_challenge_rating``, statblock + dossier + **timeline** excerpts (``timeline_relpath``),
+optional ``session_anchor`` excerpt, and **keyword-ranked** recap snippets.
+
+Bundle JSON is for **gates and humans only**. Nothing here is assembled for an agent.
+Context discovery is the agent's job, not the harness's.
 
 **Not in v1:** validating free-form model prose, ``level_up_request`` JSON schema, or
 ``G2.4`` clarifier simulation (bundle assumes upgrade-to-gold-target-CR path).
@@ -270,42 +272,18 @@ def _load_anchor_excerpt(corpus_dir: Path, policy: dict[str, Any], max_chars: in
     return p, raw[:mc] if mc else raw
 
 
-def assemble_model_context_plaintext(bundle: dict[str, Any]) -> str:
-    """Single prompt-friendly block with labeled sections (deterministic ordering)."""
-    lines: list[str] = []
-    lines.append("=== NPC_LEVEL_UP_CONTEXT (tool-assembled; cite paths when answering) ===")
-    pt = bundle.get("power_target") or {}
-    pb = bundle.get("power_baseline") or {}
-    lines.append(f"Target challenge rating: {pt.get('target_challenge_rating')}")
-    lines.append(f"Current challenge rating (baseline): {pb.get('challenge_rating_current')}")
-    lines.append("")
-    lines.append("--- Instrumentation (for the model) ---")
-    lines.append(str(bundle.get("upgrade_instrumentation") or "").strip())
-    lines.append("")
-    sb = bundle.get("statblock_excerpt") or {}
-    if sb.get("corpus_relative_path"):
-        lines.append(f"--- Statblock excerpt ({sb.get('corpus_relative_path')}) ---")
-        lines.append(str(sb.get("text") or "").strip())
-        lines.append("")
-    dos = bundle.get("dossier_excerpt") or {}
-    if dos.get("corpus_relative_path"):
-        lines.append(f"--- Character dossier excerpt ({dos.get('corpus_relative_path')}) ---")
-        lines.append(str(dos.get("text") or "").strip())
-        lines.append("")
-    anc = bundle.get("session_anchor_excerpt") or {}
-    if anc.get("corpus_relative_path"):
-        lines.append(f"--- Policy session anchor excerpt ({anc.get('corpus_relative_path')}) ---")
-        lines.append(str(anc.get("text") or "").strip())
-        lines.append("")
-    snippets = bundle.get("session_recap_snippets") or []
-    if snippets:
-        lines.append("--- Session recap snippets (keyword-ranked; anchored on name hit) ---")
-        for sn in snippets:
-            lines.append(f"[{sn.get('corpus_relative_path')}] (score={sn.get('keyword_score')})")
-            lines.append(str(sn.get("verbatim") or "").strip())
-            lines.append("")
-    lines.append("=== END NPC_LEVEL_UP_CONTEXT ===")
-    return "\n".join(lines).strip()
+def _load_timeline_excerpt(corpus_dir: Path, policy: dict[str, Any], max_chars: int) -> tuple[str, str]:
+    """``corpus_policy.timeline_relpath`` — benchmark / bundle tools only; not a planner instruction leak."""
+    rel = policy.get("timeline_relpath")
+    if not isinstance(rel, str) or not rel.strip():
+        return "", ""
+    p = _norm_rel(rel)
+    path = corpus_dir / p
+    if not path.is_file():
+        return p, ""
+    raw = path.read_text(encoding="utf-8", errors="replace")
+    mc = max(0, int(max_chars))
+    return p, raw[:mc] if mc else raw
 
 
 def build_levelup_context_bundle(
@@ -328,6 +306,9 @@ def build_levelup_context_bundle(
     )
     dos_path, dos_excerpt = _load_dossier_excerpt(
         root, policy, int(g4.get("max_dossier_chars") or 12_000)
+    )
+    tl_path, tl_excerpt = _load_timeline_excerpt(
+        root, policy, int(g4.get("max_timeline_chars") or 16_000)
     )
 
     anchor: dict[str, Any] = {}
@@ -364,8 +345,8 @@ def build_levelup_context_bundle(
     cur_s = str(cur) if cur is not None else "unknown"
     instr = (
         f"Raise this NPC from CR {cur_s} to CR {target_cr} for the next mechanical export. "
-        "Use recap tone (fatigue, command pressure, recent hazards) only when supported by the "
-        "snippets below; do not invent sessions."
+        "Use recap tone (fatigue, command pressure, recent hazards) only when supported by recap "
+        "files actually read from the corpus; do not invent sessions."
     )
 
     bundle: dict[str, Any] = {
@@ -375,6 +356,7 @@ def build_levelup_context_bundle(
         "evidence_spans_from_step3": step3_detail.get("evidence_spans") or [],
         "statblock_excerpt": {"corpus_relative_path": stat_path, "text": stat_excerpt},
         "dossier_excerpt": {"corpus_relative_path": dos_path, "text": dos_excerpt},
+        "timeline_excerpt": {"corpus_relative_path": tl_path, "text": tl_excerpt},
         "session_anchor_excerpt": anchor,
         "session_recap_snippets": snippets,
         "recap_ranking_meta": {
@@ -384,7 +366,6 @@ def build_levelup_context_bundle(
         },
         "upgrade_instrumentation": instr,
     }
-    bundle["model_context_plaintext"] = assemble_model_context_plaintext(bundle)
     return bundle
 
 
@@ -452,6 +433,18 @@ def run_step4_levelup_context_gates(
     one_of = [str(x) for x in (g4.get("assert_snippets_union_contains_one_of") or []) if str(x).strip()]
     if one_of and not any(x in union for x in one_of):
         violations.append(f"G4_RECAP FAIL: snippets union missing all of {one_of!r}")
+
+    if g4.get("require_timeline_excerpt", True):
+        tr = policy.get("timeline_relpath")
+        if not isinstance(tr, str) or not tr.strip():
+            violations.append("G4_TIMELINE FAIL: corpus_policy.timeline_relpath missing or empty")
+        else:
+            tl = bundle.get("timeline_excerpt") or {}
+            if not str(tl.get("text") or "").strip():
+                violations.append(
+                    "G4_TIMELINE FAIL: timeline excerpt empty (check corpus_policy.timeline_relpath "
+                    f"and file under corpus_dir: {_norm_rel(tr)!r})"
+                )
 
     detail: dict[str, Any] = {
         "levelup_context_bundle": bundle,
@@ -522,9 +515,9 @@ def main() -> None:
                 not in (
                     "statblock_excerpt",
                     "dossier_excerpt",
+                    "timeline_excerpt",
                     "session_anchor_excerpt",
                     "session_recap_snippets",
-                    "model_context_plaintext",
                 )
             },
             "statblock_excerpt": {
@@ -535,12 +528,15 @@ def main() -> None:
                 "corpus_relative_path": (b.get("dossier_excerpt") or {}).get("corpus_relative_path"),
                 "text_chars": len(str((b.get("dossier_excerpt") or {}).get("text") or "")),
             },
+            "timeline_excerpt": {
+                "corpus_relative_path": (b.get("timeline_excerpt") or {}).get("corpus_relative_path"),
+                "text_chars": len(str((b.get("timeline_excerpt") or {}).get("text") or "")),
+            },
             "session_anchor_excerpt": {
                 "corpus_relative_path": anc.get("corpus_relative_path"),
                 "text_chars": len(str(anc.get("text") or "")),
             },
             "session_recap_snippets": slim_snips,
-            "model_context_plaintext_chars": len(str(b.get("model_context_plaintext") or "")),
         }
     print(json.dumps(slim, indent=2, ensure_ascii=False))
     if viol:

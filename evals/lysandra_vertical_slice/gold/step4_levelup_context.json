@@ -1,6 +1,6 @@
 {
   "schema": "lysandra_vertical_slice_step4_context_bundle_v1",
-  "description": "Step 4 — deterministic NPC level-up context bundle (statblock + dossier + session recap windows) for downstream model / Statblock pipeline. No structured level_up_request validation in v1.",
+  "description": "Step 4 — deterministic bundle JSON (excerpts + recap snippets) for gates and human inspection; model_context_plaintext breadcrumbs-only. StatblockGenerator is fed LLM prose + API fields—not this bundle as a prompt. No structured level_up_request validation in v1.",
   "target_challenge_rating": 5,
   "recap_scan_relative_dirs": [
     "Longmont Campaign/Campaign 2/Session Recaps",
@@ -32,6 +32,8 @@
     "difficult to navigate"
   ],
   "max_dossier_chars": 12000,
+  "max_timeline_chars": 16000,
+  "require_timeline_excerpt": true,
   "max_statblock_chars_for_bundle": 28000,
   "include_session_anchor_excerpt": true,
   "session_anchor_max_chars": 12000

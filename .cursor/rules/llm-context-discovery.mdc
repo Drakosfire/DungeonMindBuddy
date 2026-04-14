@@ -1,0 +1,55 @@
+---
+description: Corpus context for LLMs is discovered—not provided. Breadcrumbs live in the corpus and system prompt only.
+alwaysApply: true
+---
+
+# LLM context — discovery, not provision
+
+## Principle
+
+For **agent- and planner-facing** flows, corpus context is **discovered** by the model, not handed to it. The model must read the files itself.
+
+## What provisioning means (forbidden)
+
+Provisioning is **any act of putting corpus content, corpus paths, or per-task navigation instructions into the text the agent receives**, including:
+
+- Inlining document bodies (statblocks, dossiers, timelines, recaps, ledgers).
+- Pasting file paths, corpus-relative paths, or named files specific to a request ("open `captain_lysandra_ironveil_statblock_cr4.md`").
+- Per-task instructions: "for this task, open the hub README, then the statblock, then the dossier." Telling the model **what to open for a specific request** is provisioning—it removes the need to find anything.
+
+## What breadcrumbs mean (strictly defined)
+
+Breadcrumbs exist in **two places only**:
+
+**1. Corpus structure** — README files in hub folders, "Suggested reads" sections, naming conventions (`*_statblock_*.md`, `timeline.md`, etc.), cross-links inside corpus files themselves. These are discovered when the model reads them; they are not injected into the prompt.
+
+**2. System prompt navigation rules** — General, task-agnostic rules baked into the permanent planner instructions (e.g. `src/prompts/corpus_session_planner.py`): "README-first," "exact paths only, no globs," "read the top statblock from the mechanical priority row before citing any number." These apply to **every** request—they are **not** customized per NPC or per task.
+
+## Nowhere else
+
+Breadcrumbs do **not** appear in:
+- Per-request assembled strings.
+- Eval harness plaintext fields.
+- Bundle JSON fields written into prompt context.
+- Task-framing messages that tell the agent what order to open files.
+
+If you find yourself writing "open X first, then read Y, then Z" in a string that is not the permanent system prompt and not a corpus README, that is provisioning, not breadcrumbs—remove it.
+
+## What is allowed in LLM-facing text for a specific request
+
+- **Task framing only:** the user's question or action request; output shape if required by the API call.
+- **Corpus tree / manifest:** structure listing that is always present (not tailored per NPC).
+- **Tool results:** text returned **after** the model called `read_corpus_file` or a successor tool—discovery, not pre-load.
+
+## Harness and benchmarks (separate channel)
+
+Eval JSON (`detail` blobs, `levelup_context_bundle`, excerpts, spans) is for **gates, regression, and humans**. It must never be copied into agent-visible prompt text.
+
+## StatblockGenerator and similar downstream services
+
+These services consume **LLM-authored prose** plus normal API fields. They do not receive a harness-built inlined-corpus prompt.
+
+## Alignment
+
+- Permanent navigation rules: `src/prompts/corpus_session_planner.py`.
+- Corpus structure / hub layout: `.cursor/rules/corpus-layout-conventions.mdc`.

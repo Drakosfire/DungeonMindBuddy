@@ -7,8 +7,8 @@ import copy
 import pytest
 
 from evals.lysandra_vertical_slice.step0_corpus_environment import resolve_corpus_dir
+from evals.lysandra_vertical_slice.step1_retrieval import load_corpus_policy
 from evals.lysandra_vertical_slice.step4_levelup_context import (
-    assemble_model_context_plaintext,
     build_levelup_context_bundle,
     load_step4_gold,
     run_step2_through_step4,
@@ -29,6 +29,10 @@ def test_step4_on_real_corpus() -> None:
     detail, ok, viol = run_step4_levelup_context_gates(root)
     assert ok, viol
     bundle = detail["levelup_context_bundle"]
+    policy = load_corpus_policy()
+    tl = bundle.get("timeline_excerpt") or {}
+    assert tl.get("corpus_relative_path") == policy.get("timeline_relpath")
+    assert len(str(tl.get("text") or "").strip()) > 50
     assert bundle["power_target"]["target_challenge_rating"] == 5
     assert bundle["power_baseline"]["challenge_rating_current"] == 4
     snips = bundle["session_recap_snippets"]
@@ -41,9 +45,8 @@ def test_step4_on_real_corpus() -> None:
         raw = (root / s["corpus_relative_path"]).read_text(encoding="utf-8")
         lo, hi = int(s["start_char"]), int(s["end_char"])
         assert raw[lo:hi] == s["verbatim"]
-    pt = assemble_model_context_plaintext(bundle)
-    assert "Target challenge rating: 5" in pt
-    assert "Session recap snippets" in pt
+    assert "statblock_generator_context_plaintext" not in bundle
+    assert "model_context_plaintext" not in bundle
 
 
 def test_step2_through_step4_aggregate() -> None:

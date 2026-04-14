@@ -6,7 +6,8 @@
   "implementation": [
     "evals/lysandra_vertical_slice/step4_levelup_context.py",
     "evals/lysandra_vertical_slice/gold/step4_levelup_context.json",
+    "evals/lysandra_vertical_slice/gold/corpus_policy.json",
     "tests/test_lysandra_vertical_slice_step4.py"
   ],
-  "notes": "Builds grounding bundle: power_baseline + target CR, dossier + optional session anchor excerpt, keyword-ranked recap snippets (alias + theme boost). Gates: G4.1 monotonic CR; recap/snippet assertions from gold. Run: uv run pytest tests/test_lysandra_vertical_slice_step4.py -q; CLI: uv run python evals/lysandra_vertical_slice/step4_levelup_context.py"
+  "notes": "Bundle JSON: excerpts + snippets for gates/humans. model_context_plaintext: breadcrumbs-only (llm-context-discovery). Gates G4.1 / G4_RECAP / G4_TIMELINE."
 }

@@ -44,22 +44,25 @@ Until all step gates pass, the benchmark **fails**; partial progress is reported
 | **Structured object**             | JSON (or equivalent) matching a **versioned schema** (e.g. `statblock_project.state.statblock` shape or a narrowed **NPC export** schema agreed with StatblockGenerator). Markdown alone is **not** sufficient for final success.                                                                  |
 | **Valid**                         | Parses against the JSON schema for the agreed `schema_version`.                                                                                                                                                                                                                                    |
 | **Legal**                         | Passes deterministic **5e legality** checks appropriate to the data we send (class/level bounds, proficiency bonus consistency, skill cap rules, etc.). Exact rule depth is a **product knob**; the design requires a **named** legality profile (e.g. `legality_profile: "npc_sheet_v1_strict"`). |
-| **Level up**                      | Increase in NPC **power state**. By default this is CR-oriented for NPC statblocks; class-level progression is optional and must be explicit. Ambiguous user language (“level her up”) requires intent disambiguation before legality gates are applied.                                                |
+| **Level up**                      | Increase in NPC **power state**. By default this is CR-oriented for NPC statblocks; class-level progression is optional and must be explicit. Ambiguous user language (“level her up”) requires intent disambiguation before legality gates are applied.                                           |
+
 
 ### 3.1 Target corpus hierarchy (setting seed vs campaign lives)
 
 This is the **directory schema we want when serious writing and ingestion catch up**. It separates **world bible** (pre–player-contact) from **table canon** (what happened in each Longmont campaign), so statblocks and timelines do not fight each other.
 
 **1. Elderwyld / Mirathorn (setting — character seed)**  
+
 - **Purpose:** Who the NPC is in *your* narrative world **before** meaningful contact with the players; Mirathorn-local context.  
 - **Suggested layout** (under something like `Elderwyld/Cities and Towns/Mirathorn/NPCs/<npc_slug>/`):  
   - `README.md` — one-screen map of files below.  
   - **Character seed** (prose or structured notes): baseline concept, role in the city, hooks before the party arrives.  
   - **Original statblock** — first mechanical export you treat as the setting’s “day zero” sheet.  
-  - **Mirathorn-facing CR2 sheet** (or equivalent) — the concrete **CR 2** (or other fixed tier) statblock that belongs to the *setting* presentation (e.g. city guard stat block as published in the world), distinct from “whatever the table is using after six sessions.”  
+  - **Mirathorn-facing CR2 sheet** (or equivalent) — the concrete **CR 2** (or other fixed tier) statblock that belongs to the *setting* presentation (e.g. city guard stat block as published in the world), distinct from “whatever the table is using after six sessions.”
 - **Rule:** Do not bury the only copy of a **campaign-specific level-up** here; those belong under the campaign that earned them (below).
 
 **2. Longmont Campaign / Campaign `<n>` / NPCs / `<npc_slug>` (per-campaign package)**  
+
 - **Purpose:** Everything the **table** needs for that campaign: continuity, prep, mechanical history **for that timeline**.  
 - **Suggested layout** (e.g. `Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/`):  
   - `README.md` — links into recaps, Mirathorn seed folder, and “which statblock is current for C2.”  
@@ -68,10 +71,12 @@ This is the **directory schema we want when serious writing and ingestion catch 
   - **Level-up statblocks** — **one file per campaign-locked mechanical state** (e.g. after a specific arc or session); name with campaign + tier or level so gates and humans agree (`*_statblock_c2_post_sess17_cr3.md`, etc.). If the same NPC levels in **Campaign 1** and **Campaign 2**, each level-up sheet lives **only** under the folder for the campaign where that progression happened.
 
 **3. Policy / benchmark implication**  
+
 - `corpus_policy` (or gold) should be able to name **several** mechanical paths with **roles**: e.g. `setting_original_statblock`, `setting_mirathorn_cr2`, `campaign_c2_current_statblock`, so retrieval does not conflate “CR as creature” with “class level at the table.”  
 - Fingerprint and eval gold must be refreshed whenever files move under `corpus/eldyrwild-markdown/`.
 
 **4. Current corpus (implemented hub layout)**  
+
 - **Setting:** `Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/` — `character_seed.md`, `captain_lysandra_ironveil_statblock_cr2.md`, `README.md`.  
 - **Campaign 2 table:** `Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/` — `captain_lysandra_ironveil_character_dossier.md`, `README.md`, `timeline.md`.  
 - **C2 level-up exports:** add under the C2 hub when authored. **Distinct `statblock_original`:** add under the Mirathorn hub when you split it from CR2.
@@ -193,10 +198,10 @@ Step 1 is intentionally **two lanes**. Only **Lane A** is the product-shaped ret
 ### Step 2 — Identify canonical pre-level statblock
 
 **Inputs (full target):** Step 1 candidate set + `corpus_policy.json`.  
-**Inputs (Buddy v1 harness):** `corpus_policy.json` only — canonical path is **`canonical_statblock_relpath`**. Whether that path sits in Step 1’s top‑`K` remains **G1.2** (Lane B), not a Step 2 selector input.
+**Inputs (Buddy v1 harness):** `corpus_policy.json` only — canonical path is `**canonical_statblock_relpath`**. Whether that path sits in Step 1’s top‑`K` remains **G1.2** (Lane B), not a Step 2 selector input.
 
 **Outputs (full target):** `canonical_path`, `extracted_markdown` or `extracted_section_span`, `selection_reason` (machine-readable).  
-**Outputs (Buddy v1 harness):** `canonical_path`, **`selection_reason`** (dict: `rule_id`, `outcome`, policy path), **`extracted_markdown`** (full UTF-8 body or truncated when `detail_max_extracted_markdown_chars` is set in gold), **`extracted_section_span`** (`corpus_relative_path`, `start_char`, exclusive `end_char`, aligned with the extract), marker pass/fail map, parsed **Challenge Rating** from the **full** file on disk (gates are not shortened by extract truncation).
+**Outputs (Buddy v1 harness):** `canonical_path`, `**selection_reason`** (dict: `rule_id`, `outcome`, policy path), `**extracted_markdown**` (full UTF-8 body or truncated when `detail_max_extracted_markdown_chars` is set in gold), `**extracted_section_span**` (`corpus_relative_path`, `start_char`, exclusive `end_char`, aligned with the extract), marker pass/fail map, parsed **Challenge Rating** from the **full** file on disk (gates are not shortened by extract truncation).
 
 **Non‑goals for v1 (not blockers for Step 2.4):** intersecting Step 1 ranks inside Step 2, sub‑file / semantic slices (only whole‑file extract + 0..len span today), richer `selection_reason` branches (multi‑candidate tie‑break), and multi‑candidate tie‑break diagnostics. Those matter for richer **Step 3–4**, not for shipping the current **2.4 intent** gates.
 
@@ -216,19 +221,19 @@ Step 1 is intentionally **two lanes**. Only **Lane A** is the product-shaped ret
 **Outputs:** `intent_mode`, `power_axis`, optional `clarifier_question`, `clarifier_required`.
 
 
-| Gate ID  | Predicate                                                                                                                                                                                                 |
-| -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `G2.4.1` | Classifier emits one of: `factual_lookup`, `upgrade_request`, `comparison_request`.                                                                                                                      |
-| `G2.4.2` | `power_axis` is one of: `challenge_rating`, `class_level`, `hybrid`, `unknown`.                                                                                                                          |
-| `G2.4.3` | If mode implies **upgrade** and axis is `unknown` or ambiguous from corpus/user text, `clarifier_required == true` and `clarifier_question` is non-empty (single concise question).                    |
-| `G2.4.4` | If mode is **factual lookup**, system does not force a class-level interpretation when only CR evidence exists; output must permit `class_level_current: null` with CR evidence preserved.                |
+| Gate ID  | Predicate                                                                                                                                                                                  |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `G2.4.1` | Classifier emits one of: `factual_lookup`, `upgrade_request`, `comparison_request`.                                                                                                        |
+| `G2.4.2` | `power_axis` is one of: `challenge_rating`, `class_level`, `hybrid`, `unknown`.                                                                                                            |
+| `G2.4.3` | If mode implies **upgrade** and axis is `unknown` or ambiguous from corpus/user text, `clarifier_required == true` and `clarifier_question` is non-empty (single concise question).        |
+| `G2.4.4` | If mode is **factual lookup**, system does not force a class-level interpretation when only CR evidence exists; output must permit `class_level_current: null` with CR evidence preserved. |
+
 
 **G2.4.4 vs v1:** Step 2’s intent harness does not emit `power_baseline`; **Step 3** (`step3_power_baseline.py`) emits it from the canonical statblock body. Step 2.4 remains satisfied by the classifier never forcing a **class_level** `power_axis` on purely CR‑shaped factual asks (gold fixtures + heuristics).
 
-
 ### Step 3 — Identify current power baseline (pre-upgrade)
 
-**Status (Buddy repo):** **Implemented (deterministic v1)** — `evals/lysandra_vertical_slice/step3_power_baseline.py`, `gold/step3_power_baseline.json`, `tests/test_lysandra_vertical_slice_step3.py`. Step 2 supplies **`parsed_challenge_rating`** / canonical extract; Step 3 re-parses CR from the same UTF-8 body used for spans, promotes it into **`power_baseline`**, and emits **`evidence_spans`** for configured logical lines (path + char offsets, exclusive `end_char`).
+**Status (Buddy repo):** **Implemented (deterministic v1)** — `evals/lysandra_vertical_slice/step3_power_baseline.py`, `gold/step3_power_baseline.json`, `tests/test_lysandra_vertical_slice_step3.py`. Step 2 supplies `**parsed_challenge_rating`** / canonical extract; Step 3 re-parses CR from the same UTF-8 body used for spans, promotes it into `**power_baseline**`, and emits `**evidence_spans**` for configured logical lines (path + char offsets, exclusive `end_char`).
 
 **Inputs:** Canonical content (and optionally recap text from `session_anchor`).  
 **Outputs:** `power_baseline`, `evidence_spans[]` (path + char offsets or quoted snippets).
@@ -245,30 +250,31 @@ Suggested `power_baseline` shape (illustrative values aligned to current Lysandr
 ```
 
 
-| Gate ID | Predicate                                                                                                                                                                                                 |
-| ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `G3.1`  | `challenge_rating_current` equals gold expectation when CR is present in canonical statblock.                                                                                                            |
-| `G3.2`  | Evidence spans resolve to **verbatim** slices of the extraction body (full logical line per field; `start_char` / `end_char` with exclusive end, checked against the same string used for CR parse).                                                                                                                      |
-| `G3.3`  | `class_level_current` may be `null`; if non-null, source evidence and extraction method must be explicit and gold-approved.                                                                              |
+| Gate ID | Predicate                                                                                                                                                                                            |
+| ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `G3.1`  | `challenge_rating_current` equals gold expectation when CR is present in canonical statblock.                                                                                                        |
+| `G3.2`  | Evidence spans resolve to **verbatim** slices of the extraction body (full logical line per field; `start_char` / `end_char` with exclusive end, checked against the same string used for CR parse). |
+| `G3.3`  | `class_level_current` may be `null`; if non-null, source evidence and extraction method must be explicit and gold-approved.                                                                          |
 | `G3.4`  | If CR is absent in canonical sheet, fallback rule documented in gold is applied and `axis_source` reflects fallback source (e.g. recap/dossier).                                                     |
 
 
 ### Step 4 — Level-up specification
 
-**Status (Buddy repo, v1):** **Context bundle implemented** — `evals/lysandra_vertical_slice/step4_levelup_context.py` assembles `power_baseline` (from Step 3), gold `target_challenge_rating`, statblock + dossier excerpts, optional `session_anchor` excerpt from `corpus_policy`, and **keyword-ranked** session recap snippets (alias hits + optional theme-keyword score boosts; default snippet = **best-scoring paragraph** per recap file). Emits `model_context_plaintext` for downstream models. **NPC timeline** excerpt is **required by the slice contract** below; add a pinned path (e.g. in `corpus_policy` or step4 gold) and load it beside dossier when implementing the full bundle. **Deferred:** strict validation of model-written prose (`G4.3`), structured `level_up_request` JSON (`G4.4`), and clarifier-gated runs (`G4.2`) until the product path needs them.
+**Status (Buddy repo, v1):** **Context bundle implemented** — `evals/lysandra_vertical_slice/step4_levelup_context.py` assembles `power_baseline` (from Step 3), gold `target_challenge_rating`, statblock + dossier + **timeline** excerpts (`corpus_policy.timeline_relpath` for gates), optional `session_anchor` excerpt, and **keyword-ranked** session recap snippets (default snippet = **best-scoring paragraph** per file). Structured excerpts are for **gates and inspection**; emits `model_context_plaintext` (**breadcrumbs only**; see `.cursor/rules/llm-context-discovery.mdc`). StatblockGenerator is fed **LLM-authored prose** plus API fields—not a harness-built inlined-corpus prompt. **Deferred:** strict validation of model-written prose (`G4.3`), structured `level_up_request` JSON (`G4.4`), and clarifier-gated runs (`G4.2`) until the product path needs them.
 
 **Inputs:** Step 3 output + `corpus_policy` + gold `step4_levelup_context.json` (target CR, recap scan dirs, snippet mode, substring assertions).  
 **Outputs:** `levelup_context_bundle` (`power_target`, excerpts, `session_recap_snippets[]` with file offsets, `upgrade_instrumentation`, `model_context_plaintext`).
 
-**Full LLM → statblock-generator context (slice contract):** the bundle that feeds prose generation should include **most recent canonical statblock**, **campaign dossier**, **NPC timeline** (continuity; same hub as the dossier, e.g. `Longmont Campaign/.../captain_lysandra_ironveil/timeline.md`), **time-linked recap evidence** (snippet union plus optional `session_anchor_relpath` from `corpus_policy`), and explicit **target CR** (`power_target`). Session-specific beats (e.g. Session 18 rocky-talkie / overheard warnings) are **in addition to** that stack—narrative pressure on top of mechanics, table identity, and chronology—not a substitute for statblock, dossier, or timeline.
+**Full LLM → statblock-generator context (slice contract):** the **data** the pipeline may use includes **most recent canonical statblock**, **campaign dossier**, **NPC timeline** (continuity; same hub as the dossier, e.g. `timeline.md` beside the dossier), **time-linked recap evidence** (snippet union plus optional `session_anchor_relpath` from `corpus_policy`), and explicit **target CR** (`power_target`). Session-specific beats (e.g. Session 18 rocky-talkie / overheard warnings) are **in addition to** that stack. **Presentation:** `model_context_plaintext` is **breadcrumbs-only** (no corpus bodies in that string). Harness JSON still loads excerpts and snippets for **gates and inspection**; StatblockGenerator is fed **prose the LLM wrote**, not a second inlined-corpus prompt.
 
-| Gate ID | Predicate                                                                                                                                                                                                     |
-| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `G4.1`  | Target is monotonic on the chosen axis (`target_cr > challenge_rating_current` for CR mode, `target_class_level > class_level_current` for class-level mode when class-level exists).                    |
-| `G4.2`  | If `clarifier_required == true` from `G2.4.3`, Step 4 cannot proceed until clarifier answer is supplied (fail closed with actionable diagnostic). **(Not enforced in context-bundle v1 harness.)**                                                          |
-| `G4.3`  | Description includes **only** claims supported by allowed corpus paths (deterministic checks preferred over LLM judge for v1). **(Deferred:** bundle supplies corpus excerpts; model output unchecked in v1.)                                                                               |
-| `G4.4`  | If structured intermediate exists, it validates against `schemas/level_up_request_v*.json` and includes `power_axis`. **(Deferred in v1 bundle.)**                                                                                         |
-| *(bundle)* | Recap union meets gold substring / “one of” checks; minimum snippet count. | Enforced as `G4_RECAP` in `GATES.md` / `run_step4_levelup_context_gates`. |
+
+| Gate ID    | Predicate                                                                                                                                                                                                     |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `G4.1`     | Target is monotonic on the chosen axis (`target_cr > challenge_rating_current` for CR mode, `target_class_level > class_level_current` for class-level mode when class-level exists).                         |
+| `G4.2`     | If `clarifier_required == true` from `G2.4.3`, Step 4 cannot proceed until clarifier answer is supplied (fail closed with actionable diagnostic). **(Not enforced in context-bundle v1 harness.)**            |
+| `G4.3`     | Description includes **only** claims supported by allowed corpus paths (deterministic checks preferred over LLM judge for v1). **(Deferred:** bundle supplies corpus excerpts; model output unchecked in v1.) |
+| `G4.4`     | If structured intermediate exists, it validates against `schemas/level_up_request_v*.json` and includes `power_axis`. **(Deferred in v1 bundle.)**                                                            |
+| *(bundle)* | Recap union meets gold substring / “one of” checks; minimum snippet count.                                                                                                                                    |
 
 
 ### Step 5 — Statblock service call (DungeonMindServer)
