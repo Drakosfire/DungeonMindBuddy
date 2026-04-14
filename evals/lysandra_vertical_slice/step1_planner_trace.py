@@ -1,7 +1,9 @@
 """Step 1 Lane A — planner ``tool_trace`` gates (Lysandra vertical slice).
 
-Two gold scenarios: **directed** (user names files) vs **autonomous** (human-style ask;
-default via ``LYSANDRA_PLANNER_STEP1_SCENARIO``). See ``gold/planner_step1_*.json``.
+Gold scenarios: **directed**, **autonomous**, **stat_check** (see ``gold/planner_step1_*.json``;
+pick with ``LYSANDRA_PLANNER_STEP1_SCENARIO``). After each live turn, Step 2 **planner_bridge**
+(``gold/step2_canonical_and_intent.json``) classifies the same ``user_message`` and optionally
+asserts Lysandra ``*_statblock_*.md`` reads match ``corpus_policy.canonical_statblock_relpath``.
 
 Reuses ``evals.planner_slice.live_eval`` scenario shape and matchers.
 
@@ -33,6 +35,10 @@ from dataclasses import dataclass, replace  # noqa: E402
 from typing import Any  # noqa: E402
 
 from evals.lysandra_vertical_slice.step0_corpus_environment import resolve_corpus_dir  # noqa: E402
+from evals.lysandra_vertical_slice.step2_canonical_intent import (  # noqa: E402
+    load_step2_gold,
+    run_step2_planner_bridge,
+)
 from src.bootstrap_env import load_dungeonmindbuddy_dotenv  # noqa: E402
 from evals.planner_slice.live_eval import (  # noqa: E402
     LiveEvalResult,
@@ -92,6 +98,7 @@ class PlannerStep1Run:
     instructions: str
     user_line: str
     corpus_fingerprint: str
+    bridge_review_detail: dict[str, Any] | None = None
 
 
 def _empty_fail(sid: str, violations: dict[str, list[str]], user_line: str = "") -> PlannerStep1Run:
@@ -108,6 +115,7 @@ def _empty_fail(sid: str, violations: dict[str, list[str]], user_line: str = "")
         instructions="",
         user_line=user_line,
         corpus_fingerprint="",
+        bridge_review_detail=None,
     )
 
 
@@ -123,12 +131,13 @@ def run_planner_step1_turn(
     """
     One ``run_planning_turn_detailed`` with the Lane A fixture; score with ``evaluate_scenario_detail``.
 
-    **Scenarios** (see ``gold/planner_step1_directed.json`` vs ``planner_step1_autonomous.json``):
+    **Scenarios** (see ``gold/planner_step1_*.json``):
 
     - ``directed`` — user message names folders/filenames to open (strong smoke, not autonomy).
-    - ``autonomous`` — human-style ask; gates require statblock ``.md``, dossier, and some C2 recap.
+    - ``autonomous`` — general prep ask; relaxed path gates (see gold ``fixture_note``).
+    - ``stat_check`` — mechanical question; gates require opening the statblock file.
 
-    Pick with env ``LYSANDRA_PLANNER_STEP1_SCENARIO=directed|autonomous`` (default **autonomous**),
+    Pick with env ``LYSANDRA_PLANNER_STEP1_SCENARIO=directed|autonomous|stat_check`` (default **autonomous**),
     or pass ``scenario_key``, or pass a full ``scenario`` dict.
 
     Loads ``.env`` / ``.env.development`` via ``load_dungeonmindbuddy_dotenv()`` so
@@ -184,12 +193,33 @@ def run_planner_step1_turn(
         estimated_cost_usd=scenario_usd,
         corpus_fingerprint=fp,
     )
+    planner_key = str(sc.get("fixture_role") or "").strip().lower()
+    if not planner_key:
+        planner_key = scenario_key if scenario_key is not None else default_planner_step1_scenario_key()
+    g2_bridge = load_step2_gold().get("planner_bridge")
+    bridge_review_detail: dict[str, Any] | None = None
+    if isinstance(g2_bridge, dict) and g2_bridge:
+        b_detail, b_ok, b_v = run_step2_planner_bridge(
+            user_message=user_message,
+            tool_trace=detail.tool_trace,
+            planner_scenario_key=planner_key,
+        )
+        bridge_review_detail = b_detail
+        if b_v:
+            merged = dict(result.violations)
+            merged.setdefault("step2_bridge", []).extend(b_v)
+            result = replace(
+                result,
+                passed=result.passed and b_ok,
+                violations=merged,
+            )
     return PlannerStep1Run(
         detail=detail,
         result=result,
         instructions=instructions,
         user_line=user_message,
         corpus_fingerprint=fp,
+        bridge_review_detail=bridge_review_detail,
     )
 
 
@@ -325,6 +355,16 @@ def print_planner_step1_review(
     print(sep)
     print(d.final_text or "(empty)")
     print(sep)
+
+    if run.bridge_review_detail:
+        print(sep)
+        print(
+            "§ Step 2 planner bridge (deterministic; same user_line as Lane A)\n"
+            "  intent_from_planner_user_message + lysandra_statblock_reads_in_trace + canonical path"
+        )
+        print(sep)
+        print(json.dumps(run.bridge_review_detail, indent=2, ensure_ascii=False))
+        print()
 
     if not run.result.passed:
         print("GATE VIOLATIONS:")

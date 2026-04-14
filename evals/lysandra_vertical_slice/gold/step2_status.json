@@ -8,5 +8,5 @@
     "evals/lysandra_vertical_slice/gold/step2_canonical_and_intent.json",
     "tests/test_lysandra_vertical_slice_step2.py"
   ],
-  "notes": "G2.1–G2.3 canonical path + statblock markers + parsed CR vs gold. G2.4.* heuristic intent classifier over gold fixtures (no LLM). Run: uv run pytest tests/test_lysandra_vertical_slice_step2.py -q"
+  "notes": "G2.1–G2.3 canonical path + statblock markers + parsed CR vs gold. G2.4.* heuristic intent classifier over gold fixtures (no LLM). planner_bridge: same user_message intent + optional trace statblock vs canonical (merged in run_planner_step1_turn). Run: uv run pytest tests/test_lysandra_vertical_slice_step2.py -q"
 }

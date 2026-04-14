@@ -37,7 +37,7 @@ uv run pytest tests/test_lysandra_vertical_slice_step0.py -q
 
 | Check | Question | Done when |
 |-------|----------|-----------|
-| **Lane A** | Did the planner loop open the right corpus files for the scenario? | `read_corpus_file` paths in `PlanningTurnDetail.tool_trace` match the chosen gold fixture → `final.require` (substring checks + `read_corpus_file` present + `min_output_chars`; `hit_tool_round_limit` fails via shared live_eval rules). **Directed** (`gold/planner_step1_directed.json`): user message spells paths — proves tool loop follows explicit filenames. **Autonomous** (`gold/planner_step1_autonomous.json`, default): human-style ask — gates require the Mirathorn NPC-hub CR2 statblock path, the C2 NPC-hub dossier path, and some C2 recap under `Session Recaps/`. Env: `LYSANDRA_PLANNER_STEP1_SCENARIO` = `directed` or `autonomous` (default **autonomous**). |
+| **Lane A** | Did the planner loop open the right corpus files for the scenario? | `read_corpus_file` paths in `PlanningTurnDetail.tool_trace` match the chosen gold fixture → `final.require` (substring checks + `read_corpus_file` present + `min_output_chars`; `hit_tool_round_limit` fails via shared live_eval rules). **Directed** / **Autonomous** / **Stat check** — see `gold/planner_step1_*.json` and each `fixture_note`. Env: `LYSANDRA_PLANNER_STEP1_SCENARIO` = `directed` \| `autonomous` (default) \| `stat_check`. After the turn, **Step 2 planner bridge** (same `user_message`, optional trace vs `corpus_policy.canonical_statblock_relpath`) merges violations under `step2_bridge` — see Step 2 §bridge. |
 
 **Harness:** `step1_planner_trace.py` → `run_planner_step1_turn()` (same wiring as planner live eval: manifest, tools, `make_tool_dispatcher`).
 
@@ -51,7 +51,7 @@ uv run pytest tests/test_lysandra_vertical_slice_planner_step1.py -q
 
 **CLI (manual, from repo root):** `uv run python evals/lysandra_vertical_slice/step1_planner_trace.py` — prints a review (turns, per-round `input_tokens`, replayed corpus bodies, final answer) and emits `dmb.planner` JSON telemetry on stderr. Optional: `PLANNER_LOG_FULL_IO=1` for larger telemetry payloads.
 
-**Artifacts:** `gold/planner_step1_directed.json`, `gold/planner_step1_autonomous.json`, `step1_planner_trace.py`, `tests/test_lysandra_vertical_slice_planner_step1.py`.
+**Artifacts:** `gold/planner_step1_directed.json`, `gold/planner_step1_autonomous.json`, `gold/planner_step1_stat_check.json`, `step1_planner_trace.py`, `tests/test_lysandra_vertical_slice_planner_step1.py`.
 
 ---
 
@@ -86,12 +86,14 @@ Draft gate updates (aligned to CR-first NPC workflow and ambiguous "level" langu
 | Gate | Question | Done when |
 |------|----------|-----------|
 | **G2.1** | Is canonical statblock selected deterministically? | Selected path matches `corpus_policy.canonical_statblock_relpath` or deterministic selection rule. |
-| **G2.2** | Is extracted canonical content structurally valid? | Required statblock markers are present (`Armor Class`, `Hit Points`, `Challenge Rating`, etc., per gold). |
+| **G2.2** | Is extracted canonical content structurally valid? | Required statblock markers are present (`Armor Class`, `Hit Points`, `Challenge Rating`, etc., per gold) in the **full** file read. `run_step2_canonical_gates` `detail` also includes `extracted_markdown`, `extracted_section_span`, and `selection_reason` (see harness). |
 | **G2.3** | Is canonical selection unique? | No unresolved ties; tie-break rule is explicit and logged. |
 | **G2.4.1** | Is user intent mode classified? | Classifier emits one of `factual_lookup`, `upgrade_request`, `comparison_request`. |
 | **G2.4.2** | Is power axis classified? | Axis is one of `challenge_rating`, `class_level`, `hybrid`, `unknown`. |
 | **G2.4.3** | Is clarifier required when axis is ambiguous for upgrade asks? | For upgrade asks with `unknown` axis, set `clarifier_required=true` and emit one concise clarifier question. |
 | **G2.4.4** | Are factual asks CR-safe? | Factual mode does not force class-level when only CR evidence exists (permits `class_level_current=null`). |
+
+**Planner bridge (Lane A + Step 2, optional via gold):** After `run_planner_step1_turn`, `gold/step2_canonical_and_intent.json` → `planner_bridge` runs `classify_intent` on the **same** planner `user_message` and checks intent expectations per `fixture_role` (`intent_expectations_by_planner_scenario_key`). If `assert_statblock_read_matches_canonical_when_present` is true and the trace includes any Lysandra `*_statblock_*.md` read, the **canonical** path from `corpus_policy.canonical_statblock_relpath` must appear among those reads (opening an archive sheet such as CR2 **in addition** to canonical is allowed). Violations are attached as `step2_bridge` on `LiveEvalResult` without changing Lane A substring gates.
 
 **Step 3 draft shift:** treat baseline as `power_baseline` (`challenge_rating_current`, optional `class_level_current`) instead of `pre_level: int`.
 

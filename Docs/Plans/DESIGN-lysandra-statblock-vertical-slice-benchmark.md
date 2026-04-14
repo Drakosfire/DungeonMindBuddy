@@ -192,8 +192,13 @@ Step 1 is intentionally **two lanes**. Only **Lane A** is the product-shaped ret
 
 ### Step 2 — Identify canonical pre-level statblock
 
-**Inputs:** Step 1 candidate set + `corpus_policy.json`.  
-**Outputs:** `canonical_path`, `extracted_markdown` or `extracted_section_span`, `selection_reason` (machine-readable).
+**Inputs (full target):** Step 1 candidate set + `corpus_policy.json`.  
+**Inputs (Buddy v1 harness):** `corpus_policy.json` only — canonical path is **`canonical_statblock_relpath`**. Whether that path sits in Step 1’s top‑`K` remains **G1.2** (Lane B), not a Step 2 selector input.
+
+**Outputs (full target):** `canonical_path`, `extracted_markdown` or `extracted_section_span`, `selection_reason` (machine-readable).  
+**Outputs (Buddy v1 harness):** `canonical_path`, **`selection_reason`** (dict: `rule_id`, `outcome`, policy path), **`extracted_markdown`** (full UTF-8 body or truncated when `detail_max_extracted_markdown_chars` is set in gold), **`extracted_section_span`** (`corpus_relative_path`, `start_char`, exclusive `end_char`, aligned with the extract), marker pass/fail map, parsed **Challenge Rating** from the **full** file on disk (gates are not shortened by extract truncation).
+
+**Non‑goals for v1 (not blockers for Step 2.4):** intersecting Step 1 ranks inside Step 2, sub‑file / semantic slices (only whole‑file extract + 0..len span today), richer `selection_reason` branches (multi‑candidate tie‑break), and multi‑candidate tie‑break diagnostics. Those matter for richer **Step 3–4**, not for shipping the current **2.4 intent** gates.
 
 
 | Gate ID | Predicate                                                                                                                                                    |
@@ -205,7 +210,9 @@ Step 1 is intentionally **two lanes**. Only **Lane A** is the product-shaped ret
 
 ### Step 2.4 — Intent disambiguation (level language)
 
-**Inputs:** Original user ask + canonical statblock selection from Step 2 + corpus policy defaults.  
+**Inputs (full target):** Original user ask + canonical statblock selection from Step 2 + corpus policy defaults.  
+**Inputs (Buddy v1 harness):** **User ask only** (`classify_intent(user_line)`). Canonical file content is **not** fed back into the classifier yet; policy defaults beyond the user string are also unused. That keeps 2.4 cheap and deterministic; wiring parsed CR or dossier hints into classification is optional hardening for **Step 4** quality, not a prerequisite for the current gold fixtures.
+
 **Outputs:** `intent_mode`, `power_axis`, optional `clarifier_question`, `clarifier_required`.
 
 
@@ -216,17 +223,21 @@ Step 1 is intentionally **two lanes**. Only **Lane A** is the product-shaped ret
 | `G2.4.3` | If mode implies **upgrade** and axis is `unknown` or ambiguous from corpus/user text, `clarifier_required == true` and `clarifier_question` is non-empty (single concise question).                    |
 | `G2.4.4` | If mode is **factual lookup**, system does not force a class-level interpretation when only CR evidence exists; output must permit `class_level_current: null` with CR evidence preserved.                |
 
+**G2.4.4 vs v1:** The harness does not yet emit a `power_baseline` JSON object; **Step 3** formalizes `class_level_current: null` beside CR. Until then, 2.4 is satisfied by the classifier never forcing a **class_level** `power_axis` on purely CR‑shaped factual asks (gold fixtures + heuristics).
+
 
 ### Step 3 — Identify current power baseline (pre-upgrade)
+
+**Status (Buddy repo):** **Not implemented** as a separate gate module — **next** slice after Step 2 v1. Step 2 already computes **`parsed_challenge_rating`** from the canonical statblock; Step 3 promotes that into an explicit **`power_baseline`** record, optional evidence spans, and G3.* gates.
 
 **Inputs:** Canonical content (and optionally recap text from `session_anchor`).  
 **Outputs:** `power_baseline`, `evidence_spans[]` (path + char offsets or quoted snippets).
 
-Suggested `power_baseline` shape:
+Suggested `power_baseline` shape (illustrative values aligned to current Lysandra **CR 4** canonical export):
 
 ```json
 {
-  "challenge_rating_current": 2,
+  "challenge_rating_current": 4,
   "class_level_current": null,
   "axis_source": "canonical_statblock",
   "extraction_method": "statblock_marker_parse"
@@ -382,8 +393,8 @@ When campaign text changes, **gates fail until gold is updated**; that is intent
 
 1. **Gold pack + Step 0** (**DONE** — `evals/lysandra_vertical_slice/GATES.md`, `gold/step0_status.json`): corpus survey, `gold/corpus_policy.json`, `gold/step0_environment.json`, `step0_corpus_environment.py`, `tests/test_lysandra_vertical_slice_step0.py`.
 2. **Step 1 retrieval** (**DONE** — `gold/step1_status.json`): `gold/step1_retrieval.json`, `step1_retrieval.py`, `tests/test_lysandra_vertical_slice_step1.py` (keyword scan + G1.1–G1.3).
-3. **Step 2 (v1 deterministic scaffold — DONE in Buddy repo):** `evals/lysandra_vertical_slice/step2_canonical_intent.py` + `gold/step2_canonical_and_intent.json` assert `corpus_policy.canonical_statblock_relpath` on disk, marker substrings + parsed CR, and gold **intent fixtures** (heuristic classifier; no LLM). **Next:** merge classifier with Lane A planner harness / richer extraction rules.
-4. **Step 3–4** with frozen gold levels and templated level-up description.
+3. **Step 2 + 2.4 (v1 deterministic scaffold — DONE in Buddy repo):** `evals/lysandra_vertical_slice/step2_canonical_intent.py` + `gold/step2_canonical_and_intent.json` — policy canonical path on disk, marker substrings + parsed CR, heuristic **intent** fixtures (G2.4.*), and **planner bridge** after `run_planner_step1_turn` (`step2_bridge` on `LiveEvalResult`). Deferred items in §Step 2 (extracts, `selection_reason`, Step‑1‑inside‑selector) are intentionally out of scope for this milestone.
+4. **Step 3** — formal `power_baseline` JSON + G3.* (promote Step 2’s parsed CR into `challenge_rating_current`, spans, fallbacks). **Step 4** — frozen gold targets + level‑up description gates (depends on 3).
 5. **Contract + mock server** for Steps 5–7 (schema + legality fixtures).
 6. **StatblockGenerator** changes for structured response + validate/compute.
 7. **Step 8** store + read-back + full integration gate.
@@ -402,4 +413,4 @@ When campaign text changes, **gates fail until gold is updated**; that is intent
 ---
 
 **Document owner:** DungeonMindBuddy / vertical slice workstream.  
-**Next action:** Lock Open Questions §11.1–11.3; extend Step 2 v1 with planner-trace integration and Step 3 `power_baseline` extraction gates (beyond heuristic fixtures).
+**Next action:** Lock Open Questions §11.1–11.3; implement **Step 3** `power_baseline` + G3.* (Step 2 already supplies parsed CR as input material); optional deeper NLU if slice outgrows keyword rules.

@@ -1,12 +1,32 @@
 {
   "schema": "lysandra_vertical_slice_step2_v1",
-  "description": "Step 2 — deterministic canonical statblock path + marker checks + intent/power-axis classification (G2.* / G2.4.* draft implementation).",
+  "description": "Step 2 — deterministic canonical statblock path + marker checks + intent/power-axis classification (G2.* / G2.4.* draft implementation). Optional: detail_max_extracted_markdown_chars (int) truncates extracted_markdown/span in detail while gates still scan the full file on disk.",
   "required_statblock_markers": [
     "Armor Class",
     "Hit Points",
     "Challenge Rating"
   ],
   "expected_challenge_rating": 4,
+  "planner_bridge": {
+    "assert_statblock_read_matches_canonical_when_present": true,
+    "intent_expectations_by_planner_scenario_key": {
+      "autonomous": {
+        "intent_mode": "upgrade_request",
+        "power_axis": "unknown",
+        "clarifier_required": true
+      },
+      "stat_check": {
+        "intent_mode": "factual_lookup",
+        "power_axis": "challenge_rating",
+        "clarifier_required": false
+      },
+      "directed": {
+        "intent_mode": "upgrade_request",
+        "power_axis": "unknown",
+        "clarifier_required": true
+      }
+    }
+  },
   "fixtures": [
     {
       "id": "planner_step1_autonomous_user_line",
@@ -19,7 +39,7 @@
     },
     {
       "id": "explicit_cr_upgrade",
-      "user_line": "For tomorrow's boss fight, bump Captain Lysandra to CR 4 and regenerate her statblock.",
+      "user_line": "For tomorrow's boss fight, bump Captain Lysandra to CR 6 and regenerate her statblock.",
       "expect": {
         "intent_mode": "upgrade_request",
         "power_axis": "challenge_rating",
@@ -42,6 +62,33 @@
         "intent_mode": "factual_lookup",
         "power_axis": "challenge_rating",
         "clarifier_required": false
+      }
+    },
+    {
+      "id": "factual_ac_on_statblock",
+      "user_line": "What is Captain Lysandra's Armor Class on her current Mirathorn statblock?",
+      "expect": {
+        "intent_mode": "factual_lookup",
+        "power_axis": "challenge_rating",
+        "clarifier_required": false
+      }
+    },
+    {
+      "id": "multi_entity_comparison",
+      "user_line": "Compare Captain Lysandra and Commander Thalia — who reads as the tougher combat puzzle for the party right now?",
+      "expect": {
+        "intent_mode": "comparison_request",
+        "power_axis": "hybrid",
+        "clarifier_required": false
+      }
+    },
+    {
+      "id": "regenerate_from_dossier_only_statblock",
+      "user_line": "Regenerate Lysandra's creature sheet using only the character dossier as input; do not copy numbers from the old mechanical markdown.",
+      "expect": {
+        "intent_mode": "upgrade_request",
+        "power_axis": "unknown",
+        "clarifier_required": true
       }
     },
     {
