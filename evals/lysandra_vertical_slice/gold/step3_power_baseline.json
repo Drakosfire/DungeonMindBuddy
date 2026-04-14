@@ -1,0 +1,24 @@
+{
+  "schema": "lysandra_vertical_slice_step3_v1",
+  "description": "Step 3 — power_baseline + evidence line spans from canonical statblock (G3.*). evidence_span_fields: logical lines to locate; each span uses exclusive end_char (Python slice).",
+  "expected_power_baseline": {
+    "challenge_rating_current": 4,
+    "class_level_current": null,
+    "axis_source": "canonical_statblock",
+    "extraction_method": "statblock_marker_parse"
+  },
+  "evidence_span_fields": [
+    "challenge_rating",
+    "armor_class",
+    "hit_points"
+  ],
+  "fallback_when_cr_absent": {
+    "power_baseline": {
+      "challenge_rating_current": null,
+      "class_level_current": null,
+      "axis_source": "gold_fallback_no_cr_line",
+      "extraction_method": "documented_fallback"
+    },
+    "evidence_spans": []
+  }
+}

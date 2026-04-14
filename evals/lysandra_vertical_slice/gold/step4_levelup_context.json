@@ -1,0 +1,38 @@
+{
+  "schema": "lysandra_vertical_slice_step4_context_bundle_v1",
+  "description": "Step 4 — deterministic NPC level-up context bundle (statblock + dossier + session recap windows) for downstream model / Statblock pipeline. No structured level_up_request validation in v1.",
+  "target_challenge_rating": 5,
+  "recap_scan_relative_dirs": [
+    "Longmont Campaign/Campaign 2/Session Recaps",
+    "Longmont Campaign/Campaign 1/Session Recaps"
+  ],
+  "recap_snippet_mode": "best_scoring_paragraph",
+  "snippet_chars_before_anchor": 550,
+  "snippet_chars_after_anchor": 450,
+  "max_chars_per_recap_paragraph": 2400,
+  "max_recap_files_to_snippetize": 5,
+  "max_chars_per_recap_read": 500000,
+  "theme_boost_keywords": [
+    "uneasy",
+    "difficult",
+    "trouble",
+    "grave",
+    "wound"
+  ],
+  "theme_boost_score_per_occurrence": 3,
+  "path_substring_score_bonus": {
+    "Longmont Campaign/Campaign 2/": 25
+  },
+  "min_recap_snippets": 1,
+  "assert_snippets_union_contains_substrings": [
+    "Lysandra"
+  ],
+  "assert_snippets_union_contains_one_of": [
+    "uneasy",
+    "difficult to navigate"
+  ],
+  "max_dossier_chars": 12000,
+  "max_statblock_chars_for_bundle": 28000,
+  "include_session_anchor_excerpt": true,
+  "session_anchor_max_chars": 12000
+}

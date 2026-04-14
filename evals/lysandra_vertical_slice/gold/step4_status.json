@@ -1,0 +1,12 @@
+{
+  "schema": "lysandra_vertical_slice_step_status_v1",
+  "step": 4,
+  "name": "levelup_context_bundle",
+  "status": "implemented_deterministic_v1",
+  "implementation": [
+    "evals/lysandra_vertical_slice/step4_levelup_context.py",
+    "evals/lysandra_vertical_slice/gold/step4_levelup_context.json",
+    "tests/test_lysandra_vertical_slice_step4.py"
+  ],
+  "notes": "Builds grounding bundle: power_baseline + target CR, dossier + optional session anchor excerpt, keyword-ranked recap snippets (alias + theme boost). Gates: G4.1 monotonic CR; recap/snippet assertions from gold. Run: uv run pytest tests/test_lysandra_vertical_slice_step4.py -q; CLI: uv run python evals/lysandra_vertical_slice/step4_levelup_context.py"
+}

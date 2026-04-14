@@ -1,0 +1,12 @@
+{
+  "schema": "lysandra_vertical_slice_step_status_v1",
+  "step": 3,
+  "name": "power_baseline_and_evidence_spans",
+  "status": "implemented_deterministic_v1",
+  "implementation": [
+    "evals/lysandra_vertical_slice/step3_power_baseline.py",
+    "evals/lysandra_vertical_slice/gold/step3_power_baseline.json",
+    "tests/test_lysandra_vertical_slice_step3.py"
+  ],
+  "notes": "G3.1 CR vs gold; G3.2 verbatim line spans for configured fields; G3.3 null class level; G3.4 gold fallback when CR line missing. Requires Step 2 canonical_detail or runs Step 2 first. Run: uv run pytest tests/test_lysandra_vertical_slice_step3.py -q"
+}

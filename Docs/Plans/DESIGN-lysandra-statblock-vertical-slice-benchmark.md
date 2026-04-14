@@ -223,12 +223,12 @@ Step 1 is intentionally **two lanes**. Only **Lane A** is the product-shaped ret
 | `G2.4.3` | If mode implies **upgrade** and axis is `unknown` or ambiguous from corpus/user text, `clarifier_required == true` and `clarifier_question` is non-empty (single concise question).                    |
 | `G2.4.4` | If mode is **factual lookup**, system does not force a class-level interpretation when only CR evidence exists; output must permit `class_level_current: null` with CR evidence preserved.                |
 
-**G2.4.4 vs v1:** The harness does not yet emit a `power_baseline` JSON object; **Step 3** formalizes `class_level_current: null` beside CR. Until then, 2.4 is satisfied by the classifier never forcing a **class_level** `power_axis` on purely CR‑shaped factual asks (gold fixtures + heuristics).
+**G2.4.4 vs v1:** Step 2’s intent harness does not emit `power_baseline`; **Step 3** (`step3_power_baseline.py`) emits it from the canonical statblock body. Step 2.4 remains satisfied by the classifier never forcing a **class_level** `power_axis` on purely CR‑shaped factual asks (gold fixtures + heuristics).
 
 
 ### Step 3 — Identify current power baseline (pre-upgrade)
 
-**Status (Buddy repo):** **Not implemented** as a separate gate module — **next** slice after Step 2 v1. Step 2 already computes **`parsed_challenge_rating`** from the canonical statblock; Step 3 promotes that into an explicit **`power_baseline`** record, optional evidence spans, and G3.* gates.
+**Status (Buddy repo):** **Implemented (deterministic v1)** — `evals/lysandra_vertical_slice/step3_power_baseline.py`, `gold/step3_power_baseline.json`, `tests/test_lysandra_vertical_slice_step3.py`. Step 2 supplies **`parsed_challenge_rating`** / canonical extract; Step 3 re-parses CR from the same UTF-8 body used for spans, promotes it into **`power_baseline`**, and emits **`evidence_spans`** for configured logical lines (path + char offsets, exclusive `end_char`).
 
 **Inputs:** Canonical content (and optionally recap text from `session_anchor`).  
 **Outputs:** `power_baseline`, `evidence_spans[]` (path + char offsets or quoted snippets).
@@ -248,23 +248,27 @@ Suggested `power_baseline` shape (illustrative values aligned to current Lysandr
 | Gate ID | Predicate                                                                                                                                                                                                 |
 | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `G3.1`  | `challenge_rating_current` equals gold expectation when CR is present in canonical statblock.                                                                                                            |
-| `G3.2`  | Evidence spans resolve to **verbatim** substrings in corpus files (substring check).                                                                                                                      |
+| `G3.2`  | Evidence spans resolve to **verbatim** slices of the extraction body (full logical line per field; `start_char` / `end_char` with exclusive end, checked against the same string used for CR parse).                                                                                                                      |
 | `G3.3`  | `class_level_current` may be `null`; if non-null, source evidence and extraction method must be explicit and gold-approved.                                                                              |
 | `G3.4`  | If CR is absent in canonical sheet, fallback rule documented in gold is applied and `axis_source` reflects fallback source (e.g. recap/dossier).                                                     |
 
 
 ### Step 4 — Level-up specification
 
-**Inputs:** `intent_mode`, `power_axis`, `power_baseline`, gold target (`target_cr`, `target_class_level`, or `power_delta`), optional narrative constraints.  
-**Outputs:** `power_target`, `description_for_statblock` (rich text per existing planner tool expectations) **or** structured `level_up_request` if server accepts JSON body.
+**Status (Buddy repo, v1):** **Context bundle implemented** — `evals/lysandra_vertical_slice/step4_levelup_context.py` assembles `power_baseline` (from Step 3), gold `target_challenge_rating`, statblock + dossier excerpts, optional `session_anchor` excerpt from `corpus_policy`, and **keyword-ranked** session recap snippets (alias hits + optional theme-keyword score boosts; default snippet = **best-scoring paragraph** per recap file). Emits `model_context_plaintext` for downstream models. **NPC timeline** excerpt is **required by the slice contract** below; add a pinned path (e.g. in `corpus_policy` or step4 gold) and load it beside dossier when implementing the full bundle. **Deferred:** strict validation of model-written prose (`G4.3`), structured `level_up_request` JSON (`G4.4`), and clarifier-gated runs (`G4.2`) until the product path needs them.
 
+**Inputs:** Step 3 output + `corpus_policy` + gold `step4_levelup_context.json` (target CR, recap scan dirs, snippet mode, substring assertions).  
+**Outputs:** `levelup_context_bundle` (`power_target`, excerpts, `session_recap_snippets[]` with file offsets, `upgrade_instrumentation`, `model_context_plaintext`).
+
+**Full LLM → statblock-generator context (slice contract):** the bundle that feeds prose generation should include **most recent canonical statblock**, **campaign dossier**, **NPC timeline** (continuity; same hub as the dossier, e.g. `Longmont Campaign/.../captain_lysandra_ironveil/timeline.md`), **time-linked recap evidence** (snippet union plus optional `session_anchor_relpath` from `corpus_policy`), and explicit **target CR** (`power_target`). Session-specific beats (e.g. Session 18 rocky-talkie / overheard warnings) are **in addition to** that stack—narrative pressure on top of mechanics, table identity, and chronology—not a substitute for statblock, dossier, or timeline.
 
 | Gate ID | Predicate                                                                                                                                                                                                     |
 | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `G4.1`  | Target is monotonic on the chosen axis (`target_cr > challenge_rating_current` for CR mode, `target_class_level > class_level_current` for class-level mode when class-level exists).                    |
-| `G4.2`  | If `clarifier_required == true` from `G2.4.3`, Step 4 cannot proceed until clarifier answer is supplied (fail closed with actionable diagnostic).                                                          |
-| `G4.3`  | Description includes **only** claims supported by allowed corpus paths (deterministic checks preferred over LLM judge for v1).                                                                               |
-| `G4.4`  | If structured intermediate exists, it validates against `schemas/level_up_request_v*.json` and includes `power_axis`.                                                                                         |
+| `G4.2`  | If `clarifier_required == true` from `G2.4.3`, Step 4 cannot proceed until clarifier answer is supplied (fail closed with actionable diagnostic). **(Not enforced in context-bundle v1 harness.)**                                                          |
+| `G4.3`  | Description includes **only** claims supported by allowed corpus paths (deterministic checks preferred over LLM judge for v1). **(Deferred:** bundle supplies corpus excerpts; model output unchecked in v1.)                                                                               |
+| `G4.4`  | If structured intermediate exists, it validates against `schemas/level_up_request_v*.json` and includes `power_axis`. **(Deferred in v1 bundle.)**                                                                                         |
+| *(bundle)* | Recap union meets gold substring / “one of” checks; minimum snippet count. | Enforced as `G4_RECAP` in `GATES.md` / `run_step4_levelup_context_gates`. |
 
 
 ### Step 5 — Statblock service call (DungeonMindServer)
@@ -394,7 +398,7 @@ When campaign text changes, **gates fail until gold is updated**; that is intent
 1. **Gold pack + Step 0** (**DONE** — `evals/lysandra_vertical_slice/GATES.md`, `gold/step0_status.json`): corpus survey, `gold/corpus_policy.json`, `gold/step0_environment.json`, `step0_corpus_environment.py`, `tests/test_lysandra_vertical_slice_step0.py`.
 2. **Step 1 retrieval** (**DONE** — `gold/step1_status.json`): `gold/step1_retrieval.json`, `step1_retrieval.py`, `tests/test_lysandra_vertical_slice_step1.py` (keyword scan + G1.1–G1.3).
 3. **Step 2 + 2.4 (v1 deterministic scaffold — DONE in Buddy repo):** `evals/lysandra_vertical_slice/step2_canonical_intent.py` + `gold/step2_canonical_and_intent.json` — policy canonical path on disk, marker substrings + parsed CR, heuristic **intent** fixtures (G2.4.*), and **planner bridge** after `run_planner_step1_turn` (`step2_bridge` on `LiveEvalResult`). Deferred items in §Step 2 (extracts, `selection_reason`, Step‑1‑inside‑selector) are intentionally out of scope for this milestone.
-4. **Step 3** — formal `power_baseline` JSON + G3.* (promote Step 2’s parsed CR into `challenge_rating_current`, spans, fallbacks). **Step 4** — frozen gold targets + level‑up description gates (depends on 3).
+4. **Step 3** (**DONE** — `gold/step3_status.json`): formal `power_baseline` JSON + G3.* (`challenge_rating_current`, line-level `evidence_spans`, `fallback_when_cr_absent`). **Step 4** (**DONE** — `gold/step4_status.json`): deterministic **level-up context bundle** + G4.1 / recap union gates (`step4_levelup_context.py`); strict model-output / `level_up_request` schema deferred.
 5. **Contract + mock server** for Steps 5–7 (schema + legality fixtures).
 6. **StatblockGenerator** changes for structured response + validate/compute.
 7. **Step 8** store + read-back + full integration gate.
@@ -408,9 +412,9 @@ When campaign text changes, **gates fail until gold is updated**; that is intent
 - Stepped eval pattern: `evals/planner_slice/live_eval.py`, `evals/planner_slice/EVAL_DEFINITION.md`.  
 - Engineering triad reference: workspace `QUICK-REFERENCE-DungeonMind.mdc` (`/constraints` → `/validate` → `/compute` pattern for rules-heavy generators).  
 - **Corpus survey + Step 0 gold:** `evals/lysandra_vertical_slice/SURVEY-captain_lysandra_corpus.md`, `evals/lysandra_vertical_slice/README.md`.  
-- **Gate completion signpost:** `evals/lysandra_vertical_slice/GATES.md`, `evals/lysandra_vertical_slice/gold/step0_status.json`, `evals/lysandra_vertical_slice/gold/step1_status.json`, `evals/lysandra_vertical_slice/gold/step2_status.json`.
+- **Gate completion signpost:** `evals/lysandra_vertical_slice/GATES.md`, `evals/lysandra_vertical_slice/gold/step0_status.json`, `evals/lysandra_vertical_slice/gold/step1_status.json`, `evals/lysandra_vertical_slice/gold/step2_status.json`, `evals/lysandra_vertical_slice/gold/step3_status.json`, `evals/lysandra_vertical_slice/gold/step4_status.json`.
 
 ---
 
 **Document owner:** DungeonMindBuddy / vertical slice workstream.  
-**Next action:** Lock Open Questions §11.1–11.3; implement **Step 3** `power_baseline` + G3.* (Step 2 already supplies parsed CR as input material); optional deeper NLU if slice outgrows keyword rules.
+**Next action:** Lock Open Questions §11.1–11.3; implement **Step 5** Statblock HTTP contract gates (or extend Step 4 bundle into planner tool injection); optional deeper NLU if slice outgrows keyword rules.

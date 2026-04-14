@@ -4,7 +4,7 @@ Canonical “is this step done?” answers for humans and agents.
 
 **Planner alignment (one line):** Production-style document choice in Buddy is **`run_planning_turn_detailed`** → **`read_corpus_file`** → **`tool_trace`**. Prefer extending benchmarks with **trace-based gates**; Step 1 keyword scan is an **offline baseline** only (`step1_retrieval.py`). Details: `Docs/Plans/DESIGN-lysandra-statblock-vertical-slice-benchmark.md` → subsection *Planner alignment — one line*.
 
-**Machine hooks:** `gold/step0_status.json`, `gold/step1_status.json`, `gold/planner_step1_status.json`, `gold/step2_status.json`.
+**Machine hooks:** `gold/step0_status.json`, `gold/step1_status.json`, `gold/planner_step1_status.json`, `gold/step2_status.json`, `gold/step3_status.json`, `gold/step4_status.json`.
 
 ---
 
@@ -95,10 +95,6 @@ Draft gate updates (aligned to CR-first NPC workflow and ambiguous "level" langu
 
 **Planner bridge (Lane A + Step 2, optional via gold):** After `run_planner_step1_turn`, `gold/step2_canonical_and_intent.json` → `planner_bridge` runs `classify_intent` on the **same** planner `user_message` and checks intent expectations per `fixture_role` (`intent_expectations_by_planner_scenario_key`). If `assert_statblock_read_matches_canonical_when_present` is true and the trace includes any Lysandra `*_statblock_*.md` read, the **canonical** path from `corpus_policy.canonical_statblock_relpath` must appear among those reads (opening an archive sheet such as CR2 **in addition** to canonical is allowed). Violations are attached as `step2_bridge` on `LiveEvalResult` without changing Lane A substring gates.
 
-**Step 3 draft shift:** treat baseline as `power_baseline` (`challenge_rating_current`, optional `class_level_current`) instead of `pre_level: int`.
-
-**Step 4 draft shift:** require monotonic upgrade on selected axis (`target_cr` or `target_class_level`), and block if clarifier is required but unanswered.
-
 **Verify:**
 
 ```bash
@@ -110,6 +106,52 @@ uv run python evals/lysandra_vertical_slice/step2_canonical_intent.py
 
 ---
 
-## Step 3+
+## Step 3 — `power_baseline` + evidence spans (G3.*)
 
-See `Docs/Plans/DESIGN-lysandra-statblock-vertical-slice-benchmark.md` §6; update this file when each step lands.
+**Status: IMPLEMENTED (deterministic v1; no LLM).**
+
+| Gate | Question | Done when |
+|------|----------|-----------|
+| **G3.1** | Does parsed CR match gold? | `power_baseline.challenge_rating_current` equals `gold/step3_power_baseline.json` → `expected_power_baseline.challenge_rating_current` when the canonical statblock body parses a CR line. |
+| **G3.2** | Are configured evidence fields anchored to verbatim text? | For each field in `evidence_span_fields`, `run_step3_power_baseline_gates` finds one logical line; each span’s `verbatim` equals `body[start_char:end_char]` with exclusive `end_char` (`end_char_exclusive: true`). |
+| **G3.3** | Is class level handled for v1? | `class_level_current` is `null` and matches gold when gold expects null. |
+| **G3.4** | What if the CR line is missing? | Gold `fallback_when_cr_absent` supplies `power_baseline` and `evidence_spans`; harness applies it and does not fail closed for “no CR line” alone. |
+
+**Harness:** `step3_power_baseline.py` — `run_step3_power_baseline_gates(corpus_dir, step2_canonical_detail=…)` (or omit detail to run Step 2 canonical first). `run_step2_and_step3()` runs Step 2 canonical + intent fixtures, then Step 3.
+
+**Verify:**
+
+```bash
+uv run pytest tests/test_lysandra_vertical_slice_step3.py -q
+uv run python evals/lysandra_vertical_slice/step3_power_baseline.py
+```
+
+**Artifacts:** `gold/step3_power_baseline.json`, `gold/step3_status.json`, `step3_power_baseline.py`, `tests/test_lysandra_vertical_slice_step3.py`.
+
+---
+
+## Step 4 — Level-up **context bundle** (deterministic; no model-output schema)
+
+**Status: IMPLEMENTED (deterministic v1).** Assembles grounding for a downstream generator: `power_baseline` + gold `target_challenge_rating`, statblock excerpt, C2 dossier excerpt, optional `session_anchor_relpath` excerpt from `corpus_policy`, and **keyword-ranked** session recap snippets (policy aliases + optional theme-keyword boosts; per-file snippet = **highest-scoring paragraph** by default, else first-alias window).
+
+| Check | Question | Done when |
+|-------|----------|-----------|
+| **G4.1** | Is target CR strictly above baseline? | `target_challenge_rating` from `gold/step4_levelup_context.json` exceeds `power_baseline.challenge_rating_current` from Step 3 (baseline must be numeric). |
+| **G4_RECAP** | Does the recap bundle meet gold assertions? | At least `min_recap_snippets` snippets; union of `verbatim` contains every `assert_snippets_union_contains_substrings` entry; at least one of `assert_snippets_union_contains_one_of`. |
+
+**Harness:** `step4_levelup_context.py` — `build_levelup_context_bundle`, `run_step4_levelup_context_gates`, `run_step2_through_step4`, `assemble_model_context_plaintext`.
+
+**Verify:**
+
+```bash
+uv run pytest tests/test_lysandra_vertical_slice_step4.py -q
+uv run python evals/lysandra_vertical_slice/step4_levelup_context.py
+```
+
+**Artifacts:** `gold/step4_levelup_context.json`, `gold/step4_status.json`, `step4_levelup_context.py`, `tests/test_lysandra_vertical_slice_step4.py`.
+
+---
+
+## Step 5+
+
+See `Docs/Plans/DESIGN-lysandra-statblock-vertical-slice-benchmark.md` §6 (Statblock service call); update this file when each step lands.
