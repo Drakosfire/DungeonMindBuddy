@@ -247,6 +247,12 @@ def _check_final_require(
         violations.append(
             f"{_fail_prefix(scenario_id)} final: output_text must contain one of {anys!r}"
         )
+    for banned in require.get("output_text_excludes_substrings") or []:
+        b = str(banned)
+        if b and b in text:
+            violations.append(
+                f"{_fail_prefix(scenario_id)} final: output_text must not contain forbidden substring {b!r}"
+            )
     min_chars = require.get("min_output_chars")
     if min_chars is not None and len(text) < int(min_chars):
         violations.append(

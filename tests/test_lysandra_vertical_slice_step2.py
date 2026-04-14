@@ -6,6 +6,7 @@ import pytest
 
 from evals.lysandra_vertical_slice.step0_corpus_environment import resolve_corpus_dir
 from evals.lysandra_vertical_slice.step1_planner_trace import load_planner_step1_scenario
+from evals.lysandra_vertical_slice.step1_retrieval import load_corpus_policy
 from evals.lysandra_vertical_slice.step2_canonical_intent import (
     classify_intent,
     load_step2_gold,
@@ -14,6 +15,7 @@ from evals.lysandra_vertical_slice.step2_canonical_intent import (
     run_step2_canonical_gates,
     run_step2_intent_fixture_gates,
     run_step2_planner_bridge,
+    statblock_trace_reads_matching_policy,
 )
 
 
@@ -123,7 +125,7 @@ def test_run_step2_planner_bridge_accepts_canonical_statblock_read() -> None:
     )
     assert ok, viol
     assert detail.get("intent_from_planner_user_message", {}).get("intent_mode") == "factual_lookup"
-    assert detail.get("lysandra_statblock_reads_in_trace")
+    assert detail.get("mechanical_statblock_reads_in_trace")
 
 
 def test_run_step2_planner_bridge_rejects_non_canonical_statblock_read() -> None:
@@ -188,4 +190,21 @@ def test_run_step2_planner_bridge_no_statblock_read_still_ok() -> None:
         planner_scenario_key="autonomous",
     )
     assert ok, viol
-    assert detail.get("lysandra_statblock_reads_in_trace") == []
+    assert detail.get("mechanical_statblock_reads_in_trace") == []
+
+
+def test_statblock_trace_reads_matching_policy_configurable() -> None:
+    """Bridge statblock trace matching is driven by corpus_policy, not a hardcoded NPC slug."""
+    policy = {
+        **load_corpus_policy(),
+        "mechanical_statblock_trace_path_filters": {
+            "all_substrings_ignore_case": ["torbin jove/", "torbin jove.md"],
+            "path_suffix_ignore_case": ".md",
+        },
+    }
+    paths = [
+        "Longmont Campaign/NPCs/Torbin Jove/Torbin Jove.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 3 - Recap.md",
+    ]
+    matched = statblock_trace_reads_matching_policy(paths, policy)
+    assert matched == ["Longmont Campaign/NPCs/Torbin Jove/Torbin Jove.md"]

@@ -6,6 +6,8 @@ Canonical “is this step done?” answers for humans and agents.
 
 **Machine hooks:** `gold/step0_status.json`, `gold/step1_status.json`, `gold/planner_step1_status.json`, `gold/step2_status.json`, `gold/step3_status.json`, `gold/step4_status.json`.
 
+**Unified deterministic run (no LLM):** `run_vertical_slice_deterministic()` in `run_deterministic_slice.py` chains Step 0 → Step 1 keyword gates → `run_step2_through_step4` (Steps 2–4). CLI: `uv run python evals/lysandra_vertical_slice/run_deterministic_slice.py` (set `LYSANDRA_SLICE_SKIP_STATBLOCK_URL_GATE=1` for corpus-only if G0.3 is not satisfied). Tests: `tests/test_lysandra_vertical_slice_run_deterministic.py`.
+
 ---
 
 ## Step 0 — Corpus pin + environment (G0.1–G0.3)
@@ -37,7 +39,7 @@ uv run pytest tests/test_lysandra_vertical_slice_step0.py -q
 
 | Check | Question | Done when |
 |-------|----------|-----------|
-| **Lane A** | Did the planner loop open the right corpus files for the scenario? | `read_corpus_file` paths in `PlanningTurnDetail.tool_trace` match the chosen gold fixture → `final.require` (substring checks + `read_corpus_file` present + `min_output_chars`; `hit_tool_round_limit` fails via shared live_eval rules). **Directed** / **Autonomous** / **Stat check** — see `gold/planner_step1_*.json` and each `fixture_note`. Env: `LYSANDRA_PLANNER_STEP1_SCENARIO` = `directed` \| `autonomous` (default) \| `stat_check`. After the turn, **Step 2 planner bridge** (same `user_message`, optional trace vs `corpus_policy.canonical_statblock_relpath`) merges violations under `step2_bridge` — see Step 2 §bridge. |
+| **Lane A** | Did the planner loop open the right corpus files for the scenario? | `read_corpus_file` paths in `PlanningTurnDetail.tool_trace` match the chosen gold fixture → `final.require` (substring checks + `read_corpus_file` present + `min_output_chars`; `hit_tool_round_limit` fails via shared live_eval rules). **Directed** / **Autonomous** / **Stat check** / **upgrade_prose** (CR bump prose for statblock generator) — see `gold/planner_step1_*.json` and each `fixture_note`. Env: `LYSANDRA_PLANNER_STEP1_SCENARIO` = `directed` \| `autonomous` (default) \| `stat_check` \| `upgrade_prose`. Optional `LYSANDRA_PLANNER_FINAL_OUT=/path/file.md` writes the model's final answer only. After the turn, **Step 2 planner bridge** (same `user_message`, optional trace vs `corpus_policy.canonical_statblock_relpath`) merges violations under `step2_bridge` — see Step 2 §bridge. |
 
 **Harness:** `step1_planner_trace.py` → `run_planner_step1_turn()` (same wiring as planner live eval: manifest, tools, `make_tool_dispatcher`).
 
@@ -51,7 +53,7 @@ uv run pytest tests/test_lysandra_vertical_slice_planner_step1.py -q
 
 **CLI (manual, from repo root):** `uv run python evals/lysandra_vertical_slice/step1_planner_trace.py` — prints a review (turns, per-round `input_tokens`, replayed corpus bodies, final answer) and emits `dmb.planner` JSON telemetry on stderr. Optional: `PLANNER_LOG_FULL_IO=1` for larger telemetry payloads.
 
-**Artifacts:** `gold/planner_step1_directed.json`, `gold/planner_step1_autonomous.json`, `gold/planner_step1_stat_check.json`, `step1_planner_trace.py`, `tests/test_lysandra_vertical_slice_planner_step1.py`.
+**Artifacts:** `gold/planner_step1_directed.json`, `gold/planner_step1_autonomous.json`, `gold/planner_step1_stat_check.json`, `gold/planner_step1_upgrade_prose.json`, `step1_planner_trace.py`, `tests/test_lysandra_vertical_slice_planner_step1.py`.
 
 ---
 
@@ -132,7 +134,9 @@ uv run python evals/lysandra_vertical_slice/step3_power_baseline.py
 
 ## Step 4 — Level-up **context bundle** (deterministic; no model-output schema)
 
-**Status: IMPLEMENTED (deterministic v1).** Assembles grounding for a downstream generator: `power_baseline` + gold `target_challenge_rating`, statblock excerpt, C2 dossier excerpt, optional `session_anchor_relpath` excerpt from `corpus_policy`, and **keyword-ranked** session recap snippets (policy aliases + optional theme-keyword boosts; per-file snippet = **highest-scoring paragraph** by default, else first-alias window).
+**Status: IMPLEMENTED (deterministic v1).** Assembles a **regression bundle** (same conceptual ingredients the live pipeline cares about, but for gates and humans—not fed to StatblockGenerator or agent prompts): `power_baseline` + gold `target_challenge_rating`, statblock excerpt, C2 dossier excerpt, optional `session_anchor_relpath` excerpt from `corpus_policy`, and **keyword-ranked** session recap snippets (policy aliases + optional theme-keyword boosts; per-file snippet = **highest-scoring paragraph** by default, else first-alias window).
+
+**Harness evaluation order:** **G4.1** (power target vs Step 3 baseline) → **G4_RECAP** (snippet count + substring union) → **G4_TIMELINE** (policy path + non-empty excerpt when required). Checkers: `g4_1_power_target_violations`, `g4_recap_violations`, `g4_timeline_violations`. **`step4_all_gate_violations`** concatenates them in that order (used by `run_step4_levelup_context_gates` after the bundle is built).
 
 | Check | Question | Done when |
 |-------|----------|-----------|

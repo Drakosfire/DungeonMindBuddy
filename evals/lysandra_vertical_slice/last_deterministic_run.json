@@ -1,0 +1,124 @@
+{
+  "corpus_dir": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/corpus/eldyrwild-markdown",
+  "step0": {
+    "ok": true,
+    "violations": []
+  },
+  "step1": {
+    "ok": true,
+    "violations": []
+  },
+  "step2_through_4": {
+    "ok": true,
+    "violations": [],
+    "intent_fixtures_ok": true,
+    "canonical_path": "Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_statblock_cr4.md",
+    "power_baseline": {
+      "challenge_rating_current": 4,
+      "class_level_current": null,
+      "class_level_source": null,
+      "axis_source": "canonical_statblock",
+      "extraction_method": "statblock_marker_parse"
+    },
+    "levelup_context_bundle": {
+      "entity_canonical_name": "Captain Lysandra Ironveil",
+      "power_baseline": {
+        "challenge_rating_current": 4,
+        "class_level_current": null,
+        "class_level_source": null,
+        "axis_source": "canonical_statblock",
+        "extraction_method": "statblock_marker_parse"
+      },
+      "power_target": {
+        "target_challenge_rating": 5,
+        "axis": "challenge_rating"
+      },
+      "evidence_spans_from_step3": [
+        {
+          "field": "challenge_rating",
+          "corpus_relative_path": "Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_statblock_cr4.md",
+          "start_char": 1570,
+          "end_char": 1597,
+          "end_char_exclusive": true,
+          "verbatim": "Challenge Rating : 4 (1100)"
+        },
+        {
+          "field": "armor_class",
+          "corpus_relative_path": "Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_statblock_cr4.md",
+          "start_char": 1190,
+          "end_char": 1206,
+          "end_char_exclusive": true,
+          "verbatim": "Armor Class : 16"
+        },
+        {
+          "field": "hit_points",
+          "corpus_relative_path": "Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_statblock_cr4.md",
+          "start_char": 1207,
+          "end_char": 1239,
+          "end_char_exclusive": true,
+          "verbatim": "Hit Points: 52 Hit Dice : 7d8+14"
+        }
+      ],
+      "recap_ranking_meta": {
+        "scored_files_considered": 23,
+        "recap_snippet_mode": "best_scoring_paragraph",
+        "theme_boost_keywords": [
+          "uneasy",
+          "difficult",
+          "trouble",
+          "grave",
+          "wound"
+        ]
+      },
+      "statblock_excerpt": {
+        "corpus_relative_path": "Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_statblock_cr4.md",
+        "text_chars": 2757
+      },
+      "dossier_excerpt": {
+        "corpus_relative_path": "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_character_dossier.md",
+        "text_chars": 7513
+      },
+      "timeline_excerpt": {
+        "corpus_relative_path": "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/timeline.md",
+        "text_chars": 1280
+      },
+      "session_anchor_excerpt": {
+        "corpus_relative_path": "Longmont Campaign/Campaign 2/Session Recaps/Session 19 - Recap.md",
+        "text_chars": 6957
+      },
+      "session_recap_snippets": [
+        {
+          "corpus_relative_path": "Longmont Campaign/Campaign 2/Session Recaps/Session 15 - Recap.md",
+          "keyword_score": 44,
+          "verbatim_chars": 685,
+          "verbatim_preview": "Continuing along the path into the early afternoon the air becomes much more humid and the moss begins to thin out, replaced by larger and thicker roots. Ahead they can see the road is becoming more and more difficult to…"
+        },
+        {
+          "corpus_relative_path": "Longmont Campaign/Campaign 2/Session Recaps/Session 2 - Recap.md",
+          "keyword_score": 40,
+          "verbatim_chars": 400,
+          "verbatim_preview": "---\ntitle: \"Session 2 - Recap:\"\ndocument_class: play\ncanon_layer: campaign\ncampaign_id: longmont-c2\ntemporal_scope: session_specific\nsession: 2\norigin_session: 2\nlast_updated_session: 2\nsource_class: observed_session_rec…"
+        },
+        {
+          "corpus_relative_path": "Longmont Campaign/Campaign 2/Session Recaps/Session 13 - Recap.md",
+          "keyword_score": 38,
+          "verbatim_chars": 743,
+          "verbatim_preview": "Lysandra has now been assigned to lead the group. Rurik tells the group that there may have been trouble in the towns along the way and the best place to find details would be in Outtown. Many of the members of Questiona…"
+        },
+        {
+          "corpus_relative_path": "Longmont Campaign/Campaign 2/Session Recaps/Session 7 - Recap.md",
+          "keyword_score": 37,
+          "verbatim_chars": 1223,
+          "verbatim_preview": "Outside Karsemine attacks the Cultist, but misses. Instead hits with Horde Breaker and then again with Nick and finishes him off. Inside the barn Stafl escapes the grapple and flies back up again and then throws a potion…"
+        },
+        {
+          "corpus_relative_path": "Longmont Campaign/Campaign 2/Session Recaps/Session 1 - Let the Games Begin.md",
+          "keyword_score": 37,
+          "verbatim_chars": 400,
+          "verbatim_preview": "---\ntitle: \"Session 1 - Let the Games Begin\"\ndocument_class: play\ncanon_layer: campaign\ncampaign_id: longmont-c2\ntemporal_scope: session_specific\nsession: 1\norigin_session: 1\nlast_updated_session: 1\nsource_class: observe…"
+        }
+      ]
+    }
+  },
+  "ok": true
+}

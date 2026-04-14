@@ -1,6 +1,6 @@
 """Step 1 Lane A — planner ``tool_trace`` gates (Lysandra vertical slice).
 
-Gold scenarios: **directed**, **autonomous**, **stat_check** (see ``gold/planner_step1_*.json``;
+Gold scenarios: **directed**, **autonomous**, **stat_check**, **upgrade_prose** (see ``gold/planner_step1_*.json``;
 pick with ``LYSANDRA_PLANNER_STEP1_SCENARIO``). After each live turn, Step 2 **planner_bridge**
 (``gold/step2_canonical_and_intent.json``) classifies the same ``user_message`` and optionally
 asserts Lysandra ``*_statblock_*.md`` reads match ``corpus_policy.canonical_statblock_relpath``.
@@ -58,11 +58,11 @@ from src.agent.planner_telemetry import text_sig  # noqa: E402
 _SLICE_DIR = Path(__file__).resolve().parent
 
 _PLANNER_STEP1_SCENARIO_ENV = "LYSANDRA_PLANNER_STEP1_SCENARIO"
-_VALID_PLANNER_STEP1_SCENARIOS = frozenset({"directed", "autonomous", "stat_check"})
+_VALID_PLANNER_STEP1_SCENARIOS = frozenset({"directed", "autonomous", "stat_check", "upgrade_prose"})
 
 
 def default_planner_step1_scenario_key() -> str:
-    """``directed`` = path-spelled user ask; ``autonomous`` = general prep (default); ``stat_check`` = targeted stat question."""
+    """``directed`` / ``autonomous`` / ``stat_check`` / ``upgrade_prose`` (CR bump prose for generator). Default ``autonomous``."""
     raw = os.environ.get(_PLANNER_STEP1_SCENARIO_ENV, "autonomous").strip().lower()
     return raw if raw in _VALID_PLANNER_STEP1_SCENARIOS else "autonomous"
 
@@ -136,8 +136,9 @@ def run_planner_step1_turn(
     - ``directed`` — user message names folders/filenames to open (strong smoke, not autonomy).
     - ``autonomous`` — general prep ask; relaxed path gates (see gold ``fixture_note``).
     - ``stat_check`` — mechanical question; gates require opening the statblock file.
+    - ``upgrade_prose`` — CR bump: read canonical statblock + corpus context; final answer is prose for a statblock generator.
 
-    Pick with env ``LYSANDRA_PLANNER_STEP1_SCENARIO=directed|autonomous|stat_check`` (default **autonomous**),
+    Pick with env ``LYSANDRA_PLANNER_STEP1_SCENARIO=directed|autonomous|stat_check|upgrade_prose`` (default **autonomous**),
     or pass ``scenario_key``, or pass a full ``scenario`` dict.
 
     Loads ``.env`` / ``.env.development`` via ``load_dungeonmindbuddy_dotenv()`` so
@@ -360,7 +361,7 @@ def print_planner_step1_review(
         print(sep)
         print(
             "§ Step 2 planner bridge (deterministic; same user_line as Lane A)\n"
-            "  intent_from_planner_user_message + lysandra_statblock_reads_in_trace + canonical path"
+            "  intent_from_planner_user_message + mechanical_statblock_reads_in_trace + canonical path"
         )
         print(sep)
         print(json.dumps(run.bridge_review_detail, indent=2, ensure_ascii=False))
@@ -379,7 +380,8 @@ def main() -> None:
     ``uv run python evals/lysandra_vertical_slice/step1_planner_trace.py``
 
     Loads ``OPENAI_API_KEY`` from repo ``.env`` / ``.env.development`` (no ``export`` needed).
-    Optional: ``PLANNER_LOG_FULL_IO=1``.
+    Optional: ``PLANNER_LOG_FULL_IO=1``. Optional: ``LYSANDRA_PLANNER_FINAL_OUT=/path/to/file.md`` writes the
+    model's final answer only (useful with ``upgrade_prose``).
     """
     import os
     import sys
@@ -416,6 +418,12 @@ def main() -> None:
     model_id = _resolve_planner_model(None)
     run = run_planner_step1_turn(corpus_dir=root, client=client, model_id=model_id)
     print_planner_step1_review(run, corpus_dir=root, model_id=model_id)
+    out_path = os.environ.get("LYSANDRA_PLANNER_FINAL_OUT", "").strip()
+    if out_path:
+        p = Path(out_path).expanduser()
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(run.detail.final_text or "", encoding="utf-8")
+        print(f"[wrote final answer to {p}]", file=sys.stderr)
     if not run.result.passed:
         sys.exit(1)
 

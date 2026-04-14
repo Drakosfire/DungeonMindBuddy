@@ -1,11 +1,28 @@
 # Lysandra Ironveil — Campaign 2 timeline
 
-Session-ordered **table** beats. **Primary chronology:** `Longmont Campaign/Campaign 2/Session Recaps/`. **Aggregated GM digest:** `Campaign 2 Notes.md` (large ledger — Lysandra lines were scanned into this file and the dossier).
+Session-ordered **table** beats for **Captain Lysandra Ironveil** (C2). **Primary chronology:** `Longmont Campaign/Campaign 2/Session Recaps/`. **Aggregated GM digest:** `Campaign 2 Notes.md` (large ledger — Lysandra lines were scanned into this file and the dossier).
 
-| Session (approx.) | Beat | Recap / notes |
-|-------------------|------|----------------|
-| **~3** (festival arc) | Party reunites with **Captain Lysandra**; reward **Wolf’s Manor**, **deputy badges**, mandate to hunt **Shepherd’s Flock** after storm/cult leads. | See recap `Session 3 - Recap.md`; summary also in `Campaign 2 Notes.md` (“Previously, in Mirathorn…”). |
-| **5** (“Spiral Gate” prep) | Post-Colosseum: informal approach, **Shepherd’s Flock** gathering (human-only), **disguises**, admits **distrust inside her own ranks**; personal stakes. | Prep block in `Campaign 2 Notes.md` § Session 5; playthrough `Session 5 - Recap.md`. |
-| **6+** (cult / fleshbarn arc) | **Wounded**, **angry**, **all-in** against the cult; later **fiercely loyal** after shared horror and Wolf Manor tunnel reveal (per prep outro). | `Session 6 - Recap.md` onward; outro lines in `Campaign 2 Notes.md` near Session 5–6 prep. |
+Use this file to decide **which recap to open next**; each row is a pointer, not a substitute for the recap text.
 
-*Fill exact dates and quotes from the matching `Session Recaps` files as you curate.*
+
+| Session | Lysandra beat (short)                                                                                                                                                                                                                                                                                                      | Recap file                                     |
+| ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| **3**   | Party reunites with her at the guardhouse; **deputy** mandate; she agrees to help Caelynn’s private search and to deputize the party on **Shepherd’s Flock** / underground tunnel pressure.                                                                                                                                | `Session 3 - Recap.md`                         |
+| **5**   | Approaches party **out of uniform**, visibly **anxious**; confides guard-only music festival is unprecedented and worrisome; joins walk to apothecary / tea / **Unity Dance** rehearsal; ends at **guardhouse roof party** (setup for Session 6).                                                                          | `Session 5 - Recap.md`                         |
+| **6**   | **Charmed** with Stafl and guards (Maelthor / “spiral gates”); Caelynn **antidote + Shocking Grasp** breaks charm; **barn cult**, meat, **Fleshborn**, **fire** — shared horror and combat with the party.                                                                                                                 | `Session 6 - Recap.md`                         |
+| **7–8** | **Fleshbarn** fight continues: grappled with Caelynn, nearly **Devoured**, locked doors, **Lightning Bolt** corridor, coordination with guards afterward.                                                                                                                                                                  | `Session 7 - Recap.md`, `Session 8 - Recap.md` |
+| **13**  | After mayor/council fallout, **assigned to lead** the party on the **swamp road** mission; **breaks down** from cumulative stress, recovers, **takes charge** (Outtown / towns along the way).                                                                                                                             | `Session 13 - Recap.md`                        |
+| **15**  | **New rank / uniform**; briefs ride to **Mossford**; route becomes **hard to navigate**; she is **uneasy** (intel didn’t match the forest); party uses **rocky-talkie** to Academy; she **stays back** with **horses and supplies** while the party enters the **migrating forest** with Pass without a Trace.             | `Session 15 - Recap.md`                        |
+| **16**  | Still on approach to Mossford: she **maps landmarks** and timing (“trees would reach Mossford in about a day and a half”); party **enters the forest** together while she remains the grounded command reference for route and stakes.                                                                                     | `Session 16 - Recap.md`                        |
+| **17**  | *(Session title file)* `Session 17 - Migrating Forest and Thrin.md` — forest / Thrin arc; open that file for beat-level detail if Lysandra is off-screen.                                                                                                                                                                  | `Session 17 - Migrating Forest and Thrin.md`   |
+| **18**  | Climax inside the **Mother** fight / forest exit; party reaches Mossford view. **Rocky-talkie** to Lysandra: Ephanna overhears **Frank** with Lysandra — muffled, urgent (**meat**, **boundary**, **breached**, **evacuate**, **map not random**). Key **remote command / warning** beat while the table is in the forest. | `Session 18 - Recap.md`                        |
+| **19**  | **Mossford** defense: mayor, sheriff, **vanguard trees**, experimental “dead ground,” **red gnat swarm** — town and forest mechanics; Lysandra is often **offstage** (supply / command line) but this is the **current pressure cooker** after Sessions 15–18.                                                             | `Session 19 - Recap.md`                        |
+
+
+## How to use this with prep / statblock bumps
+
+- **Emotional spine:** **5 → 6** (trust and vulnerability) → **13** (command assigned under strain) → **15–16** (competence vs. **unknown forest**).
+- **Remote tension line:** **18** (overheard rocky-talkie) + **19** (town about to be hit) for “what the table feels like *now*.”
+- **Combat reference:** **6–8** for what “fleshbarn Lysandra” looked like at the table.
+
+*When you add new sessions, append a row and keep recap filenames literal so planners and tools can resolve paths from the Session Recaps tree.*

@@ -1,6 +1,6 @@
 {
   "schema": "lysandra_vertical_slice_step4_context_bundle_v1",
-  "description": "Step 4 — deterministic bundle JSON (excerpts + recap snippets) for gates and human inspection; model_context_plaintext breadcrumbs-only. StatblockGenerator is fed LLM prose + API fields—not this bundle as a prompt. No structured level_up_request validation in v1.",
+  "description": "Step 4 — deterministic bundle JSON (excerpts + recap snippets) for gates and human inspection only; no harness-assembled agent plaintext. StatblockGenerator is fed LLM prose + API fields—not this bundle as a prompt. No structured level_up_request validation in v1.",
   "target_challenge_rating": 5,
   "recap_scan_relative_dirs": [
     "Longmont Campaign/Campaign 2/Session Recaps",

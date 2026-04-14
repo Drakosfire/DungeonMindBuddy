@@ -166,6 +166,7 @@ See `live_fixtures/*.json`. Top-level fields:
 
 - `**output_text_contains_any`** — List of strings; at least one must appear in `final_text` (case-sensitive unless we add flag later).
 - `**output_text_contains_all`** — All must appear.
+- `**output_text_excludes_substrings`** — List of strings; none may appear as a substring in `final_text` (e.g. forbid path dumps or “Grounded in…” when packaging prose for a downstream consumer).
 - `**min_output_chars**` — Minimum length of `final_text`.
 - `**min_h2_headings**` (int, optional) — **Gate 3 / structure:** at least this many Markdown lines matching top-level `##`  headings (`^\s*##\s+\S`) in `final_text`. Encourages a self-authored multi-section plan instead of one blob paragraph.
 - `**tool_trace_must_include_tool`** — One tool name must appear at least once in `tool_trace`.

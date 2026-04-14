@@ -4,10 +4,11 @@
   "name": "levelup_context_bundle",
   "status": "implemented_deterministic_v1",
   "implementation": [
+    "evals/lysandra_vertical_slice/run_deterministic_slice.py",
     "evals/lysandra_vertical_slice/step4_levelup_context.py",
     "evals/lysandra_vertical_slice/gold/step4_levelup_context.json",
     "evals/lysandra_vertical_slice/gold/corpus_policy.json",
     "tests/test_lysandra_vertical_slice_step4.py"
   ],
-  "notes": "Bundle JSON: excerpts + snippets for gates/humans. model_context_plaintext: breadcrumbs-only (llm-context-discovery). Gates G4.1 / G4_RECAP / G4_TIMELINE."
+  "notes": "Bundle JSON: excerpts + snippets for gates/humans only (llm-context-discovery). Gates G4.1 / G4_RECAP / G4_TIMELINE via g4_* helpers and step4_all_gate_violations aggregator."
 }

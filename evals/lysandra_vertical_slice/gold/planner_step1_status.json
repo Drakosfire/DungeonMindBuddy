@@ -7,12 +7,14 @@
   "human_signpost": "evals/lysandra_vertical_slice/GATES.md",
   "verification": {
     "unit_command": "uv run pytest tests/test_lysandra_vertical_slice_planner_step1.py -q",
-    "live_note": "Set LYSANDRA_PLANNER_STEP1_LIVE=1, OPENAI_API_KEY, and optional LYSANDRA_PLANNER_STEP1_SCENARIO=directed|autonomous (default autonomous).",
-    "last_verified_outcome": "unit: 6 passed 1 skipped (2026-04-11)"
+    "live_note": "Set LYSANDRA_PLANNER_STEP1_LIVE=1, OPENAI_API_KEY, and optional LYSANDRA_PLANNER_STEP1_SCENARIO=directed|autonomous|stat_check|upgrade_prose (default autonomous). Optional LYSANDRA_PLANNER_FINAL_OUT=path to save final answer.",
+    "last_verified_outcome": "unit: see pytest tests/test_lysandra_vertical_slice_planner_step1.py"
   },
   "depends_on": [
     "gold/planner_step1_directed.json",
     "gold/planner_step1_autonomous.json",
+    "gold/planner_step1_stat_check.json",
+    "gold/planner_step1_upgrade_prose.json",
     "step1_planner_trace.py"
   ]
 }

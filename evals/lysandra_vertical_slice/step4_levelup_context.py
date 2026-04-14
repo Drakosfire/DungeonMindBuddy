@@ -52,6 +52,104 @@ def load_step4_gold() -> dict[str, Any]:
     return json.loads(step4_gold_path().read_text(encoding="utf-8"))
 
 
+def g4_1_power_target_violations(
+    step3_detail: dict[str, Any],
+    *,
+    target_challenge_rating: int,
+) -> list[str]:
+    """
+    **G4.1** — target power on the CR axis must be strictly above Step 3 baseline.
+
+    Returns zero or more ``G4.1 FAIL: …`` strings (empty list means pass).
+    v1 supports ``challenge_rating_current`` only; class-level axis is deferred.
+    """
+    pb = step3_detail.get("power_baseline") or {}
+    cur = pb.get("challenge_rating_current")
+    if cur is None:
+        return [
+            "G4.1 FAIL: challenge_rating_current is null; cannot assert monotonic CR upgrade",
+        ]
+    try:
+        cur_i = int(cur)
+    except (TypeError, ValueError):
+        return [f"G4.1 FAIL: non-numeric challenge_rating_current: {cur!r}"]
+    if target_challenge_rating <= cur_i:
+        return [
+            f"G4.1 FAIL: target_challenge_rating {target_challenge_rating} "
+            f"must exceed baseline {cur_i}",
+        ]
+    return []
+
+
+def g4_recap_violations(levelup_context_bundle: dict[str, Any], *, step4_gold: dict[str, Any]) -> list[str]:
+    """
+    **G4_RECAP** — recap snippet count and gold substring assertions on the union of ``verbatim``.
+
+    Returns zero or more ``G4_RECAP FAIL: …`` strings (empty list means pass).
+    """
+    violations: list[str] = []
+    min_snip = max(0, int(step4_gold.get("min_recap_snippets") or 0))
+    snips = levelup_context_bundle.get("session_recap_snippets") or []
+    if len(snips) < min_snip:
+        violations.append(f"G4_RECAP FAIL: expected at least {min_snip} recap snippets, got {len(snips)}")
+
+    union = "\n".join(str(s.get("verbatim") or "") for s in snips)
+    for sub in [str(x) for x in (step4_gold.get("assert_snippets_union_contains_substrings") or []) if str(x).strip()]:
+        if sub not in union:
+            violations.append(f"G4_RECAP FAIL: snippets union missing required substring {sub!r}")
+
+    one_of = [str(x) for x in (step4_gold.get("assert_snippets_union_contains_one_of") or []) if str(x).strip()]
+    if one_of and not any(x in union for x in one_of):
+        violations.append(f"G4_RECAP FAIL: snippets union missing all of {one_of!r}")
+    return violations
+
+
+def g4_timeline_violations(
+    levelup_context_bundle: dict[str, Any],
+    corpus_policy: dict[str, Any],
+    *,
+    step4_gold: dict[str, Any],
+) -> list[str]:
+    """
+    **G4_TIMELINE** — when gold requires it, policy pins a timeline path and the bundle excerpt is non-empty.
+
+    Returns zero or more ``G4_TIMELINE FAIL: …`` strings (empty list means pass).
+    """
+    if not step4_gold.get("require_timeline_excerpt", True):
+        return []
+    tr = corpus_policy.get("timeline_relpath")
+    if not isinstance(tr, str) or not tr.strip():
+        return ["G4_TIMELINE FAIL: corpus_policy.timeline_relpath missing or empty"]
+    tl = levelup_context_bundle.get("timeline_excerpt") or {}
+    if not str(tl.get("text") or "").strip():
+        return [
+            "G4_TIMELINE FAIL: timeline excerpt empty (check corpus_policy.timeline_relpath "
+            f"and file under corpus_dir: {_norm_rel(tr)!r})",
+        ]
+    return []
+
+
+def step4_all_gate_violations(
+    *,
+    step3_detail: dict[str, Any],
+    levelup_context_bundle: dict[str, Any],
+    corpus_policy: dict[str, Any],
+    step4_gold: dict[str, Any],
+) -> list[str]:
+    """
+    Run **G4.1** → **G4_RECAP** → **G4_TIMELINE** in order; return concatenated violation strings.
+
+    Call after ``levelup_context_bundle`` is built (G4.1 does not read the bundle, but this keeps
+    one entry point for tests and tooling).
+    """
+    target_cr = int(step4_gold["target_challenge_rating"])
+    v: list[str] = []
+    v.extend(g4_1_power_target_violations(step3_detail, target_challenge_rating=target_cr))
+    v.extend(g4_recap_violations(levelup_context_bundle, step4_gold=step4_gold))
+    v.extend(g4_timeline_violations(levelup_context_bundle, corpus_policy, step4_gold=step4_gold))
+    return v
+
+
 def _recap_sort_key(rel: str, score: int) -> tuple[int, int, int, str]:
     c_m = _CAMPAIGN_RE.search(rel)
     s_m = _SESSION_RE.search(rel)
@@ -341,14 +439,6 @@ def build_levelup_context_bundle(
             }
         )
 
-    cur = pb.get("challenge_rating_current")
-    cur_s = str(cur) if cur is not None else "unknown"
-    instr = (
-        f"Raise this NPC from CR {cur_s} to CR {target_cr} for the next mechanical export. "
-        "Use recap tone (fatigue, command pressure, recent hazards) only when supported by recap "
-        "files actually read from the corpus; do not invent sessions."
-    )
-
     bundle: dict[str, Any] = {
         "entity_canonical_name": policy.get("entity_canonical_name"),
         "power_baseline": pb,
@@ -364,7 +454,6 @@ def build_levelup_context_bundle(
             "recap_snippet_mode": g4.get("recap_snippet_mode") or "best_scoring_paragraph",
             "theme_boost_keywords": g4.get("theme_boost_keywords") or [],
         },
-        "upgrade_instrumentation": instr,
     }
     return bundle
 
@@ -404,47 +493,16 @@ def run_step4_levelup_context_gates(
             return {"step3_detail": d3, "step3_violations": v3}, False, violations
         step3_detail = d3
 
-    pb = step3_detail.get("power_baseline") or {}
-    cur = pb.get("challenge_rating_current")
-    target_cr = int(g4["target_challenge_rating"])
-
-    if cur is None:
-        violations.append("G4.1 FAIL: challenge_rating_current is null; cannot assert monotonic CR upgrade")
-    else:
-        try:
-            cur_i = int(cur)
-            if target_cr <= cur_i:
-                violations.append(f"G4.1 FAIL: target_challenge_rating {target_cr} must exceed baseline {cur_i}")
-        except (TypeError, ValueError):
-            violations.append(f"G4.1 FAIL: non-numeric challenge_rating_current: {cur!r}")
-
     bundle = build_levelup_context_bundle(root, step3_detail=step3_detail, corpus_policy=policy, step4_gold=g4)
 
-    min_snip = max(0, int(g4.get("min_recap_snippets") or 0))
-    snips = bundle.get("session_recap_snippets") or []
-    if len(snips) < min_snip:
-        violations.append(f"G4_RECAP FAIL: expected at least {min_snip} recap snippets, got {len(snips)}")
-
-    union = "\n".join(str(s.get("verbatim") or "") for s in snips)
-    for sub in [str(x) for x in (g4.get("assert_snippets_union_contains_substrings") or []) if str(x).strip()]:
-        if sub not in union:
-            violations.append(f"G4_RECAP FAIL: snippets union missing required substring {sub!r}")
-
-    one_of = [str(x) for x in (g4.get("assert_snippets_union_contains_one_of") or []) if str(x).strip()]
-    if one_of and not any(x in union for x in one_of):
-        violations.append(f"G4_RECAP FAIL: snippets union missing all of {one_of!r}")
-
-    if g4.get("require_timeline_excerpt", True):
-        tr = policy.get("timeline_relpath")
-        if not isinstance(tr, str) or not tr.strip():
-            violations.append("G4_TIMELINE FAIL: corpus_policy.timeline_relpath missing or empty")
-        else:
-            tl = bundle.get("timeline_excerpt") or {}
-            if not str(tl.get("text") or "").strip():
-                violations.append(
-                    "G4_TIMELINE FAIL: timeline excerpt empty (check corpus_policy.timeline_relpath "
-                    f"and file under corpus_dir: {_norm_rel(tr)!r})"
-                )
+    violations.extend(
+        step4_all_gate_violations(
+            step3_detail=step3_detail,
+            levelup_context_bundle=bundle,
+            corpus_policy=policy,
+            step4_gold=g4,
+        )
+    )
 
     detail: dict[str, Any] = {
         "levelup_context_bundle": bundle,
@@ -481,6 +539,56 @@ def run_step2_through_step4(
     return out, ok4, viol
 
 
+def slim_levelup_context_bundle_for_report(bundle: dict[str, Any] | None) -> dict[str, Any] | None:
+    """Drop full markdown bodies for CLI / aggregated JSON (paths + char counts + snippet previews)."""
+    if not bundle:
+        return None
+    b = bundle
+    slim_snips: list[dict[str, Any]] = []
+    for sn in b.get("session_recap_snippets") or []:
+        verb = str(sn.get("verbatim") or "")
+        slim_snips.append(
+            {
+                "corpus_relative_path": sn.get("corpus_relative_path"),
+                "keyword_score": sn.get("keyword_score"),
+                "verbatim_chars": len(verb),
+                "verbatim_preview": verb[:220] + ("…" if len(verb) > 220 else ""),
+            }
+        )
+    anc = b.get("session_anchor_excerpt") or {}
+    return {
+        **{
+            k: v
+            for k, v in b.items()
+            if k
+            not in (
+                "statblock_excerpt",
+                "dossier_excerpt",
+                "timeline_excerpt",
+                "session_anchor_excerpt",
+                "session_recap_snippets",
+            )
+        },
+        "statblock_excerpt": {
+            "corpus_relative_path": (b.get("statblock_excerpt") or {}).get("corpus_relative_path"),
+            "text_chars": len(str((b.get("statblock_excerpt") or {}).get("text") or "")),
+        },
+        "dossier_excerpt": {
+            "corpus_relative_path": (b.get("dossier_excerpt") or {}).get("corpus_relative_path"),
+            "text_chars": len(str((b.get("dossier_excerpt") or {}).get("text") or "")),
+        },
+        "timeline_excerpt": {
+            "corpus_relative_path": (b.get("timeline_excerpt") or {}).get("corpus_relative_path"),
+            "text_chars": len(str((b.get("timeline_excerpt") or {}).get("text") or "")),
+        },
+        "session_anchor_excerpt": {
+            "corpus_relative_path": anc.get("corpus_relative_path"),
+            "text_chars": len(str(anc.get("text") or "")),
+        },
+        "session_recap_snippets": slim_snips,
+    }
+
+
 def main() -> None:
     root = resolve_corpus_dir(load_step0_gold())
     out, ok, viol = run_step2_through_step4(root)
@@ -490,54 +598,10 @@ def main() -> None:
         "ok": ok,
         "intent_fixtures_ok": out.get("intent_fixtures_ok"),
         "canonical_path": (out.get("canonical_detail") or {}).get("canonical_path"),
-        "levelup_context_bundle": (out.get("levelup_context_detail") or {}).get("levelup_context_bundle"),
+        "levelup_context_bundle": slim_levelup_context_bundle_for_report(
+            (out.get("levelup_context_detail") or {}).get("levelup_context_bundle")
+        ),
     }
-    if slim["levelup_context_bundle"]:
-        b = slim["levelup_context_bundle"]
-        # Replace huge excerpts with lengths for CLI default view.
-        slim_snips = []
-        for sn in b.get("session_recap_snippets") or []:
-            verb = str(sn.get("verbatim") or "")
-            slim_snips.append(
-                {
-                    "corpus_relative_path": sn.get("corpus_relative_path"),
-                    "keyword_score": sn.get("keyword_score"),
-                    "verbatim_chars": len(verb),
-                    "verbatim_preview": verb[:220] + ("…" if len(verb) > 220 else ""),
-                }
-            )
-        anc = b.get("session_anchor_excerpt") or {}
-        slim["levelup_context_bundle"] = {
-            **{
-                k: v
-                for k, v in b.items()
-                if k
-                not in (
-                    "statblock_excerpt",
-                    "dossier_excerpt",
-                    "timeline_excerpt",
-                    "session_anchor_excerpt",
-                    "session_recap_snippets",
-                )
-            },
-            "statblock_excerpt": {
-                "corpus_relative_path": (b.get("statblock_excerpt") or {}).get("corpus_relative_path"),
-                "text_chars": len(str((b.get("statblock_excerpt") or {}).get("text") or "")),
-            },
-            "dossier_excerpt": {
-                "corpus_relative_path": (b.get("dossier_excerpt") or {}).get("corpus_relative_path"),
-                "text_chars": len(str((b.get("dossier_excerpt") or {}).get("text") or "")),
-            },
-            "timeline_excerpt": {
-                "corpus_relative_path": (b.get("timeline_excerpt") or {}).get("corpus_relative_path"),
-                "text_chars": len(str((b.get("timeline_excerpt") or {}).get("text") or "")),
-            },
-            "session_anchor_excerpt": {
-                "corpus_relative_path": anc.get("corpus_relative_path"),
-                "text_chars": len(str(anc.get("text") or "")),
-            },
-            "session_recap_snippets": slim_snips,
-        }
     print(json.dumps(slim, indent=2, ensure_ascii=False))
     if viol:
         print("--- violations ---", file=sys.stderr)

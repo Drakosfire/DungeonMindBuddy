@@ -14,7 +14,7 @@ from evals.planner_slice.live_eval import collect_scenario_violations
 from src.agent.planner import PlanningModelStepRecord, PlanningTurnDetail
 
 
-@pytest.mark.parametrize("scenario_key", ("directed", "autonomous", "stat_check"))
+@pytest.mark.parametrize("scenario_key", ("directed", "autonomous", "stat_check", "upgrade_prose"))
 def test_planner_step1_fixture_shape(scenario_key: str) -> None:
     sc = load_planner_step1_scenario(scenario_key)
     assert sc.get("version") >= 1
@@ -152,6 +152,59 @@ def test_planner_step1_gates_pass_synthetic_trace_stat_check() -> None:
     )
     viol = collect_scenario_violations(sc, detail)
     assert viol == {}
+
+
+def test_planner_step1_gates_pass_synthetic_trace_upgrade_prose() -> None:
+    sc = load_planner_step1_scenario("upgrade_prose")
+    body = (
+        "Captain Lysandra Ironveil at CR 5 should feel sharper on the table: the same "
+        "iron discipline the party knows, but the Mirathorn posting has left her unit stretched "
+        "thin—she barks orders a beat faster, trusts flanks less, and rides the edge of "
+        "Challenge Rating 5 presence without turning cartoonish. "
+        "No file paths or citations belong in this packaged prose."
+    )
+    detail = PlanningTurnDetail(
+        final_text=body,
+        last_response_id="r1",
+        tool_trace=[
+            {
+                "tool": "read_corpus_file",
+                "arguments": {
+                    "path": "Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_statblock_cr4.md"
+                },
+                "output_chars": 200,
+            },
+        ],
+        steps=[],
+        hit_tool_round_limit=False,
+    )
+    viol = collect_scenario_violations(sc, detail)
+    assert viol == {}
+
+
+def test_planner_step1_upgrade_prose_fails_when_final_lists_citations() -> None:
+    sc = load_planner_step1_scenario("upgrade_prose")
+    bad_body = (
+        "Grounded in `Elderwyld/foo.md`: at CR 5, Lysandra should feel sharper. "
+        + "x" * 300
+    )
+    detail = PlanningTurnDetail(
+        final_text=bad_body,
+        last_response_id="r1",
+        tool_trace=[
+            {
+                "tool": "read_corpus_file",
+                "arguments": {
+                    "path": "Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_statblock_cr4.md"
+                },
+                "output_chars": 200,
+            },
+        ],
+        steps=[],
+        hit_tool_round_limit=False,
+    )
+    viol = collect_scenario_violations(sc, detail)
+    assert viol.get("final")
 
 
 def test_planner_step1_gates_fail_no_statblock_read_stat_check() -> None:

@@ -24,6 +24,11 @@
         "intent_mode": "upgrade_request",
         "power_axis": "unknown",
         "clarifier_required": true
+      },
+      "upgrade_prose": {
+        "intent_mode": "upgrade_request",
+        "power_axis": "challenge_rating",
+        "clarifier_required": false
       }
     }
   },
