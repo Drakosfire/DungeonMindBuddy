@@ -7,6 +7,10 @@ from pathlib import Path
 import pytest
 
 from evals.lysandra_vertical_slice.step0_corpus_environment import resolve_corpus_dir
+from evals.lysandra_vertical_slice.step2_canonical_intent import (
+    build_step2_intent_fixture_sequence_client,
+    load_step2_gold,
+)
 from evals.lysandra_vertical_slice.step3_power_baseline import (
     extract_evidence_spans_for_fields,
     load_step3_gold,
@@ -53,7 +57,12 @@ def test_step3_on_real_corpus() -> None:
 def test_step2_and_step3_aggregate() -> None:
     if not resolve_corpus_dir().is_dir():
         pytest.skip("corpus/eldyrwild-markdown not present")
-    out, ok, viol = run_step2_and_step3(resolve_corpus_dir())
+    s2g = load_step2_gold()
+    out, ok, viol = run_step2_and_step3(
+        resolve_corpus_dir(),
+        step2_gold=s2g,
+        intent_client=build_step2_intent_fixture_sequence_client(s2g),
+    )
     assert ok, viol
     assert out.get("intent_fixtures_ok")
     assert out.get("power_baseline_detail", {}).get("power_baseline", {}).get("challenge_rating_current") == 4

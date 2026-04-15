@@ -1,32 +1,28 @@
-"""Canonical statblock selection, marker checks, intent classification, planner bridge.
+"""Canonical statblock selection, marker checks, intent classification, benchmark hooks.
 
 Policy-driven: ``corpus_policy`` supplies ``canonical_statblock_relpath`` and optional
 ``mechanical_statblock_trace_path_filters`` for tool-trace matching (no hardcoded NPC).
-Gold JSON supplies markers, expected CR, planner_bridge intent expectations, etc.
+Gold JSON supplies markers, expected CR, and optional **benchmark-only** post-planner checks
+(see ``evaluate_step2_post_planner_benchmark`` and key ``planner_bridge`` in Step 2 gold).
+
+See ``Docs/Plans/NAMING-benchmark-vs-runtime.md`` for benchmark vs runtime vocabulary.
 """
 
 from __future__ import annotations
 
 import copy
+import json
+import os
 import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
 
+from src.agent.corpus_path_tools import read_paths_from_tool_trace
+from src.agent.synthesis import _load_api_key
+
 IntentMode = Literal["factual_lookup", "upgrade_request", "comparison_request"]
 
-
-def read_paths_from_tool_trace(tool_trace: list[dict[str, Any]]) -> list[str]:
-    """``path`` arguments from executed ``read_corpus_file`` calls in order (same semantics as planner live_eval)."""
-    paths: list[str] = []
-    for row in tool_trace:
-        if str(row.get("tool", "")) != "read_corpus_file":
-            continue
-        args = row.get("arguments") or {}
-        p = str(args.get("path", "")).strip()
-        if p:
-            paths.append(p)
-    return paths
 PowerAxis = Literal["challenge_rating", "class_level", "hybrid", "unknown"]
 
 SELECTION_RULE_POLICY_CANONICAL = "corpus_policy.canonical_statblock_relpath"
@@ -115,171 +111,235 @@ class IntentClassification:
         return len(diffs) == 0, diffs
 
 
-def classify_intent(user_line: str) -> IntentClassification:
+_INTENT_CLASSIFIER_MODEL_ENV = "NPC_INTENT_CLASSIFIER_MODEL"
+_INTENT_POLICY_ACTION = "npc_intent_classifier"
+_DEFAULT_INTENT_CLASSIFIER_MODEL = "gpt-4o-mini"
+
+_INTENT_CLASSIFIER_INSTRUCTIONS = """You classify one GM user line about an NPC (statblock, CR, class levels, prep).
+Return ONLY one JSON object (no markdown fences, no other text). Keys:
+- intent_mode: "factual_lookup" | "upgrade_request" | "comparison_request"
+- power_axis: "challenge_rating" | "class_level" | "hybrid" | "unknown"
+- clarifier_required: boolean
+- clarifier_question: string ("" when clarifier_required is false; otherwise one short question)
+
+Definitions:
+- factual_lookup: asking what a stat/CR/AC/HP/level IS now, without asking you to change or regenerate the sheet.
+- upgrade_request: wants a stronger or new statblock, CR bump, level-up, regenerate sheet, rebuild from dossier, export for a higher tier, etc.
+- comparison_request: compares two entities, builds, or sheets.
+
+If the line mixes prep/research tone with "level up" or power increase without saying CR vs class, use upgrade_request, power_axis unknown, clarifier_required true.
+"""
+
+
+def _model_policy_paths() -> list[Path]:
+    here = Path(__file__).resolve()
+    return [here.parents[2] / "MODEL_POLICY.json", here.parents[3] / "MODEL_POLICY.json"]
+
+
+def _resolve_intent_classifier_model(model: str | None) -> str:
     """
-    Deterministic heuristic (v1). Tuned for NPC upgrade / prep prompts; not a general NLU.
+    Order: explicit ``model``, env ``NPC_INTENT_CLASSIFIER_MODEL``, then ``MODEL_POLICY.json``
+    action ``npc_intent_classifier`` (else ``structured_generation`` role) → ``models`` entry,
+    else ``models.cheapest``, else ``gpt-4o-mini``.
+    """
+    if model and str(model).strip():
+        return str(model).strip()
+    env_model = os.environ.get(_INTENT_CLASSIFIER_MODEL_ENV, "").strip()
+    if env_model:
+        return env_model
+    for policy_path in _model_policy_paths():
+        if not policy_path.is_file():
+            continue
+        try:
+            policy = json.loads(policy_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        models = policy.get("models") or {}
+        actions = policy.get("actions") or {}
+        role = actions.get(_INTENT_POLICY_ACTION) or actions.get("structured_generation")
+        if isinstance(role, str) and role.strip():
+            mid = models.get(role.strip())
+            if isinstance(mid, str) and mid.strip():
+                return mid.strip()
+        cheapest = models.get("cheapest")
+        if isinstance(cheapest, str) and cheapest.strip():
+            return cheapest.strip()
+    return _DEFAULT_INTENT_CLASSIFIER_MODEL
+
+
+def _strip_json_fence(text: str) -> str:
+    t = text.strip()
+    if t.startswith("```"):
+        t = re.sub(r"^```[a-zA-Z0-9]*\s*", "", t)
+        if "```" in t:
+            t = t.rsplit("```", 1)[0]
+    return t.strip()
+
+
+_VALID_INTENT_MODES: frozenset[str] = frozenset(
+    {"factual_lookup", "upgrade_request", "comparison_request"}
+)
+_VALID_POWER_AXES: frozenset[str] = frozenset(
+    {"challenge_rating", "class_level", "hybrid", "unknown"}
+)
+
+
+def _intent_classification_from_payload(obj: dict[str, Any]) -> IntentClassification:
+    im = obj.get("intent_mode")
+    if im not in _VALID_INTENT_MODES:
+        im = "factual_lookup"
+    pa = obj.get("power_axis")
+    if pa not in _VALID_POWER_AXES:
+        pa = "unknown"
+    clar = bool(obj.get("clarifier_required"))
+    q = str(obj.get("clarifier_question") or "").strip()
+    if clar and not q:
+        q = "Should this use CR-based NPC math, class-style levels, or both?"
+    if not clar:
+        q = ""
+    return IntentClassification(
+        intent_mode=im,  # type: ignore[arg-type]
+        power_axis=pa,  # type: ignore[arg-type]
+        clarifier_required=clar,
+        clarifier_question=q,
+    )
+
+
+def _intent_classification_from_gold_expect(expect: dict[str, Any]) -> IntentClassification:
+    """Build classification from Step 2 gold ``expect`` (for fixture-sequence test clients)."""
+    im = expect.get("intent_mode", "factual_lookup")
+    if im not in _VALID_INTENT_MODES:
+        im = "factual_lookup"
+    pa = expect.get("power_axis", "unknown")
+    if pa not in _VALID_POWER_AXES:
+        pa = "unknown"
+    clar = bool(expect.get("clarifier_required"))
+    q = str(expect.get("clarifier_question") or "").strip()
+    if clar and not q:
+        q = "Should this use CR-based NPC math, class-style levels, or both?"
+    if not clar:
+        q = ""
+    return IntentClassification(
+        intent_mode=im,  # type: ignore[arg-type]
+        power_axis=pa,  # type: ignore[arg-type]
+        clarifier_required=clar,
+        clarifier_question=q,
+    )
+
+
+def _intent_json_from_classification(c: IntentClassification) -> str:
+    return json.dumps(
+        {
+            "intent_mode": c.intent_mode,
+            "power_axis": c.power_axis,
+            "clarifier_required": c.clarifier_required,
+            "clarifier_question": c.clarifier_question,
+        },
+        ensure_ascii=False,
+    )
+
+
+class _FakeIntentResponse:
+    __slots__ = ("id", "output_text", "model")
+
+    def __init__(self, output_text: str) -> None:
+        self.id = "fake-intent-response"
+        self.output_text = output_text
+        self.model = "fake-intent-model"
+
+
+class SequenceIntentClassifierClient:
+    """
+    Test double: ``client.responses.create`` returns queued JSON bodies in order.
+
+    Use ``build_step2_intent_fixture_sequence_client`` for gold-driven queues, or construct
+    directly for custom sequences.
+    """
+
+    def __init__(self, json_texts: list[str]) -> None:
+        self._json_texts = list(json_texts)
+        self._i = 0
+        self.responses = self._Responses(self)
+
+    class _Responses:
+        def __init__(self, outer: SequenceIntentClassifierClient) -> None:
+            self._outer = outer
+
+        def create(self, **kwargs: Any) -> _FakeIntentResponse:
+            o = self._outer
+            if o._i >= len(o._json_texts):
+                raise RuntimeError("SequenceIntentClassifierClient: no more queued responses")
+            body = o._json_texts[o._i]
+            o._i += 1
+            return _FakeIntentResponse(body)
+
+
+def build_step2_intent_fixture_sequence_client(step2_gold: dict[str, Any]) -> SequenceIntentClassifierClient:
+    """Fake OpenAI client: one ``responses.create`` JSON per ``step2_gold.fixtures`` row (order preserved)."""
+    seq: list[str] = []
+    for fx in step2_gold.get("fixtures") or []:
+        ex = fx.get("expect") or {}
+        seq.append(_intent_json_from_classification(_intent_classification_from_gold_expect(ex)))
+    return SequenceIntentClassifierClient(seq)
+
+
+def intent_client_for_gold_expect(expect: dict[str, Any]) -> SequenceIntentClassifierClient:
+    """Single-response fake client returning JSON for one gold-style ``expect`` dict."""
+    c = _intent_classification_from_gold_expect(expect)
+    return SequenceIntentClassifierClient([_intent_json_from_classification(c)])
+
+
+def classify_intent(
+    user_line: str,
+    *,
+    client: Any | None = None,
+    model: str | None = None,
+) -> IntentClassification:
+    """
+    One OpenAI ``responses.create`` call (cheap model from ``MODEL_POLICY.json`` by default).
+
+    Tests and offline harnesses should pass ``client=`` (e.g.
+    ``build_step2_intent_fixture_sequence_client``). With ``client=None``, ``OPENAI_API_KEY`` is required.
     """
     text = user_line.strip()
-    low = text.lower()
-
-    if re.search(r"\bcr\s*\d+", low) or re.search(r"\bchallenge\s+rating\b", low):
-        if re.search(r"\b(to|at)\s+cr\s*\d+", low) or re.search(
-            r"\b(bump|raise|increase|set)\b[^.\n]{0,40}\bcr\b", low
-        ):
-            return IntentClassification(
-                intent_mode="upgrade_request",
-                power_axis="challenge_rating",
-                clarifier_required=False,
-                clarifier_question="",
-            )
-
-    class_tokens = (
-        "fighter",
-        "wizard",
-        "rogue",
-        "cleric",
-        "ranger",
-        "paladin",
-        "bard",
-        "monk",
-        "barbarian",
-        "sorcerer",
-        "warlock",
-        "druid",
-        "artificer",
-        "multiclass",
-        "class level",
-        "character level",
-        "player level",
-    )
-    if any(tok in low for tok in class_tokens) and re.search(
-        r"\b(level|levels|level-up|level up)\b", low
-    ):
-        return IntentClassification(
-            intent_mode="upgrade_request",
-            power_axis="class_level",
-            clarifier_required=False,
-            clarifier_question="",
-        )
-
-    if "compare" in low or " vs " in low or " versus " in low:
-        return IntentClassification(
-            intent_mode="comparison_request",
-            power_axis="hybrid",
-            clarifier_required=False,
-            clarifier_question="",
-        )
-
-    if "regenerate" in low and "dossier" in low and (
-        "statblock" in low or "creature sheet" in low
-    ):
-        if "only" in low or "do not" in low or "not copy" in low or "ignore" in low:
-            return IntentClassification(
-                intent_mode="upgrade_request",
-                power_axis="unknown",
-                clarifier_required=True,
-                clarifier_question=(
-                    "You asked to rebuild from the dossier without the old mechanical sheet. "
-                    "Should the new block follow **CR-based NPC math**, **class-style levels**, "
-                    "or a **fresh monster template**?"
-                ),
-            )
-
-    upgrade_markers = (
-        "level up",
-        "level-up",
-        "level her up",
-        "level him up",
-        "level them up",
-        "new statblock",
-        "regenerate her statblock",
-        "regenerate his statblock",
-        "upgrade her statblock",
-        "upgrade his statblock",
-        "make her stronger",
-        "make him stronger",
-        "more powerful",
-        "increase her cr",
-        "increase his cr",
-        "raise her cr",
-        "raise his cr",
-        "bump her cr",
-        "bump his cr",
-    )
-    if any(m in low for m in upgrade_markers):
-        explicit_cr = bool(re.search(r"\bcr\s*\d+", low))
-        explicit_class = any(tok in low for tok in class_tokens)
-        if explicit_cr and not explicit_class:
-            return IntentClassification(
-                intent_mode="upgrade_request",
-                power_axis="challenge_rating",
-                clarifier_required=False,
-                clarifier_question="",
-            )
-        if explicit_class and not explicit_cr:
-            return IntentClassification(
-                intent_mode="upgrade_request",
-                power_axis="class_level",
-                clarifier_required=False,
-                clarifier_question="",
-            )
-        if explicit_cr and explicit_class:
-            return IntentClassification(
-                intent_mode="upgrade_request",
-                power_axis="hybrid",
-                clarifier_required=True,
-                clarifier_question=(
-                    "Do you want this upgrade expressed as a CR change, as class levels, "
-                    "or both (and which should drive combat stats)?"
-                ),
-            )
-        return IntentClassification(
-            intent_mode="upgrade_request",
-            power_axis="unknown",
-            clarifier_required=True,
-            clarifier_question=(
-                "When you say “level up,” should I treat this as a **CR increase** for the NPC statblock, "
-                "or are you asking for **class-style levels** (PC-style progression)?"
-            ),
-        )
-
-    statblock_ctx = "statblock" in low or "stat block" in low
-    if statblock_ctx and (
-        "armor class" in low
-        or re.search(r"\bac\b", low)
-        or "hit point" in low
-        or re.search(r"\bhp\b", low)
-        or "saving throw" in low
-    ):
-        return IntentClassification(
-            intent_mode="factual_lookup",
-            power_axis="challenge_rating",
-            clarifier_required=False,
-            clarifier_question="",
-        )
-
-    if "challenge rating" in low or re.search(r"\bcr\b", low):
-        return IntentClassification(
-            intent_mode="factual_lookup",
-            power_axis="challenge_rating",
-            clarifier_required=False,
-            clarifier_question="",
-        )
-
-    if "what level" in low or "which level" in low or "how many levels" in low:
+    if not text:
         return IntentClassification(
             intent_mode="factual_lookup",
             power_axis="unknown",
             clarifier_required=False,
             clarifier_question="",
         )
-
-    return IntentClassification(
-        intent_mode="factual_lookup",
-        power_axis="unknown",
-        clarifier_required=False,
-        clarifier_question="",
+    mid = _resolve_intent_classifier_model(model)
+    if client is None:
+        api_key = _load_api_key()
+        if not api_key:
+            raise RuntimeError(
+                "OPENAI_API_KEY is required for classify_intent unless you pass client=... "
+                "(use build_step2_intent_fixture_sequence_client in tests)."
+            )
+        try:
+            from openai import OpenAI
+        except ImportError as exc:  # pragma: no cover
+            raise RuntimeError("openai package is required for classify_intent.") from exc
+        client = OpenAI(api_key=api_key)
+    create_fn = getattr(getattr(client, "responses", None), "create", None)
+    if create_fn is None:
+        raise TypeError("client must have responses.create (OpenAI Responses API).")
+    response = create_fn(
+        model=mid,
+        instructions=_INTENT_CLASSIFIER_INSTRUCTIONS,
+        input=[{"type": "message", "role": "user", "content": text}],
     )
+    out = (getattr(response, "output_text", None) or "").strip()
+    if not out:
+        raise RuntimeError("Intent classifier model returned empty output_text.")
+    try:
+        payload = json.loads(_strip_json_fence(out))
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(f"Intent classifier returned non-JSON: {out[:500]!r}") from exc
+    if not isinstance(payload, dict):
+        raise RuntimeError(f"Intent classifier JSON must be an object, got {type(payload).__name__}")
+    return _intent_classification_from_payload(payload)
 
 
 def run_step2_canonical_gates(
@@ -380,8 +440,10 @@ def run_step2_canonical_gates(
 def run_step2_intent_fixture_gates(
     *,
     step2_gold: dict[str, Any],
+    client: Any | None = None,
+    model: str | None = None,
 ) -> tuple[bool, list[str]]:
-    """Evaluate G2.4.* expectations for each gold fixture (deterministic)."""
+    """Evaluate G2.4.* expectations for each gold fixture (LLM or injected ``client``)."""
     g2 = step2_gold
     violations: list[str] = []
     for fx in g2.get("fixtures") or []:
@@ -391,7 +453,7 @@ def run_step2_intent_fixture_gates(
         if not ul:
             violations.append(f"G2.4 FAIL [{fid}]: empty user_line")
             continue
-        got = classify_intent(ul)
+        got = classify_intent(ul, client=client, model=model)
         ok, diffs = got.matches_expect(expect)
         if not ok:
             for d in diffs:
@@ -411,6 +473,8 @@ def run_step2_all(
     *,
     corpus_policy: dict[str, Any],
     step2_gold: dict[str, Any],
+    intent_client: Any | None = None,
+    intent_model: str | None = None,
 ) -> tuple[dict[str, Any], bool, list[str]]:
     """Canonical gates + intent fixture gates."""
     all_v: list[str] = []
@@ -418,7 +482,9 @@ def run_step2_all(
         corpus_dir, corpus_policy=corpus_policy, step2_gold=step2_gold
     )
     all_v.extend(v_c)
-    ok_i, v_i = run_step2_intent_fixture_gates(step2_gold=step2_gold)
+    ok_i, v_i = run_step2_intent_fixture_gates(
+        step2_gold=step2_gold, client=intent_client, model=intent_model
+    )
     all_v.extend(v_i)
     out = {"canonical_detail": detail, "intent_fixtures_ok": ok_i}
     return out, ok_c and ok_i, all_v
@@ -426,7 +492,8 @@ def run_step2_all(
 
 def statblock_trace_reads_matching_policy(read_paths: list[str], policy: dict[str, Any]) -> list[str]:
     """
-    ``read_corpus_file`` paths that count as “this entity’s mechanical statblock” for the planner bridge.
+    Paths (from ``read_corpus_file`` or ``load_context_markdown`` traces) that count as this entity’s
+    mechanical statblock for the post-planner Step 2 benchmark trace checks.
 
     Controlled by ``corpus_policy.mechanical_statblock_trace_path_filters``:
 
@@ -434,8 +501,8 @@ def statblock_trace_reads_matching_policy(read_paths: list[str], policy: dict[st
       (case-insensitive).
     - ``path_suffix_ignore_case`` (str, optional): if set, path must end with this suffix (default ``.md``).
 
-    If filters are missing or ``all_substrings_ignore_case`` is empty, returns ``[]`` (bridge does not
-    infer entity statblock reads from the trace).
+    If filters are missing or ``all_substrings_ignore_case`` is empty, returns ``[]`` (the benchmark
+    does not infer entity statblock reads from the trace).
     """
     raw = policy.get("mechanical_statblock_trace_path_filters")
     if not isinstance(raw, dict):
@@ -458,20 +525,28 @@ def statblock_trace_reads_matching_policy(read_paths: list[str], policy: dict[st
     return out
 
 
-def run_step2_planner_bridge(
+def evaluate_step2_post_planner_benchmark(
     *,
     user_message: str,
     tool_trace: list[dict[str, Any]],
     planner_scenario_key: str,
     corpus_policy: dict[str, Any],
     step2_gold: dict[str, Any],
+    intent_client: Any | None = None,
+    intent_model: str | None = None,
 ) -> tuple[dict[str, Any], bool, list[str]]:
     """
-    After a planner turn: classify ``user_message``, and optionally assert statblock reads
-    in ``tool_trace`` include ``corpus_policy.canonical_statblock_relpath`` when policy filters
-    matched any read path.
+    **Benchmark / observation only** — runs **after** a planner turn for scoring and CI.
 
-    ``step2_gold`` → ``planner_bridge`` (optional). If absent or empty, returns ``({}, True, [])``.
+    Classifies ``user_message`` (same string the planner saw) and optionally compares to gold
+    ``intent_expectations_by_planner_scenario_key``. Optionally asserts statblock paths read in
+    ``tool_trace`` include ``corpus_policy.canonical_statblock_relpath`` when policy filters match.
+
+    This does **not** change planner instructions, tool registration, or live routing; harnesses
+    merge violations into ``LiveEvalResult`` under the legacy key ``step2_bridge``.
+
+    ``step2_gold["planner_bridge"]`` (optional). If absent or empty, returns ``({}, True, [])``.
+    The JSON key ``planner_bridge`` is a historical name for this **benchmark config** block.
     """
     g2 = step2_gold
     cfg = g2.get("planner_bridge")
@@ -483,7 +558,7 @@ def run_step2_planner_bridge(
 
     expect_map = cfg.get("intent_expectations_by_planner_scenario_key") or {}
     expect = expect_map.get(planner_scenario_key) if isinstance(expect_map, dict) else None
-    got = classify_intent(user_message)
+    got = classify_intent(user_message, client=intent_client, model=intent_model)
     detail["intent_from_planner_user_message"] = {
         "intent_mode": got.intent_mode,
         "power_axis": got.power_axis,
@@ -494,19 +569,20 @@ def run_step2_planner_bridge(
         ok_m, diffs = got.matches_expect(expect)
         if not ok_m:
             for d in diffs:
-                violations.append(f"BRIDGE intent [{planner_scenario_key}]: {d}")
-        if bool(expect.get("clarifier_required")) and not got.clarifier_required:
-            violations.append(
-                f"BRIDGE intent [{planner_scenario_key}]: expected clarifier_required True, got False"
-            )
-        if bool(expect.get("clarifier_required")) and not str(got.clarifier_question).strip():
-            violations.append(
-                f"BRIDGE intent [{planner_scenario_key}]: clarifier_required but clarifier_question empty"
-            )
-        if not bool(expect.get("clarifier_required")) and got.clarifier_required:
-            violations.append(
-                f"BRIDGE intent [{planner_scenario_key}]: expected clarifier_required False, got True"
-            )
+                violations.append(f"BENCHMARK intent [{planner_scenario_key}]: {d}")
+        if "clarifier_required" in expect:
+            if bool(expect.get("clarifier_required")) and not got.clarifier_required:
+                violations.append(
+                    f"BENCHMARK intent [{planner_scenario_key}]: expected clarifier_required True, got False"
+                )
+            if bool(expect.get("clarifier_required")) and not str(got.clarifier_question).strip():
+                violations.append(
+                    f"BENCHMARK intent [{planner_scenario_key}]: clarifier_required but clarifier_question empty"
+                )
+            if not bool(expect.get("clarifier_required")) and got.clarifier_required:
+                violations.append(
+                    f"BENCHMARK intent [{planner_scenario_key}]: expected clarifier_required False, got True"
+                )
 
     if cfg.get("assert_statblock_read_matches_canonical_when_present"):
         canon = select_canonical_statblock_relpath(corpus_policy)
@@ -519,7 +595,7 @@ def run_step2_planner_bridge(
             read_lower = {_norm_rel(p).lower() for p in reads}
             if cn not in read_lower:
                 violations.append(
-                    "BRIDGE trace: mechanical statblock read(s) "
+                    "BENCHMARK trace: mechanical statblock read(s) "
                     f"{reads!r} but corpus_policy.canonical_statblock_relpath "
                     f"{_norm_rel(canon)!r} was never opened."
                 )

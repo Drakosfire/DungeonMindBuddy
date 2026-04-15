@@ -41,6 +41,22 @@ If you find yourself writing "open X first, then read Y, then Z" in a string tha
 - **Corpus tree / manifest:** structure listing that is always present (not tailored per NPC).
 - **Tool results:** text returned **after** the model called `read_corpus_file` or a successor tool—discovery, not pre-load.
 
+## User messages — no embedded workflows (hard rule)
+
+**Do not** put full multi-step runbooks, numbered checklists, or “here is the procedure: (1) … (2) … (3) …” **in the user message** (or any string that is meant to read as the **human’s** ask to the model).
+
+That pattern belongs **outside** user-facing text, for example:
+
+- **Cursor skills** (e.g. `.cursor/skills/<skill-id>/SKILL.md`) — maintained workflow for agents and authors.
+- **Permanent system / planner instructions** — task-agnostic navigation rules for every turn.
+- **Harness-only instruction channels** — eval or product code that appends to **instructions**, not to `user_message`, when a benchmark must constrain behavior.
+
+**Why:** If the user line contains the whole pipeline, the model is not practicing intent, discovery, or skill selection—it is following a script pasted into the wrong channel. Eval gold `user_message` fields and live planner `user_line` inputs must read like **real GM or developer asks**, not internal SOPs copied into the user channel.
+
+**Forbidden examples (user message):** “First read README, then load_context the statblock, then write prose only…”; any enumerated recipe tied to this task.
+
+**Allowed examples (user message):** “Pull up Lysandra’s latest context and bump her CR for next session.”; “What’s her AC?”
+
 ## Harness and benchmarks (separate channel)
 
 Eval JSON (`detail` blobs, `levelup_context_bundle`, excerpts, spans) is for **gates, regression, and humans**. It must never be copied into agent-visible prompt text.

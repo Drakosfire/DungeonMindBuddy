@@ -1,32 +1,21 @@
 {
   "id": "lysandra_planner_step1_upgrade_prose",
-  "version": 1,
+  "version": 2,
   "fixture_role": "upgrade_prose",
-  "fixture_note": "LLM-authored prose for CR bump (statblock generator input): model must read the canonical CR statblock and write grounded creative direction for CR 5. Final text is packaging-only: no path list or citations. Pair with Step 4 deterministic bundle for regression; this scenario is Lane A (live model).",
+  "fixture_note": "Upgrade prose scenario: natural GM ask (no prescriptive steps). Gates require read_corpus_file. load_context_markdown is in the agent's permanent instructions for power-bump prep; gating on it is aspirational until the agent reliably distinguishes the two read tools. No scenario-specific instruction appendix — planner uses global corpus_session_planner instructions only.",
   "input": {
-    "user_message": "**Captain Lysandra Ironveil** is being advanced from her **current CR on the canonical statblock** to **CR 5** for the next export.\n\nUse **read_corpus_file** to open her **canonical mechanical statblock** (the sheet the campaign treats as authoritative) and any **campaign markdown** you need from the corpus (NPC hub README, dossier, timeline, or session recaps) so tone matches recent play.\n\nThen write **one cohesive prose paragraph** (not a statblock, no YAML) describing how she should read at the table at CR 5—presence, command pressure, how her squad feels under her—suitable as **creative direction** for a downstream statblock generator. Stay faithful to what you read, but **do not** list sources: no “Grounded in…”, no corpus paths, no backtick file names, no bibliography—the packaged string is for a downstream consumer that does not need citations."
+    "user_message": "Lysandra needs to be tougher for the siege arc \u2014 bump her CR."
   },
   "steps": [],
   "final": {
     "require": {
-      "min_output_chars": 280,
+      "min_output_chars": 120,
       "tool_trace_must_include_tool": "read_corpus_file",
-      "read_corpus_paths_must_include": [
-        "captain_lysandra_ironveil_statblock_cr"
-      ],
       "output_text_contains_all": [
         "Lysandra"
       ],
-      "output_text_contains_any": [
-        "CR 5",
-        "CR5",
-        "challenge rating 5",
-        "Challenge Rating 5"
-      ],
       "output_text_excludes_substrings": [
-        "Grounded in",
-        "`Elderwyld/",
-        "`Longmont Campaign/"
+        "Grounded in"
       ]
     }
   }

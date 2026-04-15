@@ -375,6 +375,14 @@ def test_read_paths_from_tool_trace_order() -> None:
     assert read_paths_from_tool_trace(tt) == ["a/b.md", "c/d.md"]
 
 
+def test_read_paths_from_tool_trace_includes_load_context_markdown() -> None:
+    tt = [
+        {"tool": "read_corpus_file", "arguments": {"path": "a/b.md"}},
+        {"tool": "load_context_markdown", "arguments": {"path": "c/statblock.md"}},
+    ]
+    assert read_paths_from_tool_trace(tt) == ["a/b.md", "c/statblock.md"]
+
+
 def test_dedupe_read_paths_preserve_order() -> None:
     r = ["Elderwyld/Foo/Same.md", "Elderwyld/Foo/Same.md", "Elderwyld/Other/x.md"]
     assert dedupe_read_paths_preserve_order(r) == ["Elderwyld/Foo/Same.md", "Elderwyld/Other/x.md"]
@@ -409,6 +417,14 @@ def test_resolve_live_fixture_with_session_prior() -> None:
     assert not viol
     assert "Session 17" in text or "Thrin" in text
     assert "--- Planning ask ---" in text
+
+
+def test_match_calls_satisfy_load_context_markdown_path_contains() -> None:
+    calls = [
+        {"name": "load_context_markdown", "arguments": {"path": "Elderwyld/NPCs/foo_statblock_cr4.md"}},
+    ]
+    specs = [{"tool": "load_context_markdown", "path_contains": "statblock"}]
+    assert match_calls_satisfy("unit", "step0", calls, specs) == []
 
 
 def test_match_calls_satisfy_distinct_calls() -> None:

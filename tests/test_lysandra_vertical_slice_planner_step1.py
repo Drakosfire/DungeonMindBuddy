@@ -1,4 +1,4 @@
-"""Step 1 Lane A — planner tool_trace gates (Lysandra vertical slice)."""
+"""Step 1 — agent benchmark: planner tool_trace gates (Lysandra vertical slice)."""
 
 from __future__ import annotations
 
@@ -25,7 +25,9 @@ def test_planner_step1_fixture_shape(scenario_key: str) -> None:
     req = (sc.get("final") or {}).get("require") or {}
     assert req.get("tool_trace_must_include_tool") == "read_corpus_file"
     subs = req.get("read_corpus_paths_must_include") or []
-    assert len(subs) >= 1
+    # ``upgrade_prose``: no required path substrings (model chooses reads).
+    if scenario_key != "upgrade_prose":
+        assert len(subs) >= 1
 
 
 def test_planner_step1_gates_pass_synthetic_trace_directed() -> None:
@@ -170,6 +172,13 @@ def test_planner_step1_gates_pass_synthetic_trace_upgrade_prose() -> None:
             {
                 "tool": "read_corpus_file",
                 "arguments": {
+                    "path": "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/README.md"
+                },
+                "output_chars": 200,
+            },
+            {
+                "tool": "load_context_markdown",
+                "arguments": {
                     "path": "Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_statblock_cr4.md"
                 },
                 "output_chars": 200,
@@ -180,6 +189,27 @@ def test_planner_step1_gates_pass_synthetic_trace_upgrade_prose() -> None:
     )
     viol = collect_scenario_violations(sc, detail)
     assert viol == {}
+
+
+def test_planner_step1_upgrade_prose_passes_with_read_corpus_file_only() -> None:
+    """load_context_markdown is aspirational, not a hard gate; read_corpus_file suffices."""
+    sc = load_planner_step1_scenario("upgrade_prose")
+    body = "Lysandra should feel sharper on the table. " + "x" * 200
+    detail = PlanningTurnDetail(
+        final_text=body,
+        last_response_id="r1",
+        tool_trace=[
+            {
+                "tool": "read_corpus_file",
+                "arguments": {"path": "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/README.md"},
+                "output_chars": 50,
+            },
+        ],
+        steps=[],
+        hit_tool_round_limit=False,
+    )
+    viol = collect_scenario_violations(sc, detail)
+    assert not viol.get("final")
 
 
 def test_planner_step1_upgrade_prose_fails_when_final_lists_citations() -> None:
@@ -194,6 +224,13 @@ def test_planner_step1_upgrade_prose_fails_when_final_lists_citations() -> None:
         tool_trace=[
             {
                 "tool": "read_corpus_file",
+                "arguments": {
+                    "path": "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/README.md"
+                },
+                "output_chars": 200,
+            },
+            {
+                "tool": "load_context_markdown",
                 "arguments": {
                     "path": "Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_statblock_cr4.md"
                 },
@@ -233,7 +270,7 @@ def test_planner_step1_live_passes_with_model() -> None:
     """
     Real OpenAI + corpus. Opt-in: LYSANDRA_PLANNER_STEP1_LIVE=1 and OPENAI_API_KEY.
 
-    Scenario: ``LYSANDRA_PLANNER_STEP1_SCENARIO`` (default **autonomous** — human-style ask).
+    Scenario: ``LYSANDRA_PLANNER_STEP1_SCENARIO`` (CLI default **upgrade_prose** when unset — power-rise benchmark).
     """
     if os.environ.get("LYSANDRA_PLANNER_STEP1_LIVE", "").strip().lower() not in ("1", "true", "yes"):
         pytest.skip("set LYSANDRA_PLANNER_STEP1_LIVE=1 to run planner Step 1 live")

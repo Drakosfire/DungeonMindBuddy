@@ -2,7 +2,7 @@
   "schema": "lysandra_vertical_slice_step1_v1",
   "description": "Step 1 — keyword recall over campaign + Elderwyld markdown; gates G1.1–G1.3.",
   "top_k": 50,
-  "max_file_read_chars": 400000,
+  "max_file_read_chars": 0,
   "scan_subdirs": ["Longmont Campaign", "Elderwyld"],
   "required_paths_retrieved": [
     "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_character_dossier.md",

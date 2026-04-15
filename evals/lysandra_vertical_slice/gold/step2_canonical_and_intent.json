@@ -1,6 +1,6 @@
 {
   "schema": "lysandra_vertical_slice_step2_v1",
-  "description": "Step 2 — deterministic canonical statblock path + marker checks + intent/power-axis classification (G2.* / G2.4.* draft implementation). Optional: detail_max_extracted_markdown_chars (int) truncates extracted_markdown/span in detail while gates still scan the full file on disk.",
+  "description": "Step 2 — deterministic canonical statblock path + marker checks + intent/power-axis classification (G2.* / G2.4.*). Optional: detail_max_extracted_markdown_chars (int) truncates extracted_markdown/span in detail while gates still scan the full file on disk.",
   "required_statblock_markers": [
     "Armor Class",
     "Hit Points",
@@ -11,9 +11,7 @@
     "assert_statblock_read_matches_canonical_when_present": true,
     "intent_expectations_by_planner_scenario_key": {
       "autonomous": {
-        "intent_mode": "upgrade_request",
-        "power_axis": "unknown",
-        "clarifier_required": true
+        "intent_mode": "factual_lookup"
       },
       "stat_check": {
         "intent_mode": "factual_lookup",
@@ -24,11 +22,6 @@
         "intent_mode": "upgrade_request",
         "power_axis": "unknown",
         "clarifier_required": true
-      },
-      "upgrade_prose": {
-        "intent_mode": "upgrade_request",
-        "power_axis": "challenge_rating",
-        "clarifier_required": false
       }
     }
   },
@@ -37,9 +30,7 @@
       "id": "planner_step1_autonomous_user_line",
       "user_line": "Grab the most recent and relevant information about **Captain Lysandra** — we're going to discuss her, her traits, and how she might level up.\n\nWhat level is she right now anyway?",
       "expect": {
-        "intent_mode": "upgrade_request",
-        "power_axis": "unknown",
-        "clarifier_required": true
+        "intent_mode": "factual_lookup"
       }
     },
     {

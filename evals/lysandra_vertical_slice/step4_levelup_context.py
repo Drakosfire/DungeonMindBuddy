@@ -1,7 +1,7 @@
 """Step 4 — deterministic **level-up context bundle** (Lysandra vertical slice).
 
 Assembles a **structured bundle** for gates, regression, and tooling: ``power_baseline``,
-``target_challenge_rating``, statblock + dossier + **timeline** excerpts (``timeline_relpath``),
+``power_target`` (``axis`` + ``value``; legacy ``target_challenge_rating`` supported), statblock + dossier + **timeline** excerpts (``timeline_relpath``),
 optional ``session_anchor`` excerpt, and **keyword-ranked** recap snippets.
 
 Bundle JSON is for **gates and humans only**. Nothing here is assembled for an agent.
@@ -44,6 +44,23 @@ def _norm_rel(p: str) -> str:
     return p.strip().replace("\\", "/")
 
 
+def _effective_max_chars(raw: int | None) -> int | None:
+    """``None`` or ``<= 0`` means no cap (use full text)."""
+    if raw is None:
+        return None
+    try:
+        n = int(raw)
+    except (TypeError, ValueError):
+        return None
+    return None if n <= 0 else n
+
+
+def _slice_text(text: str, max_chars: int | None) -> str:
+    if max_chars is None:
+        return text
+    return text[:max_chars]
+
+
 def step4_gold_path() -> Path:
     return _SLICE_DIR / "gold" / "step4_levelup_context.json"
 
@@ -52,33 +69,61 @@ def load_step4_gold() -> dict[str, Any]:
     return json.loads(step4_gold_path().read_text(encoding="utf-8"))
 
 
+def resolve_power_target_from_step4_gold(step4_gold: dict[str, Any]) -> tuple[str, int]:
+    """
+    Read ``power_target`` from gold: ``{ "axis": str, "value": int }``.
+
+    Legacy: ``target_challenge_rating`` (int) implies axis ``challenge_rating``.
+    """
+    pt = step4_gold.get("power_target")
+    if isinstance(pt, dict) and pt.get("axis") is not None and pt.get("value") is not None:
+        axis = str(pt.get("axis", "")).strip() or "challenge_rating"
+        try:
+            return axis, int(pt["value"])
+        except (TypeError, ValueError):
+            pass
+    if "target_challenge_rating" in step4_gold:
+        return "challenge_rating", int(step4_gold["target_challenge_rating"])
+    raise KeyError("step4_gold must include power_target {axis, value} or target_challenge_rating")
+
+
 def g4_1_power_target_violations(
     step3_detail: dict[str, Any],
     *,
-    target_challenge_rating: int,
+    step4_gold: dict[str, Any],
 ) -> list[str]:
     """
-    **G4.1** — target power on the CR axis must be strictly above Step 3 baseline.
+    **G4.1** — bundle ``power_target`` (from gold) must be strictly above Step 3 ``power_baseline``
+    on the same axis.
 
     Returns zero or more ``G4.1 FAIL: …`` strings (empty list means pass).
-    v1 supports ``challenge_rating_current`` only; class-level axis is deferred.
+    v1 implements ``challenge_rating`` axis only (numeric compare to ``challenge_rating_current``).
     """
-    pb = step3_detail.get("power_baseline") or {}
-    cur = pb.get("challenge_rating_current")
-    if cur is None:
-        return [
-            "G4.1 FAIL: challenge_rating_current is null; cannot assert monotonic CR upgrade",
-        ]
     try:
-        cur_i = int(cur)
-    except (TypeError, ValueError):
-        return [f"G4.1 FAIL: non-numeric challenge_rating_current: {cur!r}"]
-    if target_challenge_rating <= cur_i:
-        return [
-            f"G4.1 FAIL: target_challenge_rating {target_challenge_rating} "
-            f"must exceed baseline {cur_i}",
-        ]
-    return []
+        axis, target_val = resolve_power_target_from_step4_gold(step4_gold)
+    except (KeyError, TypeError, ValueError) as exc:
+        return [f"G4.1 FAIL: invalid power_target in step4 gold: {exc!s}"]
+
+    pb = step3_detail.get("power_baseline") or {}
+    if axis == "challenge_rating":
+        cur = pb.get("challenge_rating_current")
+        if cur is None:
+            return [
+                "G4.1 FAIL: power_baseline.challenge_rating_current is null; "
+                "cannot assert monotonic upgrade on challenge_rating axis",
+            ]
+        try:
+            cur_i = int(cur)
+        except (TypeError, ValueError):
+            return [f"G4.1 FAIL: non-numeric power_baseline.challenge_rating_current: {cur!r}"]
+        if target_val <= cur_i:
+            return [
+                f"G4.1 FAIL: power_target value {target_val} (axis={axis!r}) must exceed "
+                f"baseline {cur_i}",
+            ]
+        return []
+
+    return [f"G4.1 FAIL: unsupported power_target axis {axis!r} (no gate rule in v1)"]
 
 
 def g4_recap_violations(levelup_context_bundle: dict[str, Any], *, step4_gold: dict[str, Any]) -> list[str]:
@@ -142,9 +187,8 @@ def step4_all_gate_violations(
     Call after ``levelup_context_bundle`` is built (G4.1 does not read the bundle, but this keeps
     one entry point for tests and tooling).
     """
-    target_cr = int(step4_gold["target_challenge_rating"])
     v: list[str] = []
-    v.extend(g4_1_power_target_violations(step3_detail, target_challenge_rating=target_cr))
+    v.extend(g4_1_power_target_violations(step3_detail, step4_gold=step4_gold))
     v.extend(g4_recap_violations(levelup_context_bundle, step4_gold=step4_gold))
     v.extend(g4_timeline_violations(levelup_context_bundle, corpus_policy, step4_gold=step4_gold))
     return v
@@ -247,10 +291,10 @@ def _best_paragraph_snippet(
     if best is None:
         return None
     lo, hi, _ = best
-    cap = max(200, int(max_para_chars))
     raw = text[lo:hi]
-    if len(raw) > cap:
-        raw = raw[:cap]
+    lim = _effective_max_chars(int(max_para_chars) if max_para_chars is not None else 2400)
+    if lim is not None and len(raw) > lim:
+        raw = raw[:lim]
         hi = lo + len(raw)
     return lo, hi, raw
 
@@ -264,7 +308,8 @@ def _recap_snippet_for_file(
     mode = str(g4.get("recap_snippet_mode") or "best_scoring_paragraph").strip().lower()
     themes = [str(x) for x in (g4.get("theme_boost_keywords") or []) if str(x).strip()]
     t_boost = int(g4.get("theme_boost_score_per_occurrence") or 0)
-    max_para = int(g4.get("max_chars_per_recap_paragraph") or 2400)
+    mp = g4.get("max_chars_per_recap_paragraph")
+    max_para = 2400 if mp is None else int(mp)
     if mode in ("best_scoring_paragraph", "best_paragraph_by_score"):
         got = _best_paragraph_snippet(full_text, aliases, themes, t_boost, max_para)
         if got is not None:
@@ -284,7 +329,9 @@ def _scan_recap_scores(
     aliases = [str(x) for x in (corpus_policy.get("aliases") or []) if str(x).strip()]
     allowed = [str(p) for p in (corpus_policy.get("corpus_roots_allowed_prefixes") or []) if str(p).strip()]
     dirs = [str(d).strip().rstrip("/") for d in (step4_gold.get("recap_scan_relative_dirs") or []) if str(d).strip()]
-    cap = max(1000, int(step4_gold.get("max_chars_per_recap_read") or 500_000))
+    raw_cap = step4_gold.get("max_chars_per_recap_read")
+    cap_eff = _effective_max_chars(int(raw_cap) if raw_cap is not None else 500_000)
+    cap = 10**18 if cap_eff is None else max(1000, cap_eff)
     themes = [str(x) for x in (step4_gold.get("theme_boost_keywords") or []) if str(x).strip()]
     t_boost = int(step4_gold.get("theme_boost_score_per_occurrence") or 0)
     bonuses = step4_gold.get("path_substring_score_bonus") or {}
@@ -311,7 +358,7 @@ def _scan_recap_scores(
                 raw = path.read_text(encoding="utf-8")
             except OSError:
                 continue
-            body = raw[:cap]
+            body = raw if cap_eff is None else raw[:cap]
             score = score_text_for_aliases(body, aliases)
             score += _theme_boost_score(body, themes, t_boost)
             score += _path_bonus(rel, pb)
@@ -326,7 +373,7 @@ def _scan_recap_scores(
 def _load_statblock_excerpt(
     corpus_dir: Path,
     step2_detail: dict[str, Any],
-    max_chars: int,
+    max_chars: int | None,
 ) -> tuple[str, str]:
     """Return (path, excerpt) from Step 2 canonical extract or disk."""
     canon = step2_detail.get("canonical_path")
@@ -340,11 +387,11 @@ def _load_statblock_excerpt(
         body = em if isinstance(em, str) and em.strip() else (corpus_dir / path).read_text(
             encoding="utf-8", errors="replace"
         )
-    mc = max(0, int(max_chars))
-    return path, body[:mc] if mc else body
+    mc = _effective_max_chars(max_chars)
+    return path, _slice_text(body, mc)
 
 
-def _load_dossier_excerpt(corpus_dir: Path, policy: dict[str, Any], max_chars: int) -> tuple[str, str]:
+def _load_dossier_excerpt(corpus_dir: Path, policy: dict[str, Any], max_chars: int | None) -> tuple[str, str]:
     rel = policy.get("primary_reference_relpath")
     if not isinstance(rel, str) or not rel.strip():
         return "", ""
@@ -353,11 +400,11 @@ def _load_dossier_excerpt(corpus_dir: Path, policy: dict[str, Any], max_chars: i
     if not path.is_file():
         return p, ""
     raw = path.read_text(encoding="utf-8", errors="replace")
-    mc = max(0, int(max_chars))
-    return p, raw[:mc] if mc else raw
+    mc = _effective_max_chars(max_chars)
+    return p, _slice_text(raw, mc)
 
 
-def _load_anchor_excerpt(corpus_dir: Path, policy: dict[str, Any], max_chars: int) -> tuple[str, str]:
+def _load_anchor_excerpt(corpus_dir: Path, policy: dict[str, Any], max_chars: int | None) -> tuple[str, str]:
     rel = policy.get("session_anchor_relpath")
     if not isinstance(rel, str) or not rel.strip():
         return "", ""
@@ -366,11 +413,11 @@ def _load_anchor_excerpt(corpus_dir: Path, policy: dict[str, Any], max_chars: in
     if not path.is_file():
         return p, ""
     raw = path.read_text(encoding="utf-8", errors="replace")
-    mc = max(0, int(max_chars))
-    return p, raw[:mc] if mc else raw
+    mc = _effective_max_chars(max_chars)
+    return p, _slice_text(raw, mc)
 
 
-def _load_timeline_excerpt(corpus_dir: Path, policy: dict[str, Any], max_chars: int) -> tuple[str, str]:
+def _load_timeline_excerpt(corpus_dir: Path, policy: dict[str, Any], max_chars: int | None) -> tuple[str, str]:
     """``corpus_policy.timeline_relpath`` — benchmark / bundle tools only; not a planner instruction leak."""
     rel = policy.get("timeline_relpath")
     if not isinstance(rel, str) or not rel.strip():
@@ -380,8 +427,8 @@ def _load_timeline_excerpt(corpus_dir: Path, policy: dict[str, Any], max_chars: 
     if not path.is_file():
         return p, ""
     raw = path.read_text(encoding="utf-8", errors="replace")
-    mc = max(0, int(max_chars))
-    return p, raw[:mc] if mc else raw
+    mc = _effective_max_chars(max_chars)
+    return p, _slice_text(raw, mc)
 
 
 def build_levelup_context_bundle(
@@ -397,21 +444,23 @@ def build_levelup_context_bundle(
     g4 = step4_gold or load_step4_gold()
     step2 = step3_detail.get("step2_canonical_detail") or {}
     pb = dict(step3_detail.get("power_baseline") or {})
-    target_cr = int(g4["target_challenge_rating"])
+    _axis, target_value = resolve_power_target_from_step4_gold(g4)
 
     stat_path, stat_excerpt = _load_statblock_excerpt(
-        root, step2, int(g4.get("max_statblock_chars_for_bundle") or 28_000)
+        root, step2, _effective_max_chars(g4.get("max_statblock_chars_for_bundle"))
     )
     dos_path, dos_excerpt = _load_dossier_excerpt(
-        root, policy, int(g4.get("max_dossier_chars") or 12_000)
+        root, policy, _effective_max_chars(g4.get("max_dossier_chars"))
     )
     tl_path, tl_excerpt = _load_timeline_excerpt(
-        root, policy, int(g4.get("max_timeline_chars") or 16_000)
+        root, policy, _effective_max_chars(g4.get("max_timeline_chars"))
     )
 
     anchor: dict[str, Any] = {}
     if g4.get("include_session_anchor_excerpt", True):
-        ap, atxt = _load_anchor_excerpt(root, policy, int(g4.get("session_anchor_max_chars") or 12_000))
+        ap, atxt = _load_anchor_excerpt(
+            root, policy, _effective_max_chars(g4.get("session_anchor_max_chars"))
+        )
         if ap:
             anchor = {"corpus_relative_path": ap, "text": atxt}
 
@@ -442,7 +491,7 @@ def build_levelup_context_bundle(
     bundle: dict[str, Any] = {
         "entity_canonical_name": policy.get("entity_canonical_name"),
         "power_baseline": pb,
-        "power_target": {"target_challenge_rating": target_cr, "axis": "challenge_rating"},
+        "power_target": {"axis": _axis, "value": target_value},
         "evidence_spans_from_step3": step3_detail.get("evidence_spans") or [],
         "statblock_excerpt": {"corpus_relative_path": stat_path, "text": stat_excerpt},
         "dossier_excerpt": {"corpus_relative_path": dos_path, "text": dos_excerpt},

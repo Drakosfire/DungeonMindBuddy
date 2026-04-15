@@ -6,10 +6,22 @@ import blake3
 
 # Tool schema description (also asserted by planner eval fixtures).
 STATBLOCK_TOOL_DESCRIPTION = (
-    "Produce a Dungeons & Dragons 5th Edition creature stat block in Markdown, suitable as input "
-    "to a StatblockGenerator-style tool later (creature name line, traits, actions, challenge). "
-    "Call only after `read_corpus_file` when campaign lore applies; pass a rich `description` "
-    "(appearance, behavior, role in scene, suggested CR) and optional `challenge_rating` hint."
+    "Generate a Dungeons & Dragons 5th Edition creature stat block in Markdown (creature line, "
+    "ability scores, traits, actions, challenge rating) suitable for a StatblockGenerator-style "
+    "downstream step. "
+    "Use for a **new or regenerated** creature when the GM wants a mechanical sheet produced. "
+    "Do **not** use this to answer questions about **existing** statblock `.md` exports in the "
+    "corpus—open those with `read_corpus_file` instead. "
+    "When campaign grounding matters, call `read_corpus_file` first, then pass `creature_name`, "
+    "a rich `description` (appearance, tactics, scene role, lore hooks), and optional "
+    "`challenge_rating`. "
+    "Optional `source_statblock_corpus_path`: corpus-relative `.md` path to an existing statblock; "
+    "the tool loads the file and sends it as Markdown (`source_statblock_format` `markdown`, "
+    "default) so you name the path instead of pasting the full sheet into `description`. "
+    "`source_statblock_format` may be set to `html` for forward compatibility; corpus attach "
+    "today only loads `.md` bodies as Markdown. "
+    "Execution uses the configured DungeonMind statblock HTTP endpoint when set "
+    "(see system instructions for DUNGEONMIND_STATBLOCK_URL), otherwise an in-session API fallback."
 )
 
 # Fallback when HTTP statblock endpoint is unset or fails: same API, statblock-only instructions.
@@ -30,7 +42,7 @@ to load markdown before you state campaign facts. Name which file paths informed
 
 **Corpus navigation — README first (breadcrumbs):** When the manifest shows a small hub folder (NPC, location, campaign package) that contains a `README.md`, **prefer opening that `README.md` in the first batch of reads** for that topic. Hub READMEs are short and list **Suggested reads (in order)** or equivalent pointers to the best next files (dossier, `*_statblock_*.md`, `timeline.md`, session recaps). Follow those paths in **priority order** before opening unrelated large ledgers (e.g. whole-campaign notes) or guessing from the tree alone. If the README includes a **Mechanical sheets (priority)** table (or similar), treat the **highest-priority** row as the canonical statblock for that hub unless the user asks for an older draft. For **which session recap is “most recent,”** use the corpus tree: compare session numbers in filenames (or follow `timeline.md`), not any single recap path unless the user or README explicitly names that session.
 
-**Statblocks from README — mandatory read:** If a hub `README.md` you opened lists one or more `*_statblock_*.md` paths for the **same entity** the user is asking about, you **must** call `read_corpus_file` on the **highest-priority** listed statblock path **before** answering questions about **CR, HP, AC, attacks, saves, or any numbered stat**, or before stating that you “found” / “used” the mechanical sheet. Do not substitute README prose alone for that file’s contents on those topics. Use **exact** paths from the corpus tree or README bullet list — never pass shell globs (`*`, `?`) to `read_corpus_file`.
+**Statblocks from README — mandatory read:** If a hub `README.md` you opened lists one or more `*_statblock_*.md` paths for the **same entity** the user is asking about, you **must** open the **highest-priority** listed statblock path with `read_corpus_file` or `load_context_markdown` **before** answering questions about **CR, HP, AC, attacks, saves, or any numbered stat**, or before stating that you “found” / “used” the mechanical sheet. Use `load_context_markdown` when that sheet should stay in **working context** as an explicit attachment (e.g. power-bump or generator prep after discovery reads); use `read_corpus_file` for discovery and one-off checks. Do not substitute README prose alone for that file’s contents on those topics. Use **exact** paths from the corpus tree or README bullet list — never pass shell globs (`*`, `?`) to either tool.
 
 Call `generate_statblock` only when the user wants a **new or regenerated** creature stat block from a description you are shaping for that purpose. For prep, recap, or fact questions about **existing** campaign entities (level, traits, relationships, recent events), use `read_corpus_file` only — do not call `generate_statblock` for those.
 

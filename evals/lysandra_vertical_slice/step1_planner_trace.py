@@ -1,9 +1,11 @@
-"""Step 1 Lane A — planner ``tool_trace`` gates (Lysandra vertical slice).
+"""Step 1 — agent benchmark: planner ``tool_trace`` gates (Lysandra vertical slice).
 
 Gold scenarios: **directed**, **autonomous**, **stat_check**, **upgrade_prose** (see ``gold/planner_step1_*.json``;
-pick with ``LYSANDRA_PLANNER_STEP1_SCENARIO``). After each live turn, Step 2 **planner_bridge**
-(``gold/step2_canonical_and_intent.json``) classifies the same ``user_message`` and optionally
-asserts Lysandra ``*_statblock_*.md`` reads match ``corpus_policy.canonical_statblock_relpath``.
+``LYSANDRA_PLANNER_STEP1_SCENARIO`` pins the scenario; **when unset**, the CLI default benchmark is
+**upgrade_prose** (natural power-rise ask). After each live turn, optional **Step 2 benchmark**
+checks (gold key ``planner_bridge`` — observation only; see ``Docs/Plans/NAMING-benchmark-vs-runtime.md``)
+classify the same ``user_message`` and may assert statblock paths in the trace vs
+``corpus_policy.canonical_statblock_relpath``.
 
 Reuses ``evals.planner_slice.live_eval`` scenario shape and matchers.
 
@@ -12,6 +14,7 @@ Reuses ``evals.planner_slice.live_eval`` scenario shape and matchers.
 - Enable JSON telemetry on stderr: INFO for loggers ``dmb.planner`` and ``dmb.planner.live_eval``
   (``configure_planner_review_logging()`` from ``main()``).
 - Larger bodies inside telemetry JSON lines: ``PLANNER_LOG_FULL_IO=1``.
+- **Default benchmark artifact:** ``artifacts/last_planner_step1_run.md`` (same text as the stdout review).
 - This module prints a human-readable report: prompt sizes, per-API-round token usage
   (``usage.input_tokens`` = billed input for that ``responses.create``, including instructions
   and prior context for that round), planner steps, corpus text returned to the model, and
@@ -28,23 +31,29 @@ _REPO_ROOT = str(Path(__file__).resolve().parents[2])
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
+import contextlib  # noqa: E402
+import copy  # noqa: E402
+import io  # noqa: E402
 import json  # noqa: E402
 import logging  # noqa: E402
 import os  # noqa: E402
 from dataclasses import dataclass, replace  # noqa: E402
+from datetime import datetime, timezone  # noqa: E402
 from typing import Any  # noqa: E402
 
 from evals.lysandra_vertical_slice.step0_corpus_environment import resolve_corpus_dir  # noqa: E402
 from evals.lysandra_vertical_slice.step2_canonical_intent import (  # noqa: E402
+    evaluate_step2_post_planner_benchmark,
     load_step2_gold,
-    run_step2_planner_bridge,
 )
+from src.agent.synthesis import _load_api_key  # noqa: E402
 from src.bootstrap_env import load_dungeonmindbuddy_dotenv  # noqa: E402
 from evals.planner_slice.live_eval import (  # noqa: E402
     LiveEvalResult,
     evaluate_scenario_detail,
     resolve_planner_user_message,
 )
+from src.agent.corpus_path_tools import CORPUS_PATH_TOOL_NAMES  # noqa: E402
 from src.agent.planner import (  # noqa: E402
     PlanningTurnDetail,
     _planner_tools_responses,
@@ -54,23 +63,29 @@ from src.agent.planner import (  # noqa: E402
 )
 from src.agent.planner_cache import load_or_build_planner_instructions  # noqa: E402
 from src.agent.planner_telemetry import text_sig  # noqa: E402
+from src.agent.skill_pipeline import scenario_key_for_user_line  # noqa: E402
 
 _SLICE_DIR = Path(__file__).resolve().parent
 
+# Default on-disk benchmark artifact (repo rule ``benchmark-disk-artifacts``).
+_DEFAULT_PLANNER_STEP1_ARTIFACT_PATH = _SLICE_DIR / "artifacts" / "last_planner_step1_run.md"
+
 _PLANNER_STEP1_SCENARIO_ENV = "LYSANDRA_PLANNER_STEP1_SCENARIO"
 _VALID_PLANNER_STEP1_SCENARIOS = frozenset({"directed", "autonomous", "stat_check", "upgrade_prose"})
+# Default benchmark when no env / no user override: natural power-rise ask.
+_DEFAULT_PLANNER_STEP1_SCENARIO_KEY = "upgrade_prose"
 
 
 def default_planner_step1_scenario_key() -> str:
-    """``directed`` / ``autonomous`` / ``stat_check`` / ``upgrade_prose`` (CR bump prose for generator). Default ``autonomous``."""
-    raw = os.environ.get(_PLANNER_STEP1_SCENARIO_ENV, "autonomous").strip().lower()
-    return raw if raw in _VALID_PLANNER_STEP1_SCENARIOS else "autonomous"
+    """``directed`` / ``autonomous`` / ``stat_check`` / ``upgrade_prose``. Default ``upgrade_prose`` (natural power-rise ask)."""
+    raw = os.environ.get(_PLANNER_STEP1_SCENARIO_ENV, _DEFAULT_PLANNER_STEP1_SCENARIO_KEY).strip().lower()
+    return raw if raw in _VALID_PLANNER_STEP1_SCENARIOS else _DEFAULT_PLANNER_STEP1_SCENARIO_KEY
 
 
 def planner_step1_gold_path(scenario_key: str | None = None) -> Path:
     key = scenario_key if scenario_key is not None else default_planner_step1_scenario_key()
     if key not in _VALID_PLANNER_STEP1_SCENARIOS:
-        key = "autonomous"
+        key = _DEFAULT_PLANNER_STEP1_SCENARIO_KEY
     return _SLICE_DIR / "gold" / f"planner_step1_{key}.json"
 
 
@@ -91,6 +106,10 @@ def configure_planner_review_logging() -> None:
         logging.getLogger(noisy).setLevel(logging.WARNING)
 
 
+# Legacy bucket on ``LiveEvalResult.violations`` for Step 2 **benchmark** merges (not runtime control).
+STEP2_BENCHMARK_VIOLATIONS_KEY = "step2_bridge"
+
+
 @dataclass
 class PlannerStep1Run:
     detail: PlanningTurnDetail
@@ -98,7 +117,10 @@ class PlannerStep1Run:
     instructions: str
     user_line: str
     corpus_fingerprint: str
-    bridge_review_detail: dict[str, Any] | None = None
+    #: Step 2 **benchmark** payload after the planner turn (intent echo + trace checks); not used to control the planner.
+    post_planner_step2_benchmark_detail: dict[str, Any] | None = None
+    #: Gold scenario used for gates (``autonomous``, ``upgrade_prose``, …).
+    scenario_key: str = ""
 
 
 def _empty_fail(sid: str, violations: dict[str, list[str]], user_line: str = "") -> PlannerStep1Run:
@@ -115,7 +137,8 @@ def _empty_fail(sid: str, violations: dict[str, list[str]], user_line: str = "")
         instructions="",
         user_line=user_line,
         corpus_fingerprint="",
-        bridge_review_detail=None,
+        post_planner_step2_benchmark_detail=None,
+        scenario_key="",
     )
 
 
@@ -127,30 +150,61 @@ def run_planner_step1_turn(
     cache_root: Path | None = None,
     scenario: dict[str, Any] | None = None,
     scenario_key: str | None = None,
+    user_line_override: str | None = None,
 ) -> PlannerStep1Run:
     """
-    One ``run_planning_turn_detailed`` with the Lane A fixture; score with ``evaluate_scenario_detail``.
+    One ``run_planning_turn_detailed`` with the **benchmark** gold fixture; score with ``evaluate_scenario_detail``.
 
-    **Scenarios** (see ``gold/planner_step1_*.json``):
+    **Scenarios** (``gold/planner_step1_*.json`` — harness gates, not production session routing):
 
     - ``directed`` — user message names folders/filenames to open (strong smoke, not autonomy).
     - ``autonomous`` — general prep ask; relaxed path gates (see gold ``fixture_note``).
     - ``stat_check`` — mechanical question; gates require opening the statblock file.
-    - ``upgrade_prose`` — CR bump: read canonical statblock + corpus context; final answer is prose for a statblock generator.
+    - ``upgrade_prose`` — same global planner ``instructions`` as other scenarios; gold gates only (e.g. ``read_corpus_file`` + ``load_context_markdown``). Workflow lives in the **npc-power-increase** Cursor skill, not in a scenario instruction appendix.
 
-    Pick with env ``LYSANDRA_PLANNER_STEP1_SCENARIO=directed|autonomous|stat_check|upgrade_prose`` (default **autonomous**),
-    or pass ``scenario_key``, or pass a full ``scenario`` dict.
+    **Scenario selection** (first match wins):
+
+    1. Pass ``scenario`` or ``scenario_key`` (tests / callers).
+    2. Else if ``LYSANDRA_PLANNER_STEP1_SCENARIO`` is set to a valid key, use that gold file
+       (benchmark / CI). Optional ``user_line_override`` or env ``LYSANDRA_PLANNER_USER_MESSAGE``
+       replaces ``input.user_message`` in that gold.
+    3. Else if ``user_line_override`` or ``LYSANDRA_PLANNER_USER_MESSAGE`` is set: infer scenario via
+       ``scenario_key_for_user_line`` (intent → ``upgrade_prose`` vs ``autonomous``) and load
+       that gold, then inject the user message.
+    4. Else: load **upgrade_prose** gold (default: natural power-rise ask).
 
     Loads ``.env`` / ``.env.development`` via ``load_dungeonmindbuddy_dotenv()`` so
     ``OPENAI_API_KEY`` does not require shell ``export``.
     """
     load_dungeonmindbuddy_dotenv()
+    env_user = os.environ.get("LYSANDRA_PLANNER_USER_MESSAGE", "").strip()
+    override = (user_line_override or env_user or "").strip() or None
+    resolved_scenario_key = ""
+
     if scenario is not None:
-        sc = scenario
+        sc = copy.deepcopy(scenario)
+        resolved_scenario_key = str(sc.get("fixture_role") or "").strip().lower()
+        if override:
+            sc.setdefault("input", {})["user_message"] = override
     elif scenario_key is not None:
-        sc = load_planner_step1_scenario(scenario_key)
+        sc = copy.deepcopy(load_planner_step1_scenario(scenario_key))
+        resolved_scenario_key = scenario_key
+        if override:
+            sc.setdefault("input", {})["user_message"] = override
     else:
-        sc = load_planner_step1_scenario()
+        env_lane = os.environ.get(_PLANNER_STEP1_SCENARIO_ENV, "").strip().lower()
+        if env_lane in _VALID_PLANNER_STEP1_SCENARIOS:
+            sc = copy.deepcopy(load_planner_step1_scenario(env_lane))
+            resolved_scenario_key = env_lane
+            if override:
+                sc.setdefault("input", {})["user_message"] = override
+        elif override:
+            resolved_scenario_key = scenario_key_for_user_line(override, client=client)
+            sc = copy.deepcopy(load_planner_step1_scenario(resolved_scenario_key))
+            sc.setdefault("input", {})["user_message"] = override
+        else:
+            resolved_scenario_key = _DEFAULT_PLANNER_STEP1_SCENARIO_KEY
+            sc = load_planner_step1_scenario(_DEFAULT_PLANNER_STEP1_SCENARIO_KEY)
     corpus_path = corpus_dir.resolve()
     sid = str(sc.get("id", "lysandra_planner_step1"))
     user_message, input_violations = resolve_planner_user_message(sc, corpus_path)
@@ -196,19 +250,22 @@ def run_planner_step1_turn(
     )
     planner_key = str(sc.get("fixture_role") or "").strip().lower()
     if not planner_key:
-        planner_key = scenario_key if scenario_key is not None else default_planner_step1_scenario_key()
+        planner_key = resolved_scenario_key or (
+            scenario_key if scenario_key is not None else default_planner_step1_scenario_key()
+        )
     g2_bridge = load_step2_gold().get("planner_bridge")
-    bridge_review_detail: dict[str, Any] | None = None
+    post_planner_step2_benchmark_detail: dict[str, Any] | None = None
     if isinstance(g2_bridge, dict) and g2_bridge:
-        b_detail, b_ok, b_v = run_step2_planner_bridge(
+        b_detail, b_ok, b_v = evaluate_step2_post_planner_benchmark(
             user_message=user_message,
             tool_trace=detail.tool_trace,
             planner_scenario_key=planner_key,
+            intent_client=client,
         )
-        bridge_review_detail = b_detail
+        post_planner_step2_benchmark_detail = b_detail
         if b_v:
             merged = dict(result.violations)
-            merged.setdefault("step2_bridge", []).extend(b_v)
+            merged.setdefault(STEP2_BENCHMARK_VIOLATIONS_KEY, []).extend(b_v)
             result = replace(
                 result,
                 passed=result.passed and b_ok,
@@ -220,7 +277,8 @@ def run_planner_step1_turn(
         instructions=instructions,
         user_line=user_message,
         corpus_fingerprint=fp,
-        bridge_review_detail=bridge_review_detail,
+        post_planner_step2_benchmark_detail=post_planner_step2_benchmark_detail,
+        scenario_key=resolved_scenario_key,
     )
 
 
@@ -232,14 +290,14 @@ def flatten_live_violations(violations: dict[str, list[str]]) -> list[str]:
     return lines
 
 
-def print_planner_step1_review(
+def _emit_planner_step1_review(
     run: PlannerStep1Run,
     *,
     corpus_dir: Path,
     model_id: str,
     max_retrieved_body_chars: int = 36_000,
 ) -> None:
-    """Stdout report: turns, token usage per API round, retrieved corpus bodies, final answer."""
+    """Emit review lines to the current ``sys.stdout`` (used with ``redirect_stdout`` for capture)."""
     d = run.detail
     ins = run.instructions
     ul = run.user_line
@@ -251,6 +309,8 @@ def print_planner_step1_review(
     print("LYSANDRA PLANNER STEP 1 — REVIEW")
     print(sep)
     print(f"scenario_id:      {run.result.scenario_id}")
+    if run.scenario_key:
+        print(f"scenario:         {run.scenario_key}")
     print(f"model_id:         {model_id}")
     print(f"gates_passed:     {run.result.passed}")
     print(f"corpus_fprint:    {run.corpus_fingerprint}")
@@ -314,8 +374,8 @@ def print_planner_step1_review(
         print(f"function_calls: {names}")
         for j, c in enumerate(calls):
             args = c.get("arguments") or {}
-            if str(c.get("name")) == "read_corpus_file":
-                print(f"  call[{j}] read_corpus_file path={args.get('path')!r}")
+            if str(c.get("name")) in CORPUS_PATH_TOOL_NAMES:
+                print(f"  call[{j}] {c.get('name')} path={args.get('path')!r}")
             else:
                 a = json.dumps(args, ensure_ascii=False, default=str)
                 if len(a) > 500:
@@ -326,12 +386,13 @@ def print_planner_step1_review(
         print()
 
     print(sep)
-    print("§ Corpus text returned into the tool loop (same truncation as planner read_corpus_file)")
+    print("§ Corpus text returned into the tool loop (read_corpus_file / load_context_markdown)")
     print(sep)
     root = corpus_dir.resolve()
     for ti, row in enumerate(d.tool_trace):
-        if str(row.get("tool", "")) != "read_corpus_file":
-            print(f"--- tool_trace[{ti}] tool={row.get('tool')!r} (non-read) ---")
+        tname = str(row.get("tool", ""))
+        if tname not in CORPUS_PATH_TOOL_NAMES:
+            print(f"--- tool_trace[{ti}] tool={row.get('tool')!r} (non-corpus-path) ---")
             print(json.dumps(row, indent=2, ensure_ascii=False, default=str)[:4000])
             print()
             continue
@@ -339,7 +400,7 @@ def print_planner_step1_review(
         body = _read_corpus_file_impl(root, path) if path else "(no path)"
         excerpt = body if len(body) <= max_retrieved_body_chars else body[: max_retrieved_body_chars // 2] + f"\n...[truncated at {max_retrieved_body_chars} chars for review print]...\n" + body[-(max_retrieved_body_chars // 2) :]
         trace_excerpt = str(row.get("output_excerpt") or "")
-        print(f"--- read_corpus_file[{ti}] path={path!r} output_chars={row.get('output_chars')} ---")
+        print(f"--- {tname}[{ti}] path={path!r} output_chars={row.get('output_chars')} ---")
         print(
             "--- tool_trace output_excerpt (verbatim; planner keeps first 800 chars only in trace) ---"
         )
@@ -357,20 +418,56 @@ def print_planner_step1_review(
     print(d.final_text or "(empty)")
     print(sep)
 
-    if run.bridge_review_detail:
+    if run.post_planner_step2_benchmark_detail:
         print(sep)
         print(
-            "§ Step 2 planner bridge (deterministic; same user_line as Lane A)\n"
+            "§ Step 2 benchmark (observation only; same user_line as agent turn)\n"
             "  intent_from_planner_user_message + mechanical_statblock_reads_in_trace + canonical path"
         )
         print(sep)
-        print(json.dumps(run.bridge_review_detail, indent=2, ensure_ascii=False))
+        print(json.dumps(run.post_planner_step2_benchmark_detail, indent=2, ensure_ascii=False))
         print()
 
     if not run.result.passed:
         print("GATE VIOLATIONS:")
         for line in flatten_live_violations(run.result.violations):
             print(line)
+
+
+def print_planner_step1_review(
+    run: PlannerStep1Run,
+    *,
+    corpus_dir: Path,
+    model_id: str,
+    max_retrieved_body_chars: int = 36_000,
+) -> str:
+    """
+    Print the human-readable review to stdout and return the same text so callers can
+    write ``_DEFAULT_PLANNER_STEP1_ARTIFACT_PATH`` (or a custom path).
+    """
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        _emit_planner_step1_review(
+            run,
+            corpus_dir=corpus_dir,
+            model_id=model_id,
+            max_retrieved_body_chars=max_retrieved_body_chars,
+        )
+    text = buf.getvalue()
+    sys.stdout.write(text)
+    return text
+
+
+def write_default_planner_step1_artifact(markdown_body: str) -> Path:
+    """Write ``markdown_body`` to the default benchmark artifact path; ensure parent dir exists."""
+    path = _DEFAULT_PLANNER_STEP1_ARTIFACT_PATH
+    path.parent.mkdir(parents=True, exist_ok=True)
+    stamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    path.write_text(
+        f"<!-- benchmark_artifact: lysandra_planner_step1 | iso_utc: {stamp} -->\n\n{markdown_body}",
+        encoding="utf-8",
+    )
+    return path
 
 
 def main() -> None:
@@ -380,44 +477,73 @@ def main() -> None:
     ``uv run python evals/lysandra_vertical_slice/step1_planner_trace.py``
 
     Loads ``OPENAI_API_KEY`` from repo ``.env`` / ``.env.development`` (no ``export`` needed).
-    Optional: ``PLANNER_LOG_FULL_IO=1``. Optional: ``LYSANDRA_PLANNER_FINAL_OUT=/path/to/file.md`` writes the
-    model's final answer only (useful with ``upgrade_prose``).
-    """
-    import os
-    import sys
+    Always writes a **default benchmark artifact** to
+    ``evals/lysandra_vertical_slice/artifacts/last_planner_step1_run.md`` (full stdout-style review).
 
+    Optional: ``PLANNER_LOG_FULL_IO=1``. Optional: ``LYSANDRA_PLANNER_FINAL_OUT=/path/to/file.md`` also writes the
+    model's final answer only to that path.
+
+    **Routing:** with both env vars unset, the default benchmark is **upgrade_prose** (natural power-rise /
+    CR bump voice). Omit ``LYSANDRA_PLANNER_STEP1_SCENARIO`` and set ``LYSANDRA_PLANNER_USER_MESSAGE`` to
+    intent-route **upgrade_prose** vs **autonomous**. To pin a scenario explicitly, set
+    ``LYSANDRA_PLANNER_STEP1_SCENARIO=directed|autonomous|stat_check|upgrade_prose``.
+    """
     from openai import OpenAI  # noqa: E402
 
     from src.agent.planner import _resolve_planner_model  # noqa: E402
 
     load_dungeonmindbuddy_dotenv()
     configure_planner_review_logging()
-    sk = default_planner_step1_scenario_key()
-    print(
-        f"[scenario] LYSANDRA_PLANNER_STEP1_SCENARIO={sk!r} (gold: {planner_step1_gold_path(sk).name})\n",
-        file=sys.stderr,
-    )
-    print(
-        "[logging] dmb.planner + dmb.planner.live_eval at INFO; "
-        "set PLANNER_LOG_FULL_IO=1 for larger bodies inside telemetry JSON lines.\n",
-        file=sys.stderr,
-    )
-
-    if not os.environ.get("OPENAI_API_KEY", "").strip():
+    if not (_load_api_key() or "").strip():
         print(
             "OPENAI_API_KEY missing after loading .env / .env.development "
             "(see src/bootstrap_env.py). Add the key to repo .env or export it for CI.",
             file=sys.stderr,
         )
         sys.exit(2)
+    explicit = os.environ.get(_PLANNER_STEP1_SCENARIO_ENV, "").strip().lower()
+    user_msg = os.environ.get("LYSANDRA_PLANNER_USER_MESSAGE", "").strip()
+    if explicit in _VALID_PLANNER_STEP1_SCENARIOS:
+        print(
+            f"[scenario] explicit LYSANDRA_PLANNER_STEP1_SCENARIO={explicit!r} "
+            f"(gold: {planner_step1_gold_path(explicit).name})\n",
+            file=sys.stderr,
+        )
+    elif user_msg:
+        inferred = scenario_key_for_user_line(user_msg)
+        print(
+            f"[scenario] intent-routed scenario_key={inferred!r} "
+            f"(gold: {planner_step1_gold_path(inferred).name}; from LYSANDRA_PLANNER_USER_MESSAGE)\n",
+            file=sys.stderr,
+        )
+    else:
+        print(
+            "[scenario] default upgrade_prose — Lysandra power-rise benchmark "
+            "(set LYSANDRA_PLANNER_STEP1_SCENARIO=autonomous|stat_check|directed to pin another scenario; "
+            "or LYSANDRA_PLANNER_USER_MESSAGE without SCENARIO to intent-route)\n",
+            file=sys.stderr,
+        )
+    print(
+        "[logging] dmb.planner + dmb.planner.live_eval at INFO; "
+        "set PLANNER_LOG_FULL_IO=1 for larger bodies inside telemetry JSON lines.\n",
+        file=sys.stderr,
+    )
+
     root = resolve_corpus_dir()
     if not root.is_dir():
         print(f"corpus missing: {root}", file=sys.stderr)
         sys.exit(2)
     client = OpenAI()
     model_id = _resolve_planner_model(None)
-    run = run_planner_step1_turn(corpus_dir=root, client=client, model_id=model_id)
-    print_planner_step1_review(run, corpus_dir=root, model_id=model_id)
+    run = run_planner_step1_turn(
+        corpus_dir=root,
+        client=client,
+        model_id=model_id,
+        user_line_override=os.environ.get("LYSANDRA_PLANNER_USER_MESSAGE", "").strip() or None,
+    )
+    review_text = print_planner_step1_review(run, corpus_dir=root, model_id=model_id)
+    ap = write_default_planner_step1_artifact(review_text)
+    print(f"[wrote benchmark artifact to {ap}]", file=sys.stderr)
     out_path = os.environ.get("LYSANDRA_PLANNER_FINAL_OUT", "").strip()
     if out_path:
         p = Path(out_path).expanduser()

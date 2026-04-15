@@ -4,9 +4,9 @@ Uses ``client.responses.create`` (same family as ingestion ``responses.parse`` i
 ``entity_extractor`` / ``fact_extractor``), not Chat Completions.
 
 Optional DungeonMind statblock integration: set ``DUNGEONMIND_STATBLOCK_URL`` to a POST
-endpoint that accepts JSON ``{creature_name, description, challenge_rating?}`` and returns
+endpoint that accepts JSON ``{creature_name, description, challenge_rating?, source_statblock_markdown?, source_statblock_format?}`` and returns
 JSON with one of ``statblock``, ``markdown``, ``text``, or ``content`` (string), or plain
-text body. Optional ``DUNGEONMIND_STATBLOCK_API_KEY`` sends ``Authorization: Bearer …``.
+text body. When ``source_statblock_markdown`` is present it is the corpus statblock body loaded server-side from ``source_statblock_corpus_path`` (Markdown); ``source_statblock_format`` is ``markdown`` today (``html`` reserved for future corpus/HTML sources). Optional ``DUNGEONMIND_STATBLOCK_API_KEY`` sends ``Authorization: Bearer …``.
 If the URL is unset or the request fails, statblocks are generated via a local
 ``responses.create`` call (Markdown only).
 """
@@ -119,6 +119,34 @@ def _resolve_safe_corpus_file(corpus_dir: Path, rel_path: str) -> Path | None:
     return candidate
 
 
+def _read_optional_corpus_statblock_attachment(
+    corpus_dir: Path, rel_path: str
+) -> tuple[str | None, str | None]:
+    """
+    Load ``rel_path`` for ``generate_statblock`` baseline attachment.
+
+    Returns ``(error_message, None)`` on failure, or ``(None, body)`` on success.
+    """
+    cleaned = rel_path.strip()
+    if not cleaned:
+        return None, None
+    path = _resolve_safe_corpus_file(corpus_dir, cleaned)
+    if path is None:
+        return (
+            "Error: source_statblock_corpus_path must be a corpus-relative `.md` file "
+            "(literal path from the manifest; no `..` or globs).",
+            None,
+        )
+    text = path.read_text(encoding="utf-8", errors="replace")
+    total = len(text)
+    if total > _MAX_FILE_CHARS:
+        text = (
+            text[:_MAX_FILE_CHARS]
+            + f"\n\n[Truncated at {_MAX_FILE_CHARS} characters; file is {total} chars total.]"
+        )
+    return None, text
+
+
 def _read_corpus_file_impl(corpus_dir: Path, rel_path: str) -> str:
     path = _resolve_safe_corpus_file(corpus_dir, rel_path)
     if path is None:
@@ -143,9 +171,13 @@ def _planner_tools_responses() -> list[dict[str, Any]]:
             "type": "function",
             "name": "read_corpus_file",
             "description": (
-                "Read one markdown file from the campaign corpus. "
-                "Path is relative to the corpus root (see manifest). "
-                "Call this before asserting lore; cite which paths you used."
+                "Load the full text of one `.md` file under the campaign corpus root. "
+                "Pass a relative path exactly as it appears in the injected corpus tree or a hub "
+                "`README.md` suggested-reads list (literal characters only—do not use `*` or `?` shell globs). "
+                "Returns the file body for grounding; very large files may be truncated with a clear suffix "
+                "in the return text. "
+                "Call before stating campaign-specific facts from that file; how reads appear in your "
+                "final message (path citations vs verbatim quoted excerpts) follows system instructions."
             ),
             "strict": False,
             "parameters": {
@@ -153,7 +185,38 @@ def _planner_tools_responses() -> list[dict[str, Any]]:
                 "properties": {
                     "path": {
                         "type": "string",
-                        "description": "Relative path to a .md file, e.g. Elderwyld/Migrating Forest/foo.md",
+                        "description": (
+                            "Corpus-relative path to a `.md` file, e.g. "
+                            "`Elderwyld/Migrating Forest/the_migrating_forest_executive_dm_summary.md`"
+                        ),
+                    }
+                },
+                "required": ["path"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "type": "function",
+            "name": "load_context_markdown",
+            "description": (
+                "Attach one `.md` file from the corpus into the **working context** for this turn: "
+                "same body as `read_corpus_file`, but use this when the file should be treated as a "
+                "**loaded artifact** the rest of the reasoning depends on (e.g. the canonical mechanical "
+                "statblock after you have already skimmed the hub README). "
+                "Use `read_corpus_file` for discovery passes (README, dossier, timeline); call "
+                "`load_context_markdown` once for the **selected** statblock path. "
+                "Literal corpus-relative path only—no globs."
+            ),
+            "strict": False,
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "description": (
+                            "Corpus-relative path to the `.md` file to attach (e.g. canonical "
+                            "`*_statblock_*.md`)."
+                        ),
                     }
                 },
                 "required": ["path"],
@@ -176,6 +239,26 @@ def _planner_tools_responses() -> list[dict[str, Any]]:
                     "challenge_rating": {
                         "type": "string",
                         "description": "Optional CR hint, e.g. '3' or '1/4'.",
+                    },
+                    "source_statblock_corpus_path": {
+                        "type": "string",
+                        "description": (
+                            "Optional. Corpus-relative path to an existing `.md` statblock the tool "
+                            "reads and sends as `source_statblock_markdown` to the statblock service "
+                            "(and includes in the local fallback prompt). Use this instead of pasting "
+                            "the full statblock into `description`; name the NPC and your deltas in "
+                            "`description`. Format on the wire is Markdown (`source_statblock_format` "
+                            "`markdown`); HTML attachment is reserved for a future corpus type."
+                        ),
+                    },
+                    "source_statblock_format": {
+                        "type": "string",
+                        "description": (
+                            "When `source_statblock_corpus_path` is set: wire format for the attached "
+                            "body. Use `markdown` (default) for corpus `.md` statblocks. Value `html` "
+                            "is accepted for forward compatibility but corpus attach today only loads "
+                            "`.md` files as Markdown."
+                        ),
                     },
                 },
                 "required": ["creature_name", "description"],
@@ -202,30 +285,61 @@ def make_tool_dispatcher(
     statblock_stub: str | None = None,
     tool_cost_sink: list[dict[str, Any]] | None = None,
 ) -> Callable[[str, str], str]:
-    """Build the planner tool dispatch closure (read corpus + statblock)."""
+    """Build the planner tool dispatch closure (corpus reads, context loads, statblock)."""
 
     def dispatch(name: str, raw_args: str) -> str:
         try:
             args = json.loads(raw_args) if raw_args else {}
         except json.JSONDecodeError as exc:
             return f"Error: invalid JSON arguments for {name}: {exc}"
-        if name == "read_corpus_file":
+        if name in ("read_corpus_file", "load_context_markdown"):
             path = str(args.get("path", "")).strip()
             if not path:
                 return "Error: missing path."
-            return _read_corpus_file_impl(corpus_path, path)
+            body = _read_corpus_file_impl(corpus_path, path)
+            if name == "load_context_markdown":
+                return f"[context attached: {path}]\n\n{body}"
+            return body
         if name == "generate_statblock":
             cn = str(args.get("creature_name", "")).strip()
             desc = str(args.get("description", "")).strip()
             cr = args.get("challenge_rating")
             cr_str = str(cr).strip() if cr is not None else None
+            src_rel = str(args.get("source_statblock_corpus_path", "")).strip()
+            src_fmt = str(args.get("source_statblock_format", "markdown") or "markdown").strip().lower()
+            if src_fmt not in ("markdown", "html"):
+                src_fmt = "markdown"
             if not cn or not desc:
                 return "Error: creature_name and description are required."
+            src_err: str | None
+            src_body: str | None
+            src_err, src_body = _read_optional_corpus_statblock_attachment(corpus_path, src_rel)
+            if src_err:
+                return src_err
             if statblock_stub is not None:
+                if src_body and src_rel:
+                    return (
+                        f"[Attached corpus statblock: {src_rel} ({len(src_body)} chars), "
+                        f"format={src_fmt}]\n\n{statblock_stub}"
+                    )
                 return statblock_stub
-            text, cost = _generate_statblock_impl(client, model_id, cn, desc, cr_str or None)
+            text, cost = _generate_statblock_impl(
+                client,
+                model_id,
+                cn,
+                desc,
+                cr_str or None,
+                source_statblock_markdown=src_body,
+                source_statblock_format=src_fmt,
+                source_statblock_relpath=src_rel or None,
+            )
             if tool_cost_sink is not None and cost is not None:
                 tool_cost_sink.append(cost)
+            if src_body and src_rel:
+                return (
+                    f"[Attached corpus statblock baseline: {src_rel} ({len(src_body)} chars), "
+                    f"wire_format={src_fmt}]\n\n{text}"
+                )
             return text
         return f"Error: unknown tool {name!r}"
 
@@ -617,6 +731,9 @@ def _generate_statblock_http(
     creature_name: str,
     description: str,
     challenge_rating: str | None,
+    *,
+    source_statblock_markdown: str | None = None,
+    source_statblock_format: str = "markdown",
 ) -> tuple[str, None]:
     payload: dict[str, Any] = {
         "creature_name": creature_name,
@@ -624,6 +741,11 @@ def _generate_statblock_http(
     }
     if challenge_rating:
         payload["challenge_rating"] = challenge_rating
+    if source_statblock_markdown:
+        payload["source_statblock_markdown"] = source_statblock_markdown
+        payload["source_statblock_format"] = (
+            "html" if str(source_statblock_format).lower() == "html" else "markdown"
+        )
     body = json.dumps(payload).encode("utf-8")
     req = urllib.request.Request(
         url,
@@ -666,14 +788,30 @@ def _generate_statblock_via_responses(
     creature_name: str,
     description: str,
     challenge_rating: str | None,
+    *,
+    source_statblock_markdown: str | None = None,
+    source_statblock_format: str = "markdown",
+    source_statblock_relpath: str | None = None,
 ) -> tuple[str, dict[str, Any]]:
     cr_line = f"Challenge rating hint: {challenge_rating}\n\n" if challenge_rating else ""
+    fence_lang = "html" if str(source_statblock_format).lower() == "html" else "markdown"
+    baseline = ""
+    if source_statblock_markdown:
+        baseline = (
+            "### Existing statblock baseline (from corpus; revise or level from this)\n\n"
+            f"```{fence_lang}\n{source_statblock_markdown}\n```\n\n"
+        )
     user_content = (
-        f"Creature name: {creature_name}\n\n{cr_line}"
+        baseline
+        + f"Creature name: {creature_name}\n\n{cr_line}"
         f"Description and design notes:\n{description}\n\n"
         "Produce the Markdown stat block."
     )
-    st_ctx = {"op": "statblock_via_responses", "creature_name": creature_name}
+    st_ctx: dict[str, Any] = {"op": "statblock_via_responses", "creature_name": creature_name}
+    if source_statblock_relpath:
+        st_ctx["source_statblock_relpath"] = source_statblock_relpath
+    if source_statblock_markdown:
+        st_ctx["source_statblock_attach_chars"] = len(source_statblock_markdown)
     log_telemetry(
         {
             **st_ctx,
@@ -725,14 +863,43 @@ def _generate_statblock_impl(
     creature_name: str,
     description: str,
     challenge_rating: str | None,
+    *,
+    source_statblock_markdown: str | None = None,
+    source_statblock_format: str = "markdown",
+    source_statblock_relpath: str | None = None,
 ) -> tuple[str, dict[str, Any] | None]:
     url = os.environ.get(_STATBLOCK_URL_ENV, "").strip()
     if url:
-        http_body, http_cost = _generate_statblock_http(url, creature_name, description, challenge_rating)
+        http_body, http_cost = _generate_statblock_http(
+            url,
+            creature_name,
+            description,
+            challenge_rating,
+            source_statblock_markdown=source_statblock_markdown,
+            source_statblock_format=source_statblock_format,
+        )
         if http_body.startswith("Error: DungeonMind statblock request failed"):
-            return _generate_statblock_via_responses(client, model, creature_name, description, challenge_rating)
+            return _generate_statblock_via_responses(
+                client,
+                model,
+                creature_name,
+                description,
+                challenge_rating,
+                source_statblock_markdown=source_statblock_markdown,
+                source_statblock_format=source_statblock_format,
+                source_statblock_relpath=source_statblock_relpath,
+            )
         return http_body, http_cost
-    return _generate_statblock_via_responses(client, model, creature_name, description, challenge_rating)
+    return _generate_statblock_via_responses(
+        client,
+        model,
+        creature_name,
+        description,
+        challenge_rating,
+        source_statblock_markdown=source_statblock_markdown,
+        source_statblock_format=source_statblock_format,
+        source_statblock_relpath=source_statblock_relpath,
+    )
 
 
 def _build_system_prompt(manifest: str) -> str:

@@ -1,7 +1,10 @@
 {
   "schema": "lysandra_vertical_slice_step4_context_bundle_v1",
-  "description": "Step 4 — deterministic bundle JSON (excerpts + recap snippets) for gates and human inspection only; no harness-assembled agent plaintext. StatblockGenerator is fed LLM prose + API fields—not this bundle as a prompt. No structured level_up_request validation in v1.",
-  "target_challenge_rating": 5,
+  "description": "Step 4 — deterministic bundle JSON (excerpts + recap snippets) for gates and human inspection only. Power is expressed as power_baseline (from Step 3) and power_target {axis, value} (game-agnostic contract; v1 axis challenge_rating maps to 5e CR). Excerpt limits: any max_*_chars or max_chars_per_recap_read set to 0 omits truncation (full file / full paragraph).",
+  "power_target": {
+    "axis": "challenge_rating",
+    "value": 5
+  },
   "recap_scan_relative_dirs": [
     "Longmont Campaign/Campaign 2/Session Recaps",
     "Longmont Campaign/Campaign 1/Session Recaps"
@@ -9,9 +12,9 @@
   "recap_snippet_mode": "best_scoring_paragraph",
   "snippet_chars_before_anchor": 550,
   "snippet_chars_after_anchor": 450,
-  "max_chars_per_recap_paragraph": 2400,
+  "max_chars_per_recap_paragraph": 0,
   "max_recap_files_to_snippetize": 5,
-  "max_chars_per_recap_read": 500000,
+  "max_chars_per_recap_read": 0,
   "theme_boost_keywords": [
     "uneasy",
     "difficult",
@@ -31,10 +34,10 @@
     "uneasy",
     "difficult to navigate"
   ],
-  "max_dossier_chars": 12000,
-  "max_timeline_chars": 16000,
+  "max_dossier_chars": 0,
+  "max_timeline_chars": 0,
   "require_timeline_excerpt": true,
-  "max_statblock_chars_for_bundle": 28000,
+  "max_statblock_chars_for_bundle": 0,
   "include_session_anchor_excerpt": true,
-  "session_anchor_max_chars": 12000
+  "session_anchor_max_chars": 0
 }

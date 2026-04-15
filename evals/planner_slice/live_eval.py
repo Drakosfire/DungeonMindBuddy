@@ -10,6 +10,7 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
+from src.agent.corpus_path_tools import CORPUS_PATH_TOOL_NAMES, read_paths_from_tool_trace
 from src.agent.planner import (
     PlanningModelStepRecord,
     PlanningTurnDetail,
@@ -103,19 +104,6 @@ def extract_cited_markdown_paths_from_final(final_text: str) -> list[str]:
     return out
 
 
-def read_paths_from_tool_trace(tool_trace: list[dict[str, Any]]) -> list[str]:
-    """``path`` arguments from executed ``read_corpus_file`` calls in order."""
-    paths: list[str] = []
-    for row in tool_trace:
-        if str(row.get("tool", "")) != "read_corpus_file":
-            continue
-        args = row.get("arguments") or {}
-        p = str(args.get("path", "")).strip()
-        if p:
-            paths.append(p)
-    return paths
-
-
 def dedupe_read_paths_preserve_order(reads: list[str]) -> list[str]:
     """One mention in ``final_text`` suffices per distinct path (duplicate reads are common)."""
     seen: set[str] = set()
@@ -183,7 +171,7 @@ def match_calls_satisfy(
             if str(c.get("name", "")) != tool:
                 continue
             args = c.get("arguments") or {}
-            if tool == "read_corpus_file":
+            if tool in CORPUS_PATH_TOOL_NAMES:
                 path = str(args.get("path", "")).lower()
                 if path_contains and path_contains not in path:
                     continue
@@ -304,7 +292,7 @@ def _check_final_require(
         if not reads_all:
             violations.append(
                 f"{_fail_prefix(scenario_id)} final: read_corpus_paths_must_include set but no "
-                f"read_corpus_file paths in tool_trace"
+                f"read_corpus_file / load_context_markdown paths in tool_trace"
             )
         else:
             for sub in subs:
@@ -320,7 +308,7 @@ def _check_final_require(
         if not reads:
             violations.append(
                 f"{_fail_prefix(scenario_id)} final: cited_paths_must_match_reads but no "
-                f"read_corpus_file paths in tool_trace"
+                f"read_corpus_file / load_context_markdown paths in tool_trace"
             )
         else:
             cites = extract_cited_markdown_paths_from_final(text)
@@ -334,7 +322,7 @@ def _check_final_require(
                 if not cite_matches_any_read(cite, reads):
                     violations.append(
                         f"{_fail_prefix(scenario_id)} final: cited path {cite!r} is not grounded in "
-                        f"read_corpus_file tool_trace paths {reads!r}"
+                        f"corpus path tool_trace paths {reads!r}"
                     )
 
     if require.get("read_paths_must_appear_in_final"):

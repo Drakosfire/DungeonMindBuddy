@@ -1,6 +1,6 @@
 """Single entry: deterministic Lysandra vertical slice (Step 0 → Step 1 → Steps 2–4).
 
-No planner LLM. Use ``step1_planner_trace.py`` for Lane A (live model + tools).
+No planner LLM. Use ``step1_planner_trace.py`` for the agent benchmark (live model + tools).
 
 Runnable from repo root::
 

@@ -14,41 +14,58 @@ from evals.lysandra_vertical_slice.step4_levelup_context import (
     g4_recap_violations,
     g4_timeline_violations,
     load_step4_gold,
+    resolve_power_target_from_step4_gold,
     run_step2_through_step4,
     run_step4_levelup_context_gates,
     step4_all_gate_violations,
 )
 
 
+def test_resolve_power_target_legacy_target_challenge_rating() -> None:
+    assert resolve_power_target_from_step4_gold({"target_challenge_rating": 7}) == (
+        "challenge_rating",
+        7,
+    )
+
+
 def test_step4_gold_parse() -> None:
     g = load_step4_gold()
-    assert int(g["target_challenge_rating"]) >= 2
+    pt = g.get("power_target") or {}
+    assert int(pt.get("value", 0)) >= 2
+    assert pt.get("axis")
     assert g.get("recap_scan_relative_dirs")
 
 
 def test_g4_1_passes_when_target_exceeds_baseline() -> None:
     """G4.1 (first Step 4 gate): synthetic Step 3 detail, no corpus."""
     detail = {"power_baseline": {"challenge_rating_current": 4}}
-    assert g4_1_power_target_violations(detail, target_challenge_rating=5) == []
+    gold = {"power_target": {"axis": "challenge_rating", "value": 5}}
+    assert g4_1_power_target_violations(detail, step4_gold=gold) == []
 
 
 def test_g4_1_fails_when_baseline_cr_null() -> None:
     detail = {"power_baseline": {"challenge_rating_current": None}}
-    v = g4_1_power_target_violations(detail, target_challenge_rating=5)
+    gold = {"power_target": {"axis": "challenge_rating", "value": 5}}
+    v = g4_1_power_target_violations(detail, step4_gold=gold)
     assert len(v) == 1 and "null" in v[0]
 
 
 def test_g4_1_fails_when_baseline_cr_non_numeric() -> None:
     detail = {"power_baseline": {"challenge_rating_current": "four"}}
-    v = g4_1_power_target_violations(detail, target_challenge_rating=5)
+    gold = {"power_target": {"axis": "challenge_rating", "value": 5}}
+    v = g4_1_power_target_violations(detail, step4_gold=gold)
     assert len(v) == 1 and "non-numeric" in v[0]
 
 
 def test_g4_1_fails_when_target_not_strictly_greater() -> None:
     detail = {"power_baseline": {"challenge_rating_current": 5}}
-    v = g4_1_power_target_violations(detail, target_challenge_rating=5)
+    v = g4_1_power_target_violations(
+        detail, step4_gold={"power_target": {"axis": "challenge_rating", "value": 5}}
+    )
     assert len(v) == 1 and "must exceed" in v[0]
-    v2 = g4_1_power_target_violations(detail, target_challenge_rating=4)
+    v2 = g4_1_power_target_violations(
+        detail, step4_gold={"power_target": {"axis": "challenge_rating", "value": 4}}
+    )
     assert len(v2) == 1
 
 
@@ -144,7 +161,7 @@ def test_step4_all_gate_violations_order_synthetic() -> None:
     bundle = {"session_recap_snippets": [], "timeline_excerpt": {"text": ""}}
     policy = {"timeline_relpath": "hub/timeline.md"}
     gold = {
-        "target_challenge_rating": 5,
+        "power_target": {"axis": "challenge_rating", "value": 5},
         "min_recap_snippets": 1,
         "require_timeline_excerpt": True,
     }
@@ -184,7 +201,7 @@ def test_runner_violations_match_aggregator_when_g4_1_fails() -> None:
     d3, ok3, _ = run_step3_power_baseline_gates(root)
     assert ok3
     g4 = copy.deepcopy(load_step4_gold())
-    g4["target_challenge_rating"] = 3
+    g4["power_target"] = {"axis": "challenge_rating", "value": 3}
     detail, ok, viol = run_step4_levelup_context_gates(root, step3_detail=d3, step4_gold=g4)
     assert not ok
     merged = step4_all_gate_violations(
@@ -208,7 +225,8 @@ def test_step4_on_real_corpus() -> None:
     tl = bundle.get("timeline_excerpt") or {}
     assert tl.get("corpus_relative_path") == policy.get("timeline_relpath")
     assert len(str(tl.get("text") or "").strip()) > 50
-    assert bundle["power_target"]["target_challenge_rating"] == 5
+    assert bundle["power_target"]["axis"] == "challenge_rating"
+    assert bundle["power_target"]["value"] == 5
     assert bundle["power_baseline"]["challenge_rating_current"] == 4
     snips = bundle["session_recap_snippets"]
     assert len(snips) >= 1
@@ -231,7 +249,8 @@ def test_step2_through_step4_aggregate() -> None:
     assert ok, viol
     assert out.get("intent_fixtures_ok")
     b = out["levelup_context_detail"]["levelup_context_bundle"]
-    assert b["power_target"]["target_challenge_rating"] == 5
+    assert b["power_target"]["value"] == 5
+    assert b["power_target"]["axis"] == "challenge_rating"
 
 
 def test_g4_1_monotonicity_violation() -> None:
@@ -244,7 +263,7 @@ def test_g4_1_monotonicity_violation() -> None:
     d3, ok3, _ = run_step3_power_baseline_gates(root)
     assert ok3
     g4 = copy.deepcopy(load_step4_gold())
-    g4["target_challenge_rating"] = 3
+    g4["power_target"] = {"axis": "challenge_rating", "value": 3}
     _, ok, viol = run_step4_levelup_context_gates(root, step3_detail=d3, step4_gold=g4)
     assert not ok
     assert any("G4.1 FAIL" in v for v in viol)

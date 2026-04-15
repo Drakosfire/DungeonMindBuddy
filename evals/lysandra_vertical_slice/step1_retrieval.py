@@ -69,7 +69,8 @@ def keyword_scan_ranked(
     g1 = step1_gold or load_step1_gold()
     aliases = [str(x) for x in (policy.get("aliases") or []) if str(x).strip()]
     scan = [str(x) for x in (g1.get("scan_subdirs") or ["Longmont Campaign", "Elderwyld"])]
-    cap = int(g1.get("max_file_read_chars") or 400_000)
+    cap_raw = g1.get("max_file_read_chars")
+    cap = int(cap_raw) if cap_raw is not None else 400_000
 
     scored: list[tuple[str, int]] = []
     for path in _iter_scan_files(corpus_dir, scan):
@@ -81,7 +82,8 @@ def keyword_scan_ranked(
             raw = path.read_text(encoding="utf-8")
         except OSError:
             continue
-        scored.append((_norm_rel(rel), score_text_for_aliases(raw[:cap], aliases)))
+        sample = raw if cap <= 0 else raw[:cap]
+        scored.append((_norm_rel(rel), score_text_for_aliases(sample, aliases)))
 
     scored.sort(key=lambda x: (-x[1], x[0]))
     return scored

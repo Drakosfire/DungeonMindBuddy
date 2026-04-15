@@ -1,0 +1,27 @@
+---
+description: Benchmark and eval harnesses must write a default on-disk artifact per run (not stdout-only).
+alwaysApply: true
+---
+
+# DungeonMindBuddy — Benchmark disk artifacts
+
+## Requirement
+
+**Benchmarks and eval harnesses** (vertical slices, planner live evals, gate runners, deterministic replay CLIs, anything that scores or records a run) **must** produce at least **one default on-disk artifact** for each run **without** requiring the operator to set an env var or shell redirect.
+
+- **Stdout/stderr** may still be verbose for humans; the **artifact** is the durable, shareable record (summary JSON, final model text, gate report, or equivalent).
+- **New harnesses:** ship the default write in the same change as the harness entrypoint.
+- **Existing harnesses:** when you touch one for behavior or gates, add or restore a default artifact path if it is still stdout-only.
+
+## Conventions
+
+- **Location:** Under the eval suite directory, e.g. `evals/<suite>/artifacts/`, or a single well-named default at suite root (e.g. `evals/<suite>/last_<harness>_output.md` / `last_<harness>_run.json`). Document the path in that suite’s `README.md` or harness docstring.
+- **Implemented:** Lysandra agent benchmark CLI → `evals/lysandra_vertical_slice/artifacts/last_planner_step1_run.md` (see that folder’s `README.md`).
+- **Override:** An env var (e.g. existing `LYSANDRA_PLANNER_FINAL_OUT`) may **replace** the destination; the default path must still be used when the env var is unset.
+- **Secrets:** Never write API keys, tokens, or session cookies into artifacts. Redact or omit.
+- **Size:** Prefer a **summary** artifact by default; full traces may be truncated with a note, or written under a path listed in `.gitignore` if they are large or ephemeral.
+- **Git:** Default artifacts may be gitignored if they churn every run; then commit **patterns** in `.gitignore` and keep **one** committed example or schema doc if useful.
+
+## Rationale
+
+Terminal-only output is lost in CI logs and local shells; disk artifacts make benchmarks **reviewable, diffable, and handoff-friendly** (including for agents and humans).

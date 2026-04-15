@@ -26,11 +26,13 @@ if _REPO_ROOT not in sys.path:
 from evals.lysandra_vertical_slice.step0_corpus_environment import load_step0_gold, resolve_corpus_dir
 from evals.lysandra_vertical_slice.step1_retrieval import load_corpus_policy
 from evals.lysandra_vertical_slice.step2_canonical_intent import (
+    build_step2_intent_fixture_sequence_client,
     load_step2_gold,
     parse_challenge_rating_from_statblock,
     run_step2_canonical_gates,
     run_step2_intent_fixture_gates,
 )
+from src.agent.synthesis import _load_api_key
 
 
 def _norm_rel(p: str) -> str:
@@ -208,6 +210,8 @@ def run_step2_and_step3(
     corpus_policy: dict[str, Any] | None = None,
     step2_gold: dict[str, Any] | None = None,
     step3_gold: dict[str, Any] | None = None,
+    intent_client: Any | None = None,
+    intent_model: str | None = None,
 ) -> tuple[dict[str, Any], bool, list[str]]:
     """Run Step 2 canonical + intent fixtures, then Step 3 (aggregate for harness / CLI)."""
     root = corpus_dir or resolve_corpus_dir(load_step0_gold())
@@ -218,7 +222,9 @@ def run_step2_and_step3(
 
     d2, ok2, v2 = run_step2_canonical_gates(root, corpus_policy=policy, step2_gold=s2g)
     all_v.extend(v2)
-    ok_i, v_i = run_step2_intent_fixture_gates(step2_gold=s2g)
+    ok_i, v_i = run_step2_intent_fixture_gates(
+        step2_gold=s2g, client=intent_client, model=intent_model
+    )
     all_v.extend(v_i)
     out: dict[str, Any] = {"canonical_detail": d2, "intent_fixtures_ok": ok_i}
     if not ok2 or not ok_i:
@@ -234,7 +240,11 @@ def run_step2_and_step3(
 
 def main() -> None:
     root = resolve_corpus_dir(load_step0_gold())
-    out, ok, viol = run_step2_and_step3(root)
+    s2g = load_step2_gold()
+    intent_client = None
+    if _load_api_key() is None:
+        intent_client = build_step2_intent_fixture_sequence_client(s2g)
+    out, ok, viol = run_step2_and_step3(root, step2_gold=s2g, intent_client=intent_client)
     print(json.dumps({"corpus_dir": str(root), "ok": ok, "detail": out}, indent=2, ensure_ascii=False))
     if viol:
         print("--- violations ---", file=sys.stderr)

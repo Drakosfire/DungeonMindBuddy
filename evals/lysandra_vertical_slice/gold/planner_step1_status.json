@@ -2,12 +2,12 @@
   "schema": "lysandra_vertical_slice_gate_status_v1",
   "step": 1,
   "lane": "planner_tool_trace",
-  "label": "step1_lane_a_planner_reads",
+  "label": "step1_agent_planner_reads",
   "implementation_complete": true,
   "human_signpost": "evals/lysandra_vertical_slice/GATES.md",
   "verification": {
     "unit_command": "uv run pytest tests/test_lysandra_vertical_slice_planner_step1.py -q",
-    "live_note": "Set LYSANDRA_PLANNER_STEP1_LIVE=1, OPENAI_API_KEY, and optional LYSANDRA_PLANNER_STEP1_SCENARIO=directed|autonomous|stat_check|upgrade_prose (default autonomous). Optional LYSANDRA_PLANNER_FINAL_OUT=path to save final answer.",
+    "live_note": "Set LYSANDRA_PLANNER_STEP1_LIVE=1, OPENAI_API_KEY. CLI default lane when SCENARIO unset: upgrade_prose (Lysandra power-rise). Optional LYSANDRA_PLANNER_USER_MESSAGE=… without SCENARIO intent-routes upgrade_prose vs autonomous. Pin lane: LYSANDRA_PLANNER_STEP1_SCENARIO=directed|autonomous|stat_check|upgrade_prose. Optional LYSANDRA_PLANNER_FINAL_OUT=path to save final answer.",
     "last_verified_outcome": "unit: see pytest tests/test_lysandra_vertical_slice_planner_step1.py"
   },
   "depends_on": [
