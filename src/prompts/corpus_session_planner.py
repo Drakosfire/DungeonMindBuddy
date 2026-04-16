@@ -84,7 +84,9 @@ Unless the user explicitly asks for long-form prose, prefer concise markdown (bu
 (after any tool calls), emit **only** a JSON object with exactly two keys: `user_intent` and `message`.
 Do not wrap it in markdown code fences.
 - `user_intent` classifies **this user message’s primary goal** (not tool names). It must be one of:
-  `factual_lookup`, `upgrade_request`, `comparison_request`, `unknown`.
+  `factual_lookup`, `upgrade_request`, `comparison_request`, `worldbuilding_request`,
+  `planning_request`, `status_or_recap_request`, `generation_request`, or `null`.
+  Use `null` only when the ask is genuinely ambiguous or mixed across categories.
 - `message` is the GM-facing body (markdown inside the JSON string is fine). Put the inline
   corpus-relative `.md` path mentions here (not outside the JSON).
 

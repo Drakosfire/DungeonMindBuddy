@@ -14,6 +14,7 @@ from typing import Any
 
 from openai import OpenAI
 
+from src.llm.api_client import DungeonMindApiClient
 from src.reducer.canon_projection import project_entity_state
 from src.store import FactStore
 
@@ -241,15 +242,17 @@ Write the wiki article."""
     if not api_key:
         raise RuntimeError("OPENAI_API_KEY is required for compile_entity_page.")
     oc = client or OpenAI(api_key=api_key)
+    api_client = DungeonMindApiClient.wrap(oc)
     mid = model or _resolve_wiki_model()
-    resp = oc.chat.completions.create(
+    resp = api_client.chat_completions_create(
+        action="wiki_compiler.entity_page",
         model=mid,
         messages=[
             {"role": "system", "content": WIKI_SYSTEM_PROMPT},
             {"role": "user", "content": user_msg},
         ],
         temperature=0.35,
-    )
+    ).response
     text = (resp.choices[0].message.content or "").strip()
     if not text:
         raise RuntimeError(f"Empty wiki article for {entity_id}")

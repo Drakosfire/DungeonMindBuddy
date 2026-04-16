@@ -14,6 +14,7 @@ from pydantic import BaseModel, Field
 
 from src.contracts.schema_validation import validate_many
 from src.ingestion.entity_extractor import UsageStats, _usage_dict_from_openai_response
+from src.llm.api_client import DungeonMindApiClient
 
 _PROMPT_ID = "phase_c_pass2_fact_extraction_v3_prompt_cache"
 
@@ -119,6 +120,7 @@ class OpenAIResponsesFactClient:
     def __init__(self, *, api_key: str | None = None, sdk_client: Any | None = None) -> None:
         if sdk_client is not None:
             self._client = sdk_client
+            self._api_client = DungeonMindApiClient.wrap(self._client)
             return
         try:
             from openai import OpenAI  # type: ignore[import-untyped]
@@ -127,6 +129,7 @@ class OpenAIResponsesFactClient:
                 "OpenAI SDK is required for OpenAIResponsesFactClient. Install 'openai'."
             ) from exc
         self._client = OpenAI(api_key=api_key)
+        self._api_client = DungeonMindApiClient.wrap(self._client)
 
     def extract_facts(
         self,
@@ -138,14 +141,15 @@ class OpenAIResponsesFactClient:
         entities: list[dict[str, Any]],
         prompt_id: str,
     ) -> dict[str, Any]:
-        response = self._client.responses.parse(
+        response = self._api_client.responses_parse(
+            action="fact_extractor.extract",
             model=model,
             input=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
             ],
             text_format=FactExtractionResult,
-        )
+        ).response
         parsed = getattr(response, "output_parsed", None)
         if parsed is None:
             raise ValueError("OpenAI response parse did not return output_parsed.")
@@ -164,14 +168,15 @@ class OpenAIResponsesFactClient:
         user_prompt: str,
         prompt_id: str,
     ) -> dict[str, Any]:
-        response = self._client.responses.parse(
+        response = self._api_client.responses_parse(
+            action="fact_extractor.extract_batched",
             model=model,
             input=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
             ],
             text_format=BatchedFactExtractionResult,
-        )
+        ).response
         parsed = getattr(response, "output_parsed", None)
         if parsed is None:
             raise ValueError("OpenAI response parse did not return output_parsed.")
@@ -189,6 +194,7 @@ class AsyncOpenAIResponsesFactClient:
     def __init__(self, *, api_key: str | None = None, sdk_client: Any | None = None) -> None:
         if sdk_client is not None:
             self._client = sdk_client
+            self._api_client = DungeonMindApiClient.wrap(self._client)
             return
         try:
             from openai import AsyncOpenAI  # type: ignore[import-untyped]
@@ -197,6 +203,7 @@ class AsyncOpenAIResponsesFactClient:
                 "OpenAI SDK is required for AsyncOpenAIResponsesFactClient. Install 'openai'."
             ) from exc
         self._client = AsyncOpenAI(api_key=api_key)
+        self._api_client = DungeonMindApiClient.wrap(self._client)
 
     async def extract_facts(
         self,
@@ -208,14 +215,17 @@ class AsyncOpenAIResponsesFactClient:
         entities: list[dict[str, Any]],
         prompt_id: str,
     ) -> dict[str, Any]:
-        response = await self._client.responses.parse(
-            model=model,
-            input=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt},
-            ],
-            text_format=FactExtractionResult,
-        )
+        response = (
+            await self._api_client.responses_parse_async(
+                action="fact_extractor.extract_async",
+                model=model,
+                input=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+                text_format=FactExtractionResult,
+            )
+        ).response
         parsed = getattr(response, "output_parsed", None)
         if parsed is None:
             raise ValueError("OpenAI response parse did not return output_parsed.")
@@ -234,14 +244,17 @@ class AsyncOpenAIResponsesFactClient:
         user_prompt: str,
         prompt_id: str,
     ) -> dict[str, Any]:
-        response = await self._client.responses.parse(
-            model=model,
-            input=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt},
-            ],
-            text_format=BatchedFactExtractionResult,
-        )
+        response = (
+            await self._api_client.responses_parse_async(
+                action="fact_extractor.extract_batched_async",
+                model=model,
+                input=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+                text_format=BatchedFactExtractionResult,
+            )
+        ).response
         parsed = getattr(response, "output_parsed", None)
         if parsed is None:
             raise ValueError("OpenAI response parse did not return output_parsed.")

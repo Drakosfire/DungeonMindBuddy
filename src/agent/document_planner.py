@@ -13,6 +13,7 @@ from typing import Any
 from dotenv import load_dotenv
 
 from src.agent.evidence_retriever import _unit_allowed
+from src.llm.api_client import DungeonMindApiClient
 
 logger = logging.getLogger(__name__)
 
@@ -214,6 +215,7 @@ async def plan_documents_async(
             raise RuntimeError("OpenAI SDK required for document planning") from exc
         client = AsyncOpenAI(api_key=api_key)
         is_async_client = True
+    api_client = DungeonMindApiClient.wrap(client)
 
     user_prompt = (
         f"GM question: {question}\n\n"
@@ -222,16 +224,25 @@ async def plan_documents_async(
     )
 
     try:
-        payload = client.chat.completions.create(
-            model=model_id,
-            messages=[
+        request_kwargs = {
+            "model": model_id,
+            "messages": [
                 {"role": "system", "content": DOCUMENT_PLANNER_PROMPT},
                 {"role": "user", "content": user_prompt},
             ],
-            response_format={"type": "json_object"},
-            temperature=0.0,
-        )
-        response = await payload if is_async_client else payload
+            "response_format": {"type": "json_object"},
+            "temperature": 0.0,
+        }
+        if is_async_client:
+            response = (
+                await api_client.chat_completions_create_async(
+                    action="document_planner.plan", **request_kwargs
+                )
+            ).response
+        else:
+            response = api_client.chat_completions_create(
+                action="document_planner.plan", **request_kwargs
+            ).response
         raw_text = response.choices[0].message.content or ""
         valid, reasoning = _parse_document_plan(raw_text, candidate_ids)
     except Exception as exc:

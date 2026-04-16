@@ -10,12 +10,16 @@ from __future__ import annotations
 import os
 from typing import Any
 
-# Keep in sync with ``IntentMode`` in ``src/npc_statblock_pipeline/canonical_intent.py``.
+# Keep overlapping labels in sync with ``IntentMode`` in
+# ``src/npc_statblock_pipeline/canonical_intent.py``.
 PLANNER_USER_INTENT_ENUM: tuple[str, ...] = (
     "factual_lookup",
     "upgrade_request",
     "comparison_request",
-    "unknown",
+    "worldbuilding_request",
+    "planning_request",
+    "status_or_recap_request",
+    "generation_request",
 )
 
 _PLANNER_TURN_OUTPUT_NAME = "planner_turn_output"
@@ -27,12 +31,12 @@ def planner_turn_output_json_schema(*, strict: bool = True) -> dict[str, Any]:
         "additionalProperties": False,
         "properties": {
             "user_intent": {
-                "type": "string",
+                "type": ["string", "null"],
                 "description": (
                     "Classifier label for the user's ask in this turn (not a tool name). "
-                    "Use unknown when the ask does not clearly fit the other labels."
+                    "Use null only when the ask is ambiguous or genuinely mixed."
                 ),
-                "enum": list(PLANNER_USER_INTENT_ENUM),
+                "enum": [*PLANNER_USER_INTENT_ENUM, None],
             },
             "message": {
                 "type": "string",

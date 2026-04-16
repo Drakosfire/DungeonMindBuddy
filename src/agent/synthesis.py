@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from dotenv import load_dotenv
+from src.llm.api_client import DungeonMindApiClient
 
 _SYNTHESIS_PROFILE_ENV = "DMB_SYNTHESIS_PROFILE"
 _SYNTHESIS_VERBOSITY_ENV = "DMB_SYNTHESIS_VERBOSITY"
@@ -211,6 +212,7 @@ async def synthesize_answer_async(
             raise RuntimeError("OpenAI SDK is required for synthesis.") from exc
         client = AsyncOpenAI(api_key=api_key)
         is_async_client = True
+    api_client = DungeonMindApiClient.wrap(client)
 
     profile = _resolve_synthesis_profile(synthesis_profile)
     verbosity_mode = _resolve_verbosity(verbosity)
@@ -237,9 +239,9 @@ async def synthesize_answer_async(
     )
 
     if use_two:
-        ext_payload = client.chat.completions.create(
-            model=model_id,
-            messages=[
+        ext_kwargs = {
+            "model": model_id,
+            "messages": [
                 {"role": "system", "content": EXTRACTION_PROMPT},
                 {
                     "role": "user",
@@ -250,8 +252,11 @@ async def synthesize_answer_async(
                     ),
                 },
             ],
-        )
-        ext_resp = await ext_payload if is_async_client else ext_payload
+        }
+        if is_async_client:
+            ext_resp = (await api_client.chat_completions_create_async(action="synthesis.extract_claims", **ext_kwargs)).response
+        else:
+            ext_resp = api_client.chat_completions_create(action="synthesis.extract_claims", **ext_kwargs).response
         extracted = _extract_response_text(ext_resp)
         if not extracted:
             raise RuntimeError("Extraction step returned an empty response.")
@@ -276,14 +281,17 @@ async def synthesize_answer_async(
             "Follow the output contract from the system prompt exactly."
         )
 
-    payload = client.chat.completions.create(
-        model=model_id,
-        messages=[
+    answer_kwargs = {
+        "model": model_id,
+        "messages": [
             {"role": "system", "content": resolved_prompt},
             {"role": "user", "content": user_prompt},
         ],
-    )
-    response = await payload if is_async_client else payload
+    }
+    if is_async_client:
+        response = (await api_client.chat_completions_create_async(action="synthesis.answer", **answer_kwargs)).response
+    else:
+        response = api_client.chat_completions_create(action="synthesis.answer", **answer_kwargs).response
     text = _extract_response_text(response)
     if not text:
         raise RuntimeError("Synthesis model returned an empty response.")

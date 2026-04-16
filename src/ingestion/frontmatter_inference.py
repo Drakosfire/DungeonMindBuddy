@@ -7,6 +7,7 @@ from typing import Any
 from pydantic import BaseModel
 
 from src.ingestion.frontmatter import DocumentMetadata
+from src.llm.api_client import DungeonMindApiClient
 
 
 class ProposedDocumentMetadata(BaseModel):
@@ -100,10 +101,12 @@ class OpenAIFrontmatterInferenceClient:
     def __init__(self, *, api_key: str | None = None, sdk_client: Any | None = None) -> None:
         if sdk_client is not None:
             self._client = sdk_client
+            self._api_client = DungeonMindApiClient.wrap(self._client)
             return
         from openai import OpenAI  # type: ignore[import-untyped]
 
         self._client = OpenAI(api_key=api_key)
+        self._api_client = DungeonMindApiClient.wrap(self._client)
 
     def propose(self, *, model: str, path: Path, text: str) -> DocumentMetadata:
         prompt = (
@@ -116,11 +119,12 @@ class OpenAIFrontmatterInferenceClient:
             f"Path: {path}\n\n"
             f"Document excerpt:\n{text[:4000]}"
         )
-        response = self._client.responses.parse(
+        response = self._api_client.responses_parse(
+            action="frontmatter_inference.propose",
             model=model,
             input=[{"role": "user", "content": prompt}],
             text_format=ProposedDocumentMetadata,
-        )
+        ).response
         parsed = getattr(response, "output_parsed", None)
         if parsed is None:
             raise ValueError("OpenAI inference returned no parsed metadata.")

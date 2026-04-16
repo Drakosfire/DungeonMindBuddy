@@ -16,7 +16,6 @@ from __future__ import annotations
 import json
 import logging
 import os
-import time
 import urllib.error
 import urllib.request
 from dataclasses import dataclass, field
@@ -37,6 +36,7 @@ from src.agent.planner_telemetry import (
     usage_dict_from_response,
 )
 from src.agent.synthesis import _load_api_key
+from src.llm.api_client import DungeonMindApiClient
 
 _planner_logger = logging.getLogger("dmb.planner")
 from src.prompts.corpus_session_planner import (
@@ -545,6 +545,7 @@ def run_planning_turn_detailed(
     telemetry_context: dict[str, Any] | None = None,
 ) -> PlanningTurnDetail:
     """Like ``run_planning_turn`` but records each model response as a ``PlanningModelStepRecord``."""
+    api_client = DungeonMindApiClient.wrap(client)
     ctx: dict[str, Any] = {"op": "planning_turn", **(telemetry_context or {})}
     turn_index = int(ctx.get("turn_index", 0) or 0)
     usage_totals = {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0, "cached_tokens": 0}
@@ -587,9 +588,9 @@ def run_planning_turn_detailed(
             "create_kw_keys": sorted(create_kw.keys()),
         }
     )
-    t0 = time.perf_counter()
-    response = client.responses.create(**create_kw)
-    elapsed_ms = (time.perf_counter() - t0) * 1000.0
+    first_call = api_client.responses_create(action="planner.turn.initial_user", **create_kw)
+    response = first_call.response
+    elapsed_ms = first_call.elapsed_ms
     _absorb_usage(response, elapsed_ms)
     u0 = usage_dict_from_response(response)
     c0 = usage_cost_usd(
@@ -723,7 +724,6 @@ def run_planning_turn_detailed(
                 "tool_inputs_summary": summarize_tool_inputs(tool_inputs),
             }
         )
-        t1 = time.perf_counter()
         follow_kw: dict[str, Any] = {
             "model": model_id,
             "instructions": instructions,
@@ -735,8 +735,9 @@ def run_planning_turn_detailed(
         }
         if planner_turn_output_schema_enabled():
             follow_kw["text"] = planner_turn_text_format()
-        response = client.responses.create(**follow_kw)
-        elapsed_follow = (time.perf_counter() - t1) * 1000.0
+        follow_call = api_client.responses_create(action="planner.turn.tool_outputs", **follow_kw)
+        response = follow_call.response
+        elapsed_follow = follow_call.elapsed_ms
         _absorb_usage(response, elapsed_follow)
         uf = usage_dict_from_response(response)
         cf = usage_cost_usd(
@@ -916,6 +917,7 @@ def _generate_statblock_via_responses(
     source_statblock_format: str = "markdown",
     source_statblock_relpath: str | None = None,
 ) -> tuple[str, dict[str, Any]]:
+    api_client = DungeonMindApiClient.wrap(client)
     cr_line = f"Challenge rating hint: {challenge_rating}\n\n" if challenge_rating else ""
     fence_lang = "html" if str(source_statblock_format).lower() == "html" else "markdown"
     baseline = ""
@@ -947,13 +949,14 @@ def _generate_statblock_via_responses(
             "user_message_text": maybe_full_text(user_content),
         }
     )
-    t0 = time.perf_counter()
-    response = client.responses.create(
+    stat_call = api_client.responses_create(
+        action="planner.statblock_fallback",
         model=model,
         instructions=STATBLOCK_VIA_RESPONSES_SYSTEM,
         input=[{"type": "message", "role": "user", "content": user_content}],
     )
-    elapsed_ms = (time.perf_counter() - t0) * 1000.0
+    response = stat_call.response
+    elapsed_ms = stat_call.elapsed_ms
     u_stat = usage_dict_from_response(response)
     c_stat = usage_cost_usd(
         model_id=model,

@@ -16,7 +16,8 @@ def test_planner_turn_output_json_schema_is_object_with_enum_and_message() -> No
     assert schema["type"] == "object"
     assert schema.get("additionalProperties") is False
     props = schema["properties"]
-    assert set(props["user_intent"]["enum"]) == set(PLANNER_USER_INTENT_ENUM)
+    assert props["user_intent"]["type"] == ["string", "null"]
+    assert set(props["user_intent"]["enum"]) == {None, *PLANNER_USER_INTENT_ENUM}
     assert props["message"]["type"] == "string"
     assert schema["required"] == ["user_intent", "message"]
 

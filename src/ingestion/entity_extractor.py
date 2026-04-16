@@ -19,6 +19,7 @@ from src.contracts.entity_taxonomy import (
     normalize_semantic_facets,
 )
 from src.contracts.schema_validation import list_validation_failures, validate_many
+from src.llm.api_client import DungeonMindApiClient
 from src.store import FactStore
 
 
@@ -323,6 +324,7 @@ class OpenAIResponsesEntityClient:
     def __init__(self, *, api_key: str | None = None, sdk_client: Any | None = None) -> None:
         if sdk_client is not None:
             self._client = sdk_client
+            self._api_client = DungeonMindApiClient.wrap(self._client)
             return
         try:
             from openai import OpenAI  # type: ignore
@@ -331,6 +333,7 @@ class OpenAIResponsesEntityClient:
                 "OpenAI SDK is required for OpenAIResponsesEntityClient. Install dependency 'openai'."
             ) from exc
         self._client = OpenAI(api_key=api_key)
+        self._api_client = DungeonMindApiClient.wrap(self._client)
 
     def extract_entities(
         self,
@@ -342,14 +345,15 @@ class OpenAIResponsesEntityClient:
         known_entities: list[dict[str, Any]],
         prompt_id: str,
     ) -> dict[str, Any]:
-        response = self._client.responses.parse(
+        response = self._api_client.responses_parse(
+            action="entity_extractor.extract",
             model=model,
             input=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
             ],
             text_format=EntityExtractionResult,
-        )
+        ).response
         parsed = getattr(response, "output_parsed", None)
         if parsed is None:
             raise ValueError("OpenAI response parse did not return output_parsed.")
@@ -373,14 +377,15 @@ class OpenAIResponsesEntityClient:
         # Lazy import: recap_models imports ExtractedEntity from this module.
         from src.ingestion.recap_models import RecapExtractionResult as _RecapExtractionResult
 
-        response = self._client.responses.parse(
+        response = self._api_client.responses_parse(
+            action="entity_extractor.extract_recap",
             model=model,
             input=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
             ],
             text_format=_RecapExtractionResult,
-        )
+        ).response
         parsed = getattr(response, "output_parsed", None)
         if parsed is None:
             raise ValueError("OpenAI response parse did not return output_parsed.")
@@ -399,14 +404,15 @@ class OpenAIResponsesEntityClient:
         user_prompt: str,
         prompt_id: str,
     ) -> dict[str, Any]:
-        response = self._client.responses.parse(
+        response = self._api_client.responses_parse(
+            action="entity_extractor.extract_batched",
             model=model,
             input=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
             ],
             text_format=BatchedEntityExtractionResult,
-        )
+        ).response
         parsed = getattr(response, "output_parsed", None)
         if parsed is None:
             raise ValueError("OpenAI response parse did not return output_parsed.")
@@ -424,6 +430,7 @@ class AsyncOpenAIResponsesEntityClient:
     def __init__(self, *, api_key: str | None = None, sdk_client: Any | None = None) -> None:
         if sdk_client is not None:
             self._client = sdk_client
+            self._api_client = DungeonMindApiClient.wrap(self._client)
             return
         try:
             from openai import AsyncOpenAI  # type: ignore
@@ -432,6 +439,7 @@ class AsyncOpenAIResponsesEntityClient:
                 "OpenAI SDK is required for AsyncOpenAIResponsesEntityClient. Install dependency 'openai'."
             ) from exc
         self._client = AsyncOpenAI(api_key=api_key)
+        self._api_client = DungeonMindApiClient.wrap(self._client)
 
     async def extract_entities(
         self,
@@ -443,14 +451,17 @@ class AsyncOpenAIResponsesEntityClient:
         known_entities: list[dict[str, Any]],
         prompt_id: str,
     ) -> dict[str, Any]:
-        response = await self._client.responses.parse(
-            model=model,
-            input=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt},
-            ],
-            text_format=EntityExtractionResult,
-        )
+        response = (
+            await self._api_client.responses_parse_async(
+                action="entity_extractor.extract_async",
+                model=model,
+                input=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+                text_format=EntityExtractionResult,
+            )
+        ).response
         parsed = getattr(response, "output_parsed", None)
         if parsed is None:
             raise ValueError("OpenAI response parse did not return output_parsed.")
@@ -473,14 +484,17 @@ class AsyncOpenAIResponsesEntityClient:
     ) -> dict[str, Any]:
         from src.ingestion.recap_models import RecapExtractionResult as _RecapExtractionResult
 
-        response = await self._client.responses.parse(
-            model=model,
-            input=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt},
-            ],
-            text_format=_RecapExtractionResult,
-        )
+        response = (
+            await self._api_client.responses_parse_async(
+                action="entity_extractor.extract_recap_async",
+                model=model,
+                input=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+                text_format=_RecapExtractionResult,
+            )
+        ).response
         parsed = getattr(response, "output_parsed", None)
         if parsed is None:
             raise ValueError("OpenAI response parse did not return output_parsed.")
@@ -499,14 +513,17 @@ class AsyncOpenAIResponsesEntityClient:
         user_prompt: str,
         prompt_id: str,
     ) -> dict[str, Any]:
-        response = await self._client.responses.parse(
-            model=model,
-            input=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt},
-            ],
-            text_format=BatchedEntityExtractionResult,
-        )
+        response = (
+            await self._api_client.responses_parse_async(
+                action="entity_extractor.extract_batched_async",
+                model=model,
+                input=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+                text_format=BatchedEntityExtractionResult,
+            )
+        ).response
         parsed = getattr(response, "output_parsed", None)
         if parsed is None:
             raise ValueError("OpenAI response parse did not return output_parsed.")
