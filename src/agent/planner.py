@@ -14,6 +14,7 @@ If the URL is unset or the request fails, statblocks are generated via a local
 from __future__ import annotations
 
 import json
+import logging
 import os
 import time
 import urllib.error
@@ -32,6 +33,8 @@ from src.agent.planner_telemetry import (
     usage_dict_from_response,
 )
 from src.agent.synthesis import _load_api_key
+
+_planner_logger = logging.getLogger("dmb.planner")
 from src.prompts.corpus_session_planner import (
     STATBLOCK_TOOL_DESCRIPTION,
     STATBLOCK_VIA_RESPONSES_SYSTEM,
@@ -205,6 +208,9 @@ def _planner_tools_responses() -> list[dict[str, Any]]:
                 "statblock after you have already skimmed the hub README). "
                 "Use `read_corpus_file` for discovery passes (README, dossier, timeline); call "
                 "`load_context_markdown` once for the **selected** statblock path. "
+                "If you will call `generate_statblock` with `source_statblock_corpus_path` naming a "
+                "corpus statblock you discovered, call `load_context_markdown` on that same path first "
+                "when the file exists. "
                 "Literal corpus-relative path only—no globs."
             ),
             "strict": False,
@@ -220,6 +226,43 @@ def _planner_tools_responses() -> list[dict[str, Any]]:
                     }
                 },
                 "required": ["path"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "type": "function",
+            "name": "propose_clarification",
+            "description": (
+                "Record **one** clarifying question when missing information would force a **guess** on "
+                "something the GM cares about (any domain—power tier, scope, entity, timeline, canon layer, "
+                "etc.). Follow system instructions for **meaningful, concise** clarifiers: single question, "
+                "actionable in one reply, grounded in what they already said, no questionnaire. "
+                "Call **at most once** per user turn; use the exact wording you would show the GM. "
+                "After the tool returns, continue in your assistant message (or end with only the "
+                "question if that is the whole reply). The original user request stays in this "
+                "conversation for follow-up user messages in the same response thread."
+            ),
+            "strict": False,
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "question": {
+                        "type": "string",
+                        "description": (
+                            "One short, actionable question only (see system instructions: name the gap, "
+                            "tie it to the GM’s ask, answerable in one line)."
+                        ),
+                    },
+                    "missing_slots": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": (
+                            "Optional tags for what is missing, e.g. `target_cr`, `class_level`, `scope`, "
+                            "`entity`, `timeline`, `canon_layer`."
+                        ),
+                    },
+                },
+                "required": ["question"],
                 "additionalProperties": False,
             },
         },
@@ -247,7 +290,10 @@ def _planner_tools_responses() -> list[dict[str, Any]]:
                             "reads and sends as `source_statblock_markdown` to the statblock service "
                             "(and includes in the local fallback prompt). Use this instead of pasting "
                             "the full statblock into `description`; name the NPC and your deltas in "
-                            "`description`. Format on the wire is Markdown (`source_statblock_format` "
+                            "`description`. When this path came from research (hub README / tree), "
+                            "call `load_context_markdown` on it in the same turn before calling "
+                            "`generate_statblock` so the sheet is explicitly attached. "
+                            "Format on the wire is Markdown (`source_statblock_format` "
                             "`markdown`); HTML attachment is reserved for a future corpus type."
                         ),
                     },
@@ -341,6 +387,30 @@ def make_tool_dispatcher(
                     f"wire_format={src_fmt}]\n\n{text}"
                 )
             return text
+        if name == "propose_clarification":
+            q = str(args.get("question", "")).strip()
+            if not q:
+                return "Error: question is required."
+            slots = args.get("missing_slots")
+            if slots is None:
+                slots_list: list[Any] = []
+            elif isinstance(slots, list):
+                slots_list = slots
+            else:
+                slots_list = []
+            slots_json = json.dumps(slots_list, ensure_ascii=False)
+            _planner_logger.info(
+                "[dmb.planner.clarification_tool] question=%r missing_slots=%s",
+                q,
+                slots_json,
+            )
+            return (
+                "[clarification recorded]\n"
+                f"question: {q}\n"
+                f"missing_slots: {slots_json}\n"
+                "The original user request remains in this conversation for your next assistant "
+                "message or a follow-up user reply in the same thread."
+            )
         return f"Error: unknown tool {name!r}"
 
     return dispatch
@@ -388,6 +458,47 @@ class PlanningTurnDetail:
         )
 
 
+def merge_planning_turn_details(
+    first: PlanningTurnDetail,
+    second: PlanningTurnDetail,
+) -> PlanningTurnDetail:
+    """Merge two chained turns (same ``previous_response_id`` thread) for scoring and artifacts.
+
+    ``final_text`` and ``last_response_id`` come from ``second``; ``tool_trace`` and ``steps`` are
+    concatenated. Telemetry costs are summed where numeric.
+    """
+    tc1 = dict(first.telemetry_cost or {})
+    tc2 = dict(second.telemetry_cost or {})
+    u1 = dict(tc1.get("planner_usage_totals") or {})
+    u2 = dict(tc2.get("planner_usage_totals") or {})
+    merged_usage = {k: int(u1.get(k, 0)) + int(u2.get(k, 0)) for k in set(u1) | set(u2)}
+    rounds1 = list(tc1.get("planner_cost_by_round_usd") or [])
+    rounds2 = list(tc2.get("planner_cost_by_round_usd") or [])
+    planner_est = float(tc1.get("planner_estimated_cost_usd", 0) or 0) + float(
+        tc2.get("planner_estimated_cost_usd", 0) or 0
+    )
+    stat_est = float(tc1.get("statblock_tool_estimated_cost_usd", 0) or 0) + float(
+        tc2.get("statblock_tool_estimated_cost_usd", 0) or 0
+    )
+    merged_tc = {
+        "planner_estimated_cost_usd": round(planner_est, 6),
+        "statblock_tool_estimated_cost_usd": round(stat_est, 6),
+        "scenario_estimated_cost_usd": round(planner_est + stat_est, 6),
+        "planner_cost_by_round_usd": rounds1 + rounds2,
+        "planner_usage_totals": merged_usage,
+        "pricing_note": tc2.get("pricing_note") or tc1.get("pricing_note"),
+    }
+    return PlanningTurnDetail(
+        final_text=second.final_text,
+        last_response_id=second.last_response_id,
+        tool_trace=list(first.tool_trace) + list(second.tool_trace),
+        steps=list(first.steps) + list(second.steps),
+        hit_tool_round_limit=first.hit_tool_round_limit or second.hit_tool_round_limit,
+        telemetry_cost=merged_tc,
+        usage_rounds=list(first.usage_rounds) + list(second.usage_rounds),
+    )
+
+
 def _telemetry_cost_fields(model_id: str, usage: dict[str, int]) -> dict[str, Any]:
     c = usage_cost_usd(
         model_id=model_id,
@@ -431,6 +542,7 @@ def run_planning_turn_detailed(
 ) -> PlanningTurnDetail:
     """Like ``run_planning_turn`` but records each model response as a ``PlanningModelStepRecord``."""
     ctx: dict[str, Any] = {"op": "planning_turn", **(telemetry_context or {})}
+    turn_index = int(ctx.get("turn_index", 0) or 0)
     usage_totals = {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0, "cached_tokens": 0}
     latency_ms_rounds: list[float] = []
     planner_round_cost_usd: list[float] = []
@@ -498,6 +610,7 @@ def run_planning_turn_detailed(
     )
     usage_rounds.append(
         {
+            "turn_index": turn_index,
             "response_index": 0,
             "phase": "initial_user",
             "latency_ms": round(elapsed_ms, 2),
@@ -641,6 +754,7 @@ def run_planning_turn_detailed(
         )
         usage_rounds.append(
             {
+                "turn_index": turn_index,
                 "response_index": response_index,
                 "phase": "tool_outputs",
                 "latency_ms": round(elapsed_follow, 2),

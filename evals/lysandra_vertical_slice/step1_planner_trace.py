@@ -14,7 +14,9 @@ Reuses ``evals.planner_slice.live_eval`` scenario shape and matchers.
 - Enable JSON telemetry on stderr: INFO for loggers ``dmb.planner`` and ``dmb.planner.live_eval``
   (``configure_planner_review_logging()`` from ``main()``).
 - Larger bodies inside telemetry JSON lines: ``PLANNER_LOG_FULL_IO=1``.
+- Human review verbosity: ``PLANNER_REVIEW_MODE=summary|debug|forensics`` (default ``summary``).
 - **Default benchmark artifact:** ``artifacts/last_planner_step1_run.md`` (same text as the stdout review).
+- **Two-turn scenarios:** gold ``followup_turn.user_message`` runs a second ``run_planning_turn_detailed`` with ``previous_response_id`` from the first turn (GM answer in voice); gates use merged ``tool_trace`` and the **last** turn's ``final_text``. The review prints **§ Clarification** with turn-0 final prose plus any ``propose_clarification`` tool rows.
 - This module prints a human-readable report: prompt sizes, per-API-round token usage
   (``usage.input_tokens`` = billed input for that ``responses.create``, including instructions
   and prior context for that round), planner steps, corpus text returned to the model, and
@@ -39,7 +41,7 @@ import logging  # noqa: E402
 import os  # noqa: E402
 from dataclasses import dataclass, replace  # noqa: E402
 from datetime import datetime, timezone  # noqa: E402
-from typing import Any  # noqa: E402
+from typing import Any, Literal  # noqa: E402
 
 from evals.lysandra_vertical_slice.step0_corpus_environment import resolve_corpus_dir  # noqa: E402
 from evals.lysandra_vertical_slice.step2_canonical_intent import (  # noqa: E402
@@ -59,6 +61,7 @@ from src.agent.planner import (  # noqa: E402
     _planner_tools_responses,
     _read_corpus_file_impl,
     make_tool_dispatcher,
+    merge_planning_turn_details,
     run_planning_turn_detailed,
 )
 from src.agent.planner_cache import load_or_build_planner_instructions  # noqa: E402
@@ -74,6 +77,18 @@ _PLANNER_STEP1_SCENARIO_ENV = "LYSANDRA_PLANNER_STEP1_SCENARIO"
 _VALID_PLANNER_STEP1_SCENARIOS = frozenset({"directed", "autonomous", "stat_check", "upgrade_prose"})
 # Default benchmark when no env / no user override: natural power-rise ask.
 _DEFAULT_PLANNER_STEP1_SCENARIO_KEY = "upgrade_prose"
+_REVIEW_MODE_ENV = "PLANNER_REVIEW_MODE"
+
+ReviewMode = Literal["summary", "debug", "forensics"]
+
+
+def resolve_review_mode() -> ReviewMode:
+    raw = os.environ.get(_REVIEW_MODE_ENV, "summary").strip().lower()
+    if raw == "debug":
+        return "debug"
+    if raw == "forensics":
+        return "forensics"
+    return "summary"
 
 
 def default_planner_step1_scenario_key() -> str:
@@ -121,6 +136,10 @@ class PlannerStep1Run:
     post_planner_step2_benchmark_detail: dict[str, Any] | None = None
     #: Gold scenario used for gates (``autonomous``, ``upgrade_prose``, …).
     scenario_key: str = ""
+    #: Second user line when gold ``followup_turn`` runs (same OpenAI response thread).
+    followup_user_line: str = ""
+    #: Assistant ``final_text`` after turn 0 only (before follow-up merge); empty if no follow-up.
+    first_turn_final_text: str = ""
 
 
 def _empty_fail(sid: str, violations: dict[str, list[str]], user_line: str = "") -> PlannerStep1Run:
@@ -139,6 +158,8 @@ def _empty_fail(sid: str, violations: dict[str, list[str]], user_line: str = "")
         corpus_fingerprint="",
         post_planner_step2_benchmark_detail=None,
         scenario_key="",
+        followup_user_line="",
+        first_turn_final_text="",
     )
 
 
@@ -160,7 +181,8 @@ def run_planner_step1_turn(
     - ``directed`` — user message names folders/filenames to open (strong smoke, not autonomy).
     - ``autonomous`` — general prep ask; relaxed path gates (see gold ``fixture_note``).
     - ``stat_check`` — mechanical question; gates require opening the statblock file.
-    - ``upgrade_prose`` — same global planner ``instructions`` as other scenarios; gold gates only (e.g. ``read_corpus_file`` + ``load_context_markdown``). Workflow lives in the **npc-power-increase** Cursor skill, not in a scenario instruction appendix.
+    - ``upgrade_prose`` — two-turn power-rise benchmark; gates require ``read_corpus_file`` and CR 6
+      in final prose (see gold). Workflow detail lives in the **npc-power-increase** Cursor skill.
 
     **Scenario selection** (first match wins):
 
@@ -233,8 +255,38 @@ def run_planner_step1_turn(
             "scenario_id": sid,
             "suite": "lysandra_vertical_slice_planner_step1",
             "corpus_fingerprint": fp,
+            "turn_index": 0,
         },
     )
+    first_turn_final_text = (detail.final_text or "").strip()
+    followup_user_line = ""
+    follow_block = sc.get("followup_turn")
+    if isinstance(follow_block, dict):
+        follow_msg = str(follow_block.get("user_message", "")).strip()
+        if follow_msg and detail.last_response_id:
+            followup_user_line = follow_msg
+            detail2 = run_planning_turn_detailed(
+                client=client,
+                model_id=model_id,
+                instructions=instructions,
+                tools=tools,
+                corpus_path=corpus_path,
+                user_line=follow_msg,
+                previous_response_id=detail.last_response_id,
+                dispatch_tool=dispatch,
+                telemetry_context={
+                    "scenario_id": sid,
+                    "suite": "lysandra_vertical_slice_planner_step1",
+                    "corpus_fingerprint": fp,
+                    "phase": "followup_user",
+                    "turn_index": 1,
+                },
+            )
+            detail = merge_planning_turn_details(detail, detail2)
+        else:
+            first_turn_final_text = ""
+    else:
+        first_turn_final_text = ""
     statblock_usd = sum(float(x.get("total_usd", 0) or 0) for x in tool_cost_sink)
     tc = dict(detail.telemetry_cost or {})
     planner_usd = float(tc.get("planner_estimated_cost_usd", 0) or 0)
@@ -279,6 +331,8 @@ def run_planner_step1_turn(
         corpus_fingerprint=fp,
         post_planner_step2_benchmark_detail=post_planner_step2_benchmark_detail,
         scenario_key=resolved_scenario_key,
+        followup_user_line=followup_user_line,
+        first_turn_final_text=first_turn_final_text,
     )
 
 
@@ -290,11 +344,169 @@ def flatten_live_violations(violations: dict[str, list[str]]) -> list[str]:
     return lines
 
 
+_LOAD_CTX_ATTACHED_PREFIX = "[context attached:"
+_GEN_SB_ATTACHED_PREFIXES = (
+    "[Attached corpus statblock:",
+    "[Attached corpus statblock baseline:",
+)
+
+
+def _body_after_load_context_prefix(excerpt: str) -> tuple[bool, str]:
+    """Split ``load_context_markdown`` tool output excerpt into (has_marker, body_fragment)."""
+    s = excerpt or ""
+    if not s.startswith(_LOAD_CTX_ATTACHED_PREFIX):
+        return False, s
+    parts = s.split("\n\n", 1)
+    body = parts[1] if len(parts) > 1 else ""
+    return True, body
+
+
+def format_context_wiring_lines(tool_trace: list[dict[str, Any]]) -> list[str]:
+    """
+    Human-readable evidence that corpus statblock bytes were returned on the tool wire
+    (what the next ``responses.create`` sees as ``function_call_output``), distinct from
+    ``read_corpus_file`` discovery reads.
+    """
+    lines: list[str] = []
+    lines.append(
+        "Evidence uses stored ``tool_trace`` rows: ``output_excerpt`` is the first 800 chars of "
+        "each tool return (same bytes sent to the API in that round)."
+    )
+    lines.append("")
+
+    loads = [(i, r) for i, r in enumerate(tool_trace) if r.get("tool") == "load_context_markdown"]
+    if loads:
+        lines.append(f"load_context_markdown: {len(loads)} call(s) (explicit working-context attach)")
+        for i, row in loads:
+            path = str((row.get("arguments") or {}).get("path", "")).strip()
+            excerpt = str(row.get("output_excerpt") or "")
+            oc = row.get("output_chars")
+            has_m, body_frag = _body_after_load_context_prefix(excerpt)
+            first_nonempty = next((ln.strip() for ln in body_frag.splitlines() if ln.strip()), "")
+            preview = first_nonempty[:180]
+            sig = text_sig(body_frag) if body_frag else {}
+            lines.append(
+                f"  trace[{i}] path={path!r} output_chars={oc} "
+                f"context_attached_prefix_present={has_m}"
+            )
+            if preview:
+                lines.append(f"    first_nonblank_line_preview={preview!r}")
+            if sig:
+                lines.append(
+                    f"    body_sig_from_trace_excerpt_chars={sig.get('chars')} "
+                    f"sha256_16={sig.get('sha256_16')!r}"
+                )
+        lines.append("")
+    else:
+        lines.append(
+            "load_context_markdown: 0 calls — no explicit attach tool in trace; "
+            "if the model only used ``read_corpus_file`` on a statblock, the file still "
+            "entered that round's outputs, but nothing is labeled ``[context attached: …]``."
+        )
+        lines.append("")
+
+    stat_reads = [
+        (i, r)
+        for i, r in enumerate(tool_trace)
+        if r.get("tool") == "read_corpus_file"
+        and "statblock" in str((r.get("arguments") or {}).get("path", "")).lower()
+    ]
+    if stat_reads:
+        lines.append(
+            f"read_corpus_file on paths containing 'statblock': {len(stat_reads)} "
+            f"(indices {[i for i, _ in stat_reads]})"
+        )
+        lines.append("")
+
+    gen_rows = [(i, r) for i, r in enumerate(tool_trace) if r.get("tool") == "generate_statblock"]
+    if gen_rows:
+        lines.append(f"generate_statblock: {len(gen_rows)} call(s)")
+        for i, row in gen_rows:
+            args = row.get("arguments") or {}
+            src = str(args.get("source_statblock_corpus_path", "") or "").strip()
+            excerpt = str(row.get("output_excerpt") or "")
+            attach = any(excerpt.startswith(p) for p in _GEN_SB_ATTACHED_PREFIXES)
+            lines.append(
+                f"  trace[{i}] source_statblock_corpus_path={src!r} "
+                f"output_has_attached_baseline_prefix={attach} "
+                f"output_chars={row.get('output_chars')}"
+            )
+        lines.append("")
+
+    return lines
+
+
+def _heuristic_turn0_asks_target_cr_in_prose(text: str) -> bool:
+    """Loose signal: question mark plus CR / challenge phrasing (review only, not a gate)."""
+    t = (text or "").lower()
+    if "?" not in t:
+        return False
+    needles = (
+        "what cr",
+        "which cr",
+        "target cr",
+        "challenge rating",
+        "what level",
+        "which challenge",
+        "how high",
+        "what rating",
+    )
+    return any(n in t for n in needles)
+
+
+def format_clarification_evidence_lines(
+    tool_trace: list[dict[str, Any]],
+    *,
+    followup_user_line: str,
+    first_turn_final_text: str,
+    max_chars: int = 2400,
+) -> list[str]:
+    """Human-readable clarification: ``propose_clarification`` tool rows + turn 0 final prose."""
+    rows = [(i, r) for i, r in enumerate(tool_trace) if r.get("tool") == "propose_clarification"]
+    lines: list[str] = []
+    lines.append(
+        "Gates do not require ``propose_clarification`` (upgrade_prose v4+). "
+        "Use this block to see whether the model still surfaced a target-CR gap via tool or prose."
+    )
+    lines.append("")
+    if rows:
+        lines.append(f"propose_clarification tool: {len(rows)} call(s) in merged trace")
+        for i, row in rows:
+            args = row.get("arguments") or {}
+            q = str(args.get("question", "") or "").strip()
+            slots = args.get("missing_slots")
+            lines.append(f"  trace[{i}] question={q!r}")
+            lines.append(f"            missing_slots={slots!r}")
+    else:
+        lines.append("propose_clarification tool: 0 calls in merged trace")
+    lines.append("")
+    if followup_user_line.strip():
+        lines.append("Turn 0 assistant final (before follow-up user line):")
+        ft = (first_turn_final_text or "").strip() or "(empty)"
+        if len(ft) > max_chars:
+            h = max_chars // 2
+            ft = (
+                ft[:h]
+                + f"\n...[truncated, total_chars={len((first_turn_final_text or '').strip())}]...\n"
+                + ft[-h:]
+            )
+        lines.append(ft)
+        lines.append("")
+        hint = _heuristic_turn0_asks_target_cr_in_prose(first_turn_final_text)
+        lines.append(
+            f"heuristic_turn0_asks_target_cr_in_prose (has '?' plus CR-ish phrase): {hint}"
+        )
+    else:
+        lines.append("(Single-turn scenario: final answer is only under § Final LLM answer below.)")
+    return lines
+
+
 def _emit_planner_step1_review(
     run: PlannerStep1Run,
     *,
     corpus_dir: Path,
     model_id: str,
+    review_mode: ReviewMode = "summary",
     max_retrieved_body_chars: int = 36_000,
 ) -> None:
     """Emit review lines to the current ``sys.stdout`` (used with ``redirect_stdout`` for capture)."""
@@ -313,6 +525,7 @@ def _emit_planner_step1_review(
         print(f"scenario:         {run.scenario_key}")
     print(f"model_id:         {model_id}")
     print(f"gates_passed:     {run.result.passed}")
+    print(f"review_mode:      {review_mode}")
     print(f"corpus_fprint:    {run.corpus_fingerprint}")
     print(f"corpus_dir:       {corpus_dir.resolve()}")
     print(f"hit_tool_limit:   {d.hit_tool_round_limit}")
@@ -325,6 +538,8 @@ def _emit_planner_step1_review(
     print(sep)
     print(f"instructions:  {text_sig(ins)}")
     print(f"user_line:     {text_sig(ul)}")
+    if run.followup_user_line:
+        print(f"followup_user_line: {text_sig(run.followup_user_line)}")
     print(f"tools JSON:    chars={len(tools_json)}")
     print()
 
@@ -346,7 +561,7 @@ def _emit_planner_step1_review(
         tot_out += ot
         tot_cached += ct
         print(
-            f"  round[{i}] phase={row.get('phase')!r} "
+            f"  round[{i}] turn_index={row.get('turn_index', 0)} phase={row.get('phase')!r} "
             f"api_response_index={row.get('response_index')} "
             f"latency_ms={row.get('latency_ms')} "
             f"input_tokens={it} output_tokens={ot} cached_tokens={ct} "
@@ -361,56 +576,105 @@ def _emit_planner_step1_review(
     print(f"  planner_estimated_cost_usd:           {tc.get('planner_estimated_cost_usd')}")
     print()
 
-    print(sep)
-    print("§ Planner steps (assistant message + tool calls proposed that step)")
-    print(sep)
-    for rec in d.steps:
-        calls = rec.function_calls
-        names = [str(c.get("name", "")) for c in calls]
-        preview = (rec.assistant_text or "").strip()
-        if len(preview) > 6000:
-            preview = preview[:3000] + f"\n...[truncated, total {len(rec.assistant_text)} chars]...\n" + preview[-2000:]
-        print(f"--- step_index={rec.step_index} response_id={rec.response_id!r} ---")
-        print(f"function_calls: {names}")
-        for j, c in enumerate(calls):
-            args = c.get("arguments") or {}
-            if str(c.get("name")) in CORPUS_PATH_TOOL_NAMES:
-                print(f"  call[{j}] {c.get('name')} path={args.get('path')!r}")
-            else:
-                a = json.dumps(args, ensure_ascii=False, default=str)
-                if len(a) > 500:
-                    a = a[:500] + "..."
-                print(f"  call[{j}] {c.get('name')!r} args={a}")
-        print("assistant_text:")
-        print(preview or "(empty)")
-        print()
+    if review_mode in ("debug", "forensics"):
+        print(sep)
+        print("§ Planner steps (assistant message + tool calls proposed that step)")
+        print(sep)
+        for rec in d.steps:
+            calls = rec.function_calls
+            names = [str(c.get("name", "")) for c in calls]
+            preview = (rec.assistant_text or "").strip()
+            if len(preview) > 3000:
+                preview = (
+                    preview[:1500]
+                    + f"\n...[truncated, total {len(rec.assistant_text)} chars]...\n"
+                    + preview[-1000:]
+                )
+            print(f"--- step_index={rec.step_index} response_id={rec.response_id!r} ---")
+            print(f"function_calls: {names}")
+            for j, c in enumerate(calls):
+                args = c.get("arguments") or {}
+                if str(c.get("name")) in CORPUS_PATH_TOOL_NAMES:
+                    print(f"  call[{j}] {c.get('name')} path={args.get('path')!r}")
+                else:
+                    a = json.dumps(args, ensure_ascii=False, default=str)
+                    if len(a) > 500:
+                        a = a[:500] + "..."
+                    print(f"  call[{j}] {c.get('name')!r} args={a}")
+            print("assistant_text:")
+            print(preview or "(empty)")
+            print()
 
     print(sep)
-    print("§ Corpus text returned into the tool loop (read_corpus_file / load_context_markdown)")
+    if review_mode == "summary":
+        print("§ Tool trace summary")
+    else:
+        print("§ Corpus text returned into the tool loop (read_corpus_file / load_context_markdown)")
     print(sep)
     root = corpus_dir.resolve()
     for ti, row in enumerate(d.tool_trace):
         tname = str(row.get("tool", ""))
         if tname not in CORPUS_PATH_TOOL_NAMES:
             print(f"--- tool_trace[{ti}] tool={row.get('tool')!r} (non-corpus-path) ---")
-            print(json.dumps(row, indent=2, ensure_ascii=False, default=str)[:4000])
+            if review_mode == "summary":
+                print(f"output_chars={row.get('output_chars')}")
+                if tname == "generate_statblock":
+                    ga = row.get("arguments") or {}
+                    src = str(ga.get("source_statblock_corpus_path", "") or "").strip()
+                    excerpt = str(row.get("output_excerpt") or "")
+                    ap = any(excerpt.startswith(p) for p in _GEN_SB_ATTACHED_PREFIXES)
+                    print(
+                        f"    source_statblock_corpus_path={src!r} "
+                        f"output_has_attached_baseline_prefix={ap}"
+                    )
+            else:
+                print(json.dumps(row, indent=2, ensure_ascii=False, default=str)[:2000])
             print()
             continue
         path = str((row.get("arguments") or {}).get("path", "")).strip()
-        body = _read_corpus_file_impl(root, path) if path else "(no path)"
-        excerpt = body if len(body) <= max_retrieved_body_chars else body[: max_retrieved_body_chars // 2] + f"\n...[truncated at {max_retrieved_body_chars} chars for review print]...\n" + body[-(max_retrieved_body_chars // 2) :]
         trace_excerpt = str(row.get("output_excerpt") or "")
         print(f"--- {tname}[{ti}] path={path!r} output_chars={row.get('output_chars')} ---")
-        print(
-            "--- tool_trace output_excerpt (verbatim; planner keeps first 800 chars only in trace) ---"
-        )
-        print(trace_excerpt)
-        print(
-            "--- replayed file body (full string returned to the model for this path; "
-            "same cap as planner read_corpus_file, then optional review truncation) ---"
-        )
-        print(excerpt)
+        if review_mode == "summary" and tname == "load_context_markdown":
+            has_m, _frag = _body_after_load_context_prefix(trace_excerpt)
+            print(f"    (stored excerpt shows [context attached:] prefix: {has_m})")
+        if review_mode in ("debug", "forensics"):
+            print(
+                "--- tool_trace output_excerpt (verbatim; planner keeps first 800 chars only in trace) ---"
+            )
+            if len(trace_excerpt) > 1000 and review_mode == "debug":
+                trace_excerpt = trace_excerpt[:1000] + f"\n...[truncated, total {len(trace_excerpt)} chars]..."
+            print(trace_excerpt)
+        if review_mode == "forensics":
+            body = _read_corpus_file_impl(root, path) if path else "(no path)"
+            excerpt = (
+                body
+                if len(body) <= max_retrieved_body_chars
+                else body[: max_retrieved_body_chars // 2]
+                + f"\n...[truncated at {max_retrieved_body_chars} chars for review print]...\n"
+                + body[-(max_retrieved_body_chars // 2) :]
+            )
+            print(
+                "--- replayed file body (full string returned to the model for this path; "
+                "same cap as planner read_corpus_file, then optional review truncation) ---"
+            )
+            print(excerpt)
         print()
+
+    print(sep)
+    print("§ Statblock / working-context evidence (tool wire)")
+    print(sep)
+    for ln in format_context_wiring_lines(d.tool_trace):
+        print(ln)
+
+    print(sep)
+    print("§ Clarification (tool + turn 0 prose)")
+    print(sep)
+    for ln in format_clarification_evidence_lines(
+        d.tool_trace,
+        followup_user_line=run.followup_user_line,
+        first_turn_final_text=run.first_turn_final_text,
+    ):
+        print(ln)
 
     print(sep)
     print("§ Final LLM answer (last model message text)")
@@ -418,7 +682,7 @@ def _emit_planner_step1_review(
     print(d.final_text or "(empty)")
     print(sep)
 
-    if run.post_planner_step2_benchmark_detail:
+    if run.post_planner_step2_benchmark_detail and review_mode in ("debug", "forensics"):
         print(sep)
         print(
             "§ Step 2 benchmark (observation only; same user_line as agent turn)\n"
@@ -439,6 +703,7 @@ def print_planner_step1_review(
     *,
     corpus_dir: Path,
     model_id: str,
+    review_mode: ReviewMode = "summary",
     max_retrieved_body_chars: int = 36_000,
 ) -> str:
     """
@@ -451,6 +716,7 @@ def print_planner_step1_review(
             run,
             corpus_dir=corpus_dir,
             model_id=model_id,
+            review_mode=review_mode,
             max_retrieved_body_chars=max_retrieved_body_chars,
         )
     text = buf.getvalue()
@@ -519,13 +785,16 @@ def main() -> None:
     else:
         print(
             "[scenario] default upgrade_prose — Lysandra power-rise benchmark "
-            "(set LYSANDRA_PLANNER_STEP1_SCENARIO=autonomous|stat_check|directed to pin another scenario; "
+            "(gold may include ``followup_turn`` for a second user line in the same response thread; "
+            "set LYSANDRA_PLANNER_STEP1_SCENARIO=autonomous|stat_check|directed to pin another scenario; "
             "or LYSANDRA_PLANNER_USER_MESSAGE without SCENARIO to intent-route)\n",
             file=sys.stderr,
         )
+    review_mode = resolve_review_mode()
     print(
         "[logging] dmb.planner + dmb.planner.live_eval at INFO; "
-        "set PLANNER_LOG_FULL_IO=1 for larger bodies inside telemetry JSON lines.\n",
+        "set PLANNER_LOG_FULL_IO=1 for larger bodies inside telemetry JSON lines; "
+        f"PLANNER_REVIEW_MODE={review_mode}.\n",
         file=sys.stderr,
     )
 
@@ -541,7 +810,12 @@ def main() -> None:
         model_id=model_id,
         user_line_override=os.environ.get("LYSANDRA_PLANNER_USER_MESSAGE", "").strip() or None,
     )
-    review_text = print_planner_step1_review(run, corpus_dir=root, model_id=model_id)
+    review_text = print_planner_step1_review(
+        run,
+        corpus_dir=root,
+        model_id=model_id,
+        review_mode=review_mode,
+    )
     ap = write_default_planner_step1_artifact(review_text)
     print(f"[wrote benchmark artifact to {ap}]", file=sys.stderr)
     out_path = os.environ.get("LYSANDRA_PLANNER_FINAL_OUT", "").strip()

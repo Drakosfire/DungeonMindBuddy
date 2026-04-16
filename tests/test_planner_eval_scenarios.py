@@ -148,3 +148,8 @@ def test_planner_eval_scripted_scenario(fixture_name: str) -> None:
 def test_statblock_tool_uses_exported_description() -> None:
     gen = next(t for t in _planner_tools_responses() if t["name"] == "generate_statblock")
     assert gen["description"] == STATBLOCK_TOOL_DESCRIPTION
+
+
+def test_planner_tools_include_propose_clarification() -> None:
+    names = {t["name"] for t in _planner_tools_responses()}
+    assert "propose_clarification" in names

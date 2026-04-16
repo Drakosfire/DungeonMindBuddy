@@ -84,3 +84,4 @@ Default remote docs root:
 - Current normalization sampling is deterministic by sorted path and may bias toward world documents unless stratified sampling is enabled.
 - Source classification (`source_class`) still uses heuristic inference and should be hardened with path policy rules.
 - This project is pipeline-first; no API or UI layer is implemented in this repository.
+

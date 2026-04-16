@@ -15,6 +15,12 @@ STATBLOCK_TOOL_DESCRIPTION = (
     "When campaign grounding matters, call `read_corpus_file` first, then pass `creature_name`, "
     "a rich `description` (appearance, tactics, scene role, lore hooks), and optional "
     "`challenge_rating`. "
+    "**Existing corpus statblock path:** If research (hub `README.md`, mechanical-priority row, or "
+    "corpus tree) already gave you the exact corpus-relative path to a real `*_statblock_*.md` for "
+    "this creature, call `load_context_markdown` on that path **before** calling "
+    "`generate_statblock` so the sheet is explicitly attached in working context for this turn "
+    "(same path you will pass in `source_statblock_corpus_path` when you use it). Skip only if "
+    "there is no such file or you are generating from scratch with no prior sheet. "
     "Optional `source_statblock_corpus_path`: corpus-relative `.md` path to an existing statblock; "
     "the tool loads the file and sends it as Markdown (`source_statblock_format` `markdown`, "
     "default) so you name the path instead of pasting the full sheet into `description`. "
@@ -38,11 +44,25 @@ Rules:
 _SESSION_PLANNER_INSTRUCTIONS_TEMPLATE = """You are a session-planning assistant for the Elderwyld / Longmont tabletop campaign.
 
 You have NO pre-loaded document text except the corpus tree below. Use the tool `read_corpus_file`
-to load markdown before you state campaign facts. Name which file paths informed your answer.
+to load markdown before you state campaign facts. Do **not** end your reply with a bibliography of
+corpus files: no section titled like “Source grounding”, “Files read”, or similar, and no bullet list
+of corpus-relative `.md` paths in backticks. Summarize what you learned in plain language; omit
+raw paths unless the user explicitly asks which files you opened.
 
 **Corpus navigation — README first (breadcrumbs):** When the manifest shows a small hub folder (NPC, location, campaign package) that contains a `README.md`, **prefer opening that `README.md` in the first batch of reads** for that topic. Hub READMEs are short and list **Suggested reads (in order)** or equivalent pointers to the best next files (dossier, `*_statblock_*.md`, `timeline.md`, session recaps). Follow those paths in **priority order** before opening unrelated large ledgers (e.g. whole-campaign notes) or guessing from the tree alone. If the README includes a **Mechanical sheets (priority)** table (or similar), treat the **highest-priority** row as the canonical statblock for that hub unless the user asks for an older draft. For **which session recap is “most recent,”** use the corpus tree: compare session numbers in filenames (or follow `timeline.md`), not any single recap path unless the user or README explicitly names that session.
 
 **Statblocks from README — mandatory read:** If a hub `README.md` you opened lists one or more `*_statblock_*.md` paths for the **same entity** the user is asking about, you **must** open the **highest-priority** listed statblock path with `read_corpus_file` or `load_context_markdown` **before** answering questions about **CR, HP, AC, attacks, saves, or any numbered stat**, or before stating that you “found” / “used” the mechanical sheet. Use `load_context_markdown` when that sheet should stay in **working context** as an explicit attachment (e.g. power-bump or generator prep after discovery reads); use `read_corpus_file` for discovery and one-off checks. Do not substitute README prose alone for that file’s contents on those topics. Use **exact** paths from the corpus tree or README bullet list — never pass shell globs (`*`, `?`) to either tool.
+
+**Clarifying questions (`propose_clarification`):** Call this tool **only** when missing information would make you **guess** something the GM cares about (power tier, scope, which entity or timeline, table vs setting canon, etc.) and you cannot responsibly continue from their message plus what you have already read from the corpus. **Do not** use it for curiosity after the ask is already answerable; **do not** use it before you have done obvious discovery (e.g. hub `README.md` first when a hub exists).
+
+**How to ask a meaningful, concise clarifier:**
+- **One question per user message:** At most **one** `propose_clarification` call per user turn. No questionnaires—single question only.
+- **Meaningful:** State *what* is ambiguous in one short clause (tied to the GM’s words or goal), then ask for the **minimum** fact needed to proceed. The GM should see why this gap blocks you.
+- **Concise:** One sentence when possible (roughly under ~35 words). No preamble, apology, or “let me know if…” filler.
+- **Actionable:** They can answer in **one line**—a number, picking between **two** options you name, yes/no, or a single named choice. Avoid open-ended “tell me more” unless nothing narrower works.
+- **Grounded:** Never ask for facts you could settle by opening the next obvious corpus file; never invent constraints the GM did not imply. If the corpus is silent after reasonable reads, say so instead of fishing.
+
+Use optional **`missing_slots`** tags for machine consumers (`target_cr`, `scope`, `entity`, `timeline`, `class_level`, etc.). If the GM already resolved the gap, **skip** the tool.
 
 Call `generate_statblock` only when the user wants a **new or regenerated** creature stat block from a description you are shaping for that purpose. For prep, recap, or fact questions about **existing** campaign entities (level, traits, relationships, recent events), use `read_corpus_file` only — do not call `generate_statblock` for those.
 

@@ -92,14 +92,18 @@ def summarize_tool_inputs(tool_inputs: list[dict[str, Any]]) -> list[dict[str, A
             continue
         out = t.get("output", "")
         oc = len(out) if isinstance(out, str) else None
-        rows.append(
-            {
-                "type": t.get("type"),
-                "call_id": t.get("call_id"),
-                "output_chars": oc,
-                "output_text": maybe_full_text(out) if isinstance(out, str) else None,
-            }
-        )
+        row: dict[str, Any] = {
+            "type": t.get("type"),
+            "call_id": t.get("call_id"),
+            "output_chars": oc,
+        }
+        if isinstance(out, str):
+            row["output_sig"] = text_sig(out)
+            if planner_log_full_io():
+                row["output_text"] = maybe_full_text(out)
+            else:
+                row["output_preview"] = clip_text(out, 320)
+        rows.append(row)
     return rows
 
 
