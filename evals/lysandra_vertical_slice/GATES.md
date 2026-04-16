@@ -36,7 +36,7 @@ uv run pytest tests/test_lysandra_vertical_slice_step0.py -q
 
 | Check | Question | Done when |
 |-------|----------|-----------|
-| **Agent benchmark** | Did the agent, given a natural user ask, open the right corpus files and produce a grounded response? | `read_corpus_file` paths in `PlanningTurnDetail.tool_trace` match the chosen gold fixture → `final.require` (substring checks + `read_corpus_file` present + `min_output_chars`; `hit_tool_round_limit` fails via shared live_eval rules). Scenarios: **directed**, **autonomous**, **stat_check**, **upgrade_prose** — see `gold/planner_step1_*.json`. Env: `LYSANDRA_PLANNER_STEP1_SCENARIO` (CLI **default** when unset: **`upgrade_prose`** — natural power-rise ask). After the turn, optional **Step 2 benchmark** checks (`evaluate_step2_post_planner_benchmark`; observation only, see `Docs/Plans/NAMING-benchmark-vs-runtime.md`). |
+| **Agent benchmark** | Did the agent, given a natural user ask, open the right corpus files and produce a grounded response? | `read_corpus_file` paths in `PlanningTurnDetail.tool_trace` match the chosen gold fixture → `final.require` (substring checks + `read_corpus_file` present + `min_output_chars`; `hit_tool_round_limit` fails via shared live_eval rules). Scenarios: **directed**, **autonomous**, **stat_check**, **clarify_cr**, **upgrade_prose** — see `gold/planner_step1_*.json`. Env: `LYSANDRA_PLANNER_STEP1_SCENARIO` (CLI **default** when unset: **`upgrade_prose`** — natural power-rise ask). After the turn, optional **Step 2 benchmark** checks (`evaluate_step2_post_planner_benchmark`; observation only, see `Docs/Plans/NAMING-benchmark-vs-runtime.md`). |
 
 **Harness:** `step1_planner_trace.py` → `run_planner_step1_turn()` (same wiring as planner live eval: manifest, tools, `make_tool_dispatcher`).
 
@@ -48,9 +48,9 @@ uv run pytest tests/test_lysandra_vertical_slice_planner_step1.py -q
 
 **Verify (live model, costs money):** `LYSANDRA_PLANNER_STEP1_LIVE=1`, optional `LYSANDRA_PLANNER_STEP1_SCENARIO` (CLI default **upgrade_prose** when unset), corpus present, and `OPENAI_API_KEY` in `.env` / `.env.development` (loaded by pytest `conftest` + harness — no `export` required) — same pytest file runs `test_planner_step1_live_passes_with_model`.
 
-**CLI (manual, from repo root):** `uv run python evals/lysandra_vertical_slice/step1_planner_trace.py` — default scenario **upgrade_prose**; prints a review (turns, per-round `input_tokens`, replayed corpus bodies, final answer) and writes `artifacts/last_planner_step1_run.md`; emits `dmb.planner` JSON telemetry on stderr.
+**CLI (manual, from repo root):** `uv run python evals/lysandra_vertical_slice/step1_planner_trace.py` — default scenario **upgrade_prose**; prints a review (turns, per-round `input_tokens`, replayed corpus bodies, final answer) and writes `artifacts/runs/<date>/step1--…md` plus `artifacts/last_planner_step1_run.md`; emits `dmb.planner` JSON telemetry on stderr.
 
-**Artifacts:** `gold/planner_step1_directed.json`, `gold/planner_step1_autonomous.json`, `gold/planner_step1_stat_check.json`, `gold/planner_step1_upgrade_prose.json`, `step1_planner_trace.py`, `tests/test_lysandra_vertical_slice_planner_step1.py`.
+**Artifacts:** `gold/planner_step1_directed.json`, `gold/planner_step1_autonomous.json`, `gold/planner_step1_stat_check.json`, `gold/planner_step1_clarify_cr.json`, `gold/planner_step1_upgrade_prose.json`, `step1_planner_trace.py`, `tests/test_lysandra_vertical_slice_planner_step1.py`.
 
 ---
 

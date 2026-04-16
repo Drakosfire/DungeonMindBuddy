@@ -3,16 +3,21 @@
 from __future__ import annotations
 
 import os
+from datetime import datetime, timezone
+from pathlib import Path
 
 import pytest
 
 from evals.lysandra_vertical_slice.step1_planner_trace import (
+    PlannerStep1Run,
+    build_planner_step1_primary_artifact_path,
     format_clarification_evidence_lines,
     format_context_wiring_lines,
     load_planner_step1_scenario,
     run_planner_step1_turn,
+    write_planner_step1_run_artifacts,
 )
-from evals.planner_slice.live_eval import collect_scenario_violations
+from evals.planner_slice.live_eval import LiveEvalResult, collect_scenario_violations
 from src.agent.planner import (
     PlanningModelStepRecord,
     PlanningTurnDetail,
@@ -102,7 +107,10 @@ def test_format_clarification_evidence_lines_prose_only_heuristic() -> None:
     assert "True" in text
 
 
-@pytest.mark.parametrize("scenario_key", ("directed", "autonomous", "stat_check", "upgrade_prose"))
+@pytest.mark.parametrize(
+    "scenario_key",
+    ("directed", "autonomous", "stat_check", "clarify_cr", "upgrade_prose"),
+)
 def test_planner_step1_fixture_shape(scenario_key: str) -> None:
     sc = load_planner_step1_scenario(scenario_key)
     assert sc.get("version") >= 1
@@ -111,15 +119,22 @@ def test_planner_step1_fixture_shape(scenario_key: str) -> None:
     inp = sc["input"]
     assert str(inp.get("user_message", "")).strip()
     req = (sc.get("final") or {}).get("require") or {}
-    assert req.get("tool_trace_must_include_tool") == "read_corpus_file"
-    subs = req.get("read_corpus_paths_must_include") or []
-    # ``upgrade_prose``: no required path substrings (model chooses reads); two-turn; no clarifier tool gate.
-    if scenario_key != "upgrade_prose":
-        assert len(subs) >= 1
+    if scenario_key != "clarify_cr":
+        assert req.get("tool_trace_must_include_tool") == "read_corpus_file"
     else:
+        assert req.get("output_must_be_json_object") is True
+        assert req.get("output_json_user_intent_equals") == "upgrade_request"
+    subs = req.get("read_corpus_paths_must_include") or []
+    # ``upgrade_prose`` and ``clarify_cr`` choose reads dynamically; no fixed path substrings.
+    if scenario_key not in ("upgrade_prose", "clarify_cr"):
+        assert len(subs) >= 1
+    elif scenario_key == "upgrade_prose":
         follow = sc.get("followup_turn") or {}
         assert str(follow.get("user_message", "")).strip()
         assert not (req.get("tool_trace_must_include_tools") or [])
+    else:
+        assert "propose_clarification" in (req.get("tool_trace_must_include_tools") or [])
+        assert req.get("propose_clarification_must_satisfy")
 
 
 def test_planner_step1_upgrade_prose_synthetic_two_turn_merged_passes_gates() -> None:
@@ -275,6 +290,53 @@ def test_planner_step1_gates_pass_synthetic_trace_stat_check() -> None:
     assert viol == {}
 
 
+def test_planner_step1_gates_pass_synthetic_trace_clarify_cr() -> None:
+    sc = load_planner_step1_scenario("clarify_cr")
+    detail = PlanningTurnDetail(
+        final_text=(
+            '{"user_intent":"upgrade_request","message":"Before I lock numbers: what CR do you want '
+            'Lysandra to land on for this siege arc?"}'
+        ),
+        last_response_id="r1",
+        tool_trace=[
+            {
+                "tool": "propose_clarification",
+                "arguments": {
+                    "question": "What target CR should Lysandra be for the siege arc?",
+                    "missing_slots": ["target_cr"],
+                },
+                "output_chars": 120,
+            },
+        ],
+        steps=[],
+        hit_tool_round_limit=False,
+    )
+    viol = collect_scenario_violations(sc, detail)
+    assert viol == {}
+
+
+def test_planner_step1_gates_fail_clarify_cr_when_slot_missing() -> None:
+    sc = load_planner_step1_scenario("clarify_cr")
+    detail = PlanningTurnDetail(
+        final_text='{"user_intent":"upgrade_request","message":"What tone do you want for the rewrite?"}',
+        last_response_id="r1",
+        tool_trace=[
+            {
+                "tool": "propose_clarification",
+                "arguments": {
+                    "question": "What tone should I use?",
+                    "missing_slots": ["tone"],
+                },
+                "output_chars": 80,
+            },
+        ],
+        steps=[],
+        hit_tool_round_limit=False,
+    )
+    viol = collect_scenario_violations(sc, detail)
+    assert viol.get("final")
+
+
 def test_planner_step1_gates_pass_synthetic_trace_upgrade_prose() -> None:
     sc = load_planner_step1_scenario("upgrade_prose")
     body = (
@@ -399,6 +461,55 @@ def test_planner_step1_gates_fail_no_statblock_read_stat_check() -> None:
     )
     viol = collect_scenario_violations(sc, detail)
     assert viol.get("final")
+
+
+def test_build_planner_step1_primary_artifact_path_naming(tmp_path: Path) -> None:
+    utc = datetime(2026, 4, 15, 18, 30, 5, tzinfo=timezone.utc)
+    p = build_planner_step1_primary_artifact_path(
+        scenario_key="upgrade_prose",
+        model_id="gpt-5.4-mini",
+        gates_passed=True,
+        followup=False,
+        utc=utc,
+        slice_dir=tmp_path,
+    )
+    assert p.parent.name == "2026-04-15"
+    assert p.parent.parent == tmp_path / "artifacts" / "runs"
+    assert p.name == "step1--upgrade_prose--gpt-5.4-mini--PASS--1turn--20260415T183005Z.md"
+
+
+def test_write_planner_step1_run_artifacts_dated_and_legacy(tmp_path: Path) -> None:
+    utc = datetime(2026, 4, 15, 12, 0, 0, tzinfo=timezone.utc)
+    detail = PlanningTurnDetail(
+        final_text="{}",
+        last_response_id="r",
+        tool_trace=[],
+        steps=[],
+        hit_tool_round_limit=False,
+    )
+    run = PlannerStep1Run(
+        detail=detail,
+        result=LiveEvalResult("lysandra_planner_step1", True, {}),
+        instructions="",
+        user_line="hi",
+        corpus_fingerprint="fp",
+        scenario_key="clarify_cr",
+        followup_user_line="",
+        first_turn_final_text="",
+    )
+    primary, legacy = write_planner_step1_run_artifacts(
+        "# body\n",
+        run=run,
+        model_id="gpt-test",
+        slice_dir=tmp_path,
+        utc=utc,
+    )
+    assert primary.is_file()
+    assert legacy.is_file()
+    assert primary.read_text(encoding="utf-8").endswith("# body\n")
+    assert legacy.read_text(encoding="utf-8") == primary.read_text(encoding="utf-8")
+    assert "clarify_cr" in primary.read_text(encoding="utf-8")
+    assert primary.name.endswith("20260415T120000Z.md")
 
 
 @pytest.mark.integration

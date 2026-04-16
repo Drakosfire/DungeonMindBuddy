@@ -1,6 +1,6 @@
 """Step 1 — agent benchmark: planner ``tool_trace`` gates (Lysandra vertical slice).
 
-Gold scenarios: **directed**, **autonomous**, **stat_check**, **upgrade_prose** (see ``gold/planner_step1_*.json``;
+Gold scenarios: **directed**, **autonomous**, **stat_check**, **clarify_cr**, **upgrade_prose** (see ``gold/planner_step1_*.json``;
 ``LYSANDRA_PLANNER_STEP1_SCENARIO`` pins the scenario; **when unset**, the CLI default benchmark is
 **upgrade_prose** (natural power-rise ask). After each live turn, optional **Step 2 benchmark**
 checks (gold key ``planner_bridge`` — observation only; see ``Docs/Plans/NAMING-benchmark-vs-runtime.md``)
@@ -15,7 +15,9 @@ Reuses ``evals.planner_slice.live_eval`` scenario shape and matchers.
   (``configure_planner_review_logging()`` from ``main()``).
 - Larger bodies inside telemetry JSON lines: ``PLANNER_LOG_FULL_IO=1``.
 - Human review verbosity: ``PLANNER_REVIEW_MODE=summary|debug|forensics`` (default ``summary``).
-- **Default benchmark artifact:** ``artifacts/last_planner_step1_run.md`` (same text as the stdout review).
+- **Default benchmark artifacts:** each run writes a **dated, named** file under
+  ``artifacts/runs/YYYY-MM-DD/`` (scenario, model, pass/fail, turn count, UTC timestamp in the
+  filename) and mirrors the same body to ``artifacts/last_planner_step1_run.md`` for quick reopen.
 - **Two-turn scenarios:** gold ``followup_turn.user_message`` runs a second ``run_planning_turn_detailed`` with ``previous_response_id`` from the first turn (GM answer in voice); gates use merged ``tool_trace`` and the **last** turn's ``final_text``. The review prints **§ Clarification** with turn-0 final prose plus any ``propose_clarification`` tool rows.
 - This module prints a human-readable report: prompt sizes, per-API-round token usage
   (``usage.input_tokens`` = billed input for that ``responses.create``, including instructions
@@ -70,11 +72,8 @@ from src.agent.skill_pipeline import scenario_key_for_user_line  # noqa: E402
 
 _SLICE_DIR = Path(__file__).resolve().parent
 
-# Default on-disk benchmark artifact (repo rule ``benchmark-disk-artifacts``).
-_DEFAULT_PLANNER_STEP1_ARTIFACT_PATH = _SLICE_DIR / "artifacts" / "last_planner_step1_run.md"
-
 _PLANNER_STEP1_SCENARIO_ENV = "LYSANDRA_PLANNER_STEP1_SCENARIO"
-_VALID_PLANNER_STEP1_SCENARIOS = frozenset({"directed", "autonomous", "stat_check", "upgrade_prose"})
+_VALID_PLANNER_STEP1_SCENARIOS = frozenset({"directed", "autonomous", "stat_check", "clarify_cr", "upgrade_prose"})
 # Default benchmark when no env / no user override: natural power-rise ask.
 _DEFAULT_PLANNER_STEP1_SCENARIO_KEY = "upgrade_prose"
 _REVIEW_MODE_ENV = "PLANNER_REVIEW_MODE"
@@ -92,7 +91,7 @@ def resolve_review_mode() -> ReviewMode:
 
 
 def default_planner_step1_scenario_key() -> str:
-    """``directed`` / ``autonomous`` / ``stat_check`` / ``upgrade_prose``. Default ``upgrade_prose`` (natural power-rise ask)."""
+    """``directed`` / ``autonomous`` / ``stat_check`` / ``clarify_cr`` / ``upgrade_prose``. Default ``upgrade_prose``."""
     raw = os.environ.get(_PLANNER_STEP1_SCENARIO_ENV, _DEFAULT_PLANNER_STEP1_SCENARIO_KEY).strip().lower()
     return raw if raw in _VALID_PLANNER_STEP1_SCENARIOS else _DEFAULT_PLANNER_STEP1_SCENARIO_KEY
 
@@ -181,6 +180,7 @@ def run_planner_step1_turn(
     - ``directed`` — user message names folders/filenames to open (strong smoke, not autonomy).
     - ``autonomous`` — general prep ask; relaxed path gates (see gold ``fixture_note``).
     - ``stat_check`` — mechanical question; gates require opening the statblock file.
+    - ``clarify_cr`` — benchmark for meaningful clarifier quality (tool call + question/slot constraints).
     - ``upgrade_prose`` — two-turn power-rise benchmark; gates require ``read_corpus_file`` and CR 6
       in final prose (see gold). Workflow detail lives in the **npc-power-increase** Cursor skill.
 
@@ -465,8 +465,8 @@ def format_clarification_evidence_lines(
     rows = [(i, r) for i, r in enumerate(tool_trace) if r.get("tool") == "propose_clarification"]
     lines: list[str] = []
     lines.append(
-        "Gates do not require ``propose_clarification`` (upgrade_prose v4+). "
-        "Use this block to see whether the model still surfaced a target-CR gap via tool or prose."
+        "Use this block to see whether the model surfaced clarification via tool calls "
+        "and/or turn-0 prose."
     )
     lines.append("")
     if rows:
@@ -698,6 +698,103 @@ def _emit_planner_step1_review(
             print(line)
 
 
+def _sanitize_planner_step1_filename_segment(raw: str, *, max_len: int) -> str:
+    parts: list[str] = []
+    for ch in (raw or "").strip():
+        if ch.isalnum() or ch in "._-":
+            parts.append(ch)
+        elif ch.isspace():
+            parts.append("-")
+        else:
+            parts.append("-")
+    s = "".join(parts).lower()
+    while "--" in s:
+        s = s.replace("--", "-")
+    s = s.strip("-") or "unknown"
+    return s[:max_len]
+
+
+def build_planner_step1_primary_artifact_path(
+    *,
+    scenario_key: str,
+    model_id: str,
+    gates_passed: bool,
+    followup: bool,
+    utc: datetime,
+    slice_dir: Path | None = None,
+    runs_root: Path | None = None,
+) -> Path:
+    """
+    Path for the dated, uniquely named report (parent dirs may not exist yet).
+
+    ``runs_root`` overrides the default ``<slice>/artifacts/runs`` (e.g. env
+    ``LYSANDRA_PLANNER_STEP1_RUNS_ROOT`` expanded to an absolute directory).
+    """
+    root = slice_dir or _SLICE_DIR
+    base_runs = runs_root if runs_root is not None else (root / "artifacts" / "runs")
+    day = utc.strftime("%Y-%m-%d")
+    compact = utc.strftime("%Y%m%dT%H%M%S") + "Z"
+    scen = _sanitize_planner_step1_filename_segment(scenario_key, max_len=40)
+    mod = _sanitize_planner_step1_filename_segment(model_id, max_len=48)
+    gate = "PASS" if gates_passed else "FAIL"
+    turns = "2turn" if followup else "1turn"
+    fname = f"step1--{scen}--{mod}--{gate}--{turns}--{compact}.md"
+    return base_runs / day / fname
+
+
+def write_planner_step1_run_artifacts(
+    markdown_body: str,
+    *,
+    run: PlannerStep1Run,
+    model_id: str,
+    slice_dir: Path | None = None,
+    runs_root: Path | None = None,
+    utc: datetime | None = None,
+) -> tuple[Path, Path]:
+    """
+    Write the review to (1) ``artifacts/runs/<UTC-date>/step1--…``.md`` and (2) the legacy mirror
+    ``artifacts/last_planner_step1_run.md``. Returns ``(primary_path, legacy_last_path)``.
+
+    Optional env ``LYSANDRA_PLANNER_STEP1_RUNS_ROOT``: absolute directory under which dated
+    day folders are created (default: ``<slice>/artifacts/runs``). The legacy mirror always lives
+    under ``<slice>/artifacts/``.
+    """
+    root = slice_dir or _SLICE_DIR
+    when = utc or datetime.now(timezone.utc)
+    scenario_key = (run.scenario_key or "unknown").strip() or "unknown"
+    followup = bool((run.followup_user_line or "").strip())
+    gate_ok = bool(run.result.passed)
+    env_runs = os.environ.get("LYSANDRA_PLANNER_STEP1_RUNS_ROOT", "").strip()
+    env_root = Path(env_runs).expanduser().resolve() if env_runs else None
+    effective_runs = runs_root if runs_root is not None else env_root
+    primary = build_planner_step1_primary_artifact_path(
+        scenario_key=scenario_key,
+        model_id=model_id,
+        gates_passed=gate_ok,
+        followup=followup,
+        utc=when,
+        slice_dir=root,
+        runs_root=effective_runs,
+    )
+    legacy = root / "artifacts" / "last_planner_step1_run.md"
+    try:
+        rel_primary = primary.resolve().relative_to(root.resolve())
+    except ValueError:
+        rel_primary = Path(primary.name)
+    stamp_line = when.strftime("%Y-%m-%dT%H:%M:%SZ")
+    header = (
+        f"<!-- benchmark_artifact: lysandra_planner_step1 | iso_utc: {stamp_line} "
+        f"| scenario: {scenario_key} | model: {model_id} | gates: {'PASS' if gate_ok else 'FAIL'} "
+        f"| turns: {'2' if followup else '1'} | primary: {rel_primary.as_posix()} -->\n\n"
+    )
+    body = header + markdown_body
+    primary.parent.mkdir(parents=True, exist_ok=True)
+    primary.write_text(body, encoding="utf-8")
+    legacy.parent.mkdir(parents=True, exist_ok=True)
+    legacy.write_text(body, encoding="utf-8")
+    return primary, legacy
+
+
 def print_planner_step1_review(
     run: PlannerStep1Run,
     *,
@@ -708,7 +805,7 @@ def print_planner_step1_review(
 ) -> str:
     """
     Print the human-readable review to stdout and return the same text so callers can
-    write ``_DEFAULT_PLANNER_STEP1_ARTIFACT_PATH`` (or a custom path).
+    pass it to ``write_planner_step1_run_artifacts``.
     """
     buf = io.StringIO()
     with contextlib.redirect_stdout(buf):
@@ -724,18 +821,6 @@ def print_planner_step1_review(
     return text
 
 
-def write_default_planner_step1_artifact(markdown_body: str) -> Path:
-    """Write ``markdown_body`` to the default benchmark artifact path; ensure parent dir exists."""
-    path = _DEFAULT_PLANNER_STEP1_ARTIFACT_PATH
-    path.parent.mkdir(parents=True, exist_ok=True)
-    stamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    path.write_text(
-        f"<!-- benchmark_artifact: lysandra_planner_step1 | iso_utc: {stamp} -->\n\n{markdown_body}",
-        encoding="utf-8",
-    )
-    return path
-
-
 def main() -> None:
     """
     CLI from repo root (repo root is auto-added to ``sys.path`` when run as a file):
@@ -743,8 +828,10 @@ def main() -> None:
     ``uv run python evals/lysandra_vertical_slice/step1_planner_trace.py``
 
     Loads ``OPENAI_API_KEY`` from repo ``.env`` / ``.env.development`` (no ``export`` needed).
-    Always writes a **default benchmark artifact** to
-    ``evals/lysandra_vertical_slice/artifacts/last_planner_step1_run.md`` (full stdout-style review).
+    Always writes **benchmark artifacts**: a **dated** file under ``artifacts/runs/<UTC-date>/`` with
+    the scenario, model, pass/fail, and turn count in the filename, plus a mirror at
+    ``artifacts/last_planner_step1_run.md``. Optional ``LYSANDRA_PLANNER_STEP1_RUNS_ROOT`` sets the
+    runs root directory (default: ``<slice>/artifacts/runs``).
 
     Optional: ``PLANNER_LOG_FULL_IO=1``. Optional: ``LYSANDRA_PLANNER_FINAL_OUT=/path/to/file.md`` also writes the
     model's final answer only to that path.
@@ -752,11 +839,12 @@ def main() -> None:
     **Routing:** with both env vars unset, the default benchmark is **upgrade_prose** (natural power-rise /
     CR bump voice). Omit ``LYSANDRA_PLANNER_STEP1_SCENARIO`` and set ``LYSANDRA_PLANNER_USER_MESSAGE`` to
     intent-route **upgrade_prose** vs **autonomous**. To pin a scenario explicitly, set
-    ``LYSANDRA_PLANNER_STEP1_SCENARIO=directed|autonomous|stat_check|upgrade_prose``.
+    ``LYSANDRA_PLANNER_STEP1_SCENARIO=directed|autonomous|stat_check|clarify_cr|upgrade_prose``.
     """
     from openai import OpenAI  # noqa: E402
 
     from src.agent.planner import _resolve_planner_model  # noqa: E402
+    from src.agent.planner_turn_output_schema import planner_turn_output_schema_enabled  # noqa: E402
 
     load_dungeonmindbuddy_dotenv()
     configure_planner_review_logging()
@@ -786,7 +874,7 @@ def main() -> None:
         print(
             "[scenario] default upgrade_prose — Lysandra power-rise benchmark "
             "(gold may include ``followup_turn`` for a second user line in the same response thread; "
-            "set LYSANDRA_PLANNER_STEP1_SCENARIO=autonomous|stat_check|directed to pin another scenario; "
+            "set LYSANDRA_PLANNER_STEP1_SCENARIO=autonomous|stat_check|clarify_cr|directed to pin another scenario; "
             "or LYSANDRA_PLANNER_USER_MESSAGE without SCENARIO to intent-route)\n",
             file=sys.stderr,
         )
@@ -794,7 +882,9 @@ def main() -> None:
     print(
         "[logging] dmb.planner + dmb.planner.live_eval at INFO; "
         "set PLANNER_LOG_FULL_IO=1 for larger bodies inside telemetry JSON lines; "
-        f"PLANNER_REVIEW_MODE={review_mode}.\n",
+        f"PLANNER_REVIEW_MODE={review_mode}; "
+        f"PLANNER_TURN_OUTPUT_SCHEMA={'on' if planner_turn_output_schema_enabled() else 'off'} "
+        "(API-enforced JSON with user_intent + message on planner turns).\n",
         file=sys.stderr,
     )
 
@@ -816,8 +906,11 @@ def main() -> None:
         model_id=model_id,
         review_mode=review_mode,
     )
-    ap = write_default_planner_step1_artifact(review_text)
-    print(f"[wrote benchmark artifact to {ap}]", file=sys.stderr)
+    primary, legacy = write_planner_step1_run_artifacts(
+        review_text, run=run, model_id=model_id
+    )
+    print(f"[wrote benchmark report to {primary}]", file=sys.stderr)
+    print(f"[mirrored latest run to {legacy}]", file=sys.stderr)
     out_path = os.environ.get("LYSANDRA_PLANNER_FINAL_OUT", "").strip()
     if out_path:
         p = Path(out_path).expanduser()

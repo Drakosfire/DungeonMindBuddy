@@ -152,6 +152,45 @@ def reads_mentioned_in_final(final_text: str, reads: list[str]) -> list[str]:
     return missing
 
 
+def _strip_markdown_json_fence(text: str) -> str:
+    s = text.strip()
+    if not s.startswith("```"):
+        return s
+    lines = s.splitlines()
+    if len(lines) < 3:
+        return s
+    if not lines[-1].strip().startswith("```"):
+        return s
+    first = lines[0].strip().lower()
+    if first not in ("```", "```json"):
+        return s
+    return "\n".join(lines[1:-1]).strip()
+
+
+def _parse_final_json_object(text: str) -> tuple[dict[str, Any] | None, str | None]:
+    raw = _strip_markdown_json_fence(text)
+    try:
+        obj = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        return None, f"invalid JSON: {exc}"
+    if not isinstance(obj, dict):
+        return None, f"JSON root must be object/dict, got {type(obj).__name__}"
+    return obj, None
+
+
+def _prose_text_for_final_gates(full_text: str, json_obj: dict[str, Any] | None) -> str:
+    """
+    Planner turns may return strict JSON with prose in ``message``; markdown gates should
+    inspect that body, not the serialized envelope.
+    """
+    if json_obj is None:
+        return full_text
+    msg = json_obj.get("message")
+    if isinstance(msg, str) and msg.strip():
+        return msg
+    return full_text
+
+
 def match_calls_satisfy(
     scenario_id: str,
     step_label: str,
@@ -192,6 +231,46 @@ def match_calls_satisfy(
     return violations
 
 
+def _tool_trace_propose_clarification_satisfies(
+    rows: list[dict[str, Any]],
+    spec: dict[str, Any],
+) -> bool:
+    """True when one ``propose_clarification`` tool-trace row matches ``spec``."""
+    q_contains = str(spec.get("question_contains", "")).strip().lower()
+    q_any = [str(x).strip().lower() for x in (spec.get("question_contains_any") or []) if str(x).strip()]
+    q_min = spec.get("question_min_chars")
+    q_max = spec.get("question_max_chars")
+    slots_any = [
+        str(x).strip().lower() for x in (spec.get("missing_slots_contains_any") or []) if str(x).strip()
+    ]
+    slots_all = [
+        str(x).strip().lower() for x in (spec.get("missing_slots_contains_all") or []) if str(x).strip()
+    ]
+    for row in rows:
+        args = row.get("arguments") or {}
+        q = str(args.get("question", "")).strip()
+        ql = q.lower()
+        if q_contains and q_contains not in ql:
+            continue
+        if q_any and not any(n in ql for n in q_any):
+            continue
+        if q_min is not None and len(q) < int(q_min):
+            continue
+        if q_max is not None and len(q) > int(q_max):
+            continue
+        raw_slots = args.get("missing_slots")
+        if isinstance(raw_slots, list):
+            slots = [str(x).strip().lower() for x in raw_slots if str(x).strip()]
+        else:
+            slots = []
+        if slots_any and not any(s in slots for s in slots_any):
+            continue
+        if slots_all and not all(s in slots for s in slots_all):
+            continue
+        return True
+    return False
+
+
 def _check_step_require(
     scenario_id: str,
     step_label: str,
@@ -222,40 +301,106 @@ def _check_final_require(
     if not require:
         return violations
     text = detail.final_text
+    json_obj, json_parse_err = _parse_final_json_object(text)
+    prose = _prose_text_for_final_gates(text, json_obj)
     if detail.hit_tool_round_limit:
         violations.append(f"{_fail_prefix(scenario_id)} final: hit_tool_round_limit")
 
     for needle in require.get("output_text_contains_all") or []:
-        if str(needle) not in text:
+        if str(needle) not in prose:
             violations.append(
                 f"{_fail_prefix(scenario_id)} final: output_text must contain {needle!r}"
             )
     anys = require.get("output_text_contains_any") or []
-    if anys and not any(str(a) in text for a in anys):
+    if anys and not any(str(a) in prose for a in anys):
         violations.append(
             f"{_fail_prefix(scenario_id)} final: output_text must contain one of {anys!r}"
         )
     for banned in require.get("output_text_excludes_substrings") or []:
         b = str(banned)
-        if b and b in text:
+        if b and b in prose:
             violations.append(
                 f"{_fail_prefix(scenario_id)} final: output_text must not contain forbidden substring {b!r}"
             )
     min_chars = require.get("min_output_chars")
-    if min_chars is not None and len(text) < int(min_chars):
+    if min_chars is not None and len(prose) < int(min_chars):
         violations.append(
-            f"{_fail_prefix(scenario_id)} final: min_output_chars want>={min_chars} got {len(text)}"
+            f"{_fail_prefix(scenario_id)} final: min_output_chars want>={min_chars} got {len(prose)}"
         )
 
     min_h2 = require.get("min_h2_headings")
     if min_h2 is not None:
-        got_h2 = _count_h2_headings(text)
+        got_h2 = _count_h2_headings(prose)
         want_h2 = int(min_h2)
         if got_h2 < want_h2:
             violations.append(
                 f"{_fail_prefix(scenario_id)} final: min_h2_headings want>={want_h2} "
                 f"(markdown `## Section` lines) got {got_h2}"
             )
+
+    json_err: str | None = None
+    if (
+        require.get("output_must_be_json_object")
+        or require.get("output_json_must_include_keys")
+        or require.get("output_json_user_intent_equals") is not None
+        or require.get("output_json_user_intent_in")
+        or require.get("output_json_intent_equals") is not None
+        or require.get("output_json_intent_in")
+        or require.get("output_json_message_min_chars") is not None
+        or require.get("output_json_message_contains_any")
+        or require.get("output_json_message_contains_all")
+    ):
+        json_err = json_parse_err
+        if json_err is not None:
+            violations.append(f"{_fail_prefix(scenario_id)} final: {json_err}")
+    if require.get("output_must_be_json_object") and json_obj is None and json_err is None:
+        violations.append(f"{_fail_prefix(scenario_id)} final: output must be a JSON object")
+    if json_obj is not None:
+        req_keys = [str(k) for k in (require.get("output_json_must_include_keys") or [])]
+        for k in req_keys:
+            if k not in json_obj:
+                violations.append(
+                    f"{_fail_prefix(scenario_id)} final: output JSON missing required key {k!r}"
+                )
+        intent_equals = require.get("output_json_user_intent_equals")
+        if intent_equals is None:
+            intent_equals = require.get("output_json_intent_equals")
+        if intent_equals is not None:
+            got_intent = str(json_obj.get("user_intent", "") or json_obj.get("intent", ""))
+            if got_intent != str(intent_equals):
+                violations.append(
+                    f"{_fail_prefix(scenario_id)} final: output_json_user_intent_equals "
+                    f"want={intent_equals!r} got={got_intent!r}"
+                )
+        intent_in = [str(x) for x in (require.get("output_json_user_intent_in") or [])]
+        if not intent_in:
+            intent_in = [str(x) for x in (require.get("output_json_intent_in") or [])]
+        if intent_in:
+            got_intent = str(json_obj.get("user_intent", "") or json_obj.get("intent", ""))
+            if got_intent not in intent_in:
+                violations.append(
+                    f"{_fail_prefix(scenario_id)} final: output_json_user_intent_in want one of "
+                    f"{intent_in!r} got={got_intent!r}"
+                )
+        msg = str(json_obj.get("message", ""))
+        msg_min = require.get("output_json_message_min_chars")
+        if msg_min is not None and len(msg) < int(msg_min):
+            violations.append(
+                f"{_fail_prefix(scenario_id)} final: output_json_message_min_chars "
+                f"want>={msg_min} got {len(msg)}"
+            )
+        msg_any = [str(x) for x in (require.get("output_json_message_contains_any") or [])]
+        if msg_any and not any(x in msg for x in msg_any):
+            violations.append(
+                f"{_fail_prefix(scenario_id)} final: output_json_message must contain one of "
+                f"{msg_any!r}"
+            )
+        msg_all = [str(x) for x in (require.get("output_json_message_contains_all") or [])]
+        for needle in msg_all:
+            if needle not in msg:
+                violations.append(
+                    f"{_fail_prefix(scenario_id)} final: output_json_message must contain {needle!r}"
+                )
 
     one_tool = require.get("tool_trace_must_include_tool")
     if one_tool:
@@ -311,7 +456,7 @@ def _check_final_require(
                 f"read_corpus_file / load_context_markdown paths in tool_trace"
             )
         else:
-            cites = extract_cited_markdown_paths_from_final(text)
+            cites = extract_cited_markdown_paths_from_final(prose)
             min_cites = int(require.get("min_cited_markdown_paths", 1) or 1)
             if len(cites) < min_cites:
                 violations.append(
@@ -327,12 +472,31 @@ def _check_final_require(
 
     if require.get("read_paths_must_appear_in_final"):
         reads = dedupe_read_paths_preserve_order(read_paths_from_tool_trace(detail.tool_trace))
-        missing = reads_mentioned_in_final(text, reads)
+        missing = reads_mentioned_in_final(prose, reads)
         if missing:
             violations.append(
                 f"{_fail_prefix(scenario_id)} final: read_paths_must_appear_in_final missing "
                 f"mentions for {missing!r} in final_text"
             )
+
+    clarify_specs = require.get("propose_clarification_must_satisfy") or []
+    if clarify_specs:
+        clarify_rows = [
+            t for t in detail.tool_trace if str(t.get("tool", "")) == "propose_clarification"
+        ]
+        if not clarify_rows:
+            violations.append(
+                f"{_fail_prefix(scenario_id)} final: propose_clarification_must_satisfy set but no "
+                "propose_clarification rows in tool_trace"
+            )
+        else:
+            for i, spec in enumerate(list(clarify_specs)):
+                if not _tool_trace_propose_clarification_satisfies(clarify_rows, dict(spec)):
+                    violations.append(
+                        f"{_fail_prefix(scenario_id)} final: propose_clarification_must_satisfy[{i}] "
+                        f"not matched by tool_trace propose_clarification rows; spec={spec!r} "
+                        f"rows={[r.get('arguments') for r in clarify_rows]!r}"
+                    )
 
     return violations
 

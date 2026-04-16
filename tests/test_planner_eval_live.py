@@ -146,7 +146,36 @@ def test_cited_paths_must_match_reads_violation() -> None:
     assert v.get("final")
 
 
-def test_cited_paths_and_reads_mention_pass() -> None:
+def test_cited_paths_and_reads_mention_pass_json_envelope() -> None:
+    """Prose gates inspect ``message`` when ``final_text`` is the planner JSON envelope."""
+    message = (
+        "Paths Elderwyld/Migrating Forest/the_migrating_forest_executive_dm_summary.md "
+        "and Elderwyld/Migrating Forest/Branchbound/branchbound_culture_pack.md were read."
+    )
+    detail = PlanningTurnDetail(
+        final_text=json.dumps({"user_intent": "worldbuilding_request", "message": message}),
+        last_response_id="x",
+        tool_trace=[
+            {"tool": "read_corpus_file", "arguments": {"path": "Elderwyld/Migrating Forest/the_migrating_forest_executive_dm_summary.md"}},
+            {"tool": "read_corpus_file", "arguments": {"path": "Elderwyld/Migrating Forest/Branchbound/branchbound_culture_pack.md"}},
+        ],
+        steps=[],
+        hit_tool_round_limit=False,
+    )
+    scenario = {
+        "id": "g2b",
+        "steps": [],
+        "final": {
+            "require": {
+                "cited_paths_must_match_reads": True,
+                "read_paths_must_appear_in_final": True,
+            }
+        },
+    }
+    assert not collect_scenario_violations(scenario, detail).get("final")
+
+
+def test_cited_paths_and_reads_mention_pass_plain_markdown() -> None:
     detail = PlanningTurnDetail(
         final_text=(
             "Paths Elderwyld/Migrating Forest/the_migrating_forest_executive_dm_summary.md "
@@ -161,7 +190,7 @@ def test_cited_paths_and_reads_mention_pass() -> None:
         hit_tool_round_limit=False,
     )
     scenario = {
-        "id": "g2b",
+        "id": "g2c",
         "steps": [],
         "final": {
             "require": {
@@ -355,6 +384,20 @@ def test_min_h2_headings_final_require() -> None:
     scenario_ok = {"id": "h2", "steps": [], "final": {"require": {"min_h2_headings": 3}}}
     assert not collect_scenario_violations(scenario_ok, detail_ok).get("final")
 
+    detail_ok_json = PlanningTurnDetail(
+        final_text=json.dumps(
+            {
+                "user_intent": "worldbuilding_request",
+                "message": "## A\n## B\n## C\nbody",
+            }
+        ),
+        last_response_id="x",
+        tool_trace=[],
+        steps=[],
+        hit_tool_round_limit=False,
+    )
+    assert not collect_scenario_violations(scenario_ok, detail_ok_json).get("final")
+
     detail_bad = PlanningTurnDetail(
         final_text="## Only\nbody",
         last_response_id="x",
@@ -364,6 +407,114 @@ def test_min_h2_headings_final_require() -> None:
     )
     v = collect_scenario_violations(scenario_ok, detail_bad).get("final")
     assert v and any("min_h2_headings" in msg for msg in v)
+
+
+def test_propose_clarification_must_satisfy_pass_and_fail() -> None:
+    scenario = {
+        "id": "clarify1",
+        "steps": [],
+        "final": {
+            "require": {
+                "propose_clarification_must_satisfy": [
+                    {
+                        "question_contains_any": ["cr", "challenge rating"],
+                        "question_min_chars": 8,
+                        "question_max_chars": 140,
+                        "missing_slots_contains_any": ["target_cr"],
+                    }
+                ]
+            }
+        },
+    }
+    detail_ok = PlanningTurnDetail(
+        final_text="What CR should she be?",
+        last_response_id="x",
+        tool_trace=[
+            {
+                "tool": "propose_clarification",
+                "arguments": {
+                    "question": "What target CR should Lysandra be for the siege arc?",
+                    "missing_slots": ["target_cr"],
+                },
+            }
+        ],
+        steps=[],
+        hit_tool_round_limit=False,
+    )
+    assert not collect_scenario_violations(scenario, detail_ok).get("final")
+
+    detail_bad = PlanningTurnDetail(
+        final_text="I'll pick CR 6.",
+        last_response_id="x",
+        tool_trace=[
+            {
+                "tool": "propose_clarification",
+                "arguments": {
+                    "question": "Any vibe preferences?",
+                    "missing_slots": ["tone"],
+                },
+            }
+        ],
+        steps=[],
+        hit_tool_round_limit=False,
+    )
+    v = collect_scenario_violations(scenario, detail_bad).get("final")
+    assert v and any("propose_clarification_must_satisfy" in msg for msg in v)
+
+
+def test_output_json_user_intent_and_message_requirements() -> None:
+    scenario = {
+        "id": "json1",
+        "steps": [],
+        "final": {
+            "require": {
+                "output_must_be_json_object": True,
+                "output_json_must_include_keys": ["user_intent", "message"],
+                "output_json_user_intent_equals": "upgrade_request",
+                "output_json_message_min_chars": 10,
+                "output_json_message_contains_any": ["CR"],
+            }
+        },
+    }
+    detail_ok = PlanningTurnDetail(
+        final_text='{"user_intent":"upgrade_request","message":"What CR should she be?"}',
+        last_response_id="x",
+        tool_trace=[],
+        steps=[],
+        hit_tool_round_limit=False,
+    )
+    assert not collect_scenario_violations(scenario, detail_ok).get("final")
+
+    detail_bad = PlanningTurnDetail(
+        final_text='{"user_intent":"unknown","message":"Too short"}',
+        last_response_id="x",
+        tool_trace=[],
+        steps=[],
+        hit_tool_round_limit=False,
+    )
+    v = collect_scenario_violations(scenario, detail_bad).get("final")
+    assert v and any("output_json_user_intent_equals" in msg for msg in v)
+
+
+def test_output_json_parses_markdown_fence() -> None:
+    scenario = {
+        "id": "json2",
+        "steps": [],
+        "final": {
+            "require": {
+                "output_must_be_json_object": True,
+                "output_json_must_include_keys": ["user_intent", "message"],
+            }
+        },
+    }
+    detail = PlanningTurnDetail(
+        final_text='```json\n{"user_intent":"upgrade_request","message":"Need target CR."}\n```',
+        last_response_id="x",
+        tool_trace=[],
+        steps=[],
+        hit_tool_round_limit=False,
+    )
+    assert not collect_scenario_violations(scenario, detail).get("final")
 
 
 def test_read_paths_from_tool_trace_order() -> None:

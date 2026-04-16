@@ -16,7 +16,7 @@ alwaysApply: true
 ## Conventions
 
 - **Location:** Under the eval suite directory, e.g. `evals/<suite>/artifacts/`, or a single well-named default at suite root (e.g. `evals/<suite>/last_<harness>_output.md` / `last_<harness>_run.json`). Document the path in that suite’s `README.md` or harness docstring.
-- **Implemented:** Lysandra agent benchmark CLI → `evals/lysandra_vertical_slice/artifacts/last_planner_step1_run.md` (see that folder’s `README.md`).
+- **Implemented:** Lysandra agent benchmark CLI → dated files under `evals/lysandra_vertical_slice/artifacts/runs/YYYY-MM-DD/` plus a `last_planner_step1_run.md` mirror (see that folder’s `README.md`).
 - **Override:** An env var (e.g. existing `LYSANDRA_PLANNER_FINAL_OUT`) may **replace** the destination; the default path must still be used when the env var is unset.
 - **Secrets:** Never write API keys, tokens, or session cookies into artifacts. Redact or omit.
 - **Size:** Prefer a **summary** artifact by default; full traces may be truncated with a note, or written under a path listed in `.gitignore` if they are large or ephemeral.

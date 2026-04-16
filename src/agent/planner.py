@@ -24,6 +24,10 @@ from pathlib import Path
 from typing import Any, Callable
 
 from src.agent.planner_pricing import usage_cost_usd
+from src.agent.planner_turn_output_schema import (
+    planner_turn_output_schema_enabled,
+    planner_turn_text_format,
+)
 from src.agent.planner_telemetry import (
     log_telemetry,
     maybe_full_text,
@@ -564,6 +568,8 @@ def run_planning_turn_detailed(
         "tool_choice": "auto",
         "truncation": "auto",
     }
+    if planner_turn_output_schema_enabled():
+        create_kw["text"] = planner_turn_text_format()
     if previous_response_id:
         create_kw["previous_response_id"] = previous_response_id
 
@@ -718,15 +724,18 @@ def run_planning_turn_detailed(
             }
         )
         t1 = time.perf_counter()
-        response = client.responses.create(
-            model=model_id,
-            instructions=instructions,
-            previous_response_id=response.id,
-            input=tool_inputs,
-            tools=tools,
-            tool_choice="auto",
-            truncation="auto",
-        )
+        follow_kw: dict[str, Any] = {
+            "model": model_id,
+            "instructions": instructions,
+            "previous_response_id": response.id,
+            "input": tool_inputs,
+            "tools": tools,
+            "tool_choice": "auto",
+            "truncation": "auto",
+        }
+        if planner_turn_output_schema_enabled():
+            follow_kw["text"] = planner_turn_text_format()
+        response = client.responses.create(**follow_kw)
         elapsed_follow = (time.perf_counter() - t1) * 1000.0
         _absorb_usage(response, elapsed_follow)
         uf = usage_dict_from_response(response)
