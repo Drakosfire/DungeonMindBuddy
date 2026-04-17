@@ -409,59 +409,6 @@ def test_min_h2_headings_final_require() -> None:
     assert v and any("min_h2_headings" in msg for msg in v)
 
 
-def test_propose_clarification_must_satisfy_pass_and_fail() -> None:
-    scenario = {
-        "id": "clarify1",
-        "steps": [],
-        "final": {
-            "require": {
-                "propose_clarification_must_satisfy": [
-                    {
-                        "question_contains_any": ["cr", "challenge rating"],
-                        "question_min_chars": 8,
-                        "question_max_chars": 140,
-                        "missing_slots_contains_any": ["target_cr"],
-                    }
-                ]
-            }
-        },
-    }
-    detail_ok = PlanningTurnDetail(
-        final_text="What CR should she be?",
-        last_response_id="x",
-        tool_trace=[
-            {
-                "tool": "propose_clarification",
-                "arguments": {
-                    "question": "What target CR should Lysandra be for the siege arc?",
-                    "missing_slots": ["target_cr"],
-                },
-            }
-        ],
-        steps=[],
-        hit_tool_round_limit=False,
-    )
-    assert not collect_scenario_violations(scenario, detail_ok).get("final")
-
-    detail_bad = PlanningTurnDetail(
-        final_text="I'll pick CR 6.",
-        last_response_id="x",
-        tool_trace=[
-            {
-                "tool": "propose_clarification",
-                "arguments": {
-                    "question": "Any vibe preferences?",
-                    "missing_slots": ["tone"],
-                },
-            }
-        ],
-        steps=[],
-        hit_tool_round_limit=False,
-    )
-    v = collect_scenario_violations(scenario, detail_bad).get("final")
-    assert v and any("propose_clarification_must_satisfy" in msg for msg in v)
-
-
 def test_output_json_user_intent_and_message_requirements() -> None:
     scenario = {
         "id": "json1",

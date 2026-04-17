@@ -18,7 +18,7 @@ Reuses ``evals.planner_slice.live_eval`` scenario shape and matchers.
 - **Default benchmark artifacts:** each run writes a **dated, named** file under
   ``artifacts/runs/YYYY-MM-DD/`` (scenario, model, pass/fail, turn count, UTC timestamp in the
   filename) and mirrors the same body to ``artifacts/last_planner_step1_run.md`` for quick reopen.
-- **Two-turn scenarios:** gold ``followup_turn.user_message`` runs a second ``run_planning_turn_detailed`` with ``previous_response_id`` from the first turn (GM answer in voice); gates use merged ``tool_trace`` and the **last** turn's ``final_text``. The review prints **§ Clarification** with turn-0 final prose plus any ``propose_clarification`` tool rows.
+- **Two-turn scenarios:** gold ``followup_turn.user_message`` runs a second ``run_planning_turn_detailed`` with ``previous_response_id`` from the first turn (GM answer in voice); gates use merged ``tool_trace`` and the **last** turn's ``final_text``. The review prints **§ Clarification** with turn-0 final prose heuristics.
 - This module prints a human-readable report: prompt sizes, per-API-round token usage
   (``usage.input_tokens`` = billed input for that ``responses.create``, including instructions
   and prior context for that round), planner steps, corpus text returned to the model, and
@@ -62,6 +62,7 @@ from src.agent.planner import (  # noqa: E402
     PlanningTurnDetail,
     _planner_tools_responses,
     _read_corpus_file_impl,
+    build_corpus_path_ref_index,
     make_tool_dispatcher,
     merge_planning_turn_details,
     run_planning_turn_detailed,
@@ -238,8 +239,14 @@ def run_planner_step1_turn(
     instructions, fp = load_or_build_planner_instructions(corpus_path, cache_root=cache_root)
     tools = _planner_tools_responses()
     tool_cost_sink: list[dict[str, Any]] = []
+    ref_index = build_corpus_path_ref_index(corpus_path)
     dispatch = make_tool_dispatcher(
-        corpus_path, client, model_id, statblock_stub=None, tool_cost_sink=tool_cost_sink
+        corpus_path,
+        client,
+        model_id,
+        statblock_stub=None,
+        tool_cost_sink=tool_cost_sink,
+        corpus_path_ref_index=ref_index,
     )
 
     detail = run_planning_turn_detailed(
@@ -257,6 +264,7 @@ def run_planner_step1_turn(
             "corpus_fingerprint": fp,
             "turn_index": 0,
         },
+        corpus_path_ref_index=ref_index,
     )
     first_turn_final_text = (detail.final_text or "").strip()
     followup_user_line = ""
@@ -281,6 +289,7 @@ def run_planner_step1_turn(
                     "phase": "followup_user",
                     "turn_index": 1,
                 },
+                corpus_path_ref_index=ref_index,
             )
             detail = merge_planning_turn_details(detail, detail2)
         else:
@@ -461,24 +470,14 @@ def format_clarification_evidence_lines(
     first_turn_final_text: str,
     max_chars: int = 2400,
 ) -> list[str]:
-    """Human-readable clarification: ``propose_clarification`` tool rows + turn 0 final prose."""
-    rows = [(i, r) for i, r in enumerate(tool_trace) if r.get("tool") == "propose_clarification"]
+    """Human-readable clarification context: JSON / prose heuristics (no separate clarify tool)."""
     lines: list[str] = []
     lines.append(
-        "Use this block to see whether the model surfaced clarification via tool calls "
-        "and/or turn-0 prose."
+        "Clarification is expressed in the final JSON (`user_intent` + `message`) when needed; "
+        "there is no separate clarification tool in the planner."
     )
     lines.append("")
-    if rows:
-        lines.append(f"propose_clarification tool: {len(rows)} call(s) in merged trace")
-        for i, row in rows:
-            args = row.get("arguments") or {}
-            q = str(args.get("question", "") or "").strip()
-            slots = args.get("missing_slots")
-            lines.append(f"  trace[{i}] question={q!r}")
-            lines.append(f"            missing_slots={slots!r}")
-    else:
-        lines.append("propose_clarification tool: 0 calls in merged trace")
+    lines.append(f"tool_trace rows (for context): {len(tool_trace)}")
     lines.append("")
     if followup_user_line.strip():
         lines.append("Turn 0 assistant final (before follow-up user line):")
@@ -667,7 +666,7 @@ def _emit_planner_step1_review(
         print(ln)
 
     print(sep)
-    print("§ Clarification (tool + turn 0 prose)")
+    print("§ Clarification (turn 0 prose / JSON heuristics)")
     print(sep)
     for ln in format_clarification_evidence_lines(
         d.tool_trace,
@@ -675,6 +674,19 @@ def _emit_planner_step1_review(
         first_turn_final_text=run.first_turn_final_text,
     ):
         print(ln)
+
+    pre_align = getattr(d, "pre_alignment_final_text", None)
+    if pre_align is not None:
+        align_report = getattr(d, "clarification_alignment", None)
+        align_mode = getattr(align_report, "mode", "unknown") if align_report else "unknown"
+        print(sep)
+        print(
+            "§ Final LLM answer (pre-alignment) — legacy capture "
+            f"(alignment_mode={align_mode})"
+        )
+        print(sep)
+        print(pre_align or "(empty)")
+        print(sep)
 
     print(sep)
     print("§ Final LLM answer (last model message text)")

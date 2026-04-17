@@ -90,23 +90,6 @@ def test_dispatch_generate_statblock_invalid_baseline_path_errors() -> None:
     assert out.startswith("Error:")
 
 
-def test_dispatch_propose_clarification_records_question() -> None:
-    class _Dummy:
-        pass
-
-    dispatch = make_tool_dispatcher(_CORPUS, _Dummy(), "gpt-mock")
-    raw = json.dumps(
-        {
-            "question": "What Challenge Rating should Lysandra be after the bump?",
-            "missing_slots": ["target_cr"],
-        }
-    )
-    out = dispatch("propose_clarification", raw)
-    assert out.startswith("[clarification recorded]")
-    assert "What Challenge Rating" in out
-    assert "target_cr" in out
-
-
 def test_merge_planning_turn_details_concatenates_trace_and_keeps_last_final() -> None:
     a = PlanningTurnDetail(
         final_text="first final",
@@ -118,7 +101,7 @@ def test_merge_planning_turn_details_concatenates_trace_and_keeps_last_final() -
     b = PlanningTurnDetail(
         final_text="second final CR 6",
         last_response_id="r2",
-        tool_trace=[{"tool": "propose_clarification", "arguments": {}, "output_chars": 2}],
+        tool_trace=[{"tool": "load_context_markdown", "arguments": {"path": "b.md"}, "output_chars": 2}],
         steps=[],
         telemetry_cost={"planner_estimated_cost_usd": 0.002, "planner_cost_by_round_usd": [0.002]},
     )
@@ -127,5 +110,5 @@ def test_merge_planning_turn_details_concatenates_trace_and_keeps_last_final() -
     assert m.last_response_id == "r2"
     assert len(m.tool_trace) == 2
     assert m.tool_trace[0]["tool"] == "read_corpus_file"
-    assert m.tool_trace[1]["tool"] == "propose_clarification"
+    assert m.tool_trace[1]["tool"] == "load_context_markdown"
     assert m.telemetry_cost["planner_estimated_cost_usd"] == pytest.approx(0.003)

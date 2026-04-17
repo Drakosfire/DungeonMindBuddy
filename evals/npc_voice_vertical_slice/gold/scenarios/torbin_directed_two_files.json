@@ -1,0 +1,22 @@
+{
+  "id": "npc_voice_torbin_directed_two_files",
+  "version": 1,
+  "fixture_role": "torbin_directed_two_files",
+  "fixture_note": "Explicit paths: mechanics + personality blurbs.",
+  "input": {
+    "user_message": "Torbin Jove — I need a tight improv handle for tonight.\n\nBefore you answer, call **read_corpus_file** on:\n1) `Elderwyld/Cities and Towns/Mirathorn/NPCs/torbin_jove/torbin_jove_statblock.md`\n2) `Longmont Campaign/Campaign 2/NPCs/torbin_jove/torbin_jove_care_guidelines.md`\n\nThen give me three bullets: voice, want, complication. Cite those paths inline in your `message` JSON string as backticked corpus paths. Do **not** call `generate_statblock`."
+  },
+  "steps": [],
+  "final": {
+    "require": {
+      "min_output_chars": 120,
+      "tool_trace_must_include_tool": "read_corpus_file",
+      "read_corpus_paths_must_include": [
+        "torbin_jove_statblock.md",
+        "torbin_jove_care_guidelines.md"
+      ],
+      "cited_paths_must_match_reads": true,
+      "min_cited_markdown_paths": 2
+    }
+  }
+}

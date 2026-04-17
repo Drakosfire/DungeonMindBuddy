@@ -1,0 +1,18 @@
+{
+  "id": "npc_voice_torbin_factual_cr",
+  "version": 1,
+  "fixture_role": "torbin_factual_cr",
+  "fixture_note": "CR 1/8 appears in torbin_jove_statblock.md body.",
+  "input": {
+    "user_message": "Don't read the whole campaign bible — just tell me Torbin's challenge rating off his kid statblock."
+  },
+  "steps": [],
+  "final": {
+    "require": {
+      "min_output_chars": 50,
+      "tool_trace_must_include_tool": "read_corpus_file",
+      "read_corpus_paths_must_include": ["torbin_jove"],
+      "output_text_contains_any": ["1/8", "0.125", "CR 1/8", "challenge rating"]
+    }
+  }
+}

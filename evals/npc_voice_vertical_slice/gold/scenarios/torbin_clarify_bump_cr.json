@@ -1,0 +1,20 @@
+{
+  "id": "npc_voice_torbin_clarify_bump_cr",
+  "version": 2,
+  "fixture_role": "torbin_clarify_bump_cr",
+  "fixture_note": "Torbin power bump without target CR — planner should ask for target power (CR / challenge) in JSON (needs_clarification). Corpus: Elderwyld/Cities and Towns/Mirathorn/NPCs/torbin_jove/torbin_jove_statblock.md.",
+  "input": {
+    "user_message": "Torbin Jove needs to punch above his weight for a set-piece I'm running — bump him mechanically, but I haven't picked how nasty he should get yet."
+  },
+  "steps": [],
+  "final": {
+    "require": {
+      "min_output_chars": 20,
+      "output_must_be_json_object": true,
+      "output_json_must_include_keys": ["user_intent", "message"],
+      "output_json_user_intent_equals": "needs_clarification",
+      "output_json_message_min_chars": 12,
+      "output_json_message_contains_any": ["CR", "challenge rating", "how hard", "how tough"]
+    }
+  }
+}

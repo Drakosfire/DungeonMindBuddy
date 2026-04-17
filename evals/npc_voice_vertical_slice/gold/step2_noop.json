@@ -1,0 +1,5 @@
+{
+  "schema": "npc_voice_vertical_slice_step2_noop_v1",
+  "description": "Empty planner_bridge disables post-planner Step 2 benchmark merges for this slice (see evaluate_step2_post_planner_benchmark early return).",
+  "planner_bridge": {}
+}

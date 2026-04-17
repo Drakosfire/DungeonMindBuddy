@@ -15,6 +15,7 @@ from src.agent.planner import (
     PlanningModelStepRecord,
     PlanningTurnDetail,
     _planner_tools_responses,
+    build_corpus_path_ref_index,
     make_tool_dispatcher,
     run_planning_turn_detailed,
 )
@@ -58,6 +59,8 @@ class LiveEvalResult:
     estimated_cost_usd: float | None = None
     corpus_fingerprint: str | None = None
     report_path: str | None = None
+    #: Non-failing observations for suite reports; never causes ``passed`` to flip.
+    info: dict[str, Any] = field(default_factory=dict)
 
 
 def _fail_prefix(sid: str) -> str:
@@ -229,46 +232,6 @@ def match_calls_satisfy(
         else:
             unused_indices.discard(matched_idx)
     return violations
-
-
-def _tool_trace_propose_clarification_satisfies(
-    rows: list[dict[str, Any]],
-    spec: dict[str, Any],
-) -> bool:
-    """True when one ``propose_clarification`` tool-trace row matches ``spec``."""
-    q_contains = str(spec.get("question_contains", "")).strip().lower()
-    q_any = [str(x).strip().lower() for x in (spec.get("question_contains_any") or []) if str(x).strip()]
-    q_min = spec.get("question_min_chars")
-    q_max = spec.get("question_max_chars")
-    slots_any = [
-        str(x).strip().lower() for x in (spec.get("missing_slots_contains_any") or []) if str(x).strip()
-    ]
-    slots_all = [
-        str(x).strip().lower() for x in (spec.get("missing_slots_contains_all") or []) if str(x).strip()
-    ]
-    for row in rows:
-        args = row.get("arguments") or {}
-        q = str(args.get("question", "")).strip()
-        ql = q.lower()
-        if q_contains and q_contains not in ql:
-            continue
-        if q_any and not any(n in ql for n in q_any):
-            continue
-        if q_min is not None and len(q) < int(q_min):
-            continue
-        if q_max is not None and len(q) > int(q_max):
-            continue
-        raw_slots = args.get("missing_slots")
-        if isinstance(raw_slots, list):
-            slots = [str(x).strip().lower() for x in raw_slots if str(x).strip()]
-        else:
-            slots = []
-        if slots_any and not any(s in slots for s in slots_any):
-            continue
-        if slots_all and not all(s in slots for s in slots_all):
-            continue
-        return True
-    return False
 
 
 def _check_step_require(
@@ -479,25 +442,6 @@ def _check_final_require(
                 f"mentions for {missing!r} in final_text"
             )
 
-    clarify_specs = require.get("propose_clarification_must_satisfy") or []
-    if clarify_specs:
-        clarify_rows = [
-            t for t in detail.tool_trace if str(t.get("tool", "")) == "propose_clarification"
-        ]
-        if not clarify_rows:
-            violations.append(
-                f"{_fail_prefix(scenario_id)} final: propose_clarification_must_satisfy set but no "
-                "propose_clarification rows in tool_trace"
-            )
-        else:
-            for i, spec in enumerate(list(clarify_specs)):
-                if not _tool_trace_propose_clarification_satisfies(clarify_rows, dict(spec)):
-                    violations.append(
-                        f"{_fail_prefix(scenario_id)} final: propose_clarification_must_satisfy[{i}] "
-                        f"not matched by tool_trace propose_clarification rows; spec={spec!r} "
-                        f"rows={[r.get('arguments') for r in clarify_rows]!r}"
-                    )
-
     return violations
 
 
@@ -549,6 +493,7 @@ def evaluate_scenario_detail(
         violations=violations,
         estimated_cost_usd=estimated_cost_usd,
         corpus_fingerprint=corpus_fingerprint,
+        info={},
     )
 
 
@@ -654,8 +599,14 @@ def evaluate_live_scenario(
     instructions, fp = load_or_build_planner_instructions(corpus_path, cache_root=cache_root)
     tools = _planner_tools_responses()
     tool_cost_sink: list[dict[str, Any]] = []
+    ref_index = build_corpus_path_ref_index(corpus_path)
     dispatch = make_tool_dispatcher(
-        corpus_path, client, model_id, statblock_stub=None, tool_cost_sink=tool_cost_sink
+        corpus_path,
+        client,
+        model_id,
+        statblock_stub=None,
+        tool_cost_sink=tool_cost_sink,
+        corpus_path_ref_index=ref_index,
     )
 
     _live_eval_log(
@@ -683,6 +634,7 @@ def evaluate_live_scenario(
             "suite": "planner_live_eval",
             "corpus_fingerprint": fp,
         },
+        corpus_path_ref_index=ref_index,
     )
     statblock_usd = sum(float(x.get("total_usd", 0) or 0) for x in tool_cost_sink)
     tc = dict(detail.telemetry_cost or {})

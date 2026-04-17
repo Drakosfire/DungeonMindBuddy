@@ -150,6 +150,7 @@ def test_statblock_tool_uses_exported_description() -> None:
     assert gen["description"] == STATBLOCK_TOOL_DESCRIPTION
 
 
-def test_planner_tools_include_propose_clarification() -> None:
+def test_planner_tools_corpus_and_statblock_only() -> None:
     names = {t["name"] for t in _planner_tools_responses()}
-    assert "propose_clarification" in names
+    assert "propose_clarification" not in names
+    assert names >= {"read_corpus_file", "load_context_markdown", "generate_statblock"}

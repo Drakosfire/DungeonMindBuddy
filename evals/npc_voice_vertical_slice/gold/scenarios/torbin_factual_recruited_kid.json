@@ -1,0 +1,18 @@
+{
+  "id": "npc_voice_torbin_factual_recruited_kid",
+  "version": 1,
+  "fixture_role": "torbin_factual_recruited_kid",
+  "fixture_note": "GM voice: 'Who is the npc kid the players have recruited? I forget their name…'. Factual lookup of Torbin Jove (the only recruited kid NPC). Corpus: Longmont Campaign/Campaign 2/NPCs/torbin_jove/torbin_jove_character_dossier.md (and hub README).",
+  "input": {
+    "user_message": "Who is the npc kid the players have recruited? I forget their name..."
+  },
+  "steps": [],
+  "final": {
+    "require": {
+      "min_output_chars": 30,
+      "tool_trace_must_include_tool": "read_corpus_file",
+      "read_corpus_paths_must_include": ["torbin"],
+      "output_text_contains_any": ["Torbin", "torbin"]
+    }
+  }
+}

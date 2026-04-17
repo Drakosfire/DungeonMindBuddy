@@ -2,7 +2,7 @@
   "id": "lysandra_planner_step1_upgrade_prose",
   "version": 4,
   "fixture_role": "upgrade_prose",
-  "fixture_note": "Two-turn benchmark: (1) natural power-rise ask; (2) GM follow-up naming CR 6. Gates: merged tool_trace must include read_corpus_file; final_text (last turn) must contain Lysandra + CR 6. Clarifying target CR is encouraged (propose_clarification or prose) but not hard-gated — see review § Clarification.",
+  "fixture_note": "Two-turn benchmark: (1) natural power-rise ask; (2) GM follow-up naming CR 6. Gates: merged tool_trace must include read_corpus_file; final_text (last turn) must contain Lysandra + CR 6. Clarifying target CR in turn-0 JSON or prose is encouraged but not hard-gated — see review § Clarification.",
   "input": {
     "user_message": "Lysandra needs to be tougher for the siege arc \u2014 bump her CR."
   },

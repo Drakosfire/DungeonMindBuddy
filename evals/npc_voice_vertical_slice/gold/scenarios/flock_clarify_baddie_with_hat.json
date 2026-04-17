@@ -1,0 +1,30 @@
+{
+  "id": "npc_voice_flock_clarify_baddie_with_hat",
+  "version": 2,
+  "fixture_role": "flock_clarify_baddie_with_hat",
+  "fixture_note": "GM voice: 'Who is the NPC baddie who is in the Shephard's Flock? Has a hat?'. Ambiguous referent — should not assert a single NPC; ask which one in JSON (needs_clarification) and surface multiple plausible names in message. Corpus: Elderwyld/Shephards Flock/.",
+  "input": {
+    "user_message": "Who is the NPC baddie who is in the Shephard's Flock? Has a hat?"
+  },
+  "steps": [],
+  "final": {
+    "require": {
+      "min_output_chars": 15,
+      "tool_trace_must_include_tool": "read_corpus_file",
+      "output_must_be_json_object": true,
+      "output_json_must_include_keys": ["user_intent", "message"],
+      "output_json_user_intent_equals": "needs_clarification",
+      "output_json_message_min_chars": 20,
+      "output_json_message_contains_any": [
+        "which",
+        "who",
+        "mean",
+        "Dustwalker",
+        "Seren",
+        "Eirik",
+        "Lyra",
+        "candidate"
+      ]
+    }
+  }
+}

@@ -1,8 +1,8 @@
 {
   "id": "lysandra_planner_step1_clarify_cr",
-  "version": 3,
+  "version": 5,
   "fixture_role": "clarify_cr",
-  "fixture_note": "Clarification benchmark: vague level-up ask should classify as upgrade_request, emit strict JSON {user_intent,message}, and call propose_clarification with a CR-oriented question + target_cr slot.",
+  "fixture_note": "Clarification benchmark: vague level-up ask should end with strict JSON (user_intent=needs_clarification) and a CR-oriented question in message.",
   "input": {
     "user_message": "I want to level up an NPC."
   },
@@ -10,32 +10,16 @@
   "final": {
     "require": {
       "min_output_chars": 20,
-      "tool_trace_must_include_tools": [
-        "propose_clarification"
-      ],
       "output_must_be_json_object": true,
       "output_json_must_include_keys": [
         "user_intent",
         "message"
       ],
-      "output_json_user_intent_equals": "upgrade_request",
+      "output_json_user_intent_equals": "needs_clarification",
       "output_json_message_min_chars": 12,
       "output_json_message_contains_any": [
         "CR",
         "challenge rating"
-      ],
-      "propose_clarification_must_satisfy": [
-        {
-          "question_contains_any": [
-            "cr",
-            "challenge rating"
-          ],
-          "question_min_chars": 10,
-          "question_max_chars": 140,
-          "missing_slots_contains_any": [
-            "target_cr"
-          ]
-        }
       ]
     }
   }

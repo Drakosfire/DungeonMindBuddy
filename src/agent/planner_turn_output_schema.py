@@ -20,6 +20,10 @@ PLANNER_USER_INTENT_ENUM: tuple[str, ...] = (
     "planning_request",
     "status_or_recap_request",
     "generation_request",
+    # Use when the final ``message`` is only a blocking clarifying question (no substantive answer).
+    # downstream consumers (``IntentMode`` in ``src/npc_statblock_pipeline/canonical_intent.py``)
+    # treat this as a terminal turn that needs GM input before the pipeline advances.
+    "needs_clarification",
 )
 
 _PLANNER_TURN_OUTPUT_NAME = "planner_turn_output"

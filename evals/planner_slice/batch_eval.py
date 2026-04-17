@@ -19,6 +19,9 @@ from src.agent.planner import (
     PlanningTurnDetail,
     _MAX_TOOL_ROUNDS_PER_USER_TURN,
     _planner_tools_responses,
+    apply_clarification_alignment_to_final_text,
+    arguments_for_read_tool_trace,
+    build_corpus_path_ref_index,
     make_tool_dispatcher,
 )
 from src.agent.planner_cache import load_or_build_planner_instructions
@@ -148,7 +151,10 @@ def run_batched_planner_eval(
     corpus_path = corpus_dir.resolve()
     instructions, corpus_fp = load_or_build_planner_instructions(corpus_path, cache_root=cache_root)
     tools = _planner_tools_responses()
-    dispatch = make_tool_dispatcher(corpus_path, client, model_id, statblock_stub=None)
+    ref_index = build_corpus_path_ref_index(corpus_path)
+    dispatch = make_tool_dispatcher(
+        corpus_path, client, model_id, statblock_stub=None, corpus_path_ref_index=ref_index
+    )
 
     states: dict[str, _BatchEvalState] = {}
     for sc in scenarios:
@@ -256,10 +262,11 @@ def run_batched_planner_eval(
                 except json.JSONDecodeError:
                     args_obj = {"_raw": raw_args}
                 out = dispatch(name, raw_args)
+                trace_args = arguments_for_read_tool_trace(corpus_path, name, args_obj, ref_index)
                 st.tool_trace.append(
                     {
                         "tool": name,
-                        "arguments": args_obj,
+                        "arguments": trace_args,
                         "output_chars": len(out),
                         "output_excerpt": out[:800],
                     }
@@ -284,12 +291,18 @@ def run_batched_planner_eval(
                 )
             )
             continue
+        aligned_final, align_report = apply_clarification_alignment_to_final_text(
+            st.tool_trace, st.final_text
+        )
+        pre_alignment = st.final_text if aligned_final != st.final_text else None
         detail = PlanningTurnDetail(
-            final_text=st.final_text,
+            final_text=aligned_final,
             last_response_id=st.last_response_id or "",
             tool_trace=st.tool_trace,
             steps=st.steps,
             hit_tool_round_limit=st.hit_tool_round_limit,
+            pre_alignment_final_text=pre_alignment,
+            clarification_alignment=align_report,
         )
         results.append(evaluate_scenario_detail(st.scenario, detail))
     return results, meta_all

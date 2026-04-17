@@ -1,0 +1,22 @@
+{
+  "id": "npc_voice_dustwalker_directed_statblock_path",
+  "version": 1,
+  "fixture_role": "dustwalker_directed_statblock_path",
+  "fixture_note": "Directed read of dustwalker_statblock.md under Shephards Flock/NPCs/dustwalker/.",
+  "input": {
+    "user_message": "Dustwalker — one combat-relevant fact and one roleplay hook.\n\nFirst open `Elderwyld/Shephards Flock/NPCs/dustwalker/dustwalker_statblock.md` with **read_corpus_file**, then answer in short bullets. Mention that path in backticks inside your JSON `message`."
+  },
+  "steps": [],
+  "final": {
+    "require": {
+      "min_output_chars": 100,
+      "tool_trace_must_include_tool": "read_corpus_file",
+      "read_corpus_paths_must_include": [
+        "shephards flock",
+        "dustwalker"
+      ],
+      "cited_paths_must_match_reads": true,
+      "min_cited_markdown_paths": 1
+    }
+  }
+}

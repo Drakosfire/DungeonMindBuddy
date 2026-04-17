@@ -16,11 +16,14 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import urllib.error
 import urllib.request
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable
+
+import blake3
 
 from src.agent.planner_pricing import usage_cost_usd
 from src.agent.planner_turn_output_schema import (
@@ -47,6 +50,10 @@ from src.prompts.corpus_session_planner import (
 
 _MAX_FILE_CHARS = 30_000
 _MAX_TOOL_ROUNDS_PER_USER_TURN = 25
+
+# Bumped in ``planner_cache`` meta when corpus manifest format changes (tree + ref tokens).
+PLANNER_MANIFEST_BUILDER_ID = "corpus_path_refs_v1"
+_CORPUS_REF_HEX = re.compile(r"^[0-9a-f]{10,32}$", re.IGNORECASE)
 
 _STATBLOCK_URL_ENV = "DUNGEONMIND_STATBLOCK_URL"
 _STATBLOCK_API_KEY_ENV = "DUNGEONMIND_STATBLOCK_API_KEY"
@@ -86,11 +93,55 @@ def _resolve_planner_model(model: str | None) -> str:
     return _DEFAULT_PLANNER_MODEL
 
 
-def build_corpus_manifest(corpus_dir: Path) -> str:
-    """Build an indented tree of directories and .md files under corpus_dir."""
+def _assign_unique_path_refs(sorted_relpaths: list[str]) -> tuple[dict[str, str], dict[str, str]]:
+    """
+    Deterministic short refs for corpus-relative markdown paths.
+
+    Returns ``(ref_hex -> relpath, relpath -> ref_hex)`` with lowercase hex keys.
+    """
+    ref_to_rel: dict[str, str] = {}
+    rel_to_ref: dict[str, str] = {}
+    for rel in sorted_relpaths:
+        digest = blake3.blake3(rel.encode("utf-8")).hexdigest()
+        width = 10
+        chosen: str | None = None
+        while width <= 32:
+            cand = digest[:width].lower()
+            existing = ref_to_rel.get(cand)
+            if existing is None or existing == rel:
+                chosen = cand
+                break
+            width += 2
+        if chosen is None:
+            raise RuntimeError(f"could not assign unique corpus path ref for {rel!r}")
+        ref_to_rel[chosen] = rel
+        rel_to_ref[rel] = chosen
+    return ref_to_rel, rel_to_ref
+
+
+def build_corpus_path_ref_index(corpus_dir: Path) -> dict[str, str]:
+    """Map ``ref_hex`` -> corpus-relative ``.md`` path (posix). Empty when corpus is missing."""
     root = corpus_dir.resolve()
     if not root.is_dir():
-        return f"(corpus directory not found: {root})"
+        return {}
+    rels = sorted(p.relative_to(root).as_posix() for p in root.rglob("*.md") if p.is_file())
+    ref_to_rel, _ = _assign_unique_path_refs(rels)
+    return ref_to_rel
+
+
+def build_corpus_manifest_and_ref_index(corpus_dir: Path) -> tuple[str, dict[str, str]]:
+    """
+    Indented corpus tree plus a ref map for stable ``c:<ref>`` read tokens.
+
+    Each ``.md`` line ends with `` [c:REF]`` so the model can pass ``path: "c:REF"`` without
+    transcribing long paths.
+    """
+    root = corpus_dir.resolve()
+    if not root.is_dir():
+        return (f"(corpus directory not found: {root})", {})
+
+    rels = sorted(p.relative_to(root).as_posix() for p in root.rglob("*.md") if p.is_file())
+    ref_to_rel, rel_to_ref = _assign_unique_path_refs(rels)
 
     lines: list[str] = [f"Corpus root: {root.name}/", ""]
 
@@ -104,10 +155,64 @@ def build_corpus_manifest(corpus_dir: Path) -> str:
                 extension = "    " if is_last else "│   "
                 walk(entry, prefix + extension)
             elif entry.suffix.lower() == ".md":
-                lines.append(f"{prefix}{branch}{entry.name}")
+                relpath = entry.relative_to(root).as_posix()
+                ref = rel_to_ref[relpath]
+                lines.append(f"{prefix}{branch}{entry.name}  [c:{ref}]")
 
     walk(root, "")
-    return "\n".join(lines)
+    return "\n".join(lines), ref_to_rel
+
+
+def build_corpus_manifest(corpus_dir: Path) -> str:
+    """Build an indented tree of directories and ``.md`` files (with `` [c:REF]`` tokens per file)."""
+    return build_corpus_manifest_and_ref_index(corpus_dir)[0]
+
+
+def _resolve_planner_read_argument(
+    corpus_dir: Path,
+    raw: str,
+    ref_index: dict[str, str],
+) -> str:
+    """
+    Turn ``read_corpus_file`` / ``load_context_markdown`` ``path`` into a corpus-relative path string.
+
+    Accepts ``c:<ref>`` (or bare ``<ref>`` when it matches the ref map and has no ``/``),
+    otherwise returns a normalized literal relative path attempt.
+    """
+    s = raw.strip().replace("\\", "/")
+    if not s:
+        return ""
+    low = s.lower()
+    if low.startswith("c:"):
+        tok = s[2:].strip().lower()
+        return ref_index.get(tok, "")
+    if "/" not in s and _CORPUS_REF_HEX.match(low) and low in ref_index:
+        return ref_index[low]
+    return s.lstrip("/")
+
+
+def _canonical_corpus_relpath(corpus_dir: Path, rel: str) -> str | None:
+    path = _resolve_safe_corpus_file(corpus_dir, rel)
+    if path is None:
+        return None
+    return path.relative_to(corpus_dir.resolve()).as_posix()
+
+
+def arguments_for_read_tool_trace(
+    corpus_path: Path,
+    tool_name: str,
+    args_obj: dict[str, Any],
+    ref_map: dict[str, str],
+) -> dict[str, Any]:
+    """Copy tool ``arguments`` with ``path`` rewritten to a canonical corpus-relative ``.md`` path when known."""
+    trace_args = dict(args_obj)
+    if tool_name in ("read_corpus_file", "load_context_markdown"):
+        p0 = str(args_obj.get("path", "")).strip()
+        resolved = _resolve_planner_read_argument(corpus_path, p0, ref_map) or p0
+        canon = _canonical_corpus_relpath(corpus_path, resolved)
+        if canon:
+            trace_args["path"] = canon
+    return trace_args
 
 
 def _resolve_safe_corpus_file(corpus_dir: Path, rel_path: str) -> Path | None:
@@ -179,8 +284,9 @@ def _planner_tools_responses() -> list[dict[str, Any]]:
             "name": "read_corpus_file",
             "description": (
                 "Load the full text of one `.md` file under the campaign corpus root. "
-                "Pass a relative path exactly as it appears in the injected corpus tree or a hub "
-                "`README.md` suggested-reads list (literal characters only—do not use `*` or `?` shell globs). "
+                "Pass either a corpus-relative path (tree or hub README) **or** a `c:…` ref copied from "
+                "the ` [c:…] ` suffix after each `.md` line in the tree (server resolves to the real path). "
+                "Literal paths only—no `*` or `?` globs. "
                 "Returns the file body for grounding; very large files may be truncated with a clear suffix "
                 "in the return text. "
                 "Call before stating campaign-specific facts from that file; how reads appear in your "
@@ -193,8 +299,8 @@ def _planner_tools_responses() -> list[dict[str, Any]]:
                     "path": {
                         "type": "string",
                         "description": (
-                            "Corpus-relative path to a `.md` file, e.g. "
-                            "`Elderwyld/Migrating Forest/the_migrating_forest_executive_dm_summary.md`"
+                            "Corpus-relative `.md` path **or** `c:<ref>` from the tree's ` [c:…] ` suffix "
+                            "(avoids transcribing long paths)."
                         ),
                     }
                 },
@@ -215,7 +321,7 @@ def _planner_tools_responses() -> list[dict[str, Any]]:
                 "If you will call `generate_statblock` with `source_statblock_corpus_path` naming a "
                 "corpus statblock you discovered, call `load_context_markdown` on that same path first "
                 "when the file exists. "
-                "Literal corpus-relative path only—no globs."
+                "Corpus-relative path or `c:<ref>` from the tree—no globs."
             ),
             "strict": False,
             "parameters": {
@@ -224,49 +330,12 @@ def _planner_tools_responses() -> list[dict[str, Any]]:
                     "path": {
                         "type": "string",
                         "description": (
-                            "Corpus-relative path to the `.md` file to attach (e.g. canonical "
-                            "`*_statblock_*.md`)."
+                            "Corpus-relative `.md` path or `c:<ref>` token for the file to attach "
+                            "(e.g. canonical `*_statblock_*.md`)."
                         ),
                     }
                 },
                 "required": ["path"],
-                "additionalProperties": False,
-            },
-        },
-        {
-            "type": "function",
-            "name": "propose_clarification",
-            "description": (
-                "Record **one** clarifying question when missing information would force a **guess** on "
-                "something the GM cares about (any domain—power tier, scope, entity, timeline, canon layer, "
-                "etc.). Follow system instructions for **meaningful, concise** clarifiers: single question, "
-                "actionable in one reply, grounded in what they already said, no questionnaire. "
-                "Call **at most once** per user turn; use the exact wording you would show the GM. "
-                "After the tool returns, continue in your assistant message (or end with only the "
-                "question if that is the whole reply). The original user request stays in this "
-                "conversation for follow-up user messages in the same response thread."
-            ),
-            "strict": False,
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "question": {
-                        "type": "string",
-                        "description": (
-                            "One short, actionable question only (see system instructions: name the gap, "
-                            "tie it to the GM’s ask, answerable in one line)."
-                        ),
-                    },
-                    "missing_slots": {
-                        "type": "array",
-                        "items": {"type": "string"},
-                        "description": (
-                            "Optional tags for what is missing, e.g. `target_cr`, `class_level`, `scope`, "
-                            "`entity`, `timeline`, `canon_layer`."
-                        ),
-                    },
-                },
-                "required": ["question"],
                 "additionalProperties": False,
             },
         },
@@ -290,8 +359,8 @@ def _planner_tools_responses() -> list[dict[str, Any]]:
                     "source_statblock_corpus_path": {
                         "type": "string",
                         "description": (
-                            "Optional. Corpus-relative path to an existing `.md` statblock the tool "
-                            "reads and sends as `source_statblock_markdown` to the statblock service "
+                            "Optional. Corpus-relative path **or** `c:<ref>` to an existing `.md` statblock "
+                            "the tool reads and sends as `source_statblock_markdown` to the statblock service "
                             "(and includes in the local fallback prompt). Use this instead of pasting "
                             "the full statblock into `description`; name the NPC and your deltas in "
                             "`description`. When this path came from research (hub README / tree), "
@@ -334,8 +403,14 @@ def make_tool_dispatcher(
     *,
     statblock_stub: str | None = None,
     tool_cost_sink: list[dict[str, Any]] | None = None,
+    corpus_path_ref_index: dict[str, str] | None = None,
 ) -> Callable[[str, str], str]:
     """Build the planner tool dispatch closure (corpus reads, context loads, statblock)."""
+    ref_index: dict[str, str] = (
+        corpus_path_ref_index
+        if corpus_path_ref_index is not None
+        else build_corpus_path_ref_index(corpus_path)
+    )
 
     def dispatch(name: str, raw_args: str) -> str:
         try:
@@ -343,19 +418,43 @@ def make_tool_dispatcher(
         except json.JSONDecodeError as exc:
             return f"Error: invalid JSON arguments for {name}: {exc}"
         if name in ("read_corpus_file", "load_context_markdown"):
-            path = str(args.get("path", "")).strip()
-            if not path:
+            path_raw = str(args.get("path", "")).strip()
+            if not path_raw:
                 return "Error: missing path."
-            body = _read_corpus_file_impl(corpus_path, path)
+            if path_raw.lower().startswith("c:") and not _resolve_planner_read_argument(
+                corpus_path, path_raw, ref_index
+            ):
+                return (
+                    "Error: unknown corpus file ref "
+                    f"{path_raw!r}. Copy a ` [c:…] ` token from the corpus tree after the `.md` name, "
+                    "or pass the full corpus-relative `.md` path."
+                )
+            resolved = _resolve_planner_read_argument(corpus_path, path_raw, ref_index) or path_raw
+            body = _read_corpus_file_impl(corpus_path, resolved)
+            if body.startswith("Error:"):
+                return body
+            canon = _canonical_corpus_relpath(corpus_path, resolved)
             if name == "load_context_markdown":
-                return f"[context attached: {path}]\n\n{body}"
+                label = canon or resolved
+                return f"[context attached: {label}]\n\n{body}"
             return body
         if name == "generate_statblock":
             cn = str(args.get("creature_name", "")).strip()
             desc = str(args.get("description", "")).strip()
             cr = args.get("challenge_rating")
             cr_str = str(cr).strip() if cr is not None else None
-            src_rel = str(args.get("source_statblock_corpus_path", "")).strip()
+            src_raw = str(args.get("source_statblock_corpus_path", "")).strip()
+            if src_raw.lower().startswith("c:") and not _resolve_planner_read_argument(
+                corpus_path, src_raw, ref_index
+            ):
+                return (
+                    "Error: unknown corpus file ref "
+                    f"{src_raw!r} for source_statblock_corpus_path. Copy a ` [c:…] ` token from the "
+                    "corpus tree, or pass the full corpus-relative `.md` path."
+                )
+            src_rel = (
+                _resolve_planner_read_argument(corpus_path, src_raw, ref_index) or src_raw
+            ).strip()
             src_fmt = str(args.get("source_statblock_format", "markdown") or "markdown").strip().lower()
             if src_fmt not in ("markdown", "html"):
                 src_fmt = "markdown"
@@ -391,30 +490,6 @@ def make_tool_dispatcher(
                     f"wire_format={src_fmt}]\n\n{text}"
                 )
             return text
-        if name == "propose_clarification":
-            q = str(args.get("question", "")).strip()
-            if not q:
-                return "Error: question is required."
-            slots = args.get("missing_slots")
-            if slots is None:
-                slots_list: list[Any] = []
-            elif isinstance(slots, list):
-                slots_list = slots
-            else:
-                slots_list = []
-            slots_json = json.dumps(slots_list, ensure_ascii=False)
-            _planner_logger.info(
-                "[dmb.planner.clarification_tool] question=%r missing_slots=%s",
-                q,
-                slots_json,
-            )
-            return (
-                "[clarification recorded]\n"
-                f"question: {q}\n"
-                f"missing_slots: {slots_json}\n"
-                "The original user request remains in this conversation for your next assistant "
-                "message or a follow-up user reply in the same thread."
-            )
         return f"Error: unknown tool {name!r}"
 
     return dispatch
@@ -441,6 +516,24 @@ class PlanningModelStepRecord:
 
 
 @dataclass
+class ClarificationAlignmentReport:
+    """Diagnostic record for ``apply_clarification_alignment_to_final_text`` (legacy hook).
+
+    Clarification is expressed only in the model's final JSON; ``mode`` is always
+    ``"no_clarification"`` and ``final_text`` is never rewritten here.
+    """
+
+    mode: str
+    canonical_question: str | None = None
+    pre_message_chars: int | None = None
+    post_message_chars: int | None = None
+
+    @property
+    def changed(self) -> bool:
+        return False
+
+
+@dataclass
 class PlanningTurnDetail:
     """Full turn with per-model-response steps (for live eval against a real model)."""
 
@@ -452,6 +545,10 @@ class PlanningTurnDetail:
     telemetry_cost: dict[str, Any] | None = None
     #: One entry per ``responses.create`` completion (API ``usage`` for that response).
     usage_rounds: list[dict[str, Any]] = field(default_factory=list)
+    #: Raw model output before clarification alignment when alignment changed bytes; else ``None``.
+    pre_alignment_final_text: str | None = None
+    #: Diagnostic for the clarification alignment pass; ``None`` when alignment was never invoked.
+    clarification_alignment: ClarificationAlignmentReport | None = None
 
     def as_turn_result(self) -> PlanningTurnResult:
         return PlanningTurnResult(
@@ -500,6 +597,8 @@ def merge_planning_turn_details(
         hit_tool_round_limit=first.hit_tool_round_limit or second.hit_tool_round_limit,
         telemetry_cost=merged_tc,
         usage_rounds=list(first.usage_rounds) + list(second.usage_rounds),
+        pre_alignment_final_text=second.pre_alignment_final_text,
+        clarification_alignment=second.clarification_alignment,
     )
 
 
@@ -532,6 +631,15 @@ def _function_calls_payload(response: Any) -> list[dict[str, Any]]:
     return rows
 
 
+def apply_clarification_alignment_to_final_text(
+    tool_trace: list[dict[str, Any]],
+    final_text: str,
+) -> tuple[str, ClarificationAlignmentReport]:
+    """Passthrough: the planner no longer has a clarification tool; GM-facing text is only in JSON."""
+    _ = tool_trace
+    return final_text, ClarificationAlignmentReport(mode="no_clarification")
+
+
 def run_planning_turn_detailed(
     *,
     client: Any,
@@ -543,6 +651,7 @@ def run_planning_turn_detailed(
     previous_response_id: str | None,
     dispatch_tool: Callable[[str, str], str],
     telemetry_context: dict[str, Any] | None = None,
+    corpus_path_ref_index: dict[str, str] | None = None,
 ) -> PlanningTurnDetail:
     """Like ``run_planning_turn`` but records each model response as a ``PlanningModelStepRecord``."""
     api_client = DungeonMindApiClient.wrap(client)
@@ -561,6 +670,11 @@ def run_planning_turn_detailed(
     tool_trace: list[dict[str, Any]] = []
     steps: list[PlanningModelStepRecord] = []
     usage_rounds: list[dict[str, Any]] = []
+    ref_map: dict[str, str] = (
+        corpus_path_ref_index
+        if corpus_path_ref_index is not None
+        else build_corpus_path_ref_index(corpus_path)
+    )
     create_kw: dict[str, Any] = {
         "model": model_id,
         "instructions": instructions,
@@ -645,6 +759,26 @@ def run_planning_turn_detailed(
         calls = _function_calls_from_response(response)
         if not calls:
             text = (response.output_text or "").strip()
+            aligned_text, align_report = apply_clarification_alignment_to_final_text(
+                tool_trace, text
+            )
+            pre_alignment_final_text = text if aligned_text != text else None
+            if align_report.mode != "no_clarification":
+                log_telemetry(
+                    {
+                        **ctx,
+                        "event": "clarification_align",
+                        "mode": align_report.mode,
+                        "question_chars": (
+                            len(align_report.canonical_question)
+                            if align_report.canonical_question is not None
+                            else 0
+                        ),
+                        "pre_message_chars": align_report.pre_message_chars,
+                        "post_message_chars": align_report.post_message_chars,
+                        "changed": align_report.changed,
+                    }
+                )
             tc_full = usage_cost_usd(
                 model_id=model_id,
                 input_tokens=int(usage_totals["input_tokens"]),
@@ -657,7 +791,7 @@ def run_planning_turn_detailed(
                     "event": "turn_complete",
                     "ok": True,
                     "hit_tool_round_limit": False,
-                    "final_text_chars": len(text),
+                    "final_text_chars": len(aligned_text),
                     "usage_totals": dict(usage_totals),
                     "latency_ms_by_round": list(latency_ms_rounds),
                     "model_response_count": len(steps),
@@ -670,7 +804,7 @@ def run_planning_turn_detailed(
                 }
             )
             return PlanningTurnDetail(
-                final_text=text,
+                final_text=aligned_text,
                 last_response_id=response.id,
                 tool_trace=tool_trace,
                 steps=steps,
@@ -682,6 +816,8 @@ def run_planning_turn_detailed(
                     "pricing_note": "approximate public list prices; verify against billing",
                 },
                 usage_rounds=list(usage_rounds),
+                pre_alignment_final_text=pre_alignment_final_text,
+                clarification_alignment=align_report,
             )
 
         tool_inputs: list[dict[str, Any]] = []
@@ -693,10 +829,11 @@ def run_planning_turn_detailed(
             except json.JSONDecodeError:
                 args_obj = {"_raw": raw}
             out = dispatch_tool(name, raw)
+            trace_args = arguments_for_read_tool_trace(corpus_path, name, args_obj, ref_map)
             tool_trace.append(
                 {
                     "tool": name,
-                    "arguments": args_obj,
+                    "arguments": trace_args,
                     "output_chars": len(out),
                     "output_excerpt": out[:800],
                 }
@@ -786,6 +923,24 @@ def run_planning_turn_detailed(
         )
 
     text = (response.output_text or "").strip()
+    aligned_text, align_report = apply_clarification_alignment_to_final_text(tool_trace, text)
+    pre_alignment_final_text = text if aligned_text != text else None
+    if align_report.mode != "no_clarification":
+        log_telemetry(
+            {
+                **ctx,
+                "event": "clarification_align",
+                "mode": align_report.mode,
+                "question_chars": (
+                    len(align_report.canonical_question)
+                    if align_report.canonical_question is not None
+                    else 0
+                ),
+                "pre_message_chars": align_report.pre_message_chars,
+                "post_message_chars": align_report.post_message_chars,
+                "changed": align_report.changed,
+            }
+        )
     tc_full = usage_cost_usd(
         model_id=model_id,
         input_tokens=int(usage_totals["input_tokens"]),
@@ -798,7 +953,7 @@ def run_planning_turn_detailed(
             "event": "turn_complete",
             "ok": not hit_limit,
             "hit_tool_round_limit": hit_limit,
-            "final_text_chars": len(text),
+            "final_text_chars": len(aligned_text),
             "usage_totals": dict(usage_totals),
             "latency_ms_by_round": list(latency_ms_rounds),
             "model_response_count": len(steps),
@@ -811,7 +966,7 @@ def run_planning_turn_detailed(
         }
     )
     return PlanningTurnDetail(
-        final_text=text,
+        final_text=aligned_text,
         last_response_id=response.id,
         tool_trace=tool_trace,
         steps=steps,
@@ -823,6 +978,8 @@ def run_planning_turn_detailed(
             "pricing_note": "approximate public list prices; verify against billing",
         },
         usage_rounds=list(usage_rounds),
+        pre_alignment_final_text=pre_alignment_final_text,
+        clarification_alignment=align_report,
     )
 
 
@@ -836,6 +993,7 @@ def run_planning_turn(
     user_line: str,
     previous_response_id: str | None,
     dispatch_tool: Callable[[str, str], str],
+    corpus_path_ref_index: dict[str, str] | None = None,
 ) -> PlanningTurnResult:
     """Run a single planning turn: user message → tool loop → final assistant text."""
     return run_planning_turn_detailed(
@@ -847,6 +1005,7 @@ def run_planning_turn(
         user_line=user_line,
         previous_response_id=previous_response_id,
         dispatch_tool=dispatch_tool,
+        corpus_path_ref_index=corpus_path_ref_index,
     ).as_turn_result()
 
 
@@ -1059,10 +1218,12 @@ def run_planning_session(
     client = OpenAI(api_key=api_key)
     model_id = _resolve_planner_model(model)
 
-    manifest = build_corpus_manifest(corpus_path)
+    manifest, ref_index = build_corpus_manifest_and_ref_index(corpus_path)
     system_prompt = _build_system_prompt(manifest)
     tools = _planner_tools_responses()
-    dispatch_tool = make_tool_dispatcher(corpus_path, client, model_id)
+    dispatch_tool = make_tool_dispatcher(
+        corpus_path, client, model_id, corpus_path_ref_index=ref_index
+    )
 
     pending_input = list(stdin_lines or [])
     input_idx = 0
@@ -1108,6 +1269,7 @@ def run_planning_session(
             user_line=line,
             previous_response_id=last_response_id,
             dispatch_tool=dispatch_tool,
+            corpus_path_ref_index=ref_index,
         )
         last_response_id = turn.last_response_id
         if turn.hit_tool_round_limit:

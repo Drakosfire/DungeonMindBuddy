@@ -1,0 +1,20 @@
+{
+  "id": "npc_voice_dustwalker_upgrade_scarier",
+  "version": 1,
+  "fixture_role": "dustwalker_upgrade_scarier",
+  "fixture_note": "GM voice: 'The dustwalker doesn't feel scary enough.' Open-ended upgrade ask. Pass when planner reads the canonical statblock and emits an upgrade-shaped plan (intent=upgrade_request); a clarifier is allowed but not required. Corpus: Elderwyld/Shephards Flock/NPCs/dustwalker/dustwalker_statblock.md.",
+  "input": {
+    "user_message": "The dustwalker doesn't feel scary enough."
+  },
+  "steps": [],
+  "final": {
+    "require": {
+      "min_output_chars": 80,
+      "tool_trace_must_include_tool": "read_corpus_file",
+      "read_corpus_paths_must_include": ["dustwalker"],
+      "output_must_be_json_object": true,
+      "output_json_must_include_keys": ["user_intent", "message"],
+      "output_json_user_intent_equals": "upgrade_request"
+    }
+  }
+}

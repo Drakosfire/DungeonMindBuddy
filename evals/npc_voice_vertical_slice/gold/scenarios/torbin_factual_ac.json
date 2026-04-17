@@ -1,0 +1,18 @@
+{
+  "id": "npc_voice_torbin_factual_ac",
+  "version": 1,
+  "fixture_role": "torbin_factual_ac",
+  "fixture_note": "Mechanical fact from torbin_jove_statblock.md (Armor Class : 10).",
+  "input": {
+    "user_message": "Quick sanity check before I run a skirmish: what's Torbin Jove's armor class on the sheet we ingested?"
+  },
+  "steps": [],
+  "final": {
+    "require": {
+      "min_output_chars": 40,
+      "tool_trace_must_include_tool": "read_corpus_file",
+      "read_corpus_paths_must_include": ["torbin_jove", "torbin"],
+      "output_text_contains_any": ["10", "AC 10", "Armor Class", "armor class"]
+    }
+  }
+}

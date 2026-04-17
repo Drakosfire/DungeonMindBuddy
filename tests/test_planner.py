@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -13,6 +14,8 @@ from src.agent.planner import (
     _read_corpus_file_impl,
     _resolve_safe_corpus_file,
     build_corpus_manifest,
+    build_corpus_path_ref_index,
+    make_tool_dispatcher,
 )
 
 
@@ -25,8 +28,19 @@ def test_build_corpus_manifest_simple_tree(tmp_path: Path) -> None:
     tree = build_corpus_manifest(tmp_path)
     assert "Alpha/" in tree
     assert "one.md" in tree
+    assert "  [c:" in tree
     assert "Beta.md" in tree
     assert "skip.txt" not in tree
+
+
+def test_read_corpus_via_stable_ref_token(tmp_path: Path) -> None:
+    (tmp_path / "d").mkdir()
+    (tmp_path / "d" / "f.md").write_text("ok\n", encoding="utf-8")
+    idx = build_corpus_path_ref_index(tmp_path)
+    ref = next(r for r, rel in idx.items() if rel.endswith("d/f.md"))
+    dispatch = make_tool_dispatcher(tmp_path, object(), "gpt-mock", corpus_path_ref_index=idx)
+    out = dispatch("read_corpus_file", json.dumps({"path": f"c:{ref}"}))
+    assert "ok" in out
 
 
 def test_resolve_safe_rejects_parent_traversal(tmp_path: Path) -> None:

@@ -72,14 +72,8 @@ def test_format_context_wiring_lines_no_load_context_warns() -> None:
     assert "load_context_markdown: 0 calls" in text
 
 
-def test_format_clarification_evidence_lines_tool_and_turn0() -> None:
-    trace = [
-        {
-            "tool": "propose_clarification",
-            "arguments": {"question": "What CR for the siege?", "missing_slots": ["target_cr"]},
-            "output_chars": 12,
-        }
-    ]
+def test_format_clarification_evidence_lines_with_turn0_prose() -> None:
+    trace = [{"tool": "read_corpus_file", "arguments": {"path": "hub/README.md"}, "output_chars": 50}]
     text = "\n".join(
         format_clarification_evidence_lines(
             trace,
@@ -87,8 +81,8 @@ def test_format_clarification_evidence_lines_tool_and_turn0() -> None:
             first_turn_final_text="What target CR should she be?",
         )
     )
-    assert "propose_clarification tool: 1 call" in text
-    assert "What CR for the siege?" in text
+    assert "no separate clarification tool" in text
+    assert "tool_trace rows (for context): 1" in text
     assert "What target CR should she be?" in text
     assert "heuristic_turn0_asks_target_cr_in_prose" in text
 
@@ -102,7 +96,7 @@ def test_format_clarification_evidence_lines_prose_only_heuristic() -> None:
             first_turn_final_text="Which CR do you want for Lysandra?",
         )
     )
-    assert "propose_clarification tool: 0 calls" in text
+    assert "no separate clarification tool" in text
     assert "heuristic_turn0_asks_target_cr_in_prose" in text
     assert "True" in text
 
@@ -123,7 +117,7 @@ def test_planner_step1_fixture_shape(scenario_key: str) -> None:
         assert req.get("tool_trace_must_include_tool") == "read_corpus_file"
     else:
         assert req.get("output_must_be_json_object") is True
-        assert req.get("output_json_user_intent_equals") == "upgrade_request"
+        assert req.get("output_json_user_intent_equals") == "needs_clarification"
     subs = req.get("read_corpus_paths_must_include") or []
     # ``upgrade_prose`` and ``clarify_cr`` choose reads dynamically; no fixed path substrings.
     if scenario_key not in ("upgrade_prose", "clarify_cr"):
@@ -133,8 +127,7 @@ def test_planner_step1_fixture_shape(scenario_key: str) -> None:
         assert str(follow.get("user_message", "")).strip()
         assert not (req.get("tool_trace_must_include_tools") or [])
     else:
-        assert "propose_clarification" in (req.get("tool_trace_must_include_tools") or [])
-        assert req.get("propose_clarification_must_satisfy")
+        assert not (req.get("tool_trace_must_include_tools") or [])
 
 
 def test_planner_step1_upgrade_prose_synthetic_two_turn_merged_passes_gates() -> None:
@@ -294,20 +287,11 @@ def test_planner_step1_gates_pass_synthetic_trace_clarify_cr() -> None:
     sc = load_planner_step1_scenario("clarify_cr")
     detail = PlanningTurnDetail(
         final_text=(
-            '{"user_intent":"upgrade_request","message":"Before I lock numbers: what CR do you want '
-            'Lysandra to land on for this siege arc?"}'
+            '{"user_intent":"needs_clarification","message":"What target CR should Lysandra '
+            'be for the siege arc?"}'
         ),
         last_response_id="r1",
-        tool_trace=[
-            {
-                "tool": "propose_clarification",
-                "arguments": {
-                    "question": "What target CR should Lysandra be for the siege arc?",
-                    "missing_slots": ["target_cr"],
-                },
-                "output_chars": 120,
-            },
-        ],
+        tool_trace=[],
         steps=[],
         hit_tool_round_limit=False,
     )
@@ -315,21 +299,12 @@ def test_planner_step1_gates_pass_synthetic_trace_clarify_cr() -> None:
     assert viol == {}
 
 
-def test_planner_step1_gates_fail_clarify_cr_when_slot_missing() -> None:
+def test_planner_step1_gates_fail_clarify_cr_when_not_cr_oriented() -> None:
     sc = load_planner_step1_scenario("clarify_cr")
     detail = PlanningTurnDetail(
-        final_text='{"user_intent":"upgrade_request","message":"What tone do you want for the rewrite?"}',
+        final_text='{"user_intent":"needs_clarification","message":"What tone do you want for the rewrite?"}',
         last_response_id="r1",
-        tool_trace=[
-            {
-                "tool": "propose_clarification",
-                "arguments": {
-                    "question": "What tone should I use?",
-                    "missing_slots": ["tone"],
-                },
-                "output_chars": 80,
-            },
-        ],
+        tool_trace=[],
         steps=[],
         hit_tool_round_limit=False,
     )

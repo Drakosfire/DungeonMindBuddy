@@ -1,0 +1,66 @@
+{
+  "schema": "npc_voice_planner_manifest_v1",
+  "description": "Ordered NPC voice planner scenarios; run individually via NPC_VOICE_PLANNER_SCENARIO or full suite via CLI --all.",
+  "scenarios": [
+    {
+      "id": "torbin_clarify_bump_cr",
+      "gold_relpath": "gold/scenarios/torbin_clarify_bump_cr.json",
+      "tags": ["clarify", "torbin"]
+    },
+    {
+      "id": "torbin_factual_recruited_kid",
+      "gold_relpath": "gold/scenarios/torbin_factual_recruited_kid.json",
+      "tags": ["factual", "torbin", "gm-voice"]
+    },
+    {
+      "id": "dustwalker_upgrade_scarier",
+      "gold_relpath": "gold/scenarios/dustwalker_upgrade_scarier.json",
+      "tags": ["upgrade", "dustwalker", "gm-voice"]
+    },
+    {
+      "id": "flock_clarify_baddie_with_hat",
+      "gold_relpath": "gold/scenarios/flock_clarify_baddie_with_hat.json",
+      "tags": ["clarify", "shepherds-flock", "ambiguous-referent", "gm-voice"]
+    },
+    {
+      "id": "torbin_factual_ac",
+      "gold_relpath": "gold/scenarios/torbin_factual_ac.json",
+      "tags": ["factual", "torbin"]
+    },
+    {
+      "id": "torbin_factual_cr",
+      "gold_relpath": "gold/scenarios/torbin_factual_cr.json",
+      "tags": ["factual", "torbin"]
+    },
+    {
+      "id": "torbin_directed_two_files",
+      "gold_relpath": "gold/scenarios/torbin_directed_two_files.json",
+      "tags": ["directed", "torbin"]
+    },
+    {
+      "id": "dustwalker_factual_ac",
+      "gold_relpath": "gold/scenarios/dustwalker_factual_ac.json",
+      "tags": ["factual", "dustwalker"]
+    },
+    {
+      "id": "dustwalker_factual_cr",
+      "gold_relpath": "gold/scenarios/dustwalker_factual_cr.json",
+      "tags": ["factual", "dustwalker"]
+    },
+    {
+      "id": "dustwalker_directed_statblock_path",
+      "gold_relpath": "gold/scenarios/dustwalker_directed_statblock_path.json",
+      "tags": ["directed", "dustwalker"]
+    },
+    {
+      "id": "compare_torbin_and_dustwalker",
+      "gold_relpath": "gold/scenarios/compare_torbin_and_dustwalker.json",
+      "tags": ["comparison", "torbin", "dustwalker"]
+    },
+    {
+      "id": "torbin_autonomous_session_prep",
+      "gold_relpath": "gold/scenarios/torbin_autonomous_session_prep.json",
+      "tags": ["factual", "torbin", "autonomous"]
+    }
+  ]
+}

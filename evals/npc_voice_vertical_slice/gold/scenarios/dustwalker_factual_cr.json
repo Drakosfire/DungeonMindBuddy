@@ -1,0 +1,31 @@
+{
+  "id": "npc_voice_dustwalker_factual_cr",
+  "version": 1,
+  "fixture_role": "dustwalker_factual_cr",
+  "fixture_note": "GM voice: 'What is the Dustwalker's CR?'. Pure factual lookup — challenge_rating field is 3 in dustwalker_statblock.md JSON. Gate accepts common phrasings the model uses for that value.",
+  "input": {
+    "user_message": "What is the Dustwalker's CR?"
+  },
+  "steps": [],
+  "final": {
+    "require": {
+      "min_output_chars": 20,
+      "tool_trace_must_include_tool": "read_corpus_file",
+      "read_corpus_paths_must_include": ["dustwalker"],
+      "output_text_contains_any": [
+        "CR 3",
+        "cr 3",
+        "CR: 3",
+        "CR of 3",
+        "Challenge Rating 3",
+        "Challenge Rating: 3",
+        "challenge rating 3",
+        "challenge rating of 3",
+        "rating of 3",
+        "challenge_rating: 3",
+        "challenge_rating\": 3",
+        "is **3**"
+      ]
+    }
+  }
+}

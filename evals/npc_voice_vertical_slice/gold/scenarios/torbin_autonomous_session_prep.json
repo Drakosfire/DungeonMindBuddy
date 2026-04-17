@@ -1,0 +1,18 @@
+{
+  "id": "npc_voice_torbin_autonomous_session_prep",
+  "version": 1,
+  "fixture_role": "torbin_autonomous_session_prep",
+  "fixture_note": "Loose prep ask — any Torbin corpus read acceptable.",
+  "input": {
+    "user_message": "I'm running a town beat soon and Torbin might wander into a scene — grab whatever in our Longmont notes makes him playable at the table (personality + any numbers you can find) without me naming filenames."
+  },
+  "steps": [],
+  "final": {
+    "require": {
+      "min_output_chars": 140,
+      "tool_trace_must_include_tool": "read_corpus_file",
+      "read_corpus_paths_must_include": ["torbin"],
+      "output_text_contains_any": ["Torbin", "torbin"]
+    }
+  }
+}

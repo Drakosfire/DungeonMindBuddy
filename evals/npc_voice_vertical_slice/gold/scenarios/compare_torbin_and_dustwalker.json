@@ -1,0 +1,19 @@
+{
+  "id": "npc_voice_compare_torbin_and_dustwalker",
+  "version": 1,
+  "fixture_role": "compare_torbin_and_dustwalker",
+  "fixture_note": "Comparison ask — read both stat-ish sources; intent may be comparison_request or factual_lookup.",
+  "input": {
+    "user_message": "I'm deciding which encounter reads 'scarier on paper' for a cold open — Torbin Jove as written, versus Dustwalker from `Elderwyld/Shephards Flock/NPCs/dustwalker/dustwalker_statblock.md`. Skim both sheets and tell me which one looks more dangerous at a glance and why (HP/AC/CR vibes, not fanfic)."
+  },
+  "steps": [],
+  "final": {
+    "require": {
+      "min_output_chars": 160,
+      "tool_trace_must_include_tool": "read_corpus_file",
+      "read_corpus_paths_must_include": ["torbin_jove", "dustwalker"],
+      "output_text_contains_all": ["Torbin", "Dustwalker"],
+      "output_json_user_intent_in": ["comparison_request", "factual_lookup", "planning_request", null]
+    }
+  }
+}
