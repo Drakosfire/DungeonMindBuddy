@@ -2,7 +2,8 @@
 
 **Date:** April 2026
 **Context:** Lysandra vertical-slice benchmark — restructuring NPC corpus files so that a planner model (gpt-5.4-mini via Responses API) autonomously navigates to the right files.
-**Prescriptive rule:** `.cursor/rules/corpus-layout-conventions.mdc`
+**Prescriptive rule:** `.cursor/rules/corpus-layout-conventions.mdc`  
+**NPC hub template (Lysandra-shaped package):** `Docs/CONVENTION-NPC-Hub-Package.md`
 
 ---
 
@@ -182,6 +183,102 @@ Running the trace 2–4 times before declaring a change robust. Observing which 
 
 ---
 
+## Lesson 10 — Clarification belongs in the turn envelope, not in a tool
+
+### What failed
+
+We added a `propose_clarification` planner tool so the model could surface "I need more information before I can plan." The tool was easy to write but hard to govern:
+
+- The model called it on questions that already had enough corpus context, just to be safe.
+- The model also skipped it when it should have used it (silently guessing instead).
+- Eval gates had to special-case both directions (`must_call_propose_clarification`, `must_not_call_propose_clarification`) and the failure modes were noisy because the tool was a separate response branch.
+
+### What worked
+
+Removing the tool entirely (`88f02b6 Planner: JSON-only clarification; remove propose_clarification`). Clarification is now a structured field of the turn envelope: the model emits one JSON object per turn with `needs_clarification: true|false` plus a `clarification_question` string. Gates inspect a single object instead of branching on which tool happened to be called.
+
+### Principle
+
+**Prefer a structured field in the turn envelope to a dedicated tool when the only thing the "tool" does is surface a string of intent. Tools are for side effects (read corpus, attach context, write file); decisions belong in the JSON the model is already required to produce. Tests that need to assert legacy traces won't mis-fire should use `propose_clarification` only as a *negative* assertion (`assert "propose_clarification" not in tool_names`) or in legacy-tolerance helpers — never re-introduce the tool to "support older runs."**
+
+---
+
+## Lesson 11 — Some corpus files are character/world bible; the writer must refuse them
+
+### What failed
+
+The first sketch of a corpus writer treated all `.md` under the corpus root as fair game. Imagining a "session ended; update the dossier with what changed" flow led to a writer that could overwrite or append to `*_character_dossier.md`, `character_seed.md`, and `*_statblock*.md`. Three failure modes immediately surfaced in design review:
+
+- **Statblock drift** — mechanical numbers were authored once (RulesIngestion export or hand-tuned sheet); LLM appends would silently rewrite AC/HP/CR baselines that other tools (`generate_statblock`, downstream pipelines) treat as canonical.
+- **Voice drift** — dossiers are *character bibles* whose tone and bullet structure other prompts depend on; per-session edits accumulate into a dossier that no longer matches what the GM authored.
+- **Time-confused canon** — "X is now Y" lines added directly to a dossier mix world-bible truths with table-state continuity. The reader (model or human) loses the boundary between "who they are" and "what happened to them in session N."
+
+### What worked
+
+A **server-side allowlist in `src/agent/corpus_writer.py`** that *denies* the basenames `*_character_dossier.md`, `character_seed.md`, `*_statblock*.md` regardless of mode, even when corpus writes are otherwise enabled. State changes from a session land in:
+
+1. The **new recap file** (`Session Recaps/Session <N> - <slug>.md`) — long-form prose owns the "what happened."
+2. The NPC's **`timeline.md` row** — one-line beat + recap pointer; the chronology grid stays current without rewriting the dossier.
+
+The dossier and statblock are explicitly the **static** bibles; their update path is human, intentional, and out-of-band relative to a session writeup.
+
+### Principle
+
+**Every write tool needs an allowlist of *what it may touch* and a denylist of *what it must never touch*. Encode both in code (regex / basename match) and in docs (cursor rule + skill). Treat the denied set as immutable from any LLM's perspective: rejection is the correct answer, not a "feature gap." If session state needs to land somewhere, it lands in a *new* file (recap) or a *pointer* file (timeline), never in the bible.**
+
+---
+
+## Lesson 12 — Two-phase commit (`dry_run` → `confirm_token` → commit) for LLM writes
+
+### What failed
+
+The naive "model calls a write tool, file changes" loop fails three ways even with a perfect allowlist:
+
+- The operator has no chance to read the prose before it lands on disk.
+- The model has no way to recover if the file changed between its read and its write (concurrent edits, partial GM cleanup).
+- A vague "looks good" reply from the operator can't be distinguished from explicit consent.
+
+### What worked
+
+`write_corpus_file` and `append_timeline_row` both implement a strict two-phase commit:
+
+1. **Phase 1 — preview:** Tool is called with `dry_run=true` (the default). It builds the proposed content, computes a `confirm_token` = `blake3(path || mode || new_content || file_state_token(target))`, and returns `{phase: "preview", diff: <unified>, confirm_token: <hex>, ...}`. No bytes hit disk.
+2. **Operator review:** The skill is required to surface the diff to the GM in chat as a fenced block and wait for an explicit `apply` (or `apply <path>` for per-file approval). Replies like "sure" or "looks good" are treated as not-yet-approved.
+3. **Phase 2 — commit:** The tool is called again with `dry_run=false` and the `confirm_token` from phase 1. The token is recomputed; if the file changed in the meantime (its state-token shifted), the token mismatches and the commit is aborted with a `stale confirm_token` error. Otherwise the bytes are written and a `fingerprint_reminder` is included in the response.
+
+This shape means a stale token is *informative* (someone or something edited the file under us; re-preview), not a footgun.
+
+### Principle
+
+**LLM-driven file mutations should never be one-shot. Use a two-phase commit where phase 1 returns a preview + a token bound to (path, mode, content, file-state). The operator must paste back the token (via an explicit `apply` reply that the skill turns into the second tool call). Bind the token to the file's current state so concurrent edits abort instead of silently overwriting. Generalize this pattern to every future write tool — config writes, corpus writes, eval-gold writes — not just session recaps.**
+
+---
+
+## Lesson 13 — Benchmarking the recap writer is in the backlog (and that's OK)
+
+### Context
+
+After the writer landed, we explored how to benchmark the `session-summary-from-notes` skill **before** the next real raw-recap arrives. Four options were considered:
+
+| Option | What it measures | Cost | Verdict |
+|--------|------------------|------|---------|
+| A. Structural gates (frontmatter shape, file in right folder, timeline row well-formed) | Mechanical correctness of the artifact | Low | Cheap and worth doing once we have one real recap to point at. |
+| B. Time-rewind snapshot (delete Session N from corpus, feed prior raw notes back, compare to original) | End-to-end prose quality + path correctness | Medium (needs raw notes + golden recap) | Strong, but **we don't have the raw notes paired with the recaps** for sessions already in corpus. |
+| C. Compress-then-expand (LLM summarizes existing recap into "synthetic raw notes," then we ask the skill to recover the recap) | Round-trip fidelity | Medium | Risk: the compressor's choices about what to omit silently shape what the expander is even *capable* of producing. We'd be benchmarking the compressor as much as the writer. |
+| D. Mini-campaign (write a short toy campaign with paired notes ↔ recaps explicitly for the suite) | Same as B but with controlled inputs | High up-front, low recurring | Probably the right end state, but premature before we have one real raw-notes/recap pair to anchor expectations. |
+
+### Decision (April 2026)
+
+**Punt all four options to backlog** until the next real session writeup arrives. With one real raw → recap pair in hand, Option A becomes free, Option B becomes possible against a known-good target, and we get evidence about whether Options C/D are even worth building. Trying to benchmark in advance risks measuring our own assumptions.
+
+The detailed option write-up lives in `Docs/Plans/BACKLOG-session-recap-benchmarking.md`.
+
+### Principle
+
+**Don't build a benchmark for a skill before you have at least one real input/output pair to anchor it.** Synthetic inputs + synthetic golds tell you whether the skill is self-consistent, not whether it does what humans actually want. When real data is on a near horizon (next session), waiting is cheaper than guessing.
+
+---
+
 ## Anti-pattern quick reference
 
 | Anti-pattern | Consequence | Fix |
@@ -194,6 +291,10 @@ Running the trace 2–4 times before declaring a change robust. Observing which 
 | Mixed setting + campaign files in one folder | Ambiguous priority, wrong statblock opened | Two hubs, cross-linked, separate priority tables |
 | Forgetting fingerprint update after corpus edit | Stale eval gold, false test failures | Recompute + update `expected_fingerprint` immediately |
 | Declaring victory after 1 passing run | Stochastic regression on next attempt | Multiple runs before declaring robust |
+| Modeling clarification as a tool call | Noisy gates, model uses or skips it stochastically | JSON `needs_clarification` field in the turn envelope |
+| Letting a writer touch dossier / seed / statblock | Voice + mechanical drift; world-bible erosion | Server-side denylist (`*_character_dossier.md`, `character_seed.md`, `*_statblock*.md`) |
+| One-shot LLM writes (no preview) | No operator review; can't detect concurrent edits | Two-phase commit with `confirm_token` bound to file state |
+| Building a benchmark before any real input/output pair exists | Measures the synthesizer, not the skill | Wait for one real example, then add Option A first |
 
 ---
 

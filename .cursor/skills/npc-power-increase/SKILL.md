@@ -77,6 +77,10 @@ Aligns with **Docs/Plans/FLOW-npc-power-skill-pipeline.md**:
 
 **Benchmark CLI:** set ``LYSANDRA_PLANNER_USER_MESSAGE`` to your ask (and omit ``LYSANDRA_PLANNER_STEP1_SCENARIO``); the harness uses ``scenario_key_for_user_line`` so upgrade prompts pick ``upgrade_prose`` gold (gates only — no extra instruction appendix). Pin a scenario with ``LYSANDRA_PLANNER_STEP1_SCENARIO=…`` when needed.
 
+## See also (sibling skills)
+
+- **`session-summary-from-notes`** — write-enabled, prose-only. Use that skill when the GM hands you raw session notes and wants a numbered recap on disk plus appended NPC `timeline.md` rows. If a recap implies a future power bump for an NPC ("she stepped into command and held the line"), finish the recap commit first, then start a separate turn with this skill (`npc-power-increase`) to write the *creative direction* for the bump. Neither skill ever edits `*_character_dossier.md`, `character_seed.md`, or `*_statblock*.md` — those are the static character/world bible.
+
 ## Related repo wiring
 
 - Eval scenario **`upgrade_prose`** appends a short in-prompt summary of this protocol (`evals/lysandra_vertical_slice/step1_planner_trace.py`).

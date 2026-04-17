@@ -29,3 +29,21 @@ alwaysApply: true
 - **Cursor:** this repo does **not** use `.cursorignore` to hide PDFs.
 - **Git (standalone Buddy repo):** `DungeonMindBuddy/.gitignore` does **not** ignore `*.pdf`.
 - **Git (DungeonOverMind monorepo root):** root `.gitignore` historically had a blanket `*.pdf` (Java template cruft). It now includes `!/DungeonMindBuddy/corpus/**/*.pdf` so paths like `corpus/eldyrwild-markdown/Longmont Campaign/NPCs/` can be committed.
+
+## Planner runtime flags
+
+The planner is **read-only by default**. Optional capabilities are gated by explicit
+opt-in so eval and benchmark runs stay deterministic.
+
+| Capability | CLI flag | Env var | Default | Effect |
+|------------|----------|---------|---------|--------|
+| Corpus writes (`write_corpus_file`, `append_timeline_row`) | `dmb plan --allow-corpus-writes` | `DUNGEONMIND_PLANNER_ALLOW_WRITES=1` | **off** | Registers the two writer tools. Reads still work without it. Two-phase commit (`dry_run` → `confirm_token` → commit) is enforced by `src/agent/corpus_writer.py`; dossier / seed / statblock files remain server-side denied even when this flag is set. |
+
+When the writer tools are enabled, the planner cache key for system instructions
+includes a `_writes_on` suffix (see `src/agent/planner_cache.py`) so write-enabled and
+read-only sessions don't share the same cached instruction blob. If you flip the flag
+between runs and see the wrong tool list, clear the relevant bucket under
+`out/planner_eval_cache/` (the per-corpus cache root used by `load_or_build_planner_instructions`).
+
+Eval suites (`evals/lysandra_vertical_slice/*`, `evals/npc_voice_vertical_slice/*`)
+**must not** set this flag — their gates assume the read-only tool set.
