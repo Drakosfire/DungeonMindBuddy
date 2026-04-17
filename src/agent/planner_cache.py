@@ -40,19 +40,23 @@ def load_or_build_planner_instructions(
     corpus_dir: Path,
     *,
     cache_root: Path | None = None,
+    include_write_tools: bool = False,
 ) -> tuple[str, str]:
     """
     Return ``(instructions, fingerprint)`` for ``responses.create(instructions=...)``.
 
     Caches under ``cache_root`` (default ``out/planner_eval_cache``) so repeated eval
-    sessions skip rebuilding the manifest tree.
+    sessions skip rebuilding the manifest tree. ``include_write_tools`` selects the
+    instruction variant that documents the corpus-write tools; the cache uses a
+    distinct file suffix so writes-on/off variants don't clobber each other.
     """
     root = Path(cache_root or Path("out/planner_eval_cache"))
     bucket = cache_dir_for_corpus(root, corpus_dir)
     bucket.mkdir(parents=True, exist_ok=True)
     fp = corpus_fingerprint(corpus_dir)
-    inst_path = bucket / "instructions.txt"
-    meta_path = bucket / "meta.json"
+    suffix = "_writes_on" if include_write_tools else ""
+    inst_path = bucket / f"instructions{suffix}.txt"
+    meta_path = bucket / f"meta{suffix}.json"
 
     if inst_path.is_file() and meta_path.is_file():
         try:
@@ -62,13 +66,14 @@ def load_or_build_planner_instructions(
                 and str(meta.get("corpus_root")) == str(corpus_dir.resolve())
                 and str(meta.get("instructions_template_id", "")) == INSTRUCTIONS_TEMPLATE_ID
                 and str(meta.get("manifest_builder_id", "")) == PLANNER_MANIFEST_BUILDER_ID
+                and bool(meta.get("include_write_tools", False)) == bool(include_write_tools)
             ):
                 return inst_path.read_text(encoding="utf-8"), fp
         except (OSError, json.JSONDecodeError):
             pass
 
     manifest = build_corpus_manifest(corpus_dir)
-    instructions = _build_system_prompt(manifest)
+    instructions = _build_system_prompt(manifest, include_write_tools=include_write_tools)
     inst_path.write_text(instructions, encoding="utf-8")
     meta_path.write_text(
         json.dumps(
@@ -78,6 +83,7 @@ def load_or_build_planner_instructions(
                 "format": "planner_instructions_v1",
                 "instructions_template_id": INSTRUCTIONS_TEMPLATE_ID,
                 "manifest_builder_id": PLANNER_MANIFEST_BUILDER_ID,
+                "include_write_tools": bool(include_write_tools),
             },
             indent=2,
         ),

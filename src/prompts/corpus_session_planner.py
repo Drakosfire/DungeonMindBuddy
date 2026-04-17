@@ -41,6 +41,28 @@ Rules:
 - Do not add preamble or postscript — only the stat block Markdown.
 """
 
+# Appended to the planner instructions only when ``include_write_tools=True``.
+# Folded into ``INSTRUCTIONS_TEMPLATE_ID`` below so the cache busts when this paragraph changes,
+# even for callers that build instructions with writes off.
+_WRITE_TOOLS_ADDENDUM = """
+
+**Corpus writes (only when explicitly enabled this session):** Two function tools may be available — `write_corpus_file` and `append_timeline_row`. Both are **two-phase**: call once with `dry_run=true` (default) to receive a unified-diff `preview` plus a short `confirm_token`; surface the diff to the GM and wait for an explicit "apply" reply; then call again with `dry_run=false` and the **same** `confirm_token` to commit. A token mismatch (file or content changed between phases) aborts the write — re-run dry-run to refresh.
+
+**Write allowlist (enforced server-side):**
+- `write_corpus_file` `mode='create'` is allowed **only** for `**/Session Recaps/Session NN - <slug>.md` paths.
+- `write_corpus_file` `mode='append'` is allowed **only** for `**/NPCs/<slug>/timeline.md` and `**/NPCs/<slug>/README.md`.
+- `append_timeline_row` is the preferred wrapper for new timeline rows so the table is preserved.
+
+**Read-only corpus (NEVER write to these — server will reject):** character dossiers (`*_character_dossier.md`), seeds (`character_seed.md`), and statblocks (`*_statblock*.md`). Treat these as the static character/world bible. If a session changed an NPC's status, capture the change in the **new recap file** and let the timeline row + recap link carry the update; do not propose dossier or statblock rewrites here.
+
+**Session-recap creation flow:**
+1. Choose the campaign hub (e.g. `Longmont Campaign/Campaign 2/Session Recaps/`). Pick `next_session_number = max(parsed N in 'Session N - …' filenames) + 1`.
+2. Read 2–3 most-recent recaps to mirror tone, frontmatter, and length.
+3. Draft `Session <N> - <short slug>.md` with the same YAML frontmatter shape (`title`, `document_class: play`, `canon_layer: campaign`, `campaign_id`, `session: N`, `origin_session: N`, `last_updated_session: N`, `source_class: observed_session_recap`), then a numbered TLDR list of beats, then long-form prose.
+4. For each NPC slug that materially appeared, draft an `append_timeline_row` payload (slug, session number, one-cell beat, recap path).
+5. Surface every draft + diff to the GM in the same turn before any commit calls.
+"""
+
 _SESSION_PLANNER_INSTRUCTIONS_TEMPLATE = """You are a session-planning assistant for the Elderwyld / Longmont tabletop campaign.
 
 You have NO pre-loaded document text except the corpus tree below. Use the tool `read_corpus_file`
@@ -103,9 +125,11 @@ when you are sure.
 {manifest}
 """
 
-# Invalidates ``out/planner_eval_cache/*/meta.json`` when the instruction template changes.
+# Invalidates ``out/planner_eval_cache/*/meta.json`` when the template (or the write-tools
+# addendum) changes — both are folded into the id so writes-off and writes-on instructions
+# diverge whenever the addendum text changes.
 INSTRUCTIONS_TEMPLATE_ID: str = blake3.blake3(
-    _SESSION_PLANNER_INSTRUCTIONS_TEMPLATE.encode("utf-8")
+    (_SESSION_PLANNER_INSTRUCTIONS_TEMPLATE + _WRITE_TOOLS_ADDENDUM).encode("utf-8")
 ).hexdigest()[:24]
 
 
@@ -113,18 +137,24 @@ def build_corpus_session_planner_instructions(
     manifest: str,
     *,
     statblock_url_env_var: str = "DUNGEONMIND_STATBLOCK_URL",
+    include_write_tools: bool = False,
 ) -> str:
     """
     Full ``instructions`` string for ``responses.create`` on the planner turn.
 
     ``statblock_url_env_var`` is the name of the env var (for prose only), not its value.
+    When ``include_write_tools`` is true, append the corpus-write-tools addendum that
+    documents the two-phase commit contract and the dossier/seed/statblock immutability.
     """
     engine = (
         f"When the GM asks for a stat block, the tool `generate_statblock` calls your configured "
         f"DungeonMind endpoint ({statblock_url_env_var}) when set; otherwise it uses the same OpenAI "
         f"Responses API with a statblock-only instruction prompt."
     )
-    return _SESSION_PLANNER_INSTRUCTIONS_TEMPLATE.format(
+    base = _SESSION_PLANNER_INSTRUCTIONS_TEMPLATE.format(
         statblock_engine_paragraph=engine,
         manifest=manifest,
     )
+    if include_write_tools:
+        return base + _WRITE_TOOLS_ADDENDUM
+    return base

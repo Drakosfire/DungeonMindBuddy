@@ -276,9 +276,94 @@ def _read_corpus_file_impl(corpus_dir: Path, rel_path: str) -> str:
     return text
 
 
-def _planner_tools_responses() -> list[dict[str, Any]]:
-    """Function tools for ``responses.create`` (flat ``name`` / ``parameters``, not nested ``function``)."""
+def _planner_writer_tools_responses() -> list[dict[str, Any]]:
+    """Two-phase corpus-write tools (only registered when ``allow_corpus_writes=True``)."""
     return [
+        {
+            "type": "function",
+            "name": "write_corpus_file",
+            "description": (
+                "Guarded write into the campaign corpus. Two-phase commit: call once with "
+                "`dry_run=true` (default) to get a unified-diff `preview` and a `confirm_token`, "
+                "then call again with `dry_run=false` and the same `confirm_token` to actually "
+                "write. Path allowlist: `mode='create'` is only allowed for "
+                "`**/Session Recaps/Session NN - <slug>.md`; `mode='append'` is only allowed for "
+                "`**/NPCs/<slug>/timeline.md` and `**/NPCs/<slug>/README.md`. Dossier "
+                "(`*_character_dossier.md`), seed (`character_seed.md`), and statblock "
+                "(`*_statblock*.md`) files are read-only. Surface the diff to the human and wait "
+                "for explicit `apply` before the commit phase."
+            ),
+            "strict": False,
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "description": "Corpus-relative `.md` path (no `c:<ref>` tokens here).",
+                    },
+                    "mode": {"type": "string", "enum": ["create", "append"]},
+                    "content": {
+                        "type": "string",
+                        "description": (
+                            "Full file body for `create`; new tail content to append (preserves "
+                            "existing prefix) for `append`. Trailing newline added automatically."
+                        ),
+                    },
+                    "dry_run": {"type": "boolean"},
+                    "confirm_token": {
+                        "type": "string",
+                        "description": "Echo the token from the prior `dry_run` call to commit.",
+                    },
+                },
+                "required": ["path", "mode", "content"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "type": "function",
+            "name": "append_timeline_row",
+            "description": (
+                "Append one row to the campaign-hub `NPCs/<slug>/timeline.md` for an NPC. "
+                "Wraps `write_corpus_file` so the model cannot accidentally rewrite the table. "
+                "Two-phase: dry-run returns preview + `confirm_token`; second call with "
+                "`confirm_token` commits. ``recap_path`` must already exist under the corpus. "
+                "If multiple `NPCs/<slug>/timeline.md` exist (e.g. campaign 1 vs campaign 2), "
+                "pass `timeline_path` to disambiguate."
+            ),
+            "strict": False,
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "npc_slug": {"type": "string"},
+                    "session": {"type": "integer"},
+                    "beat": {
+                        "type": "string",
+                        "description": "One-cell telegraphic summary of this NPC's beat.",
+                    },
+                    "recap_path": {
+                        "type": "string",
+                        "description": "Corpus-relative path to the recap `.md` (must exist).",
+                    },
+                    "timeline_path": {
+                        "type": "string",
+                        "description": (
+                            "Optional explicit path to `NPCs/<slug>/timeline.md` when multiple "
+                            "candidates exist."
+                        ),
+                    },
+                    "dry_run": {"type": "boolean"},
+                    "confirm_token": {"type": "string"},
+                },
+                "required": ["npc_slug", "session", "beat", "recap_path"],
+                "additionalProperties": False,
+            },
+        },
+    ]
+
+
+def _planner_tools_responses(*, include_write_tools: bool = False) -> list[dict[str, Any]]:
+    """Function tools for ``responses.create`` (flat ``name`` / ``parameters``, not nested ``function``)."""
+    base: list[dict[str, Any]] = [
         {
             "type": "function",
             "name": "read_corpus_file",
@@ -385,6 +470,9 @@ def _planner_tools_responses() -> list[dict[str, Any]]:
             },
         },
     ]
+    if include_write_tools:
+        base.extend(_planner_writer_tools_responses())
+    return base
 
 
 def _function_calls_from_response(response: Any) -> list[Any]:
@@ -404,8 +492,14 @@ def make_tool_dispatcher(
     statblock_stub: str | None = None,
     tool_cost_sink: list[dict[str, Any]] | None = None,
     corpus_path_ref_index: dict[str, str] | None = None,
+    allow_corpus_writes: bool = False,
 ) -> Callable[[str, str], str]:
-    """Build the planner tool dispatch closure (corpus reads, context loads, statblock)."""
+    """Build the planner tool dispatch closure (corpus reads, context loads, statblock).
+
+    When ``allow_corpus_writes=True``, also routes ``write_corpus_file`` and
+    ``append_timeline_row`` through :mod:`src.agent.corpus_writer`. The default is
+    ``False`` so the live planner used by evals never gains write capability silently.
+    """
     ref_index: dict[str, str] = (
         corpus_path_ref_index
         if corpus_path_ref_index is not None
@@ -490,6 +584,43 @@ def make_tool_dispatcher(
                     f"wire_format={src_fmt}]\n\n{text}"
                 )
             return text
+        if name in ("write_corpus_file", "append_timeline_row"):
+            if not allow_corpus_writes:
+                return (
+                    f"Error: {name} is disabled (planner started with "
+                    "allow_corpus_writes=False). Re-launch with corpus writes enabled to use it."
+                )
+            from src.agent.corpus_writer import (
+                append_timeline_row as _append_timeline_row,
+                write_corpus_file as _write_corpus_file,
+            )
+
+            if name == "write_corpus_file":
+                result = _write_corpus_file(
+                    corpus_path,
+                    path=str(args.get("path", "")),
+                    mode=str(args.get("mode", "")),
+                    content=str(args.get("content", "")),
+                    dry_run=bool(args.get("dry_run", True)),
+                    confirm_token=(args.get("confirm_token") or None),
+                )
+            else:
+                sess_raw = args.get("session")
+                try:
+                    sess_int = int(sess_raw)
+                except (TypeError, ValueError):
+                    return "Error: append_timeline_row.session must be an integer."
+                result = _append_timeline_row(
+                    corpus_path,
+                    npc_slug=str(args.get("npc_slug", "")),
+                    session=sess_int,
+                    beat=str(args.get("beat", "")),
+                    recap_path=str(args.get("recap_path", "")),
+                    timeline_path=(args.get("timeline_path") or None),
+                    dry_run=bool(args.get("dry_run", True)),
+                    confirm_token=(args.get("confirm_token") or None),
+                )
+            return json.dumps(result, ensure_ascii=False)
         return f"Error: unknown tool {name!r}"
 
     return dispatch
@@ -1187,8 +1318,19 @@ def _generate_statblock_impl(
     )
 
 
-def _build_system_prompt(manifest: str) -> str:
-    return build_corpus_session_planner_instructions(manifest, statblock_url_env_var=_STATBLOCK_URL_ENV)
+def _build_system_prompt(manifest: str, *, include_write_tools: bool = False) -> str:
+    return build_corpus_session_planner_instructions(
+        manifest,
+        statblock_url_env_var=_STATBLOCK_URL_ENV,
+        include_write_tools=include_write_tools,
+    )
+
+
+_ALLOW_WRITES_ENV = "DUNGEONMIND_PLANNER_ALLOW_WRITES"
+
+
+def _env_allow_corpus_writes() -> bool:
+    return os.environ.get(_ALLOW_WRITES_ENV, "").strip().lower() in ("1", "true", "yes", "on")
 
 
 def run_planning_session(
@@ -1196,6 +1338,7 @@ def run_planning_session(
     model: str | None = None,
     *,
     stdin_lines: list[str] | None = None,
+    allow_corpus_writes: bool | None = None,
 ) -> None:
     """
     Interactive planning REPL. If stdin_lines is set (tests), read prompts from it instead of input().
@@ -1218,11 +1361,18 @@ def run_planning_session(
     client = OpenAI(api_key=api_key)
     model_id = _resolve_planner_model(model)
 
+    writes_on = (
+        bool(allow_corpus_writes) if allow_corpus_writes is not None else _env_allow_corpus_writes()
+    )
     manifest, ref_index = build_corpus_manifest_and_ref_index(corpus_path)
-    system_prompt = _build_system_prompt(manifest)
-    tools = _planner_tools_responses()
+    system_prompt = _build_system_prompt(manifest, include_write_tools=writes_on)
+    tools = _planner_tools_responses(include_write_tools=writes_on)
     dispatch_tool = make_tool_dispatcher(
-        corpus_path, client, model_id, corpus_path_ref_index=ref_index
+        corpus_path,
+        client,
+        model_id,
+        corpus_path_ref_index=ref_index,
+        allow_corpus_writes=writes_on,
     )
 
     pending_input = list(stdin_lines or [])
@@ -1242,6 +1392,11 @@ def run_planning_session(
     print("Corpus-grounded planner (OpenAI Responses API). Type 'quit' or 'exit' to leave.")
     print(f"Corpus: {corpus_path}")
     print(f"Model: {model_id}")
+    if writes_on:
+        print(
+            "Corpus writes: ENABLED (write_corpus_file + append_timeline_row registered; "
+            "two-phase commit required, dossier/seed/statblock read-only)."
+        )
 
     last_response_id: str | None = None
 

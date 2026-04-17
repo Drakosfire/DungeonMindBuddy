@@ -587,13 +587,26 @@ class DungeonBuddyCLI:
             default="",
             help="Optional OpenAI model id override.",
         )
+        parser.add_argument(
+            "--allow-corpus-writes",
+            action="store_true",
+            help=(
+                "Register guarded write tools (`write_corpus_file`, `append_timeline_row`). "
+                "Two-phase commit is required and dossier/seed/statblock files stay read-only. "
+                "Equivalent to env DUNGEONMIND_PLANNER_ALLOW_WRITES=1."
+            ),
+        )
         parsed = self._safe_parse(parser, args)
         if parsed is None:
             return
         project_root = Path(__file__).resolve().parents[1]
         corpus_dir = (project_root / parsed.corpus_dir).resolve()
         model = parsed.model.strip() or None
-        run_planning_session(corpus_dir, model)
+        run_planning_session(
+            corpus_dir,
+            model,
+            allow_corpus_writes=bool(parsed.allow_corpus_writes) or None,
+        )
 
     def _cmd_ingest(self, args: Sequence[str]) -> None:
         run_id = f"ingest-{uuid.uuid4().hex[:10]}"
