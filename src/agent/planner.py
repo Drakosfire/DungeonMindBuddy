@@ -231,6 +231,27 @@ def _resolve_safe_corpus_file(corpus_dir: Path, rel_path: str) -> Path | None:
     return candidate
 
 
+_NOTES_STAGING_SUFFIXES = (".md", ".txt")
+
+
+def _resolve_safe_corpus_notes_staging_file(corpus_dir: Path, rel_path: str) -> Path | None:
+    """Like :func:`_resolve_safe_corpus_file` but allows ``.md`` or ``.txt`` (ingest staging only)."""
+    corpus_root = corpus_dir.resolve()
+    cleaned = rel_path.strip().replace("\\", "/").lstrip("/")
+    if not cleaned or ".." in Path(cleaned).parts:
+        return None
+    candidate = (corpus_root / cleaned).resolve()
+    try:
+        candidate.relative_to(corpus_root)
+    except ValueError:
+        return None
+    if not candidate.is_file():
+        return None
+    if candidate.suffix.lower() not in _NOTES_STAGING_SUFFIXES:
+        return None
+    return candidate
+
+
 def _read_optional_corpus_statblock_attachment(
     corpus_dir: Path, rel_path: str
 ) -> tuple[str | None, str | None]:
@@ -277,8 +298,83 @@ def _read_corpus_file_impl(corpus_dir: Path, rel_path: str) -> str:
 
 
 def _planner_writer_tools_responses() -> list[dict[str, Any]]:
-    """Two-phase corpus-write tools (only registered when ``allow_corpus_writes=True``)."""
+    """Two-phase corpus-write tools + recap-context resolver (registered together
+    when ``allow_corpus_writes=True`` because they form one workflow surface)."""
     return [
+        {
+            "type": "function",
+            "name": "get_recap_context",
+            "description": (
+                "Deterministic recap-ingest context for the `recap-write` skill. "
+                "Returns the active campaign, the target session number, the **3 "
+                "most-recent prior recaps** (sorted by frontmatter `session: N`, not "
+                "filename), and the unique companion prep doc at "
+                "`Session Prep/session_<target>_*.md` (or null). Call this once at the "
+                "start of any recap-ingest turn instead of listing `Session Recaps/` "
+                "yourself, picking recaps by filename, or globbing for prep docs. "
+                "With no arguments it auto-detects the campaign with the freshest "
+                "session and uses `target = max(session) + 1`. Pass `campaign_id` to "
+                "pin a specific campaign (e.g. ingesting an out-of-order session); "
+                "pass `target_session` to pin a session number (e.g. re-ingest)."
+            ),
+            "strict": False,
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "campaign_id": {
+                        "type": "string",
+                        "description": (
+                            "Optional. Frontmatter `campaign_id` (e.g. `longmont-c2`)."
+                        ),
+                    },
+                    "target_session": {
+                        "type": "integer",
+                        "description": (
+                            "Optional. Override the auto-detected next-session number."
+                        ),
+                    },
+                },
+                "additionalProperties": False,
+            },
+        },
+        {
+            "type": "function",
+            "name": "assemble_recap_draft",
+            "description": (
+                "Mechanically build a full recap markdown draft from raw session notes on disk — "
+                "same algorithm as `recap_ingest_helpers.assemble_recap` (strip leading title, "
+                "split paragraphs, remove duplicate paragraphs deterministically, emit frontmatter + "
+                "H1 + body). Call **after** `get_recap_context` and **after** you have read the "
+                "prior recaps / prep doc for shape survey. Pass the corpus-relative path to the "
+                "staging file that holds the raw notes, plus `target_session` and `campaign_id` "
+                "from `get_recap_context`. Use the returned `recap_body` as the `content` argument "
+                "to `write_corpus_file` `mode='create'` (two-phase). Do **not** re-judge or "
+                "re-merge duplicate paragraphs in prose — the tool already removed them."
+            ),
+            "strict": False,
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "raw_notes_path": {
+                        "type": "string",
+                        "description": (
+                            "Corpus-relative path to `.md` or `.txt` containing the GM's raw notes "
+                            "(often a `_ingest_staging/` file mirrored from the user message)."
+                        ),
+                    },
+                    "target_session": {
+                        "type": "integer",
+                        "description": "Must match `get_recap_context.target_session`.",
+                    },
+                    "campaign_id": {
+                        "type": "string",
+                        "description": "Must match `get_recap_context.campaign_id` (frontmatter id).",
+                    },
+                },
+                "required": ["raw_notes_path", "target_session", "campaign_id"],
+                "additionalProperties": False,
+            },
+        },
         {
             "type": "function",
             "name": "write_corpus_file",
@@ -496,9 +592,10 @@ def make_tool_dispatcher(
 ) -> Callable[[str, str], str]:
     """Build the planner tool dispatch closure (corpus reads, context loads, statblock).
 
-    When ``allow_corpus_writes=True``, also routes ``write_corpus_file`` and
-    ``append_timeline_row`` through :mod:`src.agent.corpus_writer`. The default is
-    ``False`` so the live planner used by evals never gains write capability silently.
+    When ``allow_corpus_writes=True``, also routes ``get_recap_context``,
+    ``assemble_recap_draft``, ``write_corpus_file``, and ``append_timeline_row``
+    through the recap / corpus-writer stack. The default is ``False`` so the live
+    planner used by evals never gains write capability silently.
     """
     ref_index: dict[str, str] = (
         corpus_path_ref_index
@@ -584,6 +681,88 @@ def make_tool_dispatcher(
                     f"wire_format={src_fmt}]\n\n{text}"
                 )
             return text
+        if name == "get_recap_context":
+            if not allow_corpus_writes:
+                return (
+                    "Error: get_recap_context is disabled (planner started with "
+                    "allow_corpus_writes=False). Re-launch with corpus writes enabled to use it."
+                )
+            from src.agent.recap_context import (
+                RecapContextError as _RecapContextError,
+                resolve_recap_context as _resolve_recap_context,
+            )
+
+            cid_arg = args.get("campaign_id")
+            cid = str(cid_arg).strip() if cid_arg is not None and str(cid_arg).strip() else None
+            ts_arg = args.get("target_session")
+            target_int: int | None
+            if ts_arg is None or (isinstance(ts_arg, str) and not ts_arg.strip()):
+                target_int = None
+            else:
+                try:
+                    target_int = int(ts_arg)
+                except (TypeError, ValueError):
+                    return "Error: get_recap_context.target_session must be an integer."
+            try:
+                ctx = _resolve_recap_context(
+                    corpus_path, campaign_id=cid, target_session=target_int
+                )
+            except _RecapContextError as exc:
+                return f"Error: {exc}"
+            return json.dumps(ctx.to_dict(), ensure_ascii=False)
+        if name == "assemble_recap_draft":
+            if not allow_corpus_writes:
+                return (
+                    "Error: assemble_recap_draft is disabled (planner started with "
+                    "allow_corpus_writes=False). Re-launch with corpus writes enabled to use it."
+                )
+            from src.agent.recap_ingest_helpers import assemble_recap as _assemble_recap
+
+            raw_rel = str(args.get("raw_notes_path", "")).strip()
+            notes_path = _resolve_safe_corpus_notes_staging_file(corpus_path, raw_rel)
+            if notes_path is None:
+                return (
+                    "Error: raw_notes_path must be a corpus-relative `.md` or `.txt` file under "
+                    "the corpus (no `..` or globs)."
+                )
+            try:
+                raw_text = notes_path.read_text(encoding="utf-8", errors="replace")
+            except OSError as exc:
+                return f"Error: cannot read raw_notes_path {raw_rel!r}: {exc}"
+            ts_raw = args.get("target_session")
+            try:
+                ts_int = int(ts_raw)
+            except (TypeError, ValueError):
+                return "Error: assemble_recap_draft.target_session must be an integer."
+            cid = str(args.get("campaign_id", "")).strip()
+            if not cid:
+                return "Error: assemble_recap_draft.campaign_id is required."
+            full, ingest_report = _assemble_recap(
+                raw_notes=raw_text,
+                session=ts_int,
+                campaign_id=cid,
+                remove_duplicates=True,
+            )
+            removed = ingest_report.duplicates_removed
+            payload = {
+                "recap_body": full,
+                "duplicates_removed": len(removed),
+                "ingest_report": {
+                    "title_line_stripped": ingest_report.title_line_stripped,
+                    "duplicates_detected": len(ingest_report.duplicates_detected),
+                    "duplicates_removed": len(removed),
+                    "paragraph_count_in": ingest_report.paragraph_count_in,
+                    "paragraph_count_out": ingest_report.paragraph_count_out,
+                    "removed_pairs_preview": [
+                        {
+                            "keep_lines": [m.a.source_line_start, m.a.source_line_end],
+                            "drop_lines": [m.b.source_line_start, m.b.source_line_end],
+                        }
+                        for m in removed[:5]
+                    ],
+                },
+            }
+            return json.dumps(payload, ensure_ascii=False)
         if name in ("write_corpus_file", "append_timeline_row"):
             if not allow_corpus_writes:
                 return (

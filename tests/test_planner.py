@@ -33,6 +33,40 @@ def test_build_corpus_manifest_simple_tree(tmp_path: Path) -> None:
     assert "skip.txt" not in tree
 
 
+def test_assemble_recap_draft_returns_recap_body(tmp_path: Path) -> None:
+    rel = "Longmont Campaign/Campaign 2/_ingest_staging/session_20_raw_notes.md"
+    notes_path = tmp_path / rel
+    notes_path.parent.mkdir(parents=True, exist_ok=True)
+    notes_path.write_text(
+        "Session 20 Recap\n\nFirst para.\n\nFirst para.\n",
+        encoding="utf-8",
+    )
+    idx = build_corpus_path_ref_index(tmp_path)
+    dispatch = make_tool_dispatcher(
+        tmp_path,
+        object(),
+        "gpt-mock",
+        corpus_path_ref_index=idx,
+        allow_corpus_writes=True,
+    )
+    out = dispatch(
+        "assemble_recap_draft",
+        json.dumps(
+            {
+                "raw_notes_path": rel,
+                "target_session": 20,
+                "campaign_id": "longmont-c2",
+            }
+        ),
+    )
+    assert "Error" not in out
+    data = json.loads(out)
+    assert "recap_body" in data
+    assert data.get("duplicates_removed") == 1
+    assert "longmont-c2" in data["recap_body"]
+    assert "Session 20 Recap" in data["recap_body"]
+
+
 def test_read_corpus_via_stable_ref_token(tmp_path: Path) -> None:
     (tmp_path / "d").mkdir()
     (tmp_path / "d" / "f.md").write_text("ok\n", encoding="utf-8")

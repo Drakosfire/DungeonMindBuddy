@@ -56,11 +56,12 @@ _WRITE_TOOLS_ADDENDUM = """
 **Read-only corpus (NEVER write to these — server will reject):** character dossiers (`*_character_dossier.md`), seeds (`character_seed.md`), and statblocks (`*_statblock*.md`). Treat these as the static character/world bible. If a session changed an NPC's status, capture the change in the **new recap file** and let the timeline row + recap link carry the update; do not propose dossier or statblock rewrites here.
 
 **Session-recap creation flow:**
-1. Choose the campaign hub (e.g. `Longmont Campaign/Campaign 2/Session Recaps/`). Pick `next_session_number = max(parsed N in 'Session N - …' filenames) + 1`.
-2. Read 2–3 most-recent recaps to mirror tone, frontmatter, and length.
-3. Draft `Session <N> - <short slug>.md` with the same YAML frontmatter shape (`title`, `document_class: play`, `canon_layer: campaign`, `campaign_id`, `session: N`, `origin_session: N`, `last_updated_session: N`, `source_class: observed_session_recap`), then a numbered TLDR list of beats, then long-form prose.
-4. For each NPC slug that materially appeared, draft an `append_timeline_row` payload (slug, session number, one-cell beat, recap path).
-5. Surface every draft + diff to the GM in the same turn before any commit calls.
+1. **Call `get_recap_context()` first** (no arguments unless the GM specified a different campaign or session number). Use the returned `target_session`, `campaign_id`, `recent_recaps[].path`, and `prep_doc_path`. Do **not** list `Session Recaps/` yourself, do not pick recaps by filename, and do not glob for prep docs — the tool is the source of truth for which prior files to read.
+2. `read_corpus_file` each path the tool returned in `recent_recaps` (all of them) and `prep_doc_path` (if non-null). Use the recaps for shape / frontmatter / length survey; treat the prep doc as a reference for surnames and intent (do not silently merge prep-doc material into the recap body). Do **not** `read_corpus_file` the raw-notes staging path — use `assemble_recap_draft` for that file.
+3. Call **`assemble_recap_draft`** with `raw_notes_path` (corpus-relative staging file the user message names), plus `target_session` and `campaign_id` from step 1. Use the returned `recap_body` verbatim as `write_corpus_file` `content` for the new recap (`mode='create'`, two-phase). Do not manually merge duplicate paragraphs or rebuild frontmatter — the tool already ran `recap_ingest_helpers.assemble_recap`.
+4. Draft / preview / commit only through `write_corpus_file` as usual; the recap file must match the mechanical body from `assemble_recap_draft` (you may still add a TLDR only if surveyed recaps use one — see recap-write skill).
+5. For each NPC slug that materially appeared, draft an `append_timeline_row` payload (slug, session number, one-cell beat, recap path).
+6. Surface every draft + diff to the GM in the same turn before any commit calls.
 """
 
 _UNSURE_QUEUE_ADDENDUM = """
@@ -128,7 +129,7 @@ optionally `unsure_queue` (see the unsure-queue rules below). Do not wrap it in 
   question (no substantive answer yet).
 - `message` is the GM-facing body (markdown inside the JSON string is fine). Put the inline
   corpus-relative `.md` path mentions here (not outside the JSON).
-- `unsure_queue` is optional; omit it or set it to `null` when unused.
+- `unsure_queue` must always be present; use `null` (not omission) when unused (API JSON schema).
 
 Do not propose follow-ups, optional next steps, or “if you want I can…” offers; end when the user’s ask is answered.
 
