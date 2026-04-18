@@ -2,6 +2,13 @@
 
 When gold ``schema`` is ``session_recap_ingest_scope_b_v1``, step1 merges these
 violations into :class:`evals.planner_slice.live_eval.LiveEvalResult`.
+
+Violations are split into:
+
+* ``scope_b_tool`` — ``get_recap_context`` shape, read allowlist, ``assemble_recap_draft``.
+* ``scope_b_payload`` — planner envelope JSON and ``recap_write_v1`` extract/validate.
+
+``scope_b`` is the concatenation of both (stable bucket for combined reporting).
 """
 
 from __future__ import annotations
@@ -26,6 +33,19 @@ _PATH_TOOLS = frozenset({"read_corpus_file", "load_context_markdown"})
 
 def _fail_prefix(sid: str) -> str:
     return f"[scope_b_grader:{sid}]"
+
+
+def _pack_scope_b_violations(
+    tool_v: list[str], payload_v: list[str]
+) -> dict[str, list[str]]:
+    out: dict[str, list[str]] = {}
+    if tool_v:
+        out["scope_b_tool"] = tool_v
+    if payload_v:
+        out["scope_b_payload"] = payload_v
+    if tool_v or payload_v:
+        out["scope_b"] = tool_v + payload_v
+    return out
 
 
 def _get_recap_context_calls(
@@ -87,16 +107,17 @@ def collect_scope_b_recap_ingest_violations(
         return {}
     sid = fixture_scenario_id(scenario)
     prefix = _fail_prefix(sid)
-    violations: dict[str, list[str]] = {}
     cfg = scenario.get("scope_b_grader") or {}
     if cfg.get("enabled") is False:
         return {}
 
+    tool_v: list[str] = []
+    payload_v: list[str] = []
     tool_trace = list(detail.tool_trace or [])
 
     ctx_calls = _get_recap_context_calls(tool_trace)
     if len(ctx_calls) != 1:
-        violations.setdefault("scope_b", []).append(
+        tool_v.append(
             f"{prefix} get_recap_context must be called exactly once with no pinned "
             f"arguments; saw {len(ctx_calls)} call(s)."
         )
@@ -104,11 +125,9 @@ def collect_scope_b_recap_ingest_violations(
         _idx, row = ctx_calls[0]
         args = row.get("arguments") or {}
         if not isinstance(args, dict):
-            violations.setdefault("scope_b", []).append(
-                f"{prefix} get_recap_context arguments must be an object."
-            )
+            tool_v.append(f"{prefix} get_recap_context arguments must be an object.")
         elif not _no_pin_get_recap_context_args(args):
-            violations.setdefault("scope_b", []).append(
+            tool_v.append(
                 f"{prefix} get_recap_context must be called with no arguments "
                 f"(do not pin campaign_id or target_session for this scenario); "
                 f"got arguments={args!r}."
@@ -117,13 +136,9 @@ def collect_scope_b_recap_ingest_violations(
     text = detail.final_text or ""
     json_obj, json_err = _parse_final_json_object(text)
     if json_err:
-        violations.setdefault("scope_b", []).append(
-            f"{prefix} planner final output is not valid JSON: {json_err}"
-        )
+        payload_v.append(f"{prefix} planner final output is not valid JSON: {json_err}")
     elif json_obj is None:
-        violations.setdefault("scope_b", []).append(
-            f"{prefix} planner final output must be a JSON object."
-        )
+        payload_v.append(f"{prefix} planner final output must be a JSON object.")
     else:
         msg_raw = json_obj.get("message")
         msg = str(msg_raw) if msg_raw is not None else ""
@@ -131,22 +146,20 @@ def collect_scope_b_recap_ingest_violations(
             text
         )
         if payload is None:
-            violations.setdefault("scope_b", []).append(
+            payload_v.append(
                 f"{prefix} could not extract a `recap_write_v1` object from `message` "
                 f"(try a ```json fenced block or valid JSON with schema_version "
                 f"recap_write_v1)."
             )
         else:
             for v in validate_recap_write_payload(payload):
-                violations.setdefault("scope_b", []).append(f"{prefix} {v}")
+                payload_v.append(f"{prefix} {v}")
 
     try:
         ctx = resolve_recap_context(corpus_path.resolve())
     except RecapContextError as exc:
-        violations.setdefault("scope_b", []).append(
-            f"{prefix} cannot resolve recap context for read allowlist: {exc}"
-        )
-        return violations
+        tool_v.append(f"{prefix} cannot resolve recap context for read allowlist: {exc}")
+        return _pack_scope_b_violations(tool_v, payload_v)
 
     allowed: set[str] = set()
     for entry in ctx.recent_recaps:
@@ -162,7 +175,7 @@ def collect_scope_b_recap_ingest_violations(
         for i, p in _path_tools_after_index(tool_trace, ctx_idx):
             n = _norm_rel_path(p)
             if n not in allowed:
-                violations.setdefault("scope_b", []).append(
+                tool_v.append(
                     f"{prefix} after get_recap_context, {tool_trace[i].get('tool')} path "
                     f"{p!r} is not in recent_recaps ∪ prep_doc_path "
                     f"(normalized {n!r} not in allowlist)."
@@ -171,7 +184,7 @@ def collect_scope_b_recap_ingest_violations(
     if cfg.get("require_assemble_recap_draft", True):
         draft_calls = _assemble_recap_draft_calls(tool_trace)
         if len(draft_calls) != 1:
-            violations.setdefault("scope_b", []).append(
+            tool_v.append(
                 f"{prefix} assemble_recap_draft must be called exactly once; "
                 f"saw {len(draft_calls)} call(s)."
             )
@@ -179,9 +192,7 @@ def collect_scope_b_recap_ingest_violations(
             _didx, drow = draft_calls[0]
             dargs = drow.get("arguments") or {}
             if not isinstance(dargs, dict):
-                violations.setdefault("scope_b", []).append(
-                    f"{prefix} assemble_recap_draft arguments must be an object."
-                )
+                tool_v.append(f"{prefix} assemble_recap_draft arguments must be an object.")
             else:
                 raw_path = str(dargs.get("raw_notes_path", "")).strip()
                 ing_rel = str(
@@ -189,7 +200,7 @@ def collect_scope_b_recap_ingest_violations(
                     or "Longmont Campaign/Campaign 2/_ingest_staging/session_20_raw_notes.md"
                 ).strip()
                 if _norm_rel_path(raw_path) != _norm_rel_path(ing_rel):
-                    violations.setdefault("scope_b", []).append(
+                    tool_v.append(
                         f"{prefix} assemble_recap_draft.raw_notes_path want "
                         f"{ing_rel!r} got {raw_path!r}."
                     )
@@ -197,23 +208,21 @@ def collect_scope_b_recap_ingest_violations(
                 try:
                     ts_int = int(ts_arg)
                 except (TypeError, ValueError):
-                    violations.setdefault("scope_b", []).append(
+                    tool_v.append(
                         f"{prefix} assemble_recap_draft.target_session must be int "
                         f"synced with get_recap_context; got {ts_arg!r}."
                     )
                 else:
                     if ts_int != ctx.target_session:
-                        violations.setdefault("scope_b", []).append(
+                        tool_v.append(
                             f"{prefix} assemble_recap_draft.target_session want "
                             f"{ctx.target_session} got {ts_int}."
                         )
                 cid_arg = str(dargs.get("campaign_id", "")).strip()
                 if cid_arg != str(ctx.campaign_id).strip():
-                    violations.setdefault("scope_b", []).append(
+                    tool_v.append(
                         f"{prefix} assemble_recap_draft.campaign_id want "
                         f"{ctx.campaign_id!r} got {cid_arg!r}."
                     )
 
-    return {k: v for k, v in violations.items() if v}
-
-
+    return _pack_scope_b_violations(tool_v, payload_v)

@@ -240,15 +240,28 @@ def run_session_recap_ingest_turn(
         corpus_fingerprint=fp,
     )
     scope_v = collect_scope_b_recap_ingest_violations(sc, detail, corpus_path)
-    if scope_v:
-        merged_violations = dict(result.violations)
-        for key, rows in scope_v.items():
-            merged_violations.setdefault(key, []).extend(rows)
-        result = replace(
-            result,
-            violations=merged_violations,
-            passed=result.passed and not scope_v,
-        )
+    is_scope_b = str(sc.get("schema", "")) == "session_recap_ingest_scope_b_v1"
+    scope_b_grader_on = (sc.get("scope_b_grader") or {}).get("enabled") is not False
+    if is_scope_b and scope_b_grader_on:
+        tool_ok = not bool(scope_v.get("scope_b_tool"))
+        payload_ok = not bool(scope_v.get("scope_b_payload"))
+        if scope_v:
+            merged_violations = dict(result.violations)
+            for key, rows in scope_v.items():
+                merged_violations.setdefault(key, []).extend(rows)
+            result = replace(
+                result,
+                violations=merged_violations,
+                passed=result.passed and not scope_v,
+                tool_trace_gates_passed=tool_ok,
+                payload_gates_passed=payload_ok,
+            )
+        else:
+            result = replace(
+                result,
+                tool_trace_gates_passed=tool_ok,
+                payload_gates_passed=payload_ok,
+            )
 
     return PlannerStep1Run(
         detail=detail,
@@ -279,6 +292,10 @@ def print_recap_ingest_review(
     print(f"scenario_id:      {run.result.scenario_id}")
     print(f"model_id:         {model_id}")
     print(f"gates_passed:     {run.result.passed}")
+    if run.result.tool_trace_gates_passed is not None:
+        print(f"tool_trace_gates: {run.result.tool_trace_gates_passed}")
+    if run.result.payload_gates_passed is not None:
+        print(f"payload_gates:    {run.result.payload_gates_passed}")
     print(f"review_mode:      {review_mode}")
     print(f"corpus_fprint:    {run.corpus_fingerprint}")
     print(f"corpus_dir:       {corpus_dir.resolve()}")

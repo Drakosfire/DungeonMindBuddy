@@ -61,10 +61,30 @@ class LiveEvalResult:
     report_path: str | None = None
     #: Non-failing observations for suite reports; never causes ``passed`` to flip.
     info: dict[str, Any] = field(default_factory=dict)
+    #: Scope-B recap-ingest split: tool trace vs structured payload. ``None`` when N/A.
+    tool_trace_gates_passed: bool | None = None
+    payload_gates_passed: bool | None = None
 
 
 def _fail_prefix(sid: str) -> str:
     return f"[planner_live_eval:{sid}]"
+
+
+def fixture_scenario_id(scenario: dict[str, Any]) -> str:
+    """Stable scenario key from gold JSON.
+
+    Legacy planner fixtures use top-level ``id``. Scope-B recap-ingest gold uses
+    ``scenario_id``. Prefer ``id`` when both are present so existing lysandra /
+    planner_slice fixtures keep precedence.
+    """
+    for key in ("id", "scenario_id"):
+        raw = scenario.get(key)
+        if raw is None:
+            continue
+        s = str(raw).strip()
+        if s:
+            return s
+    return "unknown"
 
 
 def _norm_rel_path(path: str) -> str:
@@ -450,7 +470,7 @@ def collect_scenario_violations(
     detail: PlanningTurnDetail,
 ) -> dict[str, list[str]]:
     """Assert fixture expectations against an already-computed ``PlanningTurnDetail``."""
-    sid = str(scenario.get("id", "unknown"))
+    sid = fixture_scenario_id(scenario)
     violations: dict[str, list[str]] = {}
     steps_spec = list(scenario.get("steps") or [])
     for i, spec in enumerate(steps_spec):
@@ -485,7 +505,7 @@ def evaluate_scenario_detail(
     corpus_fingerprint: str | None = None,
 ) -> LiveEvalResult:
     """Score a scenario against a pre-recorded planner turn (e.g. from OpenAI Batch)."""
-    sid = str(scenario.get("id", "unknown"))
+    sid = fixture_scenario_id(scenario)
     violations = collect_scenario_violations(scenario, detail)
     return LiveEvalResult(
         scenario_id=sid,
@@ -543,7 +563,7 @@ def resolve_planner_user_message(
     **Override:** If ``PLANNER_PRIOR_SESSION_PATH`` is set in the environment, it replaces
     ``input.prior_session_path`` so you can point at a recap file without editing the JSON.
     """
-    sid = str(scenario.get("id", "unknown"))
+    sid = fixture_scenario_id(scenario)
     inp = scenario.get("input") or {}
     direct = str(inp.get("user_message", "")).strip()
     if direct:
@@ -583,7 +603,7 @@ def evaluate_live_scenario(
     fixture_path: Path | None = None,
 ) -> LiveEvalResult:
     """Run one turn with a real client; return pass/fail and violation strings."""
-    sid = str(scenario.get("id", "unknown"))
+    sid = fixture_scenario_id(scenario)
     corpus_path = corpus_dir.resolve()
     out_report = _report_dir_from_kw_or_env(report_dir)
     user_message, input_violations = resolve_planner_user_message(scenario, corpus_path)
@@ -732,7 +752,7 @@ def run_live_suite(
         filtered: list[Path] = []
         for p in paths:
             try:
-                if str(load_live_fixture(p).get("id", "")) == only_id:
+                if fixture_scenario_id(load_live_fixture(p)) == only_id:
                     filtered.append(p)
             except (OSError, json.JSONDecodeError):
                 continue

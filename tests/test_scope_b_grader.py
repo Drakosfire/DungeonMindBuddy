@@ -158,8 +158,9 @@ def test_scope_b_grader_rejects_read_outside_allowlist(tmp_path: Path) -> None:
         tool_trace=trace,
     )
     v = collect_scope_b_recap_ingest_violations(_scenario(), detail, tmp_path)
+    assert "scope_b_tool" in v
+    assert any("not in recent_recaps" in msg for msg in v["scope_b_tool"])
     assert "scope_b" in v
-    assert any("not in recent_recaps" in msg for msg in v["scope_b"])
 
 
 def test_scope_b_grader_requires_unpinned_get_recap_context(tmp_path: Path) -> None:
@@ -199,4 +200,4 @@ def test_scope_b_grader_requires_unpinned_get_recap_context(tmp_path: Path) -> N
         tool_trace=trace,
     )
     v = collect_scope_b_recap_ingest_violations(_scenario(), detail, tmp_path)
-    assert any("no arguments" in msg for msg in v.get("scope_b", []))
+    assert any("no arguments" in msg for msg in v.get("scope_b_tool", []))
