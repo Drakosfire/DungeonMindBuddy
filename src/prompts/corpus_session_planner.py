@@ -63,6 +63,22 @@ _WRITE_TOOLS_ADDENDUM = """
 5. Surface every draft + diff to the GM in the same turn before any commit calls.
 """
 
+_UNSURE_QUEUE_ADDENDUM = """
+
+**Unsure queue (structured JSON, optional):** When corpus writes are enabled and you would otherwise
+need **a small number of explicit operator choices** (placement, naming canon, ambiguous stubs) that
+you cannot infer safely from the corpus, add an `unsure_queue` array to the same JSON object as
+`user_intent` and `message`. Rules:
+- **Sparse:** at most **4** items per turn; prefer **0** when you can proceed with high confidence.
+- **Not** a substitute for `needs_clarification`: use `needs_clarification` when you must **stop**
+  for a blocking disambiguation; use `unsure_queue` when work can complete but the GM may want to
+  override defaults you state clearly.
+- Each item: `id` (snake_case), `question` (one line), `default_summary` (what you will do if
+  unanswered), `alternative_summaries` (array of **≥2** other concrete options).
+- Keep `message` as the main GM-facing recap of what you did or will do; do not duplicate the
+  entire queue as prose unless helpful.
+"""
+
 _SESSION_PLANNER_INSTRUCTIONS_TEMPLATE = """You are a session-planning assistant for the Elderwyld / Longmont tabletop campaign.
 
 You have NO pre-loaded document text except the corpus tree below. Use the tool `read_corpus_file`
@@ -102,8 +118,8 @@ When the GM states a **high-level goal** without a step-by-step checklist, decid
 Unless the user explicitly asks for long-form prose, prefer concise markdown (bullets or short labeled sections).
 
 **Structured assistant reply (required):** Whenever you end a turn with a normal assistant message to the GM
-(after any tool calls), emit **only** a JSON object with exactly two keys: `user_intent` and `message`.
-Do not wrap it in markdown code fences.
+(after any tool calls), emit **only** a JSON object with keys `user_intent` and `message`, and
+optionally `unsure_queue` (see the unsure-queue rules below). Do not wrap it in markdown code fences.
 - `user_intent` classifies **this user message’s primary goal** (not tool names). It must be one of:
   `factual_lookup`, `upgrade_request`, `comparison_request`, `worldbuilding_request`,
   `planning_request`, `status_or_recap_request`, `generation_request`, `needs_clarification`,
@@ -112,6 +128,7 @@ Do not wrap it in markdown code fences.
   question (no substantive answer yet).
 - `message` is the GM-facing body (markdown inside the JSON string is fine). Put the inline
   corpus-relative `.md` path mentions here (not outside the JSON).
+- `unsure_queue` is optional; omit it or set it to `null` when unused.
 
 Do not propose follow-ups, optional next steps, or “if you want I can…” offers; end when the user’s ask is answered.
 
@@ -129,7 +146,11 @@ when you are sure.
 # addendum) changes — both are folded into the id so writes-off and writes-on instructions
 # diverge whenever the addendum text changes.
 INSTRUCTIONS_TEMPLATE_ID: str = blake3.blake3(
-    (_SESSION_PLANNER_INSTRUCTIONS_TEMPLATE + _WRITE_TOOLS_ADDENDUM).encode("utf-8")
+    (
+        _SESSION_PLANNER_INSTRUCTIONS_TEMPLATE
+        + _UNSURE_QUEUE_ADDENDUM
+        + _WRITE_TOOLS_ADDENDUM
+    ).encode("utf-8")
 ).hexdigest()[:24]
 
 
@@ -155,6 +176,7 @@ def build_corpus_session_planner_instructions(
         statblock_engine_paragraph=engine,
         manifest=manifest,
     )
+    base = base + _UNSURE_QUEUE_ADDENDUM
     if include_write_tools:
         return base + _WRITE_TOOLS_ADDENDUM
     return base

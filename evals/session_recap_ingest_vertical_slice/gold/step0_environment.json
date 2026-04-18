@@ -1,0 +1,20 @@
+{
+  "schema": "session_recap_ingest_step0_v1",
+  "description": "Step 0 — corpus pin + environment gates for Scope-B live runs.",
+  "corpus_root_relpath": "corpus/eldyrwild-markdown",
+  "expected_fingerprint": "89a8f133cccc99049d8144219d60862e",
+  "allow_fingerprint_drift": false,
+  "statblock_service_gate": {
+    "description": "Reuse planner live-eval gate pattern: API access or explicit skip.",
+    "pass_if_any": [
+      {
+        "env": "OPENAI_API_KEY",
+        "require_non_empty": true
+      },
+      {
+        "env": "SESSION_RECAP_INGEST_SKIP_SERVICE_GATE",
+        "require_one_of": ["1", "true", "yes"]
+      }
+    ]
+  }
+}

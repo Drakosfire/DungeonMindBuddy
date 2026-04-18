@@ -1,0 +1,25 @@
+{
+  "schema": "unsure_queue_v1",
+  "expected_items": [
+    {
+      "id": "tower_blueprint_placement",
+      "question_must_match": "(?i)tower.{0,40}(blueprint|location|placement)",
+      "default_must_mention": "Locations",
+      "alternatives_min_count": 3
+    },
+    {
+      "id": "mayor_sheriff_names",
+      "question_must_match": "(?i)(mayor|sheriff).{0,80}(name|slug|canonical)",
+      "default_must_mention": "stub",
+      "alternatives_min_count": 2
+    },
+    {
+      "id": "stuart_surname",
+      "question_must_match": "(?i)stuart.{0,40}(surname|family|name)",
+      "default_must_mention": "stuart",
+      "alternatives_min_count": 2
+    }
+  ],
+  "max_total_items": 4,
+  "min_total_items": 2
+}

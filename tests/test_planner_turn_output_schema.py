@@ -19,6 +19,14 @@ def test_planner_turn_output_json_schema_is_object_with_enum_and_message() -> No
     assert props["user_intent"]["type"] == ["string", "null"]
     assert set(props["user_intent"]["enum"]) == {None, *PLANNER_USER_INTENT_ENUM}
     assert props["message"]["type"] == "string"
+    assert props["unsure_queue"]["type"] == ["array", "null"]
+    item = props["unsure_queue"]["items"]
+    assert item["required"] == [
+        "id",
+        "question",
+        "default_summary",
+        "alternative_summaries",
+    ]
     assert schema["required"] == ["user_intent", "message"]
 
 

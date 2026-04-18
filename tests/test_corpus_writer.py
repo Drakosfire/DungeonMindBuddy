@@ -25,6 +25,20 @@ from src.agent.corpus_writer import (
         ("Longmont Campaign/Campaign 2/Session Recaps/Session 20 - First Snow.md", "create"),
         ("Longmont Campaign/Campaign 2/NPCs/dustwalker/timeline.md", "append"),
         ("Longmont Campaign/Campaign 2/NPCs/dustwalker/README.md", "append"),
+        (
+            "Elderwyld/Cities and Towns/Mossford/NPCs/marla_brambleback/README.md",
+            "create",
+        ),
+        (
+            "Elderwyld/Cities and Towns/Mossford/NPCs/marla_brambleback/character_seed.md",
+            "create",
+        ),
+        ("Elderwyld/Locations/tower_mossford_stub.md", "create"),
+        ("Longmont Campaign/Campaign 2/NPCs/marla_brambleback/marla_brambleback_character_dossier.md", "create"),
+        (
+            "Longmont Campaign/Campaign 2/Session Prep/session_20_stacey_stuart_marla_reference.md",
+            "append",
+        ),
     ],
 )
 def test_allowlist_permits_recap_create_and_npc_appends(rel_path: str, mode: str) -> None:
@@ -42,13 +56,19 @@ def test_allowlist_permits_recap_create_and_npc_appends(rel_path: str, mode: str
             "Elderwyld/Cities and Towns/Mirathorn/NPCs/torbin_jove/torbin_jove_statblock.md",
             "create",
         ),
-        ("Longmont Campaign/Campaign 2/NPCs/dustwalker/dustwalker_character_dossier.md", "create"),
+        ("Longmont Campaign/Campaign 2/NPCs/dustwalker/character_seed.md", "create"),
     ],
 )
 def test_allowlist_blocks_dossier_seed_statblock(rel_path: str, mode: str) -> None:
     allowed, reason = is_writable_corpus_path(rel_path, mode)
     assert not allowed
     assert "read-only" in reason
+
+
+def test_allowlist_permits_campaign_dossier_create_when_path_shaped() -> None:
+    rel = "Longmont Campaign/Campaign 2/NPCs/dustwalker/dustwalker_character_dossier.md"
+    allowed, reason = is_writable_corpus_path(rel, "create")
+    assert allowed, reason
 
 
 def test_allowlist_blocks_create_outside_session_recaps() -> None:
@@ -64,7 +84,7 @@ def test_allowlist_blocks_append_for_random_md() -> None:
         "Longmont Campaign/Campaign 2/Notes.md", "append"
     )
     assert not allowed
-    assert "NPCs" in reason
+    assert "NPCs" in reason or "Session Prep" in reason
 
 
 def test_allowlist_blocks_unknown_mode() -> None:
@@ -332,6 +352,33 @@ def test_append_timeline_with_explicit_path_disambiguates(tmp_path: Path) -> Non
 # ---------------------------------------------------------------------------
 # Path traversal
 # ---------------------------------------------------------------------------
+
+
+def test_session_prep_append_rejects_non_blockquote_payload(tmp_path: Path) -> None:
+    hub = tmp_path / "Longmont Campaign/Campaign 2/Session Prep"
+    hub.mkdir(parents=True, exist_ok=True)
+    rel = "Longmont Campaign/Campaign 2/Session Prep/session_20_notes.md"
+    (tmp_path / rel).write_text("# Prep\n\nDone.\n", encoding="utf-8")
+    out = write_corpus_file(
+        tmp_path, path=rel, mode="append", content="plain text\n", dry_run=True
+    )
+    assert out["ok"] is False
+    assert "blockquote" in out["error"]
+
+
+def test_session_prep_append_accepts_blockquote_bold_payload(tmp_path: Path) -> None:
+    hub = tmp_path / "Longmont Campaign/Campaign 2/Session Prep"
+    hub.mkdir(parents=True, exist_ok=True)
+    rel = "Longmont Campaign/Campaign 2/Session Prep/session_20_notes.md"
+    (tmp_path / rel).write_text("# Prep\n\nDone.\n", encoding="utf-8")
+    out = write_corpus_file(
+        tmp_path,
+        path=rel,
+        mode="append",
+        content="> **Prep ↔ recap:** `Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md`\n",
+        dry_run=True,
+    )
+    assert out["ok"] is True
 
 
 def test_path_traversal_rejected(tmp_path: Path) -> None:

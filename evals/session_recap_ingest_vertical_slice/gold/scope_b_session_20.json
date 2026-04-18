@@ -1,0 +1,18 @@
+{
+  "schema": "session_recap_ingest_scope_b_v1",
+  "scenario_id": "session_recap_ingest_session_20",
+  "fixture_relpath": "fixtures/session_20_raw_notes.txt",
+  "campaign_hub": "Longmont Campaign/Campaign 2",
+  "expected_writes": [],
+  "expected_tool_trace": {
+    "must_read": [],
+    "must_call_tool": ["read_corpus_file", "write_corpus_file"],
+    "two_phase_commit_required": true,
+    "forbidden_writes": [
+      "*_character_dossier.md",
+      "character_seed.md",
+      "*_statblock*.md"
+    ]
+  },
+  "no_action_set": []
+}

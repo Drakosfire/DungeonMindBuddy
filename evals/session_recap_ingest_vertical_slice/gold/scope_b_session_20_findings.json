@@ -1,0 +1,8 @@
+{
+  "schema": "session_recap_ingest_findings_v1",
+  "must_substring_any": [
+    "Sara",
+    "Tealeaf",
+    "allowlist"
+  ]
+}

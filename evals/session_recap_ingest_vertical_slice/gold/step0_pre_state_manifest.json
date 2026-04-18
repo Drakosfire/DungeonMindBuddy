@@ -1,0 +1,19 @@
+{
+  "schema": "session_recap_ingest_pre_state_v1",
+  "description": "Strip post-ingest artifacts so Scope-B can replay planner writes from a clean corpus.",
+  "delete": [
+    "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md",
+    "Elderwyld/Cities and Towns/Mossford/NPCs/marla_brambleback",
+    "Elderwyld/Cities and Towns/Mossford/NPCs/stacey_brambleback",
+    "Elderwyld/Cities and Towns/Mossford/NPCs/stuart"
+  ],
+  "remove_trailing_blockquote_in": [
+    "Longmont Campaign/Campaign 2/Session Prep/session_20_stacey_stuart_marla_reference.md"
+  ],
+  "remove_table_row_session_in": [
+    {
+      "path": "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/timeline.md",
+      "session": 20
+    }
+  ]
+}

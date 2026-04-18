@@ -34,6 +34,19 @@ _ALLOWED_MODES: tuple[str, ...] = ("create", "append")
 _CREATE_ALLOWED_RE = re.compile(r"(?:^|/)Session Recaps/Session \d+ - .+\.md$")
 _TIMELINE_RE = re.compile(r"(?:^|/)NPCs/[^/]+/timeline\.md$")
 _HUB_README_RE = re.compile(r"(?:^|/)NPCs/[^/]+/README\.md$")
+_SETTING_HUB_NPC_README_RE = re.compile(
+    r"^Elderwyld/Cities and Towns/[^/]+/NPCs/[^/]+/README\.md$"
+)
+_SETTING_HUB_NPC_SEED_RE = re.compile(
+    r"^Elderwyld/Cities and Towns/[^/]+/NPCs/[^/]+/character_seed\.md$"
+)
+_CAMPAIGN_DOSSIER_CREATE_RE = re.compile(
+    r"^Longmont Campaign/Campaign \d+/NPCs/[^/]+/[^/]+_character_dossier\.md$"
+)
+_LOCATIONS_CREATE_RE = re.compile(r"^Elderwyld/Locations/[^/]+\.md$")
+_PREP_SESSION_APPEND_RE = re.compile(
+    r"^Longmont Campaign/Campaign \d+/Session Prep/[^/]+\.md$"
+)
 
 # Forbidden basenames regardless of mode: the static character/world bible.
 _DENY_BASENAMES = re.compile(
@@ -62,6 +75,15 @@ def _resolve_corpus_target(corpus_dir: Path, rel_path: str) -> Path | None:
     return candidate
 
 
+def _prep_footer_append_payload_ok(payload: str) -> bool:
+    """Session Prep appends must be a blockquote line opening with bold marker."""
+    seg = payload.strip()
+    if not seg.startswith(">"):
+        return False
+    first_line = seg.split("\n", 1)[0]
+    return "**" in first_line
+
+
 def is_writable_corpus_path(rel_path: str, mode: str) -> tuple[bool, str]:
     """Return ``(allowed, reason)``. Reason is empty when allowed."""
     if mode not in _ALLOWED_MODES:
@@ -70,21 +92,44 @@ def is_writable_corpus_path(rel_path: str, mode: str) -> tuple[bool, str]:
     if not cleaned:
         return False, "path is empty"
     if _DENY_BASENAMES.search(cleaned):
-        return False, (
-            "Forbidden: dossier, seed, and statblock files are read-only "
-            "(`*_character_dossier.md`, `character_seed.md`, `*_statblock*.md`)."
-        )
+        if mode == "create" and (
+            _SETTING_HUB_NPC_SEED_RE.match(cleaned)
+            or _CAMPAIGN_DOSSIER_CREATE_RE.match(cleaned)
+        ):
+            pass
+        else:
+            return False, (
+                "Forbidden: dossier, seed, and statblock files are read-only "
+                "(`*_character_dossier.md`, `character_seed.md`, `*_statblock*.md`)."
+            )
     if mode == "create":
         if _CREATE_ALLOWED_RE.search(cleaned):
             return True, ""
+        if _SETTING_HUB_NPC_README_RE.match(cleaned):
+            return True, ""
+        if _SETTING_HUB_NPC_SEED_RE.match(cleaned):
+            return True, ""
+        if _CAMPAIGN_DOSSIER_CREATE_RE.match(cleaned):
+            return True, ""
+        if _LOCATIONS_CREATE_RE.match(cleaned):
+            return True, ""
         return False, (
-            "create mode is allowed only for `**/Session Recaps/Session NN - <slug>.md` paths."
+            "create mode is not allowed for this path (allowed: "
+            "`**/Session Recaps/Session NN - <slug>.md`, "
+            "Elderwyld `.../Cities and Towns/<town>/NPCs/<slug>/{README.md,character_seed.md}`, "
+            "campaign `.../NPCs/<slug>/*_character_dossier.md`, "
+            "or `Elderwyld/Locations/<stub>.md`)."
         )
-    if _TIMELINE_RE.search(cleaned) or _HUB_README_RE.search(cleaned):
+    if (
+        _TIMELINE_RE.search(cleaned)
+        or _HUB_README_RE.search(cleaned)
+        or _PREP_SESSION_APPEND_RE.match(cleaned)
+    ):
         return True, ""
     return False, (
-        "append mode is allowed only for `**/NPCs/<slug>/timeline.md` and "
-        "`**/NPCs/<slug>/README.md`."
+        "append mode is not allowed for this path (allowed: "
+        "`**/NPCs/<slug>/timeline.md`, `**/NPCs/<slug>/README.md`, "
+        "or `Longmont Campaign/Campaign N/Session Prep/*.md`)."
     )
 
 
@@ -158,6 +203,16 @@ def write_corpus_file(
         return {"ok": False, "error": f"create mode but file already exists: {cleaned}"}
     if mode == "append" and not target.exists():
         return {"ok": False, "error": f"append mode but file does not exist: {cleaned}"}
+
+    if mode == "append" and _PREP_SESSION_APPEND_RE.match(cleaned):
+        if not _prep_footer_append_payload_ok(content):
+            return {
+                "ok": False,
+                "error": (
+                    "Session Prep append content must be a Markdown blockquote starting with "
+                    "`>` whose first line includes `**`."
+                ),
+            }
 
     existing = target.read_text(encoding="utf-8") if target.exists() else ""
     new_full = _project_new_content(existing or None, mode, content)

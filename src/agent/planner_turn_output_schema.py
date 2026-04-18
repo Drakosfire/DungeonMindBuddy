@@ -28,6 +28,32 @@ PLANNER_USER_INTENT_ENUM: tuple[str, ...] = (
 
 _PLANNER_TURN_OUTPUT_NAME = "planner_turn_output"
 
+_UNSURE_QUEUE_ITEM_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "additionalProperties": False,
+    "properties": {
+        "id": {
+            "type": "string",
+            "description": "Stable machine id for this judgment item (snake_case).",
+        },
+        "question": {
+            "type": "string",
+            "description": "One short question the GM can answer in one line.",
+        },
+        "default_summary": {
+            "type": "string",
+            "description": "What you will do if the GM does not answer (explicit default).",
+        },
+        "alternative_summaries": {
+            "type": "array",
+            "description": "At least two other concrete options (not filler).",
+            "items": {"type": "string"},
+            "minItems": 2,
+        },
+    },
+    "required": ["id", "question", "default_summary", "alternative_summaries"],
+}
+
 
 def planner_turn_output_json_schema(*, strict: bool = True) -> dict[str, Any]:
     return {
@@ -45,6 +71,14 @@ def planner_turn_output_json_schema(*, strict: bool = True) -> dict[str, Any]:
             "message": {
                 "type": "string",
                 "description": "GM-facing reply body (markdown allowed inside the string).",
+            },
+            "unsure_queue": {
+                "type": ["array", "null"],
+                "description": (
+                    "Sparse structured questions for operator judgment at end of a recap-ingest "
+                    "run. Omit or null when there is nothing material to confirm."
+                ),
+                "items": _UNSURE_QUEUE_ITEM_SCHEMA,
             },
         },
         "required": ["user_intent", "message"],
