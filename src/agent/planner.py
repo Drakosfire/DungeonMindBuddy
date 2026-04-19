@@ -30,6 +30,12 @@ from src.agent.planner_turn_output_schema import (
     planner_turn_output_schema_enabled,
     planner_turn_text_format,
 )
+from src.agent.planner_skill_dispatch_guards import (
+    wrap_dispatch_for_skill,
+)
+from src.agent.planner_skill_output_schema import (
+    skill_text_format_for,
+)
 from src.agent.planner_telemetry import (
     log_telemetry,
     maybe_full_text,
@@ -962,8 +968,40 @@ def run_planning_turn_detailed(
     dispatch_tool: Callable[[str, str], str],
     telemetry_context: dict[str, Any] | None = None,
     corpus_path_ref_index: dict[str, str] | None = None,
+    active_skill_id: str | None = None,
+    skill_read_allowlist_extras: list[str] | None = None,
+    skill_recap_context: Any | None = None,
 ) -> PlanningTurnDetail:
-    """Like ``run_planning_turn`` but records each model response as a ``PlanningModelStepRecord``."""
+    """Like ``run_planning_turn`` but records each model response as a ``PlanningModelStepRecord``.
+
+    When ``active_skill_id`` resolves via :func:`skill_text_format_for` to a per-skill
+    Responses ``text=`` block, that block replaces the universal planner envelope for
+    every round of this turn. The caller is responsible for matching prompt instructions
+    to the chosen schema.
+
+    When ``active_skill_id`` is registered in
+    :data:`src.agent.planner_skill_dispatch_guards.SKILL_DISPATCH_GUARDS`,
+    ``dispatch_tool`` is wrapped with a fail-closed guard so out-of-scope tool
+    calls are rejected at dispatch time (e.g. recap-write blocks
+    ``read_corpus_file`` paths outside ``recent_recaps`` ∪ ``prep_doc_path``).
+    Pass ``skill_read_allowlist_extras`` to extend the guard's allowlist (mirrors
+    the Scope-B grader's ``read_allowlist_extra`` knob).
+
+    Pass ``skill_recap_context`` (a ``RecapContext`` snapshot taken **before**
+    any planner write) to freeze the recap-write read-allowlist for this turn.
+    Multi-turn ingest scenarios MUST pass the same snapshot to every turn so a
+    turn-1 commit cannot shift the resolver's view of ``max(session)`` and
+    rewrite the allowlist mid-scenario. Typed ``Any`` to avoid importing
+    ``RecapContext`` at module-load time for callers that don't use the
+    recap-write skill; the dispatch-guard layer enforces the type at use site.
+    """
+    dispatch_tool = wrap_dispatch_for_skill(
+        dispatch_tool,
+        corpus_path=corpus_path,
+        active_skill_id=active_skill_id,
+        allowlist_extras=skill_read_allowlist_extras,
+        precomputed_recap_context=skill_recap_context,
+    )
     api_client = DungeonMindApiClient.wrap(client)
     ctx: dict[str, Any] = {"op": "planning_turn", **(telemetry_context or {})}
     turn_index = int(ctx.get("turn_index", 0) or 0)
@@ -994,7 +1032,8 @@ def run_planning_turn_detailed(
         "truncation": "auto",
     }
     if planner_turn_output_schema_enabled():
-        create_kw["text"] = planner_turn_text_format()
+        skill_fmt = skill_text_format_for(active_skill_id)
+        create_kw["text"] = skill_fmt if skill_fmt is not None else planner_turn_text_format()
     if previous_response_id:
         create_kw["previous_response_id"] = previous_response_id
 
@@ -1181,7 +1220,10 @@ def run_planning_turn_detailed(
             "truncation": "auto",
         }
         if planner_turn_output_schema_enabled():
-            follow_kw["text"] = planner_turn_text_format()
+            skill_fmt = skill_text_format_for(active_skill_id)
+            follow_kw["text"] = (
+                skill_fmt if skill_fmt is not None else planner_turn_text_format()
+            )
         follow_call = api_client.responses_create(action="planner.turn.tool_outputs", **follow_kw)
         response = follow_call.response
         elapsed_follow = follow_call.elapsed_ms

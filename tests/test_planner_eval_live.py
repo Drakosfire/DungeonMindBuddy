@@ -15,7 +15,9 @@ from evals.planner_slice.live_eval import (
     collect_scenario_violations,
     dedupe_read_paths_preserve_order,
     discover_live_fixtures,
+    evaluate_scenario_detail,
     extract_cited_markdown_paths_from_final,
+    fixture_scenario_id,
     load_live_fixture,
     match_calls_satisfy,
     min_pass_rate_from_env,
@@ -118,6 +120,25 @@ def test_resolve_planner_user_message_direct_user_message_wins() -> None:
     text, viol = resolve_planner_user_message(sc, Path("/tmp"))
     assert text == "full only"
     assert not viol
+
+
+def test_fixture_scenario_id_prefers_id_then_scenario_id() -> None:
+    assert fixture_scenario_id({"scenario_id": "session_recap_ingest_session_20"}) == "session_recap_ingest_session_20"
+    assert fixture_scenario_id({"id": "legacy", "scenario_id": "other"}) == "legacy"
+    assert fixture_scenario_id({}) == "unknown"
+
+
+def test_evaluate_scenario_detail_scenario_id_from_scenario_id_key() -> None:
+    detail = PlanningTurnDetail(
+        final_text="x",
+        last_response_id="r1",
+        tool_trace=[],
+        steps=[],
+        hit_tool_round_limit=False,
+    )
+    scenario = {"scenario_id": "session_recap_ingest_session_20", "steps": [], "final": {}}
+    r = evaluate_scenario_detail(scenario, detail)
+    assert r.scenario_id == "session_recap_ingest_session_20"
 
 
 def test_extract_cited_markdown_paths_from_final() -> None:

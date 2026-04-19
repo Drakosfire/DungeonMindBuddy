@@ -81,7 +81,9 @@ def planner_turn_output_json_schema(*, strict: bool = True) -> dict[str, Any]:
                 "items": _UNSURE_QUEUE_ITEM_SCHEMA,
             },
         },
-        "required": ["user_intent", "message"],
+        # Strict mode: OpenAI requires ``required`` to list every key in ``properties``.
+        # Use ``null`` for ``unsure_queue`` when unused (see type: array|null).
+        "required": ["user_intent", "message", "unsure_queue"],
     }
 
 

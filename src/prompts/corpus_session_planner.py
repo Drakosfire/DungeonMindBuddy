@@ -56,12 +56,20 @@ _WRITE_TOOLS_ADDENDUM = """
 **Read-only corpus (NEVER write to these — server will reject):** character dossiers (`*_character_dossier.md`), seeds (`character_seed.md`), and statblocks (`*_statblock*.md`). Treat these as the static character/world bible. If a session changed an NPC's status, capture the change in the **new recap file** and let the timeline row + recap link carry the update; do not propose dossier or statblock rewrites here.
 
 **Session-recap creation flow:**
-1. **Call `get_recap_context()` first** (no arguments unless the GM specified a different campaign or session number). Use the returned `target_session`, `campaign_id`, `recent_recaps[].path`, and `prep_doc_path`. Do **not** list `Session Recaps/` yourself, do not pick recaps by filename, and do not glob for prep docs — the tool is the source of truth for which prior files to read.
-2. `read_corpus_file` each path the tool returned in `recent_recaps` (all of them) and `prep_doc_path` (if non-null). Use the recaps for shape / frontmatter / length survey; treat the prep doc as a reference for surnames and intent (do not silently merge prep-doc material into the recap body). Do **not** `read_corpus_file` the raw-notes staging path — use `assemble_recap_draft` for that file.
+1. **Call `get_recap_context()` first with no arguments.** The tool auto-detects the active campaign and the next session — pinning `campaign_id` or `target_session` is **not** "being helpful," and the dispatcher fail-closes any pinned call for this skill (returns `Error: ...` instead of context). Pin only when the GM **explicitly** named a different campaign or asked for a re-ingest of an existing session — in this scenario neither applies, so call it bare. Use the returned `target_session`, `campaign_id`, `recent_recaps[].path`, and `prep_doc_path`. Do **not** list `Session Recaps/` yourself, do not pick recaps by filename, and do not glob for prep docs — the tool is the source of truth for which prior files to read.
+2. `read_corpus_file` each path the tool returned in `recent_recaps` (all of them) and `prep_doc_path` (if non-null). Use the recaps for shape / frontmatter / length survey; treat the prep doc as a reference for surnames and intent (do not silently merge prep-doc material into the recap body). Do **not** `read_corpus_file` the raw-notes staging path — use `assemble_recap_draft` for that file. The dispatcher **fail-closes** any `read_corpus_file` / `load_context_markdown` outside this allowlist when the recap-write skill is active: an off-list path returns an `Error: ...` instead of file content, so do not bother exploring other campaigns or NPC folders here.
 3. Call **`assemble_recap_draft`** with `raw_notes_path` (corpus-relative staging file the user message names), plus `target_session` and `campaign_id` from step 1. Use the returned `recap_body` verbatim as `write_corpus_file` `content` for the new recap (`mode='create'`, two-phase). Do not manually merge duplicate paragraphs or rebuild frontmatter — the tool already ran `recap_ingest_helpers.assemble_recap`.
 4. Draft / preview / commit only through `write_corpus_file` as usual; the recap file must match the mechanical body from `assemble_recap_draft` (you may still add a TLDR only if surveyed recaps use one — see recap-write skill).
 5. For each NPC slug that materially appeared, draft an `append_timeline_row` payload (slug, session number, one-cell beat, recap path).
 6. Surface every draft + diff to the GM in the same turn before any commit calls.
+
+**Recap-write structured output:** When the harness invokes the recap-write skill it
+selects the strict `planner_turn_output_recap_write` schema. The API will reject any
+reply that does not include both a `message` (GM-facing prose) and a `recap_write`
+object that conforms to `recap_write_v1`. Put GM-facing prose in `message`; put the
+structured payload (`recap_preview`, `duplicate_paragraphs`, `npc_audit`,
+`plot_artifacts`, `prep_pointer_proposal`, `notes_for_gm`) in `recap_write`. Do **not**
+embed JSON inside `message` for this skill.
 """
 
 _UNSURE_QUEUE_ADDENDUM = """

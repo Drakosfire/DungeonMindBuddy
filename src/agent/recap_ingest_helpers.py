@@ -1,6 +1,6 @@
 """Pure helpers for mechanical session-recap ingest (Scope-A; no IO, no LLM).
 
-Used by the session-summary-from-notes workflow and by Scope-A gold tests.
+Used by the recap-write workflow and by Scope-A gold tests.
 """
 
 from __future__ import annotations

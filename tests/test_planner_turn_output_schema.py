@@ -27,7 +27,7 @@ def test_planner_turn_output_json_schema_is_object_with_enum_and_message() -> No
         "default_summary",
         "alternative_summaries",
     ]
-    assert schema["required"] == ["user_intent", "message"]
+    assert schema["required"] == ["user_intent", "message", "unsure_queue"]
 
 
 def test_planner_turn_text_format_is_json_schema_block() -> None:
