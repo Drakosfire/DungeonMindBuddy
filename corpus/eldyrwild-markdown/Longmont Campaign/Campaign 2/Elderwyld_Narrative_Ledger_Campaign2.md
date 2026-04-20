@@ -316,7 +316,7 @@ _Last updated: 2025-11-08_
 
 ### 37) Rocky Talkies (Sara & Frank)
 - **Status:** Ongoing
-- **Progress:** Harried operators; reliable comms.
+- **Progress:** Harried operators; reliable comms. **Sara** and **Frank** are **fraternal twins** on the Mirathorn board (`Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/`).
 - **Linked NPCs:** Sara, Frank, Lysandra
 - **Items/Places:** Paired stones; operator alcove
 - **Next Hook:** Static-filled cross-talk repeats “Mael—Mael—” whenever the stones pass the inner wall.

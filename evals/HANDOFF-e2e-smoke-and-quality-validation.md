@@ -217,6 +217,20 @@ Also save:
 
 ---
 
+## NPC voice planner benchmarks (Torbin / Dustwalker)
+
+Planner Step 1-shaped live gates without Lysandra Step 2: [`evals/npc_voice_vertical_slice/README.md`](npc_voice_vertical_slice/README.md).
+
+```bash
+uv run python -m evals.npc_voice_vertical_slice.npc_voice_planner_trace --list-scenarios
+uv run python -m evals.npc_voice_vertical_slice.npc_voice_planner_trace --scenario torbin_factual_ac
+uv run python -m evals.npc_voice_vertical_slice.npc_voice_planner_trace --all
+```
+
+Pytest (single scenario): `NPC_VOICE_PLANNER_LIVE=1 pytest tests/test_npc_voice_vertical_slice_planner.py::test_npc_voice_planner_live_single_scenario -m integration`. Full manifest: `NPC_VOICE_PLANNER_LIVE_ALL=1` on `test_npc_voice_planner_live_all_manifest`.
+
+---
+
 ## Known Risks
 
 1. **Prompt ID bump** — Phase 3 bumped `_PROMPT_ID`. All file caches are stale. First run against any corpus will be 100% cache misses. This is expected.

@@ -258,7 +258,7 @@ This shape means a stale token is *informative* (someone or something edited the
 
 ### Context
 
-After the writer landed, we explored how to benchmark the `session-summary-from-notes` skill **before** the next real raw-recap arrives. Four options were considered:
+After the writer landed, we explored how to benchmark the `recap-write` skill **before** the next real raw-recap arrives. Four options were considered:
 
 | Option | What it measures | Cost | Verdict |
 |--------|------------------|------|---------|

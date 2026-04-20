@@ -1,0 +1,198 @@
+{
+  "schema": "recap_ingest_run_report_v1",
+  "iso_utc": "2026-04-19T16:28:11Z",
+  "scenario_id": "session_recap_ingest_session_20",
+  "model_id": "gpt-5.4-mini",
+  "run_index": 3,
+  "cohort_size": 5,
+  "gates_passed": true,
+  "tool_trace_gates_passed": true,
+  "payload_gates_passed": true,
+  "scenario_estimated_cost_usd": 0.057904,
+  "tool_trace_rows": 8,
+  "tool_trace_tools": [
+    "get_recap_context",
+    "read_corpus_file",
+    "read_corpus_file",
+    "read_corpus_file",
+    "read_corpus_file",
+    "assemble_recap_draft",
+    "write_corpus_file",
+    "write_corpus_file"
+  ],
+  "violation_counts": {},
+  "violations": {},
+  "corpus_fingerprint": "3d5d50457ec48901eb58cc53378b8fe4",
+  "corpus_dir": "/tmp/session_recap_pre_state_q6k7ubzt/eldyrwild-markdown",
+  "recap_write_payload": {
+    "schema_version": "recap_write_v1",
+    "recap_preview": {
+      "path": "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md",
+      "mode": "create",
+      "confirm_token": "e7177c85a19403dd0d7cea58c8a835ad"
+    },
+    "duplicate_paragraphs": [
+      {
+        "source_lines": [
+          6,
+          6
+        ],
+        "paragraph_preview": "Back in town, Bonogo is being guided by Stuart down an alley to a half burned building. According to Stuart this is where they will find Stacey.",
+        "recommended_action": "remove_later"
+      }
+    ],
+    "npc_audit": {
+      "timeline_append_candidates": [
+        {
+          "slug": "captain_lysandra_ironveil",
+          "hub_path": "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/",
+          "reason": "Lysandra was found disoriented, tainted by voices, and later recovered after the antidote, which is a clear timeline beat."
+        },
+        {
+          "slug": "sara_mirathorn_operator",
+          "hub_path": "Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/",
+          "reason": "Sara relayed Lysandra's condition over the rockie-talkie and acted as the contact point for the call chain."
+        },
+        {
+          "slug": "thrin_branchborn",
+          "hub_path": "Longmont Campaign/Campaign 2/NPCs/thrin_branchborn/",
+          "reason": "Thrin actively participated in the forest test, revealed knowledge of the trees, and remained under watch on the return trip."
+        },
+        {
+          "slug": "torbin_jove",
+          "hub_path": "Longmont Campaign/Campaign 2/NPCs/torbin_jove/",
+          "reason": "Torbin is not directly named in the raw notes, so no row candidate is added from this session."
+        }
+      ],
+      "new_hub_proposals": [
+        {
+          "proposed_slug": "stacey_brambleback",
+          "campaign_or_setting": "campaign",
+          "proposed_location": "Longmont Campaign/Campaign 2/NPCs/stacey_brambleback/",
+          "initial_files": [
+            "README.md",
+            "stacey_brambleback_character_dossier.md",
+            "timeline.md"
+          ],
+          "evidence_quote": "One of them is Stacey, the bugbear girl they are looking for.",
+          "rationale": "Stacey is a named recurring town child with agency, relationship dynamics, and clear future story potential."
+        },
+        {
+          "proposed_slug": "stuart",
+          "campaign_or_setting": "campaign",
+          "proposed_location": "Longmont Campaign/Campaign 2/NPCs/stuart/",
+          "initial_files": [
+            "README.md",
+            "stuart_character_dossier.md",
+            "timeline.md"
+          ],
+          "evidence_quote": "Back in town, Bonogo is being guided by Stuart down an alley",
+          "rationale": "Stuart has a distinct role in the scene, a memorable dynamic with Bonogo and Stacey, and likely recurrence as a local child contact."
+        },
+        {
+          "proposed_slug": "marla_brambleback",
+          "campaign_or_setting": "campaign",
+          "proposed_location": "Longmont Campaign/Campaign 2/NPCs/marla_brambleback/",
+          "initial_files": [
+            "README.md",
+            "marla_brambleback_character_dossier.md",
+            "timeline.md"
+          ],
+          "evidence_quote": "A farmer whispers to him that Stafl better step in and help because Marla is not someone to mess with.",
+          "rationale": "Marla is introduced as a load-bearing local power figure with immediate authority over the workers and a strong scene presence."
+        }
+      ],
+      "dismissed": [
+        {
+          "name": "Stafl",
+          "reason": "PC; skipped silently from hub audit."
+        },
+        {
+          "name": "Bonogo",
+          "reason": "PC; skipped silently from hub audit."
+        },
+        {
+          "name": "Caelynn",
+          "reason": "PC; skipped silently from hub audit."
+        },
+        {
+          "name": "Ephanna",
+          "reason": "PC; skipped silently from hub audit."
+        },
+        {
+          "name": "Karesmine",
+          "reason": "PC; skipped silently from hub audit."
+        },
+        {
+          "name": "Professor Tealeaf",
+          "reason": "Mentioned but not seen directly; the call went unanswered and there is not enough first-appearance substance here for a hub."
+        },
+        {
+          "name": "the mayor",
+          "reason": "Town role rather than a distinct first-appearance NPC with a name in this recap."
+        },
+        {
+          "name": "the sheriff",
+          "reason": "Town role rather than a distinct first-appearance NPC with a name in this recap."
+        },
+        {
+          "name": "Sara",
+          "reason": "Already-hubbed operator role could merit later timeline handling, but no read-confirmed hub path was opened this turn for a proposal."
+        }
+      ]
+    },
+    "plot_artifacts": [
+      {
+        "name": "Lysandra's tower blueprint",
+        "evidence_quote": "It appears to be a top-down blueprint of a tower and is very well done.",
+        "proposed_locations": [
+          "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md",
+          "Longmont Campaign/Campaign 2/Session Prep/session_20_stacey_stuart_marla_reference.md",
+          "Longmont Campaign/Campaign 2/Campaign 2 Notes.md"
+        ]
+      }
+    ],
+    "prep_pointer_proposal": {
+      "prep_path": "Longmont Campaign/Campaign 2/Session Prep/session_20_stacey_stuart_marla_reference.md",
+      "recap_path": "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md",
+      "prep_append_line": "> Session 20 recap: Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md",
+      "recap_append_line": "> Session 20 prep reference: Longmont Campaign/Campaign 2/Session Prep/session_20_stacey_stuart_marla_reference.md"
+    },
+    "notes_for_gm": "The recap draft is mechanically assembled and has one duplicate paragraph removed by the ingest helper. The prep reference strongly suggests the proper spellings and fuller names Stacey Brambleback and Marla Brambleback, but the recap body preserves the raw notes as requested."
+  },
+  "recap_write_payload_sha256_16": "15a8eb244da2a63e",
+  "final_text_chars": 5030,
+  "primary_response_id": "resp_068b0966ee4ce84e0069e50294963c81a0b1246fa1e9e2fe84",
+  "telemetry_cost": {
+    "planner_estimated_cost_usd": 0.057904,
+    "statblock_tool_estimated_cost_usd": 0,
+    "scenario_estimated_cost_usd": 0.057904,
+    "planner_cost_by_round_usd": [
+      0.001791,
+      0.002345,
+      0.002413,
+      0.011447,
+      0.017822,
+      0.013201,
+      0.008886
+    ],
+    "planner_usage_totals": {
+      "input_tokens": 193925,
+      "cached_tokens": 188928,
+      "output_tokens": 8886,
+      "total_tokens": 202811
+    },
+    "pricing_note": "approximate public list prices; verify against billing"
+  },
+  "scope_b_extras": {
+    "write_corpus_file_phases": {
+      "calls": 2,
+      "previews": 1,
+      "commits": 1,
+      "phases": "preview→commit"
+    },
+    "write_corpus_file_soft_observations": [],
+    "preview_required": true,
+    "commit_required": false
+  }
+}

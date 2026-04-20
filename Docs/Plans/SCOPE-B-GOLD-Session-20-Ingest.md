@@ -1,7 +1,7 @@
 # Scope-B gold spec — Session 20 ingest
 
 **Status:** frozen (decisions recorded April 2026 in [a073c164-9fc1-4c03-a888-2d71dd08bc22](a073c164-9fc1-4c03-a888-2d71dd08bc22)).
-**Scope:** the **review-surface + unsure-queue layer** of the `session-summary-from-notes` skill, evaluated against the Session 20 raw notes (`Session 20 Recap.txt`) and the campaign-2 corpus state at the time of this writing.
+**Scope:** the **review-surface + unsure-queue layer** of the `recap-write` skill (`.cursor/skills/recap-write/SKILL.md`), evaluated against the Session 20 raw notes (`Session 20 Recap.txt`) and the campaign-2 corpus state at the time of this writing.
 **Companion (Scope-A gold):** the recap file itself — `corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md` (frozen byte-for-byte; the recap is graded by the simpler structural Scope-A benchmark).
 **Companion (process notes):** `Docs/Plans/PROCESSING-NOTES-Session-20-Manual-Ingest.md`.
 

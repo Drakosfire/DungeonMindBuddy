@@ -79,6 +79,32 @@ Use the profiles below as quick-play references. Each is written so you can step
 
 • “Please start again with dates, names, and only one emergency at a time.”
 
+## Sheriff Roderic Marr — Sheriff of Mossford
+
+**Appearance: **A human man in his early fifties with dark brown skin, salt-and-pepper hair and beard kept close for work, and a jaw that healed crooked from an old riot. Brown eyes that track hands before they settle on faces.
+
+**Smell: **Oiled leather, river mud dried on cloak hems, cheap soap, and the metallic tang of a badge nobody polishes for show.
+
+**Voice: **Low, spare, and unwilling to repeat himself. When angry he whispers; when frightened for the town he counts people under his breath.
+
+**Attitude: **Skeptical of theatre in every form — political, religious, or musical — without being blind to real danger.
+
+**Mannerisms: **Taps two fingers on his badge when a conversation crosses from disagreement into waste; stands between crowds and whoever they want to hurt; reads warrants twice when Mirathorn seals are involved.
+
+**What they want right now: **To keep Mossford from mistaking relief for safety, and to keep crown paperwork from becoming an excuse to ignore river truth.
+
+**Play them as: **The man who remembers which families panic first — and who profits when they do.
+
+**Useful private note: **Years on the Reach taught him timed hymns can signal smugglers; a deputy died on a “simple” theft raid with chalk marks Marr could never prove were Shepherd work. He treats crowd euphoria like a weapon check.
+
+**Sample dialogue: **“Say it once. Truth, not theater.”
+
+• “Mirathorn sends heroes and headaches in the same wagon. I decide which you are today.”
+
+• “If everyone agrees too fast, someone’s lying or someone’s scared. I need to know which.”
+
+**Corpus:** `Elderwyld/Cities and Towns/Mossford/NPCs/sheriff_roderic_marr/character_seed.md`
+
 ## Constable Meret Rusk — Town constable
 
 **Appearance: **A broad-shouldered half-elf with sun-brown skin, practical boots, braided dark hair, and a face built for patience until that patience ends completely.
@@ -95,7 +121,7 @@ Use the profiles below as quick-play references. Each is written so you can step
 
 **Play them as: **Calm authority with hidden speed. She asks direct questions and remembers evasions better than answers.
 
-**Useful private note: **She suspects someone withdrew a night-traffic complaint under pressure rather than by second thought.
+**Useful private note: **She suspects someone withdrew a night-traffic complaint under pressure rather than by second thought. She reports to **Sheriff Marr** for crown writs and anything that leaves Mossford’s jurisdiction; she runs most street-level watch business day to day.
 
 **Sample dialogue: **“Most crime is impatience wearing boots.”
 

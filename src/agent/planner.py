@@ -383,6 +383,40 @@ def _planner_writer_tools_responses() -> list[dict[str, Any]]:
         },
         {
             "type": "function",
+            "name": "build_recap_write_payload",
+            "description": (
+                "Deterministic ``recap_write_v1`` fields from the same raw notes + context as "
+                "`assemble_recap_draft`: `duplicate_paragraphs`, `prep_pointer_proposal` "
+                "(when a prep doc exists), `recap_preview.path`/`mode`, and empty "
+                "`recap_preview.confirm_token` (paste the token after `write_corpus_file` "
+                "dry_run). Also returns empty `npc_audit` lists, `plot_artifacts: []`, and "
+                "`notes_for_gm: \"\"` — you fill judgment fields and the token in your final "
+                "JSON. Call after `assemble_recap_draft` when you want mechanical payload "
+                "fields without hand-copying them from the draft."
+            ),
+            "strict": False,
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "raw_notes_path": {
+                        "type": "string",
+                        "description": "Same as `assemble_recap_draft.raw_notes_path`.",
+                    },
+                    "target_session": {
+                        "type": "integer",
+                        "description": "Same as `assemble_recap_draft.target_session`.",
+                    },
+                    "campaign_id": {
+                        "type": "string",
+                        "description": "Same as `assemble_recap_draft.campaign_id`.",
+                    },
+                },
+                "required": ["raw_notes_path", "target_session", "campaign_id"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "type": "function",
             "name": "write_corpus_file",
             "description": (
                 "Guarded write into the campaign corpus. Two-phase commit: call once with "
@@ -599,7 +633,7 @@ def make_tool_dispatcher(
     """Build the planner tool dispatch closure (corpus reads, context loads, statblock).
 
     When ``allow_corpus_writes=True``, also routes ``get_recap_context``,
-    ``assemble_recap_draft``, ``write_corpus_file``, and ``append_timeline_row``
+    ``assemble_recap_draft``, ``build_recap_write_payload``, ``write_corpus_file``, and ``append_timeline_row``
     through the recap / corpus-writer stack. The default is ``False`` so the live
     planner used by evals never gains write capability silently.
     """
@@ -768,6 +802,51 @@ def make_tool_dispatcher(
                     ],
                 },
             }
+            return json.dumps(payload, ensure_ascii=False)
+        if name == "build_recap_write_payload":
+            if not allow_corpus_writes:
+                return (
+                    "Error: build_recap_write_payload is disabled (planner started with "
+                    "allow_corpus_writes=False). Re-launch with corpus writes enabled to use it."
+                )
+            from src.agent.recap_context import RecapContextError, resolve_recap_context
+            from src.agent.recap_ingest_helpers import assemble_recap as _assemble_recap
+            from src.agent.recap_write_mechanical_payload import (
+                build_recap_write_payload_from_ingest,
+            )
+
+            raw_rel = str(args.get("raw_notes_path", "")).strip()
+            notes_path = _resolve_safe_corpus_notes_staging_file(corpus_path, raw_rel)
+            if notes_path is None:
+                return (
+                    "Error: raw_notes_path must be a corpus-relative `.md` or `.txt` file under "
+                    "the corpus (no `..` or globs)."
+                )
+            try:
+                raw_text = notes_path.read_text(encoding="utf-8", errors="replace")
+            except OSError as exc:
+                return f"Error: cannot read raw_notes_path {raw_rel!r}: {exc}"
+            ts_raw = args.get("target_session")
+            try:
+                ts_int = int(ts_raw)
+            except (TypeError, ValueError):
+                return "Error: build_recap_write_payload.target_session must be an integer."
+            cid = str(args.get("campaign_id", "")).strip()
+            if not cid:
+                return "Error: build_recap_write_payload.campaign_id is required."
+            _full, ingest_report = _assemble_recap(
+                raw_notes=raw_text,
+                session=ts_int,
+                campaign_id=cid,
+                remove_duplicates=True,
+            )
+            try:
+                ctx = resolve_recap_context(
+                    corpus_path, campaign_id=cid, target_session=ts_int
+                )
+            except RecapContextError as exc:
+                return f"Error: {exc}"
+            payload = build_recap_write_payload_from_ingest(ctx, ingest_report)
             return json.dumps(payload, ensure_ascii=False)
         if name in ("write_corpus_file", "append_timeline_row"):
             if not allow_corpus_writes:

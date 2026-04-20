@@ -1,0 +1,40 @@
+---
+description: Dispatch guards enforce policy at runtime; graders verify the guard worked + the model recovered. Apply when working on planner_skill_dispatch_guards.py, scope_b_grader.py, or any new (guard, grader) pair.
+globs: src/agent/planner_skill_dispatch_guards.py,src/agent/planner_skill_dispatch.py,evals/**/scope_*_grader.py,evals/**/grader.py
+alwaysApply: false
+---
+
+# Dispatch guards vs graders — separation of concerns
+
+Two distinct layers; do not conflate.
+
+## Dispatch guards (`src/agent/planner_skill_dispatch_guards.py`)
+
+- **Source of truth** for hard policy at runtime.
+- Fail-closed: return `Error: <skill> blocked <reason>` strings the model can read in its next turn and recover from.
+- Block bad tool calls *before* they happen (e.g. `recap-write` skill cannot read `_ingest_staging/*` paths).
+- Coverage scope: runtime policy enforcement.
+
+## Graders (`evals/**/grader.py`, `evals/**/scope_*_grader.py`)
+
+- **Verify the guard did its job**, plus that the model recovered correctly. They do not re-implement policy.
+- When inspecting tool traces, **always check `output_excerpt` first** before flagging a path/argument violation. If the excerpt starts with `Error: <skill> blocked …`, the guard fired and the violation is a *soft observation* (proof the guard works), not a hard fail.
+- Hard fails are reserved for: (a) the guard missed (excerpt is real content, not an error string), or (b) the guard fired but the model failed to recover (e.g. didn't call the mandatory next tool).
+
+The canonical pattern lives in `evals/session_recap_ingest_vertical_slice/scope_b_grader.py` (`_path_tools_after_index` + `_RECAP_WRITE_GUARD_BLOCKED_READ_PREFIX`). When adding a new (guard, grader) pair, mirror that structure.
+
+## Adding a new guard
+
+1. Add the guard to `planner_skill_dispatch_guards.py`. Return an explicit `Error: <skill> blocked …` prefix the model can pattern-match on.
+2. Add a unit test that asserts the guard returns the error string for the bad input.
+3. Update the matching grader to:
+   - Recognize the guard's error prefix in `output_excerpt`.
+   - Bucket guard-caught events into a soft observation field (e.g. `scope_b_extras['*_soft_observations']`).
+   - Reserve hard violation flags for guard-missed or model-didn't-recover cases.
+4. Add at least three grader unit tests: guard caught + recovered (soft), guard missed (hard), guard caught + no recovery (hard). See `tests/test_scope_b_grader.py` for the pattern.
+
+## Anti-patterns
+
+- Grader re-implements the guard's policy check (e.g. matches paths against the same allowlist) — risk of drift between layers, double-penalty when the guard fires.
+- Guard returns a generic `False` or empty string the model can't interpret — model can't recover.
+- Adding the guard but not updating the grader — the next benchmark run will hard-fail on a blocked-and-recovered turn.

@@ -176,8 +176,17 @@ def run_session_recap_ingest_turn(
     scenario: dict[str, Any] | None = None,
     raw_notes: str | None = None,
     allow_corpus_writes: bool = True,
-) -> PlannerStep1Run:
-    """One planner turn for Session 20 recap ingest; gates from ``scope_b_session_20.json`` final block."""
+    return_snapshot: bool = False,
+) -> Any:
+    """One planner turn for Session 20 recap ingest; gates from ``scope_b_session_20.json`` final block.
+
+    Default return: ``PlannerStep1Run`` (back-compat for existing callers).
+    Pass ``return_snapshot=True`` to receive ``(PlannerStep1Run, RecapContext | None)``;
+    the snapshot is the ``RecapContext`` captured **before** any planner turn ran
+    (used by the cohort report writer to feed mechanical-payload comparison via
+    :func:`collect_scope_b_recap_ingest_report_extras` without re-resolving against
+    the post-commit corpus). See BACKLOG §1.5 (option b).
+    """
     sc = copy.deepcopy(scenario or load_scope_b_scenario())
     notes = raw_notes if raw_notes is not None else load_fixture_raw_notes()
     ingest_rel = str(
@@ -205,10 +214,15 @@ def run_session_recap_ingest_turn(
         pre_turn_recap_context = None
     sid = fixture_scenario_id(sc)
     user_message, input_violations = resolve_planner_user_message(sc, corpus_path)
+
+    def _early(failure: dict[str, list[str]]) -> Any:
+        empty = _empty_fail(sid, failure)
+        return (empty, pre_turn_recap_context) if return_snapshot else empty
+
     if input_violations:
-        return _empty_fail(sid, {"input": input_violations})
+        return _early({"input": input_violations})
     if not user_message.strip():
-        return _empty_fail(sid, {"input": [f"[{sid}] empty user message"]})
+        return _early({"input": [f"[{sid}] empty user message"]})
 
     instructions, fp = load_or_build_planner_instructions(
         corpus_path,
@@ -327,7 +341,7 @@ def run_session_recap_ingest_turn(
                 payload_gates_passed=payload_ok,
             )
 
-    return PlannerStep1Run(
+    built = PlannerStep1Run(
         detail=detail,
         result=result,
         instructions=instructions,
@@ -338,6 +352,9 @@ def run_session_recap_ingest_turn(
         followup_user_line=followup_user_line,
         first_turn_final_text=first_turn_final_text,
     )
+    if return_snapshot:
+        return built, pre_turn_recap_context
+    return built
 
 
 def _iso_utc_now() -> str:
@@ -804,11 +821,18 @@ def main() -> None:
         run: PlannerStep1Run,
         corpus_root: Path,
         elapsed_s: float,
+        recap_context_snapshot: Any | None = None,
     ) -> RecapIngestRunSummary:
         """Per-run logging + report writing. MUST be serialized when ``parallel>1``
         (``capture_and_write_recap_ingest_report`` patches ``sys.stdout`` via
         ``contextlib.redirect_stdout`` to capture the review block, so concurrent
-        invocations would interleave/garble each other's stdout)."""
+        invocations would interleave/garble each other's stdout).
+
+        ``recap_context_snapshot`` is the pre-turn ``RecapContext`` captured by
+        ``run_session_recap_ingest_turn(return_snapshot=True)``; passed through to
+        :func:`collect_scope_b_recap_ingest_report_extras` so the mechanical-payload
+        comparison sees the same view the dispatch guard saw, not a re-resolved
+        post-commit corpus."""
         if n > 1:
             print(f"\n[recap-ingest] === run {i + 1}/{n} ===", file=sys.stderr)
         trace = list(run.detail.tool_trace or [])
@@ -834,7 +858,12 @@ def main() -> None:
                     _vlog(verbosity, 1, f"violation [{bucket}]: … {len(rows) - 12} more")
         if verbosity >= 1:
             try:
-                extras = collect_scope_b_recap_ingest_report_extras(gold, run.detail)
+                extras = collect_scope_b_recap_ingest_report_extras(
+                    gold,
+                    run.detail,
+                    corpus_root,
+                    recap_context_snapshot=recap_context_snapshot,
+                )
             except Exception as exc:  # noqa: BLE001
                 extras = {"error": repr(exc)}
             soft_obs = extras.get("write_corpus_file_soft_observations") or []
@@ -842,6 +871,33 @@ def main() -> None:
                 _vlog(verbosity, 1, f"soft [scope_b]: {line}")
             if len(soft_obs) > 6:
                 _vlog(verbosity, 1, f"soft [scope_b]: … {len(soft_obs) - 6} more")
+            mech_match = extras.get("mechanical_fields_match")
+            mech_called = extras.get("build_recap_write_payload_called")
+            _vlog(
+                verbosity,
+                1,
+                f"mechanical_fields: match={mech_match} "
+                f"build_recap_write_payload_called={mech_called}",
+            )
+            if mech_match is False:
+                diff_keys = sorted((extras.get("mechanical_fields_diff") or {}).keys())
+                _vlog(
+                    verbosity,
+                    1,
+                    f"mechanical_fields_diff: {diff_keys!r}",
+                )
+            commit_outcome = extras.get("write_corpus_file_last_commit_outcome")
+            if isinstance(commit_outcome, dict):
+                succeeded = commit_outcome.get("succeeded")
+                phase = commit_outcome.get("phase")
+                err = (commit_outcome.get("error") or "").strip()
+                err_short = (err[:160] + "…") if len(err) > 160 else err
+                _vlog(
+                    verbosity,
+                    1,
+                    f"commit_outcome: succeeded={succeeded} phase={phase!r} "
+                    f"error={err_short!r}",
+                )
         if verbosity >= 2:
             _dump_tool_trace_verbose(trace)
         paths, summary = capture_and_write_recap_ingest_report(
@@ -859,6 +915,7 @@ def main() -> None:
             runs_root=args.runs_root,
             run_index=i if n > 1 else None,
             cohort_size=cohort_size,
+            recap_context_snapshot=recap_context_snapshot,
         )
         print(
             f"\n[recap-ingest] report: {paths.primary_md}\n"
@@ -869,7 +926,6 @@ def main() -> None:
         return summary
 
     if parallel <= 1:
-        # Sequential path (unchanged behavior).
         for i in range(n):
             # Run 0 already built above (so the early exit for missing corpus fires before
             # any API spend); rebuild for every later run for honest cross-run isolation.
@@ -881,16 +937,19 @@ def main() -> None:
                 )
             _vlog(verbosity, 1, f"--- begin run {i + 1}/{n} corpus={corpus_root} ---")
             t0 = time.monotonic()
-            run = run_session_recap_ingest_turn(
+            run, snapshot = run_session_recap_ingest_turn(
                 corpus_dir=corpus_root,
                 client=client,
                 model_id=model_id,
                 allow_corpus_writes=allow_writes,
+                return_snapshot=True,
             )
             elapsed_s = round(time.monotonic() - t0, 2)
             last_run = run
             scenario_id_for_summary = run.result.scenario_id or scenario_id_for_summary
-            summary = _emit_run_report(i, run, corpus_root, elapsed_s)
+            summary = _emit_run_report(
+                i, run, corpus_root, elapsed_s, recap_context_snapshot=snapshot
+            )
             summaries.append(summary)
     else:
         # Parallel path: workers do the API-bound planner turn concurrently; report
@@ -916,7 +975,7 @@ def main() -> None:
                 prebuilt_run0_corpus = None
                 return claimed
 
-        def _worker(i: int) -> tuple[int, PlannerStep1Run, Path, float]:
+        def _worker(i: int) -> tuple[int, PlannerStep1Run, Path, float, Any]:
             corpus_root = _claim_run0_corpus() if i == 0 else _build_corpus_for_run(i)
             if corpus_root is None:
                 # Run 0's prebuilt corpus was already claimed (shouldn't happen since
@@ -929,21 +988,22 @@ def main() -> None:
             )
             _vlog(verbosity, 1, f"[run {i + 1}/{n}] begin")
             t0 = time.monotonic()
-            run = run_session_recap_ingest_turn(
+            run, snapshot = run_session_recap_ingest_turn(
                 corpus_dir=corpus_root,
                 client=client,
                 model_id=model_id,
                 allow_corpus_writes=allow_writes,
+                return_snapshot=True,
             )
             elapsed_s = round(time.monotonic() - t0, 2)
-            return i, run, corpus_root, elapsed_s
+            return i, run, corpus_root, elapsed_s, snapshot
 
         completed = 0
         with ThreadPoolExecutor(max_workers=parallel, thread_name_prefix="recap-ingest") as exe:
             futures = [exe.submit(_worker, i) for i in range(n)]
             for fut in as_completed(futures):
                 try:
-                    i, run, corpus_root, elapsed_s = fut.result()
+                    i, run, corpus_root, elapsed_s, snapshot = fut.result()
                 except Exception as exc:  # noqa: BLE001
                     completed += 1
                     print(
@@ -956,7 +1016,9 @@ def main() -> None:
                     last_run = run
                     if run.result.scenario_id:
                         scenario_id_for_summary = run.result.scenario_id
-                    summary = _emit_run_report(i, run, corpus_root, elapsed_s)
+                    summary = _emit_run_report(
+                        i, run, corpus_root, elapsed_s, recap_context_snapshot=snapshot
+                    )
                     results_by_index[i] = summary
                     completed += 1
                     _vlog(

@@ -89,7 +89,7 @@ Counts exceed 40 because multiple triggers can fire on one file.
 ## 6) Representative Observations
 
 ### Strong regressions (quality)
-- `Longmont Campaign/NPCs/Torbin Jove/Torbin Characteristics.md`
+- `Longmont Campaign/Campaign 2/NPCs/torbin_jove/torbin_jove_care_guidelines.md`
   - `other_rate` delta: **+0.3556**
 - `Festival/Cultural Ceremonies at the Temple of the Aspitome.md`
   - `other_rate` delta: **+0.1761**

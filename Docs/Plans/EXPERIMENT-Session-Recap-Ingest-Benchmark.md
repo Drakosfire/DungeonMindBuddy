@@ -1,15 +1,17 @@
-# EXPERIMENT — Session Recap Ingest Benchmark (hand-off plan)
+# EXPERIMENT — Session Recap Ingest Benchmark
 
-**Status:** ready for implementation hand-off (no code written yet).
-**Author:** designed April 2026 from the manual Session 20 ingest pass; transcript [a073c164-9fc1-4c03-a888-2d71dd08bc22](a073c164-9fc1-4c03-a888-2d71dd08bc22).
+**Status:** **implementation landed; mechanical Scope-B contract green.** Last cohort: 2026-04-19, 5/5 PASS at `--n 5 --parallel 5` (`recap_ingest_summary--gpt-5.4-mini--N5--20260419T214553Z.{md,json}`). The original §J item-by-item gates are partially deferred (see `STATUS-Session-Recap-Ingest-Benchmark.md`).
+**Author:** designed April 2026 from the manual Session 20 ingest pass; transcript [a073c164-9fc1-4c03-a888-2d71dd08bc22](a073c164-9fc1-4c03-a888-2d71dd08bc22). Implementation rev: April 2026.
 **Scope contract:** `Docs/Plans/SCOPE-B-GOLD-Session-20-Ingest.md` (the "what passes" spec). This file specifies the "how it gets graded" experiment.
 **Provenance:** `Docs/Plans/PROCESSING-NOTES-Session-20-Manual-Ingest.md` (the manual-ingest log that derived the gold).
+**As-built architecture:** see §15 below; **review follow-ups:** see [`BACKLOG-session-recap-benchmarking.md`](BACKLOG-session-recap-benchmarking.md).
+**Live ledger:** [`STATUS-Session-Recap-Ingest-Benchmark.md`](STATUS-Session-Recap-Ingest-Benchmark.md).
 
 ---
 
 ## 1. Goal
 
-Prove the `session-summary-from-notes` skill is **working and robust** by passing a benchmark that grades, against frozen gold, every artifact and behavior the skill produces from a single fixed raw-notes input — and detects regression on any of them.
+Prove the `recap-write` skill is **working and robust** by passing a benchmark that grades, against frozen gold, every artifact and behavior the skill produces from a single fixed raw-notes input — and detects regression on any of them.
 
 A passing benchmark proves four things:
 
@@ -160,6 +162,8 @@ A benchmark run produces a JSON report with one boolean per gate. **Pass = all g
 ### 5.4 Pass/fail summary
 
 The benchmark passes iff: **all of A1–A8, B1–B9, C1–C7 are true** for one execution.
+
+**Living gate status (PASS / PARTIAL / OPEN, last verified, commands):** [STATUS-Session-Recap-Ingest-Benchmark.md](STATUS-Session-Recap-Ingest-Benchmark.md).
 
 ---
 
@@ -523,38 +527,47 @@ These are **explicitly excluded**. If we want them tested, that is a separate be
 
 ## 11. Hand-off checklist
 
-A single engineer can complete this in **~3 focused sessions** (~6–9 hours total). Order matters; do them top to bottom.
+**Implementation status** (what landed in-repo) vs **gate proof** (what §5 asserts on a full run) are different. Use **[STATUS-Session-Recap-Ingest-Benchmark.md](STATUS-Session-Recap-Ingest-Benchmark.md)** for the per-gate ledger; the boxes below track **implementation** completeness.
+
+### §11.1 Gate proof matrix (quick reference)
+
+| Gate | Automation | Proof artifact |
+|------|------------|----------------|
+| A1–A8 | **Yes** (A8 + helpers) | `tests/test_session_20_scope_a_gold.py`, `tests/test_recap_ingest_helpers.py` |
+| B1–B9 | **Partial** (B1 runnable via `step1`; B7 grader) | Finish `step2` graders + expand `scope_b_session_20.json` |
+| C1–C2, C4–C7 | **No** | Scope-B runner + tool-trace graders |
+| C3 | **Yes** | `tests/test_corpus_writer.py` (stale token / two-phase) |
 
 ### Phase 1 — Scope-A and writer unit tests (no LLM; fast feedback)
 
-- [ ] Implement `src/agent/recap_ingest_helpers.py` with the five functions in §7.1.
-- [ ] Write `tests/test_recap_ingest_helpers.py` with one test per function + a Session-20 round-trip test.
-- [ ] Write `tests/test_session_20_scope_a_gold.py` (one test, byte-equal assertion).
-- [ ] Confirm `uv run pytest tests/test_recap_ingest_helpers.py tests/test_session_20_scope_a_gold.py` passes.
+- [x] Implement `src/agent/recap_ingest_helpers.py` with the functions in §7.1 (incl. `numbered_lines_for_recap`, heuristics).
+- [x] Write `tests/test_recap_ingest_helpers.py` with Session 20 coverage + abbreviation/dialogue robustness tests.
+- [x] Write `tests/test_session_20_scope_a_gold.py` (byte-equal assertion = **gate A8**).
+- [x] Confirm `uv run pytest tests/test_recap_ingest_helpers.py tests/test_session_20_scope_a_gold.py` passes.
 
 ### Phase 2 — Allowlist extensions + unsure-queue schema (no LLM; small surface)
 
-- [ ] Add five new allowlist patterns to `src/agent/corpus_writer.py` per §7.4.
-- [ ] Add parametrized tests in `tests/test_corpus_writer.py` for each new pattern (allow + deny).
-- [ ] Extend `src/agent/planner_turn_output_schema.py` with `unsure_queue` field.
-- [ ] Add schema tests to `tests/test_planner_turn_output_schema.py`.
-- [ ] Add `_UNSURE_QUEUE_ADDENDUM` to `src/prompts/corpus_session_planner.py`; bump `INSTRUCTIONS_TEMPLATE_ID`.
-- [ ] Confirm `uv run pytest tests/test_corpus_writer.py tests/test_planner_turn_output_schema.py` passes.
+- [x] Add allowlist patterns to `src/agent/corpus_writer.py` per §7.4 (+ Session Prep blockquote validation).
+- [x] Add parametrized tests in `tests/test_corpus_writer.py` (allow + deny + prep append).
+- [x] Extend `src/agent/planner_turn_output_schema.py` with `unsure_queue` field.
+- [x] Add schema tests to `tests/test_planner_turn_output_schema.py`.
+- [x] Add `_UNSURE_QUEUE_ADDENDUM` to `src/prompts/corpus_session_planner.py`; bump `INSTRUCTIONS_TEMPLATE_ID`.
+- [x] Confirm `uv run pytest tests/test_corpus_writer.py tests/test_planner_turn_output_schema.py` passes.
 
 ### Phase 3 — Scope-B eval slice (live LLM; main investment)
 
-- [ ] Create `evals/session_recap_ingest_vertical_slice/` directory.
-- [ ] Write `step0_pre_state.py` + `gold/step0_pre_state_manifest.json` (§7.5).
-- [ ] Write `gold/scope_b_session_20.json` translating §A–§I of the markdown gold spec to machine form (§7.3 sketch).
-- [ ] Write `gold/scope_b_session_20_unsure_queue.json` (§7.3 sketch).
-- [ ] Write `gold/scope_b_session_20_findings.json` (G + H substring lists).
-- [ ] Write `step1_recap_ingest_run.py` modeled on `evals/lysandra_vertical_slice/step1_planner_trace.py`.
-- [ ] Write `step2_grade_against_gold.py` (per-§J item grading, byte-equal vs shape).
-- [ ] Write `step3_unsure_queue_grading.py` (regex on question + presence of default + alternatives count).
-- [ ] Write `step4_chaos_two_phase.py` (C3 chaos: mutate content between dry-run and commit; assert rejection).
-- [ ] Write `evals/session_recap_ingest_vertical_slice/README.md`.
-- [ ] Add `make bench-recap-ingest` target.
-- [ ] Run end-to-end; confirm all gates pass on a clean checkout.
+- [x] Create `evals/session_recap_ingest_vertical_slice/` directory.
+- [x] Write `step0_pre_state.py` + `gold/step0_pre_state_manifest.json` (§7.5).
+- [x] Write `gold/scope_b_session_20.json` (now drives the **mechanical Scope-B contract** in §15.4 — narrower than the original §A–§I machine form; rest deferred to BACKLOG).
+- [x] Write `gold/scope_b_session_20_unsure_queue.json` (§7.3 sketch).
+- [x] Write `gold/scope_b_session_20_findings.json` (stub substring list; not yet enforced).
+- [x] Write `step1_recap_ingest_run.py` wired to `run_planning_turn_detailed` with pre-state corpus, skill + fixture user message, write tools on, plus `RecapContext` snapshotting, `--parallel` cohort, `--detach`/`--detach-follow` execution (see module docstring + §15).
+- [~] Write `step2_grade_against_gold.py` — **superseded** by inline grader: `evals/session_recap_ingest_vertical_slice/scope_b_grader.py` is invoked from the runner each turn; per-gate violations land in the run sidecar. The standalone `step2_*.py` was not built.
+- [x] Write `step3_unsure_queue_grading.py` (regex + counts; **not** wired into the runner's pass/fail today).
+- [x] Write `step4_chaos_two_phase.py` (doc anchor; C3 covered in `tests/test_corpus_writer.py`).
+- [x] Write `evals/session_recap_ingest_vertical_slice/README.md` (refreshed against as-built architecture).
+- [ ] Add `make bench-recap-ingest` target (optional; not present today).
+- [x] Run end-to-end; **mechanical Scope-B contract** + **C1, C2** pass cleanly on a clean checkout (5/5 cohort, 2026-04-19). Original §J B2/B3/B4/B5/B6/B8 deferred — tracked in [STATUS-Session-Recap-Ingest-Benchmark.md](STATUS-Session-Recap-Ingest-Benchmark.md) and [BACKLOG-session-recap-benchmarking.md](BACKLOG-session-recap-benchmarking.md).
 
 ### Phase 4 — CI wiring (optional, not blocking benchmark hand-off)
 
@@ -607,4 +620,132 @@ The benchmark passes iff:
 
 Failure on any single gate localizes the regression to a small file/function set per the §9 taxonomy. The benchmark is single-fixture, but it covers every gate in the §J pass criteria, so it is a complete proof-of-current-state — and it becomes a *generalization* benchmark the moment a second `(raw_notes, gold_artifacts)` pair lands on disk (just add a second scenario JSON; the runner is fixture-agnostic).
 
-This is the smallest experiment that validates *all* of the design claims made in `Docs/Plans/SCOPE-B-GOLD-Session-20-Ingest.md` and the revised `session-summary-from-notes` SKILL.
+This is the smallest experiment that validates *all* of the design claims made in `Docs/Plans/SCOPE-B-GOLD-Session-20-Ingest.md` and the revised `recap-write` skill (`.cursor/skills/recap-write/SKILL.md`).
+
+---
+
+## 15. Implementation as built (April 2026)
+
+The original §3–§7 spec is the **target**. What actually shipped is narrower in some places and stronger in others. This section documents what's in the tree right now so future maintainers don't have to triangulate from code.
+
+### 15.1 Component map
+
+```
+gold/scope_b_session_20.json   ─►  the single fixture; drives the mechanical Scope-B contract.
+                                   Loaded once per cohort.
+
+src/agent/
+├── recap_context.py                Frozen snapshot dataclass + resolver. No IO mutation.
+├── recap_ingest_helpers.py         Pure mechanical helpers (Scope-A core).
+├── recap_write_output_schema.py    `recap_write_v1` JSON Schema + Python validator.
+├── recap_write_mechanical_payload.py  Pure builders for ``build_recap_write_payload`` tool.
+├── planner_skill_output_schema.py  Per-skill `text.format` registry. Composes universal
+│                                   envelope + skill schema (recap-write today).
+├── planner_skill_dispatch_guards.py Fail-closed wrappers around the tool dispatcher.
+│                                   Today only `recap-write` is guarded.
+├── planner_turn_output_schema.py   Universal turn envelope (used when no skill match).
+└── planner.py                      `run_planning_turn_detailed(active_skill_id=..., 
+                                     skill_recap_context=..., skill_read_allowlist_extras=...)`
+                                     composes (a) per-skill text.format and (b) dispatch guard
+                                     when active_skill_id is registered.
+
+evals/session_recap_ingest_vertical_slice/
+├── step0_pre_state.py              Per-run tmp corpus build (manifest-driven).
+├── step0_corpus_environment.py     Fingerprint pin + service gate (lysandra-pattern).
+├── step1_recap_ingest_run.py       Runner. Sequential / `--parallel K` / `--detach`.
+├── scope_b_grader.py               `collect_scope_b_recap_ingest_violations` (hard gates)
+│                                   + `collect_scope_b_recap_ingest_report_extras` (soft).
+└── recap_ingest_run_report.py      Per-run + cohort artifacts.
+```
+
+### 15.2 Execution data flow
+
+For one planner turn against the Session 20 fixture:
+
+1. **Pre-state corpus.** `step0_pre_state.build_pre_state_corpus()` copies `corpus/eldyrwild-markdown` to a tmpdir and applies `gold/step0_pre_state_manifest.json` (deletes Session 20 recap, Mossford NPC dirs, Lysandra row 20, trailing prep blockquote). Per-run rebuild in cohorts.
+2. **Snapshot.** `resolve_recap_context(corpus_path)` resolves `(campaign_id, target_session, recent_recaps[K=3], prep_doc_path, …)` from `Session Recaps/**/*.md` frontmatter. The result is `frozen=True`.
+3. **Plan.** `run_planning_turn_detailed(active_skill_id="recap-write", skill_recap_context=ctx, skill_read_allowlist_extras=…)`:
+   - `wrap_dispatch_for_skill` wraps `dispatch_tool` with the recap-write guard (rejects pinned `get_recap_context`, rejects out-of-allowlist `read_corpus_file` / `load_context_markdown`).
+   - `skill_text_format_for("recap-write")` substitutes the `planner_turn_output_recap_write` strict schema for this turn (and every follow-up).
+   - The tool dispatcher exposes `get_recap_context`, `read_corpus_file`, `assemble_recap_draft`, `build_recap_write_payload` (optional deterministic `recap_write_v1` fields), `write_corpus_file`, `append_timeline_row` (`assemble_recap_draft` / `build_recap_write_payload` wrap `recap_ingest_helpers.assemble_recap` + `recap_write_mechanical_payload`).
+4. **Followup.** `gold/scope_b_session_20.json:followup_turn.user_message` is sent on a chained `previous_response_id`, instructing the model to commit (`dry_run=false`) using the preview's `confirm_token`. Same `RecapContext` snapshot, same skill kwargs.
+5. **Grade.** `collect_scope_b_recap_ingest_violations(scenario, detail, corpus_path, precomputed_recap_context=ctx)` returns split violation buckets (`scope_b_tool`, `scope_b_payload`); merged into the live-eval result with split flags `tool_trace_gates_passed` / `payload_gates_passed`.
+6. **Telemetry.** `collect_scope_b_recap_ingest_report_extras(scenario, detail, corpus_path, recap_context_snapshot=ctx)` returns non-failing observations:
+   - `write_corpus_file_phases` + `write_corpus_file_soft_observations`
+   - `build_recap_write_payload_called: bool`
+   - `mechanical_fields_match: True | False | None` (and `mechanical_fields_diff` when `False`) — re-runs `build_recap_write_payload_from_ingest` against the snapshot and equality-compares mechanical sub-fields (`recap_preview.{path,mode}`, `duplicate_paragraphs`, `prep_pointer_proposal`) of the model's emitted `recap_write`. Cohort summary stratifies the rate by `build_recap_write_payload_called` to measure whether the tool actually reduces variance (BACKLOG §1.5).
+7. **Persist.** `capture_and_write_recap_ingest_report` writes per-run `.md` (review + sidecar inline) and `.json` (sidecar). After all runs, `write_recap_ingest_multi_summary` writes a cohort `.md` + `.json` if `--n > 1`.
+
+### 15.3 Mechanical Scope-B contract (what the grader hard-asserts)
+
+Narrower than the original §J item-by-item gates; built as the smallest set that's **deterministic given the fixture + snapshot**.
+
+| Assertion | Where it lives |
+|---|---|
+| Exactly one `get_recap_context` call. Args **unpinned** (no `campaign_id`, no `target_session`). | grader; mirrored fail-closed by dispatch guard |
+| All `read_corpus_file` / `load_context_markdown` paths ∈ `recent_recaps[].path` ∪ `prep_doc_path` ∪ `read_allowlist_extra`. | grader; mirrored fail-closed by dispatch guard |
+| Exactly one `assemble_recap_draft` call. `target_session` and `campaign_id` match snapshot. `raw_notes_path` matches `ingest_raw_notes_relpath`. | grader |
+| Optional: exactly one `build_recap_write_payload` when `scope_b_grader.require_build_recap_write_payload` is true (same arg checks as `assemble_recap_draft`). | grader |
+| `write_corpus_file` phase shape satisfies `preview_required` / `commit_required` knobs in gold. (Today both `true` ⇒ `preview→commit`.) | grader |
+| Final assistant message contains a top-level `recap_write` field that parses + validates as `recap_write_v1` (``confirm_token`` may be empty until after preview). | grader (`validate_recap_write_payload`); enforced API-side by `text.format` |
+
+Mapping back onto §5.2 / §5.3 / §J: see [STATUS-Session-Recap-Ingest-Benchmark.md](STATUS-Session-Recap-Ingest-Benchmark.md). Items not covered here (B2 Lysandra append, B3/B5/B6 setting seeds, B4 dossier shape, B8 footers, B9 findings substrings) are deferred to BACKLOG.
+
+### 15.4 The `text.format` strict schema
+
+`planner_turn_with_recap_write_text_format()` returns:
+
+```jsonc
+{
+  "format": {
+    "type": "json_schema",
+    "name": "planner_turn_output_recap_write",
+    "strict": true,
+    "schema": { /* universal envelope (user_intent | message | unsure_queue)
+                   + required top-level `recap_write` of `recap_write_v1` */ }
+  }
+}
+```
+
+Enforcement is **API-side** — the model cannot emit non-conforming JSON. The previous "embed JSON in `message`, extract via fenced code" path is deprecated for recap-write turns; the validator still extracts loose payloads as a safety net for non-recap-write callers and forensic replay. Module docstrings in `recap_write_output_schema.py` describe the live `text.format` integration.
+
+**Mechanical payload tool:** `build_recap_write_payload` returns deterministic `duplicate_paragraphs`, `prep_pointer_proposal`, `recap_preview.path`/`mode`, and `confirm_token: ""` until the model pastes the token after `write_corpus_file` dry_run — reducing variance in hand-copied mechanical fields.
+
+### 15.5 Snapshot contract — invariant and rationale
+
+**Invariant:** Every `RecapContext` consumer for a given scenario run uses the **same** snapshot object — the one resolved before turn 1. This includes the dispatch guard (turn 1 + every follow-up), the planner turn body, and the post-run grader.
+
+**Why:** Without this invariant, a turn-1 `write_corpus_file` of `Session 20 - Recap.md` would shift `max(session)` in the corpus; turn-2 re-resolution of `RecapContext` would produce a different `target_session`, a different allowlist, and a different "expected" `assemble_recap_draft.target_session`. The grader and the dispatch guard would then disagree with the model's correct turn-1 actions. This was observed during 2-turn rollout and fixed by snapshotting.
+
+The invariant is enforced by **caller convention** — `step1_recap_ingest_run.py` resolves once and threads the snapshot through `skill_recap_context=ctx` on every `run_planning_turn_detailed` call. `planner_skill_dispatch_guards.compute_recap_write_read_allowlist` honors `precomputed_recap_context` and only re-resolves when it's `None`.
+
+**Read guard + `c:` refs:** `_wrap_recap_write` resolves `path` with the same `build_corpus_path_ref_index` + `_resolve_planner_read_argument` pairing as the base dispatcher before allowlist membership, so `c:<hex>` tokens that point at an allowlisted `.md` file are accepted.
+
+### 15.6 Runner topology
+
+| Mode | Flag | Behavior |
+|---|---|---|
+| Sequential | (default) | One worker; one corpus per run; reports flush in run order. |
+| Parallel | `--parallel K` (`-p K`) | `ThreadPoolExecutor(max_workers=min(K, n))`. Each worker builds its own pre-state corpus. **Report writing is serialized** under a `threading.Lock` because `capture_and_write_recap_ingest_report` patches `sys.stdout` via `contextlib.redirect_stdout` to capture the review block. Cohort speedup ≈ `total_sequential / max_per_run_wall_time` (bounded by tail latency). |
+| Detached | `--detach` (`--background`) | Spawns a child via `subprocess.Popen(start_new_session=True)`; parent exits immediately unless `--detach-follow` is set. `_filter_argv_for_detach_child` strips detach flags so the child does not re-detach. |
+| Detach + follow | `--detach --detach-follow` | Parent streams the child's log file to stdout (`tail -f` semantics); Ctrl+C stops the viewer only. |
+| Verbosity | default `-vv` (full tool_trace dump per run on stderr); `-v` light; `-q` silent. | Long API rounds (~10–20s each) made silent gaps look like hangs; verbose-by-default fixed the perception. |
+
+### 15.7 Cost / runtime envelope (last cohort, 2026-04-19)
+
+| Metric | Value |
+|---|---|
+| Wall time (5 runs, `--parallel 5`) | ~4m14s (bounded by slowest worker; 4 of 5 finished in ~50s, 1 in ~4m) |
+| Total cost | $0.32 USD ($0.0625–0.0698 per run, mean $0.0645) |
+| Trace rows per run | 8 (`get_recap_context, read×4, assemble_recap_draft, write_corpus_file × 2`) |
+| Cache hit rate | climbs round-over-round to ~98% by round 6 |
+| Pass rate | 5/5 (`gates`, `tool_trace`, `payload`) |
+| Distinct payload sha256_16 | 5 (mechanical core stable; `notes_for_gm` + `npc_audit` narrative variance) |
+
+---
+
+## 16. Staff Designer review follow-ups
+
+A top-to-bottom design pass on the as-built system identified prioritized follow-ups (drift risks, coupling, observability, ergonomics) and two strategic moves (mechanical `build_recap_write_payload` tool; second gold scenario for generalization). The full prioritized backlog is in **[BACKLOG-session-recap-benchmarking.md](BACKLOG-session-recap-benchmarking.md)** §1–§3 and §"Strategic moves".
+
+The original §10 "Out of scope" still applies — that list is not what the BACKLOG addresses; it covers improvements *within* the current scope.

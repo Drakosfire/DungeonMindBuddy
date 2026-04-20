@@ -48,8 +48,14 @@ Paths are relative to `corpus/eldyrwild-markdown/`.
 | `Elderwyld/UnRefined Heading into the Flesh Kaiju.md` | World draft | Council color: Lysandra reports guard disappearances. |
 | `Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_statblock_cr2.md` | Statblock (RulesIngestion Stage A) | **Machine-readable sheet** at **CR 2** (Mirathorn / setting-facing). `canonical_statblock_relpath` in `corpus_policy.json`. |
 | *(optional)* `captain_lysandra_ironveil_statblock_cr2.pdf` | Statblock PDF | Pair with the `.md` in the Mirathorn hub or pipeline `out/`; not required in corpus for Buddy reads. |
-| `Longmont Campaign/NPCs/Torbin Jove/Torbin Jove.md` | Statblock (RulesIngestion Stage A) | From `Torbin Jove.pdf`. |
-| `Longmont Campaign/NPCs/Torbin Jove/Torbin Jove.pdf` | Statblock PDF | Original export. |
+| `Elderwyld/Cities and Towns/Mirathorn/NPCs/torbin_jove/torbin_jove_statblock.md` | Statblock (RulesIngestion Stage A) | Kid sheet; paired PDF `torbin_jove.pdf` in same hub. |
+| `Longmont Campaign/Campaign 2/NPCs/torbin_jove/README.md` | Hub | C2 table index (dossier, timeline, care guidelines). |
+| `Elderwyld/Cities and Towns/Mirathorn/NPCs/torbin_jove/README.md` | Hub | Mirathorn index + `character_seed.md`. |
+| `Longmont Campaign/NPCs/Torbin Jove/README.md` | Redirect | Deprecated folder — points at slug hubs above. |
+| `Elderwyld/Shephards Flock/NPCs/dustwalker/dustwalker_statblock.md` | Statblock + profile | **Dustwalker** (Sorin Haldrim); CR 3 sheet + interrogation prose. |
+| `Elderwyld/Shephards Flock/NPCs/dustwalker/README.md` | Hub | Shepherd’s Flock index for this NPC. |
+| `Longmont Campaign/Campaign 2/NPCs/dustwalker/README.md` | Hub | C2 table index (dossier, timeline). |
+| `Elderwyld/Shephards Flock/Statblocks and Tokens/DustWalker.md` | Redirect | Points at `NPCs/dustwalker/dustwalker_statblock.md`. |
 
 **Mention count (ripgrep `Lysandra` in `*.md` under this corpus root):** 19 files; per-file hit counts range from 1–11 (highest in `Campaign 2 Notes.md`). **Plus** Mirathorn statblock filename + body for mechanical hits.
 
@@ -100,3 +106,5 @@ This file inventories **on-disk markdown**. In the running product, **which file
 ## 8. Related design
 
 See `Docs/Plans/DESIGN-lysandra-statblock-vertical-slice-benchmark.md` for stepped gates G0–G8.
+
+**Hub layout template (generalize beyond Lysandra):** `Docs/CONVENTION-NPC-Hub-Package.md`.

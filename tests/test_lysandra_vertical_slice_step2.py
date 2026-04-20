@@ -281,13 +281,15 @@ def test_statblock_trace_reads_matching_policy_configurable() -> None:
     policy = {
         **load_corpus_policy(),
         "mechanical_statblock_trace_path_filters": {
-            "all_substrings_ignore_case": ["torbin jove/", "torbin jove.md"],
+            "all_substrings_ignore_case": ["torbin_jove/", "torbin_jove_statblock"],
             "path_suffix_ignore_case": ".md",
         },
     }
     paths = [
-        "Longmont Campaign/NPCs/Torbin Jove/Torbin Jove.md",
+        "Elderwyld/Cities and Towns/Mirathorn/NPCs/torbin_jove/torbin_jove_statblock.md",
         "Longmont Campaign/Campaign 2/Session Recaps/Session 3 - Recap.md",
     ]
     matched = statblock_trace_reads_matching_policy(paths, policy)
-    assert matched == ["Longmont Campaign/NPCs/Torbin Jove/Torbin Jove.md"]
+    assert matched == [
+        "Elderwyld/Cities and Towns/Mirathorn/NPCs/torbin_jove/torbin_jove_statblock.md"
+    ]

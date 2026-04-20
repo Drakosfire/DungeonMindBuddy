@@ -1,0 +1,178 @@
+<!-- benchmark_artifact: recap_ingest_run_report_v1 | iso_utc: 2026-04-18T21:53:46Z | scenario: session_recap_ingest_session_20 | model: gpt-5.4-mini | gates: FAIL | tool_trace_gates: False | payload_gates: True | primary: artifacts/runs/2026-04-18/recap_ingest--session_recap_ingest_session_20--gpt-5.4-mini--FAIL--2turn--20260418T215346Z--run002.md | cohort: 5 | run_index: 1 -->
+
+## Review (printed)
+
+```
+========================================================================
+SESSION RECAP INGEST — PLANNER REVIEW
+========================================================================
+scenario_id:      session_recap_ingest_session_20
+model_id:         gpt-5.4-mini
+gates_passed:     False
+tool_trace_gates: False
+payload_gates:    True
+review_mode:      summary
+corpus_fprint:    12d5f29f8052346c79890ebd7a1a32c6
+corpus_dir:       /tmp/session_recap_pre_state_rirn30ko/eldyrwild-markdown
+hit_tool_limit:   False
+tool_trace rows:  8
+
+========================================================================
+§ Prompt payload sizes
+========================================================================
+instructions:  {'chars': 22653, 'bytes': 24843, 'sha256_16': '5d3e498d3b4e6329'}
+user_line:     {'chars': 26894, 'bytes': 27006, 'sha256_16': 'd8211a736b03fb36'}
+
+========================================================================
+§ Token usage (per round)
+========================================================================
+  round[0] input=17113 output=16 cached=16896
+  round[1] input=17436 output=162 cached=16896
+  round[2] input=24624 output=54 cached=24064
+  round[3] input=26747 output=2014 cached=26624
+  round[4] input=30954 output=3322 cached=30208
+  round[5] input=34326 output=2037 cached=32256
+  round[6] input=36521 output=1272 cached=35840
+  scenario_estimated_cost_usd: 0.057358
+
+========================================================================
+§ Violations
+========================================================================
+  scope_b: [scope_b_grader:session_recap_ingest_session_20] after get_recap_context, read_corpus_file path 'Longmont Campaign/Campaign 2/Session Recaps/Session 17 - Migrating Forest and Thrin.md' is not in recent_recaps ∪ prep_doc_path (normalized 'longmont campaign/campaign 2/session recaps/session 17 - migrating forest and thrin.md' not in allowlist).
+  scope_b: [scope_b_grader:session_recap_ingest_session_20] after get_recap_context, read_corpus_file path 'Longmont Campaign/Campaign 2/Session Prep/session_20_stacey_stuart_marla_reference.md' is not in recent_recaps ∪ prep_doc_path (normalized 'longmont campaign/campaign 2/session prep/session_20_stacey_stuart_marla_reference.md' not in allowlist).
+  scope_b: [scope_b_grader:session_recap_ingest_session_20] assemble_recap_draft.target_session want 21 got 20.
+  scope_b_tool: [scope_b_grader:session_recap_ingest_session_20] after get_recap_context, read_corpus_file path 'Longmont Campaign/Campaign 2/Session Recaps/Session 17 - Migrating Forest and Thrin.md' is not in recent_recaps ∪ prep_doc_path (normalized 'longmont campaign/campaign 2/session recaps/session 17 - migrating forest and thrin.md' not in allowlist).
+  scope_b_tool: [scope_b_grader:session_recap_ingest_session_20] after get_recap_context, read_corpus_file path 'Longmont Campaign/Campaign 2/Session Prep/session_20_stacey_stuart_marla_reference.md' is not in recent_recaps ∪ prep_doc_path (normalized 'longmont campaign/campaign 2/session prep/session_20_stacey_stuart_marla_reference.md' not in allowlist).
+  scope_b_tool: [scope_b_grader:session_recap_ingest_session_20] assemble_recap_draft.target_session want 21 got 20.
+
+========================================================================
+§ Final assistant text (preview)
+========================================================================
+{"user_intent":"status_or_recap_request","message":"Committed the recap at `Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md`.\n\nNo timeline rows were appended in this turn because `npc_audit.timeline_append_candidates` was empty.\n\n```json\n{\n  \"recap_preview\": {\n    \"path\": \"Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md\",\n    \"mode\": \"create\",\n    \"confirm_token\": \"959df16cedceab2219ca87575348e850\"\n  },\n  \"duplicate_paragraphs\": [\n    {\n      \"source_lines\": [6, 6],\n      \"paragraph_preview\": \"Back in town, Bonogo is being 
+...[truncated, total_chars=4954]...
+2/Session Prep/session_20_stacey_stuart_marla_reference.md","recap_path":"Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md","prep_append_line":"> Recap: Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md","recap_append_line":"> Prep: Longmont Campaign/Campaign 2/Session Prep/session_20_stacey_stuart_marla_reference.md"},"notes_for_gm":"The raw notes include one duplicated paragraph, and the assembled draft removed the later copy. The prep doc is a useful companion for Stacey/Stuart/Marla texture and suggests adding reciprocal pointer lines by hand if desired."}}
+```
+
+## Sidecar JSON
+
+```json
+{
+  "schema": "recap_ingest_run_report_v1",
+  "iso_utc": "2026-04-18T21:53:46Z",
+  "scenario_id": "session_recap_ingest_session_20",
+  "model_id": "gpt-5.4-mini",
+  "run_index": 1,
+  "cohort_size": 5,
+  "gates_passed": false,
+  "tool_trace_gates_passed": false,
+  "payload_gates_passed": true,
+  "scenario_estimated_cost_usd": 0.057358,
+  "tool_trace_rows": 8,
+  "tool_trace_tools": [
+    "get_recap_context",
+    "read_corpus_file",
+    "read_corpus_file",
+    "read_corpus_file",
+    "read_corpus_file",
+    "assemble_recap_draft",
+    "write_corpus_file",
+    "write_corpus_file"
+  ],
+  "violation_counts": {
+    "scope_b_tool": 3,
+    "scope_b": 3
+  },
+  "violations": {
+    "scope_b_tool": [
+      "[scope_b_grader:session_recap_ingest_session_20] after get_recap_context, read_corpus_file path 'Longmont Campaign/Campaign 2/Session Recaps/Session 17 - Migrating Forest and Thrin.md' is not in recent_recaps ∪ prep_doc_path (normalized 'longmont campaign/campaign 2/session recaps/session 17 - migrating forest and thrin.md' not in allowlist).",
+      "[scope_b_grader:session_recap_ingest_session_20] after get_recap_context, read_corpus_file path 'Longmont Campaign/Campaign 2/Session Prep/session_20_stacey_stuart_marla_reference.md' is not in recent_recaps ∪ prep_doc_path (normalized 'longmont campaign/campaign 2/session prep/session_20_stacey_stuart_marla_reference.md' not in allowlist).",
+      "[scope_b_grader:session_recap_ingest_session_20] assemble_recap_draft.target_session want 21 got 20."
+    ],
+    "scope_b": [
+      "[scope_b_grader:session_recap_ingest_session_20] after get_recap_context, read_corpus_file path 'Longmont Campaign/Campaign 2/Session Recaps/Session 17 - Migrating Forest and Thrin.md' is not in recent_recaps ∪ prep_doc_path (normalized 'longmont campaign/campaign 2/session recaps/session 17 - migrating forest and thrin.md' not in allowlist).",
+      "[scope_b_grader:session_recap_ingest_session_20] after get_recap_context, read_corpus_file path 'Longmont Campaign/Campaign 2/Session Prep/session_20_stacey_stuart_marla_reference.md' is not in recent_recaps ∪ prep_doc_path (normalized 'longmont campaign/campaign 2/session prep/session_20_stacey_stuart_marla_reference.md' not in allowlist).",
+      "[scope_b_grader:session_recap_ingest_session_20] assemble_recap_draft.target_session want 21 got 20."
+    ]
+  },
+  "corpus_fingerprint": "12d5f29f8052346c79890ebd7a1a32c6",
+  "corpus_dir": "/tmp/session_recap_pre_state_rirn30ko/eldyrwild-markdown",
+  "recap_write_payload": {
+    "schema_version": "recap_write_v1",
+    "recap_preview": {
+      "path": "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md",
+      "mode": "create",
+      "confirm_token": "959df16cedceab2219ca87575348e850"
+    },
+    "duplicate_paragraphs": [
+      {
+        "source_lines": [
+          6,
+          6
+        ],
+        "paragraph_preview": "Back in town, Bonogo is being guided by Stuart down an alley to a half burned building. According to Stuart this is where they will find Stacey.",
+        "recommended_action": "remove_later"
+      }
+    ],
+    "npc_audit": {
+      "timeline_append_candidates": [],
+      "new_hub_proposals": [],
+      "dismissed": [
+        {
+          "name": "Stacey",
+          "reason": "Already covered by the existing session-20 reference packet; this skill is only surfacing follow-up structure, not creating hubs from planning refs."
+        },
+        {
+          "name": "Stuart",
+          "reason": "Already covered by the existing session-20 reference packet; this skill is only surfacing follow-up structure, not creating hubs from planning refs."
+        },
+        {
+          "name": "Marla Brambleback",
+          "reason": "Already covered by the existing session-20 reference packet; this skill is only surfacing follow-up structure, not creating hubs from planning refs."
+        }
+      ]
+    },
+    "plot_artifacts": [
+      {
+        "name": "Top-down tower blueprint",
+        "evidence_quote": "It appears to be a top-down blueprint of a tower and is very well done.",
+        "proposed_locations": [
+          "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md",
+          "Longmont Campaign/Campaign 2/Session Prep/session_20_stacey_stuart_marla_reference.md",
+          "Longmont Campaign/Campaign 2/Campaign 2 Notes.md"
+        ]
+      }
+    ],
+    "prep_pointer_proposal": {
+      "prep_path": "Longmont Campaign/Campaign 2/Session Prep/session_20_stacey_stuart_marla_reference.md",
+      "recap_path": "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md",
+      "prep_append_line": "> Recap: Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md",
+      "recap_append_line": "> Prep: Longmont Campaign/Campaign 2/Session Prep/session_20_stacey_stuart_marla_reference.md"
+    },
+    "notes_for_gm": "The raw notes include one duplicated paragraph, and the assembled draft removed the later copy. The prep doc is a useful companion for Stacey/Stuart/Marla texture and suggests adding reciprocal pointer lines by hand if desired."
+  },
+  "recap_write_payload_sha256_16": "222d6572d016025e",
+  "final_text_chars": 4954,
+  "primary_response_id": "resp_02c358505e552f090069e3fd63de708191a186f240b42b818f",
+  "telemetry_cost": {
+    "planner_estimated_cost_usd": 0.057358,
+    "statblock_tool_estimated_cost_usd": 0,
+    "scenario_estimated_cost_usd": 0.057358,
+    "planner_cost_by_round_usd": [
+      0.001502,
+      0.002401,
+      0.002468,
+      0.011152,
+      0.017774,
+      0.013138,
+      0.008923
+    ],
+    "planner_usage_totals": {
+      "input_tokens": 187721,
+      "cached_tokens": 182784,
+      "total_tokens": 196598,
+      "output_tokens": 8877
+    },
+    "pricing_note": "approximate public list prices; verify against billing"
+  }
+}
+```

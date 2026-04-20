@@ -18,11 +18,45 @@ alwaysApply: true
   - `<DungeonMindBuddy repo root>/.env.development`
   - `<parent of repo root>/.env.development` (shared monorepo dev env)
 
-- **Entry points:** `src/cli.py` calls this via `_load_env()`. Eval harnesses (e.g. `evals/lysandra_vertical_slice/step1_planner_trace.py`) and **pytest** (`tests/conftest.py`, session autouse) call it so live tests see keys from disk without exporting.
+- **Entry points:** `src/cli.py` calls this via `_load_env()`. Eval harnesses (e.g. `evals/lysandra_vertical_slice/step1_planner_trace.py`, `evals/session_recap_ingest_vertical_slice/step1_recap_ingest_run.py`) and **pytest** (`tests/conftest.py`, session autouse) call it so live tests see keys from disk without exporting.
 
 - **CI / automation:** inject `OPENAI_API_KEY` in the job environment when no `.env` is present; `load_dotenv` is a no-op if files are missing.
 
 - **Security:** never commit real `.env` contents; `.gitignore` should keep `.env` and `.env.development` local.
+
+## OpenAI client construction (canonical pattern)
+
+Every entry point that talks to the OpenAI API **must** follow this exact shape so the
+key resolution path is consistent across CLI, evals, tests, and CI:
+
+```python
+from openai import OpenAI
+
+from src.agent.synthesis import _load_api_key
+from src.bootstrap_env import load_dungeonmindbuddy_dotenv
+
+def main() -> None:
+    load_dungeonmindbuddy_dotenv()
+    if not (_load_api_key() or "").strip():
+        print(
+            "OPENAI_API_KEY missing after loading .env / .env.development "
+            "(see src/bootstrap_env.py). Add the key to repo .env or export it for CI.",
+            file=sys.stderr,
+        )
+        sys.exit(2)
+    client = OpenAI()  # SDK reads OPENAI_API_KEY from env — never pass api_key= manually.
+```
+
+Rules:
+
+- **Always** call `load_dungeonmindbuddy_dotenv()` before constructing the client.
+- **Always** instantiate `OpenAI()` with **no `api_key=` argument**. The SDK reads
+  `OPENAI_API_KEY` from the environment that `load_dungeonmindbuddy_dotenv()` populated.
+  Do not re-read `os.environ["OPENAI_API_KEY"]` and pass it through.
+- For a pre-flight existence check, call `_load_api_key()` (from `src.agent.synthesis`)
+  and exit with the standard message above. Do not invent a new error string per script.
+- Reference implementations: `evals/lysandra_vertical_slice/step1_planner_trace.py::main`
+  and `evals/session_recap_ingest_vertical_slice/step1_recap_ingest_run.py::main`.
 
 ## Corpus PDFs (statblocks)
 
@@ -34,6 +68,8 @@ alwaysApply: true
 
 The planner is **read-only by default**. Optional capabilities are gated by explicit
 opt-in so eval and benchmark runs stay deterministic.
+
+**Assistant output shape:** planner turns default to strict JSON with **`user_intent`** (and the full `planner_turn_output` envelope). Do not drop or weaken that contract when editing prompts or schema—see **`.cursor/rules/planner-turn-output-schema.mdc`**.
 
 | Capability | CLI flag | Env var | Default | Effect |
 |------------|----------|---------|---------|--------|

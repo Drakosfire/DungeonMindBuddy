@@ -44,6 +44,10 @@ _DEFAULT_INGEST_RAW_NOTES_RELPATH = (
 _PATH_TOOLS = frozenset({"read_corpus_file", "load_context_markdown"})
 _WRITE_TOOLS = frozenset({"write_corpus_file"})
 
+# ``planner_skill_dispatch_guards._wrap_recap_write`` returns this prefix when a
+# read path is outside the recap-write allowlist (no file bytes are returned).
+_RECAP_WRITE_GUARD_BLOCKED_READ_PREFIX = "Error: recap-write skill blocked"
+
 
 def _fail_prefix(sid: str) -> str:
     return f"[scope_b_grader:{sid}]"
@@ -120,6 +124,79 @@ def _path_tools_after_index(
         if p:
             found.append((i, p))
     return found
+
+
+def _guard_blocked_recap_write_read(excerpt: Any) -> bool:
+    """True when ``output_excerpt`` is the recap-write dispatch guard refusal string."""
+    if not isinstance(excerpt, str) or not excerpt:
+        return False
+    return excerpt.lstrip().startswith(_RECAP_WRITE_GUARD_BLOCKED_READ_PREFIX)
+
+
+def _assemble_recap_draft_indices(tool_trace: list[dict[str, Any]]) -> list[int]:
+    return [
+        i
+        for i, row in enumerate(tool_trace)
+        if str(row.get("tool", "")) == "assemble_recap_draft"
+    ]
+
+
+def _read_allowlist_hard_and_soft(
+    tool_trace: list[dict[str, Any]],
+    *,
+    ctx_idx: int,
+    allowed: set[str],
+    prefix: str,
+) -> tuple[list[str], list[str]]:
+    """Split out-of-allowlist path-tool rows into hard failures vs soft observations.
+
+    When the dispatch guard blocked the read (plain ``Error: recap-write …``),
+    bytes never reached the model — matching :func:`_wrap_recap_write`. If the
+    trace later includes ``assemble_recap_draft``, treat as recoverable soft
+    signal; otherwise the model never resolved the workflow → hard violation.
+
+    When the response was not a guard refusal (real file JSON, missing excerpt,
+    …), keep the historical hard violation — unguarded reads may have leaked
+    staging content into downstream reasoning.
+    """
+    hard: list[str] = []
+    soft: list[str] = []
+    if ctx_idx < 0:
+        return hard, soft
+
+    assemble_idxs = _assemble_recap_draft_indices(tool_trace)
+
+    for i, p in _path_tools_after_index(tool_trace, ctx_idx):
+        n = _norm_rel_path(p)
+        if n in allowed:
+            continue
+        row = tool_trace[i] if i < len(tool_trace) else {}
+        excerpt = row.get("output_excerpt") if isinstance(row, dict) else None
+        tool_name = str(row.get("tool", "")) if isinstance(row, dict) else ""
+
+        if _guard_blocked_recap_write_read(excerpt):
+            recovered = any(j > i for j in assemble_idxs)
+            if recovered:
+                soft.append(
+                    f"{prefix} read_allowlist_soft: {tool_name} path {p!r} was blocked "
+                    f"by recap-write dispatch guard (output starts with "
+                    f"{_RECAP_WRITE_GUARD_BLOCKED_READ_PREFIX!r}); model recovered with "
+                    f"a later assemble_recap_draft."
+                )
+            else:
+                hard.append(
+                    f"{prefix} after get_recap_context, {tool_name} path {p!r} was "
+                    f"blocked by recap-write dispatch guard but no assemble_recap_draft "
+                    f"followed — model did not recover."
+                )
+        else:
+            hard.append(
+                f"{prefix} after get_recap_context, {tool_name} path "
+                f"{p!r} is not in recent_recaps ∪ prep_doc_path "
+                f"(normalized {n!r} not in allowlist)."
+            )
+
+    return hard, soft
 
 
 def _write_corpus_file_calls(
@@ -380,6 +457,20 @@ def _check_write_phases(
     return hard, soft
 
 
+def _read_allowlist_set(ctx: RecapContext, scenario: dict[str, Any]) -> set[str]:
+    """Normalized paths the recap-ingest grader treats as readable after ``get_recap_context``."""
+    cfg = scenario.get("scope_b_grader") or {}
+    allowed: set[str] = set()
+    for entry in ctx.recent_recaps:
+        allowed.add(_norm_rel_path(entry.path))
+    if ctx.prep_doc_path:
+        allowed.add(_norm_rel_path(ctx.prep_doc_path))
+    for extra in cfg.get("read_allowlist_extra") or []:
+        if str(extra).strip():
+            allowed.add(_norm_rel_path(str(extra)))
+    return allowed
+
+
 def _resolve_write_phase_knobs(scenario: dict[str, Any]) -> tuple[bool, bool]:
     """Single source of truth for ``preview_required`` / ``commit_required``.
 
@@ -516,25 +607,16 @@ def collect_scope_b_recap_ingest_violations(
             tool_v.append(f"{prefix} cannot resolve recap context for read allowlist: {exc}")
             return _pack_scope_b_violations(tool_v, payload_v)
 
-    allowed: set[str] = set()
-    for entry in ctx.recent_recaps:
-        allowed.add(_norm_rel_path(entry.path))
-    if ctx.prep_doc_path:
-        allowed.add(_norm_rel_path(ctx.prep_doc_path))
-    for extra in cfg.get("read_allowlist_extra") or []:
-        if str(extra).strip():
-            allowed.add(_norm_rel_path(str(extra)))
+    allowed = _read_allowlist_set(ctx, scenario)
 
     ctx_idx = ctx_calls[0][0] if len(ctx_calls) == 1 else -1
-    if ctx_idx >= 0:
-        for i, p in _path_tools_after_index(tool_trace, ctx_idx):
-            n = _norm_rel_path(p)
-            if n not in allowed:
-                tool_v.append(
-                    f"{prefix} after get_recap_context, {tool_trace[i].get('tool')} path "
-                    f"{p!r} is not in recent_recaps ∪ prep_doc_path "
-                    f"(normalized {n!r} not in allowlist)."
-                )
+    read_hard, _ = _read_allowlist_hard_and_soft(
+        tool_trace,
+        ctx_idx=ctx_idx,
+        allowed=allowed,
+        prefix=prefix,
+    )
+    tool_v.extend(read_hard)
 
     if cfg.get("require_assemble_recap_draft", True):
         draft_calls = _assemble_recap_draft_calls(tool_trace)
@@ -788,6 +870,10 @@ def collect_scope_b_recap_ingest_report_extras(
       did not require a commit but one was missing (HITL-by-design note).
       Empty when the run satisfied both gates or the scenario didn't ask for
       either knob.
+    * ``read_allowlist_soft_observations`` — when an out-of-allowlist path read
+      was refused by the recap-write dispatch guard (no bytes returned) and the
+      model recovered via a later ``assemble_recap_draft``. Hard violations for
+      unguarded reads remain in ``scope_b_tool``.
     * ``build_recap_write_payload_called`` — ``True`` iff the model invoked the
       mechanical payload helper at least once this run.
     * ``mechanical_fields_match`` — ``True`` / ``False`` / ``None`` (not applicable).
@@ -853,6 +939,7 @@ def collect_scope_b_recap_ingest_report_extras(
             tool_trace
         ),
         "mechanical_fields_match": None,
+        "read_allowlist_soft_observations": [],
     }
 
     # Resolve a recap context if the caller didn't pass one but did pass the
@@ -874,5 +961,17 @@ def collect_scope_b_recap_ingest_report_extras(
             match, diffs = _compare_mechanical_fields(expected, actual)
             extras["mechanical_fields_match"] = match
             extras["mechanical_fields_diff"] = diffs
+
+    ctx_calls = _get_recap_context_calls(tool_trace)
+    ctx_idx = ctx_calls[0][0] if len(ctx_calls) == 1 else -1
+    if ctx is not None:
+        allowed_extras = _read_allowlist_set(ctx, scenario)
+        _, read_soft_ex = _read_allowlist_hard_and_soft(
+            tool_trace,
+            ctx_idx=ctx_idx,
+            allowed=allowed_extras,
+            prefix=prefix,
+        )
+        extras["read_allowlist_soft_observations"] = read_soft_ex
 
     return extras

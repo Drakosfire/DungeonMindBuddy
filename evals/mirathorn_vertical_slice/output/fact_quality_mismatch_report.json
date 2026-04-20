@@ -10,7 +10,9 @@
         "defenses"
       ],
       "ent_shepherds_flock": [
-        "operational_status",
+        "operational_status"
+      ],
+      "ent_shepherds_flock_protest": [
         "goals"
       ]
     }

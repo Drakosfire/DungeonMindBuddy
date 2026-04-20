@@ -142,11 +142,19 @@ def _wrap_recap_write(
     allowlist_extras: Iterable[str] | None,
     precomputed_recap_context: RecapContext | None = None,
 ) -> DispatchFn:
+    # Lazy import: ``planner`` imports this module at package load; importing
+    # ``planner`` here would create a circular import at module init time.
+    from src.agent.planner import (  # noqa: PLC0415
+        _resolve_planner_read_argument,
+        build_corpus_path_ref_index,
+    )
+
     allowlist, resolve_err = compute_recap_write_read_allowlist(
         corpus_path,
         extras=allowlist_extras,
         precomputed_recap_context=precomputed_recap_context,
     )
+    ref_index = build_corpus_path_ref_index(corpus_path.resolve())
 
     def wrapped(name: str, raw_args: str) -> str:
         if name == _RECAP_WRITE_NO_PIN_TOOL:
@@ -169,13 +177,21 @@ def _wrap_recap_write(
             args = json.loads(raw_args) if raw_args else {}
         except json.JSONDecodeError as exc:
             return f"Error: invalid JSON arguments for {name}: {exc}"
-        path = str((args or {}).get("path", "")).strip()
-        if not path:
+        path_raw = str((args or {}).get("path", "")).strip()
+        if not path_raw:
             return dispatch(name, raw_args)
-        if _norm_rel_path(path) in allowlist:
+        resolved = _resolve_planner_read_argument(corpus_path, path_raw, ref_index)
+        if path_raw.lower().startswith("c:") and not resolved:
+            return (
+                f"Error: unknown corpus file ref {path_raw!r}. Copy a ` [c:…] ` token "
+                f"from the corpus tree after the `.md` name, or pass the full "
+                f"corpus-relative `.md` path."
+            )
+        check_rel = resolved or path_raw
+        if _norm_rel_path(check_rel) in allowlist:
             return dispatch(name, raw_args)
         return (
-            f"Error: recap-write skill blocked {name} for path {path!r}: not in "
+            f"Error: recap-write skill blocked {name} for path {path_raw!r}: not in "
             f"recent_recaps ∪ prep_doc_path. Use only paths returned by "
             f"`get_recap_context`. Allowed: [{_format_allowlist_for_error(allowlist)}]. "
             f"For raw session notes, call `assemble_recap_draft` (do not read the "

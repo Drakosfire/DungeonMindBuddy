@@ -1,0 +1,1102 @@
+{
+  "schema": "npc_voice_suite_report_v1",
+  "model_id": "gpt-5.4-mini",
+  "corpus_fingerprint": "52196a8642f41500d73d1fdc98ca334a",
+  "corpus_dir": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/corpus/eldyrwild-markdown",
+  "runs_n": 10,
+  "mode": "all",
+  "scenario_filter": null,
+  "rows": [
+    {
+      "suite_run_index": 1,
+      "scenario_id": "torbin_clarify_bump_cr",
+      "passed": false,
+      "violations": {
+        "final": [
+          "[planner_live_eval:npc_voice_torbin_clarify_bump_cr] final: tool_trace must include tool 'propose_clarification'; got ['read_corpus_file', 'read_corpus_file', 'read_corpus_file', 'read_corpus_file', 'generate_statblock']",
+          "[planner_live_eval:npc_voice_torbin_clarify_bump_cr] final: propose_clarification_must_satisfy set but no propose_clarification rows in tool_trace"
+        ]
+      },
+      "scenario_estimated_cost_usd": 0.014167,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--torbin_clarify_bump_cr--gpt-5.4-mini--FAIL--1turn--run001--20260417T011858Z.md"
+    },
+    {
+      "suite_run_index": 1,
+      "scenario_id": "torbin_factual_recruited_kid",
+      "passed": false,
+      "violations": {
+        "final": [
+          "[planner_live_eval:npc_voice_torbin_factual_recruited_kid] final: output_text must contain one of ['Torbin', 'torbin']",
+          "[planner_live_eval:npc_voice_torbin_factual_recruited_kid] final: read_corpus_paths_must_include missing substring 'torbin' in tool_trace read paths ['Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/README.md', 'Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/README.md', 'Longmont Campaign/Campaign 2/Campaign 2 Notes.md']"
+        ]
+      },
+      "scenario_estimated_cost_usd": 0.009438,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--torbin_factual_recruited_kid--gpt-5.4-mini--FAIL--1turn--run001--20260417T011917Z.md"
+    },
+    {
+      "suite_run_index": 1,
+      "scenario_id": "dustwalker_upgrade_scarier",
+      "passed": true,
+      "violations": {},
+      "scenario_estimated_cost_usd": 0.011465,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--dustwalker_upgrade_scarier--gpt-5.4-mini--PASS--1turn--run001--20260417T011932Z.md"
+    },
+    {
+      "suite_run_index": 1,
+      "scenario_id": "flock_clarify_baddie_with_hat",
+      "passed": false,
+      "violations": {
+        "final": [
+          "[planner_live_eval:npc_voice_flock_clarify_baddie_with_hat] final: tool_trace must include tool 'propose_clarification'; got ['read_corpus_file', 'read_corpus_file', 'read_corpus_file']",
+          "[planner_live_eval:npc_voice_flock_clarify_baddie_with_hat] final: propose_clarification_must_satisfy set but no propose_clarification rows in tool_trace"
+        ]
+      },
+      "scenario_estimated_cost_usd": 0.006121,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--flock_clarify_baddie_with_hat--gpt-5.4-mini--FAIL--1turn--run001--20260417T011935Z.md"
+    },
+    {
+      "suite_run_index": 1,
+      "scenario_id": "torbin_factual_ac",
+      "passed": true,
+      "violations": {},
+      "scenario_estimated_cost_usd": 0.003155,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--torbin_factual_ac--gpt-5.4-mini--PASS--1turn--run001--20260417T011938Z.md"
+    },
+    {
+      "suite_run_index": 1,
+      "scenario_id": "torbin_factual_cr",
+      "passed": true,
+      "violations": {},
+      "scenario_estimated_cost_usd": 0.003138,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--torbin_factual_cr--gpt-5.4-mini--PASS--1turn--run001--20260417T011941Z.md"
+    },
+    {
+      "suite_run_index": 1,
+      "scenario_id": "torbin_directed_two_files",
+      "passed": true,
+      "violations": {},
+      "scenario_estimated_cost_usd": 0.003722,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--torbin_directed_two_files--gpt-5.4-mini--PASS--1turn--run001--20260417T011959Z.md"
+    },
+    {
+      "suite_run_index": 1,
+      "scenario_id": "dustwalker_factual_ac",
+      "passed": true,
+      "violations": {},
+      "scenario_estimated_cost_usd": 0.005511,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--dustwalker_factual_ac--gpt-5.4-mini--PASS--1turn--run001--20260417T012004Z.md"
+    },
+    {
+      "suite_run_index": 1,
+      "scenario_id": "dustwalker_factual_cr",
+      "passed": true,
+      "violations": {},
+      "scenario_estimated_cost_usd": 0.005693,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--dustwalker_factual_cr--gpt-5.4-mini--PASS--1turn--run001--20260417T012006Z.md"
+    },
+    {
+      "suite_run_index": 1,
+      "scenario_id": "dustwalker_directed_statblock_path",
+      "passed": true,
+      "violations": {},
+      "scenario_estimated_cost_usd": 0.00415,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--dustwalker_directed_statblock_path--gpt-5.4-mini--PASS--1turn--run001--20260417T012009Z.md"
+    },
+    {
+      "suite_run_index": 1,
+      "scenario_id": "compare_torbin_and_dustwalker",
+      "passed": true,
+      "violations": {},
+      "scenario_estimated_cost_usd": 0.004681,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--compare_torbin_and_dustwalker--gpt-5.4-mini--PASS--1turn--run001--20260417T012013Z.md"
+    },
+    {
+      "suite_run_index": 1,
+      "scenario_id": "torbin_autonomous_session_prep",
+      "passed": true,
+      "violations": {},
+      "scenario_estimated_cost_usd": 0.004306,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--torbin_autonomous_session_prep--gpt-5.4-mini--PASS--1turn--run001--20260417T012017Z.md"
+    },
+    {
+      "suite_run_index": 2,
+      "scenario_id": "torbin_clarify_bump_cr",
+      "passed": true,
+      "violations": {},
+      "scenario_estimated_cost_usd": 0.004169,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--torbin_clarify_bump_cr--gpt-5.4-mini--PASS--1turn--run002--20260417T012042Z.md"
+    },
+    {
+      "suite_run_index": 2,
+      "scenario_id": "torbin_factual_recruited_kid",
+      "passed": false,
+      "violations": {
+        "final": [
+          "[planner_live_eval:npc_voice_torbin_factual_recruited_kid] final: output_text must contain one of ['Torbin', 'torbin']",
+          "[planner_live_eval:npc_voice_torbin_factual_recruited_kid] final: read_corpus_paths_must_include missing substring 'torbin' in tool_trace read paths ['Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/README.md', 'Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/README.md', 'Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_character_dossier.md', 'Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/timeline.md', 'Longmont Campaign/Campaign 2/Session Recaps/Session 19 - Recap.md']"
+        ]
+      },
+      "scenario_estimated_cost_usd": 0.008377,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--torbin_factual_recruited_kid--gpt-5.4-mini--FAIL--1turn--run002--20260417T012046Z.md"
+    },
+    {
+      "suite_run_index": 2,
+      "scenario_id": "dustwalker_upgrade_scarier",
+      "passed": true,
+      "violations": {},
+      "scenario_estimated_cost_usd": 0.006375,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--dustwalker_upgrade_scarier--gpt-5.4-mini--PASS--1turn--run002--20260417T012051Z.md"
+    },
+    {
+      "suite_run_index": 2,
+      "scenario_id": "flock_clarify_baddie_with_hat",
+      "passed": false,
+      "violations": {
+        "final": [
+          "[planner_live_eval:npc_voice_flock_clarify_baddie_with_hat] final: tool_trace must include tool 'propose_clarification'; got ['read_corpus_file', 'read_corpus_file', 'read_corpus_file']",
+          "[planner_live_eval:npc_voice_flock_clarify_baddie_with_hat] final: propose_clarification_must_satisfy set but no propose_clarification rows in tool_trace"
+        ]
+      },
+      "scenario_estimated_cost_usd": 0.006137,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--flock_clarify_baddie_with_hat--gpt-5.4-mini--FAIL--1turn--run002--20260417T012055Z.md"
+    },
+    {
+      "suite_run_index": 2,
+      "scenario_id": "torbin_factual_ac",
+      "passed": true,
+      "violations": {},
+      "scenario_estimated_cost_usd": 0.002118,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--torbin_factual_ac--gpt-5.4-mini--PASS--1turn--run002--20260417T012057Z.md"
+    },
+    {
+      "suite_run_index": 2,
+      "scenario_id": "torbin_factual_cr",
+      "passed": true,
+      "violations": {},
+      "scenario_estimated_cost_usd": 0.003735,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--torbin_factual_cr--gpt-5.4-mini--PASS--1turn--run002--20260417T012101Z.md"
+    },
+    {
+      "suite_run_index": 2,
+      "scenario_id": "torbin_directed_two_files",
+      "passed": true,
+      "violations": {},
+      "scenario_estimated_cost_usd": 0.002582,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--torbin_directed_two_files--gpt-5.4-mini--PASS--1turn--run002--20260417T012104Z.md"
+    },
+    {
+      "suite_run_index": 2,
+      "scenario_id": "dustwalker_factual_ac",
+      "passed": true,
+      "violations": {},
+      "scenario_estimated_cost_usd": 0.003736,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--dustwalker_factual_ac--gpt-5.4-mini--PASS--1turn--run002--20260417T012106Z.md"
+    },
+    {
+      "suite_run_index": 2,
+      "scenario_id": "dustwalker_factual_cr",
+      "passed": true,
+      "violations": {},
+      "scenario_estimated_cost_usd": 0.002668,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--dustwalker_factual_cr--gpt-5.4-mini--PASS--1turn--run002--20260417T012109Z.md"
+    },
+    {
+      "suite_run_index": 2,
+      "scenario_id": "dustwalker_directed_statblock_path",
+      "passed": true,
+      "violations": {},
+      "scenario_estimated_cost_usd": 0.002682,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--dustwalker_directed_statblock_path--gpt-5.4-mini--PASS--1turn--run002--20260417T012111Z.md"
+    },
+    {
+      "suite_run_index": 2,
+      "scenario_id": "compare_torbin_and_dustwalker",
+      "passed": true,
+      "violations": {},
+      "scenario_estimated_cost_usd": 0.003321,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--compare_torbin_and_dustwalker--gpt-5.4-mini--PASS--1turn--run002--20260417T012115Z.md"
+    },
+    {
+      "suite_run_index": 2,
+      "scenario_id": "torbin_autonomous_session_prep",
+      "passed": true,
+      "violations": {},
+      "scenario_estimated_cost_usd": 0.003799,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--torbin_autonomous_session_prep--gpt-5.4-mini--PASS--1turn--run002--20260417T012120Z.md"
+    },
+    {
+      "suite_run_index": 3,
+      "scenario_id": "torbin_clarify_bump_cr",
+      "passed": false,
+      "violations": {
+        "final": [
+          "[planner_live_eval:npc_voice_torbin_clarify_bump_cr] final: tool_trace must include tool 'propose_clarification'; got ['read_corpus_file', 'read_corpus_file', 'generate_statblock']",
+          "[planner_live_eval:npc_voice_torbin_clarify_bump_cr] final: propose_clarification_must_satisfy set but no propose_clarification rows in tool_trace"
+        ]
+      },
+      "scenario_estimated_cost_usd": 0.007701,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--torbin_clarify_bump_cr--gpt-5.4-mini--FAIL--1turn--run003--20260417T012133Z.md"
+    },
+    {
+      "suite_run_index": 3,
+      "scenario_id": "torbin_factual_recruited_kid",
+      "passed": false,
+      "violations": {
+        "final": [
+          "[planner_live_eval:npc_voice_torbin_factual_recruited_kid] final: output_text must contain one of ['Torbin', 'torbin']",
+          "[planner_live_eval:npc_voice_torbin_factual_recruited_kid] final: read_corpus_paths_must_include missing substring 'torbin' in tool_trace read paths ['Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/README.md', 'Longmont Campaign/Campaign 2/NPC Dossier/', 'Longmont Campaign/Campaign 2/Campaign 2 Notes.md', 'Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/timeline.md', 'Longmont Campaign/Campaign 2/Session Recaps/Session 1 - Let the Games Begin.md']"
+        ]
+      },
+      "scenario_estimated_cost_usd": 0.013631,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--torbin_factual_recruited_kid--gpt-5.4-mini--FAIL--1turn--run003--20260417T012141Z.md"
+    },
+    {
+      "suite_run_index": 3,
+      "scenario_id": "dustwalker_upgrade_scarier",
+      "passed": true,
+      "violations": {},
+      "scenario_estimated_cost_usd": 0.009828,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--dustwalker_upgrade_scarier--gpt-5.4-mini--PASS--1turn--run003--20260417T012149Z.md"
+    },
+    {
+      "suite_run_index": 3,
+      "scenario_id": "flock_clarify_baddie_with_hat",
+      "passed": false,
+      "violations": {
+        "final": [
+          "[planner_live_eval:npc_voice_flock_clarify_baddie_with_hat] final: tool_trace must include tool 'propose_clarification'; got ['read_corpus_file', 'read_corpus_file', 'read_corpus_file']",
+          "[planner_live_eval:npc_voice_flock_clarify_baddie_with_hat] final: propose_clarification_must_satisfy set but no propose_clarification rows in tool_trace"
+        ]
+      },
+      "scenario_estimated_cost_usd": 0.003195,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--flock_clarify_baddie_with_hat--gpt-5.4-mini--FAIL--1turn--run003--20260417T012152Z.md"
+    },
+    {
+      "suite_run_index": 3,
+      "scenario_id": "torbin_factual_ac",
+      "passed": true,
+      "violations": {},
+      "scenario_estimated_cost_usd": 0.002118,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--torbin_factual_ac--gpt-5.4-mini--PASS--1turn--run003--20260417T012157Z.md"
+    },
+    {
+      "suite_run_index": 3,
+      "scenario_id": "torbin_factual_cr",
+      "passed": true,
+      "violations": {},
+      "scenario_estimated_cost_usd": 0.004053,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--torbin_factual_cr--gpt-5.4-mini--PASS--1turn--run003--20260417T012201Z.md"
+    },
+    {
+      "suite_run_index": 3,
+      "scenario_id": "torbin_directed_two_files",
+      "passed": true,
+      "violations": {},
+      "scenario_estimated_cost_usd": 0.00282,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--torbin_directed_two_files--gpt-5.4-mini--PASS--1turn--run003--20260417T012206Z.md"
+    },
+    {
+      "suite_run_index": 3,
+      "scenario_id": "dustwalker_factual_ac",
+      "passed": true,
+      "violations": {},
+      "scenario_estimated_cost_usd": 0.005795,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--dustwalker_factual_ac--gpt-5.4-mini--PASS--1turn--run003--20260417T012208Z.md"
+    },
+    {
+      "suite_run_index": 3,
+      "scenario_id": "dustwalker_factual_cr",
+      "passed": true,
+      "violations": {},
+      "scenario_estimated_cost_usd": 0.002582,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--dustwalker_factual_cr--gpt-5.4-mini--PASS--1turn--run003--20260417T012213Z.md"
+    },
+    {
+      "suite_run_index": 3,
+      "scenario_id": "dustwalker_directed_statblock_path",
+      "passed": true,
+      "violations": {},
+      "scenario_estimated_cost_usd": 0.002781,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--dustwalker_directed_statblock_path--gpt-5.4-mini--PASS--1turn--run003--20260417T012216Z.md"
+    },
+    {
+      "suite_run_index": 3,
+      "scenario_id": "compare_torbin_and_dustwalker",
+      "passed": true,
+      "violations": {},
+      "scenario_estimated_cost_usd": 0.006697,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--compare_torbin_and_dustwalker--gpt-5.4-mini--PASS--1turn--run003--20260417T012222Z.md"
+    },
+    {
+      "suite_run_index": 3,
+      "scenario_id": "torbin_autonomous_session_prep",
+      "passed": true,
+      "violations": {},
+      "scenario_estimated_cost_usd": 0.00312,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--torbin_autonomous_session_prep--gpt-5.4-mini--PASS--1turn--run003--20260417T012226Z.md"
+    },
+    {
+      "suite_run_index": 4,
+      "scenario_id": "torbin_clarify_bump_cr",
+      "passed": true,
+      "violations": {},
+      "scenario_estimated_cost_usd": 0.005857,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--torbin_clarify_bump_cr--gpt-5.4-mini--PASS--1turn--run004--20260417T012246Z.md"
+    },
+    {
+      "suite_run_index": 4,
+      "scenario_id": "torbin_factual_recruited_kid",
+      "passed": false,
+      "violations": {
+        "final": [
+          "[planner_live_eval:npc_voice_torbin_factual_recruited_kid] final: output_text must contain one of ['Torbin', 'torbin']",
+          "[planner_live_eval:npc_voice_torbin_factual_recruited_kid] final: read_corpus_paths_must_include missing substring 'torbin' in tool_trace read paths ['Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/README.md', 'Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/README.md', 'Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_character_dossier.md', 'Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/timeline.md']"
+        ]
+      },
+      "scenario_estimated_cost_usd": 0.006535,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--torbin_factual_recruited_kid--gpt-5.4-mini--FAIL--1turn--run004--20260417T012250Z.md"
+    },
+    {
+      "suite_run_index": 4,
+      "scenario_id": "dustwalker_upgrade_scarier",
+      "passed": true,
+      "violations": {},
+      "scenario_estimated_cost_usd": 0.004944,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--dustwalker_upgrade_scarier--gpt-5.4-mini--PASS--1turn--run004--20260417T012256Z.md"
+    },
+    {
+      "suite_run_index": 4,
+      "scenario_id": "flock_clarify_baddie_with_hat",
+      "passed": false,
+      "violations": {
+        "final": [
+          "[planner_live_eval:npc_voice_flock_clarify_baddie_with_hat] final: tool_trace must include tool 'propose_clarification'; got ['read_corpus_file']",
+          "[planner_live_eval:npc_voice_flock_clarify_baddie_with_hat] final: propose_clarification_must_satisfy set but no propose_clarification rows in tool_trace"
+        ]
+      },
+      "scenario_estimated_cost_usd": 0.004259,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--flock_clarify_baddie_with_hat--gpt-5.4-mini--FAIL--1turn--run004--20260417T012300Z.md"
+    },
+    {
+      "suite_run_index": 4,
+      "scenario_id": "torbin_factual_ac",
+      "passed": true,
+      "violations": {},
+      "scenario_estimated_cost_usd": 0.002118,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--torbin_factual_ac--gpt-5.4-mini--PASS--1turn--run004--20260417T012303Z.md"
+    },
+    {
+      "suite_run_index": 4,
+      "scenario_id": "torbin_factual_cr",
+      "passed": true,
+      "violations": {},
+      "scenario_estimated_cost_usd": 0.002529,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--torbin_factual_cr--gpt-5.4-mini--PASS--1turn--run004--20260417T012305Z.md"
+    },
+    {
+      "suite_run_index": 4,
+      "scenario_id": "torbin_directed_two_files",
+      "passed": true,
+      "violations": {},
+      "scenario_estimated_cost_usd": 0.002703,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--torbin_directed_two_files--gpt-5.4-mini--PASS--1turn--run004--20260417T012309Z.md"
+    },
+    {
+      "suite_run_index": 4,
+      "scenario_id": "dustwalker_factual_ac",
+      "passed": true,
+      "violations": {},
+      "scenario_estimated_cost_usd": 0.005583,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--dustwalker_factual_ac--gpt-5.4-mini--PASS--1turn--run004--20260417T012312Z.md"
+    },
+    {
+      "suite_run_index": 4,
+      "scenario_id": "dustwalker_factual_cr",
+      "passed": true,
+      "violations": {},
+      "scenario_estimated_cost_usd": 0.002587,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--dustwalker_factual_cr--gpt-5.4-mini--PASS--1turn--run004--20260417T012314Z.md"
+    },
+    {
+      "suite_run_index": 4,
+      "scenario_id": "dustwalker_directed_statblock_path",
+      "passed": true,
+      "violations": {},
+      "scenario_estimated_cost_usd": 0.002817,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--dustwalker_directed_statblock_path--gpt-5.4-mini--PASS--1turn--run004--20260417T012317Z.md"
+    },
+    {
+      "suite_run_index": 4,
+      "scenario_id": "compare_torbin_and_dustwalker",
+      "passed": true,
+      "violations": {},
+      "scenario_estimated_cost_usd": 0.005562,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--compare_torbin_and_dustwalker--gpt-5.4-mini--PASS--1turn--run004--20260417T012324Z.md"
+    },
+    {
+      "suite_run_index": 4,
+      "scenario_id": "torbin_autonomous_session_prep",
+      "passed": true,
+      "violations": {},
+      "scenario_estimated_cost_usd": 0.00388,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--torbin_autonomous_session_prep--gpt-5.4-mini--PASS--1turn--run004--20260417T012328Z.md"
+    },
+    {
+      "suite_run_index": 5,
+      "scenario_id": "torbin_clarify_bump_cr",
+      "passed": false,
+      "violations": {
+        "final": [
+          "[planner_live_eval:npc_voice_torbin_clarify_bump_cr] final: tool_trace must include tool 'propose_clarification'; got ['read_corpus_file', 'read_corpus_file', 'load_context_markdown', 'generate_statblock']",
+          "[planner_live_eval:npc_voice_torbin_clarify_bump_cr] final: propose_clarification_must_satisfy set but no propose_clarification rows in tool_trace"
+        ]
+      },
+      "scenario_estimated_cost_usd": 0.009534,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--torbin_clarify_bump_cr--gpt-5.4-mini--FAIL--1turn--run005--20260417T012338Z.md"
+    },
+    {
+      "suite_run_index": 5,
+      "scenario_id": "torbin_factual_recruited_kid",
+      "passed": false,
+      "violations": {
+        "final": [
+          "[planner_live_eval:npc_voice_torbin_factual_recruited_kid] final: output_text must contain one of ['Torbin', 'torbin']",
+          "[planner_live_eval:npc_voice_torbin_factual_recruited_kid] final: read_corpus_paths_must_include missing substring 'torbin' in tool_trace read paths ['Elderwyld/Cities and Towns/Mirathorn/City Council Building/README.md', 'Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/README.md', 'Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/timeline.md', 'Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/README.md']"
+        ]
+      },
+      "scenario_estimated_cost_usd": 0.006871,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--torbin_factual_recruited_kid--gpt-5.4-mini--FAIL--1turn--run005--20260417T012343Z.md"
+    },
+    {
+      "suite_run_index": 5,
+      "scenario_id": "dustwalker_upgrade_scarier",
+      "passed": true,
+      "violations": {},
+      "scenario_estimated_cost_usd": 0.003816,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--dustwalker_upgrade_scarier--gpt-5.4-mini--PASS--1turn--run005--20260417T012347Z.md"
+    },
+    {
+      "suite_run_index": 5,
+      "scenario_id": "flock_clarify_baddie_with_hat",
+      "passed": false,
+      "violations": {
+        "final": [
+          "[planner_live_eval:npc_voice_flock_clarify_baddie_with_hat] final: tool_trace must include tool 'propose_clarification'; got ['read_corpus_file', 'read_corpus_file', 'read_corpus_file']",
+          "[planner_live_eval:npc_voice_flock_clarify_baddie_with_hat] final: propose_clarification_must_satisfy set but no propose_clarification rows in tool_trace"
+        ]
+      },
+      "scenario_estimated_cost_usd": 0.00625,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--flock_clarify_baddie_with_hat--gpt-5.4-mini--FAIL--1turn--run005--20260417T012402Z.md"
+    },
+    {
+      "suite_run_index": 5,
+      "scenario_id": "torbin_factual_ac",
+      "passed": true,
+      "violations": {},
+      "scenario_estimated_cost_usd": 0.002113,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--torbin_factual_ac--gpt-5.4-mini--PASS--1turn--run005--20260417T012405Z.md"
+    },
+    {
+      "suite_run_index": 5,
+      "scenario_id": "torbin_factual_cr",
+      "passed": true,
+      "violations": {},
+      "scenario_estimated_cost_usd": 0.003455,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--torbin_factual_cr--gpt-5.4-mini--PASS--1turn--run005--20260417T012408Z.md"
+    },
+    {
+      "suite_run_index": 5,
+      "scenario_id": "torbin_directed_two_files",
+      "passed": true,
+      "violations": {},
+      "scenario_estimated_cost_usd": 0.002654,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--torbin_directed_two_files--gpt-5.4-mini--PASS--1turn--run005--20260417T012412Z.md"
+    },
+    {
+      "suite_run_index": 5,
+      "scenario_id": "dustwalker_factual_ac",
+      "passed": true,
+      "violations": {},
+      "scenario_estimated_cost_usd": 0.002612,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--dustwalker_factual_ac--gpt-5.4-mini--PASS--1turn--run005--20260417T012416Z.md"
+    },
+    {
+      "suite_run_index": 5,
+      "scenario_id": "dustwalker_factual_cr",
+      "passed": true,
+      "violations": {},
+      "scenario_estimated_cost_usd": 0.003728,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--dustwalker_factual_cr--gpt-5.4-mini--PASS--1turn--run005--20260417T012420Z.md"
+    },
+    {
+      "suite_run_index": 5,
+      "scenario_id": "dustwalker_directed_statblock_path",
+      "passed": true,
+      "violations": {},
+      "scenario_estimated_cost_usd": 0.002713,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--dustwalker_directed_statblock_path--gpt-5.4-mini--PASS--1turn--run005--20260417T012424Z.md"
+    },
+    {
+      "suite_run_index": 5,
+      "scenario_id": "compare_torbin_and_dustwalker",
+      "passed": true,
+      "violations": {},
+      "scenario_estimated_cost_usd": 0.00351,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--compare_torbin_and_dustwalker--gpt-5.4-mini--PASS--1turn--run005--20260417T012428Z.md"
+    },
+    {
+      "suite_run_index": 5,
+      "scenario_id": "torbin_autonomous_session_prep",
+      "passed": true,
+      "violations": {},
+      "scenario_estimated_cost_usd": 0.003214,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--torbin_autonomous_session_prep--gpt-5.4-mini--PASS--1turn--run005--20260417T012432Z.md"
+    },
+    {
+      "suite_run_index": 6,
+      "scenario_id": "torbin_clarify_bump_cr",
+      "passed": true,
+      "violations": {},
+      "scenario_estimated_cost_usd": 0.002208,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--torbin_clarify_bump_cr--gpt-5.4-mini--PASS--1turn--run006--20260417T012434Z.md"
+    },
+    {
+      "suite_run_index": 6,
+      "scenario_id": "torbin_factual_recruited_kid",
+      "passed": false,
+      "violations": {
+        "final": [
+          "[planner_live_eval:npc_voice_torbin_factual_recruited_kid] final: output_text must contain one of ['Torbin', 'torbin']",
+          "[planner_live_eval:npc_voice_torbin_factual_recruited_kid] final: read_corpus_paths_must_include missing substring 'torbin' in tool_trace read paths ['Longmont Campaign/Campaign 2/Session Recaps/Session 17 - Migrating Forest and Thrin.md', 'Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/README.md', 'Longmont Campaign/Campaign 2/Campaign 2 Notes.md']"
+        ]
+      },
+      "scenario_estimated_cost_usd": 0.009773,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--torbin_factual_recruited_kid--gpt-5.4-mini--FAIL--1turn--run006--20260417T012437Z.md"
+    },
+    {
+      "suite_run_index": 6,
+      "scenario_id": "dustwalker_upgrade_scarier",
+      "passed": true,
+      "violations": {},
+      "scenario_estimated_cost_usd": 0.004058,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--dustwalker_upgrade_scarier--gpt-5.4-mini--PASS--1turn--run006--20260417T012442Z.md"
+    },
+    {
+      "suite_run_index": 6,
+      "scenario_id": "flock_clarify_baddie_with_hat",
+      "passed": false,
+      "violations": {
+        "final": [
+          "[planner_live_eval:npc_voice_flock_clarify_baddie_with_hat] final: tool_trace must include tool 'propose_clarification'; got ['read_corpus_file', 'read_corpus_file']",
+          "[planner_live_eval:npc_voice_flock_clarify_baddie_with_hat] final: propose_clarification_must_satisfy set but no propose_clarification rows in tool_trace"
+        ]
+      },
+      "scenario_estimated_cost_usd": 0.006213,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--flock_clarify_baddie_with_hat--gpt-5.4-mini--FAIL--1turn--run006--20260417T012446Z.md"
+    },
+    {
+      "suite_run_index": 6,
+      "scenario_id": "torbin_factual_ac",
+      "passed": true,
+      "violations": {},
+      "scenario_estimated_cost_usd": 0.002888,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--torbin_factual_ac--gpt-5.4-mini--PASS--1turn--run006--20260417T012448Z.md"
+    },
+    {
+      "suite_run_index": 6,
+      "scenario_id": "torbin_factual_cr",
+      "passed": true,
+      "violations": {},
+      "scenario_estimated_cost_usd": 0.00217,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--torbin_factual_cr--gpt-5.4-mini--PASS--1turn--run006--20260417T012450Z.md"
+    },
+    {
+      "suite_run_index": 6,
+      "scenario_id": "torbin_directed_two_files",
+      "passed": true,
+      "violations": {},
+      "scenario_estimated_cost_usd": 0.002609,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--torbin_directed_two_files--gpt-5.4-mini--PASS--1turn--run006--20260417T012453Z.md"
+    },
+    {
+      "suite_run_index": 6,
+      "scenario_id": "dustwalker_factual_ac",
+      "passed": true,
+      "violations": {},
+      "scenario_estimated_cost_usd": 0.002291,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--dustwalker_factual_ac--gpt-5.4-mini--PASS--1turn--run006--20260417T012455Z.md"
+    },
+    {
+      "suite_run_index": 6,
+      "scenario_id": "dustwalker_factual_cr",
+      "passed": true,
+      "violations": {},
+      "scenario_estimated_cost_usd": 0.002587,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--dustwalker_factual_cr--gpt-5.4-mini--PASS--1turn--run006--20260417T012500Z.md"
+    },
+    {
+      "suite_run_index": 6,
+      "scenario_id": "dustwalker_directed_statblock_path",
+      "passed": true,
+      "violations": {},
+      "scenario_estimated_cost_usd": 0.002759,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--dustwalker_directed_statblock_path--gpt-5.4-mini--PASS--1turn--run006--20260417T012503Z.md"
+    },
+    {
+      "suite_run_index": 6,
+      "scenario_id": "compare_torbin_and_dustwalker",
+      "passed": true,
+      "violations": {},
+      "scenario_estimated_cost_usd": 0.004292,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--compare_torbin_and_dustwalker--gpt-5.4-mini--PASS--1turn--run006--20260417T012514Z.md"
+    },
+    {
+      "suite_run_index": 6,
+      "scenario_id": "torbin_autonomous_session_prep",
+      "passed": true,
+      "violations": {},
+      "scenario_estimated_cost_usd": 0.009068,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--torbin_autonomous_session_prep--gpt-5.4-mini--PASS--1turn--run006--20260417T012520Z.md"
+    },
+    {
+      "suite_run_index": 7,
+      "scenario_id": "torbin_clarify_bump_cr",
+      "passed": false,
+      "violations": {
+        "final": [
+          "[planner_live_eval:npc_voice_torbin_clarify_bump_cr] final: tool_trace must include tool 'propose_clarification'; got ['read_corpus_file', 'read_corpus_file', 'generate_statblock']",
+          "[planner_live_eval:npc_voice_torbin_clarify_bump_cr] final: propose_clarification_must_satisfy set but no propose_clarification rows in tool_trace"
+        ]
+      },
+      "scenario_estimated_cost_usd": 0.00749,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--torbin_clarify_bump_cr--gpt-5.4-mini--FAIL--1turn--run007--20260417T012534Z.md"
+    },
+    {
+      "suite_run_index": 7,
+      "scenario_id": "torbin_factual_recruited_kid",
+      "passed": false,
+      "violations": {
+        "final": [
+          "[planner_live_eval:npc_voice_torbin_factual_recruited_kid] final: output_text must contain one of ['Torbin', 'torbin']",
+          "[planner_live_eval:npc_voice_torbin_factual_recruited_kid] final: read_corpus_paths_must_include missing substring 'torbin' in tool_trace read paths ['Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/README.md', 'Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_character_dossier.md', 'Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/timeline.md']"
+        ]
+      },
+      "scenario_estimated_cost_usd": 0.005414,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--torbin_factual_recruited_kid--gpt-5.4-mini--FAIL--1turn--run007--20260417T012537Z.md"
+    },
+    {
+      "suite_run_index": 7,
+      "scenario_id": "dustwalker_upgrade_scarier",
+      "passed": true,
+      "violations": {},
+      "scenario_estimated_cost_usd": 0.004657,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--dustwalker_upgrade_scarier--gpt-5.4-mini--PASS--1turn--run007--20260417T012542Z.md"
+    },
+    {
+      "suite_run_index": 7,
+      "scenario_id": "flock_clarify_baddie_with_hat",
+      "passed": false,
+      "violations": {
+        "final": [
+          "[planner_live_eval:npc_voice_flock_clarify_baddie_with_hat] final: tool_trace must include tool 'propose_clarification'; got ['read_corpus_file', 'read_corpus_file', 'read_corpus_file']",
+          "[planner_live_eval:npc_voice_flock_clarify_baddie_with_hat] final: propose_clarification_must_satisfy set but no propose_clarification rows in tool_trace"
+        ]
+      },
+      "scenario_estimated_cost_usd": 0.006183,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--flock_clarify_baddie_with_hat--gpt-5.4-mini--FAIL--1turn--run007--20260417T012546Z.md"
+    },
+    {
+      "suite_run_index": 7,
+      "scenario_id": "torbin_factual_ac",
+      "passed": true,
+      "violations": {},
+      "scenario_estimated_cost_usd": 0.002109,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--torbin_factual_ac--gpt-5.4-mini--PASS--1turn--run007--20260417T012548Z.md"
+    },
+    {
+      "suite_run_index": 7,
+      "scenario_id": "torbin_factual_cr",
+      "passed": true,
+      "violations": {},
+      "scenario_estimated_cost_usd": 0.003376,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--torbin_factual_cr--gpt-5.4-mini--PASS--1turn--run007--20260417T012553Z.md"
+    },
+    {
+      "suite_run_index": 7,
+      "scenario_id": "torbin_directed_two_files",
+      "passed": true,
+      "violations": {},
+      "scenario_estimated_cost_usd": 0.00264,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--torbin_directed_two_files--gpt-5.4-mini--PASS--1turn--run007--20260417T012557Z.md"
+    },
+    {
+      "suite_run_index": 7,
+      "scenario_id": "dustwalker_factual_ac",
+      "passed": true,
+      "violations": {},
+      "scenario_estimated_cost_usd": 0.002335,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--dustwalker_factual_ac--gpt-5.4-mini--PASS--1turn--run007--20260417T012559Z.md"
+    },
+    {
+      "suite_run_index": 7,
+      "scenario_id": "dustwalker_factual_cr",
+      "passed": true,
+      "violations": {},
+      "scenario_estimated_cost_usd": 0.002582,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--dustwalker_factual_cr--gpt-5.4-mini--PASS--1turn--run007--20260417T012601Z.md"
+    },
+    {
+      "suite_run_index": 7,
+      "scenario_id": "dustwalker_directed_statblock_path",
+      "passed": true,
+      "violations": {},
+      "scenario_estimated_cost_usd": 0.002754,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--dustwalker_directed_statblock_path--gpt-5.4-mini--PASS--1turn--run007--20260417T012604Z.md"
+    },
+    {
+      "suite_run_index": 7,
+      "scenario_id": "compare_torbin_and_dustwalker",
+      "passed": true,
+      "violations": {},
+      "scenario_estimated_cost_usd": 0.005235,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--compare_torbin_and_dustwalker--gpt-5.4-mini--PASS--1turn--run007--20260417T012610Z.md"
+    },
+    {
+      "suite_run_index": 7,
+      "scenario_id": "torbin_autonomous_session_prep",
+      "passed": true,
+      "violations": {},
+      "scenario_estimated_cost_usd": 0.003682,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--torbin_autonomous_session_prep--gpt-5.4-mini--PASS--1turn--run007--20260417T012615Z.md"
+    },
+    {
+      "suite_run_index": 8,
+      "scenario_id": "torbin_clarify_bump_cr",
+      "passed": false,
+      "violations": {
+        "final": [
+          "[planner_live_eval:npc_voice_torbin_clarify_bump_cr] final: tool_trace must include tool 'propose_clarification'; got ['read_corpus_file', 'read_corpus_file', 'read_corpus_file', 'read_corpus_file']",
+          "[planner_live_eval:npc_voice_torbin_clarify_bump_cr] final: propose_clarification_must_satisfy set but no propose_clarification rows in tool_trace"
+        ]
+      },
+      "scenario_estimated_cost_usd": 0.005273,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--torbin_clarify_bump_cr--gpt-5.4-mini--FAIL--1turn--run008--20260417T012620Z.md"
+    },
+    {
+      "suite_run_index": 8,
+      "scenario_id": "torbin_factual_recruited_kid",
+      "passed": false,
+      "violations": {
+        "final": [
+          "[planner_live_eval:npc_voice_torbin_factual_recruited_kid] final: output_text must contain one of ['Torbin', 'torbin']",
+          "[planner_live_eval:npc_voice_torbin_factual_recruited_kid] final: tool_trace must include 'read_corpus_file'; got ['propose_clarification']",
+          "[planner_live_eval:npc_voice_torbin_factual_recruited_kid] final: read_corpus_paths_must_include set but no read_corpus_file / load_context_markdown paths in tool_trace"
+        ]
+      },
+      "scenario_estimated_cost_usd": 0.002278,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--torbin_factual_recruited_kid--gpt-5.4-mini--FAIL--1turn--run008--20260417T012624Z.md"
+    },
+    {
+      "suite_run_index": 8,
+      "scenario_id": "dustwalker_upgrade_scarier",
+      "passed": true,
+      "violations": {},
+      "scenario_estimated_cost_usd": 0.003551,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--dustwalker_upgrade_scarier--gpt-5.4-mini--PASS--1turn--run008--20260417T012628Z.md"
+    },
+    {
+      "suite_run_index": 8,
+      "scenario_id": "flock_clarify_baddie_with_hat",
+      "passed": false,
+      "violations": {
+        "final": [
+          "[planner_live_eval:npc_voice_flock_clarify_baddie_with_hat] final: tool_trace must include tool 'propose_clarification'; got ['read_corpus_file', 'read_corpus_file', 'read_corpus_file']",
+          "[planner_live_eval:npc_voice_flock_clarify_baddie_with_hat] final: propose_clarification_must_satisfy set but no propose_clarification rows in tool_trace"
+        ]
+      },
+      "scenario_estimated_cost_usd": 0.003096,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--flock_clarify_baddie_with_hat--gpt-5.4-mini--FAIL--1turn--run008--20260417T012631Z.md"
+    },
+    {
+      "suite_run_index": 8,
+      "scenario_id": "torbin_factual_ac",
+      "passed": true,
+      "violations": {},
+      "scenario_estimated_cost_usd": 0.002118,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--torbin_factual_ac--gpt-5.4-mini--PASS--1turn--run008--20260417T012633Z.md"
+    },
+    {
+      "suite_run_index": 8,
+      "scenario_id": "torbin_factual_cr",
+      "passed": true,
+      "violations": {},
+      "scenario_estimated_cost_usd": 0.00323,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--torbin_factual_cr--gpt-5.4-mini--PASS--1turn--run008--20260417T012635Z.md"
+    },
+    {
+      "suite_run_index": 8,
+      "scenario_id": "torbin_directed_two_files",
+      "passed": true,
+      "violations": {},
+      "scenario_estimated_cost_usd": 0.002662,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--torbin_directed_two_files--gpt-5.4-mini--PASS--1turn--run008--20260417T012640Z.md"
+    },
+    {
+      "suite_run_index": 8,
+      "scenario_id": "dustwalker_factual_ac",
+      "passed": true,
+      "violations": {},
+      "scenario_estimated_cost_usd": 0.003637,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--dustwalker_factual_ac--gpt-5.4-mini--PASS--1turn--run008--20260417T012643Z.md"
+    },
+    {
+      "suite_run_index": 8,
+      "scenario_id": "dustwalker_factual_cr",
+      "passed": true,
+      "violations": {},
+      "scenario_estimated_cost_usd": 0.002229,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--dustwalker_factual_cr--gpt-5.4-mini--PASS--1turn--run008--20260417T012644Z.md"
+    },
+    {
+      "suite_run_index": 8,
+      "scenario_id": "dustwalker_directed_statblock_path",
+      "passed": true,
+      "violations": {},
+      "scenario_estimated_cost_usd": 0.002781,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--dustwalker_directed_statblock_path--gpt-5.4-mini--PASS--1turn--run008--20260417T012647Z.md"
+    },
+    {
+      "suite_run_index": 8,
+      "scenario_id": "compare_torbin_and_dustwalker",
+      "passed": true,
+      "violations": {},
+      "scenario_estimated_cost_usd": 0.003344,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--compare_torbin_and_dustwalker--gpt-5.4-mini--PASS--1turn--run008--20260417T012651Z.md"
+    },
+    {
+      "suite_run_index": 8,
+      "scenario_id": "torbin_autonomous_session_prep",
+      "passed": true,
+      "violations": {},
+      "scenario_estimated_cost_usd": 0.003691,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--torbin_autonomous_session_prep--gpt-5.4-mini--PASS--1turn--run008--20260417T012655Z.md"
+    },
+    {
+      "suite_run_index": 9,
+      "scenario_id": "torbin_clarify_bump_cr",
+      "passed": false,
+      "violations": {
+        "final": [
+          "[planner_live_eval:npc_voice_torbin_clarify_bump_cr] final: tool_trace must include tool 'propose_clarification'; got ['read_corpus_file', 'read_corpus_file', 'generate_statblock']",
+          "[planner_live_eval:npc_voice_torbin_clarify_bump_cr] final: propose_clarification_must_satisfy set but no propose_clarification rows in tool_trace"
+        ]
+      },
+      "scenario_estimated_cost_usd": 0.009413,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--torbin_clarify_bump_cr--gpt-5.4-mini--FAIL--1turn--run009--20260417T012707Z.md"
+    },
+    {
+      "suite_run_index": 9,
+      "scenario_id": "torbin_factual_recruited_kid",
+      "passed": true,
+      "violations": {},
+      "scenario_estimated_cost_usd": 0.010381,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--torbin_factual_recruited_kid--gpt-5.4-mini--PASS--1turn--run009--20260417T012711Z.md"
+    },
+    {
+      "suite_run_index": 9,
+      "scenario_id": "dustwalker_upgrade_scarier",
+      "passed": true,
+      "violations": {},
+      "scenario_estimated_cost_usd": 0.014149,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--dustwalker_upgrade_scarier--gpt-5.4-mini--PASS--1turn--run009--20260417T012729Z.md"
+    },
+    {
+      "suite_run_index": 9,
+      "scenario_id": "flock_clarify_baddie_with_hat",
+      "passed": false,
+      "violations": {
+        "final": [
+          "[planner_live_eval:npc_voice_flock_clarify_baddie_with_hat] final: tool_trace must include tool 'propose_clarification'; got ['read_corpus_file', 'read_corpus_file']",
+          "[planner_live_eval:npc_voice_flock_clarify_baddie_with_hat] final: propose_clarification_must_satisfy set but no propose_clarification rows in tool_trace"
+        ]
+      },
+      "scenario_estimated_cost_usd": 0.004063,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--flock_clarify_baddie_with_hat--gpt-5.4-mini--FAIL--1turn--run009--20260417T012733Z.md"
+    },
+    {
+      "suite_run_index": 9,
+      "scenario_id": "torbin_factual_ac",
+      "passed": true,
+      "violations": {},
+      "scenario_estimated_cost_usd": 0.002118,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--torbin_factual_ac--gpt-5.4-mini--PASS--1turn--run009--20260417T012735Z.md"
+    },
+    {
+      "suite_run_index": 9,
+      "scenario_id": "torbin_factual_cr",
+      "passed": true,
+      "violations": {},
+      "scenario_estimated_cost_usd": 0.002188,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--torbin_factual_cr--gpt-5.4-mini--PASS--1turn--run009--20260417T012739Z.md"
+    },
+    {
+      "suite_run_index": 9,
+      "scenario_id": "torbin_directed_two_files",
+      "passed": true,
+      "violations": {},
+      "scenario_estimated_cost_usd": 0.002766,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--torbin_directed_two_files--gpt-5.4-mini--PASS--1turn--run009--20260417T012744Z.md"
+    },
+    {
+      "suite_run_index": 9,
+      "scenario_id": "dustwalker_factual_ac",
+      "passed": true,
+      "violations": {},
+      "scenario_estimated_cost_usd": 0.002809,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--dustwalker_factual_ac--gpt-5.4-mini--PASS--1turn--run009--20260417T012746Z.md"
+    },
+    {
+      "suite_run_index": 9,
+      "scenario_id": "dustwalker_factual_cr",
+      "passed": true,
+      "violations": {},
+      "scenario_estimated_cost_usd": 0.002229,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--dustwalker_factual_cr--gpt-5.4-mini--PASS--1turn--run009--20260417T012749Z.md"
+    },
+    {
+      "suite_run_index": 9,
+      "scenario_id": "dustwalker_directed_statblock_path",
+      "passed": true,
+      "violations": {},
+      "scenario_estimated_cost_usd": 0.002754,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--dustwalker_directed_statblock_path--gpt-5.4-mini--PASS--1turn--run009--20260417T012752Z.md"
+    },
+    {
+      "suite_run_index": 9,
+      "scenario_id": "compare_torbin_and_dustwalker",
+      "passed": true,
+      "violations": {},
+      "scenario_estimated_cost_usd": 0.003497,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--compare_torbin_and_dustwalker--gpt-5.4-mini--PASS--1turn--run009--20260417T012756Z.md"
+    },
+    {
+      "suite_run_index": 9,
+      "scenario_id": "torbin_autonomous_session_prep",
+      "passed": true,
+      "violations": {},
+      "scenario_estimated_cost_usd": 0.003408,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--torbin_autonomous_session_prep--gpt-5.4-mini--PASS--1turn--run009--20260417T012759Z.md"
+    },
+    {
+      "suite_run_index": 10,
+      "scenario_id": "torbin_clarify_bump_cr",
+      "passed": true,
+      "violations": {},
+      "scenario_estimated_cost_usd": 0.004559,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--torbin_clarify_bump_cr--gpt-5.4-mini--PASS--1turn--run010--20260417T012804Z.md"
+    },
+    {
+      "suite_run_index": 10,
+      "scenario_id": "torbin_factual_recruited_kid",
+      "passed": false,
+      "violations": {
+        "final": [
+          "[planner_live_eval:npc_voice_torbin_factual_recruited_kid] final: output_text must contain one of ['Torbin', 'torbin']",
+          "[planner_live_eval:npc_voice_torbin_factual_recruited_kid] final: read_corpus_paths_must_include missing substring 'torbin' in tool_trace read paths ['Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/README.md', 'Longmont Campaign/Campaign 2/NPC Dossier/', 'Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_character_dossier.md', 'Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/timeline.md', 'Longmont Campaign/Campaign 2/Session Recaps/Session 19 - Recap.md', 'Longmont Campaign/Campaign 2/Campaign 2 Notes.md']"
+        ]
+      },
+      "scenario_estimated_cost_usd": 0.013463,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--torbin_factual_recruited_kid--gpt-5.4-mini--FAIL--1turn--run010--20260417T012833Z.md"
+    },
+    {
+      "suite_run_index": 10,
+      "scenario_id": "dustwalker_upgrade_scarier",
+      "passed": true,
+      "violations": {},
+      "scenario_estimated_cost_usd": 0.00356,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--dustwalker_upgrade_scarier--gpt-5.4-mini--PASS--1turn--run010--20260417T012836Z.md"
+    },
+    {
+      "suite_run_index": 10,
+      "scenario_id": "flock_clarify_baddie_with_hat",
+      "passed": false,
+      "violations": {
+        "final": [
+          "[planner_live_eval:npc_voice_flock_clarify_baddie_with_hat] final: tool_trace must include tool 'propose_clarification'; got ['read_corpus_file', 'read_corpus_file']",
+          "[planner_live_eval:npc_voice_flock_clarify_baddie_with_hat] final: propose_clarification_must_satisfy set but no propose_clarification rows in tool_trace"
+        ]
+      },
+      "scenario_estimated_cost_usd": 0.004455,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--flock_clarify_baddie_with_hat--gpt-5.4-mini--FAIL--1turn--run010--20260417T012839Z.md"
+    },
+    {
+      "suite_run_index": 10,
+      "scenario_id": "torbin_factual_ac",
+      "passed": true,
+      "violations": {},
+      "scenario_estimated_cost_usd": 0.004097,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--torbin_factual_ac--gpt-5.4-mini--PASS--1turn--run010--20260417T012843Z.md"
+    },
+    {
+      "suite_run_index": 10,
+      "scenario_id": "torbin_factual_cr",
+      "passed": true,
+      "violations": {},
+      "scenario_estimated_cost_usd": 0.002106,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--torbin_factual_cr--gpt-5.4-mini--PASS--1turn--run010--20260417T012847Z.md"
+    },
+    {
+      "suite_run_index": 10,
+      "scenario_id": "torbin_directed_two_files",
+      "passed": true,
+      "violations": {},
+      "scenario_estimated_cost_usd": 0.002609,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--torbin_directed_two_files--gpt-5.4-mini--PASS--1turn--run010--20260417T012850Z.md"
+    },
+    {
+      "suite_run_index": 10,
+      "scenario_id": "dustwalker_factual_ac",
+      "passed": true,
+      "violations": {},
+      "scenario_estimated_cost_usd": 0.002617,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--dustwalker_factual_ac--gpt-5.4-mini--PASS--1turn--run010--20260417T012852Z.md"
+    },
+    {
+      "suite_run_index": 10,
+      "scenario_id": "dustwalker_factual_cr",
+      "passed": true,
+      "violations": {},
+      "scenario_estimated_cost_usd": 0.002582,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--dustwalker_factual_cr--gpt-5.4-mini--PASS--1turn--run010--20260417T012855Z.md"
+    },
+    {
+      "suite_run_index": 10,
+      "scenario_id": "dustwalker_directed_statblock_path",
+      "passed": true,
+      "violations": {},
+      "scenario_estimated_cost_usd": 0.002799,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--dustwalker_directed_statblock_path--gpt-5.4-mini--PASS--1turn--run010--20260417T012859Z.md"
+    },
+    {
+      "suite_run_index": 10,
+      "scenario_id": "compare_torbin_and_dustwalker",
+      "passed": true,
+      "violations": {},
+      "scenario_estimated_cost_usd": 0.006045,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--compare_torbin_and_dustwalker--gpt-5.4-mini--PASS--1turn--run010--20260417T012911Z.md"
+    },
+    {
+      "suite_run_index": 10,
+      "scenario_id": "torbin_autonomous_session_prep",
+      "passed": true,
+      "violations": {},
+      "scenario_estimated_cost_usd": 0.002953,
+      "artifact_primary": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/npc_voice_vertical_slice/artifacts/runs/2026-04-17/npc_voice--torbin_autonomous_session_prep--gpt-5.4-mini--PASS--1turn--run010--20260417T012915Z.md"
+    }
+  ],
+  "summary": {
+    "total_cells": 120,
+    "failed_cells": 25,
+    "scenario_estimated_cost_usd_sum": 0.538294
+  }
+}

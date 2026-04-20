@@ -1,0 +1,37 @@
+---
+description: When a benchmark/test fails — investigate data, gold, and prompt before patching code. Tighten contracts; do not loosen rubrics.
+alwaysApply: true
+---
+
+# Verify before debug
+
+When a benchmark or test fails, the first instinct should be **"is the rubric correct?"**, not "what code do I change to make it pass?" Validated 2026-04-20: every one of the 5 failures in the sweep was diagnosed faster by inspecting non-code artifacts first.
+
+## The order of investigation
+
+1. **The data / corpus** — has the input changed? (`git log -- <corpus_path>`, fingerprint check). Many "failures" are stale gold against current corpus.
+2. **The gold / expected** — is the gold file describing what the system *should* produce, or what it *did* produce when the gold was last refreshed? Drift here is the most common failure mode in this repo.
+3. **The prompt** — for LLM-step failures, does the prompt actually demand the behavior the gold expects? A buried rule that the model ignores is a prompt bug, not a model bug.
+4. **The grader / threshold** — is it measuring the right thing? Does it conflate guard-caught errors with policy violations? See `dispatch-guard-grader-separation.mdc`.
+5. **The code** — only after the above are confirmed correct. If you start here, you risk patching code to match a wrong rubric.
+
+## "Tighten the contract, don't loosen the rubric"
+
+When a gate trips, two paths:
+
+- **Tighten the contract**: realign gold to where facts actually materialize (with a documented `notes` field explaining the corpus rationale), or add a missing prompt rule, or add a new dispatch guard. The contract gets clearer.
+- **Loosen the rubric**: lower the threshold, soften the equality check, mark the test xfail. The contract gets weaker.
+
+Always prefer the first. When you must loosen (e.g. lowering D1 thresholds because the CLI baseline genuinely shifted), the new threshold MUST be tied to a measured baseline with an inline rationale comment naming the measurement. See `evals/mirathorn_vertical_slice/eval_synthesis.py:33-44` for the canonical pattern: `floor(0.7 * measured CLI-path baseline)` with the measurement documented.
+
+## Stochastic gates need multi-trial verification
+
+Any gate that depends on LLM output (NPC voice, planner decisions, recap drafts) is stochastic. A single PASS or FAIL is noise. Before claiming a prompt fix works, run ≥3 trials and report pass-rate. Round 4's NPC clarify fix was confirmed with Torbin 4/5 + Flock 5/5 across re-runs, not a single PASS.
+
+## Anti-patterns
+
+- Patching code to make a benchmark pass without first verifying the benchmark is correct.
+- Lowering a threshold "until it passes" with no baseline measurement.
+- Marking a flaky LLM test as xfail without measuring the actual pass-rate.
+- Treating one PASS after a prompt change as "fixed."
+- Editing the gold to match what the model produced *because* that's what the model produced. Realign gold only when corpus/system-design rationale supports the new shape, and document that rationale in `notes`.

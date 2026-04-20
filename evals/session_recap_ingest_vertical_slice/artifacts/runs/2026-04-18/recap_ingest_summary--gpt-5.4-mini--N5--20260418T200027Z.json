@@ -1,0 +1,189 @@
+{
+  "schema": "recap_ingest_multi_run_summary_v1",
+  "iso_utc": "2026-04-18T20:00:27Z",
+  "model_id": "gpt-5.4-mini",
+  "scenario_id": "session_recap_ingest_session_20",
+  "runs": 5,
+  "aggregate": {
+    "runs": 5,
+    "gates_pass_rate": "1/5",
+    "tool_trace_gates_pass_rate": "1/5",
+    "payload_gates_pass_rate": "5/5",
+    "cost_usd": {
+      "min": 0.027485,
+      "max": 0.053853,
+      "mean": 0.040072,
+      "sum": 0.20036
+    },
+    "tool_trace_rows": {
+      "min": 6,
+      "max": 8,
+      "mean": 7
+    },
+    "distinct_recap_write_sha256_16": [
+      "1cc938b14cef18e3",
+      "4cc2ef57a9c1b916",
+      "55e88e766d4f05e8",
+      "8269eec836a16160",
+      "bfefd017d54c5a3a"
+    ],
+    "violation_counts_total": {
+      "scope_b_tool": 4,
+      "scope_b": 4
+    },
+    "distinct_tool_trace_signatures": [
+      "get_recap_context,read_corpus_file,read_corpus_file,read_corpus_file,read_corpus_file,assemble_recap_draft",
+      "get_recap_context,read_corpus_file,read_corpus_file,read_corpus_file,read_corpus_file,assemble_recap_draft,write_corpus_file",
+      "get_recap_context,read_corpus_file,read_corpus_file,read_corpus_file,read_corpus_file,read_corpus_file,assemble_recap_draft,write_corpus_file"
+    ]
+  },
+  "results": [
+    {
+      "run_index": 0,
+      "iso_utc": "2026-04-18T19:57:46Z",
+      "gates_passed": true,
+      "tool_trace_gates_passed": true,
+      "payload_gates_passed": true,
+      "scenario_estimated_cost_usd": 0.053853,
+      "tool_trace_rows": 7,
+      "tool_trace_tools": [
+        "get_recap_context",
+        "read_corpus_file",
+        "read_corpus_file",
+        "read_corpus_file",
+        "read_corpus_file",
+        "assemble_recap_draft",
+        "write_corpus_file"
+      ],
+      "violation_counts": {},
+      "recap_write_sha256_16": "4cc2ef57a9c1b916",
+      "final_text_chars": 14031,
+      "primary_md_path": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/session_recap_ingest_vertical_slice/artifacts/runs/2026-04-18/recap_ingest--session_recap_ingest_session_20--gpt-5.4-mini--PASS--1turn--20260418T195746Z--run001.md",
+      "sidecar_json_path": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/session_recap_ingest_vertical_slice/artifacts/runs/2026-04-18/recap_ingest--session_recap_ingest_session_20--gpt-5.4-mini--PASS--1turn--20260418T195746Z--run001.json",
+      "extras": {
+        "corpus_fingerprint": "8f3c9674ac255b99fa77edb67d81ef4c",
+        "primary_response_id": "resp_0caf334971adf0af0069e3e22c5e888190b37beacb76256504"
+      }
+    },
+    {
+      "run_index": 1,
+      "iso_utc": "2026-04-18T19:58:08Z",
+      "gates_passed": false,
+      "tool_trace_gates_passed": false,
+      "payload_gates_passed": true,
+      "scenario_estimated_cost_usd": 0.027485,
+      "tool_trace_rows": 6,
+      "tool_trace_tools": [
+        "get_recap_context",
+        "read_corpus_file",
+        "read_corpus_file",
+        "read_corpus_file",
+        "read_corpus_file",
+        "assemble_recap_draft"
+      ],
+      "violation_counts": {
+        "scope_b_tool": 1,
+        "scope_b": 1
+      },
+      "recap_write_sha256_16": "1cc938b14cef18e3",
+      "final_text_chars": 14355,
+      "primary_md_path": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/session_recap_ingest_vertical_slice/artifacts/runs/2026-04-18/recap_ingest--session_recap_ingest_session_20--gpt-5.4-mini--FAIL--1turn--20260418T195808Z--run002.md",
+      "sidecar_json_path": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/session_recap_ingest_vertical_slice/artifacts/runs/2026-04-18/recap_ingest--session_recap_ingest_session_20--gpt-5.4-mini--FAIL--1turn--20260418T195808Z--run002.json",
+      "extras": {
+        "corpus_fingerprint": "533f1ab2bf4f36baad5bc312c39e8d3f",
+        "primary_response_id": "resp_03349d39144ffef70069e3e241642c819ebc70bad988dacd68"
+      }
+    },
+    {
+      "run_index": 2,
+      "iso_utc": "2026-04-18T19:58:36Z",
+      "gates_passed": false,
+      "tool_trace_gates_passed": false,
+      "payload_gates_passed": true,
+      "scenario_estimated_cost_usd": 0.042274,
+      "tool_trace_rows": 8,
+      "tool_trace_tools": [
+        "get_recap_context",
+        "read_corpus_file",
+        "read_corpus_file",
+        "read_corpus_file",
+        "read_corpus_file",
+        "read_corpus_file",
+        "assemble_recap_draft",
+        "write_corpus_file"
+      ],
+      "violation_counts": {
+        "scope_b_tool": 1,
+        "scope_b": 1
+      },
+      "recap_write_sha256_16": "55e88e766d4f05e8",
+      "final_text_chars": 13577,
+      "primary_md_path": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/session_recap_ingest_vertical_slice/artifacts/runs/2026-04-18/recap_ingest--session_recap_ingest_session_20--gpt-5.4-mini--FAIL--1turn--20260418T195836Z--run003.md",
+      "sidecar_json_path": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/session_recap_ingest_vertical_slice/artifacts/runs/2026-04-18/recap_ingest--session_recap_ingest_session_20--gpt-5.4-mini--FAIL--1turn--20260418T195836Z--run003.json",
+      "extras": {
+        "corpus_fingerprint": "59b268d89d5b7bed8c023833232a1913",
+        "primary_response_id": "resp_00864e3f5e6f80300069e3e25ec3508190bcedf6166f9887ea"
+      }
+    },
+    {
+      "run_index": 3,
+      "iso_utc": "2026-04-18T19:59:46Z",
+      "gates_passed": false,
+      "tool_trace_gates_passed": false,
+      "payload_gates_passed": true,
+      "scenario_estimated_cost_usd": 0.042288,
+      "tool_trace_rows": 7,
+      "tool_trace_tools": [
+        "get_recap_context",
+        "read_corpus_file",
+        "read_corpus_file",
+        "read_corpus_file",
+        "read_corpus_file",
+        "assemble_recap_draft",
+        "write_corpus_file"
+      ],
+      "violation_counts": {
+        "scope_b_tool": 1,
+        "scope_b": 1
+      },
+      "recap_write_sha256_16": "8269eec836a16160",
+      "final_text_chars": 13858,
+      "primary_md_path": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/session_recap_ingest_vertical_slice/artifacts/runs/2026-04-18/recap_ingest--session_recap_ingest_session_20--gpt-5.4-mini--FAIL--1turn--20260418T195946Z--run004.md",
+      "sidecar_json_path": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/session_recap_ingest_vertical_slice/artifacts/runs/2026-04-18/recap_ingest--session_recap_ingest_session_20--gpt-5.4-mini--FAIL--1turn--20260418T195946Z--run004.json",
+      "extras": {
+        "corpus_fingerprint": "ccb576926f6db3bc7f981b961274324d",
+        "primary_response_id": "resp_0a5f2534920ecfdd0069e3e2a3c77881a39eb872a0fe57c603"
+      }
+    },
+    {
+      "run_index": 4,
+      "iso_utc": "2026-04-18T20:00:27Z",
+      "gates_passed": false,
+      "tool_trace_gates_passed": false,
+      "payload_gates_passed": true,
+      "scenario_estimated_cost_usd": 0.03446,
+      "tool_trace_rows": 7,
+      "tool_trace_tools": [
+        "get_recap_context",
+        "read_corpus_file",
+        "read_corpus_file",
+        "read_corpus_file",
+        "read_corpus_file",
+        "assemble_recap_draft",
+        "write_corpus_file"
+      ],
+      "violation_counts": {
+        "scope_b_tool": 1,
+        "scope_b": 1
+      },
+      "recap_write_sha256_16": "bfefd017d54c5a3a",
+      "final_text_chars": 13619,
+      "primary_md_path": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/session_recap_ingest_vertical_slice/artifacts/runs/2026-04-18/recap_ingest--session_recap_ingest_session_20--gpt-5.4-mini--FAIL--1turn--20260418T200027Z--run005.md",
+      "sidecar_json_path": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/session_recap_ingest_vertical_slice/artifacts/runs/2026-04-18/recap_ingest--session_recap_ingest_session_20--gpt-5.4-mini--FAIL--1turn--20260418T200027Z--run005.json",
+      "extras": {
+        "corpus_fingerprint": "37509249b5d8de35c9a87c4719d8aa9c",
+        "primary_response_id": "resp_0b761e367760a78c0069e3e2cd2b74819fbde520f5adcca8d1"
+      }
+    }
+  ]
+}

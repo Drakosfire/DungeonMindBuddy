@@ -186,6 +186,7 @@ def write_recap_ingest_run_report(
     utc: datetime | None = None,
     run_index: int | None = None,
     cohort_size: int | None = None,
+    recap_context_snapshot: Any | None = None,
 ) -> tuple[RecapIngestReportPaths, RecapIngestRunSummary]:
     """Write per-run markdown + JSON for a single Scope-B planner turn.
 
@@ -227,7 +228,12 @@ def write_recap_ingest_run_report(
     scope_b_extras: dict[str, Any] = {}
     if scenario is not None:
         try:
-            scope_b_extras = collect_scope_b_recap_ingest_report_extras(scenario, run.detail)
+            scope_b_extras = collect_scope_b_recap_ingest_report_extras(
+                scenario,
+                run.detail,
+                corpus_dir,
+                recap_context_snapshot=recap_context_snapshot,
+            )
         except Exception as exc:  # noqa: BLE001 - report writer must never raise
             scope_b_extras = {"scope_b_extras_error": repr(exc)}
 
@@ -394,6 +400,79 @@ def write_recap_ingest_multi_summary(
         if isinstance(soft, list):
             soft_obs_total += len(soft)
 
+    # Commit-outcome aggregation (BACKLOG §1.0 fix). The cohort answers:
+    # of runs that *attempted* a commit (``commit_rate`` denominator), how many
+    # actually had the server land bytes vs. refuse the write (e.g. stale
+    # confirm_token, allowlist rejection, disabled writes)? This split is what
+    # ``gates_passed`` previously hid: a run could attempt a commit, get
+    # ``ok=false``, and still pass the call-shape gate.
+    commit_attempted = 0
+    commit_succeeded = 0
+    commit_refused = 0
+    commit_unknown = 0
+    commit_error_kinds: dict[str, int] = {}
+    for s in summaries:
+        sb = s.extras.get("scope_b_extras") if isinstance(s.extras, dict) else None
+        sb = sb if isinstance(sb, dict) else {}
+        outcome = sb.get("write_corpus_file_last_commit_outcome")
+        if not isinstance(outcome, dict):
+            continue
+        commit_attempted += 1
+        succeeded = outcome.get("succeeded")
+        if succeeded is True:
+            commit_succeeded += 1
+        elif succeeded is False:
+            commit_refused += 1
+            err = str(outcome.get("error") or "").strip()
+            # Bucket by leading error phrase so cohort summaries surface the
+            # *kind* of refusal (stale token vs. allowlist vs. disabled writes)
+            # without leaking full diff payloads.
+            if err:
+                kind = err.split(".")[0][:120]
+                commit_error_kinds[kind] = commit_error_kinds.get(kind, 0) + 1
+            else:
+                commit_error_kinds["<unspecified>"] = (
+                    commit_error_kinds.get("<unspecified>", 0) + 1
+                )
+        else:
+            commit_unknown += 1
+
+    # Mechanical-payload comparison stratified by tool adoption (BACKLOG §1.5 / opt b).
+    #
+    # The cohort answers two questions:
+    # * Did the model invoke ``build_recap_write_payload``? (``called`` / ``not_called``)
+    # * Among runs where the comparison was applicable (model emitted a parseable
+    #   ``recap_write`` AND we had snapshot + raw notes), how many had mechanical
+    #   sub-fields byte-equal to the helper's expected output?
+    # ``not_applicable`` rows aren't included in the rate denominator (no signal).
+    mech_called = 0
+    mech_called_match = 0
+    mech_called_applicable = 0
+    mech_uncalled_match = 0
+    mech_uncalled_applicable = 0
+    mech_total_applicable = 0
+    mech_total_match = 0
+    for s in summaries:
+        sb = s.extras.get("scope_b_extras") if isinstance(s.extras, dict) else None
+        sb = sb if isinstance(sb, dict) else {}
+        called = bool(sb.get("build_recap_write_payload_called"))
+        match = sb.get("mechanical_fields_match")
+        if called:
+            mech_called += 1
+        if match is None:
+            continue
+        mech_total_applicable += 1
+        if match:
+            mech_total_match += 1
+        if called:
+            mech_called_applicable += 1
+            if match:
+                mech_called_match += 1
+        else:
+            mech_uncalled_applicable += 1
+            if match:
+                mech_uncalled_match += 1
+
     aggregate: dict[str, Any] = {
         "runs": n,
         "gates_pass_rate": _pass_rate(gates_pass, n),
@@ -410,6 +489,31 @@ def write_recap_ingest_multi_summary(
             "no_write_rate": _pass_rate(no_write_runs, n),
             "distinct_phase_shapes": distinct_phase_shapes,
             "soft_observations_total": soft_obs_total,
+        },
+        "commit_outcome": {
+            "attempted_runs": commit_attempted,
+            "succeeded_runs": commit_succeeded,
+            "refused_runs": commit_refused,
+            "unknown_runs": commit_unknown,
+            "success_rate_when_attempted": _pass_rate(
+                commit_succeeded, commit_attempted
+            ),
+            "refusal_rate_when_attempted": _pass_rate(
+                commit_refused, commit_attempted
+            ),
+            "refusal_kinds": commit_error_kinds,
+        },
+        "mechanical_fields": {
+            "build_recap_write_payload_called_rate": _pass_rate(mech_called, n),
+            "match_rate_overall": _pass_rate(mech_total_match, mech_total_applicable),
+            "match_rate_when_called": _pass_rate(
+                mech_called_match, mech_called_applicable
+            ),
+            "match_rate_when_not_called": _pass_rate(
+                mech_uncalled_match, mech_uncalled_applicable
+            ),
+            "applicable_runs": mech_total_applicable,
+            "not_applicable_runs": n - mech_total_applicable,
         },
     }
 
@@ -477,7 +581,22 @@ def write_recap_ingest_multi_summary(
         f"- **write_corpus_file**: preview_rate={aggregate['write_corpus_file']['preview_rate']} "
         f"commit_rate={aggregate['write_corpus_file']['commit_rate']} "
         f"no_write_rate={aggregate['write_corpus_file']['no_write_rate']} "
-        f"phase_shapes={aggregate['write_corpus_file']['distinct_phase_shapes'] or '-'}\n\n"
+        f"phase_shapes={aggregate['write_corpus_file']['distinct_phase_shapes'] or '-'}\n"
+        f"- **commit_outcome** (BACKLOG §1.0): "
+        f"attempted={aggregate['commit_outcome']['attempted_runs']}/{n} "
+        f"succeeded={aggregate['commit_outcome']['succeeded_runs']} "
+        f"refused={aggregate['commit_outcome']['refused_runs']} "
+        f"unknown={aggregate['commit_outcome']['unknown_runs']} "
+        f"success_rate_when_attempted={aggregate['commit_outcome']['success_rate_when_attempted']} "
+        f"refusal_kinds={aggregate['commit_outcome']['refusal_kinds'] or '-'}\n"
+        f"- **mechanical_fields**: "
+        f"build_recap_write_payload_called_rate="
+        f"{aggregate['mechanical_fields']['build_recap_write_payload_called_rate']} "
+        f"match_rate_overall={aggregate['mechanical_fields']['match_rate_overall']} "
+        f"match_rate_when_called={aggregate['mechanical_fields']['match_rate_when_called']} "
+        f"match_rate_when_not_called={aggregate['mechanical_fields']['match_rate_when_not_called']} "
+        f"applicable={aggregate['mechanical_fields']['applicable_runs']}/"
+        f"{n} (n/a={aggregate['mechanical_fields']['not_applicable_runs']})\n\n"
         "## Per-run table\n\n"
         f"{table}\n"
         "## Aggregate JSON\n\n"
@@ -508,11 +627,16 @@ def capture_and_write_recap_ingest_report(
     run_index: int | None = None,
     cohort_size: int | None = None,
     echo_to_stdout: bool = True,
+    recap_context_snapshot: Any | None = None,
 ) -> tuple[RecapIngestReportPaths, RecapIngestRunSummary]:
     """Convenience: capture ``print_callable`` output, persist the report, optionally echo.
 
     The captured text is what gets embedded in the markdown body and what we re-print to
     the user's terminal (so on-disk and on-screen views are byte-identical).
+
+    Pass ``recap_context_snapshot`` (the same ``RecapContext`` the runner snapshotted
+    pre-turn) so the Scope-B extras compute mechanical-payload comparison against
+    the frozen session view rather than re-resolving against the post-commit corpus.
     """
     review_text = _capture_review_markdown(print_callable, **print_kwargs)
     if echo_to_stdout:
@@ -529,4 +653,5 @@ def capture_and_write_recap_ingest_report(
         utc=utc,
         run_index=run_index,
         cohort_size=cohort_size,
+        recap_context_snapshot=recap_context_snapshot,
     )

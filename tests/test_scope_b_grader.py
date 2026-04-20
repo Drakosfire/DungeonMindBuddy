@@ -214,6 +214,158 @@ def test_scope_b_grader_rejects_read_outside_allowlist(tmp_path: Path) -> None:
     assert "scope_b" in v
 
 
+def _recap_write_guard_blocked_excerpt(path: str) -> str:
+    return (
+        f"Error: recap-write skill blocked read_corpus_file for path {path!r}: not in "
+        f"recent_recaps ∪ prep_doc_path. Use only paths returned by `get_recap_context`."
+    )
+
+
+def test_guard_caught_staging_read_with_recovery_is_soft(tmp_path: Path) -> None:
+    """Dispatch guard blocks direct staging read; model recovers via ``assemble_recap_draft``."""
+    _seed_campaign_2(tmp_path)
+    _write_prep(
+        tmp_path,
+        campaign_hub="Longmont Campaign/Campaign 2",
+        filename="session_20_ref.md",
+    )
+    ctx = resolve_recap_context(tmp_path)
+    ing = "Longmont Campaign/Campaign 2/_ingest_staging/session_20_raw_notes.md"
+    (tmp_path / ing).parent.mkdir(parents=True, exist_ok=True)
+    (tmp_path / ing).write_text("Notes.\n", encoding="utf-8")
+
+    trace: list[dict] = [{"tool": "get_recap_context", "arguments": {}}]
+    for e in ctx.recent_recaps:
+        trace.append({"tool": "read_corpus_file", "arguments": {"path": e.path}})
+    assert ctx.prep_doc_path
+    trace.append({"tool": "read_corpus_file", "arguments": {"path": ctx.prep_doc_path}})
+    trace.append(
+        {
+            "tool": "read_corpus_file",
+            "arguments": {"path": ing},
+            "output_excerpt": _recap_write_guard_blocked_excerpt(ing),
+        }
+    )
+    trace.append(
+        {
+            "tool": "assemble_recap_draft",
+            "arguments": {
+                "raw_notes_path": ing,
+                "target_session": 20,
+                "campaign_id": "longmont-c2",
+            },
+        }
+    )
+
+    detail = PlanningTurnDetail(
+        final_text=_final_text_with_recap_payload(),
+        last_response_id="r1",
+        tool_trace=trace,
+    )
+    v = collect_scope_b_recap_ingest_violations(_scenario(), detail, tmp_path)
+    assert v == {}, v
+    extras = collect_scope_b_recap_ingest_report_extras(
+        _scenario(), detail, tmp_path, recap_context_snapshot=ctx
+    )
+    soft = extras.get("read_allowlist_soft_observations", [])
+    assert len(soft) == 1, soft
+    assert "read_allowlist_soft" in soft[0]
+    assert ing in soft[0]
+
+
+def test_guard_missed_staging_read_is_hard(tmp_path: Path) -> None:
+    """Unguarded read returns real bytes — hard allowlist violation (possible leak)."""
+    _seed_campaign_2(tmp_path)
+    _write_prep(
+        tmp_path,
+        campaign_hub="Longmont Campaign/Campaign 2",
+        filename="session_20_ref.md",
+    )
+    ctx = resolve_recap_context(tmp_path)
+    ing = "Longmont Campaign/Campaign 2/_ingest_staging/session_20_raw_notes.md"
+    (tmp_path / ing).parent.mkdir(parents=True, exist_ok=True)
+    (tmp_path / ing).write_text("Notes.\n", encoding="utf-8")
+
+    trace: list[dict] = [{"tool": "get_recap_context", "arguments": {}}]
+    for e in ctx.recent_recaps:
+        trace.append({"tool": "read_corpus_file", "arguments": {"path": e.path}})
+    assert ctx.prep_doc_path
+    trace.append({"tool": "read_corpus_file", "arguments": {"path": ctx.prep_doc_path}})
+    trace.append(
+        {
+            "tool": "read_corpus_file",
+            "arguments": {"path": ing},
+            "output_excerpt": json.dumps(
+                {"path": ing, "content": "# Session 20 raw\n\nGM notes here.\n"}
+            ),
+        }
+    )
+    trace.append(
+        {
+            "tool": "assemble_recap_draft",
+            "arguments": {
+                "raw_notes_path": ing,
+                "target_session": 20,
+                "campaign_id": "longmont-c2",
+            },
+        }
+    )
+
+    detail = PlanningTurnDetail(
+        final_text=_final_text_with_recap_payload(),
+        last_response_id="r1",
+        tool_trace=trace,
+    )
+    v = collect_scope_b_recap_ingest_violations(_scenario(), detail, tmp_path)
+    assert "scope_b_tool" in v
+    assert any("not in allowlist" in msg for msg in v["scope_b_tool"])
+    extras = collect_scope_b_recap_ingest_report_extras(
+        _scenario(), detail, tmp_path, recap_context_snapshot=ctx
+    )
+    assert extras.get("read_allowlist_soft_observations") == []
+
+
+def test_guard_caught_staging_read_without_recovery_is_hard(tmp_path: Path) -> None:
+    """Blocked read with no later ``assemble_recap_draft`` — model did not recover."""
+    _seed_campaign_2(tmp_path)
+    _write_prep(
+        tmp_path,
+        campaign_hub="Longmont Campaign/Campaign 2",
+        filename="session_20_ref.md",
+    )
+    ctx = resolve_recap_context(tmp_path)
+    ing = "Longmont Campaign/Campaign 2/_ingest_staging/session_20_raw_notes.md"
+    (tmp_path / ing).parent.mkdir(parents=True, exist_ok=True)
+    (tmp_path / ing).write_text("Notes.\n", encoding="utf-8")
+
+    trace: list[dict] = [{"tool": "get_recap_context", "arguments": {}}]
+    for e in ctx.recent_recaps:
+        trace.append({"tool": "read_corpus_file", "arguments": {"path": e.path}})
+    assert ctx.prep_doc_path
+    trace.append({"tool": "read_corpus_file", "arguments": {"path": ctx.prep_doc_path}})
+    trace.append(
+        {
+            "tool": "read_corpus_file",
+            "arguments": {"path": ing},
+            "output_excerpt": _recap_write_guard_blocked_excerpt(ing),
+        }
+    )
+
+    detail = PlanningTurnDetail(
+        final_text=_final_text_with_recap_payload(),
+        last_response_id="r1",
+        tool_trace=trace,
+    )
+    v = collect_scope_b_recap_ingest_violations(_scenario(), detail, tmp_path)
+    msgs = v.get("scope_b_tool", [])
+    assert any("did not recover" in m for m in msgs), msgs
+    assert any("assemble_recap_draft must be called exactly once" in m for m in msgs)
+    extras = collect_scope_b_recap_ingest_report_extras(
+        _scenario(), detail, tmp_path, recap_context_snapshot=ctx
+    )
+    assert extras.get("read_allowlist_soft_observations") == []
+
+
 def test_scope_b_grader_requires_unpinned_get_recap_context(tmp_path: Path) -> None:
     _seed_campaign_2(tmp_path)
     _write_prep(

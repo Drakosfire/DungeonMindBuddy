@@ -41,9 +41,12 @@ FACT_COVERAGE_THRESHOLD = 0.90
 MAX_DUPLICATE_RATE = 0.10
 MAX_JUNK_RATE = 0.05
 
+# Goals for the toll protest are checked on the protest/event entity; see gold_facts.json
+# goals entry ("notes") for corpus rationale — not ent_shepherds_flock (operational/role only).
 C3_REQUIRED_ENTITY_ATTRS: dict[str, list[str]] = {
     "ent_mirathorn": ["history", "geography", "demographics", "economy", "defenses"],
-    "ent_shepherds_flock": ["operational_status", "goals"],
+    "ent_shepherds_flock": ["operational_status"],
+    "ent_shepherds_flock_protest": ["goals"],
 }
 
 

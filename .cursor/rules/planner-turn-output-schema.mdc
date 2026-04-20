@@ -1,0 +1,35 @@
+---
+description: Corpus planner — Responses API assistant text is strict JSON; user_intent + full envelope must not be dropped.
+alwaysApply: true
+---
+
+# Planner turn output JSON (non-negotiable envelope)
+
+## What this is
+
+When `PLANNER_TURN_OUTPUT_SCHEMA` is enabled (default: **on**), planner turns use OpenAI Responses **`text.format`** with a strict JSON schema named **`planner_turn_output`**. The model’s visible reply is that JSON object, not raw markdown.
+
+## Fields (do not regress)
+
+| Field | Purpose |
+|-------|---------|
+| **`user_intent`** | Classifier for the **user’s** ask (values from `PLANNER_USER_INTENT_ENUM`). Used for telemetry, Step 2 / intent routing, and benchmark alignment with `IntentMode`. May be JSON `null` only when the ask is genuinely ambiguous—**the key must still be present.** **Never remove this field from the schema, from `required`, or from prompt instructions.** |
+| **`message`** | GM-facing body (markdown allowed inside the string). |
+| **`unsure_queue`** | Structured operator follow-ups; value **`null`** when nothing to ask. |
+
+## OpenAI strict JSON schema
+
+With `strict: true`, **every key in `properties` must be listed in `required`**. Optional semantics are expressed with **nullable types** (e.g. `["array", "null"]`, `["string", "null"]`), not by omitting keys from `required`. If you add a new top-level property, add it to **`required`** and give it a nullable type if “absent” is allowed.
+
+## Source of truth
+
+- **`src/agent/planner_turn_output_schema.py`** — `planner_turn_output_json_schema()`, `planner_turn_text_format()`, `PLANNER_USER_INTENT_ENUM`.
+- **Prompt copy** — `src/prompts/corpus_session_planner.py` (must keep describing the same shape the API enforces).
+
+## After changes
+
+Run **`tests/test_planner_turn_output_schema.py`**. For API-facing edits, smoke a planner turn (e.g. Lysandra or recap-ingest step1) so the schema still validates.
+
+## Kill switch (emergency only)
+
+`PLANNER_TURN_OUTPUT_SCHEMA=0` disables the format block (`planner_turn_output_schema_enabled()`). Use for local debugging, not to avoid fixing a broken schema.

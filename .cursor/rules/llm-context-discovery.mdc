@@ -73,10 +73,11 @@ The discover-don't-provide principle is **not** read-only. When the planner is l
 - The model picks the affected `NPCs/<slug>/timeline.md` path by reading the campaign-hub `README.md` and resolving the slug folder from the tree. Do **not** pre-list the timeline paths in any task-framing string.
 - Allowlist rules (which files may be created vs appended vs are denied) live in `src/agent/corpus_writer.py` and `.cursor/rules/corpus-layout-conventions.mdc` as **standing rules**, not per-request instructions. The user message stays "here are the notes from last night, write the recap"-shaped.
 
-If you find yourself writing "save the recap to `Session Recaps/Session 19 - <slug>.md` and append a row to `<slug>/timeline.md`" in a string the model will read, that is provisioning the write target. The **skill** (`.cursor/skills/session-summary-from-notes/SKILL.md`) and the **prompt addendum** (`_WRITE_TOOLS_ADDENDUM` in `src/prompts/corpus_session_planner.py`) are where the write protocol lives.
+If you find yourself writing "save the recap to `Session Recaps/Session 19 - <slug>.md` and append a row to `<slug>/timeline.md`" in a string the model will read, that is provisioning the write target. The **skill** (`.cursor/skills/recap-write/SKILL.md`; the timeline-append per-NPC skill is TBD) and the **prompt addendum** (`_WRITE_TOOLS_ADDENDUM` in `src/prompts/corpus_session_planner.py`) are where the write protocol lives.
 
 ## Alignment
 
 - Permanent navigation rules: `src/prompts/corpus_session_planner.py`.
+- **Planner assistant JSON envelope** (`user_intent`, `message`, `unsure_queue`; strict Responses `text.format`): `.cursor/rules/planner-turn-output-schema.mdc` + `src/agent/planner_turn_output_schema.py`.
 - Corpus structure / hub layout: `.cursor/rules/corpus-layout-conventions.mdc`.
-- Write tool contract (allowlist + two-phase commit): `.cursor/skills/session-summary-from-notes/SKILL.md` + `src/agent/corpus_writer.py`.
+- Write tool contract (allowlist + two-phase commit): `.cursor/skills/recap-write/SKILL.md` (recap file) + `src/agent/corpus_writer.py`. Per-NPC timeline-row append is reserved for the future `recap-timeline-append` skill.

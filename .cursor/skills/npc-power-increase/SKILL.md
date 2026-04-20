@@ -79,7 +79,7 @@ Aligns with **Docs/Plans/FLOW-npc-power-skill-pipeline.md**:
 
 ## See also (sibling skills)
 
-- **`session-summary-from-notes`** — write-enabled, prose-only. Use that skill when the GM hands you raw session notes and wants a numbered recap on disk plus appended NPC `timeline.md` rows. If a recap implies a future power bump for an NPC ("she stepped into command and held the line"), finish the recap commit first, then start a separate turn with this skill (`npc-power-increase`) to write the *creative direction* for the bump. Neither skill ever edits `*_character_dossier.md`, `character_seed.md`, or `*_statblock*.md` — those are the static character/world bible.
+- **`recap-write`** — write-enabled, structurer + light extractor. Use that skill when the GM hands you raw session notes and wants a numbered recap on disk; it writes the recap file and emits a structured follow-up payload (timeline-append candidates, new-hub proposals, plot artifacts, prep-pointer text, dismissed NPCs) for the GM to act on. If a recap implies a future power bump for an NPC ("she stepped into command and held the line"), finish the recap commit first, then start a separate turn with this skill (`npc-power-increase`) to write the *creative direction* for the bump. Neither skill ever edits `*_character_dossier.md`, `character_seed.md`, or `*_statblock*.md` — those are the static character/world bible. (NPC `timeline.md` row appends are reserved for the future per-NPC `recap-timeline-append` skill.)
 
 ## Related repo wiring
 

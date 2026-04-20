@@ -15,6 +15,8 @@ Campaign 2 Threads, NPCs
 
 # Campaign 2 GM Notes
 
+**Story threads backlog** (table-spawned / low-priority hooks before they hit the narrative ledger): `Story threads backlog.md`.
+
 ## 🧑‍🤝‍🧑 Significant NPCs (Current/Active)
 
 ### 🏛️ Mirathorn Civic & Military
@@ -26,6 +28,10 @@ Campaign 2 Threads, NPCs
 **Zyla Cinderbranch** – Necromancy professor at Stormspire. Brilliant and blunt; seems to respect Karsemine. Has quietly approved of Mossglade.
 
 **Wynna Mossglade** – Head Clerk at Stormspire Academy. Rules-oriented, anxious, quietly liked by the party. Karsemine is smitten; now beginning to step out socially.
+**Sara** — Rockie-talkie operator with her **fraternal twin**, **Frank**; *dossier:* `NPCs/sara_mirathorn_operator/` (see `README.md` there).
+
+**Thrin** — Guide from the **migrating forest** (table epithet *of the Branchborn*); *dossier:* `NPCs/thrin_branchborn/` (see `README.md` there).
+
 
 ### 🎭 Festival & Entertainment
 
@@ -47,7 +53,7 @@ Campaign 2 Threads, NPCs
 
 **The Bardic Showcase Revelation** – “The Shepherd’s Eyes” is a recruitment hymn for cultists to return to the swamp.
 
-**Magical Storm Returns** – Echo of the flooding storm that once destroyed a town. Magical origins, likely tied to Shepherd's resurgence.
+**Magical Storm Returns** – Echo of the flooding storm that once destroyed a town. Magical origins, likely tied to Shepherd's resurgence. **Canon motion:** systems build **to the northeast** and track **southwest** (see Session 19–20 recaps, Session 21 intro).
 
 **The Flesh Egg in the Swamp** – A corrupted biome is forming. Cultists (or innocents) may be unknowingly feeding it.
 
@@ -70,6 +76,8 @@ Campaign 2 Threads, NPCs
 # 🎯 Player Goals & Interests
 
 ### 🌿 Caelynn (Danielle)
+
+*Table dossier (comms, hooks, recap pointers):* `PCs/caelynn/` (see `README.md` there).
 
 Learn about her elven father (possibly enslaved).
 
@@ -142,6 +150,10 @@ Potential rival or counter to more structured party members.
 **Zyla Cinderbranch** – Necromancy professor at Stormspire Academy. Respects Karsemine; secretly battling rising magical anomalies inside the Academy.
 
 **Wynna Mossglade** – Head Clerk at Stormspire. Rules-oriented, trying to grow beyond old fears. Emotional and narrative anchor for Karsemine’s personal story.
+**Sara** — Rockie-talkie operator with her **fraternal twin**, **Frank**; *dossier:* `NPCs/sara_mirathorn_operator/` (see `README.md` there).
+
+**Thrin** — Guide from the **migrating forest** (table epithet *of the Branchborn*); *dossier:* `NPCs/thrin_branchborn/` (see `README.md` there).
+
 
 ## 🎭 Festival & Entertainment
 
@@ -190,6 +202,8 @@ Potential rival or counter to more structured party members.
 # 🎯 Player Goals & Interests
 
 ## 🌿 Caelynn (Danielle)
+
+*Table dossier:* `PCs/caelynn/` (see `README.md` there).
 
 Discover her father’s fate.
 

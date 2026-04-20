@@ -3,25 +3,41 @@
 Project-specific learnings, ideas, and follow-ups for the DungeonMindBuddy repo and the Eldyrwild corpus it serves. Cross-project / AI-tooling items live in `~/.cursor/learnings/Backlog.md` instead.
 
 **Format:** see `~/.cursor/skills/capture-learning/SKILL.md`.
-**Status legend:** `IDEA` → `READY` → `DOING` → `DONE` / `DROPPED`.
+**Status legend:** `IDEA` → `READY` → `DOING`. Terminal states (`DONE` / `DROPPED`) are archived to `Backlog-DONE.md` to keep this file focused on what's still worth doing.
 
-Sort newest → oldest within each status; promote with `/promote`.
+Sort newest → oldest within each status; promote with `/promote`; archive with `/done` or `/drop`.
+
+---
+
+## [READY] CLI ingest vs direct fact-extractor parity gap — captured 2026-04-20
+**Context:** Round 3 of failure-sweep (2026-04-20 conversation). On the same Mirathorn source (`The City of Mirathorn.md`), the **CLI ingest path** (`DungeonBuddyCLI.handle_line("ingest …")` → `src/cli.py` → batch pipeline) yields ~289 facts; the **direct `_run_pipeline()` / `run_fact_extraction`** path used by `eval_fact_quality.py` yields ~441 facts in `extracted_facts.json` from the same period. That's a 22–34% delta on the same input.
+**Insight:** Differences likely contributing: (a) CLI defaults `--batch-size=5` while eval uses `1`; (b) CLI persists through `FactStore.add_entities` which dedups/merges (entity counts can drop); (c) different `document_id` and `title` change cache keys; (d) the batched fact prompt path also surfaces a `fact_extractor batched call missing unit_index slots: [4]` warning, suggesting batching may drop or duplicate slots. None of these alone fully explains the ~150 fact gap.
+**Action:** (a) Run both pipelines on the same source with `batch_size=1` and `batch_size=5` on each, capture `(evidence, entities, facts)` per config to isolate batching effect. (b) Inspect `FactStore.add_entities` for any silent fact drop on dedup. (c) Decide whether the CLI path should match the direct extractor (likely yes) and where to align — almost certainly in the batch pipeline, not by changing the direct extractor.
+**Surfaces when:** New ingest CLI work; D1 threshold updates; any user report that "the CLI loses information vs direct ingest."
+**Refs:** `evals/mirathorn_vertical_slice/eval_synthesis.py` (D1 baseline comment), `src/cli.py` ingest command, `src/ingestion/batch_pipeline.py`, `src/ingestion/fact_extractor.py` (`run_fact_extraction`), `evals/mirathorn_vertical_slice/output/phase_d_summary.json`, `evals/mirathorn_vertical_slice/output/extracted_facts.json`.
+
+## [READY] Fact extractor batched call drops/duplicates `unit_index` slots — captured 2026-04-20
+**Context:** Surfaced in round 3 (2026-04-20 conversation) while running `eval_synthesis.py`. Stdout shows: `entity_extractor batched call missing unit_index slots: [1, 2, 3, 4]` and `fact_extractor batched call missing unit_index slots: [4]` plus duplicate `unit_index=4` in fact prompt. This is a quiet warning today, not an error, but it suggests batched extraction silently drops or doubles up evidence units.
+**Insight:** If batched calls drop slots, the CLI ingest path systematically under-extracts vs `batch_size=1` — which would explain part of the parity gap above.
+**Action:** Locate the warning emitter, add a structured log + fail-closed option (e.g. error in test runs, warn in prod). Add a unit test that drives a 5-unit batch and asserts every `unit_index` appears in the response.
+**Surfaces when:** Working on `src/ingestion/entity_extractor.py` or `fact_extractor.py` batching; investigating fact-count delta between CLI and direct paths.
+**Refs:** `src/ingestion/entity_extractor.py`, `src/ingestion/fact_extractor.py` (search for `missing unit_index slots`).
+
+## [READY] Faction-vs-event entity rollup in extractor — captured 2026-04-20
+**Context:** Mirathorn fact-quality C3 fix (2026-04-20 conversation, round 2). Gold expected goals on `ent_shepherds_flock`; model materialized goals on `ent_shepherds_flock_protest` (event subentity). Resolved by realigning gold + `C3_REQUIRED_ENTITY_ATTRS` to point at the event entity, with a `notes` rationale. The underlying pattern — extractor splits faction goals onto sub-entities like `*_protest`, `*_meeting`, `*_attack` — is likely to recur as world bibles grow. There is currently **no** `*_protest → parent` merge rule in `FactStore._resolve_entity_match` (alias/display_name overlap only).
+**Insight:** Each gold-realignment buys one slice but slowly drifts C3 from "what the model should do" toward "what the model does." Repeated enough times, the gate stops being a contract and becomes a description. A principled fix is option (A): merge or attribution-rollup at extractor or projection time so org-level facts surface under the org entity even when the model writes them under an event subentity.
+**Action:** (a) Survey other slice gold files for `*_protest`, `*_meeting`, `*_event` attributions vs. parent org. (b) Decide between (1) extractor-side: post-process Pass 1 entities to flag `<parent>_<event>` patterns and route their attributes to parent, or (2) projection-side: add a rollup layer in `canon_projection.project_entity_state` that merges event-subentity attrs into the parent under documented attrs. (c) Add a small unit test fixture exercising the Mirathorn case and at least one other.
+**Surfaces when:** Adding a new vertical-slice C3 contract; >2 gold realignments of the "subentity has the attr" shape across slices; any noticeable C2/C3 skew on faction goals.
+**Refs:** `evals/mirathorn_vertical_slice/eval_fact_quality.py:44-50`, `evals/mirathorn_vertical_slice/gold/gold_facts.json` (`ent_shepherds_flock_protest/goals` entry with `notes`), `src/store.py` (FactStore.add_entities / _resolve_entity_match), `src/reducer/canon_projection.py`.
 
 ---
 
 ## [READY] Extraction Lab — pipeline contract field-name drift vs Section 9 — captured 2026-04-19
-**Context:** Top-to-bottom audit (this conversation). `Docs/Plans/HANDOFF-extraction-lab-design-from-retrieval-lab-learnings.md` §9.1 names a single `corpus_sha256` field. The shipped implementation uses **`store_sha256`** (hash of serialized entities+facts) plus an optional **`corpus_source_sha256`** (from `ingest_index.json` or a passed `--corpus-source-root`). Older runs on disk under `out/extraction_lab/real_smoke_*` only have `corpus_sha256`, so manifests across the dated run dirs do not share a schema.
+**Context:** Top-to-bottom audit (2026-04-19 conversation). `Docs/Plans/HANDOFF-extraction-lab-design-from-retrieval-lab-learnings.md` §9.1 names a single `corpus_sha256` field. The shipped implementation uses **`store_sha256`** (hash of serialized entities+facts) plus an optional **`corpus_source_sha256`** (from `ingest_index.json` or a passed `--corpus-source-root`). Older runs on disk under `out/extraction_lab/real_smoke_*` only have `corpus_sha256`, so manifests across the dated run dirs do not share a schema.
 **Insight:** This is real spec drift — the lab actually distinguishes "store hash" from "source-corpus hash" (which is the better factoring) but the handoff still claims one field. Either rename in code or update §9.1 to lock in both fields.
 **Action:** Either (a) update §9.1 to `store_sha256` + optional `corpus_source_sha256` and add a one-line "what each answers" note, or (b) rename `store_sha256` → `corpus_sha256` and absorb `corpus_source_sha256` as the canonical optional field. Then run a single fresh extraction_lab run and confirm the new contract round-trips through `contracts_equal`.
 **Surfaces when:** Any Extraction Lab work; introducing a new contract field; debugging a regression that turns out to be store vs corpus drift.
 **Refs:** `extraction_lab/pipeline_contract.py` (`compute_pipeline_contract`), `extraction_lab/run_extraction_lab.py:16-19`, `Docs/Plans/HANDOFF-extraction-lab-design-from-retrieval-lab-learnings.md` §9.1.
-
-## [DONE] Extraction Lab — `assert_regression` only enforces `core_extraction` surface — captured 2026-04-19, completed 2026-04-19
-**Context:** `regression_thresholds.json` defines thresholds for `core_extraction`, `vertical_slice`, `recap_lane`, `working_set`, but `extraction_lab/assert_regression.py:48-81` only reads `core_extraction`. The other surfaces are accepted silently. Combined with the observed-on-disk pattern of `aggregate_metrics.json` carrying `entity_anchor_recall: 0.0` and `unresolved_core_anchors: 23` *passing* (no baseline → `no_baseline_for_surface`), the regression layer can rubber-stamp a fully-failing run.
-**Insight:** Three of the four surface-specific threshold tables are dead config. The "no baseline" branch can also paper over a green-from-zero run (current vs baseline both at 0 recall = 0% drop = pass).
-**Action:** (a) Implement the `vertical_slice` / `recap_lane` / `working_set` branches in `evaluate_regression`. (b) Add an absolute-floor check (e.g. `entity_anchor_recall >= 0.5` or "raise unless every anchor has been resolved at least once historically") so a baseline of 0 doesn't mask a still-failing surface. (c) Add tests for each new branch alongside `tests/extraction_lab/test_assert_regression.py`.
-**Surfaces when:** Extending the lab to a new surface; investigating why a regression "passed" with low recall; promoting a baseline from a real-corpus run.
-**Refs:** `extraction_lab/assert_regression.py:34-81`, `extraction_lab/regression_thresholds.json`, `out/extraction_lab/handoff_validate_smoke_2/regression_result.json`.
 
 ## [READY] Extraction Lab — `contracts_equal` is unused; no drift_report.json — captured 2026-04-19
 **Context:** §9.1 defines a contract-equal regression rule: if two runs share an identical pipeline contract you compare metrics directly; if they don't, you emit a `drift_report.json` and skip hard regression. `contracts_equal()` exists in `extraction_lab/pipeline_contract.py:73-85` but is never called from `assert_regression.py` or `run_extraction_lab.py`, and no `drift_report.json` is ever written.
@@ -29,13 +45,6 @@ Sort newest → oldest within each status; promote with `/promote`.
 **Action:** In `assert_regression.evaluate_regression`, load the baseline's `pipeline_contract.json`, compare to the current contract via `contracts_equal`, and either (i) downgrade hard fails to warnings + write `drift_report.json`, or (ii) refuse to evaluate and exit with a clear "contract changed; promote a fresh baseline" message. Add a test that flips one contract field and asserts the new behavior.
 **Surfaces when:** Promoting a baseline; bumping `entity_extractor` / `fact_extractor` prompt IDs; changing the taxonomy.
 **Refs:** `extraction_lab/pipeline_contract.py:73-85`, `extraction_lab/assert_regression.py`, handoff §9.1.
-
-## [DONE] Recap-ingest grader — `commit_outcome=unknown` is a soft pass — captured 2026-04-19, completed 2026-04-19
-**Context:** `evals/session_recap_ingest_vertical_slice/scope_b_grader.py:343-368` correctly hard-fails when the *last* commit response parses as `ok=false`, but emits only a soft observation when the response is unparseable (`succeeded is None`). With `commit_required=true` set by the scenario, an unparseable last-commit response can still produce `gates_passed=True`.
-**Insight:** This is a smaller version of the original "grader doesn't notice the protocol caught it" hole — instead of treating the absence of a parseable success as failure, we treat absence of evidence as evidence of OK.
-**Action:** When `commit_required=true` and `_commit_outcome["succeeded"] is None`, escalate to a hard violation (or at minimum a separate `gates_passed_unverified` bit so cohort summaries can stratify). Add a unit test feeding a truncated `output_excerpt` through the grader and asserting `gates_passed=False`.
-**Surfaces when:** Adding a new Scope-B scenario; debugging a flaky cohort run; tightening the writer protocol; whenever someone proposes a "chaos" Scope-B scenario whose expected outcome is `refused`.
-**Refs:** `evals/session_recap_ingest_vertical_slice/scope_b_grader.py:343-368`, `Docs/Plans/STATUS-Session-Recap-Ingest-Benchmark.md` (C2 row).
 
 ## [READY] Recap-ingest — `step2_grade_against_gold.py` is a stub; STATUS doc claims grader supersession — captured 2026-04-19
 **Context:** `evals/session_recap_ingest_vertical_slice/step2_grade_against_gold.py` is a placeholder ("Grader not wired"). The STATUS ledger and EXPERIMENT doc both reference grading via `scope_b_grader.py`. Anyone reading the slice top-down will hit the stub and assume there is a second grading path that doesn't exist.
@@ -49,13 +58,6 @@ Sort newest → oldest within each status; promote with `/promote`.
 **Action:** Make every `_load_api_key` site call `load_dungeonmindbuddy_dotenv()` first (or import from a single shared helper), and replace `OpenAI(api_key=api_key)` with bare `OpenAI()` everywhere except where the `DungeonMindApiClient.wrap` boundary already covers it. Update the env-loading rule to say "if you find yourself writing `_load_api_key`, you're already wrong — call `load_dungeonmindbuddy_dotenv()`."
 **Surfaces when:** Any new entrypoint that talks to OpenAI; any debugging of "key not found"; touching `synthesis.py` / `document_planner.py` / `query_planner.py` / `wiki_compiler.py` / `entity_extractor.py` / `fact_extractor.py`.
 **Refs:** `src/agent/synthesis.py:153-165`, `src/agent/document_planner.py:139-147`, `src/agent/query_planner.py:220-228`, `src/bootstrap_env.py:16-30`, `.cursor/rules/dungeonbuddy-environment.mdc`.
-
-## [DONE] `src/agent/query_planner.py` is dead code (test-only) — captured 2026-04-19, completed 2026-04-19
-**Context:** Repo-wide grep shows `query_planner` imported only by `tests/test_query_planner.py`. `src/cli.py` does not reference it; the live ask path goes retriever → `document_planner` → synthesis. The module's own docstring still describes it as "between retriever and synthesis."
-**Insight:** This is dead surface that also passes tests, which is the worst flavor — we maintain it forever without running it. It also re-implements `_load_api_key`, MODEL_POLICY resolution, and `_normalize_attribute` (which silently fuzzy-repairs typos — explicitly the kind of silent disambiguation we said we don't want).
-**Action:** Decide: ship it (wire behind a CLI flag and add a smoke test in `tests/test_cli.py`) or delete it (and its tests). Default recommendation: **delete** — re-add later if you actually need entity LLM-triage between retrieval and synthesis.
-**Surfaces when:** Designing the ask pipeline; touching `document_planner` or `evidence_retriever`; reviewing the `src/agent/` surface for cruft.
-**Refs:** `src/agent/query_planner.py`, `tests/test_query_planner.py`, `src/cli.py`.
 
 ## [READY] Evals artifact bloat — `npc_voice` and `session_recap_ingest` track run dirs in git — captured 2026-04-19
 **Context:** `evals/lysandra_vertical_slice/artifacts/.gitignore` correctly hides `runs/` and `last_planner_step1_run.md`. The same is **not** true under `evals/npc_voice_vertical_slice/artifacts/runs/2026-04-16/`, `2026-04-17/`, or `evals/session_recap_ingest_vertical_slice/artifacts/runs/2026-04-2*/` — those are versioned and visible in `git status` already.

@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 
+from src.agent.planner import build_corpus_path_ref_index
 from src.agent.planner_skill_dispatch_guards import (
     SKILL_DISPATCH_GUARDS,
     compute_recap_write_read_allowlist,
@@ -160,6 +161,41 @@ def test_recap_write_guard_uses_precomputed_recap_context(tmp_path: Path) -> Non
     )
     assert out_snapshot == "OK:read_corpus_file"
     assert len(calls2) == 1
+
+
+def test_recap_write_guard_resolves_c_ref_before_allowlist(tmp_path: Path) -> None:
+    """``c:<hex>`` must resolve to a corpus-relative path before allowlist check."""
+    corpus = _seed_corpus(tmp_path)
+    rel = "Longmont Campaign/Campaign 2/Session Recaps/Session 19 - Recap.md"
+    ref_index = build_corpus_path_ref_index(corpus.resolve())
+    ref_tok = next(
+        k for k, v in ref_index.items() if v.replace("\\", "/").lower() == rel.lower()
+    )
+    base, calls = _record_dispatch()
+    guarded = wrap_dispatch_for_skill(
+        base, corpus_path=corpus, active_skill_id="recap-write"
+    )
+    out = guarded(
+        "read_corpus_file",
+        json.dumps({"path": f"c:{ref_tok}"}),
+    )
+    assert out == "OK:read_corpus_file"
+    assert len(calls) == 1
+    assert f"c:{ref_tok}" in calls[0][1]
+
+
+def test_recap_write_guard_blocks_unknown_c_ref(tmp_path: Path) -> None:
+    corpus = _seed_corpus(tmp_path)
+    base, calls = _record_dispatch()
+    guarded = wrap_dispatch_for_skill(
+        base, corpus_path=corpus, active_skill_id="recap-write"
+    )
+    out = guarded(
+        "read_corpus_file",
+        json.dumps({"path": "c:deadbeefdeadbeefdeadbeefdeadbeef"}),
+    )
+    assert out.startswith("Error: unknown corpus file ref")
+    assert calls == []
 
 
 def test_recap_write_guard_allows_in_allowlist_path(tmp_path: Path) -> None:

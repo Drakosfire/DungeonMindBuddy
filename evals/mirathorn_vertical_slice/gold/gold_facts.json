@@ -63,10 +63,18 @@
     "match_keywords": ["protest", "active", "pamphlet", "distribut", "staging"]
   },
   {
-    "subject_entity_id": "ent_shepherds_flock",
-    "subject_names": ["Shepherd's Flock", "Shepherds Flock", "The Flock"],
+    "subject_entity_id": "ent_shepherds_flock_protest",
+    "subject_names": [
+      "Shepherd's Flock Protest",
+      "Shepherds Flock Protest",
+      "protest by the Shepherd's Flock",
+      "Shepherd's Flock",
+      "Shepherds Flock",
+      "The Flock"
+    ],
     "attribute": "goals",
     "alternative_attributes": [],
-    "match_keywords": ["toll", "abolish", "entry", "free", "unfair", "exclusion", "against"]
+    "match_keywords": ["toll", "abolish", "entry", "free", "unfair", "exclusion", "against"],
+    "notes": "Corpus subsection 'Shepherd's Flock Protest' (The City of Mirathorn.md) frames anti-toll / fair-entry demands as the in-scene vehicle for Shepherd's Flock cultists; Pass 1+2 reliably materialize goal-shaped facts on a protest/event entity rather than ent_shepherds_flock. Gold and C3 require goals on that projection node so parity matches extraction shape without lowering semantic coverage."
   }
 ]

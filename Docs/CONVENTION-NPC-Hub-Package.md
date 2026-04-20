@@ -103,13 +103,13 @@ For NPCs used in benchmarks or vague player phrasing (“the kid,” “the guar
 ## 8. Session-recap workflow (corpus writes)
 
 When a session ends and the GM has notes/transcript ready, route through the
-**`session-summary-from-notes` skill** rather than hand-editing files. The skill enforces:
+**`recap-write` skill** (`.cursor/skills/recap-write/SKILL.md`) rather than hand-editing the recap file. It enforces:
 
 - **Numbered next recap** at `Session Recaps/Session <N> - <slug>.md` with the same YAML frontmatter shape as recent recaps (`title`, `document_class: play`, `canon_layer: campaign`, `campaign_id`, `session: N`, `origin_session: N`, `last_updated_session: N`, `source_class: observed_session_recap`).
-- **Append-only timeline rows** in each affected campaign-hub `NPCs/<slug>/timeline.md` (Session, one-cell beat, recap path).
+- **Structured follow-up payload** (timeline-append candidates, new-hub proposals, etc.) emitted with the recap; **append-only timeline rows** in each affected campaign-hub `NPCs/<slug>/timeline.md` are a separate per-NPC step (future `recap-timeline-append` skill, or manual follow-up using `append_timeline_row`).
 - **No edits to dossier / seed / statblock** (`*_character_dossier.md`, `character_seed.md`, `*_statblock*.md`). These are the static character/world bible. State changes from the session live in the recap; the timeline row carries the pointer.
 
-Writes go through two planner tools (`write_corpus_file`, `append_timeline_row`) registered only when the planner is launched with `--allow-corpus-writes` (or `DUNGEONMIND_PLANNER_ALLOW_WRITES=1`). Both use a **two-phase commit**: `dry_run=true` returns a unified-diff preview plus a short `confirm_token`; the operator must see the diff and reply `apply` before the second call commits with the matching token. Token mismatches (file changed between phases) abort the write.
+`write_corpus_file` and `append_timeline_row` register only when the planner is launched with `--allow-corpus-writes` (or `DUNGEONMIND_PLANNER_ALLOW_WRITES=1`). Both use a **two-phase commit**: `dry_run=true` returns a unified-diff preview plus a short `confirm_token`; the operator must see the diff and reply `apply` before the second call commits with the matching token. Token mismatches (file changed between phases) abort the write. The `recap-write` skill uses `write_corpus_file` for the recap only; timeline appends are not part of that skill's contract.
 
 After commit, the writer reports a `fingerprint_reminder`. Run the fingerprint update steps in §9 (or the `## Fingerprint hygiene` section in `.cursor/rules/corpus-layout-conventions.mdc`).
 

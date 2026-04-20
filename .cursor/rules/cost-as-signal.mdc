@@ -1,0 +1,55 @@
+---
+description: Treat eval/benchmark cost as a signal — surface it, and flag when per-run cost regresses or cumulative spend crosses milestones.
+alwaysApply: true
+---
+
+# DungeonMindBuddy — Cost-as-signal
+
+We measure dollar cost on every eval / benchmark run because it's a leading indicator: prompt bloat, retry storms, model swaps, and runaway tool loops show up in `scenario_estimated_cost_usd` before they show up in gates failing.
+
+## Requirement
+
+When the agent runs an eval / benchmark, analyzes a run report, or summarizes a cohort, it **must**:
+
+1. **Surface** the cost in the response (per-run, and cohort `min/mean/max/sum` when applicable). Don't bury it — name it.
+2. **Compare** against the most recent prior baseline available (last cohort sum, last per-run sidecar `scenario_estimated_cost_usd`, or the figure quoted in the relevant `Docs/Plans/EXPERIMENT-*.md` § "Cost / runtime envelope").
+3. **Flag explicitly** when either threshold below trips. Don't soften — say "cost regression" or "cost milestone" by name.
+
+## Thresholds
+
+### Per-run / cohort regression (relative)
+
+Flag when **any** of these hold for the run/cohort just completed:
+
+- A **single run**'s `scenario_estimated_cost_usd` ≥ **1.5×** the most recent cohort's `mean` (or, if no cohort, ≥ 1.5× the last-run sidecar).
+- A **cohort sum** ≥ **1.5×** the previously-published cohort sum for the same scenario + model in `Docs/Plans/EXPERIMENT-*.md` (or in the prior cohort summary `.json`).
+- Per-run cost **doubled** (≥ 2.0×) → upgrade language: "**cost doubled** vs. baseline; investigate before committing."
+
+### Cumulative / absolute milestones
+
+Flag when cumulative project spend (sum of cohort `sum`s tracked in EXPERIMENT docs and committed cohort summaries) crosses any of:
+
+- **$200** — first remarkable milestone, note it in the next BACKLOG / STATUS update.
+- **$500** — second milestone, surface in chat and propose a cost-budget review.
+- **$1,000** — third milestone, treat as a stop-and-decide point: surface in chat, propose pausing further cohorts pending a review of which scenarios are still earning their keep.
+
+Cumulative tracking is best-effort: read the most recent EXPERIMENT.md "Cost / runtime envelope" line plus any cohort summaries written since. If that data isn't visible, say so rather than guessing.
+
+## How to flag
+
+In the response, use a dedicated bullet or section labelled **"Cost"** (not buried in prose):
+
+- ✅ `**Cost:** $0.31 cohort sum / 5 runs (mean $0.062). **Regression:** +60% vs. prior $0.19 baseline (BACKLOG §3.7 envelope). Likely cause: extra `read_corpus_file` reads — check tool_trace_rows.`
+- ✅ `**Cost:** $0.06 single run. Within envelope.`
+- ✅ `**Cost milestone:** cumulative project spend now ~$210 (previous baseline ~$185, see EXPERIMENT §15.7). Crossed the $200 mark this cohort.`
+- ❌ `Cost was a bit higher than usual but still fine.` (not specific, not actionable)
+
+## Where the data lives
+
+- **Per-run:** `evals/<suite>/artifacts/runs/YYYY-MM-DD/*.json` → `scenario_estimated_cost_usd` (and `telemetry_cost.scenario_estimated_cost_usd`).
+- **Cohort:** `recap_ingest_summary--*--N*.json` → `aggregate.cost_usd` (`{min, mean, max, sum}`).
+- **Published envelope:** `Docs/Plans/EXPERIMENT-Session-Recap-Ingest-Benchmark.md` § "Cost / runtime envelope (last cohort, …)".
+
+## Rationale
+
+Cost regressions historically preceded every interesting bug we caught (preview-loop, retry-after-timeout, prompt bloat from extra context). Treating cost as a first-class soft signal — same shelf as gate pass-rate — keeps regressions visible early. Absolute milestones exist to force a periodic budget conversation rather than letting spend drift.

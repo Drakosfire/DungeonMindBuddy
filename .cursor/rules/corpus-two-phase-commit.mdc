@@ -1,0 +1,43 @@
+---
+description: All corpus writes go through preview → commit. Never write directly to the corpus from a planner turn or new tool.
+alwaysApply: true
+---
+
+# Two-phase commit for corpus writes
+
+The Eldyrwild corpus is the GM's canonical source-of-truth. A single bad write can quietly corrupt months of game prep. **Every** write to `corpus/` flows through a two-phase preview→commit pattern.
+
+## The contract
+
+The canonical implementation: `src/agent/corpus_writer.py:write_corpus_file`.
+
+1. **Phase 1 — preview** (`dry_run=True`, default): allowlist check → resolve target → render unified diff → return `{"ok": True, "preview": ..., "confirm_token": <hash of file_state + payload>}`.
+2. **Phase 2 — commit** (`dry_run=False`, with the same `confirm_token`): re-validate file state matches the token → write atomically.
+
+If the file changed between phases, or the payload changed, the token mismatches and the write aborts. This guarantees the assistant cannot blindly overwrite a file that the user (or another agent) modified between preview and commit.
+
+Other writers that touch the corpus (`append_timeline_row`, `update_step0_expected_fingerprint`, etc.) follow the same pattern.
+
+## Rules for new corpus-writing tools
+
+When adding a new tool/skill that writes to `corpus/`:
+
+1. **Reuse `write_corpus_file`** if at all possible. Don't write directly via `Path.write_text` from a new code path.
+2. If you must add a new writer (e.g. for a new file shape with non-trivial validation), it MUST:
+   - Default `dry_run=True`.
+   - Compute and return a `confirm_token` derived from current file state + intended payload.
+   - Re-check the token on commit and abort on mismatch.
+   - Be allowlist-gated via `is_writable_corpus_path` or an equivalent path check.
+3. Add the path pattern (mode + glob) to the allowlist in `is_writable_corpus_path`. Default-deny.
+4. Wire a dispatch guard (see `dispatch-guard-grader-separation.mdc`) if a specific skill/flow should be blocked from calling the writer outside its lane.
+
+## What never happens
+
+- Direct `open(corpus_dir / path, "w")` from agent code or planner skills.
+- Skipping the preview phase ("just commit, the model already saw the diff once").
+- Reusing a `confirm_token` across files or across runs.
+- Writes to staging directories (`_ingest_staging/*`) that surface as final corpus files. Staging is for ingest pipelines only; output goes through the same writer.
+
+## Verification
+
+When changing the writer or adding a new one, the round-trip test under `tests/` (search for `write_corpus_file` usage) must continue to cover: allowlist deny, preview returns diff, commit succeeds with matching token, commit aborts with stale token, file state unchanged on aborted writes.

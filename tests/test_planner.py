@@ -67,6 +67,56 @@ def test_assemble_recap_draft_returns_recap_body(tmp_path: Path) -> None:
     assert "Session 20 Recap" in data["recap_body"]
 
 
+def test_build_recap_write_payload_returns_recap_write_shape(tmp_path: Path) -> None:
+    hub = tmp_path / "Longmont Campaign" / "Campaign 2"
+    recaps = hub / "Session Recaps"
+    prep = hub / "Session Prep"
+    staging = hub / "_ingest_staging"
+    recaps.mkdir(parents=True)
+    prep.mkdir(parents=True)
+    staging.mkdir(parents=True)
+    for n in (17, 18, 19):
+        (recaps / f"Session {n} - Recap.md").write_text(
+            f"---\nsession: {n}\ncampaign_id: longmont-c2\ntitle: Session {n} - Recap\n---\n\nbody\n",
+            encoding="utf-8",
+        )
+    (prep / "session_20_outline.md").write_text(
+        "---\nsession: 20\ncampaign_id: longmont-c2\ntitle: Session 20 prep\n---\nprep body\n",
+        encoding="utf-8",
+    )
+    rel = "Longmont Campaign/Campaign 2/_ingest_staging/session_20_raw_notes.md"
+    (staging / "session_20_raw_notes.md").write_text(
+        "Session 20 Recap\n\nHello world.\n\nHello world.\n",
+        encoding="utf-8",
+    )
+    idx = build_corpus_path_ref_index(tmp_path)
+    dispatch = make_tool_dispatcher(
+        tmp_path,
+        object(),
+        "gpt-mock",
+        corpus_path_ref_index=idx,
+        allow_corpus_writes=True,
+    )
+    out = dispatch(
+        "build_recap_write_payload",
+        json.dumps(
+            {
+                "raw_notes_path": rel,
+                "target_session": 20,
+                "campaign_id": "longmont-c2",
+            }
+        ),
+    )
+    assert "Error" not in out
+    data = json.loads(out)
+    assert data["schema_version"] == "recap_write_v1"
+    assert data["recap_preview"]["confirm_token"] == ""
+    assert data["recap_preview"]["mode"] == "create"
+    assert "Session Recaps/Session 20 - Recap.md" in data["recap_preview"]["path"]
+    assert data["prep_pointer_proposal"] is not None
+    assert data["npc_audit"]["timeline_append_candidates"] == []
+
+
 def test_read_corpus_via_stable_ref_token(tmp_path: Path) -> None:
     (tmp_path / "d").mkdir()
     (tmp_path / "d" / "f.md").write_text("ok\n", encoding="utf-8")

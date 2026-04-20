@@ -1,0 +1,44 @@
+---
+description: Corpus contains real player names + private session content. Never paste corpus into external services, redact LLM payload logs, keep .env out of git.
+alwaysApply: true
+---
+
+# Corpus PII and LLM payload hygiene
+
+The Eldyrwild corpus contains **real-person identifying information** (player names, character backstories tied to specific players, GM session notes, private campaign politics). It is not public data. Treat it accordingly.
+
+## Hard rules
+
+- **Never** paste corpus content (or excerpts ≥ a sentence) into:
+  - `WebSearch` / `WebFetch` / external HTTP fetches.
+  - Public gists, pastebins, GitHub Issues outside this repo, or screenshots in public threads.
+  - LLM tools running outside the configured DungeonMind pipeline (the user has chosen specific OpenAI accounts/keys for a reason).
+- **Never** commit anything that doxes a player. Real-name → character mappings stay local. If a corpus file gains a real-name reference and would be uncomfortable in a public mirror, raise it.
+- **Never** echo `.env` contents to terminal output, logs, or chat. Use `bootstrap_env.load_dungeonmindbuddy_dotenv()` (see `dungeonbuddy-environment.mdc`); the keys load into the process and stay there.
+
+## LLM payload logging
+
+The eval harnesses log full LLM request/response payloads to disk for replay and grading. Those logs **stay local**:
+
+- Artifact directories under `evals/*/artifacts/runs/` and `evals/*/output/` are useful but not for sharing outside the team.
+- When pasting an LLM trace into chat for debugging, redact player names and GM-private notes unless the user is the GM and the redaction is unnecessary.
+- When sharing a benchmark report (`*.md` summaries), prefer the aggregated metrics + scenario IDs; only include raw text excerpts when needed for the discussion.
+
+## Web tools and the corpus
+
+- `WebSearch` queries should be derived from the *task* (e.g. "Cursor 3.0 Glass agents window release notes"), never from corpus content as the query body.
+- `WebFetch` may pull external references the corpus links to, but never POST corpus content to a URL.
+- If you genuinely need to send corpus content to an external service, stop and confirm with the user first — there is no recovery from a leak.
+
+## Secrets
+
+- `.env` files are gitignored. `git status` should never show them. If one ever appears in `git status`, stop and add it to `.gitignore` before any commit.
+- API keys load via `src/bootstrap_env.py`. Do not hardcode keys, do not pass them via shell command flags (they end up in shell history and process listings).
+- Cloudflare R2, Firestore, and OpenAI credentials follow the same rule — env file or secret manager only.
+
+## Anti-patterns
+
+- "Let me Google this NPC name to see if there's lore I missed" — the NPC name is a campaign-private string. Don't.
+- Pasting a full session recap into a third-party tool to "summarize it differently."
+- Committing a benchmark artifact JSON without checking it doesn't contain player real-names in tool traces.
+- Using `echo $OPENAI_API_KEY` for "debugging" — it ends up in the terminal scrollback and shell history.

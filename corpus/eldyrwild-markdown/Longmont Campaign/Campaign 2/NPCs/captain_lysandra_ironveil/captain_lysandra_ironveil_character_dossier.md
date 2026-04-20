@@ -217,7 +217,7 @@ These are explicitly open and should not be assumed until played or authored:
 - Specific reasons her trust skews toward the party
 - Prior mentors or formative failures
 - Relationship to Commander Thalia Ashenvale
-- Nature and history of ties to Sara & Frank
+- Nature and history of ties to **Sara & Frank** (operators — see `Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/`)
 - What Mirathorn means to her beyond duty
 
 ---

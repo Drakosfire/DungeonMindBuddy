@@ -1,0 +1,241 @@
+{
+  "schema": "recap_ingest_multi_run_summary_v1",
+  "iso_utc": "2026-04-19T21:45:53Z",
+  "model_id": "gpt-5.4-mini",
+  "scenario_id": "session_recap_ingest_session_20",
+  "runs": 5,
+  "aggregate": {
+    "runs": 5,
+    "gates_pass_rate": "5/5",
+    "tool_trace_gates_pass_rate": "5/5",
+    "payload_gates_pass_rate": "5/5",
+    "cost_usd": {
+      "min": 0.062643,
+      "max": 0.069755,
+      "mean": 0.064469,
+      "sum": 0.322345
+    },
+    "tool_trace_rows": {
+      "min": 8,
+      "max": 8,
+      "mean": 8
+    },
+    "distinct_recap_write_sha256_16": [
+      "31e26de2eb295166",
+      "40a22ad209b98c7b",
+      "582ddcf8f3a694fc",
+      "6afed3cab7dfccdc",
+      "d4cb1b3804aa37ed"
+    ],
+    "violation_counts_total": {},
+    "distinct_tool_trace_signatures": [
+      "get_recap_context,read_corpus_file,read_corpus_file,read_corpus_file,read_corpus_file,assemble_recap_draft,write_corpus_file,write_corpus_file"
+    ],
+    "write_corpus_file": {
+      "preview_rate": "5/5",
+      "commit_rate": "5/5",
+      "no_write_rate": "0/5",
+      "distinct_phase_shapes": {
+        "preview→commit": 5
+      },
+      "soft_observations_total": 0
+    }
+  },
+  "results": [
+    {
+      "run_index": 0,
+      "iso_utc": "2026-04-19T21:41:39Z",
+      "gates_passed": true,
+      "tool_trace_gates_passed": true,
+      "payload_gates_passed": true,
+      "scenario_estimated_cost_usd": 0.063086,
+      "tool_trace_rows": 8,
+      "tool_trace_tools": [
+        "get_recap_context",
+        "read_corpus_file",
+        "read_corpus_file",
+        "read_corpus_file",
+        "read_corpus_file",
+        "assemble_recap_draft",
+        "write_corpus_file",
+        "write_corpus_file"
+      ],
+      "violation_counts": {},
+      "recap_write_sha256_16": "582ddcf8f3a694fc",
+      "final_text_chars": 2855,
+      "primary_md_path": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/session_recap_ingest_vertical_slice/artifacts/runs/2026-04-19/recap_ingest--session_recap_ingest_session_20--gpt-5.4-mini--PASS--2turn--20260419T214139Z--run001.md",
+      "sidecar_json_path": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/session_recap_ingest_vertical_slice/artifacts/runs/2026-04-19/recap_ingest--session_recap_ingest_session_20--gpt-5.4-mini--PASS--2turn--20260419T214139Z--run001.json",
+      "extras": {
+        "corpus_fingerprint": "8eb2965499b529c9486f89a7c03d9af8",
+        "primary_response_id": "resp_04a55fd8055ad4130069e54c101ba081a1a838636f173b3154",
+        "scope_b_extras": {
+          "write_corpus_file_phases": {
+            "calls": 2,
+            "previews": 1,
+            "commits": 1,
+            "phases": "preview→commit"
+          },
+          "write_corpus_file_soft_observations": [],
+          "preview_required": true,
+          "commit_required": true
+        }
+      }
+    },
+    {
+      "run_index": 1,
+      "iso_utc": "2026-04-19T21:45:53Z",
+      "gates_passed": true,
+      "tool_trace_gates_passed": true,
+      "payload_gates_passed": true,
+      "scenario_estimated_cost_usd": 0.062643,
+      "tool_trace_rows": 8,
+      "tool_trace_tools": [
+        "get_recap_context",
+        "read_corpus_file",
+        "read_corpus_file",
+        "read_corpus_file",
+        "read_corpus_file",
+        "assemble_recap_draft",
+        "write_corpus_file",
+        "write_corpus_file"
+      ],
+      "violation_counts": {},
+      "recap_write_sha256_16": "6afed3cab7dfccdc",
+      "final_text_chars": 3423,
+      "primary_md_path": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/session_recap_ingest_vertical_slice/artifacts/runs/2026-04-19/recap_ingest--session_recap_ingest_session_20--gpt-5.4-mini--PASS--2turn--20260419T214553Z--run002.md",
+      "sidecar_json_path": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/session_recap_ingest_vertical_slice/artifacts/runs/2026-04-19/recap_ingest--session_recap_ingest_session_20--gpt-5.4-mini--PASS--2turn--20260419T214553Z--run002.json",
+      "extras": {
+        "corpus_fingerprint": "c56eb6fbd4a437166e6d99b5bc9d394d",
+        "primary_response_id": "resp_033587d4ea61f94c0069e54d0ceea0819d9e03dbfb8e4c7d87",
+        "scope_b_extras": {
+          "write_corpus_file_phases": {
+            "calls": 2,
+            "previews": 1,
+            "commits": 1,
+            "phases": "preview→commit"
+          },
+          "write_corpus_file_soft_observations": [],
+          "preview_required": true,
+          "commit_required": true
+        }
+      }
+    },
+    {
+      "run_index": 2,
+      "iso_utc": "2026-04-19T21:41:40Z",
+      "gates_passed": true,
+      "tool_trace_gates_passed": true,
+      "payload_gates_passed": true,
+      "scenario_estimated_cost_usd": 0.069755,
+      "tool_trace_rows": 8,
+      "tool_trace_tools": [
+        "get_recap_context",
+        "read_corpus_file",
+        "read_corpus_file",
+        "read_corpus_file",
+        "read_corpus_file",
+        "assemble_recap_draft",
+        "write_corpus_file",
+        "write_corpus_file"
+      ],
+      "violation_counts": {},
+      "recap_write_sha256_16": "d4cb1b3804aa37ed",
+      "final_text_chars": 4459,
+      "primary_md_path": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/session_recap_ingest_vertical_slice/artifacts/runs/2026-04-19/recap_ingest--session_recap_ingest_session_20--gpt-5.4-mini--PASS--2turn--20260419T214140Z--run003.md",
+      "sidecar_json_path": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/session_recap_ingest_vertical_slice/artifacts/runs/2026-04-19/recap_ingest--session_recap_ingest_session_20--gpt-5.4-mini--PASS--2turn--20260419T214140Z--run003.json",
+      "extras": {
+        "corpus_fingerprint": "7945fb0f2aa6376e88447eda63e9dc51",
+        "primary_response_id": "resp_01c3bbd1d28e3f770069e54c1022988195a0cf51d1c8d2715a",
+        "scope_b_extras": {
+          "write_corpus_file_phases": {
+            "calls": 2,
+            "previews": 1,
+            "commits": 1,
+            "phases": "preview→commit"
+          },
+          "write_corpus_file_soft_observations": [],
+          "preview_required": true,
+          "commit_required": true
+        }
+      }
+    },
+    {
+      "run_index": 3,
+      "iso_utc": "2026-04-19T21:41:45Z",
+      "gates_passed": true,
+      "tool_trace_gates_passed": true,
+      "payload_gates_passed": true,
+      "scenario_estimated_cost_usd": 0.063371,
+      "tool_trace_rows": 8,
+      "tool_trace_tools": [
+        "get_recap_context",
+        "read_corpus_file",
+        "read_corpus_file",
+        "read_corpus_file",
+        "read_corpus_file",
+        "assemble_recap_draft",
+        "write_corpus_file",
+        "write_corpus_file"
+      ],
+      "violation_counts": {},
+      "recap_write_sha256_16": "31e26de2eb295166",
+      "final_text_chars": 4199,
+      "primary_md_path": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/session_recap_ingest_vertical_slice/artifacts/runs/2026-04-19/recap_ingest--session_recap_ingest_session_20--gpt-5.4-mini--PASS--2turn--20260419T214145Z--run004.md",
+      "sidecar_json_path": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/session_recap_ingest_vertical_slice/artifacts/runs/2026-04-19/recap_ingest--session_recap_ingest_session_20--gpt-5.4-mini--PASS--2turn--20260419T214145Z--run004.json",
+      "extras": {
+        "corpus_fingerprint": "2467a5759aaa796ab1dbe8e0bfd5f2cc",
+        "primary_response_id": "resp_088d9393cbd7d5570069e54c1122d8819783d20f18369b716d",
+        "scope_b_extras": {
+          "write_corpus_file_phases": {
+            "calls": 2,
+            "previews": 1,
+            "commits": 1,
+            "phases": "preview→commit"
+          },
+          "write_corpus_file_soft_observations": [],
+          "preview_required": true,
+          "commit_required": true
+        }
+      }
+    },
+    {
+      "run_index": 4,
+      "iso_utc": "2026-04-19T21:41:39Z",
+      "gates_passed": true,
+      "tool_trace_gates_passed": true,
+      "payload_gates_passed": true,
+      "scenario_estimated_cost_usd": 0.06349,
+      "tool_trace_rows": 8,
+      "tool_trace_tools": [
+        "get_recap_context",
+        "read_corpus_file",
+        "read_corpus_file",
+        "read_corpus_file",
+        "read_corpus_file",
+        "assemble_recap_draft",
+        "write_corpus_file",
+        "write_corpus_file"
+      ],
+      "violation_counts": {},
+      "recap_write_sha256_16": "40a22ad209b98c7b",
+      "final_text_chars": 3799,
+      "primary_md_path": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/session_recap_ingest_vertical_slice/artifacts/runs/2026-04-19/recap_ingest--session_recap_ingest_session_20--gpt-5.4-mini--PASS--2turn--20260419T214139Z--run005.md",
+      "sidecar_json_path": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/session_recap_ingest_vertical_slice/artifacts/runs/2026-04-19/recap_ingest--session_recap_ingest_session_20--gpt-5.4-mini--PASS--2turn--20260419T214139Z--run005.json",
+      "extras": {
+        "corpus_fingerprint": "ec854f99d420fc8f0d70fd210da9f12c",
+        "primary_response_id": "resp_098fdca6532fcb030069e54c0d94f881968ae0e775d54e3b73",
+        "scope_b_extras": {
+          "write_corpus_file_phases": {
+            "calls": 2,
+            "previews": 1,
+            "commits": 1,
+            "phases": "preview→commit"
+          },
+          "write_corpus_file_soft_observations": [],
+          "preview_required": true,
+          "commit_required": true
+        }
+      }
+    }
+  ]
+}

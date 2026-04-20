@@ -17,7 +17,7 @@ This decomposition exists because earlier passes asked one prompt to draft the r
 ## Outputs (in this order, in the same turn)
 
 1. A **two-phase preview** of `Session <N> - Recap.md` via `write_corpus_file` (`mode='create'`, `dry_run=true`). The recap follows the surveyed shape: 8-field frontmatter, one H1, then GM prose verbatim with duplicates removed (and the removal **surfaced**, not silent).
-2. A **structured follow-up payload** as a fenced ```json block inside the planner reply `message`, conforming to `src/agent/recap_write_output_schema.py::recap_write_output_json_schema()`. Fields:
+2. A **structured follow-up payload** in the planner reply's top-level `recap_write` field (strict JSON schema when the recap-write skill is active), conforming to `src/agent/recap_write_output_schema.py::recap_write_output_json_schema()`. Fields:
    - `recap_preview` — path, mode, `confirm_token`.
    - `duplicate_paragraphs` — line numbers, paragraph preview, recommended action.
    - `npc_audit.timeline_append_candidates` — slugs with existing hubs that warrant a row (consumed by the future `recap-timeline-append` skill).
@@ -44,7 +44,7 @@ The **recap commit** (second writer call with `dry_run=false`) only happens afte
 - **CLI:** `dmb plan --allow-corpus-writes`
 - **Or env:** `DUNGEONMIND_PLANNER_ALLOW_WRITES=1`
 
-When enabled, `get_recap_context`, `assemble_recap_draft`, and `write_corpus_file` are registered as planner tools. Without it, this skill stops at the proposed-content step and surfaces only the structured payload — no commit possible.
+When enabled, `get_recap_context`, `assemble_recap_draft`, `build_recap_write_payload`, and `write_corpus_file` are registered as planner tools. Without it, this skill stops at the proposed-content step and surfaces only the structured payload — no commit possible.
 
 ## Tools
 
@@ -53,6 +53,7 @@ When enabled, `get_recap_context`, `assemble_recap_draft`, and `write_corpus_fil
 | `get_recap_context` | **Always call first.** Returns the active campaign, `target_session`, the **3 most recent** prior recaps (by frontmatter `session: N`, not filename), the unique companion prep doc path (or `null`), and the campaign hub / `NPCs/` paths. Source of truth for "which prior files to read." Pass `campaign_id` only if the GM explicitly named a different campaign than the active one; pass `target_session` only for an out-of-order or re-ingest case. |
 | `read_corpus_file` | Open every path the context tool returned: each `recent_recaps[].path` (for shape / frontmatter / length survey) and `prep_doc_path` (if non-null, for surnames + intent). May also open the affected `NPCs/<slug>/README.md` (under `npcs_dir`) when an NPC is mentioned and you need to confirm whether a hub exists. **Skip** dossier/seed/statblock — they are not consulted by this skill. **Do not** read recaps from a different campaign than the one `get_recap_context` returned. **Do not** list `Session Recaps/` yourself, glob for prep docs, or pick recaps by filename. **Do not** `read_corpus_file` the raw-notes staging path — use `assemble_recap_draft` instead. |
 | `assemble_recap_draft` | **After reads**, call once with the corpus-relative `raw_notes_path` (staging file named in the user message), plus `target_session` and `campaign_id` from `get_recap_context`. Returns `recap_body` (full markdown: frontmatter + H1 + de-duplicated prose). Pass that string to `write_corpus_file` `content` — do not re-run duplicate detection or rebuild frontmatter by hand. |
+| `build_recap_write_payload` | **Optional** after `assemble_recap_draft`, with the **same** three arguments. Returns deterministic `recap_write_v1` fields (`duplicate_paragraphs`, `prep_pointer_proposal`, `recap_preview` path/mode, empty `confirm_token`, empty shells for judgment fields). Merge into your final `recap_write` JSON, then fill `npc_audit` / `plot_artifacts` / `notes_for_gm` and paste `confirm_token` after `write_corpus_file` dry_run. |
 | `write_corpus_file` | Two-phase create of the new recap (`mode='create'`). Allowlist enforced server-side by `src/agent/corpus_writer.py`: only `**/Session Recaps/Session NN - <slug>.md` paths accept create. |
 
 `append_timeline_row` is **not** part of this skill. Listing it in `npc_audit.timeline_append_candidates` is the handoff to the future per-NPC skill.
@@ -111,10 +112,11 @@ When `prep_doc_path` is non-null, the file you read in §2 is the companion prep
 Do **not** paste raw notes into `write_corpus_file` or re-implement paragraph logic in prose.
 
 1. Call **`assemble_recap_draft`** with the staging `raw_notes_path` from the user message, `target_session`, and `campaign_id` from §1. The server runs `recap_ingest_helpers.assemble_recap` (strip leading title line, robust paragraph split, deterministic duplicate removal, frontmatter + H1 + body).
-2. Use the returned **`recap_body`** as the `content` for `write_corpus_file` `mode='create'` (two-phase).
-3. Map the tool's `ingest_report` (duplicate line ranges) into the structured payload's `duplicate_paragraphs` for the GM — do not contradict what the tool removed.
+2. **Optional:** Call **`build_recap_write_payload`** with the same three arguments to obtain mechanical `duplicate_paragraphs`, `prep_pointer_proposal`, and `recap_preview` (path/mode; `confirm_token` empty until after preview). Merge into `recap_write` in the final reply.
+3. Use the returned **`recap_body`** as the `content` for `write_corpus_file` `mode='create'` (two-phase).
+4. If you did not use `build_recap_write_payload`, map `assemble_recap_draft`'s `ingest_report` (duplicate line ranges) into `duplicate_paragraphs` yourself — do not contradict what the tool removed.
 
-### 6. Build the structured follow-up payload (extractor)
+### 6. Build the structured follow-up payload (judgment + merge)
 
 Walk the recap once and populate the structured payload fields:
 

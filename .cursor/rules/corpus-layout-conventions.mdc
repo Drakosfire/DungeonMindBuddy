@@ -99,7 +99,7 @@ basenames, regardless of mode:
 
 These are the static character/world bible. Session-driven status changes belong in the
 **new recap file** (`Session Recaps/Session <N> - <slug>.md`); timeline rows in
-`NPCs/<slug>/timeline.md` carry the pointer. Use the `session-summary-from-notes` skill
+`NPCs/<slug>/timeline.md` carry the pointer. Use the `recap-write` skill
 to drive the recap-and-timeline-row workflow; never hand-edit dossier/seed/statblock as
 part of a session writeup.
 
@@ -109,6 +109,25 @@ Allowed writer paths (server-enforced):
 - `append`: `**/NPCs/<slug>/timeline.md`, `**/NPCs/<slug>/README.md`
 
 Two-phase commit (`dry_run` → `confirm_token` → commit) is required for every write.
+
+## Session Prep naming (one prep doc per session)
+
+Files in `<campaign>/Session Prep/` for session `N` must match the pattern:
+
+- **Preferred:** `session_<N>_<short_slug>.md` (one short slug, snake_case)
+- **Tolerated for the rare single-file case:** `session_<N>.md`
+
+There must be **exactly one** prep doc per session. The recap-write context resolver
+(`src/agent/recap_context.py::resolve_recap_context`, exposed as the planner tool
+`get_recap_context`) **raises** if more than one file matches `session_<N>_*.md` in
+a single `Session Prep/` folder, because the recap-write skill needs a single
+unambiguous prep doc per session — silently picking the first hit is the kind of
+bug that took a week to surface.
+
+If you have multiple notes documents for one session, consolidate them into one
+file (use internal `## Subsection` headings) or fold the older one into a different
+canonical location (e.g. `Session Notes/`). Renaming for uniqueness is the fix —
+not extending the resolver to disambiguate.
 
 ## Fingerprint hygiene
 

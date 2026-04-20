@@ -1,14 +1,13 @@
 """Structured-output schema for the ``recap-write`` skill.
 
-The skill emits a fenced ```json block inside the planner ``message`` field. Graders
-extract the block with :func:`extract_recap_write_payload` and validate against the
-shape returned by :func:`recap_write_output_json_schema`.
+When ``active_skill_id="recap-write"``, the planner uses
+:class:`src.agent.planner_skill_output_schema.planner_turn_with_recap_write_text_format`
+so the API enforces ``recap_write_v1`` via Responses ``text.format`` (strict JSON
+schema). The top-level ``recap_write`` field is the canonical payload.
 
-The schema is intentionally **descriptive** (not enforced via Responses API
-``text.format``) because the universal planner envelope (``planner_turn_output``) must
-remain skill-agnostic. Each skill that needs a structured payload embeds it in
-``message`` and provides its own extractor and validator. See
-``.cursor/rules/planner-turn-output-schema.mdc`` for the envelope contract.
+Graders still use :func:`extract_recap_write_payload_loose` and
+:func:`validate_recap_write_payload` as a paranoia check and for forensic replay
+of older runs that embedded JSON in ``message``.
 """
 
 from __future__ import annotations
@@ -84,10 +83,12 @@ _RECAP_PREVIEW_SCHEMA: dict[str, Any] = {
         },
         "confirm_token": {
             "type": "string",
+            "minLength": 0,
             "description": (
                 "Two-phase commit token returned by ``write_corpus_file`` in dry-run "
-                "phase. The grader does not validate the token's contents, only its "
-                "presence."
+                "phase. Use empty string as a placeholder until after preview; paste "
+                "the real token before final output. The grader does not validate "
+                "the token's cryptographic contents."
             ),
         },
     },
@@ -294,9 +295,10 @@ _NPC_AUDIT_SCHEMA: dict[str, Any] = {
 def recap_write_output_json_schema() -> dict[str, Any]:
     """Full structured-payload schema for the ``recap-write`` skill.
 
-    The shape is documented for graders and for the skill prompt; it is **not**
-    sent as a Responses API ``text.format`` block (the planner envelope owns that
-    channel). Validation is grader-side via :func:`validate_recap_write_payload`.
+    Embedded in :func:`src.agent.planner_skill_output_schema.planner_turn_with_recap_write_schema`
+    as the ``recap_write`` property when the recap-write skill is active. Validation
+    is grader-side via :func:`validate_recap_write_payload` and API-side via
+    ``text.format`` when strict mode is on.
     """
     return {
         "type": "object",

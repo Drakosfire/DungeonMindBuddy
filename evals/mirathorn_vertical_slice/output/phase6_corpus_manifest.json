@@ -1853,8 +1853,8 @@
     "priority_score": 29
   },
   {
-    "path": "corpus/eldyrwild-markdown/Longmont Campaign/NPCs/Torbin Jove/Torbin Characteristics.md",
-    "title": "Torbin Characteristics",
+    "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/torbin_jove/torbin_jove_care_guidelines.md",
+    "title": "Torbin Jove — care and table-use guidelines",
     "document_class": "reference",
     "canon_layer": "campaign",
     "word_count": 333,
@@ -2054,8 +2054,8 @@
     "priority_score": 26
   },
   {
-    "path": "corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/DustWalker.md",
-    "title": "DustWalker",
+    "path": "corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/NPCs/dustwalker/dustwalker_statblock.md",
+    "title": "Dustwalker — statblock and interrogation profile",
     "document_class": "world",
     "canon_layer": "world",
     "word_count": 1229,

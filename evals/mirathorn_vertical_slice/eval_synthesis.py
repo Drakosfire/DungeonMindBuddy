@@ -30,9 +30,16 @@ MIRATHORN_SOURCE = PROJECT_ROOT / Path(
     "The City of Mirathorn.md"
 )
 
-MIN_EVIDENCE_UNITS = 100
-MIN_ENTITIES = 100
-MIN_FACTS = 400
+# D1 floors: benchmark the *interactive CLI ingest* path (chunk → extract → FactStore),
+# not the eval_fact_quality direct pipeline. Verified on-disk baselines for
+# `corpus/.../The City of Mirathorn.md` as of 2026-04-20 (post temporal-metadata v0.2 corpus):
+#   phase_d_store: evidence_units=126, entities=86, facts=293
+# eval_fact_quality (`batch_size=1`, no store merge) on the same corpus produced more facts
+# (~441 in extracted_facts.json in the same period) — see Backlog for CLI/extractor parity.
+# Floors are floor(0.7 × CLI-path baseline) so a ~30% drop fails D1; a ~50% drop still fails.
+MIN_EVIDENCE_UNITS = 88  # floor(0.7 * 126)
+MIN_ENTITIES = 60  # floor(0.7 * 86); gate uses strict `>`
+MIN_FACTS = 205  # floor(0.7 * 293); gate uses strict `>`
 MIN_ANSWER_CHARS = 200
 
 ATTRIBUTE_KEYWORDS = ("history", "geography", "demographics", "economy", "defenses")

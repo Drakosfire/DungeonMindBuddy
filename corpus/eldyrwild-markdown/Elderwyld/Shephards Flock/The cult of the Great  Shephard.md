@@ -1,5 +1,6 @@
 ---
-title: "The Shepherds’ Flock Cult"
+
+## title: "The Shepherds’ Flock Cult"
 document_class: world
 canon_layer: world
 campaign_id: null
@@ -8,7 +9,7 @@ session: null
 origin_session: null
 last_updated_session: null
 source_class: seed_reference
----
+
 ### The Shepherds’ Flock Cult
 
 The **Shepherds’ Flock** is a secretive and growing force within the city of Mirathorn, though its roots run deep in the continent's swamps. What began as a group of disillusioned human refugees has now transformed into a fanatical cult, whose members carry out violent acts in the shadows, aiming to overthrow the diverse populace of Mirathorn and establish a human-only dominion.
