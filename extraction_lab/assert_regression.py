@@ -7,6 +7,8 @@ from typing import Any
 
 NO_WARNING_THRESHOLD = float("inf")
 
+_KNOWN_SURFACES = {"core_extraction", "vertical_slice", "recap_lane", "working_set"}
+
 
 def _read_json(path: Path) -> Any:
     return json.loads(path.read_text(encoding="utf-8"))
@@ -31,12 +33,12 @@ def evaluate_regression(
     baseline_metrics: dict[str, Any] | None,
     thresholds: dict[str, Any],
 ) -> dict[str, Any]:
-    if baseline_metrics is None:
+    if surface not in _KNOWN_SURFACES:
         return {
             "surface": surface,
             "pass": True,
             "failures": [],
-            "warnings": ["no_baseline_for_surface"],
+            "warnings": ["unknown_surface"],
         }
 
     surface_thresholds = thresholds.get(surface, {})
@@ -46,6 +48,31 @@ def evaluate_regression(
     warnings: list[str] = []
 
     if surface == "core_extraction":
+        # Absolute floor — evaluated even when there is no baseline.
+        absolute_floor = surface_thresholds.get("absolute_floor", {})
+        if absolute_floor:
+            entity_floor = float(absolute_floor.get("entity_anchor_recall_min", 0.0))
+            fact_floor = float(absolute_floor.get("fact_anchor_recall_min", 0.0))
+            current_entity = float(current_metrics.get("entity_anchor_recall", 0.0))
+            current_fact = float(current_metrics.get("fact_anchor_recall", 0.0))
+            if current_entity < entity_floor:
+                failures.append(
+                    f"entity_anchor_recall_below_floor:{current_entity:.3f}<{entity_floor:.3f}"
+                )
+            if current_fact < fact_floor:
+                failures.append(
+                    f"fact_anchor_recall_below_floor:{current_fact:.3f}<{fact_floor:.3f}"
+                )
+
+        if baseline_metrics is None:
+            warnings.append("no_baseline_for_surface")
+            return {
+                "surface": surface,
+                "pass": len(failures) == 0,
+                "failures": failures,
+                "warnings": warnings,
+            }
+
         entity_drop = _pct_drop(
             float(current_metrics.get("entity_anchor_recall", 0.0)),
             float(baseline_metrics.get("entity_anchor_recall", 0.0)),
@@ -79,6 +106,36 @@ def evaluate_regression(
         )
         if fact_drift > float(warning.get("total_fact_count_drift_pct", NO_WARNING_THRESHOLD)):
             warnings.append(f"total_fact_count_drift_pct:{fact_drift:.2f}")
+
+    elif surface in ("vertical_slice", "recap_lane", "working_set"):
+        if baseline_metrics is None:
+            warnings.append("no_baseline_for_surface")
+            return {
+                "surface": surface,
+                "pass": True,
+                "failures": [],
+                "warnings": warnings,
+            }
+
+        if surface == "vertical_slice":
+            drop = _pct_drop(
+                float(current_metrics.get("question_pass_rate", 0.0)),
+                float(baseline_metrics.get("question_pass_rate", 0.0)),
+            )
+            threshold = float(warning.get("question_pass_rate_drop_pct", NO_WARNING_THRESHOLD))
+            if drop > threshold:
+                warnings.append(f"question_pass_rate_drop_pct:{drop:.2f}")
+
+        elif surface == "recap_lane":
+            drop = _pct_drop(
+                float(current_metrics.get("event_record_recall", 0.0)),
+                float(baseline_metrics.get("event_record_recall", 0.0)),
+            )
+            threshold = float(warning.get("event_record_recall_drop_pct", NO_WARNING_THRESHOLD))
+            if drop > threshold:
+                warnings.append(f"event_record_recall_drop_pct:{drop:.2f}")
+
+        # working_set: no thresholds currently defined; pass through.
 
     return {
         "surface": surface,

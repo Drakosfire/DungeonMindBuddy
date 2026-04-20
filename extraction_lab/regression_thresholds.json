@@ -8,6 +8,10 @@
     "warning": {
       "total_entity_count_drift_pct": 15.0,
       "total_fact_count_drift_pct": 20.0
+    },
+    "absolute_floor": {
+      "entity_anchor_recall_min": 0.5,
+      "fact_anchor_recall_min": 0.5
     }
   },
   "vertical_slice": {

@@ -5,7 +5,8 @@ violations into :class:`evals.planner_slice.live_eval.LiveEvalResult`.
 
 Violations are split into:
 
-* ``scope_b_tool`` — ``get_recap_context`` shape, read allowlist, ``assemble_recap_draft``.
+* ``scope_b_tool`` — ``get_recap_context`` shape, read allowlist, ``assemble_recap_draft``,
+  optional ``build_recap_write_payload`` (when ``require_build_recap_write_payload``).
 * ``scope_b_payload`` — planner envelope JSON and ``recap_write_v1`` extract/validate.
 
 ``scope_b`` is the concatenation of both (stable bucket for combined reporting).
@@ -13,6 +14,7 @@ Violations are split into:
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any
 
@@ -23,10 +25,21 @@ from evals.planner_slice.live_eval import (
 )
 from src.agent.planner import PlanningTurnDetail
 from src.agent.recap_context import RecapContext, RecapContextError, resolve_recap_context
+from src.agent.recap_ingest_helpers import assemble_recap
+from src.agent.recap_write_mechanical_payload import (
+    build_recap_write_payload_from_ingest,
+)
 from src.agent.recap_write_output_schema import (
     extract_recap_write_payload_loose,
     validate_recap_write_payload,
 )
+
+_DEFAULT_INGEST_RAW_NOTES_RELPATH = (
+    "Longmont Campaign/Campaign 2/_ingest_staging/session_20_raw_notes.md"
+)
+# Module-local default (kept in sync with ``gold/scope_b_session_20.json`` and
+# the duplicate literal in ``step1_recap_ingest_run.py``). Hoisting the runner
+# copy to import this is BACKLOG §2.6 — out of scope here.
 
 _PATH_TOOLS = frozenset({"read_corpus_file", "load_context_markdown"})
 _WRITE_TOOLS = frozenset({"write_corpus_file"})
@@ -65,6 +78,16 @@ def _assemble_recap_draft_calls(
     out: list[tuple[int, dict[str, Any]]] = []
     for i, row in enumerate(tool_trace):
         if str(row.get("tool", "")) == "assemble_recap_draft":
+            out.append((i, row))
+    return out
+
+
+def _build_recap_write_payload_calls(
+    tool_trace: list[dict[str, Any]],
+) -> list[tuple[int, dict[str, Any]]]:
+    out: list[tuple[int, dict[str, Any]]] = []
+    for i, row in enumerate(tool_trace):
+        if str(row.get("tool", "")) == "build_recap_write_payload":
             out.append((i, row))
     return out
 
@@ -112,6 +135,88 @@ def _write_corpus_file_calls(
     return out
 
 
+def _write_corpus_file_rows(
+    tool_trace: list[dict[str, Any]],
+) -> list[tuple[int, dict[str, Any], dict[str, Any]]]:
+    """All ``write_corpus_file`` rows in trace order as ``(idx, args, row)`` triples.
+
+    Sibling of :func:`_write_corpus_file_calls` that also yields the full trace
+    row so callers can read ``output_excerpt`` (the server's JSON response).
+    Used by the commit-success gate (BACKLOG §1.0 fix): the call-shape view is
+    not enough to know whether the write actually landed.
+    """
+    out: list[tuple[int, dict[str, Any], dict[str, Any]]] = []
+    for i, row in enumerate(tool_trace):
+        if str(row.get("tool", "")) != "write_corpus_file":
+            continue
+        args = row.get("arguments")
+        out.append((i, args if isinstance(args, dict) else {}, row))
+    return out
+
+
+def _parse_tool_response_excerpt(excerpt: Any) -> dict[str, Any] | None:
+    """Best-effort JSON parse of a tool row's ``output_excerpt``.
+
+    Returns ``None`` when the excerpt is missing, isn't a JSON object, or is
+    truncated mid-token. Skill-guard / disabled-writes responses are plain
+    ``"Error: ..."`` strings (not JSON) and intentionally return ``None`` here;
+    callers must handle that case separately (see :func:`_commit_outcome`).
+    """
+    if not isinstance(excerpt, str) or not excerpt:
+        return None
+    try:
+        obj = json.loads(excerpt)
+    except (json.JSONDecodeError, ValueError):
+        return None
+    return obj if isinstance(obj, dict) else None
+
+
+def _commit_outcome(row: dict[str, Any]) -> dict[str, Any]:
+    """Inspect a ``write_corpus_file`` commit row's server response.
+
+    Closes the BACKLOG §1.0 gate hole: the previous gate checked only call
+    shape (``dry_run=false`` row exists) and silently passed when the server
+    refused the write (stale ``confirm_token``, allowlist rejection, disabled
+    writes, ...).
+
+    Returns a stable shape::
+
+        {
+            "succeeded": True | False | None,  # None == response unparseable
+            "phase": "committed" | "preview" | None,
+            "error": str | None,               # server-reported error, if any
+        }
+
+    Decision table for ``succeeded``:
+
+    * Plain ``"Error: ..."`` string (skill guard / disabled writes / unknown
+      tool) → ``False`` (we know the corpus was not written).
+    * JSON ``{"ok": true, "phase": "committed", ...}`` → ``True``.
+    * JSON ``{"ok": false, "error": ...}`` → ``False``; ``error`` populated.
+    * Anything else (truncated JSON, ``ok`` missing, unexpected ``phase``) →
+      ``None`` so callers don't punish ambiguous traces.
+    """
+    excerpt = row.get("output_excerpt") if isinstance(row, dict) else None
+    if isinstance(excerpt, str) and excerpt.lstrip().startswith("Error:"):
+        return {"succeeded": False, "phase": None, "error": excerpt.strip()}
+
+    obj = _parse_tool_response_excerpt(excerpt)
+    if obj is None:
+        return {"succeeded": None, "phase": None, "error": None}
+
+    ok = obj.get("ok")
+    phase_raw = obj.get("phase")
+    phase = phase_raw if isinstance(phase_raw, str) else None
+    err_raw = obj.get("error")
+    err = err_raw if isinstance(err_raw, str) else None
+
+    if ok is True and phase == "committed":
+        return {"succeeded": True, "phase": phase, "error": None}
+    if ok is False:
+        return {"succeeded": False, "phase": phase, "error": err or ""}
+    return {"succeeded": None, "phase": phase, "error": err}
+
+
 def _dry_run_arg(args: dict[str, Any]) -> bool:
     """Mirror ``write_corpus_file``'s server-side ``dry_run`` default (``True`` when omitted)."""
     v = args.get("dry_run", True)
@@ -155,7 +260,7 @@ def summarize_write_corpus_phases(
 
 
 def _check_write_phases(
-    write_calls: list[tuple[int, dict[str, Any]]],
+    write_rows: list[tuple[int, dict[str, Any], dict[str, Any]]],
     *,
     prefix: str,
     preview_required: bool,
@@ -163,12 +268,24 @@ def _check_write_phases(
 ) -> tuple[list[str], list[str]]:
     """Hard preview gate + optional commit gate for ``write_corpus_file``.
 
+    Accepts ``(idx, args, row)`` triples (see :func:`_write_corpus_file_rows`)
+    so the gate can inspect the server's response, not just the call shape.
+    Closing this gap is BACKLOG §1.0: previously a stale ``confirm_token``
+    rejection (or any other server refusal) on the final ``dry_run=false`` call
+    silently satisfied ``commit_required`` because we only counted that the
+    call existed.
+
     Returns ``(hard_violations, soft_observations)``.
 
     - ``hard_violations`` go to the ``scope_b_tool`` bucket and fail the run.
-      Always populated when ``preview_required`` is set and no preview call is
-      observed, OR when ``commit_required`` is set and no commit is observed,
-      OR when an out-of-order shape is seen (e.g. commit before any preview).
+      Populated when ``preview_required`` is set and no preview call is
+      observed; when ``commit_required`` is set and no commit is observed;
+      when an out-of-order shape is seen (e.g. commit before any preview);
+      when ``commit_required`` is set and the last commit attempt's server
+      response was ``ok=false`` (or a plain ``Error: ...`` string); or when
+      ``commit_required`` is set and the last commit attempt's server
+      response was unparseable (truncated, non-JSON, or unexpected shape) —
+      because the protocol's success cannot be verified in that case.
 
     - ``soft_observations`` are informational strings the harness can route into
       the run report's ``extras`` (e.g. "previewed but did not commit on this
@@ -176,12 +293,14 @@ def _check_write_phases(
       point of separating the gate from the metric: the production
       ``recap-write`` skill is human-in-the-loop and may legitimately stop at
       preview while still having satisfied the contract end-to-end across
-      multiple operator turns.
+      multiple operator turns. When ``commit_required`` is **not** set, an
+      unparseable response on a voluntarily-issued commit is not a hard
+      violation and is left for cohort summaries to flag.
     """
     hard: list[str] = []
     soft: list[str] = []
 
-    if not write_calls:
+    if not write_rows:
         if preview_required:
             hard.append(
                 f"{prefix} preview_required: write_corpus_file was never called; "
@@ -190,13 +309,13 @@ def _check_write_phases(
             )
         return hard, soft
 
-    previews = [(i, a) for i, a in write_calls if _dry_run_arg(a)]
-    commits = [(i, a) for i, a in write_calls if not _dry_run_arg(a)]
+    previews = [(i, a, r) for i, a, r in write_rows if _dry_run_arg(a)]
+    commits = [(i, a, r) for i, a, r in write_rows if not _dry_run_arg(a)]
 
     if preview_required and not previews:
         hard.append(
             f"{prefix} preview_required: no write_corpus_file preview "
-            f"(dry_run=true) call found; saw {len(write_calls)} call(s) all "
+            f"(dry_run=true) call found; saw {len(write_rows)} call(s) all "
             f"with dry_run=false. The skill contract is preview→approve→commit."
         )
 
@@ -207,19 +326,48 @@ def _check_write_phases(
                 f"(dry_run=false) call found; the model previewed but never "
                 f"committed."
             )
-        elif previews:
-            first_idx, first_args = write_calls[0]
-            last_idx, last_args = write_calls[-1]
-            if not _dry_run_arg(first_args):
+        else:
+            if previews:
+                first_idx, first_args, _first_row = write_rows[0]
+                last_idx, last_args, _last_row = write_rows[-1]
+                if not _dry_run_arg(first_args):
+                    hard.append(
+                        f"{prefix} commit_required: first write_corpus_file at "
+                        f"trace index {first_idx} has dry_run=false; preview "
+                        f"must come first."
+                    )
+                if _dry_run_arg(last_args):
+                    hard.append(
+                        f"{prefix} commit_required: last write_corpus_file at "
+                        f"trace index {last_idx} has dry_run=true; commit "
+                        f"(dry_run=false) must follow the preview."
+                    )
+            # Commit-success gate: the last commit attempt must report
+            # ok=true, phase="committed". Earlier failed attempts are tolerated
+            # (a model may legitimately retry after a stale-token rejection),
+            # but the last attempt is the one that decides whether the corpus
+            # got written.
+            last_commit_idx, _last_commit_args, last_commit_row = commits[-1]
+            outcome = _commit_outcome(last_commit_row)
+            if outcome["succeeded"] is False:
+                err_text = (outcome.get("error") or "").strip()
+                err_suffix = f" Server response: {err_text!r}." if err_text else ""
                 hard.append(
-                    f"{prefix} commit_required: first write_corpus_file at trace "
-                    f"index {first_idx} has dry_run=false; preview must come first."
+                    f"{prefix} commit_required: last write_corpus_file commit "
+                    f"at trace index {last_commit_idx} did not succeed "
+                    f"(server returned ok=false / Error response).{err_suffix} "
+                    f"The two-phase contract requires the final dry_run=false "
+                    f"call to land bytes; a refused commit means nothing was "
+                    f"written."
                 )
-            if _dry_run_arg(last_args):
+            elif outcome["succeeded"] is None:
                 hard.append(
-                    f"{prefix} commit_required: last write_corpus_file at trace "
-                    f"index {last_idx} has dry_run=true; commit (dry_run=false) "
-                    f"must follow the preview."
+                    f"{prefix} commit_outcome=unknown: _commit_outcome could not "
+                    f"parse the server response for the last write_corpus_file "
+                    f"commit at trace index {last_commit_idx} (truncated, non-JSON, "
+                    f"or unexpected shape). Failing this run because commit_required "
+                    f"is true and the protocol's success cannot be verified — not "
+                    f"because the protocol is known to have failed."
                 )
     elif previews and not commits:
         soft.append(
@@ -230,6 +378,54 @@ def _check_write_phases(
         )
 
     return hard, soft
+
+
+def _resolve_write_phase_knobs(scenario: dict[str, Any]) -> tuple[bool, bool]:
+    """Single source of truth for ``preview_required`` / ``commit_required``.
+
+    Mirrors the logic used for hard gates in
+    :func:`collect_scope_b_recap_ingest_violations` so cohort report extras
+    (``collect_scope_b_recap_ingest_report_extras``) never disagree with the
+    grader on asymmetric scenarios (e.g. ``commit_required`` only implies
+    ``preview_required``).
+    """
+    cfg = scenario.get("scope_b_grader") or {}
+    expected_trace = scenario.get("expected_tool_trace") or {}
+    legacy_two_phase = expected_trace.get("two_phase_commit_required")
+    cfg_two_phase = cfg.get("two_phase_commit_required")
+    expected_preview = expected_trace.get("preview_required")
+    expected_commit = expected_trace.get("commit_required")
+    cfg_preview = cfg.get("preview_required")
+    cfg_commit = cfg.get("commit_required")
+
+    preview_required: bool | None = None
+    commit_required: bool | None = None
+    if cfg_preview is not None:
+        preview_required = bool(cfg_preview)
+    elif expected_preview is not None:
+        preview_required = bool(expected_preview)
+    if cfg_commit is not None:
+        commit_required = bool(cfg_commit)
+    elif expected_commit is not None:
+        commit_required = bool(expected_commit)
+
+    if preview_required is None and commit_required is None:
+        if cfg_two_phase is not None:
+            two_phase = bool(cfg_two_phase)
+        elif legacy_two_phase is not None:
+            two_phase = bool(legacy_two_phase)
+        else:
+            two_phase = False
+        preview_required = two_phase
+        commit_required = two_phase
+    else:
+        if preview_required is None:
+            preview_required = bool(commit_required)
+        if commit_required is None:
+            commit_required = False
+
+    assert preview_required is not None and commit_required is not None
+    return preview_required, commit_required
 
 
 def collect_scope_b_recap_ingest_violations(
@@ -356,7 +552,7 @@ def collect_scope_b_recap_ingest_violations(
                 raw_path = str(dargs.get("raw_notes_path", "")).strip()
                 ing_rel = str(
                     scenario.get("ingest_raw_notes_relpath")
-                    or "Longmont Campaign/Campaign 2/_ingest_staging/session_20_raw_notes.md"
+                    or _DEFAULT_INGEST_RAW_NOTES_RELPATH
                 ).strip()
                 if _norm_rel_path(raw_path) != _norm_rel_path(ing_rel):
                     tool_v.append(
@@ -384,44 +580,58 @@ def collect_scope_b_recap_ingest_violations(
                         f"{ctx.campaign_id!r} got {cid_arg!r}."
                     )
 
-    expected_trace = scenario.get("expected_tool_trace") or {}
-    legacy_two_phase = expected_trace.get("two_phase_commit_required")
-    cfg_two_phase = cfg.get("two_phase_commit_required")
-    expected_preview = expected_trace.get("preview_required")
-    expected_commit = expected_trace.get("commit_required")
-    cfg_preview = cfg.get("preview_required")
-    cfg_commit = cfg.get("commit_required")
-
-    preview_required: bool | None = None
-    commit_required: bool | None = None
-    if cfg_preview is not None:
-        preview_required = bool(cfg_preview)
-    elif expected_preview is not None:
-        preview_required = bool(expected_preview)
-    if cfg_commit is not None:
-        commit_required = bool(cfg_commit)
-    elif expected_commit is not None:
-        commit_required = bool(expected_commit)
-
-    if preview_required is None and commit_required is None:
-        if cfg_two_phase is not None:
-            two_phase = bool(cfg_two_phase)
-        elif legacy_two_phase is not None:
-            two_phase = bool(legacy_two_phase)
+    if cfg.get("require_build_recap_write_payload", False):
+        bp_calls = _build_recap_write_payload_calls(tool_trace)
+        if len(bp_calls) != 1:
+            tool_v.append(
+                f"{prefix} build_recap_write_payload must be called exactly once; "
+                f"saw {len(bp_calls)} call(s)."
+            )
         else:
-            two_phase = False
-        preview_required = two_phase
-        commit_required = two_phase
-    else:
-        if preview_required is None:
-            preview_required = bool(commit_required)
-        if commit_required is None:
-            commit_required = False
+            _bidx, brow = bp_calls[0]
+            bargs = brow.get("arguments") or {}
+            if not isinstance(bargs, dict):
+                tool_v.append(
+                    f"{prefix} build_recap_write_payload arguments must be an object."
+                )
+            else:
+                raw_path = str(bargs.get("raw_notes_path", "")).strip()
+                ing_rel = str(
+                    scenario.get("ingest_raw_notes_relpath")
+                    or _DEFAULT_INGEST_RAW_NOTES_RELPATH
+                ).strip()
+                if _norm_rel_path(raw_path) != _norm_rel_path(ing_rel):
+                    tool_v.append(
+                        f"{prefix} build_recap_write_payload.raw_notes_path want "
+                        f"{ing_rel!r} got {raw_path!r}."
+                    )
+                ts_arg = bargs.get("target_session")
+                try:
+                    ts_int = int(ts_arg)
+                except (TypeError, ValueError):
+                    tool_v.append(
+                        f"{prefix} build_recap_write_payload.target_session must be int "
+                        f"synced with get_recap_context; got {ts_arg!r}."
+                    )
+                else:
+                    if ts_int != ctx.target_session:
+                        tool_v.append(
+                            f"{prefix} build_recap_write_payload.target_session want "
+                            f"{ctx.target_session} got {ts_int}."
+                        )
+                cid_arg = str(bargs.get("campaign_id", "")).strip()
+                if cid_arg != str(ctx.campaign_id).strip():
+                    tool_v.append(
+                        f"{prefix} build_recap_write_payload.campaign_id want "
+                        f"{ctx.campaign_id!r} got {cid_arg!r}."
+                    )
+
+    preview_required, commit_required = _resolve_write_phase_knobs(scenario)
 
     if preview_required or commit_required:
-        write_calls = _write_corpus_file_calls(tool_trace)
+        write_rows = _write_corpus_file_rows(tool_trace)
         hard, _soft = _check_write_phases(
-            write_calls,
+            write_rows,
             prefix=prefix,
             preview_required=preview_required,
             commit_required=commit_required,
@@ -431,9 +641,141 @@ def collect_scope_b_recap_ingest_violations(
     return _pack_scope_b_violations(tool_v, payload_v)
 
 
+# --- Mechanical-payload comparison helpers (BACKLOG §1.5 / option (b)) -------
+#
+# These compute the *expected* mechanical fields of ``recap_write_v1`` from the
+# same inputs ``build_recap_write_payload`` would consume (raw notes + recap
+# context snapshot), and compare them to whatever the model actually emitted.
+# The comparison runs **whether or not** the model invoked the tool — so cohort
+# data can answer "does invoking ``build_recap_write_payload`` reduce mechanical
+# field variance vs. hand-authoring?" without flipping any hard gate first.
+#
+# The result is a soft signal (``mechanical_fields_match`` ∈ {True, False, None})
+# in the per-run extras; the cohort aggregator stratifies by
+# ``build_recap_write_payload_called``. ``None`` means "not applicable" — either
+# the scenario doesn't carry the inputs we need (no ``corpus_path`` /
+# ``recap_context_snapshot``), or the model's final payload is unparseable
+# (which the hard payload gate already flags separately).
+
+
+_MECHANICAL_FIELDS: tuple[str, ...] = (
+    "recap_preview",
+    "duplicate_paragraphs",
+    "prep_pointer_proposal",
+)
+
+# ``recap_preview.confirm_token`` is intentionally **not** mechanical: the helper
+# returns ``""`` as a placeholder, and the model copies the real token in after
+# ``write_corpus_file`` dry_run. Comparing it would flip every well-behaved run
+# to "mismatch." Strip it from both sides before comparing the recap_preview dict.
+_RECAP_PREVIEW_MECHANICAL_KEYS: frozenset[str] = frozenset({"path", "mode"})
+
+
+def _extract_recap_write_from_final_text(text: str) -> dict[str, Any] | None:
+    """Best-effort extract of ``recap_write`` from the planner's final text.
+
+    Mirrors the lookup order in :func:`collect_scope_b_recap_ingest_violations`:
+    prefer the dedicated top-level ``recap_write`` field (per-skill schema),
+    fall back to a ```json fenced block in ``message`` for legacy envelopes.
+    Returns ``None`` if neither path yields a parseable dict.
+    """
+    json_obj, _ = _parse_final_json_object(text or "")
+    if isinstance(json_obj, dict):
+        rw_field = json_obj.get("recap_write")
+        if isinstance(rw_field, dict):
+            return rw_field
+        msg_raw = json_obj.get("message")
+        msg = str(msg_raw) if msg_raw is not None else ""
+        loose = extract_recap_write_payload_loose(msg)
+        if isinstance(loose, dict):
+            return loose
+    loose_full = extract_recap_write_payload_loose(text or "")
+    return loose_full if isinstance(loose_full, dict) else None
+
+
+def _compute_expected_mechanical_payload(
+    scenario: dict[str, Any],
+    ctx: RecapContext,
+    corpus_path: Path,
+) -> dict[str, Any] | None:
+    """Build the mechanical ``recap_write_v1`` payload the helper *would* return.
+
+    Reads raw notes from ``scenario["ingest_raw_notes_relpath"]`` (or the
+    module default), runs :func:`assemble_recap` to get an ``IngestReport``,
+    and feeds both into :func:`build_recap_write_payload_from_ingest`. Returns
+    ``None`` on any IO / arg error so the caller can degrade to "not applicable"
+    rather than fail the soft signal.
+    """
+    rel = str(
+        scenario.get("ingest_raw_notes_relpath")
+        or _DEFAULT_INGEST_RAW_NOTES_RELPATH
+    ).strip()
+    if not rel:
+        return None
+    notes_path = (corpus_path / rel).resolve()
+    try:
+        raw_text = notes_path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return None
+    try:
+        _full, report = assemble_recap(
+            raw_notes=raw_text,
+            session=int(ctx.target_session),
+            campaign_id=str(ctx.campaign_id),
+            remove_duplicates=True,
+        )
+    except (TypeError, ValueError):
+        return None
+    return build_recap_write_payload_from_ingest(ctx, report)
+
+
+def _project_recap_preview_mechanical(value: Any) -> Any:
+    """Strip ``confirm_token`` (model-authored, not mechanical) before comparison."""
+    if not isinstance(value, dict):
+        return value
+    return {k: v for k, v in value.items() if k in _RECAP_PREVIEW_MECHANICAL_KEYS}
+
+
+def _compare_mechanical_fields(
+    expected: dict[str, Any], actual: dict[str, Any]
+) -> tuple[bool, dict[str, dict[str, Any]]]:
+    """Field-by-field equality on ``_MECHANICAL_FIELDS``.
+
+    Returns ``(match_all, diffs)``. ``diffs[field] = {"expected": ..., "actual": ...}``
+    only for fields that differ. Comparison is structural (Python ``==``); both
+    sides come from JSON dicts, so ordering inside lists is significant — that
+    matches the helper contract (``duplicate_paragraphs`` order is deterministic).
+
+    Special-case: ``recap_preview`` is compared on ``path`` + ``mode`` only;
+    ``confirm_token`` is model-authored after the dry_run preview and is not a
+    mechanical field (the helper returns ``""`` as a placeholder).
+    """
+    diffs: dict[str, dict[str, Any]] = {}
+    for f in _MECHANICAL_FIELDS:
+        e = expected.get(f)
+        a = actual.get(f)
+        if f == "recap_preview":
+            e_proj = _project_recap_preview_mechanical(e)
+            a_proj = _project_recap_preview_mechanical(a)
+            if e_proj != a_proj:
+                diffs[f] = {"expected": e_proj, "actual": a_proj}
+        else:
+            if e != a:
+                diffs[f] = {"expected": e, "actual": a}
+    return (not diffs), diffs
+
+
+def _build_recap_write_payload_called(tool_trace: list[dict[str, Any]]) -> bool:
+    """``True`` iff at least one ``build_recap_write_payload`` row appears in trace."""
+    return bool(_build_recap_write_payload_calls(tool_trace))
+
+
 def collect_scope_b_recap_ingest_report_extras(
     scenario: dict[str, Any],
     detail: PlanningTurnDetail,
+    corpus_path: Path | None = None,
+    *,
+    recap_context_snapshot: RecapContext | None = None,
 ) -> dict[str, Any]:
     """Soft, informational signals for the run sidecar / cohort summary.
 
@@ -446,6 +788,25 @@ def collect_scope_b_recap_ingest_report_extras(
       did not require a commit but one was missing (HITL-by-design note).
       Empty when the run satisfied both gates or the scenario didn't ask for
       either knob.
+    * ``build_recap_write_payload_called`` — ``True`` iff the model invoked the
+      mechanical payload helper at least once this run.
+    * ``mechanical_fields_match`` — ``True`` / ``False`` / ``None`` (not applicable).
+      Compares mechanical sub-fields (``recap_preview``, ``duplicate_paragraphs``,
+      ``prep_pointer_proposal``) of the model's final ``recap_write`` against
+      what :func:`build_recap_write_payload_from_ingest` would return for this
+      scenario + snapshot. Computed regardless of whether the helper was
+      actually called (so cohort aggregator can stratify and answer "did the
+      tool reduce variance?"). ``None`` when ``corpus_path`` /
+      ``recap_context_snapshot`` aren't provided, when the raw notes can't be
+      read, or when the model's ``recap_write`` can't be parsed.
+    * ``mechanical_fields_diff`` — ``{field: {expected, actual}}`` for fields
+      that differed (empty when ``mechanical_fields_match`` is ``True``;
+      omitted when ``mechanical_fields_match`` is ``None``).
+
+    ``corpus_path`` and ``recap_context_snapshot`` are optional for backwards
+    compatibility with existing call sites and tests; mechanical-fields signals
+    degrade to ``None`` when either is missing. New runner callers should pass
+    both — the runner already has the snapshot.
 
     Always returns a dict (possibly empty); callers should attach to
     ``RecapIngestRunSummary.extras``.
@@ -460,35 +821,58 @@ def collect_scope_b_recap_ingest_report_extras(
     prefix = _fail_prefix(sid)
     tool_trace = list(detail.tool_trace or [])
     write_calls = _write_corpus_file_calls(tool_trace)
+    write_rows = _write_corpus_file_rows(tool_trace)
     phases = summarize_write_corpus_phases(write_calls)
 
-    expected_trace = scenario.get("expected_tool_trace") or {}
-    legacy_two_phase = expected_trace.get("two_phase_commit_required")
-    cfg_two_phase = cfg.get("two_phase_commit_required")
-    expected_preview = expected_trace.get("preview_required")
-    expected_commit = expected_trace.get("commit_required")
-    cfg_preview = cfg.get("preview_required")
-    cfg_commit = cfg.get("commit_required")
-    preview_required = (
-        bool(cfg_preview) if cfg_preview is not None
-        else bool(expected_preview) if expected_preview is not None
-        else (bool(cfg_two_phase) if cfg_two_phase is not None else bool(legacy_two_phase))
-    )
-    commit_required = (
-        bool(cfg_commit) if cfg_commit is not None
-        else bool(expected_commit) if expected_commit is not None
-        else (bool(cfg_two_phase) if cfg_two_phase is not None else bool(legacy_two_phase))
-    )
+    preview_required, commit_required = _resolve_write_phase_knobs(scenario)
 
     _hard, soft = _check_write_phases(
-        write_calls,
+        write_rows,
         prefix=prefix,
         preview_required=preview_required,
         commit_required=commit_required,
     )
-    return {
+
+    # Last commit attempt's server response. ``None`` here means no commit
+    # was attempted; ``succeeded=None`` inside the dict means the response
+    # was unparseable (see :func:`_commit_outcome`). Cohort summaries
+    # aggregate this to detect stale-token / allowlist regressions that
+    # the call-shape view alone can't see (BACKLOG §1.0).
+    commit_rows = [(i, a, r) for i, a, r in write_rows if not _dry_run_arg(a)]
+    last_commit_outcome: dict[str, Any] | None = None
+    if commit_rows:
+        last_commit_outcome = _commit_outcome(commit_rows[-1][2])
+
+    extras: dict[str, Any] = {
         "write_corpus_file_phases": phases,
         "write_corpus_file_soft_observations": soft,
+        "write_corpus_file_last_commit_outcome": last_commit_outcome,
         "preview_required": preview_required,
         "commit_required": commit_required,
+        "build_recap_write_payload_called": _build_recap_write_payload_called(
+            tool_trace
+        ),
+        "mechanical_fields_match": None,
     }
+
+    # Resolve a recap context if the caller didn't pass one but did pass the
+    # corpus_path. Prefer the snapshot to avoid the same temporal-coupling
+    # bug class the violations grader documents (BACKLOG §1.4).
+    ctx: RecapContext | None = recap_context_snapshot
+    if ctx is None and corpus_path is not None:
+        try:
+            ctx = resolve_recap_context(corpus_path.resolve())
+        except RecapContextError:
+            ctx = None
+
+    if corpus_path is not None and ctx is not None:
+        expected = _compute_expected_mechanical_payload(
+            scenario, ctx, corpus_path.resolve()
+        )
+        actual = _extract_recap_write_from_final_text(detail.final_text or "")
+        if expected is not None and actual is not None:
+            match, diffs = _compare_mechanical_fields(expected, actual)
+            extras["mechanical_fields_match"] = match
+            extras["mechanical_fields_diff"] = diffs
+
+    return extras
