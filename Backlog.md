@@ -9,10 +9,61 @@ Sort newest → oldest within each status; promote with `/promote`; archive with
 
 ---
 
-## [READY] CLI ingest vs direct fact-extractor parity gap — captured 2026-04-20
-**Context:** Round 3 of failure-sweep (2026-04-20 conversation). On the same Mirathorn source (`The City of Mirathorn.md`), the **CLI ingest path** (`DungeonBuddyCLI.handle_line("ingest …")` → `src/cli.py` → batch pipeline) yields ~289 facts; the **direct `_run_pipeline()` / `run_fact_extraction`** path used by `eval_fact_quality.py` yields ~441 facts in `extracted_facts.json` from the same period. That's a 22–34% delta on the same input.
-**Insight:** Differences likely contributing: (a) CLI defaults `--batch-size=5` while eval uses `1`; (b) CLI persists through `FactStore.add_entities` which dedups/merges (entity counts can drop); (c) different `document_id` and `title` change cache keys; (d) the batched fact prompt path also surfaces a `fact_extractor batched call missing unit_index slots: [4]` warning, suggesting batching may drop or duplicate slots. None of these alone fully explains the ~150 fact gap.
-**Action:** (a) Run both pipelines on the same source with `batch_size=1` and `batch_size=5` on each, capture `(evidence, entities, facts)` per config to isolate batching effect. (b) Inspect `FactStore.add_entities` for any silent fact drop on dedup. (c) Decide whether the CLI path should match the direct extractor (likely yes) and where to align — almost certainly in the batch pipeline, not by changing the direct extractor.
+## [READY] Lysandra deterministic Step 2 — clarifier over-triggers + `power_axis: unknown` — captured 2026-04-20
+**Context:** Surfaced as a follow-up note inside the (now-archived) `[DONE] Lysandra step0 G0.2 fingerprint + G0.3 statblock URL gate` entry. After the step0 gold/runner fix, the deterministic Lysandra slice still exits 1 — but from **Step 2 (intent classifier)**, not Step 0. Specifically: `clarifier_required` over-triggers and `power_axis` returns `unknown` for several scenarios. Same family as the 2026-04-20 NPC voice clarify failures (`torbin_clarify_bump_cr`, `flock_clarify_baddie_with_hat`) which were fixed by tightening `src/prompts/corpus_session_planner.py` (preamble, `_UNSURE_QUEUE_ADDENDUM`, "trait-only who-is" rule, two-checks block). Open question: did the NPC voice prompt tightening generalize, or does Lysandra Step 2 use a different prompt path that still has the original loose behavior?
+**Insight:** If the Lysandra failures are downstream of the same prompt edits, this is a single-class problem and verification is a re-run. If Lysandra Step 2 lives in a separate prompt template, our recent fix was scenario-local and we have a class of clarifier scenarios still mis-classified across the suite. Either way, this is the cheapest data point to confirm whether our prompt tightening was global or local.
+**Action:** (a) Map Step 2's prompt — does it import `corpus_session_planner.py` or does it have its own intent-classifier prompt? (b) Re-run `evals/lysandra_vertical_slice/run_deterministic_slice.py` with `LYSANDRA_SLICE_SKIP_STATBLOCK_URL_GATE=1`, capture the failing scenario IDs and the actual `(user_intent, power_axis)` returned. (c) If the prompt is shared, the fix is likely a tighter `power_axis: unknown → clarifier_required` rule with a mini-example. (d) Apply the smallest prompt change, verify with ≥3 trials per failing scenario, plus a no-regression spot-check on the previously-fixed NPC voice scenarios.
+**Surfaces when:** Any clarifier-classification work; new slice that depends on Step 2 intent; revisiting the prompt tightening from Round 4 of the 2026-04-20 sweep.
+**Refs:** `Backlog-DONE.md` `[DONE] Lysandra step0 G0.2 fingerprint + G0.3 statblock URL gate` (open follow-up section), `evals/lysandra_vertical_slice/run_deterministic_slice.py`, `src/prompts/corpus_session_planner.py` (current clarifier prompts), `evals/npc_voice_vertical_slice/gold/scenarios/torbin_clarify_bump_cr.json` and `flock_clarify_baddie_with_hat.json` for spot-check.
+
+## [READY] Recap-write perturbation suite — stress Scope-B before Session 21 ingest — captured 2026-04-20
+**Context:** Session 20 recap ingest is currently 5/5 PASS on Scope-B and the post-fix verification on 2026-04-20 was a clean PASS in one shot. But the system has only been exercised on the **happy path** (well-formed prep doc, present recent recap, valid paths). Before pushing forward with Session 21 ingestion (or any new session), we want confidence the dispatch guards + grader actually catch adversarial inputs — not just that they don't trigger on clean ones.
+**Insight:** A passing happy-path benchmark proves the system *can* succeed; a passing perturbation suite proves the system *fails safely* when the inputs are wrong. Our recent grader fix (soft vs hard distinction for guard-caught reads, Round 5+6 of the 2026-04-20 sweep) was specifically motivated by a bug where guard-caught events were double-penalized. We have no evidence yet that the grader correctly catches the *opposite* failure mode: a chaos input the guard misses entirely or the model fails to recover from.
+**Action:** Author 4–6 perturbation scenarios in `evals/session_recap_ingest_vertical_slice/scope_b_scenarios/`: (a) prep doc with a malformed frontmatter block, (b) `recent_recaps` empty (fresh campaign), (c) `_ingest_staging/` path containing junk to test the guard fires + model recovers, (d) prep doc that contradicts itself across paragraphs (test dedup grader), (e) `target_session` already exists in corpus (test write_corpus_file create-mode rejection), (f) a path traversal attempt in a tool-call argument. For each: define expected `gates_passed`, expected hard violations, expected soft observations. Run cohort N=3 and confirm grader output matches the expected shape. **No model retraining; this is pure contract verification.**
+**Surfaces when:** Before any new-session ingest; planning Session 21 work; touching `scope_b_grader.py` or `planner_skill_dispatch_guards.py`; designing a "chaos" benchmark category.
+**Refs:** `evals/session_recap_ingest_vertical_slice/scope_b_grader.py`, `src/agent/planner_skill_dispatch_guards.py`, `Docs/Plans/SCOPE-B-GOLD-Session-20-Ingest.md`, `Backlog-DONE.md` `[DONE] Session recap Scope-B — staging-path read allowlist false-positives` for the grader contract.
+
+## [READY] CLI ingest vs direct fact-extractor parity — Phase A measured 2026-04-20, prior hypothesis falsified
+**Phase A results** (`evals/mirathorn_vertical_slice/output/parity_experiment_20260420T214522Z/parity_results.md`, ~32min, gpt-5.4-mini, 126 evidence units from `The City of Mirathorn.md`):
+
+| Cell | Path | bs | facts (extracted) | facts (post-store) |
+|---|---|---|---|---|
+| A | direct | 1 | 349 | — |
+| B | direct | 5 | 359 | — |
+| C | cli    | 1 | 600 | 600 |
+| D | cli    | 5 | 382 | 382 |
+
+**What the data falsifies:**
+- Original hypothesis (direct ≈441 / CLI ≈289 → CLI drops 35% of facts) **does not reproduce on current corpus + code.** Headline A→D gap is +9.5% (CLI bs=5 produces *more* facts than direct bs=1), not the predicted -34%. Either the prior measurement was on a different corpus snapshot or the code path has shifted since.
+- "FactStore dedup is the culprit" is **innocent** — pre-store == post-store on both CLI cells.
+- "Slot-drop warnings explain the gap" is **insufficient** — only Cell D has slot warnings (1 entity_missing + 1 fact_missing) yet C→D drops 218 facts; warnings cannot account for that.
+- Direct path is essentially batch-size-invariant (+2.9% A→B = LLM noise floor).
+
+**What the data surfaces (the *real* anomalies):**
+1. **CLI bs=1 produces 71.9% more facts than direct bs=1** (600 vs 349) on identical evidence units. Same chunker, same models. Something in the CLI's call shape (likely the entity payload it passes to the fact extractor — CLI uses `self.store.list_entities()`, direct passes the raw `entity_bundle["entities"]`) materially changes what the fact extractor produces. **This is the new top question.**
+2. **CLI batching causes a 36% fact loss** (600 → 382 going bs=1 → bs=5) without slot-drop warnings to explain it. Direct path doesn't show this. Suggests a CLI-side prompt/payload difference at bs>1 that quietly suppresses fact yield. Not a slot-bookkeeping bug.
+3. **D1 floors are stale** — `eval_synthesis.py` MIN_FACTS=205 was anchored to a measured CLI bs=5 baseline of 293; current measurement is 382 (+30%). Floors are still safe (382 > 205) but no longer represent `floor(0.7 × current_baseline)`. Re-anchor when the code path stabilizes.
+
+**Phase B1 (code-reading, completed 2026-04-20):** read both call sites to find the structural difference at bs=1. **Result: no material structural difference.**
+- `known_entities=None` and `known_entities=[]` are normalized identically (`entity_extractor.py:1190`: `known_entities = known_entities or []`).
+- `recap_artifacts is not None` checks only gate output collection (lines 1230, 1282, 1452); the LLM prompt is unaffected.
+- Sync `OpenAIResponsesEntityClient` and `AsyncOpenAIResponsesEntityClient` both call `responses.parse[_async]` with identical `model`, `input` (system + user prompt strings), and `text_format=EntityExtractionResult`. HTTP body to OpenAI is identical.
+- Same conclusion holds for fact extractor: identical request bodies between sync and async clients at bs=1.
+
+**Implication:** the +34% entity / +71.9% fact deltas between cells A and C cannot be code-side. They are most parsimoniously **LLM stochasticity from independent trials** (separate cache dirs → 126 fresh LLM calls per cell, gpt-5.4 reasoning models have nontrivial sampling variance). **B3 is therefore mandatory before any code work.**
+
+**Phase B candidates (revised):**
+- **B3 (now top priority): 3-trial repeat at cells A and C** to measure the LLM noise envelope at bs=1. Cost ~$3–5 and ~3h sequential, or ~1.5h with cache-sharing trick. Without this, every other measurement we make is noise. If envelopes overlap, the entire +71.9% story dissolves and the only real anomaly left to investigate is the **CLI bs=1 → bs=5 drop (-36%)** — and even that needs noise-floor calibration at bs=5 first.
+- **B2 (after B3): -36% CLI batching loss.** Print the actual system+user prompts at bs=1 vs bs=5 for unit_index=0 and structurally diff. Hypothesis: bs=5 prompt structure causes the model to dedupe across units inside a single call. This *is* a likely structural difference because batched and single modes use different prompt builders (`_build_batched_fact_user_prompt` vs `_build_fact_user_prompt`).
+- **B1 (now retired):** ruled out by code reading; recorded above for traceability.
+
+**Surfaces when:** any change to `_cmd_ingest`, `extract_facts_batch`, `OpenAIResponsesFactClient`, the fact extractor prompt, or D1 thresholds. Re-run `parity_experiment.py` after any such change.
+
+**Refs:** `evals/mirathorn_vertical_slice/parity_experiment.py`, `evals/mirathorn_vertical_slice/output/parity_experiment_20260420T214522Z/`, `src/cli.py:_cmd_ingest`, `src/ingestion/fact_extractor.py`, `src/ingestion/entity_extractor.py`, `evals/mirathorn_vertical_slice/eval_synthesis.py:33-44` (D1 floors).
+
+## [READY] CLI ingest vs direct fact-extractor parity gap — captured 2026-04-20 — SUPERSEDED BY ABOVE PHASE A ENTRY
+**Original hypothesis (now falsified by Phase A measurement above; kept for traceability):** CLI ingest yields ~289 facts vs direct ~441 facts → CLI drops 22–34% on same input.
+**Why kept:** The current Phase A measurement contradicts the prior baseline numbers. Either (a) the corpus or extractor code drifted between the prior measurement and now, (b) the prior numbers came from a different model/version, or (c) the prior measurement counted something different (e.g. raw `extracted_facts.json` vs post-store). This entry documents the original observation so the historical record stays intact.
 **Surfaces when:** New ingest CLI work; D1 threshold updates; any user report that "the CLI loses information vs direct ingest."
 **Refs:** `evals/mirathorn_vertical_slice/eval_synthesis.py` (D1 baseline comment), `src/cli.py` ingest command, `src/ingestion/batch_pipeline.py`, `src/ingestion/fact_extractor.py` (`run_fact_extraction`), `evals/mirathorn_vertical_slice/output/phase_d_summary.json`, `evals/mirathorn_vertical_slice/output/extracted_facts.json`.
 

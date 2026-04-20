@@ -1,0 +1,76 @@
+{
+  "timestamp_utc": "20260420T214522Z",
+  "source_path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/The City of Mirathorn.md",
+  "entity_model": "gpt-5.4-mini",
+  "fact_model": "gpt-5.4-mini",
+  "cells": [
+    {
+      "cell_id": "A",
+      "path": "direct",
+      "batch_size": 1,
+      "evidence_units": 126,
+      "entities_extracted": 122,
+      "facts_extracted": 349,
+      "entities_post_store": null,
+      "facts_post_store": null,
+      "slot_warnings": {
+        "entity_missing": 0,
+        "entity_duplicate": 0,
+        "fact_missing": 0,
+        "fact_duplicate": 0
+      },
+      "elapsed_seconds": 848.73
+    },
+    {
+      "cell_id": "B",
+      "path": "direct",
+      "batch_size": 5,
+      "evidence_units": 126,
+      "entities_extracted": 146,
+      "facts_extracted": 359,
+      "entities_post_store": null,
+      "facts_post_store": null,
+      "slot_warnings": {
+        "entity_missing": 0,
+        "entity_duplicate": 0,
+        "fact_missing": 0,
+        "fact_duplicate": 0
+      },
+      "elapsed_seconds": 405.0
+    },
+    {
+      "cell_id": "C",
+      "path": "cli",
+      "batch_size": 1,
+      "evidence_units": 126,
+      "entities_extracted": 164,
+      "facts_extracted": 600,
+      "entities_post_store": 164,
+      "facts_post_store": 600,
+      "slot_warnings": {
+        "entity_missing": 0,
+        "entity_duplicate": 0,
+        "fact_missing": 0,
+        "fact_duplicate": 0
+      },
+      "elapsed_seconds": 261.78
+    },
+    {
+      "cell_id": "D",
+      "path": "cli",
+      "batch_size": 5,
+      "evidence_units": 126,
+      "entities_extracted": 87,
+      "facts_extracted": 382,
+      "entities_post_store": 87,
+      "facts_post_store": 382,
+      "slot_warnings": {
+        "entity_missing": 1,
+        "entity_duplicate": 0,
+        "fact_missing": 1,
+        "fact_duplicate": 0
+      },
+      "elapsed_seconds": 123.7
+    }
+  ]
+}

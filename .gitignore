@@ -49,6 +49,9 @@ evals/**/output/automated_*.json
 evals/mirathorn_vertical_slice/output/phase_d_store/
 evals/llm_ingestion_slice/output/current/
 
+# Phase A parity experiment: keep summary files, ignore per-cell caches/stores
+evals/mirathorn_vertical_slice/output/parity_experiment_*/cell_*/
+
 # Corpus PDFs (statblocks, handouts) under corpus/ are tracked, e.g.
 # corpus/eldyrwild-markdown/Longmont Campaign/NPCs/*.pdf — do not add a blanket *.pdf here.
 
