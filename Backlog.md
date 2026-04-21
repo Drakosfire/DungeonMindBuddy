@@ -48,6 +48,7 @@ Sort newest → oldest within each status; promote with `/promote`; archive with
 
 **Context:** Live Scope-B cohort N=3 on Session 20 (post B7/B9 wiring + post SKILL §6.5 addition guiding `unsure_queue` and `notes_for_gm` population) returned 0/3 PASS. The model emits `unsure_queue: null`, `notes_for_gm: ""` (or a single generic prep-doc sentence), AND `npc_audit.*` and `plot_artifacts` 0/0/0 across all 6 failing runs (zero attempts). The mechanical fields (`recap_preview`, `duplicate_paragraphs`, `prep_pointer_proposal`) are populated correctly.
 **Insight (2026-04-21 investigation):** Four questions answered:
+
 - **SKILL §6.5 does NOT reach the planner LLM.** `build_corpus_session_planner_instructions` concatenates only `_SESSION_PLANNER_INSTRUCTIONS_TEMPLATE + _UNSURE_QUEUE_ADDENDUM + _WRITE_TOOLS_ADDENDUM`. SKILL.md is a Cursor-IDE-layer artifact gating parent-agent skill activation; it never reaches `gpt-5.4-mini`. Every prior assumption that "editing the SKILL fixes planner behavior" was wrong.
 - **B9 tokens (`Sara`, `Tealeaf`, `allowlist`) were unachievable.** `Sara`/`Tealeaf` appear only in `NPCs/<slug>/README.md` and dossier files which the dispatch guard hard-blocks for recap-write. `allowlist` appears in zero corpus files (only in `_WRITE_TOOLS_ADDENDUM` itself). The model could never satisfy B9 from permitted reads.
 - **B7 gold was content-rigid.** Exact verbatim IDs (`tower_blueprint_placement` etc.), specific question regex, specific `default_summary` substrings — a model surfacing the same ambiguities under different (equally valid) slugs always fails.
@@ -164,7 +165,7 @@ Sort newest → oldest within each status; promote with `/promote`; archive with
 
 ## [READY] Extraction Lab — pipeline contract field-name drift vs Section 9 — captured 2026-04-19
 
-**Context:** Top-to-bottom audit (2026-04-19 conversation). `Docs/Plans/HANDOFF-extraction-lab-design-from-retrieval-lab-learnings.md` §9.1 names a single `corpus_sha256` field. The shipped implementation uses `**store_sha256`** (hash of serialized entities+facts) plus an optional `**corpus_source_sha256**` (from `ingest_index.json` or a passed `--corpus-source-root`). Older runs on disk under `out/extraction_lab/real_smoke_*` only have `corpus_sha256`, so manifests across the dated run dirs do not share a schema.
+**Context:** Top-to-bottom audit (2026-04-19 conversation). `Docs/Plans/HANDOFF-extraction-lab-design-from-retrieval-lab-learnings.md` §9.1 names a single `corpus_sha256` field. The shipped implementation uses `**store_sha256`** (hash of serialized entities+facts) plus an optional `**corpus_source_sha256`** (from `ingest_index.json` or a passed `--corpus-source-root`). Older runs on disk under `out/extraction_lab/real_smoke_*` only have `corpus_sha256`, so manifests across the dated run dirs do not share a schema.
 **Insight:** This is real spec drift — the lab actually distinguishes "store hash" from "source-corpus hash" (which is the better factoring) but the handoff still claims one field. Either rename in code or update §9.1 to lock in both fields.
 **Action:** Either (a) update §9.1 to `store_sha256` + optional `corpus_source_sha256` and add a one-line "what each answers" note, or (b) rename `store_sha256` → `corpus_sha256` and absorb `corpus_source_sha256` as the canonical optional field. Then run a single fresh extraction_lab run and confirm the new contract round-trips through `contracts_equal`.
 **Surfaces when:** Any Extraction Lab work; introducing a new contract field; debugging a regression that turns out to be store vs corpus drift.
@@ -192,14 +193,6 @@ Sort newest → oldest within each status; promote with `/promote`; archive with
 **Action:** Make every `_load_api_key` site call `load_dungeonmindbuddy_dotenv()` first (or import from a single shared helper), and replace `OpenAI(api_key=api_key)` with bare `OpenAI()` everywhere except where the `DungeonMindApiClient.wrap` boundary already covers it. Update the env-loading rule to say "if you find yourself writing `_load_api_key`, you're already wrong — call `load_dungeonmindbuddy_dotenv()`."
 **Surfaces when:** Any new entrypoint that talks to OpenAI; any debugging of "key not found"; touching `synthesis.py` / `document_planner.py` / `query_planner.py` / `wiki_compiler.py` / `entity_extractor.py` / `fact_extractor.py`.
 **Refs:** `src/agent/synthesis.py:153-165`, `src/agent/document_planner.py:139-147`, `src/agent/query_planner.py:220-228`, `src/bootstrap_env.py:16-30`, `.cursor/rules/dungeonbuddy-environment.mdc`.
-
-## [READY] Evals artifact bloat — `npc_voice` and `session_recap_ingest` track run dirs in git — captured 2026-04-19
-
-**Context:** `evals/lysandra_vertical_slice/artifacts/.gitignore` correctly hides `runs/` and `last_planner_step1_run.md`. The same is **not** true under `evals/npc_voice_vertical_slice/artifacts/runs/2026-04-16/`, `2026-04-17/`, or `evals/session_recap_ingest_vertical_slice/artifacts/runs/2026-04-2*/` — those are versioned and visible in `git status` already.
-**Insight:** Each cohort run leaks 5–20 MD/JSON files into git. This is what is making `git status` long after every benchmark run and what will eventually make `git log -p` unwieldy.
-**Action:** Add a slice-level `.gitignore` to `npc_voice_vertical_slice/artifacts/` and `session_recap_ingest_vertical_slice/artifacts/` mirroring Lysandra's: ignore `runs/`, optionally keep `last_`* mirrors. Then `git rm --cached -r` the existing run dirs in a focused commit so future cohorts don't show up as untracked noise.
-**Surfaces when:** Any cohort run; reviewing `git status` after benchmarking; setting up a new vertical slice.
-**Refs:** `evals/lysandra_vertical_slice/artifacts/.gitignore` (good template), `evals/npc_voice_vertical_slice/artifacts/runs/`, `evals/session_recap_ingest_vertical_slice/artifacts/runs/`.
 
 ## [IDEA] Hoist a shared `evals/reporting/` module — captured 2026-04-19
 

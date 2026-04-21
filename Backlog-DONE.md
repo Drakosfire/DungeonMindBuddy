@@ -11,6 +11,13 @@ Sort newest → oldest within each status.
 
 ## DONE
 
+## [DONE] Evals artifact bloat — `npc_voice` and `session_recap_ingest` tracked run dirs in git — captured 2026-04-19, completed 2026-04-20
+
+**Context:** Cohort benchmarks wrote dated MD/JSON under `artifacts/runs/` for npc_voice and session_recap_ingest; those paths were tracked, so every run dirtied `git status` and inflated history.
+**Action:** DONE. Added `evals/npc_voice_vertical_slice/artifacts/.gitignore` (ignore `runs/` + `last_npc_voice_planner_run.md`, matching Lysandra). Added `evals/session_recap_ingest_vertical_slice/artifacts/.gitignore` (ignore last-run mirrors + `runs/*` with `!runs/.gitkeep`). `git rm --cached` on previously indexed run trees and mirror files; files remain on disk locally. Commit `0fe7588`.
+**Surfaces when:** Adding a new vertical slice with dated run output — copy the Lysandra `artifacts/.gitignore` pattern from the start.
+**Refs:** `evals/lysandra_vertical_slice/artifacts/.gitignore`, `evals/npc_voice_vertical_slice/artifacts/.gitignore`, `evals/session_recap_ingest_vertical_slice/artifacts/.gitignore`.
+
 ## [DONE] Recap-write / planner — unit test locks planner prompt workflow order vs SKILL (grounding P2) — captured 2026-04-20, completed 2026-04-21
 
 **Context:** Round-4 recap regression came from prompt narrative ordering (`assemble_recap_draft` vs `build_recap_write_payload`). Nothing in CI asserted the exported planner text stayed aligned with the numbered recap-write flow in `_WRITE_TOOLS_ADDENDUM`.
