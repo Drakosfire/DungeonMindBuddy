@@ -5,6 +5,8 @@
 **Cursor rule (short form):** `.cursor/rules/corpus-layout-conventions.mdc`  
 **Worked example:** `Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/` plus `Elderwyld/.../Mirathorn/NPCs/captain_lysandra_ironveil/`
 
+**Specialization of:** `Docs/CONVENTION-Corpus-Subject-Schemas.md` §3 (subject hub definition) and §4 (frontmatter contract).
+
 ---
 
 ## 1. Goals
