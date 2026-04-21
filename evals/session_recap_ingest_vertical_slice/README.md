@@ -41,6 +41,15 @@ PLANNER_REVIEW_MODE=summary uv run python -m \
   evals.session_recap_ingest_vertical_slice.step1_recap_ingest_run
 ```
 
+### One perturbation scenario
+
+```bash
+export OPENAI_API_KEY=…   # optional if repo .env / .env.development already has it
+PLANNER_REVIEW_MODE=summary uv run python -m \
+  evals.session_recap_ingest_vertical_slice.step1_recap_ingest_run \
+  --scenario-json evals/session_recap_ingest_vertical_slice/scope_b_scenarios/guarded_staging_read_recovery.json
+```
+
 ### Cohort run
 
 ```bash

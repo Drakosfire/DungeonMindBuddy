@@ -108,10 +108,11 @@ _SKILL_PATH = Path(_REPO_ROOT) / ".cursor/skills/recap-write/SKILL.md"
 _ALLOW_WRITES_ENV = "DUNGEONMIND_PLANNER_ALLOW_WRITES"
 
 
-def load_scope_b_scenario() -> dict[str, Any]:
-    if not _GOLD_SCENARIO.is_file():
-        raise FileNotFoundError(f"missing gold scenario: {_GOLD_SCENARIO}")
-    return json.loads(_GOLD_SCENARIO.read_text(encoding="utf-8"))
+def load_scope_b_scenario(path: Path | None = None) -> dict[str, Any]:
+    scenario_path = (path or _GOLD_SCENARIO).expanduser().resolve()
+    if not scenario_path.is_file():
+        raise FileNotFoundError(f"missing scope-b scenario: {scenario_path}")
+    return json.loads(scenario_path.read_text(encoding="utf-8"))
 
 
 def _strip_markdown_frontmatter(text: str) -> str:
@@ -136,8 +137,8 @@ def load_skill_markdown_for_prompt(*, max_chars: int = 24_000) -> str:
     return body
 
 
-def load_fixture_raw_notes() -> str:
-    sc = load_scope_b_scenario()
+def load_fixture_raw_notes(scenario: dict[str, Any] | None = None) -> str:
+    sc = scenario or load_scope_b_scenario()
     rel = str(sc.get("fixture_relpath") or "fixtures/session_20_raw_notes.txt").strip()
     path = (_SLICE_DIR / rel).resolve()
     if not path.is_file():
@@ -188,7 +189,7 @@ def run_session_recap_ingest_turn(
     the post-commit corpus). See BACKLOG §1.5 (option b).
     """
     sc = copy.deepcopy(scenario or load_scope_b_scenario())
-    notes = raw_notes if raw_notes is not None else load_fixture_raw_notes()
+    notes = raw_notes if raw_notes is not None else load_fixture_raw_notes(sc)
     ingest_rel = str(
         sc.get("ingest_raw_notes_relpath")
         or "Longmont Campaign/Campaign 2/_ingest_staging/session_20_raw_notes.md"
@@ -595,6 +596,16 @@ def main() -> None:
         help="Override planner model id (else MODEL_POLICY / default).",
     )
     parser.add_argument(
+        "--scenario-json",
+        type=Path,
+        default=None,
+        metavar="PATH",
+        help=(
+            "Load a scope-b scenario JSON from PATH instead of the canonical "
+            "gold/scope_b_session_20.json fixture."
+        ),
+    )
+    parser.add_argument(
         "--no-writes",
         action="store_true",
         help="Disable corpus write tools (overrides env).",
@@ -779,7 +790,7 @@ def main() -> None:
     configure_planner_review_logging()
     review_mode = resolve_review_mode()
     n = max(1, int(args.n))
-    gold = load_scope_b_scenario()
+    gold = load_scope_b_scenario(args.scenario_json)
     ingest_rel = str(
         gold.get("ingest_raw_notes_relpath")
         or "Longmont Campaign/Campaign 2/_ingest_staging/session_20_raw_notes.md"
@@ -941,6 +952,7 @@ def main() -> None:
                 corpus_dir=corpus_root,
                 client=client,
                 model_id=model_id,
+                scenario=gold,
                 allow_corpus_writes=allow_writes,
                 return_snapshot=True,
             )
@@ -992,6 +1004,7 @@ def main() -> None:
                 corpus_dir=corpus_root,
                 client=client,
                 model_id=model_id,
+                scenario=gold,
                 allow_corpus_writes=allow_writes,
                 return_snapshot=True,
             )
