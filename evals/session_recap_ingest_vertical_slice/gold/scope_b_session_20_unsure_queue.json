@@ -1,5 +1,6 @@
 {
   "schema": "unsure_queue_v1",
+  "mode": "exact",
   "expected_items": [
     {
       "id": "tower_blueprint_placement",
@@ -21,5 +22,18 @@
     }
   ],
   "max_total_items": 4,
-  "min_total_items": 2
+  "min_total_items": 2,
+  "_example_shape_mode": {
+    "_comment": "Shape-mode example (grader ignores keys prefixed with _). Use this pattern for perturbation scenarios that should not require exact IDs but should enforce structural hygiene.",
+    "mode": "shape",
+    "min_total_items": 2,
+    "max_total_items": 4,
+    "per_item_shape": {
+      "id_required": true,
+      "id_pattern": "^[a-z][a-z0-9_]*$",
+      "question_required": true,
+      "default_summary_required": true,
+      "min_alternatives": 2
+    }
+  }
 }

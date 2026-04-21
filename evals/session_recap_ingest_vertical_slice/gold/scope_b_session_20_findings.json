@@ -1,8 +1,10 @@
 {
   "schema": "session_recap_ingest_findings_v1",
   "must_substring_any": [
-    "Sara",
-    "Tealeaf",
-    "allowlist"
-  ]
+    "Brambleback",
+    "Stuart",
+    "Stacey",
+    "Marla"
+  ],
+  "_rationale": "Original tokens (Sara, Tealeaf, allowlist) were unachievable: Sara/Tealeaf live only in NPCs/<slug>/README.md and dossier files which the recap-write dispatch guard hard-blocks; allowlist appears in zero corpus files. Replacement tokens are NPC names that appear in the Session 20 recap, raw notes, and prep doc — the actual permitted read scope. Brambleback is the surname only the prep doc carries (recap omits surnames), so a model that surfaces ANY prep-vs-recap awareness in notes_for_gm is highly likely to mention it. The gate remains weak (the model still has to populate notes_for_gm at all, which the _UNSURE_QUEUE_ADDENDUM 'prefer 0' guidance discourages — see new READY entry #2), but it is now achievable in principle from permitted reads."
 }
