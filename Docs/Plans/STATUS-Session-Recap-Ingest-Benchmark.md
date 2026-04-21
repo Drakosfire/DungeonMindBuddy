@@ -47,7 +47,8 @@ uv run pytest tests/test_recap_ingest_helpers.py tests/test_session_20_scope_a_g
 
 ## Scope-B (live planner; mechanical Scope-B grader)
 
-The Scope-B benchmark now has its own grader (`evals/session_recap_ingest_vertical_slice/scope_b_grader.py`)
+The Scope-B benchmark now has its own grader (`evals/session_recap_ingest_vertical_slice/scope_b_grader.py`),
+invoked from `step1_recap_ingest_run.py` (there is no separate `step2_grade_against_gold` module),
 that asserts a smaller, mechanical contract than the original §J item-by-item gold:
 
 - exactly one `get_recap_context` call with **unpinned** args (`campaign_id` / `target_session` empty),

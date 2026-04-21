@@ -282,8 +282,8 @@ evals/session_recap_ingest_vertical_slice/
 ├── step0_corpus_environment.py              # Mirror of lysandra slice; resolve corpus dir + fingerprint pin
 ├── step0_pre_state.py                       # NEW: build a tmpdir corpus snapshot with §4.3 deletions applied
 ├── step1_recap_ingest_run.py                # Run planner with --allow-corpus-writes against pre-state
-├── step2_grade_against_gold.py              # Diff outputs vs gold; emit per-gate JSON report
-├── step3_unsure_queue_grading.py            # Grade the unsure queue payload against gold question shapes
+├── scope_b_grader.py                        # Mechanical Scope-B contract + B7 (imports step3_unsure_queue_grading)
+├── step3_unsure_queue_grading.py            # B7 unsure_queue helpers (used by scope_b_grader; not standalone step2)
 ├── step4_chaos_two_phase.py                 # C3 chaos test: mutate content between dry-run and commit
 ├── gold/
 │   ├── scope_b_session_20.json              # Machine-readable gold (per-path expected content + tool-trace expectations)
@@ -459,9 +459,8 @@ export PLANNER_REVIEW_MODE=summary
 uv run pytest tests/test_recap_ingest_helpers.py tests/test_session_20_scope_a_gold.py -v
 
 # Scope-B (live LLM, ~60 seconds, ~$0.15)
-uv run python evals/session_recap_ingest_vertical_slice/step1_recap_ingest_run.py
-uv run python evals/session_recap_ingest_vertical_slice/step2_grade_against_gold.py
-uv run python evals/session_recap_ingest_vertical_slice/step3_unsure_queue_grading.py
+# Grading is inline: step1 invokes scope_b_grader (which imports step3_unsure_queue_grading for B7).
+uv run python -m evals.session_recap_ingest_vertical_slice.step1_recap_ingest_run
 
 # Chaos / two-phase (no LLM, deterministic)
 uv run pytest evals/session_recap_ingest_vertical_slice/step4_chaos_two_phase.py -v
@@ -534,7 +533,7 @@ These are **explicitly excluded**. If we want them tested, that is a separate be
 | Gate | Automation | Proof artifact |
 |------|------------|----------------|
 | A1–A8 | **Yes** (A8 + helpers) | `tests/test_session_20_scope_a_gold.py`, `tests/test_recap_ingest_helpers.py` |
-| B1–B9 | **Partial** (B1 runnable via `step1`; B7 grader) | Finish `step2` graders + expand `scope_b_session_20.json` |
+| B1–B9 | **Partial** (mechanical B1–B6 + B7 via `step1` → `scope_b_grader`; B8–B9 per STATUS) | Expand `scope_b_session_20.json` / STATUS for any remaining narrative gates |
 | C1–C2, C4–C7 | **No** | Scope-B runner + tool-trace graders |
 | C3 | **Yes** | `tests/test_corpus_writer.py` (stale token / two-phase) |
 
@@ -562,8 +561,8 @@ These are **explicitly excluded**. If we want them tested, that is a separate be
 - [x] Write `gold/scope_b_session_20_unsure_queue.json` (§7.3 sketch).
 - [x] Write `gold/scope_b_session_20_findings.json` (stub substring list; not yet enforced).
 - [x] Write `step1_recap_ingest_run.py` wired to `run_planning_turn_detailed` with pre-state corpus, skill + fixture user message, write tools on, plus `RecapContext` snapshotting, `--parallel` cohort, `--detach`/`--detach-follow` execution (see module docstring + §15).
-- [~] Write `step2_grade_against_gold.py` — **superseded** by inline grader: `evals/session_recap_ingest_vertical_slice/scope_b_grader.py` is invoked from the runner each turn; per-gate violations land in the run sidecar. The standalone `step2_*.py` was not built.
-- [x] Write `step3_unsure_queue_grading.py` (regex + counts; **not** wired into the runner's pass/fail today).
+- [x] ~~Write `step2_grade_against_gold.py`~~ — **removed.** Superseded by `scope_b_grader.py` invoked from `step1_recap_ingest_run.py`; per-gate violations land in the run sidecar. No standalone step-2 CLI.
+- [x] Write `step3_unsure_queue_grading.py` (B7 helpers; imported by `scope_b_grader.py` for runner pass/fail when the scenario opts in — see STATUS).
 - [x] Write `step4_chaos_two_phase.py` (doc anchor; C3 covered in `tests/test_corpus_writer.py`).
 - [x] Write `evals/session_recap_ingest_vertical_slice/README.md` (refreshed against as-built architecture).
 - [ ] Add `make bench-recap-ingest` target (optional; not present today).

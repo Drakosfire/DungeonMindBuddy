@@ -862,11 +862,22 @@ def main() -> None:
         _vlog(verbosity, 1, f"tool_trace_sig: {_tool_trace_signature(trace)}")
         if verbosity >= 1 and not run.result.passed:
             viol = run.result.violations or {}
-            for bucket, rows in sorted(viol.items()):
-                for line in rows[:12]:
-                    _vlog(verbosity, 1, f"violation [{bucket}]: {line}")
-                if len(rows) > 12:
-                    _vlog(verbosity, 1, f"violation [{bucket}]: … {len(rows) - 12} more")
+            # Same message often lands in multiple buckets (e.g. scope_b + scope_b_payload);
+            # print once with every bucket that listed it.
+            msg_buckets: dict[str, set[str]] = {}
+            for bucket, rows in viol.items():
+                for line in rows:
+                    msg_buckets.setdefault(line, set()).add(bucket)
+            unique_lines = sorted(msg_buckets.keys())
+            for line in unique_lines[:12]:
+                bks = ", ".join(sorted(msg_buckets[line]))
+                _vlog(verbosity, 1, f"violation [{bks}]: {line}")
+            if len(unique_lines) > 12:
+                _vlog(
+                    verbosity,
+                    1,
+                    f"violation: … {len(unique_lines) - 12} more unique messages",
+                )
         if verbosity >= 1:
             try:
                 extras = collect_scope_b_recap_ingest_report_extras(

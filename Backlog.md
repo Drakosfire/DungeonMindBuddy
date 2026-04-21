@@ -37,12 +37,12 @@ Sort newest → oldest within each status; promote with `/promote`; archive with
 **Action:** For each item: implement and wire into the runner, **or** mark DEFERRED/CLOSED with one-line rationale (e.g. "covered by unit tests + dispatch guard; not Scope-B surface") so the ledger is honest.
 **Refs:** `Docs/Plans/STATUS-Session-Recap-Ingest-Benchmark.md`, `Docs/Plans/BACKLOG-session-recap-benchmarking.md`, `evals/session_recap_ingest_vertical_slice/scope_b_grader.py`.
 
-## [READY] Grounding pass P6 — execute existing hygiene READY after P1–P5 (OpenAI key loader + recap step2/B7 README) — captured 2026-04-20
+## [READY] Grounding pass P6 — execute existing hygiene READY after P1–P5 (OpenAI key loader) — captured 2026-04-20
 
 **Context:** Lowest urgency in the same grounding stack; avoids duplicating the long-form bodies already in this file.
-**Action:** After P1–P5 are done or parked, pick up the later READY entries titled `OpenAI client — collapse three _load_api_key copies…` and `Recap-ingest — step2_grade_against_gold.py…` — ideally coordinated with **grounding P3** if one pass touches runner + README + STATUS.
+**Action:** After P1–P5 are done or parked, pick up the READY entry titled `OpenAI client — collapse three _load_api_key copies…` — ideally coordinated with **grounding P3** if one pass touches runner + README + STATUS.
 **Surfaces when:** After recap-doc/gate alignment; any OpenAI client refactor.
-**Refs:** Search this file for those titles; `evals/session_recap_ingest_vertical_slice/step2_grade_against_gold.py`.
+**Refs:** Search this file for that title; `src/bootstrap_env.py`, `.cursor/rules/dungeonbuddy-environment.mdc`.
 
 ## [INVESTIGATED] Recap-write — model leaves judgment fields empty under happy path despite SKILL guidance — captured 2026-04-21
 
@@ -77,13 +77,6 @@ Sort newest → oldest within each status; promote with `/promote`; archive with
 **Action:** Inspect `evals/session_recap_ingest_vertical_slice/step1_recap_ingest_run.py` followup-turn handling: confirm the synthetic `apply` message is always injected after a successful dry-run preview, that the planner's tool loop continues rather than halting, and that `gold/scope_b_session_20.json::followup_turn` matches the injected text exactly. If the cue is sometimes missing or the planner exits before consuming it, add a guard that re-injects the cue and asserts `commit_required` is satisfied before marking the run complete.
 **Surfaces when:** Any Scope-B cohort run where one trial lands PARTIAL while others land PASS; touching the followup-turn injection logic in the Step 1 runner.
 **Refs:** `evals/session_recap_ingest_vertical_slice/step1_recap_ingest_run.py` (followup_turn handling), `evals/session_recap_ingest_vertical_slice/gold/scope_b_session_20.json` (`followup_turn` field), `.cursor/skills/recap-write/SKILL.md` §7 (two-phase commit contract).
-
-## [READY] Recap-ingest — cosmetic: violation duplication in step1 verbose output — captured 2026-04-20
-
-**Context:** When a Scope-B violation is added to multiple grader buckets (e.g. `scope_b_unsure_queue` mirrored into `scope_b_payload` and `scope_b`), the Step 1 verbose runner prints the same violation message 3–4 times. Pass/fail logic is unaffected; only the display is noisy and makes triage harder.
-**Action:** Dedupe by violation message text inside the `_vlog` violation-iteration loop in `step1_recap_ingest_run.py` around lines 850–900: collect messages into a set per run before printing, or emit each unique message once and annotate which buckets it appeared in. No change to grader logic or scoring.
-**Surfaces when:** Triaging a Scope-B FAIL from verbose cohort output; any edit to the Step 1 runner's reporting loop.
-**Refs:** `evals/session_recap_ingest_vertical_slice/step1_recap_ingest_run.py` lines ~850–900 (`_vlog` / violation iteration), `evals/session_recap_ingest_vertical_slice/scope_b_grader.py` bucket structure.
 
 ## [READY] Lysandra deterministic Step 2 — clarifier over-triggers + `power_axis: unknown` — captured 2026-04-20
 
@@ -178,13 +171,6 @@ Sort newest → oldest within each status; promote with `/promote`; archive with
 **Action:** In `assert_regression.evaluate_regression`, load the baseline's `pipeline_contract.json`, compare to the current contract via `contracts_equal`, and either (i) downgrade hard fails to warnings + write `drift_report.json`, or (ii) refuse to evaluate and exit with a clear "contract changed; promote a fresh baseline" message. Add a test that flips one contract field and asserts the new behavior.
 **Surfaces when:** Promoting a baseline; bumping `entity_extractor` / `fact_extractor` prompt IDs; changing the taxonomy.
 **Refs:** `extraction_lab/pipeline_contract.py:73-85`, `extraction_lab/assert_regression.py`, handoff §9.1.
-
-## [READY] Recap-ingest — `step2_grade_against_gold.py` is a stub; STATUS doc claims grader supersession — captured 2026-04-19
-
-**Context:** `evals/session_recap_ingest_vertical_slice/step2_grade_against_gold.py` is a placeholder ("Grader not wired"). The STATUS ledger and EXPERIMENT doc both reference grading via `scope_b_grader.py`. Anyone reading the slice top-down will hit the stub and assume there is a second grading path that doesn't exist.
-**Action:** Delete `step2_grade_against_gold.py` (or rename to `step2_grade_against_gold.deprecated.py` with a one-line "see scope_b_grader.py" pointer). Same pass: review `step3_unsure_queue_grading.py` (standalone, not wired into pass/fail) and decide whether to wire it or label it explicitly experimental in the README.
-**Surfaces when:** Onboarding to the recap-ingest slice; cleaning the evals tree; deciding whether B7 (unsure_queue) becomes a hard gate.
-**Refs:** `evals/session_recap_ingest_vertical_slice/step2_grade_against_gold.py`, `evals/session_recap_ingest_vertical_slice/step3_unsure_queue_grading.py`, `Docs/Plans/STATUS-Session-Recap-Ingest-Benchmark.md`.
 
 ## [READY] OpenAI client — collapse three `_load_api_key` copies and stop passing `api_key=` — captured 2026-04-19
 

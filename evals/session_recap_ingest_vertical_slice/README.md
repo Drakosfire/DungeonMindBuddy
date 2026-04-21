@@ -168,7 +168,7 @@ evals/session_recap_ingest_vertical_slice/
 ├── step0_corpus_environment.py      # corpus fingerprint pin + service gate
 ├── step0_pre_state.py               # build per-run pre-state tmp corpus
 ├── step1_recap_ingest_run.py        # the runner (CLI entry)
-├── step3_unsure_queue_grading.py    # legacy unsure-queue regex grader (NOT wired into runner today)
+├── step3_unsure_queue_grading.py    # B7 unsure_queue checks (imported by scope_b_grader; not a CLI entrypoint)
 ├── step4_chaos_two_phase.py         # doc anchor; C3 covered by tests/test_corpus_writer.py
 ├── gold/
 │   ├── scope_b_session_20.json      # the single gold scenario

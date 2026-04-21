@@ -11,6 +11,20 @@ Sort newest → oldest within each status.
 
 ## DONE
 
+## [DONE] Recap-ingest — removed `step2_grade_against_gold.py` stub; docs point at `scope_b_grader` — captured 2026-04-19, completed 2026-04-20
+
+**Context:** A never-wired `step2_grade_against_gold.py` suggested a second grading CLI; real grading lives in `scope_b_grader.py` from the Step 1 runner.
+**Action:** DONE. Deleted the stub module. Updated `evals/session_recap_ingest_vertical_slice/README.md` (step3 is a library helper for B7 via `scope_b_grader`), `Docs/Plans/EXPERIMENT-Session-Recap-Ingest-Benchmark.md` (file tree, §8.1 commands, §11 checklist + gate matrix), and `Docs/Plans/STATUS-Session-Recap-Ingest-Benchmark.md` (explicit “no step2 script” sentence).
+**Surfaces when:** Onboarding; adding a real post-hoc grader CLI (would be a new file name, not resurrecting step2).
+**Refs:** `evals/session_recap_ingest_vertical_slice/scope_b_grader.py`, `evals/session_recap_ingest_vertical_slice/step3_unsure_queue_grading.py`, `Docs/Plans/EXPERIMENT-Session-Recap-Ingest-Benchmark.md`, `Docs/Plans/STATUS-Session-Recap-Ingest-Benchmark.md`.
+
+## [DONE] Recap-ingest — cosmetic: violation dedupe in step1 verbose `_vlog` — captured 2026-04-20, completed 2026-04-20
+
+**Context:** Scope-B failures printed the same violation line once per grader bucket (`scope_b`, `scope_b_payload`, etc.), cluttering stderr cohort logs.
+**Action:** DONE. `_emit_run_report` in `step1_recap_ingest_run.py` now aggregates identical violation strings and logs once with a sorted comma-separated bucket list; cap remains 12 **unique** messages.
+**Surfaces when:** Editing verbose violation reporting in the Step 1 runner.
+**Refs:** `evals/session_recap_ingest_vertical_slice/step1_recap_ingest_run.py` (`_emit_run_report` / `_vlog`).
+
 ## [DONE] Evals artifact bloat — `npc_voice` and `session_recap_ingest` tracked run dirs in git — captured 2026-04-19, completed 2026-04-20
 
 **Context:** Cohort benchmarks wrote dated MD/JSON under `artifacts/runs/` for npc_voice and session_recap_ingest; those paths were tracked, so every run dirtied `git status` and inflated history.
