@@ -4,7 +4,10 @@
   "fixture_relpath": "fixtures/session_20_raw_notes.txt",
   "ingest_raw_notes_relpath": "Longmont Campaign/Campaign 2/_ingest_staging/session_20_raw_notes.md",
   "campaign_hub": "Longmont Campaign/Campaign 2",
-  "scope_b_grader": {},
+  "scope_b_grader": {
+    "require_unsure_queue": false,
+    "require_findings": false
+  },
   "expected_writes": [],
   "expected_tool_trace": {
     "must_read": [],

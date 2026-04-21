@@ -15,6 +15,13 @@ from src.agent.planner import PlanningTurnDetail
 from src.agent.recap_context import resolve_recap_context
 from tests.test_recap_write_output_schema import _valid_payload
 
+_GOLD_DIR = (
+    Path(__file__).resolve().parents[1]
+    / "evals"
+    / "session_recap_ingest_vertical_slice"
+    / "gold"
+)
+
 
 def _write_recap(
     corpus_root: Path,
@@ -101,6 +108,99 @@ def _final_text_with_recap_field() -> str:
     )
 
 
+def _final_text_with_surfaces(
+    *,
+    message: str,
+    notes_for_gm: str = "",
+    unsure_queue: list[dict] | None = None,
+    findings: object | None = None,
+) -> str:
+    payload = _valid_payload()
+    payload["notes_for_gm"] = notes_for_gm
+    out: dict[str, object] = {
+        "user_intent": "status_or_recap_request",
+        "message": message,
+        "unsure_queue": unsure_queue,
+        "recap_write": payload,
+    }
+    if findings is not None:
+        out["findings"] = findings
+    return json.dumps(out, ensure_ascii=False)
+
+
+def _valid_trace(ctx, ing: str) -> list[dict]:
+    trace: list[dict] = [{"tool": "get_recap_context", "arguments": {}}]
+    for e in ctx.recent_recaps:
+        trace.append({"tool": "read_corpus_file", "arguments": {"path": e.path}})
+    assert ctx.prep_doc_path
+    trace.append({"tool": "read_corpus_file", "arguments": {"path": ctx.prep_doc_path}})
+    trace.append(
+        {
+            "tool": "assemble_recap_draft",
+            "arguments": {
+                "raw_notes_path": ing,
+                "target_session": 20,
+                "campaign_id": "longmont-c2",
+            },
+        }
+    )
+    return trace
+
+
+def _scenario_with_scope_b_grader(**cfg: object) -> dict:
+    scenario = _scenario()
+    scenario["scope_b_grader"] = dict(cfg)
+    return scenario
+
+
+def _passing_unsure_queue() -> list[dict]:
+    gold = json.loads(
+        (_GOLD_DIR / "scope_b_session_20_unsure_queue.json").read_text(encoding="utf-8")
+    )
+    assert [spec["id"] for spec in gold["expected_items"]] == [
+        "tower_blueprint_placement",
+        "mayor_sheriff_names",
+        "stuart_surname",
+    ]
+    return [
+        {
+            "id": "tower_blueprint_placement",
+            "question": "Should the tower blueprint location or placement get a canonical home?",
+            "default_summary": "Locations: keep the tower blueprint unresolved until placement is confirmed.",
+            "alternative_summaries": [
+                "Locations/Tower of Voices if the scene proves the tower identity.",
+                "Locations index note if only the placement is known.",
+                "Plot artifact note if the blueprint itself becomes portable evidence.",
+            ],
+        },
+        {
+            "id": "mayor_sheriff_names",
+            "question": "What canonical mayor or sheriff name/slug should this recap use?",
+            "default_summary": "Use a stub until the mayor or sheriff canonical name is confirmed.",
+            "alternative_summaries": [
+                "Mayor stub pending canonical slug.",
+                "Sheriff stub pending canonical slug.",
+            ],
+        },
+        {
+            "id": "stuart_surname",
+            "question": "What is Stuart's surname or family name in canon?",
+            "default_summary": "Record Stuart with only 'stuart' until the surname is recovered.",
+            "alternative_summaries": [
+                "Use Stuart only in the recap body until canon confirms the family name.",
+                "Mark surname unresolved in NPC notes if needed.",
+            ],
+        },
+    ]
+
+
+def _findings_needles() -> list[str]:
+    gold = json.loads(
+        (_GOLD_DIR / "scope_b_session_20_findings.json").read_text(encoding="utf-8")
+    )
+    return [str(x) for x in gold["must_substring_any"]]
+
+
 def test_scope_b_grader_accepts_dedicated_recap_write_field(tmp_path: Path) -> None:
     _seed_campaign_2(tmp_path)
     _write_prep(
@@ -171,6 +271,152 @@ def test_scope_b_grader_passes_with_valid_trace(tmp_path: Path) -> None:
         tool_trace=trace,
     )
     assert collect_scope_b_recap_ingest_violations(_scenario(), detail, tmp_path) == {}
+
+
+def test_scope_b_grader_unsure_queue_gate_passes_when_opted_in(tmp_path: Path) -> None:
+    _seed_campaign_2(tmp_path)
+    _write_prep(
+        tmp_path,
+        campaign_hub="Longmont Campaign/Campaign 2",
+        filename="session_20_ref.md",
+    )
+    ctx = resolve_recap_context(tmp_path)
+    ing = "Longmont Campaign/Campaign 2/_ingest_staging/session_20_raw_notes.md"
+    (tmp_path / ing).parent.mkdir(parents=True, exist_ok=True)
+    (tmp_path / ing).write_text("Notes.\n", encoding="utf-8")
+
+    detail = PlanningTurnDetail(
+        final_text=_final_text_with_surfaces(
+            message="Recap drafted for review.",
+            unsure_queue=_passing_unsure_queue(),
+        ),
+        last_response_id="r1",
+        tool_trace=_valid_trace(ctx, ing),
+    )
+    v = collect_scope_b_recap_ingest_violations(
+        _scenario_with_scope_b_grader(require_unsure_queue=True),
+        detail,
+        tmp_path,
+    )
+    assert "scope_b_unsure_queue" not in v
+
+
+def test_scope_b_grader_unsure_queue_gate_fails_when_opted_in_and_missing_items(
+    tmp_path: Path,
+) -> None:
+    _seed_campaign_2(tmp_path)
+    _write_prep(
+        tmp_path,
+        campaign_hub="Longmont Campaign/Campaign 2",
+        filename="session_20_ref.md",
+    )
+    ctx = resolve_recap_context(tmp_path)
+    ing = "Longmont Campaign/Campaign 2/_ingest_staging/session_20_raw_notes.md"
+    (tmp_path / ing).parent.mkdir(parents=True, exist_ok=True)
+    (tmp_path / ing).write_text("Notes.\n", encoding="utf-8")
+
+    detail = PlanningTurnDetail(
+        final_text=_final_text_with_surfaces(
+            message="Recap drafted for review.",
+            unsure_queue=[],
+        ),
+        last_response_id="r1",
+        tool_trace=_valid_trace(ctx, ing),
+    )
+    v = collect_scope_b_recap_ingest_violations(
+        _scenario_with_scope_b_grader(require_unsure_queue=True),
+        detail,
+        tmp_path,
+    )
+    assert "scope_b_unsure_queue" in v
+    assert any("too few unsure_queue items" in msg for msg in v["scope_b_unsure_queue"])
+
+
+def test_scope_b_grader_findings_gate_passes_when_opted_in(tmp_path: Path) -> None:
+    _seed_campaign_2(tmp_path)
+    _write_prep(
+        tmp_path,
+        campaign_hub="Longmont Campaign/Campaign 2",
+        filename="session_20_ref.md",
+    )
+    ctx = resolve_recap_context(tmp_path)
+    ing = "Longmont Campaign/Campaign 2/_ingest_staging/session_20_raw_notes.md"
+    (tmp_path / ing).parent.mkdir(parents=True, exist_ok=True)
+    (tmp_path / ing).write_text("Notes.\n", encoding="utf-8")
+    needle = _findings_needles()[0]
+
+    detail = PlanningTurnDetail(
+        final_text=_final_text_with_surfaces(
+            message=f"Flag for GM: preserve {needle} in the operator findings surface.",
+            unsure_queue=None,
+        ),
+        last_response_id="r1",
+        tool_trace=_valid_trace(ctx, ing),
+    )
+    v = collect_scope_b_recap_ingest_violations(
+        _scenario_with_scope_b_grader(require_findings=True),
+        detail,
+        tmp_path,
+    )
+    assert "scope_b_findings" not in v
+
+
+def test_scope_b_grader_findings_gate_fails_when_opted_in_without_match(
+    tmp_path: Path,
+) -> None:
+    _seed_campaign_2(tmp_path)
+    _write_prep(
+        tmp_path,
+        campaign_hub="Longmont Campaign/Campaign 2",
+        filename="session_20_ref.md",
+    )
+    ctx = resolve_recap_context(tmp_path)
+    ing = "Longmont Campaign/Campaign 2/_ingest_staging/session_20_raw_notes.md"
+    (tmp_path / ing).parent.mkdir(parents=True, exist_ok=True)
+    (tmp_path / ing).write_text("Notes.\n", encoding="utf-8")
+
+    detail = PlanningTurnDetail(
+        final_text=_final_text_with_surfaces(
+            message="Recap drafted for review.",
+            notes_for_gm="No canonical naming blockers called out here.",
+            unsure_queue=None,
+        ),
+        last_response_id="r1",
+        tool_trace=_valid_trace(ctx, ing),
+    )
+    v = collect_scope_b_recap_ingest_violations(
+        _scenario_with_scope_b_grader(require_findings=True),
+        detail,
+        tmp_path,
+    )
+    assert "scope_b_findings" in v
+    assert any("must_substring_any" in msg for msg in v["scope_b_findings"])
+
+
+def test_scope_b_grader_omits_new_buckets_when_knobs_absent(tmp_path: Path) -> None:
+    _seed_campaign_2(tmp_path)
+    _write_prep(
+        tmp_path,
+        campaign_hub="Longmont Campaign/Campaign 2",
+        filename="session_20_ref.md",
+    )
+    ctx = resolve_recap_context(tmp_path)
+    ing = "Longmont Campaign/Campaign 2/_ingest_staging/session_20_raw_notes.md"
+    (tmp_path / ing).parent.mkdir(parents=True, exist_ok=True)
+    (tmp_path / ing).write_text("Notes.\n", encoding="utf-8")
+
+    detail = PlanningTurnDetail(
+        final_text=_final_text_with_surfaces(
+            message="Recap drafted for review.",
+            notes_for_gm="No required finding substrings here.",
+            unsure_queue=[],
+        ),
+        last_response_id="r1",
+        tool_trace=_valid_trace(ctx, ing),
+    )
+    v = collect_scope_b_recap_ingest_violations(_scenario(), detail, tmp_path)
+    assert "scope_b_unsure_queue" not in v
+    assert "scope_b_findings" not in v
 
 
 def test_scope_b_grader_rejects_read_outside_allowlist(tmp_path: Path) -> None:

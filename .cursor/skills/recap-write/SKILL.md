@@ -129,6 +129,41 @@ Walk the recap once and populate the structured payload fields:
 
 The follow-up payload is **the entire judgment surface for this skill**. Do not also enumerate it in narrative prose; the GM reads the JSON. A short prelude line in `message` ("Drafted Session 20 recap. Structured follow-ups below.") is fine.
 
+### 6.5 Populate top-level fields (unsure_queue + notes_for_gm)
+
+The planner's final assistant JSON carries two output fields that must be populated whenever there is something to report. Leaving them empty when findings exist is a regression — these structured surfaces are how the GM acts on what you noticed.
+
+#### `unsure_queue` (top-level array, outside `recap_write`)
+
+Populate with one item per unresolved ambiguity you could not settle from the corpus you read. Common triggers:
+- A character referred to only by role (e.g. mayor, sheriff, captain) whose canonical name did not appear in any file you accessed.
+- A named NPC whose surname the recap uses but whose hub (if it exists) did not confirm it, and no prep doc was available.
+- A newly introduced in-world object (structure, artifact, blueprint, map) that needs to be placed between two or more candidate corpus locations you cannot resolve from the files you read.
+
+Shape of each item:
+
+```json
+{
+  "id": "lowercase_snake_case_topic",
+  "question": "One-sentence question the GM can answer definitively.",
+  "default_summary": "The choice you would make if forced to commit right now.",
+  "alternative_summaries": ["Alternative A", "Alternative B", "Alternative C"]
+}
+```
+
+Slug IDs use `lowercase_snake_case` summarizing the specific ambiguity — for example: `placement_<noun>` for a location-choice, `<role>_names` for a role-only NPC, `<character>_surname` for a surname gap. Typical count: 2–4 items. Cap at 4. Each item must have at least two `alternative_summaries`. **Do not emit `null` when any unresolved ambiguity exists.**
+
+#### `notes_for_gm` (inside `recap_write`, free-form prose)
+
+Always non-empty when **any** of the following arose during the turn:
+- Prep-doc vs recap conflicts (a planned beat did not fire, or fired differently than planned).
+- Named NPCs you audited who appeared in the recap but have no hub and are not in `new_hub_proposals` — borderline cases the GM should be aware of.
+- Allowlist-blocked reads you encountered (corpus writer rejected a path you tried to open).
+- Ambiguous slugs you defaulted on without a hub read to confirm.
+- Non-fatal observations surfaced by `get_recap_context` in its `notes` field.
+
+Empty string **only** when the recap was a clean identity transform with zero findings — no ambiguities, no blocked reads, no prep-vs-recap delta, no NPC gaps.
+
 ### 7. Two-phase commit on the recap
 
 Per the contract above. After the GM approves with `apply`, call `write_corpus_file` again with `dry_run=false` and the exact `confirm_token`. Report the new corpus fingerprint from the writer's response.
@@ -149,6 +184,7 @@ Per the contract above. After the GM approves with `apply`, call `write_corpus_f
 - Inventing a session number when the recaps folder already implies the next one.
 - Writing a "files used" section into the recap body. The recap is in-world prose; tool traces capture sources.
 - Putting the structured payload anywhere other than a fenced ```json block inside `message`. Graders parse the block; arbitrary prose locations will fail.
+- Leaving `unsure_queue` as `null` or `notes_for_gm` empty when the recap surfaced ANY ambiguity, missing-hub NPC, or allowlist-blocked read. The structured surfaces are how the GM acts on what you noticed; silence is a regression.
 
 ## See also
 

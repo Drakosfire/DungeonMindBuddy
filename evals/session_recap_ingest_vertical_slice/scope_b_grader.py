@@ -8,6 +8,8 @@ Violations are split into:
 * ``scope_b_tool`` — ``get_recap_context`` shape, read allowlist, ``assemble_recap_draft``,
   optional ``build_recap_write_payload`` (when ``require_build_recap_write_payload``).
 * ``scope_b_payload`` — planner envelope JSON and ``recap_write_v1`` extract/validate.
+* ``scope_b_unsure_queue`` — top-level ``unsure_queue`` items when the scenario opts in.
+* ``scope_b_findings`` — findings/GM-notes substring checks when the scenario opts in.
 
 ``scope_b`` is the concatenation of both (stable bucket for combined reporting).
 """
@@ -33,10 +35,14 @@ from src.agent.recap_write_output_schema import (
     extract_recap_write_payload_loose,
     validate_recap_write_payload,
 )
+from evals.session_recap_ingest_vertical_slice.step3_unsure_queue_grading import (
+    grade_unsure_queue,
+)
 
 _DEFAULT_INGEST_RAW_NOTES_RELPATH = (
     "Longmont Campaign/Campaign 2/_ingest_staging/session_20_raw_notes.md"
 )
+_GOLD_DIR = Path(__file__).resolve().parent / "gold"
 # Module-local default (kept in sync with ``gold/scope_b_session_20.json`` and
 # the duplicate literal in ``step1_recap_ingest_run.py``). Hoisting the runner
 # copy to import this is BACKLOG §2.6 — out of scope here.
@@ -54,15 +60,24 @@ def _fail_prefix(sid: str) -> str:
 
 
 def _pack_scope_b_violations(
-    tool_v: list[str], payload_v: list[str]
+    tool_v: list[str],
+    payload_v: list[str],
+    unsure_v: list[str] | None = None,
+    findings_v: list[str] | None = None,
 ) -> dict[str, list[str]]:
+    unsure_v = unsure_v or []
+    findings_v = findings_v or []
     out: dict[str, list[str]] = {}
     if tool_v:
         out["scope_b_tool"] = tool_v
     if payload_v:
         out["scope_b_payload"] = payload_v
-    if tool_v or payload_v:
-        out["scope_b"] = tool_v + payload_v
+    if unsure_v:
+        out["scope_b_unsure_queue"] = unsure_v
+    if findings_v:
+        out["scope_b_findings"] = findings_v
+    if tool_v or payload_v or unsure_v or findings_v:
+        out["scope_b"] = tool_v + payload_v + unsure_v + findings_v
     return out
 
 
@@ -519,6 +534,67 @@ def _resolve_write_phase_knobs(scenario: dict[str, Any]) -> tuple[bool, bool]:
     return preview_required, commit_required
 
 
+def _check_unsure_queue(json_obj: dict[str, Any], *, prefix: str, required: bool) -> list[str]:
+    if not required:
+        return []
+    raw_items = json_obj.get("unsure_queue") or []
+    items = raw_items if isinstance(raw_items, list) else []
+    ok, violations = grade_unsure_queue(items)
+    if ok:
+        return []
+    return [f"{prefix} scope_b_unsure_queue: {v}" for v in violations]
+
+
+def _findings_surface_parts(payload: dict[str, Any] | None, json_obj: dict[str, Any]) -> list[str]:
+    parts: list[str] = []
+    if isinstance(payload, dict):
+        notes = payload.get("notes_for_gm")
+        if notes is not None:
+            parts.append(str(notes))
+        findings = payload.get("findings")
+        if findings is not None:
+            parts.append(
+                findings
+                if isinstance(findings, str)
+                else json.dumps(findings, ensure_ascii=False, sort_keys=True)
+            )
+    message = json_obj.get("message")
+    if message is not None:
+        parts.append(str(message))
+    top_findings = json_obj.get("findings")
+    if top_findings is not None:
+        parts.append(
+            top_findings
+            if isinstance(top_findings, str)
+            else json.dumps(top_findings, ensure_ascii=False, sort_keys=True)
+        )
+    return [part for part in parts if part]
+
+
+def _check_findings(
+    json_obj: dict[str, Any],
+    payload: dict[str, Any] | None,
+    *,
+    prefix: str,
+    required: bool,
+) -> list[str]:
+    if not required:
+        return []
+    gold = json.loads(
+        (_GOLD_DIR / "scope_b_session_20_findings.json").read_text(encoding="utf-8")
+    )
+    needles = [
+        str(v) for v in (gold.get("must_substring_any") or []) if str(v).strip()
+    ]
+    surface = "\n".join(_findings_surface_parts(payload, json_obj)).lower()
+    if any(needle.lower() in surface for needle in needles):
+        return []
+    return [
+        f"{prefix} scope_b_findings: findings surface contains none of "
+        f"must_substring_any={needles!r}"
+    ]
+
+
 def collect_scope_b_recap_ingest_violations(
     scenario: dict[str, Any],
     detail: PlanningTurnDetail,
@@ -570,6 +646,9 @@ def collect_scope_b_recap_ingest_violations(
 
     text = detail.final_text or ""
     json_obj, json_err = _parse_final_json_object(text)
+    payload: dict[str, Any] | None = None
+    unsure_v: list[str] = []
+    findings_v: list[str] = []
     if json_err:
         payload_v.append(f"{prefix} planner final output is not valid JSON: {json_err}")
     elif json_obj is None:
@@ -578,7 +657,6 @@ def collect_scope_b_recap_ingest_violations(
         # Prefer the dedicated ``recap_write`` field emitted by the per-skill schema
         # (``planner_turn_output_recap_write``); fall back to fenced JSON inside
         # ``message`` for runs that used the universal envelope.
-        payload: dict[str, Any] | None = None
         rw_field = json_obj.get("recap_write")
         if isinstance(rw_field, dict):
             payload = rw_field
@@ -597,6 +675,21 @@ def collect_scope_b_recap_ingest_violations(
         else:
             for v in validate_recap_write_payload(payload):
                 payload_v.append(f"{prefix} {v}")
+        unsure_v = _check_unsure_queue(
+            json_obj,
+            prefix=prefix,
+            required=cfg.get("require_unsure_queue") is True,
+        )
+        findings_v = _check_findings(
+            json_obj,
+            payload,
+            prefix=prefix,
+            required=cfg.get("require_findings") is True,
+        )
+        if unsure_v:
+            payload_v.extend(unsure_v)
+        if findings_v:
+            payload_v.extend(findings_v)
 
     if precomputed_recap_context is not None:
         ctx = precomputed_recap_context
@@ -605,7 +698,7 @@ def collect_scope_b_recap_ingest_violations(
             ctx = resolve_recap_context(corpus_path.resolve())
         except RecapContextError as exc:
             tool_v.append(f"{prefix} cannot resolve recap context for read allowlist: {exc}")
-            return _pack_scope_b_violations(tool_v, payload_v)
+            return _pack_scope_b_violations(tool_v, payload_v, unsure_v, findings_v)
 
     allowed = _read_allowlist_set(ctx, scenario)
 
@@ -720,7 +813,7 @@ def collect_scope_b_recap_ingest_violations(
         )
         tool_v.extend(hard)
 
-    return _pack_scope_b_violations(tool_v, payload_v)
+    return _pack_scope_b_violations(tool_v, payload_v, unsure_v, findings_v)
 
 
 # --- Mechanical-payload comparison helpers (BACKLOG §1.5 / option (b)) -------
