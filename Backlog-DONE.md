@@ -11,6 +11,13 @@ Sort newest → oldest within each status.
 
 ## DONE
 
+## [DONE] Recap-write / planner — unit test locks planner prompt workflow order vs SKILL (grounding P2) — captured 2026-04-20, completed 2026-04-21
+
+**Context:** Round-4 recap regression came from prompt narrative ordering (`assemble_recap_draft` vs `build_recap_write_payload`). Nothing in CI asserted the exported planner text stayed aligned with the numbered recap-write flow in `_WRITE_TOOLS_ADDENDUM`.
+**Action:** DONE. Added `tests/test_corpus_session_planner_recap_write_order.py`: calls `build_corpus_session_planner_instructions("", include_write_tools=True)` and asserts stable anchors for step 3 (mandatory `assemble_recap_draft`) appear before step 5 (optional `build_recap_write_payload`), matching the `_WRITE_TOOLS_ADDENDUM` numbered flow; asserts the numbered recap flow is absent when `include_write_tools=False`. Narrow invariant only — no full SKILL mirroring. Verified: `uv run pytest tests/test_corpus_session_planner_recap_write_order.py -q` (4 passed). Commit `6e8a10a`.
+**Surfaces when:** Editing `_WRITE_TOOLS_ADDENDUM` or recap-write numbered steps in `src/prompts/corpus_session_planner.py` — update the anchor constants in the same commit if wording changes.
+**Refs:** `tests/test_corpus_session_planner_recap_write_order.py`, `src/prompts/corpus_session_planner.py` (`_WRITE_TOOLS_ADDENDUM`), `.cursor/skills/recap-write/SKILL.md`, `Backlog-DONE.md` `[DONE] Session recap Scope-B — staging-path read allowlist false-positives` (Round-4 prompt fix context).
+
 ## [DONE] Backlog active/archive split — terminal entries move to `Backlog-DONE.md` — captured 2026-04-20, completed 2026-04-20
 **Context:** Right after the rule-creation work in this conversation. The active `Backlog.md` had accumulated 10 `[DONE]` entries that were diluting the `READY` / `IDEA` work-list and making it harder to spot what was still worth doing. User suggested: "a better pattern than having a backlog and updating it to done, is to have a done file for the backlog and move entries there."
 **Insight:** Terminal-state entries (`DONE` / `DROPPED`) carry valuable cross-session memory but should not crowd the active work-list. An archive file preserves the lineage without the visual cost. The split also makes `rg "^## \[READY\]" Backlog.md` exact instead of approximate.

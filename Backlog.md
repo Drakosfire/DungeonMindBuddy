@@ -19,12 +19,6 @@ Sort newest → oldest within each status; promote with `/promote`; archive with
 **Surfaces when:** Before any new-session ingest; planning Session 21 work; touching `scope_b_grader.py` or `planner_skill_dispatch_guards.py`; designing a "chaos" benchmark category.
 **Refs:** `evals/session_recap_ingest_vertical_slice/scope_b_grader.py`, `src/agent/planner_skill_dispatch_guards.py`, `Docs/Plans/SCOPE-B-GOLD-Session-20-Ingest.md`, `Backlog-DONE.md` `[DONE] Session recap Scope-B — staging-path read allowlist false-positives` for the grader contract.
 
-## [READY] Recap-write / planner — unit test locks planner prompt workflow order vs SKILL (grounding P2) — captured 2026-04-20
-
-**Context:** Round-4 recap regression came from prompt narrative ordering (`assemble_recap_draft` vs `build_recap_write_payload`). Nothing in CI today asserts the exported planner text stays aligned with SKILL sequence.
-**Action:** Add a test that reads `src/prompts/corpus_session_planner.py` (or the string it exports for recap-write) and asserts key tool names appear in the documented order (e.g. `assemble_recap_draft` before `build_recap_write_payload`) so scope creep cannot silently reorder recap-write again.
-**Refs:** `src/prompts/corpus_session_planner.py`, `.cursor/skills/recap-write/SKILL.md`, `src/agent/planner_skill_dispatch_guards.py`.
-
 ## [READY] Session recap ingest slice — wire B7 unsure_queue grader into runner pass/fail (grounding P3) — captured 2026-04-20
 
 **Context:** The slice includes grader code for B7 (`unsure_queue`), but STATUS reports it is not wired into the Step-1 runner exit status — scenarios that only need unsure-queue hygiene cannot graduate PARTIAL → PASS on that contract alone.
