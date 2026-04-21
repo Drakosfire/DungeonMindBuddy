@@ -11,6 +11,15 @@ Sort newest → oldest within each status.
 
 ## DONE
 
+## [DONE] Recap-ingest — wire live-portable `perturbation_setup` into Step 1 runner; wired cohort (grounding P1) — captured 2026-04-20, completed 2026-04-21
+
+**Context:** Negative control ([REPORT-Perturbation-Live-Negative-Control-2026-04-21.md](Docs/Plans/REPORT-Perturbation-Live-Negative-Control-2026-04-21.md)) proved live runs ignored `perturbation_setup`. P1 was to port the corpus-state half of `tests/test_scope_b_perturbation_scenarios.py` into the runner and re-run live cohorts.
+**Action:** DONE. Added `evals/session_recap_ingest_vertical_slice/perturbation_apply.py` (`apply_perturbation_setup_pre_snapshot`, `inject_existing_target_recap_after_snapshot`, `log_trace_variant_live_portability`). `step1_recap_ingest_run.py` applies mutations on default tmp corpus, skips them on `--live-corpus` with stderr WARNING, threads optional perturbation log when `-v`. README “Live vs offline” updated. Five × N=2 live cohorts (`gpt-5.4-mini`), total spend ≈ **$0.56**.
+**Follow-ups (not closed here):** (1) **Silent Session 21 bump** when Session 20 recap exists after inject — planner safety; see new `[READY]` in `Backlog.md`. (2) **Stale `confirm_token`** under malformed prep — benchmark / writer stability; see new `[READY]` in `Backlog.md`. (3) Live vs offline pass/fail still diverges where offline relies on fabricated `trace_variant` (`path_traversal_tool_arg` remains PASS live).
+**Deliverables:** `Docs/Plans/REPORT-Perturbation-Live-Wired-2026-04-21.md`; code under `evals/session_recap_ingest_vertical_slice/perturbation_apply.py` + `step1_recap_ingest_run.py` + `scope_b_scenarios/README.md`.
+**Surfaces when:** Extending `perturbation_setup` schema; onboarding to Scope-B chaos scenarios.
+**Refs:** `tests/test_scope_b_perturbation_scenarios.py`, cohort summaries under `evals/session_recap_ingest_vertical_slice/artifacts/runs/2026-04-21/recap_ingest_summary--gpt-5.4-mini--N2--20260421T041429Z.md` (and sibling timestamps in the wired REPORT table).
+
 ## [DONE] Recap-ingest — perturbation live negative-control cohort (Option C, grounding P1 precursor) — captured 2026-04-21, completed 2026-04-21
 
 **Context:** Before wiring adversarial corpus state into the live runner, we needed to know whether `--scenario-json` on the five `scope_b_scenarios/*.json` files already exercised different worlds than canonical Session 20.

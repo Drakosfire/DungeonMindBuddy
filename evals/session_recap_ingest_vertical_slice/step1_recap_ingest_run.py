@@ -60,7 +60,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import replace
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 _REPO_ROOT = str(Path(__file__).resolve().parents[2])
 if _REPO_ROOT not in sys.path:
@@ -86,6 +86,11 @@ from evals.session_recap_ingest_vertical_slice.recap_ingest_run_report import ( 
 from evals.session_recap_ingest_vertical_slice.scope_b_grader import (  # noqa: E402
     collect_scope_b_recap_ingest_report_extras,
     collect_scope_b_recap_ingest_violations,
+)
+from evals.session_recap_ingest_vertical_slice.perturbation_apply import (  # noqa: E402
+    apply_perturbation_setup_pre_snapshot,
+    inject_existing_target_recap_after_snapshot,
+    log_trace_variant_live_portability,
 )
 from evals.session_recap_ingest_vertical_slice.step0_pre_state import build_pre_state_corpus  # noqa: E402
 from src.agent.planner import (  # noqa: E402
@@ -178,6 +183,8 @@ def run_session_recap_ingest_turn(
     raw_notes: str | None = None,
     allow_corpus_writes: bool = True,
     return_snapshot: bool = False,
+    apply_perturbations: bool = True,
+    perturbation_log: Callable[[str], None] | None = None,
 ) -> Any:
     """One planner turn for Session 20 recap ingest; gates from ``scope_b_session_20.json`` final block.
 
@@ -194,6 +201,14 @@ def run_session_recap_ingest_turn(
         sc.get("ingest_raw_notes_relpath")
         or "Longmont Campaign/Campaign 2/_ingest_staging/session_20_raw_notes.md"
     ).strip()
+    sid = fixture_scenario_id(sc)
+    p_setup = sc.get("perturbation_setup") or {}
+    if apply_perturbations and p_setup:
+        log_trace_variant_live_portability(
+            sc, scenario_id=sid, log=perturbation_log
+        )
+        apply_perturbation_setup_pre_snapshot(corpus_dir, sc, log=perturbation_log)
+
     staging_path = (corpus_dir / ingest_rel).resolve()
     staging_path.parent.mkdir(parents=True, exist_ok=True)
     staging_path.write_text(notes, encoding="utf-8")
@@ -213,7 +228,19 @@ def run_session_recap_ingest_turn(
         pre_turn_recap_context = resolve_recap_context(corpus_path)
     except RecapContextError:
         pre_turn_recap_context = None
-    sid = fixture_scenario_id(sc)
+
+    if (
+        apply_perturbations
+        and p_setup
+        and pre_turn_recap_context is not None
+    ):
+        inject_existing_target_recap_after_snapshot(
+            corpus_dir,
+            sc,
+            pre_turn_recap_context,
+            log=perturbation_log,
+        )
+
     user_message, input_violations = resolve_planner_user_message(sc, corpus_path)
 
     def _early(failure: dict[str, list[str]]) -> Any:
@@ -791,6 +818,13 @@ def main() -> None:
     review_mode = resolve_review_mode()
     n = max(1, int(args.n))
     gold = load_scope_b_scenario(args.scenario_json)
+    if args.live_corpus and (gold.get("perturbation_setup") or {}):
+        print(
+            "[recap-ingest] WARNING: --live-corpus skips perturbation_setup corpus "
+            "mutations (destructive on a real corpus). Use default tmp pre-state for "
+            "adversarial replay.",
+            file=sys.stderr,
+        )
     ingest_rel = str(
         gold.get("ingest_raw_notes_relpath")
         or "Longmont Campaign/Campaign 2/_ingest_staging/session_20_raw_notes.md"
@@ -816,6 +850,17 @@ def main() -> None:
         f"cohort n={n} verbose={verbosity} ingest_raw_notes_relpath={ingest_rel!r} "
         f"gold_two_phase_commit_required={two_phase}",
     )
+    if (gold.get("perturbation_setup") or {}) and not args.live_corpus:
+        _vlog(
+            verbosity,
+            1,
+            "perturbation_setup present: live-portable fields will be applied to each "
+            "run corpus (see stderr lines prefixed [recap-ingest] perturbation: when "
+            f"-v/--verbose>=1). apply_perturbations={not args.live_corpus}",
+        )
+
+    def _perturbation_log(msg: str) -> None:
+        print(msg, file=sys.stderr, flush=True)
 
     client = OpenAI()
     model_id = _resolve_planner_model(args.model.strip() or None)
@@ -966,6 +1011,8 @@ def main() -> None:
                 scenario=gold,
                 allow_corpus_writes=allow_writes,
                 return_snapshot=True,
+                apply_perturbations=not args.live_corpus,
+                perturbation_log=_perturbation_log if verbosity >= 1 else None,
             )
             elapsed_s = round(time.monotonic() - t0, 2)
             last_run = run
@@ -1018,6 +1065,8 @@ def main() -> None:
                 scenario=gold,
                 allow_corpus_writes=allow_writes,
                 return_snapshot=True,
+                apply_perturbations=not args.live_corpus,
+                perturbation_log=_perturbation_log if verbosity >= 1 else None,
             )
             elapsed_s = round(time.monotonic() - t0, 2)
             return i, run, corpus_root, elapsed_s, snapshot
