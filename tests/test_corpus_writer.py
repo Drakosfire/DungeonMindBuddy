@@ -46,6 +46,57 @@ def test_allowlist_permits_recap_create_and_npc_appends(rel_path: str, mode: str
     assert allowed, reason
 
 
+# ---------------------------------------------------------------------------
+# Timeline allowlist — structural symmetry between NPCs and PCs (Stage-2 v1)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "rel_path",
+    [
+        "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/timeline.md",
+        "Longmont Campaign/Campaign 2/NPCs/dustwalker/timeline.md",
+        "Longmont Campaign/Campaign 2/PCs/caelynn/timeline.md",
+        "Longmont Campaign/Campaign 1/PCs/some_pc/timeline.md",
+    ],
+)
+def test_timeline_allowlist_accepts_npc_and_pc_paths(rel_path: str) -> None:
+    allowed, reason = is_writable_corpus_path(rel_path, "append")
+    assert allowed, reason
+
+
+@pytest.mark.parametrize(
+    "rel_path",
+    [
+        # Wrong basename under an NPC/PC hub
+        "Longmont Campaign/Campaign 2/NPCs/dustwalker/random_other_file.md",
+        "Longmont Campaign/Campaign 2/PCs/caelynn/notes.md",
+        # PC dossier-shaped file is not the timeline (deny-basenames branch)
+        "Longmont Campaign/Campaign 2/PCs/caelynn/caelynn_character_dossier.md",
+        # Recap path (different allowlist branch, append mode)
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md",
+        # Sibling folder names that look-alike but aren't NPCs/PCs
+        "Longmont Campaign/Campaign 2/PC/caelynn/timeline.md",
+        "Longmont Campaign/Campaign 2/NPC/dustwalker/timeline.md",
+    ],
+)
+def test_timeline_allowlist_still_rejects_forbidden_paths(rel_path: str) -> None:
+    allowed, reason = is_writable_corpus_path(rel_path, "append")
+    assert not allowed, f"unexpectedly allowed: {rel_path} ({reason})"
+
+
+def test_path_traversal_with_timeline_tail_still_rejected_by_resolver(tmp_path: Path) -> None:
+    """Even if the allowlist regex matches the tail, ``..`` traversal must be refused."""
+    out = write_corpus_file(
+        tmp_path,
+        path="Longmont Campaign/Campaign 2/../../escaped/NPCs/x/timeline.md",
+        mode="append",
+        content="| **20** | x | `r.md` |\n",
+        dry_run=True,
+    )
+    assert out["ok"] is False
+
+
 @pytest.mark.parametrize(
     "rel_path,mode",
     [

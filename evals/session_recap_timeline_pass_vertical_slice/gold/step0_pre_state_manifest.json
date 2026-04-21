@@ -1,0 +1,35 @@
+{
+  "schema": "session_recap_timeline_pass_pre_state_v1",
+  "description": "Stage-2 v1 (autonomous timeline-pass): pin Session 20 recap bytes from slice gold; strip any Session 20 row from the four append-target timelines so the planner has to re-derive them; leave the two skip-target timelines untouched.",
+  "stage_1_recap_source": "evals/session_recap_timeline_pass_vertical_slice/gold/Session 20 - Recap.md",
+  "canonical_corpus_reference": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md",
+  "copy_into_corpus": [
+    {
+      "src_relative_to_slice": "gold/Session 20 - Recap.md",
+      "dst_relative_to_corpus": "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md"
+    }
+  ],
+  "remove_table_row_session_in": [
+    {
+      "path": "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/timeline.md",
+      "session": 20,
+      "note": "no Session 20 row in HEAD; strip is a no-op but asserted to make the contract explicit."
+    },
+    {
+      "path": "Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/timeline.md",
+      "session": 20
+    },
+    {
+      "path": "Longmont Campaign/Campaign 2/NPCs/thrin_branchborn/timeline.md",
+      "session": 20
+    },
+    {
+      "path": "Longmont Campaign/Campaign 2/PCs/caelynn/timeline.md",
+      "session": 20
+    }
+  ],
+  "leave_untouched_skip_targets": [
+    "Longmont Campaign/Campaign 2/NPCs/dustwalker/timeline.md",
+    "Longmont Campaign/Campaign 2/NPCs/torbin_jove/timeline.md"
+  ]
+}

@@ -32,7 +32,14 @@ _ALLOWED_MODES: tuple[str, ...] = ("create", "append")
 
 # Allowlist of corpus-relative paths the writer may touch.
 _CREATE_ALLOWED_RE = re.compile(r"(?:^|/)Session Recaps/Session \d+ - .+\.md$")
-_TIMELINE_RE = re.compile(r"(?:^|/)NPCs/[^/]+/timeline\.md$")
+# Append-only allowlist for timeline rows. Intentionally accepts BOTH
+# `NPCs/<slug>/timeline.md` and `PCs/<slug>/timeline.md` so PC-side timelines
+# are structurally symmetric with NPC hubs (the writer-allowlist gap that
+# blocked TP1 on the Caelynn target in the Stage-2 v1 timeline-pass slice;
+# see `Docs/Plans/REPORT-Timeline-Pass-Live-2026-04-21.md`). Scope is strictly
+# `append_timeline_row` — no other allowlist (create, README, dossier, etc.)
+# admits PC paths.
+_TIMELINE_RE = re.compile(r"(?:^|/)(?:NPCs|PCs)/[^/]+/timeline\.md$")
 _HUB_README_RE = re.compile(r"(?:^|/)NPCs/[^/]+/README\.md$")
 _SETTING_HUB_NPC_README_RE = re.compile(
     r"^Elderwyld/Cities and Towns/[^/]+/NPCs/[^/]+/README\.md$"
@@ -128,7 +135,8 @@ def is_writable_corpus_path(rel_path: str, mode: str) -> tuple[bool, str]:
         return True, ""
     return False, (
         "append mode is not allowed for this path (allowed: "
-        "`**/NPCs/<slug>/timeline.md`, `**/NPCs/<slug>/README.md`, "
+        "`**/NPCs/<slug>/timeline.md`, `**/PCs/<slug>/timeline.md`, "
+        "`**/NPCs/<slug>/README.md`, "
         "or `Longmont Campaign/Campaign N/Session Prep/*.md`)."
     )
 

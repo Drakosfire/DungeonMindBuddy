@@ -1,0 +1,5 @@
+# Regenerated each timeline-pass harness run; keep directory, ignore churning files.
+last_timeline_pass_run.md
+last_timeline_pass_run.json
+runs/*
+!runs/.gitkeep
