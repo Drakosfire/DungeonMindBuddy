@@ -1,3 +1,18 @@
+---
+title: "Caelynn — Campaign 2 (PC hub)"
+document_class: reference
+canon_layer: campaign
+campaign_id: longmont-c2
+temporal_scope: campaign_stateful
+session: null
+origin_session: null
+last_updated_session: 21
+source_class: ledger_or_dossier
+subject_class: pc
+subject_doc_kind: hub_index
+table_note: "Player: Danielle. Hub README; satellites (dossier, timeline, Campaign 2 Notes pointer) carry the canonical continuity. Not a statblock repository."
+---
+
 # Caelynn — Campaign 2 (PC hub)
 
 This folder is a **player-character continuity hub** for **Caelynn** (Danielle) in **Questionable Company**. It summarizes **session recaps** and campaign notes; it does **not** replace the **character sheet**, and it is **not** an NPC statblock repository.

@@ -8,6 +8,8 @@ session: null
 origin_session: null
 last_updated_session: 21
 source_class: authored_dossier
+subject_class: pc
+subject_doc_kind: hub_index
 ---
 
 # Bonogo — Campaign 2 (PC hub)
@@ -18,8 +20,9 @@ Slim hub for **Bonogo** in **Questionable Company**. Use this folder to park can
 
 Corpus root: `DungeonMindBuddy/corpus/eldyrwild-markdown/`.
 
-1. **`loot_geomantic_drake_nest.md`** — Canonical record of Bonogo's drake-nest haul (rolls + GM reskins + identified vs. unidentified state).
-2. *(Add `bonogo_character_dossier.md` and `timeline.md` later, matching the Caelynn / Sara / Thrin pattern.)*
+1. **`bonogo_character_dossier.md`** — Continuity surface: disambiguators, comms, items of record, open arcs, where to read next. Slim by design — recap-ingest fills it in.
+2. **`timeline.md`** — Session-ordered beats. Currently seeded with Bonogo's first session of record only; expand on each new recap.
+3. **`loot_geomantic_drake_nest.md`** — Canonical record of Bonogo's drake-nest haul (rolls + GM reskins + identified vs. unidentified state).
 
 ## Related
 

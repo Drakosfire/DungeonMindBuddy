@@ -1,3 +1,17 @@
+---
+title: "Stacey Brambleback — Mossford"
+document_class: reference
+canon_layer: world
+campaign_id: null
+temporal_scope: evergreen
+session: null
+origin_session: null
+last_updated_session: null
+source_class: seed_reference
+subject_class: npc
+subject_doc_kind: hub_index
+---
+
 # Stacey Brambleback — Mossford (setting seed)
 
 ## Suggested reads (in order)
