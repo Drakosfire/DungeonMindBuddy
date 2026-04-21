@@ -4,6 +4,8 @@
 
 This is the autonomous sibling of the v0 operator-instructed slice (`session_recap_timeline_append_vertical_slice/`). v0 stays as the tool-surface baseline; this slice grades **discovery + selectivity + halt-when-done**.
 
+**Iteration 3 runner mode:** pass `--per-slug` to chain **six** single-subject Responses micro-turns (one slug at a time) plus a **seventh** hub-proposal-only micro-turn on the same `previous_response_id` thread. Artifacts use `--7turn--` in the basename instead of `--1turn--`. The planner also exposes read-only **`list_npc_hubs`** / **`list_pc_hubs`** tools (corpus-relative `…/NPCs` or `…/PCs` roots) for deterministic hub discovery.
+
 - **Spec:** [Docs/Plans/EXPERIMENT-Session-Recap-Timeline-Pass-Benchmark.md](../../Docs/Plans/EXPERIMENT-Session-Recap-Timeline-Pass-Benchmark.md)
 - **Gate ledger:** [Docs/Plans/STATUS-Session-Recap-Timeline-Pass-Benchmark.md](../../Docs/Plans/STATUS-Session-Recap-Timeline-Pass-Benchmark.md)
 - **Stage-1 artifact pinned in:** `gold/Session 20 - Recap.md`
@@ -19,7 +21,8 @@ uv run python -m evals.session_recap_timeline_pass_vertical_slice.step1_timeline
 ## Offline tests
 
 ```bash
-uv run pytest tests/test_timeline_pass_grader.py tests/test_timeline_pass_pre_state.py -q
+uv run pytest tests/test_timeline_pass_grader.py tests/test_timeline_pass_pre_state.py \
+  tests/test_timeline_pass_per_slug_order.py tests/test_planner_hub_list_tools.py -q
 ```
 
 ## Live cohort
@@ -29,6 +32,15 @@ export DUNGEONMIND_PLANNER_ALLOW_WRITES=1
 PLANNER_REVIEW_MODE=summary uv run python -m \
   evals.session_recap_timeline_pass_vertical_slice.step1_timeline_pass_run \
   --n 3 --model gpt-5.4-mini
+```
+
+Per-slug chain (higher API cost — seven model turns per benchmark run):
+
+```bash
+export DUNGEONMIND_PLANNER_ALLOW_WRITES=1
+PLANNER_REVIEW_MODE=summary uv run python -m \
+  evals.session_recap_timeline_pass_vertical_slice.step1_timeline_pass_run \
+  --per-slug --n 3 --model gpt-5.4-mini
 ```
 
 Artifacts: `artifacts/runs/<YYYY-MM-DD>/timeline_pass--*.{md,json}` and `artifacts/last_timeline_pass_run.{md,json}`.

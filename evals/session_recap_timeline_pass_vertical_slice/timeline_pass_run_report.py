@@ -69,13 +69,15 @@ def _build_artifact_basename(
     gates_passed: bool,
     utc: datetime,
     run_index: int | None,
+    artifact_turn_pack: str = "1turn",
 ) -> str:
     compact = utc.strftime("%Y%m%dT%H%M%S") + "Z"
     scen = _sanitize_planner_step1_filename_segment(scenario_key, max_len=40)
     mod = _sanitize_planner_step1_filename_segment(model_id, max_len=48)
     gate = "PASS" if gates_passed else "FAIL"
+    pack = _sanitize_planner_step1_filename_segment(artifact_turn_pack, max_len=16)
     suffix = f"--run{run_index:03d}" if run_index is not None else ""
-    return f"timeline_pass--{scen}--{mod}--{gate}--1turn--{compact}{suffix}"
+    return f"timeline_pass--{scen}--{mod}--{gate}--{pack}--{compact}{suffix}"
 
 
 def _scenario_estimated_cost_usd(run: PlannerStep1Run) -> float:
@@ -120,6 +122,7 @@ def write_timeline_pass_run_report(
     cohort_size: int | None = None,
     grader_telemetry: dict[str, Any] | None = None,
     per_gate_verdict: dict[str, str] | None = None,
+    artifact_turn_pack: str = "1turn",
 ) -> tuple[TimelinePassReportPaths, TimelinePassRunSummary]:
     when = utc or datetime.now(timezone.utc)
     iso = when.strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -133,6 +136,7 @@ def write_timeline_pass_run_report(
         gates_passed=gate_ok,
         utc=when,
         run_index=(run_index + 1) if run_index is not None else None,
+        artifact_turn_pack=artifact_turn_pack,
     )
     primary_md = day_dir / f"{base}.md"
     sidecar_json = day_dir / f"{base}.json"
@@ -169,6 +173,7 @@ def write_timeline_pass_run_report(
         "primary_response_id": last_response_id,
         "telemetry_cost": dict(run.detail.telemetry_cost or {}),
         "grading": (scenario or {}).get("grading") if scenario else None,
+        "artifact_turn_pack": artifact_turn_pack,
     }
 
     rel_primary = primary_md
@@ -242,6 +247,7 @@ def capture_and_write_timeline_pass_report(
     cohort_size: int | None = None,
     grader_telemetry: dict[str, Any] | None = None,
     per_gate_verdict: dict[str, str] | None = None,
+    artifact_turn_pack: str = "1turn",
 ) -> tuple[TimelinePassReportPaths, TimelinePassRunSummary]:
     review = _capture_review_markdown(print_callable, **print_kwargs)
     print(review, end="" if review.endswith("\n") else "\n")
@@ -256,6 +262,7 @@ def capture_and_write_timeline_pass_report(
         cohort_size=cohort_size,
         grader_telemetry=grader_telemetry,
         per_gate_verdict=per_gate_verdict,
+        artifact_turn_pack=artifact_turn_pack,
     )
 
 

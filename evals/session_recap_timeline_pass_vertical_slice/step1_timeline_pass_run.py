@@ -12,6 +12,11 @@ Cohort::
     PLANNER_REVIEW_MODE=summary uv run python -m \\
       evals.session_recap_timeline_pass_vertical_slice.step1_timeline_pass_run --n 3 --model gpt-5.4-mini
 
+Per-slug chain (six timeline micro-turns + one hub-proposal turn)::
+
+    PLANNER_REVIEW_MODE=summary uv run python -m \\
+      evals.session_recap_timeline_pass_vertical_slice.step1_timeline_pass_run --per-slug --n 1 --model gpt-5.4-mini
+
 Pre-state only::
 
     uv run python -m evals.session_recap_timeline_pass_vertical_slice.step1_timeline_pass_run --print-root
@@ -57,10 +62,12 @@ from evals.session_recap_timeline_pass_vertical_slice.timeline_pass_run_report i
     write_timeline_pass_multi_summary,
 )
 from src.agent.planner import (  # noqa: E402
+    PlanningTurnDetail,
     _planner_tools_responses,
     _resolve_planner_model,
     build_corpus_path_ref_index,
     make_tool_dispatcher,
+    merge_planning_turn_details_chain,
     run_planning_turn_detailed,
 )
 from src.agent.planner_cache import load_or_build_planner_instructions  # noqa: E402
@@ -86,7 +93,86 @@ If a listed NPC has **no** meaningful Session 20 beat, **skip** them (do not app
 If an NPC is **prominent** in the recap but **not** present in the supplied list (no `timeline.md` exists yet), surface them as a hub proposal by appending an entry to `unsure_queue` whose `question` starts with the literal prefix `hub-proposal:` — for example, `hub-proposal: karsemine — combat lead and tracker for Lysandra in Session 20` or `hub-proposal: ephanna — Eldritch Blasts vs swarm, Marla intervention, Tealeaf line in Session 20`. The `hub-proposal:` prefix is required and is matched literally; without it the proposal is not counted. Each item also needs `id` like `hub_proposal_<slug>`, a `default_summary` describing what you'd create, and at least two `alternative_summaries`.
 
 Reply with the strict universal `planner_turn_output` JSON schema (`user_intent`, `message`, `unsure_queue` only — no `recap_write` field).
+
+Optional discovery (read-only): you may call `list_npc_hubs` with `npcs_root: Longmont Campaign/Campaign 2/NPCs` and/or `list_pc_hubs` with `pcs_root: Longmont Campaign/Campaign 2/PCs` to list existing campaign hub folders before proposing new hubs.
 """
+
+# Stable slug order matches `gold/timeline_pass_session20.json` user_message list.
+_TIMELINE_PASS_SLUG_ORDER: tuple[str, ...] = (
+    "captain_lysandra_ironveil",
+    "dustwalker",
+    "sara_mirathorn_operator",
+    "thrin_branchborn",
+    "torbin_jove",
+    "caelynn",
+)
+
+_TIMELINE_PASS_PER_SLUG_INSTRUCTION_SUFFIX = """
+
+**Benchmark micro-turn — autonomous timeline pass (Stage 2 v1, single subject):** The Session recap path appears in the user message. This micro-turn covers **one** `timeline.md` only — do not call `append_timeline_row` for any other slug here.
+
+If the recap describes a **meaningful Session 20 beat for that subject only**, call **`append_timeline_row` twice in this micro-turn** (preview then commit, identical args + the preview's `confirm_token`). **A preview-only stop when an append is warranted is a failure.** Match the existing markdown table format. For PC paths, pass `timeline_path` explicitly.
+
+**Commit checklist (read literally):** After every `append_timeline_row` preview that returns `ok=true phase=preview`, you MUST immediately re-call `append_timeline_row` with the SAME `npc_slug`, `session`, `beat`, `recap_path`, `timeline_path`, plus `dry_run=false` and the `confirm_token` from the preview, BEFORE emitting your final JSON for this micro-turn. Do **not** paste the token into `message` and ask a human to apply — the benchmark operator pre-approved every commit; you must issue the commit tool call yourself in this same micro-turn.
+
+If there is **no** meaningful Session 20 beat for this subject, **skip** the append and say so briefly in your final `message`.
+
+Do **not** call `assemble_recap_draft`, `build_recap_write_payload`, `get_recap_context`, or `write_corpus_file`. Optional: `list_npc_hubs` / `list_pc_hubs` on `Longmont Campaign/Campaign 2/NPCs` and `Longmont Campaign/Campaign 2/PCs`.
+
+Reply with `planner_turn_output` JSON (`user_intent`, `message`, `unsure_queue` only — use `unsure_queue: []` or `null` on slug micro-turns).
+"""
+
+_TIMELINE_PASS_HUB_ONLY_INSTRUCTION_SUFFIX = """
+
+**Benchmark micro-turn — hub proposals only (Stage 2 v1):** The recap path appears in the user message. Do **not** call `append_timeline_row` or `write_corpus_file`. Do **not** call `assemble_recap_draft`, `build_recap_write_payload`, or `get_recap_context`.
+
+For NPCs **prominent** in the recap who **do not** have a timeline file among the six paths already handled in prior micro-turns (`captain_lysandra_ironveil`, `dustwalker`, `sara_mirathorn_operator`, `thrin_branchborn`, `torbin_jove`, `caelynn` under `Longmont Campaign/Campaign 2/`), surface them in `unsure_queue` with each `question` starting with the literal prefix `hub-proposal:` (required for grading). Each item needs `id` like `hub_proposal_<slug>`, `default_summary`, and at least two `alternative_summaries`.
+
+Optional: call `list_npc_hubs` / `list_pc_hubs` on `Longmont Campaign/Campaign 2/NPCs` and `Longmont Campaign/Campaign 2/PCs` to see which campaign hubs already exist.
+
+Reply with `planner_turn_output` JSON only (`user_intent`, `message`, `unsure_queue`).
+"""
+
+
+def ordered_timeline_targets(grading: dict[str, Any]) -> list[dict[str, Any]]:
+    """Return append+skip specs in gold scenario order (six slugs)."""
+    by_slug: dict[str, dict[str, Any]] = {}
+    for spec in grading.get("expected_appends") or []:
+        slug = str(spec.get("npc_slug", "") or "").strip()
+        if slug:
+            by_slug[slug] = dict(spec)
+    for spec in grading.get("expected_skips") or []:
+        slug = str(spec.get("npc_slug", "") or "").strip()
+        if slug:
+            by_slug.setdefault(slug, dict(spec))
+    out: list[dict[str, Any]] = []
+    for slug in _TIMELINE_PASS_SLUG_ORDER:
+        if slug in by_slug:
+            out.append(by_slug[slug])
+    return out
+
+
+def recap_relative_path_from_grading(grading: dict[str, Any]) -> str:
+    fn = str(grading.get("recap_filename") or "Session 20 - Recap.md").strip()
+    return f"Longmont Campaign/Campaign 2/Session Recaps/{fn}"
+
+
+def build_per_slug_user_message(recap_rel: str, slug: str, timeline_rel: str) -> str:
+    return (
+        f"**Timeline-pass micro-turn:** Recap (source of truth): `{recap_rel}`.\n\n"
+        f"Consider **only** `{timeline_rel}` (`npc_slug` `{slug}`).\n\n"
+        "Decide whether Session 20 gives this character a meaningful beat; if yes, append one row "
+        "via the two-phase `append_timeline_row` contract described in system instructions."
+    )
+
+
+def build_hub_proposal_user_message(recap_rel: str) -> str:
+    return (
+        f"**Hub-proposal micro-turn:** Recap: `{recap_rel}`.\n\n"
+        "Emit `hub-proposal:` `unsure_queue` entries for prominent NPCs from the recap who are **not** "
+        "among the six slugs already covered in prior micro-turns (see system instructions). "
+        "Do not append timelines in this micro-turn."
+    )
 
 
 def load_scenario(path: Path | None = None) -> dict[str, Any]:
@@ -209,6 +295,170 @@ def run_timeline_pass_turn(
     return run, gtelemetry, verdict
 
 
+def run_timeline_pass_per_slug_chain(
+    *,
+    corpus_dir: Path,
+    client: Any,
+    model_id: str,
+    cache_root: Path | None = None,
+    scenario: dict[str, Any] | None = None,
+    allow_corpus_writes: bool = True,
+) -> tuple[PlannerStep1Run, dict[str, Any], dict[str, str]]:
+    """Seven chained Responses turns: six single-subject timeline micro-turns + one hub-proposal turn."""
+    sc = scenario or load_scenario()
+    sid = fixture_scenario_id(sc)
+    corpus_path = corpus_dir.resolve()
+    grading = sc.get("grading") if isinstance(sc.get("grading"), dict) else {}
+    targets = ordered_timeline_targets(grading)
+    recap_rel = recap_relative_path_from_grading(grading)
+
+    _user_message, input_violations = resolve_planner_user_message(sc, corpus_path)
+    if input_violations:
+        return (
+            _empty_fail(sid, {"input": input_violations}, user_line="[per_slug_chain]"),
+            {},
+            {},
+        )
+
+    instructions_base, fp = load_or_build_planner_instructions(
+        corpus_path,
+        cache_root=cache_root,
+        include_write_tools=allow_corpus_writes,
+    )
+    inst_slug = f"{instructions_base.rstrip()}{_TIMELINE_PASS_PER_SLUG_INSTRUCTION_SUFFIX}"
+    inst_hub = f"{instructions_base.rstrip()}{_TIMELINE_PASS_HUB_ONLY_INSTRUCTION_SUFFIX}"
+
+    tools = _planner_tools_responses(include_write_tools=allow_corpus_writes)
+    tool_cost_sink: list[dict[str, Any]] = []
+    ref_index = build_corpus_path_ref_index(corpus_path)
+    dispatch = make_tool_dispatcher(
+        corpus_path,
+        client,
+        model_id,
+        statblock_stub=None,
+        tool_cost_sink=tool_cost_sink,
+        corpus_path_ref_index=ref_index,
+        allow_corpus_writes=allow_corpus_writes,
+    )
+
+    details: list[PlanningTurnDetail] = []
+    prev_rid: str | None = None
+    for i, spec in enumerate(targets):
+        slug = str(spec.get("npc_slug", "") or "").strip()
+        rel = str(spec.get("timeline_relative_path", "") or "").strip()
+        if not slug or not rel:
+            return (
+                _empty_fail(
+                    sid,
+                    {"input": [f"[{sid}] per_slug_chain missing slug or path in spec {spec!r}"]},
+                    user_line="[per_slug_chain]",
+                ),
+                {},
+                {},
+            )
+        user_line = build_per_slug_user_message(recap_rel, slug, rel)
+        detail = run_planning_turn_detailed(
+            client=client,
+            model_id=model_id,
+            instructions=inst_slug,
+            tools=tools,
+            corpus_path=corpus_path,
+            user_line=user_line,
+            previous_response_id=prev_rid,
+            dispatch_tool=dispatch,
+            telemetry_context={
+                "scenario_id": sid,
+                "suite": "session_recap_timeline_pass_vertical_slice",
+                "corpus_fingerprint": fp,
+                "turn_index": i,
+                "per_slug_chain": True,
+                "per_slug_phase": "timeline_row",
+                "per_slug": slug,
+            },
+            corpus_path_ref_index=ref_index,
+            active_skill_id=None,
+        )
+        details.append(detail)
+        prev_rid = detail.last_response_id
+
+    hub_user = build_hub_proposal_user_message(recap_rel)
+    detail_hub = run_planning_turn_detailed(
+        client=client,
+        model_id=model_id,
+        instructions=inst_hub,
+        tools=tools,
+        corpus_path=corpus_path,
+        user_line=hub_user,
+        previous_response_id=prev_rid,
+        dispatch_tool=dispatch,
+        telemetry_context={
+            "scenario_id": sid,
+            "suite": "session_recap_timeline_pass_vertical_slice",
+            "corpus_fingerprint": fp,
+            "turn_index": len(targets),
+            "per_slug_chain": True,
+            "per_slug_phase": "hub_proposals",
+        },
+        corpus_path_ref_index=ref_index,
+        active_skill_id=None,
+    )
+    details.append(detail_hub)
+
+    detail = merge_planning_turn_details_chain(details)
+
+    statblock_usd = sum(float(x.get("total_usd", 0) or 0) for x in tool_cost_sink)
+    tc = dict(detail.telemetry_cost or {})
+    planner_usd = float(tc.get("planner_estimated_cost_usd", 0) or 0)
+    tc["statblock_tool_estimated_cost_usd"] = round(statblock_usd, 6)
+    tc["scenario_estimated_cost_usd"] = round(planner_usd + statblock_usd, 6)
+    detail = replace(detail, telemetry_cost=tc)
+    scenario_usd = tc["scenario_estimated_cost_usd"]
+
+    base_result = evaluate_scenario_detail(
+        sc,
+        detail,
+        estimated_cost_usd=scenario_usd,
+        corpus_fingerprint=fp,
+    )
+    grading_dict = sc.get("grading") or {}
+    gviol, gtelemetry = collect_timeline_pass_violations(
+        corpus_dir=corpus_path,
+        tool_trace=list(detail.tool_trace or []),
+        final_text=str(detail.final_text or ""),
+        grading=grading_dict if isinstance(grading_dict, dict) else {},
+    )
+    merged_violations = dict(base_result.violations)
+    for key, rows in gviol.items():
+        merged_violations.setdefault(key, []).extend(rows)
+    passed = base_result.passed and not gviol
+    final_result = replace(
+        base_result,
+        passed=passed,
+        violations=merged_violations,
+    )
+
+    combined_instructions = (
+        f"{instructions_base.rstrip()}\n\n"
+        f"[per_slug_chain artifact: {len(targets)} timeline micro-turns + 1 hub-proposal micro-turn; "
+        "suffixes _TIMELINE_PASS_PER_SLUG_INSTRUCTION_SUFFIX + _TIMELINE_PASS_HUB_ONLY_INSTRUCTION_SUFFIX]"
+    )
+    run = PlannerStep1Run(
+        detail=detail,
+        result=final_result,
+        instructions=combined_instructions,
+        user_line=f"[per_slug_chain x{len(details)}] {recap_rel}",
+        corpus_fingerprint=fp,
+        post_planner_step2_benchmark_detail=None,
+        scenario_key=sid,
+        followup_user_line="",
+        first_turn_final_text="",
+    )
+    verdict = per_gate_verdict(merged_violations)
+    gtelemetry = dict(gtelemetry or {})
+    gtelemetry["per_slug_chain_turns"] = len(details)
+    return run, gtelemetry, verdict
+
+
 def _tool_trace_signature(tool_trace: list[dict[str, Any]]) -> str:
     return ",".join(str(row.get("tool", "") or "") for row in tool_trace)
 
@@ -254,6 +504,14 @@ def main() -> None:
     parser.add_argument("--scenario-json", type=Path, default=None)
     parser.add_argument("--model", type=str, default="")
     parser.add_argument("--n", type=int, default=1)
+    parser.add_argument(
+        "--per-slug",
+        action="store_true",
+        help=(
+            "Chain seven Responses turns: one micro-turn per listed slug (preview→commit when warranted) "
+            "plus a final hub-proposal-only micro-turn. Artifact filenames use `--7turn--`."
+        ),
+    )
     parser.add_argument("--runs-root", type=Path, default=None)
     parser.add_argument("--no-writes", action="store_true")
     parser.add_argument("-q", "--quiet", action="store_true")
@@ -300,7 +558,7 @@ def main() -> None:
     review_mode = resolve_review_mode()
     if not args.quiet:
         print(
-            f"[timeline-pass] n={n} allow_writes={allow_writes} "
+            f"[timeline-pass] n={n} per_slug={bool(args.per_slug)} allow_writes={allow_writes} "
             f"PLANNER_REVIEW_MODE={review_mode}",
             file=sys.stderr,
         )
@@ -320,13 +578,22 @@ def main() -> None:
         if not args.quiet:
             print(f"[timeline-pass] run {i + 1}/{n} corpus_dir={corpus_root}", file=sys.stderr)
         t0 = time.monotonic()
-        run, telemetry, verdict = run_timeline_pass_turn(
-            corpus_dir=corpus_root,
-            client=client,
-            model_id=model_id,
-            scenario=gold,
-            allow_corpus_writes=allow_writes,
-        )
+        if args.per_slug:
+            run, telemetry, verdict = run_timeline_pass_per_slug_chain(
+                corpus_dir=corpus_root,
+                client=client,
+                model_id=model_id,
+                scenario=gold,
+                allow_corpus_writes=allow_writes,
+            )
+        else:
+            run, telemetry, verdict = run_timeline_pass_turn(
+                corpus_dir=corpus_root,
+                client=client,
+                model_id=model_id,
+                scenario=gold,
+                allow_corpus_writes=allow_writes,
+            )
         elapsed_s = round(time.monotonic() - t0, 2)
         cost = float((run.detail.telemetry_cost or {}).get("scenario_estimated_cost_usd", 0) or 0)
         total_cost += cost
@@ -359,6 +626,7 @@ def main() -> None:
             cohort_size=n if n > 1 else None,
             grader_telemetry=telemetry,
             per_gate_verdict=verdict,
+            artifact_turn_pack="7turn" if args.per_slug else "1turn",
         )
         summaries.append(summary)
         if not args.quiet:

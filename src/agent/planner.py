@@ -21,6 +21,7 @@ import urllib.error
 import urllib.request
 from dataclasses import dataclass, field
 from pathlib import Path
+from collections.abc import Sequence
 from typing import Any, Callable
 
 import blake3
@@ -605,6 +606,53 @@ def _planner_tools_responses(*, include_write_tools: bool = False) -> list[dict[
                 "additionalProperties": False,
             },
         },
+        {
+            "type": "function",
+            "name": "list_npc_hubs",
+            "description": (
+                "Deterministic inventory of NPC subject-hub folders under a campaign `NPCs/` directory. "
+                "Returns each child slug plus whether `timeline.md` / `README.md` exist — use before "
+                "guessing whether a campaign-hub NPC package exists. Read-only."
+            ),
+            "strict": False,
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "npcs_root": {
+                        "type": "string",
+                        "description": (
+                            "Corpus-relative path ending in `/NPCs`, e.g. "
+                            "`Longmont Campaign/Campaign 2/NPCs`."
+                        ),
+                    },
+                },
+                "required": ["npcs_root"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "type": "function",
+            "name": "list_pc_hubs",
+            "description": (
+                "Deterministic inventory of PC subject-hub folders under a campaign `PCs/` directory. "
+                "Returns each child slug plus whether `timeline.md` / `README.md` exist. Read-only."
+            ),
+            "strict": False,
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "pcs_root": {
+                        "type": "string",
+                        "description": (
+                            "Corpus-relative path ending in `/PCs`, e.g. "
+                            "`Longmont Campaign/Campaign 2/PCs`."
+                        ),
+                    },
+                },
+                "required": ["pcs_root"],
+                "additionalProperties": False,
+            },
+        },
     ]
     if include_write_tools:
         base.extend(_planner_writer_tools_responses())
@@ -721,6 +769,18 @@ def make_tool_dispatcher(
                     f"wire_format={src_fmt}]\n\n{text}"
                 )
             return text
+        if name == "list_npc_hubs":
+            return _list_campaign_subject_hubs_json(
+                corpus_path,
+                str(args.get("npcs_root", "")).strip(),
+                leaf_dir="NPCs",
+            )
+        if name == "list_pc_hubs":
+            return _list_campaign_subject_hubs_json(
+                corpus_path,
+                str(args.get("pcs_root", "")).strip(),
+                leaf_dir="PCs",
+            )
         if name == "get_recap_context":
             if not allow_corpus_writes:
                 return (
@@ -994,6 +1054,91 @@ def merge_planning_turn_details(
         usage_rounds=list(first.usage_rounds) + list(second.usage_rounds),
         pre_alignment_final_text=second.pre_alignment_final_text,
         clarification_alignment=second.clarification_alignment,
+    )
+
+
+def merge_planning_turn_details_chain(
+    details: Sequence[PlanningTurnDetail],
+) -> PlanningTurnDetail:
+    """Fold an ordered sequence of chained turns into one detail (concat traces, last final_text).
+
+    Pairwise uses :func:`merge_planning_turn_details` so telemetry costs and usage rounds
+    accumulate the same way as manually merging two turns at a time.
+    """
+    seq = list(details)
+    if not seq:
+        raise ValueError("merge_planning_turn_details_chain requires at least one PlanningTurnDetail")
+    acc = seq[0]
+    for nxt in seq[1:]:
+        acc = merge_planning_turn_details(acc, nxt)
+    return acc
+
+
+def _list_campaign_subject_hubs_json(
+    corpus_path: Path,
+    rel_root: str,
+    *,
+    leaf_dir: str,
+) -> str:
+    """Return JSON listing immediate child hub folders under ``…/NPCs`` or ``…/PCs``."""
+    raw = str(rel_root or "").strip().replace("\\", "/").strip("/")
+    if not raw:
+        return json.dumps(
+            {"ok": False, "error": f"missing corpus-relative {leaf_dir} root path"},
+            ensure_ascii=False,
+        )
+    parts = Path(raw).parts
+    if ".." in parts:
+        return json.dumps(
+            {"ok": False, "error": "path must not contain '..'", "subject_root": raw},
+            ensure_ascii=False,
+        )
+    if parts[-1] != leaf_dir:
+        return json.dumps(
+            {
+                "ok": False,
+                "error": f"path must end with /{leaf_dir} (got {raw!r})",
+                "subject_root": raw,
+            },
+            ensure_ascii=False,
+        )
+    root = (corpus_path / raw).resolve()
+    try:
+        root.relative_to(corpus_path.resolve())
+    except ValueError:
+        return json.dumps(
+            {"ok": False, "error": "path resolves outside corpus root", "subject_root": raw},
+            ensure_ascii=False,
+        )
+    if not root.is_dir():
+        return json.dumps(
+            {"ok": False, "error": f"not a directory: {raw!r}", "subject_root": raw},
+            ensure_ascii=False,
+        )
+    hubs: list[dict[str, Any]] = []
+    for child in sorted(root.iterdir()):
+        if not child.is_dir():
+            continue
+        slug = child.name
+        timeline = child / "timeline.md"
+        readme = child / "README.md"
+        hubs.append(
+            {
+                "slug": slug,
+                "folder_relative": f"{raw}/{slug}".replace("\\", "/"),
+                "has_timeline_md": timeline.is_file(),
+                "has_readme_md": readme.is_file(),
+            }
+        )
+    return json.dumps(
+        {
+            "ok": True,
+            "subject_root": raw,
+            "subject_class": "npc" if leaf_dir == "NPCs" else "pc",
+            "hub_count": len(hubs),
+            "hubs": hubs,
+        },
+        ensure_ascii=False,
     )
 
 

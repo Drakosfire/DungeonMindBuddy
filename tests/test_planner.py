@@ -16,6 +16,8 @@ from src.agent.planner import (
     build_corpus_manifest,
     build_corpus_path_ref_index,
     make_tool_dispatcher,
+    merge_planning_turn_details_chain,
+    PlanningTurnDetail,
 )
 
 
@@ -165,3 +167,28 @@ def test_manifest_includes_migrating_forest_sample() -> None:
     text = build_corpus_manifest(root)
     assert "Migrating Forest" in text
     assert "the_migrating_forest_executive_dm_summary.md" in text
+
+
+def test_merge_planning_turn_details_chain_requires_non_empty() -> None:
+    with pytest.raises(ValueError, match="at least one"):
+        merge_planning_turn_details_chain([])
+
+
+def test_merge_planning_turn_details_chain_concatenates_traces() -> None:
+    a = PlanningTurnDetail(
+        final_text="first",
+        last_response_id="id1",
+        tool_trace=[{"tool": "read_corpus_file", "arguments": {"path": "a.md"}}],
+        telemetry_cost={"planner_estimated_cost_usd": 0.01, "statblock_tool_estimated_cost_usd": 0.0},
+    )
+    b = PlanningTurnDetail(
+        final_text="second",
+        last_response_id="id2",
+        tool_trace=[{"tool": "append_timeline_row", "arguments": {"npc_slug": "x"}}],
+        telemetry_cost={"planner_estimated_cost_usd": 0.02, "statblock_tool_estimated_cost_usd": 0.0},
+    )
+    m = merge_planning_turn_details_chain([a, b])
+    assert m.final_text == "second"
+    assert m.last_response_id == "id2"
+    assert len(m.tool_trace) == 2
+    assert float(m.telemetry_cost["planner_estimated_cost_usd"]) == pytest.approx(0.03)
