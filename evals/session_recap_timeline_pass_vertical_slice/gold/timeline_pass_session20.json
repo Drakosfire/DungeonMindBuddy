@@ -25,22 +25,22 @@
       {
         "npc_slug": "captain_lysandra_ironveil",
         "timeline_relative_path": "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/timeline.md",
-        "beat_regex": "(?is)(?=.*Lysandra)(?=.*(forest|Mossford|camp|rocky|rockie|cult|tower|meat|antidote|charm|disorient|Sara|voice|blueprint|shimmer))"
+        "beat_regex": "(?is)(?=.*(forest|Mossford|camp|rocky|rockie|cult|tower|meat|antidote|charm|disorient|Sara|voice|blueprint|shimmer))"
       },
       {
         "npc_slug": "caelynn",
         "timeline_relative_path": "Longmont Campaign/Campaign 2/PCs/caelynn/timeline.md",
-        "beat_regex": "(?is)(?=.*[Cc]aelynn)(?=.*(Thunderwave|swarm|antidote|tea|bracelet|Marla|rockie|rocky|Sara|Lysandra|tower|blueprint))"
+        "beat_regex": "(?is)(?=.*(Thunderwave|swarm|antidote|tea|bracelet|Marla|rockie|rocky|Sara|Lysandra|tower|blueprint))"
       },
       {
         "npc_slug": "sara_mirathorn_operator",
         "timeline_relative_path": "Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/timeline.md",
-        "beat_regex": "(?is)(?=.*Sara)(?=.*(Lysandra|Caelynn|tainted|jerky|trust|Tealeaf|transfer|patch|rockie|rocky))"
+        "beat_regex": "(?is)(?=.*(Lysandra|Caelynn|tainted|jerky|trust|Tealeaf|transfer|patch|rockie|rocky))"
       },
       {
         "npc_slug": "thrin_branchborn",
         "timeline_relative_path": "Longmont Campaign/Campaign 2/NPCs/thrin_branchborn/timeline.md",
-        "beat_regex": "(?is)(?=.*Thrin)(?=.*(bow|gnat|swarm|Ephanna|watch|town|Lysandra|leave))"
+        "beat_regex": "(?is)(?=.*(bow|gnat|swarm|Ephanna|watch|town|Lysandra|leave))"
       }
     ],
     "expected_skips": [

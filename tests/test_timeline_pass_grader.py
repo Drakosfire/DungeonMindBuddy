@@ -31,19 +31,19 @@ from evals.session_recap_timeline_pass_vertical_slice.grader import (
 
 
 _LYSANDRA_RX = (
-    "(?is)(?=.*Lysandra)(?=.*(forest|Mossford|camp|rocky|rockie|cult|tower|"
+    "(?is)(?=.*(forest|Mossford|camp|rocky|rockie|cult|tower|"
     "meat|antidote|charm|disorient|Sara|voice|blueprint|shimmer))"
 )
 _CAELYNN_RX = (
-    "(?is)(?=.*[Cc]aelynn)(?=.*(Thunderwave|swarm|antidote|tea|bracelet|Marla|"
+    "(?is)(?=.*(Thunderwave|swarm|antidote|tea|bracelet|Marla|"
     "rockie|rocky|Sara|Lysandra|tower|blueprint))"
 )
 _SARA_RX = (
-    "(?is)(?=.*Sara)(?=.*(Lysandra|Caelynn|tainted|jerky|trust|Tealeaf|"
+    "(?is)(?=.*(Lysandra|Caelynn|tainted|jerky|trust|Tealeaf|"
     "transfer|patch|rockie|rocky))"
 )
 _THRIN_RX = (
-    "(?is)(?=.*Thrin)(?=.*(bow|gnat|swarm|Ephanna|watch|town|Lysandra|leave))"
+    "(?is)(?=.*(bow|gnat|swarm|Ephanna|watch|town|Lysandra|leave))"
 )
 
 

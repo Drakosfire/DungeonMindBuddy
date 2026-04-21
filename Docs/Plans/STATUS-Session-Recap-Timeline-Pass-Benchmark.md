@@ -7,7 +7,7 @@ Update **Last verified** when you re-run the listed commands.
 
 ---
 
-## Status: ACTIVE (2026-04-21, unpaused) — schema preconditions met; **Phase 3 (`--per-slug`) live-eval closed** (2026-04-21 cohort below)
+## Status: ACTIVE (2026-04-21, unpaused) — schema preconditions met; **Phase 3 (`--per-slug`) live-eval closed** (2026-04-21 cohort below); **Fix 1+2+3 landed (context-only beat_regex, synthetic hub worked examples, declarative hub-only suffix); Iteration 3.6 N=3 cohort remained 0/3 with TP1 0/3 and TP4 0/3 (TP2 2/3).**
 
 Restart conditions from the pause have all landed. Snapshot of what's now true that wasn't true at the Iteration 2 fail:
 
@@ -84,6 +84,7 @@ uv run pytest tests/test_timeline_pass_grader.py tests/test_timeline_pass_pre_st
 | 2026-04-21 | gpt-5.4-mini | 3 | 0/3 | **Iteration 2.5 (single-turn baseline, post hub-schema migration).** Per-gate: TP1 0/3, TP2 3/3, TP3 3/3, TP4 0/3, TP5 3/3. Confirms Iteration-2 failure shape still holds after corpus README migrations; run 2 added a Lysandra hybrid-rubric FAIL (“Karesmine” typo vs regex anchor). |
 | 2026-04-21 | gpt-5.4-mini | 1 | 0/1 | **Iteration 3 smoke — `--per-slug` (7 chained turns), pre per-slug commit-checklist reinforcement.** Lysandra micro-turn stopped at preview-only (instructed operator to apply token); Sara/Thrin/Caelynn rationalized skipping appends; hub micro-turn returned empty `unsure_queue` → TP1/TP4 FAIL. Per-slug suffix was tightened immediately after this run. |
 | 2026-04-21 | gpt-5.4-mini | 3 | 0/3 | **Iteration 3.5 — `--per-slug` N=3 (post commit-checklist).** Per-gate: TP1 **0/3**, TP2 **3/3**, TP3 **3/3**, TP4 **0/3**, TP5 **3/3**. Cost sum **$0.2671** (mean $0.0890, max $0.0992). Closes Phase-3 eval loop: multi-modal TP1 (regex wipe, preview-in-message, preview-only, rationalized skip); TP4 still empty or must-flag-incomplete. Cohort summary: `evals/session_recap_timeline_pass_vertical_slice/artifacts/runs/2026-04-21/timeline_pass_summary--gpt-5.4-mini--N3--20260421T210827Z.{md,json}`. Run artifacts: `--7turn--20260421T210640Z--run001`, `--7turn--20260421T210727Z--run002`, `--7turn--20260421T210827Z--run003`. |
+| 2026-04-21 | gpt-5.4-mini | 3 | 0/3 | **Iteration 3.6 — `--per-slug` N=3 (post Fix 1+2+3).** Per-gate: TP1 **0/3**, TP2 **2/3**, TP3 **3/3**, TP4 **0/3**, TP5 **3/3**. Cost sum **$0.2293** (mean $0.0764, max $0.0924). Cohort summary: `evals/session_recap_timeline_pass_vertical_slice/artifacts/runs/2026-04-21/timeline_pass_summary--gpt-5.4-mini--N3--20260421T212514Z.{md,json}`. Run artifacts: `--7turn--20260421T212327Z--run001`, `--7turn--20260421T212425Z--run002`, `--7turn--20260421T212514Z--run003`. |
 
 ---
 

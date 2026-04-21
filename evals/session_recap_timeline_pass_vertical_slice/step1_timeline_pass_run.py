@@ -90,7 +90,7 @@ For each NPC/PC `timeline.md` listed in the user message: open both the recap an
 
 If a listed NPC has **no** meaningful Session 20 beat, **skip** them (do not append) and explain the skip briefly in your final `message`.
 
-If an NPC is **prominent** in the recap but **not** present in the supplied list (no `timeline.md` exists yet), surface them as a hub proposal by appending an entry to `unsure_queue` whose `question` starts with the literal prefix `hub-proposal:` — for example, `hub-proposal: karsemine — combat lead and tracker for Lysandra in Session 20` or `hub-proposal: ephanna — Eldritch Blasts vs swarm, Marla intervention, Tealeaf line in Session 20`. The `hub-proposal:` prefix is required and is matched literally; without it the proposal is not counted. Each item also needs `id` like `hub_proposal_<slug>`, a `default_summary` describing what you'd create, and at least two `alternative_summaries`.
+If an NPC is **prominent** in the recap but **not** present in the supplied list (no `timeline.md` exists yet), surface them as a hub proposal by appending an entry to `unsure_queue` whose `question` starts with the literal prefix `hub-proposal:` — for example, `hub-proposal: example_combat_lead — combat lead and tracker for Lysandra in Session 20` or `hub-proposal: example_party_caster — Eldritch Blasts vs swarm, Marla intervention, Tealeaf line in Session 20`. The `hub-proposal:` prefix is required and is matched literally; without it the proposal is not counted. Each item also needs `id` like `hub_proposal_<slug>`, a `default_summary` describing what you'd create, and at least two `alternative_summaries`.
 
 Reply with the strict universal `planner_turn_output` JSON schema (`user_intent`, `message`, `unsure_queue` only — no `recap_write` field).
 
@@ -126,7 +126,9 @@ _TIMELINE_PASS_HUB_ONLY_INSTRUCTION_SUFFIX = """
 
 **Benchmark micro-turn — hub proposals only (Stage 2 v1):** The recap path appears in the user message. Do **not** call `append_timeline_row` or `write_corpus_file`. Do **not** call `assemble_recap_draft`, `build_recap_write_payload`, or `get_recap_context`.
 
-For NPCs **prominent** in the recap who **do not** have a timeline file among the six paths already handled in prior micro-turns (`captain_lysandra_ironveil`, `dustwalker`, `sara_mirathorn_operator`, `thrin_branchborn`, `torbin_jove`, `caelynn` under `Longmont Campaign/Campaign 2/`), surface them in `unsure_queue` with each `question` starting with the literal prefix `hub-proposal:` (required for grading). Each item needs `id` like `hub_proposal_<slug>`, `default_summary`, and at least two `alternative_summaries`.
+For **every** named NPC in the recap who is **prominent** and who **does not** have a timeline file among the six paths already handled in prior micro-turns (`captain_lysandra_ironveil`, `dustwalker`, `sara_mirathorn_operator`, `thrin_branchborn`, `torbin_jove`, `caelynn` under `Longmont Campaign/Campaign 2/`), you **MUST** emit a `hub-proposal:` entry in `unsure_queue`. You are making a **recommendation** to the operator, not asking them a question. Omitting a prominent named NPC outside those six slugs is a **TP4 failure**; the operator will accept or reject downstream.
+
+Each `question` must start with the literal prefix `hub-proposal:` (required for grading). The line after the prefix MUST be **declarative** (e.g. `hub-proposal: <slug> — <why this NPC warrants a hub>`), **not** interrogative: do **not** use `add X?`, `should we…`, or other question-shaped wording. Each item needs `id` like `hub_proposal_<slug>`. The `default_summary` MUST describe the **create** path (e.g. `create empty NPCs/<slug>/timeline.md skeleton + README`), not a decline or deferral. Include at least two `alternative_summaries`.
 
 Optional: call `list_npc_hubs` / `list_pc_hubs` on `Longmont Campaign/Campaign 2/NPCs` and `Longmont Campaign/Campaign 2/PCs` to see which campaign hubs already exist.
 
