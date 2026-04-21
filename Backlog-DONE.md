@@ -11,6 +11,35 @@ Sort newest → oldest within each status.
 
 ## DONE
 
+## [DONE] Recap-ingest — perturbation live negative-control cohort (Option C, grounding P1 precursor) — captured 2026-04-21, completed 2026-04-21
+
+**Context:** Before wiring adversarial corpus state into the live runner, we needed to know whether `--scenario-json` on the five `scope_b_scenarios/*.json` files already exercised different worlds than canonical Session 20.
+**Action:** DONE. Ran five live cohorts (`gpt-5.4-mini`, N=2, `--parallel 2` each); **10/10** runs `gates_passed`; total cohort `cost_usd.sum` ≈ **$0.57**. Proved **`step1_recap_ingest_run.py` does not consume `perturbation_setup`** — live outcomes diverged from offline `documented_expectations` on `existing_target_session_commit_rejected` and `path_traversal_tool_arg` (expected FAIL, got PASS) and on `guarded_staging_read_recovery` soft extras (expected soft strings, got empty `read_allowlist_soft_observations`).
+**Deliverables:** `Docs/Plans/REPORT-Perturbation-Live-Negative-Control-2026-04-21.md`; README pointer in `evals/session_recap_ingest_vertical_slice/scope_b_scenarios/README.md` (commit `e322c92`). Remaining P1 work reframed in `Backlog.md` as **wire `perturbation_setup` then re-run live cohorts**.
+**Surfaces when:** Explaining why a live `--scenario-json` run looked "too easy"; onboarding to perturbation fixtures.
+**Refs:** `tests/test_scope_b_perturbation_scenarios.py`, `evals/session_recap_ingest_vertical_slice/step1_recap_ingest_run.py`, cohort artifacts under `evals/session_recap_ingest_vertical_slice/artifacts/runs/2026-04-21/recap_ingest_summary--gpt-5.4-mini--N2--20260421T035422Z.md` (and sibling timestamps in the REPORT table).
+
+## [DONE] Session recap ingest benchmark — C4–C7 triage shipped (grounding P5) — captured 2026-04-20, completed 2026-04-21
+
+**Context:** STATUS listed C4–C7 as OPEN/PARTIAL with no clear "honest ledger" verdict per gate. Risk: permanent limbo between "promised benchmark work" and "actually covered elsewhere."
+**Action:** DONE. Tier-1 read-only triage (subagent, 2026-04-21) produced verdicts now reflected in `Docs/Plans/STATUS-Session-Recap-Ingest-Benchmark.md` C-gates table:
+- **C4 → CLOSED.** Write-path allowlist + dossier/seed/statblock denials enforced at `corpus_writer` + `make_tool_dispatcher`; covered by `tests/test_corpus_writer.py` + `tests/test_planner_write_dispatch.py`. Tool-trace forbidden-path filter would only duplicate.
+- **C5 → DEFERRED.** Needs machine-readable §H attempt list paired to findings surface; current grader is OR-substring-only and `require_findings: false` on canonical. Revisit when B7/B9 architectural READYs land.
+- **C6 → OPEN (WIRE-able).** Surfaced an additional bug: sidecar `corpus_fingerprint` is the **pre-turn** instruction-cache fingerprint, not a post-commit recompute (STATUS used to claim otherwise — fixed in same pass).
+- **C7 → OPEN (WIRE-able).** Pre/post tmpdir manifest diff against `tool_trace`-derived allowed paths.
+
+C6 + C7 split out into a new `[READY]` `Recap-ingest — wire C6 + C7` entry. Dead `forbidden_writes` gold field also surfaced and split into its own `[READY]`.
+**Surfaces when:** Cross-slice C-gate hygiene audits; explaining "covered elsewhere" verdicts in any STATUS doc.
+**Refs:** `Docs/Plans/STATUS-Session-Recap-Ingest-Benchmark.md` (revised C-gates table + summary counts), `Backlog.md` (`Recap-ingest — wire C6 (post-commit fingerprint parity) + C7…`, `Recap-ingest — gold forbidden_writes field is dead config…`).
+
+## [DONE] Session recap ingest slice — B7 unsure_queue grader wired into runner pass/fail (grounding P3) — captured 2026-04-20, completed 2026-04-21
+
+**Context:** The slice's B7 (`unsure_queue`) grader was advertised as not wired into the Step-1 runner exit status, blocking scenarios that needed unsure-queue hygiene from graduating PARTIAL → PASS on that contract alone.
+**Action:** DONE. `_check_unsure_queue` and `_check_findings` are invoked from `scope_b_grader.py` (gated by `require_unsure_queue` / `require_findings` in the scenario JSON), and STATUS now reports B7 + B9 as PASS (last verified 2026-04-21). The 2026-04-21 commit also refactored `step3_unsure_queue_grading.py` to support `mode: "shape"` so B7 doesn't require verbatim ID gold.
+**Caveat — what this DONE does NOT close:** the canonical Session 20 scenario keeps `require_unsure_queue: false` / `require_findings: false` because the planner LLM never emits judgment fields on the happy path. Two follow-up READYs in `Backlog.md` track the architectural decisions blocking re-enablement: `Recap-write planner — SKILL.md body has no injection path…` and `Recap-write planner — _UNSURE_QUEUE_ADDENDUM "prefer 0" line contradicts B7 happy-path expectations`. Those tickets — not P3 — are now the live work.
+**Surfaces when:** Re-enabling B7/B9 on canonical Session 20; touching `_UNSURE_QUEUE_ADDENDUM`; designing planner-instruction injection of SKILL.md body.
+**Refs:** `evals/session_recap_ingest_vertical_slice/scope_b_grader.py` (`_check_unsure_queue`, `_check_findings`), `evals/session_recap_ingest_vertical_slice/step3_unsure_queue_grading.py`, `evals/session_recap_ingest_vertical_slice/gold/scope_b_session_20.json` (opt-out flags), `Docs/Plans/STATUS-Session-Recap-Ingest-Benchmark.md` (B7/B9 rows).
+
 ## [DONE] Recap-ingest — removed `step2_grade_against_gold.py` stub; docs point at `scope_b_grader` — captured 2026-04-19, completed 2026-04-20
 
 **Context:** A never-wired `step2_grade_against_gold.py` suggested a second grading CLI; real grading lives in `scope_b_grader.py` from the Step 1 runner.
