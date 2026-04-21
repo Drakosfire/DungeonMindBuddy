@@ -7,7 +7,12 @@ alwaysApply: true
 
 Prescriptive rules for organizing markdown corpus files so the planner model navigates efficiently. For rationale, evidence, and anti-patterns see `Docs/Learnings/LEARNINGS-Corpus-Layout-For-LLM-Grounding.md`.
 
-**NPC hub package (README + timeline + dossier + dual hubs):** full template and checklists — `Docs/CONVENTION-NPC-Hub-Package.md`.
+**Subject hub meta-convention (frontmatter contract, closed vocabularies, file-type taxonomy):** `Docs/CONVENTION-Corpus-Subject-Schemas.md`.
+**NPC hub package** (README + timeline + dossier + dual hubs): `Docs/CONVENTION-NPC-Hub-Package.md`.
+**PC hub** (dossier + timeline required at inception): `Docs/CONVENTION-PC-Hub.md`.
+**Location hub** (top-level setting / sub-location dossier collection / named-region directory; nested region hubs supported): `Docs/CONVENTION-Location-Hub.md`.
+
+**Lint:** `uv run python scripts/lint_corpus_hubs.py` (read-only; `--strict` exits non-zero on any ISSUE).
 
 ---
 
@@ -17,14 +22,14 @@ Group all files for one entity into a **named folder** using the entity slug:
 
 ```
 .../NPCs/captain_lysandra_ironveil/
-  README.md
-  captain_lysandra_ironveil_statblock_cr2.md
-  captain_lysandra_ironveil_character_dossier.md
-  character_seed.md
-  timeline.md
+  README.md                                            # subject_class: npc, subject_doc_kind: hub_index
+  captain_lysandra_ironveil_statblock_cr2.md           # subject_doc_kind: statblock
+  captain_lysandra_ironveil_character_dossier.md       # subject_doc_kind: dossier
+  character_seed.md                                    # subject_doc_kind: seed
+  timeline.md                                          # subject_doc_kind: timeline
 ```
 
-One folder per entity. One `README.md` per folder.
+One folder per entity. One `README.md` per folder. The same hub shape applies to PCs (`.../PCs/<slug>/`) and to location hubs (see the Location convention for the three structural shapes).
 
 ## File naming: `{entity_slug}_{document_type}_{variant}.md`
 
@@ -38,16 +43,25 @@ Short utility files (`character_seed.md`, `timeline.md`, `README.md`) may omit t
 
 ## `timeline.md` (campaign hub)
 
-Use **only** in the **campaign** NPC hub when the character appears across multiple session recaps.
+Required in NPC hubs once a dossier exists, and in **every PC hub at inception** (per `Docs/CONVENTION-PC-Hub.md` §3 / §5).
 
 - Top: one short paragraph — primary recap folder path, optional pointer to large ledgers (e.g. campaign notes).
-- Body: a **table** with columns **Session** | **Beat (short)** | **Recap file** (literal filename under the recap folder).
+- Body: a **table** with columns **Session** | **Beat (short)** | **Recap / prep** (literal filename under the recap folder, or the prep doc that bridges a session with no recap).
+- For **PC** timelines, the `Session` column accepts non-numeric values for backstory rows: `Pre-campaign`, `Backstory`. Numeric rows (`1`, `7–8`) are otherwise mandatory.
 - Do not duplicate full recap prose; rows are **pointers** so the model opens the right `Session Recaps/*.md` files.
 - On new sessions: **append** rows; keep filenames aligned with the tree (no invented recap names).
 
 ## README structure
 
-Every hub `README.md` must contain:
+Every hub `README.md` must carry YAML frontmatter satisfying the **subject-schema contract** (`Docs/CONVENTION-Corpus-Subject-Schemas.md` §3):
+
+- `subject_class`: closed vocabulary — `npc`, `pc`, `location`, `faction`, `item`, `event`, `world`.
+- `subject_doc_kind`: `hub_index` on the README (other satellites use `timeline`, `dossier`, `statblock`, `seed`, `location_dossier`, `notes_aggregate`, etc.).
+- `document_class`: existing closed vocabulary — `play`, `reference`, `world`, `planning`. **Not** the same axis as `subject_class`; both are required.
+- Existing fields (`title`, `canon_layer`, `temporal_scope`, `session*`, `source_class`, `campaign_id`) carry their established meanings.
+- `table_note` (optional, all classes): one-line free-form annotation surfacing a non-mechanical disambiguator the model should respect when reading the file (e.g. "this is continuity, not a statblock"; usage rules for a random table; provenance of an imported draft).
+
+Then the body must contain:
 
 ### 1. Suggested reads (in order)
 
@@ -73,10 +87,14 @@ Do **not** hardcode a session number. Tell the model to use the corpus tree and 
 
 When an entity spans a world-bible layer and a campaign layer:
 
-- **Setting hub** (e.g. `Elderwyld/.../Mirathorn/NPCs/entity/`): world-level seed, canonical statblock export.
-- **Campaign hub** (e.g. `Longmont Campaign/Campaign 2/NPCs/entity/`): table dossier, timeline, campaign-specific statblock overrides.
+- **Setting hub** (e.g. `Elderwyld/.../Mirathorn/NPCs/entity/`): world-level seed, canonical statblock export. Frontmatter: `canon_layer: world`, `campaign_id: null`, `temporal_scope: evergreen`.
+- **Campaign hub** (e.g. `Longmont Campaign/Campaign 2/NPCs/entity/`): table dossier, timeline, campaign-specific statblock overrides. Frontmatter: `canon_layer: campaign`, `campaign_id: longmont-c2`, `temporal_scope: campaign_stateful`.
 
 Each README cross-links to the other with full paths. Priority tables define which statblock is canonical **from that hub's perspective**.
+
+## Nested location hubs
+
+A region hub MAY contain child region hubs (e.g. `Elderwyld/Migrating Forest/` parent → `Branchbound/` child). The parent README acts as the **index** (lists and links each child in §5 Sub-locations); the child README is the **leaf** (operational hub for that named region's content). Both must satisfy the standard hub-README contract above. Don't nest just to wrap a single child — promote it. See `Docs/CONVENTION-Location-Hub.md` §2.4 for the full rule.
 
 ## Planner instruction alignment
 
@@ -103,10 +121,10 @@ These are the static character/world bible. Session-driven status changes belong
 to drive the recap-and-timeline-row workflow; never hand-edit dossier/seed/statblock as
 part of a session writeup.
 
-Allowed writer paths (server-enforced):
+Allowed writer paths (server-enforced — see `src/agent/corpus_writer.py`):
 
 - `create`: `**/Session Recaps/Session NN - <slug>.md`
-- `append`: `**/NPCs/<slug>/timeline.md`, `**/NPCs/<slug>/README.md`
+- `append`: `**/NPCs/<slug>/timeline.md`, `**/PCs/<slug>/timeline.md`, `**/NPCs/<slug>/README.md`, `Longmont Campaign/Campaign N/Session Prep/*.md`
 
 Two-phase commit (`dry_run` → `confirm_token` → commit) is required for every write.
 
