@@ -1,0 +1,18 @@
+{
+  "schema": "session_recap_timeline_append_pre_state_v1",
+  "description": "Post–Stage-1 snapshot: pin Session 20 recap bytes from slice gold; ensure Lysandra timeline has no Session 20 row; all other files from live corpus copy.",
+  "stage_1_recap_source": "evals/session_recap_timeline_append_vertical_slice/gold/Session 20 - Recap.md",
+  "canonical_corpus_reference": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md",
+  "copy_into_corpus": [
+    {
+      "src_relative_to_slice": "gold/Session 20 - Recap.md",
+      "dst_relative_to_corpus": "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md"
+    }
+  ],
+  "remove_table_row_session_in": [
+    {
+      "path": "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/timeline.md",
+      "session": 20
+    }
+  ]
+}

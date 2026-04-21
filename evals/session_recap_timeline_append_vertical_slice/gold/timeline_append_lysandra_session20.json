@@ -1,0 +1,19 @@
+{
+  "schema": "session_recap_timeline_append_v1",
+  "scenario_id": "timeline_append_lysandra_session20",
+  "input": {
+    "user_message": "Session 20 was just ingested at `Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md`. Read that recap and append a Session 20 row to the `timeline.md` of any NPC who had a meaningful beat. For this benchmark focus **Captain Lysandra Ironveil** (`captain_lysandra_ironveil`): read her existing `timeline.md` to match its table format exactly (column count, backticked recap filename in the third column like prior rows). Use **only** `append_timeline_row` with two-phase commit: first `dry_run=true` preview, then **in this same turn** re-call `append_timeline_row` with the **same** `npc_slug`, `session`, `beat`, `recap_path`, and `timeline_path` (if any), plus `dry_run=false` and the `confirm_token` from the preview — the operator has already approved; **do not** stop at preview-only. Do **not** call `assemble_recap_draft`, `get_recap_context`, or `write_corpus_file` for the recap. Reply with the strict universal `planner_turn_output` JSON schema (`user_intent`, `message`, `unsure_queue` only — no `recap_write` field)."
+  },
+  "grading": {
+    "npc_slug": "captain_lysandra_ironveil",
+    "timeline_relative_path": "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/timeline.md",
+    "session": 20,
+    "recap_filename": "Session 20 - Recap.md",
+    "beat_regex": "(?is)(?=.*Lysandra)(?=.*(forest|Mossford|camp|rocky|rockie|cult|tower|meat|antidote|charm|disorient|Sara|voice|blueprint))",
+    "forbid_write_corpus_file": true,
+    "forbid_recap_tools": [
+      "assemble_recap_draft",
+      "build_recap_write_payload"
+    ]
+  }
+}

@@ -1,0 +1,5 @@
+# Regenerated each timeline-append harness run; keep directory, ignore churning files.
+last_timeline_append_run.md
+last_timeline_append_run.json
+runs/*
+!runs/.gitkeep
