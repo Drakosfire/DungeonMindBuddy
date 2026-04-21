@@ -1,0 +1,6 @@
+# Regenerated each recap ingest harness run; keep directory, ignore churning files.
+last_recap_ingest_run.md
+last_recap_ingest_run.json
+# Keep `runs/` in the tree for fresh clones; ignore cohort output but retain placeholder.
+runs/*
+!runs/.gitkeep
