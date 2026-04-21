@@ -36,3 +36,5 @@ PLANNER_REVIEW_MODE=summary uv run python -m \
   evals.session_recap_ingest_vertical_slice.step1_recap_ingest_run \
   --scenario-json evals/session_recap_ingest_vertical_slice/scope_b_scenarios/guarded_staging_read_recovery.json
 ```
+
+**Live vs offline:** `step1_recap_ingest_run.py` does **not** read `perturbation_setup`. A live `--scenario-json` run therefore uses the **same temp corpus class** as canonical Session 20 unless you add runner-side wiring. A five-scenario **negative-control** live cohort (N=2 each, 2026-04-21) confirmed **10/10 gates PASS** and documented where live diverged from `documented_expectations` — see [REPORT-Perturbation-Live-Negative-Control-2026-04-21.md](../../../Docs/Plans/REPORT-Perturbation-Live-Negative-Control-2026-04-21.md).
