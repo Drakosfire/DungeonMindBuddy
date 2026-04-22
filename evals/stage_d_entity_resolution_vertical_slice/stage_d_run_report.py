@@ -326,7 +326,8 @@ def write_stage_d_cohort_proposals(
     iso_compact = when.strftime("%Y%m%dT%H%M%S") + "Z"
     out_path = proposals_dir / (
         f"{_sanitize_filename_segment(campaign_id, max_len=40)}"
-        f"_stage_d_proposals_{iso_compact}.json"
+        f"__{_sanitize_filename_segment(scenario_id, max_len=40)}"
+        f"__stage_d_proposals_{iso_compact}.json"
     )
 
     aggregated_records: dict[str, dict[str, Any]] = {}

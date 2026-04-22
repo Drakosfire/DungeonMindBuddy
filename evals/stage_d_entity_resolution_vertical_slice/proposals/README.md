@@ -13,6 +13,10 @@ buckets across N cohort runs:
   `last_session` / `notes`). These are the candidate rows that may be promoted
   into the per-campaign registry after GM review (mirrors the Stage C
   precedent at `evals/stage_c_npc_candidates_vertical_slice/proposals/`).
+  Naming note: the cohort sidecar key is `proposed_records[]`; the per-run
+  `stage_d_output.proposed_new_records[]` (in `artifacts/runs/*.sidecar.json`)
+  is the per-run analog. Same shape; different key only because the cohort
+  writer aggregates across runs.
 * `proposed_aliases[]` — alias-string additions for existing registry slugs
   (e.g. attaching "the captain" as an alias on `captain_lysandra_ironveil`).
   These exist because Stage D matched an `unresolved_descriptors[]` entry

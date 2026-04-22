@@ -122,7 +122,7 @@ Cost: **$0 per run** in v0 (no LLM call).
 uv run pytest tests/test_stage_d_grader.py -v
 ```
 
-20 tests covering ER1 (5), ER2 (3), ER3 (4), ER4 (3), ER5 (3), and the deterministic resolver helpers (2). Synthetic registry + Stage C output + events fixtures inline; no corpus dependency.
+23 tests covering ER1 (5), ER2 (3), ER3 (4), ER4 (3), ER5 (4), the deterministic resolver helpers (3), and the top-level orchestrator shape (1). Synthetic registry + Stage C output + events fixtures inline; no corpus dependency.
 
 ## Open follow-ups (v1+)
 
