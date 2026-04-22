@@ -1,0 +1,153 @@
+{
+  "schema": "session_events_extraction_v1",
+  "scenario_id": "session_events_session1_c1",
+  "input": {
+    "recap_relative_path": "Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md",
+    "user_message": "Read the Session 1 recap at `Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md` and extract all meaningful scene events as structured event records.\n\nFor each distinct beat, fight, conversation, discovery, travel segment, or confrontation in the recap, produce one event_record with:\n- event_class (one of: conversation, travel, combat, discovery, transfer, ritual, betrayal, disaster, investigation, social_conflict)\n- participants (use the known character slugs below — only include slugs that actually appear in that event)\n- location (brief description of where it happens, or null if unspecified)\n- outcomes (list of concrete results or facts established by the event)\n- time_scope (use \"scene\" for specific session events)\n- certainty (use \"observed\" for events directly described in the recap)\n- event_name (short descriptive name for the event)\n- evidence_id (set to the recap path: \"Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md\")\n\nKnown character slugs: karsemine, stafl, caelynn, ephanna, bonogo, baergrom, grishna, glowkindle\n\nExtract 5–12 events. Do not merge multiple distinct beats into a single event. Do not invent events not described in the recap."
+  },
+  "grading": {
+    "session": 1,
+    "expected_events": [
+      {
+        "event_name": "Party arrives outside Stonebridge as merchant guards",
+        "event_class": "travel",
+        "participants": ["karsemine", "stafl", "caelynn", "ephanna", "bonogo", "baergrom"],
+        "location": "outside the town of Stonebridge",
+        "outcomes": [
+          "Mish-mash of travelers arrives outside Stonebridge after traveling together as merchant guards",
+          "Party named: Karsemine the Tiefling Ranger, Stafl the Human Bard, Caelynn the Half Elf Sorcerer, Ephanna the Kenku Warlock, Bonogo the Bugbear Rogue, Baergrom the Dwarf Fighter"
+        ],
+        "must_preserve_terms": ["Stonebridge"],
+        "time_scope": "scene",
+        "certainty": "observed",
+        "evidence_id": "Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md"
+      },
+      {
+        "event_name": "Party drinks at River's Edge Pub; Grishna shares directions to Wizard's Tower Brewing Co",
+        "event_class": "conversation",
+        "participants": ["karsemine", "stafl", "caelynn", "ephanna", "bonogo", "baergrom", "grishna"],
+        "location": "River's Edge Pub in Stonebridge",
+        "outcomes": [
+          "Party drinks at the River's Edge Pub run by Grishna the Half-orc to wash away the road",
+          "Grishna shares that Glowkindle had been through the pub and his Wizard's Tower Brewing Co is up river, west at the big rock, walk till you see it",
+          "Job board at Stonebridge advertises Glowkindle's request for mercenaries to clean up rats"
+        ],
+        "must_preserve_terms": ["Grishna", "River's Edge", "Glowkindle", "Wizard's Tower"],
+        "time_scope": "scene",
+        "certainty": "observed",
+        "evidence_id": "Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md"
+      },
+      {
+        "event_name": "Bonogo buys a firkin of ale from Grishna for two gold",
+        "event_class": "transfer",
+        "participants": ["bonogo", "grishna"],
+        "location": "River's Edge Pub in Stonebridge",
+        "outcomes": [
+          "Bonogo, having very little awareness of the cost of things and greatly enjoying the beer, buys a firkin of ale for two gold",
+          "Bonogo enjoys the hike to the brewery carrying the firkin"
+        ],
+        "must_preserve_terms": ["firkin"],
+        "time_scope": "scene",
+        "certainty": "observed",
+        "evidence_id": "Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md"
+      },
+      {
+        "event_name": "Party hikes upriver past the enormous statue-foot boulder to Wizard's Tower Brewing Company",
+        "event_class": "travel",
+        "participants": ["karsemine", "stafl", "caelynn", "ephanna", "bonogo", "baergrom"],
+        "location": "trail along the river west of Stonebridge",
+        "outcomes": [
+          "Party follows clear trail along the river to an enormous boulder that resolves into the foot of an enormous statue",
+          "Another few hours walk along the trail leads the group to the Wizard's Tower Brewing Company",
+          "The brewery's tap room is bustling, lit by magical crystals, with a troupe of gnomes busily brewing"
+        ],
+        "must_preserve_terms": ["Wizard's Tower"],
+        "time_scope": "scene",
+        "certainty": "observed",
+        "evidence_id": "Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md"
+      },
+      {
+        "event_name": "Party meets Glowkindle and accepts the rat-clearing contract",
+        "event_class": "conversation",
+        "participants": ["karsemine", "stafl", "caelynn", "ephanna", "bonogo", "baergrom", "glowkindle"],
+        "location": "Wizard's Tower Brewing Company tap room",
+        "outcomes": [
+          "Glowkindle explains that giant rats assaulted his excavation crew after they broke through a wall expanding the fermentation cellar",
+          "Glowkindle offers a healthy prize of 25 gold pieces each for clearing out the rats",
+          "The team agrees to take the contract"
+        ],
+        "must_preserve_terms": ["Glowkindle", "fermentation cellar", "25 gold"],
+        "time_scope": "scene",
+        "certainty": "observed",
+        "evidence_id": "Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md"
+      },
+      {
+        "event_name": "Combat with giant rats in the expanded fermentation cellar",
+        "event_class": "combat",
+        "participants": ["karsemine", "stafl", "caelynn", "ephanna", "bonogo", "baergrom"],
+        "location": "fermentation cellar of Wizard's Tower Brewing Company",
+        "outcomes": [
+          "Clearing the giant rats was significantly harder than expected",
+          "Multiple party members went down during the fight",
+          "A mysterious cat owl was tossed into the room to help",
+          "Combat produced a lot of blood from rats and teammates",
+          "Many, many health potions were consumed before victory",
+          "The combat brings the team together as a fine first fight"
+        ],
+        "must_preserve_terms": ["giant rats", "fermentation cellar", "cat owl"],
+        "time_scope": "scene",
+        "certainty": "observed",
+        "evidence_id": "Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md"
+      },
+      {
+        "event_name": "Party explores the brewery interior — beautifully tiled hallway, trapped mosaic, broken alchemical tools",
+        "event_class": "discovery",
+        "participants": ["karsemine", "stafl", "caelynn", "ephanna", "bonogo", "baergrom"],
+        "location": "deeper rooms beyond the fermentation cellar",
+        "outcomes": [
+          "The team finds a beautifully tiled hallway",
+          "A trapped mosaic on the ground is discovered",
+          "A room full of broken alchemical tools is found"
+        ],
+        "must_preserve_terms": ["mosaic"],
+        "time_scope": "scene",
+        "certainty": "observed",
+        "evidence_id": "Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md"
+      },
+      {
+        "event_name": "Karsemine spots a flaming magma-infused spider monstrosity in the shatter mages tower",
+        "event_class": "discovery",
+        "participants": ["karsemine"],
+        "location": "deeper room beyond fermentation cellar (interior of the shatter mages tower)",
+        "outcomes": [
+          "While searching the alchemical room, Karsemine looks up and makes eye contact with another resident",
+          "The resident is some kind of flaming magma infused spider monstrosity",
+          "The location is identified as the shatter mages tower",
+          "Cliffhanger: the encounter is unresolved at session end"
+        ],
+        "must_preserve_terms": ["magma", "shatter mages tower"],
+        "time_scope": "scene",
+        "certainty": "observed",
+        "evidence_id": "Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md"
+      }
+    ],
+    "min_event_count": 5,
+    "max_event_count": 12,
+    "must_cover_participants": [
+      "karsemine",
+      "stafl",
+      "caelynn",
+      "ephanna",
+      "bonogo",
+      "baergrom",
+      "grishna",
+      "glowkindle"
+    ],
+    "must_cover_event_classes": [
+      "travel",
+      "conversation",
+      "combat",
+      "discovery"
+    ]
+  }
+}

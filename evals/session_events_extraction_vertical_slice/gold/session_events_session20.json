@@ -20,6 +20,7 @@
           "Caelynn casts Thunderwave, splits swarm and pushes it back 10 feet",
           "Swarm retreats into the forest"
         ],
+        "must_preserve_terms": ["Eldritch Blast", "scimitar", "Zephyr Strike", "Thunderwave"],
         "time_scope": "scene",
         "certainty": "observed",
         "evidence_id": "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md"
@@ -34,6 +35,7 @@
           "Stuart threatens Stacey with dart",
           "Stacey throws gold pouch at Stuart and storms out"
         ],
+        "must_preserve_terms": ["gold", "dart"],
         "time_scope": "scene",
         "certainty": "observed",
         "evidence_id": "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md"
@@ -48,6 +50,7 @@
           "Warns her to stop bullying Stuart or he will return",
           "Stacey runs home clearly shaken"
         ],
+        "must_preserve_terms": ["knife"],
         "time_scope": "scene",
         "certainty": "observed",
         "evidence_id": "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md"
@@ -61,6 +64,7 @@
           "Party relays findings: do not attack trees directly",
           "Forest responds to changes on the ground"
         ],
+        "must_preserve_terms": [],
         "time_scope": "scene",
         "certainty": "observed",
         "evidence_id": "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md"
@@ -77,6 +81,7 @@
           "Bonogo escalates, tells Marla he sees where Stacey gets her attitude",
           "Marla grapples Bonogo"
         ],
+        "must_preserve_terms": ["Marla", "Bonogo"],
         "time_scope": "scene",
         "certainty": "observed",
         "evidence_id": "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md"
@@ -90,6 +95,7 @@
           "Caelynn uses bracelet to diffuse aggression",
           "Everyone returns to work united against the approaching forest"
         ],
+        "must_preserve_terms": ["bracelet"],
         "time_scope": "scene",
         "certainty": "observed",
         "evidence_id": "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md"
@@ -105,6 +111,7 @@
           "Town cheers, immediate danger resolved",
           "Mayor and sheriff congratulate the heroes"
         ],
+        "must_preserve_terms": ["fires", "east"],
         "time_scope": "scene",
         "certainty": "observed",
         "evidence_id": "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md"
@@ -117,6 +124,7 @@
         "outcomes": [
           "Mayor and sheriff have never heard of Captain Lysandra Ironveil"
         ],
+        "must_preserve_terms": ["Lysandra"],
         "time_scope": "scene",
         "certainty": "observed",
         "evidence_id": "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md"
@@ -133,6 +141,7 @@
           "Lysandra is exhausted and disoriented, remembers only going around the forest and smelling meat",
           "Caelynn tells Lysandra to make camp and rest, Karsemine will track her"
         ],
+        "must_preserve_terms": ["rockie-talkie", "Sara", "Lysandra"],
         "time_scope": "scene",
         "certainty": "observed",
         "evidence_id": "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md"
@@ -146,6 +155,7 @@
           "Karsemine uses tracking skills to estimate distance and direction Lysandra traveled",
           "Group finds partly unloaded wagon with horses wandering around crates after 30 minutes"
         ],
+        "must_preserve_terms": ["wagon", "horses"],
         "time_scope": "scene",
         "certainty": "observed",
         "evidence_id": "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md"
@@ -161,6 +171,7 @@
           "She is drawing a detailed top-down blueprint of a tower",
           "She says voices are coming from that tower and she knows where it is"
         ],
+        "must_preserve_terms": ["shimmery", "blueprint", "tower"],
         "time_scope": "scene",
         "certainty": "observed",
         "evidence_id": "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md"
@@ -176,6 +187,7 @@
           "Lysandra is very confused, does not know where she is or how she got there",
           "She only remembers voices in the dark after the group left into the forest"
         ],
+        "must_preserve_terms": ["antidote", "tea"],
         "time_scope": "scene",
         "certainty": "observed",
         "evidence_id": "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md"
@@ -191,6 +203,7 @@
           "Jerky crates contain cleverly disguised tainted meat mixed with the good jerky",
           "Cannot separate good from tainted; entire crate must be burned"
         ],
+        "must_preserve_terms": ["tainted meat", "jerky", "bacon"],
         "time_scope": "scene",
         "certainty": "observed",
         "evidence_id": "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md"
@@ -206,6 +219,7 @@
           "Sara is very concerned about who she can now trust in the city",
           "Sara transfers Caelynn to Professor Tealeaf who does not pick up"
         ],
+        "must_preserve_terms": ["tainted meat", "Tealeaf"],
         "time_scope": "scene",
         "certainty": "observed",
         "evidence_id": "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md"
@@ -219,6 +233,7 @@
           "Marla approaches Caelynn asking how she should deal with Bonogo",
           "Ephanna intervenes and announces Questionable Company is leaving town to continue journey"
         ],
+        "must_preserve_terms": ["Questionable Company"],
         "time_scope": "scene",
         "certainty": "observed",
         "evidence_id": "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md"
@@ -233,6 +248,7 @@
           "Observes storm still building in the distance but approaching camp",
           "Storm appears to carry the magical shimmering rain"
         ],
+        "must_preserve_terms": ["horses", "storm", "shimmering rain"],
         "time_scope": "scene",
         "certainty": "observed",
         "evidence_id": "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md"

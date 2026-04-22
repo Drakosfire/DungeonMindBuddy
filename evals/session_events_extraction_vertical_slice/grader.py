@@ -5,11 +5,46 @@ Gates:
 * SE2 — count window: min_event_count <= len(events) <= max_event_count
 * SE3 — participant coverage: every slug in must_cover_participants appears in at least one event
 * SE4 — event-class coverage: every class in must_cover_event_classes appears in at least one event
-* SE5 — anchor coverage (soft, 0.5 threshold): for each expected_event, score whether a matching
-         model event exists (same event_class + participant overlap + text overlap on name/outcomes)
+* SE5 — anchor coverage + outcome-vocabulary preservation:
+        Lenient coverage ratio mirrors prior behavior: for each ``expected_events[i]`` we look
+        for a loose-match candidate (same event_class + participant overlap + name/outcomes text
+        overlap). The matched_count / total ratio is the lenient coverage figure.
+
+        Additionally, each expected event may declare ``must_preserve_terms: list[str]`` —
+        distinctive named terms (weapon names, spell names, ability names, item names, place
+        names, NPC names) that must appear *verbatim* (case-insensitive substring) in the
+        model's output for an event involving the same participants.
+
+        Term-check is **per-term, across all participant-overlapping actuals**: for each
+        required term ``t``, the term is considered preserved iff some actual sharing ≥1
+        participant with the expected event contains ``t`` (case-insensitive substring) in
+        its ``name + outcomes`` text. This decouples the outcome-vocabulary sub-gate from
+        two sources of false positives:
+
+        1. **Event-class drift** — the model often classifies the same beat under a related
+           class (e.g. ``ritual`` instead of ``social_conflict`` for Caelynn's bracelet
+           de-escalation). The strict ``_events_match`` matcher would exclude the right
+           candidate; participant overlap alone keeps it in the pool.
+        2. **Beat-splitting** — the model legitimately splits a gold-curated beat into two
+           or three events (e.g. "Karsemine rounds up horses; observes magical storm" is
+           often split into a wagon-discovery event with the horses and a separate
+           camp-setup event with the storm + shimmering rain). As long as each distinctive
+           term appears verbatim somewhere in participant-overlapping actuals, the OUTCOMES
+           CONTRACT we are policing — vocabulary preservation for retrievability — holds.
+
+        The OUTCOMES CONTRACT regressions this gate IS designed to catch are
+        **paraphrasing** ("Eldritch Blast" → "attack spell", "antidote" silently dropped,
+        "Questionable Company" → "the party") and **silent omission** of distinctive named
+        terms anywhere in the model's output for the relevant participants.
+
+        If any required term is absent from every participant-overlapping actual, the
+        expected event counts as **vocabulary-incomplete** for SE5: it does not lower the
+        lenient coverage ratio, but it does emit a ``missing_outcome_terms`` violation and
+        trips the gate.
 
 Telemetry keys: event_count, participants_seen, event_classes_seen,
-                expected_event_coverage_ratio, unmatched_expected_event_indices.
+                expected_event_coverage_ratio, unmatched_expected_event_indices,
+                expected_events_with_missing_terms, missing_terms_total.
 """
 
 from __future__ import annotations
@@ -95,7 +130,7 @@ def collect_se4_violations(
 
 
 # ---------------------------------------------------------------------------
-# SE5 — anchor coverage (soft gate, 0.5 threshold)
+# SE5 — anchor coverage + outcome vocabulary preservation
 # ---------------------------------------------------------------------------
 
 
@@ -133,28 +168,117 @@ def _events_match(expected: dict[str, Any], actual: dict[str, Any]) -> bool:
     return _text_overlap(expected, actual)
 
 
+def _actual_haystack(actual: dict[str, Any]) -> str:
+    """Combined lowercase text used for case-insensitive substring checks."""
+    name = str(actual.get("event_name") or "")
+    outcomes = " ".join(str(o) for o in (actual.get("outcomes") or []))
+    return f"{name} {outcomes}".lower()
+
+
+def _missing_terms(actual: dict[str, Any], required_terms: list[str]) -> list[str]:
+    """Return required terms that are NOT case-insensitive substrings of the actual event text."""
+    if not required_terms:
+        return []
+    haystack = _actual_haystack(actual)
+    missing: list[str] = []
+    for term in required_terms:
+        s = str(term).strip()
+        if not s:
+            continue
+        if s.lower() not in haystack:
+            missing.append(s)
+    return missing
+
+
 def collect_se5_violations(
     events: list[dict[str, Any]],
     expected_events: list[dict[str, Any]],
-) -> tuple[list[str], float, list[int]]:
-    """SE5: anchor coverage soft gate.
+) -> tuple[list[str], float, list[int], list[dict[str, Any]]]:
+    """SE5: anchor coverage + outcome-vocabulary preservation.
 
     Returns:
-      (violations, coverage_ratio, unmatched_indices)
+      (violations, coverage_ratio, unmatched_indices, term_violations)
 
-    A violation is emitted only when coverage_ratio < _SE5_PASS_THRESHOLD.
+    Where:
+      * ``violations`` is a list of human-readable strings (one for the lenient-coverage
+        failure if the ratio dips below ``_SE5_PASS_THRESHOLD``, plus one per expected
+        event whose required terms are absent from the participant-overlapping cohort).
+      * ``coverage_ratio`` and ``unmatched_indices`` retain the lenient semantics — they
+        depend on the strict ``_events_match`` only, never on the term sub-check.
+      * ``term_violations`` is a list of structured dicts of the form::
+
+            {
+              "kind": "missing_outcome_terms",
+              "expected_event_index": int,
+              "expected_event_name": str,
+              "missing_terms": list[str],
+              "actual_event_name": str,        # best-preserving participant-overlap actual
+              "actual_event_outcomes": list[str],
+            }
+
+        ``actual_event_*`` reference the participant-overlapping actual that preserved
+        the most required terms (fewest missing). When no actual shares any participants
+        with the expected event, no term violation is emitted (the lenient gate captures
+        the unmatched expected event instead).
     """
     if not expected_events:
-        return [], 1.0, []
+        return [], 1.0, [], []
 
     matched_count = 0
     unmatched: list[int] = []
+    term_violations: list[dict[str, Any]] = []
+
     for i, exp in enumerate(expected_events):
-        found = any(_events_match(exp, act) for act in events)
-        if found:
+        # Lenient coverage: strict event_class + participant + text-overlap match.
+        strict_matches = [a for a in events if _events_match(exp, a)]
+        if strict_matches:
             matched_count += 1
         else:
             unmatched.append(i)
+
+        required_terms = list(exp.get("must_preserve_terms") or [])
+        required_terms = [str(t).strip() for t in required_terms if str(t).strip()]
+        if not required_terms:
+            continue
+
+        # Term sub-check: candidate pool is any actual sharing ≥1 participant.
+        # Each term is checked INDEPENDENTLY across the pool — beat-splitting is OK so
+        # long as each distinctive term appears verbatim somewhere. See module docstring.
+        term_candidates = [a for a in events if _participant_overlap(exp, a)]
+        if not term_candidates:
+            # No participant overlap anywhere — handled by lenient gate as unmatched.
+            continue
+
+        missing: list[str] = []
+        for term in required_terms:
+            term_lc = term.lower()
+            preserved = any(term_lc in _actual_haystack(a) for a in term_candidates)
+            if not preserved:
+                missing.append(term)
+
+        if missing:
+            # Surface a single representative actual for context (the participant-overlapping
+            # actual that preserved the most terms — useful for human triage).
+            best_actual: dict[str, Any] | None = None
+            best_preserved = -1
+            for a in term_candidates:
+                preserved_count = sum(
+                    1 for t in required_terms if t.lower() in _actual_haystack(a)
+                )
+                if preserved_count > best_preserved:
+                    best_preserved = preserved_count
+                    best_actual = a
+
+            term_violations.append(
+                {
+                    "kind": "missing_outcome_terms",
+                    "expected_event_index": i,
+                    "expected_event_name": str(exp.get("event_name") or ""),
+                    "missing_terms": list(missing),
+                    "actual_event_name": str((best_actual or {}).get("event_name") or ""),
+                    "actual_event_outcomes": list((best_actual or {}).get("outcomes") or []),
+                }
+            )
 
     ratio = matched_count / len(expected_events)
     bad: list[str] = []
@@ -164,7 +288,13 @@ def collect_se5_violations(
             f"({matched_count}/{len(expected_events)} expected events matched); "
             f"unmatched indices: {unmatched}"
         )
-    return bad, ratio, unmatched
+    for tv in term_violations:
+        bad.append(
+            f"SE5: missing_outcome_terms — expected_events[{tv['expected_event_index']}] "
+            f"({tv['expected_event_name']!r}): matched actual {tv['actual_event_name']!r} "
+            f"is missing required term(s) {tv['missing_terms']}"
+        )
+    return bad, ratio, unmatched, term_violations
 
 
 # ---------------------------------------------------------------------------
@@ -204,7 +334,7 @@ def collect_session_events_violations(
     if se4:
         out["se4"] = se4
 
-    se5, ratio, unmatched = collect_se5_violations(events, expected_events)
+    se5, ratio, unmatched, term_violations = collect_se5_violations(events, expected_events)
     if se5:
         out["se5"] = se5
 
@@ -215,12 +345,20 @@ def collect_session_events_violations(
         {str(ev.get("event_class", "")).strip() for ev in events}
     )
 
+    expected_events_with_missing_terms: list[int] = [
+        int(tv["expected_event_index"]) for tv in term_violations
+    ]
+    missing_terms_total: int = sum(len(tv.get("missing_terms") or []) for tv in term_violations)
+
     telemetry: dict[str, Any] = {
         "event_count": len(events),
         "participants_seen": participants_seen,
         "event_classes_seen": event_classes_seen,
         "expected_event_coverage_ratio": round(ratio, 4),
         "unmatched_expected_event_indices": unmatched,
+        "expected_events_with_missing_terms": expected_events_with_missing_terms,
+        "missing_terms_total": missing_terms_total,
+        "se5_term_violations": term_violations,
     }
     return out, telemetry
 

@@ -80,9 +80,17 @@ Stage B writes to a pre-state corpus copy, never to `corpus/eldyrwild-markdown/`
 | **SE2** | Event count is within `[min_event_count, max_event_count]` (gold: 10–25). | Hard bounds |
 | **SE3** | Every slug in `must_cover_participants` appears in at least one event's `participants[]`. | All required |
 | **SE4** | Every class in `must_cover_event_classes` appears in at least one event's `event_class`. | All required |
-| **SE5** | For each `expected_events[i]`, at least one model event matches (same `event_class` + participant overlap + text overlap on name/outcomes). Coverage ratio reported in telemetry. | Soft fail when ratio < 0.5 |
+| **SE5** | For each `expected_events[i]`: (a) **lenient coverage** — at least one model event matches on `event_class` + participant overlap + name/outcomes text overlap (ratio reported in telemetry, soft-fail < 0.5); (b) **outcome-vocabulary preservation** — every term in `must_preserve_terms` must appear verbatim (case-insensitive substring) in *some* model event sharing ≥1 participant. | Hard fail on any missing required term, OR coverage ratio < 0.5 |
 
-SE5 is deliberately permissive at launch. The threshold is documented at `_SE5_PASS_THRESHOLD = 0.5` in `grader.py` and will be raised once we have cohort data. **Known gap:** SE5 currently uses lenient text-overlap (any word ≥4 chars) on event names + outcomes. It does *not* enforce that distinctive named terms (weapon/spell/ability names) appear verbatim in `outcomes[]` — Stage A's system-prompt OUTCOMES CONTRACT is doing that work today. A regression in the prompt would silently keep SE5 green. Tightening SE5 to enforce per-event outcome vocabulary is a tracked follow-up.
+SE5's outcome-vocabulary sub-gate is the policing layer for Stage A's system-prompt OUTCOMES CONTRACT (verbatim preservation of weapon/spell/ability/item/place/NPC names). Each expected event in the gold can declare a per-event `must_preserve_terms: list[str]` of distinctive named terms. The check is **per-term across the participant-overlap pool**, deliberately decoupled from event_class drift and from the model's choice of how to split a beat across multiple events:
+
+- **Class drift is OK** — if the model classifies Caelynn's bracelet de-escalation under `ritual` instead of gold's `social_conflict`, the term `bracelet` is still considered preserved as long as it appears in some actual event involving Caelynn/Marla/Bonogo.
+- **Beat-splitting is OK** — if the model legitimately splits "Karsemine rounds up horses; observes magical storm" into a wagon-discovery event with `horses` and a separate camp-setup event with `storm` + `shimmering rain`, all three terms count as preserved.
+- **Paraphrasing is NOT OK** — replacing "Eldritch Blast" with "attack spell", or silently dropping "antidote" / "Tealeaf" / "Questionable Company" anywhere in a participant-overlap event triggers a `kind="missing_outcome_terms"` structured violation with the precise missing terms list.
+
+Telemetry exposes `expected_events_with_missing_terms`, `missing_terms_total`, and `se5_term_violations` (per-event payload with the best representative actual for human triage).
+
+The lenient coverage threshold is documented at `_SE5_PASS_THRESHOLD = 0.5` in `grader.py`; it will be raised once we have cohort data.
 
 ### Stage B gates
 
@@ -131,12 +139,13 @@ uv run pytest tests/test_session_events_grader.py tests/test_step2_timeline_from
 - **2026-04-22** — **Stage A SE3 fix shipped**: system prompt now demands the exact slug from the supplied list, never the display name. Stage A N=5: 4/5 PASS, SE3 closed.
 - **2026-04-22** — **Stage B chained runner shipped** (`step2_timeline_from_events_run.py`). First N=5 cohort: TP1 0/5, with all failures attributed to **second-order compression** (Stage B picked one event per character to summarize, often dropping the anchor-bearing event). Diagnostic capture (`slug_events_sent` + `slug_beat_written` + `slug_model_message`) added so the next iteration can attribute failures without re-runs.
 - **2026-04-22** — **OUTCOMES CONTRACT (Stage A) + VOCABULARY/COMPOSITION CONTRACT (Stage B)** prompts shipped. Stage A now requires verbatim preservation of weapon/spell/ability/item/place/NPC names in `outcomes[]`. Stage B now requires preserving those terms verbatim in the beat AND composing multiple meaningful events into one sentence (was: "summarize the most important event"). N=5 result: TP1 **3/5**, per-PC anchor gates all **5/5** for `caelynn`, `karsemine`, `ephanna`. Cost ~$0.045/run.
+- **2026-04-22** — **SE5 outcome-vocabulary sub-gate** shipped. Gold S20 expected events declare `must_preserve_terms`; SE5 enforces per-term verbatim preservation across the participant-overlap pool. Stage A N=5: **SE5 4/5 PASS** (one real model regression — dropped `storm`/`shimmering rain`). Stage B chained N=5: **TP1 4/5**, per-PC `caelynn` 4/5 / `karsemine` 5/5 / `ephanna` 5/5 (the one caelynn drop is the same correlated bad run). Cost: Stage A ~$0.012/run, Stage B chained ~$0.047/run.
 
 ## Open follow-ups
 
 1. **TP2-thrin row-worthiness gap** — events-only Stage B has no signal beyond "this character has events" so it writes a row even when the recap framing said the character was background. Three viable fixes captured in `Backlog.md`: (a) Stage A `subject_significance`, (b) Stage B recap-read affordance, (c) harness pre-filter.
 
-2. **SE5 outcome-vocabulary sub-gate** — tighten the grader to fail when the OUTCOMES CONTRACT is silently regressing in the prompt.
+2. **SE5 outcome-vocabulary sub-gate landed 2026-04-22** — `must_preserve_terms` curated per expected event in `gold/session_events_session20.json`; grader checks each term per-participant-overlap pool; failures emit structured `missing_outcome_terms` violations. N=5 cohort with the tightened gate: 4/5 SE5 PASS at `gpt-5.4-mini`, with the one FAIL being a real OUTCOMES CONTRACT regression (model dropped `storm` and `shimmering rain` from any karsemine-related event).
 
 3. **Lysandra Stage A recall regression** — 2/5 runs in the latest cohort drop Lysandra from events entirely (NPC, not blocking the PC criterion).
 

@@ -256,10 +256,11 @@ class TestSE5:
             _valid_event(event_class="combat", participants=["caelynn"], event_name="swarm battle at forest edge", outcomes=["swarm defeated ephanna"]),
             _valid_event(event_class="conversation", participants=["caelynn", "sara_mirathorn_operator"], event_name="rockie talkie contact", outcomes=["Sara connects Lysandra"]),
         ]
-        violations, ratio, unmatched = collect_se5_violations(actual, expected)
+        violations, ratio, unmatched, term_violations = collect_se5_violations(actual, expected)
         assert violations == [], f"Expected no violations but got: {violations}"
         assert ratio == 1.0
         assert unmatched == []
+        assert term_violations == []
 
     def test_zero_overlap_fails(self):
         """No expected events are matched."""
@@ -271,11 +272,12 @@ class TestSE5:
         actual = [
             _valid_event(event_class="ritual", participants=["stafl"], event_name="something else entirely", outcomes=["different thing"]),
         ]
-        violations, ratio, unmatched = collect_se5_violations(actual, expected)
+        violations, ratio, unmatched, term_violations = collect_se5_violations(actual, expected)
         assert ratio == 0.0
         assert len(unmatched) == 2
         # Since ratio < 0.5, should have a violation
         assert violations
+        assert term_violations == []
 
     def test_partial_overlap_reports_correct_ratio(self):
         """2 of 4 expected events matched → ratio 0.5 (at threshold, should PASS)."""
@@ -293,10 +295,11 @@ class TestSE5:
             # Does NOT match expected[2] or [3] — different class/participants
             _valid_event(event_class="travel", participants=["karsemine"], event_name="unrelated travel", outcomes=["arrived"]),
         ]
-        violations, ratio, unmatched = collect_se5_violations(actual, expected)
+        violations, ratio, unmatched, term_violations = collect_se5_violations(actual, expected)
         assert ratio == pytest.approx(0.5)
         # At exactly 0.5 threshold → PASS (ratio NOT < threshold)
         assert violations == []
+        assert term_violations == []
 
     def test_below_threshold_fails(self):
         """1 of 4 matched → ratio 0.25 → FAIL."""
@@ -309,15 +312,292 @@ class TestSE5:
         actual = [
             _valid_event(event_class="combat", participants=["caelynn"], event_name="swarm battle", outcomes=["swarm retreats"]),
         ]
-        violations, ratio, unmatched = collect_se5_violations(actual, expected)
+        violations, ratio, unmatched, term_violations = collect_se5_violations(actual, expected)
         assert ratio == pytest.approx(0.25)
         assert violations  # below threshold
+        assert term_violations == []
 
     def test_empty_expected_events_passes(self):
-        violations, ratio, unmatched = collect_se5_violations([_valid_event()], [])
+        violations, ratio, unmatched, term_violations = collect_se5_violations([_valid_event()], [])
         assert violations == []
         assert ratio == 1.0
         assert unmatched == []
+        assert term_violations == []
+
+    # -- must_preserve_terms cases (outcome-vocabulary sub-gate) --
+
+    def _expected_with_terms(
+        self,
+        event_class: str,
+        participants: list,
+        name: str,
+        outcomes: list,
+        must_preserve_terms: list,
+    ) -> dict:
+        ev = self._expected(event_class, participants, name, outcomes)
+        ev["must_preserve_terms"] = must_preserve_terms
+        return ev
+
+    def test_must_preserve_terms_all_present_passes(self):
+        """Matched actual contains all required terms verbatim → no term violations."""
+        expected = [
+            self._expected_with_terms(
+                "combat",
+                ["caelynn", "ephanna", "karsemine"],
+                "swarm battle",
+                ["Karsemine uses scimitar", "Caelynn casts Thunderwave"],
+                ["scimitar", "Thunderwave", "Eldritch Blast"],
+            ),
+        ]
+        actual = [
+            _valid_event(
+                event_class="combat",
+                participants=["caelynn", "ephanna", "karsemine"],
+                event_name="Red gnat swarm battle at forest edge",
+                outcomes=[
+                    "Karsemine lands 4 scimitar hits using Zephyr Strike",
+                    "Ephanna's second Eldritch Blast removes a cluster",
+                    "Caelynn casts Thunderwave splitting the swarm",
+                ],
+            ),
+        ]
+        violations, ratio, unmatched, term_violations = collect_se5_violations(actual, expected)
+        assert violations == []
+        assert term_violations == []
+        assert ratio == 1.0
+
+    def test_must_preserve_terms_missing_term_fails_with_payload(self):
+        """Matched actual drops one required term → SE5 emits missing_outcome_terms violation."""
+        expected = [
+            self._expected_with_terms(
+                "combat",
+                ["caelynn", "ephanna", "karsemine"],
+                "swarm battle",
+                ["Karsemine uses scimitar", "Caelynn casts Thunderwave"],
+                ["scimitar", "Thunderwave", "Eldritch Blast"],
+            ),
+        ]
+        actual = [
+            _valid_event(
+                event_class="combat",
+                participants=["caelynn", "ephanna", "karsemine"],
+                event_name="Red gnat swarm battle",
+                # "Eldritch Blast" missing — paraphrased away
+                outcomes=[
+                    "Karsemine lands 4 scimitar hits",
+                    "Ephanna casts an attack spell",
+                    "Caelynn casts Thunderwave splitting the swarm",
+                ],
+            ),
+        ]
+        violations, ratio, unmatched, term_violations = collect_se5_violations(actual, expected)
+        # Lenient ratio still 1.0 — match is intact, just missing terms.
+        assert ratio == 1.0
+        assert unmatched == []
+        # Exactly one structured term violation.
+        assert len(term_violations) == 1
+        tv = term_violations[0]
+        assert tv["kind"] == "missing_outcome_terms"
+        assert tv["expected_event_index"] == 0
+        assert tv["missing_terms"] == ["Eldritch Blast"]
+        assert tv["actual_event_name"] == "Red gnat swarm battle"
+        assert "Karsemine lands 4 scimitar hits" in tv["actual_event_outcomes"]
+        # SE5 string violation surfaces too so the gate FAILs.
+        assert any("missing_outcome_terms" in v for v in violations)
+
+    def test_must_preserve_terms_case_insensitive(self):
+        """Term presence check is case-insensitive substring match."""
+        expected = [
+            self._expected_with_terms(
+                "social_conflict",
+                ["bonogo", "stacey"],
+                "knife threat",
+                ["Bonogo holds knife to throat"],
+                ["KNIFE", "Stacey"],
+            ),
+        ]
+        actual = [
+            _valid_event(
+                event_class="social_conflict",
+                participants=["bonogo", "stacey"],
+                event_name="Bonogo intimidates Stacey with knife threat",
+                outcomes=["Bonogo holds a knife to her throat", "stacey runs home shaken"],
+            ),
+        ]
+        violations, ratio, unmatched, term_violations = collect_se5_violations(actual, expected)
+        assert term_violations == []
+        assert violations == []
+
+    def test_must_preserve_terms_per_term_check_across_pool(self):
+        """Term sub-check is per-term across the participant-overlap pool: each term
+        only needs to appear in SOME participant-overlapping actual, not all in one."""
+        expected = [
+            self._expected_with_terms(
+                "combat",
+                ["caelynn"],
+                "swarm battle",
+                ["swarm defeated"],
+                ["Thunderwave", "scimitar"],
+            ),
+        ]
+        # No single actual has both terms, but together the pool covers them.
+        actual = [
+            _valid_event(
+                event_class="combat",
+                participants=["caelynn"],
+                event_name="swarm fight",
+                outcomes=["caelynn casts Thunderwave"],
+            ),
+            _valid_event(
+                event_class="combat",
+                participants=["caelynn", "karsemine"],
+                event_name="swarm flank",
+                outcomes=["Karsemine scimitar hits"],
+            ),
+        ]
+        violations, ratio, unmatched, term_violations = collect_se5_violations(actual, expected)
+        # Both terms preserved across the pool — no term violations.
+        assert term_violations == []
+        assert violations == []
+
+    def test_must_preserve_terms_per_term_missing_when_paraphrased_away(self):
+        """If a term appears NOWHERE in any participant-overlapping actual, that term
+        is reported missing. This is the paraphrasing-detection signal."""
+        expected = [
+            self._expected_with_terms(
+                "combat",
+                ["caelynn", "ephanna"],
+                "swarm battle",
+                ["swarm defeated"],
+                ["Eldritch Blast", "Thunderwave"],
+            ),
+        ]
+        # Pool covers Thunderwave but no event mentions Eldritch Blast (paraphrased to "attack spell").
+        actual = [
+            _valid_event(
+                event_class="combat",
+                participants=["caelynn"],
+                event_name="swarm fight",
+                outcomes=["caelynn casts Thunderwave"],
+            ),
+            _valid_event(
+                event_class="combat",
+                participants=["caelynn", "ephanna"],
+                event_name="ephanna ranged",
+                outcomes=["Ephanna casts an attack spell at the swarm"],
+            ),
+        ]
+        violations, ratio, unmatched, term_violations = collect_se5_violations(actual, expected)
+        assert len(term_violations) == 1
+        tv = term_violations[0]
+        assert tv["missing_terms"] == ["Eldritch Blast"]
+        # Best representative actual should be the one preserving the most terms (Thunderwave).
+        assert tv["actual_event_name"] in {"swarm fight", "ephanna ranged"}
+
+    def test_must_preserve_terms_empty_list_no_constraint(self):
+        """Backward compat: empty must_preserve_terms list does not introduce false failures."""
+        expected = [
+            self._expected_with_terms(
+                "conversation",
+                ["caelynn", "stafl"],
+                "party reports findings",
+                ["forest responds to ground changes"],
+                [],
+            ),
+        ]
+        actual = [
+            _valid_event(
+                event_class="conversation",
+                participants=["caelynn", "stafl"],
+                event_name="party briefs Stafl",
+                outcomes=["forest responds to ground changes"],
+            ),
+        ]
+        violations, ratio, unmatched, term_violations = collect_se5_violations(actual, expected)
+        assert term_violations == []
+        assert violations == []
+
+    def test_must_preserve_terms_field_absent_no_constraint(self):
+        """Backward compat: missing must_preserve_terms field is treated as no constraint."""
+        expected = [
+            self._expected("conversation", ["caelynn"], "mayor denies Lysandra", ["mayor denies"]),
+        ]
+        # Note: no must_preserve_terms key at all
+        assert "must_preserve_terms" not in expected[0]
+        actual = [
+            _valid_event(
+                event_class="conversation",
+                participants=["caelynn"],
+                event_name="mayor talks to Caelynn",
+                outcomes=["mayor never heard of anyone"],
+            ),
+        ]
+        violations, ratio, unmatched, term_violations = collect_se5_violations(actual, expected)
+        assert term_violations == []
+        assert violations == []
+
+    def test_must_preserve_terms_passes_when_class_drifts_but_vocabulary_kept(self):
+        """Term sub-check is decoupled from strict event_class matching.
+
+        If the model classified the same beat under a different but related class
+        (e.g. ``ritual`` instead of ``social_conflict`` for Caelynn's bracelet
+        de-escalation) yet preserved the distinctive vocabulary verbatim, SE5
+        should NOT fire a missing_outcome_terms violation. The lenient coverage
+        ratio may still penalize the class drift via 'unmatched', but the term
+        sub-gate is about vocabulary, not classification."""
+        expected = [
+            self._expected_with_terms(
+                "social_conflict",
+                ["caelynn", "marla_brambleback", "bonogo"],
+                "Caelynn de-escalates Marla vs Bonogo with bracelet",
+                ["Caelynn uses bracelet to diffuse aggression"],
+                ["bracelet"],
+            ),
+        ]
+        # Model classified the same beat under "ritual", same participants,
+        # vocabulary preserved verbatim.
+        actual = [
+            _valid_event(
+                event_class="ritual",
+                participants=["caelynn", "marla_brambleback", "bonogo"],
+                event_name="Caelynn calms the worksite with her bracelet",
+                outcomes=["Caelynn uses her bracelet to soothe the dispute"],
+            ),
+        ]
+        violations, ratio, unmatched, term_violations = collect_se5_violations(actual, expected)
+        # No term violations: vocabulary IS preserved in a participant-overlapping event.
+        assert term_violations == []
+        # The lenient gate still flags it as unmatched (event_class differs), but term-violations
+        # are independently zero. Below-threshold lenient FAIL is the only string violation.
+        assert ratio == 0.0
+        assert unmatched == [0]
+        # Single SE5 violation comes from lenient coverage, not from term drift.
+        assert len(violations) == 1
+        assert "missing_outcome_terms" not in violations[0]
+
+    def test_must_preserve_terms_unmatched_event_no_term_violation(self):
+        """If an expected event has no candidate match, SE5 does not emit a term violation
+        (lenient gate already captures it as unmatched)."""
+        expected = [
+            self._expected_with_terms(
+                "ritual",
+                ["caelynn"],
+                "antidote tea",
+                ["caelynn brews tea"],
+                ["antidote", "tea"],
+            ),
+        ]
+        # No matching ritual events.
+        actual = [
+            _valid_event(event_class="combat", participants=["karsemine"], event_name="something else", outcomes=["different"]),
+        ]
+        violations, ratio, unmatched, term_violations = collect_se5_violations(actual, expected)
+        assert ratio == 0.0
+        assert unmatched == [0]
+        # No structured term violation — the expected event was unmatched.
+        assert term_violations == []
+        # SE5 gate FAILs anyway because ratio < threshold.
+        assert violations
 
 
 # ---------------------------------------------------------------------------
@@ -474,6 +754,133 @@ class TestFullPass:
         assert "event_classes_seen" in telemetry
         assert "expected_event_coverage_ratio" in telemetry
         assert "unmatched_expected_event_indices" in telemetry
+        # SE5 outcome-vocabulary telemetry
+        assert "expected_events_with_missing_terms" in telemetry
+        assert "missing_terms_total" in telemetry
+        assert "se5_term_violations" in telemetry
         assert telemetry["event_count"] == 15
         assert "caelynn" in telemetry["participants_seen"]
         assert "combat" in telemetry["event_classes_seen"]
+        # No must_preserve_terms in this grading → empty term-violation telemetry
+        assert telemetry["expected_events_with_missing_terms"] == []
+        assert telemetry["missing_terms_total"] == 0
+        assert telemetry["se5_term_violations"] == []
+
+
+# ---------------------------------------------------------------------------
+# Top-level orchestration with must_preserve_terms (telemetry + gate FAIL)
+# ---------------------------------------------------------------------------
+
+
+class TestMustPreserveTermsIntegration:
+    """SE5 with must_preserve_terms in the gold should fail the gate and
+    populate expected_events_with_missing_terms / missing_terms_total telemetry."""
+
+    def _events(self) -> list[dict]:
+        # Plausible events covering all required participants + classes.
+        evidence = _EVIDENCE_ID
+        ev = _valid_event
+        return [
+            ev(event_class="combat",
+               participants=["ephanna", "karsemine", "caelynn", "thrin_branchborn"],
+               event_name="Red gnat swarm battle at forest edge",
+               # Missing "Eldritch Blast" — paraphrased away.
+               outcomes=[
+                   "Karsemine lands 4 scimitar hits using Zephyr Strike",
+                   "Ephanna casts an attack spell",
+                   "Caelynn casts Thunderwave splitting the swarm 10 feet back",
+               ],
+               evidence_id=evidence),
+            ev(event_class="social_conflict",
+               participants=["bonogo", "stacey"],
+               event_name="Bonogo intimidates Stacey with knife threat",
+               outcomes=["Bonogo holds knife to Stacey's throat", "Stacey runs home shaken"],
+               evidence_id=evidence),
+            ev(event_class="conversation",
+               participants=["caelynn", "sara_mirathorn_operator"],
+               event_name="Caelynn calls Sara via rockie-talkie",
+               outcomes=["Sara connects Caelynn to Lysandra"],
+               evidence_id=evidence),
+            ev(event_class="discovery",
+               participants=["captain_lysandra_ironveil", "caelynn"],
+               event_name="Lysandra found drawing tower blueprint",
+               outcomes=["shimmery eyes like cult", "tower blueprint in dirt"],
+               evidence_id=evidence),
+        ]
+
+    def _grading(self) -> dict:
+        return {
+            "min_event_count": 1,
+            "max_event_count": 25,
+            "must_cover_participants": [
+                "captain_lysandra_ironveil", "caelynn", "ephanna", "karsemine",
+                "sara_mirathorn_operator", "bonogo", "stacey",
+            ],
+            "must_cover_event_classes": ["combat", "social_conflict", "conversation", "discovery"],
+            "expected_events": [
+                _valid_event(
+                    event_class="combat",
+                    participants=["caelynn", "ephanna", "karsemine"],
+                    event_name="swarm battle",
+                    outcomes=["swarm defeated"],
+                ) | {"must_preserve_terms": ["scimitar", "Thunderwave", "Eldritch Blast"]},
+                _valid_event(
+                    event_class="social_conflict",
+                    participants=["bonogo", "stacey"],
+                    event_name="knife threat",
+                    outcomes=["Stacey runs home"],
+                ) | {"must_preserve_terms": ["knife"]},
+                _valid_event(
+                    event_class="conversation",
+                    participants=["caelynn", "sara_mirathorn_operator"],
+                    event_name="rockie talkie",
+                    outcomes=["Sara connects Lysandra"],
+                ) | {"must_preserve_terms": ["rockie-talkie", "Sara"]},
+                _valid_event(
+                    event_class="discovery",
+                    participants=["captain_lysandra_ironveil"],
+                    event_name="tower blueprint",
+                    outcomes=["blueprint drawn"],
+                ) | {"must_preserve_terms": ["blueprint", "tower"]},
+            ],
+        }
+
+    def test_missing_term_fails_se5_gate(self):
+        events = self._events()
+        grading = self._grading()
+        violations, telemetry = collect_session_events_violations(events, grading)
+        verdict = per_gate_verdict(violations)
+
+        # SE5 must FAIL because expected_events[0] is missing "Eldritch Blast".
+        assert verdict["SE5"] == "FAIL"
+        # Other gates remain PASS.
+        assert verdict["SE1"] == "PASS"
+        assert verdict["SE2"] == "PASS"
+        assert verdict["SE3"] == "PASS"
+        assert verdict["SE4"] == "PASS"
+
+        # Telemetry attribution is precise.
+        assert telemetry["expected_events_with_missing_terms"] == [0]
+        assert telemetry["missing_terms_total"] == 1
+        tvs = telemetry["se5_term_violations"]
+        assert len(tvs) == 1
+        assert tvs[0]["kind"] == "missing_outcome_terms"
+        assert tvs[0]["expected_event_index"] == 0
+        assert tvs[0]["missing_terms"] == ["Eldritch Blast"]
+
+    def test_all_terms_preserved_passes_gate(self):
+        events = self._events()
+        # Patch the combat event to include "Eldritch Blast"
+        events[0]["outcomes"] = [
+            "Karsemine lands 4 scimitar hits using Zephyr Strike",
+            "Ephanna's second Eldritch Blast removes a cluster",
+            "Caelynn casts Thunderwave splitting the swarm 10 feet back",
+        ]
+        grading = self._grading()
+        violations, telemetry = collect_session_events_violations(events, grading)
+        verdict = per_gate_verdict(violations)
+        assert verdict == {
+            "SE1": "PASS", "SE2": "PASS", "SE3": "PASS", "SE4": "PASS", "SE5": "PASS",
+        }
+        assert telemetry["expected_events_with_missing_terms"] == []
+        assert telemetry["missing_terms_total"] == 0

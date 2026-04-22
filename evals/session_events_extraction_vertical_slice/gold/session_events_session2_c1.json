@@ -1,0 +1,106 @@
+{
+  "schema": "session_events_extraction_v1",
+  "scenario_id": "session_events_session2_c1",
+  "input": {
+    "recap_relative_path": "Longmont Campaign/Campaign 1/Session Recaps/Session 2 - Finishing the Job.md",
+    "user_message": "Read the Session 2 recap at `Longmont Campaign/Campaign 1/Session Recaps/Session 2 - Finishing the Job.md` and extract all meaningful scene events as structured event records.\n\nFor each distinct beat, fight, conversation, discovery, transfer, or decision in the recap, produce one event_record with:\n- event_class (one of: conversation, travel, combat, discovery, transfer, ritual, betrayal, disaster, investigation, social_conflict)\n- participants (use the known character slugs below — only include slugs that actually appear in that event)\n- location (brief description of where it happens, or null if unspecified)\n- outcomes (list of concrete results or facts established by the event)\n- time_scope (use \"scene\" for specific session events)\n- certainty (use \"observed\" for events directly described in the recap)\n- event_name (short descriptive name for the event)\n- evidence_id (set to the recap path: \"Longmont Campaign/Campaign 1/Session Recaps/Session 2 - Finishing the Job.md\")\n\nKnown character slugs: karsemine, stafl, caelynn, ephanna, bonogo, baergrom, grishna, glowkindle\n\nThis recap is a short summary covering the cleanup after Session 1's giant-rat fight in the Wizard's Tower basement. Extract 4–8 events. Do not invent events not described in the recap. The closing rhetorical questions about Glowkindle, Grishna, and the Wizard's Tower are GM teasers — they are not events."
+  },
+  "grading": {
+    "session": 2,
+    "expected_events": [
+      {
+        "event_name": "Party clears remaining wizard's tower basement monsters",
+        "event_class": "combat",
+        "participants": ["karsemine", "stafl", "caelynn", "ephanna", "bonogo", "baergrom"],
+        "location": "wizard's tower basement",
+        "outcomes": [
+          "Party defeats the Giant Flaming Spider that was the cliffhanger from Session 1",
+          "Party defeats a Giant Centipede that crawled out of the well in the basement",
+          "Party defeats a rat that absolutely was NOT about to mutate",
+          "These fights felt easy compared to the original giant rat encounter"
+        ],
+        "must_preserve_terms": ["Giant Flaming Spider", "Giant Centipede", "well"],
+        "time_scope": "scene",
+        "certainty": "observed",
+        "evidence_id": "Longmont Campaign/Campaign 1/Session Recaps/Session 2 - Finishing the Job.md"
+      },
+      {
+        "event_name": "Party finds rich loot — gems, mystery potions, hidden alchemy room",
+        "event_class": "discovery",
+        "participants": ["karsemine", "stafl", "caelynn", "ephanna", "bonogo", "baergrom"],
+        "location": "wizard's tower basement (well + walled-off alchemy room)",
+        "outcomes": [
+          "Party finds a sack of gems",
+          "Party finds mystery potions on corpses in the well",
+          "Party bashes down a wall and reveals a hidden room full of healing potions and ancient alchemical tools and ingredients",
+          "The party has no idea how to use the alchemical tools but considers them cool"
+        ],
+        "must_preserve_terms": ["sack of gems", "mystery potions", "alchemical", "healing potions"],
+        "time_scope": "scene",
+        "certainty": "observed",
+        "evidence_id": "Longmont Campaign/Campaign 1/Session Recaps/Session 2 - Finishing the Job.md"
+      },
+      {
+        "event_name": "Party negotiates with Glowkindle for stash rights in the hidden alchemy room",
+        "event_class": "conversation",
+        "participants": ["karsemine", "stafl", "caelynn", "ephanna", "bonogo", "baergrom", "glowkindle"],
+        "location": "Wizard's Tower Brewing Company",
+        "outcomes": [
+          "The hidden alchemy room was not part of the original contract",
+          "Party negotiates with Glowkindle for the right to stash gear in the hidden alchemy room",
+          "It is not much but it is a start as a base of operations"
+        ],
+        "must_preserve_terms": ["Glowkindle", "alchemy room"],
+        "time_scope": "scene",
+        "certainty": "observed",
+        "evidence_id": "Longmont Campaign/Campaign 1/Session Recaps/Session 2 - Finishing the Job.md"
+      },
+      {
+        "event_name": "Party paid 25 gp each plus loot for finishing the rat-clearing contract",
+        "event_class": "transfer",
+        "participants": ["karsemine", "stafl", "caelynn", "ephanna", "bonogo", "baergrom", "glowkindle"],
+        "location": "Wizard's Tower Brewing Company",
+        "outcomes": [
+          "Each party member receives 25 gp for completing the contract",
+          "Party also walks away with a bit of loot",
+          "Party learned a lot about the dangers of clearing rats out of basements"
+        ],
+        "must_preserve_terms": ["25 gp"],
+        "time_scope": "scene",
+        "certainty": "observed",
+        "evidence_id": "Longmont Campaign/Campaign 1/Session Recaps/Session 2 - Finishing the Job.md"
+      },
+      {
+        "event_name": "Party decides to stick together and see where the winds take them",
+        "event_class": "conversation",
+        "participants": ["karsemine", "stafl", "caelynn", "ephanna", "bonogo", "baergrom"],
+        "location": null,
+        "outcomes": [
+          "After the rich payout the group decides to stick together",
+          "The party agrees to see where the winds take them next"
+        ],
+        "must_preserve_terms": [],
+        "time_scope": "scene",
+        "certainty": "observed",
+        "evidence_id": "Longmont Campaign/Campaign 1/Session Recaps/Session 2 - Finishing the Job.md"
+      }
+    ],
+    "min_event_count": 4,
+    "max_event_count": 8,
+    "must_cover_participants": [
+      "karsemine",
+      "stafl",
+      "caelynn",
+      "ephanna",
+      "bonogo",
+      "baergrom",
+      "glowkindle"
+    ],
+    "must_cover_event_classes": [
+      "combat",
+      "discovery",
+      "conversation",
+      "transfer"
+    ]
+  }
+}
