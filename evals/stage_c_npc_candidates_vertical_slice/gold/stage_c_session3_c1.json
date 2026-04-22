@@ -1,0 +1,27 @@
+{
+  "schema": "stage_c_v0.1",
+  "scenario_id": "stage_c_session3_c1",
+  "scenario_class": "stage_c_npc_candidate_id",
+  "input": {
+    "campaign_id": "longmont-c1",
+    "session_label": "Session 3 (C1)",
+    "stage_a_events_path": "evals/stage_c_npc_candidates_vertical_slice/fixtures/stage_a_events_session3_c1.json",
+    "npc_registry_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/_npc_registry.json",
+    "pc_roster": [
+      {"slug": "bonogo",    "display_name": "Bonogo",    "aliases": []},
+      {"slug": "caelynn",   "display_name": "Caelynn",   "aliases": []},
+      {"slug": "ephanna",   "display_name": "Ephanna",   "aliases": []},
+      {"slug": "karsemine", "display_name": "Karsemine", "aliases": ["Karesmine"]},
+      {"slug": "stafl",     "display_name": "Stafl",     "aliases": []},
+      {"slug": "baergrom",  "display_name": "Baergrom",  "aliases": []}
+    ]
+  },
+  "grading": {
+    "expected_tracked_active_minimum": [],
+    "expected_new_candidates_minimum": [],
+    "expected_new_candidates_should_include_at_least_one_of": ["kirfan", "pippa", "bubbles", "grishna"],
+    "max_total_candidates": 25,
+    "pc_roster_for_negative_check": ["bonogo", "caelynn", "ephanna", "karsemine", "stafl", "baergrom"]
+  },
+  "notes": "C1S3 — Stone Bridge Flood. Pre-seeded registry NPCs absent; named NPCs Kirfan (the elderly fisherman), Pippa, Bubbles (her goat), Grishna are the candidates Stage C should propose. Kirfan was the canonical motivating example for the referenced_slugs[] field — verifying he gets classified as a new_candidate here closes the bootstrap loop proof. Frozen Stage A fixture (gpt-5.4-mini, 14 events) has pippa/bubbles/grishna in participants[] and kirfan in referenced_slugs[] (the harder case)."
+}

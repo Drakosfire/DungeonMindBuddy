@@ -1,0 +1,27 @@
+{
+  "schema": "stage_c_v0.1",
+  "scenario_id": "stage_c_session1_c1",
+  "scenario_class": "stage_c_npc_candidate_id",
+  "input": {
+    "campaign_id": "longmont-c1",
+    "session_label": "Session 1 (C1)",
+    "stage_a_events_path": "evals/stage_c_npc_candidates_vertical_slice/fixtures/stage_a_events_session1_c1.json",
+    "npc_registry_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/_npc_registry.json",
+    "pc_roster": [
+      {"slug": "bonogo",    "display_name": "Bonogo",    "aliases": []},
+      {"slug": "caelynn",   "display_name": "Caelynn",   "aliases": []},
+      {"slug": "ephanna",   "display_name": "Ephanna",   "aliases": []},
+      {"slug": "karsemine", "display_name": "Karsemine", "aliases": ["Karesmine"]},
+      {"slug": "stafl",     "display_name": "Stafl",     "aliases": []},
+      {"slug": "baergrom",  "display_name": "Baergrom",  "aliases": []}
+    ]
+  },
+  "grading": {
+    "expected_tracked_active_minimum": [],
+    "expected_new_candidates_minimum": [],
+    "expected_new_candidates_should_include_at_least_one_of": ["grishna", "glowkindle"],
+    "max_total_candidates": 25,
+    "pc_roster_for_negative_check": ["bonogo", "caelynn", "ephanna", "karsemine", "stafl", "baergrom"]
+  },
+  "notes": "C1 Session 1 — Wizard's Tower with Grishna and Glowkindle. C1 registry pre-seeds only Lysandra + Torbin (neither appears in S1), so expected_tracked_active is empty. Soft-bonus telemetry should hit on grishna or glowkindle as new_candidates. Frozen Stage A fixture (gpt-5.4-mini, 9 events) has both Glowkindle and Grishna in referenced_slugs[]; PCs (baergrom, bonogo, caelynn, ephanna, karsemine, stafl) are in participants[]."
+}

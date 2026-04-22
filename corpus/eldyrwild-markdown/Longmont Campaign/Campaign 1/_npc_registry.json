@@ -1,0 +1,24 @@
+[
+  {
+    "slug": "captain_lysandra_ironveil",
+    "display_name": "Captain Lysandra Ironveil",
+    "aliases": ["Lysandra", "the captain"],
+    "status": "tracked",
+    "first_session": 8,
+    "last_session": 13,
+    "hub_path": "Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/",
+    "setting_hub_path": null,
+    "notes": "C1 has no campaign-tagged NPC hub for Lysandra; using Elderwyld setting hub as authoritative. Cross-campaign character (also active in C2 sessions 3-20). first_session derived from filename 'Session 8 - Captain Lysandra Quest.md'; last_session from Torbin C2 timeline.md C1 rows. C1 cold-start seed; everything else in this campaign goes through Stage C as new_candidates."
+  },
+  {
+    "slug": "torbin_jove",
+    "display_name": "Torbin Jove",
+    "aliases": [],
+    "status": "tracked",
+    "first_session": 4,
+    "last_session": 13,
+    "hub_path": "Elderwyld/Cities and Towns/Mirathorn/NPCs/torbin_jove/",
+    "setting_hub_path": null,
+    "notes": "C1 has no campaign-tagged NPC hub for Torbin; using Elderwyld setting hub as authoritative. Cross-campaign character. Sessions 4-13 from Torbin's C2 timeline.md C1 rows. C1 cold-start seed."
+  }
+]

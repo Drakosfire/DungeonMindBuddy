@@ -1,0 +1,103 @@
+{
+  "generated_at": "2026-04-22T21:35:52.943294Z",
+  "campaign_id": "longmont-c1",
+  "source_runs": [
+    "stage_c--stage_c_session1_c1--gpt-5.4-mini--PASS--20260422T210741Z--run001.json",
+    "stage_c--stage_c_session1_c1--gpt-5.4-mini--PASS--20260422T210743Z--run002.json",
+    "stage_c--stage_c_session1_c1--gpt-5.4-mini--PASS--20260422T210746Z--run003.json",
+    "stage_c--stage_c_session1_c1--gpt-5.4-mini--PASS--20260422T210749Z--run004.json",
+    "stage_c--stage_c_session1_c1--gpt-5.4-mini--PASS--20260422T210753Z--run005.json",
+    "stage_c--stage_c_session2_c1--gpt-5.4-mini--PASS--20260422T210832Z--run001.json",
+    "stage_c--stage_c_session2_c1--gpt-5.4-mini--PASS--20260422T210834Z--run002.json",
+    "stage_c--stage_c_session2_c1--gpt-5.4-mini--PASS--20260422T210835Z--run003.json",
+    "stage_c--stage_c_session2_c1--gpt-5.4-mini--PASS--20260422T210837Z--run004.json",
+    "stage_c--stage_c_session2_c1--gpt-5.4-mini--PASS--20260422T210838Z--run005.json",
+    "stage_c--stage_c_session3_c1--gpt-5.4-mini--PASS--20260422T213247Z--run001.json",
+    "stage_c--stage_c_session3_c1--gpt-5.4-mini--PASS--20260422T213249Z--run002.json",
+    "stage_c--stage_c_session3_c1--gpt-5.4-mini--PASS--20260422T213252Z--run003.json",
+    "stage_c--stage_c_session3_c1--gpt-5.4-mini--PASS--20260422T213254Z--run004.json",
+    "stage_c--stage_c_session3_c1--gpt-5.4-mini--PASS--20260422T213256Z--run005.json"
+  ],
+  "source_run_count": 15,
+  "sessions_analyzed": [
+    "session1_c1",
+    "session2_c1",
+    "session3_c1"
+  ],
+  "proposed_records": [
+    {
+      "suggested_slug": "grishna",
+      "appearance_count": 10,
+      "session_appearances": [
+        "session1_c1",
+        "session3_c1"
+      ],
+      "descriptors_seen": [
+        "Grishna"
+      ],
+      "sample_rationale": "Named non-PC participant appearing in events and not present in the tracked NPC registry.",
+      "ready_for_promotion_recommendation": "high"
+    },
+    {
+      "suggested_slug": "glowkindle",
+      "appearance_count": 10,
+      "session_appearances": [
+        "session1_c1",
+        "session2_c1"
+      ],
+      "descriptors_seen": [
+        "Glowkindle"
+      ],
+      "sample_rationale": "Named entity appears in the event but does not match any tracked NPC registry entry.",
+      "ready_for_promotion_recommendation": "high"
+    },
+    {
+      "suggested_slug": "pippa",
+      "appearance_count": 5,
+      "session_appearances": [
+        "session3_c1"
+      ],
+      "descriptors_seen": [
+        "Pippa"
+      ],
+      "sample_rationale": "Pippa appears repeatedly in event participants but is not in the tracked NPC registry or PC roster.",
+      "ready_for_promotion_recommendation": "high"
+    },
+    {
+      "suggested_slug": "kirfan",
+      "appearance_count": 5,
+      "session_appearances": [
+        "session3_c1"
+      ],
+      "descriptors_seen": [
+        "Kirfan"
+      ],
+      "sample_rationale": "Kirfan is directly referenced by name in an event but does not match any tracked NPC registry entry.",
+      "ready_for_promotion_recommendation": "high"
+    },
+    {
+      "suggested_slug": "bubbles_the_float_goat",
+      "appearance_count": 4,
+      "session_appearances": [
+        "session3_c1"
+      ],
+      "descriptors_seen": [
+        "Bubbles the Float Goat"
+      ],
+      "sample_rationale": "Named creature/entity repeatedly referenced and not found in the NPC registry.",
+      "ready_for_promotion_recommendation": "high"
+    },
+    {
+      "suggested_slug": "bubbles",
+      "appearance_count": 1,
+      "session_appearances": [
+        "session3_c1"
+      ],
+      "descriptors_seen": [
+        "Bubbles the Float Goat"
+      ],
+      "sample_rationale": "Named non-PC entity repeatedly referenced across the session but not present in the tracked NPC registry.",
+      "ready_for_promotion_recommendation": "low"
+    }
+  ]
+}
