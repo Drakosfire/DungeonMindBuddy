@@ -1,0 +1,47 @@
+{
+  "_provenance": "Frozen Stage C output extracted from evals/stage_c_npc_candidates_vertical_slice/artifacts/runs/2026-04-22/stage_c--stage_c_session20--gpt-5.4-mini--PASS--20260422T202940Z--run001.json (S20 PASSing run, NOT the run005 FAIL with stafl PC leak). Used as deterministic input to the Stage D vertical slice.",
+  "_source_run": "stage_c--stage_c_session20--gpt-5.4-mini--PASS--20260422T202940Z--run001.json",
+  "stage_c_output": {
+    "tracked_npcs_active": [
+      {
+        "slug": "thrin_branchborn",
+        "evidence_event_indices": [0, 1, 8, 11, 14, 15],
+        "appearance_count": 6
+      },
+      {
+        "slug": "stuart",
+        "evidence_event_indices": [2, 4, 5, 6, 9],
+        "appearance_count": 5
+      },
+      {
+        "slug": "stacey_brambleback",
+        "evidence_event_indices": [2, 3, 4, 5, 6, 9],
+        "appearance_count": 6
+      },
+      {
+        "slug": "marla_brambleback",
+        "evidence_event_indices": [9, 10],
+        "appearance_count": 2
+      },
+      {
+        "slug": "sara_mirathorn_operator",
+        "evidence_event_indices": [12, 13, 19],
+        "appearance_count": 3
+      },
+      {
+        "slug": "captain_lysandra_ironveil",
+        "evidence_event_indices": [11, 12, 13, 14, 15],
+        "appearance_count": 5
+      }
+    ],
+    "new_npc_candidates": [
+      {
+        "descriptor": "Professor Tealeaf",
+        "suggested_slug": "professor_tealeaf",
+        "evidence_event_indices": [19],
+        "rationale": "Professor Tealeaf is mentioned in the recap but does not match any tracked NPC registry entry."
+      }
+    ],
+    "unresolved_descriptors": []
+  }
+}

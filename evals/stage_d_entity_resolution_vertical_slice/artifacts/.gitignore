@@ -1,0 +1,7 @@
+# Stage D run artifacts: per-run reports + cohort summaries written by the runner.
+# Track only the runs/ folder structure (.gitkeep); ignore everything else.
+*
+!.gitignore
+!runs/
+runs/*
+!runs/.gitkeep

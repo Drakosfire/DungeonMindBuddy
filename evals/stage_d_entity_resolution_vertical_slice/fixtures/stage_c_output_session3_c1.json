@@ -1,0 +1,43 @@
+{
+  "_provenance": "Synthesized Stage C output combining cohort runs 001 (suggested_slug='bubbles') and 002 (suggested_slug='bubbles_the_float_goat') from evals/stage_c_npc_candidates_vertical_slice/artifacts/runs/2026-04-22/stage_c--stage_c_session3_c1--gpt-5.4-mini--PASS--20260422T2132{47,49}Z--run00[12].json. Both slug variants for the same entity appear as separate items so Stage D's slug-clustering / registry-alias heuristics must collapse them.",
+  "_source_runs": [
+    "stage_c--stage_c_session3_c1--gpt-5.4-mini--PASS--20260422T213247Z--run001.json (provided 'bubbles' suggested_slug)",
+    "stage_c--stage_c_session3_c1--gpt-5.4-mini--PASS--20260422T213249Z--run002.json (provided 'bubbles_the_float_goat' suggested_slug)"
+  ],
+  "stage_c_output": {
+    "tracked_npcs_active": [],
+    "new_npc_candidates": [
+      {
+        "descriptor": "Pippa",
+        "suggested_slug": "pippa",
+        "evidence_event_indices": [0, 2, 4, 13],
+        "rationale": "Named non-PC participant appearing in multiple events and not present in the tracked NPC registry."
+      },
+      {
+        "descriptor": "Bubbles the Float Goat",
+        "suggested_slug": "bubbles",
+        "evidence_event_indices": [0, 1, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13],
+        "rationale": "Named non-PC entity repeatedly referenced across the session but not present in the tracked NPC registry."
+      },
+      {
+        "descriptor": "Grishna",
+        "suggested_slug": "grishna",
+        "evidence_event_indices": [2, 3],
+        "rationale": "Named non-PC participant appearing in events and not present in the tracked NPC registry."
+      },
+      {
+        "descriptor": "Kirfan",
+        "suggested_slug": "kirfan",
+        "evidence_event_indices": [1],
+        "rationale": "Explicitly referenced by name in the event but not present in the tracked NPC registry."
+      },
+      {
+        "descriptor": "Bubbles the Float Goat",
+        "suggested_slug": "bubbles_the_float_goat",
+        "evidence_event_indices": [0, 1, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13],
+        "rationale": "Named animal companion is repeatedly referenced in events but does not match any tracked NPC."
+      }
+    ],
+    "unresolved_descriptors": []
+  }
+}

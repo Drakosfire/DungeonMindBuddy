@@ -1,0 +1,6 @@
+# Stage D fixtures: frozen Stage C output snapshots used for deterministic
+# Stage D testing. Allow checked-in stage_c_output_*.json fixtures; ignore
+# everything else.
+*
+!.gitignore
+!stage_c_output_*.json

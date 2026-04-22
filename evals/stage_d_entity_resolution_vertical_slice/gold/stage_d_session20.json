@@ -1,0 +1,28 @@
+{
+  "schema": "stage_d_v0.1",
+  "scenario_id": "stage_d_session20",
+  "scenario_class": "stage_d_entity_resolution",
+  "input": {
+    "campaign_id": "longmont-c2",
+    "session_label": "Session 20",
+    "session_number": 20,
+    "stage_c_output_path": "evals/stage_d_entity_resolution_vertical_slice/fixtures/stage_c_output_session20.json",
+    "stage_a_events_path": "evals/stage_c_npc_candidates_vertical_slice/fixtures/stage_a_events_session20.json",
+    "npc_registry_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/_npc_registry.json",
+    "pc_roster": [
+      {"slug": "bonogo",    "display_name": "Bonogo",    "aliases": []},
+      {"slug": "caelynn",   "display_name": "Caelynn",   "aliases": []},
+      {"slug": "ephanna",   "display_name": "Ephanna",   "aliases": []},
+      {"slug": "karsemine", "display_name": "Karsemine", "aliases": ["Karesmine"]},
+      {"slug": "stafl",     "display_name": "Stafl",     "aliases": []}
+    ]
+  },
+  "grading": {
+    "must_not_merge": [],
+    "must_merge_clusters": [],
+    "must_resolve_unresolved": [],
+    "expected_unresolvable_max": 0,
+    "expected_proposed_new_records_minimum_slugs": ["professor_tealeaf"]
+  },
+  "notes": "S20 — clean tracked-active path. Stage C surfaced 6 tracked active NPCs (already resolved upstream) plus one new_candidate (Professor Tealeaf, not yet in the C2 registry). Stage D should: route Tealeaf to new_net_entity with a proposed_new_record (status=candidate, hub_path=null); have zero unresolvable; have zero proposed_aliases (Tealeaf descriptor has no 'the' so no alias is auto-extracted). The expected_proposed_new_records_minimum_slugs / expected_unresolvable_max fields are SOFT TELEMETRY (not graded by ER1-ER5; they exist for the stretch alias-attach gold and for human inspection)."
+}

@@ -1,0 +1,35 @@
+{
+  "schema": "stage_d_v0.1",
+  "scenario_id": "stage_d_session1_c1",
+  "scenario_class": "stage_d_entity_resolution",
+  "input": {
+    "campaign_id": "longmont-c1",
+    "session_label": "Session 1 (C1)",
+    "session_number": 1,
+    "stage_c_output_path": "evals/stage_d_entity_resolution_vertical_slice/fixtures/stage_c_output_session1_c1.json",
+    "stage_a_events_path": "evals/stage_c_npc_candidates_vertical_slice/fixtures/stage_a_events_session1_c1.json",
+    "npc_registry_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/_npc_registry.json",
+    "pc_roster": [
+      {"slug": "bonogo",    "display_name": "Bonogo",    "aliases": []},
+      {"slug": "caelynn",   "display_name": "Caelynn",   "aliases": []},
+      {"slug": "ephanna",   "display_name": "Ephanna",   "aliases": []},
+      {"slug": "karsemine", "display_name": "Karsemine", "aliases": ["Karesmine"]},
+      {"slug": "stafl",     "display_name": "Stafl",     "aliases": []},
+      {"slug": "baergrom",  "display_name": "Baergrom",  "aliases": []}
+    ]
+  },
+  "grading": {
+    "must_not_merge": [
+      ["cat owl", "grishna"],
+      ["spider monstrosity", "glowkindle"],
+      ["cat owl", "glowkindle"],
+      ["spider monstrosity", "grishna"],
+      ["grishna", "glowkindle"]
+    ],
+    "must_merge_clusters": [],
+    "must_resolve_unresolved": [],
+    "expected_unresolvable_min": 8,
+    "expected_proposed_new_records_minimum_slugs": ["grishna", "glowkindle"]
+  },
+  "notes": "C1S1 — Wizard's Tower with Grishna + Glowkindle plus 8 generic creature descriptors aggregated from all 5 cohort runs. Stage D v0 deterministic should: (a) route grishna and glowkindle to new_net_entity + proposed_new_records (neither is in the C1 registry, neither clusters with the other — Levenshtein 8 distance, no substring containment); (b) route ALL 8 unresolved_descriptors (cat-owl/spider-monstrosity variants) to unresolvable[] (no name evidence, no registry display_name/alias substring match against Lysandra/Torbin/Bubbles); (c) NEVER cross-merge a creature descriptor with grishna or glowkindle. The 5 must_not_merge pairs explicitly forbid the false-merge precision regression."
+}

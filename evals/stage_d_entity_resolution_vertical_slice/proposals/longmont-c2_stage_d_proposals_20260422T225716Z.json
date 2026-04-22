@@ -1,0 +1,27 @@
+{
+  "schema": "stage_d_cohort_proposals_v1",
+  "generated_at": "2026-04-22T22:57:16.539844+00:00",
+  "campaign_id": "longmont-c2",
+  "scenario_id": "stage_d_session20",
+  "runner_version": "stage_d_runner_v0_deterministic",
+  "source_run_count": 1,
+  "proposed_records": [
+    {
+      "slug": "professor_tealeaf",
+      "display_name": "Professor Tealeaf",
+      "aliases": [],
+      "status": "candidate",
+      "first_session": 20,
+      "last_session": 20,
+      "hub_path": null,
+      "setting_hub_path": null,
+      "notes": "Proposed by Stage D deterministic v0; descriptor 'Professor Tealeaf'; evidence event indices [19].",
+      "appearance_runs": 1,
+      "sample_run_indices": [
+        0
+      ]
+    }
+  ],
+  "proposed_aliases": [],
+  "unresolvable": []
+}

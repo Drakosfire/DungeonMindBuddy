@@ -1,0 +1,69 @@
+{
+  "_provenance": "Frozen Stage C output for C1S1 — synthesized by aggregating the 8 unique unresolved_descriptors strings observed across all 5 cohort runs (evals/stage_c_npc_candidates_vertical_slice/artifacts/runs/2026-04-22/stage_c--stage_c_session1_c1--gpt-5.4-mini--PASS--20260422T210{741,743,746,749,753}Z--run00[1-5].json). Stage D must route ALL 8 to unresolvable[] (creature descriptions, no name evidence) AND emit proposed_new_records for grishna and glowkindle.",
+  "_source_runs": [
+    "stage_c--stage_c_session1_c1--gpt-5.4-mini--PASS--20260422T210741Z--run001.json",
+    "stage_c--stage_c_session1_c1--gpt-5.4-mini--PASS--20260422T210743Z--run002.json",
+    "stage_c--stage_c_session1_c1--gpt-5.4-mini--PASS--20260422T210746Z--run003.json",
+    "stage_c--stage_c_session1_c1--gpt-5.4-mini--PASS--20260422T210749Z--run004.json",
+    "stage_c--stage_c_session1_c1--gpt-5.4-mini--PASS--20260422T210753Z--run005.json"
+  ],
+  "stage_c_output": {
+    "tracked_npcs_active": [],
+    "new_npc_candidates": [
+      {
+        "descriptor": "Grishna",
+        "suggested_slug": "grishna",
+        "evidence_event_indices": [1, 2, 3],
+        "rationale": "Named NPC referenced in multiple events but not present in the tracked NPC registry."
+      },
+      {
+        "descriptor": "Glowkindle",
+        "suggested_slug": "glowkindle",
+        "evidence_event_indices": [1, 4, 5, 6],
+        "rationale": "Named NPC referenced in multiple events but not present in the tracked NPC registry."
+      }
+    ],
+    "unresolved_descriptors": [
+      {
+        "descriptor": "mysterious cat owl",
+        "evidence_event_indices": [6],
+        "rationale": "The creature is described but not clearly named as an NPC."
+      },
+      {
+        "descriptor": "flaming, magma-infused spider monstrosity",
+        "evidence_event_indices": [8],
+        "rationale": "Descriptive creature phrase rather than a clear NPC name."
+      },
+      {
+        "descriptor": "cat owl",
+        "evidence_event_indices": [6],
+        "rationale": "A creature-like helper is mentioned without a clear unique identity."
+      },
+      {
+        "descriptor": "magma-infused spider monstrosity",
+        "evidence_event_indices": [8],
+        "rationale": "Non-person creature descriptor with no identifying name."
+      },
+      {
+        "descriptor": "a mysterious cat owl",
+        "evidence_event_indices": [6],
+        "rationale": "Generic creature description with no clear name."
+      },
+      {
+        "descriptor": "a flaming, magma-infused spider monstrosity",
+        "evidence_event_indices": [8],
+        "rationale": "Descriptive monster label without a clear personal name."
+      },
+      {
+        "descriptor": "a magma-infused spider monstrosity",
+        "evidence_event_indices": [8],
+        "rationale": "Descriptive creature without a name."
+      },
+      {
+        "descriptor": "the mysterious cat owl",
+        "evidence_event_indices": [6],
+        "rationale": "Descriptive creature mention rather than a clearly identified NPC name."
+      }
+    ]
+  }
+}

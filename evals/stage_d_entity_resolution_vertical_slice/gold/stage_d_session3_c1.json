@@ -1,0 +1,38 @@
+{
+  "schema": "stage_d_v0.1",
+  "scenario_id": "stage_d_session3_c1",
+  "scenario_class": "stage_d_entity_resolution",
+  "input": {
+    "campaign_id": "longmont-c1",
+    "session_label": "Session 3 (C1)",
+    "session_number": 3,
+    "stage_c_output_path": "evals/stage_d_entity_resolution_vertical_slice/fixtures/stage_c_output_session3_c1.json",
+    "stage_a_events_path": "evals/stage_c_npc_candidates_vertical_slice/fixtures/stage_a_events_session3_c1.json",
+    "npc_registry_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/_npc_registry.json",
+    "pc_roster": [
+      {"slug": "bonogo",    "display_name": "Bonogo",    "aliases": []},
+      {"slug": "caelynn",   "display_name": "Caelynn",   "aliases": []},
+      {"slug": "ephanna",   "display_name": "Ephanna",   "aliases": []},
+      {"slug": "karsemine", "display_name": "Karsemine", "aliases": ["Karesmine"]},
+      {"slug": "stafl",     "display_name": "Stafl",     "aliases": []},
+      {"slug": "baergrom",  "display_name": "Baergrom",  "aliases": []}
+    ]
+  },
+  "grading": {
+    "must_not_merge": [
+      ["pippa", "grishna"],
+      ["pippa", "kirfan"],
+      ["grishna", "kirfan"],
+      ["pippa", "bubbles_the_float_goat"],
+      ["grishna", "bubbles_the_float_goat"],
+      ["kirfan", "bubbles_the_float_goat"]
+    ],
+    "must_merge_clusters": [
+      ["bubbles", "bubbles_the_float_goat"]
+    ],
+    "must_resolve_unresolved": [],
+    "expected_unresolvable_max": 0,
+    "expected_proposed_new_records_minimum_slugs": ["pippa", "grishna", "kirfan"]
+  },
+  "notes": "C1S3 — THE bubbles slug-variant test (the audit's canonical motivating example). Synthesized fixture has both 'bubbles' and 'bubbles_the_float_goat' as separate suggested_slug entries (sourced from cohort runs 001 + 002). Registry has bubbles_the_float_goat (status=candidate, alias='Bubbles'), Lysandra, Torbin. Stage D v0 deterministic should: (a) collapse 'bubbles' + 'bubbles_the_float_goat' via the registry alias-match path (both descriptors are 'Bubbles the Float Goat' which substring-matches the registry display_name) → both resolve to canonical_slug='bubbles_the_float_goat' via merge_to_registry_slug; (b) emit new_net_entity + proposed_new_records for pippa, grishna, kirfan (none are in C1 registry, none cluster with each other); (c) zero unresolvable; (d) zero proposed_aliases (descriptor 'Bubbles the Float Goat' equals the registry display_name and 'Bubbles' is already an existing alias). Note: the slug-similarity clustering code path is NOT exercised here because the registry-alias path resolves both items first — see tests/test_stage_d_grader.py for a synthetic test of the cluster code path with neither slug in the registry."
+}
