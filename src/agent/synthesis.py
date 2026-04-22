@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 from typing import Any
 
-from dotenv import load_dotenv
+from src.bootstrap_env import load_dungeonmindbuddy_dotenv
 from src.llm.api_client import DungeonMindApiClient
 
 _SYNTHESIS_PROFILE_ENV = "DMB_SYNTHESIS_PROFILE"
@@ -151,17 +151,11 @@ def _resolve_model(model: str | None) -> str:
 
 
 def _load_api_key() -> str | None:
-    project_root = Path(__file__).resolve().parents[2]
-    env_candidates = [
-        project_root / ".env.development",
-        project_root.parents[0] / ".env.development",
-    ]
-    for env_file in env_candidates:
-        if env_file.exists():
-            try:
-                load_dotenv(env_file, override=True)
-            except OSError:
-                continue
+    # Thin shim: delegates to the canonical loader so every importer (planner,
+    # canonical_intent, evals, the env rule's pre-flight pattern) shares the
+    # same .env resolution order as CLI / pytest. Do NOT reintroduce a local
+    # implementation here — see .cursor/rules/dungeonbuddy-environment.mdc.
+    load_dungeonmindbuddy_dotenv()
     return os.getenv("OPENAI_API_KEY")
 
 
@@ -210,7 +204,7 @@ async def synthesize_answer_async(
             from openai import AsyncOpenAI  # type: ignore[import-untyped]
         except Exception as exc:  # pragma: no cover
             raise RuntimeError("OpenAI SDK is required for synthesis.") from exc
-        client = AsyncOpenAI(api_key=api_key)
+        client = AsyncOpenAI()
         is_async_client = True
     api_client = DungeonMindApiClient.wrap(client)
 

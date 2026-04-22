@@ -55,6 +55,11 @@ Rules:
   Do not re-read `os.environ["OPENAI_API_KEY"]` and pass it through.
 - For a pre-flight existence check, call `_load_api_key()` (from `src.agent.synthesis`)
   and exit with the standard message above. Do not invent a new error string per script.
+- **If you find yourself writing a new `_load_api_key` (or any `load_dotenv(...)`
+  helper that hand-rolls candidate paths), you're already wrong** — call
+  `load_dungeonmindbuddy_dotenv()` directly. The synthesis-module `_load_api_key`
+  is preserved only as a thin shim over the canonical loader for legacy import
+  sites; do not copy its shape into new modules.
 - Reference implementations: `evals/lysandra_vertical_slice/step1_planner_trace.py::main`
   and `evals/session_recap_ingest_vertical_slice/step1_recap_ingest_run.py::main`.
 

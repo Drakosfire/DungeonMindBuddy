@@ -336,14 +336,6 @@ Sort newest → oldest within each status; promote with `/promote`; archive with
 **Surfaces when:** Promoting a baseline; bumping `entity_extractor` / `fact_extractor` prompt IDs; changing the taxonomy.
 **Refs:** `extraction_lab/pipeline_contract.py:73-85`, `extraction_lab/assert_regression.py`, handoff §9.1.
 
-## [READY] OpenAI client — collapse three `_load_api_key` copies and stop passing `api_key=` — captured 2026-04-19
-
-**Context:** `src/agent/synthesis.py:153-165`, `src/agent/document_planner.py:139-147`, and `src/agent/query_planner.py:220-228` each implement a `_load_api_key` that loads only `.env.development` (two paths) — they don't match the canonical `bootstrap_env.load_dungeonmindbuddy_dotenv` order (`.env` → `.env.development` → parent). Many call sites then construct `OpenAI(api_key=api_key)` despite the rule in `.cursor/rules/dungeonbuddy-environment.mdc` that says env-only.
-**Insight:** This is the same anti-pattern in three places. Fixing it once removes a class of "key loaded from wrong file" bugs and aligns library code with the CLI/test-conftest behavior.
-**Action:** Make every `_load_api_key` site call `load_dungeonmindbuddy_dotenv()` first (or import from a single shared helper), and replace `OpenAI(api_key=api_key)` with bare `OpenAI()` everywhere except where the `DungeonMindApiClient.wrap` boundary already covers it. Update the env-loading rule to say "if you find yourself writing `_load_api_key`, you're already wrong — call `load_dungeonmindbuddy_dotenv()`."
-**Surfaces when:** Any new entrypoint that talks to OpenAI; any debugging of "key not found"; touching `synthesis.py` / `document_planner.py` / `query_planner.py` / `wiki_compiler.py` / `entity_extractor.py` / `fact_extractor.py`.
-**Refs:** `src/agent/synthesis.py:153-165`, `src/agent/document_planner.py:139-147`, `src/agent/query_planner.py:220-228`, `src/bootstrap_env.py:16-30`, `.cursor/rules/dungeonbuddy-environment.mdc`.
-
 ## [IDEA] Hoist a shared `evals/reporting/` module — captured 2026-04-19
 
 **Context:** Per-run+cohort report writers exist independently in `evals/planner_slice/live_report.py`, `evals/session_recap_ingest_vertical_slice/recap_ingest_run_report.py`, `evals/npc_voice_vertical_slice/npc_voice_planner_trace.write_npc_voice_suite_report`, `evals/llm_ingestion_slice/`, and `evals/canon_layering/run_benchmarks.py`. Each duplicates the "write JSON sidecar + MD with header + cohort rollup" pattern.

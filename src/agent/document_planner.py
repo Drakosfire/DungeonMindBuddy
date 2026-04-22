@@ -10,9 +10,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from dotenv import load_dotenv
-
 from src.agent.evidence_retriever import _unit_allowed
+from src.bootstrap_env import load_dungeonmindbuddy_dotenv
 from src.llm.api_client import DungeonMindApiClient
 
 logger = logging.getLogger(__name__)
@@ -136,17 +135,6 @@ def _resolve_document_planner_model(model: str | None) -> str:
     return DEFAULT_MODEL
 
 
-def _load_api_key() -> str | None:
-    project_root = Path(__file__).resolve().parents[2]
-    for env_file in [
-        project_root / ".env.development",
-        project_root.parents[0] / ".env.development",
-    ]:
-        if env_file.exists():
-            load_dotenv(env_file, override=True)
-    return os.getenv("OPENAI_API_KEY")
-
-
 def _parse_document_plan(raw: str, candidate_ids: set[str]) -> tuple[list[str], str]:
     try:
         data = json.loads(raw)
@@ -199,8 +187,8 @@ async def plan_documents_async(
     client = openai_client
     is_async_client = False
     if client is None:
-        api_key = _load_api_key()
-        if not api_key:
+        load_dungeonmindbuddy_dotenv()
+        if not (os.getenv("OPENAI_API_KEY") or "").strip():
             logger.warning("No OPENAI_API_KEY; document planner fallback (all docs)")
             return DocumentPlan(
                 selected_document_ids=sorted(candidate_ids),
@@ -213,7 +201,7 @@ async def plan_documents_async(
             from openai import AsyncOpenAI
         except ImportError as exc:
             raise RuntimeError("OpenAI SDK required for document planning") from exc
-        client = AsyncOpenAI(api_key=api_key)
+        client = AsyncOpenAI()
         is_async_client = True
     api_client = DungeonMindApiClient.wrap(client)
 
