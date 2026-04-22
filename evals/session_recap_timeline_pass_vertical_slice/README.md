@@ -1,10 +1,15 @@
 # Session recap → autonomous timeline pass (Stage-2 v1 vertical slice)
 
-**What this slice grades:** After Stage-1 has committed `Session 20 - Recap.md`, the planner performs an **autonomous** turn (no recap-write skill) over a pre-loaded list of eight existing C2 timeline files. For each: read the recap, decide whether the NPC/PC has a meaningful Session-20 beat, and if yes append a row via **one-phase** `append_timeline_row` (the call commits). Skip the rest. Hub-proposal evaluation is **out of scope for this slice** as of Iteration 6.
+**What this slice grades:** After Stage-1 has committed `Session 20 - Recap.md`, a downstream pipeline appends Session-20 timeline rows to the eight expected C2 timeline files (six append targets + two skip targets). For each expected-append slug: produce ≥`expected_count` rows whose beat-cell text covers `anchor_words`. For each skip-target slug: produce no `**20**` row. Hub-proposal evaluation is **out of scope for this slice** as of Iteration 6.
 
 This is the autonomous sibling of the v0 operator-instructed slice (`session_recap_timeline_append_vertical_slice/`). v0 stays as the tool-surface baseline; this slice grades **discovery + selectivity + halt-when-done**.
 
-**Iteration 6 runner mode:** pass `--per-slug` to chain **eight** single-subject Responses micro-turns (one slug at a time) on the same `previous_response_id` thread. Artifacts use `--8turn--` in the basename instead of `--1turn--`. The hub-proposal micro-turn was removed in Iteration 6 alongside TP4. The planner still exposes read-only **`list_npc_hubs`** / **`list_pc_hubs`** tools for deterministic hub discovery, used by the runner pre-state and by future hub-proposal slices.
+**Two driver modes:**
+
+- **Iteration 6 single-stage** (legacy, in this directory): `step1_timeline_pass_run.py [--per-slug]` runs the planner end-to-end on the recap. Single tool surface, autonomous-writes loopback. Best for testing the planner's own discovery/selectivity. **Cohort TP1: 0/5.**
+- **Iteration 7 events-first chained** (current focus, lives in sibling slice): `evals/session_events_extraction_vertical_slice/step2_timeline_from_events_run.py` runs Stage A (events extraction) then per-slug Stage B (events-driven `append_timeline_row` micro-turns). Stage B never re-reads the recap. **Grades against this slice's gold unchanged** so iteration history is comparable. **Cohort TP1: 3/5; per-PC anchor gates 5/5 for `caelynn`/`karsemine`/`ephanna`.**
+
+The chained-pipeline cohort row in the gate ledger uses this slice's `collect_timeline_pass_violations` and gold file. The split exists because events-first decomposition removed a compression failure mode that single-stage prompt-tuning couldn't close.
 
 ### Why one-phase autonomous writes
 
@@ -31,6 +36,18 @@ uv run pytest tests/test_timeline_pass_grader.py tests/test_timeline_pass_pre_st
 ```
 
 ## Live cohort
+
+### Iteration 7 — events-first chained pipeline (current)
+
+```bash
+export DUNGEONMIND_PLANNER_ALLOW_WRITES=1
+uv run python -m evals.session_events_extraction_vertical_slice.step2_timeline_from_events_run \
+  --n 5 --model gpt-5.4-mini
+```
+
+Stage A extracts events; Stage B per-slug appends rows from those events. Per-PC anchor gates met at 5/5 in N=5 cohort. Cohort artifacts under `evals/session_events_extraction_vertical_slice/artifacts/runs/<YYYY-MM-DD>/step2_events_summary--*.{md,json}`.
+
+### Iteration 6 — single-stage autonomous (legacy)
 
 ```bash
 export DUNGEONMIND_PLANNER_ALLOW_WRITES=1

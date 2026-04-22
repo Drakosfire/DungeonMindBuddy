@@ -1,30 +1,40 @@
 # Session Events Extraction Vertical Slice
 
-**Stage A of the two-stage session-events → timeline-append architecture.**
+**Two-stage events-first pipeline for session-recap → timeline-append.**
 
-This benchmark tests whether a model can read a session recap and extract a complete, structured list of `event_record`-shaped JSON objects covering all meaningful beats in the session. Stage B (appending timeline rows from those events) is unbuilt and out of scope for this slice.
+- **Stage A** (`step1_session_events_run.py`): read a session recap, extract a complete structured list of `event_record`-shaped JSON objects covering all meaningful beats. Five gates (SE1 schema, SE2 count, SE3 participant slugs, SE4 event classes, SE5 expected-event coverage).
+- **Stage B** (`step2_timeline_from_events_run.py`, landed 2026-04-22): per-slug events-driven `append_timeline_row` micro-turns. Recap reads explicitly forbidden — Stage B sees only the events Stage A produced for that slug, plus pre-loaded timeline files. Grades against `evals/session_recap_timeline_pass_vertical_slice/`'s gold (TP1/TP2/TP3/TP5) so iteration history is comparable with the legacy single-stage Iteration-6 surface.
+
+The architectural premise: extracting all events in one model call removes the **compression** failure mode where a planner turn collapses a multi-beat character into a single row that drops lexical anchors. N=5 chained cohort confirms: per-PC anchor gates (`caelynn`, `karsemine`, `ephanna`) all 5/5, vs single-stage 0/5 for `karsemine`/`ephanna`.
 
 ## Layout
 
 ```
 evals/session_events_extraction_vertical_slice/
   __init__.py
-  README.md                         ← this file
-  step1_session_events_run.py       ← runner (CLI entry point)
-  grader.py                         ← gate logic + telemetry
-  session_events_run_report.py      ← per-run + cohort artifact writers
+  README.md                              ← this file
+  step1_session_events_run.py            ← Stage A runner (CLI entry point)
+  step2_timeline_from_events_run.py      ← Stage B chained runner (Stage A → per-slug Stage B)
+  grader.py                              ← Stage A gate logic + telemetry (SE1-SE5)
+  session_events_run_report.py           ← per-run + cohort artifact writers (Stage A + Stage B)
   gold/
-    session_events_session20.json   ← gold scenario (curated from Session 20 recap)
+    session_events_session20.json        ← Stage A gold (curated from Session 20 recap)
+    # (Stage B grades against evals/session_recap_timeline_pass_vertical_slice/gold/timeline_pass_session20.json)
   artifacts/
     .gitignore
-    last_session_events_run.{md,json}  ← legacy symlinks (latest run)
+    last_session_events_run.{md,json}    ← latest Stage A run
+    last_step2_run.{md,json}             ← latest Stage B chained run
     runs/
       YYYY-MM-DD/
-        session_events--*--PASS--.md
-        session_events--*--PASS--.json
+        session_events--*.{md,json}            ← Stage A per-run artifacts
         session_events_summary--*--N*.{md,json}
+        step2_events--*.{md,json}              ← Stage B per-run artifacts (sidecar carries
+                                                  slug_events_sent / slug_beat_written / slug_model_message)
+        step2_events_summary--*--N*.{md,json}
 tests/
-  test_session_events_grader.py     ← offline grader tests (no network)
+  test_session_events_grader.py          ← Stage A offline grader tests (no network)
+  test_step2_timeline_from_events.py     ← Stage B runner tests (message builder, per-slug filter,
+                                            beat extraction, infra-error abort, sidecar round-trip)
 ```
 
 ## Recap path strategy
@@ -39,6 +49,8 @@ relative to the repo root. The `DUNGEONMIND_CORPUS_ROOT` env var can override th
 
 ## How to run
 
+### Stage A only (events extraction, no timeline writes)
+
 ```bash
 # Single run
 uv run python -m evals.session_events_extraction_vertical_slice.step1_session_events_run --n 1 --model gpt-5.4-mini
@@ -50,6 +62,16 @@ uv run python -m evals.session_events_extraction_vertical_slice.step1_session_ev
 uv run python -m evals.session_events_extraction_vertical_slice.step1_session_events_run --n 1 --no-writes
 ```
 
+### Stage A → Stage B chained (end-to-end timeline append)
+
+```bash
+export DUNGEONMIND_PLANNER_ALLOW_WRITES=1
+uv run python -m evals.session_events_extraction_vertical_slice.step2_timeline_from_events_run \
+  --n 5 --model gpt-5.4-mini
+```
+
+Stage B writes to a pre-state corpus copy, never to `corpus/eldyrwild-markdown/` directly. Cohort aborts cleanly above $5.00 cumulative cost. Per-run sidecars carry `slug_events_sent`, `slug_beat_written`, and `slug_model_message` for each slug micro-turn so failure attribution does not require re-runs.
+
 ## Gates
 
 | Gate | Description | Threshold |
@@ -60,7 +82,16 @@ uv run python -m evals.session_events_extraction_vertical_slice.step1_session_ev
 | **SE4** | Every class in `must_cover_event_classes` appears in at least one event's `event_class`. | All required |
 | **SE5** | For each `expected_events[i]`, at least one model event matches (same `event_class` + participant overlap + text overlap on name/outcomes). Coverage ratio reported in telemetry. | Soft fail when ratio < 0.5 |
 
-SE5 is deliberately permissive at launch. The threshold is documented at `_SE5_PASS_THRESHOLD = 0.5` in `grader.py` and will be raised once we have cohort data.
+SE5 is deliberately permissive at launch. The threshold is documented at `_SE5_PASS_THRESHOLD = 0.5` in `grader.py` and will be raised once we have cohort data. **Known gap:** SE5 currently uses lenient text-overlap (any word ≥4 chars) on event names + outcomes. It does *not* enforce that distinctive named terms (weapon/spell/ability names) appear verbatim in `outcomes[]` — Stage A's system-prompt OUTCOMES CONTRACT is doing that work today. A regression in the prompt would silently keep SE5 green. Tightening SE5 to enforce per-event outcome vocabulary is a tracked follow-up.
+
+### Stage B gates
+
+Stage B is graded against `evals/session_recap_timeline_pass_vertical_slice/`'s gold using its `collect_timeline_pass_violations`:
+
+- **TP1** APPEND completeness (count + flat-anchor-words on rows on disk)
+- **TP2** SKIP correctness (out-of-scope today: events-only Stage B over-extracts on background participants like `thrin_branchborn`)
+- **TP3** Tool contract (no `write_corpus_file`; no recap-assembly tools)
+- **TP5** Hallucination guard (`allowed_npc_slugs`)
 
 ## Gold curation (Session 20)
 
@@ -91,17 +122,28 @@ Each run report includes:
 ## Offline tests
 
 ```bash
-uv run pytest tests/test_session_events_grader.py -q
+uv run pytest tests/test_session_events_grader.py tests/test_step2_timeline_from_events.py -q
 ```
 
-## Future work
+## Iteration history
 
-1. **Stage B handoff**: `step2_timeline_from_events_run.py` (not built). Whether Stage B re-reads the recap or consumes only event records is an open empirical question — do not bake in an answer here.
+- **2026-04-21** — Stage A proving slice landed (commit `233b6c3`). N=2 smoke at `gpt-5.4-mini`: SE1/SE2/SE4/SE5 PASS, SE3 (slug naming) FAIL on display-name leak. Slug-enforcement system-prompt fix queued.
+- **2026-04-22** — **Stage A SE3 fix shipped**: system prompt now demands the exact slug from the supplied list, never the display name. Stage A N=5: 4/5 PASS, SE3 closed.
+- **2026-04-22** — **Stage B chained runner shipped** (`step2_timeline_from_events_run.py`). First N=5 cohort: TP1 0/5, with all failures attributed to **second-order compression** (Stage B picked one event per character to summarize, often dropping the anchor-bearing event). Diagnostic capture (`slug_events_sent` + `slug_beat_written` + `slug_model_message`) added so the next iteration can attribute failures without re-runs.
+- **2026-04-22** — **OUTCOMES CONTRACT (Stage A) + VOCABULARY/COMPOSITION CONTRACT (Stage B)** prompts shipped. Stage A now requires verbatim preservation of weapon/spell/ability/item/place/NPC names in `outcomes[]`. Stage B now requires preserving those terms verbatim in the beat AND composing multiple meaningful events into one sentence (was: "summarize the most important event"). N=5 result: TP1 **3/5**, per-PC anchor gates all **5/5** for `caelynn`, `karsemine`, `ephanna`. Cost ~$0.045/run.
 
-2. **`FactStore.add_event_records()` persistence**: The runner validates events against the JSON schema but does not call `FactStore.add_event_records()`. Persistence is intentionally deferred until Stage A pass rates are acceptable.
+## Open follow-ups
 
-3. **SE5 threshold lift**: Start at 0.5. After first passing cohort, raise to 0.65 or 0.75. Document iterations here.
+1. **TP2-thrin row-worthiness gap** — events-only Stage B has no signal beyond "this character has events" so it writes a row even when the recap framing said the character was background. Three viable fixes captured in `Backlog.md`: (a) Stage A `subject_significance`, (b) Stage B recap-read affordance, (c) harness pre-filter.
 
-4. **Out-of-scope improvements noticed while reading**:
-   - `src/ingestion/fact_extractor.py`: `_usage_dict_from_openai_response` is defined in `entity_extractor.py` and re-imported by `fact_extractor.py`; should be centralized in `src/llm/api_client.py` — not touched per scope rules.
-   - `evals/session_recap_timeline_pass_vertical_slice/grader.py`: TP4 is referenced in some comments but was removed in Iteration 6; dead code cleanup opportunity — not touched.
+2. **SE5 outcome-vocabulary sub-gate** — tighten the grader to fail when the OUTCOMES CONTRACT is silently regressing in the prompt.
+
+3. **Lysandra Stage A recall regression** — 2/5 runs in the latest cohort drop Lysandra from events entirely (NPC, not blocking the PC criterion).
+
+4. **Standalone Stage A `parsed_events` persistence** — currently the standalone Stage A sidecar does not persist `parsed_events`, so post-hoc anchor checks require re-running through Stage B chained.
+
+5. **`FactStore.add_event_records()` persistence** — the runner validates events but does not persist them as canonical facts. Defer until Stage A pass rates are acceptable across more sessions.
+
+6. **Robustness against unseen recaps** — current evidence is N=5 on a single recap (Session 20) the prompts were tuned against. A blind run on Campaign 1 Session 1 would tell us whether the contracts generalize.
+
+7. **NPC + Location ingestion expansion** — same events-first scaffold should extend to NPC and Location updates, not just timelines.
