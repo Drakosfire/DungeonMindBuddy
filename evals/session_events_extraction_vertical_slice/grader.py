@@ -190,43 +190,43 @@ def _missing_terms(actual: dict[str, Any], required_terms: list[str]) -> list[st
     return missing
 
 
-def collect_se5_violations(
+def _collect_se5_full(
     events: list[dict[str, Any]],
     expected_events: list[dict[str, Any]],
-) -> tuple[list[str], float, list[int], list[dict[str, Any]]]:
-    """SE5: anchor coverage + outcome-vocabulary preservation.
+) -> dict[str, Any]:
+    """Internal SE5 computation that returns the full result including the
+    sibling-fallback telemetry. ``collect_se5_violations`` is a 4-tuple shim
+    over this so existing call sites keep working unchanged.
 
-    Returns:
-      (violations, coverage_ratio, unmatched_indices, term_violations)
-
-    Where:
-      * ``violations`` is a list of human-readable strings (one for the lenient-coverage
-        failure if the ratio dips below ``_SE5_PASS_THRESHOLD``, plus one per expected
-        event whose required terms are absent from the participant-overlapping cohort).
-      * ``coverage_ratio`` and ``unmatched_indices`` retain the lenient semantics — they
-        depend on the strict ``_events_match`` only, never on the term sub-check.
-      * ``term_violations`` is a list of structured dicts of the form::
-
-            {
-              "kind": "missing_outcome_terms",
-              "expected_event_index": int,
-              "expected_event_name": str,
-              "missing_terms": list[str],
-              "actual_event_name": str,        # best-preserving participant-overlap actual
-              "actual_event_outcomes": list[str],
-            }
-
-        ``actual_event_*`` reference the participant-overlapping actual that preserved
-        the most required terms (fewest missing). When no actual shares any participants
-        with the expected event, no term violation is emitted (the lenient gate captures
-        the unmatched expected event instead).
+    Returned dict keys:
+      * ``violations`` (list[str]): human-readable SE5 strings (lenient-coverage
+        failure + per missing-terms violation).
+      * ``ratio`` (float), ``unmatched`` (list[int]): lenient-match telemetry
+        (unchanged semantics).
+      * ``term_violations`` (list[dict]): same payload shape as before; only
+        emitted for terms that are missing both from the matched actual event
+        AND from every other actual event in the run.
+      * ``terms_preserved_via_sibling`` (list[dict]): NEW soft-pass telemetry.
+        Each entry is ``{expected_event_index: int, term: str,
+        actual_event_index: int}`` — emitted when a term was missing from the
+        matched actual event but present (case-insensitive substring on
+        ``event_name + " " + " ".join(outcomes)`` — identical to the matched-
+        event check) in some other actual event in the run. These do NOT trip
+        the SE5 gate and are NOT counted in ``missing_terms_total``.
     """
     if not expected_events:
-        return [], 1.0, [], []
+        return {
+            "violations": [],
+            "ratio": 1.0,
+            "unmatched": [],
+            "term_violations": [],
+            "terms_preserved_via_sibling": [],
+        }
 
     matched_count = 0
     unmatched: list[int] = []
     term_violations: list[dict[str, Any]] = []
+    terms_preserved_via_sibling: list[dict[str, Any]] = []
 
     for i, exp in enumerate(expected_events):
         # Lenient coverage: strict event_class + participant + text-overlap match.
@@ -241,42 +241,70 @@ def collect_se5_violations(
         if not required_terms:
             continue
 
-        # Term sub-check: candidate pool is any actual sharing ≥1 participant.
-        # Each term is checked INDEPENDENTLY across the pool — beat-splitting is OK so
-        # long as each distinctive term appears verbatim somewhere. See module docstring.
-        term_candidates = [a for a in events if _participant_overlap(exp, a)]
-        if not term_candidates:
+        # Identify the "matched actual event" for this expected: the participant-
+        # overlapping candidate that preserved the most required terms (tie-break:
+        # first occurrence in the events list). This is the same heuristic the
+        # previous implementation used to surface a representative actual in the
+        # term_violations payload, now promoted to the primary term-check target.
+        candidates_with_idx = [
+            (idx, a) for idx, a in enumerate(events) if _participant_overlap(exp, a)
+        ]
+        if not candidates_with_idx:
             # No participant overlap anywhere — handled by lenient gate as unmatched.
             continue
+
+        matched_actual: dict[str, Any] | None = None
+        matched_actual_index = -1
+        best_preserved = -1
+        for idx, a in candidates_with_idx:
+            preserved_count = sum(
+                1 for t in required_terms if t.lower() in _actual_haystack(a)
+            )
+            if preserved_count > best_preserved:
+                best_preserved = preserved_count
+                matched_actual = a
+                matched_actual_index = idx
 
         missing: list[str] = []
         for term in required_terms:
             term_lc = term.lower()
-            preserved = any(term_lc in _actual_haystack(a) for a in term_candidates)
-            if not preserved:
-                missing.append(term)
+            # 1) Matched actual event check (existing happy path).
+            if matched_actual is not None and term_lc in _actual_haystack(matched_actual):
+                continue
+
+            # 2) Sibling-event fallback: any other actual event in the run.
+            #    Same case-insensitive substring check against
+            #    `event_name + " " + " ".join(outcomes)` as the matched-event
+            #    check. If found → soft-pass (telemetry only, no violation).
+            sibling_idx: int | None = None
+            for j, a in enumerate(events):
+                if j == matched_actual_index:
+                    continue
+                if term_lc in _actual_haystack(a):
+                    sibling_idx = j
+                    break
+            if sibling_idx is not None:
+                terms_preserved_via_sibling.append(
+                    {
+                        "expected_event_index": i,
+                        "term": term,
+                        "actual_event_index": sibling_idx,
+                    }
+                )
+                continue
+
+            # 3) Term not in matched, not in any sibling → hard miss.
+            missing.append(term)
 
         if missing:
-            # Surface a single representative actual for context (the participant-overlapping
-            # actual that preserved the most terms — useful for human triage).
-            best_actual: dict[str, Any] | None = None
-            best_preserved = -1
-            for a in term_candidates:
-                preserved_count = sum(
-                    1 for t in required_terms if t.lower() in _actual_haystack(a)
-                )
-                if preserved_count > best_preserved:
-                    best_preserved = preserved_count
-                    best_actual = a
-
             term_violations.append(
                 {
                     "kind": "missing_outcome_terms",
                     "expected_event_index": i,
                     "expected_event_name": str(exp.get("event_name") or ""),
                     "missing_terms": list(missing),
-                    "actual_event_name": str((best_actual or {}).get("event_name") or ""),
-                    "actual_event_outcomes": list((best_actual or {}).get("outcomes") or []),
+                    "actual_event_name": str((matched_actual or {}).get("event_name") or ""),
+                    "actual_event_outcomes": list((matched_actual or {}).get("outcomes") or []),
                 }
             )
 
@@ -294,7 +322,29 @@ def collect_se5_violations(
             f"({tv['expected_event_name']!r}): matched actual {tv['actual_event_name']!r} "
             f"is missing required term(s) {tv['missing_terms']}"
         )
-    return bad, ratio, unmatched, term_violations
+    return {
+        "violations": bad,
+        "ratio": ratio,
+        "unmatched": unmatched,
+        "term_violations": term_violations,
+        "terms_preserved_via_sibling": terms_preserved_via_sibling,
+    }
+
+
+def collect_se5_violations(
+    events: list[dict[str, Any]],
+    expected_events: list[dict[str, Any]],
+) -> tuple[list[str], float, list[int], list[dict[str, Any]]]:
+    """SE5: anchor coverage + outcome-vocabulary preservation (4-tuple shim).
+
+    Returns ``(violations, coverage_ratio, unmatched_indices, term_violations)``.
+
+    The new ``terms_preserved_via_sibling`` soft-pass telemetry is exposed on the
+    orchestrator's telemetry dict (``collect_session_events_violations``); see
+    ``_collect_se5_full`` for the full result shape.
+    """
+    r = _collect_se5_full(events, expected_events)
+    return r["violations"], r["ratio"], r["unmatched"], r["term_violations"]
 
 
 # ---------------------------------------------------------------------------
@@ -334,7 +384,12 @@ def collect_session_events_violations(
     if se4:
         out["se4"] = se4
 
-    se5, ratio, unmatched, term_violations = collect_se5_violations(events, expected_events)
+    se5_full = _collect_se5_full(events, expected_events)
+    se5 = se5_full["violations"]
+    ratio = se5_full["ratio"]
+    unmatched = se5_full["unmatched"]
+    term_violations = se5_full["term_violations"]
+    terms_preserved_via_sibling = se5_full["terms_preserved_via_sibling"]
     if se5:
         out["se5"] = se5
 
@@ -359,6 +414,7 @@ def collect_session_events_violations(
         "expected_events_with_missing_terms": expected_events_with_missing_terms,
         "missing_terms_total": missing_terms_total,
         "se5_term_violations": term_violations,
+        "terms_preserved_via_sibling": terms_preserved_via_sibling,
     }
     return out, telemetry
 

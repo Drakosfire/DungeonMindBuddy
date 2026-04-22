@@ -601,6 +601,229 @@ class TestSE5:
 
 
 # ---------------------------------------------------------------------------
+# SE5 — sibling-event fallback for must_preserve_terms (corpus-level)
+# ---------------------------------------------------------------------------
+
+
+class TestSE5SiblingFallback:
+    """SE5 must_preserve_terms sibling-event fallback (added 2026-04-22).
+
+    When a required term is missing from the matched actual event for an
+    expected event but present in some other actual event in the run, SE5
+    soft-passes the term and records it under telemetry
+    ``terms_preserved_via_sibling`` instead of emitting a
+    ``missing_outcome_terms`` violation. Hard-fail behavior is preserved when
+    the term appears in zero actual events.
+    """
+
+    def _expected_with_terms(
+        self,
+        event_class: str,
+        participants: list,
+        name: str,
+        outcomes: list,
+        must_preserve_terms: list,
+    ) -> dict:
+        ev = _valid_event(
+            event_class=event_class,
+            participants=participants,
+            event_name=name,
+            outcomes=outcomes,
+        )
+        ev["must_preserve_terms"] = must_preserve_terms
+        return ev
+
+    def test_pass_via_sibling_event(self):
+        """(a) Term missing from matched actual but present in a sibling actual
+        → SE5 PASS, no violation, telemetry entry recorded."""
+        expected = [
+            self._expected_with_terms(
+                "combat",
+                ["caelynn", "ephanna"],
+                "swarm battle",
+                ["swarm defeated"],
+                ["Eldritch Blast"],
+            ),
+        ]
+        # Matched actual (combat, both participants) lacks "Eldritch Blast";
+        # a sibling actual (different class + participants) carries it.
+        actual = [
+            _valid_event(
+                event_class="combat",
+                participants=["caelynn", "ephanna"],
+                event_name="swarm fight at edge",
+                outcomes=["Ephanna casts an attack spell at the swarm"],
+            ),
+            _valid_event(
+                event_class="travel",
+                participants=["karsemine"],
+                event_name="post-combat retrospective",
+                outcomes=["Ephanna recounts firing two Eldritch Blast volleys"],
+            ),
+        ]
+        violations, telemetry = collect_session_events_violations(
+            actual,
+            {
+                "min_event_count": 1,
+                "max_event_count": 25,
+                "must_cover_participants": ["caelynn", "ephanna", "karsemine"],
+                "must_cover_event_classes": ["combat", "travel"],
+                "expected_events": expected,
+            },
+        )
+        verdict = per_gate_verdict(violations)
+        assert verdict["SE5"] == "PASS", f"Expected SE5 PASS, got {verdict}; violations={violations}"
+        # Zero structured term violations.
+        assert telemetry["se5_term_violations"] == []
+        assert telemetry["expected_events_with_missing_terms"] == []
+        assert telemetry["missing_terms_total"] == 0
+        # Sibling-fallback telemetry has exactly one entry pointing at the right slots.
+        sibling = telemetry["terms_preserved_via_sibling"]
+        assert len(sibling) == 1
+        entry = sibling[0]
+        assert entry["expected_event_index"] == 0
+        assert entry["term"] == "Eldritch Blast"
+        assert entry["actual_event_index"] == 1
+
+    def test_fail_when_term_nowhere_in_run(self):
+        """(b) Term appears in zero actual events → SE5 FAIL with exactly one
+        ``missing_outcome_terms`` violation; sibling telemetry empty."""
+        expected = [
+            self._expected_with_terms(
+                "combat",
+                ["caelynn", "ephanna"],
+                "swarm battle",
+                ["swarm defeated"],
+                ["Eldritch Blast"],
+            ),
+        ]
+        actual = [
+            _valid_event(
+                event_class="combat",
+                participants=["caelynn", "ephanna"],
+                event_name="swarm fight at edge",
+                outcomes=["Ephanna casts an attack spell at the swarm"],
+            ),
+            _valid_event(
+                event_class="travel",
+                participants=["karsemine"],
+                event_name="post-combat retrospective",
+                outcomes=["Karsemine notes the swarm cleared and tracks ride east"],
+            ),
+        ]
+        violations, telemetry = collect_session_events_violations(
+            actual,
+            {
+                "min_event_count": 1,
+                "max_event_count": 25,
+                "must_cover_participants": ["caelynn", "ephanna", "karsemine"],
+                "must_cover_event_classes": ["combat", "travel"],
+                "expected_events": expected,
+            },
+        )
+        verdict = per_gate_verdict(violations)
+        assert verdict["SE5"] == "FAIL"
+        # Exactly one structured term violation, of the expected kind.
+        tvs = telemetry["se5_term_violations"]
+        assert len(tvs) == 1
+        assert tvs[0]["kind"] == "missing_outcome_terms"
+        assert tvs[0]["missing_terms"] == ["Eldritch Blast"]
+        assert telemetry["missing_terms_total"] >= 1
+        assert telemetry["terms_preserved_via_sibling"] == []
+
+    def test_mixed_matched_sibling_and_missing(self):
+        """(c) Three required terms — one in matched, one in sibling, one nowhere.
+
+        Assert: SE5 FAIL (because of the third), exactly one violation listing
+        only the third term, telemetry counts only the third term in
+        ``missing_terms_total``, and sibling telemetry has one entry for the
+        second term."""
+        expected = [
+            self._expected_with_terms(
+                "combat",
+                ["caelynn", "ephanna"],
+                "swarm battle",
+                ["swarm defeated"],
+                ["Thunderwave", "Eldritch Blast", "scimitar"],
+            ),
+        ]
+        # Matched actual (best participant overlap, preserves Thunderwave only):
+        actual = [
+            _valid_event(
+                event_class="combat",
+                participants=["caelynn", "ephanna"],
+                event_name="swarm fight at edge",
+                outcomes=["Caelynn casts Thunderwave splitting the swarm"],
+            ),
+            # Sibling actual (no participant overlap with expected) carries
+            # "Eldritch Blast" → soft-pass via sibling.
+            _valid_event(
+                event_class="travel",
+                participants=["karsemine"],
+                event_name="post-combat retrospective",
+                outcomes=["Karsemine recalls Ephanna's Eldritch Blast volleys"],
+            ),
+            # Another sibling — does not carry any of the missing terms.
+            _valid_event(
+                event_class="conversation",
+                participants=["bonogo"],
+                event_name="bonogo ramble",
+                outcomes=["Bonogo recounts the firkin run"],
+            ),
+        ]
+        violations, telemetry = collect_session_events_violations(
+            actual,
+            {
+                "min_event_count": 1,
+                "max_event_count": 25,
+                "must_cover_participants": ["caelynn", "ephanna", "karsemine", "bonogo"],
+                "must_cover_event_classes": ["combat", "travel", "conversation"],
+                "expected_events": expected,
+            },
+        )
+        verdict = per_gate_verdict(violations)
+        assert verdict["SE5"] == "FAIL", f"Expected SE5 FAIL, got {verdict}"
+        # Exactly one structured term violation, listing only the third term.
+        tvs = telemetry["se5_term_violations"]
+        assert len(tvs) == 1
+        assert tvs[0]["kind"] == "missing_outcome_terms"
+        assert tvs[0]["missing_terms"] == ["scimitar"]
+        # Telemetry counts only the third term.
+        assert telemetry["missing_terms_total"] == 1
+        assert telemetry["expected_events_with_missing_terms"] == [0]
+        # Sibling telemetry has one entry — the second term.
+        sibling = telemetry["terms_preserved_via_sibling"]
+        assert len(sibling) == 1
+        assert sibling[0]["expected_event_index"] == 0
+        assert sibling[0]["term"] == "Eldritch Blast"
+        assert sibling[0]["actual_event_index"] == 1
+
+    def test_backward_compat_canonical_s20_happy_path_still_passes(self):
+        """(d) Backward-compat smoke: the canonical S20 happy-path test
+        (``TestFullPass.test_full_pass_all_gates``) must still PASS after the
+        sibling-fallback change. Re-run its construction inline so this assert
+        co-locates with the sibling-fallback suite without modifying the
+        original test."""
+        full_pass = TestFullPass()
+        events = full_pass._build_plausible_events()
+        grading = full_pass._build_grading()
+
+        violations, telemetry = collect_session_events_violations(events, grading)
+        verdict = per_gate_verdict(violations)
+        assert verdict == {
+            "SE1": "PASS",
+            "SE2": "PASS",
+            "SE3": "PASS",
+            "SE4": "PASS",
+            "SE5": "PASS",
+        }, f"Backward-compat regression on canonical S20 happy path: {verdict} (violations={violations})"
+        # Sibling-fallback telemetry exists and is well-typed (may be empty —
+        # this fixture has no must_preserve_terms in its grading).
+        assert "terms_preserved_via_sibling" in telemetry
+        assert isinstance(telemetry["terms_preserved_via_sibling"], list)
+
+
+# ---------------------------------------------------------------------------
 # per_gate_verdict
 # ---------------------------------------------------------------------------
 
