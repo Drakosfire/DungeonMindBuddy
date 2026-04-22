@@ -15,12 +15,7 @@
       "write_corpus_file"
     ],
     "preview_required": true,
-    "commit_required": true,
-    "forbidden_writes": [
-      "*_character_dossier.md",
-      "character_seed.md",
-      "*_statblock*.md"
-    ]
+    "commit_required": true
   },
   "followup_turn": {
     "user_message": "Operator approval confirmed. Immediately re-call `write_corpus_file` with the EXACT same `path`, `mode`, and `content` as the preview, plus `dry_run=false` and `confirm_token` set to the token returned by the preview tool output. Do NOT re-preview, do NOT issue another `dry_run=true` call — the preview has already been surfaced and approved by the operator. After that commit succeeds, if `npc_audit.timeline_append_candidates` from your previous reply is non-empty, run the same two-step (preview then commit) for `append_timeline_row` for each row. Reply with the strict `planner_turn_output_recap_write` schema."

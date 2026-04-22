@@ -198,17 +198,6 @@ Sort newest → oldest within each status; promote with `/promote`; archive with
 
 **Refs:** `Docs/Plans/STATUS-Session-Recap-Ingest-Benchmark.md` (C-gates table), `evals/session_recap_ingest_vertical_slice/step1_recap_ingest_run.py` (197–203, 228–232, 345–350), `src/agent/corpus_writer.py` (249–265, `new_corpus_fingerprint`), `evals/session_recap_ingest_vertical_slice/recap_ingest_run_report.py` (240–257), `evals/session_recap_ingest_vertical_slice/scope_b_grader.py`.
 
-## [READY] Recap-ingest — gold `forbidden_writes` field is dead config (declared, never consumed by Scope-B grader) — captured 2026-04-21
-
-**Context:** `evals/session_recap_ingest_vertical_slice/gold/scope_b_session_20.json` and sibling perturbation scenarios ship `expected_tool_trace.forbidden_writes` (e.g. `"*_character_dossier.md"`, `"character_seed.md"`, `"*_statblock*.md"`), but `scope_b_grader.py` never references the field — `_check_write_phases` only enforces `preview_required` / `commit_required`. Surfaced by Tier-1 C4 triage on 2026-04-21 while concluding C4 is functionally CLOSED (the same denials are enforced at `make_tool_dispatcher` + `corpus_writer` layer with unit-test coverage). The gold-vs-grader drift is small but real: a maintainer reads `forbidden_writes` and assumes it's enforced.
-**Action:** One of two minimal options.
-
-- (a) **Remove** the unused field from all `scope_b_session_*.json` files and the README that documents it; document the actual enforcement layer (`make_tool_dispatcher` + `corpus_writer` deny-list) in `Docs/Plans/STATUS-Session-Recap-Ingest-Benchmark.md` C4 row (already mentions this — keep).
-- (b) **Wire it** in `scope_b_grader.py` as a defense-in-depth tool-trace assertion: `for row in write_corpus_file_rows: glob.fnmatch(row.path, *forbidden_writes) → hard violation`. Cheap (~10 LOC), but redundant with existing dispatcher-layer enforcement.
-- Prefer (a) unless someone wants the trace-layer redundancy. Either path: also audit other slices' gold for the same dead-field pattern.
-**Surfaces when:** Adding a new Scope-B scenario JSON; auditing what each gold field actually drives; explaining C4's "covered elsewhere" verdict.
-**Refs:** `evals/session_recap_ingest_vertical_slice/gold/scope_b_session_20.json` (lines ~22-26), `evals/session_recap_ingest_vertical_slice/scope_b_grader.py` (no `forbidden_writes` reference), `tests/test_planner_write_dispatch.py::test_dispatcher_blocks_dossier_write_even_when_writes_enabled`, `src/agent/corpus_writer.py` (deny-list), `Docs/Plans/STATUS-Session-Recap-Ingest-Benchmark.md` (C4 row).
-
 ## [READY] Grounding pass P6 — execute existing hygiene READY after P1–P5 (OpenAI key loader) — captured 2026-04-20
 
 **Context:** Lowest urgency in the same grounding stack; avoids duplicating the long-form bodies already in this file.
