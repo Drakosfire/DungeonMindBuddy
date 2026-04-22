@@ -45,6 +45,27 @@ class TestEventRecordModel:
         with pytest.raises(Exception):
             EventRecord(event_class="invalid_class", time_scope="scene", certainty="observed")
 
+    def test_referenced_slugs_default_empty(self) -> None:
+        """Backward compat: existing call sites omitting referenced_slugs get an empty list."""
+        ev = EventRecord(event_class="discovery", time_scope="scene", certainty="observed")
+        assert ev.referenced_slugs == []
+
+    def test_referenced_slugs_populated_roundtrip(self) -> None:
+        """The Kirfan-class case: PCs act, an NPC named in the recap header is preserved
+        in referenced_slugs[] without polluting participants[]."""
+        ev = EventRecord(
+            event_class="discovery",
+            time_scope="scene",
+            certainty="observed",
+            participants=["bonogo", "stafl", "baergrom"],
+            referenced_slugs=["kirfan"],
+        )
+        assert ev.participants == ["bonogo", "stafl", "baergrom"]
+        assert ev.referenced_slugs == ["kirfan"]
+        dumped = ev.model_dump()
+        assert dumped["referenced_slugs"] == ["kirfan"]
+        assert "kirfan" not in dumped["participants"]
+
 
 class TestClaimRecordModel:
     def test_valid_claim(self) -> None:

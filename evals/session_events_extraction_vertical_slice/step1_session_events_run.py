@@ -86,6 +86,7 @@ class EventRecordModel(BaseModel):
     event_name: Optional[str] = None
     event_class: _EventClass
     participants: list[str] = Field(default_factory=list)
+    referenced_slugs: list[str] = Field(default_factory=list)
     location: Optional[str] = None
     outcomes: list[str] = Field(default_factory=list)
     time_scope: _TimeScope
@@ -159,6 +160,39 @@ Concrete failure examples (DO NOT do these):
 If you are unsure which slug maps to a character, pick the slug from the "Known character slugs" \
 list that best matches — do not write a display name. If a character has no slug in the list, \
 omit them from `participants[]` entirely.
+
+**REFERENCED SLUGS CONTRACT (preserve named entities — hard rule):** When the recap names an \
+entity (NPC, faction, character, or significant figure) **in connection with an event** but the \
+entity is **not an actor** in that event — for example, when a "Big beats" header names someone \
+the prose re-describes generically (e.g. "Kirfan" in the header, "the elderly fisherman" in the \
+narrative), or when an event mentions a person who is referenced but not acting — emit the \
+entity's slug in that event's `referenced_slugs[]` array. The same entity MAY appear in \
+`participants[]` (if they also acted) AND `referenced_slugs[]` (if they were also referenced) \
+across different events. Use the canonical slug from the "Known character slugs" list whenever \
+one exists; if the referenced entity has no canonical slug, emit a stable lowercase-snake_case \
+form derived from the recap's first naming (e.g. `kirfan`, `the_elderly_fisherman`) and a \
+downstream entity-resolution stage will reconcile it. Do NOT invent slugs for entities that \
+already have a canonical one — use the canonical slug verbatim.
+
+The point of this field is to preserve naming evidence so a future stage can merge "the elderly \
+fisherman" with "Kirfan" — without this slot, that merge is impossible.
+
+Concrete examples of `referenced_slugs[]`:
+- Recap header says `Helped Kirfan pull up debris from the broken structure from upriver`. Prose \
+narrative re-describes the same beat as "the party helped an elderly fisherman drag wreckage \
+from the river." The fisherman event has `participants: ["bonogo", "stafl", "baergrom"]` (the \
+PCs who acted) and `referenced_slugs: ["kirfan"]` (the named NPC who was the subject but did \
+not act in the prose beat).
+- An event describes the party discussing what to do about a missing merchant. The merchant is \
+named "Tomas" but does not appear in the scene. `participants: ["caelynn", "ephanna"]`, \
+`referenced_slugs: ["tomas"]`.
+- An event has the party fighting bandits while bystanders cheer. If a bystander has a name \
+("Marla shouts encouragement from the doorway") but is not part of the action, put the \
+bystander's slug in `referenced_slugs[]`, not `participants[]`.
+
+`referenced_slugs[]` is OPTIONAL — emit an empty list (or omit entirely) when an event has no \
+referenced-but-not-acting entities. Do NOT pad it with the same entries already in \
+`participants[]`; an entity who actively did something belongs in `participants[]` only.
 
 **OUTCOMES CONTRACT (preserve searchable vocabulary — hard rule):** The `outcomes[]` field is \
 the durable, searchable record of what happened in each event. A future game-master will search \

@@ -22,6 +22,7 @@ class EventRecord(BaseModel):
         "social_conflict",
     ]
     participants: list[str] = Field(default_factory=list)
+    referenced_slugs: list[str] = Field(default_factory=list)
     location: str | None = None
     outcomes: list[str] = Field(default_factory=list)
     time_scope: Literal["scene", "session", "historical_reference"]

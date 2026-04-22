@@ -34,6 +34,14 @@
         "minLength": 1
       }
     },
+    "referenced_slugs": {
+      "type": "array",
+      "description": "Entity slugs named or referenced in connection with this event but NOT acting in it. Use for: entities named in summary headers that the prose re-describes generically; ambiguous descriptors awaiting downstream entity resolution; entities cited but inactive.",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
     "location": {
       "type": ["string", "null"]
     },

@@ -23,6 +23,8 @@ from evals.session_events_extraction_vertical_slice.grader import (
     collect_session_events_violations,
     per_gate_verdict,
 )
+from src.contracts.schema_validation import validate_instance
+from jsonschema.exceptions import ValidationError
 
 
 # ---------------------------------------------------------------------------
@@ -1107,3 +1109,124 @@ class TestMustPreserveTermsIntegration:
         }
         assert telemetry["expected_events_with_missing_terms"] == []
         assert telemetry["missing_terms_total"] == 0
+
+
+# ---------------------------------------------------------------------------
+# referenced_slugs[] schema + grader-policy regression
+# ---------------------------------------------------------------------------
+
+
+class TestReferencedSlugsSchema:
+    """The new optional ``referenced_slugs[]`` field on event_record (added 2026-04-22).
+
+    Semantics: slugs of entities NAMED or REFERENCED in connection with this event but
+    NOT actively participating. Designed for the Kirfan-class failure mode
+    (Backlog.md:24): when a recap names an NPC in a "Big beats" header but describes
+    the same beat in prose as "the elderly fisherman", Stage A captures the event
+    but currently drops the named slug. ``referenced_slugs[]`` preserves that naming
+    evidence for a downstream entity-resolution stage.
+
+    These tests pin the schema-level contract (additive, optional, string-only items)
+    AND verify SE3/SE5 grader behavior is unchanged by the new field — that policy
+    decision is queued in Backlog.md as its own measurement-driven ticket.
+    """
+
+    def test_schema_accepts_referenced_slugs_populated(self) -> None:
+        record = {
+            "event_class": "discovery",
+            "time_scope": "scene",
+            "certainty": "observed",
+            "participants": ["bonogo", "stafl", "baergrom"],
+            "referenced_slugs": ["kirfan"],
+        }
+        validate_instance(record, "event_record.schema.json")
+
+    def test_schema_accepts_referenced_slugs_absent(self) -> None:
+        """Backward compat: existing event_records without referenced_slugs still pass."""
+        record = {
+            "event_class": "discovery",
+            "time_scope": "scene",
+            "certainty": "observed",
+            "participants": ["bonogo", "stafl"],
+        }
+        assert "referenced_slugs" not in record
+        validate_instance(record, "event_record.schema.json")
+
+    def test_schema_accepts_empty_referenced_slugs(self) -> None:
+        record = {
+            "event_class": "discovery",
+            "time_scope": "scene",
+            "certainty": "observed",
+            "referenced_slugs": [],
+        }
+        validate_instance(record, "event_record.schema.json")
+
+    def test_schema_rejects_non_string_referenced_slugs(self) -> None:
+        record = {
+            "event_class": "discovery",
+            "time_scope": "scene",
+            "certainty": "observed",
+            "referenced_slugs": [123, {"slug": "kirfan"}],
+        }
+        with pytest.raises(ValidationError):
+            validate_instance(record, "event_record.schema.json")
+
+    def test_schema_rejects_empty_string_in_referenced_slugs(self) -> None:
+        """Items must be non-empty strings (mirrors participants[] minLength constraint)."""
+        record = {
+            "event_class": "discovery",
+            "time_scope": "scene",
+            "certainty": "observed",
+            "referenced_slugs": [""],
+        }
+        with pytest.raises(ValidationError):
+            validate_instance(record, "event_record.schema.json")
+
+
+class TestReferencedSlugsGraderRegression:
+    """Regression guard for the deliberate "no grader policy change" decision.
+
+    SE3 and SE5 must be unaffected by ``referenced_slugs[]``. A character that appears
+    only in ``referenced_slugs[]`` (and not in any event's ``participants[]``) must
+    still trip SE3. This test is the canary for any future accidental grader change.
+    """
+
+    def test_se3_still_participants_only_with_referenced_slugs_present(self) -> None:
+        """A slug present only in referenced_slugs[] does NOT satisfy must_cover_participants."""
+        events = [
+            _valid_event(
+                participants=["bonogo", "stafl"],
+                referenced_slugs=["kirfan"],
+            ),
+        ]
+        violations = collect_se3_violations(events, ["bonogo", "stafl", "kirfan"])
+        assert len(violations) == 1
+        assert "kirfan" in violations[0]
+
+    def test_se3_passes_when_slug_in_participants_even_with_referenced_slugs(self) -> None:
+        """SE3 is satisfied by participants[] alone; referenced_slugs[] is purely additive."""
+        events = [
+            _valid_event(
+                participants=["bonogo", "stafl", "kirfan"],
+                referenced_slugs=["marla_brambleback"],
+            ),
+        ]
+        assert collect_se3_violations(events, ["bonogo", "stafl", "kirfan"]) == []
+
+    def test_full_pass_unchanged_when_referenced_slugs_added(self) -> None:
+        """Adding referenced_slugs[] to a previously-passing event set must not change verdicts."""
+        full_pass = TestFullPass()
+        events = full_pass._build_plausible_events()
+        for ev in events:
+            ev["referenced_slugs"] = ["some_referenced_npc"]
+        grading = full_pass._build_grading()
+
+        violations, telemetry = collect_session_events_violations(events, grading)
+        verdict = per_gate_verdict(violations)
+        assert verdict == {
+            "SE1": "PASS",
+            "SE2": "PASS",
+            "SE3": "PASS",
+            "SE4": "PASS",
+            "SE5": "PASS",
+        }, f"referenced_slugs[] perturbed grader verdict: {verdict} (violations={violations})"
