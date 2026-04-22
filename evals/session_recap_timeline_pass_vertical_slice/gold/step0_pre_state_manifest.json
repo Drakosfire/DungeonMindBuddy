@@ -26,6 +26,16 @@
     {
       "path": "Longmont Campaign/Campaign 2/PCs/caelynn/timeline.md",
       "session": 20
+    },
+    {
+      "path": "Longmont Campaign/Campaign 2/PCs/karsemine/timeline.md",
+      "session": 20,
+      "note": "no Session 20 row in HEAD (slim seed stops at Session 19); strip asserted to make the contract explicit."
+    },
+    {
+      "path": "Longmont Campaign/Campaign 2/PCs/ephanna/timeline.md",
+      "session": 20,
+      "note": "no Session 20 row in HEAD (slim seed stops at Session 19); strip asserted to make the contract explicit."
     }
   ],
   "leave_untouched_skip_targets": [

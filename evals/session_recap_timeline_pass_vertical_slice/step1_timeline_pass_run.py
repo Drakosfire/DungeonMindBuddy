@@ -1,6 +1,14 @@
 """Stage-2 v1 vertical slice: planner reads committed Session 20 recap and performs a *timeline pass*
-across six pre-loaded NPC/PC timeline files (4 expected appends, 2 expected skips, plus must-flag
-hub proposals for prominent NPCs without a hub).
+across eight pre-loaded NPC/PC timeline files (6 expected appends, 2 expected skips).
+
+Hub-proposal scope was dropped in Iteration 6 — this slice now grades timeline appends only,
+via the count + flat-anchor-words contract (see ``gold/timeline_pass_session20.json``).
+
+The planner's writer surface is bound in **autonomous (one-phase) mode**: a single
+``append_timeline_row`` model call commits, with the dispatcher running a hidden
+preview→commit loopback that preserves the writer's allowlist / payload validators /
+``file_state_token`` CAS. Operator-driven flows (e.g. ``recap-write``) keep the legacy
+two-phase surface; see ``.cursor/rules/corpus-two-phase-commit.mdc``.
 
 Run (from repo root)::
 
@@ -12,7 +20,7 @@ Cohort::
     PLANNER_REVIEW_MODE=summary uv run python -m \\
       evals.session_recap_timeline_pass_vertical_slice.step1_timeline_pass_run --n 3 --model gpt-5.4-mini
 
-Per-slug chain (six timeline micro-turns + one hub-proposal turn)::
+Per-slug chain (eight timeline micro-turns)::
 
     PLANNER_REVIEW_MODE=summary uv run python -m \\
       evals.session_recap_timeline_pass_vertical_slice.step1_timeline_pass_run --per-slug --n 1 --model gpt-5.4-mini
@@ -79,22 +87,21 @@ _GOLD_SCENARIO = _SLICE_DIR / "gold" / "timeline_pass_session20.json"
 _ALLOW_WRITES_ENV = "DUNGEONMIND_PLANNER_ALLOW_WRITES"
 
 # Appended after cached planner instructions so we do not fork ``corpus_session_planner.py``.
-# Same pattern as v0's append-only suffix; longer because the contract has more moving parts.
+# Iteration-6 rewrite: one-phase autonomous writes (the dispatcher loopback hides the
+# preview/confirm_token surface), no hub-proposal scope, no commit-checklist enforcement
+# scaffolding. The model is told to call ``append_timeline_row`` once per warranted subject
+# — that single call commits.
 _TIMELINE_PASS_INSTRUCTION_SUFFIX = """
 
 **Benchmark turn — autonomous timeline pass (Stage 2 v1):** The Session recap file named in the user message **already exists** and is the source of truth. Do **not** call `get_recap_context`, `assemble_recap_draft`, or `build_recap_write_payload`. Do **not** use `write_corpus_file` for the recap or for timeline tables.
 
-For each NPC/PC `timeline.md` listed in the user message: open both the recap and that timeline with `read_corpus_file` (or `load_context_markdown`), decide whether the recap describes a meaningful Session 20 beat for that NPC, and if **yes** call **`append_timeline_row` twice in this same turn** (preview then commit, identical args + the preview's `confirm_token`). The benchmark operator pre-approved every commit — **a preview-only stop is a failure**. Match the existing markdown table format (three columns: session, beat, backticked recap path like prior rows). For PC paths (e.g. `PCs/caelynn/timeline.md`) you **must** pass `timeline_path` explicitly because the slug-only resolver only finds `NPCs/<slug>/timeline.md`.
+For each NPC/PC `timeline.md` listed in the user message: open both the recap and that timeline with `read_corpus_file` (or `load_context_markdown`), decide whether the recap describes a meaningful Session 20 beat for that subject. If **yes**, call `append_timeline_row` **once** with the final beat text — that call commits. This is **not** a read-only reconnaissance turn: when the answer is “yes,” you **must** issue that tool call in the same turn — do not end after only reads. If **no**, do **not** call the tool for that subject and note the skip briefly in your final `message`.
 
-**Commit checklist (read literally):** After every `append_timeline_row` preview that returns `ok=true phase=preview`, you MUST immediately re-call `append_timeline_row` with the SAME `npc_slug`, `session`, `beat`, `recap_path`, and `timeline_path`, plus `dry_run=false` and the `confirm_token` from the preview, BEFORE responding to the user. A turn that ends with any preview-only call is a failure. The operator has pre-approved every commit in this turn.
+`append_timeline_row` is a one-phase, direct-action tool in this benchmark: a single call writes the row. There is no preview or confirm step. Anchor the new row's beat text on concrete recap content — name the other party, location, action, or stakes from the recap so the row is searchable later. Match the existing markdown table format (three columns: session, beat, backticked recap path like prior rows). For PC paths (e.g. `PCs/caelynn/timeline.md`) you **must** pass `timeline_path` explicitly because the slug-only resolver only finds `NPCs/<slug>/timeline.md`.
 
-If a listed NPC has **no** meaningful Session 20 beat, **skip** them (do not append) and explain the skip briefly in your final `message`.
+Stay anchored to the slugs listed in the user message — do not invent or rename slugs. The slugs listed in `allowed_npc_slugs` are the only legal `npc_slug` values for this turn.
 
-If an NPC is **prominent** in the recap but **not** present in the supplied list (no `timeline.md` exists yet), surface them as a hub proposal by appending an entry to `unsure_queue` whose `question` starts with the literal prefix `hub-proposal:` — for example, `hub-proposal: example_combat_lead — combat lead and tracker for Lysandra in Session 20` or `hub-proposal: example_party_caster — Eldritch Blasts vs swarm, Marla intervention, Tealeaf line in Session 20`. The `hub-proposal:` prefix is required and is matched literally; without it the proposal is not counted. Each item also needs `id` like `hub_proposal_<slug>`, a `default_summary` describing what you'd create, and at least two `alternative_summaries`.
-
-Reply with the strict universal `planner_turn_output` JSON schema (`user_intent`, `message`, `unsure_queue` only — no `recap_write` field).
-
-Optional discovery (read-only): you may call `list_npc_hubs` with `npcs_root: Longmont Campaign/Campaign 2/NPCs` and/or `list_pc_hubs` with `pcs_root: Longmont Campaign/Campaign 2/PCs` to list existing campaign hub folders before proposing new hubs.
+Reply with the strict universal `planner_turn_output` JSON schema (`user_intent`, `message`, `unsure_queue` only — no `recap_write` field). Use `unsure_queue: []` for this benchmark; hub proposals are out of scope.
 """
 
 # Stable slug order matches `gold/timeline_pass_session20.json` user_message list.
@@ -105,39 +112,30 @@ _TIMELINE_PASS_SLUG_ORDER: tuple[str, ...] = (
     "thrin_branchborn",
     "torbin_jove",
     "caelynn",
+    "karsemine",
+    "ephanna",
 )
 
 _TIMELINE_PASS_PER_SLUG_INSTRUCTION_SUFFIX = """
 
 **Benchmark micro-turn — autonomous timeline pass (Stage 2 v1, single subject):** The Session recap path appears in the user message. This micro-turn covers **one** `timeline.md` only — do not call `append_timeline_row` for any other slug here.
 
-If the recap describes a **meaningful Session 20 beat for that subject only**, call **`append_timeline_row` twice in this micro-turn** (preview then commit, identical args + the preview's `confirm_token`). **A preview-only stop when an append is warranted is a failure.** Match the existing markdown table format. For PC paths, pass `timeline_path` explicitly.
+If the recap describes a **meaningful Session 20 beat for that subject**, call `append_timeline_row` **once** with the final beat text — that single call commits. There is no preview or confirm step in this benchmark. Anchor the beat on concrete recap content (name the other party, location, action, or stakes). Match the existing markdown table format. For PC paths, pass `timeline_path` explicitly.
 
-**Commit checklist (read literally):** After every `append_timeline_row` preview that returns `ok=true phase=preview`, you MUST immediately re-call `append_timeline_row` with the SAME `npc_slug`, `session`, `beat`, `recap_path`, `timeline_path`, plus `dry_run=false` and the `confirm_token` from the preview, BEFORE emitting your final JSON for this micro-turn. Do **not** paste the token into `message` and ask a human to apply — the benchmark operator pre-approved every commit; you must issue the commit tool call yourself in this same micro-turn.
+This micro-turn is **not** a read-only pass: if you conclude there **is** a meaningful beat, you **must** call `append_timeline_row` here — do not stop after only `read_corpus_file` / `load_context_markdown` / hub lists.
 
-If there is **no** meaningful Session 20 beat for this subject, **skip** the append and say so briefly in your final `message`.
+If there is **no** meaningful Session 20 beat for this subject, do **not** call the tool and say so briefly in your final `message`.
+
+The slug given in the user message is the only legal `npc_slug` for this micro-turn — do not invent or rename slugs.
 
 Do **not** call `assemble_recap_draft`, `build_recap_write_payload`, `get_recap_context`, or `write_corpus_file`. Optional: `list_npc_hubs` / `list_pc_hubs` on `Longmont Campaign/Campaign 2/NPCs` and `Longmont Campaign/Campaign 2/PCs`.
 
-Reply with `planner_turn_output` JSON (`user_intent`, `message`, `unsure_queue` only — use `unsure_queue: []` or `null` on slug micro-turns).
-"""
-
-_TIMELINE_PASS_HUB_ONLY_INSTRUCTION_SUFFIX = """
-
-**Benchmark micro-turn — hub proposals only (Stage 2 v1):** The recap path appears in the user message. Do **not** call `append_timeline_row` or `write_corpus_file`. Do **not** call `assemble_recap_draft`, `build_recap_write_payload`, or `get_recap_context`.
-
-For **every** named NPC in the recap who is **prominent** and who **does not** have a timeline file among the six paths already handled in prior micro-turns (`captain_lysandra_ironveil`, `dustwalker`, `sara_mirathorn_operator`, `thrin_branchborn`, `torbin_jove`, `caelynn` under `Longmont Campaign/Campaign 2/`), you **MUST** emit a `hub-proposal:` entry in `unsure_queue`. You are making a **recommendation** to the operator, not asking them a question. Omitting a prominent named NPC outside those six slugs is a **TP4 failure**; the operator will accept or reject downstream.
-
-Each `question` must start with the literal prefix `hub-proposal:` (required for grading). The line after the prefix MUST be **declarative** (e.g. `hub-proposal: <slug> — <why this NPC warrants a hub>`), **not** interrogative: do **not** use `add X?`, `should we…`, or other question-shaped wording. Each item needs `id` like `hub_proposal_<slug>`. The `default_summary` MUST describe the **create** path (e.g. `create empty NPCs/<slug>/timeline.md skeleton + README`), not a decline or deferral. Include at least two `alternative_summaries`.
-
-Optional: call `list_npc_hubs` / `list_pc_hubs` on `Longmont Campaign/Campaign 2/NPCs` and `Longmont Campaign/Campaign 2/PCs` to see which campaign hubs already exist.
-
-Reply with `planner_turn_output` JSON only (`user_intent`, `message`, `unsure_queue`).
+Reply with `planner_turn_output` JSON (`user_intent`, `message`, `unsure_queue` only — use `unsure_queue: []` on slug micro-turns; hub proposals are out of scope).
 """
 
 
 def ordered_timeline_targets(grading: dict[str, Any]) -> list[dict[str, Any]]:
-    """Return append+skip specs in gold scenario order (six slugs)."""
+    """Return append+skip specs in gold scenario order (eight slugs)."""
     by_slug: dict[str, dict[str, Any]] = {}
     for spec in grading.get("expected_appends") or []:
         slug = str(spec.get("npc_slug", "") or "").strip()
@@ -163,17 +161,8 @@ def build_per_slug_user_message(recap_rel: str, slug: str, timeline_rel: str) ->
     return (
         f"**Timeline-pass micro-turn:** Recap (source of truth): `{recap_rel}`.\n\n"
         f"Consider **only** `{timeline_rel}` (`npc_slug` `{slug}`).\n\n"
-        "Decide whether Session 20 gives this character a meaningful beat; if yes, append one row "
-        "via the two-phase `append_timeline_row` contract described in system instructions."
-    )
-
-
-def build_hub_proposal_user_message(recap_rel: str) -> str:
-    return (
-        f"**Hub-proposal micro-turn:** Recap: `{recap_rel}`.\n\n"
-        "Emit `hub-proposal:` `unsure_queue` entries for prominent NPCs from the recap who are **not** "
-        "among the six slugs already covered in prior micro-turns (see system instructions). "
-        "Do not append timelines in this micro-turn."
+        "Decide whether Session 20 gives this character a meaningful beat; if yes, call "
+        "`append_timeline_row` once with the final beat text (one-phase, commits immediately)."
     )
 
 
@@ -219,7 +208,10 @@ def run_timeline_pass_turn(
     )
     instructions = f"{instructions.rstrip()}{_TIMELINE_PASS_INSTRUCTION_SUFFIX}"
 
-    tools = _planner_tools_responses(include_write_tools=allow_corpus_writes)
+    tools = _planner_tools_responses(
+        include_write_tools=allow_corpus_writes,
+        autonomous_writes=allow_corpus_writes,
+    )
     tool_cost_sink: list[dict[str, Any]] = []
     ref_index = build_corpus_path_ref_index(corpus_path)
     dispatch = make_tool_dispatcher(
@@ -230,6 +222,7 @@ def run_timeline_pass_turn(
         tool_cost_sink=tool_cost_sink,
         corpus_path_ref_index=ref_index,
         allow_corpus_writes=allow_corpus_writes,
+        autonomous_writes=allow_corpus_writes,
     )
 
     detail = run_planning_turn_detailed(
@@ -306,7 +299,11 @@ def run_timeline_pass_per_slug_chain(
     scenario: dict[str, Any] | None = None,
     allow_corpus_writes: bool = True,
 ) -> tuple[PlannerStep1Run, dict[str, Any], dict[str, str]]:
-    """Seven chained Responses turns: six single-subject timeline micro-turns + one hub-proposal turn."""
+    """Eight chained Responses turns: one single-subject timeline micro-turn per slug.
+
+    Iteration 6 dropped the hub-proposal micro-turn from this slice; hub proposals
+    are out of scope until timelines pass reliably.
+    """
     sc = scenario or load_scenario()
     sid = fixture_scenario_id(sc)
     corpus_path = corpus_dir.resolve()
@@ -328,9 +325,11 @@ def run_timeline_pass_per_slug_chain(
         include_write_tools=allow_corpus_writes,
     )
     inst_slug = f"{instructions_base.rstrip()}{_TIMELINE_PASS_PER_SLUG_INSTRUCTION_SUFFIX}"
-    inst_hub = f"{instructions_base.rstrip()}{_TIMELINE_PASS_HUB_ONLY_INSTRUCTION_SUFFIX}"
 
-    tools = _planner_tools_responses(include_write_tools=allow_corpus_writes)
+    tools = _planner_tools_responses(
+        include_write_tools=allow_corpus_writes,
+        autonomous_writes=allow_corpus_writes,
+    )
     tool_cost_sink: list[dict[str, Any]] = []
     ref_index = build_corpus_path_ref_index(corpus_path)
     dispatch = make_tool_dispatcher(
@@ -341,6 +340,7 @@ def run_timeline_pass_per_slug_chain(
         tool_cost_sink=tool_cost_sink,
         corpus_path_ref_index=ref_index,
         allow_corpus_writes=allow_corpus_writes,
+        autonomous_writes=allow_corpus_writes,
     )
 
     details: list[PlanningTurnDetail] = []
@@ -383,29 +383,6 @@ def run_timeline_pass_per_slug_chain(
         details.append(detail)
         prev_rid = detail.last_response_id
 
-    hub_user = build_hub_proposal_user_message(recap_rel)
-    detail_hub = run_planning_turn_detailed(
-        client=client,
-        model_id=model_id,
-        instructions=inst_hub,
-        tools=tools,
-        corpus_path=corpus_path,
-        user_line=hub_user,
-        previous_response_id=prev_rid,
-        dispatch_tool=dispatch,
-        telemetry_context={
-            "scenario_id": sid,
-            "suite": "session_recap_timeline_pass_vertical_slice",
-            "corpus_fingerprint": fp,
-            "turn_index": len(targets),
-            "per_slug_chain": True,
-            "per_slug_phase": "hub_proposals",
-        },
-        corpus_path_ref_index=ref_index,
-        active_skill_id=None,
-    )
-    details.append(detail_hub)
-
     detail = merge_planning_turn_details_chain(details)
 
     statblock_usd = sum(float(x.get("total_usd", 0) or 0) for x in tool_cost_sink)
@@ -441,8 +418,8 @@ def run_timeline_pass_per_slug_chain(
 
     combined_instructions = (
         f"{instructions_base.rstrip()}\n\n"
-        f"[per_slug_chain artifact: {len(targets)} timeline micro-turns + 1 hub-proposal micro-turn; "
-        "suffixes _TIMELINE_PASS_PER_SLUG_INSTRUCTION_SUFFIX + _TIMELINE_PASS_HUB_ONLY_INSTRUCTION_SUFFIX]"
+        f"[per_slug_chain artifact: {len(targets)} timeline micro-turns; "
+        "suffix _TIMELINE_PASS_PER_SLUG_INSTRUCTION_SUFFIX]"
     )
     run = PlannerStep1Run(
         detail=detail,
@@ -510,8 +487,9 @@ def main() -> None:
         "--per-slug",
         action="store_true",
         help=(
-            "Chain seven Responses turns: one micro-turn per listed slug (preview→commit when warranted) "
-            "plus a final hub-proposal-only micro-turn. Artifact filenames use `--7turn--`."
+            "Chain eight Responses turns: one micro-turn per listed slug (one-phase autonomous "
+            "writes — a single `append_timeline_row` call commits when warranted). "
+            "Artifact filenames use `--8turn--`."
         ),
     )
     parser.add_argument("--runs-root", type=Path, default=None)
@@ -628,7 +606,7 @@ def main() -> None:
             cohort_size=n if n > 1 else None,
             grader_telemetry=telemetry,
             per_gate_verdict=verdict,
-            artifact_turn_pack="7turn" if args.per_slug else "1turn",
+            artifact_turn_pack="8turn" if args.per_slug else "1turn",
         )
         summaries.append(summary)
         if not args.quiet:

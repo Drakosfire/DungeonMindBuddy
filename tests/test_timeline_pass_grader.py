@@ -1,7 +1,10 @@
 """Offline tests for Stage-2 v1 (autonomous timeline-pass) grader.
 
-Synthetic tool traces + scratch corpus dirs cover TP1-TP5 logic without any
-LLM calls. TP6 (pre-state shape) lives in ``test_timeline_pass_pre_state.py``.
+Iteration-6 rewrite: the gate is **count + flat-anchor-words** checked against
+rows on disk, not regex against the model's tool trace. The dispatcher now runs
+writes through a one-phase loopback, so two-phase enforcement and hub-proposal
+flag completeness no longer apply at the grader. TP6 (pre-state shape) lives in
+``test_timeline_pass_pre_state.py``.
 """
 
 from __future__ import annotations
@@ -10,66 +13,53 @@ import json
 from pathlib import Path
 from typing import Any
 
-import pytest
-
 from evals.session_recap_timeline_pass_vertical_slice.grader import (
     _appends_by_slug,
     collect_timeline_pass_violations,
-    parse_planner_unsure_queue,
+    find_session_table_rows,
+    grade_anchor_words_for_slug,
     per_gate_verdict,
-    soft_flag_telemetry,
-    violations_flag_completeness,
     violations_hallucination_guard,
     violations_skip_targets,
-    violations_two_phase_for_slug,
 )
 
 
 # ---------------------------------------------------------------------------
-# Test fixtures (gold-faithful)
+# Anchor-word fixtures (gold-faithful)
 # ---------------------------------------------------------------------------
 
 
-_LYSANDRA_RX = (
-    "(?is)(?=.*(forest|Mossford|camp|rocky|rockie|cult|tower|"
-    "meat|antidote|charm|disorient|Sara|voice|blueprint|shimmer))"
-)
-_CAELYNN_RX = (
-    "(?is)(?=.*(Thunderwave|swarm|antidote|tea|bracelet|Marla|"
-    "rockie|rocky|Sara|Lysandra|tower|blueprint))"
-)
-_SARA_RX = (
-    "(?is)(?=.*(Lysandra|Caelynn|tainted|jerky|trust|Tealeaf|"
-    "transfer|patch|rockie|rocky))"
-)
-_THRIN_RX = (
-    "(?is)(?=.*(bow|gnat|swarm|Ephanna|watch|town|Lysandra|leave))"
-)
+_LYSANDRA_ANCHORS = ["tower", "meat", "shimmer", "antidote"]
+_CAELYNN_ANCHORS = ["swarm", "Lysandra", "Sara", "tea"]
+_SARA_ANCHORS = ["Lysandra", "Tealeaf", "time", "mumbling"]
+_THRIN_ANCHORS = ["bow", "swarm", "Caelynn", "miss"]
+_KARSEMINE_ANCHORS = ["scimitar", "Zephyr", "swarm", "hits"]
+_EPHANNA_ANCHORS = ["blast", "Marla", "swarm", "Thrin"]
 
 
-def _ok_two_phase(
+def _committed_call(
     slug: str,
     *,
     timeline_path: str | None = None,
 ) -> list[dict[str, Any]]:
-    args_common = {"npc_slug": slug, "session": 20}
+    """One ``append_timeline_row`` tool-trace row that resolved to a commit.
+
+    Mirrors the dispatcher's autonomous-writes loopback: from the trace's
+    perspective there is only the single call (the hidden preview→commit
+    mechanics live below the dispatcher). The output excerpt mirrors the
+    ``phase: "committed"`` shape the writer returns.
+    """
+    args: dict[str, Any] = {"npc_slug": slug, "session": 20}
     if timeline_path:
-        args_common["timeline_path"] = timeline_path
-    preview_args = dict(args_common, dry_run=True)
-    commit_args = dict(args_common, dry_run=False, confirm_token="ct")
+        args["timeline_path"] = timeline_path
     return [
         {
             "tool": "append_timeline_row",
-            "arguments": preview_args,
+            "arguments": args,
             "output_excerpt": json.dumps(
-                {"ok": True, "phase": "preview", "confirm_token": "ct"}
+                {"ok": True, "phase": "committed", "path": timeline_path or ""}
             ),
-        },
-        {
-            "tool": "append_timeline_row",
-            "arguments": commit_args,
-            "output_excerpt": json.dumps({"ok": True, "phase": "committed"}),
-        },
+        }
     ]
 
 
@@ -90,27 +80,45 @@ def _expected_grading() -> dict[str, Any]:
             "thrin_branchborn",
             "torbin_jove",
             "caelynn",
+            "karsemine",
+            "ephanna",
         ],
         "expected_appends": [
             {
                 "npc_slug": "captain_lysandra_ironveil",
                 "timeline_relative_path": "NPCs/captain_lysandra_ironveil/timeline.md",
-                "beat_regex": _LYSANDRA_RX,
+                "expected_count": 1,
+                "anchor_words": list(_LYSANDRA_ANCHORS),
             },
             {
                 "npc_slug": "caelynn",
                 "timeline_relative_path": "PCs/caelynn/timeline.md",
-                "beat_regex": _CAELYNN_RX,
+                "expected_count": 1,
+                "anchor_words": list(_CAELYNN_ANCHORS),
             },
             {
                 "npc_slug": "sara_mirathorn_operator",
                 "timeline_relative_path": "NPCs/sara_mirathorn_operator/timeline.md",
-                "beat_regex": _SARA_RX,
+                "expected_count": 1,
+                "anchor_words": list(_SARA_ANCHORS),
             },
             {
                 "npc_slug": "thrin_branchborn",
                 "timeline_relative_path": "NPCs/thrin_branchborn/timeline.md",
-                "beat_regex": _THRIN_RX,
+                "expected_count": 1,
+                "anchor_words": list(_THRIN_ANCHORS),
+            },
+            {
+                "npc_slug": "karsemine",
+                "timeline_relative_path": "PCs/karsemine/timeline.md",
+                "expected_count": 1,
+                "anchor_words": list(_KARSEMINE_ANCHORS),
+            },
+            {
+                "npc_slug": "ephanna",
+                "timeline_relative_path": "PCs/ephanna/timeline.md",
+                "expected_count": 1,
+                "anchor_words": list(_EPHANNA_ANCHORS),
             },
         ],
         "expected_skips": [
@@ -123,8 +131,6 @@ def _expected_grading() -> dict[str, Any]:
                 "timeline_relative_path": "NPCs/torbin_jove/timeline.md",
             },
         ],
-        "expected_hub_proposals_must": ["karsemine", "ephanna", "stafl", "marla"],
-        "expected_hub_proposals_soft": ["stuart", "stacey"],
     }
 
 
@@ -132,9 +138,9 @@ def _write_timeline(
     corpus: Path,
     rel: str,
     *,
-    include_session_20_for: str | None = None,
+    session_20_beats: list[str] | None = None,
 ) -> Path:
-    """Write a 3-column timeline at ``rel`` with rows 18, 19, and optionally 20."""
+    """Write a 3-column timeline at ``rel`` with rows 18, 19, and 0+ Session 20 rows."""
     body = (
         "# timeline\n\n"
         "| Session | Beat | Recap |\n"
@@ -142,10 +148,8 @@ def _write_timeline(
         "| **18** | filler beat. | `Session 18 - Recap.md` |\n"
         "| **19** | filler beat. | `Session 19 - Recap.md` |\n"
     )
-    if include_session_20_for:
-        body += (
-            f"| **20** | {include_session_20_for} | `Session 20 - Recap.md` |\n"
-        )
+    for beat in session_20_beats or []:
+        body += f"| **20** | {beat} | `Session 20 - Recap.md` |\n"
     path = corpus / rel
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(body, encoding="utf-8")
@@ -153,38 +157,54 @@ def _write_timeline(
 
 
 def _build_full_pass_corpus(corpus: Path) -> dict[str, Any]:
-    """Write all 6 timelines (4 with a Session-20 row matching the regex; 2 without)."""
+    """Write all 8 timelines (6 with anchor-rich Session-20 row, 2 without)."""
     grading = _expected_grading()
-    # APPEND targets — beat lines crafted to match each per-NPC regex
     _write_timeline(
         corpus,
         "NPCs/captain_lysandra_ironveil/timeline.md",
-        include_session_20_for=(
-            "Lysandra: shimmer-eyed at camp; tower blueprint sketch; Sara patches her in."
-        ),
+        session_20_beats=[
+            "Lysandra: tower sketch in dirt, meat smell, shimmering cult eyes, Caelynn's "
+            "antidote tea."
+        ],
     )
     _write_timeline(
         corpus,
         "PCs/caelynn/timeline.md",
-        include_session_20_for=(
-            "Caelynn: Thunderwave splits swarm; tea antidote on Lysandra; bracelet calms Marla."
-        ),
+        session_20_beats=[
+            "Caelynn: gnat swarm fight; rockie-talkie through Sara to Lysandra; tea for "
+            "antidote brew."
+        ],
     )
     _write_timeline(
         corpus,
         "NPCs/sara_mirathorn_operator/timeline.md",
-        include_session_20_for=(
-            "Sara patches Lysandra; tainted jerky news; Tealeaf transfer."
-        ),
+        session_20_beats=[
+            "Sara: relays strange time / mumbling about the forest; connects Caelynn to "
+            "Lysandra then transfer toward Tealeaf."
+        ],
     )
     _write_timeline(
         corpus,
         "NPCs/thrin_branchborn/timeline.md",
-        include_session_20_for=(
-            "Thrin: bow shots vs gnat swarm; Ephanna keeps watch as party leaves town."
-        ),
+        session_20_beats=[
+            "Thrin: bow volley — first shot misses — into swarm enveloping Caelynn."
+        ],
     )
-    # SKIP targets — no Session 20 row
+    _write_timeline(
+        corpus,
+        "PCs/karsemine/timeline.md",
+        session_20_beats=[
+            "Karsemine: scimitar flurry on swarm with Zephyr Strike; four solid hits on "
+            "the insects."
+        ],
+    )
+    _write_timeline(
+        corpus,
+        "PCs/ephanna/timeline.md",
+        session_20_beats=[
+            "Ephanna: Eldritch Blasts into swarm; Marla confrontation; keeps Thrin in sight."
+        ],
+    )
     _write_timeline(corpus, "NPCs/dustwalker/timeline.md")
     _write_timeline(corpus, "NPCs/torbin_jove/timeline.md")
     return grading
@@ -192,45 +212,21 @@ def _build_full_pass_corpus(corpus: Path) -> dict[str, Any]:
 
 def _full_pass_tool_trace() -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
-    out += _ok_two_phase("captain_lysandra_ironveil")
-    out += _ok_two_phase("caelynn", timeline_path="PCs/caelynn/timeline.md")
-    out += _ok_two_phase("sara_mirathorn_operator")
-    out += _ok_two_phase("thrin_branchborn")
+    out += _committed_call("captain_lysandra_ironveil")
+    out += _committed_call("caelynn", timeline_path="PCs/caelynn/timeline.md")
+    out += _committed_call("sara_mirathorn_operator")
+    out += _committed_call("thrin_branchborn")
+    out += _committed_call("karsemine", timeline_path="PCs/karsemine/timeline.md")
+    out += _committed_call("ephanna", timeline_path="PCs/ephanna/timeline.md")
     return out
 
 
-def _good_unsure_queue_text() -> str:
-    queue = [
-        {
-            "id": "hub_proposal_karsemine",
-            "question": "hub-proposal: karsemine — prominent in S20 swarm fight; no NPC hub.",
-            "default_summary": "Create empty NPCs/karsemine/{README.md,timeline.md} skeleton.",
-            "alternative_summaries": ["Defer until next session.", "Promote seed only."],
-        },
-        {
-            "id": "hub_proposal_ephanna",
-            "question": "hub-proposal: ephanna — drives Misty Step + watch on Thrin.",
-            "default_summary": "Create empty NPCs/ephanna/{README.md,timeline.md} skeleton.",
-            "alternative_summaries": ["Defer.", "Hub seed only."],
-        },
-        {
-            "id": "hub_proposal_stafl",
-            "question": "hub-proposal: stafl — directs preparations and finds tainted jerky.",
-            "default_summary": "Create empty NPCs/stafl/{README.md,timeline.md} skeleton.",
-            "alternative_summaries": ["Defer.", "Hub seed only."],
-        },
-        {
-            "id": "hub_proposal_marla",
-            "question": "hub-proposal: marla — Mossford workforce conflict with Bonogo.",
-            "default_summary": "Promote Mossford NPCs/marla_brambleback to full hub.",
-            "alternative_summaries": ["Leave as seed only.", "Defer."],
-        },
-    ]
+def _final_text_empty_unsure_queue() -> str:
     return json.dumps(
         {
             "user_intent": "planning_request",
-            "message": "Done; see queue.",
-            "unsure_queue": queue,
+            "message": "Done.",
+            "unsure_queue": [],
         }
     )
 
@@ -241,69 +237,34 @@ def _good_unsure_queue_text() -> str:
 
 
 def test_appends_by_slug_groups_calls() -> None:
-    trace = _ok_two_phase("captain_lysandra_ironveil") + _ok_two_phase("caelynn")
+    trace = _committed_call("captain_lysandra_ironveil") + _committed_call("caelynn")
     grouped = _appends_by_slug(trace)
     assert set(grouped.keys()) == {"captain_lysandra_ironveil", "caelynn"}
-    assert len(grouped["captain_lysandra_ironveil"]) == 2
-    assert len(grouped["caelynn"]) == 2
+    assert len(grouped["captain_lysandra_ironveil"]) == 1
+    assert len(grouped["caelynn"]) == 1
 
 
-def test_two_phase_for_slug_pass() -> None:
-    trace = _ok_two_phase("thrin_branchborn")
-    grouped = _appends_by_slug(trace)
-    errs = violations_two_phase_for_slug(
-        "thrin_branchborn", grouped["thrin_branchborn"]
+def test_find_session_table_rows_collects_all(tmp_path: Path) -> None:
+    p = _write_timeline(
+        tmp_path,
+        "NPCs/x/timeline.md",
+        session_20_beats=["first beat", "second beat"],
     )
-    assert errs == []
-
-
-def test_two_phase_for_slug_missing_commit() -> None:
-    trace = [
-        {
-            "tool": "append_timeline_row",
-            "arguments": {"dry_run": True, "npc_slug": "dustwalker"},
-            "output_excerpt": '{"ok": true, "phase": "preview", "confirm_token": "x"}',
-        },
-    ]
-    grouped = _appends_by_slug(trace)
-    errs = violations_two_phase_for_slug("dustwalker", grouped["dustwalker"])
-    assert any("no dry_run=false commit" in e for e in errs)
-
-
-def test_two_phase_for_slug_commit_failed() -> None:
-    trace = [
-        {
-            "tool": "append_timeline_row",
-            "arguments": {"dry_run": True, "npc_slug": "captain_lysandra_ironveil"},
-            "output_excerpt": '{"ok": true, "phase": "preview", "confirm_token": "x"}',
-        },
-        {
-            "tool": "append_timeline_row",
-            "arguments": {"dry_run": False, "npc_slug": "captain_lysandra_ironveil"},
-            "output_excerpt": '{"ok": false, "phase": "rejected", "error": "append mode is not allowed for this path"}',
-        },
-    ]
-    grouped = _appends_by_slug(trace)
-    errs = violations_two_phase_for_slug(
-        "captain_lysandra_ironveil", grouped["captain_lysandra_ironveil"]
-    )
-    assert any("did not succeed" in e for e in errs)
-
-
-def test_two_phase_no_calls_for_slug() -> None:
-    errs = violations_two_phase_for_slug("ghost_npc", [])
-    assert any("no append_timeline_row calls" in e for e in errs)
+    rows = find_session_table_rows(p.read_text(encoding="utf-8"), 20)
+    assert len(rows) == 2
+    assert "first beat" in rows[0]
+    assert "second beat" in rows[1]
 
 
 def test_hallucination_guard_pass() -> None:
     allowed = ["captain_lysandra_ironveil", "dustwalker"]
-    trace = _ok_two_phase("captain_lysandra_ironveil")
+    trace = _committed_call("captain_lysandra_ironveil")
     assert violations_hallucination_guard(trace, allowed) == []
 
 
 def test_hallucination_guard_unknown_slug() -> None:
     allowed = ["captain_lysandra_ironveil"]
-    trace = _ok_two_phase("invented_npc")
+    trace = _committed_call("invented_npc")
     bad = violations_hallucination_guard(trace, allowed)
     assert any("invented_npc" in m for m in bad)
     assert any("not in allowed_npc_slugs" in m for m in bad)
@@ -314,201 +275,12 @@ def test_hallucination_guard_missing_slug_arg() -> None:
     trace = [
         {
             "tool": "append_timeline_row",
-            "arguments": {"dry_run": True},
-            "output_excerpt": '{"ok": true, "phase": "preview"}',
+            "arguments": {},
+            "output_excerpt": '{"ok": true, "phase": "committed"}',
         },
     ]
     bad = violations_hallucination_guard(trace, allowed)
     assert any("missing npc_slug" in m for m in bad)
-
-
-def test_parse_planner_unsure_queue_handles_null() -> None:
-    txt = json.dumps(
-        {"user_intent": "planning_request", "message": "ok", "unsure_queue": None}
-    )
-    assert parse_planner_unsure_queue(txt) == []
-
-
-def test_parse_planner_unsure_queue_handles_garbage() -> None:
-    assert parse_planner_unsure_queue("not json {") is None
-    assert parse_planner_unsure_queue("") is None
-
-
-def test_flag_completeness_full_pass() -> None:
-    txt = _good_unsure_queue_text()
-    errs, found = violations_flag_completeness(
-        txt, ["karsemine", "ephanna", "stafl", "marla"]
-    )
-    assert errs == []
-    assert all(found.values())
-
-
-def test_flag_completeness_missing_one() -> None:
-    queue = [
-        {
-            "id": "hub_proposal_karsemine",
-            "question": "hub-proposal: karsemine — needed.",
-            "default_summary": "create skeleton",
-            "alternative_summaries": ["a", "b"],
-        }
-    ]
-    txt = json.dumps(
-        {
-            "user_intent": "planning_request",
-            "message": "x",
-            "unsure_queue": queue,
-        }
-    )
-    errs, found = violations_flag_completeness(
-        txt, ["karsemine", "ephanna"]
-    )
-    assert errs and "ephanna" in errs[0]
-    assert found["karsemine"] is True
-    assert found["ephanna"] is False
-
-
-def test_flag_completeness_unparseable_final_text() -> None:
-    errs, _found = violations_flag_completeness(
-        "not json", ["karsemine"]
-    )
-    assert errs and "not parseable" in errs[0]
-
-
-def test_soft_flag_telemetry_substring_match() -> None:
-    txt = _good_unsure_queue_text()
-    out = soft_flag_telemetry(txt, ["stuart", "stacey"])
-    assert out == {"stuart": False, "stacey": False}
-    queue = json.loads(txt)["unsure_queue"]
-    queue.append(
-        {
-            "id": "hub_proposal_stuart",
-            "question": "hub-proposal: stuart — bonogo proxy in S20.",
-            "default_summary": "create",
-            "alternative_summaries": ["a", "b"],
-        }
-    )
-    new_txt = json.dumps(
-        {"user_intent": "planning_request", "message": "x", "unsure_queue": queue}
-    )
-    out2 = soft_flag_telemetry(new_txt, ["stuart", "stacey"])
-    assert out2["stuart"] is True
-    assert out2["stacey"] is False
-
-
-def test_flag_completeness_requires_hub_proposal_prefix() -> None:
-    """A bare mention of `karsemine` without the `hub-proposal:` prefix must
-    NOT count toward TP4 (regression of the iteration-1 over-permissive substring
-    match)."""
-    queue = [
-        {
-            "id": "review_karsemine_actions",
-            "question": "Karsemine led the swarm fight; how should we follow up?",
-            "default_summary": "Note their actions in S20.",
-            "alternative_summaries": ["Skip.", "Add to journal."],
-        }
-    ]
-    txt = json.dumps(
-        {
-            "user_intent": "planning_request",
-            "message": "see queue",
-            "unsure_queue": queue,
-        }
-    )
-    errs, found = violations_flag_completeness(txt, ["karsemine"])
-    assert errs and "karsemine" in errs[0]
-    assert found["karsemine"] is False
-
-
-def test_flag_completeness_accepts_properly_prefixed_entry() -> None:
-    """A queue entry whose `question` starts with `hub-proposal:` and contains
-    the must-flag name within its flattened text counts toward TP4."""
-    queue = [
-        {
-            "id": "hub_proposal_karsemine",
-            "question": "hub-proposal: karsemine — combat lead in S20.",
-            "default_summary": "Create empty NPCs/karsemine/{README.md,timeline.md}.",
-            "alternative_summaries": ["Defer.", "Promote seed only."],
-        }
-    ]
-    txt = json.dumps(
-        {
-            "user_intent": "planning_request",
-            "message": "see queue",
-            "unsure_queue": queue,
-        }
-    )
-    errs, found = violations_flag_completeness(txt, ["karsemine"])
-    assert errs == []
-    assert found["karsemine"] is True
-
-
-def test_flag_completeness_prefix_case_insensitive_and_tolerates_leading_ws() -> None:
-    queue = [
-        {
-            "id": "hub_proposal_ephanna",
-            "question": "  Hub-Proposal: ephanna — Eldritch Blast vs swarm.",
-            "default_summary": "create",
-            "alternative_summaries": ["a", "b"],
-        }
-    ]
-    txt = json.dumps(
-        {
-            "user_intent": "planning_request",
-            "message": "x",
-            "unsure_queue": queue,
-        }
-    )
-    errs, found = violations_flag_completeness(txt, ["ephanna"])
-    assert errs == []
-    assert found["ephanna"] is True
-
-
-def test_flag_completeness_slug_must_appear_in_qualifying_entry() -> None:
-    """A `hub-proposal:`-prefixed entry that doesn't mention the must-flag slug
-    cannot satisfy that slug, even if the slug appears in some other (non-prefixed)
-    entry."""
-    queue = [
-        {
-            "id": "hub_proposal_ephanna",
-            "question": "hub-proposal: ephanna — Eldritch Blasts vs swarm.",
-            "default_summary": "create",
-            "alternative_summaries": ["a", "b"],
-        },
-        {
-            "id": "follow_up_karsemine",
-            "question": "Should we follow up on karsemine next session?",
-            "default_summary": "...",
-            "alternative_summaries": ["a", "b"],
-        },
-    ]
-    txt = json.dumps(
-        {
-            "user_intent": "planning_request",
-            "message": "x",
-            "unsure_queue": queue,
-        }
-    )
-    errs, found = violations_flag_completeness(txt, ["ephanna", "karsemine"])
-    assert errs and "karsemine" in errs[0]
-    assert found["ephanna"] is True
-    assert found["karsemine"] is False
-
-
-def test_soft_flag_telemetry_requires_hub_proposal_prefix() -> None:
-    """Soft flags follow the same prefix contract as must-flags."""
-    queue = [
-        {
-            "id": "review_stuart",
-            "question": "Stuart appeared briefly in S20; reach out to him?",
-            "default_summary": "...",
-            "alternative_summaries": ["a", "b"],
-        }
-    ]
-    txt = json.dumps(
-        {"user_intent": "planning_request", "message": "x", "unsure_queue": queue}
-    )
-    out = soft_flag_telemetry(txt, ["stuart"])
-    assert out == {"stuart": False}
 
 
 def test_skip_targets_clean(tmp_path: Path) -> None:
@@ -531,7 +303,7 @@ def test_skip_targets_unexpected_row(tmp_path: Path) -> None:
     _write_timeline(
         tmp_path,
         "NPCs/dustwalker/timeline.md",
-        include_session_20_for="Dustwalker: surprise beat.",
+        session_20_beats=["Dustwalker: surprise beat."],
     )
     skips = [
         {
@@ -555,6 +327,132 @@ def test_skip_targets_missing_file(tmp_path: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Anchor-word grader unit tests
+# ---------------------------------------------------------------------------
+
+
+def test_grade_anchor_words_pass(tmp_path: Path) -> None:
+    _write_timeline(
+        tmp_path,
+        "NPCs/captain_lysandra_ironveil/timeline.md",
+        session_20_beats=[
+            "Lysandra: tower sketch, meat smell, shimmering eyes, antidote tea from Caelynn."
+        ],
+    )
+    spec = {
+        "npc_slug": "captain_lysandra_ironveil",
+        "timeline_relative_path": "NPCs/captain_lysandra_ironveil/timeline.md",
+        "expected_count": 1,
+        "anchor_words": list(_LYSANDRA_ANCHORS),
+    }
+    errs, count, missing = grade_anchor_words_for_slug(tmp_path, spec, 20)
+    assert errs == []
+    assert count == 1
+    assert missing == []
+
+
+def test_grade_anchor_words_missing_one_word_reports_it(tmp_path: Path) -> None:
+    _write_timeline(
+        tmp_path,
+        "NPCs/captain_lysandra_ironveil/timeline.md",
+        session_20_beats=[
+            # Drop "tower" entirely from the beat text.
+            "Lysandra: meat smell; shimmering eyes; antidote tea; camp rest."
+        ],
+    )
+    spec = {
+        "npc_slug": "captain_lysandra_ironveil",
+        "timeline_relative_path": "NPCs/captain_lysandra_ironveil/timeline.md",
+        "expected_count": 1,
+        "anchor_words": list(_LYSANDRA_ANCHORS),
+    }
+    errs, count, missing = grade_anchor_words_for_slug(tmp_path, spec, 20)
+    assert count == 1
+    assert missing == ["tower"]
+    assert errs and "tower" in errs[0]
+    assert "captain_lysandra_ironveil" in errs[0]
+
+
+def test_grade_anchor_words_zero_rows_fails(tmp_path: Path) -> None:
+    _write_timeline(tmp_path, "NPCs/sara_mirathorn_operator/timeline.md")
+    spec = {
+        "npc_slug": "sara_mirathorn_operator",
+        "timeline_relative_path": "NPCs/sara_mirathorn_operator/timeline.md",
+        "expected_count": 1,
+        "anchor_words": list(_SARA_ANCHORS),
+    }
+    errs, count, _missing = grade_anchor_words_for_slug(tmp_path, spec, 20)
+    assert count == 0
+    assert errs and "expected ≥1 row(s)" in errs[0]
+
+
+def test_grade_anchor_words_multiple_rows_union_passes(tmp_path: Path) -> None:
+    """Anchor words spread across multiple new rows still count as present."""
+    _write_timeline(
+        tmp_path,
+        "NPCs/captain_lysandra_ironveil/timeline.md",
+        session_20_beats=[
+            "Lysandra: meat smell; shimmering eyes.",
+            "Lysandra: tower dirt sketch; antidote tea prepared.",
+        ],
+    )
+    spec = {
+        "npc_slug": "captain_lysandra_ironveil",
+        "timeline_relative_path": "NPCs/captain_lysandra_ironveil/timeline.md",
+        "expected_count": 1,
+        "anchor_words": list(_LYSANDRA_ANCHORS),
+    }
+    errs, count, missing = grade_anchor_words_for_slug(tmp_path, spec, 20)
+    assert errs == []
+    assert count == 2
+    assert missing == []
+
+
+def test_grade_anchor_words_timeline_missing_fails(tmp_path: Path) -> None:
+    spec = {
+        "npc_slug": "captain_lysandra_ironveil",
+        "timeline_relative_path": "NPCs/captain_lysandra_ironveil/timeline.md",
+        "expected_count": 1,
+        "anchor_words": list(_LYSANDRA_ANCHORS),
+    }
+    errs, _count, _missing = grade_anchor_words_for_slug(tmp_path, spec, 20)
+    assert errs and "timeline file missing" in errs[0]
+
+
+# ---------------------------------------------------------------------------
+# SKIP correctness unit tests (positive + negative pair)
+# ---------------------------------------------------------------------------
+
+
+def test_skip_correctness_zero_new_rows_passes(tmp_path: Path) -> None:
+    _write_timeline(tmp_path, "NPCs/dustwalker/timeline.md")
+    skips = [
+        {
+            "npc_slug": "dustwalker",
+            "timeline_relative_path": "NPCs/dustwalker/timeline.md",
+        }
+    ]
+    assert violations_skip_targets(tmp_path, skips, 20) == []
+
+
+def test_skip_correctness_false_commit_fails(tmp_path: Path) -> None:
+    _write_timeline(
+        tmp_path,
+        "NPCs/dustwalker/timeline.md",
+        session_20_beats=["Dustwalker: false commit beat."],
+    )
+    skips = [
+        {
+            "npc_slug": "dustwalker",
+            "timeline_relative_path": "NPCs/dustwalker/timeline.md",
+        }
+    ]
+    bad = violations_skip_targets(tmp_path, skips, 20)
+    assert bad and "dustwalker" in bad[0]
+    assert "unexpected Session 20 row" in bad[0]
+
+
+# ---------------------------------------------------------------------------
 # Integration: full pass / per-gate verdict
 # ---------------------------------------------------------------------------
 
@@ -562,63 +460,44 @@ def test_skip_targets_missing_file(tmp_path: Path) -> None:
 def test_collect_violations_full_pass(tmp_path: Path) -> None:
     grading = _build_full_pass_corpus(tmp_path)
     trace = _full_pass_tool_trace()
-    final_text = _good_unsure_queue_text()
     viol, telemetry = collect_timeline_pass_violations(
         corpus_dir=tmp_path,
         tool_trace=trace,
-        final_text=final_text,
+        final_text=_final_text_empty_unsure_queue(),
         grading=grading,
     )
     assert viol == {}, viol
-    assert all(telemetry["must_flags_found"].values())
+    assert telemetry["per_slug_new_row_count"] == {
+        "captain_lysandra_ironveil": 1,
+        "caelynn": 1,
+        "sara_mirathorn_operator": 1,
+        "thrin_branchborn": 1,
+        "karsemine": 1,
+        "ephanna": 1,
+    }
+    assert all(v == [] for v in telemetry["per_slug_anchor_words_missing"].values())
     verdict = per_gate_verdict(viol)
-    assert verdict == {"TP1": "PASS", "TP2": "PASS", "TP3": "PASS", "TP4": "PASS", "TP5": "PASS"}
+    assert verdict == {"TP1": "PASS", "TP2": "PASS", "TP3": "PASS", "TP5": "PASS"}
 
 
-def test_collect_violations_caelynn_commit_fails_TP1_only(tmp_path: Path) -> None:
-    """Reproduce the known PC-allowlist blocker: Caelynn commit refused."""
+def test_collect_violations_caelynn_zero_rows_TP1_only(tmp_path: Path) -> None:
+    """Reproduce the historical PC-allowlist blocker symptom: zero Caelynn row."""
     grading = _build_full_pass_corpus(tmp_path)
-    # Strip the Caelynn 20-row to simulate the writer refusing the commit
-    p = tmp_path / "PCs/caelynn/timeline.md"
-    p.write_text(
-        "# timeline\n\n"
-        "| Session | Beat | Recap |\n"
-        "|---------|------|-------|\n"
-        "| **18** | filler. | `Session 18 - Recap.md` |\n"
-        "| **19** | filler. | `Session 19 - Recap.md` |\n",
-        encoding="utf-8",
-    )
+    _write_timeline(tmp_path, "PCs/caelynn/timeline.md")
     trace = _full_pass_tool_trace()
-    # Replace caelynn commit with a server rejection
-    for row in trace:
-        if (
-            row["tool"] == "append_timeline_row"
-            and row["arguments"].get("npc_slug") == "caelynn"
-            and row["arguments"].get("dry_run") is False
-        ):
-            row["output_excerpt"] = json.dumps(
-                {
-                    "ok": False,
-                    "phase": "rejected",
-                    "error": "append mode is not allowed for this path",
-                }
-            )
-    viol, _telemetry = collect_timeline_pass_violations(
+    viol, telemetry = collect_timeline_pass_violations(
         corpus_dir=tmp_path,
         tool_trace=trace,
-        final_text=_good_unsure_queue_text(),
+        final_text=_final_text_empty_unsure_queue(),
         grading=grading,
     )
     assert "timeline_pass_append" in viol
     msgs = " ".join(viol["timeline_pass_append"])
     assert "caelynn" in msgs
+    assert "expected ≥1 row(s)" in msgs
+    assert telemetry["per_slug_new_row_count"]["caelynn"] == 0
     verdict = per_gate_verdict(viol)
-    assert verdict["TP1"] == "FAIL"
-    # TP2, TP3, TP4, TP5 should still pass
-    assert verdict["TP2"] == "PASS"
-    assert verdict["TP3"] == "PASS"
-    assert verdict["TP4"] == "PASS"
-    assert verdict["TP5"] == "PASS"
+    assert verdict == {"TP1": "FAIL", "TP2": "PASS", "TP3": "PASS", "TP5": "PASS"}
 
 
 def test_collect_violations_TP3_write_corpus_file_fails(tmp_path: Path) -> None:
@@ -633,7 +512,7 @@ def test_collect_violations_TP3_write_corpus_file_fails(tmp_path: Path) -> None:
     viol, _telemetry = collect_timeline_pass_violations(
         corpus_dir=tmp_path,
         tool_trace=trace,
-        final_text=_good_unsure_queue_text(),
+        final_text=_final_text_empty_unsure_queue(),
         grading=grading,
     )
     assert "timeline_pass_tool" in viol
@@ -644,11 +523,11 @@ def test_collect_violations_TP3_write_corpus_file_fails(tmp_path: Path) -> None:
 
 def test_collect_violations_TP5_hallucinated_slug(tmp_path: Path) -> None:
     grading = _build_full_pass_corpus(tmp_path)
-    trace = _full_pass_tool_trace() + _ok_two_phase("invented_npc")
+    trace = _full_pass_tool_trace() + _committed_call("invented_npc")
     viol, _telemetry = collect_timeline_pass_violations(
         corpus_dir=tmp_path,
         tool_trace=trace,
-        final_text=_good_unsure_queue_text(),
+        final_text=_final_text_empty_unsure_queue(),
         grading=grading,
     )
     assert "timeline_pass_tool" in viol
@@ -658,17 +537,16 @@ def test_collect_violations_TP5_hallucinated_slug(tmp_path: Path) -> None:
 
 def test_collect_violations_TP2_skip_violation(tmp_path: Path) -> None:
     grading = _build_full_pass_corpus(tmp_path)
-    # Mutate dustwalker to add a session-20 row (skip violation)
     _write_timeline(
         tmp_path,
         "NPCs/dustwalker/timeline.md",
-        include_session_20_for="Dustwalker: should not be here.",
+        session_20_beats=["Dustwalker: should not be here."],
     )
     trace = _full_pass_tool_trace()
     viol, _telemetry = collect_timeline_pass_violations(
         corpus_dir=tmp_path,
         tool_trace=trace,
-        final_text=_good_unsure_queue_text(),
+        final_text=_final_text_empty_unsure_queue(),
         grading=grading,
     )
     assert "timeline_pass_skip" in viol
@@ -676,79 +554,61 @@ def test_collect_violations_TP2_skip_violation(tmp_path: Path) -> None:
     assert verdict["TP2"] == "FAIL"
 
 
-def test_collect_violations_TP4_missing_flags(tmp_path: Path) -> None:
+def test_collect_violations_TP1_anchor_words_missing(tmp_path: Path) -> None:
     grading = _build_full_pass_corpus(tmp_path)
-    trace = _full_pass_tool_trace()
-    skinny_text = json.dumps(
-        {
-            "user_intent": "planning_request",
-            "message": "done",
-            "unsure_queue": [],
-        }
-    )
-    viol, _telemetry = collect_timeline_pass_violations(
-        corpus_dir=tmp_path,
-        tool_trace=trace,
-        final_text=skinny_text,
-        grading=grading,
-    )
-    assert "timeline_pass_flags" in viol
-    verdict = per_gate_verdict(viol)
-    assert verdict["TP4"] == "FAIL"
-
-
-def test_collect_violations_TP1_missing_per_npc_row(tmp_path: Path) -> None:
-    grading = _build_full_pass_corpus(tmp_path)
-    # Erase Sara's S20 row to mimic dropped commit
-    _write_timeline(tmp_path, "NPCs/sara_mirathorn_operator/timeline.md")
-    trace = _full_pass_tool_trace()
-    viol, _telemetry = collect_timeline_pass_violations(
-        corpus_dir=tmp_path,
-        tool_trace=trace,
-        final_text=_good_unsure_queue_text(),
-        grading=grading,
-    )
-    assert "timeline_pass_append" in viol
-    msgs = " ".join(viol["timeline_pass_append"])
-    assert "sara_mirathorn_operator" in msgs
-    assert "no row for session 20" in msgs
-
-
-def test_collect_violations_TP1_beat_regex_mismatch(tmp_path: Path) -> None:
-    grading = _build_full_pass_corpus(tmp_path)
-    # Lysandra row exists but lacks any anchor keyword
     _write_timeline(
         tmp_path,
         "NPCs/captain_lysandra_ironveil/timeline.md",
-        include_session_20_for="Lysandra: a meandering filler line with nothing recognizable.",
+        session_20_beats=[
+            "Lysandra: a meandering filler line with nothing recognizable."
+        ],
     )
     trace = _full_pass_tool_trace()
-    viol, _telemetry = collect_timeline_pass_violations(
+    viol, telemetry = collect_timeline_pass_violations(
         corpus_dir=tmp_path,
         tool_trace=trace,
-        final_text=_good_unsure_queue_text(),
+        final_text=_final_text_empty_unsure_queue(),
         grading=grading,
     )
     assert "timeline_pass_append" in viol
     msgs = " ".join(viol["timeline_pass_append"])
     assert "captain_lysandra_ironveil" in msgs
-    assert "anchor regex" in msgs
+    assert "missing anchor words" in msgs
+    missing = telemetry["per_slug_anchor_words_missing"]["captain_lysandra_ironveil"]
+    assert set(missing) == set(_LYSANDRA_ANCHORS)
 
 
-@pytest.mark.parametrize("name", ["assemble_recap_draft", "build_recap_write_payload", "get_recap_context"])
-def test_collect_violations_TP3_forbidden_recap_tool(tmp_path: Path, name: str) -> None:
+def test_collect_violations_TP1_missing_per_npc_row(tmp_path: Path) -> None:
     grading = _build_full_pass_corpus(tmp_path)
-    trace = _full_pass_tool_trace() + [
-        {"tool": name, "arguments": {}, "output_excerpt": "{}"}
-    ]
-    viol, _telemetry = collect_timeline_pass_violations(
+    _write_timeline(tmp_path, "NPCs/sara_mirathorn_operator/timeline.md")
+    trace = _full_pass_tool_trace()
+    viol, telemetry = collect_timeline_pass_violations(
         corpus_dir=tmp_path,
         tool_trace=trace,
-        final_text=_good_unsure_queue_text(),
+        final_text=_final_text_empty_unsure_queue(),
         grading=grading,
     )
-    assert "timeline_pass_tool" in viol
-    msgs = " ".join(viol["timeline_pass_tool"])
-    assert name in msgs
-    verdict = per_gate_verdict(viol)
-    assert verdict["TP3"] == "FAIL"
+    assert "timeline_pass_append" in viol
+    msgs = " ".join(viol["timeline_pass_append"])
+    assert "sara_mirathorn_operator" in msgs
+    assert "expected ≥1 row(s)" in msgs
+    assert telemetry["per_slug_new_row_count"]["sara_mirathorn_operator"] == 0
+
+
+def test_collect_violations_TP3_forbidden_recap_tools(tmp_path: Path) -> None:
+    grading = _build_full_pass_corpus(tmp_path)
+    for name in ("assemble_recap_draft", "build_recap_write_payload", "get_recap_context"):
+        trace = _full_pass_tool_trace() + [
+            {"tool": name, "arguments": {}, "output_excerpt": "{}"}
+        ]
+        viol, _telemetry = collect_timeline_pass_violations(
+            corpus_dir=tmp_path,
+            tool_trace=trace,
+            final_text=_final_text_empty_unsure_queue(),
+            grading=grading,
+        )
+        assert "timeline_pass_tool" in viol, name
+        msgs = " ".join(viol["timeline_pass_tool"])
+        assert name in msgs
+        verdict = per_gate_verdict(viol)
+        assert verdict["TP3"] == "FAIL"

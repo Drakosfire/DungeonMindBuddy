@@ -23,6 +23,8 @@ _APPEND_TARGETS = [
     "Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/timeline.md",
     "Longmont Campaign/Campaign 2/NPCs/thrin_branchborn/timeline.md",
     "Longmont Campaign/Campaign 2/PCs/caelynn/timeline.md",
+    "Longmont Campaign/Campaign 2/PCs/karsemine/timeline.md",
+    "Longmont Campaign/Campaign 2/PCs/ephanna/timeline.md",
 ]
 _SKIP_TARGETS = [
     "Longmont Campaign/Campaign 2/NPCs/dustwalker/timeline.md",

@@ -1,32 +1,34 @@
 """Mechanical grader for Stage-2 v1 (autonomous timeline-pass) vertical slice.
 
-Reuses v0 row-level / two-phase helpers from
-``evals.session_recap_timeline_append_vertical_slice.grader`` for the per-NPC
-hybrid rubric and forbidden-tool check; this module adds:
+Iteration-6 rewrite: TP1 is now ``count + flat-anchor-words`` checked against
+**rows on disk**, not regex against the model's tool trace. The model writes
+through the dispatcher's autonomous-writes loopback (one-phase), so this grader
+inspects the post-run corpus instead of reasoning about preview/commit pairs.
+TP4 (hub-proposal must-flag completeness) was removed in this iteration —
+hub-proposal scope is out of this slice until timelines are reliably passing.
 
-* TP1 multi-NPC APPEND completeness (preview→commit pair per expected target,
-  hybrid row rubric per target)
-* TP2 SKIP correctness (no Session-N row landed in skip-target timelines)
-* TP3 tool contract aggregated across all expected appends
-* TP4 FLAG completeness — must-flag hub proposals appear (case-insensitive
-  substring match) in the model's ``unsure_queue``
-* TP5 hallucination guard — every commit's ``npc_slug`` must be in the
-  scenario ``allowed_npc_slugs``
+Gates:
+* TP1 — every ``expected_appends`` entry has at least ``expected_count`` new
+  rows for the target session in its timeline file, and every word in
+  ``anchor_words`` appears (case-insensitive substring) at least once across
+  the union of those new rows' beat-cell content.
+* TP2 — no ``expected_skips`` timeline gained a row for the target session.
+* TP3 — the model did not call any forbidden recap-write tools and did not
+  call ``write_corpus_file`` for the recap.
+* TP5 — every ``append_timeline_row`` call's ``npc_slug`` is in
+  ``allowed_npc_slugs``.
+* TP6 — pre-state shape (covered by ``tests/test_timeline_pass_pre_state.py``,
+  not this module).
 """
 
 from __future__ import annotations
 
-import json
 import re
 from pathlib import Path
 from typing import Any
 
 from evals.session_recap_timeline_append_vertical_slice.grader import (
-    _commit_outcome,
-    _dry_run_arg,
     _iter_tool_trace,
-    find_session_table_row,
-    grade_timeline_row_hybrid,
     violations_forbid_write_corpus_file,
     violations_forbidden_tool_names,
 )
@@ -48,48 +50,6 @@ def _appends_by_slug(
         slug = str(args.get("npc_slug", "") or "").strip()
         out.setdefault(slug, []).append((i, args, row))
     return out
-
-
-def violations_two_phase_for_slug(
-    slug: str,
-    calls: list[tuple[int, dict[str, Any], dict[str, Any]]],
-) -> list[str]:
-    """Per-slug two-phase contract: preview present, commit present, last commit ok."""
-    if not calls:
-        return [f"timeline_pass: no append_timeline_row calls for slug {slug!r}"]
-    previews = [(i, a, r) for i, a, r in calls if _dry_run_arg(a)]
-    commits = [(i, a, r) for i, a, r in calls if not _dry_run_arg(a)]
-    hard: list[str] = []
-    if not previews:
-        hard.append(
-            f"timeline_pass[{slug}]: no dry_run=true preview "
-            f"(saw {len(calls)} call(s))"
-        )
-    if not commits:
-        hard.append(f"timeline_pass[{slug}]: no dry_run=false commit")
-        return hard
-    first_idx, first_args, _ = calls[0]
-    last_idx, last_args, _ = calls[-1]
-    if not _dry_run_arg(first_args):
-        hard.append(
-            f"timeline_pass[{slug}]: first call at index {first_idx} must be dry_run=true preview"
-        )
-    if _dry_run_arg(last_args):
-        hard.append(
-            f"timeline_pass[{slug}]: last call at index {last_idx} must be dry_run=false commit"
-        )
-    _ci, _ca, last_row = commits[-1]
-    outcome = _commit_outcome(last_row)
-    if outcome["succeeded"] is False:
-        err = (outcome.get("error") or "").strip()
-        hard.append(
-            f"timeline_pass[{slug}]: last commit did not succeed (server error: {err!r})"
-        )
-    elif outcome["succeeded"] is None:
-        hard.append(
-            f"timeline_pass[{slug}]: could not parse last commit response"
-        )
-    return hard
 
 
 def violations_hallucination_guard(
@@ -120,119 +80,48 @@ def violations_hallucination_guard(
 
 
 # ---------------------------------------------------------------------------
-# unsure_queue parsing (TP4)
+# Row scanning (TP1, TP2)
 # ---------------------------------------------------------------------------
 
 
-def parse_planner_unsure_queue(final_text: str) -> list[dict[str, Any]] | None:
-    """Return the ``unsure_queue`` list from the planner's final JSON (or ``None``)."""
-    if not final_text or not final_text.strip():
-        return None
-    try:
-        obj = json.loads(final_text)
-    except json.JSONDecodeError:
-        return None
-    if not isinstance(obj, dict):
-        return None
-    raw = obj.get("unsure_queue")
-    if raw is None:
-        return []
-    if not isinstance(raw, list):
-        return None
-    out: list[dict[str, Any]] = []
-    for item in raw:
-        if isinstance(item, dict):
-            out.append(item)
-    return out
+_ROW_HEADER_RE = re.compile(r"^\| \*\*(\d+)\*\* \|")
 
 
-def _flatten_queue_text(item: dict[str, Any]) -> str:
-    parts: list[str] = []
-    for key in ("id", "question", "default_summary"):
-        val = item.get(key)
-        if isinstance(val, str):
-            parts.append(val)
-    alt = item.get("alternative_summaries")
-    if isinstance(alt, list):
-        for v in alt:
-            if isinstance(v, str):
-                parts.append(v)
-    return " | ".join(parts).lower()
-
-
-# TP4 requires the literal `hub-proposal:` prefix at the start of the queue
-# entry's `question` field (case-insensitive on the token, colon mandatory).
-# Whitespace before the prefix is tolerated so reasonable formatting still
-# qualifies. See `Docs/Plans/REPORT-Timeline-Pass-Live-2026-04-21.md` Iteration
-# 2 for the rationale (substring matching was both too lenient and too strict).
-_HUB_PROPOSAL_PREFIX_RE = re.compile(r"^\s*hub-proposal\s*:", re.IGNORECASE)
-
-
-def _entry_qualifies_as_hub_proposal(item: dict[str, Any]) -> bool:
-    """Return ``True`` only if the queue item's ``question`` field starts with
-    the literal ``hub-proposal:`` prefix (case-insensitive on the token)."""
-    q = item.get("question")
-    if not isinstance(q, str):
-        return False
-    return bool(_HUB_PROPOSAL_PREFIX_RE.match(q))
-
-
-def violations_flag_completeness(
-    final_text: str,
-    must_names: list[str],
-) -> tuple[list[str], dict[str, bool]]:
-    """TP4: every must-name appears in a properly-prefixed hub-proposal queue item.
-
-    A queue item only counts toward TP4 when its ``question`` field begins with
-    the literal ``hub-proposal:`` prefix (see ``_HUB_PROPOSAL_PREFIX_RE``). The
-    must-name (slug or surface name, case-insensitive) must appear within the
-    same qualifying entry's flattened text (``id`` + ``question`` +
-    ``default_summary`` + ``alternative_summaries``).
-    """
-    queue = parse_planner_unsure_queue(final_text)
-    found_map: dict[str, bool] = {n: False for n in must_names}
-    if queue is None:
-        return (
-            [
-                "timeline_pass[flags]: final_text is not parseable JSON or "
-                "unsure_queue is malformed (cannot evaluate hub proposals)"
-            ],
-            found_map,
-        )
-    qualifying = [it for it in queue if _entry_qualifies_as_hub_proposal(it)]
-    blob_per_item = [_flatten_queue_text(it) for it in qualifying]
-    for name in must_names:
-        needle = name.strip().lower()
-        if not needle:
-            found_map[name] = True
+def find_session_table_rows(text: str, session: int) -> list[str]:
+    """Return every table row whose first cell is ``**<session>**`` (in order)."""
+    rows: list[str] = []
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        m = _ROW_HEADER_RE.match(line)
+        if not m:
             continue
-        if any(needle in b for b in blob_per_item):
-            found_map[name] = True
-    missing = [n for n, ok in found_map.items() if not ok]
-    if missing:
-        return (
-            [
-                "timeline_pass[flags]: missing `hub-proposal:`-prefixed queue "
-                "entries for: " + ", ".join(missing)
-            ],
-            found_map,
-        )
-    return [], found_map
+        if int(m.group(1)) == session:
+            rows.append(line)
+    return rows
 
 
-def soft_flag_telemetry(
-    final_text: str,
-    soft_names: list[str],
-) -> dict[str, bool]:
-    """Telemetry-only soft flags. Same prefix contract as TP4 must-flags."""
-    queue = parse_planner_unsure_queue(final_text) or []
-    qualifying = [it for it in queue if _entry_qualifies_as_hub_proposal(it)]
-    blob_per_item = [_flatten_queue_text(it) for it in qualifying]
-    out: dict[str, bool] = {}
-    for name in soft_names:
-        needle = name.strip().lower()
-        out[name] = bool(needle) and any(needle in b for b in blob_per_item)
-    return out
+def _parse_beat_cell(line: str) -> str:
+    """Return the beat (second) cell from a 3-column table row, or ``""``."""
+    parts = line.split("|")
+    if len(parts) < 4:
+        return ""
+    cells = [p.strip() for p in parts[1:-1]]
+    if len(cells) < 2:
+        return ""
+    return cells[1]
+
+
+def _missing_anchor_words(beat_text: str, anchors: list[str]) -> list[str]:
+    """Case-insensitive substring check across the union of beat text."""
+    haystack = beat_text.lower()
+    missing: list[str] = []
+    for word in anchors:
+        needle = str(word or "").strip().lower()
+        if not needle:
+            continue
+        if needle not in haystack:
+            missing.append(str(word))
+    return missing
 
 
 # ---------------------------------------------------------------------------
@@ -259,40 +148,70 @@ def violations_skip_targets(
             )
             continue
         body = path.read_text(encoding="utf-8")
-        if find_session_table_row(body, session):
+        rows = find_session_table_rows(body, session)
+        if rows:
             bad.append(
-                f"timeline_pass[skip][{slug}]: unexpected Session {session} row landed in {rel!r}"
+                f"timeline_pass[skip][{slug}]: unexpected Session {session} row landed in {rel!r} "
+                f"(found {len(rows)} row(s))"
             )
     return bad
 
 
 # ---------------------------------------------------------------------------
-# APPEND completeness (TP1) — orchestrates per-NPC hybrid rubric + per-NPC two-phase
+# APPEND completeness (TP1) — count + flat-anchor-words on rows on disk
 # ---------------------------------------------------------------------------
 
 
-def _append_row_violations(
+def grade_anchor_words_for_slug(
     corpus_dir: Path,
     spec: dict[str, Any],
     session: int,
-    recap_filename: str,
-) -> list[str]:
+) -> tuple[list[str], int, list[str]]:
+    """Return ``(violations, new_row_count, missing_anchor_words)`` for one expected target.
+
+    Violations are populated when:
+    * the timeline file does not exist
+    * fewer than ``expected_count`` new session rows were appended
+    * one or more ``anchor_words`` are missing from the union of new rows'
+      beat-cell text (case-insensitive substring match)
+    """
     rel = str(spec.get("timeline_relative_path") or "").strip()
     slug = str(spec.get("npc_slug") or "").strip()
-    beat_rx = str(spec.get("beat_regex") or "")
+    expected_count = int(spec.get("expected_count", 1) or 1)
+    anchors_raw = spec.get("anchor_words") or []
+    anchors = [str(a) for a in anchors_raw if str(a or "").strip()]
     if not rel:
-        return [f"timeline_pass[append][{slug}]: scenario missing timeline_relative_path"]
+        return (
+            [f"timeline_pass[append][{slug}]: scenario missing timeline_relative_path"],
+            0,
+            list(anchors),
+        )
     path = corpus_dir / rel.replace("\\", "/").strip("/")
     if not path.is_file():
-        return [f"timeline_pass[append][{slug}]: timeline file missing at {rel!r}"]
+        return (
+            [f"timeline_pass[append][{slug}]: timeline file missing at {rel!r}"],
+            0,
+            list(anchors),
+        )
     body = path.read_text(encoding="utf-8")
-    row_line = find_session_table_row(body, session)
-    if not row_line:
-        return [f"timeline_pass[append][{slug}]: no row for session {session} in {rel!r}"]
-    row_errs = grade_timeline_row_hybrid(
-        row_line, session=session, beat_regex=beat_rx, recap_filename=recap_filename
-    )
-    return [f"timeline_pass[append][{slug}]: {msg}" for msg in row_errs]
+    rows = find_session_table_rows(body, session)
+    new_count = len(rows)
+    errs: list[str] = []
+    if new_count < expected_count:
+        errs.append(
+            f"timeline_pass[append][{slug}]: expected ≥{expected_count} row(s) for "
+            f"session {session} in {rel!r}, found {new_count}"
+        )
+        return errs, new_count, list(anchors)
+    union_beat = " ".join(_parse_beat_cell(line) for line in rows)
+    missing = _missing_anchor_words(union_beat, anchors)
+    if missing:
+        errs.append(
+            f"timeline_pass[append][{slug}]: missing anchor words "
+            f"{missing!r} in session {session} beat text "
+            f"(checked across {new_count} row(s) in {rel!r})"
+        )
+    return errs, new_count, missing
 
 
 # ---------------------------------------------------------------------------
@@ -311,22 +230,23 @@ def collect_timeline_pass_violations(
 
     Buckets (gate IDs in parentheses):
       * ``timeline_pass_tool``   — TP3 (forbidden tools) + TP5 (hallucination guard)
-      * ``timeline_pass_append`` — TP1 (per-NPC two-phase + hybrid row)
+      * ``timeline_pass_append`` — TP1 (count + anchor-words on rows on disk)
       * ``timeline_pass_skip``   — TP2 (no row in skip-target)
-      * ``timeline_pass_flags``  — TP4 (must-flag hub proposals)
+
+    ``final_text`` is unused after the Iteration-6 hub-proposal removal but is
+    kept in the signature so callers don't have to change shape; it is logged
+    in artifacts via the runner, not graded here.
     """
+    _ = final_text
     out: dict[str, list[str]] = {}
     telemetry: dict[str, Any] = {}
     session = int(grading.get("session") or 20)
-    recap_fn = str(grading.get("recap_filename") or "Session 20 - Recap.md")
 
     forbid_wcf = bool(grading.get("forbid_write_corpus_file", True))
     forbid_names = list(grading.get("forbid_recap_tools") or [])
     allowed_slugs = list(grading.get("allowed_npc_slugs") or [])
     expected_appends = list(grading.get("expected_appends") or [])
     expected_skips = list(grading.get("expected_skips") or [])
-    must_flags = list(grading.get("expected_hub_proposals_must") or [])
-    soft_flags = list(grading.get("expected_hub_proposals_soft") or [])
 
     tool_v: list[str] = []
     tool_v.extend(violations_forbidden_tool_names(tool_trace, forbid_names))
@@ -342,17 +262,20 @@ def collect_timeline_pass_violations(
         for spec in expected_appends
         if str(spec.get("npc_slug", "") or "").strip()
     }
+
     append_v: list[str] = []
-    per_slug_two_phase: dict[str, list[str]] = {}
+    per_slug_anchor_words_missing: dict[str, list[str]] = {}
+    per_slug_new_row_count: dict[str, int] = {}
     for spec in expected_appends:
         slug = str(spec.get("npc_slug", "") or "").strip()
         if not slug:
             continue
-        calls = by_slug.get(slug, [])
-        two_phase_errs = violations_two_phase_for_slug(slug, calls)
-        per_slug_two_phase[slug] = two_phase_errs
-        append_v.extend(two_phase_errs)
-        append_v.extend(_append_row_violations(corpus_dir, spec, session, recap_fn))
+        errs, new_count, missing = grade_anchor_words_for_slug(
+            corpus_dir, spec, session
+        )
+        per_slug_new_row_count[slug] = new_count
+        per_slug_anchor_words_missing[slug] = missing
+        append_v.extend(errs)
 
     if append_v:
         out["timeline_pass_append"] = append_v
@@ -361,17 +284,10 @@ def collect_timeline_pass_violations(
     if skip_v:
         out["timeline_pass_skip"] = skip_v
 
-    flag_v, must_found = violations_flag_completeness(final_text, must_flags)
-    if flag_v:
-        out["timeline_pass_flags"] = flag_v
-
-    telemetry["per_slug_two_phase_violation_counts"] = {
-        slug: len(errs) for slug, errs in per_slug_two_phase.items()
-    }
     telemetry["expected_append_slugs"] = sorted(expected_slug_set)
     telemetry["seen_append_slugs"] = sorted(by_slug.keys())
-    telemetry["must_flags_found"] = must_found
-    telemetry["soft_flags_found"] = soft_flag_telemetry(final_text, soft_flags)
+    telemetry["per_slug_new_row_count"] = per_slug_new_row_count
+    telemetry["per_slug_anchor_words_missing"] = per_slug_anchor_words_missing
     return out, telemetry
 
 
@@ -383,8 +299,9 @@ def collect_timeline_pass_violations(
 def per_gate_verdict(violations: dict[str, list[str]]) -> dict[str, str]:
     """Map TP gate ID → ``"PASS"`` or ``"FAIL"`` based on bucketed violations.
 
-    TP3 and TP5 share the ``timeline_pass_tool`` bucket; we tease them apart
-    by message-prefix matching so the report shows independent verdicts.
+    TP3 and TP5 share the ``timeline_pass_tool`` bucket; we tease them apart by
+    message-prefix matching so the report shows independent verdicts. TP4 was
+    removed in Iteration 6.
     """
     tool_msgs = list(violations.get("timeline_pass_tool", []))
     halluc = [m for m in tool_msgs if "hallucination guard" in m or "not in allowed_npc_slugs" in m]
@@ -394,7 +311,6 @@ def per_gate_verdict(violations: dict[str, list[str]]) -> dict[str, str]:
         "TP1": "FAIL" if violations.get("timeline_pass_append") else "PASS",
         "TP2": "FAIL" if violations.get("timeline_pass_skip") else "PASS",
         "TP3": "FAIL" if forbidden else "PASS",
-        "TP4": "FAIL" if violations.get("timeline_pass_flags") else "PASS",
         "TP5": "FAIL" if halluc else "PASS",
     }
 
@@ -402,11 +318,9 @@ def per_gate_verdict(violations: dict[str, list[str]]) -> dict[str, str]:
 __all__ = [
     "_appends_by_slug",
     "collect_timeline_pass_violations",
-    "parse_planner_unsure_queue",
+    "find_session_table_rows",
+    "grade_anchor_words_for_slug",
     "per_gate_verdict",
-    "soft_flag_telemetry",
-    "violations_flag_completeness",
     "violations_hallucination_guard",
     "violations_skip_targets",
-    "violations_two_phase_for_slug",
 ]

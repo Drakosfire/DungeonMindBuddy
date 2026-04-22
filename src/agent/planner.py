@@ -304,9 +304,174 @@ def _read_corpus_file_impl(corpus_dir: Path, rel_path: str) -> str:
     return text
 
 
-def _planner_writer_tools_responses() -> list[dict[str, Any]]:
-    """Two-phase corpus-write tools + recap-context resolver (registered together
-    when ``allow_corpus_writes=True`` because they form one workflow surface)."""
+def _planner_writer_tools_responses(
+    *, autonomous_writes: bool = False
+) -> list[dict[str, Any]]:
+    """Corpus-write tools + recap-context resolver (registered together when
+    ``allow_corpus_writes=True`` because they form one workflow surface).
+
+    When ``autonomous_writes=True``, the ``write_corpus_file`` and
+    ``append_timeline_row`` schemas drop ``dry_run`` / ``confirm_token`` and the
+    descriptions are rewritten as one-phase direct-action calls (the dispatcher
+    runs a hidden preview→commit loopback so the writer's safety properties —
+    allowlist, payload validators, file_state_token CAS — stay in place but the
+    model never sees the preview phase). Default is the operator-driven
+    two-phase surface used by `recap-write` and other GM-in-the-loop skills.
+    """
+    if autonomous_writes:
+        write_corpus_file_tool: dict[str, Any] = {
+            "type": "function",
+            "name": "write_corpus_file",
+            "description": (
+                "Create or append a corpus markdown file. Commits immediately. "
+                "Path allowlist: `mode='create'` is only allowed for "
+                "`**/Session Recaps/Session NN - <slug>.md` and a few hub/seed/dossier "
+                "paths; `mode='append'` is only allowed for "
+                "`**/NPCs/<slug>/timeline.md`, `**/PCs/<slug>/timeline.md`, "
+                "`**/NPCs/<slug>/README.md`, and `Longmont Campaign/Campaign N/Session Prep/*.md`. "
+                "Dossier (`*_character_dossier.md`), seed (`character_seed.md`), and "
+                "statblock (`*_statblock*.md`) files are read-only. Returns "
+                "`{ok, path, mode, bytes_written, new_corpus_fingerprint}` on success."
+            ),
+            "strict": False,
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "description": "Corpus-relative `.md` path (no `c:<ref>` tokens here).",
+                    },
+                    "mode": {"type": "string", "enum": ["create", "append"]},
+                    "content": {
+                        "type": "string",
+                        "description": (
+                            "Full file body for `create`; new tail content to append "
+                            "(preserves existing prefix) for `append`. Trailing newline "
+                            "added automatically."
+                        ),
+                    },
+                },
+                "required": ["path", "mode", "content"],
+                "additionalProperties": False,
+            },
+        }
+        append_timeline_row_tool: dict[str, Any] = {
+            "type": "function",
+            "name": "append_timeline_row",
+            "description": (
+                "Append a single timeline row under `NPCs/<slug>/timeline.md` or "
+                "`PCs/<slug>/timeline.md`. Commits immediately. Returns "
+                "`{ok, path, mode, bytes_written, new_corpus_fingerprint}`. "
+                "`recap_path` must already exist under the corpus. If multiple "
+                "`NPCs/<slug>/timeline.md` exist (e.g. campaign 1 vs campaign 2), "
+                "pass `timeline_path` to disambiguate."
+            ),
+            "strict": False,
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "npc_slug": {"type": "string"},
+                    "session": {"type": "integer"},
+                    "beat": {
+                        "type": "string",
+                        "description": "One-cell telegraphic summary of this NPC's beat.",
+                    },
+                    "recap_path": {
+                        "type": "string",
+                        "description": "Corpus-relative path to the recap `.md` (must exist).",
+                    },
+                    "timeline_path": {
+                        "type": "string",
+                        "description": (
+                            "Optional explicit path to `NPCs/<slug>/timeline.md` when "
+                            "multiple candidates exist."
+                        ),
+                    },
+                },
+                "required": ["npc_slug", "session", "beat", "recap_path"],
+                "additionalProperties": False,
+            },
+        }
+    else:
+        write_corpus_file_tool = {
+            "type": "function",
+            "name": "write_corpus_file",
+            "description": (
+                "Guarded write into the campaign corpus. Two-phase commit: call once with "
+                "`dry_run=true` (default) to get a unified-diff `preview` and a `confirm_token`, "
+                "then call again with `dry_run=false` and the same `confirm_token` to actually "
+                "write. Path allowlist: `mode='create'` is only allowed for "
+                "`**/Session Recaps/Session NN - <slug>.md`; `mode='append'` is only allowed for "
+                "`**/NPCs/<slug>/timeline.md` and `**/NPCs/<slug>/README.md`. Dossier "
+                "(`*_character_dossier.md`), seed (`character_seed.md`), and statblock "
+                "(`*_statblock*.md`) files are read-only. Surface the diff to the human and wait "
+                "for explicit `apply` before the commit phase."
+            ),
+            "strict": False,
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "description": "Corpus-relative `.md` path (no `c:<ref>` tokens here).",
+                    },
+                    "mode": {"type": "string", "enum": ["create", "append"]},
+                    "content": {
+                        "type": "string",
+                        "description": (
+                            "Full file body for `create`; new tail content to append (preserves "
+                            "existing prefix) for `append`. Trailing newline added automatically."
+                        ),
+                    },
+                    "dry_run": {"type": "boolean"},
+                    "confirm_token": {
+                        "type": "string",
+                        "description": "Echo the token from the prior `dry_run` call to commit.",
+                    },
+                },
+                "required": ["path", "mode", "content"],
+                "additionalProperties": False,
+            },
+        }
+        append_timeline_row_tool = {
+            "type": "function",
+            "name": "append_timeline_row",
+            "description": (
+                "Append one row to the campaign-hub `NPCs/<slug>/timeline.md` for an NPC. "
+                "Wraps `write_corpus_file` so the model cannot accidentally rewrite the table. "
+                "Two-phase: dry-run returns preview + `confirm_token`; second call with "
+                "`confirm_token` commits. ``recap_path`` must already exist under the corpus. "
+                "If multiple `NPCs/<slug>/timeline.md` exist (e.g. campaign 1 vs campaign 2), "
+                "pass `timeline_path` to disambiguate."
+            ),
+            "strict": False,
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "npc_slug": {"type": "string"},
+                    "session": {"type": "integer"},
+                    "beat": {
+                        "type": "string",
+                        "description": "One-cell telegraphic summary of this NPC's beat.",
+                    },
+                    "recap_path": {
+                        "type": "string",
+                        "description": "Corpus-relative path to the recap `.md` (must exist).",
+                    },
+                    "timeline_path": {
+                        "type": "string",
+                        "description": (
+                            "Optional explicit path to `NPCs/<slug>/timeline.md` when multiple "
+                            "candidates exist."
+                        ),
+                    },
+                    "dry_run": {"type": "boolean"},
+                    "confirm_token": {"type": "string"},
+                },
+                "required": ["npc_slug", "session", "beat", "recap_path"],
+                "additionalProperties": False,
+            },
+        }
     return [
         {
             "type": "function",
@@ -416,89 +581,16 @@ def _planner_writer_tools_responses() -> list[dict[str, Any]]:
                 "additionalProperties": False,
             },
         },
-        {
-            "type": "function",
-            "name": "write_corpus_file",
-            "description": (
-                "Guarded write into the campaign corpus. Two-phase commit: call once with "
-                "`dry_run=true` (default) to get a unified-diff `preview` and a `confirm_token`, "
-                "then call again with `dry_run=false` and the same `confirm_token` to actually "
-                "write. Path allowlist: `mode='create'` is only allowed for "
-                "`**/Session Recaps/Session NN - <slug>.md`; `mode='append'` is only allowed for "
-                "`**/NPCs/<slug>/timeline.md` and `**/NPCs/<slug>/README.md`. Dossier "
-                "(`*_character_dossier.md`), seed (`character_seed.md`), and statblock "
-                "(`*_statblock*.md`) files are read-only. Surface the diff to the human and wait "
-                "for explicit `apply` before the commit phase."
-            ),
-            "strict": False,
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "path": {
-                        "type": "string",
-                        "description": "Corpus-relative `.md` path (no `c:<ref>` tokens here).",
-                    },
-                    "mode": {"type": "string", "enum": ["create", "append"]},
-                    "content": {
-                        "type": "string",
-                        "description": (
-                            "Full file body for `create`; new tail content to append (preserves "
-                            "existing prefix) for `append`. Trailing newline added automatically."
-                        ),
-                    },
-                    "dry_run": {"type": "boolean"},
-                    "confirm_token": {
-                        "type": "string",
-                        "description": "Echo the token from the prior `dry_run` call to commit.",
-                    },
-                },
-                "required": ["path", "mode", "content"],
-                "additionalProperties": False,
-            },
-        },
-        {
-            "type": "function",
-            "name": "append_timeline_row",
-            "description": (
-                "Append one row to the campaign-hub `NPCs/<slug>/timeline.md` for an NPC. "
-                "Wraps `write_corpus_file` so the model cannot accidentally rewrite the table. "
-                "Two-phase: dry-run returns preview + `confirm_token`; second call with "
-                "`confirm_token` commits. ``recap_path`` must already exist under the corpus. "
-                "If multiple `NPCs/<slug>/timeline.md` exist (e.g. campaign 1 vs campaign 2), "
-                "pass `timeline_path` to disambiguate."
-            ),
-            "strict": False,
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "npc_slug": {"type": "string"},
-                    "session": {"type": "integer"},
-                    "beat": {
-                        "type": "string",
-                        "description": "One-cell telegraphic summary of this NPC's beat.",
-                    },
-                    "recap_path": {
-                        "type": "string",
-                        "description": "Corpus-relative path to the recap `.md` (must exist).",
-                    },
-                    "timeline_path": {
-                        "type": "string",
-                        "description": (
-                            "Optional explicit path to `NPCs/<slug>/timeline.md` when multiple "
-                            "candidates exist."
-                        ),
-                    },
-                    "dry_run": {"type": "boolean"},
-                    "confirm_token": {"type": "string"},
-                },
-                "required": ["npc_slug", "session", "beat", "recap_path"],
-                "additionalProperties": False,
-            },
-        },
+        write_corpus_file_tool,
+        append_timeline_row_tool,
     ]
 
 
-def _planner_tools_responses(*, include_write_tools: bool = False) -> list[dict[str, Any]]:
+def _planner_tools_responses(
+    *,
+    include_write_tools: bool = False,
+    autonomous_writes: bool = False,
+) -> list[dict[str, Any]]:
     """Function tools for ``responses.create`` (flat ``name`` / ``parameters``, not nested ``function``)."""
     base: list[dict[str, Any]] = [
         {
@@ -655,7 +747,9 @@ def _planner_tools_responses(*, include_write_tools: bool = False) -> list[dict[
         },
     ]
     if include_write_tools:
-        base.extend(_planner_writer_tools_responses())
+        base.extend(
+            _planner_writer_tools_responses(autonomous_writes=autonomous_writes)
+        )
     return base
 
 
@@ -677,6 +771,7 @@ def make_tool_dispatcher(
     tool_cost_sink: list[dict[str, Any]] | None = None,
     corpus_path_ref_index: dict[str, str] | None = None,
     allow_corpus_writes: bool = False,
+    autonomous_writes: bool = False,
 ) -> Callable[[str, str], str]:
     """Build the planner tool dispatch closure (corpus reads, context loads, statblock).
 
@@ -684,6 +779,21 @@ def make_tool_dispatcher(
     ``assemble_recap_draft``, ``build_recap_write_payload``, ``write_corpus_file``, and ``append_timeline_row``
     through the recap / corpus-writer stack. The default is ``False`` so the live
     planner used by evals never gains write capability silently.
+
+    When ``autonomous_writes=True`` (autonomous benchmarks and graduated skills
+    with no human-in-the-loop diff review), the dispatcher wraps the writer's
+    two-phase contract in a hidden preview→commit loopback: a single model
+    ``append_timeline_row`` / ``write_corpus_file`` call resolves to one
+    committed write. The writer's safety properties (allowlist, payload
+    validators, ``file_state_token`` CAS) stay in place inside the loopback;
+    only the **exposed** surface to the model is one-phase. Any legacy
+    ``dry_run`` / ``confirm_token`` arguments the model emits are stripped
+    silently before the loopback runs.
+
+    When ``autonomous_writes=False`` (default, operator-driven flows like
+    ``recap-write`` or the REPL), the writer's two-phase contract is exposed
+    verbatim and the model must drive ``dry_run=true → confirm_token →
+    dry_run=false`` itself.
     """
     ref_index: dict[str, str] = (
         corpus_path_ref_index
@@ -919,31 +1029,63 @@ def make_tool_dispatcher(
                 write_corpus_file as _write_corpus_file,
             )
 
-            if name == "write_corpus_file":
-                result = _write_corpus_file(
-                    corpus_path,
-                    path=str(args.get("path", "")),
-                    mode=str(args.get("mode", "")),
-                    content=str(args.get("content", "")),
-                    dry_run=bool(args.get("dry_run", True)),
-                    confirm_token=(args.get("confirm_token") or None),
-                )
-            else:
+            def _call_writer(*, dry_run: bool, confirm_token: str | None) -> dict[str, Any] | str:
+                if name == "write_corpus_file":
+                    return _write_corpus_file(
+                        corpus_path,
+                        path=str(args.get("path", "")),
+                        mode=str(args.get("mode", "")),
+                        content=str(args.get("content", "")),
+                        dry_run=dry_run,
+                        confirm_token=confirm_token,
+                    )
                 sess_raw = args.get("session")
                 try:
                     sess_int = int(sess_raw)
                 except (TypeError, ValueError):
                     return "Error: append_timeline_row.session must be an integer."
-                result = _append_timeline_row(
+                return _append_timeline_row(
                     corpus_path,
                     npc_slug=str(args.get("npc_slug", "")),
                     session=sess_int,
                     beat=str(args.get("beat", "")),
                     recap_path=str(args.get("recap_path", "")),
                     timeline_path=(args.get("timeline_path") or None),
-                    dry_run=bool(args.get("dry_run", True)),
-                    confirm_token=(args.get("confirm_token") or None),
+                    dry_run=dry_run,
+                    confirm_token=confirm_token,
                 )
+
+            if autonomous_writes:
+                # One-phase loopback: hidden preview to grab the CAS token,
+                # then immediate commit. The model never sees the preview phase
+                # or the confirm_token. Legacy `dry_run` / `confirm_token` args
+                # from the model are silently ignored — schema doesn't expose
+                # them, but a model may still emit them from prior conditioning.
+                preview = _call_writer(dry_run=True, confirm_token=None)
+                if isinstance(preview, str):
+                    return preview
+                if not (
+                    preview.get("ok") is True
+                    and preview.get("phase") == "preview"
+                    and preview.get("confirm_token")
+                ):
+                    # Validation/allowlist failure surfaces unchanged so the
+                    # model can correct path or payload on the next call.
+                    return json.dumps(preview, ensure_ascii=False)
+                commit = _call_writer(
+                    dry_run=False,
+                    confirm_token=str(preview["confirm_token"]),
+                )
+                if isinstance(commit, str):
+                    return commit
+                return json.dumps(commit, ensure_ascii=False)
+
+            result = _call_writer(
+                dry_run=bool(args.get("dry_run", True)),
+                confirm_token=(args.get("confirm_token") or None),
+            )
+            if isinstance(result, str):
+                return result
             return json.dumps(result, ensure_ascii=False)
         return f"Error: unknown tool {name!r}"
 

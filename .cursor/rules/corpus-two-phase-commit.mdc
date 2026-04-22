@@ -1,13 +1,21 @@
 ---
-description: All corpus writes go through preview → commit. Never write directly to the corpus from a planner turn or new tool.
+description: Operator-driven corpus writes go through preview → commit. Autonomous benchmark and graduated-skill writes use a one-phase loopback surface that preserves the writer's safety properties internally.
 alwaysApply: true
 ---
 
 # Two-phase commit for corpus writes
 
-The Eldyrwild corpus is the GM's canonical source-of-truth. A single bad write can quietly corrupt months of game prep. **Every** write to `corpus/` flows through a two-phase preview→commit pattern.
+The Eldyrwild corpus is the GM's canonical source-of-truth. A single bad write can quietly corrupt months of game prep. The writer's safety properties — allowlist, payload validators, `file_state_token` CAS — apply to **every** write to `corpus/`. What changes per caller is whether the **preview** phase is exposed to the model.
 
-## The contract
+## Scope
+
+This contract applies to **operator-driven** corpus writes — skills with a human GM in the loop reading the diff before approving commit (`recap-write`, `npc-power-increase`, the REPL). For these flows the model emits two tool calls (preview, then commit-with-token) and the GM gates the commit.
+
+**Autonomous benchmark and graduated-skill writes** use a **one-phase loopback surface** at the dispatcher: see `make_tool_dispatcher(..., autonomous_writes=True)` in `src/agent/planner.py`. In autonomous mode the dispatcher itself runs `dry_run=True` to obtain the `confirm_token`, then immediately runs `dry_run=False` with that token, and returns only the commit-phase response to the model. The writer's safety properties (allowlist, payload validators, file_state_token CAS) are preserved unchanged — the only thing that changes is that no preview phase is exposed to the model. The autonomous tool schemas drop `dry_run` and `confirm_token` from the parameter set; legacy args are silently stripped.
+
+The pivot was made because driving an autonomous benchmark through a writer designed for human-in-the-loop ops produced a class of "model writes diff to message instead of committing" failures that no amount of prompt-tuning or dispatcher commit-enforcement could close. See `Docs/Plans/STATUS-Session-Recap-Timeline-Pass-Benchmark.md` (Iteration 6).
+
+## The contract (operator-driven flows)
 
 The canonical implementation: `src/agent/corpus_writer.py:write_corpus_file`.
 
@@ -22,7 +30,7 @@ Other writers that touch the corpus (`append_timeline_row`, `update_step0_expect
 
 When adding a new tool/skill that writes to `corpus/`:
 
-1. **Reuse `write_corpus_file`** if at all possible. Don't write directly via `Path.write_text` from a new code path.
+1. **Reuse `write_corpus_file`** (or `append_timeline_row`) if at all possible. Don't write directly via `Path.write_text` from a new code path.
 2. If you must add a new writer (e.g. for a new file shape with non-trivial validation), it MUST:
    - Default `dry_run=True`.
    - Compute and return a `confirm_token` derived from current file state + intended payload.
@@ -30,6 +38,8 @@ When adding a new tool/skill that writes to `corpus/`:
    - Be allowlist-gated via `is_writable_corpus_path` or an equivalent path check.
 3. Add the path pattern (mode + glob) to the allowlist in `is_writable_corpus_path`. Default-deny.
 4. Wire a dispatch guard (see `dispatch-guard-grader-separation.mdc`) if a specific skill/flow should be blocked from calling the writer outside its lane.
+5. **Follow the two-phase pattern when adding human-driven writers.** Operators read diffs before approving — preview is the human-readable surface that makes consent meaningful.
+6. **Carve-out for autonomous writers.** If a benchmark or graduated skill needs to call your writer without a human in the loop, do not invent a sibling tool that bypasses safety. Instead, opt the dispatcher in via `autonomous_writes=True` and emit the simplified schema. The loopback wrapper preserves CAS/allowlist/validator semantics; only the model-facing surface changes.
 
 ## What never happens
 

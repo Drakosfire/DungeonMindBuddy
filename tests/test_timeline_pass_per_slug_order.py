@@ -30,6 +30,8 @@ def test_ordered_timeline_targets_matches_gold_user_message_order() -> None:
         "thrin_branchborn",
         "torbin_jove",
         "caelynn",
+        "karsemine",
+        "ephanna",
     ]
 
 
