@@ -1,0 +1,121 @@
+[
+  {
+    "slug": "captain_lysandra_ironveil",
+    "display_name": "Captain Lysandra Ironveil",
+    "aliases": [
+      "Lysandra",
+      "the captain"
+    ],
+    "status": "tracked",
+    "first_session": 3,
+    "last_session": 20,
+    "hub_path": "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/",
+    "setting_hub_path": "Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/",
+    "notes": "Lysandra timeline.md ends at session 19 but Session 20 has major Lysandra scenes; recap-derived last_session=20 pending timeline backfill."
+  },
+  {
+    "slug": "dustwalker",
+    "display_name": "Dustwalker",
+    "aliases": [
+      "Sorin Haldrim",
+      "The Spiral Voice",
+      "Maelthor's Echo"
+    ],
+    "status": "tracked",
+    "first_session": 3,
+    "last_session": 14,
+    "hub_path": "Longmont Campaign/Campaign 2/NPCs/dustwalker/",
+    "setting_hub_path": "Elderwyld/Shephards Flock/NPCs/dustwalker/",
+    "notes": ""
+  },
+  {
+    "slug": "marla_brambleback",
+    "display_name": "Marla Brambleback",
+    "aliases": [
+      "Marla"
+    ],
+    "status": "tracked",
+    "first_session": 20,
+    "last_session": 20,
+    "hub_path": "Elderwyld/Cities and Towns/Mossford/NPCs/marla_brambleback/",
+    "setting_hub_path": null,
+    "notes": "Mossford NPC heavily played in C2; no campaign-tagged hub yet — the Elderwyld setting hub is authoritative for now."
+  },
+  {
+    "slug": "sara_mirathorn_operator",
+    "display_name": "Sara",
+    "aliases": [
+      "Frank"
+    ],
+    "status": "tracked",
+    "first_session": 12,
+    "last_session": 21,
+    "hub_path": "Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/",
+    "setting_hub_path": null,
+    "notes": "Frank is Sara's twin who shares the dossier; treating as alias for now per audit. Re-split if/when Frank gets a distinct hub."
+  },
+  {
+    "slug": "sheriff_roderic_marr",
+    "display_name": "Sheriff Roderic Marr",
+    "aliases": [
+      "Sheriff Marr",
+      "Roderic Marr"
+    ],
+    "status": "background",
+    "first_session": 19,
+    "last_session": 20,
+    "hub_path": "Elderwyld/Cities and Towns/Mossford/NPCs/sheriff_roderic_marr/",
+    "setting_hub_path": null,
+    "notes": "Mossford NPC; re-evaluate status to 'tracked' if his role grows in later sessions."
+  },
+  {
+    "slug": "stacey_brambleback",
+    "display_name": "Stacey Brambleback",
+    "aliases": [
+      "Stacey"
+    ],
+    "status": "tracked",
+    "first_session": 19,
+    "last_session": 20,
+    "hub_path": "Elderwyld/Cities and Towns/Mossford/NPCs/stacey_brambleback/",
+    "setting_hub_path": null,
+    "notes": "Mossford NPC heavily played in C2; no campaign-tagged hub yet — the Elderwyld setting hub is authoritative for now."
+  },
+  {
+    "slug": "stuart",
+    "display_name": "Stuart",
+    "aliases": [],
+    "status": "tracked",
+    "first_session": 19,
+    "last_session": 20,
+    "hub_path": "Elderwyld/Cities and Towns/Mossford/NPCs/stuart/",
+    "setting_hub_path": null,
+    "notes": "Mossford NPC heavily played in C2; no campaign-tagged hub yet — the Elderwyld setting hub is authoritative for now."
+  },
+  {
+    "slug": "thrin_branchborn",
+    "display_name": "Thrin Branchborn",
+    "aliases": [
+      "Thrin",
+      "Thrin of the Branchborn",
+      "Mother of Broken Branches"
+    ],
+    "status": "tracked",
+    "first_session": 17,
+    "last_session": 21,
+    "hub_path": "Longmont Campaign/Campaign 2/NPCs/thrin_branchborn/",
+    "setting_hub_path": null,
+    "notes": ""
+  },
+  {
+    "slug": "torbin_jove",
+    "display_name": "Torbin Jove",
+    "aliases": [],
+    "status": "tracked",
+    "first_session": 3,
+    "last_session": 14,
+    "hub_path": "Longmont Campaign/Campaign 2/NPCs/torbin_jove/",
+    "setting_hub_path": "Elderwyld/Cities and Towns/Mirathorn/NPCs/torbin_jove/",
+    "notes": "Hub timeline.md also contains C1 sessions 4-13 rows (cross-campaign data) — only the C2 session range is reflected in first_session/last_session here."
+  }
+]

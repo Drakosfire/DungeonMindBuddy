@@ -177,7 +177,21 @@ Every per-class specialization restates §1–§6 in concrete terms for one subj
 
 ---
 
-## 8. Out of scope (this pass)
+## 8. NPC registry artifact (per campaign)
+
+The **NPC registry** is the canonical "known NPCs in this campaign" lookup, distinct from the per-hub READMEs that describe individual NPCs. It exists because Stage C (NPC candidate identification) and Stage D (entity resolution) need a cheap, structured "here are the tracked NPCs" surface — re-deriving it from filesystem traversal on every run was wasteful and prone to drift.
+
+- **Path:** `<campaign>/_npc_registry.json` — one file per campaign, colocated with the campaign folder. The leading underscore signals "machine-maintained metadata," matching the convention used elsewhere in this repo for `_archive/`-style names.
+- **Schema:** `schemas/v0.1/npc_registry.schema.json` — array of records. Sibling to `event_record.schema.json`. Pydantic mirror at `src/contracts/npc_registry.py` exposes `NpcRegistryRecord` and `load_npc_registry()`.
+- **Lint:** `uv run python scripts/lint_npc_registry.py` — schema validation + cross-ref check (each `slug` must match an actual folder under `hub_path` or `setting_hub_path`) + duplicate-slug check + null-hub-for-non-candidate check + `first_session ≤ last_session` check. Exit 0 clean, 1 with issues. Mirrors the output style of `scripts/lint_corpus_hubs.py`.
+- **Status enum** (4 values, closed): `tracked` (has a hub README, GM-curated, regularly appears) · `background` (has a hub README but minor/setting figure) · `dormant` (was tracked, hasn't appeared in recent sessions; flagged not removed) · `candidate` (named in recaps but no hub yet; awaits GM curation). Only `candidate` may carry `hub_path: null`.
+- **Distinct from `FactStore.entities`.** The `FactStore` `entities` table is per-run extraction provenance and has a different lifecycle. The registry is GM-curated campaign canon and survives across runs.
+
+**Today's coverage.** Campaign 2 is seeded (9 NPCs: 5 Longmont-C2 hubs + 4 Mossford/Elderwyld hubs heavily played in C2). Campaign 1 has zero `NPCs/<slug>/README.md` hubs in the corpus today and is a separate cold-start problem (tracked in `Backlog.md`). New campaigns get a registry the moment they have one tracked NPC.
+
+---
+
+## 9. Out of scope (this pass)
 
 Captured here so the boundary is unambiguous:
 

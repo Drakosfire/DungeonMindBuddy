@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "npc_registry.schema.json",
+  "title": "DungeonBuddy NPC Registry v0.1",
+  "description": "Per-campaign canonical lookup for known NPCs. GM-curated list of who exists, what their hub paths are, and when they last appeared. Lives at <campaign>/_npc_registry.json. Distinct from FactStore.entities (run-time extraction provenance) — the registry is campaign canon and survives across runs.",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "required": [
+      "slug",
+      "display_name",
+      "status",
+      "first_session",
+      "last_session",
+      "hub_path"
+    ],
+    "properties": {
+      "slug": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Canonical lowercase-underscore identifier; must match an existing folder name under hub_path or setting_hub_path."
+      },
+      "display_name": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Human-facing name; usually derived from the hub README's `title:` frontmatter or H1."
+      },
+      "aliases": {
+        "type": "array",
+        "default": [],
+        "description": "Other names, epithets, or descriptors the NPC is referred to by. Populated initially from hub READMEs; grows as Stage D resolves descriptors against the registry.",
+        "items": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "status": {
+        "type": "string",
+        "enum": ["tracked", "background", "dormant", "candidate"],
+        "description": "tracked = has a hub README, GM-curated, regularly appears. background = has a hub README but minor/setting figure. dormant = was tracked but hasn't appeared in recent sessions (no removals, just status flag). candidate = appears in recaps but no hub yet; awaits GM curation."
+      },
+      "first_session": {
+        "type": "integer",
+        "minimum": 0,
+        "description": "First session this NPC appears in (or is referenced from). Sourced from timeline.md when present, else recap-derived."
+      },
+      "last_session": {
+        "type": "integer",
+        "minimum": 0,
+        "description": "Most recent session this NPC appeared in. Must be >= first_session. May lag behind reality if timeline.md is stale; see lint."
+      },
+      "hub_path": {
+        "type": ["string", "null"],
+        "description": "Authoritative hub for this NPC in this campaign. Corpus-relative (i.e. relative to corpus/eldyrwild-markdown/), with trailing slash. Null is permitted ONLY for status=candidate (no hub exists yet)."
+      },
+      "setting_hub_path": {
+        "type": ["string", "null"],
+        "default": null,
+        "description": "When the same NPC also has a world/setting hub in Elderwyld, point to it; useful for cross-campaign lookup. Corpus-relative with trailing slash, or null."
+      },
+      "notes": {
+        "type": "string",
+        "default": "",
+        "description": "Human-readable caveats (e.g. timeline drift, twin-sharing-dossier quirks). Freely editable by GM."
+      }
+    },
+    "additionalProperties": false
+  }
+}
