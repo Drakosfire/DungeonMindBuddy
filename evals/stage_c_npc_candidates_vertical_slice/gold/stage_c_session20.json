@@ -1,0 +1,33 @@
+{
+  "schema": "stage_c_v0.1",
+  "scenario_id": "stage_c_session20",
+  "scenario_class": "stage_c_npc_candidate_id",
+  "input": {
+    "campaign_id": "longmont-c2",
+    "session_label": "Session 20",
+    "stage_a_events_path": "evals/stage_c_npc_candidates_vertical_slice/fixtures/stage_a_events_session20.json",
+    "npc_registry_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/_npc_registry.json",
+    "pc_roster": [
+      {"slug": "bonogo",    "display_name": "Bonogo",    "aliases": []},
+      {"slug": "caelynn",   "display_name": "Caelynn",   "aliases": []},
+      {"slug": "ephanna",   "display_name": "Ephanna",   "aliases": []},
+      {"slug": "karsemine", "display_name": "Karsemine", "aliases": ["Karesmine"]},
+      {"slug": "stafl",     "display_name": "Stafl",     "aliases": []}
+    ]
+  },
+  "grading": {
+    "expected_tracked_active_minimum": [
+      "captain_lysandra_ironveil",
+      "stuart",
+      "stacey_brambleback",
+      "marla_brambleback",
+      "thrin_branchborn",
+      "sara_mirathorn_operator"
+    ],
+    "expected_new_candidates_minimum": [],
+    "expected_new_candidates_should_include_at_least_one_of": ["tealeaf", "professor_tealeaf"],
+    "max_total_candidates": 25,
+    "pc_roster_for_negative_check": ["bonogo", "caelynn", "ephanna", "karsemine", "stafl"]
+  },
+  "notes": "S20 features 5 active NPCs from the registry (Lysandra rescue, Mossford townsfolk Stuart/Stacey/Marla cleaning up, Thrin guidance, Sara on radio). Sheriff Marr may appear; if so, it's a 6th tracked. Tealeaf is the canonical 'named NPC with no hub' candidate for new_candidates. The expected_new_candidates_should_include_at_least_one_of is a SOFT-BONUS telemetry signal (not a gate failure if missed) that doubles as a diagnostic for Stage A's referenced_slugs[] coverage of summary-only-named NPCs."
+}

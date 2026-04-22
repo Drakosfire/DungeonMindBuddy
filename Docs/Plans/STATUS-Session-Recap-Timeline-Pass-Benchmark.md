@@ -134,6 +134,12 @@ What this iteration does **not** address:
 
 The "all PCs producing timelines" gate the user set as the commit criterion is met. Two open questions sequenced for next dispatches: (a) robustness against an unseen Campaign 1 Session 1 recap; (b) ingestion expansion to NPCs and Locations using the same events-first scaffold.
 
+**Iteration 8 (2026-04-22) — Stage C lands: NPC candidate identification (3-bucket classification):**
+
+The events-first pipeline now has a third stage. Stage C reads Stage A's events output + the per-campaign NPC registry (`corpus/.../_npc_registry.json`, shipped `3bf3f99`) + a PC negative-list, and classifies every distinct entity mention into one of three buckets that feed three different downstream consumers: `tracked_npcs_active[]` → Stage E (per-NPC artifact update), `new_npc_candidates[]` → GM review queue → registry promotion, `unresolved_descriptors[]` → Stage D's harder resolution work. Five gates: NC1 structure, NC2 PC negative-list cleanliness (hard), NC3 registry positive-list recall (hard), NC4 evidence discipline, NC5 count window. Slice mirrors Stage A file-for-file: `evals/stage_c_npc_candidates_vertical_slice/{step1_stage_c_run.py, grader.py, stage_c_run_report.py, gold/, fixtures/, artifacts/, README.md}` + `tests/test_stage_c_grader.py` (19 unit tests, all green; global suite still 4 pre-existing Lysandra failures, no new regressions).
+
+**Iteration 8 — S20 cohort N=5 (`step1_stage_c_run --n 5 --model gpt-5.4-mini`):** **4/5 pass.** Cost sum **$0.0136** (well under the $0.10 budget). All 5 runs identified Professor Tealeaf as a new candidate (`expected_new_candidate_coverage_hit=True` ×5 — soft-bonus telemetry signal lit). All 5 runs resolved the alias `stacey` → `stacey_brambleback` correctly. The single failure (run 5) was a `stafl` PC leak into `tracked_npcs_active` (NC1 + NC2 both correctly tripped) — the grader caught it cleanly; this is the prompt-iteration signal for the next slice rather than a grader gap. Aggregate: tracked_active 6 (5 expected + Sheriff Marr background), new_candidates ~3-5, unresolved ~0-2 per run. C1S1/C1S2/C1S3 cohorts + C1 registry cold-start are the next slice.
+
 ---
 
 ## Legend

@@ -1,0 +1,5 @@
+# Stage C fixtures: frozen Stage A events used for deterministic Stage C testing.
+# Allow checked-in stage_a_events_*.json fixtures; ignore everything else.
+*
+!.gitignore
+!stage_a_events_*.json
