@@ -362,9 +362,10 @@ def _planner_writer_tools_responses(
                 "Append a single timeline row under `NPCs/<slug>/timeline.md` or "
                 "`PCs/<slug>/timeline.md`. Commits immediately. Returns "
                 "`{ok, path, mode, bytes_written, new_corpus_fingerprint}`. "
-                "`recap_path` must already exist under the corpus. If multiple "
-                "`NPCs/<slug>/timeline.md` exist (e.g. campaign 1 vs campaign 2), "
-                "pass `timeline_path` to disambiguate."
+                "`recap_path` must already exist under the corpus. The slug-only "
+                "resolver looks under `NPCs/<slug>/timeline.md` first and falls back "
+                "to `PCs/<slug>/timeline.md`; if multiple candidates exist (e.g. "
+                "campaign 1 vs campaign 2), pass `timeline_path` to disambiguate."
             ),
             "strict": False,
             "parameters": {
@@ -383,8 +384,8 @@ def _planner_writer_tools_responses(
                     "timeline_path": {
                         "type": "string",
                         "description": (
-                            "Optional explicit path to `NPCs/<slug>/timeline.md` when "
-                            "multiple candidates exist."
+                            "Optional explicit path to `NPCs/<slug>/timeline.md` or "
+                            "`PCs/<slug>/timeline.md` when multiple candidates exist."
                         ),
                     },
                 },
@@ -437,12 +438,13 @@ def _planner_writer_tools_responses(
             "type": "function",
             "name": "append_timeline_row",
             "description": (
-                "Append one row to the campaign-hub `NPCs/<slug>/timeline.md` for an NPC. "
+                "Append one row to a hub `NPCs/<slug>/timeline.md` or `PCs/<slug>/timeline.md`. "
                 "Wraps `write_corpus_file` so the model cannot accidentally rewrite the table. "
                 "Two-phase: dry-run returns preview + `confirm_token`; second call with "
                 "`confirm_token` commits. ``recap_path`` must already exist under the corpus. "
-                "If multiple `NPCs/<slug>/timeline.md` exist (e.g. campaign 1 vs campaign 2), "
-                "pass `timeline_path` to disambiguate."
+                "The slug-only resolver looks under `NPCs/<slug>/timeline.md` first and falls "
+                "back to `PCs/<slug>/timeline.md`; if multiple candidates exist (e.g. "
+                "campaign 1 vs campaign 2), pass `timeline_path` to disambiguate."
             ),
             "strict": False,
             "parameters": {
@@ -461,8 +463,8 @@ def _planner_writer_tools_responses(
                     "timeline_path": {
                         "type": "string",
                         "description": (
-                            "Optional explicit path to `NPCs/<slug>/timeline.md` when multiple "
-                            "candidates exist."
+                            "Optional explicit path to `NPCs/<slug>/timeline.md` or "
+                            "`PCs/<slug>/timeline.md` when multiple candidates exist."
                         ),
                     },
                     "dry_run": {"type": "boolean"},

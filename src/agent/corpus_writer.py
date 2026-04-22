@@ -289,14 +289,28 @@ def _format_timeline_row(session: int, beat: str, recap_relpath: str) -> str:
 
 
 def _find_timeline_for_slug(corpus_dir: Path, npc_slug: str) -> tuple[Path | None, list[str]]:
-    """Return ``(unique_match, all_candidates)``. ``unique_match`` is ``None`` when ambiguous."""
+    """Return ``(unique_match, all_candidates)``. ``unique_match`` is ``None`` when ambiguous.
+
+    Looks for ``NPCs/<slug>/timeline.md`` first; if no NPC-side hub exists, falls
+    back to ``PCs/<slug>/timeline.md`` so the planner can append PC timelines via
+    a slug-only call (without needing to know the explicit campaign-prefixed path).
+    """
     root = corpus_dir.resolve()
-    matches = sorted(
+    npc_matches = sorted(
         p for p in root.rglob(f"NPCs/{npc_slug}/timeline.md") if p.is_file()
     )
-    rels = [p.relative_to(root).as_posix() for p in matches]
-    if len(matches) == 1:
-        return matches[0], rels
+    if npc_matches:
+        rels = [p.relative_to(root).as_posix() for p in npc_matches]
+        if len(npc_matches) == 1:
+            return npc_matches[0], rels
+        return None, rels
+
+    pc_matches = sorted(
+        p for p in root.rglob(f"PCs/{npc_slug}/timeline.md") if p.is_file()
+    )
+    rels = [p.relative_to(root).as_posix() for p in pc_matches]
+    if len(pc_matches) == 1:
+        return pc_matches[0], rels
     return None, rels
 
 
@@ -311,12 +325,14 @@ def append_timeline_row(
     dry_run: bool = True,
     confirm_token: str | None = None,
 ) -> dict[str, Any]:
-    """Append one row to the campaign-hub ``NPCs/<slug>/timeline.md``.
+    """Append one row to ``NPCs/<slug>/timeline.md`` or ``PCs/<slug>/timeline.md``.
 
     Wraps :func:`write_corpus_file` so the model cannot accidentally rewrite the existing
-    table. ``recap_path`` must already exist under the corpus. When multiple
-    ``NPCs/<slug>/timeline.md`` files match (e.g. campaign 1 vs campaign 2), pass
-    ``timeline_path`` explicitly to disambiguate.
+    table. ``recap_path`` must already exist under the corpus. The slug-only resolver
+    looks under ``NPCs/<slug>/timeline.md`` first; when no NPC hub is found it falls
+    back to ``PCs/<slug>/timeline.md`` (so PC slugs can be appended without an
+    explicit path). When multiple matches exist (e.g. campaign 1 vs campaign 2),
+    pass ``timeline_path`` explicitly to disambiguate.
     """
     if not npc_slug or "/" in npc_slug:
         return {"ok": False, "error": "npc_slug must be a single folder slug (no slashes)"}
@@ -349,8 +365,8 @@ def append_timeline_row(
                 return {
                     "ok": False,
                     "error": (
-                        f"no `NPCs/{npc_slug}/timeline.md` found under corpus; "
-                        "create one first or pass `timeline_path` explicitly."
+                        f"no `NPCs/{npc_slug}/timeline.md` or `PCs/{npc_slug}/timeline.md` "
+                        "found under corpus; create one first or pass `timeline_path` explicitly."
                     ),
                 }
             return {

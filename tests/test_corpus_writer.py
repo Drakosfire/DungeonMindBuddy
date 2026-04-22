@@ -400,6 +400,110 @@ def test_append_timeline_with_explicit_path_disambiguates(tmp_path: Path) -> Non
     assert "explicit win" not in other
 
 
+def _make_pc_timeline(corpus: Path, slug: str) -> Path:
+    """Mirror of ``_make_timeline`` but under the PC hub layout."""
+    hub = corpus / "Longmont Campaign/Campaign 2/PCs" / slug
+    hub.mkdir(parents=True, exist_ok=True)
+    timeline = hub / "timeline.md"
+    timeline.write_text(
+        textwrap.dedent(
+            """\
+            # PC timeline
+
+            | Session | Beat (short) | Recap (corpus-relative path) |
+            | ------- | ------------ | ---------------------------- |
+            | **3** | First arc beat | `Longmont Campaign/Campaign 2/Session Recaps/Session 3 - Recap.md` |
+            """
+        ),
+        encoding="utf-8",
+    )
+    return timeline
+
+
+def test_append_timeline_falls_back_to_pc_when_no_npc_hub(tmp_path: Path) -> None:
+    """Slug-only resolver should locate ``PCs/<slug>/timeline.md`` when no NPC hub exists."""
+    pc_timeline = _make_pc_timeline(tmp_path, "caelynn")
+    recap_dir = _make_recap_dir(tmp_path)
+    recap_rel = "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Snow.md"
+    (recap_dir / "Session 20 - Snow.md").write_text("# Session 20\n", encoding="utf-8")
+
+    preview = append_timeline_row(
+        tmp_path,
+        npc_slug="caelynn",
+        session=20,
+        beat="PC fallback resolved",
+        recap_path=recap_rel,
+        dry_run=True,
+    )
+    assert preview["ok"] is True, preview
+    assert preview["path"].endswith("PCs/caelynn/timeline.md")
+
+    commit = append_timeline_row(
+        tmp_path,
+        npc_slug="caelynn",
+        session=20,
+        beat="PC fallback resolved",
+        recap_path=recap_rel,
+        dry_run=False,
+        confirm_token=preview["confirm_token"],
+    )
+    assert commit["ok"] is True, commit
+    body = pc_timeline.read_text(encoding="utf-8")
+    assert "PC fallback resolved" in body
+    assert "First arc beat" in body  # prior row preserved
+
+
+def test_append_timeline_prefers_npc_hub_over_pc_when_both_present(tmp_path: Path) -> None:
+    """If a slug exists under both NPCs/ and PCs/, NPC hub wins (back-compat)."""
+    npc_timeline = _make_timeline(tmp_path, "shared_slug")
+    pc_timeline = _make_pc_timeline(tmp_path, "shared_slug")
+    recap_dir = _make_recap_dir(tmp_path)
+    recap_rel = "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Snow.md"
+    (recap_dir / "Session 20 - Snow.md").write_text("# Session 20\n", encoding="utf-8")
+
+    preview = append_timeline_row(
+        tmp_path,
+        npc_slug="shared_slug",
+        session=20,
+        beat="goes to NPC hub",
+        recap_path=recap_rel,
+        dry_run=True,
+    )
+    assert preview["ok"] is True, preview
+    assert preview["path"].endswith("NPCs/shared_slug/timeline.md")
+
+    commit = append_timeline_row(
+        tmp_path,
+        npc_slug="shared_slug",
+        session=20,
+        beat="goes to NPC hub",
+        recap_path=recap_rel,
+        dry_run=False,
+        confirm_token=preview["confirm_token"],
+    )
+    assert commit["ok"] is True
+    assert "goes to NPC hub" in npc_timeline.read_text(encoding="utf-8")
+    assert "goes to NPC hub" not in pc_timeline.read_text(encoding="utf-8")
+
+
+def test_append_timeline_unknown_slug_mentions_both_hubs(tmp_path: Path) -> None:
+    recap_dir = _make_recap_dir(tmp_path)
+    recap_rel = "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Snow.md"
+    (recap_dir / "Session 20 - Snow.md").write_text("# Session 20\n", encoding="utf-8")
+
+    out = append_timeline_row(
+        tmp_path,
+        npc_slug="nobody_here",
+        session=20,
+        beat="x",
+        recap_path=recap_rel,
+        dry_run=True,
+    )
+    assert out["ok"] is False
+    assert "NPCs/nobody_here/timeline.md" in out["error"]
+    assert "PCs/nobody_here/timeline.md" in out["error"]
+
+
 # ---------------------------------------------------------------------------
 # Path traversal
 # ---------------------------------------------------------------------------

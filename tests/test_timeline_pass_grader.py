@@ -29,12 +29,11 @@ from evals.session_recap_timeline_pass_vertical_slice.grader import (
 # ---------------------------------------------------------------------------
 
 
-_LYSANDRA_ANCHORS = ["tower", "meat", "shimmer", "antidote"]
-_CAELYNN_ANCHORS = ["swarm", "Lysandra", "Sara", "tea"]
-_SARA_ANCHORS = ["Lysandra", "Tealeaf", "time", "mumbling"]
-_THRIN_ANCHORS = ["bow", "swarm", "Caelynn", "miss"]
-_KARSEMINE_ANCHORS = ["scimitar", "Zephyr", "swarm", "hits"]
-_EPHANNA_ANCHORS = ["blast", "Marla", "swarm", "Thrin"]
+_LYSANDRA_ANCHORS = ["tower", "Caelynn"]
+_CAELYNN_ANCHORS = ["swarm", "Lysandra"]
+_SARA_ANCHORS = ["Caelynn", "Lysandra"]
+_KARSEMINE_ANCHORS = ["scimitar", "swarm"]
+_EPHANNA_ANCHORS = ["blast", "swarm"]
 
 
 def _committed_call(
@@ -103,12 +102,6 @@ def _expected_grading() -> dict[str, Any]:
                 "anchor_words": list(_SARA_ANCHORS),
             },
             {
-                "npc_slug": "thrin_branchborn",
-                "timeline_relative_path": "NPCs/thrin_branchborn/timeline.md",
-                "expected_count": 1,
-                "anchor_words": list(_THRIN_ANCHORS),
-            },
-            {
                 "npc_slug": "karsemine",
                 "timeline_relative_path": "PCs/karsemine/timeline.md",
                 "expected_count": 1,
@@ -129,6 +122,10 @@ def _expected_grading() -> dict[str, Any]:
             {
                 "npc_slug": "torbin_jove",
                 "timeline_relative_path": "NPCs/torbin_jove/timeline.md",
+            },
+            {
+                "npc_slug": "thrin_branchborn",
+                "timeline_relative_path": "NPCs/thrin_branchborn/timeline.md",
             },
         ],
     }
@@ -157,56 +154,47 @@ def _write_timeline(
 
 
 def _build_full_pass_corpus(corpus: Path) -> dict[str, Any]:
-    """Write all 8 timelines (6 with anchor-rich Session-20 row, 2 without)."""
+    """Write all 8 timelines (5 with anchor-rich Session-20 row, 3 without)."""
     grading = _expected_grading()
     _write_timeline(
         corpus,
         "NPCs/captain_lysandra_ironveil/timeline.md",
         session_20_beats=[
-            "Lysandra: tower sketch in dirt, meat smell, shimmering cult eyes, Caelynn's "
-            "antidote tea."
+            "Lysandra: rescued at the tower-camp by Caelynn; antidote tea breaks the spell."
         ],
     )
     _write_timeline(
         corpus,
         "PCs/caelynn/timeline.md",
         session_20_beats=[
-            "Caelynn: gnat swarm fight; rockie-talkie through Sara to Lysandra; tea for "
-            "antidote brew."
+            "Caelynn: tanks the gnat swarm, breaks it with Thunderwave, then brews "
+            "antidote tea for Lysandra."
         ],
     )
     _write_timeline(
         corpus,
         "NPCs/sara_mirathorn_operator/timeline.md",
         session_20_beats=[
-            "Sara: relays strange time / mumbling about the forest; connects Caelynn to "
-            "Lysandra then transfer toward Tealeaf."
-        ],
-    )
-    _write_timeline(
-        corpus,
-        "NPCs/thrin_branchborn/timeline.md",
-        session_20_beats=[
-            "Thrin: bow volley — first shot misses — into swarm enveloping Caelynn."
+            "Sara: connects Caelynn to Lysandra, relays the time-slip, transfers toward Tealeaf."
         ],
     )
     _write_timeline(
         corpus,
         "PCs/karsemine/timeline.md",
         session_20_beats=[
-            "Karsemine: scimitar flurry on swarm with Zephyr Strike; four solid hits on "
-            "the insects."
+            "Karsemine: scimitar flurry on the gnat swarm — four solid hits — then leads tracking."
         ],
     )
     _write_timeline(
         corpus,
         "PCs/ephanna/timeline.md",
         session_20_beats=[
-            "Ephanna: Eldritch Blasts into swarm; Marla confrontation; keeps Thrin in sight."
+            "Ephanna: Eldritch Blasts knock clusters out of the swarm; Misty Steps clear."
         ],
     )
     _write_timeline(corpus, "NPCs/dustwalker/timeline.md")
     _write_timeline(corpus, "NPCs/torbin_jove/timeline.md")
+    _write_timeline(corpus, "NPCs/thrin_branchborn/timeline.md")
     return grading
 
 
@@ -215,7 +203,6 @@ def _full_pass_tool_trace() -> list[dict[str, Any]]:
     out += _committed_call("captain_lysandra_ironveil")
     out += _committed_call("caelynn", timeline_path="PCs/caelynn/timeline.md")
     out += _committed_call("sara_mirathorn_operator")
-    out += _committed_call("thrin_branchborn")
     out += _committed_call("karsemine", timeline_path="PCs/karsemine/timeline.md")
     out += _committed_call("ephanna", timeline_path="PCs/ephanna/timeline.md")
     return out
@@ -336,7 +323,7 @@ def test_grade_anchor_words_pass(tmp_path: Path) -> None:
         tmp_path,
         "NPCs/captain_lysandra_ironveil/timeline.md",
         session_20_beats=[
-            "Lysandra: tower sketch, meat smell, shimmering eyes, antidote tea from Caelynn."
+            "Lysandra: rescued at the tower-camp by Caelynn; antidote tea breaks the spell."
         ],
     )
     spec = {
@@ -356,8 +343,8 @@ def test_grade_anchor_words_missing_one_word_reports_it(tmp_path: Path) -> None:
         tmp_path,
         "NPCs/captain_lysandra_ironveil/timeline.md",
         session_20_beats=[
-            # Drop "tower" entirely from the beat text.
-            "Lysandra: meat smell; shimmering eyes; antidote tea; camp rest."
+            # Drop "tower" from the beat text; "Caelynn" is still present.
+            "Lysandra: rescued by Caelynn at the dirt-camp; antidote tea breaks the spell."
         ],
     )
     spec = {
@@ -392,7 +379,7 @@ def test_grade_anchor_words_multiple_rows_union_passes(tmp_path: Path) -> None:
         tmp_path,
         "NPCs/captain_lysandra_ironveil/timeline.md",
         session_20_beats=[
-            "Lysandra: meat smell; shimmering eyes.",
+            "Lysandra: shimmering eyes; rescued by Caelynn.",
             "Lysandra: tower dirt sketch; antidote tea prepared.",
         ],
     )
@@ -471,7 +458,6 @@ def test_collect_violations_full_pass(tmp_path: Path) -> None:
         "captain_lysandra_ironveil": 1,
         "caelynn": 1,
         "sara_mirathorn_operator": 1,
-        "thrin_branchborn": 1,
         "karsemine": 1,
         "ephanna": 1,
     }

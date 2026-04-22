@@ -97,7 +97,7 @@ _TIMELINE_PASS_INSTRUCTION_SUFFIX = """
 
 For each NPC/PC `timeline.md` listed in the user message: open both the recap and that timeline with `read_corpus_file` (or `load_context_markdown`), decide whether the recap describes a meaningful Session 20 beat for that subject. If **yes**, call `append_timeline_row` **once** with the final beat text — that call commits. This is **not** a read-only reconnaissance turn: when the answer is “yes,” you **must** issue that tool call in the same turn — do not end after only reads. If **no**, do **not** call the tool for that subject and note the skip briefly in your final `message`.
 
-`append_timeline_row` is a one-phase, direct-action tool in this benchmark: a single call writes the row. There is no preview or confirm step. Anchor the new row's beat text on concrete recap content — name the other party, location, action, or stakes from the recap so the row is searchable later. Match the existing markdown table format (three columns: session, beat, backticked recap path like prior rows). For PC paths (e.g. `PCs/caelynn/timeline.md`) you **must** pass `timeline_path` explicitly because the slug-only resolver only finds `NPCs/<slug>/timeline.md`.
+`append_timeline_row` is a one-phase, direct-action tool in this benchmark: a single call writes the row. There is no preview or confirm step. Anchor the new row's beat text on concrete recap content — name the other party, location, action, or stakes from the recap so the row is searchable later. Match the existing markdown table format (three columns: session, beat, backticked recap path like prior rows). The slug-only resolver looks under `NPCs/<slug>/timeline.md` first and falls back to `PCs/<slug>/timeline.md`, so you usually do not need `timeline_path`; pass it explicitly only when you want to force a specific candidate.
 
 Stay anchored to the slugs listed in the user message — do not invent or rename slugs. The slugs listed in `allowed_npc_slugs` are the only legal `npc_slug` values for this turn.
 
@@ -120,7 +120,7 @@ _TIMELINE_PASS_PER_SLUG_INSTRUCTION_SUFFIX = """
 
 **Benchmark micro-turn — autonomous timeline pass (Stage 2 v1, single subject):** The Session recap path appears in the user message. This micro-turn covers **one** `timeline.md` only — do not call `append_timeline_row` for any other slug here.
 
-If the recap describes a **meaningful Session 20 beat for that subject**, call `append_timeline_row` **once** with the final beat text — that single call commits. There is no preview or confirm step in this benchmark. Anchor the beat on concrete recap content (name the other party, location, action, or stakes). Match the existing markdown table format. For PC paths, pass `timeline_path` explicitly.
+If the recap describes a **meaningful Session 20 beat for that subject**, call `append_timeline_row` **once** with the final beat text — that single call commits. There is no preview or confirm step in this benchmark. Anchor the beat on concrete recap content (name the other party, location, action, or stakes). Match the existing markdown table format. The slug-only resolver falls back from `NPCs/<slug>/` to `PCs/<slug>/`, so you usually do not need `timeline_path`; pass it explicitly only to force a specific candidate.
 
 This micro-turn is **not** a read-only pass: if you conclude there **is** a meaningful beat, you **must** call `append_timeline_row` here — do not stop after only `read_corpus_file` / `load_context_markdown` / hub lists.
 

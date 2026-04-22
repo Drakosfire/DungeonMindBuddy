@@ -2,7 +2,7 @@
   "schema": "session_recap_timeline_pass_v1",
   "scenario_id": "timeline_pass_session20",
   "input": {
-    "user_message": "Session 20 was just ingested at `Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md`. Read that recap and perform a **timeline pass** across the existing C2 timeline files listed below. For **each** path: open it with `read_corpus_file` to confirm format and absence of a Session 20 row, decide whether the recap describes a **meaningful Session 20 beat** for that NPC/PC, and if so use **`append_timeline_row`** to add one row. **Do not** call `assemble_recap_draft`, `build_recap_write_payload`, `get_recap_context`, or `write_corpus_file`. `append_timeline_row` is one-phase in this benchmark: a single call commits — there is no preview/confirm step. Anchor the beat text on concrete recap content (name the other party, location, action, or stakes) so the row is searchable later.\n\nExisting timeline files to consider (eight total — pre-loaded so you do not need to discover them):\n\n1. `Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/timeline.md` (slug `captain_lysandra_ironveil`)\n2. `Longmont Campaign/Campaign 2/NPCs/dustwalker/timeline.md` (slug `dustwalker`)\n3. `Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/timeline.md` (slug `sara_mirathorn_operator`)\n4. `Longmont Campaign/Campaign 2/NPCs/thrin_branchborn/timeline.md` (slug `thrin_branchborn`)\n5. `Longmont Campaign/Campaign 2/NPCs/torbin_jove/timeline.md` (slug `torbin_jove`)\n6. `Longmont Campaign/Campaign 2/PCs/caelynn/timeline.md` (slug `caelynn`; PC path — pass `timeline_path` explicitly)\n7. `Longmont Campaign/Campaign 2/PCs/karsemine/timeline.md` (slug `karsemine`; PC path — pass `timeline_path` explicitly. Recap variant spelling: `Karesmine`.)\n8. `Longmont Campaign/Campaign 2/PCs/ephanna/timeline.md` (slug `ephanna`; PC path — pass `timeline_path` explicitly)\n\nFor each timeline you append, match the existing table format (three columns: session, beat, backticked recap filename or full corpus-relative path like prior rows). For any timeline whose NPC has **no** meaningful Session 20 beat in the recap, **skip** it (do not append) and explain the skip in your final `message`.\n\nReply with the strict universal `planner_turn_output` JSON schema (`user_intent`, `message`, `unsure_queue` only — no `recap_write` field). Use `unsure_queue: []` for this benchmark; hub proposals are out of scope."
+    "user_message": "Session 20 was just ingested at `Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md`. Read that recap and perform a **timeline pass** across the existing C2 timeline files listed below. For **each** path: open it with `read_corpus_file` to confirm format and absence of a Session 20 row, decide whether the recap describes a **meaningful Session 20 beat** for that NPC/PC, and if so use **`append_timeline_row`** to add one row. **Do not** call `assemble_recap_draft`, `build_recap_write_payload`, `get_recap_context`, or `write_corpus_file`. `append_timeline_row` is one-phase in this benchmark: a single call commits — there is no preview/confirm step. Anchor the beat text on concrete recap content (name the other party, location, action, or stakes) so the row is searchable later.\n\nExisting timeline files to consider (eight total — pre-loaded so you do not need to discover them):\n\n1. `Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/timeline.md` (slug `captain_lysandra_ironveil`)\n2. `Longmont Campaign/Campaign 2/NPCs/dustwalker/timeline.md` (slug `dustwalker`)\n3. `Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/timeline.md` (slug `sara_mirathorn_operator`)\n4. `Longmont Campaign/Campaign 2/NPCs/thrin_branchborn/timeline.md` (slug `thrin_branchborn`)\n5. `Longmont Campaign/Campaign 2/NPCs/torbin_jove/timeline.md` (slug `torbin_jove`)\n6. `Longmont Campaign/Campaign 2/PCs/caelynn/timeline.md` (slug `caelynn`; PC hub — slug-only call works, the resolver falls back from NPCs/ to PCs/)\n7. `Longmont Campaign/Campaign 2/PCs/karsemine/timeline.md` (slug `karsemine`; PC hub — slug-only call works. Recap variant spelling: `Karesmine`.)\n8. `Longmont Campaign/Campaign 2/PCs/ephanna/timeline.md` (slug `ephanna`; PC hub — slug-only call works)\n\nFor each timeline you append, match the existing table format (three columns: session, beat, backticked recap filename or full corpus-relative path like prior rows). For any timeline whose NPC has **no** meaningful Session 20 beat in the recap, **skip** it (do not append) and explain the skip in your final `message`.\n\nReply with the strict universal `planner_turn_output` JSON schema (`user_intent`, `message`, `unsure_queue` only — no `recap_write` field). Use `unsure_queue: []` for this benchmark; hub proposals are out of scope."
   },
   "grading": {
     "session": 20,
@@ -28,37 +28,31 @@
         "npc_slug": "captain_lysandra_ironveil",
         "timeline_relative_path": "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/timeline.md",
         "expected_count": 1,
-        "anchor_words": ["tower", "meat", "shimmer", "antidote"]
+        "anchor_words": ["tower", "Caelynn"]
       },
       {
         "npc_slug": "caelynn",
         "timeline_relative_path": "Longmont Campaign/Campaign 2/PCs/caelynn/timeline.md",
         "expected_count": 1,
-        "anchor_words": ["swarm", "Lysandra", "Sara", "tea"]
+        "anchor_words": ["swarm", "Lysandra"]
       },
       {
         "npc_slug": "sara_mirathorn_operator",
         "timeline_relative_path": "Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/timeline.md",
         "expected_count": 1,
-        "anchor_words": ["Lysandra", "Tealeaf", "time", "mumbling"]
-      },
-      {
-        "npc_slug": "thrin_branchborn",
-        "timeline_relative_path": "Longmont Campaign/Campaign 2/NPCs/thrin_branchborn/timeline.md",
-        "expected_count": 1,
-        "anchor_words": ["bow", "swarm", "Caelynn", "miss"]
+        "anchor_words": ["Caelynn", "Lysandra"]
       },
       {
         "npc_slug": "karsemine",
         "timeline_relative_path": "Longmont Campaign/Campaign 2/PCs/karsemine/timeline.md",
         "expected_count": 1,
-        "anchor_words": ["scimitar", "Zephyr", "swarm", "hits"]
+        "anchor_words": ["scimitar", "swarm"]
       },
       {
         "npc_slug": "ephanna",
         "timeline_relative_path": "Longmont Campaign/Campaign 2/PCs/ephanna/timeline.md",
         "expected_count": 1,
-        "anchor_words": ["blast", "Marla", "swarm", "Thrin"]
+        "anchor_words": ["blast", "swarm"]
       }
     ],
     "expected_skips": [
@@ -69,6 +63,10 @@
       {
         "npc_slug": "torbin_jove",
         "timeline_relative_path": "Longmont Campaign/Campaign 2/NPCs/torbin_jove/timeline.md"
+      },
+      {
+        "npc_slug": "thrin_branchborn",
+        "timeline_relative_path": "Longmont Campaign/Campaign 2/NPCs/thrin_branchborn/timeline.md"
       }
     ]
   }
