@@ -149,7 +149,7 @@ uv run pytest tests/test_session_events_grader.py tests/test_step2_timeline_from
 
 3. **Lysandra Stage A recall regression** — 2/5 runs in the latest cohort drop Lysandra from events entirely (NPC, not blocking the PC criterion).
 
-4. **Standalone Stage A `parsed_events` persistence** — currently the standalone Stage A sidecar does not persist `parsed_events`, so post-hoc anchor checks require re-running through Stage B chained.
+4. **Standalone Stage A `parsed_events` persistence** — **shipped 2026-04-22**. The per-run sidecar JSON now carries the model's `parsed_events` array verbatim (schema bumped to `session_events_run_report_v2`). Downstream consumers (Stage C, Stage D, post-hoc anchor audits) can read events directly from any Stage A cohort sidecar instead of re-running Stage B chained or generating hand-frozen fixtures. Tests in `tests/test_session_events_run_report.py` pin the contract.
 
 5. **`FactStore.add_event_records()` persistence** — the runner validates events but does not persist them as canonical facts. Defer until Stage A pass rates are acceptable across more sessions.
 

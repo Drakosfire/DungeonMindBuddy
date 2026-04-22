@@ -18,7 +18,7 @@ import re
 
 _SLICE_DIR = Path(__file__).resolve().parent
 _RUNS_ROOT_ENV = "SESSION_EVENTS_RUNS_ROOT"
-REPORT_SCHEMA_VERSION = "session_events_run_report_v1"
+REPORT_SCHEMA_VERSION = "session_events_run_report_v2"
 SUMMARY_SCHEMA_VERSION = "session_events_multi_run_summary_v1"
 
 
@@ -136,6 +136,7 @@ def write_session_events_run_report(
         "violation_counts": violation_counts,
         "violations": {k: list(v) for k, v in violations.items()},
         "grader_telemetry": dict(grader_telemetry),
+        "parsed_events": [dict(ev) for ev in (parsed_events or [])],
         "usage": dict(usage),
         "grading": (scenario or {}).get("grading"),
     }
