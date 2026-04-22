@@ -1,0 +1,262 @@
+{
+  "schema": "session_events_extraction_v1",
+  "scenario_id": "session_events_session20",
+  "input": {
+    "recap_relative_path": "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md",
+    "user_message": "Read the Session 20 recap at `Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md` and extract all meaningful scene events as structured event records.\n\nFor each distinct beat, fight, conversation, discovery, or confrontation in the recap, produce one event_record with:\n- event_class (one of: conversation, travel, combat, discovery, transfer, ritual, betrayal, disaster, investigation, social_conflict)\n- participants (use the known character slugs below — only include slugs that actually appear in that event)\n- location (brief description of where it happens, or null if unspecified)\n- outcomes (list of concrete results or facts established by the event)\n- time_scope (use \"scene\" for specific session events)\n- certainty (use \"observed\" for events directly described in the recap)\n- event_name (short descriptive name for the event)\n- evidence_id (set to the recap path: \"Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md\")\n\nKnown character slugs: captain_lysandra_ironveil, dustwalker, sara_mirathorn_operator, thrin_branchborn, torbin_jove, caelynn, karsemine, ephanna, bonogo, marla_brambleback, stacey, stuart, stafl\n\nExtract 10–20 events. Do not merge multiple distinct beats into a single event. Do not invent events not described in the recap."
+  },
+  "grading": {
+    "session": 20,
+    "expected_events": [
+      {
+        "event_name": "Red gnat swarm battle at forest edge",
+        "event_class": "combat",
+        "participants": ["ephanna", "karsemine", "caelynn", "thrin_branchborn"],
+        "location": "forest edge near Eldyrwild",
+        "outcomes": [
+          "Thrin lands second arrow, knocking a cluster out of the swarm",
+          "Ephanna's second Eldritch Blast hits and removes another cluster",
+          "Karsemine lands 4 scimitar and short-sword hits using Zephyr Strike then dashes away",
+          "Caelynn casts Thunderwave, splits swarm and pushes it back 10 feet",
+          "Swarm retreats into the forest"
+        ],
+        "time_scope": "scene",
+        "certainty": "observed",
+        "evidence_id": "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md"
+      },
+      {
+        "event_name": "Stuart confronts Stacey over stolen gold in warehouse",
+        "event_class": "social_conflict",
+        "participants": ["bonogo", "stacey", "stuart"],
+        "location": "half-burned warehouse in town alley",
+        "outcomes": [
+          "Stuart demands gold back, convinced Stacey stole it",
+          "Stuart threatens Stacey with dart",
+          "Stacey throws gold pouch at Stuart and storms out"
+        ],
+        "time_scope": "scene",
+        "certainty": "observed",
+        "evidence_id": "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md"
+      },
+      {
+        "event_name": "Bonogo intimidates Stacey with knife threat in alley",
+        "event_class": "social_conflict",
+        "participants": ["bonogo", "stacey"],
+        "location": "alley near warehouse",
+        "outcomes": [
+          "Bonogo grabs Stacey and holds knife to her throat",
+          "Warns her to stop bullying Stuart or he will return",
+          "Stacey runs home clearly shaken"
+        ],
+        "time_scope": "scene",
+        "certainty": "observed",
+        "evidence_id": "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md"
+      },
+      {
+        "event_name": "Party reports forest test findings to Stafl",
+        "event_class": "conversation",
+        "participants": ["caelynn", "ephanna", "karsemine", "stafl"],
+        "location": "field outside town",
+        "outcomes": [
+          "Party relays findings: do not attack trees directly",
+          "Forest responds to changes on the ground"
+        ],
+        "time_scope": "scene",
+        "certainty": "observed",
+        "evidence_id": "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md"
+      },
+      {
+        "event_name": "Marla Brambleback confronts Bonogo over Stacey harassment",
+        "event_class": "social_conflict",
+        "participants": ["marla_brambleback", "bonogo", "stafl"],
+        "location": "field outside town",
+        "outcomes": [
+          "Marla attempts to slap Bonogo, misses",
+          "Marla berates Bonogo for encouraging Stuart to harass her daughter",
+          "Workers stop to watch the confrontation",
+          "Bonogo escalates, tells Marla he sees where Stacey gets her attitude",
+          "Marla grapples Bonogo"
+        ],
+        "time_scope": "scene",
+        "certainty": "observed",
+        "evidence_id": "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md"
+      },
+      {
+        "event_name": "Caelynn de-escalates Marla vs Bonogo confrontation with bracelet",
+        "event_class": "social_conflict",
+        "participants": ["caelynn", "marla_brambleback", "bonogo"],
+        "location": "field outside town",
+        "outcomes": [
+          "Caelynn uses bracelet to diffuse aggression",
+          "Everyone returns to work united against the approaching forest"
+        ],
+        "time_scope": "scene",
+        "certainty": "observed",
+        "evidence_id": "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md"
+      },
+      {
+        "event_name": "Fortification fires drive forest retreat eastward",
+        "event_class": "discovery",
+        "participants": ["caelynn", "ephanna", "karsemine", "bonogo", "stafl"],
+        "location": "fortification ditches outside town",
+        "outcomes": [
+          "Ditch fires lit as forest reaches fortifications",
+          "Trees pull back and turn east, away from town",
+          "Town cheers, immediate danger resolved",
+          "Mayor and sheriff congratulate the heroes"
+        ],
+        "time_scope": "scene",
+        "certainty": "observed",
+        "evidence_id": "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md"
+      },
+      {
+        "event_name": "Mayor tells Caelynn no one in town has heard of Lysandra",
+        "event_class": "conversation",
+        "participants": ["caelynn"],
+        "location": "town",
+        "outcomes": [
+          "Mayor and sheriff have never heard of Captain Lysandra Ironveil"
+        ],
+        "time_scope": "scene",
+        "certainty": "observed",
+        "evidence_id": "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md"
+      },
+      {
+        "event_name": "Caelynn contacts Sara then connects directly to Lysandra via rockie-talkie",
+        "event_class": "conversation",
+        "participants": ["caelynn", "sara_mirathorn_operator", "captain_lysandra_ironveil"],
+        "location": "town",
+        "outcomes": [
+          "Sara relays that Lysandra only heard mumbling about the forest leaving and something strange with time",
+          "Sara connects Caelynn directly to Lysandra",
+          "Lysandra is relieved the group is safe and forest is handled",
+          "Lysandra is exhausted and disoriented, remembers only going around the forest and smelling meat",
+          "Caelynn tells Lysandra to make camp and rest, Karsemine will track her"
+        ],
+        "time_scope": "scene",
+        "certainty": "observed",
+        "evidence_id": "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md"
+      },
+      {
+        "event_name": "Karsemine tracks Lysandra; group reaches wagon camp 30 minutes later",
+        "event_class": "travel",
+        "participants": ["caelynn", "ephanna", "karsemine", "bonogo", "thrin_branchborn"],
+        "location": "road and field outside town",
+        "outcomes": [
+          "Karsemine uses tracking skills to estimate distance and direction Lysandra traveled",
+          "Group finds partly unloaded wagon with horses wandering around crates after 30 minutes"
+        ],
+        "time_scope": "scene",
+        "certainty": "observed",
+        "evidence_id": "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md"
+      },
+      {
+        "event_name": "Lysandra found with shimmery cult eyes drawing tower blueprint in dirt",
+        "event_class": "discovery",
+        "participants": ["caelynn", "captain_lysandra_ironveil"],
+        "location": "wagon camp, makeshift shelter",
+        "outcomes": [
+          "Lysandra found inside makeshift shelter drawing in dirt and mumbling",
+          "Her eyes are shimmery, matching the cult members seen earlier",
+          "She is drawing a detailed top-down blueprint of a tower",
+          "She says voices are coming from that tower and she knows where it is"
+        ],
+        "time_scope": "scene",
+        "certainty": "observed",
+        "evidence_id": "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md"
+      },
+      {
+        "event_name": "Caelynn administers antidote tea to cure Lysandra of cult influence",
+        "event_class": "ritual",
+        "participants": ["caelynn", "captain_lysandra_ironveil"],
+        "location": "wagon camp, makeshift shelter",
+        "outcomes": [
+          "Caelynn prepares antidote from tea in her bag while examining the blueprint",
+          "Lysandra drinks the tea and comes out of the spell",
+          "Lysandra is very confused, does not know where she is or how she got there",
+          "She only remembers voices in the dark after the group left into the forest"
+        ],
+        "time_scope": "scene",
+        "certainty": "observed",
+        "evidence_id": "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md"
+      },
+      {
+        "event_name": "Stafl investigates provisions and finds tainted meat cleverly disguised in jerky crates",
+        "event_class": "investigation",
+        "participants": ["stafl"],
+        "location": "wagon camp",
+        "outcomes": [
+          "Stafl sorts through provisions, suspects tainted meat was added before leaving Mirathorn",
+          "Bacon found untouched",
+          "Jerky crates contain cleverly disguised tainted meat mixed with the good jerky",
+          "Cannot separate good from tainted; entire crate must be burned"
+        ],
+        "time_scope": "scene",
+        "certainty": "observed",
+        "evidence_id": "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md"
+      },
+      {
+        "event_name": "Caelynn reports to Sara: Lysandra found safe and tainted meat discovered",
+        "event_class": "conversation",
+        "participants": ["caelynn", "sara_mirathorn_operator"],
+        "location": "wagon camp",
+        "outcomes": [
+          "Sara told Lysandra is found safe",
+          "Sara told about tainted meat discovery",
+          "Sara is very concerned about who she can now trust in the city",
+          "Sara transfers Caelynn to Professor Tealeaf who does not pick up"
+        ],
+        "time_scope": "scene",
+        "certainty": "observed",
+        "evidence_id": "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md"
+      },
+      {
+        "event_name": "Ephanna announces Questionable Company departure; Marla asks Caelynn about Bonogo",
+        "event_class": "conversation",
+        "participants": ["ephanna", "caelynn", "marla_brambleback"],
+        "location": "town",
+        "outcomes": [
+          "Marla approaches Caelynn asking how she should deal with Bonogo",
+          "Ephanna intervenes and announces Questionable Company is leaving town to continue journey"
+        ],
+        "time_scope": "scene",
+        "certainty": "observed",
+        "evidence_id": "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md"
+      },
+      {
+        "event_name": "Karsemine rounds up horses at wagon camp; observes magical storm approaching",
+        "event_class": "investigation",
+        "participants": ["karsemine"],
+        "location": "wagon camp",
+        "outcomes": [
+          "Karsemine rounds up wandering horses and ensures they are properly cared for",
+          "Observes storm still building in the distance but approaching camp",
+          "Storm appears to carry the magical shimmering rain"
+        ],
+        "time_scope": "scene",
+        "certainty": "observed",
+        "evidence_id": "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md"
+      }
+    ],
+    "min_event_count": 10,
+    "max_event_count": 25,
+    "must_cover_participants": [
+      "captain_lysandra_ironveil",
+      "caelynn",
+      "karsemine",
+      "ephanna",
+      "sara_mirathorn_operator",
+      "bonogo",
+      "marla_brambleback",
+      "stacey"
+    ],
+    "must_cover_event_classes": [
+      "combat",
+      "conversation",
+      "discovery",
+      "social_conflict",
+      "ritual",
+      "investigation"
+    ]
+  }
+}

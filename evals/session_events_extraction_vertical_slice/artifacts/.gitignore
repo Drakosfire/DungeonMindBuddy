@@ -1,0 +1,5 @@
+# session events extraction benchmark artifacts
+# per-run reports and cohort summaries are written here by the runner.
+# legacy symlinks last_session_events_run.{md,json} are also written here.
+*.md
+*.json
