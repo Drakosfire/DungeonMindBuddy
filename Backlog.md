@@ -349,12 +349,12 @@ Sort newest → oldest within each status; promote with `/promote`; archive with
 **Action:** Move the canonical helper into `evals/common/` (or `evals/__init__.py` exports), update the two consumers, delete the unused duplicate.
 **Surfaces when:** Adding a new slice that needs corpus-root resolution; cleaning the recap-ingest slice (above).
 
-## [IDEA] Top-level evals/ HANDOFF cleanup — captured 2026-04-19
+## [IDEA] Top-level evals/ HANDOFF cleanup — residual scope after phase-doc archive — captured 2026-04-19, narrowed 2026-04-22
 
-**Context:** `evals/HANDOFF-phase1-…` through `HANDOFF-phase8-openai-batch-api.md`, `MODEL_AB_COMPARISON.md`, `AUTO_ESCALATION_FULL_CORPUS_REPORT.md`, and `HANDOFF-commit-and-model-ab.md` describe completed work. Active playbooks: `HANDOFF-e2e-smoke-and-quality-validation.md`, `HANDOFF-next-agent-ingestion-temporal-gates.md`. Mixed: `HANDOFF-gold-scoring-eval.md` (some sections still open), `HANDOFF-taxonomy-rework.md` (Phases A–C done, follow-ups linger).
-**Action:** Move the eight phase HANDOFFs + `MODEL_AB_COMPARISON.md` + `AUTO_ESCALATION_FULL_CORPUS_REPORT.md` + `HANDOFF-commit-and-model-ab.md` into `Docs/Plans/archive/` with a one-line README pointer. Leave the active two in place.
-**Surfaces when:** Onboarding to the evals tree; cleaning Docs/Plans/.
-**Refs:** `evals/HANDOFF-phase*.md`, `Docs/Plans/archive/`.
+**Context:** The eight `evals/HANDOFF-phase[1-8]-*.md` cost-reduction stack docs were moved to `evals/_archive/handoffs/` on 2026-04-22 (see `Backlog-DONE.md`). Three completed-work artifacts called out in the original 2026-04-19 idea remain at the `evals/` root: `MODEL_AB_COMPARISON.md`, `AUTO_ESCALATION_FULL_CORPUS_REPORT.md`, and `HANDOFF-commit-and-model-ab.md`. Active playbooks (`HANDOFF-e2e-smoke-and-quality-validation.md`, `HANDOFF-next-agent-ingestion-temporal-gates.md`) and mixed-status docs (`HANDOFF-gold-scoring-eval.md`, `HANDOFF-taxonomy-rework.md`) are intentionally left in place pending verification.
+**Action:** Decide per doc whether each completed report belongs in `evals/_archive/handoffs/` (alongside the phase docs) or in `evals/_archive/reports/` (separate folder for one-off measurement reports vs implementation handoffs). Verify completion of the mixed-status docs before considering them. Single-commit batch with README index update.
+**Surfaces when:** Onboarding to the evals tree; the next time someone asks "is this evals/-root doc still active?"
+**Refs:** `evals/_archive/handoffs/README.md` (existing index), `evals/MODEL_AB_COMPARISON.md`, `evals/AUTO_ESCALATION_FULL_CORPUS_REPORT.md`, `evals/HANDOFF-commit-and-model-ab.md`, `evals/HANDOFF-gold-scoring-eval.md`, `evals/HANDOFF-taxonomy-rework.md`.
 
 ---
 
