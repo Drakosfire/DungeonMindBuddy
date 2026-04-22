@@ -128,6 +128,55 @@ uv run pytest tests/test_stage_d_grader.py -v
 
 1. **Narrow LLM coreference pass.** v0 deterministic heuristics can't crack the Kirfan-class case (named NPC mentioned only in event text without a `referenced_slugs[]` anchor). v1 will add an `--enable-llm-coreference` pass that consumes `unresolvable[]` + the events JSON and proposes additional resolutions. The CLI flag is already wired as a no-op in v0.
 2. **Stage E (per-NPC artifact update)** — consumes `tracked_npcs_active[]` (from Stage C) ∪ `resolved_entities[*].canonical_slug` where `resolution=merge_to_registry_slug` (from this stage). Separate slice.
-3. **GM promotion workflow.** A small CLI (`scripts/promote_stage_d_proposals.py` — not yet written) that reads a `proposals/<campaign>_stage_d_proposals_<ts>.json` sidecar and produces a draft registry diff for GM review. Captured in `Backlog.md`.
+3. **GM promotion workflow.** Shipped as `scripts/promote_stage_d_proposals.py` — see "GM promotion workflow" below.
 
 See `Docs/Plans/AUDIT-Stage-D-Entity-Resolution-Discovery.md` for the full design audit motivating this slice.
+
+## GM promotion workflow
+
+`scripts/promote_stage_d_proposals.py` aggregates Stage D propose-only sidecars
+(both cohort `proposals/<campaign>_stage_d_proposals_*.json` and per-run
+`artifacts/runs/YYYY-MM-DD/stage_d--*.json`) for one campaign, flags
+registry collisions, and (unless `--no-llm`) calls `gpt-5.4-mini` for an
+accept / reject / defer / merge_into_existing recommendation per slug. Output
+goes to `promotions/<campaign>_stage_d_promotion_<ts>.{json,md}` for GM review.
+
+The CLI is **propose-only**: it never mutates `_npc_registry.json`. The GM
+applies promotions by hand after reading the Markdown table.
+
+```bash
+# C1 — combine cohort proposals + per-run sidecars from a given day
+uv run python -m scripts.promote_stage_d_proposals \
+    --campaign-id longmont-c1 \
+    --proposals "evals/stage_d_entity_resolution_vertical_slice/proposals/longmont-c1_stage_d_proposals_*.json" \
+    --per-run "evals/stage_d_entity_resolution_vertical_slice/artifacts/runs/2026-04-22/stage_d--*c1*--PASS--*.json" \
+    --registry "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/_npc_registry.json"
+
+# C2 — only S20 cohort
+uv run python -m scripts.promote_stage_d_proposals \
+    --campaign-id longmont-c2 \
+    --proposals "evals/stage_d_entity_resolution_vertical_slice/proposals/longmont-c2_stage_d_proposals_*.json" \
+    --per-run "evals/stage_d_entity_resolution_vertical_slice/artifacts/runs/2026-04-22/stage_d--*session20*--PASS--*.json" \
+    --registry "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/_npc_registry.json"
+
+# Offline / CI mode (no LLM call; recommendation fields are null)
+uv run python -m scripts.promote_stage_d_proposals --no-llm \
+    --campaign-id longmont-c2 \
+    --proposals "evals/stage_d_entity_resolution_vertical_slice/proposals/longmont-c2_stage_d_proposals_*.json" \
+    --per-run "" \
+    --registry "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/_npc_registry.json"
+```
+
+Cost: ~$0.001-$0.002 per slug judged via `gpt-5.4-mini` (resolved from
+`MODEL_POLICY.json` action `corpus_session_planner`). Cost guard warns above
+$0.50 USD per invocation and aborts above $2.00.
+
+Per-run sidecars carry `stage_d_output.proposed_new_records[]` and survive
+filename collisions in `proposals/`; passing both `--proposals` and `--per-run`
+gives the most complete cross-source aggregation. Aggregation is by `slug`:
+`first_session` = min, `last_session` = max, `aliases` = union (order
+preserved), evidence rows accumulate per source-of-evidence.
+
+See `evals/stage_d_entity_resolution_vertical_slice/promotions/README.md` for
+the on-disk sidecar shape and `tests/test_promote_stage_d_proposals.py` for
+the offline contract tests.

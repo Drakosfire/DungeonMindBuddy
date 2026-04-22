@@ -1,0 +1,751 @@
+{
+  "schema": "stage_d_promotion_v1",
+  "generated_at": "2026-04-22T23:56:29.664793+00:00",
+  "campaign_id": "longmont-c1",
+  "model_id": "gpt-5.4-mini",
+  "llm_enabled": true,
+  "cost": {
+    "total_usd": 0.013748,
+    "calls": 12,
+    "input_tokens": 10807,
+    "output_tokens": 1254,
+    "cached_tokens": 0
+  },
+  "sources": [
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/proposals/longmont-c1_stage_d_proposals_20260422T225721Z.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/proposals/longmont-c1_stage_d_proposals_20260422T233536Z.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/proposals/longmont-c1_stage_d_proposals_20260422T233537Z.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/artifacts/runs/2026-04-22/stage_d--stage_d_live_from_c_session1_c1--deterministic-v0--PASS--20260422T233536Z.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/artifacts/runs/2026-04-22/stage_d--stage_d_live_from_c_session2_c1--deterministic-v0--PASS--20260422T233536Z.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/artifacts/runs/2026-04-22/stage_d--stage_d_live_from_c_session3_c1--deterministic-v0--PASS--20260422T233537Z.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/artifacts/runs/2026-04-22/stage_d--stage_d_session1_c1--deterministic-v0--PASS--20260422T225716Z.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/artifacts/runs/2026-04-22/stage_d--stage_d_session3_c1--deterministic-v0--PASS--20260422T225717Z.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/artifacts/runs/2026-04-22/stage_d--stage_d_session3_c1--deterministic-v0--PASS--20260422T225721Z--run001.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/artifacts/runs/2026-04-22/stage_d--stage_d_session3_c1--deterministic-v0--PASS--20260422T225721Z--run002.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/artifacts/runs/2026-04-22/stage_d--stage_d_session3_c1--deterministic-v0--PASS--20260422T225721Z--run003.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/artifacts/runs/2026-04-22/stage_d--stage_d_session3_c1--deterministic-v0--PASS--20260422T225721Z--run004.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/artifacts/runs/2026-04-22/stage_d--stage_d_session3_c1--deterministic-v0--PASS--20260422T225721Z--run005.json"
+  ],
+  "registry_size": 3,
+  "proposed_new_records": [
+    {
+      "slug": "glowkindle",
+      "display_name": "Glowkindle",
+      "aliases": [],
+      "first_session": 1,
+      "last_session": 2,
+      "appearance_runs": 4,
+      "session_appearances": [
+        1,
+        2
+      ],
+      "registry_collision_flags": {
+        "slug_collision": false,
+        "display_name_overlap": null,
+        "pc_collision": false
+      },
+      "evidence": [
+        {
+          "scenario_id": "stage_d_live_from_c_session2_c1",
+          "session_number": 2,
+          "descriptors_seen": [
+            "Glowkindle"
+          ],
+          "evidence_event_indices": [
+            3
+          ],
+          "source_file": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/proposals/longmont-c1_stage_d_proposals_20260422T233536Z.json"
+        },
+        {
+          "scenario_id": "stage_d_live_from_c_session1_c1",
+          "session_number": 1,
+          "descriptors_seen": [
+            "Glowkindle"
+          ],
+          "evidence_event_indices": [
+            1,
+            4,
+            5,
+            6
+          ],
+          "source_file": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/artifacts/runs/2026-04-22/stage_d--stage_d_live_from_c_session1_c1--deterministic-v0--PASS--20260422T233536Z.json"
+        },
+        {
+          "scenario_id": "stage_d_live_from_c_session2_c1",
+          "session_number": 2,
+          "descriptors_seen": [
+            "Glowkindle"
+          ],
+          "evidence_event_indices": [
+            3
+          ],
+          "source_file": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/artifacts/runs/2026-04-22/stage_d--stage_d_live_from_c_session2_c1--deterministic-v0--PASS--20260422T233536Z.json"
+        },
+        {
+          "scenario_id": "stage_d_session1_c1",
+          "session_number": 1,
+          "descriptors_seen": [
+            "Glowkindle"
+          ],
+          "evidence_event_indices": [
+            1,
+            4,
+            5,
+            6
+          ],
+          "source_file": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/artifacts/runs/2026-04-22/stage_d--stage_d_session1_c1--deterministic-v0--PASS--20260422T225716Z.json"
+        }
+      ],
+      "recommendation_source": "llm",
+      "recommendation": "accept",
+      "confidence": "high",
+      "rationale": "The proposal is a clear single entity with consistent sightings of the exact same descriptor \"Glowkindle\" across sessions 1 and 2, and there is no slug collision or PC roster collision. The evidence shows multiple appearances/events supporting a stable NPC record rather than noise or an ambiguous duplicate.",
+      "promote_payload": {
+        "slug": "glowkindle",
+        "display_name": "Glowkindle",
+        "aliases": [],
+        "status": "candidate",
+        "first_session": 1,
+        "last_session": 2,
+        "hub_path": null,
+        "setting_hub_path": null,
+        "notes": "Proposed from Stage D evidence; seen as \"Glowkindle\" in sessions 1 and 2 across multiple evidence events."
+      },
+      "merge_target_slug": null
+    },
+    {
+      "slug": "grishna",
+      "display_name": "Grishna",
+      "aliases": [],
+      "first_session": 1,
+      "last_session": 3,
+      "appearance_runs": 11,
+      "session_appearances": [
+        1,
+        3
+      ],
+      "registry_collision_flags": {
+        "slug_collision": false,
+        "display_name_overlap": null,
+        "pc_collision": false
+      },
+      "evidence": [
+        {
+          "scenario_id": "stage_d_session3_c1",
+          "session_number": 3,
+          "descriptors_seen": [
+            "Grishna"
+          ],
+          "evidence_event_indices": [
+            2,
+            3
+          ],
+          "source_file": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/proposals/longmont-c1_stage_d_proposals_20260422T225721Z.json"
+        },
+        {
+          "scenario_id": "stage_d_live_from_c_session3_c1",
+          "session_number": 3,
+          "descriptors_seen": [
+            "Grishna"
+          ],
+          "evidence_event_indices": [
+            2,
+            3
+          ],
+          "source_file": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/proposals/longmont-c1_stage_d_proposals_20260422T233537Z.json"
+        },
+        {
+          "scenario_id": "stage_d_live_from_c_session1_c1",
+          "session_number": 1,
+          "descriptors_seen": [
+            "Grishna"
+          ],
+          "evidence_event_indices": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6
+          ],
+          "source_file": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/artifacts/runs/2026-04-22/stage_d--stage_d_live_from_c_session1_c1--deterministic-v0--PASS--20260422T233536Z.json"
+        },
+        {
+          "scenario_id": "stage_d_live_from_c_session3_c1",
+          "session_number": 3,
+          "descriptors_seen": [
+            "Grishna"
+          ],
+          "evidence_event_indices": [
+            2,
+            3
+          ],
+          "source_file": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/artifacts/runs/2026-04-22/stage_d--stage_d_live_from_c_session3_c1--deterministic-v0--PASS--20260422T233537Z.json"
+        },
+        {
+          "scenario_id": "stage_d_session1_c1",
+          "session_number": 1,
+          "descriptors_seen": [
+            "Grishna"
+          ],
+          "evidence_event_indices": [
+            1,
+            2,
+            3
+          ],
+          "source_file": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/artifacts/runs/2026-04-22/stage_d--stage_d_session1_c1--deterministic-v0--PASS--20260422T225716Z.json"
+        },
+        {
+          "scenario_id": "stage_d_session3_c1",
+          "session_number": 3,
+          "descriptors_seen": [
+            "Grishna"
+          ],
+          "evidence_event_indices": [
+            2,
+            3
+          ],
+          "source_file": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/artifacts/runs/2026-04-22/stage_d--stage_d_session3_c1--deterministic-v0--PASS--20260422T225717Z.json"
+        },
+        {
+          "scenario_id": "stage_d_session3_c1",
+          "session_number": 3,
+          "descriptors_seen": [
+            "Grishna"
+          ],
+          "evidence_event_indices": [
+            2,
+            3
+          ],
+          "source_file": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/artifacts/runs/2026-04-22/stage_d--stage_d_session3_c1--deterministic-v0--PASS--20260422T225721Z--run001.json"
+        },
+        {
+          "scenario_id": "stage_d_session3_c1",
+          "session_number": 3,
+          "descriptors_seen": [
+            "Grishna"
+          ],
+          "evidence_event_indices": [
+            2,
+            3
+          ],
+          "source_file": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/artifacts/runs/2026-04-22/stage_d--stage_d_session3_c1--deterministic-v0--PASS--20260422T225721Z--run002.json"
+        },
+        {
+          "scenario_id": "stage_d_session3_c1",
+          "session_number": 3,
+          "descriptors_seen": [
+            "Grishna"
+          ],
+          "evidence_event_indices": [
+            2,
+            3
+          ],
+          "source_file": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/artifacts/runs/2026-04-22/stage_d--stage_d_session3_c1--deterministic-v0--PASS--20260422T225721Z--run003.json"
+        },
+        {
+          "scenario_id": "stage_d_session3_c1",
+          "session_number": 3,
+          "descriptors_seen": [
+            "Grishna"
+          ],
+          "evidence_event_indices": [
+            2,
+            3
+          ],
+          "source_file": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/artifacts/runs/2026-04-22/stage_d--stage_d_session3_c1--deterministic-v0--PASS--20260422T225721Z--run004.json"
+        },
+        {
+          "scenario_id": "stage_d_session3_c1",
+          "session_number": 3,
+          "descriptors_seen": [
+            "Grishna"
+          ],
+          "evidence_event_indices": [
+            2,
+            3
+          ],
+          "source_file": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/artifacts/runs/2026-04-22/stage_d--stage_d_session3_c1--deterministic-v0--PASS--20260422T225721Z--run005.json"
+        }
+      ],
+      "recommendation_source": "llm",
+      "recommendation": "accept",
+      "confidence": "high",
+      "rationale": "Grishna appears as a single named entity across sessions 1 and 3 with repeated direct descriptors and no slug or PC roster collision. The evidence is consistent enough to promote as a new candidate rather than defer.",
+      "promote_payload": {
+        "slug": "grishna",
+        "display_name": "Grishna",
+        "aliases": [],
+        "status": "candidate",
+        "first_session": 1,
+        "last_session": 3,
+        "hub_path": null,
+        "setting_hub_path": null,
+        "notes": "Promoted from Stage D proposal; seen in sessions 1 and 3 with repeated direct name references."
+      },
+      "merge_target_slug": null
+    },
+    {
+      "slug": "kirfan",
+      "display_name": "Kirfan",
+      "aliases": [],
+      "first_session": 3,
+      "last_session": 3,
+      "appearance_runs": 9,
+      "session_appearances": [
+        3
+      ],
+      "registry_collision_flags": {
+        "slug_collision": false,
+        "display_name_overlap": null,
+        "pc_collision": false
+      },
+      "evidence": [
+        {
+          "scenario_id": "stage_d_session3_c1",
+          "session_number": 3,
+          "descriptors_seen": [
+            "Kirfan"
+          ],
+          "evidence_event_indices": [
+            1
+          ],
+          "source_file": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/proposals/longmont-c1_stage_d_proposals_20260422T225721Z.json"
+        },
+        {
+          "scenario_id": "stage_d_live_from_c_session3_c1",
+          "session_number": 3,
+          "descriptors_seen": [
+            "Kirfan"
+          ],
+          "evidence_event_indices": [
+            1
+          ],
+          "source_file": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/proposals/longmont-c1_stage_d_proposals_20260422T233537Z.json"
+        },
+        {
+          "scenario_id": "stage_d_live_from_c_session3_c1",
+          "session_number": 3,
+          "descriptors_seen": [
+            "Kirfan"
+          ],
+          "evidence_event_indices": [
+            1
+          ],
+          "source_file": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/artifacts/runs/2026-04-22/stage_d--stage_d_live_from_c_session3_c1--deterministic-v0--PASS--20260422T233537Z.json"
+        },
+        {
+          "scenario_id": "stage_d_session3_c1",
+          "session_number": 3,
+          "descriptors_seen": [
+            "Kirfan"
+          ],
+          "evidence_event_indices": [
+            1
+          ],
+          "source_file": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/artifacts/runs/2026-04-22/stage_d--stage_d_session3_c1--deterministic-v0--PASS--20260422T225717Z.json"
+        },
+        {
+          "scenario_id": "stage_d_session3_c1",
+          "session_number": 3,
+          "descriptors_seen": [
+            "Kirfan"
+          ],
+          "evidence_event_indices": [
+            1
+          ],
+          "source_file": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/artifacts/runs/2026-04-22/stage_d--stage_d_session3_c1--deterministic-v0--PASS--20260422T225721Z--run001.json"
+        },
+        {
+          "scenario_id": "stage_d_session3_c1",
+          "session_number": 3,
+          "descriptors_seen": [
+            "Kirfan"
+          ],
+          "evidence_event_indices": [
+            1
+          ],
+          "source_file": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/artifacts/runs/2026-04-22/stage_d--stage_d_session3_c1--deterministic-v0--PASS--20260422T225721Z--run002.json"
+        },
+        {
+          "scenario_id": "stage_d_session3_c1",
+          "session_number": 3,
+          "descriptors_seen": [
+            "Kirfan"
+          ],
+          "evidence_event_indices": [
+            1
+          ],
+          "source_file": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/artifacts/runs/2026-04-22/stage_d--stage_d_session3_c1--deterministic-v0--PASS--20260422T225721Z--run003.json"
+        },
+        {
+          "scenario_id": "stage_d_session3_c1",
+          "session_number": 3,
+          "descriptors_seen": [
+            "Kirfan"
+          ],
+          "evidence_event_indices": [
+            1
+          ],
+          "source_file": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/artifacts/runs/2026-04-22/stage_d--stage_d_session3_c1--deterministic-v0--PASS--20260422T225721Z--run004.json"
+        },
+        {
+          "scenario_id": "stage_d_session3_c1",
+          "session_number": 3,
+          "descriptors_seen": [
+            "Kirfan"
+          ],
+          "evidence_event_indices": [
+            1
+          ],
+          "source_file": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/artifacts/runs/2026-04-22/stage_d--stage_d_session3_c1--deterministic-v0--PASS--20260422T225721Z--run005.json"
+        }
+      ],
+      "recommendation_source": "llm",
+      "recommendation": "accept",
+      "confidence": "high",
+      "rationale": "Kirfan appears to be a single named entity with consistent evidence across session 3 and no registry slug or PC roster collision. The name is specific rather than generic, and there is no sign it is a fragment or duplicate of an existing registered NPC.",
+      "promote_payload": {
+        "slug": "kirfan",
+        "display_name": "Kirfan",
+        "aliases": [],
+        "status": "candidate",
+        "first_session": 3,
+        "last_session": 3,
+        "hub_path": null,
+        "setting_hub_path": null,
+        "notes": "Stage D proposal accepted from session 3 evidence only; no collisions detected."
+      },
+      "merge_target_slug": null
+    },
+    {
+      "slug": "pippa",
+      "display_name": "Pippa",
+      "aliases": [],
+      "first_session": 3,
+      "last_session": 3,
+      "appearance_runs": 9,
+      "session_appearances": [
+        3
+      ],
+      "registry_collision_flags": {
+        "slug_collision": false,
+        "display_name_overlap": null,
+        "pc_collision": false
+      },
+      "evidence": [
+        {
+          "scenario_id": "stage_d_session3_c1",
+          "session_number": 3,
+          "descriptors_seen": [
+            "Pippa"
+          ],
+          "evidence_event_indices": [
+            0,
+            2,
+            4,
+            13
+          ],
+          "source_file": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/proposals/longmont-c1_stage_d_proposals_20260422T225721Z.json"
+        },
+        {
+          "scenario_id": "stage_d_live_from_c_session3_c1",
+          "session_number": 3,
+          "descriptors_seen": [
+            "Pippa"
+          ],
+          "evidence_event_indices": [
+            0,
+            2,
+            4,
+            13
+          ],
+          "source_file": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/proposals/longmont-c1_stage_d_proposals_20260422T233537Z.json"
+        },
+        {
+          "scenario_id": "stage_d_live_from_c_session3_c1",
+          "session_number": 3,
+          "descriptors_seen": [
+            "Pippa"
+          ],
+          "evidence_event_indices": [
+            0,
+            2,
+            4,
+            13
+          ],
+          "source_file": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/artifacts/runs/2026-04-22/stage_d--stage_d_live_from_c_session3_c1--deterministic-v0--PASS--20260422T233537Z.json"
+        },
+        {
+          "scenario_id": "stage_d_session3_c1",
+          "session_number": 3,
+          "descriptors_seen": [
+            "Pippa"
+          ],
+          "evidence_event_indices": [
+            0,
+            2,
+            4,
+            13
+          ],
+          "source_file": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/artifacts/runs/2026-04-22/stage_d--stage_d_session3_c1--deterministic-v0--PASS--20260422T225717Z.json"
+        },
+        {
+          "scenario_id": "stage_d_session3_c1",
+          "session_number": 3,
+          "descriptors_seen": [
+            "Pippa"
+          ],
+          "evidence_event_indices": [
+            0,
+            2,
+            4,
+            13
+          ],
+          "source_file": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/artifacts/runs/2026-04-22/stage_d--stage_d_session3_c1--deterministic-v0--PASS--20260422T225721Z--run001.json"
+        },
+        {
+          "scenario_id": "stage_d_session3_c1",
+          "session_number": 3,
+          "descriptors_seen": [
+            "Pippa"
+          ],
+          "evidence_event_indices": [
+            0,
+            2,
+            4,
+            13
+          ],
+          "source_file": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/artifacts/runs/2026-04-22/stage_d--stage_d_session3_c1--deterministic-v0--PASS--20260422T225721Z--run002.json"
+        },
+        {
+          "scenario_id": "stage_d_session3_c1",
+          "session_number": 3,
+          "descriptors_seen": [
+            "Pippa"
+          ],
+          "evidence_event_indices": [
+            0,
+            2,
+            4,
+            13
+          ],
+          "source_file": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/artifacts/runs/2026-04-22/stage_d--stage_d_session3_c1--deterministic-v0--PASS--20260422T225721Z--run003.json"
+        },
+        {
+          "scenario_id": "stage_d_session3_c1",
+          "session_number": 3,
+          "descriptors_seen": [
+            "Pippa"
+          ],
+          "evidence_event_indices": [
+            0,
+            2,
+            4,
+            13
+          ],
+          "source_file": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/artifacts/runs/2026-04-22/stage_d--stage_d_session3_c1--deterministic-v0--PASS--20260422T225721Z--run004.json"
+        },
+        {
+          "scenario_id": "stage_d_session3_c1",
+          "session_number": 3,
+          "descriptors_seen": [
+            "Pippa"
+          ],
+          "evidence_event_indices": [
+            0,
+            2,
+            4,
+            13
+          ],
+          "source_file": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/artifacts/runs/2026-04-22/stage_d--stage_d_session3_c1--deterministic-v0--PASS--20260422T225721Z--run005.json"
+        }
+      ],
+      "recommendation_source": "llm",
+      "recommendation": "accept",
+      "confidence": "high",
+      "rationale": "The proposal has a clean, non-colliding slug and no PC roster conflict, and the evidence consistently shows the same named entity \"Pippa\" across session 3 events. The name is specific rather than generic, and there is no indication it matches an existing registry sibling.",
+      "promote_payload": {
+        "slug": "pippa",
+        "display_name": "Pippa",
+        "aliases": [],
+        "status": "candidate",
+        "first_session": 3,
+        "last_session": 3,
+        "hub_path": null,
+        "setting_hub_path": null,
+        "notes": "Stage D proposal accepted from session 3 evidence; repeated references to Pippa at event indices 0, 2, 4, and 13."
+      },
+      "merge_target_slug": null
+    }
+  ],
+  "proposed_aliases": [],
+  "unresolvable": [
+    {
+      "descriptor": "a flaming, magma-infused spider monstrosity",
+      "sample_reason": "generic descriptor with no name evidence; Stage D v0 deterministic heuristics declined to merge into registry or new_candidate without a substring match",
+      "appearance_runs": 1,
+      "evidence": [
+        {
+          "scenario_id": "stage_d_session1_c1",
+          "session_number": 1,
+          "descriptors_seen": [],
+          "evidence_event_indices": [],
+          "source_file": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/artifacts/runs/2026-04-22/stage_d--stage_d_session1_c1--deterministic-v0--PASS--20260422T225716Z.json"
+        }
+      ],
+      "recommendation_source": "llm",
+      "recommendation": "leave_unresolvable",
+      "confidence": "high",
+      "rationale": "This looks like a purely descriptive monster phrase with no evidence of a specific named entity or alias in the registry. The sample reason and empty evidence trail both support keeping it generic rather than canonicalizing it.",
+      "proposed_canonical_slug": null
+    },
+    {
+      "descriptor": "a magma-infused spider monstrosity",
+      "sample_reason": "generic descriptor with no name evidence; Stage D v0 deterministic heuristics declined to merge into registry or new_candidate without a substring match",
+      "appearance_runs": 1,
+      "evidence": [
+        {
+          "scenario_id": "stage_d_session1_c1",
+          "session_number": 1,
+          "descriptors_seen": [],
+          "evidence_event_indices": [],
+          "source_file": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/artifacts/runs/2026-04-22/stage_d--stage_d_session1_c1--deterministic-v0--PASS--20260422T225716Z.json"
+        }
+      ],
+      "recommendation_source": "llm",
+      "recommendation": "leave_unresolvable",
+      "confidence": "high",
+      "rationale": "This is a generic creature description with no named-entity evidence or registry substring match. The sampled siblings do not provide any linkage to a specific existing entry, so it should remain unresolved unless the GM later introduces a proper name or alias.",
+      "proposed_canonical_slug": null
+    },
+    {
+      "descriptor": "a mysterious cat owl",
+      "sample_reason": "generic descriptor with no name evidence; Stage D v0 deterministic heuristics declined to merge into registry or new_candidate without a substring match",
+      "appearance_runs": 1,
+      "evidence": [
+        {
+          "scenario_id": "stage_d_session1_c1",
+          "session_number": 1,
+          "descriptors_seen": [],
+          "evidence_event_indices": [],
+          "source_file": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/artifacts/runs/2026-04-22/stage_d--stage_d_session1_c1--deterministic-v0--PASS--20260422T225716Z.json"
+        }
+      ],
+      "recommendation_source": "llm",
+      "recommendation": "leave_unresolvable",
+      "confidence": "high",
+      "rationale": "This is a generic creature description with no named-entity evidence, and the provided registry siblings do not match it in any meaningful way. There is no strong basis to canonicalize it to an existing slug, so it should remain unresolvable unless future evidence ties it to a specific entity.",
+      "proposed_canonical_slug": null
+    },
+    {
+      "descriptor": "cat owl",
+      "sample_reason": "generic descriptor with no name evidence; Stage D v0 deterministic heuristics declined to merge into registry or new_candidate without a substring match",
+      "appearance_runs": 1,
+      "evidence": [
+        {
+          "scenario_id": "stage_d_session1_c1",
+          "session_number": 1,
+          "descriptors_seen": [],
+          "evidence_event_indices": [],
+          "source_file": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/artifacts/runs/2026-04-22/stage_d--stage_d_session1_c1--deterministic-v0--PASS--20260422T225716Z.json"
+        }
+      ],
+      "recommendation_source": "llm",
+      "recommendation": "leave_unresolvable",
+      "confidence": "high",
+      "rationale": "“cat owl” reads as a generic creature descriptor, and the provided evidence does not show any linkage to a named registry entity or alias. The sample registry siblings are unrelated, so there is no strong basis to canonicalize this into an existing slug.",
+      "proposed_canonical_slug": null
+    },
+    {
+      "descriptor": "flaming, magma-infused spider monstrosity",
+      "sample_reason": "generic descriptor with no name evidence; Stage D v0 deterministic heuristics declined to merge into registry or new_candidate without a substring match",
+      "appearance_runs": 2,
+      "evidence": [
+        {
+          "scenario_id": "stage_d_live_from_c_session1_c1",
+          "session_number": 1,
+          "descriptors_seen": [],
+          "evidence_event_indices": [],
+          "source_file": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/artifacts/runs/2026-04-22/stage_d--stage_d_live_from_c_session1_c1--deterministic-v0--PASS--20260422T233536Z.json"
+        },
+        {
+          "scenario_id": "stage_d_session1_c1",
+          "session_number": 1,
+          "descriptors_seen": [],
+          "evidence_event_indices": [],
+          "source_file": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/artifacts/runs/2026-04-22/stage_d--stage_d_session1_c1--deterministic-v0--PASS--20260422T225716Z.json"
+        }
+      ],
+      "recommendation_source": "llm",
+      "recommendation": "leave_unresolvable",
+      "confidence": "high",
+      "rationale": "This is a purely descriptive creature phrase with no named-entity evidence in the item or nearby registry context. The sibling samples do not suggest any plausible match, so it should remain unresolved unless the GM later ties it to a specific canonical monster.",
+      "proposed_canonical_slug": null
+    },
+    {
+      "descriptor": "magma-infused spider monstrosity",
+      "sample_reason": "generic descriptor with no name evidence; Stage D v0 deterministic heuristics declined to merge into registry or new_candidate without a substring match",
+      "appearance_runs": 1,
+      "evidence": [
+        {
+          "scenario_id": "stage_d_session1_c1",
+          "session_number": 1,
+          "descriptors_seen": [],
+          "evidence_event_indices": [],
+          "source_file": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/artifacts/runs/2026-04-22/stage_d--stage_d_session1_c1--deterministic-v0--PASS--20260422T225716Z.json"
+        }
+      ],
+      "recommendation_source": "llm",
+      "recommendation": "leave_unresolvable",
+      "confidence": "high",
+      "rationale": "This is a generic creature description with no named-entity evidence or alias overlap to any registry sibling. The sample reason also indicates Stage D found no substring match, so there is no strong basis to canonicalize it.",
+      "proposed_canonical_slug": null
+    },
+    {
+      "descriptor": "mysterious cat owl",
+      "sample_reason": "generic descriptor with no name evidence; Stage D v0 deterministic heuristics declined to merge into registry or new_candidate without a substring match",
+      "appearance_runs": 2,
+      "evidence": [
+        {
+          "scenario_id": "stage_d_live_from_c_session1_c1",
+          "session_number": 1,
+          "descriptors_seen": [],
+          "evidence_event_indices": [],
+          "source_file": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/artifacts/runs/2026-04-22/stage_d--stage_d_live_from_c_session1_c1--deterministic-v0--PASS--20260422T233536Z.json"
+        },
+        {
+          "scenario_id": "stage_d_session1_c1",
+          "session_number": 1,
+          "descriptors_seen": [],
+          "evidence_event_indices": [],
+          "source_file": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/artifacts/runs/2026-04-22/stage_d--stage_d_session1_c1--deterministic-v0--PASS--20260422T225716Z.json"
+        }
+      ],
+      "recommendation_source": "llm",
+      "recommendation": "leave_unresolvable",
+      "confidence": "high",
+      "rationale": "This looks like a purely descriptive creature phrase with no name evidence, alias, or registry linkage. The nearby registry siblings are unrelated named entities, so there is no strong basis to canonicalize it to an existing slug.",
+      "proposed_canonical_slug": null
+    },
+    {
+      "descriptor": "the mysterious cat owl",
+      "sample_reason": "generic descriptor with no name evidence; Stage D v0 deterministic heuristics declined to merge into registry or new_candidate without a substring match",
+      "appearance_runs": 1,
+      "evidence": [
+        {
+          "scenario_id": "stage_d_session1_c1",
+          "session_number": 1,
+          "descriptors_seen": [],
+          "evidence_event_indices": [],
+          "source_file": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/artifacts/runs/2026-04-22/stage_d--stage_d_session1_c1--deterministic-v0--PASS--20260422T225716Z.json"
+        }
+      ],
+      "recommendation_source": "llm",
+      "recommendation": "leave_unresolvable",
+      "confidence": "high",
+      "rationale": "This looks like a purely descriptive phrase with no evidence of a specific named entity or registry alias match. The sampled siblings do not provide any meaningful substring or identity link to justify canonicalizing it into an existing slug.",
+      "proposed_canonical_slug": null
+    }
+  ]
+}

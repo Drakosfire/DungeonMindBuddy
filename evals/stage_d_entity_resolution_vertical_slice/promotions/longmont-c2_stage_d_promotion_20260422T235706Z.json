@@ -1,0 +1,103 @@
+{
+  "schema": "stage_d_promotion_v1",
+  "generated_at": "2026-04-22T23:57:06.228890+00:00",
+  "campaign_id": "longmont-c2",
+  "model_id": "gpt-5.4-mini",
+  "llm_enabled": true,
+  "cost": {
+    "total_usd": 0.001848,
+    "calls": 1,
+    "input_tokens": 1588,
+    "output_tokens": 146,
+    "cached_tokens": 0
+  },
+  "sources": [
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/proposals/longmont-c2_stage_d_proposals_20260422T225716Z.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/proposals/longmont-c2_stage_d_proposals_20260422T233536Z.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/artifacts/runs/2026-04-22/stage_d--stage_d_live_from_c_session20--deterministic-v0--PASS--20260422T233536Z.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/artifacts/runs/2026-04-22/stage_d--stage_d_session20--deterministic-v0--PASS--20260422T225716Z.json"
+  ],
+  "registry_size": 9,
+  "proposed_new_records": [
+    {
+      "slug": "professor_tealeaf",
+      "display_name": "Professor Tealeaf",
+      "aliases": [],
+      "first_session": 20,
+      "last_session": 20,
+      "appearance_runs": 4,
+      "session_appearances": [
+        20
+      ],
+      "registry_collision_flags": {
+        "slug_collision": false,
+        "display_name_overlap": null,
+        "pc_collision": false
+      },
+      "evidence": [
+        {
+          "scenario_id": "stage_d_session20",
+          "session_number": 20,
+          "descriptors_seen": [
+            "Professor Tealeaf"
+          ],
+          "evidence_event_indices": [
+            19
+          ],
+          "source_file": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/proposals/longmont-c2_stage_d_proposals_20260422T225716Z.json"
+        },
+        {
+          "scenario_id": "stage_d_live_from_c_session20",
+          "session_number": 20,
+          "descriptors_seen": [
+            "Professor Tealeaf"
+          ],
+          "evidence_event_indices": [
+            18
+          ],
+          "source_file": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/proposals/longmont-c2_stage_d_proposals_20260422T233536Z.json"
+        },
+        {
+          "scenario_id": "stage_d_live_from_c_session20",
+          "session_number": 20,
+          "descriptors_seen": [
+            "Professor Tealeaf"
+          ],
+          "evidence_event_indices": [
+            18
+          ],
+          "source_file": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/artifacts/runs/2026-04-22/stage_d--stage_d_live_from_c_session20--deterministic-v0--PASS--20260422T233536Z.json"
+        },
+        {
+          "scenario_id": "stage_d_session20",
+          "session_number": 20,
+          "descriptors_seen": [
+            "Professor Tealeaf"
+          ],
+          "evidence_event_indices": [
+            19
+          ],
+          "source_file": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/artifacts/runs/2026-04-22/stage_d--stage_d_session20--deterministic-v0--PASS--20260422T225716Z.json"
+        }
+      ],
+      "recommendation_source": "llm",
+      "recommendation": "accept",
+      "confidence": "high",
+      "rationale": "This looks like a clear single NPC mention with consistent naming across session 20 evidence and no registry or PC slug collision. The proposal is specific rather than generic, and there’s no sign it should merge with an existing entity.",
+      "promote_payload": {
+        "slug": "professor_tealeaf",
+        "display_name": "Professor Tealeaf",
+        "aliases": [],
+        "status": "candidate",
+        "first_session": 20,
+        "last_session": 20,
+        "hub_path": null,
+        "setting_hub_path": null,
+        "notes": "Observed in session 20 (event indices 18-19) as 'Professor Tealeaf'."
+      },
+      "merge_target_slug": null
+    }
+  ],
+  "proposed_aliases": [],
+  "unresolvable": []
+}
