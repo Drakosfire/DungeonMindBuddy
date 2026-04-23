@@ -136,13 +136,21 @@ See `Docs/Plans/AUDIT-Stage-D-Entity-Resolution-Discovery.md` for the full desig
 
 `scripts/promote_stage_d_proposals.py` aggregates Stage D propose-only sidecars
 (both cohort `proposals/<campaign>_stage_d_proposals_*.json` and per-run
-`artifacts/runs/YYYY-MM-DD/stage_d--*.json`) for one campaign, flags
-registry collisions, and (unless `--no-llm`) calls `gpt-5.4-mini` for an
-accept / reject / defer / merge_into_existing recommendation per slug. Output
-goes to `promotions/<campaign>_stage_d_promotion_<ts>.{json,md}` for GM review.
+`artifacts/runs/YYYY-MM-DD/stage_d--*.json`) for one campaign and flags
+registry collisions. Default mode is **deterministic-only**: the deterministic
+flags (`slug_collision`, `display_name_overlap`, `pc_collision`) plus raw
+evidence (descriptors, sessions, event indices) carry every signal the GM
+needs for the easy-case promotion review. Pair the JSON output with the
+browser viewer at `promotions/viewer.html` (drag-drop, no server required).
+
+Pass `--with-llm` to additionally call `gpt-5.4-mini` for an
+accept / reject / defer / merge_into_existing recommendation per slug.
+Useful for hard cases (Kirfan-class coreference, alias semantics) or to
+sanity-check the GM's own judgment.
 
 The CLI is **propose-only**: it never mutates `_npc_registry.json`. The GM
-applies promotions by hand after reading the Markdown table.
+applies promotions by hand after reading the Markdown table or by reviewing
+the JSON sidecar in the browser viewer.
 
 ```bash
 # C1 — combine cohort proposals + per-run sidecars from a given day
@@ -159,17 +167,20 @@ uv run python -m scripts.promote_stage_d_proposals \
     --per-run "evals/stage_d_entity_resolution_vertical_slice/artifacts/runs/2026-04-22/stage_d--*session20*--PASS--*.json" \
     --registry "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/_npc_registry.json"
 
-# Offline / CI mode (no LLM call; recommendation fields are null)
-uv run python -m scripts.promote_stage_d_proposals --no-llm \
+# Opt into the model recommendation pass for hard cases or sanity-checking
+uv run python -m scripts.promote_stage_d_proposals --with-llm \
     --campaign-id longmont-c2 \
     --proposals "evals/stage_d_entity_resolution_vertical_slice/proposals/longmont-c2_stage_d_proposals_*.json" \
     --per-run "" \
     --registry "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/_npc_registry.json"
 ```
 
-Cost: ~$0.001-$0.002 per slug judged via `gpt-5.4-mini` (resolved from
-`MODEL_POLICY.json` action `corpus_session_planner`). Cost guard warns above
-$0.50 USD per invocation and aborts above $2.00.
+When `--with-llm` is passed: ~$0.001-$0.002 per slug judged via
+`gpt-5.4-mini` (resolved from `MODEL_POLICY.json` action
+`corpus_session_planner`). Cost guard warns above $0.50 USD per invocation
+and aborts above $2.00. The legacy `--no-llm` flag is accepted for
+back-compat (it is now the default and a no-op; a deprecation note is
+printed to stderr if used).
 
 Per-run sidecars carry `stage_d_output.proposed_new_records[]` and survive
 filename collisions in `proposals/`; passing both `--proposals` and `--per-run`

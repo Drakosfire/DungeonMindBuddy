@@ -1,8 +1,17 @@
 """Stage D — GM promotion CLI (propose-only).
 
-Aggregates Stage D proposals across cohort sidecars + per-run sidecars, flags
-registry collisions, and (unless ``--no-llm``) asks ``gpt-5.4-mini`` for an
+Aggregates Stage D proposals across cohort sidecars + per-run sidecars and
+flags registry collisions. Default mode is **deterministic-only**: the
+deterministic flags (slug_collision, display_name_overlap, pc_collision)
+plus raw evidence (descriptors, sessions, event indices) carry every signal
+the GM needs for the easy-case promotion review. Pair the JSON sidecar
+output with the browser viewer at
+``evals/stage_d_entity_resolution_vertical_slice/promotions/viewer.html``.
+
+Pass ``--with-llm`` to additionally call ``gpt-5.4-mini`` for an
 accept / reject / defer / merge_into_existing recommendation per proposal.
+Useful for hard cases (Kirfan-class coreference, alias-add semantics, or
+when the model's judgment is wanted as a sanity check against the GM's).
 
 This script is **propose-only**: it never mutates
 ``corpus/eldyrwild-markdown/<campaign>/_npc_registry.json``. Output is a
@@ -18,8 +27,10 @@ Run::
         --per-run "evals/stage_d_entity_resolution_vertical_slice/artifacts/runs/2026-04-22/stage_d--*c1*--PASS--*.json" \\
         --registry "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/_npc_registry.json"
 
-Add ``--no-llm`` to skip the model call (CI / offline review). Final cost is
+Add ``--with-llm`` to enable the model recommendation pass. Final cost is
 printed; cost guard warns above $0.50 and aborts above $2.00 per invocation.
+The legacy ``--no-llm`` flag is accepted for back-compat (it is now the
+default and a no-op).
 """
 
 from __future__ import annotations
@@ -1137,13 +1148,13 @@ def _build_openai_client() -> Any:
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
         raise RuntimeError(
-            "OPENAI_API_KEY is required for --llm mode (drop --no-llm to enable)."
+            "OPENAI_API_KEY is required for --with-llm mode."
         )
     try:
         from openai import OpenAI  # type: ignore[import-untyped]
     except Exception as exc:  # pragma: no cover
         raise RuntimeError(
-            "openai SDK is required for --llm mode (install via uv add openai)."
+            "openai SDK is required for --with-llm mode (install via uv add openai)."
         ) from exc
     return OpenAI(api_key=api_key)
 
@@ -1155,7 +1166,7 @@ def run_promotion(
     per_run_pattern: str | None,
     registry_path: Path,
     out_dir: Path | None = None,
-    use_llm: bool = True,
+    use_llm: bool = False,
     quiet: bool = False,
     api_client: Any | None = None,
     model_override: str | None = None,
@@ -1404,10 +1415,26 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default=str(_DEFAULT_OUT_DIR),
         help="directory to write the promotion sidecars to.",
     )
-    parser.add_argument(
+    llm_group = parser.add_mutually_exclusive_group()
+    llm_group.add_argument(
+        "--with-llm",
+        action="store_true",
+        help=(
+            "Enable the model recommendation pass (gpt-5.4-mini via "
+            "MODEL_POLICY.json). Default is deterministic-only — the "
+            "deterministic flags + raw evidence carry every signal the GM "
+            "needs for easy-case promotions. Use --with-llm for hard cases "
+            "(coreference, alias semantics) or to sanity-check GM judgment."
+        ),
+    )
+    llm_group.add_argument(
         "--no-llm",
         action="store_true",
-        help="skip all LLM calls (CI / offline review).",
+        help=(
+            "DEPRECATED — deterministic-only is now the default; this flag "
+            "is accepted for back-compat and is a no-op. Drop it from new "
+            "scripts; pass --with-llm if you want the model pass."
+        ),
     )
     parser.add_argument(
         "--model",
@@ -1420,6 +1447,13 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 def main(argv: list[str] | None = None) -> int:
     args = _parse_args(argv)
+    if args.no_llm and not args.quiet:
+        print(
+            "[promote_stage_d_proposals] --no-llm is deprecated and a no-op; "
+            "deterministic-only is now the default. Pass --with-llm to "
+            "enable the model recommendation pass.",
+            file=sys.stderr,
+        )
     registry_path = (Path(args.registry)
                      if Path(args.registry).is_absolute()
                      else _REPO_ROOT / args.registry).resolve()
@@ -1433,7 +1467,7 @@ def main(argv: list[str] | None = None) -> int:
             per_run_pattern=args.per_run,
             registry_path=registry_path,
             out_dir=out_dir,
-            use_llm=(not args.no_llm),
+            use_llm=bool(args.with_llm),
             quiet=args.quiet,
             model_override=args.model,
         )

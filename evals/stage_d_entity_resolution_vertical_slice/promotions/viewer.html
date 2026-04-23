@@ -1,0 +1,531 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Stage D Promotion Review</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+  :root {
+    --bg: #0f1115;
+    --bg-2: #161922;
+    --bg-3: #1d212d;
+    --fg: #e6e8ee;
+    --fg-mute: #8a93a6;
+    --accent: #7aa2f7;
+    --good: #9ece6a;
+    --warn: #e0af68;
+    --bad: #f7768e;
+    --neutral: #565f89;
+    --border: #2a3043;
+    --mono: ui-monospace, SFMono-Regular, "JetBrains Mono", Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; background: var(--bg); color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-size: 14px; line-height: 1.5;
+  }
+  header {
+    padding: 16px 24px; border-bottom: 1px solid var(--border);
+    background: var(--bg-2); position: sticky; top: 0; z-index: 10;
+  }
+  .header-row { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+  h1 { margin: 0; font-size: 18px; font-weight: 600; }
+  .meta { color: var(--fg-mute); font-size: 12px; font-family: var(--mono); }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 4px;
+    font-size: 11px; font-family: var(--mono); font-weight: 500;
+    background: var(--bg-3); color: var(--fg-mute); border: 1px solid var(--border);
+  }
+  .badge.warn { background: #3a2e1a; color: var(--warn); border-color: #5a4520; }
+  .badge.bad  { background: #3a1f25; color: var(--bad);  border-color: #5a2a33; }
+  .badge.good { background: #1f3522; color: var(--good); border-color: #2a4a30; }
+  .badge.mute { background: var(--bg-3); color: var(--fg-mute); }
+  .badge.accent { background: #1c2a44; color: var(--accent); border-color: #2a3a5a; }
+  button {
+    font: inherit; cursor: pointer; padding: 6px 12px; border-radius: 4px;
+    background: var(--bg-3); color: var(--fg); border: 1px solid var(--border);
+    transition: background 0.1s, border-color 0.1s;
+  }
+  button:hover { background: #252a3a; border-color: #3a4258; }
+  button.accept { background: #1f3522; border-color: #2a4a30; color: var(--good); }
+  button.accept:hover { background: #2a4a30; }
+  button.reject { background: #3a1f25; border-color: #5a2a33; color: var(--bad); }
+  button.reject:hover { background: #5a2a33; }
+  button.defer  { background: #3a2e1a; border-color: #5a4520; color: var(--warn); }
+  button.defer:hover { background: #5a4520; }
+  button.active { box-shadow: inset 0 0 0 2px currentColor; }
+  button.primary { background: var(--accent); color: #0f1115; border-color: var(--accent); font-weight: 500; }
+  button.primary:hover { background: #92b3f8; }
+  input[type="file"] { display: none; }
+  label.file-btn { display: inline-block; }
+  main { padding: 24px; max-width: 1200px; margin: 0 auto; }
+  .empty {
+    padding: 48px 24px; text-align: center; color: var(--fg-mute);
+    border: 2px dashed var(--border); border-radius: 8px; margin: 24px 0;
+  }
+  .empty.drag-over { border-color: var(--accent); background: rgba(122, 162, 247, 0.05); }
+  .section {
+    margin-bottom: 32px;
+    background: var(--bg-2); border: 1px solid var(--border); border-radius: 8px;
+  }
+  .section-header {
+    padding: 12px 16px; border-bottom: 1px solid var(--border);
+    font-weight: 600; display: flex; align-items: center; gap: 12px;
+  }
+  .section-header .count { color: var(--fg-mute); font-weight: 400; font-family: var(--mono); }
+  .row {
+    padding: 16px; border-bottom: 1px solid var(--border);
+    display: grid; grid-template-columns: 1fr auto; gap: 12px;
+  }
+  .row:last-child { border-bottom: none; }
+  .row.decided-accept { background: rgba(158, 206, 106, 0.04); }
+  .row.decided-reject { background: rgba(247, 118, 142, 0.04); opacity: 0.6; }
+  .row.decided-defer  { background: rgba(224, 175, 104, 0.04); }
+  .row-main { min-width: 0; }
+  .row-actions {
+    display: flex; flex-direction: column; gap: 4px; align-items: flex-end;
+  }
+  .row-actions .btn-group { display: flex; gap: 4px; }
+  .slug {
+    font-family: var(--mono); font-size: 16px; font-weight: 600; color: var(--fg);
+  }
+  .display-name { color: var(--fg-mute); font-size: 13px; margin-left: 8px; }
+  .row-meta {
+    display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; align-items: center;
+  }
+  .descriptors { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 4px; }
+  .descriptor-chip {
+    background: var(--bg-3); border: 1px solid var(--border);
+    padding: 2px 8px; border-radius: 12px; font-size: 12px; color: var(--fg);
+  }
+  .evidence {
+    margin-top: 12px; font-family: var(--mono); font-size: 12px; color: var(--fg-mute);
+  }
+  details { margin-top: 8px; }
+  summary {
+    cursor: pointer; color: var(--fg-mute); font-size: 12px;
+    user-select: none; padding: 4px 0;
+  }
+  summary:hover { color: var(--fg); }
+  pre {
+    margin: 8px 0 0 0; padding: 8px 12px; background: var(--bg);
+    border: 1px solid var(--border); border-radius: 4px;
+    font-family: var(--mono); font-size: 11px; color: var(--fg-mute);
+    overflow-x: auto; white-space: pre-wrap; word-break: break-word;
+  }
+  .rationale {
+    margin-top: 8px; padding: 8px 12px; background: var(--bg-3);
+    border-left: 3px solid var(--neutral); border-radius: 2px;
+    font-size: 13px; color: var(--fg-mute); font-style: italic;
+  }
+  .rationale .label { font-style: normal; color: var(--fg); margin-right: 6px; font-weight: 500; }
+  .summary-bar {
+    position: sticky; bottom: 0; background: var(--bg-2);
+    border-top: 1px solid var(--border); padding: 12px 24px;
+    display: flex; align-items: center; gap: 16px; z-index: 10;
+  }
+  .summary-bar .counts { display: flex; gap: 12px; font-family: var(--mono); font-size: 13px; }
+  .spacer { flex: 1; }
+  .filter-bar {
+    padding: 12px 16px; border-bottom: 1px solid var(--border);
+    display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+  }
+  .filter-bar input[type="search"] {
+    background: var(--bg); color: var(--fg); border: 1px solid var(--border);
+    padding: 6px 10px; border-radius: 4px; font: inherit; flex: 1; min-width: 200px;
+  }
+  .row-aliases { font-size: 12px; color: var(--fg-mute); margin-top: 4px; }
+  .row-aliases code {
+    background: var(--bg-3); padding: 1px 6px; border-radius: 3px;
+    font-family: var(--mono); color: var(--fg);
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="header-row">
+    <h1>Stage D Promotion Review</h1>
+    <span id="campaign-badge" class="badge accent" hidden></span>
+    <span id="generated-meta" class="meta"></span>
+    <div class="spacer"></div>
+    <label class="file-btn">
+      <input type="file" id="file-input" accept=".json,application/json" />
+      <button onclick="document.getElementById('file-input').click()">Load JSON</button>
+    </label>
+    <button id="reset-decisions">Reset decisions</button>
+  </div>
+</header>
+
+<main>
+  <div id="dropzone" class="empty">
+    <p><strong>Drop a Stage D promotion sidecar here</strong></p>
+    <p class="meta">e.g. <code>promotions/longmont-c1_stage_d_promotion_*.json</code></p>
+    <p class="meta">— or click <em>Load JSON</em> above —</p>
+  </div>
+  <div id="content" hidden>
+    <section class="section" id="section-records">
+      <div class="section-header">
+        <span>Proposed new records</span>
+        <span class="count" id="count-records"></span>
+      </div>
+      <div class="filter-bar">
+        <input type="search" id="filter-records" placeholder="Filter by slug, display name, descriptor…" />
+        <label><input type="checkbox" id="hide-decided-records" /> Hide decided</label>
+      </div>
+      <div id="rows-records"></div>
+    </section>
+    <section class="section" id="section-aliases">
+      <div class="section-header">
+        <span>Proposed aliases</span>
+        <span class="count" id="count-aliases"></span>
+      </div>
+      <div id="rows-aliases"></div>
+    </section>
+    <section class="section" id="section-unresolvable">
+      <div class="section-header">
+        <span>Unresolvable (advisory)</span>
+        <span class="count" id="count-unresolvable"></span>
+      </div>
+      <div id="rows-unresolvable"></div>
+    </section>
+  </div>
+</main>
+
+<div class="summary-bar" id="summary-bar" hidden>
+  <div class="counts">
+    <span class="badge good"><span id="n-accept">0</span> accept</span>
+    <span class="badge bad"><span id="n-reject">0</span> reject</span>
+    <span class="badge warn"><span id="n-defer">0</span> defer</span>
+    <span class="badge mute"><span id="n-pending">0</span> pending</span>
+  </div>
+  <div class="spacer"></div>
+  <button id="download-decisions" class="primary">Download decisions JSON</button>
+</div>
+
+<script>
+(() => {
+  let DOC = null;
+  let DECISIONS = {};
+
+  const STORAGE_PREFIX = "stage_d_promotion_decisions_v1::";
+
+  const $ = (id) => document.getElementById(id);
+
+  function storageKey() {
+    if (!DOC) return null;
+    return STORAGE_PREFIX + (DOC.campaign_id || "unknown") + "::" + (DOC.generated_at || "");
+  }
+
+  function loadDecisions() {
+    const k = storageKey();
+    if (!k) return {};
+    try { return JSON.parse(localStorage.getItem(k) || "{}"); }
+    catch { return {}; }
+  }
+
+  function persistDecisions() {
+    const k = storageKey();
+    if (k) localStorage.setItem(k, JSON.stringify(DECISIONS));
+  }
+
+  function decisionKey(bucket, slug_or_idx) {
+    return bucket + "::" + slug_or_idx;
+  }
+
+  function setDecision(bucket, slug, value) {
+    const k = decisionKey(bucket, slug);
+    if (DECISIONS[k] === value) {
+      delete DECISIONS[k];
+    } else {
+      DECISIONS[k] = value;
+    }
+    persistDecisions();
+    render();
+  }
+
+  function getDecision(bucket, slug) {
+    return DECISIONS[decisionKey(bucket, slug)] || null;
+  }
+
+  function escapeHtml(s) {
+    if (s == null) return "";
+    return String(s).replace(/[&<>"']/g, (c) => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+    })[c]);
+  }
+
+  function flagBadges(flags) {
+    if (!flags) return "";
+    const out = [];
+    if (flags.slug_collision) out.push('<span class="badge bad">slug collision</span>');
+    if (flags.display_name_overlap) {
+      out.push(`<span class="badge warn">name overlap → ${escapeHtml(flags.display_name_overlap)}</span>`);
+    }
+    if (flags.pc_collision) out.push('<span class="badge bad">PC collision</span>');
+    if (out.length === 0) out.push('<span class="badge good">no collisions</span>');
+    return out.join(" ");
+  }
+
+  function evidenceSummary(evidence) {
+    if (!evidence || evidence.length === 0) return "<em>(no evidence rows)</em>";
+    const sessions = new Set();
+    const allDescriptors = new Set();
+    let totalEventIndices = 0;
+    for (const e of evidence) {
+      if (e.session_number != null) sessions.add(e.session_number);
+      for (const d of (e.descriptors_seen || [])) allDescriptors.add(d);
+      totalEventIndices += (e.evidence_event_indices || []).length;
+    }
+    const sessionList = [...sessions].sort((a, b) => a - b);
+    return `${evidence.length} evidence row${evidence.length === 1 ? "" : "s"} · sessions [${sessionList.join(", ")}] · ${totalEventIndices} event refs`;
+  }
+
+  function recCard(rec, bucket) {
+    const key = bucket === "records" ? rec.slug
+              : bucket === "aliases"  ? `${rec.target_slug}::${rec.alias_text}`
+              : (rec.descriptor || rec.slug || JSON.stringify(rec).slice(0, 40));
+    const decision = getDecision(bucket, key);
+    const cls = decision ? `decided-${decision}` : "";
+
+    const sessions = rec.session_appearances || (rec.first_session != null ? [rec.first_session] : []);
+    const sessionRange = sessions.length > 0
+      ? (rec.first_session === rec.last_session
+          ? `S${rec.first_session}`
+          : `S${rec.first_session}–S${rec.last_session}`)
+      : "";
+
+    const descChips = (() => {
+      const seen = new Set();
+      for (const e of (rec.evidence || [])) {
+        for (const d of (e.descriptors_seen || [])) seen.add(d);
+      }
+      if (rec.descriptor) seen.add(rec.descriptor);
+      if (rec.alias_text) seen.add(rec.alias_text);
+      return [...seen].slice(0, 8).map(d =>
+        `<span class="descriptor-chip">${escapeHtml(d)}</span>`
+      ).join("");
+    })();
+
+    const aliasesLine = (rec.aliases && rec.aliases.length > 0)
+      ? `<div class="row-aliases">aliases: ${rec.aliases.map(a => `<code>${escapeHtml(a)}</code>`).join(" ")}</div>`
+      : "";
+
+    const ratLine = rec.rationale
+      ? `<div class="rationale"><span class="label">${escapeHtml(rec.recommendation_source || "model")} · ${escapeHtml(rec.recommendation || "?")} (${escapeHtml(rec.confidence || "?")})</span>${escapeHtml(rec.rationale)}</div>`
+      : "";
+
+    const targetLine = rec.target_slug
+      ? `<div class="row-aliases">target slug: <code>${escapeHtml(rec.target_slug)}</code> · alias: <code>${escapeHtml(rec.alias_text || "")}</code></div>`
+      : "";
+
+    const reasonLine = rec.reason
+      ? `<div class="row-aliases">reason: ${escapeHtml(rec.reason)}</div>`
+      : "";
+
+    const headerHtml = bucket === "records"
+      ? `<span class="slug">${escapeHtml(rec.slug || "(no slug)")}</span><span class="display-name">${escapeHtml(rec.display_name || "")}</span>`
+      : bucket === "aliases"
+      ? `<span class="slug">${escapeHtml(rec.alias_text || "(no alias text)")}</span><span class="display-name">→ ${escapeHtml(rec.target_slug || "(no target)")}</span>`
+      : `<span class="slug">${escapeHtml(rec.descriptor || rec.slug || "(unresolvable)")}</span>`;
+
+    return `
+      <div class="row ${cls}" data-bucket="${bucket}" data-key="${escapeHtml(key)}">
+        <div class="row-main">
+          <div>${headerHtml}</div>
+          ${aliasesLine}
+          ${targetLine}
+          ${reasonLine}
+          <div class="row-meta">
+            ${sessionRange ? `<span class="badge accent">${sessionRange}</span>` : ""}
+            ${rec.appearance_runs ? `<span class="badge mute">${rec.appearance_runs} runs</span>` : ""}
+            ${bucket === "records" ? flagBadges(rec.registry_collision_flags) : ""}
+          </div>
+          ${descChips ? `<div class="descriptors">${descChips}</div>` : ""}
+          <div class="evidence">${escapeHtml(evidenceSummary(rec.evidence))}</div>
+          ${ratLine}
+          <details>
+            <summary>raw evidence + payload</summary>
+            <pre>${escapeHtml(JSON.stringify(rec, null, 2))}</pre>
+          </details>
+        </div>
+        <div class="row-actions">
+          <div class="btn-group">
+            <button class="accept ${decision === 'accept' ? 'active' : ''}" data-action="accept">Accept</button>
+            <button class="defer ${decision === 'defer' ? 'active' : ''}" data-action="defer">Defer</button>
+            <button class="reject ${decision === 'reject' ? 'active' : ''}" data-action="reject">Reject</button>
+          </div>
+          ${decision ? `<span class="badge mute">decided: ${decision}</span>` : `<span class="badge mute">pending</span>`}
+        </div>
+      </div>
+    `;
+  }
+
+  function renderBucket(bucket, items) {
+    const container = $(`rows-${bucket}`);
+    const countEl = $(`count-${bucket}`);
+    countEl.textContent = `(${items.length})`;
+    if (items.length === 0) {
+      container.innerHTML = `<div style="padding: 24px; text-align: center; color: var(--fg-mute);">none</div>`;
+      return;
+    }
+
+    let filtered = items;
+    if (bucket === "records") {
+      const q = ($("filter-records").value || "").toLowerCase().trim();
+      const hideDecided = $("hide-decided-records").checked;
+      filtered = items.filter(r => {
+        if (hideDecided && getDecision("records", r.slug)) return false;
+        if (!q) return true;
+        const blob = (
+          (r.slug || "") + " " + (r.display_name || "") + " " +
+          (r.aliases || []).join(" ") + " " +
+          (r.evidence || []).flatMap(e => e.descriptors_seen || []).join(" ")
+        ).toLowerCase();
+        return blob.includes(q);
+      });
+    }
+
+    container.innerHTML = filtered.map(r => recCard(r, bucket)).join("");
+    container.querySelectorAll("button[data-action]").forEach(btn => {
+      btn.addEventListener("click", (ev) => {
+        const row = ev.target.closest(".row");
+        const b = row.dataset.bucket;
+        const k = row.dataset.key;
+        setDecision(b, k, ev.target.dataset.action);
+      });
+    });
+  }
+
+  function recomputeCounts() {
+    const counts = { accept: 0, reject: 0, defer: 0 };
+    for (const v of Object.values(DECISIONS)) {
+      if (counts[v] != null) counts[v]++;
+    }
+    const totalRows = (DOC.proposed_new_records || []).length
+      + (DOC.proposed_aliases || []).length
+      + (DOC.unresolvable || []).length;
+    const decided = counts.accept + counts.reject + counts.defer;
+    $("n-accept").textContent = counts.accept;
+    $("n-reject").textContent = counts.reject;
+    $("n-defer").textContent = counts.defer;
+    $("n-pending").textContent = totalRows - decided;
+  }
+
+  function render() {
+    if (!DOC) return;
+    $("dropzone").hidden = true;
+    $("content").hidden = false;
+    $("summary-bar").hidden = false;
+
+    $("campaign-badge").hidden = false;
+    $("campaign-badge").textContent = DOC.campaign_id || "unknown campaign";
+
+    const meta = [];
+    if (DOC.generated_at) meta.push(DOC.generated_at);
+    if (DOC.registry_size != null) meta.push(`registry: ${DOC.registry_size}`);
+    if (DOC.cost && DOC.cost.total_usd != null) meta.push(`LLM cost: $${DOC.cost.total_usd.toFixed(4)}`);
+    if (DOC.llm_enabled === false) meta.push("LLM disabled");
+    $("generated-meta").textContent = meta.join(" · ");
+
+    renderBucket("records", DOC.proposed_new_records || []);
+    renderBucket("aliases", DOC.proposed_aliases || []);
+    renderBucket("unresolvable", DOC.unresolvable || []);
+    recomputeCounts();
+  }
+
+  function loadDoc(obj) {
+    DOC = obj;
+    DECISIONS = loadDecisions();
+    render();
+  }
+
+  function readFile(file) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        loadDoc(JSON.parse(e.target.result));
+      } catch (err) {
+        alert("Failed to parse JSON: " + err.message);
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  $("file-input").addEventListener("change", (e) => {
+    if (e.target.files.length > 0) readFile(e.target.files[0]);
+  });
+
+  const dz = $("dropzone");
+  ["dragenter", "dragover"].forEach(ev =>
+    dz.addEventListener(ev, (e) => { e.preventDefault(); dz.classList.add("drag-over"); })
+  );
+  ["dragleave", "drop"].forEach(ev =>
+    dz.addEventListener(ev, (e) => { e.preventDefault(); dz.classList.remove("drag-over"); })
+  );
+  dz.addEventListener("drop", (e) => {
+    if (e.dataTransfer.files.length > 0) readFile(e.dataTransfer.files[0]);
+  });
+  document.addEventListener("dragover", (e) => e.preventDefault());
+  document.addEventListener("drop", (e) => {
+    if (DOC) return;
+    e.preventDefault();
+    if (e.dataTransfer.files.length > 0) readFile(e.dataTransfer.files[0]);
+  });
+
+  $("filter-records").addEventListener("input", () => renderBucket("records", DOC.proposed_new_records || []));
+  $("hide-decided-records").addEventListener("change", () => renderBucket("records", DOC.proposed_new_records || []));
+
+  $("reset-decisions").addEventListener("click", () => {
+    if (!confirm("Reset all decisions for this sidecar?")) return;
+    DECISIONS = {};
+    persistDecisions();
+    render();
+  });
+
+  $("download-decisions").addEventListener("click", () => {
+    if (!DOC) return;
+    const decisions = {
+      schema: "stage_d_promotion_decisions_v1",
+      decided_at: new Date().toISOString(),
+      campaign_id: DOC.campaign_id,
+      source_generated_at: DOC.generated_at,
+      decisions: DECISIONS,
+      promote_payloads: (DOC.proposed_new_records || [])
+        .filter(r => getDecision("records", r.slug) === "accept")
+        .map(r => r.promote_payload || {
+          slug: r.slug,
+          display_name: r.display_name,
+          aliases: r.aliases || [],
+          status: "candidate",
+          first_session: r.first_session,
+          last_session: r.last_session,
+          hub_path: null,
+          setting_hub_path: null,
+          notes: ""
+        }),
+      accepted_aliases: (DOC.proposed_aliases || [])
+        .filter(r => getDecision("aliases", `${r.target_slug}::${r.alias_text}`) === "accept")
+        .map(r => ({ target_slug: r.target_slug, alias_text: r.alias_text })),
+    };
+    const blob = new Blob([JSON.stringify(decisions, null, 2)], { type: "application/json" });
+    const a = document.createElement("a");
+    const ts = new Date().toISOString().replace(/[:.]/g, "").replace(/-/g, "").slice(0, 15) + "Z";
+    a.href = URL.createObjectURL(blob);
+    a.download = `${DOC.campaign_id}_stage_d_decisions_${ts}.json`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  });
+
+  // Auto-load via ?file= query (when served, not file://)
+  const params = new URLSearchParams(location.search);
+  const fileParam = params.get("file");
+  if (fileParam) {
+    fetch(fileParam).then(r => r.json()).then(loadDoc).catch(err => {
+      console.warn("auto-load failed:", err);
+    });
+  }
+})();
+</script>
+</body>
+</html>
