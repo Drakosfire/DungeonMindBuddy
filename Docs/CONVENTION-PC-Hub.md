@@ -25,14 +25,16 @@
 
 ## 3. Minimum vs recommended files
 
-| Artifact | Status | Notes |
-|----------|--------|-------|
-| `README.md` | **Required** | Hub index. Slim — pointers, read order, comms call-sign / disambiguators. |
-| `{slug}_character_dossier.md` | **Required** at PC inception | Continuity prose: identity, comms, relationships, items/spells **as named in recaps**, arc hooks. A PC's continuity surface is not optional — they have an identity from session 0, often with backstory the player wants treated as canonical. **Not** a statblock. Frontmatter `subject_doc_kind: dossier`. |
-| `timeline.md` | **Required** at PC inception | Same hybrid-rubric beat shape as NPC timelines: Session / Beat (1–3 lines, `**minor**` permitted) / Recap pointer. Inception rows cover backstory beats the player wants canonical (Session column = `Pre-campaign` or `Backstory`); append-only after that. Frontmatter `subject_doc_kind: timeline`. |
-| `{slug}_statblock*.md` | **Optional** | Only when the player has explicitly handed a sheet over for GM use (e.g. shared character sheet, NPC-conversion plan). Otherwise `(none)` in the README priority table. The corpus writer denylist still applies. |
-| `character_seed.md` | **Optional** (rare) | PC seeds are unusual; usually the dossier covers backstory. Include only when there is a clean pre-campaign concept worth carrying separately. |
-| `loot_*.md`, `<slug>_*_log.md`, `<slug>_*_guidelines.md` | Optional | PC-specific aggregates (loot rolls, custom item allocations). Frontmatter `subject_doc_kind: notes_aggregate`. Bonogo's `loot_geomantic_drake_nest.md` is the prototype. |
+
+| Artifact                                                 | Status                       | Notes                                                                                                                                                                                                                                                                                                         |
+| -------------------------------------------------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `README.md`                                              | **Required**                 | Hub index. Slim — pointers, read order, comms call-sign / disambiguators.                                                                                                                                                                                                                                     |
+| `{slug}_character_dossier.md`                            | **Required** at PC inception | Continuity prose: identity, comms, relationships, items/spells **as named in recaps**, arc hooks. A PC's continuity surface is not optional — they have an identity from session 0, often with backstory the player wants treated as canonical. **Not** a statblock. Frontmatter `subject_doc_kind: dossier`. |
+| `timeline.md`                                            | **Required** at PC inception | Same hybrid-rubric beat shape as NPC timelines: Session / Beat (1–3 lines, `**minor`** permitted) / Recap pointer. Inception rows cover backstory beats the player wants canonical (Session column = `Pre-campaign` or `Backstory`); append-only after that. Frontmatter `subject_doc_kind: timeline`.        |
+| `{slug}_statblock*.md`                                   | **Optional**                 | Only when the player has explicitly handed a sheet over for GM use (e.g. shared character sheet, NPC-conversion plan). Otherwise `(none)` in the README priority table. The corpus writer denylist still applies.                                                                                             |
+| `character_seed.md`                                      | **Optional** (rare)          | PC seeds are unusual; usually the dossier covers backstory. Include only when there is a clean pre-campaign concept worth carrying separately.                                                                                                                                                                |
+| `loot_*.md`, `<slug>_*_log.md`, `<slug>_*_guidelines.md` | Optional                     | PC-specific aggregates (loot rolls, custom item allocations). Frontmatter `subject_doc_kind: notes_aggregate`. Bonogo's `loot_geomantic_drake_nest.md` is the prototype.                                                                                                                                      |
+
 
 ---
 
@@ -41,14 +43,14 @@
 The same four headings the NPC convention uses, with PC-specific framing.
 
 1. **Title** — `<Display Name> — Campaign N (PC hub)`
-2. **`## Read order`** (or `## Suggested reads (in order)` — both acceptable; `Read order` is the Caelynn-shape default for PCs)
-   - Numbered list of full corpus-relative paths, each annotated with one line of why it matters.
-   - Order: **dossier first** (continuity surface), **timeline second** (session index), notes-aggregates and sibling NPC hubs after.
-3. **`## Session recaps (no pinned default)`**
-   - Same rule as NPCs: the model uses the corpus tree for "latest"; if `timeline.md` names specific recaps for a beat, prefer those.
-   - PCs that miss a session (or whose row is `**minor**` only) should still have a row; the dossier can carry an "appears in every Sessions 1–N" line so absences are explicit.
-4. **`## Mechanical sheets`** (only when a player-shared statblock exists; otherwise omit the heading entirely)
-   - When present: same priority table as NPCs. When absent: do not write `(none)` headings; just leave the section out so the README stays honest about what the corpus owns.
+2. `**## Read order`** (or `## Suggested reads (in order)` — both acceptable; `Read order` is the Caelynn-shape default for PCs)
+  - Numbered list of full corpus-relative paths, each annotated with one line of why it matters.
+  - Order: **dossier first** (continuity surface), **timeline second** (session index), notes-aggregates and sibling NPC hubs after.
+3. `**## Session recaps (no pinned default)`**
+  - Same rule as NPCs: the model uses the corpus tree for "latest"; if `timeline.md` names specific recaps for a beat, prefer those.
+  - PCs that miss a session (or whose row is `**minor`** only) should still have a row; the dossier can carry an "appears in every Sessions 1–N" line so absences are explicit.
+4. `**## Mechanical sheets**` (only when a player-shared statblock exists; otherwise omit the heading entirely)
+  - When present: same priority table as NPCs. When absent: do not write `(none)` headings; just leave the section out so the README stays honest about what the corpus owns.
 
 A short closing paragraph ("Related" / "Cross-references") may list sibling hubs (e.g. an NPC the PC is heavily entangled with) using full corpus-relative paths.
 
@@ -78,11 +80,13 @@ source_class: ledger_or_dossier
 
 **Required table columns:**
 
-| Column | Content |
-|--------|---------|
-| Session | Session number or range (e.g. `7–8`). For pre-campaign / backstory rows, accept non-numeric values: `Pre-campaign` or `Backstory`. |
-| Beat (1–3 lines) | What this PC did. Telegraphic OK. Prefix `**minor**` for low-signal rows so the planner can de-weight without skipping. |
-| Recap / prep | **Literal filename** as played (e.g. `Session 6 - Recap.md`) or, when no recap exists, the prep doc that covers the bridge (e.g. `Session Prep/session_21_intro.md`). For backstory rows the cell may be `—` (no recap exists) or point at a backstory dossier section. |
+
+| Column           | Content                                                                                                                                                                                                                                                                 |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Session          | Session number or range (e.g. `7–8`). For pre-campaign / backstory rows, accept non-numeric values: `Pre-campaign` or `Backstory`.                                                                                                                                      |
+| Beat (1–3 lines) | What this PC did. Telegraphic OK. Prefix `**minor`** for low-signal rows so the planner can de-weight without skipping.                                                                                                                                                 |
+| Recap / prep     | **Literal filename** as played (e.g. `Session 6 - Recap.md`) or, when no recap exists, the prep doc that covers the bridge (e.g. `Session Prep/session_21_intro.md`). For backstory rows the cell may be `—` (no recap exists) or point at a backstory dossier section. |
+
 
 **Maintenance:** A PC timeline is created at PC inception with at minimum (a) one row per pre-campaign backstory beat the player wants treated as canonical (`Session` column = `Pre-campaign` or `Backstory`), and (b) one row at the PC's first actual session marking introduction. Append on each new session after that. Update `last_updated_session` in frontmatter. Never rewrite a row already covered by an existing recap.
 
@@ -113,12 +117,12 @@ source_class: ledger_or_dossier
 
 ## 9. Checklist (new PC hub)
 
-- [ ] Slug folder under `<Campaign>/Campaign N/PCs/<slug>/`.
-- [ ] `README.md` with frontmatter (`subject_class: pc`, `subject_doc_kind: hub_index`) and the four sections in §4.
-- [ ] Dossier file (`{slug}_character_dossier.md`) at hub creation; `subject_doc_kind: dossier`. Required regardless of appearance count.
-- [ ] `timeline.md` at hub creation; `subject_doc_kind: timeline`; seeded with backstory rows (`Pre-campaign` / `Backstory`) and/or the PC's first session row; append-only afterward.
-- [ ] No statblock unless the player has shared one explicitly.
-- [ ] After corpus edits: fingerprint per `.cursor/rules/corpus-layout-conventions.mdc` if your eval pins `expected_fingerprint`.
+- Slug folder under `<Campaign>/Campaign N/PCs/<slug>/`.
+- `README.md` with frontmatter (`subject_class: pc`, `subject_doc_kind: hub_index`) and the four sections in §4.
+- Dossier file (`{slug}_character_dossier.md`) at hub creation; `subject_doc_kind: dossier`. Required regardless of appearance count.
+- `timeline.md` at hub creation; `subject_doc_kind: timeline`; seeded with backstory rows (`Pre-campaign` / `Backstory`) and/or the PC's first session row; append-only afterward.
+- No statblock unless the player has shared one explicitly.
+- After corpus edits: fingerprint per `.cursor/rules/corpus-layout-conventions.mdc` if your eval pins `expected_fingerprint`.
 
 ---
 

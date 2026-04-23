@@ -340,20 +340,53 @@ def test_append_timeline_unknown_recap_errors(tmp_path: Path) -> None:
     assert "does not exist" in out["error"]
 
 
-def test_append_timeline_ambiguous_slug_errors(tmp_path: Path) -> None:
+def test_append_timeline_disambiguates_by_recap_campaign_path(tmp_path: Path) -> None:
     _make_timeline(tmp_path, "twin")
     other = tmp_path / "Longmont Campaign/Campaign 1/NPCs/twin"
     other.mkdir(parents=True, exist_ok=True)
     (other / "timeline.md").write_text("# other\n\n| s | b | r |\n|---|---|---|\n", encoding="utf-8")
-    recap_dir = _make_recap_dir(tmp_path)
-    recap_rel = "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Snow.md"
-    (recap_dir / "Session 20 - Snow.md").write_text("# x\n", encoding="utf-8")
+    recap_dir_c1 = _make_recap_dir(tmp_path, campaign="Longmont Campaign/Campaign 1")
+    recap_rel = "Longmont Campaign/Campaign 1/Session Recaps/Session 20 - Snow.md"
+    (recap_dir_c1 / "Session 20 - Snow.md").write_text("# x\n", encoding="utf-8")
+    preview = append_timeline_row(
+        tmp_path,
+        npc_slug="twin",
+        session=20,
+        beat="c1 disambiguated",
+        recap_path=recap_rel,
+        dry_run=True,
+    )
+    assert preview["ok"] is True, preview
+    assert preview["path"] == "Longmont Campaign/Campaign 1/NPCs/twin/timeline.md"
+
+    commit = append_timeline_row(
+        tmp_path,
+        npc_slug="twin",
+        session=20,
+        beat="c1 disambiguated",
+        recap_path=recap_rel,
+        dry_run=False,
+        confirm_token=preview["confirm_token"],
+    )
+    assert commit["ok"] is True
+    assert "c1 disambiguated" in (other / "timeline.md").read_text(encoding="utf-8")
+
+
+def test_append_timeline_ambiguous_slug_errors_without_campaign_hint(tmp_path: Path) -> None:
+    _make_timeline(tmp_path, "twin")
+    other = tmp_path / "Longmont Campaign/Campaign 1/NPCs/twin"
+    other.mkdir(parents=True, exist_ok=True)
+    (other / "timeline.md").write_text("# other\n\n| s | b | r |\n|---|---|---|\n", encoding="utf-8")
+    notes = tmp_path / "Elderwyld/Locations/noncampaign_recap.md"
+    notes.parent.mkdir(parents=True, exist_ok=True)
+    notes.write_text("# x\n", encoding="utf-8")
+
     out = append_timeline_row(
         tmp_path,
         npc_slug="twin",
         session=20,
         beat="x",
-        recap_path=recap_rel,
+        recap_path="Elderwyld/Locations/noncampaign_recap.md",
         dry_run=True,
     )
     assert out["ok"] is False
@@ -398,6 +431,44 @@ def test_append_timeline_with_explicit_path_disambiguates(tmp_path: Path) -> Non
     other = other_timeline.read_text(encoding="utf-8")
     assert "explicit win" in chosen
     assert "explicit win" not in other
+
+
+def test_append_timeline_campaign_id_disambiguates_when_path_is_neutral(tmp_path: Path) -> None:
+    _make_timeline(tmp_path, "twin")
+    other_hub = tmp_path / "Longmont Campaign/Campaign 1/NPCs/twin"
+    other_hub.mkdir(parents=True, exist_ok=True)
+    other_timeline = other_hub / "timeline.md"
+    other_timeline.write_text(
+        "# other\n\n| Session | Beat | Recap |\n|---|---|---|\n", encoding="utf-8"
+    )
+    notes = tmp_path / "Elderwyld/Locations/noncampaign_recap.md"
+    notes.parent.mkdir(parents=True, exist_ok=True)
+    notes.write_text("# x\n", encoding="utf-8")
+
+    preview = append_timeline_row(
+        tmp_path,
+        npc_slug="twin",
+        session=20,
+        beat="campaign_id win",
+        recap_path="Elderwyld/Locations/noncampaign_recap.md",
+        campaign_id="longmont-c1",
+        dry_run=True,
+    )
+    assert preview["ok"] is True, preview
+    assert preview["path"] == "Longmont Campaign/Campaign 1/NPCs/twin/timeline.md"
+
+    commit = append_timeline_row(
+        tmp_path,
+        npc_slug="twin",
+        session=20,
+        beat="campaign_id win",
+        recap_path="Elderwyld/Locations/noncampaign_recap.md",
+        campaign_id="longmont-c1",
+        dry_run=False,
+        confirm_token=preview["confirm_token"],
+    )
+    assert commit["ok"] is True
+    assert "campaign_id win" in other_timeline.read_text(encoding="utf-8")
 
 
 def _make_pc_timeline(corpus: Path, slug: str) -> Path:

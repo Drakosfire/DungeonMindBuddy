@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 import time
 from pathlib import Path
@@ -61,6 +62,9 @@ _GOLD_SCENARIO = _SLICE_DIR / "gold" / "session_events_session20.json"
 _DEFAULT_CORPUS_ROOT = _REPO_ROOT / "corpus" / "eldyrwild-markdown"
 
 _DEFAULT_MODEL = "gpt-5.4-mini"
+_MAX_PC_HINTS = 10
+_MAX_PC_HINT_CHARS_PER_ENTRY = 320
+_MAX_PC_HINT_CHARS_TOTAL = 2400
 
 # ---------------------------------------------------------------------------
 # Pydantic schema — mirrors event_record.schema.json exactly
@@ -239,8 +243,249 @@ discoveries, travel, rituals, and investigations.\
 """
 
 
-def build_user_prompt(user_message: str, recap_text: str) -> str:
-    return f"{user_message}\n\n---\n\n**RECAP TEXT:**\n\n{recap_text}"
+def _campaign_id_from_recap_relative_path(recap_relative_path: str) -> str | None:
+    """Infer campaign ID from recap path when possible.
+
+    Example:
+      Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md -> longmont-c2
+    """
+    m = re.search(r"Longmont Campaign/Campaign\s+(\d+)", recap_relative_path)
+    if not m:
+        return None
+    return f"longmont-c{m.group(1)}"
+
+
+def _extract_known_character_slugs(user_message: str) -> set[str]:
+    """Parse a known-character-slugs list from the scenario user message when present."""
+    marker = "Known character slugs:"
+    idx = user_message.find(marker)
+    if idx < 0:
+        return set()
+    tail = user_message[idx + len(marker):]
+    first_line = tail.splitlines()[0] if tail else ""
+    raw = [s.strip() for s in first_line.split(",")]
+    return {slug for slug in raw if slug}
+
+
+def _campaign_number_from_campaign_id(campaign_id: str | None) -> str | None:
+    if not campaign_id:
+        return None
+    m = re.fullmatch(r"longmont-c(\d+)", campaign_id.strip())
+    if not m:
+        return None
+    return m.group(1)
+
+
+def discover_campaign_pc_hub_dirs(corpus_root: Path, recap_relative_path: str) -> list[Path]:
+    """Return campaign-relevant PC hub directories.
+
+    Prefer the recap's campaign when recognizable. If that campaign has no PC hubs,
+    fall back to all other Longmont campaign PC hubs so the flow can still provide
+    minimal hints when available.
+    """
+    campaign_id = _campaign_id_from_recap_relative_path(recap_relative_path)
+    campaign_num = _campaign_number_from_campaign_id(campaign_id)
+    longmont_root = corpus_root / "Longmont Campaign"
+    if not longmont_root.is_dir():
+        return []
+
+    preferred_base: Path | None = None
+    if campaign_num:
+        candidate = longmont_root / f"Campaign {campaign_num}" / "PCs"
+        if candidate.is_dir():
+            preferred_base = candidate
+
+    def _hub_dirs(pcs_dir: Path) -> list[Path]:
+        return sorted([p for p in pcs_dir.iterdir() if p.is_dir() and p.name.strip()])
+
+    if preferred_base is not None:
+        preferred_hubs = _hub_dirs(preferred_base)
+        if preferred_hubs:
+            return preferred_hubs
+
+    fallback_hubs: list[Path] = []
+    for campaign_dir in sorted(longmont_root.glob("Campaign */PCs")):
+        if not campaign_dir.is_dir():
+            continue
+        fallback_hubs.extend(_hub_dirs(campaign_dir))
+    return fallback_hubs
+
+
+def _split_frontmatter_and_body(text: str) -> tuple[dict[str, str], str]:
+    text = text.strip()
+    if not text.startswith("---"):
+        return {}, text
+    lines = text.splitlines()
+    if len(lines) < 3 or lines[0].strip() != "---":
+        return {}, text
+    end_idx = None
+    for i in range(1, len(lines)):
+        if lines[i].strip() == "---":
+            end_idx = i
+            break
+    if end_idx is None:
+        return {}, text
+
+    frontmatter: dict[str, str] = {}
+    for line in lines[1:end_idx]:
+        if ":" not in line:
+            continue
+        key, value = line.split(":", 1)
+        k = key.strip()
+        v = value.strip().strip('"').strip("'")
+        if k:
+            frontmatter[k] = v
+    body = "\n".join(lines[end_idx + 1:]).strip()
+    return frontmatter, body
+
+
+def _clean_hint_fragment(text: str) -> str:
+    t = re.sub(r"`([^`]*)`", r"\1", text)
+    t = re.sub(r"\*\*([^*]+)\*\*", r"\1", t)
+    t = re.sub(r"\*([^*]+)\*", r"\1", t)
+    t = re.sub(r"\s+", " ", t).strip()
+    return t
+
+
+def _first_nonempty_paragraph(body: str) -> str:
+    chunks = [c.strip() for c in body.split("\n\n")]
+    for chunk in chunks:
+        if not chunk:
+            continue
+        lines = [ln.strip() for ln in chunk.splitlines() if ln.strip()]
+        if not lines:
+            continue
+        if lines[0].startswith("#"):
+            continue
+        joined = " ".join(lines)
+        if joined.startswith("|") and joined.endswith("|"):
+            continue
+        if joined.startswith("- "):
+            continue
+        return _clean_hint_fragment(joined)
+    return ""
+
+
+def _extract_species_class_line(body: str) -> str:
+    for raw in body.splitlines():
+        line = raw.strip()
+        if not line.startswith("|") or "Species / class" not in line:
+            continue
+        parts = [p.strip() for p in line.strip("|").split("|")]
+        if len(parts) >= 2:
+            return _clean_hint_fragment(parts[1])
+    return ""
+
+
+def _extract_timeline_intro_row(timeline_text: str) -> str:
+    for raw in timeline_text.splitlines():
+        line = raw.strip()
+        if not line.startswith("|"):
+            continue
+        if "Session" in line and "Beat" in line:
+            continue
+        if re.match(r"^\|\s*-+\s*\|", line):
+            continue
+        parts = [p.strip() for p in line.strip("|").split("|")]
+        if len(parts) < 3:
+            continue
+        session_token = _clean_hint_fragment(parts[0])
+        beat = _clean_hint_fragment(parts[1])
+        if not beat:
+            continue
+        if session_token:
+            return f"{session_token}: {beat}"
+        return beat
+    return ""
+
+
+def _read_text_if_exists(path: Path) -> str:
+    if not path.is_file():
+        return ""
+    return path.read_text(encoding="utf-8")
+
+
+def _build_pc_hint_entry(hub_dir: Path) -> str:
+    slug = hub_dir.name.strip()
+    if not slug:
+        return ""
+
+    dossier_candidates = sorted(hub_dir.glob("*_character_dossier*.md"))
+    dossier_text = _read_text_if_exists(dossier_candidates[0]) if dossier_candidates else ""
+    timeline_text = _read_text_if_exists(hub_dir / "timeline.md")
+
+    fragments: list[str] = []
+    if dossier_text:
+        fm, body = _split_frontmatter_and_body(dossier_text)
+        title = _clean_hint_fragment(fm.get("title", ""))
+        if title:
+            fragments.append(f"title={title}")
+        species_class = _extract_species_class_line(body)
+        if species_class:
+            fragments.append(f"species/class={species_class}")
+        para = _first_nonempty_paragraph(body)
+        if para:
+            fragments.append(para)
+
+    if timeline_text:
+        _, timeline_body = _split_frontmatter_and_body(timeline_text)
+        intro = _extract_timeline_intro_row(timeline_body)
+        if intro:
+            fragments.append(f"timeline={intro}")
+
+    if not fragments:
+        return ""
+
+    entry = f"- {slug}: " + " | ".join(fragments)
+    if len(entry) > _MAX_PC_HINT_CHARS_PER_ENTRY:
+        entry = entry[: _MAX_PC_HINT_CHARS_PER_ENTRY - 1].rstrip() + "…"
+    return entry
+
+
+def load_pc_identity_hints(
+    corpus_root: Path,
+    recap_relative_path: str,
+    user_message: str,
+) -> str:
+    """Load bounded PC identity hints for the recap's campaign context."""
+    hubs = discover_campaign_pc_hub_dirs(corpus_root, recap_relative_path)
+    if not hubs:
+        return ""
+
+    known_slugs = _extract_known_character_slugs(user_message)
+    entries: list[str] = []
+    total_chars = 0
+
+    for hub in hubs:
+        slug = hub.name.strip()
+        if known_slugs and slug not in known_slugs:
+            continue
+        entry = _build_pc_hint_entry(hub)
+        if not entry:
+            continue
+        projected = total_chars + len(entry) + (1 if entries else 0)
+        if projected > _MAX_PC_HINT_CHARS_TOTAL:
+            break
+        entries.append(entry)
+        total_chars = projected
+        if len(entries) >= _MAX_PC_HINTS:
+            break
+
+    return "\n".join(entries)
+
+
+def build_user_prompt(user_message: str, recap_text: str, pc_identity_hints: str = "") -> str:
+    hint_block = ""
+    if pc_identity_hints.strip():
+        hint_block = (
+            "\n\n---\n\n"
+            "**PC IDENTITY HINTS (fallback anchors):**\n"
+            "- Use these hints only when recap phrasing is terse or ambiguous.\n"
+            "- Never let hints override explicit recap facts.\n"
+            "- If recap text conflicts with a hint, trust the recap text.\n\n"
+            f"{pc_identity_hints.strip()}"
+        )
+    return f"{user_message}{hint_block}\n\n---\n\n**RECAP TEXT:**\n\n{recap_text}"
 
 
 # ---------------------------------------------------------------------------
@@ -276,7 +521,8 @@ def run_session_events_extraction(
     except FileNotFoundError as exc:
         return _error_result(str(exc))
 
-    user_prompt = build_user_prompt(user_message, recap_text)
+    pc_identity_hints = load_pc_identity_hints(corpus_root, recap_relative_path, user_message)
+    user_prompt = build_user_prompt(user_message, recap_text, pc_identity_hints)
     api_client = DungeonMindApiClient.wrap(client)
 
     try:

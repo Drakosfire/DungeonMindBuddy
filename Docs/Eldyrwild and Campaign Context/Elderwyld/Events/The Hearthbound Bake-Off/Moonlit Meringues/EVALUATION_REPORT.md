@@ -36,7 +36,6 @@
 
 - All gates passed on all pages.
 
-
 ## Salvage score
 
 - Mean: 1.0000

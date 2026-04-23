@@ -120,10 +120,10 @@ def test_apply_pre_state_delete_relative_paths(tmp_path: Path) -> None:
 
 
 @pytest.mark.parametrize("session", [1, 2, 3])
-def test_pre_state_c1_manifest_seeds_and_deletes_c2_pc(
+def test_pre_state_c1_manifest_seeds_without_deleting_c2_pc(
     tmp_path: Path, session: int
 ) -> None:
-    """C1 Stage B manifest removes duplicate C2 PC timelines and copies C1 seeds."""
+    """C1 Stage B manifest seeds C1 timelines and keeps Campaign 2 timelines intact."""
     man_path = (
         _REPO_ROOT
         / f"evals/session_recap_timeline_pass_vertical_slice/gold/step0_pre_state_manifest_session{session}_c1.json"
@@ -133,7 +133,7 @@ def test_pre_state_c1_manifest_seeds_and_deletes_c2_pc(
     row_prefix = f"| **{session}** |"
     for slug in _C1_STAGE_B_PC_SLUGS:
         c2 = root / f"Longmont Campaign/Campaign 2/PCs/{slug}/timeline.md"
-        assert not c2.is_file(), f"expected C2 PC timeline removed: {c2}"
+        assert c2.is_file(), f"expected C2 PC timeline retained: {c2}"
         c1 = root / f"Longmont Campaign/Campaign 1/PCs/{slug}/timeline.md"
         assert c1.is_file(), f"expected C1 PC timeline seeded: {c1}"
         body = c1.read_text(encoding="utf-8")

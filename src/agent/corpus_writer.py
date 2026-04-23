@@ -54,6 +54,8 @@ _LOCATIONS_CREATE_RE = re.compile(r"^Elderwyld/Locations/[^/]+\.md$")
 _PREP_SESSION_APPEND_RE = re.compile(
     r"^Longmont Campaign/Campaign \d+/Session Prep/[^/]+\.md$"
 )
+_LONGMONT_CAMPAIGN_PATH_RE = re.compile(r"^(Longmont Campaign/Campaign \d+)(?:/|$)")
+_LONGMONT_CAMPAIGN_ID_RE = re.compile(r"^longmont-c(\d+)$", re.IGNORECASE)
 
 # Forbidden basenames regardless of mode: the static character/world bible.
 _DENY_BASENAMES = re.compile(
@@ -288,7 +290,47 @@ def _format_timeline_row(session: int, beat: str, recap_relpath: str) -> str:
     return f"| **{session}** | {beat_clean} | `{recap_relpath}` |"
 
 
-def _find_timeline_for_slug(corpus_dir: Path, npc_slug: str) -> tuple[Path | None, list[str]]:
+def _campaign_scope_from_path(rel_path: str) -> str | None:
+    """Return ``Longmont Campaign/Campaign N`` prefix when present in a corpus-relative path."""
+    m = _LONGMONT_CAMPAIGN_PATH_RE.match(_normalize_relpath(rel_path))
+    return m.group(1) if m else None
+
+
+def _campaign_scope_from_campaign_id(campaign_id: str | None) -> str | None:
+    """Map ``longmont-cN`` IDs to ``Longmont Campaign/Campaign N`` path prefixes."""
+    cid = str(campaign_id or "").strip()
+    m = _LONGMONT_CAMPAIGN_ID_RE.match(cid)
+    if not m:
+        return None
+    return f"Longmont Campaign/Campaign {int(m.group(1))}"
+
+
+def _pick_preferred_campaign_candidate(
+    matches: list[Path],
+    root: Path,
+    *,
+    preferred_campaign_scope: str | None,
+) -> Path | None:
+    """Select one timeline candidate under ``preferred_campaign_scope`` when unique."""
+    if not preferred_campaign_scope:
+        return None
+    scoped = [
+        p
+        for p in matches
+        if _campaign_scope_from_path(p.relative_to(root).as_posix())
+        == preferred_campaign_scope
+    ]
+    if len(scoped) == 1:
+        return scoped[0]
+    return None
+
+
+def _find_timeline_for_slug(
+    corpus_dir: Path,
+    npc_slug: str,
+    *,
+    preferred_campaign_scope: str | None = None,
+) -> tuple[Path | None, list[str]]:
     """Return ``(unique_match, all_candidates)``. ``unique_match`` is ``None`` when ambiguous.
 
     Looks for ``NPCs/<slug>/timeline.md`` first; if no NPC-side hub exists, falls
@@ -303,6 +345,11 @@ def _find_timeline_for_slug(corpus_dir: Path, npc_slug: str) -> tuple[Path | Non
         rels = [p.relative_to(root).as_posix() for p in npc_matches]
         if len(npc_matches) == 1:
             return npc_matches[0], rels
+        preferred = _pick_preferred_campaign_candidate(
+            npc_matches, root, preferred_campaign_scope=preferred_campaign_scope
+        )
+        if preferred is not None:
+            return preferred, rels
         return None, rels
 
     pc_matches = sorted(
@@ -311,6 +358,11 @@ def _find_timeline_for_slug(corpus_dir: Path, npc_slug: str) -> tuple[Path | Non
     rels = [p.relative_to(root).as_posix() for p in pc_matches]
     if len(pc_matches) == 1:
         return pc_matches[0], rels
+    preferred = _pick_preferred_campaign_candidate(
+        pc_matches, root, preferred_campaign_scope=preferred_campaign_scope
+    )
+    if preferred is not None:
+        return preferred, rels
     return None, rels
 
 
@@ -321,6 +373,7 @@ def append_timeline_row(
     session: int,
     beat: str,
     recap_path: str,
+    campaign_id: str | None = None,
     timeline_path: str | None = None,
     dry_run: bool = True,
     confirm_token: str | None = None,
@@ -331,8 +384,9 @@ def append_timeline_row(
     table. ``recap_path`` must already exist under the corpus. The slug-only resolver
     looks under ``NPCs/<slug>/timeline.md`` first; when no NPC hub is found it falls
     back to ``PCs/<slug>/timeline.md`` (so PC slugs can be appended without an
-    explicit path). When multiple matches exist (e.g. campaign 1 vs campaign 2),
-    pass ``timeline_path`` explicitly to disambiguate.
+    explicit path). If multiple same-kind matches exist (e.g. campaign 1 vs campaign 2),
+    it first tries to disambiguate by campaign scope (``campaign_id`` or ``recap_path``);
+    if still ambiguous, pass ``timeline_path`` explicitly.
     """
     if not npc_slug or "/" in npc_slug:
         return {"ok": False, "error": "npc_slug must be a single folder slug (no slashes)"}
@@ -359,7 +413,14 @@ def append_timeline_row(
     if timeline_path:
         cleaned_tp = _normalize_relpath(timeline_path)
     else:
-        located, candidates = _find_timeline_for_slug(corpus_dir, npc_slug)
+        preferred_campaign_scope = _campaign_scope_from_campaign_id(
+            campaign_id
+        ) or _campaign_scope_from_path(recap_rel)
+        located, candidates = _find_timeline_for_slug(
+            corpus_dir,
+            npc_slug,
+            preferred_campaign_scope=preferred_campaign_scope,
+        )
         if located is None:
             if not candidates:
                 return {

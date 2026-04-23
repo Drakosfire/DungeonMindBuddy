@@ -365,7 +365,9 @@ def _planner_writer_tools_responses(
                 "`recap_path` must already exist under the corpus. The slug-only "
                 "resolver looks under `NPCs/<slug>/timeline.md` first and falls back "
                 "to `PCs/<slug>/timeline.md`; if multiple candidates exist (e.g. "
-                "campaign 1 vs campaign 2), pass `timeline_path` to disambiguate."
+                "campaign 1 vs campaign 2), it uses `campaign_id` (if provided) or "
+                "the campaign inferred from `recap_path` to disambiguate before "
+                "falling back to `timeline_path`."
             ),
             "strict": False,
             "parameters": {
@@ -380,6 +382,13 @@ def _planner_writer_tools_responses(
                     "recap_path": {
                         "type": "string",
                         "description": "Corpus-relative path to the recap `.md` (must exist).",
+                    },
+                    "campaign_id": {
+                        "type": "string",
+                        "description": (
+                            "Optional frontmatter campaign id (for example `longmont-c1`) "
+                            "to prefer same-campaign timeline matches."
+                        ),
                     },
                     "timeline_path": {
                         "type": "string",
@@ -444,7 +453,9 @@ def _planner_writer_tools_responses(
                 "`confirm_token` commits. ``recap_path`` must already exist under the corpus. "
                 "The slug-only resolver looks under `NPCs/<slug>/timeline.md` first and falls "
                 "back to `PCs/<slug>/timeline.md`; if multiple candidates exist (e.g. "
-                "campaign 1 vs campaign 2), pass `timeline_path` to disambiguate."
+                "campaign 1 vs campaign 2), it uses `campaign_id` (if provided) or "
+                "the campaign inferred from `recap_path` to disambiguate before "
+                "falling back to `timeline_path`."
             ),
             "strict": False,
             "parameters": {
@@ -459,6 +470,13 @@ def _planner_writer_tools_responses(
                     "recap_path": {
                         "type": "string",
                         "description": "Corpus-relative path to the recap `.md` (must exist).",
+                    },
+                    "campaign_id": {
+                        "type": "string",
+                        "description": (
+                            "Optional frontmatter campaign id (for example `longmont-c1`) "
+                            "to prefer same-campaign timeline matches."
+                        ),
                     },
                     "timeline_path": {
                         "type": "string",
@@ -1052,6 +1070,7 @@ def make_tool_dispatcher(
                     session=sess_int,
                     beat=str(args.get("beat", "")),
                     recap_path=str(args.get("recap_path", "")),
+                    campaign_id=(args.get("campaign_id") or None),
                     timeline_path=(args.get("timeline_path") or None),
                     dry_run=dry_run,
                     confirm_token=confirm_token,

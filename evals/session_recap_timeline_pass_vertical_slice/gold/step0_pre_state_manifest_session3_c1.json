@@ -1,14 +1,7 @@
 {
   "schema": "session_recap_timeline_pass_pre_state_v1",
-  "description": "C1 Session 3 Stage B: same isolation; strip Session 3 rows from C1 PC timelines.",
-  "delete_relative_paths": [
-    "Longmont Campaign/Campaign 2/PCs/baergrom/timeline.md",
-    "Longmont Campaign/Campaign 2/PCs/bonogo/timeline.md",
-    "Longmont Campaign/Campaign 2/PCs/caelynn/timeline.md",
-    "Longmont Campaign/Campaign 2/PCs/ephanna/timeline.md",
-    "Longmont Campaign/Campaign 2/PCs/karsemine/timeline.md",
-    "Longmont Campaign/Campaign 2/PCs/stafl/timeline.md"
-  ],
+  "description": "C1 Session 3 Stage B: same seeded C1 baseline; strip Session 3 rows from C1 PC timelines.",
+  "delete_relative_paths": [],
   "copy_into_corpus": [
     {
       "src_relative_to_slice": "gold/c1_pc_timeline_seeds/baergrom_timeline.md",
