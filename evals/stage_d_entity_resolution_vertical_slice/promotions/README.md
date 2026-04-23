@@ -27,35 +27,79 @@ and total cost in USD for quick inspection without opening the JSON.
 See `scripts/promote_stage_d_proposals.py` and `evals/stage_d_entity_resolution_vertical_slice/README.md`
 ("GM promotion workflow") for invocation examples.
 
-## Browser review UI
+## Embeddable review component
 
-`viewer.html` is a single-file, dependency-free reviewer for any
-`<campaign>_stage_d_promotion_<ts>.json` sidecar.
+`viewer.html` is an **embeddable component** that surfaces one proposal at
+a time with **Back / Next** navigation and **Accept / Defer / Reject**
+decisions. Designed to be dropped inline into any host context (a
+conversation surface, a notebook cell, a static review page) — it ships
+with a thin standalone harness for local file review but the component
+itself does not require drag-drop, file pickers, or a server.
 
-Two ways to open it:
+### Standalone use (auto-discovers sidecars)
 
 ```bash
-# Easiest — drag-drop the JSON into the page after opening directly:
-xdg-open evals/stage_d_entity_resolution_vertical_slice/promotions/viewer.html
-
-# Or serve and auto-load via ?file= query (works because fetch() is allowed
-# under http://):
 cd evals/stage_d_entity_resolution_vertical_slice/promotions
-python -m http.server 8765
-# then open: http://localhost:8765/viewer.html?file=longmont-c1_stage_d_promotion_20260422T235629Z.json
+python serve.py
+# then open: http://localhost:8765/viewer.html
 ```
 
-Per row you get: slug + display_name, session range, descriptors-seen chips,
-registry-collision flags, evidence summary, the LLM rationale (if present),
-and Accept / Defer / Reject buttons. Decisions persist in `localStorage`
-keyed by `(campaign_id, generated_at)`, so reloading the page does not
-lose state.
+`serve.py` exposes a `/api/sidecars` endpoint that scans this directory
+for every `*_stage_d_promotion_*.json` file (newest first, with
+campaign_id / generated_at / counts already extracted). The viewer calls
+it on load and mounts the most recent sidecar automatically — no file
+picker, no `?file=` parameter required. If multiple sidecars are present,
+a tiny dropdown appears so you can switch between them; otherwise it
+stays hidden. Hit **↻ refresh** after a new promotion run to re-scan.
 
-Click **Download decisions JSON** to export a
-`stage_d_promotion_decisions_v1` payload containing the promote_payloads
-for every row you accepted — the GM can paste those records directly into
-`_npc_registry.json` and re-run `scripts/lint_npc_registry.py`.
+`?file=<name>` is still honored as an explicit override for non-server
+contexts (e.g. opening directly under `python -m http.server`).
 
-The viewer is fully deterministic: it needs no network, no LLM, and reads
-only the fields the deterministic aggregation pass produces. The LLM
-recommendation, if present in the sidecar, is shown as advisory.
+### Per-proposal view
+
+The card shows: slug + display_name (or alias text → target slug, or
+unresolvable descriptor), session range, descriptors-seen chips, registry-
+collision flags, evidence summary, and the LLM rationale (if present,
+clearly tagged as advisory). A collapsible **raw record** section exposes
+the full JSON entry for deep inspection.
+
+### Keyboard shortcuts
+
+| Key | Action |
+|---|---|
+| `A` | Accept |
+| `D` | Defer |
+| `R` | Reject |
+| `U` | Undo current decision |
+| `J` / `→` / `N` | Next |
+| `K` / `←` / `P` | Back |
+| `E` | Toggle raw evidence |
+
+Decisions persist in `localStorage` keyed by
+`(campaign_id, generated_at)` so reloading does not wipe state.
+
+**Export decisions** writes a `stage_d_promotion_decisions_v2` blob with
+`promote_payloads` (NpcRegistryRecord-shaped, ready to paste into
+`_npc_registry.json`) and `accepted_aliases` (target_slug + alias_text
+pairs).
+
+### Embedding API
+
+The component exposes a minimal mount API for inline embedding:
+
+```js
+const handle = window.StageDProposalReview.mount(hostEl, payload, {
+  autoAdvance: true,             // advance to next item after a decision
+  persistKey:  "my-custom-key",  // override the localStorage key
+  onDecision:  (entry, value) => { /* … */ },
+  onComplete:  (decisions)      => { /* fired when all items decided */ },
+});
+handle.getDecisions();   // returns current decisions object
+handle.goTo(0);          // jump to a specific index
+handle.destroy();        // detach key handler + clear host
+```
+
+The component is fully deterministic: it makes no network calls, requires
+no LLM, and reads only the fields the deterministic aggregation pass
+produces. The LLM recommendation, if present in the sidecar, is shown as
+advisory under the "Model take" label.

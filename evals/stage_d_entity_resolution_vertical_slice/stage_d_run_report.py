@@ -307,6 +307,8 @@ def write_stage_d_cohort_proposals(
     scenario_id: str,
     campaign_id: str,
     proposals_root: Path | None = None,
+    source_events: list[dict[str, Any]] | None = None,
+    source_events_path: str | None = None,
 ) -> Path | None:
     """Aggregate Stage D proposals across the cohort into a propose-only sidecar.
 
@@ -414,6 +416,14 @@ def write_stage_d_cohort_proposals(
             aggregated_unresolvable.values(), key=lambda r: r["descriptor"].lower()
         ),
     }
+    # Embed the source events that the cohort consumed so downstream
+    # consumers (the promotion CLI and the GM review viewer) can resolve
+    # `evidence_event_indices: [1, 4, 5, 6]` to actual event records
+    # without re-running Stage D or guessing the events file path.
+    if source_events is not None:
+        payload["source_events"] = list(source_events)
+    if source_events_path:
+        payload["source_events_path"] = str(source_events_path)
     out_path.write_text(
         json.dumps(payload, indent=2, ensure_ascii=False, default=str),
         encoding="utf-8",

@@ -1,0 +1,57 @@
+{
+  "schema": "stage_d_cohort_proposals_v1",
+  "generated_at": "2026-04-22T23:35:37.063505+00:00",
+  "campaign_id": "longmont-c1",
+  "scenario_id": "stage_d_live_from_c_session3_c1",
+  "runner_version": "stage_d_runner_v0_deterministic",
+  "source_run_count": 1,
+  "proposed_records": [
+    {
+      "slug": "grishna",
+      "display_name": "Grishna",
+      "aliases": [],
+      "status": "candidate",
+      "first_session": 3,
+      "last_session": 3,
+      "hub_path": null,
+      "setting_hub_path": null,
+      "notes": "Proposed by Stage D deterministic v0; descriptor 'Grishna'; evidence event indices [2, 3].",
+      "appearance_runs": 1,
+      "sample_run_indices": [
+        0
+      ]
+    },
+    {
+      "slug": "kirfan",
+      "display_name": "Kirfan",
+      "aliases": [],
+      "status": "candidate",
+      "first_session": 3,
+      "last_session": 3,
+      "hub_path": null,
+      "setting_hub_path": null,
+      "notes": "Proposed by Stage D deterministic v0; descriptor 'Kirfan'; evidence event indices [1].",
+      "appearance_runs": 1,
+      "sample_run_indices": [
+        0
+      ]
+    },
+    {
+      "slug": "pippa",
+      "display_name": "Pippa",
+      "aliases": [],
+      "status": "candidate",
+      "first_session": 3,
+      "last_session": 3,
+      "hub_path": null,
+      "setting_hub_path": null,
+      "notes": "Proposed by Stage D deterministic v0; descriptor 'Pippa'; evidence event indices [0, 2, 4, 13].",
+      "appearance_runs": 1,
+      "sample_run_indices": [
+        0
+      ]
+    }
+  ],
+  "proposed_aliases": [],
+  "unresolvable": []
+}

@@ -52,7 +52,7 @@ from pydantic import BaseModel, Field  # noqa: E402
 
 from src.contracts.npc_registry import NpcRegistryRecord, load_npc_registry  # noqa: E402
 
-PROMOTION_SCHEMA_VERSION = "stage_d_promotion_v1"
+PROMOTION_SCHEMA_VERSION = "stage_d_promotion_v2"
 _DEFAULT_OUT_DIR = (
     _REPO_ROOT / "evals" / "stage_d_entity_resolution_vertical_slice" / "promotions"
 )
@@ -175,6 +175,10 @@ class EvidenceRow:
     descriptors_seen: list[str]
     evidence_event_indices: list[int]
     source_file: str
+    # Resolved event records for the indices above, when the cohort proposals
+    # file embedded `source_events`. Empty when reading legacy proposals or
+    # per-run sidecars that don't carry events through.
+    events: list[dict[str, Any]] = field(default_factory=list)
 
 
 @dataclass
@@ -287,6 +291,25 @@ def _extract_event_indices_from_notes(notes: Any) -> list[int]:
     return out
 
 
+def _resolve_events(
+    indices: list[int],
+    event_lookup: dict[int, dict[str, Any]] | None,
+) -> list[dict[str, Any]]:
+    """Look up event records for `indices` against an event lookup map.
+
+    Returns an empty list when the cohort/per-run source did not embed
+    `source_events`, so legacy artefacts gracefully degrade to indices-only.
+    """
+    if not indices or not event_lookup:
+        return []
+    out: list[dict[str, Any]] = []
+    for i in indices:
+        ev = event_lookup.get(int(i))
+        if isinstance(ev, dict):
+            out.append({"event_index": int(i), **ev})
+    return out
+
+
 def _ingest_record(
     *,
     rec: dict[str, Any],
@@ -294,6 +317,7 @@ def _ingest_record(
     session_number: Optional[int],
     source_file: str,
     aggregated: dict[str, AggregatedNewRecord],
+    event_lookup: dict[int, dict[str, Any]] | None = None,
 ) -> None:
     slug = str(rec.get("slug") or "").strip().lower()
     if not slug:
@@ -338,6 +362,7 @@ def _ingest_record(
             descriptors_seen=descriptors,
             evidence_event_indices=evidence_indices,
             source_file=source_file,
+            events=_resolve_events(evidence_indices, event_lookup),
         )
     )
     existing.appearance_runs += 1
@@ -350,6 +375,7 @@ def _ingest_alias(
     session_number: Optional[int],
     source_file: str,
     aggregated: dict[tuple[str, str], AggregatedAlias],
+    event_lookup: dict[int, dict[str, Any]] | None = None,
 ) -> None:
     target = str(rec.get("target_slug") or "").strip().lower()
     text = str(rec.get("alias_text") or "").strip()
@@ -367,6 +393,7 @@ def _ingest_alias(
             descriptors_seen=[],
             evidence_event_indices=[],
             source_file=source_file,
+            events=[],
         )
     )
     existing.appearance_runs += 1
@@ -379,6 +406,7 @@ def _ingest_unresolvable(
     session_number: Optional[int],
     source_file: str,
     aggregated: dict[str, AggregatedUnresolvable],
+    event_lookup: dict[int, dict[str, Any]] | None = None,
 ) -> None:
     desc = str(rec.get("descriptor") or "").strip()
     if not desc:
@@ -391,13 +419,19 @@ def _ingest_unresolvable(
             sample_reason=str(rec.get("reason") or rec.get("sample_reason") or "").strip(),
         )
         aggregated[key] = existing
+    # Unresolvables track the descriptor itself, but Stage D's deterministic
+    # output also encodes the originating event indices in the unresolvable's
+    # `reason` text on some paths. We extract them when present so the GM can
+    # still see the source events.
+    indices = _extract_event_indices_from_notes(rec.get("reason"))
     existing.evidence.append(
         EvidenceRow(
             scenario_id=scenario_id,
             session_number=session_number,
             descriptors_seen=[],
-            evidence_event_indices=[],
+            evidence_event_indices=indices,
             source_file=source_file,
+            events=_resolve_events(indices, event_lookup),
         )
     )
     existing.appearance_runs += 1
@@ -448,6 +482,15 @@ def aggregate_sources(
         sources_seen.append(str(path))
         scenario_id = str(payload.get("scenario_id") or "")
         session_number = _session_number_from_scenario(scenario_id)
+        # Build the index → event lookup for this cohort. Cohort proposals
+        # written by stage_d_run_report >= v0.2 embed `source_events` for
+        # exactly this purpose; older files still aggregate fine.
+        source_events = payload.get("source_events") or []
+        event_lookup: dict[int, dict[str, Any]] = {}
+        if isinstance(source_events, list):
+            for i, ev in enumerate(source_events):
+                if isinstance(ev, dict):
+                    event_lookup[i] = ev
         for rec in payload.get("proposed_records") or []:
             if isinstance(rec, dict):
                 _ingest_record(
@@ -456,6 +499,7 @@ def aggregate_sources(
                     session_number=session_number,
                     source_file=str(path),
                     aggregated=new_records,
+                    event_lookup=event_lookup,
                 )
         for rec in payload.get("proposed_aliases") or []:
             if isinstance(rec, dict):
@@ -465,6 +509,7 @@ def aggregate_sources(
                     session_number=session_number,
                     source_file=str(path),
                     aggregated=aliases,
+                    event_lookup=event_lookup,
                 )
         for rec in payload.get("unresolvable") or []:
             if isinstance(rec, dict):
@@ -474,6 +519,7 @@ def aggregate_sources(
                     session_number=session_number,
                     source_file=str(path),
                     aggregated=unresolvables,
+                    event_lookup=event_lookup,
                 )
 
     for path in per_run_paths:
@@ -485,6 +531,8 @@ def aggregate_sources(
         scenario_id = str(payload.get("scenario_id") or "")
         session_number = _session_number_from_scenario(scenario_id)
         out = payload.get("stage_d_output") or {}
+        # Per-run sidecars don't currently embed events; legacy degrade.
+        event_lookup = {}
         for rec in out.get("proposed_new_records") or []:
             if isinstance(rec, dict):
                 _ingest_record(
@@ -493,6 +541,7 @@ def aggregate_sources(
                     session_number=session_number,
                     source_file=str(path),
                     aggregated=new_records,
+                    event_lookup=event_lookup,
                 )
         for rec in out.get("proposed_aliases") or []:
             if isinstance(rec, dict):
@@ -502,6 +551,7 @@ def aggregate_sources(
                     session_number=session_number,
                     source_file=str(path),
                     aggregated=aliases,
+                    event_lookup=event_lookup,
                 )
         for rec in out.get("unresolvable") or []:
             if isinstance(rec, dict):
@@ -511,6 +561,7 @@ def aggregate_sources(
                     session_number=session_number,
                     source_file=str(path),
                     aggregated=unresolvables,
+                    event_lookup=event_lookup,
                 )
 
     return AggregationResult(
@@ -855,6 +906,9 @@ def _serialise_evidence(rows: list[EvidenceRow]) -> list[dict[str, Any]]:
                 "descriptors_seen": list(row.descriptors_seen),
                 "evidence_event_indices": list(row.evidence_event_indices),
                 "source_file": row.source_file,
+                # Resolved event records, when the cohort proposals file
+                # carried `source_events`. Empty for legacy/per-run sources.
+                "events": [dict(e) for e in (row.events or [])],
             }
         )
     return out

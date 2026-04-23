@@ -1,0 +1,77 @@
+{
+  "schema": "stage_d_promotion_v2",
+  "generated_at": "2026-04-23T01:00:24.386072+00:00",
+  "campaign_id": "longmont-c2",
+  "model_id": null,
+  "llm_enabled": false,
+  "cost": {
+    "total_usd": 0.0,
+    "calls": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "cached_tokens": 0
+  },
+  "sources": [
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/proposals/longmont-c2__stage_d_live_from_c_session20__stage_d_proposals_20260423T010002Z.json"
+  ],
+  "registry_size": 9,
+  "proposed_new_records": [
+    {
+      "slug": "professor_tealeaf",
+      "display_name": "Professor Tealeaf",
+      "aliases": [],
+      "first_session": 20,
+      "last_session": 20,
+      "appearance_runs": 1,
+      "session_appearances": [
+        20
+      ],
+      "registry_collision_flags": {
+        "slug_collision": false,
+        "display_name_overlap": null,
+        "pc_collision": false
+      },
+      "evidence": [
+        {
+          "scenario_id": "stage_d_live_from_c_session20",
+          "session_number": 20,
+          "descriptors_seen": [
+            "Professor Tealeaf"
+          ],
+          "evidence_event_indices": [
+            18
+          ],
+          "source_file": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/proposals/longmont-c2__stage_d_live_from_c_session20__stage_d_proposals_20260423T010002Z.json",
+          "events": [
+            {
+              "event_index": 18,
+              "event_name": "Stafl finds tainted meat in the provisions",
+              "event_class": "investigation",
+              "participants": [
+                "stafl",
+                "karsemine"
+              ],
+              "referenced_slugs": [],
+              "location": "camp outside town",
+              "outcomes": [
+                "Karesmine rounds up the horses and keeps them properly cared for while a storm builds in the distance.",
+                "Stafl sorts through the provisions and suspects someone smuggled tainted meat in from Mirathorn.",
+                "He finds the bacon untouched but discovers cleverly disguised tainted meat mixed into the jerky crates.",
+                "The tainted and untainted meat cannot be separated, so the whole batch will have to be burned."
+              ],
+              "time_scope": "scene",
+              "certainty": "observed",
+              "evidence_id": "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md"
+            }
+          ]
+        }
+      ],
+      "recommendation_source": "deterministic_only",
+      "recommendation": null,
+      "confidence": null,
+      "rationale": null
+    }
+  ],
+  "proposed_aliases": [],
+  "unresolvable": []
+}

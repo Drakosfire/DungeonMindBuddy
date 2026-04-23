@@ -1,0 +1,676 @@
+{
+  "schema": "stage_d_promotion_v2",
+  "generated_at": "2026-04-23T01:00:24.254445+00:00",
+  "campaign_id": "longmont-c1",
+  "model_id": null,
+  "llm_enabled": false,
+  "cost": {
+    "total_usd": 0.0,
+    "calls": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "cached_tokens": 0
+  },
+  "sources": [
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/proposals/longmont-c1__stage_d_live_from_c_session1_c1__stage_d_proposals_20260423T010001Z.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/proposals/longmont-c1__stage_d_live_from_c_session2_c1__stage_d_proposals_20260423T010001Z.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/proposals/longmont-c1__stage_d_live_from_c_session3_c1__stage_d_proposals_20260423T010001Z.json"
+  ],
+  "registry_size": 3,
+  "proposed_new_records": [
+    {
+      "slug": "glowkindle",
+      "display_name": "Glowkindle",
+      "aliases": [],
+      "first_session": 1,
+      "last_session": 2,
+      "appearance_runs": 2,
+      "session_appearances": [
+        1,
+        2
+      ],
+      "registry_collision_flags": {
+        "slug_collision": false,
+        "display_name_overlap": null,
+        "pc_collision": false
+      },
+      "evidence": [
+        {
+          "scenario_id": "stage_d_live_from_c_session1_c1",
+          "session_number": 1,
+          "descriptors_seen": [
+            "Glowkindle"
+          ],
+          "evidence_event_indices": [
+            1,
+            4,
+            5,
+            6
+          ],
+          "source_file": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/proposals/longmont-c1__stage_d_live_from_c_session1_c1__stage_d_proposals_20260423T010001Z.json",
+          "events": [
+            {
+              "event_index": 1,
+              "event_name": "Learning about Stonebridge and the job board",
+              "event_class": "discovery",
+              "participants": [
+                "karsemine",
+                "stafl",
+                "caelynn",
+                "ephanna",
+                "bonogo",
+                "baergrom"
+              ],
+              "referenced_slugs": [
+                "grishna",
+                "glowkindle"
+              ],
+              "location": "Stonebridge",
+              "outcomes": [
+                "The town has The River's Edge Pub, run by Grishna, and a local job board.",
+                "Glowkindle has posted a help request for mercenaries to clean up rats."
+              ],
+              "time_scope": "scene",
+              "certainty": "observed",
+              "evidence_id": "Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md"
+            },
+            {
+              "event_index": 4,
+              "event_name": "Arriving at The Wizard's Tower Brewing Company",
+              "event_class": "travel",
+              "participants": [
+                "karsemine",
+                "stafl",
+                "caelynn",
+                "ephanna",
+                "bonogo",
+                "baergrom"
+              ],
+              "referenced_slugs": [
+                "glowkindle"
+              ],
+              "location": "The Wizard's Tower Brewing Company",
+              "outcomes": [
+                "The group reaches The Wizard's Tower Brewing Company after a few more hours of walking.",
+                "The tap room is lit by magical crystals and is empty except for gnomes brewing inside."
+              ],
+              "time_scope": "scene",
+              "certainty": "observed",
+              "evidence_id": "Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md"
+            },
+            {
+              "event_index": 5,
+              "event_name": "Accepting Glowkindle's rat-cleanup contract",
+              "event_class": "conversation",
+              "participants": [
+                "karsemine",
+                "stafl",
+                "caelynn",
+                "ephanna",
+                "bonogo",
+                "baergrom"
+              ],
+              "referenced_slugs": [
+                "glowkindle"
+              ],
+              "location": "The Wizard's Tower Brewing Company",
+              "outcomes": [
+                "Glowkindle explains that giant rats attacked his excavation crew after they broke through a wall expanding the fermentation cellar.",
+                "The party agrees to clear out the rats for 25 gold pieces each."
+              ],
+              "time_scope": "scene",
+              "certainty": "observed",
+              "evidence_id": "Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md"
+            },
+            {
+              "event_index": 6,
+              "event_name": "Fighting the giant rats in the fermentation cellar",
+              "event_class": "combat",
+              "participants": [
+                "karsemine",
+                "stafl",
+                "caelynn",
+                "ephanna",
+                "bonogo",
+                "baergrom"
+              ],
+              "referenced_slugs": [
+                "glowkindle"
+              ],
+              "location": "the fermentation cellar",
+              "outcomes": [
+                "The team fights giant rats in Glowkindle's fermentation cellar.",
+                "Multiple party members go down during the fight, and many health potions are drunk.",
+                "A mysterious cat owl is tossed into the room to help.",
+                "The combat is described as a hard first battle for the team."
+              ],
+              "time_scope": "scene",
+              "certainty": "observed",
+              "evidence_id": "Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md"
+            }
+          ]
+        },
+        {
+          "scenario_id": "stage_d_live_from_c_session2_c1",
+          "session_number": 2,
+          "descriptors_seen": [
+            "Glowkindle"
+          ],
+          "evidence_event_indices": [
+            3
+          ],
+          "source_file": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/proposals/longmont-c1__stage_d_live_from_c_session2_c1__stage_d_proposals_20260423T010001Z.json",
+          "events": [
+            {
+              "event_index": 3,
+              "event_name": "Negotiation with Glowkindle over the alchemy room",
+              "event_class": "social_conflict",
+              "participants": [
+                "karsemine",
+                "stafl",
+                "caelynn",
+                "ephanna",
+                "bonogo",
+                "baergrom",
+                "glowkindle"
+              ],
+              "referenced_slugs": [
+                "glowkindle"
+              ],
+              "location": "Wizard's Tower",
+              "outcomes": [
+                "The party negotiated with Glowkindle for the right to stash gear in the hidden alchemy room.",
+                "They established that the room was not part of the original contract, and neither was the rest of the place.",
+                "Glowkindle agreed to let them use the hidden alchemy room as storage."
+              ],
+              "time_scope": "scene",
+              "certainty": "observed",
+              "evidence_id": "Longmont Campaign/Campaign 1/Session Recaps/Session 2 - Finishing the Job.md"
+            }
+          ]
+        }
+      ],
+      "recommendation_source": "deterministic_only",
+      "recommendation": null,
+      "confidence": null,
+      "rationale": null
+    },
+    {
+      "slug": "grishna",
+      "display_name": "Grishna",
+      "aliases": [],
+      "first_session": 1,
+      "last_session": 3,
+      "appearance_runs": 2,
+      "session_appearances": [
+        1,
+        3
+      ],
+      "registry_collision_flags": {
+        "slug_collision": false,
+        "display_name_overlap": null,
+        "pc_collision": false
+      },
+      "evidence": [
+        {
+          "scenario_id": "stage_d_live_from_c_session1_c1",
+          "session_number": 1,
+          "descriptors_seen": [
+            "Grishna"
+          ],
+          "evidence_event_indices": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6
+          ],
+          "source_file": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/proposals/longmont-c1__stage_d_live_from_c_session1_c1__stage_d_proposals_20260423T010001Z.json",
+          "events": [
+            {
+              "event_index": 1,
+              "event_name": "Learning about Stonebridge and the job board",
+              "event_class": "discovery",
+              "participants": [
+                "karsemine",
+                "stafl",
+                "caelynn",
+                "ephanna",
+                "bonogo",
+                "baergrom"
+              ],
+              "referenced_slugs": [
+                "grishna",
+                "glowkindle"
+              ],
+              "location": "Stonebridge",
+              "outcomes": [
+                "The town has The River's Edge Pub, run by Grishna, and a local job board.",
+                "Glowkindle has posted a help request for mercenaries to clean up rats."
+              ],
+              "time_scope": "scene",
+              "certainty": "observed",
+              "evidence_id": "Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md"
+            },
+            {
+              "event_index": 2,
+              "event_name": "Drinking at The River's Edge Pub",
+              "event_class": "social_conflict",
+              "participants": [
+                "karsemine",
+                "stafl",
+                "caelynn",
+                "ephanna",
+                "bonogo",
+                "baergrom"
+              ],
+              "referenced_slugs": [
+                "grishna"
+              ],
+              "location": "The River's Edge Pub",
+              "outcomes": [
+                "The group drinks at The River's Edge Pub to wash away the road.",
+                "Grishna tells them Glowkindle has been through and gives directions to The Wizard's Tower Brewing Co.",
+                "Bonogo buys a firkin of ale for two gold and enjoys it."
+              ],
+              "time_scope": "scene",
+              "certainty": "observed",
+              "evidence_id": "Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md"
+            },
+            {
+              "event_index": 3,
+              "event_name": "Following the river trail to the big rock",
+              "event_class": "travel",
+              "participants": [
+                "karsemine",
+                "stafl",
+                "caelynn",
+                "ephanna",
+                "bonogo",
+                "baergrom"
+              ],
+              "referenced_slugs": [
+                "grishna"
+              ],
+              "location": "along the river outside Stonebridge",
+              "outcomes": [
+                "The party follows a clear trail along the river to an enormous boulder.",
+                "The boulder appears to be the foot of a once-enormous statue."
+              ],
+              "time_scope": "scene",
+              "certainty": "observed",
+              "evidence_id": "Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md"
+            },
+            {
+              "event_index": 4,
+              "event_name": "Arriving at The Wizard's Tower Brewing Company",
+              "event_class": "travel",
+              "participants": [
+                "karsemine",
+                "stafl",
+                "caelynn",
+                "ephanna",
+                "bonogo",
+                "baergrom"
+              ],
+              "referenced_slugs": [
+                "glowkindle"
+              ],
+              "location": "The Wizard's Tower Brewing Company",
+              "outcomes": [
+                "The group reaches The Wizard's Tower Brewing Company after a few more hours of walking.",
+                "The tap room is lit by magical crystals and is empty except for gnomes brewing inside."
+              ],
+              "time_scope": "scene",
+              "certainty": "observed",
+              "evidence_id": "Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md"
+            },
+            {
+              "event_index": 5,
+              "event_name": "Accepting Glowkindle's rat-cleanup contract",
+              "event_class": "conversation",
+              "participants": [
+                "karsemine",
+                "stafl",
+                "caelynn",
+                "ephanna",
+                "bonogo",
+                "baergrom"
+              ],
+              "referenced_slugs": [
+                "glowkindle"
+              ],
+              "location": "The Wizard's Tower Brewing Company",
+              "outcomes": [
+                "Glowkindle explains that giant rats attacked his excavation crew after they broke through a wall expanding the fermentation cellar.",
+                "The party agrees to clear out the rats for 25 gold pieces each."
+              ],
+              "time_scope": "scene",
+              "certainty": "observed",
+              "evidence_id": "Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md"
+            },
+            {
+              "event_index": 6,
+              "event_name": "Fighting the giant rats in the fermentation cellar",
+              "event_class": "combat",
+              "participants": [
+                "karsemine",
+                "stafl",
+                "caelynn",
+                "ephanna",
+                "bonogo",
+                "baergrom"
+              ],
+              "referenced_slugs": [
+                "glowkindle"
+              ],
+              "location": "the fermentation cellar",
+              "outcomes": [
+                "The team fights giant rats in Glowkindle's fermentation cellar.",
+                "Multiple party members go down during the fight, and many health potions are drunk.",
+                "A mysterious cat owl is tossed into the room to help.",
+                "The combat is described as a hard first battle for the team."
+              ],
+              "time_scope": "scene",
+              "certainty": "observed",
+              "evidence_id": "Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md"
+            }
+          ]
+        },
+        {
+          "scenario_id": "stage_d_live_from_c_session3_c1",
+          "session_number": 3,
+          "descriptors_seen": [
+            "Grishna"
+          ],
+          "evidence_event_indices": [
+            2,
+            3
+          ],
+          "source_file": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/proposals/longmont-c1__stage_d_live_from_c_session3_c1__stage_d_proposals_20260423T010001Z.json",
+          "events": [
+            {
+              "event_index": 2,
+              "event_name": "Beer and music at the River's Edge Pub",
+              "event_class": "conversation",
+              "participants": [
+                "pippa",
+                "grishna",
+                "stafl"
+              ],
+              "referenced_slugs": [],
+              "location": "River's Edge Pub in StoneBridge",
+              "outcomes": [
+                "Pippa, the party, and Grishna share welcome beers at the River's Edge Pub.",
+                "Stafl joins another bard in a jam and impresses the room with his song craft.",
+                "The crew retells their Wizard’s Tower Brewery adventure to the evening patrons."
+              ],
+              "time_scope": "scene",
+              "certainty": "observed",
+              "evidence_id": "Longmont Campaign/Campaign 1/Session Recaps/Session 3 - The Stone Bridge Flood.md"
+            },
+            {
+              "event_index": 3,
+              "event_name": "Storm worsens over StoneBridge",
+              "event_class": "disaster",
+              "participants": [
+                "pippa",
+                "grishna",
+                "stafl",
+                "caelynn",
+                "ephanna",
+                "bonogo",
+                "baergrom",
+                "karsemine"
+              ],
+              "referenced_slugs": [],
+              "location": "StoneBridge and the River's Edge Pub",
+              "outcomes": [
+                "The loud drumming on the roof turns out to be torrential rain.",
+                "A horrible storm builds rapidly and threatens the town.",
+                "Pippa excuses herself to check on Bubbles as the weather deteriorates."
+              ],
+              "time_scope": "scene",
+              "certainty": "observed",
+              "evidence_id": "Longmont Campaign/Campaign 1/Session Recaps/Session 3 - The Stone Bridge Flood.md"
+            }
+          ]
+        }
+      ],
+      "recommendation_source": "deterministic_only",
+      "recommendation": null,
+      "confidence": null,
+      "rationale": null
+    },
+    {
+      "slug": "kirfan",
+      "display_name": "Kirfan",
+      "aliases": [],
+      "first_session": 3,
+      "last_session": 3,
+      "appearance_runs": 1,
+      "session_appearances": [
+        3
+      ],
+      "registry_collision_flags": {
+        "slug_collision": false,
+        "display_name_overlap": null,
+        "pc_collision": false
+      },
+      "evidence": [
+        {
+          "scenario_id": "stage_d_live_from_c_session3_c1",
+          "session_number": 3,
+          "descriptors_seen": [
+            "Kirfan"
+          ],
+          "evidence_event_indices": [
+            1
+          ],
+          "source_file": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/proposals/longmont-c1__stage_d_live_from_c_session3_c1__stage_d_proposals_20260423T010001Z.json",
+          "events": [
+            {
+              "event_index": 1,
+              "event_name": "Recover debris from the broken riverside structure",
+              "event_class": "investigation",
+              "participants": [
+                "bonogo",
+                "stafl",
+                "baergrom"
+              ],
+              "referenced_slugs": [
+                "kirfan"
+              ],
+              "location": "upriver river route",
+              "outcomes": [
+                "The party helps pull up debris from the broken structure upriver.",
+                "Bonogo dives into the water to investigate what was stuck in the fisherman’s net.",
+                "Stafl and Baergrom haul the net to the surface and reveal it is part of roof corner beams, not a fish."
+              ],
+              "time_scope": "scene",
+              "certainty": "observed",
+              "evidence_id": "Longmont Campaign/Campaign 1/Session Recaps/Session 3 - The Stone Bridge Flood.md"
+            }
+          ]
+        }
+      ],
+      "recommendation_source": "deterministic_only",
+      "recommendation": null,
+      "confidence": null,
+      "rationale": null
+    },
+    {
+      "slug": "pippa",
+      "display_name": "Pippa",
+      "aliases": [],
+      "first_session": 3,
+      "last_session": 3,
+      "appearance_runs": 1,
+      "session_appearances": [
+        3
+      ],
+      "registry_collision_flags": {
+        "slug_collision": false,
+        "display_name_overlap": null,
+        "pc_collision": false
+      },
+      "evidence": [
+        {
+          "scenario_id": "stage_d_live_from_c_session3_c1",
+          "session_number": 3,
+          "descriptors_seen": [
+            "Pippa"
+          ],
+          "evidence_event_indices": [
+            0,
+            2,
+            4,
+            13
+          ],
+          "source_file": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/proposals/longmont-c1__stage_d_live_from_c_session3_c1__stage_d_proposals_20260423T010001Z.json",
+          "events": [
+            {
+              "event_index": 0,
+              "event_name": "Ride to StoneBridge with Pippa and Bubbles",
+              "event_class": "travel",
+              "participants": [
+                "caelynn",
+                "ephanna",
+                "stafl",
+                "baergrom",
+                "bonogo",
+                "karsemine",
+                "pippa",
+                "bubbles"
+              ],
+              "referenced_slugs": [],
+              "location": "from the river road to StoneBridge and the dock/barge landing",
+              "outcomes": [
+                "Pippa hitchhikes Bubbles the Float Goat to her wagon full of kegs.",
+                "Caelynn, Ephanna, Stafl, Baergrom, and Karsemine accept Pippa's ride to StoneBridge.",
+                "The group travels by wagon and barge toward StoneBridge."
+              ],
+              "time_scope": "scene",
+              "certainty": "observed",
+              "evidence_id": "Longmont Campaign/Campaign 1/Session Recaps/Session 3 - The Stone Bridge Flood.md"
+            },
+            {
+              "event_index": 2,
+              "event_name": "Beer and music at the River's Edge Pub",
+              "event_class": "conversation",
+              "participants": [
+                "pippa",
+                "grishna",
+                "stafl"
+              ],
+              "referenced_slugs": [],
+              "location": "River's Edge Pub in StoneBridge",
+              "outcomes": [
+                "Pippa, the party, and Grishna share welcome beers at the River's Edge Pub.",
+                "Stafl joins another bard in a jam and impresses the room with his song craft.",
+                "The crew retells their Wizard’s Tower Brewery adventure to the evening patrons."
+              ],
+              "time_scope": "scene",
+              "certainty": "observed",
+              "evidence_id": "Longmont Campaign/Campaign 1/Session Recaps/Session 3 - The Stone Bridge Flood.md"
+            },
+            {
+              "event_index": 4,
+              "event_name": "Pippa cries out for Bubbles",
+              "event_class": "conversation",
+              "participants": [
+                "pippa"
+              ],
+              "referenced_slugs": [
+                "bubbles"
+              ],
+              "location": "outside the River's Edge Pub",
+              "outcomes": [
+                "Pippa is found soaked and panicked in rushing floodwater.",
+                "She says Bubbles is missing and that the lead has broken.",
+                "The party realizes Bubbles is in immediate danger."
+              ],
+              "time_scope": "scene",
+              "certainty": "observed",
+              "evidence_id": "Longmont Campaign/Campaign 1/Session Recaps/Session 3 - The Stone Bridge Flood.md"
+            },
+            {
+              "event_index": 13,
+              "event_name": "Bonogo is rescued and the town settles",
+              "event_class": "transfer",
+              "participants": [
+                "bonogo",
+                "caelynn",
+                "stafl",
+                "ephanna",
+                "karsemine",
+                "baergrom",
+                "pippa"
+              ],
+              "referenced_slugs": [
+                "bubbles"
+              ],
+              "location": "River's Edge Pub and StoneBridge",
+              "outcomes": [
+                "Bonogo is rescued from the flood.",
+                "The wet adventurers return to the pub to dry off.",
+                "StoneBridge is left damp but safe, and the party realizes they have saved Bubbles the Float Goat."
+              ],
+              "time_scope": "scene",
+              "certainty": "observed",
+              "evidence_id": "Longmont Campaign/Campaign 1/Session Recaps/Session 3 - The Stone Bridge Flood.md"
+            }
+          ]
+        }
+      ],
+      "recommendation_source": "deterministic_only",
+      "recommendation": null,
+      "confidence": null,
+      "rationale": null
+    }
+  ],
+  "proposed_aliases": [],
+  "unresolvable": [
+    {
+      "descriptor": "flaming, magma-infused spider monstrosity",
+      "sample_reason": "generic descriptor with no name evidence; Stage D v0 deterministic heuristics declined to merge into registry or new_candidate without a substring match",
+      "appearance_runs": 1,
+      "evidence": [
+        {
+          "scenario_id": "stage_d_live_from_c_session1_c1",
+          "session_number": 1,
+          "descriptors_seen": [],
+          "evidence_event_indices": [],
+          "source_file": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/proposals/longmont-c1__stage_d_live_from_c_session1_c1__stage_d_proposals_20260423T010001Z.json",
+          "events": []
+        }
+      ],
+      "recommendation_source": "deterministic_only",
+      "recommendation": null,
+      "confidence": null,
+      "rationale": null,
+      "proposed_canonical_slug": null
+    },
+    {
+      "descriptor": "mysterious cat owl",
+      "sample_reason": "generic descriptor with no name evidence; Stage D v0 deterministic heuristics declined to merge into registry or new_candidate without a substring match",
+      "appearance_runs": 1,
+      "evidence": [
+        {
+          "scenario_id": "stage_d_live_from_c_session1_c1",
+          "session_number": 1,
+          "descriptors_seen": [],
+          "evidence_event_indices": [],
+          "source_file": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/proposals/longmont-c1__stage_d_live_from_c_session1_c1__stage_d_proposals_20260423T010001Z.json",
+          "events": []
+        }
+      ],
+      "recommendation_source": "deterministic_only",
+      "recommendation": null,
+      "confidence": null,
+      "rationale": null,
+      "proposed_canonical_slug": null
+    }
+  ]
+}

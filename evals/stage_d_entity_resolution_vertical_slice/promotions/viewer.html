@@ -2,251 +2,305 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<title>Stage D Promotion Review</title>
+<title>Stage D Proposal Review</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <style>
-  :root {
-    --bg: #0f1115;
-    --bg-2: #161922;
-    --bg-3: #1d212d;
-    --fg: #e6e8ee;
-    --fg-mute: #8a93a6;
-    --accent: #7aa2f7;
-    --good: #9ece6a;
-    --warn: #e0af68;
-    --bad: #f7768e;
-    --neutral: #565f89;
-    --border: #2a3043;
-    --mono: ui-monospace, SFMono-Regular, "JetBrains Mono", Menlo, Consolas, monospace;
-  }
-  * { box-sizing: border-box; }
-  html, body {
-    margin: 0; padding: 0; background: var(--bg); color: var(--fg);
+  /*
+   * Stage D Proposal Review — embeddable component
+   *
+   * All component styles are scoped under `.sdr-root`. The component renders
+   * one proposal at a time with Back / Next navigation and Accept / Defer /
+   * Reject decisions. Designed to be dropped inline into any host context —
+   * it does not style html/body/button globally.
+   *
+   * Public API (window.StageDProposalReview):
+   *   mount(el, payload, options?)
+   *     el       — host DOM element (will be cleared and populated)
+   *     payload  — parsed promotion-sidecar JSON
+   *                (schema: stage_d_promotion_v1)
+   *     options  — { autoAdvance?: bool, persistKey?: string,
+   *                  onDecision?: (entry, decision) => void,
+   *                  onComplete?: (decisions) => void }
+   *     returns  — { destroy(), getDecisions(), goTo(index) }
+   *
+   * The HTML file below also acts as a thin standalone harness: when opened
+   * with ?file=<relative-json> it fetches and mounts. No drag-drop.
+   */
+
+  /* host-page styles for the harness — NOT part of the component */
+  html, body { margin: 0; padding: 0; background: #0f1115; color: #e6e8ee;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    font-size: 14px; line-height: 1.5;
+    font-size: 14px; line-height: 1.5; min-height: 100vh; }
+  .harness {
+    max-width: 760px; margin: 32px auto; padding: 0 16px;
   }
-  header {
-    padding: 16px 24px; border-bottom: 1px solid var(--border);
-    background: var(--bg-2); position: sticky; top: 0; z-index: 10;
+  .harness-header {
+    display: flex; align-items: baseline; justify-content: space-between;
+    margin-bottom: 16px; gap: 16px;
   }
-  .header-row { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
-  h1 { margin: 0; font-size: 18px; font-weight: 600; }
-  .meta { color: var(--fg-mute); font-size: 12px; font-family: var(--mono); }
-  .badge {
-    display: inline-block; padding: 2px 8px; border-radius: 4px;
-    font-size: 11px; font-family: var(--mono); font-weight: 500;
-    background: var(--bg-3); color: var(--fg-mute); border: 1px solid var(--border);
+  .harness-title { font-size: 13px; color: #8a93a6; font-family: ui-monospace, Menlo, monospace; }
+  .harness-empty {
+    padding: 48px 24px; text-align: center; color: #8a93a6;
+    border: 1px dashed #2a3043; border-radius: 8px;
   }
-  .badge.warn { background: #3a2e1a; color: var(--warn); border-color: #5a4520; }
-  .badge.bad  { background: #3a1f25; color: var(--bad);  border-color: #5a2a33; }
-  .badge.good { background: #1f3522; color: var(--good); border-color: #2a4a30; }
-  .badge.mute { background: var(--bg-3); color: var(--fg-mute); }
-  .badge.accent { background: #1c2a44; color: var(--accent); border-color: #2a3a5a; }
-  button {
-    font: inherit; cursor: pointer; padding: 6px 12px; border-radius: 4px;
-    background: var(--bg-3); color: var(--fg); border: 1px solid var(--border);
-    transition: background 0.1s, border-color 0.1s;
+  .harness-empty code { background: #1d212d; padding: 2px 6px; border-radius: 3px; }
+  .harness-picker {
+    display: flex; align-items: center; gap: 10px; margin-bottom: 12px;
+    font-size: 12px; color: #8a93a6; font-family: ui-monospace, Menlo, monospace;
   }
-  button:hover { background: #252a3a; border-color: #3a4258; }
-  button.accept { background: #1f3522; border-color: #2a4a30; color: var(--good); }
-  button.accept:hover { background: #2a4a30; }
-  button.reject { background: #3a1f25; border-color: #5a2a33; color: var(--bad); }
-  button.reject:hover { background: #5a2a33; }
-  button.defer  { background: #3a2e1a; border-color: #5a4520; color: var(--warn); }
-  button.defer:hover { background: #5a4520; }
-  button.active { box-shadow: inset 0 0 0 2px currentColor; }
-  button.primary { background: var(--accent); color: #0f1115; border-color: var(--accent); font-weight: 500; }
-  button.primary:hover { background: #92b3f8; }
-  input[type="file"] { display: none; }
-  label.file-btn { display: inline-block; }
-  main { padding: 24px; max-width: 1200px; margin: 0 auto; }
-  .empty {
-    padding: 48px 24px; text-align: center; color: var(--fg-mute);
-    border: 2px dashed var(--border); border-radius: 8px; margin: 24px 0;
+  .harness-picker select {
+    background: #1d212d; color: #e6e8ee; border: 1px solid #2a3043;
+    border-radius: 4px; padding: 4px 8px; font-family: inherit; font-size: 12px;
+    flex: 1; max-width: 480px;
   }
-  .empty.drag-over { border-color: var(--accent); background: rgba(122, 162, 247, 0.05); }
-  .section {
-    margin-bottom: 32px;
-    background: var(--bg-2); border: 1px solid var(--border); border-radius: 8px;
+  .harness-picker select:focus { outline: 1px solid #7aa2f7; }
+  .harness-picker button {
+    background: transparent; border: 1px solid #2a3043; color: #8a93a6;
+    border-radius: 3px; padding: 3px 8px; cursor: pointer;
+    font-family: inherit; font-size: 11px;
   }
-  .section-header {
-    padding: 12px 16px; border-bottom: 1px solid var(--border);
-    font-weight: 600; display: flex; align-items: center; gap: 12px;
+  .harness-picker button:hover { color: #e6e8ee; border-color: #565f89; }
+
+  /* component styles — scoped under .sdr-root */
+  .sdr-root {
+    --sdr-bg: #161922;
+    --sdr-bg-2: #1d212d;
+    --sdr-bg-3: #252a3a;
+    --sdr-fg: #e6e8ee;
+    --sdr-fg-mute: #8a93a6;
+    --sdr-fg-dim: #565f89;
+    --sdr-border: #2a3043;
+    --sdr-accent: #7aa2f7;
+    --sdr-good: #9ece6a;
+    --sdr-warn: #e0af68;
+    --sdr-bad: #f7768e;
+    --sdr-mono: ui-monospace, SFMono-Regular, "JetBrains Mono", Menlo, Consolas, monospace;
+    background: var(--sdr-bg);
+    border: 1px solid var(--sdr-border);
+    border-radius: 8px;
+    overflow: hidden;
+    color: var(--sdr-fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
   }
-  .section-header .count { color: var(--fg-mute); font-weight: 400; font-family: var(--mono); }
-  .row {
-    padding: 16px; border-bottom: 1px solid var(--border);
-    display: grid; grid-template-columns: 1fr auto; gap: 12px;
+  .sdr-root *, .sdr-root *::before, .sdr-root *::after { box-sizing: border-box; }
+  .sdr-root button { font: inherit; }
+
+  .sdr-progress {
+    padding: 10px 16px; background: var(--sdr-bg-2);
+    border-bottom: 1px solid var(--sdr-border);
+    display: flex; align-items: center; gap: 12px; font-size: 12px;
+    color: var(--sdr-fg-mute); font-family: var(--sdr-mono);
   }
-  .row:last-child { border-bottom: none; }
-  .row.decided-accept { background: rgba(158, 206, 106, 0.04); }
-  .row.decided-reject { background: rgba(247, 118, 142, 0.04); opacity: 0.6; }
-  .row.decided-defer  { background: rgba(224, 175, 104, 0.04); }
-  .row-main { min-width: 0; }
-  .row-actions {
-    display: flex; flex-direction: column; gap: 4px; align-items: flex-end;
+  .sdr-progress-bar {
+    flex: 1; height: 4px; background: var(--sdr-border); border-radius: 2px;
+    overflow: hidden;
   }
-  .row-actions .btn-group { display: flex; gap: 4px; }
-  .slug {
-    font-family: var(--mono); font-size: 16px; font-weight: 600; color: var(--fg);
+  .sdr-progress-fill {
+    height: 100%; background: var(--sdr-accent);
+    transition: width 0.2s ease;
   }
-  .display-name { color: var(--fg-mute); font-size: 13px; margin-left: 8px; }
-  .row-meta {
-    display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; align-items: center;
+  .sdr-bucket-tag {
+    text-transform: uppercase; font-size: 10px; letter-spacing: 0.05em;
+    color: var(--sdr-accent);
   }
-  .descriptors { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 4px; }
-  .descriptor-chip {
-    background: var(--bg-3); border: 1px solid var(--border);
-    padding: 2px 8px; border-radius: 12px; font-size: 12px; color: var(--fg);
+
+  .sdr-card { padding: 24px; }
+  .sdr-empty {
+    padding: 48px 24px; text-align: center; color: var(--sdr-fg-mute);
   }
-  .evidence {
-    margin-top: 12px; font-family: var(--mono); font-size: 12px; color: var(--fg-mute);
+  .sdr-empty.done { color: var(--sdr-good); }
+
+  .sdr-headline {
+    display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;
+    margin-bottom: 4px;
   }
-  details { margin-top: 8px; }
-  summary {
-    cursor: pointer; color: var(--fg-mute); font-size: 12px;
-    user-select: none; padding: 4px 0;
+  .sdr-slug {
+    font-family: var(--sdr-mono); font-size: 22px; font-weight: 600;
+    color: var(--sdr-fg);
   }
-  summary:hover { color: var(--fg); }
-  pre {
-    margin: 8px 0 0 0; padding: 8px 12px; background: var(--bg);
-    border: 1px solid var(--border); border-radius: 4px;
-    font-family: var(--mono); font-size: 11px; color: var(--fg-mute);
-    overflow-x: auto; white-space: pre-wrap; word-break: break-word;
+  .sdr-display-name { color: var(--sdr-fg-mute); font-size: 16px; }
+  .sdr-subline { color: var(--sdr-fg-dim); font-size: 13px; margin-bottom: 16px; }
+  .sdr-subline code {
+    background: var(--sdr-bg-3); padding: 1px 6px; border-radius: 3px;
+    font-family: var(--sdr-mono); color: var(--sdr-fg-mute);
   }
-  .rationale {
-    margin-top: 8px; padding: 8px 12px; background: var(--bg-3);
-    border-left: 3px solid var(--neutral); border-radius: 2px;
-    font-size: 13px; color: var(--fg-mute); font-style: italic;
+
+  .sdr-section {
+    margin-top: 16px; padding-top: 14px;
+    border-top: 1px solid var(--sdr-border);
   }
-  .rationale .label { font-style: normal; color: var(--fg); margin-right: 6px; font-weight: 500; }
-  .summary-bar {
-    position: sticky; bottom: 0; background: var(--bg-2);
-    border-top: 1px solid var(--border); padding: 12px 24px;
-    display: flex; align-items: center; gap: 16px; z-index: 10;
+  .sdr-section:first-of-type { border-top: none; padding-top: 0; margin-top: 0; }
+  .sdr-label {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em;
+    color: var(--sdr-fg-dim); margin-bottom: 6px;
   }
-  .summary-bar .counts { display: flex; gap: 12px; font-family: var(--mono); font-size: 13px; }
-  .spacer { flex: 1; }
-  .filter-bar {
-    padding: 12px 16px; border-bottom: 1px solid var(--border);
-    display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+  .sdr-row { display: flex; flex-wrap: wrap; gap: 6px; }
+  .sdr-pill {
+    display: inline-block; padding: 3px 10px; border-radius: 12px;
+    font-size: 12px; background: var(--sdr-bg-3); color: var(--sdr-fg);
+    border: 1px solid var(--sdr-border);
   }
-  .filter-bar input[type="search"] {
-    background: var(--bg); color: var(--fg); border: 1px solid var(--border);
-    padding: 6px 10px; border-radius: 4px; font: inherit; flex: 1; min-width: 200px;
+  .sdr-pill.mono { font-family: var(--sdr-mono); }
+  .sdr-pill.good { background: rgba(158, 206, 106, 0.10); color: var(--sdr-good); border-color: rgba(158, 206, 106, 0.25); }
+  .sdr-pill.warn { background: rgba(224, 175, 104, 0.10); color: var(--sdr-warn); border-color: rgba(224, 175, 104, 0.25); }
+  .sdr-pill.bad  { background: rgba(247, 118, 142, 0.10); color: var(--sdr-bad);  border-color: rgba(247, 118, 142, 0.25); }
+  .sdr-pill.accent { background: rgba(122, 162, 247, 0.10); color: var(--sdr-accent); border-color: rgba(122, 162, 247, 0.25); }
+
+  .sdr-rationale {
+    margin-top: 8px; padding: 10px 12px;
+    background: var(--sdr-bg-2); border-left: 3px solid var(--sdr-fg-dim);
+    border-radius: 2px; font-size: 13px; color: var(--sdr-fg-mute);
   }
-  .row-aliases { font-size: 12px; color: var(--fg-mute); margin-top: 4px; }
-  .row-aliases code {
-    background: var(--bg-3); padding: 1px 6px; border-radius: 3px;
-    font-family: var(--mono); color: var(--fg);
+  .sdr-rationale strong { color: var(--sdr-fg); margin-right: 6px; font-weight: 500; }
+
+  .sdr-evidence-toggle {
+    display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
+    color: var(--sdr-fg-mute); font-size: 12px; margin-top: 8px;
+    background: none; border: none; padding: 0;
   }
+  .sdr-evidence-toggle:hover { color: var(--sdr-fg); }
+  .sdr-evidence-body {
+    margin-top: 10px; background: var(--sdr-bg); border: 1px solid var(--sdr-border);
+    border-radius: 4px; padding: 10px 12px; font-family: var(--sdr-mono);
+    font-size: 11px; color: var(--sdr-fg-mute); white-space: pre-wrap;
+    word-break: break-word; max-height: 320px; overflow-y: auto;
+  }
+  .sdr-events { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+  .sdr-event {
+    background: var(--sdr-bg); border: 1px solid var(--sdr-border);
+    border-radius: 4px; padding: 10px 12px;
+  }
+  .sdr-event-head {
+    display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+    margin-bottom: 6px;
+  }
+  .sdr-event-idx {
+    font-family: var(--sdr-mono); font-size: 10px; color: var(--sdr-fg-dim);
+    background: var(--sdr-bg-3); padding: 1px 6px; border-radius: 2px;
+  }
+  .sdr-event-name { font-weight: 500; color: var(--sdr-fg); }
+  .sdr-event-class {
+    font-family: var(--sdr-mono); font-size: 10px; text-transform: uppercase;
+    letter-spacing: 0.05em; color: var(--sdr-accent);
+  }
+  .sdr-event-meta {
+    font-size: 11px; color: var(--sdr-fg-dim); margin-bottom: 6px;
+  }
+  .sdr-event-meta code {
+    font-family: var(--sdr-mono); background: var(--sdr-bg-3);
+    padding: 0 4px; border-radius: 2px; color: var(--sdr-fg-mute);
+  }
+  .sdr-event-outcomes {
+    list-style: none; padding-left: 0; margin: 0;
+    font-size: 13px; color: var(--sdr-fg);
+  }
+  .sdr-event-outcomes li { padding: 2px 0; }
+  .sdr-event-outcomes li::before { content: "• "; color: var(--sdr-fg-dim); }
+  .sdr-event-evidence {
+    margin-top: 6px; font-size: 10px; color: var(--sdr-fg-dim);
+    font-family: var(--sdr-mono);
+  }
+  .sdr-mark {
+    background: rgba(122, 162, 247, 0.18); color: var(--sdr-accent);
+    padding: 0 3px; border-radius: 2px; font-weight: 500;
+  }
+  .sdr-events-empty {
+    margin-top: 8px; padding: 10px 12px; font-size: 12px;
+    color: var(--sdr-fg-dim); background: var(--sdr-bg);
+    border: 1px dashed var(--sdr-border); border-radius: 4px;
+  }
+
+  .sdr-decision-banner {
+    margin-top: 14px; padding: 8px 12px; border-radius: 4px;
+    display: flex; align-items: center; gap: 8px; font-size: 13px;
+  }
+  .sdr-decision-banner.accept { background: rgba(158, 206, 106, 0.10); color: var(--sdr-good); }
+  .sdr-decision-banner.defer  { background: rgba(224, 175, 104, 0.10); color: var(--sdr-warn); }
+  .sdr-decision-banner.reject { background: rgba(247, 118, 142, 0.10); color: var(--sdr-bad); }
+  .sdr-decision-banner button {
+    margin-left: auto; background: transparent; border: 1px solid currentColor;
+    color: inherit; padding: 2px 10px; border-radius: 3px; cursor: pointer;
+    font-size: 11px;
+  }
+  .sdr-decision-banner button:hover { background: rgba(255,255,255,0.05); }
+
+  .sdr-actions {
+    padding: 16px 24px; background: var(--sdr-bg-2);
+    border-top: 1px solid var(--sdr-border);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .sdr-actions .sdr-spacer { flex: 1; }
+  .sdr-actions button.sdr-action {
+    padding: 8px 16px; border-radius: 4px; cursor: pointer;
+    border: 1px solid var(--sdr-border); background: var(--sdr-bg-3);
+    color: var(--sdr-fg); font-size: 13px; font-weight: 500;
+    transition: background 0.1s, border-color 0.1s, color 0.1s;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .sdr-actions button.sdr-action:hover { background: #2f3548; }
+  .sdr-actions button.sdr-action.accept { color: var(--sdr-good); border-color: rgba(158, 206, 106, 0.3); }
+  .sdr-actions button.sdr-action.accept:hover { background: rgba(158, 206, 106, 0.15); }
+  .sdr-actions button.sdr-action.defer  { color: var(--sdr-warn); border-color: rgba(224, 175, 104, 0.3); }
+  .sdr-actions button.sdr-action.defer:hover  { background: rgba(224, 175, 104, 0.15); }
+  .sdr-actions button.sdr-action.reject { color: var(--sdr-bad); border-color: rgba(247, 118, 142, 0.3); }
+  .sdr-actions button.sdr-action.reject:hover { background: rgba(247, 118, 142, 0.15); }
+  .sdr-actions button.sdr-action.active { box-shadow: inset 0 0 0 2px currentColor; }
+  .sdr-actions kbd {
+    display: inline-block; min-width: 16px; padding: 0 4px; border-radius: 2px;
+    background: rgba(0,0,0,0.3); color: var(--sdr-fg-dim);
+    font-family: var(--sdr-mono); font-size: 10px; text-align: center;
+  }
+  .sdr-nav {
+    padding: 10px 16px; background: var(--sdr-bg-2);
+    border-top: 1px solid var(--sdr-border);
+    display: flex; align-items: center; gap: 8px; font-size: 12px;
+    color: var(--sdr-fg-mute); font-family: var(--sdr-mono);
+  }
+  .sdr-nav button {
+    background: var(--sdr-bg-3); border: 1px solid var(--sdr-border);
+    color: var(--sdr-fg); padding: 4px 10px; border-radius: 3px; cursor: pointer;
+    font-size: 12px;
+  }
+  .sdr-nav button:hover:not(:disabled) { background: #2f3548; }
+  .sdr-nav button:disabled { opacity: 0.4; cursor: not-allowed; }
+  .sdr-nav .sdr-spacer { flex: 1; }
+  .sdr-nav .sdr-counts span { margin-right: 10px; }
+  .sdr-nav .sdr-counts .accept { color: var(--sdr-good); }
+  .sdr-nav .sdr-counts .defer  { color: var(--sdr-warn); }
+  .sdr-nav .sdr-counts .reject { color: var(--sdr-bad); }
+  .sdr-nav .sdr-export {
+    background: transparent; border: 1px solid var(--sdr-fg-dim);
+    color: var(--sdr-fg-mute); font-family: inherit;
+  }
+  .sdr-nav .sdr-export:hover { color: var(--sdr-fg); border-color: var(--sdr-fg-mute); background: transparent; }
 </style>
 </head>
 <body>
-<header>
-  <div class="header-row">
-    <h1>Stage D Promotion Review</h1>
-    <span id="campaign-badge" class="badge accent" hidden></span>
-    <span id="generated-meta" class="meta"></span>
-    <div class="spacer"></div>
-    <label class="file-btn">
-      <input type="file" id="file-input" accept=".json,application/json" />
-      <button onclick="document.getElementById('file-input').click()">Load JSON</button>
-    </label>
-    <button id="reset-decisions">Reset decisions</button>
-  </div>
-</header>
 
-<main>
-  <div id="dropzone" class="empty">
-    <p><strong>Drop a Stage D promotion sidecar here</strong></p>
-    <p class="meta">e.g. <code>promotions/longmont-c1_stage_d_promotion_*.json</code></p>
-    <p class="meta">— or click <em>Load JSON</em> above —</p>
+<div class="harness">
+  <div class="harness-header">
+    <div class="harness-title">stage-d proposal review</div>
+    <div class="harness-title" id="harness-meta"></div>
   </div>
-  <div id="content" hidden>
-    <section class="section" id="section-records">
-      <div class="section-header">
-        <span>Proposed new records</span>
-        <span class="count" id="count-records"></span>
-      </div>
-      <div class="filter-bar">
-        <input type="search" id="filter-records" placeholder="Filter by slug, display name, descriptor…" />
-        <label><input type="checkbox" id="hide-decided-records" /> Hide decided</label>
-      </div>
-      <div id="rows-records"></div>
-    </section>
-    <section class="section" id="section-aliases">
-      <div class="section-header">
-        <span>Proposed aliases</span>
-        <span class="count" id="count-aliases"></span>
-      </div>
-      <div id="rows-aliases"></div>
-    </section>
-    <section class="section" id="section-unresolvable">
-      <div class="section-header">
-        <span>Unresolvable (advisory)</span>
-        <span class="count" id="count-unresolvable"></span>
-      </div>
-      <div id="rows-unresolvable"></div>
-    </section>
+  <div id="picker" class="harness-picker" hidden>
+    <span>review:</span>
+    <select id="picker-select"></select>
+    <button id="picker-refresh" title="re-scan promotions/ on disk">↻ refresh</button>
   </div>
-</main>
-
-<div class="summary-bar" id="summary-bar" hidden>
-  <div class="counts">
-    <span class="badge good"><span id="n-accept">0</span> accept</span>
-    <span class="badge bad"><span id="n-reject">0</span> reject</span>
-    <span class="badge warn"><span id="n-defer">0</span> defer</span>
-    <span class="badge mute"><span id="n-pending">0</span> pending</span>
+  <div id="root">
+    <div class="harness-empty">
+      <p>Looking for promotion sidecars on disk…</p>
+    </div>
   </div>
-  <div class="spacer"></div>
-  <button id="download-decisions" class="primary">Download decisions JSON</button>
 </div>
 
 <script>
 (() => {
-  let DOC = null;
-  let DECISIONS = {};
-
-  const STORAGE_PREFIX = "stage_d_promotion_decisions_v1::";
-
-  const $ = (id) => document.getElementById(id);
-
-  function storageKey() {
-    if (!DOC) return null;
-    return STORAGE_PREFIX + (DOC.campaign_id || "unknown") + "::" + (DOC.generated_at || "");
-  }
-
-  function loadDecisions() {
-    const k = storageKey();
-    if (!k) return {};
-    try { return JSON.parse(localStorage.getItem(k) || "{}"); }
-    catch { return {}; }
-  }
-
-  function persistDecisions() {
-    const k = storageKey();
-    if (k) localStorage.setItem(k, JSON.stringify(DECISIONS));
-  }
-
-  function decisionKey(bucket, slug_or_idx) {
-    return bucket + "::" + slug_or_idx;
-  }
-
-  function setDecision(bucket, slug, value) {
-    const k = decisionKey(bucket, slug);
-    if (DECISIONS[k] === value) {
-      delete DECISIONS[k];
-    } else {
-      DECISIONS[k] = value;
-    }
-    persistDecisions();
-    render();
-  }
-
-  function getDecision(bucket, slug) {
-    return DECISIONS[decisionKey(bucket, slug)] || null;
-  }
+  // --------------------------------------------------------------------
+  // Stage D Proposal Review — pure component, no I/O dependencies.
+  // --------------------------------------------------------------------
 
   function escapeHtml(s) {
     if (s == null) return "";
@@ -255,275 +309,739 @@
     })[c]);
   }
 
-  function flagBadges(flags) {
-    if (!flags) return "";
+  function flattenQueue(payload) {
+    // Combine the three buckets into a single review queue. Each entry
+    // remembers its bucket so the renderer can show the right context.
     const out = [];
-    if (flags.slug_collision) out.push('<span class="badge bad">slug collision</span>');
-    if (flags.display_name_overlap) {
-      out.push(`<span class="badge warn">name overlap → ${escapeHtml(flags.display_name_overlap)}</span>`);
+    for (const r of (payload.proposed_new_records || [])) {
+      out.push({ bucket: "records", key: r.slug, data: r });
     }
-    if (flags.pc_collision) out.push('<span class="badge bad">PC collision</span>');
-    if (out.length === 0) out.push('<span class="badge good">no collisions</span>');
-    return out.join(" ");
+    for (const r of (payload.proposed_aliases || [])) {
+      out.push({
+        bucket: "aliases",
+        key: `${r.target_slug}::${r.alias_text}`,
+        data: r,
+      });
+    }
+    for (const r of (payload.unresolvable || [])) {
+      out.push({
+        bucket: "unresolvable",
+        key: r.descriptor || r.slug || JSON.stringify(r).slice(0, 64),
+        data: r,
+      });
+    }
+    return out;
   }
 
   function evidenceSummary(evidence) {
-    if (!evidence || evidence.length === 0) return "<em>(no evidence rows)</em>";
+    if (!evidence || evidence.length === 0) return null;
     const sessions = new Set();
-    const allDescriptors = new Set();
     let totalEventIndices = 0;
     for (const e of evidence) {
       if (e.session_number != null) sessions.add(e.session_number);
-      for (const d of (e.descriptors_seen || [])) allDescriptors.add(d);
       totalEventIndices += (e.evidence_event_indices || []).length;
     }
     const sessionList = [...sessions].sort((a, b) => a - b);
-    return `${evidence.length} evidence row${evidence.length === 1 ? "" : "s"} · sessions [${sessionList.join(", ")}] · ${totalEventIndices} event refs`;
+    return {
+      rowCount: evidence.length,
+      sessions: sessionList,
+      eventRefs: totalEventIndices,
+    };
   }
 
-  function recCard(rec, bucket) {
-    const key = bucket === "records" ? rec.slug
-              : bucket === "aliases"  ? `${rec.target_slug}::${rec.alias_text}`
-              : (rec.descriptor || rec.slug || JSON.stringify(rec).slice(0, 40));
-    const decision = getDecision(bucket, key);
-    const cls = decision ? `decided-${decision}` : "";
+  function uniqueDescriptors(entry) {
+    const seen = new Set();
+    const data = entry.data;
+    for (const e of (data.evidence || [])) {
+      for (const d of (e.descriptors_seen || [])) seen.add(d);
+    }
+    if (data.descriptor) seen.add(data.descriptor);
+    if (data.alias_text) seen.add(data.alias_text);
+    return [...seen];
+  }
 
-    const sessions = rec.session_appearances || (rec.first_session != null ? [rec.first_session] : []);
-    const sessionRange = sessions.length > 0
-      ? (rec.first_session === rec.last_session
-          ? `S${rec.first_session}`
-          : `S${rec.first_session}–S${rec.last_session}`)
-      : "";
+  function bucketLabel(bucket) {
+    if (bucket === "records") return "Proposed new NPC";
+    if (bucket === "aliases") return "Proposed alias";
+    return "Unresolvable item";
+  }
 
-    const descChips = (() => {
-      const seen = new Set();
-      for (const e of (rec.evidence || [])) {
-        for (const d of (e.descriptors_seen || [])) seen.add(d);
-      }
-      if (rec.descriptor) seen.add(rec.descriptor);
-      if (rec.alias_text) seen.add(rec.alias_text);
-      return [...seen].slice(0, 8).map(d =>
-        `<span class="descriptor-chip">${escapeHtml(d)}</span>`
-      ).join("");
-    })();
+  function bucketActionHelp(bucket) {
+    if (bucket === "records") {
+      return "Accept = promote as candidate registry record · Reject = drop the proposal · Defer = revisit later";
+    }
+    if (bucket === "aliases") {
+      return "Accept = add this alias text to the target slug's aliases[] · Reject = drop · Defer = revisit later";
+    }
+    return "Accept = mark for follow-up (e.g. queue for v1 LLM coreference) · Reject = drop entirely · Defer = leave unresolvable";
+  }
 
-    const aliasesLine = (rec.aliases && rec.aliases.length > 0)
-      ? `<div class="row-aliases">aliases: ${rec.aliases.map(a => `<code>${escapeHtml(a)}</code>`).join(" ")}</div>`
-      : "";
-
-    const ratLine = rec.rationale
-      ? `<div class="rationale"><span class="label">${escapeHtml(rec.recommendation_source || "model")} · ${escapeHtml(rec.recommendation || "?")} (${escapeHtml(rec.confidence || "?")})</span>${escapeHtml(rec.rationale)}</div>`
-      : "";
-
-    const targetLine = rec.target_slug
-      ? `<div class="row-aliases">target slug: <code>${escapeHtml(rec.target_slug)}</code> · alias: <code>${escapeHtml(rec.alias_text || "")}</code></div>`
-      : "";
-
-    const reasonLine = rec.reason
-      ? `<div class="row-aliases">reason: ${escapeHtml(rec.reason)}</div>`
-      : "";
-
-    const headerHtml = bucket === "records"
-      ? `<span class="slug">${escapeHtml(rec.slug || "(no slug)")}</span><span class="display-name">${escapeHtml(rec.display_name || "")}</span>`
-      : bucket === "aliases"
-      ? `<span class="slug">${escapeHtml(rec.alias_text || "(no alias text)")}</span><span class="display-name">→ ${escapeHtml(rec.target_slug || "(no target)")}</span>`
-      : `<span class="slug">${escapeHtml(rec.descriptor || rec.slug || "(unresolvable)")}</span>`;
-
-    return `
-      <div class="row ${cls}" data-bucket="${bucket}" data-key="${escapeHtml(key)}">
-        <div class="row-main">
-          <div>${headerHtml}</div>
-          ${aliasesLine}
-          ${targetLine}
-          ${reasonLine}
-          <div class="row-meta">
-            ${sessionRange ? `<span class="badge accent">${sessionRange}</span>` : ""}
-            ${rec.appearance_runs ? `<span class="badge mute">${rec.appearance_runs} runs</span>` : ""}
-            ${bucket === "records" ? flagBadges(rec.registry_collision_flags) : ""}
-          </div>
-          ${descChips ? `<div class="descriptors">${descChips}</div>` : ""}
-          <div class="evidence">${escapeHtml(evidenceSummary(rec.evidence))}</div>
-          ${ratLine}
-          <details>
-            <summary>raw evidence + payload</summary>
-            <pre>${escapeHtml(JSON.stringify(rec, null, 2))}</pre>
-          </details>
+  function renderHeadline(entry) {
+    const data = entry.data;
+    if (entry.bucket === "records") {
+      return `
+        <div class="sdr-headline">
+          <span class="sdr-slug">${escapeHtml(data.slug || "(no slug)")}</span>
+          <span class="sdr-display-name">${escapeHtml(data.display_name || "")}</span>
         </div>
-        <div class="row-actions">
-          <div class="btn-group">
-            <button class="accept ${decision === 'accept' ? 'active' : ''}" data-action="accept">Accept</button>
-            <button class="defer ${decision === 'defer' ? 'active' : ''}" data-action="defer">Defer</button>
-            <button class="reject ${decision === 'reject' ? 'active' : ''}" data-action="reject">Reject</button>
-          </div>
-          ${decision ? `<span class="badge mute">decided: ${decision}</span>` : `<span class="badge mute">pending</span>`}
+      `;
+    }
+    if (entry.bucket === "aliases") {
+      return `
+        <div class="sdr-headline">
+          <span class="sdr-slug">"${escapeHtml(data.alias_text || "")}"</span>
+          <span class="sdr-display-name">→ ${escapeHtml(data.target_slug || "")}</span>
+        </div>
+      `;
+    }
+    return `
+      <div class="sdr-headline">
+        <span class="sdr-slug">${escapeHtml(data.descriptor || data.slug || "(unresolvable)")}</span>
+      </div>
+    `;
+  }
+
+  function renderSubline(entry) {
+    const data = entry.data;
+    if (entry.bucket === "records") {
+      const sessions = (data.first_session === data.last_session)
+        ? `session ${data.first_session}`
+        : `sessions ${data.first_session}–${data.last_session}`;
+      const aliases = (data.aliases && data.aliases.length > 0)
+        ? ` · existing aliases: ${data.aliases.map(a => `<code>${escapeHtml(a)}</code>`).join(", ")}`
+        : "";
+      return `<div class="sdr-subline">${escapeHtml(sessions)}${aliases}</div>`;
+    }
+    if (entry.bucket === "aliases") {
+      return `<div class="sdr-subline">add to existing record <code>${escapeHtml(data.target_slug || "")}</code></div>`;
+    }
+    if (data.reason) {
+      return `<div class="sdr-subline">${escapeHtml(data.reason)}</div>`;
+    }
+    return "";
+  }
+
+  function renderDescriptors(entry) {
+    const descs = uniqueDescriptors(entry);
+    if (descs.length === 0) return "";
+    return `
+      <div class="sdr-section">
+        <div class="sdr-label">Descriptors seen in events</div>
+        <div class="sdr-row">${descs.map(d => `<span class="sdr-pill">${escapeHtml(d)}</span>`).join("")}</div>
+      </div>
+    `;
+  }
+
+  function renderEvidenceSummary(entry) {
+    const summary = evidenceSummary(entry.data.evidence);
+    if (!summary) return "";
+    return `
+      <div class="sdr-section">
+        <div class="sdr-label">Evidence</div>
+        <div class="sdr-row">
+          <span class="sdr-pill mono">${summary.rowCount} row${summary.rowCount === 1 ? "" : "s"}</span>
+          ${summary.sessions.length > 0 ? `<span class="sdr-pill mono accent">sessions ${summary.sessions.join(", ")}</span>` : ""}
+          <span class="sdr-pill mono">${summary.eventRefs} event ref${summary.eventRefs === 1 ? "" : "s"}</span>
         </div>
       </div>
     `;
   }
 
-  function renderBucket(bucket, items) {
-    const container = $(`rows-${bucket}`);
-    const countEl = $(`count-${bucket}`);
-    countEl.textContent = `(${items.length})`;
-    if (items.length === 0) {
-      container.innerHTML = `<div style="padding: 24px; text-align: center; color: var(--fg-mute);">none</div>`;
-      return;
+  function highlightDescriptors(text, descriptors) {
+    if (!text) return "";
+    let safe = escapeHtml(text);
+    for (const d of (descriptors || [])) {
+      if (!d) continue;
+      const pat = new RegExp(`(${d.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`, "gi");
+      safe = safe.replace(pat, '<span class="sdr-mark">$1</span>');
+    }
+    return safe;
+  }
+
+  function renderEventCard(ev, descriptors) {
+    const idx       = ev.event_index != null ? `[${ev.event_index}]` : "";
+    const name      = ev.event_name || "(unnamed event)";
+    const cls       = ev.event_class || "";
+    const location  = ev.location || "";
+    const time      = ev.time_scope || "";
+    const certainty = ev.certainty || "";
+    const refs      = (ev.referenced_slugs || []).filter(Boolean);
+    const parts     = (ev.participants    || []).filter(Boolean);
+    const outcomes  = (ev.outcomes        || []).filter(Boolean);
+    const eid       = ev.evidence_id || "";
+    return `
+      <div class="sdr-event">
+        <div class="sdr-event-head">
+          <span class="sdr-event-idx">${escapeHtml(idx)}</span>
+          <span class="sdr-event-name">${highlightDescriptors(name, descriptors)}</span>
+          ${cls ? `<span class="sdr-event-class">${escapeHtml(cls)}</span>` : ""}
+        </div>
+        <div class="sdr-event-meta">
+          ${location ? `at <code>${escapeHtml(location)}</code> ` : ""}
+          ${time ? `· ${escapeHtml(time)} ` : ""}
+          ${certainty ? `· ${escapeHtml(certainty)}` : ""}
+          ${refs.length ? `<br/>references: ${refs.map(r => `<code>${escapeHtml(r)}</code>`).join(", ")}` : ""}
+          ${parts.length ? `<br/>participants: ${parts.map(p => `<code>${escapeHtml(p)}</code>`).join(", ")}` : ""}
+        </div>
+        ${outcomes.length ? `<ul class="sdr-event-outcomes">${
+          outcomes.map(o => `<li>${highlightDescriptors(o, descriptors)}</li>`).join("")
+        }</ul>` : ""}
+        ${eid ? `<div class="sdr-event-evidence">source: ${escapeHtml(eid)}</div>` : ""}
+      </div>
+    `;
+  }
+
+  function renderEvidenceEvents(entry, expanded) {
+    const evidence = entry.data.evidence || [];
+    if (evidence.length === 0) return "";
+
+    const totalEventCount = evidence.reduce(
+      (acc, e) => acc + ((e.events && e.events.length) || 0), 0);
+    const indexCount = evidence.reduce(
+      (acc, e) => acc + ((e.evidence_event_indices && e.evidence_event_indices.length) || 0), 0);
+    const hasResolvedEvents = totalEventCount > 0;
+    const missingEvents = !hasResolvedEvents && indexCount > 0;
+
+    const indicator = hasResolvedEvents
+      ? `${totalEventCount} event${totalEventCount === 1 ? "" : "s"}`
+      : (missingEvents
+          ? `${indexCount} event ref${indexCount === 1 ? "" : "s"} (text not embedded)`
+          : "no events");
+
+    if (!expanded) {
+      return `
+        <div class="sdr-section">
+          <button class="sdr-evidence-toggle" data-toggle-events>
+            ▶ Show source events — ${indicator} (press <kbd style="background:rgba(0,0,0,0.3);padding:0 4px;border-radius:2px;font-size:10px;">V</kbd>)
+          </button>
+        </div>
+      `;
     }
 
-    let filtered = items;
-    if (bucket === "records") {
-      const q = ($("filter-records").value || "").toLowerCase().trim();
-      const hideDecided = $("hide-decided-records").checked;
-      filtered = items.filter(r => {
-        if (hideDecided && getDecision("records", r.slug)) return false;
-        if (!q) return true;
-        const blob = (
-          (r.slug || "") + " " + (r.display_name || "") + " " +
-          (r.aliases || []).join(" ") + " " +
-          (r.evidence || []).flatMap(e => e.descriptors_seen || []).join(" ")
-        ).toLowerCase();
-        return blob.includes(q);
-      });
+    if (missingEvents) {
+      return `
+        <div class="sdr-section">
+          <button class="sdr-evidence-toggle" data-toggle-events>▼ Source events</button>
+          <div class="sdr-events-empty">
+            This sidecar references ${indexCount} event${indexCount === 1 ? "" : "s"} but the source events
+            were not embedded. Re-run Stage D + the promotion CLI against the latest pipeline to enrich
+            the sidecar (proposals files now ship with <code>source_events</code>).
+          </div>
+        </div>
+      `;
     }
 
-    container.innerHTML = filtered.map(r => recCard(r, bucket)).join("");
-    container.querySelectorAll("button[data-action]").forEach(btn => {
-      btn.addEventListener("click", (ev) => {
-        const row = ev.target.closest(".row");
-        const b = row.dataset.bucket;
-        const k = row.dataset.key;
-        setDecision(b, k, ev.target.dataset.action);
-      });
-    });
+    const blocks = evidence.map(row => {
+      const events = row.events || [];
+      if (events.length === 0) return "";
+      const sessionLabel = row.session_number != null
+        ? `Session ${row.session_number}`
+        : "(no session)";
+      return `
+        <div>
+          <div class="sdr-label" style="margin-top:8px;">${escapeHtml(sessionLabel)} · scenario <code>${escapeHtml(row.scenario_id || "?")}</code></div>
+          <div class="sdr-events">
+            ${events.map(ev => renderEventCard(ev, row.descriptors_seen)).join("")}
+          </div>
+        </div>
+      `;
+    }).filter(Boolean).join("");
+
+    return `
+      <div class="sdr-section">
+        <button class="sdr-evidence-toggle" data-toggle-events>▼ Source events — ${indicator}</button>
+        ${blocks}
+      </div>
+    `;
   }
 
-  function recomputeCounts() {
-    const counts = { accept: 0, reject: 0, defer: 0 };
-    for (const v of Object.values(DECISIONS)) {
-      if (counts[v] != null) counts[v]++;
+  function renderRegistryFlags(entry) {
+    if (entry.bucket !== "records") return "";
+    const flags = entry.data.registry_collision_flags || {};
+    const pills = [];
+    if (flags.slug_collision) pills.push(`<span class="sdr-pill bad">slug collision</span>`);
+    if (flags.display_name_overlap) {
+      pills.push(`<span class="sdr-pill warn">name overlap → ${escapeHtml(flags.display_name_overlap)}</span>`);
     }
-    const totalRows = (DOC.proposed_new_records || []).length
-      + (DOC.proposed_aliases || []).length
-      + (DOC.unresolvable || []).length;
-    const decided = counts.accept + counts.reject + counts.defer;
-    $("n-accept").textContent = counts.accept;
-    $("n-reject").textContent = counts.reject;
-    $("n-defer").textContent = counts.defer;
-    $("n-pending").textContent = totalRows - decided;
+    if (flags.pc_collision) pills.push(`<span class="sdr-pill bad">PC roster collision</span>`);
+    if (pills.length === 0) pills.push(`<span class="sdr-pill good">no registry collisions</span>`);
+    return `
+      <div class="sdr-section">
+        <div class="sdr-label">Registry checks</div>
+        <div class="sdr-row">${pills.join("")}</div>
+      </div>
+    `;
   }
 
-  function render() {
-    if (!DOC) return;
-    $("dropzone").hidden = true;
-    $("content").hidden = false;
-    $("summary-bar").hidden = false;
-
-    $("campaign-badge").hidden = false;
-    $("campaign-badge").textContent = DOC.campaign_id || "unknown campaign";
-
-    const meta = [];
-    if (DOC.generated_at) meta.push(DOC.generated_at);
-    if (DOC.registry_size != null) meta.push(`registry: ${DOC.registry_size}`);
-    if (DOC.cost && DOC.cost.total_usd != null) meta.push(`LLM cost: $${DOC.cost.total_usd.toFixed(4)}`);
-    if (DOC.llm_enabled === false) meta.push("LLM disabled");
-    $("generated-meta").textContent = meta.join(" · ");
-
-    renderBucket("records", DOC.proposed_new_records || []);
-    renderBucket("aliases", DOC.proposed_aliases || []);
-    renderBucket("unresolvable", DOC.unresolvable || []);
-    recomputeCounts();
+  function renderAliasFlags(entry) {
+    if (entry.bucket !== "aliases") return "";
+    const flags = entry.data.collision_flags || {};
+    const pills = [];
+    if (flags.target_exists === false) {
+      pills.push(`<span class="sdr-pill bad">target slug not in registry</span>`);
+    } else {
+      pills.push(`<span class="sdr-pill good">target slug exists</span>`);
+    }
+    if (flags.alias_already_present) {
+      pills.push(`<span class="sdr-pill warn">alias already present on target</span>`);
+    }
+    return `
+      <div class="sdr-section">
+        <div class="sdr-label">Registry checks</div>
+        <div class="sdr-row">${pills.join("")}</div>
+      </div>
+    `;
   }
 
-  function loadDoc(obj) {
-    DOC = obj;
-    DECISIONS = loadDecisions();
-    render();
+  function renderRationale(entry) {
+    const data = entry.data;
+    if (!data.rationale) return "";
+    const src = (data.recommendation_source || "model").toUpperCase();
+    const rec = (data.recommendation || "?").toUpperCase();
+    const conf = (data.confidence || "?").toUpperCase();
+    return `
+      <div class="sdr-section">
+        <div class="sdr-label">Model take (advisory)</div>
+        <div class="sdr-rationale">
+          <strong>${escapeHtml(src)} · ${escapeHtml(rec)} (${escapeHtml(conf)})</strong>
+          ${escapeHtml(data.rationale)}
+        </div>
+      </div>
+    `;
   }
 
-  function readFile(file) {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        loadDoc(JSON.parse(e.target.result));
-      } catch (err) {
-        alert("Failed to parse JSON: " + err.message);
+  function renderDecisionBanner(decision, onUndo) {
+    if (!decision) return "";
+    const verb = decision === "accept" ? "Accepted"
+              : decision === "reject" ? "Rejected"
+              : "Deferred";
+    return `
+      <div class="sdr-decision-banner ${decision}">
+        ${verb}. <button data-undo>Undo</button>
+      </div>
+    `;
+  }
+
+  function renderEvidenceDetails(entry, expanded) {
+    if (!entry.data.evidence || entry.data.evidence.length === 0) {
+      return `
+        <div class="sdr-section">
+          <button class="sdr-evidence-toggle" data-toggle-evidence>
+            ${expanded ? "▼" : "▶"} Raw record
+          </button>
+          ${expanded ? `<div class="sdr-evidence-body">${escapeHtml(JSON.stringify(entry.data, null, 2))}</div>` : ""}
+        </div>
+      `;
+    }
+    return `
+      <div class="sdr-section">
+        <button class="sdr-evidence-toggle" data-toggle-evidence>
+          ${expanded ? "▼" : "▶"} Raw evidence + payload (press <kbd style="background:rgba(0,0,0,0.3);padding:0 4px;border-radius:2px;font-size:10px;">E</kbd>)
+        </button>
+        ${expanded ? `<div class="sdr-evidence-body">${escapeHtml(JSON.stringify(entry.data, null, 2))}</div>` : ""}
+      </div>
+    `;
+  }
+
+  // --------------------------------------------------------------------
+
+  class StageDProposalReview {
+    constructor(host, payload, options = {}) {
+      this.host = host;
+      this.payload = payload || {};
+      this.opts = Object.assign({
+        autoAdvance: true,
+        persistKey: this._defaultPersistKey(payload),
+        onDecision: null,
+        onComplete: null,
+      }, options);
+      this.queue = flattenQueue(this.payload);
+      this.idx = 0;
+      this.expanded = false;       // raw record JSON
+      this.eventsExpanded = true;  // source events (default open — that's the point)
+      this.decisions = this._loadDecisions();
+      this._keyHandler = this._onKey.bind(this);
+      this._render();
+      document.addEventListener("keydown", this._keyHandler);
+    }
+
+    _defaultPersistKey(payload) {
+      const cid = payload && payload.campaign_id || "unknown";
+      const ts  = payload && payload.generated_at || "";
+      return `stage_d_promotion_decisions_v2::${cid}::${ts}`;
+    }
+
+    _loadDecisions() {
+      try { return JSON.parse(localStorage.getItem(this.opts.persistKey) || "{}"); }
+      catch { return {}; }
+    }
+
+    _persist() {
+      try { localStorage.setItem(this.opts.persistKey, JSON.stringify(this.decisions)); }
+      catch (e) { /* localStorage may be unavailable in some contexts */ }
+    }
+
+    destroy() {
+      document.removeEventListener("keydown", this._keyHandler);
+      this.host.innerHTML = "";
+    }
+
+    getDecisions() { return Object.assign({}, this.decisions); }
+
+    goTo(i) {
+      this.idx = Math.max(0, Math.min(this.queue.length - 1, i));
+      this.expanded = false;
+      this._render();
+    }
+
+    _onKey(e) {
+      if (e.target.matches && e.target.matches("input,textarea,select")) return;
+      const key = e.key.toLowerCase();
+      if (key === "arrowright" || key === "j" || key === "n") {
+        e.preventDefault(); this.goTo(this.idx + 1);
+      } else if (key === "arrowleft" || key === "k" || key === "p") {
+        e.preventDefault(); this.goTo(this.idx - 1);
+      } else if (key === "a") {
+        e.preventDefault(); this._setDecision("accept");
+      } else if (key === "d") {
+        e.preventDefault(); this._setDecision("defer");
+      } else if (key === "r") {
+        e.preventDefault(); this._setDecision("reject");
+      } else if (key === "u") {
+        e.preventDefault(); this._undoCurrent();
+      } else if (key === "e") {
+        e.preventDefault(); this.expanded = !this.expanded; this._render();
+      } else if (key === "v") {
+        e.preventDefault(); this.eventsExpanded = !this.eventsExpanded; this._render();
       }
-    };
-    reader.readAsText(file);
+    }
+
+    _setDecision(value) {
+      const entry = this.queue[this.idx];
+      if (!entry) return;
+      const k = `${entry.bucket}::${entry.key}`;
+      this.decisions[k] = value;
+      this._persist();
+      if (typeof this.opts.onDecision === "function") {
+        try { this.opts.onDecision(entry, value); } catch (e) { /* ignore */ }
+      }
+      if (this.opts.autoAdvance && this.idx < this.queue.length - 1) {
+        this.idx++;
+        this.expanded = false;
+      }
+      this._render();
+      if (this._allDecided() && typeof this.opts.onComplete === "function") {
+        try { this.opts.onComplete(this.getDecisions()); } catch (e) { /* ignore */ }
+      }
+    }
+
+    _undoCurrent() {
+      const entry = this.queue[this.idx];
+      if (!entry) return;
+      const k = `${entry.bucket}::${entry.key}`;
+      delete this.decisions[k];
+      this._persist();
+      this._render();
+    }
+
+    _allDecided() {
+      return this.queue.every(e => this.decisions[`${e.bucket}::${e.key}`]);
+    }
+
+    _counts() {
+      const out = { accept: 0, defer: 0, reject: 0, pending: 0 };
+      for (const e of this.queue) {
+        const v = this.decisions[`${e.bucket}::${e.key}`];
+        if (v && out[v] != null) out[v]++;
+        else out.pending++;
+      }
+      return out;
+    }
+
+    _exportDecisions() {
+      const accepts = [];
+      const acceptedAliases = [];
+      for (const e of this.queue) {
+        const v = this.decisions[`${e.bucket}::${e.key}`];
+        if (v !== "accept") continue;
+        if (e.bucket === "records") {
+          accepts.push(e.data.promote_payload || {
+            slug: e.data.slug,
+            display_name: e.data.display_name,
+            aliases: e.data.aliases || [],
+            status: "candidate",
+            first_session: e.data.first_session,
+            last_session: e.data.last_session,
+            hub_path: null,
+            setting_hub_path: null,
+            notes: "",
+          });
+        } else if (e.bucket === "aliases") {
+          acceptedAliases.push({
+            target_slug: e.data.target_slug,
+            alias_text: e.data.alias_text,
+          });
+        }
+      }
+      return {
+        schema: "stage_d_promotion_decisions_v2",
+        decided_at: new Date().toISOString(),
+        campaign_id: this.payload.campaign_id || null,
+        source_generated_at: this.payload.generated_at || null,
+        decisions: Object.assign({}, this.decisions),
+        promote_payloads: accepts,
+        accepted_aliases: acceptedAliases,
+      };
+    }
+
+    _downloadDecisions() {
+      const blob = new Blob([JSON.stringify(this._exportDecisions(), null, 2)],
+                            { type: "application/json" });
+      const a = document.createElement("a");
+      const ts = new Date().toISOString().replace(/[-:]/g, "").replace(/\..+/, "Z");
+      a.href = URL.createObjectURL(blob);
+      a.download = `${this.payload.campaign_id || "stage_d"}_decisions_${ts}.json`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
+
+    _render() {
+      this.host.innerHTML = "";
+      const root = document.createElement("div");
+      root.className = "sdr-root";
+
+      if (this.queue.length === 0) {
+        root.innerHTML = `<div class="sdr-empty">No proposals to review.</div>`;
+        this.host.appendChild(root);
+        return;
+      }
+
+      const entry = this.queue[this.idx];
+      const decision = this.decisions[`${entry.bucket}::${entry.key}`] || null;
+      const counts = this._counts();
+      const pct = ((this.idx + 1) / this.queue.length) * 100;
+
+      root.innerHTML = `
+        <div class="sdr-progress">
+          <span>${this.idx + 1} / ${this.queue.length}</span>
+          <span class="sdr-bucket-tag">${escapeHtml(bucketLabel(entry.bucket))}</span>
+          <div class="sdr-progress-bar"><div class="sdr-progress-fill" style="width:${pct}%"></div></div>
+        </div>
+        <div class="sdr-card">
+          ${renderHeadline(entry)}
+          ${renderSubline(entry)}
+          ${renderRegistryFlags(entry)}
+          ${renderAliasFlags(entry)}
+          ${renderDescriptors(entry)}
+          ${renderEvidenceSummary(entry)}
+          ${renderRationale(entry)}
+          ${renderEvidenceEvents(entry, this.eventsExpanded)}
+          ${renderEvidenceDetails(entry, this.expanded)}
+          ${renderDecisionBanner(decision)}
+        </div>
+        <div class="sdr-actions">
+          <button class="sdr-action accept ${decision === 'accept' ? 'active' : ''}" data-action="accept">
+            Accept <kbd>A</kbd>
+          </button>
+          <button class="sdr-action defer ${decision === 'defer' ? 'active' : ''}" data-action="defer">
+            Defer <kbd>D</kbd>
+          </button>
+          <button class="sdr-action reject ${decision === 'reject' ? 'active' : ''}" data-action="reject">
+            Reject <kbd>R</kbd>
+          </button>
+          <span class="sdr-spacer"></span>
+          <span style="font-size:11px;color:var(--sdr-fg-dim)">${escapeHtml(bucketActionHelp(entry.bucket))}</span>
+        </div>
+        <div class="sdr-nav">
+          <button data-nav="back" ${this.idx === 0 ? "disabled" : ""}>← Back <kbd>K</kbd></button>
+          <button data-nav="next" ${this.idx === this.queue.length - 1 ? "disabled" : ""}>Next <kbd>J</kbd> →</button>
+          <span class="sdr-spacer"></span>
+          <span class="sdr-counts">
+            <span class="accept">${counts.accept} accepted</span>
+            <span class="defer">${counts.defer} deferred</span>
+            <span class="reject">${counts.reject} rejected</span>
+            <span>${counts.pending} pending</span>
+          </span>
+          <button class="sdr-export" data-export>Export decisions</button>
+        </div>
+      `;
+
+      // wire up
+      root.querySelectorAll("button[data-action]").forEach(b => {
+        b.addEventListener("click", (e) => this._setDecision(e.currentTarget.dataset.action));
+      });
+      root.querySelectorAll("button[data-nav]").forEach(b => {
+        b.addEventListener("click", (e) => {
+          const dir = e.currentTarget.dataset.nav;
+          this.goTo(this.idx + (dir === "next" ? 1 : -1));
+        });
+      });
+      root.querySelectorAll("[data-toggle-evidence]").forEach(b => {
+        b.addEventListener("click", () => { this.expanded = !this.expanded; this._render(); });
+      });
+      root.querySelectorAll("[data-toggle-events]").forEach(b => {
+        b.addEventListener("click", () => { this.eventsExpanded = !this.eventsExpanded; this._render(); });
+      });
+      root.querySelectorAll("[data-undo]").forEach(b => {
+        b.addEventListener("click", () => this._undoCurrent());
+      });
+      root.querySelector("[data-export]").addEventListener("click", () => this._downloadDecisions());
+
+      this.host.appendChild(root);
+    }
   }
 
-  $("file-input").addEventListener("change", (e) => {
-    if (e.target.files.length > 0) readFile(e.target.files[0]);
-  });
+  // public API
+  window.StageDProposalReview = {
+    mount(el, payload, options) {
+      el.innerHTML = "";
+      return new StageDProposalReview(el, payload, options);
+    },
+  };
 
-  const dz = $("dropzone");
-  ["dragenter", "dragover"].forEach(ev =>
-    dz.addEventListener(ev, (e) => { e.preventDefault(); dz.classList.add("drag-over"); })
-  );
-  ["dragleave", "drop"].forEach(ev =>
-    dz.addEventListener(ev, (e) => { e.preventDefault(); dz.classList.remove("drag-over"); })
-  );
-  dz.addEventListener("drop", (e) => {
-    if (e.dataTransfer.files.length > 0) readFile(e.dataTransfer.files[0]);
-  });
-  document.addEventListener("dragover", (e) => e.preventDefault());
-  document.addEventListener("drop", (e) => {
-    if (DOC) return;
-    e.preventDefault();
-    if (e.dataTransfer.files.length > 0) readFile(e.dataTransfer.files[0]);
-  });
+  // --------------------------------------------------------------------
+  // Demo harness — auto-discovers sidecars via the serve.py /api/sidecars
+  // endpoint, mounts the newest one, and shows a dropdown only when more
+  // than one is on disk. ?file=<path> still works as an override.
+  // --------------------------------------------------------------------
 
-  $("filter-records").addEventListener("input", () => renderBucket("records", DOC.proposed_new_records || []));
-  $("hide-decided-records").addEventListener("change", () => renderBucket("records", DOC.proposed_new_records || []));
+  const root          = document.getElementById("root");
+  const meta          = document.getElementById("harness-meta");
+  const picker        = document.getElementById("picker");
+  const pickerSelect  = document.getElementById("picker-select");
+  const pickerRefresh = document.getElementById("picker-refresh");
 
-  $("reset-decisions").addEventListener("click", () => {
-    if (!confirm("Reset all decisions for this sidecar?")) return;
-    DECISIONS = {};
-    persistDecisions();
-    render();
-  });
+  let currentHandle = null;
 
-  $("download-decisions").addEventListener("click", () => {
-    if (!DOC) return;
-    const decisions = {
-      schema: "stage_d_promotion_decisions_v1",
-      decided_at: new Date().toISOString(),
-      campaign_id: DOC.campaign_id,
-      source_generated_at: DOC.generated_at,
-      decisions: DECISIONS,
-      promote_payloads: (DOC.proposed_new_records || [])
-        .filter(r => getDecision("records", r.slug) === "accept")
-        .map(r => r.promote_payload || {
-          slug: r.slug,
-          display_name: r.display_name,
-          aliases: r.aliases || [],
-          status: "candidate",
-          first_session: r.first_session,
-          last_session: r.last_session,
-          hub_path: null,
-          setting_hub_path: null,
-          notes: ""
-        }),
-      accepted_aliases: (DOC.proposed_aliases || [])
-        .filter(r => getDecision("aliases", `${r.target_slug}::${r.alias_text}`) === "accept")
-        .map(r => ({ target_slug: r.target_slug, alias_text: r.alias_text })),
-    };
-    const blob = new Blob([JSON.stringify(decisions, null, 2)], { type: "application/json" });
-    const a = document.createElement("a");
-    const ts = new Date().toISOString().replace(/[:.]/g, "").replace(/-/g, "").slice(0, 15) + "Z";
-    a.href = URL.createObjectURL(blob);
-    a.download = `${DOC.campaign_id}_stage_d_decisions_${ts}.json`;
-    a.click();
-    URL.revokeObjectURL(a.href);
-  });
+  function setMeta(payload) {
+    if (!meta) return;
+    const bits = [];
+    if (payload.campaign_id)  bits.push(payload.campaign_id);
+    if (payload.generated_at) bits.push(payload.generated_at);
+    if (payload.cost && payload.cost.total_usd != null) {
+      bits.push(`cost: $${payload.cost.total_usd.toFixed(4)}`);
+    }
+    meta.textContent = bits.join("  ·  ");
+  }
 
-  // Auto-load via ?file= query (when served, not file://)
+  function showError(html) {
+    if (currentHandle) { try { currentHandle.destroy(); } catch (_) {} currentHandle = null; }
+    root.innerHTML = `<div class="harness-empty">${html}</div>`;
+  }
+
+  function loadAndMount(filename) {
+    return fetch(filename, { cache: "no-store" })
+      .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+      .then(payload => {
+        if (currentHandle) { try { currentHandle.destroy(); } catch (_) {} }
+        setMeta(payload);
+        currentHandle = window.StageDProposalReview.mount(root, payload);
+      })
+      .catch(err => showError(`Failed to load <code>${filename}</code>: ${err.message}`));
+  }
+
+  function describeSidecar(s) {
+    if (s.error) return `${s.filename} — ERROR: ${s.error}`;
+    const counts = s.counts || {};
+    const total = (counts.records || 0) + (counts.aliases || 0) + (counts.unresolvable || 0);
+    const parts = [
+      s.campaign_id || "(no campaign)",
+      s.generated_at || "(no timestamp)",
+      `${total} item${total === 1 ? "" : "s"}`,
+      `${counts.records || 0}r/${counts.aliases || 0}a/${counts.unresolvable || 0}u`,
+    ];
+    return parts.join("  ·  ");
+  }
+
+  function renderPicker(sidecars) {
+    if (!sidecars || sidecars.length === 0) return;
+    if (sidecars.length === 1) { picker.hidden = true; return; }
+    pickerSelect.innerHTML = "";
+    for (const s of sidecars) {
+      const opt = document.createElement("option");
+      opt.value = s.filename;
+      opt.textContent = describeSidecar(s);
+      if (s.error) opt.disabled = true;
+      pickerSelect.appendChild(opt);
+    }
+    picker.hidden = false;
+  }
+
+  // Fallback: when the page is served by plain `python -m http.server`
+  // (no /api/sidecars endpoint), parse the directory-listing HTML at "/"
+  // for *_stage_d_promotion_*.json filenames so discovery still works.
+  function discoverFromDirListing() {
+    return fetch("./", { cache: "no-store" })
+      .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.text(); })
+      .then(html => {
+        const doc = new DOMParser().parseFromString(html, "text/html");
+        const names = new Set();
+        doc.querySelectorAll("a[href]").forEach(a => {
+          const href = decodeURIComponent(a.getAttribute("href") || "").split("/").pop();
+          if (/_stage_d_promotion_.*\.json$/.test(href)) names.add(href);
+        });
+        // No mtime available here — sort lexicographically (timestamps in
+        // filenames are ISO-compact, so newest = lexicographically last).
+        return [...names].sort().reverse().map(n => ({ filename: n }));
+      });
+  }
+
+  function hydrateSidecarMeta(filename) {
+    return fetch(filename, { cache: "no-store" })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (!data) return { filename };
+        return {
+          filename,
+          campaign_id: data.campaign_id,
+          generated_at: data.generated_at,
+          counts: {
+            records:      (data.proposed_new_records || []).length,
+            aliases:      (data.proposed_aliases     || []).length,
+            unresolvable: (data.unresolvable         || []).length,
+          },
+          cost_usd: (data.cost || {}).total_usd,
+        };
+      })
+      .catch(() => ({ filename }));
+  }
+
+  function discoverAndMount() {
+    return fetch("/api/sidecars", { cache: "no-store" })
+      .then(r => {
+        if (r.ok) return r.json().then(({ sidecars }) => sidecars || []);
+        // 404 / 405 / etc. — fall back to dir listing and hydrate per-file.
+        return discoverFromDirListing().then(stubs =>
+          Promise.all(stubs.map(s => hydrateSidecarMeta(s.filename))));
+      })
+      .then(sidecars => {
+        const valid = (sidecars || []).filter(s => !s.error);
+        if (valid.length === 0) {
+          showError("No <code>*_stage_d_promotion_*.json</code> sidecars found in this directory. Run <code>scripts/promote_stage_d_proposals.py</code> to generate one.");
+          picker.hidden = true;
+          return;
+        }
+        renderPicker(sidecars);
+        return loadAndMount(valid[0].filename);
+      })
+      .catch(err => showError(
+        `Could not discover sidecars (${err.message}).<br/><br/>` +
+        `Recommended: <code>cd evals/stage_d_entity_resolution_vertical_slice/promotions && python serve.py</code><br/>` +
+        `Plain <code>python -m http.server</code> also works (directory listing must be enabled).`
+      ));
+  }
+
+  pickerSelect.addEventListener("change", (e) => loadAndMount(e.target.value));
+  pickerRefresh.addEventListener("click", () => discoverAndMount());
+
+  // ?file=<path> stays as an explicit override for non-server contexts.
   const params = new URLSearchParams(location.search);
   const fileParam = params.get("file");
   if (fileParam) {
-    fetch(fileParam).then(r => r.json()).then(loadDoc).catch(err => {
-      console.warn("auto-load failed:", err);
-    });
+    picker.hidden = true;
+    loadAndMount(fileParam);
+  } else {
+    discoverAndMount();
   }
 })();
 </script>

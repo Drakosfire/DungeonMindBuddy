@@ -931,6 +931,8 @@ def main() -> None:
             summaries,
             scenario_id=scenario_id,
             campaign_id=campaign_id,
+            source_events=events,
+            source_events_path=events_path,
         )
         if proposals_path is not None:
             print(f"[stage-d] proposals sidecar: {proposals_path}", file=sys.stderr)
