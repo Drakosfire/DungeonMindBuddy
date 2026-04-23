@@ -1,10 +1,14 @@
-"""Stage B vertical slice: per-slug timeline append from events.
+"""Stage B vertical slice: per-PC timeline append from events.
 
-Consumes Stage A's parsed events inline and per-slug calls ``append_timeline_row``
-to populate the timeline-pass corpus pre-state. The model sees ONLY the events
-for the slug under consideration — no recap re-read.
+Consumes Stage A's parsed events inline and per-PC calls ``append_timeline_row``
+to populate the timeline-pass corpus pre-state. Stage B is **PC-only** — NPC
+artifact updates (timeline rows + dossier sections) are handled by the separate
+forthcoming NPC ingestion slice. The model sees ONLY the events for the PC under
+consideration — no recap re-read.
 
-This is the architectural test: events as input, no recap re-read.
+This is the architectural test: events as input, PCs as scope, no recap re-read.
+NPC slugs in the timeline-pass gold are filtered out by the runner before the
+grader is invoked, so TP1/TP2/TP3/TP5 evaluate strictly against PC behavior.
 
 Run (from repo root)::
 
@@ -81,27 +85,72 @@ _ALLOW_WRITES_ENV = "DUNGEONMIND_PLANNER_ALLOW_WRITES"
 # from the timeline-pass slice directly.
 STAGE_B_SLUG_ORDER: tuple[str, ...] = _TIMELINE_PASS_SLUG_ORDER
 
+
+def _is_pc_target(spec: dict[str, Any]) -> bool:
+    """True iff the timeline spec lives under a PCs/ hub.
+
+    Stage B is narrowed to PCs only. NPC artifact updates are handled by the
+    forthcoming NPC ingestion slice. The signal is the timeline_relative_path,
+    which is `Longmont Campaign/Campaign 2/PCs/<slug>/timeline.md` for PCs and
+    `.../NPCs/<slug>/timeline.md` for NPCs.
+    """
+    rel = str(spec.get("timeline_relative_path", "") or "")
+    return "/PCs/" in rel
+
+
+def _filter_grading_to_pcs(grading: dict[str, Any]) -> dict[str, Any]:
+    """Return a shallow copy of grading with expected_appends/expected_skips/allowed_npc_slugs
+    restricted to PC entries.
+
+    Stage B is PC-only. Filtering both the runner targets AND the grader's expected
+    sets keeps the cohort honest: TP1/TP2/TP3/TP5 are evaluated against the PCs the
+    runner actually invokes, never punishing Stage B for NPCs it intentionally never
+    touched.
+    """
+    out = dict(grading)
+    out["expected_appends"] = [s for s in (grading.get("expected_appends") or []) if _is_pc_target(s)]
+    out["expected_skips"] = [s for s in (grading.get("expected_skips") or []) if _is_pc_target(s)]
+    pc_slugs = {
+        str(s.get("npc_slug") or "").strip()
+        for s in out["expected_appends"] + out["expected_skips"]
+        if s.get("npc_slug")
+    }
+    if "allowed_npc_slugs" in grading:
+        out["allowed_npc_slugs"] = [
+            s for s in (grading.get("allowed_npc_slugs") or []) if s in pc_slugs
+        ]
+    return out
+
+
 # ---------------------------------------------------------------------------
 # Stage B instruction suffix — events-driven, no recap reads allowed
 # ---------------------------------------------------------------------------
 
 _STAGE_B_INSTRUCTION_SUFFIX = """
 
-**Benchmark micro-turn — events-driven timeline append (Stage B, single subject):** \
-This is an events-driven timeline append turn. The events JSON in the user message is your \
-ONLY source about what happened in Session 20.
+**Benchmark micro-turn — PC timeline append from events (Stage B, single PC):** \
+This is a per-PC timeline append turn. The events JSON in the user message is your \
+ONLY source about what happened in Session 20 for this player character.
 
 DO NOT call `read_corpus_file`, `load_context_markdown`, `get_recap_context`, \
 `assemble_recap_draft`, `build_recap_write_payload`, or `write_corpus_file`. \
 The events JSON in the user message is sufficient — reading the recap is forbidden here.
 
-This micro-turn covers **one** `timeline.md` only — do not call `append_timeline_row` \
-for any other slug.
+This micro-turn covers **one** player character's `timeline.md` only — do not call \
+`append_timeline_row` for any other slug.
 
-If the events listed in the user message describe a **meaningful Session 20 beat for that \
-character**, call `append_timeline_row` **once** — that single call commits. There is no \
-preview or confirm step. Anchor the beat on event participants, location, and outcomes. \
-Match the three-column table format (session | beat | backticked evidence path). Use \
+**ROW POLICY (hard rule — PCs are not optional):** This slug is a player character. \
+Any session in which the PC participates in **at least one** event warrants a timeline \
+row — the timeline is the PC's own session-by-session record of their playthrough, not \
+a curated highlights reel. If the user message reached you with events attached, the \
+PC was at the table for this beat and you **must** call `append_timeline_row` once. \
+Do not deliberate row-worthiness, do not weigh "primary vs background," and do not \
+skip rows for PCs whose contribution feels small — that judgment belongs to the NPC \
+ingestion slice, not here, and applying it to a PC would corrupt the PC's playthrough \
+record. There is no preview or confirm step; the single call commits.
+
+Anchor the beat on event participants, location, and outcomes. Match the three-column \
+table format (session | beat | backticked evidence path). Use \
 `` `Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md` `` as the evidence \
 path. The slug-only resolver falls back from `NPCs/<slug>/` to `PCs/<slug>/`, so you \
 usually do not need `timeline_path`.
@@ -116,21 +165,15 @@ names, place names, and NPC names. Generic paraphrases such as "weapon" instead 
 "scimitar," "spell" instead of "Eldritch Blast," or "ability" instead of "Zephyr Strike" \
 defeat the entire purpose of the timeline.
 
-**MULTI-EVENT COMPOSITION (hard rule):** When this character appears in **more than one** \
-meaningful event, the beat is **one sentence that composes the events together** — *not* a \
-summary of "the most important one." Join the events with commas, semicolons, or "then" \
-and preserve each event's distinctive named terms. Discarding meaningful events to fit a \
-single-event summary loses the recall the timeline exists to provide.
-
-This micro-turn is **not** a read-only pass: when the events warrant a row, you **must** \
-call `append_timeline_row` — do not stop without the tool call if the events are meaningful.
-
-If none of the events are meaningful enough to warrant a timeline row, do not call the tool \
-and explain briefly in your final `message`.
+**MULTI-EVENT COMPOSITION (hard rule):** When this PC appears in **more than one** event \
+above, the beat is **one sentence that composes the events together** — *not* a summary \
+of "the most important one." Join the events with commas, semicolons, or "then" and \
+preserve each event's distinctive named terms. Discarding events to fit a single-event \
+summary loses the recall the timeline exists to provide.
 
 The slug given in the user message is the only legal `npc_slug` — do not invent or rename slugs.
 
-Allowed tools: `append_timeline_row`, `list_npc_hubs`, `list_pc_hubs`.
+Allowed tools: `append_timeline_row`, `list_pc_hubs`.
 Forbidden tools: `read_corpus_file`, `load_context_markdown`, `get_recap_context`, \
 `assemble_recap_draft`, `build_recap_write_payload`, `write_corpus_file`.
 
@@ -169,26 +212,26 @@ def build_stage_b_per_slug_user_message(
     slug: str,
     slug_events: list[dict[str, Any]],
 ) -> str:
-    """Build the per-slug user message for Stage B (events-driven, no recap).
+    """Build the per-slug user message for Stage B (PC-only, events-driven, no recap).
 
-    The model receives only the filtered events for this slug, not the full recap.
+    The model receives only the filtered events for this PC, not the full recap.
+    Callers must guarantee ``slug_events`` is non-empty — the runner's no-event-skip
+    branch handles the empty case before this builder is invoked.
     """
     events_json = json.dumps(slug_events, indent=2, ensure_ascii=False)
     return (
-        f"**Timeline append micro-turn (events-driven):** Consider only `{timeline_rel}` "
-        f"(`npc_slug` `{slug}`).\n\n"
-        "The following structured events from Session 20 mention this character:\n\n"
+        f"**PC timeline append micro-turn (events-driven):** Consider only `{timeline_rel}` "
+        f"(`npc_slug` `{slug}`). This slug is a **player character**.\n\n"
+        "The following structured events from Session 20 mention this PC:\n\n"
         f"```json\n{events_json}\n```\n\n"
-        "If at least one event is a meaningful Session 20 beat for this character, call "
-        "`append_timeline_row` once with a beat sentence that **composes** the meaningful "
-        "events for this character into a single sentence, retaining the distinctive named "
-        "terms from the events verbatim — weapon names, spell names, ability names, item "
-        "names, place names, and NPC names. When this character has more than one "
-        "meaningful event above, join them with commas, semicolons, or 'then' rather than "
-        "picking only one. Anchor the beat on event participants, location, and outcomes. "
-        "Match the existing markdown table format.\n\n"
-        "If none of the events are meaningful enough to warrant a timeline row, do not call "
-        "the tool and say so briefly in your final `message`."
+        "Call `append_timeline_row` **once** with a beat sentence that **composes** these "
+        "events into a single sentence, retaining the distinctive named terms verbatim — "
+        "weapon names, spell names, ability names, item names, place names, and NPC names. "
+        "When the PC has more than one event above, join them with commas, semicolons, or "
+        "'then' rather than picking only one. Anchor the beat on event participants, "
+        "location, and outcomes. Match the existing markdown table format.\n\n"
+        "Do not skip the row. PCs always get a row when the events list is non-empty — "
+        "the row-worthiness judgment does not apply to player characters."
     )
 
 
@@ -507,6 +550,7 @@ def run_stage_b_events_driven_chain(
     """
     grading = stage_b_scenario.get("grading") or {}
     targets = ordered_timeline_targets(grading)
+    targets = [t for t in targets if _is_pc_target(t)]
 
     instructions_base, fp = load_or_build_planner_instructions(
         corpus_dir,
@@ -665,7 +709,7 @@ def _run_single_chained_cohort_iteration(
         }
 
     stage_a_events: list[dict[str, Any]] = list(stage_a_result.get("parsed_events") or [])
-    stage_b_grading = stage_b_gold.get("grading") or {}
+    stage_b_grading = _filter_grading_to_pcs(stage_b_gold.get("grading") or {})
 
     corpus_dir = build_pre_state_corpus()
     tool_trace, final_text, stage_b_cost, per_slug_skip, per_slug_diagnostics = (

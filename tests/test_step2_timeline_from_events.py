@@ -47,11 +47,12 @@ def test_build_stage_b_per_slug_user_message_includes_events():
         }
     ]
     msg = build_stage_b_per_slug_user_message(
-        timeline_rel="Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/timeline.md",
-        slug="captain_lysandra_ironveil",
+        timeline_rel="Longmont Campaign/Campaign 2/PCs/caelynn/timeline.md",
+        slug="caelynn",
         slug_events=events,
     )
-    assert "captain_lysandra_ironveil" in msg
+    assert "caelynn" in msg
+    assert "player character" in msg
     assert "wagon camp" in msg
     assert "antidote" in msg
     assert "append_timeline_row" in msg
@@ -592,3 +593,150 @@ def test_run_report_sidecar_contains_per_slug_diagnostics():
         "Caelynn used her bracelet to diffuse aggression"
     )
     assert summary.per_slug_diagnostics["dustwalker"]["slug_events_sent"] == []
+
+
+# ---------------------------------------------------------------------------
+# Test PC-only scope: helpers + integration with grading filter
+# ---------------------------------------------------------------------------
+
+
+def test_is_pc_target_distinguishes_pcs_and_npcs():
+    """_is_pc_target uses the /PCs/ vs /NPCs/ marker in timeline_relative_path."""
+    from evals.session_events_extraction_vertical_slice.step2_timeline_from_events_run import (
+        _is_pc_target,
+    )
+
+    pc_spec = {
+        "npc_slug": "caelynn",
+        "timeline_relative_path": "Longmont Campaign/Campaign 2/PCs/caelynn/timeline.md",
+    }
+    npc_spec = {
+        "npc_slug": "captain_lysandra_ironveil",
+        "timeline_relative_path": "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/timeline.md",
+    }
+    missing_path = {"npc_slug": "x"}
+
+    assert _is_pc_target(pc_spec) is True
+    assert _is_pc_target(npc_spec) is False
+    assert _is_pc_target(missing_path) is False
+
+
+def test_filter_grading_to_pcs_drops_npc_entries():
+    """_filter_grading_to_pcs drops NPC expected_appends/skips and tightens allowed_npc_slugs."""
+    from evals.session_events_extraction_vertical_slice.step2_timeline_from_events_run import (
+        _filter_grading_to_pcs,
+    )
+
+    grading = {
+        "expected_appends": [
+            {
+                "npc_slug": "caelynn",
+                "timeline_relative_path": "Longmont Campaign/Campaign 2/PCs/caelynn/timeline.md",
+            },
+            {
+                "npc_slug": "captain_lysandra_ironveil",
+                "timeline_relative_path": "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/timeline.md",
+            },
+        ],
+        "expected_skips": [
+            {
+                "npc_slug": "thrin_branchborn",
+                "timeline_relative_path": "Longmont Campaign/Campaign 2/NPCs/thrin_branchborn/timeline.md",
+            },
+        ],
+        "allowed_npc_slugs": ["caelynn", "captain_lysandra_ironveil", "thrin_branchborn"],
+    }
+    filtered = _filter_grading_to_pcs(grading)
+
+    assert [s["npc_slug"] for s in filtered["expected_appends"]] == ["caelynn"]
+    assert filtered["expected_skips"] == []
+    assert filtered["allowed_npc_slugs"] == ["caelynn"]
+
+
+def test_run_stage_b_chain_filters_targets_to_pcs():
+    """run_stage_b_events_driven_chain only invokes the model for PC slugs.
+
+    Even when the gold contains NPC expected_appends with non-empty event lists,
+    the runner must skip them entirely (not record them as no-event skips, not
+    invoke the model). PC slugs follow the existing per-slug pipeline.
+    """
+    from evals.session_events_extraction_vertical_slice.step2_timeline_from_events_run import (
+        run_stage_b_events_driven_chain,
+    )
+
+    stage_b_scenario = {
+        "grading": {
+            "expected_appends": [
+                {
+                    "npc_slug": "caelynn",
+                    "timeline_relative_path": "Longmont Campaign/Campaign 2/PCs/caelynn/timeline.md",
+                },
+                {
+                    "npc_slug": "captain_lysandra_ironveil",
+                    "timeline_relative_path": "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/timeline.md",
+                },
+            ],
+            "expected_skips": [
+                {
+                    "npc_slug": "thrin_branchborn",
+                    "timeline_relative_path": "Longmont Campaign/Campaign 2/NPCs/thrin_branchborn/timeline.md",
+                },
+            ],
+            "allowed_npc_slugs": ["caelynn", "captain_lysandra_ironveil", "thrin_branchborn"],
+        }
+    }
+    # Both PCs and NPCs have events — but only PCs should reach the model.
+    stage_a_events = [
+        {"participants": ["caelynn"], "outcomes": ["healed Lysandra"]},
+        {"participants": ["captain_lysandra_ironveil"], "outcomes": ["fell ill"]},
+        {"participants": ["thrin_branchborn"], "outcomes": ["loosed an arrow"]},
+    ]
+
+    with patch(
+        "evals.session_events_extraction_vertical_slice.step2_timeline_from_events_run"
+        ".load_or_build_planner_instructions",
+        return_value=("mock instructions text", "fp_mock"),
+    ), patch(
+        "evals.session_events_extraction_vertical_slice.step2_timeline_from_events_run"
+        ".build_corpus_path_ref_index",
+        return_value={},
+    ), patch(
+        "evals.session_events_extraction_vertical_slice.step2_timeline_from_events_run"
+        ".make_tool_dispatcher",
+        return_value=MagicMock(),
+    ), patch(
+        "evals.session_events_extraction_vertical_slice.step2_timeline_from_events_run"
+        "._planner_tools_responses",
+        return_value=[],
+    ), patch(
+        "evals.session_events_extraction_vertical_slice.step2_timeline_from_events_run"
+        ".run_planning_turn_detailed",
+    ) as mock_turn:
+        # Make the planner mock return a minimal detail object
+        fake_detail = MagicMock()
+        fake_detail.tool_trace = []
+        fake_detail.final_text = "ok"
+        fake_detail.last_response_id = "resp_x"
+        fake_detail.telemetry_cost = {}
+        mock_turn.return_value = fake_detail
+
+        _, _, _, per_slug_skip, per_slug_diag = run_stage_b_events_driven_chain(
+            corpus_dir=Path("/tmp"),
+            client=MagicMock(),
+            model_id="gpt-5.4-mini",
+            stage_b_scenario=stage_b_scenario,
+            stage_a_events=stage_a_events,
+            allow_corpus_writes=False,
+            quiet=True,
+        )
+
+    # Only caelynn (PC) should have triggered a model call
+    assert mock_turn.call_count == 1
+    # NPC slugs must not appear in skip-tracking or diagnostics — they are
+    # filtered out before the per-slug loop, not recorded as no-event skips.
+    assert "captain_lysandra_ironveil" not in per_slug_skip
+    assert "thrin_branchborn" not in per_slug_skip
+    assert "captain_lysandra_ironveil" not in per_slug_diag
+    assert "thrin_branchborn" not in per_slug_diag
+    # caelynn was modeled (not a no-event skip)
+    assert per_slug_skip.get("caelynn") is False
