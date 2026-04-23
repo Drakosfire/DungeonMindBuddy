@@ -11,6 +11,8 @@ from pathlib import Path
 
 import json
 
+import pytest
+
 from evals.session_recap_timeline_pass_vertical_slice.step0_pre_state import (
     apply_pre_state_manifest,
     build_pre_state_corpus,
@@ -33,6 +35,15 @@ _SKIP_TARGETS = [
     "Longmont Campaign/Campaign 2/NPCs/dustwalker/timeline.md",
     "Longmont Campaign/Campaign 2/NPCs/torbin_jove/timeline.md",
 ]
+
+_C1_STAGE_B_PC_SLUGS = (
+    "baergrom",
+    "bonogo",
+    "caelynn",
+    "ephanna",
+    "karsemine",
+    "stafl",
+)
 
 
 def test_pre_state_recap_pinned_from_gold(tmp_path: Path) -> None:
@@ -108,16 +119,25 @@ def test_apply_pre_state_delete_relative_paths(tmp_path: Path) -> None:
     assert not victim.is_file()
 
 
-def test_pre_state_c1_session1_manifest_seeds_and_deletes_c2_pc(tmp_path: Path) -> None:
+@pytest.mark.parametrize("session", [1, 2, 3])
+def test_pre_state_c1_manifest_seeds_and_deletes_c2_pc(
+    tmp_path: Path, session: int
+) -> None:
     """C1 Stage B manifest removes duplicate C2 PC timelines and copies C1 seeds."""
     man_path = (
         _REPO_ROOT
-        / "evals/session_recap_timeline_pass_vertical_slice/gold/step0_pre_state_manifest_session1_c1.json"
+        / f"evals/session_recap_timeline_pass_vertical_slice/gold/step0_pre_state_manifest_session{session}_c1.json"
     )
     man = json.loads(man_path.read_text(encoding="utf-8"))
     root = build_pre_state_corpus(tmp_dir=tmp_path, manifest=man)
-    c1 = root / "Longmont Campaign/Campaign 1/PCs/caelynn/timeline.md"
-    assert c1.is_file()
-    assert "longmont-c1" in c1.read_text(encoding="utf-8")
-    c2 = root / "Longmont Campaign/Campaign 2/PCs/caelynn/timeline.md"
-    assert not c2.is_file()
+    row_prefix = f"| **{session}** |"
+    for slug in _C1_STAGE_B_PC_SLUGS:
+        c2 = root / f"Longmont Campaign/Campaign 2/PCs/{slug}/timeline.md"
+        assert not c2.is_file(), f"expected C2 PC timeline removed: {c2}"
+        c1 = root / f"Longmont Campaign/Campaign 1/PCs/{slug}/timeline.md"
+        assert c1.is_file(), f"expected C1 PC timeline seeded: {c1}"
+        body = c1.read_text(encoding="utf-8")
+        assert "campaign_id: longmont-c1" in body, f"missing C1 seed frontmatter: {c1}"
+        assert not any(
+            line.startswith(row_prefix) for line in body.splitlines()
+        ), f"{c1} still has a session-{session} table row (expected ^| **{session}** |)"

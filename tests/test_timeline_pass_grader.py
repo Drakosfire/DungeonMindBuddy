@@ -15,6 +15,7 @@ from typing import Any
 
 from evals.session_recap_timeline_pass_vertical_slice.grader import (
     _appends_by_slug,
+    _missing_anchor_words,
     collect_timeline_pass_violations,
     find_session_table_rows,
     grade_anchor_words_for_slug,
@@ -598,3 +599,14 @@ def test_collect_violations_TP3_forbidden_recap_tools(tmp_path: Path) -> None:
         assert name in msgs
         verdict = per_gate_verdict(viol)
         assert verdict["TP3"] == "FAIL"
+
+
+def test_missing_anchor_words_normalizes_smart_apostrophe() -> None:
+    assert _missing_anchor_words(
+        "Wizard\u2019s Tower",
+        ["Wizard's Tower"],
+    ) == []
+    assert _missing_anchor_words(
+        "River's Edge",
+        ["River\u2019s Edge"],
+    ) == []

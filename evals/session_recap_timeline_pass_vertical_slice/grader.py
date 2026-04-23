@@ -112,11 +112,11 @@ def _parse_beat_cell(line: str) -> str:
 
 
 def _missing_anchor_words(beat_text: str, anchors: list[str]) -> list[str]:
-    """Case-insensitive substring check across the union of beat text."""
-    haystack = beat_text.lower()
+    """Case-insensitive substring check; U+2019 apostrophes normalize to ASCII '."""
+    haystack = beat_text.lower().replace("\u2019", "'")
     missing: list[str] = []
     for word in anchors:
-        needle = str(word or "").strip().lower()
+        needle = str(word or "").strip().lower().replace("\u2019", "'")
         if not needle:
             continue
         if needle not in haystack:
