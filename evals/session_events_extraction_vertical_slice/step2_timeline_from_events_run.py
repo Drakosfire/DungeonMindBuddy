@@ -171,6 +171,23 @@ of "the most important one." Join the events with commas, semicolons, or "then" 
 preserve each event's distinctive named terms. Discarding events to fit a single-event \
 summary loses the recall the timeline exists to provide.
 
+**SCENE ANCHOR (hard rule):** When the events describe a shared encounter or named \
+scene this PC participated in (an enemy type, a location's threat, a named event), \
+include the scene's distinctive anchor term in your beat **even when that term \
+appears only in a co-participant's outcome line rather than this PC's personal \
+outcome line**. All participants in a shared event see the same `outcomes[]` list \
+when that event reaches them, because they are all in that scene together — if any \
+outcome bullet (or the `event_name`) across the shared event names the threat, the \
+encounter, or the location anchor (e.g. `swarm`, `ambush`, `the storm`, `the stone \
+bridge`, the named encounter), that term belongs in your beat alongside the PC's \
+personal action. The PC's timeline beat is a record of "where I was and what I did" \
+— not just "what I did" — and the "where" matters as much for searchability months \
+from now as the weapon, spell, or ability name does. Concretely: if a `red gnat \
+swarm` battle event lists Caelynn casting Thunderwave to "split the swarm" and \
+Karsemine landing scimitar hits and dashing away, Karsemine's beat must include \
+both `scimitar`/`Zephyr Strike` (her personal action) **and** `swarm` (the scene \
+anchor naming what was being fought) — not just "fought the red gnats."
+
 The slug given in the user message is the only legal `npc_slug` — do not invent or rename slugs.
 
 Allowed tools: `append_timeline_row`, `list_pc_hubs`.
