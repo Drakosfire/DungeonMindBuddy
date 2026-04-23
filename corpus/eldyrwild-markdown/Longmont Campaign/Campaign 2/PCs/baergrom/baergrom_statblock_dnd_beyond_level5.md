@@ -10,7 +10,7 @@ session: null
 origin_session: null
 last_updated_session: null
 source_class: dnd_beyond_export
-table_note: "Player-handed D&D Beyond level-5 export. Mechanics here lag the live player sheet — treat as 'snapshot c. mid-Campaign 2'. PDF original: `baergrom_dnd_beyond_sheet_level5.pdf` in this folder. Continuity prose lives in `baergrom_character_dossier.md` (TBD — Baergrom carried into Campaign 2 and appears in all 20 C2 recaps but does not yet have an authored dossier)."
+table_note: "Player-handed D&D Beyond level-5 export. Mechanics here lag the live player sheet — treat as 'snapshot c. mid-Campaign 2'. PDF original: `baergrom_dnd_beyond_sheet_level5.pdf` in this folder. Continuity prose lives in `baergrom_character_dossier.md`."
 ---
 
 # Baergrom Stoutheart — D&D Beyond level-5 character sheet (Campaign 2 snapshot)
