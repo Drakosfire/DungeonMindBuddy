@@ -92,6 +92,14 @@ Telemetry exposes `expected_events_with_missing_terms`, `missing_terms_total`, a
 
 The lenient coverage threshold is documented at `_SE5_PASS_THRESHOLD = 0.5` in `grader.py`; it will be raised once we have cohort data.
 
+### Grader contract: `referenced_slugs[]` vs `participants[]` (Branch (a))
+
+**Policy decision:** SE3 and SE5 intentionally remain **`participants[]`-only** gates (actor identification and coverage overlap). Model output may still carry **`referenced_slugs[]`** for entities that appear in the beat but are not full participants. **Stage A graders do not union `referenced_slugs[]` into SE3 or SE5.** Downstream **Stage C** is allowed to use **`participants ∪ referenced_slugs`**; broader entity merge across fields is a **Stage D** concern, not something Stage A should silently fold into participant-based gates.
+
+**Why:** The lowest extraction layer keeps a narrow, inspectable meaning for `participants[]` (“who this event is *about* / who acted”) instead of treating every mentioned slug as a participant for coverage. Editors should not “fix” the grader by expanding SE3/SE5 to `referenced_slugs[]` without an explicit pipeline decision—doing so would change the contract this slice was tuned against.
+
+**Canary:** `tests/test_session_events_grader.py::TestReferencedSlugsGraderRegression` — if that test fails after a grader change, treat it as a deliberate behavior change and update tests plus this section together.
+
 ### Stage B gates
 
 Stage B is graded against `evals/session_recap_timeline_pass_vertical_slice/`'s gold using its `collect_timeline_pass_violations`:

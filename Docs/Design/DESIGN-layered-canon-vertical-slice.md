@@ -8,6 +8,14 @@
 
 Prove that the three-layer model (Canon → Planning → Play) produces output a GM would actually use at the table, before investing in ingestion automation or event-sourcing infrastructure.
 
+## Recap and ingest: land in layered canon (checklist for pipeline authors)
+
+Recap ingest and other structured **intermediates** are not a parallel ad-hoc store. Persist them into the same layered-canon **collections** as **siblings**: **facts**, **claims**, and **events** (plus whatever other canon record types the store already names). The v0.1 model already includes `event` records and a FactStore path for batching them (`add_event_records()` and related `add_*` entry points). **Before** inventing a new IR, collection name, or one-off JSON envelope:
+
+1. Grep `add_*` in `src/store.py` and align outputs with an existing `add_*` and schema.
+2. List `schemas/v0.1/` and pick the closest existing type (`fact`, `event`, `conflict`, etc.) instead of a bespoke shape.
+3. Only then extend a schema or add a new `add_*` if nothing fits — and keep new types as peers to facts/claims/events, not a second storage layer.
+
 ## The Three Layers
 
 ```

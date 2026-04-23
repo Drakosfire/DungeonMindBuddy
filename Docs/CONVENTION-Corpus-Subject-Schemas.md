@@ -15,6 +15,18 @@ Three goals frame every rule below; all per-class specializations should be read
 - **Easy update via append-not-regen.** State changes from a session land as **new** files (recaps) or **appended rows** (timeline), never by rewriting the bibles (dossier, seed, statblock). Conventions encode this so a writer skill or a human can stay disciplined under time pressure.
 - **Easy retrieval by agents.** Frontmatter is **machine-checkable**: every hub document carries a closed-vocabulary tag set so deterministic corpus-search tools (planned, see `Backlog.md` `[READY]` engineering principle) can filter without LLM judgment. The 2026-04-21 Caelynn timeline calibration showed that hand-crawl reconstruction works because the corpus has structure; this convention is what keeps that structure recoverable as the corpus grows.
 
+### 1.5 Authority hierarchy (recap is canon; projections follow)
+
+**Session recaps and other `document_class: play` records** are the **canonical chronology** for what actually happened at the table. They are the agreed-upon, citeable source when answering “what occurred in play.”
+
+**Timeline rows, hub `README` synthesis, and dossier** (and similar `reference` continuity surfaces) are **downstream projections**: summaries, pointers, and GM-facing consolidation derived from that play record and from evergreen reference material. They exist to navigate and run the game, not to override the recap.
+
+A **timeline** in particular is an index: short rows and recap links, not a second telling of the session. A **dossier** and **hub index** compress motivation, relationships, and “where to look next” for a model or a tired GM—they may lag a session until someone updates them; the recap still wins on facts of play.
+
+**`document_class: planning` prep and scratch notes** are not table canon. Do not treat them as tie-breakers against a published recap. Mechanical truth for combat remains the statblock satellite (see §3 and hub specializations); this hierarchy is about **narrated events and continuity**, not AC/HP.
+
+If a hub line, timeline entry, or dossier claim **conflicts** with a **cited session recap** (or other authoritative play doc for that beat), **correct the projection**—realign the timeline, bullet, or link—**do not edit the recap** to match the hand-wavy summary. Escalation and two-phase review for narrative edits live in `.cursor/rules/corpus-two-phase-commit.mdc`; recap authorship and the one canonical recap file per session live in `.cursor/skills/recap-write/SKILL.md`.
+
 ---
 
 ## 2. Subject hub — definition
