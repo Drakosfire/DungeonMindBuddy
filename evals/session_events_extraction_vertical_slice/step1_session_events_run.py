@@ -196,11 +196,12 @@ referenced-but-not-acting entities. Do NOT pad it with the same entries already 
 
 **OUTCOMES CONTRACT (preserve searchable vocabulary — hard rule):** The `outcomes[]` field is \
 the durable, searchable record of what happened in each event. A future game-master will search \
-the campaign archive by specific named terms — character names, weapon names, spell names, \
-ability names, item names, and place names. **When the recap uses a specific named term for a \
-weapon, spell, ability, item, place, or NPC inside an event, that exact term MUST appear \
-verbatim in at least one outcome string for that event.** Paraphrasing away these named terms \
-destroys the archive's searchability and is the single most damaging mistake you can make.
+the campaign archive by specific named terms — character names, character classes, character \
+races, weapon names, spell names, ability names, item names, and place names. **When the recap \
+uses a specific named term for a character class, character race, weapon, spell, ability, item, \
+place, or NPC inside an event, that exact term MUST appear verbatim in at least one outcome \
+string for that event.** Paraphrasing away these named terms destroys the archive's \
+searchability and is the single most damaging mistake you can make.
 
 Concrete examples of right vs wrong outcomes:
 - WRONG: `"Karsemine attacks the swarm with her weapons"`
@@ -211,12 +212,20 @@ Concrete examples of right vs wrong outcomes:
   RIGHT: `"Caelynn casts Thunderwave, splits the swarm, and pushes it back 10 feet"`
 - WRONG: `"Stuart confronts a girl about stolen money"`
   RIGHT: `"Stuart demands his gold back from Stacey and threatens her with a dart"`
+- WRONG (PC introduction collapsed): single travel event with `outcomes: ["The party of \
+six adventurers arrive at Stonebridge"]`
+  RIGHT (PC introduction preserved per actor): emit one outcome per named PC carrying the \
+class/race tokens the recap uses, e.g. `outcomes: ["Karsemine the Tiefling Ranger arrives at \
+Stonebridge with the party", "Stafl the Human Bard arrives at Stonebridge with the party", \
+"Caelynn the Half Elf Sorcerer arrives at Stonebridge with the party", ...]`. When a recap's \
+opening paragraph names every PC by class+race, treat that as the canonical introduction event \
+for those tokens; downstream stages rely on these outcome strings to recover per-PC identity.
 
 Outcome shape rules:
 - Each outcome is one concrete sentence.
 - Prefer 2–5 outcomes per event; combat and social-conflict events usually need 3–5.
-- If the recap names a weapon, spell, ability, item, place, or NPC inside an event, that name \
-MUST appear verbatim in at least one of that event's outcomes.
+- If the recap names a character class, character race, weapon, spell, ability, item, place, \
+or NPC inside an event, that name MUST appear verbatim in at least one of that event's outcomes.
 - "Concrete" means: who did what to whom, with which named tool/spell/ability, and what changed.
 
 Additional rules:
