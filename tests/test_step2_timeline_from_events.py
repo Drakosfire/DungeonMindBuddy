@@ -23,6 +23,7 @@ from evals.session_events_extraction_vertical_slice.step2_timeline_from_events_r
     _run_single_chained_cohort_iteration,
     build_stage_b_per_slug_user_message,
     filter_events_for_slug,
+    ordered_stage_b_timeline_targets,
     run_stage_b_events_driven_chain,
     write_step2_multi_summary,
     write_step2_run_report,
@@ -169,6 +170,26 @@ def test_filter_events_for_slug_returns_empty_list_for_zero_events():
     """When events list is empty, filter always returns empty — all slugs skipped."""
     assert filter_events_for_slug([], "caelynn") == []
     assert filter_events_for_slug([], "captain_lysandra_ironveil") == []
+
+
+def test_ordered_stage_b_timeline_targets_custom_order():
+    """C1 timeline-pass gold uses ``timeline_slug_order`` (not C2 _TIMELINE_PASS_SLUG_ORDER)."""
+    grading = {
+        "timeline_slug_order": ["zulu", "alpha"],
+        "expected_appends": [
+            {
+                "npc_slug": "alpha",
+                "timeline_relative_path": "Longmont Campaign/Campaign 1/PCs/alpha/timeline.md",
+            },
+            {
+                "npc_slug": "zulu",
+                "timeline_relative_path": "Longmont Campaign/Campaign 1/PCs/zulu/timeline.md",
+            },
+        ],
+        "expected_skips": [],
+    }
+    targets = ordered_stage_b_timeline_targets(grading)
+    assert [t["npc_slug"] for t in targets] == ["zulu", "alpha"]
 
 
 # ---------------------------------------------------------------------------

@@ -9,7 +9,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import json
+
 from evals.session_recap_timeline_pass_vertical_slice.step0_pre_state import (
+    apply_pre_state_manifest,
     build_pre_state_corpus,
     load_pre_state_manifest,
 )
@@ -90,3 +93,31 @@ def test_remove_row_idempotent(tmp_path: Path) -> None:
         b2 = (root2 / rel).read_bytes()
         assert b1 == b2, f"{rel} pre-state is not deterministic"
         assert b"| **20** |" not in b2
+
+
+def test_apply_pre_state_delete_relative_paths(tmp_path: Path) -> None:
+    root = tmp_path / "eldyrwild-markdown"
+    root.mkdir(parents=True)
+    victim = root / "Longmont Campaign/Campaign 2/PCs/caelynn/timeline.md"
+    victim.parent.mkdir(parents=True, exist_ok=True)
+    victim.write_text("stub", encoding="utf-8")
+    apply_pre_state_manifest(
+        root,
+        {"delete_relative_paths": ["Longmont Campaign/Campaign 2/PCs/caelynn/timeline.md"]},
+    )
+    assert not victim.is_file()
+
+
+def test_pre_state_c1_session1_manifest_seeds_and_deletes_c2_pc(tmp_path: Path) -> None:
+    """C1 Stage B manifest removes duplicate C2 PC timelines and copies C1 seeds."""
+    man_path = (
+        _REPO_ROOT
+        / "evals/session_recap_timeline_pass_vertical_slice/gold/step0_pre_state_manifest_session1_c1.json"
+    )
+    man = json.loads(man_path.read_text(encoding="utf-8"))
+    root = build_pre_state_corpus(tmp_dir=tmp_path, manifest=man)
+    c1 = root / "Longmont Campaign/Campaign 1/PCs/caelynn/timeline.md"
+    assert c1.is_file()
+    assert "longmont-c1" in c1.read_text(encoding="utf-8")
+    c2 = root / "Longmont Campaign/Campaign 2/PCs/caelynn/timeline.md"
+    assert not c2.is_file()

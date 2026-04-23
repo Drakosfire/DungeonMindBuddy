@@ -7,6 +7,7 @@
   "grading": {
     "session": 20,
     "recap_filename": "Session 20 - Recap.md",
+    "recap_evidence_path": "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md",
     "forbid_write_corpus_file": true,
     "forbid_recap_tools": [
       "assemble_recap_draft",

@@ -35,6 +35,18 @@ def remove_timeline_session_row(text: str, session: int) -> str:
 
 
 def apply_pre_state_manifest(corpus_root: Path, manifest: dict[str, Any]) -> None:
+    """Apply manifest steps to a corpus root (typically a temp copy of eldyrwild-markdown).
+
+    Order: ``delete_relative_paths`` → ``remove_table_row_session_in`` →
+    ``copy_into_corpus``. Deletes run first so benchmark runs can drop
+    conflicting ``Campaign 2/PCs/...`` timelines before seeding ``Campaign 1``
+    PC timelines for the same slug.
+    """
+    for rel in manifest.get("delete_relative_paths") or []:
+        p = corpus_root / str(rel).strip("/")
+        if p.is_file():
+            p.unlink()
+
     for spec in manifest.get("remove_table_row_session_in", []):
         path = corpus_root / str(spec["path"]).strip("/")
         if path.is_file():
@@ -61,10 +73,11 @@ def build_pre_state_corpus(
     manifest: dict[str, Any] | None = None,
     tmp_dir: Path | None = None,
 ) -> Path:
-    """Copy ``corpus/eldyrwild-markdown`` to a temp dir and apply the Stage-2 v1 manifest.
+    """Copy ``corpus/eldyrwild-markdown`` to a temp dir and apply a pre-state manifest.
 
-    Order: full corpus copy → strip Session 20 rows from APPEND targets →
-    copy pinned recap into ``Session Recaps/Session 20 - Recap.md`` (mirrors v0).
+    Default manifest: Session 20 timeline-pass (strip S20 rows, pin recap). Alternate
+    manifests (e.g. Campaign 1 Session 1–3) live under ``gold/step0_pre_state_manifest_*.json``
+    and are selected by Stage B via ``timeline_pass_session*_c1.json`` metadata.
     """
     repo = repo_root or _REPO_ROOT
     src = (repo / "corpus" / "eldyrwild-markdown").resolve()

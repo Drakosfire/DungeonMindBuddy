@@ -19,6 +19,8 @@ Options::
     --n N               Number of runs in the cohort (default: 1)
     --model MODEL       Model ID (default: resolved via DUNGEONMIND_PLANNER_MODEL env or gpt-5.4-mini)
     --scenario-json     Path to Stage A gold scenario JSON (default: gold/session_events_session20.json)
+    --timeline-gold     Path to timeline-pass grading JSON for Stage B (default: …/timeline_pass_session20.json)
+    --pre-state-manifest  Override pre-state manifest JSON (default: from timeline gold's ``pre_state_manifest_relative`` or Session 20 default)
     --runs-root         Override artifact runs root directory (default: artifacts/runs/)
     --no-writes         Skip writing run reports to disk
     -q / --quiet        Suppress progress lines on stderr
@@ -64,6 +66,7 @@ from evals.session_recap_timeline_pass_vertical_slice.grader import (  # noqa: E
 )
 from evals.session_recap_timeline_pass_vertical_slice.step0_pre_state import (  # noqa: E402
     build_pre_state_corpus,
+    load_pre_state_manifest,
 )
 from evals.session_recap_timeline_pass_vertical_slice.step1_timeline_pass_run import (  # noqa: E402
     _TIMELINE_PASS_SLUG_ORDER,
@@ -72,13 +75,8 @@ from evals.session_recap_timeline_pass_vertical_slice.step1_timeline_pass_run im
 
 _SLICE_DIR = Path(__file__).resolve().parent
 _STAGE_A_GOLD_DEFAULT = _SLICE_DIR / "gold" / "session_events_session20.json"
-_STAGE_B_GOLD_PATH = (
-    _REPO_ROOT
-    / "evals"
-    / "session_recap_timeline_pass_vertical_slice"
-    / "gold"
-    / "timeline_pass_session20.json"
-)
+_TIMELINE_PASS_SLICE_DIR = _REPO_ROOT / "evals" / "session_recap_timeline_pass_vertical_slice"
+_STAGE_B_GOLD_PATH = _TIMELINE_PASS_SLICE_DIR / "gold" / "timeline_pass_session20.json"
 _ALLOW_WRITES_ENV = "DUNGEONMIND_PLANNER_ALLOW_WRITES"
 
 # Re-export for tests that want to verify the slug order without importing
@@ -90,9 +88,8 @@ def _is_pc_target(spec: dict[str, Any]) -> bool:
     """True iff the timeline spec lives under a PCs/ hub.
 
     Stage B is narrowed to PCs only. NPC artifact updates are handled by the
-    forthcoming NPC ingestion slice. The signal is the timeline_relative_path,
-    which is `Longmont Campaign/Campaign 2/PCs/<slug>/timeline.md` for PCs and
-    `.../NPCs/<slug>/timeline.md` for NPCs.
+    forthcoming NPC ingestion slice. The signal is ``timeline_relative_path``
+    containing ``/PCs/`` (Campaign 1 or Campaign 2). NPC paths use ``/NPCs/``.
     """
     rel = str(spec.get("timeline_relative_path", "") or "")
     return "/PCs/" in rel
@@ -123,14 +120,67 @@ def _filter_grading_to_pcs(grading: dict[str, Any]) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
-# Stage B instruction suffix — events-driven, no recap reads allowed
+# Timeline-pass gold helpers (session, recap path, manifest, slug order)
 # ---------------------------------------------------------------------------
 
-_STAGE_B_INSTRUCTION_SUFFIX = """
+
+def _recap_evidence_path_from_stage_b_gold(stage_b_gold: dict[str, Any]) -> str:
+    grading = stage_b_gold.get("grading") or {}
+    explicit = str(grading.get("recap_evidence_path") or "").strip()
+    if explicit:
+        return explicit
+    fn = str(grading.get("recap_filename") or "Session 20 - Recap.md").strip()
+    return f"Longmont Campaign/Campaign 2/Session Recaps/{fn}"
+
+
+def _session_int_from_stage_b_gold(stage_b_gold: dict[str, Any]) -> int:
+    g = stage_b_gold.get("grading") or {}
+    try:
+        return int(g.get("session", 20))
+    except (TypeError, ValueError):
+        return 20
+
+
+def _resolve_pre_state_manifest_dict(stage_b_gold: dict[str, Any]) -> dict[str, Any]:
+    rel = str(stage_b_gold.get("pre_state_manifest_relative") or "").strip()
+    if rel:
+        p = (_TIMELINE_PASS_SLICE_DIR / rel).resolve()
+        if not p.is_file():
+            raise FileNotFoundError(f"pre_state manifest not found: {p}")
+        return json.loads(p.read_text(encoding="utf-8"))
+    return load_pre_state_manifest()
+
+
+def ordered_stage_b_timeline_targets(grading: dict[str, Any]) -> list[dict[str, Any]]:
+    """Return append+skip specs in ``grading.timeline_slug_order`` or C2 default order."""
+    custom = grading.get("timeline_slug_order")
+    if isinstance(custom, list) and custom:
+        by_slug: dict[str, dict[str, Any]] = {}
+        for spec in grading.get("expected_appends") or []:
+            slug = str(spec.get("npc_slug", "") or "").strip()
+            if slug:
+                by_slug[slug] = dict(spec)
+        for spec in grading.get("expected_skips") or []:
+            slug = str(spec.get("npc_slug", "") or "").strip()
+            if slug:
+                by_slug.setdefault(slug, dict(spec))
+        out: list[dict[str, Any]] = []
+        for slug in custom:
+            key = str(slug).strip()
+            if key in by_slug:
+                out.append(by_slug[key])
+        return out
+    return ordered_timeline_targets(grading)
+
+
+def build_stage_b_instruction_suffix(*, session_num: int, recap_evidence_path: str) -> str:
+    """Planner instruction suffix for one Stage B micro-turn (PC-only, no recap reads)."""
+    tick = recap_evidence_path.strip()
+    return f"""
 
 **Benchmark micro-turn — PC timeline append from events (Stage B, single PC):** \
 This is a per-PC timeline append turn. The events JSON in the user message is your \
-ONLY source about what happened in Session 20 for this player character.
+ONLY source about what happened in Session {session_num} for this player character.
 
 DO NOT call `read_corpus_file`, `load_context_markdown`, `get_recap_context`, \
 `assemble_recap_draft`, `build_recap_write_payload`, or `write_corpus_file`. \
@@ -151,9 +201,12 @@ record. There is no preview or confirm step; the single call commits.
 
 Anchor the beat on event participants, location, and outcomes. Match the three-column \
 table format (session | beat | backticked evidence path). Use \
-`` `Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md` `` as the evidence \
+`` `{tick}` `` as the evidence \
 path. The slug-only resolver falls back from `NPCs/<slug>/` to `PCs/<slug>/`, so you \
-usually do not need `timeline_path`.
+usually do not need `timeline_path` unless multiple campaigns share the same slug.
+
+**Session number:** When calling ``append_timeline_row``, set ``session`` to **{session_num}** \
+(the benchmark session this micro-turn grades).
 
 **VOCABULARY CONTRACT (preserve searchable terms — hard rule):** The events JSON above is \
 the result of a careful extraction that preserved the recap's distinctive vocabulary \
@@ -228,6 +281,8 @@ def build_stage_b_per_slug_user_message(
     timeline_rel: str,
     slug: str,
     slug_events: list[dict[str, Any]],
+    *,
+    session_num: int = 20,
 ) -> str:
     """Build the per-slug user message for Stage B (PC-only, events-driven, no recap).
 
@@ -239,7 +294,7 @@ def build_stage_b_per_slug_user_message(
     return (
         f"**PC timeline append micro-turn (events-driven):** Consider only `{timeline_rel}` "
         f"(`npc_slug` `{slug}`). This slug is a **player character**.\n\n"
-        "The following structured events from Session 20 mention this PC:\n\n"
+        f"The following structured events from Session {session_num} mention this PC:\n\n"
         f"```json\n{events_json}\n```\n\n"
         "Call `append_timeline_row` **once** with a beat sentence that **composes** these "
         "events into a single sentence, retaining the distinctive named terms verbatim — "
@@ -566,15 +621,22 @@ def run_stage_b_events_driven_chain(
     - ``slug_model_message``: model's final ``message`` text (``None`` for no-event skip)
     """
     grading = stage_b_scenario.get("grading") or {}
-    targets = ordered_timeline_targets(grading)
+    targets = ordered_stage_b_timeline_targets(grading)
     targets = [t for t in targets if _is_pc_target(t)]
+
+    session_num = _session_int_from_stage_b_gold(stage_b_scenario)
+    recap_evidence = _recap_evidence_path_from_stage_b_gold(stage_b_scenario)
+    instr_suffix = build_stage_b_instruction_suffix(
+        session_num=session_num,
+        recap_evidence_path=recap_evidence,
+    )
 
     instructions_base, fp = load_or_build_planner_instructions(
         corpus_dir,
         cache_root=None,
         include_write_tools=allow_corpus_writes,
     )
-    inst_stage_b = f"{instructions_base.rstrip()}{_STAGE_B_INSTRUCTION_SUFFIX}"
+    inst_stage_b = f"{instructions_base.rstrip()}{instr_suffix}"
 
     tools = _planner_tools_responses(
         include_write_tools=allow_corpus_writes,
@@ -622,7 +684,9 @@ def run_stage_b_events_driven_chain(
             continue
 
         per_slug_no_event_skip[slug] = False
-        user_line = build_stage_b_per_slug_user_message(rel, slug, slug_events)
+        user_line = build_stage_b_per_slug_user_message(
+            rel, slug, slug_events, session_num=session_num
+        )
 
         prev_rid: str | None = (
             all_details[-1].last_response_id if all_details else None
@@ -696,6 +760,7 @@ def _run_single_chained_cohort_iteration(
     stage_b_gold: dict[str, Any],
     allow_corpus_writes: bool = True,
     quiet: bool = False,
+    pre_state_manifest: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Run one Stage A → Stage B cohort iteration without I/O side effects.
 
@@ -728,7 +793,12 @@ def _run_single_chained_cohort_iteration(
     stage_a_events: list[dict[str, Any]] = list(stage_a_result.get("parsed_events") or [])
     stage_b_grading = _filter_grading_to_pcs(stage_b_gold.get("grading") or {})
 
-    corpus_dir = build_pre_state_corpus()
+    manifest = (
+        pre_state_manifest
+        if pre_state_manifest is not None
+        else _resolve_pre_state_manifest_dict(stage_b_gold)
+    )
+    corpus_dir = build_pre_state_corpus(manifest=manifest)
     tool_trace, final_text, stage_b_cost, per_slug_skip, per_slug_diagnostics = (
         run_stage_b_events_driven_chain(
             corpus_dir=corpus_dir,
@@ -784,6 +854,21 @@ def main() -> None:
         default=None,
         help="Path to Stage A gold scenario JSON (default: gold/session_events_session20.json)",
     )
+    parser.add_argument(
+        "--timeline-gold",
+        type=Path,
+        default=None,
+        help=(
+            "Path to timeline-pass grading JSON for Stage B (default: "
+            "evals/session_recap_timeline_pass_vertical_slice/gold/timeline_pass_session20.json)"
+        ),
+    )
+    parser.add_argument(
+        "--pre-state-manifest",
+        type=Path,
+        default=None,
+        help="Override pre-state manifest JSON (default: from timeline gold metadata)",
+    )
     parser.add_argument("--runs-root", type=Path, default=None)
     parser.add_argument("--no-writes", action="store_true", help="Skip writing artifacts")
     parser.add_argument("-q", "--quiet", action="store_true")
@@ -807,8 +892,15 @@ def main() -> None:
     stage_a_gold = load_stage_a_scenario(args.scenario_json)
     corpus_root = resolve_corpus_root()
 
-    stage_b_gold = json.loads(_STAGE_B_GOLD_PATH.read_text(encoding="utf-8"))
-    scenario_id = str(stage_b_gold.get("scenario_id") or "timeline_pass_session20")
+    timeline_gold_path = (args.timeline_gold or _STAGE_B_GOLD_PATH).resolve()
+    stage_b_gold = json.loads(timeline_gold_path.read_text(encoding="utf-8"))
+    scenario_id = str(stage_b_gold.get("scenario_id") or timeline_gold_path.stem)
+
+    manifest_override: dict[str, Any] | None = None
+    if args.pre_state_manifest:
+        manifest_override = json.loads(
+            args.pre_state_manifest.read_text(encoding="utf-8")
+        )
 
     model_id = _resolve_planner_model((args.model.strip() or None))
     n = max(1, int(args.n))
@@ -834,6 +926,7 @@ def main() -> None:
             stage_b_gold=stage_b_gold,
             allow_corpus_writes=True,
             quiet=args.quiet,
+            pre_state_manifest=manifest_override,
         )
 
         if result["infrastructure_error"]:

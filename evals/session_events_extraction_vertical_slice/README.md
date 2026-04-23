@@ -22,7 +22,7 @@ evals/session_events_extraction_vertical_slice/
     session_events_session1_c1.json    ← Stage A gold (C1 Session 1)
     session_events_session2_c1.json    ← Stage A gold (C1 Session 2)
     session_events_session3_c1.json    ← Stage A gold (C1 Session 3)
-    # Stage B (PC-only) grades against evals/session_recap_timeline_pass_vertical_slice/gold/timeline_pass_session20.json — C1 PC timelines are not in-corpus yet; C1S1–3 Stage B benchmarks deferred.
+    # Stage B (PC-only) grading gold + pre-state: evals/session_recap_timeline_pass_vertical_slice/gold/timeline_pass_session{1,2,3}_c1.json (+ manifests + C1 PC timeline seeds — not in live corpus until pre-state copy).
   artifacts/
     .gitignore
     last_session_events_run.{md,json}    ← latest Stage A run
@@ -69,11 +69,21 @@ uv run python -m evals.session_events_extraction_vertical_slice.step1_session_ev
 
 ```bash
 export DUNGEONMIND_PLANNER_ALLOW_WRITES=1
+# Campaign 2 Session 20 (default Stage A + default timeline-pass gold)
 uv run python -m evals.session_events_extraction_vertical_slice.step2_timeline_from_events_run \
   --n 5 --model gpt-5.4-mini
+
+# Campaign 1 Sessions 1–3 (Stage A gold must match session; timeline-pass gold selects pre-state + grading)
+uv run python -m evals.session_events_extraction_vertical_slice.step2_timeline_from_events_run \
+  --scenario-json evals/session_events_extraction_vertical_slice/gold/session_events_session1_c1.json \
+  --timeline-gold evals/session_recap_timeline_pass_vertical_slice/gold/timeline_pass_session1_c1.json \
+  --n 1 --model gpt-5.4-mini
+# … repeat with session2 / session3 gold + timeline_pass_session2_c1.json / session3_c1.json
 ```
 
 Stage B writes to a pre-state corpus copy, never to `corpus/eldyrwild-markdown/` directly. Cohort aborts cleanly above $5.00 cumulative cost. Per-run sidecars carry `slug_events_sent`, `slug_beat_written`, and `slug_model_message` for each slug micro-turn so failure attribution does not require re-runs.
+
+**C1 pre-state:** manifests delete duplicate `Campaign 2/PCs/<slug>/timeline.md` files for the six C1 PCs (so `append_timeline_row` slug resolution is unambiguous), copy empty `Campaign 1/PCs/<slug>/timeline.md` seeds from `gold/c1_pc_timeline_seeds/`, then strip the target session row if present. Recaps are read from the corpus copy (canonical files under `Longmont Campaign/Campaign 1/Session Recaps/`).
 
 ## Gates
 

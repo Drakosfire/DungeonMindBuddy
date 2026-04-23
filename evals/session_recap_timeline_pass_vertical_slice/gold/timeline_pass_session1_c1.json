@@ -1,0 +1,75 @@
+{
+  "schema": "session_recap_timeline_pass_v1",
+  "scenario_id": "timeline_pass_session1_c1",
+  "pre_state_manifest_relative": "gold/step0_pre_state_manifest_session1_c1.json",
+  "input": {
+    "user_message": "Campaign 1 Session 1 — PC timeline pass (Stage B grading gold). See session_events_session1_c1 + step0_pre_state_manifest_session1_c1.json."
+  },
+  "grading": {
+    "session": 1,
+    "recap_filename": "Session 1 - Recap 3-27-24.md",
+    "recap_evidence_path": "Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md",
+    "timeline_slug_order": [
+      "baergrom",
+      "bonogo",
+      "caelynn",
+      "ephanna",
+      "karsemine",
+      "stafl"
+    ],
+    "forbid_write_corpus_file": true,
+    "forbid_recap_tools": [
+      "assemble_recap_draft",
+      "build_recap_write_payload",
+      "get_recap_context"
+    ],
+    "allowed_npc_slugs": [
+      "baergrom",
+      "bonogo",
+      "caelynn",
+      "ephanna",
+      "karsemine",
+      "stafl"
+    ],
+    "expected_appends": [
+      {
+        "npc_slug": "baergrom",
+        "timeline_relative_path": "Longmont Campaign/Campaign 1/PCs/baergrom/timeline.md",
+        "expected_count": 1,
+        "anchor_words": ["Stonebridge", "River's Edge"]
+      },
+      {
+        "npc_slug": "bonogo",
+        "timeline_relative_path": "Longmont Campaign/Campaign 1/PCs/bonogo/timeline.md",
+        "expected_count": 1,
+        "anchor_words": ["Stonebridge", "Wizard's Tower"]
+      },
+      {
+        "npc_slug": "caelynn",
+        "timeline_relative_path": "Longmont Campaign/Campaign 1/PCs/caelynn/timeline.md",
+        "expected_count": 1,
+        "anchor_words": ["Grishna", "Glowkindle"]
+      },
+      {
+        "npc_slug": "ephanna",
+        "timeline_relative_path": "Longmont Campaign/Campaign 1/PCs/ephanna/timeline.md",
+        "expected_count": 1,
+        "anchor_words": ["River's Edge", "Wizard's Tower"]
+      },
+      {
+        "npc_slug": "karsemine",
+        "timeline_relative_path": "Longmont Campaign/Campaign 1/PCs/karsemine/timeline.md",
+        "expected_count": 1,
+        "anchor_words": ["Giant", "rat"]
+      },
+      {
+        "npc_slug": "stafl",
+        "timeline_relative_path": "Longmont Campaign/Campaign 1/PCs/stafl/timeline.md",
+        "expected_count": 1,
+        "anchor_words": ["River's Edge", "bard"]
+      }
+    ],
+    "expected_skips": []
+  },
+  "notes": "Stage B (PC-only) grading gold for C1 Session 1. Pre-state deletes C2 PC timelines for slug-disambiguation, seeds empty C1 PC timelines, strips Session 1 rows. Anchor words are curated from session_events_session1_c1 gold — tighten after first N=5 cohort if TP1 flakes."
+}

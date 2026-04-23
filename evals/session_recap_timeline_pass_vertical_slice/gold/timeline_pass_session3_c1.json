@@ -1,0 +1,75 @@
+{
+  "schema": "session_recap_timeline_pass_v1",
+  "scenario_id": "timeline_pass_session3_c1",
+  "pre_state_manifest_relative": "gold/step0_pre_state_manifest_session3_c1.json",
+  "input": {
+    "user_message": "Campaign 1 Session 3 — PC timeline pass (Stage B grading gold). See session_events_session3_c1 + step0_pre_state_manifest_session3_c1.json."
+  },
+  "grading": {
+    "session": 3,
+    "recap_filename": "Session 3 - The Stone Bridge Flood.md",
+    "recap_evidence_path": "Longmont Campaign/Campaign 1/Session Recaps/Session 3 - The Stone Bridge Flood.md",
+    "timeline_slug_order": [
+      "baergrom",
+      "bonogo",
+      "caelynn",
+      "ephanna",
+      "karsemine",
+      "stafl"
+    ],
+    "forbid_write_corpus_file": true,
+    "forbid_recap_tools": [
+      "assemble_recap_draft",
+      "build_recap_write_payload",
+      "get_recap_context"
+    ],
+    "allowed_npc_slugs": [
+      "baergrom",
+      "bonogo",
+      "caelynn",
+      "ephanna",
+      "karsemine",
+      "stafl"
+    ],
+    "expected_appends": [
+      {
+        "npc_slug": "baergrom",
+        "timeline_relative_path": "Longmont Campaign/Campaign 1/PCs/baergrom/timeline.md",
+        "expected_count": 1,
+        "anchor_words": ["Kirfan", "net"]
+      },
+      {
+        "npc_slug": "bonogo",
+        "timeline_relative_path": "Longmont Campaign/Campaign 1/PCs/bonogo/timeline.md",
+        "expected_count": 1,
+        "anchor_words": ["Kirfan", "Bubbles"]
+      },
+      {
+        "npc_slug": "caelynn",
+        "timeline_relative_path": "Longmont Campaign/Campaign 1/PCs/caelynn/timeline.md",
+        "expected_count": 1,
+        "anchor_words": ["Pippa", "StoneBridge"]
+      },
+      {
+        "npc_slug": "ephanna",
+        "timeline_relative_path": "Longmont Campaign/Campaign 1/PCs/ephanna/timeline.md",
+        "expected_count": 1,
+        "anchor_words": ["flood", "Bubbles"]
+      },
+      {
+        "npc_slug": "karsemine",
+        "timeline_relative_path": "Longmont Campaign/Campaign 1/PCs/karsemine/timeline.md",
+        "expected_count": 1,
+        "anchor_words": ["Pippa", "StoneBridge"]
+      },
+      {
+        "npc_slug": "stafl",
+        "timeline_relative_path": "Longmont Campaign/Campaign 1/PCs/stafl/timeline.md",
+        "expected_count": 1,
+        "anchor_words": ["Wizard's Tower", "River's Edge"]
+      }
+    ],
+    "expected_skips": []
+  },
+  "notes": "Stage B grading gold for C1 Session 3 (Stone Bridge flood / Bubbles rescue arc). Anchors derived from session_events_session3_c1 gold; 'StoneBridge' matches recap spelling variant."
+}
