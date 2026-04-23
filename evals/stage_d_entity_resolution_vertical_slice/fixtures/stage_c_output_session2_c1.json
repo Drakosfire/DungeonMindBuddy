@@ -1,0 +1,16 @@
+{
+  "_provenance": "Frozen Stage C output for C1S2 — taken from a PASS cohort run (evals/stage_c_npc_candidates_vertical_slice/artifacts/runs/2026-04-22/stage_c--stage_c_session2_c1--gpt-5.4-mini--PASS--20260422T210832Z--run001.json). Session 2 is sparse: one named return (Glowkindle); zero unresolved_descriptors.",
+  "_source_run": "stage_c--stage_c_session2_c1--gpt-5.4-mini--PASS--20260422T210832Z--run001.json",
+  "stage_c_output": {
+    "tracked_npcs_active": [],
+    "new_npc_candidates": [
+      {
+        "descriptor": "Glowkindle",
+        "suggested_slug": "glowkindle",
+        "evidence_event_indices": [3],
+        "rationale": "Named entity appears in the event but does not match any tracked NPC registry entry."
+      }
+    ],
+    "unresolved_descriptors": []
+  }
+}

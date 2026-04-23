@@ -18,8 +18,11 @@ evals/session_events_extraction_vertical_slice/
   grader.py                              ← Stage A gate logic + telemetry (SE1-SE5)
   session_events_run_report.py           ← per-run + cohort artifact writers (Stage A + Stage B)
   gold/
-    session_events_session20.json        ← Stage A gold (curated from Session 20 recap)
-    # (Stage B grades against evals/session_recap_timeline_pass_vertical_slice/gold/timeline_pass_session20.json)
+    session_events_session20.json        ← Stage A gold (C2 Session 20 recap)
+    session_events_session1_c1.json    ← Stage A gold (C1 Session 1)
+    session_events_session2_c1.json    ← Stage A gold (C1 Session 2)
+    session_events_session3_c1.json    ← Stage A gold (C1 Session 3)
+    # Stage B (PC-only) grades against evals/session_recap_timeline_pass_vertical_slice/gold/timeline_pass_session20.json — C1 PC timelines are not in-corpus yet; C1S1–3 Stage B benchmarks deferred.
   artifacts/
     .gitignore
     last_session_events_run.{md,json}    ← latest Stage A run

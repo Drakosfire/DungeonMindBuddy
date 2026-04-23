@@ -1,0 +1,29 @@
+{
+  "schema": "stage_d_v0.1",
+  "scenario_id": "stage_d_session2_c1",
+  "scenario_class": "stage_d_entity_resolution",
+  "input": {
+    "campaign_id": "longmont-c1",
+    "session_label": "Session 2 (C1)",
+    "session_number": 2,
+    "stage_c_output_path": "evals/stage_d_entity_resolution_vertical_slice/fixtures/stage_c_output_session2_c1.json",
+    "stage_a_events_path": "evals/stage_c_npc_candidates_vertical_slice/fixtures/stage_a_events_session2_c1.json",
+    "npc_registry_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/_npc_registry.json",
+    "pc_roster": [
+      {"slug": "bonogo", "display_name": "Bonogo", "aliases": []},
+      {"slug": "caelynn", "display_name": "Caelynn", "aliases": []},
+      {"slug": "ephanna", "display_name": "Ephanna", "aliases": []},
+      {"slug": "karsemine", "display_name": "Karsemine", "aliases": ["Karesmine"]},
+      {"slug": "stafl", "display_name": "Stafl", "aliases": []},
+      {"slug": "baergrom", "display_name": "Baergrom", "aliases": []}
+    ]
+  },
+  "grading": {
+    "must_not_merge": [],
+    "must_merge_clusters": [],
+    "must_resolve_unresolved": [],
+    "expected_unresolvable_max": 0,
+    "expected_proposed_new_records_minimum_slugs": ["glowkindle"]
+  },
+  "notes": "C1S2 — Finishing the Job (Wizard's Tower basement). C1 registry pre-seeds Lysandra + Torbin + bubbles_the_float_goat (none appear as Stage C inputs here). Frozen Stage C: one new_candidate (glowkindle), zero unresolved. Stage D v0 deterministic should: route glowkindle to new_net_entity + proposed_new_record (slug glowkindle, status=candidate, hub_path=null); zero unresolvable[]; empty must_not_merge / must_merge_clusters (nothing to cross-merge)."
+}

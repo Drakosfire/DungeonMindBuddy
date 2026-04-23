@@ -24,12 +24,14 @@ evals/stage_d_entity_resolution_vertical_slice/
   stage_d_run_report.py                  ← per-run + cohort + proposals writers
   gold/
     stage_d_session20.json               ← C2S20 — clean tracked-active path
-    stage_d_session1_c1.json             ← C1S1 — creature unresolvables
+    stage_d_session1_c1.json             ← C1S1 — creature unresolvables + grishna/glowkindle proposals
+    stage_d_session2_c1.json             ← C1S2 — single new_candidate (glowkindle), zero unresolved
     stage_d_session3_c1.json             ← C1S3 — bubbles slug-variant test
   fixtures/
     .gitignore                           ← allow stage_c_output_*.json; ignore everything else
     stage_c_output_session20.json        ← FROZEN Stage C S20 output
     stage_c_output_session1_c1.json      ← FROZEN Stage C C1S1 output (8 unresolved aggregated)
+    stage_c_output_session2_c1.json      ← FROZEN Stage C C1S2 output (glowkindle only)
     stage_c_output_session3_c1.json      ← SYNTHESIZED Stage C C1S3 output (bubbles + bubbles_the_float_goat both present)
   artifacts/
     .gitignore
@@ -75,6 +77,18 @@ uv run python -m evals.stage_d_entity_resolution_vertical_slice.step1_stage_d_ru
 # Dry run (no artifacts written)
 uv run python -m evals.stage_d_entity_resolution_vertical_slice.step1_stage_d_run \
     --scenario-json evals/stage_d_entity_resolution_vertical_slice/gold/stage_d_session20.json --no-writes
+```
+
+### Campaign 1 — Session 1 / 2 / 3 (mirrors Stage C C1 triple)
+
+Stage C ships frozen `stage_a_events_session{1,2,3}_c1.json` plus `stage_c_session{1,2,3}_c1.json` gold. Stage D consumes the matching **frozen Stage C output** fixtures (`stage_c_output_session{1,2,3}_c1.json`) plus the same events path and `Longmont Campaign/Campaign 1/_npc_registry.json`. All three scenarios are **$0/run** in v0 (deterministic).
+
+```bash
+for s in 1 2 3; do
+  uv run python -m evals.stage_d_entity_resolution_vertical_slice.step1_stage_d_run \
+    --scenario-json "evals/stage_d_entity_resolution_vertical_slice/gold/stage_d_session${s}_c1.json" \
+    --n 1 --no-writes -q
+done
 ```
 
 Cost: **$0 per run** in v0 (no LLM call).

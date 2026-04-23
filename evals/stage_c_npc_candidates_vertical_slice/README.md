@@ -102,7 +102,7 @@ uv run pytest tests/test_stage_c_grader.py -v
 
 ## Open follow-ups
 
-1. **C1 cohort + C1 registry cold-start** — next slice. Stage C C1S1/C1S2/C1S3 cohorts depend on a C1 NPC registry that doesn't exist yet (no `Longmont Campaign/Campaign 1/NPCs/` hubs). See `Backlog.md` entry `[READY] NPC registry — Campaign 1 cold-start`.
+1. **C1 triple (shipped 2026-04-22)** — `gold/stage_c_session{1,2,3}_c1.json` + `fixtures/stage_a_events_session{1,2,3}_c1.json` + `corpus/.../Campaign 1/_npc_registry.json` (Lysandra/Torbin + candidate seeds). N=5 cohorts recorded under `artifacts/runs/2026-04-22/`. Downstream Stage D gold/fixtures for the same sessions live in `evals/stage_d_entity_resolution_vertical_slice/` (including `stage_d_session2_c1.json` + `fixtures/stage_c_output_session2_c1.json` as of 2026-04-23).
 2. **Stage A `parsed_events` sidecar persistence** — would let Stage C run against ANY Stage A cohort artifact instead of frozen fixtures. See `Backlog.md` entry tagged READY.
-3. **Stage D (entity resolution)** — consumes Stage C's `unresolved_descriptors[]` plus `new_npc_candidates[]` to merge "the elderly fisherman" + "kirfan" style descriptors. Separate slice.
+3. **Stage D v1+** — narrow LLM coreference for Kirfan-class unresolvables; see `evals/stage_d_entity_resolution_vertical_slice/README.md` and `Backlog.md` `[READY] Stage D — narrow LLM coreference pass`.
 4. **Stage E (per-NPC artifact update)** — consumes `tracked_npcs_active[]`. Separate slice.
