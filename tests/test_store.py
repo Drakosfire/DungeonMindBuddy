@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import blake3
+
 from src.store import FactStore
 
 
@@ -15,6 +17,8 @@ def _base_record() -> dict[str, str]:
 
 
 def _sample_evidence(evidence_id: str = "evid_store_001") -> dict[str, object]:
+    text = "Mirathorn is prosperous."
+    legacy_hash = blake3.blake3(text.encode("utf-8")).hexdigest()
     return {
         **_base_record(),
         "evidence_id": evidence_id,
@@ -24,15 +28,27 @@ def _sample_evidence(evidence_id: str = "evid_store_001") -> dict[str, object]:
         "source_class": "seed_reference",
         "canon_layer": "world",
         "campaign_id": None,
-        "text": "Mirathorn is prosperous.",
+        "text": text,
         "section_path": ["Overview"],
         "paragraph_index": 0,
         "source_order_index": 0,
-        "line_span": None,
+        "line_span": {"start": 1, "end": 1},
         "char_span": None,
         "inferred_session": None,
         "speaker_or_subject": None,
         "notes": None,
+        "source_anchors": [
+            {
+                "source_type": "legacy_unanchored",
+                "path": "fixture/doc_store_test.md",
+                "line_start": 1,
+                "line_end": 1,
+                "content_hash": legacy_hash,
+                "commit_sha": "",
+                "agent": None,
+                "thread_id": None,
+            }
+        ],
     }
 
 

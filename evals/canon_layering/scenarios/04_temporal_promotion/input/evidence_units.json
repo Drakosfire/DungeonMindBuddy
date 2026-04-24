@@ -19,7 +19,23 @@
     "paragraph_index": 2,
     "source_order_index": 11,
     "inferred_session": 14,
-    "speaker_or_subject": "narrator"
+    "speaker_or_subject": "narrator",
+    "line_span": {
+      "start": 1,
+      "end": 1
+    },
+    "source_anchors": [
+      {
+        "source_type": "legacy_unanchored",
+        "path": "synthetic/campaign2_session14.md",
+        "line_start": 1,
+        "line_end": 1,
+        "content_hash": "3070bfc113d4624b0354cd326c043c60300d4309556367848198919f2761c087",
+        "commit_sha": "",
+        "agent": null,
+        "thread_id": null
+      }
+    ]
   },
   {
     "schema_version": "0.1.0",
@@ -41,7 +57,22 @@
     "paragraph_index": 1,
     "source_order_index": 5,
     "inferred_session": 20,
-    "speaker_or_subject": "narrator"
+    "speaker_or_subject": "narrator",
+    "line_span": {
+      "start": 1,
+      "end": 1
+    },
+    "source_anchors": [
+      {
+        "source_type": "legacy_unanchored",
+        "path": "synthetic/campaign2_session20.md",
+        "line_start": 1,
+        "line_end": 1,
+        "content_hash": "ffe06ae4acd54ec83e2a4f341c461bdc3860a4f570effb7899d5da80e66a9d37",
+        "commit_sha": "",
+        "agent": null,
+        "thread_id": null
+      }
+    ]
   }
 ]
-

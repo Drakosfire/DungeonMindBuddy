@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
+import blake3
 import pytest
 
 from src.contracts.schema_validation import validate_instance
@@ -19,6 +20,22 @@ from src.ingestion.entity_extractor import (
 )
 from src.ingestion.recap_models import ClaimRecord, EventRecord, RecapExtractionResult
 from src.store import FactStore
+
+
+def _legacy_source_anchors(text: str, *, path: str = "fixture/recap_models.md") -> list[dict[str, Any]]:
+    digest = blake3.blake3(text.encode("utf-8")).hexdigest()
+    return [
+        {
+            "source_type": "legacy_unanchored",
+            "path": path,
+            "line_start": 1,
+            "line_end": 1,
+            "content_hash": digest,
+            "commit_sha": "",
+            "agent": None,
+            "thread_id": None,
+        }
+    ]
 
 
 class TestEventRecordModel:
@@ -152,11 +169,12 @@ def _recap_evidence(evidence_id: str, text: str, index: int) -> dict[str, Any]:
         "section_path": ["Recap"],
         "paragraph_index": index,
         "source_order_index": index,
-        "line_span": None,
+        "line_span": {"start": 1, "end": 1},
         "char_span": None,
         "inferred_session": 1,
         "speaker_or_subject": None,
         "notes": None,
+        "source_anchors": _legacy_source_anchors(text),
     }
 
 
@@ -210,8 +228,10 @@ class TestStubRecapClient:
         assert len(recap_artifacts.get("event_records", [])) == 1
         assert recap_artifacts["event_records"][0]["event_class"] == "combat"
         assert recap_artifacts["event_records"][0]["evidence_id"] == "evid_recap_1"
+        assert recap_artifacts["event_records"][0]["source_anchors"]
         assert len(recap_artifacts.get("claims", [])) == 1
         assert recap_artifacts["claims"][0]["claim_type"] == "suspicion"
+        assert recap_artifacts["claims"][0]["source_anchors"]
 
     def test_worldbuilding_unit_does_not_produce_recap_artifacts(self, tmp_path: Path) -> None:
         class WorldStubClient:
@@ -227,6 +247,7 @@ class TestStubRecapClient:
                     ]
                 }
 
+        wb_text = "Mirathorn is a fortified city."
         wb_evidence = {
             "schema_version": "0.1.0",
             "created_at": "2026-03-27T00:00:00Z",
@@ -239,15 +260,16 @@ class TestStubRecapClient:
             "source_class": "seed_reference",
             "canon_layer": "world",
             "campaign_id": None,
-            "text": "Mirathorn is a fortified city.",
+            "text": wb_text,
             "section_path": ["World"],
             "paragraph_index": 0,
             "source_order_index": 0,
-            "line_span": None,
+            "line_span": {"start": 1, "end": 1},
             "char_span": None,
             "inferred_session": None,
             "speaker_or_subject": None,
             "notes": None,
+            "source_anchors": _legacy_source_anchors(wb_text, path="fixture/wb.md"),
         }
         recap_artifacts: dict[str, list[dict[str, Any]]] = {}
         entity_out = run_entity_extraction(

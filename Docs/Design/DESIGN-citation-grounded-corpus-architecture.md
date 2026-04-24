@@ -1,7 +1,7 @@
 # Citation-Grounded Corpus Architecture
 
 **Date created:** 2026-04-23
-**Status:** Design proposal — not yet implemented. Captures decisions reached in the [Canonicalize benchmark deflation antipattern](9406c41d-809c-45e3-b485-6b3d9a017076) discussion thread.
+**Status:** Partially implemented. `SourceAnchor` now ships on `evidence_units` and propagates to `facts` during ingestion; remaining scope covers `event_records`, render-surface citations, and stale-anchor linting. Captures decisions reached in the [Canonicalize benchmark deflation antipattern](9406c41d-809c-45e3-b485-6b3d9a017076) discussion thread.
 **Scope:** End-to-end change to how the corpus, fact store, and benchmarks treat provenance. Affects ingestion (`src/ingestion/`), the fact store (`src/store.py`), every recap-derived render artifact (timeline.md, dossier prose, hub paragraphs), and the Stage A / Stage B benchmark surfaces.
 **Replaces / supersedes:** No prior doc. The design's load-bearing antipattern is canonicalized in `.cursor/rules/gold-realignment-vs-deflation.mdc`; the build-time contract intuition is in `.cursor/rules/verify-before-debug.mdc`.
 

@@ -1,9 +1,9 @@
 # Session Events Extraction Vertical Slice
 
-**Two-stage events-first pipeline for session-recap → timeline-append.**
+**Two-phase events-first pipeline for session-recap -> timeline-append.**
 
-- **Stage A** (`step1_session_events_run.py`): read a session recap, extract a complete structured list of `event_record`-shaped JSON objects covering all meaningful beats. Five gates (SE1 schema, SE2 count, SE3 participant slugs, SE4 event classes, SE5 expected-event coverage).
-- **Stage B** (`step2_timeline_from_events_run.py`, landed 2026-04-22): per-slug events-driven `append_timeline_row` micro-turns. Recap reads explicitly forbidden — Stage B sees only the events Stage A produced for that slug, plus pre-loaded timeline files. Grades against `evals/session_recap_timeline_pass_vertical_slice/`'s gold (TP1/TP2/TP3/TP5) so iteration history is comparable with the legacy single-stage Iteration-6 surface.
+- **Recap-to-events extraction** (`step1_session_events_run.py`): read a session recap, extract a complete structured list of `event_record`-shaped JSON objects covering all meaningful beats. Gates: SE1 schema, SE2 count, SE3 participant slugs, SE4 event classes, SE5 expected-event coverage, SE6 anchor-span coverage.
+- **Events-to-timeline append** (`step2_timeline_from_events_run.py`, landed 2026-04-22): per-slug events-driven `append_timeline_row` micro-turns. Recap reads explicitly forbidden — this phase sees only the events recap-to-events produced for that slug, plus pre-loaded timeline files. Grades against `evals/session_recap_timeline_pass_vertical_slice/` gold (TP1/TP2/TP3/TP5) so iteration history is comparable with the legacy single-stage Iteration-6 surface.
 
 The architectural premise: extracting all events in one model call removes the **compression** failure mode where a planner turn collapses a multi-beat character into a single row that drops lexical anchors. N=5 chained cohort confirms: per-PC anchor gates (`caelynn`, `karsemine`, `ephanna`) all 5/5, vs single-stage 0/5 for `karsemine`/`ephanna`.
 
@@ -13,10 +13,10 @@ The architectural premise: extracting all events in one model call removes the *
 evals/session_events_extraction_vertical_slice/
   __init__.py
   README.md                              ← this file
-  step1_session_events_run.py            ← Stage A runner (CLI entry point)
-  step2_timeline_from_events_run.py      ← Stage B chained runner (Stage A → per-slug Stage B)
-  grader.py                              ← Stage A gate logic + telemetry (SE1-SE5)
-  session_events_run_report.py           ← per-run + cohort artifact writers (Stage A + Stage B)
+  step1_session_events_run.py            ← recap-to-events runner (CLI entry point)
+  step2_timeline_from_events_run.py      ← events-to-timeline chained runner
+  grader.py                              ← recap-to-events gate logic + telemetry (SE1-SE6)
+  session_events_run_report.py           ← per-run + cohort artifact writers
   gold/
     session_events_session20.json        ← Stage A gold (C2 Session 20 recap)
     session_events_session1_c1.json    ← Stage A gold (C1 Session 1)
@@ -52,7 +52,7 @@ relative to the repo root. The `DUNGEONMIND_CORPUS_ROOT` env var can override th
 
 ## How to run
 
-### Stage A only (events extraction, no timeline writes)
+### Recap-to-events only (no timeline writes)
 
 ```bash
 # Single run
@@ -65,15 +65,15 @@ uv run python -m evals.session_events_extraction_vertical_slice.step1_session_ev
 uv run python -m evals.session_events_extraction_vertical_slice.step1_session_events_run --n 1 --no-writes
 ```
 
-### Stage A → Stage B chained (end-to-end timeline append)
+### Recap-to-events -> events-to-timeline chained run
 
 ```bash
 export DUNGEONMIND_PLANNER_ALLOW_WRITES=1
-# Campaign 2 Session 20 (default Stage A + default timeline-pass gold)
+# Campaign 2 Session 20 (default recap-to-events + default timeline-pass gold)
 uv run python -m evals.session_events_extraction_vertical_slice.step2_timeline_from_events_run \
   --n 5 --model gpt-5.4-mini
 
-# Campaign 1 Sessions 1–3 (Stage A gold must match session; timeline-pass gold selects pre-state + grading)
+# Campaign 1 Sessions 1–3 (recap-to-events gold must match session; timeline-pass gold selects pre-state + grading)
 uv run python -m evals.session_events_extraction_vertical_slice.step2_timeline_from_events_run \
   --scenario-json evals/session_events_extraction_vertical_slice/gold/session_events_session1_c1.json \
   --timeline-gold evals/session_recap_timeline_pass_vertical_slice/gold/timeline_pass_session1_c1.json \
@@ -81,7 +81,7 @@ uv run python -m evals.session_events_extraction_vertical_slice.step2_timeline_f
 # … repeat with session2 / session3 gold + timeline_pass_session2_c1.json / session3_c1.json
 ```
 
-Stage B writes to a pre-state corpus copy, never to `corpus/eldyrwild-markdown/` directly. Cohort aborts cleanly above $5.00 cumulative cost. Per-run sidecars carry `slug_events_sent`, `slug_beat_written`, and `slug_model_message` for each slug micro-turn so failure attribution does not require re-runs.
+Events-to-timeline writes to a pre-state corpus copy, never to `corpus/eldyrwild-markdown/` directly. Cohort aborts cleanly above $5.00 cumulative cost. Per-run sidecars carry `slug_events_sent`, `slug_beat_written`, and `slug_model_message` for each slug micro-turn so failure attribution does not require re-runs.
 
 **C1 pre-state:** manifests delete duplicate `Campaign 2/PCs/<slug>/timeline.md` files for the six C1 PCs (so `append_timeline_row` slug resolution is unambiguous), copy empty `Campaign 1/PCs/<slug>/timeline.md` seeds from `gold/c1_pc_timeline_seeds/`, then strip the target session row if present. Recaps are read from the corpus copy (canonical files under `Longmont Campaign/Campaign 1/Session Recaps/`).
 

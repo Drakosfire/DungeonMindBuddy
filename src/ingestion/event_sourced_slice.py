@@ -5,6 +5,8 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
 
+import blake3
+
 from src.ingestion.fact_extractor import derive_truth_state
 from src.reducer.canon_projection import project_entity_state
 
@@ -293,6 +295,7 @@ def _build_evidence(
         source_text = world_text if seed.canon_layer == "world" else campaign_text
         text = _extract_anchor_line(source_text, seed.anchor, seed.fallback_text)
         evidence_campaign_id = campaign_id if seed.canon_layer == "campaign" else None
+        legacy_hash = blake3.blake3(text.encode("utf-8")).hexdigest()
         output.append(
             {
                 "schema_version": _SCHEMA_VERSION,
@@ -313,12 +316,24 @@ def _build_evidence(
                 "section_path": seed.section_path,
                 "paragraph_index": seed.source_order_index,
                 "source_order_index": seed.source_order_index,
-                "line_span": None,
+                "line_span": {"start": 1, "end": 1},
                 "char_span": None,
                 "document_session": seed.document_session,
                 "inferred_session": seed.inferred_session,
                 "speaker_or_subject": None,
                 "notes": None,
+                "source_anchors": [
+                    {
+                        "source_type": "legacy_unanchored",
+                        "path": f"synthetic/{seed.document_id}.md",
+                        "line_start": 1,
+                        "line_end": 1,
+                        "content_hash": legacy_hash,
+                        "commit_sha": "",
+                        "agent": None,
+                        "thread_id": None,
+                    }
+                ],
             }
         )
         stage_by_evidence_id[seed.evidence_id] = seed.stage

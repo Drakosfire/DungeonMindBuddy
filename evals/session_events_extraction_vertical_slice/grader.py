@@ -348,6 +348,82 @@ def collect_se5_violations(
 
 
 # ---------------------------------------------------------------------------
+# SE6 — capture-layer anchor coverage (optional)
+# ---------------------------------------------------------------------------
+
+
+def collect_se6_violations(
+    events: list[dict[str, Any]],
+    expected_anchored_spans: list[dict[str, Any]],
+    *,
+    max_anchor_span_lines: int = 12,
+) -> tuple[list[str], float, list[int]]:
+    """
+    Optional capture-layer gate:
+    each expected span must be covered by at least one event with participant slug + source_anchor.
+    """
+    if not expected_anchored_spans:
+        return [], 1.0, []
+
+    unmatched: list[int] = []
+    for i, exp in enumerate(expected_anchored_spans):
+        slug = str(exp.get("npc_slug", "")).strip()
+        path = str(exp.get("path", "")).strip()
+        lr = exp.get("line_range") or []
+        if not slug or not path or not isinstance(lr, list) or len(lr) != 2:
+            unmatched.append(i)
+            continue
+        try:
+            want_start = int(lr[0])
+            want_end = int(lr[1])
+        except (TypeError, ValueError):
+            unmatched.append(i)
+            continue
+        if want_start < 1 or want_end < want_start:
+            unmatched.append(i)
+            continue
+
+        matched = False
+        for ev in events:
+            participants = {str(p).strip() for p in (ev.get("participants") or [])}
+            if slug not in participants:
+                continue
+            for anchor in ev.get("source_anchors") or []:
+                if not isinstance(anchor, dict):
+                    continue
+                a_path = str(anchor.get("path", "")).strip()
+                if a_path != path:
+                    continue
+                try:
+                    a_start = int(anchor.get("line_start"))
+                    a_end = int(anchor.get("line_end"))
+                except (TypeError, ValueError):
+                    continue
+                if (a_end - a_start + 1) > max_anchor_span_lines:
+                    continue
+                if a_start <= want_start and a_end >= want_end:
+                    matched = True
+                    break
+            if matched:
+                break
+        if not matched:
+            unmatched.append(i)
+
+    ratio = (len(expected_anchored_spans) - len(unmatched)) / len(expected_anchored_spans)
+    if unmatched:
+        return (
+            [
+                f"SE6: anchored-span coverage {ratio:.2f} < 1.00 "
+                f"({len(expected_anchored_spans) - len(unmatched)}/{len(expected_anchored_spans)}); "
+                f"unmatched indices: {unmatched}"
+            ],
+            ratio,
+            unmatched,
+        )
+    return [], ratio, unmatched
+
+
+# ---------------------------------------------------------------------------
 # Top-level orchestration
 # ---------------------------------------------------------------------------
 
@@ -365,6 +441,8 @@ def collect_session_events_violations(
     must_cover_participants = list(grading.get("must_cover_participants") or [])
     must_cover_classes = list(grading.get("must_cover_event_classes") or [])
     expected_events = list(grading.get("expected_events") or [])
+    expected_anchored_spans = list(grading.get("expected_anchored_spans") or [])
+    se6_max_anchor_span_lines = int(grading.get("se6_max_anchor_span_lines") or 12)
 
     out: dict[str, list[str]] = {}
 
@@ -393,6 +471,17 @@ def collect_session_events_violations(
     if se5:
         out["se5"] = se5
 
+    se6_ratio = 1.0
+    se6_unmatched: list[int] = []
+    if expected_anchored_spans:
+        se6, se6_ratio, se6_unmatched = collect_se6_violations(
+            events,
+            expected_anchored_spans,
+            max_anchor_span_lines=max(1, se6_max_anchor_span_lines),
+        )
+        if se6:
+            out["se6"] = se6
+
     participants_seen: list[str] = sorted(
         {str(p).strip() for ev in events for p in (ev.get("participants") or [])}
     )
@@ -415,6 +504,8 @@ def collect_session_events_violations(
         "missing_terms_total": missing_terms_total,
         "se5_term_violations": term_violations,
         "terms_preserved_via_sibling": terms_preserved_via_sibling,
+        "expected_anchor_span_coverage_ratio": round(se6_ratio, 4),
+        "unmatched_expected_anchor_span_indices": se6_unmatched,
     }
     return out, telemetry
 
@@ -425,13 +516,16 @@ def collect_session_events_violations(
 
 
 def per_gate_verdict(violations: dict[str, list[str]]) -> dict[str, str]:
-    return {
+    verdict = {
         "SE1": "FAIL" if violations.get("se1") else "PASS",
         "SE2": "FAIL" if violations.get("se2") else "PASS",
         "SE3": "FAIL" if violations.get("se3") else "PASS",
         "SE4": "FAIL" if violations.get("se4") else "PASS",
         "SE5": "FAIL" if violations.get("se5") else "PASS",
     }
+    if "se6" in violations:
+        verdict["SE6"] = "FAIL" if violations.get("se6") else "PASS"
+    return verdict
 
 
 __all__ = [
@@ -441,5 +535,6 @@ __all__ = [
     "collect_se3_violations",
     "collect_se4_violations",
     "collect_se5_violations",
+    "collect_se6_violations",
     "per_gate_verdict",
 ]

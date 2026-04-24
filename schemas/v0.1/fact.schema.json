@@ -61,6 +61,12 @@
         "string",
         "null"
       ]
+    },
+    "source_anchors": {
+      "type": "array",
+      "items": {
+        "$ref": "common.schema.json#/$defs/sourceAnchor"
+      }
     }
   },
   "unevaluatedProperties": false

@@ -122,6 +122,10 @@ def _build_units_from_manifest(
     unit_limit: int = 0,
 ) -> list[dict[str, Any]]:
     from src.ingestion.chunker import chunk_document
+    from src.ingestion.source_anchor import resolve_git_commit_sha
+
+    corpus_root = Path(str(manifest.get("corpus_root", ".")))
+    commit_sha = resolve_git_commit_sha(cwd=corpus_root)
 
     files = manifest["files"]
     total_files = len(files)
@@ -131,6 +135,8 @@ def _build_units_from_manifest(
     started = time.perf_counter()
     for idx, fr in enumerate(selected_files, 1):
         source_path = Path(fr["source_path"])
+        rel = str(fr.get("relative_path") or source_path.name)
+        corpus_source_path = Path(rel).as_posix()
         units = chunk_document(
             docx_path=source_path,
             document_id=fr["document_id"],
@@ -138,6 +144,8 @@ def _build_units_from_manifest(
             canon_layer=fr["canon_layer"],
             campaign_id=fr["campaign_id"],
             source_class=fr["source_class"],
+            corpus_source_path=corpus_source_path,
+            commit_sha=commit_sha,
         )
         all_units.extend(units)
         if idx % 10 == 0 or idx == len(selected_files):
@@ -461,6 +469,10 @@ def cmd_submit(args: argparse.Namespace) -> int:
 
     print(f"Corpus-wide batch submit: {len(paths)} files from {corpus_root}")
 
+    from src.ingestion.source_anchor import resolve_git_commit_sha
+
+    commit_sha = resolve_git_commit_sha(cwd=corpus_root)
+
     all_units: list[dict[str, Any]] = []
     file_records: list[dict[str, Any]] = []
 
@@ -486,6 +498,11 @@ def cmd_submit(args: argparse.Namespace) -> int:
         document_id = f"doc_{_snake_case(source_path.stem)}"
         source_fingerprint = _file_sha256(source_path)
 
+        rel = (
+            str(source_path.relative_to(corpus_root).as_posix())
+            if source_path.is_relative_to(corpus_root)
+            else source_path.as_posix()
+        )
         try:
             units = chunk_document(
                 docx_path=source_path,
@@ -494,6 +511,8 @@ def cmd_submit(args: argparse.Namespace) -> int:
                 canon_layer=canon_layer,
                 campaign_id=campaign_id,
                 source_class=source_class,
+                corpus_source_path=rel,
+                commit_sha=commit_sha,
             )
         except Exception as exc:
             print(f"  [{i}/{len(paths)}] SKIP {source_path.name}: chunking error: {exc}")
@@ -502,7 +521,6 @@ def cmd_submit(args: argparse.Namespace) -> int:
         print(f"  [{i}/{len(paths)}] {source_path.name}: {len(units)} units")
         all_units.extend(units)
 
-        rel = str(source_path.relative_to(corpus_root)) if source_path.is_relative_to(corpus_root) else str(source_path)
         file_records.append({
             "source_path": str(source_path),
             "relative_path": rel,
@@ -941,6 +959,7 @@ def cmd_complete(args: argparse.Namespace) -> int:
     from src.ingestion.chunker import chunk_document
     from src.ingestion.entity_extractor import run_entity_extraction
     from src.ingestion.fact_extractor import run_fact_extraction
+    from src.ingestion.source_anchor import resolve_git_commit_sha
     from src.store import FactStore
 
     manifest_path = Path(args.manifest)
@@ -964,6 +983,9 @@ def cmd_complete(args: argparse.Namespace) -> int:
     if store._path("entities").exists():
         store.load()
 
+    corpus_root = Path(str(manifest.get("corpus_root", ".")))
+    commit_sha = resolve_git_commit_sha(cwd=corpus_root)
+
     totals = {
         "files": 0,
         "evidence_units": 0,
@@ -979,6 +1001,7 @@ def cmd_complete(args: argparse.Namespace) -> int:
         source_path = Path(fr["source_path"])
         print(f"  [{i}/{len(manifest['files'])}] {fr['relative_path']}...", end="", flush=True)
 
+        corpus_source_path = Path(str(fr.get("relative_path", source_path.name))).as_posix()
         units = chunk_document(
             docx_path=source_path,
             document_id=fr["document_id"],
@@ -986,6 +1009,8 @@ def cmd_complete(args: argparse.Namespace) -> int:
             canon_layer=fr["canon_layer"],
             campaign_id=fr["campaign_id"],
             source_class=fr["source_class"],
+            corpus_source_path=corpus_source_path,
+            commit_sha=commit_sha,
         )
 
         recap_artifacts: dict[str, list[dict[str, Any]]] = {

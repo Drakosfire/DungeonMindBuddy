@@ -177,6 +177,61 @@
       },
       "additionalProperties": false
     },
+    "sourceAnchor": {
+      "type": "object",
+      "required": [
+        "source_type",
+        "path",
+        "line_start",
+        "line_end",
+        "content_hash",
+        "commit_sha"
+      ],
+      "properties": {
+        "source_type": {
+          "type": "string",
+          "enum": [
+            "recap_extracted",
+            "human_direct",
+            "live_planning_collab",
+            "derived_from_transcript",
+            "legacy_unanchored"
+          ]
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "line_start": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "line_end": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "content_hash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "commit_sha": {
+          "type": "string"
+        },
+        "agent": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "thread_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
     "sessionIntOrNull": {
       "type": [
         "integer",

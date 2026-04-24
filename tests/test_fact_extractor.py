@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+import blake3
 import pytest
 
 from src.contracts.schema_validation import validate_many
@@ -26,6 +27,7 @@ def _evidence(
     inferred_session: int | None = None,
     document_session: int | None = None,
 ) -> dict[str, Any]:
+    legacy_hash = blake3.blake3(text.encode("utf-8")).hexdigest()
     return {
         "schema_version": "0.1.0",
         "created_at": "2026-03-27T00:00:00Z",
@@ -42,12 +44,24 @@ def _evidence(
         "section_path": ["Test"],
         "paragraph_index": index,
         "source_order_index": index,
-        "line_span": None,
+        "line_span": {"start": 1, "end": 1},
         "char_span": None,
         "inferred_session": inferred_session,
         "document_session": document_session,
         "speaker_or_subject": None,
         "notes": None,
+        "source_anchors": [
+            {
+                "source_type": "legacy_unanchored",
+                "path": "fixture/test_evidence_unit.md",
+                "line_start": 1,
+                "line_end": 1,
+                "content_hash": legacy_hash,
+                "commit_sha": "",
+                "agent": None,
+                "thread_id": None,
+            }
+        ],
     }
 
 

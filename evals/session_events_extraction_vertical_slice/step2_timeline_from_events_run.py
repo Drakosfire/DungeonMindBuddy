@@ -1,7 +1,8 @@
-"""Stage B vertical slice: per-PC timeline append from events.
+"""Events-to-timeline append slice: per-PC timeline rows from events.
 
-Consumes Stage A's parsed events inline and per-PC calls ``append_timeline_row``
-to populate the timeline-pass corpus pre-state. Stage B is **PC-only** — NPC
+Consumes recap-to-events extraction outputs inline and per-PC calls
+``append_timeline_row`` to populate the timeline-pass corpus pre-state.
+This phase is **PC-only** — NPC
 artifact updates (timeline rows + dossier sections) are handled by the separate
 forthcoming NPC ingestion slice. The model sees ONLY the events for the PC under
 consideration — no recap re-read.
@@ -18,8 +19,8 @@ Options::
 
     --n N               Number of runs in the cohort (default: 1)
     --model MODEL       Model ID (default: resolved via DUNGEONMIND_PLANNER_MODEL env or gpt-5.4-mini)
-    --scenario-json     Path to Stage A gold scenario JSON (default: gold/session_events_session20.json)
-    --timeline-gold     Path to timeline-pass grading JSON for Stage B (default: …/timeline_pass_session20.json)
+    --scenario-json     Path to recap-to-events gold scenario JSON (default: gold/session_events_session20.json)
+    --timeline-gold     Path to timeline-pass grading JSON for events-to-timeline (default: …/timeline_pass_session20.json)
     --pre-state-manifest  Override pre-state manifest JSON (default: from timeline gold's ``pre_state_manifest_relative`` or Session 20 default)
     --runs-root         Override artifact runs root directory (default: artifacts/runs/)
     --no-writes         Skip writing run reports to disk
@@ -78,6 +79,8 @@ _STAGE_A_GOLD_DEFAULT = _SLICE_DIR / "gold" / "session_events_session20.json"
 _TIMELINE_PASS_SLICE_DIR = _REPO_ROOT / "evals" / "session_recap_timeline_pass_vertical_slice"
 _STAGE_B_GOLD_PATH = _TIMELINE_PASS_SLICE_DIR / "gold" / "timeline_pass_session20.json"
 _ALLOW_WRITES_ENV = "DUNGEONMIND_PLANNER_ALLOW_WRITES"
+_RECAP_TO_EVENTS_LABEL = "recap_to_events_extraction"
+_EVENTS_TO_TIMELINE_LABEL = "events_to_timeline_append"
 
 # Re-export for tests that want to verify the slug order without importing
 # from the timeline-pass slice directly.
@@ -174,11 +177,11 @@ def ordered_stage_b_timeline_targets(grading: dict[str, Any]) -> list[dict[str, 
 
 
 def build_stage_b_instruction_suffix(*, session_num: int, recap_evidence_path: str) -> str:
-    """Planner instruction suffix for one Stage B micro-turn (PC-only, no recap reads)."""
+    """Planner suffix for one events-to-timeline micro-turn (PC-only, no recap reads)."""
     tick = recap_evidence_path.strip()
     return f"""
 
-**Benchmark micro-turn — PC timeline append from events (Stage B, single PC):** \
+**Benchmark micro-turn — PC timeline append from events (events-to-timeline, single PC):** \
 This is a per-PC timeline append turn. The events JSON in the user message is your \
 ONLY source about what happened in Session {session_num} for this player character.
 
@@ -306,6 +309,7 @@ def build_stage_b_per_slug_user_message(
     slug_events: list[dict[str, Any]],
     *,
     session_num: int = 20,
+    required_anchor_words: list[str] | None = None,
 ) -> str:
     """Build the per-slug user message for Stage B (PC-only, events-driven, no recap).
 
@@ -314,6 +318,14 @@ def build_stage_b_per_slug_user_message(
     branch handles the empty case before this builder is invoked.
     """
     events_json = json.dumps(slug_events, indent=2, ensure_ascii=False)
+    anchors = [str(x).strip() for x in (required_anchor_words or []) if str(x).strip()]
+    anchor_clause = ""
+    if anchors:
+        anchor_clause = (
+            "\n\n"
+            "**TP1 anchor terms for this slug (hard rule):** Include each of these words "
+            f"verbatim in the beat text: {', '.join(f'`{term}`' for term in anchors)}."
+        )
     return (
         f"**PC timeline append micro-turn (events-driven):** Consider only `{timeline_rel}` "
         f"(`npc_slug` `{slug}`). This slug is a **player character**.\n\n"
@@ -324,7 +336,8 @@ def build_stage_b_per_slug_user_message(
         "weapon names, spell names, ability names, item names, place names, and NPC names. "
         "When the PC has more than one event above, join them with commas, semicolons, or "
         "'then' rather than picking only one. Anchor the beat on event participants, "
-        "location, and outcomes. Match the existing markdown table format.\n\n"
+        "location, and outcomes. Match the existing markdown table format."
+        f"{anchor_clause}\n\n"
         "Do not skip the row. PCs always get a row when the events list is non-empty — "
         "the row-worthiness judgment does not apply to player characters."
     )
@@ -416,6 +429,10 @@ def write_step2_run_report(
 
     sidecar: dict[str, Any] = {
         "schema": "step2_timeline_from_events_run_report_v1",
+        "phase_names": {
+            "recap_to_events": _RECAP_TO_EVENTS_LABEL,
+            "events_to_timeline": _EVENTS_TO_TIMELINE_LABEL,
+        },
         "iso_utc": iso,
         "scenario_id": scenario_id,
         "model_id": model_id,
@@ -425,8 +442,11 @@ def write_step2_run_report(
         "per_gate_verdict": dict(per_gate_verdict_map),
         "stage_a_cost_usd": round(stage_a_cost_usd, 6),
         "stage_b_cost_usd": round(stage_b_cost_usd, 6),
+        "recap_to_events_cost_usd": round(stage_a_cost_usd, 6),
+        "events_to_timeline_cost_usd": round(stage_b_cost_usd, 6),
         "total_cost_usd": total,
         "stage_a_event_count": stage_a_event_count,
+        "recap_to_events_event_count": stage_a_event_count,
         "per_slug_no_event_skip": dict(per_slug_no_event_skip),
         "no_event_skip_slugs": no_event_skips,
         "violation_counts": violation_counts,
@@ -452,14 +472,14 @@ def write_step2_run_report(
     diag_section = "\n".join(diag_lines) if diag_lines else "(no diagnostics captured)\n"
 
     body = (
-        f"# Step2 run report — {iso}\n\n"
+        f"# Events-to-timeline run report — {iso}\n\n"
         f"- **scenario:** `{scenario_id}`\n"
         f"- **model:** `{model_id}`\n"
         f"- **gates:** {'PASS' if gates_passed else 'FAIL'}\n"
         f"- **per_gate:** `{verdict_str}`\n"
-        f"- **stage_a_event_count:** {stage_a_event_count}\n"
-        f"- **stage_a_cost_usd:** {stage_a_cost_usd:.6f}\n"
-        f"- **stage_b_cost_usd:** {stage_b_cost_usd:.6f}\n"
+        f"- **recap_to_events_event_count:** {stage_a_event_count}\n"
+        f"- **recap_to_events_cost_usd:** {stage_a_cost_usd:.6f}\n"
+        f"- **events_to_timeline_cost_usd:** {stage_b_cost_usd:.6f}\n"
         f"- **total_cost_usd:** {total:.6f}\n"
         f"- **no_event_skips:** {no_event_skips}\n\n"
         "## Violations\n\n"
@@ -553,6 +573,8 @@ def write_step2_multi_summary(
             "total_max": round(max(total_costs), 6) if total_costs else 0.0,
             "stage_a_sum": round(sum(stage_a_costs), 6),
             "stage_b_sum": round(sum(stage_b_costs), 6),
+            "recap_to_events_sum": round(sum(stage_a_costs), 6),
+            "events_to_timeline_sum": round(sum(stage_b_costs), 6),
         },
         "per_slug_skip_counts_across_cohort": per_slug_skip_counts,
         "runs": [
@@ -563,7 +585,10 @@ def write_step2_multi_summary(
                 "total_cost_usd": s.total_cost_usd,
                 "stage_a_cost_usd": s.stage_a_cost_usd,
                 "stage_b_cost_usd": s.stage_b_cost_usd,
+                "recap_to_events_cost_usd": s.stage_a_cost_usd,
+                "events_to_timeline_cost_usd": s.stage_b_cost_usd,
                 "stage_a_event_count": s.stage_a_event_count,
+                "recap_to_events_event_count": s.stage_a_event_count,
                 "per_slug_no_event_skip": s.per_slug_no_event_skip,
                 "sidecar_json": s.sidecar_json_path,
             }
@@ -572,15 +597,15 @@ def write_step2_multi_summary(
     }
 
     md_lines = [
-        f"# Stage B (events-driven timeline pass) cohort summary ({n} runs)",
+        f"# Events-to-timeline cohort summary ({n} runs)",
         "",
         f"- **model:** `{model_id}`",
         f"- **scenario:** `{scenario_id}`",
         f"- **TP1 pass rate:** {gate_pass_counts['TP1']}/{n}",
         f"- **overall pass rate:** {passed_n}/{n}",
         f"- **total cost:** ${payload['cost_usd']['total_sum']:.4f} "
-        f"(Stage A ${payload['cost_usd']['stage_a_sum']:.4f}, "
-        f"Stage B ${payload['cost_usd']['stage_b_sum']:.4f})",
+        f"(recap_to_events ${payload['cost_usd']['recap_to_events_sum']:.4f}, "
+        f"events_to_timeline ${payload['cost_usd']['events_to_timeline_sum']:.4f})",
         f"- **mean per-run cost:** ${payload['cost_usd']['total_mean']:.4f}",
         "",
         "## Per-gate pass counts",
@@ -589,7 +614,7 @@ def write_step2_multi_summary(
     for g in gate_ids:
         md_lines.append(f"- {g}: {gate_pass_counts[g]}/{n}")
 
-    md_lines.extend(["", "## Per-slug no-event skip counts (Stage A recall)", ""])
+    md_lines.extend(["", "## Per-slug no-event skip counts (recap_to_events recall)", ""])
     for slug in all_slugs:
         md_lines.append(f"- {slug}: skipped {per_slug_skip_counts[slug]}/{n} runs")
 
@@ -602,7 +627,7 @@ def write_step2_multi_summary(
         md_lines.append(
             f"- run {s.run_index + 1}: {'PASS' if s.gates_passed else 'FAIL'} "
             f"| total=${s.total_cost_usd:.4f} "
-            f"(A=${s.stage_a_cost_usd:.4f} B=${s.stage_b_cost_usd:.4f}) "
+            f"(recap_to_events=${s.stage_a_cost_usd:.4f} events_to_timeline=${s.stage_b_cost_usd:.4f}) "
             f"| events={s.stage_a_event_count} | skips={skip_slugs} "
             f"| {verdict_str} | `{s.sidecar_json_path}`"
         )
@@ -701,14 +726,19 @@ def run_stage_b_events_driven_chain(
             if not quiet:
                 print(
                     f"[step2] slug={slug} no-event skip "
-                    "(Stage A produced 0 events for this slug)",
+                    "(recap_to_events produced 0 events for this slug)",
                     file=sys.stderr,
                 )
             continue
 
         per_slug_no_event_skip[slug] = False
+        anchor_words = [str(x).strip() for x in (spec.get("anchor_words") or []) if str(x).strip()]
         user_line = build_stage_b_per_slug_user_message(
-            rel, slug, slug_events, session_num=session_num
+            rel,
+            slug,
+            slug_events,
+            session_num=session_num,
+            required_anchor_words=anchor_words,
         )
 
         prev_rid: str | None = (
@@ -785,11 +815,11 @@ def _run_single_chained_cohort_iteration(
     quiet: bool = False,
     pre_state_manifest: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Run one Stage A → Stage B cohort iteration without I/O side effects.
+    """Run one recap_to_events -> events_to_timeline cohort iteration.
 
     Returns ``{"infrastructure_error": True, "error": msg, "stage_a_cost_usd": ...}``
-    if Stage A returns an error (transient API failure, schema error, etc.).
-    Stage B is **not** called in that case.
+    if recap_to_events returns an error (transient API failure, schema error, etc.).
+    events_to_timeline is **not** called in that case.
 
     Otherwise returns a full result dict with ``infrastructure_error: False`` plus
     ``gates_passed``, ``violations``, ``per_slug_diagnostics``, etc.
@@ -804,7 +834,8 @@ def _run_single_chained_cohort_iteration(
 
     if stage_a_result.get("error"):
         print(
-            f"[step2] INFRASTRUCTURE ERROR — Stage A failed: {stage_a_result['error']}",
+            "[step2] INFRASTRUCTURE ERROR — recap_to_events extraction failed: "
+            f"{stage_a_result['error']}",
             file=sys.stderr,
         )
         return {
@@ -867,7 +898,7 @@ def _run_single_chained_cohort_iteration(
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Stage B: events-driven timeline pass benchmark"
+        description="Events-to-timeline benchmark"
     )
     parser.add_argument("--n", type=int, default=1, help="Cohort size (default: 1)")
     parser.add_argument("--model", type=str, default="", help="Model ID")
@@ -875,14 +906,14 @@ def main() -> None:
         "--scenario-json",
         type=Path,
         default=None,
-        help="Path to Stage A gold scenario JSON (default: gold/session_events_session20.json)",
+        help="Path to recap-to-events gold scenario JSON (default: gold/session_events_session20.json)",
     )
     parser.add_argument(
         "--timeline-gold",
         type=Path,
         default=None,
         help=(
-            "Path to timeline-pass grading JSON for Stage B (default: "
+            "Path to timeline-pass grading JSON for events-to-timeline (default: "
             "evals/session_recap_timeline_pass_vertical_slice/gold/timeline_pass_session20.json)"
         ),
     )
@@ -956,7 +987,7 @@ def main() -> None:
             infra_error_count += 1
             print(
                 f"[step2] run {i + 1}/{n} INFRASTRUCTURE_ERROR — "
-                f"Stage A failed: {result['error']} (excluded from denominator)",
+                f"recap_to_events extraction failed: {result['error']} (excluded from denominator)",
                 file=sys.stderr,
             )
             continue

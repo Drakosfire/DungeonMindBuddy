@@ -4,6 +4,7 @@ import asyncio
 from pathlib import Path
 from typing import Any
 
+import blake3
 import pytest
 
 from src.contracts.schema_validation import validate_many
@@ -15,6 +16,7 @@ from src.ingestion.entity_extractor import (
 
 
 def _evidence(evidence_id: str, text: str, index: int) -> dict[str, Any]:
+    legacy_hash = blake3.blake3(text.encode("utf-8")).hexdigest()
     return {
         "schema_version": "0.1.0",
         "created_at": "2026-03-27T00:00:00Z",
@@ -31,11 +33,23 @@ def _evidence(evidence_id: str, text: str, index: int) -> dict[str, Any]:
         "section_path": ["Test"],
         "paragraph_index": index,
         "source_order_index": index,
-        "line_span": None,
+        "line_span": {"start": 1, "end": 1},
         "char_span": None,
         "inferred_session": None,
         "speaker_or_subject": None,
         "notes": None,
+        "source_anchors": [
+            {
+                "source_type": "legacy_unanchored",
+                "path": "fixture/test_evidence_unit.md",
+                "line_start": 1,
+                "line_end": 1,
+                "content_hash": legacy_hash,
+                "commit_sha": "",
+                "agent": None,
+                "thread_id": None,
+            }
+        ],
     }
 
 

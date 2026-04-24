@@ -5,10 +5,29 @@ import json
 from contextlib import redirect_stdout
 from pathlib import Path
 
+import blake3
+
 from src.cli import DungeonBuddyCLI, _build_ingest_gate_report, compute_ingest_key_for_path
 
 
+def _legacy_evidence_anchors(text: str, *, path: str = "fixture/ingest_gate.md") -> list[dict[str, object]]:
+    digest = blake3.blake3(text.encode("utf-8")).hexdigest()
+    return [
+        {
+            "source_type": "legacy_unanchored",
+            "path": path,
+            "line_start": 1,
+            "line_end": 1,
+            "content_hash": digest,
+            "commit_sha": "",
+            "agent": None,
+            "thread_id": None,
+        }
+    ]
+
+
 def test_ingest_gate_report_fails_when_campaign_fact_lacks_temporal_tick() -> None:
+    gate_text = "Something happened."
     evidence = [
         {
             "schema_version": "0.1.0",
@@ -22,16 +41,17 @@ def test_ingest_gate_report_fails_when_campaign_fact_lacks_temporal_tick() -> No
             "source_class": "planning_document",
             "canon_layer": "campaign",
             "campaign_id": "longmont-c1",
-            "text": "Something happened.",
+            "text": gate_text,
             "section_path": ["S6"],
             "paragraph_index": 0,
             "source_order_index": 0,
-            "line_span": None,
+            "line_span": {"start": 1, "end": 1},
             "char_span": None,
             "inferred_session": None,
             "document_session": None,
             "speaker_or_subject": None,
             "notes": None,
+            "source_anchors": _legacy_evidence_anchors(gate_text),
         }
     ]
     entities = [
@@ -79,6 +99,7 @@ def test_ingest_gate_report_fails_when_campaign_fact_lacks_temporal_tick() -> No
 
 
 def test_ingest_gate_report_passes_when_campaign_fact_has_sequence_tick() -> None:
+    gate_text = "Something happened."
     evidence = [
         {
             "schema_version": "0.1.0",
@@ -92,16 +113,17 @@ def test_ingest_gate_report_passes_when_campaign_fact_has_sequence_tick() -> Non
             "source_class": "planning_document",
             "canon_layer": "campaign",
             "campaign_id": "longmont-c1",
-            "text": "Something happened.",
+            "text": gate_text,
             "section_path": ["S6"],
             "paragraph_index": 0,
             "source_order_index": 0,
-            "line_span": None,
+            "line_span": {"start": 1, "end": 1},
             "char_span": None,
             "inferred_session": None,
             "document_session": None,
             "speaker_or_subject": None,
             "notes": None,
+            "source_anchors": _legacy_evidence_anchors(gate_text),
         }
     ]
     entities = [
@@ -152,6 +174,8 @@ def test_ingest_gate_report_passes_when_campaign_fact_has_sequence_tick() -> Non
 
 
 def test_ingest_gate_report_fails_when_campaign_fact_evidence_sessions_conflict() -> None:
+    text_a = "Something happened."
+    text_b = "Something else happened."
     evidence = [
         {
             "schema_version": "0.1.0",
@@ -165,16 +189,17 @@ def test_ingest_gate_report_fails_when_campaign_fact_evidence_sessions_conflict(
             "source_class": "planning_document",
             "canon_layer": "campaign",
             "campaign_id": "longmont-c1",
-            "text": "Something happened.",
+            "text": text_a,
             "section_path": ["S6"],
             "paragraph_index": 0,
             "source_order_index": 0,
-            "line_span": None,
+            "line_span": {"start": 1, "end": 1},
             "char_span": None,
             "inferred_session": None,
             "document_session": 6,
             "speaker_or_subject": None,
             "notes": None,
+            "source_anchors": _legacy_evidence_anchors(text_a),
         },
         {
             "schema_version": "0.1.0",
@@ -188,16 +213,17 @@ def test_ingest_gate_report_fails_when_campaign_fact_evidence_sessions_conflict(
             "source_class": "planning_document",
             "canon_layer": "campaign",
             "campaign_id": "longmont-c1",
-            "text": "Something else happened.",
+            "text": text_b,
             "section_path": ["S7"],
             "paragraph_index": 1,
             "source_order_index": 1,
-            "line_span": None,
+            "line_span": {"start": 1, "end": 1},
             "char_span": None,
             "inferred_session": None,
             "document_session": 7,
             "speaker_or_subject": None,
             "notes": None,
+            "source_anchors": _legacy_evidence_anchors(text_b),
         },
     ]
     entities = [
@@ -798,3 +824,15 @@ def test_ingest_passes_concurrency_options_to_extractors(tmp_path: Path, monkeyp
     assert captured["fact_concurrency"] == 5
     assert captured["entity_batch_size"] == 5
     assert captured["fact_batch_size"] == 5
+
+
+def test_anchor_lint_command_runs(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setattr("src.cli._load_env", lambda: None)
+    corpus_root = tmp_path / "corpus" / "eldyrwild-markdown"
+    corpus_root.mkdir(parents=True)
+    cli = DungeonBuddyCLI(store_dir=tmp_path / "store", verbose=False)
+    out = io.StringIO()
+    with redirect_stdout(out):
+        cli.handle_line(f'anchor-lint --corpus-root "{corpus_root}"')
+    printed = out.getvalue()
+    assert "Anchor lint: ok=True" in printed

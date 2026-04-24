@@ -37,7 +37,8 @@
     "text",
     "section_path",
     "paragraph_index",
-    "source_order_index"
+    "source_order_index",
+    "source_anchors"
   ],
   "properties": {
     "evidence_id": {
@@ -109,6 +110,13 @@
           "type": "null"
         }
       ]
+    },
+    "source_anchors": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "common.schema.json#/$defs/sourceAnchor"
+      }
     },
     "char_span": {
       "oneOf": [

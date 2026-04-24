@@ -13,6 +13,7 @@ Inputs: Step 2 ``canonical_detail`` (preferred) or run ``run_step2_canonical_gat
 from __future__ import annotations
 
 import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -32,7 +33,6 @@ from evals.lysandra_vertical_slice.step2_canonical_intent import (
     run_step2_canonical_gates,
     run_step2_intent_fixture_gates,
 )
-from src.agent.synthesis import _load_api_key
 
 
 def _norm_rel(p: str) -> str:
@@ -218,6 +218,10 @@ def run_step2_and_step3(
     policy = corpus_policy or load_corpus_policy()
     s2g = step2_gold or load_step2_gold()
     s3g = step3_gold or load_step3_gold()
+    if intent_client is None:
+        # Keep deterministic harness behavior stable even when OPENAI_API_KEY is set
+        # in the local shell/session.
+        intent_client = build_step2_intent_fixture_sequence_client(s2g)
     all_v: list[str] = []
 
     d2, ok2, v2 = run_step2_canonical_gates(root, corpus_policy=policy, step2_gold=s2g)
@@ -241,9 +245,12 @@ def run_step2_and_step3(
 def main() -> None:
     root = resolve_corpus_dir(load_step0_gold())
     s2g = load_step2_gold()
-    intent_client = None
-    if _load_api_key() is None:
-        intent_client = build_step2_intent_fixture_sequence_client(s2g)
+    use_live = os.environ.get("LYSANDRA_STEP2_USE_LIVE_INTENT", "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+    }
+    intent_client = None if use_live else build_step2_intent_fixture_sequence_client(s2g)
     out, ok, viol = run_step2_and_step3(root, step2_gold=s2g, intent_client=intent_client)
     print(json.dumps({"corpus_dir": str(root), "ok": ok, "detail": out}, indent=2, ensure_ascii=False))
     if viol:

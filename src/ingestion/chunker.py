@@ -11,6 +11,11 @@ import blake3
 from src.contracts.schema_validation import validate_many
 from src.ingestion.docx_converter import docx_to_markdown, markdown_passthrough
 from src.ingestion.frontmatter import DocumentMetadata, parse_document_frontmatter
+from src.ingestion.source_anchor import (
+    body_first_line_0based_in_file,
+    build_recap_extracted_anchor,
+    resolve_git_commit_sha,
+)
 
 
 _HEADING_RE = re.compile(r"^(#{1,6})\s+(.+?)\s*$")
@@ -115,6 +120,28 @@ def _compute_evidence_id(document_id: str, section_path: list[str], text: str) -
     return f"evid_{digest}"
 
 
+def _line_span_and_anchors(
+    *,
+    body_line_start_0: int,
+    body_line_end_exclusive_0: int,
+    body_line_offset: int,
+    full_file_lines: list[str],
+    corpus_source_path: str,
+    commit_sha: str,
+) -> tuple[dict[str, int], list[dict[str, Any]]]:
+    """Map body-relative 0-based half-open span to on-disk 1-based inclusive line_span + anchor."""
+    file_start_1 = body_line_offset + body_line_start_0 + 1
+    file_end_1 = body_line_offset + body_line_end_exclusive_0
+    line_span, anchor = build_recap_extracted_anchor(
+        corpus_source_path=corpus_source_path,
+        full_file_lines=full_file_lines,
+        line_start_1=file_start_1,
+        line_end_1=file_end_1,
+        commit_sha=commit_sha,
+    )
+    return line_span, [anchor.to_json_dict()]
+
+
 def _infer_session_from_section_path(section_path: list[str]) -> int | None:
     for section in reversed(section_path):
         match = _SESSION_RE.search(section)
@@ -138,6 +165,11 @@ def _walk_tree(
     document_session: int | None,
     document_origin_session: int | None,
     document_last_updated_session: int | None,
+    *,
+    full_file_lines: list[str],
+    body_line_offset: int,
+    corpus_source_path: str,
+    commit_sha: str,
 ) -> None:
     if node.node_type == "root":
         for child in node.children:
@@ -156,6 +188,10 @@ def _walk_tree(
                 document_session=document_session,
                 document_origin_session=document_origin_session,
                 document_last_updated_session=document_last_updated_session,
+                full_file_lines=full_file_lines,
+                body_line_offset=body_line_offset,
+                corpus_source_path=corpus_source_path,
+                commit_sha=commit_sha,
             )
         return
 
@@ -166,6 +202,10 @@ def _walk_tree(
             first = node.children[0]
             if first.node_type == "paragraph" and first.text:
                 first.text = f"{node.text} -- {first.text}"
+                # Heading absorption: span must cover the heading line + paragraph lines so
+                # SourceAnchor bytes match on-disk markdown (see DESIGN-citation-grounded-corpus).
+                first.line_start = min(node.line_start, first.line_start)
+                first.line_end = max(node.line_end, first.line_end)
             for child in node.children:
                 _walk_tree(
                     node=child,
@@ -182,6 +222,10 @@ def _walk_tree(
                     document_session=document_session,
                     document_origin_session=document_origin_session,
                     document_last_updated_session=document_last_updated_session,
+                    full_file_lines=full_file_lines,
+                    body_line_offset=body_line_offset,
+                    corpus_source_path=corpus_source_path,
+                    commit_sha=commit_sha,
                 )
         else:
             now_iso = _now_utc_iso()
@@ -189,6 +233,14 @@ def _walk_tree(
                 document_id=document_id,
                 section_path=child_path,
                 text=node.text.strip(),
+            )
+            line_span, source_anchors = _line_span_and_anchors(
+                body_line_start_0=node.line_start,
+                body_line_end_exclusive_0=node.line_end,
+                body_line_offset=body_line_offset,
+                full_file_lines=full_file_lines,
+                corpus_source_path=corpus_source_path,
+                commit_sha=commit_sha,
             )
             units.append(
                 {
@@ -210,8 +262,9 @@ def _walk_tree(
                     "section_path": child_path,
                     "paragraph_index": max(0, node.line_start),
                     "source_order_index": counter[0],
-                    "line_span": None,
+                    "line_span": line_span,
                     "char_span": None,
+                    "source_anchors": source_anchors,
                     "inferred_session": (
                         document_session
                         if document_session is not None
@@ -235,6 +288,14 @@ def _walk_tree(
         section_path=section_path,
         text=node.text.strip(),
     )
+    line_span, source_anchors = _line_span_and_anchors(
+        body_line_start_0=node.line_start,
+        body_line_end_exclusive_0=node.line_end,
+        body_line_offset=body_line_offset,
+        full_file_lines=full_file_lines,
+        corpus_source_path=corpus_source_path,
+        commit_sha=commit_sha,
+    )
     units.append(
         {
             "schema_version": "0.1.0",
@@ -255,8 +316,9 @@ def _walk_tree(
             "section_path": section_path,
             "paragraph_index": max(0, node.line_start),
             "source_order_index": counter[0],
-            "line_span": None,
+            "line_span": line_span,
             "char_span": None,
+            "source_anchors": source_anchors,
             "inferred_session": (
                 document_session
                 if document_session is not None
@@ -270,7 +332,14 @@ def _walk_tree(
     counter[0] += 1
 
 
-def _merge_small_units(units: list[dict[str, Any]], min_chars: int = 50) -> list[dict[str, Any]]:
+def _merge_small_units(
+    units: list[dict[str, Any]],
+    min_chars: int,
+    *,
+    full_file_lines: list[str],
+    corpus_source_path: str,
+    commit_sha: str,
+) -> list[dict[str, Any]]:
     if not units:
         return []
     merged: list[dict[str, Any]] = []
@@ -285,6 +354,20 @@ def _merge_small_units(units: list[dict[str, Any]], min_chars: int = 50) -> list
                 int(unit.get("paragraph_index", 0)),
                 int(nxt.get("paragraph_index", 0)),
             )
+            span_u = unit.get("line_span")
+            span_n = nxt.get("line_span")
+            if isinstance(span_u, dict) and isinstance(span_n, dict):
+                merged_start = min(int(span_u["start"]), int(span_n["start"]))
+                merged_end = max(int(span_u["end"]), int(span_n["end"]))
+                line_span, anchor = build_recap_extracted_anchor(
+                    corpus_source_path=corpus_source_path,
+                    full_file_lines=full_file_lines,
+                    line_start_1=merged_start,
+                    line_end_1=merged_end,
+                    commit_sha=commit_sha,
+                )
+                nxt["line_span"] = line_span
+                nxt["source_anchors"] = [anchor.to_json_dict()]
             merged.append(nxt)
             idx += 2
             continue
@@ -392,8 +475,16 @@ def chunk_document(
     source_class: str | None = None,
     document_type: str = "world_reference",
     min_chars: int = 50,
+    corpus_source_path: str | None = None,
+    commit_sha: str | None = None,
 ) -> list[dict[str, Any]]:
-    """Create evidence units from a source document using heading-based chunking."""
+    """Create evidence units from a source document using heading-based chunking.
+
+    Each evidence unit carries ``line_span`` (1-based inclusive file line numbers) and
+    ``source_anchors`` (``SourceAnchor`` JSON dicts) for recap_extracted ingestion.
+    ``corpus_source_path`` should be POSIX path relative to the corpus root when known;
+    otherwise it defaults to ``docx_path.name``.
+    """
     markdown = _load_markdown(Path(docx_path))
     metadata, body = parse_document_frontmatter(markdown)
     (
@@ -414,10 +505,26 @@ def chunk_document(
         fallback_campaign_id=campaign_id,
         fallback_source_class=source_class,
     )
-    lines = markdown.splitlines()
+    full_file_lines = markdown.splitlines()
     if metadata is not None:
+        body_line_offset = body_first_line_0based_in_file(markdown, body)
         lines = body.splitlines()
         document_type = f"{metadata.document_class}_document"
+    else:
+        body_line_offset = 0
+        lines = full_file_lines
+
+    resolved_commit = (
+        commit_sha.strip()
+        if isinstance(commit_sha, str) and commit_sha.strip()
+        else resolve_git_commit_sha(cwd=docx_path.parent)
+    )
+    anchor_path = (
+        corpus_source_path.strip()
+        if isinstance(corpus_source_path, str) and corpus_source_path.strip()
+        else docx_path.name
+    )
+
     blocks = _segment_blocks(lines)
     root = _build_heading_tree(blocks)
 
@@ -437,9 +544,19 @@ def chunk_document(
         document_session=resolved_document_session,
         document_origin_session=resolved_document_origin_session,
         document_last_updated_session=resolved_document_last_updated_session,
+        full_file_lines=full_file_lines,
+        body_line_offset=body_line_offset,
+        corpus_source_path=anchor_path,
+        commit_sha=resolved_commit,
     )
     if min_chars < 1:
         raise ValueError("min_chars must be >= 1")
-    units = _merge_small_units(units, min_chars=min_chars)
+    units = _merge_small_units(
+        units,
+        min_chars=min_chars,
+        full_file_lines=full_file_lines,
+        corpus_source_path=anchor_path,
+        commit_sha=resolved_commit,
+    )
     validate_many(units, "evidence_unit.schema.json")
     return units

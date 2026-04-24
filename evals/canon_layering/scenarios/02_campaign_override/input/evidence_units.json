@@ -19,7 +19,23 @@
     "paragraph_index": 0,
     "source_order_index": 0,
     "inferred_session": null,
-    "speaker_or_subject": "gm"
+    "speaker_or_subject": "gm",
+    "line_span": {
+      "start": 1,
+      "end": 1
+    },
+    "source_anchors": [
+      {
+        "source_type": "legacy_unanchored",
+        "path": "synthetic/elyr_world_dossier.md",
+        "line_start": 1,
+        "line_end": 1,
+        "content_hash": "3998f7c581dd0587533756a15e7a978246dbebc5ae39427ce405f476e53688f5",
+        "commit_sha": "",
+        "agent": null,
+        "thread_id": null
+      }
+    ]
   },
   {
     "schema_version": "0.1.0",
@@ -41,7 +57,22 @@
     "paragraph_index": 3,
     "source_order_index": 27,
     "inferred_session": 20,
-    "speaker_or_subject": "narrator"
+    "speaker_or_subject": "narrator",
+    "line_span": {
+      "start": 1,
+      "end": 1
+    },
+    "source_anchors": [
+      {
+        "source_type": "legacy_unanchored",
+        "path": "synthetic/campaign2_session20.md",
+        "line_start": 1,
+        "line_end": 1,
+        "content_hash": "0e3644393ac46f79a777947492016b4d899985414a3caa63a5d8281eb4097af3",
+        "commit_sha": "",
+        "agent": null,
+        "thread_id": null
+      }
+    ]
   }
 ]
-

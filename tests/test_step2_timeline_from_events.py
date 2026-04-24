@@ -127,6 +127,27 @@ def test_build_stage_b_per_slug_user_message_multiple_events():
     assert len(parsed) == 2
 
 
+def test_build_stage_b_per_slug_user_message_includes_required_anchor_words() -> None:
+    events = [
+        {
+            "event_class": "combat",
+            "participants": ["karsemine"],
+            "outcomes": ["Karsemine fights the swarm."],
+            "time_scope": "scene",
+            "certainty": "observed",
+        }
+    ]
+    msg = build_stage_b_per_slug_user_message(
+        "Longmont Campaign/Campaign 2/PCs/karsemine/timeline.md",
+        "karsemine",
+        events,
+        required_anchor_words=["swarm", "Zephyr Strike"],
+    )
+    assert "TP1 anchor terms for this slug" in msg
+    assert "`swarm`" in msg
+    assert "`Zephyr Strike`" in msg
+
+
 # ---------------------------------------------------------------------------
 # Test 2: per-slug filter skips slugs with zero matching events
 # ---------------------------------------------------------------------------

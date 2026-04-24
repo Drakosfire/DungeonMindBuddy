@@ -1,4 +1,4 @@
-"""Stage A vertical slice: extract structured event records from a session recap.
+"""Recap-to-events extraction slice: structured event records from a recap.
 
 This runner calls the model once per run with the session recap text and a typed
 Pydantic schema, then grades the resulting event records against the gold scenario.
@@ -45,6 +45,7 @@ from src.agent.planner_pricing import usage_cost_usd  # noqa: E402
 from src.bootstrap_env import load_dungeonmindbuddy_dotenv  # noqa: E402
 from src.contracts.schema_validation import validate_many  # noqa: E402
 from src.ingestion.entity_extractor import _usage_dict_from_openai_response  # noqa: E402
+from src.ingestion.source_anchor import build_recap_extracted_anchor, resolve_git_commit_sha  # noqa: E402
 from src.llm.api_client import DungeonMindApiClient  # noqa: E402
 
 from evals.session_events_extraction_vertical_slice.grader import (  # noqa: E402
@@ -100,6 +101,22 @@ class EventRecordModel(BaseModel):
 
 class EventExtractionOutput(BaseModel):
     events: list[EventRecordModel]
+
+
+class AnchorRepairItem(BaseModel):
+    event_index: int
+    status: Literal["anchored", "unresolved"]
+    line_start: Optional[int] = None
+    line_end: Optional[int] = None
+    revised_event_name: Optional[str] = None
+    revised_outcomes: list[str] = Field(default_factory=list)
+    confidence: float = Field(default=0.0, ge=0.0, le=1.0)
+    rationale: Optional[str] = None
+    unresolved_reason: Optional[str] = None
+
+
+class AnchorRepairOutput(BaseModel):
+    repairs: list[AnchorRepairItem]
 
 
 # ---------------------------------------------------------------------------
@@ -256,6 +273,28 @@ Additional rules:
 - Do not invent events not described in the recap.
 - Aim for completeness: capture 10–20 events covering combat, social conflicts, conversations, \
 discoveries, travel, rituals, and investigations.\
+"""
+
+_ANCHOR_REPAIR_SYSTEM_PROMPT = """\
+You repair weak event provenance for a tabletop recap extraction benchmark.
+
+Input contains:
+- recap text with numbered lines
+- events that currently have weak anchors
+
+For each event:
+1) Select a precise line span that best supports the event (usually 1-8 lines).
+2) Improve event fidelity: keep only facts grounded in that span.
+3) Preserve distinctive named terms when present (NPC names, places, spells, items).
+4) If uncertain, return unresolved.
+
+Hard rules:
+- NEVER return whole-file spans.
+- DO NOT invent details absent from the selected lines.
+- Keep participant slugs unchanged (not returned here, but event identity depends on it).
+- Prefer concise, concrete outcomes.
+
+Return strictly the requested schema.
 """
 
 
@@ -504,6 +543,191 @@ def build_user_prompt(user_message: str, recap_text: str, pc_identity_hints: str
     return f"{user_message}{hint_block}\n\n---\n\n**RECAP TEXT:**\n\n{recap_text}"
 
 
+def _default_event_source_anchors(recap_relative_path: str, recap_text: str) -> list[dict[str, Any]]:
+    lines = recap_text.splitlines()
+    if not lines:
+        return []
+    _, anchor = build_recap_extracted_anchor(
+        corpus_source_path=recap_relative_path,
+        full_file_lines=lines,
+        line_start_1=1,
+        line_end_1=len(lines),
+        commit_sha=resolve_git_commit_sha(cwd=_REPO_ROOT),
+    )
+    return [anchor.to_json_dict()]
+
+
+def _tokenize_for_overlap(text: str) -> set[str]:
+    return {t for t in re.findall(r"[a-zA-Z0-9']+", text.lower()) if len(t) >= 4}
+
+
+def _event_text_blob(event: dict[str, Any]) -> str:
+    return " ".join(
+        [
+            str(event.get("event_name") or ""),
+            " ".join(str(x) for x in (event.get("outcomes") or [])),
+        ]
+    ).strip()
+
+
+def _lines_window_text(lines: list[str], line_start: int, line_end: int) -> str:
+    return "\n".join(lines[max(0, line_start - 1): line_end])
+
+
+def _is_weak_anchor(anchor: dict[str, Any], total_lines: int) -> bool:
+    source_type = str(anchor.get("source_type", "") or "").strip()
+    if source_type == "legacy_unanchored":
+        return True
+    try:
+        line_start = int(anchor.get("line_start"))
+        line_end = int(anchor.get("line_end"))
+    except (TypeError, ValueError):
+        return True
+    if line_start == 1 and line_end >= total_lines:
+        return True
+    return False
+
+
+def _build_anchor_repair_user_prompt(
+    *,
+    recap_relative_path: str,
+    recap_lines: list[str],
+    weak_events: list[dict[str, Any]],
+) -> str:
+    numbered = "\n".join(f"{i:04d}: {line}" for i, line in enumerate(recap_lines, 1))
+    payload = {
+        "recap_relative_path": recap_relative_path,
+        "events_to_repair": weak_events,
+    }
+    return (
+        "Repair event anchors for the recap below.\n\n"
+        "Return one repair row per input event using the same event_index.\n"
+        "If you cannot confidently anchor an event, set status=unresolved.\n\n"
+        f"INPUT EVENTS JSON:\n```json\n{json.dumps(payload, ensure_ascii=False, indent=2)}\n```\n\n"
+        f"RECAP LINES:\n```text\n{numbered}\n```"
+    )
+
+
+def _repair_weak_event_anchors(
+    *,
+    client: Any,
+    model_id: str,
+    recap_relative_path: str,
+    recap_text: str,
+    events_raw: list[dict[str, Any]],
+) -> tuple[list[dict[str, Any]], dict[str, int], dict[str, int]]:
+    recap_lines = recap_text.splitlines()
+    if not recap_lines:
+        return events_raw, {"repaired": 0, "unresolved": 0, "skipped": len(events_raw)}, {
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "cached_tokens": 0,
+        }
+
+    weak: list[dict[str, Any]] = []
+    for idx, ev in enumerate(events_raw):
+        anchors = [a for a in (ev.get("source_anchors") or []) if isinstance(a, dict)]
+        if not anchors or any(_is_weak_anchor(a, len(recap_lines)) for a in anchors):
+            weak.append(
+                {
+                    "event_index": idx,
+                    "event_name": ev.get("event_name"),
+                    "event_class": ev.get("event_class"),
+                    "participants": ev.get("participants") or [],
+                    "outcomes": ev.get("outcomes") or [],
+                }
+            )
+    if not weak:
+        return events_raw, {"repaired": 0, "unresolved": 0, "skipped": 0}, {
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "cached_tokens": 0,
+        }
+
+    api_client = DungeonMindApiClient.wrap(client)
+    prompt = _build_anchor_repair_user_prompt(
+        recap_relative_path=recap_relative_path,
+        recap_lines=recap_lines,
+        weak_events=weak,
+    )
+    try:
+        api_result = api_client.responses_parse(
+            action="session_events_extraction.repair_anchors",
+            model=model_id,
+            input=[
+                {"role": "system", "content": _ANCHOR_REPAIR_SYSTEM_PROMPT},
+                {"role": "user", "content": prompt},
+            ],
+            text_format=AnchorRepairOutput,
+        )
+    except Exception:
+        return events_raw, {"repaired": 0, "unresolved": len(weak), "skipped": 0}, {
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "cached_tokens": 0,
+        }
+
+    parsed: AnchorRepairOutput | None = getattr(api_result.response, "output_parsed", None)
+    if parsed is None:
+        return events_raw, {"repaired": 0, "unresolved": len(weak), "skipped": 0}, {
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "cached_tokens": 0,
+        }
+
+    repaired = 0
+    unresolved = 0
+    for item in parsed.repairs:
+        idx = int(item.event_index)
+        if idx < 0 or idx >= len(events_raw):
+            unresolved += 1
+            continue
+        if item.status != "anchored":
+            unresolved += 1
+            continue
+        if item.line_start is None or item.line_end is None:
+            unresolved += 1
+            continue
+        line_start = int(item.line_start)
+        line_end = int(item.line_end)
+        if line_start < 1 or line_end < line_start or line_end > len(recap_lines):
+            unresolved += 1
+            continue
+        # Strictness: never accept whole-file replacements in repair.
+        if line_start == 1 and line_end == len(recap_lines):
+            unresolved += 1
+            continue
+        span_len = line_end - line_start + 1
+        if span_len > 12:
+            unresolved += 1
+            continue
+
+        ev = events_raw[idx]
+        original_tokens = _tokenize_for_overlap(_event_text_blob(ev))
+        span_tokens = _tokenize_for_overlap(_lines_window_text(recap_lines, line_start, line_end))
+        if original_tokens and len(original_tokens & span_tokens) == 0:
+            unresolved += 1
+            continue
+
+        _, anchor = build_recap_extracted_anchor(
+            corpus_source_path=recap_relative_path,
+            full_file_lines=recap_lines,
+            line_start_1=line_start,
+            line_end_1=line_end,
+            commit_sha=resolve_git_commit_sha(cwd=_REPO_ROOT),
+        )
+        ev["source_anchors"] = [anchor.to_json_dict()]
+        if item.revised_event_name and item.revised_event_name.strip():
+            ev["event_name"] = item.revised_event_name.strip()
+        revised_outcomes = [str(x).strip() for x in (item.revised_outcomes or []) if str(x).strip()]
+        if revised_outcomes:
+            ev["outcomes"] = revised_outcomes
+        repaired += 1
+
+    repair_usage = _usage_dict_from_openai_response(api_result.response)
+    return events_raw, {"repaired": repaired, "unresolved": unresolved, "skipped": 0}, repair_usage
+
+
 # ---------------------------------------------------------------------------
 # Core runner
 # ---------------------------------------------------------------------------
@@ -515,6 +739,7 @@ def run_session_events_extraction(
     model_id: str,
     scenario: dict[str, Any],
     corpus_root: Path,
+    enable_anchor_repair: bool = True,
 ) -> dict[str, Any]:
     """Run one extraction, validate, grade, and return a result dict.
 
@@ -565,15 +790,34 @@ def run_session_events_extraction(
         except Exception as exc:
             return _error_result(f"Failed to validate output as EventExtractionOutput: {exc}")
 
+    default_anchors = _default_event_source_anchors(recap_relative_path, recap_text)
     events_raw: list[dict[str, Any]] = []
     for ev in parsed.events:
         d = ev.model_dump()
         # Remove evidence_id if empty string (schema allows it to be absent)
         if d.get("evidence_id") == "":
             del d["evidence_id"]
+        if not d.get("source_anchors") and default_anchors:
+            d["source_anchors"] = list(default_anchors)
         events_raw.append(d)
 
-    usage = _usage_dict_from_openai_response(response)
+    repair_stats = {"repaired": 0, "unresolved": 0, "skipped": len(events_raw)}
+    repair_usage = {"input_tokens": 0, "output_tokens": 0, "cached_tokens": 0}
+    if enable_anchor_repair:
+        events_raw, repair_stats, repair_usage = _repair_weak_event_anchors(
+            client=client,
+            model_id=model_id,
+            recap_relative_path=recap_relative_path,
+            recap_text=recap_text,
+            events_raw=events_raw,
+        )
+
+    usage_first = _usage_dict_from_openai_response(response)
+    usage = {
+        "input_tokens": int(usage_first["input_tokens"]) + int(repair_usage["input_tokens"]),
+        "output_tokens": int(usage_first["output_tokens"]) + int(repair_usage["output_tokens"]),
+        "cached_tokens": int(usage_first["cached_tokens"]) + int(repair_usage["cached_tokens"]),
+    }
     cost_info = usage_cost_usd(
         model_id=model_id,
         input_tokens=usage["input_tokens"],
@@ -598,7 +842,10 @@ def run_session_events_extraction(
         )
 
     violations, telemetry = collect_session_events_violations(events_raw, grading)
+    telemetry["anchor_repair"] = repair_stats
     verdict = per_gate_verdict(violations)
+    if grading.get("expected_anchored_spans") is not None:
+        verdict.setdefault("SE6", "FAIL" if violations.get("se6") else "PASS")
     gates_passed = not violations
 
     return {
@@ -638,13 +885,18 @@ def _error_result(msg: str) -> dict[str, Any]:
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Stage A: session events extraction benchmark"
+        description="Recap-to-events extraction benchmark"
     )
     parser.add_argument("--n", type=int, default=1, help="Cohort size (default: 1)")
     parser.add_argument("--model", type=str, default="", help="Model ID")
     parser.add_argument("--scenario-json", type=Path, default=None)
     parser.add_argument("--runs-root", type=Path, default=None)
     parser.add_argument("--no-writes", action="store_true", help="Skip writing artifacts")
+    parser.add_argument(
+        "--disable-anchor-repair",
+        action="store_true",
+        help="Skip LLM re-anchoring pass for weak/default anchors.",
+    )
     parser.add_argument("-q", "--quiet", action="store_true")
     args = parser.parse_args()
 
@@ -685,6 +937,7 @@ def main() -> None:
             model_id=model_id,
             scenario=gold,
             corpus_root=corpus_root,
+            enable_anchor_repair=not bool(args.disable_anchor_repair),
         )
         elapsed_s = round(time.monotonic() - t0, 2)
         cost = float(result["cost_usd"])

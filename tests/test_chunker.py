@@ -10,6 +10,7 @@ from src.ingestion.chunker import (
     _segment_blocks,
     chunk_document,
 )
+from src.ingestion.source_anchor import hash_source_bytes, slice_file_lines_to_bytes
 
 
 def test_build_heading_tree_nests_children() -> None:
@@ -24,10 +25,11 @@ def test_build_heading_tree_nests_children() -> None:
 
 def test_chunk_document_merges_small_sections(tmp_path: Path) -> None:
     md_path = tmp_path / "sample.md"
-    md_path.write_text(
-        "# Intro\n\nTiny.\n\n# Details\n\nThis is a longer section that should receive the merge from Intro.\n",
-        encoding="utf-8",
+    body = (
+        "# Intro\n\nTiny.\n\n# Details\n\n"
+        "This is a longer section that should receive the merge from Intro.\n"
     )
+    md_path.write_text(body, encoding="utf-8")
 
     units = chunk_document(
         docx_path=md_path,
@@ -36,6 +38,7 @@ def test_chunk_document_merges_small_sections(tmp_path: Path) -> None:
         canon_layer="world",
         campaign_id=None,
         source_class="seed_reference",
+        corpus_source_path="sample.md",
     )
 
     assert len(units) >= 1
@@ -43,6 +46,15 @@ def test_chunk_document_merges_small_sections(tmp_path: Path) -> None:
     assert "Tiny." in units[0]["text"]
     assert "longer section" in units[0]["text"]
     assert all(len(unit["text"].strip()) >= 50 or unit is units[-1] for unit in units)
+    full_lines = body.splitlines()
+    for unit in units:
+        anchors = unit.get("source_anchors") or []
+        assert anchors, "each unit must carry source_anchors"
+        assert anchors[0]["source_type"] == "recap_extracted"
+        assert anchors[0]["path"] == "sample.md"
+        span = unit["line_span"]
+        raw = slice_file_lines_to_bytes(full_lines, line_start_1=span["start"], line_end_1=span["end"])
+        assert anchors[0]["content_hash"] == hash_source_bytes(raw)
 
 
 def test_chunk_document_outputs_schema_valid_units_for_mirathorn() -> None:

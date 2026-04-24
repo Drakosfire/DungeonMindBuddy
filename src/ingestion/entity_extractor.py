@@ -663,6 +663,13 @@ def _resolve_source_profile(unit: dict[str, Any]) -> str:
     return "worldbuilding"
 
 
+def _source_anchors_for_unit(unit: dict[str, Any]) -> list[dict[str, Any]]:
+    raw = unit.get("source_anchors")
+    if not isinstance(raw, list):
+        return []
+    return [dict(anchor) for anchor in raw if isinstance(anchor, dict)]
+
+
 _WORLDBUILDING_PREFIX = (
     "Extract durable world referents and stable descriptive relations. "
     "Prefer named people, places, factions, artifacts, rituals, events, and doctrines. "
@@ -1233,14 +1240,31 @@ async def extract_entities_batch(
     recap_misses: list[tuple[int, dict[str, Any]]] = []
     standard_misses: list[tuple[int, dict[str, Any]]] = []
 
-    def _load_cached_entity_unit(evidence_id: str, source_profile: str, cached_data: Any) -> EntityExtractionResult:
+    def _load_cached_entity_unit(
+        evidence_id: str,
+        source_profile: str,
+        cached_data: Any,
+        source_anchors: list[dict[str, Any]],
+    ) -> EntityExtractionResult:
         if source_profile == "session_recap":
             recap_result = RecapExtractionResult.model_validate(cached_data)
             if recap_artifacts is not None:
                 for ev in recap_result.event_records:
-                    collected_event_records.append({**ev.model_dump(), "evidence_id": evidence_id})
+                    collected_event_records.append(
+                        {
+                            **ev.model_dump(),
+                            "evidence_id": evidence_id,
+                            "source_anchors": source_anchors,
+                        }
+                    )
                 for cl in recap_result.claims:
-                    collected_claims.append({**cl.model_dump(), "evidence_id": evidence_id})
+                    collected_claims.append(
+                        {
+                            **cl.model_dump(),
+                            "evidence_id": evidence_id,
+                            "source_anchors": source_anchors,
+                        }
+                    )
             return EntityExtractionResult(entities=recap_result.entities)
         return EntityExtractionResult.model_validate(cached_data)
 
@@ -1262,7 +1286,12 @@ async def extract_entities_batch(
                     stats["cache_misses"],
                 )
             cached_data = json.loads(cache_file.read_text(encoding="utf-8"))
-            slot_results[i] = _load_cached_entity_unit(evidence_id, source_profile, cached_data)
+            slot_results[i] = _load_cached_entity_unit(
+                evidence_id,
+                source_profile,
+                cached_data,
+                _source_anchors_for_unit(unit),
+            )
             continue
         if source_profile == "session_recap":
             recap_misses.append((i, unit))
@@ -1273,6 +1302,7 @@ async def extract_entities_batch(
 
     async def process_recap_miss(idx: int, unit: dict[str, Any]) -> None:
         evidence_id = str(unit.get("evidence_id", "unknown"))
+        source_anchors = _source_anchors_for_unit(unit)
         source_profile = _resolve_source_profile(unit)
         cache_key = _cache_key(unit, model_id, source_profile)
         cache_file = _cache_path(cache_root, cache_key)
@@ -1290,9 +1320,21 @@ async def extract_entities_batch(
             cache_file.write_text(recap_result.model_dump_json(indent=2), encoding="utf-8")
             if recap_artifacts is not None:
                 for ev in recap_result.event_records:
-                    collected_event_records.append({**ev.model_dump(), "evidence_id": evidence_id})
+                    collected_event_records.append(
+                        {
+                            **ev.model_dump(),
+                            "evidence_id": evidence_id,
+                            "source_anchors": source_anchors,
+                        }
+                    )
                 for cl in recap_result.claims:
-                    collected_claims.append({**cl.model_dump(), "evidence_id": evidence_id})
+                    collected_claims.append(
+                        {
+                            **cl.model_dump(),
+                            "evidence_id": evidence_id,
+                            "source_anchors": source_anchors,
+                        }
+                    )
             result = EntityExtractionResult(entities=recap_result.entities)
             slot_results[idx] = result
             total_usage.merge(_usage_for_call(udict))

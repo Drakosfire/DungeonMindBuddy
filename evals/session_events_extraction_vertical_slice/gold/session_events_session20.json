@@ -273,6 +273,26 @@
       "social_conflict",
       "ritual",
       "investigation"
+    ],
+    "expected_anchored_spans": [
+      {
+        "npc_slug": "caelynn",
+        "path": "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md",
+        "line_range": [28, 28],
+        "rationale": "Caelynn calls Lysandra via rockie-talkie"
+      },
+      {
+        "npc_slug": "karsemine",
+        "path": "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md",
+        "line_range": [30, 30],
+        "rationale": "Karsemine tracks Lysandra"
+      },
+      {
+        "npc_slug": "ephanna",
+        "path": "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md",
+        "line_range": [16, 16],
+        "rationale": "Ephanna lands Eldritch Blast during swarm battle"
+      }
     ]
   }
 }

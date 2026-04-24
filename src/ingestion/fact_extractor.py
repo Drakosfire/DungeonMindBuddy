@@ -734,7 +734,7 @@ def _build_fact_record(
     )
     value_dict = _build_fact_value_dict(extracted.value)
 
-    return {
+    record: dict[str, Any] = {
         "schema_version": "0.1.0",
         "created_at": now_iso,
         "updated_at": now_iso,
@@ -749,6 +749,10 @@ def _build_fact_record(
         "asserted_in_session": asserted_in_session,
         "sequence_index_within_session": sequence_index,
     }
+    raw_anchors = evidence_unit.get("source_anchors")
+    if isinstance(raw_anchors, list) and raw_anchors:
+        record["source_anchors"] = list(raw_anchors)
+    return record
 
 
 def _dedup_key(fact: dict[str, Any]) -> str:
@@ -760,6 +764,21 @@ def _dedup_key(fact: dict[str, Any]) -> str:
     return f"{subject}|{attr}|{normalized.lower()}"
 
 
+def _merge_source_anchors(
+    left: list[Any] | None, right: list[Any] | None
+) -> list[dict[str, Any]]:
+    """Union anchors from two evidence units, keyed by content_hash (dedup merge)."""
+    by_hash: dict[str, dict[str, Any]] = {}
+    for seq in (left or [], right or []):
+        for item in seq:
+            if not isinstance(item, dict):
+                continue
+            h = str(item.get("content_hash", "")).strip()
+            if h and h not in by_hash:
+                by_hash[h] = item
+    return list(by_hash.values())
+
+
 def _deduplicate_facts(facts: list[dict[str, Any]]) -> list[dict[str, Any]]:
     seen: dict[str, dict[str, Any]] = {}
     for fact in facts:
@@ -768,6 +787,12 @@ def _deduplicate_facts(facts: list[dict[str, Any]]) -> list[dict[str, Any]]:
             existing = seen[key]
             combined = list(dict.fromkeys(existing["evidence_ids"] + fact["evidence_ids"]))
             existing["evidence_ids"] = combined
+            merged_anchors = _merge_source_anchors(
+                existing.get("source_anchors") if isinstance(existing.get("source_anchors"), list) else [],
+                fact.get("source_anchors") if isinstance(fact.get("source_anchors"), list) else [],
+            )
+            if merged_anchors:
+                existing["source_anchors"] = merged_anchors
             if len(fact["value"]["label"]) > len(existing["value"]["label"]):
                 existing["value"]["label"] = fact["value"]["label"]
                 existing["fact_id"] = fact["fact_id"]

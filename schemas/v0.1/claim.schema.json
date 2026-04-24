@@ -38,6 +38,13 @@
     },
     "evidence_id": {
       "type": "string"
+    },
+    "source_anchors": {
+      "type": "array",
+      "items": {
+        "$ref": "common.schema.json#/$defs/sourceAnchor"
+      },
+      "minItems": 1
     }
   },
   "additionalProperties": false

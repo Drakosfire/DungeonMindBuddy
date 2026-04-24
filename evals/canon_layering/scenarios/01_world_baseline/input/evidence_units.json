@@ -19,7 +19,22 @@
     "paragraph_index": 0,
     "source_order_index": 0,
     "inferred_session": null,
-    "speaker_or_subject": "gm"
+    "speaker_or_subject": "gm",
+    "line_span": {
+      "start": 1,
+      "end": 1
+    },
+    "source_anchors": [
+      {
+        "source_type": "legacy_unanchored",
+        "path": "synthetic/elyr_world_dossier.md",
+        "line_start": 1,
+        "line_end": 1,
+        "content_hash": "3998f7c581dd0587533756a15e7a978246dbebc5ae39427ce405f476e53688f5",
+        "commit_sha": "",
+        "agent": null,
+        "thread_id": null
+      }
+    ]
   }
 ]
-

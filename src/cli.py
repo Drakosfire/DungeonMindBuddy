@@ -58,6 +58,7 @@ from src.ingestion.fact_extractor import (
     run_fact_extraction,
     _load_model_id as _load_fact_structured_model_id,
 )
+from src.ingestion.source_anchor import lint_source_anchors
 from src.ingestion.openai_batch_pipeline import run_batch_job
 from src.contracts.schema_validation import validate_many
 from src.contracts.temporal_tick_gate import (
@@ -569,6 +570,9 @@ class DungeonBuddyCLI:
         if command == "compile-wiki":
             self._cmd_compile_wiki(args)
             return True
+        if command == "anchor-lint":
+            self._cmd_anchor_lint(args)
+            return True
 
         print(f"Error: unknown command '{command}'")
         return True
@@ -875,6 +879,12 @@ class DungeonBuddyCLI:
 
         try:
             t0 = time.perf_counter()
+            project_root = Path(__file__).resolve().parents[1]
+            corpus_root = (project_root / "corpus" / "eldyrwild-markdown").resolve()
+            try:
+                corpus_source_path = source_path.resolve().relative_to(corpus_root).as_posix()
+            except ValueError:
+                corpus_source_path = source_path.resolve().as_posix()
             evidence_units = chunk_document(
                 docx_path=source_path,
                 document_id=document_id,
@@ -883,6 +893,7 @@ class DungeonBuddyCLI:
                 campaign_id=campaign_id,
                 source_class=source_class,
                 min_chars=parsed.chunk_min_chars,
+                corpus_source_path=corpus_source_path,
             )
             chunk_ms = int((time.perf_counter() - t0) * 1000)
             self._record_event(
@@ -2172,6 +2183,60 @@ class DungeonBuddyCLI:
             f"evidence {stats['evidence_before']} -> {stats['evidence_after']}, "
             f"facts {stats['facts_before']} -> {stats['facts_after']}."
         )
+
+    def _cmd_anchor_lint(self, args: Sequence[str]) -> None:
+        parser = argparse.ArgumentParser(prog="anchor-lint", add_help=False)
+        parser.add_argument(
+            "--corpus-root",
+            type=str,
+            default="corpus/eldyrwild-markdown",
+            help="Corpus root path used for relative source anchors.",
+        )
+        parser.add_argument(
+            "--include-legacy-unanchored",
+            action="store_true",
+            help="Validate legacy_unanchored anchors too (normally skipped).",
+        )
+        parser.add_argument(
+            "--max-issues",
+            type=int,
+            default=20,
+            help="Max issues to print before truncating output.",
+        )
+        parsed = self._safe_parse(parser, args)
+        if parsed is None:
+            return
+        project_root = Path(__file__).resolve().parents[1]
+        corpus_root = (project_root / parsed.corpus_root).resolve()
+        report = lint_source_anchors(
+            corpus_root=corpus_root,
+            evidence_units=self.store.evidence_units,
+            facts=self.store.facts,
+            event_records=self.store.event_records,
+            claims=self.store.claims,
+            include_legacy_unanchored=bool(parsed.include_legacy_unanchored),
+        )
+        summary = report["summary"]
+        print(
+            "Anchor lint: "
+            f"ok={report['ok']} "
+            f"records_checked={summary['records_checked']} "
+            f"anchors_total={summary['anchors_total']} "
+            f"anchors_validated={summary['anchors_validated']} "
+            f"anchors_valid={summary['anchors_valid']} "
+            f"issues={summary['anchors_with_issues']}"
+        )
+        max_issues = max(0, int(parsed.max_issues))
+        issues = report["issues"]
+        for issue in issues[:max_issues]:
+            print(
+                f"- {issue.get('record_type')}:{issue.get('record_id')} "
+                f"anchor#{issue.get('anchor_index')} {issue.get('issue')}"
+            )
+        if len(issues) > max_issues:
+            print(f"... {len(issues) - max_issues} more issue(s) not shown")
+        if not report["ok"]:
+            print("Anchor lint found stale/missing anchors.")
 
     def _cmd_compile_wiki(self, args: Sequence[str]) -> None:
         parser = argparse.ArgumentParser(prog="compile-wiki", add_help=False)

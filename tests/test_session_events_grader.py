@@ -20,6 +20,7 @@ from evals.session_events_extraction_vertical_slice.grader import (
     collect_se3_violations,
     collect_se4_violations,
     collect_se5_violations,
+    collect_se6_violations,
     collect_session_events_violations,
     per_gate_verdict,
 )
@@ -600,6 +601,108 @@ class TestSE5:
         assert term_violations == []
         # SE5 gate FAILs anyway because ratio < threshold.
         assert violations
+
+
+# ---------------------------------------------------------------------------
+# SE6 — optional capture-layer anchor coverage
+# ---------------------------------------------------------------------------
+
+
+class TestSE6:
+    def test_expected_anchored_spans_pass_when_covered(self) -> None:
+        events = [
+            _valid_event(
+                participants=["caelynn"],
+                source_anchors=[
+                    {
+                        "source_type": "recap_extracted",
+                        "path": _EVIDENCE_ID,
+                        "line_start": 18,
+                        "line_end": 24,
+                        "content_hash": "0" * 64,
+                        "commit_sha": "abc123",
+                        "agent": None,
+                        "thread_id": None,
+                    }
+                ],
+            )
+        ]
+        expected = [
+            {"npc_slug": "caelynn", "path": _EVIDENCE_ID, "line_range": [20, 24], "rationale": "test span"}
+        ]
+        violations, ratio, unmatched = collect_se6_violations(events, expected)
+        assert violations == []
+        assert ratio == 1.0
+        assert unmatched == []
+
+    def test_expected_anchored_spans_fail_when_missing(self) -> None:
+        events = [_valid_event(participants=["caelynn"], source_anchors=[])]
+        expected = [
+            {"npc_slug": "caelynn", "path": _EVIDENCE_ID, "line_range": [20, 24], "rationale": "test span"}
+        ]
+        violations, ratio, unmatched = collect_se6_violations(events, expected)
+        assert violations
+        assert ratio == 0.0
+        assert unmatched == [0]
+
+    def test_expected_anchored_spans_fail_for_coarse_anchor(self) -> None:
+        events = [
+            _valid_event(
+                participants=["caelynn"],
+                source_anchors=[
+                    {
+                        "source_type": "recap_extracted",
+                        "path": _EVIDENCE_ID,
+                        "line_start": 1,
+                        "line_end": 300,
+                        "content_hash": "0" * 64,
+                        "commit_sha": "abc123",
+                        "agent": None,
+                        "thread_id": None,
+                    }
+                ],
+            )
+        ]
+        expected = [
+            {"npc_slug": "caelynn", "path": _EVIDENCE_ID, "line_range": [20, 24], "rationale": "test span"}
+        ]
+        violations, ratio, unmatched = collect_se6_violations(events, expected)
+        assert violations
+        assert ratio == 0.0
+        assert unmatched == [0]
+
+    def test_collect_session_events_runs_se6_when_configured(self) -> None:
+        events = [
+            _valid_event(
+                participants=["caelynn", "ephanna"],
+                source_anchors=[
+                    {
+                        "source_type": "recap_extracted",
+                        "path": _EVIDENCE_ID,
+                        "line_start": 8,
+                        "line_end": 14,
+                        "content_hash": "0" * 64,
+                        "commit_sha": "abc123",
+                        "agent": None,
+                        "thread_id": None,
+                    }
+                ],
+            )
+        ]
+        grading = {
+            "min_event_count": 1,
+            "max_event_count": 25,
+            "must_cover_participants": ["caelynn", "ephanna"],
+            "must_cover_event_classes": ["combat"],
+            "expected_events": [],
+            "expected_anchored_spans": [
+                {"npc_slug": "caelynn", "path": _EVIDENCE_ID, "line_range": [10, 12], "rationale": "anchor"}
+            ],
+        }
+        violations, telemetry = collect_session_events_violations(events, grading)
+        assert "se6" not in violations
+        assert telemetry["expected_anchor_span_coverage_ratio"] == 1.0
+        assert telemetry["unmatched_expected_anchor_span_indices"] == []
 
 
 # ---------------------------------------------------------------------------

@@ -12,11 +12,29 @@
     "canon_layer": "campaign",
     "campaign_id": "campaign_2",
     "text": "The yard gate is open.",
-    "section_path": ["Session"],
+    "section_path": [
+      "Session"
+    ],
     "paragraph_index": 0,
     "source_order_index": 0,
     "inferred_session": null,
-    "speaker_or_subject": "gm"
+    "speaker_or_subject": "gm",
+    "line_span": {
+      "start": 1,
+      "end": 1
+    },
+    "source_anchors": [
+      {
+        "source_type": "legacy_unanchored",
+        "path": "synthetic/doc_yard_gate_probe.md",
+        "line_start": 1,
+        "line_end": 1,
+        "content_hash": "ce02ec2dfe1e5e32c83ae7248c52251047bd9c10468a415ed7ee9636b6d48796",
+        "commit_sha": "",
+        "agent": null,
+        "thread_id": null
+      }
+    ]
   },
   {
     "schema_version": "0.1.0",
@@ -31,10 +49,28 @@
     "canon_layer": "campaign",
     "campaign_id": "campaign_2",
     "text": "The yard gate is barred shut.",
-    "section_path": ["Session"],
+    "section_path": [
+      "Session"
+    ],
     "paragraph_index": 1,
     "source_order_index": 1,
     "inferred_session": null,
-    "speaker_or_subject": "gm"
+    "speaker_or_subject": "gm",
+    "line_span": {
+      "start": 1,
+      "end": 1
+    },
+    "source_anchors": [
+      {
+        "source_type": "legacy_unanchored",
+        "path": "synthetic/doc_yard_gate_probe.md",
+        "line_start": 1,
+        "line_end": 1,
+        "content_hash": "8829264fcd6ca4d857fc432fd6249afa57cd12e9ac957876ece9af6672c1178a",
+        "commit_sha": "",
+        "agent": null,
+        "thread_id": null
+      }
+    ]
   }
 ]
