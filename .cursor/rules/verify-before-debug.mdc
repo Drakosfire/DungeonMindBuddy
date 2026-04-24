@@ -34,4 +34,4 @@ Any gate that depends on LLM output (NPC voice, planner decisions, recap drafts)
 - Lowering a threshold "until it passes" with no baseline measurement.
 - Marking a flaky LLM test as xfail without measuring the actual pass-rate.
 - Treating one PASS after a prompt change as "fixed."
-- Editing the gold to match what the model produced *because* that's what the model produced. Realign gold only when corpus/system-design rationale supports the new shape, and document that rationale in `notes`.
+- Editing the gold to match what the model produced *because* that's what the model produced. Realign gold only when corpus/system-design rationale supports the new shape, and document that rationale in `notes`. Diagnostic: "if I reverted this edit and the failure reappeared, would I want to fix it or hide it?" If "hide it," you are deflating the gold — see `gold-realignment-vs-deflation.mdc` for the full pattern + concrete examples.

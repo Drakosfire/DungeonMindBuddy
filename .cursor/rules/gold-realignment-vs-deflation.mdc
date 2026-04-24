@@ -1,0 +1,59 @@
+---
+description: Distinguish legitimate gold realignment (corpus/design rationale) from gold deflation (lowering the bar to match model output). Apply when editing benchmark gold/scenario JSONs or anchor/threshold lists after observing model output.
+globs: evals/**/gold/**/*.json,evals/**/scenarios/**/*.json,evals/**/*_gold.json,evals/**/*_scenario.json
+alwaysApply: false
+---
+
+# Gold realignment vs. gold deflation
+
+When a benchmark fails and you reach for the gold file, you are at a fork. One path tightens the contract, the other deflates the test until the model's current behavior passes. They look the same in the diff. They are not the same.
+
+## The diagnostic question (apply before editing any anchor / threshold / expectation)
+
+> **"If I reverted this gold edit and the underlying failure reappeared, would I want to fix the failure, or hide it?"**
+
+- *"Fix it"* → the gold is right; do not edit it. Fix the prompt, the data, the code, or file a `[READY]` backlog item and let the test keep failing as the pressure to fix.
+- *"Hide it"* → you are deflating the gold. Stop. The test exists *because* a future GM / user will care about that exact failure mode.
+
+A second corroborating test: **could you justify the new anchor / threshold to someone who has never seen the model's output?** If your justification is "the model produces X reliably," you are deflating. If it is "the recap header literally says X" or "the corpus convention requires X," you are realigning.
+
+## What deflation looks like in this repo
+
+Concrete antipatterns observed 2026-04-23 in `evals/session_recap_timeline_pass_vertical_slice/gold/timeline_pass_session3_c1.json`:
+
+- **Dropping a recap-grounded anchor because the model consistently omits it.** Stafl S3 anchor `Wizard's Tower` (the bard-song scene retelling the previous session's job) was swapped for `Pippa` because Stage B summarization keeps crowding the callback out under flood-crisis pressure. The recap line literally says "Stafl plays an incredible song and wows the pub with the Wizard's Tower Brewery retelling." The deflation hid a real Stage B failure mode behind a backlog entry.
+- **Routing the gold around an upstream extraction bug.** Karsemine S3 anchor `Pippa` was swapped for `Zephyr Strike, Bonogo` because Stage A intermittently drops Karsemine from the wagon-ride event despite the recap roster sentence explicitly listing her. The Stage A bug exists; routing the gold around it means future runs no longer flag the bug.
+- **Picking an anchor *because* the model produced it last run.** Baergrom S3 anchor `net` (used 5× in the recap across 3 scenes) → `upriver` (a directional modifier the model happens to echo). "I observed the model produces X" is the deflation tell.
+
+## What realignment looks like
+
+Legitimate gold edits change *what the test asserts* in a way someone could justify from corpus evidence or system-design intent without ever reading a model output:
+
+- **Recap spelling variants.** `Stonebridge` vs. `StoneBridge` both appear in the source — anchor accepts either. Justification: the corpus uses both forms; case-insensitive substring is the right grader semantic.
+- **Frontmatter convention shifts.** When `Docs/CONVENTION-PC-Hub.md` adds a `campaign_id` requirement, gold files that pre-date the convention should adopt it. Justification: the document of record changed.
+- **Grader semantic fixes that happen to land in JSON.** Apostrophe normalization (`U+2019` → ASCII `'`) in the grader is a contract clarification, not a deflation — it removes a Unicode-mismatch false-fail without changing what the test measures.
+
+In all cases: **the `notes` field of the gold file must record the rationale**, and the rationale must not reference model behavior. "Anchors derived from recap line N" is realignment evidence; "anchors picked because Stage B reliably preserves them" is deflation evidence.
+
+## When the model genuinely cannot meet the contract
+
+Two correct responses, both of which keep the test honest:
+
+1. **Tighten the contract upstream** — fix the prompt, the schema, the dispatch guard, the extraction shape. Re-measure and let the gold stay strict. This is the path `verify-before-debug.mdc` orders before any rubric edit.
+2. **Document the gap, leave the test red.** File a `[READY]` backlog entry naming the failure mode + the proposed fix, and let the benchmark keep failing as the pressure that gets the fix shipped. A red test with a tracked owner is more honest than a green test with a hidden problem.
+
+A backlog entry **does not license** silencing the gold. The whole point of the backlog item is that the test must keep flagging the issue until the item is shipped.
+
+## Anti-patterns
+
+- Tuning gold anchors / thresholds after a benchmark run, then justifying with "the model reliably produces X."
+- Filing a backlog entry for a deferred prompt/architecture fix and *also* muting the gold that detects it. Pick one.
+- "Proper-name-stable anchors" / "paraphrase-resistant anchors" / "the model's preferred phrasing" framings. These are deflation tells dressed in design language.
+- Iterating gold edits at N=1 to chase PASS. N=1 variance is signal that you need N≥3 measurement, not gold tuning.
+- Editing both the prompt **and** the gold in the same iteration so it's unclear which actually moved the pass rate. Land prompt fixes first, re-measure, then decide whether the gold is actually wrong.
+
+## See also
+
+- `verify-before-debug.mdc` — investigate gold/prompt/data before code; tighten the contract, don't loosen the rubric.
+- `cost-as-signal.mdc` — N=1 smoke runs are cheap signal, not validation. Validate with N≥3 (ideally N≥5) before treating gold edits as confirmed.
+- `Docs/Design/DESIGN-citation-grounded-corpus-architecture.md` — the architectural change that defeats this antipattern *structurally* by replacing anchor-word substring grading with span-attribution grading. The deflation pressure documented here is the case study driving that design.
