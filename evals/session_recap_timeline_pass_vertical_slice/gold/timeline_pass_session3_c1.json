@@ -36,40 +36,58 @@
         "npc_slug": "baergrom",
         "timeline_relative_path": "Longmont Campaign/Campaign 1/PCs/baergrom/timeline.md",
         "expected_count": 1,
-        "anchor_words": ["Kirfan", "net"]
+        "anchor_words": [
+          "Kirfan",
+          "net"
+        ]
       },
       {
         "npc_slug": "bonogo",
         "timeline_relative_path": "Longmont Campaign/Campaign 1/PCs/bonogo/timeline.md",
         "expected_count": 1,
-        "anchor_words": ["Kirfan", "Bubbles"]
+        "anchor_words": [
+          "Kirfan",
+          "Bubbles"
+        ]
       },
       {
         "npc_slug": "caelynn",
         "timeline_relative_path": "Longmont Campaign/Campaign 1/PCs/caelynn/timeline.md",
         "expected_count": 1,
-        "anchor_words": ["Pippa", "StoneBridge"]
+        "anchor_words": [
+          "Pippa",
+          "StoneBridge"
+        ]
       },
       {
         "npc_slug": "ephanna",
         "timeline_relative_path": "Longmont Campaign/Campaign 1/PCs/ephanna/timeline.md",
         "expected_count": 1,
-        "anchor_words": ["flood", "Bubbles"]
+        "anchor_words": [
+          "flood",
+          "Pippa"
+        ]
       },
       {
         "npc_slug": "karsemine",
         "timeline_relative_path": "Longmont Campaign/Campaign 1/PCs/karsemine/timeline.md",
         "expected_count": 1,
-        "anchor_words": ["Pippa", "StoneBridge"]
+        "anchor_words": [
+          "Pippa",
+          "StoneBridge"
+        ]
       },
       {
         "npc_slug": "stafl",
         "timeline_relative_path": "Longmont Campaign/Campaign 1/PCs/stafl/timeline.md",
         "expected_count": 1,
-        "anchor_words": ["Wizard's Tower", "River's Edge"]
+        "anchor_words": [
+          "Wizard's Tower",
+          "River's Edge"
+        ]
       }
     ],
     "expected_skips": []
   },
-  "notes": "Stage B grading gold for C1 Session 3 (Stone Bridge flood / Bubbles rescue arc). Anchors derived from session_events_session3_c1 gold; 'StoneBridge' matches recap spelling variant."
+  "notes": "Stage B grading gold for C1 Session 3 (Stone Bridge flood / Bubbles rescue arc). Anchors are derived from recap evidence in 'Longmont Campaign/Campaign 1/Session Recaps/Session 3 - The Stone Bridge Flood.md': baergrom on 'Kirfan' (the rescued elderly fisherman) + 'net' (the great oversized fishnet recurring across 3 scenes); bonogo on 'Kirfan' + 'Bubbles' (rescue + companion arc); caelynn on 'Pippa' + 'StoneBridge' (wagon ride and arrival); ephanna on 'flood' (session-title central emergency) + 'Pippa' (wagon scene); karsemine on 'Pippa' + 'StoneBridge' (recap roster sentence puts her in the wagon); stafl on 'Wizard's Tower' (the bard-song retelling the previous-session brewery exploit, recap line ~39) + 'River's Edge' (the inn). Two anchors here are intentionally exposing known upstream failure modes that the gold should keep flagging until the upstream fixes ship: (1) karsemine's 'Pippa'/'StoneBridge' surfaces the Stage A participant-completeness flake on multi-PC roster sentences (tracked: '[READY] Stage A — participant-completeness flake on multi-PC group events (karsemine dropped from S3 wagon-ride event) — captured 2026-04-23' in Backlog.md). (2) stafl's 'Wizard's Tower' surfaces the Stage B callback-loss-under-crisis-summary failure mode (tracked: '[READY] Stage B — bard-song / previous-session callback scenes are consistently dropped under crisis-summary pressure — captured 2026-04-23' in Backlog.md). Per .cursor/rules/gold-realignment-vs-deflation.mdc, these anchors are NOT to be silenced via further gold tuning; they are the discipline that pressures the upstream fixes. The earlier deflation pass (2026-04-23) is reverted by this commit."
 }
