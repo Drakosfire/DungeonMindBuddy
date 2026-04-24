@@ -21,6 +21,7 @@ from evals.session_events_extraction_vertical_slice.step2_timeline_from_events_r
     Step2RunSummary,
     _extract_beat_for_slug,
     _run_single_chained_cohort_iteration,
+    build_stage_b_instruction_suffix,
     build_stage_b_per_slug_user_message,
     filter_events_for_slug,
     ordered_stage_b_timeline_targets,
@@ -33,6 +34,16 @@ from evals.session_events_extraction_vertical_slice.step2_timeline_from_events_r
 # ---------------------------------------------------------------------------
 # Test 1: per-slug user-message builder formats events correctly with 1+ events
 # ---------------------------------------------------------------------------
+
+
+def test_stage_b_instruction_suffix_contains_cross_session_callback_clause():
+    """Regression: VOCABULARY CONTRACT item 5 added 2026-04-23 for cross-session callback preservation in beats."""
+    suffix = build_stage_b_instruction_suffix(
+        session_num=3,
+        recap_evidence_path="Longmont Campaign/Campaign 1/Session Recaps/Session 3 - Recap.md",
+    )
+    assert "Cross-session callback locations and named exploits" in suffix
+    assert 'paraphrasing it to "an old job"' in suffix
 
 
 def test_build_stage_b_per_slug_user_message_includes_events():

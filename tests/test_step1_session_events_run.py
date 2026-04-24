@@ -10,6 +10,7 @@ if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
 from evals.session_events_extraction_vertical_slice.step1_session_events_run import (
+    _SYSTEM_PROMPT,
     build_user_prompt,
     discover_campaign_pc_hub_dirs,
     load_pc_identity_hints,
@@ -138,3 +139,9 @@ def test_build_user_prompt_includes_fallback_guardrails_when_hints_present() -> 
 def test_build_user_prompt_omits_hint_block_when_empty() -> None:
     msg = build_user_prompt("Extract events", "Recap body here", "")
     assert "PC IDENTITY HINTS (fallback anchors)" not in msg
+
+
+def test_system_prompt_contains_multi_participant_roster_completeness_clause() -> None:
+    """Regression: clause added 2026-04-23 for Stage A participant-completeness flake on multi-PC roster sentences."""
+    assert "MULTI-PARTICIPANT ROSTER COMPLETENESS" in _SYSTEM_PROMPT
+    assert "every named character in that list belongs in" in _SYSTEM_PROMPT

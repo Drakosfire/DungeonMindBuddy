@@ -212,11 +212,34 @@ usually do not need `timeline_path` unless multiple campaigns share the same slu
 the result of a careful extraction that preserved the recap's distinctive vocabulary \
 specifically so the timeline beat you write here remains searchable months from now. When \
 composing the beat, **retain the distinctive named terms that appear in the events' \
-`outcomes[]` and `event_name` fields verbatim** — weapon names (e.g. `scimitar`), spell \
-names (e.g. `Eldritch Blast`, `Thunderwave`), ability names (e.g. `Zephyr Strike`), item \
-names, place names, and NPC names. Generic paraphrases such as "weapon" instead of \
-"scimitar," "spell" instead of "Eldritch Blast," or "ability" instead of "Zephyr Strike" \
-defeat the entire purpose of the timeline.
+`event_name`, `location`, and `outcomes[]` fields verbatim**. The categories that MUST \
+survive into the beat:
+
+  1. **Weapon, spell, ability, and item names** — e.g. `scimitar`, `Eldritch Blast`, \
+     `Thunderwave`, `Zephyr Strike`, `Glowkindle's brewery`.
+  2. **Proper names** of NPCs, factions, places, and creatures — e.g. `Kirfan`, `Pippa`, \
+     `Bubbles`, `Stonebridge`, `River's Edge Pub`, `Wizard's Tower`, `Glowkindle`. \
+     If the events' `outcomes[]` or `referenced_slugs[]` name a person, that exact proper \
+     name belongs in the beat — do NOT replace `Kirfan` with `the elderly fisherman` or \
+     `Bubbles` with `the goat`.
+  3. **PC class and race vocabulary** when the events introduce or reintroduce a PC by \
+     class+race (e.g. `Stafl the 'Human' Bard`, `Karsemine the Tiefling Ranger`, `Bonogo \
+     the Bugbear Rogue`). The first session a PC appears, the class+race tokens MUST land \
+     in their beat — they are how a future GM searches the archive for "the bard's first \
+     session" or "when the tiefling ranger joined."
+  4. **Environmental scene-feature nouns** that name *where the action concretely \
+     happened* — wells, basements, cellars, docks, towers, bridges, alleys, trail \
+     markers, named rooms. If an outcome says a creature crawled out of `the well` or \
+     the party rescued someone at `the dock`, that noun is the searchable scene anchor \
+     and belongs in the beat. Replacing `well` with "from the basement" or "from \
+     somewhere" loses the recall the timeline exists to provide.
+  5. **Cross-session callback locations and named exploits.** When the events for this slug include a performance, song, story-recap, or in-character retelling whose `outcomes[]` mention a previously-visited place, faction, or named exploit by name (e.g. a bard's pub song retelling the "Wizard's Tower Brewery" job from a prior session, or a PC recapping the "Glowkindle payout" arc to a new NPC), that proper name belongs in the beat alongside the in-session action. The callback is the only handle that lets a future GM search "when did Stafl bard about the Wizard's Tower" — paraphrasing it to "an old job" or "a previous adventure" silently destroys that handle. If the in-session action and the callback compete for sentence budget, write a compound sentence rather than dropping the callback name.
+
+Generic paraphrases such as "weapon" instead of `scimitar`, "spell" instead of \
+`Eldritch Blast`, "elderly fisherman" instead of `Kirfan`, "the party as merchant \
+guards" instead of `Stafl the 'Human' Bard, Karsemine the Tiefling Ranger, ...`, \
+or "from the corpses" instead of "from corpses in the well" defeat the entire \
+purpose of the timeline.
 
 **MULTI-EVENT COMPOSITION (hard rule):** When this PC appears in **more than one** event \
 above, the beat is **one sentence that composes the events together** — *not* a summary \

@@ -198,6 +198,22 @@ bystander's slug in `referenced_slugs[]`, not `participants[]`.
 referenced-but-not-acting entities. Do NOT pad it with the same entries already in \
 `participants[]`; an entity who actively did something belongs in `participants[]` only.
 
+**REFERENCED-NAME ECHO (hard rule):** Every entity you place in `referenced_slugs[]` MUST also \
+have its **canonical proper name** appear verbatim in at least one of that event's `outcomes[]` \
+strings — not just a generic descriptor. The slug list and the outcomes are read by separate \
+downstream stages: the timeline-pass stage only sees `outcomes[]` text and cannot search the \
+slug list, so a name that lives only in `referenced_slugs[]` is invisible to the timeline beat. \
+Use the canonical surface name from the recap (e.g. "Kirfan", not "kirfan"; "Tomas", not \
+"tomas") in the outcome sentence; you may add a generic gloss after it ("the elderly fisherman \
+Kirfan", "Tomas the merchant"), but the proper name itself must be there verbatim.
+
+Concrete example: if you emit `referenced_slugs: ["kirfan"]` for a stuck-net beat, at least one \
+outcome must read like `"The party helps the elderly fisherman Kirfan recover his stuck net"` \
+or `"Kirfan's stuck net turns out to be roof beams"` — NOT `"The group meets an elderly \
+fisherman whose net is stuck"` (which loses the name).
+
+**MULTI-PARTICIPANT ROSTER COMPLETENESS (hard rule):** When the recap describes a single action whose subject is a comma-separated list of named characters (e.g. "A, B, C, and D accepted the offer", or "X, Y, and Z entered the room together", or "all five PCs heard the noise"), every named character in that list belongs in `participants[]` for the corresponding event. Do not omit any name from the comma list. Before emitting the event, count the named characters in the recap's listing sentence and confirm `len(participants)` is at least that count plus any non-PC participants the same sentence introduces (e.g. an NPC offering the ride). If you find yourself summarizing the roster as "the party" or "the group" without enumerating, expand the enumeration into `participants[]`.
+
 **OUTCOMES CONTRACT (preserve searchable vocabulary — hard rule):** The `outcomes[]` field is \
 the durable, searchable record of what happened in each event. A future game-master will search \
 the campaign archive by specific named terms — character names, character classes, character \
