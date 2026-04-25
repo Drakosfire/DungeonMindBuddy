@@ -1,0 +1,88 @@
+{
+  "schema": "sentence_routing_falsification_v1",
+  "scenario_id": "sentence_routing_mini_fixture",
+  "input": {
+    "recap_relative_path": "evals/sentence_routing_retrieval_falsification/fixtures/mini_recap.md",
+    "campaign_id": "test-campaign",
+    "session": 1,
+    "validate_manifest_paths": true,
+    "hub_manifest": [
+      {
+        "slug": "hub_readme",
+        "path": "evals/sentence_routing_retrieval_falsification/README.md",
+        "subject_class": "npc",
+        "label": "Synthetic hub anchor (slice README)"
+      },
+      {
+        "slug": "hub_mini_recap",
+        "path": "evals/sentence_routing_retrieval_falsification/fixtures/mini_recap.md",
+        "subject_class": "location",
+        "label": "Synthetic hub anchor (mini recap fixture)"
+      }
+    ]
+  },
+  "gold_capture": {
+    "min_units": 3,
+    "max_units": 12,
+    "must_contain_substrings_anywhere": [
+      "First sentence here",
+      "Second sentence follows",
+      "Fourth line ends abruptly"
+    ]
+  },
+  "gold_routing": {
+    "must_route": [
+      {
+        "unit_id": "u-L0005-01",
+        "expected_hubs": ["hub_readme"],
+        "max_extra_hubs": 0
+      }
+    ],
+    "must_abstain": [
+      {
+        "unit_id": "u-L0005-02",
+        "max_assigned_hubs": 0,
+        "needs_new_hub_candidate": false
+      }
+    ],
+    "soft_limits": {
+      "max_mean_assigned_hubs_per_unit": 4.0,
+      "max_unresolved_fraction": 0.75
+    }
+  },
+  "gold_proposals": {},
+  "gold_retrieval": {},
+  "fixture_routes": {
+    "schema": "sentence_hub_routes_v1",
+    "routes": [
+      {
+        "unit_id": "u-L0003-01",
+        "assigned_hubs": [],
+        "confidence": "low",
+        "rationale": "Generic sentence with no semantic subject in the manifest.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0003-02",
+        "assigned_hubs": [],
+        "confidence": "medium",
+        "rationale": "Second line beat; no manifest hub required for gold.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0005-01",
+        "assigned_hubs": ["hub_readme"],
+        "confidence": "medium",
+        "rationale": "Names Doctor Jones and Ms Smith, which are person-like NPC cues for the synthetic README hub.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0005-02",
+        "assigned_hubs": [],
+        "confidence": "low",
+        "rationale": "Truncated tail; abstain per gold.",
+        "needs_new_hub_candidate": false
+      }
+    ]
+  }
+}

@@ -2,7 +2,7 @@
 
 **Two-phase events-first pipeline for session-recap -> timeline-append.**
 
-- **Recap-to-events extraction** (`step1_session_events_run.py`): read a session recap, extract a complete structured list of `event_record`-shaped JSON objects covering all meaningful beats. Gates: SE1 schema, SE2 count, SE3 participant slugs, SE4 event classes, SE5 expected-event coverage, SE6 anchor-span coverage.
+- **Recap-to-events extraction** (`step1_session_events_run.py`): read a session recap, extract a complete structured list of `event_record`-shaped JSON objects covering all meaningful beats. The model emits a required per-event **`recap_evidence_span`** (corpus recap path + inclusive 1-based line range into the **numbered** recap block in the user prompt); the runner turns that into `source_anchors` (blake3 + `commit_sha`) before JSON-schema grading. Gates: SE1 schema, SE2 count, SE3 participant slugs, SE4 event classes, SE5 expected-event coverage, SE6 gold-span anchor coverage, SE7 hash-verified non-placeholder anchors (when `require_verified_event_anchors` is set in gold).
 - **Events-to-timeline append** (`step2_timeline_from_events_run.py`, landed 2026-04-22): per-slug events-driven `append_timeline_row` micro-turns. Recap reads explicitly forbidden — this phase sees only the events recap-to-events produced for that slug, plus pre-loaded timeline files. Grades against `evals/session_recap_timeline_pass_vertical_slice/` gold (TP1/TP2/TP3/TP5) so iteration history is comparable with the legacy single-stage Iteration-6 surface.
 
 The architectural premise: extracting all events in one model call removes the **compression** failure mode where a planner turn collapses a multi-beat character into a single row that drops lexical anchors. N=5 chained cohort confirms: per-PC anchor gates (`caelynn`, `karsemine`, `ephanna`) all 5/5, vs single-stage 0/5 for `karsemine`/`ephanna`.
@@ -15,7 +15,7 @@ evals/session_events_extraction_vertical_slice/
   README.md                              ← this file
   step1_session_events_run.py            ← recap-to-events runner (CLI entry point)
   step2_timeline_from_events_run.py      ← events-to-timeline chained runner
-  grader.py                              ← recap-to-events gate logic + telemetry (SE1-SE6)
+  grader.py                              ← recap-to-events gate logic + telemetry (SE1-SE7)
   session_events_run_report.py           ← per-run + cohort artifact writers
   gold/
     session_events_session20.json        ← Stage A gold (C2 Session 20 recap)
@@ -93,9 +93,13 @@ Events-to-timeline writes to a pre-state corpus copy, never to `corpus/eldyrwild
 | **SE2** | Event count is within `[min_event_count, max_event_count]` (gold: 10–25). | Hard bounds |
 | **SE3** | Every slug in `must_cover_participants` appears in at least one event's `participants[]`. | All required |
 | **SE4** | Every class in `must_cover_event_classes` appears in at least one event's `event_class`. | All required |
-| **SE5** | For each `expected_events[i]`: (a) **lenient coverage** — at least one model event matches on `event_class` + participant overlap + name/outcomes text overlap (ratio reported in telemetry, soft-fail < 0.5); (b) **outcome-vocabulary preservation** — every term in `must_preserve_terms` must appear verbatim (case-insensitive substring) in *some* model event sharing ≥1 participant. | Hard fail on any missing required term, OR coverage ratio < 0.5 |
+| **SE5** | For each `expected_events[i]`: (a) **lenient coverage** — at least one model event matches on `event_class` + participant overlap + name/outcomes text overlap (ratio reported in telemetry, soft-fail < 0.5); (b) **outcome-vocabulary preservation** — every entry in `must_preserve_terms` must be satisfied (case-insensitive substring on *some* model event sharing ≥1 participant); a single entry may be an **OR group** `a\|b` meaning either substring counts. | Hard fail on any missing required term, OR coverage ratio < 0.5 |
+| **SE6** | When `expected_anchored_spans` is present: each gold span must be covered by some event for that slug whose `source_anchors` include a recap path + line range that **contains** the span (max span width configurable). | Hard fail on any unmatched span |
+| **SE7** | When `require_verified_event_anchors` is true: every event's `source_anchors` must (1) name the scenario recap path, (2) **`content_hash`**-match current on-disk bytes for the declared 1-based line span (same check as `lint_source_anchors`), and (3) not span the **entire** recap when it has multiple lines (rejects whole-file placeholders). | Hard fail on any violation |
 
-SE5's outcome-vocabulary sub-gate is the policing layer for Stage A's system-prompt OUTCOMES CONTRACT (verbatim preservation of weapon/spell/ability/item/place/NPC names). Each expected event in the gold can declare a per-event `must_preserve_terms: list[str]` of distinctive named terms. The check is **per-term across the participant-overlap pool**, deliberately decoupled from event_class drift and from the model's choice of how to split a beat across multiple events:
+**Primary capture signal:** SE6 + SE7 together approximate `Docs/Design/DESIGN-citation-grounded-corpus-architecture.md` extraction-mode provenance. **SE5 / Stage B TP1** remain vocabulary / render-adjacent checks — useful, but not a substitute for verifiable line anchors.
+
+SE5's outcome-vocabulary sub-gate is the policing layer for Stage A's system-prompt OUTCOMES CONTRACT (verbatim preservation of weapon/spell/ability/item/place/NPC names). Each expected event in the gold can declare a per-event `must_preserve_terms: list[str]` of distinctive named terms (use `drawing|blueprint` when recap and table vocabulary diverge but either substring is acceptable). The check is **per-term across the participant-overlap pool**, deliberately decoupled from event_class drift and from the model's choice of how to split a beat across multiple events:
 
 - **Class drift is OK** — if the model classifies Caelynn's bracelet de-escalation under `ritual` instead of gold's `social_conflict`, the term `bracelet` is still considered preserved as long as it appears in some actual event involving Caelynn/Marla/Bonogo.
 - **Beat-splitting is OK** — if the model legitimately splits "Karsemine rounds up horses; observes magical storm" into a wagon-discovery event with `horses` and a separate camp-setup event with `storm` + `shimmering rain`, all three terms count as preserved.
@@ -129,10 +133,14 @@ Gold events were hand-curated by reading `Session 20 - Recap.md` directly. The g
 - **combat**: red gnat swarm battle
 - **social_conflict**: Stacey warehouse confrontation; Bonogo knife threat; Marla vs Bonogo confrontation; Caelynn de-escalation
 - **conversation**: party reports to Stafl; mayor denies Lysandra; Sara/Lysandra rockie-talkie call; Caelynn reports tainted meat to Sara; Ephanna announces departure
-- **discovery**: fortification fires drive forest retreat; Lysandra found with cult eyes and tower blueprint
+- **discovery**: fortification fires drive forest retreat; Lysandra found with cult eyes and a tower drawing in the dirt (recap also says top-down blueprint; SE5 anchors on drawing + tower + shimmery)
 - **travel**: Karsemine tracks Lysandra; group reaches wagon camp
 - **ritual**: Caelynn administers antidote tea to Lysandra
 - **investigation**: Stafl finds tainted meat; Karsemine rounds up horses and spots approaching storm
+
+**SE6 (`expected_anchored_spans`):** `line_range` values come from **corpus recap line numbers** (per-span `rationale` ties each slug to that text). They **tighten SE6** against recap-grounded spans, **not** model output. When editing this list, justify anchors from the recap file, not from a model run.
+
+**SE7 (`require_verified_event_anchors`):** Session 20 gold sets this flag so every emitted event must carry anchors that **round-trip to the recap file on disk** (blake3 over the UTF-8 bytes of the anchored line span). This is the mechanical “no fake line numbers / no stale hash” gate; `commit_sha` on the anchor is informational for SE7 — drift is tracked separately from HEAD verification.
 
 ## Telemetry exposed
 

@@ -28,6 +28,24 @@ Always prefer the first. When you must loosen (e.g. lowering D1 thresholds becau
 
 Any gate that depends on LLM output (NPC voice, planner decisions, recap drafts) is stochastic. A single PASS or FAIL is noise. Before claiming a prompt fix works, run ≥3 trials and report pass-rate. Round 4's NPC clarify fix was confirmed with Torbin 4/5 + Flock 5/5 across re-runs, not a single PASS.
 
+## Reporting contract: evidence-first, file-linked, per-failure samples
+
+When reporting benchmark/debug findings in chat, include an explicit evidence package:
+
+1. **File links for every substantive claim.** If you say "SE6 failed on run 2", cite the concrete run sidecar path where that appears.
+2. **Quote concrete fields, not paraphrase-only summaries.** Include exact values (gate verdict, violation strings, indices, cost fields, pass counts) taken from artifacts.
+3. **Show one success and one failure sample per failure type discussed.** For each gate/failure type you mention (SE2 undercount, SE3 participant coverage, SE5 vocabulary, SE6 anchor coverage, SE7 anchor verification, etc.), include:
+   - a failure sample (file + relevant lines/JSON fields),
+   - a success sample (file + relevant lines/JSON fields),
+   - and a one-sentence comparison.
+4. **Separate observation from hypothesis.** First show the artifact evidence, then state interpretation/hypothesis.
+5. **No unlinked claims.** If you cannot point to a file artifact, label the statement as conjecture and say what file/command would verify it.
+
+Preferred artifact sources:
+- Per-run sidecars under `evals/*/artifacts/runs/YYYY-MM-DD/*.json`
+- Cohort summaries (`*_summary--*.json`) for aggregate pass counts and cost distributions
+- Relevant gold/scenario files when claims reference rubric expectations
+
 ## Anti-patterns
 
 - Patching code to make a benchmark pass without first verifying the benchmark is correct.

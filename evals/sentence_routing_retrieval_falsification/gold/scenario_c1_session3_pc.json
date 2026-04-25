@@ -1,0 +1,335 @@
+{
+  "schema": "sentence_routing_falsification_v1",
+  "scenario_id": "sentence_routing_c1_session3_pc",
+  "scenario_notes": "Campaign 1 Session 3 PC-only Stage B routing gate. Manifest is intentionally limited to Campaign 1 PC hubs; NPC/location/entity gold should be added in later sibling scenarios or later revisions after PC routing is stable. Gold uses line_start/index_on_line match rows to avoid storing recap prose in the scenario.",
+  "input": {
+    "recap_relative_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Session Recaps/Session 3 - The Stone Bridge Flood.md",
+    "campaign_id": "longmont-c1",
+    "session": 3,
+    "validate_manifest_paths": true,
+    "hub_manifest": [
+      {
+        "slug": "baergrom",
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/PCs/baergrom/README.md",
+        "subject_class": "pc",
+        "campaign_id": "longmont-c1",
+        "label": "Baergrom — Campaign 1 PC hub"
+      },
+      {
+        "slug": "bonogo",
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/PCs/bonogo/README.md",
+        "subject_class": "pc",
+        "campaign_id": "longmont-c1",
+        "label": "Bonogo — Campaign 1 PC hub"
+      },
+      {
+        "slug": "caelynn",
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/PCs/caelynn/README.md",
+        "subject_class": "pc",
+        "campaign_id": "longmont-c1",
+        "label": "Caelynn — Campaign 1 PC hub"
+      },
+      {
+        "slug": "ephanna",
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/PCs/ephanna/README.md",
+        "subject_class": "pc",
+        "campaign_id": "longmont-c1",
+        "label": "Ephanna — Campaign 1 PC hub"
+      },
+      {
+        "slug": "karsemine",
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/PCs/karsemine/README.md",
+        "subject_class": "pc",
+        "campaign_id": "longmont-c1",
+        "label": "Karsemine — Campaign 1 PC hub"
+      },
+      {
+        "slug": "stafl",
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/PCs/stafl/README.md",
+        "subject_class": "pc",
+        "campaign_id": "longmont-c1",
+        "label": "Stafl — Campaign 1 PC hub"
+      }
+    ]
+  },
+  "gold_capture": {
+    "min_units": 50,
+    "max_units": 80,
+    "must_contain_substrings_anywhere": [
+      "Baergrom",
+      "Bonogo",
+      "Caelynn",
+      "Ephanna",
+      "Karsemine",
+      "Stafl"
+    ]
+  },
+  "gold_routing": {
+    "must_route": [
+      {
+        "match": { "line_start": 25, "index_on_line": 1 },
+        "expected_hubs": ["stafl"],
+        "max_extra_hubs": 0
+      },
+      {
+        "match": { "line_start": 31, "index_on_line": 1 },
+        "expected_hubs": ["ephanna"],
+        "max_extra_hubs": 0
+      },
+      {
+        "match": { "line_start": 33, "index_on_line": 1 },
+        "expected_hubs": ["caelynn"],
+        "max_extra_hubs": 0
+      },
+      {
+        "match": { "line_start": 35, "index_on_line": 1 },
+        "expected_hubs": ["bonogo", "baergrom"],
+        "max_extra_hubs": 0
+      },
+      {
+        "match": { "line_start": 37, "index_on_line": 1 },
+        "expected_hubs": ["bonogo"],
+        "max_extra_hubs": 0
+      },
+      {
+        "match": { "line_start": 39, "index_on_line": 1 },
+        "expected_hubs": ["stafl"],
+        "max_extra_hubs": 0
+      },
+      {
+        "match": { "line_start": 41, "index_on_line": 1 },
+        "expected_hubs": ["ephanna"],
+        "max_extra_hubs": 0
+      },
+      {
+        "match": { "line_start": 43, "index_on_line": 1 },
+        "expected_hubs": ["karsemine"],
+        "max_extra_hubs": 0
+      },
+      {
+        "match": { "line_start": 45, "index_on_line": 1 },
+        "expected_hubs": ["caelynn", "karsemine", "stafl", "baergrom", "ephanna"],
+        "max_extra_hubs": 0
+      },
+      {
+        "match": { "line_start": 45, "index_on_line": 4 },
+        "expected_hubs": ["bonogo"],
+        "max_extra_hubs": 0
+      },
+      {
+        "match": { "line_start": 45, "index_on_line": 5 },
+        "expected_hubs": ["stafl", "baergrom"],
+        "max_extra_hubs": 0
+      },
+      {
+        "match": { "line_start": 47, "index_on_line": 4 },
+        "expected_hubs": ["stafl"],
+        "max_extra_hubs": 0
+      },
+      {
+        "match": { "line_start": 51, "index_on_line": 7 },
+        "expected_hubs": ["ephanna"],
+        "max_extra_hubs": 0
+      },
+      {
+        "match": { "line_start": 51, "index_on_line": 8 },
+        "expected_hubs": ["stafl"],
+        "max_extra_hubs": 0
+      },
+      {
+        "match": { "line_start": 51, "index_on_line": 9 },
+        "expected_hubs": ["bonogo", "baergrom"],
+        "max_extra_hubs": 0
+      },
+      {
+        "match": { "line_start": 51, "index_on_line": 10 },
+        "expected_hubs": ["caelynn"],
+        "max_extra_hubs": 0
+      },
+      {
+        "match": { "line_start": 51, "index_on_line": 11 },
+        "expected_hubs": ["stafl"],
+        "max_extra_hubs": 0
+      },
+      {
+        "match": { "line_start": 52, "index_on_line": 4 },
+        "expected_hubs": ["bonogo", "baergrom"],
+        "max_extra_hubs": 0
+      },
+      {
+        "match": { "line_start": 52, "index_on_line": 5 },
+        "expected_hubs": ["bonogo"],
+        "max_extra_hubs": 0
+      },
+      {
+        "match": { "line_start": 54, "index_on_line": 1 },
+        "expected_hubs": ["karsemine", "bonogo"],
+        "max_extra_hubs": 0
+      },
+      {
+        "match": { "line_start": 54, "index_on_line": 2 },
+        "expected_hubs": ["stafl", "caelynn", "bonogo"],
+        "max_extra_hubs": 0
+      },
+      {
+        "match": { "line_start": 54, "index_on_line": 3 },
+        "expected_hubs": ["ephanna"],
+        "max_extra_hubs": 0
+      },
+      {
+        "match": { "line_start": 54, "index_on_line": 4 },
+        "expected_hubs": ["ephanna"],
+        "max_extra_hubs": 0
+      },
+      {
+        "match": { "line_start": 56, "index_on_line": 1 },
+        "expected_hubs": ["bonogo"],
+        "max_extra_hubs": 0
+      }
+    ],
+    "must_abstain": [
+      {
+        "match": { "line_start": 14, "index_on_line": 1 },
+        "max_assigned_hubs": 0,
+        "needs_new_hub_candidate": false
+      },
+      {
+        "match": { "line_start": 19, "index_on_line": 1 },
+        "max_assigned_hubs": 0,
+        "needs_new_hub_candidate": false
+      },
+      {
+        "match": { "line_start": 21, "index_on_line": 1 },
+        "max_assigned_hubs": 0,
+        "needs_new_hub_candidate": false
+      },
+      {
+        "match": { "line_start": 23, "index_on_line": 1 },
+        "max_assigned_hubs": 0,
+        "needs_new_hub_candidate": false
+      },
+      {
+        "match": { "line_start": 27, "index_on_line": 1 },
+        "max_assigned_hubs": 0,
+        "needs_new_hub_candidate": false
+      },
+      {
+        "match": { "line_start": 29, "index_on_line": 1 },
+        "max_assigned_hubs": 0,
+        "needs_new_hub_candidate": false
+      },
+      {
+        "match": { "line_start": 47, "index_on_line": 3 },
+        "max_assigned_hubs": 0,
+        "needs_new_hub_candidate": false
+      },
+      {
+        "match": { "line_start": 49, "index_on_line": 1 },
+        "max_assigned_hubs": 0,
+        "needs_new_hub_candidate": false
+      },
+      {
+        "match": { "line_start": 51, "index_on_line": 1 },
+        "max_assigned_hubs": 0,
+        "needs_new_hub_candidate": false
+      },
+      {
+        "match": { "line_start": 51, "index_on_line": 5 },
+        "max_assigned_hubs": 0,
+        "needs_new_hub_candidate": false
+      },
+      {
+        "match": { "line_start": 56, "index_on_line": 5 },
+        "max_assigned_hubs": 0,
+        "needs_new_hub_candidate": false
+      },
+      {
+        "match": { "line_start": 56, "index_on_line": 6 },
+        "max_assigned_hubs": 0,
+        "needs_new_hub_candidate": false
+      }
+    ],
+    "soft_limits": {
+      "max_mean_assigned_hubs_per_unit": 1.0,
+      "max_unresolved_fraction": 0.9
+    }
+  },
+  "gold_proposals": {},
+  "gold_retrieval": {},
+  "fixture_routes": {
+    "schema": "sentence_hub_routes_v1",
+    "routes": [
+      { "unit_id": "u-L0001-01", "assigned_hubs": [], "confidence": "low", "rationale": "Frontmatter delimiter; no PC subject.", "needs_new_hub_candidate": false },
+      { "unit_id": "u-L0002-01", "assigned_hubs": [], "confidence": "low", "rationale": "Frontmatter title; no PC subject.", "needs_new_hub_candidate": false },
+      { "unit_id": "u-L0003-01", "assigned_hubs": [], "confidence": "low", "rationale": "Frontmatter field; no PC subject.", "needs_new_hub_candidate": false },
+      { "unit_id": "u-L0004-01", "assigned_hubs": [], "confidence": "low", "rationale": "Frontmatter field; no PC subject.", "needs_new_hub_candidate": false },
+      { "unit_id": "u-L0005-01", "assigned_hubs": [], "confidence": "low", "rationale": "Frontmatter field; no PC subject.", "needs_new_hub_candidate": false },
+      { "unit_id": "u-L0006-01", "assigned_hubs": [], "confidence": "low", "rationale": "Frontmatter field; no PC subject.", "needs_new_hub_candidate": false },
+      { "unit_id": "u-L0007-01", "assigned_hubs": [], "confidence": "low", "rationale": "Frontmatter field; no PC subject.", "needs_new_hub_candidate": false },
+      { "unit_id": "u-L0008-01", "assigned_hubs": [], "confidence": "low", "rationale": "Frontmatter field; no PC subject.", "needs_new_hub_candidate": false },
+      { "unit_id": "u-L0009-01", "assigned_hubs": [], "confidence": "low", "rationale": "Frontmatter field; no PC subject.", "needs_new_hub_candidate": false },
+      { "unit_id": "u-L0010-01", "assigned_hubs": [], "confidence": "low", "rationale": "Frontmatter field; no PC subject.", "needs_new_hub_candidate": false },
+      { "unit_id": "u-L0011-01", "assigned_hubs": [], "confidence": "low", "rationale": "Frontmatter delimiter; no PC subject.", "needs_new_hub_candidate": false },
+      { "unit_id": "u-L0014-01", "assigned_hubs": [], "confidence": "low", "rationale": "No PC subject.", "needs_new_hub_candidate": false },
+      { "unit_id": "u-L0015-01", "assigned_hubs": [], "confidence": "low", "rationale": "Generic scene setup; no named PC subject.", "needs_new_hub_candidate": false },
+      { "unit_id": "u-L0015-02", "assigned_hubs": [], "confidence": "low", "rationale": "Generic group reference; no named PC subject.", "needs_new_hub_candidate": false },
+      { "unit_id": "u-L0017-01", "assigned_hubs": [], "confidence": "low", "rationale": "Section heading; no PC subject.", "needs_new_hub_candidate": false },
+      { "unit_id": "u-L0019-01", "assigned_hubs": [], "confidence": "low", "rationale": "NPC/creature beat; no PC subject in PC-only gate.", "needs_new_hub_candidate": false },
+      { "unit_id": "u-L0021-01", "assigned_hubs": [], "confidence": "low", "rationale": "NPC/location beat; no PC subject in PC-only gate.", "needs_new_hub_candidate": false },
+      { "unit_id": "u-L0021-02", "assigned_hubs": [], "confidence": "low", "rationale": "Location naming aside; no PC subject in PC-only gate.", "needs_new_hub_candidate": false },
+      { "unit_id": "u-L0023-01", "assigned_hubs": [], "confidence": "low", "rationale": "NPC hospitality beat; no PC subject in PC-only gate.", "needs_new_hub_candidate": false },
+      { "unit_id": "u-L0025-01", "assigned_hubs": ["stafl"], "confidence": "high", "rationale": "Names Stafl.", "needs_new_hub_candidate": false },
+      { "unit_id": "u-L0027-01", "assigned_hubs": [], "confidence": "low", "rationale": "Weather beat; no PC subject.", "needs_new_hub_candidate": false },
+      { "unit_id": "u-L0029-01", "assigned_hubs": [], "confidence": "low", "rationale": "Generic group reference; no named PC subject.", "needs_new_hub_candidate": false },
+      { "unit_id": "u-L0031-01", "assigned_hubs": ["ephanna"], "confidence": "high", "rationale": "Names Ephanna.", "needs_new_hub_candidate": false },
+      { "unit_id": "u-L0031-02", "assigned_hubs": [], "confidence": "low", "rationale": "Creature reaction; no PC subject.", "needs_new_hub_candidate": false },
+      { "unit_id": "u-L0033-01", "assigned_hubs": ["caelynn"], "confidence": "high", "rationale": "Names Caelynn.", "needs_new_hub_candidate": false },
+      { "unit_id": "u-L0035-01", "assigned_hubs": ["bonogo", "baergrom"], "confidence": "high", "rationale": "Names Bonogo and Baergrom.", "needs_new_hub_candidate": false },
+      { "unit_id": "u-L0037-01", "assigned_hubs": ["bonogo"], "confidence": "high", "rationale": "Names Bonogo.", "needs_new_hub_candidate": false },
+      { "unit_id": "u-L0039-01", "assigned_hubs": ["stafl"], "confidence": "high", "rationale": "Names Stafl.", "needs_new_hub_candidate": false },
+      { "unit_id": "u-L0041-01", "assigned_hubs": ["ephanna"], "confidence": "high", "rationale": "Names Ephanna.", "needs_new_hub_candidate": false },
+      { "unit_id": "u-L0043-01", "assigned_hubs": ["karsemine"], "confidence": "high", "rationale": "Names Karsemine.", "needs_new_hub_candidate": false },
+      { "unit_id": "u-L0045-01", "assigned_hubs": ["caelynn", "karsemine", "stafl", "baergrom", "ephanna"], "confidence": "high", "rationale": "Names the C1 PC ride roster.", "needs_new_hub_candidate": false },
+      { "unit_id": "u-L0045-02", "assigned_hubs": [], "confidence": "low", "rationale": "NPC/creature travel detail; no PC subject.", "needs_new_hub_candidate": false },
+      { "unit_id": "u-L0045-03", "assigned_hubs": [], "confidence": "low", "rationale": "NPC/location encounter; no PC subject.", "needs_new_hub_candidate": false },
+      { "unit_id": "u-L0045-04", "assigned_hubs": ["bonogo"], "confidence": "high", "rationale": "Names Bonogo.", "needs_new_hub_candidate": false },
+      { "unit_id": "u-L0045-05", "assigned_hubs": ["stafl", "baergrom"], "confidence": "high", "rationale": "Names Stafl and Baergrom.", "needs_new_hub_candidate": false },
+      { "unit_id": "u-L0047-01", "assigned_hubs": [], "confidence": "low", "rationale": "Location/weather setup; no PC subject.", "needs_new_hub_candidate": false },
+      { "unit_id": "u-L0047-02", "assigned_hubs": [], "confidence": "low", "rationale": "Location/NPC hospitality beat; no named PC subject.", "needs_new_hub_candidate": false },
+      { "unit_id": "u-L0047-03", "assigned_hubs": [], "confidence": "low", "rationale": "NPC/patron beat; no PC subject in PC-only gate.", "needs_new_hub_candidate": false },
+      { "unit_id": "u-L0047-04", "assigned_hubs": ["stafl"], "confidence": "high", "rationale": "Names Stafl.", "needs_new_hub_candidate": false },
+      { "unit_id": "u-L0047-05", "assigned_hubs": [], "confidence": "low", "rationale": "NPC/weather beat; no named PC subject.", "needs_new_hub_candidate": false },
+      { "unit_id": "u-L0047-06", "assigned_hubs": [], "confidence": "low", "rationale": "Scene transition; no named PC subject.", "needs_new_hub_candidate": false },
+      { "unit_id": "u-L0049-01", "assigned_hubs": [], "confidence": "low", "rationale": "Creature name only; no PC subject.", "needs_new_hub_candidate": false },
+      { "unit_id": "u-L0051-01", "assigned_hubs": [], "confidence": "low", "rationale": "NPC scene entry; no PC subject.", "needs_new_hub_candidate": false },
+      { "unit_id": "u-L0051-02", "assigned_hubs": [], "confidence": "low", "rationale": "NPC flood detail; no PC subject.", "needs_new_hub_candidate": false },
+      { "unit_id": "u-L0051-03", "assigned_hubs": [], "confidence": "low", "rationale": "Dialogue fragment; no PC subject.", "needs_new_hub_candidate": false },
+      { "unit_id": "u-L0051-04", "assigned_hubs": [], "confidence": "low", "rationale": "NPC/creature dialogue; no PC subject.", "needs_new_hub_candidate": false },
+      { "unit_id": "u-L0051-05", "assigned_hubs": [], "confidence": "low", "rationale": "Creature discovery; no PC subject.", "needs_new_hub_candidate": false },
+      { "unit_id": "u-L0051-06", "assigned_hubs": [], "confidence": "low", "rationale": "Flood scene description; no PC subject.", "needs_new_hub_candidate": false },
+      { "unit_id": "u-L0051-07", "assigned_hubs": ["ephanna"], "confidence": "high", "rationale": "Names Ephanna.", "needs_new_hub_candidate": false },
+      { "unit_id": "u-L0051-08", "assigned_hubs": ["stafl"], "confidence": "high", "rationale": "Names Stafl.", "needs_new_hub_candidate": false },
+      { "unit_id": "u-L0051-09", "assigned_hubs": ["bonogo", "baergrom"], "confidence": "high", "rationale": "Names Bonogo and Baergrom.", "needs_new_hub_candidate": false },
+      { "unit_id": "u-L0051-10", "assigned_hubs": ["caelynn"], "confidence": "high", "rationale": "Names Caelynn.", "needs_new_hub_candidate": false },
+      { "unit_id": "u-L0051-11", "assigned_hubs": ["stafl"], "confidence": "high", "rationale": "Names Stafl.", "needs_new_hub_candidate": false },
+      { "unit_id": "u-L0052-01", "assigned_hubs": [], "confidence": "low", "rationale": "Creature/rope detail; no named PC subject.", "needs_new_hub_candidate": false },
+      { "unit_id": "u-L0052-02", "assigned_hubs": [], "confidence": "low", "rationale": "Fragment; no PC subject.", "needs_new_hub_candidate": false },
+      { "unit_id": "u-L0052-03", "assigned_hubs": [], "confidence": "low", "rationale": "Fragment; no PC subject.", "needs_new_hub_candidate": false },
+      { "unit_id": "u-L0052-04", "assigned_hubs": ["bonogo", "baergrom"], "confidence": "high", "rationale": "Names Bonogo and Baergrom.", "needs_new_hub_candidate": false },
+      { "unit_id": "u-L0052-05", "assigned_hubs": ["bonogo"], "confidence": "high", "rationale": "Names Bonogo.", "needs_new_hub_candidate": false },
+      { "unit_id": "u-L0052-06", "assigned_hubs": [], "confidence": "low", "rationale": "Rope/flood detail; no named PC subject.", "needs_new_hub_candidate": false },
+      { "unit_id": "u-L0054-01", "assigned_hubs": ["karsemine", "bonogo"], "confidence": "high", "rationale": "Names Karsemine and Bonogo.", "needs_new_hub_candidate": false },
+      { "unit_id": "u-L0054-02", "assigned_hubs": ["stafl", "caelynn", "bonogo"], "confidence": "high", "rationale": "Names Stafl, Caelynn, and Bonogo.", "needs_new_hub_candidate": false },
+      { "unit_id": "u-L0054-03", "assigned_hubs": ["ephanna"], "confidence": "high", "rationale": "Names Ephanna.", "needs_new_hub_candidate": false },
+      { "unit_id": "u-L0054-04", "assigned_hubs": ["ephanna"], "confidence": "high", "rationale": "Names Ephanna.", "needs_new_hub_candidate": false },
+      { "unit_id": "u-L0056-01", "assigned_hubs": ["bonogo"], "confidence": "high", "rationale": "Names Bonogo.", "needs_new_hub_candidate": false },
+      { "unit_id": "u-L0056-02", "assigned_hubs": [], "confidence": "low", "rationale": "Generic aftermath; no named PC subject.", "needs_new_hub_candidate": false },
+      { "unit_id": "u-L0056-03", "assigned_hubs": [], "confidence": "low", "rationale": "Question fragment; no PC subject.", "needs_new_hub_candidate": false },
+      { "unit_id": "u-L0056-04", "assigned_hubs": [], "confidence": "low", "rationale": "Group fame/location beat; no named PC subject.", "needs_new_hub_candidate": false },
+      { "unit_id": "u-L0056-05", "assigned_hubs": [], "confidence": "low", "rationale": "NPC/city beat; no PC subject in PC-only gate.", "needs_new_hub_candidate": false },
+      { "unit_id": "u-L0056-06", "assigned_hubs": [], "confidence": "low", "rationale": "Location/travel beat; no PC subject in PC-only gate.", "needs_new_hub_candidate": false },
+      { "unit_id": "u-L0056-07", "assigned_hubs": [], "confidence": "low", "rationale": "Travel duration; no PC subject.", "needs_new_hub_candidate": false },
+      { "unit_id": "u-L0056-08", "assigned_hubs": [], "confidence": "low", "rationale": "Location aftermath; no PC subject.", "needs_new_hub_candidate": false }
+    ]
+  }
+}

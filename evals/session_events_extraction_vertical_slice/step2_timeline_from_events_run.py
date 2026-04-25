@@ -24,6 +24,7 @@ Options::
     --pre-state-manifest  Override pre-state manifest JSON (default: from timeline gold's ``pre_state_manifest_relative`` or Session 20 default)
     --runs-root         Override artifact runs root directory (default: artifacts/runs/)
     --no-writes         Skip writing run reports to disk
+    --disable-anchor-repair  Skip the recap anchor-repair pass in chained Stage A (same as step1)
     -q / --quiet        Suppress progress lines on stderr
 """
 
@@ -218,15 +219,15 @@ composing the beat, **retain the distinctive named terms that appear in the even
 `event_name`, `location`, and `outcomes[]` fields verbatim**. The categories that MUST \
 survive into the beat:
 
-  1. **Weapon, spell, ability, and item names** — e.g. `scimitar`, `Eldritch Blast`, \
-     `Thunderwave`, `Zephyr Strike`, `Glowkindle's brewery`.
-  2. **Proper names** of NPCs, factions, places, and creatures — e.g. `Kirfan`, `Pippa`, \
-     `Bubbles`, `Stonebridge`, `River's Edge Pub`, `Wizard's Tower`, `Glowkindle`. \
+  1. **Weapon, spell, ability, and item names** — e.g. `war pick`, `Arc Lash`, \
+     `Thunderclap Ring`, `Veil Step`, `Brasswick's brewery`.
+  2. **Proper names** of NPCs, factions, places, and creatures — e.g. `Norvik`, `Cleo`, \
+     `Truffle`, `Greymarch Ford`, `Dockside Lantern`, `Starspire Vault`, `Brasswick`. \
      If the events' `outcomes[]` or `referenced_slugs[]` name a person, that exact proper \
-     name belongs in the beat — do NOT replace `Kirfan` with `the elderly fisherman` or \
-     `Bubbles` with `the goat`.
+     name belongs in the beat — do NOT replace `Norvik` with `the elderly fisherman` or \
+     `Truffle` with `the goat`.
   3. **PC class and race vocabulary** when the events introduce or reintroduce a PC by \
-     class+race (e.g. `Stafl the 'Human' Bard`, `Karsemine the Tiefling Ranger`, `Bonogo \
+     class+race (e.g. `Rollo the 'Human' Bard`, `Kessa the Tiefling Ranger`, `Gormlek \
      the Bugbear Rogue`). The first session a PC appears, the class+race tokens MUST land \
      in their beat — they are how a future GM searches the archive for "the bard's first \
      session" or "when the tiefling ranger joined."
@@ -236,11 +237,11 @@ survive into the beat:
      the party rescued someone at `the dock`, that noun is the searchable scene anchor \
      and belongs in the beat. Replacing `well` with "from the basement" or "from \
      somewhere" loses the recall the timeline exists to provide.
-  5. **Cross-session callback locations and named exploits.** When the events for this slug include a performance, song, story-recap, or in-character retelling whose `outcomes[]` mention a previously-visited place, faction, or named exploit by name (e.g. a bard's pub song retelling the "Wizard's Tower Brewery" job from a prior session, or a PC recapping the "Glowkindle payout" arc to a new NPC), that proper name belongs in the beat alongside the in-session action. The callback is the only handle that lets a future GM search "when did Stafl bard about the Wizard's Tower" — paraphrasing it to "an old job" or "a previous adventure" silently destroys that handle. If the in-session action and the callback compete for sentence budget, write a compound sentence rather than dropping the callback name.
+  5. **Cross-session callback locations and named exploits.** When the events for this slug include a performance, song, story-recap, or in-character retelling whose `outcomes[]` mention a previously-visited place, faction, or named exploit by name (e.g. a bard's pub song retelling the "Starspire Brewery" job from a prior session, or a PC recapping the "Brasswick payout" arc to a new NPC), that proper name belongs in the beat alongside the in-session action. The callback is the only handle that lets a future GM search "when did Rollo bard about the Starspire Vault" — paraphrasing it to "an old job" or "a previous adventure" silently destroys that handle. If the in-session action and the callback compete for sentence budget, write a compound sentence rather than dropping the callback name.
 
-Generic paraphrases such as "weapon" instead of `scimitar`, "spell" instead of \
-`Eldritch Blast`, "elderly fisherman" instead of `Kirfan`, "the party as merchant \
-guards" instead of `Stafl the 'Human' Bard, Karsemine the Tiefling Ranger, ...`, \
+Generic paraphrases such as "weapon" instead of `war pick`, "spell" instead of \
+`Arc Lash`, "elderly fisherman" instead of `Norvik`, "the party as merchant \
+guards" instead of `Rollo the 'Human' Bard, Kessa the Tiefling Ranger, ...`, \
 or "from the corpses" instead of "from corpses in the well" defeat the entire \
 purpose of the timeline.
 
@@ -257,15 +258,15 @@ appears only in a co-participant's outcome line rather than this PC's personal \
 outcome line**. All participants in a shared event see the same `outcomes[]` list \
 when that event reaches them, because they are all in that scene together — if any \
 outcome bullet (or the `event_name`) across the shared event names the threat, the \
-encounter, or the location anchor (e.g. `swarm`, `ambush`, `the storm`, `the stone \
+encounter, or the location anchor (e.g. `beetle tide`, `ambush`, `the storm`, `the stone \
 bridge`, the named encounter), that term belongs in your beat alongside the PC's \
 personal action. The PC's timeline beat is a record of "where I was and what I did" \
 — not just "what I did" — and the "where" matters as much for searchability months \
-from now as the weapon, spell, or ability name does. Concretely: if a `red gnat \
-swarm` battle event lists Caelynn casting Thunderwave to "split the swarm" and \
-Karsemine landing scimitar hits and dashing away, Karsemine's beat must include \
-both `scimitar`/`Zephyr Strike` (her personal action) **and** `swarm` (the scene \
-anchor naming what was being fought) — not just "fought the red gnats."
+from now as the weapon, spell, or ability name does. Concretely: if an `umber beetle \
+horde` battle event lists Orin casting Thunderclap Ring to "split the beetle tide" and \
+Kessa landing war-pick hits and disengaging, Kessa's beat must include \
+both `war pick`/`Veil Step` (her personal action) **and** `beetle tide` (the scene \
+anchor naming what was being fought) — not just "fought the umber beetles."
 
 The slug given in the user message is the only legal `npc_slug` — do not invent or rename slugs.
 
@@ -309,23 +310,18 @@ def build_stage_b_per_slug_user_message(
     slug_events: list[dict[str, Any]],
     *,
     session_num: int = 20,
-    required_anchor_words: list[str] | None = None,
 ) -> str:
     """Build the per-slug user message for Stage B (PC-only, events-driven, no recap).
 
     The model receives only the filtered events for this PC, not the full recap.
+    TP1 / grading ``anchor_words`` must never be injected here — that would leak the
+    benchmark oracle into the prompt. Vocabulary preservation comes from ``slug_events``
+    and the instruction-suffix contract only.
+
     Callers must guarantee ``slug_events`` is non-empty — the runner's no-event-skip
     branch handles the empty case before this builder is invoked.
     """
     events_json = json.dumps(slug_events, indent=2, ensure_ascii=False)
-    anchors = [str(x).strip() for x in (required_anchor_words or []) if str(x).strip()]
-    anchor_clause = ""
-    if anchors:
-        anchor_clause = (
-            "\n\n"
-            "**TP1 anchor terms for this slug (hard rule):** Include each of these words "
-            f"verbatim in the beat text: {', '.join(f'`{term}`' for term in anchors)}."
-        )
     return (
         f"**PC timeline append micro-turn (events-driven):** Consider only `{timeline_rel}` "
         f"(`npc_slug` `{slug}`). This slug is a **player character**.\n\n"
@@ -336,8 +332,7 @@ def build_stage_b_per_slug_user_message(
         "weapon names, spell names, ability names, item names, place names, and NPC names. "
         "When the PC has more than one event above, join them with commas, semicolons, or "
         "'then' rather than picking only one. Anchor the beat on event participants, "
-        "location, and outcomes. Match the existing markdown table format."
-        f"{anchor_clause}\n\n"
+        "location, and outcomes. Match the existing markdown table format.\n\n"
         "Do not skip the row. PCs always get a row when the events list is non-empty — "
         "the row-worthiness judgment does not apply to player characters."
     )
@@ -732,13 +727,11 @@ def run_stage_b_events_driven_chain(
             continue
 
         per_slug_no_event_skip[slug] = False
-        anchor_words = [str(x).strip() for x in (spec.get("anchor_words") or []) if str(x).strip()]
         user_line = build_stage_b_per_slug_user_message(
             rel,
             slug,
             slug_events,
             session_num=session_num,
-            required_anchor_words=anchor_words,
         )
 
         prev_rid: str | None = (
@@ -814,6 +807,7 @@ def _run_single_chained_cohort_iteration(
     allow_corpus_writes: bool = True,
     quiet: bool = False,
     pre_state_manifest: dict[str, Any] | None = None,
+    enable_anchor_repair: bool = True,
 ) -> dict[str, Any]:
     """Run one recap_to_events -> events_to_timeline cohort iteration.
 
@@ -829,6 +823,7 @@ def _run_single_chained_cohort_iteration(
         model_id=model_id,
         scenario=stage_a_scenario,
         corpus_root=corpus_root,
+        enable_anchor_repair=enable_anchor_repair,
     )
     stage_a_cost = float(stage_a_result.get("cost_usd") or 0.0)
 
@@ -925,6 +920,11 @@ def main() -> None:
     )
     parser.add_argument("--runs-root", type=Path, default=None)
     parser.add_argument("--no-writes", action="store_true", help="Skip writing artifacts")
+    parser.add_argument(
+        "--disable-anchor-repair",
+        action="store_true",
+        help="Skip the recap LLM re-anchoring pass for weak/default anchors in chained Stage A",
+    )
     parser.add_argument("-q", "--quiet", action="store_true")
     args = parser.parse_args()
 
@@ -981,6 +981,7 @@ def main() -> None:
             allow_corpus_writes=True,
             quiet=args.quiet,
             pre_state_manifest=manifest_override,
+            enable_anchor_repair=not bool(args.disable_anchor_repair),
         )
 
         if result["infrastructure_error"]:

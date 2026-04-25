@@ -13,7 +13,9 @@ Gates:
         Additionally, each expected event may declare ``must_preserve_terms: list[str]`` —
         distinctive named terms (weapon names, spell names, ability names, item names, place
         names, NPC names) that must appear *verbatim* (case-insensitive substring) in the
-        model's output for an event involving the same participants.
+        model's output for an event involving the same participants. A term containing
+        ``|`` is an **OR group** (e.g. ``drawing|blueprint``): any single alternative may
+        satisfy the slot.
 
         Term-check is **per-term, across all participant-overlapping actuals**: for each
         required term ``t``, the term is considered preserved iff some actual sharing ≥1
@@ -42,20 +44,32 @@ Gates:
         lenient coverage ratio, but it does emit a ``missing_outcome_terms`` violation and
         trips the gate.
 
+* SE6 (optional) — gold ``expected_anchored_spans``: each span covered by a participant-matched
+  event anchor whose line range contains the span.
+* SE7 (optional) — when ``grading["require_verified_event_anchors"]`` is true: every event's
+  ``source_anchors`` must hash-match the recap file on disk under ``corpus_root`` and must not
+  be a whole-file placeholder on multi-line recaps (capture-layer provenance; see design doc).
+
 Telemetry keys: event_count, participants_seen, event_classes_seen,
                 expected_event_coverage_ratio, unmatched_expected_event_indices,
-                expected_events_with_missing_terms, missing_terms_total.
+                expected_events_with_missing_terms, missing_terms_total,
+                expected_anchor_span_coverage_ratio, se7_* when SE7 runs.
 """
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
 from src.contracts.schema_validation import list_validation_failures
+from src.ingestion.source_anchor import anchor_bytes_verify_at_head
 
 _SCHEMA_FILENAME = "event_record.schema.json"
 _SE5_PASS_THRESHOLD = 0.5  # gate fails when coverage ratio < this
 
+# Max inclusive recap lines per event ``recap_evidence_span`` / ``source_anchors`` (step1).
+# Sentence-bounded evidence may span multiple lines; must stay below whole-file spans.
+RECAP_EVIDENCE_SPAN_MAX_LINES = 32
 
 # ---------------------------------------------------------------------------
 # SE1 — schema validity
@@ -175,6 +189,22 @@ def _actual_haystack(actual: dict[str, Any]) -> str:
     return f"{name} {outcomes}".lower()
 
 
+def _se5_term_alternatives(term: str) -> list[str]:
+    """Return alternative substrings for one SE5 slot (``a|b`` → OR; else single term)."""
+    raw = str(term).strip()
+    if not raw:
+        return []
+    if "|" in raw:
+        return [p.strip() for p in raw.split("|") if p.strip()]
+    return [raw]
+
+
+def _se5_term_satisfied_in_haystack(haystack: str, term: str) -> bool:
+    """True if any alternative for ``term`` is a case-insensitive substring of ``haystack``."""
+    h = haystack.lower()
+    return any(alt.lower() in h for alt in _se5_term_alternatives(term))
+
+
 def _missing_terms(actual: dict[str, Any], required_terms: list[str]) -> list[str]:
     """Return required terms that are NOT case-insensitive substrings of the actual event text."""
     if not required_terms:
@@ -185,7 +215,7 @@ def _missing_terms(actual: dict[str, Any], required_terms: list[str]) -> list[st
         s = str(term).strip()
         if not s:
             continue
-        if s.lower() not in haystack:
+        if not _se5_term_satisfied_in_haystack(haystack, s):
             missing.append(s)
     return missing
 
@@ -205,14 +235,14 @@ def _collect_se5_full(
         (unchanged semantics).
       * ``term_violations`` (list[dict]): same payload shape as before; only
         emitted for terms that are missing both from the matched actual event
-        AND from every other actual event in the run.
+        AND from every other participant-overlapping actual event in the run.
       * ``terms_preserved_via_sibling`` (list[dict]): NEW soft-pass telemetry.
         Each entry is ``{expected_event_index: int, term: str,
         actual_event_index: int}`` — emitted when a term was missing from the
         matched actual event but present (case-insensitive substring on
         ``event_name + " " + " ".join(outcomes)`` — identical to the matched-
-        event check) in some other actual event in the run. These do NOT trip
-        the SE5 gate and are NOT counted in ``missing_terms_total``.
+        event check) in another participant-overlapping actual event in the run.
+        These do NOT trip the SE5 gate and are NOT counted in ``missing_terms_total``.
     """
     if not expected_events:
         return {
@@ -257,8 +287,9 @@ def _collect_se5_full(
         matched_actual_index = -1
         best_preserved = -1
         for idx, a in candidates_with_idx:
+            hay_a = _actual_haystack(a)
             preserved_count = sum(
-                1 for t in required_terms if t.lower() in _actual_haystack(a)
+                1 for t in required_terms if _se5_term_satisfied_in_haystack(hay_a, t)
             )
             if preserved_count > best_preserved:
                 best_preserved = preserved_count
@@ -267,20 +298,27 @@ def _collect_se5_full(
 
         missing: list[str] = []
         for term in required_terms:
-            term_lc = term.lower()
+            hay_matched = (
+                _actual_haystack(matched_actual) if matched_actual is not None else ""
+            )
             # 1) Matched actual event check (existing happy path).
-            if matched_actual is not None and term_lc in _actual_haystack(matched_actual):
+            if matched_actual is not None and _se5_term_satisfied_in_haystack(
+                hay_matched, term
+            ):
                 continue
 
-            # 2) Sibling-event fallback: any other actual event in the run.
+            # 2) Sibling-event fallback: another participant-overlapping actual.
             #    Same case-insensitive substring check against
             #    `event_name + " " + " ".join(outcomes)` as the matched-event
             #    check. If found → soft-pass (telemetry only, no violation).
+            #    Events with no participant overlap do not satisfy this contract;
+            #    otherwise a required term dumped elsewhere in the run could hide
+            #    a missing term on the relevant beat.
             sibling_idx: int | None = None
-            for j, a in enumerate(events):
+            for j, a in candidates_with_idx:
                 if j == matched_actual_index:
                     continue
-                if term_lc in _actual_haystack(a):
+                if _se5_term_satisfied_in_haystack(_actual_haystack(a), term):
                     sibling_idx = j
                     break
             if sibling_idx is not None:
@@ -356,7 +394,7 @@ def collect_se6_violations(
     events: list[dict[str, Any]],
     expected_anchored_spans: list[dict[str, Any]],
     *,
-    max_anchor_span_lines: int = 12,
+    max_anchor_span_lines: int = RECAP_EVIDENCE_SPAN_MAX_LINES,
 ) -> tuple[list[str], float, list[int]]:
     """
     Optional capture-layer gate:
@@ -424,6 +462,75 @@ def collect_se6_violations(
 
 
 # ---------------------------------------------------------------------------
+# SE7 — every event anchor verifies against on-disk recap bytes (optional)
+# ---------------------------------------------------------------------------
+
+
+def collect_se7_violations(
+    events: list[dict[str, Any]],
+    *,
+    corpus_root: Path,
+    recap_relative_path: str,
+) -> tuple[list[str], dict[str, Any]]:
+    """
+    Capture-layer gate: each event must carry ``source_anchors`` that (1) point at the
+    scenario recap path, (2) hash-match the current corpus bytes at the declared line span,
+    and (3) are not a whole-file placeholder when the recap has multiple lines.
+
+    Lexical survival on beats is intentionally out of scope here; see SE5 / timeline TP1.
+    """
+    recap_norm = Path(recap_relative_path.strip()).as_posix()
+    recap_file = corpus_root / recap_relative_path
+    telemetry: dict[str, Any] = {
+        "se7_recap_lines": 0,
+        "se7_events_checked": 0,
+        "se7_anchors_checked": 0,
+        "se7_whole_file_placeholder_count": 0,
+    }
+    if not recap_file.is_file():
+        return (
+            [f"SE7: recap not found under corpus_root: {recap_relative_path!r}"],
+            telemetry,
+        )
+    lines = recap_file.read_text(encoding="utf-8").splitlines()
+    nlines = len(lines)
+    telemetry["se7_recap_lines"] = nlines
+    bad: list[str] = []
+    for i, ev in enumerate(events):
+        telemetry["se7_events_checked"] += 1
+        anchors_raw = ev.get("source_anchors")
+        if not isinstance(anchors_raw, list) or not anchors_raw:
+            bad.append(f"SE7: event[{i}] has no source_anchors")
+            continue
+        for j, raw in enumerate(anchors_raw):
+            if not isinstance(raw, dict):
+                bad.append(f"SE7: event[{i}] anchor[{j}] is not an object")
+                continue
+            telemetry["se7_anchors_checked"] += 1
+            apath = Path(str(raw.get("path", "")).strip()).as_posix()
+            if apath != recap_norm:
+                bad.append(
+                    f"SE7: event[{i}] anchor[{j}] path {apath!r} != scenario recap {recap_norm!r}"
+                )
+                continue
+            issue = anchor_bytes_verify_at_head(corpus_root=corpus_root, raw=raw)
+            if issue:
+                bad.append(f"SE7: event[{i}] anchor[{j}] {issue}")
+            try:
+                ls = int(raw["line_start"])
+                le = int(raw["line_end"])
+            except (KeyError, TypeError, ValueError):
+                continue
+            if nlines > 1 and ls == 1 and le >= nlines:
+                telemetry["se7_whole_file_placeholder_count"] += 1
+                bad.append(
+                    f"SE7: event[{i}] anchor[{j}] spans whole recap ({ls}-{le}); "
+                    "use a bounded sentence-level line range when the recap has multiple lines"
+                )
+    return bad, telemetry
+
+
+# ---------------------------------------------------------------------------
 # Top-level orchestration
 # ---------------------------------------------------------------------------
 
@@ -431,10 +538,13 @@ def collect_se6_violations(
 def collect_session_events_violations(
     events: list[dict[str, Any]],
     grading: dict[str, Any],
+    *,
+    corpus_root: Path | None = None,
+    recap_relative_path: str | None = None,
 ) -> tuple[dict[str, list[str]], dict[str, Any]]:
     """Return (violations_dict, telemetry_dict).
 
-    violations_dict buckets: se1, se2, se3, se4, se5
+    violations_dict buckets: se1, se2, se3, se4, se5, se6 (optional), se7 (optional)
     """
     min_count = int(grading.get("min_event_count") or 0)
     max_count = int(grading.get("max_event_count") or 9999)
@@ -442,7 +552,9 @@ def collect_session_events_violations(
     must_cover_classes = list(grading.get("must_cover_event_classes") or [])
     expected_events = list(grading.get("expected_events") or [])
     expected_anchored_spans = list(grading.get("expected_anchored_spans") or [])
-    se6_max_anchor_span_lines = int(grading.get("se6_max_anchor_span_lines") or 12)
+    se6_max_anchor_span_lines = int(
+        grading.get("se6_max_anchor_span_lines") or RECAP_EVIDENCE_SPAN_MAX_LINES
+    )
 
     out: dict[str, list[str]] = {}
 
@@ -482,6 +594,22 @@ def collect_session_events_violations(
         if se6:
             out["se6"] = se6
 
+    se7_telemetry: dict[str, Any] = {}
+    if grading.get("require_verified_event_anchors"):
+        if corpus_root is None or not recap_relative_path:
+            out.setdefault("se7", []).append(
+                "SE7: require_verified_event_anchors is set but corpus_root or "
+                "recap_relative_path was not passed to collect_session_events_violations"
+            )
+        else:
+            se7, se7_telemetry = collect_se7_violations(
+                events,
+                corpus_root=corpus_root,
+                recap_relative_path=recap_relative_path,
+            )
+            if se7:
+                out["se7"] = se7
+
     participants_seen: list[str] = sorted(
         {str(p).strip() for ev in events for p in (ev.get("participants") or [])}
     )
@@ -507,6 +635,7 @@ def collect_session_events_violations(
         "expected_anchor_span_coverage_ratio": round(se6_ratio, 4),
         "unmatched_expected_anchor_span_indices": se6_unmatched,
     }
+    telemetry.update(se7_telemetry)
     return out, telemetry
 
 
@@ -536,5 +665,6 @@ __all__ = [
     "collect_se4_violations",
     "collect_se5_violations",
     "collect_se6_violations",
+    "collect_se7_violations",
     "per_gate_verdict",
 ]

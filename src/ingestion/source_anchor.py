@@ -285,6 +285,42 @@ def lint_source_anchors(
     }
 
 
+def anchor_bytes_verify_at_head(*, corpus_root: Path, raw: dict[str, Any]) -> str | None:
+    """
+    Return ``None`` iff *raw* is a ``SourceAnchor`` JSON dict whose ``content_hash`` matches
+    the UTF-8 bytes of the anchored line span in the file under *corpus_root* **right now**.
+
+    ``commit_sha`` is intentionally ignored here: this is the same HEAD-shaped audit as
+    ``lint_source_anchors`` (rebind / drift is a separate policy layer).
+    """
+    try:
+        anchor = SourceAnchor.from_json_dict(raw)
+    except Exception as exc:  # noqa: BLE001 — surface malformed anchors verbatim
+        return f"malformed_anchor:{exc}"
+    if anchor.source_type == "legacy_unanchored":
+        return "legacy_unanchored_not_verifiable"
+    source_path = Path(anchor.path)
+    resolved = source_path if source_path.is_absolute() else (corpus_root / source_path)
+    if not resolved.exists():
+        return "missing_source_file"
+    try:
+        lines = resolved.read_text(encoding="utf-8").splitlines()
+    except OSError as exc:
+        return f"unreadable_source_file:{exc}"
+    if anchor.line_start < 1 or anchor.line_end < anchor.line_start:
+        return "invalid_line_range"
+    if anchor.line_end > len(lines):
+        return "line_range_out_of_bounds"
+    raw_bytes = slice_file_lines_to_bytes(
+        lines,
+        line_start_1=anchor.line_start,
+        line_end_1=anchor.line_end,
+    )
+    if hash_source_bytes(raw_bytes) != anchor.content_hash:
+        return "hash_mismatch"
+    return None
+
+
 def resolve_git_commit_sha(*, cwd: Path | None = None) -> str:
     """Return `git rev-parse HEAD` at extraction time, or empty string if unavailable."""
     try:

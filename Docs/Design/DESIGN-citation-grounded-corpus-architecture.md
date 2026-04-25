@@ -227,6 +227,8 @@ The capture-layer benchmark gold rewrite, render-layer gate split, and Stage A /
 - `.cursor/rules/gold-realignment-vs-deflation.mdc` — the antipattern this design defeats structurally
 - `.cursor/rules/verify-before-debug.mdc` — the build-time contract intuition
 - `Docs/Plans/EXPERIMENT-Session-Recap-Timeline-Pass-Benchmark.md` — current Stage A / Stage B benchmark whose TP1 grader is the case study driving this design
+- `Docs/Plans/GUARDRAILS-Sentence-Grounded-Ingestion-Vision.md` — operational checklist that keeps canonical-vs-derived boundaries and stage contracts enforced in day-to-day changes
+- `Docs/Plans/EXPERIMENT-Sentence-Routing-Retrieval-Falsification.md` — falsification suite plan (Stage A deterministic capture → Stage B hub routing → Stage D scoped retrieval fit; see `PLAN-Sentence-Routing-Stages-B-through-D.md` §3 for explicit harness / artifact names)
 - `src/ingestion/chunker.py` — already computes line_start/line_end per AST node; not currently propagated
 - `src/store.py:FactStore` — current fact store schema; `evidence_units`, `entities`, `facts`, `event_records`, `claims`
 - `src/ingestion/fact_extractor.py` — Phase C pass-2 fact extraction; would gain anchor emission

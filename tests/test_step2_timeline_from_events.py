@@ -30,6 +30,32 @@ from evals.session_events_extraction_vertical_slice.step2_timeline_from_events_r
     write_step2_run_report,
 )
 
+# Static Stage B instruction suffix must not embed Session 20 gold/oracle vocabulary.
+_STAGE_B_SUFFIX_BANNED_ORACLE_SUBSTRINGS = (
+    "Eldritch Blast",
+    "Thunderwave",
+    "Zephyr Strike",
+    "scimitar",
+    "dart",
+    "red gnat",
+    # C1 / benchmark proper names and places (must not appear in static Stage B suffix)
+    "kirfan",
+    "pippa",
+    "bubbles",
+    "stonebridge",
+    "river's edge",
+    "wizard's tower",
+    "glowkindle",
+    "bonogo",
+    "stafl",
+    "marla",
+    "baergrom",
+    "tomas",
+    "lysandra",
+    "branwen",
+    "sara_mirathorn",
+)
+
 
 # ---------------------------------------------------------------------------
 # Test 1: per-slug user-message builder formats events correctly with 1+ events
@@ -44,6 +70,19 @@ def test_stage_b_instruction_suffix_contains_cross_session_callback_clause():
     )
     assert "Cross-session callback locations and named exploits" in suffix
     assert 'paraphrasing it to "an old job"' in suffix
+
+
+def test_stage_b_instruction_suffix_excludes_benchmark_oracle_vocabulary() -> None:
+    """Regression: static Stage B suffix must not repeat gold/oracle terms."""
+    suffix = build_stage_b_instruction_suffix(
+        session_num=20,
+        recap_evidence_path=(
+            "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md"
+        ),
+    )
+    blob = suffix.casefold()
+    for term in _STAGE_B_SUFFIX_BANNED_ORACLE_SUBSTRINGS:
+        assert term.casefold() not in blob, term
 
 
 def test_build_stage_b_per_slug_user_message_includes_events():
@@ -127,7 +166,13 @@ def test_build_stage_b_per_slug_user_message_multiple_events():
     assert len(parsed) == 2
 
 
-def test_build_stage_b_per_slug_user_message_includes_required_anchor_words() -> None:
+def test_build_stage_b_per_slug_user_message_does_not_expose_tp1_gold_anchor_words() -> None:
+    """Stage B user text must not repeat TP1 ``anchor_words`` from grading gold.
+
+    Those terms are for the grader only; listing them in the user message is oracle leakage.
+    Events below mention ``swarm`` but not ``Zephyr Strike`` — a gold-only anchor like
+    ``Zephyr Strike`` must not appear as a required verbatim list in the prompt.
+    """
     events = [
         {
             "event_class": "combat",
@@ -141,11 +186,13 @@ def test_build_stage_b_per_slug_user_message_includes_required_anchor_words() ->
         "Longmont Campaign/Campaign 2/PCs/karsemine/timeline.md",
         "karsemine",
         events,
-        required_anchor_words=["swarm", "Zephyr Strike"],
     )
-    assert "TP1 anchor terms for this slug" in msg
-    assert "`swarm`" in msg
-    assert "`Zephyr Strike`" in msg
+    assert "TP1 anchor terms for this slug" not in msg
+    assert "Include each of these words verbatim" not in msg
+    # Would have been injected by the old oracle clause when gold listed both anchors:
+    assert "`Zephyr Strike`" not in msg
+    # Event vocabulary still reaches the model via JSON, not via a grader hint list:
+    assert "swarm" in msg
 
 
 # ---------------------------------------------------------------------------
@@ -462,6 +509,108 @@ def test_run_single_chained_cohort_iteration_stage_b_called_on_success():
 
     assert result["infrastructure_error"] is False
     mock_stage_b.assert_called_once()
+
+
+def test_run_single_chained_cohort_iteration_passes_enable_anchor_repair_default_true():
+    """Chained Stage A must pass enable_anchor_repair=True by default (match step1)."""
+    stage_a_ok_result = {
+        "parsed_events": [],
+        "violations": {},
+        "telemetry": {},
+        "per_gate": {},
+        "cost_usd": 0.0,
+        "usage": {},
+        "cost_info": {},
+        "raw_response_id": "",
+        "gates_passed": True,
+        "error": None,
+    }
+    stage_b_return = ([], "", 0.0, {}, {})
+
+    with patch(
+        "evals.session_events_extraction_vertical_slice.step2_timeline_from_events_run"
+        ".run_session_events_extraction",
+        return_value=stage_a_ok_result,
+    ) as mock_a, patch(
+        "evals.session_events_extraction_vertical_slice.step2_timeline_from_events_run"
+        ".run_stage_b_events_driven_chain",
+        return_value=stage_b_return,
+    ), patch(
+        "evals.session_events_extraction_vertical_slice.step2_timeline_from_events_run"
+        ".build_pre_state_corpus",
+        return_value=Path("/tmp/fake_corpus"),
+    ), patch(
+        "evals.session_events_extraction_vertical_slice.step2_timeline_from_events_run"
+        ".collect_timeline_pass_violations",
+        return_value=({}, {}),
+    ), patch(
+        "evals.session_events_extraction_vertical_slice.step2_timeline_from_events_run"
+        ".tp_per_gate_verdict",
+        return_value={},
+    ):
+        _run_single_chained_cohort_iteration(
+            client=MagicMock(),
+            model_id="gpt-5.4-mini",
+            stage_a_scenario={"input": {"recap_relative_path": "x", "user_message": "y"}},
+            corpus_root=Path("/fake/corpus"),
+            stage_b_gold={"grading": {}},
+            quiet=True,
+        )
+
+    mock_a.assert_called_once()
+    _kwargs = mock_a.call_args.kwargs
+    assert _kwargs.get("enable_anchor_repair") is True
+
+
+def test_run_single_chained_cohort_iteration_passes_enable_anchor_repair_false_when_disabled():
+    """When enable_anchor_repair=False, Step1 must be invoked with anchor repair off."""
+    stage_a_ok_result = {
+        "parsed_events": [],
+        "violations": {},
+        "telemetry": {},
+        "per_gate": {},
+        "cost_usd": 0.0,
+        "usage": {},
+        "cost_info": {},
+        "raw_response_id": "",
+        "gates_passed": True,
+        "error": None,
+    }
+    stage_b_return = ([], "", 0.0, {}, {})
+
+    with patch(
+        "evals.session_events_extraction_vertical_slice.step2_timeline_from_events_run"
+        ".run_session_events_extraction",
+        return_value=stage_a_ok_result,
+    ) as mock_a, patch(
+        "evals.session_events_extraction_vertical_slice.step2_timeline_from_events_run"
+        ".run_stage_b_events_driven_chain",
+        return_value=stage_b_return,
+    ), patch(
+        "evals.session_events_extraction_vertical_slice.step2_timeline_from_events_run"
+        ".build_pre_state_corpus",
+        return_value=Path("/tmp/fake_corpus"),
+    ), patch(
+        "evals.session_events_extraction_vertical_slice.step2_timeline_from_events_run"
+        ".collect_timeline_pass_violations",
+        return_value=({}, {}),
+    ), patch(
+        "evals.session_events_extraction_vertical_slice.step2_timeline_from_events_run"
+        ".tp_per_gate_verdict",
+        return_value={},
+    ):
+        _run_single_chained_cohort_iteration(
+            client=MagicMock(),
+            model_id="gpt-5.4-mini",
+            stage_a_scenario={"input": {"recap_relative_path": "x", "user_message": "y"}},
+            corpus_root=Path("/fake/corpus"),
+            stage_b_gold={"grading": {}},
+            quiet=True,
+            enable_anchor_repair=False,
+        )
+
+    mock_a.assert_called_once()
+    assert mock_a.call_args.kwargs.get("enable_anchor_repair") is False
 
 
 # ---------------------------------------------------------------------------

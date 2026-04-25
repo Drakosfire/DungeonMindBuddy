@@ -21,6 +21,7 @@ from evals.session_events_extraction_vertical_slice.grader import (
     collect_se4_violations,
     collect_se5_violations,
     collect_se6_violations,
+    collect_se7_violations,
     collect_session_events_violations,
     per_gate_verdict,
 )
@@ -431,6 +432,60 @@ class TestSE5:
         assert term_violations == []
         assert violations == []
 
+    def test_must_preserve_terms_or_group_satisfied_by_either_alternative(self) -> None:
+        """``a|b`` in must_preserve_terms: either substring satisfies the slot."""
+        expected = [
+            self._expected_with_terms(
+                "discovery",
+                ["caelynn", "captain_lysandra_ironveil"],
+                "wagon camp lysandra",
+                ["eyes shimmery"],
+                ["shimmery", "tower", "drawing|blueprint"],
+            ),
+        ]
+        actual = [
+            _valid_event(
+                event_class="discovery",
+                participants=["caelynn", "captain_lysandra_ironveil"],
+                event_name="The party finds Lysandra's wagon camp",
+                outcomes=[
+                    "Her eyes are shimmery like cult members.",
+                    "She describes a tower where voices come from.",
+                    "Caelynn studies the blueprint in the dirt.",
+                ],
+            ),
+        ]
+        violations, _ratio, _unmatched, term_violations = collect_se5_violations(
+            actual, expected
+        )
+        assert term_violations == []
+        assert violations == []
+
+    def test_must_preserve_terms_or_group_fails_when_neither_alternative_present(self) -> None:
+        expected = [
+            self._expected_with_terms(
+                "discovery",
+                ["caelynn", "captain_lysandra_ironveil"],
+                "wagon camp lysandra",
+                ["eyes"],
+                ["drawing|blueprint"],
+            ),
+        ]
+        actual = [
+            _valid_event(
+                event_class="discovery",
+                participants=["caelynn", "captain_lysandra_ironveil"],
+                event_name="camp scene",
+                outcomes=["nothing specific"],
+            ),
+        ]
+        violations, _ratio, _unmatched, term_violations = collect_se5_violations(
+            actual, expected
+        )
+        assert len(term_violations) == 1
+        assert "drawing|blueprint" in term_violations[0]["missing_terms"]
+        assert any("missing_outcome_terms" in v for v in violations)
+
     def test_must_preserve_terms_per_term_check_across_pool(self):
         """Term sub-check is per-term across the participant-overlap pool: each term
         only needs to appear in SOME participant-overlapping actual, not all in one."""
@@ -706,6 +761,172 @@ class TestSE6:
 
 
 # ---------------------------------------------------------------------------
+# SE7 — every event anchor verifies against on-disk recap bytes
+# ---------------------------------------------------------------------------
+
+
+class TestSE7:
+    @staticmethod
+    def _write_mini_recap(tmp_path: Path) -> tuple[Path, str]:
+        rel = "recap_folder/r.md"
+        (tmp_path / "recap_folder").mkdir(parents=True)
+        (tmp_path / rel).write_text("first line\nsecond line\nthird\n", encoding="utf-8")
+        return tmp_path, rel
+
+    def test_se7_passes_tight_verified_anchor(self, tmp_path: Path) -> None:
+        from src.ingestion.source_anchor import build_recap_extracted_anchor, resolve_git_commit_sha
+
+        corpus_root, rel = self._write_mini_recap(tmp_path)
+        lines = (corpus_root / rel).read_text(encoding="utf-8").splitlines()
+        _, anchor = build_recap_extracted_anchor(
+            corpus_source_path=rel,
+            full_file_lines=lines,
+            line_start_1=2,
+            line_end_1=2,
+            commit_sha=resolve_git_commit_sha(cwd=_REPO_ROOT),
+        )
+        events = [_valid_event(participants=["caelynn"], source_anchors=[anchor.to_json_dict()])]
+        violations, tel = collect_se7_violations(
+            events, corpus_root=corpus_root, recap_relative_path=rel
+        )
+        assert violations == []
+        assert tel["se7_anchors_checked"] == 1
+        assert tel["se7_whole_file_placeholder_count"] == 0
+
+    def test_se7_rejects_whole_file_placeholder(self, tmp_path: Path) -> None:
+        from src.ingestion.source_anchor import build_recap_extracted_anchor, resolve_git_commit_sha
+
+        corpus_root, rel = self._write_mini_recap(tmp_path)
+        lines = (corpus_root / rel).read_text(encoding="utf-8").splitlines()
+        _, anchor = build_recap_extracted_anchor(
+            corpus_source_path=rel,
+            full_file_lines=lines,
+            line_start_1=1,
+            line_end_1=len(lines),
+            commit_sha=resolve_git_commit_sha(cwd=_REPO_ROOT),
+        )
+        events = [_valid_event(participants=["caelynn"], source_anchors=[anchor.to_json_dict()])]
+        violations, tel = collect_se7_violations(
+            events, corpus_root=corpus_root, recap_relative_path=rel
+        )
+        assert violations
+        assert tel["se7_whole_file_placeholder_count"] == 1
+
+    def test_se7_rejects_wrong_path(self, tmp_path: Path) -> None:
+        from src.ingestion.source_anchor import build_recap_extracted_anchor, resolve_git_commit_sha
+
+        corpus_root, rel = self._write_mini_recap(tmp_path)
+        lines = (corpus_root / rel).read_text(encoding="utf-8").splitlines()
+        _, anchor = build_recap_extracted_anchor(
+            corpus_source_path=rel,
+            full_file_lines=lines,
+            line_start_1=2,
+            line_end_1=2,
+            commit_sha=resolve_git_commit_sha(cwd=_REPO_ROOT),
+        )
+        bad = anchor.to_json_dict()
+        bad["path"] = "recap_folder/other.md"
+        events = [_valid_event(participants=["caelynn"], source_anchors=[bad])]
+        violations, _ = collect_se7_violations(
+            events, corpus_root=corpus_root, recap_relative_path=rel
+        )
+        assert any("path" in v for v in violations)
+
+    def test_collect_session_events_skips_se7_without_flag(self, tmp_path: Path) -> None:
+        from src.ingestion.source_anchor import build_recap_extracted_anchor, resolve_git_commit_sha
+
+        corpus_root, rel = self._write_mini_recap(tmp_path)
+        lines = (corpus_root / rel).read_text(encoding="utf-8").splitlines()
+        _, anchor = build_recap_extracted_anchor(
+            corpus_source_path=rel,
+            full_file_lines=lines,
+            line_start_1=2,
+            line_end_1=2,
+            commit_sha=resolve_git_commit_sha(cwd=_REPO_ROOT),
+        )
+        bad = dict(anchor.to_json_dict())
+        bad["content_hash"] = "0" * 64
+        events = [_valid_event(participants=["caelynn", "ephanna"], source_anchors=[bad])]
+        grading = {
+            "min_event_count": 1,
+            "max_event_count": 25,
+            "must_cover_participants": ["caelynn", "ephanna"],
+            "must_cover_event_classes": ["combat"],
+            "expected_events": [],
+        }
+        violations, _ = collect_session_events_violations(
+            events,
+            grading,
+            corpus_root=corpus_root,
+            recap_relative_path=rel,
+        )
+        assert "se7" not in violations
+
+    def test_collect_session_events_runs_se7_when_configured(self, tmp_path: Path) -> None:
+        from src.ingestion.source_anchor import build_recap_extracted_anchor, resolve_git_commit_sha
+
+        corpus_root, rel = self._write_mini_recap(tmp_path)
+        lines = (corpus_root / rel).read_text(encoding="utf-8").splitlines()
+        _, anchor = build_recap_extracted_anchor(
+            corpus_source_path=rel,
+            full_file_lines=lines,
+            line_start_1=2,
+            line_end_1=2,
+            commit_sha=resolve_git_commit_sha(cwd=_REPO_ROOT),
+        )
+        events = [_valid_event(participants=["caelynn", "ephanna"], source_anchors=[anchor.to_json_dict()])]
+        grading = {
+            "min_event_count": 1,
+            "max_event_count": 25,
+            "must_cover_participants": ["caelynn", "ephanna"],
+            "must_cover_event_classes": ["combat"],
+            "expected_events": [],
+            "require_verified_event_anchors": True,
+        }
+        violations, telemetry = collect_session_events_violations(
+            events,
+            grading,
+            corpus_root=corpus_root,
+            recap_relative_path=rel,
+        )
+        assert "se7" not in violations
+        assert telemetry["se7_anchors_checked"] == 1
+
+    def test_collect_session_events_se7_fails_on_hash_mismatch_when_configured(
+        self, tmp_path: Path
+    ) -> None:
+        from src.ingestion.source_anchor import build_recap_extracted_anchor, resolve_git_commit_sha
+
+        corpus_root, rel = self._write_mini_recap(tmp_path)
+        lines = (corpus_root / rel).read_text(encoding="utf-8").splitlines()
+        _, anchor = build_recap_extracted_anchor(
+            corpus_source_path=rel,
+            full_file_lines=lines,
+            line_start_1=2,
+            line_end_1=2,
+            commit_sha=resolve_git_commit_sha(cwd=_REPO_ROOT),
+        )
+        bad = dict(anchor.to_json_dict())
+        bad["content_hash"] = "0" * 64
+        events = [_valid_event(participants=["caelynn", "ephanna"], source_anchors=[bad])]
+        grading = {
+            "min_event_count": 1,
+            "max_event_count": 25,
+            "must_cover_participants": ["caelynn", "ephanna"],
+            "must_cover_event_classes": ["combat"],
+            "expected_events": [],
+            "require_verified_event_anchors": True,
+        }
+        violations, _ = collect_session_events_violations(
+            events,
+            grading,
+            corpus_root=corpus_root,
+            recap_relative_path=rel,
+        )
+        assert violations.get("se7")
+
+
+# ---------------------------------------------------------------------------
 # SE5 — sibling-event fallback for must_preserve_terms (corpus-level)
 # ---------------------------------------------------------------------------
 
@@ -738,8 +959,8 @@ class TestSE5SiblingFallback:
         ev["must_preserve_terms"] = must_preserve_terms
         return ev
 
-    def test_pass_via_sibling_event(self):
-        """(a) Term missing from matched actual but present in a sibling actual
+    def test_pass_via_participant_overlapping_sibling_event(self):
+        """(a) Term missing from matched actual but present in a participant-overlapping sibling actual
         → SE5 PASS, no violation, telemetry entry recorded."""
         expected = [
             self._expected_with_terms(
@@ -747,21 +968,21 @@ class TestSE5SiblingFallback:
                 ["caelynn", "ephanna"],
                 "swarm battle",
                 ["swarm defeated"],
-                ["Eldritch Blast"],
+                ["Thunderwave", "Eldritch Blast"],
             ),
         ]
-        # Matched actual (combat, both participants) lacks "Eldritch Blast";
-        # a sibling actual (different class + participants) carries it.
+        # Best matched actual (combat, both participants) preserves Thunderwave but
+        # lacks "Eldritch Blast"; a participant-overlapping sibling carries it.
         actual = [
             _valid_event(
                 event_class="combat",
                 participants=["caelynn", "ephanna"],
                 event_name="swarm fight at edge",
-                outcomes=["Ephanna casts an attack spell at the swarm"],
+                outcomes=["Caelynn casts Thunderwave at the swarm"],
             ),
             _valid_event(
                 event_class="travel",
-                participants=["karsemine"],
+                participants=["ephanna", "karsemine"],
                 event_name="post-combat retrospective",
                 outcomes=["Ephanna recounts firing two Eldritch Blast volleys"],
             ),
@@ -789,6 +1010,48 @@ class TestSE5SiblingFallback:
         assert entry["expected_event_index"] == 0
         assert entry["term"] == "Eldritch Blast"
         assert entry["actual_event_index"] == 1
+
+    def test_fail_when_term_only_in_non_overlapping_sibling_event(self):
+        """A term dumped into an unrelated event must not satisfy SE5."""
+        expected = [
+            self._expected_with_terms(
+                "combat",
+                ["caelynn", "ephanna"],
+                "swarm battle",
+                ["swarm defeated"],
+                ["Eldritch Blast"],
+            ),
+        ]
+        actual = [
+            _valid_event(
+                event_class="combat",
+                participants=["caelynn", "ephanna"],
+                event_name="swarm fight at edge",
+                outcomes=["Ephanna casts an attack spell at the swarm"],
+            ),
+            _valid_event(
+                event_class="travel",
+                participants=["karsemine"],
+                event_name="post-combat retrospective",
+                outcomes=["Karsemine recalls Ephanna's Eldritch Blast volleys"],
+            ),
+        ]
+        violations, telemetry = collect_session_events_violations(
+            actual,
+            {
+                "min_event_count": 1,
+                "max_event_count": 25,
+                "must_cover_participants": ["caelynn", "ephanna", "karsemine"],
+                "must_cover_event_classes": ["combat", "travel"],
+                "expected_events": expected,
+            },
+        )
+        verdict = per_gate_verdict(violations)
+        assert verdict["SE5"] == "FAIL"
+        tvs = telemetry["se5_term_violations"]
+        assert len(tvs) == 1
+        assert tvs[0]["missing_terms"] == ["Eldritch Blast"]
+        assert telemetry["terms_preserved_via_sibling"] == []
 
     def test_fail_when_term_nowhere_in_run(self):
         """(b) Term appears in zero actual events → SE5 FAIL with exactly one
@@ -860,11 +1123,11 @@ class TestSE5SiblingFallback:
                 event_name="swarm fight at edge",
                 outcomes=["Caelynn casts Thunderwave splitting the swarm"],
             ),
-            # Sibling actual (no participant overlap with expected) carries
-            # "Eldritch Blast" → soft-pass via sibling.
+            # Sibling actual with participant overlap carries "Eldritch Blast"
+            # → soft-pass via sibling.
             _valid_event(
                 event_class="travel",
-                participants=["karsemine"],
+                participants=["ephanna", "karsemine"],
                 event_name="post-combat retrospective",
                 outcomes=["Karsemine recalls Ephanna's Eldritch Blast volleys"],
             ),

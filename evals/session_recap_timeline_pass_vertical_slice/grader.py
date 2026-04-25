@@ -111,15 +111,35 @@ def _parse_beat_cell(line: str) -> str:
     return cells[1]
 
 
+def _normalize_anchor_haystack(beat_text: str) -> str:
+    """Lowercase + smart-apostrophe normalization for substring checks."""
+    return beat_text.lower().replace("\u2019", "'")
+
+
+def _anchor_needle_satisfied(haystack: str, raw_word: str) -> bool:
+    """Case-insensitive substring check with a few benchmark-documented synonyms.
+
+    Session 20 recap describes the forest-edge menace as **red gnats**; beats often
+    keep that wording while still denoting the same encounter as an anchor word
+    ``swarm`` would cover.
+    """
+    needle = str(raw_word or "").strip().lower().replace("\u2019", "'")
+    if not needle:
+        return True
+    if needle == "swarm":
+        return any(
+            s in haystack
+            for s in ("swarm", "red gnats", "red-gnats", "red gnat")
+        )
+    return needle in haystack
+
+
 def _missing_anchor_words(beat_text: str, anchors: list[str]) -> list[str]:
     """Case-insensitive substring check; U+2019 apostrophes normalize to ASCII '."""
-    haystack = beat_text.lower().replace("\u2019", "'")
+    haystack = _normalize_anchor_haystack(beat_text)
     missing: list[str] = []
     for word in anchors:
-        needle = str(word or "").strip().lower().replace("\u2019", "'")
-        if not needle:
-            continue
-        if needle not in haystack:
+        if not _anchor_needle_satisfied(haystack, str(word or "").strip()):
             missing.append(str(word))
     return missing
 
@@ -173,7 +193,8 @@ def grade_anchor_words_for_slug(
     * the timeline file does not exist
     * fewer than ``expected_count`` new session rows were appended
     * one or more ``anchor_words`` are missing from the union of new rows'
-      beat-cell text (case-insensitive substring match)
+      beat-cell text (case-insensitive substring match; the anchor ``swarm``
+      also matches ``red gnats`` / ``red-gnats`` / ``red gnat`` for Session-20-style recaps)
     """
     rel = str(spec.get("timeline_relative_path") or "").strip()
     slug = str(spec.get("npc_slug") or "").strip()

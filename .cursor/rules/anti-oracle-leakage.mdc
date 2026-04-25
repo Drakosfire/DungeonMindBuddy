@@ -1,0 +1,38 @@
+---
+description: Prevent benchmark oracle leakage between gold, graders, prompts, and repair loops.
+globs: evals/**,tests/**,Docs/Design/**,Docs/Plans/**
+alwaysApply: false
+---
+
+# Anti-Oracle Leakage
+
+Benchmark code must not give the system under test the answers it will later be graded against.
+
+## Hard Rule
+
+Model-facing prompts, extraction runners, repair loops, and tool dispatch inputs MUST NOT consume benchmark gold or grader internals while generating the artifact being graded.
+
+Forbidden examples:
+
+- Passing `expected_events`, `expected_anchored_spans`, `anchor_words`, expected slugs, expected terms, or expected line ranges into a prompt or repair model unless those fields are part of the real user/corpus input.
+- Importing private grader helpers (for example `_events_match`, `_collect_*`) into a runner or repair step to decide whether generated output should be accepted.
+- Adding static prompt examples that reuse high-signal terms from the active benchmark gold (NPC names, spell/item names, place names, anchor words).
+- Editing gold after seeing model output unless the rationale is corpus/design based and documented.
+
+Allowed examples:
+
+- Graders reading gold to evaluate completed outputs.
+- Reports/telemetry including gold-derived pass/fail diagnostics after generation is complete.
+- Prompts containing generic instructions and synthetic examples that do not overlap active benchmark answers.
+- Repair loops using only source corpus text plus the candidate artifact being repaired.
+
+## Required Checks
+
+Before claiming a benchmark improvement:
+
+- Confirm the model-facing prompt path does not include gold-only terms or expected outputs.
+- Confirm repair/mutation code is gold-agnostic and does not call grader internals.
+- Add a regression test for any oracle leak you just removed.
+- If gold changes, document a corpus/design rationale in the gold file or adjacent README; never justify with model behavior.
+
+If removing leakage drops pass rate, keep the honest red result and fix the capability, prompt, schema, or corpus grounding instead of routing around the failure.

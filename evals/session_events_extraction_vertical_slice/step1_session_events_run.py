@@ -5,7 +5,9 @@ Pydantic schema, then grades the resulting event records against the gold scenar
 No planner machinery, no corpus writes — pure structured-output extraction.
 
 Pydantic models are defined in this module (do not modify fact_extractor.py).
-The EventRecordModel mirrors event_record.schema.json exactly (same enums, same fields).
+``EventRecordModel`` matches the stored ``event_record`` enums/fields and adds a required
+``recap_evidence_span`` (path + 1-based recap line range). The runner normalizes that span into
+``source_anchors`` (hash + ``commit_sha``) before ``event_record.schema.json`` validation.
 
 Path strategy: recap is read from the canonical corpus root
 ``corpus/eldyrwild-markdown/<recap_relative_path>``. The CORPUS_ROOT env var or the
@@ -39,7 +41,7 @@ _REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-from pydantic import BaseModel, Field  # noqa: E402
+from pydantic import BaseModel, Field, model_validator  # noqa: E402
 
 from src.agent.planner_pricing import usage_cost_usd  # noqa: E402
 from src.bootstrap_env import load_dungeonmindbuddy_dotenv  # noqa: E402
@@ -49,6 +51,7 @@ from src.ingestion.source_anchor import build_recap_extracted_anchor, resolve_gi
 from src.llm.api_client import DungeonMindApiClient  # noqa: E402
 
 from evals.session_events_extraction_vertical_slice.grader import (  # noqa: E402
+    RECAP_EVIDENCE_SPAN_MAX_LINES,
     collect_session_events_violations,
     per_gate_verdict,
 )
@@ -67,8 +70,17 @@ _MAX_PC_HINTS = 10
 _MAX_PC_HINT_CHARS_PER_ENTRY = 320
 _MAX_PC_HINT_CHARS_TOTAL = 2400
 
+# Anchor repair: keep user prompt under this size (chars); split weak-event batches if needed.
+_ANCHOR_REPAIR_USER_CHAR_BUDGET = 120_000
+
+# Anchor repair: applying model-provided `revised_event_name` / `revised_outcomes` is off by
+# default. Span-local len>=4 token-subset checks are necessary but not sufficient: a span can
+# mention all tokens while attributing the wrong action to the wrong participant (see
+# `tests/test_step1_session_events_run.py` — lexical subset can pass for role/action swaps).
+_ANCHOR_REPAIR_APPLY_TEXT_REWRITES = False
+
 # ---------------------------------------------------------------------------
-# Pydantic schema — mirrors event_record.schema.json exactly
+# Pydantic schema — event_record fields + required ``recap_evidence_span``
 # ---------------------------------------------------------------------------
 
 _EventClass = Literal[
@@ -87,15 +99,38 @@ _TimeScope = Literal["scene", "session", "historical_reference"]
 _Certainty = Literal["observed", "inferred", "uncertain"]
 
 
+class RecapEvidenceSpan(BaseModel):
+    """Inclusive 1-based line span into the numbered **RECAP TEXT** block in the user message."""
+
+    path: str = Field(
+        ...,
+        min_length=1,
+        description="Corpus-relative recap path copied verbatim from the extraction task.",
+    )
+    line_start: int = Field(..., ge=1)
+    line_end: int = Field(..., ge=1)
+
+    @model_validator(mode="after")
+    def _ordered_and_bounded(self) -> RecapEvidenceSpan:
+        if self.line_end < self.line_start:
+            raise ValueError("line_end must be >= line_start")
+        if self.line_end - self.line_start + 1 > RECAP_EVIDENCE_SPAN_MAX_LINES:
+            raise ValueError(
+                f"recap_evidence_span must cover at most {RECAP_EVIDENCE_SPAN_MAX_LINES} lines"
+            )
+        return self
+
+
 class EventRecordModel(BaseModel):
     event_name: Optional[str] = None
     event_class: _EventClass
+    time_scope: _TimeScope
+    certainty: _Certainty
+    recap_evidence_span: RecapEvidenceSpan
     participants: list[str] = Field(default_factory=list)
     referenced_slugs: list[str] = Field(default_factory=list)
     location: Optional[str] = None
     outcomes: list[str] = Field(default_factory=list)
-    time_scope: _TimeScope
-    certainty: _Certainty
     evidence_id: str = ""
 
 
@@ -164,115 +199,101 @@ def resolve_model(model_arg: str | None) -> str:
 # System prompt
 # ---------------------------------------------------------------------------
 
-_SYSTEM_PROMPT = """\
-You are an expert game-master event analyst for a tabletop RPG campaign. \
-Your task is to extract all meaningful narrative events from a session recap as structured event records.
+_SYSTEM_PROMPT = f"""\
+You extract **session recap → structured event records** for a tabletop RPG campaign. Your \
+north star is **citation-grounded capture**: every event must be **defensible from the recap \
+prose** the operator can re-open and verify (path + line span), not from free-floating \
+paraphrase. Downstream tooling hashes the **literal bytes** of that line window; your job is to \
+choose **inclusive 1-based line numbers** from the **RECAP TEXT** block so the window contains \
+the **full sentence or sentences** that express the beat — the same natural idea-units readers \
+see in the corpus. **Rich, sentence-complete context beats minimal line count.** Long sentences \
+and occasional run-ons are normal: include them whole rather than clipping mid-sentence to save \
+lines.
 
-**SLUG CONTRACT (hard rule — no exceptions):** When a person, place, or thing in the recap has a \
-canonical slug listed in the user message under "Known character slugs", you MUST use that slug \
-verbatim in `participants[]`. NEVER use a display name, title, or surface form — only the \
-exact slug string.
+## 1) `recap_evidence_span` — do this first for every event
 
-Concrete failure examples (DO NOT do these):
-- WRONG: `"participants": ["Lysandra"]`   RIGHT: `"participants": ["captain_lysandra_ironveil"]`
-- WRONG: `"participants": ["Stacey"]`     RIGHT: `"participants": ["stacey"]`
-- WRONG: `"participants": ["Sara"]`       RIGHT: `"participants": ["sara_mirathorn_operator"]`
+For **each** event, you MUST emit `recap_evidence_span` with:
+- `path`: the **exact** corpus-relative recap path string repeated in the user task (same \
+characters as given — copy/paste discipline).
+- `line_start`, `line_end`: **inclusive** 1-based indices taken **only** from the **left column** \
+of the numbered recap (format `NNNN: body`). These integers are the contract: they must refer \
+to real lines in that block.
 
-If you are unsure which slug maps to a character, pick the slug from the "Known character slugs" \
-list that best matches — do not write a display name. If a character has no slug in the list, \
-omit them from `participants[]` entirely.
+Hard rules for the span:
+- **At most {RECAP_EVIDENCE_SPAN_MAX_LINES} lines** total (`line_end - line_start + 1 <= {RECAP_EVIDENCE_SPAN_MAX_LINES}`).
+- **Never** set a span that covers **all** numbered lines when there is more than one line in \
+the recap (whole-file spans are rejected).
+- **Sentence boundaries:** every sentence you rely on for this event must appear **in full** \
+inside the span. Do not set `line_end` so the window cuts off mid-sentence. If a sentence wraps \
+across numbered lines, include each of those lines. If one numbered line holds several sentences \
+and only one belongs to this event, include at least that full sentence (often the entire line \
+is the right choice).
+- When several sentences jointly establish one beat, include all of them (still within the line \
+cap). Split into separate events if the cap would force a mid-sentence clip.
+- The span must **support** the event: concatenate lines `line_start`…`line_end` and treat that \
+text as the **only** evidence you are allowed to rely on for who acted and what changed. Every \
+slug in `participants[]` must appear in that concatenation via a recognizable surface form \
+(slug with underscores as spaces, a distinctive ≥4-letter slug segment, or the recap's own \
+spelling if it differs slightly). If you cannot find such a span, **shrink the beat**, **move \
+participants to a different event**, or **split** the beat — do not attach actors to prose they \
+do not appear in.
 
-**REFERENCED SLUGS CONTRACT (preserve named entities — hard rule):** When the recap names an \
-entity (NPC, faction, character, or significant figure) **in connection with an event** but the \
-entity is **not an actor** in that event — for example, when a "Big beats" header names someone \
-the prose re-describes generically (e.g. "Kirfan" in the header, "the elderly fisherman" in the \
-narrative), or when an event mentions a person who is referenced but not acting — emit the \
-entity's slug in that event's `referenced_slugs[]` array. The same entity MAY appear in \
-`participants[]` (if they also acted) AND `referenced_slugs[]` (if they were also referenced) \
-across different events. Use the canonical slug from the "Known character slugs" list whenever \
-one exists; if the referenced entity has no canonical slug, emit a stable lowercase-snake_case \
-form derived from the recap's first naming (e.g. `kirfan`, `the_elderly_fisherman`) and a \
-downstream entity-resolution stage will reconcile it. Do NOT invent slugs for entities that \
-already have a canonical one — use the canonical slug verbatim.
+You do **not** emit `content_hash` or `commit_sha`; the harness derives them from your lines.
 
-The point of this field is to preserve naming evidence so a future stage can merge "the elderly \
-fisherman" with "Kirfan" — without this slot, that merge is impossible.
+## 2) `participants[]` — slug contract (no exceptions)
 
-Concrete examples of `referenced_slugs[]`:
-- Recap header says `Helped Kirfan pull up debris from the broken structure from upriver`. Prose \
-narrative re-describes the same beat as "the party helped an elderly fisherman drag wreckage \
-from the river." The fisherman event has `participants: ["bonogo", "stafl", "baergrom"]` (the \
-PCs who acted) and `referenced_slugs: ["kirfan"]` (the named NPC who was the subject but did \
-not act in the prose beat).
-- An event describes the party discussing what to do about a missing merchant. The merchant is \
-named "Tomas" but does not appear in the scene. `participants: ["caelynn", "ephanna"]`, \
-`referenced_slugs: ["tomas"]`.
-- An event has the party fighting bandits while bystanders cheer. If a bystander has a name \
-("Marla shouts encouragement from the doorway") but is not part of the action, put the \
-bystander's slug in `referenced_slugs[]`, not `participants[]`.
+When a person in the recap maps to a slug under **Known character slugs** in the user message, \
+use that slug **verbatim** in `participants[]`. Never substitute a display name or title.
 
-`referenced_slugs[]` is OPTIONAL — emit an empty list (or omit entirely) when an event has no \
-referenced-but-not-acting entities. Do NOT pad it with the same entries already in \
-`participants[]`; an entity who actively did something belongs in `participants[]` only.
+Wrong vs right shape (generic pattern):
+- WRONG: `"participants": ["Mirei"]`  →  RIGHT: `"participants": ["mirei_blackraven"]` \
+when that slug is listed.
 
-**REFERENCED-NAME ECHO (hard rule):** Every entity you place in `referenced_slugs[]` MUST also \
-have its **canonical proper name** appear verbatim in at least one of that event's `outcomes[]` \
-strings — not just a generic descriptor. The slug list and the outcomes are read by separate \
-downstream stages: the timeline-pass stage only sees `outcomes[]` text and cannot search the \
-slug list, so a name that lives only in `referenced_slugs[]` is invisible to the timeline beat. \
-Use the canonical surface name from the recap (e.g. "Kirfan", not "kirfan"; "Tomas", not \
-"tomas") in the outcome sentence; you may add a generic gloss after it ("the elderly fisherman \
-Kirfan", "Tomas the merchant"), but the proper name itself must be there verbatim.
+If no listed slug matches, omit that person from `participants[]` rather than guessing a slug.
 
-Concrete example: if you emit `referenced_slugs: ["kirfan"]` for a stuck-net beat, at least one \
-outcome must read like `"The party helps the elderly fisherman Kirfan recover his stuck net"` \
-or `"Kirfan's stuck net turns out to be roof beams"` — NOT `"The group meets an elderly \
-fisherman whose net is stuck"` (which loses the name).
+## 3) `referenced_slugs[]` — named but non-acting entities
 
-**MULTI-PARTICIPANT ROSTER COMPLETENESS (hard rule):** When the recap describes a single action whose subject is a comma-separated list of named characters (e.g. "A, B, C, and D accepted the offer", or "X, Y, and Z entered the room together", or "all five PCs heard the noise"), every named character in that list belongs in `participants[]` for the corresponding event. Do not omit any name from the comma list. Before emitting the event, count the named characters in the recap's listing sentence and confirm `len(participants)` is at least that count plus any non-PC participants the same sentence introduces (e.g. an NPC offering the ride). If you find yourself summarizing the roster as "the party" or "the group" without enumerating, expand the enumeration into `participants[]`.
+When the recap **names** an entity in connection with a beat but that entity **does not act** \
+in the prose you are encoding, put the canonical slug (from the known list when available) in \
+`referenced_slugs[]`, not in `participants[]`. Keep `referenced_slugs[]` empty when there is no \
+such case. Never duplicate pure actors: acting characters belong in `participants[]` only.
 
-**OUTCOMES CONTRACT (preserve searchable vocabulary — hard rule):** The `outcomes[]` field is \
-the durable, searchable record of what happened in each event. A future game-master will search \
-the campaign archive by specific named terms — character names, character classes, character \
-races, weapon names, spell names, ability names, item names, and place names. **When the recap \
-uses a specific named term for a character class, character race, weapon, spell, ability, item, \
-place, or NPC inside an event, that exact term MUST appear verbatim in at least one outcome \
-string for that event.** Paraphrasing away these named terms destroys the archive's \
-searchability and is the single most damaging mistake you can make.
+## 4) Referenced-name echo (timeline visibility)
 
-Concrete examples of right vs wrong outcomes:
-- WRONG: `"Karsemine attacks the swarm with her weapons"`
-  RIGHT: `"Karsemine lands 4 scimitar and short-sword hits using Zephyr Strike, then dashes away"`
-- WRONG: `"Ephanna casts an attack spell that hits the swarm"`
-  RIGHT: `"Ephanna's second Eldritch Blast hits and removes a cluster from the swarm"`
-- WRONG: `"Caelynn casts a wave spell that pushes the swarm back"`
-  RIGHT: `"Caelynn casts Thunderwave, splits the swarm, and pushes it back 10 feet"`
-- WRONG: `"Stuart confronts a girl about stolen money"`
-  RIGHT: `"Stuart demands his gold back from Stacey and threatens her with a dart"`
-- WRONG (PC introduction collapsed): single travel event with `outcomes: ["The party of \
-six adventurers arrive at Stonebridge"]`
-  RIGHT (PC introduction preserved per actor): emit one outcome per named PC carrying the \
-class/race tokens the recap uses, e.g. `outcomes: ["Karsemine the Tiefling Ranger arrives at \
-Stonebridge with the party", "Stafl the Human Bard arrives at Stonebridge with the party", \
-"Caelynn the Half Elf Sorcerer arrives at Stonebridge with the party", ...]`. When a recap's \
-opening paragraph names every PC by class+race, treat that as the canonical introduction event \
-for those tokens; downstream stages rely on these outcome strings to recover per-PC identity.
+Every slug in `referenced_slugs[]` must also have its **recap surface proper name** appear \
+verbatim in at least one `outcomes[]` string for that same event (downstream stages read \
+outcomes, not the slug array). Example pattern: if `referenced_slugs` includes `norvik`, an \
+outcome must contain `Norvik`, not a paraphrase that drops the name.
 
-Outcome shape rules:
-- Each outcome is one concrete sentence.
-- Prefer 2–5 outcomes per event; combat and social-conflict events usually need 3–5.
-- If the recap names a character class, character race, weapon, spell, ability, item, place, \
-or NPC inside an event, that name MUST appear verbatim in at least one of that event's outcomes.
-- "Concrete" means: who did what to whom, with which named tool/spell/ability, and what changed.
+## 5) MULTI-PARTICIPANT ROSTER COMPLETENESS (hard rule)
 
-Additional rules:
-- Set evidence_id to the recap path provided in the user message.
-- Use time_scope "scene" for specific events in this session.
-- Use certainty "observed" for events directly described in the recap.
-- Do not merge multiple distinct beats into a single event.
-- Do not invent events not described in the recap.
-- Aim for completeness: capture 10–20 events covering combat, social conflicts, conversations, \
-discoveries, travel, rituals, and investigations.\
+When the recap describes **one** joint action whose subject is an explicit comma-separated list \
+of named characters, **every** named character from that list belongs in `participants[]` for \
+that event — every named character in that list belongs in `participants[]`. Count names in the \
+recap sentence before you emit; do not collapse the roster to "the party" without enumerating \
+each slug the recap named.
+
+## 6) `outcomes[]` — searchable vocabulary (secondary to the span)
+
+`outcomes[]` is still the GM-searchable surface. When the recap uses a **specific** class, race, \
+weapon, spell, ability, item, place, or proper name inside the span you chose, carry that token \
+**verbatim** into at least one outcome for an overlapping-participant event. A `must_preserve`-style \
+OR is expressed downstream as `tokenA|tokenB` in grading metadata — you implement the intent by \
+preserving whichever recap token actually appears in **your** span.
+
+Each outcome is one concrete sentence; prefer 2–5 per event (more for dense combat or social \
+beats). "Concrete" means who did what, with which named tool or effect, and what changed — all \
+traceable to the span.
+
+## 7) Taxonomy and hygiene
+
+- `event_class`, `time_scope`, `certainty`: required; use `scene` + `observed` for events told \
+as table fact in this session's prose.
+- `evidence_id`: set to the same recap path string the task provides.
+- Do **not** merge distinct recap beats into one event; do **not** invent beats absent from the \
+recap.
+- Aim for **10–20** events across combat, social conflict, conversation, discovery, travel, \
+ritual, and investigation as the recap warrants.
 """
 
 _ANCHOR_REPAIR_SYSTEM_PROMPT = """\
@@ -529,6 +550,48 @@ def load_pc_identity_hints(
     return "\n".join(entries)
 
 
+def _format_numbered_recap(recap_text: str) -> str:
+    """Prefix each recap line with a 4-digit 1-based line number (same convention as anchor repair)."""
+    lines = recap_text.splitlines()
+    return "\n".join(f"{i:04d}: {line}" for i, line in enumerate(lines, 1))
+
+
+def _merge_recap_evidence_span_into_source_anchors(
+    d: dict[str, Any],
+    *,
+    recap_relative_path: str,
+    recap_lines: list[str],
+    commit_sha: str,
+) -> None:
+    """Pop ``recap_evidence_span`` from *d* and set ``source_anchors`` when the span is usable.
+
+    Invalid spans are ignored so the runner can fall back to default anchors + repair.
+    """
+    span = d.pop("recap_evidence_span", None)
+    total = len(recap_lines)
+    if not isinstance(span, dict):
+        return
+    try:
+        ls = int(span["line_start"])
+        le = int(span["line_end"])
+    except (KeyError, TypeError, ValueError):
+        return
+    if ls < 1 or le < ls or le > total:
+        return
+    if le - ls + 1 > RECAP_EVIDENCE_SPAN_MAX_LINES:
+        return
+    if total > 1 and ls == 1 and le >= total:
+        return
+    _, anchor = build_recap_extracted_anchor(
+        corpus_source_path=recap_relative_path,
+        full_file_lines=recap_lines,
+        line_start_1=ls,
+        line_end_1=le,
+        commit_sha=commit_sha,
+    )
+    d["source_anchors"] = [anchor.to_json_dict()]
+
+
 def build_user_prompt(user_message: str, recap_text: str, pc_identity_hints: str = "") -> str:
     hint_block = ""
     if pc_identity_hints.strip():
@@ -540,7 +603,13 @@ def build_user_prompt(user_message: str, recap_text: str, pc_identity_hints: str
             "- If recap text conflicts with a hint, trust the recap text.\n\n"
             f"{pc_identity_hints.strip()}"
         )
-    return f"{user_message}{hint_block}\n\n---\n\n**RECAP TEXT:**\n\n{recap_text}"
+    numbered = _format_numbered_recap(recap_text)
+    return (
+        f"{user_message}{hint_block}\n\n---\n\n"
+        "**RECAP TEXT (1-based line numbers in the left column — use only these integers in "
+        "each event's ``recap_evidence_span``):**\n\n"
+        f"{numbered}"
+    )
 
 
 def _default_event_source_anchors(recap_relative_path: str, recap_text: str) -> list[dict[str, Any]]:
@@ -559,6 +628,46 @@ def _default_event_source_anchors(recap_relative_path: str, recap_text: str) -> 
 
 def _tokenize_for_overlap(text: str) -> set[str]:
     return {t for t in re.findall(r"[a-zA-Z0-9']+", text.lower()) if len(t) >= 4}
+
+
+def _distinctive_tokens_subset_of_span(text: str, span_tokens: set[str]) -> bool:
+    """True when every len>=4 alphanumeric token in *text* appears in *span_tokens*.
+
+    Used to block anchor-repair rewrites that introduce recap terms absent from the
+    model-selected line span. Vacuously true when *text* has no such tokens.
+    """
+    proposed = _tokenize_for_overlap(text)
+    if not proposed:
+        return True
+    return proposed <= span_tokens
+
+
+def _apply_revised_event_text_if_supported(
+    *,
+    item: AnchorRepairItem,
+    span_tokens: set[str],
+) -> tuple[bool, bool, str | None, list[str]]:
+    """Return (apply_name, apply_outcomes, name_or_none, outcomes_or_empty).
+
+    **Not sufficient for trust when used alone:** every len>=4 token in the proposed text
+    may still appear in the same span as a *different* actor performing that action. Callers
+    that enable `_ANCHOR_REPAIR_APPLY_TEXT_REWRITES` should treat this as a lexical gate only.
+
+    Conservative policy when applied: `revised_event_name` applies only if supported;
+    `revised_outcomes` apply only as a full list when *every* non-empty outcome string is
+    supported.
+    """
+    name: str | None = None
+    if item.revised_event_name and str(item.revised_event_name).strip():
+        name = str(item.revised_event_name).strip()
+    revised_outcomes = [str(x).strip() for x in (item.revised_outcomes or []) if str(x).strip()]
+
+    apply_name = bool(name and _distinctive_tokens_subset_of_span(name, span_tokens))
+    apply_outcomes = bool(
+        revised_outcomes
+        and all(_distinctive_tokens_subset_of_span(o, span_tokens) for o in revised_outcomes)
+    )
+    return apply_name, apply_outcomes, name, revised_outcomes
 
 
 def _event_text_blob(event: dict[str, Any]) -> str:
@@ -608,6 +717,110 @@ def _build_anchor_repair_user_prompt(
     )
 
 
+# Slug segments this common are weak evidence on their own (too many false positives in prose).
+_GENERIC_SLUG_PARTS = frozenset(
+    {
+        "captain",
+        "lord",
+        "lady",
+        "general",
+        "doctor",
+        "sergeant",
+        "commander",
+        "private",
+        "guard",
+        "sir",
+        "king",
+        "queen",
+        "prince",
+        "princess",
+        "the",
+    }
+)
+
+# Recap prose sometimes spells a PC differently than the canonical hub slug. Anchor repair
+# must still tie `participants[]` to the selected line span without reading benchmark gold.
+_SLUG_RECAP_SURFACE_ALIASES: dict[str, frozenset[str]] = {
+    # Session 20 recap uses "Karesmine" while the slug is `karsemine`.
+    "karsemine": frozenset({"karesmine"}),
+}
+
+
+def _participant_slug_surface_forms(slug: str) -> list[str]:
+    """Lowercase substrings that may tie a corpus participant slug to recap prose."""
+    s = str(slug).strip().lower()
+    if not s:
+        return []
+    forms: list[str] = []
+    for candidate in (s, s.replace("_", " ")):
+        if candidate and candidate not in forms:
+            forms.append(candidate)
+    parts = s.split("_")
+    if len(parts) >= 2:
+        for part in parts:
+            if len(part) >= 4 and part not in _GENERIC_SLUG_PARTS and part not in forms:
+                forms.append(part)
+    for alias in _SLUG_RECAP_SURFACE_ALIASES.get(s, frozenset()):
+        if alias and alias not in forms:
+            forms.append(alias)
+    return forms
+
+
+def _participant_evidence_in_span(participants: list[str], span_lower: str) -> bool:
+    """Fail-closed: every participant slug must have at least one surface form in the span."""
+    slugs = [str(p).strip() for p in participants if str(p).strip()]
+    if not slugs:
+        return True
+    for slug in slugs:
+        if not any(form in span_lower for form in _participant_slug_surface_forms(slug)):
+            return False
+    return True
+
+
+def partition_weak_events_for_anchor_repair_prompt(
+    weak_events: list[dict[str, Any]],
+    *,
+    recap_relative_path: str,
+    recap_lines: list[str],
+    char_budget: int,
+) -> list[list[dict[str, Any]]]:
+    """Greedy partition so each batch's full user prompt stays within char_budget."""
+    if not weak_events:
+        return []
+    chunks: list[list[dict[str, Any]]] = []
+    current: list[dict[str, Any]] = []
+
+    def _prompt_for(batch: list[dict[str, Any]]) -> str:
+        return _build_anchor_repair_user_prompt(
+            recap_relative_path=recap_relative_path,
+            recap_lines=recap_lines,
+            weak_events=batch,
+        )
+
+    for w in weak_events:
+        if not current:
+            one = _prompt_for([w])
+            if len(one) > char_budget:
+                chunks.append([w])
+                continue
+            current = [w]
+            continue
+        trial = current + [w]
+        if len(_prompt_for(trial)) <= char_budget:
+            current = trial
+        else:
+            chunks.append(current)
+            one = _prompt_for([w])
+            if len(one) > char_budget:
+                chunks.append([w])
+                current = []
+            else:
+                current = [w]
+    if current:
+        chunks.append(current)
+    return chunks
+
+
 def _repair_weak_event_anchors(
     *,
     client: Any,
@@ -617,6 +830,7 @@ def _repair_weak_event_anchors(
     events_raw: list[dict[str, Any]],
 ) -> tuple[list[dict[str, Any]], dict[str, int], dict[str, int]]:
     recap_lines = recap_text.splitlines()
+
     if not recap_lines:
         return events_raw, {"repaired": 0, "unresolved": 0, "skipped": len(events_raw)}, {
             "input_tokens": 0,
@@ -645,39 +859,56 @@ def _repair_weak_event_anchors(
         }
 
     api_client = DungeonMindApiClient.wrap(client)
-    prompt = _build_anchor_repair_user_prompt(
+    chunks = partition_weak_events_for_anchor_repair_prompt(
+        weak,
         recap_relative_path=recap_relative_path,
         recap_lines=recap_lines,
-        weak_events=weak,
+        char_budget=_ANCHOR_REPAIR_USER_CHAR_BUDGET,
     )
-    try:
-        api_result = api_client.responses_parse(
-            action="session_events_extraction.repair_anchors",
-            model=model_id,
-            input=[
-                {"role": "system", "content": _ANCHOR_REPAIR_SYSTEM_PROMPT},
-                {"role": "user", "content": prompt},
-            ],
-            text_format=AnchorRepairOutput,
-        )
-    except Exception:
-        return events_raw, {"repaired": 0, "unresolved": len(weak), "skipped": 0}, {
-            "input_tokens": 0,
-            "output_tokens": 0,
-            "cached_tokens": 0,
-        }
 
-    parsed: AnchorRepairOutput | None = getattr(api_result.response, "output_parsed", None)
-    if parsed is None:
-        return events_raw, {"repaired": 0, "unresolved": len(weak), "skipped": 0}, {
-            "input_tokens": 0,
-            "output_tokens": 0,
-            "cached_tokens": 0,
-        }
+    repairs_by_index: dict[int, AnchorRepairItem] = {}
+    total_in_tokens = 0
+    total_out_tokens = 0
+    total_cached_tokens = 0
+    chunks_failed = 0
+
+    for batch in chunks:
+        prompt = _build_anchor_repair_user_prompt(
+            recap_relative_path=recap_relative_path,
+            recap_lines=recap_lines,
+            weak_events=batch,
+        )
+        api_result = None
+        try:
+            api_result = api_client.responses_parse(
+                action="session_events_extraction.repair_anchors",
+                model=model_id,
+                input=[
+                    {"role": "system", "content": _ANCHOR_REPAIR_SYSTEM_PROMPT},
+                    {"role": "user", "content": prompt},
+                ],
+                text_format=AnchorRepairOutput,
+            )
+        except Exception:
+            chunks_failed += 1
+            continue
+
+        parsed: AnchorRepairOutput | None = getattr(api_result.response, "output_parsed", None)
+        if parsed is None:
+            chunks_failed += 1
+            continue
+
+        u = _usage_dict_from_openai_response(api_result.response)
+        total_in_tokens += int(u["input_tokens"])
+        total_out_tokens += int(u["output_tokens"])
+        total_cached_tokens += int(u["cached_tokens"])
+
+        for item in parsed.repairs:
+            repairs_by_index[int(item.event_index)] = item
 
     repaired = 0
     unresolved = 0
-    for item in parsed.repairs:
+    for item in sorted(repairs_by_index.values(), key=lambda x: int(x.event_index)):
         idx = int(item.event_index)
         if idx < 0 or idx >= len(events_raw):
             unresolved += 1
@@ -693,19 +924,24 @@ def _repair_weak_event_anchors(
         if line_start < 1 or line_end < line_start or line_end > len(recap_lines):
             unresolved += 1
             continue
-        # Strictness: never accept whole-file replacements in repair.
-        if line_start == 1 and line_end == len(recap_lines):
+        # Strictness: never accept whole-file replacements in repair (multi-line recaps only).
+        if len(recap_lines) > 1 and line_start == 1 and line_end == len(recap_lines):
             unresolved += 1
             continue
         span_len = line_end - line_start + 1
-        if span_len > 12:
+        if span_len > RECAP_EVIDENCE_SPAN_MAX_LINES:
             unresolved += 1
             continue
 
         ev = events_raw[idx]
         original_tokens = _tokenize_for_overlap(_event_text_blob(ev))
-        span_tokens = _tokenize_for_overlap(_lines_window_text(recap_lines, line_start, line_end))
+        span_text = _lines_window_text(recap_lines, line_start, line_end)
+        span_lower = span_text.lower()
+        span_tokens = _tokenize_for_overlap(span_text)
         if original_tokens and len(original_tokens & span_tokens) == 0:
+            unresolved += 1
+            continue
+        if not _participant_evidence_in_span(list(ev.get("participants") or []), span_lower):
             unresolved += 1
             continue
 
@@ -717,15 +953,36 @@ def _repair_weak_event_anchors(
             commit_sha=resolve_git_commit_sha(cwd=_REPO_ROOT),
         )
         ev["source_anchors"] = [anchor.to_json_dict()]
-        if item.revised_event_name and item.revised_event_name.strip():
-            ev["event_name"] = item.revised_event_name.strip()
-        revised_outcomes = [str(x).strip() for x in (item.revised_outcomes or []) if str(x).strip()]
-        if revised_outcomes:
-            ev["outcomes"] = revised_outcomes
+        if _ANCHOR_REPAIR_APPLY_TEXT_REWRITES:
+            apply_name, apply_outcomes, name, revised_outcomes = (
+                _apply_revised_event_text_if_supported(
+                    item=item,
+                    span_tokens=span_tokens,
+                )
+            )
+            if apply_name and name:
+                ev["event_name"] = name
+            if apply_outcomes and revised_outcomes:
+                ev["outcomes"] = list(revised_outcomes)
         repaired += 1
 
-    repair_usage = _usage_dict_from_openai_response(api_result.response)
-    return events_raw, {"repaired": repaired, "unresolved": unresolved, "skipped": 0}, repair_usage
+    # Weak events with no repair row from model count as unresolved.
+    weak_indices = {int(w["event_index"]) for w in weak}
+    answered = set(repairs_by_index.keys())
+    unresolved += len(weak_indices - answered)
+
+    repair_stats: dict[str, int] = {
+        "repaired": repaired,
+        "unresolved": unresolved,
+        "skipped": 0,
+    }
+    if chunks_failed:
+        repair_stats["repair_chunks_failed"] = int(chunks_failed)
+    return events_raw, repair_stats, {
+        "input_tokens": total_in_tokens,
+        "output_tokens": total_out_tokens,
+        "cached_tokens": total_cached_tokens,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -791,12 +1048,20 @@ def run_session_events_extraction(
             return _error_result(f"Failed to validate output as EventExtractionOutput: {exc}")
 
     default_anchors = _default_event_source_anchors(recap_relative_path, recap_text)
+    recap_lines = recap_text.splitlines()
+    commit_sha = resolve_git_commit_sha(cwd=_REPO_ROOT)
     events_raw: list[dict[str, Any]] = []
     for ev in parsed.events:
         d = ev.model_dump()
         # Remove evidence_id if empty string (schema allows it to be absent)
         if d.get("evidence_id") == "":
             del d["evidence_id"]
+        _merge_recap_evidence_span_into_source_anchors(
+            d,
+            recap_relative_path=recap_relative_path,
+            recap_lines=recap_lines,
+            commit_sha=commit_sha,
+        )
         if not d.get("source_anchors") and default_anchors:
             d["source_anchors"] = list(default_anchors)
         events_raw.append(d)
@@ -841,11 +1106,18 @@ def run_session_events_extraction(
             file=sys.stderr,
         )
 
-    violations, telemetry = collect_session_events_violations(events_raw, grading)
+    violations, telemetry = collect_session_events_violations(
+        events_raw,
+        grading,
+        corpus_root=corpus_root,
+        recap_relative_path=recap_relative_path,
+    )
     telemetry["anchor_repair"] = repair_stats
     verdict = per_gate_verdict(violations)
     if grading.get("expected_anchored_spans") is not None:
         verdict.setdefault("SE6", "FAIL" if violations.get("se6") else "PASS")
+    if grading.get("require_verified_event_anchors"):
+        verdict.setdefault("SE7", "FAIL" if violations.get("se7") else "PASS")
     gates_passed = not violations
 
     return {

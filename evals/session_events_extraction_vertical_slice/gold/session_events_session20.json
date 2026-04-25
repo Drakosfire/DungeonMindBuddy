@@ -161,17 +161,17 @@
         "evidence_id": "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md"
       },
       {
-        "event_name": "Lysandra found with shimmery cult eyes drawing tower blueprint in dirt",
+        "event_name": "Lysandra found with shimmery cult eyes drawing a tower map in the dirt",
         "event_class": "discovery",
         "participants": ["caelynn", "captain_lysandra_ironveil"],
         "location": "wagon camp, makeshift shelter",
         "outcomes": [
           "Lysandra found inside makeshift shelter drawing in dirt and mumbling",
           "Her eyes are shimmery, matching the cult members seen earlier",
-          "She is drawing a detailed top-down blueprint of a tower",
+          "Caelynn takes a closer look at the drawing; it appears as a top-down layout of a tower in the dirt",
           "She says voices are coming from that tower and she knows where it is"
         ],
-        "must_preserve_terms": ["shimmery", "blueprint", "tower"],
+        "must_preserve_terms": ["shimmery", "tower", "drawing|blueprint"],
         "time_scope": "scene",
         "certainty": "observed",
         "evidence_id": "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md"
@@ -182,7 +182,7 @@
         "participants": ["caelynn", "captain_lysandra_ironveil"],
         "location": "wagon camp, makeshift shelter",
         "outcomes": [
-          "Caelynn prepares antidote from tea in her bag while examining the blueprint",
+          "Caelynn prepares antidote from tea in her bag while examining Lysandra's drawing in the dirt",
           "Lysandra drinks the tea and comes out of the spell",
           "Lysandra is very confused, does not know where she is or how she got there",
           "She only remembers voices in the dark after the group left into the forest"
@@ -274,6 +274,8 @@
       "ritual",
       "investigation"
     ],
+    "require_verified_event_anchors": true,
+    "se6_gold_rationale": "expected_anchored_spans (including line_range) are set by reading the Session 20 recap in the canonical corpus and recording line numbers for recap-grounded evidence. This tightens the SE6 anchor-span contract against source text, not against any model extraction. Edits to these entries must be justified from corpus lines; they must not be chosen or revised to match what a model run emitted (that would be gold deflation, not realignment).",
     "expected_anchored_spans": [
       {
         "npc_slug": "caelynn",
@@ -292,6 +294,54 @@
         "path": "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md",
         "line_range": [16, 16],
         "rationale": "Ephanna lands Eldritch Blast during swarm battle"
+      },
+      {
+        "npc_slug": "thrin_branchborn",
+        "path": "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md",
+        "line_range": [14, 14],
+        "rationale": "Thrin lands a telling bow shot and the swarm enfolds Caelynn before the line breaks"
+      },
+      {
+        "npc_slug": "stuart",
+        "path": "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md",
+        "line_range": [18, 18],
+        "rationale": "Stuart demands stolen gold and threatens Stacey with a dart in the warehouse"
+      },
+      {
+        "npc_slug": "stacey",
+        "path": "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md",
+        "line_range": [18, 18],
+        "rationale": "Stacey named as the bugbear leader; confrontation ends with the gold pouch thrown"
+      },
+      {
+        "npc_slug": "bonogo",
+        "path": "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md",
+        "line_range": [20, 20],
+        "rationale": "Bonogo follows Stacey, holds a knife to her throat, then slips away"
+      },
+      {
+        "npc_slug": "stafl",
+        "path": "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md",
+        "line_range": [22, 22],
+        "rationale": "Stafl directing workers from a makeshift barrel throne; party reports forest test results to him"
+      },
+      {
+        "npc_slug": "marla_brambleback",
+        "path": "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md",
+        "line_range": [24, 24],
+        "rationale": "Marla’s Bugbear fury, Stafl gauging the crowd, and Marla grappling Bonogo before Caelynn’s bracelet"
+      },
+      {
+        "npc_slug": "captain_lysandra_ironveil",
+        "path": "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md",
+        "line_range": [30, 30],
+        "rationale": "Lysandra at the wagon: shimmery cult eyes, tower drawing/layout in dirt (recap also says top-down blueprint), antidote tea breaks the compulsion"
+      },
+      {
+        "npc_slug": "sara_mirathorn_operator",
+        "path": "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md",
+        "line_range": [32, 32],
+        "rationale": "Sara learns Lysandra is safe and tainted meat is found; worry about who to trust; Tealeaf handoff"
       }
     ]
   }

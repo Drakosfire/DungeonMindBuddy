@@ -610,3 +610,10 @@ def test_missing_anchor_words_normalizes_smart_apostrophe() -> None:
         "River's Edge",
         ["River\u2019s Edge"],
     ) == []
+
+
+def test_missing_anchor_words_swarm_accepts_red_gnats_synonym() -> None:
+    assert _missing_anchor_words("Karsemine cuts through red gnats at the edge", ["swarm"]) == []
+    assert _missing_anchor_words("Karsemine cuts through red-gnats at the edge", ["swarm"]) == []
+    assert _missing_anchor_words("A red gnat bites Karsemine.", ["swarm"]) == []
+    assert _missing_anchor_words("No combat described here.", ["swarm"]) == ["swarm"]
