@@ -1,0 +1,32 @@
+{
+  "schema": "h1_thresholds_v2_1",
+  "notes": "Matrix v2.1 thresholds for next-iteration cohort checks (4 scenarios, N=5 each).",
+  "cohort_summaries": [
+    "evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-04-25/sentence_routing_stage_b_cohort_summary--gpt-5.4-mini--N5--20260425T233426Z.json",
+    "evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-04-25/sentence_routing_stage_b_cohort_summary--gpt-5.4-mini--N5--20260425T233459Z.json",
+    "evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-04-25/sentence_routing_stage_b_cohort_summary--gpt-5.4-mini--N5--20260425T233634Z.json",
+    "evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-04-25/sentence_routing_stage_b_cohort_summary--gpt-5.4-mini--N5--20260425T233837Z.json"
+  ],
+  "targets": {
+    "scenario_bucket_max": {
+      "sentence_routing_c1_session1_pc": {
+        "party_or_abstain_boundary": 9
+      },
+      "sentence_routing_c1_session3_pc": {
+        "named_pc_omission": 3,
+        "party_reference_boundary": 1
+      },
+      "sentence_routing_c2_session20_pc": {
+        "party_or_abstain_boundary": 49,
+        "party_reference_boundary": 9
+      },
+      "sentence_routing_c1_session2_pc": {
+        "out_of_manifest_candidate": 0
+      }
+    },
+    "schema_row_integrity_global_max": 0,
+    "c1s2_pass_rate_min": 1.0,
+    "cost_baseline_four_cohort_sum_usd": 0.302189,
+    "four_cohort_cost_sum_max_multiplier": 1.5
+  }
+}

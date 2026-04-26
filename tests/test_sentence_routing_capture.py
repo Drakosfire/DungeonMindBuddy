@@ -1,4 +1,4 @@
-"""Tests for sentence_routing_retrieval_falsification Stage A capture."""
+"""Tests for sentence_routing_retrieval_falsification ``capture_sentence_units`` (legacy: Stage A) capture."""
 
 from __future__ import annotations
 

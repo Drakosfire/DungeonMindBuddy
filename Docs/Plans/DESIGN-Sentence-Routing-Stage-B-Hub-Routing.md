@@ -1,29 +1,38 @@
-# Design — Stage B: Sentence unit → hub routing
+# Design — `route_sentence_units_to_hubs` (legacy: Stage B): sentence unit → hub routing
 
 **Date:** 2026-04-25  
-**Status:** Design (implementation: **Stage B hub-routing runner** `step2_route_run.py` + `gold_routing` + `collect_stage_b_violations`)  
+**Status:** Design (implementation: **hub-routing runner** `step2_route_run.py` + `gold_routing` + `collect_stage_b_violations`; legacy artifact prefix `sentence_routing_stage_b_*`)  
 **Parent roadmap:** `Docs/Plans/PLAN-Sentence-Routing-Stages-B-through-D.md`  
 **Guardrails:** `Docs/Plans/GUARDRAILS-Sentence-Grounded-Ingestion-Vision.md`
+
+**Vocabulary:** In prose, use explicit names:
+
+- `capture_sentence_units` (legacy: Stage A)
+- `route_sentence_units_to_hubs` (legacy: Stage B — this document)
+- `propose_new_hubs_from_unmapped_units` (legacy: Stage C)
+- `assemble_hub_scoped_retrieval_context` (legacy: Stage D)
+
+JSON keys and filenames may still say `stage_a` / `stage_b` / `sentence_routing_stage_*` for compatibility.
 
 ---
 
 ## 1. Purpose
 
-Stage B answers one question only:
+`route_sentence_units_to_hubs` answers one question only:
 
-> Given **verified sentence units** from Stage A and a **closed list of hubs**, which hubs does each unit belong to for continuity / retrieval — if any?
+> Given **verified sentence units** from `capture_sentence_units` and a **closed list of hubs**, which hubs does each unit belong to for continuity / retrieval — if any?
 
 It does **not**:
 
-- invent new hubs (that is Stage C),
-- compress prose into timelines/dossiers (Stage D / projections),
-- prove full recap coverage (Stage A + optional coverage matrix can do that separately).
+- invent new hubs (that is `propose_new_hubs_from_unmapped_units`, legacy Stage C),
+- compress prose into timelines/dossiers (`assemble_hub_scoped_retrieval_context`, legacy Stage D / projections),
+- prove full recap coverage (`capture_sentence_units` + optional coverage matrix can do that separately).
 
 ---
 
 ## 2. Inputs
 
-### 2.1 Required from Stage A
+### 2.1 Required from `capture_sentence_units` (legacy: Stage A)
 
 Each `sentence_unit`:
 
@@ -36,10 +45,10 @@ Each `sentence_unit`:
 | `text`                   | string | Unit text (trimmed segment)                                                |
 
 
-Stage B consumes **either**:
+`route_sentence_units_to_hubs` consumes **either**:
 
 - inline `sentence_units` array inside the scenario JSON (tests only), or
-- a **Stage A sidecar** JSON field `sentence_units` (production path), or
+- a **`capture_sentence_units` sidecar** JSON field `sentence_units` (production path), or
 - recomputed units from `--corpus-root` + `recap_relative_path` (deterministic replay).
 
 ### 2.2 Required from scenario `input`
@@ -48,7 +57,7 @@ Stage B consumes **either**:
 | Field                    | Required | Meaning                                                        |
 | ------------------------ | -------- | -------------------------------------------------------------- |
 | `hub_manifest`           | yes      | Closed list of routable hubs (see §3)                          |
-| `recap_relative_path`    | yes      | Same recap Stage A used                                        |
+| `recap_relative_path`    | yes      | Same recap `capture_sentence_units` used                         |
 | `corpus_root`            | optional | Defaults to repo root for synthetic; real runs use corpus root |
 | `campaign_id`, `session` | optional | Metadata for telemetry + future multi-campaign manifests       |
 
@@ -113,12 +122,12 @@ Ordered JSON array (order = display order in prompt, not priority):
 }
 ```
 
-### 4.2 `RouteRow` (one per `unit_id` from Stage A)
+### 4.2 `RouteRow` (one per `unit_id` from `capture_sentence_units`)
 
 
 | Field                     | Type     | Required | Meaning                                                                   |
 | ------------------------- | -------- | -------- | ------------------------------------------------------------------------- |
-| `unit_id`                 | string   | yes      | Must match a Stage A unit exactly                                         |
+| `unit_id`                 | string   | yes      | Must match a `capture_sentence_units` unit exactly                        |
 | `assigned_hubs`           | string[] | yes      | Subset of manifest slugs; may be empty                                    |
 | `confidence`              | string   | yes      | One of `high`, `medium`, `low` (ordered for thresholds)                   |
 | `rationale`               | string   | yes      | One or two sentences, **grounded in unit text** (quote fragments allowed) |
@@ -129,14 +138,14 @@ Ordered JSON array (order = display order in prompt, not priority):
 
 1. Every element of `assigned_hubs` ∈ manifest slug set.
 2. **No duplicate slugs** inside `assigned_hubs` for one row.
-3. **Exactly one `RouteRow` per `unit_id`** from Stage A (no missing, no extras).
+3. **Exactly one `RouteRow` per `unit_id`** from `capture_sentence_units` (no missing, no extras).
 4. If `assigned_hubs` is non-empty, `needs_new_hub_candidate` must be **false**.
-5. If `needs_new_hub_candidate` is **true**, `assigned_hubs` must be **empty** (forces Stage C to own “new hub” intent).
+5. If `needs_new_hub_candidate` is **true**, `assigned_hubs` must be **empty** (forces `propose_new_hubs_from_unmapped_units` to own “new hub” intent).
 
-**Confidence policy (for Stage C / telemetry only in v1):**
+**Confidence policy (for `propose_new_hubs_from_unmapped_units` / telemetry only in v1):**
 
-- `low` or `needs_new_hub_candidate` → eligible for Stage C (when gold expects proposals).
-- `high`/`medium` → not Stage C eligible unless gold overrides.
+- `low` or `needs_new_hub_candidate` → eligible for proposals (when gold expects proposals).
+- `high`/`medium` → not proposal-eligible unless gold overrides.
 
 ---
 
@@ -224,7 +233,16 @@ If `unit_id` is brittle across capture tweaks, allow gold:
 { "match": { "line_start": 3, "index_on_line": 1 }, "expected_hubs": ["..."] }
 ```
 
-Harness calls ``normalize_gold_routing_matches`` in ``grader.py`` to resolve ``match`` → ``unit_id`` before ``collect_stage_b_violations``. Prefer explicit ``unit_id`` once Stage A output is frozen; use ``match`` for real recaps when capture line splits may drift slightly.
+Harness calls ``normalize_gold_routing_matches`` in ``grader.py`` to resolve ``match`` → ``unit_id`` before ``collect_stage_b_violations``. Prefer explicit ``unit_id`` once `capture_sentence_units` output is frozen; use ``match`` for real recaps when capture line splits may drift slightly.
+
+### 6.6 PC-only campaign scenarios (C1/C2 recap gates)
+
+When the hub manifest lists **PC hubs only** for a session recap:
+
+1. **Named / implicated PCs** — `must_route` expects every PC the unit implicates in **any role** (actor, object, addressee, rescuer, listener, swarm target, etc.), not only the grammatical subject. This catches “missing affected PC” failures that a subject-only heuristic would miss.
+2. **Whole-party references** — after the recap has established the party roster, lines that refer to the party with **team** / **teammates** in a fight or shared job, or **first combat** + **team** language, may be graded as **must_route to all PCs** in that roster. **The group** may also be **must_route to all PCs** when the PCs are the **joint subject** of movement or approach in that unit (shared advance, arrival, or being led together). Use **must_abstain** when **the group** is only vague framing or the sentence center is not the party acting together (see `scenario_c1_session1_pc.json` `scenario_notes` for Session 1 L20/L22 vs generic cases).
+3. **Pronouns and continuation** — when a prior unit names a focal PC and a following unit continues **the same PC’s** beat with pronouns only, gold may **must_route** that PC. Do **not** treat every pronoun after a PC mention as that PC: if the clause shifts subject to another named or clearly implied NPC (e.g. “she” = a local NPC the sentence defines), use **must_abstain** for PC hubs unless a PC is named again in the unit.
+4. **`must_abstain` + out-of-manifest names** — rows with `max_assigned_hubs: 0` still forbid PC attachment. For units that name **NPCs or locations outside the PC manifest**, authors may **omit** `needs_new_hub_candidate: false` so a model that flags a real Stage-C candidate is not failed on B2 solely for `needs_new_hub_candidate: true`. Keep `needs_new_hub_candidate: false` on **purely generic** units to preserve abstain pressure (`scenario_c1_session2_pc.json` pattern).
 
 ---
 
@@ -251,7 +269,7 @@ Telemetry (always):
 
 ---
 
-## 8. Stage B hub-routing runner (CLI module `step2_route_run.py`)
+## 8. `route_sentence_units_to_hubs` hub-routing runner (CLI module `step2_route_run.py`)
 
 ### 8.1 CLI
 
@@ -260,7 +278,7 @@ Telemetry (always):
 | ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `--scenario-json` | Gold scenario path                                                                                                                                         |
 | `--corpus-root`   | Root for recap + manifest path checks                                                                                                                      |
-| `--prior-json`    | **Stage A capture sidecar** JSON (`sentence_routing_stage_a_capture--…` / `last_sentence_routing_stage_a_capture.json`); if omitted, re-run capture inline |
+| `--prior-json`    | **`capture_sentence_units` sidecar** JSON (`sentence_routing_stage_a_capture--…` / `last_sentence_routing_stage_a_capture.json`); if omitted, re-run capture inline |
 | `--model`         | Override model id                                                                                                                                          |
 | `--no-llm`        | Read `fixture_routes` from scenario for CI / grader tests only                                                                                             |
 | `--n`             | Cohort size (default 1). When **N > 1**, repeats the run and writes ``sentence_routing_stage_b_cohort_summary--<model>--N<n>--<UTC>.{json,md}`` (stderr prints cohort paths). |
@@ -272,7 +290,7 @@ Telemetry (always):
 Fields (minimum):
 
 - `schema`, `scenario_id`, `pass`, `violations` `{ "stage_b": [...] }`
-- `telemetry` (merge Stage A replay telemetry + Stage B)
+- `telemetry` (merge `capture_sentence_units` replay telemetry + routing telemetry)
 - `sentence_units` (echo or hash of input for diffability)
 - `hub_manifest` (echo)
 - `routes` (model output)
@@ -295,7 +313,7 @@ Fields (minimum):
 | Under-route (missing expected) | model too shy                      | must_route rows; check rationale gate later                              |
 | Schema invalid                 | model drift                        | strict parse; fail closed                                                |
 | Extra route rows               | model added ids                    | B0: unit set mismatch                                                    |
-| Candidate spam                 | model marks candidate often        | soft limit + Stage C rate gate                                           |
+| Candidate spam                 | model marks candidate often        | soft limit + proposals-stage rate gate                                   |
 
 
 ---
@@ -321,9 +339,9 @@ Fields (minimum):
 
 - Pydantic: `HubManifestEntry`, `RouteRow`, `RoutesEnvelope` (`route_schema.py`)
 - `collect_stage_b_violations` in `grader.py`
-- **Stage B hub-routing runner** (`step2_route_run.py`) with artifact writer + `--no-llm`
+- **`route_sentence_units_to_hubs` runner** (`step2_route_run.py`) with artifact writer + `--no-llm`
 - Extend `scenario_mini.json` with manifest + `gold_routing` + optional `fixture_routes`
 - `tests/test_sentence_routing_stage_b_grader.py`
-- README section for Stage B
+- README section for `route_sentence_units_to_hubs`
 
-When this checklist is complete, Stage B is **designed and landed** for synthetic gold; real-recap scenarios are a separate promotion step.
+When this checklist is complete, `route_sentence_units_to_hubs` is **designed and landed** for synthetic gold; real-recap scenarios are a separate promotion step.

@@ -1,4 +1,4 @@
-"""Deterministic recap line -> sentence-ish units (Stage A scaffold).
+"""Deterministic recap line -> sentence-ish units (``capture_sentence_units`` scaffold; legacy: Stage A).
 
 Split policy (v0, intentionally simple):
 - One-based line numbers into the recap file.

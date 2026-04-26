@@ -1,4 +1,4 @@
-"""Stage B harness — hub routing (sentence units → manifest hub slugs), LLM or ``--no-llm`` fixture.
+"""``route_sentence_units_to_hubs`` harness (legacy: Stage B) — hub routing (sentence units → manifest hub slugs), LLM or ``--no-llm`` fixture.
 
 Writes ``sentence_routing_stage_b_hub_routes--<scenario>--<PASS|FAIL>--<UTC>.json`` under
 ``artifacts/runs/<YYYY-MM-DD>/`` and mirrors ``artifacts/last_sentence_routing_stage_b_hub_routes.json``.
@@ -72,8 +72,34 @@ def _build_messages(
         "implies a real entity with no fitting hub.\n"
         "5. Do not assign a hub solely because the unit's source path, recap filename, or hub "
         "anchor path mentions it. Route by semantic content in the unit text only.\n"
+        "5b. When **every** hub_manifest entry has subject_class \"pc\" (PC-only list): assign a "
+        "PC hub only when that PC is an **actor, object, addressee, rescuer, target, listener, or "
+        "affected party** in this unit. A passing PC name in a beat centered on an NPC, location, "
+        "faction, item, or event does **not** require that PC hub unless the PC has one of those "
+        "roles here. If the unit is mainly about entities not represented in the manifest, "
+        "abstain: assigned_hubs=[], needs_new_hub_candidate=false. Set needs_new_hub_candidate=true "
+        "only when assigned_hubs is empty and the text clearly implies a **real** entity with no "
+        "fitting slug in the list—never use a PC hub as a stand-in for an NPC or location.\n"
+        "5b-examples (synthetic wording; follow roles, not names): "
+        "\"Rook pulled the lever.\" → Rook's PC hub if Rook is a manifest slug. "
+        "\"The warden questioned Rook.\" → Rook's hub (object/addressee); abstain for warden if "
+        "no warden hub exists in a PC-only list. "
+        "\"The party walked to the bridge.\" → every manifest PC if the PCs move **together** as "
+        "the party; abstain if **the group** is only vague framing (6c). "
+        "\"We brought the team together for the first fight.\" → every manifest PC slug (6c). "
+        "\"The scout briefed the captain.\" → captain's PC hub if captain is a manifest slug; "
+        "do not assign other PCs who are not implicated.\n"
         "6. Generic recap prose with no entity, location, faction, item, event, or world subject "
         "should abstain: assigned_hubs=[], needs_new_hub_candidate=false.\n"
+        "6b. Include a PC hub when that PC has a role from rule 5b in this unit—not merely because "
+        "the name appears in passing while another entity drives the beat.\n"
+        "6c. Assign every manifest PC slug when the unit uses **the team** / **our team** / "
+        "**teammates** in a fight or agreed job, or pairs **first combat** with **team** / "
+        "**bring the team together**. Also assign every manifest PC slug when **the group** "
+        "clearly denotes the PCs as the **joint subject** of movement or approach in the same "
+        "beat (they advance, arrive, or are led **together**). Abstain when **the group** is "
+        "only vague recap framing or the sentence center is a location/NPC with no PC in a "
+        "role from rule 5b.\n"
         "7. Rationale must cite phrases from the unit text.\n"
         "8. Output only one JSON object matching the schema; no markdown fences.\n"
     )
@@ -292,7 +318,7 @@ def run_stage_b_once(
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Stage B — hub routing: map sentence units to hub slugs (sentence routing falsification harness).",
+        description="route_sentence_units_to_hubs (legacy: Stage B) — map sentence units to hub slugs (sentence routing falsification harness).",
     )
     parser.add_argument("--scenario-json", type=Path, default=_DEFAULT_SCENARIO)
     parser.add_argument("--corpus-root", type=Path, default=_REPO_ROOT)
@@ -300,14 +326,14 @@ def main() -> int:
         "--prior-json",
         type=Path,
         default=None,
-        help="Stage A capture sidecar JSON (sentence_units); e.g. last_sentence_routing_stage_a_capture.json",
+        help="capture_sentence_units sidecar JSON (legacy: Stage A capture; sentence_units); e.g. last_sentence_routing_stage_a_capture.json",
     )
     parser.add_argument("--model", type=str, default=_DEFAULT_MODEL)
     parser.add_argument(
         "--n",
         type=int,
         default=1,
-        help="Cohort size: repeat Stage B run N times (default 1). When N>1, writes cohort summary JSON+MD.",
+        help="Cohort size: repeat hub-routing run N times (default 1). When N>1, writes cohort summary JSON+MD.",
     )
     parser.add_argument(
         "--no-llm",

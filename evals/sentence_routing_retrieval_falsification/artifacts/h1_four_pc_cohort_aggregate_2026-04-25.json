@@ -1,0 +1,30 @@
+{
+  "description": "Merged violation buckets from four PC-only route_sentence_units_to_hubs cohorts (legacy: Stage B; N=5 each, gpt-5.4-mini). Produced by h1_routing_evidence aggregate-summaries.",
+  "cohort_summaries": [
+    "evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-04-25/sentence_routing_stage_b_cohort_summary--gpt-5.4-mini--N5--20260425T233426Z.json",
+    "evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-04-25/sentence_routing_stage_b_cohort_summary--gpt-5.4-mini--N5--20260425T233459Z.json",
+    "evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-04-25/sentence_routing_stage_b_cohort_summary--gpt-5.4-mini--N5--20260425T233634Z.json",
+    "evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-04-25/sentence_routing_stage_b_cohort_summary--gpt-5.4-mini--N5--20260425T233837Z.json"
+  ],
+  "pass_rate_by_scenario": {
+    "sentence_routing_c1_session1_pc": 0.0,
+    "sentence_routing_c1_session2_pc": 1.0,
+    "sentence_routing_c1_session3_pc": 0.4,
+    "sentence_routing_c2_session20_pc": 0.0
+  },
+  "cost_usd_cohort_sum_by_scenario": {
+    "sentence_routing_c1_session1_pc": 0.047955,
+    "sentence_routing_c1_session2_pc": 0.030563,
+    "sentence_routing_c1_session3_pc": 0.092074,
+    "sentence_routing_c2_session20_pc": 0.131597
+  },
+  "four_cohort_cost_sum_usd": 0.302189,
+  "aggregate_violation_buckets": {
+    "named_pc_omission": 85,
+    "party_reference_boundary": 36,
+    "pronoun_carryover": 1,
+    "schema_row_integrity": 1
+  },
+  "h1_verdict": "REJECT_H1",
+  "h1_rationale": "named_pc_omission dominates; tighten named affected/listener PC routing before party-language rules."
+}

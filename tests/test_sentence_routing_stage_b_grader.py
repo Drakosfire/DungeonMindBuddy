@@ -1,4 +1,4 @@
-"""Stage B hub routing grader + manifest validation."""
+"""``route_sentence_units_to_hubs`` hub routing grader + manifest validation (legacy: Stage B)."""
 
 from __future__ import annotations
 
@@ -13,6 +13,12 @@ _REPO = Path(__file__).resolve().parents[1]
 _SLICE = _REPO / "evals" / "sentence_routing_retrieval_falsification"
 _SCENARIO = _SLICE / "gold" / "scenario_mini.json"
 _SCENARIO_TEMPLATE = _SLICE / "gold" / "scenario_real_recap_template.json"
+_PC_SCENARIOS = [
+    _SLICE / "gold" / "scenario_c1_session1_pc.json",
+    _SLICE / "gold" / "scenario_c1_session2_pc.json",
+    _SLICE / "gold" / "scenario_c1_session3_pc.json",
+    _SLICE / "gold" / "scenario_c2_session20_pc.json",
+]
 
 
 def test_manifest_rejects_duplicate_slugs() -> None:
@@ -149,6 +155,23 @@ def test_step2_no_llm_passes_real_recap_template_scenario() -> None:
         "evals.sentence_routing_retrieval_falsification.step2_route_run",
         "--scenario-json",
         str(_SCENARIO_TEMPLATE),
+        "--corpus-root",
+        str(_REPO),
+        "--no-llm",
+        "--no-writes",
+    ]
+    proc = subprocess.run(cmd, cwd=str(_REPO), capture_output=True, text=True, check=False)
+    assert proc.returncode == 0, proc.stderr + proc.stdout
+
+
+@pytest.mark.parametrize("scenario_path", _PC_SCENARIOS, ids=lambda p: p.stem)
+def test_step2_no_llm_passes_pc_gold_scenarios(scenario_path: Path) -> None:
+    cmd = [
+        sys.executable,
+        "-m",
+        "evals.sentence_routing_retrieval_falsification.step2_route_run",
+        "--scenario-json",
+        str(scenario_path),
         "--corpus-root",
         str(_REPO),
         "--no-llm",

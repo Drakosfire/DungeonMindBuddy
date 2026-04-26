@@ -1,8 +1,8 @@
-"""Stage gates for ``sentence_routing_retrieval_falsification``.
+"""Gates for ``sentence_routing_retrieval_falsification`` (legacy stage letters in function names).
 
-- **Stage A (deterministic capture):** ``collect_stage_a_violations``.
-- **Stage B (hub routing):** ``collect_stage_b_violations``.
-- **Stages C–D:** proposal/retrieval graders still TBD; ``collect_stub_stage_bcd_telemetry`` only flags presence of gold keys for sidecars emitted from Stage A-only runs.
+- **``capture_sentence_units`` (legacy: Stage A — deterministic capture):** ``collect_stage_a_violations``.
+- **``route_sentence_units_to_hubs`` (legacy: Stage B — hub routing):** ``collect_stage_b_violations``.
+- **Later pipeline steps (legacy: Stages C–D):** proposal/retrieval graders still TBD; ``collect_stub_stage_bcd_telemetry`` only flags presence of gold keys for sidecars emitted from capture-only runs.
 """
 
 from __future__ import annotations
@@ -169,7 +169,7 @@ def collect_stage_b_violations(
     manifest_slugs: set[str],
     expected_unit_ids: set[str],
 ) -> tuple[list[str], dict[str, Any]]:
-    """Stage B gates B0–B2 (hard); B3 soft limits only in telemetry (DESIGN §6.4)."""
+    """Hub-routing gates B0–B2 (hard; legacy: Stage B); B3 soft limits only in telemetry (DESIGN §6.4)."""
     violations: list[str] = []
     by_id: dict[str, RouteRow] = {}
     for r in routes:
@@ -184,7 +184,9 @@ def collect_stage_b_violations(
         if missing:
             violations.append(f"B0: missing route rows for unit_ids: {missing}")
         if extra:
-            violations.append(f"B0: unknown route unit_ids (not from Stage A): {extra}")
+            violations.append(
+                f"B0: unknown route unit_ids (not from capture_sentence_units / Stage A): {extra}"
+            )
 
     for uid, row in by_id.items():
         for hub in row.assigned_hubs:

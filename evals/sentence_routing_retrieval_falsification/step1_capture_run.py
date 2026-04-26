@@ -1,4 +1,4 @@
-"""Stage A harness — deterministic sentence-unit capture + sidecar + capture grader.
+"""``capture_sentence_units`` harness (legacy: Stage A) — deterministic sentence-unit capture + sidecar + capture grader.
 
 Writes ``sentence_routing_stage_a_capture--<scenario>--<PASS|FAIL>--<UTC>.json`` under
 ``artifacts/runs/<YYYY-MM-DD>/`` and mirrors ``artifacts/last_sentence_routing_stage_a_capture.json``.
@@ -35,7 +35,7 @@ def _date_folder() -> str:
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Stage A — deterministic sentence-unit capture (sentence routing falsification harness).",
+        description="capture_sentence_units (legacy: Stage A) — deterministic sentence-unit capture (sentence routing falsification harness).",
     )
     parser.add_argument(
         "--scenario-json",

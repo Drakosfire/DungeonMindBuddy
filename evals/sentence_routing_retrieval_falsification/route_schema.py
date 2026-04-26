@@ -1,4 +1,4 @@
-"""Stage B: hub manifest + strict ``sentence_hub_routes_v1`` envelope (Pydantic).
+"""``route_sentence_units_to_hubs`` schema (legacy: Stage B): hub manifest + strict ``sentence_hub_routes_v1`` envelope (Pydantic).
 
 Spec: ``Docs/Plans/DESIGN-Sentence-Routing-Stage-B-Hub-Routing.md`` §3–4.
 """

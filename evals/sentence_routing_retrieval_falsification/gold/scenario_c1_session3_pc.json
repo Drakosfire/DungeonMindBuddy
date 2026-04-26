@@ -1,7 +1,7 @@
 {
   "schema": "sentence_routing_falsification_v1",
   "scenario_id": "sentence_routing_c1_session3_pc",
-  "scenario_notes": "Campaign 1 Session 3 PC-only Stage B routing gate. Manifest is intentionally limited to Campaign 1 PC hubs; NPC/location/entity gold should be added in later sibling scenarios or later revisions after PC routing is stable. Gold uses line_start/index_on_line match rows to avoid storing recap prose in the scenario.",
+  "scenario_notes": "Campaign 1 Session 3 PC-only route_sentence_units_to_hubs routing gate (legacy: Stage B). Manifest is limited to C1 PC hubs. must_route rows require every named PC in the unit (including affected/listener/rescuer roles, not only grammatical subject). Whole-party roster beats after the party is named may require multiple PCs in one unit. must_abstain rows keep zero PC assignment pressure on generic/NPC-only units; omit needs_new_hub_candidate:false when a named out-of-manifest entity could fairly be a new-hub candidate (grader does not fail on candidate=true alone). Gold uses match rows to avoid storing recap prose in the scenario.",
   "input": {
     "recap_relative_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Session Recaps/Session 3 - The Stone Bridge Flood.md",
     "campaign_id": "longmont-c1",

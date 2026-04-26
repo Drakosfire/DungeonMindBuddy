@@ -1,0 +1,1539 @@
+{
+  "schema": "sentence_routing_falsification_v1",
+  "scenario_id": "sentence_routing_c2_session20_pc",
+  "scenario_notes": "Campaign 2 Session 20 PC-only route_sentence_units_to_hubs routing gate (legacy: Stage B). Must-route rows cover explicit named C2 PC mentions and affected/listener PCs in the same unit. Continuation pronouns route to a PC only when that PC is still the clear subject of the beat; a following clause about another NPC (e.g. “she” = Marla after Stafl was mentioned earlier) is abstain unless a PC is named again. Thrin, Stuart, Stacey, Marla, Lysandra, Sara, Tealeaf, and locations without a named PC in the unit stay out of PC hubs unless must_abstain says otherwise; named out-of-manifest entities may use needs_new_hub_candidate per runner rules.",
+  "input": {
+    "recap_relative_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md",
+    "campaign_id": "longmont-c2",
+    "session": 20,
+    "validate_manifest_paths": true,
+    "hub_manifest": [
+      {
+        "slug": "baergrom",
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/baergrom/README.md",
+        "subject_class": "pc",
+        "campaign_id": "longmont-c2",
+        "label": "baergrom — Campaign 2 PC hub"
+      },
+      {
+        "slug": "bonogo",
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/bonogo/README.md",
+        "subject_class": "pc",
+        "campaign_id": "longmont-c2",
+        "label": "bonogo — Campaign 2 PC hub"
+      },
+      {
+        "slug": "caelynn",
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/caelynn/README.md",
+        "subject_class": "pc",
+        "campaign_id": "longmont-c2",
+        "label": "caelynn — Campaign 2 PC hub"
+      },
+      {
+        "slug": "ephanna",
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/ephanna/README.md",
+        "subject_class": "pc",
+        "campaign_id": "longmont-c2",
+        "label": "ephanna — Campaign 2 PC hub"
+      },
+      {
+        "slug": "karsemine",
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/karsemine/README.md",
+        "subject_class": "pc",
+        "campaign_id": "longmont-c2",
+        "label": "karsemine — Campaign 2 PC hub"
+      },
+      {
+        "slug": "stafl",
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/stafl/README.md",
+        "subject_class": "pc",
+        "campaign_id": "longmont-c2",
+        "label": "stafl — Campaign 2 PC hub"
+      }
+    ]
+  },
+  "gold_capture": {
+    "min_units": 90,
+    "max_units": 110,
+    "must_contain_substrings_anywhere": [
+      "Bonogo",
+      "Caelynn",
+      "Ephanna",
+      "Karesmine",
+      "Stafl"
+    ]
+  },
+  "gold_routing": {
+    "must_route": [
+      {
+        "match": {
+          "line_start": 14,
+          "index_on_line": 1
+        },
+        "expected_hubs": [
+          "ephanna",
+          "karsemine",
+          "caelynn"
+        ],
+        "max_extra_hubs": 0
+      },
+      {
+        "match": {
+          "line_start": 14,
+          "index_on_line": 3
+        },
+        "expected_hubs": [
+          "caelynn"
+        ],
+        "max_extra_hubs": 0
+      },
+      {
+        "match": {
+          "line_start": 16,
+          "index_on_line": 1
+        },
+        "expected_hubs": [
+          "ephanna"
+        ],
+        "max_extra_hubs": 0
+      },
+      {
+        "match": {
+          "line_start": 16,
+          "index_on_line": 3
+        },
+        "expected_hubs": [
+          "caelynn",
+          "karsemine"
+        ],
+        "max_extra_hubs": 0
+      },
+      {
+        "match": {
+          "line_start": 16,
+          "index_on_line": 5
+        },
+        "expected_hubs": [
+          "caelynn"
+        ],
+        "max_extra_hubs": 0
+      },
+      {
+        "match": {
+          "line_start": 16,
+          "index_on_line": 6
+        },
+        "expected_hubs": [
+          "caelynn"
+        ],
+        "max_extra_hubs": 0
+      },
+      {
+        "match": {
+          "line_start": 18,
+          "index_on_line": 1
+        },
+        "expected_hubs": [
+          "bonogo"
+        ],
+        "max_extra_hubs": 0
+      },
+      {
+        "match": {
+          "line_start": 18,
+          "index_on_line": 6
+        },
+        "expected_hubs": [
+          "bonogo"
+        ],
+        "max_extra_hubs": 0
+      },
+      {
+        "match": {
+          "line_start": 18,
+          "index_on_line": 9
+        },
+        "expected_hubs": [
+          "bonogo"
+        ],
+        "max_extra_hubs": 0
+      },
+      {
+        "match": {
+          "line_start": 20,
+          "index_on_line": 2
+        },
+        "expected_hubs": [
+          "bonogo"
+        ],
+        "max_extra_hubs": 0
+      },
+      {
+        "match": {
+          "line_start": 20,
+          "index_on_line": 9
+        },
+        "expected_hubs": [
+          "bonogo"
+        ],
+        "max_extra_hubs": 0
+      },
+      {
+        "match": {
+          "line_start": 22,
+          "index_on_line": 1
+        },
+        "expected_hubs": [
+          "stafl"
+        ],
+        "max_extra_hubs": 0
+      },
+      {
+        "match": {
+          "line_start": 22,
+          "index_on_line": 2
+        },
+        "expected_hubs": [
+          "ephanna",
+          "karsemine",
+          "caelynn"
+        ],
+        "max_extra_hubs": 0
+      },
+      {
+        "match": {
+          "line_start": 22,
+          "index_on_line": 3
+        },
+        "expected_hubs": [
+          "bonogo"
+        ],
+        "max_extra_hubs": 0
+      },
+      {
+        "match": {
+          "line_start": 22,
+          "index_on_line": 5
+        },
+        "expected_hubs": [
+          "bonogo"
+        ],
+        "max_extra_hubs": 0
+      },
+      {
+        "match": {
+          "line_start": 22,
+          "index_on_line": 6
+        },
+        "expected_hubs": [
+          "bonogo"
+        ],
+        "max_extra_hubs": 0
+      },
+      {
+        "match": {
+          "line_start": 24,
+          "index_on_line": 3
+        },
+        "expected_hubs": [
+          "stafl"
+        ],
+        "max_extra_hubs": 0
+      },
+      {
+        "match": {
+          "line_start": 24,
+          "index_on_line": 4
+        },
+        "expected_hubs": [
+          "stafl"
+        ],
+        "max_extra_hubs": 0
+      },
+      {
+        "match": {
+          "line_start": 24,
+          "index_on_line": 6
+        },
+        "expected_hubs": [
+          "bonogo"
+        ],
+        "max_extra_hubs": 0
+      },
+      {
+        "match": {
+          "line_start": 24,
+          "index_on_line": 7
+        },
+        "expected_hubs": [
+          "bonogo",
+          "caelynn"
+        ],
+        "max_extra_hubs": 0
+      },
+      {
+        "match": {
+          "line_start": 26,
+          "index_on_line": 6
+        },
+        "expected_hubs": [
+          "caelynn",
+          "bonogo",
+          "ephanna"
+        ],
+        "max_extra_hubs": 0
+      },
+      {
+        "match": {
+          "line_start": 26,
+          "index_on_line": 7
+        },
+        "expected_hubs": [
+          "caelynn"
+        ],
+        "max_extra_hubs": 0
+      },
+      {
+        "match": {
+          "line_start": 28,
+          "index_on_line": 1
+        },
+        "expected_hubs": [
+          "caelynn"
+        ],
+        "max_extra_hubs": 0
+      },
+      {
+        "match": {
+          "line_start": 28,
+          "index_on_line": 3
+        },
+        "expected_hubs": [
+          "caelynn"
+        ],
+        "max_extra_hubs": 0
+      },
+      {
+        "match": {
+          "line_start": 28,
+          "index_on_line": 4
+        },
+        "expected_hubs": [
+          "caelynn"
+        ],
+        "max_extra_hubs": 0
+      },
+      {
+        "match": {
+          "line_start": 28,
+          "index_on_line": 5
+        },
+        "expected_hubs": [
+          "caelynn"
+        ],
+        "max_extra_hubs": 0
+      },
+      {
+        "match": {
+          "line_start": 28,
+          "index_on_line": 6
+        },
+        "expected_hubs": [
+          "caelynn"
+        ],
+        "max_extra_hubs": 0
+      },
+      {
+        "match": {
+          "line_start": 28,
+          "index_on_line": 9
+        },
+        "expected_hubs": [
+          "caelynn",
+          "karsemine"
+        ],
+        "max_extra_hubs": 0
+      },
+      {
+        "match": {
+          "line_start": 30,
+          "index_on_line": 1
+        },
+        "expected_hubs": [
+          "karsemine"
+        ],
+        "max_extra_hubs": 0
+      },
+      {
+        "match": {
+          "line_start": 30,
+          "index_on_line": 2
+        },
+        "expected_hubs": [
+          "ephanna"
+        ],
+        "max_extra_hubs": 0
+      },
+      {
+        "match": {
+          "line_start": 30,
+          "index_on_line": 4
+        },
+        "expected_hubs": [
+          "caelynn"
+        ],
+        "max_extra_hubs": 0
+      },
+      {
+        "match": {
+          "line_start": 30,
+          "index_on_line": 7
+        },
+        "expected_hubs": [
+          "caelynn"
+        ],
+        "max_extra_hubs": 0
+      },
+      {
+        "match": {
+          "line_start": 30,
+          "index_on_line": 9
+        },
+        "expected_hubs": [
+          "caelynn"
+        ],
+        "max_extra_hubs": 0
+      },
+      {
+        "match": {
+          "line_start": 32,
+          "index_on_line": 1
+        },
+        "expected_hubs": [
+          "karsemine"
+        ],
+        "max_extra_hubs": 0
+      },
+      {
+        "match": {
+          "line_start": 32,
+          "index_on_line": 3
+        },
+        "expected_hubs": [
+          "stafl"
+        ],
+        "max_extra_hubs": 0
+      },
+      {
+        "match": {
+          "line_start": 32,
+          "index_on_line": 7
+        },
+        "expected_hubs": [
+          "caelynn"
+        ],
+        "max_extra_hubs": 0
+      },
+      {
+        "match": {
+          "line_start": 32,
+          "index_on_line": 9
+        },
+        "expected_hubs": [
+          "caelynn"
+        ],
+        "max_extra_hubs": 0
+      },
+      {
+        "match": {
+          "line_start": 34,
+          "index_on_line": 1
+        },
+        "expected_hubs": [
+          "caelynn"
+        ],
+        "max_extra_hubs": 0
+      },
+      {
+        "match": {
+          "line_start": 34,
+          "index_on_line": 2
+        },
+        "expected_hubs": [
+          "karsemine"
+        ],
+        "max_extra_hubs": 0
+      },
+      {
+        "match": {
+          "line_start": 34,
+          "index_on_line": 3
+        },
+        "expected_hubs": [
+          "ephanna"
+        ],
+        "max_extra_hubs": 0
+      }
+    ],
+    "must_abstain": [
+      {
+        "match": {
+          "line_start": 14,
+          "index_on_line": 2
+        },
+        "max_assigned_hubs": 0,
+        "needs_new_hub_candidate": false
+      },
+      {
+        "match": {
+          "line_start": 16,
+          "index_on_line": 7
+        },
+        "max_assigned_hubs": 0,
+        "needs_new_hub_candidate": false
+      },
+      {
+        "match": {
+          "line_start": 18,
+          "index_on_line": 2
+        },
+        "max_assigned_hubs": 0,
+        "needs_new_hub_candidate": false
+      },
+      {
+        "match": {
+          "line_start": 18,
+          "index_on_line": 3
+        },
+        "max_assigned_hubs": 0,
+        "needs_new_hub_candidate": false
+      },
+      {
+        "match": {
+          "line_start": 18,
+          "index_on_line": 4
+        },
+        "max_assigned_hubs": 0,
+        "needs_new_hub_candidate": false
+      },
+      {
+        "match": {
+          "line_start": 18,
+          "index_on_line": 5
+        },
+        "max_assigned_hubs": 0,
+        "needs_new_hub_candidate": false
+      },
+      {
+        "match": {
+          "line_start": 18,
+          "index_on_line": 7
+        },
+        "max_assigned_hubs": 0,
+        "needs_new_hub_candidate": false
+      },
+      {
+        "match": {
+          "line_start": 18,
+          "index_on_line": 8
+        },
+        "max_assigned_hubs": 0,
+        "needs_new_hub_candidate": false
+      },
+      {
+        "match": {
+          "line_start": 18,
+          "index_on_line": 10
+        },
+        "max_assigned_hubs": 0,
+        "needs_new_hub_candidate": false
+      },
+      {
+        "match": {
+          "line_start": 20,
+          "index_on_line": 1
+        },
+        "max_assigned_hubs": 0,
+        "needs_new_hub_candidate": false
+      },
+      {
+        "match": {
+          "line_start": 20,
+          "index_on_line": 8
+        },
+        "max_assigned_hubs": 0,
+        "needs_new_hub_candidate": false
+      },
+      {
+        "match": {
+          "line_start": 22,
+          "index_on_line": 7
+        },
+        "max_assigned_hubs": 0,
+        "needs_new_hub_candidate": false
+      },
+      {
+        "match": {
+          "line_start": 24,
+          "index_on_line": 1
+        },
+        "max_assigned_hubs": 0,
+        "needs_new_hub_candidate": false
+      },
+      {
+        "match": {
+          "line_start": 24,
+          "index_on_line": 2
+        },
+        "max_assigned_hubs": 0,
+        "needs_new_hub_candidate": false
+      },
+      {
+        "match": {
+          "line_start": 24,
+          "index_on_line": 5
+        },
+        "max_assigned_hubs": 0,
+        "needs_new_hub_candidate": false
+      },
+      {
+        "match": {
+          "line_start": 24,
+          "index_on_line": 9
+        },
+        "max_assigned_hubs": 0,
+        "needs_new_hub_candidate": false
+      },
+      {
+        "match": {
+          "line_start": 26,
+          "index_on_line": 1
+        },
+        "max_assigned_hubs": 0,
+        "needs_new_hub_candidate": false
+      },
+      {
+        "match": {
+          "line_start": 26,
+          "index_on_line": 2
+        },
+        "max_assigned_hubs": 0,
+        "needs_new_hub_candidate": false
+      },
+      {
+        "match": {
+          "line_start": 26,
+          "index_on_line": 3
+        },
+        "max_assigned_hubs": 0,
+        "needs_new_hub_candidate": false
+      },
+      {
+        "match": {
+          "line_start": 26,
+          "index_on_line": 4
+        },
+        "max_assigned_hubs": 0,
+        "needs_new_hub_candidate": false
+      },
+      {
+        "match": {
+          "line_start": 26,
+          "index_on_line": 5
+        },
+        "max_assigned_hubs": 0,
+        "needs_new_hub_candidate": false
+      },
+      {
+        "match": {
+          "line_start": 28,
+          "index_on_line": 2
+        },
+        "max_assigned_hubs": 0,
+        "needs_new_hub_candidate": false
+      },
+      {
+        "match": {
+          "line_start": 28,
+          "index_on_line": 7
+        },
+        "max_assigned_hubs": 0,
+        "needs_new_hub_candidate": false
+      },
+      {
+        "match": {
+          "line_start": 28,
+          "index_on_line": 8
+        },
+        "max_assigned_hubs": 0,
+        "needs_new_hub_candidate": false
+      },
+      {
+        "match": {
+          "line_start": 30,
+          "index_on_line": 3
+        },
+        "max_assigned_hubs": 0,
+        "needs_new_hub_candidate": false
+      },
+      {
+        "match": {
+          "line_start": 30,
+          "index_on_line": 5
+        },
+        "max_assigned_hubs": 0,
+        "needs_new_hub_candidate": false
+      },
+      {
+        "match": {
+          "line_start": 30,
+          "index_on_line": 6
+        },
+        "max_assigned_hubs": 0,
+        "needs_new_hub_candidate": false
+      },
+      {
+        "match": {
+          "line_start": 30,
+          "index_on_line": 10
+        },
+        "max_assigned_hubs": 0,
+        "needs_new_hub_candidate": false
+      },
+      {
+        "match": {
+          "line_start": 30,
+          "index_on_line": 11
+        },
+        "max_assigned_hubs": 0,
+        "needs_new_hub_candidate": false
+      },
+      {
+        "match": {
+          "line_start": 30,
+          "index_on_line": 12
+        },
+        "max_assigned_hubs": 0,
+        "needs_new_hub_candidate": false
+      },
+      {
+        "match": {
+          "line_start": 30,
+          "index_on_line": 13
+        },
+        "max_assigned_hubs": 0,
+        "needs_new_hub_candidate": false
+      },
+      {
+        "match": {
+          "line_start": 32,
+          "index_on_line": 5
+        },
+        "max_assigned_hubs": 0,
+        "needs_new_hub_candidate": false
+      },
+      {
+        "match": {
+          "line_start": 32,
+          "index_on_line": 6
+        },
+        "max_assigned_hubs": 0,
+        "needs_new_hub_candidate": false
+      },
+      {
+        "match": {
+          "line_start": 32,
+          "index_on_line": 8
+        },
+        "max_assigned_hubs": 0,
+        "needs_new_hub_candidate": false
+      }
+    ],
+    "soft_limits": {
+      "max_mean_assigned_hubs_per_unit": 1.0,
+      "max_unresolved_fraction": 0.8
+    }
+  },
+  "gold_proposals": {},
+  "gold_retrieval": {},
+  "fixture_routes": {
+    "schema": "sentence_hub_routes_v1",
+    "routes": [
+      {
+        "unit_id": "u-L0001-01",
+        "assigned_hubs": [],
+        "confidence": "low",
+        "rationale": "No PC hub assignment required by this PC-only scenario.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0002-01",
+        "assigned_hubs": [],
+        "confidence": "low",
+        "rationale": "No PC hub assignment required by this PC-only scenario.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0003-01",
+        "assigned_hubs": [],
+        "confidence": "low",
+        "rationale": "No PC hub assignment required by this PC-only scenario.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0004-01",
+        "assigned_hubs": [],
+        "confidence": "low",
+        "rationale": "No PC hub assignment required by this PC-only scenario.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0005-01",
+        "assigned_hubs": [],
+        "confidence": "low",
+        "rationale": "No PC hub assignment required by this PC-only scenario.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0006-01",
+        "assigned_hubs": [],
+        "confidence": "low",
+        "rationale": "No PC hub assignment required by this PC-only scenario.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0007-01",
+        "assigned_hubs": [],
+        "confidence": "low",
+        "rationale": "No PC hub assignment required by this PC-only scenario.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0008-01",
+        "assigned_hubs": [],
+        "confidence": "low",
+        "rationale": "No PC hub assignment required by this PC-only scenario.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0009-01",
+        "assigned_hubs": [],
+        "confidence": "low",
+        "rationale": "No PC hub assignment required by this PC-only scenario.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0010-01",
+        "assigned_hubs": [],
+        "confidence": "low",
+        "rationale": "No PC hub assignment required by this PC-only scenario.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0011-01",
+        "assigned_hubs": [],
+        "confidence": "low",
+        "rationale": "No PC hub assignment required by this PC-only scenario.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0014-01",
+        "assigned_hubs": [
+          "ephanna",
+          "karsemine",
+          "caelynn"
+        ],
+        "confidence": "high",
+        "rationale": "PC name match for the scenario gold.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0014-02",
+        "assigned_hubs": [],
+        "confidence": "low",
+        "rationale": "No PC hub assignment required by this PC-only scenario.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0014-03",
+        "assigned_hubs": [
+          "caelynn"
+        ],
+        "confidence": "high",
+        "rationale": "PC name match for the scenario gold.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0014-04",
+        "assigned_hubs": [],
+        "confidence": "low",
+        "rationale": "No PC hub assignment required by this PC-only scenario.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0016-01",
+        "assigned_hubs": [
+          "ephanna"
+        ],
+        "confidence": "high",
+        "rationale": "PC name match for the scenario gold.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0016-02",
+        "assigned_hubs": [],
+        "confidence": "low",
+        "rationale": "No PC hub assignment required by this PC-only scenario.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0016-03",
+        "assigned_hubs": [
+          "caelynn",
+          "karsemine"
+        ],
+        "confidence": "high",
+        "rationale": "PC name match for the scenario gold.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0016-04",
+        "assigned_hubs": [],
+        "confidence": "low",
+        "rationale": "No PC hub assignment required by this PC-only scenario.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0016-05",
+        "assigned_hubs": [
+          "caelynn"
+        ],
+        "confidence": "high",
+        "rationale": "PC name match for the scenario gold.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0016-06",
+        "assigned_hubs": [
+          "caelynn"
+        ],
+        "confidence": "high",
+        "rationale": "PC name match for the scenario gold.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0016-07",
+        "assigned_hubs": [],
+        "confidence": "low",
+        "rationale": "No PC hub assignment required by this PC-only scenario.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0018-01",
+        "assigned_hubs": [
+          "bonogo"
+        ],
+        "confidence": "high",
+        "rationale": "PC name match for the scenario gold.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0018-02",
+        "assigned_hubs": [],
+        "confidence": "low",
+        "rationale": "No PC hub assignment required by this PC-only scenario.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0018-03",
+        "assigned_hubs": [],
+        "confidence": "low",
+        "rationale": "No PC hub assignment required by this PC-only scenario.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0018-04",
+        "assigned_hubs": [],
+        "confidence": "low",
+        "rationale": "No PC hub assignment required by this PC-only scenario.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0018-05",
+        "assigned_hubs": [],
+        "confidence": "low",
+        "rationale": "No PC hub assignment required by this PC-only scenario.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0018-06",
+        "assigned_hubs": [
+          "bonogo"
+        ],
+        "confidence": "high",
+        "rationale": "PC name match for the scenario gold.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0018-07",
+        "assigned_hubs": [],
+        "confidence": "low",
+        "rationale": "No PC hub assignment required by this PC-only scenario.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0018-08",
+        "assigned_hubs": [],
+        "confidence": "low",
+        "rationale": "No PC hub assignment required by this PC-only scenario.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0018-09",
+        "assigned_hubs": [
+          "bonogo"
+        ],
+        "confidence": "high",
+        "rationale": "PC name match for the scenario gold.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0018-10",
+        "assigned_hubs": [],
+        "confidence": "low",
+        "rationale": "No PC hub assignment required by this PC-only scenario.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0020-01",
+        "assigned_hubs": [],
+        "confidence": "low",
+        "rationale": "No PC hub assignment required by this PC-only scenario.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0020-02",
+        "assigned_hubs": [
+          "bonogo"
+        ],
+        "confidence": "high",
+        "rationale": "PC name match for the scenario gold.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0020-03",
+        "assigned_hubs": [],
+        "confidence": "low",
+        "rationale": "No PC hub assignment required by this PC-only scenario.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0020-04",
+        "assigned_hubs": [],
+        "confidence": "low",
+        "rationale": "No PC hub assignment required by this PC-only scenario.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0020-05",
+        "assigned_hubs": [],
+        "confidence": "low",
+        "rationale": "No PC hub assignment required by this PC-only scenario.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0020-06",
+        "assigned_hubs": [],
+        "confidence": "low",
+        "rationale": "No PC hub assignment required by this PC-only scenario.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0020-07",
+        "assigned_hubs": [],
+        "confidence": "low",
+        "rationale": "No PC hub assignment required by this PC-only scenario.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0020-08",
+        "assigned_hubs": [],
+        "confidence": "low",
+        "rationale": "No PC hub assignment required by this PC-only scenario.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0020-09",
+        "assigned_hubs": [
+          "bonogo"
+        ],
+        "confidence": "high",
+        "rationale": "PC name match for the scenario gold.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0022-01",
+        "assigned_hubs": [
+          "stafl"
+        ],
+        "confidence": "high",
+        "rationale": "PC name match for the scenario gold.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0022-02",
+        "assigned_hubs": [
+          "ephanna",
+          "karsemine",
+          "caelynn"
+        ],
+        "confidence": "high",
+        "rationale": "PC name match for the scenario gold.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0022-03",
+        "assigned_hubs": [
+          "bonogo"
+        ],
+        "confidence": "high",
+        "rationale": "PC name match for the scenario gold.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0022-04",
+        "assigned_hubs": [],
+        "confidence": "low",
+        "rationale": "No PC hub assignment required by this PC-only scenario.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0022-05",
+        "assigned_hubs": [
+          "bonogo"
+        ],
+        "confidence": "high",
+        "rationale": "PC name match for the scenario gold.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0022-06",
+        "assigned_hubs": [
+          "bonogo"
+        ],
+        "confidence": "high",
+        "rationale": "PC name match for the scenario gold.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0022-07",
+        "assigned_hubs": [],
+        "confidence": "low",
+        "rationale": "No PC hub assignment required by this PC-only scenario.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0024-01",
+        "assigned_hubs": [],
+        "confidence": "low",
+        "rationale": "No PC hub assignment required by this PC-only scenario.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0024-02",
+        "assigned_hubs": [],
+        "confidence": "low",
+        "rationale": "No PC hub assignment required by this PC-only scenario.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0024-03",
+        "assigned_hubs": [
+          "stafl"
+        ],
+        "confidence": "high",
+        "rationale": "PC name match for the scenario gold.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0024-04",
+        "assigned_hubs": [
+          "stafl"
+        ],
+        "confidence": "high",
+        "rationale": "PC name match for the scenario gold.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0024-05",
+        "assigned_hubs": [],
+        "confidence": "low",
+        "rationale": "Pronoun “she” refers to Marla’s authority, not a named PC in this unit.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0024-06",
+        "assigned_hubs": [
+          "bonogo"
+        ],
+        "confidence": "high",
+        "rationale": "PC name match for the scenario gold.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0024-07",
+        "assigned_hubs": [
+          "bonogo",
+          "caelynn"
+        ],
+        "confidence": "high",
+        "rationale": "PC name match for the scenario gold.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0024-08",
+        "assigned_hubs": [],
+        "confidence": "low",
+        "rationale": "No PC hub assignment required by this PC-only scenario.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0024-09",
+        "assigned_hubs": [],
+        "confidence": "low",
+        "rationale": "No PC hub assignment required by this PC-only scenario.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0026-01",
+        "assigned_hubs": [],
+        "confidence": "low",
+        "rationale": "No PC hub assignment required by this PC-only scenario.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0026-02",
+        "assigned_hubs": [],
+        "confidence": "low",
+        "rationale": "No PC hub assignment required by this PC-only scenario.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0026-03",
+        "assigned_hubs": [],
+        "confidence": "low",
+        "rationale": "No PC hub assignment required by this PC-only scenario.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0026-04",
+        "assigned_hubs": [],
+        "confidence": "low",
+        "rationale": "No PC hub assignment required by this PC-only scenario.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0026-05",
+        "assigned_hubs": [],
+        "confidence": "low",
+        "rationale": "No PC hub assignment required by this PC-only scenario.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0026-06",
+        "assigned_hubs": [
+          "caelynn",
+          "bonogo",
+          "ephanna"
+        ],
+        "confidence": "high",
+        "rationale": "PC name match for the scenario gold.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0026-07",
+        "assigned_hubs": [
+          "caelynn"
+        ],
+        "confidence": "high",
+        "rationale": "PC name match for the scenario gold.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0028-01",
+        "assigned_hubs": [
+          "caelynn"
+        ],
+        "confidence": "high",
+        "rationale": "PC name match for the scenario gold.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0028-02",
+        "assigned_hubs": [],
+        "confidence": "low",
+        "rationale": "No PC hub assignment required by this PC-only scenario.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0028-03",
+        "assigned_hubs": [
+          "caelynn"
+        ],
+        "confidence": "high",
+        "rationale": "PC name match for the scenario gold.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0028-04",
+        "assigned_hubs": [
+          "caelynn"
+        ],
+        "confidence": "high",
+        "rationale": "PC name match for the scenario gold.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0028-05",
+        "assigned_hubs": [
+          "caelynn"
+        ],
+        "confidence": "high",
+        "rationale": "PC name match for the scenario gold.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0028-06",
+        "assigned_hubs": [
+          "caelynn"
+        ],
+        "confidence": "high",
+        "rationale": "PC name match for the scenario gold.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0028-07",
+        "assigned_hubs": [],
+        "confidence": "low",
+        "rationale": "No PC hub assignment required by this PC-only scenario.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0028-08",
+        "assigned_hubs": [],
+        "confidence": "low",
+        "rationale": "No PC hub assignment required by this PC-only scenario.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0028-09",
+        "assigned_hubs": [
+          "caelynn",
+          "karsemine"
+        ],
+        "confidence": "high",
+        "rationale": "PC name match for the scenario gold.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0030-01",
+        "assigned_hubs": [
+          "karsemine"
+        ],
+        "confidence": "high",
+        "rationale": "PC name match for the scenario gold.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0030-02",
+        "assigned_hubs": [
+          "ephanna"
+        ],
+        "confidence": "high",
+        "rationale": "PC name match for the scenario gold.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0030-03",
+        "assigned_hubs": [],
+        "confidence": "low",
+        "rationale": "No PC hub assignment required by this PC-only scenario.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0030-04",
+        "assigned_hubs": [
+          "caelynn"
+        ],
+        "confidence": "high",
+        "rationale": "PC name match for the scenario gold.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0030-05",
+        "assigned_hubs": [],
+        "confidence": "low",
+        "rationale": "No PC hub assignment required by this PC-only scenario.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0030-06",
+        "assigned_hubs": [],
+        "confidence": "low",
+        "rationale": "No PC hub assignment required by this PC-only scenario.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0030-07",
+        "assigned_hubs": [
+          "caelynn"
+        ],
+        "confidence": "high",
+        "rationale": "PC name match for the scenario gold.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0030-08",
+        "assigned_hubs": [],
+        "confidence": "low",
+        "rationale": "No PC hub assignment required by this PC-only scenario.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0030-09",
+        "assigned_hubs": [
+          "caelynn"
+        ],
+        "confidence": "high",
+        "rationale": "PC name match for the scenario gold.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0030-10",
+        "assigned_hubs": [],
+        "confidence": "low",
+        "rationale": "No PC hub assignment required by this PC-only scenario.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0030-11",
+        "assigned_hubs": [],
+        "confidence": "low",
+        "rationale": "No PC hub assignment required by this PC-only scenario.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0030-12",
+        "assigned_hubs": [],
+        "confidence": "low",
+        "rationale": "No PC hub assignment required by this PC-only scenario.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0030-13",
+        "assigned_hubs": [],
+        "confidence": "low",
+        "rationale": "No PC hub assignment required by this PC-only scenario.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0032-01",
+        "assigned_hubs": [
+          "karsemine"
+        ],
+        "confidence": "high",
+        "rationale": "PC name match for the scenario gold.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0032-02",
+        "assigned_hubs": [],
+        "confidence": "low",
+        "rationale": "No PC hub assignment required by this PC-only scenario.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0032-03",
+        "assigned_hubs": [
+          "stafl"
+        ],
+        "confidence": "high",
+        "rationale": "PC name match for the scenario gold.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0032-04",
+        "assigned_hubs": [],
+        "confidence": "low",
+        "rationale": "No PC hub assignment required by this PC-only scenario.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0032-05",
+        "assigned_hubs": [],
+        "confidence": "low",
+        "rationale": "No PC hub assignment required by this PC-only scenario.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0032-06",
+        "assigned_hubs": [],
+        "confidence": "low",
+        "rationale": "No PC hub assignment required by this PC-only scenario.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0032-07",
+        "assigned_hubs": [
+          "caelynn"
+        ],
+        "confidence": "high",
+        "rationale": "PC name match for the scenario gold.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0032-08",
+        "assigned_hubs": [],
+        "confidence": "low",
+        "rationale": "No PC hub assignment required by this PC-only scenario.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0032-09",
+        "assigned_hubs": [
+          "caelynn"
+        ],
+        "confidence": "high",
+        "rationale": "PC name match for the scenario gold.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0034-01",
+        "assigned_hubs": [
+          "caelynn"
+        ],
+        "confidence": "high",
+        "rationale": "PC name match for the scenario gold.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0034-02",
+        "assigned_hubs": [
+          "karsemine"
+        ],
+        "confidence": "high",
+        "rationale": "PC name match for the scenario gold.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0034-03",
+        "assigned_hubs": [
+          "ephanna"
+        ],
+        "confidence": "high",
+        "rationale": "PC name match for the scenario gold.",
+        "needs_new_hub_candidate": false
+      }
+    ]
+  }
+}

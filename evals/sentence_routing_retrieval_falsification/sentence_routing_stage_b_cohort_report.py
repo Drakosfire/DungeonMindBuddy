@@ -1,4 +1,4 @@
-"""Multi-run cohort summary for Stage B hub routing (cost + pass rate)."""
+"""Multi-run cohort summary for ``route_sentence_units_to_hubs`` (legacy: Stage B hub routing; cost + pass rate)."""
 
 from __future__ import annotations
 
@@ -93,7 +93,7 @@ def write_stage_b_cohort_summary(
 
     costs = payload["cost_usd"]
     md_lines = [
-        f"# Stage B hub routing — cohort summary ({n} runs)",
+        f"# route_sentence_units_to_hubs — cohort summary (legacy: Stage B; {n} runs)",
         "",
         f"- **model:** `{model_id}`",
         f"- **scenario:** `{scenario_id}`",

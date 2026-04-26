@@ -1,0 +1,333 @@
+{
+  "schema": "sentence_routing_falsification_v1",
+  "scenario_id": "sentence_routing_c1_session2_pc",
+  "scenario_notes": "Campaign 1 Session 2 PC-only gate. Generic party/pronoun lines must_abstain with empty hubs and needs_new_hub_candidate false. Sentences that name NPCs or locations not in the manifest (Glowkindle, Grishna, Wizard's Tower, Stonebridge) must_abstain on PC hubs but do not forbid needs_new_hub_candidate true so propose_new_hubs_from_unmapped_units (legacy: Stage C) can own missing-hub intent.",
+  "input": {
+    "recap_relative_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Session Recaps/Session 2 - Finishing the Job.md",
+    "campaign_id": "longmont-c1",
+    "session": 2,
+    "validate_manifest_paths": true,
+    "hub_manifest": [
+      {
+        "slug": "baergrom",
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/PCs/baergrom/README.md",
+        "subject_class": "pc",
+        "campaign_id": "longmont-c1",
+        "label": "baergrom — Campaign 1 PC hub"
+      },
+      {
+        "slug": "bonogo",
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/PCs/bonogo/README.md",
+        "subject_class": "pc",
+        "campaign_id": "longmont-c1",
+        "label": "bonogo — Campaign 1 PC hub"
+      },
+      {
+        "slug": "caelynn",
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/PCs/caelynn/README.md",
+        "subject_class": "pc",
+        "campaign_id": "longmont-c1",
+        "label": "caelynn — Campaign 1 PC hub"
+      },
+      {
+        "slug": "ephanna",
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/PCs/ephanna/README.md",
+        "subject_class": "pc",
+        "campaign_id": "longmont-c1",
+        "label": "ephanna — Campaign 1 PC hub"
+      },
+      {
+        "slug": "karsemine",
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/PCs/karsemine/README.md",
+        "subject_class": "pc",
+        "campaign_id": "longmont-c1",
+        "label": "karsemine — Campaign 1 PC hub"
+      },
+      {
+        "slug": "stafl",
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/PCs/stafl/README.md",
+        "subject_class": "pc",
+        "campaign_id": "longmont-c1",
+        "label": "stafl — Campaign 1 PC hub"
+      }
+    ]
+  },
+  "gold_capture": {
+    "min_units": 20,
+    "max_units": 30,
+    "must_contain_substrings_anywhere": [
+      "Glowkindle",
+      "Wizard's Tower",
+      "Stonebridge"
+    ]
+  },
+  "gold_routing": {
+    "must_route": [],
+    "must_abstain": [
+      {
+        "match": {
+          "line_start": 14,
+          "index_on_line": 1
+        },
+        "max_assigned_hubs": 0,
+        "needs_new_hub_candidate": false
+      },
+      {
+        "match": {
+          "line_start": 14,
+          "index_on_line": 2
+        },
+        "max_assigned_hubs": 0,
+        "needs_new_hub_candidate": false
+      },
+      {
+        "match": {
+          "line_start": 16,
+          "index_on_line": 1
+        },
+        "max_assigned_hubs": 0,
+        "needs_new_hub_candidate": false
+      },
+      {
+        "match": {
+          "line_start": 16,
+          "index_on_line": 2
+        },
+        "max_assigned_hubs": 0,
+        "needs_new_hub_candidate": false
+      },
+      {
+        "match": {
+          "line_start": 16,
+          "index_on_line": 3
+        },
+        "max_assigned_hubs": 0,
+        "needs_new_hub_candidate": false
+      },
+      {
+        "match": {
+          "line_start": 18,
+          "index_on_line": 1
+        },
+        "max_assigned_hubs": 0
+      },
+      {
+        "match": {
+          "line_start": 18,
+          "index_on_line": 2
+        },
+        "max_assigned_hubs": 0,
+        "needs_new_hub_candidate": false
+      },
+      {
+        "match": {
+          "line_start": 20,
+          "index_on_line": 1
+        },
+        "max_assigned_hubs": 0,
+        "needs_new_hub_candidate": false
+      },
+      {
+        "match": {
+          "line_start": 22,
+          "index_on_line": 1
+        },
+        "max_assigned_hubs": 0
+      },
+      {
+        "match": {
+          "line_start": 22,
+          "index_on_line": 2
+        },
+        "max_assigned_hubs": 0
+      },
+      {
+        "match": {
+          "line_start": 22,
+          "index_on_line": 3
+        },
+        "max_assigned_hubs": 0
+      },
+      {
+        "match": {
+          "line_start": 24,
+          "index_on_line": 1
+        },
+        "max_assigned_hubs": 0,
+        "needs_new_hub_candidate": false
+      }
+    ],
+    "soft_limits": {
+      "max_mean_assigned_hubs_per_unit": 0.2,
+      "max_unresolved_fraction": 1.0
+    }
+  },
+  "gold_proposals": {},
+  "gold_retrieval": {},
+  "fixture_routes": {
+    "schema": "sentence_hub_routes_v1",
+    "routes": [
+      {
+        "unit_id": "u-L0001-01",
+        "assigned_hubs": [],
+        "confidence": "low",
+        "rationale": "No PC hub assignment required by this PC-only scenario.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0002-01",
+        "assigned_hubs": [],
+        "confidence": "low",
+        "rationale": "No PC hub assignment required by this PC-only scenario.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0003-01",
+        "assigned_hubs": [],
+        "confidence": "low",
+        "rationale": "No PC hub assignment required by this PC-only scenario.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0004-01",
+        "assigned_hubs": [],
+        "confidence": "low",
+        "rationale": "No PC hub assignment required by this PC-only scenario.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0005-01",
+        "assigned_hubs": [],
+        "confidence": "low",
+        "rationale": "No PC hub assignment required by this PC-only scenario.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0006-01",
+        "assigned_hubs": [],
+        "confidence": "low",
+        "rationale": "No PC hub assignment required by this PC-only scenario.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0007-01",
+        "assigned_hubs": [],
+        "confidence": "low",
+        "rationale": "No PC hub assignment required by this PC-only scenario.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0008-01",
+        "assigned_hubs": [],
+        "confidence": "low",
+        "rationale": "No PC hub assignment required by this PC-only scenario.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0009-01",
+        "assigned_hubs": [],
+        "confidence": "low",
+        "rationale": "No PC hub assignment required by this PC-only scenario.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0010-01",
+        "assigned_hubs": [],
+        "confidence": "low",
+        "rationale": "No PC hub assignment required by this PC-only scenario.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0011-01",
+        "assigned_hubs": [],
+        "confidence": "low",
+        "rationale": "No PC hub assignment required by this PC-only scenario.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0014-01",
+        "assigned_hubs": [],
+        "confidence": "low",
+        "rationale": "No PC hub assignment required by this PC-only scenario.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0014-02",
+        "assigned_hubs": [],
+        "confidence": "low",
+        "rationale": "No PC hub assignment required by this PC-only scenario.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0016-01",
+        "assigned_hubs": [],
+        "confidence": "low",
+        "rationale": "No PC hub assignment required by this PC-only scenario.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0016-02",
+        "assigned_hubs": [],
+        "confidence": "low",
+        "rationale": "No PC hub assignment required by this PC-only scenario.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0016-03",
+        "assigned_hubs": [],
+        "confidence": "low",
+        "rationale": "No PC hub assignment required by this PC-only scenario.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0018-01",
+        "assigned_hubs": [],
+        "confidence": "low",
+        "rationale": "No PC hub assignment required by this PC-only scenario.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0018-02",
+        "assigned_hubs": [],
+        "confidence": "low",
+        "rationale": "No PC hub assignment required by this PC-only scenario.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0020-01",
+        "assigned_hubs": [],
+        "confidence": "low",
+        "rationale": "No PC hub assignment required by this PC-only scenario.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0022-01",
+        "assigned_hubs": [],
+        "confidence": "low",
+        "rationale": "No PC hub assignment required by this PC-only scenario.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0022-02",
+        "assigned_hubs": [],
+        "confidence": "low",
+        "rationale": "No PC hub assignment required by this PC-only scenario.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0022-03",
+        "assigned_hubs": [],
+        "confidence": "low",
+        "rationale": "No PC hub assignment required by this PC-only scenario.",
+        "needs_new_hub_candidate": false
+      },
+      {
+        "unit_id": "u-L0024-01",
+        "assigned_hubs": [],
+        "confidence": "low",
+        "rationale": "No PC hub assignment required by this PC-only scenario.",
+        "needs_new_hub_candidate": false
+      }
+    ]
+  }
+}
