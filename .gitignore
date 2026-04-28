@@ -38,6 +38,9 @@ out/
 # Legacy: fact stores created at repo root (prefer out/stores/)
 dungeonbuddy_store*/
 
+# Local SymDex repo index
+.symdex/
+
 # HuggingFace / embedding model caches
 .cache/
 

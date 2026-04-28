@@ -1,0 +1,156 @@
+---
+description: Token-efficient repo navigation using SymDex and RTK. Prefer indexed retrieval and compressed command output before broad file reads or noisy shell output.
+alwaysApply: true
+---
+
+# Token-efficient repo navigation
+
+You are working in a repository configured for token-efficient agentic development.
+
+Your default behavior is:
+
+1. Prefer repo-local indexed retrieval before broad file reads.
+2. Prefer narrow evidence over whole-file dumping.
+3. Prefer compressed shell output for noisy commands.
+4. Preserve correctness over token savings.
+5. Never hide errors, stack traces, failed tests, security findings, or data-loss risks.
+
+## SymDex usage policy
+
+Use SymDex before broad codebase exploration.
+
+Prefer this order:
+
+1. Check repo/index readiness if a SymDex readiness or repo stats tool is available.
+2. Use symbol search for known functions, classes, methods, constants, types, components, commands, or modules.
+3. Use route search for HTTP/API endpoint questions.
+4. Use file outline or repo outline before reading large files.
+5. Use callers/callees/call graph tools for behavior flow questions.
+6. Use literal text search for exact strings, config keys, error messages, and identifiers.
+7. Use semantic search only when exact search is insufficient and embeddings are available.
+8. Use a token-budgeted context pack for broad feature questions.
+9. Read full files only after narrowing to the relevant file and region.
+
+Do not start with broad recursive file reads. Do not read entire large files when an outline, symbol, route, or context pack would answer the question.
+
+When using SymDex evidence, pay attention to freshness, confidence, parser mode, generated paths, and embedding availability. If the index appears stale, ask to refresh it or run the indexing command.
+
+## RTK usage policy
+
+For shell commands that may produce noisy output, prefer RTK.
+
+Prefer:
+
+- `rtk git status`
+- `rtk git diff`
+- `rtk git log`
+- `rtk grep`
+- `rtk find`
+- `rtk read`
+- `rtk test <command>`
+- `rtk pytest`
+- `rtk cargo test`
+- `rtk npm test`
+- `rtk docker logs`
+- `rtk log <file>`
+
+Use normal shell commands only when:
+
+- RTK is unavailable.
+- Exact raw output is required.
+- The command output is already tiny.
+- A prior RTK-compressed result indicates that full output is needed.
+
+If a command fails, preserve failure details. Use RTK tee/full-output references when available rather than re-running the command blindly.
+
+## File reading discipline
+
+Before reading a file:
+
+- Ask what specific question the read is meant to answer.
+- Prefer outline, symbol, route, text, or context-pack retrieval first.
+- If full read is necessary, read the smallest relevant section possible.
+- Avoid generated files, lockfiles, vendored dependencies, build artifacts, minified bundles, large logs, and binary-derived text unless explicitly needed.
+
+Likely skip paths:
+
+- `node_modules/`
+- `.git/`
+- `.symdex/`
+- `dist/`
+- `build/`
+- `.next/`
+- `.turbo/`
+- `coverage/`
+- large lockfiles unless dependency resolution is the task
+- generated API clients unless they are directly relevant
+
+## Correctness overrides
+
+Token reduction must never suppress:
+
+- failing tests
+- stack traces
+- compiler errors
+- migration warnings
+- destructive command warnings
+- auth/security findings
+- data-loss risks
+- production/staging environment identifiers
+- secrets exposure evidence
+
+When safety or correctness conflicts with token economy, choose correctness.
+
+## Destructive command policy
+
+Never run destructive commands without explicit user approval.
+
+This includes, but is not limited to:
+
+- deleting files or directories
+- dropping databases
+- resetting databases
+- force-pushing
+- rewriting git history
+- modifying production infrastructure
+- running migrations against production
+- deleting cloud resources
+- changing secrets or credentials
+
+Before any destructive command, state exactly:
+
+1. What command would run.
+2. What it affects.
+3. Whether it is reversible.
+4. What backup or rollback exists.
+5. Why it is necessary.
+
+Then wait for explicit approval.
+
+## Expected workflow
+
+For feature investigation:
+
+1. Use SymDex repo outline or context pack.
+2. Search symbols/routes/text.
+3. Inspect callers/callees if behavior crosses files.
+4. Read only narrowed files/regions.
+5. Run RTK-wrapped commands for tests or git inspection.
+6. Summarize evidence and uncertainty.
+
+For debugging:
+
+1. Capture the exact error.
+2. Use RTK to compress logs/tests.
+3. Use SymDex text search for error strings.
+4. Use call graph/symbol tools to trace relevant code.
+5. Read only the implicated files.
+6. Preserve full failure evidence where needed.
+
+For refactoring:
+
+1. Use SymDex symbol/caller/callee search first.
+2. Confirm all call sites before editing.
+3. Prefer semantic edits where safe.
+4. Run focused tests with RTK.
+5. Report changed files and verification results.

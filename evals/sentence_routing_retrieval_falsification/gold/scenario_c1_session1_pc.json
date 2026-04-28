@@ -315,77 +315,88 @@
         "assigned_hubs": [],
         "confidence": "low",
         "rationale": "No PC hub assignment required by this PC-only scenario.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0002-01",
         "assigned_hubs": [],
         "confidence": "low",
         "rationale": "No PC hub assignment required by this PC-only scenario.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0003-01",
         "assigned_hubs": [],
         "confidence": "low",
         "rationale": "No PC hub assignment required by this PC-only scenario.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0004-01",
         "assigned_hubs": [],
         "confidence": "low",
         "rationale": "No PC hub assignment required by this PC-only scenario.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0005-01",
         "assigned_hubs": [],
         "confidence": "low",
         "rationale": "No PC hub assignment required by this PC-only scenario.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0006-01",
         "assigned_hubs": [],
         "confidence": "low",
         "rationale": "No PC hub assignment required by this PC-only scenario.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0007-01",
         "assigned_hubs": [],
         "confidence": "low",
         "rationale": "No PC hub assignment required by this PC-only scenario.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0008-01",
         "assigned_hubs": [],
         "confidence": "low",
         "rationale": "No PC hub assignment required by this PC-only scenario.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0009-01",
         "assigned_hubs": [],
         "confidence": "low",
         "rationale": "No PC hub assignment required by this PC-only scenario.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0010-01",
         "assigned_hubs": [],
         "confidence": "low",
         "rationale": "No PC hub assignment required by this PC-only scenario.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0011-01",
         "assigned_hubs": [],
         "confidence": "low",
         "rationale": "No PC hub assignment required by this PC-only scenario.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0014-01",
@@ -399,42 +410,48 @@
         ],
         "confidence": "high",
         "rationale": "PC name match for the scenario gold.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0016-01",
         "assigned_hubs": [],
         "confidence": "low",
         "rationale": "No PC hub assignment required by this PC-only scenario.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0016-02",
         "assigned_hubs": [],
         "confidence": "low",
         "rationale": "No PC hub assignment required by this PC-only scenario.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0016-03",
         "assigned_hubs": [],
         "confidence": "low",
         "rationale": "No PC hub assignment required by this PC-only scenario.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0018-01",
         "assigned_hubs": [],
         "confidence": "low",
         "rationale": "No PC hub assignment required by this PC-only scenario.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0018-02",
         "assigned_hubs": [],
         "confidence": "low",
         "rationale": "No PC hub assignment required by this PC-only scenario.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0018-03",
@@ -443,7 +460,8 @@
         ],
         "confidence": "high",
         "rationale": "PC name match for the scenario gold.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0018-04",
@@ -452,21 +470,24 @@
         ],
         "confidence": "high",
         "rationale": "Pronoun carryover from prior unit naming Bonogo.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0020-01",
         "assigned_hubs": [],
         "confidence": "low",
         "rationale": "No PC hub assignment required by this PC-only scenario.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0020-02",
         "assigned_hubs": [],
         "confidence": "low",
         "rationale": "No PC hub assignment required by this PC-only scenario.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0020-03",
@@ -480,14 +501,16 @@
         ],
         "confidence": "high",
         "rationale": "Fixture: whole-party must_route (the group approaches together).",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0020-04",
         "assigned_hubs": [],
         "confidence": "low",
         "rationale": "No PC hub assignment required by this PC-only scenario.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0022-01",
@@ -501,28 +524,32 @@
         ],
         "confidence": "high",
         "rationale": "Fixture: whole-party must_route (travel led the group together).",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0022-02",
         "assigned_hubs": [],
         "confidence": "low",
         "rationale": "No PC hub assignment required by this PC-only scenario.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0024-01",
         "assigned_hubs": [],
         "confidence": "low",
         "rationale": "No PC hub assignment required by this PC-only scenario.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0024-02",
         "assigned_hubs": [],
         "confidence": "low",
         "rationale": "No PC hub assignment required by this PC-only scenario.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0024-03",
@@ -536,7 +563,8 @@
         ],
         "confidence": "high",
         "rationale": "Whole-party reference after roster introduction.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0024-04",
@@ -550,7 +578,8 @@
         ],
         "confidence": "high",
         "rationale": "Whole-party reference after roster introduction.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0026-01",
@@ -564,7 +593,8 @@
         ],
         "confidence": "high",
         "rationale": "Whole-party reference after roster introduction.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0028-01",
@@ -578,7 +608,8 @@
         ],
         "confidence": "high",
         "rationale": "Whole-party reference after roster introduction.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0028-02",
@@ -587,14 +618,16 @@
         ],
         "confidence": "high",
         "rationale": "PC name match for the scenario gold.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0028-03",
         "assigned_hubs": [],
         "confidence": "low",
         "rationale": "No PC hub assignment required by this PC-only scenario.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       }
     ]
   }

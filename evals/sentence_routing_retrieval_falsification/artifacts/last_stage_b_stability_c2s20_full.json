@@ -1,0 +1,766 @@
+{
+  "schema": "sentence_routing_stage_b_gold_stability_v1",
+  "scenario_id": "sentence_routing_c2_session20_pc",
+  "scenario_path": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/gold/scenario_c2_session20_pc.json",
+  "gold_routing_fingerprint_sha16": "2a4c36a62c3b7cf9",
+  "sidecar_count": 72,
+  "capture_signature_first_sidecar": {
+    "sentence_unit_count": 98,
+    "unit_id_sha16": "2edd820bbeb45e13",
+    "first_unit_id": "u-L0001-01",
+    "last_unit_id": "u-L0034-03"
+  },
+  "consistency_warnings": [],
+  "tiers": {
+    "stable_pass_count": 26,
+    "stable_fail_count": 0,
+    "flaky_count": 48,
+    "stable_pass_checks": [
+      {
+        "gate": "must_abstain",
+        "row_index": 11,
+        "unit_id": "u-L0026-02",
+        "check_key": "must_abstain[11]",
+        "pass_count": 72,
+        "run_count": 72,
+        "pass_rate": 1.0
+      },
+      {
+        "gate": "must_abstain",
+        "row_index": 12,
+        "unit_id": "u-L0026-04",
+        "check_key": "must_abstain[12]",
+        "pass_count": 72,
+        "run_count": 72,
+        "pass_rate": 1.0
+      },
+      {
+        "gate": "must_route",
+        "row_index": 11,
+        "unit_id": "u-L0018-09",
+        "check_key": "must_route[11]",
+        "pass_count": 72,
+        "run_count": 72,
+        "pass_rate": 1.0
+      },
+      {
+        "gate": "must_route",
+        "row_index": 12,
+        "unit_id": "u-L0020-02",
+        "check_key": "must_route[12]",
+        "pass_count": 72,
+        "run_count": 72,
+        "pass_rate": 1.0
+      },
+      {
+        "gate": "must_route",
+        "row_index": 13,
+        "unit_id": "u-L0020-09",
+        "check_key": "must_route[13]",
+        "pass_count": 72,
+        "run_count": 72,
+        "pass_rate": 1.0
+      },
+      {
+        "gate": "must_route",
+        "row_index": 16,
+        "unit_id": "u-L0022-03",
+        "check_key": "must_route[16]",
+        "pass_count": 72,
+        "run_count": 72,
+        "pass_rate": 1.0
+      },
+      {
+        "gate": "must_route",
+        "row_index": 17,
+        "unit_id": "u-L0022-05",
+        "check_key": "must_route[17]",
+        "pass_count": 72,
+        "run_count": 72,
+        "pass_rate": 1.0
+      },
+      {
+        "gate": "must_route",
+        "row_index": 18,
+        "unit_id": "u-L0022-06",
+        "check_key": "must_route[18]",
+        "pass_count": 72,
+        "run_count": 72,
+        "pass_rate": 1.0
+      },
+      {
+        "gate": "must_route",
+        "row_index": 20,
+        "unit_id": "u-L0024-03",
+        "check_key": "must_route[20]",
+        "pass_count": 72,
+        "run_count": 72,
+        "pass_rate": 1.0
+      },
+      {
+        "gate": "must_route",
+        "row_index": 21,
+        "unit_id": "u-L0024-04",
+        "check_key": "must_route[21]",
+        "pass_count": 72,
+        "run_count": 72,
+        "pass_rate": 1.0
+      },
+      {
+        "gate": "must_route",
+        "row_index": 22,
+        "unit_id": "u-L0024-06",
+        "check_key": "must_route[22]",
+        "pass_count": 72,
+        "run_count": 72,
+        "pass_rate": 1.0
+      },
+      {
+        "gate": "must_route",
+        "row_index": 28,
+        "unit_id": "u-L0026-07",
+        "check_key": "must_route[28]",
+        "pass_count": 72,
+        "run_count": 72,
+        "pass_rate": 1.0
+      },
+      {
+        "gate": "must_route",
+        "row_index": 29,
+        "unit_id": "u-L0028-01",
+        "check_key": "must_route[29]",
+        "pass_count": 72,
+        "run_count": 72,
+        "pass_rate": 1.0
+      },
+      {
+        "gate": "must_route",
+        "row_index": 2,
+        "unit_id": "u-L0016-01",
+        "check_key": "must_route[2]",
+        "pass_count": 72,
+        "run_count": 72,
+        "pass_rate": 1.0
+      },
+      {
+        "gate": "must_route",
+        "row_index": 30,
+        "unit_id": "u-L0028-03",
+        "check_key": "must_route[30]",
+        "pass_count": 72,
+        "run_count": 72,
+        "pass_rate": 1.0
+      },
+      {
+        "gate": "must_route",
+        "row_index": 33,
+        "unit_id": "u-L0028-06",
+        "check_key": "must_route[33]",
+        "pass_count": 72,
+        "run_count": 72,
+        "pass_rate": 1.0
+      },
+      {
+        "gate": "must_route",
+        "row_index": 35,
+        "unit_id": "u-L0030-01",
+        "check_key": "must_route[35]",
+        "pass_count": 72,
+        "run_count": 72,
+        "pass_rate": 1.0
+      },
+      {
+        "gate": "must_route",
+        "row_index": 37,
+        "unit_id": "u-L0030-04",
+        "check_key": "must_route[37]",
+        "pass_count": 72,
+        "run_count": 72,
+        "pass_rate": 1.0
+      },
+      {
+        "gate": "must_route",
+        "row_index": 39,
+        "unit_id": "u-L0030-07",
+        "check_key": "must_route[39]",
+        "pass_count": 72,
+        "run_count": 72,
+        "pass_rate": 1.0
+      },
+      {
+        "gate": "must_route",
+        "row_index": 40,
+        "unit_id": "u-L0030-09",
+        "check_key": "must_route[40]",
+        "pass_count": 72,
+        "run_count": 72,
+        "pass_rate": 1.0
+      },
+      {
+        "gate": "must_route",
+        "row_index": 41,
+        "unit_id": "u-L0032-01",
+        "check_key": "must_route[41]",
+        "pass_count": 72,
+        "run_count": 72,
+        "pass_rate": 1.0
+      },
+      {
+        "gate": "must_route",
+        "row_index": 42,
+        "unit_id": "u-L0032-03",
+        "check_key": "must_route[42]",
+        "pass_count": 72,
+        "run_count": 72,
+        "pass_rate": 1.0
+      },
+      {
+        "gate": "must_route",
+        "row_index": 43,
+        "unit_id": "u-L0032-07",
+        "check_key": "must_route[43]",
+        "pass_count": 72,
+        "run_count": 72,
+        "pass_rate": 1.0
+      },
+      {
+        "gate": "must_route",
+        "row_index": 4,
+        "unit_id": "u-L0016-05",
+        "check_key": "must_route[4]",
+        "pass_count": 72,
+        "run_count": 72,
+        "pass_rate": 1.0
+      },
+      {
+        "gate": "must_route",
+        "row_index": 7,
+        "unit_id": "u-L0018-01",
+        "check_key": "must_route[7]",
+        "pass_count": 72,
+        "run_count": 72,
+        "pass_rate": 1.0
+      },
+      {
+        "gate": "must_route",
+        "row_index": 9,
+        "unit_id": "u-L0018-06",
+        "check_key": "must_route[9]",
+        "pass_count": 72,
+        "run_count": 72,
+        "pass_rate": 1.0
+      }
+    ],
+    "stable_fail_checks": [],
+    "flaky_checks": [
+      {
+        "gate": "must_abstain",
+        "row_index": 0,
+        "unit_id": "u-L0014-02",
+        "check_key": "must_abstain[0]",
+        "pass_count": 71,
+        "run_count": 72,
+        "pass_rate": 0.9861
+      },
+      {
+        "gate": "must_abstain",
+        "row_index": 1,
+        "unit_id": "u-L0018-03",
+        "check_key": "must_abstain[1]",
+        "pass_count": 42,
+        "run_count": 72,
+        "pass_rate": 0.5833
+      },
+      {
+        "gate": "must_abstain",
+        "row_index": 2,
+        "unit_id": "u-L0018-04",
+        "check_key": "must_abstain[2]",
+        "pass_count": 52,
+        "run_count": 72,
+        "pass_rate": 0.7222
+      },
+      {
+        "gate": "must_abstain",
+        "row_index": 3,
+        "unit_id": "u-L0018-05",
+        "check_key": "must_abstain[3]",
+        "pass_count": 63,
+        "run_count": 72,
+        "pass_rate": 0.875
+      },
+      {
+        "gate": "must_abstain",
+        "row_index": 4,
+        "unit_id": "u-L0018-07",
+        "check_key": "must_abstain[4]",
+        "pass_count": 41,
+        "run_count": 72,
+        "pass_rate": 0.5694
+      },
+      {
+        "gate": "must_abstain",
+        "row_index": 5,
+        "unit_id": "u-L0018-10",
+        "check_key": "must_abstain[5]",
+        "pass_count": 35,
+        "run_count": 72,
+        "pass_rate": 0.4861
+      },
+      {
+        "gate": "must_abstain",
+        "row_index": 6,
+        "unit_id": "u-L0020-01",
+        "check_key": "must_abstain[6]",
+        "pass_count": 69,
+        "run_count": 72,
+        "pass_rate": 0.9583
+      },
+      {
+        "gate": "must_abstain",
+        "row_index": 7,
+        "unit_id": "u-L0020-08",
+        "check_key": "must_abstain[7]",
+        "pass_count": 70,
+        "run_count": 72,
+        "pass_rate": 0.9722
+      },
+      {
+        "gate": "must_abstain",
+        "row_index": 8,
+        "unit_id": "u-L0024-01",
+        "check_key": "must_abstain[8]",
+        "pass_count": 59,
+        "run_count": 72,
+        "pass_rate": 0.8194
+      },
+      {
+        "gate": "must_abstain",
+        "row_index": 9,
+        "unit_id": "u-L0024-02",
+        "check_key": "must_abstain[9]",
+        "pass_count": 58,
+        "run_count": 72,
+        "pass_rate": 0.8056
+      },
+      {
+        "gate": "must_abstain",
+        "row_index": 10,
+        "unit_id": "u-L0024-05",
+        "check_key": "must_abstain[10]",
+        "pass_count": 45,
+        "run_count": 72,
+        "pass_rate": 0.625
+      },
+      {
+        "gate": "must_abstain",
+        "row_index": 13,
+        "unit_id": "u-L0026-05",
+        "check_key": "must_abstain[13]",
+        "pass_count": 70,
+        "run_count": 72,
+        "pass_rate": 0.9722
+      },
+      {
+        "gate": "must_abstain",
+        "row_index": 14,
+        "unit_id": "u-L0028-02",
+        "check_key": "must_abstain[14]",
+        "pass_count": 11,
+        "run_count": 72,
+        "pass_rate": 0.1528
+      },
+      {
+        "gate": "must_abstain",
+        "row_index": 15,
+        "unit_id": "u-L0028-07",
+        "check_key": "must_abstain[15]",
+        "pass_count": 35,
+        "run_count": 72,
+        "pass_rate": 0.4861
+      },
+      {
+        "gate": "must_abstain",
+        "row_index": 16,
+        "unit_id": "u-L0028-08",
+        "check_key": "must_abstain[16]",
+        "pass_count": 59,
+        "run_count": 72,
+        "pass_rate": 0.8194
+      },
+      {
+        "gate": "must_abstain",
+        "row_index": 17,
+        "unit_id": "u-L0030-03",
+        "check_key": "must_abstain[17]",
+        "pass_count": 47,
+        "run_count": 72,
+        "pass_rate": 0.6528
+      },
+      {
+        "gate": "must_abstain",
+        "row_index": 18,
+        "unit_id": "u-L0030-06",
+        "check_key": "must_abstain[18]",
+        "pass_count": 48,
+        "run_count": 72,
+        "pass_rate": 0.6667
+      },
+      {
+        "gate": "must_abstain",
+        "row_index": 19,
+        "unit_id": "u-L0030-10",
+        "check_key": "must_abstain[19]",
+        "pass_count": 59,
+        "run_count": 72,
+        "pass_rate": 0.8194
+      },
+      {
+        "gate": "must_abstain",
+        "row_index": 20,
+        "unit_id": "u-L0030-11",
+        "check_key": "must_abstain[20]",
+        "pass_count": 59,
+        "run_count": 72,
+        "pass_rate": 0.8194
+      },
+      {
+        "gate": "must_abstain",
+        "row_index": 21,
+        "unit_id": "u-L0030-12",
+        "check_key": "must_abstain[21]",
+        "pass_count": 66,
+        "run_count": 72,
+        "pass_rate": 0.9167
+      },
+      {
+        "gate": "must_abstain",
+        "row_index": 22,
+        "unit_id": "u-L0030-13",
+        "check_key": "must_abstain[22]",
+        "pass_count": 58,
+        "run_count": 72,
+        "pass_rate": 0.8056
+      },
+      {
+        "gate": "must_abstain",
+        "row_index": 23,
+        "unit_id": "u-L0032-05",
+        "check_key": "must_abstain[23]",
+        "pass_count": 62,
+        "run_count": 72,
+        "pass_rate": 0.8611
+      },
+      {
+        "gate": "must_abstain",
+        "row_index": 24,
+        "unit_id": "u-L0032-06",
+        "check_key": "must_abstain[24]",
+        "pass_count": 62,
+        "run_count": 72,
+        "pass_rate": 0.8611
+      },
+      {
+        "gate": "must_abstain",
+        "row_index": 25,
+        "unit_id": "u-L0032-08",
+        "check_key": "must_abstain[25]",
+        "pass_count": 60,
+        "run_count": 72,
+        "pass_rate": 0.8333
+      },
+      {
+        "gate": "must_route",
+        "row_index": 0,
+        "unit_id": "u-L0014-01",
+        "check_key": "must_route[0]",
+        "pass_count": 69,
+        "run_count": 72,
+        "pass_rate": 0.9583
+      },
+      {
+        "gate": "must_route",
+        "row_index": 1,
+        "unit_id": "u-L0014-03",
+        "check_key": "must_route[1]",
+        "pass_count": 58,
+        "run_count": 72,
+        "pass_rate": 0.8056
+      },
+      {
+        "gate": "must_route",
+        "row_index": 3,
+        "unit_id": "u-L0016-03",
+        "check_key": "must_route[3]",
+        "pass_count": 11,
+        "run_count": 72,
+        "pass_rate": 0.1528
+      },
+      {
+        "gate": "must_route",
+        "row_index": 5,
+        "unit_id": "u-L0016-06",
+        "check_key": "must_route[5]",
+        "pass_count": 70,
+        "run_count": 72,
+        "pass_rate": 0.9722
+      },
+      {
+        "gate": "must_route",
+        "row_index": 6,
+        "unit_id": "u-L0016-07",
+        "check_key": "must_route[6]",
+        "pass_count": 35,
+        "run_count": 72,
+        "pass_rate": 0.4861
+      },
+      {
+        "gate": "must_route",
+        "row_index": 8,
+        "unit_id": "u-L0018-02",
+        "check_key": "must_route[8]",
+        "pass_count": 41,
+        "run_count": 72,
+        "pass_rate": 0.5694
+      },
+      {
+        "gate": "must_route",
+        "row_index": 10,
+        "unit_id": "u-L0018-08",
+        "check_key": "must_route[10]",
+        "pass_count": 27,
+        "run_count": 72,
+        "pass_rate": 0.375
+      },
+      {
+        "gate": "must_route",
+        "row_index": 14,
+        "unit_id": "u-L0022-01",
+        "check_key": "must_route[14]",
+        "pass_count": 21,
+        "run_count": 72,
+        "pass_rate": 0.2917
+      },
+      {
+        "gate": "must_route",
+        "row_index": 15,
+        "unit_id": "u-L0022-02",
+        "check_key": "must_route[15]",
+        "pass_count": 70,
+        "run_count": 72,
+        "pass_rate": 0.9722
+      },
+      {
+        "gate": "must_route",
+        "row_index": 19,
+        "unit_id": "u-L0022-07",
+        "check_key": "must_route[19]",
+        "pass_count": 35,
+        "run_count": 72,
+        "pass_rate": 0.4861
+      },
+      {
+        "gate": "must_route",
+        "row_index": 23,
+        "unit_id": "u-L0024-07",
+        "check_key": "must_route[23]",
+        "pass_count": 63,
+        "run_count": 72,
+        "pass_rate": 0.875
+      },
+      {
+        "gate": "must_route",
+        "row_index": 24,
+        "unit_id": "u-L0024-09",
+        "check_key": "must_route[24]",
+        "pass_count": 41,
+        "run_count": 72,
+        "pass_rate": 0.5694
+      },
+      {
+        "gate": "must_route",
+        "row_index": 25,
+        "unit_id": "u-L0026-01",
+        "check_key": "must_route[25]",
+        "pass_count": 42,
+        "run_count": 72,
+        "pass_rate": 0.5833
+      },
+      {
+        "gate": "must_route",
+        "row_index": 26,
+        "unit_id": "u-L0026-03",
+        "check_key": "must_route[26]",
+        "pass_count": 12,
+        "run_count": 72,
+        "pass_rate": 0.1667
+      },
+      {
+        "gate": "must_route",
+        "row_index": 27,
+        "unit_id": "u-L0026-06",
+        "check_key": "must_route[27]",
+        "pass_count": 40,
+        "run_count": 72,
+        "pass_rate": 0.5556
+      },
+      {
+        "gate": "must_route",
+        "row_index": 31,
+        "unit_id": "u-L0028-04",
+        "check_key": "must_route[31]",
+        "pass_count": 67,
+        "run_count": 72,
+        "pass_rate": 0.9306
+      },
+      {
+        "gate": "must_route",
+        "row_index": 32,
+        "unit_id": "u-L0028-05",
+        "check_key": "must_route[32]",
+        "pass_count": 57,
+        "run_count": 72,
+        "pass_rate": 0.7917
+      },
+      {
+        "gate": "must_route",
+        "row_index": 34,
+        "unit_id": "u-L0028-09",
+        "check_key": "must_route[34]",
+        "pass_count": 68,
+        "run_count": 72,
+        "pass_rate": 0.9444
+      },
+      {
+        "gate": "must_route",
+        "row_index": 36,
+        "unit_id": "u-L0030-02",
+        "check_key": "must_route[36]",
+        "pass_count": 35,
+        "run_count": 72,
+        "pass_rate": 0.4861
+      },
+      {
+        "gate": "must_route",
+        "row_index": 38,
+        "unit_id": "u-L0030-05",
+        "check_key": "must_route[38]",
+        "pass_count": 60,
+        "run_count": 72,
+        "pass_rate": 0.8333
+      },
+      {
+        "gate": "must_route",
+        "row_index": 44,
+        "unit_id": "u-L0032-09",
+        "check_key": "must_route[44]",
+        "pass_count": 47,
+        "run_count": 72,
+        "pass_rate": 0.6528
+      },
+      {
+        "gate": "must_route",
+        "row_index": 45,
+        "unit_id": "u-L0034-01",
+        "check_key": "must_route[45]",
+        "pass_count": 20,
+        "run_count": 72,
+        "pass_rate": 0.2778
+      },
+      {
+        "gate": "must_route",
+        "row_index": 46,
+        "unit_id": "u-L0034-02",
+        "check_key": "must_route[46]",
+        "pass_count": 32,
+        "run_count": 72,
+        "pass_rate": 0.4444
+      },
+      {
+        "gate": "must_route",
+        "row_index": 47,
+        "unit_id": "u-L0034-03",
+        "check_key": "must_route[47]",
+        "pass_count": 33,
+        "run_count": 72,
+        "pass_rate": 0.4583
+      }
+    ]
+  },
+  "sidecar_paths": [
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-04-25/sentence_routing_stage_b_hub_routes--sentence_routing_c2_session20_pc--FAIL--20260425T174000442501Z.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-04-25/sentence_routing_stage_b_hub_routes--sentence_routing_c2_session20_pc--FAIL--20260425T180140928855Z.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-04-25/sentence_routing_stage_b_hub_routes--sentence_routing_c2_session20_pc--FAIL--20260425T180522333427Z.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-04-25/sentence_routing_stage_b_hub_routes--sentence_routing_c2_session20_pc--FAIL--20260425T180705216178Z.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-04-25/sentence_routing_stage_b_hub_routes--sentence_routing_c2_session20_pc--FAIL--20260425T195054121850Z.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-04-25/sentence_routing_stage_b_hub_routes--sentence_routing_c2_session20_pc--FAIL--20260425T195122886829Z.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-04-25/sentence_routing_stage_b_hub_routes--sentence_routing_c2_session20_pc--FAIL--20260425T195149410861Z.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-04-25/sentence_routing_stage_b_hub_routes--sentence_routing_c2_session20_pc--FAIL--20260425T195212962748Z.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-04-25/sentence_routing_stage_b_hub_routes--sentence_routing_c2_session20_pc--FAIL--20260425T195237757091Z.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-04-25/sentence_routing_stage_b_hub_routes--sentence_routing_c2_session20_pc--FAIL--20260425T233659081803Z.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-04-25/sentence_routing_stage_b_hub_routes--sentence_routing_c2_session20_pc--FAIL--20260425T233722530180Z.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-04-25/sentence_routing_stage_b_hub_routes--sentence_routing_c2_session20_pc--FAIL--20260425T233747583797Z.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-04-25/sentence_routing_stage_b_hub_routes--sentence_routing_c2_session20_pc--FAIL--20260425T233812598223Z.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-04-25/sentence_routing_stage_b_hub_routes--sentence_routing_c2_session20_pc--FAIL--20260425T233837279440Z.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-04-26/sentence_routing_stage_b_hub_routes--sentence_routing_c2_session20_pc--FAIL--20260426T053455019858Z.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-04-26/sentence_routing_stage_b_hub_routes--sentence_routing_c2_session20_pc--FAIL--20260426T053529524888Z.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-04-26/sentence_routing_stage_b_hub_routes--sentence_routing_c2_session20_pc--FAIL--20260426T053601473702Z.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-04-26/sentence_routing_stage_b_hub_routes--sentence_routing_c2_session20_pc--FAIL--20260426T060501520872Z.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-04-26/sentence_routing_stage_b_hub_routes--sentence_routing_c2_session20_pc--FAIL--20260426T060530806968Z.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-04-26/sentence_routing_stage_b_hub_routes--sentence_routing_c2_session20_pc--FAIL--20260426T060559575579Z.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-04-26/sentence_routing_stage_b_hub_routes--sentence_routing_c2_session20_pc--FAIL--20260426T182515209137Z.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-04-26/sentence_routing_stage_b_hub_routes--sentence_routing_c2_session20_pc--FAIL--20260426T182543785252Z.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-04-26/sentence_routing_stage_b_hub_routes--sentence_routing_c2_session20_pc--FAIL--20260426T182610397803Z.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-04-26/sentence_routing_stage_b_hub_routes--sentence_routing_c2_session20_pc--FAIL--20260426T184147283762Z.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-04-26/sentence_routing_stage_b_hub_routes--sentence_routing_c2_session20_pc--FAIL--20260426T184214314151Z.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-04-26/sentence_routing_stage_b_hub_routes--sentence_routing_c2_session20_pc--FAIL--20260426T184241695148Z.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-04-26/sentence_routing_stage_b_hub_routes--sentence_routing_c2_session20_pc--FAIL--20260426T192007935644Z.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-04-26/sentence_routing_stage_b_hub_routes--sentence_routing_c2_session20_pc--FAIL--20260426T192556222953Z.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-04-26/sentence_routing_stage_b_hub_routes--sentence_routing_c2_session20_pc--FAIL--20260426T192623025359Z.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-04-26/sentence_routing_stage_b_hub_routes--sentence_routing_c2_session20_pc--FAIL--20260426T192649240766Z.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-04-26/sentence_routing_stage_b_hub_routes--sentence_routing_c2_session20_pc--FAIL--20260426T192755088846Z.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-04-26/sentence_routing_stage_b_hub_routes--sentence_routing_c2_session20_pc--FAIL--20260426T192821046699Z.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-04-26/sentence_routing_stage_b_hub_routes--sentence_routing_c2_session20_pc--FAIL--20260426T192848332187Z.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-04-26/sentence_routing_stage_b_hub_routes--sentence_routing_c2_session20_pc--FAIL--20260426T193642961827Z.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-04-26/sentence_routing_stage_b_hub_routes--sentence_routing_c2_session20_pc--FAIL--20260426T195341096822Z.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-04-26/sentence_routing_stage_b_hub_routes--sentence_routing_c2_session20_pc--FAIL--20260426T195411813802Z.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-04-26/sentence_routing_stage_b_hub_routes--sentence_routing_c2_session20_pc--FAIL--20260426T195443352434Z.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-04-26/sentence_routing_stage_b_hub_routes--sentence_routing_c2_session20_pc--FAIL--20260426T200139192715Z.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-04-26/sentence_routing_stage_b_hub_routes--sentence_routing_c2_session20_pc--FAIL--20260426T200211984412Z.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-04-26/sentence_routing_stage_b_hub_routes--sentence_routing_c2_session20_pc--FAIL--20260426T200246667909Z.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-04-26/sentence_routing_stage_b_hub_routes--sentence_routing_c2_session20_pc--FAIL--20260426T201209155673Z.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-04-26/sentence_routing_stage_b_hub_routes--sentence_routing_c2_session20_pc--FAIL--20260426T201237208798Z.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-04-26/sentence_routing_stage_b_hub_routes--sentence_routing_c2_session20_pc--FAIL--20260426T201304236397Z.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-04-26/sentence_routing_stage_b_hub_routes--sentence_routing_c2_session20_pc--FAIL--20260426T212914638450Z.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-04-26/sentence_routing_stage_b_hub_routes--sentence_routing_c2_session20_pc--FAIL--20260426T212939082431Z.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-04-26/sentence_routing_stage_b_hub_routes--sentence_routing_c2_session20_pc--FAIL--20260426T213001813273Z.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-04-26/sentence_routing_stage_b_hub_routes--sentence_routing_c2_session20_pc--FAIL--20260426T222156759600Z.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-04-26/sentence_routing_stage_b_hub_routes--sentence_routing_c2_session20_pc--FAIL--20260426T222224363915Z.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-04-26/sentence_routing_stage_b_hub_routes--sentence_routing_c2_session20_pc--FAIL--20260426T222251507654Z.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-04-26/sentence_routing_stage_b_hub_routes--sentence_routing_c2_session20_pc--FAIL--20260426T223231013868Z.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-04-26/sentence_routing_stage_b_hub_routes--sentence_routing_c2_session20_pc--FAIL--20260426T223306539580Z.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-04-26/sentence_routing_stage_b_hub_routes--sentence_routing_c2_session20_pc--FAIL--20260426T223339107785Z.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-04-27/sentence_routing_stage_b_hub_routes--sentence_routing_c2_session20_pc--FAIL--20260427T001043173329Z.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-04-27/sentence_routing_stage_b_hub_routes--sentence_routing_c2_session20_pc--FAIL--20260427T001136728490Z.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-04-27/sentence_routing_stage_b_hub_routes--sentence_routing_c2_session20_pc--FAIL--20260427T001228557696Z.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-04-27/sentence_routing_stage_b_hub_routes--sentence_routing_c2_session20_pc--FAIL--20260427T004607582883Z.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-04-27/sentence_routing_stage_b_hub_routes--sentence_routing_c2_session20_pc--FAIL--20260427T004725710209Z.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-04-27/sentence_routing_stage_b_hub_routes--sentence_routing_c2_session20_pc--FAIL--20260427T005707228806Z.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-04-27/sentence_routing_stage_b_hub_routes--sentence_routing_c2_session20_pc--FAIL--20260427T005737633929Z.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-04-27/sentence_routing_stage_b_hub_routes--sentence_routing_c2_session20_pc--FAIL--20260427T005809381463Z.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-04-27/sentence_routing_stage_b_hub_routes--sentence_routing_c2_session20_pc--FAIL--20260427T005908676810Z.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-04-27/sentence_routing_stage_b_hub_routes--sentence_routing_c2_session20_pc--FAIL--20260427T005940926591Z.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-04-27/sentence_routing_stage_b_hub_routes--sentence_routing_c2_session20_pc--FAIL--20260427T010014308676Z.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-04-27/sentence_routing_stage_b_hub_routes--sentence_routing_c2_session20_pc--FAIL--20260427T010047590026Z.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-04-27/sentence_routing_stage_b_hub_routes--sentence_routing_c2_session20_pc--FAIL--20260427T010120871031Z.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-04-27/sentence_routing_stage_b_hub_routes--sentence_routing_c2_session20_pc--FAIL--20260427T010158547356Z.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-04-27/sentence_routing_stage_b_hub_routes--sentence_routing_c2_session20_pc--FAIL--20260427T010234810378Z.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-04-27/sentence_routing_stage_b_hub_routes--sentence_routing_c2_session20_pc--FAIL--20260427T010308900288Z.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-04-27/sentence_routing_stage_b_hub_routes--sentence_routing_c2_session20_pc--FAIL--20260427T010344637924Z.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-04-27/sentence_routing_stage_b_hub_routes--sentence_routing_c2_session20_pc--FAIL--20260427T015636256745Z.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-04-27/sentence_routing_stage_b_hub_routes--sentence_routing_c2_session20_pc--FAIL--20260427T015709629671Z.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-04-27/sentence_routing_stage_b_hub_routes--sentence_routing_c2_session20_pc--FAIL--20260427T015742700112Z.json"
+  ],
+  "emitted_edge_scenario": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/gold/scenario_c2_session20_pc_edge_flaky48.json",
+  "emitted_edge_scenario_id": "sentence_routing_c2_session20_pc_edge_flaky48"
+}

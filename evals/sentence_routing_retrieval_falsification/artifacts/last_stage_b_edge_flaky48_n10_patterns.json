@@ -1,0 +1,259 @@
+{
+  "schema": "sentence_routing_stage_b_violation_aggregate_v1",
+  "scenario_path": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/gold/scenario_c2_session20_pc_edge_flaky48.json",
+  "pattern_report": {
+    "sidecar_count": 10,
+    "violation_lines_top_raw": [
+      [
+        "B1: must_route unit 'u-L0016-03' missing expected hubs ['caelynn'] (assigned=['karsemine'])",
+        10
+      ],
+      [
+        "B1: must_route unit 'u-L0026-03' missing expected hubs ['baergrom', 'bonogo', 'caelynn', 'ephanna', 'karsemine', 'stafl'] (assigned=[])",
+        10
+      ],
+      [
+        "B2: must_abstain unit 'u-L0028-02' has 1 hubs > max_assigned_hubs=0",
+        10
+      ],
+      [
+        "B2: must_abstain unit 'u-L0030-03' has 6 hubs > max_assigned_hubs=0",
+        9
+      ],
+      [
+        "B1: must_route unit 'u-L0018-08' missing expected hubs ['bonogo'] (assigned=[])",
+        8
+      ],
+      [
+        "B1: must_route unit 'u-L0018-02' missing expected hubs ['bonogo'] (assigned=[])",
+        6
+      ],
+      [
+        "B1: must_route unit 'u-L0032-09' missing expected hubs ['caelynn'] (assigned=[])",
+        6
+      ],
+      [
+        "B1: must_route unit 'u-L0034-01' missing expected hubs ['baergrom', 'bonogo', 'ephanna', 'karsemine', 'stafl'] (assigned=['caelynn'])",
+        5
+      ],
+      [
+        "B1: must_route unit 'u-L0022-07' missing expected hubs ['bonogo'] (assigned=[])",
+        5
+      ],
+      [
+        "B1: must_route unit 'u-L0024-07' missing expected hubs ['caelynn'] (assigned=['bonogo'])",
+        4
+      ],
+      [
+        "B1: must_route unit 'u-L0026-06' missing expected hubs ['bonogo'] (assigned=['caelynn', 'ephanna'])",
+        3
+      ],
+      [
+        "B2: must_abstain unit 'u-L0030-06' has 1 hubs > max_assigned_hubs=0",
+        2
+      ],
+      [
+        "B2: must_abstain unit 'u-L0028-07' has 1 hubs > max_assigned_hubs=0",
+        2
+      ],
+      [
+        "B2: must_abstain unit 'u-L0018-07' has 1 hubs > max_assigned_hubs=0",
+        2
+      ],
+      [
+        "B2: must_abstain unit 'u-L0018-10' has 1 hubs > max_assigned_hubs=0",
+        2
+      ],
+      [
+        "B2: must_abstain unit 'u-L0032-05' has 1 hubs > max_assigned_hubs=0",
+        2
+      ],
+      [
+        "B2: must_abstain unit 'u-L0032-06' has 1 hubs > max_assigned_hubs=0",
+        2
+      ],
+      [
+        "B1: must_route unit 'u-L0030-05' missing expected hubs ['caelynn'] (assigned=[])",
+        1
+      ],
+      [
+        "B2: must_abstain unit 'u-L0032-08' has 1 hubs > max_assigned_hubs=0",
+        1
+      ],
+      [
+        "B2: must_abstain unit 'u-L0028-08' has 1 hubs > max_assigned_hubs=0",
+        1
+      ],
+      [
+        "B2: must_abstain unit 'u-L0018-03' has 1 hubs > max_assigned_hubs=0",
+        1
+      ],
+      [
+        "B1: must_route unit 'u-L0016-06' missing expected hubs ['caelynn'] (assigned=[])",
+        1
+      ],
+      [
+        "B2: must_abstain unit 'u-L0024-05' has 1 hubs > max_assigned_hubs=0",
+        1
+      ]
+    ],
+    "violation_lines_top_shape": [
+      [
+        "B1: must_route unit 'u-L0016-03' missing expected hubs ['caelynn'] (assigned=[…])",
+        10
+      ],
+      [
+        "B1: must_route unit 'u-L0026-03' missing expected hubs ['baergrom', 'bonogo', 'caelynn', 'ephanna', 'karsemine', 'stafl'] (assigned=[…])",
+        10
+      ],
+      [
+        "B2: must_abstain unit 'u-L0028-02' has 1 hubs > max_assigned_hubs=0",
+        10
+      ],
+      [
+        "B2: must_abstain unit 'u-L0030-03' has 6 hubs > max_assigned_hubs=0",
+        9
+      ],
+      [
+        "B1: must_route unit 'u-L0018-08' missing expected hubs ['bonogo'] (assigned=[…])",
+        8
+      ],
+      [
+        "B1: must_route unit 'u-L0018-02' missing expected hubs ['bonogo'] (assigned=[…])",
+        6
+      ],
+      [
+        "B1: must_route unit 'u-L0032-09' missing expected hubs ['caelynn'] (assigned=[…])",
+        6
+      ],
+      [
+        "B1: must_route unit 'u-L0034-01' missing expected hubs ['baergrom', 'bonogo', 'ephanna', 'karsemine', 'stafl'] (assigned=[…])",
+        5
+      ],
+      [
+        "B1: must_route unit 'u-L0022-07' missing expected hubs ['bonogo'] (assigned=[…])",
+        5
+      ],
+      [
+        "B1: must_route unit 'u-L0024-07' missing expected hubs ['caelynn'] (assigned=[…])",
+        4
+      ],
+      [
+        "B1: must_route unit 'u-L0026-06' missing expected hubs ['bonogo'] (assigned=[…])",
+        3
+      ],
+      [
+        "B2: must_abstain unit 'u-L0030-06' has 1 hubs > max_assigned_hubs=0",
+        2
+      ],
+      [
+        "B2: must_abstain unit 'u-L0028-07' has 1 hubs > max_assigned_hubs=0",
+        2
+      ],
+      [
+        "B2: must_abstain unit 'u-L0018-07' has 1 hubs > max_assigned_hubs=0",
+        2
+      ],
+      [
+        "B2: must_abstain unit 'u-L0018-10' has 1 hubs > max_assigned_hubs=0",
+        2
+      ],
+      [
+        "B2: must_abstain unit 'u-L0032-05' has 1 hubs > max_assigned_hubs=0",
+        2
+      ],
+      [
+        "B2: must_abstain unit 'u-L0032-06' has 1 hubs > max_assigned_hubs=0",
+        2
+      ],
+      [
+        "B1: must_route unit 'u-L0030-05' missing expected hubs ['caelynn'] (assigned=[…])",
+        1
+      ],
+      [
+        "B2: must_abstain unit 'u-L0032-08' has 1 hubs > max_assigned_hubs=0",
+        1
+      ],
+      [
+        "B2: must_abstain unit 'u-L0028-08' has 1 hubs > max_assigned_hubs=0",
+        1
+      ],
+      [
+        "B2: must_abstain unit 'u-L0018-03' has 1 hubs > max_assigned_hubs=0",
+        1
+      ],
+      [
+        "B1: must_route unit 'u-L0016-06' missing expected hubs ['caelynn'] (assigned=[…])",
+        1
+      ],
+      [
+        "B2: must_abstain unit 'u-L0024-05' has 1 hubs > max_assigned_hubs=0",
+        1
+      ]
+    ],
+    "violation_prefix_counts": {
+      "B1": 59,
+      "B2": 35
+    },
+    "telemetry_must_route_pass_per_run": [
+      17,
+      19,
+      18,
+      18,
+      17,
+      17,
+      18,
+      21,
+      17,
+      19
+    ],
+    "telemetry_must_abstain_pass_per_run": [
+      21,
+      21,
+      20,
+      15,
+      23,
+      22,
+      21,
+      20,
+      22,
+      20
+    ],
+    "telemetry_b1_missing_lines_per_run": [
+      7,
+      5,
+      6,
+      6,
+      7,
+      7,
+      6,
+      3,
+      7,
+      5
+    ],
+    "telemetry_b2_over_assign_lines_per_run": [
+      3,
+      3,
+      4,
+      9,
+      1,
+      2,
+      3,
+      4,
+      2,
+      4
+    ]
+  },
+  "sidecar_paths": [
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-04-27/sentence_routing_stage_b_hub_routes--sentence_routing_c2_session20_pc_edge_flaky48--FAIL--20260427T022740162079Z.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-04-27/sentence_routing_stage_b_hub_routes--sentence_routing_c2_session20_pc_edge_flaky48--FAIL--20260427T022813336133Z.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-04-27/sentence_routing_stage_b_hub_routes--sentence_routing_c2_session20_pc_edge_flaky48--FAIL--20260427T022846205936Z.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-04-27/sentence_routing_stage_b_hub_routes--sentence_routing_c2_session20_pc_edge_flaky48--FAIL--20260427T022923175358Z.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-04-27/sentence_routing_stage_b_hub_routes--sentence_routing_c2_session20_pc_edge_flaky48--FAIL--20260427T022956655494Z.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-04-27/sentence_routing_stage_b_hub_routes--sentence_routing_c2_session20_pc_edge_flaky48--FAIL--20260427T023028404127Z.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-04-27/sentence_routing_stage_b_hub_routes--sentence_routing_c2_session20_pc_edge_flaky48--FAIL--20260427T023101584652Z.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-04-27/sentence_routing_stage_b_hub_routes--sentence_routing_c2_session20_pc_edge_flaky48--FAIL--20260427T023134345064Z.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-04-27/sentence_routing_stage_b_hub_routes--sentence_routing_c2_session20_pc_edge_flaky48--FAIL--20260427T023206500196Z.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-04-27/sentence_routing_stage_b_hub_routes--sentence_routing_c2_session20_pc_edge_flaky48--FAIL--20260427T023239163405Z.json"
+  ]
+}

@@ -35,12 +35,12 @@ Almost immediately another trap is triggered, this time trapping Bonogo between 
 
 Stafl heads back to the party in search of a Bugbear. He immediately interrupts the party, and has some explaining to do with the owner. Some quick thinking and fast talking and the party now has a new ally: a massive Bugbear named Thraxx.
 
-With the use of a portable battering ram Thraxx and Baegrom are able to shatter the block and free Bonogo. Now it's a straight shot to the last warehouse through this tunnel. Caelynn fills Thraxx in on the details of the quest on the way to the last ladder leading up to another trap door. Bonogo sneaks a look. Another chilled warehouse with rows of meat and Cultists, Meat Mounds, and other creatures with wings: Abhorrent Meat Wings.
+With the use of a portable battering ram Thraxx and Baergrom are able to shatter the block and free Bonogo. Now it's a straight shot to the last warehouse through this tunnel. Caelynn fills Thraxx in on the details of the quest on the way to the last ladder leading up to another trap door. Bonogo sneaks a look. Another chilled warehouse with rows of meat and Cultists, Meat Mounds, and other creatures with wings: Abhorrent Meat Wings.
 
 Bonogo immediately kills two Cultists. Ephanna uses magic and Baergrom uses oil and a torch. Stafl casts Sleep on another Cultist while Caelynn casts Thunderwave. Karsemine dashes around the battlefield using Zephyr Strike, throwing alcohol on the other monsters and attacking enemies as she passes. And Thraxx uses his massive mechanical arm to punch winged creatures to death.
 
 The party pushes the attack now. Bonogo, Ephanna, and Stafl all attack. Caelynn is knocked unconscious and Stafl gets Charmed. Bargrom uses a health potion on Caelynn, Karsemine kills another Cultist and Caelynn also attacks.
 
-Bonogo, Baergrom and Karsemine all become Charmed and the Sprite is killed. Baergorm attacks Stafl, Karsemine attacks Thraxx and Bonogo attacks Caelynn, again knocking her unconscious. Thraxx attacks Karsemine and knocks her unconscious. Finally, Ephanna helps break the Charm on the group.
+Bonogo, Baergrom and Karsemine all become Charmed and the Sprite is killed. Baergrom attacks Stafl, Karsemine attacks Thraxx and Bonogo attacks Caelynn, again knocking her unconscious. Thraxx attacks Karsemine and knocks her unconscious. Finally, Ephanna helps break the Charm on the group.
 
 In need of rest, the group heads back to the party to take a Short Rest and plan the next steps.

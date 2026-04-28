@@ -1,0 +1,525 @@
+{
+  "schema": "sentence_routing_falsification_v1",
+  "scenario_id": "sentence_routing_c2_session20_pc_edge_slice_party_boundary",
+  "scenario_notes": "H1 party-boundary slice from C2S20 edge gold: roster/whole-party positives plus generic/background or NPC-led abstain negatives. Gold rows use direct unit_id references so embedded sentence_units can stay minimal.",
+  "input": {
+    "recap_relative_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md",
+    "campaign_id": "longmont-c2",
+    "session": 20,
+    "validate_manifest_paths": true,
+    "hub_manifest": [
+      {
+        "slug": "baergrom",
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/baergrom/README.md",
+        "subject_class": "pc",
+        "campaign_id": "longmont-c2",
+        "label": "baergrom — Campaign 2 PC hub"
+      },
+      {
+        "slug": "bonogo",
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/bonogo/README.md",
+        "subject_class": "pc",
+        "campaign_id": "longmont-c2",
+        "label": "bonogo — Campaign 2 PC hub"
+      },
+      {
+        "slug": "caelynn",
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/caelynn/README.md",
+        "subject_class": "pc",
+        "campaign_id": "longmont-c2",
+        "label": "caelynn — Campaign 2 PC hub"
+      },
+      {
+        "slug": "ephanna",
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/ephanna/README.md",
+        "subject_class": "pc",
+        "campaign_id": "longmont-c2",
+        "label": "ephanna — Campaign 2 PC hub"
+      },
+      {
+        "slug": "karsemine",
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/karsemine/README.md",
+        "subject_class": "pc",
+        "campaign_id": "longmont-c2",
+        "label": "karsemine — Campaign 2 PC hub"
+      },
+      {
+        "slug": "stafl",
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/stafl/README.md",
+        "subject_class": "pc",
+        "campaign_id": "longmont-c2",
+        "label": "stafl — Campaign 2 PC hub"
+      }
+    ]
+  },
+  "gold_capture": {
+    "min_units": 90,
+    "max_units": 110,
+    "must_contain_substrings_anywhere": [
+      "Bonogo",
+      "Caelynn",
+      "Ephanna",
+      "Karesmine",
+      "Stafl"
+    ]
+  },
+  "gold_routing": {
+    "must_route": [
+      {
+        "expected_hubs": [
+          "baergrom",
+          "bonogo",
+          "caelynn",
+          "ephanna",
+          "karsemine",
+          "stafl"
+        ],
+        "max_extra_hubs": 0,
+        "unit_id": "u-L0016-07"
+      },
+      {
+        "expected_hubs": [
+          "baergrom",
+          "bonogo",
+          "caelynn",
+          "ephanna",
+          "karsemine",
+          "stafl"
+        ],
+        "max_extra_hubs": 0,
+        "unit_id": "u-L0022-01"
+      },
+      {
+        "expected_hubs": [
+          "baergrom",
+          "bonogo",
+          "caelynn",
+          "ephanna",
+          "karsemine",
+          "stafl"
+        ],
+        "max_extra_hubs": 0,
+        "unit_id": "u-L0024-09"
+      },
+      {
+        "expected_hubs": [
+          "baergrom",
+          "bonogo",
+          "caelynn",
+          "ephanna",
+          "karsemine",
+          "stafl"
+        ],
+        "max_extra_hubs": 0,
+        "unit_id": "u-L0026-01"
+      },
+      {
+        "expected_hubs": [
+          "baergrom",
+          "bonogo",
+          "caelynn",
+          "ephanna",
+          "karsemine",
+          "stafl"
+        ],
+        "max_extra_hubs": 0,
+        "unit_id": "u-L0026-03"
+      },
+      {
+        "expected_hubs": [
+          "baergrom",
+          "bonogo",
+          "caelynn",
+          "ephanna",
+          "karsemine",
+          "stafl"
+        ],
+        "max_extra_hubs": 0,
+        "unit_id": "u-L0030-02"
+      },
+      {
+        "expected_hubs": [
+          "baergrom",
+          "bonogo",
+          "caelynn",
+          "ephanna",
+          "karsemine",
+          "stafl"
+        ],
+        "max_extra_hubs": 0,
+        "unit_id": "u-L0030-03"
+      },
+      {
+        "expected_hubs": [
+          "baergrom",
+          "bonogo",
+          "caelynn",
+          "ephanna",
+          "karsemine",
+          "stafl"
+        ],
+        "max_extra_hubs": 0,
+        "unit_id": "u-L0034-01"
+      },
+      {
+        "expected_hubs": [
+          "baergrom",
+          "bonogo",
+          "caelynn",
+          "ephanna",
+          "karsemine",
+          "stafl"
+        ],
+        "max_extra_hubs": 0,
+        "unit_id": "u-L0034-02"
+      },
+      {
+        "expected_hubs": [
+          "baergrom",
+          "bonogo",
+          "caelynn",
+          "ephanna",
+          "karsemine",
+          "stafl"
+        ],
+        "max_extra_hubs": 0,
+        "unit_id": "u-L0034-03"
+      }
+    ],
+    "must_abstain": [
+      {
+        "max_assigned_hubs": 0,
+        "needs_new_hub_candidate": false,
+        "unit_id": "u-L0024-05"
+      },
+      {
+        "max_assigned_hubs": 0,
+        "needs_new_hub_candidate": false,
+        "unit_id": "u-L0026-05"
+      },
+      {
+        "max_assigned_hubs": 0,
+        "needs_new_hub_candidate": false,
+        "unit_id": "u-L0024-01"
+      },
+      {
+        "max_assigned_hubs": 0,
+        "needs_new_hub_candidate": false,
+        "unit_id": "u-L0024-02"
+      },
+      {
+        "max_assigned_hubs": 0,
+        "needs_new_hub_candidate": false,
+        "unit_id": "u-L0020-01"
+      }
+    ],
+    "soft_limits": {
+      "max_mean_assigned_hubs_per_unit": 1.0,
+      "max_unresolved_fraction": 0.8
+    }
+  },
+  "gold_proposals": {},
+  "gold_retrieval": {},
+  "sentence_units": [
+    {
+      "unit_id": "u-L0016-07",
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md",
+      "line_start": 16,
+      "line_end": 16,
+      "text": "The team decides they have enough “testing” and should head back to tell the others what they discovered."
+    },
+    {
+      "unit_id": "u-L0022-01",
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md",
+      "line_start": 22,
+      "line_end": 22,
+      "text": "As the group approaches the preparations happening in the field, they find Stafl singing and directing the workers from a makeshift throne of barrels on the back of a wagon."
+    },
+    {
+      "unit_id": "u-L0024-09",
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md",
+      "line_start": 24,
+      "line_end": 24,
+      "text": "The rest of the Questionable Company decide to take a short rest as their final preparation."
+    },
+    {
+      "unit_id": "u-L0026-01",
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md",
+      "line_start": 26,
+      "line_end": 26,
+      "text": "Questionable Company, along with the townsfolk, watch as the forest comes within range of their plan."
+    },
+    {
+      "unit_id": "u-L0026-03",
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md",
+      "line_start": 26,
+      "line_end": 26,
+      "text": "Immediately they can all see the trees pull back and then start to turn to the east, away from the town."
+    },
+    {
+      "unit_id": "u-L0030-02",
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md",
+      "line_start": 30,
+      "line_end": 30,
+      "text": "The group sets off from the town, Ephanna keeping a close eye on Thrin."
+    },
+    {
+      "unit_id": "u-L0030-03",
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md",
+      "line_start": 30,
+      "line_end": 30,
+      "text": "Thirty minutes later they come across an unusual sight: a wagon partly unloaded and horses wandering around a stack of crates."
+    },
+    {
+      "unit_id": "u-L0034-01",
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md",
+      "line_start": 34,
+      "line_end": 34,
+      "text": "Caelynn continues to wait on the line for an answer from Tealeaf as the rest of the group set up a proper camp for a rest."
+    },
+    {
+      "unit_id": "u-L0034-02",
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md",
+      "line_start": 34,
+      "line_end": 34,
+      "text": "They need to set up a shelter for the animals and themselves as it is clear the storm is approaching and Karesmine can see it is bringing the magical shimmering rain."
+    },
+    {
+      "unit_id": "u-L0034-03",
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md",
+      "line_start": 34,
+      "line_end": 34,
+      "text": "Ephanna plans to create a disguise and go back to town for new supplies, but for the moment the group is settling in for a rest around the camp."
+    },
+    {
+      "unit_id": "u-L0024-05",
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md",
+      "line_start": 24,
+      "line_end": 24,
+      "text": "They reveal that she is in charge of the workers in town and she means business."
+    },
+    {
+      "unit_id": "u-L0026-05",
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md",
+      "line_start": 26,
+      "line_end": 26,
+      "text": "The mayor and sheriff congratulate the heroes and thank them again for all their help."
+    },
+    {
+      "unit_id": "u-L0024-01",
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md",
+      "line_start": 24,
+      "line_end": 24,
+      "text": "She stands up to her full Bugbear height and begins to scream at him."
+    },
+    {
+      "unit_id": "u-L0024-02",
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md",
+      "line_start": 24,
+      "line_end": 24,
+      "text": "She finds just the right words to cut deep: he smells like a circus animal."
+    },
+    {
+      "unit_id": "u-L0020-01",
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md",
+      "line_start": 20,
+      "line_end": 20,
+      "text": "Stuart is so happy with the outcome that he runs out the door, racing off to tell his mom the good news."
+    }
+  ],
+  "fixture_routes": {
+    "schema": "sentence_hub_routes_v1",
+    "routes": [
+      {
+        "assigned_hubs": [
+          "baergrom",
+          "bonogo",
+          "caelynn",
+          "ephanna",
+          "karsemine",
+          "stafl"
+        ],
+        "confidence": "high",
+        "rationale": "Fixture route mirrors slice gold for offline smoke.",
+        "needs_new_hub_candidate": false,
+        "unit_id": "u-L0016-07",
+        "routing_diagnostic_bucket": null
+      },
+      {
+        "assigned_hubs": [],
+        "confidence": "high",
+        "rationale": "Fixture route mirrors slice gold for offline smoke.",
+        "needs_new_hub_candidate": false,
+        "unit_id": "u-L0020-01",
+        "routing_diagnostic_bucket": null
+      },
+      {
+        "assigned_hubs": [
+          "baergrom",
+          "bonogo",
+          "caelynn",
+          "ephanna",
+          "karsemine",
+          "stafl"
+        ],
+        "confidence": "high",
+        "rationale": "Fixture route mirrors slice gold for offline smoke.",
+        "needs_new_hub_candidate": false,
+        "unit_id": "u-L0022-01",
+        "routing_diagnostic_bucket": null
+      },
+      {
+        "assigned_hubs": [],
+        "confidence": "high",
+        "rationale": "Fixture route mirrors slice gold for offline smoke.",
+        "needs_new_hub_candidate": false,
+        "unit_id": "u-L0024-01",
+        "routing_diagnostic_bucket": null
+      },
+      {
+        "assigned_hubs": [],
+        "confidence": "high",
+        "rationale": "Fixture route mirrors slice gold for offline smoke.",
+        "needs_new_hub_candidate": false,
+        "unit_id": "u-L0024-02",
+        "routing_diagnostic_bucket": null
+      },
+      {
+        "assigned_hubs": [],
+        "confidence": "high",
+        "rationale": "Fixture route mirrors slice gold for offline smoke.",
+        "needs_new_hub_candidate": false,
+        "unit_id": "u-L0024-05",
+        "routing_diagnostic_bucket": null
+      },
+      {
+        "assigned_hubs": [
+          "baergrom",
+          "bonogo",
+          "caelynn",
+          "ephanna",
+          "karsemine",
+          "stafl"
+        ],
+        "confidence": "high",
+        "rationale": "Fixture route mirrors slice gold for offline smoke.",
+        "needs_new_hub_candidate": false,
+        "unit_id": "u-L0024-09",
+        "routing_diagnostic_bucket": null
+      },
+      {
+        "assigned_hubs": [
+          "baergrom",
+          "bonogo",
+          "caelynn",
+          "ephanna",
+          "karsemine",
+          "stafl"
+        ],
+        "confidence": "high",
+        "rationale": "Fixture route mirrors slice gold for offline smoke.",
+        "needs_new_hub_candidate": false,
+        "unit_id": "u-L0026-01",
+        "routing_diagnostic_bucket": null
+      },
+      {
+        "assigned_hubs": [
+          "baergrom",
+          "bonogo",
+          "caelynn",
+          "ephanna",
+          "karsemine",
+          "stafl"
+        ],
+        "confidence": "high",
+        "rationale": "Fixture route mirrors slice gold for offline smoke.",
+        "needs_new_hub_candidate": false,
+        "unit_id": "u-L0026-03",
+        "routing_diagnostic_bucket": null
+      },
+      {
+        "assigned_hubs": [],
+        "confidence": "high",
+        "rationale": "Fixture route mirrors slice gold for offline smoke.",
+        "needs_new_hub_candidate": false,
+        "unit_id": "u-L0026-05",
+        "routing_diagnostic_bucket": null
+      },
+      {
+        "assigned_hubs": [
+          "baergrom",
+          "bonogo",
+          "caelynn",
+          "ephanna",
+          "karsemine",
+          "stafl"
+        ],
+        "confidence": "high",
+        "rationale": "Fixture route mirrors slice gold for offline smoke.",
+        "needs_new_hub_candidate": false,
+        "unit_id": "u-L0030-02",
+        "routing_diagnostic_bucket": null
+      },
+      {
+        "assigned_hubs": [
+          "baergrom",
+          "bonogo",
+          "caelynn",
+          "ephanna",
+          "karsemine",
+          "stafl"
+        ],
+        "confidence": "high",
+        "rationale": "Fixture route mirrors slice gold for offline smoke.",
+        "needs_new_hub_candidate": false,
+        "unit_id": "u-L0030-03",
+        "routing_diagnostic_bucket": null
+      },
+      {
+        "assigned_hubs": [
+          "baergrom",
+          "bonogo",
+          "caelynn",
+          "ephanna",
+          "karsemine",
+          "stafl"
+        ],
+        "confidence": "high",
+        "rationale": "Fixture route mirrors slice gold for offline smoke.",
+        "needs_new_hub_candidate": false,
+        "unit_id": "u-L0034-01",
+        "routing_diagnostic_bucket": null
+      },
+      {
+        "assigned_hubs": [
+          "baergrom",
+          "bonogo",
+          "caelynn",
+          "ephanna",
+          "karsemine",
+          "stafl"
+        ],
+        "confidence": "high",
+        "rationale": "Fixture route mirrors slice gold for offline smoke.",
+        "needs_new_hub_candidate": false,
+        "unit_id": "u-L0034-02",
+        "routing_diagnostic_bucket": null
+      },
+      {
+        "assigned_hubs": [
+          "baergrom",
+          "bonogo",
+          "caelynn",
+          "ephanna",
+          "karsemine",
+          "stafl"
+        ],
+        "confidence": "high",
+        "rationale": "Fixture route mirrors slice gold for offline smoke.",
+        "needs_new_hub_candidate": false,
+        "unit_id": "u-L0034-03",
+        "routing_diagnostic_bucket": null
+      }
+    ]
+  }
+}

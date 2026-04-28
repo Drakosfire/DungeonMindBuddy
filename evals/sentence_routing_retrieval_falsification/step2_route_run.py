@@ -14,6 +14,9 @@ Run (repo root)::
         --prior-json evals/sentence_routing_retrieval_falsification/artifacts/last_sentence_routing_stage_a_capture.json
 
     uv run python -m evals.sentence_routing_retrieval_falsification.step2_route_run --n 3 --no-llm
+
+When a scenario JSON includes a non-empty top-level ``sentence_units`` array, it overrides
+recap capture and ``--prior-json`` (useful for narrow gold slices without editing the recap file).
 """
 
 from __future__ import annotations
@@ -25,6 +28,20 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+
+from evals.sentence_routing_retrieval_falsification.routing_prompt import (
+    PROMPT_VARIANT_APPENDS,
+    ROUTING_PROMPT_BASE_ID,
+    build_routing_system_prompt,
+)
+from evals.sentence_routing_retrieval_falsification.session_roster import (
+    resolve_session_pc_roster_slugs,
+)
+from evals.sentence_routing_retrieval_falsification.route_schema import (
+    ROUTING_DIAGNOSTIC_ENUM,
+    THE_PARTY_ROUTE_SENTINEL,
+    expand_the_party_sentinel,
+)
 
 _SLICE = Path(__file__).resolve().parent
 _REPO_ROOT = _SLICE.parents[1]
@@ -55,70 +72,162 @@ def _usage_tokens(usage: Any) -> tuple[int, int, int]:
     return inp, out, cached
 
 
+def _pc_party_names_from_input(inp: dict[str, Any]) -> list[str]:
+    """Optional ``input.pc_party_names`` — in-world adventuring-band labels for this run (not gold)."""
+    raw = inp.get("pc_party_names")
+    if not isinstance(raw, list):
+        return []
+    out: list[str] = []
+    for x in raw:
+        s = str(x).strip()
+        if s:
+            out.append(s)
+    return out
+
+
+def _dedupe_party_names(names: list[str]) -> list[str]:
+    """Stable de-dupe (case-insensitive keys), first occurrence wins."""
+    seen: set[str] = set()
+    out: list[str] = []
+    for raw in names:
+        s = str(raw).strip()
+        if not s:
+            continue
+        key = s.casefold()
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(s)
+    return out
+
+
+def _party_registry_json_path(*, corpus_root: Path, recap_relative_path: str) -> Path | None:
+    """``<campaign>/Session Recaps/<recap>.md`` → ``<campaign>/_party_registry.json`` if that file exists."""
+    rel = (recap_relative_path or "").strip()
+    if not rel:
+        return None
+    try:
+        recap = (corpus_root / rel).resolve()
+        recap.relative_to(corpus_root.resolve())
+    except ValueError:
+        return None
+    if recap.parent.name != "Session Recaps":
+        return None
+    candidate = recap.parent.parent / "_party_registry.json"
+    return candidate if candidate.is_file() else None
+
+
+def _pc_party_names_from_party_registry_file(
+    *,
+    corpus_root: Path,
+    recap_relative_path: str,
+    campaign_id: str | None,
+) -> list[str]:
+    """
+    Load ``pc_party_names`` from the campaign-level ``_party_registry.json`` next to ``Session Recaps/``.
+
+    When ``campaign_id`` is non-empty, it must match the registry's ``campaign_id`` (if present) or the
+    registry is ignored (wrong-campaign safety).
+    """
+    path = _party_registry_json_path(corpus_root=corpus_root, recap_relative_path=recap_relative_path)
+    if path is None:
+        return []
+    try:
+        blob = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return []
+    if not isinstance(blob, dict):
+        return []
+    reg_schema = str(blob.get("schema") or "").strip()
+    if reg_schema and reg_schema != "party_registry_v1":
+        return []
+    reg_cid = blob.get("campaign_id")
+    if campaign_id and reg_cid is not None and str(reg_cid).strip() != str(campaign_id).strip():
+        return []
+    raw = blob.get("pc_party_names")
+    if not isinstance(raw, list):
+        return []
+    out: list[str] = []
+    for x in raw:
+        s = str(x).strip()
+        if s:
+            out.append(s)
+    return out
+
+
+def _merged_pc_party_names(inp: dict[str, Any], corpus_root: Path | None) -> list[str]:
+    """Registry (campaign folder) first, then optional ``input.pc_party_names`` overrides/extras."""
+    merged: list[str] = []
+    if corpus_root is not None:
+        rel = str(inp.get("recap_relative_path") or "").strip()
+        cid_raw = inp.get("campaign_id")
+        cid = str(cid_raw).strip() if cid_raw is not None else ""
+        merged.extend(
+            _pc_party_names_from_party_registry_file(
+                corpus_root=corpus_root,
+                recap_relative_path=rel,
+                campaign_id=cid or None,
+            )
+        )
+    merged.extend(_pc_party_names_from_input(inp))
+    return _dedupe_party_names(merged)
+
+
+def _pc_roster_slugs_from_manifest(manifest: list[dict[str, Any]]) -> list[str]:
+    """Manifest-order PC roster slugs when the routing surface is PC-only."""
+    if not manifest:
+        return []
+    out: list[str] = []
+    for entry in manifest:
+        if str(entry.get("subject_class") or "").strip() != "pc":
+            return []
+        slug = str(entry.get("slug") or "").strip()
+        if slug:
+            out.append(slug)
+    return out
+
+
 def _build_messages(
     *,
     inp: dict[str, Any],
     manifest: list[dict[str, Any]],
     units_json: list[dict[str, Any]],
-) -> list[dict[str, str]]:
-    system = (
-        "You map recap sentence units to campaign hub slugs for continuity and retrieval.\n"
-        "Rules:\n"
-        "1. You receive a CLOSED LIST of hub slugs; any slug not listed is forbidden.\n"
-        "2. Multi-label is allowed when a unit genuinely implicates multiple hubs.\n"
-        "3. Prefer abstain (empty assigned_hubs, needs_new_hub_candidate false) over wrong "
-        "attachment when unsure. Wrong hub is worse than unknown.\n"
-        "4. needs_new_hub_candidate may only be true when assigned_hubs is empty and the unit "
-        "implies a real entity with no fitting hub.\n"
-        "5. Do not assign a hub solely because the unit's source path, recap filename, or hub "
-        "anchor path mentions it. Route by semantic content in the unit text only.\n"
-        "5b. When **every** hub_manifest entry has subject_class \"pc\" (PC-only list): assign a "
-        "PC hub only when that PC is an **actor, object, addressee, rescuer, target, listener, or "
-        "affected party** in this unit. A passing PC name in a beat centered on an NPC, location, "
-        "faction, item, or event does **not** require that PC hub unless the PC has one of those "
-        "roles here. If the unit is mainly about entities not represented in the manifest, "
-        "abstain: assigned_hubs=[], needs_new_hub_candidate=false. Set needs_new_hub_candidate=true "
-        "only when assigned_hubs is empty and the text clearly implies a **real** entity with no "
-        "fitting slug in the list—never use a PC hub as a stand-in for an NPC or location.\n"
-        "5b-examples (synthetic wording; follow roles, not names): "
-        "\"Rook pulled the lever.\" → Rook's PC hub if Rook is a manifest slug. "
-        "\"The warden questioned Rook.\" → Rook's hub (object/addressee); abstain for warden if "
-        "no warden hub exists in a PC-only list. "
-        "\"The party walked to the bridge.\" → every manifest PC if the PCs move **together** as "
-        "the party; abstain if **the group** is only vague framing (6c). "
-        "\"We brought the team together for the first fight.\" → every manifest PC slug (6c). "
-        "\"The scout briefed the captain.\" → captain's PC hub if captain is a manifest slug; "
-        "do not assign other PCs who are not implicated.\n"
-        "6. Generic recap prose with no entity, location, faction, item, event, or world subject "
-        "should abstain: assigned_hubs=[], needs_new_hub_candidate=false.\n"
-        "6b. Include a PC hub when that PC has a role from rule 5b in this unit—not merely because "
-        "the name appears in passing while another entity drives the beat.\n"
-        "6c. Assign every manifest PC slug when the unit uses **the team** / **our team** / "
-        "**teammates** in a fight or agreed job, or pairs **first combat** with **team** / "
-        "**bring the team together**. Also assign every manifest PC slug when **the group** "
-        "clearly denotes the PCs as the **joint subject** of movement or approach in the same "
-        "beat (they advance, arrive, or are led **together**). Abstain when **the group** is "
-        "only vague recap framing or the sentence center is a location/NPC with no PC in a "
-        "role from rule 5b.\n"
-        "7. Rationale must cite phrases from the unit text.\n"
-        "8. Output only one JSON object matching the schema; no markdown fences.\n"
-    )
-    user_payload = {
+    corpus_root: Path | None = None,
+    prompt_variant: str | None = None,
+) -> tuple[list[dict[str, str]], str]:
+    """Returns ``(messages, routing_prompt_id)`` — full prompt digest includes variant append."""
+    party_names = _merged_pc_party_names(inp, corpus_root)
+    pc_roster_slugs = _pc_roster_slugs_from_manifest(manifest)
+    session_pc_roster_slugs: list[str] = []
+    if corpus_root is not None and pc_roster_slugs:
+        session_pc_roster_slugs = resolve_session_pc_roster_slugs(
+            inp=inp, corpus_root=corpus_root, manifest_jsonable=manifest
+        )
+    system, routing_prompt_id = build_routing_system_prompt(prompt_variant)
+    user_payload: dict[str, Any] = {
         "campaign_id": inp.get("campaign_id"),
         "session": inp.get("session"),
         "recap_relative_path": inp.get("recap_relative_path"),
         "hub_manifest": manifest,
         "sentence_units": units_json,
     }
+    if party_names:
+        user_payload["routing_context"] = {"pc_party_names": party_names}
+        if pc_roster_slugs:
+            user_payload["routing_context"]["pc_roster_slugs"] = pc_roster_slugs
+        if session_pc_roster_slugs:
+            user_payload["routing_context"]["session_pc_roster_slugs"] = session_pc_roster_slugs
     return [
         {"role": "system", "content": system},
         {"role": "user", "content": json.dumps(user_payload, indent=2, ensure_ascii=False)},
-    ]
+    ], routing_prompt_id
 
 
 def _routes_response_json_schema(*, allowed_hubs: set[str]) -> dict[str, Any]:
     """Strict Chat Completions JSON schema for ``sentence_hub_routes_v1``."""
-    sorted_hubs = sorted(allowed_hubs)
+    sorted_hubs = sorted(allowed_hubs | {THE_PARTY_ROUTE_SENTINEL})
+    diag_any_of: list[dict[str, Any]] = [{"type": "null"}]
+    diag_any_of.append({"type": "string", "enum": list(ROUTING_DIAGNOSTIC_ENUM)})
     return {
         "type": "object",
         "additionalProperties": False,
@@ -136,6 +245,7 @@ def _routes_response_json_schema(*, allowed_hubs: set[str]) -> dict[str, Any]:
                         "confidence",
                         "rationale",
                         "needs_new_hub_candidate",
+                        "routing_diagnostic_bucket",
                     ],
                     "properties": {
                         "unit_id": {"type": "string"},
@@ -146,6 +256,7 @@ def _routes_response_json_schema(*, allowed_hubs: set[str]) -> dict[str, Any]:
                         "confidence": {"type": "string", "enum": ["high", "medium", "low"]},
                         "rationale": {"type": "string"},
                         "needs_new_hub_candidate": {"type": "boolean"},
+                        "routing_diagnostic_bucket": {"anyOf": diag_any_of},
                     },
                 },
             },
@@ -158,6 +269,9 @@ def _load_sentence_units(
     corpus_root: Path,
     prior_path: Path | None,
 ) -> list[dict[str, Any]]:
+    embedded = scenario.get("sentence_units")
+    if isinstance(embedded, list) and embedded:
+        return [dict(x) for x in embedded if isinstance(x, dict)]
     if prior_path is not None:
         side = json.loads(Path(prior_path).read_text(encoding="utf-8"))
         raw = side.get("sentence_units")
@@ -224,6 +338,7 @@ def run_stage_b_once(
     model: str,
     no_llm: bool,
     no_writes: bool,
+    prompt_variant: str | None = None,
 ) -> tuple[bool, dict[str, Any], float, Path | None]:
     """
     Grade one routing attempt. Returns ``(passed, sidecar, cost_usd, written_path)``.
@@ -232,13 +347,24 @@ def run_stage_b_once(
     from evals.sentence_routing_retrieval_falsification.grader import (
         collect_stage_b_violations,
         normalize_gold_routing_matches,
+        stage_b_violation_only_telemetry,
     )
-    from evals.sentence_routing_retrieval_falsification.route_schema import parse_routes_envelope
+    from evals.sentence_routing_retrieval_falsification.route_schema import (
+        normalize_route_rows_for_manifest,
+        normalize_sentence_units_text_for_manifest,
+        parse_routes_envelope,
+    )
 
     inp = dict(raw.get("input") or {})
+    session_pc = resolve_session_pc_roster_slugs(
+        inp=inp, corpus_root=corpus_root, manifest_jsonable=manifest_jsonable
+    )
+    manifest_pc_fallback = _pc_roster_slugs_from_manifest(manifest_jsonable)
+    party_expansion_for_grade = session_pc if session_pc else manifest_pc_fallback
     cost_usd = 0.0
     routes_body: dict[str, Any] | None = None
     raw_model_output: str | None = None
+    _, routing_prompt_id = build_routing_system_prompt(prompt_variant)
 
     if no_llm:
         fixture = raw.get("fixture_routes")
@@ -246,7 +372,16 @@ def run_stage_b_once(
             raise ValueError("scenario.fixture_routes (object) is required when using --no-llm")
         routes_body = dict(fixture)
     else:
-        messages = _build_messages(inp=inp, manifest=manifest_jsonable, units_json=units_json)
+        units_for_llm = normalize_sentence_units_text_for_manifest(
+            units_json, manifest_slugs
+        )
+        messages, routing_prompt_id = _build_messages(
+            inp=inp,
+            manifest=manifest_jsonable,
+            units_json=units_for_llm,
+            corpus_root=corpus_root,
+            prompt_variant=prompt_variant,
+        )
         routes_body, cost_usd, raw_model_output = _call_llm_for_routes(
             model=model,
             messages=messages,
@@ -263,20 +398,35 @@ def run_stage_b_once(
     violations.extend(gold_errors)
 
     try:
-        envelope = parse_routes_envelope(routes_body)
+        envelope = parse_routes_envelope(routes_body, manifest_jsonable=manifest_jsonable)
     except Exception as exc:
         violations.append(f"B0: routes JSON invalid: {exc}")
+        telemetry = stage_b_violation_only_telemetry(violations, expected_unit_ids=expected_ids)
         passed = False
         raw_routes = routes_body.get("routes") if isinstance(routes_body, dict) else []
         if isinstance(raw_routes, list):
             routes_out = [dict(x) for x in raw_routes if isinstance(x, dict)]
     else:
+        has_party = any(
+            THE_PARTY_ROUTE_SENTINEL in (r.assigned_hubs or []) for r in envelope.routes
+        )
+        if has_party:
+            exp_target = session_pc if session_pc else manifest_pc_fallback
+            if not exp_target:
+                violations.append(
+                    "B0: the_party assigned but session_pc_roster_slugs could not be resolved "
+                    "(no PC entries in hub_manifest)"
+                )
+            else:
+                envelope.routes = expand_the_party_sentinel(envelope.routes, exp_target)
+        envelope.routes = normalize_route_rows_for_manifest(envelope.routes, manifest_slugs)
         routes_out = [r.model_dump() for r in envelope.routes]
         b_viol, telemetry = collect_stage_b_violations(
             envelope.routes,
             gold_norm,
             manifest_slugs=manifest_slugs,
             expected_unit_ids=expected_ids,
+            party_expansion_slugs=party_expansion_for_grade,
         )
         violations.extend(b_viol)
         passed = not violations
@@ -288,6 +438,11 @@ def run_stage_b_once(
         "scenario_path": str(scenario_path),
         "corpus_root": str(corpus_root),
         "pass": passed,
+        "prompt_variant": None
+        if prompt_variant is None
+        else (str(prompt_variant).strip() or None),
+        "routing_prompt_base_id": ROUTING_PROMPT_BASE_ID,
+        "routing_prompt_id": routing_prompt_id,
         "scenario_estimated_cost_usd": round(cost_usd, 6),
         "violations": {"stage_b": violations},
         "telemetry": telemetry,
@@ -341,6 +496,16 @@ def main() -> int:
         help="Use scenario fixture_routes JSON only (CI / grader smoke).",
     )
     parser.add_argument("--no-writes", action="store_true")
+    parser.add_argument(
+        "--prompt-variant",
+        type=str,
+        default="",
+        metavar="NAME",
+        help=(
+            "Append experimental system text for A/B prompt tests. "
+            f"Known: {', '.join(sorted(PROMPT_VARIANT_APPENDS))}."
+        ),
+    )
     args = parser.parse_args()
 
     n = max(1, int(args.n))
@@ -400,6 +565,7 @@ def main() -> int:
 
     records: list[StageBRunRecord] = []
     all_pass = True
+    prompt_variant_arg = str(args.prompt_variant or "").strip() or None
 
     for i in range(n):
         try:
@@ -414,6 +580,7 @@ def main() -> int:
                 model=args.model,
                 no_llm=args.no_llm,
                 no_writes=args.no_writes,
+                prompt_variant=prompt_variant_arg,
             )
         except ValueError as exc:
             print(str(exc), file=sys.stderr)
@@ -423,6 +590,11 @@ def main() -> int:
         stage_b = vb.get("stage_b") if isinstance(vb, dict) else []
         n_v = len(stage_b) if isinstance(stage_b, list) else 0
         path_str = str(written) if written is not None else ""
+        telem = sidecar.get("telemetry") if isinstance(sidecar, dict) else None
+        unit_bd = None
+        if isinstance(telem, dict):
+            raw_bd = telem.get("stage_b_unit_breakdown")
+            unit_bd = raw_bd if isinstance(raw_bd, dict) else None
         records.append(
             StageBRunRecord(
                 run_index=i,
@@ -430,6 +602,12 @@ def main() -> int:
                 scenario_estimated_cost_usd=float(cost_usd),
                 sidecar_json_path=path_str,
                 stage_b_violation_count=n_v,
+                routing_prompt_base_id=(
+                    str(sidecar.get("routing_prompt_base_id") or "").strip() or None
+                ),
+                routing_prompt_id=str(sidecar.get("routing_prompt_id") or "").strip()
+                or None,
+                stage_b_unit_breakdown=unit_bd,
             )
         )
 
@@ -439,6 +617,7 @@ def main() -> int:
             model_id=args.model.strip(),
             scenario_id=scenario_id,
             runs_root=_ARTIFACTS,
+            prompt_variant=prompt_variant_arg,
         )
         print(str(j_path), file=sys.stderr)
         print(str(m_path), file=sys.stderr)

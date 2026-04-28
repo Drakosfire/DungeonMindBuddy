@@ -1,0 +1,18 @@
+{
+  "schema": "party_registry_v1",
+  "campaign_id": "longmont-c2",
+  "pc_party_names": [
+    "Questionable Company"
+  ],
+  "session_pc_rosters": {
+    "20": [
+      "baergrom",
+      "bonogo",
+      "caelynn",
+      "ephanna",
+      "karsemine",
+      "stafl"
+    ]
+  },
+  "notes": "Table-facing adventuring-band labels for Stage B routing_context.pc_party_names (prompt rule 6d). session_pc_rosters keys are session numbers (strings); lists are GM-declared PCs present that session — used for routing_context.session_pc_roster_slugs and `the_party` expansion without editing recap line counts. Optional recap frontmatter session_pc_roster overrides when present. Loaded by evals/sentence_routing_retrieval_falsification/step2_route_run from the campaign folder adjacent to Session Recaps."
+}

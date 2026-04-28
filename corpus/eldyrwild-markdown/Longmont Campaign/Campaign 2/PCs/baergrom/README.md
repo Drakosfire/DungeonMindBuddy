@@ -10,7 +10,7 @@ last_updated_session: 20
 source_class: ledger_or_dossier
 subject_class: pc
 subject_doc_kind: hub_index
-table_note: "Player: Rich. Hub README; satellites (dossier, timeline, Campaign 2 Notes pointer) carry the canonical continuity. Recaps sometimes spell **Baergrom** as **Baergom** / **Baergorm** / **Baegrom** — treat as one PC. Not a statblock repository."
+table_note: "Player: Rich. Hub README; satellites (dossier, timeline, Campaign 2 Notes pointer) carry the canonical continuity. Canonical PC name spelling in corpus recap prose is **Baergrom**; Stage B harness text normalization still maps legacy misspellings to hub slug `baergrom`. Not a statblock repository."
 ---
 
 # Baergrom Stoutheart — Campaign 2 (PC hub)

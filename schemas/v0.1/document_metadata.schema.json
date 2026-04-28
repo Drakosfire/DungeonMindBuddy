@@ -48,6 +48,10 @@
     },
     "source_class": {
       "$ref": "common.schema.json#/$defs/sourceClass"
+    },
+    "session_pc_roster": {
+      "type": "string",
+      "description": "Comma-separated PC hub slugs present at the table this session (optional; sentence routing / retrieval tooling)."
     }
   },
   "allOf": [

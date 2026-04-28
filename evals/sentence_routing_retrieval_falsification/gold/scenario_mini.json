@@ -34,7 +34,9 @@
     "must_route": [
       {
         "unit_id": "u-L0005-01",
-        "expected_hubs": ["hub_readme"],
+        "expected_hubs": [
+          "hub_readme"
+        ],
         "max_extra_hubs": 0
       }
     ],
@@ -60,28 +62,34 @@
         "assigned_hubs": [],
         "confidence": "low",
         "rationale": "Generic sentence with no semantic subject in the manifest.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0003-02",
         "assigned_hubs": [],
         "confidence": "medium",
         "rationale": "Second line beat; no manifest hub required for gold.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0005-01",
-        "assigned_hubs": ["hub_readme"],
+        "assigned_hubs": [
+          "hub_readme"
+        ],
         "confidence": "medium",
         "rationale": "Names Doctor Jones and Ms Smith, which are person-like NPC cues for the synthetic README hub.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0005-02",
         "assigned_hubs": [],
         "confidence": "low",
         "rationale": "Truncated tail; abstain per gold.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       }
     ]
   }

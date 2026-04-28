@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "symdex": {
+      "command": "symdex",
+      "args": [
+        "serve"
+      ],
+      "env": {
+        "SYMDEX_STATE_DIR": ".symdex"
+      }
+    }
+  }
+}

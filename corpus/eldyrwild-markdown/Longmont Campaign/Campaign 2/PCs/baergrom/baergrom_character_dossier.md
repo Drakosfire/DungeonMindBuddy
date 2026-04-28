@@ -19,7 +19,7 @@ table_note: "Player: Rich. AC, HP, superiority dice accounting, full maneuver li
 
 ## Disambiguators
 
-- Recaps typo his name as **Baergom**, **Baergorm**, or **Baegrom** in places — **same PC** as **Baergrom**.
+- Session recap files in this corpus use the canonical spelling **Baergrom**; older misspellings were corrected in place. The same PC if a new source repeats a typo.
 - **Not** **Bonogo** (Kyle’s rogue / arena showman) — they team constantly but are different characters.
 - **Not** an NPC dossier hub: **no CR, HP, or DC block here** — use the **live character sheet** at the table. For a **player-handed numbers snapshot**, see `baergrom_statblock_dnd_beyond_level5.md` (optional statblock in this folder).
 

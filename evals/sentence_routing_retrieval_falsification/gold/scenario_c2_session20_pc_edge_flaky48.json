@@ -1,0 +1,573 @@
+{
+  "schema": "sentence_routing_falsification_v1",
+  "scenario_id": "sentence_routing_c2_session20_pc_edge_flaky48",
+  "scenario_notes": "Campaign 2 Session 20 PC-only route_sentence_units_to_hubs routing gate (legacy: Stage B). Must-route rows cover explicit named C2 PC mentions, affected/listener PCs, and **joint party** beats where **the group** / **the team** / **Questionable Company** / **rest of the group** denotes the PCs acting or deciding together (L16·7, L22·1, L24·9, L26·1, L26·3, L30·2, L30·3, L34·1, L34·2, L34·3 → all six PC slugs where listed). **L14·3** is focal on Caelynn (enveloped + observers); “the rest of the team” does not force whole-party here. **L18·2** continues Bonogo’s guided search beat → `bonogo` must_route. **L18·8** (Stuart / Stacey gold accusation) and **L22·7** (post-escalation “more furious”) remain **Bonogo alley / field scene** beats → `bonogo` must_route. **L28·2** (Sara / operator voice on Caelynn’s call) → **`must_route` `caelynn`** (Caelynn-thread listener; not abstain in PC-only routing). **L30·5** (“She finds Lysandra…”) → Caelynn as perceiver → `caelynn` must_route. Focal-PC-only rows elsewhere keep tight `max_extra_hubs`. Continuation pronouns route to a PC only when that PC is still the clear subject of the beat; a following clause about another NPC (e.g. “she” = Marla after Stafl was mentioned earlier) is abstain unless a PC is named again. Thrin, Stuart, Stacey, Marla, Lysandra, Sara, Tealeaf, and locations without a named PC in the unit stay out of PC hubs unless must_abstain says otherwise; named out-of-manifest entities may use needs_new_hub_candidate per runner rules. L22·2 names only Ephanna + Karesmine + Caelynn → gold stays three hubs; recap spelling **Karesmine** = hub **karsemine**. L24·7 is Bonogo + Caelynn only (no whole-party). L28·9 is Caelynn + Karsemine (lead-the-team), not all six. Party band labels load from `corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/_party_registry.json` into `routing_context.pc_party_names` at run time; the PC-only manifest is also exposed as `routing_context.pc_roster_slugs` so party-name rows are copy-from-roster decisions (optional `input.pc_party_names` still merges as harness-only override; not a grader field). **Rubric realign 2026-04-27:** L28·2 and L30·3 were incorrectly `must_abstain` in the full scenario; they are now `must_route` (`caelynn` only; full roster respectively) per GM judgment — this edge file mirrors that change (two rows moved from abstain to route; 48 checks total).\n\n**Edge subset (flaky only):** 26 must_route + 22 must_abstain rows (48 total) selected from stability analysis over 72 historical sidecars vs `scenario_c2_session20_pc.json`, then base-aligned 2026-04-27 for L28·2 / L30·3. Source check_keys: must_abstain[0], must_abstain[1], must_abstain[2], must_abstain[3], must_abstain[4], must_abstain[5], must_abstain[6], must_abstain[7], must_abstain[8], must_abstain[9], must_abstain[10], must_abstain[13], must_abstain[14], must_abstain[15], must_abstain[16], must_abstain[17], must_abstain[18], must_abstain[19], must_abstain[20], must_abstain[21], must_abstain[22], must_abstain[23], must_abstain[24], must_abstain[25], must_route[0], must_route[1], must_route[3], must_route[5], must_route[6], must_route[8], must_route[10], must_route[14], must_route[15], must_route[19], must_route[23], must_route[24], must_route[25], must_route[26], must_route[27], must_route[31], must_route[32], must_route[34], must_route[36], must_route[38], must_route[44], must_route[45], must_route[46], must_route[47].",
+  "input": {
+    "recap_relative_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md",
+    "campaign_id": "longmont-c2",
+    "session": 20,
+    "validate_manifest_paths": true,
+    "hub_manifest": [
+      {
+        "slug": "baergrom",
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/baergrom/README.md",
+        "subject_class": "pc",
+        "campaign_id": "longmont-c2",
+        "label": "baergrom — Campaign 2 PC hub"
+      },
+      {
+        "slug": "bonogo",
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/bonogo/README.md",
+        "subject_class": "pc",
+        "campaign_id": "longmont-c2",
+        "label": "bonogo — Campaign 2 PC hub"
+      },
+      {
+        "slug": "caelynn",
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/caelynn/README.md",
+        "subject_class": "pc",
+        "campaign_id": "longmont-c2",
+        "label": "caelynn — Campaign 2 PC hub"
+      },
+      {
+        "slug": "ephanna",
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/ephanna/README.md",
+        "subject_class": "pc",
+        "campaign_id": "longmont-c2",
+        "label": "ephanna — Campaign 2 PC hub"
+      },
+      {
+        "slug": "karsemine",
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/karsemine/README.md",
+        "subject_class": "pc",
+        "campaign_id": "longmont-c2",
+        "label": "karsemine — Campaign 2 PC hub"
+      },
+      {
+        "slug": "stafl",
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/stafl/README.md",
+        "subject_class": "pc",
+        "campaign_id": "longmont-c2",
+        "label": "stafl — Campaign 2 PC hub"
+      }
+    ]
+  },
+  "gold_capture": {
+    "min_units": 90,
+    "max_units": 110,
+    "must_contain_substrings_anywhere": [
+      "Bonogo",
+      "Caelynn",
+      "Ephanna",
+      "Karesmine",
+      "Stafl"
+    ]
+  },
+  "gold_routing": {
+    "must_route": [
+      {
+        "match": {
+          "line_start": 14,
+          "index_on_line": 1
+        },
+        "expected_hubs": [
+          "ephanna",
+          "karsemine",
+          "caelynn"
+        ],
+        "max_extra_hubs": 0
+      },
+      {
+        "match": {
+          "line_start": 14,
+          "index_on_line": 3
+        },
+        "expected_hubs": [
+          "caelynn"
+        ],
+        "max_extra_hubs": 0
+      },
+      {
+        "match": {
+          "line_start": 16,
+          "index_on_line": 3
+        },
+        "expected_hubs": [
+          "caelynn",
+          "karsemine"
+        ],
+        "max_extra_hubs": 0
+      },
+      {
+        "match": {
+          "line_start": 16,
+          "index_on_line": 6
+        },
+        "expected_hubs": [
+          "caelynn"
+        ],
+        "max_extra_hubs": 0
+      },
+      {
+        "match": {
+          "line_start": 16,
+          "index_on_line": 7
+        },
+        "expected_hubs": [
+          "baergrom",
+          "bonogo",
+          "caelynn",
+          "ephanna",
+          "karsemine",
+          "stafl"
+        ],
+        "max_extra_hubs": 0
+      },
+      {
+        "match": {
+          "line_start": 18,
+          "index_on_line": 2
+        },
+        "expected_hubs": [
+          "bonogo"
+        ],
+        "max_extra_hubs": 0
+      },
+      {
+        "match": {
+          "line_start": 18,
+          "index_on_line": 8
+        },
+        "expected_hubs": [
+          "bonogo"
+        ],
+        "max_extra_hubs": 0
+      },
+      {
+        "match": {
+          "line_start": 22,
+          "index_on_line": 1
+        },
+        "expected_hubs": [
+          "baergrom",
+          "bonogo",
+          "caelynn",
+          "ephanna",
+          "karsemine",
+          "stafl"
+        ],
+        "max_extra_hubs": 0
+      },
+      {
+        "match": {
+          "line_start": 22,
+          "index_on_line": 2
+        },
+        "expected_hubs": [
+          "ephanna",
+          "karsemine",
+          "caelynn"
+        ],
+        "max_extra_hubs": 0
+      },
+      {
+        "match": {
+          "line_start": 22,
+          "index_on_line": 7
+        },
+        "expected_hubs": [
+          "bonogo"
+        ],
+        "max_extra_hubs": 0
+      },
+      {
+        "match": {
+          "line_start": 24,
+          "index_on_line": 7
+        },
+        "expected_hubs": [
+          "bonogo",
+          "caelynn"
+        ],
+        "max_extra_hubs": 0
+      },
+      {
+        "match": {
+          "line_start": 24,
+          "index_on_line": 9
+        },
+        "expected_hubs": [
+          "baergrom",
+          "bonogo",
+          "caelynn",
+          "ephanna",
+          "karsemine",
+          "stafl"
+        ],
+        "max_extra_hubs": 0
+      },
+      {
+        "match": {
+          "line_start": 26,
+          "index_on_line": 1
+        },
+        "expected_hubs": [
+          "baergrom",
+          "bonogo",
+          "caelynn",
+          "ephanna",
+          "karsemine",
+          "stafl"
+        ],
+        "max_extra_hubs": 0
+      },
+      {
+        "match": {
+          "line_start": 26,
+          "index_on_line": 3
+        },
+        "expected_hubs": [
+          "baergrom",
+          "bonogo",
+          "caelynn",
+          "ephanna",
+          "karsemine",
+          "stafl"
+        ],
+        "max_extra_hubs": 0
+      },
+      {
+        "match": {
+          "line_start": 26,
+          "index_on_line": 6
+        },
+        "expected_hubs": [
+          "caelynn",
+          "bonogo",
+          "ephanna"
+        ],
+        "max_extra_hubs": 0
+      },
+      {
+        "match": {
+          "line_start": 28,
+          "index_on_line": 2
+        },
+        "expected_hubs": [
+          "caelynn"
+        ],
+        "max_extra_hubs": 0
+      },
+      {
+        "match": {
+          "line_start": 28,
+          "index_on_line": 4
+        },
+        "expected_hubs": [
+          "caelynn"
+        ],
+        "max_extra_hubs": 0
+      },
+      {
+        "match": {
+          "line_start": 28,
+          "index_on_line": 5
+        },
+        "expected_hubs": [
+          "caelynn"
+        ],
+        "max_extra_hubs": 0
+      },
+      {
+        "match": {
+          "line_start": 28,
+          "index_on_line": 9
+        },
+        "expected_hubs": [
+          "caelynn",
+          "karsemine"
+        ],
+        "max_extra_hubs": 0
+      },
+      {
+        "match": {
+          "line_start": 30,
+          "index_on_line": 2
+        },
+        "expected_hubs": [
+          "baergrom",
+          "bonogo",
+          "caelynn",
+          "ephanna",
+          "karsemine",
+          "stafl"
+        ],
+        "max_extra_hubs": 0
+      },
+      {
+        "match": {
+          "line_start": 30,
+          "index_on_line": 3
+        },
+        "expected_hubs": [
+          "baergrom",
+          "bonogo",
+          "caelynn",
+          "ephanna",
+          "karsemine",
+          "stafl"
+        ],
+        "max_extra_hubs": 0
+      },
+      {
+        "match": {
+          "line_start": 30,
+          "index_on_line": 5
+        },
+        "expected_hubs": [
+          "caelynn"
+        ],
+        "max_extra_hubs": 0
+      },
+      {
+        "match": {
+          "line_start": 32,
+          "index_on_line": 9
+        },
+        "expected_hubs": [
+          "caelynn"
+        ],
+        "max_extra_hubs": 0
+      },
+      {
+        "match": {
+          "line_start": 34,
+          "index_on_line": 1
+        },
+        "expected_hubs": [
+          "baergrom",
+          "bonogo",
+          "caelynn",
+          "ephanna",
+          "karsemine",
+          "stafl"
+        ],
+        "max_extra_hubs": 0
+      },
+      {
+        "match": {
+          "line_start": 34,
+          "index_on_line": 2
+        },
+        "expected_hubs": [
+          "baergrom",
+          "bonogo",
+          "caelynn",
+          "ephanna",
+          "karsemine",
+          "stafl"
+        ],
+        "max_extra_hubs": 0
+      },
+      {
+        "match": {
+          "line_start": 34,
+          "index_on_line": 3
+        },
+        "expected_hubs": [
+          "baergrom",
+          "bonogo",
+          "caelynn",
+          "ephanna",
+          "karsemine",
+          "stafl"
+        ],
+        "max_extra_hubs": 0
+      }
+    ],
+    "must_abstain": [
+      {
+        "match": {
+          "line_start": 14,
+          "index_on_line": 2
+        },
+        "max_assigned_hubs": 0,
+        "needs_new_hub_candidate": false
+      },
+      {
+        "match": {
+          "line_start": 18,
+          "index_on_line": 3
+        },
+        "max_assigned_hubs": 0,
+        "needs_new_hub_candidate": false
+      },
+      {
+        "match": {
+          "line_start": 18,
+          "index_on_line": 4
+        },
+        "max_assigned_hubs": 0,
+        "needs_new_hub_candidate": false
+      },
+      {
+        "match": {
+          "line_start": 18,
+          "index_on_line": 5
+        },
+        "max_assigned_hubs": 0,
+        "needs_new_hub_candidate": false
+      },
+      {
+        "match": {
+          "line_start": 18,
+          "index_on_line": 7
+        },
+        "max_assigned_hubs": 0,
+        "needs_new_hub_candidate": false
+      },
+      {
+        "match": {
+          "line_start": 18,
+          "index_on_line": 10
+        },
+        "max_assigned_hubs": 0,
+        "needs_new_hub_candidate": false
+      },
+      {
+        "match": {
+          "line_start": 20,
+          "index_on_line": 1
+        },
+        "max_assigned_hubs": 0,
+        "needs_new_hub_candidate": false
+      },
+      {
+        "match": {
+          "line_start": 20,
+          "index_on_line": 8
+        },
+        "max_assigned_hubs": 0,
+        "needs_new_hub_candidate": false
+      },
+      {
+        "match": {
+          "line_start": 24,
+          "index_on_line": 1
+        },
+        "max_assigned_hubs": 0,
+        "needs_new_hub_candidate": false
+      },
+      {
+        "match": {
+          "line_start": 24,
+          "index_on_line": 2
+        },
+        "max_assigned_hubs": 0,
+        "needs_new_hub_candidate": false
+      },
+      {
+        "match": {
+          "line_start": 24,
+          "index_on_line": 5
+        },
+        "max_assigned_hubs": 0,
+        "needs_new_hub_candidate": false
+      },
+      {
+        "match": {
+          "line_start": 26,
+          "index_on_line": 5
+        },
+        "max_assigned_hubs": 0,
+        "needs_new_hub_candidate": false
+      },
+      {
+        "match": {
+          "line_start": 28,
+          "index_on_line": 7
+        },
+        "max_assigned_hubs": 0,
+        "needs_new_hub_candidate": false
+      },
+      {
+        "match": {
+          "line_start": 28,
+          "index_on_line": 8
+        },
+        "max_assigned_hubs": 0,
+        "needs_new_hub_candidate": false
+      },
+      {
+        "match": {
+          "line_start": 30,
+          "index_on_line": 6
+        },
+        "max_assigned_hubs": 0,
+        "needs_new_hub_candidate": false
+      },
+      {
+        "match": {
+          "line_start": 30,
+          "index_on_line": 10
+        },
+        "max_assigned_hubs": 0,
+        "needs_new_hub_candidate": false
+      },
+      {
+        "match": {
+          "line_start": 30,
+          "index_on_line": 11
+        },
+        "max_assigned_hubs": 0,
+        "needs_new_hub_candidate": false
+      },
+      {
+        "match": {
+          "line_start": 30,
+          "index_on_line": 12
+        },
+        "max_assigned_hubs": 0,
+        "needs_new_hub_candidate": false
+      },
+      {
+        "match": {
+          "line_start": 30,
+          "index_on_line": 13
+        },
+        "max_assigned_hubs": 0,
+        "needs_new_hub_candidate": false
+      },
+      {
+        "match": {
+          "line_start": 32,
+          "index_on_line": 5
+        },
+        "max_assigned_hubs": 0,
+        "needs_new_hub_candidate": false
+      },
+      {
+        "match": {
+          "line_start": 32,
+          "index_on_line": 6
+        },
+        "max_assigned_hubs": 0,
+        "needs_new_hub_candidate": false
+      },
+      {
+        "match": {
+          "line_start": 32,
+          "index_on_line": 8
+        },
+        "max_assigned_hubs": 0,
+        "needs_new_hub_candidate": false
+      }
+    ],
+    "soft_limits": {
+      "max_mean_assigned_hubs_per_unit": 1.0,
+      "max_unresolved_fraction": 0.8
+    }
+  },
+  "gold_proposals": {},
+  "gold_retrieval": {}
+}

@@ -1,0 +1,259 @@
+{
+  "schema": "sentence_routing_falsification_v1",
+  "scenario_id": "sentence_routing_rule3_locus_line16",
+  "scenario_notes": "Minimal slice: Session 20 recap line 16 only in top-level sentence_units (same manifest as C2 Session 20). Gold is the base scenario must_route/must_abstain for that line (focal u-L0016-03). Optional: override units via --prior-json (same shape as legacy Stage A capture).",
+  "sentence_units": [
+    {
+      "unit_id": "u-L0016-01",
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md",
+      "line_start": 16,
+      "line_end": 16,
+      "text": "Ephanna unleashes two Eldritch Blasts, the first missing and the second one dealing enough damage to knock another cluster out of the swarm."
+    },
+    {
+      "unit_id": "u-L0016-02",
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md",
+      "line_start": 16,
+      "line_end": 16,
+      "text": "They Misty Step away and add some temporary health to themselves."
+    },
+    {
+      "unit_id": "u-L0016-03",
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md",
+      "line_start": 16,
+      "line_end": 16,
+      "text": "Now that the swarm is around Caelynn, Karsemine is able to use her scimitar and short sword for a series of attacks, landing 4 hits on the swarm."
+    },
+    {
+      "unit_id": "u-L0016-04",
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md",
+      "line_start": 16,
+      "line_end": 16,
+      "text": "She also uses Zephyr Strike to increase her movement and dash away."
+    },
+    {
+      "unit_id": "u-L0016-05",
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md",
+      "line_start": 16,
+      "line_end": 16,
+      "text": "Finally Caelynn is able to duck out of the swarm, then facing them, casts a powerful Thunderwave spell, splitting the swarm in two and pushing it back 10 feet."
+    },
+    {
+      "unit_id": "u-L0016-06",
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md",
+      "line_start": 16,
+      "line_end": 16,
+      "text": "As Thrin and Caelynn move back the swarm finally gives up and heads back into the forest."
+    },
+    {
+      "unit_id": "u-L0016-07",
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md",
+      "line_start": 16,
+      "line_end": 16,
+      "text": "The team decides they have enough “testing” and should head back to tell the others what they discovered."
+    }
+  ],
+  "input": {
+    "recap_relative_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md",
+    "campaign_id": "longmont-c2",
+    "session": 20,
+    "validate_manifest_paths": true,
+    "hub_manifest": [
+      {
+        "slug": "baergrom",
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/baergrom/README.md",
+        "subject_class": "pc",
+        "campaign_id": "longmont-c2",
+        "label": "baergrom — Campaign 2 PC hub"
+      },
+      {
+        "slug": "bonogo",
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/bonogo/README.md",
+        "subject_class": "pc",
+        "campaign_id": "longmont-c2",
+        "label": "bonogo — Campaign 2 PC hub"
+      },
+      {
+        "slug": "caelynn",
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/caelynn/README.md",
+        "subject_class": "pc",
+        "campaign_id": "longmont-c2",
+        "label": "caelynn — Campaign 2 PC hub"
+      },
+      {
+        "slug": "ephanna",
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/ephanna/README.md",
+        "subject_class": "pc",
+        "campaign_id": "longmont-c2",
+        "label": "ephanna — Campaign 2 PC hub"
+      },
+      {
+        "slug": "karsemine",
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/karsemine/README.md",
+        "subject_class": "pc",
+        "campaign_id": "longmont-c2",
+        "label": "karsemine — Campaign 2 PC hub"
+      },
+      {
+        "slug": "stafl",
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/stafl/README.md",
+        "subject_class": "pc",
+        "campaign_id": "longmont-c2",
+        "label": "stafl — Campaign 2 PC hub"
+      }
+    ]
+  },
+  "gold_capture": {
+    "min_units": 0,
+    "max_units": 9999,
+    "must_contain_substrings_anywhere": [
+      "Karsemine",
+      "Caelynn"
+    ]
+  },
+  "gold_routing": {
+    "must_route": [
+      {
+        "match": {
+          "line_start": 16,
+          "index_on_line": 1
+        },
+        "expected_hubs": [
+          "ephanna"
+        ],
+        "max_extra_hubs": 0
+      },
+      {
+        "match": {
+          "line_start": 16,
+          "index_on_line": 3
+        },
+        "expected_hubs": [
+          "caelynn",
+          "karsemine"
+        ],
+        "max_extra_hubs": 0
+      },
+      {
+        "match": {
+          "line_start": 16,
+          "index_on_line": 5
+        },
+        "expected_hubs": [
+          "caelynn"
+        ],
+        "max_extra_hubs": 0
+      },
+      {
+        "match": {
+          "line_start": 16,
+          "index_on_line": 6
+        },
+        "expected_hubs": [
+          "caelynn"
+        ],
+        "expected_routing_diagnostic_bucket": "npc_placeholder",
+        "max_extra_hubs": 0
+      },
+      {
+        "match": {
+          "line_start": 16,
+          "index_on_line": 7
+        },
+        "expected_hubs": [
+          "baergrom",
+          "bonogo",
+          "caelynn",
+          "ephanna",
+          "karsemine",
+          "stafl"
+        ],
+        "max_extra_hubs": 0
+      }
+    ],
+    "must_abstain": [],
+    "soft_limits": {
+      "max_mean_assigned_hubs_per_unit": 1.0,
+      "max_unresolved_fraction": 0.8
+    }
+  },
+  "gold_proposals": {},
+  "gold_retrieval": {},
+  "fixture_routes": {
+    "schema": "sentence_hub_routes_v1",
+    "routes": [
+      {
+        "unit_id": "u-L0016-01",
+        "assigned_hubs": [
+          "ephanna"
+        ],
+        "confidence": "high",
+        "rationale": "PC name match for the scenario gold.",
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
+      },
+      {
+        "unit_id": "u-L0016-02",
+        "assigned_hubs": [],
+        "confidence": "low",
+        "rationale": "No PC hub assignment required by this PC-only scenario.",
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
+      },
+      {
+        "unit_id": "u-L0016-03",
+        "assigned_hubs": [
+          "caelynn",
+          "karsemine"
+        ],
+        "confidence": "high",
+        "rationale": "PC name match for the scenario gold.",
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
+      },
+      {
+        "unit_id": "u-L0016-04",
+        "assigned_hubs": [],
+        "confidence": "low",
+        "rationale": "No PC hub assignment required by this PC-only scenario.",
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
+      },
+      {
+        "unit_id": "u-L0016-05",
+        "assigned_hubs": [
+          "caelynn"
+        ],
+        "confidence": "high",
+        "rationale": "PC name match for the scenario gold.",
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
+      },
+      {
+        "unit_id": "u-L0016-06",
+        "assigned_hubs": [
+          "caelynn"
+        ],
+        "confidence": "high",
+        "rationale": "PC name match for the scenario gold.",
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": "npc_placeholder"
+      },
+      {
+        "unit_id": "u-L0016-07",
+        "assigned_hubs": [
+          "baergrom",
+          "bonogo",
+          "caelynn",
+          "ephanna",
+          "karsemine",
+          "stafl"
+        ],
+        "confidence": "high",
+        "rationale": "Fixture: the team decides jointly → all manifest PCs.",
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
+      }
+    ]
+  }
+}

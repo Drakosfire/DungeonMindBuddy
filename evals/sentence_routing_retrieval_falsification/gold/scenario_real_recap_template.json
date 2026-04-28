@@ -34,14 +34,22 @@
   "gold_routing": {
     "must_route": [
       {
-        "match": { "line_start": 5, "index_on_line": 1 },
-        "expected_hubs": ["hub_readme"],
+        "match": {
+          "line_start": 5,
+          "index_on_line": 1
+        },
+        "expected_hubs": [
+          "hub_readme"
+        ],
         "max_extra_hubs": 0
       }
     ],
     "must_abstain": [
       {
-        "match": { "line_start": 5, "index_on_line": 2 },
+        "match": {
+          "line_start": 5,
+          "index_on_line": 2
+        },
         "max_assigned_hubs": 0,
         "needs_new_hub_candidate": false
       }
@@ -61,28 +69,34 @@
         "assigned_hubs": [],
         "confidence": "low",
         "rationale": "Generic sentence with no semantic subject in the manifest.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0003-02",
         "assigned_hubs": [],
         "confidence": "medium",
         "rationale": "Second line beat; no manifest hub required for gold.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0005-01",
-        "assigned_hubs": ["hub_readme"],
+        "assigned_hubs": [
+          "hub_readme"
+        ],
         "confidence": "medium",
         "rationale": "Names Doctor Jones and Ms Smith, which are person-like NPC cues for the synthetic README hub.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0005-02",
         "assigned_hubs": [],
         "confidence": "low",
         "rationale": "Truncated tail; abstain per gold.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       }
     ]
   }

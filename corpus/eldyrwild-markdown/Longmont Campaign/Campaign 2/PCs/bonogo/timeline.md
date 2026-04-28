@@ -19,4 +19,4 @@ Session-ordered beats. **Pre-campaign / Backstory rows omitted** — pending pla
 
 | Session | Beat (1–3 lines) | Recap / prep |
 |---------|-------------------|--------------|
-| 1 | **minor** Introduced — see recap for first scene of record (Bonogo and Baegrom interested in testing themselves at the Colosseum of the Storm). Expand with one or two specific beats once a recap-ingest pass surfaces them. | `Session 1 - Let the Games Begin.md` |
+| 1 | **minor** Introduced — see recap for first scene of record (Bonogo and Baergrom interested in testing themselves at the Colosseum of the Storm). Expand with one or two specific beats once a recap-ingest pass surfaces them. | `Session 1 - Let the Games Begin.md` |

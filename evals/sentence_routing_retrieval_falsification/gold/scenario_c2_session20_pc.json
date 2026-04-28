@@ -1,7 +1,7 @@
 {
   "schema": "sentence_routing_falsification_v1",
   "scenario_id": "sentence_routing_c2_session20_pc",
-  "scenario_notes": "Campaign 2 Session 20 PC-only route_sentence_units_to_hubs routing gate (legacy: Stage B). Must-route rows cover explicit named C2 PC mentions and affected/listener PCs in the same unit. Continuation pronouns route to a PC only when that PC is still the clear subject of the beat; a following clause about another NPC (e.g. “she” = Marla after Stafl was mentioned earlier) is abstain unless a PC is named again. Thrin, Stuart, Stacey, Marla, Lysandra, Sara, Tealeaf, and locations without a named PC in the unit stay out of PC hubs unless must_abstain says otherwise; named out-of-manifest entities may use needs_new_hub_candidate per runner rules.",
+  "scenario_notes": "Campaign 2 Session 20 PC-only route_sentence_units_to_hubs routing gate (legacy: Stage B). Must-route rows cover explicit named C2 PC mentions, affected/listener PCs, and **joint party** beats where **the group** / **the team** / **Questionable Company** / **rest of the group** denotes the PCs acting or deciding together (L16·7, L22·1, L24·9, L26·1, L26·3, L30·2, L30·3, L34·1, L34·2, L34·3 → all six PC slugs where listed). **L14·3** is focal on Caelynn (enveloped + observers); “the rest of the team” does not force whole-party here. **L18·2** continues Bonogo’s guided search beat → `bonogo` must_route. **L18·8** (Stuart / Stacey gold accusation) and **L22·7** (post-escalation “more furious”) remain **Bonogo alley / field scene** beats → `bonogo` must_route. **L28·2** (Sara / operator voice on Caelynn’s call) → **`must_route` `caelynn`** (Caelynn-thread listener; not abstain in PC-only routing). **L30·5** (“She finds Lysandra…”) → Caelynn as perceiver → `caelynn` must_route. Focal-PC-only rows elsewhere keep tight `max_extra_hubs`. Continuation pronouns route to a PC only when that PC is still the clear subject of the beat; a following clause about another NPC (e.g. “she” = Marla after Stafl was mentioned earlier) is abstain unless a PC is named again. Thrin, Stuart, Stacey, Marla, Lysandra, Sara, Tealeaf, and locations without a named PC in the unit stay out of PC hubs unless must_abstain says otherwise; named out-of-manifest entities may use needs_new_hub_candidate per runner rules. L22·2 names only Ephanna + Karesmine + Caelynn → gold stays three hubs; recap spelling **Karesmine** = hub **karsemine**. L24·7 is Bonogo + Caelynn only (no whole-party). L28·9 is Caelynn + Karsemine (lead-the-team), not all six. Party band labels load from `corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/_party_registry.json` into `routing_context.pc_party_names` at run time; the PC-only manifest is also exposed as `routing_context.pc_roster_slugs` so party-name rows are copy-from-roster decisions (optional `input.pc_party_names` still merges as harness-only override; not a grader field). **Rubric realign 2026-04-27:** L28·2 and L30·3 were incorrectly `must_abstain`; they are now `must_route` (`caelynn` only; full roster respectively) per GM judgment — see verify-before-debug / corpus rationale (not model-output deflation).",
   "input": {
     "recap_relative_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md",
     "campaign_id": "longmont-c2",
@@ -126,6 +126,23 @@
         "expected_hubs": [
           "caelynn"
         ],
+        "expected_routing_diagnostic_bucket": "npc_placeholder",
+        "notes": "PC-only manifest: Thrin is focal alongside Caelynn but has no hub — npc_placeholder alongside caelynn.",
+        "max_extra_hubs": 0
+      },
+      {
+        "match": {
+          "line_start": 16,
+          "index_on_line": 7
+        },
+        "expected_hubs": [
+          "baergrom",
+          "bonogo",
+          "caelynn",
+          "ephanna",
+          "karsemine",
+          "stafl"
+        ],
         "max_extra_hubs": 0
       },
       {
@@ -141,7 +158,27 @@
       {
         "match": {
           "line_start": 18,
+          "index_on_line": 2
+        },
+        "expected_hubs": [
+          "bonogo"
+        ],
+        "max_extra_hubs": 0
+      },
+      {
+        "match": {
+          "line_start": 18,
           "index_on_line": 6
+        },
+        "expected_hubs": [
+          "bonogo"
+        ],
+        "max_extra_hubs": 0
+      },
+      {
+        "match": {
+          "line_start": 18,
+          "index_on_line": 8
         },
         "expected_hubs": [
           "bonogo"
@@ -184,6 +221,11 @@
           "index_on_line": 1
         },
         "expected_hubs": [
+          "baergrom",
+          "bonogo",
+          "caelynn",
+          "ephanna",
+          "karsemine",
           "stafl"
         ],
         "max_extra_hubs": 0
@@ -232,6 +274,16 @@
       },
       {
         "match": {
+          "line_start": 22,
+          "index_on_line": 7
+        },
+        "expected_hubs": [
+          "bonogo"
+        ],
+        "max_extra_hubs": 0
+      },
+      {
+        "match": {
           "line_start": 24,
           "index_on_line": 3
         },
@@ -273,6 +325,51 @@
       },
       {
         "match": {
+          "line_start": 24,
+          "index_on_line": 9
+        },
+        "expected_hubs": [
+          "baergrom",
+          "bonogo",
+          "caelynn",
+          "ephanna",
+          "karsemine",
+          "stafl"
+        ],
+        "max_extra_hubs": 0
+      },
+      {
+        "match": {
+          "line_start": 26,
+          "index_on_line": 1
+        },
+        "expected_hubs": [
+          "baergrom",
+          "bonogo",
+          "caelynn",
+          "ephanna",
+          "karsemine",
+          "stafl"
+        ],
+        "max_extra_hubs": 0
+      },
+      {
+        "match": {
+          "line_start": 26,
+          "index_on_line": 3
+        },
+        "expected_hubs": [
+          "baergrom",
+          "bonogo",
+          "caelynn",
+          "ephanna",
+          "karsemine",
+          "stafl"
+        ],
+        "max_extra_hubs": 0
+      },
+      {
+        "match": {
           "line_start": 26,
           "index_on_line": 6
         },
@@ -297,6 +394,16 @@
         "match": {
           "line_start": 28,
           "index_on_line": 1
+        },
+        "expected_hubs": [
+          "caelynn"
+        ],
+        "max_extra_hubs": 0
+      },
+      {
+        "match": {
+          "line_start": 28,
+          "index_on_line": 2
         },
         "expected_hubs": [
           "caelynn"
@@ -370,7 +477,27 @@
           "index_on_line": 2
         },
         "expected_hubs": [
-          "ephanna"
+          "baergrom",
+          "bonogo",
+          "caelynn",
+          "ephanna",
+          "karsemine",
+          "stafl"
+        ],
+        "max_extra_hubs": 0
+      },
+      {
+        "match": {
+          "line_start": 30,
+          "index_on_line": 3
+        },
+        "expected_hubs": [
+          "baergrom",
+          "bonogo",
+          "caelynn",
+          "ephanna",
+          "karsemine",
+          "stafl"
         ],
         "max_extra_hubs": 0
       },
@@ -378,6 +505,16 @@
         "match": {
           "line_start": 30,
           "index_on_line": 4
+        },
+        "expected_hubs": [
+          "caelynn"
+        ],
+        "max_extra_hubs": 0
+      },
+      {
+        "match": {
+          "line_start": 30,
+          "index_on_line": 5
         },
         "expected_hubs": [
           "caelynn"
@@ -450,7 +587,12 @@
           "index_on_line": 1
         },
         "expected_hubs": [
-          "caelynn"
+          "baergrom",
+          "bonogo",
+          "caelynn",
+          "ephanna",
+          "karsemine",
+          "stafl"
         ],
         "max_extra_hubs": 0
       },
@@ -460,7 +602,12 @@
           "index_on_line": 2
         },
         "expected_hubs": [
-          "karsemine"
+          "baergrom",
+          "bonogo",
+          "caelynn",
+          "ephanna",
+          "karsemine",
+          "stafl"
         ],
         "max_extra_hubs": 0
       },
@@ -470,7 +617,12 @@
           "index_on_line": 3
         },
         "expected_hubs": [
-          "ephanna"
+          "baergrom",
+          "bonogo",
+          "caelynn",
+          "ephanna",
+          "karsemine",
+          "stafl"
         ],
         "max_extra_hubs": 0
       }
@@ -479,22 +631,6 @@
       {
         "match": {
           "line_start": 14,
-          "index_on_line": 2
-        },
-        "max_assigned_hubs": 0,
-        "needs_new_hub_candidate": false
-      },
-      {
-        "match": {
-          "line_start": 16,
-          "index_on_line": 7
-        },
-        "max_assigned_hubs": 0,
-        "needs_new_hub_candidate": false
-      },
-      {
-        "match": {
-          "line_start": 18,
           "index_on_line": 2
         },
         "max_assigned_hubs": 0,
@@ -528,14 +664,6 @@
         "match": {
           "line_start": 18,
           "index_on_line": 7
-        },
-        "max_assigned_hubs": 0,
-        "needs_new_hub_candidate": false
-      },
-      {
-        "match": {
-          "line_start": 18,
-          "index_on_line": 8
         },
         "max_assigned_hubs": 0,
         "needs_new_hub_candidate": false
@@ -566,14 +694,6 @@
       },
       {
         "match": {
-          "line_start": 22,
-          "index_on_line": 7
-        },
-        "max_assigned_hubs": 0,
-        "needs_new_hub_candidate": false
-      },
-      {
-        "match": {
           "line_start": 24,
           "index_on_line": 1
         },
@@ -598,32 +718,8 @@
       },
       {
         "match": {
-          "line_start": 24,
-          "index_on_line": 9
-        },
-        "max_assigned_hubs": 0,
-        "needs_new_hub_candidate": false
-      },
-      {
-        "match": {
-          "line_start": 26,
-          "index_on_line": 1
-        },
-        "max_assigned_hubs": 0,
-        "needs_new_hub_candidate": false
-      },
-      {
-        "match": {
           "line_start": 26,
           "index_on_line": 2
-        },
-        "max_assigned_hubs": 0,
-        "needs_new_hub_candidate": false
-      },
-      {
-        "match": {
-          "line_start": 26,
-          "index_on_line": 3
         },
         "max_assigned_hubs": 0,
         "needs_new_hub_candidate": false
@@ -647,14 +743,6 @@
       {
         "match": {
           "line_start": 28,
-          "index_on_line": 2
-        },
-        "max_assigned_hubs": 0,
-        "needs_new_hub_candidate": false
-      },
-      {
-        "match": {
-          "line_start": 28,
           "index_on_line": 7
         },
         "max_assigned_hubs": 0,
@@ -664,22 +752,6 @@
         "match": {
           "line_start": 28,
           "index_on_line": 8
-        },
-        "max_assigned_hubs": 0,
-        "needs_new_hub_candidate": false
-      },
-      {
-        "match": {
-          "line_start": 30,
-          "index_on_line": 3
-        },
-        "max_assigned_hubs": 0,
-        "needs_new_hub_candidate": false
-      },
-      {
-        "match": {
-          "line_start": 30,
-          "index_on_line": 5
         },
         "max_assigned_hubs": 0,
         "needs_new_hub_candidate": false
@@ -764,77 +836,88 @@
         "assigned_hubs": [],
         "confidence": "low",
         "rationale": "No PC hub assignment required by this PC-only scenario.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0002-01",
         "assigned_hubs": [],
         "confidence": "low",
         "rationale": "No PC hub assignment required by this PC-only scenario.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0003-01",
         "assigned_hubs": [],
         "confidence": "low",
         "rationale": "No PC hub assignment required by this PC-only scenario.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0004-01",
         "assigned_hubs": [],
         "confidence": "low",
         "rationale": "No PC hub assignment required by this PC-only scenario.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0005-01",
         "assigned_hubs": [],
         "confidence": "low",
         "rationale": "No PC hub assignment required by this PC-only scenario.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0006-01",
         "assigned_hubs": [],
         "confidence": "low",
         "rationale": "No PC hub assignment required by this PC-only scenario.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0007-01",
         "assigned_hubs": [],
         "confidence": "low",
         "rationale": "No PC hub assignment required by this PC-only scenario.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0008-01",
         "assigned_hubs": [],
         "confidence": "low",
         "rationale": "No PC hub assignment required by this PC-only scenario.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0009-01",
         "assigned_hubs": [],
         "confidence": "low",
         "rationale": "No PC hub assignment required by this PC-only scenario.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0010-01",
         "assigned_hubs": [],
         "confidence": "low",
         "rationale": "No PC hub assignment required by this PC-only scenario.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0011-01",
         "assigned_hubs": [],
         "confidence": "low",
         "rationale": "No PC hub assignment required by this PC-only scenario.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0014-01",
@@ -845,14 +928,16 @@
         ],
         "confidence": "high",
         "rationale": "PC name match for the scenario gold.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0014-02",
         "assigned_hubs": [],
         "confidence": "low",
         "rationale": "No PC hub assignment required by this PC-only scenario.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0014-03",
@@ -860,15 +945,17 @@
           "caelynn"
         ],
         "confidence": "high",
-        "rationale": "PC name match for the scenario gold.",
-        "needs_new_hub_candidate": false
+        "rationale": "Fixture: Caelynn focal (swarm envelopes her; observers not whole-party).",
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0014-04",
         "assigned_hubs": [],
         "confidence": "low",
         "rationale": "No PC hub assignment required by this PC-only scenario.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0016-01",
@@ -877,14 +964,16 @@
         ],
         "confidence": "high",
         "rationale": "PC name match for the scenario gold.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0016-02",
         "assigned_hubs": [],
         "confidence": "low",
         "rationale": "No PC hub assignment required by this PC-only scenario.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0016-03",
@@ -894,14 +983,16 @@
         ],
         "confidence": "high",
         "rationale": "PC name match for the scenario gold.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0016-04",
         "assigned_hubs": [],
         "confidence": "low",
         "rationale": "No PC hub assignment required by this PC-only scenario.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0016-05",
@@ -910,7 +1001,8 @@
         ],
         "confidence": "high",
         "rationale": "PC name match for the scenario gold.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0016-06",
@@ -919,14 +1011,23 @@
         ],
         "confidence": "high",
         "rationale": "PC name match for the scenario gold.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": "npc_placeholder"
       },
       {
         "unit_id": "u-L0016-07",
-        "assigned_hubs": [],
-        "confidence": "low",
-        "rationale": "No PC hub assignment required by this PC-only scenario.",
-        "needs_new_hub_candidate": false
+        "assigned_hubs": [
+          "baergrom",
+          "bonogo",
+          "caelynn",
+          "ephanna",
+          "karsemine",
+          "stafl"
+        ],
+        "confidence": "high",
+        "rationale": "Fixture: the team decides jointly → all manifest PCs.",
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0018-01",
@@ -935,35 +1036,42 @@
         ],
         "confidence": "high",
         "rationale": "PC name match for the scenario gold.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0018-02",
-        "assigned_hubs": [],
-        "confidence": "low",
-        "rationale": "No PC hub assignment required by this PC-only scenario.",
-        "needs_new_hub_candidate": false
+        "assigned_hubs": [
+          "bonogo"
+        ],
+        "confidence": "high",
+        "rationale": "Fixture: Bonogo still in guided-search beat with Stuart.",
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0018-03",
         "assigned_hubs": [],
         "confidence": "low",
         "rationale": "No PC hub assignment required by this PC-only scenario.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0018-04",
         "assigned_hubs": [],
         "confidence": "low",
         "rationale": "No PC hub assignment required by this PC-only scenario.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0018-05",
         "assigned_hubs": [],
         "confidence": "low",
         "rationale": "No PC hub assignment required by this PC-only scenario.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0018-06",
@@ -972,21 +1080,26 @@
         ],
         "confidence": "high",
         "rationale": "PC name match for the scenario gold.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0018-07",
         "assigned_hubs": [],
         "confidence": "low",
         "rationale": "No PC hub assignment required by this PC-only scenario.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0018-08",
-        "assigned_hubs": [],
-        "confidence": "low",
-        "rationale": "No PC hub assignment required by this PC-only scenario.",
-        "needs_new_hub_candidate": false
+        "assigned_hubs": [
+          "bonogo"
+        ],
+        "confidence": "high",
+        "rationale": "Fixture: Bonogo-scene beat (Stuart/Stacey confrontation); route `bonogo`.",
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0018-09",
@@ -995,21 +1108,24 @@
         ],
         "confidence": "high",
         "rationale": "PC name match for the scenario gold.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0018-10",
         "assigned_hubs": [],
         "confidence": "low",
         "rationale": "No PC hub assignment required by this PC-only scenario.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0020-01",
         "assigned_hubs": [],
         "confidence": "low",
         "rationale": "No PC hub assignment required by this PC-only scenario.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0020-02",
@@ -1018,49 +1134,56 @@
         ],
         "confidence": "high",
         "rationale": "PC name match for the scenario gold.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0020-03",
         "assigned_hubs": [],
         "confidence": "low",
         "rationale": "No PC hub assignment required by this PC-only scenario.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0020-04",
         "assigned_hubs": [],
         "confidence": "low",
         "rationale": "No PC hub assignment required by this PC-only scenario.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0020-05",
         "assigned_hubs": [],
         "confidence": "low",
         "rationale": "No PC hub assignment required by this PC-only scenario.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0020-06",
         "assigned_hubs": [],
         "confidence": "low",
         "rationale": "No PC hub assignment required by this PC-only scenario.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0020-07",
         "assigned_hubs": [],
         "confidence": "low",
         "rationale": "No PC hub assignment required by this PC-only scenario.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0020-08",
         "assigned_hubs": [],
         "confidence": "low",
         "rationale": "No PC hub assignment required by this PC-only scenario.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0020-09",
@@ -1069,16 +1192,23 @@
         ],
         "confidence": "high",
         "rationale": "PC name match for the scenario gold.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0022-01",
         "assigned_hubs": [
+          "baergrom",
+          "bonogo",
+          "caelynn",
+          "ephanna",
+          "karsemine",
           "stafl"
         ],
         "confidence": "high",
-        "rationale": "PC name match for the scenario gold.",
-        "needs_new_hub_candidate": false
+        "rationale": "Fixture: whole-party must_route (contextual joint party beat).",
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0022-02",
@@ -1089,7 +1219,8 @@
         ],
         "confidence": "high",
         "rationale": "PC name match for the scenario gold.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0022-03",
@@ -1098,14 +1229,16 @@
         ],
         "confidence": "high",
         "rationale": "PC name match for the scenario gold.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0022-04",
         "assigned_hubs": [],
         "confidence": "low",
         "rationale": "No PC hub assignment required by this PC-only scenario.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0022-05",
@@ -1114,7 +1247,8 @@
         ],
         "confidence": "high",
         "rationale": "PC name match for the scenario gold.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0022-06",
@@ -1123,28 +1257,34 @@
         ],
         "confidence": "high",
         "rationale": "PC name match for the scenario gold.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0022-07",
-        "assigned_hubs": [],
-        "confidence": "low",
-        "rationale": "No PC hub assignment required by this PC-only scenario.",
-        "needs_new_hub_candidate": false
+        "assigned_hubs": [
+          "bonogo"
+        ],
+        "confidence": "high",
+        "rationale": "Fixture: reaction in Bonogo escalation arc; route `bonogo`.",
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0024-01",
         "assigned_hubs": [],
         "confidence": "low",
         "rationale": "No PC hub assignment required by this PC-only scenario.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0024-02",
         "assigned_hubs": [],
         "confidence": "low",
         "rationale": "No PC hub assignment required by this PC-only scenario.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0024-03",
@@ -1153,7 +1293,8 @@
         ],
         "confidence": "high",
         "rationale": "PC name match for the scenario gold.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0024-04",
@@ -1162,14 +1303,16 @@
         ],
         "confidence": "high",
         "rationale": "PC name match for the scenario gold.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0024-05",
         "assigned_hubs": [],
         "confidence": "low",
         "rationale": "Pronoun “she” refers to Marla’s authority, not a named PC in this unit.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0024-06",
@@ -1178,7 +1321,8 @@
         ],
         "confidence": "high",
         "rationale": "PC name match for the scenario gold.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0024-07",
@@ -1188,56 +1332,85 @@
         ],
         "confidence": "high",
         "rationale": "PC name match for the scenario gold.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0024-08",
         "assigned_hubs": [],
         "confidence": "low",
         "rationale": "No PC hub assignment required by this PC-only scenario.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0024-09",
-        "assigned_hubs": [],
-        "confidence": "low",
-        "rationale": "No PC hub assignment required by this PC-only scenario.",
-        "needs_new_hub_candidate": false
+        "assigned_hubs": [
+          "baergrom",
+          "bonogo",
+          "caelynn",
+          "ephanna",
+          "karsemine",
+          "stafl"
+        ],
+        "confidence": "high",
+        "rationale": "Fixture: Questionable Company joint short rest → all PCs.",
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0026-01",
-        "assigned_hubs": [],
-        "confidence": "low",
-        "rationale": "No PC hub assignment required by this PC-only scenario.",
-        "needs_new_hub_candidate": false
+        "assigned_hubs": [
+          "baergrom",
+          "bonogo",
+          "caelynn",
+          "ephanna",
+          "karsemine",
+          "stafl"
+        ],
+        "confidence": "high",
+        "rationale": "Fixture: Questionable Company jointly watches the forest approach → all PCs.",
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0026-02",
         "assigned_hubs": [],
         "confidence": "low",
         "rationale": "No PC hub assignment required by this PC-only scenario.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0026-03",
-        "assigned_hubs": [],
-        "confidence": "low",
-        "rationale": "No PC hub assignment required by this PC-only scenario.",
-        "needs_new_hub_candidate": false
+        "assigned_hubs": [
+          "baergrom",
+          "bonogo",
+          "caelynn",
+          "ephanna",
+          "karsemine",
+          "stafl"
+        ],
+        "confidence": "high",
+        "rationale": "Fixture: whole-party must_route (shared forest motion beat after Questionable Company + townsfolk setup).",
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0026-04",
         "assigned_hubs": [],
         "confidence": "low",
         "rationale": "No PC hub assignment required by this PC-only scenario.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0026-05",
         "assigned_hubs": [],
         "confidence": "low",
         "rationale": "No PC hub assignment required by this PC-only scenario.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0026-06",
@@ -1248,7 +1421,8 @@
         ],
         "confidence": "high",
         "rationale": "PC name match for the scenario gold.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0026-07",
@@ -1257,7 +1431,8 @@
         ],
         "confidence": "high",
         "rationale": "PC name match for the scenario gold.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0028-01",
@@ -1266,14 +1441,18 @@
         ],
         "confidence": "high",
         "rationale": "PC name match for the scenario gold.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0028-02",
-        "assigned_hubs": [],
-        "confidence": "low",
-        "rationale": "No PC hub assignment required by this PC-only scenario.",
-        "needs_new_hub_candidate": false
+        "assigned_hubs": [
+          "caelynn"
+        ],
+        "confidence": "high",
+        "rationale": "Fixture: Caelynn-thread phone call (Sara voice); route `caelynn`.",
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0028-03",
@@ -1282,7 +1461,8 @@
         ],
         "confidence": "high",
         "rationale": "PC name match for the scenario gold.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0028-04",
@@ -1291,7 +1471,8 @@
         ],
         "confidence": "high",
         "rationale": "PC name match for the scenario gold.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0028-05",
@@ -1300,7 +1481,8 @@
         ],
         "confidence": "high",
         "rationale": "PC name match for the scenario gold.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0028-06",
@@ -1309,21 +1491,24 @@
         ],
         "confidence": "high",
         "rationale": "PC name match for the scenario gold.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0028-07",
         "assigned_hubs": [],
         "confidence": "low",
         "rationale": "No PC hub assignment required by this PC-only scenario.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0028-08",
         "assigned_hubs": [],
         "confidence": "low",
         "rationale": "No PC hub assignment required by this PC-only scenario.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0028-09",
@@ -1333,7 +1518,8 @@
         ],
         "confidence": "high",
         "rationale": "PC name match for the scenario gold.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0030-01",
@@ -1342,23 +1528,38 @@
         ],
         "confidence": "high",
         "rationale": "PC name match for the scenario gold.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0030-02",
         "assigned_hubs": [
-          "ephanna"
+          "baergrom",
+          "bonogo",
+          "caelynn",
+          "ephanna",
+          "karsemine",
+          "stafl"
         ],
         "confidence": "high",
-        "rationale": "PC name match for the scenario gold.",
-        "needs_new_hub_candidate": false
+        "rationale": "Fixture: whole-party must_route (contextual joint party beat).",
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0030-03",
-        "assigned_hubs": [],
-        "confidence": "low",
-        "rationale": "No PC hub assignment required by this PC-only scenario.",
-        "needs_new_hub_candidate": false
+        "assigned_hubs": [
+          "baergrom",
+          "bonogo",
+          "caelynn",
+          "ephanna",
+          "karsemine",
+          "stafl"
+        ],
+        "confidence": "high",
+        "rationale": "Fixture: whole-party must_route (joint observation after departure; same band as L30·2).",
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0030-04",
@@ -1367,21 +1568,26 @@
         ],
         "confidence": "high",
         "rationale": "PC name match for the scenario gold.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0030-05",
-        "assigned_hubs": [],
-        "confidence": "low",
-        "rationale": "No PC hub assignment required by this PC-only scenario.",
-        "needs_new_hub_candidate": false
+        "assigned_hubs": [
+          "caelynn"
+        ],
+        "confidence": "high",
+        "rationale": "Fixture: Caelynn as perceiver/subject (`she` finds Lysandra); route `caelynn`.",
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0030-06",
         "assigned_hubs": [],
         "confidence": "low",
         "rationale": "No PC hub assignment required by this PC-only scenario.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0030-07",
@@ -1390,14 +1596,16 @@
         ],
         "confidence": "high",
         "rationale": "PC name match for the scenario gold.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0030-08",
         "assigned_hubs": [],
         "confidence": "low",
         "rationale": "No PC hub assignment required by this PC-only scenario.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0030-09",
@@ -1406,35 +1614,40 @@
         ],
         "confidence": "high",
         "rationale": "PC name match for the scenario gold.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0030-10",
         "assigned_hubs": [],
         "confidence": "low",
         "rationale": "No PC hub assignment required by this PC-only scenario.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0030-11",
         "assigned_hubs": [],
         "confidence": "low",
         "rationale": "No PC hub assignment required by this PC-only scenario.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0030-12",
         "assigned_hubs": [],
         "confidence": "low",
         "rationale": "No PC hub assignment required by this PC-only scenario.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0030-13",
         "assigned_hubs": [],
         "confidence": "low",
         "rationale": "No PC hub assignment required by this PC-only scenario.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0032-01",
@@ -1443,14 +1656,16 @@
         ],
         "confidence": "high",
         "rationale": "PC name match for the scenario gold.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0032-02",
         "assigned_hubs": [],
         "confidence": "low",
         "rationale": "No PC hub assignment required by this PC-only scenario.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0032-03",
@@ -1459,28 +1674,32 @@
         ],
         "confidence": "high",
         "rationale": "PC name match for the scenario gold.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0032-04",
         "assigned_hubs": [],
         "confidence": "low",
         "rationale": "No PC hub assignment required by this PC-only scenario.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0032-05",
         "assigned_hubs": [],
         "confidence": "low",
         "rationale": "No PC hub assignment required by this PC-only scenario.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0032-06",
         "assigned_hubs": [],
         "confidence": "low",
         "rationale": "No PC hub assignment required by this PC-only scenario.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0032-07",
@@ -1489,14 +1708,16 @@
         ],
         "confidence": "high",
         "rationale": "PC name match for the scenario gold.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0032-08",
         "assigned_hubs": [],
         "confidence": "low",
         "rationale": "No PC hub assignment required by this PC-only scenario.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0032-09",
@@ -1505,34 +1726,53 @@
         ],
         "confidence": "high",
         "rationale": "PC name match for the scenario gold.",
-        "needs_new_hub_candidate": false
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0034-01",
         "assigned_hubs": [
-          "caelynn"
+          "baergrom",
+          "bonogo",
+          "caelynn",
+          "ephanna",
+          "karsemine",
+          "stafl"
         ],
         "confidence": "high",
-        "rationale": "PC name match for the scenario gold.",
-        "needs_new_hub_candidate": false
+        "rationale": "Fixture: whole-party must_route (contextual joint party beat).",
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0034-02",
         "assigned_hubs": [
-          "karsemine"
+          "baergrom",
+          "bonogo",
+          "caelynn",
+          "ephanna",
+          "karsemine",
+          "stafl"
         ],
         "confidence": "high",
-        "rationale": "PC name match for the scenario gold.",
-        "needs_new_hub_candidate": false
+        "rationale": "Fixture: whole-party must_route (joint shelter prep / storm cue).",
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0034-03",
         "assigned_hubs": [
-          "ephanna"
+          "baergrom",
+          "bonogo",
+          "caelynn",
+          "ephanna",
+          "karsemine",
+          "stafl"
         ],
         "confidence": "high",
-        "rationale": "PC name match for the scenario gold.",
-        "needs_new_hub_candidate": false
+        "rationale": "Fixture: whole-party must_route (group settling in for rest around camp).",
+        "needs_new_hub_candidate": false,
+        "routing_diagnostic_bucket": null
       }
     ]
   }

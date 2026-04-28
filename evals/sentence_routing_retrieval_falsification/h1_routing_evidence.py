@@ -130,6 +130,7 @@ def compute_directional_scorecard(
     from evals.sentence_routing_retrieval_falsification.route_schema import (
         HubManifestEntry,
         manifest_slug_set,
+        normalize_route_rows_for_manifest,
         parse_routes_envelope,
     )
 
@@ -140,7 +141,8 @@ def compute_directional_scorecard(
     manifest_slugs = manifest_slug_set([HubManifestEntry.model_validate(x) for x in manifest])
 
     routes_payload = {"schema": "sentence_hub_routes_v1", "routes": sidecar.get("routes") or []}
-    envelope = parse_routes_envelope(routes_payload)
+    envelope = parse_routes_envelope(routes_payload, manifest_jsonable=manifest)
+    envelope.routes = normalize_route_rows_for_manifest(envelope.routes, manifest_slugs)
     by_id = {r.unit_id: r for r in envelope.routes}
 
     must_route = [g for g in (gold_norm.get("must_route") or []) if isinstance(g, dict)]
