@@ -7,6 +7,8 @@
 
 from __future__ import annotations
 
+import ast
+import re
 from collections import Counter
 from pathlib import Path
 from typing import Any
@@ -100,6 +102,111 @@ def _resolve_match_to_unit_id(
     return uid, None
 
 
+def collect_discourse_content_violations(
+    rows: list[Any],
+    gold_discourse: dict[str, Any],
+) -> list[str]:
+    """
+    B1-CONTENT gate: optional ``gold_discourse.expect[]`` rows compare fields on each ``DiscourseRow``.
+
+    Each expect object must include ``unit_id``. Other keys are compared to model attributes
+    (lists compared sorted; scalars compared with equality).
+    """
+    violations: list[str] = []
+    expect_raw = gold_discourse.get("expect")
+    if not isinstance(expect_raw, list):
+        return violations
+    by_id = {getattr(r, "unit_id", ""): r for r in rows}
+    for i, exp in enumerate(expect_raw):
+        label = f"gold_discourse.expect[{i}]"
+        if not isinstance(exp, dict):
+            violations.append(f"B1-CONTENT: {label} not an object")
+            continue
+        uid = str(exp.get("unit_id") or "").strip()
+        if not uid:
+            violations.append(f"B1-CONTENT: {label} missing unit_id")
+            continue
+        row = by_id.get(uid)
+        if row is None:
+            violations.append(f"B1-CONTENT: no discourse row for unit_id={uid!r}")
+            continue
+        for key, want in exp.items():
+            if key == "unit_id":
+                continue
+            if not hasattr(row, key):
+                violations.append(f"B1-CONTENT: unknown gold field {key!r} for {uid!r}")
+                continue
+            got = getattr(row, key)
+            if isinstance(want, list) and isinstance(got, list):
+                ws = sorted(str(x).strip() for x in want if str(x).strip())
+                gs = sorted(str(x).strip() for x in got if str(x).strip())
+                if ws != gs:
+                    violations.append(f"B1-CONTENT: {uid!r} {key} want {ws!r} got {gs!r}")
+            elif isinstance(want, bool):
+                if bool(got) != want:
+                    violations.append(f"B1-CONTENT: {uid!r} {key} want {want!r} got {got!r}")
+            elif got != want:
+                violations.append(f"B1-CONTENT: {uid!r} {key} want {want!r} got {got!r}")
+    return violations
+
+
+def discourse_content_unit_failure_events(violations: list[str]) -> dict[str, Any]:
+    """
+    Per-unit failure buckets for B1-CONTENT violations.
+
+    Buckets are field-specific when possible, e.g. ``b1_content_discourse_mode_mismatch``
+    or ``b1_content_topic_pc_slugs_mismatch``. Harness/shape lines that cannot be tied
+    to a unit id are preserved under ``violation_lines_without_unit_id``.
+    """
+    by_bucket: dict[str, set[str]] = {}
+    lines_without_unit: list[str] = []
+
+    def _bucket_name(field: str) -> str:
+        safe = re.sub(r"[^a-zA-Z0-9_]+", "_", field.strip()).strip("_").lower()
+        return f"b1_content_{safe}_mismatch" if safe else "b1_content_mismatch"
+
+    def _add(bucket: str, uid: str) -> None:
+        uid = uid.strip()
+        if not uid:
+            return
+        by_bucket.setdefault(bucket, set()).add(uid)
+
+    for raw in violations:
+        v = raw if isinstance(raw, str) else str(raw)
+        if not v.startswith("B1-CONTENT:"):
+            lines_without_unit.append(v)
+            continue
+
+        missing = re.search(r"no discourse row for unit_id=['\"]([^'\"]+)['\"]", v)
+        if missing:
+            _add("b1_content_missing_discourse_row", missing.group(1))
+            continue
+
+        field_match = re.match(r"B1-CONTENT:\s*['\"]([^'\"]+)['\"]\s+([a-zA-Z0-9_]+)\s+", v)
+        if field_match:
+            uid, field = field_match.groups()
+            if "unknown gold field" in v:
+                _add("b1_content_unknown_gold_field", uid)
+            else:
+                _add(_bucket_name(field), uid)
+            continue
+
+        lines_without_unit.append(v)
+
+    by_bucket_out: dict[str, dict[str, Any]] = {}
+    for key in sorted(by_bucket.keys()):
+        ids = sorted(by_bucket[key])
+        by_bucket_out[key] = {"count": len(ids), "unit_ids": ids}
+
+    distinct_failure_unit_ids = sorted(set().union(*by_bucket.values()) if by_bucket else set())
+
+    return {
+        "by_bucket": by_bucket_out,
+        "distinct_failure_unit_ids": distinct_failure_unit_ids,
+        "violation_lines_without_unit_id": lines_without_unit,
+    }
+
+
 def normalize_gold_routing_matches(
     gold_routing: dict[str, Any],
     sentence_units: list[dict[str, Any]],
@@ -186,6 +293,220 @@ def _violation_failure_buckets(violations: list[str]) -> dict[str, int]:
     return dict(c)
 
 
+def stage_b_unit_failure_events(violations: list[str]) -> dict[str, Any]:
+    """
+    Per-unit **failure** view: classify each violation line into a bucket and attach ``unit_id``s.
+
+    Multi-unit lines (e.g. ``missing route rows for unit_ids: [...]``) are expanded so each id is
+    counted once in that bucket. Lines that cannot be attributed to a unit id are listed under
+    ``violation_lines_without_unit_id`` (parse errors, harness-only messages, some aggregate failures).
+
+    Pair with ``unit_gate_events`` from ``collect_stage_b_violations`` for gold-row **pass** unit ids.
+    """
+    by_bucket: dict[str, set[str]] = {}
+    lines_without_unit: list[str] = []
+
+    unit_tail_re = re.compile(
+        r"must_route\s+unit\s+['\"]([^'\"]+)['\"]|"
+        r"must_abstain\s+unit\s+['\"]([^'\"]+)['\"]|"
+        r"(?:^|\s)unit\s+['\"]([^'\"]+)['\"]|"
+        r"unit_id\s*=\s*['\"]([^'\"]+)['\"]"
+    )
+
+    def _literal_bracket_list_after(marker: str, line: str) -> list[str]:
+        idx = line.find(marker)
+        if idx < 0:
+            return []
+        tail = line[idx + len(marker) :].strip()
+        try:
+            obj = ast.literal_eval(tail)
+        except (SyntaxError, ValueError, TypeError):
+            return []
+        if isinstance(obj, list):
+            return [str(x).strip() for x in obj if str(x).strip()]
+        return []
+
+    def _add(bucket: str, uids: list[str]) -> None:
+        if not uids:
+            return
+        bag = by_bucket.setdefault(bucket, set())
+        for u in uids:
+            if u:
+                bag.add(u)
+
+    for raw in violations:
+        v = raw if isinstance(raw, str) else str(raw)
+
+        if v.startswith("B0: duplicate route row"):
+            m = re.search(r"unit_id\s+['\"]([^'\"]+)['\"]", v)
+            if m:
+                _add("b0_duplicate_route_row", [m.group(1)])
+            else:
+                lines_without_unit.append(v)
+            continue
+
+        if "missing route rows for unit_ids:" in v:
+            uids = _literal_bracket_list_after("missing route rows for unit_ids:", v)
+            _add("b0_missing_route_row", uids)
+            if not uids:
+                lines_without_unit.append(v)
+            continue
+
+        if "unknown route unit_ids (not from capture_sentence_units" in v:
+            uids = _literal_bracket_list_after(
+                "unknown route unit_ids (not from capture_sentence_units / Stage A):", v
+            )
+            _add("b0_unknown_route_unit_id", uids)
+            if not uids:
+                lines_without_unit.append(v)
+            continue
+
+        if v.startswith("B0b:"):
+            m = re.search(r"unit\s+['\"]([^'\"]+)['\"]", v)
+            if m:
+                _add("b0b_unknown_hub_assignment", [m.group(1)])
+            else:
+                lines_without_unit.append(v)
+            continue
+
+        if v.startswith("B0c:"):
+            m = re.search(r"unit\s+['\"]([^'\"]+)['\"]", v)
+            if m:
+                _add("b0c_missing_diagnostic_bucket", [m.group(1)])
+            else:
+                lines_without_unit.append(v)
+            continue
+
+        if v.startswith("B1: must_route"):
+            m = re.search(r"must_route\s+unit\s+['\"]([^'\"]+)['\"]", v)
+            uid = m.group(1) if m else ""
+            if not uid:
+                lines_without_unit.append(v)
+                continue
+            if "missing expected hubs" in v:
+                _add("b1_missing_expected_hub", [uid])
+            elif "over-route" in v:
+                _add("b1_over_route", [uid])
+            else:
+                _add("b1_must_route_other", [uid])
+            continue
+
+        if v.startswith("B2: must_abstain"):
+            m = re.search(r"must_abstain\s+unit\s+['\"]([^'\"]+)['\"]", v)
+            uid = m.group(1) if m else ""
+            if not uid:
+                lines_without_unit.append(v)
+                continue
+            if "hubs > max_assigned_hubs" in v:
+                _add("b2_over_assigned", [uid])
+            elif "needs_new_hub_candidate" in v:
+                _add("b2_needs_new_hub_candidate", [uid])
+            else:
+                _add("b2_must_abstain_other", [uid])
+            continue
+
+        if v.startswith("BD:"):
+            m = re.search(r"unit\s+['\"]([^'\"]+)['\"]", v)
+            if m:
+                _add("bd_diagnostic_bucket", [m.group(1)])
+            else:
+                lines_without_unit.append(v)
+            continue
+
+        if v.startswith("B1-CONTENT:"):
+            uid = ""
+            m_no = re.search(r"no discourse row for unit_id=['\"]([^'\"]+)['\"]", v)
+            if m_no:
+                uid = m_no.group(1)
+            if not uid:
+                m_lead = re.match(
+                    r"B1-CONTENT:\s*['\"]([^'\"]+)['\"]\s+", v
+                ) or re.match(r"B1-CONTENT:\s+([^\s:]+)", v)
+                if m_lead:
+                    uid = m_lead.group(1).strip().strip("'\"")
+            if uid:
+                _add("b1_content_mismatch", [uid])
+            else:
+                lines_without_unit.append(v)
+            continue
+
+        if v.startswith("Harness:") or v.startswith("A"):
+            lines_without_unit.append(v)
+            continue
+
+        if v.startswith("B0"):
+            uids = []
+            for m in unit_tail_re.finditer(v):
+                uids.extend([g for g in m.groups() if g])
+            if uids:
+                _add("b0_schema_row_integrity", uids)
+            else:
+                lines_without_unit.append(v)
+            continue
+
+        # BD already handled; remaining lines (soft, parse errors, etc.)
+        uids = []
+        for m in unit_tail_re.finditer(v):
+            for g in m.groups():
+                if g:
+                    uids.append(g)
+        if uids:
+            _add("non_gate", uids)
+        else:
+            lines_without_unit.append(v)
+
+    by_bucket_out: dict[str, dict[str, Any]] = {}
+    for key in sorted(by_bucket.keys()):
+        ids = sorted(by_bucket[key])
+        by_bucket_out[key] = {"count": len(ids), "unit_ids": ids}
+
+    distinct_failure_unit_ids = sorted(set().union(*by_bucket.values()) if by_bucket else set())
+
+    return {
+        "by_bucket": by_bucket_out,
+        "distinct_failure_unit_ids": distinct_failure_unit_ids,
+        "violation_lines_without_unit_id": lines_without_unit,
+    }
+
+
+def cohort_aggregate_unit_failure_events(
+    unit_failure_events_payloads: list[dict[str, Any] | None],
+) -> dict[str, Any]:
+    """
+    Merge per-run ``unit_failure_events`` into cohort-level unique ``unit_id`` sets per bucket.
+
+    Intended for cohort summaries so operators see **which units** failed at least once in any run,
+    grouped by failure bucket, rather than only per-run gate rates.
+    """
+    merged: dict[str, set[str]] = {}
+    for ufe in unit_failure_events_payloads:
+        if not isinstance(ufe, dict):
+            continue
+        by_b = ufe.get("by_bucket")
+        if not isinstance(by_b, dict):
+            continue
+        for bucket, payload in by_b.items():
+            if not isinstance(payload, dict):
+                continue
+            raw_ids = payload.get("unit_ids")
+            if not isinstance(raw_ids, list):
+                continue
+            bag = merged.setdefault(str(bucket), set())
+            for u in raw_ids:
+                s = str(u).strip()
+                if s:
+                    bag.add(s)
+    by_bucket_out: dict[str, dict[str, Any]] = {
+        k: {"count": len(v), "unit_ids": sorted(v)} for k, v in sorted(merged.items())
+    }
+    distinct = sorted(set().union(*merged.values()) if merged else set())
+    return {
+        "by_bucket": by_bucket_out,
+        "distinct_failure_unit_ids": distinct,
+        "runs_with_payload": sum(1 for x in unit_failure_events_payloads if isinstance(x, dict)),
+    }
+
+
 def stage_b_violation_only_telemetry(
     violations: list[str],
     *,
@@ -240,6 +561,7 @@ def stage_b_violation_only_telemetry(
             "gold_gate_checks_fail": gold_fail,
             "violation_line_count": len(violations),
             "violation_failure_buckets": _violation_failure_buckets(violations),
+            "unit_failure_events": stage_b_unit_failure_events(violations),
             "routing_diagnostic_histogram": {},
             "diagnostic_bucket_expectations": {
                 "defined": 0,
@@ -529,6 +851,8 @@ def collect_stage_b_violations(
                 else:
                     diag_expect[uid_k] = exp_v
 
+    must_route_pass_unit_ids: list[str] = []
+    must_route_fail_unit_ids: list[str] = []
     for g in gold_routing.get("must_route") or []:
         if not isinstance(g, dict):
             violations.append(f"B1: must_route entry is not an object: {g!r}")
@@ -542,7 +866,12 @@ def collect_stage_b_violations(
         )
         if not ok:
             violations.append(f"B1: must_route unit {uid!r}: {why}")
+            must_route_fail_unit_ids.append(uid)
+        else:
+            must_route_pass_unit_ids.append(uid)
 
+    must_abstain_pass_unit_ids: list[str] = []
+    must_abstain_fail_unit_ids: list[str] = []
     for g in gold_routing.get("must_abstain") or []:
         if not isinstance(g, dict):
             violations.append(f"B2: must_abstain entry is not an object: {g!r}")
@@ -555,11 +884,13 @@ def collect_stage_b_violations(
         if row is None:
             continue
         max_assigned = int(g.get("max_assigned_hubs", 0))
+        abstain_failed = False
         if len(row.assigned_hubs) > max_assigned:
             violations.append(
                 f"B2: must_abstain unit {uid!r} has {len(row.assigned_hubs)} hubs "
                 f"> max_assigned_hubs={max_assigned}"
             )
+            abstain_failed = True
         if "needs_new_hub_candidate" in g:
             want_false = g["needs_new_hub_candidate"] is False
             if want_false and row.needs_new_hub_candidate:
@@ -567,6 +898,11 @@ def collect_stage_b_violations(
                     f"B2: must_abstain unit {uid!r} must have needs_new_hub_candidate false "
                     f"(got true)"
                 )
+                abstain_failed = True
+        if abstain_failed:
+            must_abstain_fail_unit_ids.append(uid)
+        else:
+            must_abstain_pass_unit_ids.append(uid)
 
     diag_pass = 0
     diag_fail = 0
@@ -656,6 +992,17 @@ def collect_stage_b_violations(
             "gold_gate_checks_fail": mr_fail + ma_fail,
             "violation_line_count": len(violations),
             "violation_failure_buckets": _violation_failure_buckets(violations),
+            "unit_failure_events": stage_b_unit_failure_events(violations),
+            "unit_gate_events": {
+                "must_route": {
+                    "pass_unit_ids": sorted(set(must_route_pass_unit_ids)),
+                    "fail_unit_ids": sorted(set(must_route_fail_unit_ids)),
+                },
+                "must_abstain": {
+                    "pass_unit_ids": sorted(set(must_abstain_pass_unit_ids)),
+                    "fail_unit_ids": sorted(set(must_abstain_fail_unit_ids)),
+                },
+            },
             "routing_diagnostic_histogram": diag_hist,
             "diagnostic_bucket_expectations": {
                 "defined": len(diag_expect),

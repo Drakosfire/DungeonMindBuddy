@@ -1,6 +1,6 @@
 # Review — Sentence-level hub routing failure modes (Campaign 2 Session 20, PC manifest)
 
-**Date:** 2026-04-28  
+**Date:** 2026-04-28 · **Updated:** 2026-04-29 (harness telemetry + latest full-scenario run)  
 **Audience:** GM / reviewer (plain language; no internal hypothesis labels in section titles).  
 **Scope:** Live cohorts and full-scenario sidecars from `evals/sentence_routing_retrieval_falsification/` on **PC-only** manifests for Session 20 recap slices. This document describes **what keeps failing**, what recently improved, and what to try next, grounded in committed cohort summaries and sidecars—not prompt tuning opinion.
 
@@ -12,22 +12,32 @@
 
 ## 1. Executive summary (what the evidence agrees on)
 
-1. **The dominant failures are routing judgments, not cost explosions.** Per-run costs on slice cohorts stayed roughly **$0.004–$0.008** per run on `gpt-5.4-mini`; cohort sums for N=3–5 slices landed around **$0.013–$0.028**. The latest full Session 20 sidecar cost **$0.039401**.
-2. **The latest full-scenario run is not the historical high-water mark, but it is a better-instrumented baseline.** Current full-scenario telemetry is **58/74** gold checks passing; an older 2026-04-27 sidecar reached **63/74**. Compare them by bucket, not just headline pass count, because the gold split changed from **48 must-route / 26 must-abstain** to **50 must-route / 24 must-abstain**.
-3. **Recent progress is structural.** The current harness now has a campaign party registry, `the_party` sentinel handling, duplicate PC stripping when `the_party` is mixed with explicit PC slugs, and stricter diagnostic-bucket telemetry. That makes failures easier to diagnose even when the headline gate count has not improved.
+1. **The dominant failures are routing judgments, not cost explosions.** Per-run costs on slice cohorts stayed roughly **$0.004–$0.008** per run on `gpt-5.4-mini`; cohort sums for N=3–5 slices landed around **$0.013–$0.028**. Recent full Session 20 runs landed around **$0.031–$0.039** per attempt on comparable manifests (§2).
+2. **Full-scenario headline scores moved with gold edits and instrumentation.** A **2026-04-28** sidecar shows **58/74** gold checks passing; a **2026-04-29** live run after rubric/prompt updates shows **64/74** graded passes but **strict-schema B0** still present on some rows (§2). An older **2026-04-27** sidecar reached **63/74** under earlier gold. Compare by bucket and `**wire_strict_parse_ok`**, not headline alone—the gold split shifted from **48/26** must-route/must-abstain to **50/24**.
+3. **Recent progress is structural.** The current harness now has a campaign party registry, `the_party` sentinel handling, duplicate PC stripping when `the_party` is mixed with explicit PC slugs, diagnostic-bucket telemetry, and **always-on gold gate counting** with coercion/audit flags (§1 §6). That makes failures easier to diagnose even when headline pass rates fluctuate with gold edits.
 4. **The hard problems cluster into four shapes:** (A) whole-party vs narrow-cast mismatch, (B) multi-PC same-beat completeness, (C) listener / reported-speech boundary to a PC, (D) rare **internally contradictory model output** (assigns hubs but also emits a “placeholder” diagnostic label—caught by validation before scoring routing parity).
 5. **Optional prompt addenda are not a universal fix.** One addendum improved some party-roster slices but did not clear the **mixed sentinel** scenario at N=5; a stricter addendum removed one failure mode at the cost of new misses elsewhere (see §8).
+6. **Gold gate totals are always counted in telemetry.** As of 2026-04-29, the Stage B runner never leaves `gold_gate_checks_*` null when gold exists: if strict wire JSON fails validation, the harness may **coerce** diagnostics for a grading-only second parse, or fall back to counting gates against an empty route map. Sidecars record `**wire_strict_parse_ok`** and `**graded_after_wire_coercion**` so you can tell whether the headline pass/fail included a strict-schema failure while still seeing B1/B2-style breakdowns (see §6).
 
 ---
 
 ## 2. Current progress snapshot
 
-**Full-scenario comparison:** The current full Session 20 sidecar is:
+**Full-scenario comparison (2026-04-28 run):** Representative full Session 20 sidecar before the telemetry fix:
 
 - `evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-04-28/sentence_routing_stage_b_hub_routes--sentence_routing_c2_session20_pc--FAIL--20260428T233927847613Z.json`
 - Result: **58/74** gold checks passing; `must_route` **35/50**, `must_abstain` **23/24**.
 - Failure buckets: `b1_missing_expected_hub=12`, `b1_over_route=3`, `b2_over_assigned=1`, `b0_diagnostic_null_when_assigned=0`.
 - Cost: **$0.039401**.
+
+**Full-scenario comparison (2026-04-29 run, post gold-gate telemetry + rubric tweaks):** Same scenario JSON (`scenario_c2_session20_pc.json`), including `**u-L0014-03` → `the_party`** party-roster gold and routing prompt rule **3b** (indirect PC / continuity owner). Live model output:
+
+- `evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-04-29/sentence_routing_stage_b_hub_routes--sentence_routing_c2_session20_pc--FAIL--20260429T010351303942Z.json`
+- Result: **64/74** gold checks passing (`must_route` **41/50**, `must_abstain` **23/24**). **Strict wire JSON still failed** (`B0: routes JSON invalid`) on two rows with `**event_or_object_placeholder`** while `**assigned_hubs` was non-empty**—the run remains `**pass: false`** because that violation is preserved. Telemetry shows `**wire_strict_parse_ok: false**` and `**graded_after_wire_coercion: true**`, meaning B1/B2 counts above were produced **after** diagnostic coercion for grading, not from a fully schema-clean wire payload.
+- Routed judgment buckets (from graded output): `b1_missing_expected_hub=9`, `b2_over_assigned=1` (B0 line still listed under `violations.stage_b` but not duplicated into the legacy B0 histogram buckets the same way).
+- Cost: **~$0.031** (`scenario_estimated_cost_usd` in sidecar).
+
+Interpreting **64/74** vs **58/74:** the gold row set and party-row adjudication changed between these dates—use them as **illustrative** progress signals, not a controlled A/B. The durable learning is that **headline gold pass rate and strict-schema health are now both visible** in one artifact.
 
 The best older full-scenario sidecar found on disk is:
 
@@ -36,13 +46,13 @@ The best older full-scenario sidecar found on disk is:
 - Failure buckets: `b1_missing_expected_hub=8`, `b1_over_route=0`, `b2_over_assigned=3`.
 - Cost: **$0.02794**.
 
-**Interpretation:** The headline **58/74** is not "best ever." The progress is that the current run has stronger schema telemetry, cleaner abstain performance, and no diagnostic/hub contradiction failures, while the dominant remaining misses are now visible as B1 routing judgments. Because must-route pressure increased by two gold checks, future comparisons should report:
+**Interpretation:** The headline **58/74** (2026-04-28) is not "best ever." The 2026-04-28 run had stronger schema telemetry on the wire, cleaner abstain performance in that snapshot, and no diagnostic/hub contradiction failures in buckets, while dominant misses were B1 routing judgments. The 2026-04-29 run shows **higher graded gate pass count** but **still records a strict B0** until the model stops emitting illegal diagnostic+hubs combinations—so "better routing score" and "clean wire" are decoupled in reporting. Because must-route pressure increased when gold evolved, future comparisons should report:
 
 - full-scenario `gold_gate_checks_pass / total`,
 - `must_route pass / total`,
 - `must_abstain pass / total`,
 - B1 missing vs B1 over-route vs B2 over-assigned,
-- B0 diagnostic contradiction count,
+- B0 diagnostic contradiction count (and, since 2026-04-29, `**wire_strict_parse_ok`** / `**graded_after_wire_coercion**`),
 - cost.
 
 ---
@@ -101,7 +111,9 @@ The best older full-scenario sidecar found on disk is:
 
 **Reviewer takeaway:** This is a **real confused-routing signal**, distinct from “picked wrong PC.” Cohort JSON still exposes it under the internal counter name `b0_diagnostic_null_when_assigned`—use it as engineering telemetry, not as a label for humans unless you adopt it formally.
 
-**Progress update:** On the latest full Session 20 sidecar, this bucket is clean: `b0_diagnostic_null_when_assigned=0` and `b0_invalid_diagnostic_with_assigned_hubs=0`. The remaining full-scenario failures are routing judgments (`B1` / `B2`), not schema contradictions.
+**Harness note (2026-04-29):** Two layers apply: **(1) Strict validation** of the model’s wire JSON (what the API/schema allowed). **(2) Grading telemetry** may still run after **coercing** illegal `routing_diagnostic_bucket` values for rows with hubs so `gold_gate_checks_*` and B1/B2 violations are populated. A sidecar can therefore list `**B0: routes JSON invalid: …`** *and* show non-null `**gold_gate_checks_pass/total*`* plus `b1_*` / `b2_*` buckets—check `**wire_strict_parse_ok**` and `**graded_after_wire_coercion**`. Do not read “64/74” as “no schema problem” if `wire_strict_parse_ok` is false.
+
+**Progress update:** The **2026-04-28** full Session 20 sidecar in §2 had clean B0 histogram buckets on the wire. The **2026-04-29** full run still hit **strict** B0 on **two** rows (`event_or_object_placeholder` with non-empty hubs—invalid unless cleared or only `npc_placeholder` under the documented exception). Graded routing misses on that run are predominantly **B1** (9× missing hub) plus **1× B2** over-assigned—the same *shape* of failure as before, with schema noise isolated in the B0 string and audit flags.
 
 ---
 
@@ -136,15 +148,15 @@ For each recurring failing unit ID you care about:
 
 ## 10. Next steps
 
-1. **Freeze the comparison frame before optimizing.** For full-scenario progress, compare the current base prompt against the same `scenario_c2_session20_pc.json` gold and report the six-field telemetry listed in §2. Avoid using a single `58/74` or `63/74` headline as the decision metric.
+1. **Freeze the comparison frame before optimizing.** For full-scenario progress, compare the current base prompt against the same `scenario_c2_session20_pc.json` gold and report the telemetry listed in §2 (including `**wire_strict_parse_ok`** when present). Avoid using a single `58/74`, `63/74`, or `64/74` headline as the sole decision metric—strict-schema health and graded gate pass rate can diverge after the coercion instrumentation.
 2. **Adjudicate the listener-boundary row before prompt work.** `u-L0018-10` is the residual B2 row in the latest full sidecar. Decide whether a PC being the listener / conversational locus should make that unit retrievable from the PC hub. If yes, move the row to `must_route` with a `scenario_notes` rationale. If no, keep gold unchanged and encode the rule explicitly.
 3. **Separate roster-copy from same-unit role intersection.** The current prompt variants keep trading one error for another: full-roster expansion helps `u-L0026-03` / `u-L0030-03` shapes but risks over-routing narrower rows like `u-L0026-06`. The next robust lever is likely a structured pre-tag or base-prompt decision split:
   - `roster_copy_candidate`: party/team/group is the joint subject; server expansion via `the_party` is allowed.
   - `same_unit_role_intersection`: only PCs with actor/object/locus roles in this unit should be assigned.
   - `listener_only_or_reported_speech`: do not route to PC unless the adjudication in step 2 says listener continuity counts.
-4. **Keep diagnostic contradictions as a permanent counter, but stop optimizing for them first.** The latest full run has zero B0 diagnostic contradictions. Keep the counter in every cohort, but prioritize B1 recall / over-route split and the single residual B2 row.
+4. **Keep diagnostic contradictions as a permanent counter.** Prefer `**wire_strict_parse_ok: true`** on full-scenario runs; when it is false, treat B0 as **blocking** for “ship confidence” even if graded `gold_gate_checks_*` look improved. Prioritize B1 recall / over-route split and residual B2 rows once the wire is clean or contradictions are rare.
 5. **Run the promotion gate only after a targeted change.** For any base-prompt rewrite or structural pre-tag, rerun the bucket sentinel and H1/H2 mixed sentinel at N=5 before expanding to the full scenario. Report pass vector, B1/B2 buckets, diagnostic contradiction count, and cost.
-6. **Cost check:** Current full-scenario run cost **$0.039401**, older best full-scenario sidecar cost **$0.02794**. That is about **1.41x**, below the 1.5x cost-regression threshold, but close enough that any new full-scenario N=5 cohort should include an explicit cost line.
+6. **Cost check:** The 2026-04-28 full-scenario run cost **$0.039401**; the 2026-04-29 full run cost **~$0.031**—not a regression vs the older **$0.02794** best-effort baseline, but always cite `**scenario_estimated_cost_usd`** per run when comparing cohorts.
 
 ---
 
@@ -157,7 +169,8 @@ For each recurring failing unit ID you care about:
 | Mixed sentinel, strict variant, N=5                                          | `evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-04-28/sentence_routing_stage_b_cohort_summary--gpt-5.4-mini--pv-party_roster_strict_v1--N5--20260428T185204Z.json` |
 | Abstain-pronoun context, continuation, N=5                                   | `evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-04-28/sentence_routing_stage_b_cohort_summary--gpt-5.4-mini--pv-party_continuation_v1--N5--20260428T185648Z.json`  |
 | Abstain-pronoun context, strict, N=5                                         | `evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-04-28/sentence_routing_stage_b_cohort_summary--gpt-5.4-mini--pv-party_roster_strict_v1--N5--20260428T185646Z.json` |
-| Current full Session 20 sidecar                                              | `evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-04-28/sentence_routing_stage_b_hub_routes--sentence_routing_c2_session20_pc--FAIL--20260428T233927847613Z.json`    |
+| Full Session 20 sidecar (2026-04-28 baseline in §2)                          | `evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-04-28/sentence_routing_stage_b_hub_routes--sentence_routing_c2_session20_pc--FAIL--20260428T233927847613Z.json`    |
+| Full Session 20 sidecar (2026-04-29; coercion grading, strict B0 preserved)  | `evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-04-29/sentence_routing_stage_b_hub_routes--sentence_routing_c2_session20_pc--FAIL--20260429T010351303942Z.json`    |
 | Historical best full Session 20 sidecar found on disk                        | `evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-04-27/sentence_routing_stage_b_hub_routes--sentence_routing_c2_session20_pc--FAIL--20260427T015742700112Z.json`    |
 
 

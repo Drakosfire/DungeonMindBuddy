@@ -136,6 +136,23 @@
       "max_unresolved_fraction": 0.8
     }
   },
+  "gold_discourse": {
+    "expect": [
+      {
+        "unit_id": "u-L0026-06",
+        "discourse_mode": "topic_pc",
+        "topic_pc_slugs": [
+          "bonogo"
+        ]
+      },
+      {
+        "unit_id": "u-L0030-03",
+        "discourse_mode": "implicit_party",
+        "collective_actor": "the_party",
+        "party_expansion_allowed": true
+      }
+    ]
+  },
   "gold_proposals": {},
   "gold_retrieval": {},
   "sentence_units": [

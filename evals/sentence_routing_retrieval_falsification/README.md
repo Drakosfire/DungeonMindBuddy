@@ -47,6 +47,14 @@ uv run python -m evals.sentence_routing_retrieval_falsification.step2_route_run 
 uv run python -m evals.sentence_routing_retrieval_falsification.step2_route_run --n 3 --no-llm
 ```
 
+**Split Stage B (optional proving slice):** B1 classifies units to `sentence_discourse_state_v1` (`step2a_discourse_run.py`; `--no-llm` uses `fixture_discourse`). B2 runs the deterministic discourse→routes reducer then the same Stage B gates as the monolith (`step2b_route_from_discourse_run.py`; reads `fixture_discourse` or `--discourse-json` pointing at a B1 sidecar’s `discourse_envelope`). `step2_discourse_pipeline_run.py --n <N>` runs B1+B2 cohorts and writes `sentence_routing_stage_b_discourse_pipeline_summary--…json/md`. Artifacts: `sentence_routing_stage_b1_discourse--…json` / `last_sentence_routing_stage_b1_discourse.json`, `sentence_routing_stage_b2_from_discourse--…json` / `last_sentence_routing_stage_b2_from_discourse.json`. Smoke scenario: `gold/scenario_discourse_smoke.json`.
+
+```bash
+uv run python -m evals.sentence_routing_retrieval_falsification.step2a_discourse_run --no-llm
+uv run python -m evals.sentence_routing_retrieval_falsification.step2b_route_from_discourse_run
+uv run python -m evals.sentence_routing_retrieval_falsification.step2_discourse_pipeline_run --n 3
+```
+
 **Real-recap scaffold:** `gold/scenario_real_recap_template.json` — runnable default (mini fixture); copy and set `input.recap_relative_path` + `hub_manifest` + `gold_`* after GM approval (see `scenario_notes` in file).
 
 `**route_sentence_units_to_hubs` (B) — hub routing (live LLM):** requires `OPENAI_API_KEY` after `load_dungeonmindbuddy_dotenv()`; model defaults to `DUNGEONMIND_PLANNER_MODEL` or `gpt-5.4-mini`. Chain from the capture mirror file:
@@ -61,6 +69,7 @@ uv run python -m evals.sentence_routing_retrieval_falsification.step2_route_run 
 
 - `fixtures/mini_recap.md` — tiny synthetic recap (no corpus PII).
 - `gold/scenario_mini.json` — `gold_capture`, `input.hub_manifest`, `gold_routing`, `fixture_routes` for `--no-llm`.
+- `gold/scenario_discourse_smoke.json` — embedded `sentence_units`, `fixture_discourse`, `gold_discourse`, `gold_routing` for split Stage B (`step2a_discourse_run` / `step2b_route_from_discourse_run`; `--no-llm` on B1).
 - `gold/scenario_real_recap_template.json` — same shape with `gold_routing` using **match** rows (DESIGN §6.5); replace paths for a pinned corpus recap when promoting.
 - `gold/scenario_c1_session1_pc.json`, `gold/scenario_c1_session2_pc.json`, `gold/scenario_c1_session3_pc.json`, `gold/scenario_c2_session20_pc.json` — real-recap **PC-only** routing gates for `**route_sentence_units_to_hubs` (B)** (manifest = that campaign’s PC hubs only). Semantics:
   - **must_route:** any PC named or clearly implicated as actor, object, addressee, rescuer, or **affected party** in the unit must appear in `expected_hubs` (subset of model `assigned_hubs`). After the roster is established, party-wide beats that say **the team** / **teammates** in a fight or job, or **first combat** + **team**, may **must_route all PCs**; **the group** may **must_route all PCs** when the PCs are the joint subject of movement or approach in that unit—otherwise vague **the group** framing stays **must_abstain** (see `scenario_c1_session1_pc.json` `scenario_notes`).

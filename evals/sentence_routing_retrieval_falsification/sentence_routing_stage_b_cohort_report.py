@@ -10,6 +10,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from evals.sentence_routing_retrieval_falsification.grader import cohort_aggregate_unit_failure_events
+
 SUMMARY_SCHEMA_VERSION = "sentence_routing_stage_b_cohort_summary_v1"
 
 
@@ -52,6 +54,13 @@ def build_cohort_payload(
     when = datetime.now(timezone.utc)
     common_prompt_base_id = _common_nonempty([r.routing_prompt_base_id for r in records])
     common_prompt_id = _common_nonempty([r.routing_prompt_id for r in records])
+    ufe_list = [
+        (r.stage_b_unit_breakdown or {}).get("unit_failure_events")
+        if isinstance(r.stage_b_unit_breakdown, dict)
+        else None
+        for r in records
+    ]
+    cohort_ufe = cohort_aggregate_unit_failure_events(ufe_list)
     payload: dict[str, Any] = {
         "schema": SUMMARY_SCHEMA_VERSION,
         "iso_utc": when.strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -73,6 +82,7 @@ def build_cohort_payload(
             "First cohort establishes baseline; flag regression if cohort sum or any run "
             "exceeds 1.5x prior (see cost-as-signal.mdc)."
         ),
+        "cohort_unit_failure_events": cohort_ufe,
         "runs": [
             {
                 "run_index": r.run_index,
@@ -140,10 +150,42 @@ def write_stage_b_cohort_summary(
             "",
             str(payload["cost_baseline_note"]),
             "",
-            "## Runs",
+            "## Cohort — unit failure buckets (union across runs)",
+            "",
+            "Distinct `unit_id` values that failed in **any** run, grouped by failure bucket. "
+            "See each run’s `stage_b_unit_breakdown.unit_failure_events` for the per-run slice.",
             "",
         ]
     )
+    cufe = payload.get("cohort_unit_failure_events") or {}
+    c_buckets = cufe.get("by_bucket") if isinstance(cufe, dict) else None
+    if not isinstance(cufe, dict) or "by_bucket" not in cufe:
+        md_lines.append(
+            "- *(no `cohort_unit_failure_events` — regenerate cohort with current harness)*"
+        )
+    elif isinstance(c_buckets, dict) and len(c_buckets) > 0:
+        for bname, bobj in sorted(c_buckets.items()):
+            if not isinstance(bobj, dict):
+                continue
+            uids = bobj.get("unit_ids") or []
+            cnt = bobj.get("count", len(uids) if isinstance(uids, list) else 0)
+            if isinstance(uids, list) and uids:
+                md_lines.append(
+                    f"- **{bname}** — {cnt} unit(s): " + ", ".join(f"`{u}`" for u in uids)
+                )
+            else:
+                md_lines.append(f"- **{bname}** — {cnt} unit(s)")
+        dist = cufe.get("distinct_failure_unit_ids") if isinstance(cufe, dict) else None
+        if isinstance(dist, list) and dist:
+            md_lines.append(
+                "- **distinct_failure_unit_ids (any bucket):** "
+                + ", ".join(f"`{u}`" for u in dist)
+            )
+    else:
+        md_lines.append(
+            "- **Cohort failure buckets:** none (no failing `unit_id` in any run; buckets empty)."
+        )
+    md_lines.extend(["", "## Runs", ""])
     for r in records:
         md_lines.append(
             f"- run {r.run_index + 1}: {'PASS' if r.gates_passed else 'FAIL'} "
@@ -169,6 +211,32 @@ def write_stage_b_cohort_summary(
                 f"all gates {ub.get('gold_gate_checks_pass', '?')}/"
                 f"{ub.get('gold_gate_checks_total', '?')} pass."
             )
+            ufe = ub.get("unit_failure_events") or {}
+            ufeb = ufe.get("by_bucket") if isinstance(ufe, dict) else {}
+            if isinstance(ufeb, dict) and ufeb:
+                md_lines.append("  - **unit failure buckets (per-unit ids):**")
+                for bn, bobj in sorted(ufeb.items()):
+                    if not isinstance(bobj, dict):
+                        continue
+                    uids = bobj.get("unit_ids") or []
+                    if isinstance(uids, list) and uids:
+                        md_lines.append(
+                            f"    - `{bn}`: "
+                            + ", ".join(f"`{x}`" for x in uids)
+                        )
+                    else:
+                        md_lines.append(f"    - `{bn}`: (no unit ids extracted)")
+            ug = ub.get("unit_gate_events") or {}
+            if isinstance(ug, dict) and ug.get("must_route"):
+                mr = ug.get("must_route") or {}
+                ma = ug.get("must_abstain") or {}
+                md_lines.append(
+                    "  - **unit gate events (gold row pass/fail by unit_id):** "
+                    f"must_route pass {mr.get('pass_unit_ids', [])}; "
+                    f"fail {mr.get('fail_unit_ids', [])}; "
+                    f"must_abstain pass {ma.get('pass_unit_ids', [])}; "
+                    f"fail {ma.get('fail_unit_ids', [])}."
+                )
             md_lines.append(
                 "  - **violation buckets (line counts):** "
                 f"b0={bk.get('b0_schema_row_integrity', 0)}, "

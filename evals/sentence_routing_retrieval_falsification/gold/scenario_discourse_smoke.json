@@ -1,0 +1,111 @@
+{
+  "schema": "sentence_routing_falsification_v1",
+  "scenario_id": "sentence_routing_discourse_smoke",
+  "sentence_units": [
+    {
+      "unit_id": "u-smoke-01",
+      "path": "evals/sentence_routing_retrieval_falsification/fixtures/mini_recap.md",
+      "line_start": 1,
+      "line_end": 1,
+      "text": "Alice checks the door."
+    },
+    {
+      "unit_id": "u-smoke-02",
+      "path": "evals/sentence_routing_retrieval_falsification/fixtures/mini_recap.md",
+      "line_start": 2,
+      "line_end": 2,
+      "text": "Silence."
+    }
+  ],
+  "input": {
+    "campaign_id": "test-campaign",
+    "session": 1,
+    "validate_manifest_paths": true,
+    "hub_manifest": [
+      {
+        "slug": "pc_alice",
+        "path": "evals/sentence_routing_retrieval_falsification/README.md",
+        "subject_class": "pc",
+        "label": "Synthetic PC hub (slice README)"
+      },
+      {
+        "slug": "pc_bob",
+        "path": "evals/sentence_routing_retrieval_falsification/fixtures/mini_recap.md",
+        "subject_class": "pc",
+        "label": "Synthetic PC hub (mini recap fixture)"
+      }
+    ]
+  },
+  "gold_routing": {
+    "must_route": [
+      {
+        "unit_id": "u-smoke-01",
+        "expected_hubs": [
+          "pc_alice"
+        ],
+        "max_extra_hubs": 0
+      }
+    ],
+    "must_abstain": [
+      {
+        "unit_id": "u-smoke-02",
+        "max_assigned_hubs": 0,
+        "needs_new_hub_candidate": false
+      }
+    ],
+    "soft_limits": {
+      "max_mean_assigned_hubs_per_unit": 4.0,
+      "max_unresolved_fraction": 0.75
+    }
+  },
+  "gold_discourse": {
+    "expect": [
+      {
+        "unit_id": "u-smoke-01",
+        "discourse_mode": "explicit_pc",
+        "direct_pc_slugs": [
+          "pc_alice"
+        ]
+      },
+      {
+        "unit_id": "u-smoke-02",
+        "discourse_mode": "true_empty"
+      }
+    ]
+  },
+  "fixture_discourse": {
+    "schema": "sentence_discourse_state_v1",
+    "discourse": [
+      {
+        "unit_id": "u-smoke-01",
+        "discourse_mode": "explicit_pc",
+        "direct_pc_slugs": [
+          "pc_alice"
+        ],
+        "topic_pc_slugs": [],
+        "scene_owner_pc_slugs": [],
+        "perceiver_pc_slugs": [],
+        "collective_actor": null,
+        "party_expansion_allowed": false,
+        "narrow_pc_only": false,
+        "continuation_from_unit_id": null,
+        "missing_entity_bucket": null,
+        "rationale": "Sentence assigns Alice as the actor."
+      },
+      {
+        "unit_id": "u-smoke-02",
+        "discourse_mode": "true_empty",
+        "direct_pc_slugs": [],
+        "topic_pc_slugs": [],
+        "scene_owner_pc_slugs": [],
+        "perceiver_pc_slugs": [],
+        "collective_actor": null,
+        "party_expansion_allowed": false,
+        "narrow_pc_only": false,
+        "continuation_from_unit_id": null,
+        "missing_entity_bucket": null,
+        "rationale": ""
+      }
+    ]
+  }
+}

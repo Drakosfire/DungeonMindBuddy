@@ -187,6 +187,94 @@ def _pc_roster_slugs_from_manifest(manifest: list[dict[str, Any]]) -> list[str]:
     return out
 
 
+def _string_list_from_context(value: Any) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    out: list[str] = []
+    for x in value:
+        s = str(x).strip()
+        if s:
+            out.append(s)
+    return out
+
+
+def _sentence_units_with_unit_routing_context(
+    inp: dict[str, Any],
+    units_json: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Merge optional ``input.unit_routing_context`` keyed by ``unit_id`` onto each sentence_unit."""
+    raw = inp.get("unit_routing_context")
+    if not isinstance(raw, dict) or not raw:
+        return units_json
+    out: list[dict[str, Any]] = []
+    for unit in units_json:
+        if not isinstance(unit, dict):
+            continue
+        uid = str(unit.get("unit_id") or "").strip()
+        patch = raw.get(uid) if uid else None
+        if isinstance(patch, dict) and patch:
+            merged = dict(unit)
+            base_rc = merged.get("routing_context")
+            if isinstance(base_rc, dict):
+                merged["routing_context"] = {**base_rc, **patch}
+            else:
+                merged["routing_context"] = dict(patch)
+            out.append(merged)
+        else:
+            out.append(unit)
+    return out
+
+
+def build_stage_b_routing_context_dict(
+    inp: dict[str, Any],
+    manifest: list[dict[str, Any]],
+    corpus_root: Path | None,
+) -> dict[str, Any]:
+    """Shared top-level ``routing_context`` for Stage B user payloads (hub routing + discourse B1)."""
+    party_names = _merged_pc_party_names(inp, corpus_root)
+    pc_roster_slugs = _pc_roster_slugs_from_manifest(manifest)
+    session_pc_roster_slugs: list[str] = []
+    if corpus_root is not None and pc_roster_slugs:
+        session_pc_roster_slugs = resolve_session_pc_roster_slugs(
+            inp=inp, corpus_root=corpus_root, manifest_jsonable=manifest
+        )
+    routing_context: dict[str, Any] = {}
+    raw_routing_context = inp.get("routing_context")
+    if isinstance(raw_routing_context, dict):
+        active_scene_owner_hubs = _string_list_from_context(
+            raw_routing_context.get("active_scene_owner_hubs")
+        )
+        if active_scene_owner_hubs:
+            routing_context["active_scene_owner_hubs"] = active_scene_owner_hubs
+        active_collective_actor = str(
+            raw_routing_context.get("active_collective_actor") or ""
+        ).strip()
+        if active_collective_actor:
+            routing_context["active_collective_actor"] = active_collective_actor
+        previous_unit_assignments = raw_routing_context.get("previous_unit_assignments")
+        if isinstance(previous_unit_assignments, dict) and previous_unit_assignments:
+            routing_context["previous_unit_assignments"] = previous_unit_assignments
+    for key in ("active_scene_owner_hubs", "active_collective_actor", "previous_unit_assignments"):
+        if key in inp and key not in routing_context:
+            if key == "active_scene_owner_hubs":
+                active_scene_owner_hubs = _string_list_from_context(inp.get(key))
+                if active_scene_owner_hubs:
+                    routing_context[key] = active_scene_owner_hubs
+            elif key == "active_collective_actor":
+                active_collective_actor = str(inp.get(key) or "").strip()
+                if active_collective_actor:
+                    routing_context[key] = active_collective_actor
+            elif isinstance(inp.get(key), dict) and inp.get(key):
+                routing_context[key] = inp[key]
+    if party_names:
+        routing_context["pc_party_names"] = party_names
+    if pc_roster_slugs:
+        routing_context["pc_roster_slugs"] = pc_roster_slugs
+    if session_pc_roster_slugs:
+        routing_context["session_pc_roster_slugs"] = session_pc_roster_slugs
+    return routing_context
+
+
 def _build_messages(
     *,
     inp: dict[str, Any],
@@ -196,27 +284,18 @@ def _build_messages(
     prompt_variant: str | None = None,
 ) -> tuple[list[dict[str, str]], str]:
     """Returns ``(messages, routing_prompt_id)`` — full prompt digest includes variant append."""
-    party_names = _merged_pc_party_names(inp, corpus_root)
-    pc_roster_slugs = _pc_roster_slugs_from_manifest(manifest)
-    session_pc_roster_slugs: list[str] = []
-    if corpus_root is not None and pc_roster_slugs:
-        session_pc_roster_slugs = resolve_session_pc_roster_slugs(
-            inp=inp, corpus_root=corpus_root, manifest_jsonable=manifest
-        )
     system, routing_prompt_id = build_routing_system_prompt(prompt_variant)
+    sentence_units_payload = _sentence_units_with_unit_routing_context(inp, units_json)
     user_payload: dict[str, Any] = {
         "campaign_id": inp.get("campaign_id"),
         "session": inp.get("session"),
         "recap_relative_path": inp.get("recap_relative_path"),
         "hub_manifest": manifest,
-        "sentence_units": units_json,
+        "sentence_units": sentence_units_payload,
     }
-    if party_names:
-        user_payload["routing_context"] = {"pc_party_names": party_names}
-        if pc_roster_slugs:
-            user_payload["routing_context"]["pc_roster_slugs"] = pc_roster_slugs
-        if session_pc_roster_slugs:
-            user_payload["routing_context"]["session_pc_roster_slugs"] = session_pc_roster_slugs
+    routing_context = build_stage_b_routing_context_dict(inp, manifest, corpus_root)
+    if routing_context:
+        user_payload["routing_context"] = routing_context
     return [
         {"role": "system", "content": system},
         {"role": "user", "content": json.dumps(user_payload, indent=2, ensure_ascii=False)},
@@ -326,8 +405,9 @@ def _call_llm_for_routes(
     return routes_body, cost_usd, choice
 
 
-def run_stage_b_once(
+def grade_sentence_hub_routes_payload(
     *,
+    routes_body: dict[str, Any],
     raw: dict[str, Any],
     scenario_path: Path,
     corpus_root: Path,
@@ -335,14 +415,12 @@ def run_stage_b_once(
     manifest_jsonable: list[dict[str, Any]],
     manifest_slugs: set[str],
     gold_routing: dict[str, Any],
-    model: str,
-    no_llm: bool,
-    no_writes: bool,
-    prompt_variant: str | None = None,
-) -> tuple[bool, dict[str, Any], float, Path | None]:
+    routing_prompt_id: str,
+) -> tuple[bool, list[str], dict[str, Any], list[dict[str, Any]]]:
     """
-    Grade one routing attempt. Returns ``(passed, sidecar, cost_usd, written_path)``.
-    When ``no_writes`` is True, ``written_path`` is None.
+    Shared Stage B2 grading: parse ``sentence_hub_routes_v1``, expand ``the_party``, run B1/B2 gates.
+
+    Returns ``(passed, violations, telemetry, routes_out)``.
     """
     from evals.sentence_routing_retrieval_falsification.grader import (
         collect_stage_b_violations,
@@ -352,7 +430,6 @@ def run_stage_b_once(
     from evals.sentence_routing_retrieval_falsification.route_schema import (
         coerce_wire_routes_payload_for_grading,
         normalize_route_rows_for_manifest,
-        normalize_sentence_units_text_for_manifest,
         parse_routes_envelope,
     )
 
@@ -362,34 +439,7 @@ def run_stage_b_once(
     )
     manifest_pc_fallback = _pc_roster_slugs_from_manifest(manifest_jsonable)
     party_expansion_for_grade = session_pc if session_pc else manifest_pc_fallback
-    cost_usd = 0.0
-    routes_body: dict[str, Any] | None = None
-    raw_model_output: str | None = None
-    _, routing_prompt_id = build_routing_system_prompt(prompt_variant)
 
-    if no_llm:
-        fixture = raw.get("fixture_routes")
-        if not isinstance(fixture, dict):
-            raise ValueError("scenario.fixture_routes (object) is required when using --no-llm")
-        routes_body = dict(fixture)
-    else:
-        units_for_llm = normalize_sentence_units_text_for_manifest(
-            units_json, manifest_slugs
-        )
-        messages, routing_prompt_id = _build_messages(
-            inp=inp,
-            manifest=manifest_jsonable,
-            units_json=units_for_llm,
-            corpus_root=corpus_root,
-            prompt_variant=prompt_variant,
-        )
-        routes_body, cost_usd, raw_model_output = _call_llm_for_routes(
-            model=model,
-            messages=messages,
-            manifest_slugs=manifest_slugs,
-        )
-
-    assert routes_body is not None
     violations: list[str] = []
     telemetry: dict[str, Any] = {}
     routes_out: list[dict[str, Any]] = []
@@ -439,6 +489,7 @@ def run_stage_b_once(
         )
         violations.extend(b_viol)
         sb = telemetry.setdefault("stage_b_unit_breakdown", {})
+        sb["routing_prompt_id"] = routing_prompt_id
         sb["wire_strict_parse_ok"] = not strict_parse_failed
         if strict_parse_failed:
             sb["graded_after_wire_coercion"] = graded_after_wire_coercion
@@ -454,6 +505,72 @@ def run_stage_b_once(
         raw_routes = routes_body.get("routes") if isinstance(routes_body, dict) else []
         if isinstance(raw_routes, list):
             routes_out = [dict(x) for x in raw_routes if isinstance(x, dict)]
+
+    return passed, violations, telemetry, routes_out
+
+
+def run_stage_b_once(
+    *,
+    raw: dict[str, Any],
+    scenario_path: Path,
+    corpus_root: Path,
+    units_json: list[dict[str, Any]],
+    manifest_jsonable: list[dict[str, Any]],
+    manifest_slugs: set[str],
+    gold_routing: dict[str, Any],
+    model: str,
+    no_llm: bool,
+    no_writes: bool,
+    prompt_variant: str | None = None,
+) -> tuple[bool, dict[str, Any], float, Path | None]:
+    """
+    Grade one routing attempt. Returns ``(passed, sidecar, cost_usd, written_path)``.
+    When ``no_writes`` is True, ``written_path`` is None.
+    """
+    from evals.sentence_routing_retrieval_falsification.route_schema import (
+        normalize_sentence_units_text_for_manifest,
+    )
+
+    inp = dict(raw.get("input") or {})
+    cost_usd = 0.0
+    routes_body: dict[str, Any] | None = None
+    raw_model_output: str | None = None
+    _, routing_prompt_id = build_routing_system_prompt(prompt_variant)
+
+    if no_llm:
+        fixture = raw.get("fixture_routes")
+        if not isinstance(fixture, dict):
+            raise ValueError("scenario.fixture_routes (object) is required when using --no-llm")
+        routes_body = dict(fixture)
+    else:
+        units_for_llm = normalize_sentence_units_text_for_manifest(
+            units_json, manifest_slugs
+        )
+        messages, routing_prompt_id = _build_messages(
+            inp=inp,
+            manifest=manifest_jsonable,
+            units_json=units_for_llm,
+            corpus_root=corpus_root,
+            prompt_variant=prompt_variant,
+        )
+        routes_body, cost_usd, raw_model_output = _call_llm_for_routes(
+            model=model,
+            messages=messages,
+            manifest_slugs=manifest_slugs,
+        )
+
+    assert routes_body is not None
+    passed, violations, telemetry, routes_out = grade_sentence_hub_routes_payload(
+        routes_body=routes_body,
+        raw=raw,
+        scenario_path=scenario_path,
+        corpus_root=corpus_root,
+        units_json=units_json,
+        manifest_jsonable=manifest_jsonable,
+        manifest_slugs=manifest_slugs,
+        gold_routing=gold_routing,
+        routing_prompt_id=routing_prompt_id,
+    )
 
     scenario_id = str(raw.get("scenario_id") or scenario_path.stem)
     sidecar: dict[str, object] = {

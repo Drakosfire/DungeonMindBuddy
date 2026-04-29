@@ -62,10 +62,38 @@ def test_collect_stage_b_must_route_subset() -> None:
         ),
     ]
     gold = {"must_route": [{"unit_id": "u1", "expected_hubs": ["hub_a", "hub_b"]}]}
-    viol, _ = collect_stage_b_violations(
+    viol, telem = collect_stage_b_violations(
         routes, gold, manifest_slugs=manifest, expected_unit_ids=expected
     )
     assert any("missing expected hubs" in x for x in viol)
+    ub = telem["stage_b_unit_breakdown"]
+    assert ub["unit_gate_events"]["must_route"]["fail_unit_ids"] == ["u1"]
+    assert ub["unit_gate_events"]["must_route"]["pass_unit_ids"] == []
+    assert "u1" in ub["unit_failure_events"]["by_bucket"]["b1_missing_expected_hub"]["unit_ids"]
+
+
+def test_stage_b_unit_failure_events_parser_and_cohort_aggregate() -> None:
+    from evals.sentence_routing_retrieval_falsification.grader import (
+        cohort_aggregate_unit_failure_events,
+        stage_b_unit_failure_events,
+    )
+
+    viol = [
+        "B0: missing route rows for unit_ids: ['a', 'b']",
+        "B1: must_route unit 'u1': missing expected hubs ['x'] (assigned=[])",
+    ]
+    ev = stage_b_unit_failure_events(viol)
+    assert ev["by_bucket"]["b0_missing_route_row"]["unit_ids"] == ["a", "b"]
+    assert ev["by_bucket"]["b1_missing_expected_hub"]["unit_ids"] == ["u1"]
+    assert set(ev["distinct_failure_unit_ids"]) == {"a", "b", "u1"}
+
+    merged = cohort_aggregate_unit_failure_events(
+        [
+            ev,
+            {"by_bucket": {"b1_missing_expected_hub": {"count": 1, "unit_ids": ["u2"]}}},
+        ]
+    )
+    assert merged["by_bucket"]["b1_missing_expected_hub"]["unit_ids"] == ["u1", "u2"]
 
 
 def test_collect_stage_b_diagnostic_bucket_expectation_soft_no_bd_violation() -> None:
@@ -455,7 +483,7 @@ def test_build_messages_includes_routing_context_for_pc_party_names() -> None:
     assert "routing_context.pc_party_names" in msgs[0]["content"]
     assert "routing_context.session_pc_roster_slugs" in msgs[0]["content"]
     assert "Roster copy rule" in msgs[0]["content"]
-    assert "Previous-unit pronoun binding" in msgs[0]["content"]
+    assert "Previous-unit binding for PC continuity" in msgs[0]["content"]
     assert "quote both the binding phrase from the previous unit" in msgs[0]["content"]
 
 
@@ -473,6 +501,74 @@ def test_build_messages_omits_routing_context_without_pc_party_names() -> None:
     )
     user = json.loads(msgs[1]["content"])
     assert "routing_context" not in user
+
+
+def test_build_messages_includes_optional_scene_state_routing_context() -> None:
+    from evals.sentence_routing_retrieval_falsification.step2_route_run import _build_messages
+
+    msgs, _rid = _build_messages(
+        inp={
+            "campaign_id": "longmont-c2",
+            "session": 20,
+            "recap_relative_path": "corpus/x.md",
+            "routing_context": {
+                "active_scene_owner_hubs": [" bonogo ", ""],
+                "active_collective_actor": "the_party",
+                "previous_unit_assignments": {"u1": ["the_party"]},
+            },
+        },
+        manifest=[{"slug": "bonogo", "path": "bonogo.md", "subject_class": "pc"}],
+        units_json=[{"unit_id": "u2", "text": "They continue."}],
+    )
+    user = json.loads(msgs[1]["content"])
+    rc = user["routing_context"]
+    assert rc["active_scene_owner_hubs"] == ["bonogo"]
+    assert rc["active_collective_actor"] == "the_party"
+    assert rc["previous_unit_assignments"] == {"u1": ["the_party"]}
+    assert rc["pc_roster_slugs"] == ["bonogo"]
+    assert "Scene-owner continuity fallback" in msgs[0]["content"]
+
+
+def test_build_messages_merges_unit_routing_context_into_sentence_units() -> None:
+    from evals.sentence_routing_retrieval_falsification.step2_route_run import _build_messages
+
+    msgs, _rid = _build_messages(
+        inp={
+            "campaign_id": "longmont-c2",
+            "session": 20,
+            "recap_relative_path": "corpus/x.md",
+            "unit_routing_context": {
+                "u-a": {
+                    "active_scene_owner_hubs": ["bonogo"],
+                    "narrow_pc_only": True,
+                    "party_expansion_allowed": False,
+                },
+                "u-b": {"active_collective_actor": "the_party", "party_expansion_allowed": True},
+            },
+        },
+        manifest=[{"slug": "bonogo", "path": "bonogo.md", "subject_class": "pc"}],
+        units_json=[
+            {"unit_id": "u-a", "text": "one", "routing_context": {"previous_unit_assignments": {"x": ["y"]}}},
+            {"unit_id": "u-b", "text": "two"},
+            {"unit_id": "u-c", "text": "three"},
+        ],
+    )
+    user = json.loads(msgs[1]["content"])
+    sus = user["sentence_units"]
+    assert sus[0]["routing_context"]["previous_unit_assignments"] == {"x": ["y"]}
+    assert sus[0]["routing_context"]["active_scene_owner_hubs"] == ["bonogo"]
+    assert sus[0]["routing_context"]["narrow_pc_only"] is True
+    assert sus[1]["routing_context"]["active_collective_actor"] == "the_party"
+    assert "routing_context" not in sus[2]
+
+
+def test_routing_system_prompt_documents_per_unit_routing_context() -> None:
+    from evals.sentence_routing_retrieval_falsification.routing_prompt import ROUTING_SYSTEM_PROMPT_BASE
+
+    assert "Per-unit routing_context" in ROUTING_SYSTEM_PROMPT_BASE
+    assert 'sentence_unit object includes a "routing_context" field' in ROUTING_SYSTEM_PROMPT_BASE
+    assert "party_expansion_allowed" in ROUTING_SYSTEM_PROMPT_BASE
+    assert "narrow_pc_only" in ROUTING_SYSTEM_PROMPT_BASE
 
 
 def test_build_messages_loads_pc_party_names_from_party_registry() -> None:
