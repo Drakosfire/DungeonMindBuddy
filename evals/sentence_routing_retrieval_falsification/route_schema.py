@@ -343,6 +343,40 @@ def parse_routes_envelope(
     return envelope
 
 
+def coerce_wire_routes_payload_for_grading(
+    payload: dict[str, Any],
+    *,
+    manifest_jsonable: list[dict[str, Any]] | None,
+) -> dict[str, Any]:
+    """
+    Best-effort normalization so strict ``parse_routes_envelope`` can run for **grading-only**
+    telemetry when the raw wire JSON failed validation (e.g. illegal diagnostic with hubs).
+
+    Does not change on-disk wire output; Stage B still records ``B0: routes JSON invalid`` for
+    the original failure. Clears ``routing_diagnostic_bucket`` when it cannot coexist with
+    non-empty ``assigned_hubs`` under the same rules as :func:`parse_routes_envelope`.
+    """
+    out = deepcopy(payload)
+    pc_slugs = manifest_pc_slug_set(manifest_jsonable)
+    routes_raw = out.get("routes")
+    if not isinstance(routes_raw, list):
+        return out
+    for row in routes_raw:
+        if not isinstance(row, dict):
+            continue
+        ah = row.get("assigned_hubs")
+        if isinstance(ah, list):
+            row["assigned_hubs"] = strip_pc_slugs_when_the_party_present(ah, pc_slugs)
+        hubs = [str(h).strip() for h in row.get("assigned_hubs") or [] if str(h).strip()]
+        b = row.get("routing_diagnostic_bucket")
+        if not hubs or b is None:
+            continue
+        if b == "npc_placeholder" and _has_pc_assignment(hubs, pc_slugs):
+            continue
+        row["routing_diagnostic_bucket"] = None
+    return out
+
+
 def validate_hub_manifest(
     entries: list[dict[str, Any] | HubManifestEntry] | None,
     *,

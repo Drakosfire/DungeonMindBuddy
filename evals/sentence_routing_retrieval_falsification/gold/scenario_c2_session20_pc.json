@@ -1,7 +1,7 @@
 {
   "schema": "sentence_routing_falsification_v1",
   "scenario_id": "sentence_routing_c2_session20_pc",
-  "scenario_notes": "Campaign 2 Session 20 PC-only route_sentence_units_to_hubs routing gate (legacy: Stage B). Must-route rows cover explicit named C2 PC mentions, affected/listener PCs, and **joint party** beats where **the group** / **the team** / **Questionable Company** / **rest of the group** denotes the PCs acting or deciding together (L16·7, L22·1, L24·9, L26·1, L26·3, L30·2, L30·3, L34·1, L34·2, L34·3 → all six PC slugs where listed). **L14·3** is focal on Caelynn (enveloped + observers); “the rest of the team” does not force whole-party here. **L18·2** continues Bonogo’s guided search beat → `bonogo` must_route. **L18·8** (Stuart / Stacey gold accusation) and **L22·7** (post-escalation “more furious”) remain **Bonogo alley / field scene** beats → `bonogo` must_route. **L28·2** (Sara / operator voice on Caelynn’s call) → **`must_route` `caelynn`** (Caelynn-thread listener; not abstain in PC-only routing). **L30·5** (“She finds Lysandra…”) → Caelynn as perceiver → `caelynn` must_route. Focal-PC-only rows elsewhere keep tight `max_extra_hubs`. Continuation pronouns route to a PC only when that PC is still the clear subject of the beat; a following clause about another NPC (e.g. “she” = Marla after Stafl was mentioned earlier) is abstain unless a PC is named again. Thrin, Stuart, Stacey, Marla, Lysandra, Sara, Tealeaf, and locations without a named PC in the unit stay out of PC hubs unless must_abstain says otherwise; named out-of-manifest entities may use needs_new_hub_candidate per runner rules. L22·2 names only Ephanna + Karesmine + Caelynn → gold stays three hubs; recap spelling **Karesmine** = hub **karsemine**. L24·7 is Bonogo + Caelynn only (no whole-party). L28·9 is Caelynn + Karsemine (lead-the-team), not all six. Party band labels load from `corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/_party_registry.json` into `routing_context.pc_party_names` at run time; the PC-only manifest is also exposed as `routing_context.pc_roster_slugs` so party-name rows are copy-from-roster decisions (optional `input.pc_party_names` still merges as harness-only override; not a grader field). **Rubric realign 2026-04-27:** L28·2 and L30·3 were incorrectly `must_abstain`; they are now `must_route` (`caelynn` only; full roster respectively) per GM judgment — see verify-before-debug / corpus rationale (not model-output deflation).",
+  "scenario_notes": "Campaign 2 Session 20 PC-only route_sentence_units_to_hubs routing gate (legacy: Stage B). Must-route rows cover explicit named C2 PC mentions, affected/listener PCs, and **joint party** beats where **the group** / **the team** / **Questionable Company** / **rest of the group** denotes the PCs acting or deciding together (L16·7, L22·1, L24·9, L26·1, L26·3, L30·2, L30·3, L34·1, L34·2, L34·3 → all six PC slugs where listed). **L14·3** — swarm threatens Caelynn while **the rest of the team** jointly observes → gold **`the_party`** (session roster expansion); optional NPC focal may pair with `routing_diagnostic_bucket` per prompt schema when justified. **L18·2** continues Bonogo’s guided search beat → `bonogo` must_route. **L18·8** (Stuart / Stacey gold accusation) and **L22·7** (post-escalation “more furious”) remain **Bonogo alley / field scene** beats → `bonogo` must_route. **L28·2** (Sara / operator voice on Caelynn’s call) → **`must_route` `caelynn`** (Caelynn-thread listener; not abstain in PC-only routing). **L30·5** (“She finds Lysandra…”) → Caelynn as perceiver → `caelynn` must_route. Focal-PC-only rows elsewhere keep tight `max_extra_hubs`. Continuation pronouns route to a PC only when that PC is still the clear subject of the beat; a following clause about another NPC (e.g. “she” = Marla after Stafl was mentioned earlier) is abstain unless a PC is named again. Thrin, Stuart, Stacey, Marla, Lysandra, Sara, Tealeaf, and locations without a named PC in the unit stay out of PC hubs unless must_abstain says otherwise; named out-of-manifest entities may use needs_new_hub_candidate per runner rules. L22·2 names only Ephanna + Karesmine + Caelynn → gold stays three hubs; recap spelling **Karesmine** = hub **karsemine**. L24·7 is Bonogo + Caelynn only (no whole-party). L28·9 is Caelynn + Karsemine (lead-the-team), not all six. Party band labels load from `corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/_party_registry.json` into `routing_context.pc_party_names` at run time; the PC-only manifest is also exposed as `routing_context.pc_roster_slugs` so party-name rows are copy-from-roster decisions (optional `input.pc_party_names` still merges as harness-only override; not a grader field). **Rubric realign 2026-04-27:** L28·2 and L30·3 were incorrectly `must_abstain`; they are now `must_route` (`caelynn` only; full roster respectively) per GM judgment — see verify-before-debug / corpus rationale (not model-output deflation).",
   "input": {
     "recap_relative_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md",
     "campaign_id": "longmont-c2",
@@ -83,7 +83,7 @@
           "index_on_line": 3
         },
         "expected_hubs": [
-          "caelynn"
+          "the_party"
         ],
         "max_extra_hubs": 0
       },
@@ -942,10 +942,10 @@
       {
         "unit_id": "u-L0014-03",
         "assigned_hubs": [
-          "caelynn"
+          "the_party"
         ],
         "confidence": "high",
-        "rationale": "Fixture: Caelynn focal (swarm envelopes her; observers not whole-party).",
+        "rationale": "Fixture: swarm threatens Caelynn while the rest of the band watches — joint observation beat; server expands the_party to session roster.",
         "needs_new_hub_candidate": false,
         "routing_diagnostic_bucket": null
       },

@@ -190,6 +190,8 @@ def stage_b_violation_only_telemetry(
     violations: list[str],
     *,
     expected_unit_ids: set[str],
+    gold_routing: dict[str, Any] | None = None,
+    party_expansion_slugs: list[str] | None = None,
 ) -> dict[str, Any]:
     """
     Emit Stage B breakdown telemetry even when route parsing fails before grading.
@@ -199,18 +201,43 @@ def stage_b_violation_only_telemetry(
     strip redundant manifest **PC** slugs when ``the_party`` is present; non-PC hubs are kept,
     and only ``npc_placeholder`` may coexist with PC assignments.) Keeping this minimal
     telemetry makes B0 sub-buckets visible in cohort summaries.
+
+    When ``gold_routing`` is provided, **gold gate checks** are still counted by evaluating
+    gates against an empty route map (every check fails as ``missing route row``), so cohort
+    summaries always see non-null ``gold_gate_checks_*`` when gold exists.
     """
     sentence_unit_count = len(expected_unit_ids)
+    by_id: dict[str, RouteRow] = {}
+    if gold_routing is not None:
+        mr_pass, mr_fail, ma_pass, ma_fail, gold_pinned = _gold_row_pass_fail(
+            by_id, gold_routing, party_expansion_slugs=party_expansion_slugs
+        )
+        mr_checks = mr_pass + mr_fail
+        ma_checks = ma_pass + ma_fail
+        unpinned = max(0, sentence_unit_count - len(gold_pinned))
+        must_route = {"gold_checks": mr_checks, "pass": mr_pass, "fail": mr_fail}
+        must_abstain = {"gold_checks": ma_checks, "pass": ma_pass, "fail": ma_fail}
+        gold_total = mr_checks + ma_checks
+        gold_pass = mr_pass + ma_pass
+        gold_fail = mr_fail + ma_fail
+        gold_pinned_count = len(gold_pinned)
+    else:
+        unpinned = sentence_unit_count
+        must_route = None
+        must_abstain = None
+        gold_total = gold_pass = gold_fail = None
+        gold_pinned_count = 0
+
     return {
         "stage_b_unit_breakdown": {
             "sentence_unit_count": sentence_unit_count,
-            "gold_pinned_distinct_unit_count": 0,
-            "unpinned_sentence_unit_count": sentence_unit_count,
-            "must_route": None,
-            "must_abstain": None,
-            "gold_gate_checks_total": None,
-            "gold_gate_checks_pass": None,
-            "gold_gate_checks_fail": None,
+            "gold_pinned_distinct_unit_count": gold_pinned_count,
+            "unpinned_sentence_unit_count": unpinned,
+            "must_route": must_route,
+            "must_abstain": must_abstain,
+            "gold_gate_checks_total": gold_total,
+            "gold_gate_checks_pass": gold_pass,
+            "gold_gate_checks_fail": gold_fail,
             "violation_line_count": len(violations),
             "violation_failure_buckets": _violation_failure_buckets(violations),
             "routing_diagnostic_histogram": {},
@@ -220,6 +247,7 @@ def stage_b_violation_only_telemetry(
                 "fail": 0,
                 "enforce": False,
             },
+            "gold_gates_from_empty_routes": bool(gold_routing is not None),
         }
     }
 

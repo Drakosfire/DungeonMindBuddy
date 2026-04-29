@@ -123,6 +123,61 @@ def test_stage_b_violation_only_telemetry_counts_diagnostic_null_b0() -> None:
     assert buckets["non_gate"] == 0
 
 
+def test_stage_b_violation_only_telemetry_counts_gold_gates_when_no_routes() -> None:
+    """When wire JSON cannot be parsed at all, gold gate totals still appear (all fail vs empty map)."""
+    from evals.sentence_routing_retrieval_falsification.grader import (
+        stage_b_violation_only_telemetry,
+    )
+
+    violations = ["B0: routes JSON invalid: totally broken"]
+    gold = {
+        "must_route": [{"unit_id": "u1", "expected_hubs": ["hub_a"]}],
+        "must_abstain": [{"unit_id": "u2", "max_assigned_hubs": 0}],
+    }
+    telem = stage_b_violation_only_telemetry(
+        violations,
+        expected_unit_ids={"u1", "u2"},
+        gold_routing=gold,
+        party_expansion_slugs=None,
+    )
+    bd = telem["stage_b_unit_breakdown"]
+    assert bd["gold_gate_checks_total"] == 2
+    assert bd["gold_gate_checks_pass"] == 0
+    assert bd["gold_gate_checks_fail"] == 2
+    assert bd["must_route"]["gold_checks"] == 1
+    assert bd["must_abstain"]["gold_checks"] == 1
+    assert bd["gold_gates_from_empty_routes"] is True
+
+
+def test_coerce_wire_routes_payload_allows_parse_after_illegal_diagnostic_with_hubs() -> None:
+    from evals.sentence_routing_retrieval_falsification.route_schema import (
+        SCHEMA_SENTENCE_HUB_ROUTES_V1,
+        coerce_wire_routes_payload_for_grading,
+        parse_routes_envelope,
+    )
+
+    raw = {
+        "schema": SCHEMA_SENTENCE_HUB_ROUTES_V1,
+        "routes": [
+            {
+                "unit_id": "u1",
+                "assigned_hubs": ["some_npc"],
+                "confidence": "high",
+                "rationale": "x",
+                "needs_new_hub_candidate": False,
+                "routing_diagnostic_bucket": "event_or_object_placeholder",
+            },
+        ],
+    }
+    manifest = [{"slug": "some_npc", "subject_class": "npc", "path": "x.md"}]
+    with pytest.raises(Exception):
+        parse_routes_envelope(raw, manifest_jsonable=manifest)
+    fixed = coerce_wire_routes_payload_for_grading(raw, manifest_jsonable=manifest)
+    env = parse_routes_envelope(fixed, manifest_jsonable=manifest)
+    assert env.routes[0].routing_diagnostic_bucket is None
+    assert env.routes[0].assigned_hubs == ["some_npc"]
+
+
 def test_collect_stage_b_must_abstain() -> None:
     from evals.sentence_routing_retrieval_falsification.grader import collect_stage_b_violations
     from evals.sentence_routing_retrieval_falsification.route_schema import RouteRow

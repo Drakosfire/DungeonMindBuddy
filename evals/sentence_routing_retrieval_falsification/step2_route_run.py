@@ -350,6 +350,7 @@ def run_stage_b_once(
         stage_b_violation_only_telemetry,
     )
     from evals.sentence_routing_retrieval_falsification.route_schema import (
+        coerce_wire_routes_payload_for_grading,
         normalize_route_rows_for_manifest,
         normalize_sentence_units_text_for_manifest,
         parse_routes_envelope,
@@ -397,16 +398,24 @@ def run_stage_b_once(
     gold_norm, gold_errors = normalize_gold_routing_matches(gold_routing, units_json)
     violations.extend(gold_errors)
 
+    envelope = None
+    strict_parse_failed = False
+    graded_after_wire_coercion = False
     try:
         envelope = parse_routes_envelope(routes_body, manifest_jsonable=manifest_jsonable)
     except Exception as exc:
+        strict_parse_failed = True
         violations.append(f"B0: routes JSON invalid: {exc}")
-        telemetry = stage_b_violation_only_telemetry(violations, expected_unit_ids=expected_ids)
-        passed = False
-        raw_routes = routes_body.get("routes") if isinstance(routes_body, dict) else []
-        if isinstance(raw_routes, list):
-            routes_out = [dict(x) for x in raw_routes if isinstance(x, dict)]
-    else:
+        try:
+            coerced = coerce_wire_routes_payload_for_grading(
+                dict(routes_body), manifest_jsonable=manifest_jsonable
+            )
+            envelope = parse_routes_envelope(coerced, manifest_jsonable=manifest_jsonable)
+            graded_after_wire_coercion = True
+        except Exception:
+            envelope = None
+
+    if envelope is not None:
         has_party = any(
             THE_PARTY_ROUTE_SENTINEL in (r.assigned_hubs or []) for r in envelope.routes
         )
@@ -429,7 +438,22 @@ def run_stage_b_once(
             party_expansion_slugs=party_expansion_for_grade,
         )
         violations.extend(b_viol)
+        sb = telemetry.setdefault("stage_b_unit_breakdown", {})
+        sb["wire_strict_parse_ok"] = not strict_parse_failed
+        if strict_parse_failed:
+            sb["graded_after_wire_coercion"] = graded_after_wire_coercion
         passed = not violations
+    else:
+        telemetry = stage_b_violation_only_telemetry(
+            violations,
+            expected_unit_ids=expected_ids,
+            gold_routing=gold_norm,
+            party_expansion_slugs=party_expansion_for_grade,
+        )
+        passed = False
+        raw_routes = routes_body.get("routes") if isinstance(routes_body, dict) else []
+        if isinstance(raw_routes, list):
+            routes_out = [dict(x) for x in raw_routes if isinstance(x, dict)]
 
     scenario_id = str(raw.get("scenario_id") or scenario_path.stem)
     sidecar: dict[str, object] = {
