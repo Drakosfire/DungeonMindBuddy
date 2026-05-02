@@ -1,0 +1,23 @@
+{
+  "npc_names": [
+    "mayor",
+    "sheriff",
+    "Thrin",
+    "Stuart",
+    "Stacey",
+    "Marla",
+    "Sara",
+    "Lysandra",
+    "Professor Tealeaf",
+    "Tealeaf"
+  ],
+  "location_names": [
+    "forest",
+    "town",
+    "tower",
+    "camp",
+    "field",
+    "wagon",
+    "Mirathorn"
+  ]
+}

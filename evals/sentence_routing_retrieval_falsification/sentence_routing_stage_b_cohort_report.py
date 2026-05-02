@@ -47,6 +47,7 @@ def build_cohort_payload(
     model_id: str,
     scenario_id: str,
     prompt_variant: str | None = None,
+    preflight_meta: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     n = len(records)
     costs = [r.scenario_estimated_cost_usd for r in records]
@@ -101,6 +102,8 @@ def build_cohort_payload(
             for r in records
         ],
     }
+    if isinstance(preflight_meta, dict) and preflight_meta:
+        payload["preflight"] = preflight_meta
     return payload
 
 
@@ -111,6 +114,7 @@ def write_stage_b_cohort_summary(
     scenario_id: str,
     runs_root: Path | None = None,
     prompt_variant: str | None = None,
+    preflight_meta: dict[str, Any] | None = None,
 ) -> tuple[Path, Path]:
     """Write JSON + Markdown cohort summary under ``runs_root/<YYYY-MM-DD>/``."""
     when = datetime.now(timezone.utc)
@@ -130,6 +134,7 @@ def write_stage_b_cohort_summary(
         model_id=model_id,
         scenario_id=scenario_id,
         prompt_variant=prompt_variant,
+        preflight_meta=preflight_meta,
     )
     json_path.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
@@ -150,6 +155,21 @@ def write_stage_b_cohort_summary(
             "",
             str(payload["cost_baseline_note"]),
             "",
+        ]
+    )
+    pf = payload.get("preflight")
+    if isinstance(pf, dict) and pf:
+        md_lines.extend(
+            [
+                "## Preflight",
+                "",
+                f"- **gold_routing_normalized_fingerprint_sha16:** `{pf.get('gold_routing_normalized_fingerprint_sha16', '')}`",
+                f"- **must_route_rows:** {pf.get('must_route_rows', '?')} | **must_abstain_rows:** {pf.get('must_abstain_rows', '?')}",
+                "",
+            ]
+        )
+    md_lines.extend(
+        [
             "## Cohort — unit failure buckets (union across runs)",
             "",
             "Distinct `unit_id` values that failed in **any** run, grouped by failure bucket. "

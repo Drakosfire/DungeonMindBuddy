@@ -40,6 +40,35 @@ def parse_session_pc_roster_raw(block: str) -> list[str] | None:
     return None
 
 
+def _parse_inline_string_list(raw: str) -> list[str]:
+    raw = raw.strip()
+    if not raw:
+        return []
+    if raw.startswith("[") and raw.endswith("]"):
+        raw = raw[1:-1].strip()
+    return [p.strip().strip('"').strip("'") for p in raw.split(",") if p.strip()]
+
+
+def parse_session_npc_names_raw(block: str) -> list[str] | None:
+    """
+    Parse optional session NPC negative-evidence names from recap frontmatter.
+
+    Supported keys: ``session_npc_names`` or ``session_npc_manifest``. Both accept
+    comma-separated or inline-list values. Returns ``None`` when absent, empty list
+    when present but empty.
+    """
+    for line in block.splitlines():
+        stripped = line.strip()
+        if not (
+            stripped.startswith("session_npc_names:")
+            or stripped.startswith("session_npc_manifest:")
+        ):
+            continue
+        raw = stripped.split(":", 1)[1].strip()
+        return _parse_inline_string_list(raw)
+    return None
+
+
 def canonical_session_pc_roster_slugs(
     *,
     parsed: list[str] | None,
@@ -188,3 +217,62 @@ def resolve_session_pc_roster_slugs(
             return canonical_session_pc_roster_slugs(parsed=reg_list, manifest_ordered_slugs=ordered)
 
     return canonical_session_pc_roster_slugs(parsed=None, manifest_ordered_slugs=ordered)
+
+
+def _session_npc_names_from_input(inp: dict[str, Any]) -> list[str]:
+    raw = inp.get("session_npc_names")
+    if raw is None:
+        raw = inp.get("session_npc_manifest")
+    if not isinstance(raw, list):
+        return []
+    out: list[str] = []
+    for item in raw:
+        if isinstance(item, dict):
+            name = str(item.get("name") or item.get("label") or item.get("slug") or "").strip()
+        else:
+            name = str(item).strip()
+        if name:
+            out.append(name)
+    return out
+
+
+def _dedupe_names(names: list[str]) -> list[str]:
+    seen: set[str] = set()
+    out: list[str] = []
+    for raw in names:
+        s = str(raw).strip()
+        if not s:
+            continue
+        key = s.casefold()
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(s)
+    return out
+
+
+def resolve_session_npc_names(*, inp: dict[str, Any], corpus_root: Path | None) -> list[str]:
+    """
+    Return session-local NPC names for negative PC-routing evidence.
+
+    Scenario input names are merged with optional recap frontmatter
+    ``session_npc_names`` / ``session_npc_manifest``. These names are not routed as hubs
+    by the PC-only Stage B surface; they only tell the model "this name is not a PC".
+    """
+    names = _session_npc_names_from_input(inp)
+    if corpus_root is None:
+        return _dedupe_names(names)
+    rel = str(inp.get("recap_relative_path") or "").strip()
+    if not rel:
+        return _dedupe_names(names)
+    try:
+        text = (corpus_root / rel).read_text(encoding="utf-8")
+    except OSError:
+        return _dedupe_names(names)
+    block, _ = split_frontmatter(text)
+    if block is None:
+        return _dedupe_names(names)
+    parsed_fm = parse_session_npc_names_raw(block)
+    if parsed_fm is not None:
+        names.extend(parsed_fm)
+    return _dedupe_names(names)

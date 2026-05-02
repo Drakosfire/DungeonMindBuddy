@@ -63,6 +63,7 @@ def _write_split_pipeline_summary(
     model_id: str,
     scenario_id: str,
     no_writes: bool,
+    preflight_meta: dict[str, Any] | None = None,
 ) -> tuple[Path | None, Path | None]:
     if no_writes:
         return None, None
@@ -92,6 +93,8 @@ def _write_split_pipeline_summary(
         ),
         "runs": records,
     }
+    if isinstance(preflight_meta, dict) and preflight_meta:
+        payload["preflight"] = preflight_meta
     ufe_list: list[dict[str, Any] | None] = []
     b1_ufe_list: list[dict[str, Any] | None] = []
     for r in records:
@@ -122,11 +125,28 @@ def _write_split_pipeline_summary(
         f"- **pass rate:** {passed}/{len(records)}",
         f"- **Cost:** sum ${costs_obj['sum']:.4f} | mean ${costs_obj['mean']:.4f} | min ${costs_obj['min']:.4f} | max ${costs_obj['max']:.4f}",
         "",
-        "## Cohort — B1 content failure buckets (union across runs)",
-        "",
-        "Distinct `unit_id` values that failed B1 content expectations in **any** run.",
-        "",
     ]
+    pf = payload.get("preflight")
+    if isinstance(pf, dict) and pf:
+        md_lines.extend(
+            [
+                "## Preflight",
+                "",
+                f"- **capture_signature:** `{json.dumps(pf.get('capture_signature'), sort_keys=True)}`",
+                f"- **gold_routing_normalized_fingerprint_sha16:** `{pf.get('gold_routing_normalized_fingerprint_sha16', '')}`",
+                f"- **must_route_rows:** {pf.get('must_route_rows', '?')}",
+                f"- **must_abstain_rows:** {pf.get('must_abstain_rows', '?')}",
+                "",
+            ]
+        )
+    md_lines.extend(
+        [
+            "## Cohort — B1 content failure buckets (union across runs)",
+            "",
+            "Distinct `unit_id` values that failed B1 content expectations in **any** run.",
+            "",
+        ]
+    )
     b1_cufe = payload.get("cohort_b1_content_failure_events") or {}
     b1_c_buckets = b1_cufe.get("by_bucket") if isinstance(b1_cufe, dict) else None
     if not isinstance(b1_cufe, dict) or "by_bucket" not in b1_cufe:
@@ -253,14 +273,19 @@ def _write_split_pipeline_summary(
     return json_path, md_path
 
 
-def _load_scenario_inputs(scenario_path: Path, corpus_root: Path, prior_json: Path | None) -> tuple[
+def _load_scenario_inputs_from_raw(
+    raw: dict[str, Any],
+    corpus_root: Path,
+    prior_json: Path | None,
+) -> tuple[
     dict[str, Any],
     list[dict[str, Any]],
     list[dict[str, Any]],
     set[str],
     dict[str, Any],
+    dict[str, Any],
 ]:
-    raw = json.loads(scenario_path.read_text(encoding="utf-8"))
+    raw = dict(raw)
     inp = dict(raw.get("input") or {})
     manifest_raw = list(inp.get("hub_manifest") or [])
     gold_routing = dict(raw.get("gold_routing") or {})
@@ -285,7 +310,55 @@ def _load_scenario_inputs(scenario_path: Path, corpus_root: Path, prior_json: Pa
     manifest_jsonable = [m.model_dump(exclude_none=True) for m in manifest_objs]
     manifest_slugs = manifest_slug_set(manifest_objs)
     units_json = _load_sentence_units(raw, corpus_root, prior_json)
-    return raw, units_json, manifest_jsonable, manifest_slugs, gold_routing
+
+    from evals.sentence_routing_retrieval_falsification.stage_b_preflight import (
+        preflight_stage_b_gold_and_capture,
+    )
+
+    gold_norm, norm_errors, preflight_meta = preflight_stage_b_gold_and_capture(
+        gold_routing,
+        units_json,
+        expected_capture_signature=raw.get("expected_capture_signature")
+        if isinstance(raw.get("expected_capture_signature"), dict)
+        else None,
+    )
+    if norm_errors:
+        raise ValueError(
+            json.dumps(
+                {"gold_normalize_errors": norm_errors, "preflight": preflight_meta},
+                indent=2,
+                ensure_ascii=False,
+            )
+            + "\n"
+        )
+    return raw, units_json, manifest_jsonable, manifest_slugs, gold_norm, preflight_meta
+
+
+def _load_scenario_inputs(scenario_path: Path, corpus_root: Path, prior_json: Path | None) -> tuple[
+    dict[str, Any],
+    list[dict[str, Any]],
+    list[dict[str, Any]],
+    set[str],
+    dict[str, Any],
+    dict[str, Any],
+]:
+    raw = json.loads(scenario_path.read_text(encoding="utf-8"))
+    return _load_scenario_inputs_from_raw(raw, corpus_root, prior_json)
+
+
+def _merge_session_entity_candidates_blob(inp: dict[str, Any], blob: dict[str, Any]) -> None:
+    """Shallow-merge ``blob`` into ``inp['session_entity_candidates']`` (list fields concatenate)."""
+    prev = inp.get("session_entity_candidates")
+    if not isinstance(prev, dict):
+        inp["session_entity_candidates"] = dict(blob)
+        return
+    merged = dict(prev)
+    for k, v in blob.items():
+        if k in merged and isinstance(merged[k], list) and isinstance(v, list):
+            merged[k] = list(merged[k]) + list(v)
+        else:
+            merged[k] = v
+    inp["session_entity_candidates"] = merged
 
 
 def main() -> int:
@@ -293,6 +366,13 @@ def main() -> int:
     parser.add_argument("--scenario-json", type=Path, default=_DEFAULT_SCENARIO)
     parser.add_argument("--corpus-root", type=Path, default=_REPO_ROOT)
     parser.add_argument("--prior-json", type=Path, default=None)
+    parser.add_argument(
+        "--session-entity-candidates-json",
+        type=Path,
+        default=None,
+        help="Merge JSON {npc_names, location_names, ...} into scenario input session_entity_candidates "
+        "(ablation; does not change on-disk gold).",
+    )
     parser.add_argument("--model", type=str, default=_DEFAULT_MODEL)
     parser.add_argument("--n", type=int, default=1)
     parser.add_argument("--no-llm", action="store_true")
@@ -306,10 +386,17 @@ def main() -> int:
     model = str(args.model).strip()
 
     try:
-        raw, units_json, manifest_jsonable, manifest_slugs, gold_routing = _load_scenario_inputs(
-            scenario_path,
-            corpus_root,
-            prior_json,
+        raw = json.loads(scenario_path.read_text(encoding="utf-8"))
+        if args.session_entity_candidates_json is not None:
+            cand_path = args.session_entity_candidates_json.resolve()
+            blob = json.loads(cand_path.read_text(encoding="utf-8"))
+            if not isinstance(blob, dict):
+                raise ValueError("session_entity_candidates_json must be a JSON object")
+            inp = dict(raw.get("input") or {})
+            _merge_session_entity_candidates_blob(inp, blob)
+            raw["input"] = inp
+        raw, units_json, manifest_jsonable, manifest_slugs, gold_routing, preflight_meta = (
+            _load_scenario_inputs_from_raw(raw, corpus_root, prior_json)
         )
     except ValueError as exc:
         print(str(exc), file=sys.stderr)
@@ -344,6 +431,7 @@ def main() -> int:
                 model=model,
                 no_llm=args.no_llm,
                 no_writes=args.no_writes,
+                preflight_meta=preflight_meta,
             )
             b2_discourse_path = b1_path if b1_path is not None else None
             b2_passed, b2_sidecar, b2_path = run_route_from_discourse_once(
@@ -356,6 +444,7 @@ def main() -> int:
                 gold_routing=gold_routing,
                 discourse_path=b2_discourse_path,
                 no_writes=args.no_writes,
+                preflight_meta=preflight_meta,
             )
         except ValueError as exc:
             print(str(exc), file=sys.stderr)
@@ -397,6 +486,7 @@ def main() -> int:
         model_id=model,
         scenario_id=scenario_id,
         no_writes=args.no_writes,
+        preflight_meta=preflight_meta,
     )
     if j_path is not None:
         print(str(j_path), file=sys.stderr)

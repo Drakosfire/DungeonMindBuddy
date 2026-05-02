@@ -1,7 +1,7 @@
 {
   "schema": "sentence_routing_falsification_v1",
   "scenario_id": "sentence_routing_c2_session20_pc_edge_slice_party_boundary",
-  "scenario_notes": "H1 party-boundary slice from C2S20 edge gold: roster/whole-party positives plus generic/background or NPC-led abstain negatives. Gold rows use direct unit_id references so embedded sentence_units can stay minimal.",
+  "scenario_notes": "H1 party-boundary slice from C2S20 edge gold: roster/whole-party positives plus generic/background or NPC-led abstain negatives. Gold rows use direct unit_id references so embedded sentence_units can stay minimal. **Rubric realign 2026-05-01:** `u-L0026-05` (\u201cthe heroes\u201d) is a full-party positive, not an abstain negative. **Rubric realign 2026-05-02:** `u-L0034-01` is **`caelynn`** only (Caelynn phone beat), not whole-party.",
   "input": {
     "recap_relative_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md",
     "campaign_id": "longmont-c2",
@@ -13,42 +13,42 @@
         "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/baergrom/README.md",
         "subject_class": "pc",
         "campaign_id": "longmont-c2",
-        "label": "baergrom — Campaign 2 PC hub"
+        "label": "baergrom \u2014 Campaign 2 PC hub"
       },
       {
         "slug": "bonogo",
         "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/bonogo/README.md",
         "subject_class": "pc",
         "campaign_id": "longmont-c2",
-        "label": "bonogo — Campaign 2 PC hub"
+        "label": "bonogo \u2014 Campaign 2 PC hub"
       },
       {
         "slug": "caelynn",
         "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/caelynn/README.md",
         "subject_class": "pc",
         "campaign_id": "longmont-c2",
-        "label": "caelynn — Campaign 2 PC hub"
+        "label": "caelynn \u2014 Campaign 2 PC hub"
       },
       {
         "slug": "ephanna",
         "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/ephanna/README.md",
         "subject_class": "pc",
         "campaign_id": "longmont-c2",
-        "label": "ephanna — Campaign 2 PC hub"
+        "label": "ephanna \u2014 Campaign 2 PC hub"
       },
       {
         "slug": "karsemine",
         "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/karsemine/README.md",
         "subject_class": "pc",
         "campaign_id": "longmont-c2",
-        "label": "karsemine — Campaign 2 PC hub"
+        "label": "karsemine \u2014 Campaign 2 PC hub"
       },
       {
         "slug": "stafl",
         "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/stafl/README.md",
         "subject_class": "pc",
         "campaign_id": "longmont-c2",
-        "label": "stafl — Campaign 2 PC hub"
+        "label": "stafl \u2014 Campaign 2 PC hub"
       }
     ]
   },
@@ -76,6 +76,14 @@
         ],
         "max_extra_hubs": 0,
         "unit_id": "u-L0016-07"
+      },
+      {
+        "expected_hubs": [
+          "bonogo"
+        ],
+        "max_extra_hubs": 0,
+        "notes": "Rubric realign 2026-05-01: Stuart beat remains Bonogo-thread continuation (aligned with full C2).",
+        "unit_id": "u-L0020-01"
       },
       {
         "expected_hubs": [
@@ -151,14 +159,10 @@
       },
       {
         "expected_hubs": [
-          "baergrom",
-          "bonogo",
-          "caelynn",
-          "ephanna",
-          "karsemine",
-          "stafl"
+          "caelynn"
         ],
         "max_extra_hubs": 0,
+        "notes": "Rubric realign 2026-05-02: Caelynn owns L34\u00b71 phone/wait beat (matches full-scenario gold).",
         "unit_id": "u-L0034-01"
       },
       {
@@ -184,6 +188,19 @@
         ],
         "max_extra_hubs": 0,
         "unit_id": "u-L0034-03"
+      },
+      {
+        "expected_hubs": [
+          "baergrom",
+          "bonogo",
+          "caelynn",
+          "ephanna",
+          "karsemine",
+          "stafl"
+        ],
+        "max_extra_hubs": 0,
+        "notes": "Rubric realign 2026-05-01: \u201cthe heroes\u201d refers to the full PC party; model full-roster routing is correct.",
+        "unit_id": "u-L0026-05"
       }
     ],
     "must_abstain": [
@@ -195,22 +212,12 @@
       {
         "max_assigned_hubs": 0,
         "needs_new_hub_candidate": false,
-        "unit_id": "u-L0026-05"
-      },
-      {
-        "max_assigned_hubs": 0,
-        "needs_new_hub_candidate": false,
         "unit_id": "u-L0024-01"
       },
       {
         "max_assigned_hubs": 0,
         "needs_new_hub_candidate": false,
         "unit_id": "u-L0024-02"
-      },
-      {
-        "max_assigned_hubs": 0,
-        "needs_new_hub_candidate": false,
-        "unit_id": "u-L0020-01"
       }
     ],
     "soft_limits": {
@@ -226,7 +233,7 @@
       "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md",
       "line_start": 16,
       "line_end": 16,
-      "text": "The team decides they have enough “testing” and should head back to tell the others what they discovered."
+      "text": "The team decides they have enough \u201ctesting\u201d and should head back to tell the others what they discovered."
     },
     {
       "unit_id": "u-L0022-01",
@@ -346,7 +353,9 @@
         "routing_diagnostic_bucket": null
       },
       {
-        "assigned_hubs": [],
+        "assigned_hubs": [
+          "bonogo"
+        ],
         "confidence": "high",
         "rationale": "Fixture route mirrors slice gold for offline smoke.",
         "needs_new_hub_candidate": false,
@@ -438,9 +447,16 @@
         "routing_diagnostic_bucket": null
       },
       {
-        "assigned_hubs": [],
+        "assigned_hubs": [
+          "baergrom",
+          "bonogo",
+          "caelynn",
+          "ephanna",
+          "karsemine",
+          "stafl"
+        ],
         "confidence": "high",
-        "rationale": "Fixture route mirrors slice gold for offline smoke.",
+        "rationale": "Fixture realign 2026-05-01: \u201cthe heroes\u201d is the full PC party.",
         "needs_new_hub_candidate": false,
         "unit_id": "u-L0026-05",
         "routing_diagnostic_bucket": null
@@ -477,12 +493,7 @@
       },
       {
         "assigned_hubs": [
-          "baergrom",
-          "bonogo",
-          "caelynn",
-          "ephanna",
-          "karsemine",
-          "stafl"
+          "caelynn"
         ],
         "confidence": "high",
         "rationale": "Fixture route mirrors slice gold for offline smoke.",

@@ -1,0 +1,30 @@
+---
+description: After each Stage B sentence-routing cohort run, refresh canvases/stage-b-bucket-map.canvas.tsx from the new artifacts (paths, stats, tables, prompts).
+globs: canvases/stage-b-bucket-map.canvas.tsx,evals/sentence_routing_retrieval_falsification/**/*.py
+alwaysApply: false
+---
+
+# Stage B bucket canvas — sync with each run
+
+When you **finish a cohort or meaningful re-run** of the sentence-routing Stage B falsification harness (discourse pipeline summary, B2-from-discourse sidecars, N-run aggregates, or a change that invalidates the numbers already shown on the canvas), **update the living canvas in the same change set or immediately after**, before treating the run as documented for handoff or merge.
+
+## Canvas file
+
+- `canvases/stage-b-bucket-map.canvas.tsx`
+
+## What to refresh from disk (evidence-first)
+
+1. **Artifact pointers** — Set `fullArtifact` / `edgeArtifact` (and any other `const` paths) to the **latest** summary JSON under `evals/sentence_routing_retrieval_falsification/artifacts/runs/YYYY-MM-DD/` for the scenarios you are reporting (match filename to scenario id + cohort stamp).
+2. **Headline stats and tables** — Reconcile `Stat`, `Table`, and `Callout` copy with those summary files (pass/fail counts, bucket names, distinct unit counts, unit id lists).
+3. **Per-unit failure detail (when the canvas includes it)** — For one representative **FAIL** sidecar from the same cohort, parse `violations.stage_b` for expected vs model (`assigned` hubs, `must_abstain` counts). Do not paste long recap prose or raw corpus; unit ids and hub slugs from artifacts are enough.
+4. **Prompt identity** — If the canvas lists step prompts, refresh **stable ids** from `evals/sentence_routing_retrieval_falsification/discourse_prompt.py` (`DISCOURSE_PROMPT_BASE_ID` / `build_discourse_system_prompt`) and `routing_prompt.py` (`ROUTING_PROMPT_BASE_ID`, variant-aware `build_routing_system_prompt`). Prefer short excerpts + id; full system strings stay in code.
+
+## When this rule does not force a canvas edit
+
+- Pure refactors with **no** artifact path or metric change and **no** new cohort run.
+- Exploratory local runs you are not committing to the canvas narrative (then do not update the canvas until you adopt a cohort as “current”).
+
+## Anti-patterns
+
+- Leaving stale `2026-MM-DD` paths or N= counts on the canvas after publishing new cohort summaries.
+- Paraphrasing bucket numbers from chat instead of re-reading the summary JSON fields.

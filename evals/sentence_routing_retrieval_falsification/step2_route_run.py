@@ -34,7 +34,11 @@ from evals.sentence_routing_retrieval_falsification.routing_prompt import (
     ROUTING_PROMPT_BASE_ID,
     build_routing_system_prompt,
 )
+from evals.sentence_routing_retrieval_falsification.session_entity_candidates import (
+    resolve_session_entity_candidates,
+)
 from evals.sentence_routing_retrieval_falsification.session_roster import (
+    resolve_session_npc_names,
     resolve_session_pc_roster_slugs,
 )
 from evals.sentence_routing_retrieval_falsification.route_schema import (
@@ -233,6 +237,7 @@ def build_stage_b_routing_context_dict(
     """Shared top-level ``routing_context`` for Stage B user payloads (hub routing + discourse B1)."""
     party_names = _merged_pc_party_names(inp, corpus_root)
     pc_roster_slugs = _pc_roster_slugs_from_manifest(manifest)
+    session_npc_names = resolve_session_npc_names(inp=inp, corpus_root=corpus_root)
     session_pc_roster_slugs: list[str] = []
     if corpus_root is not None and pc_roster_slugs:
         session_pc_roster_slugs = resolve_session_pc_roster_slugs(
@@ -272,6 +277,14 @@ def build_stage_b_routing_context_dict(
         routing_context["pc_roster_slugs"] = pc_roster_slugs
     if session_pc_roster_slugs:
         routing_context["session_pc_roster_slugs"] = session_pc_roster_slugs
+    if session_npc_names:
+        routing_context["session_npc_names"] = session_npc_names
+
+    npc_candidates, loc_candidates = resolve_session_entity_candidates(inp=inp, corpus_root=corpus_root)
+    if npc_candidates:
+        routing_context["session_npc_candidate_names"] = npc_candidates
+    if loc_candidates:
+        routing_context["session_location_candidate_names"] = loc_candidates
     return routing_context
 
 
@@ -522,6 +535,7 @@ def run_stage_b_once(
     no_llm: bool,
     no_writes: bool,
     prompt_variant: str | None = None,
+    preflight_meta: dict[str, Any] | None = None,
 ) -> tuple[bool, dict[str, Any], float, Path | None]:
     """
     Grade one routing attempt. Returns ``(passed, sidecar, cost_usd, written_path)``.
@@ -591,6 +605,8 @@ def run_stage_b_once(
         "hub_manifest": manifest_jsonable,
         "routes": routes_out,
     }
+    if isinstance(preflight_meta, dict) and preflight_meta:
+        sidecar["preflight"] = preflight_meta
     if raw_model_output is not None and violations:
         sidecar["raw_model_output"] = raw_model_output
 
@@ -685,6 +701,25 @@ def main() -> int:
         print(str(exc), file=sys.stderr)
         return 2
 
+    from evals.sentence_routing_retrieval_falsification.stage_b_preflight import (
+        preflight_stage_b_gold_and_capture,
+    )
+
+    gold_norm, norm_errors, preflight_meta = preflight_stage_b_gold_and_capture(
+        gold_routing,
+        units_json,
+        expected_capture_signature=raw.get("expected_capture_signature")
+        if isinstance(raw.get("expected_capture_signature"), dict)
+        else None,
+    )
+    if norm_errors:
+        print(
+            json.dumps({"gold_normalize_errors": norm_errors, "preflight": preflight_meta}, indent=2),
+            file=sys.stderr,
+        )
+        return 2
+    gold_routing = gold_norm
+
     if not args.no_llm and n >= 1:
         from src.agent.synthesis import _load_api_key
         from src.bootstrap_env import load_dungeonmindbuddy_dotenv
@@ -722,6 +757,7 @@ def main() -> int:
                 no_llm=args.no_llm,
                 no_writes=args.no_writes,
                 prompt_variant=prompt_variant_arg,
+                preflight_meta=preflight_meta,
             )
         except ValueError as exc:
             print(str(exc), file=sys.stderr)
@@ -759,6 +795,7 @@ def main() -> int:
             scenario_id=scenario_id,
             runs_root=_ARTIFACTS,
             prompt_variant=prompt_variant_arg,
+            preflight_meta=preflight_meta,
         )
         print(str(j_path), file=sys.stderr)
         print(str(m_path), file=sys.stderr)

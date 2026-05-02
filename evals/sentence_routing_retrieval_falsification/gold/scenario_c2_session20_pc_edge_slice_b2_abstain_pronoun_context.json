@@ -1,7 +1,7 @@
 {
   "schema": "sentence_routing_falsification_v1",
   "scenario_id": "sentence_routing_c2_session20_pc_edge_slice_b2_abstain_pronoun_context",
-  "scenario_notes": "H3 context-preserving abstain slice: same seven must_abstain gold rows as scenario_c2_session20_pc_edge_slice_b2_abstain_pronoun, but the prompt batch includes 1–2 immediately preceding units per window (L18·8–10, L28·6–8, L30·5–6, L32·5–6+8) so the model has pronoun/scene context. Only the abstain targets are graded.",
+  "scenario_notes": "H3 context-preserving abstain slice: same gold rows as scenario_c2_session20_pc_edge_slice_b2_abstain_pronoun after 2026-05-01 realign (`u-L0018-10` is `must_route` `bonogo`); the prompt batch includes 1–2 immediately preceding units per window (L18·8–10, L28·6–8, L30·5–6, L32·5–6+8) so the model has pronoun/scene context. Only the pinned gold targets are graded.",
   "input": {
     "recap_relative_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md",
     "campaign_id": "longmont-c2",
@@ -64,13 +64,16 @@
     ]
   },
   "gold_routing": {
-    "must_route": [],
-    "must_abstain": [
+    "must_route": [
       {
-        "max_assigned_hubs": 0,
-        "needs_new_hub_candidate": false,
+        "expected_hubs": [
+          "bonogo"
+        ],
+        "max_extra_hubs": 0,
         "unit_id": "u-L0018-10"
-      },
+      }
+    ],
+    "must_abstain": [
       {
         "max_assigned_hubs": 0,
         "needs_new_hub_candidate": false,
@@ -208,12 +211,14 @@
         "routing_diagnostic_bucket": null
       },
       {
-        "assigned_hubs": [],
+        "assigned_hubs": [
+          "bonogo"
+        ],
         "confidence": "high",
         "rationale": "Fixture route mirrors slice gold for offline smoke.",
         "needs_new_hub_candidate": false,
         "unit_id": "u-L0018-10",
-        "routing_diagnostic_bucket": null
+        "routing_diagnostic_bucket": "npc_placeholder"
       },
       {
         "assigned_hubs": [],

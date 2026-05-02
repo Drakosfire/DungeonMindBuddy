@@ -33,6 +33,7 @@ from evals.sentence_routing_retrieval_falsification.route_schema import (
 from evals.sentence_routing_retrieval_falsification.step2_route_run import (
     build_stage_b_routing_context_dict,
     _load_sentence_units,
+    _sentence_units_with_unit_routing_context,
 )
 
 _SLICE = Path(__file__).resolve().parent
@@ -115,6 +116,7 @@ def run_discourse_once(
     model: str,
     no_llm: bool,
     no_writes: bool,
+    preflight_meta: dict[str, Any] | None = None,
 ) -> tuple[bool, dict[str, Any], float, Path | None]:
     from evals.sentence_routing_retrieval_falsification.grader import (
         collect_discourse_content_violations,
@@ -127,7 +129,8 @@ def run_discourse_once(
     body: dict[str, Any] | None = None
     raw_model_output: str | None = None
 
-    units_for_llm = normalize_sentence_units_text_for_manifest(list(units_json), manifest_slugs)
+    units_with_rc = _sentence_units_with_unit_routing_context(inp, list(units_json))
+    units_for_llm = normalize_sentence_units_text_for_manifest(units_with_rc, manifest_slugs)
     rc = build_stage_b_routing_context_dict(inp, manifest_jsonable, corpus_root)
     allowed_pc = sorted(manifest_pc_slug_set(manifest_jsonable))
 
@@ -215,6 +218,8 @@ def run_discourse_once(
         "violations": {"stage_b1": violations},
         "telemetry": telemetry,
     }
+    if isinstance(preflight_meta, dict) and preflight_meta:
+        sidecar["preflight"] = preflight_meta
     if raw_model_output is not None and violations:
         sidecar["raw_model_output"] = raw_model_output
 
@@ -282,6 +287,28 @@ def main() -> int:
         print(str(exc), file=sys.stderr)
         return 2
 
+    from evals.sentence_routing_retrieval_falsification.stage_b_preflight import (
+        preflight_stage_b_gold_and_capture,
+    )
+
+    _gold_norm, norm_errors, preflight_meta = preflight_stage_b_gold_and_capture(
+        dict(raw.get("gold_routing") or {}),
+        units_json,
+        expected_capture_signature=raw.get("expected_capture_signature")
+        if isinstance(raw.get("expected_capture_signature"), dict)
+        else None,
+    )
+    if norm_errors:
+        print(
+            json.dumps(
+                {"gold_normalize_errors": norm_errors, "preflight": preflight_meta},
+                indent=2,
+                ensure_ascii=False,
+            ),
+            file=sys.stderr,
+        )
+        return 2
+
     if not args.no_llm:
         from src.agent.synthesis import _load_api_key
         from src.bootstrap_env import load_dungeonmindbuddy_dotenv
@@ -306,6 +333,7 @@ def main() -> int:
             model=args.model,
             no_llm=args.no_llm,
             no_writes=args.no_writes,
+            preflight_meta=preflight_meta,
         )
     except ValueError as exc:
         print(str(exc), file=sys.stderr)

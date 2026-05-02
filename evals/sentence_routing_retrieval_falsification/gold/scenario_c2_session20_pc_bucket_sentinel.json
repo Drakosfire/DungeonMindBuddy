@@ -1,7 +1,7 @@
 {
   "schema": "sentence_routing_falsification_v1",
   "scenario_id": "sentence_routing_c2_session20_pc_bucket_sentinel",
-  "scenario_notes": "Adjudicated diagnostic-bucket sentinel for C2 Session 20 (bucket contract §DESIGN). Combines H3 context abstain rows (u-L0018-10, u-L0028-07/08, u-L0030-06, u-L0032-05/06/08) with party continuation sentinels (u-L0022-01, u-L0026-03, u-L0030-03). gold_routing.diagnostic_buckets is soft unless enforce_diagnostic_buckets=true.",
+  "scenario_notes": "Adjudicated diagnostic-bucket sentinel for C2 Session 20 (bucket contract §DESIGN). Combines H3 context rows (u-L0018-10 now `must_route` `bonogo` + soft `npc_placeholder` diagnostic per 2026-05-01 realign; u-L0028-07/08, u-L0030-06, u-L0032-05/06/08) with party continuation sentinels (u-L0022-01, u-L0026-03, u-L0030-03). gold_routing.diagnostic_buckets is soft unless enforce_diagnostic_buckets=true.",
   "input": {
     "recap_relative_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md",
     "campaign_id": "longmont-c2",
@@ -67,6 +67,15 @@
   "gold_routing": {
     "must_route": [
       {
+        "unit_id": "u-L0018-10",
+        "expected_hubs": [
+          "bonogo"
+        ],
+        "expected_routing_diagnostic_bucket": "npc_placeholder",
+        "max_extra_hubs": 0,
+        "notes": "Rubric realign 2026-05-01: Bonogo-scene beat; `npc_placeholder` remains soft diagnostic for focal NPCs (Stuart/Stacey)."
+      },
+      {
         "unit_id": "u-L0022-01",
         "expected_hubs": [
           "baergrom",
@@ -104,11 +113,6 @@
       }
     ],
     "must_abstain": [
-      {
-        "unit_id": "u-L0018-10",
-        "max_assigned_hubs": 0,
-        "needs_new_hub_candidate": false
-      },
       {
         "unit_id": "u-L0028-07",
         "max_assigned_hubs": 0,
@@ -234,7 +238,9 @@
     "routes": [
       {
         "unit_id": "u-L0018-10",
-        "assigned_hubs": [],
+        "assigned_hubs": [
+          "bonogo"
+        ],
         "confidence": "high",
         "rationale": "Fixture route mirrors adjudicated bucket sentinel gold for offline smoke.",
         "needs_new_hub_candidate": false,

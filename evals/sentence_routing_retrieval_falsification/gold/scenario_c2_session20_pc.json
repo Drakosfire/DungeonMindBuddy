@@ -1,11 +1,21 @@
 {
   "schema": "sentence_routing_falsification_v1",
   "scenario_id": "sentence_routing_c2_session20_pc",
-  "scenario_notes": "Campaign 2 Session 20 PC-only route_sentence_units_to_hubs routing gate (legacy: Stage B). Must-route rows cover explicit named C2 PC mentions, affected/listener PCs, and **joint party** beats where **the group** / **the team** / **Questionable Company** / **rest of the group** denotes the PCs acting or deciding together (L16·7, L22·1, L24·9, L26·1, L26·3, L30·2, L30·3, L34·1, L34·2, L34·3 → all six PC slugs where listed). **L14·3** — swarm threatens Caelynn while **the rest of the team** jointly observes → gold **`the_party`** (session roster expansion); optional NPC focal may pair with `routing_diagnostic_bucket` per prompt schema when justified. **L18·2** continues Bonogo’s guided search beat → `bonogo` must_route. **L18·8** (Stuart / Stacey gold accusation) and **L22·7** (post-escalation “more furious”) remain **Bonogo alley / field scene** beats → `bonogo` must_route. **L28·2** (Sara / operator voice on Caelynn’s call) → **`must_route` `caelynn`** (Caelynn-thread listener; not abstain in PC-only routing). **L30·5** (“She finds Lysandra…”) → Caelynn as perceiver → `caelynn` must_route. Focal-PC-only rows elsewhere keep tight `max_extra_hubs`. Continuation pronouns route to a PC only when that PC is still the clear subject of the beat; a following clause about another NPC (e.g. “she” = Marla after Stafl was mentioned earlier) is abstain unless a PC is named again. Thrin, Stuart, Stacey, Marla, Lysandra, Sara, Tealeaf, and locations without a named PC in the unit stay out of PC hubs unless must_abstain says otherwise; named out-of-manifest entities may use needs_new_hub_candidate per runner rules. L22·2 names only Ephanna + Karesmine + Caelynn → gold stays three hubs; recap spelling **Karesmine** = hub **karsemine**. L24·7 is Bonogo + Caelynn only (no whole-party). L28·9 is Caelynn + Karsemine (lead-the-team), not all six. Party band labels load from `corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/_party_registry.json` into `routing_context.pc_party_names` at run time; the PC-only manifest is also exposed as `routing_context.pc_roster_slugs` so party-name rows are copy-from-roster decisions (optional `input.pc_party_names` still merges as harness-only override; not a grader field). **Rubric realign 2026-04-27:** L28·2 and L30·3 were incorrectly `must_abstain`; they are now `must_route` (`caelynn` only; full roster respectively) per GM judgment — see verify-before-debug / corpus rationale (not model-output deflation). **`input.unit_routing_context` (2026-04-29):** eval-only per-unit discourse hints merged into `sentence_units[].routing_context` by the Stage B harness for falsification (“declared discourse state fixes B1”); not live planner corpus provisioning — discovery-not-provision still applies to production flows.",
+  "scenario_notes": "Campaign 2 Session 20 PC-only route_sentence_units_to_hubs routing gate (legacy: Stage B). Must-route rows cover explicit named C2 PC mentions, affected/listener PCs, and **joint party** beats where **the group** / **the team** / **Questionable Company** / **rest of the group** denotes the PCs acting or deciding together (L16\u00b77, L22\u00b71, L24\u00b79, L26\u00b71, L26\u00b73, L30\u00b72, L30\u00b73, L34\u00b72, L34\u00b73 \u2192 all six PC slugs where listed). **L34\u00b71** (\u201cCaelynn continues to wait on the line\u2026 as the rest of the group set up\u2026 camp\u201d) is a **Caelynn-thread** beat: **`caelynn`** only; background camp prep does not promote to whole-party routing. **Rubric realign 2026-05-02:** `u-L0034-01` and **`u-L0032-09`** (operator handoff / Tealeaf line) \u2014 GM judgment: Caelynn scene-owner rows; `unit_routing_context.active_scene_owner_hubs=[\"caelynn\"]` stabilizes B1 against empty-hub flakes. **L14\u00b73** \u2014 swarm threatens/envelops Caelynn while **the rest of the team** observes \u2192 gold **`caelynn`** only. Realign 2026-05-01: accept the model\u2019s stable Caelynn ownership; the observation phrase is not enough to make the beat a full-roster retrieval row. **L18\u00b72-L18\u00b74** continue Bonogo\u2019s guided search beat via clear Bonogo/Stuart \"they\" antecedents \u2192 `bonogo` must_route. **L18\u00b78** (Stuart / Stacey gold accusation) and **L22\u00b77** (post-escalation \u201cmore furious\u201d) remain **Bonogo alley / field scene** beats \u2192 `bonogo` must_route. **L24\u00b71-L24\u00b72** continue Marla\u2019s direct confrontation with Bonogo via clear \"him/he\" antecedents \u2192 `bonogo` must_route. **L26\u00b76** Marla approaches Caelynn about dealing with Bonogo while Ephanna intervenes; Marla stays session NPC (`missing_entity_bucket=npc_placeholder`). B1 gold uses `explicit_pc`: `direct_pc_slugs` are **caelynn, ephanna** (the active scene/role PCs) and `topic_pc_slugs` is **bonogo** (the decision topic). B2 still routes Caelynn + Bonogo + Ephanna via the reducer union. **B1-CONTENT realign 2026-05-01:** this is role-specific gold, not \u201call involved PCs in every slug field.\u201d **L28\u00b72** (Sara / operator voice on Caelynn\u2019s call) \u2192 **`must_route` `caelynn`** (Caelynn-thread listener; not abstain in PC-only routing). **L30\u00b75** (\u201cShe finds Lysandra\u2026\u201d) \u2192 Caelynn as perceiver \u2192 `caelynn` must_route. Focal-PC-only rows elsewhere keep tight `max_extra_hubs`. Continuation pronouns route to a PC only when that PC is still the clear subject or object of the beat; a following clause about another NPC (e.g. \u201cshe\u201d = Marla after Stafl was mentioned earlier) is abstain unless a PC is named again. Thrin, Stuart, Stacey, Marla, Lysandra, Sara, Tealeaf, and locations without a named PC in the unit stay out of PC hubs unless must_abstain says otherwise; named out-of-manifest entities may use needs_new_hub_candidate per runner rules. L22\u00b72 names only Ephanna + Karesmine + Caelynn \u2192 gold stays three hubs; recap spelling **Karesmine** = hub **karsemine**. L24\u00b77 is Bonogo + Caelynn only (no whole-party). L28\u00b79 is Caelynn + Karsemine (lead-the-team), not all six. Party band labels load from `corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/_party_registry.json` into `routing_context.pc_party_names` at run time; the PC-only manifest is also exposed as `routing_context.pc_roster_slugs` so party-name rows are copy-from-roster decisions (optional `input.pc_party_names` still merges as harness-only override; not a grader field). **Rubric realign 2026-04-27:** L28\u00b72 and L30\u00b73 were incorrectly `must_abstain`; they are now `must_route` (`caelynn` only; full roster respectively) per GM judgment \u2014 see verify-before-debug / corpus rationale (not model-output deflation). **Rubric realign 2026-04-29:** L18\u00b73, L18\u00b74, L24\u00b71, L24\u00b72, and L26\u00b76 were realigned after cross-checking B1/B2 gold against the sentence text and session NPC negative evidence; this tightens the contract rather than matching an arbitrary model output. **Schema cleanup 2026-04-29:** the retired `pc_plus_missing_npc` label is now represented as the specific PC mode plus additive `missing_entity_bucket`; B1 gold may use `*_any` only where preserving legacy artifacts is intentional. **`input.unit_routing_context` (2026-04-29):** eval-only per-unit discourse hints merged into `sentence_units[].routing_context` by the Stage B harness for falsification (\u201cdeclared discourse state fixes B1\u201d); not live planner corpus provisioning \u2014 discovery-not-provision still applies to production flows. **Rubric realign 2026-05-01:** L18\u00b75, L18\u00b77, L18\u00b710, L20\u00b71, and L20\u00b78 were `must_abstain`; GM judgment treats them as Bonogo-scene/thread continuations \u2192 `must_route` `bonogo` (corpus rationale; not model-output deflation). **Rubric realign 2026-05-01:** L26\u00b75 (\u201cThe mayor and sheriff congratulate the heroes\u2026\u201d) is a full-party retrieval beat; move `u-L0026-05` from `must_abstain` to full-roster `must_route`. **Rubric realign 2026-05-01:** `u-L0016-03` is Karsemine-owned; Caelynn is only local scene context for the swarm position.",
   "input": {
     "recap_relative_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md",
     "campaign_id": "longmont-c2",
     "session": 20,
+    "session_npc_names": [
+      "Thrin",
+      "Stuart",
+      "Stacey",
+      "Marla",
+      "Sara",
+      "Lysandra",
+      "Professor Tealeaf",
+      "Tealeaf"
+    ],
     "validate_manifest_paths": true,
     "hub_manifest": [
       {
@@ -13,57 +23,105 @@
         "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/baergrom/README.md",
         "subject_class": "pc",
         "campaign_id": "longmont-c2",
-        "label": "baergrom — Campaign 2 PC hub"
+        "label": "baergrom \u2014 Campaign 2 PC hub"
       },
       {
         "slug": "bonogo",
         "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/bonogo/README.md",
         "subject_class": "pc",
         "campaign_id": "longmont-c2",
-        "label": "bonogo — Campaign 2 PC hub"
+        "label": "bonogo \u2014 Campaign 2 PC hub"
       },
       {
         "slug": "caelynn",
         "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/caelynn/README.md",
         "subject_class": "pc",
         "campaign_id": "longmont-c2",
-        "label": "caelynn — Campaign 2 PC hub"
+        "label": "caelynn \u2014 Campaign 2 PC hub"
       },
       {
         "slug": "ephanna",
         "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/ephanna/README.md",
         "subject_class": "pc",
         "campaign_id": "longmont-c2",
-        "label": "ephanna — Campaign 2 PC hub"
+        "label": "ephanna \u2014 Campaign 2 PC hub"
       },
       {
         "slug": "karsemine",
         "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/karsemine/README.md",
         "subject_class": "pc",
         "campaign_id": "longmont-c2",
-        "label": "karsemine — Campaign 2 PC hub"
+        "label": "karsemine \u2014 Campaign 2 PC hub"
       },
       {
         "slug": "stafl",
         "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/stafl/README.md",
         "subject_class": "pc",
         "campaign_id": "longmont-c2",
-        "label": "stafl — Campaign 2 PC hub"
+        "label": "stafl \u2014 Campaign 2 PC hub"
       }
     ],
     "unit_routing_context": {
       "u-L0018-02": {
-        "active_scene_owner_hubs": ["bonogo"],
+        "active_scene_owner_hubs": [
+          "bonogo"
+        ],
+        "narrow_pc_only": true,
+        "party_expansion_allowed": false
+      },
+      "u-L0018-03": {
+        "active_scene_owner_hubs": [
+          "bonogo"
+        ],
+        "narrow_pc_only": true,
+        "party_expansion_allowed": false
+      },
+      "u-L0018-04": {
+        "active_scene_owner_hubs": [
+          "bonogo"
+        ],
         "narrow_pc_only": true,
         "party_expansion_allowed": false
       },
       "u-L0018-08": {
-        "active_scene_owner_hubs": ["bonogo"],
+        "active_scene_owner_hubs": [
+          "bonogo"
+        ],
+        "narrow_pc_only": true,
+        "party_expansion_allowed": false
+      },
+      "u-L0022-07": {
+        "active_scene_owner_hubs": [
+          "bonogo"
+        ],
+        "narrow_pc_only": true,
+        "party_expansion_allowed": false
+      },
+      "u-L0024-01": {
+        "active_scene_owner_hubs": [
+          "bonogo"
+        ],
+        "narrow_pc_only": true,
+        "party_expansion_allowed": false
+      },
+      "u-L0024-02": {
+        "active_scene_owner_hubs": [
+          "bonogo"
+        ],
         "narrow_pc_only": true,
         "party_expansion_allowed": false
       },
       "u-L0026-06": {
-        "active_scene_owner_hubs": ["bonogo"],
+        "active_scene_owner_hubs": [
+          "bonogo"
+        ],
+        "narrow_pc_only": true,
+        "party_expansion_allowed": false
+      },
+      "u-L0028-02": {
+        "active_scene_owner_hubs": [
+          "caelynn"
+        ],
         "narrow_pc_only": true,
         "party_expansion_allowed": false
       },
@@ -72,7 +130,58 @@
         "party_expansion_allowed": true
       },
       "u-L0030-05": {
-        "active_scene_owner_hubs": ["caelynn"],
+        "active_scene_owner_hubs": [
+          "caelynn"
+        ],
+        "narrow_pc_only": true,
+        "party_expansion_allowed": false
+      },
+      "u-L0018-05": {
+        "active_scene_owner_hubs": [
+          "bonogo"
+        ],
+        "narrow_pc_only": true,
+        "party_expansion_allowed": false
+      },
+      "u-L0018-07": {
+        "active_scene_owner_hubs": [
+          "bonogo"
+        ],
+        "narrow_pc_only": true,
+        "party_expansion_allowed": false
+      },
+      "u-L0018-10": {
+        "active_scene_owner_hubs": [
+          "bonogo"
+        ],
+        "narrow_pc_only": true,
+        "party_expansion_allowed": false
+      },
+      "u-L0020-01": {
+        "active_scene_owner_hubs": [
+          "bonogo"
+        ],
+        "narrow_pc_only": true,
+        "party_expansion_allowed": false
+      },
+      "u-L0020-08": {
+        "active_scene_owner_hubs": [
+          "bonogo"
+        ],
+        "narrow_pc_only": true,
+        "party_expansion_allowed": false
+      },
+      "u-L0032-09": {
+        "active_scene_owner_hubs": [
+          "caelynn"
+        ],
+        "narrow_pc_only": true,
+        "party_expansion_allowed": false
+      },
+      "u-L0034-01": {
+        "active_scene_owner_hubs": [
+          "caelynn"
+        ],
         "narrow_pc_only": true,
         "party_expansion_allowed": false
       }
@@ -92,160 +201,253 @@
   "gold_routing": {
     "must_route": [
       {
-        "match": {
-          "line_start": 14,
-          "index_on_line": 1
-        },
         "expected_hubs": [
           "ephanna",
           "karsemine",
           "caelynn"
         ],
-        "max_extra_hubs": 0
-      },
-      {
-        "match": {
+        "max_extra_hubs": 0,
+        "unit_id": "u-L0014-01",
+        "match_provenance": {
           "line_start": 14,
-          "index_on_line": 3
-        },
-        "expected_hubs": [
-          "the_party"
-        ],
-        "max_extra_hubs": 0
-      },
-      {
-        "match": {
-          "line_start": 16,
           "index_on_line": 1
-        },
-        "expected_hubs": [
-          "ephanna"
-        ],
-        "max_extra_hubs": 0
+        }
       },
       {
-        "match": {
-          "line_start": 16,
-          "index_on_line": 3
-        },
-        "expected_hubs": [
-          "caelynn",
-          "karsemine"
-        ],
-        "max_extra_hubs": 0
-      },
-      {
-        "match": {
-          "line_start": 16,
-          "index_on_line": 5
-        },
         "expected_hubs": [
           "caelynn"
         ],
-        "max_extra_hubs": 0
+        "max_extra_hubs": 0,
+        "unit_id": "u-L0014-03",
+        "match_provenance": {
+          "line_start": 14,
+          "index_on_line": 3
+        },
+        "notes": "Rubric realign 2026-05-01: Although \u201crest of the team\u201d observes, the durable retrieval owner is Caelynn as the PC being enveloped/threatened; accept Caelynn-only rather than full roster."
       },
       {
-        "match": {
+        "expected_hubs": [
+          "ephanna"
+        ],
+        "max_extra_hubs": 0,
+        "unit_id": "u-L0016-01",
+        "match_provenance": {
           "line_start": 16,
-          "index_on_line": 6
+          "index_on_line": 1
+        }
+      },
+      {
+        "expected_hubs": [
+          "karsemine"
+        ],
+        "max_extra_hubs": 0,
+        "unit_id": "u-L0016-03",
+        "match_provenance": {
+          "line_start": 16,
+          "index_on_line": 3
         },
+        "notes": "Rubric realign 2026-05-01: this is Karsemine acting on the swarm; Caelynn is scene context, not the retrieval owner."
+      },
+      {
+        "expected_hubs": [
+          "caelynn"
+        ],
+        "max_extra_hubs": 0,
+        "unit_id": "u-L0016-05",
+        "match_provenance": {
+          "line_start": 16,
+          "index_on_line": 5
+        }
+      },
+      {
         "expected_hubs": [
           "caelynn"
         ],
         "expected_routing_diagnostic_bucket": "npc_placeholder",
-        "notes": "PC-only manifest: Thrin is focal alongside Caelynn but has no hub — npc_placeholder alongside caelynn.",
-        "max_extra_hubs": 0
+        "notes": "PC-only manifest: Thrin is focal alongside Caelynn but has no hub \u2014 npc_placeholder alongside caelynn.",
+        "max_extra_hubs": 0,
+        "unit_id": "u-L0016-06",
+        "match_provenance": {
+          "line_start": 16,
+          "index_on_line": 6
+        }
       },
       {
-        "match": {
+        "expected_hubs": [
+          "baergrom",
+          "bonogo",
+          "caelynn",
+          "ephanna",
+          "karsemine",
+          "stafl"
+        ],
+        "max_extra_hubs": 0,
+        "unit_id": "u-L0016-07",
+        "match_provenance": {
           "line_start": 16,
           "index_on_line": 7
-        },
-        "expected_hubs": [
-          "baergrom",
-          "bonogo",
-          "caelynn",
-          "ephanna",
-          "karsemine",
-          "stafl"
-        ],
-        "max_extra_hubs": 0
+        }
       },
       {
-        "match": {
+        "expected_hubs": [
+          "bonogo"
+        ],
+        "max_extra_hubs": 0,
+        "unit_id": "u-L0018-01",
+        "match_provenance": {
           "line_start": 18,
           "index_on_line": 1
-        },
+        }
+      },
+      {
         "expected_hubs": [
           "bonogo"
         ],
-        "max_extra_hubs": 0
-      },
-      {
-        "match": {
+        "max_extra_hubs": 0,
+        "unit_id": "u-L0018-02",
+        "match_provenance": {
           "line_start": 18,
           "index_on_line": 2
-        },
+        }
+      },
+      {
         "expected_hubs": [
           "bonogo"
         ],
-        "max_extra_hubs": 0
+        "max_extra_hubs": 0,
+        "unit_id": "u-L0018-03",
+        "match_provenance": {
+          "line_start": 18,
+          "index_on_line": 3
+        }
       },
       {
-        "match": {
+        "expected_hubs": [
+          "bonogo"
+        ],
+        "max_extra_hubs": 0,
+        "unit_id": "u-L0018-04",
+        "match_provenance": {
+          "line_start": 18,
+          "index_on_line": 4
+        }
+      },
+      {
+        "expected_hubs": [
+          "bonogo"
+        ],
+        "max_extra_hubs": 0,
+        "notes": "Rubric realign 2026-05-01: Stacey-led children beat remains Bonogo alley scene; scene_owner / continuation correctly routes bonogo (GM judgment; not model-output deflation).",
+        "unit_id": "u-L0018-05",
+        "match_provenance": {
+          "line_start": 18,
+          "index_on_line": 5
+        }
+      },
+      {
+        "expected_hubs": [
+          "bonogo"
+        ],
+        "max_extra_hubs": 0,
+        "unit_id": "u-L0018-06",
+        "match_provenance": {
           "line_start": 18,
           "index_on_line": 6
-        },
+        }
+      },
+      {
         "expected_hubs": [
           "bonogo"
         ],
-        "max_extra_hubs": 0
+        "max_extra_hubs": 0,
+        "notes": "Rubric realign 2026-05-01: Stuart/Stacey interaction continues Bonogo scene; bonogo is the correct PC hub (GM judgment).",
+        "unit_id": "u-L0018-07",
+        "match_provenance": {
+          "line_start": 18,
+          "index_on_line": 7
+        }
       },
       {
-        "match": {
+        "expected_hubs": [
+          "bonogo"
+        ],
+        "max_extra_hubs": 0,
+        "unit_id": "u-L0018-08",
+        "match_provenance": {
           "line_start": 18,
           "index_on_line": 8
-        },
+        }
+      },
+      {
         "expected_hubs": [
           "bonogo"
         ],
-        "max_extra_hubs": 0
-      },
-      {
-        "match": {
+        "max_extra_hubs": 0,
+        "unit_id": "u-L0018-09",
+        "match_provenance": {
           "line_start": 18,
           "index_on_line": 9
-        },
+        }
+      },
+      {
         "expected_hubs": [
           "bonogo"
         ],
-        "max_extra_hubs": 0
+        "max_extra_hubs": 0,
+        "notes": "Rubric realign 2026-05-01: Stacey reaction continues same confrontation thread; route bonogo (GM judgment).",
+        "unit_id": "u-L0018-10",
+        "match_provenance": {
+          "line_start": 18,
+          "index_on_line": 10
+        }
       },
       {
-        "match": {
+        "expected_hubs": [
+          "bonogo"
+        ],
+        "max_extra_hubs": 0,
+        "notes": "Rubric realign 2026-05-01: Post-confrontation Stuart beat still Bonogo-thread continuation; bonogo hub expected (GM judgment).",
+        "unit_id": "u-L0020-01",
+        "match_provenance": {
+          "line_start": 20,
+          "index_on_line": 1
+        }
+      },
+      {
+        "expected_hubs": [
+          "bonogo"
+        ],
+        "max_extra_hubs": 0,
+        "unit_id": "u-L0020-02",
+        "match_provenance": {
           "line_start": 20,
           "index_on_line": 2
-        },
+        }
+      },
+      {
         "expected_hubs": [
           "bonogo"
         ],
-        "max_extra_hubs": 0
+        "max_extra_hubs": 0,
+        "notes": "Rubric realign 2026-05-01: Emotional beat follows Bonogo/Stacey arc; bonogo remains scene PC hub (GM judgment).",
+        "unit_id": "u-L0020-08",
+        "match_provenance": {
+          "line_start": 20,
+          "index_on_line": 8
+        }
       },
       {
-        "match": {
+        "expected_hubs": [
+          "bonogo"
+        ],
+        "max_extra_hubs": 0,
+        "unit_id": "u-L0020-09",
+        "match_provenance": {
           "line_start": 20,
           "index_on_line": 9
-        },
-        "expected_hubs": [
-          "bonogo"
-        ],
-        "max_extra_hubs": 0
+        }
       },
       {
-        "match": {
-          "line_start": 22,
-          "index_on_line": 1
-        },
         "expected_hubs": [
           "baergrom",
           "bonogo",
@@ -254,106 +456,154 @@
           "karsemine",
           "stafl"
         ],
-        "max_extra_hubs": 0
+        "max_extra_hubs": 0,
+        "unit_id": "u-L0022-01",
+        "match_provenance": {
+          "line_start": 22,
+          "index_on_line": 1
+        }
       },
       {
-        "match": {
-          "line_start": 22,
-          "index_on_line": 2
-        },
         "expected_hubs": [
           "ephanna",
           "karsemine",
           "caelynn"
         ],
-        "max_extra_hubs": 0
+        "max_extra_hubs": 0,
+        "unit_id": "u-L0022-02",
+        "match_provenance": {
+          "line_start": 22,
+          "index_on_line": 2
+        }
       },
       {
-        "match": {
-          "line_start": 22,
-          "index_on_line": 3
-        },
         "expected_hubs": [
           "bonogo"
         ],
-        "max_extra_hubs": 0
+        "max_extra_hubs": 0,
+        "unit_id": "u-L0022-03",
+        "match_provenance": {
+          "line_start": 22,
+          "index_on_line": 3
+        }
       },
       {
-        "match": {
+        "expected_hubs": [
+          "bonogo"
+        ],
+        "max_extra_hubs": 0,
+        "unit_id": "u-L0022-05",
+        "match_provenance": {
           "line_start": 22,
           "index_on_line": 5
-        },
+        }
+      },
+      {
         "expected_hubs": [
           "bonogo"
         ],
-        "max_extra_hubs": 0
-      },
-      {
-        "match": {
+        "max_extra_hubs": 0,
+        "unit_id": "u-L0022-06",
+        "match_provenance": {
           "line_start": 22,
           "index_on_line": 6
-        },
+        }
+      },
+      {
         "expected_hubs": [
           "bonogo"
         ],
-        "max_extra_hubs": 0
-      },
-      {
-        "match": {
+        "max_extra_hubs": 0,
+        "unit_id": "u-L0022-07",
+        "match_provenance": {
           "line_start": 22,
           "index_on_line": 7
-        },
+        }
+      },
+      {
         "expected_hubs": [
           "bonogo"
         ],
-        "max_extra_hubs": 0
+        "max_extra_hubs": 0,
+        "unit_id": "u-L0024-01",
+        "match_provenance": {
+          "line_start": 24,
+          "index_on_line": 1
+        }
       },
       {
-        "match": {
+        "expected_hubs": [
+          "bonogo"
+        ],
+        "max_extra_hubs": 0,
+        "unit_id": "u-L0024-02",
+        "match_provenance": {
+          "line_start": 24,
+          "index_on_line": 2
+        }
+      },
+      {
+        "expected_hubs": [
+          "stafl"
+        ],
+        "max_extra_hubs": 0,
+        "unit_id": "u-L0024-03",
+        "match_provenance": {
           "line_start": 24,
           "index_on_line": 3
-        },
+        }
+      },
+      {
         "expected_hubs": [
           "stafl"
         ],
-        "max_extra_hubs": 0
-      },
-      {
-        "match": {
+        "max_extra_hubs": 0,
+        "unit_id": "u-L0024-04",
+        "match_provenance": {
           "line_start": 24,
           "index_on_line": 4
-        },
-        "expected_hubs": [
-          "stafl"
-        ],
-        "max_extra_hubs": 0
+        }
       },
       {
-        "match": {
-          "line_start": 24,
-          "index_on_line": 6
-        },
         "expected_hubs": [
           "bonogo"
         ],
-        "max_extra_hubs": 0
+        "max_extra_hubs": 0,
+        "unit_id": "u-L0024-06",
+        "match_provenance": {
+          "line_start": 24,
+          "index_on_line": 6
+        }
       },
       {
-        "match": {
-          "line_start": 24,
-          "index_on_line": 7
-        },
         "expected_hubs": [
           "bonogo",
           "caelynn"
         ],
-        "max_extra_hubs": 0
+        "max_extra_hubs": 0,
+        "unit_id": "u-L0024-07",
+        "match_provenance": {
+          "line_start": 24,
+          "index_on_line": 7
+        }
       },
       {
-        "match": {
+        "expected_hubs": [
+          "baergrom",
+          "bonogo",
+          "caelynn",
+          "ephanna",
+          "karsemine",
+          "stafl"
+        ],
+        "max_extra_hubs": 0,
+        "unit_id": "u-L0024-09",
+        "match_provenance": {
           "line_start": 24,
           "index_on_line": 9
-        },
+        }
+      },
+      {
         "expected_hubs": [
           "baergrom",
           "bonogo",
@@ -362,13 +612,14 @@
           "karsemine",
           "stafl"
         ],
-        "max_extra_hubs": 0
-      },
-      {
-        "match": {
+        "max_extra_hubs": 0,
+        "unit_id": "u-L0026-01",
+        "match_provenance": {
           "line_start": 26,
           "index_on_line": 1
-        },
+        }
+      },
+      {
         "expected_hubs": [
           "baergrom",
           "bonogo",
@@ -377,131 +628,143 @@
           "karsemine",
           "stafl"
         ],
-        "max_extra_hubs": 0
-      },
-      {
-        "match": {
+        "max_extra_hubs": 0,
+        "unit_id": "u-L0026-03",
+        "match_provenance": {
           "line_start": 26,
           "index_on_line": 3
-        },
-        "expected_hubs": [
-          "baergrom",
-          "bonogo",
-          "caelynn",
-          "ephanna",
-          "karsemine",
-          "stafl"
-        ],
-        "max_extra_hubs": 0
+        }
       },
       {
-        "match": {
-          "line_start": 26,
-          "index_on_line": 6
-        },
         "expected_hubs": [
           "caelynn",
           "bonogo",
           "ephanna"
         ],
-        "max_extra_hubs": 0
+        "max_extra_hubs": 0,
+        "unit_id": "u-L0026-06",
+        "match_provenance": {
+          "line_start": 26,
+          "index_on_line": 6
+        }
       },
       {
-        "match": {
+        "expected_hubs": [
+          "caelynn"
+        ],
+        "max_extra_hubs": 0,
+        "unit_id": "u-L0026-07",
+        "match_provenance": {
           "line_start": 26,
           "index_on_line": 7
-        },
+        }
+      },
+      {
         "expected_hubs": [
           "caelynn"
         ],
-        "max_extra_hubs": 0
-      },
-      {
-        "match": {
+        "max_extra_hubs": 0,
+        "unit_id": "u-L0028-01",
+        "match_provenance": {
           "line_start": 28,
           "index_on_line": 1
-        },
+        }
+      },
+      {
         "expected_hubs": [
           "caelynn"
         ],
-        "max_extra_hubs": 0
-      },
-      {
-        "match": {
+        "max_extra_hubs": 0,
+        "unit_id": "u-L0028-02",
+        "match_provenance": {
           "line_start": 28,
           "index_on_line": 2
-        },
+        }
+      },
+      {
         "expected_hubs": [
           "caelynn"
         ],
-        "max_extra_hubs": 0
-      },
-      {
-        "match": {
+        "max_extra_hubs": 0,
+        "unit_id": "u-L0028-03",
+        "match_provenance": {
           "line_start": 28,
           "index_on_line": 3
-        },
+        }
+      },
+      {
         "expected_hubs": [
           "caelynn"
         ],
-        "max_extra_hubs": 0
-      },
-      {
-        "match": {
+        "max_extra_hubs": 0,
+        "unit_id": "u-L0028-04",
+        "match_provenance": {
           "line_start": 28,
           "index_on_line": 4
-        },
+        }
+      },
+      {
         "expected_hubs": [
           "caelynn"
         ],
-        "max_extra_hubs": 0
-      },
-      {
-        "match": {
+        "max_extra_hubs": 0,
+        "unit_id": "u-L0028-05",
+        "match_provenance": {
           "line_start": 28,
           "index_on_line": 5
-        },
+        }
+      },
+      {
         "expected_hubs": [
           "caelynn"
         ],
-        "max_extra_hubs": 0
-      },
-      {
-        "match": {
+        "max_extra_hubs": 0,
+        "unit_id": "u-L0028-06",
+        "match_provenance": {
           "line_start": 28,
           "index_on_line": 6
-        },
-        "expected_hubs": [
-          "caelynn"
-        ],
-        "max_extra_hubs": 0
+        }
       },
       {
-        "match": {
+        "expected_hubs": [
+          "caelynn",
+          "karsemine"
+        ],
+        "max_extra_hubs": 0,
+        "unit_id": "u-L0028-09",
+        "match_provenance": {
           "line_start": 28,
           "index_on_line": 9
-        },
-        "expected_hubs": [
-          "caelynn",
-          "karsemine"
-        ],
-        "max_extra_hubs": 0
+        }
       },
       {
-        "match": {
+        "expected_hubs": [
+          "karsemine"
+        ],
+        "max_extra_hubs": 0,
+        "unit_id": "u-L0030-01",
+        "match_provenance": {
           "line_start": 30,
           "index_on_line": 1
-        },
-        "expected_hubs": [
-          "karsemine"
-        ],
-        "max_extra_hubs": 0
+        }
       },
       {
-        "match": {
+        "expected_hubs": [
+          "baergrom",
+          "bonogo",
+          "caelynn",
+          "ephanna",
+          "karsemine",
+          "stafl"
+        ],
+        "max_extra_hubs": 0,
+        "unit_id": "u-L0030-02",
+        "match_provenance": {
           "line_start": 30,
           "index_on_line": 2
-        },
+        }
+      },
+      {
         "expected_hubs": [
           "baergrom",
           "bonogo",
@@ -510,108 +773,115 @@
           "karsemine",
           "stafl"
         ],
-        "max_extra_hubs": 0
-      },
-      {
-        "match": {
+        "max_extra_hubs": 0,
+        "unit_id": "u-L0030-03",
+        "match_provenance": {
           "line_start": 30,
           "index_on_line": 3
-        },
-        "expected_hubs": [
-          "baergrom",
-          "bonogo",
-          "caelynn",
-          "ephanna",
-          "karsemine",
-          "stafl"
-        ],
-        "max_extra_hubs": 0
+        }
       },
       {
-        "match": {
+        "expected_hubs": [
+          "caelynn"
+        ],
+        "max_extra_hubs": 0,
+        "unit_id": "u-L0030-04",
+        "match_provenance": {
           "line_start": 30,
           "index_on_line": 4
-        },
+        }
+      },
+      {
         "expected_hubs": [
           "caelynn"
         ],
-        "max_extra_hubs": 0
-      },
-      {
-        "match": {
+        "max_extra_hubs": 0,
+        "unit_id": "u-L0030-05",
+        "match_provenance": {
           "line_start": 30,
           "index_on_line": 5
-        },
+        }
+      },
+      {
         "expected_hubs": [
           "caelynn"
         ],
-        "max_extra_hubs": 0
-      },
-      {
-        "match": {
+        "max_extra_hubs": 0,
+        "unit_id": "u-L0030-07",
+        "match_provenance": {
           "line_start": 30,
           "index_on_line": 7
-        },
+        }
+      },
+      {
         "expected_hubs": [
           "caelynn"
         ],
-        "max_extra_hubs": 0
-      },
-      {
-        "match": {
+        "max_extra_hubs": 0,
+        "unit_id": "u-L0030-09",
+        "match_provenance": {
           "line_start": 30,
           "index_on_line": 9
-        },
-        "expected_hubs": [
-          "caelynn"
-        ],
-        "max_extra_hubs": 0
+        }
       },
       {
-        "match": {
-          "line_start": 32,
-          "index_on_line": 1
-        },
         "expected_hubs": [
           "karsemine"
         ],
-        "max_extra_hubs": 0
+        "max_extra_hubs": 0,
+        "unit_id": "u-L0032-01",
+        "match_provenance": {
+          "line_start": 32,
+          "index_on_line": 1
+        }
       },
       {
-        "match": {
-          "line_start": 32,
-          "index_on_line": 3
-        },
         "expected_hubs": [
           "stafl"
         ],
-        "max_extra_hubs": 0
+        "max_extra_hubs": 0,
+        "unit_id": "u-L0032-03",
+        "match_provenance": {
+          "line_start": 32,
+          "index_on_line": 3
+        }
       },
       {
-        "match": {
+        "expected_hubs": [
+          "caelynn"
+        ],
+        "max_extra_hubs": 0,
+        "unit_id": "u-L0032-07",
+        "match_provenance": {
           "line_start": 32,
           "index_on_line": 7
-        },
+        }
+      },
+      {
         "expected_hubs": [
           "caelynn"
         ],
-        "max_extra_hubs": 0
-      },
-      {
-        "match": {
+        "max_extra_hubs": 0,
+        "notes": "Rubric note 2026-05-02: Caelynn-thread operator handoff; `unit_routing_context.active_scene_owner_hubs=[\"caelynn\"]` reduces B1 empty-route flakes.",
+        "unit_id": "u-L0032-09",
+        "match_provenance": {
           "line_start": 32,
           "index_on_line": 9
-        },
+        }
+      },
+      {
         "expected_hubs": [
           "caelynn"
         ],
-        "max_extra_hubs": 0
-      },
-      {
-        "match": {
+        "max_extra_hubs": 0,
+        "notes": "Rubric realign 2026-05-02: Caelynn owns the phone/wait beat; \u201crest of the group\u201d camps in background without whole-party routing.",
+        "unit_id": "u-L0034-01",
+        "match_provenance": {
           "line_start": 34,
           "index_on_line": 1
-        },
+        }
+      },
+      {
         "expected_hubs": [
           "baergrom",
           "bonogo",
@@ -620,28 +890,14 @@
           "karsemine",
           "stafl"
         ],
-        "max_extra_hubs": 0
-      },
-      {
-        "match": {
+        "max_extra_hubs": 0,
+        "unit_id": "u-L0034-02",
+        "match_provenance": {
           "line_start": 34,
           "index_on_line": 2
-        },
-        "expected_hubs": [
-          "baergrom",
-          "bonogo",
-          "caelynn",
-          "ephanna",
-          "karsemine",
-          "stafl"
-        ],
-        "max_extra_hubs": 0
+        }
       },
       {
-        "match": {
-          "line_start": 34,
-          "index_on_line": 3
-        },
         "expected_hubs": [
           "baergrom",
           "bonogo",
@@ -650,201 +906,157 @@
           "karsemine",
           "stafl"
         ],
-        "max_extra_hubs": 0
+        "max_extra_hubs": 0,
+        "unit_id": "u-L0034-03",
+        "match_provenance": {
+          "line_start": 34,
+          "index_on_line": 3
+        }
+      },
+      {
+        "expected_hubs": [
+          "baergrom",
+          "bonogo",
+          "caelynn",
+          "ephanna",
+          "karsemine",
+          "stafl"
+        ],
+        "max_extra_hubs": 0,
+        "notes": "Rubric realign 2026-05-01: \u201cthe heroes\u201d refers to the full PC party; model full-roster routing is correct.",
+        "unit_id": "u-L0026-05",
+        "match_provenance": {
+          "line_start": 26,
+          "index_on_line": 5
+        }
       }
     ],
     "must_abstain": [
       {
-        "match": {
+        "max_assigned_hubs": 0,
+        "needs_new_hub_candidate": false,
+        "unit_id": "u-L0014-02",
+        "match_provenance": {
           "line_start": 14,
           "index_on_line": 2
-        },
-        "max_assigned_hubs": 0,
-        "needs_new_hub_candidate": false
+        }
       },
       {
-        "match": {
-          "line_start": 18,
-          "index_on_line": 3
-        },
         "max_assigned_hubs": 0,
-        "needs_new_hub_candidate": false
-      },
-      {
-        "match": {
-          "line_start": 18,
-          "index_on_line": 4
-        },
-        "max_assigned_hubs": 0,
-        "needs_new_hub_candidate": false
-      },
-      {
-        "match": {
-          "line_start": 18,
-          "index_on_line": 5
-        },
-        "max_assigned_hubs": 0,
-        "needs_new_hub_candidate": false
-      },
-      {
-        "match": {
-          "line_start": 18,
-          "index_on_line": 7
-        },
-        "max_assigned_hubs": 0,
-        "needs_new_hub_candidate": false
-      },
-      {
-        "match": {
-          "line_start": 18,
-          "index_on_line": 10
-        },
-        "max_assigned_hubs": 0,
-        "needs_new_hub_candidate": false
-      },
-      {
-        "match": {
-          "line_start": 20,
-          "index_on_line": 1
-        },
-        "max_assigned_hubs": 0,
-        "needs_new_hub_candidate": false
-      },
-      {
-        "match": {
-          "line_start": 20,
-          "index_on_line": 8
-        },
-        "max_assigned_hubs": 0,
-        "needs_new_hub_candidate": false
-      },
-      {
-        "match": {
-          "line_start": 24,
-          "index_on_line": 1
-        },
-        "max_assigned_hubs": 0,
-        "needs_new_hub_candidate": false
-      },
-      {
-        "match": {
-          "line_start": 24,
-          "index_on_line": 2
-        },
-        "max_assigned_hubs": 0,
-        "needs_new_hub_candidate": false
-      },
-      {
-        "match": {
+        "needs_new_hub_candidate": false,
+        "unit_id": "u-L0024-05",
+        "match_provenance": {
           "line_start": 24,
           "index_on_line": 5
-        },
-        "max_assigned_hubs": 0,
-        "needs_new_hub_candidate": false
+        }
       },
       {
-        "match": {
+        "max_assigned_hubs": 0,
+        "needs_new_hub_candidate": false,
+        "unit_id": "u-L0026-02",
+        "match_provenance": {
           "line_start": 26,
           "index_on_line": 2
-        },
-        "max_assigned_hubs": 0,
-        "needs_new_hub_candidate": false
+        }
       },
       {
-        "match": {
+        "max_assigned_hubs": 0,
+        "needs_new_hub_candidate": false,
+        "unit_id": "u-L0026-04",
+        "match_provenance": {
           "line_start": 26,
           "index_on_line": 4
-        },
-        "max_assigned_hubs": 0,
-        "needs_new_hub_candidate": false
+        }
       },
       {
-        "match": {
-          "line_start": 26,
-          "index_on_line": 5
-        },
         "max_assigned_hubs": 0,
-        "needs_new_hub_candidate": false
-      },
-      {
-        "match": {
+        "needs_new_hub_candidate": false,
+        "unit_id": "u-L0028-07",
+        "match_provenance": {
           "line_start": 28,
           "index_on_line": 7
-        },
-        "max_assigned_hubs": 0,
-        "needs_new_hub_candidate": false
+        }
       },
       {
-        "match": {
+        "max_assigned_hubs": 0,
+        "needs_new_hub_candidate": false,
+        "unit_id": "u-L0028-08",
+        "match_provenance": {
           "line_start": 28,
           "index_on_line": 8
-        },
-        "max_assigned_hubs": 0,
-        "needs_new_hub_candidate": false
+        }
       },
       {
-        "match": {
+        "max_assigned_hubs": 0,
+        "needs_new_hub_candidate": false,
+        "unit_id": "u-L0030-06",
+        "match_provenance": {
           "line_start": 30,
           "index_on_line": 6
-        },
-        "max_assigned_hubs": 0,
-        "needs_new_hub_candidate": false
+        }
       },
       {
-        "match": {
+        "max_assigned_hubs": 0,
+        "needs_new_hub_candidate": false,
+        "unit_id": "u-L0030-10",
+        "match_provenance": {
           "line_start": 30,
           "index_on_line": 10
-        },
-        "max_assigned_hubs": 0,
-        "needs_new_hub_candidate": false
+        }
       },
       {
-        "match": {
+        "max_assigned_hubs": 0,
+        "needs_new_hub_candidate": false,
+        "unit_id": "u-L0030-11",
+        "match_provenance": {
           "line_start": 30,
           "index_on_line": 11
-        },
-        "max_assigned_hubs": 0,
-        "needs_new_hub_candidate": false
+        }
       },
       {
-        "match": {
+        "max_assigned_hubs": 0,
+        "needs_new_hub_candidate": false,
+        "unit_id": "u-L0030-12",
+        "match_provenance": {
           "line_start": 30,
           "index_on_line": 12
-        },
-        "max_assigned_hubs": 0,
-        "needs_new_hub_candidate": false
+        }
       },
       {
-        "match": {
+        "max_assigned_hubs": 0,
+        "needs_new_hub_candidate": false,
+        "unit_id": "u-L0030-13",
+        "match_provenance": {
           "line_start": 30,
           "index_on_line": 13
-        },
-        "max_assigned_hubs": 0,
-        "needs_new_hub_candidate": false
+        }
       },
       {
-        "match": {
+        "max_assigned_hubs": 0,
+        "needs_new_hub_candidate": false,
+        "unit_id": "u-L0032-05",
+        "match_provenance": {
           "line_start": 32,
           "index_on_line": 5
-        },
-        "max_assigned_hubs": 0,
-        "needs_new_hub_candidate": false
+        }
       },
       {
-        "match": {
+        "max_assigned_hubs": 0,
+        "needs_new_hub_candidate": false,
+        "unit_id": "u-L0032-06",
+        "match_provenance": {
           "line_start": 32,
           "index_on_line": 6
-        },
-        "max_assigned_hubs": 0,
-        "needs_new_hub_candidate": false
+        }
       },
       {
-        "match": {
+        "max_assigned_hubs": 0,
+        "needs_new_hub_candidate": false,
+        "unit_id": "u-L0032-08",
+        "match_provenance": {
           "line_start": 32,
           "index_on_line": 8
-        },
-        "max_assigned_hubs": 0,
-        "needs_new_hub_candidate": false
+        }
       }
     ],
     "soft_limits": {
@@ -863,10 +1075,15 @@
       },
       {
         "unit_id": "u-L0026-06",
-        "discourse_mode": "topic_pc",
+        "direct_pc_slugs": [
+          "caelynn",
+          "ephanna"
+        ],
         "topic_pc_slugs": [
           "bonogo"
-        ]
+        ],
+        "missing_entity_bucket": "npc_placeholder",
+        "discourse_mode": "explicit_pc"
       },
       {
         "unit_id": "u-L0030-03",
@@ -992,12 +1209,12 @@
       {
         "unit_id": "u-L0014-03",
         "assigned_hubs": [
-          "the_party"
+          "caelynn"
         ],
         "confidence": "high",
-        "rationale": "Fixture: swarm threatens Caelynn while the rest of the band watches — joint observation beat; server expands the_party to session roster.",
+        "rationale": "Fixture realign 2026-05-01: Caelynn is the durable owner of the swarm-envelopment beat; rest-of-team observation is not routed to full roster.",
         "needs_new_hub_candidate": false,
-        "routing_diagnostic_bucket": null
+        "routing_diagnostic_bucket": "npc_placeholder"
       },
       {
         "unit_id": "u-L0014-04",
@@ -1028,11 +1245,10 @@
       {
         "unit_id": "u-L0016-03",
         "assigned_hubs": [
-          "caelynn",
           "karsemine"
         ],
         "confidence": "high",
-        "rationale": "PC name match for the scenario gold.",
+        "rationale": "Fixture realign 2026-05-01: Karsemine is the actor/retrieval owner; Caelynn is context.",
         "needs_new_hub_candidate": false,
         "routing_diagnostic_bucket": null
       },
@@ -1075,7 +1291,7 @@
           "stafl"
         ],
         "confidence": "high",
-        "rationale": "Fixture: the team decides jointly → all manifest PCs.",
+        "rationale": "Fixture: the team decides jointly \u2192 all manifest PCs.",
         "needs_new_hub_candidate": false,
         "routing_diagnostic_bucket": null
       },
@@ -1101,25 +1317,31 @@
       },
       {
         "unit_id": "u-L0018-03",
-        "assigned_hubs": [],
-        "confidence": "low",
-        "rationale": "No PC hub assignment required by this PC-only scenario.",
+        "assigned_hubs": [
+          "bonogo"
+        ],
+        "confidence": "high",
+        "rationale": "Fixture: Bonogo/Stuart guided-search beat continues via clear \"they\" antecedent.",
         "needs_new_hub_candidate": false,
         "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0018-04",
-        "assigned_hubs": [],
-        "confidence": "low",
-        "rationale": "No PC hub assignment required by this PC-only scenario.",
+        "assigned_hubs": [
+          "bonogo"
+        ],
+        "confidence": "high",
+        "rationale": "Fixture: Stacey is identified as the target Bonogo and Stuart are looking for.",
         "needs_new_hub_candidate": false,
         "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0018-05",
-        "assigned_hubs": [],
-        "confidence": "low",
-        "rationale": "No PC hub assignment required by this PC-only scenario.",
+        "assigned_hubs": [
+          "bonogo"
+        ],
+        "confidence": "high",
+        "rationale": "Fixture: Bonogo-scene beat (Stacey/children argument thread).",
         "needs_new_hub_candidate": false,
         "routing_diagnostic_bucket": null
       },
@@ -1135,9 +1357,11 @@
       },
       {
         "unit_id": "u-L0018-07",
-        "assigned_hubs": [],
-        "confidence": "low",
-        "rationale": "No PC hub assignment required by this PC-only scenario.",
+        "assigned_hubs": [
+          "bonogo"
+        ],
+        "confidence": "high",
+        "rationale": "Fixture: Bonogo-scene beat (Stuart/Stacey interaction).",
         "needs_new_hub_candidate": false,
         "routing_diagnostic_bucket": null
       },
@@ -1163,17 +1387,21 @@
       },
       {
         "unit_id": "u-L0018-10",
-        "assigned_hubs": [],
-        "confidence": "low",
-        "rationale": "No PC hub assignment required by this PC-only scenario.",
+        "assigned_hubs": [
+          "bonogo"
+        ],
+        "confidence": "high",
+        "rationale": "Fixture: Bonogo-scene beat (Stacey reaction / gold pouch).",
         "needs_new_hub_candidate": false,
         "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0020-01",
-        "assigned_hubs": [],
-        "confidence": "low",
-        "rationale": "No PC hub assignment required by this PC-only scenario.",
+        "assigned_hubs": [
+          "bonogo"
+        ],
+        "confidence": "high",
+        "rationale": "Fixture: Post-confrontation thread still Bonogo alley beat.",
         "needs_new_hub_candidate": false,
         "routing_diagnostic_bucket": null
       },
@@ -1229,9 +1457,11 @@
       },
       {
         "unit_id": "u-L0020-08",
-        "assigned_hubs": [],
-        "confidence": "low",
-        "rationale": "No PC hub assignment required by this PC-only scenario.",
+        "assigned_hubs": [
+          "bonogo"
+        ],
+        "confidence": "high",
+        "rationale": "Fixture: Emotional beat follows Bonogo/Stacey arc.",
         "needs_new_hub_candidate": false,
         "routing_diagnostic_bucket": null
       },
@@ -1322,17 +1552,21 @@
       },
       {
         "unit_id": "u-L0024-01",
-        "assigned_hubs": [],
-        "confidence": "low",
-        "rationale": "No PC hub assignment required by this PC-only scenario.",
+        "assigned_hubs": [
+          "bonogo"
+        ],
+        "confidence": "high",
+        "rationale": "Fixture: Marla's confrontation continues with Bonogo as the clear pronoun target.",
         "needs_new_hub_candidate": false,
         "routing_diagnostic_bucket": null
       },
       {
         "unit_id": "u-L0024-02",
-        "assigned_hubs": [],
-        "confidence": "low",
-        "rationale": "No PC hub assignment required by this PC-only scenario.",
+        "assigned_hubs": [
+          "bonogo"
+        ],
+        "confidence": "high",
+        "rationale": "Fixture: Marla's insult targets Bonogo via the clear \"he\" antecedent.",
         "needs_new_hub_candidate": false,
         "routing_diagnostic_bucket": null
       },
@@ -1360,7 +1594,7 @@
         "unit_id": "u-L0024-05",
         "assigned_hubs": [],
         "confidence": "low",
-        "rationale": "Pronoun “she” refers to Marla’s authority, not a named PC in this unit.",
+        "rationale": "Pronoun \u201cshe\u201d refers to Marla\u2019s authority, not a named PC in this unit.",
         "needs_new_hub_candidate": false,
         "routing_diagnostic_bucket": null
       },
@@ -1404,7 +1638,7 @@
           "stafl"
         ],
         "confidence": "high",
-        "rationale": "Fixture: Questionable Company joint short rest → all PCs.",
+        "rationale": "Fixture: Questionable Company joint short rest \u2192 all PCs.",
         "needs_new_hub_candidate": false,
         "routing_diagnostic_bucket": null
       },
@@ -1419,7 +1653,7 @@
           "stafl"
         ],
         "confidence": "high",
-        "rationale": "Fixture: Questionable Company jointly watches the forest approach → all PCs.",
+        "rationale": "Fixture: Questionable Company jointly watches the forest approach \u2192 all PCs.",
         "needs_new_hub_candidate": false,
         "routing_diagnostic_bucket": null
       },
@@ -1456,9 +1690,16 @@
       },
       {
         "unit_id": "u-L0026-05",
-        "assigned_hubs": [],
-        "confidence": "low",
-        "rationale": "No PC hub assignment required by this PC-only scenario.",
+        "assigned_hubs": [
+          "baergrom",
+          "bonogo",
+          "caelynn",
+          "ephanna",
+          "karsemine",
+          "stafl"
+        ],
+        "confidence": "high",
+        "rationale": "Fixture realign 2026-05-01: \u201cthe heroes\u201d is the full PC party.",
         "needs_new_hub_candidate": false,
         "routing_diagnostic_bucket": null
       },
@@ -1607,7 +1848,7 @@
           "stafl"
         ],
         "confidence": "high",
-        "rationale": "Fixture: whole-party must_route (joint observation after departure; same band as L30·2).",
+        "rationale": "Fixture: whole-party must_route (joint observation after departure; same band as L30\u00b72).",
         "needs_new_hub_candidate": false,
         "routing_diagnostic_bucket": null
       },
@@ -1782,15 +2023,10 @@
       {
         "unit_id": "u-L0034-01",
         "assigned_hubs": [
-          "baergrom",
-          "bonogo",
-          "caelynn",
-          "ephanna",
-          "karsemine",
-          "stafl"
+          "caelynn"
         ],
         "confidence": "high",
-        "rationale": "Fixture: whole-party must_route (contextual joint party beat).",
+        "rationale": "Fixture realign 2026-05-02: Caelynn-thread phone wait; not whole-party despite background camp setup.",
         "needs_new_hub_candidate": false,
         "routing_diagnostic_bucket": null
       },
@@ -1825,5 +2061,11 @@
         "routing_diagnostic_bucket": null
       }
     ]
+  },
+  "expected_capture_signature": {
+    "sentence_unit_count": 98,
+    "unit_id_sha16": "2edd820bbeb45e13",
+    "first_unit_id": "u-L0001-01",
+    "last_unit_id": "u-L0034-03"
   }
 }

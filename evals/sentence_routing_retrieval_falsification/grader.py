@@ -110,7 +110,9 @@ def collect_discourse_content_violations(
     B1-CONTENT gate: optional ``gold_discourse.expect[]`` rows compare fields on each ``DiscourseRow``.
 
     Each expect object must include ``unit_id``. Other keys are compared to model attributes
-    (lists compared sorted; scalars compared with equality).
+    (lists compared sorted; scalars compared with equality). A key ending in ``_any`` accepts
+    any one of the listed values for the corresponding field (for example,
+    ``{"discourse_mode_any": ["explicit_pc", "topic_pc"]}`` checks ``row.discourse_mode``).
     """
     violations: list[str] = []
     expect_raw = gold_discourse.get("expect")
@@ -133,11 +135,20 @@ def collect_discourse_content_violations(
         for key, want in exp.items():
             if key == "unit_id":
                 continue
-            if not hasattr(row, key):
+            actual_key = key.removesuffix("_any")
+            accepts_any = key.endswith("_any")
+            if accepts_any and not isinstance(want, list):
+                violations.append(f"B1-CONTENT: {uid!r} {key} must be a list")
+                continue
+            if not hasattr(row, actual_key):
                 violations.append(f"B1-CONTENT: unknown gold field {key!r} for {uid!r}")
                 continue
-            got = getattr(row, key)
-            if isinstance(want, list) and isinstance(got, list):
+            got = getattr(row, actual_key)
+            if accepts_any:
+                allowed = [str(x).strip() for x in want if str(x).strip()]
+                if str(got).strip() not in allowed:
+                    violations.append(f"B1-CONTENT: {uid!r} {actual_key} want one of {allowed!r} got {got!r}")
+            elif isinstance(want, list) and isinstance(got, list):
                 ws = sorted(str(x).strip() for x in want if str(x).strip())
                 gs = sorted(str(x).strip() for x in got if str(x).strip())
                 if ws != gs:
@@ -247,7 +258,9 @@ def normalize_gold_routing_matches(
                     new_rows.append(row)
                     continue
                 row["unit_id"] = resolved
-                row.pop("match", None)
+                prov = row.pop("match", None)
+                if prov is not None:
+                    row["match_provenance"] = prov
             elif not uid:
                 errors.append(f"{label}: missing both unit_id and match")
             new_rows.append(row)
@@ -265,6 +278,7 @@ def _violation_failure_buckets(violations: list[str]) -> dict[str, int]:
             "b1_missing_expected_hub": 0,
             "b1_over_route": 0,
             "b2_over_assigned": 0,
+            "b2_must_abstain_missing_route_row": 0,
             "b2_needs_new_hub_candidate": 0,
             "bd_diagnostic_bucket": 0,
             "non_gate": 0,
@@ -284,6 +298,8 @@ def _violation_failure_buckets(violations: list[str]) -> dict[str, int]:
             c["b1_over_route"] += 1
         elif v.startswith("B2:") and "hubs > max_assigned_hubs" in v:
             c["b2_over_assigned"] += 1
+        elif v.startswith("B2:") and "missing route row" in v:
+            c["b2_must_abstain_missing_route_row"] += 1
         elif v.startswith("B2:") and "needs_new_hub_candidate" in v:
             c["b2_needs_new_hub_candidate"] += 1
         elif v.startswith("BD:"):
@@ -397,7 +413,9 @@ def stage_b_unit_failure_events(violations: list[str]) -> dict[str, Any]:
             if not uid:
                 lines_without_unit.append(v)
                 continue
-            if "hubs > max_assigned_hubs" in v:
+            if "missing route row" in v:
+                _add("b2_must_abstain_missing_route_row", [uid])
+            elif "hubs > max_assigned_hubs" in v:
                 _add("b2_over_assigned", [uid])
             elif "needs_new_hub_candidate" in v:
                 _add("b2_needs_new_hub_candidate", [uid])
@@ -882,6 +900,8 @@ def collect_stage_b_violations(
             continue
         row = by_id.get(uid)
         if row is None:
+            violations.append(f"B2: must_abstain unit {uid!r}: missing route row")
+            must_abstain_fail_unit_ids.append(uid)
             continue
         max_assigned = int(g.get("max_assigned_hubs", 0))
         abstain_failed = False

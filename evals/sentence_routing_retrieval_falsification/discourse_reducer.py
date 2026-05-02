@@ -1,4 +1,9 @@
-"""Deterministic Stage B2: discourse rows → hub route rows (``sentence_hub_routes_v1`` shape)."""
+"""Deterministic Stage B2: discourse rows → hub route rows (``sentence_hub_routes_v1`` shape).
+
+Discourse-row **coherence normalization** and ``b2_coherence_corrections`` telemetry live in
+:mod:`stage_b2_coherence` / ``step2b_route_from_discourse_run`` (split pipeline), before this
+module's pure row→routes transform.
+"""
 
 from __future__ import annotations
 

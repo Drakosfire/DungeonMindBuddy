@@ -51,7 +51,7 @@ def _canonical_gold_fingerprint(gold_routing: dict[str, Any]) -> str:
     return hashlib.sha256(blob.encode("utf-8")).hexdigest()[:16]
 
 
-def _unit_set_signature(sentence_units: list[dict[str, Any]]) -> dict[str, Any]:
+def unit_set_signature(sentence_units: list[dict[str, Any]]) -> dict[str, Any]:
     ids = sorted(str(u.get("unit_id") or "") for u in sentence_units if isinstance(u, dict))
     return {
         "sentence_unit_count": len(sentence_units),
@@ -59,6 +59,11 @@ def _unit_set_signature(sentence_units: list[dict[str, Any]]) -> dict[str, Any]:
         "first_unit_id": ids[0] if ids else "",
         "last_unit_id": ids[-1] if ids else "",
     }
+
+
+def _unit_set_signature(sentence_units: list[dict[str, Any]]) -> dict[str, Any]:
+    """Backward-compatible alias for older local scripts."""
+    return unit_set_signature(sentence_units)
 
 
 def collect_sidecar_paths(*, sidecar_glob: str, extra_paths: list[Path]) -> list[Path]:

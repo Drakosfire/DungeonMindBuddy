@@ -1,7 +1,7 @@
 {
   "schema": "sentence_routing_falsification_v1",
   "scenario_id": "sentence_routing_c2_session20_pc_edge_slice_h1_h2_sentinel",
-  "scenario_notes": "Combined H1/H2 sentinel slice from C2S20 edge gold. Mixes dual/multi-PC recall, roster positives, and abstain-precision sentinels; excludes u-L0016-03. Gold rows use direct unit_id references so embedded sentence_units can stay minimal.",
+  "scenario_notes": "Combined H1/H2 sentinel slice from C2S20 edge gold. Mixes dual/multi-PC recall, roster positives, and abstain-precision sentinels; excludes u-L0016-03. Gold rows use direct unit_id references so embedded sentence_units can stay minimal. **Rubric realign 2026-05-01:** `u-L0018-10` is `must_route` `bonogo` (Bonogo-scene continuation; aligned with full C2 scenario gold). **B1-CONTENT realign 2026-05-01:** `u-L0026-06` role-specific gold matches full C2: `direct_pc_slugs=[\"caelynn\",\"ephanna\"]`, `topic_pc_slugs=[\"bonogo\"]`; B2 still routes all three via reducer union. **Unit context 2026-05-01:** `u-L0018-10` carries `active_scene_owner_hubs=[\"bonogo\"]` so the split B1 classifier treats the Stacey/Stuart reaction as the Bonogo scene thread for this unit only.",
   "input": {
     "recap_relative_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md",
     "campaign_id": "longmont-c2",
@@ -13,44 +13,53 @@
         "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/baergrom/README.md",
         "subject_class": "pc",
         "campaign_id": "longmont-c2",
-        "label": "baergrom — Campaign 2 PC hub"
+        "label": "baergrom \u2014 Campaign 2 PC hub"
       },
       {
         "slug": "bonogo",
         "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/bonogo/README.md",
         "subject_class": "pc",
         "campaign_id": "longmont-c2",
-        "label": "bonogo — Campaign 2 PC hub"
+        "label": "bonogo \u2014 Campaign 2 PC hub"
       },
       {
         "slug": "caelynn",
         "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/caelynn/README.md",
         "subject_class": "pc",
         "campaign_id": "longmont-c2",
-        "label": "caelynn — Campaign 2 PC hub"
+        "label": "caelynn \u2014 Campaign 2 PC hub"
       },
       {
         "slug": "ephanna",
         "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/ephanna/README.md",
         "subject_class": "pc",
         "campaign_id": "longmont-c2",
-        "label": "ephanna — Campaign 2 PC hub"
+        "label": "ephanna \u2014 Campaign 2 PC hub"
       },
       {
         "slug": "karsemine",
         "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/karsemine/README.md",
         "subject_class": "pc",
         "campaign_id": "longmont-c2",
-        "label": "karsemine — Campaign 2 PC hub"
+        "label": "karsemine \u2014 Campaign 2 PC hub"
       },
       {
         "slug": "stafl",
         "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/stafl/README.md",
         "subject_class": "pc",
         "campaign_id": "longmont-c2",
-        "label": "stafl — Campaign 2 PC hub"
+        "label": "stafl \u2014 Campaign 2 PC hub"
       }
-    ]
+    ],
+    "unit_routing_context": {
+      "u-L0018-10": {
+        "active_scene_owner_hubs": [
+          "bonogo"
+        ],
+        "narrow_pc_only": true,
+        "party_expansion_allowed": false
+      }
+    }
   },
   "gold_capture": {
     "min_units": 90,
@@ -65,6 +74,14 @@
   },
   "gold_routing": {
     "must_route": [
+      {
+        "expected_hubs": [
+          "bonogo"
+        ],
+        "max_extra_hubs": 0,
+        "notes": "Rubric realign 2026-05-01: Stacey reaction unit remains Bonogo alley thread.",
+        "unit_id": "u-L0018-10"
+      },
       {
         "expected_hubs": [
           "bonogo",
@@ -108,11 +125,6 @@
       {
         "max_assigned_hubs": 0,
         "needs_new_hub_candidate": false,
-        "unit_id": "u-L0018-10"
-      },
-      {
-        "max_assigned_hubs": 0,
-        "needs_new_hub_candidate": false,
         "unit_id": "u-L0028-07"
       },
       {
@@ -140,10 +152,15 @@
     "expect": [
       {
         "unit_id": "u-L0026-06",
-        "discourse_mode": "topic_pc",
+        "direct_pc_slugs": [
+          "caelynn",
+          "ephanna"
+        ],
         "topic_pc_slugs": [
           "bonogo"
-        ]
+        ],
+        "missing_entity_bucket": "npc_placeholder",
+        "discourse_mode": "explicit_pc"
       },
       {
         "unit_id": "u-L0030-03",
@@ -203,7 +220,7 @@
       "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md",
       "line_start": 28,
       "line_end": 28,
-      "text": "Lysandra tells her that she can’t remember much after the group left, only that she decided to go around the forest and she could smell meat while trying to sleep."
+      "text": "Lysandra tells her that she can\u2019t remember much after the group left, only that she decided to go around the forest and she could smell meat while trying to sleep."
     },
     {
       "unit_id": "u-L0030-06",
@@ -231,12 +248,14 @@
     "schema": "sentence_hub_routes_v1",
     "routes": [
       {
-        "assigned_hubs": [],
+        "assigned_hubs": [
+          "bonogo"
+        ],
         "confidence": "high",
         "rationale": "Fixture route mirrors slice gold for offline smoke.",
         "needs_new_hub_candidate": false,
         "unit_id": "u-L0018-10",
-        "routing_diagnostic_bucket": null
+        "routing_diagnostic_bucket": "npc_placeholder"
       },
       {
         "assigned_hubs": [
@@ -324,5 +343,11 @@
         "routing_diagnostic_bucket": null
       }
     ]
+  },
+  "expected_capture_signature": {
+    "sentence_unit_count": 10,
+    "unit_id_sha16": "abf64abb74ab2f96",
+    "first_unit_id": "u-L0018-10",
+    "last_unit_id": "u-L0032-06"
   }
 }

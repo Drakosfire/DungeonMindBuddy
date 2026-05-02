@@ -228,6 +228,33 @@ def test_collect_stage_b_must_abstain() -> None:
     assert any("must_abstain" in x or "max_assigned_hubs" in x for x in viol)
 
 
+def test_collect_stage_b_must_abstain_missing_route_row_gate_events() -> None:
+    from evals.sentence_routing_retrieval_falsification.grader import collect_stage_b_violations
+    from evals.sentence_routing_retrieval_falsification.route_schema import RouteRow
+
+    manifest = {"hub_a"}
+    expected = {"u1"}
+    routes = [
+        RouteRow(
+            unit_id="u1",
+            assigned_hubs=[],
+            confidence="high",
+            rationale="z",
+            needs_new_hub_candidate=False,
+        ),
+    ]
+    gold = {"must_abstain": [{"unit_id": "u2", "max_assigned_hubs": 0, "needs_new_hub_candidate": False}]}
+    viol, telem = collect_stage_b_violations(
+        routes, gold, manifest_slugs=manifest, expected_unit_ids=expected
+    )
+    assert any("missing route row" in x for x in viol)
+    ug = telem["stage_b_unit_breakdown"]["unit_gate_events"]["must_abstain"]
+    assert ug["fail_unit_ids"] == ["u2"]
+    assert ug["pass_unit_ids"] == []
+    bk = telem["stage_b_unit_breakdown"]["violation_failure_buckets"]
+    assert bk["b2_must_abstain_missing_route_row"] == 1
+
+
 def test_iter_stage_b_gold_check_results_matches_aggregate_counts() -> None:
     from evals.sentence_routing_retrieval_falsification.grader import (
         _gold_row_pass_fail,
@@ -344,6 +371,7 @@ def test_normalize_gold_match_resolves_line_index() -> None:
     assert not err
     assert out["must_route"][0]["unit_id"] == "u-L0003-02"
     assert "match" not in out["must_route"][0]
+    assert out["must_route"][0]["match_provenance"] == {"line_start": 3, "index_on_line": 2}
 
 
 def test_normalize_gold_match_text_substring_filter() -> None:

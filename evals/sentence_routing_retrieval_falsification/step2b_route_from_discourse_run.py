@@ -17,6 +17,9 @@ from pathlib import Path
 from typing import Any
 
 from evals.sentence_routing_retrieval_falsification.discourse_reducer import routes_from_discourse_rows
+from evals.sentence_routing_retrieval_falsification.stage_b2_coherence import (
+    normalize_discourse_rows_for_b2_coherence,
+)
 from evals.sentence_routing_retrieval_falsification.discourse_schema import DiscourseRow
 from evals.sentence_routing_retrieval_falsification.discourse_schema import parse_discourse_envelope
 from evals.sentence_routing_retrieval_falsification.discourse_prompt import DISCOURSE_PROMPT_BASE_ID
@@ -223,6 +226,7 @@ def run_route_from_discourse_once(
     gold_routing: dict[str, Any],
     discourse_path: Path | None,
     no_writes: bool,
+    preflight_meta: dict[str, Any] | None = None,
 ) -> tuple[bool, dict[str, Any], Path | None]:
     discourse_dict, sidecar_routing_context = _load_discourse_sidecar(
         raw=raw,
@@ -237,8 +241,12 @@ def run_route_from_discourse_once(
     if sidecar_routing_context:
         routing_context = {**routing_context, **sidecar_routing_context}
     session_pc_roster_slugs = _string_list(routing_context.get("session_pc_roster_slugs"))
-    routes_body = routes_from_discourse_rows(
+    discourse_rows, b2_coherence_corrections = normalize_discourse_rows_for_b2_coherence(
         list(envelope.discourse),
+        session_pc_roster_slugs=session_pc_roster_slugs,
+    )
+    routes_body = routes_from_discourse_rows(
+        discourse_rows,
         manifest_jsonable=manifest_jsonable,
         session_pc_roster_slugs=session_pc_roster_slugs,
     )
@@ -260,8 +268,9 @@ def run_route_from_discourse_once(
     sb = telemetry.setdefault("stage_b_unit_breakdown", {})
     sb["pipeline"] = "stage_b2_from_discourse"
     sb["discourse_prompt_base_id"] = DISCOURSE_PROMPT_BASE_ID
+    sb["b2_coherence_corrections"] = b2_coherence_corrections
     sb["b2_delta"] = build_b2_delta_telemetry(
-        discourse_rows=list(envelope.discourse),
+        discourse_rows=discourse_rows,
         routes_out=routes_out,
         manifest_pc_slugs={str(e.get("slug") or "").strip() for e in manifest_jsonable if str(e.get("subject_class") or "").strip() == "pc"},
         session_pc_roster_slugs=session_pc_roster_slugs,
@@ -288,6 +297,8 @@ def run_route_from_discourse_once(
         "discourse_envelope": discourse_dict,
         "routes": routes_out,
     }
+    if isinstance(preflight_meta, dict) and preflight_meta:
+        sidecar["preflight"] = preflight_meta
 
     written: Path | None = None
     if not no_writes:
@@ -351,6 +362,29 @@ def main() -> int:
         print(str(exc), file=sys.stderr)
         return 2
 
+    from evals.sentence_routing_retrieval_falsification.stage_b_preflight import (
+        preflight_stage_b_gold_and_capture,
+    )
+
+    gold_norm, norm_errors, preflight_meta = preflight_stage_b_gold_and_capture(
+        gold_routing,
+        units_json,
+        expected_capture_signature=raw.get("expected_capture_signature")
+        if isinstance(raw.get("expected_capture_signature"), dict)
+        else None,
+    )
+    if norm_errors:
+        print(
+            json.dumps(
+                {"gold_normalize_errors": norm_errors, "preflight": preflight_meta},
+                indent=2,
+                ensure_ascii=False,
+            ),
+            file=sys.stderr,
+        )
+        return 2
+    gold_routing = gold_norm
+
     dp = args.discourse_json.resolve() if args.discourse_json else None
 
     try:
@@ -364,6 +398,7 @@ def main() -> int:
             gold_routing=gold_routing,
             discourse_path=dp,
             no_writes=args.no_writes,
+            preflight_meta=preflight_meta,
         )
     except ValueError as exc:
         print(str(exc), file=sys.stderr)

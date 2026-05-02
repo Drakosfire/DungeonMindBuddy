@@ -71,6 +71,70 @@ def test_discourse_reducer_party_expansion_requires_session_roster() -> None:
     assert with_roster["routes"][0]["assigned_hubs"] == ["the_party"]
 
 
+def test_stage_b_routing_context_includes_session_npc_negative_evidence(tmp_path: Path) -> None:
+    from evals.sentence_routing_retrieval_falsification.step2_route_run import (
+        build_stage_b_routing_context_dict,
+    )
+
+    recap_rel = "Campaign/Session Recaps/Session 99 - Recap.md"
+    recap_path = tmp_path / recap_rel
+    recap_path.parent.mkdir(parents=True)
+    recap_path.write_text(
+        "\n".join(
+            [
+                "---",
+                'title: "Session 99 - Recap"',
+                "session: 99",
+                "session_npc_names: [Thrin, Marla]",
+                "---",
+                "Thrin and Caelynn move back.",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    inp = {
+        "recap_relative_path": recap_rel,
+        "session_npc_names": [{"name": "Stuart"}, "Thrin"],
+    }
+    manifest = [{"slug": "caelynn", "subject_class": "pc"}]
+
+    context = build_stage_b_routing_context_dict(inp, manifest, tmp_path)
+
+    assert context["session_npc_names"] == ["Stuart", "Thrin", "Marla"]
+
+
+def test_stage_b_routing_context_includes_session_entity_candidates(tmp_path: Path) -> None:
+    from evals.sentence_routing_retrieval_falsification.step2_route_run import (
+        build_stage_b_routing_context_dict,
+    )
+
+    recap_rel = "Campaign/Session Recaps/Session 100 - Recap.md"
+    recap_path = tmp_path / recap_rel
+    recap_path.parent.mkdir(parents=True)
+    recap_path.write_text(
+        "\n".join(
+            [
+                "---",
+                "session_npc_candidate_names: Zora, Quill",
+                "session_location_candidate_names: [spire, docks]",
+                "---",
+                "They reach the docks.",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    inp = {
+        "recap_relative_path": recap_rel,
+        "session_entity_candidates": {"npc_names": ["Mayor"]},
+    }
+    manifest = [{"slug": "caelynn", "subject_class": "pc"}]
+
+    context = build_stage_b_routing_context_dict(inp, manifest, tmp_path)
+
+    assert context["session_npc_candidate_names"] == ["Mayor", "Zora", "Quill"]
+    assert context["session_location_candidate_names"] == ["spire", "docks"]
+
+
 def test_collect_discourse_content_violations_matches_expect() -> None:
     from evals.sentence_routing_retrieval_falsification.discourse_schema import DiscourseRow
     from evals.sentence_routing_retrieval_falsification.grader import (
@@ -110,6 +174,48 @@ def test_collect_discourse_content_violations_matches_expect() -> None:
         "unit_ids": ["u-smoke-02"],
     }
     assert events["distinct_failure_unit_ids"] == ["u-smoke-01", "u-smoke-02"]
+
+
+def test_collect_discourse_content_violations_supports_any_suffix() -> None:
+    from evals.sentence_routing_retrieval_falsification.discourse_schema import DiscourseRow
+    from evals.sentence_routing_retrieval_falsification.grader import collect_discourse_content_violations
+
+    row = DiscourseRow(
+        unit_id="u-any",
+        discourse_mode="explicit_pc",
+        direct_pc_slugs=["pc_alice"],
+        rationale="Alice acts.",
+    )
+
+    assert (
+        collect_discourse_content_violations(
+            [row],
+            {"expect": [{"unit_id": "u-any", "discourse_mode_any": ["topic_pc", "explicit_pc"]}]},
+        )
+        == []
+    )
+
+    viol = collect_discourse_content_violations(
+        [row],
+        {"expect": [{"unit_id": "u-any", "discourse_mode_any": ["topic_pc"]}]},
+    )
+    assert "B1-CONTENT: 'u-any' discourse_mode want one of ['topic_pc'] got 'explicit_pc'" in viol
+
+
+def test_pc_plus_missing_npc_is_not_a_discourse_mode() -> None:
+    import pytest
+    from pydantic import ValidationError
+
+    from evals.sentence_routing_retrieval_falsification.discourse_schema import DiscourseRow
+
+    with pytest.raises(ValidationError):
+        DiscourseRow(
+            unit_id="u-retired-mode",
+            discourse_mode="pc_plus_missing_npc",
+            direct_pc_slugs=["pc_alice"],
+            missing_entity_bucket="npc_placeholder",
+            rationale="Retired PC+NPC mode should be explicit_pc plus missing_entity_bucket.",
+        )
 
 
 def test_grade_routes_from_fixture_discourse_passes_smoke_scenario() -> None:
@@ -176,6 +282,63 @@ def test_b2_delta_attributes_missing_expected_hub_to_b1_state() -> None:
     counts = delta["gold_failure_attribution_counts"]
     assert counts["b1_state_missing_expected_hub"] == 1
     assert counts["b2_reducer_missing_expected_hub"] == 0
+
+
+def test_b2_coherence_normalizes_contradictory_discourse_state() -> None:
+    from evals.sentence_routing_retrieval_falsification.discourse_schema import DiscourseRow
+    from evals.sentence_routing_retrieval_falsification.stage_b2_coherence import (
+        normalize_discourse_rows_for_b2_coherence,
+    )
+
+    rows = [
+        DiscourseRow(
+            unit_id="u1",
+            discourse_mode="explicit_party",
+            direct_pc_slugs=["pc_alice"],
+            collective_actor="the_party",
+            party_expansion_allowed=True,
+            narrow_pc_only=True,
+            missing_entity_bucket="location_placeholder",
+            rationale="Alice, not the party, is the narrow focus.",
+        )
+    ]
+
+    normalized, corrections = normalize_discourse_rows_for_b2_coherence(
+        rows,
+        session_pc_roster_slugs=["pc_alice", "pc_bob"],
+    )
+
+    assert normalized[0].collective_actor is None
+    assert normalized[0].party_expansion_allowed is False
+    assert normalized[0].missing_entity_bucket is None
+    assert [c["rule"] for c in corrections] == [
+        "clear_missing_bucket_when_pc_state_present",
+        "clear_party_expansion_under_narrow_pc_only",
+    ]
+
+
+def test_step2_route_preflight_rejects_invalid_gold(tmp_path: Path) -> None:
+    raw = json.loads(_DISCOURSE_SMOKE.read_text(encoding="utf-8"))
+    broken = json.loads(json.dumps(raw))
+    broken["gold_routing"]["must_route"][0].pop("unit_id", None)
+    broken["gold_routing"]["must_route"][0].pop("match", None)
+    scenario = tmp_path / "broken_gold.json"
+    scenario.write_text(json.dumps(broken, indent=2), encoding="utf-8")
+
+    cmd = [
+        sys.executable,
+        "-m",
+        "evals.sentence_routing_retrieval_falsification.step2_route_run",
+        "--scenario-json",
+        str(scenario),
+        "--corpus-root",
+        str(_REPO),
+        "--no-llm",
+        "--no-writes",
+    ]
+    proc = subprocess.run(cmd, cwd=str(_REPO), capture_output=True, text=True, check=False)
+    assert proc.returncode == 2
+    assert "gold_normalize_errors" in proc.stderr
 
 
 def test_step2a_no_llm_passes_discourse_smoke() -> None:

@@ -26,7 +26,6 @@ DISCOURSE_MODE_VALUES = (
     "topic_pc",
     "perceiver_pc",
     "placeholder_only",
-    "pc_plus_missing_npc",
 )
 DISCOURSE_MODE_ENUM: tuple[str, ...] = tuple(sorted(DISCOURSE_MODE_VALUES))
 
