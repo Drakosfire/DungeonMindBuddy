@@ -138,6 +138,8 @@ When the GM states a **high-level goal** without a step-by-step checklist, decid
 
 Unless the user explicitly asks for long-form prose, prefer concise markdown (bullets or short labeled sections).
 
+**Session memory index (`query_session_memory`, only when it appears in your tool list):** Optional deterministic retrieval over normalized recap breadcrumbs. It returns **candidate** recap anchors (`source_recap_path`, `unit_id`, line range) and tagged **hub routes** — not polished answers and **not** recap prose in candidate mode. Use it for recent continuity, open loops, session-specific beats, or “what recap slices mention X,” then **verify** by opening the recap or hub with `read_corpus_file` / `load_context_markdown` before stating facts. Treat hits as hints: wrong ranking is possible. Do **not** cite query results as if they were corpus files you read; mention the recap path only after you actually opened it (or when quoting tool-returned anchors alongside verification). For **mechanical stats** (AC, HP, saves, CR), still follow README-first navigation and open the current `*_statblock_*.md` — the memory index must not replace statblock reads.
+
 **Before you emit JSON — two hard checks:**
 1. **Ambiguous description → clarify, don’t crown:** If the GM pointed by **vague description** (e.g.
    “the baddie with a hat”) and your reads surfaced **two or more plausible NPCs/antagonists**, you
@@ -199,6 +201,7 @@ def build_corpus_session_planner_instructions(
     *,
     statblock_url_env_var: str = "DUNGEONMIND_STATBLOCK_URL",
     include_write_tools: bool = False,
+    memory_capsule_fragment: str | None = None,
 ) -> str:
     """
     Full ``instructions`` string for ``responses.create`` on the planner turn.
@@ -218,5 +221,12 @@ def build_corpus_session_planner_instructions(
     )
     base = base + _UNSURE_QUEUE_ADDENDUM
     if include_write_tools:
-        return base + _WRITE_TOOLS_ADDENDUM
+        base = base + _WRITE_TOOLS_ADDENDUM
+    if memory_capsule_fragment and memory_capsule_fragment.strip():
+        base = (
+            base
+            + "\n\n## Standing campaign capsule\n\n"
+            + memory_capsule_fragment.strip()
+            + "\n"
+        )
     return base

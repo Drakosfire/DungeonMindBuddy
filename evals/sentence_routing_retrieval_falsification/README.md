@@ -14,7 +14,7 @@ Operational guardrails: `Docs/Plans/GUARDRAILS-Sentence-Grounded-Ingestion-Visio
 | `**route_sentence_units_to_hubs`**          | B      | **Hub routing** (each unit → allowed hub slugs)             | `python -m evals.sentence_routing_retrieval_falsification.step2_route_run`   | `sentence_routing_stage_b_hub_routes--<scenario>--<PASS_or_FAIL>--<UTC>.json`  | `last_sentence_routing_stage_b_hub_routes.json`    |
 | `**route_sentence_units_to_hubs` (cohort)** | B      | Repeat routing **N** times; aggregate pass rate + cost      | same module + `--n <N>` (N>1)                                                | `sentence_routing_stage_b_cohort_summary--<model>--N<n>--<UTC>.json` (+ `.md`) | (stderr lists paths; no mirror file)               |
 | `**propose_new_hubs_from_unmapped_units`**  | C      | New-hub proposals (planned)                                 | `step3_propose_run.py` (TBD)                                                 | `sentence_routing_stage_c_hub_proposals--…`                                    | `last_sentence_routing_stage_c_hub_proposals.json` |
-| `**assemble_hub_scoped_retrieval_context**` | D      | Scoped **retrieval context pack** (planned)                 | `step4_retrieval_pack_run.py` (TBD)                                          | `sentence_routing_stage_d_context_pack--…`                                     | `last_sentence_routing_stage_d_context_pack.json`  |
+| `**assemble_hub_scoped_retrieval_context`** | D      | Scoped **retrieval context pack** (planned)                 | `step4_retrieval_pack_run.py` (TBD)                                          | `sentence_routing_stage_d_context_pack--…`                                     | `last_sentence_routing_stage_d_context_pack.json`  |
 
 
 Module filenames keep the historical `step1_`* / `step2_`* pattern so `python -m` invocations stay stable; **artifact names** use the explicit `sentence_routing_stage_`* prefix.
@@ -55,6 +55,30 @@ uv run python -m evals.sentence_routing_retrieval_falsification.step2a_discourse
 uv run python -m evals.sentence_routing_retrieval_falsification.step2b_route_from_discourse_run
 uv run python -m evals.sentence_routing_retrieval_falsification.step2_discourse_pipeline_run --n 3
 ```
+
+**NPC-first PC routing context (experiment):** optional `--build-npc-first-context` runs Stage A once (`run_session_events_extraction`), writes `npc_attachment_context_v1--…json`, merges `routing_context.npc_first_context` onto overlapping sentence units, and can pair with `--prompt-variant npc_first_context_v1`. Use `--npc-first-context-json PATH` to load a sidecar instead of rebuilding. Optional `--npc-first-timeline-gold PATH` supplies NPC append vs skip alignment from a timeline-pass grading JSON (`grading.expected_appends` / `expected_skips`, NPC `/NPCs/` rows only). Cohort summary JSON/Markdown includes `npc_first_context_build_cost_usd` (Stage A only; **not** included in `runs[].cost_usd`) and `cohort_npc_first_context` (B2 failures split by units that received NPC-first enrichment vs not).
+
+Control vs treatment (example Session 19 holdout):
+
+```bash
+uv run python -m evals.sentence_routing_retrieval_falsification.stage_b_preflight --scenario-json evals/sentence_routing_retrieval_falsification/gold/scenario_c2_session19_pc.json --corpus-root .
+uv run python -m evals.sentence_routing_retrieval_falsification.step2_discourse_pipeline_run --scenario-json evals/sentence_routing_retrieval_falsification/gold/scenario_c2_session19_pc.json --n 5
+uv run python -m evals.sentence_routing_retrieval_falsification.step2_discourse_pipeline_run --scenario-json evals/sentence_routing_retrieval_falsification/gold/scenario_c2_session19_pc.json --n 5 --prompt-variant npc_first_context_v1 --build-npc-first-context
+```
+
+**Inline recap breadcrumbs (Step 1 session memory index experiment):** `manual_labels/Session 20 - Recap.breadcrumbed.md` is the current manual baseline retrieval index for Session 20. Treat it as a machine-facing source-aligned memory surface, not a readable recap replacement. The canonical recap remains the prose artifact; breadcrumbs are for agentic planning/live-play retrieval, hub routing, unresolved-thread capture, and dry-run corpus update proposals.
+
+The deterministic smoke harness parses frontmatter and body inline tags, validates tag vocabulary and route existence, compares generated artifacts against the manual baseline by exact `(tag_type, route)` multiset precision/recall, and dry-runs PC/NPC `append_timeline_row(..., dry_run=True)` previews where routed hubs expose `timeline.md`:
+
+```bash
+uv run python -m evals.sentence_routing_retrieval_falsification.breadcrumb_smoke
+```
+
+Rubric anchor:
+
+- Hard gates: parseable frontmatter/schema, allowed tag types only, existing routes resolve, proposed routes are explicit, body tags attach to source-derived spans, PC/NPC routes are dry-run routable or skipped with a surfaced reason.
+- Diagnostics: baseline precision/recall, tag density by type, Party over-routing, open-loop / `NewHubCandidate` capture, missing/invented route families, append dry-run success/skips/failures.
+- End goal: sampled planning/live-play questions should retrieve the right source spans and hub routes without rereading the whole recap.
 
 **Real-recap scaffold:** `gold/scenario_real_recap_template.json` — runnable default (mini fixture); copy and set `input.recap_relative_path` + `hub_manifest` + `gold_`* after GM approval (see `scenario_notes` in file).
 
@@ -338,6 +362,79 @@ uv run python -m evals.sentence_routing_retrieval_falsification.step2_route_run 
   --scenario-json evals/sentence_routing_retrieval_falsification/gold/scenario_c2_session20_pc_bucket_sentinel.json \
   --corpus-root . --n 3
 ```
+
+## Breadcrumb Query Canvas Refresh
+
+The breadcrumb query semantic-review canvas at
+`/home/drakosfire/.cursor/projects/home-drakosfire-Projects-DungeonOverMind-DungeonMindBuddy/canvases/breadcrumb-query-semantic-review.canvas.tsx`
+is data-driven. Every dynamic field (pass counts, costs, scenario rows,
+recovered/missed evidence, expansion config) is derived from a benchmark
+report by `breadcrumb_query_canvas_payload.py` and embedded inline between
+explicit markers:
+
+```text
+// BEGIN GENERATED BREADCRUMB_QUERY_CANVAS_DATA
+const canvasData = { ... } as const;
+type CanvasData = typeof canvasData;
+// END GENERATED BREADCRUMB_QUERY_CANVAS_DATA
+```
+
+### Hard rules
+
+- **Do not hand-edit** anything between `BEGIN GENERATED BREADCRUMB_QUERY_CANVAS_DATA`
+and `END GENERATED BREADCRUMB_QUERY_CANVAS_DATA`. Rerun the generator instead.
+- Hand-edit layout/components **outside** the generated block only.
+- If the canvas stat block disagrees with a fresh report, **the report wins**
+— rerun the generator instead of patching literals.
+- When adding a new payload field, update `BreadcrumbQueryCanvasData`/
+`breadcrumb_query_canvas_payload.py`, the canvas renderer, and
+`tests/test_breadcrumb_query_canvas_payload.py` together in the same change.
+
+### Refresh after a benchmark run
+
+Run the generator directly:
+
+```bash
+uv run python -m evals.sentence_routing_retrieval_falsification.breadcrumb_query_canvas_payload \
+  --report evals/sentence_routing_retrieval_falsification/artifacts/runs/<date>/breadcrumb_query_natural_llm_semantic_expanded_report.json \
+  --deterministic-report evals/sentence_routing_retrieval_falsification/artifacts/runs/<date>/breadcrumb_query_natural_expanded_deterministic_report.json \
+  --baseline-report evals/sentence_routing_retrieval_falsification/manual_labels/artifacts/breadcrumb_query_natural_llm_semantic_promoted_report.json \
+  --canvas-tsx /home/drakosfire/.cursor/projects/home-drakosfire-Projects-DungeonOverMind-DungeonMindBuddy/canvases/breadcrumb-query-semantic-review.canvas.tsx
+```
+
+`--baseline-report` and `--deterministic-report` are optional; pass them when
+you have either artifact for the same gold/corpus and want recovered/missed
+evidence in the per-scenario cards or the deterministic pass count alongside
+the LLM pass count.
+
+Or chain it onto `breadcrumb_query_run` so the canvas refreshes automatically
+after the report is written:
+
+```bash
+uv run python -m evals.sentence_routing_retrieval_falsification.breadcrumb_query_run \
+  --records-jsonl <records>.jsonl \
+  --gold evals/sentence_routing_retrieval_falsification/gold/breadcrumb_query_natural_v1.json \
+  --llm --semantic-similarity \
+  --output evals/sentence_routing_retrieval_falsification/artifacts/runs/<date>/breadcrumb_query_natural_llm_semantic_expanded_report.json \
+  --canvas-tsx /home/drakosfire/.cursor/projects/home-drakosfire-Projects-DungeonOverMind-DungeonMindBuddy/canvases/breadcrumb-query-semantic-review.canvas.tsx \
+  --canvas-baseline-report evals/sentence_routing_retrieval_falsification/manual_labels/artifacts/breadcrumb_query_natural_llm_semantic_promoted_report.json \
+  --canvas-deterministic-report evals/sentence_routing_retrieval_falsification/artifacts/runs/<date>/breadcrumb_query_natural_expanded_deterministic_report.json
+```
+
+### Anti-stale check (CI / pre-commit)
+
+Verify the canvas is in sync with the latest committed report without
+mutating the file:
+
+```bash
+uv run python -m evals.sentence_routing_retrieval_falsification.breadcrumb_query_canvas_payload \
+  --report evals/sentence_routing_retrieval_falsification/artifacts/runs/<date>/breadcrumb_query_natural_llm_semantic_expanded_report.json \
+  --canvas-tsx /home/drakosfire/.cursor/projects/home-drakosfire-Projects-DungeonOverMind-DungeonMindBuddy/canvases/breadcrumb-query-semantic-review.canvas.tsx \
+  --check
+```
+
+`--check` exits non-zero when the generated block would change. Treat that
+as "rerun the refresh command", not "patch the canvas by hand."
 
 ## Known limitations (v0 capture)
 

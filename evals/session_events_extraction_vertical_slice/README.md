@@ -3,7 +3,8 @@
 **Two-phase events-first pipeline for session-recap -> timeline-append.**
 
 - **Recap-to-events extraction** (`step1_session_events_run.py`): read a session recap, extract a complete structured list of `event_record`-shaped JSON objects covering all meaningful beats. The model emits a required per-event **`recap_evidence_span`** (corpus recap path + inclusive 1-based line range into the **numbered** recap block in the user prompt); the runner turns that into `source_anchors` (blake3 + `commit_sha`) before JSON-schema grading. Gates: SE1 schema, SE2 count, SE3 participant slugs, SE4 event classes, SE5 expected-event coverage, SE6 gold-span anchor coverage, SE7 hash-verified non-placeholder anchors (when `require_verified_event_anchors` is set in gold).
-- **Events-to-timeline append** (`step2_timeline_from_events_run.py`, landed 2026-04-22): per-slug events-driven `append_timeline_row` micro-turns. Recap reads explicitly forbidden — this phase sees only the events recap-to-events produced for that slug, plus pre-loaded timeline files. Grades against `evals/session_recap_timeline_pass_vertical_slice/` gold (TP1/TP2/TP3/TP5) so iteration history is comparable with the legacy single-stage Iteration-6 surface.
+- **Events-to-timeline append** (`step2_timeline_from_events_run.py`, landed 2026-04-22): per-slug events-driven `append_timeline_row` micro-turns. Recap reads explicitly forbidden — this phase sees only the events recap-to-events produced for that slug, plus pre-loaded timeline files. Grades against `evals/session_recap_timeline_pass_vertical_slice/` gold (TP1/TP2/TP3/TP5) so iteration history is comparable with the legacy single-stage Iteration-6 surface. **PC-only** — NPC rows in the same gold file are filtered out before running and grading.
+- **NPC timeline-first attachment** (`step3_npc_timeline_from_events_run.py`): same chain as step2, but only `NPCs/<slug>/timeline.md` targets. **Append** slugs get an append turn when Stage A produced events; **skip** slugs get a no-append turn (or no model call if there are zero events). Grading uses the same timeline-pass gold with NPC-only `expected_appends` / `expected_skips` / `allowed_npc_slugs`. Artifacts: `step3_npc_events--*` under `artifacts/runs/`, plus `artifacts/last_step3_npc_run.{md,json}`.
 
 The architectural premise: extracting all events in one model call removes the **compression** failure mode where a planner turn collapses a multi-beat character into a single row that drops lexical anchors. N=5 chained cohort confirms: per-PC anchor gates (`caelynn`, `karsemine`, `ephanna`) all 5/5, vs single-stage 0/5 for `karsemine`/`ephanna`.
 
@@ -14,7 +15,8 @@ evals/session_events_extraction_vertical_slice/
   __init__.py
   README.md                              ← this file
   step1_session_events_run.py            ← recap-to-events runner (CLI entry point)
-  step2_timeline_from_events_run.py      ← events-to-timeline chained runner
+  step2_timeline_from_events_run.py      ← events-to-timeline chained runner (PC-only)
+  step3_npc_timeline_from_events_run.py  ← events-to-timeline chained runner (NPC-only)
   grader.py                              ← recap-to-events gate logic + telemetry (SE1-SE7)
   session_events_run_report.py           ← per-run + cohort artifact writers
   gold/
@@ -26,7 +28,8 @@ evals/session_events_extraction_vertical_slice/
   artifacts/
     .gitignore
     last_session_events_run.{md,json}    ← latest Stage A run
-    last_step2_run.{md,json}             ← latest Stage B chained run
+    last_step2_run.{md,json}             ← latest Stage B (PC) chained run
+    last_step3_npc_run.{md,json}        ← latest NPC chained run
     runs/
       YYYY-MM-DD/
         session_events--*.{md,json}            ← Stage A per-run artifacts
@@ -34,6 +37,8 @@ evals/session_events_extraction_vertical_slice/
         step2_events--*.{md,json}              ← Stage B per-run artifacts (sidecar carries
                                                   slug_events_sent / slug_beat_written / slug_model_message)
         step2_events_summary--*--N*.{md,json}
+        step3_npc_events--*.{md,json}
+        step3_npc_events_summary--*--N*.{md,json}
 tests/
   test_session_events_grader.py          ← Stage A offline grader tests (no network)
   test_step2_timeline_from_events.py     ← Stage B runner tests (message builder, per-slug filter,
@@ -71,6 +76,10 @@ uv run python -m evals.session_events_extraction_vertical_slice.step1_session_ev
 export DUNGEONMIND_PLANNER_ALLOW_WRITES=1
 # Campaign 2 Session 20 (default recap-to-events + default timeline-pass gold)
 uv run python -m evals.session_events_extraction_vertical_slice.step2_timeline_from_events_run \
+  --n 5 --model gpt-5.4-mini
+
+# NPC-only timeline attachment (same Stage A default + same timeline gold; NPC rows only)
+uv run python -m evals.session_events_extraction_vertical_slice.step3_npc_timeline_from_events_run \
   --n 5 --model gpt-5.4-mini
 
 # Campaign 1 Sessions 1–3 (recap-to-events gold must match session; timeline-pass gold selects pre-state + grading)

@@ -1,0 +1,180 @@
+{
+  "schema": "inline_recap_breadcrumbing_indexed_model_comparison_v1",
+  "iso_utc": "2026-05-02T20:23:53Z",
+  "input_mode": "experiment_prompt_plus_source_recap_plus_baseline_frontmatter_route_index_no_prior_body_labels",
+  "source_recap_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md",
+  "experiment_doc_path": "Docs/Plans/EXPERIMENT-Inline-Recap-Breadcrumbing.md",
+  "index_source_path": "evals/sentence_routing_retrieval_falsification/manual_labels/Session 20 - Recap.breadcrumbed.md",
+  "models": [
+    {
+      "schema": "inline_recap_breadcrumbing_model_run_v1",
+      "model": "gpt-5.4-mini",
+      "indexed_prompt": true,
+      "output_markdown_path": "evals/sentence_routing_retrieval_falsification/manual_labels/artifacts/Session 20 - Recap.breadcrumbed.indexed.gpt-5_4-mini.md",
+      "elapsed_ms": 22773.36,
+      "usage": {
+        "input_tokens": 4283,
+        "output_tokens": 5728,
+        "cached_tokens": 0
+      },
+      "cost_usd": 0.028988,
+      "cost_info": {
+        "total_usd": 0.028988249999999997,
+        "uncached_input_tokens": 4283,
+        "cached_tokens": 0,
+        "output_tokens": 5728,
+        "input_tokens_reported": 4283,
+        "input_usd": 0.0032122500000000003,
+        "cached_input_usd": 0.0,
+        "output_usd": 0.025775999999999997,
+        "rates_per_1m_usd": {
+          "input": 0.75,
+          "cached_input": 0.075,
+          "output": 4.5
+        },
+        "pricing_table_matched": true
+      },
+      "tag_counts_regex": {
+        "PC": 49,
+        "NPC": 43,
+        "Location": 10,
+        "Party": 11,
+        "NewHubCandidate": 4
+      },
+      "unknown_tag_types_regex": [],
+      "output_chars": 20962,
+      "response_id": "resp_016285b4ee52745a0069f65d5af44481949b53bf61f7ef6c25",
+      "frontmatter_schema_present": true,
+      "counts_block_present": true
+    },
+    {
+      "schema": "inline_recap_breadcrumbing_model_run_v1",
+      "model": "gpt-5.4",
+      "indexed_prompt": true,
+      "output_markdown_path": "evals/sentence_routing_retrieval_falsification/manual_labels/artifacts/Session 20 - Recap.breadcrumbed.indexed.gpt-5_4.md",
+      "elapsed_ms": 52378.21,
+      "usage": {
+        "input_tokens": 4283,
+        "output_tokens": 5336,
+        "cached_tokens": 0
+      },
+      "cost_usd": 0.090748,
+      "cost_info": {
+        "total_usd": 0.09074750000000001,
+        "uncached_input_tokens": 4283,
+        "cached_tokens": 0,
+        "output_tokens": 5336,
+        "input_tokens_reported": 4283,
+        "input_usd": 0.010707500000000002,
+        "cached_input_usd": 0.0,
+        "output_usd": 0.08004,
+        "rates_per_1m_usd": {
+          "input": 2.5,
+          "cached_input": 0.25,
+          "output": 15.0
+        },
+        "pricing_table_matched": true
+      },
+      "tag_counts_regex": {
+        "PC": 50,
+        "NPC": 40,
+        "Location": 15,
+        "Party": 7,
+        "NewHubCandidate": 7
+      },
+      "unknown_tag_types_regex": [],
+      "output_chars": 19616,
+      "response_id": "resp_09bf381b4ea80cce0069f65d70c3388197966cf13e27744ea3",
+      "frontmatter_schema_present": true,
+      "counts_block_present": true
+    },
+    {
+      "schema": "inline_recap_breadcrumbing_model_run_v1",
+      "model": "gpt-5.5",
+      "indexed_prompt": true,
+      "output_markdown_path": "evals/sentence_routing_retrieval_falsification/manual_labels/artifacts/Session 20 - Recap.breadcrumbed.indexed.gpt-5_5.md",
+      "elapsed_ms": 132595.51,
+      "usage": {
+        "input_tokens": 4283,
+        "output_tokens": 11413,
+        "cached_tokens": 0
+      },
+      "cost_usd": 0.119484,
+      "cost_info": {
+        "total_usd": 0.11948375,
+        "uncached_input_tokens": 4283,
+        "cached_tokens": 0,
+        "output_tokens": 11413,
+        "input_tokens_reported": 4283,
+        "input_usd": 0.005353750000000001,
+        "cached_input_usd": 0.0,
+        "output_usd": 0.11413,
+        "rates_per_1m_usd": {
+          "input": 1.25,
+          "cached_input": 0.125,
+          "output": 10.0
+        },
+        "pricing_table_matched": true
+      },
+      "tag_counts_regex": {
+        "PC": 55,
+        "NPC": 47,
+        "Location": 24,
+        "Party": 14,
+        "NewHubCandidate": 9
+      },
+      "unknown_tag_types_regex": [],
+      "output_chars": 23203,
+      "response_id": "resp_0c4d1a75ce1e9d640069f65da51010819d8685bc3e72b48d58",
+      "frontmatter_schema_present": true,
+      "counts_block_present": true
+    },
+    {
+      "schema": "inline_recap_breadcrumbing_model_run_v1",
+      "model": "gpt-5.3-codex",
+      "indexed_prompt": true,
+      "output_markdown_path": "evals/sentence_routing_retrieval_falsification/manual_labels/artifacts/Session 20 - Recap.breadcrumbed.indexed.gpt-5_3-codex.md",
+      "elapsed_ms": 38709.98,
+      "usage": {
+        "input_tokens": 4283,
+        "output_tokens": 5371,
+        "cached_tokens": 0
+      },
+      "cost_usd": 0.082689,
+      "cost_info": {
+        "total_usd": 0.08268924999999999,
+        "uncached_input_tokens": 4283,
+        "cached_tokens": 0,
+        "output_tokens": 5371,
+        "input_tokens_reported": 4283,
+        "input_usd": 0.00749525,
+        "cached_input_usd": 0.0,
+        "output_usd": 0.075194,
+        "rates_per_1m_usd": {
+          "input": 1.75,
+          "cached_input": 0.175,
+          "output": 14.0
+        },
+        "pricing_table_matched": true
+      },
+      "tag_counts_regex": {
+        "PC": 50,
+        "NPC": 40,
+        "Location": 15,
+        "Party": 8,
+        "NewHubCandidate": 7
+      },
+      "unknown_tag_types_regex": [],
+      "output_chars": 19716,
+      "response_id": "resp_06e707bc0e2ce67a0069f65e29b08c81928e50b295699eadc4",
+      "frontmatter_schema_present": true,
+      "counts_block_present": true
+    }
+  ],
+  "aggregate_cost_usd": {
+    "sum": 0.321909,
+    "min": 0.028988,
+    "max": 0.119484,
+    "mean": 0.080477
+  }
+}

@@ -117,6 +117,7 @@ def run_discourse_once(
     no_llm: bool,
     no_writes: bool,
     preflight_meta: dict[str, Any] | None = None,
+    prompt_variant: str | None = None,
 ) -> tuple[bool, dict[str, Any], float, Path | None]:
     from evals.sentence_routing_retrieval_falsification.grader import (
         collect_discourse_content_violations,
@@ -139,9 +140,9 @@ def run_discourse_once(
         if not isinstance(fix, dict):
             raise ValueError("scenario.fixture_discourse (object) is required when using --no-llm")
         body = dict(fix)
-        discourse_prompt_id = DISCOURSE_PROMPT_BASE_ID
+        _, discourse_prompt_id = build_discourse_system_prompt(prompt_variant)
     else:
-        system, discourse_prompt_id = build_discourse_system_prompt()
+        system, discourse_prompt_id = build_discourse_system_prompt(prompt_variant)
         user_obj = build_discourse_user_payload(
             campaign_id=inp.get("campaign_id"),
             session=inp.get("session"),
@@ -209,6 +210,7 @@ def run_discourse_once(
         "corpus_root": str(corpus_root),
         "pass": passed,
         "discourse_prompt_base_id": DISCOURSE_PROMPT_BASE_ID,
+        "discourse_prompt_variant": prompt_variant,
         "discourse_prompt_id": discourse_prompt_id,
         "scenario_estimated_cost_usd": round(cost_usd, 6),
         "routing_context": rc,
@@ -251,6 +253,18 @@ def main() -> int:
     parser.add_argument("--model", type=str, default=_DEFAULT_MODEL)
     parser.add_argument("--no-llm", action="store_true")
     parser.add_argument("--no-writes", action="store_true")
+    parser.add_argument(
+        "--prompt-variant",
+        type=str,
+        default=None,
+        help="Optional B1 prompt append (e.g. npc_first_context_v1).",
+    )
+    parser.add_argument(
+        "--npc-first-context-json",
+        type=Path,
+        default=None,
+        help="Load npc_attachment_context_v1 sidecar and merge into sentence_units.routing_context.",
+    )
     args = parser.parse_args()
 
     scenario_path = args.scenario_json.resolve()
@@ -286,6 +300,16 @@ def main() -> int:
     except ValueError as exc:
         print(str(exc), file=sys.stderr)
         return 2
+
+    if args.npc_first_context_json is not None:
+        from evals.sentence_routing_retrieval_falsification.npc_first_context import (
+            enrich_sentence_units_with_npc_attachment_context,
+            load_npc_attachment_context_sidecar,
+        )
+
+        ctx_path = args.npc_first_context_json.resolve()
+        ctx_sidecar = load_npc_attachment_context_sidecar(ctx_path)
+        units_json, _stats = enrich_sentence_units_with_npc_attachment_context(units_json, ctx_sidecar)
 
     from evals.sentence_routing_retrieval_falsification.stage_b_preflight import (
         preflight_stage_b_gold_and_capture,
@@ -334,6 +358,7 @@ def main() -> int:
             no_llm=args.no_llm,
             no_writes=args.no_writes,
             preflight_meta=preflight_meta,
+            prompt_variant=str(args.prompt_variant).strip() if args.prompt_variant else None,
         )
     except ValueError as exc:
         print(str(exc), file=sys.stderr)

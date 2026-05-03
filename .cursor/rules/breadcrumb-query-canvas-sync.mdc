@@ -1,0 +1,81 @@
+---
+description: After each promoted breadcrumb-query natural benchmark run, refresh the semantic-review canvas via breadcrumb_query_canvas_payload (data-driven block); never hand-edit generated markers.
+globs: evals/sentence_routing_retrieval_falsification/breadcrumb_query_canvas_payload.py,evals/sentence_routing_retrieval_falsification/breadcrumb_query_run.py,evals/sentence_routing_retrieval_falsification/gold/breadcrumb_query_natural_v1.json
+alwaysApply: false
+---
+
+# Breadcrumb query semantic-review canvas — sync with each run
+
+When you **finish a promoted or meaningful re-run** of the natural breadcrumb query benchmark (`breadcrumb_query_run.py` with `--llm` / `--semantic-similarity`, or any change that invalidates the numbers already embedded in the canvas), **refresh the canvas in the same change set or immediately after**, before treating the run as documented for handoff or merge.
+
+The canvas is **data-driven**: dynamic metrics, scenario rows, and cards come from a generator that reads benchmark JSON — do not patch pass counts or costs by hand.
+
+## Canvas file (Cursor-managed path)
+
+Cursor only loads canvases from the IDE-managed directory under your user profile, not from the git repo’s `canvases/` folder.
+
+For this workspace (DungeonMindBuddy), the canonical file is:
+
+`~/.cursor/projects/home-drakosfire-Projects-DungeonOverMind-DungeonMindBuddy/canvases/breadcrumb-query-semantic-review.canvas.tsx`
+
+If your machine uses a different `.cursor/projects/<key>/` slug, resolve `breadcrumb-query-semantic-review.canvas.tsx` under the key that matches **this** workspace root.
+
+## How to refresh (always use the generator)
+
+Standalone refresh after writing or adopting a report:
+
+```bash
+uv run python -m evals.sentence_routing_retrieval_falsification.breadcrumb_query_canvas_payload \
+  --report evals/sentence_routing_retrieval_falsification/artifacts/runs/<date>/<report>.json \
+  --deterministic-report evals/sentence_routing_retrieval_falsification/artifacts/runs/<date>/breadcrumb_query_natural_expanded_deterministic_report.json \
+  --baseline-report evals/sentence_routing_retrieval_falsification/artifacts/runs/<date>/breadcrumb_query_natural_llm_semantic_promoted_report.json \
+  --canvas-tsx ~/.cursor/projects/home-drakosfire-Projects-DungeonOverMind-DungeonMindBuddy/canvases/breadcrumb-query-semantic-review.canvas.tsx
+```
+
+`--deterministic-report` and `--baseline-report` are optional; pass them when those artifacts exist for the same gold/corpus so deterministic pass counts and baseline recovered-evidence lines stay accurate.
+
+Or chain refresh from the runner (after `--output` writes the report):
+
+```bash
+uv run python -m evals.sentence_routing_retrieval_falsification.breadcrumb_query_run ... \
+  --canvas-tsx ~/.cursor/projects/home-drakosfire-Projects-DungeonOverMind-DungeonMindBuddy/canvases/breadcrumb-query-semantic-review.canvas.tsx \
+  --canvas-deterministic-report ... \
+  --canvas-baseline-report ...
+```
+
+Full maintenance copy and examples: `evals/sentence_routing_retrieval_falsification/README.md` section **Breadcrumb Query Canvas Refresh**.
+
+## Generated block — do not hand-edit
+
+Everything between these markers is **generator-owned**:
+
+```text
+// BEGIN GENERATED BREADCRUMB_QUERY_CANVAS_DATA
+…
+// END GENERATED BREADCRUMB_QUERY_CANVAS_DATA
+```
+
+Hand-edit layout and composition **outside** that region only.
+
+## Anti-stale guard
+
+Before declaring the canvas current:
+
+```bash
+uv run python -m evals.sentence_routing_retrieval_falsification.breadcrumb_query_canvas_payload \
+  --report <same-report-as-above> \
+  --canvas-tsx ~/.cursor/projects/home-drakosfire-Projects-DungeonOverMind-DungeonMindBuddy/canvases/breadcrumb-query-semantic-review.canvas.tsx \
+  --check
+```
+
+Exit non-zero means rerun without `--check` to refresh.
+
+## Anti-patterns
+
+- Editing pass counts, costs, `runRows`, or scenario card bodies inside the generated block.
+- Leaving the canvas stale after publishing a new `breadcrumb_query_*_report.json` as the promoted cohort.
+- Paraphrasing benchmark numbers in chat instead of re-running the generator against the report JSON.
+
+## Related
+
+- Stage B hub-routing canvas (manual sync from cohort summaries): `.cursor/rules/stage-b-bucket-canvas-sync.mdc`.

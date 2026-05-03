@@ -1,0 +1,4 @@
+- **campaign_id:** `longmont-c2` (standing id only — not a lookup oracle).
+- **Party hub (proposed):** `Longmont Campaign/Campaign 2/Parties/questionable_company/` — campaign-facing collective; aliases like “the heroes / the group” appear in recap prose.
+- **Subject classes:** `NPC`, `PC`, `Location`, `Party`, `NewHubCandidate` tag which hub type a recap span routes to; `NewHubCandidate` / YAML `proposed_route` paths may not exist on disk yet.
+- **Policy:** Recap breadcrumbs index **candidate anchors**; canonical mechanics and dossiers live in corpus hubs. Use `query_session_memory` only when enabled, then **open** the cited recap or README/statblock paths before stating facts.

@@ -49,6 +49,11 @@ from src.agent.synthesis import _load_api_key
 from src.llm.api_client import DungeonMindApiClient
 
 _planner_logger = logging.getLogger("dmb.planner")
+from src.agent.session_memory_query import (
+    dispatch_query_session_memory_json,
+    env_session_memory_records_path,
+    load_session_memory_records_from_env,
+)
 from src.prompts.corpus_session_planner import (
     STATBLOCK_TOOL_DESCRIPTION,
     STATBLOCK_VIA_RESPONSES_SYSTEM,
@@ -64,6 +69,7 @@ _CORPUS_REF_HEX = re.compile(r"^[0-9a-f]{10,32}$", re.IGNORECASE)
 
 _STATBLOCK_URL_ENV = "DUNGEONMIND_STATBLOCK_URL"
 _STATBLOCK_API_KEY_ENV = "DUNGEONMIND_STATBLOCK_API_KEY"
+_MEMORY_CAPSULE_ENV = "DUNGEONMIND_PLANNER_MEMORY_CAPSULE_PATH"
 
 _PLANNER_POLICY_ACTION = "corpus_session_planner"
 _DEFAULT_PLANNER_MODEL = "gpt-5.4-mini"
@@ -98,6 +104,126 @@ def _resolve_planner_model(model: str | None) -> str:
         if isinstance(mid, str) and mid.strip():
             return mid.strip()
     return _DEFAULT_PLANNER_MODEL
+
+
+def _memory_capsule_markdown() -> str:
+    """Optional dense standing capsule (task-agnostic); empty when env unset or file missing."""
+    raw = os.environ.get(_MEMORY_CAPSULE_ENV, "").strip()
+    if not raw:
+        return ""
+    path = Path(raw)
+    if not path.is_file():
+        return ""
+    return path.read_text(encoding="utf-8").strip()
+
+
+def _query_session_memory_tool_schema() -> dict[str, Any]:
+    return {
+        "type": "function",
+        "name": "query_session_memory",
+        "description": (
+            "Deterministic retrieval over a local session-memory index (normalized recap breadcrumbs). "
+            "Returns candidate anchors and hub routes only in `candidate` mode — **no recap prose**. "
+            "Use for continuity / open-loop hints, then open the cited recap path with `read_corpus_file` "
+            "to verify before claiming facts."
+        ),
+        "strict": False,
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "Natural-language keywords; matched deterministically against routes and indexed recap spans.",
+                },
+                "campaign_id": {
+                    "type": "string",
+                    "description": "Campaign id (e.g. frontmatter `campaign_id`).",
+                },
+                "subject_route": {
+                    "type": "string",
+                    "description": "Optional filter: substring match against normalized corpus routes on hits.",
+                },
+                "session_min": {
+                    "type": "integer",
+                    "description": "Optional inclusive lower bound on `session_number`.",
+                },
+                "session_max": {
+                    "type": "integer",
+                    "description": "Optional inclusive upper bound on `session_number`.",
+                },
+                "subject_types": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Optional filter: record must tag at least one route with this subject class (e.g. NPC, PC, Location, Party, NewHubCandidate).",
+                },
+                "proposed_only": {
+                    "type": "boolean",
+                    "description": "When true, only hits that include a proposed (not-yet-materialized) hub route.",
+                },
+                "max_hits": {
+                    "type": "integer",
+                    "description": "Cap on returned hits (default 12).",
+                },
+                "expand_context": {
+                    "type": "boolean",
+                    "description": (
+                        "When true, append extra hits after lexical ranking using adjacency on the same recap slice, "
+                        "shared normalized routes from top hits, and route-prefix/sibling families within the same session."
+                    ),
+                },
+                "expand_seed_hits": {
+                    "type": "integer",
+                    "description": "How many top first-pass hits seed expansion (default 5).",
+                },
+                "expand_adjacent_window": {
+                    "type": "integer",
+                    "description": "Include neighboring units within this index distance in line/unit order (default 2).",
+                },
+                "expand_shared_route_limit": {
+                    "type": "integer",
+                    "description": "Max extra records per seed normalized route (exact match; default 3).",
+                },
+                "expand_route_family_limit": {
+                    "type": "integer",
+                    "description": "Max extra records per seed route for prefix/sibling family matches (default 3).",
+                },
+                "expand_first_pass_cap": {
+                    "type": "integer",
+                    "description": (
+                        "Optional cap on lexical/ranked hits before expansion fills remaining slots up to max_hits. "
+                        "When omitted under expand_context, defaults to max_hits minus a small reserved budget."
+                    ),
+                },
+                "expansion_allocation_mode": {
+                    "type": "string",
+                    "description": (
+                        "Optional expansion slot policy: `round_robin` (default; cycles adjacent/shared-route/route-family) "
+                        "or `greedy` (consume adjacency first, then shared-route, then route-family)."
+                    ),
+                },
+                "tokenizer_mode": {
+                    "type": "string",
+                    "description": (
+                        "Optional query tokenizer mode: `default` (legacy permissive tokenization) or `restrained` "
+                        "(drops 1-2 char and high-frequency function words while keeping domain terms)."
+                    ),
+                },
+                "query_token_aliases": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": (
+                        "Optional extra query terms appended to tokenization (e.g. explicit aliases/synonyms for the current scenario)."
+                    ),
+                },
+                "mode": {
+                    "type": "string",
+                    "description": "Must be `candidate` (default). Evidence mode is not enabled in-product yet.",
+                },
+            },
+            "required": ["query", "campaign_id"],
+            "additionalProperties": False,
+        },
+    }
 
 
 def _assign_unique_path_refs(sorted_relpaths: list[str]) -> tuple[dict[str, str], dict[str, str]]:
@@ -766,6 +892,8 @@ def _planner_tools_responses(
             },
         },
     ]
+    if env_session_memory_records_path() is not None:
+        base.append(_query_session_memory_tool_schema())
     if include_write_tools:
         base.extend(
             _planner_writer_tools_responses(autonomous_writes=autonomous_writes)
@@ -792,6 +920,7 @@ def make_tool_dispatcher(
     corpus_path_ref_index: dict[str, str] | None = None,
     allow_corpus_writes: bool = False,
     autonomous_writes: bool = False,
+    session_memory_records: list[dict[str, Any]] | None = None,
 ) -> Callable[[str, str], str]:
     """Build the planner tool dispatch closure (corpus reads, context loads, statblock).
 
@@ -820,6 +949,9 @@ def make_tool_dispatcher(
         if corpus_path_ref_index is not None
         else build_corpus_path_ref_index(corpus_path)
     )
+    memory_records: list[dict[str, Any]] | None = session_memory_records
+    if memory_records is None:
+        memory_records = load_session_memory_records_from_env()
 
     def dispatch(name: str, raw_args: str) -> str:
         try:
@@ -911,6 +1043,13 @@ def make_tool_dispatcher(
                 str(args.get("pcs_root", "")).strip(),
                 leaf_dir="PCs",
             )
+        if name == "query_session_memory":
+            if memory_records is None:
+                return (
+                    "Error: query_session_memory is disabled (set DUNGEONMIND_SESSION_MEMORY_RECORDS_JSONL "
+                    "to a JSONL file produced from normalized recap breadcrumbs)."
+                )
+            return dispatch_query_session_memory_json(raw_args, records=memory_records)
         if name == "get_recap_context":
             if not allow_corpus_writes:
                 return (
@@ -1566,12 +1705,16 @@ def run_planning_turn_detailed(
                 args_obj = {"_raw": raw}
             out = dispatch_tool(name, raw)
             trace_args = arguments_for_read_tool_trace(corpus_path, name, args_obj, ref_map)
+            excerpt_limit = 800
+            if name == "query_session_memory":
+                # Candidate hits are JSON without recap prose; keep traces parseable for graders.
+                excerpt_limit = 50_000
             tool_trace.append(
                 {
                     "tool": name,
                     "arguments": trace_args,
                     "output_chars": len(out),
-                    "output_excerpt": out[:800],
+                    "output_excerpt": out[:excerpt_limit],
                 }
             )
             tool_inputs.append(
@@ -1926,11 +2069,23 @@ def _generate_statblock_impl(
     )
 
 
-def _build_system_prompt(manifest: str, *, include_write_tools: bool = False) -> str:
+def _build_system_prompt(
+    manifest: str,
+    *,
+    include_write_tools: bool = False,
+    memory_capsule_fragment: str | None = None,
+) -> str:
+    capsule = (
+        memory_capsule_fragment
+        if memory_capsule_fragment is not None
+        else _memory_capsule_markdown()
+    )
+    capsule_opt = capsule.strip() if capsule.strip() else None
     return build_corpus_session_planner_instructions(
         manifest,
         statblock_url_env_var=_STATBLOCK_URL_ENV,
         include_write_tools=include_write_tools,
+        memory_capsule_fragment=capsule_opt,
     )
 
 

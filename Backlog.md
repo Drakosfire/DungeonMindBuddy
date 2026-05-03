@@ -31,6 +31,16 @@ Sort newest → oldest within each status; promote with `/promote`; archive with
 
 ---
 
+## [IDEA] Benchmark canvases should be data-driven from run artifacts — captured 2026-05-02
+
+**Context:** While updating `breadcrumb-query-semantic-review.canvas.tsx` after the two-step retrieval expansion run, the source artifact path and some table rows changed but the top stat block stayed stale (`2/12`, old cost). The user pointed out that the canvas should not need hand-rewriting every time.
+**Insight:** Benchmark review canvases should embed or import a deterministic data payload generated from the benchmark report, then render stats/cards from that single payload. Hand-maintained duplicate literals create drift between artifact metrics, summary stats, and card text.
+**Action:** Add a small artifact-to-canvas-data generator for breadcrumb query reports (or a general canvas-data pattern) that writes an inline `const data = ...` block / `.canvas.data.json` companion consumed by the canvas build path, with derived pass counts, costs, rows, and recovered/missed evidence computed from the JSON artifact.
+**Surfaces when:** editing `.canvas.tsx` benchmark review files; updating `breadcrumb-query-semantic-review.canvas.tsx`; summarizing eval artifacts in a canvas; adding benchmark report fields; noticing stale canvas stats.
+**Refs:** `/home/drakosfire/.cursor/projects/home-drakosfire-Projects-DungeonOverMind-DungeonMindBuddy/canvases/breadcrumb-query-semantic-review.canvas.tsx`; `evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-05-02/breadcrumb_query_natural_llm_semantic_expanded_report.json`; `evals/sentence_routing_retrieval_falsification/breadcrumb_query_run.py`
+
+---
+
 ## [READY] Stage B sentence-routing — continuity prompt rules fixed target misses but worsened total failures — captured 2026-04-26 (follow-up 2026-04-28)
 
 **Context:** During the `sentence_routing_c2_session20_pc` Stage B hub-routing experiment, we tested prompt variants for cross-unit continuity after joint-party and PC-scene anchors: `baseline`, `a` (same-beat roster continuation), `ab` (+ reported-speech / escort carry), and `abe` (+ contrastive examples). The goal was to fix misses like `u-L0026-03` (party watches forest response, then "Immediately they can all see...") and `u-L0018-02` (Bonogo guided by Stuart, then "According to Stuart..."). Full N=3 matrix on `gpt-5.4-mini`: baseline 30 total violation strings, `a` 31, `ab` 49, `abe` 51; all remained 0/3 PASS. Costs stayed around the prior envelope (~$0.09/cohort).

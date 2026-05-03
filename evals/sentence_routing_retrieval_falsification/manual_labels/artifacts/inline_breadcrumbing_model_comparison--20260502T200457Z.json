@@ -1,0 +1,126 @@
+{
+  "schema": "inline_recap_breadcrumbing_model_comparison_v1",
+  "iso_utc": "2026-05-02T20:02:09Z",
+  "input_mode": "experiment_prompt_plus_source_recap_only_no_prior_breadcrumbed_artifact",
+  "source_recap_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md",
+  "experiment_doc_path": "Docs/Plans/EXPERIMENT-Inline-Recap-Breadcrumbing.md",
+  "models": [
+    {
+      "schema": "inline_recap_breadcrumbing_model_run_v1",
+      "model": "gpt-5.4-mini",
+      "output_markdown_path": "evals/sentence_routing_retrieval_falsification/manual_labels/artifacts/Session 20 - Recap.breadcrumbed.gpt-5_4-mini.md",
+      "elapsed_ms": 24103.58,
+      "usage": {
+        "input_tokens": 2573,
+        "output_tokens": 5243,
+        "cached_tokens": 0
+      },
+      "cost_usd": 0.025523,
+      "cost_info": {
+        "total_usd": 0.02552325,
+        "uncached_input_tokens": 2573,
+        "cached_tokens": 0,
+        "output_tokens": 5243,
+        "input_tokens_reported": 2573,
+        "input_usd": 0.00192975,
+        "cached_input_usd": 0.0,
+        "output_usd": 0.0235935,
+        "rates_per_1m_usd": {
+          "input": 0.75,
+          "cached_input": 0.075,
+          "output": 4.5
+        },
+        "pricing_table_matched": true
+      },
+      "tag_counts_regex": {
+        "PC": 45,
+        "NPC": 31,
+        "Location": 33,
+        "Party": 21,
+        "NewHubCandidate": 7
+      },
+      "output_chars": 19703,
+      "response_id": "resp_0cd00afa45da4b8c0069f65842aff481a1876b8fde918a120e"
+    },
+    {
+      "schema": "inline_recap_breadcrumbing_model_run_v1",
+      "model": "gpt-5.4",
+      "output_markdown_path": "evals/sentence_routing_retrieval_falsification/manual_labels/artifacts/Session 20 - Recap.breadcrumbed.gpt-5_4.md",
+      "elapsed_ms": 56987.28,
+      "usage": {
+        "input_tokens": 2573,
+        "output_tokens": 5137,
+        "cached_tokens": 0
+      },
+      "cost_usd": 0.083487,
+      "cost_info": {
+        "total_usd": 0.08348749999999999,
+        "uncached_input_tokens": 2573,
+        "cached_tokens": 0,
+        "output_tokens": 5137,
+        "input_tokens_reported": 2573,
+        "input_usd": 0.006432500000000001,
+        "cached_input_usd": 0.0,
+        "output_usd": 0.077055,
+        "rates_per_1m_usd": {
+          "input": 2.5,
+          "cached_input": 0.25,
+          "output": 15.0
+        },
+        "pricing_table_matched": true
+      },
+      "tag_counts_regex": {
+        "PC": 54,
+        "NPC": 41,
+        "Location": 3,
+        "Party": 8,
+        "NewHubCandidate": 6
+      },
+      "output_chars": 19975,
+      "response_id": "resp_0d162f45ccdc2ff60069f6585a57c48197bc2e02d0750d7d2c"
+    },
+    {
+      "schema": "inline_recap_breadcrumbing_model_run_v1",
+      "model": "gpt-5.5",
+      "output_markdown_path": "evals/sentence_routing_retrieval_falsification/manual_labels/artifacts/Session 20 - Recap.breadcrumbed.gpt-5_5.md",
+      "elapsed_ms": 87355.59,
+      "usage": {
+        "input_tokens": 2573,
+        "output_tokens": 8361,
+        "cached_tokens": 0
+      },
+      "cost_usd": 0.086826,
+      "cost_info": {
+        "total_usd": 0.08682625000000001,
+        "uncached_input_tokens": 2573,
+        "cached_tokens": 0,
+        "output_tokens": 8361,
+        "input_tokens_reported": 2573,
+        "input_usd": 0.0032162500000000004,
+        "cached_input_usd": 0.0,
+        "output_usd": 0.08361,
+        "rates_per_1m_usd": {
+          "input": 1.25,
+          "cached_input": 0.125,
+          "output": 10.0
+        },
+        "pricing_table_matched": true
+      },
+      "tag_counts_regex": {
+        "PC": 54,
+        "NPC": 40,
+        "Location": 24,
+        "Party": 14,
+        "NewHubCandidate": 11
+      },
+      "output_chars": 22667,
+      "response_id": "resp_0b51c051d16586bb0069f658929ed481a1a758bdeea2882501"
+    }
+  ],
+  "aggregate_cost_usd": {
+    "sum": 0.195836,
+    "min": 0.025523,
+    "max": 0.086826,
+    "mean": 0.065279
+  }
+}

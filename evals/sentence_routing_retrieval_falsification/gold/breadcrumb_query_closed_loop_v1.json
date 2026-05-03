@@ -1,0 +1,47 @@
+{
+  "schema": "dmb_breadcrumb_query_gold_v1",
+  "notes": "Structural recall checks only — no expected answers; agent-facing benchmarks must keep questions out of planner instructions.",
+  "scenarios": [
+    {
+      "id": "lysandra_route_recall",
+      "campaign_id": "longmont-c2",
+      "query_spec": {
+        "query": "Captain Lysandra voices tower clue",
+        "session_min": 20,
+        "session_max": 20,
+        "max_hits": 12
+      },
+      "expect_route_substrings": [
+        "NPCs/captain_lysandra_ironveil"
+      ]
+    },
+    {
+      "id": "mirathorn_location_recall",
+      "campaign_id": "longmont-c2",
+      "query_spec": {
+        "query": "Mirathorn forest migrating branchbound",
+        "session_min": 20,
+        "session_max": 20,
+        "subject_types": ["Location"],
+        "max_hits": 12
+      },
+      "expect_route_substrings": [
+        "Mirathorn"
+      ]
+    },
+    {
+      "id": "party_proposed_hub_recall",
+      "campaign_id": "longmont-c2",
+      "query_spec": {
+        "query": "Questionable Company party collective decision",
+        "session_min": 20,
+        "session_max": 20,
+        "proposed_only": true,
+        "max_hits": 12
+      },
+      "expect_route_substrings": [
+        "Parties/questionable_company"
+      ]
+    }
+  ]
+}

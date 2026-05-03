@@ -114,10 +114,40 @@ DISCOURSE_SYSTEM_PROMPT_BASE: str = (
 
 DISCOURSE_PROMPT_BASE_ID: str = blake3.blake3(DISCOURSE_SYSTEM_PROMPT_BASE.encode("utf-8")).hexdigest()[:24]
 
+DISCOURSE_NPC_FIRST_CONTEXT_V1_APPEND: str = (
+    "\n\nBenchmark addendum — NPC-first attachment context (experimental; prompt_variant=npc_first_context_v1):\n"
+    "When sentence_unit.routing_context.npc_first_context is present, NPC timeline attachment has already "
+    "been evaluated for the listed npc_slugs on recap spans overlapping this unit.\n"
+    "- Do not route sentence units to NPC hubs (hub_manifest is PC-only in this benchmark).\n"
+    "- Never map NPC surface names or npc_first_context.npc_slugs entries to manifest PC slugs.\n"
+    "- npc_first_context.per_npc_attachment values:\n"
+    "  - append: treat as evidence NPC continuity is already handled for timeline-append purposes.\n"
+    "  - skip_incidental: treat as evidence the NPC mention is background for timeline purposes unless "
+    "this unit's text independently gives a manifest PC a direct, topic, scene-owner, or perceiver role.\n"
+    "  - unknown: no timeline-pass classification — use standard placeholder rules; do not infer NPC hubs.\n"
+    "- Preserve NPC proper names in rationale and PC-scoped beat interpretation when the NPC is the "
+    "object of a PC action, discovery, relationship, or report (NPCs annotated, not erased).\n"
+)
 
-def build_discourse_system_prompt() -> tuple[str, str]:
-    """Returns ``(system_text, discourse_prompt_id)``."""
-    return DISCOURSE_SYSTEM_PROMPT_BASE, DISCOURSE_PROMPT_BASE_ID
+DISCOURSE_PROMPT_VARIANT_APPENDS: dict[str, str] = {
+    "npc_first_context_v1": DISCOURSE_NPC_FIRST_CONTEXT_V1_APPEND,
+}
+
+
+def build_discourse_system_prompt(prompt_variant: str | None = None) -> tuple[str, str]:
+    """Returns ``(system_text, discourse_prompt_id)`` — hash covers full system text including variant."""
+    text = DISCOURSE_SYSTEM_PROMPT_BASE
+    if prompt_variant and str(prompt_variant).strip():
+        key = str(prompt_variant).strip()
+        append = DISCOURSE_PROMPT_VARIANT_APPENDS.get(key)
+        if append is None:
+            raise ValueError(
+                f"unknown discourse prompt_variant {key!r}; "
+                f"known: {sorted(DISCOURSE_PROMPT_VARIANT_APPENDS)}"
+            )
+        text = text + append
+    digest = blake3.blake3(text.encode("utf-8")).hexdigest()[:24]
+    return text, digest
 
 
 def build_discourse_user_payload(

@@ -1,0 +1,1429 @@
+{
+  "schema": "inline_recap_breadcrumb_smoke_v1",
+  "iso_utc": "2026-05-02T20:20:18Z",
+  "baseline_path": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/manual_labels/Session 20 - Recap.breadcrumbed.md",
+  "corpus_root": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/corpus/eldyrwild-markdown",
+  "source_recap_path": "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md",
+  "artifacts": [
+    {
+      "artifact_path": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/manual_labels/Session 20 - Recap.breadcrumbed.md",
+      "parse": {
+        "frontmatter_present": true,
+        "schema_marker_present": true,
+        "counts_block_present": true,
+        "body_nonempty": true
+      },
+      "tag_counts": {
+        "Location": 19,
+        "NPC": 39,
+        "NewHubCandidate": 8,
+        "PC": 49,
+        "Party": 11
+      },
+      "tag_total": 126,
+      "unknown_tag_types": [],
+      "route_checks": {
+        "unique_routes": 20,
+        "missing_non_candidate_routes": [
+          {
+            "tag_type": "Party",
+            "route": "Longmont Campaign/Campaign 2/Parties/questionable_company/",
+            "exists": false,
+            "line_number": 13
+          }
+        ]
+      },
+      "timeline_append_dry_run": {
+        "checked": 12,
+        "ok": 8,
+        "skipped_no_timeline": 4,
+        "failures": []
+      }
+    },
+    {
+      "artifact_path": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/manual_labels/artifacts/Session 20 - Recap.breadcrumbed.gpt-5_3-codex.md",
+      "parse": {
+        "frontmatter_present": true,
+        "schema_marker_present": true,
+        "counts_block_present": false,
+        "body_nonempty": true
+      },
+      "tag_counts": {
+        "Location": 4,
+        "NPC": 39,
+        "NewHubCandidate": 3,
+        "PC": 53,
+        "Party": 5
+      },
+      "tag_total": 104,
+      "unknown_tag_types": [],
+      "route_checks": {
+        "unique_routes": 21,
+        "missing_non_candidate_routes": [
+          {
+            "tag_type": "Location",
+            "route": "Longmont Campaign/Campaign 2/Locations/edge_of_the_forest/",
+            "exists": false,
+            "line_number": 4
+          },
+          {
+            "tag_type": "PC",
+            "route": "Longmont Campaign/Campaign 2/Player Characters/ephanna/",
+            "exists": false,
+            "line_number": 4
+          },
+          {
+            "tag_type": "PC",
+            "route": "Longmont Campaign/Campaign 2/Player Characters/karesmine/",
+            "exists": false,
+            "line_number": 4
+          },
+          {
+            "tag_type": "PC",
+            "route": "Longmont Campaign/Campaign 2/Player Characters/caelynn/",
+            "exists": false,
+            "line_number": 4
+          },
+          {
+            "tag_type": "PC",
+            "route": "Longmont Campaign/Campaign 2/Player Characters/thrin/",
+            "exists": false,
+            "line_number": 4
+          },
+          {
+            "tag_type": "Party",
+            "route": "Longmont Campaign/Campaign 2/Parties/questionable_company/",
+            "exists": false,
+            "line_number": 6
+          },
+          {
+            "tag_type": "Location",
+            "route": "Longmont Campaign/Campaign 2/Locations/town/",
+            "exists": false,
+            "line_number": 8
+          },
+          {
+            "tag_type": "PC",
+            "route": "Longmont Campaign/Campaign 2/Player Characters/bonogo/",
+            "exists": false,
+            "line_number": 8
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Longmont Campaign/Campaign 2/NPCs/stuart/",
+            "exists": false,
+            "line_number": 8
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Longmont Campaign/Campaign 2/NPCs/stacey/",
+            "exists": false,
+            "line_number": 8
+          },
+          {
+            "tag_type": "PC",
+            "route": "Longmont Campaign/Campaign 2/Player Characters/stafl/",
+            "exists": false,
+            "line_number": 12
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Longmont Campaign/Campaign 2/NPCs/marla/",
+            "exists": false,
+            "line_number": 14
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Longmont Campaign/Campaign 2/NPCs/mayor/",
+            "exists": false,
+            "line_number": 16
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Longmont Campaign/Campaign 2/NPCs/sheriff/",
+            "exists": false,
+            "line_number": 16
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Longmont Campaign/Campaign 2/NPCs/lysandra/",
+            "exists": false,
+            "line_number": 16
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Longmont Campaign/Campaign 2/NPCs/sara/",
+            "exists": false,
+            "line_number": 18
+          },
+          {
+            "tag_type": "Location",
+            "route": "Longmont Campaign/Campaign 2/Locations/mirathorn/",
+            "exists": false,
+            "line_number": 18
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Longmont Campaign/Campaign 2/NPCs/professor_tealeaf/",
+            "exists": false,
+            "line_number": 22
+          }
+        ]
+      },
+      "timeline_append_dry_run": {
+        "checked": 14,
+        "ok": 0,
+        "skipped_no_timeline": 14,
+        "failures": []
+      },
+      "baseline_comparison": {
+        "baseline_tag_total": 126,
+        "artifact_tag_total": 104,
+        "overlap_tag_total": 5,
+        "precision_vs_baseline": 0.048077,
+        "recall_vs_baseline": 0.039683,
+        "extra_routes": [
+          {
+            "tag_type": "Location",
+            "route": "Longmont Campaign/Campaign 2/Locations/edge_of_the_forest/",
+            "count": 1
+          },
+          {
+            "tag_type": "Location",
+            "route": "Longmont Campaign/Campaign 2/Locations/mirathorn/",
+            "count": 2
+          },
+          {
+            "tag_type": "Location",
+            "route": "Longmont Campaign/Campaign 2/Locations/town/",
+            "count": 1
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Longmont Campaign/Campaign 2/NPCs/lysandra/",
+            "count": 10
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Longmont Campaign/Campaign 2/NPCs/marla/",
+            "count": 4
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Longmont Campaign/Campaign 2/NPCs/mayor/",
+            "count": 2
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Longmont Campaign/Campaign 2/NPCs/professor_tealeaf/",
+            "count": 2
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Longmont Campaign/Campaign 2/NPCs/sara/",
+            "count": 5
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Longmont Campaign/Campaign 2/NPCs/sheriff/",
+            "count": 1
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Longmont Campaign/Campaign 2/NPCs/stacey/",
+            "count": 5
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Longmont Campaign/Campaign 2/NPCs/stuart/",
+            "count": 10
+          },
+          {
+            "tag_type": "NewHubCandidate",
+            "route": "Longmont Campaign/Campaign 2/Locations/fortified_ditches/",
+            "count": 1
+          },
+          {
+            "tag_type": "NewHubCandidate",
+            "route": "Longmont Campaign/Campaign 2/Locations/half_burned_warehouse/",
+            "count": 1
+          },
+          {
+            "tag_type": "NewHubCandidate",
+            "route": "Longmont Campaign/Campaign 2/Locations/mysterious_tower/",
+            "count": 1
+          },
+          {
+            "tag_type": "PC",
+            "route": "Longmont Campaign/Campaign 2/Player Characters/bonogo/",
+            "count": 11
+          },
+          {
+            "tag_type": "PC",
+            "route": "Longmont Campaign/Campaign 2/Player Characters/caelynn/",
+            "count": 21
+          },
+          {
+            "tag_type": "PC",
+            "route": "Longmont Campaign/Campaign 2/Player Characters/ephanna/",
+            "count": 6
+          },
+          {
+            "tag_type": "PC",
+            "route": "Longmont Campaign/Campaign 2/Player Characters/karesmine/",
+            "count": 7
+          },
+          {
+            "tag_type": "PC",
+            "route": "Longmont Campaign/Campaign 2/Player Characters/stafl/",
+            "count": 4
+          },
+          {
+            "tag_type": "PC",
+            "route": "Longmont Campaign/Campaign 2/Player Characters/thrin/",
+            "count": 4
+          }
+        ],
+        "missing_routes": [
+          {
+            "tag_type": "Location",
+            "route": "Elderwyld/Cities and Towns/Mirathorn/",
+            "count": 3
+          },
+          {
+            "tag_type": "Location",
+            "route": "Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/",
+            "count": 1
+          },
+          {
+            "tag_type": "Location",
+            "route": "Elderwyld/Cities and Towns/Mossford/",
+            "count": 7
+          },
+          {
+            "tag_type": "Location",
+            "route": "Elderwyld/Migrating Forest/",
+            "count": 8
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Elderwyld/Cities and Towns/Mossford/NPCs/marla_brambleback/",
+            "count": 5
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Elderwyld/Cities and Towns/Mossford/NPCs/sheriff_roderic_marr/",
+            "count": 1
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Elderwyld/Cities and Towns/Mossford/NPCs/stacey_brambleback/",
+            "count": 5
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Elderwyld/Cities and Towns/Mossford/NPCs/stuart/",
+            "count": 7
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/",
+            "count": 12
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/",
+            "count": 5
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Longmont Campaign/Campaign 2/NPCs/thrin_branchborn/",
+            "count": 4
+          },
+          {
+            "tag_type": "NewHubCandidate",
+            "route": "Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/NPCs/professor_merril_tealeaf/",
+            "count": 2
+          },
+          {
+            "tag_type": "NewHubCandidate",
+            "route": "Elderwyld/Cities and Towns/Mossford/Mossford_Location_Dossiers/Half-Burned Warehouse.md",
+            "count": 3
+          },
+          {
+            "tag_type": "NewHubCandidate",
+            "route": "Elderwyld/Unknown Sites/Voices Tower/",
+            "count": 3
+          },
+          {
+            "tag_type": "PC",
+            "route": "Longmont Campaign/Campaign 2/PCs/bonogo/",
+            "count": 11
+          },
+          {
+            "tag_type": "PC",
+            "route": "Longmont Campaign/Campaign 2/PCs/caelynn/",
+            "count": 20
+          },
+          {
+            "tag_type": "PC",
+            "route": "Longmont Campaign/Campaign 2/PCs/ephanna/",
+            "count": 6
+          },
+          {
+            "tag_type": "PC",
+            "route": "Longmont Campaign/Campaign 2/PCs/karsemine/",
+            "count": 8
+          },
+          {
+            "tag_type": "PC",
+            "route": "Longmont Campaign/Campaign 2/PCs/stafl/",
+            "count": 4
+          },
+          {
+            "tag_type": "Party",
+            "route": "Longmont Campaign/Campaign 2/Parties/questionable_company/",
+            "count": 6
+          }
+        ]
+      }
+    },
+    {
+      "artifact_path": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/manual_labels/artifacts/Session 20 - Recap.breadcrumbed.gpt-5_4-mini.md",
+      "parse": {
+        "frontmatter_present": true,
+        "schema_marker_present": true,
+        "counts_block_present": true,
+        "body_nonempty": true
+      },
+      "tag_counts": {
+        "Location": 32,
+        "NPC": 30,
+        "NewHubCandidate": 6,
+        "PC": 44,
+        "Party": 20
+      },
+      "tag_total": 132,
+      "unknown_tag_types": [],
+      "route_checks": {
+        "unique_routes": 26,
+        "missing_non_candidate_routes": [
+          {
+            "tag_type": "Location",
+            "route": "Longmont Campaign/Campaign 2/Locations/forest/",
+            "exists": false,
+            "line_number": 3
+          },
+          {
+            "tag_type": "PC",
+            "route": "Longmont Campaign/Campaign 2/PCs/karesmine/",
+            "exists": false,
+            "line_number": 3
+          },
+          {
+            "tag_type": "PC",
+            "route": "Longmont Campaign/Campaign 2/PCs/thrin/",
+            "exists": false,
+            "line_number": 3
+          },
+          {
+            "tag_type": "Party",
+            "route": "Longmont Campaign/Campaign 2/Parties/questionable_company/",
+            "exists": false,
+            "line_number": 3
+          },
+          {
+            "tag_type": "Location",
+            "route": "Longmont Campaign/Campaign 2/Locations/town/",
+            "exists": false,
+            "line_number": 7
+          },
+          {
+            "tag_type": "PC",
+            "route": "Longmont Campaign/Campaign 2/PCs/stuart/",
+            "exists": false,
+            "line_number": 7
+          },
+          {
+            "tag_type": "Location",
+            "route": "Longmont Campaign/Campaign 2/Locations/alley/",
+            "exists": false,
+            "line_number": 7
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Longmont Campaign/Campaign 2/NPCs/stacey/",
+            "exists": false,
+            "line_number": 7
+          },
+          {
+            "tag_type": "Location",
+            "route": "Longmont Campaign/Campaign 2/NewHubCandidates/half_burned_building/",
+            "exists": false,
+            "line_number": 7
+          },
+          {
+            "tag_type": "Location",
+            "route": "Longmont Campaign/Campaign 2/Locations/field/",
+            "exists": false,
+            "line_number": 9
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Longmont Campaign/Campaign 2/NPCs/stafl/",
+            "exists": false,
+            "line_number": 11
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Longmont Campaign/Campaign 2/NPCs/marla/",
+            "exists": false,
+            "line_number": 11
+          },
+          {
+            "tag_type": "Location",
+            "route": "Longmont Campaign/Campaign 2/Locations/ditch_fortifications/",
+            "exists": false,
+            "line_number": 15
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Longmont Campaign/Campaign 2/NPCs/mayor/",
+            "exists": false,
+            "line_number": 15
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Longmont Campaign/Campaign 2/NPCs/sheriff/",
+            "exists": false,
+            "line_number": 15
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Longmont Campaign/Campaign 2/NPCs/lysandra/",
+            "exists": false,
+            "line_number": 15
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Longmont Campaign/Campaign 2/NPCs/sara/",
+            "exists": false,
+            "line_number": 17
+          },
+          {
+            "tag_type": "Location",
+            "route": "Longmont Campaign/Campaign 2/Locations/mirathorn/",
+            "exists": false,
+            "line_number": 17
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Longmont Campaign/Campaign 2/NPCs/professor_tealeaf/",
+            "exists": false,
+            "line_number": 21
+          },
+          {
+            "tag_type": "Location",
+            "route": "Longmont Campaign/Campaign 2/Locations/camp/",
+            "exists": false,
+            "line_number": 23
+          }
+        ]
+      },
+      "timeline_append_dry_run": {
+        "checked": 14,
+        "ok": 3,
+        "skipped_no_timeline": 11,
+        "failures": []
+      },
+      "baseline_comparison": {
+        "baseline_tag_total": 126,
+        "artifact_tag_total": 132,
+        "overlap_tag_total": 37,
+        "precision_vs_baseline": 0.280303,
+        "recall_vs_baseline": 0.293651,
+        "extra_routes": [
+          {
+            "tag_type": "Location",
+            "route": "Longmont Campaign/Campaign 2/Locations/alley/",
+            "count": 4
+          },
+          {
+            "tag_type": "Location",
+            "route": "Longmont Campaign/Campaign 2/Locations/camp/",
+            "count": 2
+          },
+          {
+            "tag_type": "Location",
+            "route": "Longmont Campaign/Campaign 2/Locations/ditch_fortifications/",
+            "count": 2
+          },
+          {
+            "tag_type": "Location",
+            "route": "Longmont Campaign/Campaign 2/Locations/field/",
+            "count": 4
+          },
+          {
+            "tag_type": "Location",
+            "route": "Longmont Campaign/Campaign 2/Locations/forest/",
+            "count": 6
+          },
+          {
+            "tag_type": "Location",
+            "route": "Longmont Campaign/Campaign 2/Locations/mirathorn/",
+            "count": 4
+          },
+          {
+            "tag_type": "Location",
+            "route": "Longmont Campaign/Campaign 2/Locations/town/",
+            "count": 8
+          },
+          {
+            "tag_type": "Location",
+            "route": "Longmont Campaign/Campaign 2/NewHubCandidates/half_burned_building/",
+            "count": 2
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Longmont Campaign/Campaign 2/NPCs/lysandra/",
+            "count": 6
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Longmont Campaign/Campaign 2/NPCs/marla/",
+            "count": 4
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Longmont Campaign/Campaign 2/NPCs/mayor/",
+            "count": 2
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Longmont Campaign/Campaign 2/NPCs/professor_tealeaf/",
+            "count": 2
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Longmont Campaign/Campaign 2/NPCs/sara/",
+            "count": 4
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Longmont Campaign/Campaign 2/NPCs/sheriff/",
+            "count": 2
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Longmont Campaign/Campaign 2/NPCs/stacey/",
+            "count": 4
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Longmont Campaign/Campaign 2/NPCs/stafl/",
+            "count": 6
+          },
+          {
+            "tag_type": "NewHubCandidate",
+            "route": "Longmont Campaign/Campaign 2/NewHubCandidates/half_burned_building/",
+            "count": 2
+          },
+          {
+            "tag_type": "NewHubCandidate",
+            "route": "Longmont Campaign/Campaign 2/NewHubCandidates/rockie_talkie/",
+            "count": 2
+          },
+          {
+            "tag_type": "NewHubCandidate",
+            "route": "Longmont Campaign/Campaign 2/NewHubCandidates/tainted_meat/",
+            "count": 2
+          },
+          {
+            "tag_type": "PC",
+            "route": "Longmont Campaign/Campaign 2/PCs/ephanna/",
+            "count": 2
+          },
+          {
+            "tag_type": "PC",
+            "route": "Longmont Campaign/Campaign 2/PCs/karesmine/",
+            "count": 8
+          },
+          {
+            "tag_type": "PC",
+            "route": "Longmont Campaign/Campaign 2/PCs/stuart/",
+            "count": 2
+          },
+          {
+            "tag_type": "PC",
+            "route": "Longmont Campaign/Campaign 2/PCs/thrin/",
+            "count": 6
+          },
+          {
+            "tag_type": "Party",
+            "route": "Longmont Campaign/Campaign 2/Parties/questionable_company/",
+            "count": 9
+          }
+        ],
+        "missing_routes": [
+          {
+            "tag_type": "Location",
+            "route": "Elderwyld/Cities and Towns/Mirathorn/",
+            "count": 3
+          },
+          {
+            "tag_type": "Location",
+            "route": "Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/",
+            "count": 1
+          },
+          {
+            "tag_type": "Location",
+            "route": "Elderwyld/Cities and Towns/Mossford/",
+            "count": 7
+          },
+          {
+            "tag_type": "Location",
+            "route": "Elderwyld/Migrating Forest/",
+            "count": 8
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Elderwyld/Cities and Towns/Mossford/NPCs/marla_brambleback/",
+            "count": 5
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Elderwyld/Cities and Towns/Mossford/NPCs/sheriff_roderic_marr/",
+            "count": 1
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Elderwyld/Cities and Towns/Mossford/NPCs/stacey_brambleback/",
+            "count": 5
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Elderwyld/Cities and Towns/Mossford/NPCs/stuart/",
+            "count": 7
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/",
+            "count": 12
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/",
+            "count": 5
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Longmont Campaign/Campaign 2/NPCs/thrin_branchborn/",
+            "count": 4
+          },
+          {
+            "tag_type": "NewHubCandidate",
+            "route": "Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/NPCs/professor_merril_tealeaf/",
+            "count": 2
+          },
+          {
+            "tag_type": "NewHubCandidate",
+            "route": "Elderwyld/Cities and Towns/Mossford/Mossford_Location_Dossiers/Half-Burned Warehouse.md",
+            "count": 3
+          },
+          {
+            "tag_type": "NewHubCandidate",
+            "route": "Elderwyld/Unknown Sites/Voices Tower/",
+            "count": 3
+          },
+          {
+            "tag_type": "PC",
+            "route": "Longmont Campaign/Campaign 2/PCs/bonogo/",
+            "count": 7
+          },
+          {
+            "tag_type": "PC",
+            "route": "Longmont Campaign/Campaign 2/PCs/caelynn/",
+            "count": 4
+          },
+          {
+            "tag_type": "PC",
+            "route": "Longmont Campaign/Campaign 2/PCs/karsemine/",
+            "count": 8
+          },
+          {
+            "tag_type": "PC",
+            "route": "Longmont Campaign/Campaign 2/PCs/stafl/",
+            "count": 4
+          }
+        ]
+      }
+    },
+    {
+      "artifact_path": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/manual_labels/artifacts/Session 20 - Recap.breadcrumbed.gpt-5_4.md",
+      "parse": {
+        "frontmatter_present": true,
+        "schema_marker_present": true,
+        "counts_block_present": false,
+        "body_nonempty": true
+      },
+      "tag_counts": {
+        "Location": 2,
+        "NPC": 40,
+        "NewHubCandidate": 5,
+        "PC": 53,
+        "Party": 7
+      },
+      "tag_total": 107,
+      "unknown_tag_types": [],
+      "route_checks": {
+        "unique_routes": 21,
+        "missing_non_candidate_routes": [
+          {
+            "tag_type": "PC",
+            "route": "Longmont Campaign/Campaign 2/Player Characters/ephanna/",
+            "exists": false,
+            "line_number": 4
+          },
+          {
+            "tag_type": "PC",
+            "route": "Longmont Campaign/Campaign 2/Player Characters/karesmine/",
+            "exists": false,
+            "line_number": 4
+          },
+          {
+            "tag_type": "PC",
+            "route": "Longmont Campaign/Campaign 2/Player Characters/caelynn/",
+            "exists": false,
+            "line_number": 4
+          },
+          {
+            "tag_type": "PC",
+            "route": "Longmont Campaign/Campaign 2/Player Characters/thrin/",
+            "exists": false,
+            "line_number": 4
+          },
+          {
+            "tag_type": "Party",
+            "route": "Longmont Campaign/Campaign 2/Parties/questionable_company/",
+            "exists": false,
+            "line_number": 6
+          },
+          {
+            "tag_type": "PC",
+            "route": "Longmont Campaign/Campaign 2/Player Characters/bonogo/",
+            "exists": false,
+            "line_number": 8
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Longmont Campaign/Campaign 2/NPCs/stuart/",
+            "exists": false,
+            "line_number": 8
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Longmont Campaign/Campaign 2/NPCs/stacey/",
+            "exists": false,
+            "line_number": 8
+          },
+          {
+            "tag_type": "PC",
+            "route": "Longmont Campaign/Campaign 2/Player Characters/stafl/",
+            "exists": false,
+            "line_number": 12
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Longmont Campaign/Campaign 2/NPCs/marla/",
+            "exists": false,
+            "line_number": 14
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Longmont Campaign/Campaign 2/NPCs/mayor/",
+            "exists": false,
+            "line_number": 16
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Longmont Campaign/Campaign 2/NPCs/sheriff/",
+            "exists": false,
+            "line_number": 16
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Longmont Campaign/Campaign 2/NPCs/lysandra/",
+            "exists": false,
+            "line_number": 16
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Longmont Campaign/Campaign 2/NPCs/sara/",
+            "exists": false,
+            "line_number": 18
+          },
+          {
+            "tag_type": "Location",
+            "route": "Longmont Campaign/Campaign 2/Locations/mirathorn/",
+            "exists": false,
+            "line_number": 18
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Longmont Campaign/Campaign 2/NPCs/professor_tealeaf/",
+            "exists": false,
+            "line_number": 22
+          }
+        ]
+      },
+      "timeline_append_dry_run": {
+        "checked": 14,
+        "ok": 0,
+        "skipped_no_timeline": 14,
+        "failures": []
+      },
+      "baseline_comparison": {
+        "baseline_tag_total": 126,
+        "artifact_tag_total": 107,
+        "overlap_tag_total": 7,
+        "precision_vs_baseline": 0.065421,
+        "recall_vs_baseline": 0.055556,
+        "extra_routes": [
+          {
+            "tag_type": "Location",
+            "route": "Longmont Campaign/Campaign 2/Locations/mirathorn/",
+            "count": 2
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Longmont Campaign/Campaign 2/NPCs/lysandra/",
+            "count": 10
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Longmont Campaign/Campaign 2/NPCs/marla/",
+            "count": 4
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Longmont Campaign/Campaign 2/NPCs/mayor/",
+            "count": 2
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Longmont Campaign/Campaign 2/NPCs/professor_tealeaf/",
+            "count": 2
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Longmont Campaign/Campaign 2/NPCs/sara/",
+            "count": 6
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Longmont Campaign/Campaign 2/NPCs/sheriff/",
+            "count": 1
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Longmont Campaign/Campaign 2/NPCs/stacey/",
+            "count": 5
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Longmont Campaign/Campaign 2/NPCs/stuart/",
+            "count": 10
+          },
+          {
+            "tag_type": "NewHubCandidate",
+            "route": "Longmont Campaign/Campaign 2/Encounters/red_gnat_swarm/",
+            "count": 1
+          },
+          {
+            "tag_type": "NewHubCandidate",
+            "route": "Longmont Campaign/Campaign 2/Locations/half_burned_warehouse/",
+            "count": 1
+          },
+          {
+            "tag_type": "NewHubCandidate",
+            "route": "Longmont Campaign/Campaign 2/Locations/moving_forest/",
+            "count": 1
+          },
+          {
+            "tag_type": "NewHubCandidate",
+            "route": "Longmont Campaign/Campaign 2/Locations/town_ditches_fortifications/",
+            "count": 1
+          },
+          {
+            "tag_type": "NewHubCandidate",
+            "route": "Longmont Campaign/Campaign 2/Phenomena/shimmering_rain/",
+            "count": 1
+          },
+          {
+            "tag_type": "PC",
+            "route": "Longmont Campaign/Campaign 2/Player Characters/bonogo/",
+            "count": 11
+          },
+          {
+            "tag_type": "PC",
+            "route": "Longmont Campaign/Campaign 2/Player Characters/caelynn/",
+            "count": 21
+          },
+          {
+            "tag_type": "PC",
+            "route": "Longmont Campaign/Campaign 2/Player Characters/ephanna/",
+            "count": 6
+          },
+          {
+            "tag_type": "PC",
+            "route": "Longmont Campaign/Campaign 2/Player Characters/karesmine/",
+            "count": 7
+          },
+          {
+            "tag_type": "PC",
+            "route": "Longmont Campaign/Campaign 2/Player Characters/stafl/",
+            "count": 4
+          },
+          {
+            "tag_type": "PC",
+            "route": "Longmont Campaign/Campaign 2/Player Characters/thrin/",
+            "count": 4
+          }
+        ],
+        "missing_routes": [
+          {
+            "tag_type": "Location",
+            "route": "Elderwyld/Cities and Towns/Mirathorn/",
+            "count": 3
+          },
+          {
+            "tag_type": "Location",
+            "route": "Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/",
+            "count": 1
+          },
+          {
+            "tag_type": "Location",
+            "route": "Elderwyld/Cities and Towns/Mossford/",
+            "count": 7
+          },
+          {
+            "tag_type": "Location",
+            "route": "Elderwyld/Migrating Forest/",
+            "count": 8
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Elderwyld/Cities and Towns/Mossford/NPCs/marla_brambleback/",
+            "count": 5
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Elderwyld/Cities and Towns/Mossford/NPCs/sheriff_roderic_marr/",
+            "count": 1
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Elderwyld/Cities and Towns/Mossford/NPCs/stacey_brambleback/",
+            "count": 5
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Elderwyld/Cities and Towns/Mossford/NPCs/stuart/",
+            "count": 7
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/",
+            "count": 12
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/",
+            "count": 5
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Longmont Campaign/Campaign 2/NPCs/thrin_branchborn/",
+            "count": 4
+          },
+          {
+            "tag_type": "NewHubCandidate",
+            "route": "Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/NPCs/professor_merril_tealeaf/",
+            "count": 2
+          },
+          {
+            "tag_type": "NewHubCandidate",
+            "route": "Elderwyld/Cities and Towns/Mossford/Mossford_Location_Dossiers/Half-Burned Warehouse.md",
+            "count": 3
+          },
+          {
+            "tag_type": "NewHubCandidate",
+            "route": "Elderwyld/Unknown Sites/Voices Tower/",
+            "count": 3
+          },
+          {
+            "tag_type": "PC",
+            "route": "Longmont Campaign/Campaign 2/PCs/bonogo/",
+            "count": 11
+          },
+          {
+            "tag_type": "PC",
+            "route": "Longmont Campaign/Campaign 2/PCs/caelynn/",
+            "count": 20
+          },
+          {
+            "tag_type": "PC",
+            "route": "Longmont Campaign/Campaign 2/PCs/ephanna/",
+            "count": 6
+          },
+          {
+            "tag_type": "PC",
+            "route": "Longmont Campaign/Campaign 2/PCs/karsemine/",
+            "count": 8
+          },
+          {
+            "tag_type": "PC",
+            "route": "Longmont Campaign/Campaign 2/PCs/stafl/",
+            "count": 4
+          },
+          {
+            "tag_type": "Party",
+            "route": "Longmont Campaign/Campaign 2/Parties/questionable_company/",
+            "count": 4
+          }
+        ]
+      }
+    },
+    {
+      "artifact_path": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/manual_labels/artifacts/Session 20 - Recap.breadcrumbed.gpt-5_5.md",
+      "parse": {
+        "frontmatter_present": true,
+        "schema_marker_present": true,
+        "counts_block_present": true,
+        "body_nonempty": true
+      },
+      "tag_counts": {
+        "Location": 23,
+        "NPC": 39,
+        "NewHubCandidate": 10,
+        "PC": 53,
+        "Party": 13
+      },
+      "tag_total": 138,
+      "unknown_tag_types": [],
+      "route_checks": {
+        "unique_routes": 27,
+        "missing_non_candidate_routes": [
+          {
+            "tag_type": "Location",
+            "route": "Longmont Campaign/Campaign 2/Locations/forest/",
+            "exists": false,
+            "line_number": 4
+          },
+          {
+            "tag_type": "PC",
+            "route": "Longmont Campaign/Campaign 2/PCs/karesmine/",
+            "exists": false,
+            "line_number": 4
+          },
+          {
+            "tag_type": "PC",
+            "route": "Longmont Campaign/Campaign 2/PCs/thrin/",
+            "exists": false,
+            "line_number": 4
+          },
+          {
+            "tag_type": "Location",
+            "route": "Longmont Campaign/Campaign 2/Locations/unnamed_forest_town/",
+            "exists": false,
+            "line_number": 8
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Longmont Campaign/Campaign 2/NPCs/stuart/",
+            "exists": false,
+            "line_number": 8
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Longmont Campaign/Campaign 2/NPCs/stacey/",
+            "exists": false,
+            "line_number": 8
+          },
+          {
+            "tag_type": "Party",
+            "route": "Longmont Campaign/Campaign 2/Parties/questionable_company/",
+            "exists": false,
+            "line_number": 10
+          },
+          {
+            "tag_type": "Location",
+            "route": "Longmont Campaign/Campaign 2/Locations/field_worksite/",
+            "exists": false,
+            "line_number": 10
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Longmont Campaign/Campaign 2/NPCs/marla/",
+            "exists": false,
+            "line_number": 14
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Longmont Campaign/Campaign 2/NPCs/mayor/",
+            "exists": false,
+            "line_number": 16
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Longmont Campaign/Campaign 2/NPCs/sheriff/",
+            "exists": false,
+            "line_number": 16
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Longmont Campaign/Campaign 2/NPCs/lysandra/",
+            "exists": false,
+            "line_number": 16
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Longmont Campaign/Campaign 2/NPCs/sara/",
+            "exists": false,
+            "line_number": 18
+          },
+          {
+            "tag_type": "Location",
+            "route": "Longmont Campaign/Campaign 2/Locations/mirathorn/",
+            "exists": false,
+            "line_number": 18
+          },
+          {
+            "tag_type": "Location",
+            "route": "Longmont Campaign/Campaign 2/Locations/lysandra_wagon_camp/",
+            "exists": false,
+            "line_number": 20
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Longmont Campaign/Campaign 2/NPCs/professor_tealeaf/",
+            "exists": false,
+            "line_number": 22
+          }
+        ]
+      },
+      "timeline_append_dry_run": {
+        "checked": 14,
+        "ok": 4,
+        "skipped_no_timeline": 10,
+        "failures": []
+      },
+      "baseline_comparison": {
+        "baseline_tag_total": 126,
+        "artifact_tag_total": 138,
+        "overlap_tag_total": 52,
+        "precision_vs_baseline": 0.376812,
+        "recall_vs_baseline": 0.412698,
+        "extra_routes": [
+          {
+            "tag_type": "Location",
+            "route": "Longmont Campaign/Campaign 2/Locations/field_worksite/",
+            "count": 2
+          },
+          {
+            "tag_type": "Location",
+            "route": "Longmont Campaign/Campaign 2/Locations/forest/",
+            "count": 10
+          },
+          {
+            "tag_type": "Location",
+            "route": "Longmont Campaign/Campaign 2/Locations/lysandra_wagon_camp/",
+            "count": 1
+          },
+          {
+            "tag_type": "Location",
+            "route": "Longmont Campaign/Campaign 2/Locations/mirathorn/",
+            "count": 2
+          },
+          {
+            "tag_type": "Location",
+            "route": "Longmont Campaign/Campaign 2/Locations/unnamed_forest_town/",
+            "count": 8
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Longmont Campaign/Campaign 2/NPCs/lysandra/",
+            "count": 10
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Longmont Campaign/Campaign 2/NPCs/marla/",
+            "count": 4
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Longmont Campaign/Campaign 2/NPCs/mayor/",
+            "count": 2
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Longmont Campaign/Campaign 2/NPCs/professor_tealeaf/",
+            "count": 2
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Longmont Campaign/Campaign 2/NPCs/sara/",
+            "count": 5
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Longmont Campaign/Campaign 2/NPCs/sheriff/",
+            "count": 1
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Longmont Campaign/Campaign 2/NPCs/stacey/",
+            "count": 5
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Longmont Campaign/Campaign 2/NPCs/stuart/",
+            "count": 10
+          },
+          {
+            "tag_type": "NewHubCandidate",
+            "route": "Longmont Campaign/Campaign 2/New Hub Candidates/cult_shimmery_eyes/",
+            "count": 1
+          },
+          {
+            "tag_type": "NewHubCandidate",
+            "route": "Longmont Campaign/Campaign 2/New Hub Candidates/half_burned_warehouse/",
+            "count": 1
+          },
+          {
+            "tag_type": "NewHubCandidate",
+            "route": "Longmont Campaign/Campaign 2/New Hub Candidates/magical_shimmering_rain/",
+            "count": 1
+          },
+          {
+            "tag_type": "NewHubCandidate",
+            "route": "Longmont Campaign/Campaign 2/New Hub Candidates/red_gnat_swarm/",
+            "count": 1
+          },
+          {
+            "tag_type": "NewHubCandidate",
+            "route": "Longmont Campaign/Campaign 2/New Hub Candidates/rockie_talkie/",
+            "count": 1
+          },
+          {
+            "tag_type": "NewHubCandidate",
+            "route": "Longmont Campaign/Campaign 2/New Hub Candidates/tainted_meat/",
+            "count": 3
+          },
+          {
+            "tag_type": "NewHubCandidate",
+            "route": "Longmont Campaign/Campaign 2/New Hub Candidates/tower_blueprint_and_voices/",
+            "count": 2
+          },
+          {
+            "tag_type": "PC",
+            "route": "Longmont Campaign/Campaign 2/PCs/caelynn/",
+            "count": 1
+          },
+          {
+            "tag_type": "PC",
+            "route": "Longmont Campaign/Campaign 2/PCs/karesmine/",
+            "count": 7
+          },
+          {
+            "tag_type": "PC",
+            "route": "Longmont Campaign/Campaign 2/PCs/thrin/",
+            "count": 4
+          },
+          {
+            "tag_type": "Party",
+            "route": "Longmont Campaign/Campaign 2/Parties/questionable_company/",
+            "count": 2
+          }
+        ],
+        "missing_routes": [
+          {
+            "tag_type": "Location",
+            "route": "Elderwyld/Cities and Towns/Mirathorn/",
+            "count": 3
+          },
+          {
+            "tag_type": "Location",
+            "route": "Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/",
+            "count": 1
+          },
+          {
+            "tag_type": "Location",
+            "route": "Elderwyld/Cities and Towns/Mossford/",
+            "count": 7
+          },
+          {
+            "tag_type": "Location",
+            "route": "Elderwyld/Migrating Forest/",
+            "count": 8
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Elderwyld/Cities and Towns/Mossford/NPCs/marla_brambleback/",
+            "count": 5
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Elderwyld/Cities and Towns/Mossford/NPCs/sheriff_roderic_marr/",
+            "count": 1
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Elderwyld/Cities and Towns/Mossford/NPCs/stacey_brambleback/",
+            "count": 5
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Elderwyld/Cities and Towns/Mossford/NPCs/stuart/",
+            "count": 7
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/",
+            "count": 12
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/",
+            "count": 5
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Longmont Campaign/Campaign 2/NPCs/thrin_branchborn/",
+            "count": 4
+          },
+          {
+            "tag_type": "NewHubCandidate",
+            "route": "Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/NPCs/professor_merril_tealeaf/",
+            "count": 2
+          },
+          {
+            "tag_type": "NewHubCandidate",
+            "route": "Elderwyld/Cities and Towns/Mossford/Mossford_Location_Dossiers/Half-Burned Warehouse.md",
+            "count": 3
+          },
+          {
+            "tag_type": "NewHubCandidate",
+            "route": "Elderwyld/Unknown Sites/Voices Tower/",
+            "count": 3
+          },
+          {
+            "tag_type": "PC",
+            "route": "Longmont Campaign/Campaign 2/PCs/karsemine/",
+            "count": 8
+          }
+        ]
+      }
+    }
+  ]
+}

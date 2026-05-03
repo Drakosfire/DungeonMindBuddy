@@ -1,0 +1,254 @@
+{
+  "schema": "sentence_routing_falsification_v1",
+  "scenario_id": "sentence_routing_c2_session19_pc",
+  "scenario_notes": "Campaign 2 Session 19 PC-only holdout for Stage B split pipeline (not Session 20). Curated gold_routing covers explicit PCs, joint-party beats (the group / attackers), Bonogo/Inn thread, and abstain rows for pure NPC lore or Thrin-only beats. No gold_discourse.expect — B1 content checks optional; primary gate is B2 routing vs manifest PCs. Session entity candidates may be merged via --session-entity-candidates-json per STAGE_B_ENTITY_CANDIDATES.md.",
+  "input": {
+    "recap_relative_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 19 - Recap.md",
+    "campaign_id": "longmont-c2",
+    "session": 19,
+    "session_npc_names": [
+      "Thrin",
+      "Stuart",
+      "Stacey",
+      "Marla",
+      "Grandma",
+      "Old Maude",
+      "Mayor",
+      "Sheriff"
+    ],
+    "validate_manifest_paths": true,
+    "hub_manifest": [
+      {
+        "slug": "baergrom",
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/baergrom/README.md",
+        "subject_class": "pc",
+        "campaign_id": "longmont-c2",
+        "label": "baergrom — Campaign 2 PC hub"
+      },
+      {
+        "slug": "bonogo",
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/bonogo/README.md",
+        "subject_class": "pc",
+        "campaign_id": "longmont-c2",
+        "label": "bonogo — Campaign 2 PC hub"
+      },
+      {
+        "slug": "caelynn",
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/caelynn/README.md",
+        "subject_class": "pc",
+        "campaign_id": "longmont-c2",
+        "label": "caelynn — Campaign 2 PC hub"
+      },
+      {
+        "slug": "ephanna",
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/ephanna/README.md",
+        "subject_class": "pc",
+        "campaign_id": "longmont-c2",
+        "label": "ephanna — Campaign 2 PC hub"
+      },
+      {
+        "slug": "karsemine",
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/karsemine/README.md",
+        "subject_class": "pc",
+        "campaign_id": "longmont-c2",
+        "label": "karsemine — Campaign 2 PC hub"
+      },
+      {
+        "slug": "stafl",
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/stafl/README.md",
+        "subject_class": "pc",
+        "campaign_id": "longmont-c2",
+        "label": "stafl — Campaign 2 PC hub"
+      }
+    ]
+  },
+  "gold_capture": {
+    "min_units": 75,
+    "max_units": 85,
+    "must_contain_substrings_anywhere": [
+      "Caelynn",
+      "Bonogo",
+      "Stafl",
+      "Ephanna",
+      "Karesmine",
+      "Mossford",
+      "swarm"
+    ]
+  },
+  "gold_routing": {
+    "must_route": [
+      {
+        "unit_id": "u-L0014-01",
+        "expected_hubs": [
+          "caelynn",
+          "stafl"
+        ],
+        "max_extra_hubs": 0,
+        "notes": "Opening beat: officials with Stafl while Caelynn investigates — both PCs named in-frame."
+      },
+      {
+        "unit_id": "u-L0014-02",
+        "expected_hubs": [
+          "caelynn"
+        ],
+        "max_extra_hubs": 0,
+        "notes": "She = Caelynn (storm observation)."
+      },
+      {
+        "unit_id": "u-L0014-03",
+        "expected_hubs": [
+          "baergrom",
+          "bonogo",
+          "caelynn",
+          "ephanna",
+          "karsemine",
+          "stafl"
+        ],
+        "max_extra_hubs": 0,
+        "notes": "Mayor addresses the group — PC roster retrieval."
+      },
+      {
+        "unit_id": "u-L0014-04",
+        "expected_hubs": [
+          "baergrom",
+          "bonogo",
+          "caelynn",
+          "ephanna",
+          "karsemine",
+          "stafl"
+        ],
+        "max_extra_hubs": 0,
+        "notes": "The group plans together — full party expansion."
+      },
+      {
+        "unit_id": "u-L0014-05",
+        "expected_hubs": [
+          "bonogo"
+        ],
+        "max_extra_hubs": 0
+      },
+      {
+        "unit_id": "u-L0014-06",
+        "expected_hubs": [
+          "bonogo"
+        ],
+        "max_extra_hubs": 0,
+        "notes": "He = Bonogo heads to eat."
+      },
+      {
+        "unit_id": "u-L0016-01",
+        "expected_hubs": [
+          "stafl",
+          "bonogo"
+        ],
+        "max_extra_hubs": 0,
+        "notes": "Stafl keeps Bonogo with the group — both PCs named."
+      },
+      {
+        "unit_id": "u-L0016-09",
+        "expected_hubs": [
+          "ephanna",
+          "karsemine",
+          "caelynn"
+        ],
+        "max_extra_hubs": 0,
+        "notes": "Forest magic testers (recap spelling Karesmine → hub karsemine)."
+      },
+      {
+        "unit_id": "u-L0016-14",
+        "expected_hubs": [
+          "caelynn"
+        ],
+        "max_extra_hubs": 0,
+        "notes": "Caelynn asks Thrin — PC focal; Thrin not on manifest."
+      },
+      {
+        "unit_id": "u-L0018-01",
+        "expected_hubs": [
+          "bonogo"
+        ],
+        "max_extra_hubs": 0
+      },
+      {
+        "unit_id": "u-L0018-10",
+        "expected_hubs": [
+          "bonogo"
+        ],
+        "max_extra_hubs": 0,
+        "notes": "Bonogo listens to Grandma — Bonogo-thread."
+      },
+      {
+        "unit_id": "u-L0020-08",
+        "expected_hubs": [
+          "ephanna",
+          "karsemine",
+          "caelynn"
+        ],
+        "max_extra_hubs": 0,
+        "notes": "Spell testing beat names three PCs (Thrin excluded from manifest)."
+      },
+      {
+        "unit_id": "u-L0022-03",
+        "expected_hubs": [
+          "baergrom",
+          "bonogo",
+          "caelynn",
+          "ephanna",
+          "karsemine",
+          "stafl"
+        ],
+        "max_extra_hubs": 0,
+        "notes": "Swarm heads for the group of attackers — party-sized retrieval."
+      },
+      {
+        "unit_id": "u-L0022-07",
+        "expected_hubs": [
+          "ephanna",
+          "karsemine"
+        ],
+        "max_extra_hubs": 0,
+        "notes": "Misty Step / temp HP to Karesmine — Ephanna + Karsemine focal PCs."
+      },
+      {
+        "unit_id": "u-L0024-01",
+        "expected_hubs": [
+          "bonogo"
+        ],
+        "max_extra_hubs": 0,
+        "notes": "Bonogo + Stuart beat — Bonogo-thread for PC routing."
+      }
+    ],
+    "must_abstain": [
+      {
+        "unit_id": "u-L0018-11",
+        "max_assigned_hubs": 0,
+        "needs_new_hub_candidate": false,
+        "notes": "Grandma lore — no PC hub assignment."
+      },
+      {
+        "unit_id": "u-L0020-03",
+        "max_assigned_hubs": 0,
+        "needs_new_hub_candidate": false,
+        "notes": "Sheriff supervision stance — no manifest PC focal."
+      },
+      {
+        "unit_id": "u-L0022-04",
+        "max_assigned_hubs": 0,
+        "needs_new_hub_candidate": false,
+        "notes": "Thrin-only beat — not a PC slug on this manifest."
+      }
+    ],
+    "soft_limits": {
+      "max_mean_assigned_hubs_per_unit": 1.0,
+      "max_unresolved_fraction": 0.8
+    }
+  },
+  "gold_proposals": {},
+  "gold_retrieval": {},
+  "expected_capture_signature": {
+    "sentence_unit_count": 80,
+    "unit_id_sha16": "8398fefc61f06084",
+    "first_unit_id": "u-L0001-01",
+    "last_unit_id": "u-L0024-01"
+  }
+}

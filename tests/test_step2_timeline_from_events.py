@@ -942,3 +942,132 @@ def test_run_stage_b_chain_filters_targets_to_pcs():
     assert "thrin_branchborn" not in per_slug_diag
     # caelynn was modeled (not a no-event skip)
     assert per_slug_skip.get("caelynn") is False
+
+
+# ---------------------------------------------------------------------------
+# Step 3: NPC-only events-to-timeline (offline)
+# ---------------------------------------------------------------------------
+
+
+def test_step3_is_npc_target_and_filter_grading():
+    from evals.session_events_extraction_vertical_slice.step3_npc_timeline_from_events_run import (
+        _filter_grading_to_npcs,
+        _is_npc_target,
+    )
+
+    assert _is_npc_target(
+        {"timeline_relative_path": "Longmont Campaign/Campaign 2/NPCs/x/timeline.md"}
+    )
+    assert not _is_npc_target(
+        {"timeline_relative_path": "Longmont Campaign/Campaign 2/PCs/x/timeline.md"}
+    )
+
+    grading = {
+        "expected_appends": [
+            {
+                "npc_slug": "captain_lysandra_ironveil",
+                "timeline_relative_path": "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/timeline.md",
+            },
+            {
+                "npc_slug": "caelynn",
+                "timeline_relative_path": "Longmont Campaign/Campaign 2/PCs/caelynn/timeline.md",
+            },
+        ],
+        "expected_skips": [
+            {
+                "npc_slug": "dustwalker",
+                "timeline_relative_path": "Longmont Campaign/Campaign 2/NPCs/dustwalker/timeline.md",
+            },
+        ],
+        "allowed_npc_slugs": ["captain_lysandra_ironveil", "dustwalker", "caelynn"],
+    }
+    g2 = _filter_grading_to_npcs(grading)
+    assert len(g2["expected_appends"]) == 1
+    assert g2["expected_appends"][0]["npc_slug"] == "captain_lysandra_ironveil"
+    assert len(g2["expected_skips"]) == 1
+    assert g2["allowed_npc_slugs"] == ["captain_lysandra_ironveil", "dustwalker"]
+
+
+def test_step3_ordered_npc_timeline_targets_five_npcs():
+    from evals.session_events_extraction_vertical_slice.step3_npc_timeline_from_events_run import (
+        ordered_npc_timeline_targets,
+    )
+
+    gold_path = (
+        _REPO_ROOT
+        / "evals"
+        / "session_recap_timeline_pass_vertical_slice"
+        / "gold"
+        / "timeline_pass_session20.json"
+    )
+    gold = json.loads(gold_path.read_text(encoding="utf-8"))
+    targets = ordered_npc_timeline_targets(gold.get("grading") or {})
+    assert len(targets) == 5
+    slugs = [t["npc_slug"] for t in targets]
+    assert slugs == [
+        "captain_lysandra_ironveil",
+        "dustwalker",
+        "sara_mirathorn_operator",
+        "thrin_branchborn",
+        "torbin_jove",
+    ]
+
+
+def test_build_npc_append_user_message_json_roundtrip():
+    from evals.session_events_extraction_vertical_slice.step3_npc_timeline_from_events_run import (
+        build_npc_append_user_message,
+    )
+
+    events = [
+        {
+            "event_class": "scene",
+            "participants": ["sara_mirathorn_operator", "caelynn"],
+            "outcomes": ["Sara connects Caelynn to Lysandra."],
+            "time_scope": "scene",
+            "certainty": "observed",
+        }
+    ]
+    msg = build_npc_append_user_message(
+        "Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/timeline.md",
+        "sara_mirathorn_operator",
+        events,
+        session_num=20,
+    )
+    assert "NPC timeline APPEND" in msg
+    assert "append_timeline_row" in msg
+    json_start = msg.index("```json\n") + len("```json\n")
+    json_end = msg.index("\n```", json_start)
+    assert json.loads(msg[json_start:json_end]) == events
+
+
+def test_build_npc_skip_user_message_no_events():
+    from evals.session_events_extraction_vertical_slice.step3_npc_timeline_from_events_run import (
+        build_npc_skip_user_message,
+    )
+
+    msg = build_npc_skip_user_message(
+        "Longmont Campaign/Campaign 2/NPCs/dustwalker/timeline.md",
+        "dustwalker",
+        [],
+        session_num=20,
+    )
+    assert "NPC timeline SKIP" in msg
+    assert "produced" in msg and "no" in msg
+    assert "Do **not** call" in msg
+
+
+def test_build_npc_skip_user_message_with_events_forbids_append():
+    from evals.session_events_extraction_vertical_slice.step3_npc_timeline_from_events_run import (
+        build_npc_skip_user_message,
+    )
+
+    events = [{"participants": ["thrin_branchborn"], "outcomes": ["Thrin looses an arrow"]}]
+    msg = build_npc_skip_user_message(
+        "Longmont Campaign/Campaign 2/NPCs/thrin_branchborn/timeline.md",
+        "thrin_branchborn",
+        events,
+        session_num=20,
+    )
+    assert "SKIP" in msg
+    assert "must still SKIP" in msg
+    assert "Thrin looses an arrow" in msg

@@ -1,0 +1,470 @@
+{
+  "schema": "inline_recap_breadcrumb_smoke_v1",
+  "iso_utc": "2026-05-02T20:28:09Z",
+  "baseline_path": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/manual_labels/Session 20 - Recap.breadcrumbed.md",
+  "corpus_root": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/corpus/eldyrwild-markdown",
+  "source_recap_path": "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md",
+  "artifacts": [
+    {
+      "artifact_path": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/manual_labels/artifacts/Session 20 - Recap.breadcrumbed.indexed.gpt-5_4-mini.md",
+      "parse": {
+        "frontmatter_present": true,
+        "schema_marker_present": true,
+        "counts_block_present": true,
+        "body_nonempty": true
+      },
+      "tag_counts": {
+        "Location": 9,
+        "NPC": 42,
+        "NewHubCandidate": 3,
+        "PC": 48,
+        "Party": 10
+      },
+      "tag_total": 112,
+      "unknown_tag_types": [],
+      "route_checks": {
+        "unique_routes": 20,
+        "missing_non_candidate_routes": [
+          {
+            "tag_type": "Party",
+            "route": "Longmont Campaign/Campaign 2/Parties/questionable_company/",
+            "exists": false,
+            "line_number": 5
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Longmont Campaign/Campaign 2/NPCs/professor_merril_tealeaf/",
+            "exists": false,
+            "line_number": 21
+          }
+        ]
+      },
+      "timeline_append_dry_run": {
+        "checked": 13,
+        "ok": 8,
+        "skipped_no_timeline": 5,
+        "failures": []
+      },
+      "baseline_comparison": {
+        "baseline_tag_total": 126,
+        "artifact_tag_total": 112,
+        "overlap_tag_total": 106,
+        "precision_vs_baseline": 0.946429,
+        "recall_vs_baseline": 0.84127,
+        "extra_routes": [
+          {
+            "tag_type": "NPC",
+            "route": "Elderwyld/Cities and Towns/Mossford/NPCs/marla_brambleback/",
+            "count": 1
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Elderwyld/Cities and Towns/Mossford/NPCs/stuart/",
+            "count": 3
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Longmont Campaign/Campaign 2/NPCs/professor_merril_tealeaf/",
+            "count": 1
+          },
+          {
+            "tag_type": "PC",
+            "route": "Longmont Campaign/Campaign 2/PCs/caelynn/",
+            "count": 1
+          }
+        ],
+        "missing_routes": [
+          {
+            "tag_type": "Location",
+            "route": "Elderwyld/Cities and Towns/Mirathorn/",
+            "count": 1
+          },
+          {
+            "tag_type": "Location",
+            "route": "Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/",
+            "count": 1
+          },
+          {
+            "tag_type": "Location",
+            "route": "Elderwyld/Cities and Towns/Mossford/",
+            "count": 6
+          },
+          {
+            "tag_type": "Location",
+            "route": "Elderwyld/Migrating Forest/",
+            "count": 2
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/",
+            "count": 2
+          },
+          {
+            "tag_type": "NewHubCandidate",
+            "route": "Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/NPCs/professor_merril_tealeaf/",
+            "count": 1
+          },
+          {
+            "tag_type": "NewHubCandidate",
+            "route": "Elderwyld/Cities and Towns/Mossford/Mossford_Location_Dossiers/Half-Burned Warehouse.md",
+            "count": 2
+          },
+          {
+            "tag_type": "NewHubCandidate",
+            "route": "Elderwyld/Unknown Sites/Voices Tower/",
+            "count": 2
+          },
+          {
+            "tag_type": "PC",
+            "route": "Longmont Campaign/Campaign 2/PCs/karsemine/",
+            "count": 1
+          },
+          {
+            "tag_type": "PC",
+            "route": "Longmont Campaign/Campaign 2/PCs/stafl/",
+            "count": 1
+          },
+          {
+            "tag_type": "Party",
+            "route": "Longmont Campaign/Campaign 2/Parties/questionable_company/",
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "artifact_path": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/manual_labels/artifacts/Session 20 - Recap.breadcrumbed.indexed.gpt-5_4.md",
+      "parse": {
+        "frontmatter_present": true,
+        "schema_marker_present": true,
+        "counts_block_present": true,
+        "body_nonempty": true
+      },
+      "tag_counts": {
+        "Location": 14,
+        "NPC": 39,
+        "NewHubCandidate": 6,
+        "PC": 49,
+        "Party": 6
+      },
+      "tag_total": 114,
+      "unknown_tag_types": [],
+      "route_checks": {
+        "unique_routes": 19,
+        "missing_non_candidate_routes": [
+          {
+            "tag_type": "Party",
+            "route": "Longmont Campaign/Campaign 2/Parties/questionable_company/",
+            "exists": false,
+            "line_number": 6
+          }
+        ]
+      },
+      "timeline_append_dry_run": {
+        "checked": 12,
+        "ok": 8,
+        "skipped_no_timeline": 4,
+        "failures": []
+      },
+      "baseline_comparison": {
+        "baseline_tag_total": 126,
+        "artifact_tag_total": 114,
+        "overlap_tag_total": 110,
+        "precision_vs_baseline": 0.964912,
+        "recall_vs_baseline": 0.873016,
+        "extra_routes": [
+          {
+            "tag_type": "NPC",
+            "route": "Elderwyld/Cities and Towns/Mossford/NPCs/stuart/",
+            "count": 3
+          },
+          {
+            "tag_type": "PC",
+            "route": "Longmont Campaign/Campaign 2/PCs/caelynn/",
+            "count": 1
+          }
+        ],
+        "missing_routes": [
+          {
+            "tag_type": "Location",
+            "route": "Elderwyld/Cities and Towns/Mirathorn/",
+            "count": 1
+          },
+          {
+            "tag_type": "Location",
+            "route": "Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/",
+            "count": 1
+          },
+          {
+            "tag_type": "Location",
+            "route": "Elderwyld/Cities and Towns/Mossford/",
+            "count": 2
+          },
+          {
+            "tag_type": "Location",
+            "route": "Elderwyld/Migrating Forest/",
+            "count": 1
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Elderwyld/Cities and Towns/Mossford/NPCs/marla_brambleback/",
+            "count": 1
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/",
+            "count": 2
+          },
+          {
+            "tag_type": "NewHubCandidate",
+            "route": "Elderwyld/Cities and Towns/Mossford/Mossford_Location_Dossiers/Half-Burned Warehouse.md",
+            "count": 1
+          },
+          {
+            "tag_type": "NewHubCandidate",
+            "route": "Elderwyld/Unknown Sites/Voices Tower/",
+            "count": 1
+          },
+          {
+            "tag_type": "PC",
+            "route": "Longmont Campaign/Campaign 2/PCs/karsemine/",
+            "count": 1
+          },
+          {
+            "tag_type": "Party",
+            "route": "Longmont Campaign/Campaign 2/Parties/questionable_company/",
+            "count": 5
+          }
+        ]
+      }
+    },
+    {
+      "artifact_path": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/manual_labels/artifacts/Session 20 - Recap.breadcrumbed.indexed.gpt-5_5.md",
+      "parse": {
+        "frontmatter_present": true,
+        "schema_marker_present": true,
+        "counts_block_present": true,
+        "body_nonempty": true
+      },
+      "tag_counts": {
+        "Location": 23,
+        "NPC": 46,
+        "NewHubCandidate": 8,
+        "PC": 54,
+        "Party": 13
+      },
+      "tag_total": 144,
+      "unknown_tag_types": [],
+      "route_checks": {
+        "unique_routes": 20,
+        "missing_non_candidate_routes": [
+          {
+            "tag_type": "Party",
+            "route": "Longmont Campaign/Campaign 2/Parties/questionable_company/",
+            "exists": false,
+            "line_number": 6
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/NPCs/professor_merril_tealeaf/",
+            "exists": false,
+            "line_number": 22
+          }
+        ]
+      },
+      "timeline_append_dry_run": {
+        "checked": 13,
+        "ok": 8,
+        "skipped_no_timeline": 5,
+        "failures": []
+      },
+      "baseline_comparison": {
+        "baseline_tag_total": 126,
+        "artifact_tag_total": 144,
+        "overlap_tag_total": 123,
+        "precision_vs_baseline": 0.854167,
+        "recall_vs_baseline": 0.97619,
+        "extra_routes": [
+          {
+            "tag_type": "Location",
+            "route": "Elderwyld/Cities and Towns/Mossford/",
+            "count": 2
+          },
+          {
+            "tag_type": "Location",
+            "route": "Elderwyld/Migrating Forest/",
+            "count": 3
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/NPCs/professor_merril_tealeaf/",
+            "count": 1
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Elderwyld/Cities and Towns/Mossford/NPCs/stacey_brambleback/",
+            "count": 2
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Elderwyld/Cities and Towns/Mossford/NPCs/stuart/",
+            "count": 1
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/",
+            "count": 2
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/",
+            "count": 1
+          },
+          {
+            "tag_type": "NewHubCandidate",
+            "route": "Elderwyld/Unknown Sites/Voices Tower/",
+            "count": 1
+          },
+          {
+            "tag_type": "PC",
+            "route": "Longmont Campaign/Campaign 2/PCs/bonogo/",
+            "count": 2
+          },
+          {
+            "tag_type": "PC",
+            "route": "Longmont Campaign/Campaign 2/PCs/caelynn/",
+            "count": 3
+          },
+          {
+            "tag_type": "PC",
+            "route": "Longmont Campaign/Campaign 2/PCs/ephanna/",
+            "count": 1
+          },
+          {
+            "tag_type": "Party",
+            "route": "Longmont Campaign/Campaign 2/Parties/questionable_company/",
+            "count": 2
+          }
+        ],
+        "missing_routes": [
+          {
+            "tag_type": "Location",
+            "route": "Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/",
+            "count": 1
+          },
+          {
+            "tag_type": "NewHubCandidate",
+            "route": "Elderwyld/Cities and Towns/Mossford/Mossford_Location_Dossiers/Half-Burned Warehouse.md",
+            "count": 1
+          },
+          {
+            "tag_type": "PC",
+            "route": "Longmont Campaign/Campaign 2/PCs/karsemine/",
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "artifact_path": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/manual_labels/artifacts/Session 20 - Recap.breadcrumbed.indexed.gpt-5_3-codex.md",
+      "parse": {
+        "frontmatter_present": true,
+        "schema_marker_present": true,
+        "counts_block_present": true,
+        "body_nonempty": true
+      },
+      "tag_counts": {
+        "Location": 14,
+        "NPC": 39,
+        "NewHubCandidate": 6,
+        "PC": 49,
+        "Party": 7
+      },
+      "tag_total": 115,
+      "unknown_tag_types": [],
+      "route_checks": {
+        "unique_routes": 20,
+        "missing_non_candidate_routes": [
+          {
+            "tag_type": "Party",
+            "route": "Longmont Campaign/Campaign 2/Parties/questionable_company/",
+            "exists": false,
+            "line_number": 13
+          }
+        ]
+      },
+      "timeline_append_dry_run": {
+        "checked": 12,
+        "ok": 8,
+        "skipped_no_timeline": 4,
+        "failures": []
+      },
+      "baseline_comparison": {
+        "baseline_tag_total": 126,
+        "artifact_tag_total": 115,
+        "overlap_tag_total": 111,
+        "precision_vs_baseline": 0.965217,
+        "recall_vs_baseline": 0.880952,
+        "extra_routes": [
+          {
+            "tag_type": "NPC",
+            "route": "Elderwyld/Cities and Towns/Mossford/NPCs/stuart/",
+            "count": 3
+          },
+          {
+            "tag_type": "PC",
+            "route": "Longmont Campaign/Campaign 2/PCs/caelynn/",
+            "count": 1
+          }
+        ],
+        "missing_routes": [
+          {
+            "tag_type": "Location",
+            "route": "Elderwyld/Cities and Towns/Mirathorn/",
+            "count": 1
+          },
+          {
+            "tag_type": "Location",
+            "route": "Elderwyld/Cities and Towns/Mossford/",
+            "count": 2
+          },
+          {
+            "tag_type": "Location",
+            "route": "Elderwyld/Migrating Forest/",
+            "count": 2
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Elderwyld/Cities and Towns/Mossford/NPCs/marla_brambleback/",
+            "count": 1
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/",
+            "count": 2
+          },
+          {
+            "tag_type": "NewHubCandidate",
+            "route": "Elderwyld/Cities and Towns/Mossford/Mossford_Location_Dossiers/Half-Burned Warehouse.md",
+            "count": 1
+          },
+          {
+            "tag_type": "NewHubCandidate",
+            "route": "Elderwyld/Unknown Sites/Voices Tower/",
+            "count": 1
+          },
+          {
+            "tag_type": "PC",
+            "route": "Longmont Campaign/Campaign 2/PCs/karsemine/",
+            "count": 1
+          },
+          {
+            "tag_type": "Party",
+            "route": "Longmont Campaign/Campaign 2/Parties/questionable_company/",
+            "count": 4
+          }
+        ]
+      }
+    }
+  ]
+}

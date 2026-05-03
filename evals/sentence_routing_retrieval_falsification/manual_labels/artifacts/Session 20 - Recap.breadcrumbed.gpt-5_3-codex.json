@@ -1,0 +1,40 @@
+{
+  "schema": "inline_recap_breadcrumbing_model_run_v1",
+  "model": "gpt-5.3-codex",
+  "output_markdown_path": "evals/sentence_routing_retrieval_falsification/manual_labels/artifacts/Session 20 - Recap.breadcrumbed.gpt-5_3-codex.md",
+  "elapsed_ms": 37224.99,
+  "usage": {
+    "input_tokens": 2573,
+    "output_tokens": 4518,
+    "cached_tokens": 0
+  },
+  "cost_usd": 0.067755,
+  "cost_info": {
+    "total_usd": 0.06775475,
+    "uncached_input_tokens": 2573,
+    "cached_tokens": 0,
+    "output_tokens": 4518,
+    "input_tokens_reported": 2573,
+    "input_usd": 0.004502750000000001,
+    "cached_input_usd": 0.0,
+    "output_usd": 0.063252,
+    "rates_per_1m_usd": {
+      "input": 1.75,
+      "cached_input": 0.175,
+      "output": 14.0
+    },
+    "pricing_table_matched": true
+  },
+  "tag_counts_regex": {
+    "PC": 54,
+    "NPC": 40,
+    "Location": 5,
+    "Party": 6,
+    "NewHubCandidate": 4
+  },
+  "unknown_tag_types_regex": [],
+  "output_chars": 17902,
+  "response_id": "resp_0d71a450b2303cdd0069f65a8ddb3881a293aeed83adf1a5cc",
+  "frontmatter_schema_present": true,
+  "counts_block_present": false
+}

@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
+
 import blake3
 
 from src.agent.planner import (
@@ -36,6 +38,17 @@ def cache_dir_for_corpus(cache_root: Path, corpus_dir: Path) -> Path:
     return (cache_root / fp).resolve()
 
 
+def _env_file_stat_token(env_var: str) -> str:
+    raw = os.environ.get(env_var, "").strip()
+    if not raw:
+        return ""
+    path = Path(raw)
+    if not path.is_file():
+        return ""
+    st = path.stat()
+    return f"{st.st_mtime_ns}:{st.st_size}"
+
+
 def load_or_build_planner_instructions(
     corpus_dir: Path,
     *,
@@ -58,6 +71,9 @@ def load_or_build_planner_instructions(
     inst_path = bucket / f"instructions{suffix}.txt"
     meta_path = bucket / f"meta{suffix}.json"
 
+    session_memory_fp = _env_file_stat_token("DUNGEONMIND_SESSION_MEMORY_RECORDS_JSONL")
+    memory_capsule_fp = _env_file_stat_token("DUNGEONMIND_PLANNER_MEMORY_CAPSULE_PATH")
+
     if inst_path.is_file() and meta_path.is_file():
         try:
             meta = json.loads(meta_path.read_text(encoding="utf-8"))
@@ -67,6 +83,8 @@ def load_or_build_planner_instructions(
                 and str(meta.get("instructions_template_id", "")) == INSTRUCTIONS_TEMPLATE_ID
                 and str(meta.get("manifest_builder_id", "")) == PLANNER_MANIFEST_BUILDER_ID
                 and bool(meta.get("include_write_tools", False)) == bool(include_write_tools)
+                and str(meta.get("session_memory_records_fp", "")) == session_memory_fp
+                and str(meta.get("memory_capsule_fp", "")) == memory_capsule_fp
             ):
                 return inst_path.read_text(encoding="utf-8"), fp
         except (OSError, json.JSONDecodeError):
@@ -84,6 +102,8 @@ def load_or_build_planner_instructions(
                 "instructions_template_id": INSTRUCTIONS_TEMPLATE_ID,
                 "manifest_builder_id": PLANNER_MANIFEST_BUILDER_ID,
                 "include_write_tools": bool(include_write_tools),
+                "session_memory_records_fp": session_memory_fp,
+                "memory_capsule_fp": memory_capsule_fp,
             },
             indent=2,
         ),

@@ -1,0 +1,344 @@
+{
+  "schema": "dmb_breadcrumb_query_natural_gold_v1",
+  "campaign_id": "longmont-c2",
+  "notes": "Natural-language queries over Session 20 recap-derived breadcrumbs. Canonical prose: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md. Gates: council-room-style token coverage over harness-built hit context (plus route recall); optional LLM path grades synthesized answer against the same tokens.",
+  "default_query_spec": {
+    "session_min": 20,
+    "session_max": 20,
+    "max_hits": 12,
+    "expand_context": true,
+    "expand_seed_hits": 5,
+    "expand_adjacent_window": 2,
+    "expand_shared_route_limit": 3,
+    "expand_route_family_limit": 3,
+    "expand_first_pass_cap": 9
+  },
+  "scenarios": [
+    {
+      "id": "nat_captain_after_forest",
+      "question": "What happened to the captain after the migrating forest pulled back?",
+      "notes": "Gold (Session 20 recap): After the forest breaks off at Mossford, Lysandra is reached via Mirathorn relay (Sara); fragmented recall (forest leaving, time weird); party finds her at wagon camp drawing a tower tied to voices with cult-like shimmer eyes; Caelynn brews antidote tea; after drinking she emerges from the spell but stays disoriented about where/how she arrived.",
+      "expected_answer": "After the forest pulls back, Caelynn reaches Lysandra through Sara in Mirathorn. Lysandra is relieved but exhausted and disoriented, with fragmented memories of going around the forest, smelling meat, voices in the dark, and something strange happening to time. The party tracks her to a wagon camp, where she has shimmer-like eyes and is drawing a tower tied to the voices. Caelynn makes antidote tea; after drinking it, Lysandra comes out of the spell but remains confused about where she is and how she got there.",
+      "must_hit_tokens": [
+        "captain",
+        "forest",
+        "tower",
+        "tea"
+      ],
+      "stale_tokens": [],
+      "expect_route_substrings": [
+        "NPCs/captain_lysandra_ironveil",
+        "NPCs/sara_mirathorn_operator"
+      ],
+      "min_context_support_ratio": 0.75,
+      "benchmark_lane": "lexical_recall"
+    },
+    {
+      "id": "nat_mirathorn_threads",
+      "question": "What Mirathorn-linked people, places, and supply concerns showed up in the recap?",
+      "notes": "Gold: Mirathorn city; Sara as operator; Stormspire/Tealeaf thread (transfer about tainted supplies; Tealeaf does not answer); plus Mirathorn named as origin suspicion for tainted meat.",
+      "expected_answer": "The Mirathorn-linked thread includes Sara, one of Mirathorn's operators, relaying Caelynn's contact with Lysandra. It also includes Professor Tealeaf through Sara's attempted transfer, with Tealeaf not picking up; the route context ties that thread to Stormspire Academy. The supply concern is tainted meat: Stafl suspects someone slipped tainted meat into the provisions before leaving Mirathorn, Caelynn reports the bad meat to Sara, and Sara worries about who can be trusted in the city.",
+      "must_hit_tokens": [
+        "mirathorn",
+        "tealeaf",
+        "sara",
+        "meat"
+      ],
+      "stale_tokens": [],
+      "expect_route_substrings": [
+        "Mirathorn",
+        "Stormspire Academy"
+      ],
+      "min_context_support_ratio": 0.75,
+      "benchmark_lane": "route_family_recall",
+      "high_signal_retrieval_row": true
+    },
+    {
+      "id": "nat_voices_tower_officer",
+      "question": "Does the recap tie voices or a tower drawing to a specific officer?",
+      "notes": "Gold: Yes \u2014 Captain Lysandra while impaired ties voices to a tower, draws a detailed top-down blueprint in dirt, claims she knows where it is; Caelynn observes cult-like shimmer eyes.",
+      "expected_answer": "Yes. The recap ties the voices and tower drawing to Captain Lysandra Ironveil. Caelynn finds Lysandra drawing in the dirt; Lysandra says the voices are coming from a tower and that she knows where it is. Caelynn later examines the drawing and sees a well-made top-down blueprint of a tower. Lysandra's shimmery eyes and recovery after antidote tea frame the tower/voices clue as part of her impaired state.",
+      "must_hit_tokens": [
+        "voices",
+        "tower",
+        "captain",
+        "blueprint"
+      ],
+      "semantic_equivalences": {
+        "blueprint": [
+          "drawing",
+          "dirt",
+          "top-down"
+        ]
+      },
+      "must_not_cooccur": {
+        "blueprint": [
+          "no mention of any drawing",
+          "no mention of a drawing",
+          "no mention of a tower drawing",
+          "no mention of any tower drawing",
+          "no mention of any drawing or blueprint",
+          "not a tower drawing",
+          "not to a tower drawing",
+          "drawing isn't supported",
+          "drawing is not supported"
+        ]
+      },
+      "stale_tokens": [],
+      "expect_unit_id_substrings": [
+        "u-L0019-05",
+        "u-L0019-10"
+      ],
+      "expect_route_substrings": [
+        "NPCs/captain_lysandra_ironveil"
+      ],
+      "min_context_support_ratio": 1.0,
+      "benchmark_lane": "lexical_recall",
+      "high_signal_retrieval_row": true
+    },
+    {
+      "id": "q_lysandra_change_unresolved",
+      "question": "What exactly changed for Captain Lysandra after the party returned from the forest, and what remains unresolved?",
+      "notes": "Promoted from review suite. Gold: Lysandra emerges from the spell after Caelynn's tea but remains disoriented; tower/voices, Tealeaf non-response, tainted meat, and the incoming storm remain unresolved follow-up threads.",
+      "expected_answer": "Captain Lysandra is no longer simply missing: Caelynn reaches her through Sara, the party tracks her to a wagon camp, and antidote tea breaks the spell-like condition she is under. What changed is that Lysandra can speak again, but she remains exhausted and confused, with fragmented memories of the forest leaving, time behaving strangely, smelling meat, and hearing voices. The unresolved threads are the tower she links to the voices, the detailed tower drawing or blueprint, the tainted meat and trust problem in Mirathorn, Professor Tealeaf not answering, and the storm moving in on the camp.",
+      "must_hit_tokens": [
+        "captain",
+        "tower",
+        "tealeaf",
+        "meat"
+      ],
+      "stale_tokens": [],
+      "expect_route_substrings": [
+        "NPCs/captain_lysandra_ironveil",
+        "Stormspire Academy"
+      ],
+      "min_context_support_ratio": 0.75,
+      "benchmark_lane": "lexical_recall"
+    },
+    {
+      "id": "q_lysandra_regroups",
+      "question": "What happens with Lysandra when she regroups with the team?",
+      "notes": "Promoted from review suite. Gold: the party reaches Lysandra's wagon camp; Caelynn finds her drawing, hears the tower/voices clue, notices shimmer-like eyes, makes antidote tea, and Lysandra wakes confused.",
+      "expected_answer": "When the team regroups with Lysandra, Karesmine tracks her away from Mossford to a wagon camp with crates and wandering horses. Caelynn approaches the shelter and finds Lysandra drawing in the dirt; Lysandra says it is a tower where the voices are coming from and claims she knows where it is. Caelynn notices Lysandra's eyes are shimmery like the cultists, makes antidote tea from her bag, and after Lysandra drinks it she comes out of the spell but remains confused about where she is and how she arrived.",
+      "must_hit_tokens": [
+        "wagon",
+        "drawing",
+        "tower",
+        "tea"
+      ],
+      "semantic_equivalences": {
+        "drawing": [
+          "dirt",
+          "blueprint"
+        ]
+      },
+      "stale_tokens": [],
+      "expect_unit_id_substrings": [
+        "u-L0019-05",
+        "u-L0019-10",
+        "u-L0019-11"
+      ],
+      "expect_route_substrings": [
+        "NPCs/captain_lysandra_ironveil",
+        "Voices Tower"
+      ],
+      "min_context_support_ratio": 0.75,
+      "benchmark_lane": "lexical_recall"
+    },
+    {
+      "id": "q_relevant_locations",
+      "question": "What are the locations nearby and relevant?",
+      "notes": "Promoted from review suite. Gold: Mossford and its defense works, the migrating forest, Lysandra's wagon camp outside town, Mirathorn via Sara and supply trust, and the newly indicated tower.",
+      "expected_answer": "The nearby and relevant locations are Mossford, the migrating forest, Lysandra's wagon camp outside town, Mirathorn, and the tower indicated by Lysandra's voices/drawing. Mossford is where the townsfolk, ditches, fires, mayor, sheriff, and immediate social aftermath are centered. The migrating forest is the threat that pulls back and turns away from town. Mirathorn matters through Sara, the tainted-supply suspicion, and Tealeaf/Stormspire contact. The tower is still only a clue, but Lysandra says the voices come from it and her drawing gives it a concrete direction for follow-up.",
+      "must_hit_tokens": [
+        "mossford",
+        "forest",
+        "mirathorn",
+        "tower"
+      ],
+      "stale_tokens": [],
+      "expect_route_substrings": [
+        "Mossford",
+        "Migrating Forest",
+        "Mirathorn",
+        "Voices Tower"
+      ],
+      "min_context_support_ratio": 0.75,
+      "benchmark_lane": "lexical_recall"
+    },
+    {
+      "id": "q_communication_chain",
+      "question": "What chain of communication connects Caelynn, Sara, Lysandra, and Tealeaf in the recap?",
+      "notes": "Promoted from review suite. Gold: Caelynn uses the rockie-talkie, reaches Sara in Mirathorn, Sara connects her to Lysandra, and later transfers Caelynn to Professor Tealeaf, who does not answer.",
+      "expected_answer": "The communication chain starts with Caelynn using the rockie-talkie to call Lysandra. Instead of reaching Lysandra directly at first, she is connected to Sara, one of the Mirathorn operators. Sara relays Caelynn's request and connects Caelynn directly to Lysandra. Later, after Lysandra is safe and the tainted meat is discovered, Caelynn calls Sara again; Sara tries to transfer her to Professor Tealeaf at Stormspire Academy, but Tealeaf does not pick up while the group sets camp.",
+      "must_hit_tokens": [
+        "caelynn",
+        "sara",
+        "lysandra",
+        "tealeaf"
+      ],
+      "stale_tokens": [],
+      "expect_unit_id_substrings": [
+        "u-L0017-02",
+        "u-L0017-03",
+        "u-L0021-09"
+      ],
+      "expect_route_substrings": [
+        "NPCs/sara_mirathorn_operator",
+        "NPCs/captain_lysandra_ironveil",
+        "Stormspire Academy"
+      ],
+      "min_context_support_ratio": 1.0,
+      "benchmark_lane": "lexical_recall",
+      "high_signal_retrieval_row": true
+    },
+    {
+      "id": "q_lysandra_memory_contrast",
+      "question": "What does Lysandra remember versus fail to remember after the spell breaks?",
+      "notes": "Promoted from review suite. Gold: fragments remain \u2014 forest/time oddness, going around the forest, smelling meat, voices in the dark \u2014 but she cannot explain where she is or how she got there.",
+      "expected_answer": "After the spell breaks, Lysandra remembers only fragments. She can report or is reported as remembering that the forest left, that something strange happened to time, that she went around the forest, that she smelled meat while trying to sleep, and that she heard voices in the dark after the group entered the forest. What she fails to remember is the coherent chain of events: she is confused about where she is and how she got there.",
+      "must_hit_tokens": [
+        "voices",
+        "time",
+        "meat",
+        "confused"
+      ],
+      "stale_tokens": [],
+      "expect_unit_id_substrings": [
+        "u-L0017-04",
+        "u-L0017-07",
+        "u-L0019-12",
+        "u-L0019-13"
+      ],
+      "expect_route_substrings": [
+        "NPCs/captain_lysandra_ironveil"
+      ],
+      "min_context_support_ratio": 1.0,
+      "benchmark_lane": "lexical_recall"
+    },
+    {
+      "id": "q_mirathorn_vs_mossford",
+      "question": "How is Mirathorn relevant currently, and how is Mossford relevant currently?",
+      "notes": "Promoted from review suite. Gold: Mirathorn is relevant through Sara, Tealeaf/Stormspire, and tainted-provision trust; Mossford is relevant through the forest-defense aftermath and local NPC/workforce situation.",
+      "expected_answer": "Mirathorn is relevant as the communications and supply-trust thread: Sara is one of its operators, Caelynn reaches Lysandra through Sara, Stafl suspects the tainted meat entered the provisions before leaving Mirathorn, Sara worries about who can be trusted in the city, and Sara tries to transfer Caelynn to Professor Tealeaf at Stormspire Academy. Mossford is relevant as the immediate scene: the town faces the migrating forest, the ditches and fires drive the forest back, the mayor and sheriff thank the party, and the party deals with the local social fallout around Marla, Bonogo, and the workers.",
+      "must_hit_tokens": [
+        "mirathorn",
+        "sara",
+        "tealeaf",
+        "meat",
+        "mossford"
+      ],
+      "stale_tokens": [],
+      "expect_route_substrings": [
+        "Mirathorn",
+        "Mossford",
+        "Stormspire Academy"
+      ],
+      "min_context_support_ratio": 0.8,
+      "benchmark_lane": "lexical_recall"
+    },
+    {
+      "id": "q_tower_knowns",
+      "question": "What do we know about this tower that came up?",
+      "notes": "Promoted from review suite. Gold: Lysandra says the voices come from a tower and that she knows where it is; she draws in the dirt; Caelynn later sees a top-down blueprint of a tower.",
+      "expected_answer": "The recap does not establish the tower as a known visited location yet, but it gives several concrete clues. Lysandra says the voices are coming from a tower and that she knows where it is. Caelynn finds Lysandra drawing in the dirt, then later studies the drawing and sees that it is a well-made top-down blueprint of a tower. The route context treats it as the Voices Tower clue or unknown-site candidate rather than a settled hub.",
+      "must_hit_tokens": [
+        "voices",
+        "tower",
+        "blueprint"
+      ],
+      "semantic_equivalences": {
+        "blueprint": [
+          "drawing",
+          "dirt",
+          "top-down"
+        ]
+      },
+      "must_not_cooccur": {
+        "blueprint": [
+          "no mention of any drawing",
+          "no mention of a drawing",
+          "no mention of a tower drawing",
+          "no mention of any tower drawing",
+          "no mention of any drawing or blueprint",
+          "drawing isn't supported",
+          "drawing is not supported"
+        ]
+      },
+      "stale_tokens": [],
+      "expect_unit_id_substrings": [
+        "u-L0019-05",
+        "u-L0019-06",
+        "u-L0019-10"
+      ],
+      "expect_route_substrings": [
+        "Voices Tower"
+      ],
+      "min_context_support_ratio": 1.0,
+      "benchmark_lane": "lexical_recall",
+      "high_signal_retrieval_row": true
+    },
+    {
+      "id": "q_party_learned_next_prep",
+      "question": "What did the party learn from the forest episode that affects next-session prep?",
+      "notes": "Promoted from review suite. Gold: the forest can be redirected by ditches/fires/ground response; Lysandra remains tied to the tower/voices clue; tainted meat creates a supply/trust issue; the camp faces a storm with magical shimmering rain.",
+      "expected_answer": "The forest episode gives the party several prep-relevant facts. The migrating forest responds to the town's fortifications and ditch fires by pulling back and turning east, so terrain manipulation and fire changed its behavior. Lysandra's condition adds a tower/voices lead and shows she may still have dangerous missing-memory gaps after the forest episode. The party also learns that the provisions include tainted meat likely slipped in before leaving Mirathorn, creating a supply and trust problem. Finally, a storm with magical shimmering rain is approaching the camp, so shelter and animal protection matter immediately.",
+      "must_hit_tokens": [
+        "forest",
+        "meat",
+        "lysandra",
+        "storm"
+      ],
+      "stale_tokens": [],
+      "expect_unit_id_substrings": [
+        "u-L0015-03",
+        "u-L0021-03",
+        "u-L0023-02"
+      ],
+      "expect_route_substrings": [
+        "Migrating Forest",
+        "Mirathorn",
+        "NPCs/captain_lysandra_ironveil"
+      ],
+      "min_context_support_ratio": 0.75,
+      "benchmark_lane": "planning_open_loop_recall"
+    },
+    {
+      "id": "q_open_loops_next_session",
+      "question": "Which open loops from the recap are actionable for next session?",
+      "notes": "Promoted from review suite. Gold: the actionable loops are the tower/voices lead, Lysandra follow-up, Tealeaf/Sara/Mirathorn trust thread, storm shelter and shimmering rain, and the supply replacement issue.",
+      "expected_answer": "The actionable open loops are the tower/voices lead, Lysandra's follow-up condition, the Mirathorn communications thread, the tainted provisions, and the approaching storm. The tower is actionable because Lysandra says the voices come from it and draws a detailed blueprint. Lysandra is awake but confused, so her memories and condition still need follow-up. Sara tries to reach Professor Tealeaf and does not get an answer, while Sara is also worried about who can be trusted in Mirathorn. The tainted meat has to be burned or replaced, Ephanna plans a return to town for supplies, and the party needs shelter from the storm and magical shimmering rain.",
+      "must_hit_tokens": [
+        "tower",
+        "tealeaf",
+        "storm",
+        "supplies"
+      ],
+      "semantic_equivalences": {
+        "supplies": [
+          "meat",
+          "provisions",
+          "crates"
+        ]
+      },
+      "stale_tokens": [],
+      "expect_unit_id_substrings": [
+        "u-L0019-06",
+        "u-L0019-10",
+        "u-L0021-09",
+        "u-L0023-02"
+      ],
+      "expect_route_substrings": [
+        "Voices Tower",
+        "Stormspire Academy"
+      ],
+      "min_context_support_ratio": 1.0,
+      "benchmark_lane": "planning_open_loop_recall"
+    }
+  ],
+  "benchmark_lanes": {
+    "lexical_recall": "Focused factual retrieval where expected units/routes should be reachable from the query with lexical grounding plus normal expansion.",
+    "route_family_recall": "Queries that require route-family bridging (e.g., Mirathorn -> Stormspire Academy branch) beyond direct lexical overlap.",
+    "planning_open_loop_recall": "Planning-oriented/open-loop asks where retrieval may need explicit prep/open-loop metadata rather than pure lexical matching."
+  }
+}

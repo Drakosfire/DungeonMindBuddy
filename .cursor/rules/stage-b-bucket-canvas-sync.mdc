@@ -28,3 +28,7 @@ When you **finish a cohort or meaningful re-run** of the sentence-routing Stage 
 
 - Leaving stale `2026-MM-DD` paths or N= counts on the canvas after publishing new cohort summaries.
 - Paraphrasing bucket numbers from chat instead of re-reading the summary JSON fields.
+
+## Related
+
+- Natural-language **breadcrumb query** semantic-review canvas (Session 20 retrieval + LLM synthesis): refresh via generator, not hand literals — `.cursor/rules/breadcrumb-query-canvas-sync.mdc`.
