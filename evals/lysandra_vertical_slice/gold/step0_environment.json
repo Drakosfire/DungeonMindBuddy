@@ -2,7 +2,7 @@
   "schema": "lysandra_vertical_slice_step0_v1",
   "description": "Step 0 — corpus pin + environment gates (DESIGN-lysandra-statblock-vertical-slice-benchmark.md §6 Step 0).",
   "corpus_root_relpath": "corpus/eldyrwild-markdown",
-  "expected_fingerprint": "11d3216028d0db41b3c309def659b5f8",
+  "expected_fingerprint": "f4697eec57f9f2e995f36b8b7ec619f0",
   "allow_fingerprint_drift": false,
   "statblock_service_gate": {
     "description": "G0.3 — live Statblock HTTP URL, explicit mock mode, or CI skip flag.",

@@ -404,6 +404,31 @@ def _wrap_canvas(block: str) -> str:
     )
 
 
+def test_build_payload_prepends_cohort_callout_and_kernel_clause() -> None:
+    gold = _make_gold()
+    gold["default_query_spec"]["tokenizer_mode"] = "restrained"
+    gold["default_query_spec"]["expansion_allocation_mode"] = "greedy"
+    report = _make_report()
+    cohort = {
+        "aggregate": {
+            "passes_per_run": [5, 5, 5],
+            "pass_count_mean": 5.0,
+            "cost_usd": {"mean": 0.047},
+        },
+        "config": {
+            "tokenizer_mode": "restrained",
+            "expansion_allocation_mode": "greedy",
+            "expand_first_pass_cap": 9,
+        },
+        "promotion_gate": {"no_high_signal_regression_all_runs": True},
+    }
+    payload = gen.build_payload(report=report, gold=gold, cohort_summary=cohort)
+    assert payload["callouts"][0]["title"] == "LLM cohort (multi-run)"
+    assert "N=3 cohort" in payload["callouts"][0]["body"]
+    assert "tokenizer_mode=restrained" in payload["callouts"][1]["body"]
+    assert "expansion_allocation_mode=greedy" in payload["callouts"][1]["body"]
+
+
 def test_render_generated_block_is_stable_and_idempotent() -> None:
     gold = _make_gold()
     report = _make_report()

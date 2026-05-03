@@ -1,7 +1,7 @@
 {
   "schema": "dmb_breadcrumb_query_natural_gold_v1",
   "campaign_id": "longmont-c2",
-  "notes": "Natural-language queries over Session 20 recap-derived breadcrumbs. Canonical prose: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md. Gates: council-room-style token coverage over harness-built hit context (plus route recall); optional LLM path grades synthesized answer against the same tokens.",
+  "notes": "Natural-language queries over Session 20 recap-derived breadcrumbs. Canonical prose: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md. Gates: council-room-style token coverage over harness-built hit context (plus route recall); optional LLM path grades synthesized answer against the same tokens. Promoted harness defaults (deterministic ablation + N=5 LLM cohort 2026-05-03): default_query_spec uses tokenizer_mode=restrained, expansion_allocation_mode=greedy, expand_first_pass_cap=9 (stable 5/12 with no high-signal retrieval regression).",
   "default_query_spec": {
     "session_min": 20,
     "session_max": 20,
@@ -11,7 +11,9 @@
     "expand_adjacent_window": 2,
     "expand_shared_route_limit": 3,
     "expand_route_family_limit": 3,
-    "expand_first_pass_cap": 9
+    "expand_first_pass_cap": 9,
+    "tokenizer_mode": "restrained",
+    "expansion_allocation_mode": "greedy"
   },
   "scenarios": [
     {

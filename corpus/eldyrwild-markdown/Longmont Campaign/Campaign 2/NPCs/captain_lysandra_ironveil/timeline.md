@@ -1,28 +1,26 @@
 # Lysandra Ironveil — Campaign 2 timeline
 
-Session-ordered **table** beats for **Captain Lysandra Ironveil** (C2). **Primary chronology:** `Longmont Campaign/Campaign 2/Session Recaps/`. **Aggregated GM digest:** `Campaign 2 Notes.md` (large ledger — Lysandra lines were scanned into this file and the dossier).
+Deterministic hub timeline generated from `dmb_session_memory_record_v1` rows.
+Filter: routes containing `NPCs/captain_lysandra_ironveil` | Source: `evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-05-02/breadcrumb_query_natural_llm_semantic_expanded_report.records_meta.jsonl`
 
-Use this file to decide **which recap to open next**; each row is a pointer, not a substitute for the recap text.
-
-
-| Session | Lysandra beat (short)                                                                                                                                                                                                                                                                                                      | Recap file                                     |
-| ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
-| **3**   | Party reunites with her at the guardhouse; **deputy** mandate; she agrees to help Caelynn’s private search and to deputize the party on **Shepherd’s Flock** / underground tunnel pressure.                                                                                                                                | `Session 3 - Recap.md`                         |
-| **5**   | Approaches party **out of uniform**, visibly **anxious**; confides guard-only music festival is unprecedented and worrisome; joins walk to apothecary / tea / **Unity Dance** rehearsal; ends at **guardhouse roof party** (setup for Session 6).                                                                          | `Session 5 - Recap.md`                         |
-| **6**   | **Charmed** with Stafl and guards (Maelthor / “spiral gates”); Caelynn **antidote + Shocking Grasp** breaks charm; **barn cult**, meat, **Fleshborn**, **fire** — shared horror and combat with the party.                                                                                                                 | `Session 6 - Recap.md`                         |
-| **7–8** | **Fleshbarn** fight continues: grappled with Caelynn, nearly **Devoured**, locked doors, **Lightning Bolt** corridor, coordination with guards afterward.                                                                                                                                                                  | `Session 7 - Recap.md`, `Session 8 - Recap.md` |
-| **13**  | After mayor/council fallout, **assigned to lead** the party on the **swamp road** mission; **breaks down** from cumulative stress, recovers, **takes charge** (Outtown / towns along the way).                                                                                                                             | `Session 13 - Recap.md`                        |
-| **15**  | **New rank / uniform**; briefs ride to **Mossford**; route becomes **hard to navigate**; she is **uneasy** (intel didn’t match the forest); party uses **rocky-talkie** to Academy; she **stays back** with **horses and supplies** while the party enters the **migrating forest** with Pass without a Trace.             | `Session 15 - Recap.md`                        |
-| **16**  | Still on approach to Mossford: she **maps landmarks** and timing (“trees would reach Mossford in about a day and a half”); party **enters the forest** together while she remains the grounded command reference for route and stakes.                                                                                     | `Session 16 - Recap.md`                        |
-| **17**  | *(Session title file)* `Session 17 - Migrating Forest and Thrin.md` — forest / Thrin arc; open that file for beat-level detail if Lysandra is off-screen.                                                                                                                                                                  | `Session 17 - Migrating Forest and Thrin.md`   |
-| **18**  | Climax inside the **Mother** fight / forest exit; party reaches Mossford view. **Rocky-talkie** to Lysandra: Ephanna overhears **Frank** with Lysandra — muffled, urgent (**meat**, **boundary**, **breached**, **evacuate**, **map not random**). Key **remote command / warning** beat while the table is in the forest. | `Session 18 - Recap.md`                        |
-| **19**  | **Mossford** defense: mayor, sheriff, **vanguard trees**, experimental “dead ground,” **red gnat swarm** — town and forest mechanics; Lysandra is often **offstage** (supply / command line) but this is the **current pressure cooker** after Sessions 15–18.                                                             | `Session 19 - Recap.md`                        |
-
-
-## How to use this with prep / statblock bumps
-
-- **Emotional spine:** **5 → 6** (trust and vulnerability) → **13** (command assigned under strain) → **15–16** (competence vs. **unknown forest**).
-- **Remote tension line:** **18** (overheard rocky-talkie) + **19** (town about to be hit) for “what the table feels like *now*.”
-- **Combat reference:** **6–8** for what “fleshbarn Lysandra” looked like at the table.
-
-*When you add new sessions, append a row and keep recap filenames literal so planners and tools can resolve paths from the Session Recaps tree.*
+| Session | Order | Unit ID | Recap file | Text |
+| --- | ---: | --- | --- | --- |
+| 20 | 1 | `u-L0015-07` | `Session 20 - Recap.md` | And now that the danger has passed Caelynn asks the mayor about Lysandra, but finds out that they have never heard of her. |
+| 20 | 2 | `u-L0017-01` | `Session 20 - Recap.md` | Caelynn quickly pulls out the "rockie-talkie" and attempts to call Lysandra. |
+| 20 | 3 | `u-L0017-03` | `Session 20 - Recap.md` | Caelynn relays her request and Sara calls Lysandra. |
+| 20 | 4 | `u-L0017-04` | `Session 20 - Recap.md` | She tells Caelynn that all she could hear was mumbling about the forest leaving and that something strange happened to the time. |
+| 20 | 5 | `u-L0017-05` | `Session 20 - Recap.md` | Sara then connects Caelynn directly to Lysandra who is relieved and overjoyed that the group is ok and that they took care of the forest. |
+| 20 | 6 | `u-L0017-06` | `Session 20 - Recap.md` | Caelynn wants to know if she is ok and where she is. |
+| 20 | 7 | `u-L0017-07` | `Session 20 - Recap.md` | Lysandra tells her that she can't remember much after the group left, only that she decided to go around the forest and she could smell meat while trying to sleep. |
+| 20 | 8 | `u-L0017-08` | `Session 20 - Recap.md` | She is exhausted and disoriented. |
+| 20 | 9 | `u-L0017-09` | `Session 20 - Recap.md` | Caelynn tells her to stop where she is and make a camp and rest, Karesmine will lead the team to her. |
+| 20 | 10 | `u-L0019-01` | `Session 20 - Recap.md` | Using her extensive tracking skills, Karesmine is able to estimate the distance and direction that Lysandra may have traveled. |
+| 20 | 11 | `u-L0019-04` | `Session 20 - Recap.md` | Caelynn approaches the makeshift shelter and hears mumbling from inside. |
+| 20 | 12 | `u-L0019-05` | `Session 20 - Recap.md` | She finds Lysandra drawing in the dirt. |
+| 20 | 13 | `u-L0019-06` | `Session 20 - Recap.md` | She says it is a tower where the voices are coming from and she knows where it is. |
+| 20 | 14 | `u-L0019-07` | `Session 20 - Recap.md` | The first thing Caelynn notices about Lysandra is that her eyes are shimmery, just like the members of the cult. |
+| 20 | 15 | `u-L0019-08` | `Session 20 - Recap.md` | She quickly begins to make the antidote from the tea in her bag. |
+| 20 | 16 | `u-L0019-11` | `Session 20 - Recap.md` | Finally, after drinking the tea, Lysandra comes out of the spell. |
+| 20 | 17 | `u-L0019-12` | `Session 20 - Recap.md` | She is very confused, wondering where she is and how she got there. |
+| 20 | 18 | `u-L0019-13` | `Session 20 - Recap.md` | All that she is able to remember is voices in the dark after the group left into the forest. |
+| 20 | 19 | `u-L0021-07` | `Session 20 - Recap.md` | Caelynn calls Sara to tell her the good news about Lysandra, and bad news about the tainted meat. |

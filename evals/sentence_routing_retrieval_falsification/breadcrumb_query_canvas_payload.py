@@ -651,8 +651,59 @@ def _build_run_rows(report: dict[str, Any]) -> list[list[str]]:
     return rows
 
 
-def _build_callouts(summary: dict[str, Any], baseline: dict[str, Any] | None) -> list[dict[str, str]]:
+def _retrieval_kernel_clause(gold: dict[str, Any] | None) -> str:
+    spec = dict((gold or {}).get("default_query_spec") or {})
+    tok = spec.get("tokenizer_mode")
+    exp_mode = spec.get("expansion_allocation_mode")
+    bits: list[str] = []
+    if isinstance(tok, str) and tok.strip():
+        bits.append(f"tokenizer_mode={tok.strip()}")
+    if isinstance(exp_mode, str) and exp_mode.strip():
+        bits.append(f"expansion_allocation_mode={exp_mode.strip()}")
+    if not bits:
+        return ""
+    return " Retrieval kernel defaults in gold: " + "; ".join(bits) + "."
+
+
+def _cohort_callout(cohort: dict[str, Any]) -> dict[str, str]:
+    agg = cohort.get("aggregate") or {}
+    cost = agg.get("cost_usd") or {}
+    mean_cost = cost.get("mean")
+    passes = agg.get("passes_per_run") or []
+    n = len(passes)
+    mean_passes = agg.get("pass_count_mean")
+    cfg = cohort.get("config") or {}
+    pg = cohort.get("promotion_gate") or {}
+    tok = cfg.get("tokenizer_mode")
+    exp_mode = cfg.get("expansion_allocation_mode")
+    cap = cfg.get("expand_first_pass_cap")
+    cost_clause = ""
+    if isinstance(mean_cost, (int, float)):
+        cost_clause = f" Mean LLM+embed cost ${float(mean_cost):.4f} per run."
+    pass_clause = ""
+    if isinstance(mean_passes, (int, float)):
+        pass_clause = f" Mean hard-gate passes {float(mean_passes):.1f}/12 per run."
+    pg_clause = ""
+    if isinstance(pg, dict) and pg:
+        pg_clause = " Promotion gate: " + ", ".join(f"{k}={v}" for k, v in sorted(pg.items())) + "."
+    body = (
+        f"N={n} cohort with tokenizer_mode={tok}, expansion_allocation_mode={exp_mode}, "
+        f"expand_first_pass_cap={cap}.{pass_clause}{cost_clause}"
+        f"{pg_clause} Drill-down cards use one representative run JSON; cohort artifact carries pass-count aggregates."
+    )
+    return {"tone": "neutral", "title": "LLM cohort (multi-run)", "body": body}
+
+
+def _build_callouts(
+    summary: dict[str, Any],
+    baseline: dict[str, Any] | None,
+    *,
+    gold: dict[str, Any] | None = None,
+    cohort_summary: dict[str, Any] | None = None,
+) -> list[dict[str, str]]:
     callouts: list[dict[str, str]] = []
+    if cohort_summary:
+        callouts.append(_cohort_callout(cohort_summary))
     if summary.get("expandEnabled"):
         cap = summary.get("expandFirstPassCap")
         max_hits = summary.get("maxHits")
@@ -669,8 +720,9 @@ def _build_callouts(summary: dict[str, Any], baseline: dict[str, Any] | None) ->
             if isinstance(cap, int) and isinstance(slots, int) and slots > 0
             else "expand_context with default expansion budget"
         )
+        kernel = _retrieval_kernel_clause(gold)
         body = (
-            f"Promoted natural gold sets {cap_part}. "
+            f"Promoted natural gold sets {cap_part}.{kernel} "
             f"Deterministic retrieval-only pass is {det_label}. "
             f"LLM+embedding hard-gate pass is {summary['llmPassLabel']}."
         )
@@ -729,6 +781,7 @@ def build_payload(
     gold_path: str | None = None,
     baseline_path: str | None = None,
     deterministic_path: str | None = None,
+    cohort_summary: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     records_text = dict(records_text or {})
     summary = _summary(
@@ -769,7 +822,9 @@ def build_payload(
             f"Source artifact: {report_path}" if report_path else "Source artifact: (path unset)"
         ),
         "summary": summary,
-        "callouts": _build_callouts(summary, baseline),
+        "callouts": _build_callouts(
+            summary, baseline, gold=gold, cohort_summary=cohort_summary
+        ),
         "architectureRows": ARCHITECTURE_ROWS_DEFAULT,
         "suiteRows": _build_suite_rows(gold),
         "promotionBlockers": PROMOTION_BLOCKERS_DEFAULT,
@@ -866,6 +921,15 @@ def main(argv: list[str] | None = None) -> int:
         default=None,
         help="Optional path to also write the payload JSON for inspection.",
     )
+    parser.add_argument(
+        "--cohort-summary",
+        type=Path,
+        default=None,
+        help=(
+            "Optional cohort aggregate JSON (e.g. breadcrumb_query_*_cohort--N*.json). "
+            "Prepends a multi-run summary callout; use with --report set to a member run."
+        ),
+    )
     args = parser.parse_args(argv)
 
     report = _load_json(args.report)
@@ -879,6 +943,7 @@ def main(argv: list[str] | None = None) -> int:
 
     baseline = _load_json(args.baseline_report) if args.baseline_report else None
     deterministic = _load_json(args.deterministic_report) if args.deterministic_report else None
+    cohort_summary = _load_json(args.cohort_summary) if args.cohort_summary else None
     records_text = _load_records_text(report, args.records_jsonl)
 
     payload = build_payload(
@@ -891,6 +956,7 @@ def main(argv: list[str] | None = None) -> int:
         gold_path=str(Path(gold_path).resolve()),
         baseline_path=str(args.baseline_report.resolve()) if args.baseline_report else None,
         deterministic_path=str(args.deterministic_report.resolve()) if args.deterministic_report else None,
+        cohort_summary=cohort_summary,
     )
     if args.payload_out:
         args.payload_out.parent.mkdir(parents=True, exist_ok=True)

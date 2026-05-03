@@ -1,0 +1,98 @@
+{
+  "schema": "dmb_breadcrumb_tagging_sentinels_v1",
+  "campaign_id": "longmont-c2",
+  "session_number": 20,
+  "notes": "Sentinels for the Lysandra under-tagged scene (u-L0019-09 / u-L0019-10) plus protected-good Lysandra units and protected-clean Mossford/Bonogo units. Substrings are matched case-insensitively against each route's normalized form (no leading 'corpus/eldyrwild-markdown/').",
+  "positive_units": [
+    {
+      "unit_id": "u-L0019-09",
+      "must_contain": [
+        "NPCs/captain_lysandra_ironveil",
+        "Voices Tower"
+      ],
+      "rationale": "Caelynn inspecting Lysandra's tower drawing — must surface as Lysandra-routable."
+    },
+    {
+      "unit_id": "u-L0019-10",
+      "must_contain": [
+        "NPCs/captain_lysandra_ironveil",
+        "Voices Tower"
+      ],
+      "rationale": "Continuation clause about the top-down blueprint of Lysandra's drawing."
+    }
+  ],
+  "protected_units": [
+    {
+      "unit_id": "u-L0019-04",
+      "must_contain": ["NPCs/captain_lysandra_ironveil"],
+      "rationale": "Caelynn approaches the makeshift shelter — already routes to Lysandra."
+    },
+    {
+      "unit_id": "u-L0019-05",
+      "must_contain": ["NPCs/captain_lysandra_ironveil"],
+      "rationale": "She finds Lysandra drawing in the dirt — direct subject reference."
+    },
+    {
+      "unit_id": "u-L0019-06",
+      "must_contain": ["NPCs/captain_lysandra_ironveil", "Voices Tower"],
+      "rationale": "Tower-where-the-voices-come-from line — already double-routed."
+    },
+    {
+      "unit_id": "u-L0019-07",
+      "must_contain": ["NPCs/captain_lysandra_ironveil"],
+      "rationale": "Shimmery eyes observation — Lysandra subject."
+    },
+    {
+      "unit_id": "u-L0019-11",
+      "must_contain": ["NPCs/captain_lysandra_ironveil"],
+      "rationale": "Lysandra comes out of the spell — direct subject."
+    },
+    {
+      "unit_id": "u-L0021-07",
+      "must_contain": ["NPCs/captain_lysandra_ironveil"],
+      "rationale": "Caelynn calls Sara about the good news about Lysandra."
+    }
+  ],
+  "negative_units": [
+    {
+      "unit_id": "u-L0019-02",
+      "must_not_contain": ["captain_lysandra_ironveil"],
+      "rationale": "Group sets off from the town; Ephanna/Thrin scene — Lysandra is not the subject."
+    },
+    {
+      "unit_id": "u-L0019-03",
+      "must_not_contain": ["captain_lysandra_ironveil"],
+      "rationale": "Wagon and horses observation; Lysandra is named only by anaphora downstream."
+    },
+    {
+      "unit_id": "u-L0007-01",
+      "must_not_contain": ["captain_lysandra_ironveil"],
+      "rationale": "Bonogo guided by Stuart in Mossford — unrelated to Lysandra."
+    },
+    {
+      "unit_id": "u-L0007-04",
+      "must_not_contain": ["captain_lysandra_ironveil"],
+      "rationale": "Stacey scene in the warehouse — unrelated to Lysandra."
+    },
+    {
+      "unit_id": "u-L0009-02",
+      "must_not_contain": ["captain_lysandra_ironveil"],
+      "rationale": "Bonogo playing hide-and-seek — unrelated to Lysandra."
+    },
+    {
+      "unit_id": "u-L0009-04",
+      "must_not_contain": ["captain_lysandra_ironveil"],
+      "rationale": "Bonogo leaves the building — unrelated to Lysandra."
+    },
+    {
+      "unit_id": "u-L0005-01",
+      "must_not_contain": ["captain_lysandra_ironveil"],
+      "rationale": "Ephanna's Eldritch Blasts in the gnat fight — unrelated to Lysandra."
+    },
+    {
+      "unit_id": "u-L0005-04",
+      "must_not_contain": ["captain_lysandra_ironveil"],
+      "rationale": "Karsemine's Zephyr Strike — unrelated to Lysandra."
+    }
+  ]
+}
