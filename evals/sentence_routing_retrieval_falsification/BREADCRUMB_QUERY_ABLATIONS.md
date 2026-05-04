@@ -40,3 +40,29 @@ uv run python -m evals.sentence_routing_retrieval_falsification.breadcrumb_query
 Promotion requires measured improvement on **query recall** or **read-path efficiency** without **unsupported claims** in live traces — single-trial LLM passes are not sufficient (`verify-before-debug.mdc`).
 
 **Cost:** Index build/query itself is `$0`; planner cohorts still incur model cost — compare `scenario_estimated_cost_usd` per run vs baseline cohort mean (`cost-as-signal.mdc`).
+
+## Current path decision (2026-05-03)
+
+For this use case, prefer the benchmark harness over planner-discovery as the active
+development path. Planner-discovery remains a useful comparator for what the planner
+would try to read, but the lexical/event-keyword benchmark is the surface that is
+currently producing actionable retrieval evidence.
+
+The promotion question is now cross-session generalization: if a new recap is dropped
+in, does the generated breadcrumb/index artifact create new searchable records and
+retrieve facts that were not known in Session 20?
+
+## Next-session holdout checklist
+
+Run this before calling the path ready for an autonomous learning loop:
+
+1. Generate the breadcrumb/index artifact from a fresh recap using the same schema and
+   tag vocabulary.
+2. Create natural-query gold against facts introduced by that recap.
+3. Run `breadcrumb_query_run` from the generated records JSONL.
+4. Verify the report and JSONL contain no query-specific aliases, hardcoded expected
+   paths, Session 20-only handles, or records hand-seeded outside the generated index.
+5. Compare pass counts, violation families, and cost against the Session 20 baseline.
+
+If the holdout fails, fix the index generation / lexical-event extraction path first.
+Do not tune planner prompts to hide a dynamic-indexing failure.

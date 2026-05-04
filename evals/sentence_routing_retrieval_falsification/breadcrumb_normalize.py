@@ -13,7 +13,7 @@ import unicodedata
 from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterable
 
 import blake3
 
@@ -32,6 +32,10 @@ from evals.sentence_routing_retrieval_falsification.capture import (
 
 SCHEMA_RECORD_V1 = "dmb_session_memory_record_v1"
 
+# Frontmatter metadata records concatenate many route-derived tokens; dedupe + cap keeps
+# lexical_plain usable for humans and expands retrieval signal without endless repeats.
+_METADATA_LEXICAL_MAX_PARTS = 96
+
 _RE_SOURCE_RECAP = re.compile(
     r"^\s*source_recap_path:\s*[\"']?([^\"'\n]+)[\"']?\s*$", re.MULTILINE
 )
@@ -43,6 +47,12 @@ _RE_FM_ROUTE = re.compile(
 _RE_PROPOSED_ROUTE_ONLY = re.compile(
     r"^\s*proposed_route:\s*[\"']([^\"']+)[\"']\s*$", re.MULTILINE
 )
+_PRONOUN_RE = re.compile(
+    r"\b(she|her|hers|he|him|his|they|them|their|theirs|it|its)\b",
+    re.IGNORECASE,
+)
+_PRONOUN_HANDLE_ELIGIBLE_SUBJECTS = {"PC", "NPC", "Party"}
+_PRONOUN_HANDLE_MAX_TERMS = 8
 
 
 class BreadcrumbNormalizeError(Exception):
@@ -53,8 +63,10 @@ def normalize_for_alignment(text: str) -> str:
     """Whitespace + light punctuation normalization for recap vs breadcrumb equality."""
     s = unicodedata.normalize("NFKC", text)
     s = s.replace("\u201c", '"').replace("\u201d", '"').replace("\u2019", "'")
-    # Session 20 recap sometimes omits space after period before a capital word.
-    s = re.sub(r"([.])([A-Z])", r"\1 \2", s)
+    # Recaps sometimes omit space after . or ! before a capital word at a segment
+    # boundary; sentence-unit joints concatenate without whitespace, so this must
+    # match full-body normalization (blank lines collapse to a single space).
+    s = re.sub(r"([.!])([A-Z])", r"\1 \2", s)
     s = re.sub(r"\s+", " ", s).strip()
     return s
 
@@ -90,6 +102,283 @@ def extract_frontmatter_proposed_routes(frontmatter: str) -> set[str]:
     return {
         normalize_corpus_route(m.group(1)) for m in _RE_PROPOSED_ROUTE_ONLY.finditer(frontmatter)
     }
+
+
+def _yaml_list_section(frontmatter: str, section_name: str, *, indent: int = 2) -> list[dict[str, str]]:
+    """Extract a tiny YAML list-of-maps subset from a known frontmatter section.
+
+    The breadcrumb artifact intentionally keeps its machine-facing indexes in simple
+    YAML. A small parser here avoids adding a dependency while keeping query metadata
+    grounded in ingested frontmatter, not benchmark gold.
+    """
+    lines = frontmatter.splitlines()
+    header_re = re.compile(rf"^ {{{indent}}}{re.escape(section_name)}:\s*$")
+    next_peer_re = re.compile(rf"^ {{{indent}}}[A-Za-z0-9_]+:\s*")
+    item_re = re.compile(rf"^ {{{indent + 2}}}-\s+([A-Za-z0-9_]+):\s*(.+?)\s*$")
+    child_re = re.compile(rf"^ {{{indent + 4}}}([A-Za-z0-9_]+):\s*(.+?)\s*$")
+    in_section = False
+    out: list[dict[str, str]] = []
+    cur: dict[str, str] | None = None
+    for line in lines:
+        if not in_section:
+            if header_re.match(line):
+                in_section = True
+            continue
+        if next_peer_re.match(line):
+            break
+        item = item_re.match(line)
+        if item:
+            if cur:
+                out.append(cur)
+            cur = {item.group(1): _clean_yaml_scalar(item.group(2))}
+            continue
+        child = child_re.match(line)
+        if child and cur is not None:
+            cur[child.group(1)] = _clean_yaml_scalar(child.group(2))
+    if cur:
+        out.append(cur)
+    return out
+
+
+def _clean_yaml_scalar(value: str) -> str:
+    value = value.strip()
+    if (value.startswith('"') and value.endswith('"')) or (
+        value.startswith("'") and value.endswith("'")
+    ):
+        return value[1:-1]
+    return value
+
+
+def _route_terms(route: str) -> list[str]:
+    """Lexical route handles suitable for deterministic retrieval."""
+    terms: list[str] = []
+    cleaned = normalize_corpus_route(route).strip("/")
+    for part in cleaned.split("/"):
+        stem = Path(part).stem
+        for raw in re.split(r"[_\-\s]+", stem):
+            token = raw.strip().lower()
+            if len(token) >= 2:
+                terms.append(token)
+        phrase = re.sub(r"[_\-]+", " ", stem).strip().lower()
+        if phrase and phrase not in terms:
+            terms.append(phrase)
+    return terms
+
+
+def _route_leaf_terms(route: str) -> list[str]:
+    """Compact lexical handles from a route's leaf segment only."""
+    cleaned = normalize_corpus_route(route).strip("/")
+    if not cleaned:
+        return []
+    leaf = Path(cleaned.split("/")[-1]).stem
+    parts = [p.strip().lower() for p in re.split(r"[_\-\s]+", leaf) if p.strip()]
+    if not parts:
+        return []
+    terms: list[str] = []
+    for token in parts:
+        if len(token) >= 3:
+            terms.append(token)
+    phrase = " ".join(parts).strip()
+    if len(parts) >= 2 and phrase and phrase not in terms:
+        terms.append(phrase)
+    return terms
+
+
+def _dedupe_cap_lexical_parts(parts: Iterable[str], *, max_parts: int) -> list[str]:
+    """Stable dedupe by normalized lowercase key, then cap count (metadata records only)."""
+    seen: set[str] = set()
+    out: list[str] = []
+    for raw in parts:
+        piece = str(raw or "").strip()
+        if not piece:
+            continue
+        normalized_piece = normalize_for_alignment(piece)
+        key = normalized_piece.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(normalized_piece)
+        if len(out) >= max_parts:
+            break
+    return out
+
+
+def _metadata_record(
+    *,
+    meta: dict[str, Any],
+    source_path: str,
+    unit_id: str,
+    lexical_parts: list[str],
+    routes: list[RouteAttachment],
+) -> NormalizedRecord:
+    capped = _dedupe_cap_lexical_parts(lexical_parts, max_parts=_METADATA_LEXICAL_MAX_PARTS)
+    lexical_plain = normalize_for_alignment(" ".join(capped))
+    return NormalizedRecord(
+        campaign_id=meta["campaign_id"],
+        session_number=meta["session_number"],
+        source_recap_path=source_path,
+        unit_id=unit_id,
+        line_start=0,
+        line_end=0,
+        text_blake3=text_blake3_hex(lexical_plain),
+        lexical_plain=lexical_plain,
+        routes=routes,
+    )
+
+
+def build_frontmatter_metadata_records(
+    *,
+    frontmatter: str,
+    meta: dict[str, Any],
+    source_path: str,
+) -> list[NormalizedRecord]:
+    """Build session-level retrieval records from ingested frontmatter indexes.
+
+    These records give natural GM questions a grounded first-pass target such as
+    "locations" or "open loops" without using scenario gold or handwritten per-query
+    aliases. The payload is derived from the breadcrumb artifact's own entity index.
+    """
+    out: list[NormalizedRecord] = []
+
+    location_items = _yaml_list_section(frontmatter, "locations", indent=2)
+    candidate_items = [
+        item
+        for item in _yaml_list_section(frontmatter, "new_hub_candidates", indent=2)
+        if item.get("subject_type", "").strip().lower() == "location"
+    ]
+    location_routes: list[RouteAttachment] = []
+    location_terms: list[str] = ["session", "locations", "location", "places", "place", "setting", "map"]
+    seen_routes: set[str] = set()
+    for item in location_items + candidate_items:
+        raw_route = item.get("route") or item.get("proposed_route") or ""
+        if not raw_route:
+            continue
+        norm_route = normalize_corpus_route(raw_route)
+        if norm_route in seen_routes:
+            continue
+        seen_routes.add(norm_route)
+        proposed = "proposed_route" in item
+        location_routes.append(
+            RouteAttachment(
+                subject_class="Location",
+                normalized_route=norm_route,
+                proposed=proposed,
+                tag_kind="frontmatter",
+            )
+        )
+        location_terms.extend([item.get("slug", ""), item.get("rationale", "")])
+        location_terms.extend(_route_terms(norm_route))
+    if location_routes:
+        out.append(
+            _metadata_record(
+                meta=meta,
+                source_path=source_path,
+                unit_id=f"meta-session-{meta['session_number']:04d}-locations",
+                lexical_parts=location_terms,
+                routes=location_routes,
+            )
+        )
+
+    open_question_items = _yaml_list_section(frontmatter, "unresolved_open_questions", indent=0)
+    open_routes: list[RouteAttachment] = []
+    open_terms: list[str] = [
+        "session",
+        "unresolved",
+        "open",
+        "questions",
+        "loops",
+        "open loops",
+        "actionable",
+        "follow up",
+        "next session",
+    ]
+    seen_open_routes: set[str] = set()
+    for item in open_question_items:
+        raw_route = item.get("proposed_route") or item.get("route") or ""
+        if not raw_route:
+            continue
+        norm_route = normalize_corpus_route(raw_route)
+        if norm_route in seen_open_routes:
+            continue
+        seen_open_routes.add(norm_route)
+        open_routes.append(
+            RouteAttachment(
+                subject_class="NewHubCandidate",
+                normalized_route=norm_route,
+                proposed="proposed_route" in item,
+                tag_kind="frontmatter",
+            )
+        )
+        open_terms.extend([item.get("subject", ""), item.get("question", "")])
+        open_terms.extend(_route_terms(norm_route))
+    if open_routes:
+        out.append(
+            _metadata_record(
+                meta=meta,
+                source_path=source_path,
+                unit_id=f"meta-session-{meta['session_number']:04d}-open-loops",
+                lexical_parts=open_terms,
+                routes=open_routes,
+            )
+        )
+    return out
+
+
+def record_has_pronoun(text: str) -> bool:
+    return bool(_PRONOUN_RE.search(str(text or "")))
+
+
+def enrich_record_pronoun_route_handles(record: NormalizedRecord) -> NormalizedRecord:
+    """Append resolved route-name handles to pronoun-bearing records.
+
+    The inline breadcrumb remains the authority: this does not infer new routes.
+    It only makes already-attached entity routes searchable when source prose uses
+    pronouns ("She tells Caelynn...") instead of repeating the entity name.
+    """
+    if record.line_start <= 0:
+        return record
+    if not record_has_pronoun(record.lexical_plain):
+        return record
+    seen_terms: set[str] = set()
+    handle_terms: list[str] = []
+    for route in record.routes:
+        if route.subject_class not in _PRONOUN_HANDLE_ELIGIBLE_SUBJECTS:
+            continue
+        for term in _route_leaf_terms(route.normalized_route):
+            key = term.strip().lower()
+            if not key or key in seen_terms:
+                continue
+            seen_terms.add(key)
+            handle_terms.append(key)
+    if not handle_terms:
+        return record
+
+    text_lower = f" {normalize_for_alignment(record.lexical_plain).lower()} "
+    missing_terms: list[str] = []
+    for term in handle_terms:
+        if f" {term} " in text_lower:
+            continue
+        missing_terms.append(term)
+        if len(missing_terms) >= _PRONOUN_HANDLE_MAX_TERMS:
+            break
+    if not missing_terms:
+        return record
+
+    suffix = normalize_for_alignment(" ".join(missing_terms))
+    if not suffix:
+        return record
+    enriched = normalize_for_alignment(f"{record.lexical_plain} resolved pronoun handles {suffix}")
+    return NormalizedRecord(
+        campaign_id=record.campaign_id,
+        session_number=record.session_number,
+        source_recap_path=record.source_recap_path,
+        unit_id=record.unit_id,
+        line_start=record.line_start,
+        line_end=record.line_end,
+        text_blake3=record.text_blake3,
+        lexical_plain=enriched,
+        routes=list(record.routes),
+    )
 
 
 def strip_first_markdown_h1(body_plain: str) -> str:
@@ -298,6 +587,7 @@ def normalize_breadcrumb_artifact(
     artifact_text: str,
     corpus_root: Path,
     strict_frontmatter_routes: bool = True,
+    enrich_pronoun_route_handles: bool = False,
 ) -> tuple[list[NormalizedRecord], dict[str, Any]]:
     """Parse breadcrumb markdown and emit one record per SentenceUnit with merged routes."""
     frontmatter, body = parse_frontmatter_and_body(artifact_text)
@@ -387,12 +677,30 @@ def normalize_breadcrumb_artifact(
                 routes=routes,
             )
         )
+    metadata_records = build_frontmatter_metadata_records(
+        frontmatter=frontmatter,
+        meta=meta,
+        source_path=source_path,
+    )
+    records.extend(metadata_records)
+    enriched_pronoun_record_count = 0
+    if enrich_pronoun_route_handles:
+        enriched_records: list[NormalizedRecord] = []
+        for record in records:
+            enriched = enrich_record_pronoun_route_handles(record)
+            if enriched.lexical_plain != record.lexical_plain:
+                enriched_pronoun_record_count += 1
+            enriched_records.append(enriched)
+        records = enriched_records
 
     meta_out = {
         "source_recap_path": source_path,
         "campaign_id": meta["campaign_id"],
         "session_number": meta["session_number"],
         "unit_count": len(units),
+        "metadata_record_count": len(metadata_records),
+        "pronoun_route_handle_enrichment_enabled": bool(enrich_pronoun_route_handles),
+        "enriched_pronoun_record_count": enriched_pronoun_record_count,
         "records_with_routes": sum(1 for r in records if r.routes),
     }
     return records, meta_out

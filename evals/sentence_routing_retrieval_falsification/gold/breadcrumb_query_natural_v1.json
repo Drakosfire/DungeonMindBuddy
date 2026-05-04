@@ -1,14 +1,14 @@
 {
   "schema": "dmb_breadcrumb_query_natural_gold_v1",
   "campaign_id": "longmont-c2",
-  "notes": "Natural-language queries over Session 20 recap-derived breadcrumbs. Canonical prose: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md. Gates: council-room-style token coverage over harness-built hit context (plus route recall); optional LLM path grades synthesized answer against the same tokens. Promoted harness defaults (deterministic ablation + N=5 LLM cohort 2026-05-03): default_query_spec uses tokenizer_mode=restrained, expansion_allocation_mode=greedy, expand_first_pass_cap=9 (stable 5/12 with no high-signal retrieval regression).",
+  "notes": "Natural-language queries over Session 20 recap-derived breadcrumbs. Canonical prose: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md. Gold stores only the natural question plus expected gates. Query expansion is a measured runner stage, not scenario-authored gold: raw_natural uses the question alone; expanded_retrieval may add deterministic terms from the user question, a global alias dictionary, and raw first-pass hits; wide_recall is diagnostic only.",
   "default_query_spec": {
     "session_min": 20,
     "session_max": 20,
-    "max_hits": 12,
+    "max_hits": 18,
     "expand_context": true,
-    "expand_seed_hits": 5,
-    "expand_adjacent_window": 2,
+    "expand_seed_hits": 9,
+    "expand_adjacent_window": 4,
     "expand_shared_route_limit": 3,
     "expand_route_family_limit": 3,
     "expand_first_pass_cap": 9,
@@ -58,7 +58,7 @@
     {
       "id": "nat_voices_tower_officer",
       "question": "Does the recap tie voices or a tower drawing to a specific officer?",
-      "notes": "Gold: Yes \u2014 Captain Lysandra while impaired ties voices to a tower, draws a detailed top-down blueprint in dirt, claims she knows where it is; Caelynn observes cult-like shimmer eyes.",
+      "notes": "Gold: Yes — Captain Lysandra while impaired ties voices to a tower, draws a detailed top-down blueprint in dirt, claims she knows where it is; Caelynn observes cult-like shimmer eyes.",
       "expected_answer": "Yes. The recap ties the voices and tower drawing to Captain Lysandra Ironveil. Caelynn finds Lysandra drawing in the dirt; Lysandra says the voices are coming from a tower and that she knows where it is. Caelynn later examines the drawing and sees a well-made top-down blueprint of a tower. Lysandra's shimmery eyes and recovery after antidote tea frame the tower/voices clue as part of her impaired state.",
       "must_hit_tokens": [
         "voices",
@@ -197,7 +197,7 @@
     {
       "id": "q_lysandra_memory_contrast",
       "question": "What does Lysandra remember versus fail to remember after the spell breaks?",
-      "notes": "Promoted from review suite. Gold: fragments remain \u2014 forest/time oddness, going around the forest, smelling meat, voices in the dark \u2014 but she cannot explain where she is or how she got there.",
+      "notes": "Promoted from review suite. Gold: fragments remain — forest/time oddness, going around the forest, smelling meat, voices in the dark — but she cannot explain where she is or how she got there.",
       "expected_answer": "After the spell breaks, Lysandra remembers only fragments. She can report or is reported as remembering that the forest left, that something strange happened to time, that she went around the forest, that she smelled meat while trying to sleep, and that she heard voices in the dark after the group entered the forest. What she fails to remember is the coherent chain of events: she is confused about where she is and how she got there.",
       "must_hit_tokens": [
         "voices",
@@ -283,7 +283,7 @@
     {
       "id": "q_party_learned_next_prep",
       "question": "What did the party learn from the forest episode that affects next-session prep?",
-      "notes": "Promoted from review suite. Gold: the forest can be redirected by ditches/fires/ground response; Lysandra remains tied to the tower/voices clue; tainted meat creates a supply/trust issue; the camp faces a storm with magical shimmering rain.",
+      "notes": "Promoted from review suite. Gold: the forest can be redirected by ditches/fires/ground response; Lysandra remains tied to the tower/voices clue; tainted meat creates a supply/trust issue; the camp faces a storm with magical shimmering rain. The wide_recall lane may need a larger hit budget to prove reachability across distant recap lines; that is diagnostic and is not encoded as scenario gold.",
       "expected_answer": "The forest episode gives the party several prep-relevant facts. The migrating forest responds to the town's fortifications and ditch fires by pulling back and turning east, so terrain manipulation and fire changed its behavior. Lysandra's condition adds a tower/voices lead and shows she may still have dangerous missing-memory gaps after the forest episode. The party also learns that the provisions include tainted meat likely slipped in before leaving Mirathorn, creating a supply and trust problem. Finally, a storm with magical shimmering rain is approaching the camp, so shelter and animal protection matter immediately.",
       "must_hit_tokens": [
         "forest",

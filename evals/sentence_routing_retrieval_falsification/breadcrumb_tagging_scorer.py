@@ -83,6 +83,11 @@ def _read_sentinels(path: Path) -> dict[str, Any]:
     return data
 
 
+def read_tagging_sentinels(path: Path) -> dict[str, Any]:
+    """Load a sentinel JSON file (schema ``dmb_breadcrumb_tagging_sentinels_v1``)."""
+    return _read_sentinels(path)
+
+
 def _records_by_unit(records: list[NormalizedRecord]) -> dict[str, NormalizedRecord]:
     return {r.unit_id: r for r in records}
 
@@ -139,24 +144,23 @@ def _eval_negative(
     }
 
 
-def score_artifact(
+def score_normalized_records(
     *,
-    artifact_path: Path,
+    records: list[NormalizedRecord],
     corpus_root: Path,
+    artifact_path: str,
+    meta: dict[str, Any],
+    normalize_error: str | None,
     sentinels: dict[str, Any] | None,
     baseline_artifact_path: Path | None,
+    breadcrumb_full_text: str | None,
 ) -> dict[str, Any]:
-    text = artifact_path.read_text(encoding="utf-8")
-    try:
-        records, meta = normalize_breadcrumb_artifact(
-            artifact_text=text, corpus_root=corpus_root
-        )
-        normalize_error: str | None = None
-    except BreadcrumbNormalizeError as exc:
-        records = []
-        meta = {}
-        normalize_error = str(exc)
+    """Score already-normalized records (for ingestion pipelines that mutate records in memory).
 
+    When ``breadcrumb_full_text`` is omitted, sentinel checks still run, but
+    ``baseline_comparison`` is omitted even if ``baseline_artifact_path`` is set
+    (baseline requires parsing inline tags from the breadcrumb markdown body).
+    """
     by_unit = _records_by_unit(records)
     total_route_attachments = sum(len(r.routes) for r in records)
     units_with_routes = sum(1 for r in records if r.routes)
@@ -212,12 +216,16 @@ def score_artifact(
     )
 
     baseline_block: dict[str, Any] | None = None
-    if baseline_artifact_path is not None and baseline_artifact_path.is_file():
+    if (
+        baseline_artifact_path is not None
+        and baseline_artifact_path.is_file()
+        and breadcrumb_full_text
+    ):
         _baseline_fm, baseline_body = parse_frontmatter_and_body(
             baseline_artifact_path.read_text(encoding="utf-8")
         )
         baseline_tags = parse_inline_tags(baseline_body)
-        _fm, body = parse_frontmatter_and_body(text)
+        _fm, body = parse_frontmatter_and_body(breadcrumb_full_text)
         artifact_tags = parse_inline_tags(body)
         baseline_block = {
             "baseline_path": str(baseline_artifact_path),
@@ -226,7 +234,7 @@ def score_artifact(
 
     return {
         "schema": SCHEMA_OUT,
-        "artifact_path": str(artifact_path),
+        "artifact_path": artifact_path,
         "corpus_root": str(corpus_root),
         "normalize": {
             "ok": normalize_error is None,
@@ -245,6 +253,36 @@ def score_artifact(
         },
         "baseline_comparison": baseline_block,
     }
+
+
+def score_artifact(
+    *,
+    artifact_path: Path,
+    corpus_root: Path,
+    sentinels: dict[str, Any] | None,
+    baseline_artifact_path: Path | None,
+) -> dict[str, Any]:
+    text = artifact_path.read_text(encoding="utf-8")
+    try:
+        records, meta = normalize_breadcrumb_artifact(
+            artifact_text=text, corpus_root=corpus_root
+        )
+        normalize_error: str | None = None
+    except BreadcrumbNormalizeError as exc:
+        records = []
+        meta = {}
+        normalize_error = str(exc)
+
+    return score_normalized_records(
+        records=records,
+        corpus_root=corpus_root,
+        artifact_path=str(artifact_path),
+        meta=meta,
+        normalize_error=normalize_error,
+        sentinels=sentinels,
+        baseline_artifact_path=baseline_artifact_path,
+        breadcrumb_full_text=text,
+    )
 
 
 def score_cohort(

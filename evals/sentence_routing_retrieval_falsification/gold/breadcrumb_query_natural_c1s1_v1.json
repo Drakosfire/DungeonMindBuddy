@@ -1,0 +1,316 @@
+{
+  "schema": "dmb_breadcrumb_query_natural_gold_v1",
+  "campaign_id": "longmont-c1",
+  "notes": "Natural-language queries over Campaign 1 Session 1 breadcrumb artifact (manual_labels/Session 1 - Recap 3-27-24.breadcrumbed.md).",
+  "default_query_spec": {
+    "session_min": 1,
+    "session_max": 1,
+    "max_hits": 18,
+    "expand_context": true,
+    "expand_seed_hits": 9,
+    "expand_adjacent_window": 4,
+    "expand_shared_route_limit": 3,
+    "expand_route_family_limit": 3,
+    "expand_first_pass_cap": 9,
+    "tokenizer_mode": "restrained",
+    "expansion_allocation_mode": "greedy"
+  },
+  "scenarios": [
+    {
+      "id": "c1s1_party_roster_origin",
+      "question": "Who was in the merchant-guard party when the group reached Stonebridge?",
+      "notes": "C1S1 natural benchmark lane; corpus Session 1 recap.",
+      "expected_answer": "The merchant-guard party was Karsemine, Stafl, Caelynn, Ephanna, Bonogo, and Baergrom; they had been traveling together and reached the town of Stonebridge.",
+      "must_hit_tokens": [
+        "merchant",
+        "Stonebridge",
+        "Karsemine",
+        "Stafl",
+        "Caelynn",
+        "Ephanna",
+        "Bonogo",
+        "Baergrom"
+      ],
+      "stale_tokens": [],
+      "expect_route_substrings": [
+        "Campaign 1/Parties/party_merchant_guards",
+        "Campaign 1/PCs/karsemine",
+        "Campaign 1/PCs/baergrom"
+      ],
+      "min_context_support_ratio": 0.55,
+      "benchmark_lane": "lexical_recall"
+    },
+    {
+      "id": "c1s1_party_classes_species",
+      "question": "What species or classes are attached to each starting party member in the first recap?",
+      "notes": "C1S1 natural benchmark lane; corpus Session 1 recap.",
+      "expected_answer": "Karsemine is the Tiefling Ranger, Stafl is the Human Bard, Caelynn is the Half Elf Sorcerer, Ephanna is the Kenku Warlock, Bonogo is the Bugbear Rogue, and Baergrom is the Dwarf Fighter.",
+      "must_hit_tokens": [
+        "Tiefling",
+        "Ranger",
+        "Bard",
+        "Sorcerer",
+        "Kenku",
+        "Warlock",
+        "Bugbear",
+        "Rogue",
+        "Dwarf",
+        "Fighter"
+      ],
+      "stale_tokens": [],
+      "expect_route_substrings": [
+        "Campaign 1/PCs/karsemine",
+        "Campaign 1/PCs/stafl"
+      ],
+      "min_context_support_ratio": 0.55,
+      "benchmark_lane": "lexical_recall"
+    },
+    {
+      "id": "c1s1_stonebridge_known_for",
+      "question": "What is Stonebridge known for at the start of the campaign?",
+      "notes": "C1S1 natural benchmark lane; corpus Session 1 recap.",
+      "expected_answer": "Stonebridge is known mostly for the Stonebridge over the river, the River's Edge Pub run by Grishna, a job board, and Glowkindle's posted request for mercenaries to help clean up rats.",
+      "must_hit_tokens": [
+        "Stonebridge",
+        "river",
+        "Grishna",
+        "Glowkindle",
+        "rats",
+        "job"
+      ],
+      "stale_tokens": [],
+      "expect_route_substrings": [
+        "Campaign 1/Locations/stonebridge",
+        "Campaign 1/NPCs/grishna",
+        "Campaign 1/NPCs/glowkindle"
+      ],
+      "min_context_support_ratio": 0.55,
+      "benchmark_lane": "lexical_recall"
+    },
+    {
+      "id": "c1s1_glowkindle_job_source",
+      "question": "Who posted the first job hook, and what did they need help with?",
+      "notes": "C1S1 natural benchmark lane; corpus Session 1 recap.",
+      "expected_answer": "Glowkindle posted the help request and spread word that he needed mercenaries. The job was to clear out giant rats that had attacked his excavation crew after they broke through a wall while expanding the fermentation cellar.",
+      "must_hit_tokens": [
+        "Glowkindle",
+        "mercenaries",
+        "rats",
+        "fermentation"
+      ],
+      "stale_tokens": [],
+      "expect_route_substrings": [
+        "Campaign 1/NPCs/glowkindle",
+        "Campaign 1/Locations/wizards_tower_brewing_company"
+      ],
+      "min_context_support_ratio": 0.55,
+      "benchmark_lane": "lexical_recall"
+    },
+    {
+      "id": "c1s1_grishna_directions",
+      "question": "What did Grishna tell the party about finding the brewery?",
+      "notes": "C1S1 natural benchmark lane; corpus Session 1 recap.",
+      "expected_answer": "Grishna told them the Wizard's Tower Brewing Co was upriver, west at the big rock, and then to walk until they saw it.",
+      "must_hit_tokens": [
+        "Grishna",
+        "brewing",
+        "rock",
+        "west"
+      ],
+      "stale_tokens": [],
+      "expect_route_substrings": [
+        "Campaign 1/NPCs/grishna",
+        "Campaign 1/Locations/rivers_edge_pub",
+        "Campaign 1/Locations/wizards_tower_brewing_company"
+      ],
+      "min_context_support_ratio": 0.55,
+      "benchmark_lane": "lexical_recall"
+    },
+    {
+      "id": "c1s1_bonogo_firkin",
+      "question": "What did Bonogo buy before the hike to the brewery?",
+      "notes": "C1S1 natural benchmark lane; corpus Session 1 recap.",
+      "expected_answer": "Bonogo bought a firkin of ale for two gold because he was enjoying the beer and did not care much about the cost.",
+      "must_hit_tokens": [
+        "Bonogo",
+        "firkin",
+        "ale",
+        "gold"
+      ],
+      "stale_tokens": [],
+      "expect_route_substrings": [
+        "Campaign 1/PCs/bonogo",
+        "Campaign 1/Locations/rivers_edge_pub"
+      ],
+      "min_context_support_ratio": 0.55,
+      "benchmark_lane": "lexical_recall"
+    },
+    {
+      "id": "c1s1_route_to_brewery",
+      "question": "How did the group get from Stonebridge toward the Wizard's Tower Brewing Company?",
+      "notes": "C1S1 natural benchmark lane; corpus Session 1 recap.",
+      "expected_answer": "They followed Grishna's directions upriver and west to the big rock, found it was an enormous boulder shaped like the foot of a huge statue, and then walked along the trail to the Wizard's Tower Brewing Company.",
+      "must_hit_tokens": [
+        "trail",
+        "boulder",
+        "brewing"
+      ],
+      "stale_tokens": [],
+      "expect_route_substrings": [
+        "Campaign 1/Parties/party_merchant_guards",
+        "Campaign 1/Locations/stonebridge",
+        "Campaign 1/Locations/wizards_tower_brewing_company"
+      ],
+      "min_context_support_ratio": 0.55,
+      "benchmark_lane": "lexical_recall"
+    },
+    {
+      "id": "c1s1_stone_foot_landmark",
+      "question": "What was the big rock landmark on the way to the brewery?",
+      "notes": "C1S1 natural benchmark lane; corpus Session 1 recap.",
+      "expected_answer": "The big rock was an enormous boulder that looked like the foot of a once-enormous statue.",
+      "must_hit_tokens": [
+        "boulder",
+        "foot",
+        "statue"
+      ],
+      "stale_tokens": [],
+      "expect_route_substrings": [
+        "Campaign 1/Locations/wizards_tower_brewing_company",
+        "Campaign 1/Parties/party_merchant_guards"
+      ],
+      "min_context_support_ratio": 0.55,
+      "benchmark_lane": "lexical_recall"
+    },
+    {
+      "id": "c1s1_brewery_arrival",
+      "question": "What was the Wizard's Tower Brewing Company like when the group arrived?",
+      "notes": "C1S1 natural benchmark lane; corpus Session 1 recap.",
+      "expected_answer": "The Wizard's Tower Brewing Company was bustling and smelled of brewing. Its tap room was lit by magical crystals and was empty except for gnomes busily brewing.",
+      "must_hit_tokens": [
+        "bustling",
+        "crystals",
+        "gnomes",
+        "brewing"
+      ],
+      "stale_tokens": [],
+      "expect_route_substrings": [
+        "Campaign 1/Locations/wizards_tower_brewing_company",
+        "Campaign 1/NPCs/glowkindle"
+      ],
+      "min_context_support_ratio": 0.55,
+      "benchmark_lane": "lexical_recall"
+    },
+    {
+      "id": "c1s1_glowkindle_offer",
+      "question": "What did Glowkindle offer the team for clearing the rats?",
+      "notes": "C1S1 natural benchmark lane; corpus Session 1 recap.",
+      "expected_answer": "Glowkindle offered 25 gold pieces each if the team cleared out the rats.",
+      "must_hit_tokens": [
+        "Glowkindle",
+        "25",
+        "gold",
+        "rats"
+      ],
+      "stale_tokens": [],
+      "expect_route_substrings": [
+        "Campaign 1/NPCs/glowkindle",
+        "Campaign 1/Parties/party_merchant_guards"
+      ],
+      "min_context_support_ratio": 0.55,
+      "benchmark_lane": "lexical_recall"
+    },
+    {
+      "id": "c1s1_rat_incident_origin",
+      "question": "What caused the giant-rat problem at the brewery?",
+      "notes": "C1S1 natural benchmark lane; corpus Session 1 recap.",
+      "expected_answer": "The giant rats assaulted the excavation crew after they broke through a wall while expanding the fermentation cellar.",
+      "must_hit_tokens": [
+        "rats",
+        "cellar",
+        "wall",
+        "excavation"
+      ],
+      "stale_tokens": [],
+      "expect_route_substrings": [
+        "Campaign 1/NPCs/glowkindle",
+        "Campaign 1/Locations/wizards_tower_brewing_company"
+      ],
+      "min_context_support_ratio": 0.55,
+      "benchmark_lane": "lexical_recall"
+    },
+    {
+      "id": "c1s1_first_combat_cost",
+      "question": "How rough was the party's first combat with the rats?",
+      "notes": "C1S1 natural benchmark lane; corpus Session 1 recap.",
+      "expected_answer": "It was much harder than expected. Multiple people went down, a mysterious cat owl was tossed into the room to help, and many health potions were consumed.",
+      "must_hit_tokens": [
+        "harder",
+        "potions",
+        "cat owl",
+        "blood"
+      ],
+      "stale_tokens": [],
+      "expect_route_substrings": [
+        "Campaign 1/Parties/party_merchant_guards",
+        "Campaign 1/PCs/karsemine"
+      ],
+      "min_context_support_ratio": 0.55,
+      "benchmark_lane": "lexical_recall"
+    },
+    {
+      "id": "c1s1_post_combat_exploration",
+      "question": "What did the team find after they were free to explore?",
+      "notes": "C1S1 natural benchmark lane; corpus Session 1 recap.",
+      "expected_answer": "They found a beautifully tiled hallway, a trapped mosaic on the ground, and a room full of broken alchemical tools.",
+      "must_hit_tokens": [
+        "hallway",
+        "mosaic",
+        "alchemical"
+      ],
+      "stale_tokens": [],
+      "expect_route_substrings": [
+        "Campaign 1/Parties/party_merchant_guards",
+        "Campaign 1/Locations/wizards_tower_brewing_company"
+      ],
+      "min_context_support_ratio": 0.55,
+      "benchmark_lane": "lexical_recall"
+    },
+    {
+      "id": "c1s1_karsemine_spider_reveal",
+      "question": "What did Karsemine discover while searching the room?",
+      "notes": "C1S1 natural benchmark lane; corpus Session 1 recap.",
+      "expected_answer": "Karsemine searched the room, looked up, and made eye contact with a flaming magma-infused spider monstrosity in the shattered mage's tower context.",
+      "must_hit_tokens": [
+        "Karsemine",
+        "spider",
+        "magma"
+      ],
+      "stale_tokens": [],
+      "expect_route_substrings": [
+        "Campaign 1/PCs/karsemine",
+        "Campaign 1/Locations/shatter_mages_tower"
+      ],
+      "min_context_support_ratio": 0.55,
+      "benchmark_lane": "lexical_recall"
+    },
+    {
+      "id": "c1s1_final_threat",
+      "question": "What threat ends the Session 1 recap?",
+      "notes": "C1S1 natural benchmark lane; corpus Session 1 recap.",
+      "expected_answer": "The recap ends on the reveal of a flaming, magma-infused spider monstrosity.",
+      "must_hit_tokens": [
+        "spider",
+        "magma",
+        "monstrosity"
+      ],
+      "stale_tokens": [],
+      "expect_route_substrings": [
+        "Campaign 1/Locations/shatter_mages_tower",
+        "Campaign 1/PCs/karsemine"
+      ],
+      "min_context_support_ratio": 0.55,
+      "benchmark_lane": "lexical_recall"
+    }
+  ]
+}

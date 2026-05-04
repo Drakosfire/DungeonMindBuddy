@@ -1,0 +1,109 @@
+{
+  "schema": "dmb_breadcrumb_query_planner_discovery_gold_v1",
+  "notes": "Path-substring rubric for corpus tools only (read_corpus_file / load_context_markdown). Each needle must appear as a substring of at least one normalized planner read path. This is independent of breadcrumb JSONL expect_route_substrings, which grade retrieval hits on inline hub routes. Canonical Session 20 prose: Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md.",
+  "scenarios": [
+    {
+      "id": "nat_captain_after_forest",
+      "notes": "Answer lives in Session 20 recap plus Lysandra and Sara hubs for relay context.",
+      "expected_open_paths": [
+        "Session Recaps/Session 20 - Recap.md",
+        "NPCs/captain_lysandra_ironveil",
+        "NPCs/sara_mirathorn_operator"
+      ]
+    },
+    {
+      "id": "nat_mirathorn_threads",
+      "notes": "Mirathorn supply + Stormspire/Tealeaf thread is table-facing in Session 20 recap; Sara hub anchors Mirathorn operator thread.",
+      "expected_open_paths": [
+        "Session Recaps/Session 20 - Recap.md",
+        "NPCs/sara_mirathorn_operator",
+        "Stormspire Academy"
+      ]
+    },
+    {
+      "id": "nat_voices_tower_officer",
+      "notes": "Tower/voices/officer tie is stated in Session 20 recap; Lysandra hub backs officer identity.",
+      "expected_open_paths": [
+        "Session Recaps/Session 20 - Recap.md",
+        "NPCs/captain_lysandra_ironveil"
+      ]
+    },
+    {
+      "id": "q_lysandra_change_unresolved",
+      "notes": "Unresolved threads span recap prose; Tealeaf/Stormspire is explicit in gold.",
+      "expected_open_paths": [
+        "Session Recaps/Session 20 - Recap.md",
+        "NPCs/captain_lysandra_ironveil",
+        "Stormspire Academy"
+      ]
+    },
+    {
+      "id": "q_lysandra_regroups",
+      "notes": "Regroup beat is Session 20 recap; Lysandra hub optional but standard README-first.",
+      "expected_open_paths": [
+        "Session Recaps/Session 20 - Recap.md",
+        "NPCs/captain_lysandra_ironveil"
+      ]
+    },
+    {
+      "id": "q_relevant_locations",
+      "notes": "Location collage is primarily in Session 20 recap; Mossford hub supports nearby-place grounding if opening a location README.",
+      "expected_open_paths": [
+        "Session Recaps/Session 20 - Recap.md",
+        "Mossford"
+      ]
+    },
+    {
+      "id": "q_communication_chain",
+      "notes": "Chain is recap-linear; hubs for Sara, Lysandra, and Stormspire thread.",
+      "expected_open_paths": [
+        "Session Recaps/Session 20 - Recap.md",
+        "NPCs/sara_mirathorn_operator",
+        "NPCs/captain_lysandra_ironveil",
+        "Stormspire Academy"
+      ]
+    },
+    {
+      "id": "q_lysandra_memory_contrast",
+      "notes": "Memory contrast is recap-grounded; avoid relying on statblock alone.",
+      "expected_open_paths": [
+        "Session Recaps/Session 20 - Recap.md",
+        "NPCs/captain_lysandra_ironveil"
+      ]
+    },
+    {
+      "id": "q_mirathorn_vs_mossford",
+      "notes": "Dual relevance is answered from Session 20 recap plus both place hubs when navigating deliberately.",
+      "expected_open_paths": [
+        "Session Recaps/Session 20 - Recap.md",
+        "Mirathorn/README.md",
+        "Mossford/README.md"
+      ]
+    },
+    {
+      "id": "q_tower_knowns",
+      "notes": "Tower clues are in recap; Voices Tower hub may exist but recap is mandatory.",
+      "expected_open_paths": [
+        "Session Recaps/Session 20 - Recap.md",
+        "Voices Tower"
+      ]
+    },
+    {
+      "id": "q_party_learned_next_prep",
+      "notes": "Prep threads are spread; Session 20 recap is primary; Lysandra thread + forest episode context.",
+      "expected_open_paths": [
+        "Session Recaps/Session 20 - Recap.md",
+        "NPCs/captain_lysandra_ironveil",
+        "Migrating Forest"
+      ]
+    },
+    {
+      "id": "q_open_loops_next_session",
+      "notes": "Open loops enumerated in Session 20 recap; Stormspire thread is one actionable branch.",
+      "expected_open_paths": [
+        "Session Recaps/Session 20 - Recap.md",
+        "Stormspire Academy"
+      ]
+    }
+  ]
+}

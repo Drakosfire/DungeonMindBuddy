@@ -1,0 +1,9 @@
+{
+  "schema": "dmb_breadcrumb_tagging_sentinels_v1",
+  "campaign_id": "longmont-c1",
+  "session_number": 1,
+  "notes": "No unit-level sentinels yet for C1S1; lists are empty so variant cohort runs normalize and cost without Session-20-specific gates. Add positive/negative/protected rows after unit_ids are pinned from a stable breadcrumb artifact.",
+  "positive_units": [],
+  "negative_units": [],
+  "protected_units": []
+}

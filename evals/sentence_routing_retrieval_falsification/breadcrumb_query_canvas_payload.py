@@ -37,6 +37,13 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from evals.sentence_routing_retrieval_falsification.breadcrumb_query_grader import (
+    aggregate_context_evidence_metrics,
+    compute_context_evidence_metrics,
+    enrich_natural_report_with_context_evidence_metrics,
+    merge_natural_scenario_from_gold,
+)
+
 PAYLOAD_SCHEMA = "breadcrumb_query_canvas_payload_v1"
 CANVAS_BLOCK_BEGIN = "// BEGIN GENERATED BREADCRUMB_QUERY_CANVAS_DATA"
 CANVAS_BLOCK_END = "// END GENERATED BREADCRUMB_QUERY_CANVAS_DATA"
@@ -69,16 +76,16 @@ ARCHITECTURE_ROWS_DEFAULT: list[list[str]] = [
     [
         "1",
         "Gold scenario",
-        "Natural question, expected_answer, required tokens, expected routes, optional expected unit ids, and negation guards.",
+        "Natural question, expected_answer, required tokens, expected routes, optional expected unit ids, and negation guards. Gold does not carry scenario-authored query aliases.",
     ],
     [
         "2",
         "Candidate retrieval",
         (
             "Normalize Session 20 breadcrumbs into source-anchored records; lexical + route-token first pass; "
-            "optional second-pass expansion (adjacency on same recap slice, shared exact routes from seeds, "
-            "route prefix/sibling families in-session) filling remaining slots up to max_hits; gold records "
-            "expand_context + expand_first_pass_cap in default_query_spec."
+            "production-valid query expansion from question/global aliases/raw first-pass hits; optional second-pass "
+            "retrieval expansion (adjacency on same recap slice, shared exact routes from seeds, route prefix/sibling "
+            "families in-session) filling remaining slots up to max_hits."
         ),
     ],
     [
@@ -264,6 +271,32 @@ def _format_routes(routes: list[dict[str, Any]] | None) -> str:
     return "; ".join(parts)
 
 
+def _meta_session_hit_preview(hit: dict[str, Any]) -> str | None:
+    """Readable one-liner for synthetic frontmatter metadata hits (not recap prose)."""
+    uid = str(hit.get("unit_id") or "").strip()
+    if not uid.startswith("meta-session-"):
+        return None
+    segments = uid.split("-")
+    kind_key = "-".join(segments[3:]) if len(segments) > 3 else ""
+    labels = {
+        "locations": "Session location index (frontmatter)",
+        "open-loops": "Session open-loop index (frontmatter)",
+    }
+    title = labels.get(kind_key, "Session metadata (frontmatter)")
+    routes_line = _format_routes(hit.get("routes") or [])
+    if routes_line:
+        return f"{title}. Routes: {routes_line}"
+    return f"{title}. Structured routes attach to this hit."
+
+
+def _hit_preview_text(hit: dict[str, Any], records_text: dict[str, str]) -> str:
+    meta_preview = _meta_session_hit_preview(hit)
+    if meta_preview is not None:
+        return meta_preview
+    uid = str(hit.get("unit_id") or "").strip()
+    return records_text.get(uid, "")
+
+
 def _hits_unit_ids(hits: list[dict[str, Any]] | None) -> list[str]:
     return [str(h.get("unit_id") or "") for h in (hits or [])]
 
@@ -306,6 +339,87 @@ def _embedding_label(row: dict[str, Any]) -> str:
         return f"{float(cos):.4f}"
     except (TypeError, ValueError):
         return "n/a"
+
+
+def _derive_context_evidence_aggregate(report: dict[str, Any], gold: dict[str, Any]) -> dict[str, Any]:
+    """Prefer ``report['context_evidence_aggregate']``; otherwise recompute from hits + gold."""
+    raw = report.get("context_evidence_aggregate")
+    if isinstance(raw, dict):
+        return raw
+    scenarios_by_id = {str(s.get("id") or ""): s for s in (gold.get("scenarios") or [])}
+    patched: list[dict[str, Any]] = []
+    for row in report.get("results") or []:
+        sid = str(row.get("scenario_id") or "")
+        scen = scenarios_by_id.get(sid)
+        r = dict(row)
+        if scen is not None and not isinstance(r.get("context_evidence_metrics"), dict):
+            merged = merge_natural_scenario_from_gold(scen, gold)
+            hits = list((r.get("full_result") or {}).get("hits") or [])
+            tr = (r.get("full_result") or {}).get("trace") or {}
+            r["context_evidence_metrics"] = compute_context_evidence_metrics(
+                hits=hits,
+                scenario=merged,
+                trace=tr if isinstance(tr, dict) else {},
+            )
+        patched.append(r)
+    return aggregate_context_evidence_metrics(patched)
+
+
+def _context_evidence_macro_tiles(report: dict[str, Any], gold: dict[str, Any]) -> list[dict[str, Any]]:
+    ce = _derive_context_evidence_aggregate(report, gold)
+    k = int(ce.get("context_evidence_top_k_reference") or 9)
+    tiles: list[dict[str, Any]] = []
+    uden = int(ce.get("macro_unit_expected_substrings") or 0)
+    rden = int(ce.get("macro_route_expected_substrings") or 0)
+    if uden:
+        mu = ce.get("macro_unit_recall_in_top_k")
+        val = f"{float(mu):.2f}" if isinstance(mu, (int, float)) else "n/a"
+        tone = "success" if isinstance(mu, (int, float)) and mu >= 1.0 - 1e-9 else "warning"
+        tiles.append({"label": f"Macro unit recall (top {k})", "value": val, "tone": tone})
+    if rden:
+        mr = ce.get("macro_route_recall_in_top_k")
+        val = f"{float(mr):.2f}" if isinstance(mr, (int, float)) else "n/a"
+        tone = "success" if isinstance(mr, (int, float)) and mr >= 1.0 - 1e-9 else "warning"
+        tiles.append({"label": f"Macro route recall (top {k})", "value": val, "tone": tone})
+    return tiles
+
+
+def _top_k_units_cell(m: Any) -> str:
+    if not isinstance(m, dict):
+        return "n/a"
+    n = int(m.get("expected_unit_substring_count") or 0)
+    if not n:
+        return "—"
+    matched = int(m.get("unit_substrings_matched_in_top_k") or 0)
+    k = int(m.get("context_evidence_top_k") or 9)
+    return f"{matched}/{n}@{k}"
+
+
+def _top_k_routes_cell(m: Any) -> str:
+    if not isinstance(m, dict):
+        return "n/a"
+    n = int(m.get("expected_route_substring_count") or 0)
+    if not n:
+        return "—"
+    matched = int(m.get("route_substrings_matched_in_top_k") or 0)
+    k = int(m.get("context_evidence_top_k") or 9)
+    return f"{matched}/{n}@{k}"
+
+
+def _row_context_evidence_metrics(row: dict[str, Any], scenario: dict[str, Any], gold: dict[str, Any]) -> dict[str, Any]:
+    raw = row.get("context_evidence_metrics")
+    if isinstance(raw, dict):
+        return raw
+    if not scenario.get("question"):
+        return {}
+    merged = merge_natural_scenario_from_gold(scenario, gold)
+    hits = list((row.get("full_result") or {}).get("hits") or [])
+    tr = (row.get("full_result") or {}).get("trace") or {}
+    return compute_context_evidence_metrics(
+        hits=hits,
+        scenario=merged,
+        trace=tr if isinstance(tr, dict) else {},
+    )
 
 
 def _row_by_id(report: dict[str, Any] | None) -> dict[str, dict[str, Any]]:
@@ -362,7 +476,7 @@ def _build_retrieved_hits(
                 "rank": str(idx),
                 "unit": unit,
                 "score": "" if score is None else str(score),
-                "text": records_text.get(unit, ""),
+                "text": _hit_preview_text(h, records_text),
                 "routes": _format_routes(h.get("routes") or []),
             }
         )
@@ -403,9 +517,11 @@ def _build_scenario_card(
     row: dict[str, Any],
     baseline_row: dict[str, Any] | None,
     records_text: dict[str, str],
+    gold: dict[str, Any],
 ) -> dict[str, Any]:
     full_result = row.get("full_result") or {}
     hits = list(full_result.get("hits") or [])
+    ctx_evidence = _row_context_evidence_metrics(row, scenario, gold)
     expected_units = [str(x) for x in (scenario.get("expect_unit_id_substrings") or [])]
     expected_routes = [str(x) for x in (scenario.get("expect_route_substrings") or [])]
 
@@ -489,6 +605,8 @@ def _build_scenario_card(
             "hitCount": str(row.get("hit_count") or len(hits)),
             "tokens": tokens_label,
             "llmCost": cost_label,
+            "topKUnitEvidence": _top_k_units_cell(ctx_evidence),
+            "topKRouteEvidence": _top_k_routes_cell(ctx_evidence),
         },
         "missingExpected": missing_expected,
         "critique": _critique(
@@ -585,17 +703,41 @@ def _summary(
         "aggregateEmbeddingCostUsd": report.get("aggregate_embedding_cost_usd"),
         "llmModel": report.get("llm_model"),
         "embeddingModel": report.get("embedding_model"),
+        "retrievalLaneSummaries": report.get("lane_summaries"),
     }
+
+    lane_summaries = report.get("lane_summaries") if isinstance(report.get("lane_summaries"), dict) else None
+    if lane_summaries:
+        raw_lane = lane_summaries.get("raw_natural") or {}
+        expanded_lane = lane_summaries.get("expanded_retrieval") or {}
+        wide_lane = lane_summaries.get("wide_recall") or {}
+        raw_label = f"{raw_lane.get('pass_count', 0)}/{raw_lane.get('total', 0)}"
+        expanded_label = f"{expanded_lane.get('pass_count', 0)}/{expanded_lane.get('total', 0)}"
+        wide_label = f"{wide_lane.get('pass_count', 0)}/{wide_lane.get('total', 0)}"
+        summary["statTiles"] = (
+            _context_evidence_macro_tiles(report, gold)
+            + [
+                {"label": "Raw natural retrieval", "value": raw_label, "tone": "success" if raw_lane.get("all_ok") else "warning"},
+                {"label": "Expanded retrieval", "value": expanded_label, "tone": "success" if expanded_lane.get("all_ok") else "warning"},
+                {"label": "Wide recall diagnostic", "value": wide_label, "tone": "success" if wide_lane.get("all_ok") else "warning"},
+                {"label": "Executable rows", "value": str(total)},
+                {"label": "LLM + embed cost", "value": cost_label},
+            ]
+        )
+        return summary
 
     pass_tone = "success" if total and pass_count == total else "warning"
     pass_label = "Hard-gate pass" + (" (expanded)" if expand_enabled else "")
-    summary["statTiles"] = [
-        {"label": pass_label, "value": summary["llmPassLabel"], "tone": pass_tone},
-        {"label": "Executable rows", "value": str(total)},
-        {"label": "Deferred policy row", "value": str(summary["deferredCount"])},
-        {"label": f"Max hits ({expansion_label})", "value": str(max_hits)},
-        {"label": "LLM + embed cost", "value": cost_label},
-    ]
+    summary["statTiles"] = (
+        _context_evidence_macro_tiles(report, gold)
+        + [
+            {"label": pass_label, "value": summary["llmPassLabel"], "tone": pass_tone},
+            {"label": "Executable rows", "value": str(total)},
+            {"label": "Deferred policy row", "value": str(summary["deferredCount"])},
+            {"label": f"Max hits ({expansion_label})", "value": str(max_hits)},
+            {"label": "LLM + embed cost", "value": cost_label},
+        ]
+    )
     return summary
 
 
@@ -632,19 +774,25 @@ def _build_suite_rows(gold: dict[str, Any]) -> list[list[str]]:
     return rows
 
 
-def _build_run_rows(report: dict[str, Any]) -> list[list[str]]:
+def _build_run_rows(report: dict[str, Any], gold: dict[str, Any]) -> list[list[str]]:
+    scenarios_by_id = {str(s.get("id") or ""): s for s in (gold.get("scenarios") or [])}
     rows: list[list[str]] = []
     for r in report.get("results") or []:
         verdict = "PASS" if r.get("ok") else "FAIL"
         violations = [str(v) for v in (r.get("violations") or [])]
+        sid = str(r.get("scenario_id") or "")
+        scen = scenarios_by_id.get(sid) or {}
+        m = _row_context_evidence_metrics(r, scen, gold)
         rows.append(
             [
-                str(r.get("scenario_id") or ""),
+                sid,
                 verdict,
                 _ratio_label(r.get("context_support_ratio")),
                 _ratio_label(r.get("llm_context_support_ratio")),
                 _embedding_label(r),
                 str((r.get("top_hit") or {}).get("unit_id") or ""),
+                _top_k_units_cell(m),
+                _top_k_routes_cell(m),
                 "; ".join(violations) if violations else "none",
             ]
         )
@@ -729,6 +877,27 @@ def _build_callouts(
         if baseline_label:
             body += f" Baseline (pre-expansion) was {baseline_label}."
         callouts.append({"tone": "neutral", "title": "Two-step retrieval expansion", "body": body})
+    lane_summaries = summary.get("retrievalLaneSummaries")
+    if isinstance(lane_summaries, dict):
+        labels: list[str] = []
+        for key, title in (
+            ("raw_natural", "raw"),
+            ("expanded_retrieval", "expanded"),
+            ("wide_recall", "wide"),
+        ):
+            lane = lane_summaries.get(key) or {}
+            labels.append(f"{title} {lane.get('pass_count', 0)}/{lane.get('total', 0)}")
+        callouts.append(
+            {
+                "tone": "neutral",
+                "title": "Retrieval lanes are split",
+                "body": (
+                    "Report separates natural query recall from production-valid expansion and "
+                    f"wide-recall diagnostics: {', '.join(labels)}. Treat wide recall as reachability, "
+                    "not ranking success."
+                ),
+            }
+        )
     callouts.append(
         {
             "tone": "warning",
@@ -805,6 +974,7 @@ def build_payload(
                 row=row,
                 baseline_row=baseline_row,
                 records_text=records_text,
+                gold=gold,
             )
         )
 
@@ -828,7 +998,7 @@ def build_payload(
         "architectureRows": ARCHITECTURE_ROWS_DEFAULT,
         "suiteRows": _build_suite_rows(gold),
         "promotionBlockers": PROMOTION_BLOCKERS_DEFAULT,
-        "runRows": _build_run_rows(report),
+        "runRows": _build_run_rows(report, gold),
         "scenarioCards": scenario_cards,
         "entityIndexRows": ENTITY_INDEX_ROWS_DEFAULT,
         "recordIndexRows": _build_record_index_rows(records_text),
@@ -930,6 +1100,14 @@ def main(argv: list[str] | None = None) -> int:
             "Prepends a multi-run summary callout; use with --report set to a member run."
         ),
     )
+    parser.add_argument(
+        "--write-context-metrics-to-report",
+        action="store_true",
+        help=(
+            "Rewrite the report JSON in place with per-row context_evidence_metrics and "
+            "context_evidence_aggregate (deterministic backfill from full_result.hits + gold)."
+        ),
+    )
     args = parser.parse_args(argv)
 
     report = _load_json(args.report)
@@ -940,6 +1118,11 @@ def main(argv: list[str] | None = None) -> int:
     gold = _load_json(gold_path)
     if not isinstance(gold, dict):
         raise SystemExit(f"could not load gold at {gold_path}")
+
+    if args.write_context_metrics_to_report:
+        enriched = enrich_natural_report_with_context_evidence_metrics(report, gold)
+        args.report.write_text(json.dumps(enriched, indent=2), encoding="utf-8")
+        report = enriched
 
     baseline = _load_json(args.baseline_report) if args.baseline_report else None
     deterministic = _load_json(args.deterministic_report) if args.deterministic_report else None

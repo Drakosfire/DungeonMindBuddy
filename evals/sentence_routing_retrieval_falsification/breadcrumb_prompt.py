@@ -23,8 +23,13 @@ from dataclasses import dataclass
 
 PROMPT_VARIANT_CONTROL = "control_v1"
 PROMPT_VARIANT_CONTINUATION = "under_tagged_continuation_v1"
+PROMPT_VARIANT_PRONOUN_RESOLUTION = "pronoun_resolution_v1"
 
-ALLOWED_VARIANTS = {PROMPT_VARIANT_CONTROL, PROMPT_VARIANT_CONTINUATION}
+ALLOWED_VARIANTS = {
+    PROMPT_VARIANT_CONTROL,
+    PROMPT_VARIANT_CONTINUATION,
+    PROMPT_VARIANT_PRONOUN_RESOLUTION,
+}
 
 
 _SHARED_RULES = """\
@@ -114,6 +119,68 @@ This rule MUST NOT spread named-subject tags onto unrelated sentences. If
 the next paragraph starts a new scene with a new subject, drop the tag. If
 ``she`` plausibly refers to a different recently-named character (e.g. a
 different PC took over the action), do not carry forward.
+
+BACKWARD-ANAPHORA CHECK (extra guard for shelter/inside-style clauses):
+
+Before finalizing a paragraph, also re-read the immediately PRECEDING clause
+of each named-subject sentence you tagged. If the preceding clause contains
+scene-anchor wording that is semantically about the same subject but names only
+an observer or indirect setup (for example: "Caelynn approaches the makeshift
+shelter and hears mumbling from inside." right before "She finds Lysandra
+drawing in the dirt."), then add that subject tag to the preceding clause too.
+
+Apply this only when all are true:
+1) the preceding clause is in the same paragraph and directly adjacent in the
+   local narrative flow,
+2) the following clause clearly resolves the subject identity,
+3) there is no strong evidence that the preceding clause belongs to a different
+   subject/scene.
+
+If uncertain, leave the clause unchanged.
+"""
+
+_PRONOUN_RESOLUTION_ADDENDUM = """\
+
+PRONOUN-RESOLVED BREADCRUMBS (extra rule for this variant):
+
+After the first pass of span tagging, audit every sentence-unit that contains a
+pronoun or possessive pronoun (``she``, ``her``, ``hers``, ``he``, ``him``,
+``his``, ``they``, ``them``, ``their``, ``theirs``, ``it``, ``its``).
+
+If the local paragraph unambiguously resolves that pronoun to a named PC, NPC,
+party, Location, or NewHubCandidate already listed in the entity index, append
+that subject's breadcrumb tag to the pronoun-led span even if the entity's name
+does not appear in the sentence itself. This is a retrieval contract: a later
+agent asking about "Lysandra's memory" must be able to find a sentence such as
+"She tells Caelynn..." when the paragraph makes clear that "She" is Lysandra.
+
+Use these constraints:
+
+1. Stay local. Resolve within the same paragraph, or the immediately adjacent
+   sentence when the paragraph is one continuous dialogue/action beat.
+2. Require an unambiguous antecedent. If two plausible referents share the same
+   pronoun and the text does not disambiguate, do not add a tag.
+3. Preserve roles. If a sentence has multiple pronouns with different referents,
+   tag every durable resolved subject that participates in the beat, but do not
+   invent roles or rewrite the prose.
+4. Do not spread tags across a scene break, paragraph break, or topic switch.
+5. Do not tag every pronoun. The normal selectivity rule still applies: only add
+   breadcrumbs when the pronoun-led sentence has durable retrieval value.
+
+Positive sentinel pattern:
+
+  "Caelynn relays her request and Sara calls Lysandra. She tells Caelynn that
+  all she could hear was mumbling about the forest leaving..."
+
+  Correct: the second sentence should carry tags for Caelynn, Sara, Lysandra,
+  and the Migrating Forest when those routes are available, because the local
+  communication chain and memory report are durable retrieval evidence.
+
+Negative sentinel pattern:
+
+  "Marla approaches Caelynn... Ephanna quickly intervenes..." followed by a new
+  scene or a different actor. Do not carry Marla, Caelynn, or Ephanna into the
+  next unrelated pronoun merely because they were nearby in the paragraph.
 """
 
 
@@ -129,6 +196,8 @@ def _build_system_text(*, variant: str) -> str:
         return _SHARED_RULES
     if variant == PROMPT_VARIANT_CONTINUATION:
         return _SHARED_RULES + _CONTINUATION_ADDENDUM
+    if variant == PROMPT_VARIANT_PRONOUN_RESOLUTION:
+        return _SHARED_RULES + _CONTINUATION_ADDENDUM + _PRONOUN_RESOLUTION_ADDENDUM
     raise ValueError(f"unknown prompt variant: {variant!r}")
 
 

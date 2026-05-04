@@ -1,0 +1,24 @@
+{
+  "schema": "dmb_breadcrumb_query_rank_targets_v1",
+  "notes": "Targeted rank checks for the pronoun-resolution experiment. These do not decide semantic correctness; they measure whether pronoun-resolved ingest surfaces target units early enough for retrieval.",
+  "targets": [
+    {
+      "scenario_id": "q_lysandra_memory_contrast",
+      "unit_id": "u-L0017-04",
+      "reason": "Pronoun-led Sara/Lysandra memory report currently ranks below the first-pass seed cap without pronoun route handle enrichment.",
+      "desired_max_rank": 9
+    },
+    {
+      "scenario_id": "q_lysandra_memory_contrast",
+      "unit_id": "u-L0019-12",
+      "reason": "Spell-break confusion unit should stay retrievable for the memory-contrast question.",
+      "desired_max_rank": 18
+    },
+    {
+      "scenario_id": "q_communication_chain",
+      "unit_id": "u-L0021-09",
+      "reason": "Pronoun-led transfer to Tealeaf should surface for communication-chain queries once Sara is resolved.",
+      "desired_max_rank": 18
+    }
+  ]
+}

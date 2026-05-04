@@ -1,0 +1,84 @@
+{
+  "schema": "dmb_breadcrumb_tagging_sentinels_v1",
+  "session_number": 20,
+  "notes": "Pronoun-resolution sentinel set for Session 20 breadcrumb variants. Positive rows are pronoun/object-continuation units where local paragraph context should attach a resolved subject route. Protected rows pin already-correct pronoun routes. Negative rows guard against broad pronoun carry-over.",
+  "positive_units": [
+    {
+      "unit_id": "u-L0011-06",
+      "must_contain": [
+        "NPCs/marla_brambleback",
+        "PCs/bonogo"
+      ],
+      "rationale": "The pronoun 'she' refers to Marla in Bonogo's ongoing confrontation; baseline has no route on this unit."
+    },
+    {
+      "unit_id": "u-L0011-07",
+      "must_contain": [
+        "NPCs/marla_brambleback"
+      ],
+      "rationale": "The possessive 'her' refers to Marla in the same local confrontation; baseline has no route on this unit."
+    },
+    {
+      "unit_id": "u-L0019-10",
+      "must_contain": [
+        "NPCs/captain_lysandra_ironveil",
+        "Voices Tower"
+      ],
+      "rationale": "The 'It' is Lysandra's drawing/blueprint of the tower and should remain retrievable for both Lysandra and the tower thread."
+    },
+    {
+      "unit_id": "u-L0021-09",
+      "must_contain": [
+        "NPCs/sara_mirathorn_operator",
+        "Stormspire Academy",
+        "professor_merril_tealeaf"
+      ],
+      "rationale": "The first 'She' is Sara transferring Caelynn; the second 'she' is Tealeaf not picking up. The unit should retain both communication endpoints."
+    }
+  ],
+  "negative_units": [
+    {
+      "unit_id": "u-L0005-02",
+      "must_not_contain": [
+        "PCs/caelynn",
+        "PCs/karsemine"
+      ],
+      "rationale": "Ephanna's Misty Step unit should not inherit other nearby combatants merely because it uses 'They'."
+    },
+    {
+      "unit_id": "u-L0007-03",
+      "must_not_contain": [
+        "NPCs/stacey_brambleback",
+        "NPCs/stuart"
+      ],
+      "rationale": "The warehouse/group setup should not inherit the named children before the sentence identifies them."
+    }
+  ],
+  "protected_units": [
+    {
+      "unit_id": "u-L0017-04",
+      "must_contain": [
+        "PCs/caelynn",
+        "NPCs/sara_mirathorn_operator",
+        "NPCs/captain_lysandra_ironveil",
+        "Migrating Forest"
+      ],
+      "rationale": "Already-correct target: Sara reports Lysandra's memory fragment to Caelynn."
+    },
+    {
+      "unit_id": "u-L0019-12",
+      "must_contain": [
+        "NPCs/captain_lysandra_ironveil",
+        "Voices Tower"
+      ],
+      "rationale": "Already-correct spell-break confusion unit should keep Lysandra and tower context."
+    },
+    {
+      "unit_id": "u-L0021-02",
+      "must_contain": [
+        "PCs/karsemine"
+      ],
+      "rationale": "Already-correct Karsemine pronoun unit should remain attached to Karsemine."
+    }
+  ]
+}

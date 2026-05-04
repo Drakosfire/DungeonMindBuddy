@@ -437,6 +437,63 @@ def apply_repair_patches(
     return report
 
 
+def _usage_tokens_response(response: Any) -> dict[str, int]:
+    usage = getattr(response, "usage", None)
+    if usage is None:
+        return {"input_tokens": 0, "output_tokens": 0, "cached_tokens": 0}
+    cached = 0
+    details = getattr(usage, "input_tokens_details", None)
+    if details is not None:
+        cached = int(getattr(details, "cached_tokens", 0) or 0)
+    return {
+        "input_tokens": int(getattr(usage, "input_tokens", 0) or 0),
+        "output_tokens": int(getattr(usage, "output_tokens", 0) or 0),
+        "cached_tokens": cached,
+    }
+
+
+def adjudicate_repairs_with_llm(
+    *,
+    client: Any,
+    model: str,
+    recap_body: str,
+    candidates: list[RepairCandidate],
+) -> tuple[list[RepairPatch], float, dict[str, Any], str]:
+    """Call OpenAI ``responses.create`` with the narrow repair prompt; return patches + cost.
+
+    Does not mutate ``records`` — caller runs :func:`apply_repair_patches`.
+    """
+    import time
+
+    from src.agent.planner_pricing import usage_cost_usd
+
+    instructions, user_text = build_repair_prompt(recap_body=recap_body, candidates=candidates)
+    t0 = time.perf_counter()
+    response = client.responses.create(
+        model=model.strip(),
+        instructions=instructions,
+        input=[{"type": "message", "role": "user", "content": user_text}],
+    )
+    elapsed_ms = round((time.perf_counter() - t0) * 1000.0, 2)
+    raw_text = (getattr(response, "output_text", None) or "").strip()
+    usage = _usage_tokens_response(response)
+    cost_row = usage_cost_usd(
+        model_id=model.strip(),
+        input_tokens=usage["input_tokens"],
+        output_tokens=usage["output_tokens"],
+        cached_tokens=usage["cached_tokens"],
+    )
+    cost_usd = float(cost_row.get("total_usd") or 0.0)
+    patches = parse_repair_response(raw_text)
+    telemetry = {
+        **usage,
+        "elapsed_ms": elapsed_ms,
+        "response_id": str(getattr(response, "id", "") or ""),
+        "cost_info": cost_row,
+    }
+    return patches, cost_usd, telemetry, raw_text
+
+
 def candidates_to_jsonable(candidates: list[RepairCandidate]) -> list[dict[str, Any]]:
     return [c.to_json_dict() for c in candidates]
 

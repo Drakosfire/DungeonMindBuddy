@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-"""Run deterministic session-memory query grading (JSONL records + gold scenarios).
+"""Run session-memory query grading (JSONL records + gold scenarios).
+
+Gold schema ``dmb_breadcrumb_query_natural_gold_v1`` always runs OpenAI answer synthesis
+over retrieved hit context, then grades LLM-backed gates (requires ``OPENAI_API_KEY``).
 
 Writes a default artifact under ``artifacts/runs/<date>/`` unless ``--output`` is set.
 
@@ -12,19 +15,33 @@ Examples:
   uv run python -m evals.sentence_routing_retrieval_falsification.breadcrumb_query_run \\
     --records-jsonl /tmp/session20.jsonl \\
     --gold evals/sentence_routing_retrieval_falsification/gold/breadcrumb_query_closed_loop_v1.json
+
+  # Ingestion loop: normalize → optional repair adjudication → JSONL → query grade + sentinel score
+
+  uv run python -m evals.sentence_routing_retrieval_falsification.breadcrumb_query_run \\
+    --breadcrumb-md evals/sentence_routing_retrieval_falsification/manual_labels/Session\\ 20\\ -\\ Recap.breadcrumbed.md \\
+    --corpus-root corpus/eldyrwild-markdown \\
+    --repair-adjudicate \\
+    --tagging-sentinel-json evals/sentence_routing_retrieval_falsification/gold/breadcrumb_tagging_sentinels_session20.json \\
+    --gold evals/sentence_routing_retrieval_falsification/gold/breadcrumb_query_natural_v1.json
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import os
 from datetime import date
 from pathlib import Path
 from typing import Any
 
 from evals.sentence_routing_retrieval_falsification.breadcrumb_normalize import (
+    NormalizedRecord,
     normalize_breadcrumb_artifact,
     write_records_jsonl,
+)
+from evals.sentence_routing_retrieval_falsification.breadcrumb_smoke import (
+    parse_frontmatter_and_body,
 )
 from evals.sentence_routing_retrieval_falsification.breadcrumb_query_canvas_payload import (
     build_payload as build_canvas_payload,
@@ -32,6 +49,7 @@ from evals.sentence_routing_retrieval_falsification.breadcrumb_query_canvas_payl
     update_canvas_text as update_canvas_text_block,
 )
 from evals.sentence_routing_retrieval_falsification.breadcrumb_query_grader import (
+    aggregate_context_evidence_metrics,
     grade_natural_scenario,
     grade_scenario,
     load_gold,
@@ -45,8 +63,25 @@ from evals.sentence_routing_retrieval_falsification.breadcrumb_semantic_similari
     EMBEDDING_MODEL_DEFAULT,
     compare_expected_to_output_with_embeddings,
 )
+from evals.sentence_routing_retrieval_falsification.breadcrumb_tagging_repair import (
+    adjudicate_repairs_with_llm,
+    apply_repair_patches,
+    find_repair_candidates,
+)
+from evals.sentence_routing_retrieval_falsification.breadcrumb_tagging_scorer import (
+    read_tagging_sentinels,
+    score_normalized_records,
+)
 from src.agent.synthesis import _load_api_key
 from src.bootstrap_env import load_dungeonmindbuddy_dotenv
+
+
+def _resolve_repair_model(cli_model: str | None) -> str:
+    return (
+        (cli_model or "").strip()
+        or os.environ.get("DMB_BREADCRUMB_REPAIR_MODEL", "").strip()
+        or "gpt-5.4-mini"
+    )
 
 
 def main() -> None:
@@ -60,20 +95,15 @@ def main() -> None:
         default=Path("evals/sentence_routing_retrieval_falsification/gold/breadcrumb_query_closed_loop_v1.json"),
     )
     parser.add_argument(
-        "--llm",
-        action="store_true",
-        help="Natural gold only: synthesize answers with OpenAI over hit context, then grade llm_semantic_verdict.",
-    )
-    parser.add_argument(
         "--llm-model",
         type=str,
         default=None,
-        help="OpenAI model id (else DMB_BREADCRUMB_QUERY_LLM_MODEL or MODEL_POLICY ruleslawyer_response_synthesis).",
+        help="Natural gold only: OpenAI model id (else DMB_BREADCRUMB_QUERY_LLM_MODEL or MODEL_POLICY ruleslawyer_response_synthesis).",
     )
     parser.add_argument(
         "--semantic-similarity",
         action="store_true",
-        help="LLM path only: embed expected_answer vs LLM answer and record cosine similarity.",
+        help="Natural gold only: embed expected_answer vs synthesized answer and record cosine similarity.",
     )
     parser.add_argument(
         "--embedding-model",
@@ -103,12 +133,67 @@ def main() -> None:
         default=None,
         help="Deterministic-only report JSON paired with the canvas refresh (optional).",
     )
+    parser.add_argument(
+        "--repair-adjudicate",
+        action="store_true",
+        help=(
+            "After normalizing --breadcrumb-md, run deterministic repair candidates + "
+            "one OpenAI Responses adjudication pass, then merge allowed patches into records."
+        ),
+    )
+    parser.add_argument(
+        "--pronoun-route-handles",
+        action="store_true",
+        help=(
+            "When normalizing --breadcrumb-md, enrich pronoun-bearing records with "
+            "route-derived lexical handles from their own breadcrumbs."
+        ),
+    )
+    parser.add_argument(
+        "--repair-model",
+        type=str,
+        default=None,
+        help="Model for --repair-adjudicate (else DMB_BREADCRUMB_REPAIR_MODEL or gpt-5.4-mini).",
+    )
+    parser.add_argument(
+        "--tagging-sentinel-json",
+        type=Path,
+        default=None,
+        help=(
+            "Optional sentinel gold (schema dmb_breadcrumb_tagging_sentinels_v1). "
+            "Requires --breadcrumb-md. Adds tagging_score to the report."
+        ),
+    )
+    parser.add_argument(
+        "--tagging-baseline-md",
+        type=Path,
+        default=Path(
+            "evals/sentence_routing_retrieval_falsification/manual_labels/"
+            "Session 20 - Recap.breadcrumbed.md"
+        ),
+        help=(
+            "Baseline breadcrumb markdown for precision/recall vs tagged markup "
+            "(default: Session 20 manual baseline). Omitted after repair adds routes "
+            "(markdown body was not rewritten)."
+        ),
+    )
     args = parser.parse_args()
 
     suite_dir = Path(__file__).resolve().parent
     default_out = suite_dir / "artifacts" / "runs" / str(date.today()) / "breadcrumb_query_run_report.json"
 
+    rec_objs: list[NormalizedRecord] | None = None
+    breadcrumb_art_text: str | None = None
+    meta: dict[str, Any] = {}
+    repair_report_json: dict[str, Any] | None = None
+    repair_cost_usd = 0.0
+    corpus_root_resolved: Path | None = None
+
     if args.records_jsonl:
+        if args.repair_adjudicate:
+            raise SystemExit("--repair-adjudicate requires --breadcrumb-md")
+        if args.tagging_sentinel_json is not None:
+            raise SystemExit("--tagging-sentinel-json requires --breadcrumb-md")
         records_path = args.records_jsonl
         lines = records_path.read_text(encoding="utf-8").splitlines()
         records = [json.loads(line) for line in lines if line.strip()]
@@ -116,7 +201,75 @@ def main() -> None:
         if not args.corpus_root:
             raise SystemExit("--corpus-root is required with --breadcrumb-md")
         art = args.breadcrumb_md.read_text(encoding="utf-8")
-        rec_objs, meta = normalize_breadcrumb_artifact(artifact_text=art, corpus_root=args.corpus_root)
+        breadcrumb_art_text = art
+        corpus_root_resolved = Path(args.corpus_root).resolve()
+        rec_objs, meta = normalize_breadcrumb_artifact(
+            artifact_text=art,
+            corpus_root=corpus_root_resolved,
+            enrich_pronoun_route_handles=bool(args.pronoun_route_handles),
+        )
+
+        if args.repair_adjudicate:
+            load_dungeonmindbuddy_dotenv()
+            if not (_load_api_key() or "").strip():
+                raise SystemExit(
+                    "OPENAI_API_KEY missing after loading .env / .env.development "
+                    "(see src/bootstrap_env.py). Required for --repair-adjudicate."
+                )
+            from openai import OpenAI
+
+            candidates = find_repair_candidates(rec_objs)
+            repair_model = _resolve_repair_model(args.repair_model)
+            if not candidates:
+                repair_report_json = {
+                    "enabled": True,
+                    "skipped": "no_candidates",
+                    "candidate_count": 0,
+                    "cost_usd": 0.0,
+                    "model": repair_model,
+                }
+            else:
+                recap_path = corpus_root_resolved / rec_objs[0].source_recap_path
+                recap_full = recap_path.read_text(encoding="utf-8")
+                _rfm, recap_body = parse_frontmatter_and_body(recap_full)
+                client = OpenAI()
+                try:
+                    patches, repair_cost_usd, telemetry, raw_text = adjudicate_repairs_with_llm(
+                        client=client,
+                        model=repair_model,
+                        recap_body=recap_body,
+                        candidates=candidates,
+                    )
+                except (json.JSONDecodeError, ValueError) as exc:
+                    repair_report_json = {
+                        "enabled": True,
+                        "error": f"repair_parse_failed: {exc}",
+                        "candidate_count": len(candidates),
+                        "cost_usd": 0.0,
+                        "model": repair_model,
+                    }
+                    patches = []
+                    raw_text = ""
+                    telemetry = {}
+                else:
+                    candidate_ids = {c.unit_id for c in candidates}
+                    allowed_routes = {c.unit_id: set(c.nearby_subject_routes) for c in candidates}
+                    apply_rep = apply_repair_patches(
+                        rec_objs,
+                        patches,
+                        candidate_unit_ids=candidate_ids,
+                        allowed_routes_by_unit=allowed_routes,
+                    )
+                    repair_report_json = {
+                        "enabled": True,
+                        "model": repair_model,
+                        "candidate_count": len(candidates),
+                        "cost_usd": repair_cost_usd,
+                        "telemetry": telemetry,
+                        "raw_response_preview": raw_text[:2000],
+                        "apply_report": apply_rep.to_json_dict(),
+                    }
+
         records = [r.to_json_dict() for r in rec_objs]
         meta_path = default_out.with_name(default_out.stem + "_records_meta.json")
         if args.output:
@@ -135,22 +288,20 @@ def main() -> None:
     aggregate_llm_cost_usd = 0.0
     aggregate_embedding_cost_usd = 0.0
 
-    if args.llm and sch != "dmb_breadcrumb_query_natural_gold_v1":
-        raise SystemExit("--llm requires gold schema dmb_breadcrumb_query_natural_gold_v1")
-    if args.semantic_similarity and not args.llm:
-        raise SystemExit("--semantic-similarity requires --llm because it compares expected_answer to LLM output")
+    if args.semantic_similarity and sch != "dmb_breadcrumb_query_natural_gold_v1":
+        raise SystemExit(
+            "--semantic-similarity requires gold schema dmb_breadcrumb_query_natural_gold_v1 "
+            "(compares expected_answer to synthesized LLM output)."
+        )
 
-    if args.llm or args.semantic_similarity:
+    if sch == "dmb_breadcrumb_query_natural_gold_v1":
         load_dungeonmindbuddy_dotenv()
         if not (_load_api_key() or "").strip():
             raise SystemExit(
                 "OPENAI_API_KEY missing after loading .env / .env.development "
-                "(see src/bootstrap_env.py). Required for --llm / --semantic-similarity."
+                "(see src/bootstrap_env.py). Required for natural gold runs (LLM synthesis)."
             )
-    if args.llm:
         llm_model = (args.llm_model or "").strip() or resolve_breadcrumb_query_llm_model()
-
-    if sch == "dmb_breadcrumb_query_natural_gold_v1":
         default_campaign = str(gold.get("campaign_id") or "")
         default_spec = gold.get("default_query_spec") or {}
         for scenario in gold.get("scenarios") or []:
@@ -159,46 +310,66 @@ def main() -> None:
             merged_spec = {**default_spec, **(scen.get("query_spec") or {})}
             merged_spec["query"] = str(scen["question"])
             scen["query_spec"] = merged_spec
-            if args.llm:
-                bundle = natural_retrieval_bundle(records=records, scenario=scen)
-                _, hit_ctx = bundle
-                llm_text, llm_cost, llm_usage = synthesize_answer_from_hit_context(
-                    question=str(scen["question"]),
-                    hit_context=hit_ctx,
-                    model=llm_model,
-                )
-                aggregate_llm_cost_usd += llm_cost
-                row = grade_natural_scenario(
-                    records=records,
-                    scenario=scen,
-                    llm_answer=llm_text,
-                    cached_retrieval=bundle,
-                )
-                preview_n = int(scen.get("llm_answer_preview_chars", 1200))
-                row["llm_answer_preview"] = llm_text[:preview_n]
-                row["retrieved_context"] = hit_ctx
-                row["llm_cost_usd"] = llm_cost
-                row["llm_usage"] = llm_usage
-                row["llm_model"] = llm_model
-                if args.semantic_similarity:
-                    expected_answer = str(scen.get("expected_answer") or "").strip()
-                    if not expected_answer:
-                        row["embedding_similarity_error"] = "scenario_missing_expected_answer"
-                    else:
-                        sim = compare_expected_to_output_with_embeddings(
-                            expected_answer=expected_answer,
-                            output_answer=llm_text,
-                            model=str(args.embedding_model),
-                        )
-                        aggregate_embedding_cost_usd += float(sim.get("cost_usd") or 0.0)
-                        row["expected_answer"] = expected_answer
-                        row["embedding_similarity"] = sim
-                results.append(row)
-            else:
-                results.append(grade_natural_scenario(records=records, scenario=scen))
+            bundle = natural_retrieval_bundle(records=records, scenario=scen)
+            _, hit_ctx = bundle
+            llm_text, llm_cost, llm_usage = synthesize_answer_from_hit_context(
+                question=str(scen["question"]),
+                hit_context=hit_ctx,
+                model=llm_model,
+            )
+            aggregate_llm_cost_usd += llm_cost
+            row = grade_natural_scenario(
+                records=records,
+                scenario=scen,
+                llm_answer=llm_text,
+                cached_retrieval=bundle,
+            )
+            preview_n = int(scen.get("llm_answer_preview_chars", 1200))
+            row["llm_answer_preview"] = llm_text[:preview_n]
+            row["retrieved_context"] = hit_ctx
+            row["llm_cost_usd"] = llm_cost
+            row["llm_usage"] = llm_usage
+            row["llm_model"] = llm_model
+            if args.semantic_similarity:
+                expected_answer = str(scen.get("expected_answer") or "").strip()
+                if not expected_answer:
+                    row["embedding_similarity_error"] = "scenario_missing_expected_answer"
+                else:
+                    sim = compare_expected_to_output_with_embeddings(
+                        expected_answer=expected_answer,
+                        output_answer=llm_text,
+                        model=str(args.embedding_model),
+                    )
+                    aggregate_embedding_cost_usd += float(sim.get("cost_usd") or 0.0)
+                    row["expected_answer"] = expected_answer
+                    row["embedding_similarity"] = sim
+            results.append(row)
     else:
         for scenario in gold.get("scenarios") or []:
             results.append(grade_scenario(records=records, scenario=scenario))
+
+    tagging_score: dict[str, Any] | None = None
+    if args.tagging_sentinel_json is not None:
+        if rec_objs is None or corpus_root_resolved is None:
+            raise SystemExit("--tagging-sentinel-json requires --breadcrumb-md")
+        sentinels_data = read_tagging_sentinels(Path(args.tagging_sentinel_json).resolve())
+        baseline_file = Path(args.tagging_baseline_md).resolve()
+        baseline_for_score = baseline_file if baseline_file.is_file() else None
+        skip_baseline_body = bool(
+            repair_report_json
+            and repair_report_json.get("apply_report")
+            and int(repair_report_json["apply_report"].get("routes_added") or 0) > 0
+        )
+        tagging_score = score_normalized_records(
+            records=rec_objs,
+            corpus_root=corpus_root_resolved,
+            artifact_path=str(Path(args.breadcrumb_md).resolve()),
+            meta=meta,
+            normalize_error=None,
+            sentinels=sentinels_data,
+            baseline_artifact_path=baseline_for_score,
+            breadcrumb_full_text=None if skip_baseline_body else breadcrumb_art_text,
+        )
 
     report: dict[str, Any] = {
         "records_source": str(records_path.resolve()),
@@ -206,16 +377,27 @@ def main() -> None:
         "gold_schema": sch,
         "all_ok": all(r["ok"] for r in results),
         "results": results,
+        "context_evidence_aggregate": aggregate_context_evidence_metrics(results),
     }
-    if args.llm:
+    if repair_report_json is not None:
+        report["repair_adjudication"] = repair_report_json
+    if tagging_score is not None:
+        report["tagging_score"] = tagging_score
+    total_sidecar_cost_usd = (
+        float(repair_cost_usd) + aggregate_llm_cost_usd + aggregate_embedding_cost_usd
+    )
+    if sch == "dmb_breadcrumb_query_natural_gold_v1":
         report["llm_enabled"] = True
         report["llm_model"] = llm_model
         report["aggregate_llm_cost_usd"] = aggregate_llm_cost_usd
-        report["scenario_estimated_cost_usd"] = aggregate_llm_cost_usd + aggregate_embedding_cost_usd
     if args.semantic_similarity:
         report["embedding_similarity_enabled"] = True
         report["embedding_model"] = str(args.embedding_model)
         report["aggregate_embedding_cost_usd"] = aggregate_embedding_cost_usd
+    if repair_cost_usd > 0 and "repair_adjudication" in report:
+        report["repair_adjudication_cost_usd"] = float(repair_cost_usd)
+    if total_sidecar_cost_usd > 0:
+        report["scenario_estimated_cost_usd"] = total_sidecar_cost_usd
 
     out = args.output or default_out
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -283,7 +465,6 @@ def _refresh_canvas(
         print(json.dumps({"canvas_updated": str(canvas_path)}, indent=2))
     else:
         print(json.dumps({"canvas_unchanged": str(canvas_path)}, indent=2))
-
 
 if __name__ == "__main__":
     main()

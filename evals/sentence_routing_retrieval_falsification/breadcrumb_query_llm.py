@@ -10,8 +10,11 @@ from typing import Any
 _SYSTEM = (
     "You are assisting a tabletop RPG GM. Answer the question using ONLY the evidence in the "
     "retrieved excerpts and corpus route lines below. If the excerpts do not support a confident "
-    "answer, say what is missing. Stay concise (roughly 3–8 sentences). Do not invent specifics "
-    "that are not grounded in the excerpts."
+    "answer, say what is missing. Prefer coverage over brevity: include the concrete details that "
+    "the excerpts support (named entities, locations, numbers, causes/effects, and ordering when "
+    "relevant). Use enough detail to fully answer the question (typically 6–14 sentences, shorter "
+    "only when the evidence is genuinely sparse). Do not invent specifics that are not grounded in "
+    "the excerpts."
 )
 
 

@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import re
+from collections import Counter
 from pathlib import Path
 from typing import Any
 
@@ -54,11 +56,391 @@ def hits_cover_expected_routes(hits: list[dict[str, Any]], expected_route_substr
     return True
 
 
+def resolve_context_evidence_top_k(
+    scenario: dict[str, Any],
+    *,
+    trace: dict[str, Any] | None = None,
+) -> int:
+    """Lexical-first band size used for expansion / prompt budgeting (usually ``expand_first_pass_cap``)."""
+    qspec = scenario.get("query_spec") or {}
+    for key in ("expand_first_pass_cap", "expand_seed_hits"):
+        raw = qspec.get(key)
+        if raw is not None and raw != "":
+            return max(1, int(raw))
+    tr = trace or {}
+    for key in ("expand_first_pass_cap", "expand_seed_hits"):
+        raw = tr.get(key)
+        if raw is not None and raw != "":
+            return max(1, int(raw))
+    return 9
+
+
+def compute_context_evidence_metrics(
+    *,
+    hits: list[dict[str, Any]],
+    scenario: dict[str, Any],
+    trace: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Expected route/unit substring recall restricted to the top-*K* retrieval slice (lexical seed band)."""
+    k = resolve_context_evidence_top_k(scenario, trace=trace)
+    top_slice = hits[:k]
+    exp_units = [str(x) for x in (scenario.get("expect_unit_id_substrings") or [])]
+    exp_routes = [str(x) for x in (scenario.get("expect_route_substrings") or [])]
+
+    uids_top = [str(h.get("unit_id") or "") for h in top_slice]
+    units_missing = [u for u in exp_units if not any(u in uid for uid in uids_top)]
+    unit_hit_count = len(exp_units) - len(units_missing)
+
+    routes_top: list[str] = []
+    for h in top_slice:
+        for r in h.get("routes") or []:
+            routes_top.append(str(r.get("normalized_route", "")).lower())
+    blob_top = "\n".join(routes_top)
+    routes_missing = [s for s in exp_routes if s.lower() not in blob_top]
+    route_hit_count = len(exp_routes) - len(routes_missing)
+
+    full_units_ok = hits_cover_expected_units(hits, exp_units) if exp_units else True
+    full_routes_ok = hits_cover_expected_routes(hits, exp_routes) if exp_routes else True
+
+    return {
+        "context_evidence_top_k": k,
+        "hits_considered": len(top_slice),
+        "expected_unit_substring_count": len(exp_units),
+        "expected_route_substring_count": len(exp_routes),
+        "unit_substrings_matched_in_top_k": unit_hit_count,
+        "route_substrings_matched_in_top_k": route_hit_count,
+        "unit_recall_in_top_k": (unit_hit_count / len(exp_units)) if exp_units else None,
+        "route_recall_in_top_k": (route_hit_count / len(exp_routes)) if exp_routes else None,
+        "unit_substrings_missing_in_top_k": units_missing,
+        "route_substrings_missing_in_top_k": routes_missing,
+        "top_k_unit_coverage_ok": not units_missing if exp_units else True,
+        "top_k_route_coverage_ok": not routes_missing if exp_routes else True,
+        "full_list_unit_coverage_ok": full_units_ok if exp_units else None,
+        "full_list_route_coverage_ok": full_routes_ok if exp_routes else None,
+    }
+
+
+def aggregate_context_evidence_metrics(results: list[dict[str, Any]]) -> dict[str, Any]:
+    """Macro recall weighted by gold expected substring counts across rows."""
+    unit_num = 0
+    unit_den = 0
+    route_num = 0
+    route_den = 0
+    rows_with_unit_expectation = 0
+    rows_with_route_expectation = 0
+    k_ref: int | None = None
+    for r in results:
+        m = r.get("context_evidence_metrics")
+        if not isinstance(m, dict):
+            continue
+        if k_ref is None and m.get("context_evidence_top_k") is not None:
+            k_ref = int(m["context_evidence_top_k"])
+        eu = int(m.get("expected_unit_substring_count") or 0)
+        er = int(m.get("expected_route_substring_count") or 0)
+        if eu:
+            rows_with_unit_expectation += 1
+            unit_den += eu
+            unit_num += int(m.get("unit_substrings_matched_in_top_k") or 0)
+        if er:
+            rows_with_route_expectation += 1
+            route_den += er
+            route_num += int(m.get("route_substrings_matched_in_top_k") or 0)
+    return {
+        "context_evidence_top_k_reference": k_ref,
+        "executable_rows": len(results),
+        "rows_with_unit_expectations": rows_with_unit_expectation,
+        "rows_with_route_expectations": rows_with_route_expectation,
+        "macro_unit_recall_in_top_k": (unit_num / unit_den) if unit_den else None,
+        "macro_route_recall_in_top_k": (route_num / route_den) if route_den else None,
+        "macro_unit_matched_in_top_k": unit_num,
+        "macro_unit_expected_substrings": unit_den,
+        "macro_route_matched_in_top_k": route_num,
+        "macro_route_expected_substrings": route_den,
+    }
+
+
+def merge_natural_scenario_from_gold(scenario: dict[str, Any], gold: dict[str, Any]) -> dict[str, Any]:
+    """Match ``breadcrumb_query_run`` merged ``query_spec`` for metric recomputation from artifacts."""
+    default_campaign = str(gold.get("campaign_id") or "")
+    default_spec = gold.get("default_query_spec") or {}
+    scen = dict(scenario)
+    scen["campaign_id"] = str(scen.get("campaign_id") or default_campaign)
+    merged_spec = {**default_spec, **(scen.get("query_spec") or {})}
+    merged_spec["query"] = str(scen.get("question") or "")
+    scen["query_spec"] = merged_spec
+    return scen
+
+
+def enrich_natural_report_with_context_evidence_metrics(
+    report: dict[str, Any],
+    gold: dict[str, Any],
+) -> dict[str, Any]:
+    """Attach ``context_evidence_metrics`` per row and ``context_evidence_aggregate`` (mutates a copy)."""
+    scenarios_by_id = {str(s.get("id") or ""): s for s in (gold.get("scenarios") or [])}
+    new_results: list[dict[str, Any]] = []
+    for row in report.get("results") or []:
+        sid = str(row.get("scenario_id") or "")
+        template = scenarios_by_id.get(sid)
+        out_row = dict(row)
+        if template:
+            scen = merge_natural_scenario_from_gold(template, gold)
+            hits = list((out_row.get("full_result") or {}).get("hits") or [])
+            trace = (out_row.get("full_result") or {}).get("trace") or {}
+            out_row["context_evidence_metrics"] = compute_context_evidence_metrics(
+                hits=hits,
+                scenario=scen,
+                trace=trace if isinstance(trace, dict) else {},
+            )
+        new_results.append(out_row)
+    out = dict(report)
+    out["results"] = new_results
+    out["context_evidence_aggregate"] = aggregate_context_evidence_metrics(new_results)
+    return out
+
+
 def _int_from_spec(qspec: dict[str, Any], key: str, default: int) -> int:
     raw = qspec.get(key)
     if raw is None or raw == "":
         return default
     return int(raw)
+
+
+_EXPANSION_TOKEN_STOPWORDS = frozenset(
+    {
+        "about",
+        "after",
+        "again",
+        "and",
+        "campaign",
+        "captain",
+        "character",
+        "connects",
+        "currently",
+        "episode",
+        "happened",
+        "line",
+        "nearby",
+        "party",
+        "question",
+        "recap",
+        "relevant",
+        "session",
+        "situation",
+        "team",
+        "the",
+        "what",
+        "when",
+        "where",
+        "which",
+        "with",
+    }
+)
+
+_ROUTE_TOKEN_STOPWORDS = frozenset(
+    {
+        "campaign",
+        "campaigns",
+        "cities",
+        "and",
+        "dossiers",
+        "elderwyld",
+        "location",
+        "locations",
+        "longmont",
+        "npcs",
+        "parties",
+        "pcs",
+        "session",
+        "sessions",
+        "the",
+        "towns",
+    }
+)
+
+_GLOBAL_QUERY_ALIAS_MAP: dict[str, list[str]] = {
+    # These are task-language aliases, not scenario facts. They are allowed to
+    # map intent words to retrieval vocabulary, but not to inject expected
+    # campaign entities such as Tealeaf, Mossford, or a specific storm.
+    "communication": ["relay", "operator", "transfer", "contact"],
+    "communications": ["relay", "operator", "transfer", "contact"],
+    "learn": ["clue", "fact", "signal"],
+    "learned": ["clue", "fact", "signal"],
+    "locations": ["place", "site", "town", "city", "camp"],
+    "loops": ["unresolved", "followup", "follow-up", "lead", "thread"],
+    "open": ["unresolved", "followup", "follow-up", "lead", "thread"],
+    "prep": ["preparation", "shelter", "supplies"],
+    "regroups": ["camp", "returns", "finds"],
+    "supplies": ["provisions", "crates"],
+}
+
+
+def _tokenize_expansion_text(text: str) -> list[str]:
+    out: list[str] = []
+    for raw in re.findall(r"[A-Za-z0-9_'-]+", text.lower()):
+        token = raw.strip("_-'")
+        if len(token) < 3 or token in _EXPANSION_TOKEN_STOPWORDS:
+            continue
+        out.append(token)
+    return out
+
+
+def _route_expansion_tokens(route: str) -> list[str]:
+    route_bits = re.split(r"[/_\-\s.]+", route.lower())
+    out: list[str] = []
+    for bit in route_bits:
+        token = bit.strip()
+        if len(token) < 3 or token in _ROUTE_TOKEN_STOPWORDS:
+            continue
+        out.append(token)
+    return out
+
+
+def _records_by_unit_id(records: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    return {str(r.get("unit_id") or ""): r for r in records}
+
+
+def _global_query_alias_terms(question: str) -> list[str]:
+    terms: list[str] = []
+    seen: set[str] = set()
+    for token in _tokenize_expansion_text(question):
+        for alias in _GLOBAL_QUERY_ALIAS_MAP.get(token, []):
+            norm = alias.lower().strip()
+            if norm and norm not in seen:
+                terms.append(norm)
+                seen.add(norm)
+    return terms
+
+
+def build_query_expansion(
+    *,
+    question: str,
+    records: list[dict[str, Any]],
+    first_pass_result: CandidateQueryResult,
+    max_terms: int = 24,
+) -> dict[str, Any]:
+    """Build production-valid query expansion terms without reading scenario gold.
+
+    Inputs are restricted to the natural question, a small global query-language
+    alias dictionary, and the raw first-pass hits. This intentionally excludes
+    expected answers, must-hit tokens, expected unit IDs, and expected routes.
+    """
+    question_terms = _global_query_alias_terms(question)
+    by_unit = _records_by_unit_id(records)
+    counts: Counter[str] = Counter()
+
+    for h in first_pass_result.hits:
+        uid = str(h.get("unit_id") or "")
+        rec = by_unit.get(uid) or {}
+        for r in h.get("routes") or []:
+            for token in _route_expansion_tokens(str(r.get("normalized_route") or "")):
+                counts[token] += 4
+        for token in _tokenize_expansion_text(str(rec.get("lexical_plain") or "")):
+            counts[token] += 1
+
+    seen: set[str] = set()
+    expanded_terms: list[str] = []
+    for term in question_terms:
+        if term not in seen:
+            expanded_terms.append(term)
+            seen.add(term)
+    for term, _count in counts.most_common():
+        if term in seen:
+            continue
+        expanded_terms.append(term)
+        seen.add(term)
+        if len(expanded_terms) >= max_terms:
+            break
+
+    if first_pass_result.hits:
+        source = "first_pass"
+    elif question_terms:
+        source = "query_only"
+    else:
+        source = "query_only"
+    return {
+        "raw_question": question,
+        "expanded_terms": expanded_terms[:max_terms],
+        "expansion_source": source,
+        "first_pass_hit_count": len(first_pass_result.hits),
+    }
+
+
+def _clean_natural_qspec(qspec: dict[str, Any]) -> dict[str, Any]:
+    out = dict(qspec)
+    # Gold-authored aliases are oracle-prone; expansion is now a measured stage.
+    out.pop("query_token_aliases", None)
+    return out
+
+
+def _scenario_with_qspec(scenario: dict[str, Any], qspec: dict[str, Any]) -> dict[str, Any]:
+    out = dict(scenario)
+    out["query_spec"] = qspec
+    return out
+
+
+def _grade_natural_with_qspec(
+    *,
+    records: list[dict[str, Any]],
+    scenario: dict[str, Any],
+    qspec: dict[str, Any],
+) -> dict[str, Any]:
+    return grade_natural_scenario(
+        records=records,
+        scenario=_scenario_with_qspec(scenario, qspec),
+    )
+
+
+def grade_natural_scenario_lanes(
+    *,
+    records: list[dict[str, Any]],
+    scenario: dict[str, Any],
+    wide_max_hits: int = 34,
+) -> dict[str, Any]:
+    """Grade raw, expanded, and wide-recall retrieval lanes for one natural scenario."""
+    base_qspec = _clean_natural_qspec(scenario.get("query_spec") or {})
+    question = str(base_qspec.get("query") or scenario.get("question") or "")
+
+    raw_qspec = dict(base_qspec)
+    raw_qspec["query"] = question
+    raw_qspec["expand_context"] = False
+    raw_row = _grade_natural_with_qspec(records=records, scenario=scenario, qspec=raw_qspec)
+    first_pass_result = query_session_memory_for_scenario(
+        records=records,
+        scenario=_scenario_with_qspec(scenario, raw_qspec),
+    )
+
+    expansion = build_query_expansion(
+        question=question,
+        records=records,
+        first_pass_result=first_pass_result,
+    )
+    expanded_qspec = dict(base_qspec)
+    expanded_qspec["query"] = question
+    if expansion["expanded_terms"]:
+        expanded_qspec["query_token_aliases"] = [" ".join(expansion["expanded_terms"])]
+    expanded_row = _grade_natural_with_qspec(
+        records=records,
+        scenario=scenario,
+        qspec=expanded_qspec,
+    )
+    expanded_row["raw_question"] = question
+    expanded_row["expanded_terms"] = list(expansion["expanded_terms"])
+    expanded_row["expansion_source"] = expansion["expansion_source"]
+    expanded_row["first_pass_result"] = first_pass_result.as_json_dict()
+    expanded_row["expanded_result"] = expanded_row.get("full_result")
+
+    wide_qspec = dict(expanded_qspec)
+    wide_qspec["max_hits"] = max(int(wide_qspec.get("max_hits") or 12), int(wide_max_hits))
+    wide_row = _grade_natural_with_qspec(records=records, scenario=scenario, qspec=wide_qspec)
+
+    return {
+        "scenario_id": scenario.get("id"),
+        "raw_question": question,
+        "expansion": expansion,
+        "raw_natural": raw_row,
+        "expanded_retrieval": expanded_row,
+        "wide_recall": wide_row,
+    }
 
 
 def query_session_memory_for_scenario(
@@ -116,13 +498,20 @@ def grade_scenario(*, records: list[dict[str, Any]], scenario: dict[str, Any]) -
             violations.append("top_hit_score_below_threshold")
 
     ok = not violations
+    full_json = result.as_json_dict()
+    trace_obj = full_json.get("trace") if isinstance(full_json.get("trace"), dict) else {}
     return {
         "scenario_id": scenario.get("id"),
         "ok": ok,
         "violations": violations,
         "hit_count": len(hits),
         "top_hit": hits[0] if hits else None,
-        "full_result": result.as_json_dict(),
+        "context_evidence_metrics": compute_context_evidence_metrics(
+            hits=hits,
+            scenario=scenario,
+            trace=trace_obj,
+        ),
+        "full_result": full_json,
     }
 
 
@@ -264,6 +653,8 @@ def grade_natural_scenario(
     ok = not violations
     preview_len = int(scenario.get("hit_context_preview_chars", 600))
     grading_mode = "natural_retrieval_context+llm" if llm_answer is not None else "natural_retrieval_context"
+    full_json = result.as_json_dict()
+    trace_obj = full_json.get("trace") if isinstance(full_json.get("trace"), dict) else {}
     out: dict[str, Any] = {
         "scenario_id": scenario.get("id"),
         "grading_mode": grading_mode,
@@ -283,7 +674,12 @@ def grade_natural_scenario(
         "context_support_ratio": ctx_ratio,
         "failure_surface": retrieval_failure_surface,
         "hit_context_preview": hit_context[:preview_len],
-        "full_result": result.as_json_dict(),
+        "context_evidence_metrics": compute_context_evidence_metrics(
+            hits=hits,
+            scenario=scenario,
+            trace=trace_obj,
+        ),
+        "full_result": full_json,
     }
     if llm_answer is not None:
         out["llm_semantic_verdict"] = llm_semantic_verdict

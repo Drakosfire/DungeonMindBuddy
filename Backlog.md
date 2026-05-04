@@ -31,6 +31,16 @@ Sort newest → oldest within each status; promote with `/promote`; archive with
 
 ---
 
+## [READY] Breadcrumb query — next-session holdout for autonomous lexical/event retrieval — captured 2026-05-03
+
+**Context:** After reviewing the planner-discovery canvas and benchmark harness results, the GM decided the benchmark harness is the stronger path for this use case. The current lexical/event-keyword retrieval is useful on Session 20, but that is not enough to claim it is ready for an autonomous learning loop.
+**Insight:** The key risk is quiet hardcoding: Session 20 can pass because expected routes, aliases, or keyword handles were effectively baked into the artifact/gold. The proof needs to be a holdout recap whose new facts are parsed into a generated index and retrieved from that index without planner prompt tuning or scenario-specific path provisioning.
+**Action:** Build the next-session holdout: generate a breadcrumb/index artifact from a fresh recap using the same schema/tag vocabulary, add natural-query gold requiring newly introduced facts, run `breadcrumb_query_run` from the generated JSONL, and audit the report/records for query-specific aliases, preloaded expected paths, Session 20-only route handles, or hand-seeded records. Promote toward an autonomous loop only if the holdout retrieves new facts dynamically; otherwise fix index generation / lexical-event extraction first.
+**Surfaces when:** adding a new recap to the breadcrumb query harness; claiming the lexical/event-keyword path generalizes; designing autonomous learning-loop ingestion; touching `breadcrumb_query_run.py`, `breadcrumb_normalize.py`, `breadcrumb_prompt.py`, or the natural-query gold.
+**Refs:** `Docs/Plans/EXPERIMENT-Inline-Recap-Breadcrumbing.md`, `evals/sentence_routing_retrieval_falsification/README.md`, `evals/sentence_routing_retrieval_falsification/BREADCRUMB_QUERY_ABLATIONS.md`, `evals/sentence_routing_retrieval_falsification/artifacts/last_breadcrumb_query_planner_discovery_report.json`, `evals/sentence_routing_retrieval_falsification/artifacts/last_breadcrumb_query_planner_router_report.json`
+
+---
+
 ## [IDEA] Benchmark canvases should be data-driven from run artifacts — captured 2026-05-02
 
 **Context:** While updating `breadcrumb-query-semantic-review.canvas.tsx` after the two-step retrieval expansion run, the source artifact path and some table rows changed but the top stat block stayed stale (`2/12`, old cost). The user pointed out that the canvas should not need hand-rewriting every time.

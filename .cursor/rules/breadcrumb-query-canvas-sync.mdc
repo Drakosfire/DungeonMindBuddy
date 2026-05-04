@@ -6,7 +6,7 @@ alwaysApply: false
 
 # Breadcrumb query semantic-review canvas — sync with each run
 
-When you **finish a promoted or meaningful re-run** of the natural breadcrumb query benchmark (`breadcrumb_query_run.py` with `--llm` / `--semantic-similarity`, or any change that invalidates the numbers already embedded in the canvas), **refresh the canvas in the same change set or immediately after**, before treating the run as documented for handoff or merge.
+When you **finish a promoted or meaningful re-run** of the natural breadcrumb query benchmark (`breadcrumb_query_run.py` with natural gold — LLM synthesis always runs; add `--semantic-similarity` when embedding similarity is part of the cohort — or any change that invalidates the numbers already embedded in the canvas), **refresh the canvas in the same change set or immediately after**, before treating the run as documented for handoff or merge.
 
 The canvas is **data-driven**: dynamic metrics, scenario rows, and cards come from a generator that reads benchmark JSON — do not patch pass counts or costs by hand.
 

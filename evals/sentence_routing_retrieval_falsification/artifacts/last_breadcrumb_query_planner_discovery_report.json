@@ -1,0 +1,2573 @@
+{
+  "harness": "breadcrumb_query_planner_discovery_v1",
+  "records_source": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-05-03/session20_planner_ablation.records.jsonl",
+  "gold": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/gold/breadcrumb_query_natural_v1.json",
+  "planner_discovery_gold": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/gold/breadcrumb_query_planner_discovery_v1.json",
+  "corpus_root": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/corpus/eldyrwild-markdown",
+  "corpus_fingerprint": "f4697eec57f9f2e995f36b8b7ec619f0",
+  "planner_model": "gpt-5.4-mini",
+  "planner_session_memory_jsonl": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-05-03/session20_planner_ablation.records.jsonl",
+  "benchmark_llm_model": "gpt-5.3-chat-latest",
+  "skip_benchmark_llm": false,
+  "compare_hit_route_count": 24,
+  "aggregate_benchmark_llm_cost_usd": 0.053895,
+  "aggregate_planner_cost_usd": 0.117166,
+  "aggregate_statblock_tool_cost_usd": 0.0,
+  "aggregate_scenario_planner_cost_usd": 0.117166,
+  "planner_discovery_aggregate": {
+    "expected_open_paths_recall_mean": 0.604167,
+    "expected_open_paths_full_coverage_scenarios": 3,
+    "expected_open_paths_scored_scenarios": 12,
+    "query_session_memory_total_calls": 0,
+    "query_session_memory_scenarios_with_calls": 0
+  },
+  "results": [
+    {
+      "scenario_id": "nat_captain_after_forest",
+      "question": "What happened to the captain after the migrating forest pulled back?",
+      "benchmark_retrieval_ok": true,
+      "benchmark_violations": [],
+      "benchmark_llm_skipped": false,
+      "benchmark_llm_model": "gpt-5.3-chat-latest",
+      "benchmark_llm_cost_usd": 0.004443249999999999,
+      "benchmark_llm_usage": {
+        "input_tokens": 1339,
+        "output_tokens": 150,
+        "cached_input_tokens": 0,
+        "total_tokens": 1489
+      },
+      "benchmark_grade": {
+        "llm_semantic_verdict": "pass_updated",
+        "llm_context_support_ratio": 1.0,
+        "context_support_ratio": 1.0,
+        "semantic_verdict": "pass_updated",
+        "hit_count": 18,
+        "failure_surface": "pass",
+        "llm_failure_surface": "pass"
+      },
+      "planner_scenario_estimated_cost_usd": 0.009162,
+      "planner_telemetry_cost": {
+        "planner_estimated_cost_usd": 0.009162,
+        "planner_cost_by_round_usd": [
+          0.001595,
+          0.004435,
+          0.003132
+        ],
+        "planner_usage_totals": {
+          "input_tokens": 45472,
+          "output_tokens": 371,
+          "total_tokens": 45843,
+          "cached_tokens": 39424
+        },
+        "pricing_note": "approximate public list prices; verify against billing",
+        "statblock_tool_estimated_cost_usd": 0,
+        "scenario_estimated_cost_usd": 0.009162
+      },
+      "planner_discovery": {
+        "planner_read_paths": [
+          "Longmont Campaign/Campaign 2/Session Recaps/Session 17 - Migrating Forest and Thrin.md",
+          "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/README.md",
+          "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_character_dossier.md",
+          "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/timeline.md"
+        ],
+        "planner_query_session_memory_unit_ids": [],
+        "query_session_memory_call_count": 0,
+        "expected_open_paths": [
+          "Session Recaps/Session 20 - Recap.md",
+          "NPCs/captain_lysandra_ironveil",
+          "NPCs/sara_mirathorn_operator"
+        ],
+        "expected_open_paths_coverage": {
+          "details": [
+            {
+              "needle": "Session Recaps/Session 20 - Recap.md",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "NPCs/captain_lysandra_ironveil",
+              "covered": true,
+              "matching_paths": [
+                "longmont campaign/campaign 2/npcs/captain_lysandra_ironveil/readme.md",
+                "longmont campaign/campaign 2/npcs/captain_lysandra_ironveil/captain_lysandra_ironveil_character_dossier.md",
+                "longmont campaign/campaign 2/npcs/captain_lysandra_ironveil/timeline.md"
+              ]
+            },
+            {
+              "needle": "NPCs/sara_mirathorn_operator",
+              "covered": false,
+              "matching_paths": []
+            }
+          ],
+          "recall": 0.3333333333333333,
+          "covered_count": 1,
+          "needle_count": 3
+        },
+        "expected_open_paths_full_coverage": false,
+        "expect_route_substrings_coverage_on_reads": {
+          "details": [
+            {
+              "needle": "NPCs/captain_lysandra_ironveil",
+              "covered": true,
+              "matching_paths": [
+                "longmont campaign/campaign 2/npcs/captain_lysandra_ironveil/readme.md",
+                "longmont campaign/campaign 2/npcs/captain_lysandra_ironveil/captain_lysandra_ironveil_character_dossier.md",
+                "longmont campaign/campaign 2/npcs/captain_lysandra_ironveil/timeline.md"
+              ]
+            },
+            {
+              "needle": "NPCs/sara_mirathorn_operator",
+              "covered": false,
+              "matching_paths": []
+            }
+          ],
+          "recall": 0.5,
+          "covered_count": 1,
+          "needle_count": 2
+        },
+        "benchmark_hit_routes_compared": [
+          "Longmont Campaign/Campaign 2/PCs/caelynn/",
+          "Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/",
+          "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/",
+          "Elderwyld/Migrating Forest/",
+          "Longmont Campaign/Campaign 2/Parties/questionable_company/",
+          "Elderwyld/Unknown Sites/Voices Tower/",
+          "Elderwyld/Cities and Towns/Mirathorn/",
+          "Elderwyld/Cities and Towns/Mossford/",
+          "Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/",
+          "Elderwyld/Cities and Towns/Mossford/Mossford_Location_Dossiers/Half-Burned Warehouse.md",
+          "Longmont Campaign/Campaign 2/PCs/ephanna/",
+          "Longmont Campaign/Campaign 2/NPCs/thrin_branchborn/",
+          "Longmont Campaign/Campaign 2/PCs/karsemine/"
+        ],
+        "benchmark_hit_route_coverage_on_reads": {
+          "details": [
+            {
+              "needle": "Longmont Campaign/Campaign 2/PCs/caelynn/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/",
+              "covered": true,
+              "matching_paths": [
+                "longmont campaign/campaign 2/npcs/captain_lysandra_ironveil/readme.md",
+                "longmont campaign/campaign 2/npcs/captain_lysandra_ironveil/captain_lysandra_ironveil_character_dossier.md",
+                "longmont campaign/campaign 2/npcs/captain_lysandra_ironveil/timeline.md"
+              ]
+            },
+            {
+              "needle": "Elderwyld/Migrating Forest/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Longmont Campaign/Campaign 2/Parties/questionable_company/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Elderwyld/Unknown Sites/Voices Tower/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Elderwyld/Cities and Towns/Mirathorn/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Elderwyld/Cities and Towns/Mossford/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Elderwyld/Cities and Towns/Mossford/Mossford_Location_Dossiers/Half-Burned Warehouse.md",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Longmont Campaign/Campaign 2/PCs/ephanna/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Longmont Campaign/Campaign 2/NPCs/thrin_branchborn/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Longmont Campaign/Campaign 2/PCs/karsemine/",
+              "covered": false,
+              "matching_paths": []
+            }
+          ],
+          "recall": 0.07692307692307693,
+          "covered_count": 1,
+          "needle_count": 13
+        },
+        "planner_final_text_parse_error": null,
+        "planner_hit_tool_round_limit": false
+      },
+      "planner_grade_vs_benchmark_retrieval": {
+        "ok": true,
+        "violations": [],
+        "llm_semantic_verdict": "pass_updated",
+        "llm_context_support_ratio": 1.0,
+        "failure_surface": "pass",
+        "llm_failure_surface": "pass"
+      },
+      "planner_message_preview": "After the migrating forest pulled back, Lysandra was off by herself and badly affected: she said she could only remember going around the forest, then smelling meat while trying to sleep, and she was left exhausted and disoriented in a makeshift shelter. Later, when Caelynn found her, Lysandra was under a spell-like influence, drawing in the dirt and describing a tower she said was calling to her; once she drank the antidote tea, she came out of it confused and with only \u201cvoices in the dark\u201d in memory. See `Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md` and the supporting timeline in `Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/timeline.md`.",
+      "benchmark_llm_answer_preview": "After the migrating forest pulled back, the captain (Lysandra) ended up in a confused, compromised state with major memory gaps. She could only recall fragments\u2014voices in the dark, trying to go around the forest, and strange sensations like smelling meat\u2014along with a sense that something was wrong with time.\n\nWhen found, she was exhausted, disoriented, and didn\u2019t know where she was or how she got there. Her eyes had a shimmery, cult-like quality, and she appeared to have been under some kind of spell or influence, even producing a detailed tower blueprint during that state. She only returned to normal after being given an antidote tea, which broke the effect."
+    },
+    {
+      "scenario_id": "nat_mirathorn_threads",
+      "question": "What Mirathorn-linked people, places, and supply concerns showed up in the recap?",
+      "benchmark_retrieval_ok": true,
+      "benchmark_violations": [],
+      "benchmark_llm_skipped": false,
+      "benchmark_llm_model": "gpt-5.3-chat-latest",
+      "benchmark_llm_cost_usd": 0.00654325,
+      "benchmark_llm_usage": {
+        "input_tokens": 1499,
+        "output_tokens": 280,
+        "cached_input_tokens": 0,
+        "total_tokens": 1779
+      },
+      "benchmark_grade": {
+        "llm_semantic_verdict": "pass_updated",
+        "llm_context_support_ratio": 1.0,
+        "context_support_ratio": 1.0,
+        "semantic_verdict": "pass_updated",
+        "hit_count": 18,
+        "failure_surface": "pass",
+        "llm_failure_surface": "pass"
+      },
+      "planner_scenario_estimated_cost_usd": 0.009119,
+      "planner_telemetry_cost": {
+        "planner_estimated_cost_usd": 0.009119,
+        "planner_cost_by_round_usd": [
+          0.001649,
+          0.00747
+        ],
+        "planner_usage_totals": {
+          "input_tokens": 29900,
+          "output_tokens": 576,
+          "total_tokens": 30476,
+          "cached_tokens": 23552
+        },
+        "pricing_note": "approximate public list prices; verify against billing",
+        "statblock_tool_estimated_cost_usd": 0,
+        "scenario_estimated_cost_usd": 0.009119
+      },
+      "planner_discovery": {
+        "planner_read_paths": [
+          "Elderwyld/Cities and Towns/Mirathorn/README.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/Session 19 - Recap.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/Session 18 - Recap.md"
+        ],
+        "planner_query_session_memory_unit_ids": [],
+        "query_session_memory_call_count": 0,
+        "expected_open_paths": [
+          "Session Recaps/Session 20 - Recap.md",
+          "NPCs/sara_mirathorn_operator",
+          "Stormspire Academy"
+        ],
+        "expected_open_paths_coverage": {
+          "details": [
+            {
+              "needle": "Session Recaps/Session 20 - Recap.md",
+              "covered": true,
+              "matching_paths": [
+                "longmont campaign/campaign 2/session recaps/session 20 - recap.md"
+              ]
+            },
+            {
+              "needle": "NPCs/sara_mirathorn_operator",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Stormspire Academy",
+              "covered": false,
+              "matching_paths": []
+            }
+          ],
+          "recall": 0.3333333333333333,
+          "covered_count": 1,
+          "needle_count": 3
+        },
+        "expected_open_paths_full_coverage": false,
+        "expect_route_substrings_coverage_on_reads": {
+          "details": [
+            {
+              "needle": "Mirathorn",
+              "covered": true,
+              "matching_paths": [
+                "elderwyld/cities and towns/mirathorn/readme.md"
+              ]
+            },
+            {
+              "needle": "Stormspire Academy",
+              "covered": false,
+              "matching_paths": []
+            }
+          ],
+          "recall": 0.5,
+          "covered_count": 1,
+          "needle_count": 2
+        },
+        "benchmark_hit_routes_compared": [
+          "Elderwyld/Cities and Towns/Mirathorn/",
+          "Elderwyld/Cities and Towns/Mossford/",
+          "Elderwyld/Migrating Forest/",
+          "Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/",
+          "Elderwyld/Cities and Towns/Mossford/Mossford_Location_Dossiers/Half-Burned Warehouse.md",
+          "Elderwyld/Unknown Sites/Voices Tower/",
+          "Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/NPCs/professor_merril_tealeaf/",
+          "Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/",
+          "Longmont Campaign/Campaign 2/PCs/stafl/",
+          "Longmont Campaign/Campaign 2/PCs/caelynn/",
+          "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/",
+          "Longmont Campaign/Campaign 2/Parties/questionable_company/",
+          "Longmont Campaign/Campaign 2/PCs/karsemine/",
+          "Longmont Campaign/Campaign 2/PCs/ephanna/"
+        ],
+        "benchmark_hit_route_coverage_on_reads": {
+          "details": [
+            {
+              "needle": "Elderwyld/Cities and Towns/Mirathorn/",
+              "covered": true,
+              "matching_paths": [
+                "elderwyld/cities and towns/mirathorn/readme.md"
+              ]
+            },
+            {
+              "needle": "Elderwyld/Cities and Towns/Mossford/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Elderwyld/Migrating Forest/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Elderwyld/Cities and Towns/Mossford/Mossford_Location_Dossiers/Half-Burned Warehouse.md",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Elderwyld/Unknown Sites/Voices Tower/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/NPCs/professor_merril_tealeaf/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Longmont Campaign/Campaign 2/PCs/stafl/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Longmont Campaign/Campaign 2/PCs/caelynn/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Longmont Campaign/Campaign 2/Parties/questionable_company/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Longmont Campaign/Campaign 2/PCs/karsemine/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Longmont Campaign/Campaign 2/PCs/ephanna/",
+              "covered": false,
+              "matching_paths": []
+            }
+          ],
+          "recall": 0.07142857142857142,
+          "covered_count": 1,
+          "needle_count": 14
+        },
+        "planner_final_text_parse_error": null,
+        "planner_hit_tool_round_limit": false
+      },
+      "planner_grade_vs_benchmark_retrieval": {
+        "ok": true,
+        "violations": [],
+        "llm_semantic_verdict": "pass_updated",
+        "llm_context_support_ratio": 0.75,
+        "failure_surface": "pass",
+        "llm_failure_surface": "pass"
+      },
+      "planner_message_preview": "In the recap, the Mirathorn-linked threads were:\n\n- **People:** Lysandra is the big tie-back, contacted through the Mirathorn operators Sara and Frank in **Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md**. Sara says Lysandra is exhausted/disoriented and later notes the town has a trust problem; Frank is the one Ephanna reaches when trying to locate her.\n- **People in town:** Marla, Stacey, Stuart, the mayor, and the sheriff all show up in the same recap, though they read more as Mossford-side people reacting to Mirathorn-origin trouble than Mirathorn natives.\n- **Places / supply concerns:** the \u201ctainted meat\u201d concern is explicit in **Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md** \u2014 Stafl finds mixed-in tainted jerky among the provisions, and Sara worries about who can be trusted in the city. Earlier in **Longmont Campaign/Campaign 2/Session Recaps/Session 19 - Recap.md**, the town is organizing supplies for the anti-forest plan: oil and salt are gathered, then staged along the ditch/wagons. That same recap also has the Mossford Inn as a notable stop, but I didn\u2019t see a direct Mirathorn location named beyond the operators\u2019 connection.\n- **Mira",
+      "benchmark_llm_answer_preview": "From the recap excerpts, the Mirathorn-linked elements were:\n\nPeople:\n- Sara, a Mirathorn operator who relays calls, connects Caelynn to Lysandra, and grows concerned about who can be trusted in the city.\n- Captain Lysandra Ironveil, contacted via Sara and tied to the forest events.\n- Professor Merril Tealeaf of Stormspire Academy, who Caelynn tries (unsuccessfully) to reach.\n- Caelynn as the point of contact coordinating with Mirathorn.\n\nPlaces:\n- Mirathorn itself as the central city hub.\n- Stormspire Academy within Mirathorn, tied to Tealeaf.\n\nSupply concerns:\n- Provisions brought from Mirathorn were sabotaged: crates contained cleverly disguised tainted meat.\n- Much of the jerky was spoiled, though some (like bacon) was unaffected.\n- Stafl concludes the supplies may need to be entirely burned due to contamination.\n- This sabotage feeds broader distrust about actors within Mirathorn\u2019s supply chain."
+    },
+    {
+      "scenario_id": "nat_voices_tower_officer",
+      "question": "Does the recap tie voices or a tower drawing to a specific officer?",
+      "benchmark_retrieval_ok": true,
+      "benchmark_violations": [],
+      "benchmark_llm_skipped": false,
+      "benchmark_llm_model": "gpt-5.3-chat-latest",
+      "benchmark_llm_cost_usd": 0.00331275,
+      "benchmark_llm_usage": {
+        "input_tokens": 1413,
+        "output_tokens": 60,
+        "cached_input_tokens": 0,
+        "total_tokens": 1473
+      },
+      "benchmark_grade": {
+        "llm_semantic_verdict": "pass_updated",
+        "llm_context_support_ratio": 1.0,
+        "context_support_ratio": 1.0,
+        "semantic_verdict": "pass_updated",
+        "hit_count": 18,
+        "failure_surface": "pass",
+        "llm_failure_surface": "pass"
+      },
+      "planner_scenario_estimated_cost_usd": 0.006974,
+      "planner_telemetry_cost": {
+        "planner_estimated_cost_usd": 0.006974,
+        "planner_cost_by_round_usd": [
+          0.001664,
+          0.00531
+        ],
+        "planner_usage_totals": {
+          "input_tokens": 28834,
+          "output_tokens": 277,
+          "total_tokens": 29111,
+          "cached_tokens": 23552
+        },
+        "pricing_note": "approximate public list prices; verify against billing",
+        "statblock_tool_estimated_cost_usd": 0,
+        "scenario_estimated_cost_usd": 0.006974
+      },
+      "planner_discovery": {
+        "planner_read_paths": [
+          "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/Session 19 - Recap.md",
+          "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/README.md",
+          "Longmont Campaign/Campaign 2/NPCs/thrin_branchborn/README.md"
+        ],
+        "planner_query_session_memory_unit_ids": [],
+        "query_session_memory_call_count": 0,
+        "expected_open_paths": [
+          "Session Recaps/Session 20 - Recap.md",
+          "NPCs/captain_lysandra_ironveil"
+        ],
+        "expected_open_paths_coverage": {
+          "details": [
+            {
+              "needle": "Session Recaps/Session 20 - Recap.md",
+              "covered": true,
+              "matching_paths": [
+                "longmont campaign/campaign 2/session recaps/session 20 - recap.md"
+              ]
+            },
+            {
+              "needle": "NPCs/captain_lysandra_ironveil",
+              "covered": true,
+              "matching_paths": [
+                "longmont campaign/campaign 2/npcs/captain_lysandra_ironveil/readme.md"
+              ]
+            }
+          ],
+          "recall": 1.0,
+          "covered_count": 2,
+          "needle_count": 2
+        },
+        "expected_open_paths_full_coverage": true,
+        "expect_route_substrings_coverage_on_reads": {
+          "details": [
+            {
+              "needle": "NPCs/captain_lysandra_ironveil",
+              "covered": true,
+              "matching_paths": [
+                "longmont campaign/campaign 2/npcs/captain_lysandra_ironveil/readme.md"
+              ]
+            }
+          ],
+          "recall": 1.0,
+          "covered_count": 1,
+          "needle_count": 1
+        },
+        "benchmark_hit_routes_compared": [
+          "Elderwyld/Cities and Towns/Mirathorn/",
+          "Elderwyld/Cities and Towns/Mossford/",
+          "Elderwyld/Migrating Forest/",
+          "Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/",
+          "Elderwyld/Cities and Towns/Mossford/Mossford_Location_Dossiers/Half-Burned Warehouse.md",
+          "Elderwyld/Unknown Sites/Voices Tower/",
+          "Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/NPCs/professor_merril_tealeaf/",
+          "Longmont Campaign/Campaign 2/Parties/questionable_company/",
+          "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/",
+          "Longmont Campaign/Campaign 2/PCs/caelynn/",
+          "Longmont Campaign/Campaign 2/PCs/bonogo/",
+          "Elderwyld/Cities and Towns/Mossford/NPCs/stuart/",
+          "Longmont Campaign/Campaign 2/PCs/ephanna/",
+          "Longmont Campaign/Campaign 2/NPCs/thrin_branchborn/",
+          "Longmont Campaign/Campaign 2/PCs/karsemine/",
+          "Longmont Campaign/Campaign 2/PCs/stafl/"
+        ],
+        "benchmark_hit_route_coverage_on_reads": {
+          "details": [
+            {
+              "needle": "Elderwyld/Cities and Towns/Mirathorn/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Elderwyld/Cities and Towns/Mossford/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Elderwyld/Migrating Forest/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Elderwyld/Cities and Towns/Mossford/Mossford_Location_Dossiers/Half-Burned Warehouse.md",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Elderwyld/Unknown Sites/Voices Tower/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/NPCs/professor_merril_tealeaf/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Longmont Campaign/Campaign 2/Parties/questionable_company/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/",
+              "covered": true,
+              "matching_paths": [
+                "longmont campaign/campaign 2/npcs/captain_lysandra_ironveil/readme.md"
+              ]
+            },
+            {
+              "needle": "Longmont Campaign/Campaign 2/PCs/caelynn/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Longmont Campaign/Campaign 2/PCs/bonogo/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Elderwyld/Cities and Towns/Mossford/NPCs/stuart/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Longmont Campaign/Campaign 2/PCs/ephanna/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Longmont Campaign/Campaign 2/NPCs/thrin_branchborn/",
+              "covered": true,
+              "matching_paths": [
+                "longmont campaign/campaign 2/npcs/thrin_branchborn/readme.md"
+              ]
+            },
+            {
+              "needle": "Longmont Campaign/Campaign 2/PCs/karsemine/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Longmont Campaign/Campaign 2/PCs/stafl/",
+              "covered": false,
+              "matching_paths": []
+            }
+          ],
+          "recall": 0.125,
+          "covered_count": 2,
+          "needle_count": 16
+        },
+        "planner_final_text_parse_error": null,
+        "planner_hit_tool_round_limit": false
+      },
+      "planner_grade_vs_benchmark_retrieval": {
+        "ok": true,
+        "violations": [],
+        "llm_semantic_verdict": "pass_updated",
+        "llm_context_support_ratio": 1.0,
+        "failure_surface": "pass",
+        "llm_failure_surface": "pass"
+      },
+      "planner_message_preview": "Yes \u2014 Session 20 ties both to Lysandra: she\u2019s the one drawing the tower blueprint in the dirt, saying \u201cit is a tower where the voices are coming from,\u201d and later says she remembers only \u201cvoices in the dark\u201d after the group left into the forest in `Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md`. I don\u2019t see that description attached to any other officer in the reads I opened.",
+      "benchmark_llm_answer_preview": "Yes. The recap clearly ties both the voices and the tower drawing to Captain Lysandra Ironveil. She is found under a spell, hearing voices, drawing a detailed top-down tower blueprint, and explicitly states the tower is where the voices are coming from."
+    },
+    {
+      "scenario_id": "q_lysandra_change_unresolved",
+      "question": "What exactly changed for Captain Lysandra after the party returned from the forest, and what remains unresolved?",
+      "benchmark_retrieval_ok": false,
+      "benchmark_violations": [
+        "missing_expected_route_hit",
+        "llm_semantic_verdict:fail_incomplete",
+        "llm_context_support_below_threshold"
+      ],
+      "benchmark_llm_skipped": false,
+      "benchmark_llm_model": "gpt-5.3-chat-latest",
+      "benchmark_llm_cost_usd": 0.00476525,
+      "benchmark_llm_usage": {
+        "input_tokens": 1243,
+        "output_tokens": 185,
+        "cached_input_tokens": 0,
+        "total_tokens": 1428
+      },
+      "benchmark_grade": {
+        "llm_semantic_verdict": "fail_incomplete",
+        "llm_context_support_ratio": 0.5,
+        "context_support_ratio": 0.75,
+        "semantic_verdict": "pass_updated",
+        "hit_count": 18,
+        "failure_surface": "pass",
+        "llm_failure_surface": "synthesis_gap"
+      },
+      "planner_scenario_estimated_cost_usd": 0.01112,
+      "planner_telemetry_cost": {
+        "planner_estimated_cost_usd": 0.01112,
+        "planner_cost_by_round_usd": [
+          0.002015,
+          0.009105
+        ],
+        "planner_usage_totals": {
+          "input_tokens": 32832,
+          "output_tokens": 532,
+          "total_tokens": 33364,
+          "cached_tokens": 23552
+        },
+        "pricing_note": "approximate public list prices; verify against billing",
+        "statblock_tool_estimated_cost_usd": 0,
+        "scenario_estimated_cost_usd": 0.01112
+      },
+      "planner_discovery": {
+        "planner_read_paths": [
+          "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/README.md",
+          "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/timeline.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/Session 17 - Migrating Forest and Thrin.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/Session 18 - Recap.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/Session 19 - Recap.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md"
+        ],
+        "planner_query_session_memory_unit_ids": [],
+        "query_session_memory_call_count": 0,
+        "expected_open_paths": [
+          "Session Recaps/Session 20 - Recap.md",
+          "NPCs/captain_lysandra_ironveil",
+          "Stormspire Academy"
+        ],
+        "expected_open_paths_coverage": {
+          "details": [
+            {
+              "needle": "Session Recaps/Session 20 - Recap.md",
+              "covered": true,
+              "matching_paths": [
+                "longmont campaign/campaign 2/session recaps/session 20 - recap.md"
+              ]
+            },
+            {
+              "needle": "NPCs/captain_lysandra_ironveil",
+              "covered": true,
+              "matching_paths": [
+                "longmont campaign/campaign 2/npcs/captain_lysandra_ironveil/readme.md",
+                "longmont campaign/campaign 2/npcs/captain_lysandra_ironveil/timeline.md"
+              ]
+            },
+            {
+              "needle": "Stormspire Academy",
+              "covered": false,
+              "matching_paths": []
+            }
+          ],
+          "recall": 0.6666666666666666,
+          "covered_count": 2,
+          "needle_count": 3
+        },
+        "expected_open_paths_full_coverage": false,
+        "expect_route_substrings_coverage_on_reads": {
+          "details": [
+            {
+              "needle": "NPCs/captain_lysandra_ironveil",
+              "covered": true,
+              "matching_paths": [
+                "longmont campaign/campaign 2/npcs/captain_lysandra_ironveil/readme.md",
+                "longmont campaign/campaign 2/npcs/captain_lysandra_ironveil/timeline.md"
+              ]
+            },
+            {
+              "needle": "Stormspire Academy",
+              "covered": false,
+              "matching_paths": []
+            }
+          ],
+          "recall": 0.5,
+          "covered_count": 1,
+          "needle_count": 2
+        },
+        "benchmark_hit_routes_compared": [
+          "Longmont Campaign/Campaign 2/Parties/questionable_company/",
+          "Longmont Campaign/Campaign 2/PCs/caelynn/",
+          "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/",
+          "Elderwyld/Migrating Forest/",
+          "Elderwyld/Unknown Sites/Voices Tower/",
+          "Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/",
+          "Elderwyld/Cities and Towns/Mossford/",
+          "Longmont Campaign/Campaign 2/PCs/ephanna/",
+          "Longmont Campaign/Campaign 2/NPCs/thrin_branchborn/",
+          "Longmont Campaign/Campaign 2/PCs/karsemine/"
+        ],
+        "benchmark_hit_route_coverage_on_reads": {
+          "details": [
+            {
+              "needle": "Longmont Campaign/Campaign 2/Parties/questionable_company/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Longmont Campaign/Campaign 2/PCs/caelynn/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/",
+              "covered": true,
+              "matching_paths": [
+                "longmont campaign/campaign 2/npcs/captain_lysandra_ironveil/readme.md",
+                "longmont campaign/campaign 2/npcs/captain_lysandra_ironveil/timeline.md"
+              ]
+            },
+            {
+              "needle": "Elderwyld/Migrating Forest/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Elderwyld/Unknown Sites/Voices Tower/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Elderwyld/Cities and Towns/Mossford/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Longmont Campaign/Campaign 2/PCs/ephanna/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Longmont Campaign/Campaign 2/NPCs/thrin_branchborn/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Longmont Campaign/Campaign 2/PCs/karsemine/",
+              "covered": false,
+              "matching_paths": []
+            }
+          ],
+          "recall": 0.1,
+          "covered_count": 1,
+          "needle_count": 10
+        },
+        "planner_final_text_parse_error": null,
+        "planner_hit_tool_round_limit": false
+      },
+      "planner_grade_vs_benchmark_retrieval": {
+        "ok": false,
+        "violations": [
+          "missing_expected_route_hit"
+        ],
+        "llm_semantic_verdict": "pass_updated",
+        "llm_context_support_ratio": 0.75,
+        "failure_surface": "pass",
+        "llm_failure_surface": "pass"
+      },
+      "planner_message_preview": "Captain Lysandra changes in **Session 20** after the party returns from the forest: she is first heard relieved that the group survived, but she\u2019s exhausted, disoriented, and can\u2019t remember much after they left. Later, at the makeshift shelter, she\u2019s found drawing a top-down tower blueprint in the dirt and appears briefly under a spell/compulsion \u2014 her eyes are described as shimmery like the cult\u2019s \u2014 until Caelynn\u2019s tea antidote breaks it. Afterward she wakes confused and only remembers voices in the dark after the party went into the forest, from `Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md`.\n\nWhat remains unresolved: why she was drawn off course, what the \u201cvoices\u201d were, what the tower drawing means, who or what put her under the spell, and what she was encountering when she said she could smell meat while trying to sleep. The recap also leaves the tainted meat source and the strange time/forest distortion hanging in the background, from `Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md` and the Lysandra hub timeline in `Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/timeline.md`.",
+      "benchmark_llm_answer_preview": "After the party returned and intervened, Caelynn prepared an antidote tea, and **Lysandra came out of whatever spell or influence she was under**. She regained awareness and was able to speak coherently, even expressing relief that the group was safe and had dealt with the forest.\n\nHowever, several things remain unresolved. **Her memory is still largely missing or fragmented**\u2014she only recalls vague \u201cvoices in the dark,\u201d mumbling about the forest leaving, and a strange distortion of time. She also mentions sensory fragments like smelling meat while trying to sleep. On top of that, **she remains physically and mentally affected**\u2014exhausted, disoriented, and confused about where she is and how she got there\u2014and earlier observation of her **shimmery, cult-like eyes** suggests the underlying cause or influence may not be fully understood or resolved."
+    },
+    {
+      "scenario_id": "q_lysandra_regroups",
+      "question": "What happens with Lysandra when she regroups with the team?",
+      "benchmark_retrieval_ok": true,
+      "benchmark_violations": [],
+      "benchmark_llm_skipped": false,
+      "benchmark_llm_model": "gpt-5.3-chat-latest",
+      "benchmark_llm_cost_usd": 0.0034195,
+      "benchmark_llm_usage": {
+        "input_tokens": 1202,
+        "output_tokens": 94,
+        "cached_input_tokens": 0,
+        "total_tokens": 1296
+      },
+      "benchmark_grade": {
+        "llm_semantic_verdict": "pass_updated",
+        "llm_context_support_ratio": 0.75,
+        "context_support_ratio": 1.0,
+        "semantic_verdict": "pass_updated",
+        "hit_count": 18,
+        "failure_surface": "pass",
+        "llm_failure_surface": "pass"
+      },
+      "planner_scenario_estimated_cost_usd": 0.007505,
+      "planner_telemetry_cost": {
+        "planner_estimated_cost_usd": 0.007505,
+        "planner_cost_by_round_usd": [
+          0.001879,
+          0.005625
+        ],
+        "planner_usage_totals": {
+          "input_tokens": 29037,
+          "output_tokens": 361,
+          "total_tokens": 29398,
+          "cached_tokens": 23552
+        },
+        "pricing_note": "approximate public list prices; verify against billing",
+        "statblock_tool_estimated_cost_usd": 0,
+        "scenario_estimated_cost_usd": 0.007505
+      },
+      "planner_discovery": {
+        "planner_read_paths": [
+          "Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/README.md",
+          "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/README.md",
+          "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/timeline.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/Session 21 - brainstorming dump.md"
+        ],
+        "planner_query_session_memory_unit_ids": [],
+        "query_session_memory_call_count": 0,
+        "expected_open_paths": [
+          "Session Recaps/Session 20 - Recap.md",
+          "NPCs/captain_lysandra_ironveil"
+        ],
+        "expected_open_paths_coverage": {
+          "details": [
+            {
+              "needle": "Session Recaps/Session 20 - Recap.md",
+              "covered": true,
+              "matching_paths": [
+                "longmont campaign/campaign 2/session recaps/session 20 - recap.md"
+              ]
+            },
+            {
+              "needle": "NPCs/captain_lysandra_ironveil",
+              "covered": true,
+              "matching_paths": [
+                "elderwyld/cities and towns/mirathorn/npcs/captain_lysandra_ironveil/readme.md",
+                "longmont campaign/campaign 2/npcs/captain_lysandra_ironveil/readme.md",
+                "longmont campaign/campaign 2/npcs/captain_lysandra_ironveil/timeline.md"
+              ]
+            }
+          ],
+          "recall": 1.0,
+          "covered_count": 2,
+          "needle_count": 2
+        },
+        "expected_open_paths_full_coverage": true,
+        "expect_route_substrings_coverage_on_reads": {
+          "details": [
+            {
+              "needle": "NPCs/captain_lysandra_ironveil",
+              "covered": true,
+              "matching_paths": [
+                "elderwyld/cities and towns/mirathorn/npcs/captain_lysandra_ironveil/readme.md",
+                "longmont campaign/campaign 2/npcs/captain_lysandra_ironveil/readme.md",
+                "longmont campaign/campaign 2/npcs/captain_lysandra_ironveil/timeline.md"
+              ]
+            },
+            {
+              "needle": "Voices Tower",
+              "covered": false,
+              "matching_paths": []
+            }
+          ],
+          "recall": 0.5,
+          "covered_count": 1,
+          "needle_count": 2
+        },
+        "benchmark_hit_routes_compared": [
+          "Longmont Campaign/Campaign 2/PCs/caelynn/",
+          "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/",
+          "Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/",
+          "Elderwyld/Migrating Forest/",
+          "Longmont Campaign/Campaign 2/Parties/questionable_company/",
+          "Longmont Campaign/Campaign 2/PCs/karsemine/",
+          "Elderwyld/Unknown Sites/Voices Tower/",
+          "Elderwyld/Cities and Towns/Mossford/",
+          "Longmont Campaign/Campaign 2/PCs/ephanna/",
+          "Longmont Campaign/Campaign 2/NPCs/thrin_branchborn/",
+          "Elderwyld/Cities and Towns/Mirathorn/"
+        ],
+        "benchmark_hit_route_coverage_on_reads": {
+          "details": [
+            {
+              "needle": "Longmont Campaign/Campaign 2/PCs/caelynn/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/",
+              "covered": true,
+              "matching_paths": [
+                "longmont campaign/campaign 2/npcs/captain_lysandra_ironveil/readme.md",
+                "longmont campaign/campaign 2/npcs/captain_lysandra_ironveil/timeline.md"
+              ]
+            },
+            {
+              "needle": "Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Elderwyld/Migrating Forest/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Longmont Campaign/Campaign 2/Parties/questionable_company/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Longmont Campaign/Campaign 2/PCs/karsemine/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Elderwyld/Unknown Sites/Voices Tower/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Elderwyld/Cities and Towns/Mossford/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Longmont Campaign/Campaign 2/PCs/ephanna/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Longmont Campaign/Campaign 2/NPCs/thrin_branchborn/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Elderwyld/Cities and Towns/Mirathorn/",
+              "covered": true,
+              "matching_paths": [
+                "elderwyld/cities and towns/mirathorn/npcs/captain_lysandra_ironveil/readme.md"
+              ]
+            }
+          ],
+          "recall": 0.18181818181818182,
+          "covered_count": 2,
+          "needle_count": 11
+        },
+        "planner_final_text_parse_error": null,
+        "planner_hit_tool_round_limit": false
+      },
+      "planner_grade_vs_benchmark_retrieval": {
+        "ok": true,
+        "violations": [],
+        "llm_semantic_verdict": "pass_updated",
+        "llm_context_support_ratio": 0.75,
+        "failure_surface": "pass",
+        "llm_failure_surface": "pass"
+      },
+      "planner_message_preview": "When Lysandra regroups with the team in **Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md**, she\u2019s initially relieved to see they\u2019re safe, but she\u2019s exhausted, disoriented, and remembers only fragments after leaving the group. After the antidote tea clears the spell, she\u2019s very confused and can only recall \u201cvoices in the dark\u201d and a tower she\u2019d drawn in the dirt. The recap doesn\u2019t show any further scene with her after the camp is set up, so her immediate state is: recovered enough to travel, but shaken and still carrying the tower lead.",
+      "benchmark_llm_answer_preview": "When the team finds Lysandra, something is clearly wrong\u2014her eyes are shimmery like the cult\u2019s, she\u2019s mumbling, and she\u2019s obsessively drawing a detailed blueprint of a tower tied to the \u201cvoices.\u201d She appears to be under some kind of influence or spell. Caelynn prepares an antidote tea, and after Lysandra drinks it, she comes out of the spell and regains herself."
+    },
+    {
+      "scenario_id": "q_relevant_locations",
+      "question": "What are the locations nearby and relevant?",
+      "benchmark_retrieval_ok": true,
+      "benchmark_violations": [],
+      "benchmark_llm_skipped": false,
+      "benchmark_llm_model": "gpt-5.3-chat-latest",
+      "benchmark_llm_cost_usd": 0.0046865,
+      "benchmark_llm_usage": {
+        "input_tokens": 1518,
+        "output_tokens": 145,
+        "cached_input_tokens": 0,
+        "total_tokens": 1663
+      },
+      "benchmark_grade": {
+        "llm_semantic_verdict": "pass_updated",
+        "llm_context_support_ratio": 1.0,
+        "context_support_ratio": 1.0,
+        "semantic_verdict": "pass_updated",
+        "hit_count": 18,
+        "failure_surface": "pass",
+        "llm_failure_surface": "pass"
+      },
+      "planner_scenario_estimated_cost_usd": 0.010743,
+      "planner_telemetry_cost": {
+        "planner_estimated_cost_usd": 0.010743,
+        "planner_cost_by_round_usd": [
+          0.001461,
+          0.009282
+        ],
+        "planner_usage_totals": {
+          "input_tokens": 33853,
+          "output_tokens": 278,
+          "total_tokens": 34131,
+          "cached_tokens": 23552
+        },
+        "pricing_note": "approximate public list prices; verify against billing",
+        "statblock_tool_estimated_cost_usd": 0,
+        "scenario_estimated_cost_usd": 0.010743
+      },
+      "planner_discovery": {
+        "planner_read_paths": [
+          "Elderwyld/Cities and Towns/Mirathorn/README.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md",
+          "Longmont Campaign/Campaign 2/Campaign 2 Notes.md"
+        ],
+        "planner_query_session_memory_unit_ids": [],
+        "query_session_memory_call_count": 0,
+        "expected_open_paths": [
+          "Session Recaps/Session 20 - Recap.md",
+          "Mossford"
+        ],
+        "expected_open_paths_coverage": {
+          "details": [
+            {
+              "needle": "Session Recaps/Session 20 - Recap.md",
+              "covered": true,
+              "matching_paths": [
+                "longmont campaign/campaign 2/session recaps/session 20 - recap.md"
+              ]
+            },
+            {
+              "needle": "Mossford",
+              "covered": false,
+              "matching_paths": []
+            }
+          ],
+          "recall": 0.5,
+          "covered_count": 1,
+          "needle_count": 2
+        },
+        "expected_open_paths_full_coverage": false,
+        "expect_route_substrings_coverage_on_reads": {
+          "details": [
+            {
+              "needle": "Mossford",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Migrating Forest",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Mirathorn",
+              "covered": true,
+              "matching_paths": [
+                "elderwyld/cities and towns/mirathorn/readme.md"
+              ]
+            },
+            {
+              "needle": "Voices Tower",
+              "covered": false,
+              "matching_paths": []
+            }
+          ],
+          "recall": 0.25,
+          "covered_count": 1,
+          "needle_count": 4
+        },
+        "benchmark_hit_routes_compared": [
+          "Elderwyld/Cities and Towns/Mirathorn/",
+          "Elderwyld/Cities and Towns/Mossford/",
+          "Elderwyld/Migrating Forest/",
+          "Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/",
+          "Elderwyld/Cities and Towns/Mossford/Mossford_Location_Dossiers/Half-Burned Warehouse.md",
+          "Elderwyld/Unknown Sites/Voices Tower/",
+          "Longmont Campaign/Campaign 2/PCs/ephanna/",
+          "Longmont Campaign/Campaign 2/PCs/karsemine/",
+          "Longmont Campaign/Campaign 2/PCs/caelynn/",
+          "Longmont Campaign/Campaign 2/NPCs/thrin_branchborn/",
+          "Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/NPCs/professor_merril_tealeaf/",
+          "Longmont Campaign/Campaign 2/PCs/bonogo/",
+          "Elderwyld/Cities and Towns/Mossford/NPCs/stuart/",
+          "Longmont Campaign/Campaign 2/PCs/stafl/",
+          "Elderwyld/Cities and Towns/Mossford/NPCs/marla_brambleback/",
+          "Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/",
+          "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/"
+        ],
+        "benchmark_hit_route_coverage_on_reads": {
+          "details": [
+            {
+              "needle": "Elderwyld/Cities and Towns/Mirathorn/",
+              "covered": true,
+              "matching_paths": [
+                "elderwyld/cities and towns/mirathorn/readme.md"
+              ]
+            },
+            {
+              "needle": "Elderwyld/Cities and Towns/Mossford/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Elderwyld/Migrating Forest/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Elderwyld/Cities and Towns/Mossford/Mossford_Location_Dossiers/Half-Burned Warehouse.md",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Elderwyld/Unknown Sites/Voices Tower/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Longmont Campaign/Campaign 2/PCs/ephanna/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Longmont Campaign/Campaign 2/PCs/karsemine/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Longmont Campaign/Campaign 2/PCs/caelynn/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Longmont Campaign/Campaign 2/NPCs/thrin_branchborn/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/NPCs/professor_merril_tealeaf/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Longmont Campaign/Campaign 2/PCs/bonogo/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Elderwyld/Cities and Towns/Mossford/NPCs/stuart/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Longmont Campaign/Campaign 2/PCs/stafl/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Elderwyld/Cities and Towns/Mossford/NPCs/marla_brambleback/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/",
+              "covered": false,
+              "matching_paths": []
+            }
+          ],
+          "recall": 0.058823529411764705,
+          "covered_count": 1,
+          "needle_count": 17
+        },
+        "planner_final_text_parse_error": null,
+        "planner_hit_tool_round_limit": false
+      },
+      "planner_grade_vs_benchmark_retrieval": {
+        "ok": false,
+        "violations": [
+          "llm_semantic_verdict:fail_incomplete",
+          "llm_context_support_below_threshold"
+        ],
+        "llm_semantic_verdict": "fail_incomplete",
+        "llm_context_support_ratio": 0.25,
+        "failure_surface": "pass",
+        "llm_failure_surface": "retrieval_gap"
+      },
+      "planner_message_preview": "Nearby and relevant locations around Mirathorn are laid out in `Elderwyld/Cities and Towns/Mirathorn/README.md`: **City Council Building**, **Sewers** (including the allies\u2019 hideout, loot room, ritual chamber, and Nameless Goddess temple), **Stormspire Academy**, and **Wolf Manor**. For broader context on what\u2019s currently in play, the campaign notes in `Longmont Campaign/Campaign 2/Campaign 2 Notes.md` point to **Wolf\u2019s Estate**, **the swamp / Flesh Egg**, **The Dustwalker**, **The Gilded Fold**, and **Outtown unrest** as the main nearby-relevant threads.",
+      "benchmark_llm_answer_preview": "Nearby and relevant locations based on the excerpts:\n\n- Mossford (town), including the **Half-Burned Warehouse** (a recurring scene with children and gang activity)  \n- The **Migrating Forest**, specifically its edge where the party encountered the swarm  \n- **Mirathorn** (city), connected via contacts like Sara and broader plot threads  \n- **Stormspire Academy** in Mirathorn (noted as a key institutional location)  \n- The **Voices Tower** (an unidentified/unknown site tied to the mysterious voices and Lysandra\u2019s blueprint)\n\nIf you need tighter geographic relationships (distances, travel time), that isn\u2019t specified in the excerpts."
+    },
+    {
+      "scenario_id": "q_communication_chain",
+      "question": "What chain of communication connects Caelynn, Sara, Lysandra, and Tealeaf in the recap?",
+      "benchmark_retrieval_ok": false,
+      "benchmark_violations": [
+        "missing_expected_unit_id_hit"
+      ],
+      "benchmark_llm_skipped": false,
+      "benchmark_llm_model": "gpt-5.3-chat-latest",
+      "benchmark_llm_cost_usd": 0.0012726,
+      "benchmark_llm_usage": {
+        "input_tokens": 1204,
+        "output_tokens": 70,
+        "cached_input_tokens": 1152,
+        "total_tokens": 1274
+      },
+      "benchmark_grade": {
+        "llm_semantic_verdict": "pass_updated",
+        "llm_context_support_ratio": 1.0,
+        "context_support_ratio": 1.0,
+        "semantic_verdict": "pass_updated",
+        "hit_count": 18,
+        "failure_surface": "pass",
+        "llm_failure_surface": "pass"
+      },
+      "planner_scenario_estimated_cost_usd": 0.020004,
+      "planner_telemetry_cost": {
+        "planner_estimated_cost_usd": 0.020004,
+        "planner_cost_by_round_usd": [
+          0.001827,
+          0.00605,
+          0.012127
+        ],
+        "planner_usage_totals": {
+          "input_tokens": 59918,
+          "output_tokens": 603,
+          "total_tokens": 60521,
+          "cached_tokens": 40960
+        },
+        "pricing_note": "approximate public list prices; verify against billing",
+        "statblock_tool_estimated_cost_usd": 0,
+        "scenario_estimated_cost_usd": 0.020004
+      },
+      "planner_discovery": {
+        "planner_read_paths": [
+          "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/Session 19 - Recap.md",
+          "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/README.md",
+          "Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/README.md",
+          "Longmont Campaign/Campaign 2/PCs/caelynn/README.md",
+          "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_character_dossier.md",
+          "Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/sara_mirathorn_operator_character_dossier.md",
+          "Longmont Campaign/Campaign 2/PCs/caelynn/caelynn_character_dossier.md",
+          "Longmont Campaign/Campaign 2/Campaign 2 Notes.md",
+          "Longmont Campaign/Campaign 2/NPCs/torbin_jove/README.md"
+        ],
+        "planner_query_session_memory_unit_ids": [],
+        "query_session_memory_call_count": 0,
+        "expected_open_paths": [
+          "Session Recaps/Session 20 - Recap.md",
+          "NPCs/sara_mirathorn_operator",
+          "NPCs/captain_lysandra_ironveil",
+          "Stormspire Academy"
+        ],
+        "expected_open_paths_coverage": {
+          "details": [
+            {
+              "needle": "Session Recaps/Session 20 - Recap.md",
+              "covered": true,
+              "matching_paths": [
+                "longmont campaign/campaign 2/session recaps/session 20 - recap.md"
+              ]
+            },
+            {
+              "needle": "NPCs/sara_mirathorn_operator",
+              "covered": true,
+              "matching_paths": [
+                "longmont campaign/campaign 2/npcs/sara_mirathorn_operator/readme.md",
+                "longmont campaign/campaign 2/npcs/sara_mirathorn_operator/sara_mirathorn_operator_character_dossier.md"
+              ]
+            },
+            {
+              "needle": "NPCs/captain_lysandra_ironveil",
+              "covered": true,
+              "matching_paths": [
+                "longmont campaign/campaign 2/npcs/captain_lysandra_ironveil/readme.md",
+                "longmont campaign/campaign 2/npcs/captain_lysandra_ironveil/captain_lysandra_ironveil_character_dossier.md"
+              ]
+            },
+            {
+              "needle": "Stormspire Academy",
+              "covered": false,
+              "matching_paths": []
+            }
+          ],
+          "recall": 0.75,
+          "covered_count": 3,
+          "needle_count": 4
+        },
+        "expected_open_paths_full_coverage": false,
+        "expect_route_substrings_coverage_on_reads": {
+          "details": [
+            {
+              "needle": "NPCs/sara_mirathorn_operator",
+              "covered": true,
+              "matching_paths": [
+                "longmont campaign/campaign 2/npcs/sara_mirathorn_operator/readme.md",
+                "longmont campaign/campaign 2/npcs/sara_mirathorn_operator/sara_mirathorn_operator_character_dossier.md"
+              ]
+            },
+            {
+              "needle": "NPCs/captain_lysandra_ironveil",
+              "covered": true,
+              "matching_paths": [
+                "longmont campaign/campaign 2/npcs/captain_lysandra_ironveil/readme.md",
+                "longmont campaign/campaign 2/npcs/captain_lysandra_ironveil/captain_lysandra_ironveil_character_dossier.md"
+              ]
+            },
+            {
+              "needle": "Stormspire Academy",
+              "covered": false,
+              "matching_paths": []
+            }
+          ],
+          "recall": 0.6666666666666666,
+          "covered_count": 2,
+          "needle_count": 3
+        },
+        "benchmark_hit_routes_compared": [
+          "Longmont Campaign/Campaign 2/Parties/questionable_company/",
+          "Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/",
+          "Longmont Campaign/Campaign 2/PCs/caelynn/",
+          "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/",
+          "Elderwyld/Migrating Forest/",
+          "Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/NPCs/professor_merril_tealeaf/",
+          "Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/",
+          "Longmont Campaign/Campaign 2/PCs/karsemine/",
+          "Longmont Campaign/Campaign 2/PCs/ephanna/",
+          "Elderwyld/Cities and Towns/Mossford/",
+          "Longmont Campaign/Campaign 2/PCs/stafl/",
+          "Elderwyld/Cities and Towns/Mirathorn/"
+        ],
+        "benchmark_hit_route_coverage_on_reads": {
+          "details": [
+            {
+              "needle": "Longmont Campaign/Campaign 2/Parties/questionable_company/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/",
+              "covered": true,
+              "matching_paths": [
+                "longmont campaign/campaign 2/npcs/sara_mirathorn_operator/readme.md",
+                "longmont campaign/campaign 2/npcs/sara_mirathorn_operator/sara_mirathorn_operator_character_dossier.md"
+              ]
+            },
+            {
+              "needle": "Longmont Campaign/Campaign 2/PCs/caelynn/",
+              "covered": true,
+              "matching_paths": [
+                "longmont campaign/campaign 2/pcs/caelynn/readme.md",
+                "longmont campaign/campaign 2/pcs/caelynn/caelynn_character_dossier.md"
+              ]
+            },
+            {
+              "needle": "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/",
+              "covered": true,
+              "matching_paths": [
+                "longmont campaign/campaign 2/npcs/captain_lysandra_ironveil/readme.md",
+                "longmont campaign/campaign 2/npcs/captain_lysandra_ironveil/captain_lysandra_ironveil_character_dossier.md"
+              ]
+            },
+            {
+              "needle": "Elderwyld/Migrating Forest/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/NPCs/professor_merril_tealeaf/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Longmont Campaign/Campaign 2/PCs/karsemine/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Longmont Campaign/Campaign 2/PCs/ephanna/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Elderwyld/Cities and Towns/Mossford/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Longmont Campaign/Campaign 2/PCs/stafl/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Elderwyld/Cities and Towns/Mirathorn/",
+              "covered": false,
+              "matching_paths": []
+            }
+          ],
+          "recall": 0.25,
+          "covered_count": 3,
+          "needle_count": 12
+        },
+        "planner_final_text_parse_error": null,
+        "planner_hit_tool_round_limit": false
+      },
+      "planner_grade_vs_benchmark_retrieval": {
+        "ok": false,
+        "violations": [
+          "missing_expected_unit_id_hit"
+        ],
+        "llm_semantic_verdict": "pass_updated",
+        "llm_context_support_ratio": 1.0,
+        "failure_surface": "pass",
+        "llm_failure_surface": "pass"
+      },
+      "planner_message_preview": "In `Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md`, the chain is: **Caelynn \u2192 Sara \u2192 Lysandra \u2192 Caelynn \u2192 Sara \u2192 Professor Tealeaf**. Caelynn calls on the rockie-talkie, Sara patches her to Lysandra, Caelynn relays the update back through Sara, and then Sara transfers her to Tealeaf, who does not pick up. `Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/sara_mirathorn_operator_character_dossier.md` also frames Sara/Frank as the Mirathorn switchboard operators who bridge those calls, while `Longmont Campaign/Campaign 2/PCs/caelynn/caelynn_character_dossier.md` notes Tealeaf as the Academy handoff contact.",
+      "benchmark_llm_answer_preview": "Caelynn contacts Sara, who then calls Lysandra and connects Caelynn directly to her. From there, Lysandra transfers Caelynn to Professor Tealeaf, though Tealeaf does not answer. So the chain is: Caelynn \u2192 Sara \u2192 Lysandra \u2192 Tealeaf."
+    },
+    {
+      "scenario_id": "q_lysandra_memory_contrast",
+      "question": "What does Lysandra remember versus fail to remember after the spell breaks?",
+      "benchmark_retrieval_ok": false,
+      "benchmark_violations": [
+        "missing_expected_unit_id_hit",
+        "context_support_below_threshold",
+        "llm_context_support_below_threshold"
+      ],
+      "benchmark_llm_skipped": false,
+      "benchmark_llm_model": "gpt-5.3-chat-latest",
+      "benchmark_llm_cost_usd": 0.00432775,
+      "benchmark_llm_usage": {
+        "input_tokens": 1201,
+        "output_tokens": 159,
+        "cached_input_tokens": 0,
+        "total_tokens": 1360
+      },
+      "benchmark_grade": {
+        "llm_semantic_verdict": "pass_updated",
+        "llm_context_support_ratio": 0.75,
+        "context_support_ratio": 0.75,
+        "semantic_verdict": "pass_updated",
+        "hit_count": 18,
+        "failure_surface": "pass",
+        "llm_failure_surface": "pass"
+      },
+      "planner_scenario_estimated_cost_usd": 0.008529,
+      "planner_telemetry_cost": {
+        "planner_estimated_cost_usd": 0.008529,
+        "planner_cost_by_round_usd": [
+          0.001664,
+          0.006865
+        ],
+        "planner_usage_totals": {
+          "input_tokens": 30853,
+          "output_tokens": 286,
+          "total_tokens": 31139,
+          "cached_tokens": 23552
+        },
+        "pricing_note": "approximate public list prices; verify against billing",
+        "statblock_tool_estimated_cost_usd": 0,
+        "scenario_estimated_cost_usd": 0.008529
+      },
+      "planner_discovery": {
+        "planner_read_paths": [
+          "Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/README.md",
+          "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_character_dossier.md",
+          "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/timeline.md",
+          "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/README.md",
+          "Longmont Campaign/Campaign 1/Session Recaps/Session 10 - Battle with the Meat Monsters.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/Session 10 - Recap.md"
+        ],
+        "planner_query_session_memory_unit_ids": [],
+        "query_session_memory_call_count": 0,
+        "expected_open_paths": [
+          "Session Recaps/Session 20 - Recap.md",
+          "NPCs/captain_lysandra_ironveil"
+        ],
+        "expected_open_paths_coverage": {
+          "details": [
+            {
+              "needle": "Session Recaps/Session 20 - Recap.md",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "NPCs/captain_lysandra_ironveil",
+              "covered": true,
+              "matching_paths": [
+                "elderwyld/cities and towns/mirathorn/npcs/captain_lysandra_ironveil/readme.md",
+                "longmont campaign/campaign 2/npcs/captain_lysandra_ironveil/captain_lysandra_ironveil_character_dossier.md",
+                "longmont campaign/campaign 2/npcs/captain_lysandra_ironveil/timeline.md",
+                "longmont campaign/campaign 2/npcs/captain_lysandra_ironveil/readme.md"
+              ]
+            }
+          ],
+          "recall": 0.5,
+          "covered_count": 1,
+          "needle_count": 2
+        },
+        "expected_open_paths_full_coverage": false,
+        "expect_route_substrings_coverage_on_reads": {
+          "details": [
+            {
+              "needle": "NPCs/captain_lysandra_ironveil",
+              "covered": true,
+              "matching_paths": [
+                "elderwyld/cities and towns/mirathorn/npcs/captain_lysandra_ironveil/readme.md",
+                "longmont campaign/campaign 2/npcs/captain_lysandra_ironveil/captain_lysandra_ironveil_character_dossier.md",
+                "longmont campaign/campaign 2/npcs/captain_lysandra_ironveil/timeline.md",
+                "longmont campaign/campaign 2/npcs/captain_lysandra_ironveil/readme.md"
+              ]
+            }
+          ],
+          "recall": 1.0,
+          "covered_count": 1,
+          "needle_count": 1
+        },
+        "benchmark_hit_routes_compared": [
+          "Longmont Campaign/Campaign 2/Parties/questionable_company/",
+          "Longmont Campaign/Campaign 2/PCs/caelynn/",
+          "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/",
+          "Elderwyld/Migrating Forest/",
+          "Elderwyld/Unknown Sites/Voices Tower/",
+          "Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/",
+          "Longmont Campaign/Campaign 2/PCs/karsemine/",
+          "Elderwyld/Cities and Towns/Mossford/",
+          "Longmont Campaign/Campaign 2/PCs/ephanna/",
+          "Longmont Campaign/Campaign 2/NPCs/thrin_branchborn/"
+        ],
+        "benchmark_hit_route_coverage_on_reads": {
+          "details": [
+            {
+              "needle": "Longmont Campaign/Campaign 2/Parties/questionable_company/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Longmont Campaign/Campaign 2/PCs/caelynn/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/",
+              "covered": true,
+              "matching_paths": [
+                "longmont campaign/campaign 2/npcs/captain_lysandra_ironveil/captain_lysandra_ironveil_character_dossier.md",
+                "longmont campaign/campaign 2/npcs/captain_lysandra_ironveil/timeline.md",
+                "longmont campaign/campaign 2/npcs/captain_lysandra_ironveil/readme.md"
+              ]
+            },
+            {
+              "needle": "Elderwyld/Migrating Forest/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Elderwyld/Unknown Sites/Voices Tower/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Longmont Campaign/Campaign 2/PCs/karsemine/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Elderwyld/Cities and Towns/Mossford/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Longmont Campaign/Campaign 2/PCs/ephanna/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Longmont Campaign/Campaign 2/NPCs/thrin_branchborn/",
+              "covered": false,
+              "matching_paths": []
+            }
+          ],
+          "recall": 0.1,
+          "covered_count": 1,
+          "needle_count": 10
+        },
+        "planner_final_text_parse_error": null,
+        "planner_hit_tool_round_limit": false
+      },
+      "planner_grade_vs_benchmark_retrieval": {
+        "ok": false,
+        "violations": [
+          "missing_expected_unit_id_hit",
+          "context_support_below_threshold",
+          "llm_context_support_below_threshold"
+        ],
+        "llm_semantic_verdict": "pass_updated",
+        "llm_context_support_ratio": 0.75,
+        "failure_surface": "pass",
+        "llm_failure_surface": "pass"
+      },
+      "planner_message_preview": "After the spell breaks in `Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md`, Lysandra remembers only fragments: **voices in the dark after the group left into the forest**, and earlier she had only recalled **that she decided to go around the forest** and **smelled meat while trying to sleep**. She is otherwise **confused, exhausted, and disoriented**; the recap does not show her recovering any clearer memory of how she got there.",
+      "benchmark_llm_answer_preview": "After the spell breaks, Lysandra\u2019s memory is very fragmented. She remembers only a few impressions from after the group entered the forest: hearing voices in the dark, deciding to go around the forest, and smelling meat while trying to sleep.\n\nBeyond those scattered details, she can\u2019t recall what actually happened\u2014most of the events after the group left are missing, and she\u2019s left confused about how she ended up where she was."
+    },
+    {
+      "scenario_id": "q_mirathorn_vs_mossford",
+      "question": "How is Mirathorn relevant currently, and how is Mossford relevant currently?",
+      "benchmark_retrieval_ok": true,
+      "benchmark_violations": [],
+      "benchmark_llm_skipped": false,
+      "benchmark_llm_model": "gpt-5.3-chat-latest",
+      "benchmark_llm_cost_usd": 0.00462525,
+      "benchmark_llm_usage": {
+        "input_tokens": 1379,
+        "output_tokens": 158,
+        "cached_input_tokens": 0,
+        "total_tokens": 1537
+      },
+      "benchmark_grade": {
+        "llm_semantic_verdict": "pass_updated",
+        "llm_context_support_ratio": 1.0,
+        "context_support_ratio": 1.0,
+        "semantic_verdict": "pass_updated",
+        "hit_count": 18,
+        "failure_surface": "pass",
+        "llm_failure_surface": "pass"
+      },
+      "planner_scenario_estimated_cost_usd": 0.0081,
+      "planner_telemetry_cost": {
+        "planner_estimated_cost_usd": 0.0081,
+        "planner_cost_by_round_usd": [
+          0.001629,
+          0.006471
+        ],
+        "planner_usage_totals": {
+          "input_tokens": 29315,
+          "output_tokens": 447,
+          "total_tokens": 29762,
+          "cached_tokens": 23552
+        },
+        "pricing_note": "approximate public list prices; verify against billing",
+        "statblock_tool_estimated_cost_usd": 0,
+        "scenario_estimated_cost_usd": 0.0081
+      },
+      "planner_discovery": {
+        "planner_read_paths": [
+          "Elderwyld/Cities and Towns/Mirathorn/README.md",
+          "Elderwyld/Cities and Towns/Mossford/README.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/Session 19 - Recap.md"
+        ],
+        "planner_query_session_memory_unit_ids": [],
+        "query_session_memory_call_count": 0,
+        "expected_open_paths": [
+          "Session Recaps/Session 20 - Recap.md",
+          "Mirathorn/README.md",
+          "Mossford/README.md"
+        ],
+        "expected_open_paths_coverage": {
+          "details": [
+            {
+              "needle": "Session Recaps/Session 20 - Recap.md",
+              "covered": true,
+              "matching_paths": [
+                "longmont campaign/campaign 2/session recaps/session 20 - recap.md"
+              ]
+            },
+            {
+              "needle": "Mirathorn/README.md",
+              "covered": true,
+              "matching_paths": [
+                "elderwyld/cities and towns/mirathorn/readme.md"
+              ]
+            },
+            {
+              "needle": "Mossford/README.md",
+              "covered": true,
+              "matching_paths": [
+                "elderwyld/cities and towns/mossford/readme.md"
+              ]
+            }
+          ],
+          "recall": 1.0,
+          "covered_count": 3,
+          "needle_count": 3
+        },
+        "expected_open_paths_full_coverage": true,
+        "expect_route_substrings_coverage_on_reads": {
+          "details": [
+            {
+              "needle": "Mirathorn",
+              "covered": true,
+              "matching_paths": [
+                "elderwyld/cities and towns/mirathorn/readme.md"
+              ]
+            },
+            {
+              "needle": "Mossford",
+              "covered": true,
+              "matching_paths": [
+                "elderwyld/cities and towns/mossford/readme.md"
+              ]
+            },
+            {
+              "needle": "Stormspire Academy",
+              "covered": false,
+              "matching_paths": []
+            }
+          ],
+          "recall": 0.6666666666666666,
+          "covered_count": 2,
+          "needle_count": 3
+        },
+        "benchmark_hit_routes_compared": [
+          "Elderwyld/Cities and Towns/Mirathorn/",
+          "Elderwyld/Cities and Towns/Mossford/",
+          "Elderwyld/Migrating Forest/",
+          "Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/",
+          "Elderwyld/Cities and Towns/Mossford/Mossford_Location_Dossiers/Half-Burned Warehouse.md",
+          "Elderwyld/Unknown Sites/Voices Tower/",
+          "Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/NPCs/professor_merril_tealeaf/",
+          "Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/",
+          "Longmont Campaign/Campaign 2/PCs/stafl/",
+          "Longmont Campaign/Campaign 2/PCs/bonogo/",
+          "Elderwyld/Cities and Towns/Mossford/NPCs/stuart/",
+          "Elderwyld/Cities and Towns/Mossford/NPCs/stacey_brambleback/",
+          "Longmont Campaign/Campaign 2/PCs/karsemine/",
+          "Longmont Campaign/Campaign 2/PCs/caelynn/",
+          "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/",
+          "Longmont Campaign/Campaign 2/Parties/questionable_company/"
+        ],
+        "benchmark_hit_route_coverage_on_reads": {
+          "details": [
+            {
+              "needle": "Elderwyld/Cities and Towns/Mirathorn/",
+              "covered": true,
+              "matching_paths": [
+                "elderwyld/cities and towns/mirathorn/readme.md"
+              ]
+            },
+            {
+              "needle": "Elderwyld/Cities and Towns/Mossford/",
+              "covered": true,
+              "matching_paths": [
+                "elderwyld/cities and towns/mossford/readme.md"
+              ]
+            },
+            {
+              "needle": "Elderwyld/Migrating Forest/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Elderwyld/Cities and Towns/Mossford/Mossford_Location_Dossiers/Half-Burned Warehouse.md",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Elderwyld/Unknown Sites/Voices Tower/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/NPCs/professor_merril_tealeaf/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Longmont Campaign/Campaign 2/PCs/stafl/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Longmont Campaign/Campaign 2/PCs/bonogo/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Elderwyld/Cities and Towns/Mossford/NPCs/stuart/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Elderwyld/Cities and Towns/Mossford/NPCs/stacey_brambleback/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Longmont Campaign/Campaign 2/PCs/karsemine/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Longmont Campaign/Campaign 2/PCs/caelynn/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Longmont Campaign/Campaign 2/Parties/questionable_company/",
+              "covered": false,
+              "matching_paths": []
+            }
+          ],
+          "recall": 0.125,
+          "covered_count": 2,
+          "needle_count": 16
+        },
+        "planner_final_text_parse_error": null,
+        "planner_hit_tool_round_limit": false
+      },
+      "planner_grade_vs_benchmark_retrieval": {
+        "ok": true,
+        "violations": [],
+        "llm_semantic_verdict": "pass_updated",
+        "llm_context_support_ratio": 0.8,
+        "failure_surface": "pass",
+        "llm_failure_surface": "pass"
+      },
+      "planner_message_preview": "- **Mirathorn** is currently relevant as the operational center for the cult/tainted-meat thread and the tower mystery: in `Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md`, Caelynn reaches Sara in Mirathorn, learns Lysandra is exhausted/disoriented, hears that something strange happened to time, and the group is also told there\u2019s tainted meat in town and a tower drawing linked to the voices Lysandra heard.\n- **Mossford** is currently relevant as the town the party just helped stabilize: `Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md` shows the forest threat being redirected away from the town, the mayor and sheriff thanking the heroes, and Marla/Stacey/Stuart still mattering as the town\u2019s social friction point. `Longmont Campaign/Campaign 2/Session Recaps/Session 19 - Recap.md` adds that Mossford\u2019s townsfolk were gathering oil and salt, the sheriff was supervising, and the team tested the forest\u2019s response to \u201cdead ground\u201d there.\n- In short: **Mirathorn is the link to the wider conspiracy and support network; Mossford is the immediate site of the forest-crisis aftermath and local logistics.**",
+      "benchmark_llm_answer_preview": "Mirathorn is currently relevant as a communication and origin point for ongoing plot threads. The party is actively contacting Sara, an operator based there, to report developments (like Lysandra and the tainted meat), and the tainted provisions themselves may have been compromised before leaving Mirathorn. It\u2019s also tied to unresolved structure around Stormspire Academy and NPCs like Professor Tealeaf, suggesting future narrative focus there.\n\nMossford is immediately relevant as an active scene location. The party is physically there, investigating the half-burned warehouse where Stuart leads them to find Stacey Brambleback. That site contains a live situation with rival child groups and Stacey in conflict, making it a current, on-the-ground interaction hub with unresolved outcomes."
+    },
+    {
+      "scenario_id": "q_tower_knowns",
+      "question": "What do we know about this tower that came up?",
+      "benchmark_retrieval_ok": true,
+      "benchmark_violations": [],
+      "benchmark_llm_skipped": false,
+      "benchmark_llm_model": "gpt-5.3-chat-latest",
+      "benchmark_llm_cost_usd": 0.0050995,
+      "benchmark_llm_usage": {
+        "input_tokens": 1370,
+        "output_tokens": 193,
+        "cached_input_tokens": 0,
+        "total_tokens": 1563
+      },
+      "benchmark_grade": {
+        "llm_semantic_verdict": "pass_updated",
+        "llm_context_support_ratio": 1.0,
+        "context_support_ratio": 1.0,
+        "semantic_verdict": "pass_updated",
+        "hit_count": 18,
+        "failure_surface": "pass",
+        "llm_failure_surface": "pass"
+      },
+      "planner_scenario_estimated_cost_usd": 0.008688,
+      "planner_telemetry_cost": {
+        "planner_estimated_cost_usd": 0.008688,
+        "planner_cost_by_round_usd": [
+          0.001369,
+          0.007319
+        ],
+        "planner_usage_totals": {
+          "input_tokens": 30489,
+          "output_tokens": 382,
+          "total_tokens": 30871,
+          "cached_tokens": 23552
+        },
+        "pricing_note": "approximate public list prices; verify against billing",
+        "statblock_tool_estimated_cost_usd": 0,
+        "scenario_estimated_cost_usd": 0.008688
+      },
+      "planner_discovery": {
+        "planner_read_paths": [
+          "Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/README.md",
+          "Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/Stormspire Academy.md"
+        ],
+        "planner_query_session_memory_unit_ids": [],
+        "query_session_memory_call_count": 0,
+        "expected_open_paths": [
+          "Session Recaps/Session 20 - Recap.md",
+          "Voices Tower"
+        ],
+        "expected_open_paths_coverage": {
+          "details": [
+            {
+              "needle": "Session Recaps/Session 20 - Recap.md",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Voices Tower",
+              "covered": false,
+              "matching_paths": []
+            }
+          ],
+          "recall": 0.0,
+          "covered_count": 0,
+          "needle_count": 2
+        },
+        "expected_open_paths_full_coverage": false,
+        "expect_route_substrings_coverage_on_reads": {
+          "details": [
+            {
+              "needle": "Voices Tower",
+              "covered": false,
+              "matching_paths": []
+            }
+          ],
+          "recall": 0.0,
+          "covered_count": 0,
+          "needle_count": 1
+        },
+        "benchmark_hit_routes_compared": [
+          "Elderwyld/Cities and Towns/Mirathorn/",
+          "Elderwyld/Cities and Towns/Mossford/",
+          "Elderwyld/Migrating Forest/",
+          "Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/",
+          "Elderwyld/Cities and Towns/Mossford/Mossford_Location_Dossiers/Half-Burned Warehouse.md",
+          "Elderwyld/Unknown Sites/Voices Tower/",
+          "Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/NPCs/professor_merril_tealeaf/",
+          "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/",
+          "Longmont Campaign/Campaign 2/PCs/caelynn/",
+          "Longmont Campaign/Campaign 2/Parties/questionable_company/",
+          "Longmont Campaign/Campaign 2/PCs/bonogo/",
+          "Elderwyld/Cities and Towns/Mossford/NPCs/stuart/",
+          "Longmont Campaign/Campaign 2/PCs/ephanna/",
+          "Longmont Campaign/Campaign 2/NPCs/thrin_branchborn/",
+          "Longmont Campaign/Campaign 2/PCs/karsemine/",
+          "Longmont Campaign/Campaign 2/PCs/stafl/"
+        ],
+        "benchmark_hit_route_coverage_on_reads": {
+          "details": [
+            {
+              "needle": "Elderwyld/Cities and Towns/Mirathorn/",
+              "covered": true,
+              "matching_paths": [
+                "elderwyld/cities and towns/mirathorn/stormspire academy/readme.md",
+                "elderwyld/cities and towns/mirathorn/stormspire academy/stormspire academy.md"
+              ]
+            },
+            {
+              "needle": "Elderwyld/Cities and Towns/Mossford/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Elderwyld/Migrating Forest/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/",
+              "covered": true,
+              "matching_paths": [
+                "elderwyld/cities and towns/mirathorn/stormspire academy/readme.md",
+                "elderwyld/cities and towns/mirathorn/stormspire academy/stormspire academy.md"
+              ]
+            },
+            {
+              "needle": "Elderwyld/Cities and Towns/Mossford/Mossford_Location_Dossiers/Half-Burned Warehouse.md",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Elderwyld/Unknown Sites/Voices Tower/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/NPCs/professor_merril_tealeaf/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Longmont Campaign/Campaign 2/PCs/caelynn/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Longmont Campaign/Campaign 2/Parties/questionable_company/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Longmont Campaign/Campaign 2/PCs/bonogo/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Elderwyld/Cities and Towns/Mossford/NPCs/stuart/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Longmont Campaign/Campaign 2/PCs/ephanna/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Longmont Campaign/Campaign 2/NPCs/thrin_branchborn/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Longmont Campaign/Campaign 2/PCs/karsemine/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Longmont Campaign/Campaign 2/PCs/stafl/",
+              "covered": false,
+              "matching_paths": []
+            }
+          ],
+          "recall": 0.125,
+          "covered_count": 2,
+          "needle_count": 16
+        },
+        "planner_final_text_parse_error": null,
+        "planner_hit_tool_round_limit": false
+      },
+      "planner_grade_vs_benchmark_retrieval": {
+        "ok": false,
+        "violations": [
+          "llm_context_support_below_threshold"
+        ],
+        "llm_semantic_verdict": "pass_updated",
+        "llm_context_support_ratio": 0.6666666666666666,
+        "failure_surface": "pass",
+        "llm_failure_surface": "pass"
+      },
+      "planner_message_preview": "From `Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/README.md` and `Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/Stormspire Academy.md`, Stormspire Academy is a venerable 150+ year-old arcane institution on the edge of reality near the Stormspire Mountains, with wards, robed patrols, a grand atrium, and lots of spellcasting support.\n\nWhat came up about it:\n- It can provide healing, cleansing, scrolls, warding amulets, rune-inscribed buffs, covert-op kits, and special rest chambers.\n- The in-region NPC note points to Wynna Mossglade, the clerk.\n- The notes also frame it as a place where the city\u2019s covert response is being coordinated during the crisis.\n- A major story beat tied to the academy is the basement Speak with Dead sequence: Zyla Cinderbranch leads the ritual, Draven Willowcrest is the corrupted assistant, and corrupted guards/sewer meat things attack from below.\n\nIf you meant a specific tower or sub-area inside the academy, I only see the academy writeup itself here; the README says no internal sub-locations have been split out yet in this package.",
+      "benchmark_llm_answer_preview": "Very little is nailed down, but a few key things are consistent:\n\n- It\u2019s referred to as a tower where the voices are coming from, and Lysandra explicitly said she knows where it is.  \n- The only \u201cmap\u201d is a detailed top-down blueprint she drew while under some kind of influence; it\u2019s noted as unusually well done.  \n- That influence seems cult-related (her eyes were \u201cshimmery\u201d like cult members, she was mumbling, and not fully herself).  \n- Afterward, she remembers almost nothing except \u201cvoices in the dark\u201d following the group entering the forest.  \n- The site itself isn\u2019t placed anywhere canonical yet; it\u2019s still an unidentified \u201cUnknown Site\u201d with an open question about where it belongs.\n\nSo: you\u2019ve got a likely real location tied to the voices and the cult, a magically/mentally compelled blueprint, and no confirmed geography yet."
+    },
+    {
+      "scenario_id": "q_party_learned_next_prep",
+      "question": "What did the party learn from the forest episode that affects next-session prep?",
+      "benchmark_retrieval_ok": false,
+      "benchmark_violations": [
+        "missing_expected_unit_id_hit"
+      ],
+      "benchmark_llm_skipped": false,
+      "benchmark_llm_model": "gpt-5.3-chat-latest",
+      "benchmark_llm_cost_usd": 0.006601,
+      "benchmark_llm_usage": {
+        "input_tokens": 1524,
+        "output_tokens": 281,
+        "cached_input_tokens": 0,
+        "total_tokens": 1805
+      },
+      "benchmark_grade": {
+        "llm_semantic_verdict": "pass_updated",
+        "llm_context_support_ratio": 0.75,
+        "context_support_ratio": 1.0,
+        "semantic_verdict": "pass_updated",
+        "hit_count": 18,
+        "failure_surface": "pass",
+        "llm_failure_surface": "pass"
+      },
+      "planner_scenario_estimated_cost_usd": 0.011049,
+      "planner_telemetry_cost": {
+        "planner_estimated_cost_usd": 0.011049,
+        "planner_cost_by_round_usd": [
+          0.001827,
+          0.009222
+        ],
+        "planner_usage_totals": {
+          "input_tokens": 32215,
+          "output_tokens": 619,
+          "total_tokens": 32834,
+          "cached_tokens": 23552
+        },
+        "pricing_note": "approximate public list prices; verify against billing",
+        "statblock_tool_estimated_cost_usd": 0,
+        "scenario_estimated_cost_usd": 0.011049
+      },
+      "planner_discovery": {
+        "planner_read_paths": [
+          "Longmont Campaign/Campaign 2/Session Recaps/Session 17 - Migrating Forest and Thrin.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/Session 18 - Recap.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/Session 19 - Recap.md",
+          "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md",
+          "Longmont Campaign/Campaign 2/Session Prep/Session 21 - Session intro.md"
+        ],
+        "planner_query_session_memory_unit_ids": [],
+        "query_session_memory_call_count": 0,
+        "expected_open_paths": [
+          "Session Recaps/Session 20 - Recap.md",
+          "NPCs/captain_lysandra_ironveil",
+          "Migrating Forest"
+        ],
+        "expected_open_paths_coverage": {
+          "details": [
+            {
+              "needle": "Session Recaps/Session 20 - Recap.md",
+              "covered": true,
+              "matching_paths": [
+                "longmont campaign/campaign 2/session recaps/session 20 - recap.md"
+              ]
+            },
+            {
+              "needle": "NPCs/captain_lysandra_ironveil",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Migrating Forest",
+              "covered": true,
+              "matching_paths": [
+                "longmont campaign/campaign 2/session recaps/session 17 - migrating forest and thrin.md"
+              ]
+            }
+          ],
+          "recall": 0.6666666666666666,
+          "covered_count": 2,
+          "needle_count": 3
+        },
+        "expected_open_paths_full_coverage": false,
+        "expect_route_substrings_coverage_on_reads": {
+          "details": [
+            {
+              "needle": "Migrating Forest",
+              "covered": true,
+              "matching_paths": [
+                "longmont campaign/campaign 2/session recaps/session 17 - migrating forest and thrin.md"
+              ]
+            },
+            {
+              "needle": "Mirathorn",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "NPCs/captain_lysandra_ironveil",
+              "covered": false,
+              "matching_paths": []
+            }
+          ],
+          "recall": 0.3333333333333333,
+          "covered_count": 1,
+          "needle_count": 3
+        },
+        "benchmark_hit_routes_compared": [
+          "Elderwyld/Cities and Towns/Mirathorn/",
+          "Elderwyld/Cities and Towns/Mossford/",
+          "Elderwyld/Migrating Forest/",
+          "Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/",
+          "Elderwyld/Cities and Towns/Mossford/Mossford_Location_Dossiers/Half-Burned Warehouse.md",
+          "Elderwyld/Unknown Sites/Voices Tower/",
+          "Longmont Campaign/Campaign 2/PCs/ephanna/",
+          "Longmont Campaign/Campaign 2/PCs/karsemine/",
+          "Longmont Campaign/Campaign 2/PCs/caelynn/",
+          "Longmont Campaign/Campaign 2/NPCs/thrin_branchborn/",
+          "Longmont Campaign/Campaign 2/Parties/questionable_company/",
+          "Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/",
+          "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/"
+        ],
+        "benchmark_hit_route_coverage_on_reads": {
+          "details": [
+            {
+              "needle": "Elderwyld/Cities and Towns/Mirathorn/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Elderwyld/Cities and Towns/Mossford/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Elderwyld/Migrating Forest/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Elderwyld/Cities and Towns/Mossford/Mossford_Location_Dossiers/Half-Burned Warehouse.md",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Elderwyld/Unknown Sites/Voices Tower/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Longmont Campaign/Campaign 2/PCs/ephanna/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Longmont Campaign/Campaign 2/PCs/karsemine/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Longmont Campaign/Campaign 2/PCs/caelynn/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Longmont Campaign/Campaign 2/NPCs/thrin_branchborn/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Longmont Campaign/Campaign 2/Parties/questionable_company/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/",
+              "covered": false,
+              "matching_paths": []
+            }
+          ],
+          "recall": 0.0,
+          "covered_count": 0,
+          "needle_count": 13
+        },
+        "planner_final_text_parse_error": null,
+        "planner_hit_tool_round_limit": false
+      },
+      "planner_grade_vs_benchmark_retrieval": {
+        "ok": false,
+        "violations": [
+          "missing_expected_unit_id_hit"
+        ],
+        "llm_semantic_verdict": "pass_updated",
+        "llm_context_support_ratio": 1.0,
+        "failure_surface": "pass",
+        "llm_failure_surface": "pass"
+      },
+      "planner_message_preview": "From the forest episode, the party learned several prep-relevant things in `Longmont Campaign/Campaign 2/Session Recaps/Session 17 - Migrating Forest and Thrin.md` and `Longmont Campaign/Campaign 2/Session Recaps/Session 18 - Recap.md`:\n\n- The forest is **mobile and reactive**: it turns away from altered ground, not from attacks on the trees themselves. They tested this in `Session 19 - Recap.md` and `Session 20 - Recap.md` by using **cold/fire/oil/salt** to create \u201cdead ground.\u201d\n- The forest\u2019s movement is tied to the **Mother of Broken Branches / Apex of the Canopy**. Killing her created a **void** and Thrin said something will move in to replace her.\n- Thrin\u2019s warning matters for travel timing: the forest has **night hazards** (giant flying bugs, stronger things if they\u2019re killed), so the party had to keep moving and not rely on a safe night camp.\n- They also learned the forest had been disturbed by a **\u201cshiny rain\u201d** and that there are **vanguard trees** out front that can be influenced by terrain changes.\n- A big continuity flag for next-session prep: the forest episode ended by reaching Mossford, where the town had only about **4\u20135 hours** before the forest arrived, so prep sh",
+      "benchmark_llm_answer_preview": "The party learned a few concrete mechanics and complications that should shape next session prep.\n\nFirst, the forest doesn\u2019t respond well to direct attacks on the trees; instead, it reacts to changes on the ground. That suggests future encounters should reward environmental manipulation (terrain, fire, barriers) rather than standard combat targeting. The success of the fire-filled ditches reinforces that large-scale, prepared defenses can influence or deter it.\n\nSecond, the forest has strange side effects: memory gaps, disorientation, time irregularities, and odd sensory experiences (like Lysandra\u2019s missing time and \u201csmell of meat\u201d). That points to ongoing psychological or temporal hazards you can continue to apply.\n\nThird, Caelynn\u2019s bracelet can calm aggression and unify people, which may be key in managing panic or hostile forces during forest events.\n\nFinally, Lysandra is alive but exhausted, disoriented, and off-position, and the party is now tracking her\u2014so immediate next-session play will likely involve locating and stabilizing her while dealing with any lingering forest effects."
+    },
+    {
+      "scenario_id": "q_open_loops_next_session",
+      "question": "Which open loops from the recap are actionable for next session?",
+      "benchmark_retrieval_ok": false,
+      "benchmark_violations": [
+        "missing_expected_unit_id_hit",
+        "llm_context_support_below_threshold"
+      ],
+      "benchmark_llm_skipped": false,
+      "benchmark_llm_model": "gpt-5.3-chat-latest",
+      "benchmark_llm_cost_usd": 0.0047985,
+      "benchmark_llm_usage": {
+        "input_tokens": 1478,
+        "output_tokens": 158,
+        "cached_input_tokens": 0,
+        "total_tokens": 1636
+      },
+      "benchmark_grade": {
+        "llm_semantic_verdict": "pass_updated",
+        "llm_context_support_ratio": 0.75,
+        "context_support_ratio": 1.0,
+        "semantic_verdict": "pass_updated",
+        "hit_count": 17,
+        "failure_surface": "pass",
+        "llm_failure_surface": "pass"
+      },
+      "planner_scenario_estimated_cost_usd": 0.006173,
+      "planner_telemetry_cost": {
+        "planner_estimated_cost_usd": 0.006173,
+        "planner_cost_by_round_usd": [
+          0.001455,
+          0.004717
+        ],
+        "planner_usage_totals": {
+          "input_tokens": 26403,
+          "output_tokens": 504,
+          "total_tokens": 26907,
+          "cached_tokens": 23552
+        },
+        "pricing_note": "approximate public list prices; verify against billing",
+        "statblock_tool_estimated_cost_usd": 0,
+        "scenario_estimated_cost_usd": 0.006173
+      },
+      "planner_discovery": {
+        "planner_read_paths": [
+          "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md",
+          "Longmont Campaign/Campaign 2/Campaign 2 Session Recaps.md",
+          "Longmont Campaign/Campaign 2/Story threads backlog.md"
+        ],
+        "planner_query_session_memory_unit_ids": [],
+        "query_session_memory_call_count": 0,
+        "expected_open_paths": [
+          "Session Recaps/Session 20 - Recap.md",
+          "Stormspire Academy"
+        ],
+        "expected_open_paths_coverage": {
+          "details": [
+            {
+              "needle": "Session Recaps/Session 20 - Recap.md",
+              "covered": true,
+              "matching_paths": [
+                "longmont campaign/campaign 2/session recaps/session 20 - recap.md"
+              ]
+            },
+            {
+              "needle": "Stormspire Academy",
+              "covered": false,
+              "matching_paths": []
+            }
+          ],
+          "recall": 0.5,
+          "covered_count": 1,
+          "needle_count": 2
+        },
+        "expected_open_paths_full_coverage": false,
+        "expect_route_substrings_coverage_on_reads": {
+          "details": [
+            {
+              "needle": "Voices Tower",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Stormspire Academy",
+              "covered": false,
+              "matching_paths": []
+            }
+          ],
+          "recall": 0.0,
+          "covered_count": 0,
+          "needle_count": 2
+        },
+        "benchmark_hit_routes_compared": [
+          "Elderwyld/Cities and Towns/Mossford/Mossford_Location_Dossiers/Half-Burned Warehouse.md",
+          "Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/NPCs/professor_merril_tealeaf/",
+          "Elderwyld/Unknown Sites/Voices Tower/",
+          "Longmont Campaign/Campaign 2/PCs/ephanna/",
+          "Longmont Campaign/Campaign 2/PCs/karsemine/",
+          "Longmont Campaign/Campaign 2/PCs/caelynn/",
+          "Longmont Campaign/Campaign 2/NPCs/thrin_branchborn/",
+          "Elderwyld/Migrating Forest/",
+          "Elderwyld/Cities and Towns/Mirathorn/",
+          "Elderwyld/Cities and Towns/Mossford/",
+          "Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/",
+          "Longmont Campaign/Campaign 2/PCs/bonogo/",
+          "Elderwyld/Cities and Towns/Mossford/NPCs/stuart/",
+          "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/",
+          "Longmont Campaign/Campaign 2/Parties/questionable_company/",
+          "Longmont Campaign/Campaign 2/PCs/stafl/",
+          "Elderwyld/Cities and Towns/Mossford/NPCs/marla_brambleback/",
+          "Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/"
+        ],
+        "benchmark_hit_route_coverage_on_reads": {
+          "details": [
+            {
+              "needle": "Elderwyld/Cities and Towns/Mossford/Mossford_Location_Dossiers/Half-Burned Warehouse.md",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/NPCs/professor_merril_tealeaf/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Elderwyld/Unknown Sites/Voices Tower/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Longmont Campaign/Campaign 2/PCs/ephanna/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Longmont Campaign/Campaign 2/PCs/karsemine/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Longmont Campaign/Campaign 2/PCs/caelynn/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Longmont Campaign/Campaign 2/NPCs/thrin_branchborn/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Elderwyld/Migrating Forest/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Elderwyld/Cities and Towns/Mirathorn/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Elderwyld/Cities and Towns/Mossford/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Longmont Campaign/Campaign 2/PCs/bonogo/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Elderwyld/Cities and Towns/Mossford/NPCs/stuart/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Longmont Campaign/Campaign 2/Parties/questionable_company/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Longmont Campaign/Campaign 2/PCs/stafl/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Elderwyld/Cities and Towns/Mossford/NPCs/marla_brambleback/",
+              "covered": false,
+              "matching_paths": []
+            },
+            {
+              "needle": "Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/",
+              "covered": false,
+              "matching_paths": []
+            }
+          ],
+          "recall": 0.0,
+          "covered_count": 0,
+          "needle_count": 18
+        },
+        "planner_final_text_parse_error": null,
+        "planner_hit_tool_round_limit": false
+      },
+      "planner_grade_vs_benchmark_retrieval": {
+        "ok": false,
+        "violations": [
+          "missing_expected_unit_id_hit"
+        ],
+        "llm_semantic_verdict": "pass_updated",
+        "llm_context_support_ratio": 1.0,
+        "failure_surface": "pass",
+        "llm_failure_surface": "pass"
+      },
+      "planner_message_preview": "Actionable open loops for next session from **Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md**:\n\n- **Lysandra is still mid-journey and exhausted/disoriented.** Caelynn told her to camp and rest, and **Karesmine will lead the team to her**. This is the most immediate follow-up.\n- **The \u201ctower in the voices\u201d clue is active.** Lysandra\u2019s dirt drawing was a top-down blueprint of a tower, and she believes she knows where the voices are coming from.\n- **Tealeaf has not answered the call.** Caelynn waited on the line after Sara transferred her, so that contact remains unresolved.\n- **Tainted meat has infiltrated the supply chain.** Stafl found cleverly disguised tainted meat in the jerky crates; the crew needs to deal with the ruined supplies and the trust problem it implies.\n- **The storm with shimmering rain is still approaching.** The party is camped and setting up shelter for themselves and the animals, with Ephanna considering a disguised supply run back to town.\n- **Mirathorn\u2019s trust network is shaky.** Sara is worried about who can be trusted in the city after the meat contamination.\n- **Bonogo/Marla fallout is still hanging over the group.** Marla asked Caelynn ",
+      "benchmark_llm_answer_preview": "The recap surfaces three clear, actionable open loops for next session:\n\n- The half-burned warehouse: decide whether to formalize it as its own Mossford location dossier or fold it into an existing district (it\u2019s already a recurring, specific scene with the child gangs).\n- Professor Merril Tealeaf: decide if they get a dedicated NPC hub under Stormspire Academy or remain handled indirectly through Caelynn/Sara timelines and prose (especially relevant since Caelynn couldn\u2019t reach them).\n- Lysandra\u2019s tower blueprint / voices clue: decide which canonical location route should own this (currently an \u201cunknown site\u201d with a defined clue but no anchored hub).\n\nThese are all structural/content placement decisions that can be advanced immediately alongside play."
+    }
+  ]
+}

@@ -68,6 +68,12 @@ uv run python -m evals.sentence_routing_retrieval_falsification.step2_discourse_
 
 **Inline recap breadcrumbs (Step 1 session memory index experiment):** `manual_labels/Session 20 - Recap.breadcrumbed.md` is the current manual baseline retrieval index for Session 20. Treat it as a machine-facing source-aligned memory surface, not a readable recap replacement. The canonical recap remains the prose artifact; breadcrumbs are for agentic planning/live-play retrieval, hub routing, unresolved-thread capture, and dry-run corpus update proposals.
 
+**Current direction (2026-05-03):** the benchmark harness is the primary path for this
+use case. The lexical/event-keyword retrieval path is good enough on the known Session
+20 slice to keep expanding it; planner-discovery remains useful as a diagnostic
+comparator, but it is set aside as the main implementation path until the benchmark
+harness proves or falsifies cross-session generalization.
+
 The deterministic smoke harness parses frontmatter and body inline tags, validates tag vocabulary and route existence, compares generated artifacts against the manual baseline by exact `(tag_type, route)` multiset precision/recall, and dry-runs PC/NPC `append_timeline_row(..., dry_run=True)` previews where routed hubs expose `timeline.md`:
 
 ```bash
@@ -79,6 +85,110 @@ Rubric anchor:
 - Hard gates: parseable frontmatter/schema, allowed tag types only, existing routes resolve, proposed routes are explicit, body tags attach to source-derived spans, PC/NPC routes are dry-run routable or skipped with a surfaced reason.
 - Diagnostics: baseline precision/recall, tag density by type, Party over-routing, open-loop / `NewHubCandidate` capture, missing/invented route families, append dry-run success/skips/failures.
 - End goal: sampled planning/live-play questions should retrieve the right source spans and hub routes without rereading the whole recap.
+
+**Pronoun-resolution breadcrumb experiment:** use this when testing whether ingest can
+resolve pronoun-led durable units and make those units retrievable without gold aliases
+or query-specific cheats.
+
+### Objective and tradeoff framing (non-optional)
+
+Treat this path as a layered objective:
+
+1. retrieval evidence reachability (unit/route constraints),
+2. answer quality (LLM semantic/context),
+3. cost envelope.
+
+Do not accept "better pronoun recall" if it causes lexical flooding that displaces
+high-signal units or spikes LLM incompleteness failures.
+
+### Practical targeting strategies
+
+When tuning pronoun enrichment, prefer these over broad lexical expansion:
+
+- **compact entity handles:** append only entity-leaf tokens (for example, `captain lysandra ironveil`), never full route paths,
+- **class scoping:** enrich PC/NPC/Party lines first; avoid location-family spray unless explicitly needed,
+- **missing-term gating:** only append handles not already present in the line text,
+- **hard cap:** keep appended handle terms bounded per record.
+
+```bash
+# Gate 1: can a prompt variant attach entity routes to pronoun-led units?
+uv run python -m evals.sentence_routing_retrieval_falsification.breadcrumb_tagging_variant_runner \
+  --variant pronoun_resolution_v1 \
+  --sentinels evals/sentence_routing_retrieval_falsification/gold/breadcrumb_pronoun_resolution_sentinels_session20.json \
+  --n 3
+
+# Gate 2: does route-handle enrichment improve target-unit rank?
+uv run python -m evals.sentence_routing_retrieval_falsification.breadcrumb_query_rank_report \
+  --breadcrumb-md "evals/sentence_routing_retrieval_falsification/manual_labels/Session 20 - Recap.breadcrumbed.md" \
+  --corpus-root corpus/eldyrwild-markdown \
+  --output evals/sentence_routing_retrieval_falsification/artifacts/runs/<date>/breadcrumb_pronoun_rank_baseline_report.json
+
+uv run python -m evals.sentence_routing_retrieval_falsification.breadcrumb_query_rank_report \
+  --breadcrumb-md "evals/sentence_routing_retrieval_falsification/manual_labels/Session 20 - Recap.breadcrumbed.md" \
+  --corpus-root corpus/eldyrwild-markdown \
+  --pronoun-route-handles \
+  --output evals/sentence_routing_retrieval_falsification/artifacts/runs/<date>/breadcrumb_pronoun_rank_enriched_report.json
+
+# Gate 3: does the enriched retrieval improve natural-query output quality?
+uv run python -m evals.sentence_routing_retrieval_falsification.breadcrumb_query_run \
+  --breadcrumb-md "evals/sentence_routing_retrieval_falsification/manual_labels/Session 20 - Recap.breadcrumbed.md" \
+  --corpus-root corpus/eldyrwild-markdown \
+  --gold evals/sentence_routing_retrieval_falsification/gold/breadcrumb_query_natural_v1.json \
+  --pronoun-route-handles \
+  --semantic-similarity \
+  --output evals/sentence_routing_retrieval_falsification/artifacts/runs/<date>/breadcrumb_query_natural_pronoun_handles_report.json
+```
+
+**Planner discovery vs JSONL retrieval (set aside as primary path):** `breadcrumb_query_planner_discovery_run.py` runs one live planner turn per natural gold scenario with `user_line` equal to the scenario `question` (no fixture provisioning). It logs corpus path tools from `tool_trace`, compares coverage against benchmark gold `expect_route_substrings` (JSONL retrieval rubric) and against routes from benchmark retrieval hits, scores **planner-facing opens** separately via `gold/breadcrumb_query_planner_discovery_v1.json` (`expected_open_paths` path substrings), grades the planner `message` with the same retrieval bundle as the harness (LLM gates conditioned on benchmark retrieval), and writes `artifacts/runs/<date>/breadcrumb_query_planner_discovery_report.json` plus `artifacts/last_breadcrumb_query_planner_discovery_report.json`. Use this as a diagnostic comparator for "what would the planner seek when the benchmark says context is insufficient?", not as the main path for the current lexical/event-keyword retrieval work. Use `--skip-benchmark-llm` to omit harness synthesis calls; use `--planner-session-memory-records PATH` (file must exist before the run — reuse a JSONL from `--breadcrumb-md` / `--records-jsonl`) to expose `query_session_memory` during the planner turn (ablation).
+
+```bash
+uv run python -m evals.sentence_routing_retrieval_falsification.breadcrumb_query_planner_discovery_run \
+  --records-jsonl evals/sentence_routing_retrieval_falsification/artifacts/runs/<date>/<stem>.jsonl \
+  --corpus-root corpus/eldyrwild-markdown \
+  --gold evals/sentence_routing_retrieval_falsification/gold/breadcrumb_query_natural_v1.json \
+  --planner-discovery-gold evals/sentence_routing_retrieval_falsification/gold/breadcrumb_query_planner_discovery_v1.json \
+  --skip-benchmark-llm \
+  --output evals/sentence_routing_retrieval_falsification/artifacts/runs/<date>/breadcrumb_query_planner_discovery_report.json
+
+# Session-memory ablation (same JSONL as grading records)
+uv run python -m evals.sentence_routing_retrieval_falsification.breadcrumb_query_planner_discovery_run \
+  --records-jsonl evals/sentence_routing_retrieval_falsification/artifacts/runs/<date>/<stem>.jsonl \
+  --planner-session-memory-records evals/sentence_routing_retrieval_falsification/artifacts/runs/<date>/<stem>.jsonl \
+  --corpus-root corpus/eldyrwild-markdown \
+  --skip-benchmark-llm \
+  --output evals/sentence_routing_retrieval_falsification/artifacts/runs/<date>/breadcrumb_query_planner_discovery_session_memory_ablation_report.json
+```
+
+Compare Gate 3 cost and pass/fail against the current post-location baseline report
+(`breadcrumb_query_natural_llm_semantic_expanded_report.json`; latest measured single
+run cost: `$0.0640`).
+
+### Required execution loop for retrieval changes
+
+Any retrieval-affecting pronoun change should run this loop in order:
+
+1. implement compact+targeted enrichment,
+2. run Gate 2 baseline vs enriched rank report,
+3. audit failing gate families (retrieval expectation vs LLM synthesis gaps),
+4. run Gate 3 and report pass delta + violation-family delta + cost delta vs baseline.
+
+### Next-session generalization gate
+
+Before treating the breadcrumb/query harness as ready for an autonomous learning loop,
+prove that it expands beyond Session 20:
+
+1. Drop in a fresh recap as the source artifact and generate a sibling breadcrumb/index
+   artifact with the same schema and tag vocabulary.
+2. Add natural-query gold whose answers require facts introduced by that recap, not
+   recycled Session 20 facts.
+3. Run `breadcrumb_query_run` from the generated JSONL records; record retrieval pass,
+   semantic pass, violation families, and cost.
+4. Audit the JSONL and report for hardcoding: no query-specific aliases, no preloaded
+   expected paths, no Session 20-only route handles, and no hand-seeded records outside
+   the generated index.
+5. Only then promote the path toward an autonomous loop. If the holdout fails, the next
+   fix belongs in index generation or lexical/event-keyword extraction, not in
+   planner-discovery prompt tuning.
 
 **Real-recap scaffold:** `gold/scenario_real_recap_template.json` — runnable default (mini fixture); copy and set `input.recap_relative_path` + `hub_manifest` + `gold_`* after GM approval (see `scenario_notes` in file).
 
@@ -414,7 +524,7 @@ after the report is written:
 uv run python -m evals.sentence_routing_retrieval_falsification.breadcrumb_query_run \
   --records-jsonl <records>.jsonl \
   --gold evals/sentence_routing_retrieval_falsification/gold/breadcrumb_query_natural_v1.json \
-  --llm --semantic-similarity \
+  --semantic-similarity \
   --output evals/sentence_routing_retrieval_falsification/artifacts/runs/<date>/breadcrumb_query_natural_llm_semantic_expanded_report.json \
   --canvas-tsx /home/drakosfire/.cursor/projects/home-drakosfire-Projects-DungeonOverMind-DungeonMindBuddy/canvases/breadcrumb-query-semantic-review.canvas.tsx \
   --canvas-baseline-report evals/sentence_routing_retrieval_falsification/manual_labels/artifacts/breadcrumb_query_natural_llm_semantic_promoted_report.json \

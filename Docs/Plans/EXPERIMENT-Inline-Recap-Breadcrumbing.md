@@ -1,7 +1,7 @@
 # EXPERIMENT — Inline Recap Breadcrumbing
 
 **Date:** 2026-05-02  
-**Status:** Prototype started  
+**Status:** Prototype active; benchmark-harness path preferred as of 2026-05-03  
 **Purpose:** Test whether a recap-derived, machine-facing session memory index can make agentic planning and live-game retrieval more reliable without weakening the existing SourceAnchor direction.
 
 ---
@@ -22,6 +22,18 @@ The artifact is not trying to be a prettier recap. It is a session memory index 
 the recap: a parseable, routable surface that lets future agents find the right
 session evidence and hub context for pre-session planning, live-play lookups, NPC/PC
 continuity checks, unresolved-thread review, and corpus update proposals.
+
+### Current direction (2026-05-03)
+
+Use the benchmark harness as the primary proving surface. The lexical/event-keyword
+retrieval path is working well enough for the current Session 20 natural-query slice
+to justify expanding it; the planner-discovery path remains relevant, but it is now a
+diagnostic comparator rather than the main route for this use case.
+
+The next decision is not "can the planner discover the same files by itself?" It is:
+"when a new recap lands, can the same breadcrumb/index machinery parse it, emit new
+records, and retrieve newly introduced facts without scenario-specific hardcoding?"
+The answer must be measured against a holdout recap, not inferred from Session 20.
 
 ---
 
@@ -157,6 +169,10 @@ Evaluate the artifact as a machine-facing session memory index:
 4. **Open-loop capture:** count and inspect `NewHubCandidate` / unresolved questions for durable prep hooks and live-play enrichers.
 5. **Routability:** missing existing routes, invented route families, append dry-run success/skips/failures.
 6. **Agent-query utility:** sampled planning/live-play questions should retrieve the expected source spans and hub routes without rereading the whole recap.
+7. **Cross-session generalization:** a fresh recap can be converted into the same
+   machine-facing index shape, queried with newly written gold questions, and retrieve
+   new facts by lexical/event-keyword evidence rather than Session 20-specific aliases
+   or hand-seeded paths.
 
 ### 4.3 Promotion Shape
 
@@ -175,6 +191,10 @@ span that would matter to future planning/live-play agents?
 4. **Over-routing.** Party aliases like `the group` can cause every sentence to look party-owned unless the routing policy is strict.
 5. **Hub path drift.** Proposed routes, especially `Parties/questionable_company/`, need lint or registry support before becoming canonical.
 6. **Query illusion.** High baseline overlap does not prove downstream usefulness unless sampled planning/live-play queries retrieve the right source spans.
+7. **Session-specific hardcoding.** Session 20 can pass while the system has quietly
+   baked in known filenames, expected routes, or query-specific keyword aliases. The
+   holdout test must fail if the next recap's facts are not discoverable from the
+   generated index itself.
 
 ---
 

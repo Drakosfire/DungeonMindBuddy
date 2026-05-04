@@ -1,0 +1,46 @@
+---
+description: Objective and tradeoff contract for breadcrumb natural-query benchmarks; optimize grounded answer quality without destabilizing retrieval rank or cost envelope.
+globs: evals/sentence_routing_retrieval_falsification/breadcrumb_normalize.py,evals/sentence_routing_retrieval_falsification/breadcrumb_query_run.py,evals/sentence_routing_retrieval_falsification/breadcrumb_query_rank_report.py,evals/sentence_routing_retrieval_falsification/gold/breadcrumb_query_natural_v1.json,evals/sentence_routing_retrieval_falsification/README.md
+alwaysApply: false
+---
+
+# Breadcrumb query objective/tradeoff rule
+
+Treat this benchmark as a layered objective, not a single scalar:
+
+1. **Retrieval grounding first** — expected unit/route evidence must stay reachable.
+2. **Answer quality second** — LLM semantic/context gates should improve only when grounded evidence is present.
+3. **Cost as a guardrail** — pass gains that materially increase cost are suspect until justified.
+
+## Tradeoff contract
+
+Pronoun enrichment is useful only when it improves retrieval of pronoun-led rows **without** flooding lexical space.
+
+- Prefer compact, entity-leaf handles over full route path token expansion.
+- Enrich only records that are both pronoun-bearing and under-specified in local text.
+- Never inject handles that are not already attached as routes on that same record.
+- Cap enrichment terms per record to avoid lexical domination of broad route families.
+
+## Required 4-step loop for retrieval changes
+
+Any change to normalization/query expansion that can shift retrieval ranking must run this loop:
+
+1. **Implement compact + targeted enrichment** (or equivalent precision control).
+2. **Run deterministic rank gate** (`breadcrumb_query_rank_report`) baseline vs treatment.
+3. **Audit benchmark rubric pressure** for failing rows (gold unit/route constraints vs answer-quality constraints).
+4. **Run natural benchmark with semantic similarity** and report:
+   - pass/fail delta,
+   - violation-family delta,
+   - cost delta vs most recent promoted baseline.
+
+Do not claim improvement from one layer while another regresses silently.
+
+## Promotion criteria
+
+Promote a retrieval-enrichment variant only when all are true:
+
+- No net pass-rate drop on natural benchmark.
+- No new dominant failure family (e.g. route/unit misses replaced by LLM incompleteness spikes).
+- Cost remains within envelope or has explicit rationale tied to measured gain.
+
+If gains/regressions are mixed, keep the variant opt-in and record the tradeoff in `README.md`.
