@@ -132,3 +132,29 @@ def test_summarize_artifact_ignores_frontmatter_tag_grammar(tmp_path: Path) -> N
     assert out["tag_counts"] == {"PC": 1}
     assert out["route_checks"]["unique_routes"] == 1
     assert out["route_checks"]["missing_non_candidate_routes"] == []
+
+
+def test_joint_normalized_matches_recap_plain_when_exclamation_breaks_paragraph() -> None:
+    """``!`` + capital across a blank line must match full-body whitespace collapse."""
+    from evals.sentence_routing_retrieval_falsification.breadcrumb_normalize import (
+        joint_normalized_from_units,
+        normalize_for_alignment,
+        strip_leading_heading_lines,
+    )
+    from evals.sentence_routing_retrieval_falsification.capture import capture_sentence_units
+
+    full = (
+        "---\nx: y\n---\n"
+        "### Heading\n\n"
+        "First sentence ends!\n\n"
+        "Finally, the next sentence.\n"
+    )
+    _, recap_body = parse_frontmatter_and_body(full)
+    units = capture_sentence_units(
+        recap_text=recap_body,
+        recap_relative_path="Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md",
+    )
+    u_joint = joint_normalized_from_units(units)
+    recap_plain = normalize_for_alignment(strip_leading_heading_lines(recap_body))
+    assert u_joint == recap_plain
+    assert "ends! Finally" in u_joint

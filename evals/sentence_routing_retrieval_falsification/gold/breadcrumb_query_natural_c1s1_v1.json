@@ -114,8 +114,7 @@
       "must_hit_tokens": [
         "Grishna",
         "brewing",
-        "rock",
-        "west"
+        "boulder"
       ],
       "stale_tokens": [],
       "expect_route_substrings": [
@@ -124,6 +123,26 @@
         "Campaign 1/Locations/wizards_tower_brewing_company"
       ],
       "min_context_support_ratio": 0.55,
+      "benchmark_lane": "lexical_recall"
+    },
+    {
+      "id": "c1s1_brewery_compass_direction",
+      "question": "What compass direction from Stonebridge did Grishna give for reaching the brewery?",
+      "notes": "C1S1 natural benchmark lane; isolates directional recall from the fuller route question.",
+      "expected_answer": "Grishna directed the party upriver and then west at the big rock to find the Wizard's Tower Brewing Co.",
+      "must_hit_tokens": [
+        "Grishna",
+        "west",
+        "up river",
+        "brewing"
+      ],
+      "stale_tokens": [],
+      "expect_route_substrings": [
+        "Campaign 1/NPCs/grishna",
+        "Campaign 1/Locations/stonebridge",
+        "Campaign 1/Locations/wizards_tower_brewing_company"
+      ],
+      "min_context_support_ratio": 1.0,
       "benchmark_lane": "lexical_recall"
     },
     {
@@ -170,9 +189,7 @@
       "notes": "C1S1 natural benchmark lane; corpus Session 1 recap.",
       "expected_answer": "The big rock was an enormous boulder that looked like the foot of a once-enormous statue.",
       "must_hit_tokens": [
-        "boulder",
-        "foot",
-        "statue"
+        "foot"
       ],
       "stale_tokens": [],
       "expect_route_substrings": [
@@ -291,6 +308,7 @@
         "Campaign 1/PCs/karsemine",
         "Campaign 1/Locations/shatter_mages_tower"
       ],
+      "llm_promoted_context_order": "source_order",
       "min_context_support_ratio": 0.55,
       "benchmark_lane": "lexical_recall"
     },

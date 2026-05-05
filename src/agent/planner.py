@@ -41,6 +41,7 @@ from src.agent.planner_telemetry import (
     log_telemetry,
     maybe_full_text,
     response_extras,
+    router_telemetry_row,
     summarize_tool_inputs,
     text_sig,
     usage_dict_from_response,
@@ -1889,6 +1890,197 @@ def run_planning_turn(
         dispatch_tool=dispatch_tool,
         corpus_path_ref_index=corpus_path_ref_index,
     ).as_turn_result()
+
+
+@dataclass
+class RouterControlledTurnDetail:
+    """Outcome of :func:`run_planning_turn_with_retrieval_router`.
+
+    The router runs first; if it answers locally the assistant text is a
+    synthesized planner-envelope JSON document (``user_intent``, ``message``,
+    ``unsure_queue``). On escalation, ``planner_detail`` carries the full
+    :class:`PlanningTurnDetail` and ``final_text`` mirrors the planner's own
+    output. Either path is safe to feed into existing graders that consume
+    planner JSON.
+    """
+
+    decision: dict[str, Any]
+    final_text: str
+    escalated: bool
+    planner_detail: PlanningTurnDetail | None
+    answer_now_text: str | None
+    answer_now_cost_usd: float
+    answer_now_usage: dict[str, int]
+    telemetry_cost: dict[str, Any]
+
+
+def _wrap_answer_now_envelope(
+    *,
+    message: str,
+    user_intent: str | None = "factual_lookup",
+) -> str:
+    """Render a router-emitted answer as the strict planner envelope JSON.
+
+    The envelope must satisfy
+    :func:`src.agent.planner_turn_output_schema.planner_turn_output_json_schema`
+    (``user_intent``, ``message``, ``unsure_queue``). ``unsure_queue`` is
+    always ``None`` for router-only turns; the router never queues operator
+    questions because nothing has been delegated to a downstream skill.
+    """
+    payload = {
+        "user_intent": user_intent,
+        "message": str(message or "").strip(),
+        "unsure_queue": None,
+    }
+    return json.dumps(payload, ensure_ascii=False)
+
+
+def run_planning_turn_with_retrieval_router(
+    *,
+    user_line: str,
+    session_memory_records: list[dict[str, Any]],
+    campaign_id: str,
+    query_spec: dict[str, Any] | None = None,
+    router_config: Any | None = None,
+    required_route_anchors: list[str] | None = None,
+    answer_now_synth: Callable[[str, str], tuple[str, float, dict[str, int]]] | None = None,
+    answer_now_user_intent: str | None = "factual_lookup",
+    escalate_kwargs: dict[str, Any] | None = None,
+    telemetry_context: dict[str, Any] | None = None,
+) -> RouterControlledTurnDetail:
+    """Retrieval-first planner controller (opt-in; non-breaking).
+
+    Order:
+
+    1. Run :func:`src.agent.planner_retrieval_router.run_retrieval_first_decision`
+       over ``session_memory_records``.
+    2. ``answer_now`` → call ``answer_now_synth(question, hit_context)`` to
+       turn the retrieval bundle into prose, then wrap it in the strict
+       planner envelope JSON. ``answer_now_synth`` MUST return
+       ``(text, cost_usd, usage_dict)``; harnesses can pass
+       :func:`evals.sentence_routing_retrieval_falsification.breadcrumb_query_llm.synthesize_answer_from_hit_context`.
+    3. ``need_more_context`` → call :func:`run_planning_turn_detailed` with
+       ``escalate_kwargs`` (must include all required arguments). The
+       router's path hints are **not** injected into the planner's user_line;
+       they live only in ``decision.escalation.suggested_read_paths`` for
+       offline review (per ``llm-context-discovery.mdc``).
+
+    The function never instantiates an OpenAI client and never reads from the
+    file system; all I/O is delegated to the caller's ``answer_now_synth`` /
+    ``escalate_kwargs``. This keeps the controller deterministic in tests.
+    """
+    from src.agent.planner_retrieval_router import (
+        DECISION_ANSWER_NOW,
+        DECISION_NEED_MORE_CONTEXT,
+        run_retrieval_first_decision,
+    )
+    from evals.sentence_routing_retrieval_falsification.breadcrumb_natural_scoring import (
+        build_hit_context_text,
+        index_records_by_unit_id,
+    )
+
+    decision = run_retrieval_first_decision(
+        query=user_line,
+        records=session_memory_records,
+        campaign_id=campaign_id,
+        query_spec=query_spec,
+        config=router_config,
+        required_route_anchors=required_route_anchors,
+    )
+
+    decision_payload = decision.as_json_dict()
+    log_telemetry(
+        {
+            **(telemetry_context or {}),
+            "event": "router_decision",
+            "decision": decision.decision,
+            "failure_reasons": list(decision.failure_reasons),
+            "confidence_features": dict(decision.confidence_features),
+        }
+    )
+
+    if decision.decision == DECISION_ANSWER_NOW:
+        if answer_now_synth is None:
+            raise ValueError(
+                "run_planning_turn_with_retrieval_router: answer_now_synth is required when "
+                "the router can answer directly; pass synthesize_answer_from_hit_context "
+                "(or a deterministic stub for tests)."
+            )
+        by_unit = index_records_by_unit_id(session_memory_records)
+        hit_context = build_hit_context_text(decision.evidence.hits, by_unit)
+        synth_text, synth_cost, synth_usage = answer_now_synth(user_line, hit_context)
+        envelope = _wrap_answer_now_envelope(
+            message=synth_text,
+            user_intent=answer_now_user_intent,
+        )
+        telemetry_cost = router_telemetry_row(
+            decision=decision.decision,
+            failure_reasons=[],
+            confidence_features=decision.confidence_features,
+            router_synth_cost_usd=float(synth_cost or 0.0),
+            planner_estimated_cost_usd=0.0,
+            statblock_tool_estimated_cost_usd=0.0,
+            escalated=False,
+        )
+        telemetry_cost["pricing_note"] = "router answer-now path; planner not invoked"
+        return RouterControlledTurnDetail(
+            decision=decision_payload,
+            final_text=envelope,
+            escalated=False,
+            planner_detail=None,
+            answer_now_text=str(synth_text or ""),
+            answer_now_cost_usd=float(synth_cost or 0.0),
+            answer_now_usage=dict(synth_usage or {}),
+            telemetry_cost=telemetry_cost,
+        )
+
+    if decision.decision != DECISION_NEED_MORE_CONTEXT:  # pragma: no cover - defensive
+        raise ValueError(f"router emitted unexpected decision {decision.decision!r}")
+
+    if escalate_kwargs is None:
+        raise ValueError(
+            "run_planning_turn_with_retrieval_router: escalate_kwargs is required when the "
+            "router asks for more context; pass the same kwargs you would forward to "
+            "run_planning_turn_detailed (client, model_id, instructions, tools, corpus_path, "
+            "previous_response_id, dispatch_tool, ...)."
+        )
+
+    forwarded = dict(escalate_kwargs)
+    forwarded.setdefault("user_line", user_line)
+    forwarded["telemetry_context"] = {
+        **(forwarded.get("telemetry_context") or {}),
+        **(telemetry_context or {}),
+        "router_decision": decision.decision,
+        "router_failure_reasons": list(decision.failure_reasons),
+    }
+    detail = run_planning_turn_detailed(**forwarded)
+
+    planner_tc = dict(detail.telemetry_cost or {})
+    planner_usd = float(planner_tc.get("planner_estimated_cost_usd", 0) or 0.0)
+    statblock_usd = float(planner_tc.get("statblock_tool_estimated_cost_usd", 0) or 0.0)
+    telemetry_cost = router_telemetry_row(
+        decision=decision.decision,
+        failure_reasons=list(decision.failure_reasons),
+        confidence_features=decision.confidence_features,
+        router_synth_cost_usd=0.0,
+        planner_estimated_cost_usd=planner_usd,
+        statblock_tool_estimated_cost_usd=statblock_usd,
+        escalated=True,
+    )
+    telemetry_cost["pricing_note"] = (
+        planner_tc.get("pricing_note") or "approximate public list prices; verify against billing"
+    )
+
+    return RouterControlledTurnDetail(
+        decision=decision_payload,
+        final_text=detail.final_text,
+        escalated=True,
+        planner_detail=detail,
+        answer_now_text=None,
+        answer_now_cost_usd=0.0,
+        answer_now_usage={},
+        telemetry_cost=telemetry_cost,
+    )
 
 
 def _generate_statblock_http(

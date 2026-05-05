@@ -76,6 +76,11 @@ _RESTRAINED_QUERY_STOPWORDS = frozenset(
         "who",
         "why",
         "with",
+        # Meta tokens from natural GM questions — rank poorly for recap retrieval.
+        "actionable",
+        "next",
+        "recap",
+        "session",
     }
 )
 
@@ -268,6 +273,111 @@ def _line_sort_key(rec: dict[str, Any]) -> tuple[int, str]:
     return (ls, str(rec.get("unit_id") or ""))
 
 
+def _unit_numeric_suffix(unit_id: str) -> int:
+    parts = str(unit_id or "").split("-")
+    if len(parts) >= 3 and parts[-1].isdigit():
+        return int(parts[-1])
+    return 0
+
+
+def _median_suffix_on_line(records: list[dict[str, Any]], line: int) -> int:
+    suf: list[int] = []
+    for rec in records:
+        try:
+            ls = int(rec.get("line_start") or 0)
+        except (TypeError, ValueError):
+            continue
+        if ls != line:
+            continue
+        suf.append(_unit_numeric_suffix(str(rec.get("unit_id") or "")))
+    if not suf:
+        return 0
+    suf.sort()
+    return suf[len(suf) // 2]
+
+
+def _first_pass_anchor_line(first_pass_records: list[dict[str, Any]]) -> int:
+    """Line number farthest down-recap among first-pass hits (stable narrative anchor).
+
+    Session-memory first-pass lists are sorted by score then ``unit_id``. Early-low-line
+    hits can share the same score as later beats; taking **max line_start** biases
+    expansion toward the chronologically forward cluster the query matched, so
+    adjacent/shared/family slots fill timeline neighbors (e.g. Lysandra wagon camp)
+    instead of unrelated earlier paragraphs.
+    """
+    best = 0
+    for rec in first_pass_records:
+        try:
+            ls = int(rec.get("line_start") or 0)
+        except (TypeError, ValueError):
+            continue
+        if ls > best:
+            best = ls
+    return best
+
+
+def _expansion_shared_family_sort_key(rec: dict[str, Any]) -> tuple[int, str]:
+    """Prefer lower recap lines first for shared-route / route-family expansion only.
+
+    Adjacent expansion stays anchored to the first-pass narrative cluster; shared and
+    family bridges can legitimately land on earlier setting beats (e.g. Mossford hub
+    routes) that share a route family with a later hit.
+    """
+    try:
+        ls = int(rec.get("line_start") or 0)
+    except (TypeError, ValueError):
+        ls = 0
+    return (ls, str(rec.get("unit_id") or ""))
+
+
+def _expansion_shared_family_emit_sort_key(
+    rec: dict[str, Any],
+    expansion_tokens: list[str] | None,
+) -> tuple[int, int, str]:
+    """Order shared/family expansion emissions: lexical+route score first, then recap line.
+
+    Line-only ordering pulled low-line weak matches ahead of high-scoring later beats
+    (e.g. tainted meat / storm) that share seed routes. When ``expansion_tokens`` is
+    empty, degrades to line-then-id (legacy behavior).
+    """
+    if expansion_tokens:
+        sc, _ = _score_record(rec, expansion_tokens)
+    else:
+        sc = 0
+    try:
+        ls = int(rec.get("line_start") or 0)
+    except (TypeError, ValueError):
+        ls = 0
+    return (-sc, ls, str(rec.get("unit_id") or ""))
+
+
+def _expansion_proximity_sort_key(
+    rec: dict[str, Any],
+    anchor_line: int,
+    *,
+    median_suffix_on_anchor: int,
+) -> tuple[int, int, int, str]:
+    """Prefer recap lines near the anchor line, then sentence-order proximity on that line.
+
+    Within the anchor line (the deepest first-pass line), rank by distance from the
+    median sentence-unit suffix among **expansion seeds** on that line — so expansion
+    hugs the matched narrative beat (e.g. Lysandra wagon camp) instead of earlier
+    sentences on the same recap line consuming the expansion budget.
+    """
+    try:
+        ls = int(rec.get("line_start") or 0)
+    except (TypeError, ValueError):
+        ls = 0
+    uid = str(rec.get("unit_id") or "")
+    suf = _unit_numeric_suffix(uid)
+    if anchor_line <= 0:
+        return (0, 0, -ls, uid)
+    line_dist = abs(ls - anchor_line)
+    if line_dist != 0 or median_suffix_on_anchor <= 0:
+        return (line_dist, 0, -ls, uid)
+    return (line_dist, abs(suf - median_suffix_on_anchor), -suf, uid)
+
+
 def _group_key_recap_session(rec: dict[str, Any]) -> tuple[str, int]:
     path = str(rec.get("source_recap_path") or "")
     try:
@@ -298,9 +408,11 @@ def _expand_hits(
     expand_shared_route_limit: int,
     expand_route_family_limit: int,
     expansion_allocation_mode: str,
+    expansion_tokens: list[str] | None = None,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     """Append expansion rows after first-pass hits until ``max_hits`` (deterministic)."""
     stats = {
+        "anchor_line": 0,
         "added_adjacent": 0,
         "added_shared_route": 0,
         "added_route_family": 0,
@@ -313,6 +425,10 @@ def _expand_hits(
 
     n_seed = max(0, min(expand_seed_hits, len(first_pass_records)))
     seeds = first_pass_records[:n_seed]
+    anchor_line = _first_pass_anchor_line(first_pass_records)
+    stats["anchor_line"] = anchor_line
+    median_suffix_on_anchor = _median_suffix_on_line(seeds, anchor_line)
+    stats["median_suffix_on_anchor_line"] = median_suffix_on_anchor
 
     # --- Adjacent (same recap + session, line / unit order)
     adj_pairs: dict[str, tuple[dict[str, Any], list[str]]] = {}
@@ -341,7 +457,12 @@ def _expand_hits(
             elif tag not in adj_pairs[uid][1]:
                 adj_pairs[uid][1].append(tag)
 
-    adj_batch = sorted(adj_pairs.values(), key=lambda it: str(it[0].get("unit_id") or ""))
+    adj_batch = sorted(
+        adj_pairs.values(),
+        key=lambda it: _expansion_proximity_sort_key(
+            it[0], anchor_line, median_suffix_on_anchor=median_suffix_on_anchor
+        ),
+    )
 
     # --- Shared exact route (from seed records)
     seed_routes: set[str] = set()
@@ -350,15 +471,21 @@ def _expand_hits(
     shared_pairs: dict[str, tuple[dict[str, Any], list[str]]] = {}
     for R in sorted(seed_routes):
         added = 0
-        for rec in sorted(filtered, key=lambda r: str(r.get("unit_id") or "")):
-            if added >= expand_shared_route_limit:
-                break
+        route_candidates: list[tuple[int, dict[str, Any]]] = []
+        for rec in filtered:
             uid = str(rec.get("unit_id") or "")
             if uid in first_uids:
                 continue
             norms = set(_record_route_norms(rec))
             if R not in norms:
                 continue
+            sc, _ = _score_record(rec, expansion_tokens) if expansion_tokens else (0, [])
+            route_candidates.append((sc, rec))
+        route_candidates.sort(key=lambda x: (-x[0], str(x[1].get("unit_id") or "")))
+        for _sc, rec in route_candidates:
+            if added >= expand_shared_route_limit:
+                break
+            uid = str(rec.get("unit_id") or "")
             tag = f"expanded_shared_route:{R}"
             if uid not in shared_pairs:
                 shared_pairs[uid] = (rec, [tag])
@@ -366,7 +493,10 @@ def _expand_hits(
             elif tag not in shared_pairs[uid][1]:
                 shared_pairs[uid][1].append(tag)
 
-    shared_batch = sorted(shared_pairs.values(), key=lambda it: str(it[0].get("unit_id") or ""))
+    shared_batch = sorted(
+        shared_pairs.values(),
+        key=lambda it: _expansion_shared_family_emit_sort_key(it[0], expansion_tokens),
+    )
 
     # --- Route family (prefix / sibling), same session as seed
     family_pairs: dict[str, tuple[dict[str, Any], list[str]]] = {}
@@ -377,9 +507,8 @@ def _expand_hits(
             continue
         for R in sorted(set(_record_route_norms(seed))):
             added = 0
-            for rec in sorted(filtered, key=lambda r: str(r.get("unit_id") or "")):
-                if added >= expand_route_family_limit:
-                    break
+            fam_candidates: list[tuple[int, dict[str, Any]]] = []
+            for rec in filtered:
                 try:
                     rsn = int(rec.get("session_number"))
                 except (TypeError, ValueError):
@@ -392,6 +521,13 @@ def _expand_hits(
                 hit = any(_routes_family(R, S) for S in _record_route_norms(rec))
                 if not hit:
                     continue
+                sc, _ = _score_record(rec, expansion_tokens) if expansion_tokens else (0, [])
+                fam_candidates.append((sc, rec))
+            fam_candidates.sort(key=lambda x: (-x[0], str(x[1].get("unit_id") or "")))
+            for _sc, rec in fam_candidates:
+                if added >= expand_route_family_limit:
+                    break
+                uid = str(rec.get("unit_id") or "")
                 tag = f"expanded_route_family:{R}"
                 if uid not in family_pairs:
                     family_pairs[uid] = (rec, [tag])
@@ -399,7 +535,10 @@ def _expand_hits(
                 elif tag not in family_pairs[uid][1]:
                     family_pairs[uid][1].append(tag)
 
-    family_batch = sorted(family_pairs.values(), key=lambda it: str(it[0].get("unit_id") or ""))
+    family_batch = sorted(
+        family_pairs.values(),
+        key=lambda it: _expansion_shared_family_emit_sort_key(it[0], expansion_tokens),
+    )
 
     hits_out = list(first_pass_hits)
 
@@ -605,6 +744,7 @@ def query_session_memory_candidate(
             expand_shared_route_limit=expand_shared_route_limit,
             expand_route_family_limit=expand_route_family_limit,
             expansion_allocation_mode=expansion_allocation_mode,
+            expansion_tokens=tokens,
         )
 
     trace: dict[str, Any] = {

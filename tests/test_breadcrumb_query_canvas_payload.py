@@ -315,9 +315,34 @@ def test_build_payload_run_rows_match_results() -> None:
         "nat_voices_tower_officer",
     ]
     assert [row[1] for row in rows] == ["FAIL", "FAIL"]
-    assert rows[0][6] == "llm_context_support_below_threshold"
-    assert rows[1][6].startswith("missing_expected_unit_id_hit")
+    assert rows[0][6] == "—"
+    assert rows[0][7] == "2/2@9"
+    assert rows[1][6] == "0/2@9"
+    assert rows[1][7] == "1/1@9"
+    assert rows[0][8] == "llm_context_support_below_threshold"
+    assert rows[1][8].startswith("missing_expected_unit_id_hit")
     assert rows[0][4] == "0.7396"
+
+
+def test_build_payload_summary_prepends_macro_top_k_recall_tiles() -> None:
+    gold = _make_gold()
+    report = _make_report()
+    payload = gen.build_payload(report=report, gold=gold, records_text=_make_records_text())
+    labels = [t["label"] for t in payload["summary"]["statTiles"]]
+    assert any(x.startswith("Macro unit recall") for x in labels)
+    assert any(x.startswith("Macro route recall") for x in labels)
+
+
+def test_meta_session_hit_preview_is_compact_not_lexical_blob() -> None:
+    hit = {
+        "unit_id": "meta-session-0020-locations",
+        "routes": [{"normalized_route": "Elderwyld/Cities and Towns/Mirathorn"}],
+    }
+    blob_records = {"meta-session-0020-locations": "session locations location places " * 50}
+    preview = gen._hit_preview_text(hit, blob_records)
+    assert "Session location index" in preview
+    assert "Mirathorn" in preview
+    assert preview != blob_records["meta-session-0020-locations"]
 
 
 def test_build_payload_suite_rows_include_deferred_row_even_if_absent_from_gold() -> None:
@@ -386,6 +411,8 @@ def test_scenario_card_renders_required_evidence_and_metrics() -> None:
     assert "Tokens: captain, forest, tower" in captain["requiredEvidence"]
     assert any(item.startswith("Routes:") for item in captain["requiredEvidence"])
     assert captain["metrics"]["embeddingSimilarity"] == "0.7396"
+    assert captain["metrics"]["topKUnitEvidence"] == "—"
+    assert captain["metrics"]["topKRouteEvidence"] == "2/2@9"
     assert captain["metrics"]["topHit"].startswith("u-L0017-04, score 17")
     assert captain["retrievedHits"][0]["unit"] == "u-L0017-04"
     assert "captain_lysandra_ironveil" in captain["retrievedHits"][0]["routes"]

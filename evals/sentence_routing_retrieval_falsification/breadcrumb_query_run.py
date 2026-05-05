@@ -35,6 +35,7 @@ from datetime import date
 from pathlib import Path
 from typing import Any
 
+from evals.sentence_routing_retrieval_falsification.cursor_canvas_paths import default_cursor_canvas_path
 from evals.sentence_routing_retrieval_falsification.breadcrumb_normalize import (
     NormalizedRecord,
     normalize_breadcrumb_artifact,
@@ -55,7 +56,12 @@ from evals.sentence_routing_retrieval_falsification.breadcrumb_query_grader impo
     load_gold,
     natural_retrieval_bundle,
 )
+from evals.sentence_routing_retrieval_falsification.breadcrumb_natural_scoring import (
+    build_hit_context_text,
+    index_records_by_unit_id,
+)
 from evals.sentence_routing_retrieval_falsification.breadcrumb_query_llm import (
+    format_synthesis_user_message,
     resolve_breadcrumb_query_llm_model,
     synthesize_answer_from_hit_context,
 )
@@ -75,6 +81,9 @@ from evals.sentence_routing_retrieval_falsification.breadcrumb_tagging_scorer im
 from src.agent.synthesis import _load_api_key
 from src.bootstrap_env import load_dungeonmindbuddy_dotenv
 
+_PROMOTED_CONTEXT_MAX_LEXICAL_UNITS_DEFAULT = 8
+_PROMOTED_CONTEXT_MAX_CHARS_DEFAULT = 2400
+
 
 def _resolve_repair_model(cli_model: str | None) -> str:
     return (
@@ -82,6 +91,9 @@ def _resolve_repair_model(cli_model: str | None) -> str:
         or os.environ.get("DMB_BREADCRUMB_REPAIR_MODEL", "").strip()
         or "gpt-5.4-mini"
     )
+
+
+_DEFAULT_BREADCRUMB_QUERY_SEMANTIC_CANVAS = default_cursor_canvas_path("breadcrumb-query-semantic-review.canvas.tsx")
 
 
 def main() -> None:
@@ -114,11 +126,15 @@ def main() -> None:
     parser.add_argument("--output", type=Path, help="Write report JSON here")
     parser.add_argument(
         "--canvas-tsx",
-        type=Path,
+        nargs="?",
+        const=_DEFAULT_BREADCRUMB_QUERY_SEMANTIC_CANVAS,
         default=None,
+        type=Path,
         help=(
-            "Optional canvas .tsx path. After the report is written, regenerate the canvas "
-            "data block with breadcrumb_query_canvas_payload."
+            "After the report is written, regenerate the breadcrumb query semantic review canvas "
+            "(breadcrumb_query_canvas_payload). Pass a path, or pass the flag alone to use the default "
+            f"Cursor-managed file: {_DEFAULT_BREADCRUMB_QUERY_SEMANTIC_CANVAS} "
+            "(override canvases parent with DMB_CURSOR_CANVAS_DIR). Omit the flag to skip."
         ),
     )
     parser.add_argument(
@@ -311,10 +327,36 @@ def main() -> None:
             merged_spec["query"] = str(scen["question"])
             scen["query_spec"] = merged_spec
             bundle = natural_retrieval_bundle(records=records, scenario=scen)
-            _, hit_ctx = bundle
+            result, hit_ctx = bundle
+            by_unit = index_records_by_unit_id(records)
+            hit_ctx_full = build_hit_context_text(
+                result.hits,
+                by_unit,
+                include_normalized_route_lines=True,
+            )
+            hit_ctx_llm = build_hit_context_text(
+                result.hits,
+                by_unit,
+                include_normalized_route_lines=False,
+                exclude_path_like_lexical_units=True,
+                query_tokens=[str(x) for x in (result.trace.get("query_tokens") or [])],
+                max_lexical_units=int(
+                    scen.get("llm_promoted_context_max_units")
+                    or _PROMOTED_CONTEXT_MAX_LEXICAL_UNITS_DEFAULT
+                ),
+                max_chars=int(
+                    scen.get("llm_promoted_context_max_chars")
+                    or _PROMOTED_CONTEXT_MAX_CHARS_DEFAULT
+                ),
+                order_mode=str(scen.get("llm_promoted_context_order") or "ranked"),
+            )
+            llm_user_message = format_synthesis_user_message(
+                question=str(scen["question"]),
+                hit_context=hit_ctx_llm,
+            )
             llm_text, llm_cost, llm_usage = synthesize_answer_from_hit_context(
                 question=str(scen["question"]),
-                hit_context=hit_ctx,
+                hit_context=hit_ctx_llm,
                 model=llm_model,
             )
             aggregate_llm_cost_usd += llm_cost
@@ -326,7 +368,12 @@ def main() -> None:
             )
             preview_n = int(scen.get("llm_answer_preview_chars", 1200))
             row["llm_answer_preview"] = llm_text[:preview_n]
-            row["retrieved_context"] = hit_ctx
+            # Lexical-only context for synthesis + report mirror (route coverage still uses hit objects).
+            row["retrieved_context"] = hit_ctx_llm
+            # Full deterministic hit-context string (units + normalized route lines) for forensics.
+            row["retrieval_hit_context_full"] = hit_ctx_full
+            # Exact user message sent to the synthesis chat completion (question + promoted context).
+            row["llm_user_message"] = llm_user_message
             row["llm_cost_usd"] = llm_cost
             row["llm_usage"] = llm_usage
             row["llm_model"] = llm_model

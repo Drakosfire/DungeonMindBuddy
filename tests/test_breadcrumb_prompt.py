@@ -5,6 +5,7 @@ import pytest
 from evals.sentence_routing_retrieval_falsification.breadcrumb_prompt import (
     PROMPT_VARIANT_CONTINUATION,
     PROMPT_VARIANT_CONTROL,
+    PROMPT_VARIANT_PRONOUN_RESOLUTION,
     build_breadcrumb_prompt,
     extract_breadcrumb_markdown,
 )
@@ -31,6 +32,20 @@ def test_variant_prompt_includes_addendum_and_sentinel_example() -> None:
     assert "captain_lysandra_ironveil" in prompt.system_text
     assert "Voices Tower" in prompt.system_text
     assert "MUST NOT spread named-subject tags onto unrelated sentences" in prompt.system_text
+    assert "BACKWARD-ANAPHORA CHECK" in prompt.system_text
+    assert "mumbling from inside" in prompt.system_text
+
+
+def test_pronoun_resolution_variant_includes_pronoun_audit_contract() -> None:
+    prompt = build_breadcrumb_prompt(
+        variant=PROMPT_VARIANT_PRONOUN_RESOLUTION,
+        recap_body="She tells Caelynn about the forest.",
+        frontmatter_yaml="schema: dmb_recap_breadcrumbs_v1",
+    )
+    assert "PRONOUN-RESOLVED BREADCRUMBS" in prompt.system_text
+    assert "She tells Caelynn" in prompt.system_text
+    assert "Require an unambiguous antecedent" in prompt.system_text
+    assert prompt.variant == PROMPT_VARIANT_PRONOUN_RESOLUTION
 
 
 def test_unknown_variant_raises() -> None:

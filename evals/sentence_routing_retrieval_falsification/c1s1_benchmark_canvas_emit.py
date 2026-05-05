@@ -12,12 +12,9 @@ Example:
     --report evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-05-04/breadcrumb_query_natural_c1s1_report.json \\
     --gold evals/sentence_routing_retrieval_falsification/gold/breadcrumb_query_natural_c1s1_v1.json
 
-  # Patches every ``--canvas-tsx`` (repeat flag to refresh repo + IDE-managed copy).
-  uv run python -m evals.sentence_routing_retrieval_falsification.c1s1_benchmark_canvas_emit \\
-    --report evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-05-04/breadcrumb_query_natural_c1s1_report.json \\
-    --gold evals/sentence_routing_retrieval_falsification/gold/breadcrumb_query_natural_c1s1_v1.json \\
-    --canvas-tsx canvases/c1s1-breadcrumb-query-benchmark-review.canvas.tsx \\
-    --canvas-tsx ~/.cursor/projects/home-drakosfire-Projects-DungeonOverMind-DungeonMindBuddy/canvases/c1s1-breadcrumb-query-benchmark-review.canvas.tsx
+  # Default writes the Cursor-managed canvas under ``~/.cursor/projects/<workspace-slug>/canvases/``.
+  # Override the canvases directory with ``DMB_CURSOR_CANVAS_DIR``, or pass ``--canvas-tsx`` (repeatable),
+  # e.g. to also patch the repo copy: ``--canvas-tsx canvases/c1s1-breadcrumb-query-benchmark-review.canvas.tsx``.
 """
 
 from __future__ import annotations
@@ -27,11 +24,14 @@ import json
 from pathlib import Path
 from typing import Any
 
+from evals.sentence_routing_retrieval_falsification.cursor_canvas_paths import default_cursor_canvas_path
+
 BLOCK_BEGIN = "// BEGIN GENERATED C1S1_HARNESS_DETAIL"
 BLOCK_END = "// END GENERATED C1S1_HARNESS_DETAIL"
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
-_DEFAULT_CANVAS = _REPO_ROOT / "canvases" / "c1s1-breadcrumb-query-benchmark-review.canvas.tsx"
+_DEFAULT_CANVAS = default_cursor_canvas_path("c1s1-breadcrumb-query-benchmark-review.canvas.tsx")
+_FOCUS_SCENARIO_ID = "c1s1_karsemine_spider_reveal"
 
 
 def _token_in_answer_ci(token: str, answer: str) -> bool:
@@ -40,7 +40,101 @@ def _token_in_answer_ci(token: str, answer: str) -> bool:
     return token.lower() in answer.lower()
 
 
-def _build_rows(*, report: dict[str, Any], gold: dict[str, Any]) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+def _compact_hit_rows(full: dict[str, Any], *, limit: int) -> list[dict[str, Any]]:
+    hits = list(full.get("hits") or [])
+    hit_rows: list[dict[str, Any]] = []
+    for h in hits[:limit]:
+        routes = []
+        for route in list(h.get("routes") or [])[:4]:
+            if isinstance(route, dict):
+                routes.append(str(route.get("normalized_route") or ""))
+        hit_rows.append(
+            {
+                "unit_id": str(h.get("unit_id") or ""),
+                "line_span": f"L{int(h.get('line_start') or 0)}-{int(h.get('line_end') or 0)}",
+                "score": int(h.get("score") or 0),
+                "source_recap_path": str(h.get("source_recap_path") or ""),
+                "routes": routes,
+                "why_matched": [str(x) for x in (h.get("why_matched") or [])],
+            }
+        )
+    return hit_rows
+
+
+def _focus_payload(*, report: dict[str, Any], gold: dict[str, Any]) -> dict[str, Any]:
+    scenarios = {str(s.get("id") or ""): s for s in (gold.get("scenarios") or [])}
+    row = next(
+        (r for r in (report.get("results") or []) if str(r.get("scenario_id") or "") == _FOCUS_SCENARIO_ID),
+        {},
+    )
+    scen = scenarios.get(_FOCUS_SCENARIO_ID, {})
+    full = row.get("full_result") if isinstance(row.get("full_result"), dict) else {}
+    trace = full.get("trace") if isinstance(full.get("trace"), dict) else {}
+    hits = list(full.get("hits") or [])
+    hit_rows = _compact_hit_rows(full, limit=12)
+
+    from evals.sentence_routing_retrieval_falsification.breadcrumb_query_llm import _SYSTEM as synthesis_system
+
+    user_template = (
+        "Question:\\n{question}\\n\\n"
+        "### Retrieved excerpts and routes (only source you may use)\\n"
+        "{hit_context}\\n"
+    )
+    return {
+        "scenario_id": _FOCUS_SCENARIO_ID,
+        "question": str(scen.get("question") or ""),
+        "expected_answer": str(scen.get("expected_answer") or ""),
+        "must_hit_tokens": [str(x) for x in (scen.get("must_hit_tokens") or [])],
+        "violations": list(row.get("violations") or []),
+        "llm_answer_preview": str(row.get("llm_answer_preview") or ""),
+        "retrieved_context_preview": str(row.get("retrieved_context") or "")[:2200],
+        "retrieval_hit_context_full": str(row.get("retrieval_hit_context_full") or "")[:16000],
+        "lexical_hit_context_promoted": str(row.get("retrieved_context") or "")[:16000],
+        "llm_user_message": str(row.get("llm_user_message") or "")[:16000],
+        "query_tokens": [str(x) for x in (trace.get("query_tokens") or [])],
+        "hits_considered": int(trace.get("returned_hits") or len(hits)),
+        "hit_rows": hit_rows,
+        "context_support_ratio": row.get("context_support_ratio"),
+        "llm_context_support_ratio": row.get("llm_context_support_ratio"),
+        "llm_semantic_verdict": row.get("llm_semantic_verdict"),
+        "llm_semantic_must_hits": list(row.get("llm_semantic_must_hits") or []),
+        "workflow_steps": [
+            "Normalize breadcrumb markdown into unit-tagged records.",
+            "Run deterministic query_session_memory_for_scenario over those records.",
+            "Construct hit_context from returned units + route lines.",
+            "Synthesize an LLM answer from hit_context only (no direct recap read).",
+            "Grade retrieval context and LLM answer separately against must-hit tokens.",
+            "Optionally embed expected_answer vs LLM answer for soft similarity telemetry.",
+        ],
+        "anti_cheat_checks": [
+            "The query step is deterministic over normalized records (no LLM in retrieval).",
+            "Synthesis prompt receives only question + retrieved_context (lexical unit text; normalized route lines are not copied into the LLM prompt).",
+            "Grader reports retrieval ratios separately from llm_context ratios.",
+            "Expected answer is used for grading and optional embedding, not retrieval.",
+            "Top hit table below exposes concrete units/lines/routes used by retrieval.",
+        ],
+        "mermaid_flowchart": (
+            "flowchart TD\\n"
+            "  A[breadcrumbed.md] --> B[normalize_breadcrumb_artifact]\\n"
+            "  B --> C[records.jsonl]\\n"
+            "  C --> D[natural_retrieval_bundle]\\n"
+            "  D --> E[full_result.hits + trace]\\n"
+            "  E --> F[hit_context]\\n"
+            "  F --> G[LLM synthesis]\\n"
+            "  G --> H[grade_natural_scenario]\\n"
+            "  E --> H\\n"
+            "  H --> I[violations + support ratios]\\n"
+            "  G --> J[optional embedding similarity]\\n"
+        ),
+        "prompts": {
+            "retrieval_prompt": "none (deterministic lexical/route query over normalized records)",
+            "llm_synthesis_system_prompt": synthesis_system,
+            "llm_synthesis_user_template": user_template,
+        },
+    }
+
+
+def _build_rows(*, report: dict[str, Any], gold: dict[str, Any]) -> tuple[list[dict[str, Any]], dict[str, Any], dict[str, Any]]:
     by_id = {str(r.get("scenario_id") or ""): r for r in (report.get("results") or [])}
     rows: list[dict[str, Any]] = []
     for scen in gold.get("scenarios") or []:
@@ -56,24 +150,30 @@ def _build_rows(*, report: dict[str, Any], gold: dict[str, Any]) -> tuple[list[d
             {"token": t, "in_llm_answer_ci": _token_in_answer_ci(t, llm_prev)}
             for t in must_tokens
         ]
-        rows.append(
-            {
-                "id": sid,
-                "ok": bool(r.get("ok")),
-                "question": question,
-                "expected_answer": expected,
-                "llm_answer_preview": llm_prev,
-                "violations": list(r.get("violations") or []),
-                "context_support_ratio": r.get("context_support_ratio"),
-                "llm_context_support_ratio": r.get("llm_context_support_ratio"),
-                "llm_semantic_verdict": r.get("llm_semantic_verdict"),
-                "llm_semantic_must_hits": list(r.get("llm_semantic_must_hits") or []),
-                "embedding_cosine_similarity": float(cos) if isinstance(cos, (int, float)) else None,
-                "embedding_model": emb.get("model"),
-                "embedding_cost_usd": emb.get("cost_usd"),
-                "keyword_rows": keyword_rows,
-            }
-        )
+        ok = bool(r.get("ok"))
+        row_out: dict[str, Any] = {
+            "id": sid,
+            "ok": ok,
+            "question": question,
+            "expected_answer": expected,
+            "llm_answer_preview": llm_prev,
+            "violations": list(r.get("violations") or []),
+            "context_support_ratio": r.get("context_support_ratio"),
+            "llm_context_support_ratio": r.get("llm_context_support_ratio"),
+            "llm_semantic_verdict": r.get("llm_semantic_verdict"),
+            "llm_semantic_must_hits": list(r.get("llm_semantic_must_hits") or []),
+            "embedding_cosine_similarity": float(cos) if isinstance(cos, (int, float)) else None,
+            "embedding_model": emb.get("model"),
+            "embedding_cost_usd": emb.get("cost_usd"),
+            "keyword_rows": keyword_rows,
+        }
+        if not ok:
+            full = r.get("full_result") if isinstance(r.get("full_result"), dict) else {}
+            row_out["retrieval_hit_context_full"] = str(r.get("retrieval_hit_context_full") or "")[:16000]
+            row_out["lexical_hit_context_promoted"] = str(r.get("retrieved_context") or "")[:16000]
+            row_out["llm_user_message"] = str(r.get("llm_user_message") or "")[:16000]
+            row_out["fail_forensics_hit_rows"] = _compact_hit_rows(full, limit=18)
+        rows.append(row_out)
 
     results = list(report.get("results") or [])
     passed = sum(1 for x in results if x.get("ok"))
@@ -87,12 +187,17 @@ def _build_rows(*, report: dict[str, Any], gold: dict[str, Any]) -> tuple[list[d
         "embeddingModel": report.get("embedding_model"),
         "benchmarkReportPath": str(report.get("_emit_report_path") or ""),
     }
-    return rows, summary
+    focus = _focus_payload(report=report, gold=gold)
+    return rows, summary, focus
 
 
-def _render_block(*, rows: list[dict[str, Any]], summary: dict[str, Any]) -> str:
+def _render_block(*, rows: list[dict[str, Any]], summary: dict[str, Any], focus: dict[str, Any]) -> str:
     body = json.dumps(
-        {"harnessSummaryGenerated": summary, "harnessScenarioDetailGenerated": rows},
+        {
+            "harnessSummaryGenerated": summary,
+            "harnessScenarioDetailGenerated": rows,
+            "focusScenarioGenerated": focus,
+        },
         indent=2,
         ensure_ascii=True,
     )
@@ -127,7 +232,7 @@ def main() -> None:
         default=None,
         help=(
             "Target .canvas.tsx (repeat to patch several files). "
-            f"Default: {_DEFAULT_CANVAS.relative_to(_REPO_ROOT)} under the repo."
+            f"Default: Cursor-managed {_DEFAULT_CANVAS} (set DMB_CURSOR_CANVAS_DIR to override the parent canvases/ dir)."
         ),
     )
     args = p.parse_args()
@@ -135,8 +240,8 @@ def main() -> None:
     report = json.loads(args.report.read_text(encoding="utf-8"))
     report["_emit_report_path"] = str(args.report.resolve())
     gold = json.loads(args.gold.read_text(encoding="utf-8"))
-    rows, summary = _build_rows(report=report, gold=gold)
-    block = _render_block(rows=rows, summary=summary)
+    rows, summary, focus = _build_rows(report=report, gold=gold)
+    block = _render_block(rows=rows, summary=summary, focus=focus)
 
     targets = [p.expanduser().resolve() for p in (args.canvas_tsx_list or [_DEFAULT_CANVAS])]
     out: list[dict[str, Any]] = []

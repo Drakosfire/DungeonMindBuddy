@@ -30,6 +30,15 @@ const benchmarkGold =
 const benchmarkReport =
   'evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-05-04/breadcrumb_query_natural_c1s1_report.json';
 
+type FocusHitRow = {
+  unit_id: string;
+  line_span: string;
+  score: number;
+  source_recap_path: string;
+  routes: readonly string[];
+  why_matched: readonly string[];
+};
+
 type HarnessScenarioDetailRow = {
   id: string;
   ok: boolean;
@@ -45,6 +54,42 @@ type HarnessScenarioDetailRow = {
   embedding_model: string | null;
   embedding_cost_usd: number | null;
   keyword_rows: readonly { readonly token: string; readonly in_llm_answer_ci: boolean }[];
+  /** Lexical-only hit_context string passed into the synthesis template (no normalized route lines when harness is current). */
+  lexical_hit_context_promoted?: string;
+  /** Full concatenated hit context (lexical units plus normalized route lines per hit). Empty if report predates this field. */
+  retrieval_hit_context_full?: string;
+  /** Exact user-role message sent to the synthesis model. Empty if report predates this field. */
+  llm_user_message?: string;
+  /** Structured top hits for failing scenarios (from full_result). */
+  fail_forensics_hit_rows?: readonly FocusHitRow[];
+};
+
+type FocusScenarioDetail = {
+  scenario_id: string;
+  question: string;
+  expected_answer: string;
+  must_hit_tokens: readonly string[];
+  violations: readonly string[];
+  llm_answer_preview: string;
+  retrieved_context_preview: string;
+  lexical_hit_context_promoted?: string;
+  retrieval_hit_context_full?: string;
+  llm_user_message?: string;
+  query_tokens: readonly string[];
+  hits_considered: number;
+  hit_rows: readonly FocusHitRow[];
+  context_support_ratio: number | null;
+  llm_context_support_ratio: number | null;
+  llm_semantic_verdict: string | null;
+  llm_semantic_must_hits: readonly string[];
+  workflow_steps: readonly string[];
+  anti_cheat_checks: readonly string[];
+  mermaid_flowchart: string;
+  prompts: {
+    retrieval_prompt: string;
+    llm_synthesis_system_prompt: string;
+    llm_synthesis_user_template: string;
+  };
 };
 
 // BEGIN GENERATED C1S1_HARNESS_DETAIL
@@ -53,12 +98,12 @@ const c1s1HarnessCanvasGenerated = {
   "harnessSummaryGenerated": {
     "llmModel": "gpt-5.3-chat-latest",
     "passCount": 14,
-    "scenarioCount": 15,
-    "scenarioEstimatedCostUsd": 0.0626694,
-    "aggregateEmbeddingCostUsd": 0.00028014999999999995,
+    "scenarioCount": 16,
+    "scenarioEstimatedCostUsd": 0.0472478,
+    "aggregateEmbeddingCostUsd": 0.0003198,
     "embeddingSimilarityEnabled": true,
     "embeddingModel": "text-embedding-3-large",
-    "benchmarkReportPath": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-05-04/breadcrumb_query_natural_c1s1_report.json"
+    "benchmarkReportPath": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-05-04/breadcrumb_query_run_report.json"
   },
   "harnessScenarioDetailGenerated": [
     {
@@ -66,7 +111,7 @@ const c1s1HarnessCanvasGenerated = {
       "ok": true,
       "question": "Who was in the merchant-guard party when the group reached Stonebridge?",
       "expected_answer": "The merchant-guard party was Karsemine, Stafl, Caelynn, Ephanna, Bonogo, and Baergrom; they had been traveling together and reached the town of Stonebridge.",
-      "llm_answer_preview": "When the group reached Stonebridge, the merchant-guard party consisted of six members:\n\n- Karsemine, a Tiefling Ranger  \n- Stafl, a \u201cHuman\u201d Bard  \n- Caelynn, a Half-Elf Sorcerer  \n- Ephanna, a Kenku Warlock  \n- Bonogo, a Bugbear Rogue  \n- Baergrom, a Dwarf Fighter  \n\nThese six made up the \u201cmish mash of travelers\u201d working together as merchant guards at that point in the campaign.",
+      "llm_answer_preview": "When the group reached Stonebridge, the merchant-guard party consisted of six individuals: Karsemine the Tiefling Ranger, Stafl the \u201cHuman\u201d Bard, Caelynn the Half-Elf Sorcerer, Ephanna the Kenku Warlock, Bonogo the Bugbear Rogue, and Baergrom the Dwarf Fighter.  \n\nThese six had been traveling together for some time in their role as merchant guards before arriving just outside the town. The text describes them as a \u201cmish mash of travelers,\u201d emphasizing their varied backgrounds and species. Their arrival at Stonebridge marks the point where they encounter the remains of what appeared to be the foot of a once enormous statue.  \n\nNo additional members are mentioned as part of the party at that time, so these six characters make up the full merchant-guard group upon reaching Stonebridge.",
       "violations": [],
       "context_support_ratio": 1.0,
       "llm_context_support_ratio": 1.0,
@@ -81,9 +126,9 @@ const c1s1HarnessCanvasGenerated = {
         "Bonogo",
         "Baergrom"
       ],
-      "embedding_cosine_similarity": 0.8225840937688517,
+      "embedding_cosine_similarity": 0.810892229721839,
       "embedding_model": "text-embedding-3-large",
-      "embedding_cost_usd": 1.8330000000000002e-05,
+      "embedding_cost_usd": 2.678e-05,
       "keyword_rows": [
         {
           "token": "merchant",
@@ -124,7 +169,7 @@ const c1s1HarnessCanvasGenerated = {
       "ok": true,
       "question": "What species or classes are attached to each starting party member in the first recap?",
       "expected_answer": "Karsemine is the Tiefling Ranger, Stafl is the Human Bard, Caelynn is the Half Elf Sorcerer, Ephanna is the Kenku Warlock, Bonogo is the Bugbear Rogue, and Baergrom is the Dwarf Fighter.",
-      "llm_answer_preview": "The first recap explicitly names each starting party member along with their species and class:\n\n- Karsemine \u2014 Tiefling Ranger  \n- Stafl \u2014 \u201cHuman\u201d Bard  \n- Caelynn \u2014 Half Elf Sorcerer  \n- Ephanna \u2014 Kenku Warlock  \n- Bonogo \u2014 Bugbear Rogue  \n- Baergrom \u2014 Dwarf Fighter  \n\nThese are presented together as the original \u201cmish mash of travelers\u201d who had been working as merchant guards before arriving at Stonebridge.",
+      "llm_answer_preview": "The first recap explicitly names each starting party member along with their species and class:\n\nKarsemine is a Tiefling Ranger.  \nStafl is described as a \u201cHuman\u201d Bard (with quotes around \u201cHuman\u201d).  \nCaelynn is a Half Elf Sorcerer.  \nEphanna is a Kenku Warlock.  \nBonogo is a Bugbear Rogue.  \nBaergrom is a Dwarf Fighter.\n\nThese six make up the initial party traveling together as merchant guards before arriving at Stonebridge.",
       "violations": [],
       "context_support_ratio": 1.0,
       "llm_context_support_ratio": 1.0,
@@ -141,9 +186,9 @@ const c1s1HarnessCanvasGenerated = {
         "Dwarf",
         "Fighter"
       ],
-      "embedding_cosine_similarity": 0.7404139254484196,
+      "embedding_cosine_similarity": 0.7587890446034165,
       "embedding_model": "text-embedding-3-large",
-      "embedding_cost_usd": 1.95e-05,
+      "embedding_cost_usd": 2.028e-05,
       "keyword_rows": [
         {
           "token": "Tiefling",
@@ -192,7 +237,7 @@ const c1s1HarnessCanvasGenerated = {
       "ok": true,
       "question": "What is Stonebridge known for at the start of the campaign?",
       "expected_answer": "Stonebridge is known mostly for the Stonebridge over the river, the River's Edge Pub run by Grishna, a job board, and Glowkindle's posted request for mercenaries to help clean up rats.",
-      "llm_answer_preview": "At the start of the campaign, Stonebridge is notable mainly for how unremarkable it is. The excerpts explicitly say it is \u201cknown for very few things\u201d and is \u201chardly known\u201d at all.\n\nWhat it does have is minimal but concrete: a bridge (the Stonebridge itself) over a river, and a single prominent tavern, The River\u2019s Edge Pub, run by Grishna the half-orc. Beyond that, there isn\u2019t much in the way of reputation or distinguishing features.\n\nOne point of local activity is a job board, which becomes important because the brewer Glowkindle has posted a request for help dealing with a rat problem at his Wizard\u2019s Tower Brewing Company. This job\u2014and the word spreading around town about it\u2014is one of the few things giving Stonebridge any immediate relevance when the campaign begins.\n\nSo overall, Stonebridge starts as a quiet, obscure hub with a tavern, a bridge, and a single brewing-related problem drawing attention.",
+      "llm_answer_preview": "At the start of the campaign, Stonebridge is notable mainly for how unremarkable it is\u2014\u201cknown for very few things,\u201d and barely known at all. Its primary landmark is the Stonebridge itself, spanning a nearby river. Beyond that, the town\u2019s key feature is a single tavern, The River\u2019s Edge Pub, run by Grishna, a half-orc.  \n\nThere is also a simple job board, which serves as one of the few points of activity in town. The most prominent current event tied to that board is a request from the local brewer, Glowkindle, who is seeking mercenaries to deal with a rat problem. His operation, the Wizard\u2019s Tower Brewing Company, is located upriver to the west, near a large rock.  \n\nIn short, Stonebridge at the campaign\u2019s outset is a small, quiet place with minimal reputation\u2014defined mostly by its bridge, its lone tavern, and a modest brewing operation that provides the party\u2019s first hook.",
       "violations": [],
       "context_support_ratio": 1.0,
       "llm_context_support_ratio": 0.8333333333333334,
@@ -204,9 +249,9 @@ const c1s1HarnessCanvasGenerated = {
         "Glowkindle",
         "job"
       ],
-      "embedding_cosine_similarity": 0.7264951788736044,
+      "embedding_cosine_similarity": 0.7759877265925321,
       "embedding_model": "text-embedding-3-large",
-      "embedding_cost_usd": 3.107e-05,
+      "embedding_cost_usd": 3.146e-05,
       "keyword_rows": [
         {
           "token": "Stonebridge",
@@ -239,7 +284,7 @@ const c1s1HarnessCanvasGenerated = {
       "ok": true,
       "question": "Who posted the first job hook, and what did they need help with?",
       "expected_answer": "Glowkindle posted the help request and spread word that he needed mercenaries. The job was to clear out giant rats that had attacked his excavation crew after they broke through a wall while expanding the fermentation cellar.",
-      "llm_answer_preview": "The first job hook was posted by **Glowkindle, the local brewer**. He put up a request on the town\u2019s job board and spread word around Stonebridge that he needed **a band of mercenaries to deal with a rat problem**.\n\nSpecifically, the issue was that **giant rats had attacked his excavation crew** after they **broke through a wall while expanding the brewery\u2019s fermentation cellar**. He was offering payment (25 gold pieces each) for help clearing them out.",
+      "llm_answer_preview": "The first job hook was posted by the local brewer, Glowkindle. He put up a request on the town\u2019s job board and spread word around that he needed a band of mercenaries.\n\nWhat he needed help with was a rat problem\u2014specifically, clearing out giant rats. These weren\u2019t just ordinary pests: the issue began after his excavation crew broke through a wall while expanding the fermentation cellar, which led to the rats assaulting the workers.",
       "violations": [],
       "context_support_ratio": 1.0,
       "llm_context_support_ratio": 1.0,
@@ -250,9 +295,9 @@ const c1s1HarnessCanvasGenerated = {
         "rats",
         "fermentation"
       ],
-      "embedding_cosine_similarity": 0.8055513521088589,
+      "embedding_cosine_similarity": 0.8219762286960913,
       "embedding_model": "text-embedding-3-large",
-      "embedding_cost_usd": 1.872e-05,
+      "embedding_cost_usd": 1.7160000000000002e-05,
       "keyword_rows": [
         {
           "token": "Glowkindle",
@@ -277,7 +322,7 @@ const c1s1HarnessCanvasGenerated = {
       "ok": true,
       "question": "What did Grishna tell the party about finding the brewery?",
       "expected_answer": "Grishna told them the Wizard's Tower Brewing Co was upriver, west at the big rock, and then to walk until they saw it.",
-      "llm_answer_preview": "Grishna pointed them in the right direction and her guidance proved accurate. While they were at the River\u2019s Edge Pub, she shared that Glowkindle had passed through and indicated where the Wizard\u2019s Tower Brewing Company could be found. Her directions were simple but specific: go up river, head west to a large rock, and then keep walking until the brewery comes into view.  \n\nThe party followed those instructions by taking a clear trail along the river, reaching an enormous boulder (the \u201cbig rock\u201d she mentioned), and then continuing on foot. After a few more hours along that path away from the river, they arrived at the Wizard\u2019s Tower Brewing Company.",
+      "llm_answer_preview": "At the River\u2019s Edge Pub in Stonebridge, Grishna told the party that the brewer, Glowkindle, had recently passed through town and indicated where the Wizard\u2019s Tower Brewing Co. was located. She gave them directions to reach it, and those directions proved accurate. Following what she said, there was a clear trail running along the river that led toward a notable landmark\u2014an enormous boulder\u2014which helped guide the way to the brewery.",
       "violations": [],
       "context_support_ratio": 1.0,
       "llm_context_support_ratio": 1.0,
@@ -285,12 +330,11 @@ const c1s1HarnessCanvasGenerated = {
       "llm_semantic_must_hits": [
         "Grishna",
         "brewing",
-        "rock",
-        "west"
+        "boulder"
       ],
-      "embedding_cosine_similarity": 0.8409045162087091,
+      "embedding_cosine_similarity": 0.7952598009160141,
       "embedding_model": "text-embedding-3-large",
-      "embedding_cost_usd": 2.1320000000000003e-05,
+      "embedding_cost_usd": 1.56e-05,
       "keyword_rows": [
         {
           "token": "Grishna",
@@ -301,12 +345,300 @@ const c1s1HarnessCanvasGenerated = {
           "in_llm_answer_ci": true
         },
         {
-          "token": "rock",
+          "token": "boulder",
+          "in_llm_answer_ci": true
+        }
+      ]
+    },
+    {
+      "id": "c1s1_brewery_compass_direction",
+      "ok": false,
+      "question": "What compass direction from Stonebridge did Grishna give for reaching the brewery?",
+      "expected_answer": "Grishna directed the party upriver and then west at the big rock to find the Wizard's Tower Brewing Co.",
+      "llm_answer_preview": "The excerpts don\u2019t state any compass direction at all. They confirm that Grishna (at the River\u2019s Edge Pub in Stonebridge) gave directions to Glowkindle\u2019s Wizard\u2019s Tower Brewing Company and that \u201cthe directions were sound,\u201d but there\u2019s no mention of north, south, east, or west\u2014or any other directional detail.\n\nSo the specific compass direction from Stonebridge to the brewery is missing from the provided material.",
+      "violations": [
+        "llm_context_support_below_threshold"
+      ],
+      "context_support_ratio": 1.0,
+      "llm_context_support_ratio": 0.75,
+      "llm_semantic_verdict": "pass_updated",
+      "llm_semantic_must_hits": [
+        "Grishna",
+        "west",
+        "brewing"
+      ],
+      "embedding_cosine_similarity": 0.6156413648777992,
+      "embedding_model": "text-embedding-3-large",
+      "embedding_cost_usd": 1.43e-05,
+      "keyword_rows": [
+        {
+          "token": "Grishna",
           "in_llm_answer_ci": true
         },
         {
           "token": "west",
           "in_llm_answer_ci": true
+        },
+        {
+          "token": "up river",
+          "in_llm_answer_ci": false
+        },
+        {
+          "token": "brewing",
+          "in_llm_answer_ci": true
+        }
+      ],
+      "retrieval_hit_context_full": "It has the Stonebridge over the river [River name], it's tavern The River's Edge Pub run by Grishna the Half-orc, and that's about it.\nLongmont Campaign/Campaign 1/Locations/rivers_edge_pub/\nLongmont Campaign/Campaign 1/NPCs/grishna/\nLongmont Campaign/Campaign 1/Locations/stonebridge/\nLongmont Campaign/Campaign 1/NPCs/glowkindle/\nsession locations location places place setting map stonebridge Starting town; no location hub in corpus yet. longmont campaign longmont campaign campaign 1 rivers_edge_pub Grishna's tavern in Stonebridge. rivers edge pub rivers edge pub wizards_tower_brewing_company Glowkindle's brewery and rat-clearing site. wizards tower brewing company wizards tower brewing company shatter_mages_tower Referenced as containing the magma spider threat. shatter mages shatter mages tower\nLongmont Campaign/Campaign 1/Locations/stonebridge/\nLongmont Campaign/Campaign 1/Locations/rivers_edge_pub/\nLongmont Campaign/Campaign 1/Locations/wizards_tower_brewing_company/\nLongmont Campaign/Campaign 1/Locations/shatter_mages_tower/\nGrishna was true to her word, the directions were sound.\nLongmont Campaign/Campaign 1/NPCs/grishna/\nLongmont Campaign/Campaign 1/Parties/party_merchant_guards/\nAfter traveling together for some time together as merchant guards, our mish mash of travelers; Karsemine the Tiefling Ranger, Stafl the 'Human' Bard, Caelynn the Half Elf Sorcerer, Ephanna the Kenku Warlock, Bonogo the Bugbear Rogue, and Baergrom the Dwarf Fighter, found themselves outside the town of Stonebridge.\nLongmont Campaign/Campaign 1/Parties/party_merchant_guards/\nLongmont Campaign/Campaign 1/PCs/karsemine/\nLongmont Campaign/Campaign 1/PCs/stafl/\nLongmont Campaign/Campaign 1/PCs/caelynn/\nLongmont Campaign/Campaign 1/PCs/ephanna/\nLongmont Campaign/Campaign 1/PCs/bonogo/\nLongmont Campaign/Campaign 1/PCs/baergrom/\nLongmont Campaign/Campaign 1/Locations/stonebridge/\nThe town of Stonebridge is known for very few things, in fact Stonebridge is hardly known.\nLongmont Campaign/Campaign 1/Locations/stonebridge/\nLongmont Campaign/Campaign 1/Locations/rivers_edge_pub/\nWhile doing some drinking at the Riv'ers Edge Pub to wash away the road, Grishna was quick to share that Glowkindle had been through, where the The Wizard's Tower Brewing Co was located.\nLongmont Campaign/Campaign 1/Locations/rivers_edge_pub/\nLongmont Campaign/Campaign 1/NPCs/grishna/\nLongmont Campaign/Campaign 1/NPCs/glowkindle/\nLongmont Campaign/Campaign 1/Locations/wizards_tower_brewing_company/\nLongmont Campaign/Campaign 1/PCs/bonogo/\nIt did have a job board, and most importantly the local brewer Glowkindle had posted a help request on the jobs board and spread word all around town of his need of a band of mercenaries to help clean up some rats.\nLongmont Campaign/Campaign 1/Locations/stonebridge/\nLongmont Campaign/Campaign 1/NPCs/glowkindle/\nLongmont Campaign/Campaign 1/Parties/party_merchant_guards/\nHe quite enjoyed the hike to the brewery.\nLongmont Campaign/Campaign 1/Locations/wizards_tower_brewing_company/\nThere was a clear trail along the river to an enormous boulder.\nLongmont Campaign/Campaign 1/Parties/party_merchant_guards/\nAs the group approached it resolved into what must have been the foot of a once enormous statue.\nLongmont Campaign/Campaign 1/Parties/party_merchant_guards/\nOr a mad sculptures dedication to someone's foot, probably the former but who really knows with art anyway.\nAnother few hours walk away from the river along the trail led the group to the Wizard's Tower Brewing Company.\nLongmont Campaign/Campaign 1/Parties/party_merchant_guards/\nLongmont Campaign/Campaign 1/Locations/wizards_tower_brewing_company/\nUp river, west at the big rock, walk till you see it.\nLongmont Campaign/Campaign 1/PCs/bonogo/\nBonogo, having very little awareness or care for the cost of things, and greatly enjoying the beer, bought a Firkin of ale for two gold.\nLongmont Campaign/Campaign 1/PCs/bonogo/\nLongmont Campaign/Campaign 1/Locations/wizards_tower_brewing_company/\nWithin they met Glowkindle who told them, a bit about the issue at hand.\nLongmont Campaign/Campaign 1/NPCs/glowkindle/\nLongmont Campaign/Campaign 1/Parties/party_merchant_guards/\nGiant rats had assaulted his excavation crew after they broke through a wall expanding the fermentation cellar.\nLongmont Campaign/Campaign 1/Parties/party_merchant_guards/\nFinally, free to explore the team found a beautifully tiled hallway, a trapped mosaic on the ground, a room full of broken alchemical tools.\nLongmont Campaign/Campaign 1/Parties/party_merchant_guards/\nLongmont Campaign/Campaign 1/PCs/karsemine/\nAs Karsemine wisely searched the room, eventually looking up, she made eye contact with another resident of the shatter mages tower.\nLongmont Campaign/Campaign 1/PCs/karsemine/\nLongmont Campaign/Campaign 1/Locations/shatter_mages_tower/",
+      "lexical_hit_context_promoted": "session locations location places place setting map stonebridge Starting town; no location hub in corpus yet. longmont campaign longmont campaign campaign 1 rivers_edge_pub Grishna's tavern in Stonebridge. rivers edge pub rivers edge pub wizards_tower_brewing_company Glowkindle's brewery and rat-clearing site. wizards tower brewing company wizards tower brewing company shatter_mages_tower Referenced as containing the magma spider threat. shatter mages shatter mages tower\nIt has the Stonebridge over the river [River name], it's tavern The River's Edge Pub run by Grishna the Half-orc, and that's about it.\nGrishna was true to her word, the directions were sound.\nAfter traveling together for some time together as merchant guards, our mish mash of travelers; Karsemine the Tiefling Ranger, Stafl the 'Human' Bard, Caelynn the Half Elf Sorcerer, Ephanna the Kenku Warlock, Bonogo the Bugbear Rogue, and Baergrom the Dwarf Fighter, found themselves outside the town of Stonebridge.\nThe town of Stonebridge is known for very few things, in fact Stonebridge is hardly known.\nWhile doing some drinking at the Riv'ers Edge Pub to wash away the road, Grishna was quick to share that Glowkindle had been through, where the The Wizard's Tower Brewing Co was located.\nHe quite enjoyed the hike to the brewery.\nIt did have a job board, and most importantly the local brewer Glowkindle had posted a help request on the jobs board and spread word all around town of his need of a band of mercenaries to help clean up some rats.",
+      "llm_user_message": "Question:\nWhat compass direction from Stonebridge did Grishna give for reaching the brewery?\n\n### Retrieved excerpts and routes (only source you may use)\nsession locations location places place setting map stonebridge Starting town; no location hub in corpus yet. longmont campaign longmont campaign campaign 1 rivers_edge_pub Grishna's tavern in Stonebridge. rivers edge pub rivers edge pub wizards_tower_brewing_company Glowkindle's brewery and rat-clearing site. wizards tower brewing company wizards tower brewing company shatter_mages_tower Referenced as containing the magma spider threat. shatter mages shatter mages tower\nIt has the Stonebridge over the river [River name], it's tavern The River's Edge Pub run by Grishna the Half-orc, and that's about it.\nGrishna was true to her word, the directions were sound.\nAfter traveling together for some time together as merchant guards, our mish mash of travelers; Karsemine the Tiefling Ranger, Stafl the 'Human' Bard, Caelynn the Half Elf Sorcerer, Ephanna the Kenku Warlock, Bonogo the Bugbear Rogue, and Baergrom the Dwarf Fighter, found themselves outside the town of Stonebridge.\nThe town of Stonebridge is known for very few things, in fact Stonebridge is hardly known.\nWhile doing some drinking at the Riv'ers Edge Pub to wash away the road, Grishna was quick to share that Glowkindle had been through, where the The Wizard's Tower Brewing Co was located.\nHe quite enjoyed the hike to the brewery.\nIt did have a job board, and most importantly the local brewer Glowkindle had posted a help request on the jobs board and spread word all around town of his need of a band of mercenaries to help clean up some rats.\n",
+      "fail_forensics_hit_rows": [
+        {
+          "unit_id": "u-L0005-02",
+          "line_span": "L5-5",
+          "score": 8,
+          "source_recap_path": "Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md",
+          "routes": [
+            "Longmont Campaign/Campaign 1/Locations/rivers_edge_pub/",
+            "Longmont Campaign/Campaign 1/NPCs/grishna/",
+            "Longmont Campaign/Campaign 1/Locations/stonebridge/",
+            "Longmont Campaign/Campaign 1/NPCs/glowkindle/"
+          ],
+          "why_matched": [
+            "lexical_token:stonebridge",
+            "route_token:stonebridge",
+            "lexical_token:grishna",
+            "route_token:grishna"
+          ]
+        },
+        {
+          "unit_id": "meta-session-0001-locations",
+          "line_span": "L0-0",
+          "score": 6,
+          "source_recap_path": "Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md",
+          "routes": [
+            "Longmont Campaign/Campaign 1/Locations/stonebridge/",
+            "Longmont Campaign/Campaign 1/Locations/rivers_edge_pub/",
+            "Longmont Campaign/Campaign 1/Locations/wizards_tower_brewing_company/",
+            "Longmont Campaign/Campaign 1/Locations/shatter_mages_tower/"
+          ],
+          "why_matched": [
+            "lexical_token:stonebridge",
+            "route_token:stonebridge",
+            "lexical_token:grishna",
+            "lexical_token:brewery"
+          ]
+        },
+        {
+          "unit_id": "u-L0009-01",
+          "line_span": "L9-9",
+          "score": 5,
+          "source_recap_path": "Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md",
+          "routes": [
+            "Longmont Campaign/Campaign 1/NPCs/grishna/",
+            "Longmont Campaign/Campaign 1/Parties/party_merchant_guards/"
+          ],
+          "why_matched": [
+            "lexical_token:direction",
+            "lexical_token:grishna",
+            "route_token:grishna"
+          ]
+        },
+        {
+          "unit_id": "u-L0003-01",
+          "line_span": "L3-3",
+          "score": 4,
+          "source_recap_path": "Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md",
+          "routes": [
+            "Longmont Campaign/Campaign 1/Parties/party_merchant_guards/",
+            "Longmont Campaign/Campaign 1/PCs/karsemine/",
+            "Longmont Campaign/Campaign 1/PCs/stafl/",
+            "Longmont Campaign/Campaign 1/PCs/caelynn/"
+          ],
+          "why_matched": [
+            "lexical_token:stonebridge",
+            "route_token:stonebridge"
+          ]
+        },
+        {
+          "unit_id": "u-L0005-01",
+          "line_span": "L5-5",
+          "score": 4,
+          "source_recap_path": "Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md",
+          "routes": [
+            "Longmont Campaign/Campaign 1/Locations/stonebridge/",
+            "Longmont Campaign/Campaign 1/Locations/rivers_edge_pub/"
+          ],
+          "why_matched": [
+            "lexical_token:stonebridge",
+            "route_token:stonebridge"
+          ]
+        },
+        {
+          "unit_id": "u-L0007-01",
+          "line_span": "L7-7",
+          "score": 4,
+          "source_recap_path": "Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md",
+          "routes": [
+            "Longmont Campaign/Campaign 1/Locations/rivers_edge_pub/",
+            "Longmont Campaign/Campaign 1/NPCs/grishna/",
+            "Longmont Campaign/Campaign 1/NPCs/glowkindle/",
+            "Longmont Campaign/Campaign 1/Locations/wizards_tower_brewing_company/"
+          ],
+          "why_matched": [
+            "lexical_token:grishna",
+            "route_token:grishna"
+          ]
+        },
+        {
+          "unit_id": "u-L0005-03",
+          "line_span": "L5-5",
+          "score": 3,
+          "source_recap_path": "Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md",
+          "routes": [
+            "Longmont Campaign/Campaign 1/Locations/stonebridge/",
+            "Longmont Campaign/Campaign 1/NPCs/glowkindle/",
+            "Longmont Campaign/Campaign 1/Parties/party_merchant_guards/"
+          ],
+          "why_matched": [
+            "route_token:stonebridge"
+          ]
+        },
+        {
+          "unit_id": "u-L0007-04",
+          "line_span": "L7-7",
+          "score": 1,
+          "source_recap_path": "Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md",
+          "routes": [
+            "Longmont Campaign/Campaign 1/Locations/wizards_tower_brewing_company/"
+          ],
+          "why_matched": [
+            "lexical_token:brewery"
+          ]
+        },
+        {
+          "unit_id": "u-L0009-02",
+          "line_span": "L9-9",
+          "score": 0,
+          "source_recap_path": "Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md",
+          "routes": [
+            "Longmont Campaign/Campaign 1/Parties/party_merchant_guards/"
+          ],
+          "why_matched": [
+            "expanded_adjacent:u-L0009-02"
+          ]
+        },
+        {
+          "unit_id": "u-L0009-03",
+          "line_span": "L9-9",
+          "score": 0,
+          "source_recap_path": "Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md",
+          "routes": [
+            "Longmont Campaign/Campaign 1/Parties/party_merchant_guards/"
+          ],
+          "why_matched": [
+            "expanded_adjacent:u-L0009-03"
+          ]
+        },
+        {
+          "unit_id": "u-L0009-04",
+          "line_span": "L9-9",
+          "score": 0,
+          "source_recap_path": "Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md",
+          "routes": [],
+          "why_matched": [
+            "expanded_adjacent:u-L0009-04"
+          ]
+        },
+        {
+          "unit_id": "u-L0011-01",
+          "line_span": "L11-11",
+          "score": 0,
+          "source_recap_path": "Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md",
+          "routes": [
+            "Longmont Campaign/Campaign 1/Parties/party_merchant_guards/",
+            "Longmont Campaign/Campaign 1/Locations/wizards_tower_brewing_company/"
+          ],
+          "why_matched": [
+            "expanded_adjacent:u-L0011-01"
+          ]
+        },
+        {
+          "unit_id": "u-L0007-02",
+          "line_span": "L7-7",
+          "score": 0,
+          "source_recap_path": "Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md",
+          "routes": [
+            "Longmont Campaign/Campaign 1/PCs/bonogo/"
+          ],
+          "why_matched": [
+            "expanded_adjacent:u-L0007-02"
+          ]
+        },
+        {
+          "unit_id": "u-L0007-03",
+          "line_span": "L7-7",
+          "score": 0,
+          "source_recap_path": "Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md",
+          "routes": [
+            "Longmont Campaign/Campaign 1/PCs/bonogo/",
+            "Longmont Campaign/Campaign 1/Locations/wizards_tower_brewing_company/"
+          ],
+          "why_matched": [
+            "expanded_adjacent:u-L0007-03"
+          ]
+        },
+        {
+          "unit_id": "u-L0013-01",
+          "line_span": "L13-13",
+          "score": 0,
+          "source_recap_path": "Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md",
+          "routes": [
+            "Longmont Campaign/Campaign 1/NPCs/glowkindle/",
+            "Longmont Campaign/Campaign 1/Parties/party_merchant_guards/"
+          ],
+          "why_matched": [
+            "expanded_shared_route:longmont campaign/campaign 1/npcs/glowkindle",
+            "expanded_shared_route:longmont campaign/campaign 1/parties/party_merchant_guards"
+          ]
+        },
+        {
+          "unit_id": "u-L0013-02",
+          "line_span": "L13-13",
+          "score": 0,
+          "source_recap_path": "Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md",
+          "routes": [
+            "Longmont Campaign/Campaign 1/Parties/party_merchant_guards/"
+          ],
+          "why_matched": [
+            "expanded_shared_route:longmont campaign/campaign 1/parties/party_merchant_guards"
+          ]
+        },
+        {
+          "unit_id": "u-L0017-01",
+          "line_span": "L17-17",
+          "score": 0,
+          "source_recap_path": "Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md",
+          "routes": [
+            "Longmont Campaign/Campaign 1/Parties/party_merchant_guards/",
+            "Longmont Campaign/Campaign 1/PCs/karsemine/"
+          ],
+          "why_matched": [
+            "expanded_shared_route:longmont campaign/campaign 1/pcs/karsemine"
+          ]
+        },
+        {
+          "unit_id": "u-L0017-02",
+          "line_span": "L17-17",
+          "score": 0,
+          "source_recap_path": "Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md",
+          "routes": [
+            "Longmont Campaign/Campaign 1/PCs/karsemine/",
+            "Longmont Campaign/Campaign 1/Locations/shatter_mages_tower/"
+          ],
+          "why_matched": [
+            "expanded_shared_route:longmont campaign/campaign 1/locations/shatter_mages_tower",
+            "expanded_shared_route:longmont campaign/campaign 1/pcs/karsemine"
+          ]
         }
       ]
     },
@@ -315,7 +647,7 @@ const c1s1HarnessCanvasGenerated = {
       "ok": true,
       "question": "What did Bonogo buy before the hike to the brewery?",
       "expected_answer": "Bonogo bought a firkin of ale for two gold because he was enjoying the beer and did not care much about the cost.",
-      "llm_answer_preview": "Before the hike to the Wizard\u2019s Tower Brewing Company, Bonogo bought a firkin of ale, paying two gold for it. The text notes he had little awareness of cost and greatly enjoyed beer, which led to that purchase prior to the trip he later enjoyed.",
+      "llm_answer_preview": "Before the hike to the brewery, Bonogo bought a firkin of ale for two gold. The excerpts describe him as not caring much about cost and enjoying beer, which led to that purchase while the group was in Stonebridge, prior to heading out along the river toward the Wizard\u2019s Tower Brewing Company.",
       "violations": [],
       "context_support_ratio": 1.0,
       "llm_context_support_ratio": 1.0,
@@ -326,9 +658,9 @@ const c1s1HarnessCanvasGenerated = {
         "ale",
         "gold"
       ],
-      "embedding_cosine_similarity": 0.7451167385679861,
+      "embedding_cosine_similarity": 0.7631763451035286,
       "embedding_model": "text-embedding-3-large",
-      "embedding_cost_usd": 1.027e-05,
+      "embedding_cost_usd": 1.131e-05,
       "keyword_rows": [
         {
           "token": "Bonogo",
@@ -353,7 +685,7 @@ const c1s1HarnessCanvasGenerated = {
       "ok": true,
       "question": "How did the group get from Stonebridge toward the Wizard's Tower Brewing Company?",
       "expected_answer": "They followed Grishna's directions upriver and west to the big rock, found it was an enormous boulder shaped like the foot of a huge statue, and then walked along the trail to the Wizard's Tower Brewing Company.",
-      "llm_answer_preview": "They started in Stonebridge and spent time at the River\u2019s Edge Pub, the town\u2019s tavern run by Grishna. While drinking there, Grishna told them that Glowkindle had passed through and explained where the Wizard\u2019s Tower Brewing Company was located. Using those directions, the group set out from town.\n\nFrom Stonebridge, they followed a trail along the river, traveling on foot. After a few hours of walking along that riverside path, they reached the Wizard\u2019s Tower Brewing Company. The journey itself was described as a hike, which at least Bonogo enjoyed.",
+      "llm_answer_preview": "The group started in Stonebridge, a small town centered mainly around the River\u2019s Edge Pub run by Grishna. While there drinking to recover from the road, they learned useful information: Grishna mentioned that Glowkindle had passed through and indicated where the Wizard\u2019s Tower Brewing Company was located. With that direction in hand, the party\u2014Karsemine, Stafl, Caelynn, Ephanna, Bonogo, and Baergrom\u2014set out from the town.\n\nFrom Stonebridge, they followed a trail leading away from the river. The journey wasn\u2019t immediate; it took them another few hours of walking along that trail. This suggests a straightforward overland route rather than teleportation or complex navigation\u2014just a guided trek based on Grishna\u2019s directions. Eventually, after those hours of travel, the trail brought them directly to the Wizard\u2019s Tower Brewing Company.",
       "violations": [],
       "context_support_ratio": 0.6666666666666666,
       "llm_context_support_ratio": 0.6666666666666666,
@@ -362,9 +694,9 @@ const c1s1HarnessCanvasGenerated = {
         "trail",
         "brewing"
       ],
-      "embedding_cosine_similarity": 0.7513862667765837,
+      "embedding_cosine_similarity": 0.6436374517936866,
       "embedding_model": "text-embedding-3-large",
-      "embedding_cost_usd": 2.1190000000000002e-05,
+      "embedding_cost_usd": 2.912e-05,
       "keyword_rows": [
         {
           "token": "trail",
@@ -385,30 +717,20 @@ const c1s1HarnessCanvasGenerated = {
       "ok": true,
       "question": "What was the big rock landmark on the way to the brewery?",
       "expected_answer": "The big rock was an enormous boulder that looked like the foot of a once-enormous statue.",
-      "llm_answer_preview": "The \u201cbig rock\u201d landmark was an enormous boulder along the river trail. As the group got closer, it turned out not to be just a natural rock but the foot of a once-enormous statue\u2014essentially a giant sculpted foot. There\u2019s even a note suggesting it might look like \u201ca mad sculpture\u2019s dedication to someone\u2019s foot,\u201d reinforcing that it was a striking, oddly shaped landmark rather than an ordinary stone. This was the key waypoint: follow the river to that massive \u201cfoot\u201d boulder, then head west from there toward the brewery.",
+      "llm_answer_preview": "The directions to the brewery specifically mention \u201cthe big rock\u201d as a turning point: go upriver, then head west at that landmark and keep walking until you reach it. One description in the excerpts gives a clearer sense of what that \u201cbig rock\u201d actually looked like\u2014it was compared to \u201ca mad sculpture\u2019s dedication to someone\u2019s foot,\u201d suggesting the landmark was a large rock formation resembling (or interpreted as) a giant foot. The text even notes uncertainty about whether it was intentional art or just a natural formation, but the visual impression of a massive foot-shaped rock is the key identifying feature.",
       "violations": [],
       "context_support_ratio": 1.0,
       "llm_context_support_ratio": 1.0,
       "llm_semantic_verdict": "pass_updated",
       "llm_semantic_must_hits": [
-        "boulder",
-        "foot",
-        "statue"
+        "foot"
       ],
-      "embedding_cosine_similarity": 0.7100496009947288,
+      "embedding_cosine_similarity": 0.6216645459337167,
       "embedding_model": "text-embedding-3-large",
-      "embedding_cost_usd": 1.768e-05,
+      "embedding_cost_usd": 1.8330000000000002e-05,
       "keyword_rows": [
         {
-          "token": "boulder",
-          "in_llm_answer_ci": true
-        },
-        {
           "token": "foot",
-          "in_llm_answer_ci": true
-        },
-        {
-          "token": "statue",
           "in_llm_answer_ci": true
         }
       ]
@@ -418,23 +740,24 @@ const c1s1HarnessCanvasGenerated = {
       "ok": true,
       "question": "What was the Wizard's Tower Brewing Company like when the group arrived?",
       "expected_answer": "The Wizard's Tower Brewing Company was bustling and smelled of brewing. Its tap room was lit by magical crystals and was empty except for gnomes busily brewing.",
-      "llm_answer_preview": "When the group finally reached the Wizard\u2019s Tower Brewing Company after following the river trail, the site first appeared as what looked like the foot of an enormous statue\u2014possibly just a massive boulder, or \u201ca mad sculptor\u2019s dedication to someone\u2019s foot.\u201d The approach itself was straightforward, with a clear trail leading right to it.\n\nInside, the brewery felt active and lived-in: it smelled strongly of brewing, and the tap room was finely appointed and lit by magical crystals. Despite that sense of bustle, the tap room itself was otherwise empty of patrons, occupied only by a troupe of gnomes hard at work brewing.\n\nThey soon met Glowkindle, who explained the problem\u2014his excavation crew had broken through a wall while expanding the fermentation cellar, which led to giant rats assaulting them. Beyond the main room, the place opened into more unusual interiors, including a beautifully tiled hallway, a trapped mosaic on the floor, and a room filled with broken alchemical tools, hinting at both magical craft and recent trouble.",
+      "llm_answer_preview": "When the group arrived, the Wizard\u2019s Tower Brewing Company appeared to be built around\u2014or at least located at\u2014the foot of what had once been an enormous statue. The setting gave an impression of something grand and ancient, even before stepping inside.\n\nInside, the brewery was actively working: it was bustling with activity and filled with the smell of brewing. The tap room itself was described as fine and well-lit by magical crystals, giving it a distinctive, almost arcane ambiance rather than a purely rustic one.\n\nDespite that sense of energy, it wasn\u2019t crowded with patrons. In fact, the tap room was empty of customers and instead occupied only by a troupe of gnomes who were busily at work brewing. So the \u201cbustle\u201d came from production rather than social activity.\n\nOverall, it felt like a lively but work-focused brewery\u2014magically lit, aromatic with ale-making, and staffed by industrious gnomes rather than filled with drinkers.",
       "violations": [],
       "context_support_ratio": 1.0,
-      "llm_context_support_ratio": 0.75,
+      "llm_context_support_ratio": 1.0,
       "llm_semantic_verdict": "pass_updated",
       "llm_semantic_must_hits": [
+        "bustling",
         "crystals",
         "gnomes",
         "brewing"
       ],
-      "embedding_cosine_similarity": 0.7669460036801188,
+      "embedding_cosine_similarity": 0.8572262855348582,
       "embedding_model": "text-embedding-3-large",
-      "embedding_cost_usd": 3.133e-05,
+      "embedding_cost_usd": 2.951e-05,
       "keyword_rows": [
         {
           "token": "bustling",
-          "in_llm_answer_ci": false
+          "in_llm_answer_ci": true
         },
         {
           "token": "crystals",
@@ -455,7 +778,7 @@ const c1s1HarnessCanvasGenerated = {
       "ok": true,
       "question": "What did Glowkindle offer the team for clearing the rats?",
       "expected_answer": "Glowkindle offered 25 gold pieces each if the team cleared out the rats.",
-      "llm_answer_preview": "Glowkindle offered the team a payment of **25 gold pieces each** for clearing out the rats.",
+      "llm_answer_preview": "Glowkindle offered the group a payment of **25 gold pieces each** to deal with the rat problem.  \n\nThe job was posted on the local board and spread around town as a call for mercenaries, tied to his brewery, the Wizard\u2019s Tower Brewing Company. When the team followed up and met him, he explained that **giant rats had overrun the fermentation cellar** after his crew accidentally broke through a wall during an expansion. The party agreed to take the job for that stated reward, which ended up being much tougher than expected, involving heavy injuries, lots of potions, and a chaotic fight.",
       "violations": [],
       "context_support_ratio": 1.0,
       "llm_context_support_ratio": 1.0,
@@ -466,9 +789,9 @@ const c1s1HarnessCanvasGenerated = {
         "gold",
         "rats"
       ],
-      "embedding_cosine_similarity": 0.9488645289878612,
+      "embedding_cosine_similarity": 0.8039886099371589,
       "embedding_model": "text-embedding-3-large",
-      "embedding_cost_usd": 5.2e-06,
+      "embedding_cost_usd": 1.82e-05,
       "keyword_rows": [
         {
           "token": "Glowkindle",
@@ -493,7 +816,7 @@ const c1s1HarnessCanvasGenerated = {
       "ok": true,
       "question": "What caused the giant-rat problem at the brewery?",
       "expected_answer": "The giant rats assaulted the excavation crew after they broke through a wall while expanding the fermentation cellar.",
-      "llm_answer_preview": "The rat infestation started when work on the brewery\u2019s fermentation cellar went wrong. During an expansion, the excavation crew broke through a wall, and that breach exposed whatever space lay beyond. As a direct result, giant rats came through and began assaulting the workers.  \n\nSo the \u201crat problem\u201d wasn\u2019t random\u2014it was triggered by the cellar expansion accidentally opening access to the rats\u2019 area, allowing them to flood into the brewery and attack the crew.",
+      "llm_answer_preview": "The rat problem started when Glowkindle\u2019s crew was expanding the brewery\u2019s fermentation cellar. During that excavation, they broke through a wall, which appears to have opened access to an area full of giant rats. After that breach, the rats poured in and began attacking the workers, turning it into a serious infestation.\n\nSo the root cause wasn\u2019t random\u2014it was triggered directly by the construction work exposing whatever space the rats were already occupying.",
       "violations": [],
       "context_support_ratio": 1.0,
       "llm_context_support_ratio": 1.0,
@@ -504,9 +827,9 @@ const c1s1HarnessCanvasGenerated = {
         "wall",
         "excavation"
       ],
-      "embedding_cosine_similarity": 0.7556779331545224,
+      "embedding_cosine_similarity": 0.7149620253115118,
       "embedding_model": "text-embedding-3-large",
-      "embedding_cost_usd": 1.4170000000000002e-05,
+      "embedding_cost_usd": 1.391e-05,
       "keyword_rows": [
         {
           "token": "rats",
@@ -528,27 +851,28 @@ const c1s1HarnessCanvasGenerated = {
     },
     {
       "id": "c1s1_first_combat_cost",
-      "ok": true,
+      "ok": false,
       "question": "How rough was the party's first combat with the rats?",
       "expected_answer": "It was much harder than expected. Multiple people went down, a mysterious cat owl was tossed into the room to help, and many health potions were consumed.",
-      "llm_answer_preview": "It was a lot rougher than anyone expected. What was supposed to be a simple rat-clearing job for 25 gold each turned into a genuinely dangerous fight. The encounter was described as \u201csignificantly harder than expected,\u201d with multiple party members going down during the combat.\n\nThere was heavy chaos in the fight: a \u201cmysterious cat owl\u201d even got thrown into the room to help, suggesting things were desperate or improvised. The scene involved a lot of blood\u2014both from the rats and the party members\u2014and the group burned through \u201cmany, many, many\u201d health potions just to stay standing.\n\nSo while it was framed as a good first combat to bring the team together, it was far from easy\u2014it pushed the party hard and nearly overwhelmed them.",
-      "violations": [],
+      "llm_answer_preview": "It was much rougher than anyone expected. The group had taken what sounded like a straightforward job\u2014clearing giant rats from Glowkindle\u2019s fermentation cellar for 25 gold each\u2014but the fight escalated quickly once they got into it. The rats had already proven dangerous by attacking the brewer\u2019s excavation crew after a wall was broken through, and they didn\u2019t go down easily for the party either.\n\nDuring the combat, multiple party members were knocked unconscious, which shows how hard the encounter hit. There was a lot of chaos: heavy bloodshed on both sides, and the team had to burn through \u201cmany, many, many\u201d health potions just to stay in the fight. At one point, things got desperate enough that a mysterious cat-owl was literally thrown into the room to help turn the tide.\n\nSo while it was framed as a simple starter job, it ended up being a brutal, resource-draining battle that nearly overwhelmed the group and forced them to rely on everything they had to survive.",
+      "violations": [
+        "llm_semantic_verdict:fail_incomplete",
+        "llm_context_support_below_threshold"
+      ],
       "context_support_ratio": 1.0,
-      "llm_context_support_ratio": 1.0,
-      "llm_semantic_verdict": "pass_updated",
+      "llm_context_support_ratio": 0.5,
+      "llm_semantic_verdict": "fail_incomplete",
       "llm_semantic_must_hits": [
-        "harder",
         "potions",
-        "cat owl",
         "blood"
       ],
-      "embedding_cosine_similarity": 0.6995604854792361,
+      "embedding_cosine_similarity": 0.7038757669059653,
       "embedding_model": "text-embedding-3-large",
-      "embedding_cost_usd": 2.379e-05,
+      "embedding_cost_usd": 3.0160000000000003e-05,
       "keyword_rows": [
         {
           "token": "harder",
-          "in_llm_answer_ci": true
+          "in_llm_answer_ci": false
         },
         {
           "token": "potions",
@@ -556,11 +880,245 @@ const c1s1HarnessCanvasGenerated = {
         },
         {
           "token": "cat owl",
-          "in_llm_answer_ci": true
+          "in_llm_answer_ci": false
         },
         {
           "token": "blood",
           "in_llm_answer_ci": true
+        }
+      ],
+      "retrieval_hit_context_full": "Giant rats had assaulted his excavation crew after they broke through a wall expanding the fermentation cellar.\nLongmont Campaign/Campaign 1/Parties/party_merchant_guards/\nA fine first combat to bring the team together!\nLongmont Campaign/Campaign 1/Parties/party_merchant_guards/\nIt did have a job board, and most importantly the local brewer Glowkindle had posted a help request on the jobs board and spread word all around town of his need of a band of mercenaries to help clean up some rats.\nLongmont Campaign/Campaign 1/Locations/stonebridge/\nLongmont Campaign/Campaign 1/NPCs/glowkindle/\nLongmont Campaign/Campaign 1/Parties/party_merchant_guards/\nFor a healthy prize of 25 gold pieces each, the team agreed to clear out the rats.\nLongmont Campaign/Campaign 1/Parties/party_merchant_guards/\nAfter traveling together for some time together as merchant guards, our mish mash of travelers; Karsemine the Tiefling Ranger, Stafl the 'Human' Bard, Caelynn the Half Elf Sorcerer, Ephanna the Kenku Warlock, Bonogo the Bugbear Rogue, and Baergrom the Dwarf Fighter, found themselves outside the town of Stonebridge.\nLongmont Campaign/Campaign 1/Parties/party_merchant_guards/\nLongmont Campaign/Campaign 1/PCs/karsemine/\nLongmont Campaign/Campaign 1/PCs/stafl/\nLongmont Campaign/Campaign 1/PCs/caelynn/\nLongmont Campaign/Campaign 1/PCs/ephanna/\nLongmont Campaign/Campaign 1/PCs/bonogo/\nLongmont Campaign/Campaign 1/PCs/baergrom/\nLongmont Campaign/Campaign 1/Locations/stonebridge/\nGrishna was true to her word, the directions were sound.\nLongmont Campaign/Campaign 1/NPCs/grishna/\nLongmont Campaign/Campaign 1/Parties/party_merchant_guards/\nThere was a clear trail along the river to an enormous boulder.\nLongmont Campaign/Campaign 1/Parties/party_merchant_guards/\nAs the group approached it resolved into what must have been the foot of a once enormous statue.\nLongmont Campaign/Campaign 1/Parties/party_merchant_guards/\nAnother few hours walk away from the river along the trail led the group to the Wizard's Tower Brewing Company.\nLongmont Campaign/Campaign 1/Parties/party_merchant_guards/\nLongmont Campaign/Campaign 1/Locations/wizards_tower_brewing_company/\nFinally, free to explore the team found a beautifully tiled hallway, a trapped mosaic on the ground, a room full of broken alchemical tools.\nLongmont Campaign/Campaign 1/Parties/party_merchant_guards/\nLongmont Campaign/Campaign 1/PCs/karsemine/\nAs Karsemine wisely searched the room, eventually looking up, she made eye contact with another resident of the shatter mages tower.\nLongmont Campaign/Campaign 1/PCs/karsemine/\nLongmont Campaign/Campaign 1/Locations/shatter_mages_tower/\nSome kind of flaming magma infused spider monstrosity.\nLongmont Campaign/Campaign 1/NPCs/magma_spider/\nWithin they met Glowkindle who told them, a bit about the issue at hand.\nLongmont Campaign/Campaign 1/NPCs/glowkindle/\nLongmont Campaign/Campaign 1/Parties/party_merchant_guards/\nWhich was significantly harder than expected, led to multiple folk going down, a mysterious cat owl being tossed into the room to help, a lot of blood from rats and teammates, and many, many, many health potions being downed.\nBustling with activity, and smelling of brewing, the fine tap room lit by magical crystals, was empty except for the troupe of gnomes busily brewing.\nOr a mad sculptures dedication to someone's foot, probably the former but who really knows with art anyway.\nWhile doing some drinking at the Riv'ers Edge Pub to wash away the road, Grishna was quick to share that Glowkindle had been through, where the The Wizard's Tower Brewing Co was located.\nLongmont Campaign/Campaign 1/Locations/rivers_edge_pub/\nLongmont Campaign/Campaign 1/NPCs/grishna/\nLongmont Campaign/Campaign 1/NPCs/glowkindle/\nLongmont Campaign/Campaign 1/Locations/wizards_tower_brewing_company/\nLongmont Campaign/Campaign 1/PCs/bonogo/\nUp river, west at the big rock, walk till you see it.\nLongmont Campaign/Campaign 1/PCs/bonogo/",
+      "lexical_hit_context_promoted": "A fine first combat to bring the team together!\nGiant rats had assaulted his excavation crew after they broke through a wall expanding the fermentation cellar.\nIt did have a job board, and most importantly the local brewer Glowkindle had posted a help request on the jobs board and spread word all around town of his need of a band of mercenaries to help clean up some rats.\nFor a healthy prize of 25 gold pieces each, the team agreed to clear out the rats.\nWhich was significantly harder than expected, led to multiple folk going down, a mysterious cat owl being tossed into the room to help, a lot of blood from rats and teammates, and many, many, many health potions being downed.\nAfter traveling together for some time together as merchant guards, our mish mash of travelers; Karsemine the Tiefling Ranger, Stafl the 'Human' Bard, Caelynn the Half Elf Sorcerer, Ephanna the Kenku Warlock, Bonogo the Bugbear Rogue, and Baergrom the Dwarf Fighter, found themselves outside the town of Stonebridge.\nGrishna was true to her word, the directions were sound.\nThere was a clear trail along the river to an enormous boulder.",
+      "llm_user_message": "Question:\nHow rough was the party's first combat with the rats?\n\n### Retrieved excerpts and routes (only source you may use)\nA fine first combat to bring the team together!\nGiant rats had assaulted his excavation crew after they broke through a wall expanding the fermentation cellar.\nIt did have a job board, and most importantly the local brewer Glowkindle had posted a help request on the jobs board and spread word all around town of his need of a band of mercenaries to help clean up some rats.\nFor a healthy prize of 25 gold pieces each, the team agreed to clear out the rats.\nWhich was significantly harder than expected, led to multiple folk going down, a mysterious cat owl being tossed into the room to help, a lot of blood from rats and teammates, and many, many, many health potions being downed.\nAfter traveling together for some time together as merchant guards, our mish mash of travelers; Karsemine the Tiefling Ranger, Stafl the 'Human' Bard, Caelynn the Half Elf Sorcerer, Ephanna the Kenku Warlock, Bonogo the Bugbear Rogue, and Baergrom the Dwarf Fighter, found themselves outside the town of Stonebridge.\nGrishna was true to her word, the directions were sound.\nThere was a clear trail along the river to an enormous boulder.\n",
+      "fail_forensics_hit_rows": [
+        {
+          "unit_id": "u-L0013-02",
+          "line_span": "L13-13",
+          "score": 5,
+          "source_recap_path": "Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md",
+          "routes": [
+            "Longmont Campaign/Campaign 1/Parties/party_merchant_guards/"
+          ],
+          "why_matched": [
+            "lexical_token:rough",
+            "route_token:party",
+            "lexical_token:rats"
+          ]
+        },
+        {
+          "unit_id": "u-L0015-01",
+          "line_span": "L15-15",
+          "score": 5,
+          "source_recap_path": "Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md",
+          "routes": [
+            "Longmont Campaign/Campaign 1/Parties/party_merchant_guards/"
+          ],
+          "why_matched": [
+            "route_token:party",
+            "lexical_token:first",
+            "lexical_token:combat"
+          ]
+        },
+        {
+          "unit_id": "u-L0005-03",
+          "line_span": "L5-5",
+          "score": 4,
+          "source_recap_path": "Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md",
+          "routes": [
+            "Longmont Campaign/Campaign 1/Locations/stonebridge/",
+            "Longmont Campaign/Campaign 1/NPCs/glowkindle/",
+            "Longmont Campaign/Campaign 1/Parties/party_merchant_guards/"
+          ],
+          "why_matched": [
+            "route_token:party",
+            "lexical_token:rats"
+          ]
+        },
+        {
+          "unit_id": "u-L0013-03",
+          "line_span": "L13-13",
+          "score": 4,
+          "source_recap_path": "Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md",
+          "routes": [
+            "Longmont Campaign/Campaign 1/Parties/party_merchant_guards/"
+          ],
+          "why_matched": [
+            "route_token:party",
+            "lexical_token:rats"
+          ]
+        },
+        {
+          "unit_id": "u-L0003-01",
+          "line_span": "L3-3",
+          "score": 3,
+          "source_recap_path": "Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md",
+          "routes": [
+            "Longmont Campaign/Campaign 1/Parties/party_merchant_guards/",
+            "Longmont Campaign/Campaign 1/PCs/karsemine/",
+            "Longmont Campaign/Campaign 1/PCs/stafl/",
+            "Longmont Campaign/Campaign 1/PCs/caelynn/"
+          ],
+          "why_matched": [
+            "route_token:party"
+          ]
+        },
+        {
+          "unit_id": "u-L0009-01",
+          "line_span": "L9-9",
+          "score": 3,
+          "source_recap_path": "Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md",
+          "routes": [
+            "Longmont Campaign/Campaign 1/NPCs/grishna/",
+            "Longmont Campaign/Campaign 1/Parties/party_merchant_guards/"
+          ],
+          "why_matched": [
+            "route_token:party"
+          ]
+        },
+        {
+          "unit_id": "u-L0009-02",
+          "line_span": "L9-9",
+          "score": 3,
+          "source_recap_path": "Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md",
+          "routes": [
+            "Longmont Campaign/Campaign 1/Parties/party_merchant_guards/"
+          ],
+          "why_matched": [
+            "route_token:party"
+          ]
+        },
+        {
+          "unit_id": "u-L0009-03",
+          "line_span": "L9-9",
+          "score": 3,
+          "source_recap_path": "Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md",
+          "routes": [
+            "Longmont Campaign/Campaign 1/Parties/party_merchant_guards/"
+          ],
+          "why_matched": [
+            "route_token:party"
+          ]
+        },
+        {
+          "unit_id": "u-L0011-01",
+          "line_span": "L11-11",
+          "score": 3,
+          "source_recap_path": "Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md",
+          "routes": [
+            "Longmont Campaign/Campaign 1/Parties/party_merchant_guards/",
+            "Longmont Campaign/Campaign 1/Locations/wizards_tower_brewing_company/"
+          ],
+          "why_matched": [
+            "route_token:party"
+          ]
+        },
+        {
+          "unit_id": "u-L0017-01",
+          "line_span": "L17-17",
+          "score": 0,
+          "source_recap_path": "Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md",
+          "routes": [
+            "Longmont Campaign/Campaign 1/Parties/party_merchant_guards/",
+            "Longmont Campaign/Campaign 1/PCs/karsemine/"
+          ],
+          "why_matched": [
+            "expanded_adjacent:u-L0017-01"
+          ]
+        },
+        {
+          "unit_id": "u-L0017-02",
+          "line_span": "L17-17",
+          "score": 0,
+          "source_recap_path": "Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md",
+          "routes": [
+            "Longmont Campaign/Campaign 1/PCs/karsemine/",
+            "Longmont Campaign/Campaign 1/Locations/shatter_mages_tower/"
+          ],
+          "why_matched": [
+            "expanded_adjacent:u-L0017-02"
+          ]
+        },
+        {
+          "unit_id": "u-L0017-03",
+          "line_span": "L17-17",
+          "score": 0,
+          "source_recap_path": "Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md",
+          "routes": [
+            "Longmont Campaign/Campaign 1/NPCs/magma_spider/"
+          ],
+          "why_matched": [
+            "expanded_adjacent:u-L0017-03"
+          ]
+        },
+        {
+          "unit_id": "u-L0013-01",
+          "line_span": "L13-13",
+          "score": 0,
+          "source_recap_path": "Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md",
+          "routes": [
+            "Longmont Campaign/Campaign 1/NPCs/glowkindle/",
+            "Longmont Campaign/Campaign 1/Parties/party_merchant_guards/"
+          ],
+          "why_matched": [
+            "expanded_adjacent:u-L0013-01"
+          ]
+        },
+        {
+          "unit_id": "u-L0013-04",
+          "line_span": "L13-13",
+          "score": 0,
+          "source_recap_path": "Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md",
+          "routes": [],
+          "why_matched": [
+            "expanded_adjacent:u-L0013-04"
+          ]
+        },
+        {
+          "unit_id": "u-L0011-02",
+          "line_span": "L11-11",
+          "score": 0,
+          "source_recap_path": "Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md",
+          "routes": [],
+          "why_matched": [
+            "expanded_adjacent:u-L0011-02"
+          ]
+        },
+        {
+          "unit_id": "u-L0009-04",
+          "line_span": "L9-9",
+          "score": 0,
+          "source_recap_path": "Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md",
+          "routes": [],
+          "why_matched": [
+            "expanded_adjacent:u-L0009-04"
+          ]
+        },
+        {
+          "unit_id": "u-L0007-01",
+          "line_span": "L7-7",
+          "score": 0,
+          "source_recap_path": "Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md",
+          "routes": [
+            "Longmont Campaign/Campaign 1/Locations/rivers_edge_pub/",
+            "Longmont Campaign/Campaign 1/NPCs/grishna/",
+            "Longmont Campaign/Campaign 1/NPCs/glowkindle/",
+            "Longmont Campaign/Campaign 1/Locations/wizards_tower_brewing_company/"
+          ],
+          "why_matched": [
+            "expanded_adjacent:u-L0007-01"
+          ]
+        },
+        {
+          "unit_id": "u-L0007-02",
+          "line_span": "L7-7",
+          "score": 0,
+          "source_recap_path": "Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md",
+          "routes": [
+            "Longmont Campaign/Campaign 1/PCs/bonogo/"
+          ],
+          "why_matched": [
+            "expanded_adjacent:u-L0007-02"
+          ]
         }
       ]
     },
@@ -569,7 +1127,7 @@ const c1s1HarnessCanvasGenerated = {
       "ok": true,
       "question": "What did the team find after they were free to explore?",
       "expected_answer": "They found a beautifully tiled hallway, a trapped mosaic on the ground, and a room full of broken alchemical tools.",
-      "llm_answer_preview": "Once they were finally free to explore, the team discovered several notable features. They came across a beautifully tiled hallway, suggesting a once well-crafted or important interior space. On the ground, they found a mosaic that was trapped, indicating some kind of hidden danger or defensive mechanism built into the floor. In addition, they located a room filled with broken alchemical tools, implying prior experimentation or magical work that had since fallen into disrepair or been destroyed. These findings together point to a location that was both ornate and hazardous, with signs of past alchemical activity.",
+      "llm_answer_preview": "Once they were finally free to explore, the team discovered several notable features: a beautifully tiled hallway, a mosaic on the ground that was trapped, and a room filled with broken alchemical tools. These elements suggest the area had both aesthetic craftsmanship and hazardous defenses, alongside signs of prior magical or experimental activity.",
       "violations": [],
       "context_support_ratio": 1.0,
       "llm_context_support_ratio": 1.0,
@@ -579,9 +1137,9 @@ const c1s1HarnessCanvasGenerated = {
         "mosaic",
         "alchemical"
       ],
-      "embedding_cosine_similarity": 0.8369823496126169,
+      "embedding_cosine_similarity": 0.8342921142912707,
       "embedding_model": "text-embedding-3-large",
-      "embedding_cost_usd": 1.794e-05,
+      "embedding_cost_usd": 1.1050000000000001e-05,
       "keyword_rows": [
         {
           "token": "hallway",
@@ -599,23 +1157,22 @@ const c1s1HarnessCanvasGenerated = {
     },
     {
       "id": "c1s1_karsemine_spider_reveal",
-      "ok": false,
+      "ok": true,
       "question": "What did Karsemine discover while searching the room?",
       "expected_answer": "Karsemine searched the room, looked up, and made eye contact with a flaming magma-infused spider monstrosity in the shattered mage's tower context.",
-      "llm_answer_preview": "While searching the room in the Shatter Mages Tower, Karsemine eventually thought to look upward. When she did, she made eye contact with another resident of the tower. This indicates that something\u2014or someone\u2014was present above her line of sight, which she initially might have missed. The discovery wasn\u2019t an object or hidden item, but a living presence sharing the space. The moment of eye contact suggests the resident was aware of her as well. The excerpt does not provide further detail about what this resident was or what happened next.",
-      "violations": [
-        "llm_semantic_verdict:fail_incomplete",
-        "llm_context_support_below_threshold"
-      ],
+      "llm_answer_preview": "While searching the room full of broken alchemical tools, Karsemine eventually looked upward and discovered she wasn\u2019t alone. She made eye contact with another resident of the Shatter Mage\u2019s tower. The creature is described as some kind of flaming, magma\u2011infused spider monstrosity. This suggests it was positioned above rather than at ground level, which is why it wasn\u2019t immediately noticed. The discovery came only after a careful search, indicating it was hidden or easily overlooked at first glance. This moment marked a sudden shift from exploration to a new threat within the tower.",
+      "violations": [],
       "context_support_ratio": 1.0,
-      "llm_context_support_ratio": 0.3333333333333333,
-      "llm_semantic_verdict": "fail_incomplete",
+      "llm_context_support_ratio": 1.0,
+      "llm_semantic_verdict": "pass_updated",
       "llm_semantic_must_hits": [
-        "Karsemine"
+        "Karsemine",
+        "spider",
+        "magma"
       ],
-      "embedding_cosine_similarity": 0.6976931066420818,
+      "embedding_cosine_similarity": 0.8090249831419436,
       "embedding_model": "text-embedding-3-large",
-      "embedding_cost_usd": 1.8330000000000002e-05,
+      "embedding_cost_usd": 1.937e-05,
       "keyword_rows": [
         {
           "token": "Karsemine",
@@ -623,11 +1180,11 @@ const c1s1HarnessCanvasGenerated = {
         },
         {
           "token": "spider",
-          "in_llm_answer_ci": false
+          "in_llm_answer_ci": true
         },
         {
           "token": "magma",
-          "in_llm_answer_ci": false
+          "in_llm_answer_ci": true
         }
       ]
     },
@@ -636,7 +1193,7 @@ const c1s1HarnessCanvasGenerated = {
       "ok": true,
       "question": "What threat ends the Session 1 recap?",
       "expected_answer": "The recap ends on the reveal of a flaming, magma-infused spider monstrosity.",
-      "llm_answer_preview": "The Session 1 recap ends by hinting at a danger in the Shatter Mage\u2019s Tower: a **magma spider**. The tower is explicitly referenced as containing this threat, and the final moment describes Karsemine looking up and making eye contact with another resident of the tower\u2014implying the looming presence of that creature.",
+      "llm_answer_preview": "The only explicit \u201cthreat\u201d mentioned in the provided material is tied to the Shatter Mage\u2019s Tower, which is \u201creferenced as containing the magma spider threat.\u201d Since no other danger or climax is described in the recap text itself, the session appears to end by pointing toward that looming danger.\n\nSo, the threat that ends the Session 1 recap is the magma spider associated with the Shatter Mage\u2019s Tower.",
       "violations": [],
       "context_support_ratio": 0.6666666666666666,
       "llm_context_support_ratio": 0.6666666666666666,
@@ -645,9 +1202,9 @@ const c1s1HarnessCanvasGenerated = {
         "spider",
         "magma"
       ],
-      "embedding_cosine_similarity": 0.6308044029641111,
+      "embedding_cosine_similarity": 0.6327832213924718,
       "embedding_model": "text-embedding-3-large",
-      "embedding_cost_usd": 1.131e-05,
+      "embedding_cost_usd": 1.326e-05,
       "keyword_rows": [
         {
           "token": "spider",
@@ -663,9 +1220,224 @@ const c1s1HarnessCanvasGenerated = {
         }
       ]
     }
-  ]
+  ],
+  "focusScenarioGenerated": {
+    "scenario_id": "c1s1_karsemine_spider_reveal",
+    "question": "What did Karsemine discover while searching the room?",
+    "expected_answer": "Karsemine searched the room, looked up, and made eye contact with a flaming magma-infused spider monstrosity in the shattered mage's tower context.",
+    "must_hit_tokens": [
+      "Karsemine",
+      "spider",
+      "magma"
+    ],
+    "violations": [],
+    "llm_answer_preview": "While searching the room full of broken alchemical tools, Karsemine eventually looked upward and discovered she wasn\u2019t alone. She made eye contact with another resident of the Shatter Mage\u2019s tower. The creature is described as some kind of flaming, magma\u2011infused spider monstrosity. This suggests it was positioned above rather than at ground level, which is why it wasn\u2019t immediately noticed. The discovery came only after a careful search, indicating it was hidden or easily overlooked at first glance. This moment marked a sudden shift from exploration to a new threat within the tower.",
+    "retrieved_context_preview": "After traveling together for some time together as merchant guards, our mish mash of travelers; Karsemine the Tiefling Ranger, Stafl the 'Human' Bard, Caelynn the Half Elf Sorcerer, Ephanna the Kenku Warlock, Bonogo the Bugbear Rogue, and Baergrom the Dwarf Fighter, found themselves outside the town of Stonebridge.\nWhile doing some drinking at the Riv'ers Edge Pub to wash away the road, Grishna was quick to share that Glowkindle had been through, where the The Wizard's Tower Brewing Co was located.\nBustling with activity, and smelling of brewing, the fine tap room lit by magical crystals, was empty except for the troupe of gnomes busily brewing.\nWhich was significantly harder than expected, led to multiple folk going down, a mysterious cat owl being tossed into the room to help, a lot of blood from rats and teammates, and many, many, many health potions being downed.\nA fine first combat to bring the team together!\nFinally, free to explore the team found a beautifully tiled hallway, a trapped mosaic on the ground, a room full of broken alchemical tools.\nAs Karsemine wisely searched the room, eventually looking up, she made eye contact with another resident of the shatter mages tower.\nSome kind of flaming magma infused spider monstrosity.",
+    "retrieval_hit_context_full": "As Karsemine wisely searched the room, eventually looking up, she made eye contact with another resident of the shatter mages tower.\nLongmont Campaign/Campaign 1/PCs/karsemine/\nLongmont Campaign/Campaign 1/Locations/shatter_mages_tower/\nAfter traveling together for some time together as merchant guards, our mish mash of travelers; Karsemine the Tiefling Ranger, Stafl the 'Human' Bard, Caelynn the Half Elf Sorcerer, Ephanna the Kenku Warlock, Bonogo the Bugbear Rogue, and Baergrom the Dwarf Fighter, found themselves outside the town of Stonebridge.\nLongmont Campaign/Campaign 1/Parties/party_merchant_guards/\nLongmont Campaign/Campaign 1/PCs/karsemine/\nLongmont Campaign/Campaign 1/PCs/stafl/\nLongmont Campaign/Campaign 1/PCs/caelynn/\nLongmont Campaign/Campaign 1/PCs/ephanna/\nLongmont Campaign/Campaign 1/PCs/bonogo/\nLongmont Campaign/Campaign 1/PCs/baergrom/\nLongmont Campaign/Campaign 1/Locations/stonebridge/\nFinally, free to explore the team found a beautifully tiled hallway, a trapped mosaic on the ground, a room full of broken alchemical tools.\nLongmont Campaign/Campaign 1/Parties/party_merchant_guards/\nLongmont Campaign/Campaign 1/PCs/karsemine/\nWhile doing some drinking at the Riv'ers Edge Pub to wash away the road, Grishna was quick to share that Glowkindle had been through, where the The Wizard's Tower Brewing Co was located.\nLongmont Campaign/Campaign 1/Locations/rivers_edge_pub/\nLongmont Campaign/Campaign 1/NPCs/grishna/\nLongmont Campaign/Campaign 1/NPCs/glowkindle/\nLongmont Campaign/Campaign 1/Locations/wizards_tower_brewing_company/\nLongmont Campaign/Campaign 1/PCs/bonogo/\nBustling with activity, and smelling of brewing, the fine tap room lit by magical crystals, was empty except for the troupe of gnomes busily brewing.\nWhich was significantly harder than expected, led to multiple folk going down, a mysterious cat owl being tossed into the room to help, a lot of blood from rats and teammates, and many, many, many health potions being downed.\nSome kind of flaming magma infused spider monstrosity.\nLongmont Campaign/Campaign 1/NPCs/magma_spider/\nA fine first combat to bring the team together!\nLongmont Campaign/Campaign 1/Parties/party_merchant_guards/\nWithin they met Glowkindle who told them, a bit about the issue at hand.\nLongmont Campaign/Campaign 1/NPCs/glowkindle/\nLongmont Campaign/Campaign 1/Parties/party_merchant_guards/\nGiant rats had assaulted his excavation crew after they broke through a wall expanding the fermentation cellar.\nLongmont Campaign/Campaign 1/Parties/party_merchant_guards/\nFor a healthy prize of 25 gold pieces each, the team agreed to clear out the rats.\nLongmont Campaign/Campaign 1/Parties/party_merchant_guards/\nAnother few hours walk away from the river along the trail led the group to the Wizard's Tower Brewing Company.\nLongmont Campaign/Campaign 1/Parties/party_merchant_guards/\nLongmont Campaign/Campaign 1/Locations/wizards_tower_brewing_company/\nGrishna was true to her word, the directions were sound.\nLongmont Campaign/Campaign 1/NPCs/grishna/\nLongmont Campaign/Campaign 1/Parties/party_merchant_guards/\nThere was a clear trail along the river to an enormous boulder.\nLongmont Campaign/Campaign 1/Parties/party_merchant_guards/\nAs the group approached it resolved into what must have been the foot of a once enormous statue.\nLongmont Campaign/Campaign 1/Parties/party_merchant_guards/\nOr a mad sculptures dedication to someone's foot, probably the former but who really knows with art anyway.\nUp river, west at the big rock, walk till you see it.\nLongmont Campaign/Campaign 1/PCs/bonogo/\nBonogo, having very little awareness or care for the cost of things, and greatly enjoying the beer, bought a Firkin of ale for two gold.\nLongmont Campaign/Campaign 1/PCs/bonogo/\nLongmont Campaign/Campaign 1/Locations/wizards_tower_brewing_company/",
+    "lexical_hit_context_promoted": "After traveling together for some time together as merchant guards, our mish mash of travelers; Karsemine the Tiefling Ranger, Stafl the 'Human' Bard, Caelynn the Half Elf Sorcerer, Ephanna the Kenku Warlock, Bonogo the Bugbear Rogue, and Baergrom the Dwarf Fighter, found themselves outside the town of Stonebridge.\nWhile doing some drinking at the Riv'ers Edge Pub to wash away the road, Grishna was quick to share that Glowkindle had been through, where the The Wizard's Tower Brewing Co was located.\nBustling with activity, and smelling of brewing, the fine tap room lit by magical crystals, was empty except for the troupe of gnomes busily brewing.\nWhich was significantly harder than expected, led to multiple folk going down, a mysterious cat owl being tossed into the room to help, a lot of blood from rats and teammates, and many, many, many health potions being downed.\nA fine first combat to bring the team together!\nFinally, free to explore the team found a beautifully tiled hallway, a trapped mosaic on the ground, a room full of broken alchemical tools.\nAs Karsemine wisely searched the room, eventually looking up, she made eye contact with another resident of the shatter mages tower.\nSome kind of flaming magma infused spider monstrosity.",
+    "llm_user_message": "Question:\nWhat did Karsemine discover while searching the room?\n\n### Retrieved excerpts and routes (only source you may use)\nAfter traveling together for some time together as merchant guards, our mish mash of travelers; Karsemine the Tiefling Ranger, Stafl the 'Human' Bard, Caelynn the Half Elf Sorcerer, Ephanna the Kenku Warlock, Bonogo the Bugbear Rogue, and Baergrom the Dwarf Fighter, found themselves outside the town of Stonebridge.\nWhile doing some drinking at the Riv'ers Edge Pub to wash away the road, Grishna was quick to share that Glowkindle had been through, where the The Wizard's Tower Brewing Co was located.\nBustling with activity, and smelling of brewing, the fine tap room lit by magical crystals, was empty except for the troupe of gnomes busily brewing.\nWhich was significantly harder than expected, led to multiple folk going down, a mysterious cat owl being tossed into the room to help, a lot of blood from rats and teammates, and many, many, many health potions being downed.\nA fine first combat to bring the team together!\nFinally, free to explore the team found a beautifully tiled hallway, a trapped mosaic on the ground, a room full of broken alchemical tools.\nAs Karsemine wisely searched the room, eventually looking up, she made eye contact with another resident of the shatter mages tower.\nSome kind of flaming magma infused spider monstrosity.\n",
+    "query_tokens": [
+      "karsemine",
+      "discover",
+      "while",
+      "searching",
+      "room"
+    ],
+    "hits_considered": 18,
+    "hit_rows": [
+      {
+        "unit_id": "u-L0017-02",
+        "line_span": "L17-17",
+        "score": 5,
+        "source_recap_path": "Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md",
+        "routes": [
+          "Longmont Campaign/Campaign 1/PCs/karsemine/",
+          "Longmont Campaign/Campaign 1/Locations/shatter_mages_tower/"
+        ],
+        "why_matched": [
+          "lexical_token:karsemine",
+          "route_token:karsemine",
+          "lexical_token:room"
+        ]
+      },
+      {
+        "unit_id": "u-L0003-01",
+        "line_span": "L3-3",
+        "score": 4,
+        "source_recap_path": "Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md",
+        "routes": [
+          "Longmont Campaign/Campaign 1/Parties/party_merchant_guards/",
+          "Longmont Campaign/Campaign 1/PCs/karsemine/",
+          "Longmont Campaign/Campaign 1/PCs/stafl/",
+          "Longmont Campaign/Campaign 1/PCs/caelynn/"
+        ],
+        "why_matched": [
+          "lexical_token:karsemine",
+          "route_token:karsemine"
+        ]
+      },
+      {
+        "unit_id": "u-L0017-01",
+        "line_span": "L17-17",
+        "score": 4,
+        "source_recap_path": "Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md",
+        "routes": [
+          "Longmont Campaign/Campaign 1/Parties/party_merchant_guards/",
+          "Longmont Campaign/Campaign 1/PCs/karsemine/"
+        ],
+        "why_matched": [
+          "route_token:karsemine",
+          "lexical_token:room"
+        ]
+      },
+      {
+        "unit_id": "u-L0007-01",
+        "line_span": "L7-7",
+        "score": 1,
+        "source_recap_path": "Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md",
+        "routes": [
+          "Longmont Campaign/Campaign 1/Locations/rivers_edge_pub/",
+          "Longmont Campaign/Campaign 1/NPCs/grishna/",
+          "Longmont Campaign/Campaign 1/NPCs/glowkindle/",
+          "Longmont Campaign/Campaign 1/Locations/wizards_tower_brewing_company/"
+        ],
+        "why_matched": [
+          "lexical_token:while"
+        ]
+      },
+      {
+        "unit_id": "u-L0011-02",
+        "line_span": "L11-11",
+        "score": 1,
+        "source_recap_path": "Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md",
+        "routes": [],
+        "why_matched": [
+          "lexical_token:room"
+        ]
+      },
+      {
+        "unit_id": "u-L0013-04",
+        "line_span": "L13-13",
+        "score": 1,
+        "source_recap_path": "Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md",
+        "routes": [],
+        "why_matched": [
+          "lexical_token:room"
+        ]
+      },
+      {
+        "unit_id": "u-L0017-03",
+        "line_span": "L17-17",
+        "score": 0,
+        "source_recap_path": "Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md",
+        "routes": [
+          "Longmont Campaign/Campaign 1/NPCs/magma_spider/"
+        ],
+        "why_matched": [
+          "expanded_adjacent:u-L0017-03"
+        ]
+      },
+      {
+        "unit_id": "u-L0015-01",
+        "line_span": "L15-15",
+        "score": 0,
+        "source_recap_path": "Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md",
+        "routes": [
+          "Longmont Campaign/Campaign 1/Parties/party_merchant_guards/"
+        ],
+        "why_matched": [
+          "expanded_adjacent:u-L0015-01"
+        ]
+      },
+      {
+        "unit_id": "u-L0013-01",
+        "line_span": "L13-13",
+        "score": 0,
+        "source_recap_path": "Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md",
+        "routes": [
+          "Longmont Campaign/Campaign 1/NPCs/glowkindle/",
+          "Longmont Campaign/Campaign 1/Parties/party_merchant_guards/"
+        ],
+        "why_matched": [
+          "expanded_adjacent:u-L0013-01"
+        ]
+      },
+      {
+        "unit_id": "u-L0013-02",
+        "line_span": "L13-13",
+        "score": 0,
+        "source_recap_path": "Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md",
+        "routes": [
+          "Longmont Campaign/Campaign 1/Parties/party_merchant_guards/"
+        ],
+        "why_matched": [
+          "expanded_adjacent:u-L0013-02"
+        ]
+      },
+      {
+        "unit_id": "u-L0013-03",
+        "line_span": "L13-13",
+        "score": 0,
+        "source_recap_path": "Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md",
+        "routes": [
+          "Longmont Campaign/Campaign 1/Parties/party_merchant_guards/"
+        ],
+        "why_matched": [
+          "expanded_adjacent:u-L0013-03"
+        ]
+      },
+      {
+        "unit_id": "u-L0011-01",
+        "line_span": "L11-11",
+        "score": 0,
+        "source_recap_path": "Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md",
+        "routes": [
+          "Longmont Campaign/Campaign 1/Parties/party_merchant_guards/",
+          "Longmont Campaign/Campaign 1/Locations/wizards_tower_brewing_company/"
+        ],
+        "why_matched": [
+          "expanded_adjacent:u-L0011-01"
+        ]
+      }
+    ],
+    "context_support_ratio": 1.0,
+    "llm_context_support_ratio": 1.0,
+    "llm_semantic_verdict": "pass_updated",
+    "llm_semantic_must_hits": [
+      "Karsemine",
+      "spider",
+      "magma"
+    ],
+    "workflow_steps": [
+      "Normalize breadcrumb markdown into unit-tagged records.",
+      "Run deterministic query_session_memory_for_scenario over those records.",
+      "Construct hit_context from returned units + route lines.",
+      "Synthesize an LLM answer from hit_context only (no direct recap read).",
+      "Grade retrieval context and LLM answer separately against must-hit tokens.",
+      "Optionally embed expected_answer vs LLM answer for soft similarity telemetry."
+    ],
+    "anti_cheat_checks": [
+      "The query step is deterministic over normalized records (no LLM in retrieval).",
+      "Synthesis prompt receives only question + retrieved_context (lexical unit text; normalized route lines are not copied into the LLM prompt).",
+      "Grader reports retrieval ratios separately from llm_context ratios.",
+      "Expected answer is used for grading and optional embedding, not retrieval.",
+      "Top hit table below exposes concrete units/lines/routes used by retrieval."
+    ],
+    "mermaid_flowchart": "flowchart TD\\n  A[breadcrumbed.md] --> B[normalize_breadcrumb_artifact]\\n  B --> C[records.jsonl]\\n  C --> D[natural_retrieval_bundle]\\n  D --> E[full_result.hits + trace]\\n  E --> F[hit_context]\\n  F --> G[LLM synthesis]\\n  G --> H[grade_natural_scenario]\\n  E --> H\\n  H --> I[violations + support ratios]\\n  G --> J[optional embedding similarity]\\n",
+    "prompts": {
+      "retrieval_prompt": "none (deterministic lexical/route query over normalized records)",
+      "llm_synthesis_system_prompt": "You are assisting a tabletop RPG GM. Answer the question using ONLY the evidence in the retrieved excerpts and corpus route lines below. If the excerpts do not support a confident answer, say what is missing. Prefer coverage over brevity: include the concrete details that the excerpts support (named entities, locations, numbers, causes/effects, and ordering when relevant). Use enough detail to fully answer the question (typically 6\u201314 sentences, shorter only when the evidence is genuinely sparse). Do not invent specifics that are not grounded in the excerpts.",
+      "llm_synthesis_user_template": "Question:\\n{question}\\n\\n### Retrieved excerpts and routes (only source you may use)\\n{hit_context}\\n"
+    }
+  }
 } as const;
 // END GENERATED C1S1_HARNESS_DETAIL
+
+
+
+
+
+
 
 
 
@@ -697,6 +1469,37 @@ const harnessStats =
     scenarioEstimatedCostUsd: harnessSummary.scenarioEstimatedCostUsd,
   };
 
+const generatedAny = c1s1HarnessCanvasGenerated as unknown as {
+  focusScenarioGenerated?: FocusScenarioDetail;
+};
+const focusScenario: FocusScenarioDetail = generatedAny.focusScenarioGenerated ?? {
+  scenario_id: 'c1s1_karsemine_spider_reveal',
+  question: 'What did Karsemine discover while searching the room?',
+  expected_answer: '',
+  must_hit_tokens: [],
+  violations: [],
+  llm_answer_preview: '',
+  retrieved_context_preview: '',
+  retrieval_hit_context_full: '',
+  lexical_hit_context_promoted: '',
+  llm_user_message: '',
+  query_tokens: [],
+  hits_considered: 0,
+  hit_rows: [],
+  context_support_ratio: null,
+  llm_context_support_ratio: null,
+  llm_semantic_verdict: null,
+  llm_semantic_must_hits: [],
+  workflow_steps: [],
+  anti_cheat_checks: [],
+  mermaid_flowchart: '',
+  prompts: {
+    retrieval_prompt: '',
+    llm_synthesis_system_prompt: '',
+    llm_synthesis_user_template: '',
+  },
+};
+
 /** Per-scenario gate + short violation hint (from last harness report). */
 const scenarioHarnessRows = [
   ['c1s1_party_roster_origin', 'PASS', 'none'],
@@ -715,10 +1518,6 @@ const scenarioHarnessRows = [
   ['c1s1_karsemine_spider_reveal', 'FAIL', 'llm incomplete + context ratio'],
   ['c1s1_final_threat', 'PASS', 'none'],
 ] as const;
-
-const harnessRowTones: Array<'success' | 'warning' | undefined> = scenarioHarnessRows.map((row) =>
-  row[1] === 'FAIL' ? 'warning' : undefined,
-);
 
 const candidates = [
   {
@@ -804,7 +1603,7 @@ const candidates = [
       'At the River\'s Edge Pub, Grishna says where the Wizard\'s Tower Brewing Co is: up river, west at the big rock, then walk until they see it.',
     expectedAnswer:
       'Grishna told them the Wizard\'s Tower Brewing Co was upriver, west at the big rock, and then to walk until they saw it.',
-    mustHitTokens: ['Grishna', "River's Edge Pub", "Wizard's Tower Brewing", 'up river', 'west', 'big rock'],
+    mustHitTokens: ['Grishna', "River's Edge Pub", "Wizard's Tower Brewing", 'up river', 'boulder'],
     expectedRoutes: ['Elderwyld/Stonebridge and The Wizard Tower Brewing Co.md'],
     newCandidateSignals: ['Grishna'],
     falsifies:
@@ -849,7 +1648,7 @@ const candidates = [
       'The big rock resolves into an enormous boulder that seems to be the foot of a once-enormous statue, or possibly a sculptor\'s dedication to a foot.',
     expectedAnswer:
       'The big rock was an enormous boulder that looked like the foot of a once-enormous statue, or maybe a sculptor\'s dedication to someone\'s foot.',
-    mustHitTokens: ['big rock', 'enormous boulder', 'foot', 'statue', 'sculptor'],
+    mustHitTokens: ['foot'],
     expectedRoutes: ['Elderwyld/Stonebridge and The Wizard Tower Brewing Co.md'],
     newCandidateSignals: ['statue foot landmark'],
     falsifies:
@@ -987,66 +1786,15 @@ function formatCosine(v: number | null | undefined): string {
   return Number(v).toFixed(4);
 }
 
-function HarnessScenarioCard({ row }: { row: HarnessScenarioDetailRow }) {
-  return (
-    <Card>
-      <CardHeader>
-        <Row gap={8} align="center" wrap>
-          <Code>{row.id}</Code>
-          <Pill tone={row.ok ? 'success' : 'warning'}>{row.ok ? 'PASS' : 'FAIL'}</Pill>
-          {row.llm_semantic_verdict ? (
-            <Pill tone="neutral">{row.llm_semantic_verdict}</Pill>
-          ) : null}
-        </Row>
-      </CardHeader>
-      <CardBody>
-        <Stack gap={10}>
-          <H3>{row.question}</H3>
-          <Grid columns={2} gap={12}>
-            <Stack gap={6}>
-              <Text tone="secondary" size="small">
-                Gold expected_answer (sketch)
-              </Text>
-              <Text>{row.expected_answer}</Text>
-            </Stack>
-            <Stack gap={6}>
-              <Text tone="secondary" size="small">
-                LLM synthesized answer (preview)
-              </Text>
-              <pre style={{ whiteSpace: 'pre-wrap', margin: 0, fontSize: 12 }}>{row.llm_answer_preview || '—'}</pre>
-            </Stack>
-          </Grid>
-          <Grid columns={4} gap={10}>
-            <Stat value={formatRatio(row.context_support_ratio)} label="context_support_ratio (retrieval)" />
-            <Stat value={formatRatio(row.llm_context_support_ratio)} label="llm_context_support_ratio" />
-            <Stat value={formatCosine(row.embedding_cosine_similarity)} label="cosine(expected, llm)" />
-            <Stat value={row.embedding_model ?? '—'} label="embedding model" tone="neutral" />
-          </Grid>
-          {row.violations.length ? (
-            <Callout tone="warning" title="Violations">
-              <Text>{row.violations.join('; ')}</Text>
-            </Callout>
-          ) : null}
-          <Text tone="secondary" size="small">
-            Semantic must-hit tokens credited on LLM answer
-          </Text>
-          <pre style={{ whiteSpace: 'pre-wrap', margin: 0, fontSize: 12 }}>
-            {row.llm_semantic_must_hits.length ? row.llm_semantic_must_hits.join(', ') : '—'}
-          </pre>
-          <Text tone="secondary" size="small">
-            Keyword spot-check (gold must_hit substring in LLM preview, case-insensitive)
-          </Text>
-          <Table
-            headers={['Must-hit token', 'In LLM preview?']}
-            rows={row.keyword_rows.map((k) => [
-              k.token,
-              k.in_llm_answer_ci ? <Pill tone="success">yes</Pill> : <Pill tone="warning">no</Pill>,
-            ])}
-          />
-        </Stack>
-      </CardBody>
-    </Card>
-  );
+const preSmall = { whiteSpace: 'pre-wrap' as const, margin: 0, fontSize: 12 };
+
+function buildLlmUserMessageFromTemplate(
+  template: string,
+  question: string,
+  hitContextSlot: string,
+): string {
+  const t = template || 'Question:\n{question}\n\n### Retrieved excerpts and routes (only source you may use)\n{hit_context}\n';
+  return t.replaceAll('{question}', question).replaceAll('{hit_context}', hitContextSlot);
 }
 
 function laneRows() {
@@ -1055,53 +1803,192 @@ function laneRows() {
   return Array.from(counts.entries()).map(([lane, count]) => [lane, String(count)]);
 }
 
-function sourceRows() {
-  return candidates.map((c) => [
-    <Code>{c.id}</Code>,
-    c.question,
-    c.sourceLines.map((line) => `L${line}`).join(', '),
-    c.mustHitTokens.slice(0, 4).join(', '),
-    c.expectedRoutes.length ? String(c.expectedRoutes.length) : '0',
-  ]);
-}
+type CandidateRow = (typeof candidates)[number];
 
-function Candidate({ candidate }: { candidate: (typeof candidates)[number] }) {
+function ScenarioReviewCard({
+  candidate,
+  harnessRow,
+  userMessageTemplate,
+}: {
+  candidate: CandidateRow;
+  harnessRow: HarnessScenarioDetailRow | null;
+  userMessageTemplate: string;
+}) {
+  const gatePill =
+    harnessRow == null ? (
+      <Pill tone="warning">no harness</Pill>
+    ) : harnessRow.ok ? (
+      <Pill tone="success">PASS</Pill>
+    ) : (
+      <Pill tone="warning">FAIL</Pill>
+    );
+  const defaultOpen = harnessRow != null && !harnessRow.ok;
+  const promoted = (harnessRow?.lexical_hit_context_promoted ?? '').trim();
+  const fullRetrieval = harnessRow?.retrieval_hit_context_full?.trim() ?? '';
+  const exactUser = harnessRow?.llm_user_message?.trim()
+    ? harnessRow.llm_user_message.trim()
+    : harnessRow && promoted
+      ? buildLlmUserMessageFromTemplate(userMessageTemplate, harnessRow.question, promoted)
+      : '';
+  const failHits = harnessRow?.fail_forensics_hit_rows;
+
   return (
-    <Stack gap={8}>
-      <Row gap={8} align="center" wrap>
-        <Code>{candidate.id}</Code>
-        <Pill tone="neutral">{candidate.lane}</Pill>
-        <Pill tone={candidate.expectedRoutes.length ? 'success' : 'warning'}>
-          routes: {candidate.expectedRoutes.length}
-        </Pill>
-        {candidate.newCandidateSignals.length ? (
-          <Pill tone="warning">new-candidate signals</Pill>
-        ) : null}
-      </Row>
-      <H3>{candidate.question}</H3>
-      <Text tone="secondary" size="small">
-        Source: {sourceRecap} lines {candidate.sourceLines.join(', ')}
-      </Text>
-      <Text>{candidate.sourceExcerpt}</Text>
-      <Grid columns={2} gap={14}>
-        <Stack gap={6}>
-          <Text tone="secondary" size="small">Expected answer sketch</Text>
-          <Text>{candidate.expectedAnswer}</Text>
+    <Card collapsible defaultOpen={defaultOpen}>
+      <CardHeader trailing={gatePill}>{candidate.id}</CardHeader>
+      <CardBody>
+        <Stack gap={10}>
+          <Row gap={8} align="center" wrap>
+            <Pill tone="neutral">{candidate.lane}</Pill>
+            <Pill tone={candidate.expectedRoutes.length ? 'success' : 'warning'}>
+              routes: {candidate.expectedRoutes.length}
+            </Pill>
+            {candidate.newCandidateSignals.length ? (
+              <Pill tone="warning">new-candidate signals</Pill>
+            ) : null}
+          </Row>
+          <H3>{candidate.question}</H3>
+          <Text tone="secondary" size="small">
+            Source: {sourceRecap} lines {candidate.sourceLines.join(', ')}
+          </Text>
+          <Text>{candidate.sourceExcerpt}</Text>
+          <Callout tone="neutral" title="What this falsifies">
+            <Text>{candidate.falsifies}</Text>
+          </Callout>
+          <Stack gap={6}>
+            <Text tone="secondary" size="small">
+              Expected answer (natural gold JSON when harness is present, else design sketch)
+            </Text>
+            <Text>{harnessRow?.expected_answer?.trim() || candidate.expectedAnswer}</Text>
+          </Stack>
+          <Grid columns={2} gap={14}>
+            <Stack gap={6}>
+              <Text tone="secondary" size="small">
+                Must-hit keywords
+              </Text>
+              <pre style={preSmall}>{joinList(candidate.mustHitTokens)}</pre>
+            </Stack>
+            <Stack gap={6}>
+              <Text tone="secondary" size="small">
+                Expected route substrings
+              </Text>
+              <pre style={preSmall}>{joinList(candidate.expectedRoutes)}</pre>
+              <Text tone="secondary" size="small">
+                New-candidate / open-index signals
+              </Text>
+              <pre style={preSmall}>{joinList(candidate.newCandidateSignals)}</pre>
+            </Stack>
+          </Grid>
+
+          {harnessRow ? (
+            <>
+              <Divider />
+              <Text weight="bold">Harness output</Text>
+              <Stack gap={6}>
+                <Text tone="secondary" size="small">
+                  LLM answer preview
+                </Text>
+                <pre style={preSmall}>{harnessRow.llm_answer_preview || '—'}</pre>
+              </Stack>
+              <Grid columns={4} gap={10}>
+                <Stat value={formatRatio(harnessRow.context_support_ratio)} label="context_support_ratio (retrieval)" />
+                <Stat value={formatRatio(harnessRow.llm_context_support_ratio)} label="llm_context_support_ratio" />
+                <Stat value={formatCosine(harnessRow.embedding_cosine_similarity)} label="cosine(expected, llm)" />
+                <Stat value={harnessRow.embedding_model ?? '—'} label="embedding model" tone="neutral" />
+              </Grid>
+              {harnessRow.llm_semantic_verdict ? (
+                <Pill tone="neutral">{harnessRow.llm_semantic_verdict}</Pill>
+              ) : null}
+              {harnessRow.violations.length ? (
+                <Callout tone="warning" title="Violations">
+                  <Text>{harnessRow.violations.join('; ')}</Text>
+                </Callout>
+              ) : null}
+              <Text tone="secondary" size="small">
+                Semantic must-hit tokens credited on LLM answer
+              </Text>
+              <pre style={preSmall}>
+                {harnessRow.llm_semantic_must_hits.length ? harnessRow.llm_semantic_must_hits.join(', ') : '—'}
+              </pre>
+              <Text tone="secondary" size="small">
+                Keyword spot-check (must_hit substring in LLM preview, case-insensitive)
+              </Text>
+              <Table
+                headers={['Must-hit token', 'In LLM preview?']}
+                rows={harnessRow.keyword_rows.map((k) => [
+                  k.token,
+                  k.in_llm_answer_ci ? <Pill tone="success">yes</Pill> : <Pill tone="warning">no</Pill>,
+                ])}
+              />
+            </>
+          ) : (
+            <Callout tone="warning" title="No harness row for this id">
+              <Text>Run the natural harness and re-emit this canvas to attach gate output.</Text>
+            </Callout>
+          )}
+
+          {harnessRow && !harnessRow.ok ? (
+            <>
+              <Divider />
+              <Text weight="bold">Failure forensics (retrieval vs what the LLM saw)</Text>
+              {!fullRetrieval ? (
+                <Callout tone="warning" title="Full retrieval string not in report">
+                  <Text>
+                    Re-run <Code>breadcrumb_query_run</Code> so the JSON report includes{' '}
+                    <Code>retrieval_hit_context_full</Code>. Until then, use the hit table and promoted text below.
+                  </Text>
+                </Callout>
+              ) : null}
+              {fullRetrieval ? (
+                <Stack gap={4}>
+                  <Text tone="secondary" size="small">
+                    Retrieved hit context (exact): lexical unit lines plus normalized route lines per hit, in rank order
+                  </Text>
+                  <pre style={preSmall}>{fullRetrieval}</pre>
+                </Stack>
+              ) : null}
+              <Stack gap={4}>
+                <Text tone="secondary" size="small">
+                  Promoted hit_context slot (exact string passed into the synthesis template)
+                </Text>
+                <pre style={preSmall}>{promoted || '—'}</pre>
+              </Stack>
+              <Stack gap={4}>
+                <Text tone="secondary" size="small">
+                  LLM user message (exact): question + template wrapper + promoted hit_context
+                </Text>
+                {!harnessRow.llm_user_message?.trim() ? (
+                  <Callout tone="neutral" title="Reconstructed from template">
+                    <Text>
+                      Report has no <Code>llm_user_message</Code> field; shown text is built from the synthesis user
+                      template and the promoted slot (matches current harness code).
+                    </Text>
+                  </Callout>
+                ) : null}
+                <pre style={preSmall}>{exactUser || '—'}</pre>
+              </Stack>
+              {failHits && failHits.length ? (
+                <Stack gap={4}>
+                  <Text tone="secondary" size="small">
+                    Top structured hits (unit id, lines, routes, why_matched)
+                  </Text>
+                  <Table
+                    headers={['Unit', 'Lines', 'Score', 'Source recap', 'Route sample', 'why_matched sample']}
+                    rows={failHits.map((h) => [
+                      h.unit_id,
+                      h.line_span,
+                      String(h.score),
+                      h.source_recap_path,
+                      h.routes.length ? h.routes.slice(0, 2).join(', ') : '—',
+                      h.why_matched.length ? h.why_matched.slice(0, 3).join(', ') : '—',
+                    ])}
+                  />
+                </Stack>
+              ) : null}
+            </>
+          ) : null}
         </Stack>
-        <Stack gap={6}>
-          <Text tone="secondary" size="small">Must-hit keywords</Text>
-          <pre style={{ whiteSpace: 'pre-wrap', margin: 0 }}>{joinList(candidate.mustHitTokens)}</pre>
-          <Text tone="secondary" size="small">Expected route substrings</Text>
-          <pre style={{ whiteSpace: 'pre-wrap', margin: 0 }}>{joinList(candidate.expectedRoutes)}</pre>
-          <Text tone="secondary" size="small">New-candidate / open-index signals</Text>
-          <pre style={{ whiteSpace: 'pre-wrap', margin: 0 }}>{joinList(candidate.newCandidateSignals)}</pre>
-        </Stack>
-      </Grid>
-      <Callout tone="neutral" title="What this falsifies">
-        <Text>{candidate.falsifies}</Text>
-      </Callout>
-      <Divider />
-    </Stack>
+      </CardBody>
+    </Card>
   );
 }
 
@@ -1143,6 +2030,86 @@ export default function C1S1BreadcrumbQueryBenchmarkReview() {
         ) : null}
       </Stack>
 
+      <H2>Workflow, anti-cheat checks, and prompts</H2>
+      <Grid columns={2} gap={14}>
+        <Card>
+          <CardHeader>
+            <Text>Evaluation workflow (what is actually being graded)</Text>
+          </CardHeader>
+          <CardBody>
+            <Stack gap={6}>
+              {focusScenario.workflow_steps.map((step, idx) => (
+                <Text key={`${idx}-${step}`}>{idx + 1}. {step}</Text>
+              ))}
+              {focusScenario.query_tokens.length ? (
+                <Text tone="secondary" size="small">
+                  Focus scenario query tokens: {focusScenario.query_tokens.join(', ')}
+                </Text>
+              ) : null}
+            </Stack>
+          </CardBody>
+        </Card>
+        <Card>
+          <CardHeader>
+            <Text>Anti-cheat checks</Text>
+          </CardHeader>
+          <CardBody>
+            <Stack gap={6}>
+              {focusScenario.anti_cheat_checks.map((check) => (
+                <Text key={check}>- {check}</Text>
+              ))}
+              {focusScenario.violations.length ? (
+                <Callout tone="warning" title="Current focus violations">
+                  <Text>{focusScenario.violations.join('; ')}</Text>
+                </Callout>
+              ) : null}
+            </Stack>
+          </CardBody>
+        </Card>
+      </Grid>
+
+      <Card>
+        <CardHeader>
+          <Text>Mermaid retrieval flow (for this harness)</Text>
+        </CardHeader>
+        <CardBody>
+          <Code>{`mermaid\n${focusScenario.mermaid_flowchart || 'flowchart TD\\nA[no data]\\n'}`}</Code>
+        </CardBody>
+      </Card>
+
+      <Grid columns={3} gap={12}>
+        <Card>
+          <CardHeader>
+            <Text>Retrieval prompt contract</Text>
+          </CardHeader>
+          <CardBody>
+            <pre style={{ whiteSpace: 'pre-wrap', margin: 0, fontSize: 12 }}>
+              {focusScenario.prompts.retrieval_prompt || '—'}
+            </pre>
+          </CardBody>
+        </Card>
+        <Card>
+          <CardHeader>
+            <Text>LLM synthesis system prompt</Text>
+          </CardHeader>
+          <CardBody>
+            <pre style={{ whiteSpace: 'pre-wrap', margin: 0, fontSize: 12 }}>
+              {focusScenario.prompts.llm_synthesis_system_prompt || '—'}
+            </pre>
+          </CardBody>
+        </Card>
+        <Card>
+          <CardHeader>
+            <Text>LLM synthesis user template</Text>
+          </CardHeader>
+          <CardBody>
+            <pre style={{ whiteSpace: 'pre-wrap', margin: 0, fontSize: 12 }}>
+              {focusScenario.prompts.llm_synthesis_user_template || '—'}
+            </pre>
+          </CardBody>
+        </Card>
+      </Grid>
+
       <H2>Harness run (retrieval + LLM synthesis)</H2>
       <Grid columns={5} gap={12}>
         <Stat
@@ -1180,16 +2147,25 @@ export default function C1S1BreadcrumbQueryBenchmarkReview() {
 
       {c1s1HarnessCanvasGenerated.harnessScenarioDetailGenerated.length > 0 ? (
         <>
-          <H2>Per-scenario LLM output, embedding vs sketch, and keyword matrix</H2>
+          <H2>Scenarios (gold design + harness)</H2>
           <Text tone="secondary" size="small">
-            Cosine similarity embeds <Code>expected_answer</Code> vs the full synthesized LLM answer (not only the
-            preview). The keyword table is a crude substring check on the preview for quick scanning; hard gates
-            use the grader semantic and context-support scorers.
+            One collapsible card per gold question. Failing gates open by default and include the exact retrieval
+            concatenation (when present in the report), the promoted <Code>hit_context</Code> slot, the exact LLM user
+            message (or a template reconstruction), and structured hits. Cosine similarity uses full synthesized answer
+            vs expected; the keyword table is preview-only.
           </Text>
-          <Stack gap={14}>
-            {c1s1HarnessCanvasGenerated.harnessScenarioDetailGenerated.map((row) => (
-              <HarnessScenarioCard key={row.id} row={row as unknown as HarnessScenarioDetailRow} />
-            ))}
+          <Stack gap={10}>
+            {candidates.map((candidate) => {
+              const row = c1s1HarnessCanvasGenerated.harnessScenarioDetailGenerated.find((r) => r.id === candidate.id);
+              return (
+                <ScenarioReviewCard
+                  key={candidate.id}
+                  candidate={candidate}
+                  harnessRow={(row as unknown as HarnessScenarioDetailRow) ?? null}
+                  userMessageTemplate={focusScenario.prompts.llm_synthesis_user_template}
+                />
+              );
+            })}
           </Stack>
         </>
       ) : (
@@ -1212,27 +2188,13 @@ export default function C1S1BreadcrumbQueryBenchmarkReview() {
       </Grid>
 
       <Callout tone="success" title="Gold promoted">
-        The fifteen rows below are mirrored into{' '}
-        <Code>{benchmarkGold}</Code> with C1 corpus route substrings and a Session 1{' '}
-        <Code>default_query_spec</Code>. Re-run{' '}
-        <Code>breadcrumb_query_run</Code> after changing the breadcrumb artifact or gold.
+        These fifteen scenarios are mirrored into <Code>{benchmarkGold}</Code> with C1 corpus route substrings and a
+        Session 1 <Code>default_query_spec</Code>. Re-run <Code>breadcrumb_query_run</Code> after changing the
+        breadcrumb artifact or gold.
       </Callout>
 
-      <H2>Coverage Summary</H2>
-      <Grid columns={2} gap={16}>
-        <Table headers={['Lane', 'Count']} rows={laneRows()} />
-        <Table
-          headers={['Scenario', 'Question', 'Lines', 'Keyword sample', 'Routes']}
-          rows={sourceRows()}
-        />
-      </Grid>
-
-      <H2>Candidate Questions</H2>
-      <Stack gap={18}>
-        {candidates.map((candidate) => (
-          <Candidate key={candidate.id} candidate={candidate} />
-        ))}
-      </Stack>
+      <H2>Coverage by lane</H2>
+      <Table headers={['Lane', 'Count']} rows={laneRows()} />
     </Stack>
   );
 }

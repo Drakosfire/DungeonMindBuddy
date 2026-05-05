@@ -110,3 +110,43 @@ def summarize_tool_inputs(tool_inputs: list[dict[str, Any]]) -> list[dict[str, A
 def log_telemetry(payload: dict[str, Any]) -> None:
     """One JSON line per event under logger ``dmb.planner``."""
     logger.info("[dmb.planner.telemetry] %s", json.dumps(payload, ensure_ascii=False, default=str))
+
+
+def router_telemetry_row(
+    *,
+    decision: str,
+    failure_reasons: list[str],
+    confidence_features: dict[str, Any],
+    router_synth_cost_usd: float = 0.0,
+    planner_estimated_cost_usd: float = 0.0,
+    statblock_tool_estimated_cost_usd: float = 0.0,
+    escalated: bool = False,
+) -> dict[str, Any]:
+    """Standard shape for per-scenario router telemetry rows.
+
+    Used by harnesses that A/B baseline (no router) vs router-first cohorts so
+    aggregate cost / decision distributions stay directly comparable. Field
+    naming mirrors :class:`PlanningTurnDetail.telemetry_cost` for the planner
+    cost half so existing dashboards keep working.
+
+    The router stage may itself be deterministic (zero LLM cost). When a
+    harness calls a real synthesis LLM on the answer-now path, that cost lives
+    in ``router_synth_cost_usd``; when escalation runs the planner, the planner
+    cost lives in ``planner_estimated_cost_usd``. ``scenario_estimated_cost_usd``
+    is the sum so cohort totals can roll up directly.
+    """
+    scenario_total = (
+        float(router_synth_cost_usd or 0.0)
+        + float(planner_estimated_cost_usd or 0.0)
+        + float(statblock_tool_estimated_cost_usd or 0.0)
+    )
+    return {
+        "router_decision": str(decision),
+        "router_failure_reasons": list(failure_reasons or []),
+        "router_confidence_features": dict(confidence_features or {}),
+        "router_synth_cost_usd": round(float(router_synth_cost_usd or 0.0), 6),
+        "planner_estimated_cost_usd": round(float(planner_estimated_cost_usd or 0.0), 6),
+        "statblock_tool_estimated_cost_usd": round(float(statblock_tool_estimated_cost_usd or 0.0), 6),
+        "scenario_estimated_cost_usd": round(scenario_total, 6),
+        "escalated": bool(escalated),
+    }

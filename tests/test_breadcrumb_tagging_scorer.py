@@ -3,10 +3,14 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from evals.sentence_routing_retrieval_falsification.breadcrumb_normalize import (
+    normalize_breadcrumb_artifact,
+)
 from evals.sentence_routing_retrieval_falsification.breadcrumb_tagging_scorer import (
     SENTINELS_SCHEMA,
     score_artifact,
     score_cohort,
+    score_normalized_records,
 )
 
 MANUAL_BASELINE = Path(
@@ -102,6 +106,35 @@ Hello world this body does not match the recap.
     assert out["normalize"]["ok"] is False
     assert out["normalize"]["error"]
     assert out["sentinels"]["summary"]["all_passed"] is True  # vacuously true: no sentinel checks defined
+
+
+def test_score_normalized_records_matches_score_artifact() -> None:
+    text = MANUAL_BASELINE.read_text(encoding="utf-8")
+    records, meta = normalize_breadcrumb_artifact(
+        artifact_text=text, corpus_root=CORPUS_ROOT.resolve()
+    )
+    baseline_path = Path(
+        "evals/sentence_routing_retrieval_falsification/manual_labels/artifacts/"
+        "Session 20 - Recap.breadcrumbed.indexed.gpt-5_3-codex.md"
+    ).resolve()
+    direct = score_artifact(
+        artifact_path=MANUAL_BASELINE.resolve(),
+        corpus_root=CORPUS_ROOT.resolve(),
+        sentinels=None,
+        baseline_artifact_path=baseline_path,
+    )
+    via_records = score_normalized_records(
+        records=records,
+        corpus_root=CORPUS_ROOT.resolve(),
+        artifact_path=str(MANUAL_BASELINE.resolve()),
+        meta=meta,
+        normalize_error=None,
+        sentinels=None,
+        baseline_artifact_path=baseline_path,
+        breadcrumb_full_text=text,
+    )
+    assert direct["normalize"] == via_records["normalize"]
+    assert direct["baseline_comparison"] == via_records["baseline_comparison"]
 
 
 def test_baseline_comparison_emitted_when_path_provided() -> None:

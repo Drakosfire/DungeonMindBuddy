@@ -17,6 +17,10 @@ import json
 from pathlib import Path
 from typing import Any
 
+from evals.sentence_routing_retrieval_falsification.cursor_canvas_paths import default_cursor_canvas_path
+
+_DEFAULT_PLANNER_DISCOVERY_CANVAS = default_cursor_canvas_path("planner-discovery-review.canvas.tsx")
+
 
 def _load_json(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
@@ -880,7 +884,16 @@ def main() -> None:
             "(router decision, suggested reads, escalation reads/tool trace)."
         ),
     )
-    parser.add_argument("--canvas-tsx", type=Path, required=True)
+    parser.add_argument(
+        "--canvas-tsx",
+        type=Path,
+        default=_DEFAULT_PLANNER_DISCOVERY_CANVAS,
+        help=(
+            "Output .canvas.tsx path. "
+            f"Default: Cursor-managed {_DEFAULT_PLANNER_DISCOVERY_CANVAS} "
+            "(set DMB_CURSOR_CANVAS_DIR to override the parent canvases/ dir)."
+        ),
+    )
     args = parser.parse_args()
 
     report = _load_json(args.report.resolve())

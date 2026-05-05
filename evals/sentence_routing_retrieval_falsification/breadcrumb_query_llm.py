@@ -54,6 +54,15 @@ def _usage_tokens(usage: Any) -> tuple[int, int, int]:
     return inp, out, cached
 
 
+def format_synthesis_user_message(*, question: str, hit_context: str) -> str:
+    """Exact user-role text sent with synthesis (question + promoted hit context only)."""
+    return (
+        f"Question:\n{question.strip()}\n\n"
+        f"### Retrieved excerpts and routes (only source you may use)\n"
+        f"{hit_context.strip()}\n"
+    )
+
+
 def synthesize_answer_from_hit_context(
     *,
     question: str,
@@ -66,11 +75,7 @@ def synthesize_answer_from_hit_context(
     from src.agent.planner_pricing import usage_cost_usd
 
     client = OpenAI()
-    user_block = (
-        f"Question:\n{question.strip()}\n\n"
-        f"### Retrieved excerpts and routes (only source you may use)\n"
-        f"{hit_context.strip()}\n"
-    )
+    user_block = format_synthesis_user_message(question=question, hit_context=hit_context)
     resp = client.chat.completions.create(
         model=model.strip(),
         messages=[

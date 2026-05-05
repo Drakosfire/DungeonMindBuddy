@@ -11,8 +11,10 @@ Usage (refresh after a benchmark run):
 
     uv run python -m evals.sentence_routing_retrieval_falsification.breadcrumb_query_canvas_payload \\
         --report evals/.../breadcrumb_query_natural_llm_semantic_expanded_report.json \\
-        --deterministic-report evals/.../breadcrumb_query_natural_expanded_deterministic_report.json \\
-        --canvas-tsx /home/.../canvases/breadcrumb-query-semantic-review.canvas.tsx
+        --deterministic-report evals/.../breadcrumb_query_natural_expanded_deterministic_report.json
+
+    # ``--canvas-tsx`` defaults to the Cursor-managed ``breadcrumb-query-semantic-review.canvas.tsx``
+    # under ``~/.cursor/projects/<workspace-slug>/canvases/`` (override parent dir with ``DMB_CURSOR_CANVAS_DIR``).
 
 Pass ``--check`` to verify the canvas generated block is up to date without
 mutating the file (exits non-zero if regenerating would change the canvas).
@@ -37,6 +39,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from evals.sentence_routing_retrieval_falsification.cursor_canvas_paths import default_cursor_canvas_path
 from evals.sentence_routing_retrieval_falsification.breadcrumb_query_grader import (
     aggregate_context_evidence_metrics,
     compute_context_evidence_metrics,
@@ -47,6 +50,8 @@ from evals.sentence_routing_retrieval_falsification.breadcrumb_query_grader impo
 PAYLOAD_SCHEMA = "breadcrumb_query_canvas_payload_v1"
 CANVAS_BLOCK_BEGIN = "// BEGIN GENERATED BREADCRUMB_QUERY_CANVAS_DATA"
 CANVAS_BLOCK_END = "// END GENERATED BREADCRUMB_QUERY_CANVAS_DATA"
+
+_DEFAULT_CANVAS_TSX = default_cursor_canvas_path("breadcrumb-query-semantic-review.canvas.tsx")
 
 # ---------------------------------------------------------------------------
 # Static structural rows. These describe the benchmark architecture, the
@@ -1077,8 +1082,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--canvas-tsx",
         type=Path,
-        required=True,
-        help="Canvas .tsx file to refresh (must contain generated-block markers).",
+        default=_DEFAULT_CANVAS_TSX,
+        help=(
+            "Canvas .tsx file to refresh (must contain generated-block markers). "
+            f"Default: Cursor-managed {_DEFAULT_CANVAS_TSX} (set DMB_CURSOR_CANVAS_DIR to override the parent canvases/ dir)."
+        ),
     )
     parser.add_argument(
         "--check",
