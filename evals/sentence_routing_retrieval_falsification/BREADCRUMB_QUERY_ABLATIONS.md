@@ -66,3 +66,28 @@ Run this before calling the path ready for an autonomous learning loop:
 
 If the holdout fails, fix the index generation / lexical-event extraction path first.
 Do not tune planner prompts to hide a dynamic-indexing failure.
+
+## Routing-only baseline (2026-05-08)
+
+The current baseline is no longer a Session 20-only claim. Use the four-lane
+routing-only refresh as the control surface before promoting prompt/default changes:
+
+| Lane | Report | Baseline meaning |
+| --- | --- | --- |
+| C1S1 | `artifacts/runs/2026-05-08/breadcrumb_query_natural_c1s1_routing_refresh_retrieval_only.json` | Roster / identity-bundle pressure; currently 14/16 |
+| C1S2 | `artifacts/runs/2026-05-08/breadcrumb_query_natural_c1s2_routing_refresh_retrieval_only.json` | Clean control; currently 15/15 |
+| C1S3 | `artifacts/runs/2026-05-08/breadcrumb_query_natural_c1s3_routing_refresh_retrieval_only.json` | Location hierarchy / location-entity pressure; currently 12/13 |
+| C1S13 | `artifacts/runs/2026-05-08/breadcrumb_query_natural_c1s13_routing_refresh_retrieval_only.json` | Alias / identity-bridge pressure; compare to prior routing-only sidecar |
+
+**Cost:** four-run sum about `$0.136347`. Per-run baseline: C1S1 `$0.021429`,
+C1S2 `$0.012705`, C1S3 `$0.046594`, C1S13 `$0.055619`.
+
+Promotion rule: do not accept a change that improves one pressure lane while regressing
+the C1S2 control or moving a failure into a less-legible bucket. Report:
+
+- pass count per lane,
+- failing `scenario_id`s,
+- violation family,
+- whether the failure is generation, retrieval/query-contract, gold/source mismatch,
+  or non-comparable baseline,
+- cost delta vs the per-run figures above.

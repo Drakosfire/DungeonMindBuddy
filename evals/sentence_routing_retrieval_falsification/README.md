@@ -1,6 +1,6 @@
 # Sentence routing and retrieval falsification (scaffold)
 
-Companion plan: `Docs/Plans/EXPERIMENT-Sentence-Routing-Retrieval-Falsification.md`  
+Companion plan: `Docs/Plans/EXPERIMENT-Sentence-Routing-Retrieval-Falsification.md`
 Operational guardrails: `Docs/Plans/GUARDRAILS-Sentence-Grounded-Ingestion-Vision.md`
 
 ## Pipeline steps (read this first)
@@ -66,13 +66,43 @@ uv run python -m evals.sentence_routing_retrieval_falsification.step2_discourse_
 uv run python -m evals.sentence_routing_retrieval_falsification.step2_discourse_pipeline_run --scenario-json evals/sentence_routing_retrieval_falsification/gold/scenario_c2_session19_pc.json --n 5 --prompt-variant npc_first_context_v1 --build-npc-first-context
 ```
 
-**Inline recap breadcrumbs (Step 1 session memory index experiment):** `manual_labels/Session 20 - Recap.breadcrumbed.md` is the current manual baseline retrieval index for Session 20. Treat it as a machine-facing source-aligned memory surface, not a readable recap replacement. The canonical recap remains the prose artifact; breadcrumbs are for agentic planning/live-play retrieval, hub routing, unresolved-thread capture, and dry-run corpus update proposals.
+**Inline recap breadcrumbs (Step 1 session memory index experiment):** `manual_labels/Session 20 - Recap.breadcrumbed.md` is the original manual baseline retrieval index for Session 20. Treat it as a machine-facing source-aligned memory surface, not a readable recap replacement. The canonical recap remains the prose artifact; breadcrumbs are for agentic planning/live-play retrieval, hub routing, unresolved-thread capture, and dry-run corpus update proposals. **Session 20 natural + planner-discovery gold** (`gold/breadcrumb_query_natural_v1.json`, `gold/breadcrumb_query_planner_discovery_v1.json`) expects indexed breadcrumbs over the **normalized** recap path `Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 20 - Gnat Swarm Marla Lysandra.md` (use a frontmatter seed with matching `source_recap_path`, e.g. `manual_labels/Session 20 - Gnat Swarm Marla Lysandra.normalized.breadcrumbed.frontmatter_seed.md`). For new validation work, prefer the routing-only path (`--ingest-routing-only`): recap prose + thin route allowlist frontmatter seed -> structured route assignments -> deterministic breadcrumb renderer.
 
 **Current direction (2026-05-03):** the benchmark harness is the primary path for this
 use case. The lexical/event-keyword retrieval path is good enough on the known Session
 20 slice to keep expanding it; planner-discovery remains useful as a diagnostic
 comparator, but it is set aside as the main implementation path until the benchmark
 harness proves or falsifies cross-session generalization.
+
+### Routing-only cross-session baseline (2026-05-08)
+
+Current best baseline for the autonomous-learning direction is the four-lane
+routing-only refresh over C1S1, C1S2, C1S3, and C1S13. These runs use
+`--ingest-routing-only --retrieval-only`; they do not synthesize final answers.
+
+| Lane | Report | Pass shape | Classification |
+| --- | --- | --- | --- |
+| C1S1 | `artifacts/runs/2026-05-08/breadcrumb_query_natural_c1s1_routing_refresh_retrieval_only.json` | 14/16 | roster sentence retrieves, but individual PC routes are under-tagged |
+| C1S2 | `artifacts/runs/2026-05-08/breadcrumb_query_natural_c1s2_routing_refresh_retrieval_only.json` | 15/15 | clean current control lane |
+| C1S3 | `artifacts/runs/2026-05-08/breadcrumb_query_natural_c1s3_routing_refresh_retrieval_only.json` | 12/13 | location hierarchy gap: Grishna is routed via `rivers_edge_pub`, not same-unit `stonebridge` |
+| C1S13 | `artifacts/runs/2026-05-08/breadcrumb_query_natural_c1s13_routing_refresh_retrieval_only.json` | failing holdout | alias/identity bridge regression: `draven` dropped from the necromancer kill unit |
+
+**Cost:** routing-refresh cohort sum was about `$0.136347`:
+C1S1 `$0.021429`, C1S2 `$0.012705`, C1S3 `$0.046594`, C1S13
+`$0.055619`. C1S13 was about +6.8% vs prior routing-only (`$0.052079`),
+so this is not a cost regression.
+
+Interpretation rules:
+
+- Do not collapse this into `2/4 lanes failed`. The current value is that each
+  remaining failure has a distinct, local mechanism.
+- C1S1 is a routing generator gap for explicit roster/identity-bundle sentences.
+- C1S3 is a query-contract/design gap unless we deliberately decide parent-location
+  tags should be redundantly emitted on sublocation facts.
+- C1S13 is a true routing-only regression vs the prior routing-only sidecar and needs
+  alias/identity-bridge protection.
+- Any change to routing prompt/defaults should add sentinels for these failure families
+  and rerun this four-lane refresh before promotion.
 
 The deterministic smoke harness parses frontmatter and body inline tags, validates tag vocabulary and route existence, compares generated artifacts against the manual baseline by exact `(tag_type, route)` multiset precision/recall, and dry-runs PC/NPC `append_timeline_row(..., dry_run=True)` previews where routed hubs expose `timeline.md`:
 
@@ -172,6 +202,23 @@ Any retrieval-affecting pronoun change should run this loop in order:
 3. audit failing gate families (retrieval expectation vs LLM synthesis gaps),
 4. run Gate 3 and report pass delta + violation-family delta + cost delta vs baseline.
 
+### Natural gold LLM lane (cohort acceptance)
+
+For `gold` schema `dmb_breadcrumb_query_natural_gold_v1`, any change that can move LLM synthesis or semantic gates (prompt edits, token-resolution cutovers, synthesis model swaps) should be accepted only after **three** identical `breadcrumb_query_run` invocations on the same records + gold. Report each run’s per-scenario pass count, failing `scenario_id`s, and `scenario_estimated_cost_usd`, then summarize **min / mean / max** cost across the three runs. Single-run PASS/FAIL is not a reliable signal for LLM-gated rows.
+
+Benchmark-only semantic equivalence seeds and the frozen legacy route-stopword list used for shadow diffs live in `evals/sentence_routing_retrieval_falsification/artifacts/lexicon/benchmark_lexicon_seeds_v1.json`. Override the path with env `DMB_BENCHMARK_LEXICON_SEEDS` when you need a fork-local copy.
+
+Example 3-run acceptance loop (records JSONL):
+
+```bash
+for i in 1 2 3; do
+  uv run python -m evals.sentence_routing_retrieval_falsification.breadcrumb_query_run \
+    --records-jsonl evals/sentence_routing_retrieval_falsification/artifacts/last_session1_c1_breadcrumb_records.jsonl \
+    --gold evals/sentence_routing_retrieval_falsification/gold/breadcrumb_query_natural_c1s1_v1.json \
+    --output "/tmp/c1s1_records_jsonl_smoke_${i}.json"
+done
+```
+
 ### Next-session generalization gate
 
 Before treating the breadcrumb/query harness as ready for an autonomous learning loop,
@@ -189,6 +236,12 @@ prove that it expands beyond Session 20:
 5. Only then promote the path toward an autonomous loop. If the holdout fails, the next
    fix belongs in index generation or lexical/event-keyword extraction, not in
    planner-discovery prompt tuning.
+
+The 2026-05-08 C1S1/C1S2/C1S3/C1S13 sweep is the current concrete instance of this
+gate. Treat C1S2 as the clean control, C1S1 as roster/identity-bundle coverage, C1S3
+as location-entity hierarchy pressure, and C1S13 as alias/identity-bridge pressure.
+Future changes should report pass deltas for those named lanes and classify any
+remaining failures by mechanism, not only by `all_ok`.
 
 **Real-recap scaffold:** `gold/scenario_real_recap_template.json` — runnable default (mini fixture); copy and set `input.recap_relative_path` + `hub_manifest` + `gold_`* after GM approval (see `scenario_notes` in file).
 
@@ -530,6 +583,124 @@ uv run python -m evals.sentence_routing_retrieval_falsification.breadcrumb_query
   --canvas-baseline-report evals/sentence_routing_retrieval_falsification/manual_labels/artifacts/breadcrumb_query_natural_llm_semantic_promoted_report.json \
   --canvas-deterministic-report evals/sentence_routing_retrieval_falsification/artifacts/runs/<date>/breadcrumb_query_natural_expanded_deterministic_report.json
 ```
+
+### C1S1 benchmark review canvas (benchmark-owned refresh)
+
+For natural gold that targets the C1S1 lane (gold filename contains `c1s1`, or any scenario `id` starts with `c1s1_`), each `breadcrumb_query_run` invocation **patches the C1S1 benchmark review canvas** in the same process after the report JSON is written. The default target is the Cursor-managed file under `~/.cursor/projects/<workspace-slug>/canvases/c1s1-breadcrumb-query-benchmark-review.canvas.tsx` (same resolution as other harness canvases: set `DMB_CURSOR_CANVAS_DIR` to override the canvases parent directory). The report includes a `c1s1_canvas_refresh` object (`enabled`, `targets`, `updated`, `unchanged`, `errors`); the final stdout JSON line echoes that under `c1s1_canvas_refresh`.
+
+- **Extra targets:** pass `--c1s1-canvas-tsx PATH` one or more times (for example the repo copy under `canvases/c1s1-breadcrumb-query-benchmark-review.canvas.tsx`). When any `--c1s1-canvas-tsx` is set, those paths are used **instead of** the default (repeat the default path explicitly if you need both).
+- **Opt out:** `--skip-c1s1-canvas-refresh` skips the patch even for C1S1 gold (and records `reason: skipped_by_flag` in the report when a refresh would otherwise have run).
+- **Standalone emitter** (same markers): `python -m evals.sentence_routing_retrieval_falsification.c1s1_benchmark_canvas_emit --report … --gold …`.
+- **Troubleshooting:** if the canvas file is missing `// BEGIN GENERATED C1S1_HARNESS_DETAIL` / `// END GENERATED C1S1_HARNESS_DETAIL`, the run exits non-zero after writing the report; fix the canvas template once, then re-run.
+
+### C1S2 candidate + benchmark canvases
+
+**Contracts:** see [`C1S2_BENCHMARK_CONTRACTS.md`](C1S2_BENCHMARK_CONTRACTS.md).
+
+**Candidate JSON (gold-agnostic):**
+
+```bash
+uv run python -m evals.sentence_routing_retrieval_falsification.c1s2_query_candidate_build
+uv run python -m evals.sentence_routing_retrieval_falsification.c1s2_query_candidate_canvas_emit \
+  --candidates evals/sentence_routing_retrieval_falsification/artifacts/runs/<date>/c1s2_query_candidates_<stamp>.json \
+  --canvas-tsx canvases/c1s2-breadcrumb-query-candidate-review.canvas.tsx
+```
+
+**Natural benchmark run (manual/reference artifact; requires `OPENAI_API_KEY` unless `--retrieval-only` is set):**
+
+```bash
+uv run python -m evals.sentence_routing_retrieval_falsification.breadcrumb_query_run \
+  --breadcrumb-md "evals/sentence_routing_retrieval_falsification/manual_labels/Session 2 - Finishing the Job.breadcrumbed.md" \
+  --corpus-root corpus/eldyrwild-markdown \
+  --gold evals/sentence_routing_retrieval_falsification/gold/breadcrumb_query_natural_c1s2_v1.json \
+  --output evals/sentence_routing_retrieval_falsification/artifacts/runs/<date>/breadcrumb_query_natural_c1s2_report.json \
+  --c1s2-canvas-tsx canvases/c1s2-breadcrumb-query-benchmark-review.canvas.tsx \
+  --skip-c1s1-canvas-refresh
+```
+
+For natural C1S2 gold, `breadcrumb_query_run` also auto-patches the Cursor-managed `c1s2-breadcrumb-query-benchmark-review.canvas.tsx` (same `DMB_CURSOR_CANVAS_DIR` resolution as C1S1). Use `--c1s2-canvas-tsx` for extra targets, `--skip-c1s2-canvas-refresh` to opt out. The report includes `c1s2_canvas_refresh`; the runner exits non-zero if any canvas patch errors.
+
+**Current routing-only control (2026-05-08):** C1S2 is the clean control lane for the
+cross-session routing-only baseline: `artifacts/runs/2026-05-08/breadcrumb_query_natural_c1s2_routing_refresh_retrieval_only.json`
+passes 15/15 with cost `$0.012705`. Use this lane to catch broad prompt regressions
+before over-fitting fixes to C1S1, C1S3, or C1S13.
+
+The full manual C1S2 `.breadcrumbed.md` body is historical until realigned with current
+normalization; do not use a manual-reference failure as evidence against the
+routing-only baseline.
+
+**Offline report (no API, expected_answer as LLM stand-in):** for CI or canvas refresh without a live cohort, `c1s2_offline_benchmark_report_build` writes `breadcrumb_query_natural_c1s2_report_offline.json` (`scenario_estimated_cost_usd: 0`). **This does not satisfy the 3-run LLM acceptance gate** — run three identical live harness invocations for that.
+
+```bash
+uv run python -m evals.sentence_routing_retrieval_falsification.c1s2_offline_benchmark_report_build
+uv run python -m evals.sentence_routing_retrieval_falsification.c1s2_benchmark_canvas_emit \
+  --report evals/sentence_routing_retrieval_falsification/artifacts/runs/<date>/breadcrumb_query_natural_c1s2_report_offline.json \
+  --gold evals/sentence_routing_retrieval_falsification/gold/breadcrumb_query_natural_c1s2_v1.json \
+  --canvas-tsx canvases/c1s2-breadcrumb-query-benchmark-review.canvas.tsx
+```
+
+**Tagging sentinels (C1S2):** `gold/breadcrumb_tagging_sentinels_c1s2.json` (do not reuse Session 20 sentinels for this recap).
+
+### C1S3 candidate + benchmark canvases (Session 3 — The Stone Bridge Flood)
+
+Mirrors the C1S2 workflow: `c1s3_query_candidate_build`, `c1s3_query_candidate_canvas_emit`, natural gold `gold/breadcrumb_query_natural_c1s3_v1.json`, tagging sentinels `gold/breadcrumb_tagging_sentinels_c1s3.json`, benchmark emitter `c1s3_benchmark_canvas_emit`.
+
+```bash
+uv run python -m evals.sentence_routing_retrieval_falsification.c1s3_query_candidate_build
+uv run python -m evals.sentence_routing_retrieval_falsification.c1s3_query_candidate_canvas_emit \
+  --candidates evals/sentence_routing_retrieval_falsification/artifacts/runs/<date>/c1s3_query_candidates_<stamp>.json \
+  --canvas-tsx canvases/c1s3-breadcrumb-query-candidate-review.canvas.tsx
+
+uv run python -m evals.sentence_routing_retrieval_falsification.breadcrumb_query_run \
+  --breadcrumb-md "evals/sentence_routing_retrieval_falsification/manual_labels/Session 3 - The Stone Bridge Flood.breadcrumbed.md" \
+  --corpus-root corpus/eldyrwild-markdown \
+  --gold evals/sentence_routing_retrieval_falsification/gold/breadcrumb_query_natural_c1s3_v1.json \
+  --output evals/sentence_routing_retrieval_falsification/artifacts/runs/<date>/breadcrumb_query_natural_c1s3_report.json \
+  --c1s3-canvas-tsx canvases/c1s3-breadcrumb-query-benchmark-review.canvas.tsx \
+  --skip-c1s1-canvas-refresh --skip-c1s2-canvas-refresh
+```
+
+For C1S3 natural gold, `breadcrumb_query_run` auto-refreshes the Cursor-managed `c1s3-breadcrumb-query-benchmark-review.canvas.tsx` when that file exists under `DMB_CURSOR_CANVAS_DIR`. **If the default Cursor path is missing**, pass `--c1s3-canvas-tsx canvases/c1s3-breadcrumb-query-benchmark-review.canvas.tsx` (repo copy) so the runner does not exit non-zero on `FileNotFoundError`.
+
+**Current routing-only pressure lane (2026-05-08):** `artifacts/runs/2026-05-08/breadcrumb_query_natural_c1s3_routing_refresh_retrieval_only.json`
+passes 12/13. The remaining failure, `c1s3_stonebridge_npc_roster_associated`, is
+not simple Grishna omission: Grishna is routed in generated records, but via the
+`rivers_edge_pub` sublocation rather than same-unit `stonebridge`. Treat this as a
+location hierarchy / location-entity query design question unless the routing contract
+is explicitly changed to require redundant parent-location tags.
+
+The full manual C1S3 `.breadcrumbed.md` body is also historical until realigned with
+current normalization. The routing-only report above is the current regression surface.
+
+### C1S13 holdout ingestion + retrieval (Session 13 — The Meaty and the Dead)
+
+Use this when validating the "fresh recap -> routing-only breadcrumb ingest ->
+retrieval" holdout loop for Campaign 1 Session 13.
+
+Single command (generates breadcrumb markdown from recap + frontmatter seed, then
+normalizes to records and runs retrieval grading):
+
+```bash
+uv run python -m evals.sentence_routing_retrieval_falsification.breadcrumb_query_run \
+  --ingest-routing-only \
+  --ingest-recap-md "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Session Recaps/_normalized/Session 13 - The Meaty and the Dead.md" \
+  --ingest-frontmatter-seed-md "evals/sentence_routing_retrieval_falsification/manual_labels/Session 13 - The Meaty and the Dead.normalized.breadcrumbed.frontmatter_seed.md" \
+  --ingest-breadcrumb-out evals/sentence_routing_retrieval_falsification/artifacts/runs/<date>/c1s13_routing_refresh.breadcrumbed.routing_only.md \
+  --corpus-root corpus/eldyrwild-markdown \
+  --gold evals/sentence_routing_retrieval_falsification/gold/breadcrumb_query_natural_c1s13_v1.json \
+  --retrieval-only \
+  --output evals/sentence_routing_retrieval_falsification/artifacts/runs/<date>/breadcrumb_query_natural_c1s13_routing_refresh_retrieval_only.json \
+  --skip-c1s1-canvas-refresh --skip-c1s2-canvas-refresh --skip-c1s3-canvas-refresh
+```
+
+The C1S13 benchmark review canvas (`c1s13-breadcrumb-query-benchmark-review.canvas.tsx`) lives only under the Cursor project `canvases/` directory (same layout as other benchmark canvases: `DMB_CURSOR_CANVAS_DIR` or `~/.cursor/projects/<workspace-slug>/canvases/`). `breadcrumb_query_run` and `c1s13_benchmark_canvas_emit` default to that path. There is no repo copy under `DungeonMindBuddy/canvases/` for this file.
+
+**Current routing-only regression sentinel (2026-05-08):** compare new runs against
+`artifacts/runs/2026-05-08/breadcrumb_query_natural_c1s13_report_retrieval_only.routing_only.json`.
+The refresh report `breadcrumb_query_natural_c1s13_routing_refresh_retrieval_only.json`
+regressed `necromancer_question_identity_trap`: the prior artifact routed the
+necromancer kill unit to both `necromancer` and `draven`; the refresh dropped
+`draven`, causing `missing_expected_route_hit` and `semantic_verdict:fail_incomplete`.
 
 ### Anti-stale check (CI / pre-commit)
 

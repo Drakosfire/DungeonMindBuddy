@@ -1,8 +1,8 @@
 # Design — `route_sentence_units_to_hubs` (legacy: Stage B): sentence unit → hub routing
 
-**Date:** 2026-04-25  
-**Status:** Design (implementation: **hub-routing runner** `step2_route_run.py` + `gold_routing` + `collect_stage_b_violations`; legacy artifact prefix `sentence_routing_stage_b_*`)  
-**Parent roadmap:** `Docs/Plans/PLAN-Sentence-Routing-Stages-B-through-D.md`  
+**Date:** 2026-04-25
+**Status:** Design (implementation: **hub-routing runner** `step2_route_run.py` + `gold_routing` + `collect_stage_b_violations`; legacy artifact prefix `sentence_routing_stage_b_*`)
+**Parent roadmap:** `Docs/Plans/PLAN-Sentence-Routing-Stages-B-through-D.md`
 **Guardrails:** `Docs/Plans/GUARDRAILS-Sentence-Grounded-Ingestion-Vision.md`
 
 **Vocabulary:** In prose, use explicit names:
@@ -207,7 +207,7 @@ For each gold row `g`:
 
 - Find route row `r` with `r.unit_id == g.unit_id`.
 - **Subset gate:** `set(g.expected_hubs) ⊆ set(r.assigned_hubs)`.
-- **Over-route gate:** if `max_extra_hubs` is set,  
+- **Over-route gate:** if `max_extra_hubs` is set,
 `len(r.assigned_hubs) <= len(g.expected_hubs) + g.max_extra_hubs`.
 - If any check fails → violation `B1: must_route unit {id} …`.
 
@@ -243,6 +243,31 @@ When the hub manifest lists **PC hubs only** for a session recap:
 2. **Whole-party references** — after the recap has established the party roster, lines that refer to the party with **team** / **teammates** in a fight or shared job, or **first combat** + **team** language, may be graded as **must_route to all PCs** in that roster. **The group** may also be **must_route to all PCs** when the PCs are the **joint subject** of movement or approach in that unit (shared advance, arrival, or being led together). Use **must_abstain** when **the group** is only vague framing or the sentence center is not the party acting together (see `scenario_c1_session1_pc.json` `scenario_notes` for Session 1 L20/L22 vs generic cases).
 3. **Pronouns and continuation** — when a prior unit names a focal PC and a following unit continues **the same PC’s** beat with pronouns only, gold may **must_route** that PC. Do **not** treat every pronoun after a PC mention as that PC: if the clause shifts subject to another named or clearly implied NPC (e.g. “she” = a local NPC the sentence defines), use **must_abstain** for PC hubs unless a PC is named again in the unit.
 4. **`must_abstain` + out-of-manifest names** — rows with `max_assigned_hubs: 0` still forbid PC attachment. For units that name **NPCs or locations outside the PC manifest**, authors may **omit** `needs_new_hub_candidate: false` so a model that flags a real Stage-C candidate is not failed on B2 solely for `needs_new_hub_candidate: true`. Keep `needs_new_hub_candidate: false` on **purely generic** units to preserve abstain pressure (`scenario_c1_session2_pc.json` pattern).
+
+### 6.7 Carry-forward from routing-only breadcrumb baseline (2026-05-08)
+
+The inline-breadcrumb routing-only refresh over C1S1/C1S2/C1S3/C1S13 exposed three
+failure families that should inform any future `route_sentence_units_to_hubs` prompt or
+gold change:
+
+1. **Roster / identity-bundle units need explicit multi-label pressure.** C1S1's
+   roster sentence retrieves correctly but loses individual PC routes when the model
+   treats the collective party route as sufficient. If a unit introduces a bounded
+   roster with names plus class/species/role identity, gold may require both the
+   collective route and named member routes.
+2. **Parent-location inference is not the same as same-unit co-tagging.** C1S3's
+   Grishna evidence routes through a sublocation, not parent `stonebridge`. Do not
+   silently redefine the routing contract to attach every sublocation fact to every
+   parent location; choose deliberately between parent-route duplication, hierarchy
+   expansion during retrieval, or location-entity query changes.
+3. **Alias / identity bridges need protected sentinels.** C1S13 regressed when a unit
+   describing the "necromancer" dropped the `draven` route that a prior routing-only
+   artifact carried. If a recap establishes a role/name equivalence, later role-only
+   units may need both routes when the benchmark asks identity questions.
+
+These are not arguments for broad continuity rules. They are sentinel candidates. A
+fix that improves one family must still rerun the clean C1S2 control lane and report
+any B1/B2 movement.
 
 ---
 

@@ -1,7 +1,7 @@
 # EXPERIMENT — Inline Recap Breadcrumbing
 
-**Date:** 2026-05-02  
-**Status:** Prototype active; benchmark-harness path preferred as of 2026-05-03  
+**Date:** 2026-05-02
+**Status:** Prototype active; routing-only cross-session baseline recorded 2026-05-08
 **Purpose:** Test whether a recap-derived, machine-facing session memory index can make agentic planning and live-game retrieval more reliable without weakening the existing SourceAnchor direction.
 
 ---
@@ -34,6 +34,43 @@ The next decision is not "can the planner discover the same files by itself?" It
 "when a new recap lands, can the same breadcrumb/index machinery parse it, emit new
 records, and retrieve newly introduced facts without scenario-specific hardcoding?"
 The answer must be measured against a holdout recap, not inferred from Session 20.
+
+### Current baseline (2026-05-08)
+
+The routing-only generator is now good enough to treat as the active baseline, not
+just a speculative path. The best current measurement is the four-lane refresh over
+Campaign 1 Sessions 1, 2, 3, and 13:
+
+| Lane | Source mode | Report | Result |
+| --- | --- | --- | --- |
+| C1S1 | original recap + frontmatter seed | `evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-05-08/breadcrumb_query_natural_c1s1_routing_refresh_retrieval_only.json` | 14/16 |
+| C1S2 | original recap + frontmatter seed | `evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-05-08/breadcrumb_query_natural_c1s2_routing_refresh_retrieval_only.json` | 15/15 |
+| C1S3 | original recap + frontmatter seed | `evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-05-08/breadcrumb_query_natural_c1s3_routing_refresh_retrieval_only.json` | 12/13 |
+| C1S13 | normalized recap + normalized frontmatter seed | `evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-05-08/breadcrumb_query_natural_c1s13_routing_refresh_retrieval_only.json` | failing holdout, but diagnostically useful |
+
+**Cost:** four-run routing-refresh sum was about `$0.136347`:
+C1S1 `$0.021429`, C1S2 `$0.012705`, C1S3 `$0.046594`, C1S13
+`$0.055619`. C1S13 was about +6.8% vs its prior routing-only sidecar
+(`$0.052079`), below the project cost-regression threshold.
+
+The important result is not the headline pass count. The failure shape is now sharp:
+
+- **Roster / identity bundle under-tagging:** C1S1 fails two questions because the
+  generated unit carries the collective party route but omits individual PC routes on
+  the same roster sentence. The source text is retrieved and answer evidence is
+  present; route coverage is the gap.
+- **Location hierarchy vs same-unit co-tags:** C1S3 finds Grishna records, but they are
+  tied to `rivers_edge_pub`, not co-tagged with parent `stonebridge`. Do not paper this
+  over with broad parent-location tagging until the design decides whether hierarchy
+  belongs in routing, record expansion, or the location-entity query path.
+- **Alias / identity bridge loss:** C1S13 regressed `necromancer_question_identity_trap`
+  because the refreshed routing-only artifact omitted the `draven` route on the
+  necromancer kill unit. This is a true generator regression relative to the prior
+  routing-only artifact, not a gold drift.
+
+This is a strong baseline because the remaining failures are local and falsifiable.
+The next fix should be targeted by failure family, with sentinel coverage before any
+prompt/default change is promoted.
 
 ---
 
