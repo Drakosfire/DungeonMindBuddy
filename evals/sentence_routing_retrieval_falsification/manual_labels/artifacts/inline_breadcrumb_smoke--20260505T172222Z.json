@@ -1,0 +1,224 @@
+{
+  "schema": "inline_recap_breadcrumb_smoke_v1",
+  "iso_utc": "2026-05-05T17:22:22Z",
+  "baseline_path": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/manual_labels/Session 20 - Recap.breadcrumbed.md",
+  "corpus_root": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/corpus/eldyrwild-markdown",
+  "source_recap_path": "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md",
+  "artifacts": [
+    {
+      "artifact_path": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/manual_labels/Session 2 - Finishing the Job.breadcrumbed.md",
+      "parse": {
+        "frontmatter_present": true,
+        "schema_marker_present": true,
+        "counts_block_present": true,
+        "body_nonempty": true
+      },
+      "tag_counts": {
+        "Location": 5,
+        "NPC": 3,
+        "NewHubCandidate": 2,
+        "Party": 2
+      },
+      "tag_total": 12,
+      "unknown_tag_types": [],
+      "route_checks": {
+        "unique_routes": 8,
+        "missing_non_candidate_routes": [
+          {
+            "tag_type": "Party",
+            "route": "Longmont Campaign/Campaign 1/Parties/party_merchant_guards/",
+            "exists": false,
+            "line_number": 3
+          },
+          {
+            "tag_type": "Location",
+            "route": "Longmont Campaign/Campaign 1/Locations/wizards_tower_brewing_company/",
+            "exists": false,
+            "line_number": 5
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Longmont Campaign/Campaign 1/NPCs/glowkindle/",
+            "exists": false,
+            "line_number": 7
+          },
+          {
+            "tag_type": "Location",
+            "route": "Longmont Campaign/Campaign 1/Locations/stonebridge/",
+            "exists": false,
+            "line_number": 11
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Longmont Campaign/Campaign 1/NPCs/grishna/",
+            "exists": false,
+            "line_number": 11
+          },
+          {
+            "tag_type": "Location",
+            "route": "Longmont Campaign/Campaign 1/Locations/rivers_edge_pub/",
+            "exists": false,
+            "line_number": 11
+          }
+        ]
+      },
+      "timeline_append_dry_run": {
+        "checked": 2,
+        "ok": 0,
+        "skipped_no_timeline": 2,
+        "failures": []
+      },
+      "baseline_comparison": {
+        "baseline_tag_total": 126,
+        "artifact_tag_total": 12,
+        "overlap_tag_total": 0,
+        "precision_vs_baseline": 0.0,
+        "recall_vs_baseline": 0.0,
+        "extra_routes": [
+          {
+            "tag_type": "Location",
+            "route": "Longmont Campaign/Campaign 1/Locations/rivers_edge_pub/",
+            "count": 1
+          },
+          {
+            "tag_type": "Location",
+            "route": "Longmont Campaign/Campaign 1/Locations/stonebridge/",
+            "count": 1
+          },
+          {
+            "tag_type": "Location",
+            "route": "Longmont Campaign/Campaign 1/Locations/wizards_tower_brewing_company/",
+            "count": 3
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Longmont Campaign/Campaign 1/NPCs/glowkindle/",
+            "count": 2
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Longmont Campaign/Campaign 1/NPCs/grishna/",
+            "count": 1
+          },
+          {
+            "tag_type": "NewHubCandidate",
+            "route": "Longmont Campaign/Campaign 1/NPCs/giant_centipede_well/",
+            "count": 1
+          },
+          {
+            "tag_type": "NewHubCandidate",
+            "route": "Longmont Campaign/Campaign 1/NPCs/magma_spider/",
+            "count": 1
+          },
+          {
+            "tag_type": "Party",
+            "route": "Longmont Campaign/Campaign 1/Parties/party_merchant_guards/",
+            "count": 2
+          }
+        ],
+        "missing_routes": [
+          {
+            "tag_type": "Location",
+            "route": "Elderwyld/Cities and Towns/Mirathorn/",
+            "count": 3
+          },
+          {
+            "tag_type": "Location",
+            "route": "Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/",
+            "count": 1
+          },
+          {
+            "tag_type": "Location",
+            "route": "Elderwyld/Cities and Towns/Mossford/",
+            "count": 7
+          },
+          {
+            "tag_type": "Location",
+            "route": "Elderwyld/Migrating Forest/",
+            "count": 8
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Elderwyld/Cities and Towns/Mossford/NPCs/marla_brambleback/",
+            "count": 5
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Elderwyld/Cities and Towns/Mossford/NPCs/sheriff_roderic_marr/",
+            "count": 1
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Elderwyld/Cities and Towns/Mossford/NPCs/stacey_brambleback/",
+            "count": 5
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Elderwyld/Cities and Towns/Mossford/NPCs/stuart/",
+            "count": 7
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/",
+            "count": 12
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/",
+            "count": 5
+          },
+          {
+            "tag_type": "NPC",
+            "route": "Longmont Campaign/Campaign 2/NPCs/thrin_branchborn/",
+            "count": 4
+          },
+          {
+            "tag_type": "NewHubCandidate",
+            "route": "Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/NPCs/professor_merril_tealeaf/",
+            "count": 2
+          },
+          {
+            "tag_type": "NewHubCandidate",
+            "route": "Elderwyld/Cities and Towns/Mossford/Mossford_Location_Dossiers/Half-Burned Warehouse.md",
+            "count": 3
+          },
+          {
+            "tag_type": "NewHubCandidate",
+            "route": "Elderwyld/Unknown Sites/Voices Tower/",
+            "count": 3
+          },
+          {
+            "tag_type": "PC",
+            "route": "Longmont Campaign/Campaign 2/PCs/bonogo/",
+            "count": 11
+          },
+          {
+            "tag_type": "PC",
+            "route": "Longmont Campaign/Campaign 2/PCs/caelynn/",
+            "count": 20
+          },
+          {
+            "tag_type": "PC",
+            "route": "Longmont Campaign/Campaign 2/PCs/ephanna/",
+            "count": 6
+          },
+          {
+            "tag_type": "PC",
+            "route": "Longmont Campaign/Campaign 2/PCs/karsemine/",
+            "count": 8
+          },
+          {
+            "tag_type": "PC",
+            "route": "Longmont Campaign/Campaign 2/PCs/stafl/",
+            "count": 4
+          },
+          {
+            "tag_type": "Party",
+            "route": "Longmont Campaign/Campaign 2/Parties/questionable_company/",
+            "count": 11
+          }
+        ]
+      }
+    }
+  ]
+}

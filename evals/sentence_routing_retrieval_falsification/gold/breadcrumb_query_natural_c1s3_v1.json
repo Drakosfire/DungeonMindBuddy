@@ -1,0 +1,267 @@
+{
+  "schema": "dmb_breadcrumb_query_natural_gold_v1",
+  "campaign_id": "longmont-c1",
+  "notes": "Natural-language queries over Campaign 1 Session 3 breadcrumb artifact (manual_labels/Session 3 - The Stone Bridge Flood.breadcrumbed.md). Grounded in recap/breadcrumb prose; hook scenarios mark where broader corpus context would be needed for a full answer.",
+  "default_query_spec": {
+    "session_min": 3,
+    "session_max": 3,
+    "max_hits": 18,
+    "expand_context": true,
+    "expand_seed_hits": 9,
+    "expand_adjacent_window": 4,
+    "expand_shared_route_limit": 3,
+    "expand_route_family_limit": 3,
+    "expand_first_pass_cap": 9,
+    "tokenizer_mode": "restrained",
+    "expansion_allocation_mode": "greedy"
+  },
+  "scenarios": [
+    {
+      "id": "c1s3_bubbles_mage_hand_beat",
+      "question": "For the Bubbles rescue, what was Ephanna's first mage-hand plan on the rock, and how did Bubbles handle it?",
+      "notes": "core_recall; focus scenario for benchmark canvas; first lasso + panic bite.",
+      "expected_answer": "Ephanna used mage hand to lasso Bubbles on the rock, but Bubbles is too panicked and bites the mage hand.",
+      "must_hit_tokens": [
+        "mage hand",
+        "Bubbles",
+        "bites"
+      ],
+      "stale_tokens": [],
+      "expect_route_substrings": [
+        "Campaign 1/PCs/ephanna",
+        "Campaign 1/NPCs/bubbles_the_float_goat"
+      ],
+      "min_context_support_ratio": 0.55,
+      "benchmark_lane": "lexical_recall"
+    },
+    {
+      "id": "c1s3_pippa_ride_kegs",
+      "question": "Remind me how they got to StoneBridge with Pippa: who gave the ride, and what was pulling the keg wagon?",
+      "notes": "entity_context; Pippa + Bubbles the Float Goat convoy beat.",
+      "expected_answer": "Pippa offered the ride toward StoneBridge, and Bubbles the Float Goat was hitched to her wagon full of kegs.",
+      "must_hit_tokens": [
+        "Pippa",
+        "StoneBridge",
+        "Bubbles",
+        "kegs"
+      ],
+      "stale_tokens": [],
+      "expect_route_substrings": [
+        "Campaign 1/NPCs/pippa",
+        "Campaign 1/NPCs/bubbles_the_float_goat",
+        "Campaign 1/Locations/stonebridge"
+      ],
+      "min_context_support_ratio": 0.55,
+      "benchmark_lane": "lexical_recall"
+    },
+    {
+      "id": "c1s3_grishna_comp_board",
+      "question": "After they helped Kirfan with the upriver debris, what did Grishna comp them?",
+      "notes": "entity_context; comped beer/board line.",
+      "expected_answer": "Grishna comped them beer and board.",
+      "must_hit_tokens": [
+        "Grishna",
+        "beer",
+        "board"
+      ],
+      "stale_tokens": [],
+      "expect_route_substrings": [
+        "Campaign 1/NPCs/grishna"
+      ],
+      "min_context_support_ratio": 0.55,
+      "benchmark_lane": "lexical_recall"
+    },
+    {
+      "id": "c1s3_stafl_brewery_song",
+      "question": "What did Stafl do in the pub to sell the Wizard's Tower Brewery story to the room?",
+      "notes": "event_context; bardic retelling beat.",
+      "expected_answer": "Stafl wrote and played an incredible song that wooed the town in the retelling of the Wizard's Tower Brewery adventure.",
+      "must_hit_tokens": [
+        "Stafl",
+        "song",
+        "Brewery"
+      ],
+      "stale_tokens": [],
+      "expect_route_substrings": [
+        "Campaign 1/PCs/stafl",
+        "Campaign 1/Locations/wizards_tower_brewing_company"
+      ],
+      "min_context_support_ratio": 0.55,
+      "benchmark_lane": "lexical_recall"
+    },
+    {
+      "id": "c1s3_bonogo_downstream_zen",
+      "question": "Where does Bonogo end up in the early flood outline once the river takes him?",
+      "notes": "location_context + PC beat; zen underwater line (outline section).",
+      "expected_answer": "Bonogo flows downstream and has a wonderful zen underwater adventure.",
+      "must_hit_tokens": [
+        "Bonogo",
+        "downstream",
+        "underwater"
+      ],
+      "stale_tokens": [],
+      "expect_route_substrings": [
+        "Campaign 1/PCs/bonogo",
+        "Campaign 1/Locations/stonebridge"
+      ],
+      "min_context_support_ratio": 0.55,
+      "benchmark_lane": "lexical_recall"
+    },
+    {
+      "id": "c1s3_ephanna_second_lasso",
+      "question": "When does Ephanna finally get Bubbles on the lasso?",
+      "notes": "mechanical_prep_context; second-attempt success in outline list.",
+      "expected_answer": "On the second attempt, Ephanna's mage hand succeeds, lassos Bubbles, and leads her back to Ephanna.",
+      "must_hit_tokens": [
+        "second",
+        "lassos",
+        "Bubbles",
+        "mage hand"
+      ],
+      "stale_tokens": [],
+      "expect_route_substrings": [
+        "Campaign 1/PCs/ephanna",
+        "Campaign 1/NPCs/bubbles_the_float_goat"
+      ],
+      "min_context_support_ratio": 0.55,
+      "benchmark_lane": "lexical_recall"
+    },
+    {
+      "id": "c1s3_caelynn_ice_platform",
+      "question": "What does Caelynn do with ice around Bubbles' rock?",
+      "notes": "mechanical_prep_context; ice platform beat.",
+      "expected_answer": "Caelynn uses ice to freeze the base of the rock and make a platform.",
+      "must_hit_tokens": [
+        "Caelynn",
+        "ice",
+        "platform"
+      ],
+      "stale_tokens": [],
+      "expect_route_substrings": [
+        "Campaign 1/PCs/caelynn"
+      ],
+      "min_context_support_ratio": 0.55,
+      "benchmark_lane": "lexical_recall"
+    },
+    {
+      "id": "c1s3_karsemine_zephyr_chase",
+      "question": "When everything is falling apart, what does Karsemine do along the bank with Zephyr Strike?",
+      "notes": "mechanical_prep_context; closing-action paragraph (source typo 'wear' normalized to 'where' in expected answer).",
+      "expected_answer": "Karsemine casts Zephyr Strike, runs down the bank, and shoots arrows where Bonogo probably was.",
+      "must_hit_tokens": [
+        "Karsemine",
+        "Zephyr",
+        "arrows",
+        "Bonogo"
+      ],
+      "stale_tokens": [],
+      "expect_route_substrings": [
+        "Campaign 1/PCs/karsemine",
+        "Campaign 1/PCs/bonogo",
+        "Campaign 1/Locations/stonebridge"
+      ],
+      "min_context_support_ratio": 0.55,
+      "benchmark_lane": "lexical_recall"
+    },
+    {
+      "id": "c1s3_kirfan_debris_help",
+      "question": "Who were they helping when they pulled up debris from the broken upriver structure?",
+      "notes": "entity_context; Kirfan beat.",
+      "expected_answer": "They helped Kirfan pull up debris from the broken structure from upriver.",
+      "must_hit_tokens": [
+        "Kirfan",
+        "debris",
+        "upriver"
+      ],
+      "stale_tokens": [],
+      "expect_route_substrings": [
+        "Campaign 1/NPCs/kirfan"
+      ],
+      "min_context_support_ratio": 0.55,
+      "benchmark_lane": "lexical_recall"
+    },
+    {
+      "id": "c1s3_stafl_nets_town",
+      "question": "What does Stafl get the town doing with nets during the flood response?",
+      "notes": "event_context; bridge-flow nets line before the long-form pub scene.",
+      "expected_answer": "Stafl gathers town support and gets nets dropped across the bridge flow ways.",
+      "must_hit_tokens": [
+        "Stafl",
+        "nets",
+        "bridge"
+      ],
+      "stale_tokens": [],
+      "expect_route_substrings": [
+        "Campaign 1/PCs/stafl",
+        "Campaign 1/Locations/stonebridge"
+      ],
+      "min_context_support_ratio": 0.55,
+      "benchmark_lane": "lexical_recall"
+    },
+    {
+      "id": "c1s3_bonogo_dive_rope_gone",
+      "question": "On Bonogo's desperate dive, what happens to Baergrom and the rope?",
+      "notes": "event_context; rope torn away beat in dense flood paragraph.",
+      "expected_answer": "Bonogo dives into the river trusting Baergrom to hold the rope, but the rope is immediately torn out of Baergrom's hand.",
+      "must_hit_tokens": [
+        "Bonogo",
+        "Baergrom",
+        "rope"
+      ],
+      "stale_tokens": [],
+      "expect_route_substrings": [
+        "Campaign 1/PCs/bonogo",
+        "Campaign 1/PCs/baergrom",
+        "Campaign 1/Locations/stonebridge"
+      ],
+      "min_context_support_ratio": 0.55,
+      "benchmark_lane": "lexical_recall"
+    },
+    {
+      "id": "c1s3_mirathorn_festival_hook",
+      "question": "At the end, what Mirathorn/festival hook is the recap teeing up?",
+      "notes": "consequence_or_hook_context; closing beat \u2014 not a full city gazetteer answer.",
+      "expected_answer": "The recap tees up Mirathorn: Pippa had mentioned a city with a festival, and it might be interesting even if it is a long walk.",
+      "must_hit_tokens": [
+        "Mirathorn",
+        "festival",
+        "Pippa"
+      ],
+      "stale_tokens": [],
+      "expect_route_substrings": [
+        "Campaign 1/Locations/mirathorn",
+        "Campaign 1/NPCs/pippa"
+      ],
+      "min_context_support_ratio": 0.55,
+      "benchmark_lane": "lexical_recall"
+    },
+    {
+      "id": "c1s3_stonebridge_npc_roster_associated",
+      "question": "Give me a list of all NPCs that live in StoneBridge.",
+      "notes": "location_entity_list; co-tagged roster from indexed recaps (not confirmed residency). Kirfan is not co-tagged with Locations/stonebridge on C1S3 sentence units.",
+      "expected_answer": "From the C1S3 beats that carry a StoneBridge location tag, the recap co-tags Pippa, Bubbles the Float Goat, and Grishna on those units — that's scene association in the index, not a residency ledger. Kirfan shows up in the hook line but isn't on a StoneBridge-location tag with those same units.",
+      "must_hit_tokens": [
+        "Pippa",
+        "Bubbles",
+        "Grishna",
+        "StoneBridge"
+      ],
+      "stale_tokens": [],
+      "expect_route_substrings": [
+        "Campaign 1/Locations/stonebridge"
+      ],
+      "expect_location_entity_route_substrings": [
+        "Campaign 1/NPCs/pippa",
+        "Campaign 1/NPCs/bubbles_the_float_goat",
+        "Campaign 1/NPCs/grishna"
+      ],
+      "forbid_location_entity_route_substrings": [
+        "Campaign 1/NPCs/kirfan"
+      ],
+      "expect_query_mode": "location_entity_list",
+      "intent_hint": "location_entity_list",
+      "min_context_support_ratio": 0.45,
+      "benchmark_lane": "location_entity_list"
+    }
+  ]
+}

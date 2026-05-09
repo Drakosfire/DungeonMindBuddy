@@ -1,0 +1,196 @@
+{
+  "schema": "dmb_breadcrumb_query_natural_gold_v1",
+  "campaign_id": "longmont-c1",
+  "notes": "Natural-language queries over Campaign 1 Session 2 breadcrumb artifact (manual_labels/Session 2 - Finishing the Job.breadcrumbed.md). Grounded in recap prose; categories documented per scenario.",
+  "default_query_spec": {
+    "session_min": 2,
+    "session_max": 2,
+    "max_hits": 18,
+    "expand_context": true,
+    "expand_seed_hits": 9,
+    "expand_adjacent_window": 4,
+    "expand_shared_route_limit": 3,
+    "expand_route_family_limit": 3,
+    "expand_first_pass_cap": 9,
+    "tokenizer_mode": "restrained",
+    "expansion_allocation_mode": "greedy"
+  },
+  "scenarios": [
+    {
+      "id": "c1s2_threat_inventory",
+      "question": "After the rat-clearing job, what bigger threats does the recap say were 'no big deal' by comparison?",
+      "notes": "core_recall + mechanical_prep wing; Session 2 opening comparison beat.",
+      "expected_answer": "Compared to the rats, the Giant Flaming Spider, the Giant Centipede from the well, and the rat that was absolutely not about to mutate were no big deal.",
+      "must_hit_tokens": ["rats", "Spider", "Centipede", "well", "mutate"],
+      "stale_tokens": [],
+      "expect_route_substrings": [
+        "Campaign 1/Parties/party_merchant_guards",
+        "Campaign 1/NPCs/magma_spider",
+        "Campaign 1/NPCs/giant_centipede_well"
+      ],
+      "min_context_support_ratio": 0.55,
+      "benchmark_lane": "lexical_recall"
+    },
+    {
+      "id": "c1s2_basement_clearing_payoff",
+      "question": "What did the group find after clearing more of the wizard's tower basement?",
+      "notes": "event_context; gems, potions, hidden room.",
+      "expected_answer": "They found a sack of gems, mystery potions on corpses in the well, and broke through a wall into a room full of healing potions, alchemical tools, and ancient ingredients they do not know how to use.",
+      "must_hit_tokens": ["gems", "potions", "well", "healing", "alchemical", "wall"],
+      "stale_tokens": [],
+      "expect_route_substrings": ["Campaign 1/Locations/wizards_tower_brewing_company"],
+      "min_context_support_ratio": 0.55,
+      "benchmark_lane": "lexical_recall"
+    },
+    {
+      "id": "c1s2_glowkindle_stash_deal",
+      "question": "What arrangement did the party negotiate with Glowkindle about the extra discoveries?",
+      "notes": "event_context; focus scenario for benchmark canvas.",
+      "expected_answer": "Because the hidden room and much of the place were outside the original contract, they negotiated with Glowkindle for the right to stash gear in the hidden alchemy room.",
+      "must_hit_tokens": ["Glowkindle", "stash", "alchemy", "contract"],
+      "stale_tokens": [],
+      "expect_route_substrings": ["Campaign 1/NPCs/glowkindle"],
+      "min_context_support_ratio": 0.55,
+      "benchmark_lane": "lexical_recall"
+    },
+    {
+      "id": "c1s2_god_forsaken_scope",
+      "question": "How does the recap characterize the scope of what was (and wasn't) covered by the original contract?",
+      "notes": "event_context; 'god forsaken place' line.",
+      "expected_answer": "The hidden room was not part of the original contract, and neither was the rest of the god-forsaken place.",
+      "must_hit_tokens": ["contract", "forsaken"],
+      "stale_tokens": [],
+      "expect_route_substrings": ["Campaign 1/NPCs/glowkindle"],
+      "min_context_support_ratio": 0.55,
+      "benchmark_lane": "lexical_recall"
+    },
+    {
+      "id": "c1s2_pay_and_loot_summary",
+      "question": "How much money did each party member make, and what else did they walk away with?",
+      "notes": "core_recall; 25 gp + loot framing.",
+      "expected_answer": "They made pretty good money — 25 gp each — plus a bit of loot.",
+      "must_hit_tokens": ["25", "gp", "loot"],
+      "stale_tokens": [],
+      "expect_route_substrings": ["Campaign 1/Parties/party_merchant_guards"],
+      "min_context_support_ratio": 0.55,
+      "benchmark_lane": "lexical_recall"
+    },
+    {
+      "id": "c1s2_party_commitment",
+      "question": "What did the group decide about staying together after this session's pay-off?",
+      "notes": "relationship_or_faction_context.",
+      "expected_answer": "They decided to stick together and see where the winds take them.",
+      "must_hit_tokens": ["stick together", "winds"],
+      "stale_tokens": [],
+      "expect_route_substrings": ["Campaign 1/Parties/party_merchant_guards"],
+      "min_context_support_ratio": 0.55,
+      "benchmark_lane": "lexical_recall"
+    },
+    {
+      "id": "c1s2_basement_lesson",
+      "question": "What lesson does the recap say the party learned from clearing rats out of basements?",
+      "notes": "core_recall.",
+      "expected_answer": "They learned a lot about the dangers of clearing rats out of basements.",
+      "must_hit_tokens": ["rats", "basements", "dangers"],
+      "stale_tokens": [],
+      "expect_route_substrings": ["Campaign 1/Parties/party_merchant_guards"],
+      "min_context_support_ratio": 0.55,
+      "benchmark_lane": "lexical_recall"
+    },
+    {
+      "id": "c1s2_hook_more_work_glowkindle",
+      "question": "What open question does the recap pose about Glowkindle?",
+      "notes": "consequence_or_hook_context.",
+      "expected_answer": "Whether they will ask Glowkindle for more work.",
+      "must_hit_tokens": ["Glowkindle", "work"],
+      "stale_tokens": [],
+      "expect_route_substrings": ["Campaign 1/NPCs/glowkindle"],
+      "min_context_support_ratio": 0.55,
+      "benchmark_lane": "lexical_recall"
+    },
+    {
+      "id": "c1s2_hook_stonebridge_grishna",
+      "question": "What return trip to Stonebridge does the recap tease?",
+      "notes": "location_context + hook; typo 'had' preserved from source recap.",
+      "expected_answer": "They might head back to Stonebridge to say hi to Grishna at the River's Edge Pub.",
+      "must_hit_tokens": ["Stonebridge", "Grishna", "Pub"],
+      "stale_tokens": [],
+      "expect_route_substrings": [
+        "Campaign 1/Locations/stonebridge",
+        "Campaign 1/NPCs/grishna",
+        "Campaign 1/Locations/rivers_edge_pub"
+      ],
+      "min_context_support_ratio": 0.55,
+      "benchmark_lane": "lexical_recall"
+    },
+    {
+      "id": "c1s2_hook_wizard_tower_thread",
+      "question": "What Wizard's Tower thread does this recap tee up without answering yet?",
+      "notes": "consequence_or_hook_context; the recap only raises the dangling thread. Answering what is actually there requires follow-up prep/corpus context outside this recap.",
+      "expected_answer": "The recap only tees up the question of whether there is more to the Wizard's Tower; it does not answer what is there.",
+      "must_hit_tokens": ["Wizard", "Tower", "more"],
+      "stale_tokens": [],
+      "expect_route_substrings": ["Campaign 1/Locations/wizards_tower_brewing_company"],
+      "min_context_support_ratio": 0.55,
+      "benchmark_lane": "lexical_recall"
+    },
+    {
+      "id": "c1s2_spider_beat",
+      "question": "Which large spider threat is named in the Session 2 recap?",
+      "notes": "entity_context; routes via magma_spider candidate hub.",
+      "expected_answer": "The Giant Flaming Spider.",
+      "must_hit_tokens": ["Spider", "Flaming"],
+      "stale_tokens": [],
+      "expect_route_substrings": ["Campaign 1/NPCs/magma_spider"],
+      "min_context_support_ratio": 0.55,
+      "benchmark_lane": "lexical_recall"
+    },
+    {
+      "id": "c1s2_centipede_beat",
+      "question": "Where did the giant centipede come from in the recap's threat list?",
+      "notes": "entity_context.",
+      "expected_answer": "The giant centipede crawled out of the well.",
+      "must_hit_tokens": ["centipede", "well"],
+      "stale_tokens": [],
+      "expect_route_substrings": ["Campaign 1/NPCs/giant_centipede_well"],
+      "min_context_support_ratio": 0.55,
+      "benchmark_lane": "lexical_recall"
+    },
+    {
+      "id": "c1s2_non_mutating_rat",
+      "question": "What does the recap emphasize about one rat versus mutation?",
+      "notes": "core_recall; exact recap phrasing.",
+      "expected_answer": "There was a rat that absolutely was not about to mutate.",
+      "must_hit_tokens": ["mutate", "rat"],
+      "stale_tokens": [],
+      "expect_route_substrings": ["Campaign 1/Parties/party_merchant_guards"],
+      "min_context_support_ratio": 0.55,
+      "benchmark_lane": "lexical_recall"
+    },
+    {
+      "id": "c1s2_planning_glowkindle_followup",
+      "question": "If we're prepping the next Glowkindle beat, what should we remember about the stash deal from Session 2?",
+      "notes": "planning_context wing; still retrieval-graded only.",
+      "expected_answer": "They negotiated with Glowkindle for the right to stash gear in the hidden alchemy room because that space was outside the original contract.",
+      "must_hit_tokens": ["Glowkindle", "stash", "alchemy", "contract"],
+      "stale_tokens": [],
+      "expect_route_substrings": ["Campaign 1/NPCs/glowkindle"],
+      "min_context_support_ratio": 0.55,
+      "benchmark_lane": "lexical_recall"
+    },
+    {
+      "id": "c1s2_prep_named_hostiles",
+      "question": "For combat prep, which named or clearly typed hostile creatures does Session 2 call out (even as 'easy' compared to rats)?",
+      "notes": "mechanical_prep_context wing; no statblock grading.",
+      "expected_answer": "The Giant Flaming Spider, the Giant Centipede from the well, ordinary rats, and the rat that was not about to mutate.",
+      "must_hit_tokens": ["Spider", "Centipede", "rats", "well"],
+      "stale_tokens": [],
+      "expect_route_substrings": [
+        "Campaign 1/NPCs/magma_spider",
+        "Campaign 1/NPCs/giant_centipede_well"
+      ],
+      "min_context_support_ratio": 0.55,
+      "benchmark_lane": "lexical_recall"
+    }
+  ]
+}

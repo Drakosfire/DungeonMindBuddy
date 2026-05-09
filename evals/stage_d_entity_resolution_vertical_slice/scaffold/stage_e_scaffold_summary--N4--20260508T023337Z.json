@@ -1,0 +1,122 @@
+{
+  "schema": "stage_e_scaffold_cohort_summary_v1",
+  "iso_utc": "2026-05-08T02:33:37Z",
+  "n": 4,
+  "graded_runs": 4,
+  "passed": 4,
+  "per_gate_pass_counts": {
+    "EE1": 4,
+    "EE2": 4,
+    "EE3": 4
+  },
+  "aggregate_violation_counts": {
+    "EE1": 0,
+    "EE2": 0,
+    "EE3": 0
+  },
+  "aggregate_status_counts": {
+    "preview_ok": 0,
+    "preview_error": 0,
+    "committed": 0,
+    "commit_error": 0,
+    "skipped_existing": 40
+  },
+  "runs": [
+    {
+      "generated_at": "2026-05-08T02:33:37.667761+00:00",
+      "campaign_id": "longmont-c1",
+      "gates_passed": "3/3",
+      "per_gate_verdict": {
+        "EE1": "PASS",
+        "EE2": "PASS",
+        "EE3": "PASS"
+      },
+      "violation_counts": {
+        "EE1": 0,
+        "EE2": 0,
+        "EE3": 0
+      },
+      "counts": {
+        "ops_total": 10,
+        "preview_ok": 0,
+        "preview_error": 0,
+        "committed": 0,
+        "commit_error": 0,
+        "skipped_existing": 10
+      },
+      "promotion_source": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/promotions/stage_d_session3_c1/longmont-c1_stage_d_promotion_20260508T023337Z.json"
+    },
+    {
+      "generated_at": "2026-05-08T02:33:37.667761+00:00",
+      "campaign_id": "longmont-c1",
+      "gates_passed": "3/3",
+      "per_gate_verdict": {
+        "EE1": "PASS",
+        "EE2": "PASS",
+        "EE3": "PASS"
+      },
+      "violation_counts": {
+        "EE1": 0,
+        "EE2": 0,
+        "EE3": 0
+      },
+      "counts": {
+        "ops_total": 10,
+        "preview_ok": 0,
+        "preview_error": 0,
+        "committed": 0,
+        "commit_error": 0,
+        "skipped_existing": 10
+      },
+      "promotion_source": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/promotions/stage_d_session3_c1/longmont-c1_stage_d_promotion_20260508T023337Z.json"
+    },
+    {
+      "generated_at": "2026-05-08T02:33:37.667761+00:00",
+      "campaign_id": "longmont-c1",
+      "gates_passed": "3/3",
+      "per_gate_verdict": {
+        "EE1": "PASS",
+        "EE2": "PASS",
+        "EE3": "PASS"
+      },
+      "violation_counts": {
+        "EE1": 0,
+        "EE2": 0,
+        "EE3": 0
+      },
+      "counts": {
+        "ops_total": 10,
+        "preview_ok": 0,
+        "preview_error": 0,
+        "committed": 0,
+        "commit_error": 0,
+        "skipped_existing": 10
+      },
+      "promotion_source": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/promotions/stage_d_session3_c1/longmont-c1_stage_d_promotion_20260508T023337Z.json"
+    },
+    {
+      "generated_at": "2026-05-08T02:33:37.667761+00:00",
+      "campaign_id": "longmont-c1",
+      "gates_passed": "3/3",
+      "per_gate_verdict": {
+        "EE1": "PASS",
+        "EE2": "PASS",
+        "EE3": "PASS"
+      },
+      "violation_counts": {
+        "EE1": 0,
+        "EE2": 0,
+        "EE3": 0
+      },
+      "counts": {
+        "ops_total": 10,
+        "preview_ok": 0,
+        "preview_error": 0,
+        "committed": 0,
+        "commit_error": 0,
+        "skipped_existing": 10
+      },
+      "promotion_source": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/promotions/stage_d_session3_c1/longmont-c1_stage_d_promotion_20260508T023337Z.json"
+    }
+  ]
+}

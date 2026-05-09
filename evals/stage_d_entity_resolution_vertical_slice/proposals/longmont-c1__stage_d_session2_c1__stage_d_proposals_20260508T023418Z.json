@@ -1,0 +1,169 @@
+{
+  "schema": "stage_d_cohort_proposals_v1",
+  "generated_at": "2026-05-08T02:34:18.038695+00:00",
+  "campaign_id": "longmont-c1",
+  "scenario_id": "stage_d_session2_c1",
+  "runner_version": "stage_d_runner_v0_deterministic",
+  "source_run_count": 1,
+  "proposed_records": [
+    {
+      "slug": "glowkindle",
+      "display_name": "Glowkindle",
+      "aliases": [],
+      "status": "candidate",
+      "first_session": 2,
+      "last_session": 2,
+      "hub_path": null,
+      "setting_hub_path": null,
+      "notes": "Proposed by Stage D deterministic v0; descriptor 'Glowkindle'; evidence event indices [3]. Branch hints inferred from location 'wizard_s_tower'.",
+      "proposed_campaign_hub_path": "Longmont Campaign/Campaign 1/NPCs/glowkindle/",
+      "proposed_setting_hub_path": "Elderwyld/Cities and Towns/Wizard S Tower/NPCs/glowkindle/",
+      "proposed_location_slug": "wizard_s_tower",
+      "proposed_divergence_mode": "inherit",
+      "appearance_runs": 1,
+      "sample_run_indices": [
+        0
+      ]
+    }
+  ],
+  "proposed_aliases": [],
+  "unresolvable": [],
+  "source_events": [
+    {
+      "event_name": "Rat cleanup in the wizard's tower basement",
+      "event_class": "combat",
+      "participants": [
+        "karsemine",
+        "stafl",
+        "caelynn",
+        "ephanna",
+        "bonogo",
+        "baergrom"
+      ],
+      "referenced_slugs": [],
+      "location": "Wizard's Tower basement",
+      "outcomes": [
+        "The party survived the fight and finished clearing the remaining rats in the Wizard's Tower basement.",
+        "They also handled a Giant Flaming Spider, a Giant Centipede that crawled out of the well, and a rat that was not about to mutate.",
+        "The basement was cleared as part of the aftermath of the Session 1 giant-rat battle."
+      ],
+      "time_scope": "scene",
+      "certainty": "observed",
+      "evidence_id": "Longmont Campaign/Campaign 1/Session Recaps/Session 2 - Finishing the Job.md"
+    },
+    {
+      "event_name": "Loot recovered from the basement and well",
+      "event_class": "discovery",
+      "participants": [
+        "karsemine",
+        "stafl",
+        "caelynn",
+        "ephanna",
+        "bonogo",
+        "baergrom"
+      ],
+      "referenced_slugs": [],
+      "location": "Wizard's Tower basement",
+      "outcomes": [
+        "The group found a sack of gems.",
+        "They recovered mystery potions from corpses in the well.",
+        "They came away with additional loot from the cleared basement."
+      ],
+      "time_scope": "scene",
+      "certainty": "observed",
+      "evidence_id": "Longmont Campaign/Campaign 1/Session Recaps/Session 2 - Finishing the Job.md"
+    },
+    {
+      "event_name": "Hidden alchemy room revealed",
+      "event_class": "discovery",
+      "participants": [
+        "karsemine",
+        "stafl",
+        "caelynn",
+        "ephanna",
+        "bonogo",
+        "baergrom"
+      ],
+      "referenced_slugs": [],
+      "location": "Wizard's Tower basement",
+      "outcomes": [
+        "The party bashed down a wall to reveal a hidden room.",
+        "The hidden room contained healing potions and alchemical tools and ingredients of ancient and incredible design.",
+        "The group did not yet know how to use the alchemical supplies."
+      ],
+      "time_scope": "scene",
+      "certainty": "observed",
+      "evidence_id": "Longmont Campaign/Campaign 1/Session Recaps/Session 2 - Finishing the Job.md"
+    },
+    {
+      "event_name": "Negotiation with Glowkindle over the alchemy room",
+      "event_class": "social_conflict",
+      "participants": [
+        "karsemine",
+        "stafl",
+        "caelynn",
+        "ephanna",
+        "bonogo",
+        "baergrom",
+        "glowkindle"
+      ],
+      "referenced_slugs": [
+        "glowkindle"
+      ],
+      "location": "Wizard's Tower",
+      "outcomes": [
+        "The party negotiated with Glowkindle for the right to stash gear in the hidden alchemy room.",
+        "They established that the room was not part of the original contract, and neither was the rest of the place.",
+        "Glowkindle agreed to let them use the hidden alchemy room as storage."
+      ],
+      "time_scope": "scene",
+      "certainty": "observed",
+      "evidence_id": "Longmont Campaign/Campaign 1/Session Recaps/Session 2 - Finishing the Job.md"
+    },
+    {
+      "event_name": "Payment and loot split",
+      "event_class": "transfer",
+      "participants": [
+        "karsemine",
+        "stafl",
+        "caelynn",
+        "ephanna",
+        "bonogo",
+        "baergrom"
+      ],
+      "referenced_slugs": [],
+      "location": "Wizard's Tower",
+      "outcomes": [
+        "The group made 25 gp each from the job.",
+        "They received a bit of loot in addition to the cash payout.",
+        "The cleanup of the basement proved financially worthwhile."
+      ],
+      "time_scope": "scene",
+      "certainty": "observed",
+      "evidence_id": "Longmont Campaign/Campaign 1/Session Recaps/Session 2 - Finishing the Job.md"
+    },
+    {
+      "event_name": "Party chooses to stay together",
+      "event_class": "conversation",
+      "participants": [
+        "karsemine",
+        "stafl",
+        "caelynn",
+        "ephanna",
+        "bonogo",
+        "baergrom"
+      ],
+      "referenced_slugs": [],
+      "location": "Wizard's Tower",
+      "outcomes": [
+        "After the job, the group decided to stick together.",
+        "They agreed to see where the winds take them next.",
+        "The party left their immediate next move open-ended."
+      ],
+      "time_scope": "scene",
+      "certainty": "observed",
+      "evidence_id": "Longmont Campaign/Campaign 1/Session Recaps/Session 2 - Finishing the Job.md"
+    }
+  ],
+  "source_events_path": "evals/stage_c_npc_candidates_vertical_slice/fixtures/stage_a_events_session2_c1.json"
+}

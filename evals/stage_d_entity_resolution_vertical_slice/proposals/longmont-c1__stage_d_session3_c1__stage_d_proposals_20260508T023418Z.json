@@ -1,0 +1,338 @@
+{
+  "schema": "stage_d_cohort_proposals_v1",
+  "generated_at": "2026-05-08T02:34:18.041284+00:00",
+  "campaign_id": "longmont-c1",
+  "scenario_id": "stage_d_session3_c1",
+  "runner_version": "stage_d_runner_v0_deterministic",
+  "source_run_count": 1,
+  "proposed_records": [
+    {
+      "slug": "grishna",
+      "display_name": "Grishna",
+      "aliases": [],
+      "status": "candidate",
+      "first_session": 3,
+      "last_session": 3,
+      "hub_path": null,
+      "setting_hub_path": null,
+      "notes": "Proposed by Stage D deterministic v0; descriptor 'Grishna'; evidence event indices [2, 3]. Branch hints inferred from location 'stonebridge'.",
+      "proposed_campaign_hub_path": "Longmont Campaign/Campaign 1/NPCs/grishna/",
+      "proposed_setting_hub_path": "Elderwyld/Cities and Towns/Stonebridge/NPCs/grishna/",
+      "proposed_location_slug": "stonebridge",
+      "proposed_divergence_mode": "inherit",
+      "appearance_runs": 1,
+      "sample_run_indices": [
+        0
+      ]
+    },
+    {
+      "slug": "kirfan",
+      "display_name": "Kirfan",
+      "aliases": [],
+      "status": "candidate",
+      "first_session": 3,
+      "last_session": 3,
+      "hub_path": null,
+      "setting_hub_path": null,
+      "notes": "Proposed by Stage D deterministic v0; descriptor 'Kirfan'; evidence event indices [1]. Branch hints inferred from location 'upriver_river_route'.",
+      "proposed_campaign_hub_path": "Longmont Campaign/Campaign 1/NPCs/kirfan/",
+      "proposed_setting_hub_path": "Elderwyld/Cities and Towns/Upriver River Route/NPCs/kirfan/",
+      "proposed_location_slug": "upriver_river_route",
+      "proposed_divergence_mode": "inherit",
+      "appearance_runs": 1,
+      "sample_run_indices": [
+        0
+      ]
+    }
+  ],
+  "proposed_aliases": [],
+  "unresolvable": [],
+  "source_events": [
+    {
+      "event_name": "Ride to StoneBridge with Pippa and Bubbles",
+      "event_class": "travel",
+      "participants": [
+        "caelynn",
+        "ephanna",
+        "stafl",
+        "baergrom",
+        "bonogo",
+        "karsemine",
+        "pippa",
+        "bubbles"
+      ],
+      "referenced_slugs": [],
+      "location": "from the river road to StoneBridge and the dock/barge landing",
+      "outcomes": [
+        "Pippa hitchhikes Bubbles the Float Goat to her wagon full of kegs.",
+        "Caelynn, Ephanna, Stafl, Baergrom, and Karsemine accept Pippa's ride to StoneBridge.",
+        "The group travels by wagon and barge toward StoneBridge."
+      ],
+      "time_scope": "scene",
+      "certainty": "observed",
+      "evidence_id": "Longmont Campaign/Campaign 1/Session Recaps/Session 3 - The Stone Bridge Flood.md"
+    },
+    {
+      "event_name": "Recover debris from the broken riverside structure",
+      "event_class": "investigation",
+      "participants": [
+        "bonogo",
+        "stafl",
+        "baergrom"
+      ],
+      "referenced_slugs": [
+        "kirfan"
+      ],
+      "location": "upriver river route",
+      "outcomes": [
+        "The party helps pull up debris from the broken structure upriver.",
+        "Bonogo dives into the water to investigate what was stuck in the fisherman’s net.",
+        "Stafl and Baergrom haul the net to the surface and reveal it is part of roof corner beams, not a fish."
+      ],
+      "time_scope": "scene",
+      "certainty": "observed",
+      "evidence_id": "Longmont Campaign/Campaign 1/Session Recaps/Session 3 - The Stone Bridge Flood.md"
+    },
+    {
+      "event_name": "Beer and music at the River's Edge Pub",
+      "event_class": "conversation",
+      "participants": [
+        "pippa",
+        "grishna",
+        "stafl"
+      ],
+      "referenced_slugs": [],
+      "location": "River's Edge Pub in StoneBridge",
+      "outcomes": [
+        "Pippa, the party, and Grishna share welcome beers at the River's Edge Pub.",
+        "Stafl joins another bard in a jam and impresses the room with his song craft.",
+        "The crew retells their Wizard’s Tower Brewery adventure to the evening patrons."
+      ],
+      "time_scope": "scene",
+      "certainty": "observed",
+      "evidence_id": "Longmont Campaign/Campaign 1/Session Recaps/Session 3 - The Stone Bridge Flood.md"
+    },
+    {
+      "event_name": "Storm worsens over StoneBridge",
+      "event_class": "disaster",
+      "participants": [
+        "pippa",
+        "grishna",
+        "stafl",
+        "caelynn",
+        "ephanna",
+        "bonogo",
+        "baergrom",
+        "karsemine"
+      ],
+      "referenced_slugs": [],
+      "location": "StoneBridge and the River's Edge Pub",
+      "outcomes": [
+        "The loud drumming on the roof turns out to be torrential rain.",
+        "A horrible storm builds rapidly and threatens the town.",
+        "Pippa excuses herself to check on Bubbles as the weather deteriorates."
+      ],
+      "time_scope": "scene",
+      "certainty": "observed",
+      "evidence_id": "Longmont Campaign/Campaign 1/Session Recaps/Session 3 - The Stone Bridge Flood.md"
+    },
+    {
+      "event_name": "Pippa cries out for Bubbles",
+      "event_class": "conversation",
+      "participants": [
+        "pippa"
+      ],
+      "referenced_slugs": [
+        "bubbles"
+      ],
+      "location": "outside the River's Edge Pub",
+      "outcomes": [
+        "Pippa is found soaked and panicked in rushing floodwater.",
+        "She says Bubbles is missing and that the lead has broken.",
+        "The party realizes Bubbles is in immediate danger."
+      ],
+      "time_scope": "scene",
+      "certainty": "observed",
+      "evidence_id": "Longmont Campaign/Campaign 1/Session Recaps/Session 3 - The Stone Bridge Flood.md"
+    },
+    {
+      "event_name": "Ephanna tries the first mage hand lasso",
+      "event_class": "combat",
+      "participants": [
+        "ephanna"
+      ],
+      "referenced_slugs": [
+        "bubbles"
+      ],
+      "location": "rock in the flooded river by the pub dock",
+      "outcomes": [
+        "Ephanna uses mage hand to throw a lasso at Bubbles.",
+        "Bubbles panics and bites the mage hand.",
+        "The first rescue attempt fails and the rope is lost into the water."
+      ],
+      "time_scope": "scene",
+      "certainty": "observed",
+      "evidence_id": "Longmont Campaign/Campaign 1/Session Recaps/Session 3 - The Stone Bridge Flood.md"
+    },
+    {
+      "event_name": "Caelynn freezes a platform around Bubbles' rock",
+      "event_class": "discovery",
+      "participants": [
+        "caelynn"
+      ],
+      "referenced_slugs": [
+        "bubbles"
+      ],
+      "location": "flooded river beside the pub dock",
+      "outcomes": [
+        "Caelynn uses ice to freeze the base of the rock.",
+        "The frozen ice creates a platform for reaching Bubbles.",
+        "The party gains a safer route toward the floating goat."
+      ],
+      "time_scope": "scene",
+      "certainty": "observed",
+      "evidence_id": "Longmont Campaign/Campaign 1/Session Recaps/Session 3 - The Stone Bridge Flood.md"
+    },
+    {
+      "event_name": "Bonogo dives after Bubbles and is swept downstream",
+      "event_class": "combat",
+      "participants": [
+        "bonogo",
+        "baergrom"
+      ],
+      "referenced_slugs": [
+        "bubbles"
+      ],
+      "location": "flooded river and riverbank",
+      "outcomes": [
+        "Bonogo dives into the water to rescue Bubbles.",
+        "Baergrom loses hold of the rope as the current surges.",
+        "Bonogo is carried downstream by the flood and disappears from sight."
+      ],
+      "time_scope": "scene",
+      "certainty": "observed",
+      "evidence_id": "Longmont Campaign/Campaign 1/Session Recaps/Session 3 - The Stone Bridge Flood.md"
+    },
+    {
+      "event_name": "Stafl rallies town support and flood defenses",
+      "event_class": "social_conflict",
+      "participants": [
+        "stafl"
+      ],
+      "referenced_slugs": [
+        "bubbles"
+      ],
+      "location": "StoneBridge streets and bridge approaches",
+      "outcomes": [
+        "Stafl bangs on doors and gathers townfolk to help.",
+        "Nets are dropped across the river flow ways.",
+        "Stafl helps evacuate residents to the pub on high ground."
+      ],
+      "time_scope": "scene",
+      "certainty": "observed",
+      "evidence_id": "Longmont Campaign/Campaign 1/Session Recaps/Session 3 - The Stone Bridge Flood.md"
+    },
+    {
+      "event_name": "Second mage hand lasso reaches Bubbles",
+      "event_class": "transfer",
+      "participants": [
+        "ephanna"
+      ],
+      "referenced_slugs": [
+        "bubbles"
+      ],
+      "location": "river dock and ice path",
+      "outcomes": [
+        "Ephanna sends mage hand and rope out again to Bubbles.",
+        "The second attempt succeeds and lassos Bubbles.",
+        "Bubbles is led to Ephanna instead of drifting free."
+      ],
+      "time_scope": "scene",
+      "certainty": "observed",
+      "evidence_id": "Longmont Campaign/Campaign 1/Session Recaps/Session 3 - The Stone Bridge Flood.md"
+    },
+    {
+      "event_name": "Karsemine uses Zephyr Strike to track Bonogo",
+      "event_class": "combat",
+      "participants": [
+        "karsemine"
+      ],
+      "referenced_slugs": [
+        "bonogo"
+      ],
+      "location": "riverbank downstream of StoneBridge",
+      "outcomes": [
+        "Karsemine casts Zephyr Strike and runs down the bank.",
+        "She fires arrows at where Bonogo likely was in the current.",
+        "Karsemine tries to keep pace with the runaway rescue attempt."
+      ],
+      "time_scope": "scene",
+      "certainty": "observed",
+      "evidence_id": "Longmont Campaign/Campaign 1/Session Recaps/Session 3 - The Stone Bridge Flood.md"
+    },
+    {
+      "event_name": "Stafl and Caelynn launch the dinghy after Bonogo",
+      "event_class": "travel",
+      "participants": [
+        "stafl",
+        "caelynn"
+      ],
+      "referenced_slugs": [
+        "bonogo"
+      ],
+      "location": "StoneBridge floodwater and river",
+      "outcomes": [
+        "Stafl and Caelynn cut loose a dinghy.",
+        "They let the river carry the boat after Bonogo.",
+        "A lit net is used as a makeshift guide while they pursue the downstream rescue."
+      ],
+      "time_scope": "scene",
+      "certainty": "observed",
+      "evidence_id": "Longmont Campaign/Campaign 1/Session Recaps/Session 3 - The Stone Bridge Flood.md"
+    },
+    {
+      "event_name": "Ephanna gets Bubbles to the dock and rides out after the boats",
+      "event_class": "travel",
+      "participants": [
+        "ephanna",
+        "bubbles"
+      ],
+      "referenced_slugs": [],
+      "location": "ice path, dock, and rushing river",
+      "outcomes": [
+        "Ephanna and the mage hand coax Bubbles onto the lasso route.",
+        "Bubbles crosses the ice path to the dock safely.",
+        "Ephanna hops on Bubbles' back and follows after the runaway boats."
+      ],
+      "time_scope": "scene",
+      "certainty": "observed",
+      "evidence_id": "Longmont Campaign/Campaign 1/Session Recaps/Session 3 - The Stone Bridge Flood.md"
+    },
+    {
+      "event_name": "Bonogo is rescued and the town settles",
+      "event_class": "transfer",
+      "participants": [
+        "bonogo",
+        "caelynn",
+        "stafl",
+        "ephanna",
+        "karsemine",
+        "baergrom",
+        "pippa"
+      ],
+      "referenced_slugs": [
+        "bubbles"
+      ],
+      "location": "River's Edge Pub and StoneBridge",
+      "outcomes": [
+        "Bonogo is rescued from the flood.",
+        "The wet adventurers return to the pub to dry off.",
+        "StoneBridge is left damp but safe, and the party realizes they have saved Bubbles the Float Goat."
+      ],
+      "time_scope": "scene",
+      "certainty": "observed",
+      "evidence_id": "Longmont Campaign/Campaign 1/Session Recaps/Session 3 - The Stone Bridge Flood.md"
+    }
+  ],
+  "source_events_path": "evals/stage_c_npc_candidates_vertical_slice/fixtures/stage_a_events_session3_c1.json"
+}

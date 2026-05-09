@@ -1,0 +1,196 @@
+{
+  "schema": "stage_d_promotion_v2",
+  "generated_at": "2026-05-08T02:34:18.041467+00:00",
+  "campaign_id": "longmont-c1",
+  "model_id": null,
+  "llm_enabled": false,
+  "cost": {
+    "total_usd": 0.0,
+    "calls": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "cached_tokens": 0
+  },
+  "sources": [
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/proposals/longmont-c1__stage_d_session3_c1__stage_d_proposals_20260508T023418Z.json"
+  ],
+  "registry_size": 4,
+  "proposed_new_records": [
+    {
+      "slug": "grishna",
+      "display_name": "Grishna",
+      "aliases": [],
+      "first_session": 3,
+      "last_session": 3,
+      "proposed_campaign_hub_path": "Longmont Campaign/Campaign 1/NPCs/grishna/",
+      "proposed_setting_hub_path": "Elderwyld/Cities and Towns/Stonebridge/NPCs/grishna/",
+      "proposed_location_slug": "stonebridge",
+      "proposed_divergence_mode": "inherit",
+      "appearance_runs": 1,
+      "session_appearances": [
+        3
+      ],
+      "registry_collision_flags": {
+        "slug_collision": false,
+        "display_name_overlap": null,
+        "pc_collision": false
+      },
+      "evidence": [
+        {
+          "scenario_id": "stage_d_session3_c1",
+          "session_number": 3,
+          "descriptors_seen": [
+            "Grishna"
+          ],
+          "evidence_event_indices": [
+            2,
+            3
+          ],
+          "source_file": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/proposals/longmont-c1__stage_d_session3_c1__stage_d_proposals_20260508T023418Z.json",
+          "events": [
+            {
+              "event_index": 2,
+              "event_name": "Beer and music at the River's Edge Pub",
+              "event_class": "conversation",
+              "participants": [
+                "pippa",
+                "grishna",
+                "stafl"
+              ],
+              "referenced_slugs": [],
+              "location": "River's Edge Pub in StoneBridge",
+              "outcomes": [
+                "Pippa, the party, and Grishna share welcome beers at the River's Edge Pub.",
+                "Stafl joins another bard in a jam and impresses the room with his song craft.",
+                "The crew retells their Wizard’s Tower Brewery adventure to the evening patrons."
+              ],
+              "time_scope": "scene",
+              "certainty": "observed",
+              "evidence_id": "Longmont Campaign/Campaign 1/Session Recaps/Session 3 - The Stone Bridge Flood.md"
+            },
+            {
+              "event_index": 3,
+              "event_name": "Storm worsens over StoneBridge",
+              "event_class": "disaster",
+              "participants": [
+                "pippa",
+                "grishna",
+                "stafl",
+                "caelynn",
+                "ephanna",
+                "bonogo",
+                "baergrom",
+                "karsemine"
+              ],
+              "referenced_slugs": [],
+              "location": "StoneBridge and the River's Edge Pub",
+              "outcomes": [
+                "The loud drumming on the roof turns out to be torrential rain.",
+                "A horrible storm builds rapidly and threatens the town.",
+                "Pippa excuses herself to check on Bubbles as the weather deteriorates."
+              ],
+              "time_scope": "scene",
+              "certainty": "observed",
+              "evidence_id": "Longmont Campaign/Campaign 1/Session Recaps/Session 3 - The Stone Bridge Flood.md"
+            }
+          ]
+        }
+      ],
+      "recommendation_source": "deterministic_only",
+      "recommendation": null,
+      "confidence": null,
+      "rationale": null
+    },
+    {
+      "slug": "kirfan",
+      "display_name": "Kirfan",
+      "aliases": [],
+      "first_session": 3,
+      "last_session": 3,
+      "proposed_campaign_hub_path": "Longmont Campaign/Campaign 1/NPCs/kirfan/",
+      "proposed_setting_hub_path": "Elderwyld/Cities and Towns/Upriver River Route/NPCs/kirfan/",
+      "proposed_location_slug": "upriver_river_route",
+      "proposed_divergence_mode": "inherit",
+      "appearance_runs": 1,
+      "session_appearances": [
+        3
+      ],
+      "registry_collision_flags": {
+        "slug_collision": false,
+        "display_name_overlap": null,
+        "pc_collision": false
+      },
+      "evidence": [
+        {
+          "scenario_id": "stage_d_session3_c1",
+          "session_number": 3,
+          "descriptors_seen": [
+            "Kirfan"
+          ],
+          "evidence_event_indices": [
+            1
+          ],
+          "source_file": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/proposals/longmont-c1__stage_d_session3_c1__stage_d_proposals_20260508T023418Z.json",
+          "events": [
+            {
+              "event_index": 1,
+              "event_name": "Recover debris from the broken riverside structure",
+              "event_class": "investigation",
+              "participants": [
+                "bonogo",
+                "stafl",
+                "baergrom"
+              ],
+              "referenced_slugs": [
+                "kirfan"
+              ],
+              "location": "upriver river route",
+              "outcomes": [
+                "The party helps pull up debris from the broken structure upriver.",
+                "Bonogo dives into the water to investigate what was stuck in the fisherman’s net.",
+                "Stafl and Baergrom haul the net to the surface and reveal it is part of roof corner beams, not a fish."
+              ],
+              "time_scope": "scene",
+              "certainty": "observed",
+              "evidence_id": "Longmont Campaign/Campaign 1/Session Recaps/Session 3 - The Stone Bridge Flood.md"
+            }
+          ]
+        }
+      ],
+      "recommendation_source": "deterministic_only",
+      "recommendation": null,
+      "confidence": null,
+      "rationale": null
+    }
+  ],
+  "proposed_aliases": [],
+  "unresolvable": [],
+  "branch_scaffold_proposals": [
+    {
+      "slug": "grishna",
+      "display_name": "Grishna",
+      "location_slug": "stonebridge",
+      "divergence_mode": "inherit",
+      "world_parent_hub_path": "Elderwyld/Cities and Towns/Stonebridge/NPCs/grishna/",
+      "campaign_overlay_hub_path": "Longmont Campaign/Campaign 1/NPCs/grishna/",
+      "recommended_files": [
+        "Longmont Campaign/Campaign 1/NPCs/grishna/README.md",
+        "Longmont Campaign/Campaign 1/NPCs/grishna/timeline.md",
+        "Longmont Campaign/Campaign 1/NPCs/grishna/grishna_character_dossier.md"
+      ]
+    },
+    {
+      "slug": "kirfan",
+      "display_name": "Kirfan",
+      "location_slug": "upriver_river_route",
+      "divergence_mode": "inherit",
+      "world_parent_hub_path": "Elderwyld/Cities and Towns/Upriver River Route/NPCs/kirfan/",
+      "campaign_overlay_hub_path": "Longmont Campaign/Campaign 1/NPCs/kirfan/",
+      "recommended_files": [
+        "Longmont Campaign/Campaign 1/NPCs/kirfan/README.md",
+        "Longmont Campaign/Campaign 1/NPCs/kirfan/timeline.md",
+        "Longmont Campaign/Campaign 1/NPCs/kirfan/kirfan_character_dossier.md"
+      ]
+    }
+  ]
+}

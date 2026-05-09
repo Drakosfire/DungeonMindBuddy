@@ -1,0 +1,167 @@
+{
+  "schema": "stage_e_npc_hub_scaffold_v1",
+  "generated_at": "2026-05-08T01:35:59.745508+00:00",
+  "campaign_id": "longmont-c1",
+  "promotion_source": "evals/stage_d_entity_resolution_vertical_slice/promotions/longmont-c1_stage_d_promotion_20260508T013352Z.json",
+  "commit": false,
+  "counts": {
+    "ops_total": 10,
+    "preview_ok": 10,
+    "preview_error": 0,
+    "committed": 0,
+    "commit_error": 0,
+    "skipped_existing": 0
+  },
+  "ops": [
+    {
+      "path": "Elderwyld/Cities and Towns/Stonebridge/NPCs/grishna/README.md",
+      "mode": "create",
+      "status": "preview_ok",
+      "preview": {
+        "ok": true,
+        "phase": "preview",
+        "path": "Elderwyld/Cities and Towns/Stonebridge/NPCs/grishna/README.md",
+        "mode": "create",
+        "confirm_token": "609fd175cf2f3bb9d24a83b95f30d3f1",
+        "diff": "--- a/Elderwyld/Cities and Towns/Stonebridge/NPCs/grishna/README.md\n+++ b/Elderwyld/Cities and Towns/Stonebridge/NPCs/grishna/README.md\n@@ -0,0 +1,16 @@\n+---\n+title: Grishna\n+subject_class: npc\n+subject_doc_kind: hub_index\n+document_class: world\n+canon_layer: world\n+campaign_id: null\n+temporal_scope: evergreen\n+primary_location_slug: stonebridge\n+---\n+\n+# Grishna\n+\n+## Suggested reads (in order)\n+\n+1. `character_seed.md` - World-level seed profile.\n",
+        "new_size_bytes": 284,
+        "next_call": "After operator approves the diff, re-call with the same arguments plus `dry_run=false` and `confirm_token='609fd175cf2f3bb9d24a83b95f30d3f1'`."
+      }
+    },
+    {
+      "path": "Elderwyld/Cities and Towns/Stonebridge/NPCs/grishna/character_seed.md",
+      "mode": "create",
+      "status": "preview_ok",
+      "preview": {
+        "ok": true,
+        "phase": "preview",
+        "path": "Elderwyld/Cities and Towns/Stonebridge/NPCs/grishna/character_seed.md",
+        "mode": "create",
+        "confirm_token": "3a4816f6eabc93d3a9177e476d165573",
+        "diff": "--- a/Elderwyld/Cities and Towns/Stonebridge/NPCs/grishna/character_seed.md\n+++ b/Elderwyld/Cities and Towns/Stonebridge/NPCs/grishna/character_seed.md\n@@ -0,0 +1,5 @@\n+# Grishna - character seed\n+\n+- Origin: TBD\n+- Core motivation: TBD\n+- Signature detail: TBD\n",
+        "new_size_bytes": 89,
+        "next_call": "After operator approves the diff, re-call with the same arguments plus `dry_run=false` and `confirm_token='3a4816f6eabc93d3a9177e476d165573'`."
+      }
+    },
+    {
+      "path": "Longmont Campaign/Campaign 1/NPCs/grishna/README.md",
+      "mode": "create",
+      "status": "preview_ok",
+      "preview": {
+        "ok": true,
+        "phase": "preview",
+        "path": "Longmont Campaign/Campaign 1/NPCs/grishna/README.md",
+        "mode": "create",
+        "confirm_token": "e21f4b9986f7c841129dc1866a840512",
+        "diff": "--- a/Longmont Campaign/Campaign 1/NPCs/grishna/README.md\n+++ b/Longmont Campaign/Campaign 1/NPCs/grishna/README.md\n@@ -0,0 +1,19 @@\n+---\n+title: Grishna\n+subject_class: npc\n+subject_doc_kind: hub_index\n+document_class: reference\n+canon_layer: campaign\n+campaign_id: longmont-c1\n+temporal_scope: campaign_stateful\n+world_hub_path: Elderwyld/Cities and Towns/Stonebridge/NPCs/grishna/README.md\n+divergence_mode: inherit\n+primary_location_slug: stonebridge\n+---\n+\n+# Grishna\n+\n+## Suggested reads (in order)\n+\n+1. `grishna_character_dossier.md` - Campaign-facing dossier.\n+2. `timeline.md` - Session-indexed continuity row pointers.\n",
+        "new_size_bytes": 479,
+        "next_call": "After operator approves the diff, re-call with the same arguments plus `dry_run=false` and `confirm_token='e21f4b9986f7c841129dc1866a840512'`."
+      }
+    },
+    {
+      "path": "Longmont Campaign/Campaign 1/NPCs/grishna/timeline.md",
+      "mode": "create",
+      "status": "preview_ok",
+      "preview": {
+        "ok": true,
+        "phase": "preview",
+        "path": "Longmont Campaign/Campaign 1/NPCs/grishna/timeline.md",
+        "mode": "create",
+        "confirm_token": "2dc19889d7a5035202d511afb48b6fac",
+        "diff": "--- a/Longmont Campaign/Campaign 1/NPCs/grishna/timeline.md\n+++ b/Longmont Campaign/Campaign 1/NPCs/grishna/timeline.md\n@@ -0,0 +1,4 @@\n+# Grishna timeline\n+\n+| Session | Beat (short) | Recap / prep |\n+| --- | --- | --- |\n",
+        "new_size_bytes": 82,
+        "next_call": "After operator approves the diff, re-call with the same arguments plus `dry_run=false` and `confirm_token='2dc19889d7a5035202d511afb48b6fac'`."
+      }
+    },
+    {
+      "path": "Longmont Campaign/Campaign 1/NPCs/grishna/grishna_character_dossier.md",
+      "mode": "create",
+      "status": "preview_ok",
+      "preview": {
+        "ok": true,
+        "phase": "preview",
+        "path": "Longmont Campaign/Campaign 1/NPCs/grishna/grishna_character_dossier.md",
+        "mode": "create",
+        "confirm_token": "f04daea0d51bf78c0a568b8d6c0f503e",
+        "diff": "--- a/Longmont Campaign/Campaign 1/NPCs/grishna/grishna_character_dossier.md\n+++ b/Longmont Campaign/Campaign 1/NPCs/grishna/grishna_character_dossier.md\n@@ -0,0 +1,5 @@\n+# Grishna dossier\n+\n+## Summary\n+\n+TBD.\n",
+        "new_size_bytes": 36,
+        "next_call": "After operator approves the diff, re-call with the same arguments plus `dry_run=false` and `confirm_token='f04daea0d51bf78c0a568b8d6c0f503e'`."
+      }
+    },
+    {
+      "path": "Elderwyld/Cities and Towns/Upriver River Route/NPCs/kirfan/README.md",
+      "mode": "create",
+      "status": "preview_ok",
+      "preview": {
+        "ok": true,
+        "phase": "preview",
+        "path": "Elderwyld/Cities and Towns/Upriver River Route/NPCs/kirfan/README.md",
+        "mode": "create",
+        "confirm_token": "0b464cfe91d30573edc7f0de7a1ae0e9",
+        "diff": "--- a/Elderwyld/Cities and Towns/Upriver River Route/NPCs/kirfan/README.md\n+++ b/Elderwyld/Cities and Towns/Upriver River Route/NPCs/kirfan/README.md\n@@ -0,0 +1,16 @@\n+---\n+title: Kirfan\n+subject_class: npc\n+subject_doc_kind: hub_index\n+document_class: world\n+canon_layer: world\n+campaign_id: null\n+temporal_scope: evergreen\n+primary_location_slug: upriver_river_route\n+---\n+\n+# Kirfan\n+\n+## Suggested reads (in order)\n+\n+1. `character_seed.md` - World-level seed profile.\n",
+        "new_size_bytes": 290,
+        "next_call": "After operator approves the diff, re-call with the same arguments plus `dry_run=false` and `confirm_token='0b464cfe91d30573edc7f0de7a1ae0e9'`."
+      }
+    },
+    {
+      "path": "Elderwyld/Cities and Towns/Upriver River Route/NPCs/kirfan/character_seed.md",
+      "mode": "create",
+      "status": "preview_ok",
+      "preview": {
+        "ok": true,
+        "phase": "preview",
+        "path": "Elderwyld/Cities and Towns/Upriver River Route/NPCs/kirfan/character_seed.md",
+        "mode": "create",
+        "confirm_token": "aef2036772b19c1d784d2994e2dacf9f",
+        "diff": "--- a/Elderwyld/Cities and Towns/Upriver River Route/NPCs/kirfan/character_seed.md\n+++ b/Elderwyld/Cities and Towns/Upriver River Route/NPCs/kirfan/character_seed.md\n@@ -0,0 +1,5 @@\n+# Kirfan - character seed\n+\n+- Origin: TBD\n+- Core motivation: TBD\n+- Signature detail: TBD\n",
+        "new_size_bytes": 88,
+        "next_call": "After operator approves the diff, re-call with the same arguments plus `dry_run=false` and `confirm_token='aef2036772b19c1d784d2994e2dacf9f'`."
+      }
+    },
+    {
+      "path": "Longmont Campaign/Campaign 1/NPCs/kirfan/README.md",
+      "mode": "create",
+      "status": "preview_ok",
+      "preview": {
+        "ok": true,
+        "phase": "preview",
+        "path": "Longmont Campaign/Campaign 1/NPCs/kirfan/README.md",
+        "mode": "create",
+        "confirm_token": "145bc664392d64aefaaf8c092532ee78",
+        "diff": "--- a/Longmont Campaign/Campaign 1/NPCs/kirfan/README.md\n+++ b/Longmont Campaign/Campaign 1/NPCs/kirfan/README.md\n@@ -0,0 +1,19 @@\n+---\n+title: Kirfan\n+subject_class: npc\n+subject_doc_kind: hub_index\n+document_class: reference\n+canon_layer: campaign\n+campaign_id: longmont-c1\n+temporal_scope: campaign_stateful\n+world_hub_path: Elderwyld/Cities and Towns/Upriver River Route/NPCs/kirfan/README.md\n+divergence_mode: inherit\n+primary_location_slug: upriver_river_route\n+---\n+\n+# Kirfan\n+\n+## Suggested reads (in order)\n+\n+1. `kirfan_character_dossier.md` - Campaign-facing dossier.\n+2. `timeline.md` - Session-indexed continuity row pointers.\n",
+        "new_size_bytes": 491,
+        "next_call": "After operator approves the diff, re-call with the same arguments plus `dry_run=false` and `confirm_token='145bc664392d64aefaaf8c092532ee78'`."
+      }
+    },
+    {
+      "path": "Longmont Campaign/Campaign 1/NPCs/kirfan/timeline.md",
+      "mode": "create",
+      "status": "preview_ok",
+      "preview": {
+        "ok": true,
+        "phase": "preview",
+        "path": "Longmont Campaign/Campaign 1/NPCs/kirfan/timeline.md",
+        "mode": "create",
+        "confirm_token": "fc0f34694b782d9cb22eb33db36ec97f",
+        "diff": "--- a/Longmont Campaign/Campaign 1/NPCs/kirfan/timeline.md\n+++ b/Longmont Campaign/Campaign 1/NPCs/kirfan/timeline.md\n@@ -0,0 +1,4 @@\n+# Kirfan timeline\n+\n+| Session | Beat (short) | Recap / prep |\n+| --- | --- | --- |\n",
+        "new_size_bytes": 81,
+        "next_call": "After operator approves the diff, re-call with the same arguments plus `dry_run=false` and `confirm_token='fc0f34694b782d9cb22eb33db36ec97f'`."
+      }
+    },
+    {
+      "path": "Longmont Campaign/Campaign 1/NPCs/kirfan/kirfan_character_dossier.md",
+      "mode": "create",
+      "status": "preview_ok",
+      "preview": {
+        "ok": true,
+        "phase": "preview",
+        "path": "Longmont Campaign/Campaign 1/NPCs/kirfan/kirfan_character_dossier.md",
+        "mode": "create",
+        "confirm_token": "e71a7ad9772d29f9f2c1bee795e1f1d7",
+        "diff": "--- a/Longmont Campaign/Campaign 1/NPCs/kirfan/kirfan_character_dossier.md\n+++ b/Longmont Campaign/Campaign 1/NPCs/kirfan/kirfan_character_dossier.md\n@@ -0,0 +1,5 @@\n+# Kirfan dossier\n+\n+## Summary\n+\n+TBD.\n",
+        "new_size_bytes": 35,
+        "next_call": "After operator approves the diff, re-call with the same arguments plus `dry_run=false` and `confirm_token='e71a7ad9772d29f9f2c1bee795e1f1d7'`."
+      }
+    }
+  ]
+}

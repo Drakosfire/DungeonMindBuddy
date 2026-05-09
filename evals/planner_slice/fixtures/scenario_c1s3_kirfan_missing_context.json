@@ -1,0 +1,52 @@
+{
+  "id": "c1s3_kirfan_missing_context_scripted",
+  "description": "C1S3 named NPC statblock benchmark: Kirfan should expose missing registry/hub context instead of generating from nothing.",
+  "user_message": "Spin up a small statblock for Kirfan from the StoneBridge flood beats?",
+  "statblock_stub": null,
+  "mock_responses": [
+    {
+      "id": "resp-kirfan-1",
+      "output": [
+        {
+          "type": "function_call",
+          "name": "recall_npc_context",
+          "call_id": "fc-kirfan-recall",
+          "arguments": "{\"campaign_id\": \"longmont-c1\", \"npc\": \"Kirfan\", \"max_chars_per_file\": 4000}"
+        }
+      ]
+    },
+    {
+      "id": "resp-kirfan-2",
+      "output": [
+        {
+          "type": "message",
+          "content": [
+            {
+              "type": "output_text",
+              "text": "I do not have a tracked Kirfan NPC hub yet, so I would not generate a grounded statblock from the tool path without first expanding the corpus or doing additional discovery."
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "expect": {
+    "tool_names_in_order": [
+      "recall_npc_context"
+    ],
+    "recall_npc_context_args": {
+      "campaign_id": "longmont-c1",
+      "npc_contains": "kirfan"
+    },
+    "tool_outputs_must_include_substrings": [
+      {
+        "tool_index": 0,
+        "substring": "no matching NPC registry record"
+      }
+    ],
+    "no_generate_statblock": true,
+    "final_text_must_include": ["tracked Kirfan NPC hub"],
+    "all_scripted_responses_consumed": true,
+    "previous_response_id_chained_after_first_call": true
+  }
+}

@@ -1,0 +1,117 @@
+{
+  "schema": "stage_e_npc_hub_scaffold_v1",
+  "generated_at": "2026-05-08T02:34:18.036578+00:00",
+  "campaign_id": "longmont-c2",
+  "promotion_source": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/promotions/stage_d_session20/longmont-c2_stage_d_promotion_20260508T023418Z.json",
+  "commit": false,
+  "counts": {
+    "ops_total": 5,
+    "preview_ok": 5,
+    "preview_error": 0,
+    "committed": 0,
+    "commit_error": 0,
+    "skipped_existing": 0
+  },
+  "ops": [
+    {
+      "path": "Elderwyld/Cities and Towns/Camp Via Rockie/NPCs/professor_tealeaf/README.md",
+      "mode": "create",
+      "status": "preview_ok",
+      "preview": {
+        "ok": true,
+        "phase": "preview",
+        "path": "Elderwyld/Cities and Towns/Camp Via Rockie/NPCs/professor_tealeaf/README.md",
+        "mode": "create",
+        "confirm_token": "d6e921a082431f8ef7ae563dd6af495a",
+        "diff": "--- a/Elderwyld/Cities and Towns/Camp Via Rockie/NPCs/professor_tealeaf/README.md\n+++ b/Elderwyld/Cities and Towns/Camp Via Rockie/NPCs/professor_tealeaf/README.md\n@@ -0,0 +1,16 @@\n+---\n+title: Professor Tealeaf\n+subject_class: npc\n+subject_doc_kind: hub_index\n+document_class: world\n+canon_layer: world\n+campaign_id: null\n+temporal_scope: evergreen\n+primary_location_slug: camp_via_rockie\n+---\n+\n+# Professor Tealeaf\n+\n+## Suggested reads (in order)\n+\n+1. `character_seed.md` - World-level seed profile.\n",
+        "new_size_bytes": 308,
+        "next_call": "After operator approves the diff, re-call with the same arguments plus `dry_run=false` and `confirm_token='d6e921a082431f8ef7ae563dd6af495a'`."
+      }
+    },
+    {
+      "path": "Elderwyld/Cities and Towns/Camp Via Rockie/NPCs/professor_tealeaf/character_seed.md",
+      "mode": "create",
+      "status": "preview_ok",
+      "preview": {
+        "ok": true,
+        "phase": "preview",
+        "path": "Elderwyld/Cities and Towns/Camp Via Rockie/NPCs/professor_tealeaf/character_seed.md",
+        "mode": "create",
+        "confirm_token": "5a42d85bc4d85bacc4d348443c034906",
+        "diff": "--- a/Elderwyld/Cities and Towns/Camp Via Rockie/NPCs/professor_tealeaf/character_seed.md\n+++ b/Elderwyld/Cities and Towns/Camp Via Rockie/NPCs/professor_tealeaf/character_seed.md\n@@ -0,0 +1,5 @@\n+# Professor Tealeaf - character seed\n+\n+- Origin: TBD\n+- Core motivation: TBD\n+- Signature detail: TBD\n",
+        "new_size_bytes": 99,
+        "next_call": "After operator approves the diff, re-call with the same arguments plus `dry_run=false` and `confirm_token='5a42d85bc4d85bacc4d348443c034906'`."
+      }
+    },
+    {
+      "path": "Longmont Campaign/Campaign 2/NPCs/professor_tealeaf/README.md",
+      "mode": "create",
+      "status": "preview_ok",
+      "preview": {
+        "ok": true,
+        "phase": "preview",
+        "path": "Longmont Campaign/Campaign 2/NPCs/professor_tealeaf/README.md",
+        "mode": "create",
+        "confirm_token": "2511c8c4d275d4df725af638a9311c3e",
+        "diff": "--- a/Longmont Campaign/Campaign 2/NPCs/professor_tealeaf/README.md\n+++ b/Longmont Campaign/Campaign 2/NPCs/professor_tealeaf/README.md\n@@ -0,0 +1,19 @@\n+---\n+title: Professor Tealeaf\n+subject_class: npc\n+subject_doc_kind: hub_index\n+document_class: reference\n+canon_layer: campaign\n+campaign_id: longmont-c2\n+temporal_scope: campaign_stateful\n+world_hub_path: Elderwyld/Cities and Towns/Camp Via Rockie/NPCs/professor_tealeaf/README.md\n+divergence_mode: inherit\n+primary_location_slug: camp_via_rockie\n+---\n+\n+# Professor Tealeaf\n+\n+## Suggested reads (in order)\n+\n+1. `professor_tealeaf_character_dossier.md` - Campaign-facing dossier.\n+2. `timeline.md` - Session-indexed continuity row pointers.\n",
+        "new_size_bytes": 527,
+        "next_call": "After operator approves the diff, re-call with the same arguments plus `dry_run=false` and `confirm_token='2511c8c4d275d4df725af638a9311c3e'`."
+      }
+    },
+    {
+      "path": "Longmont Campaign/Campaign 2/NPCs/professor_tealeaf/timeline.md",
+      "mode": "create",
+      "status": "preview_ok",
+      "preview": {
+        "ok": true,
+        "phase": "preview",
+        "path": "Longmont Campaign/Campaign 2/NPCs/professor_tealeaf/timeline.md",
+        "mode": "create",
+        "confirm_token": "6ab6ad602bd0fb7b836db8cf347d767a",
+        "diff": "--- a/Longmont Campaign/Campaign 2/NPCs/professor_tealeaf/timeline.md\n+++ b/Longmont Campaign/Campaign 2/NPCs/professor_tealeaf/timeline.md\n@@ -0,0 +1,4 @@\n+# Professor Tealeaf timeline\n+\n+| Session | Beat (short) | Recap / prep |\n+| --- | --- | --- |\n",
+        "new_size_bytes": 92,
+        "next_call": "After operator approves the diff, re-call with the same arguments plus `dry_run=false` and `confirm_token='6ab6ad602bd0fb7b836db8cf347d767a'`."
+      }
+    },
+    {
+      "path": "Longmont Campaign/Campaign 2/NPCs/professor_tealeaf/professor_tealeaf_character_dossier.md",
+      "mode": "create",
+      "status": "preview_ok",
+      "preview": {
+        "ok": true,
+        "phase": "preview",
+        "path": "Longmont Campaign/Campaign 2/NPCs/professor_tealeaf/professor_tealeaf_character_dossier.md",
+        "mode": "create",
+        "confirm_token": "48ef18681e16a81e66d677a47e43ebd6",
+        "diff": "--- a/Longmont Campaign/Campaign 2/NPCs/professor_tealeaf/professor_tealeaf_character_dossier.md\n+++ b/Longmont Campaign/Campaign 2/NPCs/professor_tealeaf/professor_tealeaf_character_dossier.md\n@@ -0,0 +1,5 @@\n+# Professor Tealeaf dossier\n+\n+## Summary\n+\n+TBD.\n",
+        "new_size_bytes": 46,
+        "next_call": "After operator approves the diff, re-call with the same arguments plus `dry_run=false` and `confirm_token='48ef18681e16a81e66d677a47e43ebd6'`."
+      }
+    }
+  ],
+  "grading": {
+    "gates_passed": "3/3",
+    "per_gate_verdict": {
+      "EE1": "PASS",
+      "EE2": "PASS",
+      "EE3": "PASS"
+    },
+    "violations": [],
+    "violation_counts": {
+      "EE1": 0,
+      "EE2": 0,
+      "EE3": 0
+    },
+    "telemetry": {
+      "EE1": {
+        "ops_count": 5
+      },
+      "EE2": {
+        "commit_mode": false
+      },
+      "EE3": {
+        "checked_files": 0
+      }
+    }
+  }
+}

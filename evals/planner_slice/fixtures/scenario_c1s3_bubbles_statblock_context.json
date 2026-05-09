@@ -1,0 +1,72 @@
+{
+  "id": "c1s3_bubbles_statblock_context_scripted",
+  "description": "C1S3 named NPC statblock benchmark: Bubbles should resolve through recall_npc_context before generate_statblock.",
+  "user_message": "Give me a C1S3-ready statblock for Bubbles that reads like our float goat from the flood scene, not a random monster goat. Keep the magical working-animal vibe front and center.",
+  "statblock_stub": "## Bubbles the Float Goat (eval stub)\n*Medium beast, unaligned*\n**Armor Class** 13 — **Hit Points** 19 — **Speed** 40 ft., swim 20 ft.\n_Mock statblock for eval only._",
+  "mock_responses": [
+    {
+      "id": "resp-bubbles-1",
+      "output": [
+        {
+          "type": "function_call",
+          "name": "recall_npc_context",
+          "call_id": "fc-bubbles-recall",
+          "arguments": "{\"campaign_id\": \"longmont-c1\", \"npc\": \"Bubbles the Float Goat\", \"max_chars_per_file\": 4000}"
+        }
+      ]
+    },
+    {
+      "id": "resp-bubbles-2",
+      "output": [
+        {
+          "type": "function_call",
+          "name": "generate_statblock",
+          "call_id": "fc-bubbles-statblock",
+          "arguments": "{\"creature_name\": \"Bubbles the Float Goat\", \"description\": \"C1 Session 3 magical working animal and Pippa Goldwhistle's companion. Use float-goat species context: water-walking, wide webbed hooves, pearlescent curly fur, small balancing wings, social and playful. Preserve the flood lesson: calm water is normal for Bubbles, but fast floodwater and debris can tumble her and make her panic, bite a mage hand, and need rescue. Build as a beloved river-delivery pack goat and festival performer, not a hostile goat monster.\", \"challenge_rating\": \"1/2\"}"
+        }
+      ]
+    },
+    {
+      "id": "resp-bubbles-3",
+      "output": [
+        {
+          "type": "message",
+          "content": [
+            {
+              "type": "output_text",
+              "text": "Used Bubbles' C1 hub context and generated a water-walking working-animal statblock stub."
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "expect": {
+    "tool_names_in_order": [
+      "recall_npc_context",
+      "generate_statblock"
+    ],
+    "recall_npc_context_args": {
+      "campaign_id": "longmont-c1",
+      "npc_contains": "bubbles"
+    },
+    "tool_outputs_must_include_substrings": [
+      {
+        "tool_index": 0,
+        "substring": "\"slug\": \"bubbles_the_float_goat\""
+      }
+    ],
+    "statblock_args": {
+      "creature_name_contains": "bubbles",
+      "description_contains_all": [
+        "water-walking",
+        "Pippa",
+        "floodwater",
+        "mage hand"
+      ]
+    },
+    "final_text_must_include": ["water-walking"],
+    "all_scripted_responses_consumed": true,
+    "previous_response_id_chained_after_first_call": true
+  }
+}

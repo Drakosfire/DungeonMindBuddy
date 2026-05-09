@@ -1,0 +1,55 @@
+{
+  "schema": "dmb_breadcrumb_tagging_sentinels_v1",
+  "campaign_id": "longmont-c1",
+  "session_number": 3,
+  "notes": "C1S3 holdout sentinels for Session 3 - The Stone Bridge Flood.breadcrumbed.md. Substrings match normalized routes (no leading corpus/eldyrwild-markdown/).",
+  "positive_units": [
+    {
+      "unit_id": "u-L0020-01",
+      "must_contain": [
+        "PCs/ephanna",
+        "NPCs/bubbles_the_float_goat"
+      ],
+      "rationale": "First mage-hand lasso beat must stay Ephanna + Bubbles routable."
+    },
+    {
+      "unit_id": "u-L0036-01",
+      "must_contain": [
+        "Locations/stonebridge",
+        "Locations/rivers_edge_pub",
+        "NPCs/grishna"
+      ],
+      "rationale": "Pub arrival + Grishna beat must keep town + tavern + innkeeper routes."
+    },
+    {
+      "unit_id": "u-L0043-01",
+      "must_contain": [
+        "PCs/karsemine",
+        "NPCs/bubbles_the_float_goat",
+        "Locations/stonebridge"
+      ],
+      "rationale": "Zephyr-strike chase paragraph should carry Karsemine, Bubbles, and Stonebridge retrieval handles."
+    }
+  ],
+  "protected_units": [],
+  "negative_units": [
+    {
+      "unit_id": "u-L0045-03",
+      "must_not_contain": [
+        "mirathorn",
+        "pippa",
+        "bubbles_the_float_goat"
+      ],
+      "rationale": "Standalone 'What now?' line sits before the Mirathorn hook units; it must not inherit hook routes from the closing paragraph's single tag blob."
+    },
+    {
+      "unit_id": "u-L0045-07",
+      "must_not_contain": [
+        "mirathorn",
+        "pippa",
+        "festival"
+      ],
+      "rationale": "Travel-time filler sentence must not pick up Mirathorn/Pippa routing; those belong on the explicit hook units."
+    }
+  ]
+}

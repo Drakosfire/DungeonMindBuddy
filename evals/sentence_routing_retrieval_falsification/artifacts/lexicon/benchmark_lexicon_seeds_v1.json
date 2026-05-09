@@ -1,0 +1,43 @@
+{
+  "description": "Eval-harness-only semantic equivalence seeds and shadow-diff legacy route stopword snapshot. Loaded by token_resolver_shadow (not shipped in src/token_resolution defaults).",
+  "equivalences": {
+    "captain": [
+      "lysandra",
+      "captain lysandra",
+      "ironveil"
+    ],
+    "forest": [
+      "migrating forest",
+      "the forest"
+    ],
+    "tower": [
+      "voices tower",
+      "tower drawing",
+      "drawing"
+    ],
+    "voices": [
+      "voice",
+      "tower"
+    ]
+  },
+  "legacy_route_stopwords_for_shadow_diff": [
+    "and",
+    "campaign",
+    "campaigns",
+    "cities",
+    "dossiers",
+    "elderwyld",
+    "location",
+    "locations",
+    "longmont",
+    "npcs",
+    "parties",
+    "pcs",
+    "session",
+    "sessions",
+    "the",
+    "towns"
+  ],
+  "schema": "dmb_benchmark_lexicon_seeds_v1",
+  "version": 1
+}

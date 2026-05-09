@@ -1,0 +1,552 @@
+{
+  "schema": "dmb_npc_corpus_recall_audit_v1",
+  "offline_stub": true,
+  "objective": "Audit world-vs-campaign NPC hub readiness and explicit location linkage for NPCs named in C1S1-3 and C2S20.",
+  "scope_sessions": [
+    "c1s1",
+    "c1s2",
+    "c1s3",
+    "c2s20"
+  ],
+  "scope_recaps": {
+    "c1s1": "Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md",
+    "c1s2": "Longmont Campaign/Campaign 1/Session Recaps/Session 2 - Finishing the Job.md",
+    "c1s3": "Longmont Campaign/Campaign 1/Session Recaps/Session 3 - The Stone Bridge Flood.md",
+    "c2s20": "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md"
+  },
+  "world_campaign_contract": {
+    "world_as_main": true,
+    "campaign_as_overlay_branch": true,
+    "expected_campaign_world_link_field": "setting_hub_path",
+    "expected_location_link": "path_location_slug or explicit frontmatter location fields"
+  },
+  "all_ok": false,
+  "aggregates": {
+    "targets_total": 13,
+    "targets_with_mentions_in_scope": 13,
+    "targets_with_any_hub": 8,
+    "targets_with_campaign_hub": 4,
+    "targets_with_world_hub": 5,
+    "targets_with_world_parent_link": 1,
+    "targets_with_location_link": 5,
+    "targets_with_statblock": 1,
+    "tier_counts": {
+      "no_hub": 5,
+      "campaign_hub_no_world_link": 3,
+      "hub_thin": 4,
+      "linked_ready_baseline": 1
+    }
+  },
+  "rows": [
+    {
+      "npc_id": "grishna",
+      "display_name": "Grishna",
+      "aliases": [
+        "Grishna"
+      ],
+      "mentioned_in_sessions": [
+        "c1s1",
+        "c1s2",
+        "c1s3"
+      ],
+      "registry_matches": [],
+      "hubs": [],
+      "has_any_hub": false,
+      "has_campaign_hub": false,
+      "has_world_hub": false,
+      "has_world_parent_link": false,
+      "has_location_link": false,
+      "has_timeline": false,
+      "has_dossier_or_seed": false,
+      "has_statblock": false,
+      "readiness_tier": "no_hub",
+      "readiness_score": 0
+    },
+    {
+      "npc_id": "glowkindle",
+      "display_name": "Glowkindle",
+      "aliases": [
+        "Glowkindle"
+      ],
+      "mentioned_in_sessions": [
+        "c1s1",
+        "c1s2"
+      ],
+      "registry_matches": [],
+      "hubs": [],
+      "has_any_hub": false,
+      "has_campaign_hub": false,
+      "has_world_hub": false,
+      "has_world_parent_link": false,
+      "has_location_link": false,
+      "has_timeline": false,
+      "has_dossier_or_seed": false,
+      "has_statblock": false,
+      "readiness_tier": "no_hub",
+      "readiness_score": 0
+    },
+    {
+      "npc_id": "pippa",
+      "display_name": "Pippa",
+      "aliases": [
+        "Pippa",
+        "Pippa Goldwhistle"
+      ],
+      "mentioned_in_sessions": [
+        "c1s3"
+      ],
+      "registry_matches": [
+        {
+          "campaign_id": "longmont-c1",
+          "registry_path": "Longmont Campaign/Campaign 1/_npc_registry.json",
+          "slug": "pippa",
+          "status": "tracked",
+          "hub_path": "Longmont Campaign/Campaign 1/NPCs/pippa/",
+          "setting_hub_path": null
+        }
+      ],
+      "hubs": [
+        {
+          "hub_path": "Longmont Campaign/Campaign 1/NPCs/pippa",
+          "exists": true,
+          "has_readme": true,
+          "has_dossier": true,
+          "has_timeline": true,
+          "has_seed": false,
+          "has_statblock": false,
+          "frontmatter_location_fields": {},
+          "path_location_slug": null,
+          "world_hub": false,
+          "campaign_hub": true
+        }
+      ],
+      "has_any_hub": true,
+      "has_campaign_hub": true,
+      "has_world_hub": false,
+      "has_world_parent_link": false,
+      "has_location_link": false,
+      "has_timeline": true,
+      "has_dossier_or_seed": true,
+      "has_statblock": false,
+      "readiness_tier": "campaign_hub_no_world_link",
+      "readiness_score": 2
+    },
+    {
+      "npc_id": "bubbles_the_float_goat",
+      "display_name": "Bubbles the Float Goat",
+      "aliases": [
+        "Bubbles",
+        "Bubbles the Float Goat"
+      ],
+      "mentioned_in_sessions": [
+        "c1s3"
+      ],
+      "registry_matches": [
+        {
+          "campaign_id": "longmont-c1",
+          "registry_path": "Longmont Campaign/Campaign 1/_npc_registry.json",
+          "slug": "bubbles_the_float_goat",
+          "status": "tracked",
+          "hub_path": "Longmont Campaign/Campaign 1/NPCs/bubbles_the_float_goat/",
+          "setting_hub_path": null
+        }
+      ],
+      "hubs": [
+        {
+          "hub_path": "Longmont Campaign/Campaign 1/NPCs/bubbles_the_float_goat",
+          "exists": true,
+          "has_readme": true,
+          "has_dossier": true,
+          "has_timeline": true,
+          "has_seed": false,
+          "has_statblock": false,
+          "frontmatter_location_fields": {},
+          "path_location_slug": null,
+          "world_hub": false,
+          "campaign_hub": true
+        }
+      ],
+      "has_any_hub": true,
+      "has_campaign_hub": true,
+      "has_world_hub": false,
+      "has_world_parent_link": false,
+      "has_location_link": false,
+      "has_timeline": true,
+      "has_dossier_or_seed": true,
+      "has_statblock": false,
+      "readiness_tier": "campaign_hub_no_world_link",
+      "readiness_score": 2
+    },
+    {
+      "npc_id": "kirfan",
+      "display_name": "Kirfan",
+      "aliases": [
+        "Kirfan"
+      ],
+      "mentioned_in_sessions": [
+        "c1s3"
+      ],
+      "registry_matches": [],
+      "hubs": [],
+      "has_any_hub": false,
+      "has_campaign_hub": false,
+      "has_world_hub": false,
+      "has_world_parent_link": false,
+      "has_location_link": false,
+      "has_timeline": false,
+      "has_dossier_or_seed": false,
+      "has_statblock": false,
+      "readiness_tier": "no_hub",
+      "readiness_score": 0
+    },
+    {
+      "npc_id": "stuart",
+      "display_name": "Stuart",
+      "aliases": [
+        "Stuart"
+      ],
+      "mentioned_in_sessions": [
+        "c2s20"
+      ],
+      "registry_matches": [
+        {
+          "campaign_id": "longmont-c2",
+          "registry_path": "Longmont Campaign/Campaign 2/_npc_registry.json",
+          "slug": "stuart",
+          "status": "tracked",
+          "hub_path": "Elderwyld/Cities and Towns/Mossford/NPCs/stuart/",
+          "setting_hub_path": null
+        }
+      ],
+      "hubs": [
+        {
+          "hub_path": "Elderwyld/Cities and Towns/Mossford/NPCs/stuart",
+          "exists": true,
+          "has_readme": true,
+          "has_dossier": false,
+          "has_timeline": false,
+          "has_seed": true,
+          "has_statblock": false,
+          "frontmatter_location_fields": {},
+          "path_location_slug": "mossford",
+          "world_hub": true,
+          "campaign_hub": false
+        }
+      ],
+      "has_any_hub": true,
+      "has_campaign_hub": false,
+      "has_world_hub": true,
+      "has_world_parent_link": false,
+      "has_location_link": true,
+      "has_timeline": false,
+      "has_dossier_or_seed": true,
+      "has_statblock": false,
+      "readiness_tier": "hub_thin",
+      "readiness_score": 3
+    },
+    {
+      "npc_id": "stacey_brambleback",
+      "display_name": "Stacey Brambleback",
+      "aliases": [
+        "Stacey",
+        "Stacey Brambleback"
+      ],
+      "mentioned_in_sessions": [
+        "c2s20"
+      ],
+      "registry_matches": [
+        {
+          "campaign_id": "longmont-c2",
+          "registry_path": "Longmont Campaign/Campaign 2/_npc_registry.json",
+          "slug": "stacey_brambleback",
+          "status": "tracked",
+          "hub_path": "Elderwyld/Cities and Towns/Mossford/NPCs/stacey_brambleback/",
+          "setting_hub_path": null
+        }
+      ],
+      "hubs": [
+        {
+          "hub_path": "Elderwyld/Cities and Towns/Mossford/NPCs/stacey_brambleback",
+          "exists": true,
+          "has_readme": true,
+          "has_dossier": false,
+          "has_timeline": false,
+          "has_seed": true,
+          "has_statblock": false,
+          "frontmatter_location_fields": {},
+          "path_location_slug": "mossford",
+          "world_hub": true,
+          "campaign_hub": false
+        }
+      ],
+      "has_any_hub": true,
+      "has_campaign_hub": false,
+      "has_world_hub": true,
+      "has_world_parent_link": false,
+      "has_location_link": true,
+      "has_timeline": false,
+      "has_dossier_or_seed": true,
+      "has_statblock": false,
+      "readiness_tier": "hub_thin",
+      "readiness_score": 3
+    },
+    {
+      "npc_id": "marla_brambleback",
+      "display_name": "Marla Brambleback",
+      "aliases": [
+        "Marla",
+        "Marla Brambleback"
+      ],
+      "mentioned_in_sessions": [
+        "c2s20"
+      ],
+      "registry_matches": [
+        {
+          "campaign_id": "longmont-c2",
+          "registry_path": "Longmont Campaign/Campaign 2/_npc_registry.json",
+          "slug": "marla_brambleback",
+          "status": "tracked",
+          "hub_path": "Elderwyld/Cities and Towns/Mossford/NPCs/marla_brambleback/",
+          "setting_hub_path": null
+        }
+      ],
+      "hubs": [
+        {
+          "hub_path": "Elderwyld/Cities and Towns/Mossford/NPCs/marla_brambleback",
+          "exists": true,
+          "has_readme": true,
+          "has_dossier": false,
+          "has_timeline": false,
+          "has_seed": true,
+          "has_statblock": false,
+          "frontmatter_location_fields": {},
+          "path_location_slug": "mossford",
+          "world_hub": true,
+          "campaign_hub": false
+        }
+      ],
+      "has_any_hub": true,
+      "has_campaign_hub": false,
+      "has_world_hub": true,
+      "has_world_parent_link": false,
+      "has_location_link": true,
+      "has_timeline": false,
+      "has_dossier_or_seed": true,
+      "has_statblock": false,
+      "readiness_tier": "hub_thin",
+      "readiness_score": 3
+    },
+    {
+      "npc_id": "sheriff_roderic_marr",
+      "display_name": "Sheriff Roderic Marr",
+      "aliases": [
+        "Sheriff",
+        "Sheriff Marr",
+        "Roderic Marr"
+      ],
+      "mentioned_in_sessions": [
+        "c2s20"
+      ],
+      "registry_matches": [
+        {
+          "campaign_id": "longmont-c2",
+          "registry_path": "Longmont Campaign/Campaign 2/_npc_registry.json",
+          "slug": "sheriff_roderic_marr",
+          "status": "background",
+          "hub_path": "Elderwyld/Cities and Towns/Mossford/NPCs/sheriff_roderic_marr/",
+          "setting_hub_path": null
+        }
+      ],
+      "hubs": [
+        {
+          "hub_path": "Elderwyld/Cities and Towns/Mossford/NPCs/sheriff_roderic_marr",
+          "exists": true,
+          "has_readme": true,
+          "has_dossier": false,
+          "has_timeline": false,
+          "has_seed": true,
+          "has_statblock": false,
+          "frontmatter_location_fields": {},
+          "path_location_slug": "mossford",
+          "world_hub": true,
+          "campaign_hub": false
+        }
+      ],
+      "has_any_hub": true,
+      "has_campaign_hub": false,
+      "has_world_hub": true,
+      "has_world_parent_link": false,
+      "has_location_link": true,
+      "has_timeline": false,
+      "has_dossier_or_seed": true,
+      "has_statblock": false,
+      "readiness_tier": "hub_thin",
+      "readiness_score": 3
+    },
+    {
+      "npc_id": "mayor",
+      "display_name": "Mayor",
+      "aliases": [
+        "Mayor"
+      ],
+      "mentioned_in_sessions": [
+        "c2s20"
+      ],
+      "registry_matches": [],
+      "hubs": [],
+      "has_any_hub": false,
+      "has_campaign_hub": false,
+      "has_world_hub": false,
+      "has_world_parent_link": false,
+      "has_location_link": false,
+      "has_timeline": false,
+      "has_dossier_or_seed": false,
+      "has_statblock": false,
+      "readiness_tier": "no_hub",
+      "readiness_score": 0
+    },
+    {
+      "npc_id": "captain_lysandra_ironveil",
+      "display_name": "Captain Lysandra Ironveil",
+      "aliases": [
+        "Lysandra",
+        "Captain Lysandra Ironveil"
+      ],
+      "mentioned_in_sessions": [
+        "c2s20"
+      ],
+      "registry_matches": [
+        {
+          "campaign_id": "longmont-c1",
+          "registry_path": "Longmont Campaign/Campaign 1/_npc_registry.json",
+          "slug": "captain_lysandra_ironveil",
+          "status": "tracked",
+          "hub_path": "Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/",
+          "setting_hub_path": null
+        },
+        {
+          "campaign_id": "longmont-c2",
+          "registry_path": "Longmont Campaign/Campaign 2/_npc_registry.json",
+          "slug": "captain_lysandra_ironveil",
+          "status": "tracked",
+          "hub_path": "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/",
+          "setting_hub_path": "Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/"
+        }
+      ],
+      "hubs": [
+        {
+          "hub_path": "Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil",
+          "exists": true,
+          "has_readme": true,
+          "has_dossier": false,
+          "has_timeline": false,
+          "has_seed": true,
+          "has_statblock": true,
+          "frontmatter_location_fields": {},
+          "path_location_slug": "mirathorn",
+          "world_hub": true,
+          "campaign_hub": false
+        },
+        {
+          "hub_path": "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil",
+          "exists": true,
+          "has_readme": true,
+          "has_dossier": true,
+          "has_timeline": true,
+          "has_seed": false,
+          "has_statblock": false,
+          "frontmatter_location_fields": {},
+          "path_location_slug": null,
+          "world_hub": false,
+          "campaign_hub": true
+        }
+      ],
+      "has_any_hub": true,
+      "has_campaign_hub": true,
+      "has_world_hub": true,
+      "has_world_parent_link": true,
+      "has_location_link": true,
+      "has_timeline": true,
+      "has_dossier_or_seed": true,
+      "has_statblock": true,
+      "readiness_tier": "linked_ready_baseline",
+      "readiness_score": 6
+    },
+    {
+      "npc_id": "sara_mirathorn_operator",
+      "display_name": "Sara",
+      "aliases": [
+        "Sara",
+        "Sara Mirathorn Operator"
+      ],
+      "mentioned_in_sessions": [
+        "c2s20"
+      ],
+      "registry_matches": [
+        {
+          "campaign_id": "longmont-c2",
+          "registry_path": "Longmont Campaign/Campaign 2/_npc_registry.json",
+          "slug": "sara_mirathorn_operator",
+          "status": "tracked",
+          "hub_path": "Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/",
+          "setting_hub_path": null
+        }
+      ],
+      "hubs": [
+        {
+          "hub_path": "Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator",
+          "exists": true,
+          "has_readme": true,
+          "has_dossier": true,
+          "has_timeline": true,
+          "has_seed": false,
+          "has_statblock": false,
+          "frontmatter_location_fields": {},
+          "path_location_slug": null,
+          "world_hub": false,
+          "campaign_hub": true
+        }
+      ],
+      "has_any_hub": true,
+      "has_campaign_hub": true,
+      "has_world_hub": false,
+      "has_world_parent_link": false,
+      "has_location_link": false,
+      "has_timeline": true,
+      "has_dossier_or_seed": true,
+      "has_statblock": false,
+      "readiness_tier": "campaign_hub_no_world_link",
+      "readiness_score": 2
+    },
+    {
+      "npc_id": "professor_tealeaf",
+      "display_name": "Professor Tealeaf",
+      "aliases": [
+        "Professor Tealeaf",
+        "Tealeaf"
+      ],
+      "mentioned_in_sessions": [
+        "c2s20"
+      ],
+      "registry_matches": [],
+      "hubs": [],
+      "has_any_hub": false,
+      "has_campaign_hub": false,
+      "has_world_hub": false,
+      "has_world_parent_link": false,
+      "has_location_link": false,
+      "has_timeline": false,
+      "has_dossier_or_seed": false,
+      "has_statblock": false,
+      "readiness_tier": "no_hub",
+      "readiness_score": 0
+    }
+  ],
+  "next_contract_checks": [
+    "Every campaign NPC hub should carry a world parent link when a world hub exists.",
+    "Every NPC should have at least one location link (path-derived or explicit field).",
+    "Campaign hubs should encode divergence explicitly (inherit/override/campaign_only)."
+  ],
+  "aggregate_llm_cost_usd": 0.0,
+  "scenario_estimated_cost_usd": 0.0
+}

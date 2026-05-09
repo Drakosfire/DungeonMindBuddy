@@ -31,6 +31,16 @@ Sort newest → oldest within each status; promote with `/promote`; archive with
 
 ---
 
+## [READY] Split corpus retrieval Phase B blueprint (shadow-mode lexical compiler) — captured 2026-05-09
+
+**Context:** User-authored architecture memo defining "DungeonMindBuddy Split Corpus Retrieval Architecture — Phase B: Dynamic Lexical Artifact Generation in Shadow Mode." Memo scopes split corpus semantics (world canon vs campaign continuity), proposes staged artifact pipeline (inventory -> classification -> hub metadata -> registry links -> entity candidates -> entity resolution -> lexical artifacts), and requires shadow-only diagnostics before any live retrieval wiring.
+**Insight:** Phase B should be treated as a deterministic corpus compiler with explicit authority contracts, not an alias patch on retrieval. The key safety invariant is "linked/equivalent routes are metadata unless policy explicitly upgrades them to answer evidence." This is the leverage point to raise recall without flattening campaign/world authority.
+**Action:** Turn the memo into an executable Phase B package in this order: (1) versioned schemas for route/entity/lexicon/shadow objects, (2) deterministic route-equivalence manifest generator (campaign authority <-> setting fallback), (3) lexical artifact emission with provenance + authority_effect, (4) shadow diagnostics over existing retrieval reports/canvases, (5) gated criteria for Phase C wiring. Keep retrieval behavior unchanged until shadow diagnostics show low authority-risk and low over-routing risk.
+**Surfaces when:** planning or implementing checklist Phase B/C; editing retrieval benchmark gold/canvas semantics; touching token resolver or query expansion logic; discussing "why are only Longmont routes in canvas"; adding campaign/world route linkage to diagnostics.
+**Refs:** `Docs/Plans/PLAN-split-corpus-retrieval-to-autonomous-demo.md`, `Docs/Plans/CHECKLIST-dynamic-lexical-retrieval-rollout.md`, `src/agent/session_memory_query.py`, `evals/sentence_routing_retrieval_falsification/breadcrumb_query_run.py`, `evals/sentence_routing_retrieval_falsification/breadcrumb_query_grader.py`, `src/token_resolution/resolver.py`, `scripts/lint_npc_registry.py`, `src/contracts/npc_registry.py`, `Docs/CONVENTION-Session-Recap-Normalization.md`
+
+---
+
 ## [IDEA] Benchmark canvases should be data-driven from run artifacts — captured 2026-05-02
 
 **Context:** While updating `breadcrumb-query-semantic-review.canvas.tsx` after the two-step retrieval expansion run, the source artifact path and some table rows changed but the top stat block stayed stale (`2/12`, old cost). The user pointed out that the canvas should not need hand-rewriting every time.

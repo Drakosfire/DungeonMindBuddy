@@ -1,0 +1,30 @@
+{"id":"q001","question":"What do we know about Lysandra's current mental state?","must_call":["dungeon_search"],"must_not":["memory"],"expected_terms":["Lysandra","wagon"]}
+{"id":"q002","question":"Is Stacey a bugbear?","must_call":["dungeon_check_continuity"],"expected_behavior":"should report evidence candidates and uncertainty"}
+{"id":"q003","question":"What is Bonogo's slime situation?","must_call":["dungeon_search"],"expected_terms":["slime","toilet","Mirathorn"]}
+{"id":"q004","question":"Summarize what is canonically known about the Festival of Expansion.","must_call":["dungeon_search"],"expected_terms":["Festival of Expansion"]}
+{"id":"q005","question":"Who was in the merchant-guard party when the group reached Stonebridge?","must_call":["dungeon_search"],"expected_terms":["Stonebridge"]}
+{"id":"q006","question":"What is Stonebridge known for at the start of the campaign?","must_call":["dungeon_search"],"expected_terms":["Stonebridge"]}
+{"id":"q007","question":"What did Bonogo buy before the hike to the brewery?","must_call":["dungeon_search"],"expected_terms":["Bonogo"]}
+{"id":"q008","question":"What was the big rock landmark on the way to the brewery?","must_call":["dungeon_search"],"expected_terms":["brewery"]}
+{"id":"q009","question":"What caused the giant-rat problem at the brewery?","must_call":["dungeon_search"],"expected_terms":["rat"]}
+{"id":"q010","question":"What did Glowkindle offer the team for clearing the rats?","must_call":["dungeon_search"],"expected_terms":["Glowkindle"]}
+{"id":"q011","question":"Where does Bonogo end up in the early flood outline once the river takes him?","must_call":["dungeon_search"],"expected_terms":["Bonogo"]}
+{"id":"q012","question":"What Mirathorn or festival hook does the Stone Bridge flood recap tee up?","must_call":["dungeon_search"],"expected_terms":["Mirathorn"]}
+{"id":"q013","question":"Give me a list of all NPCs that live in StoneBridge.","must_call":["dungeon_search"],"expected_terms":["StoneBridge","NPC"]}
+{"id":"q014","question":"For the Bubbles rescue, what was Ephanna's first mage-hand plan on the rock?","must_call":["dungeon_search"],"expected_terms":["Bubbles","Ephanna"]}
+{"id":"q015","question":"How did they get to StoneBridge with Pippa—who gave the ride and what was pulling the keg wagon?","must_call":["dungeon_search"],"expected_terms":["Pippa","StoneBridge"]}
+{"id":"q016","question":"After they helped Kirfan with the upriver debris, what did Grishna comp them?","must_call":["dungeon_search"],"expected_terms":["Kirfan","Grishna"]}
+{"id":"q017","question":"What did Stafl do in the pub to sell the Wizard's Tower Brewery story to the room?","must_call":["dungeon_search"],"expected_terms":["Stafl"]}
+{"id":"q018","question":"When does Ephanna finally get Bubbles on the lasso?","must_call":["dungeon_search"],"expected_terms":["Bubbles","Ephanna"]}
+{"id":"q019","question":"What does Caelynn do with ice around Bubbles' rock?","must_call":["dungeon_search"],"expected_terms":["Caelynn","Bubbles"]}
+{"id":"q020","question":"On Bonogo's desperate dive, what happens to Baergrom and the rope?","must_call":["dungeon_search"],"expected_terms":["Bonogo","Baergrom"]}
+{"id":"q021","question":"What does Stafl get the town doing with nets during the flood response?","must_call":["dungeon_search"],"expected_terms":["Stafl","net"]}
+{"id":"q022","question":"Who were they helping when they pulled up debris from the broken upriver structure?","must_call":["dungeon_search"],"expected_terms":["debris"]}
+{"id":"q023","question":"What does Karsemine do along the bank with Zephyr Strike when things are falling apart?","must_call":["dungeon_search"],"expected_terms":["Karsemine"]}
+{"id":"q024","question":"What compass direction from Stonebridge did Grishna give for reaching the brewery?","must_call":["dungeon_search"],"expected_terms":["Grishna","Stonebridge"]}
+{"id":"q025","question":"Who posted the first job hook, and what did they need help with?","must_call":["dungeon_search"],"expected_terms":["job"]}
+{"id":"q026","question":"Is it true that Captain Lysandra Ironveil is secretly a dragon in disguise?","must_call":["dungeon_check_continuity"],"expected_behavior":"evidence candidates only; no invented adjudication"}
+{"id":"q027","question":"Does the corpus say the Wizard's Tower Brewing Company was abandoned before the party arrived?","must_call":["dungeon_check_continuity"],"expected_behavior":"cite evidence or say missing"}
+{"id":"q028","question":"What did Grishna tell the party about finding the brewery?","must_call":["dungeon_search"],"expected_terms":["Grishna","brewery"]}
+{"id":"q029","question":"How did the group get from Stonebridge toward the Wizard's Tower Brewing Company?","must_call":["dungeon_search"],"expected_terms":["Stonebridge","brewery"]}
+{"id":"q030","question":"What was the Wizard's Tower Brewing Company like when the group arrived?","must_call":["dungeon_search"],"expected_terms":["brewery","Wizard"]}

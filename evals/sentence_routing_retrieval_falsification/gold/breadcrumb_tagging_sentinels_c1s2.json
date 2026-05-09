@@ -1,0 +1,51 @@
+{
+  "schema": "dmb_breadcrumb_tagging_sentinels_v1",
+  "campaign_id": "longmont-c1",
+  "session_number": 2,
+  "notes": "C1S2 holdout sentinels for Session 2 - Finishing the Job.breadcrumbed.md. Substrings match normalized routes (no leading corpus/eldyrwild-markdown/). Session 20 sentinels are not applicable here.",
+  "positive_units": [
+    {
+      "unit_id": "u-L0003-02",
+      "must_contain": [
+        "NPCs/magma_spider",
+        "NPCs/giant_centipede_well"
+      ],
+      "rationale": "Threat comparison beat must route spider and centipede candidates."
+    },
+    {
+      "unit_id": "u-L0005-02",
+      "must_contain": [
+        "Locations/wizards_tower_brewing_company"
+      ],
+      "rationale": "Loot / healing-room discovery stays brewery-routable."
+    },
+    {
+      "unit_id": "u-L0007-01",
+      "must_contain": [
+        "NPCs/glowkindle",
+        "Parties/party_merchant_guards"
+      ],
+      "rationale": "Glowkindle negotiation + party as collective actor."
+    }
+  ],
+  "protected_units": [],
+  "negative_units": [
+    {
+      "unit_id": "u-L0005-03",
+      "must_not_contain": [
+        "glowkindle",
+        "magma_spider"
+      ],
+      "rationale": "Tone line about not knowing how to use loot — no entity over-route."
+    },
+    {
+      "unit_id": "u-L0013-01",
+      "must_not_contain": [
+        "glowkindle",
+        "stonebridge",
+        "wizards_tower"
+      ],
+      "rationale": "Closing 'Stay tuned' must not pick up hook routes."
+    }
+  ]
+}

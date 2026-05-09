@@ -1,0 +1,295 @@
+{
+  "schema": "stage_d_cohort_proposals_v1",
+  "generated_at": "2026-05-08T02:33:06.596120+00:00",
+  "campaign_id": "longmont-c1",
+  "scenario_id": "stage_d_session1_c1",
+  "runner_version": "stage_d_runner_v0_deterministic",
+  "source_run_count": 1,
+  "proposed_records": [
+    {
+      "slug": "glowkindle",
+      "display_name": "Glowkindle",
+      "aliases": [],
+      "status": "candidate",
+      "first_session": 1,
+      "last_session": 1,
+      "hub_path": null,
+      "setting_hub_path": null,
+      "notes": "Proposed by Stage D deterministic v0; descriptor 'Glowkindle'; evidence event indices [1, 4, 5, 6]. Branch hints inferred from location 'the_wizard_s'.",
+      "proposed_campaign_hub_path": "Longmont Campaign/Campaign 1/NPCs/glowkindle/",
+      "proposed_setting_hub_path": "Elderwyld/Cities and Towns/The Wizard S/NPCs/glowkindle/",
+      "proposed_location_slug": "the_wizard_s",
+      "proposed_divergence_mode": "inherit",
+      "appearance_runs": 1,
+      "sample_run_indices": [
+        0
+      ]
+    },
+    {
+      "slug": "grishna",
+      "display_name": "Grishna",
+      "aliases": [],
+      "status": "candidate",
+      "first_session": 1,
+      "last_session": 1,
+      "hub_path": null,
+      "setting_hub_path": null,
+      "notes": "Proposed by Stage D deterministic v0; descriptor 'Grishna'; evidence event indices [1, 2, 3]. Branch hints inferred from location 'stonebridge'.",
+      "proposed_campaign_hub_path": "Longmont Campaign/Campaign 1/NPCs/grishna/",
+      "proposed_setting_hub_path": "Elderwyld/Cities and Towns/Stonebridge/NPCs/grishna/",
+      "proposed_location_slug": "stonebridge",
+      "proposed_divergence_mode": "inherit",
+      "appearance_runs": 1,
+      "sample_run_indices": [
+        0
+      ]
+    }
+  ],
+  "proposed_aliases": [],
+  "unresolvable": [
+    {
+      "descriptor": "a flaming, magma-infused spider monstrosity",
+      "appearance_runs": 1,
+      "sample_reason": "generic descriptor with no name evidence; Stage D v0 deterministic heuristics declined to merge into registry or new_candidate without a substring match"
+    },
+    {
+      "descriptor": "a magma-infused spider monstrosity",
+      "appearance_runs": 1,
+      "sample_reason": "generic descriptor with no name evidence; Stage D v0 deterministic heuristics declined to merge into registry or new_candidate without a substring match"
+    },
+    {
+      "descriptor": "a mysterious cat owl",
+      "appearance_runs": 1,
+      "sample_reason": "generic descriptor with no name evidence; Stage D v0 deterministic heuristics declined to merge into registry or new_candidate without a substring match"
+    },
+    {
+      "descriptor": "cat owl",
+      "appearance_runs": 1,
+      "sample_reason": "generic descriptor with no name evidence; Stage D v0 deterministic heuristics declined to merge into registry or new_candidate without a substring match"
+    },
+    {
+      "descriptor": "flaming, magma-infused spider monstrosity",
+      "appearance_runs": 1,
+      "sample_reason": "generic descriptor with no name evidence; Stage D v0 deterministic heuristics declined to merge into registry or new_candidate without a substring match"
+    },
+    {
+      "descriptor": "magma-infused spider monstrosity",
+      "appearance_runs": 1,
+      "sample_reason": "generic descriptor with no name evidence; Stage D v0 deterministic heuristics declined to merge into registry or new_candidate without a substring match"
+    },
+    {
+      "descriptor": "mysterious cat owl",
+      "appearance_runs": 1,
+      "sample_reason": "generic descriptor with no name evidence; Stage D v0 deterministic heuristics declined to merge into registry or new_candidate without a substring match"
+    },
+    {
+      "descriptor": "the mysterious cat owl",
+      "appearance_runs": 1,
+      "sample_reason": "generic descriptor with no name evidence; Stage D v0 deterministic heuristics declined to merge into registry or new_candidate without a substring match"
+    }
+  ],
+  "source_events": [
+    {
+      "event_name": "Arriving outside Stonebridge",
+      "event_class": "travel",
+      "participants": [
+        "karsemine",
+        "stafl",
+        "caelynn",
+        "ephanna",
+        "bonogo",
+        "baergrom"
+      ],
+      "referenced_slugs": [],
+      "location": "outside the town of Stonebridge",
+      "outcomes": [
+        "The merchant guard group arrives outside Stonebridge after traveling together for some time.",
+        "Stonebridge is described as a small, little-known town with a bridge over the river."
+      ],
+      "time_scope": "scene",
+      "certainty": "observed",
+      "evidence_id": "Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md"
+    },
+    {
+      "event_name": "Learning about Stonebridge and the job board",
+      "event_class": "discovery",
+      "participants": [
+        "karsemine",
+        "stafl",
+        "caelynn",
+        "ephanna",
+        "bonogo",
+        "baergrom"
+      ],
+      "referenced_slugs": [
+        "grishna",
+        "glowkindle"
+      ],
+      "location": "Stonebridge",
+      "outcomes": [
+        "The town has The River's Edge Pub, run by Grishna, and a local job board.",
+        "Glowkindle has posted a help request for mercenaries to clean up rats."
+      ],
+      "time_scope": "scene",
+      "certainty": "observed",
+      "evidence_id": "Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md"
+    },
+    {
+      "event_name": "Drinking at The River's Edge Pub",
+      "event_class": "social_conflict",
+      "participants": [
+        "karsemine",
+        "stafl",
+        "caelynn",
+        "ephanna",
+        "bonogo",
+        "baergrom"
+      ],
+      "referenced_slugs": [
+        "grishna"
+      ],
+      "location": "The River's Edge Pub",
+      "outcomes": [
+        "The group drinks at The River's Edge Pub to wash away the road.",
+        "Grishna tells them Glowkindle has been through and gives directions to The Wizard's Tower Brewing Co.",
+        "Bonogo buys a firkin of ale for two gold and enjoys it."
+      ],
+      "time_scope": "scene",
+      "certainty": "observed",
+      "evidence_id": "Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md"
+    },
+    {
+      "event_name": "Following the river trail to the big rock",
+      "event_class": "travel",
+      "participants": [
+        "karsemine",
+        "stafl",
+        "caelynn",
+        "ephanna",
+        "bonogo",
+        "baergrom"
+      ],
+      "referenced_slugs": [
+        "grishna"
+      ],
+      "location": "along the river outside Stonebridge",
+      "outcomes": [
+        "The party follows a clear trail along the river to an enormous boulder.",
+        "The boulder appears to be the foot of a once-enormous statue."
+      ],
+      "time_scope": "scene",
+      "certainty": "observed",
+      "evidence_id": "Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md"
+    },
+    {
+      "event_name": "Arriving at The Wizard's Tower Brewing Company",
+      "event_class": "travel",
+      "participants": [
+        "karsemine",
+        "stafl",
+        "caelynn",
+        "ephanna",
+        "bonogo",
+        "baergrom"
+      ],
+      "referenced_slugs": [
+        "glowkindle"
+      ],
+      "location": "The Wizard's Tower Brewing Company",
+      "outcomes": [
+        "The group reaches The Wizard's Tower Brewing Company after a few more hours of walking.",
+        "The tap room is lit by magical crystals and is empty except for gnomes brewing inside."
+      ],
+      "time_scope": "scene",
+      "certainty": "observed",
+      "evidence_id": "Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md"
+    },
+    {
+      "event_name": "Accepting Glowkindle's rat-cleanup contract",
+      "event_class": "conversation",
+      "participants": [
+        "karsemine",
+        "stafl",
+        "caelynn",
+        "ephanna",
+        "bonogo",
+        "baergrom"
+      ],
+      "referenced_slugs": [
+        "glowkindle"
+      ],
+      "location": "The Wizard's Tower Brewing Company",
+      "outcomes": [
+        "Glowkindle explains that giant rats attacked his excavation crew after they broke through a wall expanding the fermentation cellar.",
+        "The party agrees to clear out the rats for 25 gold pieces each."
+      ],
+      "time_scope": "scene",
+      "certainty": "observed",
+      "evidence_id": "Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md"
+    },
+    {
+      "event_name": "Fighting the giant rats in the fermentation cellar",
+      "event_class": "combat",
+      "participants": [
+        "karsemine",
+        "stafl",
+        "caelynn",
+        "ephanna",
+        "bonogo",
+        "baergrom"
+      ],
+      "referenced_slugs": [
+        "glowkindle"
+      ],
+      "location": "the fermentation cellar",
+      "outcomes": [
+        "The team fights giant rats in Glowkindle's fermentation cellar.",
+        "Multiple party members go down during the fight, and many health potions are drunk.",
+        "A mysterious cat owl is tossed into the room to help.",
+        "The combat is described as a hard first battle for the team."
+      ],
+      "time_scope": "scene",
+      "certainty": "observed",
+      "evidence_id": "Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md"
+    },
+    {
+      "event_name": "Exploring the tower's interior",
+      "event_class": "discovery",
+      "participants": [
+        "karsemine",
+        "stafl",
+        "caelynn",
+        "ephanna",
+        "bonogo",
+        "baergrom"
+      ],
+      "referenced_slugs": [],
+      "location": "inside the tower",
+      "outcomes": [
+        "The party finds a beautifully tiled hallway.",
+        "They discover a trapped mosaic on the floor.",
+        "They also find a room full of broken alchemical tools."
+      ],
+      "time_scope": "scene",
+      "certainty": "observed",
+      "evidence_id": "Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md"
+    },
+    {
+      "event_name": "Karsemine spots a magma-infused spider monstrosity",
+      "event_class": "discovery",
+      "participants": [
+        "karsemine"
+      ],
+      "referenced_slugs": [],
+      "location": "a room in the tower",
+      "outcomes": [
+        "Karsemine searches the room and looks up.",
+        "She makes eye contact with a flaming, magma-infused spider monstrosity, apparently another resident of the shatter mage's tower."
+      ],
+      "time_scope": "scene",
+      "certainty": "observed",
+      "evidence_id": "Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md"
+    }
+  ],
+  "source_events_path": "evals/stage_c_npc_candidates_vertical_slice/fixtures/stage_a_events_session1_c1.json"
+}

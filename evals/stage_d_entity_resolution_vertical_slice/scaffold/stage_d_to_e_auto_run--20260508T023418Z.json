@@ -1,0 +1,120 @@
+{
+  "schema": "stage_d_to_e_auto_run_v1",
+  "iso_utc": "2026-05-08T02:34:18Z",
+  "scenario_glob": "evals/stage_d_entity_resolution_vertical_slice/gold/stage_d_*.json",
+  "stage_e_commit": false,
+  "promotion_with_llm": false,
+  "runs_total": 4,
+  "runs_succeeded": 4,
+  "runs_failed": 0,
+  "rows": [
+    {
+      "scenario_id": "stage_d_session1_c1",
+      "campaign_id": "longmont-c1",
+      "scenario_path": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/gold/stage_d_session1_c1.json",
+      "stage_d_gates_passed": true,
+      "stage_d_per_gate_verdict": {
+        "ER1": "PASS",
+        "ER2": "PASS",
+        "ER3": "PASS",
+        "ER4": "PASS",
+        "ER5": "PASS"
+      },
+      "proposals_path": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/proposals/longmont-c1__stage_d_session1_c1__stage_d_proposals_20260508T023418Z.json",
+      "promotion_json_path": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/promotions/stage_d_session1_c1/longmont-c1_stage_d_promotion_20260508T023418Z.json",
+      "stage_e_report_path": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/scaffold/stage_d_session1_c1/stage_e_hub_scaffold_20260508T023418Z.json",
+      "stage_e_gates_passed": "3/3",
+      "stage_e_counts": {
+        "ops_total": 10,
+        "preview_ok": 5,
+        "preview_error": 0,
+        "committed": 0,
+        "commit_error": 0,
+        "skipped_existing": 5
+      },
+      "promotion_cost_usd": 0.0
+    },
+    {
+      "scenario_id": "stage_d_session20",
+      "campaign_id": "longmont-c2",
+      "scenario_path": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/gold/stage_d_session20.json",
+      "stage_d_gates_passed": true,
+      "stage_d_per_gate_verdict": {
+        "ER1": "PASS",
+        "ER2": "PASS",
+        "ER3": "PASS",
+        "ER4": "PASS",
+        "ER5": "PASS"
+      },
+      "proposals_path": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/proposals/longmont-c2__stage_d_session20__stage_d_proposals_20260508T023418Z.json",
+      "promotion_json_path": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/promotions/stage_d_session20/longmont-c2_stage_d_promotion_20260508T023418Z.json",
+      "stage_e_report_path": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/scaffold/stage_d_session20/stage_e_hub_scaffold_20260508T023418Z.json",
+      "stage_e_gates_passed": "3/3",
+      "stage_e_counts": {
+        "ops_total": 5,
+        "preview_ok": 5,
+        "preview_error": 0,
+        "committed": 0,
+        "commit_error": 0,
+        "skipped_existing": 0
+      },
+      "promotion_cost_usd": 0.0
+    },
+    {
+      "scenario_id": "stage_d_session2_c1",
+      "campaign_id": "longmont-c1",
+      "scenario_path": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/gold/stage_d_session2_c1.json",
+      "stage_d_gates_passed": true,
+      "stage_d_per_gate_verdict": {
+        "ER1": "PASS",
+        "ER2": "PASS",
+        "ER3": "PASS",
+        "ER4": "PASS",
+        "ER5": "PASS"
+      },
+      "proposals_path": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/proposals/longmont-c1__stage_d_session2_c1__stage_d_proposals_20260508T023418Z.json",
+      "promotion_json_path": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/promotions/stage_d_session2_c1/longmont-c1_stage_d_promotion_20260508T023418Z.json",
+      "stage_e_report_path": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/scaffold/stage_d_session2_c1/stage_e_hub_scaffold_20260508T023418Z.json",
+      "stage_e_gates_passed": "3/3",
+      "stage_e_counts": {
+        "ops_total": 5,
+        "preview_ok": 5,
+        "preview_error": 0,
+        "committed": 0,
+        "commit_error": 0,
+        "skipped_existing": 0
+      },
+      "promotion_cost_usd": 0.0
+    },
+    {
+      "scenario_id": "stage_d_session3_c1",
+      "campaign_id": "longmont-c1",
+      "scenario_path": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/gold/stage_d_session3_c1.json",
+      "stage_d_gates_passed": true,
+      "stage_d_per_gate_verdict": {
+        "ER1": "PASS",
+        "ER2": "PASS",
+        "ER3": "PASS",
+        "ER4": "PASS",
+        "ER5": "PASS"
+      },
+      "proposals_path": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/proposals/longmont-c1__stage_d_session3_c1__stage_d_proposals_20260508T023418Z.json",
+      "promotion_json_path": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/promotions/stage_d_session3_c1/longmont-c1_stage_d_promotion_20260508T023418Z.json",
+      "stage_e_report_path": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/scaffold/stage_d_session3_c1/stage_e_hub_scaffold_20260508T023418Z.json",
+      "stage_e_gates_passed": "3/3",
+      "stage_e_counts": {
+        "ops_total": 10,
+        "preview_ok": 0,
+        "preview_error": 0,
+        "committed": 0,
+        "commit_error": 0,
+        "skipped_existing": 10
+      },
+      "promotion_cost_usd": 0.0
+    }
+  ],
+  "failed": [],
+  "stage_e_summary_md": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/scaffold/stage_e_scaffold_summary--N4--20260508T023418Z.md",
+  "stage_e_summary_json": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/scaffold/stage_e_scaffold_summary--N4--20260508T023418Z.json",
+  "promotion_cost_usd_total": 0.0
+}

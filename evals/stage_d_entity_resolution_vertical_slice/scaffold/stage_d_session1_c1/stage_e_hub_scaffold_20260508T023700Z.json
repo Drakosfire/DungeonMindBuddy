@@ -1,0 +1,142 @@
+{
+  "schema": "stage_e_npc_hub_scaffold_v1",
+  "generated_at": "2026-05-08T02:37:00.205528+00:00",
+  "campaign_id": "longmont-c1",
+  "promotion_source": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/promotions/stage_d_session1_c1/longmont-c1_stage_d_promotion_20260508T023700Z.json",
+  "commit": false,
+  "counts": {
+    "ops_total": 10,
+    "preview_ok": 5,
+    "preview_error": 0,
+    "committed": 0,
+    "commit_error": 0,
+    "skipped_existing": 5
+  },
+  "ops": [
+    {
+      "path": "Elderwyld/Cities and Towns/The Wizard S/NPCs/glowkindle/README.md",
+      "mode": "create",
+      "status": "preview_ok",
+      "preview": {
+        "ok": true,
+        "phase": "preview",
+        "path": "Elderwyld/Cities and Towns/The Wizard S/NPCs/glowkindle/README.md",
+        "mode": "create",
+        "confirm_token": "1a2291499771c7b89ebdc704e97f2313",
+        "diff": "--- a/Elderwyld/Cities and Towns/The Wizard S/NPCs/glowkindle/README.md\n+++ b/Elderwyld/Cities and Towns/The Wizard S/NPCs/glowkindle/README.md\n@@ -0,0 +1,16 @@\n+---\n+title: Glowkindle\n+subject_class: npc\n+subject_doc_kind: hub_index\n+document_class: world\n+canon_layer: world\n+campaign_id: null\n+temporal_scope: evergreen\n+primary_location_slug: the_wizard_s\n+---\n+\n+# Glowkindle\n+\n+## Suggested reads (in order)\n+\n+1. `character_seed.md` - World-level seed profile.\n",
+        "new_size_bytes": 291,
+        "next_call": "After operator approves the diff, re-call with the same arguments plus `dry_run=false` and `confirm_token='1a2291499771c7b89ebdc704e97f2313'`."
+      }
+    },
+    {
+      "path": "Elderwyld/Cities and Towns/The Wizard S/NPCs/glowkindle/character_seed.md",
+      "mode": "create",
+      "status": "preview_ok",
+      "preview": {
+        "ok": true,
+        "phase": "preview",
+        "path": "Elderwyld/Cities and Towns/The Wizard S/NPCs/glowkindle/character_seed.md",
+        "mode": "create",
+        "confirm_token": "1dd60223b317320ee9ac2066f337791d",
+        "diff": "--- a/Elderwyld/Cities and Towns/The Wizard S/NPCs/glowkindle/character_seed.md\n+++ b/Elderwyld/Cities and Towns/The Wizard S/NPCs/glowkindle/character_seed.md\n@@ -0,0 +1,5 @@\n+# Glowkindle - character seed\n+\n+- Origin: TBD\n+- Core motivation: TBD\n+- Signature detail: TBD\n",
+        "new_size_bytes": 92,
+        "next_call": "After operator approves the diff, re-call with the same arguments plus `dry_run=false` and `confirm_token='1dd60223b317320ee9ac2066f337791d'`."
+      }
+    },
+    {
+      "path": "Longmont Campaign/Campaign 1/NPCs/glowkindle/README.md",
+      "mode": "create",
+      "status": "preview_ok",
+      "preview": {
+        "ok": true,
+        "phase": "preview",
+        "path": "Longmont Campaign/Campaign 1/NPCs/glowkindle/README.md",
+        "mode": "create",
+        "confirm_token": "15825ffc3e2aa04c19613452f673d749",
+        "diff": "--- a/Longmont Campaign/Campaign 1/NPCs/glowkindle/README.md\n+++ b/Longmont Campaign/Campaign 1/NPCs/glowkindle/README.md\n@@ -0,0 +1,19 @@\n+---\n+title: Glowkindle\n+subject_class: npc\n+subject_doc_kind: hub_index\n+document_class: reference\n+canon_layer: campaign\n+campaign_id: longmont-c1\n+temporal_scope: campaign_stateful\n+world_hub_path: Elderwyld/Cities and Towns/The Wizard S/NPCs/glowkindle/README.md\n+divergence_mode: inherit\n+primary_location_slug: the_wizard_s\n+---\n+\n+# Glowkindle\n+\n+## Suggested reads (in order)\n+\n+1. `glowkindle_character_dossier.md` - Campaign-facing dossier.\n+2. `timeline.md` - Session-indexed continuity row pointers.\n",
+        "new_size_bytes": 493,
+        "next_call": "After operator approves the diff, re-call with the same arguments plus `dry_run=false` and `confirm_token='15825ffc3e2aa04c19613452f673d749'`."
+      }
+    },
+    {
+      "path": "Longmont Campaign/Campaign 1/NPCs/glowkindle/timeline.md",
+      "mode": "create",
+      "status": "preview_ok",
+      "preview": {
+        "ok": true,
+        "phase": "preview",
+        "path": "Longmont Campaign/Campaign 1/NPCs/glowkindle/timeline.md",
+        "mode": "create",
+        "confirm_token": "b0316c7c18b91b85117bb31a45eb4384",
+        "diff": "--- a/Longmont Campaign/Campaign 1/NPCs/glowkindle/timeline.md\n+++ b/Longmont Campaign/Campaign 1/NPCs/glowkindle/timeline.md\n@@ -0,0 +1,4 @@\n+# Glowkindle timeline\n+\n+| Session | Beat (short) | Recap / prep |\n+| --- | --- | --- |\n",
+        "new_size_bytes": 85,
+        "next_call": "After operator approves the diff, re-call with the same arguments plus `dry_run=false` and `confirm_token='b0316c7c18b91b85117bb31a45eb4384'`."
+      }
+    },
+    {
+      "path": "Longmont Campaign/Campaign 1/NPCs/glowkindle/glowkindle_character_dossier.md",
+      "mode": "create",
+      "status": "preview_ok",
+      "preview": {
+        "ok": true,
+        "phase": "preview",
+        "path": "Longmont Campaign/Campaign 1/NPCs/glowkindle/glowkindle_character_dossier.md",
+        "mode": "create",
+        "confirm_token": "4f58605acd2abc53c29dc3636018a4e3",
+        "diff": "--- a/Longmont Campaign/Campaign 1/NPCs/glowkindle/glowkindle_character_dossier.md\n+++ b/Longmont Campaign/Campaign 1/NPCs/glowkindle/glowkindle_character_dossier.md\n@@ -0,0 +1,5 @@\n+# Glowkindle dossier\n+\n+## Summary\n+\n+TBD.\n",
+        "new_size_bytes": 39,
+        "next_call": "After operator approves the diff, re-call with the same arguments plus `dry_run=false` and `confirm_token='4f58605acd2abc53c29dc3636018a4e3'`."
+      }
+    },
+    {
+      "path": "Elderwyld/Cities and Towns/Stonebridge/NPCs/grishna/README.md",
+      "mode": "create",
+      "status": "skipped_existing"
+    },
+    {
+      "path": "Elderwyld/Cities and Towns/Stonebridge/NPCs/grishna/character_seed.md",
+      "mode": "create",
+      "status": "skipped_existing"
+    },
+    {
+      "path": "Longmont Campaign/Campaign 1/NPCs/grishna/README.md",
+      "mode": "create",
+      "status": "skipped_existing"
+    },
+    {
+      "path": "Longmont Campaign/Campaign 1/NPCs/grishna/timeline.md",
+      "mode": "create",
+      "status": "skipped_existing"
+    },
+    {
+      "path": "Longmont Campaign/Campaign 1/NPCs/grishna/grishna_character_dossier.md",
+      "mode": "create",
+      "status": "skipped_existing"
+    }
+  ],
+  "grading": {
+    "gates_passed": "3/3",
+    "per_gate_verdict": {
+      "EE1": "PASS",
+      "EE2": "PASS",
+      "EE3": "PASS"
+    },
+    "violations": [],
+    "violation_counts": {
+      "EE1": 0,
+      "EE2": 0,
+      "EE3": 0
+    },
+    "telemetry": {
+      "EE1": {
+        "ops_count": 10
+      },
+      "EE2": {
+        "commit_mode": false
+      },
+      "EE3": {
+        "checked_files": 3
+      }
+    }
+  }
+}

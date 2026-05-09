@@ -1,0 +1,102 @@
+{
+  "schema": "stage_d_promotion_v2",
+  "generated_at": "2026-05-08T02:34:18.038835+00:00",
+  "campaign_id": "longmont-c1",
+  "model_id": null,
+  "llm_enabled": false,
+  "cost": {
+    "total_usd": 0.0,
+    "calls": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "cached_tokens": 0
+  },
+  "sources": [
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/proposals/longmont-c1__stage_d_session2_c1__stage_d_proposals_20260508T023418Z.json"
+  ],
+  "registry_size": 4,
+  "proposed_new_records": [
+    {
+      "slug": "glowkindle",
+      "display_name": "Glowkindle",
+      "aliases": [],
+      "first_session": 2,
+      "last_session": 2,
+      "proposed_campaign_hub_path": "Longmont Campaign/Campaign 1/NPCs/glowkindle/",
+      "proposed_setting_hub_path": "Elderwyld/Cities and Towns/Wizard S Tower/NPCs/glowkindle/",
+      "proposed_location_slug": "wizard_s_tower",
+      "proposed_divergence_mode": "inherit",
+      "appearance_runs": 1,
+      "session_appearances": [
+        2
+      ],
+      "registry_collision_flags": {
+        "slug_collision": false,
+        "display_name_overlap": null,
+        "pc_collision": false
+      },
+      "evidence": [
+        {
+          "scenario_id": "stage_d_session2_c1",
+          "session_number": 2,
+          "descriptors_seen": [
+            "Glowkindle"
+          ],
+          "evidence_event_indices": [
+            3
+          ],
+          "source_file": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/proposals/longmont-c1__stage_d_session2_c1__stage_d_proposals_20260508T023418Z.json",
+          "events": [
+            {
+              "event_index": 3,
+              "event_name": "Negotiation with Glowkindle over the alchemy room",
+              "event_class": "social_conflict",
+              "participants": [
+                "karsemine",
+                "stafl",
+                "caelynn",
+                "ephanna",
+                "bonogo",
+                "baergrom",
+                "glowkindle"
+              ],
+              "referenced_slugs": [
+                "glowkindle"
+              ],
+              "location": "Wizard's Tower",
+              "outcomes": [
+                "The party negotiated with Glowkindle for the right to stash gear in the hidden alchemy room.",
+                "They established that the room was not part of the original contract, and neither was the rest of the place.",
+                "Glowkindle agreed to let them use the hidden alchemy room as storage."
+              ],
+              "time_scope": "scene",
+              "certainty": "observed",
+              "evidence_id": "Longmont Campaign/Campaign 1/Session Recaps/Session 2 - Finishing the Job.md"
+            }
+          ]
+        }
+      ],
+      "recommendation_source": "deterministic_only",
+      "recommendation": null,
+      "confidence": null,
+      "rationale": null
+    }
+  ],
+  "proposed_aliases": [],
+  "unresolvable": [],
+  "branch_scaffold_proposals": [
+    {
+      "slug": "glowkindle",
+      "display_name": "Glowkindle",
+      "location_slug": "wizard_s_tower",
+      "divergence_mode": "inherit",
+      "world_parent_hub_path": "Elderwyld/Cities and Towns/Wizard S Tower/NPCs/glowkindle/",
+      "campaign_overlay_hub_path": "Longmont Campaign/Campaign 1/NPCs/glowkindle/",
+      "recommended_files": [
+        "Longmont Campaign/Campaign 1/NPCs/glowkindle/README.md",
+        "Longmont Campaign/Campaign 1/NPCs/glowkindle/timeline.md",
+        "Longmont Campaign/Campaign 1/NPCs/glowkindle/glowkindle_character_dossier.md"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,95 @@
+{
+  "schema": "stage_d_promotion_v2",
+  "generated_at": "2026-05-08T02:34:18.035928+00:00",
+  "campaign_id": "longmont-c2",
+  "model_id": null,
+  "llm_enabled": false,
+  "cost": {
+    "total_usd": 0.0,
+    "calls": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "cached_tokens": 0
+  },
+  "sources": [
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/proposals/longmont-c2__stage_d_session20__stage_d_proposals_20260508T023418Z.json"
+  ],
+  "registry_size": 9,
+  "proposed_new_records": [
+    {
+      "slug": "professor_tealeaf",
+      "display_name": "Professor Tealeaf",
+      "aliases": [],
+      "first_session": 20,
+      "last_session": 20,
+      "proposed_campaign_hub_path": "Longmont Campaign/Campaign 2/NPCs/professor_tealeaf/",
+      "proposed_setting_hub_path": "Elderwyld/Cities and Towns/Camp Via Rockie/NPCs/professor_tealeaf/",
+      "proposed_location_slug": "camp_via_rockie",
+      "proposed_divergence_mode": "inherit",
+      "appearance_runs": 1,
+      "session_appearances": [
+        20
+      ],
+      "registry_collision_flags": {
+        "slug_collision": false,
+        "display_name_overlap": null,
+        "pc_collision": false
+      },
+      "evidence": [
+        {
+          "scenario_id": "stage_d_session20",
+          "session_number": 20,
+          "descriptors_seen": [
+            "Professor Tealeaf"
+          ],
+          "evidence_event_indices": [
+            19
+          ],
+          "source_file": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/proposals/longmont-c2__stage_d_session20__stage_d_proposals_20260508T023418Z.json",
+          "events": [
+            {
+              "event_index": 19,
+              "event_name": "Caelynn reports to Sara and asks for Professor Tealeaf",
+              "event_class": "conversation",
+              "participants": [
+                "caelynn",
+                "sara_mirathorn_operator"
+              ],
+              "referenced_slugs": [],
+              "location": "camp via rockie-talkie",
+              "outcomes": [
+                "Caelynn tells Sara the good news about Lysandra and the bad news about the tainted meat.",
+                "Sara worries about who can now be trusted in the city.",
+                "Sara transfers Caelynn to Professor Tealeaf, but Tealeaf does not pick up."
+              ],
+              "time_scope": "scene",
+              "certainty": "observed",
+              "evidence_id": "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md"
+            }
+          ]
+        }
+      ],
+      "recommendation_source": "deterministic_only",
+      "recommendation": null,
+      "confidence": null,
+      "rationale": null
+    }
+  ],
+  "proposed_aliases": [],
+  "unresolvable": [],
+  "branch_scaffold_proposals": [
+    {
+      "slug": "professor_tealeaf",
+      "display_name": "Professor Tealeaf",
+      "location_slug": "camp_via_rockie",
+      "divergence_mode": "inherit",
+      "world_parent_hub_path": "Elderwyld/Cities and Towns/Camp Via Rockie/NPCs/professor_tealeaf/",
+      "campaign_overlay_hub_path": "Longmont Campaign/Campaign 2/NPCs/professor_tealeaf/",
+      "recommended_files": [
+        "Longmont Campaign/Campaign 2/NPCs/professor_tealeaf/README.md",
+        "Longmont Campaign/Campaign 2/NPCs/professor_tealeaf/timeline.md",
+        "Longmont Campaign/Campaign 2/NPCs/professor_tealeaf/professor_tealeaf_character_dossier.md"
+      ]
+    }
+  ]
+}

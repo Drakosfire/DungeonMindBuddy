@@ -1,0 +1,72 @@
+{
+  "id": "c1s3_pippa_statblock_context_scripted",
+  "description": "C1S3 named NPC statblock benchmark: Pippa should resolve through recall_npc_context before generate_statblock.",
+  "user_message": "Pull from C1S3 and build me a light-touch statblock for Pippa that still feels like Pippa at the table. Keep her in that gnome brewer/inventor lane from StoneBridge, not a generic combat caster.",
+  "statblock_stub": "## Pippa Goldwhistle (eval stub)\n*Small humanoid, chaotic good*\n**Armor Class** 12 — **Hit Points** 14 — **Speed** 25 ft.\n_Mock statblock for eval only._",
+  "mock_responses": [
+    {
+      "id": "resp-pippa-1",
+      "output": [
+        {
+          "type": "function_call",
+          "name": "recall_npc_context",
+          "call_id": "fc-pippa-recall",
+          "arguments": "{\"campaign_id\": \"longmont-c1\", \"npc\": \"Pippa\", \"max_chars_per_file\": 4000}"
+        }
+      ]
+    },
+    {
+      "id": "resp-pippa-2",
+      "output": [
+        {
+          "type": "function_call",
+          "name": "generate_statblock",
+          "call_id": "fc-pippa-statblock",
+          "arguments": "{\"creature_name\": \"Pippa Goldwhistle\", \"description\": \"C1 Session 3 gnome assistant brewer and innovator tied to Wizard Tower Brewery and StoneBridge delivery. Petite, curly red hair, wide curious eyes, practical brewing gear and gadgets. Build her as a light-duty alchemical brewer/inventor: brewer's tools, alchemist supplies, support/control tricks, flavor-science chatter, and panic over Bubbles in the flood. Not a random combat mage; combat only supports her table role as Pippa the enthusiastic beer-and-gadgets NPC.\", \"challenge_rating\": \"1/4\"}"
+        }
+      ]
+    },
+    {
+      "id": "resp-pippa-3",
+      "output": [
+        {
+          "type": "message",
+          "content": [
+            {
+              "type": "output_text",
+              "text": "Used Pippa's C1 hub context and generated a light-duty brewer/inventor statblock stub."
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "expect": {
+    "tool_names_in_order": [
+      "recall_npc_context",
+      "generate_statblock"
+    ],
+    "recall_npc_context_args": {
+      "campaign_id": "longmont-c1",
+      "npc_contains": "pippa"
+    },
+    "tool_outputs_must_include_substrings": [
+      {
+        "tool_index": 0,
+        "substring": "\"slug\": \"pippa\""
+      }
+    ],
+    "statblock_args": {
+      "creature_name_contains": "pippa",
+      "description_contains_all": [
+        "brewer",
+        "inventor",
+        "Bubbles",
+        "flood"
+      ]
+    },
+    "final_text_must_include": ["brewer/inventor"],
+    "all_scripted_responses_consumed": true,
+    "previous_response_id_chained_after_first_call": true
+  }
+}

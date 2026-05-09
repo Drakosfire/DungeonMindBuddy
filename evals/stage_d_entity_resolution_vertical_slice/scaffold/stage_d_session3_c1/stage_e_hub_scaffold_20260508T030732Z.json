@@ -1,0 +1,92 @@
+{
+  "schema": "stage_e_npc_hub_scaffold_v1",
+  "generated_at": "2026-05-08T03:07:32.352867+00:00",
+  "campaign_id": "longmont-c1",
+  "promotion_source": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/stage_d_entity_resolution_vertical_slice/promotions/stage_d_session3_c1/longmont-c1_stage_d_promotion_20260508T030732Z.json",
+  "commit": false,
+  "counts": {
+    "ops_total": 10,
+    "preview_ok": 0,
+    "preview_error": 0,
+    "committed": 0,
+    "commit_error": 0,
+    "skipped_existing": 10
+  },
+  "ops": [
+    {
+      "path": "Elderwyld/Cities and Towns/Stonebridge/NPCs/grishna/README.md",
+      "mode": "create",
+      "status": "skipped_existing"
+    },
+    {
+      "path": "Elderwyld/Cities and Towns/Stonebridge/NPCs/grishna/character_seed.md",
+      "mode": "create",
+      "status": "skipped_existing"
+    },
+    {
+      "path": "Longmont Campaign/Campaign 1/NPCs/grishna/README.md",
+      "mode": "create",
+      "status": "skipped_existing"
+    },
+    {
+      "path": "Longmont Campaign/Campaign 1/NPCs/grishna/timeline.md",
+      "mode": "create",
+      "status": "skipped_existing"
+    },
+    {
+      "path": "Longmont Campaign/Campaign 1/NPCs/grishna/grishna_character_dossier.md",
+      "mode": "create",
+      "status": "skipped_existing"
+    },
+    {
+      "path": "Elderwyld/Cities and Towns/Upriver River Route/NPCs/kirfan/README.md",
+      "mode": "create",
+      "status": "skipped_existing"
+    },
+    {
+      "path": "Elderwyld/Cities and Towns/Upriver River Route/NPCs/kirfan/character_seed.md",
+      "mode": "create",
+      "status": "skipped_existing"
+    },
+    {
+      "path": "Longmont Campaign/Campaign 1/NPCs/kirfan/README.md",
+      "mode": "create",
+      "status": "skipped_existing"
+    },
+    {
+      "path": "Longmont Campaign/Campaign 1/NPCs/kirfan/timeline.md",
+      "mode": "create",
+      "status": "skipped_existing"
+    },
+    {
+      "path": "Longmont Campaign/Campaign 1/NPCs/kirfan/kirfan_character_dossier.md",
+      "mode": "create",
+      "status": "skipped_existing"
+    }
+  ],
+  "grading": {
+    "gates_passed": "3/3",
+    "per_gate_verdict": {
+      "EE1": "PASS",
+      "EE2": "PASS",
+      "EE3": "PASS"
+    },
+    "violations": [],
+    "violation_counts": {
+      "EE1": 0,
+      "EE2": 0,
+      "EE3": 0
+    },
+    "telemetry": {
+      "EE1": {
+        "ops_count": 10
+      },
+      "EE2": {
+        "commit_mode": false
+      },
+      "EE3": {
+        "checked_files": 6
+      }
+    }
+  }
+}

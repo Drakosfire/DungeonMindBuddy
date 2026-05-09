@@ -1,0 +1,1185 @@
+{
+  "schema": "dmb_c1s3_location_entity_benchmark_v1",
+  "offline_stub": true,
+  "records_source": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/manual_labels/Session 3 - The Stone Bridge Flood.breadcrumbed.md",
+  "gold": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/gold/breadcrumb_query_natural_c1s3_v1.json",
+  "gold_schema": "dmb_breadcrumb_query_natural_gold_v1",
+  "scenario_id": "c1s3_stonebridge_npc_roster_associated",
+  "all_ok": true,
+  "results": [
+    {
+      "scenario_id": "c1s3_stonebridge_npc_roster_associated",
+      "grading_mode": "natural_retrieval_context+llm",
+      "ok": true,
+      "violations": [],
+      "hit_count": 18,
+      "top_hit": {
+        "hit_id": "26e71553b8f424bb1faf",
+        "score": 7,
+        "source_recap_path": "Longmont Campaign/Campaign 1/Session Recaps/Session 3 - The Stone Bridge Flood.md",
+        "unit_id": "u-L0034-01",
+        "line_start": 34,
+        "line_end": 34,
+        "routes": [
+          {
+            "subject_class": "Location",
+            "normalized_route": "Longmont Campaign/Campaign 1/Locations/stonebridge/",
+            "proposed": true,
+            "tag_kind": "inline"
+          },
+          {
+            "subject_class": "NewHubCandidate",
+            "normalized_route": "Longmont Campaign/Campaign 1/NPCs/pippa/",
+            "proposed": true,
+            "tag_kind": "inline"
+          },
+          {
+            "subject_class": "NewHubCandidate",
+            "normalized_route": "Longmont Campaign/Campaign 1/NPCs/bubbles_the_float_goat/",
+            "proposed": true,
+            "tag_kind": "inline"
+          },
+          {
+            "subject_class": "PC",
+            "normalized_route": "Longmont Campaign/Campaign 1/PCs/caelynn/",
+            "proposed": false,
+            "tag_kind": "inline"
+          },
+          {
+            "subject_class": "PC",
+            "normalized_route": "Longmont Campaign/Campaign 1/PCs/karsemine/",
+            "proposed": false,
+            "tag_kind": "inline"
+          },
+          {
+            "subject_class": "PC",
+            "normalized_route": "Longmont Campaign/Campaign 1/PCs/stafl/",
+            "proposed": false,
+            "tag_kind": "inline"
+          },
+          {
+            "subject_class": "PC",
+            "normalized_route": "Longmont Campaign/Campaign 1/PCs/baergrom/",
+            "proposed": false,
+            "tag_kind": "inline"
+          },
+          {
+            "subject_class": "PC",
+            "normalized_route": "Longmont Campaign/Campaign 1/PCs/ephanna/",
+            "proposed": false,
+            "tag_kind": "inline"
+          },
+          {
+            "subject_class": "PC",
+            "normalized_route": "Longmont Campaign/Campaign 1/PCs/bonogo/",
+            "proposed": false,
+            "tag_kind": "inline"
+          }
+        ],
+        "why_matched": [
+          "route_token:npcs",
+          "lexical_token:stonebridge",
+          "route_token:stonebridge"
+        ]
+      },
+      "strict_verdict": "pass_updated",
+      "strict_must_hits": [
+        "Pippa",
+        "Bubbles",
+        "Grishna",
+        "StoneBridge"
+      ],
+      "strict_stale_hits": [],
+      "strict_global_stale_hits": [],
+      "semantic_verdict": "pass_updated",
+      "semantic_must_hits": [
+        "Pippa",
+        "Bubbles",
+        "Grishna",
+        "StoneBridge"
+      ],
+      "semantic_stale_hits": [],
+      "semantic_global_stale_hits": [],
+      "context_must_hits": [
+        "Pippa",
+        "Bubbles",
+        "Grishna",
+        "StoneBridge"
+      ],
+      "context_support_ratio": 1.0,
+      "failure_surface": "pass",
+      "hit_context_preview": "Ready for some rest, ready to not be covered in the sweat and ichor of the day, Caelynn, Karsemine, Stafl, Baergrom, and Ephanna accepted the offer of a ride to StoneBridge with Pippa.\nLongmont Campaign/Campaign 1/Locations/stonebridge/\nLongmont Campaign/Campaign 1/NPCs/pippa/\nLongmont Campaign/Campaign 1/NPCs/bubbles_the_float_goat/\nLongmont Campaign/Campaign 1/PCs/caelynn/\nLongmont Campaign/Campaign 1/PCs/karsemine/\nLongmont Campaign/Campaign 1/PCs/stafl/\nLongmont Campaign/Campaign 1/PCs/baergrom/\nLongmont Campaign/Campaign 1/PCs/ephanna/\nLongmont Campaign/Campaign 1/PCs/bonogo/\nOnce at Ston",
+      "context_evidence_metrics": {
+        "context_evidence_top_k": 9,
+        "hits_considered": 9,
+        "expected_unit_substring_count": 0,
+        "expected_route_substring_count": 1,
+        "unit_substrings_matched_in_top_k": 0,
+        "route_substrings_matched_in_top_k": 1,
+        "unit_recall_in_top_k": null,
+        "route_recall_in_top_k": 1.0,
+        "unit_substrings_missing_in_top_k": [],
+        "route_substrings_missing_in_top_k": [],
+        "top_k_unit_coverage_ok": true,
+        "top_k_route_coverage_ok": true,
+        "full_list_unit_coverage_ok": null,
+        "full_list_route_coverage_ok": true
+      },
+      "full_result": {
+        "schema": "dmb_query_session_memory_result_v1",
+        "contract": "candidate_mode_v1",
+        "campaign_id": "longmont-c1",
+        "query": "Give me a list of all NPCs that live in StoneBridge.",
+        "hits": [
+          {
+            "hit_id": "26e71553b8f424bb1faf",
+            "score": 7,
+            "source_recap_path": "Longmont Campaign/Campaign 1/Session Recaps/Session 3 - The Stone Bridge Flood.md",
+            "unit_id": "u-L0034-01",
+            "line_start": 34,
+            "line_end": 34,
+            "routes": [
+              {
+                "subject_class": "Location",
+                "normalized_route": "Longmont Campaign/Campaign 1/Locations/stonebridge/",
+                "proposed": true,
+                "tag_kind": "inline"
+              },
+              {
+                "subject_class": "NewHubCandidate",
+                "normalized_route": "Longmont Campaign/Campaign 1/NPCs/pippa/",
+                "proposed": true,
+                "tag_kind": "inline"
+              },
+              {
+                "subject_class": "NewHubCandidate",
+                "normalized_route": "Longmont Campaign/Campaign 1/NPCs/bubbles_the_float_goat/",
+                "proposed": true,
+                "tag_kind": "inline"
+              },
+              {
+                "subject_class": "PC",
+                "normalized_route": "Longmont Campaign/Campaign 1/PCs/caelynn/",
+                "proposed": false,
+                "tag_kind": "inline"
+              },
+              {
+                "subject_class": "PC",
+                "normalized_route": "Longmont Campaign/Campaign 1/PCs/karsemine/",
+                "proposed": false,
+                "tag_kind": "inline"
+              },
+              {
+                "subject_class": "PC",
+                "normalized_route": "Longmont Campaign/Campaign 1/PCs/stafl/",
+                "proposed": false,
+                "tag_kind": "inline"
+              },
+              {
+                "subject_class": "PC",
+                "normalized_route": "Longmont Campaign/Campaign 1/PCs/baergrom/",
+                "proposed": false,
+                "tag_kind": "inline"
+              },
+              {
+                "subject_class": "PC",
+                "normalized_route": "Longmont Campaign/Campaign 1/PCs/ephanna/",
+                "proposed": false,
+                "tag_kind": "inline"
+              },
+              {
+                "subject_class": "PC",
+                "normalized_route": "Longmont Campaign/Campaign 1/PCs/bonogo/",
+                "proposed": false,
+                "tag_kind": "inline"
+              }
+            ],
+            "why_matched": [
+              "route_token:npcs",
+              "lexical_token:stonebridge",
+              "route_token:stonebridge"
+            ]
+          },
+          {
+            "hit_id": "1e29e2ace78276c59fb3",
+            "score": 7,
+            "source_recap_path": "Longmont Campaign/Campaign 1/Session Recaps/Session 3 - The Stone Bridge Flood.md",
+            "unit_id": "u-L0036-01",
+            "line_start": 36,
+            "line_end": 36,
+            "routes": [
+              {
+                "subject_class": "Location",
+                "normalized_route": "Longmont Campaign/Campaign 1/Locations/stonebridge/",
+                "proposed": true,
+                "tag_kind": "inline"
+              },
+              {
+                "subject_class": "Location",
+                "normalized_route": "Longmont Campaign/Campaign 1/Locations/rivers_edge_pub/",
+                "proposed": true,
+                "tag_kind": "inline"
+              },
+              {
+                "subject_class": "NewHubCandidate",
+                "normalized_route": "Longmont Campaign/Campaign 1/NPCs/grishna/",
+                "proposed": true,
+                "tag_kind": "inline"
+              },
+              {
+                "subject_class": "NewHubCandidate",
+                "normalized_route": "Longmont Campaign/Campaign 1/NPCs/pippa/",
+                "proposed": true,
+                "tag_kind": "inline"
+              },
+              {
+                "subject_class": "NewHubCandidate",
+                "normalized_route": "Longmont Campaign/Campaign 1/NPCs/bubbles_the_float_goat/",
+                "proposed": true,
+                "tag_kind": "inline"
+              },
+              {
+                "subject_class": "PC",
+                "normalized_route": "Longmont Campaign/Campaign 1/PCs/stafl/",
+                "proposed": false,
+                "tag_kind": "inline"
+              }
+            ],
+            "why_matched": [
+              "route_token:npcs",
+              "lexical_token:stonebridge",
+              "route_token:stonebridge"
+            ]
+          },
+          {
+            "hit_id": "753c02ad9e1ece5b7037",
+            "score": 7,
+            "source_recap_path": "Longmont Campaign/Campaign 1/Session Recaps/Session 3 - The Stone Bridge Flood.md",
+            "unit_id": "u-L0040-06",
+            "line_start": 40,
+            "line_end": 40,
+            "routes": [
+              {
+                "subject_class": "NewHubCandidate",
+                "normalized_route": "Longmont Campaign/Campaign 1/NPCs/bubbles_the_float_goat/",
+                "proposed": true,
+                "tag_kind": "inline"
+              },
+              {
+                "subject_class": "PC",
+                "normalized_route": "Longmont Campaign/Campaign 1/PCs/ephanna/",
+                "proposed": false,
+                "tag_kind": "inline"
+              },
+              {
+                "subject_class": "PC",
+                "normalized_route": "Longmont Campaign/Campaign 1/PCs/bonogo/",
+                "proposed": false,
+                "tag_kind": "inline"
+              },
+              {
+                "subject_class": "PC",
+                "normalized_route": "Longmont Campaign/Campaign 1/PCs/baergrom/",
+                "proposed": false,
+                "tag_kind": "inline"
+              },
+              {
+                "subject_class": "Location",
+                "normalized_route": "Longmont Campaign/Campaign 1/Locations/stonebridge/",
+                "proposed": true,
+                "tag_kind": "inline"
+              }
+            ],
+            "why_matched": [
+              "lexical_token:all",
+              "route_token:npcs",
+              "route_token:stonebridge"
+            ]
+          },
+          {
+            "hit_id": "c41df23ecc7861cc2414",
+            "score": 7,
+            "source_recap_path": "Longmont Campaign/Campaign 1/Session Recaps/Session 3 - The Stone Bridge Flood.md",
+            "unit_id": "u-L0045-01",
+            "line_start": 45,
+            "line_end": 45,
+            "routes": [
+              {
+                "subject_class": "PC",
+                "normalized_route": "Longmont Campaign/Campaign 1/PCs/bonogo/",
+                "proposed": false,
+                "tag_kind": "inline"
+              },
+              {
+                "subject_class": "Location",
+                "normalized_route": "Longmont Campaign/Campaign 1/Locations/rivers_edge_pub/",
+                "proposed": true,
+                "tag_kind": "inline"
+              },
+              {
+                "subject_class": "Location",
+                "normalized_route": "Longmont Campaign/Campaign 1/Locations/stonebridge/",
+                "proposed": true,
+                "tag_kind": "inline"
+              },
+              {
+                "subject_class": "NewHubCandidate",
+                "normalized_route": "Longmont Campaign/Campaign 1/NPCs/bubbles_the_float_goat/",
+                "proposed": true,
+                "tag_kind": "inline"
+              },
+              {
+                "subject_class": "NewHubCandidate",
+                "normalized_route": "Longmont Campaign/Campaign 1/NPCs/pippa/",
+                "proposed": true,
+                "tag_kind": "inline"
+              },
+              {
+                "subject_class": "Location",
+                "normalized_route": "Longmont Campaign/Campaign 1/Locations/mirathorn/",
+                "proposed": true,
+                "tag_kind": "inline"
+              }
+            ],
+            "why_matched": [
+              "lexical_token:all",
+              "route_token:npcs",
+              "route_token:stonebridge"
+            ]
+          },
+          {
+            "hit_id": "eaae16856e7aa1e8ed4e",
+            "score": 6,
+            "source_recap_path": "Longmont Campaign/Campaign 1/Session Recaps/Session 3 - The Stone Bridge Flood.md",
+            "unit_id": "u-L0034-02",
+            "line_start": 34,
+            "line_end": 34,
+            "routes": [
+              {
+                "subject_class": "Location",
+                "normalized_route": "Longmont Campaign/Campaign 1/Locations/stonebridge/",
+                "proposed": true,
+                "tag_kind": "inline"
+              },
+              {
+                "subject_class": "Location",
+                "normalized_route": "Longmont Campaign/Campaign 1/Locations/rivers_edge_pub/",
+                "proposed": true,
+                "tag_kind": "inline"
+              },
+              {
+                "subject_class": "NewHubCandidate",
+                "normalized_route": "Longmont Campaign/Campaign 1/NPCs/grishna/",
+                "proposed": true,
+                "tag_kind": "inline"
+              },
+              {
+                "subject_class": "NewHubCandidate",
+                "normalized_route": "Longmont Campaign/Campaign 1/NPCs/pippa/",
+                "proposed": true,
+                "tag_kind": "inline"
+              },
+              {
+                "subject_class": "NewHubCandidate",
+                "normalized_route": "Longmont Campaign/Campaign 1/NPCs/bubbles_the_float_goat/",
+                "proposed": true,
+                "tag_kind": "inline"
+              },
+              {
+                "subject_class": "PC",
+                "normalized_route": "Longmont Campaign/Campaign 1/PCs/stafl/",
+                "proposed": false,
+                "tag_kind": "inline"
+              }
+            ],
+            "why_matched": [
+              "route_token:npcs",
+              "route_token:stonebridge"
+            ]
+          },
+          {
+            "hit_id": "b0577adbf722b960202e",
+            "score": 6,
+            "source_recap_path": "Longmont Campaign/Campaign 1/Session Recaps/Session 3 - The Stone Bridge Flood.md",
+            "unit_id": "u-L0034-03",
+            "line_start": 34,
+            "line_end": 34,
+            "routes": [
+              {
+                "subject_class": "Location",
+                "normalized_route": "Longmont Campaign/Campaign 1/Locations/stonebridge/",
+                "proposed": true,
+                "tag_kind": "inline"
+              },
+              {
+                "subject_class": "Location",
+                "normalized_route": "Longmont Campaign/Campaign 1/Locations/rivers_edge_pub/",
+                "proposed": true,
+                "tag_kind": "inline"
+              },
+              {
+                "subject_class": "NewHubCandidate",
+                "normalized_route": "Longmont Campaign/Campaign 1/NPCs/grishna/",
+                "proposed": true,
+                "tag_kind": "inline"
+              },
+              {
+                "subject_class": "NewHubCandidate",
+                "normalized_route": "Longmont Campaign/Campaign 1/NPCs/pippa/",
+                "proposed": true,
+                "tag_kind": "inline"
+              },
+              {
+                "subject_class": "NewHubCandidate",
+                "normalized_route": "Longmont Campaign/Campaign 1/NPCs/bubbles_the_float_goat/",
+                "proposed": true,
+                "tag_kind": "inline"
+              },
+              {
+                "subject_class": "PC",
+                "normalized_route": "Longmont Campaign/Campaign 1/PCs/stafl/",
+                "proposed": false,
+                "tag_kind": "inline"
+              }
+            ],
+            "why_matched": [
+              "route_token:npcs",
+              "route_token:stonebridge"
+            ]
+          },
+          {
+            "hit_id": "5ab9bb0381f9b095ea4d",
+            "score": 6,
+            "source_recap_path": "Longmont Campaign/Campaign 1/Session Recaps/Session 3 - The Stone Bridge Flood.md",
+            "unit_id": "u-L0034-04",
+            "line_start": 34,
+            "line_end": 34,
+            "routes": [
+              {
+                "subject_class": "Location",
+                "normalized_route": "Longmont Campaign/Campaign 1/Locations/stonebridge/",
+                "proposed": true,
+                "tag_kind": "inline"
+              },
+              {
+                "subject_class": "Location",
+                "normalized_route": "Longmont Campaign/Campaign 1/Locations/rivers_edge_pub/",
+                "proposed": true,
+                "tag_kind": "inline"
+              },
+              {
+                "subject_class": "NewHubCandidate",
+                "normalized_route": "Longmont Campaign/Campaign 1/NPCs/grishna/",
+                "proposed": true,
+                "tag_kind": "inline"
+              },
+              {
+                "subject_class": "NewHubCandidate",
+                "normalized_route": "Longmont Campaign/Campaign 1/NPCs/pippa/",
+                "proposed": true,
+                "tag_kind": "inline"
+              },
+              {
+                "subject_class": "NewHubCandidate",
+                "normalized_route": "Longmont Campaign/Campaign 1/NPCs/bubbles_the_float_goat/",
+                "proposed": true,
+                "tag_kind": "inline"
+              },
+              {
+                "subject_class": "PC",
+                "normalized_route": "Longmont Campaign/Campaign 1/PCs/stafl/",
+                "proposed": false,
+                "tag_kind": "inline"
+              }
+            ],
+            "why_matched": [
+              "route_token:npcs",
+              "route_token:stonebridge"
+            ]
+          },
+          {
+            "hit_id": "6bd64d84cb14cb817162",
+            "score": 6,
+            "source_recap_path": "Longmont Campaign/Campaign 1/Session Recaps/Session 3 - The Stone Bridge Flood.md",
+            "unit_id": "u-L0034-05",
+            "line_start": 34,
+            "line_end": 34,
+            "routes": [
+              {
+                "subject_class": "Location",
+                "normalized_route": "Longmont Campaign/Campaign 1/Locations/stonebridge/",
+                "proposed": true,
+                "tag_kind": "inline"
+              },
+              {
+                "subject_class": "Location",
+                "normalized_route": "Longmont Campaign/Campaign 1/Locations/rivers_edge_pub/",
+                "proposed": true,
+                "tag_kind": "inline"
+              },
+              {
+                "subject_class": "NewHubCandidate",
+                "normalized_route": "Longmont Campaign/Campaign 1/NPCs/grishna/",
+                "proposed": true,
+                "tag_kind": "inline"
+              },
+              {
+                "subject_class": "NewHubCandidate",
+                "normalized_route": "Longmont Campaign/Campaign 1/NPCs/pippa/",
+                "proposed": true,
+                "tag_kind": "inline"
+              },
+              {
+                "subject_class": "NewHubCandidate",
+                "normalized_route": "Longmont Campaign/Campaign 1/NPCs/bubbles_the_float_goat/",
+                "proposed": true,
+                "tag_kind": "inline"
+              },
+              {
+                "subject_class": "PC",
+                "normalized_route": "Longmont Campaign/Campaign 1/PCs/stafl/",
+                "proposed": false,
+                "tag_kind": "inline"
+              }
+            ],
+            "why_matched": [
+              "route_token:npcs",
+              "route_token:stonebridge"
+            ]
+          },
+          {
+            "hit_id": "8445b0b453e66ff32cff",
+            "score": 6,
+            "source_recap_path": "Longmont Campaign/Campaign 1/Session Recaps/Session 3 - The Stone Bridge Flood.md",
+            "unit_id": "u-L0040-01",
+            "line_start": 40,
+            "line_end": 40,
+            "routes": [
+              {
+                "subject_class": "Location",
+                "normalized_route": "Longmont Campaign/Campaign 1/Locations/rivers_edge_pub/",
+                "proposed": true,
+                "tag_kind": "inline"
+              },
+              {
+                "subject_class": "NewHubCandidate",
+                "normalized_route": "Longmont Campaign/Campaign 1/NPCs/pippa/",
+                "proposed": true,
+                "tag_kind": "inline"
+              },
+              {
+                "subject_class": "NewHubCandidate",
+                "normalized_route": "Longmont Campaign/Campaign 1/NPCs/bubbles_the_float_goat/",
+                "proposed": true,
+                "tag_kind": "inline"
+              },
+              {
+                "subject_class": "PC",
+                "normalized_route": "Longmont Campaign/Campaign 1/PCs/ephanna/",
+                "proposed": false,
+                "tag_kind": "inline"
+              },
+              {
+                "subject_class": "PC",
+                "normalized_route": "Longmont Campaign/Campaign 1/PCs/stafl/",
+                "proposed": false,
+                "tag_kind": "inline"
+              },
+              {
+                "subject_class": "PC",
+                "normalized_route": "Longmont Campaign/Campaign 1/PCs/bonogo/",
+                "proposed": false,
+                "tag_kind": "inline"
+              },
+              {
+                "subject_class": "PC",
+                "normalized_route": "Longmont Campaign/Campaign 1/PCs/baergrom/",
+                "proposed": false,
+                "tag_kind": "inline"
+              },
+              {
+                "subject_class": "PC",
+                "normalized_route": "Longmont Campaign/Campaign 1/PCs/caelynn/",
+                "proposed": false,
+                "tag_kind": "inline"
+              },
+              {
+                "subject_class": "Location",
+                "normalized_route": "Longmont Campaign/Campaign 1/Locations/stonebridge/",
+                "proposed": true,
+                "tag_kind": "inline"
+              }
+            ],
+            "why_matched": [
+              "route_token:npcs",
+              "route_token:stonebridge"
+            ]
+          },
+          {
+            "hit_id": "f233525432c87449c62a",
+            "score": 0,
+            "source_recap_path": "Longmont Campaign/Campaign 1/Session Recaps/Session 3 - The Stone Bridge Flood.md",
+            "unit_id": "u-L0045-02",
+            "line_start": 45,
+            "line_end": 45,
+            "routes": [],
+            "why_matched": [
+              "expanded_adjacent:u-L0045-02"
+            ]
+          },
+          {
+            "hit_id": "84ad46de15a9251f769a",
+            "score": 0,
+            "source_recap_path": "Longmont Campaign/Campaign 1/Session Recaps/Session 3 - The Stone Bridge Flood.md",
+            "unit_id": "u-L0045-03",
+            "line_start": 45,
+            "line_end": 45,
+            "routes": [],
+            "why_matched": [
+              "expanded_adjacent:u-L0045-03"
+            ]
+          },
+          {
+            "hit_id": "c398df83dc982391d50d",
+            "score": 0,
+            "source_recap_path": "Longmont Campaign/Campaign 1/Session Recaps/Session 3 - The Stone Bridge Flood.md",
+            "unit_id": "u-L0045-04",
+            "line_start": 45,
+            "line_end": 45,
+            "routes": [],
+            "why_matched": [
+              "expanded_adjacent:u-L0045-04"
+            ]
+          },
+          {
+            "hit_id": "424d9cc548483bb9c16c",
+            "score": 0,
+            "source_recap_path": "Longmont Campaign/Campaign 1/Session Recaps/Session 3 - The Stone Bridge Flood.md",
+            "unit_id": "u-L0045-05",
+            "line_start": 45,
+            "line_end": 45,
+            "routes": [],
+            "why_matched": [
+              "expanded_adjacent:u-L0045-05"
+            ]
+          },
+          {
+            "hit_id": "306edcaf63b8c8056bd8",
+            "score": 0,
+            "source_recap_path": "Longmont Campaign/Campaign 1/Session Recaps/Session 3 - The Stone Bridge Flood.md",
+            "unit_id": "u-L0043-01",
+            "line_start": 43,
+            "line_end": 43,
+            "routes": [
+              {
+                "subject_class": "PC",
+                "normalized_route": "Longmont Campaign/Campaign 1/PCs/karsemine/",
+                "proposed": false,
+                "tag_kind": "inline"
+              },
+              {
+                "subject_class": "PC",
+                "normalized_route": "Longmont Campaign/Campaign 1/PCs/stafl/",
+                "proposed": false,
+                "tag_kind": "inline"
+              },
+              {
+                "subject_class": "PC",
+                "normalized_route": "Longmont Campaign/Campaign 1/PCs/caelynn/",
+                "proposed": false,
+                "tag_kind": "inline"
+              },
+              {
+                "subject_class": "PC",
+                "normalized_route": "Longmont Campaign/Campaign 1/PCs/ephanna/",
+                "proposed": false,
+                "tag_kind": "inline"
+              },
+              {
+                "subject_class": "NewHubCandidate",
+                "normalized_route": "Longmont Campaign/Campaign 1/NPCs/bubbles_the_float_goat/",
+                "proposed": true,
+                "tag_kind": "inline"
+              },
+              {
+                "subject_class": "Location",
+                "normalized_route": "Longmont Campaign/Campaign 1/Locations/stonebridge/",
+                "proposed": true,
+                "tag_kind": "inline"
+              }
+            ],
+            "why_matched": [
+              "expanded_adjacent:u-L0043-01"
+            ]
+          },
+          {
+            "hit_id": "553756ec457d4764c1c7",
+            "score": 0,
+            "source_recap_path": "Longmont Campaign/Campaign 1/Session Recaps/Session 3 - The Stone Bridge Flood.md",
+            "unit_id": "u-L0043-02",
+            "line_start": 43,
+            "line_end": 43,
+            "routes": [
+              {
+                "subject_class": "PC",
+                "normalized_route": "Longmont Campaign/Campaign 1/PCs/bonogo/",
+                "proposed": false,
+                "tag_kind": "inline"
+              },
+              {
+                "subject_class": "Location",
+                "normalized_route": "Longmont Campaign/Campaign 1/Locations/rivers_edge_pub/",
+                "proposed": true,
+                "tag_kind": "inline"
+              },
+              {
+                "subject_class": "Location",
+                "normalized_route": "Longmont Campaign/Campaign 1/Locations/stonebridge/",
+                "proposed": true,
+                "tag_kind": "inline"
+              },
+              {
+                "subject_class": "NewHubCandidate",
+                "normalized_route": "Longmont Campaign/Campaign 1/NPCs/bubbles_the_float_goat/",
+                "proposed": true,
+                "tag_kind": "inline"
+              },
+              {
+                "subject_class": "NewHubCandidate",
+                "normalized_route": "Longmont Campaign/Campaign 1/NPCs/pippa/",
+                "proposed": true,
+                "tag_kind": "inline"
+              },
+              {
+                "subject_class": "Location",
+                "normalized_route": "Longmont Campaign/Campaign 1/Locations/mirathorn/",
+                "proposed": true,
+                "tag_kind": "inline"
+              }
+            ],
+            "why_matched": [
+              "expanded_adjacent:u-L0043-02"
+            ]
+          },
+          {
+            "hit_id": "1568b063b5219dcf43a9",
+            "score": 0,
+            "source_recap_path": "Longmont Campaign/Campaign 1/Session Recaps/Session 3 - The Stone Bridge Flood.md",
+            "unit_id": "u-L0043-03",
+            "line_start": 43,
+            "line_end": 43,
+            "routes": [
+              {
+                "subject_class": "PC",
+                "normalized_route": "Longmont Campaign/Campaign 1/PCs/bonogo/",
+                "proposed": false,
+                "tag_kind": "inline"
+              },
+              {
+                "subject_class": "Location",
+                "normalized_route": "Longmont Campaign/Campaign 1/Locations/rivers_edge_pub/",
+                "proposed": true,
+                "tag_kind": "inline"
+              },
+              {
+                "subject_class": "Location",
+                "normalized_route": "Longmont Campaign/Campaign 1/Locations/stonebridge/",
+                "proposed": true,
+                "tag_kind": "inline"
+              },
+              {
+                "subject_class": "NewHubCandidate",
+                "normalized_route": "Longmont Campaign/Campaign 1/NPCs/bubbles_the_float_goat/",
+                "proposed": true,
+                "tag_kind": "inline"
+              },
+              {
+                "subject_class": "NewHubCandidate",
+                "normalized_route": "Longmont Campaign/Campaign 1/NPCs/pippa/",
+                "proposed": true,
+                "tag_kind": "inline"
+              },
+              {
+                "subject_class": "Location",
+                "normalized_route": "Longmont Campaign/Campaign 1/Locations/mirathorn/",
+                "proposed": true,
+                "tag_kind": "inline"
+              }
+            ],
+            "why_matched": [
+              "expanded_adjacent:u-L0043-03"
+            ]
+          },
+          {
+            "hit_id": "bbb11a54a8bd70eb9db7",
+            "score": 0,
+            "source_recap_path": "Longmont Campaign/Campaign 1/Session Recaps/Session 3 - The Stone Bridge Flood.md",
+            "unit_id": "u-L0043-04",
+            "line_start": 43,
+            "line_end": 43,
+            "routes": [
+              {
+                "subject_class": "PC",
+                "normalized_route": "Longmont Campaign/Campaign 1/PCs/bonogo/",
+                "proposed": false,
+                "tag_kind": "inline"
+              },
+              {
+                "subject_class": "Location",
+                "normalized_route": "Longmont Campaign/Campaign 1/Locations/rivers_edge_pub/",
+                "proposed": true,
+                "tag_kind": "inline"
+              },
+              {
+                "subject_class": "Location",
+                "normalized_route": "Longmont Campaign/Campaign 1/Locations/stonebridge/",
+                "proposed": true,
+                "tag_kind": "inline"
+              },
+              {
+                "subject_class": "NewHubCandidate",
+                "normalized_route": "Longmont Campaign/Campaign 1/NPCs/bubbles_the_float_goat/",
+                "proposed": true,
+                "tag_kind": "inline"
+              },
+              {
+                "subject_class": "NewHubCandidate",
+                "normalized_route": "Longmont Campaign/Campaign 1/NPCs/pippa/",
+                "proposed": true,
+                "tag_kind": "inline"
+              },
+              {
+                "subject_class": "Location",
+                "normalized_route": "Longmont Campaign/Campaign 1/Locations/mirathorn/",
+                "proposed": true,
+                "tag_kind": "inline"
+              }
+            ],
+            "why_matched": [
+              "expanded_adjacent:u-L0043-04"
+            ]
+          },
+          {
+            "hit_id": "453e67936ec1a75613d4",
+            "score": 0,
+            "source_recap_path": "Longmont Campaign/Campaign 1/Session Recaps/Session 3 - The Stone Bridge Flood.md",
+            "unit_id": "u-L0040-02",
+            "line_start": 40,
+            "line_end": 40,
+            "routes": [
+              {
+                "subject_class": "NewHubCandidate",
+                "normalized_route": "Longmont Campaign/Campaign 1/NPCs/bubbles_the_float_goat/",
+                "proposed": true,
+                "tag_kind": "inline"
+              },
+              {
+                "subject_class": "PC",
+                "normalized_route": "Longmont Campaign/Campaign 1/PCs/ephanna/",
+                "proposed": false,
+                "tag_kind": "inline"
+              },
+              {
+                "subject_class": "PC",
+                "normalized_route": "Longmont Campaign/Campaign 1/PCs/bonogo/",
+                "proposed": false,
+                "tag_kind": "inline"
+              },
+              {
+                "subject_class": "PC",
+                "normalized_route": "Longmont Campaign/Campaign 1/PCs/baergrom/",
+                "proposed": false,
+                "tag_kind": "inline"
+              },
+              {
+                "subject_class": "Location",
+                "normalized_route": "Longmont Campaign/Campaign 1/Locations/stonebridge/",
+                "proposed": true,
+                "tag_kind": "inline"
+              }
+            ],
+            "why_matched": [
+              "expanded_adjacent:u-L0040-02"
+            ]
+          }
+        ],
+        "trace": {
+          "trace_schema": "dmb_query_session_memory_trace_v1",
+          "examined_records": 61,
+          "matched_records": 50,
+          "returned_hits": 18,
+          "session_window": [
+            3,
+            3
+          ],
+          "subject_route_substr": null,
+          "subject_types": null,
+          "proposed_only": false,
+          "max_hits": 18,
+          "filtered_records": 61,
+          "expand_context": true,
+          "expand_seed_hits": 9,
+          "expand_adjacent_window": 4,
+          "expand_shared_route_limit": 3,
+          "expand_route_family_limit": 3,
+          "expand_first_pass_cap": 9,
+          "expansion_allocation_mode": "greedy",
+          "expansion": {
+            "anchor_line": 45,
+            "added_adjacent": 9,
+            "added_shared_route": 0,
+            "added_route_family": 0,
+            "median_suffix_on_anchor_line": 1
+          },
+          "tokenizer_mode": "restrained",
+          "query_tokens": [
+            "give",
+            "list",
+            "all",
+            "npcs",
+            "live",
+            "stonebridge"
+          ],
+          "query_mode": "location_entity_list",
+          "location_entity_summary": {
+            "summary_schema": "dmb_location_entity_summary_v1",
+            "relation_confidence": "co_tagged_with_location",
+            "caveat": "Entities are co-tagged with this location on the same recap sentence units \u2014 not confirmed residency unless corpus/ingestion adds an explicit home_base / lives_in relation.",
+            "location_route": "Longmont Campaign/Campaign 1/Locations/stonebridge/",
+            "location_route_norm": "longmont campaign/campaign 1/locations/stonebridge",
+            "resolution_note": null,
+            "record_count_for_location": 31,
+            "entities": [
+              {
+                "normalized_route": "Longmont Campaign/Campaign 1/NPCs/bubbles_the_float_goat/",
+                "subject_class": "NewHubCandidate",
+                "proposed": true,
+                "evidence_unit_ids": [
+                  "u-L0034-01",
+                  "u-L0034-02",
+                  "u-L0034-03",
+                  "u-L0034-04",
+                  "u-L0034-05",
+                  "u-L0036-01",
+                  "u-L0040-01",
+                  "u-L0040-02",
+                  "u-L0040-03",
+                  "u-L0040-04",
+                  "u-L0040-05",
+                  "u-L0040-06",
+                  "u-L0040-07",
+                  "u-L0040-08",
+                  "u-L0040-09",
+                  "u-L0040-10",
+                  "u-L0040-11",
+                  "u-L0041-01",
+                  "u-L0041-02",
+                  "u-L0041-03",
+                  "u-L0041-04",
+                  "u-L0041-05",
+                  "u-L0041-06",
+                  "u-L0043-01",
+                  "u-L0043-02",
+                  "u-L0043-03",
+                  "u-L0043-04",
+                  "u-L0045-01"
+                ],
+                "evidence_lexical_snippets": [
+                  "Ready for some rest, ready to not be covered in the sweat and ichor of the day, Caelynn, Karsemine, Stafl, Baergrom, and Ephanna accepted the offer of a ride to StoneBridge with Pippa.",
+                  "Pippa a bright and talkative Gnome obsessed with crafting and understanding beer, hitched up Bubbles the Float Goat to her wagon full of kegs and led the crew to a dock and barge on the river.",
+                  "Along the way down river, they encountered an elderly fisherman, whose net was stuck."
+                ]
+              },
+              {
+                "normalized_route": "Longmont Campaign/Campaign 1/NPCs/grishna/",
+                "subject_class": "NewHubCandidate",
+                "proposed": true,
+                "evidence_unit_ids": [
+                  "u-L0034-02",
+                  "u-L0034-03",
+                  "u-L0034-04",
+                  "u-L0034-05",
+                  "u-L0036-01"
+                ],
+                "evidence_lexical_snippets": [
+                  "Pippa a bright and talkative Gnome obsessed with crafting and understanding beer, hitched up Bubbles the Float Goat to her wagon full of kegs and led the crew to a dock and barge on the river.",
+                  "Along the way down river, they encountered an elderly fisherman, whose net was stuck.",
+                  "Without missing a beat Bonogo out of selflessness and hopes for a giant fish to eat, dove into the water to find the damned net didn't have a fish, stupid useless net."
+                ]
+              },
+              {
+                "normalized_route": "Longmont Campaign/Campaign 1/NPCs/pippa/",
+                "subject_class": "NewHubCandidate",
+                "proposed": true,
+                "evidence_unit_ids": [
+                  "u-L0034-01",
+                  "u-L0034-02",
+                  "u-L0034-03",
+                  "u-L0034-04",
+                  "u-L0034-05",
+                  "u-L0036-01",
+                  "u-L0040-01",
+                  "u-L0043-02",
+                  "u-L0043-03",
+                  "u-L0043-04",
+                  "u-L0045-01"
+                ],
+                "evidence_lexical_snippets": [
+                  "Ready for some rest, ready to not be covered in the sweat and ichor of the day, Caelynn, Karsemine, Stafl, Baergrom, and Ephanna accepted the offer of a ride to StoneBridge with Pippa.",
+                  "Pippa a bright and talkative Gnome obsessed with crafting and understanding beer, hitched up Bubbles the Float Goat to her wagon full of kegs and led the crew to a dock and barge on the river.",
+                  "Along the way down river, they encountered an elderly fisherman, whose net was stuck."
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "llm_semantic_verdict": "pass_updated",
+      "llm_semantic_must_hits": [
+        "Pippa",
+        "Bubbles",
+        "Grishna",
+        "StoneBridge"
+      ],
+      "llm_semantic_stale_hits": [],
+      "llm_semantic_global_stale_hits": [],
+      "llm_context_must_hits": [
+        "Pippa",
+        "Bubbles",
+        "Grishna",
+        "StoneBridge"
+      ],
+      "llm_context_support_ratio": 1.0,
+      "llm_failure_surface": "pass",
+      "llm_answer_preview": "From the C1S3 beats that carry a StoneBridge location tag, the recap co-tags Pippa, Bubbles the Float Goat, and Grishna on those units \u2014 that's scene association in the index, not a residency ledger. Kirfan shows up in the hook line but isn't on a StoneBridge-location tag with those same units.",
+      "retrieved_context": "Ready for some rest, ready to not be covered in the sweat and ichor of the day, Caelynn, Karsemine, Stafl, Baergrom, and Ephanna accepted the offer of a ride to StoneBridge with Pippa.\nOnce at StoneBridge and unloading beer, it became clear a storm was coming.\nOut on a rickety dock, shaking in the flood and downpour, the river frothing, rapids crashing all around as it wildly rushed.\nCollapsing to sleep, they woke up the next day with the most important question of all.\nBonogo was rescued, the wet adventurers headed to the Pub to find a damp, but generally relieved, safe, and drying town.\nPippa a bright and talkative Gnome obsessed with crafting and understanding beer, hitched up Bubbles the Float Goat to her wagon full of kegs and led the crew to a dock and barge on the river.\nAlong the way down river, they encountered an elderly fisherman, whose net was stuck.\nWithout missing a beat Bonogo out of selflessness and hopes for a giant fish to eat, dove into the water to find the damned net didn't have a fish, stupid useless net.",
+      "retrieval_hit_context_full": "Ready for some rest, ready to not be covered in the sweat and ichor of the day, Caelynn, Karsemine, Stafl, Baergrom, and Ephanna accepted the offer of a ride to StoneBridge with Pippa.\nLongmont Campaign/Campaign 1/Locations/stonebridge/\nLongmont Campaign/Campaign 1/NPCs/pippa/\nLongmont Campaign/Campaign 1/NPCs/bubbles_the_float_goat/\nLongmont Campaign/Campaign 1/PCs/caelynn/\nLongmont Campaign/Campaign 1/PCs/karsemine/\nLongmont Campaign/Campaign 1/PCs/stafl/\nLongmont Campaign/Campaign 1/PCs/baergrom/\nLongmont Campaign/Campaign 1/PCs/ephanna/\nLongmont Campaign/Campaign 1/PCs/bonogo/\nOnce at StoneBridge and unloading beer, it became clear a storm was coming.\nLongmont Campaign/Campaign 1/Locations/stonebridge/\nLongmont Campaign/Campaign 1/Locations/rivers_edge_pub/\nLongmont Campaign/Campaign 1/NPCs/grishna/\nLongmont Campaign/Campaign 1/NPCs/pippa/\nLongmont Campaign/Campaign 1/NPCs/bubbles_the_float_goat/\nLongmont Campaign/Campaign 1/PCs/stafl/\nOut on a rickety dock, shaking in the flood and downpour, the river frothing, rapids crashing all around as it wildly rushed.\nLongmont Campaign/Campaign 1/NPCs/bubbles_the_float_goat/\nLongmont Campaign/Campaign 1/PCs/ephanna/\nLongmont Campaign/Campaign 1/PCs/bonogo/\nLongmont Campaign/Campaign 1/PCs/baergrom/\nLongmont Campaign/Campaign 1/Locations/stonebridge/\nBonogo was rescued, the wet adventurers headed to the Pub to find a damp, but generally relieved, safe, and drying town.\nLongmont Campaign/Campaign 1/PCs/bonogo/\nLongmont Campaign/Campaign 1/Locations/rivers_edge_pub/\nLongmont Campaign/Campaign 1/Locations/stonebridge/\nLongmont Campaign/Campaign 1/NPCs/bubbles_the_float_goat/\nLongmont Campaign/Campaign 1/NPCs/pippa/\nLongmont Campaign/Campaign 1/Locations/mirathorn/\nPippa a bright and talkative Gnome obsessed with crafting and understanding beer, hitched up Bubbles the Float Goat to her wagon full of kegs and led the crew to a dock and barge on the river.\nLongmont Campaign/Campaign 1/Locations/stonebridge/\nLongmont Campaign/Campaign 1/Locations/rivers_edge_pub/\nLongmont Campaign/Campaign 1/NPCs/grishna/\nLongmont Campaign/Campaign 1/NPCs/pippa/\nLongmont Campaign/Campaign 1/NPCs/bubbles_the_float_goat/\nLongmont Campaign/Campaign 1/PCs/stafl/\nAlong the way down river, they encountered an elderly fisherman, whose net was stuck.\nLongmont Campaign/Campaign 1/Locations/stonebridge/\nLongmont Campaign/Campaign 1/Locations/rivers_edge_pub/\nLongmont Campaign/Campaign 1/NPCs/grishna/\nLongmont Campaign/Campaign 1/NPCs/pippa/\nLongmont Campaign/Campaign 1/NPCs/bubbles_the_float_goat/\nLongmont Campaign/Campaign 1/PCs/stafl/\nWithout missing a beat Bonogo out of selflessness and hopes for a giant fish to eat, dove into the water to find the damned net didn't have a fish, stupid useless net.\nLongmont Campaign/Campaign 1/Locations/stonebridge/\nLongmont Campaign/Campaign 1/Locations/rivers_edge_pub/\nLongmont Campaign/Campaign 1/NPCs/grishna/\nLongmont Campaign/Campaign 1/NPCs/pippa/\nLongmont Campaign/Campaign 1/NPCs/bubbles_the_float_goat/\nLongmont Campaign/Campaign 1/PCs/stafl/\nWith some trial and error and stradling of boats Stafl and Baergrom I think pulled the net to surface to see it looked to be the corner beams of a roof.\nLongmont Campaign/Campaign 1/Locations/stonebridge/\nLongmont Campaign/Campaign 1/Locations/rivers_edge_pub/\nLongmont Campaign/Campaign 1/NPCs/grishna/\nLongmont Campaign/Campaign 1/NPCs/pippa/\nLongmont Campaign/Campaign 1/NPCs/bubbles_the_float_goat/\nLongmont Campaign/Campaign 1/PCs/stafl/\nDropping everything and rushing outside, you found Pippa, soaked and panicked.\nLongmont Campaign/Campaign 1/Locations/rivers_edge_pub/\nLongmont Campaign/Campaign 1/NPCs/pippa/\nLongmont Campaign/Campaign 1/NPCs/bubbles_the_float_goat/\nLongmont Campaign/Campaign 1/PCs/ephanna/\nLongmont Campaign/Campaign 1/PCs/stafl/\nLongmont Campaign/Campaign 1/PCs/bonogo/\nLongmont Campaign/Campaign 1/PCs/baergrom/\nLongmont Campaign/Campaign 1/PCs/caelynn/\nLongmont Campaign/Campaign 1/Locations/stonebridge/\nCollapsing to sleep, they woke up the next day with the most important question of all.\nWhat now?\nSure they were heroes of Stone Bridge, and definitely the saviors of Bubbles the Float Goat, but so what?\nWhat about that city Pippa was talking about, where they were having a festival?\nIn the face of a rapidly deteriorating situation, Karsemine cast Zephyr strike and ran down the bank, shooting arrows at wear Bonogo probably was.\nLongmont Campaign/Campaign 1/PCs/karsemine/\nLongmont Campaign/Campaign 1/PCs/stafl/\nLongmont Campaign/Campaign 1/PCs/caelynn/\nLongmont Campaign/Campaign 1/PCs/ephanna/\nLongmont Campaign/Campaign 1/NPCs/bubbles_the_float_goat/\nLongmont Campaign/Campaign 1/Locations/stonebridge/\nStafl and Caelynn cut loose a dinghy and let the river take them after Bonogo, with only a net with light cast on it and hope.\nLongmont Campaign/Campaign 1/PCs/bonogo/\nLongmont Campaign/Campaign 1/Locations/rivers_edge_pub/\nLongmont Campaign/Campaign 1/Locations/stonebridge/\nLongmont Campaign/Campaign 1/NPCs/bubbles_the_float_goat/\nLongmont Campaign/Campaign 1/NPCs/pippa/\nLongmont Campaign/Campaign 1/Locations/mirathorn/\nEphanna and the mage hand coaxed Bubbles to the lasso and were able to get her to the dock across the ice path and rushing river.\nLongmont Campaign/Campaign 1/PCs/bonogo/\nLongmont Campaign/Campaign 1/Locations/rivers_edge_pub/\nLongmont Campaign/Campaign 1/Locations/stonebridge/\nLongmont Campaign/Campaign 1/NPCs/bubbles_the_float_goat/\nLongmont Campaign/Campaign 1/NPCs/pippa/\nLongmont Campaign/Campaign 1/Locations/mirathorn/\nWhere Ephanna hopped on Bubbles back and followed after the runaway boats.\nLongmont Campaign/Campaign 1/PCs/bonogo/\nLongmont Campaign/Campaign 1/Locations/rivers_edge_pub/\nLongmont Campaign/Campaign 1/Locations/stonebridge/\nLongmont Campaign/Campaign 1/NPCs/bubbles_the_float_goat/\nLongmont Campaign/Campaign 1/NPCs/pippa/\nLongmont Campaign/Campaign 1/Locations/mirathorn/\nGripping onto the front of the pub holding on in rushing water up to her waste.\nLongmont Campaign/Campaign 1/NPCs/bubbles_the_float_goat/\nLongmont Campaign/Campaign 1/PCs/ephanna/\nLongmont Campaign/Campaign 1/PCs/bonogo/\nLongmont Campaign/Campaign 1/PCs/baergrom/\nLongmont Campaign/Campaign 1/Locations/stonebridge/",
+      "llm_user_message": "Question:\nGive me a list of all NPCs that live in StoneBridge.\n\n### Retrieved excerpts and routes (only source you may use)\nReady for some rest, ready to not be covered in the sweat and ichor of the day, Caelynn, Karsemine, Stafl, Baergrom, and Ephanna accepted the offer of a ride to StoneBridge with Pippa.\nOnce at StoneBridge and unloading beer, it became clear a storm was coming.\nOut on a rickety dock, shaking in the flood and downpour, the river frothing, rapids crashing all around as it wildly rushed.\nCollapsing to sleep, they woke up the next day with the most important question of all.\nBonogo was rescued, the wet adventurers headed to the Pub to find a damp, but generally relieved, safe, and drying town.\nPippa a bright and talkative Gnome obsessed with crafting and understanding beer, hitched up Bubbles the Float Goat to her wagon full of kegs and led the crew to a dock and barge on the river.\nAlong the way down river, they encountered an elderly fisherman, whose net was stuck.\nWithout missing a beat Bonogo out of selflessness and hopes for a giant fish to eat, dove into the water to find the damned net didn't have a fish, stupid useless net.\n",
+      "llm_cost_usd": 0.0,
+      "llm_usage": {},
+      "llm_model": "offline_expected_answer_stub",
+      "shadow_token_resolution": {
+        "schema": "dmb_token_resolver_shadow_v1",
+        "error": "offline_stub_no_shadow_lexicon"
+      }
+    }
+  ],
+  "context_evidence_aggregate": {
+    "context_evidence_top_k_reference": 9,
+    "executable_rows": 1,
+    "rows_with_unit_expectations": 0,
+    "rows_with_route_expectations": 1,
+    "macro_unit_recall_in_top_k": null,
+    "macro_route_recall_in_top_k": 1.0,
+    "macro_unit_matched_in_top_k": 0,
+    "macro_unit_expected_substrings": 0,
+    "macro_route_matched_in_top_k": 1,
+    "macro_route_expected_substrings": 1
+  },
+  "aggregate_llm_cost_usd": 0.0,
+  "scenario_estimated_cost_usd": 0.0,
+  "query_mode": "location_entity_list",
+  "location_entity_summary": {
+    "summary_schema": "dmb_location_entity_summary_v1",
+    "relation_confidence": "co_tagged_with_location",
+    "caveat": "Entities are co-tagged with this location on the same recap sentence units \u2014 not confirmed residency unless corpus/ingestion adds an explicit home_base / lives_in relation.",
+    "location_route": "Longmont Campaign/Campaign 1/Locations/stonebridge/",
+    "location_route_norm": "longmont campaign/campaign 1/locations/stonebridge",
+    "resolution_note": null,
+    "record_count_for_location": 31,
+    "entities": [
+      {
+        "normalized_route": "Longmont Campaign/Campaign 1/NPCs/bubbles_the_float_goat/",
+        "subject_class": "NewHubCandidate",
+        "proposed": true,
+        "evidence_unit_ids": [
+          "u-L0034-01",
+          "u-L0034-02",
+          "u-L0034-03",
+          "u-L0034-04",
+          "u-L0034-05",
+          "u-L0036-01",
+          "u-L0040-01",
+          "u-L0040-02",
+          "u-L0040-03",
+          "u-L0040-04",
+          "u-L0040-05",
+          "u-L0040-06",
+          "u-L0040-07",
+          "u-L0040-08",
+          "u-L0040-09",
+          "u-L0040-10",
+          "u-L0040-11",
+          "u-L0041-01",
+          "u-L0041-02",
+          "u-L0041-03",
+          "u-L0041-04",
+          "u-L0041-05",
+          "u-L0041-06",
+          "u-L0043-01",
+          "u-L0043-02",
+          "u-L0043-03",
+          "u-L0043-04",
+          "u-L0045-01"
+        ],
+        "evidence_lexical_snippets": [
+          "Ready for some rest, ready to not be covered in the sweat and ichor of the day, Caelynn, Karsemine, Stafl, Baergrom, and Ephanna accepted the offer of a ride to StoneBridge with Pippa.",
+          "Pippa a bright and talkative Gnome obsessed with crafting and understanding beer, hitched up Bubbles the Float Goat to her wagon full of kegs and led the crew to a dock and barge on the river.",
+          "Along the way down river, they encountered an elderly fisherman, whose net was stuck."
+        ]
+      },
+      {
+        "normalized_route": "Longmont Campaign/Campaign 1/NPCs/grishna/",
+        "subject_class": "NewHubCandidate",
+        "proposed": true,
+        "evidence_unit_ids": [
+          "u-L0034-02",
+          "u-L0034-03",
+          "u-L0034-04",
+          "u-L0034-05",
+          "u-L0036-01"
+        ],
+        "evidence_lexical_snippets": [
+          "Pippa a bright and talkative Gnome obsessed with crafting and understanding beer, hitched up Bubbles the Float Goat to her wagon full of kegs and led the crew to a dock and barge on the river.",
+          "Along the way down river, they encountered an elderly fisherman, whose net was stuck.",
+          "Without missing a beat Bonogo out of selflessness and hopes for a giant fish to eat, dove into the water to find the damned net didn't have a fish, stupid useless net."
+        ]
+      },
+      {
+        "normalized_route": "Longmont Campaign/Campaign 1/NPCs/pippa/",
+        "subject_class": "NewHubCandidate",
+        "proposed": true,
+        "evidence_unit_ids": [
+          "u-L0034-01",
+          "u-L0034-02",
+          "u-L0034-03",
+          "u-L0034-04",
+          "u-L0034-05",
+          "u-L0036-01",
+          "u-L0040-01",
+          "u-L0043-02",
+          "u-L0043-03",
+          "u-L0043-04",
+          "u-L0045-01"
+        ],
+        "evidence_lexical_snippets": [
+          "Ready for some rest, ready to not be covered in the sweat and ichor of the day, Caelynn, Karsemine, Stafl, Baergrom, and Ephanna accepted the offer of a ride to StoneBridge with Pippa.",
+          "Pippa a bright and talkative Gnome obsessed with crafting and understanding beer, hitched up Bubbles the Float Goat to her wagon full of kegs and led the crew to a dock and barge on the river.",
+          "Along the way down river, they encountered an elderly fisherman, whose net was stuck."
+        ]
+      }
+    ]
+  },
+  "location_entity_routes": [
+    "Longmont Campaign/Campaign 1/NPCs/bubbles_the_float_goat/",
+    "Longmont Campaign/Campaign 1/NPCs/grishna/",
+    "Longmont Campaign/Campaign 1/NPCs/pippa/"
+  ],
+  "how_it_works": [
+    "Normalize breadcrumb markdown into sentence-unit records with routes.",
+    "Run deterministic query_session_memory_candidate with the natural question.",
+    "If the query is roster-like and a location slug is resolvable, switch query_mode to location_entity_list.",
+    "Aggregate NPC/NewHubCandidate routes co-tagged on records carrying the resolved location route.",
+    "Report relation confidence as co_tagged_with_location (association, not residency)."
+  ]
+}

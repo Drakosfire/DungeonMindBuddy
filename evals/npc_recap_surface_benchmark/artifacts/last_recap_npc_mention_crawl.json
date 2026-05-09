@@ -1,0 +1,1564 @@
+{
+  "schema": "dmb_recap_npc_mention_crawl_v1",
+  "generated_at_utc": "2026-05-07T04:00:18Z",
+  "corpus_root": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/corpus/eldyrwild-markdown",
+  "registry_slugs_loaded": [
+    "bubbles_the_float_goat",
+    "captain_lysandra_ironveil",
+    "dustwalker",
+    "marla_brambleback",
+    "pippa",
+    "sara_mirathorn_operator",
+    "sheriff_roderic_marr",
+    "stacey_brambleback",
+    "stuart",
+    "thrin_branchborn",
+    "torbin_jove"
+  ],
+  "session_recap_files_scanned": 37,
+  "recaps": [
+    {
+      "recap_path_posix": "Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md",
+      "session": 1,
+      "campaign_id": "longmont-c1",
+      "title": "Session 1 - Recap 3/27/24",
+      "hub_link_slugs": [],
+      "registry_surface_slugs": []
+    },
+    {
+      "recap_path_posix": "Longmont Campaign/Campaign 1/Session Recaps/Session 10 - Battle with the Meat Monsters.md",
+      "session": 10,
+      "campaign_id": "longmont-c1",
+      "title": "Session 10 - Battle with the Meat Monsters",
+      "hub_link_slugs": [],
+      "registry_surface_slugs": []
+    },
+    {
+      "recap_path_posix": "Longmont Campaign/Campaign 1/Session Recaps/Session 11 - Midnight Politics.md",
+      "session": 11,
+      "campaign_id": "longmont-c1",
+      "title": "Session 11 - Midnight Politics",
+      "hub_link_slugs": [],
+      "registry_surface_slugs": []
+    },
+    {
+      "recap_path_posix": "Longmont Campaign/Campaign 1/Session Recaps/Session 12 - One Persistent Bugbear or Sneaky Fucking Bugbear.md",
+      "session": 12,
+      "campaign_id": "longmont-c1",
+      "title": "Session 12 - One Persistent Bugbear or Sneaky Fucking Bugbear",
+      "hub_link_slugs": [],
+      "registry_surface_slugs": []
+    },
+    {
+      "recap_path_posix": "Longmont Campaign/Campaign 1/Session Recaps/Session 13 - The Meaty and the Dead.md",
+      "session": 13,
+      "campaign_id": "longmont-c1",
+      "title": "Session 13 - The Meaty and the Dead",
+      "hub_link_slugs": [],
+      "registry_surface_slugs": []
+    },
+    {
+      "recap_path_posix": "Longmont Campaign/Campaign 1/Session Recaps/Session 14 - Into the Meat Grinder.md",
+      "session": 14,
+      "campaign_id": "longmont-c1",
+      "title": "Session 14 - Into the Meat Grinder",
+      "hub_link_slugs": [],
+      "registry_surface_slugs": []
+    },
+    {
+      "recap_path_posix": "Longmont Campaign/Campaign 1/Session Recaps/Session 15 - Into the Meat Grinder.md",
+      "session": 15,
+      "campaign_id": "longmont-c1",
+      "title": "Session 15 - Into the Meat Grinder",
+      "hub_link_slugs": [],
+      "registry_surface_slugs": []
+    },
+    {
+      "recap_path_posix": "Longmont Campaign/Campaign 1/Session Recaps/Session 16 - Recap.md",
+      "session": 16,
+      "campaign_id": "longmont-c1",
+      "title": "Session 16 - Recap",
+      "hub_link_slugs": [],
+      "registry_surface_slugs": []
+    },
+    {
+      "recap_path_posix": "Longmont Campaign/Campaign 1/Session Recaps/Session 17 - Recap.md",
+      "session": 17,
+      "campaign_id": "longmont-c1",
+      "title": "Session 17 - Recap",
+      "hub_link_slugs": [],
+      "registry_surface_slugs": [
+        "bubbles_the_float_goat"
+      ]
+    },
+    {
+      "recap_path_posix": "Longmont Campaign/Campaign 1/Session Recaps/Session 2 - Finishing the Job.md",
+      "session": 2,
+      "campaign_id": "longmont-c1",
+      "title": "Session 2 - Finishing the Job",
+      "hub_link_slugs": [],
+      "registry_surface_slugs": []
+    },
+    {
+      "recap_path_posix": "Longmont Campaign/Campaign 1/Session Recaps/Session 3 - The Stone Bridge Flood.md",
+      "session": 3,
+      "campaign_id": "longmont-c1",
+      "title": "Session 3 - The Stone Bridge Flood",
+      "hub_link_slugs": [],
+      "registry_surface_slugs": [
+        "bubbles_the_float_goat",
+        "pippa"
+      ]
+    },
+    {
+      "recap_path_posix": "Longmont Campaign/Campaign 1/Session Recaps/Session 4 - The Grotesque Tree of Hempholm.md",
+      "session": 4,
+      "campaign_id": "longmont-c1",
+      "title": "Session 4 - The Grotesque Tree of Hempholm",
+      "hub_link_slugs": [],
+      "registry_surface_slugs": []
+    },
+    {
+      "recap_path_posix": "Longmont Campaign/Campaign 1/Session Recaps/Session 5 - Underneath Hempholm.md",
+      "session": 5,
+      "campaign_id": "longmont-c1",
+      "title": "Session 5 - Underneath Hempholm",
+      "hub_link_slugs": [],
+      "registry_surface_slugs": []
+    },
+    {
+      "recap_path_posix": "Longmont Campaign/Campaign 1/Session Recaps/Session 6 - The Road to Miraholm.md",
+      "session": 6,
+      "campaign_id": "longmont-c1",
+      "title": "Session 6 - The Road to Miraholm",
+      "hub_link_slugs": [],
+      "registry_surface_slugs": [
+        "bubbles_the_float_goat",
+        "captain_lysandra_ironveil",
+        "pippa"
+      ]
+    },
+    {
+      "recap_path_posix": "Longmont Campaign/Campaign 1/Session Recaps/Session 7 - Passing Mirathorn Gates.md",
+      "session": 7,
+      "campaign_id": "longmont-c1",
+      "title": "Session 7 - Passing Mirathorn Gates",
+      "hub_link_slugs": [],
+      "registry_surface_slugs": []
+    },
+    {
+      "recap_path_posix": "Longmont Campaign/Campaign 1/Session Recaps/Session 8 - Captain Lysandra Quest.md",
+      "session": 8,
+      "campaign_id": "longmont-c1",
+      "title": "Session 8 - Captain Lysandra Quest",
+      "hub_link_slugs": [],
+      "registry_surface_slugs": [
+        "captain_lysandra_ironveil"
+      ]
+    },
+    {
+      "recap_path_posix": "Longmont Campaign/Campaign 1/Session Recaps/Session 9 - Battle with the Meat Monsters.md",
+      "session": 9,
+      "campaign_id": "longmont-c1",
+      "title": "Session 9 - Battle with the Meat Monsters",
+      "hub_link_slugs": [],
+      "registry_surface_slugs": []
+    },
+    {
+      "recap_path_posix": "Longmont Campaign/Campaign 2/Session Recaps/Session 1 - Let the Games Begin.md",
+      "session": 1,
+      "campaign_id": "longmont-c2",
+      "title": "Session 1 - Let the Games Begin",
+      "hub_link_slugs": [],
+      "registry_surface_slugs": []
+    },
+    {
+      "recap_path_posix": "Longmont Campaign/Campaign 2/Session Recaps/Session 10 - Recap.md",
+      "session": 10,
+      "campaign_id": "longmont-c2",
+      "title": "Session 10 - Recap:",
+      "hub_link_slugs": [],
+      "registry_surface_slugs": [
+        "bubbles_the_float_goat"
+      ]
+    },
+    {
+      "recap_path_posix": "Longmont Campaign/Campaign 2/Session Recaps/Session 11 - Recap.md",
+      "session": 11,
+      "campaign_id": "longmont-c2",
+      "title": "Session 11 - Recap:",
+      "hub_link_slugs": [],
+      "registry_surface_slugs": []
+    },
+    {
+      "recap_path_posix": "Longmont Campaign/Campaign 2/Session Recaps/Session 12 - Recap.md",
+      "session": 12,
+      "campaign_id": "longmont-c2",
+      "title": "Session 12 - Recap:",
+      "hub_link_slugs": [],
+      "registry_surface_slugs": [
+        "dustwalker",
+        "sara_mirathorn_operator"
+      ]
+    },
+    {
+      "recap_path_posix": "Longmont Campaign/Campaign 2/Session Recaps/Session 13 - Recap.md",
+      "session": 13,
+      "campaign_id": "longmont-c2",
+      "title": "Session 13 - Recap:",
+      "hub_link_slugs": [],
+      "registry_surface_slugs": [
+        "captain_lysandra_ironveil",
+        "dustwalker"
+      ]
+    },
+    {
+      "recap_path_posix": "Longmont Campaign/Campaign 2/Session Recaps/Session 14 - Recap.md",
+      "session": 14,
+      "campaign_id": "longmont-c2",
+      "title": "Session 14 - Recap:",
+      "hub_link_slugs": [],
+      "registry_surface_slugs": [
+        "captain_lysandra_ironveil",
+        "dustwalker"
+      ]
+    },
+    {
+      "recap_path_posix": "Longmont Campaign/Campaign 2/Session Recaps/Session 15 - Recap.md",
+      "session": 15,
+      "campaign_id": "longmont-c2",
+      "title": "Session 15 - Recap",
+      "hub_link_slugs": [],
+      "registry_surface_slugs": [
+        "captain_lysandra_ironveil"
+      ]
+    },
+    {
+      "recap_path_posix": "Longmont Campaign/Campaign 2/Session Recaps/Session 16 - Recap.md",
+      "session": 16,
+      "campaign_id": "longmont-c2",
+      "title": "Session 16 - Recap:",
+      "hub_link_slugs": [],
+      "registry_surface_slugs": [
+        "captain_lysandra_ironveil"
+      ]
+    },
+    {
+      "recap_path_posix": "Longmont Campaign/Campaign 2/Session Recaps/Session 17 - Migrating Forest and Thrin.md",
+      "session": 17,
+      "campaign_id": "longmont-c2",
+      "title": "Session 17 - Migrating Forest and Thrin",
+      "hub_link_slugs": [],
+      "registry_surface_slugs": [
+        "thrin_branchborn"
+      ]
+    },
+    {
+      "recap_path_posix": "Longmont Campaign/Campaign 2/Session Recaps/Session 18 - Recap.md",
+      "session": 18,
+      "campaign_id": "longmont-c2",
+      "title": "Session 18 - Recap:",
+      "hub_link_slugs": [],
+      "registry_surface_slugs": [
+        "captain_lysandra_ironveil",
+        "thrin_branchborn"
+      ]
+    },
+    {
+      "recap_path_posix": "Longmont Campaign/Campaign 2/Session Recaps/Session 19 - Recap.md",
+      "session": 19,
+      "campaign_id": "longmont-c2",
+      "title": "Session 19 - Recap",
+      "hub_link_slugs": [],
+      "registry_surface_slugs": [
+        "stacey_brambleback",
+        "stuart",
+        "thrin_branchborn"
+      ]
+    },
+    {
+      "recap_path_posix": "Longmont Campaign/Campaign 2/Session Recaps/Session 2 - Recap.md",
+      "session": 2,
+      "campaign_id": "longmont-c2",
+      "title": "Session 2 - Recap:",
+      "hub_link_slugs": [],
+      "registry_surface_slugs": [
+        "bubbles_the_float_goat",
+        "dustwalker",
+        "pippa"
+      ]
+    },
+    {
+      "recap_path_posix": "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md",
+      "session": 20,
+      "campaign_id": "longmont-c2",
+      "title": "Session 20 - Recap",
+      "hub_link_slugs": [],
+      "registry_surface_slugs": [
+        "captain_lysandra_ironveil",
+        "marla_brambleback",
+        "sara_mirathorn_operator",
+        "stacey_brambleback",
+        "stuart",
+        "thrin_branchborn"
+      ]
+    },
+    {
+      "recap_path_posix": "Longmont Campaign/Campaign 2/Session Recaps/Session 3 - Recap.md",
+      "session": 3,
+      "campaign_id": "longmont-c2",
+      "title": "Session 3 - Recap:",
+      "hub_link_slugs": [],
+      "registry_surface_slugs": [
+        "captain_lysandra_ironveil",
+        "dustwalker"
+      ]
+    },
+    {
+      "recap_path_posix": "Longmont Campaign/Campaign 2/Session Recaps/Session 4 - Recap.md",
+      "session": 4,
+      "campaign_id": "longmont-c2",
+      "title": "Session 4 - Recap:",
+      "hub_link_slugs": [],
+      "registry_surface_slugs": []
+    },
+    {
+      "recap_path_posix": "Longmont Campaign/Campaign 2/Session Recaps/Session 5 - Recap.md",
+      "session": 5,
+      "campaign_id": "longmont-c2",
+      "title": "Session 5 - Recap:",
+      "hub_link_slugs": [],
+      "registry_surface_slugs": [
+        "captain_lysandra_ironveil",
+        "dustwalker"
+      ]
+    },
+    {
+      "recap_path_posix": "Longmont Campaign/Campaign 2/Session Recaps/Session 6 - Recap.md",
+      "session": 6,
+      "campaign_id": "longmont-c2",
+      "title": "Session 6 - Recap:",
+      "hub_link_slugs": [],
+      "registry_surface_slugs": [
+        "captain_lysandra_ironveil",
+        "dustwalker"
+      ]
+    },
+    {
+      "recap_path_posix": "Longmont Campaign/Campaign 2/Session Recaps/Session 7 - Recap.md",
+      "session": 7,
+      "campaign_id": "longmont-c2",
+      "title": "Session 7 - Recap:",
+      "hub_link_slugs": [],
+      "registry_surface_slugs": [
+        "captain_lysandra_ironveil",
+        "dustwalker"
+      ]
+    },
+    {
+      "recap_path_posix": "Longmont Campaign/Campaign 2/Session Recaps/Session 8 - Recap.md",
+      "session": 8,
+      "campaign_id": "longmont-c2",
+      "title": "Session 8 - Recap:",
+      "hub_link_slugs": [],
+      "registry_surface_slugs": [
+        "captain_lysandra_ironveil",
+        "dustwalker"
+      ]
+    },
+    {
+      "recap_path_posix": "Longmont Campaign/Campaign 2/Session Recaps/Session 9 - Recap.md",
+      "session": 9,
+      "campaign_id": "longmont-c2",
+      "title": "Session 9 - Recap",
+      "hub_link_slugs": [],
+      "registry_surface_slugs": [
+        "dustwalker"
+      ]
+    }
+  ],
+  "npc_aggregates": [
+    {
+      "slug": "bubbles_the_float_goat",
+      "registry_display_name": "Bubbles the Float Goat",
+      "mention_recap_paths": [
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 17 - Recap.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 3 - The Stone Bridge Flood.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 6 - The Road to Miraholm.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 10 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 2 - Recap.md"
+      ],
+      "hub_link_hits": 0,
+      "registry_surface_hits": 5
+    },
+    {
+      "slug": "captain_lysandra_ironveil",
+      "registry_display_name": "Captain Lysandra Ironveil",
+      "mention_recap_paths": [
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 6 - The Road to Miraholm.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 8 - Captain Lysandra Quest.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 13 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 14 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 15 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 16 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 18 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 3 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 5 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 6 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 7 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 8 - Recap.md"
+      ],
+      "hub_link_hits": 0,
+      "registry_surface_hits": 13
+    },
+    {
+      "slug": "dustwalker",
+      "registry_display_name": "Dustwalker",
+      "mention_recap_paths": [
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 12 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 13 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 14 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 2 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 3 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 5 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 6 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 7 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 8 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 9 - Recap.md"
+      ],
+      "hub_link_hits": 0,
+      "registry_surface_hits": 10
+    },
+    {
+      "slug": "marla_brambleback",
+      "registry_display_name": "Marla Brambleback",
+      "mention_recap_paths": [
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md"
+      ],
+      "hub_link_hits": 0,
+      "registry_surface_hits": 1
+    },
+    {
+      "slug": "pippa",
+      "registry_display_name": "Pippa Goldwhistle",
+      "mention_recap_paths": [
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 3 - The Stone Bridge Flood.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 6 - The Road to Miraholm.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 2 - Recap.md"
+      ],
+      "hub_link_hits": 0,
+      "registry_surface_hits": 3
+    },
+    {
+      "slug": "sara_mirathorn_operator",
+      "registry_display_name": "Sara",
+      "mention_recap_paths": [
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 12 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md"
+      ],
+      "hub_link_hits": 0,
+      "registry_surface_hits": 2
+    },
+    {
+      "slug": "stacey_brambleback",
+      "registry_display_name": "Stacey Brambleback",
+      "mention_recap_paths": [
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 19 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md"
+      ],
+      "hub_link_hits": 0,
+      "registry_surface_hits": 2
+    },
+    {
+      "slug": "stuart",
+      "registry_display_name": "Stuart",
+      "mention_recap_paths": [
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 19 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md"
+      ],
+      "hub_link_hits": 0,
+      "registry_surface_hits": 2
+    },
+    {
+      "slug": "thrin_branchborn",
+      "registry_display_name": "Thrin Branchborn",
+      "mention_recap_paths": [
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 17 - Migrating Forest and Thrin.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 18 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 19 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md"
+      ],
+      "hub_link_hits": 0,
+      "registry_surface_hits": 4
+    }
+  ],
+  "prose_name_candidates": [
+    {
+      "name": "Bonogo",
+      "recap_file_count": 36,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 10 - Battle with the Meat Monsters.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 11 - Midnight Politics.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 12 - One Persistent Bugbear or Sneaky Fucking Bugbear.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 13 - The Meaty and the Dead.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 14 - Into the Meat Grinder.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 15 - Into the Meat Grinder.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 16 - Recap.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 17 - Recap.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 3 - The Stone Bridge Flood.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 4 - The Grotesque Tree of Hempholm.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 5 - Underneath Hempholm.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 6 - The Road to Miraholm.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 7 - Passing Mirathorn Gates.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 8 - Captain Lysandra Quest.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 9 - Battle with the Meat Monsters.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 1 - Let the Games Begin.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 10 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 11 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 12 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 13 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 14 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 15 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 16 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 17 - Migrating Forest and Thrin.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 18 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 19 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 2 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 3 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 4 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 5 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 6 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 7 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 8 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 9 - Recap.md"
+      ]
+    },
+    {
+      "name": "Caelynn",
+      "recap_file_count": 36,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 10 - Battle with the Meat Monsters.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 11 - Midnight Politics.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 12 - One Persistent Bugbear or Sneaky Fucking Bugbear.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 13 - The Meaty and the Dead.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 14 - Into the Meat Grinder.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 15 - Into the Meat Grinder.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 16 - Recap.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 17 - Recap.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 3 - The Stone Bridge Flood.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 4 - The Grotesque Tree of Hempholm.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 5 - Underneath Hempholm.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 6 - The Road to Miraholm.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 7 - Passing Mirathorn Gates.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 8 - Captain Lysandra Quest.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 9 - Battle with the Meat Monsters.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 1 - Let the Games Begin.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 10 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 11 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 12 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 13 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 14 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 15 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 16 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 17 - Migrating Forest and Thrin.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 18 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 19 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 2 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 3 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 4 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 5 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 6 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 7 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 8 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 9 - Recap.md"
+      ]
+    },
+    {
+      "name": "Ephanna",
+      "recap_file_count": 36,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 10 - Battle with the Meat Monsters.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 11 - Midnight Politics.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 12 - One Persistent Bugbear or Sneaky Fucking Bugbear.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 13 - The Meaty and the Dead.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 14 - Into the Meat Grinder.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 15 - Into the Meat Grinder.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 16 - Recap.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 17 - Recap.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 3 - The Stone Bridge Flood.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 4 - The Grotesque Tree of Hempholm.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 5 - Underneath Hempholm.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 6 - The Road to Miraholm.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 7 - Passing Mirathorn Gates.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 8 - Captain Lysandra Quest.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 9 - Battle with the Meat Monsters.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 1 - Let the Games Begin.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 10 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 11 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 12 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 13 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 14 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 15 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 16 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 17 - Migrating Forest and Thrin.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 18 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 19 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 2 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 3 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 4 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 5 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 6 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 7 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 8 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 9 - Recap.md"
+      ]
+    },
+    {
+      "name": "Karsemine",
+      "recap_file_count": 34,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 10 - Battle with the Meat Monsters.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 12 - One Persistent Bugbear or Sneaky Fucking Bugbear.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 13 - The Meaty and the Dead.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 14 - Into the Meat Grinder.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 15 - Into the Meat Grinder.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 16 - Recap.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 17 - Recap.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 3 - The Stone Bridge Flood.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 4 - The Grotesque Tree of Hempholm.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 6 - The Road to Miraholm.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 7 - Passing Mirathorn Gates.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 8 - Captain Lysandra Quest.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 9 - Battle with the Meat Monsters.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 1 - Let the Games Begin.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 10 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 11 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 12 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 13 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 14 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 15 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 16 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 17 - Migrating Forest and Thrin.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 18 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 19 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 2 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 3 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 4 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 5 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 6 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 7 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 8 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 9 - Recap.md"
+      ]
+    },
+    {
+      "name": "Baergrom",
+      "recap_file_count": 32,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 10 - Battle with the Meat Monsters.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 12 - One Persistent Bugbear or Sneaky Fucking Bugbear.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 13 - The Meaty and the Dead.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 14 - Into the Meat Grinder.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 15 - Into the Meat Grinder.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 16 - Recap.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 17 - Recap.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 3 - The Stone Bridge Flood.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 4 - The Grotesque Tree of Hempholm.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 5 - Underneath Hempholm.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 6 - The Road to Miraholm.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 7 - Passing Mirathorn Gates.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 8 - Captain Lysandra Quest.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 9 - Battle with the Meat Monsters.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 1 - Let the Games Begin.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 10 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 11 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 12 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 13 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 15 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 16 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 17 - Migrating Forest and Thrin.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 18 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 2 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 3 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 4 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 5 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 6 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 7 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 8 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 9 - Recap.md"
+      ]
+    },
+    {
+      "name": "Karesmine",
+      "recap_file_count": 9,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 17 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 13 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 15 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 17 - Migrating Forest and Thrin.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 18 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 19 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 4 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 5 - Recap.md"
+      ]
+    },
+    {
+      "name": "Grobnok",
+      "recap_file_count": 5,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 11 - Midnight Politics.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 9 - Battle with the Meat Monsters.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 13 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 3 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 9 - Recap.md"
+      ]
+    },
+    {
+      "name": "Ogonob",
+      "recap_file_count": 5,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 10 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 11 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 16 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 2 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 4 - Recap.md"
+      ]
+    },
+    {
+      "name": "Bardic",
+      "recap_file_count": 4,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 1 - Let the Games Begin.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 12 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 2 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 4 - Recap.md"
+      ]
+    },
+    {
+      "name": "Battle",
+      "recap_file_count": 4,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 10 - Battle with the Meat Monsters.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 12 - One Persistent Bugbear or Sneaky Fucking Bugbear.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 9 - Battle with the Meat Monsters.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 12 - Recap.md"
+      ]
+    },
+    {
+      "name": "Breaker",
+      "recap_file_count": 4,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 14 - Into the Meat Grinder.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 16 - Recap.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 17 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 7 - Recap.md"
+      ]
+    },
+    {
+      "name": "Evasive",
+      "recap_file_count": 4,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 10 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 11 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 18 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 6 - Recap.md"
+      ]
+    },
+    {
+      "name": "Footwork",
+      "recap_file_count": 4,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 10 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 11 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 18 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 6 - Recap.md"
+      ]
+    },
+    {
+      "name": "Glimmering",
+      "recap_file_count": 4,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 12 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 13 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 2 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 4 - Recap.md"
+      ]
+    },
+    {
+      "name": "Healing",
+      "recap_file_count": 4,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 17 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 17 - Migrating Forest and Thrin.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 18 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 8 - Recap.md"
+      ]
+    },
+    {
+      "name": "Lesandra",
+      "recap_file_count": 4,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 12 - One Persistent Bugbear or Sneaky Fucking Bugbear.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 17 - Recap.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 9 - Battle with the Meat Monsters.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 12 - Recap.md"
+      ]
+    },
+    {
+      "name": "Luckily",
+      "recap_file_count": 4,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 13 - The Meaty and the Dead.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 14 - Into the Meat Grinder.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 16 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 6 - Recap.md"
+      ]
+    },
+    {
+      "name": "Mossglade",
+      "recap_file_count": 4,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 13 - The Meaty and the Dead.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 14 - Into the Meat Grinder.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 1 - Let the Games Begin.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 2 - Recap.md"
+      ]
+    },
+    {
+      "name": "Suggestion",
+      "recap_file_count": 4,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 7 - Passing Mirathorn Gates.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 12 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 13 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 14 - Recap.md"
+      ]
+    },
+    {
+      "name": "Thalia",
+      "recap_file_count": 4,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 11 - Midnight Politics.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 12 - One Persistent Bugbear or Sneaky Fucking Bugbear.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 13 - The Meaty and the Dead.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 13 - Recap.md"
+      ]
+    },
+    {
+      "name": "Zephyr",
+      "recap_file_count": 4,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 10 - Battle with the Meat Monsters.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 17 - Recap.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 3 - The Stone Bridge Flood.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md"
+      ]
+    },
+    {
+      "name": "Arcane",
+      "recap_file_count": 3,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 1 - Let the Games Begin.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 2 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 3 - Recap.md"
+      ]
+    },
+    {
+      "name": "Blizzy",
+      "recap_file_count": 3,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 14 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 15 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 9 - Recap.md"
+      ]
+    },
+    {
+      "name": "Cinderbranch",
+      "recap_file_count": 3,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 13 - The Meaty and the Dead.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 2 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 8 - Recap.md"
+      ]
+    },
+    {
+      "name": "Coliseum",
+      "recap_file_count": 3,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 10 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 11 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 3 - Recap.md"
+      ]
+    },
+    {
+      "name": "College",
+      "recap_file_count": 3,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 11 - Midnight Politics.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 12 - One Persistent Bugbear or Sneaky Fucking Bugbear.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 9 - Battle with the Meat Monsters.md"
+      ]
+    },
+    {
+      "name": "Darkness",
+      "recap_file_count": 3,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 16 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 17 - Migrating Forest and Thrin.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 4 - Recap.md"
+      ]
+    },
+    {
+      "name": "Elemental",
+      "recap_file_count": 3,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 1 - Let the Games Begin.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 10 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 11 - Recap.md"
+      ]
+    },
+    {
+      "name": "Everything",
+      "recap_file_count": 3,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 8 - Captain Lysandra Quest.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 13 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 4 - Recap.md"
+      ]
+    },
+    {
+      "name": "Fireball",
+      "recap_file_count": 3,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 14 - Into the Meat Grinder.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 15 - Into the Meat Grinder.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 16 - Recap.md"
+      ]
+    },
+    {
+      "name": "Grishna",
+      "recap_file_count": 3,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 2 - Finishing the Job.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 3 - The Stone Bridge Flood.md"
+      ]
+    },
+    {
+      "name": "Hellish",
+      "recap_file_count": 3,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 14 - Into the Meat Grinder.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 7 - Passing Mirathorn Gates.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 18 - Recap.md"
+      ]
+    },
+    {
+      "name": "Immediately",
+      "recap_file_count": 3,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 14 - Into the Meat Grinder.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 6 - Recap.md"
+      ]
+    },
+    {
+      "name": "Invisibility",
+      "recap_file_count": 3,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 12 - One Persistent Bugbear or Sneaky Fucking Bugbear.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 16 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 6 - Recap.md"
+      ]
+    },
+    {
+      "name": "Kasemine",
+      "recap_file_count": 3,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 15 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 2 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 3 - Recap.md"
+      ]
+    },
+    {
+      "name": "Lightning",
+      "recap_file_count": 3,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 10 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 17 - Migrating Forest and Thrin.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 6 - Recap.md"
+      ]
+    },
+    {
+      "name": "Necromancer",
+      "recap_file_count": 3,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 13 - The Meaty and the Dead.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 14 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 2 - Recap.md"
+      ]
+    },
+    {
+      "name": "Originally",
+      "recap_file_count": 3,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 10 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 4 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 8 - Recap.md"
+      ]
+    },
+    {
+      "name": "Potion",
+      "recap_file_count": 3,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 12 - One Persistent Bugbear or Sneaky Fucking Bugbear.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 17 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 8 - Recap.md"
+      ]
+    },
+    {
+      "name": "Rebuke",
+      "recap_file_count": 3,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 14 - Into the Meat Grinder.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 7 - Passing Mirathorn Gates.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 18 - Recap.md"
+      ]
+    },
+    {
+      "name": "Shatter",
+      "recap_file_count": 3,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 16 - Recap.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 17 - Recap.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 9 - Battle with the Meat Monsters.md"
+      ]
+    },
+    {
+      "name": "Sorcerer",
+      "recap_file_count": 3,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 14 - Into the Meat Grinder.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 8 - Recap.md"
+      ]
+    },
+    {
+      "name": "Sorcery",
+      "recap_file_count": 3,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 17 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 16 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 18 - Recap.md"
+      ]
+    },
+    {
+      "name": "Tiefling",
+      "recap_file_count": 3,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 2 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 9 - Recap.md"
+      ]
+    },
+    {
+      "name": "Tinkerbright",
+      "recap_file_count": 3,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 11 - Midnight Politics.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 13 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 14 - Recap.md"
+      ]
+    },
+    {
+      "name": "Warlock",
+      "recap_file_count": 3,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 7 - Passing Mirathorn Gates.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 1 - Let the Games Begin.md"
+      ]
+    },
+    {
+      "name": "Alarmed",
+      "recap_file_count": 2,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 6 - Recap.md"
+      ]
+    },
+    {
+      "name": "Artificer",
+      "recap_file_count": 2,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 13 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 2 - Recap.md"
+      ]
+    },
+    {
+      "name": "Behind",
+      "recap_file_count": 2,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 4 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 9 - Recap.md"
+      ]
+    },
+    {
+      "name": "Blasts",
+      "recap_file_count": 2,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 16 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md"
+      ]
+    },
+    {
+      "name": "Bonfire",
+      "recap_file_count": 2,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 19 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 4 - Recap.md"
+      ]
+    },
+    {
+      "name": "Brewery",
+      "recap_file_count": 2,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 3 - The Stone Bridge Flood.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 6 - The Road to Miraholm.md"
+      ]
+    },
+    {
+      "name": "Bugbears",
+      "recap_file_count": 2,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 10 - Battle with the Meat Monsters.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 5 - Recap.md"
+      ]
+    },
+    {
+      "name": "Canopy",
+      "recap_file_count": 2,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 16 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 17 - Migrating Forest and Thrin.md"
+      ]
+    },
+    {
+      "name": "Colosseum",
+      "recap_file_count": 2,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 1 - Let the Games Begin.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 4 - Recap.md"
+      ]
+    },
+    {
+      "name": "Common",
+      "recap_file_count": 2,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 17 - Migrating Forest and Thrin.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 18 - Recap.md"
+      ]
+    },
+    {
+      "name": "Corrupted",
+      "recap_file_count": 2,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 13 - The Meaty and the Dead.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 9 - Battle with the Meat Monsters.md"
+      ]
+    },
+    {
+      "name": "Desperate",
+      "recap_file_count": 2,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 3 - The Stone Bridge Flood.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 9 - Battle with the Meat Monsters.md"
+      ]
+    },
+    {
+      "name": "Dragonborn",
+      "recap_file_count": 2,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 18 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 19 - Recap.md"
+      ]
+    },
+    {
+      "name": "Empire",
+      "recap_file_count": 2,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 7 - Passing Mirathorn Gates.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 9 - Recap.md"
+      ]
+    },
+    {
+      "name": "Emporium",
+      "recap_file_count": 2,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 6 - The Road to Miraholm.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 9 - Recap.md"
+      ]
+    },
+    {
+      "name": "Everywhere",
+      "recap_file_count": 2,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 13 - The Meaty and the Dead.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 14 - Into the Meat Grinder.md"
+      ]
+    },
+    {
+      "name": "Faintly",
+      "recap_file_count": 2,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 14 - Into the Meat Grinder.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 8 - Captain Lysandra Quest.md"
+      ]
+    },
+    {
+      "name": "Feather",
+      "recap_file_count": 2,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 16 - Recap.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 17 - Recap.md"
+      ]
+    },
+    {
+      "name": "Fiddle",
+      "recap_file_count": 2,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 16 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 6 - Recap.md"
+      ]
+    },
+    {
+      "name": "Fighter",
+      "recap_file_count": 2,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 2 - Recap.md"
+      ]
+    },
+    {
+      "name": "Finding",
+      "recap_file_count": 2,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 2 - Finishing the Job.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 7 - Recap.md"
+      ]
+    },
+    {
+      "name": "Fleshborn",
+      "recap_file_count": 2,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 6 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 7 - Recap.md"
+      ]
+    },
+    {
+      "name": "Further",
+      "recap_file_count": 2,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 9 - Battle with the Meat Monsters.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 6 - Recap.md"
+      ]
+    },
+    {
+      "name": "Gilded",
+      "recap_file_count": 2,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 3 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 5 - Recap.md"
+      ]
+    },
+    {
+      "name": "Glowkindle",
+      "recap_file_count": 2,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 2 - Finishing the Job.md"
+      ]
+    },
+    {
+      "name": "Grandma",
+      "recap_file_count": 2,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 5 - Underneath Hempholm.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 19 - Recap.md"
+      ]
+    },
+    {
+      "name": "Greater",
+      "recap_file_count": 2,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 17 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 8 - Recap.md"
+      ]
+    },
+    {
+      "name": "Grinder",
+      "recap_file_count": 2,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 14 - Into the Meat Grinder.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 15 - Into the Meat Grinder.md"
+      ]
+    },
+    {
+      "name": "Heading",
+      "recap_file_count": 2,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 5 - Underneath Hempholm.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 14 - Recap.md"
+      ]
+    },
+    {
+      "name": "Headmaster",
+      "recap_file_count": 2,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 11 - Midnight Politics.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 14 - Recap.md"
+      ]
+    },
+    {
+      "name": "Illusion",
+      "recap_file_count": 2,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 9 - Battle with the Meat Monsters.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 10 - Recap.md"
+      ]
+    },
+    {
+      "name": "Innate",
+      "recap_file_count": 2,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 16 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 18 - Recap.md"
+      ]
+    },
+    {
+      "name": "Inspiration",
+      "recap_file_count": 2,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 1 - Let the Games Begin.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 4 - Recap.md"
+      ]
+    },
+    {
+      "name": "Investigated",
+      "recap_file_count": 2,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 10 - Battle with the Meat Monsters.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 9 - Battle with the Meat Monsters.md"
+      ]
+    },
+    {
+      "name": "Knowing",
+      "recap_file_count": 2,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 13 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 6 - Recap.md"
+      ]
+    },
+    {
+      "name": "Leader",
+      "recap_file_count": 2,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 11 - Midnight Politics.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 16 - Recap.md"
+      ]
+    },
+    {
+      "name": "Leaders",
+      "recap_file_count": 2,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 15 - Into the Meat Grinder.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 16 - Recap.md"
+      ]
+    },
+    {
+      "name": "Merril",
+      "recap_file_count": 2,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 11 - Midnight Politics.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 13 - Recap.md"
+      ]
+    },
+    {
+      "name": "Monsters",
+      "recap_file_count": 2,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 10 - Battle with the Meat Monsters.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 9 - Battle with the Meat Monsters.md"
+      ]
+    },
+    {
+      "name": "Mounds",
+      "recap_file_count": 2,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 10 - Battle with the Meat Monsters.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 17 - Recap.md"
+      ]
+    },
+    {
+      "name": "Mountain",
+      "recap_file_count": 2,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 9 - Battle with the Meat Monsters.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 8 - Recap.md"
+      ]
+    },
+    {
+      "name": "Necrotic",
+      "recap_file_count": 2,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 12 - One Persistent Bugbear or Sneaky Fucking Bugbear.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 12 - Recap.md"
+      ]
+    },
+    {
+      "name": "Peacemaker",
+      "recap_file_count": 2,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 16 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 6 - Recap.md"
+      ]
+    },
+    {
+      "name": "Sargent",
+      "recap_file_count": 2,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 15 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 3 - Recap.md"
+      ]
+    },
+    {
+      "name": "Sending",
+      "recap_file_count": 2,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 3 - The Stone Bridge Flood.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 8 - Captain Lysandra Quest.md"
+      ]
+    },
+    {
+      "name": "Shattering",
+      "recap_file_count": 2,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 16 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 6 - Recap.md"
+      ]
+    },
+    {
+      "name": "Shocking",
+      "recap_file_count": 2,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 4 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 6 - Recap.md"
+      ]
+    },
+    {
+      "name": "Situated",
+      "recap_file_count": 2,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 2 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 3 - Recap.md"
+      ]
+    },
+    {
+      "name": "Stormbark",
+      "recap_file_count": 2,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 10 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 5 - Recap.md"
+      ]
+    },
+    {
+      "name": "Swiftwind",
+      "recap_file_count": 2,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 11 - Midnight Politics.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 6 - The Road to Miraholm.md"
+      ]
+    },
+    {
+      "name": "Talked",
+      "recap_file_count": 2,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 4 - The Grotesque Tree of Hempholm.md",
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 6 - The Road to Miraholm.md"
+      ]
+    },
+    {
+      "name": "Thirty",
+      "recap_file_count": 2,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 15 - Into the Meat Grinder.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md"
+      ]
+    },
+    {
+      "name": "Thunder",
+      "recap_file_count": 2,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 18 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 7 - Recap.md"
+      ]
+    },
+    {
+      "name": "Torrin",
+      "recap_file_count": 2,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 11 - Midnight Politics.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 13 - Recap.md"
+      ]
+    },
+    {
+      "name": "Unable",
+      "recap_file_count": 2,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 14 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 5 - Recap.md"
+      ]
+    },
+    {
+      "name": "Undeterred",
+      "recap_file_count": 2,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 1/Session Recaps/Session 4 - The Grotesque Tree of Hempholm.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 19 - Recap.md"
+      ]
+    },
+    {
+      "name": "Warding",
+      "recap_file_count": 2,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 10 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 4 - Recap.md"
+      ]
+    },
+    {
+      "name": "Wispers",
+      "recap_file_count": 2,
+      "recap_paths": [
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 6 - Recap.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 7 - Recap.md"
+      ]
+    }
+  ],
+  "stats": {
+    "distinct_slugs_any_channel": 9,
+    "slugs_with_hub_link": 0,
+    "slugs_with_registry_surface": 9,
+    "prose_name_candidates": 104
+  }
+}
