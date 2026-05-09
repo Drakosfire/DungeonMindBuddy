@@ -13,16 +13,18 @@ AuthorityEffect = Literal[
     "requires_policy",
 ]
 
+EntityKind = Literal["npc", "location", "faction", "institution", "organization", "unknown"]
+
 
 class RouteEquivalenceRecord(BaseModel):
     """Deterministic route-equivalence edge for Phase B shadow mode."""
 
     model_config = ConfigDict(extra="forbid")
 
-    schema_version: str = Field(default="0.1.0")
+    schema_version: str = Field(default="0.2.0")
     record_id: str = Field(min_length=1)
     campaign_id: str = Field(min_length=1)
-    entity_kind: str = Field(min_length=1)
+    entity_kind: EntityKind = "unknown"
     display_name: str = Field(min_length=1)
     from_route_id: str = Field(min_length=1)
     to_route_id: str = Field(min_length=1)
