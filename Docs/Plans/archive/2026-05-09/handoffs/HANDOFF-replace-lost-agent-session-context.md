@@ -37,7 +37,7 @@ with fallback resolution in Buddy—**tests that claim “no API key” behavior
 
 ### Phase B — 30 minutes (mission + skepticism)
 
-1. `**Docs/Plans/HANDOFF-next-agent-mirathorn-event-slice.md`** — Mirathorn slice mission, non-negotiables, **Skeptical Investigation Continuation** block (Council Room gaps, temporal provenance, selection policy). This is the **active investigative brief** layered on top of “gates green.”
+1. `**Docs/Plans/archive/2026-05-09/handoffs/HANDOFF-next-agent-mirathorn-event-slice.md`** — Mirathorn slice mission, non-negotiables, **Skeptical Investigation Continuation** block (Council Room gaps, temporal provenance, selection policy). This is the **active investigative brief** layered on top of “gates green.”
 2. `**Docs/Design/REPORT-benchmark-shortcomings-and-successes.md`** (if present) — falsification themes: competing non-terminal facts, semantic scoring generosity, production-path canon decisions, artifact integrity, non-Mirathorn generalization.
 
 ### Phase C — deep dive (only when implementing)

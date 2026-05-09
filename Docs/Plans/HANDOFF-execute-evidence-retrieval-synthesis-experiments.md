@@ -4,7 +4,7 @@
 **Status:** Ready for execution
 **Prerequisite reading:**
 
-- `Docs/Plans/REPORT-evidence-gap-phases-0-6-findings.md` — what we know
+- `Docs/Plans/archive/2026-05-09/reports/REPORT-evidence-gap-phases-0-6-findings.md` — what we know
 - `Docs/Plans/HYPOTHESES-evidence-retrieval-synthesis-improvements.md` — what we want to test
 - `evals/mirathorn_vertical_slice/output/evidence_gap_phase_ledger.json` — phase-by-phase metrics
 

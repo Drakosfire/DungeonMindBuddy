@@ -28,7 +28,7 @@ Refresh these **before** large edits or when conversation context is thin:
 
 | Priority | Path | Why |
 |----------|------|-----|
-| P0 | `Docs/Plans/HANDOFF-extraction-lab-design-from-retrieval-lab-learnings.md` | Canonical intent, artifact layout, phased goals |
+| P0 | `Docs/Plans/archive/2026-05-09/handoffs/HANDOFF-extraction-lab-design-from-retrieval-lab-learnings.md` | Canonical intent, artifact layout, phased goals |
 | P0 | `extraction_lab/run_extraction_lab.py` | Entry point, CLI flags, default anchors and `out/` layout |
 | P0 | `extraction_lab/anchor_resolver.py`, `extraction_lab/anchor_schema.py` | Pass/fail buckets and gold shape |
 | P0 | `extraction_lab/regression_thresholds.json` | Hard-fail vs warning thresholds |

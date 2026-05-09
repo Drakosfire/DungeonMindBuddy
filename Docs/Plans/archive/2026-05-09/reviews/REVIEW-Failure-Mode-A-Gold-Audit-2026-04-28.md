@@ -38,7 +38,7 @@ Thrin is correctly classified as an NPC: `corpus/eldyrwild-markdown/Longmont Cam
 
 But narratively the model sees a recap where the active band reads as "Ephanna, Karesmine, Caelynn, Thrin, Bonogo, Stafl" — five PCs and one NPC who acts. There is **no textual cue** that Baergrom belongs to "the group". Combined with 1a, this means the model has to override **both** "the recap names this party as 5 PCs" **and** "the named 6th party member is an NPC, not a PC" to satisfy roster-copy gold.
 
-This is not a gold bug. It is a **hard ask** that consistently lands as the dominant failure (`u-L0026-06`/`u-L0030-03` recurrences in the cohorts cited in `Docs/Plans/REVIEW-Sentence-Hub-Routing-Failure-Modes-2026-04-28.md` §2).
+This is not a gold bug. It is a **hard ask** that consistently lands as the dominant failure (`u-L0026-06`/`u-L0030-03` recurrences in the cohorts cited in `Docs/Plans/archive/2026-05-09/reviews/REVIEW-Sentence-Hub-Routing-Failure-Modes-2026-04-28.md` §2).
 
 ---
 
@@ -66,7 +66,7 @@ Cross-check format: `unit_id` → recap text → gold expected → which prompt 
   - Ephanna = actor (intervenes). ✓
   - Bonogo = **decision topic** ("how she should deal with Bonogo"). Rule 3's "object/locus" examples are physical (struck/grappled/enveloped/rescued) plus "directly addressed as the decision point". Bonogo is the decision **about whom**, not the decision **point** in a strict reading.
 - **Verdict: BORDERLINE.** The Caelynn + Ephanna pair is clean. The Bonogo slot is a defensible but **interpretive** stretch of "decision point" — a narrow reader of rule 3 would assign `[caelynn, ephanna]` and treat Bonogo as background continuity that belongs on the *next* unit (where Bonogo actually appears as actor or object).
-- **Why this matters for the failure pattern:** the cohort summaries record `u-L0026-06` as the most recurrent miss (5/5 misses across both prompt variants per `Docs/Plans/REVIEW-Sentence-Hub-Routing-Failure-Modes-2026-04-28.md` §2). The model dropping **Bonogo** specifically is consistent with a strict reading of rule 3, not arbitrary noise.
+- **Why this matters for the failure pattern:** the cohort summaries record `u-L0026-06` as the most recurrent miss (5/5 misses across both prompt variants per `Docs/Plans/archive/2026-05-09/reviews/REVIEW-Sentence-Hub-Routing-Failure-Modes-2026-04-28.md` §2). The model dropping **Bonogo** specifically is consistent with a strict reading of rule 3, not arbitrary noise.
 
 ### Row 3 — `u-L0022-01` (roster-copy + named PC inside same unit)
 

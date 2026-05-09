@@ -163,7 +163,7 @@ Mean Stage A run cost: ~$0.006 for short recaps, ~$0.009 for action-heavy recaps
 
 ## Related
 
-- `Docs/Plans/REPORT-C1S1-OUTCOMES-Contract-Generalisation.md` (the prior — single-recap baseline)
+- `Docs/Plans/archive/2026-05-09/reports/REPORT-C1S1-OUTCOMES-Contract-Generalisation.md` (the prior — single-recap baseline)
 - `Backlog.md` (NPC ingestion slice, Location ingestion slice, SE5 corpus-level fallback)
 - `Docs/Plans/STATUS-Session-Recap-Timeline-Pass-Benchmark.md` (Iteration 7 chained pipeline state)
 - `evals/session_events_extraction_vertical_slice/README.md` (contracts and gates)

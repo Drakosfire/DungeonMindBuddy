@@ -15,7 +15,7 @@ Read the project's current state by examining:
 2. **Benchmark results** — `evals/mirathorn_vertical_slice/output/council_room_question_set.json`
 3. **Source code** — `src/` directory (17 files as of 2026-03-28)
 4. **Test suite** — run `uv run pytest tests/ -v --tb=short` and read the output
-5. **Handoff doc** — `Docs/Plans/HANDOFF-next-agent-mirathorn-event-slice.md`
+5. **Handoff doc** — `Docs/Plans/archive/2026-05-09/handoffs/HANDOFF-next-agent-mirathorn-event-slice.md`
 6. **Git log** — `git log --oneline -30` for recent trajectory
 
 Then produce a structured review covering each section below. Be specific. Cite files, line numbers, and concrete evidence. Vague praise is useless; vague criticism is worse.

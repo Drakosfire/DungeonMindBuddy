@@ -1,7 +1,7 @@
 # Report: Answer Accuracy Measurement Execution
 
 **Date:** 2026-04-07  
-**Scope:** Execute `Docs/Plans/HANDOFF-answer-accuracy-measurement.md` phases A-E (initial prototype level) and report empirical results.
+**Scope:** Execute `Docs/Plans/archive/2026-05-09/handoffs/HANDOFF-answer-accuracy-measurement.md` phases A-E (initial prototype level) and report empirical results.
 
 ---
 

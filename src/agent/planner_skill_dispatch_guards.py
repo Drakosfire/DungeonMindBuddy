@@ -46,7 +46,7 @@ _RECAP_WRITE_PATH_GUARDED_TOOLS = frozenset({"read_corpus_file", "load_context_m
 #: schema both encourage this, but the model has been observed to "be helpful"
 #: by passing ``campaign_id`` inferred from the user message; the dispatch
 #: guard fail-closes that behavior so the auto-detected campaign is always
-#: used. See ``Docs/Plans/PROCESSING-NOTES-Session-20-Manual-Ingest.md``.
+#: used. See ``Docs/Plans/archive/2026-05-09/operational-notes/PROCESSING-NOTES-Session-20-Manual-Ingest.md``.
 _RECAP_WRITE_NO_PIN_TOOL = "get_recap_context"
 
 #: Skill IDs that have a dispatch guard registered. Public so callers can

@@ -15,7 +15,7 @@ Included schemas:
 
 Included examples:
 - one minimal example instance for each schema, using Lysandra-flavored placeholder data.
-- `examples/corpus_entity_profile.bonogo_exemplar.json` — full-depth narrative audit (see `Docs/Plans/HANDOFF-entity-definition-audit-top-N.md`).
+- `examples/corpus_entity_profile.bonogo_exemplar.json` — full-depth narrative audit (see `Docs/Plans/archive/2026-05-09/handoffs/HANDOFF-entity-definition-audit-top-N.md`).
 
 ## Design notes
 

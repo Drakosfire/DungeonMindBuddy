@@ -20,7 +20,7 @@ Expand benchmark coverage beyond the initial Mirathorn gazetteer gold set by sys
 
 | Priority | Path | Why |
 |----------|------|-----|
-| P0 | `Docs/Plans/HANDOFF-phase6-corpus-question-design.md` | Canonical Phase 6 intent, execution plan, exit criteria |
+| P0 | `Docs/Plans/archive/2026-04-07/HANDOFF-phase6-corpus-question-design.md` | Canonical Phase 6 intent, execution plan, exit criteria |
 | P0 | `Docs/Design/DESIGN-benchmark-philosophy.md` | Three-gate model, scoring principles, lesson history |
 | P0 | `evals/mirathorn_vertical_slice/output/phase6_sample_review.md` | Latest surfaced sample for editorial review |
 | P0 | `evals/mirathorn_vertical_slice/output/phase6_candidate_questions.json` | Full candidate set with coverage/preflight data |

@@ -196,7 +196,7 @@ If hard gates pass but retrieval-fit fails, architecture is not promotion-ready.
 
 1. Finish **Stage B** live-LLM path tuning if needed; keep `gold_routing` + `--no-llm` fixture discipline.
 2. Add **Stage C** proposal gold (`gold_proposals`) and **`step3_propose_run.py`** (new-hub proposals runner) for unresolved units only.
-3. Add **Stage D** retrieval gold (`gold_retrieval`) and **`step4_retrieval_pack_run.py`** (scoped context-pack runner) with deterministic builder + gates from `Docs/Plans/HANDOFF-relevance-gated-retrieval-and-pruning.md`.
+3. Add **Stage D** retrieval gold (`gold_retrieval`) and **`step4_retrieval_pack_run.py`** (scoped context-pack runner) with deterministic builder + gates from `Docs/Plans/archive/2026-05-09/handoffs/HANDOFF-relevance-gated-retrieval-and-pruning.md`.
 4. Emit **one sidecar per stage** so failures never blur across stages.
 
 ---

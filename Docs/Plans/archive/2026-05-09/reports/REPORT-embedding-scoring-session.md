@@ -4,7 +4,7 @@
 **Date:** 2026-04-07  
 **Context:** Vertical-slice eval for council-room QA (`evals/mirathorn_vertical_slice/`). Goal: add optional embedding-based cosine similarity vs gold `expected_answer_summary`, smoke-test the model, survive real `.env` / Hugging Face cache layouts, and improve observability (stderr logging, timings).
 
-**Related:** `Docs/Plans/HANDOFF-embedding-scoring-refinement.md`, optional plan `.cursor/plans/embedding_similarity_scoring_20d81fe3.plan.md` (if present).
+**Related:** `Docs/Plans/archive/2026-05-09/handoffs/HANDOFF-embedding-scoring-refinement.md`, optional plan `.cursor/plans/embedding_similarity_scoring_20d81fe3.plan.md` (if present).
 
 ---
 
@@ -131,7 +131,7 @@ Earlier runs on the same codebase showed similar embedding distributions (e.g. m
 | `evals/mirathorn_vertical_slice/gold/gold_questions.json`         | Gold including `expected_answer_summary`                                               |
 | `tests/evals/test_embedding_scorer.py`                            | Unit tests + `test_smoke_embedding_model_load_and_encode`                              |
 | `pyproject.toml`                                                  | `embedding` optional extra; `embedding_smoke` pytest marker                            |
-| `Docs/Plans/HANDOFF-embedding-scoring-refinement.md`              | Original refinement backlog (logging partially addressed by this work)                 |
+| `Docs/Plans/archive/2026-05-09/handoffs/HANDOFF-embedding-scoring-refinement.md`              | Original refinement backlog (logging partially addressed by this work)                 |
 
 
 ---

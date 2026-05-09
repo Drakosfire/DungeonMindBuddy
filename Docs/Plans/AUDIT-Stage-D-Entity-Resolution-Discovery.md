@@ -33,7 +33,7 @@ A reasonable **StageDOutput** (or "extended Stage C") would add, at minimum:
 
 - **Cross-bucket identity:** same person split between `unresolved_descriptors[]` and `new_npc_candidates[]`, or two `suggested_slug` variants for the same descriptor (`bubbles` vs `bubbles_the_float_goat` — see §2).
 - **Registry / alias insufficiency:** user-facing phrasing in events ("the captain") not matching the model's first pass while `aliases[]` *could* cover it if extended (`step1_stage_c_run.py:149-156` already instructs alias matching; Stage D is where you **add** aliases after the fact).
-- **`candidate` vs `tracked` semantics:** `NpcRegistryRecord` and NC3 today center on `tracked`/`background` in the grader's "positive list" (`grader.py:85-94`, `358-367`). Open product questions from the cross-campaign report (`Docs/Plans/REPORT-Stage-C-Cross-Campaign-Generalisation.md:125-129`) apply directly: when promotions happen and whether **recall** should include `candidate` rows.
+- **`candidate` vs `tracked` semantics:** `NpcRegistryRecord` and NC3 today center on `tracked`/`background` in the grader's "positive list" (`grader.py:85-94`, `358-367`). Open product questions from the cross-campaign report (`Docs/Plans/archive/2026-05-09/reports/REPORT-Stage-C-Cross-Campaign-Generalisation.md:125-129`) apply directly: when promotions happen and whether **recall** should include `candidate` rows.
 - **PC negative-list re-validation** after transforming buckets (NC2 is strict on all three arrays — `grader.py:273-350`).
 - **Slug hygiene:** enforce `^[a-z0-9_]+$` consistently (`grader.py:43-44`, `168-170`) after merges.
 
@@ -76,7 +76,7 @@ A reasonable **StageDOutput** (or "extended Stage C") would add, at minimum:
    The model's own rationales point here — e.g. *"The creature is described but not clearly named as an NPC, so its identity cannot be confidently resolved."* (`…run001.json`, `stage_c_output.unresolved_descriptors[0]`, lines 73-79 in the sampled sidecar). Same pattern for the "spider monstrosity" line (`…run001.json:81-86`).
 
 4. **Slug-variant / aggregation duplicates (not in `unresolved_descriptors` but in `new_npc_candidates`)**  
-   This is the **bubbles** case. Across **C1S3** five runs, aggregation gives: **`bubbles` ×1** and **`bubbles_the_float_goat` ×4**, same `descriptor: "Bubbles the Float Goat"` — matching the cross-campaign report and proposals file (`Docs/Plans/REPORT-Stage-C-Cross-Campaign-Generalisation.md:79-81`; `evals/stage_c_npc_candidates_vertical_slice/proposals/c1_registry_proposals_20260422T213552Z.json:78-100`).
+   This is the **bubbles** case. Across **C1S3** five runs, aggregation gives: **`bubbles` ×1** and **`bubbles_the_float_goat` ×4**, same `descriptor: "Bubbles the Float Goat"` — matching the cross-campaign report and proposals file (`Docs/Plans/archive/2026-05-09/reports/REPORT-Stage-C-Cross-Campaign-Generalisation.md:79-81`; `evals/stage_c_npc_candidates_vertical_slice/proposals/c1_registry_proposals_20260422T213552Z.json:78-100`).
 
 **Note on the cross-campaign write-up:** The narrative bullet in the cross-campaign report mentions C1S2 in the same sentence as C1S1's unresolved average. **The committed 2026-04-22 sidecars show `unresolved_count: 0` for every C1S2 run** — treat the **on-disk artifacts** as ground truth for this audit; the report line may be imprecise or refer to a different revision.
 
@@ -158,7 +158,7 @@ A reasonable **StageDOutput** (or "extended Stage C") would add, at minimum:
 
 ### Top 3 risks
 
-1. **Ambiguous `candidate` vs `tracked` in NC3 and Stage D** — product + grader policy still open (`Docs/Plans/REPORT-Stage-C-Cross-Campaign-Generalisation.md:125-129`; Backlog GM-review entry). Stage D that "resolves to registry" must know whether **`candidate` counts** as *known* for merge targets.
+1. **Ambiguous `candidate` vs `tracked` in NC3 and Stage D** — product + grader policy still open (`Docs/Plans/archive/2026-05-09/reports/REPORT-Stage-C-Cross-Campaign-Generalisation.md:125-129`; Backlog GM-review entry). Stage D that "resolves to registry" must know whether **`candidate` counts** as *known* for merge targets.
 
 2. **`referenced_slugs[]` and Stage A policy** — until Stage A persistence + grader policy settle (Backlog Stage A sidecar persistence entry; SE3/SE5 policy entry), end-to-end **semantic** loss (Kirfan class) will confound **Stage D** quality metrics. Stage D can still ship on **heuristic** slices using frozen good fixtures.
 

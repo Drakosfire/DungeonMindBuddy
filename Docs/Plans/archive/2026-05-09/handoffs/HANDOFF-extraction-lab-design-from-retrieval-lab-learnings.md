@@ -299,7 +299,7 @@ Read these before implementing:
 | `evals/mirathorn_vertical_slice/gold/gold_entities.json`      | 13 entity gold entries (authored against old pipeline)                 |
 | `evals/mirathorn_vertical_slice/gold/gold_facts.json`         | 10 fact gold entries (authored against old pipeline)                   |
 | `evals/canon_layering/run_benchmarks.py`                      | Deterministic projection scenarios with hash checks                    |
-| `Docs/Plans/HANDOFF-investigate-entity-fact-quality-drift.md` | Quality drift investigation — new baseline (86 entities / 536 facts)   |
+| `Docs/Plans/archive/2026-05-09/handoffs/HANDOFF-investigate-entity-fact-quality-drift.md` | Quality drift investigation — new baseline (86 entities / 536 facts)   |
 
 
 ---

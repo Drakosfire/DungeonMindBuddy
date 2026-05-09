@@ -3,7 +3,7 @@
 ## Read First
 
 - `Docs/Design/DESIGN-layered-canon-vertical-slice.md` — canonical design, especially Step 4, Build Order, and Phase B checkpoint
-- `Docs/Plans/HANDOFF-phaseB-pass1-entity-extraction-loop.md` — completed Phase B implementation details and gate evidence
+- `Docs/Plans/archive/2026-05-09/handoffs/HANDOFF-phaseB-pass1-entity-extraction-loop.md` — completed Phase B implementation details and gate evidence
 - `src/ingestion/chunker.py` — deterministic evidence-unit source for extraction
 - `src/ingestion/entity_extractor.py` — Pass 1 entity loop now baseline dependency
 - `src/store.py` — persistence + projection delegation (`project_entity_state`)

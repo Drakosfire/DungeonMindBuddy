@@ -7,7 +7,7 @@ description: Take pasted raw session notes and write ONE canonical `Session N - 
 
 This skill has **one write target**: a new `Session <N> - Recap.md` file. Everything else it produces is **structured output** for the GM (or downstream skills) to act on. It does not append timeline rows, create new NPC hubs, place plot artifacts, or write prep-doc pointers. Each of those is a separate decision and (for timeline rows) a separate skill.
 
-This decomposition exists because earlier passes asked one prompt to draft the recap **and** enumerate a multi-category review surface in the same turn; the recap landed reliably, the review surface flapped between "two items" and "none." See `Docs/Plans/PROCESSING-NOTES-Session-20-Manual-Ingest.md` §4 (deterministic vs. judgment) and §6 (review-surface inventory) for the analysis behind the cut.
+This decomposition exists because earlier passes asked one prompt to draft the recap **and** enumerate a multi-category review surface in the same turn; the recap landed reliably, the review surface flapped between "two items" and "none." See `Docs/Plans/archive/2026-05-09/operational-notes/PROCESSING-NOTES-Session-20-Manual-Ingest.md` §4 (deterministic vs. judgment) and §6 (review-surface inventory) for the analysis behind the cut.
 
 ## Inputs
 
@@ -195,6 +195,6 @@ Per the contract above. After the GM approves with `apply`, call `write_corpus_f
 - **Prompt addendum:** `_WRITE_TOOLS_ADDENDUM` in `src/prompts/corpus_session_planner.py`.
 - **Hub-format reference:** `Docs/CONVENTION-NPC-Hub-Package.md` (timeline column shape, README sections, dossier boundary).
 - **Read-only rationale:** `Docs/Learnings/LEARNINGS-Corpus-Layout-For-LLM-Grounding.md` Lessons 11 and 12.
-- **Manual-ingest reference (the analysis that drove this cut):** `Docs/Plans/PROCESSING-NOTES-Session-20-Manual-Ingest.md`.
+- **Manual-ingest reference (the analysis that drove this cut):** `Docs/Plans/archive/2026-05-09/operational-notes/PROCESSING-NOTES-Session-20-Manual-Ingest.md`.
 - **Sibling skill (read-only, mechanics-aware):** `.cursor/skills/npc-power-increase/SKILL.md`. If a recap implies a power-tier shift, finish the recap commit first, then start a separate turn with `npc-power-increase`. Never run the two simultaneously.
 - **Future sibling (judgment, per-NPC, write-enabled):** `recap-timeline-append` (not yet authored). Will consume `npc_audit.timeline_append_candidates[]` from this skill's payload, one slug per call.

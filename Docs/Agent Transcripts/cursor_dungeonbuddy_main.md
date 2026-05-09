@@ -128,7 +128,7 @@ Fail fast if extraction is non-viable (e.g., zero entities/facts) in the slice r
 
 I’ll draft this directly into the active handoff doc with a concrete execution brief: scope, acceptance criteria, implementation checklist, test matrix, and exact commands for the next agent.
 
-Added a focused handoff section to `Docs/Plans/HANDOFF-next-agent-mirathorn-event-slice.md` with a concrete execution brief for extraction viability gates.
+Added a focused handoff section to `Docs/Plans/archive/2026-05-09/handoffs/HANDOFF-next-agent-mirathorn-event-slice.md` with a concrete execution brief for extraction viability gates.
 
 What I included:
 
@@ -163,7 +163,7 @@ Gate V: PASS (entity_density=0.3333, duplicate_fact_ratio=0.0, conflict_volume_b
 Gate B: PASS
 Gate C: PASS
 Gate D: PASS (instantiation_to_zero_tick=2, zero_tick_to_live_state=2)
-No code changes were required; this execution refreshed runtime artifacts under evals/llm_ingestion_slice/output/current/ (still untracked).@DungeonMindBuddy/Docs/Plans/HANDOFF-next-agent-mirathorn-event-slice.md 
+No code changes were required; this execution refreshed runtime artifacts under evals/llm_ingestion_slice/output/current/ (still untracked).@DungeonMindBuddy/Docs/Plans/archive/2026-05-09/handoffs/HANDOFF-next-agent-mirathorn-event-slice.md 
 
 ---
 
@@ -171,7 +171,7 @@ No code changes were required; this execution refreshed runtime artifacts under 
 
 I’ll record this execution evidence into the handoff so the next agent sees a confirmed green baseline and knows no code changes are pending beyond tracked artifact refresh.
 
-Recorded your execution results in `Docs/Plans/HANDOFF-next-agent-mirathorn-event-slice.md` under a new section:
+Recorded your execution results in `Docs/Plans/archive/2026-05-09/handoffs/HANDOFF-next-agent-mirathorn-event-slice.md` under a new section:
 
 - `Execution Verification Snapshot (2026-03-27)`
 

@@ -40,7 +40,7 @@ _CREATE_ALLOWED_RE = re.compile(
 # `NPCs/<slug>/timeline.md` and `PCs/<slug>/timeline.md` so PC-side timelines
 # are structurally symmetric with NPC hubs (the writer-allowlist gap that
 # blocked TP1 on the Caelynn target in the Stage-2 v1 timeline-pass slice;
-# see `Docs/Plans/REPORT-Timeline-Pass-Live-2026-04-21.md`). Scope is strictly
+# see `Docs/Plans/archive/2026-05-09/reports/REPORT-Timeline-Pass-Live-2026-04-21.md`). Scope is strictly
 # `append_timeline_row` — no other allowlist (create, README, dossier, etc.)
 # admits PC paths.
 _TIMELINE_RE = re.compile(r"(?:^|/)(?:NPCs|PCs)/[^/]+/timeline\.md$")

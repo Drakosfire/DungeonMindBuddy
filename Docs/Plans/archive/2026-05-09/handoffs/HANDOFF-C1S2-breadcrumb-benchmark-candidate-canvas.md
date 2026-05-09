@@ -187,7 +187,7 @@ Also run existing token-resolution and query suites before finalizing.
 ## File checklist (minimum expected edits)
 
 - New:
-  - `Docs/Plans/HANDOFF-C1S2-breadcrumb-benchmark-candidate-canvas.md` (this file)
+  - `Docs/Plans/archive/2026-05-09/handoffs/HANDOFF-C1S2-breadcrumb-benchmark-candidate-canvas.md` (this file)
   - `evals/sentence_routing_retrieval_falsification/manual_labels/Session 2 - Finishing the Job.breadcrumbed.frontmatter_seed.md`
   - `evals/sentence_routing_retrieval_falsification/manual_labels/Session 2 - Finishing the Job.breadcrumbed.md`
   - `evals/sentence_routing_retrieval_falsification/gold/breadcrumb_query_natural_c1s2_v1.json`

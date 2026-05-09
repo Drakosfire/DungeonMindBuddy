@@ -19,7 +19,7 @@ calls that tool **once** and then ``read_corpus_file`` on every path it returns.
 The model never lists ``Session Recaps/`` itself, never picks recaps by filename,
 and never globs for prep docs.
 
-See ``Docs/Plans/PROCESSING-NOTES-Session-20-Manual-Ingest.md`` for the analysis
+See ``Docs/Plans/archive/2026-05-09/operational-notes/PROCESSING-NOTES-Session-20-Manual-Ingest.md`` for the analysis
 that motivated removing this guesswork from the model.
 """
 

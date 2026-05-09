@@ -52,12 +52,12 @@
 | `evals/mirathorn_vertical_slice/output/council_room_trace.jsonl`                | **Artifact** | Per-question trace log              |
 | `evals/mirathorn_vertical_slice/output/rubric_alignment_eval_no_benchmark.json` | **Artifact** | Rubric alignment eval output        |
 | `evals/mirathorn_vertical_slice/output/stage_loss_deep_dive_no_planner.json`    | **Artifact** | Stage-loss deep dive output         |
-| `Docs/Plans/HANDOFF-answer-accuracy-measurement.md`                             | **Docs**     | Handoff doc                         |
-| `Docs/Plans/HANDOFF-embedding-scoring-refinement.md`                            | **Docs**     | Handoff doc                         |
-| `Docs/Plans/HANDOFF-qa-synthesis-system-design-review.md`                       | **Docs**     | Handoff doc                         |
-| `Docs/Plans/HANDOFF-retrieval-architecture-and-gap-analysis.md`                 | **Docs**     | Handoff doc                         |
-| `Docs/Plans/REPORT-answer-accuracy-measurement-execution-2026-04-07.md`         | **Docs**     | Report                              |
-| `Docs/Plans/REPORT-embedding-scoring-session.md`                                | **Docs**     | Report                              |
+| `Docs/Plans/archive/2026-05-09/handoffs/HANDOFF-answer-accuracy-measurement.md`                             | **Docs**     | Handoff doc                         |
+| `Docs/Plans/archive/2026-05-09/handoffs/HANDOFF-embedding-scoring-refinement.md`                            | **Docs**     | Handoff doc                         |
+| `Docs/Plans/archive/2026-05-09/handoffs/HANDOFF-qa-synthesis-system-design-review.md`                       | **Docs**     | Handoff doc                         |
+| `Docs/Plans/archive/2026-05-09/handoffs/HANDOFF-retrieval-architecture-and-gap-analysis.md`                 | **Docs**     | Handoff doc                         |
+| `Docs/Plans/archive/2026-05-09/reports/REPORT-answer-accuracy-measurement-execution-2026-04-07.md`         | **Docs**     | Report                              |
+| `Docs/Plans/archive/2026-05-09/reports/REPORT-embedding-scoring-session.md`                                | **Docs**     | Report                              |
 
 
 ---
@@ -114,12 +114,12 @@ evals/mirathorn_vertical_slice/output/council_room_question_set.md
 evals/mirathorn_vertical_slice/output/council_room_trace.jsonl
 evals/mirathorn_vertical_slice/output/rubric_alignment_eval_no_benchmark.json
 evals/mirathorn_vertical_slice/output/stage_loss_deep_dive_no_planner.json
-Docs/Plans/HANDOFF-answer-accuracy-measurement.md
-Docs/Plans/HANDOFF-embedding-scoring-refinement.md
-Docs/Plans/HANDOFF-qa-synthesis-system-design-review.md
-Docs/Plans/HANDOFF-retrieval-architecture-and-gap-analysis.md
-Docs/Plans/REPORT-answer-accuracy-measurement-execution-2026-04-07.md
-Docs/Plans/REPORT-embedding-scoring-session.md
+Docs/Plans/archive/2026-05-09/handoffs/HANDOFF-answer-accuracy-measurement.md
+Docs/Plans/archive/2026-05-09/handoffs/HANDOFF-embedding-scoring-refinement.md
+Docs/Plans/archive/2026-05-09/handoffs/HANDOFF-qa-synthesis-system-design-review.md
+Docs/Plans/archive/2026-05-09/handoffs/HANDOFF-retrieval-architecture-and-gap-analysis.md
+Docs/Plans/archive/2026-05-09/reports/REPORT-answer-accuracy-measurement-execution-2026-04-07.md
+Docs/Plans/archive/2026-05-09/reports/REPORT-embedding-scoring-session.md
 ```
 
 ---
@@ -152,5 +152,5 @@ The remote is HTTPS (`https://github.com/Drakosfire/DungeonMindBuddy.git`). If p
 
 - `.cache/` — already gitignored (HuggingFace model caches)
 - Any `.env*` files
-- This handoff file itself (`Docs/Plans/HANDOFF-cleanup-commit-push.md`) — include it in Commit 3 with the other docs if desired, or skip it
+- This handoff file itself (`Docs/Plans/archive/2026-05-09/handoffs/HANDOFF-cleanup-commit-push.md`) — include it in Commit 3 with the other docs if desired, or skip it
 

@@ -3,7 +3,7 @@
 **Status:** **implementation landed; mechanical Scope-B contract green.** Last cohort: 2026-04-19, 5/5 PASS at `--n 5 --parallel 5` (`recap_ingest_summary--gpt-5.4-mini--N5--20260419T214553Z.{md,json}`). The original §J item-by-item gates are partially deferred (see `STATUS-Session-Recap-Ingest-Benchmark.md`).
 **Author:** designed April 2026 from the manual Session 20 ingest pass; transcript [a073c164-9fc1-4c03-a888-2d71dd08bc22](a073c164-9fc1-4c03-a888-2d71dd08bc22). Implementation rev: April 2026.
 **Scope contract:** `Docs/Plans/SCOPE-B-GOLD-Session-20-Ingest.md` (the "what passes" spec). This file specifies the "how it gets graded" experiment.
-**Provenance:** `Docs/Plans/PROCESSING-NOTES-Session-20-Manual-Ingest.md` (the manual-ingest log that derived the gold).
+**Provenance:** `Docs/Plans/archive/2026-05-09/operational-notes/PROCESSING-NOTES-Session-20-Manual-Ingest.md` (the manual-ingest log that derived the gold).
 **As-built architecture:** see §15 below; **review follow-ups:** see [`BACKLOG-session-recap-benchmarking.md`](BACKLOG-session-recap-benchmarking.md).
 **Live ledger:** [`STATUS-Session-Recap-Ingest-Benchmark.md`](STATUS-Session-Recap-Ingest-Benchmark.md).
 

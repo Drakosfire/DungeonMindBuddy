@@ -29,7 +29,7 @@ Provide a single source of truth for where the original Mirathorn event-sourced 
 
 - **Status:** Done
 - **Goal:** End-to-end event-first ingestion plus projections (`instantiation -> zero_tick -> live`) with strict gates.
-- **Evidence:** Completion status and verification evidence documented in `Docs/Plans/HANDOFF-next-agent-mirathorn-event-slice.md`.
+- **Evidence:** Completion status and verification evidence documented in `Docs/Plans/archive/2026-05-09/handoffs/HANDOFF-next-agent-mirathorn-event-slice.md`.
 - **Exit criteria:** Hard gates pass with auditable deltas and deterministic outputs.
 - **Residual risk:** Medium (coverage breadth, not core mechanics).
 
@@ -45,7 +45,7 @@ Provide a single source of truth for where the original Mirathorn event-sourced 
 
 - **Status:** Done
 - **Goal:** Determine whether entity/fact count shift is regression vs intended noise reduction.
-- **Evidence:** `Docs/Plans/HANDOFF-investigate-entity-fact-quality-drift.md` concludes Outcome A and baseline reset.
+- **Evidence:** `Docs/Plans/archive/2026-05-09/handoffs/HANDOFF-investigate-entity-fact-quality-drift.md` concludes Outcome A and baseline reset.
 - **Exit criteria:** Quantified bucket analysis and accepted baseline rationale.
 - **Residual risk:** Low.
 
