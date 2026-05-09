@@ -3,7 +3,7 @@
 **Purpose:** Operational tracker for moving from current ingestion state to dynamic lexical retrieval from ingestion artifacts.
 **Decision anchor:** `Docs/Design/DECISION-world-campaign-knowledge-hierarchy.md` (Roadmap section).
 **Super plan (canonical, versioned):** `Docs/Plans/PLAN-split-corpus-retrieval-to-autonomous-demo.md` — YAML frontmatter, changelog, and milestone M1–M4; update that file when the execution narrative shifts.
-**PR #1 (partial Phase 1):** [DungeonMindBuddy#1](https://github.com/Drakosfire/DungeonMindBuddy/pull/1) — `review_status: parked_until_phase_gate` until Phase 1; rubric and `judgment_record` live in that PLAN’s YAML `external_pull_requests`.
+**PR #1 (Phase 1 + early Phase 2):** [DungeonMindBuddy#1](https://github.com/Drakosfire/DungeonMindBuddy/pull/1) — `review_status: integrated_on_main_pr_open` (content integrated on `main` via commit `731ca52`, PR still open on GitHub); canonical `judgment_record` remains in the super-plan YAML `external_pull_requests`.
 **Status model:** keep exactly one phase marked as active at a time.
 
 ---
@@ -111,6 +111,13 @@
 ---
 
 ## Session Log (append newest first)
+
+### 2026-05-09
+
+- Phase moved: `stayed A`
+- What turned green: `doc state sync after integration` (PR #1 status moved from parked to `integrated_on_main_pr_open` in the canonical super-plan + this checklist).
+- What stayed red: `location hierarchy contract encoding` in C1S13 natural gold, and pending follow-up to validate/fix directory-style `hub_path` route-id derivation.
+- Next single action: `close remaining Phase A hierarchy gate, then run targeted manifest route-id validation against live _npc_registry.json path shapes.`
 
 ### 2026-05-08
 

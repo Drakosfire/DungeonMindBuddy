@@ -6,9 +6,9 @@ title: Split-corpus retrieval to autonomous C1S1–C1S3 demo
 document_class: plan
 plan_kind: execution_super_plan
 status: active
-version: 3
+version: 5
 created_at: "2026-05-09T00:00:00Z"
-last_updated_at: "2026-05-09T20:00:00Z"
+last_updated_at: "2026-05-09T20:41:00Z"
 timezone_note: "Timestamps are UTC; local work may use America/Denver."
 supersedes: []
 superseded_by: null
@@ -37,6 +37,16 @@ milestones:
   - id: M4
     label: Demo-ready autonomous loop
 changelog:
+  - at: "2026-05-09T20:41:00Z"
+    version: 5
+    summary: >-
+      Status correction after GitHub check: PR #1 remains OPEN while equivalent
+      code is integrated on main; review state renamed accordingly.
+  - at: "2026-05-09T20:39:00Z"
+    version: 4
+    summary: >-
+      Post-merge doc sync: PR #1 moved from parked to merged + evaluated with
+      follow-up on route-id derivation for directory-style hub_path values.
   - at: "2026-05-09T20:00:00Z"
     version: 3
     summary: >-
@@ -51,9 +61,9 @@ changelog:
     version: 1
     summary: Initial canonical document from agreed super-plan.
 
-# External PR anchor (judgment deferred)
+# External PR anchor (post-integration state)
 # Notation: plan_phase_primary / plan_phase_also_touches map work to phases;
-# review_status gates when we judge.
+# review_status captures current merge/review disposition.
 external_pull_requests:
   - id: github-pr-1
     url: https://github.com/Drakosfire/DungeonMindBuddy/pull/1
@@ -62,18 +72,19 @@ external_pull_requests:
     plan_phase_label: >-
       Phase 1 (RouteEquivalenceRecord schema + authority_effect) plus early
       Phase 2 (build/write route equivalence manifest from NPC registry).
-    review_status: parked_until_phase_gate
+    review_status: integrated_on_main_pr_open
     review_status_meaning: >-
-      No merge-vs-reject decision and no deep review pass until execution
-      reaches Phase 1 in this plan; avoids splitting attention during Phase A
-      and earlier gates.
+      Equivalent content is integrated on main (see commit 731ca52), while the
+      GitHub PR remains OPEN; follow-up items remain tracked for production-shape
+      hub_path handling.
     judgment_record:
-      verdict: not_evaluated
-      evaluated_at: null
-      evaluator: null
+      verdict: accepted_with_followups
+      evaluated_at: "2026-05-09T20:39:00Z"
+      evaluator: cursor-agent
       notes: >-
-        When Phase 1 starts, assign evaluator, set evaluated_at, and set verdict
-        to one of accepted | accepted_with_followups | rejected | superseded_by_other_pr.
+        Accepted for merged Phase 1+early Phase 2 scope. Keep explicit follow-up:
+        validate/fix route ID slug derivation against directory-style hub_path
+        values in live _npc_registry.json (not only README.md-shaped paths).
     rubric_when_we_judge:
       - "Schemas are versioned; JSON/YAML shape is documented and test-covered."
       - "Authority semantics match DECISION (campaign authority vs world fallback); no silent flattening."
@@ -144,16 +155,16 @@ flowchart TD
 - Encode authority explicitly (`campaign_authority`, `setting_fallback`, routing-only effects).
 - Strict validation tests so malformed artifacts fail early.
 
-### PR anchor (judgment deferred)
+### PR anchor (post-integration status)
 
 | Field | Value |
 |-------|--------|
 | **PR** | [Drakosfire/DungeonMindBuddy#1](https://github.com/Drakosfire/DungeonMindBuddy/pull/1) |
 | **Plan mapping** | **Primary:** Phase 1 (`RouteEquivalenceRecord`, defaults `authority_effect=routing_only`). **Also:** early Phase 2 (deterministic `build_route_equivalence_manifest` / JSONL writer). Not Phase 0. |
-| **Review status** | `parked_until_phase_gate` — **no formal judgment** (merge design, risk, completeness) until this plan’s execution reaches Phase 1; avoids thrash while Phase A / reanchor work is active. |
-| **Verdict (YAML)** | `external_pull_requests[0].judgment_record.verdict` stays `not_evaluated` until review; then set `evaluated_at`, `evaluator`, and final `verdict`. |
+| **Review status** | `integrated_on_main_pr_open` — equivalent content is on `main` (commit `731ca52`), but PR #1 is still OPEN; judgment recorded with one follow-up on route-id derivation for directory-style `hub_path` values. |
+| **Verdict (YAML)** | `external_pull_requests[0].judgment_record.verdict = accepted_with_followups` with `evaluated_at` and `evaluator` now populated. |
 
-**When we judge:** use the bullet list under `rubric_when_we_judge` in the YAML frontmatter — versioned schemas + docs + tests, authority alignment with [DECISION-world-campaign-knowledge-hierarchy.md](../Design/DECISION-world-campaign-knowledge-hierarchy.md), no ungated retriever behavior change, CI/pytest evidence, scope discipline.
+**Judgment rubric reference:** the bullets under `rubric_when_we_judge` remain the acceptance criteria baseline for follow-up validation and future related PRs.
 
 **Primary files**
 
@@ -262,6 +273,8 @@ Track detailed todos in [CHECKLIST-dynamic-lexical-retrieval-rollout.md](CHECKLI
 
 | Date (UTC) | Version | Summary |
 |------------|---------|---------|
+| 2026-05-09 | 5 | Corrected PR state: still OPEN on GitHub; content integrated on `main` (731ca52). |
+| 2026-05-09 | 4 | Post-merge sync: PR #1 status moved to merged/evaluated; follow-up on route-id directory-shape handling. |
 | 2026-05-09 | 3 | PR #1: dual Phase 1+2 scope note; rubric hub_path directory vs README. |
 | 2026-05-09 | 2 | Anchored GitHub PR #1 under Phase 1 with `parked_until_phase_gate` and judgment rubric in frontmatter. |
 | 2026-05-09 | 1 | Initial canonical plan; mirrors super-plan phases M1–M4. |
