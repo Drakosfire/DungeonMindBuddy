@@ -353,9 +353,11 @@ DMB_EVIDENCE_PER_SEED_NEIGHBORS=1
 
 | Report | Location                                                            |
 | ------ | ------------------------------------------------------------------- |
-| Wave 1 | `Docs/Plans/REPORT-wave-1-parameter-sweeps.md`                      |
-| Wave 2 | `Docs/Plans/REPORT-wave-2-synthesis-experiments.md`                 |
-| Wave 3 | `Docs/Plans/REPORT-wave-3-retrieval-experiments.md`                 |
-| Wave 4 | `Docs/Plans/REPORT-wave-4-document-planner-and-embedding-rerank.md` |
+| Wave 1 | `Docs/Plans/archive/2026-05-09/evidence-gap-waves/REPORT-wave-1-parameter-sweeps.md` |
+| Wave 2 | `Docs/Plans/archive/2026-05-09/evidence-gap-waves/REPORT-wave-2-synthesis-experiments.md` |
+| Wave 3 | `Docs/Plans/archive/2026-05-09/evidence-gap-waves/REPORT-wave-3-retrieval-experiments.md` |
+| Wave 4 | `Docs/Plans/archive/2026-05-09/evidence-gap-waves/REPORT-wave-4-document-planner-and-embedding-rerank.md` |
+| Wave 5 | `Docs/Plans/archive/2026-05-09/evidence-gap-waves/REPORT-wave-5-full-corpus.md` |
+| All waves (rollup) | `Docs/Plans/archive/2026-05-09/evidence-gap-waves/REPORT-all-waves-comprehensive.md` |
 
 

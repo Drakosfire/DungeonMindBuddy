@@ -2,7 +2,7 @@
 
 **Date:** 2026-03-26
 **Status:** Active
-**Supersedes:** `Docs/Plans/mirathorn_event-sourced_slice_8eab1beb.plan.md` (scope narrowed, sequence changed)
+**Supersedes:** `Docs/Plans/archive/2026-05-09/mirathorn_event-sourced_slice_8eab1beb.plan.md` (scope narrowed, sequence changed; stub remains at `Docs/Plans/mirathorn_event-sourced_slice_8eab1beb.plan.md`)
 
 ## Goal
 

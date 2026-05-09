@@ -6,9 +6,9 @@ title: Split-corpus retrieval to autonomous C1S1–C1S3 demo
 document_class: plan
 plan_kind: execution_super_plan
 status: active
-version: 5
+version: 6
 created_at: "2026-05-09T00:00:00Z"
-last_updated_at: "2026-05-09T20:41:00Z"
+last_updated_at: "2026-05-09T20:52:00Z"
 timezone_note: "Timestamps are UTC; local work may use America/Denver."
 supersedes: []
 superseded_by: null
@@ -36,7 +36,32 @@ milestones:
     label: Phase C-ready shadow gates
   - id: M4
     label: Demo-ready autonomous loop
+execution_state:
+  active_phase: A
+  milestone_progress:
+    M1: in_progress
+    M2: not_started
+    M3: not_started
+    M4: not_started
+  blockers:
+    - >-
+      C1S13 location hierarchy contract remains red
+      (`location_hierarchy_equivalences` missing for three location-context
+      scenarios).
+  next_gate_command: uv run python scripts/audit_world_campaign_alignment.py
+  integration_notes:
+    - >-
+      PR #1 remains OPEN on GitHub, but equivalent Phase 1 + early Phase 2
+      content is integrated on main (commit 731ca52).
+    - >-
+      Follow-up still required: validate/fix route ID slug derivation for
+      directory-style hub_path values in live _npc_registry.json files.
 changelog:
+  - at: "2026-05-09T20:52:00Z"
+    version: 6
+    summary: >-
+      Added explicit execution_state snapshot (active phase, milestones, blocker,
+      next gate command, and PR/integration notes) to reflect current state.
   - at: "2026-05-09T20:41:00Z"
     version: 5
     summary: >-
@@ -116,6 +141,14 @@ Build a stepwise, benchmark-first path from current Phase A state to a **fully a
 - Anchor on:
   - [CHECKLIST-dynamic-lexical-retrieval-rollout.md](CHECKLIST-dynamic-lexical-retrieval-rollout.md) (phases A–E, reanchor block).
   - [DECISION-world-campaign-knowledge-hierarchy.md](../Design/DECISION-world-campaign-knowledge-hierarchy.md) (world vs campaign authority, roadmap).
+
+## Current state snapshot
+
+- Active phase is **A**; M1 remains in progress and M2–M4 are not started.
+- Current blocker remains the C1S13 hierarchy contract gap (`location_hierarchy_equivalences` in three location-context scenarios).
+- Next gate command remains `uv run python scripts/audit_world_campaign_alignment.py`.
+- PR #1 is still OPEN on GitHub while equivalent Phase 1 + early Phase 2 code is integrated on `main` (`731ca52`).
+- Follow-up in scope before broad promotion: route-id derivation must be validated/fixed for directory-shaped `hub_path` values.
 
 ## Architecture track
 
@@ -273,6 +306,7 @@ Track detailed todos in [CHECKLIST-dynamic-lexical-retrieval-rollout.md](CHECKLI
 
 | Date (UTC) | Version | Summary |
 |------------|---------|---------|
+| 2026-05-09 | 6 | Added explicit current execution-state snapshot (phase, blockers, gate command, PR/integration notes). |
 | 2026-05-09 | 5 | Corrected PR state: still OPEN on GitHub; content integrated on `main` (731ca52). |
 | 2026-05-09 | 4 | Post-merge sync: PR #1 status moved to merged/evaluated; follow-up on route-id directory-shape handling. |
 | 2026-05-09 | 3 | PR #1: dual Phase 1+2 scope note; rubric hub_path directory vs README. |

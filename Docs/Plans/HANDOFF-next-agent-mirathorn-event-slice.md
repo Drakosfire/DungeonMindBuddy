@@ -314,7 +314,7 @@ Both `q_arch_current` and `q_arch_delta` fail because their must_tokens ("arched
 
 Continue implementation of the Mirathorn event-sourced vertical slice from the locked plan:
 
-- `Docs/Plans/mirathorn_event-sourced_slice_8eab1beb.plan.md`
+- `Docs/Plans/archive/2026-05-09/mirathorn_event-sourced_slice_8eab1beb.plan.md` (stub: `Docs/Plans/mirathorn_event-sourced_slice_8eab1beb.plan.md`)
 
 Primary objective: prove the GM workflow state progression (`instantiation -> planning/zero-tick -> live`) using event-sourced ingestion and strict canon-layer behavior.
 
