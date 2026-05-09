@@ -9,12 +9,12 @@ from src.contracts.npc_registry import NpcRegistryRecord, load_npc_registry
 from .schemas import EntityKind, RouteEquivalenceRecord
 
 _CAMPAIGN_SEGMENT_RE = re.compile(r"/Longmont Campaign/Campaign (?P<num>\d+)/")
-_KIND_SEGMENTS: list[tuple[str, EntityKind]] = [
-    ("/npcs/", "npc"),
-    ("/locations/", "location"),
-    ("/factions/", "faction"),
-    ("/institutions/", "institution"),
-    ("/organizations/", "organization"),
+_KIND_SEGMENTS: list[tuple[str, EntityKind, str]] = [
+    ("/npcs/", "npc", "npcs"),
+    ("/locations/", "location", "locations"),
+    ("/factions/", "faction", "factions"),
+    ("/institutions/", "institution", "institutions"),
+    ("/organizations/", "organization", "organizations"),
 ]
 
 
@@ -36,18 +36,41 @@ def _is_campaign_path(path: str) -> bool:
     return "/Longmont Campaign/" in path.replace("\\", "/")
 
 
+def _normalized_parts(path: str) -> list[str]:
+    normalized = path.replace("\\", "/").strip("/")
+    return [part for part in normalized.split("/") if part]
+
+
 def _infer_entity_kind(path: str) -> EntityKind:
     lowered = f"/{path.replace('\\', '/').strip('/').lower()}/"
-    for segment, kind in _KIND_SEGMENTS:
+    for segment, kind, _ in _KIND_SEGMENTS:
         if segment in lowered:
             return kind
     return "unknown"
 
 
+def _extract_entity_slug(path: str) -> str:
+    parts = _normalized_parts(path)
+    if not parts:
+        raise ValueError(f"unable to derive slug from empty hub path: {path!r}")
+
+    tail = parts[-1]
+    if "." in tail:
+        if len(parts) < 2:
+            raise ValueError(f"unable to derive slug from hub file path: {path!r}")
+        tail = parts[-2]
+
+    lowered_tail = tail.lower()
+    bucket_names = {bucket for _, _, bucket in _KIND_SEGMENTS}
+    if lowered_tail in bucket_names and len(parts) >= 2:
+        tail = parts[-2]
+
+    return _slugify(tail)
+
+
 def _path_to_route_id(path: str, campaign_id: str) -> tuple[str, EntityKind]:
     normalized = path.replace("\\", "/").strip("/")
-    route_path = Path(normalized)
-    slug = _slugify(route_path.parent.name)
+    slug = _extract_entity_slug(normalized)
     prefix = campaign_id if _is_campaign_path(normalized) else "elderwyld"
     entity_kind = _infer_entity_kind(normalized)
     return f"route:{prefix}:{entity_kind}:{slug}", entity_kind
