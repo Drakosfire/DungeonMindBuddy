@@ -23,8 +23,14 @@ from src.agent.corpus_writer import (
     "rel_path,mode",
     [
         ("Longmont Campaign/Campaign 2/Session Recaps/Session 20 - First Snow.md", "create"),
+        (
+            "Longmont Campaign/Campaign 1/Session Recaps/_normalized/Session 13 - The Meaty and the Dead.md",
+            "create",
+        ),
         ("Longmont Campaign/Campaign 2/NPCs/dustwalker/timeline.md", "append"),
         ("Longmont Campaign/Campaign 2/NPCs/dustwalker/README.md", "append"),
+        ("Longmont Campaign/Campaign 2/NPCs/dustwalker/timeline.md", "create"),
+        ("Longmont Campaign/Campaign 2/NPCs/dustwalker/README.md", "create"),
         (
             "Elderwyld/Cities and Towns/Mossford/NPCs/marla_brambleback/README.md",
             "create",
@@ -118,6 +124,18 @@ def test_allowlist_blocks_dossier_seed_statblock(rel_path: str, mode: str) -> No
 
 def test_allowlist_permits_campaign_dossier_create_when_path_shaped() -> None:
     rel = "Longmont Campaign/Campaign 2/NPCs/dustwalker/dustwalker_character_dossier.md"
+    allowed, reason = is_writable_corpus_path(rel, "create")
+    assert allowed, reason
+
+
+@pytest.mark.parametrize(
+    "rel",
+    [
+        "Longmont Campaign/Campaign 2/NPCs/dustwalker/README.md",
+        "Longmont Campaign/Campaign 2/NPCs/dustwalker/timeline.md",
+    ],
+)
+def test_allowlist_permits_campaign_hub_readme_timeline_create(rel: str) -> None:
     allowed, reason = is_writable_corpus_path(rel, "create")
     assert allowed, reason
 
@@ -469,6 +487,77 @@ def test_append_timeline_campaign_id_disambiguates_when_path_is_neutral(tmp_path
     )
     assert commit["ok"] is True
     assert "campaign_id win" in other_timeline.read_text(encoding="utf-8")
+
+
+def test_append_timeline_campaign_id_uses_timeline_frontmatter_when_path_scope_missing(
+    tmp_path: Path,
+) -> None:
+    """When timeline paths are non-standard, frontmatter campaign_id still disambiguates."""
+    c1_hub = tmp_path / "Scratch/NPCs/twin_c1"
+    c2_hub = tmp_path / "Scratch/NPCs/twin_c2"
+    c1_hub.mkdir(parents=True, exist_ok=True)
+    c2_hub.mkdir(parents=True, exist_ok=True)
+    c1_timeline = c1_hub / "timeline.md"
+    c2_timeline = c2_hub / "timeline.md"
+    c1_timeline.write_text(
+        textwrap.dedent(
+            """\
+            ---
+            campaign_id: longmont-c1
+            ---
+            | Session | Beat | Recap |
+            |---|---|---|
+            """
+        ),
+        encoding="utf-8",
+    )
+    c2_timeline.write_text(
+        textwrap.dedent(
+            """\
+            ---
+            campaign_id: longmont-c2
+            ---
+            | Session | Beat | Recap |
+            |---|---|---|
+            """
+        ),
+        encoding="utf-8",
+    )
+    recap = tmp_path / "Elderwyld/Locations/noncampaign_recap.md"
+    recap.parent.mkdir(parents=True, exist_ok=True)
+    recap.write_text("# recap\n", encoding="utf-8")
+
+    out = append_timeline_row(
+        tmp_path,
+        npc_slug="twin_c1",
+        session=20,
+        beat="frontmatter disambiguated",
+        recap_path="Elderwyld/Locations/noncampaign_recap.md",
+        campaign_id="longmont-c1",
+        dry_run=True,
+    )
+    # Slug-specific search sees only twin_c1, so force ambiguity by using twin shared slug.
+    assert out["ok"] is True
+
+    # Recreate with shared slug to assert true disambiguation.
+    c1_shared = tmp_path / "Scratch/NPCs/twin"
+    c2_shared = tmp_path / "Archive/NPCs/twin"
+    c1_shared.mkdir(parents=True, exist_ok=True)
+    c2_shared.mkdir(parents=True, exist_ok=True)
+    (c1_shared / "timeline.md").write_text(c1_timeline.read_text(encoding="utf-8"), encoding="utf-8")
+    (c2_shared / "timeline.md").write_text(c2_timeline.read_text(encoding="utf-8"), encoding="utf-8")
+
+    preview = append_timeline_row(
+        tmp_path,
+        npc_slug="twin",
+        session=20,
+        beat="frontmatter disambiguated",
+        recap_path="Elderwyld/Locations/noncampaign_recap.md",
+        campaign_id="longmont-c1",
+        dry_run=True,
+    )
+    assert preview["ok"] is True, preview
+    assert preview["path"] == "Scratch/NPCs/twin/timeline.md"
 
 
 def _make_pc_timeline(corpus: Path, slug: str) -> Path:

@@ -39,7 +39,10 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from evals.sentence_routing_retrieval_falsification.cursor_canvas_paths import default_cursor_canvas_path
+from evals.sentence_routing_retrieval_falsification.cursor_canvas_paths import (
+    default_cursor_canvas_path,
+    ensure_canvas_file_for_patch,
+)
 from evals.sentence_routing_retrieval_falsification.breadcrumb_query_grader import (
     aggregate_context_evidence_metrics,
     compute_context_evidence_metrics,
@@ -1155,6 +1158,7 @@ def main(argv: list[str] | None = None) -> int:
 
     block = render_generated_block(payload)
     canvas_path: Path = args.canvas_tsx
+    ensure_canvas_file_for_patch(canvas_path)
     canvas_text = canvas_path.read_text(encoding="utf-8")
     new_text = update_canvas_text(canvas_text, block)
     changed = new_text != canvas_text

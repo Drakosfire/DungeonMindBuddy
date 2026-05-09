@@ -21,6 +21,7 @@ from evals.sentence_routing_retrieval_falsification.breadcrumb_normalize import 
 )
 from evals.sentence_routing_retrieval_falsification.breadcrumb_query_grader import (
     load_gold,
+    merge_natural_benchmark_scenario,
     query_session_memory_for_scenario,
 )
 
@@ -28,17 +29,10 @@ RANK_TARGETS_SCHEMA = "dmb_breadcrumb_query_rank_targets_v1"
 
 
 def _prepare_scenario(gold: dict[str, Any], scenario_id: str) -> dict[str, Any]:
-    default_campaign = str(gold.get("campaign_id") or "")
-    default_spec = gold.get("default_query_spec") or {}
     for scenario in gold.get("scenarios") or []:
         if str(scenario.get("id")) != scenario_id:
             continue
-        out = dict(scenario)
-        out["campaign_id"] = str(out.get("campaign_id") or default_campaign)
-        merged_spec = {**default_spec, **(out.get("query_spec") or {})}
-        merged_spec["query"] = str(out.get("question") or merged_spec.get("query") or "")
-        out["query_spec"] = merged_spec
-        return out
+        return merge_natural_benchmark_scenario(dict(scenario), gold)
     raise ValueError(f"scenario_id {scenario_id!r} not found in natural gold")
 
 

@@ -112,6 +112,11 @@ class ProposedNewRecord(BaseModel):
     hub_path: str | None = None
     setting_hub_path: str | None = None
     notes: str = ""
+    # Proposal-only branch-model hints (not canonical registry fields yet).
+    proposed_campaign_hub_path: str | None = None
+    proposed_setting_hub_path: str | None = None
+    proposed_location_slug: str | None = None
+    proposed_divergence_mode: str | None = None
 
 
 class Unresolvable(BaseModel):
@@ -324,6 +329,70 @@ def _parse_session_number(session_label: str) -> int:
     return int(m.group(1)) if m else 0
 
 
+def _campaign_number_from_campaign_id(campaign_id: str) -> int | None:
+    m = re.search(r"c(\d+)", str(campaign_id or "").lower())
+    if not m:
+        return None
+    return int(m.group(1))
+
+
+def _proposed_campaign_hub_path(*, campaign_id: str, slug: str) -> str | None:
+    n = _campaign_number_from_campaign_id(campaign_id)
+    if n is None or not slug:
+        return None
+    return f"Longmont Campaign/Campaign {n}/NPCs/{slug}/"
+
+
+def _normalize_location_slug(raw: str) -> str | None:
+    txt = str(raw or "").strip().lower()
+    if not txt:
+        return None
+    for known in ("stonebridge", "mossford", "mirathorn"):
+        if known in txt:
+            return known
+    slug = re.sub(r"[^a-z0-9]+", "_", txt).strip("_")
+    if not slug:
+        return None
+    parts = [p for p in slug.split("_") if p]
+    return "_".join(parts[:3]) if parts else None
+
+
+def _title_case_location_slug(location_slug: str) -> str:
+    return " ".join(part.capitalize() for part in location_slug.split("_") if part)
+
+
+def _proposed_setting_hub_path(*, slug: str, location_slug: str | None) -> str | None:
+    if not slug or not location_slug:
+        return None
+    city = _title_case_location_slug(location_slug)
+    if not city:
+        return None
+    return f"Elderwyld/Cities and Towns/{city}/NPCs/{slug}/"
+
+
+def _derive_primary_location_slug(
+    *,
+    events: list[dict[str, Any]],
+    evidence_indices: list[int],
+) -> str | None:
+    counts: dict[str, int] = {}
+    for idx in evidence_indices:
+        if not isinstance(idx, int) or isinstance(idx, bool):
+            continue
+        if idx < 0 or idx >= len(events):
+            continue
+        ev = events[idx]
+        if not isinstance(ev, dict):
+            continue
+        loc_slug = _normalize_location_slug(str(ev.get("location") or ""))
+        if not loc_slug:
+            continue
+        counts[loc_slug] = int(counts.get(loc_slug, 0)) + 1
+    if not counts:
+        return None
+    return max(counts.items(), key=lambda kv: kv[1])[0]
+
+
 # ---------------------------------------------------------------------------
 # Core deterministic resolver
 # ---------------------------------------------------------------------------
@@ -351,6 +420,8 @@ def _build_proposed_record(
     slug: str,
     descriptor: str,
     session_number: int,
+    campaign_id: str,
+    proposed_location_slug: str | None = None,
     notes_extra: str = "",
 ) -> ProposedNewRecord:
     display_name = descriptor.strip() or slug.replace("_", " ").title()
@@ -364,6 +435,16 @@ def _build_proposed_record(
         last_session=session_number,
         hub_path=None,
         setting_hub_path=None,
+        proposed_campaign_hub_path=_proposed_campaign_hub_path(
+            campaign_id=campaign_id,
+            slug=slug,
+        ),
+        proposed_setting_hub_path=_proposed_setting_hub_path(
+            slug=slug,
+            location_slug=proposed_location_slug,
+        ),
+        proposed_location_slug=proposed_location_slug,
+        proposed_divergence_mode="inherit",
         notes=(notes_extra or "Proposed by Stage D deterministic v0 from "
                f"Stage C new_npc_candidate descriptor {descriptor!r}.").strip(),
     )
@@ -376,6 +457,7 @@ def resolve_stage_d(
     registry: list[dict[str, Any]],
     pc_roster: list[dict[str, Any]],
     session_number: int,
+    campaign_id: str,
 ) -> StageDOutput:
     """Deterministic v0 resolver. No LLM call.
 
@@ -533,6 +615,10 @@ def resolve_stage_d(
                 f"Stage D clustered slug variants {cluster_slugs} → canonical "
                 f"{canonical_slug!r}."
             )
+        location_slug = _derive_primary_location_slug(
+            events=events,
+            evidence_indices=merged_evidence or canonical_evidence,
+        )
 
         resolved.append(
             ResolvedEntity(
@@ -553,11 +639,18 @@ def resolve_stage_d(
                 slug=canonical_slug,
                 descriptor=canonical_descriptor,
                 session_number=session_number,
+                campaign_id=campaign_id,
+                proposed_location_slug=location_slug,
                 notes_extra=(
                     f"Proposed by Stage D deterministic v0; descriptor "
                     f"{canonical_descriptor!r}; "
                     f"evidence event indices {merged_evidence}."
                     + (f" {cluster_note}" if cluster_note else "")
+                    + (
+                        f" Branch hints inferred from location {location_slug!r}."
+                        if location_slug
+                        else " Branch hints could not infer stable location from evidence."
+                    )
                 ),
             )
         )
@@ -731,6 +824,7 @@ def run_stage_d(
 ) -> dict[str, Any]:
     inp = scenario.get("input") or {}
     pc_roster = list(inp.get("pc_roster") or [])
+    campaign_id = str(inp.get("campaign_id") or "")
     session_label = str(inp.get("session_label") or "")
     session_number = int(
         inp.get("session_number")
@@ -749,6 +843,7 @@ def run_stage_d(
         registry=registry,
         pc_roster=pc_roster,
         session_number=session_number,
+        campaign_id=campaign_id,
     )
     output_dict = parsed.model_dump()
     grade = grade_stage_d(output_dict, scenario, stage_c_output, events, registry)

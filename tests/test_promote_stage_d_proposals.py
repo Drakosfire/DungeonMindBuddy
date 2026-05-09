@@ -385,6 +385,11 @@ def test_no_llm_run_writes_deterministic_only_sidecar(tmp_path: Path) -> None:
     assert len(unres_rows) == 1
     assert unres_rows[0]["recommendation"] is None
     assert unres_rows[0]["recommendation_source"] == "deterministic_only"
+    scaffolds = payload.get("branch_scaffold_proposals") or []
+    assert {s.get("slug") for s in scaffolds} == {"foo", "bar"}
+    foo_scaffold = next(s for s in scaffolds if s.get("slug") == "foo")
+    assert "campaign_overlay_hub_path" in foo_scaffold
+    assert "world_parent_hub_path" in foo_scaffold
 
 
 def test_no_llm_does_not_call_openai(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

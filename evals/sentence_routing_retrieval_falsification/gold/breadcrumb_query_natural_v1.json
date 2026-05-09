@@ -1,7 +1,7 @@
 {
   "schema": "dmb_breadcrumb_query_natural_gold_v1",
   "campaign_id": "longmont-c2",
-  "notes": "Natural-language queries over Session 20 recap-derived breadcrumbs. Canonical prose: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md. Gold stores only the natural question plus expected gates. Query expansion is a measured runner stage, not scenario-authored gold: raw_natural uses the question alone; expanded_retrieval may add deterministic terms from the user question, a global alias dictionary, and raw first-pass hits; wide_recall is diagnostic only.",
+  "notes": "Natural-language queries over Session 20 recap-derived breadcrumbs. Canonical grading recap (corpus-relative, normalized): Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 20 - Gnat Swarm Marla Lysandra.md (derived from Session 20 - Recap.md; same session table story). Breadcrumb artifacts graded with this gold should set frontmatter source_recap_path to that path. Gold stores only the natural question plus expected gates. Query expansion is a measured runner stage, not scenario-authored gold: raw_natural uses the question alone; expanded_retrieval may add deterministic terms from the user question, a global alias dictionary, and raw first-pass hits; wide_recall is diagnostic only.",
   "default_query_spec": {
     "session_min": 20,
     "session_max": 20,

@@ -431,6 +431,159 @@ def _read_corpus_file_impl(corpus_dir: Path, rel_path: str) -> str:
     return text
 
 
+def _campaign_root_from_id(campaign_id: str) -> str | None:
+    """Map ``longmont-cN`` to the corpus campaign root path."""
+    raw = str(campaign_id or "").strip().lower()
+    m = re.fullmatch(r"longmont-c(\d+)", raw)
+    if not m:
+        return None
+    return f"Longmont Campaign/Campaign {int(m.group(1))}"
+
+
+def _resolve_safe_corpus_dir(corpus_dir: Path, rel_path: str) -> Path | None:
+    """Resolve rel_path under corpus_dir; return path only if it is a directory inside corpus."""
+    corpus_root = corpus_dir.resolve()
+    cleaned = rel_path.strip().replace("\\", "/").strip("/")
+    if not cleaned or ".." in Path(cleaned).parts:
+        return None
+    candidate = (corpus_root / cleaned).resolve()
+    try:
+        candidate.relative_to(corpus_root)
+    except ValueError:
+        return None
+    if not candidate.is_dir():
+        return None
+    return candidate
+
+
+def _load_npc_registry_records(corpus_dir: Path, campaign_root: str) -> list[dict[str, Any]]:
+    reg = (corpus_dir / campaign_root / "_npc_registry.json").resolve()
+    try:
+        reg.relative_to(corpus_dir.resolve())
+    except ValueError:
+        return []
+    if not reg.is_file():
+        return []
+    try:
+        raw = json.loads(reg.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return []
+    return [x for x in raw if isinstance(x, dict)] if isinstance(raw, list) else []
+
+
+def _npc_registry_record_matches(record: dict[str, Any], query: str) -> bool:
+    q = query.strip().lower().replace("_", " ")
+    if not q:
+        return False
+    candidates = [
+        str(record.get("slug") or ""),
+        str(record.get("display_name") or ""),
+        *[str(x) for x in (record.get("aliases") or [])],
+    ]
+    for c in candidates:
+        c_norm = c.strip().lower().replace("_", " ")
+        if c_norm and (q == c_norm or q in c_norm or c_norm in q):
+            return True
+    return False
+
+
+def _excerpt_file(path: Path, corpus_dir: Path, max_chars: int) -> dict[str, Any]:
+    rel = path.relative_to(corpus_dir.resolve()).as_posix()
+    text = path.read_text(encoding="utf-8", errors="replace")
+    clipped = text[:max_chars]
+    if len(text) > max_chars:
+        clipped += f"\n\n[Truncated at {max_chars} characters; file is {len(text)} chars total.]"
+    return {"path": rel, "chars": len(text), "text": clipped}
+
+
+def _npc_context_recall_json(
+    corpus_dir: Path,
+    *,
+    campaign_id: str,
+    npc: str,
+    max_chars_per_file: int = 5000,
+) -> str:
+    """Return deterministic hub context for an NPC before statblock generation."""
+    campaign_root = _campaign_root_from_id(campaign_id)
+    if campaign_root is None:
+        return json.dumps(
+            {"ok": False, "error": "campaign_id must look like 'longmont-c1'", "campaign_id": campaign_id},
+            ensure_ascii=False,
+        )
+    records = _load_npc_registry_records(corpus_dir, campaign_root)
+    matches = [r for r in records if _npc_registry_record_matches(r, npc)]
+    if not matches:
+        return json.dumps(
+            {
+                "ok": False,
+                "error": "no matching NPC registry record",
+                "campaign_id": campaign_id,
+                "npc": npc,
+                "registry_path": f"{campaign_root}/_npc_registry.json",
+            },
+            ensure_ascii=False,
+        )
+    if len(matches) > 1:
+        return json.dumps(
+            {
+                "ok": False,
+                "error": "ambiguous NPC registry match",
+                "campaign_id": campaign_id,
+                "npc": npc,
+                "matches": [
+                    {"slug": r.get("slug"), "display_name": r.get("display_name"), "hub_path": r.get("hub_path")}
+                    for r in matches
+                ],
+            },
+            ensure_ascii=False,
+        )
+
+    record = dict(matches[0])
+    slug = str(record.get("slug") or "").strip()
+    hub_rel = str(record.get("hub_path") or "").strip().strip("/")
+    if not hub_rel and slug:
+        hub_rel = f"{campaign_root}/NPCs/{slug}"
+    hub_dir = _resolve_safe_corpus_dir(corpus_dir, hub_rel)
+    if hub_dir is None:
+        return json.dumps(
+            {
+                "ok": False,
+                "error": "matching NPC has no readable hub directory",
+                "campaign_id": campaign_id,
+                "npc": npc,
+                "record": record,
+                "hub_path": hub_rel or None,
+            },
+            ensure_ascii=False,
+        )
+
+    max_chars = max(1000, min(int(max_chars_per_file or 5000), _MAX_FILE_CHARS))
+    ordered: list[Path] = []
+    for p in [hub_dir / "README.md", *sorted(hub_dir.glob("*_character_dossier.md")), hub_dir / "timeline.md"]:
+        if p.is_file() and p not in ordered:
+            ordered.append(p)
+    statblocks = sorted(p for p in hub_dir.glob("*_statblock*.md") if p.is_file())
+    files = [_excerpt_file(p, corpus_dir, max_chars) for p in ordered]
+    return json.dumps(
+        {
+            "ok": True,
+            "campaign_id": campaign_id,
+            "npc": npc,
+            "record": record,
+            "hub_path": hub_dir.relative_to(corpus_dir.resolve()).as_posix(),
+            "context_files": files,
+            "statblock_files": [p.relative_to(corpus_dir.resolve()).as_posix() for p in statblocks],
+            "statblock_generation_guidance": (
+                "Use these context_files to write generate_statblock.description. "
+                "If statblock_files is non-empty, load the highest-priority discovered statblock "
+                "with load_context_markdown and pass it as source_statblock_corpus_path; if empty, "
+                "generate from scratch and state that no corpus statblock exists."
+            ),
+        },
+        ensure_ascii=False,
+    )
+
+
 def _planner_writer_tools_responses(
     *, autonomous_writes: bool = False
 ) -> list[dict[str, Any]]:
@@ -847,6 +1000,38 @@ def _planner_tools_responses(
         },
         {
             "type": "function",
+            "name": "recall_npc_context",
+            "description": (
+                "Deterministically recall a compact NPC hub bundle from the campaign registry before "
+                "planning or generating a statblock for a named NPC. Use this when the GM names an NPC "
+                "like `Pippa` or `Bubbles the Float Goat` and you need grounded dossier/timeline context "
+                "for `generate_statblock.description`. The tool reads `_npc_registry.json`, resolves the "
+                "NPC hub, and returns README/dossier/timeline excerpts plus any statblock files found. "
+                "It does not call an LLM and does not invent a statblock."
+            ),
+            "strict": False,
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "campaign_id": {
+                        "type": "string",
+                        "description": "Campaign id, e.g. `longmont-c1`.",
+                    },
+                    "npc": {
+                        "type": "string",
+                        "description": "NPC name, alias, or slug to resolve via the campaign NPC registry.",
+                    },
+                    "max_chars_per_file": {
+                        "type": "integer",
+                        "description": "Optional excerpt cap per recalled file (default 5000, max 30000).",
+                    },
+                },
+                "required": ["campaign_id", "npc"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "type": "function",
             "name": "list_npc_hubs",
             "description": (
                 "Deterministic inventory of NPC subject-hub folders under a campaign `NPCs/` directory. "
@@ -1032,6 +1217,18 @@ def make_tool_dispatcher(
                     f"wire_format={src_fmt}]\n\n{text}"
                 )
             return text
+        if name == "recall_npc_context":
+            max_raw = args.get("max_chars_per_file")
+            try:
+                max_chars = int(max_raw) if max_raw is not None else 5000
+            except (TypeError, ValueError):
+                return "Error: recall_npc_context.max_chars_per_file must be an integer when provided."
+            return _npc_context_recall_json(
+                corpus_path,
+                campaign_id=str(args.get("campaign_id", "")).strip(),
+                npc=str(args.get("npc", "")).strip(),
+                max_chars_per_file=max_chars,
+            )
         if name == "list_npc_hubs":
             return _list_campaign_subject_hubs_json(
                 corpus_path,

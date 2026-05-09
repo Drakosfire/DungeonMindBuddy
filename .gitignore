@@ -38,6 +38,9 @@ out/
 # Legacy: fact stores created at repo root (prefer out/stores/)
 dungeonbuddy_store*/
 
+# Hermes spike harness (HERMES_HOME); keep local plugins, memory DB, logs out of git
+.hermes-runtime/
+
 # Local SymDex repo index
 .symdex/
 
@@ -51,6 +54,9 @@ evals/**/output/extracted_*.json
 evals/**/output/automated_*.json
 evals/mirathorn_vertical_slice/output/phase_d_store/
 evals/llm_ingestion_slice/output/current/
+
+# NPC recap surface crawl dated runs (keep artifacts/last_*.json for local review)
+evals/npc_recap_surface_benchmark/artifacts/runs/
 
 # Phase A parity experiment: keep summary files, ignore per-cell caches/stores
 evals/mirathorn_vertical_slice/output/parity_experiment_*/cell_*/

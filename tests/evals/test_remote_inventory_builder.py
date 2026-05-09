@@ -62,7 +62,7 @@ def test_generate_remote_artifacts_produces_required_files(tmp_path: Path) -> No
     assert campaign_docs, "Expected at least one campaign document in manifest"
     for doc in campaign_docs:
         assert doc["canon_layer"] == "campaign"
-        assert doc["campaign_id"] == "campaign_2"
+        assert doc["campaign_id"] == "longmont-c2"
 
     assert reproducibility["document_counts_match"] is True
     assert manifest["documents"]
@@ -73,5 +73,13 @@ def test_campaign_context_folder_name_does_not_force_campaign_layer() -> None:
         "corpus/eldyrwild-markdown/Elderwyld/World Lore/stonebridge.md"
     )
     assert layer == "world"
+    assert campaign_id is None
+
+
+def test_session_like_path_without_campaign_marker_fails_closed() -> None:
+    layer, campaign_id = _infer_canon_layer(
+        "corpus/eldyrwild-markdown/Elderwyld/Session Recaps/Session 13 - Mystery.md"
+    )
+    assert layer == "campaign"
     assert campaign_id is None
 

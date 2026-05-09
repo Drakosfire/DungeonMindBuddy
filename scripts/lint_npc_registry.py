@@ -79,6 +79,27 @@ def _resolve_hub(corpus_root: Path, hub_rel: str | None) -> Path | None:
     return corpus_root / hub_rel.rstrip("/")
 
 
+def _is_world_hub_relpath(hub_rel: str | None) -> bool:
+    rel = (hub_rel or "").strip().replace("\\", "/")
+    return rel.startswith("Elderwyld/")
+
+
+def _is_campaign_hub_relpath(hub_rel: str | None) -> bool:
+    rel = (hub_rel or "").strip().replace("\\", "/")
+    return rel.startswith("Longmont Campaign/")
+
+
+def _find_world_hubs_for_slug(corpus_root: Path, slug: str) -> list[Path]:
+    base = corpus_root / "Elderwyld"
+    if not base.is_dir():
+        return []
+    return sorted(
+        p
+        for p in base.rglob(f"NPCs/{slug}")
+        if p.is_dir()
+    )
+
+
 def _validate_record(
     index: int,
     record: dict,
@@ -120,6 +141,20 @@ def _validate_record(
             "'tracked' or 'background' once the hub is curated"
         )
 
+    if hub_path and _is_world_hub_relpath(hub_path):
+        report.issues.append(
+            "hub_path — points to Elderwyld (world-layer) path; campaign authority "
+            "should use a campaign hub in hub_path and reserve setting_hub_path for world fallback"
+        )
+    if setting_hub_path and not _is_world_hub_relpath(setting_hub_path):
+        report.issues.append(
+            "setting_hub_path — must point to an Elderwyld world-layer hub path"
+        )
+    if hub_path and setting_hub_path and hub_path.rstrip("/") == setting_hub_path.rstrip("/"):
+        report.issues.append(
+            "hub_path/setting_hub_path — must not be identical; split campaign authority from world fallback"
+        )
+
     # Cross-ref: at least one of hub_path / setting_hub_path must resolve to a
     # directory whose folder name matches the slug.
     hub_dir = _resolve_hub(corpus_root, hub_path)
@@ -147,6 +182,20 @@ def _validate_record(
         report.issues.append(
             f"hub_path — no folder configured for status='{status}'"
         )
+
+    # If a campaign hub is authoritative and a matching world sibling exists,
+    # require explicit world fallback in setting_hub_path.
+    if (
+        status in {"tracked", "background", "dormant"}
+        and hub_path
+        and _is_campaign_hub_relpath(hub_path)
+        and not setting_hub_path
+    ):
+        world_matches = _find_world_hubs_for_slug(corpus_root, slug)
+        if world_matches:
+            report.issues.append(
+                "setting_hub_path — missing world fallback while an Elderwyld sibling hub exists"
+            )
 
     return report
 

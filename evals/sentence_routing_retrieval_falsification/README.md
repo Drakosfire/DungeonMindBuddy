@@ -68,6 +68,8 @@ uv run python -m evals.sentence_routing_retrieval_falsification.step2_discourse_
 
 **Inline recap breadcrumbs (Step 1 session memory index experiment):** `manual_labels/Session 20 - Recap.breadcrumbed.md` is the original manual baseline retrieval index for Session 20. Treat it as a machine-facing source-aligned memory surface, not a readable recap replacement. The canonical recap remains the prose artifact; breadcrumbs are for agentic planning/live-play retrieval, hub routing, unresolved-thread capture, and dry-run corpus update proposals. **Session 20 natural + planner-discovery gold** (`gold/breadcrumb_query_natural_v1.json`, `gold/breadcrumb_query_planner_discovery_v1.json`) expects indexed breadcrumbs over the **normalized** recap path `Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 20 - Gnat Swarm Marla Lysandra.md` (use a frontmatter seed with matching `source_recap_path`, e.g. `manual_labels/Session 20 - Gnat Swarm Marla Lysandra.normalized.breadcrumbed.frontmatter_seed.md`). For new validation work, prefer the routing-only path (`--ingest-routing-only`): recap prose + thin route allowlist frontmatter seed -> structured route assignments -> deterministic breadcrumb renderer.
 
+**Normalized recap surface (gold authors):** `_normalized/` bodies intentionally omit pre-`## Recap` GM prep (examples: `## Major Beats`, `## Next Beats`, `## Loot`, `## Into the Sewer`, Looking Ahead blocks). Do not assert retrieval against text that exists only in those dropped sections when `source_recap_path` points at `_normalized/`. Policy and a concrete C1S13 example: `Docs/CONVENTION-Session-Recap-Normalization.md` (section 6, *Intentionally dropped pre-recap chrome*).
+
 **Current direction (2026-05-03):** the benchmark harness is the primary path for this
 use case. The lexical/event-keyword retrieval path is good enough on the known Session
 20 slice to keep expanding it; planner-discovery remains useful as a diagnostic
@@ -693,7 +695,7 @@ uv run python -m evals.sentence_routing_retrieval_falsification.breadcrumb_query
   --skip-c1s1-canvas-refresh --skip-c1s2-canvas-refresh --skip-c1s3-canvas-refresh
 ```
 
-The C1S13 benchmark review canvas (`c1s13-breadcrumb-query-benchmark-review.canvas.tsx`) lives only under the Cursor project `canvases/` directory (same layout as other benchmark canvases: `DMB_CURSOR_CANVAS_DIR` or `~/.cursor/projects/<workspace-slug>/canvases/`). `breadcrumb_query_run` and `c1s13_benchmark_canvas_emit` default to that path. There is no repo copy under `DungeonMindBuddy/canvases/` for this file.
+The C1S13 benchmark review canvas (`c1s13-breadcrumb-query-benchmark-review.canvas.tsx`) defaults to the Cursor project `canvases/` directory (same layout as other benchmark canvases: `DMB_CURSOR_CANVAS_DIR` or `~/.cursor/projects/<workspace-slug>/canvases/`). A committed template now exists at `DungeonMindBuddy/canvases/c1s13-breadcrumb-query-benchmark-review.canvas.tsx`, and `ensure_canvas_file_for_patch` can seed the IDE-managed file from it when needed.
 
 **Current routing-only regression sentinel (2026-05-08):** compare new runs against
 `artifacts/runs/2026-05-08/breadcrumb_query_natural_c1s13_report_retrieval_only.routing_only.json`.

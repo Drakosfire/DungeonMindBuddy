@@ -233,6 +233,13 @@ class TestER1Schema:
         assert v == "FAIL"
         assert any("resolution" in s for s in viol)
 
+    def test_invalid_proposed_divergence_mode_fails(self) -> None:
+        out = _good_output()
+        out["proposed_new_records"][0]["proposed_divergence_mode"] = "merge_all_the_things"
+        v, viol, _ = _grade_er1(out, _stage_c_output())
+        assert v == "FAIL"
+        assert any("proposed_divergence_mode" in s for s in viol)
+
 
 # ---------------------------------------------------------------------------
 # ER2 — PC safety
@@ -379,6 +386,15 @@ class TestER5RegistryPolicy:
         assert v == "FAIL"
         assert any("collides" in s for s in viol)
 
+    def test_er5_ignores_branch_hint_extras(self) -> None:
+        out = _good_output()
+        out["proposed_new_records"][0]["proposed_campaign_hub_path"] = (
+            "Longmont Campaign/Campaign 1/NPCs/pippa/"
+        )
+        out["proposed_new_records"][0]["proposed_divergence_mode"] = "inherit"
+        v, viol, _ = _grade_er5(out, _registry())
+        assert v == "PASS", viol
+
 
 # ---------------------------------------------------------------------------
 # Resolver helpers (deterministic v0)
@@ -405,6 +421,7 @@ class TestResolver:
             registry=_registry(),
             pc_roster=_pc_roster(),
             session_number=1,
+            campaign_id="longmont-c1",
         )
         assert len(out.unresolvable) == 1
         assert out.unresolvable[0].source_kind == "new_candidate"
@@ -437,6 +454,7 @@ class TestResolver:
             registry=_registry(),
             pc_roster=_pc_roster(),
             session_number=1,
+            campaign_id="longmont-c1",
         )
         assert len(out.resolved_entities) == 2
         canonicals = {r.canonical_slug for r in out.resolved_entities}

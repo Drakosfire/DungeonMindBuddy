@@ -188,6 +188,10 @@ class AggregatedNewRecord:
     aliases: list[str] = field(default_factory=list)
     first_session: Optional[int] = None
     last_session: Optional[int] = None
+    proposed_campaign_hub_path: Optional[str] = None
+    proposed_setting_hub_path: Optional[str] = None
+    proposed_location_slug: Optional[str] = None
+    proposed_divergence_mode: Optional[str] = None
     evidence: list[EvidenceRow] = field(default_factory=list)
     appearance_runs: int = 0
     session_appearances: list[int] = field(default_factory=list)
@@ -329,6 +333,10 @@ def _ingest_record(
     last = _safe_int(rec.get("last_session"))
     display = str(rec.get("display_name") or "").strip()
     aliases_in = [a for a in (rec.get("aliases") or []) if isinstance(a, str) and a]
+    proposed_campaign_hub_path = rec.get("proposed_campaign_hub_path")
+    proposed_setting_hub_path = rec.get("proposed_setting_hub_path")
+    proposed_location_slug = rec.get("proposed_location_slug")
+    proposed_divergence_mode = rec.get("proposed_divergence_mode")
     if existing is None:
         existing = AggregatedNewRecord(
             slug=slug,
@@ -336,6 +344,26 @@ def _ingest_record(
             aliases=list(aliases_in),
             first_session=first,
             last_session=last,
+            proposed_campaign_hub_path=(
+                str(proposed_campaign_hub_path)
+                if isinstance(proposed_campaign_hub_path, str) and proposed_campaign_hub_path.strip()
+                else None
+            ),
+            proposed_setting_hub_path=(
+                str(proposed_setting_hub_path)
+                if isinstance(proposed_setting_hub_path, str) and proposed_setting_hub_path.strip()
+                else None
+            ),
+            proposed_location_slug=(
+                str(proposed_location_slug)
+                if isinstance(proposed_location_slug, str) and proposed_location_slug.strip()
+                else None
+            ),
+            proposed_divergence_mode=(
+                str(proposed_divergence_mode)
+                if isinstance(proposed_divergence_mode, str) and proposed_divergence_mode.strip()
+                else None
+            ),
             session_appearances=[session_number] if session_number is not None else [],
         )
         aggregated[slug] = existing
@@ -355,6 +383,30 @@ def _ingest_record(
             )
         if session_number is not None and session_number not in existing.session_appearances:
             existing.session_appearances.append(session_number)
+        if (
+            existing.proposed_campaign_hub_path is None
+            and isinstance(proposed_campaign_hub_path, str)
+            and proposed_campaign_hub_path.strip()
+        ):
+            existing.proposed_campaign_hub_path = proposed_campaign_hub_path
+        if (
+            existing.proposed_setting_hub_path is None
+            and isinstance(proposed_setting_hub_path, str)
+            and proposed_setting_hub_path.strip()
+        ):
+            existing.proposed_setting_hub_path = proposed_setting_hub_path
+        if (
+            existing.proposed_location_slug is None
+            and isinstance(proposed_location_slug, str)
+            and proposed_location_slug.strip()
+        ):
+            existing.proposed_location_slug = proposed_location_slug
+        if (
+            existing.proposed_divergence_mode is None
+            and isinstance(proposed_divergence_mode, str)
+            and proposed_divergence_mode.strip()
+        ):
+            existing.proposed_divergence_mode = proposed_divergence_mode
     existing.evidence.append(
         EvidenceRow(
             scenario_id=scenario_id,
@@ -943,6 +995,10 @@ def _build_promotion_payload(
             "aliases": list(rec.aliases),
             "first_session": rec.first_session,
             "last_session": rec.last_session,
+            "proposed_campaign_hub_path": rec.proposed_campaign_hub_path,
+            "proposed_setting_hub_path": rec.proposed_setting_hub_path,
+            "proposed_location_slug": rec.proposed_location_slug,
+            "proposed_divergence_mode": rec.proposed_divergence_mode,
             "appearance_runs": rec.appearance_runs,
             "session_appearances": sorted(rec.session_appearances),
             "registry_collision_flags": flags,
@@ -1006,6 +1062,37 @@ def _build_promotion_payload(
             row["proposed_canonical_slug"] = None
         unresolvable_rows.append(row)
 
+    branch_scaffold_proposals: list[dict[str, Any]] = []
+    for row in new_rows:
+        slug = str(row.get("slug") or "").strip()
+        if not slug:
+            continue
+        campaign_hub = row.get("proposed_campaign_hub_path")
+        setting_hub = row.get("proposed_setting_hub_path")
+        location_slug = row.get("proposed_location_slug")
+        divergence = row.get("proposed_divergence_mode")
+        branch_scaffold_proposals.append(
+            {
+                "slug": slug,
+                "display_name": row.get("display_name"),
+                "location_slug": location_slug,
+                "divergence_mode": divergence,
+                "world_parent_hub_path": setting_hub,
+                "campaign_overlay_hub_path": campaign_hub,
+                "recommended_files": [
+                    p
+                    for p in [
+                        f"{campaign_hub}README.md" if isinstance(campaign_hub, str) and campaign_hub else None,
+                        f"{campaign_hub}timeline.md" if isinstance(campaign_hub, str) and campaign_hub else None,
+                        f"{campaign_hub}{slug}_character_dossier.md"
+                        if isinstance(campaign_hub, str) and campaign_hub
+                        else None,
+                    ]
+                    if p is not None
+                ],
+            }
+        )
+
     return {
         "schema": PROMOTION_SCHEMA_VERSION,
         "generated_at": when.isoformat(),
@@ -1024,6 +1111,7 @@ def _build_promotion_payload(
         "proposed_new_records": new_rows,
         "proposed_aliases": alias_rows,
         "unresolvable": unresolvable_rows,
+        "branch_scaffold_proposals": branch_scaffold_proposals,
     }
 
 
@@ -1125,6 +1213,26 @@ def _build_promotion_markdown(payload: dict[str, Any]) -> str:
                     fl=_md_escape(
                         _flag_summary_for_md(row.get("registry_collision_flags") or {})
                     ),
+                )
+            )
+    else:
+        lines.append("(none)")
+    lines.append("")
+
+    scaffold_rows = payload.get("branch_scaffold_proposals") or []
+    lines.append(f"## branch_scaffold_proposals ({len(scaffold_rows)})")
+    lines.append("")
+    if scaffold_rows:
+        lines.append("| slug | divergence_mode | world_parent_hub_path | campaign_overlay_hub_path | location_slug |")
+        lines.append("|---|---|---|---|---|")
+        for row in scaffold_rows:
+            lines.append(
+                "| `{slug}` | {div} | {world} | {camp} | {loc} |".format(
+                    slug=_md_escape(row.get("slug")),
+                    div=_md_escape(row.get("divergence_mode") or "—"),
+                    world=_md_escape(row.get("world_parent_hub_path") or "—"),
+                    camp=_md_escape(row.get("campaign_overlay_hub_path") or "—"),
+                    loc=_md_escape(row.get("location_slug") or "—"),
                 )
             )
     else:

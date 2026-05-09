@@ -5,11 +5,16 @@ workspace root. This matches the layout described in ``.cursor/skills-cursor/can
 
 Override the **canvases directory** (not a single file) with env ``DMB_CURSOR_CANVAS_DIR``
 if your Cursor install uses a different layout.
+
+Emitters default to :func:`default_cursor_canvas_path` (IDE-managed ``.../canvases/``). Before patching,
+:func:`ensure_canvas_file_for_patch` creates that directory and, if the file is missing, copies the
+committed template from :func:`repo_canvases_dir` (``<repo>/canvases/<same basename>``).
 """
 
 from __future__ import annotations
 
 import os
+import shutil
 from pathlib import Path
 
 
@@ -41,3 +46,33 @@ def cursor_canvases_dir(workspace_root: Path | None = None) -> Path:
 def default_cursor_canvas_path(filename: str, *, workspace_root: Path | None = None) -> Path:
     """Full path to one canvas file in the IDE-managed canvases directory."""
     return cursor_canvases_dir(workspace_root) / filename
+
+
+def repo_canvases_dir(workspace_root: Path | None = None) -> Path:
+    """Committed canvas templates under ``<repo>/canvases/`` (source-of-truth for structure/markers)."""
+    root = workspace_root if workspace_root is not None else _repo_root_from_eval_file()
+    return root / "canvases"
+
+
+def ensure_canvas_file_for_patch(canvas_path: Path, *, workspace_root: Path | None = None) -> Path:
+    """Prepare ``canvas_path`` for marker-based patching.
+
+    - Creates the parent directory (typically ``.../canvases/``) if missing.
+    - If the file does not exist yet, copies from ``repo_canvases_dir()/canvas_path.name``
+      when that template exists (keeps IDE-managed path in sync with repo canvases).
+
+    Returns the resolved path. Raises ``FileNotFoundError`` if the file is missing and
+    no repo template exists.
+    """
+    path = canvas_path.expanduser().resolve()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if path.is_file():
+        return path
+    src = repo_canvases_dir(workspace_root) / path.name
+    if not src.is_file():
+        raise FileNotFoundError(
+            f"Canvas file {path} does not exist and no repo template at {src}. "
+            "Add the .canvas.tsx under canvases/ in the repo, or create the file at the target path."
+        )
+    shutil.copy2(src, path)
+    return path

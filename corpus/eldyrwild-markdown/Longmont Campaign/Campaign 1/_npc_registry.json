@@ -6,9 +6,9 @@
     "status": "tracked",
     "first_session": 8,
     "last_session": 13,
-    "hub_path": "Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/",
-    "setting_hub_path": null,
-    "notes": "C1 has no campaign-tagged NPC hub for Lysandra; using Elderwyld setting hub as authoritative. Cross-campaign character (also active in C2 sessions 3-20). first_session derived from filename 'Session 8 - Captain Lysandra Quest.md'; last_session from Torbin C2 timeline.md C1 rows. C1 cold-start seed; everything else in this campaign goes through Stage C as new_candidates."
+    "hub_path": "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/",
+    "setting_hub_path": "Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/",
+    "notes": "C1 has no campaign-tagged NPC hub for Lysandra yet; using the existing campaign-layer C2 hub as the registry authority pointer and Elderwyld as world fallback. Cross-campaign character (also active in C2 sessions 3-20). first_session derived from filename 'Session 8 - Captain Lysandra Quest.md'; last_session from Torbin C2 timeline.md C1 rows. C1 cold-start seed; everything else in this campaign goes through Stage C as new_candidates."
   },
   {
     "slug": "torbin_jove",
@@ -17,19 +17,30 @@
     "status": "tracked",
     "first_session": 4,
     "last_session": 13,
-    "hub_path": "Elderwyld/Cities and Towns/Mirathorn/NPCs/torbin_jove/",
-    "setting_hub_path": null,
-    "notes": "C1 has no campaign-tagged NPC hub for Torbin; using Elderwyld setting hub as authoritative. Cross-campaign character. Sessions 4-13 from Torbin's C2 timeline.md C1 rows. C1 cold-start seed."
+    "hub_path": "Longmont Campaign/Campaign 2/NPCs/torbin_jove/",
+    "setting_hub_path": "Elderwyld/Cities and Towns/Mirathorn/NPCs/torbin_jove/",
+    "notes": "C1 has no campaign-tagged NPC hub for Torbin yet; using the existing campaign-layer C2 hub as the registry authority pointer and Elderwyld as world fallback. Cross-campaign character. Sessions 4-13 from Torbin's C2 timeline.md C1 rows. C1 cold-start seed."
   },
   {
     "slug": "bubbles_the_float_goat",
     "display_name": "Bubbles the Float Goat",
     "aliases": ["Bubbles"],
-    "status": "candidate",
+    "status": "tracked",
     "first_session": 3,
     "last_session": 3,
-    "hub_path": null,
+    "hub_path": "Longmont Campaign/Campaign 1/NPCs/bubbles_the_float_goat/",
     "setting_hub_path": null,
-    "notes": "Promoted from Stage C C1 cohort proposals (proposals/c1_registry_proposals_20260422T213552Z.json) — appeared 4/5 runs as 'bubbles_the_float_goat' + 1/5 as 'bubbles' in C1S3 'The Stone Bridge Flood'. Pippa's missing goat; subject of the riverside rescue arc. Canonical slug picked over 'bubbles' for clarity. Promote to 'tracked' once a Longmont C1 NPC hub or Elderwyld setting hub is authored. First GM-mediated promotion proves the bootstrap loop end-to-end."
+    "notes": "Promoted from Stage C C1 cohort proposals (proposals/c1_registry_proposals_20260422T213552Z.json) — appeared 4/5 runs as 'bubbles_the_float_goat' + 1/5 as 'bubbles' in C1S3 'The Stone Bridge Flood'. Pippa's missing goat; subject of the riverside rescue arc. Canonical slug picked over 'bubbles' for clarity. Tracked after C1 campaign hub authoring for statblock/context recall."
+  },
+  {
+    "slug": "pippa",
+    "display_name": "Pippa Goldwhistle",
+    "aliases": ["Pippa"],
+    "status": "tracked",
+    "first_session": 3,
+    "last_session": 3,
+    "hub_path": "Longmont Campaign/Campaign 1/NPCs/pippa/",
+    "setting_hub_path": null,
+    "notes": "Promoted from Stage C C1 cohort proposals (proposals/c1_registry_proposals_20260422T213552Z.json). C1S3 assistant brewer / innovator tied to Wizard Tower Brewery, StoneBridge delivery, Bubbles, and the Mirathorn festival hook."
   }
 ]

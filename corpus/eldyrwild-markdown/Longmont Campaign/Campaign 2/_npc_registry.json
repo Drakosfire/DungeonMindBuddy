@@ -34,12 +34,12 @@
     "aliases": [
       "Marla"
     ],
-    "status": "tracked",
+    "status": "candidate",
     "first_session": 20,
     "last_session": 20,
-    "hub_path": "Elderwyld/Cities and Towns/Mossford/NPCs/marla_brambleback/",
-    "setting_hub_path": null,
-    "notes": "Mossford NPC heavily played in C2; no campaign-tagged hub yet — the Elderwyld setting hub is authoritative for now."
+    "hub_path": null,
+    "setting_hub_path": "Elderwyld/Cities and Towns/Mossford/NPCs/marla_brambleback/",
+    "notes": "Mossford NPC heavily played in C2; no campaign-tagged C2 hub yet, so this record stays candidate until campaign authority hub exists."
   },
   {
     "slug": "sara_mirathorn_operator",
@@ -61,12 +61,12 @@
       "Sheriff Marr",
       "Roderic Marr"
     ],
-    "status": "background",
+    "status": "candidate",
     "first_session": 19,
     "last_session": 20,
-    "hub_path": "Elderwyld/Cities and Towns/Mossford/NPCs/sheriff_roderic_marr/",
-    "setting_hub_path": null,
-    "notes": "Mossford NPC; re-evaluate status to 'tracked' if his role grows in later sessions."
+    "hub_path": null,
+    "setting_hub_path": "Elderwyld/Cities and Towns/Mossford/NPCs/sheriff_roderic_marr/",
+    "notes": "Mossford NPC with no campaign-tagged C2 hub yet; candidate until campaign authority hub exists."
   },
   {
     "slug": "stacey_brambleback",
@@ -74,23 +74,23 @@
     "aliases": [
       "Stacey"
     ],
-    "status": "tracked",
+    "status": "candidate",
     "first_session": 19,
     "last_session": 20,
-    "hub_path": "Elderwyld/Cities and Towns/Mossford/NPCs/stacey_brambleback/",
-    "setting_hub_path": null,
-    "notes": "Mossford NPC heavily played in C2; no campaign-tagged hub yet — the Elderwyld setting hub is authoritative for now."
+    "hub_path": null,
+    "setting_hub_path": "Elderwyld/Cities and Towns/Mossford/NPCs/stacey_brambleback/",
+    "notes": "Mossford NPC heavily played in C2; no campaign-tagged C2 hub yet, so this record stays candidate until campaign authority hub exists."
   },
   {
     "slug": "stuart",
     "display_name": "Stuart",
     "aliases": [],
-    "status": "tracked",
+    "status": "candidate",
     "first_session": 19,
     "last_session": 20,
-    "hub_path": "Elderwyld/Cities and Towns/Mossford/NPCs/stuart/",
-    "setting_hub_path": null,
-    "notes": "Mossford NPC heavily played in C2; no campaign-tagged hub yet — the Elderwyld setting hub is authoritative for now."
+    "hub_path": null,
+    "setting_hub_path": "Elderwyld/Cities and Towns/Mossford/NPCs/stuart/",
+    "notes": "Mossford NPC heavily played in C2; no campaign-tagged C2 hub yet, so this record stays candidate until campaign authority hub exists."
   },
   {
     "slug": "thrin_branchborn",

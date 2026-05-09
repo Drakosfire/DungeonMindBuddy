@@ -55,15 +55,6 @@ UPDATE_SIGNAL_TOKENS = (
     "fades",
 )
 
-# Subset of council-room globals useful for Longmont recap prose.
-SEMANTIC_EQUIVALENCES: dict[str, list[str]] = {
-    "captain": ["lysandra", "captain lysandra", "ironveil"],
-    "forest": ["migrating forest", "the forest"],
-    "tower": ["voices tower", "tower drawing", "drawing"],
-    "voices": ["voice", "tower"],
-}
-
-
 def _normalize_text(text: str) -> str:
     return (
         text.replace("\u2019", "'")
@@ -159,9 +150,6 @@ def _semantic_token_present(
         for equiv in values:
             if re.search(_normalize_text(equiv), answer_lower, re.IGNORECASE):
                 return True
-    for equiv in SEMANTIC_EQUIVALENCES.get(normalized_token, []):
-        if re.search(_normalize_text(equiv), answer_lower, re.IGNORECASE):
-            return True
     return False
 
 

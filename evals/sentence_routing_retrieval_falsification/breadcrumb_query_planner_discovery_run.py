@@ -46,6 +46,7 @@ from evals.sentence_routing_retrieval_falsification.breadcrumb_normalize import 
 from evals.sentence_routing_retrieval_falsification.breadcrumb_query_grader import (
     grade_natural_scenario,
     load_gold,
+    merge_natural_benchmark_scenario,
     natural_retrieval_bundle,
 )
 from evals.sentence_routing_retrieval_falsification.breadcrumb_query_llm import (
@@ -327,9 +328,6 @@ def main() -> None:
     planner_model = _resolve_planner_model(args.planner_model)
     breadcrumb_llm_model = (args.breadcrumb_llm_model or "").strip() or resolve_breadcrumb_query_llm_model()
 
-    default_campaign = str(gold.get("campaign_id") or "")
-    default_spec = gold.get("default_query_spec") or {}
-
     aggregate_benchmark_llm_usd = 0.0
     aggregate_planner_usd = 0.0
     aggregate_statblock_usd = 0.0
@@ -349,11 +347,7 @@ def main() -> None:
             if filter_ids and sid not in filter_ids:
                 continue
 
-            scen = dict(scenario)
-            scen["campaign_id"] = str(scen.get("campaign_id") or default_campaign)
-            merged_spec = {**default_spec, **(scen.get("query_spec") or {})}
-            merged_spec["query"] = str(scen["question"])
-            scen["query_spec"] = merged_spec
+            scen = merge_natural_benchmark_scenario(dict(scenario), gold)
 
             bundle = natural_retrieval_bundle(records=records, scenario=scen)
             result_obj, hit_ctx = bundle

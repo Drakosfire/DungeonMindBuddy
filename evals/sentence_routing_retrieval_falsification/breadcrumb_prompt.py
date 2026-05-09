@@ -18,6 +18,7 @@ markdown artifact. The runner extracts the fenced block before writing it.
 
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass
 
@@ -45,7 +46,9 @@ Output contract:
    and do **not** rewrite the prose — the recap body is the canonical source
    and the breadcrumb plain text (with tags stripped and whitespace
    normalized) must equal the recap body. Concretely: every word in the
-   source recap must appear in your output in the same order.
+   source recap must appear in your output in the same order. Preserve source
+   spelling, punctuation, line breaks, and typos exactly; do not "clean up"
+   grammar or formatting.
 3. Allowed tag types: ``PC``, ``NPC``, ``Location``, ``Party``,
    ``NewHubCandidate``. Use only routes that appear in the provided entity
    index (or the existing manual baseline's ``new_hub_candidates`` /
@@ -79,6 +82,12 @@ Output contract:
    ```
 
    No prose before or after the fenced block.
+9. Mandatory self-check before you finalize:
+   - Strip all tags mentally from your draft body.
+   - Compare the stripped body against the source recap body.
+   - If any character-level differences remain (added words, dropped words,
+     punctuation rewrites, typo fixes, reordered phrases), discard the draft
+     and regenerate.
 """
 
 _CONTINUATION_ADDENDUM = """\
@@ -231,6 +240,75 @@ def build_breadcrumb_prompt(
     return BreadcrumbPrompt(
         variant=variant,
         system_text=_build_system_text(variant=variant),
+        user_text=user_text,
+    )
+
+
+_ROUTING_ONLY_SYSTEM_HEADER = """\
+You assign inline breadcrumb routes to fixed recap ``units`` (pre-segmented clauses).
+Downstream tooling injects ``[TagType][route]`` markers for you — you MUST NOT output
+recap prose or markdown.
+
+Structured output (JSON only — no fences, no commentary):
+- Emit one object matching ``dmb_breadcrumb_route_assignments_v1``:
+  * ``schema``: literal ``dmb_breadcrumb_route_assignments_v1``
+  * ``source_recap_path``: exact string from the user message
+  * ``assignments``: array of ``{ "unit_id": "...", "tags": [ { "tag_type": "...", "route": "..." } ] }``
+- Omit units that need no tags. Each ``route`` must be copied EXACTLY from the
+  allowlist JSON (slashes and trailing ``/`` are significant).
+
+Tagging rules (same intent as full inline breadcrumb ingest):
+3. Allowed tag types: ``PC``, ``NPC``, ``Location``, ``Party``, ``NewHubCandidate``.
+4. Selectivity: tag units with durable retrieval value (table-significant beats,
+   discoveries, relationship beats, location-state changes, collective decisions).
+   Do not tag every mention.
+5. Multi-hub: emit multiple tags in one unit when warranted.
+6. Party policy: use ``Party`` only when the beat is durable for the collective,
+   not for every generic ``the group`` line.
+7. Ground tags in the unit's ``text``; do not invent entities or routes.
+"""
+
+
+def _build_route_system_text(*, variant: str) -> str:
+    if variant == PROMPT_VARIANT_CONTROL:
+        return _ROUTING_ONLY_SYSTEM_HEADER
+    if variant == PROMPT_VARIANT_CONTINUATION:
+        return _ROUTING_ONLY_SYSTEM_HEADER + _CONTINUATION_ADDENDUM
+    if variant == PROMPT_VARIANT_PRONOUN_RESOLUTION:
+        return _ROUTING_ONLY_SYSTEM_HEADER + _CONTINUATION_ADDENDUM + _PRONOUN_RESOLUTION_ADDENDUM
+    raise ValueError(f"unknown prompt variant: {variant!r}")
+
+
+def build_breadcrumb_route_prompt(
+    *,
+    variant: str,
+    source_recap_path: str,
+    recap_body: str,
+    frontmatter_yaml: str,
+    units: list[dict[str, object]],
+    allowed_routes: list[str],
+) -> BreadcrumbPrompt:
+    """Structured routing-only prompt: model returns ``BreadcrumbRouteAssignmentsV1`` JSON."""
+    if variant not in ALLOWED_VARIANTS:
+        raise ValueError(
+            f"variant must be one of {sorted(ALLOWED_VARIANTS)}; got {variant!r}"
+        )
+    routes_json = json.dumps(allowed_routes, indent=2, ensure_ascii=False)
+    units_json = json.dumps(units, indent=2, ensure_ascii=False)
+    user_text = (
+        f"source_recap_path (repeat verbatim in output JSON): {source_recap_path!r}\n\n"
+        "Allowlisted routes (EXACT strings for the ``route`` field):\n```json\n"
+        f"{routes_json}\n```\n\n"
+        "Recap body (context only — do not echo or paraphrase):\n```recap\n"
+        f"{recap_body}\n```\n\n"
+        "Units to assign (JSON):\n```json\n"
+        f"{units_json}\n```\n\n"
+        "Frontmatter entity index (context only):\n```yaml\n"
+        f"{frontmatter_yaml.strip()}\n```\n"
+    )
+    return BreadcrumbPrompt(
+        variant=variant,
+        system_text=_build_route_system_text(variant=variant),
         user_text=user_text,
     )
 

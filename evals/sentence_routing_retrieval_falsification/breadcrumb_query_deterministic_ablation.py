@@ -23,6 +23,7 @@ from typing import Any
 from evals.sentence_routing_retrieval_falsification.breadcrumb_query_grader import (
     grade_natural_scenario,
     load_gold,
+    merge_natural_benchmark_scenario,
 )
 
 
@@ -49,15 +50,9 @@ def _load_records(path: Path) -> list[dict[str, Any]]:
 
 
 def _prepare_scenarios(gold: dict[str, Any]) -> list[ScenarioSpec]:
-    default_campaign = str(gold.get("campaign_id") or "")
-    default_qspec = dict(gold.get("default_query_spec") or {})
     out: list[ScenarioSpec] = []
     for s in gold.get("scenarios") or []:
-        scen = dict(s)
-        scen["campaign_id"] = str(scen.get("campaign_id") or default_campaign)
-        merged_qspec = {**default_qspec, **(scen.get("query_spec") or {})}
-        merged_qspec["query"] = str(scen["question"])
-        scen["query_spec"] = merged_qspec
+        scen = merge_natural_benchmark_scenario(dict(s), gold)
         out.append(
             ScenarioSpec(
                 scenario=scen,

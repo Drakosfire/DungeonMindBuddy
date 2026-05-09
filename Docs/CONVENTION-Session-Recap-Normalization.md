@@ -80,6 +80,22 @@ Typical patterns (first match wins when scanning top to bottom after frontmatter
 3. Line matching `\*\*Recap\*\*\s*:?\s*$` or a split `**Recap:` / continuation — include narrative after the label; strip stray `**` that only wrapped the label.
 4. **No label:** entire post-frontmatter body is the recap (after stripping an optional decorative `# Session N …` title line if it is not narrative).
 
+### Intentionally dropped pre-recap chrome (not a bug)
+
+Everything **above** the recap span start (patterns in the numbered list above) is **intentionally omitted** from `_normalized/`. That is by design: prepared recaps are narrative-only table canon; GM prep scaffolding is not copied into the prepared file.
+
+Canonical examples of blocks that **do not appear** in `_normalized/` when they sit before `## Recap` in the original (headings and wording vary by session):
+
+- `## Major Beats` (and its body until the next heading or the recap label)
+- `## Next Beats` (and body)
+- `## Loot` (and body)
+- `## Into the Sewer` (and body)
+- `**Looking Ahead**` / “Looking Ahead” forward-planning notes (and body)
+
+Concrete reference: `Longmont Campaign/Campaign 1/Session Recaps/Session 13 - The Meaty and the Dead.md` lines 14–28 (beats / next beats / loot / sewer / looking ahead) are absent from `.../Session Recaps/_normalized/Session 13 - The Meaty and the Dead.md` because they precede `## Recap`.
+
+**Downstream contract:** Ingestion, session-memory units, and benchmarks that read `_normalized/` must treat phrases that exist **only** in those dropped blocks as **out of scope for that corpus surface**—not as a normalization defect. To evaluate retrieval on prep-only text, use the **original** recap path (sibling of `_normalized/`, not under `_normalized/`), or move that content into an indexed prep doc.
+
 Discard all lines **before** the start of the recap span (prep beats, loot notes, etc.) unless folded into frontmatter per operator choice (this convention does not require folding).
 
 ---

@@ -31,7 +31,11 @@ import blake3
 _ALLOWED_MODES: tuple[str, ...] = ("create", "append")
 
 # Allowlist of corpus-relative paths the writer may touch.
-_CREATE_ALLOWED_RE = re.compile(r"(?:^|/)Session Recaps/Session \d+ - .+\.md$")
+# Session recaps: canonical folder or prepared `_normalized/` sibling (see
+# Docs/CONVENTION-Session-Recap-Normalization.md).
+_CREATE_ALLOWED_RE = re.compile(
+    r"(?:^|/)Session Recaps/(?:_normalized/)?Session \d+ - .+\.md$"
+)
 # Append-only allowlist for timeline rows. Intentionally accepts BOTH
 # `NPCs/<slug>/timeline.md` and `PCs/<slug>/timeline.md` so PC-side timelines
 # are structurally symmetric with NPC hubs (the writer-allowlist gap that
@@ -43,6 +47,12 @@ _TIMELINE_RE = re.compile(r"(?:^|/)(?:NPCs|PCs)/[^/]+/timeline\.md$")
 _HUB_README_RE = re.compile(r"(?:^|/)NPCs/[^/]+/README\.md$")
 _SETTING_HUB_NPC_README_RE = re.compile(
     r"^Elderwyld/Cities and Towns/[^/]+/NPCs/[^/]+/README\.md$"
+)
+_CAMPAIGN_HUB_NPC_README_CREATE_RE = re.compile(
+    r"^Longmont Campaign/Campaign \d+/NPCs/[^/]+/README\.md$"
+)
+_CAMPAIGN_HUB_NPC_TIMELINE_CREATE_RE = re.compile(
+    r"^Longmont Campaign/Campaign \d+/NPCs/[^/]+/timeline\.md$"
 )
 _SETTING_HUB_NPC_SEED_RE = re.compile(
     r"^Elderwyld/Cities and Towns/[^/]+/NPCs/[^/]+/character_seed\.md$"
@@ -116,6 +126,10 @@ def is_writable_corpus_path(rel_path: str, mode: str) -> tuple[bool, str]:
             return True, ""
         if _SETTING_HUB_NPC_README_RE.match(cleaned):
             return True, ""
+        if _CAMPAIGN_HUB_NPC_README_CREATE_RE.match(cleaned):
+            return True, ""
+        if _CAMPAIGN_HUB_NPC_TIMELINE_CREATE_RE.match(cleaned):
+            return True, ""
         if _SETTING_HUB_NPC_SEED_RE.match(cleaned):
             return True, ""
         if _CAMPAIGN_DOSSIER_CREATE_RE.match(cleaned):
@@ -124,9 +138,9 @@ def is_writable_corpus_path(rel_path: str, mode: str) -> tuple[bool, str]:
             return True, ""
         return False, (
             "create mode is not allowed for this path (allowed: "
-            "`**/Session Recaps/Session NN - <slug>.md`, "
+            "`**/Session Recaps/{Session NN - <slug>.md,_normalized/Session NN - <slug>.md}`, "
             "Elderwyld `.../Cities and Towns/<town>/NPCs/<slug>/{README.md,character_seed.md}`, "
-            "campaign `.../NPCs/<slug>/*_character_dossier.md`, "
+            "campaign `.../NPCs/<slug>/{README.md,timeline.md,*_character_dossier.md}`, "
             "or `Elderwyld/Locations/<stub>.md`)."
         )
     if (
@@ -305,6 +319,36 @@ def _campaign_scope_from_campaign_id(campaign_id: str | None) -> str | None:
     return f"Longmont Campaign/Campaign {int(m.group(1))}"
 
 
+def _extract_frontmatter_campaign_id(path: Path) -> str | None:
+    """Best-effort campaign_id read from markdown frontmatter."""
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return None
+    if not text.startswith("---\n"):
+        return None
+    end = text.find("\n---\n", 4)
+    if end < 0:
+        return None
+    frontmatter = text[4:end]
+    for raw_line in frontmatter.splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or ":" not in line:
+            continue
+        key, value = line.split(":", 1)
+        if key.strip() != "campaign_id":
+            continue
+        cid = value.strip().strip("'\"")
+        if not cid or cid.lower() == "null":
+            return None
+        return cid
+    return None
+
+
+def _campaign_scope_from_timeline_frontmatter(path: Path) -> str | None:
+    return _campaign_scope_from_campaign_id(_extract_frontmatter_campaign_id(path))
+
+
 def _pick_preferred_campaign_candidate(
     matches: list[Path],
     root: Path,
@@ -322,6 +366,14 @@ def _pick_preferred_campaign_candidate(
     ]
     if len(scoped) == 1:
         return scoped[0]
+    # Fallback for non-standard paths: use timeline frontmatter campaign_id.
+    scoped_by_frontmatter = [
+        p
+        for p in matches
+        if _campaign_scope_from_timeline_frontmatter(p) == preferred_campaign_scope
+    ]
+    if len(scoped_by_frontmatter) == 1:
+        return scoped_by_frontmatter[0]
     return None
 
 

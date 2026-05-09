@@ -61,6 +61,16 @@ class NpcRegistryRecord(BaseModel):
             )
         return self
 
+    @model_validator(mode="after")
+    def _check_hub_path_separation(self) -> "NpcRegistryRecord":
+        hub = (self.hub_path or "").strip()
+        setting = (self.setting_hub_path or "").strip()
+        if hub and setting and hub.rstrip("/") == setting.rstrip("/"):
+            raise ValueError(
+                f"hub_path and setting_hub_path must not be identical (slug={self.slug!r})"
+            )
+        return self
+
 
 def load_npc_registry(path: Path) -> list[NpcRegistryRecord]:
     """Load a registry JSON file from disk and return the parsed records.

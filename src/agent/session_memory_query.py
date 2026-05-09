@@ -228,6 +228,164 @@ def _record_route_norms(record: dict[str, Any]) -> list[str]:
     return out
 
 
+LOCATION_ENTITY_SUMMARY_SCHEMA_V1 = "dmb_location_entity_summary_v1"
+QUERY_MODE_LEXICAL_ROUTE_OVERLAP = "lexical_route_overlap"
+QUERY_MODE_LOCATION_ENTITY_LIST = "location_entity_list"
+_RELATION_CONFIDENCE_CO_TAGGED = "co_tagged_with_location"
+_LOCATION_ENTITY_SUBJECT_CLASSES = frozenset({"NPC", "NewHubCandidate"})
+
+
+def _query_compact_alnum(query: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "", str(query or "").lower())
+
+
+def _is_location_entity_list_question(query: str) -> bool:
+    """Heuristic: GM is asking for a roster of people/NPCs tied to a place name."""
+    ql = str(query or "").lower()
+    if re.search(r"\b(npcs?|characters|people|residents?|townsfolk)\b", ql):
+        return True
+    if re.search(r"\blist of\b", ql) and re.search(
+        r"\b(npcs?|people|characters|residents?)\b", ql
+    ):
+        return True
+    if re.search(r"\ball\b", ql) and re.search(r"\b(npcs?|characters|people)\b", ql):
+        return True
+    if re.search(r"\bwho\b", ql) and re.search(r"\b(npcs?|characters|people)\b", ql):
+        return True
+    if re.search(r"\bwho\b", ql) and re.search(
+        r"\b(live|lives|living|reside|residing|residents?|staying)\b", ql
+    ):
+        return True
+    return False
+
+
+def _location_slug_from_normalized_route(norm_route: str) -> str:
+    s = _norm_route_path(norm_route)
+    if not s:
+        return ""
+    return s.rsplit("/", 1)[-1]
+
+
+def _collect_unique_location_routes(records: list[dict[str, Any]]) -> list[str]:
+    """Distinct Location hub routes (normalized, lowercased) under .../Locations/."""
+    seen: set[str] = set()
+    out: list[str] = []
+    for rec in records:
+        for r in rec.get("routes") or []:
+            if str(r.get("subject_class", "") or "").strip() != "Location":
+                continue
+            nr = _norm_route_path(str(r.get("normalized_route", "")))
+            if not nr or "/locations/" not in nr:
+                continue
+            if nr not in seen:
+                seen.add(nr)
+                out.append(nr)
+    out.sort()
+    return out
+
+
+def _resolve_location_route_from_query(
+    query: str, location_routes: list[str]
+) -> tuple[str | None, str | None]:
+    """Pick the Location route whose folder slug is mentioned in the query text."""
+    if not location_routes:
+        return None, "no_location_routes_in_filtered_records"
+    qc = _query_compact_alnum(query)
+    if not qc:
+        return None, "empty_query"
+    best: tuple[int, str] | None = None
+    for nr in location_routes:
+        slug = _location_slug_from_normalized_route(nr)
+        key = slug.replace("_", "")
+        if not key or key not in qc:
+            continue
+        cand: tuple[int, str] = (len(key), nr)
+        if best is None or cand[0] > best[0] or (cand[0] == best[0] and cand[1] < best[1]):
+            best = cand
+    if best is None:
+        return None, "location_slug_not_found_in_query"
+    return best[1], None
+
+
+def _record_includes_normalized_route(record: dict[str, Any], route_norm: str) -> bool:
+    return route_norm in _record_route_norms(record)
+
+
+def _build_location_entity_summary(
+    filtered_records: list[dict[str, Any]],
+    *,
+    location_route_norm: str,
+    resolution_note: str | None,
+) -> dict[str, Any]:
+    """Aggregate NPC + NewHubCandidate routes co-tagged on units that carry ``location_route_norm``."""
+    loc_norm = _norm_route_path(location_route_norm)
+    matching_recs: list[dict[str, Any]] = [
+        rec for rec in filtered_records if _record_includes_normalized_route(rec, loc_norm)
+    ]
+    # Preserve casing from first occurrence of the location route string.
+    display_loc = loc_norm
+    for rec in matching_recs:
+        for r in rec.get("routes") or []:
+            raw = str(r.get("normalized_route", "")).strip()
+            if _norm_route_path(raw) == loc_norm:
+                display_loc = raw if raw.endswith("/") else f"{raw}/"
+                break
+        else:
+            continue
+        break
+
+    entities_work: dict[str, dict[str, Any]] = {}
+    for rec in matching_recs:
+        uid = str(rec.get("unit_id", "") or "")
+        lex = str(rec.get("lexical_plain", "") or "").strip()
+        snippet = lex[:240] + ("…" if len(lex) > 240 else "")
+        for r in rec.get("routes") or []:
+            sc = str(r.get("subject_class", "") or "").strip()
+            if sc not in _LOCATION_ENTITY_SUBJECT_CLASSES:
+                continue
+            raw_nr = str(r.get("normalized_route", "")).strip()
+            nn = _norm_route_path(raw_nr)
+            if not nn:
+                continue
+            disp = raw_nr if raw_nr.endswith("/") else f"{raw_nr}/"
+            if nn not in entities_work:
+                entities_work[nn] = {
+                    "normalized_route": disp,
+                    "subject_class": sc,
+                    "proposed": bool(r.get("proposed")),
+                    "evidence_unit_ids": [],
+                    "evidence_lexical_snippets": [],
+                }
+            ent = entities_work[nn]
+            if sc == "NPC":
+                ent["subject_class"] = "NPC"
+            elif str(ent.get("subject_class", "")) != "NPC":
+                ent["subject_class"] = sc
+            ent["proposed"] = ent["proposed"] or bool(r.get("proposed"))
+            if uid and uid not in ent["evidence_unit_ids"]:
+                ent["evidence_unit_ids"].append(uid)
+            if snippet and snippet not in ent["evidence_lexical_snippets"]:
+                ent["evidence_lexical_snippets"].append(snippet)
+            if len(ent["evidence_lexical_snippets"]) > 3:
+                ent["evidence_lexical_snippets"] = ent["evidence_lexical_snippets"][:3]
+
+    entities = sorted(entities_work.values(), key=lambda e: str(e["normalized_route"]).lower())
+    caveat = (
+        "Entities are co-tagged with this location on the same recap sentence units — "
+        "not confirmed residency unless corpus/ingestion adds an explicit home_base / lives_in relation."
+    )
+    return {
+        "summary_schema": LOCATION_ENTITY_SUMMARY_SCHEMA_V1,
+        "relation_confidence": _RELATION_CONFIDENCE_CO_TAGGED,
+        "caveat": caveat,
+        "location_route": display_loc,
+        "location_route_norm": loc_norm,
+        "resolution_note": resolution_note,
+        "record_count_for_location": len(matching_recs),
+        "entities": entities,
+    }
+
+
 def _strict_prefix_path(parent: str, child: str) -> bool:
     p, c = parent.rstrip("/"), child.rstrip("/")
     if not p or not c or p == c:
@@ -711,6 +869,19 @@ def query_session_memory_candidate(
             continue
         candidates.append((sc, rec, why))
 
+    query_mode = QUERY_MODE_LEXICAL_ROUTE_OVERLAP
+    location_entity_summary: dict[str, Any] | None = None
+    if _is_location_entity_list_question(q):
+        loc_opts = _collect_unique_location_routes(filtered)
+        picked, res_note = _resolve_location_route_from_query(q, loc_opts)
+        if picked:
+            location_entity_summary = _build_location_entity_summary(
+                filtered,
+                location_route_norm=picked,
+                resolution_note=res_note,
+            )
+            query_mode = QUERY_MODE_LOCATION_ENTITY_LIST
+
     candidates.sort(
         key=lambda item: (-item[0], str(item[1].get("unit_id", "")), str(item[1].get("source_recap_path", "")))
     )
@@ -776,6 +947,9 @@ def query_session_memory_candidate(
     if query_token_aliases:
         trace["query_token_aliases"] = [str(x) for x in query_token_aliases]
     trace["query_tokens"] = tokens
+    trace["query_mode"] = query_mode
+    if location_entity_summary is not None:
+        trace["location_entity_summary"] = location_entity_summary
     return CandidateQueryResult(
         schema="dmb_query_session_memory_result_v1",
         contract=QUERY_CONTRACT_CANDIDATE_V1,

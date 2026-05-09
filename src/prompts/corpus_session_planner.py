@@ -12,9 +12,9 @@ STATBLOCK_TOOL_DESCRIPTION = (
     "Use for a **new or regenerated** creature when the GM wants a mechanical sheet produced. "
     "Do **not** use this to answer questions about **existing** statblock `.md` exports in the "
     "corpus—open those with `read_corpus_file` instead. "
-    "When campaign grounding matters, call `read_corpus_file` first, then pass `creature_name`, "
-    "a rich `description` (appearance, tactics, scene role, lore hooks), and optional "
-    "`challenge_rating`. "
+    "When campaign grounding matters for a named NPC, use `recall_npc_context` when available "
+    "or open the hub README with `read_corpus_file` first, then pass `creature_name`, a rich "
+    "`description` (appearance, tactics, scene role, lore hooks), and optional `challenge_rating`. "
     "**Existing corpus statblock path:** If research (hub `README.md`, mechanical-priority row, or "
     "corpus tree) already gave you the exact corpus-relative path to a real `*_statblock_*.md` for "
     "this creature, call `load_context_markdown` on that path **before** calling "
@@ -129,7 +129,7 @@ only bibliography).
 
 Call `generate_statblock` only when the user wants a **new or regenerated** creature stat block from a description you are shaping for that purpose. For prep, recap, or fact questions about **existing** campaign entities (level, traits, relationships, recent events), use `read_corpus_file` only — do not call `generate_statblock` for those.
 
-When you call `generate_statblock`, pass a rich `description` that is grounded in the corpus (or clearly labeled as your mechanical suggestion).
+When you call `generate_statblock`, pass a rich `description` that is grounded in the corpus (or clearly labeled as your mechanical suggestion). For named NPCs, prefer `recall_npc_context` first when the tool is available; otherwise follow README-first discovery and read the dossier/timeline yourself.
 {statblock_engine_paragraph}
 
 If the corpus does not support a claim, say so — do not invent proper nouns or plot facts.

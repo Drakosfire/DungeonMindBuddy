@@ -61,12 +61,12 @@ def _infer_canon_layer(path: str) -> tuple[str, str | None]:
     for part in parts:
         match = re.search(r"campaign[\s_]*([0-9]+)", part)
         if match:
-            return "campaign", f"campaign_{match.group(1)}"
+            return "campaign", f"longmont-c{int(match.group(1))}"
     if any("session" in part for part in parts):
-        campaign_group = _extract_campaign_group(path)
-        if campaign_group == "world_baseline":
-            return "campaign", "campaign_unknown"
-        return "campaign", campaign_group
+        # Fail-closed: session-like paths without a campaign marker are treated
+        # as campaign-layer but with unknown campaign_id; manifest validation
+        # will reject these rows so they can be fixed explicitly.
+        return "campaign", None
     return "world", None
 
 

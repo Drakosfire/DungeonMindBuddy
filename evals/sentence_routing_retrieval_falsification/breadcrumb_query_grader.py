@@ -16,7 +16,13 @@ from evals.sentence_routing_retrieval_falsification.breadcrumb_natural_scoring i
     index_records_by_unit_id,
     score_context_support,
 )
+from evals.sentence_routing_retrieval_falsification.token_resolver_shadow import (
+    build_campaign_lexicon,
+    effective_semantic_equivalences_for_question,
+    merged_route_token_stopwords,
+)
 from src.agent.session_memory_query import CandidateQueryResult, query_session_memory_candidate
+from src.token_resolution.contracts import LexiconArtifact
 
 _GOLD_SCHEMAS = frozenset(
     {
@@ -43,17 +49,70 @@ def hits_cover_expected_units(hits: list[dict[str, Any]], expected_substrings: l
     return True
 
 
-def hits_cover_expected_routes(hits: list[dict[str, Any]], expected_route_substrings: list[str]) -> bool:
+def hits_cover_expected_routes(
+    hits: list[dict[str, Any]],
+    expected_route_substrings: list[str],
+    *,
+    location_hierarchy_equivalences: dict[str, list[str]] | None = None,
+) -> bool:
     """Each expected substring must appear in some hit route's ``normalized_route``."""
     routes: list[str] = []
     for h in hits:
         for r in h.get("routes") or []:
             routes.append(str(r.get("normalized_route", "")).lower())
     blob = "\n".join(routes)
+    hierarchy = {
+        str(parent).lower(): [str(child).lower() for child in (children or [])]
+        for parent, children in (location_hierarchy_equivalences or {}).items()
+    }
     for sub in expected_route_substrings:
-        if sub.lower() not in blob:
-            return False
+        sub_l = sub.lower()
+        if sub_l in blob:
+            continue
+        # Deterministic contract: query-time hierarchy expansion may satisfy a
+        # parent-location expectation via explicit sublocation route hits.
+        children = hierarchy.get(sub_l, [])
+        if children and any(child in blob for child in children):
+            continue
+        return False
     return True
+
+
+def location_entity_summary_routes_blob(summary: dict[str, Any] | None) -> str:
+    """Lowercased newline-joined entity ``normalized_route`` values from a location summary."""
+    if not isinstance(summary, dict):
+        return ""
+    parts: list[str] = []
+    for ent in summary.get("entities") or []:
+        if isinstance(ent, dict):
+            parts.append(str(ent.get("normalized_route", "")).lower())
+    return "\n".join(parts)
+
+
+def grade_location_entity_trace(
+    *,
+    trace: dict[str, Any],
+    expect_location_entity_route_substrings: list[str],
+    forbid_location_entity_route_substrings: list[str],
+    expect_query_mode: str | None,
+) -> list[str]:
+    """Violations for deterministic location-entity aggregation (``trace['location_entity_summary']``)."""
+    violations: list[str] = []
+    if expect_query_mode is not None and str(trace.get("query_mode", "")) != str(expect_query_mode):
+        violations.append("query_mode_mismatch")
+    need_blob = bool(expect_location_entity_route_substrings or forbid_location_entity_route_substrings)
+    summ = trace.get("location_entity_summary")
+    blob = location_entity_summary_routes_blob(summ if isinstance(summ, dict) else None)
+    if need_blob and not isinstance(summ, dict):
+        violations.append("missing_location_entity_summary")
+        return violations
+    for sub in expect_location_entity_route_substrings:
+        if sub.lower() not in blob:
+            violations.append(f"missing_expected_location_entity_route:{sub}")
+    for sub in forbid_location_entity_route_substrings:
+        if sub.lower() in blob:
+            violations.append(f"forbidden_location_entity_route_present:{sub}")
+    return violations
 
 
 def resolve_context_evidence_top_k(
@@ -86,6 +145,15 @@ def compute_context_evidence_metrics(
     top_slice = hits[:k]
     exp_units = [str(x) for x in (scenario.get("expect_unit_id_substrings") or [])]
     exp_routes = [str(x) for x in (scenario.get("expect_route_substrings") or [])]
+    hierarchy_map = scenario.get("location_hierarchy_equivalences")
+    hierarchy_equivalences = (
+        {
+            str(parent).lower(): [str(child).lower() for child in (children or [])]
+            for parent, children in hierarchy_map.items()
+        }
+        if isinstance(hierarchy_map, dict)
+        else {}
+    )
 
     uids_top = [str(h.get("unit_id") or "") for h in top_slice]
     units_missing = [u for u in exp_units if not any(u in uid for uid in uids_top)]
@@ -96,11 +164,29 @@ def compute_context_evidence_metrics(
         for r in h.get("routes") or []:
             routes_top.append(str(r.get("normalized_route", "")).lower())
     blob_top = "\n".join(routes_top)
-    routes_missing = [s for s in exp_routes if s.lower() not in blob_top]
+    routes_missing: list[str] = []
+    for s in exp_routes:
+        s_l = s.lower()
+        if s_l in blob_top:
+            continue
+        children = hierarchy_equivalences.get(s_l, [])
+        if children and any(child in blob_top for child in children):
+            continue
+        routes_missing.append(s)
     route_hit_count = len(exp_routes) - len(routes_missing)
 
     full_units_ok = hits_cover_expected_units(hits, exp_units) if exp_units else True
-    full_routes_ok = hits_cover_expected_routes(hits, exp_routes) if exp_routes else True
+    hierarchy_map = scenario.get("location_hierarchy_equivalences")
+    hierarchy_equivalences = hierarchy_map if isinstance(hierarchy_map, dict) else None
+    full_routes_ok = (
+        hits_cover_expected_routes(
+            hits,
+            exp_routes,
+            location_hierarchy_equivalences=hierarchy_equivalences,
+        )
+        if exp_routes
+        else True
+    )
 
     return {
         "context_evidence_top_k": k,
@@ -171,6 +257,10 @@ def merge_natural_scenario_from_gold(scenario: dict[str, Any], gold: dict[str, A
     return scen
 
 
+# Back-compat alias (older harnesses import this name).
+merge_natural_benchmark_scenario = merge_natural_scenario_from_gold
+
+
 def enrich_natural_report_with_context_evidence_metrics(
     report: dict[str, Any],
     gold: dict[str, Any],
@@ -236,27 +326,6 @@ _EXPANSION_TOKEN_STOPWORDS = frozenset(
     }
 )
 
-_ROUTE_TOKEN_STOPWORDS = frozenset(
-    {
-        "campaign",
-        "campaigns",
-        "cities",
-        "and",
-        "dossiers",
-        "elderwyld",
-        "location",
-        "locations",
-        "longmont",
-        "npcs",
-        "parties",
-        "pcs",
-        "session",
-        "sessions",
-        "the",
-        "towns",
-    }
-)
-
 _GLOBAL_QUERY_ALIAS_MAP: dict[str, list[str]] = {
     # These are task-language aliases, not scenario facts. They are allowed to
     # map intent words to retrieval vocabulary, but not to inject expected
@@ -284,12 +353,12 @@ def _tokenize_expansion_text(text: str) -> list[str]:
     return out
 
 
-def _route_expansion_tokens(route: str) -> list[str]:
+def _route_expansion_tokens(route: str, *, route_stopwords: frozenset[str]) -> list[str]:
     route_bits = re.split(r"[/_\-\s.]+", route.lower())
     out: list[str] = []
     for bit in route_bits:
         token = bit.strip()
-        if len(token) < 3 or token in _ROUTE_TOKEN_STOPWORDS:
+        if len(token) < 3 or token in route_stopwords:
             continue
         out.append(token)
     return out
@@ -317,6 +386,9 @@ def build_query_expansion(
     records: list[dict[str, Any]],
     first_pass_result: CandidateQueryResult,
     max_terms: int = 24,
+    breadcrumb_artifact_text: str = "",
+    lexicon: LexiconArtifact | None = None,
+    route_token_stopwords: frozenset[str] | None = None,
 ) -> dict[str, Any]:
     """Build production-valid query expansion terms without reading scenario gold.
 
@@ -327,12 +399,24 @@ def build_query_expansion(
     question_terms = _global_query_alias_terms(question)
     by_unit = _records_by_unit_id(records)
     counts: Counter[str] = Counter()
+    route_sw = (
+        merged_route_token_stopwords(
+            records=records,
+            breadcrumb_artifact_text=breadcrumb_artifact_text,
+            lexicon=lexicon,
+        )
+        if route_token_stopwords is None
+        else route_token_stopwords
+    )
 
     for h in first_pass_result.hits:
         uid = str(h.get("unit_id") or "")
         rec = by_unit.get(uid) or {}
         for r in h.get("routes") or []:
-            for token in _route_expansion_tokens(str(r.get("normalized_route") or "")):
+            for token in _route_expansion_tokens(
+                str(r.get("normalized_route") or ""),
+                route_stopwords=route_sw,
+            ):
                 counts[token] += 4
         for token in _tokenize_expansion_text(str(rec.get("lexical_plain") or "")):
             counts[token] += 1
@@ -383,10 +467,14 @@ def _grade_natural_with_qspec(
     records: list[dict[str, Any]],
     scenario: dict[str, Any],
     qspec: dict[str, Any],
+    breadcrumb_artifact_text: str = "",
+    lexicon: LexiconArtifact | None = None,
 ) -> dict[str, Any]:
     return grade_natural_scenario(
         records=records,
         scenario=_scenario_with_qspec(scenario, qspec),
+        breadcrumb_artifact_text=breadcrumb_artifact_text,
+        lexicon=lexicon,
     )
 
 
@@ -395,6 +483,8 @@ def grade_natural_scenario_lanes(
     records: list[dict[str, Any]],
     scenario: dict[str, Any],
     wide_max_hits: int = 34,
+    breadcrumb_artifact_text: str = "",
+    lexicon: LexiconArtifact | None = None,
 ) -> dict[str, Any]:
     """Grade raw, expanded, and wide-recall retrieval lanes for one natural scenario."""
     base_qspec = _clean_natural_qspec(scenario.get("query_spec") or {})
@@ -403,7 +493,13 @@ def grade_natural_scenario_lanes(
     raw_qspec = dict(base_qspec)
     raw_qspec["query"] = question
     raw_qspec["expand_context"] = False
-    raw_row = _grade_natural_with_qspec(records=records, scenario=scenario, qspec=raw_qspec)
+    raw_row = _grade_natural_with_qspec(
+        records=records,
+        scenario=scenario,
+        qspec=raw_qspec,
+        breadcrumb_artifact_text=breadcrumb_artifact_text,
+        lexicon=lexicon,
+    )
     first_pass_result = query_session_memory_for_scenario(
         records=records,
         scenario=_scenario_with_qspec(scenario, raw_qspec),
@@ -413,6 +509,8 @@ def grade_natural_scenario_lanes(
         question=question,
         records=records,
         first_pass_result=first_pass_result,
+        breadcrumb_artifact_text=breadcrumb_artifact_text,
+        lexicon=lexicon,
     )
     expanded_qspec = dict(base_qspec)
     expanded_qspec["query"] = question
@@ -422,6 +520,8 @@ def grade_natural_scenario_lanes(
         records=records,
         scenario=scenario,
         qspec=expanded_qspec,
+        breadcrumb_artifact_text=breadcrumb_artifact_text,
+        lexicon=lexicon,
     )
     expanded_row["raw_question"] = question
     expanded_row["expanded_terms"] = list(expansion["expanded_terms"])
@@ -431,7 +531,13 @@ def grade_natural_scenario_lanes(
 
     wide_qspec = dict(expanded_qspec)
     wide_qspec["max_hits"] = max(int(wide_qspec.get("max_hits") or 12), int(wide_max_hits))
-    wide_row = _grade_natural_with_qspec(records=records, scenario=scenario, qspec=wide_qspec)
+    wide_row = _grade_natural_with_qspec(
+        records=records,
+        scenario=scenario,
+        qspec=wide_qspec,
+        breadcrumb_artifact_text=breadcrumb_artifact_text,
+        lexicon=lexicon,
+    )
 
     return {
         "scenario_id": scenario.get("id"),
@@ -489,8 +595,29 @@ def grade_scenario(*, records: list[dict[str, Any]], scenario: dict[str, Any]) -
         violations.append("missing_expected_unit_id_hit")
 
     exp_routes = scenario.get("expect_route_substrings") or []
-    if exp_routes and not hits_cover_expected_routes(hits, [str(x) for x in exp_routes]):
+    hierarchy_map = scenario.get("location_hierarchy_equivalences")
+    hierarchy_equivalences = hierarchy_map if isinstance(hierarchy_map, dict) else None
+    if exp_routes and not hits_cover_expected_routes(
+        hits,
+        [str(x) for x in exp_routes],
+        location_hierarchy_equivalences=hierarchy_equivalences,
+    ):
         violations.append("missing_expected_route_hit")
+
+    tr_gate = result.trace if isinstance(result.trace, dict) else {}
+    exp_loc = [str(x) for x in (scenario.get("expect_location_entity_route_substrings") or [])]
+    forbid_loc = [str(x) for x in (scenario.get("forbid_location_entity_route_substrings") or [])]
+    raw_mode = scenario.get("expect_query_mode")
+    expect_mode = str(raw_mode) if raw_mode is not None and str(raw_mode).strip() != "" else None
+    if exp_loc or forbid_loc or expect_mode is not None:
+        violations.extend(
+            grade_location_entity_trace(
+                trace=tr_gate,
+                expect_location_entity_route_substrings=exp_loc,
+                forbid_location_entity_route_substrings=forbid_loc,
+                expect_query_mode=expect_mode,
+            )
+        )
 
     min_score = scenario.get("min_top_hit_score")
     if min_score is not None and hits:
@@ -531,6 +658,8 @@ def grade_natural_scenario(
     scenario: dict[str, Any],
     llm_answer: str | None = None,
     cached_retrieval: tuple[CandidateQueryResult, str] | None = None,
+    breadcrumb_artifact_text: str = "",
+    lexicon: LexiconArtifact | None = None,
 ) -> dict[str, Any]:
     """Council-room-style gates over retrieval + optional LLM synthesis.
 
@@ -550,20 +679,43 @@ def grade_natural_scenario(
         violations.append("missing_expected_unit_id_hit")
 
     exp_routes = scenario.get("expect_route_substrings") or []
-    if exp_routes and not hits_cover_expected_routes(hits, [str(x) for x in exp_routes]):
+    hierarchy_map = scenario.get("location_hierarchy_equivalences")
+    hierarchy_equivalences = hierarchy_map if isinstance(hierarchy_map, dict) else None
+    if exp_routes and not hits_cover_expected_routes(
+        hits,
+        [str(x) for x in exp_routes],
+        location_hierarchy_equivalences=hierarchy_equivalences,
+    ):
         violations.append("missing_expected_route_hit")
+
+    tr_gate = result.trace if isinstance(result.trace, dict) else {}
+    exp_loc = [str(x) for x in (scenario.get("expect_location_entity_route_substrings") or [])]
+    forbid_loc = [str(x) for x in (scenario.get("forbid_location_entity_route_substrings") or [])]
+    raw_mode = scenario.get("expect_query_mode")
+    expect_mode = str(raw_mode) if raw_mode is not None and str(raw_mode).strip() != "" else None
+    if exp_loc or forbid_loc or expect_mode is not None:
+        violations.extend(
+            grade_location_entity_trace(
+                trace=tr_gate,
+                expect_location_entity_route_substrings=exp_loc,
+                forbid_location_entity_route_substrings=forbid_loc,
+                expect_query_mode=expect_mode,
+            )
+        )
 
     must_tokens = [str(x) for x in (scenario.get("must_hit_tokens") or [])]
     stale_tokens = [str(x) for x in (scenario.get("stale_tokens") or [])]
-    equiv = scenario.get("semantic_equivalences")
-    question_equivalences: dict[str, list[str]] | None = None
-    if isinstance(equiv, dict):
-        question_equivalences = {}
-        for k, vals in equiv.items():
-            if isinstance(vals, list):
-                question_equivalences[str(k)] = [str(v) for v in vals]
-            else:
-                question_equivalences[str(k)] = [str(vals)]
+    resolved_lexicon = lexicon or build_campaign_lexicon(
+        breadcrumb_artifact_text=breadcrumb_artifact_text,
+        records=records,
+        campaign_id=str(scenario.get("campaign_id") or ""),
+    )
+    question_text = str((scenario.get("query_spec") or {}).get("query") or scenario.get("question") or "")
+    question_equivalences = effective_semantic_equivalences_for_question(
+        question=question_text,
+        scenario=scenario,
+        lexicon=resolved_lexicon,
+    )
     must_not = scenario.get("must_not_cooccur")
     must_not_cooccur = must_not if isinstance(must_not, dict) else None
     if "update_signal_tokens" in scenario:

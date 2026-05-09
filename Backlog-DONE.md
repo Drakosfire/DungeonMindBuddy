@@ -11,6 +11,17 @@ Sort newest → oldest within each status.
 
 ## DONE
 
+## [DONE] Backlog hygiene — migrate dynamic lexical rollout tracking to checklist — completed 2026-05-08
+
+**Closure (2026-05-08):** Moved rollout-tracking items from `Backlog.md` into the dedicated operational tracker `Docs/Plans/CHECKLIST-dynamic-lexical-retrieval-rollout.md` to avoid duplicate planning surfaces.
+
+Migrated items:
+- `Breadcrumb query — next-session holdout for autonomous lexical/event retrieval`
+- `Recap-ingest — Stage E pre-planning hub-crawl`
+- `Recap-ingest — events-first NPC ingestion slice`
+
+**Reason:** these are now represented as phase checkpoints in the checklist (`Phase D`, `Phase E`, and producer dependency preceding `Phase B/C`) and should not be tracked in parallel as backlog entries.
+
 ## [DONE] Stage A — `referenced_slugs[]` grader policy decision (SE3/SE5 should count `participants ∪ referenced_slugs`?) — captured 2026-04-22, branch A confirmed 2026-04-22, completed 2026-04-22
 
 **Closure (2026-04-22):** Chose **Branch (a)** — SE3 and SE5 remain **`participants[]`-only** (actor identification / coverage). Documented in `evals/session_events_extraction_vertical_slice/README.md` under **"Grader contract: `referenced_slugs[]` vs `participants[]` (Branch (a))"**: Stage C may use `participants ∪ referenced_slugs`; Stage A graders do not; descriptor→slug merge stays Stage D. Points to `tests/test_session_events_grader.py::TestReferencedSlugsGraderRegression` as the canary. Active `Backlog.md` entry removed; sibling Kirfan entry now cites the README section instead of this ticket.

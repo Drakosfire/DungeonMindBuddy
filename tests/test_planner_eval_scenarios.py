@@ -72,6 +72,30 @@ def _validate_expectations(
         anys = [str(x).lower() for x in (sb.get("description_contains_any") or [])]
         if anys and not any(x in desc for x in anys):
             _fail(scenario_id, f"description missing any of {anys!r}: {desc!r}")
+        alls = [str(x).lower() for x in (sb.get("description_contains_all") or [])]
+        missing = [x for x in alls if x not in desc]
+        if missing:
+            _fail(scenario_id, f"description missing required substrings {missing!r}: {desc!r}")
+
+    if ex.get("no_generate_statblock"):
+        gen = [t for t in turn.tool_trace if t.get("tool") == "generate_statblock"]
+        if gen:
+            _fail(scenario_id, f"did not expect generate_statblock call; got {gen!r}")
+
+    recall = ex.get("recall_npc_context_args")
+    if recall:
+        calls = [t for t in turn.tool_trace if t.get("tool") == "recall_npc_context"]
+        if not calls:
+            _fail(scenario_id, "expected recall_npc_context in tool_trace")
+        args = calls[-1]["arguments"]
+        want_campaign = str(recall.get("campaign_id", "")).lower()
+        got_campaign = str(args.get("campaign_id", "")).lower()
+        if want_campaign and got_campaign != want_campaign:
+            _fail(scenario_id, f"recall_npc_context campaign_id want={want_campaign!r} got={got_campaign!r}")
+        want_npc = str(recall.get("npc_contains", "")).lower()
+        got_npc = str(args.get("npc", "")).lower()
+        if want_npc and want_npc not in got_npc:
+            _fail(scenario_id, f"recall_npc_context npc {got_npc!r} missing {want_npc!r}")
 
     for needle in ex.get("final_text_must_include") or []:
         if needle not in turn.final_text:
@@ -108,6 +132,9 @@ def _load_json(path: Path) -> dict[str, Any]:
     [
         "scenario_branchbound_mount.json",
         "scenario_bad_corpus_path.json",
+        "scenario_c1s3_pippa_statblock_context.json",
+        "scenario_c1s3_bubbles_statblock_context.json",
+        "scenario_c1s3_kirfan_missing_context.json",
     ],
 )
 def test_planner_eval_scripted_scenario(fixture_name: str) -> None:
@@ -157,6 +184,7 @@ def test_planner_tools_corpus_and_statblock_only() -> None:
         "read_corpus_file",
         "load_context_markdown",
         "generate_statblock",
+        "recall_npc_context",
         "list_npc_hubs",
         "list_pc_hubs",
     }

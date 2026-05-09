@@ -283,6 +283,28 @@ def _grade_er1(
                         f"ER1: proposed_new_records[{i}].slug {slug!r} fails "
                         f"^[a-z0-9_]+$"
                     )
+            div_mode = rec.get("proposed_divergence_mode")
+            if div_mode is not None:
+                if not isinstance(div_mode, str):
+                    violations.append(
+                        f"ER1: proposed_new_records[{i}].proposed_divergence_mode "
+                        "must be string|null"
+                    )
+                elif div_mode not in {"inherit", "override", "campaign_only"}:
+                    violations.append(
+                        f"ER1: proposed_new_records[{i}].proposed_divergence_mode "
+                        f"{div_mode!r} invalid (expected inherit|override|campaign_only)"
+                    )
+            for key in (
+                "proposed_campaign_hub_path",
+                "proposed_setting_hub_path",
+                "proposed_location_slug",
+            ):
+                val = rec.get(key)
+                if val is not None and not isinstance(val, str):
+                    violations.append(
+                        f"ER1: proposed_new_records[{i}].{key} must be string|null"
+                    )
 
     unresolvable = output.get("unresolvable") or []
     if isinstance(unresolvable, list):
@@ -641,6 +663,18 @@ def _grade_er5(
     # import time (the runner pulls it in regardless).
     from src.contracts.npc_registry import NpcRegistryRecord  # noqa: WPS433
 
+    registry_keys = (
+        "slug",
+        "display_name",
+        "aliases",
+        "status",
+        "first_session",
+        "last_session",
+        "hub_path",
+        "setting_hub_path",
+        "notes",
+    )
+
     for i, rec in enumerate(proposed_records):
         if not isinstance(rec, dict):
             violations.append(f"ER5: proposed_new_records[{i}] is not an object")
@@ -672,8 +706,9 @@ def _grade_er5(
             )
             bad_records.append({"index": i, "reason": f"slug_collision={slug!r}"})
 
+        registry_like = {k: rec.get(k) for k in registry_keys}
         try:
-            NpcRegistryRecord.model_validate(rec)
+            NpcRegistryRecord.model_validate(registry_like)
         except Exception as exc:
             violations.append(
                 f"ER5: proposed_new_records[{i}] fails NpcRegistryRecord schema: {exc}"

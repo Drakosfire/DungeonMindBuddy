@@ -21,10 +21,14 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 from pathlib import Path
 from typing import Any
 
-from evals.sentence_routing_retrieval_falsification.cursor_canvas_paths import default_cursor_canvas_path
+from evals.sentence_routing_retrieval_falsification.cursor_canvas_paths import (
+    default_cursor_canvas_path,
+    ensure_canvas_file_for_patch,
+)
 
 BLOCK_BEGIN = "// BEGIN GENERATED C1S1_HARNESS_DETAIL"
 BLOCK_END = "// END GENERATED C1S1_HARNESS_DETAIL"
@@ -209,15 +213,96 @@ def _render_block(*, rows: list[dict[str, Any]], summary: dict[str, Any], focus:
     )
 
 
-def _patch_canvas(canvas_text: str, block: str) -> str:
+def _patch_canvas_text(canvas_text: str, block: str) -> str:
     if BLOCK_BEGIN not in canvas_text or BLOCK_END not in canvas_text:
-        raise SystemExit(
+        raise ValueError(
             f"Canvas must contain {BLOCK_BEGIN!r} and {BLOCK_END!r} markers "
             "(add the empty block once, then re-run this script)."
         )
     pre, rest = canvas_text.split(BLOCK_BEGIN, 1)
     _mid, post = rest.split(BLOCK_END, 1)
+    # ``block`` ends with ``BLOCK_END`` + newline; ``post`` often starts with a newline
+    # that was the separator before the following TS. After a prior patch, ``post`` can
+    # start with ``\\n\\n`` so re-patching would otherwise grow the file by one byte each run.
+    if post.startswith("\n\n"):
+        post = post[1:]
     return pre + block + post
+
+
+def build_c1s1_canvas_block(
+    report: dict[str, Any],
+    gold: dict[str, Any],
+    *,
+    report_path: Path | str | None = None,
+) -> str:
+    """Build the full marker-delimited TS block for the C1S1 benchmark review canvas."""
+    rep = dict(report)
+    if report_path is not None:
+        rep["_emit_report_path"] = str(Path(report_path).resolve())
+    rows, summary, focus = _build_rows(report=rep, gold=gold)
+    return _render_block(rows=rows, summary=summary, focus=focus)
+
+
+def patch_c1s1_canvas_paths(block: str, paths: list[Path]) -> list[dict[str, Any]]:
+    """Replace the generated region in each canvas file. Returns one entry per path."""
+    out: list[dict[str, Any]] = []
+    for canvas_path in paths:
+        p = canvas_path.expanduser().resolve()
+        try:
+            ensure_canvas_file_for_patch(p)
+            text = p.read_text(encoding="utf-8")
+        except OSError as exc:
+            out.append({"path": str(p), "error": f"{type(exc).__name__}: {exc}"})
+            continue
+        try:
+            new_text = _patch_canvas_text(text, block)
+        except ValueError as exc:
+            out.append({"path": str(p), "error": f"{type(exc).__name__}: {exc}"})
+            continue
+        if new_text != text:
+            p.write_text(new_text, encoding="utf-8")
+            out.append({"canvas_updated": str(p)})
+        else:
+            out.append({"canvas_unchanged": str(p)})
+    return out
+
+
+def refresh_c1s1_benchmark_canvases(
+    *,
+    report: dict[str, Any],
+    gold: dict[str, Any],
+    report_path: Path | str,
+    canvas_paths: list[Path],
+) -> dict[str, Any]:
+    """Build the C1S1 block from ``report`` + ``gold`` and patch every path in ``canvas_paths``."""
+    block = build_c1s1_canvas_block(report, gold, report_path=report_path)
+    per_file = patch_c1s1_canvas_paths(block, canvas_paths)
+    errors = [x for x in per_file if "error" in x]
+    updated = [str(x["canvas_updated"]) for x in per_file if "canvas_updated" in x]
+    unchanged = [str(x["canvas_unchanged"]) for x in per_file if "canvas_unchanged" in x]
+    return {
+        "enabled": True,
+        "targets": [str(p.expanduser().resolve()) for p in canvas_paths],
+        "updated": updated,
+        "unchanged": unchanged,
+        "errors": errors,
+        "scenario_count": len(list(gold.get("scenarios") or [])),
+    }
+
+
+def c1s1_canvas_refresh_auto_enabled(*, gold_path: Path, gold: dict[str, Any]) -> bool:
+    """True when this gold is the C1S1 natural benchmark (canvas data is defined for that lane)."""
+    if str(gold.get("schema") or "") != "dmb_breadcrumb_query_natural_gold_v1":
+        return False
+    # Avoid matching ``c1s13`` / ``c1s10`` (substring ``c1s1``) in filenames like ``...natural_c1s13_v1.json``.
+    m = re.search(r"natural_(c1s\d+)", gold_path.name.lower())
+    if m and m.group(1) == "c1s1":
+        return True
+    for scen in gold.get("scenarios") or []:
+        sid = str(scen.get("id") or "")
+        if sid.startswith("c1s1_") and not sid.startswith("c1s13_"):
+            return True
+    return False
 
 
 def main() -> None:
@@ -238,22 +323,19 @@ def main() -> None:
     args = p.parse_args()
 
     report = json.loads(args.report.read_text(encoding="utf-8"))
-    report["_emit_report_path"] = str(args.report.resolve())
     gold = json.loads(args.gold.read_text(encoding="utf-8"))
-    rows, summary, focus = _build_rows(report=report, gold=gold)
-    block = _render_block(rows=rows, summary=summary, focus=focus)
-
     targets = [p.expanduser().resolve() for p in (args.canvas_tsx_list or [_DEFAULT_CANVAS])]
-    out: list[dict[str, Any]] = []
-    for canvas_path in targets:
-        text = canvas_path.read_text(encoding="utf-8")
-        new_text = _patch_canvas(text, block)
-        if new_text != text:
-            canvas_path.write_text(new_text, encoding="utf-8")
-            out.append({"canvas_updated": str(canvas_path), "rows": len(rows)})
-        else:
-            out.append({"canvas_unchanged": str(canvas_path)})
-    print(json.dumps({"targets": out}, indent=2))
+    block = build_c1s1_canvas_block(report, gold, report_path=args.report)
+    per_file = patch_c1s1_canvas_paths(block, targets)
+    errors = [x for x in per_file if "error" in x]
+    if errors:
+        err_msg = "; ".join(str(e.get("error", e)) for e in errors)
+        raise SystemExit(f"c1s1_benchmark_canvas_emit: canvas patch failed: {err_msg}")
+    row_n = len(list(gold.get("scenarios") or []))
+    for item in per_file:
+        if "canvas_updated" in item:
+            item["rows"] = row_n
+    print(json.dumps({"targets": per_file}, indent=2))
 
 
 if __name__ == "__main__":

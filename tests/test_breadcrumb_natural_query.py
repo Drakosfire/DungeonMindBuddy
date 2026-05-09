@@ -6,6 +6,7 @@ from evals.sentence_routing_retrieval_falsification.breadcrumb_query_grader impo
     build_query_expansion,
     grade_natural_scenario,
     grade_natural_scenario_lanes,
+    hits_cover_expected_routes,
     load_gold,
     natural_retrieval_bundle,
 )
@@ -57,6 +58,42 @@ def test_grade_natural_scenario_passes_on_synthetic_hit_context() -> None:
     assert out["ok"] is True
     assert out["violations"] == []
     assert out["semantic_verdict"] == "pass_updated"
+
+
+def test_hits_cover_expected_routes_allows_location_hierarchy_query_time_expansion() -> None:
+    hits = [
+        {
+            "routes": [
+                {
+                    "normalized_route": "Longmont Campaign/Campaign 1/Locations/rivers_edge_pub/",
+                    "subject_class": "location",
+                    "proposed": False,
+                }
+            ]
+        }
+    ]
+    ok = hits_cover_expected_routes(
+        hits,
+        ["stonebridge"],
+        location_hierarchy_equivalences={"stonebridge": ["rivers_edge_pub"]},
+    )
+    assert ok is True
+
+
+def test_hits_cover_expected_routes_fails_without_hierarchy_match() -> None:
+    hits = [
+        {
+            "routes": [
+                {
+                    "normalized_route": "Longmont Campaign/Campaign 1/Locations/rivers_edge_pub/",
+                    "subject_class": "location",
+                    "proposed": False,
+                }
+            ]
+        }
+    ]
+    ok = hits_cover_expected_routes(hits, ["stonebridge"])
+    assert ok is False
 
 
 def test_grade_natural_llm_answer_bypasses_hit_context_semantic() -> None:

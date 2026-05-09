@@ -6,6 +6,8 @@
 
 All prepared files live under `corpus/eldyrwild-markdown/Longmont Campaign/Campaign N/Session Recaps/_normalized/`.
 
+**Intentional omission:** Pre-`## Recap` GM sections (Major Beats, Next Beats, Loot, Into the Sewer, Looking Ahead, etc.) are **not** copied into `_normalized/` bodies. That is documented policy, not drift—see `Docs/CONVENTION-Session-Recap-Normalization.md` (section 6, subsection *Intentionally dropped pre-recap chrome*).
+
 | Campaign | Session | Status | Original (corpus-relative) | Prepared filename |
 |----------|---------|--------|---------------------------|-------------------|
 | C1 | 1 | done | `Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md` | `Session 01 - Stonebridge and Glowkindle Rats.md` |

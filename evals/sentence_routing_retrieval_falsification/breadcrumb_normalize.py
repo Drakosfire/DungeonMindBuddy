@@ -503,8 +503,10 @@ def align_fragments_to_units(
 
 def joint_normalized_from_units(units: list[SentenceUnit]) -> str:
     """Canonical joint text for breadcrumb alignment (matches tag-stripped breadcrumb normalization)."""
-    inner = "".join(normalize_for_alignment(u.text) for u in units)
-    return normalize_for_alignment(inner)
+    # One normalization pass over the full recap-derived unit concat so cross-unit
+    # whitespace (e.g. ``...4.`` then newlines then ``1:``) collapses like the
+    # tag-stripped breadcrumb body — per-unit normalize+strip dropped those gaps.
+    return normalize_for_alignment("".join(u.text for u in units))
 
 
 def unit_char_ranges_in_joint(units: list[SentenceUnit], u_joint: str) -> list[tuple[int, int]]:
@@ -514,7 +516,7 @@ def unit_char_ranges_in_joint(units: list[SentenceUnit], u_joint: str) -> list[t
     ranges: list[tuple[int, int]] = []
     j_now = ""
     for u in units:
-        acc += normalize_for_alignment(u.text)
+        acc += u.text
         j_now = normalize_for_alignment(acc)
         ranges.append((prev, len(j_now)))
         prev = len(j_now)

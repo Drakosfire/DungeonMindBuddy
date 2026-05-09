@@ -141,6 +141,15 @@ class TestPydantic:
         assert record.status == "candidate"
         assert record.hub_path is None
 
+    def test_pydantic_rejects_identical_hub_and_setting_paths(self) -> None:
+        with pytest.raises(PydanticValidationError):
+            NpcRegistryRecord.model_validate(
+                _valid_record_payload(
+                    hub_path="Longmont Campaign/Campaign 2/NPCs/kirfan/",
+                    setting_hub_path="Longmont Campaign/Campaign 2/NPCs/kirfan/",
+                )
+            )
+
     def test_loader_raises_on_non_array_top_level(self, tmp_path: Path) -> None:
         path = tmp_path / "registry.json"
         path.write_text(json.dumps({"not": "an array"}), encoding="utf-8")
@@ -300,3 +309,49 @@ class TestLintScript:
         rc, output = _run_lint(tmp_path, registry, corpus_root)
         assert rc == 1
         assert "does not match slug 'janet_doe'" in output
+
+    def test_setting_hub_path_must_point_to_world_layer(self, tmp_path: Path) -> None:
+        corpus_root = tmp_path / "corpus"
+        _scaffold_hub(corpus_root, "Longmont Campaign/Campaign 2/NPCs/kirfan/")
+        _scaffold_hub(corpus_root, "Longmont Campaign/Campaign 1/NPCs/kirfan/")
+
+        registry = tmp_path / "_npc_registry.json"
+        _write_registry(
+            registry,
+            [
+                _valid_record_payload(
+                    slug="kirfan",
+                    display_name="Kirfan",
+                    hub_path="Longmont Campaign/Campaign 2/NPCs/kirfan/",
+                    setting_hub_path="Longmont Campaign/Campaign 1/NPCs/kirfan/",
+                )
+            ],
+        )
+
+        rc, output = _run_lint(tmp_path, registry, corpus_root)
+        assert rc == 1
+        assert "setting_hub_path — must point to an Elderwyld world-layer hub path" in output
+
+    def test_campaign_hub_requires_setting_fallback_when_world_sibling_exists(
+        self, tmp_path: Path
+    ) -> None:
+        corpus_root = tmp_path / "corpus"
+        _scaffold_hub(corpus_root, "Longmont Campaign/Campaign 1/NPCs/grishna/")
+        _scaffold_hub(corpus_root, "Elderwyld/Cities and Towns/Stonebridge/NPCs/grishna/")
+
+        registry = tmp_path / "_npc_registry.json"
+        _write_registry(
+            registry,
+            [
+                _valid_record_payload(
+                    slug="grishna",
+                    display_name="Grishna",
+                    hub_path="Longmont Campaign/Campaign 1/NPCs/grishna/",
+                    setting_hub_path=None,
+                )
+            ],
+        )
+
+        rc, output = _run_lint(tmp_path, registry, corpus_root)
+        assert rc == 1
+        assert "setting_hub_path — missing world fallback while an Elderwyld sibling hub exists" in output
