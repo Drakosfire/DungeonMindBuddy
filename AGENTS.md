@@ -11,3 +11,7 @@ Do not dump large files, logs, generated files, dependency trees, or vendored co
 Correctness overrides token savings. Preserve failed tests, stack traces, compiler errors, migration warnings, security findings, and destructive-command risks.
 
 Never run destructive commands without explicit user approval.
+
+## External-agent PR loop
+
+When work lands via a GitHub PR opened by a Codex-style external agent (HANDOFF write → external PR → judgment record → atomic doc-sync), the procedure / runbook is `.cursor/skills/external-agent-pr-loop/SKILL.md` (read on demand). The non-negotiable invariants are in `.cursor/rules/external-agent-pr-loop.mdc` (always-on). Use `scripts/review_external_pr.py {fetch | verify | post}` for the review loop — manual `gh + git + sed` is the anti-pattern.

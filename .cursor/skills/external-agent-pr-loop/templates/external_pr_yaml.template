@@ -1,0 +1,36 @@
+# Paste this entry at the TOP of `external_pull_requests:` in the relevant
+# `Docs/Plans/PLAN-*.md`. Newest PR first. Replace every {{TODO: …}} slot.
+# After the merge, treat this entry as historical: do not edit `notes` for
+# stylistic reasons in later turns; only correct facts.
+
+  - id: github-pr-{{TODO: N}}
+    url: https://github.com/Drakosfire/DungeonMindBuddy/pull/{{TODO: N}}
+    plan_phase_primary: "{{TODO: phase id, e.g. \"5\"}}"
+    plan_phase_also_touches: "{{TODO: phase id, optional}}"
+    plan_phase_label: >-
+      {{TODO: one or two sentences naming the slice this PR landed. Mention
+      that it is shadow-only / behind-flag / etc. if relevant. Mention which
+      milestone it opens or closes.}}
+    review_status: merged   # or: closed_superseded, open_under_review
+    review_status_meaning: >-
+      Merged to main on {{TODO: ISO timestamp of the merge}} (merge commit
+      {{TODO: full 40-char hash}}) after {{TODO: rounds}} round(s) of review.
+      {{TODO: one-sentence summary of what each round added (round 1 / round
+      2 / …) so the next reviewer sees how the PR matured.}}
+      Final verification on {{TODO: round-N short hash}}: §7 suite green
+      ({{TODO: command-1}} -> {{TODO: result}}; {{TODO: command-2}} ->
+      {{TODO: result}}). Verdict delivered as {{TODO: APPROVE / REQUEST_CHANGES,
+      or "COMMENT banner with APPROVE intent" if self-review 422 fallback fired}}.
+    judgment_record:
+      verdict: accepted   # or: superseded_by_pr_M, closed_superseded
+      evaluated_at: "{{TODO: ISO timestamp of the verdict}}"
+      evaluator: cursor-agent
+      notes: >-
+        {{TODO: 2-4 sentences. State what the PR DID (ages well). Optionally
+        note known follow-ups that did NOT block merge — phrase as facts about
+        the PR, not about the project state, so the note ages well. Avoid
+        temporal claims like "Phase X is still pending" — those rot.}}
+    rubric_when_we_judge:
+      - "{{TODO: carry-forward bullet 1 from the previous PR's rubric, kept verbatim if still operative}}"
+      - "{{TODO: carry-forward bullet 2}}"
+      - "{{TODO: NEW bullet learned from this PR — every supersession MUST add one; every accept SHOULD tighten the rubric. Identical rubrics two PRs in a row is a smell.}}"

@@ -1,0 +1,38 @@
+---
+description: Invariants (always-on) for the four-stage external-agent PR loop in DungeonMindBuddy. Procedure / runbook lives in `.cursor/skills/external-agent-pr-loop/SKILL.md`.
+alwaysApply: true
+---
+
+# External-agent PR loop (contract)
+
+When work lands via a GitHub PR opened by an agent the parent does not directly drive (Codex-style branch agents), the four-stage cycle is **HANDOFF write → external PR opens → judgment record → atomic doc-sync**. The cycle does not end at "merged green" — it ends when the plan YAML, checklist, and handoff status all match `main`.
+
+For **in-IDE** subagents (the parent agent dispatches a `Task` and reads its output), follow `subagent-delegation.mdc` instead.
+
+The procedure for each stage — how to actually run `scripts/review_external_pr.py`, the markdown spec format for review bodies, the doc-sync edit list, the templates — lives in **`.cursor/skills/external-agent-pr-loop/SKILL.md`** (read on demand). This rule states only the non-negotiable invariants (always-on).
+
+## Invariants (do not regress)
+
+1. **HANDOFF must include §4 allowlist and §7 verification.** §4 is a markdown table the agent's expected `git diff --stat` can be expressed from. If you cannot enumerate the allowlist, the slice is not ready to dispatch.
+2. **Test the boundary that owns the rubric.** Every §9 rubric bullet asserting a behavioral guarantee (e.g. "byte-identical when flag X is unset", "error payload on load fail, never raises") MUST be paired with a §7 command that exercises that guarantee at the boundary the rubric describes (harness, dispatcher, writer — whichever owns the contract). Loader-side or unit-side coverage is necessary but not sufficient. **Lesson source:** PR #4 — round 1 had loader-only tests for harness-boundary guarantees and the harness `try/except` arm went untested; round 2 added the missing harness tests.
+3. **Use the scripts, not manual `gh + git + sed`.** `scripts/review_external_pr.py {fetch | verify | post}` is the canonical path for fetch / allowlist-check / §7 rerun / verdict-with-inline-comments. The manual dance costs an order of magnitude more tokens for the same coverage.
+4. **Doc-sync after merge is one atomic edit batch.** Plan, checklist, and handoff archive — all in the same agent turn. Splitting across turns leaves a contradictory-state window where a fresh agent reads "pending" while `main` already has the change.
+5. **The judgment-record rubric is a learning surface.** Every supersession MUST add a bullet to `rubric_when_we_judge`. Every accepted PR SHOULD leave the rubric tightened, not unchanged. Identical rubrics two PRs in a row is a smell.
+6. **Stale-note discipline.** Notes that describe what a PR *did* age well; notes that describe what is *still pending* age badly. Re-verify temporal claims in `judgment_record.notes` before quoting them downstream.
+
+## Anti-patterns (forbidden)
+
+- ❌ Briefing without an allowlist or verification command.
+- ❌ Silently accepting "tiny adjacent" scope creep at review time. Revert; re-brief.
+- ❌ Accepting a green PR description without rerunning §7 yourself.
+- ❌ Reusing prior `judgment_record.notes` text without re-verifying temporal claims.
+- ❌ Hand-anchoring inline review comments to context lines (must be added/modified lines).
+- ❌ Reproducing the manual `gh + git + sed` dance when a handoff exists. Use `scripts/review_external_pr.py`.
+- ❌ Writing a §9 rubric bullet for a behavioral guarantee without naming the §7 command that tests it at the right boundary.
+
+## References
+
+- **Procedure / runbook (read on demand):** `.cursor/skills/external-agent-pr-loop/SKILL.md`
+- Sibling rules: `subagent-delegation.mdc`, `two-model-workflow.mdc`, `dungeonbuddy-git-workflow.mdc`, `capture-and-resurface.mdc`.
+- Cross-project learning: `~/.cursor/learnings/Backlog.md` — `[READY] External-agent PR loop`.
+- Canonical examples: `Docs/Plans/archive/2026-05-10/handoffs/HANDOFF-phase-{b,c}-*.md`; `Docs/Plans/PLAN-split-corpus-retrieval-to-autonomous-demo.md` (`external_pull_requests[]`); `Docs/Plans/CHECKLIST-dynamic-lexical-retrieval-rollout.md` (Reanchor + Session log).

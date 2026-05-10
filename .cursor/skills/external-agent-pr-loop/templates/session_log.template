@@ -1,0 +1,32 @@
+<!--
+Prepend this block at the TOP of `## Session Log (append newest first)` in
+the relevant `Docs/Plans/CHECKLIST-*.md`. Replace every {{TODO: …}} slot.
+
+Field rules (validated across PR #2/#3/#4 entries):
+
+- "Phase moved" describes phase / milestone movement, even when the active
+  phase did not change ("stayed B, with Phase C entry landed" is a valid
+  movement).
+- "What turned green" must include the merge commit (full 40-char hash) and
+  test counts from §7.
+- "Review-loop tooling notes" is the round-by-round history (round 1 had
+  loader-only tests, round 2 added harness boundary tests, etc.) — this is
+  the surface where the lesson that goes into `rubric_when_we_judge` is
+  captured first.
+- "Pre-merge verification" lists exact commands and pass counts.
+- "Known follow-up" is for non-blocking issues that did not gate the merge
+  but should be tracked.
+- "What stayed open" is the negative space — what did NOT change despite this
+  PR landing. Anchors the reader against false-victory claims.
+- "Next single action" is the smallest concrete next slice. ONE bullet.
+-->
+
+### {{TODO: YYYY-MM-DD}} (UTC) — {{TODO: ordinal-th}} entry, PR #{{TODO: N}} merged + doc sync ({{TODO: phase / slice label}})
+
+- Phase moved: **`{{TODO: from -> to, or "stayed X, with <slice> landed"}}`**. {{TODO: optional milestone movement, e.g. "milestone_progress.M3: not_started -> in_progress"}}.
+- What turned green: [PR #{{TODO: N}}](https://github.com/Drakosfire/DungeonMindBuddy/pull/{{TODO: N}}) **MERGED** to `main` (merge commit `{{TODO: full hash}}`, {{TODO: ISO timestamp}}). {{TODO: one-sentence what-the-PR-did, naming the new files / new fields / new flag.}}
+- Review-loop tooling notes: round 1 (commit `{{TODO: short hash}}`) {{TODO: what was sufficient and what was missing}} and was {{TODO: REQUEST_CHANGES / COMMENT-banner}}'d via `scripts/review_external_pr.py post --review-md ...`. Round 2 (commit `{{TODO: short hash}}`) {{TODO: what closed the gap}}. {{TODO: optional: what new rubric bullet was added to `external_pull_requests[github-pr-N].rubric_when_we_judge`}}.
+- Pre-merge verification: {{TODO: command 1}} -> `{{TODO: result}}`; {{TODO: command 2}} -> `{{TODO: result}}`; {{TODO: command 3}} -> `{{TODO: result}}`.
+- Known follow-up (not blocking merge): {{TODO: e.g. "field X stores machine-dependent path; fold into manifest-hash / provenance lane"}}.
+- What stayed open: {{TODO: phase exit, broader phase remainder, etc.}}.
+- Next single action: {{TODO: smallest concrete next slice — ONE bullet}}.
