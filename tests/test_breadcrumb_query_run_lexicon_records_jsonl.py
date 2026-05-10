@@ -82,6 +82,11 @@ def _route_equivalence_paths() -> list[Path]:
     ]
 
 
+expected_source_paths = [
+    "evals/sentence_routing_retrieval_falsification/artifacts/lexicon/route_equivalence_longmont_c1_v1.jsonl",
+    "evals/sentence_routing_retrieval_falsification/artifacts/lexicon/route_equivalence_longmont_c2_v1.jsonl",
+]
+
 def test_route_equivalence_shadow_payload_is_deterministic() -> None:
     source_paths = _route_equivalence_paths()
     records = load_route_equivalence_shadow_records(source_paths)
@@ -89,11 +94,13 @@ def test_route_equivalence_shadow_payload_is_deterministic() -> None:
         scenario_campaign_id="longmont-c1",
         records=records,
         source_paths=source_paths,
+        workspace_root=_REPO_ROOT,
     )
     second = build_route_equivalence_shadow_payload(
         scenario_campaign_id="longmont-c1",
         records=records,
         source_paths=source_paths,
+        workspace_root=_REPO_ROOT,
     )
     assert first == second
 
@@ -105,13 +112,14 @@ def test_route_equivalence_shadow_payload_for_c1s1_campaign_id() -> None:
         scenario_campaign_id="longmont-c1",
         records=records,
         source_paths=source_paths,
+        workspace_root=_REPO_ROOT,
     )
     assert payload["schema"] == ROUTE_EQUIVALENCE_SHADOW_SCHEMA_V1
     assert payload["scenario_campaign_id"] == "longmont-c1"
     assert payload["edges_total"] == len(records)
     assert payload["edges_for_scenario_campaign"] == sum(1 for r in records if r.campaign_id == "longmont-c1")
     assert payload["campaign_ids"] == sorted({r.campaign_id for r in records})
-    assert payload["source_paths"] == [str(p) for p in source_paths]
+    assert payload["source_paths"] == expected_source_paths
 
 
 def test_route_equivalence_shadow_payload_for_c1s2_campaign_id() -> None:
@@ -121,13 +129,14 @@ def test_route_equivalence_shadow_payload_for_c1s2_campaign_id() -> None:
         scenario_campaign_id="longmont-c1",
         records=records,
         source_paths=source_paths,
+        workspace_root=_REPO_ROOT,
     )
     assert payload["schema"] == ROUTE_EQUIVALENCE_SHADOW_SCHEMA_V1
     assert payload["scenario_campaign_id"] == "longmont-c1"
     assert payload["edges_total"] == len(records)
     assert payload["edges_for_scenario_campaign"] == sum(1 for r in records if r.campaign_id == "longmont-c1")
     assert payload["campaign_ids"] == sorted({r.campaign_id for r in records})
-    assert payload["source_paths"] == [str(p) for p in source_paths]
+    assert payload["source_paths"] == expected_source_paths
 
 
 def test_route_equivalence_shadow_payload_for_c1s3_campaign_id() -> None:
@@ -137,13 +146,14 @@ def test_route_equivalence_shadow_payload_for_c1s3_campaign_id() -> None:
         scenario_campaign_id="longmont-c1",
         records=records,
         source_paths=source_paths,
+        workspace_root=_REPO_ROOT,
     )
     assert payload["schema"] == ROUTE_EQUIVALENCE_SHADOW_SCHEMA_V1
     assert payload["scenario_campaign_id"] == "longmont-c1"
     assert payload["edges_total"] == len(records)
     assert payload["edges_for_scenario_campaign"] == sum(1 for r in records if r.campaign_id == "longmont-c1")
     assert payload["campaign_ids"] == sorted({r.campaign_id for r in records})
-    assert payload["source_paths"] == [str(p) for p in source_paths]
+    assert payload["source_paths"] == expected_source_paths
 
 
 def test_route_equivalence_shadow_payload_unknown_campaign_returns_zero_match() -> None:
@@ -153,6 +163,7 @@ def test_route_equivalence_shadow_payload_unknown_campaign_returns_zero_match() 
         scenario_campaign_id="longmont-c99",
         records=records,
         source_paths=source_paths,
+        workspace_root=_REPO_ROOT,
     )
     assert payload["edges_for_scenario_campaign"] == 0
     assert payload["edges_total"] > 0
@@ -176,6 +187,29 @@ def test_breadcrumb_query_run_help_advertises_route_equivalence_jsonl_flag() -> 
         check=True,
     )
     assert "--route-equivalence-jsonl" in result.stdout
+
+
+def _run_breadcrumb_query_run_subprocess_with_cwd(
+    *, output_path: Path, extra_args: list[str], cwd: Path
+) -> subprocess.CompletedProcess[str]:
+    cmd = [
+        "uv",
+        "run",
+        "--directory",
+        str(_REPO_ROOT),
+        "python",
+        "-m",
+        "evals.sentence_routing_retrieval_falsification.breadcrumb_query_run",
+        "--records-jsonl",
+        str(_FIXTURE_JSONL),
+        "--gold",
+        str(_NATURAL_GOLD_C1S1),
+        "--retrieval-only",
+        "--output",
+        str(output_path),
+        *extra_args,
+    ]
+    return subprocess.run(cmd, capture_output=True, text=True, cwd=str(cwd))
 
 
 def _run_breadcrumb_query_run_subprocess(*, output_path: Path, extra_args: list[str]) -> subprocess.CompletedProcess[str]:
@@ -224,6 +258,44 @@ def test_route_equivalence_flag_is_additive_only_at_harness_boundary(tmp_path: P
         flagged_without_shadow.pop("shadow_route_equivalences", None)
         assert base_row == flagged_without_shadow
 
+
+
+def test_route_equivalence_source_paths_are_workspace_relative_and_cwd_invariant(
+    tmp_path: Path,
+) -> None:
+    if shutil.which("uv") is None:
+        pytest.skip("uv not available")
+    out_a = tmp_path / "from_repo_root.json"
+    out_b = tmp_path / "from_subdir.json"
+    extra_args = [
+        "--route-equivalence-jsonl",
+        str(_route_equivalence_paths()[0]),
+        "--route-equivalence-jsonl",
+        str(_route_equivalence_paths()[1]),
+    ]
+    run_a = _run_breadcrumb_query_run_subprocess_with_cwd(
+        output_path=out_a,
+        extra_args=extra_args,
+        cwd=_REPO_ROOT,
+    )
+    cwd_subdir = _REPO_ROOT / "tests"
+    assert cwd_subdir.is_dir()
+    run_b = _run_breadcrumb_query_run_subprocess_with_cwd(
+        output_path=out_b,
+        extra_args=extra_args,
+        cwd=cwd_subdir,
+    )
+    assert run_a.returncode == 0, run_a.stderr
+    assert run_b.returncode == 0, run_b.stderr
+
+    rows_a = json.loads(out_a.read_text(encoding="utf-8"))["results"]
+    rows_b = json.loads(out_b.read_text(encoding="utf-8"))["results"]
+    assert len(rows_a) == len(rows_b) > 0
+    for row_a, row_b in zip(rows_a, rows_b, strict=True):
+        payload_a = row_a["shadow_route_equivalences"]
+        payload_b = row_b["shadow_route_equivalences"]
+        assert payload_a == payload_b, "shadow payload must be CWD-invariant"
+        assert payload_a["source_paths"] == expected_source_paths
 
 def test_route_equivalence_load_failure_emits_error_payload_and_run_survives(tmp_path: Path) -> None:
     if shutil.which("uv") is None:
