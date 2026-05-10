@@ -3,13 +3,16 @@
 manual `gh + git + sed` dance the parent agent runs against every PR
 opened by an external (Codex-style) worker.
 
-Three subcommands map onto `.cursor/rules/external-agent-pr-loop.mdc` § 2
+Subcommands map onto `.cursor/rules/external-agent-pr-loop.mdc` § 2
 ("PR review — gates before reading the diff"):
 
     fetch   — Produce a single structured pre-review summary combining PR
               metadata, the file-level diff, and (when ``--handoff`` is
               given) §4 allowlist / §5 denylist checks plus the §7
               verification command list parsed from the markdown.
+              Optional ``--extract-rubric`` adds §9 acceptance bullets
+              (markdown list lines) so verdict writers do not re-open the
+              handoff for copy/paste.
               One JSON blob replaces 6–10 ad-hoc ``gh pr view`` /
               ``git diff`` / ``git show`` calls.
 
@@ -17,6 +20,9 @@ Three subcommands map onto `.cursor/rules/external-agent-pr-loop.mdc` § 2
               checkout the PR head, run the §7 verification commands
               (parsed from the handoff or supplied via ``--command``),
               then restore the original branch and pop the stash.
+              Optional ``--parse-counts`` runs a pytest-style
+              ``N passed`` regex over each command's captured tail and
+              emits ``passed_count`` per result for checklist templating.
               The reviewer never has to do the stash/checkout/restore
               dance by hand.
 
@@ -60,7 +66,6 @@ import argparse
 import json
 import os
 import re
-import shlex
 import subprocess
 import sys
 from dataclasses import dataclass, field
@@ -242,6 +247,50 @@ def extract_denylist_patterns(handoff: HandoffSections) -> list[str]:
     return sorted(set(normalized))
 
 
+def extract_rubric_bullets(handoff: HandoffSections) -> list[str]:
+    """Return non-empty list items from the §9 body (acceptance rubric).
+
+    Heuristic: lines matching ``-`` / ``- [ ]`` / ``- [x]`` list syntax at
+    column 0 (after optional whitespace). Blockquote lines (``>``) are
+    skipped. Intended for ``fetch --extract-rubric`` so verdict bodies can
+    quote rubric text without re-reading the full handoff.
+    """
+    body = handoff.section("§9")
+    bullets: list[str] = []
+    line_re = re.compile(
+        r"^\s*-\s*(?:\[[ xX]\]\s*)?(?P<text>.+?)\s*$",
+    )
+    for line in body.splitlines():
+        stripped = line.lstrip()
+        if stripped.startswith(">"):
+            continue
+        m = line_re.match(line)
+        if not m:
+            continue
+        text = m.group("text").strip()
+        # Markdown horizontal rules look like list items (`---`).
+        if not text or re.fullmatch(r"-{3,}", text):
+            continue
+        bullets.append(text)
+    return bullets
+
+
+_PYTEST_PASSED_RE = re.compile(r"(\d+)\s+passed\b", re.IGNORECASE)
+
+
+def parse_passed_count_from_tail(tail: str) -> int | None:
+    """Best-effort pytest ``N passed`` count from trailing command output.
+
+    Uses the **last** ``(\\d+) passed`` match in ``tail`` so multi-suite
+    logs still surface the final summary line when pytest prints it last.
+    Returns ``None`` when no pytest-style summary is detected.
+    """
+    matches = _PYTEST_PASSED_RE.findall(tail)
+    if not matches:
+        return None
+    return int(matches[-1])
+
+
 def extract_verification_commands(handoff: HandoffSections) -> list[str]:
     """Extract individual shell commands from the §7 ```bash``` fences.
 
@@ -310,10 +359,13 @@ def denylist_hits(
 
 
 def cmd_fetch(args: argparse.Namespace) -> int:
-    pr_json_fields = (
-        "number,title,state,baseRefName,headRefName,headRefOid,"
-        "additions,deletions,changedFiles,files,author,mergeable,reviewDecision"
-    )
+    if args.extract_rubric and not args.handoff:
+        print(
+            "fetch: --extract-rubric requires --handoff",
+            file=sys.stderr,
+        )
+        return 2
+
     pr_meta = _gh_json([
         f"repos/{args.repo}/pulls/{args.pr}",
     ])
@@ -389,6 +441,9 @@ def cmd_fetch(args: argparse.Namespace) -> int:
         }
         summary["verification_commands"] = verification
 
+        if args.extract_rubric:
+            summary["handoff"]["rubric_bullets"] = extract_rubric_bullets(handoff)
+
     json.dump(summary, sys.stdout, indent=2, sort_keys=False, ensure_ascii=False)
     sys.stdout.write("\n")
     return 0
@@ -448,14 +503,16 @@ def cmd_verify(args: argparse.Namespace) -> int:
                 capture_output=True,
                 text=True,
             )
-            tail = "\n".join(
-                (proc.stdout + proc.stderr).splitlines()[-args.tail :]
-            )
-            results.append({
+            combined = proc.stdout + proc.stderr
+            tail = "\n".join(combined.splitlines()[-args.tail :])
+            row: dict[str, Any] = {
                 "command": cmd,
                 "exit_code": proc.returncode,
                 "tail": tail,
-            })
+            }
+            if args.parse_counts:
+                row["passed_count"] = parse_passed_count_from_tail(tail)
+            results.append(row)
             print(tail, file=sys.stderr)
             if proc.returncode != 0 and args.fail_fast:
                 print(f"# fail-fast on non-zero exit: {cmd}", file=sys.stderr)
@@ -957,6 +1014,15 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Path to the HANDOFF-*.md the PR was dispatched from.",
     )
+    p_fetch.add_argument(
+        "--extract-rubric",
+        action="store_true",
+        help=(
+            "With --handoff, include §9 rubric list lines as "
+            "`handoff.rubric_bullets[]` in the JSON (verdict / checklist "
+            "templating)."
+        ),
+    )
     p_fetch.set_defaults(func=cmd_fetch)
 
     p_verify = sub.add_parser(
@@ -986,6 +1052,14 @@ def build_parser() -> argparse.ArgumentParser:
         "--fail-fast",
         action="store_true",
         help="Stop at the first failing command (default: run all).",
+    )
+    p_verify.add_argument(
+        "--parse-counts",
+        action="store_true",
+        help=(
+            "Add `passed_count` (int or null) per result by scanning each "
+            "command's tail for pytest-style `N passed`."
+        ),
     )
     p_verify.set_defaults(func=cmd_verify)
 

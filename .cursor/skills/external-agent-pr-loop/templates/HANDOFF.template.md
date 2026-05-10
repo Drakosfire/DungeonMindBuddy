@@ -1,3 +1,21 @@
+---
+# Optional workflow contract: literal markdown the worker pastes into the
+# GitHub PR description. Dispatcher fills once; reviewers and parallel
+# agents see one stable shape without inferring sections from free-form §2 prose.
+# Delete this whole frontmatter block if you prefer prose-only handoffs.
+pr_body_template: |
+  ## Summary
+  {{TODO: one sentence — same as §1 Mission}}
+
+  ## Verification (verbatim §7)
+  {{TODO: paste command outputs after the worker runs §7}}
+
+  ## `git diff --stat` (§4 paths only)
+  ```text
+  {{TODO}}
+  ```
+---
+
 # HANDOFF — {{TODO: one-line title — phase + slice, e.g. "Phase C entry: route-equivalence shadow consumer in `breadcrumb_query_run`"}}
 
 **Created:** {{TODO: YYYY-MM-DD}} (UTC).

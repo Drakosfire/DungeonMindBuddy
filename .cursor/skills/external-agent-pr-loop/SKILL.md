@@ -42,7 +42,12 @@ checklist, and handoff status all match `main`.
    `Docs/Plans/HANDOFF-<slug>.md`.
 2. Fill every `{{TODO: …}}` slot. Do **not** delete a section; the worker and
    the reviewer scripts both expect §1–§9.
-3. Run the **collision-risk pre-flight** before sending:
+3. **Optional:** keep the YAML frontmatter block at the top (`pr_body_template`)
+   when you want one canonical PR-body shape (especially for parallel external
+   workers). The worker pastes that markdown into GitHub; it is **not** parsed
+   by `review_external_pr.py` today — it is discipline-only. Delete the whole
+   `---` … `---` block if you prefer a prose-only handoff.
+4. Run the **collision-risk pre-flight** before sending:
 
    ```bash
    rg -l "test_<basename>" tests/ || true
@@ -78,8 +83,13 @@ GitHub.
 
 ```bash
 uv run python scripts/review_external_pr.py fetch <N> \
-  --handoff Docs/Plans/HANDOFF-<slug>.md
+  --handoff Docs/Plans/HANDOFF-<slug>.md \
+  --extract-rubric
 ```
+
+`--extract-rubric` is optional; it adds `handoff.rubric_bullets[]` (§9 list
+lines) so you can draft verdicts and PLAN YAML without re-opening the handoff
+for rubric copy/paste.
 
 Returns one JSON blob:
 
@@ -90,17 +100,23 @@ Returns one JSON blob:
 | `allowlist_check {status, expected, extras, missing}` | `status: pass` ⇒ proceed; `extras` ⇒ scope creep, push back; empty `expected` ⇒ parser couldn't read the handoff (markdown-table heuristic keyed on a column literally named `Path`), do manual review |
 | `denylist_check {status, hits}` | `hits` need a human pass — §5 prose sometimes carves out exceptions a glob can't see |
 | `verification_commands[]` | extracted from §7 |
+| `handoff.rubric_bullets[]` | when `--extract-rubric`: §9 `-` / `- [ ]` lines (blockquote lines skipped) |
 
 ### 2b. Verify §7 yourself
 
 ```bash
 uv run python scripts/review_external_pr.py verify <N> \
-  --handoff Docs/Plans/HANDOFF-<slug>.md
+  --handoff Docs/Plans/HANDOFF-<slug>.md \
+  --parse-counts
 ```
+
+`--parse-counts` is optional; each `results[]` entry then includes
+`passed_count` (integer) or `null` when the captured tail has no pytest-style
+`N passed` summary (raise `--tail` if you see too many `null`s).
 
 Auto-stashes the working tree, checks out the PR head, runs every §7 command,
 restores `main`, pops the stash. Returns
-`{passed, head_sha, results: [{command, exit_code, tail}]}`.
+`{passed, head_sha, results: [{command, exit_code, tail, passed_count?}]}`.
 
 Never trust the PR description's "all green" — sandbox / runner differences
 and silent skips happen.
@@ -258,8 +274,8 @@ the following in one edit batch:
 
 | Command | Purpose | Mutates? |
 |---|---|---|
-| `fetch <N> --handoff <path>` | PR metadata + allowlist + denylist + §7 commands | no |
-| `verify <N> --handoff <path>` | Stash, checkout, run §7, restore | yes (auto-restored) |
+| `fetch <N> --handoff <path> [--extract-rubric]` | PR metadata + allowlist + denylist + §7 commands (+ optional §9 bullets) | no |
+| `verify <N> --handoff <path> [--parse-counts]` | Stash, checkout, run §7, restore (+ optional `passed_count` per command) | yes (auto-restored) |
 | `post --review-md <path>` | Post review with inline comments | yes (GitHub) |
 | `merge <N>` | Merge, ff local main, auto-stash overlap, emit doc-sync data | yes (GitHub + local tree) |
 
