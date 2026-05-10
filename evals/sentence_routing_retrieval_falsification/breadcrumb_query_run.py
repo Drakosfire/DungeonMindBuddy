@@ -1064,6 +1064,7 @@ def main() -> None:
 
         route_equivalence_records = None
         route_equivalence_paths_resolved: list[Path] = []
+        _HARNESS_WORKSPACE_ROOT = Path(__file__).resolve().parents[2]
         route_equivalence_load_error = ""
         if args.route_equivalence_jsonl:
             try:
@@ -1169,6 +1170,7 @@ def main() -> None:
                     scenario_campaign_id=str(scen.get("campaign_id") or default_campaign),
                     records=route_equivalence_records,
                     source_paths=route_equivalence_paths_resolved,
+                    workspace_root=_HARNESS_WORKSPACE_ROOT,
                 )
             elif args.route_equivalence_jsonl:
                 row["shadow_route_equivalences"] = {

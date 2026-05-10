@@ -27,11 +27,20 @@ def load_route_equivalence_shadow_records(
     return load_route_equivalence_manifests(resolved_paths)
 
 
+def _workspace_relative_posix(path: Path, workspace_root: Path) -> str:
+    """Render ``path`` as a workspace-relative POSIX string when possible."""
+    try:
+        return path.resolve().relative_to(workspace_root.resolve()).as_posix()
+    except ValueError:
+        return path.name
+
+
 def build_route_equivalence_shadow_payload(
     *,
     scenario_campaign_id: str,
     records: Sequence[RouteEquivalenceRecord],
     source_paths: Sequence[Path],
+    workspace_root: Path,
 ) -> dict[str, Any]:
     """Build the per-scenario shadow diagnostic."""
     normalized_campaign_id = scenario_campaign_id.strip()
@@ -43,5 +52,5 @@ def build_route_equivalence_shadow_payload(
         "edges_total": len(records),
         "edges_for_scenario_campaign": edges_for_scenario,
         "campaign_ids": campaign_ids,
-        "source_paths": [str(p) for p in source_paths],
+        "source_paths": [_workspace_relative_posix(p, workspace_root) for p in source_paths],
     }
