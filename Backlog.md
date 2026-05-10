@@ -31,6 +31,48 @@ Sort newest → oldest within each status; promote with `/promote`; archive with
 
 ---
 
+## [IDEA] Extracted DungeonBuddy LLM + benchmarking client (audit DungeonMindServer + carry forward benchmarking discipline) — captured 2026-05-10
+
+**Context:** While planning the A/B Benchmarking Sprint after PR #5 (`PLAN-split-corpus-retrieval-to-autonomous-demo.md` § *A/B Benchmarking Sprint (post-PR #5)*), two surfaces inside `evals/sentence_routing_retrieval_falsification/` became visible as having different shapes than each other: **(1)** the retrieval-benchmarking wrapper (`breadcrumb_query_run.py` + route-equivalence loader + shadow payload + planned cohort runner / recall metric / additive ranking-input wiring) — increasingly abstract and not very Eldyrwild-specific; **(2)** the LLM call itself — already generic via `bootstrap_env.load_dungeonmindbuddy_dotenv()` + `OpenAI()` + strict `text.format` envelope + cost telemetry + planner two-phase commit. Both are stitched into entry-point scripts today; neither is exposed as a library a sister DungeonMind service could import.
+
+**Insight:** At some point — not now — both surfaces could be lifted into a thin `dungeonbuddy_client` package consumed by sibling services (DungeonMindServer first, then anything new). The lift is the right moment to **audit DungeonMindServer**'s existing LLM and benchmarking patterns: what it does right (keep), what's imperfect (improve in the lift), what's outright insecure (repair, don't entrench). The discipline this repo has accumulated — cost-as-signal, anti-oracle leakage, verify-before-debug, gold-realignment-vs-deflation, test-the-boundary-that-owns-the-rubric, stochastic gates need multi-trial, disk artifacts by default, two-phase commit for writes, LLM context discovery (not provision), strict planner JSON envelope, canonical OpenAI client construction, PII / payload hygiene, workspace-relative provenance fields, external-agent PR loop discipline — should ship as **defaults**, not opt-ins.
+
+**Action:** Captured as **SEED** in `Docs/Design/DESIGN-dungeonbuddy-client-seed.md`. Not an active workstream. Promotion criteria documented in §5 of that doc: A/B sprint L3 shipped + concrete second consumer named + DungeonMindServer audit doc exists + an owner exists. Until promoted, do not let this pull weight from the active sprint.
+
+**Surfaces when:** the A/B Benchmarking Sprint L3 ships; a second DungeonMind service asks for the LLM-call shape we use here; an audit of DungeonMindServer's auth / cost-telemetry / structured-output / secrets patterns is in scope; bootstrapping a new DungeonMind-adjacent service that should not re-derive the discipline from scratch; reading `DESIGN-benchmark-philosophy-and-goals.md` and noticing the principles haven't been reified as code anywhere yet.
+
+**Refs:** `Docs/Design/DESIGN-dungeonbuddy-client-seed.md` (canonical capture), `Docs/Plans/PLAN-split-corpus-retrieval-to-autonomous-demo.md` § *A/B Benchmarking Sprint (post-PR #5)*, `Docs/Design/DESIGN-benchmark-philosophy-and-goals.md`, `Docs/Design/DESIGN-citation-grounded-corpus-architecture.md`, `~/Projects/DungeonOverMind/DungeonMindServer/` (audit target), `~/.cursor/learnings/Backlog.md` (cross-project sibling entry on the pattern itself).
+
+---
+
+## [IDEA] HANDOFF §0 expected §7 command counts vs parser — captured 2026-05-10
+
+**Context:** PR #5 self-continuity handoff prose claimed "5 §7 commands" but `extract_verification_commands` / `fetch` reported **6**: the §7 fenced block included a final `python -c` after a multi-line `uv run …` invocation, and the parser counts each as a separate verification command.
+
+**Insight:** Human-written "expected counts" drift from what `scripts/review_external_pr.py` extracts; treating prose as authoritative causes pre-dispatch miscounts and false "parser bug" triage.
+
+**Action:** Run the HANDOFF **§0** smoke (or `fetch` extraction) before dispatch and treat **its** `verification_commands[]` length as authoritative for §7; align narrative to match (e.g. shell continuations if one logical command is intended). Optional future: YAML `expected_section7_command_count` on HANDOFFs for machine check — **do not implement that script in this capture.**
+
+**Surfaces when:** authoring `Docs/Plans/HANDOFF-*` for an external PR; pre-dispatch §0; reconciling "N §7 commands" in prose vs tool output.
+
+**Refs:** `scripts/review_external_pr.py` (`extract_verification_commands`), `Docs/Plans/archive/2026-05-10/handoffs/HANDOFF-self-continuity-2026-05-10-pr5-dispatch.md`.
+
+---
+
+## [IDEA] Post-merge git identity — `git log --oneline` vs merge commits — captured 2026-05-10
+
+**Context:** After merge, `git rev-parse HEAD` was merge commit `40be747a`, but a truncated one-line log showed only the PR tip `ec1f55f` — some environments or log defaults omit merge commits, so short log output is not a reliable picture of the integration tip.
+
+**Insight:** The checked-out tip on `main` after pull is often the **merge** SHA, not the first visible line of `git log --oneline`.
+
+**Action:** For post-merge verification and doc-sync, use `git rev-parse HEAD` and `git show -s --format=… HEAD` (pick an explicit format) as the source of truth; do not rely on `git log --oneline` alone when merge commits may be hidden.
+
+**Surfaces when:** post-merge verification; atomic doc-sync; quoting "current main" in session logs.
+
+**Refs:** `AGENTS.md` (Git history and merge commits); `.cursor/skills/external-agent-pr-loop/SKILL.md` (merge / doc-sync workflow).
+
+---
+
 ## [IDEA] C1S13 hierarchy content audit — `location_hierarchy_equivalences` looks copy-pasted — captured 2026-05-10
 
 **Context:** `scripts/audit_world_campaign_alignment.py` only enforces a structural contract for `location_hierarchy_equivalences`: non-empty mapping, parent keys intersect with `expect_route_substrings`, child lists non-empty. It cannot detect semantic mis-mapping.
@@ -205,7 +247,7 @@ The Stage B C1 benchmark workaround landed in commit `0bccafb` — `evals/sessio
 **Context:** The Stage D vertical slice (`evals/stage_d_entity_resolution_vertical_slice/`) shipped today as **v0 deterministic-only**: pure-Python heuristics (PC re-check, registry slug/display_name/alias substring match, slug-variant clustering with substring containment ≥ 4 OR Levenshtein ≤ 2). All 3 gold scenarios (S20 clean, C1S1 creature unresolvables, C1S3 bubbles slug-variant) PASS 5/5 ER1-ER5 gates at $0/run. The runner exposes `--enable-llm-coreference` as a documented no-op pointing at this entry. The known failure surface deterministic v0 cannot handle is the **Kirfan-class case** (sibling `[READY] Stage A — summary-only-named NPC recall regression` documents the upstream failure mode): an NPC named only in a Big-beats header that the prose re-describes generically (e.g. "the elderly fisherman"). With the events-first pipeline, Kirfan now reaches Stage D either as (a) a `new_npc_candidates[]` entry (when Stage A populates `referenced_slugs[]` correctly — Stage C C1S3 N=5 confirmed this 5/5) where deterministic Stage D handles it via the new_net_entity path, OR (b) when `referenced_slugs[]` is empty, as an `unresolved_descriptors[]` entry like "the elderly fisherman" — and deterministic v0 cannot merge the descriptor → kirfan slug because there's no name evidence in the descriptor itself and Kirfan isn't yet in the registry as an alias. Stage D v0 correctly routes case (b) to `unresolvable[]`.  
 **Action:** v1 of Stage D adds a narrow LLM coreference pass that consumes `unresolvable[]` + the events JSON (specifically the events the unresolved descriptor appears in) and proposes additional resolutions. Sketch: (1) wire `--enable-llm-coreference` to call `gpt-5.4-mini` with a tightly-scoped prompt: "Given these events with descriptor X (e.g. 'the elderly fisherman') and these candidate entities Y (the union of new_npc_candidates[] suggested_slugs + registry slugs), return either a proposed canonical_slug + confidence, or null." (2) Per-call cost target ~$0.005; cohort cost target ≤ $0.05 for typical N=5. (3) Add ER6 gate: confidence-floor + per-call rationale required for any LLM-proposed merge. (4) Validate against a synthetic `gold/stage_d_kirfan_descriptor.json` scenario where Stage A's `referenced_slugs[]` is intentionally stripped to force the descriptor path. (5) Decide policy on disagreement between deterministic + LLM passes (default: deterministic wins; LLM pass only resolves what deterministic left unresolvable).  
 **Surfaces when:** running Stage D against any recap with summary-only-named NPCs and `referenced_slugs[]` gaps; designing Stage E (which consumes resolved canonicals); an `unresolvable[]` descriptor lingers across multiple cohort runs; touching `evals/stage_d_entity_resolution_vertical_slice/step1_stage_d_run.py` `--enable-llm-coreference`.  
-**Refs:** `evals/stage_d_entity_resolution_vertical_slice/step1_stage_d_run.py` (`--enable-llm-coreference` no-op + `_ = enable_llm_coreference` marker), `Docs/Plans/AUDIT-Stage-D-Entity-Resolution-Discovery.md` §6 (LLM coreference design sketch), sibling `[READY] Stage A — summary-only-named NPC recall regression`, sibling `[READY] Stage A — referenced_slugs[] grader policy decision`, `evals/stage_d_entity_resolution_vertical_slice/README.md` §"Open follow-ups (v1+)".
+**Refs:** `evals/stage_d_entity_resolution_vertical_slice/step1_stage_d_run.py` (`--enable-llm-coreference` no-op + `_ = enable_llm_coreference` marker), `Docs/Design/AUDIT-Stage-D-Entity-Resolution-Discovery.md` §6 (LLM coreference design sketch), sibling `[READY] Stage A — summary-only-named NPC recall regression`, sibling `[READY] Stage A — referenced_slugs[] grader policy decision`, `evals/stage_d_entity_resolution_vertical_slice/README.md` §"Open follow-ups (v1+)".
 
 ## [READY] C1 NPC registry — review and promote remaining 4 Stage C-proposed candidates (GM workflow) — captured 2026-04-22, partially advanced 2026-04-22
 
@@ -303,7 +345,7 @@ The Stage B C1 benchmark workaround landed in commit `0bccafb` — `evals/sessio
 **Context:** The Caelynn calibration ran whole-timeline-regen across every C1 and C2 recap (cost is `O(recaps × subjects)` per rebuild — 6 PCs × ~20 recaps = 120 full-file LLM reads per campaign rebuild, unbounded as history grows). That's appropriate for a one-off calibration but the wrong unit of work for steady state. Append-per-recap (one new row, one new session, one subject at a time — the `append_timeline_row` tool surface that v0 of the timeline-append slice already proves) is `O(subjects-active-this-session)` per session, and the per-subject fan-out is what the autonomous timeline-pass slice is being designed to handle. Codifying this as an explicit standing principle prevents future "let's just regen the whole timeline" temptations and gives the corpus convention doc a clear "use this tool, not that one" pointer.  
 **Action:** Add a one-paragraph "operator pattern" section to `Docs/CONVENTION-Corpus-Subject-Schemas.md` (when it lands) naming append-per-recap as the default and full-regen as a fallback gated to `corpus/_drafts/` quarantine + GM review. Cross-reference `evals/session_recap_timeline_append_vertical_slice/` (v0 baseline for the steady-state path) and the autonomous timeline-pass slice (next-ring proof). When the timeline-pass slice unpauses, name this as the contract it's grading.  
 **Surfaces when:** Reviewing any "rebuild the whole X" agent workflow; speccing a new corpus-write slice; deciding whether a hand-crawl artifact ships to canonical or quarantines as a draft.  
-**Refs:** Caelynn calibration review (2026-04-21 chat), `Docs/CONVENTION-Corpus-Subject-Schemas.md` (in flight), `evals/session_recap_timeline_append_vertical_slice/`, `Docs/Plans/STATUS-Session-Recap-Timeline-Pass-Benchmark.md` (paused), `.cursor/rules/cost-as-signal.mdc`.
+**Refs:** Caelynn calibration review (2026-04-21 chat), `Docs/CONVENTION-Corpus-Subject-Schemas.md` (in flight), `evals/session_recap_timeline_append_vertical_slice/`, `Docs/Experiments/STATUS-Session-Recap-Timeline-Pass-Benchmark.md` (paused), `.cursor/rules/cost-as-signal.mdc`.
 
 ## [READY] Corpus — `Longmont Campaign/Campaign 1/PCs/` tree does not exist (Caelynn-review; silent corpus gap) — captured 2026-04-21
 
@@ -317,7 +359,7 @@ The Stage B C1 benchmark workaround landed in commit `0bccafb` — `evals/sessio
 **Context:** When a timeline-row grader (autonomous timeline-pass slice today, future per-subject append slices later) compares an agent-written row to a hand-curated canonical row, the comparison conflates two independent things: (a) **correctness** — does the row attribute the right beat to the right subject from the right recap, with the right spells/items/NPCs/outcomes? (b) **aesthetic** — does the prose match the GM's voice, clause count, bolding policy, etc.? If the grader collapses these to one PASS/FAIL, the agent is implicitly trained to mimic one human's aesthetic, and the canonical timeline becomes the agent's training target instead of the recap. Recap is the substrate; the timeline is just one projection over it.  
 **Action:** Refactor the autonomous timeline-pass grader (`evals/session_recap_timeline_pass_vertical_slice/grader.py`, currently TP1-TP6) so TP1 (APPEND completeness) splits into (a) **TP1a: factual recall/precision against the recap** — does the row cite a beat that's in the recap, with the right tokens? — and (b) **TP1b: aesthetic match against the canonical answer key** — clause count, bold-noun rate, voice. TP1a is a hard gate; TP1b is a soft observation surfaced in the report but not in the pass condition. Same split for any future timeline-append/extend slice. **Do NOT** apply this until the slice unpauses (it's intertwined with the schema work — `subject_doc_kind: timeline` and the `timeline.jsonl` sidecar will give TP1a a much cleaner check surface).  
 **Surfaces when:** Restarting the autonomous timeline-pass slice; designing any grader that compares LLM-written prose to a hand-curated canonical answer; any "the agent's wrong" finding that turns out to be voice-not-fact.  
-**Refs:** Caelynn calibration review (2026-04-21 chat), `evals/session_recap_timeline_pass_vertical_slice/grader.py` (TP1 currently single-axis), `Docs/Plans/STATUS-Session-Recap-Timeline-Pass-Benchmark.md` (paused), corpus subject-schema work (in flight).
+**Refs:** Caelynn calibration review (2026-04-21 chat), `evals/session_recap_timeline_pass_vertical_slice/grader.py` (TP1 currently single-axis), `Docs/Experiments/STATUS-Session-Recap-Timeline-Pass-Benchmark.md` (paused), corpus subject-schema work (in flight).
 
 ---
 
@@ -339,10 +381,10 @@ The Stage B C1 benchmark workaround landed in commit `0bccafb` — `evals/sessio
 
 ## [READY] Recap-ingest — Stage-2 setting/location hub create slice (B5/B6 from EXPERIMENT) — captured 2026-04-21
 
-**Context:** Stage 2 has more gates than timeline-row append. Per `Docs/Plans/EXPERIMENT-Session-Recap-Ingest-Benchmark.md`: **B5** = first-mention NPC seed file create (universal envelope `recap_write` followups), **B6** = location/hub doc create (e.g. a `Mossford` hub if the recap establishes a setting). Same scaffolding shape as Stage-2 timeline-append v0 (skill-less turn, two-phase `write_corpus_file`, hybrid grader for shape+content).  
+**Context:** Stage 2 has more gates than timeline-row append. Per `Docs/Experiments/EXPERIMENT-Session-Recap-Ingest-Benchmark.md`: **B5** = first-mention NPC seed file create (universal envelope `recap_write` followups), **B6** = location/hub doc create (e.g. a `Mossford` hub if the recap establishes a setting). Same scaffolding shape as Stage-2 timeline-append v0 (skill-less turn, two-phase `write_corpus_file`, hybrid grader for shape+content).  
 **Action:** Pick one — recommend B5 first (NPC seed create) because the gold shape is closer to the timeline slice and Marla/Karsemine/Ephanna are obvious candidates. Mirror the `session_recap_timeline_append_vertical_slice/` structure. Defer until autonomous timeline-pass passes (avoid two new Stage-2 slices in flight).  
 **Surfaces when:** Stage-2 expansion after autonomous timeline-pass is green.  
-**Refs:** `Docs/Plans/EXPERIMENT-Session-Recap-Ingest-Benchmark.md` §B5/B6, `evals/session_recap_timeline_append_vertical_slice/` (template), `src/agent/corpus_writer.py` (write tools).
+**Refs:** `Docs/Experiments/EXPERIMENT-Session-Recap-Ingest-Benchmark.md` §B5/B6, `evals/session_recap_timeline_append_vertical_slice/` (template), `src/agent/corpus_writer.py` (write tools).
 
 ## [READY] Recap-ingest — session-history surface (continuity slice; Stage-2 adjacent) — captured 2026-04-21
 
@@ -370,8 +412,8 @@ The Stage B C1 benchmark workaround landed in commit `0bccafb` — `evals/sessio
 ## [READY] Docs — STATUS-style ledger for Pipeline A (CLI ingest / FactStore / mirathorn) (grounding P4) — captured 2026-04-20
 
 **Context:** Pipeline B (session recap ingest) has `STATUS-Session-Recap-Ingest-Benchmark.md`; Pipeline A (CLI ingest, mirathorn vertical slice) lacks a single "what each gate means + last verified" ledger comparable to that doc. **Folded (option A, 2026-04-20):** the former standalone "apply-wait vs benchmark `commit_required`" doc gap is not its own ticket — readers confuse recap-write **SKILL** (wait for GM `apply` after preview) with Scope-B gold (`commit_required: true` forces preview→commit in one turn for grading). Both are intentional; Pipeline B's STATUS should name that asymmetry in a short paragraph when this work runs.  
-**Action:** Author or extend a plan doc mirroring the recap STATUS structure for CLI ingest: gates, runner commands, known caveats, freshness block. **Same doc pass:** add that apply-wait vs `commit_required` paragraph to `Docs/Plans/STATUS-Session-Recap-Ingest-Benchmark.md` (e.g. under Scope-B intro) so Pipeline A and B ledgers stay coherent.  
-**Refs:** `Docs/Plans/STATUS-Session-Recap-Ingest-Benchmark.md`, `.cursor/skills/recap-write/SKILL.md`, `evals/mirathorn_vertical_slice/`, `src/cli.py` ingest path, `Docs/Plans/EXPERIMENT-Session-Recap-Ingest-Benchmark.md` as structural template only.
+**Action:** Author or extend a plan doc mirroring the recap STATUS structure for CLI ingest: gates, runner commands, known caveats, freshness block. **Same doc pass:** add that apply-wait vs `commit_required` paragraph to `Docs/Experiments/STATUS-Session-Recap-Ingest-Benchmark.md` (e.g. under Scope-B intro) so Pipeline A and B ledgers stay coherent.  
+**Refs:** `Docs/Experiments/STATUS-Session-Recap-Ingest-Benchmark.md`, `.cursor/skills/recap-write/SKILL.md`, `evals/mirathorn_vertical_slice/`, `src/cli.py` ingest path, `Docs/Experiments/EXPERIMENT-Session-Recap-Ingest-Benchmark.md` as structural template only.
 
 ## [READY] Recap-ingest — wire C6 (post-commit fingerprint parity) + C7 (pre/post tmpdir manifest diff) — captured 2026-04-21 (split from former P5)
 
@@ -383,7 +425,7 @@ The Stage B C1 benchmark workaround landed in commit `0bccafb` — `evals/sessio
 
 **Surfaces when:** Touching `step1_recap_ingest_run.py` sidecar wiring; auditing sidecar fingerprint semantics; designing a "fail on stray writes" gate for any vertical slice (the C7 pattern generalizes).
 
-**Refs:** `Docs/Plans/STATUS-Session-Recap-Ingest-Benchmark.md` (C-gates table), `evals/session_recap_ingest_vertical_slice/step1_recap_ingest_run.py` (197–203, 228–232, 345–350), `src/agent/corpus_writer.py` (249–265, `new_corpus_fingerprint`), `evals/session_recap_ingest_vertical_slice/recap_ingest_run_report.py` (240–257), `evals/session_recap_ingest_vertical_slice/scope_b_grader.py`.
+**Refs:** `Docs/Experiments/STATUS-Session-Recap-Ingest-Benchmark.md` (C-gates table), `evals/session_recap_ingest_vertical_slice/step1_recap_ingest_run.py` (197–203, 228–232, 345–350), `src/agent/corpus_writer.py` (249–265, `new_corpus_fingerprint`), `evals/session_recap_ingest_vertical_slice/recap_ingest_run_report.py` (240–257), `evals/session_recap_ingest_vertical_slice/scope_b_grader.py`.
 
 ## [INVESTIGATED] Recap-write — model leaves judgment fields empty under happy path despite SKILL guidance — captured 2026-04-21
 
@@ -540,7 +582,7 @@ The Stage B C1 benchmark workaround landed in commit `0bccafb` — `evals/sessio
 
 ## [IDEA] Regenerate manual breadcrumb artifacts from `_normalized/` recaps — captured 2026-05-08
 
-**Context:** Prepared recaps now live under `Longmont Campaign/Campaign N/Session Recaps/_normalized/` (see `Docs/Plans/INDEX-Recap-Normalization.md`). Existing `evals/sentence_routing_retrieval_falsification/manual_labels/*.breadcrumbed.md` files were tagged from **original** recap bodies; normalized prose drops prep chrome and heading noise.  
+**Context:** Prepared recaps now live under `Longmont Campaign/Campaign N/Session Recaps/_normalized/` (see `Docs/INDEX-Recap-Normalization.md`). Existing `evals/sentence_routing_retrieval_falsification/manual_labels/*.breadcrumbed.md` files were tagged from **original** recap bodies; normalized prose drops prep chrome and heading noise.  
 **Action:** For each session used in benchmarks (C1S1, S2, S3, S13, C2S20, …), re-run inline breadcrumb ingest with `--ingest-recap-md` pointing at the `_normalized/` file, update `source_recap_path` in artifact frontmatter, and refresh gold only when gates truly need new anchors.  
 **Surfaces when:** switching the default recap source for `breadcrumb_query_run`; C1S13 ingest; strict `verify_global_text_equal` failures against stale manual labels.  
 **Refs:** `Docs/CONVENTION-Session-Recap-Normalization.md`, `scripts/materialize_normalized_recaps.py`.

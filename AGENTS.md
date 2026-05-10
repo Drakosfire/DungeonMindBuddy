@@ -6,6 +6,10 @@ Use SymDex before broad file reads. Prefer symbol search, route search, file out
 
 Use RTK for noisy shell commands such as git status, git diff, git log, grep, find, tests, docker logs, and build output.
 
+### Git history and merge commits
+
+After merges, prefer `git rev-parse HEAD` and `git show -s --format=… HEAD` over treating `git log --oneline` as the whole truth when the environment may omit merge commits (a short log can show the PR branch tip while `HEAD` is the merge commit).
+
 Do not dump large files, logs, generated files, dependency trees, or vendored code into context unless explicitly needed.
 
 Correctness overrides token savings. Preserve failed tests, stack traces, compiler errors, migration warnings, security findings, and destructive-command risks.

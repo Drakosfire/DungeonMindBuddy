@@ -121,6 +121,10 @@ restores `main`, pops the stash. Returns
 Never trust the PR description's "all green" — sandbox / runner differences
 and silent skips happen.
 
+Treat **§0** / `fetch`'s `verification_commands[]` as authoritative for how many
+§7 commands exist — handoff prose counts often drift; see `Backlog.md`
+(2026-05-10, HANDOFF §0 vs parser) before "fixing" the extractor.
+
 ### 2c. Post the verdict
 
 Write the review as a markdown file (preferred — no shell escaping, no Python
@@ -187,6 +191,10 @@ After the verdict is APPROVE, the **next single unit of work** runs the
 merge ceremony AND updates plan + checklist + handoff. **Do it as one edit
 batch.** Splitting across turns leaves a contradictory-state window where a
 fresh agent reads "pending" while `main` already has the change.
+
+After local `main` updates post-merge, confirm the integration tip with
+`git rev-parse HEAD` / `git show -s` — not `git log --oneline` alone when merge
+commits may be omitted (`AGENTS.md`, Git history and merge commits).
 
 ### 4a. Merge ceremony — one subcommand
 

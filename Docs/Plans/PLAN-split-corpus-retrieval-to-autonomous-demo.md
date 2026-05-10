@@ -6,9 +6,9 @@ title: Split-corpus retrieval to autonomous C1S1–C1S3 demo
 document_class: plan
 plan_kind: execution_super_plan
 status: active
-version: 11
+version: 12
 created_at: "2026-05-09T00:00:00Z"
-last_updated_at: "2026-05-10T21:10:00Z"
+last_updated_at: "2026-05-10T21:50:00Z"
 timezone_note: "Timestamps are UTC; local work may use America/Denver."
 supersedes: []
 superseded_by: null
@@ -49,15 +49,26 @@ execution_state:
     && uv run pytest tests/lexicon_phase_b/ -q
     && uv run pytest tests/test_breadcrumb_query_run_lexicon_records_jsonl.py -q
     (Phase C entry shadow consumer + workspace-relative `source_paths` both
-    green on main after PR #4 + PR #5). Next substantive slices, in priority:
-    (a) run `breadcrumb_query_run --route-equivalence-jsonl` against C1S1-C1S3
-    records to capture cohort `shadow_route_equivalences` **byte-stable**
-    baseline (now unblocked: PR #5 made `source_paths` CWD-invariant, so the
-    baseline can carry a byte-stability regression contract identical to the
-    one PR #3 established for the source artifacts); (b) sibling lane —
-    producer-side `manifest_hash` + provenance fields on
-    `route_equivalence_longmont_c*_v1.jsonl`; (c) broader Phase B remainder
-    (entity-candidate + lexical-handle artifacts under `artifacts/lexicon/`).
+    green on main after PR #4 + PR #5). Active workstream is now the **A/B
+    Benchmarking Sprint** (see `## A/B Benchmarking Sprint` section below):
+    a skeptical, deliberately annoying-when-wrong benchmarking surface for
+    this vertical slice that lets us compare the new lexical-artifact
+    architecture against the original ad-hoc retrieval design. Next slices,
+    in priority: (a) **PR 6 — cohort baseline runner**: emit + commit a
+    byte-stable `shadow_route_equivalences` baseline for C1S1-C1S3
+    (precondition for every comparison level; this also IS the pre-plan
+    retrieval baseline frozen as an artifact); (b) **PR 6.5 or extension —
+    shadow recall metric**: score loaded equivalences against gold
+    `expect_route_substrings` for a "would-this-help" leading indicator
+    without flipping the retriever (cheapest signal); (c) **PR 7 sibling
+    lane**: producer-side `manifest_hash` + provenance fields on
+    `route_equivalence_longmont_c*_v1.jsonl` (parallelizable with PR 6 —
+    file scopes don't overlap); (d) **PR 9 (or earlier if re-sequenced)** —
+    Phase C exit slice: minimal additive ranking-input wiring + true A/B
+    cohort. Re-sequencing question: should the additive retrieval-wiring
+    slice ship before (c) and the broader entity-candidate / lexical-handle
+    artifacts? Decide after PR 6 publishes the baseline and we know how much
+    headroom equivalences alone are likely to cover.
   flagged_followups:
     - >-
       Content quality of `location_hierarchy_equivalences` in
@@ -145,6 +156,26 @@ execution_state:
       -> 10 passed (round 2 added byte-identity-when-flag-unset and
       load-failure-emits-error harness-boundary tests).
 changelog:
+  - at: "2026-05-10T21:50:00Z"
+    version: 12
+    summary: >-
+      Capture the **A/B Benchmarking Sprint** as the current active
+      workstream — a skeptical, intentionally annoying-when-wrong benchmarking
+      surface for this vertical slice that lets us compare the new
+      lexical-artifact architecture against the original ad-hoc retrieval
+      design. New `## A/B Benchmarking Sprint (post-PR #5)` section between
+      Phase 5 and Phase 6 describes the three comparison-fidelity levels
+      mapped to PRs (PR 6 = baseline; PR 6 + recall metric = leading
+      indicator; minimal Phase C exit slice = true A/B), the open scope
+      question (C1S1-C1S3 only vs include c1s13 / natural_v1), and the
+      re-sequencing question (additive retrieval wiring before vs after the
+      producer-side / entity-candidate lanes). `next_gate_command` rewritten
+      to lead with the sprint framing. Workstream checklist gains explicit
+      sprint sub-items. Architectural seed captured separately in
+      `Docs/Design/DESIGN-dungeonbuddy-client-seed.md` (status: SEED) — the
+      observation that the benchmarking-retrieval wrapper has bones to be
+      abstracted into a thin DungeonBuddy client serving LLM and benchmarking
+      calls out, learning from DungeonMindServer.
   - at: "2026-05-10T21:10:00Z"
     version: 11
     summary: >-
@@ -615,6 +646,66 @@ flowchart TD
 - `tests/test_breadcrumb_query_run_lexicon_records_jsonl.py` (extended in PR #4; CWD-invariance harness-boundary test added in PR #5)
 - `src/agent/session_memory_query.py` (Phase C **exit**: not yet wired; legacy seeds remain authoritative)
 
+## A/B Benchmarking Sprint (post-PR #5)
+
+### Mission
+
+Build a **skeptical, intentionally annoying-when-wrong** benchmarking surface for this vertical slice that lets us compare the new lexical-artifact architecture against the **original ad-hoc retrieval design** on the existing question artifacts (`evals/sentence_routing_retrieval_falsification/gold/breadcrumb_query_natural_*.json`). "Annoying-when-wrong" means: cohort comparisons that reject any unexplained delta, refuse to silently realign gold (per `gold-realignment-vs-deflation.mdc`), surface cost as a leading indicator (per `cost-as-signal.mdc`), and emit byte-stable artifacts by default (per `benchmark-disk-artifacts.mdc`).
+
+### Why this sprint, why now
+
+The retriever scoring path **has not changed** across PRs #2–#5. Everything we've shipped — schema (PR #2), committed JSONL + reproducibility CLI (PR #3), shadow consumer + harness-boundary safety tests (PR #4), workspace-relative provenance (PR #5) — is upstream of retrieval. `session_memory_query.py` and the breadcrumb ranking still use the legacy `build_campaign_lexicon` / benchmark-seeds path. So **today's retrieval == pre-plan retrieval at the algorithm level**, and PR 5 has just made the diagnostic side byte-stable enough for a cohort baseline to mean something. PR 6 is the precondition for every comparison fidelity below.
+
+### Three comparison-fidelity levels mapped to PRs
+
+| Fidelity | Question it answers | First useful PR | Cost |
+|----|----|----|----|
+| **L1 — Pre-plan baseline frozen** | "What does today's retriever do on the existing question artifacts, byte-stably?" | **PR 6** (cohort baseline runner) | ~$0 (`--retrieval-only`, no LLM) |
+| **L2 — Leading indicator** | "Of the gold-expected routes today's retriever misses, how many would the new lexical artifacts have made reachable?" | **PR 6 + recall metric** (or split as PR 6.5) | ~$0 |
+| **L3 — True architecture A/B** | "Same cohort, same gold, two retrieval modes (legacy vs equivalence-augmented). What's the metric delta?" | **PR 9 as planned**, or **PR 7** if the additive-wiring slice is re-sequenced ahead of the producer-side `manifest_hash` and entity-candidate lanes | ~$0 retrieval-only; LLM cost only if running end-to-end |
+
+L3 is what closes Phase 5 (Phase C **exit**). L1 and L2 do not flip the retriever — they live alongside the existing `shadow_route_equivalences` diagnostic.
+
+### Concrete deliverables
+
+**PR 6 — cohort baseline runner**
+
+- Cohort-level harness that runs `breadcrumb_query_run --retrieval-only` against every gold file in scope, with `--route-equivalence-jsonl` set to the committed C1 + C2 manifests so the existing `shadow_route_equivalences` diagnostic populates.
+- Default-on disk artifacts under `evals/sentence_routing_retrieval_falsification/artifacts/runs/<date>/<scenario>_retrieval_baseline.json` plus a cohort summary JSON.
+- Byte-stability regression test: re-running the cohort produces a hash-equal summary modulo intentional non-determinism (which there should be none of in `--retrieval-only` mode).
+- Commits one cohort summary as the **frozen pre-plan baseline** for later comparison.
+
+**PR 6.5 (or extension to PR 6) — shadow recall metric**
+
+- One additional derived field per scenario: `shadow_route_equivalences.recall_via_equivalence` = of the gold's `expect_route_substrings` the legacy retriever did not surface, what fraction was reachable through the loaded equivalence records' `to_route_id` field?
+- Reported in the cohort summary as `min/mean/max` across scenarios.
+- Does **not** change retrieval. It is a "would-this-help" leading indicator that informs the re-sequencing decision (below).
+
+**PR 7 (sibling lane, parallelizable)** — producer-side `manifest_hash` + provenance fields on `route_equivalence_longmont_c*_v1.jsonl`. File scopes don't overlap with PR 6 / PR 6.5, so the two lanes can dispatch in parallel.
+
+**Phase C exit slice — true A/B**
+
+- Smallest possible additive ranking-input wiring on `session_memory_query.py` (or wherever the breadcrumb ranking lives), gated by a new `--use-route-equivalence-for-ranking` flag on `breadcrumb_query_run`. Legacy seeds remain fallback.
+- Cohort runner mode that writes both reports per scenario (`baseline` and `with-equivalence`) and a delta summary.
+- Promotion gate inputs: authority-risk violations on the cohort = 0, over-routing under threshold, no regression on context-support metrics.
+
+### Open scope question (decide before authoring PR 6's handoff)
+
+Should PR 6's cohort include `breadcrumb_query_natural_c1s13_v1.json` and `breadcrumb_query_natural_v1.json`, or scope tightly to the C1S1–C1S3 set named in the PLAN's `demo_scope`?
+
+- **Tighter (C1S1-C1S3 only, 3 files):** matches `demo_scope`; cleaner contract; faster to author and review; doesn't expose the c1s13 hierarchy-content concern flagged in `flagged_followups`.
+- **Wider (5 files):** more comparison surface for free; no extra cost since `--retrieval-only` is ~$0; gives early signal on whether the architecture generalises beyond the demo scope.
+
+Recommendation: tighter for the first cohort summary, wider as a follow-up cohort once the byte-stable contract is locked.
+
+### Re-sequencing question (decide after PR 6 publishes the baseline)
+
+Per the PLAN's queue today, Phase C exit / true A/B sits **after** (b) producer-side `manifest_hash` and (c) entity-candidate / lexical-handle artifacts. If PR 6's L1 baseline shows the legacy retriever already at high recall on these scenarios, L2 may be enough signal — keep the queue as written. If recall is low, L3 has more leverage and the additive ranking-input slice should be re-sequenced **before** (b)+(c). The risk of doing L3 first is wiring against an artifact set still missing entity-candidate and lexical-handle records — equivalences alone may underperform the architecture's eventual ceiling.
+
+### Architectural seed (separate doc)
+
+A standalone observation surfaced while writing this sprint: the benchmarking-retrieval wrapper feels like it has bones to be more abstracted, separately from the retrieval-comparison content. Captured as a SEED in `Docs/Design/DESIGN-dungeonbuddy-client-seed.md` — explicitly **not** an active workstream; do not let it pull weight from the sprint above.
+
 ## Phase 6: Autonomous C1S1–C1S3 agentic loop demo
 
 - One-command runner: ingest/update records → generate lexical artifacts → retrieval benchmark cohort → diagnostics + canvas refresh → autonomous verdict + next action.
@@ -660,17 +751,20 @@ Track detailed todos in [CHECKLIST-dynamic-lexical-retrieval-rollout.md](CHECKLI
 - [x] Phase B route-equivalence lane: schema, builder, committed JSONL, CLI `--check`, byte-stable tests (PR #2 + PR #3)
 - [x] Phase C entry: shadow consumer of route-equivalence JSONL behind `--route-equivalence-jsonl` flag, with harness-boundary safety tests (PR #4)
 - [x] Phase C entry hardening: workspace-relative POSIX `source_paths` rendered at harness boundary, with CWD-invariance harness-boundary test (PR #5) — closes PR #4 known follow-up; unblocks byte-stable cohort baseline
-- [ ] Phase B remainder: manifest hash / provenance on **producer-side** JSONL artifacts (sibling lane to PR #5), entity-candidate + lexical-handle artifacts per contracts above
-- [ ] Cohort `shadow_route_equivalences` baseline for C1S1-C1S3 (now byte-stable-able after PR #5; Phase 4 diagnostics input / promotion-gate input)
-- [ ] Benchmark engine + cohort taxonomy
+- [ ] **A/B Benchmarking Sprint — L1:** PR 6 cohort baseline runner for C1S1-C1S3 (frozen pre-plan retrieval baseline, `--retrieval-only`, byte-stable)
+- [ ] **A/B Benchmarking Sprint — L2:** PR 6 + recall-via-equivalence metric (or split as PR 6.5) — leading indicator without flipping the retriever
+- [ ] **A/B Benchmarking Sprint — L3:** Phase C exit slice — minimal additive ranking-input wiring + true A/B cohort (PR 9 as planned, or PR 7 if re-sequenced after PR 6 baseline informs the choice)
+- [ ] Phase B remainder: manifest hash / provenance on **producer-side** JSONL artifacts (sibling lane, parallelizable with PR 6), entity-candidate + lexical-handle artifacts per contracts above
+- [ ] Benchmark engine + cohort taxonomy (subsumed under the A/B sprint above for this vertical slice; broader scope after Phase 5 closes)
 - [ ] Shadow → canvas
-- [ ] Gated retriever wiring (Phase C exit / promotion gate)
 - [ ] Autonomous demo + runbook
+- [ ] *Architectural seed (not active workstream):* extracted DungeonBuddy LLM + benchmarking client — see `Docs/Design/DESIGN-dungeonbuddy-client-seed.md`
 
 ## Changelog (human-readable)
 
 | Date (UTC) | Version | Summary |
 |------------|---------|---------|
+| 2026-05-10 | 12 | Capture **A/B Benchmarking Sprint** as the current active workstream — skeptical, intentionally annoying-when-wrong benchmarking surface for this vertical slice that compares the new lexical-artifact architecture against the original ad-hoc retrieval design on the existing `breadcrumb_query_natural_*.json` question artifacts. New `## A/B Benchmarking Sprint (post-PR #5)` section (between Phase 5 and Phase 6) defines three comparison-fidelity levels (L1 baseline at PR 6, L2 leading indicator at PR 6/6.5, L3 true A/B at re-sequenceable PR 7-or-9) and the open scope + re-sequencing questions. `next_gate_command` rewritten to lead with the sprint framing. Workstream checklist gains explicit L1/L2/L3 sub-items. Architectural seed captured separately in `Docs/Design/DESIGN-dungeonbuddy-client-seed.md` (status: SEED) — extracted LLM + benchmarking client absorbing DungeonMindServer lessons; not an active workstream. |
 | 2026-05-10 | 11 | PR #5 merged (`40be747a`): `shadow_route_equivalences.source_paths` is now workspace-relative POSIX strings rendered at the harness boundary. Adds `_workspace_relative_posix(path, workspace_root)` to `route_equivalence_shadow.py`; required `workspace_root: Path` kwarg on `build_route_equivalence_shadow_payload`; harness wires `_HARNESS_WORKSPACE_ROOT = Path(__file__).resolve().parents[2]`. New harness-boundary test asserts full-payload byte-identity across two operator CWDs via subprocess. Closes the PR #4 machine-dependent-`source_paths` follow-up. Producer-side untouched. `external_pull_requests` gains `github-pr-5` with the new rubric bullet "provenance fields in shadow diagnostics rendered at the harness boundary, with CWD-invariance tested by spawning subprocesses from at least two different CWDs and asserting full-payload equality." Workstream checklist: Phase C entry hardening checked off; cohort baseline added as the next open item. |
 | 2026-05-10 | 10 | PR #4 merged (`21e84392`): Phase C entry shadow consumer lands. New `route_equivalence_loader.py`, `route_equivalence_shadow.py`, `--route-equivalence-jsonl` CLI flag, and harness-boundary safety tests (byte-identity-when-flag-unset, load-failure-emits-error). Shadow-only — no retrieval/grading change. `milestone_progress.M3: not_started -> in_progress`. `external_pull_requests` gains `github-pr-4` with the new "test the boundary that owns the rubric" bullet. Checklist Reanchor / Phase C Evidence / Session log synced; `HANDOFF-phase-c-route-equivalence-shadow-consumer.md` archived. |
 | 2026-05-10 | 9 | PR #3 merged (`98c09aaf`): committed route-equivalence JSONL, `build_route_equivalence_manifests.py` CLI, byte-stable test, `_is_campaign_path` fix. Plan snapshot, `external_pull_requests`, PR table, Phase 2 status, and workstream checkboxes updated; checklist Evidence/Reanchor synced. |
