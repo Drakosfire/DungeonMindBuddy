@@ -218,6 +218,28 @@ Artifact records are built by `src/lexicon_phase_b/route_equivalence_manifest.py
 
 Determinism is enforced with `tests/lexicon_phase_b/test_route_equivalence_artifacts_byte_stable.py`, which compares fresh builds to committed artifacts byte-for-byte and pins critical schema fields.
 
+##### Shadow consumption (Phase C entry)
+
+Pass `--route-equivalence-jsonl` (repeatable) to `breadcrumb_query_run` to load
+the committed `route_equivalence_*_v1.jsonl` artifacts as a shadow diagnostic.
+Each natural-gold scenario row gains a `shadow_route_equivalences` field with
+schema `dmb_route_equivalence_shadow_v1`: edge counts, the full set of campaign
+IDs present, and the source paths in input order. **Shadow-only:** retrieval,
+grading, and the existing `shadow_token_resolution` field are unchanged; legacy
+lexical seeds remain the active source. The field is omitted entirely when the
+flag is unset (default runs remain byte-identical to current main).
+
+Example:
+
+```bash
+uv run python -m evals.sentence_routing_retrieval_falsification.breadcrumb_query_run \
+  --records-jsonl evals/sentence_routing_retrieval_falsification/artifacts/last_session1_c1_breadcrumb_records.jsonl \
+  --gold evals/sentence_routing_retrieval_falsification/gold/breadcrumb_query_natural_c1s1_v1.json \
+  --retrieval-only \
+  --route-equivalence-jsonl evals/sentence_routing_retrieval_falsification/artifacts/lexicon/route_equivalence_longmont_c1_v1.jsonl \
+  --route-equivalence-jsonl evals/sentence_routing_retrieval_falsification/artifacts/lexicon/route_equivalence_longmont_c2_v1.jsonl
+```
+
 Example 3-run acceptance loop (records JSONL):
 
 ```bash
