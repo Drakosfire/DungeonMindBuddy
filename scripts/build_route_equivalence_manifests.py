@@ -10,6 +10,7 @@ if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
 from src.lexicon_phase_b.route_equivalence_manifest import (
+    _normalize_campaign_id,
     build_route_equivalence_manifest,
     write_route_equivalence_manifest,
 )
@@ -33,7 +34,7 @@ def _build_one(registry_path: Path, out_path: Path) -> int:
 
 def _write_mode(out_dir: Path) -> int:
     for registry in _DEFAULT_REGISTRIES:
-        campaign_id = f"longmont-c{registry.parent.name.split()[-1]}".lower()
+        campaign_id = _normalize_campaign_id(registry)
         out_path = out_dir / _campaign_to_filename(campaign_id)
         count = _build_one(registry, out_path)
         print(f"wrote {out_path.as_posix()} ({count} records)")
@@ -45,7 +46,7 @@ def _check_mode(out_dir: Path) -> int:
     with tempfile.TemporaryDirectory() as tmp:
         tmp_dir = Path(tmp)
         for registry in _DEFAULT_REGISTRIES:
-            campaign_id = f"longmont-c{registry.parent.name.split()[-1]}".lower()
+            campaign_id = _normalize_campaign_id(registry)
             name = _campaign_to_filename(campaign_id)
             generated = tmp_dir / name
             canonical = out_dir / name

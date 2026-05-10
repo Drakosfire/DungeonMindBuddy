@@ -68,3 +68,17 @@ def test_schema_version_and_authority_effect_pinned(
     obj = json.loads(first_non_empty)
     assert obj["schema_version"] == "0.2.0"
     assert obj["authority_effect"] == "routing_only"
+
+
+@pytest.mark.parametrize(("campaign_id", "registry_path", "expected_artifact_path"), CASES)
+def test_real_registry_relative_paths_map_campaign_to_world_fallback(
+    campaign_id: str,
+    registry_path: Path,
+    expected_artifact_path: Path,
+) -> None:
+    del expected_artifact_path
+    records = build_route_equivalence_manifest(registry_path)
+    assert records
+    for record in records:
+        assert record.from_route_id.startswith(f"route:{campaign_id}:")
+        assert record.to_route_id.startswith("route:elderwyld:")
