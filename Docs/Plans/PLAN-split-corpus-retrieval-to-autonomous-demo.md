@@ -6,9 +6,9 @@ title: Split-corpus retrieval to autonomous C1S1–C1S3 demo
 document_class: plan
 plan_kind: execution_super_plan
 status: active
-version: 10
+version: 11
 created_at: "2026-05-09T00:00:00Z"
-last_updated_at: "2026-05-10T16:35:00Z"
+last_updated_at: "2026-05-10T21:10:00Z"
 timezone_note: "Timestamps are UTC; local work may use America/Denver."
 supersedes: []
 superseded_by: null
@@ -48,12 +48,16 @@ execution_state:
     uv run python scripts/build_route_equivalence_manifests.py --check
     && uv run pytest tests/lexicon_phase_b/ -q
     && uv run pytest tests/test_breadcrumb_query_run_lexicon_records_jsonl.py -q
-    (Phase C entry shadow consumer green on main after PR #4). Next substantive
-    slices, in priority: (a) run `breadcrumb_query_run --route-equivalence-jsonl`
-    against C1S1-C1S3 records to capture cohort `shadow_route_equivalences`
-    baseline (Phase 4 diagnostics expansion / promotion-gate input); (b) broader
-    Phase B remainder (manifest hash / provenance fields on artifacts,
-    entity-candidate + lexical-handle artifacts under `artifacts/lexicon/`).
+    (Phase C entry shadow consumer + workspace-relative `source_paths` both
+    green on main after PR #4 + PR #5). Next substantive slices, in priority:
+    (a) run `breadcrumb_query_run --route-equivalence-jsonl` against C1S1-C1S3
+    records to capture cohort `shadow_route_equivalences` **byte-stable**
+    baseline (now unblocked: PR #5 made `source_paths` CWD-invariant, so the
+    baseline can carry a byte-stability regression contract identical to the
+    one PR #3 established for the source artifacts); (b) sibling lane —
+    producer-side `manifest_hash` + provenance fields on
+    `route_equivalence_longmont_c*_v1.jsonl`; (c) broader Phase B remainder
+    (entity-candidate + lexical-handle artifacts under `artifacts/lexicon/`).
   flagged_followups:
     - >-
       Content quality of `location_hierarchy_equivalences` in
@@ -67,6 +71,33 @@ execution_state:
       is absent; document or generate that manifest before treating the audit as
       a portable gate (separate from route-equivalence JSONL lane).
   integration_notes:
+    - >-
+      PR #5 is MERGED to main (merge commit 40be747a87d0eecb4dc1c865f236f3728cf1d4d4,
+      2026-05-10T21:09Z): makes `shadow_route_equivalences.source_paths`
+      workspace-relative POSIX strings rendered at the harness boundary, so
+      the field is byte-identical regardless of operator CWD or absolute
+      install path. Adds `_workspace_relative_posix(path, workspace_root)` to
+      `evals/sentence_routing_retrieval_falsification/route_equivalence_shadow.py`;
+      `build_route_equivalence_shadow_payload` gains a required
+      `workspace_root: Path` kwarg; the harness passes
+      `_HARNESS_WORKSPACE_ROOT = Path(__file__).resolve().parents[2]` from
+      `evals/sentence_routing_retrieval_falsification/breadcrumb_query_run.py`.
+      New harness-boundary test
+      `test_route_equivalence_source_paths_are_workspace_relative_and_cwd_invariant`
+      spawns `breadcrumb_query_run` from `_REPO_ROOT` and from
+      `_REPO_ROOT / "tests"` via `uv run --directory _REPO_ROOT …` and asserts
+      full-payload byte-identity, not just source_paths equality. Single round
+      of review (commit ec1f55fa); APPROVE demoted to COMMENTED via the
+      standard self-review fallback. Pre-merge verification:
+      `uv run pytest tests/lexicon_phase_b/ -q` -> 22 passed (unchanged from
+      main; producer-side untouched);
+      `uv run pytest tests/test_breadcrumb_query_run_lexicon_records_jsonl.py -q`
+      -> 11 passed (was 10; the new harness-boundary test is the +1);
+      `uv run python scripts/build_route_equivalence_manifests.py --check`
+      -> OK both manifests; smoke run + `python -c` byte-string assertion
+      printed the expected workspace-relative POSIX list. Unblocks the next
+      slice: a byte-stable cohort `shadow_route_equivalences` baseline for
+      C1S1-C1S3.
     - >-
       PR #2 is MERGED to main (merge commit 545cf37, 2026-05-10T02:59Z): adds
       `src/lexicon_phase_b/` (`RouteEquivalenceRecord` + deterministic manifest
@@ -114,6 +145,28 @@ execution_state:
       -> 10 passed (round 2 added byte-identity-when-flag-unset and
       load-failure-emits-error harness-boundary tests).
 changelog:
+  - at: "2026-05-10T21:10:00Z"
+    version: 11
+    summary: >-
+      PR #5 merged (40be747a): `shadow_route_equivalences.source_paths` is now
+      workspace-relative POSIX strings rendered at the harness boundary.
+      Adds `_workspace_relative_posix(path, workspace_root)` to
+      route_equivalence_shadow.py; required `workspace_root: Path` kwarg on
+      `build_route_equivalence_shadow_payload`; harness wires
+      `_HARNESS_WORKSPACE_ROOT = Path(__file__).resolve().parents[2]`. New
+      harness-boundary test asserts full-payload byte-identity across two
+      different operator CWDs via subprocess. Closes the PR #4
+      machine-dependent-source_paths follow-up. Producer-side untouched
+      (lexicon_phase_b stays at 22 passed). Single round of review;
+      `external_pull_requests` gains `github-pr-5` with the new rubric bullet
+      "provenance fields in shadow diagnostics are rendered at the harness
+      boundary, with CWD-invariance tested by spawning subprocesses from at
+      least two different CWDs and asserting full-payload equality."
+      `next_gate_command` rewritten: cohort `shadow_route_equivalences`
+      baseline for C1S1-C1S3 is now byte-stable-able and is priority (a).
+      Checklist top header / Reanchor / Phase C provenance-hardening evidence
+      / session log synced; `HANDOFF-route-equivalence-shadow-source-paths-workspace-relative.md`
+      archived with completion banner.
   - at: "2026-05-10T16:35:00Z"
     version: 10
     summary: >-
@@ -189,6 +242,81 @@ changelog:
 # Notation: plan_phase_primary / plan_phase_also_touches map work to phases;
 # review_status captures current merge/review disposition.
 external_pull_requests:
+  - id: github-pr-5
+    url: https://github.com/Drakosfire/DungeonMindBuddy/pull/5
+    plan_phase_primary: "5"
+    plan_phase_also_touches: "2"
+    plan_phase_label: >-
+      Phase C entry hardening: `shadow_route_equivalences.source_paths` is
+      rendered as workspace-relative POSIX strings at the harness boundary,
+      so the field is byte-identical regardless of operator CWD or absolute
+      install path. Closes the PR #4 machine-dependent-source_paths
+      follow-up and unblocks a byte-stable cohort `shadow_route_equivalences`
+      baseline for C1S1-C1S3 (the next planned slice).
+    review_status: merged
+    review_status_meaning: >-
+      Merged to main on 2026-05-10T21:09Z (merge commit
+      40be747a87d0eecb4dc1c865f236f3728cf1d4d4) after a single round of
+      review. Round 1 (commit ec1f55fa) shipped the harness-side
+      `_workspace_relative_posix` helper, the required `workspace_root: Path`
+      kwarg on `build_route_equivalence_shadow_payload`, the harness wiring
+      via `_HARNESS_WORKSPACE_ROOT = Path(__file__).resolve().parents[2]`,
+      and the new harness-boundary test
+      `test_route_equivalence_source_paths_are_workspace_relative_and_cwd_invariant`
+      that spawns `breadcrumb_query_run` from `_REPO_ROOT` and from
+      `_REPO_ROOT / "tests"` via `uv run --directory _REPO_ROOT …` and
+      asserts full-payload equality (not just `source_paths` equality). Final
+      verification on ec1f55fa: §7 suite green
+      (`tests/lexicon_phase_b/ -q` -> 22 passed;
+      `tests/test_breadcrumb_query_run_lexicon_records_jsonl.py -q` -> 11
+      passed (10 -> 11 from the new harness-boundary test);
+      `--check` OK on both manifests; smoke + `python -c` byte-string
+      assertion printed the expected workspace-relative POSIX list).
+      Verdict delivered as COMMENT banner + APPROVE intent due to the
+      standard self-review GitHub policy block (review id 4259919574).
+    judgment_record:
+      verdict: accepted
+      evaluated_at: "2026-05-10T21:08:33Z"
+      evaluator: cursor-agent
+      notes: >-
+        Closes the PR #4 known follow-up that `shadow_route_equivalences.source_paths`
+        stored `Path.__str__` of the resolved input (machine-dependent: absolute
+        vs corpus-relative depended on operator CWD). PR makes the field
+        workspace-relative POSIX rendered at the harness boundary, with the
+        invariant tested by spawning two subprocesses from different CWDs and
+        comparing the full payload (not just the field under test). Producer-side
+        artifacts and tests were untouched as required by §5 denylist; signature
+        change to `build_route_equivalence_shadow_payload` (required `workspace_root`
+        kwarg) is safe — caller audit confirmed only the harness call site and the
+        four updated unit tests reach this function. Stale rubric line in the
+        original handoff (§9 bullet #6 quoted "17 passed" for `tests/lexicon_phase_b/`;
+        actual is 22 passed at both main and PR head) was a benign authoring miscount,
+        not a PR defect — the substantive claim "producer-side untouched" holds
+        (no diff in those paths). Defensive `path.name` fallback in
+        `_workspace_relative_posix` covers the unlikely outside-workspace path
+        case; not exercised in the smoke and not worth gating on.
+      followups_not_blocking_merge:
+        - >-
+          Sibling lane: producer-side `manifest_hash` + provenance fields on
+          `route_equivalence_longmont_c*_v1.jsonl`. Would let the consumer
+          payload surface `manifest_hash` alongside the now-stable
+          `source_paths`. Out of scope for PR #5 (consumer-side only); next
+          worker can dispatch in parallel with the cohort-baseline lane since
+          file scopes don't overlap.
+    rubric_when_we_judge:
+      - "Shadow-only contract: when the new flag is unset, harness output is byte-identical (modulo the absent shadow field) to a run without the flag. **Must be tested at the harness boundary, not the loader.**"
+      - "Load-failure mode: missing or malformed manifest emits a structured error payload in `shadow_route_equivalences` and the run survives; no exception leaks into retrieval/grading."
+      - "New field `shadow_route_equivalences` uses an explicit schema id (`dmb_route_equivalence_shadow_v1`) and is omitted entirely when the flag is unset (no `null` placeholder)."
+      - "Existing diagnostic field (`shadow_token_resolution`) and grading remain untouched; legacy lexical seeds remain the active retrieval source."
+      - "Lexicon-only loader/tests live under `src/lexicon_phase_b/` and `tests/lexicon_phase_b/`; harness-level tests live next to the existing `tests/test_breadcrumb_query_run_lexicon_records_jsonl.py`."
+      - "Allowlist held: PR diff exactly matches §4 of the handoff; nothing in the §5 denylist was touched (especially gold files, schemas, manifest builder)."
+      - >-
+        **Provenance fields in shadow diagnostics are rendered at the harness
+        boundary, not at the loader, and the boundary's CWD invariance is
+        tested by spawning a subprocess from at least two different CWDs and
+        asserting full-payload equality (not just the field under test).**
+        Loader-side or single-CWD unit coverage is necessary but not sufficient
+        — payload byte-identity is the contract. (NEW from PR #5.)
   - id: github-pr-4
     url: https://github.com/Drakosfire/DungeonMindBuddy/pull/4
     plan_phase_primary: "5"
@@ -346,8 +474,9 @@ Build a stepwise, benchmark-first path from current Phase A state to a **fully a
 
 ## Current state snapshot
 
-- Active phase is **B**; **M1 complete**, **M2 in progress** (route-equivalence **sub-lane landed**; broader M2: manifest hash / provenance, entity-candidate + lexical-handle surfaces still open), **M3 in progress** (Phase C entry shadow consumer landed via PR #4 — flag-gated, shadow-only; retriever wiring stays gated for Phase 5 exit), **M4 not started**.
+- Active phase is **B**; **M1 complete**, **M2 in progress** (route-equivalence **sub-lane landed**; broader M2: manifest hash / provenance on the JSONL artifacts, entity-candidate + lexical-handle surfaces still open), **M3 in progress** (Phase C entry shadow consumer landed via PR #4 — flag-gated, shadow-only; provenance hardening landed via PR #5; retriever wiring stays gated for Phase 5 exit), **M4 not started**.
 - No Phase A structural blockers on a machine that has the alignment audit inputs. `scripts/audit_world_campaign_alignment.py` is **PASS** when `out/evals/corpus_remote/normalization_manifest.json` exists at the default path; see `flagged_followups` for clean-checkout caveat.
+- **Phase C entry provenance hardening is merged:** **PR #5** (`main` merge commit `40be747a87d0eecb4dc1c865f236f3728cf1d4d4`, 2026-05-10T21:09Z) makes `shadow_route_equivalences.source_paths` workspace-relative POSIX strings rendered at the harness boundary, so the field is byte-identical regardless of operator CWD or absolute install path. Adds `_workspace_relative_posix` helper to `route_equivalence_shadow.py`; required `workspace_root: Path` kwarg on `build_route_equivalence_shadow_payload`; harness wires `_HARNESS_WORKSPACE_ROOT = Path(__file__).resolve().parents[2]`. New harness-boundary test `test_route_equivalence_source_paths_are_workspace_relative_and_cwd_invariant` spawns the harness from two different operator CWDs and asserts full-payload byte-identity. Closes the PR #4 known follow-up; **unblocks** a byte-stable cohort `shadow_route_equivalences` baseline for C1S1-C1S3. Handoff `Docs/Plans/archive/2026-05-10/handoffs/HANDOFF-route-equivalence-shadow-source-paths-workspace-relative.md` is the historical context.
 - **Phase C entry shadow consumer is merged:** **PR #4** (`main` merge commit `21e84392da03095377b4de36defb82edfc37c741`, 2026-05-10T16:22Z) adds `src/lexicon_phase_b/route_equivalence_loader.py`, `evals/sentence_routing_retrieval_falsification/route_equivalence_shadow.py`, and a `--route-equivalence-jsonl` (repeatable) CLI flag on `breadcrumb_query_run`. Per-scenario `shadow_route_equivalences` field is emitted only when the flag is set; legacy retrieval, grading, and `shadow_token_resolution` paths are unchanged. Handoff `Docs/Plans/archive/2026-05-10/handoffs/HANDOFF-phase-c-route-equivalence-shadow-consumer.md` is the historical context.
 - **Route-equivalence artifact lane is merged:** **PR #3** (`main` merge commit `98c09aaf0fead2aaaf4b3a7c90afcb09bae8026f`, 2026-05-10T05:06Z) adds committed JSONL under `evals/sentence_routing_retrieval_falsification/artifacts/lexicon/`, `scripts/build_route_equivalence_manifests.py`, and `tests/lexicon_phase_b/test_route_equivalence_artifacts_byte_stable.py`. Handoff `Docs/Plans/archive/2026-05-10/handoffs/HANDOFF-phase-b-route-equivalence-artifact-output.md` describes the same slice; treat it as historical context for PR #3.
 - **PR #2 merged** (`main` merge commit `545cf37`, 2026-05-10T02:59Z): `src/lexicon_phase_b/` (schema + deterministic manifest builder), `tests/lexicon_phase_b/` collision-safe layout, `unknown`-kind filter, documented `source_type="npc_registry"` lineage.
@@ -396,13 +525,14 @@ flowchart TD
 
 | Field | Value |
 |-------|--------|
+| **Phase C entry provenance hardening PR** | [Drakosfire/DungeonMindBuddy#5](https://github.com/Drakosfire/DungeonMindBuddy/pull/5) — **MERGED** (merge commit `40be747a87d0eecb4dc1c865f236f3728cf1d4d4`, 2026-05-10T21:09Z). Workspace-relative POSIX `source_paths` rendered at harness boundary + new harness-boundary CWD-invariance test. Closes PR #4 known follow-up. |
 | **Phase C entry shadow consumer PR** | [Drakosfire/DungeonMindBuddy#4](https://github.com/Drakosfire/DungeonMindBuddy/pull/4) — **MERGED** (merge commit `21e84392da03095377b4de36defb82edfc37c741`, 2026-05-10T16:22Z). Loader + shadow module + `--route-equivalence-jsonl` flag + harness-boundary safety tests. Shadow-only. |
 | **Route-equivalence artifacts PR** | [Drakosfire/DungeonMindBuddy#3](https://github.com/Drakosfire/DungeonMindBuddy/pull/3) — **MERGED** (merge commit `98c09aaf0fead2aaaf4b3a7c90afcb09bae8026f`, 2026-05-10T05:06Z). Committed JSONL + CLI `--check` + byte-stable regression. |
 | **Schema + builder PR** | [Drakosfire/DungeonMindBuddy#2](https://github.com/Drakosfire/DungeonMindBuddy/pull/2) — **MERGED** (merge commit `545cf37`, 2026-05-10T02:59Z). |
 | **Superseded PR** | [Drakosfire/DungeonMindBuddy#1](https://github.com/Drakosfire/DungeonMindBuddy/pull/1) — **CLOSED**, superseded by #2 due to test-namespace collision risk on `main`. |
-| **Plan mapping** | **PR #2:** Phase 1 + early Phase 2 builder. **PR #3:** Phase 2 route-equivalence committed artifacts + reproducibility gates. **PR #4:** Phase 5 entry (Phase C entry, shadow-only) — consumes PR #3 artifacts via `--route-equivalence-jsonl` and emits `shadow_route_equivalences` diagnostic alongside the existing `shadow_token_resolution` lane. Opens M3. |
-| **Review status** | PR #4: `tests/lexicon_phase_b/ -q` -> 17 passed; `tests/test_breadcrumb_query_run_lexicon_records_jsonl.py -q` -> 10 passed (round 2 added harness-boundary safety tests after round 1 had only loader-level coverage). PR #3: `build_route_equivalence_manifests.py --check` OK; `tests/lexicon_phase_b/ -q` -> 16 passed. PR #2 pre-merge: combined pytest 28 passed + audit PASS when manifest present. |
-| **Verdict (YAML)** | `github-pr-4`, `github-pr-3`, `github-pr-2` → `accepted`. PR #1 → `superseded_by_pr_2`. |
+| **Plan mapping** | **PR #2:** Phase 1 + early Phase 2 builder. **PR #3:** Phase 2 route-equivalence committed artifacts + reproducibility gates. **PR #4:** Phase 5 entry (Phase C entry, shadow-only) — consumes PR #3 artifacts via `--route-equivalence-jsonl` and emits `shadow_route_equivalences` diagnostic alongside the existing `shadow_token_resolution` lane. Opens M3. **PR #5:** Phase 5 entry hardening — `source_paths` byte-stable across operator CWDs, unblocking byte-stable cohort baseline. |
+| **Review status** | PR #5: `tests/lexicon_phase_b/ -q` -> 22 passed (producer-side untouched); `tests/test_breadcrumb_query_run_lexicon_records_jsonl.py -q` -> 11 passed (10 -> 11 from new harness-boundary CWD-invariance test); `--check` OK; smoke + `python -c` byte-string assertion green. PR #4: `tests/lexicon_phase_b/ -q` -> 17 passed (count grew before PR #5; both PR #4 and PR #5 substantively held "producer-side untouched"); `tests/test_breadcrumb_query_run_lexicon_records_jsonl.py -q` -> 10 passed (round 2 added harness-boundary safety tests after round 1 had only loader-level coverage). PR #3: `build_route_equivalence_manifests.py --check` OK; `tests/lexicon_phase_b/ -q` -> 16 passed. PR #2 pre-merge: combined pytest 28 passed + audit PASS when manifest present. |
+| **Verdict (YAML)** | `github-pr-5`, `github-pr-4`, `github-pr-3`, `github-pr-2` → `accepted`. PR #1 → `superseded_by_pr_2`. |
 
 **Judgment rubric reference:** the bullets under `rubric_when_we_judge` on **PR #2** and **PR #3** in the YAML `external_pull_requests` list remain the acceptance criteria baseline for related future PRs, including the requirement that lexicon-only tests live under `tests/lexicon_phase_b/` to avoid collision with `tests/test_token_resolution_*` on `main`.
 
@@ -433,7 +563,7 @@ flowchart TD
 - Emit artifacts under `evals/sentence_routing_retrieval_falsification/artifacts/lexicon/` with manifest hash and provenance.
 - Regression test: same inputs ⇒ byte-stable artifact.
 
-**Status (2026-05-10):** Route-equivalence JSONL for Longmont C1 and C2 is **committed** with `scripts/build_route_equivalence_manifests.py --check` and `test_route_equivalence_artifacts_byte_stable.py` (PR #3). PR #4 added the **shadow consumer** path: a pure JSONL loader (`src/lexicon_phase_b/route_equivalence_loader.py`), a per-scenario diagnostic builder (`evals/sentence_routing_retrieval_falsification/route_equivalence_shadow.py`), and a `--route-equivalence-jsonl` flag on `breadcrumb_query_run` that emits `shadow_route_equivalences` (`dmb_route_equivalence_shadow_v1`) alongside the existing `shadow_token_resolution` lane — shadow-only, no retrieval/grading effect. Remaining Phase 2 scope: broader lexical handles, manifest hash / provenance fields on the JSONL artifacts, entity-candidate + lexical-handle artifacts under the same byte-stable contract.
+**Status (2026-05-10):** Route-equivalence JSONL for Longmont C1 and C2 is **committed** with `scripts/build_route_equivalence_manifests.py --check` and `test_route_equivalence_artifacts_byte_stable.py` (PR #3). PR #4 added the **shadow consumer** path: a pure JSONL loader (`src/lexicon_phase_b/route_equivalence_loader.py`), a per-scenario diagnostic builder (`evals/sentence_routing_retrieval_falsification/route_equivalence_shadow.py`), and a `--route-equivalence-jsonl` flag on `breadcrumb_query_run` that emits `shadow_route_equivalences` (`dmb_route_equivalence_shadow_v1`) alongside the existing `shadow_token_resolution` lane — shadow-only, no retrieval/grading effect. **PR #5 hardened** the consumer payload's provenance field: `source_paths` is now rendered as workspace-relative POSIX strings at the harness boundary, so it is byte-identical across operator CWDs and absolute install paths. Remaining Phase 2 scope: broader lexical handles, manifest hash / provenance fields on the **producer-side JSONL artifacts** (sibling lane to PR #5; could be dispatched in parallel with the cohort-baseline lane since file scopes don't overlap), entity-candidate + lexical-handle artifacts under the same byte-stable contract.
 
 **Primary files**
 
@@ -472,16 +602,17 @@ flowchart TD
 - Deterministic tests: generated-only mode for C1S1–C1S3.
 - Promotion gate (shadow → active): authority-risk violations = 0 on cohort; over-routing below threshold; no regression on context-support metrics.
 
-**Status (2026-05-10):** Phase C **entry** shadow consumer landed via **PR #4** (merge commit `21e84392`). The harness now optionally consumes the committed route-equivalence JSONL behind `--route-equivalence-jsonl` and emits `shadow_route_equivalences` per scenario. Retriever still uses legacy lexical seeds; the promotion gate (shadow → active wiring) is the **exit**. Two harness-boundary safety tests guard the contract:
-- `test_route_equivalence_flag_is_additive_only_at_harness_boundary` — proves byte-identity of all non-shadow fields when the flag is unset.
-- `test_route_equivalence_load_failure_emits_error_payload_and_run_survives` — proves harness emits a structured error payload and never raises into the run.
+**Status (2026-05-10):** Phase C **entry** shadow consumer landed via **PR #4** (merge commit `21e84392`). The harness now optionally consumes the committed route-equivalence JSONL behind `--route-equivalence-jsonl` and emits `shadow_route_equivalences` per scenario. Retriever still uses legacy lexical seeds; the promotion gate (shadow → active wiring) is the **exit**. The harness-boundary safety contract has **expanded with PR #5** to also cover provenance rendering — three harness-boundary tests now guard the entry:
+- `test_route_equivalence_flag_is_additive_only_at_harness_boundary` (PR #4) — proves byte-identity of all non-shadow fields when the flag is unset.
+- `test_route_equivalence_load_failure_emits_error_payload_and_run_survives` (PR #4) — proves harness emits a structured error payload and never raises into the run.
+- `test_route_equivalence_source_paths_are_workspace_relative_and_cwd_invariant` (PR #5) — proves the full shadow payload (not just `source_paths`) is byte-identical when `breadcrumb_query_run` is invoked from `_REPO_ROOT` vs `_REPO_ROOT / "tests"` via `uv run --directory _REPO_ROOT …`.
 
 **Primary files**
 
 - `src/lexicon_phase_b/route_equivalence_loader.py` (PR #4)
-- `evals/sentence_routing_retrieval_falsification/route_equivalence_shadow.py` (PR #4)
-- `evals/sentence_routing_retrieval_falsification/breadcrumb_query_run.py` (extended in PR #4)
-- `tests/test_breadcrumb_query_run_lexicon_records_jsonl.py` (extended in PR #4)
+- `evals/sentence_routing_retrieval_falsification/route_equivalence_shadow.py` (PR #4; `_workspace_relative_posix` helper + required `workspace_root` kwarg added in PR #5)
+- `evals/sentence_routing_retrieval_falsification/breadcrumb_query_run.py` (extended in PR #4; `_HARNESS_WORKSPACE_ROOT` wiring added in PR #5)
+- `tests/test_breadcrumb_query_run_lexicon_records_jsonl.py` (extended in PR #4; CWD-invariance harness-boundary test added in PR #5)
 - `src/agent/session_memory_query.py` (Phase C **exit**: not yet wired; legacy seeds remain authoritative)
 
 ## Phase 6: Autonomous C1S1–C1S3 agentic loop demo
@@ -528,7 +659,9 @@ Track detailed todos in [CHECKLIST-dynamic-lexical-retrieval-rollout.md](CHECKLI
 - [x] Close Phase A hierarchy / alignment gate
 - [x] Phase B route-equivalence lane: schema, builder, committed JSONL, CLI `--check`, byte-stable tests (PR #2 + PR #3)
 - [x] Phase C entry: shadow consumer of route-equivalence JSONL behind `--route-equivalence-jsonl` flag, with harness-boundary safety tests (PR #4)
-- [ ] Phase B remainder: manifest hash / provenance, entity-candidate + lexical-handle artifacts per contracts above
+- [x] Phase C entry hardening: workspace-relative POSIX `source_paths` rendered at harness boundary, with CWD-invariance harness-boundary test (PR #5) — closes PR #4 known follow-up; unblocks byte-stable cohort baseline
+- [ ] Phase B remainder: manifest hash / provenance on **producer-side** JSONL artifacts (sibling lane to PR #5), entity-candidate + lexical-handle artifacts per contracts above
+- [ ] Cohort `shadow_route_equivalences` baseline for C1S1-C1S3 (now byte-stable-able after PR #5; Phase 4 diagnostics input / promotion-gate input)
 - [ ] Benchmark engine + cohort taxonomy
 - [ ] Shadow → canvas
 - [ ] Gated retriever wiring (Phase C exit / promotion gate)
@@ -538,6 +671,7 @@ Track detailed todos in [CHECKLIST-dynamic-lexical-retrieval-rollout.md](CHECKLI
 
 | Date (UTC) | Version | Summary |
 |------------|---------|---------|
+| 2026-05-10 | 11 | PR #5 merged (`40be747a`): `shadow_route_equivalences.source_paths` is now workspace-relative POSIX strings rendered at the harness boundary. Adds `_workspace_relative_posix(path, workspace_root)` to `route_equivalence_shadow.py`; required `workspace_root: Path` kwarg on `build_route_equivalence_shadow_payload`; harness wires `_HARNESS_WORKSPACE_ROOT = Path(__file__).resolve().parents[2]`. New harness-boundary test asserts full-payload byte-identity across two operator CWDs via subprocess. Closes the PR #4 machine-dependent-`source_paths` follow-up. Producer-side untouched. `external_pull_requests` gains `github-pr-5` with the new rubric bullet "provenance fields in shadow diagnostics rendered at the harness boundary, with CWD-invariance tested by spawning subprocesses from at least two different CWDs and asserting full-payload equality." Workstream checklist: Phase C entry hardening checked off; cohort baseline added as the next open item. |
 | 2026-05-10 | 10 | PR #4 merged (`21e84392`): Phase C entry shadow consumer lands. New `route_equivalence_loader.py`, `route_equivalence_shadow.py`, `--route-equivalence-jsonl` CLI flag, and harness-boundary safety tests (byte-identity-when-flag-unset, load-failure-emits-error). Shadow-only — no retrieval/grading change. `milestone_progress.M3: not_started -> in_progress`. `external_pull_requests` gains `github-pr-4` with the new "test the boundary that owns the rubric" bullet. Checklist Reanchor / Phase C Evidence / Session log synced; `HANDOFF-phase-c-route-equivalence-shadow-consumer.md` archived. |
 | 2026-05-10 | 9 | PR #3 merged (`98c09aaf`): committed route-equivalence JSONL, `build_route_equivalence_manifests.py` CLI, byte-stable test, `_is_campaign_path` fix. Plan snapshot, `external_pull_requests`, PR table, Phase 2 status, and workstream checkboxes updated; checklist Evidence/Reanchor synced. |
 | 2026-05-10 | 8 | Phase A re-verified green on current `main`; active phase advanced A -> B; M1 complete, M2 in progress. Old Phase A + route-id handoff retired. C1S13 hierarchy content concern moved to flagged follow-up in `Backlog.md`. |
