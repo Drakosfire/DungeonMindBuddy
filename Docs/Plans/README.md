@@ -12,6 +12,8 @@ Execution plans, experiments, audits, and design notes for DungeonMindBuddy.
 | --- | ---- |
 | [`PLAN-split-corpus-retrieval-to-autonomous-demo.md`](PLAN-split-corpus-retrieval-to-autonomous-demo.md) | Versioned super-plan (YAML + narrative): split-corpus retrieval through autonomous C1S1–C1S3 demo. |
 | [`CHECKLIST-dynamic-lexical-retrieval-rollout.md`](CHECKLIST-dynamic-lexical-retrieval-rollout.md) | Operational tracker (phases A–E, session log). |
+| [`HANDOFF-phase-b-route-equivalence-artifact-output.md`](HANDOFF-phase-b-route-equivalence-artifact-output.md) | **Active** subagent brief: deterministic CLI + canonical JSONL artifacts + byte-stable regression for `build_route_equivalence_manifest`. Replaces the retired Phase A / route-id handoff. |
+| [`HANDOFF-pr1-merge-readiness.md`](HANDOFF-pr1-merge-readiness.md) | Historical merge-readiness instructions for PR #1 (PR #1 closed; PR #2 merged). Kept for narrative continuity; no action required. |
 | [`../Design/DECISION-world-campaign-knowledge-hierarchy.md`](../Design/DECISION-world-campaign-knowledge-hierarchy.md) | Decision anchor (world vs campaign authority). |
 
 ---

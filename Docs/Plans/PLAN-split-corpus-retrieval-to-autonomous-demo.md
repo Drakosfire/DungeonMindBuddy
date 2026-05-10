@@ -6,9 +6,9 @@ title: Split-corpus retrieval to autonomous C1S1–C1S3 demo
 document_class: plan
 plan_kind: execution_super_plan
 status: active
-version: 6
+version: 8
 created_at: "2026-05-09T00:00:00Z"
-last_updated_at: "2026-05-09T20:52:00Z"
+last_updated_at: "2026-05-10T03:30:00Z"
 timezone_note: "Timestamps are UTC; local work may use America/Denver."
 supersedes: []
 superseded_by: null
@@ -37,26 +37,64 @@ milestones:
   - id: M4
     label: Demo-ready autonomous loop
 execution_state:
-  active_phase: A
+  active_phase: B
   milestone_progress:
-    M1: in_progress
-    M2: not_started
+    M1: complete
+    M2: in_progress
     M3: not_started
     M4: not_started
-  blockers:
+  blockers: []
+  next_gate_command: >-
+    uv run python scripts/build_route_equivalence_manifests.py --check
+    (CLI to be authored under active Phase B handoff;
+    HANDOFF-phase-b-route-equivalence-artifact-output.md).
+  flagged_followups:
     - >-
-      C1S13 location hierarchy contract remains red
-      (`location_hierarchy_equivalences` missing for three location-context
-      scenarios).
-  next_gate_command: uv run python scripts/audit_world_campaign_alignment.py
+      Content quality of `location_hierarchy_equivalences` in
+      `evals/sentence_routing_retrieval_falsification/gold/breadcrumb_query_natural_c1s13_v1.json`
+      looks copy-pasted across two of three location-context scenarios; the
+      audit only checks structure, not semantic correctness. Not a Phase A
+      blocker. Tracked in `Backlog.md`.
   integration_notes:
     - >-
-      PR #1 remains OPEN on GitHub, but equivalent Phase 1 + early Phase 2
-      content is integrated on main (commit 731ca52).
+      PR #2 is MERGED to main (merge commit 545cf37, 2026-05-10T02:59Z): adds
+      `src/lexicon_phase_b/` (`RouteEquivalenceRecord` + deterministic manifest
+      builder) and `tests/lexicon_phase_b/` test layout that does not collide
+      with `main`'s token-resolution tests; filters `entity_kind == "unknown"`
+      edges; documents `source_type="npc_registry"` as registry-file lineage,
+      not an NPC-only constraint.
     - >-
-      Follow-up still required: validate/fix route ID slug derivation for
-      directory-style hub_path values in live _npc_registry.json files.
+      PR #1 is CLOSED on GitHub (superseded by PR #2). Old branch
+      `codex/implement-dynamic-lexical-artifact-generation` is no longer the
+      canonical source for Phase 1 + early Phase 2 work.
+    - >-
+      Pre-merge gate runs: `uv run pytest tests/lexicon_phase_b/
+      tests/test_token_resolution_resolver.py
+      tests/test_token_resolution_contracts.py
+      tests/test_benchmark_lexicon_seeds.py` -> 28 passed;
+      `uv run python scripts/audit_world_campaign_alignment.py` -> PASS.
+    - >-
+      Route-id slug derivation for directory-style hub_path values is now
+      addressed in `src/lexicon_phase_b/route_equivalence_manifest.py`
+      (`_extract_entity_slug` + bucket-folder fallback) and covered by
+      `tests/lexicon_phase_b/test_route_id_path_shapes.py`.
 changelog:
+  - at: "2026-05-10T03:30:00Z"
+    version: 8
+    summary: >-
+      Phase A re-verified green on current main (audit PASS, all C1S13
+      hierarchy fields structurally present). Active phase advanced A -> B,
+      M1 marked complete, M2 marked in_progress. C1S13 hierarchy content
+      quality concern moved from blocker to flagged_followup tracked in
+      Backlog.md. Old combined Phase A + route-id handoff retired and
+      archived; replaced by narrow Phase B handoff.
+  - at: "2026-05-10T03:10:00Z"
+    version: 7
+    summary: >-
+      PR #2 merged to main (merge commit 545cf37) with `src/lexicon_phase_b/`
+      and collision-safe `tests/lexicon_phase_b/` layout; PR #1 closed as
+      superseded. Phase 1 contract surface and early Phase 2 builder now land
+      on main without test-namespace collisions.
   - at: "2026-05-09T20:52:00Z"
     version: 6
     summary: >-
@@ -90,26 +128,28 @@ changelog:
 # Notation: plan_phase_primary / plan_phase_also_touches map work to phases;
 # review_status captures current merge/review disposition.
 external_pull_requests:
-  - id: github-pr-1
-    url: https://github.com/Drakosfire/DungeonMindBuddy/pull/1
+  - id: github-pr-2
+    url: https://github.com/Drakosfire/DungeonMindBuddy/pull/2
     plan_phase_primary: "1"
     plan_phase_also_touches: "2"
     plan_phase_label: >-
       Phase 1 (RouteEquivalenceRecord schema + authority_effect) plus early
-      Phase 2 (build/write route equivalence manifest from NPC registry).
-    review_status: integrated_on_main_pr_open
+      Phase 2 (build/write route equivalence manifest from NPC registry),
+      delivered with collision-safe tests/lexicon_phase_b/ layout.
+    review_status: merged
     review_status_meaning: >-
-      Equivalent content is integrated on main (see commit 731ca52), while the
-      GitHub PR remains OPEN; follow-up items remain tracked for production-shape
-      hub_path handling.
+      Merged to main on 2026-05-10T02:59Z (merge commit 545cf37) after fresh
+      verification: lexicon_phase_b + token_resolution + benchmark_lexicon_seeds
+      pytest suite (28 passed) and audit_world_campaign_alignment (PASS).
     judgment_record:
-      verdict: accepted_with_followups
-      evaluated_at: "2026-05-09T20:39:00Z"
+      verdict: accepted
+      evaluated_at: "2026-05-10T02:59:15Z"
       evaluator: cursor-agent
       notes: >-
-        Accepted for merged Phase 1+early Phase 2 scope. Keep explicit follow-up:
-        validate/fix route ID slug derivation against directory-style hub_path
-        values in live _npc_registry.json (not only README.md-shaped paths).
+        PR supersedes PR #1. Adds _extract_entity_slug for directory-style hub
+        paths, filters entity_kind=="unknown" edges, documents source_type
+        ("npc_registry" = registry file lineage, not NPC-only). Phase A
+        hierarchy gate still pending and is independent of this PR.
     rubric_when_we_judge:
       - "Schemas are versioned; JSON/YAML shape is documented and test-covered."
       - "Authority semantics match DECISION (campaign authority vs world fallback); no silent flattening."
@@ -118,8 +158,32 @@ external_pull_requests:
       - "Scope matches Phase 1 contract surface; unrelated refactors called out explicitly if present."
       - >-
         Route ID derivation matches real registry hub_path shapes (corpus-relative
-        hub **directories** ending in …/NPCs/<slug>/); tests must not only cover
-        README.md file paths if that is not production shape.
+        hub **directories** ending in …/NPCs/<slug>/); tests cover both
+        directory-shaped and README.md-shaped paths.
+      - >-
+        New test files do not collide with existing token-resolution test
+        basenames on main; lexicon-only tests live under tests/lexicon_phase_b/.
+  - id: github-pr-1
+    url: https://github.com/Drakosfire/DungeonMindBuddy/pull/1
+    plan_phase_primary: "1"
+    plan_phase_also_touches: "2"
+    plan_phase_label: >-
+      Original Phase 1 + early Phase 2 attempt. Closed in favor of PR #2.
+    review_status: closed_superseded
+    review_status_meaning: >-
+      Closed without merge on 2026-05-10. PR #2 (branch
+      codex/implement-dynamic-lexical-artifact-generation-1br3xu) replaces it
+      with collision-safe test layout, unknown-kind filter, and source_type
+      docstring.
+    judgment_record:
+      verdict: superseded_by_pr_2
+      evaluated_at: "2026-05-10T02:38:00Z"
+      evaluator: cursor-agent
+      notes: >-
+        PR #1 added test files at tests/test_token_resolution_*.py /
+        tests/test_benchmark_lexicon_seeds.py paths that already host different
+        suites on main. Closing prevents wrong-side merge resolution from
+        wiping main's token_resolution test coverage.
 ---
 
 # Split-corpus retrieval to autonomous demo
@@ -144,11 +208,12 @@ Build a stepwise, benchmark-first path from current Phase A state to a **fully a
 
 ## Current state snapshot
 
-- Active phase is **A**; M1 remains in progress and M2–M4 are not started.
-- Current blocker remains the C1S13 hierarchy contract gap (`location_hierarchy_equivalences` in three location-context scenarios).
-- Next gate command remains `uv run python scripts/audit_world_campaign_alignment.py`.
-- PR #1 is still OPEN on GitHub while equivalent Phase 1 + early Phase 2 code is integrated on `main` (`731ca52`).
-- Follow-up in scope before broad promotion: route-id derivation must be validated/fixed for directory-shaped `hub_path` values.
+- Active phase is **B**; **M1 complete**, **M2 in progress**, M3–M4 not started.
+- No Phase A blockers. Audit `scripts/audit_world_campaign_alignment.py` is **PASS** on current `main` (structural contract green for registry authority, manifest campaign IDs, and breadcrumb-natural hierarchy presence).
+- Phase B work in flight: stand up canonical output path + byte-stable regression for `build_route_equivalence_manifest`. See active handoff `Docs/Plans/HANDOFF-phase-b-route-equivalence-artifact-output.md`.
+- **PR #2 merged** (`main` merge commit `545cf37`, 2026-05-10T02:59Z): `src/lexicon_phase_b/` (schema + deterministic manifest builder), `tests/lexicon_phase_b/` collision-safe layout, `unknown`-kind filter, documented `source_type="npc_registry"` lineage.
+- **PR #1 closed** as superseded by PR #2.
+- Flagged content-quality follow-up (not a phase blocker): `location_hierarchy_equivalences` in `breadcrumb_query_natural_c1s13_v1.json` looks copy-pasted across two of three scenarios. Tracked in `Backlog.md`; the structural audit cannot detect this.
 
 ## Architecture track
 
@@ -188,22 +253,33 @@ flowchart TD
 - Encode authority explicitly (`campaign_authority`, `setting_fallback`, routing-only effects).
 - Strict validation tests so malformed artifacts fail early.
 
-### PR anchor (post-integration status)
+### PR anchor (post-merge status)
 
 | Field | Value |
 |-------|--------|
-| **PR** | [Drakosfire/DungeonMindBuddy#1](https://github.com/Drakosfire/DungeonMindBuddy/pull/1) |
+| **Canonical PR** | [Drakosfire/DungeonMindBuddy#2](https://github.com/Drakosfire/DungeonMindBuddy/pull/2) — **MERGED** (merge commit `545cf37`, 2026-05-10T02:59Z). |
+| **Superseded PR** | [Drakosfire/DungeonMindBuddy#1](https://github.com/Drakosfire/DungeonMindBuddy/pull/1) — **CLOSED**, superseded by #2 due to test-namespace collision risk on `main`. |
 | **Plan mapping** | **Primary:** Phase 1 (`RouteEquivalenceRecord`, defaults `authority_effect=routing_only`). **Also:** early Phase 2 (deterministic `build_route_equivalence_manifest` / JSONL writer). Not Phase 0. |
-| **Review status** | `integrated_on_main_pr_open` — equivalent content is on `main` (commit `731ca52`), but PR #1 is still OPEN; judgment recorded with one follow-up on route-id derivation for directory-style `hub_path` values. |
-| **Verdict (YAML)** | `external_pull_requests[0].judgment_record.verdict = accepted_with_followups` with `evaluated_at` and `evaluator` now populated. |
+| **Review status** | `merged` — PR #2 verified pre-merge: `uv run pytest tests/lexicon_phase_b/ tests/test_token_resolution_resolver.py tests/test_token_resolution_contracts.py tests/test_benchmark_lexicon_seeds.py -q` -> 28 passed; `uv run python scripts/audit_world_campaign_alignment.py` -> PASS. |
+| **Verdict (YAML)** | `external_pull_requests[0].judgment_record.verdict = accepted` (PR #2). PR #1 verdict = `superseded_by_pr_2`. |
 
-**Judgment rubric reference:** the bullets under `rubric_when_we_judge` remain the acceptance criteria baseline for follow-up validation and future related PRs.
+**Judgment rubric reference:** the bullets under `rubric_when_we_judge` (PR #2 entry) remain the acceptance criteria baseline for related future PRs, including the new requirement that lexicon-only tests live under `tests/lexicon_phase_b/` to avoid collision with `tests/test_token_resolution_*` on `main`.
 
-**Primary files**
+**Primary files (now landed on main)**
+
+- `src/lexicon_phase_b/schemas.py` (`RouteEquivalenceRecord`, `EntityKind`, `AuthorityEffect`)
+- `src/lexicon_phase_b/route_equivalence_manifest.py` (`_extract_entity_slug`, `build_route_equivalence_manifest`, `write_route_equivalence_manifest`)
+- `tests/lexicon_phase_b/test_route_equivalence_manifest.py`
+- `tests/lexicon_phase_b/test_route_id_path_shapes.py`
+- `tests/lexicon_phase_b/test_route_equivalence_record_defaults.py`
+- `tests/lexicon_phase_b/test_route_equivalence_entity_kind_inference.py`
+
+**Preserved on main (not touched by PR #2)**
 
 - `src/token_resolution/resolver.py`
 - `tests/test_token_resolution_contracts.py`
 - `tests/test_token_resolution_resolver.py`
+- `tests/test_benchmark_lexicon_seeds.py`
 
 ## Phase 2: Deterministic lexical artifact generator (shadow-only)
 
@@ -306,6 +382,8 @@ Track detailed todos in [CHECKLIST-dynamic-lexical-retrieval-rollout.md](CHECKLI
 
 | Date (UTC) | Version | Summary |
 |------------|---------|---------|
+| 2026-05-10 | 8 | Phase A re-verified green on current `main`; active phase advanced A -> B; M1 complete, M2 in progress. Old Phase A + route-id handoff retired. C1S13 hierarchy content concern moved to flagged follow-up in `Backlog.md`. |
+| 2026-05-10 | 7 | PR #2 merged to `main` (merge commit `545cf37`); PR #1 closed as superseded. Phase 1 contract + early Phase 2 builder land with collision-safe `tests/lexicon_phase_b/` layout, unknown-kind filter, `source_type` lineage doc. |
 | 2026-05-09 | 6 | Added explicit current execution-state snapshot (phase, blockers, gate command, PR/integration notes). |
 | 2026-05-09 | 5 | Corrected PR state: still OPEN on GitHub; content integrated on `main` (731ca52). |
 | 2026-05-09 | 4 | Post-merge sync: PR #1 status moved to merged/evaluated; follow-up on route-id directory-shape handling. |

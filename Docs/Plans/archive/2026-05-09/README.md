@@ -22,3 +22,7 @@ Mirathorn **council-room evidence → retriever → synthesis** experiment serie
 ## Superseded Cursor plan
 
 - [`mirathorn_event-sourced_slice_8eab1beb.plan.md`](mirathorn_event-sourced_slice_8eab1beb.plan.md) — superseded by [`../../Design/DESIGN-layered-canon-vertical-slice.md`](../../Design/DESIGN-layered-canon-vertical-slice.md). Stub at [`../../mirathorn_event-sourced_slice_8eab1beb.plan.md`](../../mirathorn_event-sourced_slice_8eab1beb.plan.md).
+
+## Retired handoffs
+
+- [`handoffs/HANDOFF-phase-a-gate-close-and-route-id-validation.md`](handoffs/HANDOFF-phase-a-gate-close-and-route-id-validation.md) — RETIRED 2026-05-10. Phase A hierarchy gate is structurally green on `main`; route-id directory-shape validation closed by PR #2 (merge `545cf37`). Replaced by `Docs/Plans/HANDOFF-phase-b-route-equivalence-artifact-output.md`.

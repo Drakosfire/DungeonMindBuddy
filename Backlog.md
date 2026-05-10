@@ -31,6 +31,25 @@ Sort newest → oldest within each status; promote with `/promote`; archive with
 
 ---
 
+## [IDEA] C1S13 hierarchy content audit — `location_hierarchy_equivalences` looks copy-pasted — captured 2026-05-10
+
+**Context:** `scripts/audit_world_campaign_alignment.py` only enforces a structural contract for `location_hierarchy_equivalences`: non-empty mapping, parent keys intersect with `expect_route_substrings`, child lists non-empty. It cannot detect semantic mis-mapping.
+
+**Observation (2026-05-10):** Inspection of the three location-context scenarios in `evals/sentence_routing_retrieval_falsification/gold/breadcrumb_query_natural_c1s13_v1.json`:
+- `stormspire_activity_arrival` -> `Stormspire Academy: ['stormspire_academy/', 'council_chambers/', 'basement_morgue/']` — plausible.
+- `meat_storage_strongholds_locations` -> `Wolf: ['stormspire_academy/', 'council_chambers/', 'basement_morgue/']` — children appear to belong to Stormspire Academy, not the Wolf parent.
+- `mossglade_residency_vs_association` -> `Mossglade: ['stormspire_academy/', 'council_chambers/']` (plus a correct `Stormspire Academy` row) — `Mossglade` parent should map to Mossglade-family children.
+
+**Insight:** Two scenarios appear to have copy-pasted child lists from the first scenario, satisfying the audit's intersection check (because `expect_route_substrings` includes `Stormspire Academy` in `mossglade_residency_vs_association`) without actually expressing the intended hierarchy. Once Phase C wires equivalences into retrieval ranking, mis-mapped parents will silently route world children under a campaign parent that should not own them.
+
+**Action:** When Phase C wiring is in scope (or sooner if a reviewer pairs on it), audit each scenario by hand against the Mirathorn / Longmont C1S13 corpus tree. If the children are wrong, replace with the correct children from `corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Locations/Wolf*` and `.../Mossglade*` and document the audit in a session log entry. Optionally, extend `audit_world_campaign_alignment.py` with a stricter check that the children share the parent's slug ancestry, but that is opt-in and probably wants a per-scenario allowlist for legitimate cross-references.
+
+**Surfaces when:** wiring lexical/route equivalences into retrieval ranking; touching C1S13 gold; designing the Phase C promotion gate (over-routing risk metric); reviewing a benchmark report where a Wolf or Mossglade scenario routes to Stormspire children.
+
+**Refs:** `evals/sentence_routing_retrieval_falsification/gold/breadcrumb_query_natural_c1s13_v1.json`, `scripts/audit_world_campaign_alignment.py:116-171`, `Docs/Plans/PLAN-split-corpus-retrieval-to-autonomous-demo.md` (`flagged_followups`).
+
+---
+
 ## [READY] Split corpus retrieval Phase B blueprint (shadow-mode lexical compiler) — captured 2026-05-09
 
 **Context:** User-authored architecture memo defining "DungeonMindBuddy Split Corpus Retrieval Architecture — Phase B: Dynamic Lexical Artifact Generation in Shadow Mode." Memo scopes split corpus semantics (world canon vs campaign continuity), proposes staged artifact pipeline (inventory -> classification -> hub metadata -> registry links -> entity candidates -> entity resolution -> lexical artifacts), and requires shadow-only diagnostics before any live retrieval wiring.
