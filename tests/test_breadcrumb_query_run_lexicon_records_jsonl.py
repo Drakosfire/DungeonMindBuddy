@@ -26,6 +26,13 @@ _FIXTURE_JSONL = (
     / "artifacts"
     / "last_session1_c1_breadcrumb_records.jsonl"
 )
+_NATURAL_GOLD_C1S1 = (
+    _REPO_ROOT
+    / "evals"
+    / "sentence_routing_retrieval_falsification"
+    / "gold"
+    / "breadcrumb_query_natural_c1s1_v1.json"
+)
 
 
 def test_build_campaign_lexicon_from_jsonl_records_derives_campaign_stopwords() -> None:
@@ -169,3 +176,70 @@ def test_breadcrumb_query_run_help_advertises_route_equivalence_jsonl_flag() -> 
         check=True,
     )
     assert "--route-equivalence-jsonl" in result.stdout
+
+
+def _run_breadcrumb_query_run_subprocess(*, output_path: Path, extra_args: list[str]) -> subprocess.CompletedProcess[str]:
+    cmd = [
+        "uv",
+        "run",
+        "python",
+        "-m",
+        "evals.sentence_routing_retrieval_falsification.breadcrumb_query_run",
+        "--records-jsonl",
+        str(_FIXTURE_JSONL),
+        "--gold",
+        str(_NATURAL_GOLD_C1S1),
+        "--retrieval-only",
+        "--output",
+        str(output_path),
+        *extra_args,
+    ]
+    return subprocess.run(cmd, capture_output=True, text=True)
+
+
+def test_route_equivalence_flag_is_additive_only_at_harness_boundary(tmp_path: Path) -> None:
+    if shutil.which("uv") is None:
+        pytest.skip("uv not available")
+    out_without = tmp_path / "without.json"
+    out_with = tmp_path / "with.json"
+    without_result = _run_breadcrumb_query_run_subprocess(output_path=out_without, extra_args=[])
+    with_result = _run_breadcrumb_query_run_subprocess(
+        output_path=out_with,
+        extra_args=[
+            "--route-equivalence-jsonl",
+            str(_route_equivalence_paths()[0]),
+            "--route-equivalence-jsonl",
+            str(_route_equivalence_paths()[1]),
+        ],
+    )
+    assert without_result.returncode == 0, without_result.stderr
+    assert with_result.returncode == 0, with_result.stderr
+    rows_without = json.loads(out_without.read_text(encoding="utf-8"))["results"]
+    rows_with = json.loads(out_with.read_text(encoding="utf-8"))["results"]
+    assert len(rows_without) == len(rows_with)
+    for base_row, flagged_row in zip(rows_without, rows_with, strict=True):
+        assert "shadow_route_equivalences" not in base_row
+        assert "shadow_route_equivalences" in flagged_row
+        flagged_without_shadow = dict(flagged_row)
+        flagged_without_shadow.pop("shadow_route_equivalences", None)
+        assert base_row == flagged_without_shadow
+
+
+def test_route_equivalence_load_failure_emits_error_payload_and_run_survives(tmp_path: Path) -> None:
+    if shutil.which("uv") is None:
+        pytest.skip("uv not available")
+    out_path = tmp_path / "error-path.json"
+    missing_path = tmp_path / "does_not_exist.jsonl"
+    run = _run_breadcrumb_query_run_subprocess(
+        output_path=out_path,
+        extra_args=["--route-equivalence-jsonl", str(missing_path)],
+    )
+    assert run.returncode == 0, run.stderr
+    rows = json.loads(out_path.read_text(encoding="utf-8"))["results"]
+    assert rows
+    for row in rows:
+        payload = row.get("shadow_route_equivalences")
+        assert isinstance(payload, dict)
+        assert payload.get("schema") == ROUTE_EQUIVALENCE_SHADOW_SCHEMA_V1
+        error_text = str(payload.get("error") or "")
+        assert error_text
