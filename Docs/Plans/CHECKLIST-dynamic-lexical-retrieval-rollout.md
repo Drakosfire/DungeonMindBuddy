@@ -45,8 +45,8 @@
 
 - [x] Lexical artifact schema defined and documented (`src/lexicon_phase_b/schemas.py::RouteEquivalenceRecord`, schema_version `0.2.0`, landed via PR #2).
 - [x] Generator consumes ingestion outputs with route/provenance fields (`src/lexicon_phase_b/route_equivalence_manifest.py::build_route_equivalence_manifest` reads `_npc_registry.json` via `src/contracts/npc_registry.py`).
-- [ ] Generation is deterministic for fixed inputs (byte-stable output) — covered for unit-level tmp registries; still need byte-stable cohort artifact regression test against a committed input registry.
-- [ ] Artifact output path standardized and documented (writer exists; canonical output dir `evals/sentence_routing_retrieval_falsification/artifacts/lexicon/` not yet wired or documented).
+- [x] Generation is deterministic for fixed inputs (byte-stable output) — `tests/lexicon_phase_b/test_route_equivalence_artifacts_byte_stable.py`; command: `uv run pytest tests/lexicon_phase_b/test_route_equivalence_artifacts_byte_stable.py -q` -> `6 passed` (2026-05-10).
+- [x] Artifact output path standardized and documented — canonical dir `evals/sentence_routing_retrieval_falsification/artifacts/lexicon/`; documented in `evals/sentence_routing_retrieval_falsification/README.md` under `Route equivalence manifests (Phase B)`.
 
 **Evidence**
 
@@ -117,6 +117,13 @@
 ---
 
 ## Session Log (append newest first)
+
+### 2026-05-10 (UTC) — third entry, route-equivalence artifacts
+
+- Phase moved: **`stayed B`**.
+- What turned green: canonical Phase B route-equivalence outputs now committed at `evals/sentence_routing_retrieval_falsification/artifacts/lexicon/route_equivalence_longmont_c1_v1.jsonl` and `route_equivalence_longmont_c2_v1.jsonl`; deterministic regression landed at `tests/lexicon_phase_b/test_route_equivalence_artifacts_byte_stable.py`.
+- Evidence command excerpts: `uv run python scripts/build_route_equivalence_manifests.py --check` -> `OK ...c1...` / `OK ...c2...`; `uv run pytest tests/lexicon_phase_b/test_route_equivalence_artifacts_byte_stable.py -q` -> `6 passed`.
+- Next single action: begin Phase C retriever wiring against generated artifacts while keeping benchmark seeds as fallback.
 
 ### 2026-05-10 (UTC) — second entry, late
 
