@@ -34,7 +34,8 @@ def _normalize_campaign_id(registry_path: Path) -> str:
 
 
 def _is_campaign_path(path: str) -> bool:
-    return "/Longmont Campaign/" in path.replace("\\", "/")
+    normalized = f"/{path.replace('\\', '/').strip('/')}/"
+    return "/longmont campaign/" in normalized.lower()
 
 
 def _infer_entity_kind(path: str) -> EntityKind:

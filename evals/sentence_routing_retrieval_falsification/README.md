@@ -210,6 +210,14 @@ For `gold` schema `dmb_breadcrumb_query_natural_gold_v1`, any change that can mo
 
 Benchmark-only semantic equivalence seeds and the frozen legacy route-stopword list used for shadow diffs live in `evals/sentence_routing_retrieval_falsification/artifacts/lexicon/benchmark_lexicon_seeds_v1.json`. Override the path with env `DMB_BENCHMARK_LEXICON_SEEDS` when you need a fork-local copy.
 
+#### Route equivalence manifests (Phase B)
+
+Route-equivalence lexical artifacts are written to `evals/sentence_routing_retrieval_falsification/artifacts/lexicon/` as committed JSONL outputs for Campaign 1 and Campaign 2. Filenames follow `route_equivalence_<campaign_id>_v1.jsonl` (for example `route_equivalence_longmont_c1_v1.jsonl`).
+
+Artifact records are built by `src/lexicon_phase_b/route_equivalence_manifest.py` and emitted through its deterministic JSONL writer. Use `uv run python scripts/build_route_equivalence_manifests.py --check` for CI-style byte checks and `uv run python scripts/build_route_equivalence_manifests.py --write` to regenerate canonical files.
+
+Determinism is enforced with `tests/lexicon_phase_b/test_route_equivalence_artifacts_byte_stable.py`, which compares fresh builds to committed artifacts byte-for-byte and pins critical schema fields.
+
 Example 3-run acceptance loop (records JSONL):
 
 ```bash
