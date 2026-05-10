@@ -133,6 +133,11 @@ from evals.sentence_routing_retrieval_falsification.breadcrumb_tagging_scorer im
     read_tagging_sentinels,
     score_normalized_records,
 )
+from evals.sentence_routing_retrieval_falsification.route_equivalence_shadow import (
+    ROUTE_EQUIVALENCE_SHADOW_SCHEMA_V1,
+    build_route_equivalence_shadow_payload,
+    load_route_equivalence_shadow_records,
+)
 from evals.sentence_routing_retrieval_falsification.token_resolver_shadow import (
     build_campaign_lexicon,
     compute_shadow_diff,
@@ -818,6 +823,19 @@ def main() -> None:
         ),
     )
     parser.add_argument(
+        "--route-equivalence-jsonl",
+        type=Path,
+        action="append",
+        default=None,
+        help=(
+            "Path to a committed route_equivalence_*_v1.jsonl artifact. May be "
+            "passed multiple times to combine campaigns (e.g. C1 + C2). "
+            "Shadow-only: when set, each natural-gold scenario row gains a "
+            "'shadow_route_equivalences' diagnostic field. Legacy lexicon "
+            "seeds remain the active source; no retrieval or grading change."
+        ),
+    )
+    parser.add_argument(
         "--tagging-baseline-md",
         type=Path,
         default=Path(
@@ -1044,6 +1062,21 @@ def main() -> None:
         else:
             shadow_build_error = ""
 
+        route_equivalence_records = None
+        route_equivalence_paths_resolved: list[Path] = []
+        route_equivalence_load_error = ""
+        if args.route_equivalence_jsonl:
+            try:
+                route_equivalence_paths_resolved = [
+                    Path(p).resolve() for p in args.route_equivalence_jsonl
+                ]
+                route_equivalence_records = load_route_equivalence_shadow_records(
+                    route_equivalence_paths_resolved
+                )
+            except (OSError, ValueError) as exc:
+                route_equivalence_records = None
+                route_equivalence_load_error = f"{type(exc).__name__}: {exc}"
+
         for scenario in gold.get("scenarios") or []:
             scen = merge_natural_benchmark_scenario(dict(scenario), gold)
             bundle = natural_retrieval_bundle(records=records, scenario=scen)
@@ -1130,6 +1163,17 @@ def main() -> None:
                 row["shadow_token_resolution"] = {
                     "schema": "dmb_token_resolver_shadow_v1",
                     "error": shadow_build_error or "lexicon_unavailable",
+                }
+            if route_equivalence_records is not None:
+                row["shadow_route_equivalences"] = build_route_equivalence_shadow_payload(
+                    scenario_campaign_id=str(scen.get("campaign_id") or default_campaign),
+                    records=route_equivalence_records,
+                    source_paths=route_equivalence_paths_resolved,
+                )
+            elif args.route_equivalence_jsonl:
+                row["shadow_route_equivalences"] = {
+                    "schema": ROUTE_EQUIVALENCE_SHADOW_SCHEMA_V1,
+                    "error": route_equivalence_load_error or "load_failed",
                 }
             results.append(row)
     else:
