@@ -66,7 +66,9 @@ def run_one_scenario(*, scenario: dict[str, Any], route_equivalence_jsonl: Seque
     ]
     for route_path in route_equivalence_jsonl:
         cmd.extend(["--route-equivalence-jsonl", str(route_path)])
-    cmd.append(f"--skip-{scenario['scenario_id']}-canvas-refresh")
+    skip_flag = f"--skip-{scenario['scenario_id']}-canvas-refresh"
+    if skip_flag in {"--skip-c1s1-canvas-refresh", "--skip-c1s2-canvas-refresh", "--skip-c1s3-canvas-refresh", "--skip-c1s13-canvas-refresh"}:
+        cmd.append(skip_flag)
     if use_route_equivalence_for_ranking:
         cmd.append("--use-route-equivalence-for-ranking")
     try:
@@ -274,7 +276,7 @@ def _top_hits(row: dict[str, Any], *, limit: int = 5) -> list[dict[str, Any]]:
     return out
 
 
-def _build_question_delta(*, manifest: dict[str, Any], baseline_reports: list[dict[str, Any]], equivalence_reports: list[dict[str, Any]], manifest_path: Path, workspace_root: Path) -> dict[str, Any]:
+def _build_question_delta(*, manifest: dict[str, Any], baseline_reports: list[dict[str, Any]], equivalence_reports: list[dict[str, Any]], manifest_path: Path, scenario_level_delta_path: Path, workspace_root: Path) -> dict[str, Any]:
     scenarios=[]
     summary={"regressed":0,"improved":0,"unchanged_pass":0,"unchanged_fail":0}
     total_q=0
@@ -363,7 +365,7 @@ def _build_question_delta(*, manifest: dict[str, Any], baseline_reports: list[di
     return {
         "schema_id": COHORT_L3_QUESTION_DELTA_SCHEMA_V1,
         "cohort_manifest": _workspace_relative_posix(manifest_path, workspace_root),
-        "scenario_level_delta_path": _workspace_relative_posix(_DEFAULT_DELTA, workspace_root),
+        "scenario_level_delta_path": _workspace_relative_posix(scenario_level_delta_path, workspace_root),
         "baseline_schema": COHORT_SUMMARY_SCHEMA_V2,
         "question_count": total_q,
         "summary": summary,
@@ -389,7 +391,7 @@ def main() -> int:
         if args.check_delta:
             with tempfile.TemporaryDirectory() as tmp:
                 tmp_delta = Path(tmp) / "delta.json"
-                cmd = [sys.executable, "-m", "evals.sentence_routing_retrieval_falsification.cohort_baseline_run", "--mode", "both", "--write-delta", str(tmp_delta)]
+                cmd = [sys.executable, "-m", "evals.sentence_routing_retrieval_falsification.cohort_baseline_run", "--manifest", str(args.manifest), "--mode", "both", "--write-delta", str(tmp_delta)]
                 subprocess.run(cmd, cwd=str(_HARNESS_WORKSPACE_ROOT), check=True, capture_output=True, text=True)
                 delta_path = (_HARNESS_WORKSPACE_ROOT / args.delta).resolve() if not args.delta.is_absolute() else args.delta
                 if tmp_delta.read_bytes() != delta_path.read_bytes():
@@ -402,9 +404,11 @@ def main() -> int:
         if args.check_question_delta:
             with tempfile.TemporaryDirectory() as tmp:
                 tmp_q = Path(tmp) / "qdelta.json"
-                cmd = [sys.executable, "-m", "evals.sentence_routing_retrieval_falsification.cohort_baseline_run", "--mode", "both", "--write-question-delta", str(tmp_q)]
-                subprocess.run(cmd, cwd=str(_HARNESS_WORKSPACE_ROOT), check=True, capture_output=True, text=True)
                 qpath = (_HARNESS_WORKSPACE_ROOT / Path(args.check_question_delta)).resolve() if not Path(args.check_question_delta).is_absolute() else Path(args.check_question_delta)
+                expected_qdelta = json.loads(qpath.read_text(encoding="utf-8"))
+                active_delta = Path(str(expected_qdelta.get("scenario_level_delta_path") or args.delta))
+                cmd = [sys.executable, "-m", "evals.sentence_routing_retrieval_falsification.cohort_baseline_run", "--manifest", str(args.manifest), "--mode", "both", "--write-question-delta", str(tmp_q), "--delta", str(active_delta)]
+                subprocess.run(cmd, cwd=str(_HARNESS_WORKSPACE_ROOT), check=True, capture_output=True, text=True)
                 if tmp_q.read_bytes() != qpath.read_bytes():
                     print(f"MISMATCH {_workspace_relative_posix(qpath, _HARNESS_WORKSPACE_ROOT)}")
                     return 1
@@ -422,16 +426,17 @@ def main() -> int:
                     baseline_reports.append(run_one_scenario(scenario=scenario, route_equivalence_jsonl=route_paths, workspace_root=_HARNESS_WORKSPACE_ROOT, per_scenario_out=td / f"{scenario['scenario_id']}_base.json"))
                     equivalence_reports.append(run_one_scenario(scenario=scenario, route_equivalence_jsonl=route_paths, workspace_root=_HARNESS_WORKSPACE_ROOT, per_scenario_out=td / f"{scenario['scenario_id']}_eq.json", use_route_equivalence_for_ranking=True))
             delta = _build_l3_delta(manifest=manifest, baseline_reports=baseline_reports, equivalence_reports=equivalence_reports, manifest_path=manifest_path, route_paths=route_paths, workspace_root=_HARNESS_WORKSPACE_ROOT)
+            delta_out_path = Path(args.write_delta) if args.write_delta else args.delta
+            delta_out_path = (_HARNESS_WORKSPACE_ROOT / delta_out_path).resolve() if not delta_out_path.is_absolute() else delta_out_path
             if args.write_delta:
-                out = Path(args.write_delta)
-                out = (_HARNESS_WORKSPACE_ROOT / out).resolve() if not out.is_absolute() else out
+                out = delta_out_path
                 out.parent.mkdir(parents=True, exist_ok=True)
                 out.write_text(json.dumps(delta, indent=2) + "\n", encoding="utf-8")
             if args.write_question_delta:
                 qout = Path(args.write_question_delta)
                 qout = (_HARNESS_WORKSPACE_ROOT / qout).resolve() if not qout.is_absolute() else qout
                 qout.parent.mkdir(parents=True, exist_ok=True)
-                qdelta = _build_question_delta(manifest=manifest, baseline_reports=baseline_reports, equivalence_reports=equivalence_reports, manifest_path=manifest_path, workspace_root=_HARNESS_WORKSPACE_ROOT)
+                qdelta = _build_question_delta(manifest=manifest, baseline_reports=baseline_reports, equivalence_reports=equivalence_reports, manifest_path=manifest_path, scenario_level_delta_path=delta_out_path, workspace_root=_HARNESS_WORKSPACE_ROOT)
                 qout.write_text(json.dumps(qdelta, indent=2) + "\n", encoding="utf-8")
             if args.mode == "both":
                 return 0

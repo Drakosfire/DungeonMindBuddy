@@ -242,3 +242,40 @@ def test_check_question_delta_passes() -> None:
         pytest.skip('uv not available')
     run = subprocess.run(['uv','run','--directory',str(_REPO_ROOT),'python','-m','evals.sentence_routing_retrieval_falsification.cohort_baseline_run','--check-question-delta'], capture_output=True, text=True)
     assert run.returncode == 0, run.stdout + run.stderr
+
+
+def test_mode_both_question_delta_uses_active_delta_path(tmp_path: Path) -> None:
+    if shutil.which('uv') is None:
+        pytest.skip('uv not available')
+    delta = tmp_path / 'natural_delta.json'
+    qdelta = tmp_path / 'natural_qdelta.json'
+    run = subprocess.run([
+        'uv','run','--directory',str(_REPO_ROOT),'python','-m',
+        'evals.sentence_routing_retrieval_falsification.cohort_baseline_run',
+        '--manifest','evals/sentence_routing_retrieval_falsification/cohorts/natural_v1.json',
+        '--mode','both','--write-delta',str(delta),'--write-question-delta',str(qdelta)
+    ], capture_output=True, text=True)
+    assert run.returncode == 0, run.stderr
+    data = json.loads(qdelta.read_text(encoding='utf-8'))
+    assert data['scenario_level_delta_path'].endswith('natural_delta.json')
+
+
+def test_check_delta_honors_manifest_argument(tmp_path: Path) -> None:
+    if shutil.which('uv') is None:
+        pytest.skip('uv not available')
+    delta = tmp_path / 'natural_delta_check.json'
+    seed = subprocess.run([
+        'uv','run','--directory',str(_REPO_ROOT),'python','-m',
+        'evals.sentence_routing_retrieval_falsification.cohort_baseline_run',
+        '--manifest','evals/sentence_routing_retrieval_falsification/cohorts/natural_v1.json',
+        '--mode','both','--write-delta',str(delta)
+    ], capture_output=True, text=True)
+    assert seed.returncode == 0, seed.stdout + seed.stderr
+    run = subprocess.run([
+        'uv','run','--directory',str(_REPO_ROOT),'python','-m',
+        'evals.sentence_routing_retrieval_falsification.cohort_baseline_run',
+        '--manifest','evals/sentence_routing_retrieval_falsification/cohorts/natural_v1.json',
+        '--delta',str(delta),
+        '--check-delta'
+    ], capture_output=True, text=True)
+    assert run.returncode == 0, run.stdout + run.stderr
