@@ -15,7 +15,7 @@ pr_body_template: |
 # HANDOFF — PR #11: wider-cohort `natural_v1` A/B baseline + per-question delta
 
 **Created:** 2026-05-11 (UTC).
-**Status:** ACTIVE — dispatch this to one external/Codex subagent. One PR. Do not split into multiple PRs.
+**Status:** COMPLETED — merged via [PR #11](https://github.com/Drakosfire/DungeonMindBuddy/pull/11) on 2026-05-11T19:39:14Z (merge commit `eec38807ea1866e63b5997e21558968d7559ea16`). Review round: 1 (`APPROVE` demoted to `COMMENTED` under self-review fallback, review id `4266836748`).
 **Parent agent:** Cursor agent; dispatcher is responsible for post-merge atomic doc-sync of `Docs/Plans/CHECKLIST-dynamic-lexical-retrieval-rollout.md` and `Docs/Plans/PLAN-split-corpus-retrieval-to-autonomous-demo.md`.
 **Plan anchor:** `Docs/Plans/PLAN-split-corpus-retrieval-to-autonomous-demo.md` (`active_phase: B`, `M2: in_progress`, `M3: complete`, `M4: not_started`). This handoff opens the wider-cohort falsification lane named in `next_gate_command`.
 
