@@ -15,6 +15,10 @@ def test_emit_writes_canvas_with_markers() -> None:
     assert 'BEGIN GENERATED COHORT_L3_QUESTION_DEEP_DIVE' in text
     assert 'END GENERATED COHORT_L3_QUESTION_DEEP_DIVE' in text
     assert 'question_count' in text
+    assert 'Required must-hit tokens:' in text
+    assert 'Matched must-hit tokens:' in text
+    assert 'Missing must-hit tokens:' in text
+    assert 'Missed units (baseline only):' in text
 
 
 def test_artifact_schema_exists() -> None:

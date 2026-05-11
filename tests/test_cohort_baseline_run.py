@@ -222,6 +222,19 @@ def test_mode_both_write_question_delta_schema(tmp_path: Path) -> None:
     data = json.loads(out.read_text(encoding='utf-8'))
     assert data['schema_id'] == COHORT_L3_QUESTION_DELTA_SCHEMA_V1
     assert data['question_count'] == 44
+    qrows = [
+        q
+        for scenario in data["scenarios"]
+        for q in scenario.get("questions", [])
+        if q.get("question_id") == "c1s1_brewery_compass_direction"
+    ]
+    assert len(qrows) == 1
+    row = qrows[0]
+    assert row["must_hit_tokens"] == ["Grishna", "west", "up river", "brewing"]
+    assert row["baseline"]["context_must_hits_missing"] == []
+    assert row["with_equivalence"]["context_must_hits_missing"] == ["west", "up river"]
+    assert "full_units_swapped_out" in row["delta"]
+    assert "full_units_swapped_in" in row["delta"]
 
 
 def test_check_question_delta_passes() -> None:

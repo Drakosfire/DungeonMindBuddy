@@ -279,29 +279,49 @@ def _build_question_delta(*, manifest: dict[str, Any], baseline_reports: list[di
     summary={"regressed":0,"improved":0,"unchanged_pass":0,"unchanged_fail":0}
     total_q=0
     for scenario,base,eq in zip(manifest["scenarios"], baseline_reports, equivalence_reports, strict=True):
+        gold_path = _resolve_workspace_path(str(scenario["gold"]), workspace_root)
+        gold_payload = json.loads(gold_path.read_text(encoding="utf-8"))
+        gold_queries = gold_payload.get("queries") or gold_payload.get("scenarios") or []
+        gold_by_id = {str(item.get("id") or ""): item for item in gold_queries}
         qrows=[]
         for brow, erow in zip(base["results"], eq["results"], strict=True):
             b_ok=bool(brow.get("ok")); e_ok=bool(erow.get("ok"))
             verdict = "unchanged_pass" if (b_ok and e_ok) else "unchanged_fail" if ((not b_ok) and (not e_ok)) else "improved" if (not b_ok and e_ok) else "regressed"
             summary[verdict]+=1
+            question_id = str(brow.get("scenario_id") or "")
+            gold_query = gold_by_id.get(question_id) or {}
+            required_must_hits = [str(x) for x in (gold_query.get("must_hit_tokens") or [])]
+            baseline_hits = sorted(str(x) for x in (brow.get("context_must_hits") or []))
+            equivalence_hits = sorted(str(x) for x in (erow.get("context_must_hits") or []))
             b_tokens=set(((brow.get("full_result") or {}).get("trace") or {}).get("query_tokens") or [])
             e_tokens=set(((erow.get("full_result") or {}).get("trace") or {}).get("query_tokens") or [])
             b_units=[h["unit_id"] for h in _top_hits(brow)]
             e_units=[h["unit_id"] for h in _top_hits(erow)]
+            b_units_full = [
+                str(h.get("unit_id") or "")
+                for h in (((brow.get("full_result") or {}).get("hits") or []))
+                if str(h.get("unit_id") or "")
+            ]
+            e_units_full = [
+                str(h.get("unit_id") or "")
+                for h in (((erow.get("full_result") or {}).get("hits") or []))
+                if str(h.get("unit_id") or "")
+            ]
             b_break={str(i.get("substring") or ""): bool(i.get("matched")) for i in (brow.get("expected_route_substring_breakdown") or [])}
             e_break={str(i.get("substring") or ""): bool(i.get("matched")) for i in (erow.get("expected_route_substring_breakdown") or [])}
             all_sub=sorted(set(b_break)|set(e_break))
             qrows.append({
-                "question_id": str(brow.get("scenario_id") or ""),
-                "question": str(brow.get("question") or ""),
-                "expected_answer": str(brow.get("expected_answer") or ""),
-                "must_hit_tokens": [str(x) for x in (brow.get("must_hit_tokens") or [])],
-                "expected_route_substrings": [str(x) for x in (brow.get("expected_route_substrings") or [])],
-                "min_context_support_ratio": float(brow.get("min_context_support_ratio") or 0.0),
+                "question_id": question_id,
+                "question": str(gold_query.get("question") or brow.get("question") or ""),
+                "expected_answer": str(gold_query.get("expected_answer") or brow.get("expected_answer") or ""),
+                "must_hit_tokens": required_must_hits,
+                "expected_route_substrings": [str(x) for x in (gold_query.get("expect_route_substrings") or brow.get("expected_route_substrings") or [])],
+                "min_context_support_ratio": float(gold_query.get("min_context_support_ratio") or brow.get("min_context_support_ratio") or 0.0),
                 "baseline": {
                     "ok": b_ok, "violations": sorted(str(x) for x in (brow.get("violations") or [])),
                     "context_support_ratio": float(brow.get("context_support_ratio") or 0.0),
-                    "context_must_hits": sorted(str(x) for x in (brow.get("context_must_hits") or [])),
+                    "context_must_hits": baseline_hits,
+                    "context_must_hits_missing": [tok for tok in required_must_hits if tok not in set(baseline_hits)],
                     "semantic_verdict": str(brow.get("llm_semantic_verdict") or ""),
                     "expected_route_substring_breakdown": list(brow.get("expected_route_substring_breakdown") or []),
                     "hit_count": len(((brow.get("full_result") or {}).get("hits") or [])),
@@ -311,7 +331,8 @@ def _build_question_delta(*, manifest: dict[str, Any], baseline_reports: list[di
                 "with_equivalence": {
                     "ok": e_ok, "violations": sorted(str(x) for x in (erow.get("violations") or [])),
                     "context_support_ratio": float(erow.get("context_support_ratio") or 0.0),
-                    "context_must_hits": sorted(str(x) for x in (erow.get("context_must_hits") or [])),
+                    "context_must_hits": equivalence_hits,
+                    "context_must_hits_missing": [tok for tok in required_must_hits if tok not in set(equivalence_hits)],
                     "semantic_verdict": str(erow.get("llm_semantic_verdict") or ""),
                     "expected_route_substring_breakdown": list(erow.get("expected_route_substring_breakdown") or []),
                     "hit_count": len(((erow.get("full_result") or {}).get("hits") or [])),
@@ -325,6 +346,8 @@ def _build_question_delta(*, manifest: dict[str, Any], baseline_reports: list[di
                     "tokens_removed_by_equivalences": sorted(str(x) for x in (b_tokens-e_tokens)),
                     "topk_units_swapped_in": sorted(set(e_units)-set(b_units)),
                     "topk_units_swapped_out": sorted(set(b_units)-set(e_units)),
+                    "full_units_swapped_in": sorted(set(e_units_full) - set(b_units_full)),
+                    "full_units_swapped_out": sorted(set(b_units_full) - set(e_units_full)),
                     "substrings_flipped_lost": sorted(s for s in all_sub if b_break.get(s, False) and not e_break.get(s, False)),
                     "substrings_flipped_gained": sorted(s for s in all_sub if (not b_break.get(s, False)) and e_break.get(s, False)),
                 },

@@ -22,11 +22,24 @@ const cohortL3QuestionDeepDiveGenerated = {
       "questions": [
         {
           "question_id": "c1s1_party_roster_origin",
-          "question": "",
-          "expected_answer": "",
-          "must_hit_tokens": [],
-          "expected_route_substrings": [],
-          "min_context_support_ratio": 0.0,
+          "question": "Who was in the merchant-guard party when the group reached Stonebridge?",
+          "expected_answer": "The merchant-guard party was Karsemine, Stafl, Caelynn, Ephanna, Bonogo, and Baergrom; they had been traveling together and reached the town of Stonebridge.",
+          "must_hit_tokens": [
+            "merchant",
+            "Stonebridge",
+            "Karsemine",
+            "Stafl",
+            "Caelynn",
+            "Ephanna",
+            "Bonogo",
+            "Baergrom"
+          ],
+          "expected_route_substrings": [
+            "Campaign 1/Parties/party_merchant_guards",
+            "Campaign 1/PCs/karsemine",
+            "Campaign 1/PCs/baergrom"
+          ],
+          "min_context_support_ratio": 0.55,
           "baseline": {
             "ok": true,
             "violations": [],
@@ -41,6 +54,7 @@ const cohortL3QuestionDeepDiveGenerated = {
               "Stonebridge",
               "merchant"
             ],
+            "context_must_hits_missing": [],
             "semantic_verdict": "",
             "expected_route_substring_breakdown": [
               {
@@ -163,6 +177,7 @@ const cohortL3QuestionDeepDiveGenerated = {
               "Stonebridge",
               "merchant"
             ],
+            "context_must_hits_missing": [],
             "semantic_verdict": "",
             "expected_route_substring_breakdown": [
               {
@@ -300,17 +315,33 @@ const cohortL3QuestionDeepDiveGenerated = {
             "topk_units_swapped_out": [
               "u-L0011-01"
             ],
+            "full_units_swapped_in": [],
+            "full_units_swapped_out": [],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
           }
         },
         {
           "question_id": "c1s1_party_classes_species",
-          "question": "",
-          "expected_answer": "",
-          "must_hit_tokens": [],
-          "expected_route_substrings": [],
-          "min_context_support_ratio": 0.0,
+          "question": "What species or classes are attached to each starting party member in the first recap?",
+          "expected_answer": "Karsemine is the Tiefling Ranger, Stafl is the Human Bard, Caelynn is the Half Elf Sorcerer, Ephanna is the Kenku Warlock, Bonogo is the Bugbear Rogue, and Baergrom is the Dwarf Fighter.",
+          "must_hit_tokens": [
+            "Tiefling",
+            "Ranger",
+            "Bard",
+            "Sorcerer",
+            "Kenku",
+            "Warlock",
+            "Bugbear",
+            "Rogue",
+            "Dwarf",
+            "Fighter"
+          ],
+          "expected_route_substrings": [
+            "Campaign 1/PCs/karsemine",
+            "Campaign 1/PCs/stafl"
+          ],
+          "min_context_support_ratio": 0.55,
           "baseline": {
             "ok": true,
             "violations": [],
@@ -327,6 +358,7 @@ const cohortL3QuestionDeepDiveGenerated = {
               "Tiefling",
               "Warlock"
             ],
+            "context_must_hits_missing": [],
             "semantic_verdict": "",
             "expected_route_substring_breakdown": [
               {
@@ -431,6 +463,7 @@ const cohortL3QuestionDeepDiveGenerated = {
               "Tiefling",
               "Warlock"
             ],
+            "context_must_hits_missing": [],
             "semantic_verdict": "",
             "expected_route_substring_breakdown": [
               {
@@ -543,17 +576,34 @@ const cohortL3QuestionDeepDiveGenerated = {
             "topk_units_swapped_out": [
               "u-L0003-01"
             ],
+            "full_units_swapped_in": [
+              "u-L0005-02"
+            ],
+            "full_units_swapped_out": [
+              "u-L0007-02"
+            ],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
           }
         },
         {
           "question_id": "c1s1_stonebridge_known_for",
-          "question": "",
-          "expected_answer": "",
-          "must_hit_tokens": [],
-          "expected_route_substrings": [],
-          "min_context_support_ratio": 0.0,
+          "question": "What is Stonebridge known for at the start of the campaign?",
+          "expected_answer": "Stonebridge is known mostly for the Stonebridge over the river, the River's Edge Pub run by Grishna, a job board, and Glowkindle's posted request for mercenaries to help clean up rats.",
+          "must_hit_tokens": [
+            "Stonebridge",
+            "river",
+            "Grishna",
+            "Glowkindle",
+            "rats",
+            "job"
+          ],
+          "expected_route_substrings": [
+            "Campaign 1/Locations/stonebridge",
+            "Campaign 1/NPCs/grishna",
+            "Campaign 1/NPCs/glowkindle"
+          ],
+          "min_context_support_ratio": 0.55,
           "baseline": {
             "ok": true,
             "violations": [],
@@ -566,6 +616,7 @@ const cohortL3QuestionDeepDiveGenerated = {
               "rats",
               "river"
             ],
+            "context_must_hits_missing": [],
             "semantic_verdict": "",
             "expected_route_substring_breakdown": [
               {
@@ -686,6 +737,7 @@ const cohortL3QuestionDeepDiveGenerated = {
               "rats",
               "river"
             ],
+            "context_must_hits_missing": [],
             "semantic_verdict": "",
             "expected_route_substring_breakdown": [
               {
@@ -820,17 +872,37 @@ const cohortL3QuestionDeepDiveGenerated = {
             "tokens_removed_by_equivalences": [],
             "topk_units_swapped_in": [],
             "topk_units_swapped_out": [],
+            "full_units_swapped_in": [
+              "u-L0011-02",
+              "u-L0013-03",
+              "u-L0013-04",
+              "u-L0015-01"
+            ],
+            "full_units_swapped_out": [
+              "u-L0007-03",
+              "u-L0007-04",
+              "u-L0017-01",
+              "u-L0017-02"
+            ],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
           }
         },
         {
           "question_id": "c1s1_glowkindle_job_source",
-          "question": "",
-          "expected_answer": "",
-          "must_hit_tokens": [],
-          "expected_route_substrings": [],
-          "min_context_support_ratio": 0.0,
+          "question": "Who posted the first job hook, and what did they need help with?",
+          "expected_answer": "Glowkindle posted the help request and spread word that he needed mercenaries. The job was to clear out giant rats that had attacked his excavation crew after they broke through a wall while expanding the fermentation cellar.",
+          "must_hit_tokens": [
+            "Glowkindle",
+            "mercenaries",
+            "rats",
+            "fermentation"
+          ],
+          "expected_route_substrings": [
+            "Campaign 1/NPCs/glowkindle",
+            "Campaign 1/Locations/wizards_tower_brewing_company"
+          ],
+          "min_context_support_ratio": 0.55,
           "baseline": {
             "ok": true,
             "violations": [],
@@ -841,6 +913,7 @@ const cohortL3QuestionDeepDiveGenerated = {
               "mercenaries",
               "rats"
             ],
+            "context_must_hits_missing": [],
             "semantic_verdict": "",
             "expected_route_substring_breakdown": [
               {
@@ -932,6 +1005,7 @@ const cohortL3QuestionDeepDiveGenerated = {
               "mercenaries",
               "rats"
             ],
+            "context_must_hits_missing": [],
             "semantic_verdict": "",
             "expected_route_substring_breakdown": [
               {
@@ -1056,17 +1130,35 @@ const cohortL3QuestionDeepDiveGenerated = {
               "u-L0017-01",
               "u-L0017-02"
             ],
+            "full_units_swapped_in": [
+              "u-L0009-01",
+              "u-L0009-02",
+              "u-L0011-01"
+            ],
+            "full_units_swapped_out": [
+              "u-L0007-02",
+              "u-L0007-03",
+              "u-L0007-04"
+            ],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
           }
         },
         {
           "question_id": "c1s1_grishna_directions",
-          "question": "",
-          "expected_answer": "",
-          "must_hit_tokens": [],
-          "expected_route_substrings": [],
-          "min_context_support_ratio": 0.0,
+          "question": "What did Grishna tell the party about finding the brewery?",
+          "expected_answer": "Grishna told them the Wizard's Tower Brewing Co was upriver, west at the big rock, and then to walk until they saw it.",
+          "must_hit_tokens": [
+            "Grishna",
+            "brewing",
+            "boulder"
+          ],
+          "expected_route_substrings": [
+            "Campaign 1/NPCs/grishna",
+            "Campaign 1/Locations/rivers_edge_pub",
+            "Campaign 1/Locations/wizards_tower_brewing_company"
+          ],
+          "min_context_support_ratio": 0.55,
           "baseline": {
             "ok": true,
             "violations": [],
@@ -1076,6 +1168,7 @@ const cohortL3QuestionDeepDiveGenerated = {
               "boulder",
               "brewing"
             ],
+            "context_must_hits_missing": [],
             "semantic_verdict": "",
             "expected_route_substring_breakdown": [
               {
@@ -1187,6 +1280,7 @@ const cohortL3QuestionDeepDiveGenerated = {
               "boulder",
               "brewing"
             ],
+            "context_must_hits_missing": [],
             "semantic_verdict": "",
             "expected_route_substring_breakdown": [
               {
@@ -1316,17 +1410,32 @@ const cohortL3QuestionDeepDiveGenerated = {
             "topk_units_swapped_out": [
               "u-L0003-01"
             ],
+            "full_units_swapped_in": [
+              "meta-session-0001-locations"
+            ],
+            "full_units_swapped_out": [
+              "u-L0007-04"
+            ],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
           }
         },
         {
           "question_id": "c1s1_brewery_compass_direction",
-          "question": "",
-          "expected_answer": "",
-          "must_hit_tokens": [],
-          "expected_route_substrings": [],
-          "min_context_support_ratio": 0.0,
+          "question": "What compass direction from Stonebridge did Grishna give for reaching the brewery?",
+          "expected_answer": "Grishna directed the party upriver and then west at the big rock to find the Wizard's Tower Brewing Co.",
+          "must_hit_tokens": [
+            "Grishna",
+            "west",
+            "up river",
+            "brewing"
+          ],
+          "expected_route_substrings": [
+            "Campaign 1/NPCs/grishna",
+            "Campaign 1/Locations/stonebridge",
+            "Campaign 1/Locations/wizards_tower_brewing_company"
+          ],
+          "min_context_support_ratio": 1.0,
           "baseline": {
             "ok": true,
             "violations": [],
@@ -1337,6 +1446,7 @@ const cohortL3QuestionDeepDiveGenerated = {
               "up river",
               "west"
             ],
+            "context_must_hits_missing": [],
             "semantic_verdict": "",
             "expected_route_substring_breakdown": [
               {
@@ -1452,6 +1562,10 @@ const cohortL3QuestionDeepDiveGenerated = {
             "context_must_hits": [
               "Grishna",
               "brewing"
+            ],
+            "context_must_hits_missing": [
+              "west",
+              "up river"
             ],
             "semantic_verdict": "",
             "expected_route_substring_breakdown": [
@@ -1589,17 +1703,37 @@ const cohortL3QuestionDeepDiveGenerated = {
               "u-L0003-01",
               "u-L0005-01"
             ],
+            "full_units_swapped_in": [
+              "u-L0011-02",
+              "u-L0013-03",
+              "u-L0013-04",
+              "u-L0015-01"
+            ],
+            "full_units_swapped_out": [
+              "u-L0007-02",
+              "u-L0007-03",
+              "u-L0017-01",
+              "u-L0017-02"
+            ],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
           }
         },
         {
           "question_id": "c1s1_bonogo_firkin",
-          "question": "",
-          "expected_answer": "",
-          "must_hit_tokens": [],
-          "expected_route_substrings": [],
-          "min_context_support_ratio": 0.0,
+          "question": "What did Bonogo buy before the hike to the brewery?",
+          "expected_answer": "Bonogo bought a firkin of ale for two gold because he was enjoying the beer and did not care much about the cost.",
+          "must_hit_tokens": [
+            "Bonogo",
+            "firkin",
+            "ale",
+            "gold"
+          ],
+          "expected_route_substrings": [
+            "Campaign 1/PCs/bonogo",
+            "Campaign 1/Locations/rivers_edge_pub"
+          ],
+          "min_context_support_ratio": 0.55,
           "baseline": {
             "ok": true,
             "violations": [],
@@ -1610,6 +1744,7 @@ const cohortL3QuestionDeepDiveGenerated = {
               "firkin",
               "gold"
             ],
+            "context_must_hits_missing": [],
             "semantic_verdict": "",
             "expected_route_substring_breakdown": [
               {
@@ -1711,6 +1846,7 @@ const cohortL3QuestionDeepDiveGenerated = {
               "firkin",
               "gold"
             ],
+            "context_must_hits_missing": [],
             "semantic_verdict": "",
             "expected_route_substring_breakdown": [
               {
@@ -1836,17 +1972,37 @@ const cohortL3QuestionDeepDiveGenerated = {
               "u-L0007-02",
               "u-L0007-04"
             ],
+            "full_units_swapped_in": [
+              "u-L0011-02",
+              "u-L0013-03",
+              "u-L0013-04",
+              "u-L0015-01"
+            ],
+            "full_units_swapped_out": [
+              "u-L0005-01",
+              "u-L0007-04",
+              "u-L0017-01",
+              "u-L0017-02"
+            ],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
           }
         },
         {
           "question_id": "c1s1_route_to_brewery",
-          "question": "",
-          "expected_answer": "",
-          "must_hit_tokens": [],
-          "expected_route_substrings": [],
-          "min_context_support_ratio": 0.0,
+          "question": "How did the group get from Stonebridge toward the Wizard's Tower Brewing Company?",
+          "expected_answer": "They followed Grishna's directions upriver and west to the big rock, found it was an enormous boulder shaped like the foot of a huge statue, and then walked along the trail to the Wizard's Tower Brewing Company.",
+          "must_hit_tokens": [
+            "trail",
+            "boulder",
+            "brewing"
+          ],
+          "expected_route_substrings": [
+            "Campaign 1/Parties/party_merchant_guards",
+            "Campaign 1/Locations/stonebridge",
+            "Campaign 1/Locations/wizards_tower_brewing_company"
+          ],
+          "min_context_support_ratio": 0.55,
           "baseline": {
             "ok": true,
             "violations": [],
@@ -1854,6 +2010,9 @@ const cohortL3QuestionDeepDiveGenerated = {
             "context_must_hits": [
               "brewing",
               "trail"
+            ],
+            "context_must_hits_missing": [
+              "boulder"
             ],
             "semantic_verdict": "",
             "expected_route_substring_breakdown": [
@@ -1982,6 +2141,7 @@ const cohortL3QuestionDeepDiveGenerated = {
               "brewing",
               "trail"
             ],
+            "context_must_hits_missing": [],
             "semantic_verdict": "",
             "expected_route_substring_breakdown": [
               {
@@ -2125,17 +2285,36 @@ const cohortL3QuestionDeepDiveGenerated = {
             "tokens_removed_by_equivalences": [],
             "topk_units_swapped_in": [],
             "topk_units_swapped_out": [],
+            "full_units_swapped_in": [
+              "u-L0005-03",
+              "u-L0007-02",
+              "u-L0009-02",
+              "u-L0009-03",
+              "u-L0009-04"
+            ],
+            "full_units_swapped_out": [
+              "u-L0013-04",
+              "u-L0015-01",
+              "u-L0017-01",
+              "u-L0017-02",
+              "u-L0017-03"
+            ],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
           }
         },
         {
           "question_id": "c1s1_stone_foot_landmark",
-          "question": "",
-          "expected_answer": "",
-          "must_hit_tokens": [],
-          "expected_route_substrings": [],
-          "min_context_support_ratio": 0.0,
+          "question": "What was the big rock landmark on the way to the brewery?",
+          "expected_answer": "The big rock was an enormous boulder that looked like the foot of a once-enormous statue.",
+          "must_hit_tokens": [
+            "foot"
+          ],
+          "expected_route_substrings": [
+            "Campaign 1/Locations/wizards_tower_brewing_company",
+            "Campaign 1/Parties/party_merchant_guards"
+          ],
+          "min_context_support_ratio": 0.55,
           "baseline": {
             "ok": true,
             "violations": [],
@@ -2143,6 +2322,7 @@ const cohortL3QuestionDeepDiveGenerated = {
             "context_must_hits": [
               "foot"
             ],
+            "context_must_hits_missing": [],
             "semantic_verdict": "",
             "expected_route_substring_breakdown": [
               {
@@ -2232,6 +2412,7 @@ const cohortL3QuestionDeepDiveGenerated = {
             "context_must_hits": [
               "foot"
             ],
+            "context_must_hits_missing": [],
             "semantic_verdict": "",
             "expected_route_substring_breakdown": [
               {
@@ -2353,17 +2534,35 @@ const cohortL3QuestionDeepDiveGenerated = {
               "u-L0007-04",
               "u-L0009-04"
             ],
+            "full_units_swapped_in": [
+              "u-L0005-02",
+              "u-L0005-03",
+              "u-L0007-03"
+            ],
+            "full_units_swapped_out": [
+              "u-L0017-01",
+              "u-L0017-02",
+              "u-L0017-03"
+            ],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
           }
         },
         {
           "question_id": "c1s1_brewery_arrival",
-          "question": "",
-          "expected_answer": "",
-          "must_hit_tokens": [],
-          "expected_route_substrings": [],
-          "min_context_support_ratio": 0.0,
+          "question": "What was the Wizard's Tower Brewing Company like when the group arrived?",
+          "expected_answer": "The Wizard's Tower Brewing Company was bustling and smelled of brewing. Its tap room was lit by magical crystals and was empty except for gnomes busily brewing.",
+          "must_hit_tokens": [
+            "bustling",
+            "crystals",
+            "gnomes",
+            "brewing"
+          ],
+          "expected_route_substrings": [
+            "Campaign 1/Locations/wizards_tower_brewing_company",
+            "Campaign 1/NPCs/glowkindle"
+          ],
+          "min_context_support_ratio": 0.55,
           "baseline": {
             "ok": true,
             "violations": [],
@@ -2374,6 +2573,7 @@ const cohortL3QuestionDeepDiveGenerated = {
               "crystals",
               "gnomes"
             ],
+            "context_must_hits_missing": [],
             "semantic_verdict": "",
             "expected_route_substring_breakdown": [
               {
@@ -2496,6 +2696,7 @@ const cohortL3QuestionDeepDiveGenerated = {
               "crystals",
               "gnomes"
             ],
+            "context_must_hits_missing": [],
             "semantic_verdict": "",
             "expected_route_substring_breakdown": [
               {
@@ -2633,17 +2834,33 @@ const cohortL3QuestionDeepDiveGenerated = {
             "tokens_removed_by_equivalences": [],
             "topk_units_swapped_in": [],
             "topk_units_swapped_out": [],
+            "full_units_swapped_in": [
+              "u-L0005-02",
+              "u-L0005-03"
+            ],
+            "full_units_swapped_out": [
+              "u-L0009-03",
+              "u-L0009-04"
+            ],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
           }
         },
         {
           "question_id": "c1s1_glowkindle_offer",
-          "question": "",
-          "expected_answer": "",
-          "must_hit_tokens": [],
-          "expected_route_substrings": [],
-          "min_context_support_ratio": 0.0,
+          "question": "What did Glowkindle offer the team for clearing the rats?",
+          "expected_answer": "Glowkindle offered 25 gold pieces each if the team cleared out the rats.",
+          "must_hit_tokens": [
+            "Glowkindle",
+            "25",
+            "gold",
+            "rats"
+          ],
+          "expected_route_substrings": [
+            "Campaign 1/NPCs/glowkindle",
+            "Campaign 1/Parties/party_merchant_guards"
+          ],
+          "min_context_support_ratio": 0.55,
           "baseline": {
             "ok": true,
             "violations": [],
@@ -2654,6 +2871,7 @@ const cohortL3QuestionDeepDiveGenerated = {
               "gold",
               "rats"
             ],
+            "context_must_hits_missing": [],
             "semantic_verdict": "",
             "expected_route_substring_breakdown": [
               {
@@ -2758,6 +2976,7 @@ const cohortL3QuestionDeepDiveGenerated = {
               "gold",
               "rats"
             ],
+            "context_must_hits_missing": [],
             "semantic_verdict": "",
             "expected_route_substring_breakdown": [
               {
@@ -2880,17 +3099,31 @@ const cohortL3QuestionDeepDiveGenerated = {
             "tokens_removed_by_equivalences": [],
             "topk_units_swapped_in": [],
             "topk_units_swapped_out": [],
+            "full_units_swapped_in": [
+              "u-L0009-02"
+            ],
+            "full_units_swapped_out": [
+              "u-L0007-02"
+            ],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
           }
         },
         {
           "question_id": "c1s1_rat_incident_origin",
-          "question": "",
-          "expected_answer": "",
-          "must_hit_tokens": [],
-          "expected_route_substrings": [],
-          "min_context_support_ratio": 0.0,
+          "question": "What caused the giant-rat problem at the brewery?",
+          "expected_answer": "The giant rats assaulted the excavation crew after they broke through a wall while expanding the fermentation cellar.",
+          "must_hit_tokens": [
+            "rats",
+            "cellar",
+            "wall",
+            "excavation"
+          ],
+          "expected_route_substrings": [
+            "Campaign 1/NPCs/glowkindle",
+            "Campaign 1/Locations/wizards_tower_brewing_company"
+          ],
+          "min_context_support_ratio": 0.55,
           "baseline": {
             "ok": true,
             "violations": [],
@@ -2901,6 +3134,7 @@ const cohortL3QuestionDeepDiveGenerated = {
               "rats",
               "wall"
             ],
+            "context_must_hits_missing": [],
             "semantic_verdict": "",
             "expected_route_substring_breakdown": [
               {
@@ -2994,6 +3228,7 @@ const cohortL3QuestionDeepDiveGenerated = {
               "rats",
               "wall"
             ],
+            "context_must_hits_missing": [],
             "semantic_verdict": "",
             "expected_route_substring_breakdown": [
               {
@@ -3117,17 +3352,31 @@ const cohortL3QuestionDeepDiveGenerated = {
               "u-L0013-02",
               "u-L0013-03"
             ],
+            "full_units_swapped_in": [
+              "u-L0005-02"
+            ],
+            "full_units_swapped_out": [
+              "u-L0017-03"
+            ],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
           }
         },
         {
           "question_id": "c1s1_first_combat_cost",
-          "question": "",
-          "expected_answer": "",
-          "must_hit_tokens": [],
-          "expected_route_substrings": [],
-          "min_context_support_ratio": 0.0,
+          "question": "How rough was the party's first combat with the rats?",
+          "expected_answer": "It was much harder than expected. Multiple people went down, a mysterious cat owl was tossed into the room to help, and many health potions were consumed.",
+          "must_hit_tokens": [
+            "harder",
+            "potions",
+            "cat owl",
+            "blood"
+          ],
+          "expected_route_substrings": [
+            "Campaign 1/Parties/party_merchant_guards",
+            "Campaign 1/PCs/karsemine"
+          ],
+          "min_context_support_ratio": 0.55,
           "baseline": {
             "ok": true,
             "violations": [],
@@ -3138,6 +3387,7 @@ const cohortL3QuestionDeepDiveGenerated = {
               "harder",
               "potions"
             ],
+            "context_must_hits_missing": [],
             "semantic_verdict": "",
             "expected_route_substring_breakdown": [
               {
@@ -3239,6 +3489,7 @@ const cohortL3QuestionDeepDiveGenerated = {
               "harder",
               "potions"
             ],
+            "context_must_hits_missing": [],
             "semantic_verdict": "",
             "expected_route_substring_breakdown": [
               {
@@ -3356,17 +3607,30 @@ const cohortL3QuestionDeepDiveGenerated = {
               "u-L0003-01",
               "u-L0013-03"
             ],
+            "full_units_swapped_in": [
+              "u-L0005-02"
+            ],
+            "full_units_swapped_out": [
+              "u-L0007-02"
+            ],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
           }
         },
         {
           "question_id": "c1s1_post_combat_exploration",
-          "question": "",
-          "expected_answer": "",
-          "must_hit_tokens": [],
-          "expected_route_substrings": [],
-          "min_context_support_ratio": 0.0,
+          "question": "What did the team find after they were free to explore?",
+          "expected_answer": "They found a beautifully tiled hallway, a trapped mosaic on the ground, and a room full of broken alchemical tools.",
+          "must_hit_tokens": [
+            "hallway",
+            "mosaic",
+            "alchemical"
+          ],
+          "expected_route_substrings": [
+            "Campaign 1/Parties/party_merchant_guards",
+            "Campaign 1/Locations/wizards_tower_brewing_company"
+          ],
+          "min_context_support_ratio": 0.55,
           "baseline": {
             "ok": true,
             "violations": [],
@@ -3376,6 +3640,7 @@ const cohortL3QuestionDeepDiveGenerated = {
               "hallway",
               "mosaic"
             ],
+            "context_must_hits_missing": [],
             "semantic_verdict": "",
             "expected_route_substring_breakdown": [
               {
@@ -3472,6 +3737,7 @@ const cohortL3QuestionDeepDiveGenerated = {
               "hallway",
               "mosaic"
             ],
+            "context_must_hits_missing": [],
             "semantic_verdict": "",
             "expected_route_substring_breakdown": [
               {
@@ -3593,17 +3859,34 @@ const cohortL3QuestionDeepDiveGenerated = {
               "u-L0013-03",
               "u-L0017-01"
             ],
+            "full_units_swapped_in": [
+              "meta-session-0001-locations",
+              "u-L0005-02",
+              "u-L0005-03"
+            ],
+            "full_units_swapped_out": [
+              "u-L0007-02",
+              "u-L0007-03",
+              "u-L0009-04"
+            ],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
           }
         },
         {
           "question_id": "c1s1_karsemine_spider_reveal",
-          "question": "",
-          "expected_answer": "",
-          "must_hit_tokens": [],
-          "expected_route_substrings": [],
-          "min_context_support_ratio": 0.0,
+          "question": "What did Karsemine discover while searching the room?",
+          "expected_answer": "Karsemine searched the room, looked up, and made eye contact with a flaming magma-infused spider monstrosity in the shattered mage's tower context.",
+          "must_hit_tokens": [
+            "Karsemine",
+            "spider",
+            "magma"
+          ],
+          "expected_route_substrings": [
+            "Campaign 1/PCs/karsemine",
+            "Campaign 1/Locations/shatter_mages_tower"
+          ],
+          "min_context_support_ratio": 0.55,
           "baseline": {
             "ok": true,
             "violations": [],
@@ -3613,6 +3896,7 @@ const cohortL3QuestionDeepDiveGenerated = {
               "magma",
               "spider"
             ],
+            "context_must_hits_missing": [],
             "semantic_verdict": "",
             "expected_route_substring_breakdown": [
               {
@@ -3713,6 +3997,7 @@ const cohortL3QuestionDeepDiveGenerated = {
               "magma",
               "spider"
             ],
+            "context_must_hits_missing": [],
             "semantic_verdict": "",
             "expected_route_substring_breakdown": [
               {
@@ -3837,17 +4122,34 @@ const cohortL3QuestionDeepDiveGenerated = {
             "topk_units_swapped_out": [
               "u-L0011-02"
             ],
+            "full_units_swapped_in": [
+              "meta-session-0001-locations",
+              "u-L0005-02",
+              "u-L0005-03"
+            ],
+            "full_units_swapped_out": [
+              "u-L0007-02",
+              "u-L0007-03",
+              "u-L0009-04"
+            ],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
           }
         },
         {
           "question_id": "c1s1_final_threat",
-          "question": "",
-          "expected_answer": "",
-          "must_hit_tokens": [],
-          "expected_route_substrings": [],
-          "min_context_support_ratio": 0.0,
+          "question": "What threat ends the Session 1 recap?",
+          "expected_answer": "The recap ends on the reveal of a flaming, magma-infused spider monstrosity.",
+          "must_hit_tokens": [
+            "spider",
+            "magma",
+            "monstrosity"
+          ],
+          "expected_route_substrings": [
+            "Campaign 1/Locations/shatter_mages_tower",
+            "Campaign 1/PCs/karsemine"
+          ],
+          "min_context_support_ratio": 0.55,
           "baseline": {
             "ok": true,
             "violations": [],
@@ -3855,6 +4157,9 @@ const cohortL3QuestionDeepDiveGenerated = {
             "context_must_hits": [
               "magma",
               "spider"
+            ],
+            "context_must_hits_missing": [
+              "monstrosity"
             ],
             "semantic_verdict": "",
             "expected_route_substring_breakdown": [
@@ -3955,6 +4260,9 @@ const cohortL3QuestionDeepDiveGenerated = {
             "context_must_hits": [
               "magma",
               "spider"
+            ],
+            "context_must_hits_missing": [
+              "monstrosity"
             ],
             "semantic_verdict": "",
             "expected_route_substring_breakdown": [
@@ -4074,6 +4382,24 @@ const cohortL3QuestionDeepDiveGenerated = {
               "u-L0003-01",
               "u-L0005-01"
             ],
+            "full_units_swapped_in": [
+              "u-L0007-02",
+              "u-L0009-01",
+              "u-L0009-02",
+              "u-L0009-03",
+              "u-L0009-04",
+              "u-L0011-02",
+              "u-L0013-01",
+              "u-L0013-02",
+              "u-L0013-03",
+              "u-L0013-04",
+              "u-L0015-01"
+            ],
+            "full_units_swapped_out": [
+              "u-L0007-03",
+              "u-L0007-04",
+              "u-L0017-02"
+            ],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
           }
@@ -4088,11 +4414,21 @@ const cohortL3QuestionDeepDiveGenerated = {
       "questions": [
         {
           "question_id": "c1s2_threat_inventory",
-          "question": "",
-          "expected_answer": "",
-          "must_hit_tokens": [],
-          "expected_route_substrings": [],
-          "min_context_support_ratio": 0.0,
+          "question": "After the rat-clearing job, what bigger threats does the recap say were 'no big deal' by comparison?",
+          "expected_answer": "Compared to the rats, the Giant Flaming Spider, the Giant Centipede from the well, and the rat that was absolutely not about to mutate were no big deal.",
+          "must_hit_tokens": [
+            "rats",
+            "Spider",
+            "Centipede",
+            "well",
+            "mutate"
+          ],
+          "expected_route_substrings": [
+            "Campaign 1/Parties/party_merchant_guards",
+            "Campaign 1/NPCs/magma_spider",
+            "Campaign 1/NPCs/giant_centipede_well"
+          ],
+          "min_context_support_ratio": 0.55,
           "baseline": {
             "ok": true,
             "violations": [],
@@ -4104,6 +4440,7 @@ const cohortL3QuestionDeepDiveGenerated = {
               "rats",
               "well"
             ],
+            "context_must_hits_missing": [],
             "semantic_verdict": "",
             "expected_route_substring_breakdown": [
               {
@@ -4205,6 +4542,7 @@ const cohortL3QuestionDeepDiveGenerated = {
               "rats",
               "well"
             ],
+            "context_must_hits_missing": [],
             "semantic_verdict": "",
             "expected_route_substring_breakdown": [
               {
@@ -4326,17 +4664,28 @@ const cohortL3QuestionDeepDiveGenerated = {
               "u-L0005-01",
               "u-L0011-03"
             ],
+            "full_units_swapped_in": [],
+            "full_units_swapped_out": [],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
           }
         },
         {
           "question_id": "c1s2_basement_clearing_payoff",
-          "question": "",
-          "expected_answer": "",
-          "must_hit_tokens": [],
-          "expected_route_substrings": [],
-          "min_context_support_ratio": 0.0,
+          "question": "What did the group find after clearing more of the wizard's tower basement?",
+          "expected_answer": "They found a sack of gems, mystery potions on corpses in the well, and broke through a wall into a room full of healing potions, alchemical tools, and ancient ingredients they do not know how to use.",
+          "must_hit_tokens": [
+            "gems",
+            "potions",
+            "well",
+            "healing",
+            "alchemical",
+            "wall"
+          ],
+          "expected_route_substrings": [
+            "Campaign 1/Locations/wizards_tower_brewing_company"
+          ],
+          "min_context_support_ratio": 0.55,
           "baseline": {
             "ok": true,
             "violations": [],
@@ -4349,6 +4698,7 @@ const cohortL3QuestionDeepDiveGenerated = {
               "wall",
               "well"
             ],
+            "context_must_hits_missing": [],
             "semantic_verdict": "",
             "expected_route_substring_breakdown": [
               {
@@ -4457,6 +4807,7 @@ const cohortL3QuestionDeepDiveGenerated = {
               "wall",
               "well"
             ],
+            "context_must_hits_missing": [],
             "semantic_verdict": "",
             "expected_route_substring_breakdown": [
               {
@@ -4578,17 +4929,26 @@ const cohortL3QuestionDeepDiveGenerated = {
             "tokens_removed_by_equivalences": [],
             "topk_units_swapped_in": [],
             "topk_units_swapped_out": [],
+            "full_units_swapped_in": [],
+            "full_units_swapped_out": [],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
           }
         },
         {
           "question_id": "c1s2_glowkindle_stash_deal",
-          "question": "",
-          "expected_answer": "",
-          "must_hit_tokens": [],
-          "expected_route_substrings": [],
-          "min_context_support_ratio": 0.0,
+          "question": "What arrangement did the party negotiate with Glowkindle about the extra discoveries?",
+          "expected_answer": "Because the hidden room and much of the place were outside the original contract, they negotiated with Glowkindle for the right to stash gear in the hidden alchemy room.",
+          "must_hit_tokens": [
+            "Glowkindle",
+            "stash",
+            "alchemy",
+            "contract"
+          ],
+          "expected_route_substrings": [
+            "Campaign 1/NPCs/glowkindle"
+          ],
+          "min_context_support_ratio": 0.55,
           "baseline": {
             "ok": true,
             "violations": [],
@@ -4599,6 +4959,7 @@ const cohortL3QuestionDeepDiveGenerated = {
               "contract",
               "stash"
             ],
+            "context_must_hits_missing": [],
             "semantic_verdict": "",
             "expected_route_substring_breakdown": [
               {
@@ -4687,6 +5048,7 @@ const cohortL3QuestionDeepDiveGenerated = {
               "contract",
               "stash"
             ],
+            "context_must_hits_missing": [],
             "semantic_verdict": "",
             "expected_route_substring_breakdown": [
               {
@@ -4791,17 +5153,24 @@ const cohortL3QuestionDeepDiveGenerated = {
             "tokens_removed_by_equivalences": [],
             "topk_units_swapped_in": [],
             "topk_units_swapped_out": [],
+            "full_units_swapped_in": [],
+            "full_units_swapped_out": [],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
           }
         },
         {
           "question_id": "c1s2_god_forsaken_scope",
-          "question": "",
-          "expected_answer": "",
-          "must_hit_tokens": [],
-          "expected_route_substrings": [],
-          "min_context_support_ratio": 0.0,
+          "question": "How does the recap characterize the scope of what was (and wasn't) covered by the original contract?",
+          "expected_answer": "The hidden room was not part of the original contract, and neither was the rest of the god-forsaken place.",
+          "must_hit_tokens": [
+            "contract",
+            "forsaken"
+          ],
+          "expected_route_substrings": [
+            "Campaign 1/NPCs/glowkindle"
+          ],
+          "min_context_support_ratio": 0.55,
           "baseline": {
             "ok": true,
             "violations": [],
@@ -4810,6 +5179,7 @@ const cohortL3QuestionDeepDiveGenerated = {
               "contract",
               "forsaken"
             ],
+            "context_must_hits_missing": [],
             "semantic_verdict": "",
             "expected_route_substring_breakdown": [
               {
@@ -4889,6 +5259,7 @@ const cohortL3QuestionDeepDiveGenerated = {
               "contract",
               "forsaken"
             ],
+            "context_must_hits_missing": [],
             "semantic_verdict": "",
             "expected_route_substring_breakdown": [
               {
@@ -5004,17 +5375,30 @@ const cohortL3QuestionDeepDiveGenerated = {
               "u-L0007-02",
               "u-L0009-01"
             ],
+            "full_units_swapped_in": [
+              "meta-session-0002-locations",
+              "u-L0003-01",
+              "u-L0011-03",
+              "u-L0013-01"
+            ],
+            "full_units_swapped_out": [],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
           }
         },
         {
           "question_id": "c1s2_pay_and_loot_summary",
-          "question": "",
-          "expected_answer": "",
-          "must_hit_tokens": [],
-          "expected_route_substrings": [],
-          "min_context_support_ratio": 0.0,
+          "question": "How much money did each party member make, and what else did they walk away with?",
+          "expected_answer": "They made pretty good money \u2014 25 gp each \u2014 plus a bit of loot.",
+          "must_hit_tokens": [
+            "25",
+            "gp",
+            "loot"
+          ],
+          "expected_route_substrings": [
+            "Campaign 1/Parties/party_merchant_guards"
+          ],
+          "min_context_support_ratio": 0.55,
           "baseline": {
             "ok": true,
             "violations": [],
@@ -5024,6 +5408,7 @@ const cohortL3QuestionDeepDiveGenerated = {
               "gp",
               "loot"
             ],
+            "context_must_hits_missing": [],
             "semantic_verdict": "",
             "expected_route_substring_breakdown": [
               {
@@ -5106,6 +5491,7 @@ const cohortL3QuestionDeepDiveGenerated = {
               "gp",
               "loot"
             ],
+            "context_must_hits_missing": [],
             "semantic_verdict": "",
             "expected_route_substring_breakdown": [
               {
@@ -5211,17 +5597,24 @@ const cohortL3QuestionDeepDiveGenerated = {
               "u-L0005-01",
               "u-L0007-02"
             ],
+            "full_units_swapped_in": [],
+            "full_units_swapped_out": [],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
           }
         },
         {
           "question_id": "c1s2_party_commitment",
-          "question": "",
-          "expected_answer": "",
-          "must_hit_tokens": [],
-          "expected_route_substrings": [],
-          "min_context_support_ratio": 0.0,
+          "question": "What did the group decide about staying together after this session's pay-off?",
+          "expected_answer": "They decided to stick together and see where the winds take them.",
+          "must_hit_tokens": [
+            "stick together",
+            "winds"
+          ],
+          "expected_route_substrings": [
+            "Campaign 1/Parties/party_merchant_guards"
+          ],
+          "min_context_support_ratio": 0.55,
           "baseline": {
             "ok": true,
             "violations": [],
@@ -5230,6 +5623,7 @@ const cohortL3QuestionDeepDiveGenerated = {
               "stick together",
               "winds"
             ],
+            "context_must_hits_missing": [],
             "semantic_verdict": "",
             "expected_route_substring_breakdown": [
               {
@@ -5319,6 +5713,7 @@ const cohortL3QuestionDeepDiveGenerated = {
               "stick together",
               "winds"
             ],
+            "context_must_hits_missing": [],
             "semantic_verdict": "",
             "expected_route_substring_breakdown": [
               {
@@ -5428,17 +5823,25 @@ const cohortL3QuestionDeepDiveGenerated = {
             "topk_units_swapped_out": [
               "u-L0005-01"
             ],
+            "full_units_swapped_in": [],
+            "full_units_swapped_out": [],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
           }
         },
         {
           "question_id": "c1s2_basement_lesson",
-          "question": "",
-          "expected_answer": "",
-          "must_hit_tokens": [],
-          "expected_route_substrings": [],
-          "min_context_support_ratio": 0.0,
+          "question": "What lesson does the recap say the party learned from clearing rats out of basements?",
+          "expected_answer": "They learned a lot about the dangers of clearing rats out of basements.",
+          "must_hit_tokens": [
+            "rats",
+            "basements",
+            "dangers"
+          ],
+          "expected_route_substrings": [
+            "Campaign 1/Parties/party_merchant_guards"
+          ],
+          "min_context_support_ratio": 0.55,
           "baseline": {
             "ok": true,
             "violations": [],
@@ -5448,6 +5851,7 @@ const cohortL3QuestionDeepDiveGenerated = {
               "dangers",
               "rats"
             ],
+            "context_must_hits_missing": [],
             "semantic_verdict": "",
             "expected_route_substring_breakdown": [
               {
@@ -5538,6 +5942,7 @@ const cohortL3QuestionDeepDiveGenerated = {
               "dangers",
               "rats"
             ],
+            "context_must_hits_missing": [],
             "semantic_verdict": "",
             "expected_route_substring_breakdown": [
               {
@@ -5648,17 +6053,24 @@ const cohortL3QuestionDeepDiveGenerated = {
             "topk_units_swapped_out": [
               "u-L0005-01"
             ],
+            "full_units_swapped_in": [],
+            "full_units_swapped_out": [],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
           }
         },
         {
           "question_id": "c1s2_hook_more_work_glowkindle",
-          "question": "",
-          "expected_answer": "",
-          "must_hit_tokens": [],
-          "expected_route_substrings": [],
-          "min_context_support_ratio": 0.0,
+          "question": "What open question does the recap pose about Glowkindle?",
+          "expected_answer": "Whether they will ask Glowkindle for more work.",
+          "must_hit_tokens": [
+            "Glowkindle",
+            "work"
+          ],
+          "expected_route_substrings": [
+            "Campaign 1/NPCs/glowkindle"
+          ],
+          "min_context_support_ratio": 0.55,
           "baseline": {
             "ok": true,
             "violations": [],
@@ -5667,6 +6079,7 @@ const cohortL3QuestionDeepDiveGenerated = {
               "Glowkindle",
               "work"
             ],
+            "context_must_hits_missing": [],
             "semantic_verdict": "",
             "expected_route_substring_breakdown": [
               {
@@ -5754,6 +6167,7 @@ const cohortL3QuestionDeepDiveGenerated = {
               "Glowkindle",
               "work"
             ],
+            "context_must_hits_missing": [],
             "semantic_verdict": "",
             "expected_route_substring_breakdown": [
               {
@@ -5866,17 +6280,27 @@ const cohortL3QuestionDeepDiveGenerated = {
             "topk_units_swapped_out": [
               "u-L0009-01"
             ],
+            "full_units_swapped_in": [],
+            "full_units_swapped_out": [],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
           }
         },
         {
           "question_id": "c1s2_hook_stonebridge_grishna",
-          "question": "",
-          "expected_answer": "",
-          "must_hit_tokens": [],
-          "expected_route_substrings": [],
-          "min_context_support_ratio": 0.0,
+          "question": "What return trip to Stonebridge does the recap tease?",
+          "expected_answer": "They might head back to Stonebridge to say hi to Grishna at the River's Edge Pub.",
+          "must_hit_tokens": [
+            "Stonebridge",
+            "Grishna",
+            "Pub"
+          ],
+          "expected_route_substrings": [
+            "Campaign 1/Locations/stonebridge",
+            "Campaign 1/NPCs/grishna",
+            "Campaign 1/Locations/rivers_edge_pub"
+          ],
+          "min_context_support_ratio": 0.55,
           "baseline": {
             "ok": true,
             "violations": [],
@@ -5886,6 +6310,7 @@ const cohortL3QuestionDeepDiveGenerated = {
               "Pub",
               "Stonebridge"
             ],
+            "context_must_hits_missing": [],
             "semantic_verdict": "",
             "expected_route_substring_breakdown": [
               {
@@ -5983,6 +6408,7 @@ const cohortL3QuestionDeepDiveGenerated = {
               "Pub",
               "Stonebridge"
             ],
+            "context_must_hits_missing": [],
             "semantic_verdict": "",
             "expected_route_substring_breakdown": [
               {
@@ -6106,17 +6532,25 @@ const cohortL3QuestionDeepDiveGenerated = {
               "u-L0011-03",
               "u-L0013-01"
             ],
+            "full_units_swapped_in": [],
+            "full_units_swapped_out": [],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
           }
         },
         {
           "question_id": "c1s2_hook_wizard_tower_thread",
-          "question": "",
-          "expected_answer": "",
-          "must_hit_tokens": [],
-          "expected_route_substrings": [],
-          "min_context_support_ratio": 0.0,
+          "question": "What Wizard's Tower thread does this recap tee up without answering yet?",
+          "expected_answer": "The recap only tees up the question of whether there is more to the Wizard's Tower; it does not answer what is there.",
+          "must_hit_tokens": [
+            "Wizard",
+            "Tower",
+            "more"
+          ],
+          "expected_route_substrings": [
+            "Campaign 1/Locations/wizards_tower_brewing_company"
+          ],
+          "min_context_support_ratio": 0.55,
           "baseline": {
             "ok": true,
             "violations": [],
@@ -6126,6 +6560,7 @@ const cohortL3QuestionDeepDiveGenerated = {
               "Wizard",
               "more"
             ],
+            "context_must_hits_missing": [],
             "semantic_verdict": "",
             "expected_route_substring_breakdown": [
               {
@@ -6225,6 +6660,7 @@ const cohortL3QuestionDeepDiveGenerated = {
               "Wizard",
               "more"
             ],
+            "context_must_hits_missing": [],
             "semantic_verdict": "",
             "expected_route_substring_breakdown": [
               {
@@ -6340,17 +6776,24 @@ const cohortL3QuestionDeepDiveGenerated = {
             "tokens_removed_by_equivalences": [],
             "topk_units_swapped_in": [],
             "topk_units_swapped_out": [],
+            "full_units_swapped_in": [],
+            "full_units_swapped_out": [],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
           }
         },
         {
           "question_id": "c1s2_spider_beat",
-          "question": "",
-          "expected_answer": "",
-          "must_hit_tokens": [],
-          "expected_route_substrings": [],
-          "min_context_support_ratio": 0.0,
+          "question": "Which large spider threat is named in the Session 2 recap?",
+          "expected_answer": "The Giant Flaming Spider.",
+          "must_hit_tokens": [
+            "Spider",
+            "Flaming"
+          ],
+          "expected_route_substrings": [
+            "Campaign 1/NPCs/magma_spider"
+          ],
+          "min_context_support_ratio": 0.55,
           "baseline": {
             "ok": true,
             "violations": [],
@@ -6359,6 +6802,7 @@ const cohortL3QuestionDeepDiveGenerated = {
               "Flaming",
               "Spider"
             ],
+            "context_must_hits_missing": [],
             "semantic_verdict": "",
             "expected_route_substring_breakdown": [
               {
@@ -6439,6 +6883,7 @@ const cohortL3QuestionDeepDiveGenerated = {
               "Flaming",
               "Spider"
             ],
+            "context_must_hits_missing": [],
             "semantic_verdict": "",
             "expected_route_substring_breakdown": [
               {
@@ -6554,17 +6999,29 @@ const cohortL3QuestionDeepDiveGenerated = {
               "u-L0005-02",
               "u-L0005-03"
             ],
+            "full_units_swapped_in": [
+              "u-L0007-02",
+              "u-L0009-01",
+              "u-L0011-03",
+              "u-L0013-01"
+            ],
+            "full_units_swapped_out": [],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
           }
         },
         {
           "question_id": "c1s2_centipede_beat",
-          "question": "",
-          "expected_answer": "",
-          "must_hit_tokens": [],
-          "expected_route_substrings": [],
-          "min_context_support_ratio": 0.0,
+          "question": "Where did the giant centipede come from in the recap's threat list?",
+          "expected_answer": "The giant centipede crawled out of the well.",
+          "must_hit_tokens": [
+            "centipede",
+            "well"
+          ],
+          "expected_route_substrings": [
+            "Campaign 1/NPCs/giant_centipede_well"
+          ],
+          "min_context_support_ratio": 0.55,
           "baseline": {
             "ok": true,
             "violations": [],
@@ -6573,6 +7030,7 @@ const cohortL3QuestionDeepDiveGenerated = {
               "centipede",
               "well"
             ],
+            "context_must_hits_missing": [],
             "semantic_verdict": "",
             "expected_route_substring_breakdown": [
               {
@@ -6655,6 +7113,7 @@ const cohortL3QuestionDeepDiveGenerated = {
               "centipede",
               "well"
             ],
+            "context_must_hits_missing": [],
             "semantic_verdict": "",
             "expected_route_substring_breakdown": [
               {
@@ -6772,17 +7231,29 @@ const cohortL3QuestionDeepDiveGenerated = {
               "u-L0005-02",
               "u-L0005-03"
             ],
+            "full_units_swapped_in": [
+              "u-L0007-02",
+              "u-L0009-01",
+              "u-L0011-03",
+              "u-L0013-01"
+            ],
+            "full_units_swapped_out": [],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
           }
         },
         {
           "question_id": "c1s2_non_mutating_rat",
-          "question": "",
-          "expected_answer": "",
-          "must_hit_tokens": [],
-          "expected_route_substrings": [],
-          "min_context_support_ratio": 0.0,
+          "question": "What does the recap emphasize about one rat versus mutation?",
+          "expected_answer": "There was a rat that absolutely was not about to mutate.",
+          "must_hit_tokens": [
+            "mutate",
+            "rat"
+          ],
+          "expected_route_substrings": [
+            "Campaign 1/Parties/party_merchant_guards"
+          ],
+          "min_context_support_ratio": 0.55,
           "baseline": {
             "ok": true,
             "violations": [],
@@ -6791,6 +7262,7 @@ const cohortL3QuestionDeepDiveGenerated = {
               "mutate",
               "rat"
             ],
+            "context_must_hits_missing": [],
             "semantic_verdict": "",
             "expected_route_substring_breakdown": [
               {
@@ -6884,6 +7356,7 @@ const cohortL3QuestionDeepDiveGenerated = {
               "mutate",
               "rat"
             ],
+            "context_must_hits_missing": [],
             "semantic_verdict": "",
             "expected_route_substring_breakdown": [
               {
@@ -6998,17 +7471,26 @@ const cohortL3QuestionDeepDiveGenerated = {
             "topk_units_swapped_out": [
               "u-L0009-01"
             ],
+            "full_units_swapped_in": [],
+            "full_units_swapped_out": [],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
           }
         },
         {
           "question_id": "c1s2_planning_glowkindle_followup",
-          "question": "",
-          "expected_answer": "",
-          "must_hit_tokens": [],
-          "expected_route_substrings": [],
-          "min_context_support_ratio": 0.0,
+          "question": "If we're prepping the next Glowkindle beat, what should we remember about the stash deal from Session 2?",
+          "expected_answer": "They negotiated with Glowkindle for the right to stash gear in the hidden alchemy room because that space was outside the original contract.",
+          "must_hit_tokens": [
+            "Glowkindle",
+            "stash",
+            "alchemy",
+            "contract"
+          ],
+          "expected_route_substrings": [
+            "Campaign 1/NPCs/glowkindle"
+          ],
+          "min_context_support_ratio": 0.55,
           "baseline": {
             "ok": true,
             "violations": [],
@@ -7019,6 +7501,7 @@ const cohortL3QuestionDeepDiveGenerated = {
               "contract",
               "stash"
             ],
+            "context_must_hits_missing": [],
             "semantic_verdict": "",
             "expected_route_substring_breakdown": [
               {
@@ -7110,6 +7593,7 @@ const cohortL3QuestionDeepDiveGenerated = {
               "contract",
               "stash"
             ],
+            "context_must_hits_missing": [],
             "semantic_verdict": "",
             "expected_route_substring_breakdown": [
               {
@@ -7224,17 +7708,27 @@ const cohortL3QuestionDeepDiveGenerated = {
             "topk_units_swapped_out": [
               "u-L0009-01"
             ],
+            "full_units_swapped_in": [],
+            "full_units_swapped_out": [],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
           }
         },
         {
           "question_id": "c1s2_prep_named_hostiles",
-          "question": "",
-          "expected_answer": "",
-          "must_hit_tokens": [],
-          "expected_route_substrings": [],
-          "min_context_support_ratio": 0.0,
+          "question": "For combat prep, which named or clearly typed hostile creatures does Session 2 call out (even as 'easy' compared to rats)?",
+          "expected_answer": "The Giant Flaming Spider, the Giant Centipede from the well, ordinary rats, and the rat that was not about to mutate.",
+          "must_hit_tokens": [
+            "Spider",
+            "Centipede",
+            "rats",
+            "well"
+          ],
+          "expected_route_substrings": [
+            "Campaign 1/NPCs/magma_spider",
+            "Campaign 1/NPCs/giant_centipede_well"
+          ],
+          "min_context_support_ratio": 0.55,
           "baseline": {
             "ok": true,
             "violations": [],
@@ -7245,6 +7739,7 @@ const cohortL3QuestionDeepDiveGenerated = {
               "rats",
               "well"
             ],
+            "context_must_hits_missing": [],
             "semantic_verdict": "",
             "expected_route_substring_breakdown": [
               {
@@ -7339,6 +7834,7 @@ const cohortL3QuestionDeepDiveGenerated = {
               "rats",
               "well"
             ],
+            "context_must_hits_missing": [],
             "semantic_verdict": "",
             "expected_route_substring_breakdown": [
               {
@@ -7451,6 +7947,8 @@ const cohortL3QuestionDeepDiveGenerated = {
             "topk_units_swapped_out": [
               "u-L0003-01"
             ],
+            "full_units_swapped_in": [],
+            "full_units_swapped_out": [],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
           }
@@ -7465,11 +7963,18 @@ const cohortL3QuestionDeepDiveGenerated = {
       "questions": [
         {
           "question_id": "c1s3_bubbles_mage_hand_beat",
-          "question": "",
-          "expected_answer": "",
-          "must_hit_tokens": [],
-          "expected_route_substrings": [],
-          "min_context_support_ratio": 0.0,
+          "question": "For the Bubbles rescue, what was Ephanna's first mage-hand plan on the rock, and how did Bubbles handle it?",
+          "expected_answer": "Ephanna used mage hand to lasso Bubbles on the rock, but Bubbles is too panicked and bites the mage hand.",
+          "must_hit_tokens": [
+            "mage hand",
+            "Bubbles",
+            "bites"
+          ],
+          "expected_route_substrings": [
+            "Campaign 1/PCs/ephanna",
+            "Campaign 1/NPCs/bubbles_the_float_goat"
+          ],
+          "min_context_support_ratio": 0.55,
           "baseline": {
             "ok": true,
             "violations": [],
@@ -7479,6 +7984,7 @@ const cohortL3QuestionDeepDiveGenerated = {
               "bites",
               "mage hand"
             ],
+            "context_must_hits_missing": [],
             "semantic_verdict": "",
             "expected_route_substring_breakdown": [
               {
@@ -7600,6 +8106,7 @@ const cohortL3QuestionDeepDiveGenerated = {
               "bites",
               "mage hand"
             ],
+            "context_must_hits_missing": [],
             "semantic_verdict": "",
             "expected_route_substring_breakdown": [
               {
@@ -7740,17 +8247,28 @@ const cohortL3QuestionDeepDiveGenerated = {
             "tokens_removed_by_equivalences": [],
             "topk_units_swapped_in": [],
             "topk_units_swapped_out": [],
+            "full_units_swapped_in": [],
+            "full_units_swapped_out": [],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
           }
         },
         {
           "question_id": "c1s3_pippa_ride_kegs",
-          "question": "",
-          "expected_answer": "",
-          "must_hit_tokens": [],
-          "expected_route_substrings": [],
-          "min_context_support_ratio": 0.0,
+          "question": "Remind me how they got to StoneBridge with Pippa: who gave the ride, and what was pulling the keg wagon?",
+          "expected_answer": "Pippa offered the ride toward StoneBridge, and Bubbles the Float Goat was hitched to her wagon full of kegs.",
+          "must_hit_tokens": [
+            "Pippa",
+            "StoneBridge",
+            "Bubbles",
+            "kegs"
+          ],
+          "expected_route_substrings": [
+            "Campaign 1/NPCs/pippa",
+            "Campaign 1/NPCs/bubbles_the_float_goat",
+            "Campaign 1/Locations/stonebridge"
+          ],
+          "min_context_support_ratio": 0.55,
           "baseline": {
             "ok": true,
             "violations": [],
@@ -7761,6 +8279,7 @@ const cohortL3QuestionDeepDiveGenerated = {
               "StoneBridge",
               "kegs"
             ],
+            "context_must_hits_missing": [],
             "semantic_verdict": "",
             "expected_route_substring_breakdown": [
               {
@@ -7895,6 +8414,7 @@ const cohortL3QuestionDeepDiveGenerated = {
               "StoneBridge",
               "kegs"
             ],
+            "context_must_hits_missing": [],
             "semantic_verdict": "",
             "expected_route_substring_breakdown": [
               {
@@ -8047,17 +8567,25 @@ const cohortL3QuestionDeepDiveGenerated = {
             "tokens_removed_by_equivalences": [],
             "topk_units_swapped_in": [],
             "topk_units_swapped_out": [],
+            "full_units_swapped_in": [],
+            "full_units_swapped_out": [],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
           }
         },
         {
           "question_id": "c1s3_grishna_comp_board",
-          "question": "",
-          "expected_answer": "",
-          "must_hit_tokens": [],
-          "expected_route_substrings": [],
-          "min_context_support_ratio": 0.0,
+          "question": "After they helped Kirfan with the upriver debris, what did Grishna comp them?",
+          "expected_answer": "Grishna comped them beer and board.",
+          "must_hit_tokens": [
+            "Grishna",
+            "beer",
+            "board"
+          ],
+          "expected_route_substrings": [
+            "Campaign 1/NPCs/grishna"
+          ],
+          "min_context_support_ratio": 0.55,
           "baseline": {
             "ok": true,
             "violations": [],
@@ -8067,6 +8595,7 @@ const cohortL3QuestionDeepDiveGenerated = {
               "beer",
               "board"
             ],
+            "context_must_hits_missing": [],
             "semantic_verdict": "",
             "expected_route_substring_breakdown": [
               {
@@ -8161,6 +8690,7 @@ const cohortL3QuestionDeepDiveGenerated = {
               "beer",
               "board"
             ],
+            "context_must_hits_missing": [],
             "semantic_verdict": "",
             "expected_route_substring_breakdown": [
               {
@@ -8283,17 +8813,30 @@ const cohortL3QuestionDeepDiveGenerated = {
             "topk_units_swapped_out": [
               "u-L0014-01"
             ],
+            "full_units_swapped_in": [
+              "u-L0036-05"
+            ],
+            "full_units_swapped_out": [
+              "u-L0014-01"
+            ],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
           }
         },
         {
           "question_id": "c1s3_stafl_brewery_song",
-          "question": "",
-          "expected_answer": "",
-          "must_hit_tokens": [],
-          "expected_route_substrings": [],
-          "min_context_support_ratio": 0.0,
+          "question": "What did Stafl do in the pub to sell the Wizard's Tower Brewery story to the room?",
+          "expected_answer": "Stafl wrote and played an incredible song that wooed the town in the retelling of the Wizard's Tower Brewery adventure.",
+          "must_hit_tokens": [
+            "Stafl",
+            "song",
+            "Brewery"
+          ],
+          "expected_route_substrings": [
+            "Campaign 1/PCs/stafl",
+            "Campaign 1/Locations/wizards_tower_brewing_company"
+          ],
+          "min_context_support_ratio": 0.55,
           "baseline": {
             "ok": true,
             "violations": [],
@@ -8303,6 +8846,7 @@ const cohortL3QuestionDeepDiveGenerated = {
               "Stafl",
               "song"
             ],
+            "context_must_hits_missing": [],
             "semantic_verdict": "",
             "expected_route_substring_breakdown": [
               {
@@ -8423,6 +8967,7 @@ const cohortL3QuestionDeepDiveGenerated = {
               "Stafl",
               "song"
             ],
+            "context_must_hits_missing": [],
             "semantic_verdict": "",
             "expected_route_substring_breakdown": [
               {
@@ -8562,17 +9107,30 @@ const cohortL3QuestionDeepDiveGenerated = {
             "tokens_removed_by_equivalences": [],
             "topk_units_swapped_in": [],
             "topk_units_swapped_out": [],
+            "full_units_swapped_in": [
+              "u-L0034-01"
+            ],
+            "full_units_swapped_out": [
+              "u-L0028-01"
+            ],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
           }
         },
         {
           "question_id": "c1s3_bonogo_downstream_zen",
-          "question": "",
-          "expected_answer": "",
-          "must_hit_tokens": [],
-          "expected_route_substrings": [],
-          "min_context_support_ratio": 0.0,
+          "question": "Where does Bonogo end up in the early flood outline once the river takes him?",
+          "expected_answer": "Bonogo flows downstream and has a wonderful zen underwater adventure.",
+          "must_hit_tokens": [
+            "Bonogo",
+            "downstream",
+            "underwater"
+          ],
+          "expected_route_substrings": [
+            "Campaign 1/PCs/bonogo",
+            "Campaign 1/Locations/stonebridge"
+          ],
+          "min_context_support_ratio": 0.55,
           "baseline": {
             "ok": true,
             "violations": [],
@@ -8582,6 +9140,7 @@ const cohortL3QuestionDeepDiveGenerated = {
               "downstream",
               "underwater"
             ],
+            "context_must_hits_missing": [],
             "semantic_verdict": "",
             "expected_route_substring_breakdown": [
               {
@@ -8704,6 +9263,10 @@ const cohortL3QuestionDeepDiveGenerated = {
             "context_support_ratio": 0.3333333333333333,
             "context_must_hits": [
               "Bonogo"
+            ],
+            "context_must_hits_missing": [
+              "downstream",
+              "underwater"
             ],
             "semantic_verdict": "",
             "expected_route_substring_breakdown": [
@@ -8846,17 +9409,33 @@ const cohortL3QuestionDeepDiveGenerated = {
             "tokens_removed_by_equivalences": [],
             "topk_units_swapped_in": [],
             "topk_units_swapped_out": [],
+            "full_units_swapped_in": [
+              "u-L0034-02",
+              "u-L0034-03"
+            ],
+            "full_units_swapped_out": [
+              "u-L0024-01",
+              "u-L0026-01"
+            ],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
           }
         },
         {
           "question_id": "c1s3_ephanna_second_lasso",
-          "question": "",
-          "expected_answer": "",
-          "must_hit_tokens": [],
-          "expected_route_substrings": [],
-          "min_context_support_ratio": 0.0,
+          "question": "When does Ephanna finally get Bubbles on the lasso?",
+          "expected_answer": "On the second attempt, Ephanna's mage hand succeeds, lassos Bubbles, and leads her back to Ephanna.",
+          "must_hit_tokens": [
+            "second",
+            "lassos",
+            "Bubbles",
+            "mage hand"
+          ],
+          "expected_route_substrings": [
+            "Campaign 1/PCs/ephanna",
+            "Campaign 1/NPCs/bubbles_the_float_goat"
+          ],
+          "min_context_support_ratio": 0.55,
           "baseline": {
             "ok": true,
             "violations": [],
@@ -8867,6 +9446,7 @@ const cohortL3QuestionDeepDiveGenerated = {
               "mage hand",
               "second"
             ],
+            "context_must_hits_missing": [],
             "semantic_verdict": "",
             "expected_route_substring_breakdown": [
               {
@@ -8986,6 +9566,7 @@ const cohortL3QuestionDeepDiveGenerated = {
               "mage hand",
               "second"
             ],
+            "context_must_hits_missing": [],
             "semantic_verdict": "",
             "expected_route_substring_breakdown": [
               {
@@ -9123,17 +9704,25 @@ const cohortL3QuestionDeepDiveGenerated = {
             "tokens_removed_by_equivalences": [],
             "topk_units_swapped_in": [],
             "topk_units_swapped_out": [],
+            "full_units_swapped_in": [],
+            "full_units_swapped_out": [],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
           }
         },
         {
           "question_id": "c1s3_caelynn_ice_platform",
-          "question": "",
-          "expected_answer": "",
-          "must_hit_tokens": [],
-          "expected_route_substrings": [],
-          "min_context_support_ratio": 0.0,
+          "question": "What does Caelynn do with ice around Bubbles' rock?",
+          "expected_answer": "Caelynn uses ice to freeze the base of the rock and make a platform.",
+          "must_hit_tokens": [
+            "Caelynn",
+            "ice",
+            "platform"
+          ],
+          "expected_route_substrings": [
+            "Campaign 1/PCs/caelynn"
+          ],
+          "min_context_support_ratio": 0.55,
           "baseline": {
             "ok": true,
             "violations": [],
@@ -9143,6 +9732,7 @@ const cohortL3QuestionDeepDiveGenerated = {
               "ice",
               "platform"
             ],
+            "context_must_hits_missing": [],
             "semantic_verdict": "",
             "expected_route_substring_breakdown": [
               {
@@ -9261,6 +9851,7 @@ const cohortL3QuestionDeepDiveGenerated = {
               "ice",
               "platform"
             ],
+            "context_must_hits_missing": [],
             "semantic_verdict": "",
             "expected_route_substring_breakdown": [
               {
@@ -9405,17 +9996,32 @@ const cohortL3QuestionDeepDiveGenerated = {
             "topk_units_swapped_out": [
               "u-L0022-01"
             ],
+            "full_units_swapped_in": [
+              "u-L0040-11"
+            ],
+            "full_units_swapped_out": [
+              "u-L0022-01"
+            ],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
           }
         },
         {
           "question_id": "c1s3_karsemine_zephyr_chase",
-          "question": "",
-          "expected_answer": "",
-          "must_hit_tokens": [],
-          "expected_route_substrings": [],
-          "min_context_support_ratio": 0.0,
+          "question": "When everything is falling apart, what does Karsemine do along the bank with Zephyr Strike?",
+          "expected_answer": "Karsemine casts Zephyr Strike, runs down the bank, and shoots arrows where Bonogo probably was.",
+          "must_hit_tokens": [
+            "Karsemine",
+            "Zephyr",
+            "arrows",
+            "Bonogo"
+          ],
+          "expected_route_substrings": [
+            "Campaign 1/PCs/karsemine",
+            "Campaign 1/PCs/bonogo",
+            "Campaign 1/Locations/stonebridge"
+          ],
+          "min_context_support_ratio": 0.55,
           "baseline": {
             "ok": true,
             "violations": [],
@@ -9426,6 +10032,7 @@ const cohortL3QuestionDeepDiveGenerated = {
               "Zephyr",
               "arrows"
             ],
+            "context_must_hits_missing": [],
             "semantic_verdict": "",
             "expected_route_substring_breakdown": [
               {
@@ -9547,6 +10154,7 @@ const cohortL3QuestionDeepDiveGenerated = {
               "Zephyr",
               "arrows"
             ],
+            "context_must_hits_missing": [],
             "semantic_verdict": "",
             "expected_route_substring_breakdown": [
               {
@@ -9685,17 +10293,25 @@ const cohortL3QuestionDeepDiveGenerated = {
             "tokens_removed_by_equivalences": [],
             "topk_units_swapped_in": [],
             "topk_units_swapped_out": [],
+            "full_units_swapped_in": [],
+            "full_units_swapped_out": [],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
           }
         },
         {
           "question_id": "c1s3_kirfan_debris_help",
-          "question": "",
-          "expected_answer": "",
-          "must_hit_tokens": [],
-          "expected_route_substrings": [],
-          "min_context_support_ratio": 0.0,
+          "question": "Who were they helping when they pulled up debris from the broken upriver structure?",
+          "expected_answer": "They helped Kirfan pull up debris from the broken structure from upriver.",
+          "must_hit_tokens": [
+            "Kirfan",
+            "debris",
+            "upriver"
+          ],
+          "expected_route_substrings": [
+            "Campaign 1/NPCs/kirfan"
+          ],
+          "min_context_support_ratio": 0.55,
           "baseline": {
             "ok": true,
             "violations": [],
@@ -9705,6 +10321,7 @@ const cohortL3QuestionDeepDiveGenerated = {
               "debris",
               "upriver"
             ],
+            "context_must_hits_missing": [],
             "semantic_verdict": "",
             "expected_route_substring_breakdown": [
               {
@@ -9803,6 +10420,7 @@ const cohortL3QuestionDeepDiveGenerated = {
               "debris",
               "upriver"
             ],
+            "context_must_hits_missing": [],
             "semantic_verdict": "",
             "expected_route_substring_breakdown": [
               {
@@ -9920,17 +10538,38 @@ const cohortL3QuestionDeepDiveGenerated = {
             "tokens_removed_by_equivalences": [],
             "topk_units_swapped_in": [],
             "topk_units_swapped_out": [],
+            "full_units_swapped_in": [
+              "u-L0003-01",
+              "u-L0004-01",
+              "u-L0004-02",
+              "u-L0006-01",
+              "u-L0040-01"
+            ],
+            "full_units_swapped_out": [
+              "u-L0045-04",
+              "u-L0045-05",
+              "u-L0045-06",
+              "u-L0045-07",
+              "u-L0045-08"
+            ],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
           }
         },
         {
           "question_id": "c1s3_stafl_nets_town",
-          "question": "",
-          "expected_answer": "",
-          "must_hit_tokens": [],
-          "expected_route_substrings": [],
-          "min_context_support_ratio": 0.0,
+          "question": "What does Stafl get the town doing with nets during the flood response?",
+          "expected_answer": "Stafl gathers town support and gets nets dropped across the bridge flow ways.",
+          "must_hit_tokens": [
+            "Stafl",
+            "nets",
+            "bridge"
+          ],
+          "expected_route_substrings": [
+            "Campaign 1/PCs/stafl",
+            "Campaign 1/Locations/stonebridge"
+          ],
+          "min_context_support_ratio": 0.55,
           "baseline": {
             "ok": true,
             "violations": [],
@@ -9940,6 +10579,7 @@ const cohortL3QuestionDeepDiveGenerated = {
               "bridge",
               "nets"
             ],
+            "context_must_hits_missing": [],
             "semantic_verdict": "",
             "expected_route_substring_breakdown": [
               {
@@ -10052,6 +10692,7 @@ const cohortL3QuestionDeepDiveGenerated = {
               "bridge",
               "nets"
             ],
+            "context_must_hits_missing": [],
             "semantic_verdict": "",
             "expected_route_substring_breakdown": [
               {
@@ -10190,17 +10831,51 @@ const cohortL3QuestionDeepDiveGenerated = {
               "meta-session-0003-locations",
               "u-L0014-01"
             ],
+            "full_units_swapped_in": [
+              "u-L0040-01",
+              "u-L0040-02",
+              "u-L0040-03",
+              "u-L0040-04",
+              "u-L0040-05",
+              "u-L0040-06",
+              "u-L0040-07",
+              "u-L0040-08",
+              "u-L0040-09",
+              "u-L0040-10",
+              "u-L0040-11"
+            ],
+            "full_units_swapped_out": [
+              "meta-session-0003-locations",
+              "u-L0014-01",
+              "u-L0022-01",
+              "u-L0024-01",
+              "u-L0026-01",
+              "u-L0030-01",
+              "u-L0032-01",
+              "u-L0036-02",
+              "u-L0036-03",
+              "u-L0036-04",
+              "u-L0036-05"
+            ],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
           }
         },
         {
           "question_id": "c1s3_bonogo_dive_rope_gone",
-          "question": "",
-          "expected_answer": "",
-          "must_hit_tokens": [],
-          "expected_route_substrings": [],
-          "min_context_support_ratio": 0.0,
+          "question": "On Bonogo's desperate dive, what happens to Baergrom and the rope?",
+          "expected_answer": "Bonogo dives into the river trusting Baergrom to hold the rope, but the rope is immediately torn out of Baergrom's hand.",
+          "must_hit_tokens": [
+            "Bonogo",
+            "Baergrom",
+            "rope"
+          ],
+          "expected_route_substrings": [
+            "Campaign 1/PCs/bonogo",
+            "Campaign 1/PCs/baergrom",
+            "Campaign 1/Locations/stonebridge"
+          ],
+          "min_context_support_ratio": 0.55,
           "baseline": {
             "ok": true,
             "violations": [],
@@ -10210,6 +10885,7 @@ const cohortL3QuestionDeepDiveGenerated = {
               "Bonogo",
               "rope"
             ],
+            "context_must_hits_missing": [],
             "semantic_verdict": "",
             "expected_route_substring_breakdown": [
               {
@@ -10335,6 +11011,7 @@ const cohortL3QuestionDeepDiveGenerated = {
               "Bonogo",
               "rope"
             ],
+            "context_must_hits_missing": [],
             "semantic_verdict": "",
             "expected_route_substring_breakdown": [
               {
@@ -10478,17 +11155,26 @@ const cohortL3QuestionDeepDiveGenerated = {
             "tokens_removed_by_equivalences": [],
             "topk_units_swapped_in": [],
             "topk_units_swapped_out": [],
+            "full_units_swapped_in": [],
+            "full_units_swapped_out": [],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
           }
         },
         {
           "question_id": "c1s3_mirathorn_festival_hook",
-          "question": "",
-          "expected_answer": "",
-          "must_hit_tokens": [],
-          "expected_route_substrings": [],
-          "min_context_support_ratio": 0.0,
+          "question": "At the end, what Mirathorn/festival hook is the recap teeing up?",
+          "expected_answer": "The recap tees up Mirathorn: Pippa had mentioned a city with a festival, and it might be interesting even if it is a long walk.",
+          "must_hit_tokens": [
+            "Mirathorn",
+            "festival",
+            "Pippa"
+          ],
+          "expected_route_substrings": [
+            "Campaign 1/Locations/mirathorn",
+            "Campaign 1/NPCs/pippa"
+          ],
+          "min_context_support_ratio": 0.55,
           "baseline": {
             "ok": true,
             "violations": [],
@@ -10498,6 +11184,7 @@ const cohortL3QuestionDeepDiveGenerated = {
               "Pippa",
               "festival"
             ],
+            "context_must_hits_missing": [],
             "semantic_verdict": "",
             "expected_route_substring_breakdown": [
               {
@@ -10609,6 +11296,7 @@ const cohortL3QuestionDeepDiveGenerated = {
               "Pippa",
               "festival"
             ],
+            "context_must_hits_missing": [],
             "semantic_verdict": "",
             "expected_route_substring_breakdown": [
               {
@@ -10740,17 +11428,34 @@ const cohortL3QuestionDeepDiveGenerated = {
             "tokens_removed_by_equivalences": [],
             "topk_units_swapped_in": [],
             "topk_units_swapped_out": [],
+            "full_units_swapped_in": [
+              "u-L0004-01",
+              "u-L0041-04",
+              "u-L0041-05"
+            ],
+            "full_units_swapped_out": [
+              "u-L0045-06",
+              "u-L0045-07",
+              "u-L0045-08"
+            ],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
           }
         },
         {
           "question_id": "c1s3_stonebridge_npc_roster_associated",
-          "question": "",
-          "expected_answer": "",
-          "must_hit_tokens": [],
-          "expected_route_substrings": [],
-          "min_context_support_ratio": 0.0,
+          "question": "Give me a list of all NPCs that live in StoneBridge.",
+          "expected_answer": "From the C1S3 beats that carry a StoneBridge location tag, the recap co-tags Pippa, Bubbles the Float Goat, and Grishna on those units \u2014 that's scene association in the index, not a residency ledger. Kirfan shows up in the hook line but isn't on a StoneBridge-location tag with those same units.",
+          "must_hit_tokens": [
+            "Pippa",
+            "Bubbles",
+            "Grishna",
+            "StoneBridge"
+          ],
+          "expected_route_substrings": [
+            "Campaign 1/Locations/stonebridge"
+          ],
+          "min_context_support_ratio": 0.45,
           "baseline": {
             "ok": true,
             "violations": [],
@@ -10761,6 +11466,7 @@ const cohortL3QuestionDeepDiveGenerated = {
               "Pippa",
               "StoneBridge"
             ],
+            "context_must_hits_missing": [],
             "semantic_verdict": "",
             "expected_route_substring_breakdown": [
               {
@@ -10879,6 +11585,7 @@ const cohortL3QuestionDeepDiveGenerated = {
               "Pippa",
               "StoneBridge"
             ],
+            "context_must_hits_missing": [],
             "semantic_verdict": "",
             "expected_route_substring_breakdown": [
               {
@@ -11015,6 +11722,8 @@ const cohortL3QuestionDeepDiveGenerated = {
             "tokens_removed_by_equivalences": [],
             "topk_units_swapped_in": [],
             "topk_units_swapped_out": [],
+            "full_units_swapped_in": [],
+            "full_units_swapped_out": [],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
           }
@@ -11027,6 +11736,34 @@ const cohortL3QuestionDeepDiveGenerated = {
 
 export default function CohortL3QuestionDeepDiveCanvas() {
   const payload = cohortL3QuestionDeepDiveGenerated;
+  const renderUnitDiff = (q: any) => {
+    const topMissed = Array.isArray(q?.delta?.topk_units_swapped_out) ? q.delta.topk_units_swapped_out : [];
+    const fullMissed = Array.isArray(q?.delta?.full_units_swapped_out) ? q.delta.full_units_swapped_out : [];
+    const topAdded = Array.isArray(q?.delta?.topk_units_swapped_in) ? q.delta.topk_units_swapped_in : [];
+    const fullAdded = Array.isArray(q?.delta?.full_units_swapped_in) ? q.delta.full_units_swapped_in : [];
+    return (
+      <div style={{ border: "1px solid #f59e0b", borderRadius: 6, padding: 8, marginBottom: 8 }}>
+        <div><strong>Missed units (baseline only):</strong> {fullMissed.length ? fullMissed.join(", ") : "none"}</div>
+        <div><strong>Top-5 missed units:</strong> {topMissed.length ? topMissed.join(", ") : "none"}</div>
+        <div><strong>Units added (equivalence only):</strong> {fullAdded.length ? fullAdded.join(", ") : "none"}</div>
+        <div><strong>Top-5 added units:</strong> {topAdded.length ? topAdded.join(", ") : "none"}</div>
+      </div>
+    );
+  };
+  const renderMustHitComparison = (q: any, mode: "baseline" | "with_equivalence") => {
+    const required = Array.isArray(q.must_hit_tokens) ? q.must_hit_tokens : [];
+    const matched = Array.isArray(q[mode]?.context_must_hits) ? q[mode].context_must_hits : [];
+    const missing = Array.isArray(q[mode]?.context_must_hits_missing)
+      ? q[mode].context_must_hits_missing
+      : required.filter((tok: string) => !matched.includes(tok));
+    return (
+      <div>
+        <div><strong>Required must-hit tokens:</strong> {required.length ? required.join(", ") : "none"}</div>
+        <div><strong>Matched must-hit tokens:</strong> {matched.length ? matched.join(", ") : "none"}</div>
+        <div><strong>Missing must-hit tokens:</strong> {missing.length ? missing.join(", ") : "none"}</div>
+      </div>
+    );
+  };
   return (
     <div>
       <h1>Cohort L3 Question Deep Dive</h1>
@@ -11034,6 +11771,11 @@ export default function CohortL3QuestionDeepDiveCanvas() {
       {payload.scenarios.flatMap((s: any) => s.questions).map((q: any) => (
         <details key={q.question_id} open={q.delta.verdict === 'regressed' || q.delta.verdict === 'improved'}>
           <summary>{q.question_id} — {q.delta.verdict}</summary>
+          {renderUnitDiff(q)}
+          <h3>Baseline</h3>
+          {renderMustHitComparison(q, "baseline")}
+          <h3>With Equivalence</h3>
+          {renderMustHitComparison(q, "with_equivalence")}
           <pre>{JSON.stringify(q, null, 2)}</pre>
         </details>
       ))}
