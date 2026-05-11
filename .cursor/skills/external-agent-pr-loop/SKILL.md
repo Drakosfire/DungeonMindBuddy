@@ -38,8 +38,20 @@ checklist, and handoff status all match `main`.
 
 ## Stage 1 — Author the HANDOFF
 
+> **Re-anchor first.** A HANDOFF is downstream of the workstream-scope
+> re-anchor (CHECKLIST Reanchor block + PLAN frontmatter +
+> `external_pull_requests[]` most-recent entry). Read
+> `.cursor/rules/anchor.mdc` (on-demand) before drafting if you have not
+> already verified `Last green artifact (path)` and `next_gate_command` are
+> current — the slice you are about to brief depends on both.
+
+Filename convention: once a PR number is known (or expected), name the file
+`Docs/Plans/HANDOFF-pr<N>-<short-slug>.md` so reviewers and the post-merge
+archive index can match handoff ↔ PR at a glance (see `AGENTS.md` §
+*Handoff filenames carry the planned PR number*).
+
 1. Copy `templates/HANDOFF.template.md` from this skill folder to
-   `Docs/Plans/HANDOFF-<slug>.md`.
+   `Docs/Plans/HANDOFF-pr<N>-<short-slug>.md`.
 2. Fill every `{{TODO: …}}` slot. Do **not** delete a section; the worker and
    the reviewer scripts both expect §1–§9.
 3. **Optional:** keep the YAML frontmatter block at the top (`pr_body_template`)
@@ -83,7 +95,7 @@ GitHub.
 
 ```bash
 uv run python scripts/review_external_pr.py fetch <N> \
-  --handoff Docs/Plans/HANDOFF-<slug>.md \
+  --handoff Docs/Plans/HANDOFF-pr<N>-<short-slug>.md \
   --extract-rubric
 ```
 
@@ -106,7 +118,7 @@ Returns one JSON blob:
 
 ```bash
 uv run python scripts/review_external_pr.py verify <N> \
-  --handoff Docs/Plans/HANDOFF-<slug>.md \
+  --handoff Docs/Plans/HANDOFF-pr<N>-<short-slug>.md \
   --parse-counts
 ```
 
@@ -191,6 +203,12 @@ After the verdict is APPROVE, the **next single unit of work** runs the
 merge ceremony AND updates plan + checklist + handoff. **Do it as one edit
 batch.** Splitting across turns leaves a contradictory-state window where a
 fresh agent reads "pending" while `main` already has the change.
+
+> **The doc-sync edit list below IS the workstream-scope re-anchor act,
+> written down.** When in doubt about which fields a re-anchor must cover —
+> or what makes the workstream-scope sources trustworthy in the first
+> place — read `.cursor/rules/anchor.mdc` (on-demand). The five-step
+> "act-of-re-anchoring" checklist there is what 4b implements concretely.
 
 After local `main` updates post-merge, confirm the integration tip with
 `git rev-parse HEAD` / `git show -s` — not `git log --oneline` alone when merge
@@ -324,6 +342,8 @@ the following in one edit batch:
 ## References
 
 - Contract / invariants: `.cursor/rules/external-agent-pr-loop.mdc`
+- Re-anchor act (on-demand, scopes + canonical sources + 5-step checklist):
+  `.cursor/rules/anchor.mdc`
 - Sibling rules: `subagent-delegation.mdc`, `two-model-workflow.mdc`,
   `dungeonbuddy-git-workflow.mdc`
 - Templates (this skill folder):
