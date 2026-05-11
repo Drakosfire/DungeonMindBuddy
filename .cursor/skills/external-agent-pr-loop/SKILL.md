@@ -5,7 +5,8 @@ description: >-
   HANDOFF, review/verify/comment-on the resulting PR via
   `scripts/review_external_pr.py`, capture a YAML judgment record under
   `external_pull_requests[]` in the relevant PLAN doc, and atomically sync
-  plan + checklist + handoff after merge. Use when authoring a
+  plan + checklist + handoff after merge via an in-IDE doc-sync subagent by
+  default. Use when authoring a
   `Docs/Plans/HANDOFF-*.md` for a Codex-style branch agent, when a GitHub PR
   opens that was authored by such an agent, when posting a verdict
   (`APPROVE` / `REQUEST_CHANGES` / `COMMENT`) on that PR, or when performing
@@ -22,13 +23,15 @@ owns the rubric", atomic doc-sync, rubric-as-learning-surface) live in
 contract; come back here for the procedure.
 
 For **in-IDE** subagents (the parent agent dispatches a `Task` and reads its
-output), follow `.cursor/rules/subagent-delegation.mdc` instead.
+output), follow `.cursor/rules/subagent-delegation.mdc` instead. In this
+runbook, Stage 4 explicitly *requires* in-IDE subagent delegation for doc-sync
+unless a hard blocker makes delegation impossible.
 
 ## The loop
 
 ```
 HANDOFF write  →  external PR opens  →  judgment record  →  doc sync (atomic)
-   (parent)         (external agent)        (parent)            (parent)
+   (parent)         (external agent)        (parent)       (doc-sync subagent)
 ```
 
 The cycle does **not** end at "merged green" — it ends when plan YAML,
@@ -204,6 +207,22 @@ merge ceremony AND updates plan + checklist + handoff. **Do it as one edit
 batch.** Splitting across turns leaves a contradictory-state window where a
 fresh agent reads "pending" while `main` already has the change.
 
+### 4.0 Delegation policy (mandatory)
+
+For token economy, Stage 4b doc-sync is **subagent-first**:
+
+- Dispatch an in-IDE execution subagent for doc-sync edits (prefer `composer-2`
+  tier for this mechanical sync work).
+- Prefer auto/background execution (`run_in_background: true`) when the task
+  can proceed unattended; foreground only when immediate human steering is
+  required.
+- The parent remains accountable for correctness: review the subagent diff,
+  run any required checks, and ensure the final batch is atomic before closing
+  the cycle.
+- Only skip delegation if there is a concrete blocker (subagent tooling outage,
+  permission limitation, or unresolved conflict that requires parent-only
+  judgment). If skipped, note the reason in the session log/doc-sync notes.
+
 > **The doc-sync edit list below IS the workstream-scope re-anchor act,
 > written down.** When in doubt about which fields a re-anchor must cover —
 > or what makes the workstream-scope sources trustworthy in the first
@@ -313,6 +332,8 @@ the following in one edit batch:
 - ❌ Accepting a green PR description without rerunning §7 yourself.
 - ❌ Treating "merged" as the end of the cycle — the next agent reads stale
   docs.
+- ❌ Doing Stage 4b doc-sync manually in the strong parent model when a
+  subagent could do it (wastes expensive tokens and breaks the default path).
 - ❌ Reusing a `judgment_record.notes` block weeks later without re-verifying
   its temporal claims.
 - ❌ Identical `rubric_when_we_judge` two PRs in a row after a supersession —
