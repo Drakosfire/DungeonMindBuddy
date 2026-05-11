@@ -1,5 +1,5 @@
 {
-  "schema": "dmb_breadcrumb_query_cohort_summary_v1",
+  "schema": "dmb_breadcrumb_query_cohort_summary_v2",
   "cohort_id": "c1s1_to_c1s3_v1",
   "manifest": "evals/sentence_routing_retrieval_falsification/cohorts/c1s1_to_c1s3_v1.json",
   "campaign_id": "longmont-c1",
@@ -115,7 +115,8 @@
           "evals/sentence_routing_retrieval_falsification/artifacts/lexicon/route_equivalence_longmont_c1_v1.jsonl",
           "evals/sentence_routing_retrieval_falsification/artifacts/lexicon/route_equivalence_longmont_c2_v1.jsonl"
         ]
-      }
+      },
+      "recall_via_equivalence": null
     },
     {
       "scenario_id": "c1s2",
@@ -217,7 +218,8 @@
           "evals/sentence_routing_retrieval_falsification/artifacts/lexicon/route_equivalence_longmont_c1_v1.jsonl",
           "evals/sentence_routing_retrieval_falsification/artifacts/lexicon/route_equivalence_longmont_c2_v1.jsonl"
         ]
-      }
+      },
+      "recall_via_equivalence": null
     },
     {
       "scenario_id": "c1s3",
@@ -309,7 +311,8 @@
           "evals/sentence_routing_retrieval_falsification/artifacts/lexicon/route_equivalence_longmont_c1_v1.jsonl",
           "evals/sentence_routing_retrieval_falsification/artifacts/lexicon/route_equivalence_longmont_c2_v1.jsonl"
         ]
-      }
+      },
+      "recall_via_equivalence": null
     }
   ],
   "aggregate": {
@@ -317,5 +320,11 @@
     "total_pass": 44,
     "total_fail": 0,
     "all_scenarios_all_ok": true
+  },
+  "recall_via_equivalence_aggregate": {
+    "scenarios_with_misses": 0,
+    "min": null,
+    "mean": null,
+    "max": null
   }
 }

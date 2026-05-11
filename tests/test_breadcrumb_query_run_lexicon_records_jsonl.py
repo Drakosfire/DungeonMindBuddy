@@ -315,3 +315,19 @@ def test_route_equivalence_load_failure_emits_error_payload_and_run_survives(tmp
         assert payload.get("schema") == ROUTE_EQUIVALENCE_SHADOW_SCHEMA_V1
         error_text = str(payload.get("error") or "")
         assert error_text
+
+
+def test_expected_route_substring_breakdown_is_consistent_with_violations(tmp_path: Path) -> None:
+    if shutil.which("uv") is None:
+        pytest.skip("uv not available")
+    out = tmp_path / "breakdown.json"
+    run = _run_breadcrumb_query_run_subprocess(output_path=out, extra_args=[])
+    assert run.returncode == 0, run.stderr
+    rows = json.loads(out.read_text(encoding="utf-8"))["results"]
+    assert rows
+    for row in rows:
+        breakdown = row.get("expected_route_substring_breakdown")
+        assert isinstance(breakdown, list)
+        any_unmatched = any(not bool(item.get("matched")) for item in breakdown)
+        has_missing_violation = "missing_expected_route_hit" in row.get("violations", [])
+        assert any_unmatched == has_missing_violation

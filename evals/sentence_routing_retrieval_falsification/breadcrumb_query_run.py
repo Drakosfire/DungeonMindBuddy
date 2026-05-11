@@ -107,6 +107,7 @@ from evals.sentence_routing_retrieval_falsification.breadcrumb_query_grader impo
     aggregate_context_evidence_metrics,
     grade_natural_scenario,
     grade_scenario,
+    hits_cover_expected_routes,
     load_gold,
     merge_natural_benchmark_scenario,
     natural_retrieval_bundle,
@@ -1126,6 +1127,18 @@ def main() -> None:
                 breadcrumb_artifact_text=breadcrumb_art_text or "",
                 lexicon=shadow_lexicon,
             )
+            expected_substrings = list(scen.get("expect_route_substrings") or [])
+            row["expected_route_substring_breakdown"] = [
+                {
+                    "substring": substring,
+                    "matched": hits_cover_expected_routes(
+                        result.hits,
+                        [substring],
+                        location_hierarchy_equivalences=scen.get("location_hierarchy_equivalences"),
+                    ),
+                }
+                for substring in expected_substrings
+            ]
             # Lexical-only context for synthesis + report mirror (route coverage still uses hit objects).
             row["retrieved_context"] = hit_ctx_llm
             # Full deterministic hit-context string (units + normalized route lines) for forensics.
