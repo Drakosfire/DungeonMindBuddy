@@ -752,3 +752,14 @@ as "rerun the refresh command", not "patch the canvas by hand."
 ## Known limitations (v0 capture)
 
 Sentence splitting uses a simple regex; abbreviations and dialogue punctuation can misfire. The suite is designed to be **falsifiable**: tighten rules or replace with a tokenizer once failure buckets justify it.
+
+### Cohort L3 alias-saturation diagnostic canvas
+
+Use the retrieval-only alias-saturation emitter to aggregate committed L3 question-delta artifacts and generate a deterministic evidence canvas for threshold/promotion-gate analysis:
+
+```bash
+uv run python -m evals.sentence_routing_retrieval_falsification.cohort_l3_alias_saturation_canvas_emit \
+  --input evals/sentence_routing_retrieval_falsification/artifacts/baselines/cohort_l3_ab_question_delta_c1s1_to_c1s3_v1.json \
+  --input evals/sentence_routing_retrieval_falsification/artifacts/baselines/cohort_l3_ab_question_delta_natural_v1.json \
+  --output canvases/cohort-l3-alias-saturation.canvas.tsx
+```
