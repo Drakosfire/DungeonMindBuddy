@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 
 from evals.sentence_routing_retrieval_falsification.cohort_baseline_run import (
+    COHORT_L3_QUESTION_DELTA_SCHEMA_V1,
     COHORT_MANIFEST_SCHEMA_V1,
     COHORT_SUMMARY_SCHEMA_V2,
     _compute_recall_via_equivalence,
@@ -210,3 +211,21 @@ def test_mode_both_write_delta_schema(tmp_path: Path) -> None:
     data = json.loads(out.read_text(encoding='utf-8'))
     assert data['schema_id'] == 'dmb_breadcrumb_query_cohort_l3_delta_v1'
     assert 'delta_summary' in data
+
+
+def test_mode_both_write_question_delta_schema(tmp_path: Path) -> None:
+    if shutil.which('uv') is None:
+        pytest.skip('uv not available')
+    out = tmp_path / 'qdelta.json'
+    run = subprocess.run(['uv','run','--directory',str(_REPO_ROOT),'python','-m','evals.sentence_routing_retrieval_falsification.cohort_baseline_run','--mode','both','--write-question-delta',str(out)], capture_output=True, text=True)
+    assert run.returncode == 0, run.stderr
+    data = json.loads(out.read_text(encoding='utf-8'))
+    assert data['schema_id'] == COHORT_L3_QUESTION_DELTA_SCHEMA_V1
+    assert data['question_count'] == 44
+
+
+def test_check_question_delta_passes() -> None:
+    if shutil.which('uv') is None:
+        pytest.skip('uv not available')
+    run = subprocess.run(['uv','run','--directory',str(_REPO_ROOT),'python','-m','evals.sentence_routing_retrieval_falsification.cohort_baseline_run','--check-question-delta'], capture_output=True, text=True)
+    assert run.returncode == 0, run.stdout + run.stderr

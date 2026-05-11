@@ -21,7 +21,9 @@ _DEFAULT_BASELINE = Path("evals/sentence_routing_retrieval_falsification/artifac
 COHORT_MANIFEST_SCHEMA_V1 = "dmb_breadcrumb_query_cohort_manifest_v1"
 COHORT_SUMMARY_SCHEMA_V2 = "dmb_breadcrumb_query_cohort_summary_v2"
 COHORT_L3_DELTA_SCHEMA_V1 = "dmb_breadcrumb_query_cohort_l3_delta_v1"
+COHORT_L3_QUESTION_DELTA_SCHEMA_V1 = "dmb_breadcrumb_query_cohort_l3_question_delta_v1"
 _DEFAULT_DELTA = Path("evals/sentence_routing_retrieval_falsification/artifacts/baselines/cohort_l3_ab_delta_c1s1_to_c1s3_v1.json")
+_DEFAULT_QUESTION_DELTA = Path("evals/sentence_routing_retrieval_falsification/artifacts/baselines/cohort_l3_ab_question_delta_c1s1_to_c1s3_v1.json")
 
 
 def _workspace_relative_posix(path: Path, workspace_root: Path) -> str:
@@ -256,6 +258,95 @@ def _build_l3_delta(*, manifest: dict[str, Any], baseline_reports: list[dict[str
     }
 
 
+
+def _top_hits(row: dict[str, Any], *, limit: int = 5) -> list[dict[str, Any]]:
+    hits = list((row.get("full_result") or {}).get("hits") or [])
+    out = []
+    for h in hits[:limit]:
+        out.append({
+            "unit_id": str(h.get("unit_id") or ""),
+            "score": int(h.get("score") or 0),
+            "line_start": int(h.get("line_start") or 0),
+            "line_end": int(h.get("line_end") or 0),
+            "routes": sorted(str(r.get("normalized_route") or "") for r in (h.get("routes") or []) if isinstance(r, dict)),
+            "why_matched": sorted(str(x) for x in (h.get("why_matched") or [])),
+        })
+    return out
+
+
+def _build_question_delta(*, manifest: dict[str, Any], baseline_reports: list[dict[str, Any]], equivalence_reports: list[dict[str, Any]], manifest_path: Path, workspace_root: Path) -> dict[str, Any]:
+    scenarios=[]
+    summary={"regressed":0,"improved":0,"unchanged_pass":0,"unchanged_fail":0}
+    total_q=0
+    for scenario,base,eq in zip(manifest["scenarios"], baseline_reports, equivalence_reports, strict=True):
+        qrows=[]
+        for brow, erow in zip(base["results"], eq["results"], strict=True):
+            b_ok=bool(brow.get("ok")); e_ok=bool(erow.get("ok"))
+            verdict = "unchanged_pass" if (b_ok and e_ok) else "unchanged_fail" if ((not b_ok) and (not e_ok)) else "improved" if (not b_ok and e_ok) else "regressed"
+            summary[verdict]+=1
+            b_tokens=set(((brow.get("full_result") or {}).get("trace") or {}).get("query_tokens") or [])
+            e_tokens=set(((erow.get("full_result") or {}).get("trace") or {}).get("query_tokens") or [])
+            b_units=[h["unit_id"] for h in _top_hits(brow)]
+            e_units=[h["unit_id"] for h in _top_hits(erow)]
+            b_break={str(i.get("substring") or ""): bool(i.get("matched")) for i in (brow.get("expected_route_substring_breakdown") or [])}
+            e_break={str(i.get("substring") or ""): bool(i.get("matched")) for i in (erow.get("expected_route_substring_breakdown") or [])}
+            all_sub=sorted(set(b_break)|set(e_break))
+            qrows.append({
+                "question_id": str(brow.get("scenario_id") or ""),
+                "question": str(brow.get("question") or ""),
+                "expected_answer": str(brow.get("expected_answer") or ""),
+                "must_hit_tokens": [str(x) for x in (brow.get("must_hit_tokens") or [])],
+                "expected_route_substrings": [str(x) for x in (brow.get("expected_route_substrings") or [])],
+                "min_context_support_ratio": float(brow.get("min_context_support_ratio") or 0.0),
+                "baseline": {
+                    "ok": b_ok, "violations": sorted(str(x) for x in (brow.get("violations") or [])),
+                    "context_support_ratio": float(brow.get("context_support_ratio") or 0.0),
+                    "context_must_hits": sorted(str(x) for x in (brow.get("context_must_hits") or [])),
+                    "semantic_verdict": str(brow.get("llm_semantic_verdict") or ""),
+                    "expected_route_substring_breakdown": list(brow.get("expected_route_substring_breakdown") or []),
+                    "hit_count": len(((brow.get("full_result") or {}).get("hits") or [])),
+                    "ranking_augmented_by_equivalences": bool(brow.get("ranking_augmented_by_equivalences")),
+                    "top_hits": _top_hits(brow),
+                },
+                "with_equivalence": {
+                    "ok": e_ok, "violations": sorted(str(x) for x in (erow.get("violations") or [])),
+                    "context_support_ratio": float(erow.get("context_support_ratio") or 0.0),
+                    "context_must_hits": sorted(str(x) for x in (erow.get("context_must_hits") or [])),
+                    "semantic_verdict": str(erow.get("llm_semantic_verdict") or ""),
+                    "expected_route_substring_breakdown": list(erow.get("expected_route_substring_breakdown") or []),
+                    "hit_count": len(((erow.get("full_result") or {}).get("hits") or [])),
+                    "ranking_augmented_by_equivalences": bool(erow.get("ranking_augmented_by_equivalences")),
+                    "top_hits": _top_hits(erow),
+                },
+                "delta": {
+                    "verdict": verdict,
+                    "support_ratio_delta": round(float(erow.get("context_support_ratio") or 0.0)-float(brow.get("context_support_ratio") or 0.0),4),
+                    "tokens_added_by_equivalences": sorted(str(x) for x in (e_tokens-b_tokens)),
+                    "tokens_removed_by_equivalences": sorted(str(x) for x in (b_tokens-e_tokens)),
+                    "topk_units_swapped_in": sorted(set(e_units)-set(b_units)),
+                    "topk_units_swapped_out": sorted(set(b_units)-set(e_units)),
+                    "substrings_flipped_lost": sorted(s for s in all_sub if b_break.get(s, False) and not e_break.get(s, False)),
+                    "substrings_flipped_gained": sorted(s for s in all_sub if (not b_break.get(s, False)) and e_break.get(s, False)),
+                },
+            })
+        total_q += len(qrows)
+        scenarios.append({
+            "scenario_id": scenario["scenario_id"],
+            "question_count": len(qrows),
+            "baseline_pass_count": sum(1 for q in qrows if q["baseline"]["ok"]),
+            "with_equivalence_pass_count": sum(1 for q in qrows if q["with_equivalence"]["ok"]),
+            "questions": qrows,
+        })
+    return {
+        "schema_id": COHORT_L3_QUESTION_DELTA_SCHEMA_V1,
+        "cohort_manifest": _workspace_relative_posix(manifest_path, workspace_root),
+        "scenario_level_delta_path": _workspace_relative_posix(_DEFAULT_DELTA, workspace_root),
+        "baseline_schema": COHORT_SUMMARY_SCHEMA_V2,
+        "question_count": total_q,
+        "summary": summary,
+        "scenarios": scenarios,
+    }
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Cohort baseline runner")
     mode = parser.add_mutually_exclusive_group()
@@ -267,6 +358,8 @@ def main() -> int:
     parser.add_argument("--mode", choices=["baseline", "with-equivalence", "both"], default="baseline")
     parser.add_argument("--write-delta", nargs="?", const=str(_DEFAULT_DELTA), default=None)
     parser.add_argument("--check-delta", action="store_true")
+    parser.add_argument("--write-question-delta", nargs="?", const=str(_DEFAULT_QUESTION_DELTA), default=None)
+    parser.add_argument("--check-question-delta", nargs="?", const=str(_DEFAULT_QUESTION_DELTA), default=None)
     parser.add_argument("--per-scenario-out-dir", type=Path, default=None)
     args = parser.parse_args()
     try:
@@ -283,7 +376,18 @@ def main() -> int:
                 return 0
         if args.check:
             return _check_mode(manifest_path=args.manifest, baseline_path=args.baseline, workspace_root=_HARNESS_WORKSPACE_ROOT)
-        if args.mode == "both" or args.write_delta:
+        if args.check_question_delta:
+            with tempfile.TemporaryDirectory() as tmp:
+                tmp_q = Path(tmp) / "qdelta.json"
+                cmd = [sys.executable, "-m", "evals.sentence_routing_retrieval_falsification.cohort_baseline_run", "--mode", "both", "--write-question-delta", str(tmp_q)]
+                subprocess.run(cmd, cwd=str(_HARNESS_WORKSPACE_ROOT), check=True, capture_output=True, text=True)
+                qpath = (_HARNESS_WORKSPACE_ROOT / Path(args.check_question_delta)).resolve() if not Path(args.check_question_delta).is_absolute() else Path(args.check_question_delta)
+                if tmp_q.read_bytes() != qpath.read_bytes():
+                    print(f"MISMATCH {_workspace_relative_posix(qpath, _HARNESS_WORKSPACE_ROOT)}")
+                    return 1
+                print(f"OK {_workspace_relative_posix(qpath, _HARNESS_WORKSPACE_ROOT)}")
+                return 0
+        if args.mode == "both" or args.write_delta or args.write_question_delta:
             manifest_path = (_HARNESS_WORKSPACE_ROOT / args.manifest).resolve() if not args.manifest.is_absolute() else args.manifest
             manifest = load_cohort_manifest(manifest_path)
             route_paths = [_resolve_workspace_path(p, _HARNESS_WORKSPACE_ROOT) for p in manifest["route_equivalence_jsonl"]]
@@ -300,6 +404,12 @@ def main() -> int:
                 out = (_HARNESS_WORKSPACE_ROOT / out).resolve() if not out.is_absolute() else out
                 out.parent.mkdir(parents=True, exist_ok=True)
                 out.write_text(json.dumps(delta, indent=2) + "\n", encoding="utf-8")
+            if args.write_question_delta:
+                qout = Path(args.write_question_delta)
+                qout = (_HARNESS_WORKSPACE_ROOT / qout).resolve() if not qout.is_absolute() else qout
+                qout.parent.mkdir(parents=True, exist_ok=True)
+                qdelta = _build_question_delta(manifest=manifest, baseline_reports=baseline_reports, equivalence_reports=equivalence_reports, manifest_path=manifest_path, workspace_root=_HARNESS_WORKSPACE_ROOT)
+                qout.write_text(json.dumps(qdelta, indent=2) + "\n", encoding="utf-8")
             if args.mode == "both":
                 return 0
         per_scenario_dir = args.per_scenario_out_dir or _default_per_scenario_dir(args.manifest)
