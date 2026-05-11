@@ -1,0 +1,18 @@
+{
+  "schema": "dmb_breadcrumb_query_cohort_manifest_v1",
+  "cohort_id": "c1s13_v1",
+  "notes": "C1 holdout lane for L3 A/B falsification. Caveat: C1S13 unchanged_fail rows may represent gold-quality artifacts pending the C1S13 location_hierarchy_equivalences content audit (copy-paste smell), so do not treat unchanged_fail as confirmed retrieval regressions in isolation.",
+  "campaign_id": "longmont-c1",
+  "route_equivalence_jsonl": [
+    "evals/sentence_routing_retrieval_falsification/artifacts/lexicon/route_equivalence_longmont_c1_v1.jsonl",
+    "evals/sentence_routing_retrieval_falsification/artifacts/lexicon/route_equivalence_longmont_c2_v1.jsonl"
+  ],
+  "scenarios": [
+    {
+      "scenario_id": "c1s13",
+      "gold": "evals/sentence_routing_retrieval_falsification/gold/breadcrumb_query_natural_c1s13_v1.json",
+      "records_jsonl": "evals/sentence_routing_retrieval_falsification/artifacts/c1s13_norm_smoke.records_meta.jsonl",
+      "session_number": 13
+    }
+  ]
+}
