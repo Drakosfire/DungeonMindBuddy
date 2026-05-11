@@ -1,12 +1,14 @@
 from __future__ import annotations
+
+import argparse
 import json
 from pathlib import Path
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
-INPUT = _REPO_ROOT / 'evals/sentence_routing_retrieval_falsification/artifacts/baselines/cohort_l3_ab_question_delta_c1s1_to_c1s3_v1.json'
-OUTPUT = _REPO_ROOT / 'canvases/cohort-l3-ab-question-deep-dive.canvas.tsx'
-BLOCK_BEGIN = '// BEGIN GENERATED COHORT_L3_QUESTION_DEEP_DIVE'
-BLOCK_END = '// END GENERATED COHORT_L3_QUESTION_DEEP_DIVE'
+DEFAULT_INPUT = _REPO_ROOT / "evals/sentence_routing_retrieval_falsification/artifacts/baselines/cohort_l3_ab_question_delta_c1s1_to_c1s3_v1.json"
+DEFAULT_OUTPUT = _REPO_ROOT / "canvases/cohort-l3-ab-question-deep-dive.canvas.tsx"
+BLOCK_BEGIN = "// BEGIN GENERATED COHORT_L3_QUESTION_DEEP_DIVE"
+BLOCK_END = "// END GENERATED COHORT_L3_QUESTION_DEEP_DIVE"
 
 TEMPLATE = '''import React from "react";
 
@@ -62,12 +64,22 @@ export default function CohortL3QuestionDeepDiveCanvas() {{
 }}
 '''
 
-def emit() -> int:
-    data = json.loads(INPUT.read_text(encoding='utf-8'))
+
+def emit(*, input_path: Path = DEFAULT_INPUT, output_path: Path = DEFAULT_OUTPUT) -> int:
+    data = json.loads(input_path.read_text(encoding="utf-8"))
     block = f"{BLOCK_BEGIN}\nconst cohortL3QuestionDeepDiveGenerated = {json.dumps(data, indent=2)} as const;\n{BLOCK_END}"
-    OUTPUT.parent.mkdir(parents=True, exist_ok=True)
-    OUTPUT.write_text(TEMPLATE.format(block=block), encoding='utf-8')
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(TEMPLATE.format(block=block), encoding="utf-8")
     return 0
 
-if __name__ == '__main__':
-    raise SystemExit(emit())
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Emit cohort L3 question deep dive canvas")
+    parser.add_argument("--input", type=Path, default=DEFAULT_INPUT)
+    parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
+    args = parser.parse_args()
+    return emit(input_path=args.input, output_path=args.output)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

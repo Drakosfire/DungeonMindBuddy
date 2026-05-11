@@ -1,0 +1,125 @@
+{
+  "schema": "dmb_breadcrumb_query_cohort_summary_v2",
+  "cohort_id": "natural_v1",
+  "manifest": "evals/sentence_routing_retrieval_falsification/cohorts/natural_v1.json",
+  "campaign_id": "longmont-c2",
+  "route_equivalence_jsonl": [
+    "evals/sentence_routing_retrieval_falsification/artifacts/lexicon/route_equivalence_longmont_c1_v1.jsonl",
+    "evals/sentence_routing_retrieval_falsification/artifacts/lexicon/route_equivalence_longmont_c2_v1.jsonl"
+  ],
+  "retrieval_only": true,
+  "llm_enabled": false,
+  "scenarios": [
+    {
+      "scenario_id": "natural_v1",
+      "gold": "evals/sentence_routing_retrieval_falsification/gold/breadcrumb_query_natural_v1.json",
+      "records_jsonl": "evals/sentence_routing_retrieval_falsification/artifacts/c2s20_norm_smoke.records_meta.jsonl",
+      "session_number": 20,
+      "gold_schema": "dmb_breadcrumb_query_natural_gold_v1",
+      "all_ok": false,
+      "scenario_count": 12,
+      "pass_count": 7,
+      "fail_count": 5,
+      "violations": [
+        {
+          "scenario_id": "nat_captain_after_forest",
+          "ok": true,
+          "violations": []
+        },
+        {
+          "scenario_id": "nat_mirathorn_threads",
+          "ok": true,
+          "violations": []
+        },
+        {
+          "scenario_id": "nat_voices_tower_officer",
+          "ok": true,
+          "violations": []
+        },
+        {
+          "scenario_id": "q_lysandra_change_unresolved",
+          "ok": false,
+          "violations": [
+            "missing_expected_route_hit"
+          ]
+        },
+        {
+          "scenario_id": "q_lysandra_regroups",
+          "ok": true,
+          "violations": []
+        },
+        {
+          "scenario_id": "q_relevant_locations",
+          "ok": true,
+          "violations": []
+        },
+        {
+          "scenario_id": "q_communication_chain",
+          "ok": false,
+          "violations": [
+            "missing_expected_unit_id_hit"
+          ]
+        },
+        {
+          "scenario_id": "q_lysandra_memory_contrast",
+          "ok": false,
+          "violations": [
+            "context_support_below_threshold",
+            "missing_expected_unit_id_hit"
+          ]
+        },
+        {
+          "scenario_id": "q_mirathorn_vs_mossford",
+          "ok": true,
+          "violations": []
+        },
+        {
+          "scenario_id": "q_tower_knowns",
+          "ok": true,
+          "violations": []
+        },
+        {
+          "scenario_id": "q_party_learned_next_prep",
+          "ok": false,
+          "violations": [
+            "missing_expected_unit_id_hit"
+          ]
+        },
+        {
+          "scenario_id": "q_open_loops_next_session",
+          "ok": false,
+          "violations": [
+            "missing_expected_unit_id_hit"
+          ]
+        }
+      ],
+      "shadow_route_equivalences": {
+        "schema": "dmb_route_equivalence_shadow_v1",
+        "scenario_campaign_id": "longmont-c2",
+        "edges_total": 5,
+        "edges_for_scenario_campaign": 3,
+        "campaign_ids": [
+          "longmont-c1",
+          "longmont-c2"
+        ],
+        "source_paths": [
+          "evals/sentence_routing_retrieval_falsification/artifacts/lexicon/route_equivalence_longmont_c1_v1.jsonl",
+          "evals/sentence_routing_retrieval_falsification/artifacts/lexicon/route_equivalence_longmont_c2_v1.jsonl"
+        ]
+      },
+      "recall_via_equivalence": null
+    }
+  ],
+  "aggregate": {
+    "total_questions": 12,
+    "total_pass": 7,
+    "total_fail": 5,
+    "all_scenarios_all_ok": false
+  },
+  "recall_via_equivalence_aggregate": {
+    "scenarios_with_misses": 0,
+    "min": null,
+    "mean": null,
+    "max": null
+  }
+}

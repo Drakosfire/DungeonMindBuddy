@@ -1,0 +1,19 @@
+{
+  "schema": "dmb_breadcrumb_query_cohort_manifest_v1",
+  "cohort_id": "natural_v1",
+  "notes": "Wider cohort natural_v1 lane for L3 A/B regression generalization checks.",
+  "campaign_id": "longmont-c2",
+  "route_equivalence_jsonl": [
+    "evals/sentence_routing_retrieval_falsification/artifacts/lexicon/route_equivalence_longmont_c1_v1.jsonl",
+    "evals/sentence_routing_retrieval_falsification/artifacts/lexicon/route_equivalence_longmont_c2_v1.jsonl"
+  ],
+  "scenarios": [
+    {
+      "scenario_id": "natural_v1",
+      "gold": "evals/sentence_routing_retrieval_falsification/gold/breadcrumb_query_natural_v1.json",
+      "records_jsonl": "evals/sentence_routing_retrieval_falsification/artifacts/c2s20_norm_smoke.records_meta.jsonl",
+      "session_number": 20,
+      "notes": "Natural wider-cohort scenario using c2s20 normalized smoke records."
+    }
+  ]
+}
