@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 from pathlib import Path
@@ -62,6 +63,29 @@ def _path_to_route_id(path: str, campaign_id: str) -> tuple[str, EntityKind]:
     return f"route:{prefix}:{entity_kind}:{slug}", entity_kind
 
 
+def _repo_root() -> Path:
+    root = Path(__file__).resolve().parents[2]
+    return root
+
+
+def _to_workspace_relative_posix(path: Path) -> str:
+    root = _repo_root().resolve()
+    resolved = path.resolve()
+    try:
+        return resolved.relative_to(root).as_posix()
+    except ValueError:
+        # Defensive fallback if an out-of-repo registry is ever used.
+        return resolved.as_posix()
+
+
+def _manifest_hash_preimage(records: list[RouteEquivalenceRecord]) -> str:
+    lines: list[str] = []
+    for record in sorted(records, key=lambda r: r.record_id):
+        payload = record.model_dump(mode="json", exclude={"route_equivalence_manifest_hash"})
+        lines.append(json.dumps(payload, sort_keys=True, ensure_ascii=False))
+    return "\n".join(lines)
+
+
 def _record_to_edge(record: NpcRegistryRecord, campaign_id: str) -> RouteEquivalenceRecord | None:
     if not record.hub_path or not record.setting_hub_path:
         return None
@@ -77,14 +101,35 @@ def _record_to_edge(record: NpcRegistryRecord, campaign_id: str) -> RouteEquival
         display_name=record.display_name,
         from_route_id=from_route_id,
         to_route_id=to_route_id,
+        producer_registry_path="pending",
+        producer_registry_sha256="0" * 64,
+        route_equivalence_manifest_hash="0" * 64,
     )
 
 
 def build_route_equivalence_manifest(registry_path: Path) -> list[RouteEquivalenceRecord]:
     campaign_id = _normalize_campaign_id(registry_path)
+    registry_abs = registry_path.resolve()
+    producer_registry_path = _to_workspace_relative_posix(registry_abs)
+    producer_registry_sha256 = hashlib.sha256(registry_abs.read_bytes()).hexdigest()
     records = load_npc_registry(registry_path)
     edges = [_record_to_edge(rec, campaign_id) for rec in records]
-    return [edge for edge in edges if edge is not None]
+    materialized = [
+        edge.model_copy(update={
+            "schema_version": "0.3.0",
+            "producer_registry_path": producer_registry_path,
+            "producer_registry_sha256": producer_registry_sha256,
+            "route_equivalence_manifest_hash": "0" * 64,
+        })
+        for edge in edges
+        if edge is not None
+    ]
+    preimage = _manifest_hash_preimage(materialized)
+    manifest_hash = hashlib.sha256(preimage.encode("utf-8")).hexdigest()
+    return [
+        rec.model_copy(update={"route_equivalence_manifest_hash": manifest_hash, "schema_version": "0.3.0"})
+        for rec in materialized
+    ]
 
 
 def write_route_equivalence_manifest(records: list[RouteEquivalenceRecord], out_path: Path) -> None:

@@ -1,3 +1,5 @@
+import hashlib
+import json
 from pathlib import Path
 
 import pytest
@@ -71,3 +73,18 @@ def test_build_route_equivalence_manifest_requires_campaign_path(tmp_path: Path)
 
     with pytest.raises(ValueError, match="unable to infer campaign id"):
         build_route_equivalence_manifest(registry_path)
+
+
+def test_manifest_hash_preimage_changes_on_semantic_mutation(tmp_path: Path) -> None:
+    campaign_dir = tmp_path / "corpus" / "eldyrwild-markdown" / "Longmont Campaign" / "Campaign 1"
+    campaign_dir.mkdir(parents=True)
+    registry_path = campaign_dir / "_npc_registry.json"
+    base = [{"slug":"lysandra","display_name":"Lysandra","aliases":[],"status":"tracked","first_session":1,"last_session":1,"hub_path":"corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/NPCs/Lysandra/README.md","setting_hub_path":"corpus/eldyrwild-markdown/Elderwyld/NPCs/Lysandra/README.md","notes":""}]
+    registry_path.write_text(json.dumps(base), encoding="utf-8")
+    h1 = build_route_equivalence_manifest(registry_path)[0].route_equivalence_manifest_hash
+    mutated = list(base)
+    mutated[0] = dict(base[0])
+    mutated[0]["setting_hub_path"] = "corpus/eldyrwild-markdown/Elderwyld/Locations/Lysandra Hall/README.md"
+    registry_path.write_text(json.dumps(mutated), encoding="utf-8")
+    h2 = build_route_equivalence_manifest(registry_path)[0].route_equivalence_manifest_hash
+    assert h1 != h2

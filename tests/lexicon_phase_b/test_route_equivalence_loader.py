@@ -41,6 +41,9 @@ def test_loader_rejects_unsupported_schema_version(tmp_path: Path) -> None:
         display_name="Captain Tamsin Vale",
         from_route_id="route:longmont-c1:tamsin-vale",
         to_route_id="route:elderwyld:captain-tamsin-vale",
+        producer_registry_path="corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/_npc_registry.json",
+        producer_registry_sha256="a" * 64,
+        route_equivalence_manifest_hash="b" * 64,
     ).model_dump(mode="json")
     bad_record = dict(base_record)
     bad_record["record_id"] = "route-equivalence:test:bad"
@@ -62,6 +65,9 @@ def test_loader_skips_blank_lines(tmp_path: Path) -> None:
         display_name="One",
         from_route_id="route:longmont-c1:one",
         to_route_id="route:elderwyld:one",
+        producer_registry_path="corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/_npc_registry.json",
+        producer_registry_sha256="a" * 64,
+        route_equivalence_manifest_hash="b" * 64,
     ).model_dump(mode="json")
     second = RouteEquivalenceRecord(
         record_id="route-equivalence:test:two",
@@ -69,6 +75,9 @@ def test_loader_skips_blank_lines(tmp_path: Path) -> None:
         display_name="Two",
         from_route_id="route:longmont-c2:two",
         to_route_id="route:elderwyld:two",
+        producer_registry_path="corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/_npc_registry.json",
+        producer_registry_sha256="a" * 64,
+        route_equivalence_manifest_hash="b" * 64,
     ).model_dump(mode="json")
     artifact = tmp_path / "with-blanks.jsonl"
     artifact.write_text(
