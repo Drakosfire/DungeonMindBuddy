@@ -26,7 +26,10 @@ class RouteEquivalenceRecord(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    schema_version: str = Field(default="0.2.0")
+    schema_version: str = Field(default="0.3.0")
+    producer_registry_path: str = Field(default="pending", min_length=1)
+    producer_registry_sha256: str = Field(default="0" * 64, min_length=64, max_length=64)
+    route_equivalence_manifest_hash: str = Field(default="0" * 64, min_length=64, max_length=64)
     record_id: str = Field(min_length=1)
     campaign_id: str = Field(min_length=1)
     entity_kind: EntityKind = "unknown"

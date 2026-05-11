@@ -9,7 +9,7 @@ from .schemas import RouteEquivalenceRecord
 # Schema versions this loader can deserialize. Keep in sync with
 # RouteEquivalenceRecord.schema_version. Add new versions explicitly when
 # the writer schema bumps.
-SUPPORTED_ROUTE_EQUIVALENCE_SCHEMA_VERSIONS: frozenset[str] = frozenset({"0.2.0"})
+SUPPORTED_ROUTE_EQUIVALENCE_SCHEMA_VERSIONS: frozenset[str] = frozenset({"0.2.0", "0.3.0"})
 
 
 def load_route_equivalence_manifest(path: Path) -> list[RouteEquivalenceRecord]:
