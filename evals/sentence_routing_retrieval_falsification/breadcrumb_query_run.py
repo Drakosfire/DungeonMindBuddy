@@ -34,6 +34,7 @@ Examples:
 from __future__ import annotations
 
 import argparse
+import copy
 import json
 import os
 import re
@@ -139,6 +140,23 @@ from evals.sentence_routing_retrieval_falsification.route_equivalence_shadow imp
     build_route_equivalence_shadow_payload,
     load_route_equivalence_shadow_records,
 )
+
+
+def _slug_from_route(route_id: str) -> str:
+    part = route_id.rstrip("/").split("/")[-1].strip()
+    return re.sub(r"[_-]+", " ", part).strip().lower()
+
+
+def _build_equivalence_aliases(records: list[Any]) -> list[str]:
+    seen: set[str] = set()
+    aliases: list[str] = []
+    for record in records:
+        for route_id in (str(record.from_route_id), str(record.to_route_id)):
+            slug = _slug_from_route(route_id)
+            if slug and slug not in seen:
+                seen.add(slug)
+                aliases.append(slug)
+    return aliases
 from evals.sentence_routing_retrieval_falsification.token_resolver_shadow import (
     build_campaign_lexicon,
     compute_shadow_diff,
@@ -837,6 +855,11 @@ def main() -> None:
         ),
     )
     parser.add_argument(
+        "--use-route-equivalence-for-ranking",
+        action="store_true",
+        help="Augment retrieval ranking with route-equivalence-derived alias tokens.",
+    )
+    parser.add_argument(
         "--tagging-baseline-md",
         type=Path,
         default=Path(
@@ -1081,7 +1104,17 @@ def main() -> None:
 
         for scenario in gold.get("scenarios") or []:
             scen = merge_natural_benchmark_scenario(dict(scenario), gold)
-            bundle = natural_retrieval_bundle(records=records, scenario=scen)
+            retrieval_scenario = scen
+            ranking_augmented_by_equivalences = False
+            if args.use_route_equivalence_for_ranking and route_equivalence_records:
+                extra_aliases = _build_equivalence_aliases(route_equivalence_records)
+                if extra_aliases:
+                    scen_with_aliases = copy.deepcopy(scen)
+                    existing_aliases = list(scen_with_aliases.get("query_spec", {}).get("query_token_aliases") or [])
+                    scen_with_aliases.setdefault("query_spec", {})["query_token_aliases"] = existing_aliases + extra_aliases
+                    retrieval_scenario = scen_with_aliases
+                    ranking_augmented_by_equivalences = True
+            bundle = natural_retrieval_bundle(records=records, scenario=retrieval_scenario)
             result, hit_ctx = bundle
             by_unit = index_records_by_unit_id(records)
             hit_ctx_full = build_hit_context_text(
@@ -1127,6 +1160,7 @@ def main() -> None:
                 breadcrumb_artifact_text=breadcrumb_art_text or "",
                 lexicon=shadow_lexicon,
             )
+            row["ranking_augmented_by_equivalences"] = ranking_augmented_by_equivalences
             expected_substrings = list(scen.get("expect_route_substrings") or [])
             row["expected_route_substring_breakdown"] = [
                 {

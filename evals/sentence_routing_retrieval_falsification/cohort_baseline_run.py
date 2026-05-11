@@ -20,6 +20,8 @@ _DEFAULT_BASELINE = Path("evals/sentence_routing_retrieval_falsification/artifac
 
 COHORT_MANIFEST_SCHEMA_V1 = "dmb_breadcrumb_query_cohort_manifest_v1"
 COHORT_SUMMARY_SCHEMA_V2 = "dmb_breadcrumb_query_cohort_summary_v2"
+COHORT_L3_DELTA_SCHEMA_V1 = "dmb_breadcrumb_query_cohort_l3_delta_v1"
+_DEFAULT_DELTA = Path("evals/sentence_routing_retrieval_falsification/artifacts/baselines/cohort_l3_ab_delta_c1s1_to_c1s3_v1.json")
 
 
 def _workspace_relative_posix(path: Path, workspace_root: Path) -> str:
@@ -52,7 +54,7 @@ def load_cohort_manifest(manifest_path: Path) -> dict[str, Any]:
     return data
 
 
-def run_one_scenario(*, scenario: dict[str, Any], route_equivalence_jsonl: Sequence[Path], workspace_root: Path, per_scenario_out: Path) -> dict[str, Any]:
+def run_one_scenario(*, scenario: dict[str, Any], route_equivalence_jsonl: Sequence[Path], workspace_root: Path, per_scenario_out: Path, use_route_equivalence_for_ranking: bool = False) -> dict[str, Any]:
     cmd = [
         "uv", "run", "python", "-m", "evals.sentence_routing_retrieval_falsification.breadcrumb_query_run",
         "--records-jsonl", scenario["records_jsonl"],
@@ -62,7 +64,9 @@ def run_one_scenario(*, scenario: dict[str, Any], route_equivalence_jsonl: Seque
     ]
     for route_path in route_equivalence_jsonl:
         cmd.extend(["--route-equivalence-jsonl", str(route_path)])
-    cmd.extend(["--skip-c1s1-canvas-refresh", "--skip-c1s2-canvas-refresh", "--skip-c1s3-canvas-refresh"])
+    cmd.append(f"--skip-{scenario['scenario_id']}-canvas-refresh")
+    if use_route_equivalence_for_ranking:
+        cmd.append("--use-route-equivalence-for-ranking")
     try:
         subprocess.run(cmd, capture_output=True, text=True, cwd=str(workspace_root), check=True)
     except subprocess.CalledProcessError as exc:
@@ -221,6 +225,37 @@ def _check_mode(*, manifest_path: Path, baseline_path: Path, workspace_root: Pat
         return 0
 
 
+def _build_l3_delta(*, manifest: dict[str, Any], baseline_reports: list[dict[str, Any]], equivalence_reports: list[dict[str, Any]], manifest_path: Path, route_paths: list[Path], workspace_root: Path) -> dict[str, Any]:
+    scenarios: list[dict[str, Any]] = []
+    for scenario, base, with_eq in zip(manifest["scenarios"], baseline_reports, equivalence_reports, strict=True):
+        base_violations = sorted({v for row in base["results"] for v in row.get("violations", [])})
+        eq_violations = sorted({v for row in with_eq["results"] for v in row.get("violations", [])})
+        scenarios.append({
+            "scenario_id": scenario["scenario_id"],
+            "baseline_all_ok": bool(base.get("all_ok")),
+            "with_equivalence_all_ok": bool(with_eq.get("all_ok")),
+            "baseline_violations": base_violations,
+            "with_equivalence_violations": eq_violations,
+            "delta_violation_count": len(eq_violations) - len(base_violations),
+        })
+    changed = [s for s in scenarios if s["delta_violation_count"] != 0]
+    return {
+        "schema_id": COHORT_L3_DELTA_SCHEMA_V1,
+        "cohort_manifest": _workspace_relative_posix(manifest_path, workspace_root),
+        "baseline_schema": COHORT_SUMMARY_SCHEMA_V2,
+        "route_equivalence_jsonl": [_workspace_relative_posix(p, workspace_root) for p in route_paths],
+        "scenarios": scenarios,
+        "delta_summary": {
+            "total_scenarios": len(scenarios),
+            "scenarios_changed": len(changed),
+            "scenarios_improved": sum(1 for s in scenarios if s["delta_violation_count"] < 0),
+            "scenarios_regressed": sum(1 for s in scenarios if s["delta_violation_count"] > 0),
+            "baseline_all_ok_count": sum(1 for s in scenarios if s["baseline_all_ok"]),
+            "with_equivalence_all_ok_count": sum(1 for s in scenarios if s["with_equivalence_all_ok"]),
+        },
+    }
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Cohort baseline runner")
     mode = parser.add_mutually_exclusive_group()
@@ -228,11 +263,45 @@ def main() -> int:
     mode.add_argument("--check", action="store_true", help="Run the cohort into a tempdir and byte-compare against --baseline.")
     parser.add_argument("--manifest", type=Path, default=_DEFAULT_MANIFEST)
     parser.add_argument("--baseline", type=Path, default=_DEFAULT_BASELINE)
+    parser.add_argument("--delta", type=Path, default=_DEFAULT_DELTA)
+    parser.add_argument("--mode", choices=["baseline", "with-equivalence", "both"], default="baseline")
+    parser.add_argument("--write-delta", nargs="?", const=str(_DEFAULT_DELTA), default=None)
+    parser.add_argument("--check-delta", action="store_true")
     parser.add_argument("--per-scenario-out-dir", type=Path, default=None)
     args = parser.parse_args()
     try:
+        if args.check_delta:
+            with tempfile.TemporaryDirectory() as tmp:
+                tmp_delta = Path(tmp) / "delta.json"
+                cmd = [sys.executable, "-m", "evals.sentence_routing_retrieval_falsification.cohort_baseline_run", "--mode", "both", "--write-delta", str(tmp_delta)]
+                subprocess.run(cmd, cwd=str(_HARNESS_WORKSPACE_ROOT), check=True, capture_output=True, text=True)
+                delta_path = (_HARNESS_WORKSPACE_ROOT / args.delta).resolve() if not args.delta.is_absolute() else args.delta
+                if tmp_delta.read_bytes() != delta_path.read_bytes():
+                    print(f"MISMATCH {_workspace_relative_posix(delta_path, _HARNESS_WORKSPACE_ROOT)}")
+                    return 1
+                print(f"OK {_workspace_relative_posix(delta_path, _HARNESS_WORKSPACE_ROOT)}")
+                return 0
         if args.check:
             return _check_mode(manifest_path=args.manifest, baseline_path=args.baseline, workspace_root=_HARNESS_WORKSPACE_ROOT)
+        if args.mode == "both" or args.write_delta:
+            manifest_path = (_HARNESS_WORKSPACE_ROOT / args.manifest).resolve() if not args.manifest.is_absolute() else args.manifest
+            manifest = load_cohort_manifest(manifest_path)
+            route_paths = [_resolve_workspace_path(p, _HARNESS_WORKSPACE_ROOT) for p in manifest["route_equivalence_jsonl"]]
+            baseline_reports = []
+            equivalence_reports = []
+            with tempfile.TemporaryDirectory() as tmp:
+                td = Path(tmp)
+                for scenario in manifest["scenarios"]:
+                    baseline_reports.append(run_one_scenario(scenario=scenario, route_equivalence_jsonl=route_paths, workspace_root=_HARNESS_WORKSPACE_ROOT, per_scenario_out=td / f"{scenario['scenario_id']}_base.json"))
+                    equivalence_reports.append(run_one_scenario(scenario=scenario, route_equivalence_jsonl=route_paths, workspace_root=_HARNESS_WORKSPACE_ROOT, per_scenario_out=td / f"{scenario['scenario_id']}_eq.json", use_route_equivalence_for_ranking=True))
+            delta = _build_l3_delta(manifest=manifest, baseline_reports=baseline_reports, equivalence_reports=equivalence_reports, manifest_path=manifest_path, route_paths=route_paths, workspace_root=_HARNESS_WORKSPACE_ROOT)
+            if args.write_delta:
+                out = Path(args.write_delta)
+                out = (_HARNESS_WORKSPACE_ROOT / out).resolve() if not out.is_absolute() else out
+                out.parent.mkdir(parents=True, exist_ok=True)
+                out.write_text(json.dumps(delta, indent=2) + "\n", encoding="utf-8")
+            if args.mode == "both":
+                return 0
         per_scenario_dir = args.per_scenario_out_dir or _default_per_scenario_dir(args.manifest)
         return _write_mode(manifest_path=args.manifest, baseline_out=args.baseline, per_scenario_out_dir=per_scenario_dir, workspace_root=_HARNESS_WORKSPACE_ROOT)
     except (OSError, ValueError) as exc:
