@@ -6,9 +6,9 @@ title: Split-corpus retrieval to autonomous C1S1–C1S3 demo
 document_class: plan
 plan_kind: execution_super_plan
 status: active
-version: 12
+version: 13
 created_at: "2026-05-09T00:00:00Z"
-last_updated_at: "2026-05-10T21:50:00Z"
+last_updated_at: "2026-05-11T02:05:00Z"
 timezone_note: "Timestamps are UTC; local work may use America/Denver."
 supersedes: []
 superseded_by: null
@@ -48,27 +48,20 @@ execution_state:
     uv run python scripts/build_route_equivalence_manifests.py --check
     && uv run pytest tests/lexicon_phase_b/ -q
     && uv run pytest tests/test_breadcrumb_query_run_lexicon_records_jsonl.py -q
-    (Phase C entry shadow consumer + workspace-relative `source_paths` both
-    green on main after PR #4 + PR #5). Active workstream is now the **A/B
-    Benchmarking Sprint** (see `## A/B Benchmarking Sprint` section below):
-    a skeptical, deliberately annoying-when-wrong benchmarking surface for
-    this vertical slice that lets us compare the new lexical-artifact
-    architecture against the original ad-hoc retrieval design. Next slices,
-    in priority: (a) **PR 6 — cohort baseline runner**: emit + commit a
-    byte-stable `shadow_route_equivalences` baseline for C1S1-C1S3
-    (precondition for every comparison level; this also IS the pre-plan
-    retrieval baseline frozen as an artifact); (b) **PR 6.5 or extension —
-    shadow recall metric**: score loaded equivalences against gold
-    `expect_route_substrings` for a "would-this-help" leading indicator
-    without flipping the retriever (cheapest signal); (c) **PR 7 sibling
-    lane**: producer-side `manifest_hash` + provenance fields on
-    `route_equivalence_longmont_c*_v1.jsonl` (parallelizable with PR 6 —
-    file scopes don't overlap); (d) **PR 9 (or earlier if re-sequenced)** —
-    Phase C exit slice: minimal additive ranking-input wiring + true A/B
-    cohort. Re-sequencing question: should the additive retrieval-wiring
-    slice ship before (c) and the broader entity-candidate / lexical-handle
-    artifacts? Decide after PR 6 publishes the baseline and we know how much
-    headroom equivalences alone are likely to cover.
+    && uv run pytest tests/test_cohort_baseline_run.py -q
+    && uv run python -m evals.sentence_routing_retrieval_falsification.cohort_baseline_run --check
+    (PR #4 + #5 + #6 regression bundle on main). **PR #6 merged** — L1 frozen
+    pre-plan cohort baseline is committed at
+    `evals/sentence_routing_retrieval_falsification/artifacts/baselines/cohort_baseline_c1s1_to_c1s3_v1.json`.
+    Active workstream remains the **A/B Benchmarking Sprint**; next slices in
+    priority: (a) **PR 6.5 or extension — shadow recall metric** (L2 leading
+    indicator, still ~$0 retrieval-only); (b) **PR #7 sibling lane** —
+    producer-side `manifest_hash` + provenance fields on
+    `route_equivalence_longmont_c*_v1.jsonl` (parallelizable — file scopes
+    don't overlap); (c) **PR 9 (or earlier if re-sequenced)** — Phase C exit:
+    minimal additive ranking-input wiring + true A/B cohort. Re-sequencing:
+    now that L1 baseline exists (44/44 questions all_ok on C1S1–C1S3), decide
+    whether L2 alone is enough signal vs advancing L3.
   flagged_followups:
     - >-
       Content quality of `location_hierarchy_equivalences` in
@@ -82,6 +75,19 @@ execution_state:
       is absent; document or generate that manifest before treating the audit as
       a portable gate (separate from route-equivalence JSONL lane).
   integration_notes:
+    - >-
+      PR #6 is MERGED to main (merge commit 9af4741a635125d3403d66a9f266564f25bad746,
+      2026-05-11T01:49:53Z): A/B sprint **L1** — `cohort_baseline_run.py` CLI,
+      committed cohort manifest `cohorts/c1s1_to_c1s3_v1.json`, frozen curated
+      byte-stable summary `artifacts/baselines/cohort_baseline_c1s1_to_c1s3_v1.json`
+      (`dmb_breadcrumb_query_cohort_summary_v1`), `tests/test_cohort_baseline_run.py`
+      (9 tests including harness-boundary CWD invariance on the full curated JSON).
+      Single round (PR head `06280c87`); APPROVE demoted to COMMENTED (self-review
+      fallback, review id `4260316552`). §7 green: lexicon 22, breadcrumb harness 11,
+      manifest `--check` OK, cohort 9 + CWD test, `--check` OK baseline,
+      `--write` vs committed file BYTE-IDENTICAL, `canvases/` clean. No changes to
+      `breadcrumb_query_run.py`, `route_equivalence_shadow.py`, producer paths,
+      gold, or grader. Cost $0 (`--retrieval-only`).
     - >-
       PR #5 is MERGED to main (merge commit 40be747a87d0eecb4dc1c865f236f3728cf1d4d4,
       2026-05-10T21:09Z): makes `shadow_route_equivalences.source_paths`
@@ -156,6 +162,21 @@ execution_state:
       -> 10 passed (round 2 added byte-identity-when-flag-unset and
       load-failure-emits-error harness-boundary tests).
 changelog:
+  - at: "2026-05-11T02:05:00Z"
+    version: 13
+    summary: >-
+      PR #6 merged (9af4741a): A/B sprint **L1** — cohort baseline runner
+      `cohort_baseline_run.py`, manifest `cohorts/c1s1_to_c1s3_v1.json`, frozen
+      curated summary `artifacts/baselines/cohort_baseline_c1s1_to_c1s3_v1.json`,
+      `tests/test_cohort_baseline_run.py` (harness-boundary CWD invariance on full
+      curated JSON). `external_pull_requests` gains `github-pr-6` with three NEW
+      rubric bullets (committed baseline byte-identity + `--check`; cohort-runner
+      subprocess CWD contract; curated-field exclusions + no canvas perturbation).
+      `next_gate_command` now includes cohort pytest + `cohort_baseline_run --check`
+      and points next work to L2 / PR #7 / Phase C exit. Checklist Reanchor +
+      session log + PR header synced; `HANDOFF-pr6-cohort-baseline-runner-c1s1-to-c1s3.md`
+      archived under `archive/2026-05-11/handoffs/`. Open-scope question in A/B
+      sprint section resolved **tight** (C1S1–C1S3 only) by shipped manifest.
   - at: "2026-05-10T21:50:00Z"
     version: 12
     summary: >-
@@ -273,6 +294,66 @@ changelog:
 # Notation: plan_phase_primary / plan_phase_also_touches map work to phases;
 # review_status captures current merge/review disposition.
 external_pull_requests:
+  - id: github-pr-6
+    url: https://github.com/Drakosfire/DungeonMindBuddy/pull/6
+    plan_phase_primary: "3"
+    plan_phase_also_touches: "5"
+    plan_phase_label: >-
+      A/B Benchmarking Sprint L1: cohort baseline runner for C1S1–C1S3
+      (`cohort_baseline_run.py`), committed manifest
+      `cohorts/c1s1_to_c1s3_v1.json`, frozen curated summary
+      `artifacts/baselines/cohort_baseline_c1s1_to_c1s3_v1.json` (schema
+      `dmb_breadcrumb_query_cohort_summary_v1`), `--check` regression mode.
+      Drives `breadcrumb_query_run --retrieval-only` with route-equivalence
+      JSONL per manifest row. No edits to harness, shadow module, producer
+      JSONL, gold, or grader.
+    review_status: merged
+    review_status_meaning: >-
+      Merged to main on 2026-05-11T01:49:53Z (merge commit
+      9af4741a635125d3403d66a9f266564f25bad746) after a single round of review.
+      Parent verification on PR head 06280c87099f4896ff65c31f6c9c48ea3065c8eb:
+      §7 suite green (lexicon 22 passed; breadcrumb_query_run harness tests 11;
+      manifest --check OK both; cohort_baseline_run tests 9 + CWD harness test;
+      cohort --check OK; fresh --write vs committed baseline BYTE-IDENTICAL;
+      canvases/ clean). Verdict APPROVE demoted to COMMENTED under self-review
+      fallback (review id 4260316552).
+    judgment_record:
+      verdict: accepted
+      evaluated_at: "2026-05-11T01:50:00Z"
+      evaluator: cursor-agent
+      notes: >-
+        Lands the L1 frozen pre-plan retrieval baseline for the A/B sprint: cohort
+        manifest scopes exactly C1S1, C1S2, C1S3; curated summary omits volatile
+        and CWD-dependent fields; harness-boundary test asserts full curated JSON
+        byte-identity across two operator CWDs. `--check` mirrors PR #3 producer UX.
+        No LLM calls; legacy retriever unchanged.
+    rubric_when_we_judge:
+      - "Shadow-only contract: when the new flag is unset, harness output is byte-identical (modulo the absent shadow field) to a run without the flag. **Must be tested at the harness boundary, not the loader.**"
+      - "Load-failure mode: missing or malformed manifest emits a structured error payload in `shadow_route_equivalences` and the run survives; no exception leaks into retrieval/grading."
+      - "New field `shadow_route_equivalences` uses an explicit schema id (`dmb_route_equivalence_shadow_v1`) and is omitted entirely when the flag is unset (no `null` placeholder)."
+      - "Existing diagnostic field (`shadow_token_resolution`) and grading remain untouched; legacy lexical seeds remain the active retrieval source."
+      - "Lexicon-only loader/tests live under `src/lexicon_phase_b/` and `tests/lexicon_phase_b/`; harness-level tests live next to the existing `tests/test_breadcrumb_query_run_lexicon_records_jsonl.py`."
+      - "Allowlist held: PR diff exactly matches §4 of the handoff; nothing in the §5 denylist was touched (especially gold files, schemas, manifest builder)."
+      - >-
+        **Provenance fields in shadow diagnostics are rendered at the harness
+        boundary, not at the loader, and the boundary's CWD invariance is
+        tested by spawning a subprocess from at least two different CWDs and
+        asserting full-payload equality (not just the field under test).**
+        Loader-side or single-CWD unit coverage is necessary but not sufficient
+        — payload byte-identity is the contract. (Carry-forward from PR #5.)
+      - >-
+        **Committed cohort baseline summary (`dmb_breadcrumb_query_cohort_summary_v1`)
+        must match `cohort_baseline_run --write` output byte-for-byte on a clean checkout;
+        `cohort_baseline_run --check` must exit 0 against that file.** (NEW from PR #6.)
+      - >-
+        **Cohort-runner CWD invariance is tested at the harness boundary** by spawning
+        `cohort_baseline_run --write` from at least two different operator CWDs and asserting
+        full curated summary JSON byte-identity — not only an in-process unit call to the
+        summary builder. (NEW from PR #6; extends PR #5's full-payload subprocess contract.)
+      - >-
+        **Curated cohort summary must exclude** CWD-dependent absolute paths, LLM cost fields,
+        and per-question volatile retrieval payloads; cohort runs must not perturb `canvases/`
+        without explicit opt-in. (NEW from PR #6.)
   - id: github-pr-5
     url: https://github.com/Drakosfire/DungeonMindBuddy/pull/5
     plan_phase_primary: "5"
@@ -507,7 +588,8 @@ Build a stepwise, benchmark-first path from current Phase A state to a **fully a
 
 - Active phase is **B**; **M1 complete**, **M2 in progress** (route-equivalence **sub-lane landed**; broader M2: manifest hash / provenance on the JSONL artifacts, entity-candidate + lexical-handle surfaces still open), **M3 in progress** (Phase C entry shadow consumer landed via PR #4 — flag-gated, shadow-only; provenance hardening landed via PR #5; retriever wiring stays gated for Phase 5 exit), **M4 not started**.
 - No Phase A structural blockers on a machine that has the alignment audit inputs. `scripts/audit_world_campaign_alignment.py` is **PASS** when `out/evals/corpus_remote/normalization_manifest.json` exists at the default path; see `flagged_followups` for clean-checkout caveat.
-- **Phase C entry provenance hardening is merged:** **PR #5** (`main` merge commit `40be747a87d0eecb4dc1c865f236f3728cf1d4d4`, 2026-05-10T21:09Z) makes `shadow_route_equivalences.source_paths` workspace-relative POSIX strings rendered at the harness boundary, so the field is byte-identical regardless of operator CWD or absolute install path. Adds `_workspace_relative_posix` helper to `route_equivalence_shadow.py`; required `workspace_root: Path` kwarg on `build_route_equivalence_shadow_payload`; harness wires `_HARNESS_WORKSPACE_ROOT = Path(__file__).resolve().parents[2]`. New harness-boundary test `test_route_equivalence_source_paths_are_workspace_relative_and_cwd_invariant` spawns the harness from two different operator CWDs and asserts full-payload byte-identity. Closes the PR #4 known follow-up; **unblocks** a byte-stable cohort `shadow_route_equivalences` baseline for C1S1-C1S3. Handoff `Docs/Plans/archive/2026-05-10/handoffs/HANDOFF-route-equivalence-shadow-source-paths-workspace-relative.md` is the historical context.
+- **A/B sprint L1 cohort baseline is merged:** **PR #6** (`main` merge commit `9af4741a635125d3403d66a9f266564f25bad746`, 2026-05-11T01:49:53Z) adds `evals/sentence_routing_retrieval_falsification/cohort_baseline_run.py`, committed manifest `cohorts/c1s1_to_c1s3_v1.json`, frozen curated summary `artifacts/baselines/cohort_baseline_c1s1_to_c1s3_v1.json`, and `tests/test_cohort_baseline_run.py` (9 tests including harness-boundary CWD invariance on the full curated JSON). `--check` mirrors PR #3's producer UX. No harness / shadow / producer / gold edits. Handoff `Docs/Plans/archive/2026-05-11/handoffs/HANDOFF-pr6-cohort-baseline-runner-c1s1-to-c1s3.md` is the historical context.
+- **Phase C entry provenance hardening is merged:** **PR #5** (`main` merge commit `40be747a87d0eecb4dc1c865f236f3728cf1d4d4`, 2026-05-10T21:09Z) makes `shadow_route_equivalences.source_paths` workspace-relative POSIX strings rendered at the harness boundary, so the field is byte-identical regardless of operator CWD or absolute install path. Adds `_workspace_relative_posix` helper to `route_equivalence_shadow.py`; required `workspace_root: Path` kwarg on `build_route_equivalence_shadow_payload`; harness wires `_HARNESS_WORKSPACE_ROOT = Path(__file__).resolve().parents[2]`. New harness-boundary test `test_route_equivalence_source_paths_are_workspace_relative_and_cwd_invariant` spawns the harness from two different operator CWDs and asserts full-payload byte-identity. Closes the PR #4 known follow-up. Handoff `Docs/Plans/archive/2026-05-10/handoffs/HANDOFF-route-equivalence-shadow-source-paths-workspace-relative.md` is the historical context.
 - **Phase C entry shadow consumer is merged:** **PR #4** (`main` merge commit `21e84392da03095377b4de36defb82edfc37c741`, 2026-05-10T16:22Z) adds `src/lexicon_phase_b/route_equivalence_loader.py`, `evals/sentence_routing_retrieval_falsification/route_equivalence_shadow.py`, and a `--route-equivalence-jsonl` (repeatable) CLI flag on `breadcrumb_query_run`. Per-scenario `shadow_route_equivalences` field is emitted only when the flag is set; legacy retrieval, grading, and `shadow_token_resolution` paths are unchanged. Handoff `Docs/Plans/archive/2026-05-10/handoffs/HANDOFF-phase-c-route-equivalence-shadow-consumer.md` is the historical context.
 - **Route-equivalence artifact lane is merged:** **PR #3** (`main` merge commit `98c09aaf0fead2aaaf4b3a7c90afcb09bae8026f`, 2026-05-10T05:06Z) adds committed JSONL under `evals/sentence_routing_retrieval_falsification/artifacts/lexicon/`, `scripts/build_route_equivalence_manifests.py`, and `tests/lexicon_phase_b/test_route_equivalence_artifacts_byte_stable.py`. Handoff `Docs/Plans/archive/2026-05-10/handoffs/HANDOFF-phase-b-route-equivalence-artifact-output.md` describes the same slice; treat it as historical context for PR #3.
 - **PR #2 merged** (`main` merge commit `545cf37`, 2026-05-10T02:59Z): `src/lexicon_phase_b/` (schema + deterministic manifest builder), `tests/lexicon_phase_b/` collision-safe layout, `unknown`-kind filter, documented `source_type="npc_registry"` lineage.
@@ -556,16 +638,17 @@ flowchart TD
 
 | Field | Value |
 |-------|--------|
+| **A/B sprint L1 cohort baseline PR** | [Drakosfire/DungeonMindBuddy#6](https://github.com/Drakosfire/DungeonMindBuddy/pull/6) — **MERGED** (merge commit `9af4741a635125d3403d66a9f266564f25bad746`, 2026-05-11T01:49:53Z). `cohort_baseline_run.py` + manifest + frozen `dmb_breadcrumb_query_cohort_summary_v1` baseline + harness tests; no edits to `breadcrumb_query_run` / shadow / producer. |
 | **Phase C entry provenance hardening PR** | [Drakosfire/DungeonMindBuddy#5](https://github.com/Drakosfire/DungeonMindBuddy/pull/5) — **MERGED** (merge commit `40be747a87d0eecb4dc1c865f236f3728cf1d4d4`, 2026-05-10T21:09Z). Workspace-relative POSIX `source_paths` rendered at harness boundary + new harness-boundary CWD-invariance test. Closes PR #4 known follow-up. |
 | **Phase C entry shadow consumer PR** | [Drakosfire/DungeonMindBuddy#4](https://github.com/Drakosfire/DungeonMindBuddy/pull/4) — **MERGED** (merge commit `21e84392da03095377b4de36defb82edfc37c741`, 2026-05-10T16:22Z). Loader + shadow module + `--route-equivalence-jsonl` flag + harness-boundary safety tests. Shadow-only. |
 | **Route-equivalence artifacts PR** | [Drakosfire/DungeonMindBuddy#3](https://github.com/Drakosfire/DungeonMindBuddy/pull/3) — **MERGED** (merge commit `98c09aaf0fead2aaaf4b3a7c90afcb09bae8026f`, 2026-05-10T05:06Z). Committed JSONL + CLI `--check` + byte-stable regression. |
 | **Schema + builder PR** | [Drakosfire/DungeonMindBuddy#2](https://github.com/Drakosfire/DungeonMindBuddy/pull/2) — **MERGED** (merge commit `545cf37`, 2026-05-10T02:59Z). |
 | **Superseded PR** | [Drakosfire/DungeonMindBuddy#1](https://github.com/Drakosfire/DungeonMindBuddy/pull/1) — **CLOSED**, superseded by #2 due to test-namespace collision risk on `main`. |
-| **Plan mapping** | **PR #2:** Phase 1 + early Phase 2 builder. **PR #3:** Phase 2 route-equivalence committed artifacts + reproducibility gates. **PR #4:** Phase 5 entry (Phase C entry, shadow-only) — consumes PR #3 artifacts via `--route-equivalence-jsonl` and emits `shadow_route_equivalences` diagnostic alongside the existing `shadow_token_resolution` lane. Opens M3. **PR #5:** Phase 5 entry hardening — `source_paths` byte-stable across operator CWDs, unblocking byte-stable cohort baseline. |
-| **Review status** | PR #5: `tests/lexicon_phase_b/ -q` -> 22 passed (producer-side untouched); `tests/test_breadcrumb_query_run_lexicon_records_jsonl.py -q` -> 11 passed (10 -> 11 from new harness-boundary CWD-invariance test); `--check` OK; smoke + `python -c` byte-string assertion green. PR #4: `tests/lexicon_phase_b/ -q` -> 17 passed (count grew before PR #5; both PR #4 and PR #5 substantively held "producer-side untouched"); `tests/test_breadcrumb_query_run_lexicon_records_jsonl.py -q` -> 10 passed (round 2 added harness-boundary safety tests after round 1 had only loader-level coverage). PR #3: `build_route_equivalence_manifests.py --check` OK; `tests/lexicon_phase_b/ -q` -> 16 passed. PR #2 pre-merge: combined pytest 28 passed + audit PASS when manifest present. |
-| **Verdict (YAML)** | `github-pr-5`, `github-pr-4`, `github-pr-3`, `github-pr-2` → `accepted`. PR #1 → `superseded_by_pr_2`. |
+| **Plan mapping** | **PR #2:** Phase 1 + early Phase 2 builder. **PR #3:** Phase 2 route-equivalence committed artifacts + reproducibility gates. **PR #4:** Phase 5 entry (Phase C entry, shadow-only) — consumes PR #3 artifacts via `--route-equivalence-jsonl` and emits `shadow_route_equivalences` diagnostic alongside the existing `shadow_token_resolution` lane. Opens M3. **PR #5:** Phase 5 entry hardening — `source_paths` byte-stable across operator CWDs. **PR #6:** Phase 3 / A/B sprint L1 — frozen pre-plan cohort baseline for C1S1–C1S3 (`cohort_baseline_run` + committed manifest + baseline JSON + tests). |
+| **Review status** | PR #6: §7 at head `06280c87` — lexicon 22, breadcrumb harness 11, manifest `--check` OK, cohort tests 9 + CWD harness, cohort `--check` OK, `--write` BYTE-IDENTICAL vs committed baseline, `canvases/` clean; cost $0. PR #5: `tests/lexicon_phase_b/ -q` -> 22 passed (producer-side untouched); `tests/test_breadcrumb_query_run_lexicon_records_jsonl.py -q` -> 11 passed (10 -> 11 from new harness-boundary CWD-invariance test); `--check` OK; smoke + `python -c` byte-string assertion green. PR #4: `tests/lexicon_phase_b/ -q` -> 17 passed (count grew before PR #5; both PR #4 and PR #5 substantively held "producer-side untouched"); `tests/test_breadcrumb_query_run_lexicon_records_jsonl.py -q` -> 10 passed (round 2 added harness-boundary safety tests after round 1 had only loader-level coverage). PR #3: `build_route_equivalence_manifests.py --check` OK; `tests/lexicon_phase_b/ -q` -> 16 passed. PR #2 pre-merge: combined pytest 28 passed + audit PASS when manifest present. |
+| **Verdict (YAML)** | `github-pr-6`, `github-pr-5`, `github-pr-4`, `github-pr-3`, `github-pr-2` → `accepted`. PR #1 → `superseded_by_pr_2`. |
 
-**Judgment rubric reference:** the bullets under `rubric_when_we_judge` on **PR #2** and **PR #3** in the YAML `external_pull_requests` list remain the acceptance criteria baseline for related future PRs, including the requirement that lexicon-only tests live under `tests/lexicon_phase_b/` to avoid collision with `tests/test_token_resolution_*` on `main`.
+**Judgment rubric reference:** the bullets under `rubric_when_we_judge` on **PR #6** (newest), **PR #5**, **PR #4**, **PR #3**, and **PR #2** in the YAML `external_pull_requests` list are the acceptance baseline for related future PRs, including lexicon-only tests under `tests/lexicon_phase_b/` and harness-boundary contracts for shadow and cohort surfaces.
 
 **Primary files (now landed on main)**
 
@@ -607,7 +690,7 @@ flowchart TD
 
 - Reusable surfaces: scenario packs (C1S1/C1S2/C1S3), generated-artifact lane, shadow diagnostic lane, authority-risk and over-routing metrics, canvas payload adapters.
 - Failure taxonomy: missing lexical handle; retrieval ranking miss; gold authoring mismatch; authority violation risk.
-- Comparable cohort summary for C1S1–C1S3.
+- Comparable cohort summary for C1S1–C1S3 — **L1 landed via PR #6** (`cohort_baseline_run` + committed baseline `cohort_baseline_c1s1_to_c1s3_v1.json`).
 
 **Primary files**
 
@@ -654,7 +737,7 @@ Build a **skeptical, intentionally annoying-when-wrong** benchmarking surface fo
 
 ### Why this sprint, why now
 
-The retriever scoring path **has not changed** across PRs #2–#5. Everything we've shipped — schema (PR #2), committed JSONL + reproducibility CLI (PR #3), shadow consumer + harness-boundary safety tests (PR #4), workspace-relative provenance (PR #5) — is upstream of retrieval. `session_memory_query.py` and the breadcrumb ranking still use the legacy `build_campaign_lexicon` / benchmark-seeds path. So **today's retrieval == pre-plan retrieval at the algorithm level**, and PR 5 has just made the diagnostic side byte-stable enough for a cohort baseline to mean something. PR 6 is the precondition for every comparison fidelity below.
+The retriever scoring path **has not changed** across PRs #2–#6. Everything through PR #5 — schema (PR #2), committed JSONL + reproducibility CLI (PR #3), shadow consumer + harness-boundary safety tests (PR #4), workspace-relative provenance (PR #5) — is upstream of retrieval. **PR #6** freezes today's `--retrieval-only` behavior as a committed cohort baseline (`dmb_breadcrumb_query_cohort_summary_v1`) without flipping the retriever. `session_memory_query.py` and the breadcrumb ranking still use the legacy `build_campaign_lexicon` / benchmark-seeds path. So **today's retrieval == pre-plan retrieval at the algorithm level**, and L1 is now an artifact-backed regression anchor for L2/L3 below.
 
 ### Three comparison-fidelity levels mapped to PRs
 
@@ -668,12 +751,10 @@ L3 is what closes Phase 5 (Phase C **exit**). L1 and L2 do not flip the retrieve
 
 ### Concrete deliverables
 
-**PR 6 — cohort baseline runner**
+**PR 6 — cohort baseline runner (MERGED)**
 
-- Cohort-level harness that runs `breadcrumb_query_run --retrieval-only` against every gold file in scope, with `--route-equivalence-jsonl` set to the committed C1 + C2 manifests so the existing `shadow_route_equivalences` diagnostic populates.
-- Default-on disk artifacts under `evals/sentence_routing_retrieval_falsification/artifacts/runs/<date>/<scenario>_retrieval_baseline.json` plus a cohort summary JSON.
-- Byte-stability regression test: re-running the cohort produces a hash-equal summary modulo intentional non-determinism (which there should be none of in `--retrieval-only` mode).
-- Commits one cohort summary as the **frozen pre-plan baseline** for later comparison.
+- Landed as `cohort_baseline_run.py` + `cohorts/c1s1_to_c1s3_v1.json` + committed `artifacts/baselines/cohort_baseline_c1s1_to_c1s3_v1.json` + `tests/test_cohort_baseline_run.py` (PR #6, merge `9af4741a`). Drives `breadcrumb_query_run --retrieval-only` with route-equivalence JSONL per manifest row; `--write` / `--check` UX mirrors PR #3.
+- Per-scenario durable run JSON under `/tmp` in §7 smoke only; the **regression contract** is the committed cohort summary + `--check`, not per-date `artifacts/runs/` paths (narrower than the original bullet; intentional).
 
 **PR 6.5 (or extension to PR 6) — shadow recall metric**
 
@@ -689,18 +770,13 @@ L3 is what closes Phase 5 (Phase C **exit**). L1 and L2 do not flip the retrieve
 - Cohort runner mode that writes both reports per scenario (`baseline` and `with-equivalence`) and a delta summary.
 - Promotion gate inputs: authority-risk violations on the cohort = 0, over-routing under threshold, no regression on context-support metrics.
 
-### Open scope question (decide before authoring PR 6's handoff)
+### Open scope question (resolved by shipped PR #6)
 
-Should PR 6's cohort include `breadcrumb_query_natural_c1s13_v1.json` and `breadcrumb_query_natural_v1.json`, or scope tightly to the C1S1–C1S3 set named in the PLAN's `demo_scope`?
-
-- **Tighter (C1S1-C1S3 only, 3 files):** matches `demo_scope`; cleaner contract; faster to author and review; doesn't expose the c1s13 hierarchy-content concern flagged in `flagged_followups`.
-- **Wider (5 files):** more comparison surface for free; no extra cost since `--retrieval-only` is ~$0; gives early signal on whether the architecture generalises beyond the demo scope.
-
-Recommendation: tighter for the first cohort summary, wider as a follow-up cohort once the byte-stable contract is locked.
+PR #6 shipped the **tight** cohort only (`c1s1`, `c1s2`, `c1s3` per `cohorts/c1s1_to_c1s3_v1.json`) — matches `demo_scope` and avoids the C1S13 hierarchy-content concern in `flagged_followups`. A wider cohort (`c1s13_v1`, `natural_v1`) remains a **follow-up manifest + baseline pair**, not a silent expansion of this committed file.
 
 ### Re-sequencing question (decide after PR 6 publishes the baseline)
 
-Per the PLAN's queue today, Phase C exit / true A/B sits **after** (b) producer-side `manifest_hash` and (c) entity-candidate / lexical-handle artifacts. If PR 6's L1 baseline shows the legacy retriever already at high recall on these scenarios, L2 may be enough signal — keep the queue as written. If recall is low, L3 has more leverage and the additive ranking-input slice should be re-sequenced **before** (b)+(c). The risk of doing L3 first is wiring against an artifact set still missing entity-candidate and lexical-handle records — equivalences alone may underperform the architecture's eventual ceiling.
+L1 baseline is now published: cohort aggregate on shipped baseline shows **44/44** questions `all_scenarios_all_ok` for C1S1–C1S3 at `--retrieval-only` with route-equivalence flags (per parent §7 smoke on PR head `06280c87`). Per the PLAN's queue today, Phase C exit / true A/B still sits **after** producer-side `manifest_hash` and entity-candidate / lexical-handle artifacts unless measurement shows L2 alone is insufficient. If L2 recall-via-equivalence shows low headroom, L3 has more leverage and the additive ranking-input slice may warrant re-sequencing **before** (b)+(c). The risk of doing L3 first is wiring against an artifact set still missing entity-candidate and lexical-handle records — equivalences alone may underperform the architecture's eventual ceiling.
 
 ### Architectural seed (separate doc)
 
@@ -751,7 +827,7 @@ Track detailed todos in [CHECKLIST-dynamic-lexical-retrieval-rollout.md](CHECKLI
 - [x] Phase B route-equivalence lane: schema, builder, committed JSONL, CLI `--check`, byte-stable tests (PR #2 + PR #3)
 - [x] Phase C entry: shadow consumer of route-equivalence JSONL behind `--route-equivalence-jsonl` flag, with harness-boundary safety tests (PR #4)
 - [x] Phase C entry hardening: workspace-relative POSIX `source_paths` rendered at harness boundary, with CWD-invariance harness-boundary test (PR #5) — closes PR #4 known follow-up; unblocks byte-stable cohort baseline
-- [ ] **A/B Benchmarking Sprint — L1:** PR 6 cohort baseline runner for C1S1-C1S3 (frozen pre-plan retrieval baseline, `--retrieval-only`, byte-stable)
+- [x] **A/B Benchmarking Sprint — L1:** PR #6 cohort baseline runner for C1S1-C1S3 (frozen pre-plan retrieval baseline, `--retrieval-only`, byte-stable; merge `9af4741a`)
 - [ ] **A/B Benchmarking Sprint — L2:** PR 6 + recall-via-equivalence metric (or split as PR 6.5) — leading indicator without flipping the retriever
 - [ ] **A/B Benchmarking Sprint — L3:** Phase C exit slice — minimal additive ranking-input wiring + true A/B cohort (PR 9 as planned, or PR 7 if re-sequenced after PR 6 baseline informs the choice)
 - [ ] Phase B remainder: manifest hash / provenance on **producer-side** JSONL artifacts (sibling lane, parallelizable with PR 6), entity-candidate + lexical-handle artifacts per contracts above
@@ -764,6 +840,7 @@ Track detailed todos in [CHECKLIST-dynamic-lexical-retrieval-rollout.md](CHECKLI
 
 | Date (UTC) | Version | Summary |
 |------------|---------|---------|
+| 2026-05-11 | 13 | PR #6 merged (`9af4741a`): A/B sprint **L1** — `cohort_baseline_run.py`, manifest `cohorts/c1s1_to_c1s3_v1.json`, frozen curated baseline `artifacts/baselines/cohort_baseline_c1s1_to_c1s3_v1.json`, `tests/test_cohort_baseline_run.py` (harness-boundary CWD invariance on full curated JSON). `external_pull_requests` gains `github-pr-6` with three NEW rubric bullets (baseline `--check`; cohort subprocess CWD contract; curated-field exclusions + no canvas drift). `next_gate_command` adds cohort pytest + `--check`. Checklist + handoff archive `2026-05-11`. Open cohort scope question resolved tight by shipped manifest. |
 | 2026-05-10 | 12 | Capture **A/B Benchmarking Sprint** as the current active workstream — skeptical, intentionally annoying-when-wrong benchmarking surface for this vertical slice that compares the new lexical-artifact architecture against the original ad-hoc retrieval design on the existing `breadcrumb_query_natural_*.json` question artifacts. New `## A/B Benchmarking Sprint (post-PR #5)` section (between Phase 5 and Phase 6) defines three comparison-fidelity levels (L1 baseline at PR 6, L2 leading indicator at PR 6/6.5, L3 true A/B at re-sequenceable PR 7-or-9) and the open scope + re-sequencing questions. `next_gate_command` rewritten to lead with the sprint framing. Workstream checklist gains explicit L1/L2/L3 sub-items. Architectural seed captured separately in `Docs/Design/DESIGN-dungeonbuddy-client-seed.md` (status: SEED) — extracted LLM + benchmarking client absorbing DungeonMindServer lessons; not an active workstream. |
 | 2026-05-10 | 11 | PR #5 merged (`40be747a`): `shadow_route_equivalences.source_paths` is now workspace-relative POSIX strings rendered at the harness boundary. Adds `_workspace_relative_posix(path, workspace_root)` to `route_equivalence_shadow.py`; required `workspace_root: Path` kwarg on `build_route_equivalence_shadow_payload`; harness wires `_HARNESS_WORKSPACE_ROOT = Path(__file__).resolve().parents[2]`. New harness-boundary test asserts full-payload byte-identity across two operator CWDs via subprocess. Closes the PR #4 machine-dependent-`source_paths` follow-up. Producer-side untouched. `external_pull_requests` gains `github-pr-5` with the new rubric bullet "provenance fields in shadow diagnostics rendered at the harness boundary, with CWD-invariance tested by spawning subprocesses from at least two different CWDs and asserting full-payload equality." Workstream checklist: Phase C entry hardening checked off; cohort baseline added as the next open item. |
 | 2026-05-10 | 10 | PR #4 merged (`21e84392`): Phase C entry shadow consumer lands. New `route_equivalence_loader.py`, `route_equivalence_shadow.py`, `--route-equivalence-jsonl` CLI flag, and harness-boundary safety tests (byte-identity-when-flag-unset, load-failure-emits-error). Shadow-only — no retrieval/grading change. `milestone_progress.M3: not_started -> in_progress`. `external_pull_requests` gains `github-pr-4` with the new "test the boundary that owns the rubric" bullet. Checklist Reanchor / Phase C Evidence / Session log synced; `HANDOFF-phase-c-route-equivalence-shadow-consumer.md` archived. |
