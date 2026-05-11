@@ -1,0 +1,120 @@
+from __future__ import annotations
+
+import json
+import shutil
+import subprocess
+from pathlib import Path
+
+import pytest
+
+from evals.sentence_routing_retrieval_falsification.cohort_baseline_run import (
+    COHORT_MANIFEST_SCHEMA_V1,
+    COHORT_SUMMARY_SCHEMA_V1,
+    _workspace_relative_posix,
+    build_cohort_summary,
+    load_cohort_manifest,
+)
+
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+_MANIFEST = _REPO_ROOT / "evals/sentence_routing_retrieval_falsification/cohorts/c1s1_to_c1s3_v1.json"
+
+
+def test_workspace_relative_posix_in_repo() -> None:
+    path = _REPO_ROOT / "evals/sentence_routing_retrieval_falsification/cohorts/c1s1_to_c1s3_v1.json"
+    assert _workspace_relative_posix(path, _REPO_ROOT).startswith("evals/")
+
+
+def test_workspace_relative_posix_outside_repo() -> None:
+    outside = Path("/tmp/some_file.json")
+    assert _workspace_relative_posix(outside, _REPO_ROOT) == "some_file.json"
+
+
+def test_load_cohort_manifest_validates_schema(tmp_path: Path) -> None:
+    bad = json.loads(_MANIFEST.read_text(encoding="utf-8"))
+    bad["schema"] = "wrong"
+    p = tmp_path / "bad.json"
+    p.write_text(json.dumps(bad), encoding="utf-8")
+    with pytest.raises(ValueError, match="unsupported cohort manifest schema"):
+        load_cohort_manifest(p)
+
+
+def test_load_cohort_manifest_validates_paths(tmp_path: Path) -> None:
+    bad = json.loads(_MANIFEST.read_text(encoding="utf-8"))
+    bad["scenarios"][0]["gold"] = "evals/sentence_routing_retrieval_falsification/gold/missing.json"
+    p = tmp_path / "bad_paths.json"
+    p.write_text(json.dumps(bad), encoding="utf-8")
+    with pytest.raises(ValueError, match="missing scenario path"):
+        load_cohort_manifest(p)
+
+
+def _report(shadow: dict) -> dict:
+    return {
+        "gold_schema": "x",
+        "all_ok": True,
+        "results": [
+            {"scenario_id": "q1", "ok": True, "violations": ["b", "a"], "shadow_route_equivalences": shadow},
+            {"scenario_id": "q2", "ok": False, "violations": ["d", "c"], "shadow_route_equivalences": shadow},
+        ],
+    }
+
+
+def test_build_cohort_summary_curates_expected_shape() -> None:
+    manifest = load_cohort_manifest(_MANIFEST)
+    summary = build_cohort_summary(
+        manifest=manifest,
+        per_scenario_reports=[_report({"schema": "s"}), _report({"schema": "s"}), _report({"schema": "s"})],
+        workspace_root=_REPO_ROOT,
+        manifest_path=_MANIFEST,
+    )
+    assert summary["schema"] == COHORT_SUMMARY_SCHEMA_V1
+    assert "aggregate_llm_cost_usd" not in summary
+    assert "llm_model" not in summary
+    assert len(summary["scenarios"]) == 3
+
+
+def test_build_cohort_summary_rejects_inconsistent_shadow_payload() -> None:
+    manifest = load_cohort_manifest(_MANIFEST)
+    bad_report = {
+        "gold_schema": "x",
+        "all_ok": True,
+        "results": [
+            {"scenario_id": "q1", "ok": True, "violations": [], "shadow_route_equivalences": {"a": 1}},
+            {"scenario_id": "q2", "ok": True, "violations": [], "shadow_route_equivalences": {"a": 2}},
+        ],
+    }
+    with pytest.raises(ValueError, match="inconsistent shadow_route_equivalences"):
+        build_cohort_summary(manifest=manifest, per_scenario_reports=[bad_report, _report({"a": 1}), _report({"a": 1})], workspace_root=_REPO_ROOT, manifest_path=_MANIFEST)
+
+
+def test_build_cohort_summary_sorts_violations() -> None:
+    manifest = load_cohort_manifest(_MANIFEST)
+    summary = build_cohort_summary(manifest=manifest, per_scenario_reports=[_report({"a": 1}), _report({"a": 1}), _report({"a": 1})], workspace_root=_REPO_ROOT, manifest_path=_MANIFEST)
+    assert summary["scenarios"][0]["violations"][0]["violations"] == ["a", "b"]
+
+
+def test_cohort_baseline_run_write_produces_summary_with_committed_manifest(tmp_path: Path) -> None:
+    if shutil.which("uv") is None:
+        pytest.skip("uv not available")
+    out = tmp_path / "summary.json"
+    run = subprocess.run([
+        "uv", "run", "--directory", str(_REPO_ROOT), "python", "-m", "evals.sentence_routing_retrieval_falsification.cohort_baseline_run", "--write", "--manifest", str(_MANIFEST), "--baseline", str(out)
+    ], capture_output=True, text=True, cwd=str(_REPO_ROOT))
+    assert run.returncode == 0, run.stderr
+    data = json.loads(out.read_text(encoding="utf-8"))
+    assert data["schema"] == COHORT_SUMMARY_SCHEMA_V1
+    assert len(data["scenarios"]) == 3
+
+
+def test_cohort_baseline_run_write_is_byte_identical_across_cwds(tmp_path: Path) -> None:
+    if shutil.which("uv") is None:
+        pytest.skip("uv not available")
+    out_a = tmp_path / "from_repo_root.json"
+    out_b = tmp_path / "from_subdir.json"
+    cmd_base = [
+        "uv", "run", "--directory", str(_REPO_ROOT), "python", "-m", "evals.sentence_routing_retrieval_falsification.cohort_baseline_run", "--write", "--manifest", "evals/sentence_routing_retrieval_falsification/cohorts/c1s1_to_c1s3_v1.json",
+    ]
+    run_a = subprocess.run(cmd_base + ["--baseline", str(out_a)], capture_output=True, text=True, cwd=str(_REPO_ROOT))
+    run_b = subprocess.run(cmd_base + ["--baseline", str(out_b)], capture_output=True, text=True, cwd=str(_REPO_ROOT / "tests"))
+    assert run_a.returncode == 0, run_a.stderr
+    assert run_b.returncode == 0, run_b.stderr
+    assert out_a.read_bytes() == out_b.read_bytes()

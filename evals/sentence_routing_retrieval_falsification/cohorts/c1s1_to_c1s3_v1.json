@@ -1,0 +1,33 @@
+{
+  "schema": "dmb_breadcrumb_query_cohort_manifest_v1",
+  "cohort_id": "c1s1_to_c1s3_v1",
+  "notes": "Pre-plan retrieval baseline cohort: C1S1 + C1S2 + C1S3 (all longmont-c1, retrieval-only). PR 6 / A/B Benchmarking Sprint L1 anchor. Adding scenarios = new manifest + new baseline file; do not mutate this one.",
+  "campaign_id": "longmont-c1",
+  "route_equivalence_jsonl": [
+    "evals/sentence_routing_retrieval_falsification/artifacts/lexicon/route_equivalence_longmont_c1_v1.jsonl",
+    "evals/sentence_routing_retrieval_falsification/artifacts/lexicon/route_equivalence_longmont_c2_v1.jsonl"
+  ],
+  "scenarios": [
+    {
+      "scenario_id": "c1s1",
+      "gold": "evals/sentence_routing_retrieval_falsification/gold/breadcrumb_query_natural_c1s1_v1.json",
+      "records_jsonl": "evals/sentence_routing_retrieval_falsification/artifacts/last_session1_c1_breadcrumb_records.jsonl",
+      "session_number": 1,
+      "notes": "C1 Session 1 — roster/identity-bundle coverage; 23 records."
+    },
+    {
+      "scenario_id": "c1s2",
+      "gold": "evals/sentence_routing_retrieval_falsification/gold/breadcrumb_query_natural_c1s2_v1.json",
+      "records_jsonl": "evals/sentence_routing_retrieval_falsification/artifacts/c1s2_norm_smoke.records_meta.jsonl",
+      "session_number": 2,
+      "notes": "C1 Session 2 — clean control lane; 13 records."
+    },
+    {
+      "scenario_id": "c1s3",
+      "gold": "evals/sentence_routing_retrieval_falsification/gold/breadcrumb_query_natural_c1s3_v1.json",
+      "records_jsonl": "evals/sentence_routing_retrieval_falsification/artifacts/c1s3_norm_smoke.records_meta.jsonl",
+      "session_number": 3,
+      "notes": "C1 Session 3 — location-entity hierarchy pressure; 61 records."
+    }
+  ]
+}

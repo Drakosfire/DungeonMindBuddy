@@ -1,0 +1,321 @@
+{
+  "schema": "dmb_breadcrumb_query_cohort_summary_v1",
+  "cohort_id": "c1s1_to_c1s3_v1",
+  "manifest": "evals/sentence_routing_retrieval_falsification/cohorts/c1s1_to_c1s3_v1.json",
+  "campaign_id": "longmont-c1",
+  "route_equivalence_jsonl": [
+    "evals/sentence_routing_retrieval_falsification/artifacts/lexicon/route_equivalence_longmont_c1_v1.jsonl",
+    "evals/sentence_routing_retrieval_falsification/artifacts/lexicon/route_equivalence_longmont_c2_v1.jsonl"
+  ],
+  "retrieval_only": true,
+  "llm_enabled": false,
+  "scenarios": [
+    {
+      "scenario_id": "c1s1",
+      "gold": "evals/sentence_routing_retrieval_falsification/gold/breadcrumb_query_natural_c1s1_v1.json",
+      "records_jsonl": "evals/sentence_routing_retrieval_falsification/artifacts/last_session1_c1_breadcrumb_records.jsonl",
+      "session_number": 1,
+      "gold_schema": "dmb_breadcrumb_query_natural_gold_v1",
+      "all_ok": true,
+      "scenario_count": 16,
+      "pass_count": 16,
+      "fail_count": 0,
+      "violations": [
+        {
+          "scenario_id": "c1s1_party_roster_origin",
+          "ok": true,
+          "violations": []
+        },
+        {
+          "scenario_id": "c1s1_party_classes_species",
+          "ok": true,
+          "violations": []
+        },
+        {
+          "scenario_id": "c1s1_stonebridge_known_for",
+          "ok": true,
+          "violations": []
+        },
+        {
+          "scenario_id": "c1s1_glowkindle_job_source",
+          "ok": true,
+          "violations": []
+        },
+        {
+          "scenario_id": "c1s1_grishna_directions",
+          "ok": true,
+          "violations": []
+        },
+        {
+          "scenario_id": "c1s1_brewery_compass_direction",
+          "ok": true,
+          "violations": []
+        },
+        {
+          "scenario_id": "c1s1_bonogo_firkin",
+          "ok": true,
+          "violations": []
+        },
+        {
+          "scenario_id": "c1s1_route_to_brewery",
+          "ok": true,
+          "violations": []
+        },
+        {
+          "scenario_id": "c1s1_stone_foot_landmark",
+          "ok": true,
+          "violations": []
+        },
+        {
+          "scenario_id": "c1s1_brewery_arrival",
+          "ok": true,
+          "violations": []
+        },
+        {
+          "scenario_id": "c1s1_glowkindle_offer",
+          "ok": true,
+          "violations": []
+        },
+        {
+          "scenario_id": "c1s1_rat_incident_origin",
+          "ok": true,
+          "violations": []
+        },
+        {
+          "scenario_id": "c1s1_first_combat_cost",
+          "ok": true,
+          "violations": []
+        },
+        {
+          "scenario_id": "c1s1_post_combat_exploration",
+          "ok": true,
+          "violations": []
+        },
+        {
+          "scenario_id": "c1s1_karsemine_spider_reveal",
+          "ok": true,
+          "violations": []
+        },
+        {
+          "scenario_id": "c1s1_final_threat",
+          "ok": true,
+          "violations": []
+        }
+      ],
+      "shadow_route_equivalences": {
+        "schema": "dmb_route_equivalence_shadow_v1",
+        "scenario_campaign_id": "longmont-c1",
+        "edges_total": 5,
+        "edges_for_scenario_campaign": 2,
+        "campaign_ids": [
+          "longmont-c1",
+          "longmont-c2"
+        ],
+        "source_paths": [
+          "evals/sentence_routing_retrieval_falsification/artifacts/lexicon/route_equivalence_longmont_c1_v1.jsonl",
+          "evals/sentence_routing_retrieval_falsification/artifacts/lexicon/route_equivalence_longmont_c2_v1.jsonl"
+        ]
+      }
+    },
+    {
+      "scenario_id": "c1s2",
+      "gold": "evals/sentence_routing_retrieval_falsification/gold/breadcrumb_query_natural_c1s2_v1.json",
+      "records_jsonl": "evals/sentence_routing_retrieval_falsification/artifacts/c1s2_norm_smoke.records_meta.jsonl",
+      "session_number": 2,
+      "gold_schema": "dmb_breadcrumb_query_natural_gold_v1",
+      "all_ok": true,
+      "scenario_count": 15,
+      "pass_count": 15,
+      "fail_count": 0,
+      "violations": [
+        {
+          "scenario_id": "c1s2_threat_inventory",
+          "ok": true,
+          "violations": []
+        },
+        {
+          "scenario_id": "c1s2_basement_clearing_payoff",
+          "ok": true,
+          "violations": []
+        },
+        {
+          "scenario_id": "c1s2_glowkindle_stash_deal",
+          "ok": true,
+          "violations": []
+        },
+        {
+          "scenario_id": "c1s2_god_forsaken_scope",
+          "ok": true,
+          "violations": []
+        },
+        {
+          "scenario_id": "c1s2_pay_and_loot_summary",
+          "ok": true,
+          "violations": []
+        },
+        {
+          "scenario_id": "c1s2_party_commitment",
+          "ok": true,
+          "violations": []
+        },
+        {
+          "scenario_id": "c1s2_basement_lesson",
+          "ok": true,
+          "violations": []
+        },
+        {
+          "scenario_id": "c1s2_hook_more_work_glowkindle",
+          "ok": true,
+          "violations": []
+        },
+        {
+          "scenario_id": "c1s2_hook_stonebridge_grishna",
+          "ok": true,
+          "violations": []
+        },
+        {
+          "scenario_id": "c1s2_hook_wizard_tower_thread",
+          "ok": true,
+          "violations": []
+        },
+        {
+          "scenario_id": "c1s2_spider_beat",
+          "ok": true,
+          "violations": []
+        },
+        {
+          "scenario_id": "c1s2_centipede_beat",
+          "ok": true,
+          "violations": []
+        },
+        {
+          "scenario_id": "c1s2_non_mutating_rat",
+          "ok": true,
+          "violations": []
+        },
+        {
+          "scenario_id": "c1s2_planning_glowkindle_followup",
+          "ok": true,
+          "violations": []
+        },
+        {
+          "scenario_id": "c1s2_prep_named_hostiles",
+          "ok": true,
+          "violations": []
+        }
+      ],
+      "shadow_route_equivalences": {
+        "schema": "dmb_route_equivalence_shadow_v1",
+        "scenario_campaign_id": "longmont-c1",
+        "edges_total": 5,
+        "edges_for_scenario_campaign": 2,
+        "campaign_ids": [
+          "longmont-c1",
+          "longmont-c2"
+        ],
+        "source_paths": [
+          "evals/sentence_routing_retrieval_falsification/artifacts/lexicon/route_equivalence_longmont_c1_v1.jsonl",
+          "evals/sentence_routing_retrieval_falsification/artifacts/lexicon/route_equivalence_longmont_c2_v1.jsonl"
+        ]
+      }
+    },
+    {
+      "scenario_id": "c1s3",
+      "gold": "evals/sentence_routing_retrieval_falsification/gold/breadcrumb_query_natural_c1s3_v1.json",
+      "records_jsonl": "evals/sentence_routing_retrieval_falsification/artifacts/c1s3_norm_smoke.records_meta.jsonl",
+      "session_number": 3,
+      "gold_schema": "dmb_breadcrumb_query_natural_gold_v1",
+      "all_ok": true,
+      "scenario_count": 13,
+      "pass_count": 13,
+      "fail_count": 0,
+      "violations": [
+        {
+          "scenario_id": "c1s3_bubbles_mage_hand_beat",
+          "ok": true,
+          "violations": []
+        },
+        {
+          "scenario_id": "c1s3_pippa_ride_kegs",
+          "ok": true,
+          "violations": []
+        },
+        {
+          "scenario_id": "c1s3_grishna_comp_board",
+          "ok": true,
+          "violations": []
+        },
+        {
+          "scenario_id": "c1s3_stafl_brewery_song",
+          "ok": true,
+          "violations": []
+        },
+        {
+          "scenario_id": "c1s3_bonogo_downstream_zen",
+          "ok": true,
+          "violations": []
+        },
+        {
+          "scenario_id": "c1s3_ephanna_second_lasso",
+          "ok": true,
+          "violations": []
+        },
+        {
+          "scenario_id": "c1s3_caelynn_ice_platform",
+          "ok": true,
+          "violations": []
+        },
+        {
+          "scenario_id": "c1s3_karsemine_zephyr_chase",
+          "ok": true,
+          "violations": []
+        },
+        {
+          "scenario_id": "c1s3_kirfan_debris_help",
+          "ok": true,
+          "violations": []
+        },
+        {
+          "scenario_id": "c1s3_stafl_nets_town",
+          "ok": true,
+          "violations": []
+        },
+        {
+          "scenario_id": "c1s3_bonogo_dive_rope_gone",
+          "ok": true,
+          "violations": []
+        },
+        {
+          "scenario_id": "c1s3_mirathorn_festival_hook",
+          "ok": true,
+          "violations": []
+        },
+        {
+          "scenario_id": "c1s3_stonebridge_npc_roster_associated",
+          "ok": true,
+          "violations": []
+        }
+      ],
+      "shadow_route_equivalences": {
+        "schema": "dmb_route_equivalence_shadow_v1",
+        "scenario_campaign_id": "longmont-c1",
+        "edges_total": 5,
+        "edges_for_scenario_campaign": 2,
+        "campaign_ids": [
+          "longmont-c1",
+          "longmont-c2"
+        ],
+        "source_paths": [
+          "evals/sentence_routing_retrieval_falsification/artifacts/lexicon/route_equivalence_longmont_c1_v1.jsonl",
+          "evals/sentence_routing_retrieval_falsification/artifacts/lexicon/route_equivalence_longmont_c2_v1.jsonl"
+        ]
+      }
+    }
+  ],
+  "aggregate": {
+    "total_questions": 44,
+    "total_pass": 44,
+    "total_fail": 0,
+    "all_scenarios_all_ok": true
+  }
+}
