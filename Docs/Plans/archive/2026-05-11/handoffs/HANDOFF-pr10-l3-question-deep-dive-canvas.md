@@ -17,7 +17,7 @@ pr_body_template: |
 # HANDOFF — PR #10: L3 per-question deep-dive artifact + review canvas
 
 **Created:** 2026-05-11 (UTC).
-**Status:** ACTIVE — dispatch this to one external/Codex subagent. One PR. Do not split into multiple PRs.
+**Status:** COMPLETED — merged via [PR #10](https://github.com/Drakosfire/DungeonMindBuddy/pull/10) on 2026-05-11T14:54:48Z (merge commit `c75c3f6b622b35658eafd0a5b1641421b791357e`). Review round: 1 (`APPROVE` demoted to `COMMENTED` under self-review fallback, review id `4264759583`).
 **Parent agent:** Cursor agent; dispatcher is responsible for post-merge atomic doc-sync of `Docs/Plans/CHECKLIST-dynamic-lexical-retrieval-rollout.md` and `Docs/Plans/PLAN-split-corpus-retrieval-to-autonomous-demo.md`.
 **Plan anchor:** `Docs/Plans/PLAN-split-corpus-retrieval-to-autonomous-demo.md` (`active_phase: B`, `M2: in_progress`, `M3: complete`, `M4: not_started`). This handoff is a post-PR #9 understanding/diagnostics slice; it does not promote retrieval defaults.
 
