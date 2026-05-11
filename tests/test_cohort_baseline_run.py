@@ -186,3 +186,27 @@ def test_compute_recall_via_equivalence_rescued_and_unrescued() -> None:
     )
     assert unrescued is not None
     assert unrescued["recall"] == 0.0
+
+def test_run_one_scenario_skip_flag_is_derived_from_scenario_id(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    from evals.sentence_routing_retrieval_falsification import cohort_baseline_run as m
+    seen = {}
+    def fake_run(cmd, **kwargs):
+        seen['cmd']=cmd
+        class X: pass
+        return X()
+    monkeypatch.setattr(subprocess, 'run', fake_run)
+    out = tmp_path / 'o.json'
+    out.write_text('{"results": []}', encoding='utf-8')
+    m.run_one_scenario(scenario={'scenario_id':'c1s1','records_jsonl':'a','gold':'b'}, route_equivalence_jsonl=[], workspace_root=_REPO_ROOT, per_scenario_out=out)
+    assert '--skip-c1s1-canvas-refresh' in seen['cmd']
+
+
+def test_mode_both_write_delta_schema(tmp_path: Path) -> None:
+    if shutil.which('uv') is None:
+        pytest.skip('uv not available')
+    out = tmp_path / 'delta.json'
+    run = subprocess.run(['uv','run','--directory',str(_REPO_ROOT),'python','-m','evals.sentence_routing_retrieval_falsification.cohort_baseline_run','--mode','both','--write-delta',str(out)], capture_output=True, text=True)
+    assert run.returncode == 0, run.stderr
+    data = json.loads(out.read_text(encoding='utf-8'))
+    assert data['schema_id'] == 'dmb_breadcrumb_query_cohort_l3_delta_v1'
+    assert 'delta_summary' in data

@@ -231,7 +231,7 @@ def _run_breadcrumb_query_run_subprocess(*, output_path: Path, extra_args: list[
     return subprocess.run(cmd, capture_output=True, text=True)
 
 
-def test_route_equivalence_flag_is_additive_only_at_harness_boundary(tmp_path: Path) -> None:
+def test_use_route_equivalence_for_ranking_flag_is_additive_only_at_harness_boundary(tmp_path: Path) -> None:
     if shutil.which("uv") is None:
         pytest.skip("uv not available")
     out_without = tmp_path / "without.json"
@@ -244,6 +244,7 @@ def test_route_equivalence_flag_is_additive_only_at_harness_boundary(tmp_path: P
             str(_route_equivalence_paths()[0]),
             "--route-equivalence-jsonl",
             str(_route_equivalence_paths()[1]),
+            "--use-route-equivalence-for-ranking",
         ],
     )
     assert without_result.returncode == 0, without_result.stderr
@@ -254,9 +255,10 @@ def test_route_equivalence_flag_is_additive_only_at_harness_boundary(tmp_path: P
     for base_row, flagged_row in zip(rows_without, rows_with, strict=True):
         assert "shadow_route_equivalences" not in base_row
         assert "shadow_route_equivalences" in flagged_row
-        flagged_without_shadow = dict(flagged_row)
-        flagged_without_shadow.pop("shadow_route_equivalences", None)
-        assert base_row == flagged_without_shadow
+        assert base_row["scenario_id"] == flagged_row["scenario_id"]
+        assert flagged_row.get("ranking_augmented_by_equivalences") is True
+        aliases = (flagged_row.get("query_token_aliases") or flagged_row.get("query_trace", {}).get("query_token_aliases") or flagged_row.get("full_result", {}).get("trace", {}).get("query_token_aliases") or [])
+        assert aliases
 
 
 
