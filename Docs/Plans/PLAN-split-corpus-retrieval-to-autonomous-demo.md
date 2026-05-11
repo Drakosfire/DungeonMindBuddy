@@ -6,9 +6,9 @@ title: Split-corpus retrieval to autonomous C1S1–C1S3 demo
 document_class: plan
 plan_kind: execution_super_plan
 status: active
-version: 14
+version: 15
 created_at: "2026-05-09T00:00:00Z"
-last_updated_at: "2026-05-11T03:05:00Z"
+last_updated_at: "2026-05-11T03:46:00Z"
 timezone_note: "Timestamps are UTC; local work may use America/Denver."
 supersedes: []
 superseded_by: null
@@ -50,19 +50,17 @@ execution_state:
     && uv run pytest tests/test_breadcrumb_query_run_lexicon_records_jsonl.py -q
     && uv run pytest tests/test_cohort_baseline_run.py -q
     && uv run python -m evals.sentence_routing_retrieval_falsification.cohort_baseline_run --check
-    (PR #4 + #5 + #6 + #7 regression bundle on main). **PR #7 merged** — L2
-    recall-via-equivalence is on `dmb_breadcrumb_query_cohort_summary_v2` at
-    `evals/sentence_routing_retrieval_falsification/artifacts/baselines/cohort_baseline_c1s1_to_c1s3_v2.json`
-    (v1 baseline removed; harness adds `expected_route_substring_breakdown` per row).
-    Tight cohort shows **44/44** with per-scenario `recall_via_equivalence: null`
-    (denominator zero — expected). **Next slices:** (a) **PR #8** — producer-side
-    `manifest_hash` + provenance on `route_equivalence_longmont_c*_v1.jsonl`
-    (PLAN narrative renumbered from former PR #7); (b) **wider cohort** — records
-    for `c1s13_v1` / `natural_v1` plus manifest + baseline (prerequisite before L2
-    integration signal); (c) **PR 9** — Phase C exit: minimal additive ranking-input
-    wiring + true A/B cohort. Before widening the manifest, fix hardcoded
-    `--skip-c1s*-canvas-refresh` in `cohort_baseline_run.run_one_scenario` (rubric
-    carry-forward from PR #7 review).
+    (PR #4 + #5 + #6 + #7 + #8 regression bundle on main). **PR #8 merged** — committed
+    `route_equivalence_longmont_c*_v1.jsonl` are **`schema_version` `0.3.0`** with
+    per-file **`route_equivalence_manifest_hash`** (SHA-256 over the §6.2 preimage)
+    plus **`producer_registry_path`** (workspace-relative POSIX) and
+    **`producer_registry_sha256`** on every line; harness and cohort runners unchanged.
+    **Next slices:** (a) **wider cohort** — records for `c1s13_v1` / `natural_v1` plus
+    manifest + baseline (prerequisite before non-null L2 signal); (b) **derive canvas
+    `--skip-*` flags** from `scenario_id` / manifest in `cohort_baseline_run` (PR #7
+    rubric carry-forward) **before** widening the cohort manifest; (c) **Phase C exit**
+    slice — minimal additive ranking-input wiring + true A/B cohort when benchmarking
+    queue says so.
   flagged_followups:
     - >-
       Content quality of `location_hierarchy_equivalences` in
@@ -76,6 +74,24 @@ execution_state:
       is absent; document or generate that manifest before treating the audit as
       a portable gate (separate from route-equivalence JSONL lane).
   integration_notes:
+    - >-
+      PR #8 is MERGED to main (merge commit adeb060911be35f4f477cb15eaf701ab7d409fbf,
+      2026-05-11T03:45:24Z): producer route-equivalence JSONL **`0.3.0`** —
+      `RouteEquivalenceRecord` gains `producer_registry_path`, `producer_registry_sha256`,
+      `route_equivalence_manifest_hash`; `build_route_equivalence_manifest` computes
+      preimage per handoff §6.2 (sorted `record_id`, `model_dump(exclude={hash})`,
+      `json.dumps(..., sort_keys=True)`, joined SHA-256); committed
+      `evals/.../artifacts/lexicon/route_equivalence_longmont_c{1,2}_v1.jsonl` regenerated;
+      loader admits `0.3.0`; lexicon tests + byte-stable + manifest preimage test extended.
+      Pre-merge verification on PR head `91fb12ee1b09e03b6653148124e5a2f8816dbcdc`: lexicon
+      **25** passed; byte-stable **10**; loader **6**; manifest **4**; record defaults **1**;
+      `build_route_equivalence_manifests.py --check` OK both; breadcrumb harness **12**;
+      cohort **13**; `cohort_baseline_run --check` OK v2; probes: one manifest hash per file,
+      schema `0.3.0`, one registry sha256 per c1 file, workspace-relative `producer_registry_path`.
+      No edits to `breadcrumb_query_run.py`, `cohort_baseline_run.py`, `route_equivalence_shadow.py`,
+      gold, or baselines. Verdict APPROVE demoted to COMMENTED (self-review fallback, review id
+      `4260634217`). One non-blocking review note: preimage-sensitivity test mutates registry file
+      (registry sha256 co-changes); future test can isolate semantic edge-only mutation in-memory.
     - >-
       PR #7 is MERGED to main (merge commit 0036df30e5f53abd7ba76ab510483a9e1df0d3fa,
       2026-05-11T02:59:47Z): A/B sprint **L2** — additive per-row
@@ -177,6 +193,20 @@ execution_state:
       -> 10 passed (round 2 added byte-identity-when-flag-unset and
       load-failure-emits-error harness-boundary tests).
 changelog:
+  - at: "2026-05-11T03:46:00Z"
+    version: 15
+    summary: >-
+      PR #8 merged (adeb060911be35f4f477cb15eaf701ab7d409fbf): producer **`0.3.0`**
+      route-equivalence JSONL — `route_equivalence_manifest_hash` + `producer_registry_path`
+      + `producer_registry_sha256` on every line; §6.2 preimage in
+      `route_equivalence_manifest.py`; loader + tests; no harness/cohort/shadow edits.
+      `external_pull_requests` gains `github-pr-8` with four NEW rubric bullets (preimage
+      normative definition; per-file hash constancy; workspace-relative path + registry-byte
+      tie; sensitivity tests must hold other preimage inputs constant). `next_gate_command`
+      and integration_notes updated; lexicon regression count **25** on verified head.
+      Handoff `HANDOFF-pr8-producer-route-equivalence-manifest-hash.md` archived under
+      `archive/2026-05-11/handoffs/`. Checklist Reanchor + Phase B header + session log synced.
+      Next queue: wider cohort and/or canvas `--skip-*` derivation before manifest expansion.
   - at: "2026-05-11T03:05:00Z"
     version: 14
     summary: >-
@@ -324,6 +354,62 @@ changelog:
 # Notation: plan_phase_primary / plan_phase_also_touches map work to phases;
 # review_status captures current merge/review disposition.
 external_pull_requests:
+  - id: github-pr-8
+    url: https://github.com/Drakosfire/DungeonMindBuddy/pull/8
+    plan_phase_primary: "2"
+    plan_phase_also_touches: "1"
+    plan_phase_label: >-
+      Phase B producer provenance: bump committed `route_equivalence_longmont_c*_v1.jsonl`
+      to **`schema_version` `0.3.0`** with deterministic **`route_equivalence_manifest_hash`**
+      (SHA-256 over sorted-by-`record_id` JSON lines excluding the hash field), plus
+      **`producer_registry_path`** (workspace-relative POSIX) and **`producer_registry_sha256`**
+      (registry file bytes at build time). Extends `RouteEquivalenceRecord`, `build_route_equivalence_manifest`,
+      loader supported versions, byte-stable and manifest tests. No harness, cohort runner, shadow,
+      gold, or baseline edits.
+    review_status: merged
+    review_status_meaning: >-
+      Merged to main on 2026-05-11T03:45:24Z (merge commit
+      adeb060911be35f4f477cb15eaf701ab7d409fbf) after a single round of review.
+      Parent verification on PR head 91fb12ee1b09e03b6653148124e5a2f8816dbcdc: §7 suite green
+      (lexicon 25; byte-stable 10; loader 6; manifest 4; record defaults 1; manifest --check OK both;
+      breadcrumb harness 12; cohort tests 13; cohort --check OK v2 baseline; JSONL probes: one manifest
+      hash per file, schema 0.3.0, c1 registry sha256 distinct 1, workspace-relative producer_registry_path).
+      Verdict APPROVE demoted to COMMENTED under self-review fallback (review id 4260634217).
+    judgment_record:
+      verdict: accepted
+      evaluated_at: "2026-05-11T03:44:00Z"
+      evaluator: cursor-agent
+      notes: >-
+        Closes the producer-side manifest-hash lane deferred from PR #5 narrative. Every JSONL row
+        is cryptographically tied to the registry bytes and to a file-level self-consistency hash
+        for drift detection beyond raw byte compare. Loader policy drops stale `0.2.0` for committed
+        artifacts in favor of `0.3.0`. Follow-up captured on PR: preimage-sensitivity unit test could
+        hold registry bytes constant by mutating in-memory records instead of rewriting the registry file.
+    rubric_when_we_judge:
+      - >-
+        **Wider-cohort prerequisite — canvas skip flags (carry-forward from PR #7):** Before adding
+        scenarios beyond `c1s1`/`c1s2`/`c1s3` to the cohort manifest, `cohort_baseline_run.run_one_scenario`
+        MUST NOT rely on a hardcoded `--skip-c1s1-canvas-refresh` / `--skip-c2s*` triple; derive skip flags
+        from `scenario_id` (or manifest) so argv stays valid when the manifest expands.
+      - >-
+        **§6.2 manifest preimage (normative):** Sort materialized records by `record_id`. For each record,
+        `json.dumps(record.model_dump(mode="json", exclude={"route_equivalence_manifest_hash"}), sort_keys=True, ensure_ascii=False)`;
+        join lines with `\n`; SHA-256 UTF-8 digest → lowercase hex; assign the **same** digest string to every
+        record's `route_equivalence_manifest_hash` before `write_route_equivalence_manifest`. Emission order
+        remains `sorted(records, key=lambda r: r.record_id)`.
+      - >-
+        **Per-file constancy:** Within one committed JSONL file, `route_equivalence_manifest_hash` and
+        `producer_registry_sha256` MUST each resolve to exactly one distinct value across all non-blank lines
+        (probes + byte-stable tests).
+      - >-
+        **Workspace-relative `producer_registry_path` tied to registry bytes:** The path string MUST be
+        repo-root-relative POSIX (no drive letters, no `/home/...` prefixes for default builds); `producer_registry_sha256`
+        MUST be the SHA-256 of `Path(producer_registry_path).resolve().read_bytes()` at build time.
+      - >-
+        **Sensitivity tests and preimage inputs:** A test asserting that the manifest hash changes when a
+        semantic edge field changes MUST hold all other preimage inputs constant — rewriting the registry file
+        changes `producer_registry_sha256` and confounds "edge-only" discrimination; prefer in-memory
+        `RouteEquivalenceRecord` mutation or pair equality-before-mutation with inequality-after.
   - id: github-pr-7
     url: https://github.com/Drakosfire/DungeonMindBuddy/pull/7
     plan_phase_primary: "3"
@@ -833,7 +919,7 @@ Build a **skeptical, intentionally annoying-when-wrong** benchmarking surface fo
 
 ### Why this sprint, why now
 
-The retriever scoring path **has not changed** across PRs #2–#7. Everything through PR #5 — schema (PR #2), committed JSONL + reproducibility CLI (PR #3), shadow consumer + harness-boundary safety tests (PR #4), workspace-relative provenance (PR #5) — is upstream of retrieval. **PR #6** froze today's `--retrieval-only` behavior as a committed cohort baseline (`dmb_breadcrumb_query_cohort_summary_v1`, superseded as regression anchor by **PR #7**'s `dmb_breadcrumb_query_cohort_summary_v2`) without flipping the retriever. **PR #7** adds L2 diagnostics only (`expected_route_substring_breakdown`, `recall_via_equivalence`) — still no retrieval flip. `session_memory_query.py` and the breadcrumb ranking still use the legacy `build_campaign_lexicon` / benchmark-seeds path. So **today's retrieval == pre-plan retrieval at the algorithm level**, and L1+L2 are artifact-backed regression anchors for L3 below.
+The retriever scoring path **has not changed** across PRs #2–#8. Everything through PR #5 — schema (PR #2), committed JSONL + reproducibility CLI (PR #3), shadow consumer + harness-boundary safety tests (PR #4), workspace-relative provenance (PR #5) — is upstream of retrieval. **PR #6** froze today's `--retrieval-only` behavior as a committed cohort baseline (`dmb_breadcrumb_query_cohort_summary_v1`, superseded as regression anchor by **PR #7**'s `dmb_breadcrumb_query_cohort_summary_v2`) without flipping the retriever. **PR #7** adds L2 diagnostics only (`expected_route_substring_breakdown`, `recall_via_equivalence`) — still no retrieval flip. **PR #8** adds producer-side **`route_equivalence_manifest_hash`** + registry path/sha256 on committed JSONL (`schema_version` `0.3.0`) — still no retrieval flip. `session_memory_query.py` and the breadcrumb ranking still use the legacy `build_campaign_lexicon` / benchmark-seeds path. So **today's retrieval == pre-plan retrieval at the algorithm level**, and L1+L2 (+ producer provenance) are artifact-backed regression anchors for L3 below.
 
 ### Three comparison-fidelity levels mapped to PRs
 
@@ -841,7 +927,7 @@ The retriever scoring path **has not changed** across PRs #2–#7. Everything th
 |----|----|----|----|
 | **L1 — Pre-plan baseline frozen** | "What does today's retriever do on the existing question artifacts, byte-stably?" | **PR 6** (cohort baseline runner) | ~$0 (`--retrieval-only`, no LLM) |
 | **L2 — Leading indicator** | "Of the gold-expected routes today's retriever misses, how many would the new lexical artifacts have made reachable?" | **PR #7** (merged; was PLAN-narrative PR 6.5) | ~$0 |
-| **L3 — True architecture A/B** | "Same cohort, same gold, two retrieval modes (legacy vs equivalence-augmented). What's the metric delta?" | **PR 9 as planned**, or re-sequenced ahead of **PR #8** (producer `manifest_hash`) and entity-candidate lanes | ~$0 retrieval-only; LLM cost only if running end-to-end |
+| **L3 — True architecture A/B** | "Same cohort, same gold, two retrieval modes (legacy vs equivalence-augmented). What's the metric delta?" | **PR 9 as planned**, or re-sequenced vs wider cohort / entity-candidate lanes (producer `manifest_hash` landed **PR #8**) | ~$0 retrieval-only; LLM cost only if running end-to-end |
 
 L3 is what closes Phase 5 (Phase C **exit**). L1 and L2 do not flip the retriever — they live alongside the existing `shadow_route_equivalences` diagnostic.
 
@@ -857,7 +943,7 @@ L3 is what closes Phase 5 (Phase C **exit**). L1 and L2 do not flip the retrieve
 - Landed as additive `expected_route_substring_breakdown` per harness row + per-scenario `recall_via_equivalence` / `recall_via_equivalence_aggregate` on `cohort_baseline_run.py`; cohort summary schema `dmb_breadcrumb_query_cohort_summary_v2`; baseline `cohort_baseline_c1s1_to_c1s3_v2.json` (merge `0036df30`). Bridge uses slug-tail normalization + substring match against `from_route_id` / `to_route_id` on loaded records.
 - Does **not** change retrieval. Tight C1S1–C1S3 cohort: per-scenario `recall_via_equivalence` is `null` and aggregate stats are `null` (denominator zero — **expected** readout until a wider cohort with misses exists).
 
-**PR #8 (sibling lane, parallelizable)** — producer-side `manifest_hash` + provenance fields on `route_equivalence_longmont_c*_v1.jsonl`. File scopes don't overlap with PR #6 / PR #7; PLAN narrative renumbered from former PR #7.
+**PR #8 (merged)** — producer-side `route_equivalence_manifest_hash` + `producer_registry_path` + `producer_registry_sha256` on `route_equivalence_longmont_c*_v1.jsonl` at **`schema_version` `0.3.0`** (merge `adeb060911be35f4f477cb15eaf701ab7d409fbf`). File scopes did not overlap PR #6 / PR #7 harnesses.
 
 **Phase C exit slice — true A/B**
 
@@ -871,7 +957,7 @@ PR #6 shipped the **tight** cohort only (`c1s1`, `c1s2`, `c1s3` per `cohorts/c1s
 
 ### Re-sequencing question (updated after PR #7 L2)
 
-L1 + L2 baselines are published: cohort aggregate remains **44/44** `all_scenarios_all_ok`; L2 per-scenario `recall_via_equivalence` is **`null` for all three scenarios** (no gold route misses on the tight cohort — the rescue metric has **no integration signal** here). **Decision:** prioritize **wider cohort** (records + manifest + baseline) and/or **PR #8** producer `manifest_hash` before Phase C exit / true A/B (L3), since L2 did not surface headroom on C1S1–C1S3 alone. If L3 is re-sequenced ahead of entity-candidate lanes, the risk remains: wiring against equivalences-only may underperform the architecture's eventual ceiling.
+L1 + L2 baselines are published: cohort aggregate remains **44/44** `all_scenarios_all_ok`; L2 per-scenario `recall_via_equivalence` is **`null` for all three scenarios** (no gold route misses on the tight cohort — the rescue metric has **no integration signal** here). **PR #8** producer `manifest_hash` + registry provenance is **merged** (`adeb060`). **Decision:** prioritize **wider cohort** (records + manifest + baseline) and/or **derive canvas `--skip-*` argv** from `scenario_id` / manifest before expanding the cohort manifest, then Phase C exit / true A/B (L3), since L2 did not surface headroom on C1S1–C1S3 alone. If L3 is re-sequenced ahead of entity-candidate lanes, the risk remains: wiring against equivalences-only may underperform the architecture's eventual ceiling.
 
 ### Architectural seed (separate doc)
 
@@ -924,8 +1010,9 @@ Track detailed todos in [CHECKLIST-dynamic-lexical-retrieval-rollout.md](CHECKLI
 - [x] Phase C entry hardening: workspace-relative POSIX `source_paths` rendered at harness boundary, with CWD-invariance harness-boundary test (PR #5) — closes PR #4 known follow-up; unblocks byte-stable cohort baseline
 - [x] **A/B Benchmarking Sprint — L1:** PR #6 cohort baseline runner for C1S1-C1S3 (frozen pre-plan retrieval baseline, `--retrieval-only`, byte-stable; merge `9af4741a`)
 - [x] **A/B Benchmarking Sprint — L2:** PR #7 recall-via-equivalence metric on `dmb_breadcrumb_query_cohort_summary_v2` + v2 baseline + additive harness row field (merge `0036df30`; no retrieval flip)
-- [ ] **A/B Benchmarking Sprint — L3:** Phase C exit slice — minimal additive ranking-input wiring + true A/B cohort (PR 9 as planned, or re-sequenced vs PR #8 / wider cohort)
-- [ ] Phase B remainder: manifest hash / provenance on **producer-side** JSONL artifacts (**PR #8**, parallelizable; sibling to PR #6 / PR #7), entity-candidate + lexical-handle artifacts per contracts above
+- [ ] **A/B Benchmarking Sprint — L3:** Phase C exit slice — minimal additive ranking-input wiring + true A/B cohort (PR 9 as planned, or re-sequenced vs wider cohort / entity-candidate lanes)
+- [x] Phase B — producer JSONL provenance: **`route_equivalence_manifest_hash`** + registry path/sha256 on committed artifacts (**PR #8**, merge `adeb060911be35f4f477cb15eaf701ab7d409fbf`)
+- [ ] Phase B remainder: entity-candidate + lexical-handle artifacts per contracts above
 - [ ] Benchmark engine + cohort taxonomy (subsumed under the A/B sprint above for this vertical slice; broader scope after Phase 5 closes)
 - [ ] Shadow → canvas
 - [ ] Autonomous demo + runbook
@@ -935,6 +1022,7 @@ Track detailed todos in [CHECKLIST-dynamic-lexical-retrieval-rollout.md](CHECKLI
 
 | Date (UTC) | Version | Summary |
 |------------|---------|---------|
+| 2026-05-11 | 15 | PR #8 merged (`adeb060911be35f4f477cb15eaf701ab7d409fbf`): producer JSONL **`0.3.0`** — `route_equivalence_manifest_hash` + `producer_registry_path` + `producer_registry_sha256`; §6.2 preimage in `route_equivalence_manifest.py`; lexicon **25** passed on verified head. `github-pr-8` + five rubric bullets (canvas skip carry-forward; preimage; constancy; path+sha256 tie; sensitivity-test discipline). Handoff archived `2026-05-11/handoffs/HANDOFF-pr8-producer-route-equivalence-manifest-hash.md`. Next: wider cohort + canvas argv derivation. |
 | 2026-05-11 | 14 | PR #7 merged (`0036df30`): A/B sprint **L2** — `expected_route_substring_breakdown` + `recall_via_equivalence` / aggregate; schema `dmb_breadcrumb_query_cohort_summary_v2`; baseline `cohort_baseline_c1s1_to_c1s3_v2.json`; tests 47-pass bundle. `github-pr-7` + four rubric bullets. PLAN narrative: PR 6.5 → PR #7; producer lane PR #7 → **PR #8**. Handoff archived same date folder. |
 | 2026-05-11 | 13 | PR #6 merged (`9af4741a`): A/B sprint **L1** — `cohort_baseline_run.py`, manifest `cohorts/c1s1_to_c1s3_v1.json`, frozen curated baseline `artifacts/baselines/cohort_baseline_c1s1_to_c1s3_v1.json`, `tests/test_cohort_baseline_run.py` (harness-boundary CWD invariance on full curated JSON). `external_pull_requests` gains `github-pr-6` with three NEW rubric bullets (baseline `--check`; cohort subprocess CWD contract; curated-field exclusions + no canvas drift). `next_gate_command` adds cohort pytest + `--check`. Checklist + handoff archive `2026-05-11`. Open cohort scope question resolved tight by shipped manifest. |
 | 2026-05-10 | 12 | Capture **A/B Benchmarking Sprint** as the current active workstream — skeptical, intentionally annoying-when-wrong benchmarking surface for this vertical slice that compares the new lexical-artifact architecture against the original ad-hoc retrieval design on the existing `breadcrumb_query_natural_*.json` question artifacts. New `## A/B Benchmarking Sprint (post-PR #5)` section (between Phase 5 and Phase 6) defines three comparison-fidelity levels (L1 baseline at PR 6, L2 leading indicator at PR 6/6.5, L3 true A/B at re-sequenceable PR 7-or-9) and the open scope + re-sequencing questions. `next_gate_command` rewritten to lead with the sprint framing. Workstream checklist gains explicit L1/L2/L3 sub-items. Architectural seed captured separately in `Docs/Design/DESIGN-dungeonbuddy-client-seed.md` (status: SEED) — extracted LLM + benchmarking client absorbing DungeonMindServer lessons; not an active workstream. |

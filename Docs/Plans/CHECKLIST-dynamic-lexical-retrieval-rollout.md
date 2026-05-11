@@ -8,6 +8,7 @@
 **Phase C entry shadow consumer PR:** [DungeonMindBuddy#4](https://github.com/Drakosfire/DungeonMindBuddy/pull/4) — **MERGED** to `main` 2026-05-10T16:22Z (merge commit `21e84392da03095377b4de36defb82edfc37c741`): adds `src/lexicon_phase_b/route_equivalence_loader.py`, `evals/sentence_routing_retrieval_falsification/route_equivalence_shadow.py`, and `--route-equivalence-jsonl` (repeatable) CLI flag on `breadcrumb_query_run`. `shadow_route_equivalences` (`dmb_route_equivalence_shadow_v1`) is emitted only when the flag is set; legacy retrieval, grading, and `shadow_token_resolution` are unchanged. Round 2 added harness-boundary safety tests in `tests/test_breadcrumb_query_run_lexicon_records_jsonl.py`.
 **Phase C entry provenance hardening PR:** [DungeonMindBuddy#5](https://github.com/Drakosfire/DungeonMindBuddy/pull/5) — **MERGED** to `main` 2026-05-10T21:09Z (merge commit `40be747a87d0eecb4dc1c865f236f3728cf1d4d4`): makes `shadow_route_equivalences.source_paths` workspace-relative POSIX strings rendered at the harness boundary so the field is byte-identical regardless of operator CWD or absolute install path. Adds `_workspace_relative_posix(path, workspace_root)` helper to `route_equivalence_shadow.py`; required `workspace_root: Path` kwarg on `build_route_equivalence_shadow_payload`; harness wires `_HARNESS_WORKSPACE_ROOT = Path(__file__).resolve().parents[2]`. New harness-boundary test `test_route_equivalence_source_paths_are_workspace_relative_and_cwd_invariant` asserts full-payload byte-identity across two operator CWDs. Closes the PR #4 known follow-up; unblocks a byte-stable cohort `shadow_route_equivalences` baseline.
 **A/B sprint L2 recall PR:** [DungeonMindBuddy#7](https://github.com/Drakosfire/DungeonMindBuddy/pull/7) — **MERGED** to `main` 2026-05-11T02:59Z (merge commit `0036df30e5f53abd7ba76ab510483a9e1df0d3fa`): additive `breadcrumb_query_run.py` row field `expected_route_substring_breakdown`; `cohort_baseline_run.py` gains `recall_via_equivalence` / aggregate; frozen baseline `artifacts/baselines/cohort_baseline_c1s1_to_c1s3_v2.json` (`dmb_breadcrumb_query_cohort_summary_v2`; v1 removed). `tests/test_breadcrumb_query_run_lexicon_records_jsonl.py` 12 tests; `tests/test_cohort_baseline_run.py` 13 tests. No retrieval flip. Cost $0.
+**Phase B producer provenance PR:** [DungeonMindBuddy#8](https://github.com/Drakosfire/DungeonMindBuddy/pull/8) — **MERGED** to `main` 2026-05-11T03:45Z (merge commit `adeb060911be35f4f477cb15eaf701ab7d409fbf`): committed `route_equivalence_longmont_c*_v1.jsonl` at **`schema_version` `0.3.0`** with **`route_equivalence_manifest_hash`**, **`producer_registry_path`** (workspace-relative POSIX), **`producer_registry_sha256`**; `build_route_equivalence_manifest` preimage per PLAN §6.2; loader + lexicon tests extended. No harness, cohort runner, shadow, gold, or baseline edits. Cost $0.
 **A/B sprint L1 cohort baseline PR:** [DungeonMindBuddy#6](https://github.com/Drakosfire/DungeonMindBuddy/pull/6) — **MERGED** to `main` 2026-05-11T01:49Z (merge commit `9af4741a635125d3403d66a9f266564f25bad746`): `cohort_baseline_run.py`, manifest `cohorts/c1s1_to_c1s3_v1.json`, frozen curated baseline at ship time `artifacts/baselines/cohort_baseline_c1s1_to_c1s3_v1.json` (superseded as `--check` anchor by PR #7 v2), `tests/test_cohort_baseline_run.py`. L1 had no harness/shadow/producer/gold edits; PR #7 additively extended `breadcrumb_query_run.py` for L2 only.
 **Status model:** keep exactly one phase marked as active at a time.
 
@@ -16,10 +17,10 @@
 ## Reanchor Block (fill first each session)
 
 - [x] **Active phase:** `B` (with **Phase C entry** shadow consumer landed via PR #4 and **provenance hardening** landed via PR #5; retriever wiring still gated for Phase C exit / promotion gate)
-- [x] **Last green artifact (path):** `uv run python scripts/build_route_equivalence_manifests.py --check` -> `OK` for both `route_equivalence_longmont_c1_v1.jsonl` and `route_equivalence_longmont_c2_v1.jsonl`; `uv run pytest tests/lexicon_phase_b/ -q` -> `22 passed`; `uv run pytest tests/test_breadcrumb_query_run_lexicon_records_jsonl.py -q` -> `12 passed`; `uv run pytest tests/test_cohort_baseline_run.py -q` -> `13 passed`; `uv run python -m evals.sentence_routing_retrieval_falsification.cohort_baseline_run --check` -> `OK …/cohort_baseline_c1s1_to_c1s3_v2.json` (post-PR #7 `main`, 2026-05-11).
+- [x] **Last green artifact (path):** `uv run python scripts/build_route_equivalence_manifests.py --check` -> `OK` for both `route_equivalence_longmont_c1_v1.jsonl` and `route_equivalence_longmont_c2_v1.jsonl` (**`schema_version` `0.3.0`** JSONL rows, PR #8); `uv run pytest tests/lexicon_phase_b/ -q` -> `25 passed`; `uv run pytest tests/test_breadcrumb_query_run_lexicon_records_jsonl.py -q` -> `12 passed`; `uv run pytest tests/test_cohort_baseline_run.py -q` -> `13 passed`; `uv run python -m evals.sentence_routing_retrieval_falsification.cohort_baseline_run --check` -> `OK …/cohort_baseline_c1s1_to_c1s3_v2.json` (post-PR #8 `main` at `adeb060`, 2026-05-11).
 - [x] **Current blocking red gate:** none for shadow consumer lane. **Follow-up:** `uv run python scripts/audit_world_campaign_alignment.py` still fails in a clean checkout without `out/evals/corpus_remote/normalization_manifest.json` (pre-existing gate contract; track separately).
 - [x] **Blocker type:** `n/a`
-- [x] **Next command to run:** Keep the regression bundle green: `uv run python scripts/build_route_equivalence_manifests.py --check && uv run pytest tests/lexicon_phase_b/ -q && uv run pytest tests/test_breadcrumb_query_run_lexicon_records_jsonl.py -q && uv run pytest tests/test_cohort_baseline_run.py -q && uv run python -m evals.sentence_routing_retrieval_falsification.cohort_baseline_run --check` (v2 baseline). **Next slice:** **PR #8** producer-side `manifest_hash` *or* wider cohort (records + manifest for `c1s13_v1` / `natural_v1`); before widening the cohort manifest, derive canvas `--skip-*` flags from `scenario_id` (PR #7 rubric). Phase C **exit** (retriever wiring) still gated.
+- [x] **Next command to run:** Keep the regression bundle green: `uv run python scripts/build_route_equivalence_manifests.py --check && uv run pytest tests/lexicon_phase_b/ -q && uv run pytest tests/test_breadcrumb_query_run_lexicon_records_jsonl.py -q && uv run pytest tests/test_cohort_baseline_run.py -q && uv run python -m evals.sentence_routing_retrieval_falsification.cohort_baseline_run --check` (v2 baseline). **Next slice:** **wider cohort** (records + manifest for `c1s13_v1` / `natural_v1`) *or* **derive canvas `--skip-*` flags** from `scenario_id` / manifest in `cohort_baseline_run` (PR #7 / PR #8 rubric carry-forward) **before** widening the manifest. Phase C **exit** (retriever wiring) still gated.
 
 ---
 
@@ -48,9 +49,9 @@
 
 **Goal:** lexical match inventory derives from ingestion outputs.
 
-- [x] Lexical artifact schema defined and documented (`src/lexicon_phase_b/schemas.py::RouteEquivalenceRecord`, schema_version `0.2.0`, landed via PR #2).
+- [x] Lexical artifact schema defined and documented (`src/lexicon_phase_b/schemas.py::RouteEquivalenceRecord`, **`schema_version` `0.3.0`** on committed JSONL after PR #8; `0.2.0` lineage via PR #2).
 - [x] Generator consumes ingestion outputs with route/provenance fields (`src/lexicon_phase_b/route_equivalence_manifest.py::build_route_equivalence_manifest` reads `_npc_registry.json` via `src/contracts/npc_registry.py`).
-- [x] Generation is deterministic for fixed inputs (byte-stable output) — `tests/lexicon_phase_b/test_route_equivalence_artifacts_byte_stable.py`; command: `uv run pytest tests/lexicon_phase_b/test_route_equivalence_artifacts_byte_stable.py -q` -> `6 passed` (2026-05-10).
+- [x] Generation is deterministic for fixed inputs (byte-stable output) — `tests/lexicon_phase_b/test_route_equivalence_artifacts_byte_stable.py`; command: `uv run pytest tests/lexicon_phase_b/test_route_equivalence_artifacts_byte_stable.py -q` -> `10 passed` (post-PR #8 `main`, 2026-05-11).
 - [x] Artifact output path standardized and documented — canonical dir `evals/sentence_routing_retrieval_falsification/artifacts/lexicon/`; documented in `evals/sentence_routing_retrieval_falsification/README.md` under `Route equivalence manifests (Phase B)`.
 
 **Evidence**
@@ -59,9 +60,17 @@
 - Committed artifacts: `evals/sentence_routing_retrieval_falsification/artifacts/lexicon/route_equivalence_longmont_c1_v1.jsonl`, `route_equivalence_longmont_c2_v1.jsonl` (PR #3).
 - CLI: `scripts/build_route_equivalence_manifests.py` (`--write`, `--check`, `--out-dir`).
 - Tests: `tests/lexicon_phase_b/test_route_equivalence_manifest.py`, `test_route_id_path_shapes.py`, `test_route_equivalence_record_defaults.py`, `test_route_equivalence_entity_kind_inference.py`, `test_route_equivalence_artifacts_byte_stable.py` (byte match + real-registry path-shape assertions).
-- Lexicon suite: `uv run pytest tests/lexicon_phase_b/ -q` -> `16 passed` (post-PR #3 `main`).
+- Lexicon suite: `uv run pytest tests/lexicon_phase_b/ -q` -> `25 passed` (post-PR #8 `main` at `adeb060`, 2026-05-11).
 - Token-resolution regression guard: `uv run pytest tests/test_token_resolution_resolver.py tests/test_token_resolution_contracts.py tests/test_benchmark_lexicon_seeds.py -q` -> `28 passed` (unchanged surface).
 - Determinism check: `uv run python scripts/build_route_equivalence_manifests.py --check` -> `OK` both artifacts (2026-05-10).
+
+**Evidence (producer provenance — PR #8, merge commit `adeb060911be35f4f477cb15eaf701ab7d409fbf`)**
+
+- Schema + builder: `src/lexicon_phase_b/schemas.py` (`RouteEquivalenceRecord` defaults `0.3.0`; required `producer_registry_path`, `producer_registry_sha256`, `route_equivalence_manifest_hash`); `src/lexicon_phase_b/route_equivalence_manifest.py` (`_manifest_hash_preimage`, `build_route_equivalence_manifest` assigns same manifest hash to every edge after registry path/sha256 materialization); `src/lexicon_phase_b/route_equivalence_loader.py` admits `0.3.0`.
+- Committed artifacts: `evals/sentence_routing_retrieval_falsification/artifacts/lexicon/route_equivalence_longmont_c1_v1.jsonl`, `route_equivalence_longmont_c2_v1.jsonl` — one distinct `route_equivalence_manifest_hash` per file; workspace-relative `producer_registry_path`; lowercase hex64 `producer_registry_sha256`.
+- Tests: `tests/lexicon_phase_b/test_route_equivalence_manifest.py` gains `test_manifest_hash_preimage_changes_on_semantic_mutation`; `test_route_equivalence_artifacts_byte_stable.py` extended (per-file hash constancy + byte match); loader + record-defaults updated.
+- Parent §7 on PR head `91fb12ee`: lexicon **25**; byte-stable **10**; loader **6**; manifest **4**; record defaults **1**; `build_route_equivalence_manifests.py --check` OK both; breadcrumb harness **12**; cohort **13**; `cohort_baseline_run --check` OK v2; JSONL probes: `manifest_hashes 1`, `schema 0.3.0`, `c1_registry_sha256_distinct 1`, `producer_registry_path corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/_npc_registry.json`.
+- Review: APPROVE -> COMMENTED self-review (`4260634217`). Non-blocking follow-up: tighten preimage-sensitivity test to hold registry bytes constant (PR inline comment).
 
 ---
 
@@ -160,6 +169,15 @@
 ---
 
 ## Session Log (append newest first)
+
+### 2026-05-11 (UTC) — ninth entry, PR #8 merged + doc sync (producer JSONL 0.3.0 provenance)
+
+- Phase moved: **`stayed B`**. `milestone_progress` unchanged (M2/M3 still `in_progress`).
+- What turned green: [PR #8](https://github.com/Drakosfire/DungeonMindBuddy/pull/8) **MERGED** to `main` (merge commit `adeb060911be35f4f477cb15eaf701ab7d409fbf`, 2026-05-11T03:45:24Z). Producer lane: committed route-equivalence JSONL at **`schema_version` `0.3.0`** with **`route_equivalence_manifest_hash`**, **`producer_registry_path`**, **`producer_registry_sha256`**; preimage algorithm matches PLAN §6.2; no edits to `breadcrumb_query_run.py`, `cohort_baseline_run.py`, `route_equivalence_shadow.py`, gold, or cohort baselines.
+- Review: §7 all green on PR head `91fb12ee1b09e03b6653148124e5a2f8816dbcdc`; APPROVE -> COMMENTED self-review (`4260634217`). `merge 8` fast-forward clean.
+- **Cost:** `$0` (pytest + producer CLI + probes only).
+- PLAN v15: `github-pr-8` + five `rubric_when_we_judge` bullets (canvas skip carry-forward; §6.2 preimage; per-file constancy; path+sha256 tie; sensitivity-test preimage-input discipline). Handoff `HANDOFF-pr8-producer-route-equivalence-manifest-hash.md` archived under `Docs/Plans/archive/2026-05-11/handoffs/`.
+- Next single action: **wider cohort** manifest work and/or **derive canvas `--skip-*` from scenario_id** before expanding the cohort manifest (rubric carry-forward).
 
 ### 2026-05-11 (UTC) — eighth entry, PR #7 merged + doc sync (A/B sprint L2 recall)
 
