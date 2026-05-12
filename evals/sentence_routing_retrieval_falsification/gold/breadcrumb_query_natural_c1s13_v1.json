@@ -365,9 +365,7 @@
       ],
       "location_hierarchy_equivalences": {
         "Wolf": [
-          "stormspire_academy/",
-          "council_chambers/",
-          "basement_morgue/"
+          "wolf/"
         ]
       },
       "min_context_support_ratio": 0.55,
@@ -577,8 +575,7 @@
       ],
       "location_hierarchy_equivalences": {
         "Mossglade": [
-          "stormspire_academy/",
-          "council_chambers/"
+          "mossglade/"
         ],
         "Stormspire Academy": [
           "stormspire_academy/",
