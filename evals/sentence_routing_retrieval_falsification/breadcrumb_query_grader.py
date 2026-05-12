@@ -581,6 +581,7 @@ def query_session_memory_for_scenario(
             if isinstance(qspec.get("query_token_aliases"), list)
             else None
         ),
+        expand_same_beat_limit=_int_from_spec(qspec, "expand_same_beat_limit", 0),
     )
 
 

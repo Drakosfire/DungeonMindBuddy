@@ -70,8 +70,9 @@ def enrich_records_with_beat_ids(
     for rec in records:
         row = dict(rec)
         uid = str(row.get("unit_id") or "").strip()
-        if uid in beat_by_unit:
-            row["beat_id"] = beat_by_unit[uid]
+        beat_id = beat_by_unit.get(uid)
+        if beat_id:
+            row["beat_id"] = beat_id
         enriched.append(row)
     return enriched
 

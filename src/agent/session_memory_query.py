@@ -565,6 +565,7 @@ def _expand_hits(
     expand_adjacent_window: int,
     expand_shared_route_limit: int,
     expand_route_family_limit: int,
+    expand_same_beat_limit: int,
     expansion_allocation_mode: str,
     expansion_tokens: list[str] | None = None,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
@@ -574,6 +575,7 @@ def _expand_hits(
         "added_adjacent": 0,
         "added_shared_route": 0,
         "added_route_family": 0,
+        "added_same_beat": 0,
     }
     if not first_pass_hits or max_hits <= len(first_pass_hits):
         return first_pass_hits, stats
@@ -698,6 +700,34 @@ def _expand_hits(
         key=lambda it: _expansion_shared_family_emit_sort_key(it[0], expansion_tokens),
     )
 
+    same_beat_pairs: dict[str, tuple[dict[str, Any], list[str]]] = {}
+    if expand_same_beat_limit > 0:
+        by_beat: dict[str, list[dict[str, Any]]] = {}
+        for rec in filtered:
+            bid = str(rec.get("beat_id") or "").strip()
+            if bid:
+                by_beat.setdefault(bid, []).append(rec)
+        for seed in seeds:
+            bid = str(seed.get("beat_id") or "").strip()
+            if not bid:
+                continue
+            added = 0
+            for rec in sorted(by_beat.get(bid, []), key=lambda r: (int(r.get("line_start") or 0), str(r.get("unit_id") or ""))):
+                if added >= expand_same_beat_limit:
+                    break
+                uid = str(rec.get("unit_id") or "")
+                if uid in first_uids:
+                    continue
+                tag = f"expanded_same_beat:{bid}"
+                if uid not in same_beat_pairs:
+                    same_beat_pairs[uid] = (rec, [tag])
+                    added += 1
+
+    same_beat_batch = sorted(
+        same_beat_pairs.values(),
+        key=lambda it: (int(it[0].get("line_start") or 0), str(it[0].get("unit_id") or "")),
+    )
+
     hits_out = list(first_pass_hits)
 
     def _emit_batch(batch: list[tuple[dict[str, Any], list[str]]], stat_key: str) -> None:
@@ -733,6 +763,8 @@ def _expand_hits(
     if mode == _EXPANSION_ALLOCATION_GREEDY:
         _emit_batch(adj_batch, "added_adjacent")
         if len(hits_out) < max_hits:
+            _emit_batch(same_beat_batch, "added_same_beat")
+        if len(hits_out) < max_hits:
             _emit_batch(shared_batch, "added_shared_route")
         if len(hits_out) < max_hits:
             _emit_batch(family_batch, "added_route_family")
@@ -743,9 +775,10 @@ def _expand_hits(
         "added_adjacent": adj_batch,
         "added_shared_route": shared_batch,
         "added_route_family": family_batch,
+        "added_same_beat": same_beat_batch,
     }
     cursors: dict[str, int] = {k: 0 for k in batches}
-    order = ["added_adjacent", "added_shared_route", "added_route_family"]
+    order = ["added_adjacent", "added_same_beat", "added_shared_route", "added_route_family"]
     while len(hits_out) < max_hits:
         emitted_any = False
         for key in order:
@@ -824,6 +857,7 @@ def query_session_memory_candidate(
     expansion_allocation_mode: str = _EXPANSION_ALLOCATION_ROUND_ROBIN,
     tokenizer_mode: str = _TOKENIZER_MODE_DEFAULT,
     query_token_aliases: list[str] | None = None,
+    expand_same_beat_limit: int = 0,
 ) -> CandidateQueryResult:
     """Rank records by deterministic lexical + route token overlap; return candidate hits only."""
     q = str(query or "").strip()
@@ -835,8 +869,8 @@ def query_session_memory_candidate(
         raise ValueError("expand_seed_hits must be >= 1")
     if expand_adjacent_window < 0:
         raise ValueError("expand_adjacent_window must be >= 0")
-    if expand_shared_route_limit < 0 or expand_route_family_limit < 0:
-        raise ValueError("expand_shared_route_limit and expand_route_family_limit must be >= 0")
+    if expand_shared_route_limit < 0 or expand_route_family_limit < 0 or expand_same_beat_limit < 0:
+        raise ValueError("expand_* limits must be >= 0")
     first_pass_cap = max_hits
     if expand_context:
         if expand_first_pass_cap is not None:
@@ -914,6 +948,7 @@ def query_session_memory_candidate(
             expand_adjacent_window=expand_adjacent_window,
             expand_shared_route_limit=expand_shared_route_limit,
             expand_route_family_limit=expand_route_family_limit,
+            expand_same_beat_limit=expand_same_beat_limit,
             expansion_allocation_mode=expansion_allocation_mode,
             expansion_tokens=tokens,
         )
@@ -936,6 +971,7 @@ def query_session_memory_candidate(
         trace["expand_adjacent_window"] = expand_adjacent_window
         trace["expand_shared_route_limit"] = expand_shared_route_limit
         trace["expand_route_family_limit"] = expand_route_family_limit
+        trace["expand_same_beat_limit"] = expand_same_beat_limit
         trace["expand_first_pass_cap"] = first_pass_cap
         trace["expansion_allocation_mode"] = expansion_allocation_mode
         trace["expansion"] = expansion_stats or {
@@ -993,6 +1029,7 @@ def dispatch_query_session_memory_json(
         expand_adjacent_window = int(args.get("expand_adjacent_window", 2))
         expand_shared_route_limit = int(args.get("expand_shared_route_limit", 3))
         expand_route_family_limit = int(args.get("expand_route_family_limit", 3))
+        expand_same_beat_limit = int(args.get("expand_same_beat_limit", 0))
     except (TypeError, ValueError):
         return json.dumps({"ok": False, "error": "expand_* parameters must be integers"})
     efcap_raw = args.get("expand_first_pass_cap")
@@ -1030,6 +1067,7 @@ def dispatch_query_session_memory_json(
             expand_first_pass_cap=expand_first_pass_cap,
             expansion_allocation_mode=expansion_allocation_mode,
             tokenizer_mode=tokenizer_mode,
+            expand_same_beat_limit=expand_same_beat_limit,
             query_token_aliases=query_token_aliases,
         )
     except ValueError as exc:
