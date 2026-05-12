@@ -1,0 +1,318 @@
+{
+  "schema": "dmb_breadcrumb_query_cohort_summary_v2",
+  "cohort_id": "c1s13_v1",
+  "manifest": "evals/sentence_routing_retrieval_falsification/cohorts/c1s13_v1.json",
+  "campaign_id": "longmont-c1",
+  "route_equivalence_jsonl": [
+    "evals/sentence_routing_retrieval_falsification/artifacts/lexicon/route_equivalence_longmont_c1_v1.jsonl",
+    "evals/sentence_routing_retrieval_falsification/artifacts/lexicon/route_equivalence_longmont_c2_v1.jsonl"
+  ],
+  "retrieval_only": true,
+  "llm_enabled": false,
+  "scenarios": [
+    {
+      "scenario_id": "c1s13",
+      "gold": "evals/sentence_routing_retrieval_falsification/gold/breadcrumb_query_natural_c1s13_v1.json",
+      "records_jsonl": "evals/sentence_routing_retrieval_falsification/artifacts/c1s13_norm_smoke.records_meta.jsonl",
+      "session_number": 13,
+      "gold_schema": "dmb_breadcrumb_query_natural_gold_v1",
+      "all_ok": false,
+      "scenario_count": 25,
+      "pass_count": 0,
+      "fail_count": 25,
+      "violations": [
+        {
+          "scenario_id": "wolf_head_why_academy",
+          "ok": false,
+          "violations": [
+            "missing_expected_route_hit"
+          ]
+        },
+        {
+          "scenario_id": "guards_oily_eyes_alert",
+          "ok": false,
+          "violations": [
+            "missing_expected_route_hit"
+          ]
+        },
+        {
+          "scenario_id": "covert_ops_meat_check",
+          "ok": false,
+          "violations": [
+            "missing_expected_route_hit"
+          ]
+        },
+        {
+          "scenario_id": "stormspire_activity_arrival",
+          "ok": false,
+          "violations": [
+            "context_support_below_threshold",
+            "missing_expected_route_hit",
+            "semantic_verdict:fail_incomplete"
+          ]
+        },
+        {
+          "scenario_id": "mossglade_study_room_torbin",
+          "ok": false,
+          "violations": [
+            "missing_expected_route_hit"
+          ]
+        },
+        {
+          "scenario_id": "party_first_split_assignments",
+          "ok": false,
+          "violations": [
+            "missing_expected_route_hit"
+          ]
+        },
+        {
+          "scenario_id": "tealeaf_unable_to_help",
+          "ok": false,
+          "violations": [
+            "missing_expected_route_hit"
+          ]
+        },
+        {
+          "scenario_id": "study_room_short_rest_song",
+          "ok": false,
+          "violations": [
+            "missing_expected_route_hit"
+          ]
+        },
+        {
+          "scenario_id": "escaped_meat_second_split",
+          "ok": false,
+          "violations": [
+            "missing_expected_route_hit"
+          ]
+        },
+        {
+          "scenario_id": "speak_with_dead_question_allocation",
+          "ok": false,
+          "violations": [
+            "missing_expected_route_hit"
+          ]
+        },
+        {
+          "scenario_id": "wolf_killer_disambiguation",
+          "ok": false,
+          "violations": [
+            "missing_expected_route_hit",
+            "semantic_verdict:fail_incomplete"
+          ]
+        },
+        {
+          "scenario_id": "lira_shepherd_plot_disambiguation",
+          "ok": false,
+          "violations": [
+            "missing_expected_route_hit",
+            "semantic_verdict:fail_incomplete"
+          ]
+        },
+        {
+          "scenario_id": "cinderbranch_draven_door_disambiguation",
+          "ok": false,
+          "violations": [
+            "missing_expected_route_hit"
+          ]
+        },
+        {
+          "scenario_id": "elite_guards_city_guards_disambiguation",
+          "ok": false,
+          "violations": [
+            "missing_expected_route_hit",
+            "semantic_verdict:fail_incomplete"
+          ]
+        },
+        {
+          "scenario_id": "meat_storage_strongholds_locations",
+          "ok": false,
+          "violations": [
+            "missing_expected_route_hit"
+          ]
+        },
+        {
+          "scenario_id": "shepherd_break_of_dawn_hook",
+          "ok": false,
+          "violations": [
+            "context_support_below_threshold",
+            "missing_expected_route_hit",
+            "semantic_verdict:fail_incomplete"
+          ]
+        },
+        {
+          "scenario_id": "empty_ritual_room_bad_sign",
+          "ok": false,
+          "violations": [
+            "missing_expected_route_hit"
+          ]
+        },
+        {
+          "scenario_id": "escaped_meat_academy_hook",
+          "ok": false,
+          "violations": [
+            "context_support_below_threshold",
+            "missing_expected_route_hit",
+            "semantic_verdict:fail_incomplete"
+          ]
+        },
+        {
+          "scenario_id": "morgue_combat_mechanical_prep",
+          "ok": false,
+          "violations": [
+            "context_support_below_threshold",
+            "missing_expected_route_hit",
+            "semantic_verdict:fail_incomplete"
+          ]
+        },
+        {
+          "scenario_id": "sleep_spell_chain_mechanical_prep",
+          "ok": false,
+          "violations": [
+            "missing_expected_route_hit"
+          ]
+        },
+        {
+          "scenario_id": "stormspire_who_shows_up_location_entity_list",
+          "ok": false,
+          "violations": [
+            "missing_expected_route_hit",
+            "missing_location_entity_summary",
+            "query_mode_mismatch",
+            "semantic_verdict:fail_incomplete"
+          ]
+        },
+        {
+          "scenario_id": "mossglade_residency_vs_association",
+          "ok": false,
+          "violations": [
+            "missing_expected_route_hit"
+          ]
+        },
+        {
+          "scenario_id": "necromancer_question_identity_trap",
+          "ok": false,
+          "violations": [
+            "missing_expected_route_hit",
+            "semantic_verdict:fail_incomplete"
+          ]
+        },
+        {
+          "scenario_id": "bonogo_poison_bite_sequence",
+          "ok": false,
+          "violations": [
+            "missing_expected_route_hit"
+          ]
+        },
+        {
+          "scenario_id": "torbin_thread_status_end",
+          "ok": false,
+          "violations": [
+            "missing_expected_route_hit"
+          ]
+        }
+      ],
+      "shadow_route_equivalences": {
+        "schema": "dmb_route_equivalence_shadow_v1",
+        "scenario_campaign_id": "longmont-c1",
+        "edges_total": 5,
+        "edges_for_scenario_campaign": 2,
+        "campaign_ids": [
+          "longmont-c1",
+          "longmont-c2"
+        ],
+        "source_paths": [
+          "evals/sentence_routing_retrieval_falsification/artifacts/lexicon/route_equivalence_longmont_c1_v1.jsonl",
+          "evals/sentence_routing_retrieval_falsification/artifacts/lexicon/route_equivalence_longmont_c2_v1.jsonl"
+        ]
+      },
+      "recall_via_equivalence": {
+        "missed_substrings": [
+          "Baergrom",
+          "Bonogo",
+          "Caelynn",
+          "Draven",
+          "Ephanna",
+          "Karsemine",
+          "Lira",
+          "Mossglade",
+          "Necromancer",
+          "Shepherd",
+          "Stafl",
+          "Stormspire Academy",
+          "Torbin",
+          "Wolf",
+          "baergrom",
+          "basement_morgue",
+          "bonogo",
+          "caelynn",
+          "council_chambers",
+          "draven",
+          "elite_guard",
+          "ephanna",
+          "karsemine",
+          "mossglade",
+          "necromancer",
+          "professor_cinderbranch",
+          "professor_tealeaf",
+          "sewer_meat_monster",
+          "stafl",
+          "thalia",
+          "torbin",
+          "wolf"
+        ],
+        "rescued_substrings": [
+          "Torbin",
+          "torbin"
+        ],
+        "still_missing_substrings": [
+          "Baergrom",
+          "Bonogo",
+          "Caelynn",
+          "Draven",
+          "Ephanna",
+          "Karsemine",
+          "Lira",
+          "Mossglade",
+          "Necromancer",
+          "Shepherd",
+          "Stafl",
+          "Stormspire Academy",
+          "Wolf",
+          "baergrom",
+          "basement_morgue",
+          "bonogo",
+          "caelynn",
+          "council_chambers",
+          "draven",
+          "elite_guard",
+          "ephanna",
+          "karsemine",
+          "mossglade",
+          "necromancer",
+          "professor_cinderbranch",
+          "professor_tealeaf",
+          "sewer_meat_monster",
+          "stafl",
+          "thalia",
+          "wolf"
+        ],
+        "missed_count": 32,
+        "rescued_count": 2,
+        "recall": 0.0625
+      }
+    }
+  ],
+  "aggregate": {
+    "total_questions": 25,
+    "total_pass": 0,
+    "total_fail": 25,
+    "all_scenarios_all_ok": false
+  },
+  "recall_via_equivalence_aggregate": {
+    "scenarios_with_misses": 1,
+    "min": 0.0625,
+    "mean": 0.0625,
+    "max": 0.0625
+  }
+}
