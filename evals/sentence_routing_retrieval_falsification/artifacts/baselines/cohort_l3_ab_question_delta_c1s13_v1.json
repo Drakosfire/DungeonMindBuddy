@@ -1,7 +1,7 @@
 {
   "schema_id": "dmb_breadcrumb_query_cohort_l3_question_delta_v1",
   "cohort_manifest": "evals/sentence_routing_retrieval_falsification/cohorts/c1s13_v1.json",
-  "scenario_level_delta_path": "evals/sentence_routing_retrieval_falsification/artifacts/baselines/cohort_l3_ab_delta_c1s13_v1.json",
+  "scenario_level_delta_path": "evals/sentence_routing_retrieval_falsification/artifacts/baselines/cohort_l3_ab_delta_c1s1_to_c1s3_v1.json",
   "baseline_schema": "dmb_breadcrumb_query_cohort_summary_v2",
   "question_count": 25,
   "summary": {
@@ -9,6 +9,14 @@
     "improved": 2,
     "unchanged_pass": 12,
     "unchanged_fail": 7
+  },
+  "failure_diagnostic_summary": {
+    "passed": 12,
+    "equivalence_helped": 2,
+    "ranking_regression": 8,
+    "missing_lexical_handle": 0,
+    "retriever_support_gap": 3,
+    "gold_or_rubric_gap": 0
   },
   "scenarios": [
     {
@@ -308,6 +316,14 @@
             ],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
+          },
+          "failure_diagnostic": {
+            "bucket": "passed",
+            "reasons": [
+              "both_modes_pass"
+            ],
+            "baseline_missing_route_substrings": [],
+            "with_equivalence_missing_route_substrings": []
           }
         },
         {
@@ -595,6 +611,14 @@
             ],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
+          },
+          "failure_diagnostic": {
+            "bucket": "passed",
+            "reasons": [
+              "both_modes_pass"
+            ],
+            "baseline_missing_route_substrings": [],
+            "with_equivalence_missing_route_substrings": []
           }
         },
         {
@@ -893,6 +917,15 @@
             ],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
+          },
+          "failure_diagnostic": {
+            "bucket": "ranking_regression",
+            "reasons": [
+              "equivalence_lost_required_must_hits",
+              "verdict_regressed"
+            ],
+            "baseline_missing_route_substrings": [],
+            "with_equivalence_missing_route_substrings": []
           }
         },
         {
@@ -1171,6 +1204,14 @@
             ],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
+          },
+          "failure_diagnostic": {
+            "bucket": "equivalence_helped",
+            "reasons": [
+              "equivalence_mode_passed"
+            ],
+            "baseline_missing_route_substrings": [],
+            "with_equivalence_missing_route_substrings": []
           }
         },
         {
@@ -1470,6 +1511,14 @@
             ],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
+          },
+          "failure_diagnostic": {
+            "bucket": "passed",
+            "reasons": [
+              "both_modes_pass"
+            ],
+            "baseline_missing_route_substrings": [],
+            "with_equivalence_missing_route_substrings": []
           }
         },
         {
@@ -1832,6 +1881,14 @@
             ],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
+          },
+          "failure_diagnostic": {
+            "bucket": "passed",
+            "reasons": [
+              "both_modes_pass"
+            ],
+            "baseline_missing_route_substrings": [],
+            "with_equivalence_missing_route_substrings": []
           }
         },
         {
@@ -2157,6 +2214,14 @@
             ],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
+          },
+          "failure_diagnostic": {
+            "bucket": "passed",
+            "reasons": [
+              "both_modes_pass"
+            ],
+            "baseline_missing_route_substrings": [],
+            "with_equivalence_missing_route_substrings": []
           }
         },
         {
@@ -2432,6 +2497,14 @@
             ],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
+          },
+          "failure_diagnostic": {
+            "bucket": "passed",
+            "reasons": [
+              "both_modes_pass"
+            ],
+            "baseline_missing_route_substrings": [],
+            "with_equivalence_missing_route_substrings": []
           }
         },
         {
@@ -2783,6 +2856,14 @@
             ],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
+          },
+          "failure_diagnostic": {
+            "bucket": "passed",
+            "reasons": [
+              "both_modes_pass"
+            ],
+            "baseline_missing_route_substrings": [],
+            "with_equivalence_missing_route_substrings": []
           }
         },
         {
@@ -3125,6 +3206,14 @@
             ],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
+          },
+          "failure_diagnostic": {
+            "bucket": "ranking_regression",
+            "reasons": [
+              "verdict_regressed"
+            ],
+            "baseline_missing_route_substrings": [],
+            "with_equivalence_missing_route_substrings": []
           }
         },
         {
@@ -3413,6 +3502,14 @@
             ],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
+          },
+          "failure_diagnostic": {
+            "bucket": "ranking_regression",
+            "reasons": [
+              "equivalence_lost_context_support_ratio"
+            ],
+            "baseline_missing_route_substrings": [],
+            "with_equivalence_missing_route_substrings": []
           }
         },
         {
@@ -3715,6 +3812,15 @@
             ],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
+          },
+          "failure_diagnostic": {
+            "bucket": "ranking_regression",
+            "reasons": [
+              "equivalence_lost_required_must_hits",
+              "verdict_regressed"
+            ],
+            "baseline_missing_route_substrings": [],
+            "with_equivalence_missing_route_substrings": []
           }
         },
         {
@@ -4003,6 +4109,14 @@
             ],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
+          },
+          "failure_diagnostic": {
+            "bucket": "passed",
+            "reasons": [
+              "both_modes_pass"
+            ],
+            "baseline_missing_route_substrings": [],
+            "with_equivalence_missing_route_substrings": []
           }
         },
         {
@@ -4344,6 +4458,14 @@
             ],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
+          },
+          "failure_diagnostic": {
+            "bucket": "retriever_support_gap",
+            "reasons": [
+              "equivalence_missing_required_must_hits"
+            ],
+            "baseline_missing_route_substrings": [],
+            "with_equivalence_missing_route_substrings": []
           }
         },
         {
@@ -4620,6 +4742,15 @@
             ],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
+          },
+          "failure_diagnostic": {
+            "bucket": "retriever_support_gap",
+            "reasons": [
+              "equivalence_context_support_ratio_below_minimum",
+              "equivalence_missing_required_must_hits"
+            ],
+            "baseline_missing_route_substrings": [],
+            "with_equivalence_missing_route_substrings": []
           }
         },
         {
@@ -4914,6 +5045,16 @@
               "Shepherd"
             ],
             "substrings_flipped_gained": []
+          },
+          "failure_diagnostic": {
+            "bucket": "ranking_regression",
+            "reasons": [
+              "equivalence_lost_route_substrings"
+            ],
+            "baseline_missing_route_substrings": [],
+            "with_equivalence_missing_route_substrings": [
+              "Shepherd"
+            ]
           }
         },
         {
@@ -5219,6 +5360,14 @@
             ],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
+          },
+          "failure_diagnostic": {
+            "bucket": "passed",
+            "reasons": [
+              "both_modes_pass"
+            ],
+            "baseline_missing_route_substrings": [],
+            "with_equivalence_missing_route_substrings": []
           }
         },
         {
@@ -5523,6 +5672,14 @@
             ],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
+          },
+          "failure_diagnostic": {
+            "bucket": "passed",
+            "reasons": [
+              "both_modes_pass"
+            ],
+            "baseline_missing_route_substrings": [],
+            "with_equivalence_missing_route_substrings": []
           }
         },
         {
@@ -5841,6 +5998,19 @@
               "elite_guard"
             ],
             "substrings_flipped_gained": []
+          },
+          "failure_diagnostic": {
+            "bucket": "ranking_regression",
+            "reasons": [
+              "equivalence_lost_route_substrings"
+            ],
+            "baseline_missing_route_substrings": [
+              "sewer_meat_monster"
+            ],
+            "with_equivalence_missing_route_substrings": [
+              "elite_guard",
+              "sewer_meat_monster"
+            ]
           }
         },
         {
@@ -6159,6 +6329,19 @@
               "Draven"
             ],
             "substrings_flipped_gained": []
+          },
+          "failure_diagnostic": {
+            "bucket": "ranking_regression",
+            "reasons": [
+              "equivalence_lost_context_support_ratio",
+              "equivalence_lost_required_must_hits",
+              "equivalence_lost_route_substrings",
+              "verdict_regressed"
+            ],
+            "baseline_missing_route_substrings": [],
+            "with_equivalence_missing_route_substrings": [
+              "Draven"
+            ]
           }
         },
         {
@@ -6450,6 +6633,14 @@
             ],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
+          },
+          "failure_diagnostic": {
+            "bucket": "ranking_regression",
+            "reasons": [
+              "equivalence_lost_context_support_ratio"
+            ],
+            "baseline_missing_route_substrings": [],
+            "with_equivalence_missing_route_substrings": []
           }
         },
         {
@@ -6714,6 +6905,14 @@
             ],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
+          },
+          "failure_diagnostic": {
+            "bucket": "passed",
+            "reasons": [
+              "both_modes_pass"
+            ],
+            "baseline_missing_route_substrings": [],
+            "with_equivalence_missing_route_substrings": []
           }
         },
         {
@@ -7000,6 +7199,14 @@
             ],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
+          },
+          "failure_diagnostic": {
+            "bucket": "retriever_support_gap",
+            "reasons": [
+              "equivalence_missing_required_must_hits"
+            ],
+            "baseline_missing_route_substrings": [],
+            "with_equivalence_missing_route_substrings": []
           }
         },
         {
@@ -7312,6 +7519,16 @@
             "substrings_flipped_gained": [
               "sewer_meat_monster"
             ]
+          },
+          "failure_diagnostic": {
+            "bucket": "equivalence_helped",
+            "reasons": [
+              "equivalence_mode_passed"
+            ],
+            "baseline_missing_route_substrings": [
+              "sewer_meat_monster"
+            ],
+            "with_equivalence_missing_route_substrings": []
           }
         },
         {
@@ -7586,6 +7803,14 @@
             "full_units_swapped_out": [],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
+          },
+          "failure_diagnostic": {
+            "bucket": "passed",
+            "reasons": [
+              "both_modes_pass"
+            ],
+            "baseline_missing_route_substrings": [],
+            "with_equivalence_missing_route_substrings": []
           }
         }
       ]

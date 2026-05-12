@@ -12,6 +12,7 @@ from evals.sentence_routing_retrieval_falsification.cohort_baseline_run import (
     COHORT_MANIFEST_SCHEMA_V1,
     COHORT_SUMMARY_SCHEMA_V2,
     _compute_recall_via_equivalence,
+    _classify_question_delta_failure,
     _equivalence_can_rescue,
     _normalize_substring_to_slug,
     _workspace_relative_posix,
@@ -235,6 +236,71 @@ def test_mode_both_write_question_delta_schema(tmp_path: Path) -> None:
     assert row["with_equivalence"]["context_must_hits_missing"] == ["west", "up river"]
     assert "full_units_swapped_out" in row["delta"]
     assert "full_units_swapped_in" in row["delta"]
+    assert "failure_diagnostic" in row
+    assert row["failure_diagnostic"]["bucket"] in {
+        "passed",
+        "equivalence_helped",
+        "ranking_regression",
+        "missing_lexical_handle",
+        "retriever_support_gap",
+        "gold_or_rubric_gap",
+    }
+    assert "failure_diagnostic_summary" in data
+
+
+def test_classify_question_delta_failure_ranking_regression_route_loss() -> None:
+    result = _classify_question_delta_failure(
+        verdict="unchanged_fail",
+        expected_route_substrings=["Campaign 1/NPCs/grishna"],
+        baseline_route_breakdown={"Campaign 1/NPCs/grishna": True},
+        equivalence_route_breakdown={"Campaign 1/NPCs/grishna": False},
+        required_must_hits=["Grishna"],
+        baseline_hits=["Grishna"],
+        equivalence_hits=[],
+        min_context_support_ratio=0.4,
+        baseline_context_support_ratio=0.7,
+        equivalence_context_support_ratio=0.2,
+    )
+    assert result["bucket"] == "ranking_regression"
+
+
+def test_classify_question_delta_failure_missing_lexical_handle() -> None:
+    result = _classify_question_delta_failure(
+        verdict="unchanged_fail",
+        expected_route_substrings=["Campaign 1/NPCs/grishna"],
+        baseline_route_breakdown={"Campaign 1/NPCs/grishna": False},
+        equivalence_route_breakdown={"Campaign 1/NPCs/grishna": False},
+        required_must_hits=["Grishna"],
+        baseline_hits=[],
+        equivalence_hits=[],
+        min_context_support_ratio=0.4,
+        baseline_context_support_ratio=0.1,
+        equivalence_context_support_ratio=0.1,
+    )
+    assert result["bucket"] == "missing_lexical_handle"
+
+
+def test_classify_question_delta_failure_route_swap_is_regression_even_equal_missing_count() -> None:
+    result = _classify_question_delta_failure(
+        verdict="unchanged_fail",
+        expected_route_substrings=["Campaign 1/NPCs/grishna", "Campaign 1/locations/wizards_tower_brewing_company"],
+        baseline_route_breakdown={
+            "Campaign 1/NPCs/grishna": True,
+            "Campaign 1/locations/wizards_tower_brewing_company": False,
+        },
+        equivalence_route_breakdown={
+            "Campaign 1/NPCs/grishna": False,
+            "Campaign 1/locations/wizards_tower_brewing_company": True,
+        },
+        required_must_hits=[],
+        baseline_hits=[],
+        equivalence_hits=[],
+        min_context_support_ratio=0.0,
+        baseline_context_support_ratio=0.0,
+        equivalence_context_support_ratio=0.0,
+    )
+    assert result["bucket"] == "ranking_regression"
+    assert "equivalence_lost_route_substrings" in result["reasons"]
 
 
 def test_check_question_delta_passes() -> None:
