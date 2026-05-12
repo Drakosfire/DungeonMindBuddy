@@ -280,6 +280,29 @@ def test_classify_question_delta_failure_missing_lexical_handle() -> None:
     assert result["bucket"] == "missing_lexical_handle"
 
 
+def test_classify_question_delta_failure_route_swap_is_regression_even_equal_missing_count() -> None:
+    result = _classify_question_delta_failure(
+        verdict="unchanged_fail",
+        expected_route_substrings=["Campaign 1/NPCs/grishna", "Campaign 1/locations/wizards_tower_brewing_company"],
+        baseline_route_breakdown={
+            "Campaign 1/NPCs/grishna": True,
+            "Campaign 1/locations/wizards_tower_brewing_company": False,
+        },
+        equivalence_route_breakdown={
+            "Campaign 1/NPCs/grishna": False,
+            "Campaign 1/locations/wizards_tower_brewing_company": True,
+        },
+        required_must_hits=[],
+        baseline_hits=[],
+        equivalence_hits=[],
+        min_context_support_ratio=0.0,
+        baseline_context_support_ratio=0.0,
+        equivalence_context_support_ratio=0.0,
+    )
+    assert result["bucket"] == "ranking_regression"
+    assert "equivalence_lost_route_substrings" in result["reasons"]
+
+
 def test_check_question_delta_passes() -> None:
     if shutil.which('uv') is None:
         pytest.skip('uv not available')

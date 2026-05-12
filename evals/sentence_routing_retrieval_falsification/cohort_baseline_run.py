@@ -291,6 +291,9 @@ def _classify_question_delta_failure(
 ) -> dict[str, object]:
     baseline_missing_route_substrings = [s for s in expected_route_substrings if not baseline_route_breakdown.get(s, False)]
     with_equivalence_missing_route_substrings = [s for s in expected_route_substrings if not equivalence_route_breakdown.get(s, False)]
+    lost_route_substrings = [
+        s for s in expected_route_substrings if baseline_route_breakdown.get(s, False) and not equivalence_route_breakdown.get(s, False)
+    ]
     baseline_required_hits = set(required_must_hits).issubset(set(baseline_hits))
     equivalence_required_hits = set(required_must_hits).issubset(set(equivalence_hits))
     baseline_support_ok = baseline_context_support_ratio >= min_context_support_ratio
@@ -310,12 +313,12 @@ def _classify_question_delta_failure(
             "baseline_missing_route_substrings": baseline_missing_route_substrings,
             "with_equivalence_missing_route_substrings": with_equivalence_missing_route_substrings,
         }
-    if verdict == "regressed" or len(with_equivalence_missing_route_substrings) > len(baseline_missing_route_substrings) or (
+    if verdict == "regressed" or lost_route_substrings or (
         baseline_required_hits and not equivalence_required_hits
     ) or (baseline_support_ok and not equivalence_support_ok):
         if verdict == "regressed":
             reasons.append("verdict_regressed")
-        if len(with_equivalence_missing_route_substrings) > len(baseline_missing_route_substrings):
+        if lost_route_substrings:
             reasons.append("equivalence_lost_route_substrings")
         if baseline_required_hits and not equivalence_required_hits:
             reasons.append("equivalence_lost_required_must_hits")
