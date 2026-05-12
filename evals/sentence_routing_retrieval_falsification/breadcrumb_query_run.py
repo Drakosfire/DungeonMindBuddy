@@ -1179,6 +1179,12 @@ def main() -> None:
                 lexicon=shadow_lexicon,
             )
             row["ranking_augmented_by_equivalences"] = ranking_augmented_by_equivalences
+            if scene_beat_enabled:
+                row["scene_beat_expansion"] = {
+                    "enabled": True,
+                    "expand_same_beat_limit": scene_beat_limit,
+                    "records_with_beat_id": sum(1 for r in records if r.get("beat_id")),
+                }
             expected_substrings = list(scen.get("expect_route_substrings") or [])
             row["expected_route_substring_breakdown"] = [
                 {
