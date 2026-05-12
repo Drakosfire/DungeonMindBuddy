@@ -36,6 +36,12 @@ _ALLOWED_MODES: tuple[str, ...] = ("create", "append")
 _CREATE_ALLOWED_RE = re.compile(
     r"(?:^|/)Session Recaps/(?:_normalized/)?Session \d+ - .+\.md$"
 )
+_BREADCRUMBED_RE = re.compile(
+    r"(?:^|/)Session Recaps/_breadcrumbed/Session \d+ - .+\.(?:breadcrumbed|frontmatter_seed)\.md$"
+)
+_SESSION_MEMORY_RE = re.compile(
+    r"(?:^|/)Session Recaps/_session_memory/Session \d+ - .+\.records_meta\.(?:jsonl|json)$"
+)
 # Append-only allowlist for timeline rows. Intentionally accepts BOTH
 # `NPCs/<slug>/timeline.md` and `PCs/<slug>/timeline.md` so PC-side timelines
 # are structurally symmetric with NPC hubs (the writer-allowlist gap that
@@ -124,6 +130,10 @@ def is_writable_corpus_path(rel_path: str, mode: str) -> tuple[bool, str]:
     if mode == "create":
         if _CREATE_ALLOWED_RE.search(cleaned):
             return True, ""
+        if _BREADCRUMBED_RE.search(cleaned):
+            return True, ""
+        if _SESSION_MEMORY_RE.search(cleaned):
+            return True, ""
         if _SETTING_HUB_NPC_README_RE.match(cleaned):
             return True, ""
         if _CAMPAIGN_HUB_NPC_README_CREATE_RE.match(cleaned):
@@ -138,7 +148,7 @@ def is_writable_corpus_path(rel_path: str, mode: str) -> tuple[bool, str]:
             return True, ""
         return False, (
             "create mode is not allowed for this path (allowed: "
-            "`**/Session Recaps/{Session NN - <slug>.md,_normalized/Session NN - <slug>.md}`, "
+            "`**/Session Recaps/{Session NN - <slug>.md,_normalized/Session NN - <slug>.md,_breadcrumbed/Session NN - <slug>.{breadcrumbed,frontmatter_seed}.md,_session_memory/Session NN - <slug>.records_meta.{jsonl,json}}`, "
             "Elderwyld `.../Cities and Towns/<town>/NPCs/<slug>/{README.md,character_seed.md}`, "
             "campaign `.../NPCs/<slug>/{README.md,timeline.md,*_character_dossier.md}`, "
             "or `Elderwyld/Locations/<stub>.md`)."

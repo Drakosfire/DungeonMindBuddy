@@ -10,7 +10,7 @@ from evals.sentence_routing_retrieval_falsification.breadcrumb_tagging_scorer im
 
 def test_c1s3_tagging_sentinels_pass_on_current_breadcrumb_artifact() -> None:
     repo = Path(__file__).resolve().parents[1]
-    md = repo / "evals/sentence_routing_retrieval_falsification/manual_labels/Session 3 - The Stone Bridge Flood.breadcrumbed.md"
+    md = repo / "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Session Recaps/_breadcrumbed/Session 03 - The Stone Bridge Flood.breadcrumbed.md"
     sent_path = repo / "evals/sentence_routing_retrieval_falsification/gold/breadcrumb_tagging_sentinels_c1s3.json"
     corpus = repo / "corpus/eldyrwild-markdown"
     out = score_artifact(

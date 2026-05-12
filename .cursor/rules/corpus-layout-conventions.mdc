@@ -123,7 +123,7 @@ part of a session writeup.
 
 Allowed writer paths (server-enforced — see `src/agent/corpus_writer.py`):
 
-- `create`: `**/Session Recaps/Session NN - <slug>.md`
+- `create`: `**/Session Recaps/Session NN - <slug>.md`, `**/Session Recaps/_normalized/Session NN - <slug>.md`, `**/Session Recaps/_breadcrumbed/Session NN - <slug>.{breadcrumbed,frontmatter_seed}.md`, `**/Session Recaps/_session_memory/Session NN - <slug>.records_meta.{jsonl,json}`
 - `append`: `**/NPCs/<slug>/timeline.md`, `**/PCs/<slug>/timeline.md`, `**/NPCs/<slug>/README.md`, `Longmont Campaign/Campaign N/Session Prep/*.md`
 
 Two-phase commit (`dry_run` → `confirm_token` → commit) is required for every write.

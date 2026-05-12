@@ -71,10 +71,13 @@ def test_build_campaign_lexicon_provenance_includes_seed_file() -> None:
     _repo = Path(__file__).resolve().parents[1]
     fixture = (
         _repo
-        / "evals"
-        / "sentence_routing_retrieval_falsification"
-        / "artifacts"
-        / "last_session1_c1_breadcrumb_records.jsonl"
+        / "corpus"
+        / "eldyrwild-markdown"
+        / "Longmont Campaign"
+        / "Campaign 1"
+        / "Session Recaps"
+        / "_session_memory"
+        / "Session 01 - Stonebridge and Glowkindle Rats.records_meta.jsonl"
     )
     assert fixture.is_file(), f"missing fixture: {fixture}"
     lines = fixture.read_text(encoding="utf-8").splitlines()

@@ -1,10 +1,10 @@
 {
-  "source_recap_path": "Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md",
+  "source_recap_path": "Longmont Campaign/Campaign 1/Session Recaps/_normalized/Session 01 - Stonebridge and Glowkindle Rats.md",
   "campaign_id": "longmont-c1",
   "session_number": 1,
   "unit_count": 22,
   "metadata_record_count": 1,
   "pronoun_route_handle_enrichment_enabled": false,
   "enriched_pronoun_record_count": 0,
-  "records_with_routes": 20
+  "records_with_routes": 19
 }

@@ -9,7 +9,7 @@ from evals.sentence_routing_retrieval_falsification.c1s2_offline_benchmark_repor
 
 def test_c1s2_offline_report_all_ok() -> None:
     repo = Path(__file__).resolve().parents[1]
-    md = repo / "evals/sentence_routing_retrieval_falsification/manual_labels/Session 2 - Finishing the Job.breadcrumbed.md"
+    md = repo / "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Session Recaps/_breadcrumbed/Session 02 - Finishing the Job.breadcrumbed.md"
     gold = repo / "evals/sentence_routing_retrieval_falsification/gold/breadcrumb_query_natural_c1s2_v1.json"
     corpus = repo / "corpus/eldyrwild-markdown"
     report = build_offline_report(breadcrumb_md=md, corpus_root=corpus, gold_path=gold)

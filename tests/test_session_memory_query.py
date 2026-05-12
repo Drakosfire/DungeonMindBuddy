@@ -402,7 +402,7 @@ def test_session20_normalize_and_gold_grades() -> None:
 
     corpus = Path("corpus/eldyrwild-markdown")
     art = Path(
-        "evals/sentence_routing_retrieval_falsification/manual_labels/Session 20 - Recap.breadcrumbed.md"
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 20 - Gnat Swarm Marla Lysandra.breadcrumbed.md"
     )
     if not art.is_file():
         pytest.skip("Session 20 breadcrumb fixture missing")

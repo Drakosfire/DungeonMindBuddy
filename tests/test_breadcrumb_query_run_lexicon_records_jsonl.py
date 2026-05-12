@@ -21,10 +21,13 @@ from evals.sentence_routing_retrieval_falsification.token_resolver_shadow import
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 _FIXTURE_JSONL = (
     _REPO_ROOT
-    / "evals"
-    / "sentence_routing_retrieval_falsification"
-    / "artifacts"
-    / "last_session1_c1_breadcrumb_records.jsonl"
+    / "corpus"
+    / "eldyrwild-markdown"
+    / "Longmont Campaign"
+    / "Campaign 1"
+    / "Session Recaps"
+    / "_session_memory"
+    / "Session 01 - Stonebridge and Glowkindle Rats.records_meta.jsonl"
 )
 _NATURAL_GOLD_C1S1 = (
     _REPO_ROOT

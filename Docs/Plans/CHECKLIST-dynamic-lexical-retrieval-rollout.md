@@ -24,10 +24,10 @@
 ## Reanchor Block (fill first each session)
 
 - [x] **Active phase:** `B` (Phase C **entry** PR #4–#5; **exit** L3 harness landed PR #9 — gated ranking flag + delta runner; **promotion** to default retrieval still open)
-- [x] **Last green artifact (path):** unchanged regression bundle (post-PR #15 **`main`** at **`27b3eea7dd87331758ddd07e5919c5094f6702bd`**, 2026-05-12): same deterministic bundle as post-PR #13 (manifest **`--check`**, pytest lanes, **`natural_v1`**, **`c1s13_v1`** committed frozen checks, emitters incl. **`cohort-l3-alias-saturation`**); **PLUS PR #15 verification highlights**: **`fetch`/allowlist `1/1`** on hierarchy gold slice; §7 structural audit + gold parse + temp **`cohort_baseline_run`** **`/tmp/…`** writes + readout **`question_count 25`**, **`regressed 0 / improved 0 / unchanged_pass 0 / unchanged_fail 25`**; **`llm_enabled False`**, **`retrieval_only True`**. Cost **$0** on these lanes.
-- [x] **Current blocking red gate:** **PR #12** **`promotion_gate_candidate.status:none_found`** still blocks default-equivalence-ranking flip; **PR #15** **corrected Wolf/Mossglade hierarchy mappings** in **`breadcrumb_query_natural_c1s13_v1.json`** but **`unchanged_fail:25`** temp/saturation **unchanged** — interpret **promotion/evidence-gap** framing (not silent pass).
+- [x] **Last green artifact (path):** corpus session-memory promotion (2026-05-12): pilot `_breadcrumbed/` + `_session_memory/` under `corpus/eldyrwild-markdown/Longmont Campaign/Campaign {1,2}/Session Recaps/`; cohort manifests `c1s1_to_c1s3_v1`, `c1s13_v1`, `natural_v1` reference corpus JSONL; frozen checks OK (`materialize_session_memory.py --all-blessed --check`; cohort `--check`; C1S13 `--check-delta` / `--check-question-delta`). C1S13 holdout baseline **16/25** pass (was **0/25** on routeless eval records); meta **`records_with_routes` 56** (was **0**). Cost **$0**.
+- [x] **Current blocking red gate:** **PR #12** **`promotion_gate_candidate.status:none_found`** still blocks default-equivalence-ranking flip; C1S13 holdout now has routed session memory but **9/25** retrieval failures remain — treat as evidence gap / rubric tuning fork, not missing breadcrumb input.
 - [x] **Blocker type:** `promotion/evidence-gap` (**not** ingestion-path missing-files)
-- [x] **Next command to run:** **`PLAN-split-corpus…` § `execution_state.next_gate_command`** (full invariant shell + narrative). **Human/plan fork:** **promotion acceptance criteria** vs **wider falsification cohorts** vs **further gold audit/normalization** — **PR #15** closed the **Wolf/Mossglade** rubric thread **without** regenerating frozen **`c1s13_v1`** JSON/canvas in that merge.
+- [x] **Next command to run:** **`PLAN-split-corpus…` § `execution_state.next_gate_command`** (full invariant shell + narrative). **Human/plan fork:** **promotion acceptance criteria** vs **wider falsification cohorts** vs **further gold audit/normalization** — corpus memory lane is unblocked for pilots C1S1–3, C1S13, C2S20.
 
 ---
 
@@ -190,6 +190,12 @@
 ---
 
 ## Session Log (append newest first)
+
+### 2026-05-12 (UTC) — seventeenth entry, corpus session-memory promotion (pilot breadcrumbs + `_session_memory`)
+
+- What turned green: blessed pilot breadcrumbs and committed session-memory indexes under `corpus/eldyrwild-markdown/Longmont Campaign/Campaign {1,2}/Session Recaps/{_breadcrumbed,_session_memory}/`; `scripts/materialize_session_memory.py --all-blessed --check` OK; cohort manifests `c1s1_to_c1s3_v1`, `c1s13_v1`, `natural_v1` reference corpus JSONL; frozen baselines refreshed; eval `artifacts/*_norm_smoke.records_meta.*` duplicates retired.
+- C1S13 before/after: eval `c1s13_norm_smoke` meta **`records_with_routes` 0** / cohort baseline **0/25** pass → corpus memory meta **`records_with_routes` 56** / frozen baseline **16/25** pass; question-delta summary **regressed 4 / improved 2 / unchanged_pass 12 / unchanged_fail 7** (was **unchanged_fail 25** saturation on routeless records).
+- Verification: `uv run pytest tests/test_corpus_writer.py tests/test_cohort_baseline_run.py tests/lexicon_phase_b/ tests/test_breadcrumb_query_run_lexicon_records_jsonl.py -q` **118 passed**; cohort `--check` on `c1s1_to_c1s3_v1`, `c1s13_v1`, `natural_v1` OK; C1S13 `--check-delta` / `--check-question-delta` OK. Cost **$0**.
 
 ### 2026-05-12 (UTC) — sixteenth entry, PR #15 merged + atomic doc-sync (C1S13 hierarchy gold audit)
 

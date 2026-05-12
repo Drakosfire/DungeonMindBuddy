@@ -14,7 +14,7 @@ from evals.sentence_routing_retrieval_falsification.breadcrumb_tagging_scorer im
 )
 
 MANUAL_BASELINE = Path(
-    "evals/sentence_routing_retrieval_falsification/manual_labels/Session 20 - Recap.breadcrumbed.md"
+    "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 20 - Gnat Swarm Marla Lysandra.breadcrumbed.md"
 )
 CORPUS_ROOT = Path("corpus/eldyrwild-markdown")
 

@@ -11,7 +11,7 @@
     {
       "scenario_id": "natural_v1",
       "gold": "evals/sentence_routing_retrieval_falsification/gold/breadcrumb_query_natural_v1.json",
-      "records_jsonl": "evals/sentence_routing_retrieval_falsification/artifacts/c2s20_norm_smoke.records_meta.jsonl",
+      "records_jsonl": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 20 - Gnat Swarm Marla Lysandra.records_meta.jsonl",
       "session_number": 20,
       "notes": "Natural wider-cohort scenario using c2s20 normalized smoke records."
     }

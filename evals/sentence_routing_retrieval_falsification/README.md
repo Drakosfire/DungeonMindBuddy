@@ -233,7 +233,7 @@ Example:
 
 ```bash
 uv run python -m evals.sentence_routing_retrieval_falsification.breadcrumb_query_run \
-  --records-jsonl evals/sentence_routing_retrieval_falsification/artifacts/last_session1_c1_breadcrumb_records.jsonl \
+  --records-jsonl corpus/eldyrwild-markdown/Longmont\ Campaign/Campaign\ 1/Session\ Recaps/_session_memory/Session\ 01\ -\ Stonebridge\ and\ Glowkindle\ Rats.records_meta.jsonl \
   --gold evals/sentence_routing_retrieval_falsification/gold/breadcrumb_query_natural_c1s1_v1.json \
   --retrieval-only \
   --route-equivalence-jsonl evals/sentence_routing_retrieval_falsification/artifacts/lexicon/route_equivalence_longmont_c1_v1.jsonl \
@@ -245,7 +245,7 @@ Example 3-run acceptance loop (records JSONL):
 ```bash
 for i in 1 2 3; do
   uv run python -m evals.sentence_routing_retrieval_falsification.breadcrumb_query_run \
-    --records-jsonl evals/sentence_routing_retrieval_falsification/artifacts/last_session1_c1_breadcrumb_records.jsonl \
+    --records-jsonl corpus/eldyrwild-markdown/Longmont\ Campaign/Campaign\ 1/Session\ Recaps/_session_memory/Session\ 01\ -\ Stonebridge\ and\ Glowkindle\ Rats.records_meta.jsonl \
     --gold evals/sentence_routing_retrieval_falsification/gold/breadcrumb_query_natural_c1s1_v1.json \
     --output "/tmp/c1s1_records_jsonl_smoke_${i}.json"
 done
@@ -620,7 +620,7 @@ uv run python -m evals.sentence_routing_retrieval_falsification.breadcrumb_query
 
 For natural gold that targets the C1S1 lane (gold filename contains `c1s1`, or any scenario `id` starts with `c1s1_`), each `breadcrumb_query_run` invocation **patches the C1S1 benchmark review canvas** in the same process after the report JSON is written. The default target is the Cursor-managed file under `~/.cursor/projects/<workspace-slug>/canvases/c1s1-breadcrumb-query-benchmark-review.canvas.tsx` (same resolution as other harness canvases: set `DMB_CURSOR_CANVAS_DIR` to override the canvases parent directory). The report includes a `c1s1_canvas_refresh` object (`enabled`, `targets`, `updated`, `unchanged`, `errors`); the final stdout JSON line echoes that under `c1s1_canvas_refresh`.
 
-- **Extra targets:** pass `--c1s1-canvas-tsx PATH` one or more times (for example the repo copy under `canvases/c1s1-breadcrumb-query-benchmark-review.canvas.tsx`). When any `--c1s1-canvas-tsx` is set, those paths are used **instead of** the default (repeat the default path explicitly if you need both).
+- **Extra targets:** pass `--c1s1-canvas-tsx PATH` one or more times when you need a non-default canvas file. When any `--c1s1-canvas-tsx` is set, those paths are used **instead of** the default (repeat the default Cursor-managed path explicitly if you need both).
 - **Opt out:** `--skip-c1s1-canvas-refresh` skips the patch even for C1S1 gold (and records `reason: skipped_by_flag` in the report when a refresh would otherwise have run).
 - **Standalone emitter** (same markers): `python -m evals.sentence_routing_retrieval_falsification.c1s1_benchmark_canvas_emit --report … --gold …`.
 - **Troubleshooting:** if the canvas file is missing `// BEGIN GENERATED C1S1_HARNESS_DETAIL` / `// END GENERATED C1S1_HARNESS_DETAIL`, the run exits non-zero after writing the report; fix the canvas template once, then re-run.
@@ -635,7 +635,7 @@ For natural gold that targets the C1S1 lane (gold filename contains `c1s1`, or a
 uv run python -m evals.sentence_routing_retrieval_falsification.c1s2_query_candidate_build
 uv run python -m evals.sentence_routing_retrieval_falsification.c1s2_query_candidate_canvas_emit \
   --candidates evals/sentence_routing_retrieval_falsification/artifacts/runs/<date>/c1s2_query_candidates_<stamp>.json \
-  --canvas-tsx canvases/c1s2-breadcrumb-query-candidate-review.canvas.tsx
+  --canvas-tsx ~/.cursor/projects/home-drakosfire-Projects-DungeonOverMind-DungeonMindBuddy/canvases/c1s2-breadcrumb-query-candidate-review.canvas.tsx
 ```
 
 **Natural benchmark run (manual/reference artifact; requires `OPENAI_API_KEY` unless `--retrieval-only` is set):**
@@ -646,7 +646,7 @@ uv run python -m evals.sentence_routing_retrieval_falsification.breadcrumb_query
   --corpus-root corpus/eldyrwild-markdown \
   --gold evals/sentence_routing_retrieval_falsification/gold/breadcrumb_query_natural_c1s2_v1.json \
   --output evals/sentence_routing_retrieval_falsification/artifacts/runs/<date>/breadcrumb_query_natural_c1s2_report.json \
-  --c1s2-canvas-tsx canvases/c1s2-breadcrumb-query-benchmark-review.canvas.tsx \
+  --c1s2-canvas-tsx ~/.cursor/projects/home-drakosfire-Projects-DungeonOverMind-DungeonMindBuddy/canvases/c1s2-breadcrumb-query-benchmark-review.canvas.tsx \
   --skip-c1s1-canvas-refresh
 ```
 
@@ -668,7 +668,7 @@ uv run python -m evals.sentence_routing_retrieval_falsification.c1s2_offline_ben
 uv run python -m evals.sentence_routing_retrieval_falsification.c1s2_benchmark_canvas_emit \
   --report evals/sentence_routing_retrieval_falsification/artifacts/runs/<date>/breadcrumb_query_natural_c1s2_report_offline.json \
   --gold evals/sentence_routing_retrieval_falsification/gold/breadcrumb_query_natural_c1s2_v1.json \
-  --canvas-tsx canvases/c1s2-breadcrumb-query-benchmark-review.canvas.tsx
+  --canvas-tsx ~/.cursor/projects/home-drakosfire-Projects-DungeonOverMind-DungeonMindBuddy/canvases/c1s2-breadcrumb-query-benchmark-review.canvas.tsx
 ```
 
 **Tagging sentinels (C1S2):** `gold/breadcrumb_tagging_sentinels_c1s2.json` (do not reuse Session 20 sentinels for this recap).
@@ -681,18 +681,18 @@ Mirrors the C1S2 workflow: `c1s3_query_candidate_build`, `c1s3_query_candidate_c
 uv run python -m evals.sentence_routing_retrieval_falsification.c1s3_query_candidate_build
 uv run python -m evals.sentence_routing_retrieval_falsification.c1s3_query_candidate_canvas_emit \
   --candidates evals/sentence_routing_retrieval_falsification/artifacts/runs/<date>/c1s3_query_candidates_<stamp>.json \
-  --canvas-tsx canvases/c1s3-breadcrumb-query-candidate-review.canvas.tsx
+  --canvas-tsx ~/.cursor/projects/home-drakosfire-Projects-DungeonOverMind-DungeonMindBuddy/canvases/c1s3-breadcrumb-query-candidate-review.canvas.tsx
 
 uv run python -m evals.sentence_routing_retrieval_falsification.breadcrumb_query_run \
   --breadcrumb-md "evals/sentence_routing_retrieval_falsification/manual_labels/Session 3 - The Stone Bridge Flood.breadcrumbed.md" \
   --corpus-root corpus/eldyrwild-markdown \
   --gold evals/sentence_routing_retrieval_falsification/gold/breadcrumb_query_natural_c1s3_v1.json \
   --output evals/sentence_routing_retrieval_falsification/artifacts/runs/<date>/breadcrumb_query_natural_c1s3_report.json \
-  --c1s3-canvas-tsx canvases/c1s3-breadcrumb-query-benchmark-review.canvas.tsx \
+  --c1s3-canvas-tsx ~/.cursor/projects/home-drakosfire-Projects-DungeonOverMind-DungeonMindBuddy/canvases/c1s3-breadcrumb-query-benchmark-review.canvas.tsx \
   --skip-c1s1-canvas-refresh --skip-c1s2-canvas-refresh
 ```
 
-For C1S3 natural gold, `breadcrumb_query_run` auto-refreshes the Cursor-managed `c1s3-breadcrumb-query-benchmark-review.canvas.tsx` when that file exists under `DMB_CURSOR_CANVAS_DIR`. **If the default Cursor path is missing**, pass `--c1s3-canvas-tsx canvases/c1s3-breadcrumb-query-benchmark-review.canvas.tsx` (repo copy) so the runner does not exit non-zero on `FileNotFoundError`.
+For C1S3 natural gold, `breadcrumb_query_run` auto-refreshes the Cursor-managed `c1s3-breadcrumb-query-benchmark-review.canvas.tsx` when that file exists under `DMB_CURSOR_CANVAS_DIR`. **If the default Cursor path is missing**, run the matching canvas emitter first or pass `--c1s3-canvas-tsx` with an existing target path so the runner does not exit non-zero on `FileNotFoundError`.
 
 **Current routing-only pressure lane (2026-05-08):** `artifacts/runs/2026-05-08/breadcrumb_query_natural_c1s3_routing_refresh_retrieval_only.json`
 passes 12/13. The remaining failure, `c1s3_stonebridge_npc_roster_associated`, is
@@ -725,7 +725,7 @@ uv run python -m evals.sentence_routing_retrieval_falsification.breadcrumb_query
   --skip-c1s1-canvas-refresh --skip-c1s2-canvas-refresh --skip-c1s3-canvas-refresh
 ```
 
-The C1S13 benchmark review canvas (`c1s13-breadcrumb-query-benchmark-review.canvas.tsx`) defaults to the Cursor project `canvases/` directory (same layout as other benchmark canvases: `DMB_CURSOR_CANVAS_DIR` or `~/.cursor/projects/<workspace-slug>/canvases/`). A committed template now exists at `DungeonMindBuddy/canvases/c1s13-breadcrumb-query-benchmark-review.canvas.tsx`, and `ensure_canvas_file_for_patch` can seed the IDE-managed file from it when needed.
+The C1S13 benchmark review canvas (`c1s13-breadcrumb-query-benchmark-review.canvas.tsx`) defaults to the Cursor project canvases directory (same layout as other benchmark canvases: `DMB_CURSOR_CANVAS_DIR` or `~/.cursor/projects/<workspace-slug>/canvases/`). Run `c1s13_benchmark_canvas_emit` to create or refresh that file before patching.
 
 **Current routing-only regression sentinel (2026-05-08):** compare new runs against
 `artifacts/runs/2026-05-08/breadcrumb_query_natural_c1s13_report_retrieval_only.routing_only.json`.
@@ -760,6 +760,7 @@ Use the retrieval-only alias-saturation emitter to aggregate committed L3 questi
 ```bash
 uv run python -m evals.sentence_routing_retrieval_falsification.cohort_l3_alias_saturation_canvas_emit \
   --input evals/sentence_routing_retrieval_falsification/artifacts/baselines/cohort_l3_ab_question_delta_c1s1_to_c1s3_v1.json \
-  --input evals/sentence_routing_retrieval_falsification/artifacts/baselines/cohort_l3_ab_question_delta_natural_v1.json \
-  --output canvases/cohort-l3-alias-saturation.canvas.tsx
+  --input evals/sentence_routing_retrieval_falsification/artifacts/baselines/cohort_l3_ab_question_delta_natural_v1.json
 ```
+
+By default the emitter writes the Cursor-managed canvas under `~/.cursor/projects/<workspace-slug>/canvases/` (override with `DMB_CURSOR_CANVAS_DIR` or `--output`).

@@ -297,7 +297,7 @@ def test_build_query_expansion_records_trace_shape() -> None:
 
 def test_breadcrumb_normalize_emits_frontmatter_location_metadata_records() -> None:
     artifact = Path(
-        "evals/sentence_routing_retrieval_falsification/manual_labels/Session 20 - Recap.breadcrumbed.md"
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 20 - Gnat Swarm Marla Lysandra.breadcrumbed.md"
     ).read_text(encoding="utf-8")
     records, meta = normalize_breadcrumb_artifact(
         artifact_text=artifact,
@@ -324,7 +324,7 @@ def test_breadcrumb_normalize_emits_frontmatter_location_metadata_records() -> N
 
 def test_pronoun_route_handle_enrichment_makes_resolved_routes_searchable() -> None:
     artifact = Path(
-        "evals/sentence_routing_retrieval_falsification/manual_labels/Session 20 - Recap.breadcrumbed.md"
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 20 - Gnat Swarm Marla Lysandra.breadcrumbed.md"
     ).read_text(encoding="utf-8")
     records, meta = normalize_breadcrumb_artifact(
         artifact_text=artifact,

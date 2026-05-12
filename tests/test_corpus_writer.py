@@ -27,6 +27,22 @@ from src.agent.corpus_writer import (
             "Longmont Campaign/Campaign 1/Session Recaps/_normalized/Session 13 - The Meaty and the Dead.md",
             "create",
         ),
+        (
+            "Longmont Campaign/Campaign 1/Session Recaps/_breadcrumbed/Session 01 - Stonebridge and Glowkindle Rats.breadcrumbed.md",
+            "create",
+        ),
+        (
+            "Longmont Campaign/Campaign 1/Session Recaps/_breadcrumbed/Session 13 - The Meaty and the Dead.frontmatter_seed.md",
+            "create",
+        ),
+        (
+            "Longmont Campaign/Campaign 1/Session Recaps/_session_memory/Session 13 - The Meaty and the Dead.records_meta.jsonl",
+            "create",
+        ),
+        (
+            "Longmont Campaign/Campaign 1/Session Recaps/_session_memory/Session 13 - The Meaty and the Dead.records_meta.json",
+            "create",
+        ),
         ("Longmont Campaign/Campaign 2/NPCs/dustwalker/timeline.md", "append"),
         ("Longmont Campaign/Campaign 2/NPCs/dustwalker/README.md", "append"),
         ("Longmont Campaign/Campaign 2/NPCs/dustwalker/timeline.md", "create"),

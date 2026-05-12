@@ -12,7 +12,7 @@ from evals.sentence_routing_retrieval_falsification.breadcrumb_query_grader impo
 def test_c1s3_natural_gold_retrieval_with_expected_answer_stand_in() -> None:
     """Deterministic contract: retrieval + grading passes when LLM output matches gold expected_answer."""
     repo = Path(__file__).resolve().parents[1]
-    md = repo / "evals/sentence_routing_retrieval_falsification/manual_labels/Session 3 - The Stone Bridge Flood.breadcrumbed.md"
+    md = repo / "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Session Recaps/_breadcrumbed/Session 03 - The Stone Bridge Flood.breadcrumbed.md"
     gold_path = repo / "evals/sentence_routing_retrieval_falsification/gold/breadcrumb_query_natural_c1s3_v1.json"
     art = md.read_text(encoding="utf-8")
     recs, _ = normalize_breadcrumb_artifact(artifact_text=art, corpus_root=repo / "corpus/eldyrwild-markdown")

@@ -11,21 +11,21 @@
     {
       "scenario_id": "c1s1",
       "gold": "evals/sentence_routing_retrieval_falsification/gold/breadcrumb_query_natural_c1s1_v1.json",
-      "records_jsonl": "evals/sentence_routing_retrieval_falsification/artifacts/last_session1_c1_breadcrumb_records.jsonl",
+      "records_jsonl": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Session Recaps/_session_memory/Session 01 - Stonebridge and Glowkindle Rats.records_meta.jsonl",
       "session_number": 1,
       "notes": "C1 Session 1 — roster/identity-bundle coverage; 23 records."
     },
     {
       "scenario_id": "c1s2",
       "gold": "evals/sentence_routing_retrieval_falsification/gold/breadcrumb_query_natural_c1s2_v1.json",
-      "records_jsonl": "evals/sentence_routing_retrieval_falsification/artifacts/c1s2_norm_smoke.records_meta.jsonl",
+      "records_jsonl": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Session Recaps/_session_memory/Session 02 - Finishing the Job.records_meta.jsonl",
       "session_number": 2,
       "notes": "C1 Session 2 — clean control lane; 13 records."
     },
     {
       "scenario_id": "c1s3",
       "gold": "evals/sentence_routing_retrieval_falsification/gold/breadcrumb_query_natural_c1s3_v1.json",
-      "records_jsonl": "evals/sentence_routing_retrieval_falsification/artifacts/c1s3_norm_smoke.records_meta.jsonl",
+      "records_jsonl": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Session Recaps/_session_memory/Session 03 - The Stone Bridge Flood.records_meta.jsonl",
       "session_number": 3,
       "notes": "C1 Session 3 — location-entity hierarchy pressure; 61 records."
     }

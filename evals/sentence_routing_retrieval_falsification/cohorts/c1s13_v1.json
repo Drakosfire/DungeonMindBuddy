@@ -11,7 +11,7 @@
     {
       "scenario_id": "c1s13",
       "gold": "evals/sentence_routing_retrieval_falsification/gold/breadcrumb_query_natural_c1s13_v1.json",
-      "records_jsonl": "evals/sentence_routing_retrieval_falsification/artifacts/c1s13_norm_smoke.records_meta.jsonl",
+      "records_jsonl": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Session Recaps/_session_memory/Session 13 - The Meaty and the Dead.records_meta.jsonl",
       "session_number": 13
     }
   ]

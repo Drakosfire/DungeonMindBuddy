@@ -9,7 +9,7 @@ from evals.sentence_routing_retrieval_falsification.breadcrumb_normalize import 
 
 def test_c1s2_candidate_payload_schema_and_gold_free(tmp_path: Path) -> None:
     repo = Path(__file__).resolve().parents[1]
-    md = repo / "evals/sentence_routing_retrieval_falsification/manual_labels/Session 2 - Finishing the Job.breadcrumbed.md"
+    md = repo / "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Session Recaps/_breadcrumbed/Session 02 - Finishing the Job.breadcrumbed.md"
     corpus = repo / "corpus/eldyrwild-markdown"
     text = md.read_text(encoding="utf-8")
     records, _ = normalize_breadcrumb_artifact(artifact_text=text, corpus_root=corpus)

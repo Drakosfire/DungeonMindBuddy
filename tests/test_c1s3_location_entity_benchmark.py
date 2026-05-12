@@ -11,7 +11,7 @@ def test_c1s3_location_entity_report_routes_and_mode() -> None:
     repo = Path(__file__).resolve().parents[1]
     md = (
         repo
-        / "evals/sentence_routing_retrieval_falsification/manual_labels/Session 3 - The Stone Bridge Flood.breadcrumbed.md"
+        / "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Session Recaps/_breadcrumbed/Session 03 - The Stone Bridge Flood.breadcrumbed.md"
     )
     gold = repo / "evals/sentence_routing_retrieval_falsification/gold/breadcrumb_query_natural_c1s3_v1.json"
     corpus = repo / "corpus/eldyrwild-markdown"

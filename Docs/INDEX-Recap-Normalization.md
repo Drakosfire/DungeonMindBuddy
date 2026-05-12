@@ -50,7 +50,17 @@ All prepared files live under `corpus/eldyrwild-markdown/Longmont Campaign/Campa
 
 **Slug derivation:** sessions with non-generic titles reuse the title tail; generic `Session N - Recap` titles use curated slugs in `scripts/materialize_normalized_recaps.py` (`_SLUGS`).
 
-**Note:** Breadcrumb artifacts under `evals/sentence_routing_retrieval_falsification/manual_labels/*.breadcrumbed.md` were built from **original** recaps; after switching ingest to `_normalized/` sources, regenerate those artifacts so tag-stripped text still matches.
+**Breadcrumb + session memory (pilot):** canonical paths under `Session Recaps/_breadcrumbed/` and `_session_memory/` per [`Docs/CONVENTION-Session-Recap-Breadcrumbs-And-Memory.md`](CONVENTION-Session-Recap-Breadcrumbs-And-Memory.md). Resolver: `src/corpus/session_recap_paths.py`.
+
+| Campaign | Session | Breadcrumb (`_breadcrumbed/`) | Session memory (`_session_memory/`) |
+|----------|---------|------------------------------|-----------------------------------|
+| C1 | 1 | `.../_breadcrumbed/Session 01 - Stonebridge and Glowkindle Rats.breadcrumbed.md` | `.../_session_memory/Session 01 - Stonebridge and Glowkindle Rats.records_meta.jsonl` |
+| C1 | 2 | `.../_breadcrumbed/Session 02 - Finishing the Job.breadcrumbed.md` | `.../_session_memory/Session 02 - Finishing the Job.records_meta.jsonl` |
+| C1 | 3 | `.../_breadcrumbed/Session 03 - The Stone Bridge Flood.breadcrumbed.md` | `.../_session_memory/Session 03 - The Stone Bridge Flood.records_meta.jsonl` |
+| C1 | 13 | `.../_breadcrumbed/Session 13 - The Meaty and the Dead.breadcrumbed.md` | `.../_session_memory/Session 13 - The Meaty and the Dead.records_meta.jsonl` |
+| C2 | 20 | `.../_breadcrumbed/Session 20 - Gnat Swarm Marla Lysandra.breadcrumbed.md` | `.../_session_memory/Session 20 - Gnat Swarm Marla Lysandra.records_meta.jsonl` |
+
+(`...` = `Longmont Campaign/Campaign N/Session Recaps`.)
 
 ## Retrieval-only smoke (2026-05-08)
 
@@ -65,7 +75,7 @@ Using existing manual breadcrumb artifacts (still aligned to **original** recap 
 
 C2S20 run: **Cost:** $0 (retrieval-only, no LLM). Failures are existing `missing_expected_route_hit` / route-gate scenarios (e.g. `q_lysandra_change_unresolved`), not evidence of corpus-path drift from `_normalized/` (breadcrumb file still references `Session 20 - Recap.md`).
 
-C1S13: the normalized seed now exists at `evals/sentence_routing_retrieval_falsification/manual_labels/Session 13 - The Meaty and the Dead.normalized.breadcrumbed.frontmatter_seed.md`; use `_normalized/Session 13 - The Meaty and the Dead.md` for routing-only refreshes.
+C1S13: blessed breadcrumb and seed live under `Longmont Campaign/Campaign 1/Session Recaps/_breadcrumbed/`; session memory under `_session_memory/Session 13 - The Meaty and the Dead.records_meta.jsonl`.
 
 ## Routing-only refresh baseline (2026-05-08)
 

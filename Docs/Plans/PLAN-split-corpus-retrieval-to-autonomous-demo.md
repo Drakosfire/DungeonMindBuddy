@@ -78,6 +78,19 @@ execution_state:
       a portable gate (separate from route-equivalence JSONL lane).
   integration_notes:
     - >-
+      Corpus session-memory promotion (2026-05-12): blessed pilot breadcrumbs and committed
+      `_session_memory/*.records_meta.{jsonl,json}` live under
+      `corpus/eldyrwild-markdown/Longmont Campaign/Campaign N/Session Recaps/` per
+      `Docs/CONVENTION-Session-Recap-Breadcrumbs-And-Memory.md`; cohort manifests
+      `c1s1_to_c1s3_v1`, `c1s13_v1`, and `natural_v1` now reference corpus JSONL paths;
+      eval `artifacts/*_norm_smoke.records_meta.*` duplicates retired. C1S13 holdout
+      readout after inline-tagged breadcrumb + corpus memory: frozen baseline aggregate
+      **16/25 pass** (was **0/25** on routeless records); companion meta
+      **`records_with_routes` 56** (was **0**); question-delta summary
+      **regressed 4 / improved 2 / unchanged_pass 12 / unchanged_fail 7**. Retrieval-only
+      verification: `materialize_session_memory.py --all-blessed --check` OK; cohort
+      `--check` + C1S13 `--check-delta` / `--check-question-delta` OK. Cost **$0**.
+    - >-
       PR #15 is MERGED to main (merge commit 27b3eea7dd87331758ddd07e5919c5094f6702bd,
       2026-05-12T01:32:31Z): **single-file** gold rubric repair — **`breadcrumb_query_natural_c1s13_v1.json`** only; strict **§4 allowlist 1/1** on `fetch`/`verify`;
       §7 structural audit + gold parse + temp holdout **`cohort_baseline_run`** (`/tmp/c1s13_l3_*_post_gold_audit.json`) + readout **passed**; temp **`question_count` 25** summary **regressed 0 / improved 0 / unchanged_pass 0 / unchanged_fail 25**;
