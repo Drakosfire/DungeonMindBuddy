@@ -363,3 +363,6 @@ def test_cohort_scene_beat_mode_writes_distinct_schema(tmp_path: Path) -> None:
     payload = json.loads(out.read_text(encoding="utf-8"))
     assert payload["schema_id"] == "dmb_breadcrumb_query_cohort_scene_beat_question_delta_v1"
     assert "scene_beat_records_jsonl" in payload
+    first_q = payload["scenarios"][0]["questions"][0]
+    assert "scene_beat_expansion" in first_q["with_scene_beats"]
+    assert first_q["with_scene_beats"]["scene_beat_expansion"]["enabled"] is True

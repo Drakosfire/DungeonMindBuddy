@@ -359,7 +359,7 @@ def _classify_question_delta_failure(
     }
 
 
-def _build_question_delta(*, manifest: dict[str, Any], baseline_reports: list[dict[str, Any]], equivalence_reports: list[dict[str, Any]], manifest_path: Path, scenario_level_delta_path: Path, workspace_root: Path) -> dict[str, Any]:
+def _build_question_delta(*, manifest: dict[str, Any], baseline_reports: list[dict[str, Any]], equivalence_reports: list[dict[str, Any]], manifest_path: Path, scenario_level_delta_path: Path, workspace_root: Path, include_scene_beat_metadata: bool = False) -> dict[str, Any]:
     scenarios=[]
     summary={"regressed":0,"improved":0,"unchanged_pass":0,"unchanged_fail":0}
     total_q=0
@@ -444,6 +444,7 @@ def _build_question_delta(*, manifest: dict[str, Any], baseline_reports: list[di
                     "expected_route_substring_breakdown": list(erow.get("expected_route_substring_breakdown") or []),
                     "hit_count": len(((erow.get("full_result") or {}).get("hits") or [])),
                     "ranking_augmented_by_equivalences": bool(erow.get("ranking_augmented_by_equivalences")),
+                    **({"scene_beat_expansion": erow.get("scene_beat_expansion")} if include_scene_beat_metadata else {}),
                     "top_hits": _top_hits(erow),
                 },
                 "delta": {
@@ -559,6 +560,7 @@ def main() -> int:
                 manifest_path=manifest_path,
                 scenario_level_delta_path=args.write_scene_beat_question_delta,
                 workspace_root=_HARNESS_WORKSPACE_ROOT,
+                include_scene_beat_metadata=True,
             )
             qdelta["schema_id"] = COHORT_SCENE_BEAT_QUESTION_DELTA_SCHEMA_V1
             qdelta["manifest"] = qdelta.pop("cohort_manifest")
