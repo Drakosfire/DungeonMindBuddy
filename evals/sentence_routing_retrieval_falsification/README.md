@@ -771,3 +771,38 @@ L3 question-delta artifacts also include deterministic per-question failure diag
 - `failure_diagnostic.reasons` provides deterministic textual reasons from existing retrieval fields only.
 - `failure_diagnostic.baseline_missing_route_substrings` and `failure_diagnostic.with_equivalence_missing_route_substrings` preserve expected-route order for quick side-by-side triage.
 - `failure_diagnostic_summary` at artifact top-level aggregates bucket counts for machine-readable promotion-gate checks.
+
+### Candidate scene-beat rebenchmark lane (PR #17 slice)
+
+This lane is **candidate-only** and does not change default retrieval behavior.
+
+- Build beat-enriched records from existing session-memory + unit-annotation output:
+
+```bash
+uv run python -m evals.sentence_routing_retrieval_falsification.scene_beat_memory \
+  --records-jsonl "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Session Recaps/_session_memory/Session 13 - The Meaty and the Dead.records_meta.jsonl" \
+  --unit-annotations-json /tmp/c1s13_unit_annotations_scene_beat.json \
+  --out-jsonl /tmp/c1s13_scene_beat.records_meta.jsonl \
+  --out-meta /tmp/c1s13_scene_beat.records_meta.json
+```
+
+- Run natural benchmark with opt-in same-beat expansion:
+
+```bash
+uv run python -m evals.sentence_routing_retrieval_falsification.breadcrumb_query_run \
+  --records-jsonl /tmp/c1s13_scene_beat.records_meta.jsonl \
+  --gold evals/sentence_routing_retrieval_falsification/gold/breadcrumb_query_natural_c1s13_v1.json \
+  --retrieval-only \
+  --use-scene-beat-expansion \
+  --scene-beat-expand-limit 8 \
+  --output /tmp/c1s13_scene_beat_run.json
+```
+
+- Produce cohort question-level delta (baseline vs with-scene-beats):
+
+```bash
+uv run python -m evals.sentence_routing_retrieval_falsification.cohort_baseline_run \
+  --manifest evals/sentence_routing_retrieval_falsification/cohorts/c1s13_v1.json \
+  --scene-beat-records-jsonl /tmp/c1s13_scene_beat.records_meta.jsonl \
+  --write-scene-beat-question-delta /tmp/cohort_l3_scene_beat_question_delta_c1s13_v1.json
+```

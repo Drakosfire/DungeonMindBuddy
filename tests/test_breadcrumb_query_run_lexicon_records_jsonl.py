@@ -190,6 +190,8 @@ def test_breadcrumb_query_run_help_advertises_route_equivalence_jsonl_flag() -> 
         check=True,
     )
     assert "--route-equivalence-jsonl" in result.stdout
+    assert "--use-scene-beat-expansion" in result.stdout
+    assert "--scene-beat-expand-limit" in result.stdout
 
 
 def _run_breadcrumb_query_run_subprocess_with_cwd(

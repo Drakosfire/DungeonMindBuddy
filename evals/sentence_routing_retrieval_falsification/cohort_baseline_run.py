@@ -22,6 +22,7 @@ COHORT_MANIFEST_SCHEMA_V1 = "dmb_breadcrumb_query_cohort_manifest_v1"
 COHORT_SUMMARY_SCHEMA_V2 = "dmb_breadcrumb_query_cohort_summary_v2"
 COHORT_L3_DELTA_SCHEMA_V1 = "dmb_breadcrumb_query_cohort_l3_delta_v1"
 COHORT_L3_QUESTION_DELTA_SCHEMA_V1 = "dmb_breadcrumb_query_cohort_l3_question_delta_v1"
+COHORT_SCENE_BEAT_QUESTION_DELTA_SCHEMA_V1 = "dmb_breadcrumb_query_cohort_scene_beat_question_delta_v1"
 _DEFAULT_DELTA = Path("evals/sentence_routing_retrieval_falsification/artifacts/baselines/cohort_l3_ab_delta_c1s1_to_c1s3_v1.json")
 _DEFAULT_QUESTION_DELTA = Path("evals/sentence_routing_retrieval_falsification/artifacts/baselines/cohort_l3_ab_question_delta_c1s1_to_c1s3_v1.json")
 
@@ -56,10 +57,10 @@ def load_cohort_manifest(manifest_path: Path) -> dict[str, Any]:
     return data
 
 
-def run_one_scenario(*, scenario: dict[str, Any], route_equivalence_jsonl: Sequence[Path], workspace_root: Path, per_scenario_out: Path, use_route_equivalence_for_ranking: bool = False) -> dict[str, Any]:
+def run_one_scenario(*, scenario: dict[str, Any], route_equivalence_jsonl: Sequence[Path], workspace_root: Path, per_scenario_out: Path, use_route_equivalence_for_ranking: bool = False, records_jsonl_override: Path | None = None, use_scene_beat_expansion: bool = False) -> dict[str, Any]:
     cmd = [
         "uv", "run", "python", "-m", "evals.sentence_routing_retrieval_falsification.breadcrumb_query_run",
-        "--records-jsonl", scenario["records_jsonl"],
+        "--records-jsonl", str(records_jsonl_override or scenario["records_jsonl"]),
         "--gold", scenario["gold"],
         "--retrieval-only",
         "--output", str(per_scenario_out),
@@ -71,6 +72,8 @@ def run_one_scenario(*, scenario: dict[str, Any], route_equivalence_jsonl: Seque
         cmd.append(skip_flag)
     if use_route_equivalence_for_ranking:
         cmd.append("--use-route-equivalence-for-ranking")
+    if use_scene_beat_expansion:
+        cmd.extend(["--use-scene-beat-expansion", "--scene-beat-expand-limit", "8"])
     try:
         subprocess.run(cmd, capture_output=True, text=True, cwd=str(workspace_root), check=True)
     except subprocess.CalledProcessError as exc:
@@ -490,6 +493,8 @@ def main() -> int:
     parser.add_argument("--write-question-delta", nargs="?", const=str(_DEFAULT_QUESTION_DELTA), default=None)
     parser.add_argument("--check-question-delta", nargs="?", const=str(_DEFAULT_QUESTION_DELTA), default=None)
     parser.add_argument("--per-scenario-out-dir", type=Path, default=None)
+    parser.add_argument("--scene-beat-records-jsonl", type=Path, default=None)
+    parser.add_argument("--write-scene-beat-question-delta", type=Path, default=None)
     args = parser.parse_args()
     try:
         if args.check_delta:
@@ -518,6 +523,55 @@ def main() -> int:
                     return 1
                 print(f"OK {_workspace_relative_posix(qpath, _HARNESS_WORKSPACE_ROOT)}")
                 return 0
+        if args.write_scene_beat_question_delta:
+            if args.scene_beat_records_jsonl is None:
+                raise ValueError("--write-scene-beat-question-delta requires --scene-beat-records-jsonl")
+            manifest_path = (_HARNESS_WORKSPACE_ROOT / args.manifest).resolve() if not args.manifest.is_absolute() else args.manifest
+            manifest = load_cohort_manifest(manifest_path)
+            route_paths = [_resolve_workspace_path(p, _HARNESS_WORKSPACE_ROOT) for p in manifest["route_equivalence_jsonl"]]
+            baseline_reports = []
+            scene_reports = []
+            with tempfile.TemporaryDirectory() as tmp:
+                td = Path(tmp)
+                for scenario in manifest["scenarios"]:
+                    baseline_reports.append(
+                        run_one_scenario(
+                            scenario=scenario,
+                            route_equivalence_jsonl=route_paths,
+                            workspace_root=_HARNESS_WORKSPACE_ROOT,
+                            per_scenario_out=td / f"{scenario['scenario_id']}_base.json",
+                        )
+                    )
+                    scene_reports.append(
+                        run_one_scenario(
+                            scenario=scenario,
+                            route_equivalence_jsonl=route_paths,
+                            workspace_root=_HARNESS_WORKSPACE_ROOT,
+                            per_scenario_out=td / f"{scenario['scenario_id']}_scene.json",
+                            records_jsonl_override=args.scene_beat_records_jsonl,
+                            use_scene_beat_expansion=True,
+                        )
+                    )
+            qdelta = _build_question_delta(
+                manifest=manifest,
+                baseline_reports=baseline_reports,
+                equivalence_reports=scene_reports,
+                manifest_path=manifest_path,
+                scenario_level_delta_path=args.write_scene_beat_question_delta,
+                workspace_root=_HARNESS_WORKSPACE_ROOT,
+            )
+            qdelta["schema_id"] = COHORT_SCENE_BEAT_QUESTION_DELTA_SCHEMA_V1
+            qdelta["manifest"] = qdelta.pop("cohort_manifest")
+            qdelta["baseline_records_jsonl"] = str(manifest["scenarios"][0]["records_jsonl"]) if manifest.get("scenarios") else None
+            qdelta["scene_beat_records_jsonl"] = _workspace_relative_posix(args.scene_beat_records_jsonl, _HARNESS_WORKSPACE_ROOT)
+            for scen in qdelta.get("scenarios", []):
+                scen["with_scene_beats_pass_count"] = scen.pop("with_equivalence_pass_count")
+                for q in scen.get("questions", []):
+                    q["with_scene_beats"] = q.pop("with_equivalence")
+            outp = (_HARNESS_WORKSPACE_ROOT / args.write_scene_beat_question_delta).resolve() if not args.write_scene_beat_question_delta.is_absolute() else args.write_scene_beat_question_delta
+            outp.parent.mkdir(parents=True, exist_ok=True)
+            outp.write_text(json.dumps(qdelta, indent=2) + "\n", encoding="utf-8")
+            return 0
         if args.mode == "both" or args.write_delta or args.write_question_delta:
             manifest_path = (_HARNESS_WORKSPACE_ROOT / args.manifest).resolve() if not args.manifest.is_absolute() else args.manifest
             manifest = load_cohort_manifest(manifest_path)
