@@ -21,6 +21,8 @@ gold_notes:
   purpose: "Manual beat/location/population target for future prompt and retrieval benchmarks."
   instructions: "Do not treat this as the blessed corpus breadcrumb. Use it to compare future ingestion prompt output against manually identified beat spans and populations."
   beat_id_grammar: "c{campaign_number}s{session_number}-b{ordinal:03d}-{short_slug}"
+  beat_boundary_policy: "Beats are retrieval-stable spans, not story chapters: split when location, sublocation, active roster, party split/rejoin state, or event mode changes enough that one population row would mix answers."
+  slug_policy: "Beat ID slugs may be action-oriented when the unit span is unchanged, but should preserve retrieval-critical location/event handles such as infirmary, study room, morgue, ritual room, and tunnel."
 entity_index:
   pcs:
     - slug: baergrom
@@ -95,7 +97,7 @@ entity_index:
       subject_type: npc
       proposed_route: "Longmont Campaign/Campaign 1/NPCs/shepherd/"
 beat_index:
-  - beat_id: c1s13-b001-council-chambers-exit
+  - beat_id: c1s13-b001-plan-academy-departure
     summary: "Party leaves the Council Chambers with Wolf's body/head, is stopped by alerted guards, and Thalia explains."
     unit_ids: [u-L0003-01, u-L0003-02, u-L0003-03, u-L0003-04]
     location_routes:
@@ -129,7 +131,7 @@ beat_index:
       - entity_label: "alerted guards"
         presence_kind: explicit
         evidence_unit_ids: [u-L0003-02, u-L0003-03]
-  - beat_id: c1s13-b002-street-meat-check
+  - beat_id: c1s13-b002-street-meat-incident
     summary: "Street checkpoint / meat check; covert ops challenge the party, meat is dumped, guards and a mage respond."
     unit_ids: [u-L0005-01, u-L0005-02, u-L0005-03, u-L0005-04]
     location_labels: ["street between Council Chambers and Stormspire Academy"]
@@ -278,7 +280,7 @@ beat_index:
       - entity_label: "escaped meat"
         presence_kind: explicit
         evidence_unit_ids: [u-L0017-01]
-  - beat_id: c1s13-b008-basement-morgue-ritual-questions
+  - beat_id: c1s13-b008-basement-morgue-speak-with-dead
     summary: "Stafl and Bonogo enter the morgue ritual; Wolf answers Speak with Dead questions."
     unit_ids: [u-L0019-01, u-L0019-02, u-L0019-03, u-L0021-01, u-L0021-02, u-L0023-01, u-L0023-02, u-L0025-01, u-L0025-02, u-L0027-01, u-L0027-02, u-L0027-03, u-L0029-01, u-L0029-02, u-L0029-03, u-L0029-04, u-L0029-05]
     location_routes:
