@@ -345,3 +345,24 @@ def test_check_delta_honors_manifest_argument(tmp_path: Path) -> None:
         '--check-delta'
     ], capture_output=True, text=True)
     assert run.returncode == 0, run.stdout + run.stderr
+
+def test_cohort_scene_beat_mode_writes_distinct_schema(tmp_path: Path) -> None:
+    if shutil.which("uv") is None:
+        pytest.skip("uv not available")
+    out = tmp_path / "scene.json"
+    records = _REPO_ROOT / "corpus" / "eldyrwild-markdown" / "Longmont Campaign" / "Campaign 1" / "Session Recaps" / "_session_memory" / "Session 13 - The Meaty and the Dead.records_meta.jsonl"
+    manifest = _REPO_ROOT / "evals" / "sentence_routing_retrieval_falsification" / "cohorts" / "c1s13_v1.json"
+    cmd = [
+        "uv","run","python","-m","evals.sentence_routing_retrieval_falsification.cohort_baseline_run",
+        "--manifest", str(manifest),
+        "--scene-beat-records-jsonl", str(records),
+        "--write-scene-beat-question-delta", str(out),
+    ]
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(out.read_text(encoding="utf-8"))
+    assert payload["schema_id"] == "dmb_breadcrumb_query_cohort_scene_beat_question_delta_v1"
+    assert "scene_beat_records_jsonl" in payload
+    first_q = payload["scenarios"][0]["questions"][0]
+    assert "scene_beat_expansion" in first_q["with_scene_beats"]
+    assert first_q["with_scene_beats"]["scene_beat_expansion"]["enabled"] is True

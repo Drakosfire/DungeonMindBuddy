@@ -190,6 +190,8 @@ def test_breadcrumb_query_run_help_advertises_route_equivalence_jsonl_flag() -> 
         check=True,
     )
     assert "--route-equivalence-jsonl" in result.stdout
+    assert "--use-scene-beat-expansion" in result.stdout
+    assert "--scene-beat-expand-limit" in result.stdout
 
 
 def _run_breadcrumb_query_run_subprocess_with_cwd(
@@ -264,6 +266,25 @@ def test_use_route_equivalence_for_ranking_flag_is_additive_only_at_harness_boun
         assert aliases
 
 
+
+
+
+def test_scene_beat_expansion_flag_emits_row_metadata(tmp_path: Path) -> None:
+    if shutil.which("uv") is None:
+        pytest.skip("uv not available")
+    out_with = tmp_path / "with_scene_beats.json"
+    with_result = _run_breadcrumb_query_run_subprocess(
+        output_path=out_with,
+        extra_args=["--use-scene-beat-expansion", "--scene-beat-expand-limit", "4"],
+    )
+    assert with_result.returncode == 0, with_result.stderr
+    rows_with = json.loads(out_with.read_text(encoding="utf-8"))["results"]
+    assert rows_with
+    for row in rows_with:
+        sb = row.get("scene_beat_expansion")
+        assert isinstance(sb, dict)
+        assert sb.get("enabled") is True
+        assert sb.get("expand_same_beat_limit") == 4
 
 def test_route_equivalence_source_paths_are_workspace_relative_and_cwd_invariant(
     tmp_path: Path,

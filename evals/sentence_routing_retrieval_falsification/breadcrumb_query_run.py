@@ -860,6 +860,17 @@ def main() -> None:
         help="Augment retrieval ranking with route-equivalence-derived alias tokens.",
     )
     parser.add_argument(
+        "--use-scene-beat-expansion",
+        action="store_true",
+        help="Enable same-beat retrieval expansion for natural-gold scenarios.",
+    )
+    parser.add_argument(
+        "--scene-beat-expand-limit",
+        type=int,
+        default=None,
+        help="Same-beat expansion per seed beat (default 8 when --use-scene-beat-expansion is set).",
+    )
+    parser.add_argument(
         "--tagging-baseline-md",
         type=Path,
         default=Path(
@@ -1106,6 +1117,13 @@ def main() -> None:
             scen = merge_natural_benchmark_scenario(dict(scenario), gold)
             retrieval_scenario = scen
             ranking_augmented_by_equivalences = False
+            scene_beat_enabled = bool(args.use_scene_beat_expansion)
+            scene_beat_limit = int(args.scene_beat_expand_limit) if args.scene_beat_expand_limit is not None else (8 if scene_beat_enabled else 0)
+            if scene_beat_enabled:
+                scen_scene = copy.deepcopy(retrieval_scenario)
+                scen_scene.setdefault("query_spec", {})["expand_context"] = True
+                scen_scene.setdefault("query_spec", {})["expand_same_beat_limit"] = scene_beat_limit
+                retrieval_scenario = scen_scene
             if args.use_route_equivalence_for_ranking and route_equivalence_records:
                 extra_aliases = _build_equivalence_aliases(route_equivalence_records)
                 if extra_aliases:
@@ -1161,6 +1179,12 @@ def main() -> None:
                 lexicon=shadow_lexicon,
             )
             row["ranking_augmented_by_equivalences"] = ranking_augmented_by_equivalences
+            if scene_beat_enabled:
+                row["scene_beat_expansion"] = {
+                    "enabled": True,
+                    "expand_same_beat_limit": scene_beat_limit,
+                    "records_with_beat_id": sum(1 for r in records if r.get("beat_id")),
+                }
             expected_substrings = list(scen.get("expect_route_substrings") or [])
             row["expected_route_substring_breakdown"] = [
                 {

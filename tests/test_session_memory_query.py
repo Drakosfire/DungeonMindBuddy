@@ -412,3 +412,15 @@ def test_session20_normalize_and_gold_grades() -> None:
     for scenario in gold["scenarios"]:
         g = grade_scenario(records=records, scenario=scenario)
         assert g["ok"], g
+
+def test_same_beat_expansion_opt_in_and_marked() -> None:
+    recap = "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md"
+    records = [
+        {"schema": "dmb_session_memory_record_v1", "campaign_id": "longmont-c2", "session_number": 20, "source_recap_path": recap, "unit_id": "u-seed", "line_start": 10, "line_end": 10, "text_blake3": "aa" * 32, "lexical_plain": "rareterm", "beat_id": "beat-1", "routes": []},
+        {"schema": "dmb_session_memory_record_v1", "campaign_id": "longmont-c2", "session_number": 20, "source_recap_path": recap, "unit_id": "u-sib", "line_start": 11, "line_end": 11, "text_blake3": "bb" * 32, "lexical_plain": "other", "beat_id": "beat-1", "routes": []},
+    ]
+    off = query_session_memory_candidate(records=records, query="rareterm", campaign_id="longmont-c2", max_hits=2, expand_context=True, expand_adjacent_window=0, expand_shared_route_limit=0, expand_route_family_limit=0)
+    on = query_session_memory_candidate(records=records, query="rareterm", campaign_id="longmont-c2", max_hits=2, expand_context=True, expand_same_beat_limit=2, expand_adjacent_window=0, expand_shared_route_limit=0, expand_route_family_limit=0)
+    assert [h["unit_id"] for h in off.hits] == ["u-seed"]
+    assert [h["unit_id"] for h in on.hits] == ["u-seed", "u-sib"]
+    assert any("expanded_same_beat:beat-1" in (h.get("why_matched") or []) for h in on.hits)
