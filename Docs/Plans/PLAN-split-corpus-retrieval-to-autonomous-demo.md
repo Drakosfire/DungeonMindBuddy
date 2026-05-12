@@ -6,9 +6,9 @@ title: Split-corpus retrieval to autonomous C1S1–C1S3 demo
 document_class: plan
 plan_kind: execution_super_plan
 status: active
-version: 19
+version: 20
 created_at: "2026-05-09T00:00:00Z"
-last_updated_at: "2026-05-11T20:37:15Z"
+last_updated_at: "2026-05-12T00:22:14Z"
 timezone_note: "Timestamps are UTC; local work may use America/Denver."
 supersedes: []
 superseded_by: null
@@ -60,7 +60,7 @@ execution_state:
     && uv run python -m evals.sentence_routing_retrieval_falsification.cohort_l3_question_deep_dive_canvas_emit --input evals/sentence_routing_retrieval_falsification/artifacts/baselines/cohort_l3_ab_question_delta_natural_v1.json --output canvases/cohort-l3-ab-question-deep-dive-natural-v1.canvas.tsx
     && uv run pytest tests/test_cohort_l3_alias_saturation_canvas_emit.py -q
     && uv run python -m evals.sentence_routing_retrieval_falsification.cohort_l3_alias_saturation_canvas_emit --input evals/sentence_routing_retrieval_falsification/artifacts/baselines/cohort_l3_ab_question_delta_c1s1_to_c1s3_v1.json --input evals/sentence_routing_retrieval_falsification/artifacts/baselines/cohort_l3_ab_question_delta_natural_v1.json --output canvases/cohort-l3-alias-saturation.canvas.tsx
-    PR #12 merged: alias-saturation canvas + threshold-scan readout on committed question-delta inputs reports `promotion_gate_candidate.status: none_found` under the packaged rule. Promotion to default retrieval remains blocked with explicit scan evidence (not a missing diagnostic). Next: revise promotion rule, widen evidence, or document acceptance that no simple alias-count gate clears the bar before any default flip.
+    PR #14 merged prerequisite C1S13 records inputs (two artifact files only; merge `3e1f32a551b3600f77531a0708da18e89a1e5bd1`, 2026-05-12T00:22:14Z): `c1s13_norm_smoke.records_meta.{jsonl,json}` exists on `main`; JSONL **`rows`**/**`unit_count`** **68**, **`records_with_routes`** **0**, **`size_bytes`** **31286**; no harness/cohort/gold code changes in that slice; cost **$0**. **PR #13** (holdout cohort A/B artifacts) stays **open** with **REQUEST_CHANGES** disposition until regenerated outputs land and pass review—the prior **missing prerequisite file** blocker is cleared. **Next action (external PR loop):** re-verify **PR #13** against its authoritative handoff `Docs/Plans/HANDOFF-pr13-c1s13-holdout-cohort-ab-baseline-and-deltas.md` (for example `scripts/review_external_pr.py verify 13 --parse-counts` after fetching the refreshed head), not a new prerequisite PR. Separate lane unchanged: alias-saturation readout still shows `promotion_gate_candidate.status: none_found`; promotion-to-default retrieval remains blocked until acceptance criteria move.
   flagged_followups:
     - >-
       Content quality of `location_hierarchy_equivalences` in
@@ -74,6 +74,18 @@ execution_state:
       is absent; document or generate that manifest before treating the audit as
       a portable gate (separate from route-equivalence JSONL lane).
   integration_notes:
+    - >-
+      PR #14 is MERGED to main (merge commit 3e1f32a551b3600f77531a0708da18e89a1e5bd1,
+      2026-05-12T00:22:14Z): **prerequisite input only** for **PR #13** (Option‑2 unblocker from
+      `HANDOFF-pr13-addendum-option2-c1s13-records-prereq`) — adds exactly **two files** under
+      `evals/sentence_routing_retrieval_falsification/artifacts/`: `c1s13_norm_smoke.records_meta.jsonl`
+      and `c1s13_norm_smoke.records_meta.json`. Committed shapes: **`rows`** **68**, **`unit_count`**
+      **68**, **`records_with_routes`** **0**, JSONL **size_bytes** **31286** — **no**
+      retrieval/cohort-runner code edits, **no** gold edits, **no** frozen baseline/delta/canvas outputs
+      in this PR (those remain PR #13 scope). Parent review: APPROVE demoted to COMMENTED (self‑review fallback,
+      review id `4268310498`), PR head verified `4cc593429417ac0f457e7ba10583065069891fbd`; cost **$0**.
+      **Unblock condition for PR #13 satisfied:** missing `…/c1s13_norm_smoke.records_meta.jsonl` gate removed;
+      execute PR #13's §7 regeneration + `review_external_pr` verify path next.
     - >-
       PR #12 is MERGED to main (merge commit 7eface014b3d5824a11d29ad1e91ed67c153711f,
       2026-05-11T20:37:15Z): alias-saturation diagnostics — new emitter
@@ -252,6 +264,15 @@ execution_state:
       -> 10 passed (round 2 added byte-identity-when-flag-unset and
       load-failure-emits-error harness-boundary tests).
 changelog:
+  - at: "2026-05-12T00:22:14Z"
+    version: 20
+    summary: >-
+      PR #14 merged (3e1f32a551b3600f77531a0708da18e89a1e5bd1): prerequisite C1S13 records artifacts only
+      (`c1s13_norm_smoke.records_meta.jsonl` + `.json`; rows/unit_count 68; records_with_routes 0; size_bytes 31286;
+      no code/gold/frozen cohort outputs). Clears PR #13 missing-file blocker while PR #13 stays open/request-changes
+      until regenerated holdout cohort artifacts verify. Added `github-pr-14` judgment + rubric; integration note +
+      `execution_state.next_gate_command` reanchor pointing external loop back to HANDOFF-pr13 §7 / `verify 13`; checklist
+      Reanchor + session log + archive handoff synced.
   - at: "2026-05-11T20:37:15Z"
     version: 19
     summary: >-
@@ -461,6 +482,50 @@ changelog:
 # Notation: plan_phase_primary / plan_phase_also_touches map work to phases;
 # review_status captures current merge/review disposition.
 external_pull_requests:
+  - id: github-pr-14
+    url: https://github.com/Drakosfire/DungeonMindBuddy/pull/14
+    plan_phase_primary: "5"
+    plan_phase_also_touches: null
+    plan_phase_label: >-
+      Prerequisite artifact slice for PR #13 holdout cohort lane: commits exactly **two files**
+      `evals/sentence_routing_retrieval_falsification/artifacts/c1s13_norm_smoke.records_meta.{jsonl,json}`
+      so `cohorts/c1s13_v1.json` can resolve its records-meta inputs. No cohort baselines/deltas/canvases, no harness
+      or gold edits — input-only unblocker (Option‑2 spine).
+    review_status: merged
+    review_status_meaning: >-
+      Merged to main on 2026-05-12T00:22:14Z (merge commit 3e1f32a551b3600f77531a0708da18e89a1e5bd1) after prerequisite
+      review round. Worker diff: strictly the two artifact paths (`git diff --stat` shows two Adds). Parent verification
+      on PR head 4cc593429417ac0f457e7ba10583065069891fbd: JSON summary + JSONL probes report **rows/unit_count** **68**,
+      **records_with_routes** **0**, **size_bytes** **31286**; no Python module, gold, or baseline JSON in scope; cost **$0**.
+      Verdict APPROVE expressed as COMMENTED under self-review fallback (review id `4268310498`).
+    judgment_record:
+      verdict: accepted
+      evaluated_at: "2026-05-12T00:22:14Z"
+      evaluator: cursor-agent
+      notes: >-
+        Accepted as intentionally narrow prerequisites: restores the cohort manifest's referenced records-meta paths
+        that previously failed §7 existence checks on PR #13. Does not advance holdout retrieval science — only clears
+        the **missing artifact** unblock so PR #13 can regenerate cohort outputs deterministically against `main`.
+    rubric_when_we_judge:
+      - >-
+        **Prerequisite-input-only contract:** exactly the handoff §4 allowlist artifact paths (two files expected);
+        forbid cohort `artifacts/baselines/cohort_*c1s13*`, generated canvases, `cohort_baseline_run.py`,
+        `breadcrumb_query_run.py`, and `gold/` edits in this worker PR — every extra path indicates scope bleed.
+      - >-
+        **Unblock condition for PR #13:** reviewer §7 MUST assert `c1s13_norm_smoke.records_meta.jsonl` exists where
+        `cohorts/c1s13_v1.json` resolves it (and companion `.json` parses with consistent **`unit_count`**, **`records_with_routes`**),
+        so missing-file objections cannot recur on the reopened PR head.
+      - >-
+        **Shape probes, not narration:** cite parsed counts (`rows`, `unit_count`, `records_with_routes`, optional `size_bytes`)
+        verbatim from deterministic one-liners; hand-wavy "looks good" acceptance is inadequate for ingestion inputs downstream
+        of falsification benchmarks.
+      - >-
+        **No gold or frozen harness artifacts here:** prerequisite PRs MUST NOT revise `breadcrumb_query_natural_c1s13_v1.json`
+        or freeze `cohort_baseline`/delta/question-delta/canvases — those remain the holdout cohort PR's responsibility so review
+        allowlists stay separable.
+      - >-
+        **Cost honesty:** ingestion-artifact commits are **`$0`** unless the worker adds LLM or paid API lanes; call that out explicitly
+        in judgment notes when juxtaposed with retrieval-only regressions elsewhere.
   - id: github-pr-12
     url: https://github.com/Drakosfire/DungeonMindBuddy/pull/12
     plan_phase_primary: "5"
