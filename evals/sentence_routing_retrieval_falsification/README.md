@@ -764,3 +764,10 @@ uv run python -m evals.sentence_routing_retrieval_falsification.cohort_l3_alias_
 ```
 
 By default the emitter writes the Cursor-managed canvas under `~/.cursor/projects/<workspace-slug>/canvases/` (override with `DMB_CURSOR_CANVAS_DIR` or `--output`).
+
+L3 question-delta artifacts also include deterministic per-question failure diagnostics:
+
+- `failure_diagnostic.bucket` values are closed: `passed`, `equivalence_helped`, `ranking_regression`, `missing_lexical_handle`, `retriever_support_gap`, `gold_or_rubric_gap`.
+- `failure_diagnostic.reasons` provides deterministic textual reasons from existing retrieval fields only.
+- `failure_diagnostic.baseline_missing_route_substrings` and `failure_diagnostic.with_equivalence_missing_route_substrings` preserve expected-route order for quick side-by-side triage.
+- `failure_diagnostic_summary` at artifact top-level aggregates bucket counts for machine-readable promotion-gate checks.

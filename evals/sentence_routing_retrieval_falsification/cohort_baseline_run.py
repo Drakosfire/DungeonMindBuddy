@@ -276,10 +276,95 @@ def _top_hits(row: dict[str, Any], *, limit: int = 5) -> list[dict[str, Any]]:
     return out
 
 
+def _classify_question_delta_failure(
+    *,
+    verdict: str,
+    expected_route_substrings: list[str],
+    baseline_route_breakdown: dict[str, bool],
+    equivalence_route_breakdown: dict[str, bool],
+    required_must_hits: list[str],
+    baseline_hits: list[str],
+    equivalence_hits: list[str],
+    min_context_support_ratio: float,
+    baseline_context_support_ratio: float,
+    equivalence_context_support_ratio: float,
+) -> dict[str, object]:
+    baseline_missing_route_substrings = [s for s in expected_route_substrings if not baseline_route_breakdown.get(s, False)]
+    with_equivalence_missing_route_substrings = [s for s in expected_route_substrings if not equivalence_route_breakdown.get(s, False)]
+    baseline_required_hits = set(required_must_hits).issubset(set(baseline_hits))
+    equivalence_required_hits = set(required_must_hits).issubset(set(equivalence_hits))
+    baseline_support_ok = baseline_context_support_ratio >= min_context_support_ratio
+    equivalence_support_ok = equivalence_context_support_ratio >= min_context_support_ratio
+    reasons: list[str] = []
+    if verdict == "unchanged_pass":
+        return {
+            "bucket": "passed",
+            "reasons": ["both_modes_pass"],
+            "baseline_missing_route_substrings": baseline_missing_route_substrings,
+            "with_equivalence_missing_route_substrings": with_equivalence_missing_route_substrings,
+        }
+    if verdict == "improved":
+        return {
+            "bucket": "equivalence_helped",
+            "reasons": ["equivalence_mode_passed"],
+            "baseline_missing_route_substrings": baseline_missing_route_substrings,
+            "with_equivalence_missing_route_substrings": with_equivalence_missing_route_substrings,
+        }
+    if verdict == "regressed" or len(with_equivalence_missing_route_substrings) > len(baseline_missing_route_substrings) or (
+        baseline_required_hits and not equivalence_required_hits
+    ) or (baseline_support_ok and not equivalence_support_ok):
+        if verdict == "regressed":
+            reasons.append("verdict_regressed")
+        if len(with_equivalence_missing_route_substrings) > len(baseline_missing_route_substrings):
+            reasons.append("equivalence_lost_route_substrings")
+        if baseline_required_hits and not equivalence_required_hits:
+            reasons.append("equivalence_lost_required_must_hits")
+        if baseline_support_ok and not equivalence_support_ok:
+            reasons.append("equivalence_lost_context_support_ratio")
+        return {
+            "bucket": "ranking_regression",
+            "reasons": sorted(reasons),
+            "baseline_missing_route_substrings": baseline_missing_route_substrings,
+            "with_equivalence_missing_route_substrings": with_equivalence_missing_route_substrings,
+        }
+    if with_equivalence_missing_route_substrings:
+        return {
+            "bucket": "missing_lexical_handle",
+            "reasons": ["equivalence_missing_expected_route_substrings"],
+            "baseline_missing_route_substrings": baseline_missing_route_substrings,
+            "with_equivalence_missing_route_substrings": with_equivalence_missing_route_substrings,
+        }
+    if (not equivalence_required_hits) or (not equivalence_support_ok):
+        if not equivalence_required_hits:
+            reasons.append("equivalence_missing_required_must_hits")
+        if not equivalence_support_ok:
+            reasons.append("equivalence_context_support_ratio_below_minimum")
+        return {
+            "bucket": "retriever_support_gap",
+            "reasons": sorted(reasons),
+            "baseline_missing_route_substrings": baseline_missing_route_substrings,
+            "with_equivalence_missing_route_substrings": with_equivalence_missing_route_substrings,
+        }
+    return {
+        "bucket": "gold_or_rubric_gap",
+        "reasons": ["no_deterministic_failure_explanation_found"],
+        "baseline_missing_route_substrings": baseline_missing_route_substrings,
+        "with_equivalence_missing_route_substrings": with_equivalence_missing_route_substrings,
+    }
+
+
 def _build_question_delta(*, manifest: dict[str, Any], baseline_reports: list[dict[str, Any]], equivalence_reports: list[dict[str, Any]], manifest_path: Path, scenario_level_delta_path: Path, workspace_root: Path) -> dict[str, Any]:
     scenarios=[]
     summary={"regressed":0,"improved":0,"unchanged_pass":0,"unchanged_fail":0}
     total_q=0
+    failure_diagnostic_summary = {
+        "passed": 0,
+        "equivalence_helped": 0,
+        "ranking_regression": 0,
+        "missing_lexical_handle": 0,
+        "retriever_support_gap": 0,
+        "gold_or_rubric_gap": 0,
+    }
     for scenario,base,eq in zip(manifest["scenarios"], baseline_reports, equivalence_reports, strict=True):
         gold_path = _resolve_workspace_path(str(scenario["gold"]), workspace_root)
         gold_payload = json.loads(gold_path.read_text(encoding="utf-8"))
@@ -312,12 +397,26 @@ def _build_question_delta(*, manifest: dict[str, Any], baseline_reports: list[di
             b_break={str(i.get("substring") or ""): bool(i.get("matched")) for i in (brow.get("expected_route_substring_breakdown") or [])}
             e_break={str(i.get("substring") or ""): bool(i.get("matched")) for i in (erow.get("expected_route_substring_breakdown") or [])}
             all_sub=sorted(set(b_break)|set(e_break))
+            expected_route_substrings = [str(x) for x in (gold_query.get("expect_route_substrings") or brow.get("expected_route_substrings") or [])]
+            failure_diagnostic = _classify_question_delta_failure(
+                verdict=verdict,
+                expected_route_substrings=expected_route_substrings,
+                baseline_route_breakdown=b_break,
+                equivalence_route_breakdown=e_break,
+                required_must_hits=required_must_hits,
+                baseline_hits=baseline_hits,
+                equivalence_hits=equivalence_hits,
+                min_context_support_ratio=float(gold_query.get("min_context_support_ratio") or brow.get("min_context_support_ratio") or 0.0),
+                baseline_context_support_ratio=float(brow.get("context_support_ratio") or 0.0),
+                equivalence_context_support_ratio=float(erow.get("context_support_ratio") or 0.0),
+            )
+            failure_diagnostic_summary[str(failure_diagnostic["bucket"])] += 1
             qrows.append({
                 "question_id": question_id,
                 "question": str(gold_query.get("question") or brow.get("question") or ""),
                 "expected_answer": str(gold_query.get("expected_answer") or brow.get("expected_answer") or ""),
                 "must_hit_tokens": required_must_hits,
-                "expected_route_substrings": [str(x) for x in (gold_query.get("expect_route_substrings") or brow.get("expected_route_substrings") or [])],
+                "expected_route_substrings": expected_route_substrings,
                 "min_context_support_ratio": float(gold_query.get("min_context_support_ratio") or brow.get("min_context_support_ratio") or 0.0),
                 "baseline": {
                     "ok": b_ok, "violations": sorted(str(x) for x in (brow.get("violations") or [])),
@@ -353,6 +452,7 @@ def _build_question_delta(*, manifest: dict[str, Any], baseline_reports: list[di
                     "substrings_flipped_lost": sorted(s for s in all_sub if b_break.get(s, False) and not e_break.get(s, False)),
                     "substrings_flipped_gained": sorted(s for s in all_sub if (not b_break.get(s, False)) and e_break.get(s, False)),
                 },
+                "failure_diagnostic": failure_diagnostic,
             })
         total_q += len(qrows)
         scenarios.append({
@@ -369,6 +469,7 @@ def _build_question_delta(*, manifest: dict[str, Any], baseline_reports: list[di
         "baseline_schema": COHORT_SUMMARY_SCHEMA_V2,
         "question_count": total_q,
         "summary": summary,
+        "failure_diagnostic_summary": failure_diagnostic_summary,
         "scenarios": scenarios,
     }
 

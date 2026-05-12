@@ -10,6 +10,14 @@
     "unchanged_pass": 42,
     "unchanged_fail": 0
   },
+  "failure_diagnostic_summary": {
+    "passed": 42,
+    "equivalence_helped": 0,
+    "ranking_regression": 2,
+    "missing_lexical_handle": 0,
+    "retriever_support_gap": 0,
+    "gold_or_rubric_gap": 0
+  },
   "scenarios": [
     {
       "scenario_id": "c1s1",
@@ -316,6 +324,14 @@
             "full_units_swapped_out": [],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
+          },
+          "failure_diagnostic": {
+            "bucket": "passed",
+            "reasons": [
+              "both_modes_pass"
+            ],
+            "baseline_missing_route_substrings": [],
+            "with_equivalence_missing_route_substrings": []
           }
         },
         {
@@ -581,6 +597,14 @@
             ],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
+          },
+          "failure_diagnostic": {
+            "bucket": "passed",
+            "reasons": [
+              "both_modes_pass"
+            ],
+            "baseline_missing_route_substrings": [],
+            "with_equivalence_missing_route_substrings": []
           }
         },
         {
@@ -883,6 +907,14 @@
             ],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
+          },
+          "failure_diagnostic": {
+            "bucket": "passed",
+            "reasons": [
+              "both_modes_pass"
+            ],
+            "baseline_missing_route_substrings": [],
+            "with_equivalence_missing_route_substrings": []
           }
         },
         {
@@ -1139,6 +1171,14 @@
             ],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
+          },
+          "failure_diagnostic": {
+            "bucket": "passed",
+            "reasons": [
+              "both_modes_pass"
+            ],
+            "baseline_missing_route_substrings": [],
+            "with_equivalence_missing_route_substrings": []
           }
         },
         {
@@ -1415,6 +1455,14 @@
             ],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
+          },
+          "failure_diagnostic": {
+            "bucket": "passed",
+            "reasons": [
+              "both_modes_pass"
+            ],
+            "baseline_missing_route_substrings": [],
+            "with_equivalence_missing_route_substrings": []
           }
         },
         {
@@ -1714,6 +1762,16 @@
             ],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
+          },
+          "failure_diagnostic": {
+            "bucket": "ranking_regression",
+            "reasons": [
+              "equivalence_lost_context_support_ratio",
+              "equivalence_lost_required_must_hits",
+              "verdict_regressed"
+            ],
+            "baseline_missing_route_substrings": [],
+            "with_equivalence_missing_route_substrings": []
           }
         },
         {
@@ -1983,6 +2041,14 @@
             ],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
+          },
+          "failure_diagnostic": {
+            "bucket": "passed",
+            "reasons": [
+              "both_modes_pass"
+            ],
+            "baseline_missing_route_substrings": [],
+            "with_equivalence_missing_route_substrings": []
           }
         },
         {
@@ -2298,6 +2364,14 @@
             ],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
+          },
+          "failure_diagnostic": {
+            "bucket": "passed",
+            "reasons": [
+              "both_modes_pass"
+            ],
+            "baseline_missing_route_substrings": [],
+            "with_equivalence_missing_route_substrings": []
           }
         },
         {
@@ -2543,6 +2617,14 @@
             ],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
+          },
+          "failure_diagnostic": {
+            "bucket": "passed",
+            "reasons": [
+              "both_modes_pass"
+            ],
+            "baseline_missing_route_substrings": [],
+            "with_equivalence_missing_route_substrings": []
           }
         },
         {
@@ -2841,6 +2923,14 @@
             ],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
+          },
+          "failure_diagnostic": {
+            "bucket": "passed",
+            "reasons": [
+              "both_modes_pass"
+            ],
+            "baseline_missing_route_substrings": [],
+            "with_equivalence_missing_route_substrings": []
           }
         },
         {
@@ -3104,6 +3194,14 @@
             ],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
+          },
+          "failure_diagnostic": {
+            "bucket": "passed",
+            "reasons": [
+              "both_modes_pass"
+            ],
+            "baseline_missing_route_substrings": [],
+            "with_equivalence_missing_route_substrings": []
           }
         },
         {
@@ -3357,6 +3455,14 @@
             ],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
+          },
+          "failure_diagnostic": {
+            "bucket": "passed",
+            "reasons": [
+              "both_modes_pass"
+            ],
+            "baseline_missing_route_substrings": [],
+            "with_equivalence_missing_route_substrings": []
           }
         },
         {
@@ -3612,6 +3718,14 @@
             ],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
+          },
+          "failure_diagnostic": {
+            "bucket": "passed",
+            "reasons": [
+              "both_modes_pass"
+            ],
+            "baseline_missing_route_substrings": [],
+            "with_equivalence_missing_route_substrings": []
           }
         },
         {
@@ -3868,6 +3982,14 @@
             ],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
+          },
+          "failure_diagnostic": {
+            "bucket": "passed",
+            "reasons": [
+              "both_modes_pass"
+            ],
+            "baseline_missing_route_substrings": [],
+            "with_equivalence_missing_route_substrings": []
           }
         },
         {
@@ -4131,6 +4253,14 @@
             ],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
+          },
+          "failure_diagnostic": {
+            "bucket": "passed",
+            "reasons": [
+              "both_modes_pass"
+            ],
+            "baseline_missing_route_substrings": [],
+            "with_equivalence_missing_route_substrings": []
           }
         },
         {
@@ -4399,6 +4529,14 @@
             ],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
+          },
+          "failure_diagnostic": {
+            "bucket": "passed",
+            "reasons": [
+              "both_modes_pass"
+            ],
+            "baseline_missing_route_substrings": [],
+            "with_equivalence_missing_route_substrings": []
           }
         }
       ]
@@ -4665,6 +4803,14 @@
             "full_units_swapped_out": [],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
+          },
+          "failure_diagnostic": {
+            "bucket": "passed",
+            "reasons": [
+              "both_modes_pass"
+            ],
+            "baseline_missing_route_substrings": [],
+            "with_equivalence_missing_route_substrings": []
           }
         },
         {
@@ -4930,6 +5076,14 @@
             "full_units_swapped_out": [],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
+          },
+          "failure_diagnostic": {
+            "bucket": "passed",
+            "reasons": [
+              "both_modes_pass"
+            ],
+            "baseline_missing_route_substrings": [],
+            "with_equivalence_missing_route_substrings": []
           }
         },
         {
@@ -5154,6 +5308,14 @@
             "full_units_swapped_out": [],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
+          },
+          "failure_diagnostic": {
+            "bucket": "passed",
+            "reasons": [
+              "both_modes_pass"
+            ],
+            "baseline_missing_route_substrings": [],
+            "with_equivalence_missing_route_substrings": []
           }
         },
         {
@@ -5381,6 +5543,14 @@
             "full_units_swapped_out": [],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
+          },
+          "failure_diagnostic": {
+            "bucket": "passed",
+            "reasons": [
+              "both_modes_pass"
+            ],
+            "baseline_missing_route_substrings": [],
+            "with_equivalence_missing_route_substrings": []
           }
         },
         {
@@ -5598,6 +5768,14 @@
             "full_units_swapped_out": [],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
+          },
+          "failure_diagnostic": {
+            "bucket": "passed",
+            "reasons": [
+              "both_modes_pass"
+            ],
+            "baseline_missing_route_substrings": [],
+            "with_equivalence_missing_route_substrings": []
           }
         },
         {
@@ -5824,6 +6002,14 @@
             "full_units_swapped_out": [],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
+          },
+          "failure_diagnostic": {
+            "bucket": "passed",
+            "reasons": [
+              "both_modes_pass"
+            ],
+            "baseline_missing_route_substrings": [],
+            "with_equivalence_missing_route_substrings": []
           }
         },
         {
@@ -6054,6 +6240,14 @@
             "full_units_swapped_out": [],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
+          },
+          "failure_diagnostic": {
+            "bucket": "passed",
+            "reasons": [
+              "both_modes_pass"
+            ],
+            "baseline_missing_route_substrings": [],
+            "with_equivalence_missing_route_substrings": []
           }
         },
         {
@@ -6281,6 +6475,14 @@
             "full_units_swapped_out": [],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
+          },
+          "failure_diagnostic": {
+            "bucket": "passed",
+            "reasons": [
+              "both_modes_pass"
+            ],
+            "baseline_missing_route_substrings": [],
+            "with_equivalence_missing_route_substrings": []
           }
         },
         {
@@ -6533,6 +6735,14 @@
             "full_units_swapped_out": [],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
+          },
+          "failure_diagnostic": {
+            "bucket": "passed",
+            "reasons": [
+              "both_modes_pass"
+            ],
+            "baseline_missing_route_substrings": [],
+            "with_equivalence_missing_route_substrings": []
           }
         },
         {
@@ -6777,6 +6987,14 @@
             "full_units_swapped_out": [],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
+          },
+          "failure_diagnostic": {
+            "bucket": "passed",
+            "reasons": [
+              "both_modes_pass"
+            ],
+            "baseline_missing_route_substrings": [],
+            "with_equivalence_missing_route_substrings": []
           }
         },
         {
@@ -7005,6 +7223,14 @@
             "full_units_swapped_out": [],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
+          },
+          "failure_diagnostic": {
+            "bucket": "passed",
+            "reasons": [
+              "both_modes_pass"
+            ],
+            "baseline_missing_route_substrings": [],
+            "with_equivalence_missing_route_substrings": []
           }
         },
         {
@@ -7237,6 +7463,14 @@
             "full_units_swapped_out": [],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
+          },
+          "failure_diagnostic": {
+            "bucket": "passed",
+            "reasons": [
+              "both_modes_pass"
+            ],
+            "baseline_missing_route_substrings": [],
+            "with_equivalence_missing_route_substrings": []
           }
         },
         {
@@ -7472,6 +7706,14 @@
             "full_units_swapped_out": [],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
+          },
+          "failure_diagnostic": {
+            "bucket": "passed",
+            "reasons": [
+              "both_modes_pass"
+            ],
+            "baseline_missing_route_substrings": [],
+            "with_equivalence_missing_route_substrings": []
           }
         },
         {
@@ -7709,6 +7951,14 @@
             "full_units_swapped_out": [],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
+          },
+          "failure_diagnostic": {
+            "bucket": "passed",
+            "reasons": [
+              "both_modes_pass"
+            ],
+            "baseline_missing_route_substrings": [],
+            "with_equivalence_missing_route_substrings": []
           }
         },
         {
@@ -7948,6 +8198,14 @@
             "full_units_swapped_out": [],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
+          },
+          "failure_diagnostic": {
+            "bucket": "passed",
+            "reasons": [
+              "both_modes_pass"
+            ],
+            "baseline_missing_route_substrings": [],
+            "with_equivalence_missing_route_substrings": []
           }
         }
       ]
@@ -8248,6 +8506,14 @@
             "full_units_swapped_out": [],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
+          },
+          "failure_diagnostic": {
+            "bucket": "passed",
+            "reasons": [
+              "both_modes_pass"
+            ],
+            "baseline_missing_route_substrings": [],
+            "with_equivalence_missing_route_substrings": []
           }
         },
         {
@@ -8568,6 +8834,14 @@
             "full_units_swapped_out": [],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
+          },
+          "failure_diagnostic": {
+            "bucket": "passed",
+            "reasons": [
+              "both_modes_pass"
+            ],
+            "baseline_missing_route_substrings": [],
+            "with_equivalence_missing_route_substrings": []
           }
         },
         {
@@ -8818,6 +9092,14 @@
             ],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
+          },
+          "failure_diagnostic": {
+            "bucket": "passed",
+            "reasons": [
+              "both_modes_pass"
+            ],
+            "baseline_missing_route_substrings": [],
+            "with_equivalence_missing_route_substrings": []
           }
         },
         {
@@ -9112,6 +9394,14 @@
             ],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
+          },
+          "failure_diagnostic": {
+            "bucket": "passed",
+            "reasons": [
+              "both_modes_pass"
+            ],
+            "baseline_missing_route_substrings": [],
+            "with_equivalence_missing_route_substrings": []
           }
         },
         {
@@ -9416,6 +9706,16 @@
             ],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
+          },
+          "failure_diagnostic": {
+            "bucket": "ranking_regression",
+            "reasons": [
+              "equivalence_lost_context_support_ratio",
+              "equivalence_lost_required_must_hits",
+              "verdict_regressed"
+            ],
+            "baseline_missing_route_substrings": [],
+            "with_equivalence_missing_route_substrings": []
           }
         },
         {
@@ -9705,6 +10005,14 @@
             "full_units_swapped_out": [],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
+          },
+          "failure_diagnostic": {
+            "bucket": "passed",
+            "reasons": [
+              "both_modes_pass"
+            ],
+            "baseline_missing_route_substrings": [],
+            "with_equivalence_missing_route_substrings": []
           }
         },
         {
@@ -10001,6 +10309,14 @@
             ],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
+          },
+          "failure_diagnostic": {
+            "bucket": "passed",
+            "reasons": [
+              "both_modes_pass"
+            ],
+            "baseline_missing_route_substrings": [],
+            "with_equivalence_missing_route_substrings": []
           }
         },
         {
@@ -10294,6 +10610,14 @@
             "full_units_swapped_out": [],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
+          },
+          "failure_diagnostic": {
+            "bucket": "passed",
+            "reasons": [
+              "both_modes_pass"
+            ],
+            "baseline_missing_route_substrings": [],
+            "with_equivalence_missing_route_substrings": []
           }
         },
         {
@@ -10551,6 +10875,14 @@
             ],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
+          },
+          "failure_diagnostic": {
+            "bucket": "passed",
+            "reasons": [
+              "both_modes_pass"
+            ],
+            "baseline_missing_route_substrings": [],
+            "with_equivalence_missing_route_substrings": []
           }
         },
         {
@@ -10856,6 +11188,14 @@
             ],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
+          },
+          "failure_diagnostic": {
+            "bucket": "passed",
+            "reasons": [
+              "both_modes_pass"
+            ],
+            "baseline_missing_route_substrings": [],
+            "with_equivalence_missing_route_substrings": []
           }
         },
         {
@@ -11156,6 +11496,14 @@
             "full_units_swapped_out": [],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
+          },
+          "failure_diagnostic": {
+            "bucket": "passed",
+            "reasons": [
+              "both_modes_pass"
+            ],
+            "baseline_missing_route_substrings": [],
+            "with_equivalence_missing_route_substrings": []
           }
         },
         {
@@ -11437,6 +11785,14 @@
             ],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
+          },
+          "failure_diagnostic": {
+            "bucket": "passed",
+            "reasons": [
+              "both_modes_pass"
+            ],
+            "baseline_missing_route_substrings": [],
+            "with_equivalence_missing_route_substrings": []
           }
         },
         {
@@ -11723,6 +12079,14 @@
             "full_units_swapped_out": [],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
+          },
+          "failure_diagnostic": {
+            "bucket": "passed",
+            "reasons": [
+              "both_modes_pass"
+            ],
+            "baseline_missing_route_substrings": [],
+            "with_equivalence_missing_route_substrings": []
           }
         }
       ]

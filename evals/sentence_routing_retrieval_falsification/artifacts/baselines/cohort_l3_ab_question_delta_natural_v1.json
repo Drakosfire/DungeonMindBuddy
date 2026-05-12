@@ -1,7 +1,7 @@
 {
   "schema_id": "dmb_breadcrumb_query_cohort_l3_question_delta_v1",
   "cohort_manifest": "evals/sentence_routing_retrieval_falsification/cohorts/natural_v1.json",
-  "scenario_level_delta_path": "evals/sentence_routing_retrieval_falsification/artifacts/baselines/cohort_l3_ab_delta_natural_v1.json",
+  "scenario_level_delta_path": "evals/sentence_routing_retrieval_falsification/artifacts/baselines/cohort_l3_ab_delta_c1s1_to_c1s3_v1.json",
   "baseline_schema": "dmb_breadcrumb_query_cohort_summary_v2",
   "question_count": 12,
   "summary": {
@@ -9,6 +9,14 @@
     "improved": 1,
     "unchanged_pass": 7,
     "unchanged_fail": 4
+  },
+  "failure_diagnostic_summary": {
+    "passed": 7,
+    "equivalence_helped": 1,
+    "ranking_regression": 2,
+    "missing_lexical_handle": 1,
+    "retriever_support_gap": 0,
+    "gold_or_rubric_gap": 1
   },
   "scenarios": [
     {
@@ -327,6 +335,14 @@
             ],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
+          },
+          "failure_diagnostic": {
+            "bucket": "passed",
+            "reasons": [
+              "both_modes_pass"
+            ],
+            "baseline_missing_route_substrings": [],
+            "with_equivalence_missing_route_substrings": []
           }
         },
         {
@@ -625,6 +641,14 @@
             ],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
+          },
+          "failure_diagnostic": {
+            "bucket": "passed",
+            "reasons": [
+              "both_modes_pass"
+            ],
+            "baseline_missing_route_substrings": [],
+            "with_equivalence_missing_route_substrings": []
           }
         },
         {
@@ -937,6 +961,14 @@
             ],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
+          },
+          "failure_diagnostic": {
+            "bucket": "passed",
+            "reasons": [
+              "both_modes_pass"
+            ],
+            "baseline_missing_route_substrings": [],
+            "with_equivalence_missing_route_substrings": []
           }
         },
         {
@@ -1250,6 +1282,18 @@
             ],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
+          },
+          "failure_diagnostic": {
+            "bucket": "missing_lexical_handle",
+            "reasons": [
+              "equivalence_missing_expected_route_substrings"
+            ],
+            "baseline_missing_route_substrings": [
+              "Stormspire Academy"
+            ],
+            "with_equivalence_missing_route_substrings": [
+              "Stormspire Academy"
+            ]
           }
         },
         {
@@ -1541,6 +1585,14 @@
             ],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
+          },
+          "failure_diagnostic": {
+            "bucket": "passed",
+            "reasons": [
+              "both_modes_pass"
+            ],
+            "baseline_missing_route_substrings": [],
+            "with_equivalence_missing_route_substrings": []
           }
         },
         {
@@ -1871,6 +1923,14 @@
             ],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
+          },
+          "failure_diagnostic": {
+            "bucket": "passed",
+            "reasons": [
+              "both_modes_pass"
+            ],
+            "baseline_missing_route_substrings": [],
+            "with_equivalence_missing_route_substrings": []
           }
         },
         {
@@ -2202,6 +2262,14 @@
             ],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
+          },
+          "failure_diagnostic": {
+            "bucket": "gold_or_rubric_gap",
+            "reasons": [
+              "no_deterministic_failure_explanation_found"
+            ],
+            "baseline_missing_route_substrings": [],
+            "with_equivalence_missing_route_substrings": []
           }
         },
         {
@@ -2493,6 +2561,14 @@
             ],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
+          },
+          "failure_diagnostic": {
+            "bucket": "equivalence_helped",
+            "reasons": [
+              "equivalence_mode_passed"
+            ],
+            "baseline_missing_route_substrings": [],
+            "with_equivalence_missing_route_substrings": []
           }
         },
         {
@@ -2818,6 +2894,14 @@
             ],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
+          },
+          "failure_diagnostic": {
+            "bucket": "passed",
+            "reasons": [
+              "both_modes_pass"
+            ],
+            "baseline_missing_route_substrings": [],
+            "with_equivalence_missing_route_substrings": []
           }
         },
         {
@@ -3113,6 +3197,14 @@
             ],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
+          },
+          "failure_diagnostic": {
+            "bucket": "passed",
+            "reasons": [
+              "both_modes_pass"
+            ],
+            "baseline_missing_route_substrings": [],
+            "with_equivalence_missing_route_substrings": []
           }
         },
         {
@@ -3447,6 +3539,14 @@
             ],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
+          },
+          "failure_diagnostic": {
+            "bucket": "ranking_regression",
+            "reasons": [
+              "equivalence_lost_required_must_hits"
+            ],
+            "baseline_missing_route_substrings": [],
+            "with_equivalence_missing_route_substrings": []
           }
         },
         {
@@ -3764,6 +3864,18 @@
               "Stormspire Academy"
             ],
             "substrings_flipped_gained": []
+          },
+          "failure_diagnostic": {
+            "bucket": "ranking_regression",
+            "reasons": [
+              "equivalence_lost_context_support_ratio",
+              "equivalence_lost_required_must_hits",
+              "equivalence_lost_route_substrings"
+            ],
+            "baseline_missing_route_substrings": [],
+            "with_equivalence_missing_route_substrings": [
+              "Stormspire Academy"
+            ]
           }
         }
       ]
