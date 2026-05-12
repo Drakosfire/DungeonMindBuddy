@@ -1,0 +1,39 @@
+{
+  "schema_id": "dmb_breadcrumb_query_cohort_l3_delta_v1",
+  "cohort_manifest": "evals/sentence_routing_retrieval_falsification/cohorts/c1s13_v1.json",
+  "baseline_schema": "dmb_breadcrumb_query_cohort_summary_v2",
+  "route_equivalence_jsonl": [
+    "evals/sentence_routing_retrieval_falsification/artifacts/lexicon/route_equivalence_longmont_c1_v1.jsonl",
+    "evals/sentence_routing_retrieval_falsification/artifacts/lexicon/route_equivalence_longmont_c2_v1.jsonl"
+  ],
+  "scenarios": [
+    {
+      "scenario_id": "c1s13",
+      "baseline_all_ok": false,
+      "with_equivalence_all_ok": false,
+      "baseline_violations": [
+        "context_support_below_threshold",
+        "missing_expected_route_hit",
+        "missing_location_entity_summary",
+        "query_mode_mismatch",
+        "semantic_verdict:fail_incomplete"
+      ],
+      "with_equivalence_violations": [
+        "context_support_below_threshold",
+        "missing_expected_route_hit",
+        "missing_location_entity_summary",
+        "query_mode_mismatch",
+        "semantic_verdict:fail_incomplete"
+      ],
+      "delta_violation_count": 0
+    }
+  ],
+  "delta_summary": {
+    "total_scenarios": 1,
+    "scenarios_changed": 0,
+    "scenarios_improved": 0,
+    "scenarios_regressed": 0,
+    "baseline_all_ok_count": 0,
+    "with_equivalence_all_ok_count": 0
+  }
+}
