@@ -6,9 +6,9 @@ title: Split-corpus retrieval to autonomous C1S1–C1S3 demo
 document_class: plan
 plan_kind: execution_super_plan
 status: active
-version: 20
+version: 21
 created_at: "2026-05-09T00:00:00Z"
-last_updated_at: "2026-05-12T00:22:14Z"
+last_updated_at: "2026-05-12T00:48:43Z"
 timezone_note: "Timestamps are UTC; local work may use America/Denver."
 supersedes: []
 superseded_by: null
@@ -60,7 +60,11 @@ execution_state:
     && uv run python -m evals.sentence_routing_retrieval_falsification.cohort_l3_question_deep_dive_canvas_emit --input evals/sentence_routing_retrieval_falsification/artifacts/baselines/cohort_l3_ab_question_delta_natural_v1.json --output canvases/cohort-l3-ab-question-deep-dive-natural-v1.canvas.tsx
     && uv run pytest tests/test_cohort_l3_alias_saturation_canvas_emit.py -q
     && uv run python -m evals.sentence_routing_retrieval_falsification.cohort_l3_alias_saturation_canvas_emit --input evals/sentence_routing_retrieval_falsification/artifacts/baselines/cohort_l3_ab_question_delta_c1s1_to_c1s3_v1.json --input evals/sentence_routing_retrieval_falsification/artifacts/baselines/cohort_l3_ab_question_delta_natural_v1.json --output canvases/cohort-l3-alias-saturation.canvas.tsx
-    PR #14 merged prerequisite C1S13 records inputs (two artifact files only; merge `3e1f32a551b3600f77531a0708da18e89a1e5bd1`, 2026-05-12T00:22:14Z): `c1s13_norm_smoke.records_meta.{jsonl,json}` exists on `main`; JSONL **`rows`**/**`unit_count`** **68**, **`records_with_routes`** **0**, **`size_bytes`** **31286**; no harness/cohort/gold code changes in that slice; cost **$0**. **PR #13** (holdout cohort A/B artifacts) stays **open** with **REQUEST_CHANGES** disposition until regenerated outputs land and pass review—the prior **missing prerequisite file** blocker is cleared. **Next action (external PR loop):** re-verify **PR #13** against its authoritative handoff `Docs/Plans/HANDOFF-pr13-c1s13-holdout-cohort-ab-baseline-and-deltas.md` (for example `scripts/review_external_pr.py verify 13 --parse-counts` after fetching the refreshed head), not a new prerequisite PR. Separate lane unchanged: alias-saturation readout still shows `promotion_gate_candidate.status: none_found`; promotion-to-default retrieval remains blocked until acceptance criteria move.
+    && uv run python -m evals.sentence_routing_retrieval_falsification.cohort_baseline_run --manifest evals/sentence_routing_retrieval_falsification/cohorts/c1s13_v1.json --baseline evals/sentence_routing_retrieval_falsification/artifacts/baselines/cohort_baseline_c1s13_v1.json --check
+    && uv run python -m evals.sentence_routing_retrieval_falsification.cohort_baseline_run --manifest evals/sentence_routing_retrieval_falsification/cohorts/c1s13_v1.json --delta evals/sentence_routing_retrieval_falsification/artifacts/baselines/cohort_l3_ab_delta_c1s13_v1.json --check-delta
+    && uv run python -m evals.sentence_routing_retrieval_falsification.cohort_baseline_run --manifest evals/sentence_routing_retrieval_falsification/cohorts/c1s13_v1.json --check-question-delta evals/sentence_routing_retrieval_falsification/artifacts/baselines/cohort_l3_ab_question_delta_c1s13_v1.json
+    && uv run python -m evals.sentence_routing_retrieval_falsification.cohort_l3_question_deep_dive_canvas_emit --input evals/sentence_routing_retrieval_falsification/artifacts/baselines/cohort_l3_ab_question_delta_c1s13_v1.json --output canvases/cohort-l3-ab-question-deep-dive-c1s13-v1.canvas.tsx
+    PR #13 **MERGED** to `main` (merge commit `761bd007af6e47210dc69a1a60b8afc42c751822`, 2026-05-12T00:48:43Z), **accepted after** prerequisite PR #14 (`3e1f32a551b3600f77531a0708da18e89a1e5bd1`, 2026-05-12T00:22:14Z): five-path holdout slice allows **strict 5/5** §4 alignment; **`test_cohort_baseline_run`** **19** passed; **`test_cohort_l3_question_deep_dive_canvas_emit`** **3** passed; **`cohort_baseline_run`** `--check` / `--check-delta` / `--check-question-delta` OK on committed `c1s13_v1` lane artifacts; **`c1s13` holdout** per-question readout **`question_count`** **25** with summary **`regressed`** **0** **`improved`** **0** **`unchanged_pass`** **0** **`unchanged_fail`** **25**; baseline invariants **`llm_enabled`** **False**, **`retrieval_only`** **True**; cost **$0**. **Caveat retained:** C1S13 **gold-quality** risk may explain `unchanged_fail` rows versus retrieval-only interpretation. Alias-saturation lane unchanged: **`promotion_gate_candidate.status: none_found`** (PR #12). **Promotion to default retrieval remains blocked** (**no-found** promotion candidate **plus** holdout lane shows **no** regressed/improved signal under current rubric—all questions `unchanged_fail`). **Next decision fork (not another prerequisite PR):** choose among **gold-audit** (`breadcrumb_query_natural_c1s13_v1`), **revised promotion acceptance criteria**, or **broader cohort evidence** before default-equivalence ranking.
   flagged_followups:
     - >-
       Content quality of `location_hierarchy_equivalences` in
@@ -75,6 +79,20 @@ execution_state:
       a portable gate (separate from route-equivalence JSONL lane).
   integration_notes:
     - >-
+      PR #13 is MERGED to main (merge commit 761bd007af6e47210dc69a1a60b8afc42c751822,
+      2026-05-12T00:48:43Z): **accepted after** PR #14 prerequisite (`HANDOFF-pr13-addendum-option2-c1s13-records-prereq` spine) landed the missing
+      `c1s13_norm_smoke.records_meta.{jsonl,json}`. Ships **five** holdout cohort paths only (`cohorts/c1s13_v1.json` + frozen baseline + L3 scenario delta +
+      L3 question delta + generated `cohort-l3-ab-question-deep-dive-c1s13-v1.canvas.tsx`): **§4 allowlist 5/5**; **`test_cohort_baseline_run`** **19**
+      passed at verified head **`fd8c4c6d1affbaa3f8dc45c3ee4c729ee2f228c5`**; **`test_cohort_l3_question_deep_dive_canvas_emit`** **3**
+      passed; **`cohort_baseline_run`** baseline / delta / question-delta **check modes** OK on **`c1s13_v1`**; holdout **`cohort_l3_ab_question_delta_c1s13_v1`**
+      readout **`question_count`** **25**, summary **`regressed:0`** **`improved:0`** **`unchanged_pass:0`** **`unchanged_fail:25`**; holdout baseline
+      **`llm_enabled`** **False**, **`retrieval_only`** **True**; caveat in PR narrative preserves **possible gold-quality** explanation for **`unchanged_fail`**
+      rows pending hierarchy-content audit — not framed as verified retrieval regressions alone. Final review: APPROVE requested, posted **`COMMENTED`**
+      (self-review fallback, review id **`4268385088`**); cost **`$0`**. Separate lane unchanged: PR #12 combined payload still **`promotion_gate_candidate.status:none_found`**.
+      **`github-pr-13`** judgment + tightened rubrics recorded below; **`HANDOFF-pr13`** + addendum archived under `Docs/Plans/archive/2026-05-11/handoffs/`.
+      Promotion remains blocked (**`none_found`** **plus** holdout **`unchanged_fail`** saturation); **`execution_state`** narrative points **next gate** toward
+      deciding **gold-audit** vs **promotion-rule / acceptance-criteria revision** vs **wider falsification cohorts**.
+    - >-
       PR #14 is MERGED to main (merge commit 3e1f32a551b3600f77531a0708da18e89a1e5bd1,
       2026-05-12T00:22:14Z): **prerequisite input only** for **PR #13** (Option‑2 unblocker from
       `HANDOFF-pr13-addendum-option2-c1s13-records-prereq`) — adds exactly **two files** under
@@ -84,8 +102,7 @@ execution_state:
       retrieval/cohort-runner code edits, **no** gold edits, **no** frozen baseline/delta/canvas outputs
       in this PR (those remain PR #13 scope). Parent review: APPROVE demoted to COMMENTED (self‑review fallback,
       review id `4268310498`), PR head verified `4cc593429417ac0f457e7ba10583065069891fbd`; cost **$0**.
-      **Unblock condition for PR #13 satisfied:** missing `…/c1s13_norm_smoke.records_meta.jsonl` gate removed;
-      execute PR #13's §7 regeneration + `review_external_pr` verify path next.
+      **Historical prerequisite (#13 unblock):** missing `…/c1s13_norm_smoke.records_meta.jsonl` cleared before PR #13 landed; downstream holdout regeneration is now on `main` via PR #13 merge `761bd007af6e47210dc69a1a60b8afc42c751822`.
     - >-
       PR #12 is MERGED to main (merge commit 7eface014b3d5824a11d29ad1e91ed67c153711f,
       2026-05-11T20:37:15Z): alias-saturation diagnostics — new emitter
@@ -264,6 +281,15 @@ execution_state:
       -> 10 passed (round 2 added byte-identity-when-flag-unset and
       load-failure-emits-error harness-boundary tests).
 changelog:
+  - at: "2026-05-12T00:48:43Z"
+    version: 21
+    summary: >-
+      PR #13 merged (761bd007af6e47210dc69a1a60b8afc42c751822): accepted after PR #14 prerequisite — five-path `c1s13_v1` holdout manifest + baseline + L3 deltas + deep-dive canvas;
+      verified allowlist strict 5/5; cohort tests 19 / emitter tests 3; holdout `--check*` trio OK on committed JSON; retrieval-only baseline `llm_enabled` false /
+      `retrieval_only` true; question_delta readout question_count 25 with regressed 0 / improved 0 / unchanged_pass 0 / unchanged_fail 25; gold-quality caveat
+      retained vs retrieval-only causal claims; alias-saturation `promotion_gate_candidate` still none_found — promotion blocked. Added `github-pr-13`; integration note +
+      `execution_state.next_gate_command` extended with holdout invariant bundle + narrative toward gold-audit vs promotion-rule vs broader cohorts.
+      Atomic doc-sync archived HANDOFF-pr13 holdout + addendum; checklist fifteenth session log + Reanchor updated.
   - at: "2026-05-12T00:22:14Z"
     version: 20
     summary: >-
@@ -482,6 +508,48 @@ changelog:
 # Notation: plan_phase_primary / plan_phase_also_touches map work to phases;
 # review_status captures current merge/review disposition.
 external_pull_requests:
+  - id: github-pr-13
+    url: https://github.com/Drakosfire/DungeonMindBuddy/pull/13
+    plan_phase_primary: "5"
+    plan_phase_also_touches: null
+    plan_phase_label: >-
+      C1 holdout cohort **`c1s13_v1`**: cohort manifest referencing PR #14 `c1s13_norm_smoke.records_meta` inputs plus frozen **`dmb_breadcrumb_query_cohort_summary_v2`** baseline,
+      **`dmb_breadcrumb_query_cohort_l3_delta_v1`** scenario delta, **`dmb_breadcrumb_query_cohort_l3_question_delta_v1`** per-question delta, and generated
+      **`cohort-l3-ab-question-deep-dive-c1s13-v1.canvas.tsx`**. Retrieval-only artifact generation lane (no retrieval wiring / gold edits / runner code changes beyond prior PR queue).
+    review_status: merged
+    review_status_meaning: >-
+      Merged to main on 2026-05-12T00:48:43Z (merge commit 761bd007af6e47210dc69a1a60b8afc42c751822) **after** prerequisite PR #14 supplied missing records-meta artifacts (Option‑2 spine).
+      Final verification on **`fd8c4c6d1affbaa3f8dc45c3ee4c729ee2f228c5`**: **`fetch`/allowlist** — **exactly five** §4 paths, **extras/missing absent** (**5/5**); **`uv run pytest tests/test_cohort_baseline_run.py -q`** -> **19 passed**;
+      **`uv run pytest tests/test_cohort_l3_question_deep_dive_canvas_emit.py -q`** -> **3 passed**;
+      **`cohort_baseline_run`** `--manifest` **`c1s13_v1.json`** with `--check`, `--check-delta`, **`--check-question-delta`** -> **OK** on committed lanes;
+      **`cohort_l3_ab_question_delta_c1s13_v1`** readout **`question_count`** **25**, **`summary`** **`regressed:0`** **`improved:0`** **`unchanged_pass:0`** **`unchanged_fail:25`**;
+      **`cohort_baseline_c1s13_v1`** smoke **`llm_enabled`** **`False`**, **`retrieval_only`** **`True`**;
+      caveat explicitly retained that **`unchanged_fail`** may reflect **gold-quality** risk pending hierarchy audit, not retrieval-only regressions standing alone — cost **`$0`**.
+      Verdict **APPROVE** requested; delivered as **`COMMENTED`** under self‑review fallback (review id **`4268385088`**).
+    judgment_record:
+      verdict: accepted
+      evaluated_at: "2026-05-12T00:48:43Z"
+      evaluator: cursor-agent
+      notes: >-
+        Accepted as additive holdout falsification cohort outputs only — five negotiated paths tying **`c1s13`** gold via manifest to committed records-meta prerequisites and frozen JSON /
+        generated canvas summaries. Leaves promotion decision unchanged separately: **`promotion_gate_candidate.status:none_found`** from PR #12 evidence plus saturated **`unchanged_fail`** readout means
+        default-equivalence ranking is still blocked without criterion or corpus follow-up noted in PLAN **`execution_state`**, not absent verification.
+    rubric_when_we_judge:
+      - >-
+        **Strict five-path holdout artifact allowlist:** any PR billing `c1s13_v1` must match `HANDOFF-pr13` §4 exactly (manifest + three frozen JSON summaries + generated deep-dive canvas under the named paths);
+        extras ⇒ scope creep revert; prerequisite-only inputs belong in prerequisite PR slices, not silently folded into artifact generation PR diff stats.
+      - >-
+        **`cohort_baseline_run` check trio owns the falsification artifacts:** rerun `--baseline … --check`, `--delta … --check-delta`, and **`--check-question-delta …`** bound to **`--manifest`** for **`c1s13_v1.json`** —
+        reviewer pastes harness stdout OK lines; narrator-only summaries without those commands violate the harness-boundary invariant from PR #6→#13 lineage.
+      - >-
+        **`test_cohort_baseline_run`** + **`test_cohort_l3_question_deep_dive_canvas_emit`** pass counts anchored to PR head (**19 / 3** at merge verification) alongside legacy tight + natural **`--check*`** regressions unchanged.
+      - >-
+        **`llm_enabled: false`** and **`retrieval_only: true`** on the frozen holdout baseline JSON must survive the Python smoke one-liners in authoritative handoffs — cost lane stays **`$0`** absent new LLM calls.
+      - >-
+        **`unchanged_fail` interpretation:** for **`c1s13_v1`** PR narratives **must** carry the Backlog-aligned caveat that **`unchanged_fail`** rows **may reflect gold/content-quality** hypotheses (hierarchy duplication smell),
+        not asserted retrieval regressions absent an audit — identical rubrics from PR #14 prerequisite notes but now binding on merged holdout judgments.
+      - >-
+        **Prerequisite ordering discipline:** ingest-only prerequisite merges (records-meta JSON shapes) MUST NOT substitute for regenerated holdout baselines/canvases; judgment records SHOULD name both merge hashes when sequencing PR #14 then #13 completes.
   - id: github-pr-14
     url: https://github.com/Drakosfire/DungeonMindBuddy/pull/14
     plan_phase_primary: "5"
