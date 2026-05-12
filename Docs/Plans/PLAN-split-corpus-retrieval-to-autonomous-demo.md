@@ -6,9 +6,9 @@ title: Split-corpus retrieval to autonomous C1S1–C1S3 demo
 document_class: plan
 plan_kind: execution_super_plan
 status: active
-version: 21
+version: 22
 created_at: "2026-05-09T00:00:00Z"
-last_updated_at: "2026-05-12T00:48:43Z"
+last_updated_at: "2026-05-12T01:40:00Z"
 timezone_note: "Timestamps are UTC; local work may use America/Denver."
 supersedes: []
 superseded_by: null
@@ -64,20 +64,25 @@ execution_state:
     && uv run python -m evals.sentence_routing_retrieval_falsification.cohort_baseline_run --manifest evals/sentence_routing_retrieval_falsification/cohorts/c1s13_v1.json --delta evals/sentence_routing_retrieval_falsification/artifacts/baselines/cohort_l3_ab_delta_c1s13_v1.json --check-delta
     && uv run python -m evals.sentence_routing_retrieval_falsification.cohort_baseline_run --manifest evals/sentence_routing_retrieval_falsification/cohorts/c1s13_v1.json --check-question-delta evals/sentence_routing_retrieval_falsification/artifacts/baselines/cohort_l3_ab_question_delta_c1s13_v1.json
     && uv run python -m evals.sentence_routing_retrieval_falsification.cohort_l3_question_deep_dive_canvas_emit --input evals/sentence_routing_retrieval_falsification/artifacts/baselines/cohort_l3_ab_question_delta_c1s13_v1.json --output canvases/cohort-l3-ab-question-deep-dive-c1s13-v1.canvas.tsx
-    PR #13 **MERGED** to `main` (merge commit `761bd007af6e47210dc69a1a60b8afc42c751822`, 2026-05-12T00:48:43Z), **accepted after** prerequisite PR #14 (`3e1f32a551b3600f77531a0708da18e89a1e5bd1`, 2026-05-12T00:22:14Z): five-path holdout slice allows **strict 5/5** §4 alignment; **`test_cohort_baseline_run`** **19** passed; **`test_cohort_l3_question_deep_dive_canvas_emit`** **3** passed; **`cohort_baseline_run`** `--check` / `--check-delta` / `--check-question-delta` OK on committed `c1s13_v1` lane artifacts; **`c1s13` holdout** per-question readout **`question_count`** **25** with summary **`regressed`** **0** **`improved`** **0** **`unchanged_pass`** **0** **`unchanged_fail`** **25**; baseline invariants **`llm_enabled`** **False**, **`retrieval_only`** **True**; cost **$0**. **Caveat retained:** C1S13 **gold-quality** risk may explain `unchanged_fail` rows versus retrieval-only interpretation. Alias-saturation lane unchanged: **`promotion_gate_candidate.status: none_found`** (PR #12). **Promotion to default retrieval remains blocked** (**no-found** promotion candidate **plus** holdout lane shows **no** regressed/improved signal under current rubric—all questions `unchanged_fail`). **Next decision fork (not another prerequisite PR):** choose among **gold-audit** (`breadcrumb_query_natural_c1s13_v1`), **revised promotion acceptance criteria**, or **broader cohort evidence** before default-equivalence ranking.
+    PR #15 **MERGED** to `main` (merge commit `27b3eea7dd87331758ddd07e5919c5094f6702bd`, 2026-05-12T01:32:31Z): C1S13 **hierarchy gold audit** — **`fetch`/allowlist** **1/1** (single gold file); §7 **passed** (`audit_world_campaign_alignment`, gold parse probe, temp **`cohort_baseline_run`** `--mode both` with `/tmp/…` delta + question-delta writes, temp readout); temp question-delta summary **`question_count`** **25**, **`regressed`** **0**, **`improved`** **0**, **`unchanged_pass`** **0**, **`unchanged_fail`** **25**; **`llm_enabled`** **False**, **`retrieval_only`** **True**; cost **$0**. **Wolf/Mossglade** `location_hierarchy_equivalences` **corrected**; **`unchanged_fail` saturation unchanged** (no retrieval pass signal yet). Prior **PR #13** five-path **`c1s13_v1`** + **PR #14** prerequisite remain the frozen-lane baseline under this doc state. **PR #12** alias-saturation still **`promotion_gate_candidate.status: none_found`**. **Promotion to default retrieval remains blocked** pending **broader judgment path** — **promotion criteria** vs **wider falsification cohorts** vs **further gold audit/normalization** (not a missing-ingest unblocker). **Next fork:** pick among those three; optional follow-up PR may **refresh frozen** C1S13 baselines/deltas **if** we scope regeneration after rubric trust work.
   flagged_followups:
     - >-
-      Content quality of `location_hierarchy_equivalences` in
-      `evals/sentence_routing_retrieval_falsification/gold/breadcrumb_query_natural_c1s13_v1.json`
-      looks copy-pasted across two of three location-context scenarios; the
-      audit only checks structure, not semantic correctness. Not a Phase A
-      blocker. Tracked in `Backlog.md`.
+      PR #15 addressed the **Wolf** / **Mossglade** mis-mappings in
+      `breadcrumb_query_natural_c1s13_v1.json`; residual C1S13 hierarchy rows and
+      **structural** vs **semantic** audit split remain documented in `Backlog.md`
+      when new scenarios or ambiguous corpus edges appear — not a Phase A blocker.
     - >-
       `uv run python scripts/audit_world_campaign_alignment.py` can fail in a
       clean checkout when `out/evals/corpus_remote/normalization_manifest.json`
       is absent; document or generate that manifest before treating the audit as
       a portable gate (separate from route-equivalence JSONL lane).
   integration_notes:
+    - >-
+      PR #15 is MERGED to main (merge commit 27b3eea7dd87331758ddd07e5919c5094f6702bd,
+      2026-05-12T01:32:31Z): **single-file** gold rubric repair — **`breadcrumb_query_natural_c1s13_v1.json`** only; strict **§4 allowlist 1/1** on `fetch`/`verify`;
+      §7 structural audit + gold parse + temp holdout **`cohort_baseline_run`** (`/tmp/c1s13_l3_*_post_gold_audit.json`) + readout **passed**; temp **`question_count` 25** summary **regressed 0 / improved 0 / unchanged_pass 0 / unchanged_fail 25**;
+      **retrieval-only** / **$0**. Corrects **Wolf**/**Mossglade** hierarchy children vs Stormspire-family mis-attach; **does not** clear **`unchanged_fail`** saturation — interpretive trust improves, **promotion** still **blocked** (PR #12 **`none_found`** + holdout buckets).
+      Final review: **APPROVE** posted **`COMMENTED`** (self-review fallback, review id **`4268511628`**). **`github-pr-15`** judgment + rubric below; **`HANDOFF-pr15-c1s13-hierarchy-gold-audit.md`** archived under `Docs/Plans/archive/2026-05-11/handoffs/`.
     - >-
       PR #13 is MERGED to main (merge commit 761bd007af6e47210dc69a1a60b8afc42c751822,
       2026-05-12T00:48:43Z): **accepted after** PR #14 prerequisite (`HANDOFF-pr13-addendum-option2-c1s13-records-prereq` spine) landed the missing
@@ -281,6 +286,13 @@ execution_state:
       -> 10 passed (round 2 added byte-identity-when-flag-unset and
       load-failure-emits-error harness-boundary tests).
 changelog:
+  - at: "2026-05-12T01:40:00Z"
+    version: 22
+    summary: >-
+      PR #15 merged (27b3eea7dd87331758ddd07e5919c5094f6702bd): C1S13 hierarchy gold audit — strict allowlist 1/1; §7 passed; temp holdout rerun question_count 25 with
+      regressed 0 / improved 0 / unchanged_pass 0 / unchanged_fail 25; retrieval-only cost $0; Wolf/Mossglade mappings corrected; unchanged_fail saturation unchanged;
+      promotion still blocked pending broader judgment path (PR #12 none_found holds). Added `github-pr-15`; `execution_state.next_gate_command` + `flagged_followups` + integration note
+      updated; atomic doc-sync moved HANDOFF-pr15 to archive + checklist session log + Reanchor.
   - at: "2026-05-12T00:48:43Z"
     version: 21
     summary: >-
@@ -508,6 +520,50 @@ changelog:
 # Notation: plan_phase_primary / plan_phase_also_touches map work to phases;
 # review_status captures current merge/review disposition.
 external_pull_requests:
+  - id: github-pr-15
+    url: https://github.com/Drakosfire/DungeonMindBuddy/pull/15
+    plan_phase_primary: "5"
+    plan_phase_also_touches: null
+    plan_phase_label: >-
+      C1S13 natural gold hierarchy audit: correct **`location_hierarchy_equivalences`** in
+      **`breadcrumb_query_natural_c1s13_v1.json`** (Wolf/Mossglade vs Stormspire-family mis-attach).
+      Single-file allowlist; rubric-trust slice — no harness, producer JSONL, frozen cohort outputs, or canvas in merge scope.
+    review_status: merged
+    review_status_meaning: >-
+      Merged to main on 2026-05-12T01:32:31Z (merge commit 27b3eea7dd87331758ddd07e5919c5094f6702bd).
+      **`fetch`/allowlist** — exactly **one** §4 path (**1/1**).
+      **`review_external_pr.py verify 15`** §7 lane: `audit_world_campaign_alignment` **PASS**; gold parse / hierarchy row probes **OK**;
+      temp **`cohort_baseline_run --mode both`** with **`/tmp/c1s13_l3_delta_post_gold_audit.json`** + **`/tmp/c1s13_l3_qdelta_post_gold_audit.json`**;
+      temp question-delta readout **`question_count`** **25**, summary **`regressed:0`** **`improved:0`** **`unchanged_pass:0`** **`unchanged_fail:25`**;
+      **`llm_enabled`** **`False`**, **`retrieval_only`** **`True`**; cost **`$0`**.
+      Hierarchy mappings for **Wolf** / **Mossglade** scenarios corrected; **`unchanged_fail`** bucket saturation **unchanged** — holdout lane still shows **no** pass/regression/improvement churn under current rubric until broader judgment.
+      Verdict **APPROVE** requested; delivered as **`COMMENTED`** under self-review fallback (review id **`4268511628`**).
+    judgment_record:
+      verdict: accepted
+      evaluated_at: "2026-05-12T01:32:31Z"
+      evaluator: cursor-agent
+      notes: >-
+        Accepted as corpus-grounded gold repair only: improves interpretability of C1S13 **`unchanged_fail`** rows
+        without claiming retrieval wins. **`github-pr-13`** frozen **`c1s13_v1`** artifacts intentionally **not** regenerated in this slice;
+        promotion/default-equivalence remains **blocked** (PR #12 **`promotion_gate_candidate:none_found`** + saturated fail readout) pending explicit criteria or falsification breadth, not missing verification of PR #15.
+    rubric_when_we_judge:
+      - >-
+        **Strict single-file allowlist:** worker PR touches **only** `evals/sentence_routing_retrieval_falsification/gold/breadcrumb_query_natural_c1s13_v1.json`;
+        any extra path ⇒ scope creep revert.
+      - >-
+        **Corpus-grounded hierarchy edits:** every changed **`location_hierarchy_equivalences`** parent→children row must be defensible against
+        `Longmont Campaign/Campaign 1/Locations/` tree semantics; forbid Stormspire-descendant leakage under Wolf/Mossglade without explicit corpus proof.
+      - >-
+        **§7 must paste verbatim outputs:** structural audit stdout, gold **`python -c`** probe, temp **`cohort_baseline_run`** command block, and temp question-delta **`summary`**
+        one-liner — narrator-only claims without commands are insufficient for rubric-trust slices.
+      - >-
+        **Temp reruns stay non-committal:** `--write-delta` / `--write-question-delta` targets under **`/tmp/`** only in the gold-audit PR; frozen **`cohort_baseline_c1s13_v1`**
+        / L3 JSON / canvas regeneration belong to a separate scoped PR if readout materially moves.
+      - >-
+        **Retrieval-only falsification lane:** temp + committed cohort summaries used for invariants stay **`llm_enabled: false`**, **`retrieval_only: true`**, **`$0`**
+        unless the handoff budgets LLM steps.
+      - >-
+        **Do not conflate rubric repair with promotion:** **`unchanged_fail:25`** persistence after PR #15 is **not** a retrieval regression claim — record explicitly in judgment notes when promotion narratives are discussed.
   - id: github-pr-13
     url: https://github.com/Drakosfire/DungeonMindBuddy/pull/13
     plan_phase_primary: "5"

@@ -12,10 +12,12 @@ pr_body_template: |
   ```
 ---
 
+> **MERGED:** `main` @ `27b3eea7dd87331758ddd07e5919c5094f6702bd` (2026-05-12T01:32:31Z); review fallback id **`4268511628`**.
+
 # HANDOFF - PR #15: C1S13 hierarchy gold audit (Wolf/Mossglade mapping correctness)
 
 **Created:** 2026-05-12 (UTC).  
-**Status:** ACTIVE — dispatch to one external/Codex subagent; one PR only.  
+**Status:** COMPLETED — merged; atomic doc-sync archived this handoff.  
 **Parent agent:** Cursor agent; parent handles post-merge atomic doc-sync.  
 **Plan anchor:** `Docs/Plans/PLAN-split-corpus-retrieval-to-autonomous-demo.md` (`active_phase: B`, promotion still blocked).
 
