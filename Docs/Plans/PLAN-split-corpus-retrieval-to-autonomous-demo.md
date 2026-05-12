@@ -6,9 +6,9 @@ title: Split-corpus retrieval to autonomous C1S1–C1S3 demo
 document_class: plan
 plan_kind: execution_super_plan
 status: active
-version: 23
+version: 24
 created_at: "2026-05-09T00:00:00Z"
-last_updated_at: "2026-05-12T20:24:05Z"
+last_updated_at: "2026-05-12T22:14:57Z"
 timezone_note: "Timestamps are UTC; local work may use America/Denver."
 supersedes: []
 superseded_by: null
@@ -64,7 +64,7 @@ execution_state:
     && uv run python -m evals.sentence_routing_retrieval_falsification.cohort_baseline_run --manifest evals/sentence_routing_retrieval_falsification/cohorts/c1s13_v1.json --delta evals/sentence_routing_retrieval_falsification/artifacts/baselines/cohort_l3_ab_delta_c1s13_v1.json --check-delta
     && uv run python -m evals.sentence_routing_retrieval_falsification.cohort_baseline_run --manifest evals/sentence_routing_retrieval_falsification/cohorts/c1s13_v1.json --check-question-delta evals/sentence_routing_retrieval_falsification/artifacts/baselines/cohort_l3_ab_question_delta_c1s13_v1.json
     && uv run python -m evals.sentence_routing_retrieval_falsification.cohort_l3_question_deep_dive_canvas_emit --input evals/sentence_routing_retrieval_falsification/artifacts/baselines/cohort_l3_ab_question_delta_c1s13_v1.json --output canvases/cohort-l3-ab-question-deep-dive-c1s13-v1.canvas.tsx
-    PR #16 **MERGED** to `main` (merge commit `7978cd06151e6104fe064eba2e4c0fed1bb9a8f3`, 2026-05-12T20:24:05Z): L3 question-delta **failure diagnostics** — strict **§4 allowlist 6/6**; §7 **passed** on verified head **`e110be86a423488d3ddd366af3d35e18f5817650`** (`test_cohort_baseline_run` **22**; canvas compatibility **6**; lexicon + breadcrumb harness **37**; three committed question-delta regenerations + **`--check-question-delta`** trio **OK**); committed artifacts now carry per-question **`failure_diagnostic`** + top-level **`failure_diagnostic_summary`** with closed buckets (`passed`, `equivalence_helped`, `ranking_regression`, `missing_lexical_handle`, `retriever_support_gap`, `gold_or_rubric_gap`); readout unchanged on tight/natural/C1S13 summaries vs pre-merge lanes; **`llm_enabled`** **False**, **`retrieval_only`** **True**; cost **$0**. **Default retrieval / ranking unchanged**; **PR #12** **`promotion_gate_candidate.status:none_found`** still blocks default flip. **Next fork:** promotion acceptance criteria vs wider falsification cohorts vs further gold audit/normalization — now with machine-classified failure buckets on committed question-delta JSON. Prior **PR #15** **MERGED** to `main` (merge commit `27b3eea7dd87331758ddd07e5919c5094f6702bd`, 2026-05-12T01:32:31Z): C1S13 **hierarchy gold audit** — **`fetch`/allowlist** **1/1** (single gold file); §7 **passed** (`audit_world_campaign_alignment`, gold parse probe, temp **`cohort_baseline_run`** `--mode both` with `/tmp/…` delta + question-delta writes, temp readout); temp question-delta summary **`question_count`** **25**, **`regressed`** **0**, **`improved`** **0**, **`unchanged_pass`** **0**, **`unchanged_fail`** **25**; **`llm_enabled`** **False**, **`retrieval_only`** **True**; cost **$0**. **Wolf/Mossglade** `location_hierarchy_equivalences` **corrected**; **`unchanged_fail` saturation unchanged** (no retrieval pass signal yet). Prior **PR #13** five-path **`c1s13_v1`** + **PR #14** prerequisite remain the frozen-lane baseline under this doc state. **PR #12** alias-saturation still **`promotion_gate_candidate.status: none_found`**. **Promotion to default retrieval remains blocked** pending **broader judgment path** — **promotion criteria** vs **wider falsification cohorts** vs **further gold audit/normalization** (not a missing-ingest unblocker). **Next fork:** pick among those three; optional follow-up PR may **refresh frozen** C1S13 baselines/deltas **if** we scope regeneration after rubric trust work.
+    PR #17 **MERGED** to `main` (merge commit `28e98a89e591e7203d0b163d2ab445ac11509995`, 2026-05-12T22:14:57Z): **candidate scene-beat rebenchmark wiring** — strict **§4 allowlist 11/11**; §7 **passed** on verified head **`32727f69693b66eb10cd4c4be94e3115763f43c4`** (`test_scene_beat_memory` + `test_session_memory_query` **12**; `test_breadcrumb_query_run_lexicon_records_jsonl` **13**; `test_cohort_baseline_run` **23**; corpus memory `--all-blessed --check` OK; cohort `--check` + C1S13 `--check-question-delta` OK; temp C1S13 scene-beat question-delta smoke OK). Beat-enriched meta **`record_count` 63**, **`records_with_beat_id` 62**, **`beat_count` 12**; temp readout **improved 0 / regressed 0 / unchanged_pass 16 / unchanged_fail 9** with failure buckets **`passed` 16**, **`missing_lexical_handle` 2**, **`retriever_support_gap` 7**; live unit-annotation smoke cost **~$0.15** (within prior C1S13 annotation envelope). **Default retrieval / committed `cohort_l3_ab_*` artifacts unchanged**; **PR #12** **`promotion_gate_candidate.status:none_found`** still blocks default flip. **Next fork:** promotion acceptance criteria vs wider falsification cohorts vs further gold audit/normalization — scene-beat lane did **not** clear remaining C1S13 failures. Prior **PR #16** **MERGED** to `main` (merge commit `7978cd06151e6104fe064eba2e4c0fed1bb9a8f3`, 2026-05-12T20:24:05Z): L3 question-delta **failure diagnostics** — strict **§4 allowlist 6/6**; §7 **passed** on verified head **`e110be86a423488d3ddd366af3d35e18f5817650`** (`test_cohort_baseline_run` **22**; canvas compatibility **6**; lexicon + breadcrumb harness **37**; three committed question-delta regenerations + **`--check-question-delta`** trio **OK**); committed artifacts now carry per-question **`failure_diagnostic`** + top-level **`failure_diagnostic_summary`** with closed buckets (`passed`, `equivalence_helped`, `ranking_regression`, `missing_lexical_handle`, `retriever_support_gap`, `gold_or_rubric_gap`); readout unchanged on tight/natural/C1S13 summaries vs pre-merge lanes; **`llm_enabled`** **False**, **`retrieval_only`** **True**; cost **$0**. **Default retrieval / ranking unchanged**; **PR #12** **`promotion_gate_candidate.status:none_found`** still blocks default flip. **Next fork:** promotion acceptance criteria vs wider falsification cohorts vs further gold audit/normalization — now with machine-classified failure buckets on committed question-delta JSON. Prior **PR #15** **MERGED** to `main` (merge commit `27b3eea7dd87331758ddd07e5919c5094f6702bd`, 2026-05-12T01:32:31Z): C1S13 **hierarchy gold audit** — **`fetch`/allowlist** **1/1** (single gold file); §7 **passed** (`audit_world_campaign_alignment`, gold parse probe, temp **`cohort_baseline_run`** `--mode both` with `/tmp/…` delta + question-delta writes, temp readout); temp question-delta summary **`question_count`** **25**, **`regressed`** **0**, **`improved`** **0**, **`unchanged_pass`** **0**, **`unchanged_fail`** **25**; **`llm_enabled`** **False**, **`retrieval_only`** **True**; cost **$0**. **Wolf/Mossglade** `location_hierarchy_equivalences` **corrected**; **`unchanged_fail` saturation unchanged** (no retrieval pass signal yet). Prior **PR #13** five-path **`c1s13_v1`** + **PR #14** prerequisite remain the frozen-lane baseline under this doc state. **PR #12** alias-saturation still **`promotion_gate_candidate.status: none_found`**. **Promotion to default retrieval remains blocked** pending **broader judgment path** — **promotion criteria** vs **wider falsification cohorts** vs **further gold audit/normalization** (not a missing-ingest unblocker). **Next fork:** pick among those three; optional follow-up PR may **refresh frozen** C1S13 baselines/deltas **if** we scope regeneration after rubric trust work.
   flagged_followups:
     - >-
       PR #15 addressed the **Wolf** / **Mossglade** mis-mappings in
@@ -77,6 +77,23 @@ execution_state:
       is absent; document or generate that manifest before treating the audit as
       a portable gate (separate from route-equivalence JSONL lane).
   integration_notes:
+    - >-
+      PR #17 is MERGED to main (merge commit 28e98a89e591e7203d0b163d2ab445ac11509995,
+      2026-05-12T22:14:57Z): candidate scene-beat rebenchmark lane — `scene_beat_memory.py`,
+      `enrich_records_with_beat_ids`, opt-in same-beat expansion in `session_memory_query.py` +
+      breadcrumb harness flags, and `cohort_baseline_run.py` `--scene-beat-records-jsonl` /
+      `--write-scene-beat-question-delta` (`dmb_breadcrumb_query_cohort_scene_beat_question_delta_v1`);
+      eleven-path allowlist; §7 passed on head `32727f69` (scene-beat + session-memory tests 12;
+      breadcrumb harness 13; cohort tests 23; corpus memory `--all-blessed --check` OK; cohort
+      `--check` + C1S13 `--check-question-delta` OK; temp scene-beat question-delta smoke OK).
+      Temp C1S13 readout improved 0 / regressed 0 / unchanged_pass 16 / unchanged_fail 9; beat meta
+      record_count 63, records_with_beat_id 62, beat_count 12; live annotation smoke ~$0.15.
+      Default retrieval and committed `cohort_l3_ab_*` artifacts unchanged; PR #12
+      `promotion_gate_candidate:none_found` still constrains default flip. Final review round
+      REQUEST_CHANGES on stale PR-body paste only; merged by operator request after verify green.
+      Review ids `4276161552`, `4276396966`, `4276504774`, `4276596681`. `github-pr-17` judgment +
+      rubric below; `HANDOFF-pr17-scene-beat-rebenchmark-wiring.md` archived under
+      `Docs/Plans/archive/2026-05-12/handoffs/`.
     - >-
       PR #16 is MERGED to main (merge commit 7978cd06151e6104fe064eba2e4c0fed1bb9a8f3,
       2026-05-12T20:24:05Z): deterministic L3 question-delta failure diagnostics on
@@ -311,6 +328,15 @@ execution_state:
       -> 10 passed (round 2 added byte-identity-when-flag-unset and
       load-failure-emits-error harness-boundary tests).
 changelog:
+  - at: "2026-05-12T22:14:57Z"
+    version: 24
+    summary: >-
+      PR #17 merged (28e98a89e591e7203d0b163d2ab445ac11509995): candidate scene-beat rebenchmark wiring — strict allowlist 11/11; §7 passed on head 32727f69
+      (scene-beat + session-memory tests 12; breadcrumb harness 13; cohort tests 23; corpus memory --all-blessed --check OK; cohort --check + C1S13 --check-question-delta OK;
+      temp scene-beat question-delta smoke OK). Temp C1S13 readout improved 0 / regressed 0 / unchanged_pass 16 / unchanged_fail 9; beat meta record_count 63,
+      records_with_beat_id 62, beat_count 12; live annotation smoke ~$0.15. Default retrieval and committed cohort_l3_ab_* artifacts unchanged; promotion still blocked
+      (PR #12 none_found). Added github-pr-17; execution_state + integration note updated; atomic doc-sync archived HANDOFF-pr17 under archive/2026-05-12/handoffs/ +
+      checklist session log + Reanchor.
   - at: "2026-05-12T20:24:05Z"
     version: 23
     summary: >-
@@ -603,6 +629,55 @@ external_pull_requests:
       - >-
         **Retrieval-only / $0 lane:** diagnostics derive from committed retrieval fields only; no LLM calls, semantic graders,
         timestamps, or environment-dependent paths in output; legacy lexicon + breadcrumb harness tests unchanged.
+  - id: github-pr-17
+    url: https://github.com/Drakosfire/DungeonMindBuddy/pull/17
+    plan_phase_primary: "5"
+    plan_phase_also_touches: null
+    plan_phase_label: >-
+      Candidate scene-beat rebenchmark wiring: beat-enriched session-memory JSONL from unit annotations, opt-in same-beat
+      expansion in `session_memory_query.py` + breadcrumb harness flags, and C1S13 scene-beat question-delta output via
+      `cohort_baseline_run.py` (`dmb_breadcrumb_query_cohort_scene_beat_question_delta_v1`). Candidate-only — no default
+      retrieval flip, no corpus/gold/canvas edits, no committed `cohort_l3_ab_*` regeneration.
+    review_status: merged
+    review_status_meaning: >-
+      Merged to main on 2026-05-12T22:14:57Z (merge commit 28e98a89e591e7203d0b163d2ab445ac11509995).
+      Verified head 32727f69693b66eb10cd4c4be94e3115763f43c4: strict §4 allowlist 11/11; §7 green —
+      `uv run pytest tests/test_scene_beat_memory.py tests/test_session_memory_query.py -q` -> 12 passed;
+      `uv run pytest tests/test_breadcrumb_query_run_lexicon_records_jsonl.py -q` -> 13 passed;
+      `uv run pytest tests/test_cohort_baseline_run.py -q` -> 23 passed; `materialize_session_memory.py --all-blessed --check` OK;
+      cohort `--check` + C1S13 `--check-question-delta` OK; temp scene-beat question-delta smoke OK. Temp C1S13 readout
+      improved 0 / regressed 0 / unchanged_pass 16 / unchanged_fail 9; beat meta record_count 63, records_with_beat_id 62,
+      beat_count 12; live unit-annotation smoke ~$0.15. Final review round REQUEST_CHANGES on stale PR-body / verbatim §7 paste
+      only; merged by operator request after verify green. Review ids 4276161552, 4276396966, 4276504774, 4276596681 (COMMENTED fallback).
+    judgment_record:
+      verdict: accepted
+      evaluated_at: "2026-05-12T22:14:57Z"
+      evaluator: cursor-agent
+      notes: >-
+        Accepted as candidate rebenchmark lane only: deterministic beat-enriched records, explicit same-beat expansion behind
+        harness flags, and distinct scene-beat question-delta schema without overwriting committed `cohort_l3_ab_*` artifacts or
+        changing default retrieval. Temp C1S13 readout shows no pass movement (16 unchanged pass, 9 unchanged fail); does not
+        clear PR #12 promotion_gate_candidate none_found or authorize default flip.
+    rubric_when_we_judge:
+      - >-
+        **Strict eleven-path scene-beat allowlist:** worker PR touches only the HANDOFF-pr17 §4 table paths; any corpus, gold,
+        canvas, planner, prompt, or committed `cohort_l3_ab_*` JSON edit ⇒ scope creep revert.
+      - >-
+        **Default retrieval byte-identity:** scene-beat flags off must preserve legacy harness outputs; same-beat expansion only
+        when explicit flags / query_spec knobs are set; lock with harness-boundary tests.
+      - >-
+        **Distinct scene-beat question-delta schema:** `--write-scene-beat-question-delta` must emit
+        `dmb_breadcrumb_query_cohort_scene_beat_question_delta_v1` with per-question `with_scene_beats.scene_beat_expansion`
+        metadata; must not overwrite route-equivalence question-delta files.
+      - >-
+        **C1S13 readout is temp unless scoped:** beat-enriched meta and scene-beat question-delta smoke targets `/tmp` unless a
+        follow-up PR explicitly commits refreshed artifacts; paste improved/regressed/unchanged counts and failure buckets.
+      - >-
+        **Cost-bearing smoke is optional but quoted:** live unit-annotation generation must report `telemetry_cost` and compare
+        against prior C1S13 annotation envelope when available; flag cost regression per cost-as-signal.
+      - >-
+        **Retrieval-only default lane unchanged:** committed `cohort_l3_ab_*` artifacts and default ranking behavior stay frozen;
+        scene-beat lane is falsification tooling, not promotion evidence by itself.
   - id: github-pr-15
     url: https://github.com/Drakosfire/DungeonMindBuddy/pull/15
     plan_phase_primary: "5"
@@ -1636,6 +1711,7 @@ Track detailed todos in [CHECKLIST-dynamic-lexical-retrieval-rollout.md](CHECKLI
 
 | Date (UTC) | Version | Summary |
 |------------|---------|---------|
+| 2026-05-12 | 24 | PR #17 merged (`28e98a89e591e7203d0b163d2ab445ac11509995`): candidate scene-beat rebenchmark wiring — beat-enriched session-memory JSONL, opt-in same-beat expansion, C1S13 scene-beat question-delta schema; eleven-path allowlist; temp readout improved 0 / regressed 0 / unchanged_pass 16 / unchanged_fail 9; default retrieval unchanged. Added `github-pr-17` judgment + rubric. Promotion still blocked (`promotion_gate_candidate: none_found`). Handoff archived `archive/2026-05-12/handoffs/`. |
 | 2026-05-12 | 23 | PR #16 merged (`7978cd06151e6104fe064eba2e4c0fed1bb9a8f3`): L3 question-delta failure diagnostics — `failure_diagnostic` + `failure_diagnostic_summary` on committed tight/natural/C1S13 question-delta JSON; six-path allowlist; round 2 fixes route-loss regression via explicit lost-route set + helper test. Added `github-pr-16` judgment + rubric (six-path allowlist; closed buckets; lost-route set; check trio; consumer compatibility; retrieval-only). Promotion still blocked (`promotion_gate_candidate: none_found`). Handoff archived `archive/2026-05-12/handoffs/`. |
 | 2026-05-11 | 19 | PR #12 merged (`7eface014b3d5824a11d29ad1e91ed67c153711f`): alias-saturation emitter + tests + README + `cohort-l3-alias-saturation.canvas.tsx` (four paths). Combined `question_count` 56, `verdict_counts` regressed 2 / improved 1 / unchanged_pass 49 / unchanged_fail 4; `promotion_gate_candidate.status: none_found`. Added `github-pr-12` judgment + rubric (threshold evidence before default flip; read-only question-delta inputs; schema/markers + payload smoke; legacy lanes; retrieval-only). Promotion narrative: blocked with explicit negative threshold scan. Handoff archived `archive/2026-05-11/handoffs/`. |
 | 2026-05-11 | 18 | PR #11 merged (`eec38807ea1866e63b5997e21558968d7559ea16`): wider-cohort `natural_v1` baseline + L3 scenario/question deltas + generated natural deep-dive canvas committed. `cohort_baseline_run.py` now forwards `--manifest` through `--check-delta` / `--check-question-delta` and writes active-lane `scenario_level_delta_path`; emitter gains `--input` / `--output` while preserving defaults. Added `github-pr-11` judgment record + rubric bullets for manifest-aware boundary checks and deterministic wider-cohort anchors. Handoff archived under `archive/2026-05-11/handoffs/`. |

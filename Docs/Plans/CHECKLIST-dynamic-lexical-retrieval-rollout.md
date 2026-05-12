@@ -25,8 +25,8 @@
 ## Reanchor Block (fill first each session)
 
 - [x] **Active phase:** `B` (Phase C **entry** PR #4–#5; **exit** L3 harness landed PR #9 — gated ranking flag + delta runner; **promotion** to default retrieval still open)
-- [x] **Last green artifact (path):** PR #16 question-delta failure diagnostics (2026-05-12): committed tight/natural/C1S13 `cohort_l3_ab_question_delta_*` JSON regenerated with per-question `failure_diagnostic` + top-level `failure_diagnostic_summary`; frozen checks OK (`cohort_baseline_run --check-question-delta` trio; corpus session-memory `--all-blessed --check`; cohort `--check`; C1S13 `--check-delta`). C1S13 holdout baseline **16/25** pass; meta **`records_with_routes` 56**. Cost **$0**.
-- [x] **Current blocking red gate:** **PR #12** **`promotion_gate_candidate.status:none_found`** still blocks default-equivalence-ranking flip; C1S13 holdout **9/25** retrieval failures remain — question-delta rows now carry machine-classified failure buckets for promotion/evidence fork triage.
+- [x] **Last green artifact (path):** PR #17 scene-beat rebenchmark wiring (2026-05-12): beat-enriched JSONL builder + opt-in same-beat expansion + C1S13 scene-beat question-delta schema; frozen checks OK (`test_scene_beat_memory` + `test_session_memory_query` **12**; `test_breadcrumb_query_run_lexicon_records_jsonl` **13**; `test_cohort_baseline_run` **23**; corpus session-memory `--all-blessed --check`; cohort `--check`; C1S13 `--check-question-delta`). Temp C1S13 scene-beat readout **16/25** pass unchanged vs baseline lane (**improved 0 / regressed 0**). Live annotation smoke **~$0.15**.
+- [x] **Current blocking red gate:** **PR #12** **`promotion_gate_candidate.status:none_found`** still blocks default-equivalence-ranking flip; C1S13 holdout **9/25** retrieval failures remain — scene-beat expansion did not move failures; question-delta rows carry machine-classified failure buckets for promotion/evidence fork triage.
 - [x] **Blocker type:** `promotion/evidence-gap` (**not** ingestion-path missing-files)
 - [x] **Next command to run:** **`PLAN-split-corpus…` § `execution_state.next_gate_command`** (full invariant shell + narrative). **Human/plan fork:** **promotion acceptance criteria** vs **wider falsification cohorts** vs **further gold audit/normalization** — corpus memory lane is unblocked for pilots C1S1–3, C1S13, C2S20.
 
@@ -198,6 +198,18 @@
 ---
 
 ## Session Log (append newest first)
+
+### 2026-05-12 (UTC) — eighteenth entry, PR #17 merged + atomic doc-sync (candidate scene-beat rebenchmark wiring)
+
+- Phase moved: **`stayed B`**. `milestone_progress` unchanged (`M2: in_progress`, `M3: complete`).
+- What turned green: [PR #17](https://github.com/Drakosfire/DungeonMindBuddy/pull/17) **MERGED** to `main` (merge commit **`28e98a89e591e7203d0b163d2ab445ac11509995`**, **2026-05-12T22:14:57Z**; verified head **`32727f69693b66eb10cd4c4be94e3115763f43c4`**): **eleven-path allowlist** — `scene_beat_memory.py`, beat compile helper, `session_memory_query.py` same-beat expansion, breadcrumb harness flags, cohort scene-beat question-delta schema, README + tests.
+- Pre-merge verification: scene-beat + session-memory tests **12**; breadcrumb harness **13**; cohort tests **23**; corpus memory **`--all-blessed --check` OK**; cohort **`--check`** + C1S13 **`--check-question-delta` OK**; temp scene-beat question-delta smoke OK.
+- **Load-bearing readout:** temp C1S13 scene-beat question-delta summary **improved 0 / regressed 0 / unchanged_pass 16 / unchanged_fail 9**; beat-enriched meta **`record_count` 63**, **`records_with_beat_id` 62**, **`beat_count` 12**; failure buckets **`passed` 16**, **`missing_lexical_handle` 2**, **`retriever_support_gap` 7**.
+- **Cost:** live unit-annotation smoke **~$0.15** (within prior C1S13 annotation envelope); default retrieval / committed **`cohort_l3_ab_*`** lanes **$0**.
+- **Review:** final round **REQUEST_CHANGES** on stale PR-body paste only; merged by operator request after verify green; review ids **`4276161552`**, **`4276396966`**, **`4276504774`**, **`4276596681`** (**`COMMENTED`** fallback).
+- PLAN v24 **`github-pr-17`** + integration note; **HANDOFF-pr17** archived **`Docs/Plans/archive/2026-05-12/handoffs/`**.
+- What stayed open: default-equivalence ranking flip still blocked (**PR #12** **`promotion_gate_candidate:none_found`**); static-seed fallback-only mode; generated-only retrieval proof test.
+- Next single action: use committed failure buckets + negative scene-beat readout to decide promotion acceptance criteria vs wider falsification cohorts vs further gold audit/normalization.
 
 ### 2026-05-12 (UTC) — seventeenth entry, corpus session-memory promotion (pilot breadcrumbs + `_session_memory`)
 
