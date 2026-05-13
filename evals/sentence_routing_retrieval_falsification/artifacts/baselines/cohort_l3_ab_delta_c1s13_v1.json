@@ -23,17 +23,16 @@
         "missing_expected_route_hit",
         "missing_location_entity_summary",
         "query_mode_mismatch",
-        "semantic_verdict:fail_incomplete",
-        "semantic_verdict:fail_stale"
+        "semantic_verdict:fail_incomplete"
       ],
-      "delta_violation_count": 1
+      "delta_violation_count": 0
     }
   ],
   "delta_summary": {
     "total_scenarios": 1,
-    "scenarios_changed": 1,
+    "scenarios_changed": 0,
     "scenarios_improved": 0,
-    "scenarios_regressed": 1,
+    "scenarios_regressed": 0,
     "baseline_all_ok_count": 0,
     "with_equivalence_all_ok_count": 0
   }

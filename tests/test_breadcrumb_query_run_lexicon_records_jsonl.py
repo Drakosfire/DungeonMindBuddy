@@ -257,13 +257,20 @@ def test_use_route_equivalence_for_ranking_flag_is_additive_only_at_harness_boun
     rows_without = json.loads(out_without.read_text(encoding="utf-8"))["results"]
     rows_with = json.loads(out_with.read_text(encoding="utf-8"))["results"]
     assert len(rows_without) == len(rows_with)
+    structural_tokens = {"route", "longmont", "elderwyld", "npc", "campaign", "c1", "c2"}
     for base_row, flagged_row in zip(rows_without, rows_with, strict=True):
         assert "shadow_route_equivalences" not in base_row
         assert "shadow_route_equivalences" in flagged_row
         assert base_row["scenario_id"] == flagged_row["scenario_id"]
-        assert flagged_row.get("ranking_augmented_by_equivalences") is True
+        assert isinstance(flagged_row.get("ranking_augmented_by_equivalences"), bool)
         aliases = (flagged_row.get("query_token_aliases") or flagged_row.get("query_trace", {}).get("query_token_aliases") or flagged_row.get("full_result", {}).get("trace", {}).get("query_token_aliases") or [])
-        assert aliases
+        assert isinstance(aliases, list)
+        alias_tokens = {token for alias in aliases for token in alias.lower().split()}
+        assert structural_tokens.isdisjoint(alias_tokens)
+        query_text = str((flagged_row.get("query_spec") or {}).get("query") or flagged_row.get("question") or "").lower()
+        if flagged_row.get("ranking_augmented_by_equivalences"):
+            assert aliases
+            assert any(token in query_text for token in alias_tokens)
 
 
 

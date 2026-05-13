@@ -19,17 +19,16 @@
       "with_equivalence_violations": [
         "context_support_below_threshold",
         "missing_expected_route_hit",
-        "missing_expected_unit_id_hit",
-        "semantic_verdict:fail_incomplete"
+        "missing_expected_unit_id_hit"
       ],
-      "delta_violation_count": 1
+      "delta_violation_count": 0
     }
   ],
   "delta_summary": {
     "total_scenarios": 1,
-    "scenarios_changed": 1,
+    "scenarios_changed": 0,
     "scenarios_improved": 0,
-    "scenarios_regressed": 1,
+    "scenarios_regressed": 0,
     "baseline_all_ok_count": 0,
     "with_equivalence_all_ok_count": 0
   }

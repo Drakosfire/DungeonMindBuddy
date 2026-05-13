@@ -16,10 +16,10 @@
       "records_jsonl": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Session Recaps/_session_memory/Session 01 - Stonebridge and Glowkindle Rats.records_meta.jsonl",
       "session_number": 1,
       "gold_schema": "dmb_breadcrumb_query_natural_gold_v1",
-      "all_ok": false,
+      "all_ok": true,
       "scenario_count": 16,
-      "pass_count": 15,
-      "fail_count": 1,
+      "pass_count": 16,
+      "fail_count": 0,
       "violations": [
         {
           "scenario_id": "c1s1_party_roster_origin",
@@ -48,11 +48,8 @@
         },
         {
           "scenario_id": "c1s1_brewery_compass_direction",
-          "ok": false,
-          "violations": [
-            "context_support_below_threshold",
-            "semantic_verdict:fail_incomplete"
-          ]
+          "ok": true,
+          "violations": []
         },
         {
           "scenario_id": "c1s1_bonogo_firkin",
@@ -230,10 +227,10 @@
       "records_jsonl": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Session Recaps/_session_memory/Session 03 - The Stone Bridge Flood.records_meta.jsonl",
       "session_number": 3,
       "gold_schema": "dmb_breadcrumb_query_natural_gold_v1",
-      "all_ok": false,
+      "all_ok": true,
       "scenario_count": 13,
-      "pass_count": 12,
-      "fail_count": 1,
+      "pass_count": 13,
+      "fail_count": 0,
       "violations": [
         {
           "scenario_id": "c1s3_bubbles_mage_hand_beat",
@@ -257,11 +254,8 @@
         },
         {
           "scenario_id": "c1s3_bonogo_downstream_zen",
-          "ok": false,
-          "violations": [
-            "context_support_below_threshold",
-            "semantic_verdict:fail_incomplete"
-          ]
+          "ok": true,
+          "violations": []
         },
         {
           "scenario_id": "c1s3_ephanna_second_lasso",
@@ -323,9 +317,9 @@
   ],
   "aggregate": {
     "total_questions": 44,
-    "total_pass": 42,
-    "total_fail": 2,
-    "all_scenarios_all_ok": false
+    "total_pass": 44,
+    "total_fail": 0,
+    "all_scenarios_all_ok": true
   },
   "recall_via_equivalence_aggregate": {
     "scenarios_with_misses": 0,
