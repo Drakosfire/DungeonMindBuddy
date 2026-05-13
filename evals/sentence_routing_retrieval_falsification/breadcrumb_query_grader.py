@@ -582,6 +582,11 @@ def query_session_memory_for_scenario(
             else None
         ),
         expand_same_beat_limit=_int_from_spec(qspec, "expand_same_beat_limit", 0),
+        scene_beat_packet_mode=bool(qspec.get("scene_beat_packet_mode", False)),
+        scene_beat_packet_threshold=_int_from_spec(qspec, "scene_beat_packet_threshold", 16),
+        scene_beat_packet_top_k=_int_from_spec(qspec, "scene_beat_packet_top_k", 3),
+        scene_beat_packet_unit_limit=_int_from_spec(qspec, "scene_beat_packet_unit_limit", 8),
+        scene_beat_packet_max_packets=_int_from_spec(qspec, "scene_beat_packet_max_packets", 2),
     )
 
 
