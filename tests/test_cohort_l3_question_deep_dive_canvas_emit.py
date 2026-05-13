@@ -14,13 +14,18 @@ def test_emit_writes_canvas_with_markers() -> None:
     text = p.read_text(encoding='utf-8')
     assert 'BEGIN GENERATED COHORT_L3_QUESTION_DEEP_DIVE' in text
     assert 'END GENERATED COHORT_L3_QUESTION_DEEP_DIVE' in text
-    assert 'question_count' in text
+    assert 'Cohort L3 Question Deep Dive' in text
+    assert 'summary.unchanged_fail' in text
+    assert 'scenario baseline_pass_count' in text
+    assert 'failure_diagnostic_summary' in text
+    assert 'failure_diagnostic.bucket' in text
+    assert 'failure_diagnostic.reasons' in text
+    assert 'support_ratio_delta' in text
     assert 'Required must-hit tokens:' in text
-    assert 'Matched must-hit tokens:' in text
-    assert 'Missing must-hit tokens:' in text
-    assert 'Swapped out vs legacy-only reference:' in text
+    assert 'Baseline' in text
+    assert 'Default' in text
     assert '<h3>Baseline</h3>' not in text
-    assert 'Default (equivalence-augmented ranking)' in text
+    assert 'With Equivalence' not in text
 
 
 def test_artifact_schema_exists() -> None:
