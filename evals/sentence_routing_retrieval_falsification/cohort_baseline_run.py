@@ -447,6 +447,7 @@ def _build_question_delta(*, manifest: dict[str, Any], baseline_reports: list[di
                     "hit_count": len(((erow.get("full_result") or {}).get("hits") or [])),
                     "ranking_augmented_by_equivalences": bool(erow.get("ranking_augmented_by_equivalences")),
                     **({"scene_beat_expansion": erow.get("scene_beat_expansion")} if include_scene_beat_metadata else {}),
+                    **({"scene_beat_packets": erow.get("scene_beat_packets")} if include_scene_beat_metadata else {}),
                     "top_hits": _top_hits(erow),
                 },
                 "delta": {
