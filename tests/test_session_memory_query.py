@@ -441,3 +441,35 @@ def test_scene_beat_packets_score_from_first_pass_only() -> None:
     packet_trace = result.trace.get("scene_beat_packets") or {}
     assert packet_trace.get("qualified_count") == 1
     assert packet_trace.get("packets")[0]["beat_id"] == "beat-a"
+
+
+def test_scene_beat_packets_replay_intent_stitches_adjacent_beats() -> None:
+    recap = "Longmont Campaign/Campaign 1/Session Recaps/Session 13 - Recap.md"
+    records = [
+        {"schema": "dmb_session_memory_record_v1", "campaign_id": "longmont-c1", "session_number": 13, "source_recap_path": recap, "unit_id": "u-010-a", "line_start": 10, "line_end": 10, "text_blake3": "aa"*32, "lexical_plain": "morgue ambush fight replay", "beat_id": "c1s13-b010", "routes": []},
+        {"schema": "dmb_session_memory_record_v1", "campaign_id": "longmont-c1", "session_number": 13, "source_recap_path": recap, "unit_id": "u-009-a", "line_start": 9, "line_end": 9, "text_blake3": "bb"*32, "lexical_plain": "sewer lead in", "beat_id": "c1s13-b009", "routes": []},
+        {"schema": "dmb_session_memory_record_v1", "campaign_id": "longmont-c1", "session_number": 13, "source_recap_path": recap, "unit_id": "u-011-a", "line_start": 11, "line_end": 11, "text_blake3": "cc"*32, "lexical_plain": "aftermath", "beat_id": "c1s13-b011", "routes": []},
+    ]
+    result = query_session_memory_candidate(
+        records=records, query="Create a beat by beat replay of the morgue ambush fight.", campaign_id="longmont-c1", max_hits=3,
+        scene_beat_packet_mode=True, scene_beat_packet_threshold=4, scene_beat_packet_top_k=2, scene_beat_packet_unit_limit=5, scene_beat_packet_max_packets=1
+    )
+    packet_trace = result.trace.get("scene_beat_packets") or {}
+    assert packet_trace.get("qualified_count") == 1
+    packet = packet_trace.get("packets")[0]
+    assert packet["beat_id"] == "c1s13-b010"
+    assert packet["packet_unit_ids"] == ["u-010-a", "u-009-a", "u-011-a"]
+
+
+def test_scene_beat_packets_non_replay_keeps_single_beat_behavior() -> None:
+    recap = "Longmont Campaign/Campaign 1/Session Recaps/Session 13 - Recap.md"
+    records = [
+        {"schema": "dmb_session_memory_record_v1", "campaign_id": "longmont-c1", "session_number": 13, "source_recap_path": recap, "unit_id": "u-010-a", "line_start": 10, "line_end": 10, "text_blake3": "aa"*32, "lexical_plain": "morgue scene", "beat_id": "c1s13-b010", "routes": []},
+        {"schema": "dmb_session_memory_record_v1", "campaign_id": "longmont-c1", "session_number": 13, "source_recap_path": recap, "unit_id": "u-009-a", "line_start": 9, "line_end": 9, "text_blake3": "bb"*32, "lexical_plain": "adjacent context", "beat_id": "c1s13-b009", "routes": []},
+    ]
+    result = query_session_memory_candidate(
+        records=records, query="morgue scene summary", campaign_id="longmont-c1", max_hits=2,
+        scene_beat_packet_mode=True, scene_beat_packet_threshold=2, scene_beat_packet_top_k=1, scene_beat_packet_unit_limit=5, scene_beat_packet_max_packets=1
+    )
+    packet = (result.trace.get("scene_beat_packets") or {}).get("packets")[0]
+    assert packet["packet_unit_ids"] == ["u-010-a"]

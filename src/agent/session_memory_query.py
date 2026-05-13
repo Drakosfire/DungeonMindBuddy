@@ -138,6 +138,11 @@ def _tokenize_query(
     return out
 
 
+def _query_has_scene_replay_intent(query: str, query_tokens: list[str]) -> bool:
+    terms = set(_tokens(query)) | {str(t).strip().lower() for t in query_tokens}
+    return any(t in terms for t in {"replay", "ambush", "fight"})
+
+
 def _subject_classes(record: dict[str, Any]) -> set[str]:
     s: set[str] = set()
     for r in record.get("routes") or []:
@@ -846,6 +851,8 @@ def _compute_scene_beat_packets(*,
     top_k: int,
     unit_limit: int,
     max_packets: int,
+    adjacent_beat_window: int = 1,
+    replay_intent: bool = False,
 ) -> list[dict[str, Any]]:
     by_beat: dict[str, dict[str, Any]] = {}
     for score, rec, why in first_pass_scored:
@@ -865,7 +872,18 @@ def _compute_scene_beat_packets(*,
         if scene_score < threshold:
             continue
         first_pass = sorted(row["first_pass_records"], key=lambda r:(int(r.get("line_start") or 0), str(r.get("unit_id") or "")))
-        siblings = sorted((r for r in filtered if str(r.get("beat_id") or "").strip()==beat_id), key=lambda r:(int(r.get("line_start") or 0), str(r.get("unit_id") or "")))
+        beat_pool = {beat_id}
+        if replay_intent:
+            parts = beat_id.rsplit("-b", 1)
+            if len(parts) == 2 and parts[1].isdigit():
+                prefix, n = parts[0], int(parts[1])
+                for delta in range(1, max(0, int(adjacent_beat_window)) + 1):
+                    beat_pool.add(f"{prefix}-b{n-delta:03d}")
+                    beat_pool.add(f"{prefix}-b{n+delta:03d}")
+        siblings = sorted(
+            (r for r in filtered if str(r.get("beat_id") or "").strip() in beat_pool),
+            key=lambda r:(int(r.get("line_start") or 0), str(r.get("unit_id") or "")),
+        )
         ordered=[]
         seen=set()
         for rec in [*first_pass,*siblings]:
@@ -928,6 +946,7 @@ def query_session_memory_candidate(
         st_set = {str(s).strip() for s in subject_types if str(s).strip()}
 
     tokens = _tokenize_query(q, tokenizer_mode=tokenizer_mode, query_token_aliases=query_token_aliases)
+    replay_intent = _query_has_scene_replay_intent(q, tokens)
     candidates: list[tuple[int, dict[str, Any], list[str]]] = []
     filtered: list[dict[str, Any]] = []
     examined = 0
@@ -1001,6 +1020,7 @@ def query_session_memory_candidate(
             top_k=scene_beat_packet_top_k,
             unit_limit=scene_beat_packet_unit_limit,
             max_packets=scene_beat_packet_max_packets,
+            replay_intent=replay_intent,
         )
         seen_units = {str(h.get("unit_id") or "") for h in hits_out}
         packet_slots = max(0, scene_beat_packet_unit_limit * max(0, scene_beat_packet_max_packets))
