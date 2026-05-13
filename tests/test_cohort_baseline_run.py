@@ -141,6 +141,32 @@ def test_cohort_baseline_run_write_produces_summary_with_committed_manifest(tmp_
     assert len(data["scenarios"]) == 3
 
 
+
+
+def test_cohort_baseline_default_mode_is_with_equivalence(tmp_path: Path) -> None:
+    if shutil.which("uv") is None:
+        pytest.skip("uv not available")
+    out = tmp_path / "summary_default.json"
+    run = subprocess.run([
+        "uv", "run", "--directory", str(_REPO_ROOT), "python", "-m", "evals.sentence_routing_retrieval_falsification.cohort_baseline_run", "--write", "--manifest", str(_MANIFEST), "--baseline", str(out)
+    ], capture_output=True, text=True, cwd=str(_REPO_ROOT))
+    assert run.returncode == 0, run.stderr
+    data = json.loads(out.read_text(encoding="utf-8"))
+    assert data["baseline_lane"] == "promoted_with_equivalence"
+    assert data["use_route_equivalence_for_ranking"] is True
+
+
+def test_cohort_baseline_mode_baseline_is_legacy_lane(tmp_path: Path) -> None:
+    if shutil.which("uv") is None:
+        pytest.skip("uv not available")
+    out = tmp_path / "summary_legacy.json"
+    run = subprocess.run([
+        "uv", "run", "--directory", str(_REPO_ROOT), "python", "-m", "evals.sentence_routing_retrieval_falsification.cohort_baseline_run", "--write", "--mode", "baseline", "--manifest", str(_MANIFEST), "--baseline", str(out)
+    ], capture_output=True, text=True, cwd=str(_REPO_ROOT))
+    assert run.returncode == 0, run.stderr
+    data = json.loads(out.read_text(encoding="utf-8"))
+    assert data["baseline_lane"] == "legacy_baseline"
+    assert data["use_route_equivalence_for_ranking"] is False
 def test_cohort_baseline_run_write_is_byte_identical_across_cwds(tmp_path: Path) -> None:
     if shutil.which("uv") is None:
         pytest.skip("uv not available")

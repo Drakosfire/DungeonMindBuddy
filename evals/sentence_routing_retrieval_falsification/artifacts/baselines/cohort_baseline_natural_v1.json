@@ -18,8 +18,8 @@
       "gold_schema": "dmb_breadcrumb_query_natural_gold_v1",
       "all_ok": false,
       "scenario_count": 12,
-      "pass_count": 7,
-      "fail_count": 5,
+      "pass_count": 8,
+      "fail_count": 4,
       "violations": [
         {
           "scenario_id": "nat_captain_after_forest",
@@ -62,11 +62,8 @@
         },
         {
           "scenario_id": "q_lysandra_memory_contrast",
-          "ok": false,
-          "violations": [
-            "context_support_below_threshold",
-            "missing_expected_unit_id_hit"
-          ]
+          "ok": true,
+          "violations": []
         },
         {
           "scenario_id": "q_mirathorn_vs_mossford",
@@ -89,7 +86,10 @@
           "scenario_id": "q_open_loops_next_session",
           "ok": false,
           "violations": [
-            "missing_expected_unit_id_hit"
+            "context_support_below_threshold",
+            "missing_expected_route_hit",
+            "missing_expected_unit_id_hit",
+            "semantic_verdict:fail_incomplete"
           ]
         }
       ],
@@ -112,8 +112,8 @@
   ],
   "aggregate": {
     "total_questions": 12,
-    "total_pass": 7,
-    "total_fail": 5,
+    "total_pass": 8,
+    "total_fail": 4,
     "all_scenarios_all_ok": false
   },
   "recall_via_equivalence_aggregate": {
@@ -121,5 +121,7 @@
     "min": null,
     "mean": null,
     "max": null
-  }
+  },
+  "baseline_lane": "promoted_with_equivalence",
+  "use_route_equivalence_for_ranking": true
 }
