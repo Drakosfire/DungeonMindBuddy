@@ -1,7 +1,7 @@
 {
   "schema_id": "dmb_breadcrumb_query_cohort_l3_question_delta_v1",
   "cohort_manifest": "evals/sentence_routing_retrieval_falsification/cohorts/c1s13_v1.json",
-  "scenario_level_delta_path": "evals/sentence_routing_retrieval_falsification/artifacts/baselines/cohort_l3_ab_delta_c1s1_to_c1s3_v1.json",
+  "scenario_level_delta_path": "evals/sentence_routing_retrieval_falsification/artifacts/baselines/cohort_l3_ab_delta_c1s13_v1.json",
   "baseline_schema": "dmb_breadcrumb_query_cohort_summary_v2",
   "question_count": 25,
   "summary": {
