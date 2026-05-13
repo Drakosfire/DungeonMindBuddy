@@ -306,6 +306,7 @@ def test_scene_beat_packet_flag_emits_row_metadata(tmp_path: Path) -> None:
         assert pkt.get("top_k") == 2
         assert pkt.get("unit_limit") == 5
         assert pkt.get("max_packets") == 1
+        assert isinstance(pkt.get("packets"), list)
 
 def test_route_equivalence_source_paths_are_workspace_relative_and_cwd_invariant(
     tmp_path: Path,

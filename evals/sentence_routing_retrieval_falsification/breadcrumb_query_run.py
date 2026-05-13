@@ -1213,6 +1213,7 @@ def main() -> None:
                     "max_packets": scene_packet_max_packets,
                     "qualified_count": int(packet_trace.get("qualified_count") or 0),
                     "units_added": int(packet_trace.get("units_added") or 0),
+                    "packets": list(packet_trace.get("packets") or []),
                     "packet_beat_ids": [
                         str(pkt.get("beat_id"))
                         for pkt in (packet_trace.get("packets") or [])

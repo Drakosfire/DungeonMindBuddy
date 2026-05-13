@@ -589,7 +589,11 @@ def main() -> int:
                     if int(pkt.get("units_added") or 0)>0: q_added+=1
                     total_added += int(pkt.get("units_added") or 0)
                     for p in (pkt.get("packets") or []):
-                        if isinstance(p, dict) and p.get("beat_id"): packet_ids.add(str(p.get("beat_id")))
+                        if isinstance(p, dict) and p.get("beat_id"):
+                            packet_ids.add(str(p.get("beat_id")))
+                    for beat_id in (pkt.get("packet_beat_ids") or []):
+                        if str(beat_id or "").strip():
+                            packet_ids.add(str(beat_id))
             qdelta["scene_beat_packet_summary"]={"questions_with_qualified_packets":q_qual,"questions_with_packet_units_added":q_added,"total_packet_units_added":total_added,"packet_beat_ids":sorted(packet_ids)}
             outp = (_HARNESS_WORKSPACE_ROOT / args.write_scene_beat_question_delta).resolve() if not args.write_scene_beat_question_delta.is_absolute() else args.write_scene_beat_question_delta
             outp.parent.mkdir(parents=True, exist_ok=True)
