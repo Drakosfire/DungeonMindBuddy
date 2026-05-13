@@ -424,3 +424,20 @@ def test_same_beat_expansion_opt_in_and_marked() -> None:
     assert [h["unit_id"] for h in off.hits] == ["u-seed"]
     assert [h["unit_id"] for h in on.hits] == ["u-seed", "u-sib"]
     assert any("expanded_same_beat:beat-1" in (h.get("why_matched") or []) for h in on.hits)
+
+
+def test_scene_beat_packets_score_from_first_pass_only() -> None:
+    recap = "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md"
+    records = [
+        {"schema": "dmb_session_memory_record_v1", "campaign_id": "longmont-c2", "session_number": 20, "source_recap_path": recap, "unit_id": "u-a1", "line_start": 1, "line_end": 1, "text_blake3": "aa"*32, "lexical_plain": "alpha alpha", "beat_id": "beat-a", "routes": []},
+        {"schema": "dmb_session_memory_record_v1", "campaign_id": "longmont-c2", "session_number": 20, "source_recap_path": recap, "unit_id": "u-a2", "line_start": 2, "line_end": 2, "text_blake3": "ab"*32, "lexical_plain": "alpha", "beat_id": "beat-a", "routes": []},
+        {"schema": "dmb_session_memory_record_v1", "campaign_id": "longmont-c2", "session_number": 20, "source_recap_path": recap, "unit_id": "u-b1", "line_start": 3, "line_end": 3, "text_blake3": "ba"*32, "lexical_plain": "alpha alpha alpha", "beat_id": "beat-b", "routes": []},
+        {"schema": "dmb_session_memory_record_v1", "campaign_id": "longmont-c2", "session_number": 20, "source_recap_path": recap, "unit_id": "u-b2", "line_start": 4, "line_end": 4, "text_blake3": "bb"*32, "lexical_plain": "alpha alpha alpha", "beat_id": "beat-b", "routes": []},
+    ]
+    result = query_session_memory_candidate(
+        records=records, query="alpha", campaign_id="longmont-c2", max_hits=1,
+        scene_beat_packet_mode=True, scene_beat_packet_threshold=4, scene_beat_packet_max_packets=1, scene_beat_packet_unit_limit=3
+    )
+    packet_trace = result.trace.get("scene_beat_packets") or {}
+    assert packet_trace.get("qualified_count") == 1
+    assert packet_trace.get("packets")[0]["beat_id"] == "beat-a"

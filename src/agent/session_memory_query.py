@@ -840,7 +840,7 @@ class CandidateQueryResult:
 
 
 def _compute_scene_beat_packets(*,
-    candidates: list[tuple[int, dict[str, Any], list[str]]],
+    first_pass_scored: list[tuple[int, dict[str, Any], list[str]]],
     filtered: list[dict[str, Any]],
     threshold: int,
     top_k: int,
@@ -848,7 +848,7 @@ def _compute_scene_beat_packets(*,
     max_packets: int,
 ) -> list[dict[str, Any]]:
     by_beat: dict[str, dict[str, Any]] = {}
-    for score, rec, why in candidates:
+    for score, rec, why in first_pass_scored:
         beat_id = str(rec.get("beat_id") or "").strip()
         if not beat_id:
             continue
@@ -861,7 +861,7 @@ def _compute_scene_beat_packets(*,
     for beat_id, row in by_beat.items():
         scores=sorted(row["scores"], reverse=True)[:max(1, top_k)]
         diversity_bonus=min(6, len(row["token_set"]))
-        scene_score=max(scores)+sum(scores)+(4*min(len(scores), max(1, top_k)))+diversity_bonus+8
+        scene_score=max(scores)+sum(scores)+(2*min(len(scores), max(1, top_k)))+diversity_bonus
         if scene_score < threshold:
             continue
         first_pass = sorted(row["first_pass_records"], key=lambda r:(int(r.get("line_start") or 0), str(r.get("unit_id") or "")))
@@ -995,7 +995,7 @@ def query_session_memory_candidate(
     }
     if scene_beat_packet_mode and filtered and hits_out:
         packets = _compute_scene_beat_packets(
-            candidates=candidates,
+            first_pass_scored=candidates[:first_pass_cap],
             filtered=filtered,
             threshold=scene_beat_packet_threshold,
             top_k=scene_beat_packet_top_k,
@@ -1061,7 +1061,6 @@ def query_session_memory_candidate(
         "proposed_only": proposed_only,
         "max_hits": max_hits,
     }
-    trace["scene_beat_packets"] = scene_packets_trace
     if expand_context:
         trace["filtered_records"] = len(filtered)
         trace["expand_context"] = True

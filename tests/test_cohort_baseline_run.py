@@ -357,6 +357,9 @@ def test_cohort_scene_beat_mode_writes_distinct_schema(tmp_path: Path) -> None:
         "--manifest", str(manifest),
         "--scene-beat-records-jsonl", str(records),
         "--write-scene-beat-question-delta", str(out),
+        "--use-scene-beat-packets",
+        "--scene-beat-packet-threshold", "8",
+        "--scene-beat-packet-top-k", "2",
     ]
     result = subprocess.run(cmd, capture_output=True, text=True)
     assert result.returncode == 0, result.stderr
@@ -366,3 +369,4 @@ def test_cohort_scene_beat_mode_writes_distinct_schema(tmp_path: Path) -> None:
     first_q = payload["scenarios"][0]["questions"][0]
     assert "scene_beat_expansion" in first_q["with_scene_beats"]
     assert first_q["with_scene_beats"]["scene_beat_expansion"]["enabled"] is True
+    assert "scene_beat_packet_summary" in payload
