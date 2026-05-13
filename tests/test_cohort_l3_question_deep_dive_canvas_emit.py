@@ -18,7 +18,9 @@ def test_emit_writes_canvas_with_markers() -> None:
     assert 'Required must-hit tokens:' in text
     assert 'Matched must-hit tokens:' in text
     assert 'Missing must-hit tokens:' in text
-    assert 'Missed units (baseline only):' in text
+    assert 'Swapped out vs legacy-only reference:' in text
+    assert '<h3>Baseline</h3>' not in text
+    assert 'Default (equivalence-augmented ranking)' in text
 
 
 def test_artifact_schema_exists() -> None:

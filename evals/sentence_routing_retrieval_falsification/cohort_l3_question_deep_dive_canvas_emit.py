@@ -23,14 +23,15 @@ export default function CohortL3QuestionDeepDiveCanvas() {{
     const fullAdded = Array.isArray(q?.delta?.full_units_swapped_in) ? q.delta.full_units_swapped_in : [];
     return (
       <div style={{{{ border: "1px solid #f59e0b", borderRadius: 6, padding: 8, marginBottom: 8 }}}}>
-        <div><strong>Missed units (baseline only):</strong> {{fullMissed.length ? fullMissed.join(", ") : "none"}}</div>
-        <div><strong>Top-5 missed units:</strong> {{topMissed.length ? topMissed.join(", ") : "none"}}</div>
-        <div><strong>Units added (equivalence only):</strong> {{fullAdded.length ? fullAdded.join(", ") : "none"}}</div>
-        <div><strong>Top-5 added units:</strong> {{topAdded.length ? topAdded.join(", ") : "none"}}</div>
+        <div><strong>Swapped out vs legacy-only reference:</strong> {{fullMissed.length ? fullMissed.join(", ") : "none"}}</div>
+        <div><strong>Top-5 swapped out:</strong> {{topMissed.length ? topMissed.join(", ") : "none"}}</div>
+        <div><strong>Swapped in under default (equivalence) ranking:</strong> {{fullAdded.length ? fullAdded.join(", ") : "none"}}</div>
+        <div><strong>Top-5 swapped in:</strong> {{topAdded.length ? topAdded.join(", ") : "none"}}</div>
       </div>
     );
   }};
-  const renderMustHitComparison = (q: any, mode: "baseline" | "with_equivalence") => {{
+  const renderDefaultLaneMustHits = (q: any) => {{
+    const mode = "with_equivalence" as const;
     const required = Array.isArray(q.must_hit_tokens) ? q.must_hit_tokens : [];
     const matched = Array.isArray(q[mode]?.context_must_hits) ? q[mode].context_must_hits : [];
     const missing = Array.isArray(q[mode]?.context_must_hits_missing)
@@ -52,11 +53,9 @@ export default function CohortL3QuestionDeepDiveCanvas() {{
         <details key={{q.question_id}} open={{q.delta.verdict === 'regressed' || q.delta.verdict === 'improved'}}>
           <summary>{{q.question_id}} — {{q.delta.verdict}}</summary>
           {{renderUnitDiff(q)}}
-          <h3>Baseline</h3>
-          {{renderMustHitComparison(q, "baseline")}}
-          <h3>With Equivalence</h3>
-          {{renderMustHitComparison(q, "with_equivalence")}}
-          <pre>{{JSON.stringify(q, null, 2)}}</pre>
+          <h3>Default (equivalence-augmented ranking)</h3>
+          {{renderDefaultLaneMustHits(q)}}
+          <pre>{{JSON.stringify((() => {{ const {{ baseline, ...rest }} = q; return rest; }})(), null, 2)}}</pre>
         </details>
       ))}}
     </div>

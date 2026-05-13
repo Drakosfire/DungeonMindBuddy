@@ -4,7 +4,7 @@ import React from "react";
 const cohortL3QuestionDeepDiveGenerated = {
   "schema_id": "dmb_breadcrumb_query_cohort_l3_question_delta_v1",
   "cohort_manifest": "evals/sentence_routing_retrieval_falsification/cohorts/natural_v1.json",
-  "scenario_level_delta_path": "evals/sentence_routing_retrieval_falsification/artifacts/baselines/cohort_l3_ab_delta_natural_v1.json",
+  "scenario_level_delta_path": "evals/sentence_routing_retrieval_falsification/artifacts/baselines/cohort_l3_ab_delta_c1s1_to_c1s3_v1.json",
   "baseline_schema": "dmb_breadcrumb_query_cohort_summary_v2",
   "question_count": 12,
   "summary": {
@@ -12,6 +12,14 @@ const cohortL3QuestionDeepDiveGenerated = {
     "improved": 1,
     "unchanged_pass": 7,
     "unchanged_fail": 4
+  },
+  "failure_diagnostic_summary": {
+    "passed": 7,
+    "equivalence_helped": 1,
+    "ranking_regression": 2,
+    "missing_lexical_handle": 1,
+    "retriever_support_gap": 0,
+    "gold_or_rubric_gap": 1
   },
   "scenarios": [
     {
@@ -330,6 +338,14 @@ const cohortL3QuestionDeepDiveGenerated = {
             ],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
+          },
+          "failure_diagnostic": {
+            "bucket": "passed",
+            "reasons": [
+              "both_modes_pass"
+            ],
+            "baseline_missing_route_substrings": [],
+            "with_equivalence_missing_route_substrings": []
           }
         },
         {
@@ -628,6 +644,14 @@ const cohortL3QuestionDeepDiveGenerated = {
             ],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
+          },
+          "failure_diagnostic": {
+            "bucket": "passed",
+            "reasons": [
+              "both_modes_pass"
+            ],
+            "baseline_missing_route_substrings": [],
+            "with_equivalence_missing_route_substrings": []
           }
         },
         {
@@ -940,6 +964,14 @@ const cohortL3QuestionDeepDiveGenerated = {
             ],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
+          },
+          "failure_diagnostic": {
+            "bucket": "passed",
+            "reasons": [
+              "both_modes_pass"
+            ],
+            "baseline_missing_route_substrings": [],
+            "with_equivalence_missing_route_substrings": []
           }
         },
         {
@@ -1253,6 +1285,18 @@ const cohortL3QuestionDeepDiveGenerated = {
             ],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
+          },
+          "failure_diagnostic": {
+            "bucket": "missing_lexical_handle",
+            "reasons": [
+              "equivalence_missing_expected_route_substrings"
+            ],
+            "baseline_missing_route_substrings": [
+              "Stormspire Academy"
+            ],
+            "with_equivalence_missing_route_substrings": [
+              "Stormspire Academy"
+            ]
           }
         },
         {
@@ -1544,6 +1588,14 @@ const cohortL3QuestionDeepDiveGenerated = {
             ],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
+          },
+          "failure_diagnostic": {
+            "bucket": "passed",
+            "reasons": [
+              "both_modes_pass"
+            ],
+            "baseline_missing_route_substrings": [],
+            "with_equivalence_missing_route_substrings": []
           }
         },
         {
@@ -1874,6 +1926,14 @@ const cohortL3QuestionDeepDiveGenerated = {
             ],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
+          },
+          "failure_diagnostic": {
+            "bucket": "passed",
+            "reasons": [
+              "both_modes_pass"
+            ],
+            "baseline_missing_route_substrings": [],
+            "with_equivalence_missing_route_substrings": []
           }
         },
         {
@@ -2205,6 +2265,14 @@ const cohortL3QuestionDeepDiveGenerated = {
             ],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
+          },
+          "failure_diagnostic": {
+            "bucket": "gold_or_rubric_gap",
+            "reasons": [
+              "no_deterministic_failure_explanation_found"
+            ],
+            "baseline_missing_route_substrings": [],
+            "with_equivalence_missing_route_substrings": []
           }
         },
         {
@@ -2496,6 +2564,14 @@ const cohortL3QuestionDeepDiveGenerated = {
             ],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
+          },
+          "failure_diagnostic": {
+            "bucket": "equivalence_helped",
+            "reasons": [
+              "equivalence_mode_passed"
+            ],
+            "baseline_missing_route_substrings": [],
+            "with_equivalence_missing_route_substrings": []
           }
         },
         {
@@ -2821,6 +2897,14 @@ const cohortL3QuestionDeepDiveGenerated = {
             ],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
+          },
+          "failure_diagnostic": {
+            "bucket": "passed",
+            "reasons": [
+              "both_modes_pass"
+            ],
+            "baseline_missing_route_substrings": [],
+            "with_equivalence_missing_route_substrings": []
           }
         },
         {
@@ -3116,6 +3200,14 @@ const cohortL3QuestionDeepDiveGenerated = {
             ],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
+          },
+          "failure_diagnostic": {
+            "bucket": "passed",
+            "reasons": [
+              "both_modes_pass"
+            ],
+            "baseline_missing_route_substrings": [],
+            "with_equivalence_missing_route_substrings": []
           }
         },
         {
@@ -3450,6 +3542,14 @@ const cohortL3QuestionDeepDiveGenerated = {
             ],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
+          },
+          "failure_diagnostic": {
+            "bucket": "ranking_regression",
+            "reasons": [
+              "equivalence_lost_required_must_hits"
+            ],
+            "baseline_missing_route_substrings": [],
+            "with_equivalence_missing_route_substrings": []
           }
         },
         {
@@ -3767,6 +3867,18 @@ const cohortL3QuestionDeepDiveGenerated = {
               "Stormspire Academy"
             ],
             "substrings_flipped_gained": []
+          },
+          "failure_diagnostic": {
+            "bucket": "ranking_regression",
+            "reasons": [
+              "equivalence_lost_context_support_ratio",
+              "equivalence_lost_required_must_hits",
+              "equivalence_lost_route_substrings"
+            ],
+            "baseline_missing_route_substrings": [],
+            "with_equivalence_missing_route_substrings": [
+              "Stormspire Academy"
+            ]
           }
         }
       ]
@@ -3784,14 +3896,15 @@ export default function CohortL3QuestionDeepDiveCanvas() {
     const fullAdded = Array.isArray(q?.delta?.full_units_swapped_in) ? q.delta.full_units_swapped_in : [];
     return (
       <div style={{ border: "1px solid #f59e0b", borderRadius: 6, padding: 8, marginBottom: 8 }}>
-        <div><strong>Missed units (baseline only):</strong> {fullMissed.length ? fullMissed.join(", ") : "none"}</div>
-        <div><strong>Top-5 missed units:</strong> {topMissed.length ? topMissed.join(", ") : "none"}</div>
-        <div><strong>Units added (equivalence only):</strong> {fullAdded.length ? fullAdded.join(", ") : "none"}</div>
-        <div><strong>Top-5 added units:</strong> {topAdded.length ? topAdded.join(", ") : "none"}</div>
+        <div><strong>Swapped out vs legacy-only reference:</strong> {fullMissed.length ? fullMissed.join(", ") : "none"}</div>
+        <div><strong>Top-5 swapped out:</strong> {topMissed.length ? topMissed.join(", ") : "none"}</div>
+        <div><strong>Swapped in under default (equivalence) ranking:</strong> {fullAdded.length ? fullAdded.join(", ") : "none"}</div>
+        <div><strong>Top-5 swapped in:</strong> {topAdded.length ? topAdded.join(", ") : "none"}</div>
       </div>
     );
   };
-  const renderMustHitComparison = (q: any, mode: "baseline" | "with_equivalence") => {
+  const renderDefaultLaneMustHits = (q: any) => {
+    const mode = "with_equivalence" as const;
     const required = Array.isArray(q.must_hit_tokens) ? q.must_hit_tokens : [];
     const matched = Array.isArray(q[mode]?.context_must_hits) ? q[mode].context_must_hits : [];
     const missing = Array.isArray(q[mode]?.context_must_hits_missing)
@@ -3813,11 +3926,9 @@ export default function CohortL3QuestionDeepDiveCanvas() {
         <details key={q.question_id} open={q.delta.verdict === 'regressed' || q.delta.verdict === 'improved'}>
           <summary>{q.question_id} — {q.delta.verdict}</summary>
           {renderUnitDiff(q)}
-          <h3>Baseline</h3>
-          {renderMustHitComparison(q, "baseline")}
-          <h3>With Equivalence</h3>
-          {renderMustHitComparison(q, "with_equivalence")}
-          <pre>{JSON.stringify(q, null, 2)}</pre>
+          <h3>Default (equivalence-augmented ranking)</h3>
+          {renderDefaultLaneMustHits(q)}
+          <pre>{JSON.stringify((() => { const { baseline, ...rest } = q; return rest; })(), null, 2)}</pre>
         </details>
       ))}
     </div>
