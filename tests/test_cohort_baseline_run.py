@@ -394,6 +394,17 @@ def test_committed_c1s13_question_delta_points_to_c1s13_delta() -> None:
         'evals/sentence_routing_retrieval_falsification/artifacts/baselines/'
         'cohort_l3_ab_delta_c1s13_v1.json'
     )
+def test_committed_natural_question_delta_points_to_natural_delta() -> None:
+    payload = json.loads((
+        _REPO_ROOT
+        / 'evals/sentence_routing_retrieval_falsification/artifacts/baselines/cohort_l3_ab_question_delta_natural_v1.json'
+    ).read_text(encoding='utf-8'))
+    assert payload['scenario_level_delta_path'] == (
+        'evals/sentence_routing_retrieval_falsification/artifacts/baselines/'
+        'cohort_l3_ab_delta_natural_v1.json'
+    )
+
+
 
 def test_check_delta_honors_manifest_argument(tmp_path: Path) -> None:
     if shutil.which('uv') is None:
