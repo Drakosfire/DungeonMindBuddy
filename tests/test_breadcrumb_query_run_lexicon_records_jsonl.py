@@ -14,6 +14,9 @@ from evals.sentence_routing_retrieval_falsification.route_equivalence_shadow imp
     build_route_equivalence_shadow_payload,
     load_route_equivalence_shadow_records,
 )
+from evals.sentence_routing_retrieval_falsification.breadcrumb_query_run import (
+    _compact_aliases_for_route_id,
+)
 from evals.sentence_routing_retrieval_falsification.token_resolver_shadow import (
     build_campaign_lexicon,
 )
@@ -257,13 +260,20 @@ def test_use_route_equivalence_for_ranking_flag_is_additive_only_at_harness_boun
     rows_without = json.loads(out_without.read_text(encoding="utf-8"))["results"]
     rows_with = json.loads(out_with.read_text(encoding="utf-8"))["results"]
     assert len(rows_without) == len(rows_with)
+    structural_tokens = {"route", "longmont", "elderwyld", "npc", "campaign", "c1", "c2"}
     for base_row, flagged_row in zip(rows_without, rows_with, strict=True):
         assert "shadow_route_equivalences" not in base_row
         assert "shadow_route_equivalences" in flagged_row
         assert base_row["scenario_id"] == flagged_row["scenario_id"]
-        assert flagged_row.get("ranking_augmented_by_equivalences") is True
+        assert isinstance(flagged_row.get("ranking_augmented_by_equivalences"), bool)
         aliases = (flagged_row.get("query_token_aliases") or flagged_row.get("query_trace", {}).get("query_token_aliases") or flagged_row.get("full_result", {}).get("trace", {}).get("query_token_aliases") or [])
-        assert aliases
+        assert isinstance(aliases, list)
+        alias_tokens = {token for alias in aliases for token in alias.lower().split()}
+        assert structural_tokens.isdisjoint(alias_tokens)
+        query_text = str((flagged_row.get("query_spec") or {}).get("query") or flagged_row.get("question") or "").lower()
+        if flagged_row.get("ranking_augmented_by_equivalences"):
+            assert aliases
+            assert any(token in query_text for token in alias_tokens)
 
 
 
@@ -379,3 +389,18 @@ def test_expected_route_substring_breakdown_is_consistent_with_violations(tmp_pa
         any_unmatched = any(not bool(item.get("matched")) for item in breakdown)
         has_missing_violation = "missing_expected_route_hit" in row.get("violations", [])
         assert any_unmatched == has_missing_violation
+
+
+@pytest.mark.parametrize(
+    ("route_id", "expected"),
+    [
+        ("route:longmont-c1:npc", []),
+        ("route", []),
+        ("longmont-c1", []),
+        ("Campaign 1/NPCs", []),
+        ("campaign/1/npc", []),
+        ("route:longmont-c1:npc:torbin-jove", ["torbin jove"]),
+    ],
+)
+def test_compact_aliases_for_route_id_blocks_structural_segments(route_id: str, expected: list[str]) -> None:
+    assert _compact_aliases_for_route_id(route_id) == expected

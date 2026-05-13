@@ -229,6 +229,15 @@ grading, and the existing `shadow_token_resolution` field are unchanged; legacy
 lexical seeds remain the active source. The field is omitted entirely when the
 flag is unset (default runs remain byte-identical to current main).
 
+When `--use-route-equivalence-for-ranking` is enabled, alias injection is
+intentionally conservative: only compact entity aliases are considered (display
+names plus final route handle), structural tokens like `route`, `campaign`,
+`npc`, `longmont`, `c1`, and `c2` are never injected from route IDs, and a
+record contributes aliases only when the scenario’s natural query text already
+mentions at least one token from that record. This safety baseline prevents
+manifest-wide alias injection and does not implement first-pass-route
+activation.
+
 Example:
 
 ```bash

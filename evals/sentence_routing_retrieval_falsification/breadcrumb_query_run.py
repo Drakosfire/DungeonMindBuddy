@@ -147,15 +147,67 @@ def _slug_from_route(route_id: str) -> str:
     return re.sub(r"[_-]+", " ", part).strip().lower()
 
 
-def _build_equivalence_aliases(records: list[Any]) -> list[str]:
+def _tokenize_for_equivalence(text: str) -> set[str]:
+    return set(re.findall(r"[a-z0-9]+", str(text).lower()))
+
+
+_STRUCTURAL_ROUTE_ALIAS_TOKENS = {"route", "longmont", "elderwyld", "npc", "npcs", "campaign", "c1", "c2"}
+
+
+def _is_structural_route_alias(slug: str) -> bool:
+    tokens = _tokenize_for_equivalence(slug)
+    return bool(tokens) and tokens.issubset(_STRUCTURAL_ROUTE_ALIAS_TOKENS)
+
+
+def _compact_aliases_for_route_id(route_id: str) -> list[str]:
+    route_text = str(route_id or "").strip()
+    if not route_text:
+        return []
+    part = route_text.rstrip("/")
+    if "/" in part:
+        part = part.split("/")[-1].strip()
+    if ":" in part:
+        pieces = [p.strip() for p in part.split(":") if p.strip()]
+        if not pieces:
+            return []
+        part = pieces[-1]
+    slug = re.sub(r"[_-]+", " ", part).strip().lower()
+    if not slug or _is_structural_route_alias(slug):
+        return []
+    return [slug]
+
+
+def _aliases_for_route_equivalence_record(record: Any) -> list[str]:
     seen: set[str] = set()
     aliases: list[str] = []
-    for record in records:
-        for route_id in (str(record.from_route_id), str(record.to_route_id)):
-            slug = _slug_from_route(route_id)
+    for source in (getattr(record, "canonical_name", ""), getattr(record, "surface_name", "")):
+        slug = _slug_from_route(str(source))
+        if slug and slug not in seen:
+            seen.add(slug)
+            aliases.append(slug)
+    for route_id in (str(record.from_route_id), str(record.to_route_id)):
+        for slug in _compact_aliases_for_route_id(route_id):
             if slug and slug not in seen:
                 seen.add(slug)
                 aliases.append(slug)
+    return aliases
+
+
+def _build_activated_equivalence_aliases(*, records: list[Any], query_text: str) -> list[str]:
+    query_tokens = _tokenize_for_equivalence(query_text)
+    seen: set[str] = set()
+    aliases: list[str] = []
+    for record in records:
+        record_aliases = _aliases_for_route_equivalence_record(record)
+        if not record_aliases:
+            continue
+        record_tokens = set().union(*(_tokenize_for_equivalence(alias) for alias in record_aliases))
+        if not (record_tokens & query_tokens):
+            continue
+        for alias in record_aliases:
+            if alias not in seen:
+                seen.add(alias)
+                aliases.append(alias)
     return aliases
 from evals.sentence_routing_retrieval_falsification.token_resolver_shadow import (
     build_campaign_lexicon,
@@ -1143,7 +1195,15 @@ def main() -> None:
                     qspec["scene_beat_packet_max_packets"] = scene_packet_max_packets
                 retrieval_scenario = scen_scene
             if args.use_route_equivalence_for_ranking and route_equivalence_records:
-                extra_aliases = _build_equivalence_aliases(route_equivalence_records)
+                query_text = str(
+                    (retrieval_scenario.get("query_spec", {}) or {}).get("query")
+                    or retrieval_scenario.get("question")
+                    or ""
+                )
+                extra_aliases = _build_activated_equivalence_aliases(
+                    records=route_equivalence_records,
+                    query_text=query_text,
+                )
                 if extra_aliases:
                     scen_with_aliases = copy.deepcopy(scen)
                     existing_aliases = list(scen_with_aliases.get("query_spec", {}).get("query_token_aliases") or [])

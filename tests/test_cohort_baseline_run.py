@@ -259,7 +259,7 @@ def test_mode_both_write_question_delta_schema(tmp_path: Path) -> None:
     row = qrows[0]
     assert row["must_hit_tokens"] == ["Grishna", "west", "up river", "brewing"]
     assert row["baseline"]["context_must_hits_missing"] == []
-    assert row["with_equivalence"]["context_must_hits_missing"] == ["west", "up river"]
+    assert row["with_equivalence"]["context_must_hits_missing"] == []
     assert "full_units_swapped_out" in row["delta"]
     assert "full_units_swapped_in" in row["delta"]
     assert "failure_diagnostic" in row
