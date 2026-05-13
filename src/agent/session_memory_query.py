@@ -837,6 +837,47 @@ class CandidateQueryResult:
         }
 
 
+
+
+def _compute_scene_beat_packets(*,
+    first_pass_scored: list[tuple[int, dict[str, Any], list[str]]],
+    filtered: list[dict[str, Any]],
+    threshold: int,
+    top_k: int,
+    unit_limit: int,
+    max_packets: int,
+) -> list[dict[str, Any]]:
+    by_beat: dict[str, dict[str, Any]] = {}
+    for score, rec, why in first_pass_scored:
+        beat_id = str(rec.get("beat_id") or "").strip()
+        if not beat_id:
+            continue
+        row = by_beat.setdefault(beat_id, {"scores": [], "first_pass_records": [], "token_set": set()})
+        row["scores"].append(int(score))
+        row["first_pass_records"].append(rec)
+        for marker in why:
+            row["token_set"].add(str(marker))
+    packets=[]
+    for beat_id, row in by_beat.items():
+        scores=sorted(row["scores"], reverse=True)[:max(1, top_k)]
+        diversity_bonus=min(6, len(row["token_set"]))
+        scene_score=max(scores)+sum(scores)+(2*min(len(scores), max(1, top_k)))+diversity_bonus
+        if scene_score < threshold:
+            continue
+        first_pass = sorted(row["first_pass_records"], key=lambda r:(int(r.get("line_start") or 0), str(r.get("unit_id") or "")))
+        siblings = sorted((r for r in filtered if str(r.get("beat_id") or "").strip()==beat_id), key=lambda r:(int(r.get("line_start") or 0), str(r.get("unit_id") or "")))
+        ordered=[]
+        seen=set()
+        for rec in [*first_pass,*siblings]:
+            uid=str(rec.get("unit_id") or "")
+            if not uid or uid in seen:
+                continue
+            seen.add(uid); ordered.append(rec)
+            if len(ordered)>=max(1,unit_limit):
+                break
+        packets.append({"beat_id":beat_id,"score":scene_score,"records":ordered,"first_pass_unit_ids":[str(r.get("unit_id") or "") for r in first_pass],"packet_unit_ids":[str(r.get("unit_id") or "") for r in ordered]})
+    packets.sort(key=lambda p:(-int(p["score"]), p["beat_id"]))
+    return packets[:max(0,max_packets)]
 def query_session_memory_candidate(
     *,
     records: list[dict[str, Any]],
@@ -858,6 +899,11 @@ def query_session_memory_candidate(
     tokenizer_mode: str = _TOKENIZER_MODE_DEFAULT,
     query_token_aliases: list[str] | None = None,
     expand_same_beat_limit: int = 0,
+    scene_beat_packet_mode: bool = False,
+    scene_beat_packet_threshold: int = 16,
+    scene_beat_packet_top_k: int = 3,
+    scene_beat_packet_unit_limit: int = 8,
+    scene_beat_packet_max_packets: int = 2,
 ) -> CandidateQueryResult:
     """Rank records by deterministic lexical + route token overlap; return candidate hits only."""
     q = str(query or "").strip()
@@ -937,6 +983,56 @@ def query_session_memory_candidate(
             }
         )
 
+    scene_packets_trace = {
+        "enabled": bool(scene_beat_packet_mode),
+        "threshold": int(scene_beat_packet_threshold),
+        "top_k": int(scene_beat_packet_top_k),
+        "unit_limit": int(scene_beat_packet_unit_limit),
+        "max_packets": int(scene_beat_packet_max_packets),
+        "qualified_count": 0,
+        "units_added": 0,
+        "packets": [],
+    }
+    if scene_beat_packet_mode and filtered and hits_out:
+        packets = _compute_scene_beat_packets(
+            first_pass_scored=candidates[:first_pass_cap],
+            filtered=filtered,
+            threshold=scene_beat_packet_threshold,
+            top_k=scene_beat_packet_top_k,
+            unit_limit=scene_beat_packet_unit_limit,
+            max_packets=scene_beat_packet_max_packets,
+        )
+        seen_units = {str(h.get("unit_id") or "") for h in hits_out}
+        packet_slots = max(0, scene_beat_packet_unit_limit * max(0, scene_beat_packet_max_packets))
+        packet_added = 0
+        for packet in packets:
+            packet_payload = {
+                "beat_id": packet["beat_id"],
+                "score": packet["score"],
+                "first_pass_unit_ids": packet["first_pass_unit_ids"],
+                "packet_unit_ids": packet["packet_unit_ids"],
+            }
+            scene_packets_trace["packets"].append(packet_payload)
+            scene_packets_trace["qualified_count"] += 1
+            for rec in packet["records"]:
+                if packet_added >= packet_slots:
+                    break
+                uid = str(rec.get("unit_id") or "")
+                if uid in seen_units:
+                    continue
+                seen_units.add(uid)
+                packet_added += 1
+                scene_packets_trace["units_added"] += 1
+                hits_out.append({
+                    "hit_id": _hit_id(rec),
+                    "score": 0,
+                    "source_recap_path": rec.get("source_recap_path"),
+                    "unit_id": rec.get("unit_id"),
+                    "line_start": rec.get("line_start"),
+                    "line_end": rec.get("line_end"),
+                    "routes": rec.get("routes") or [],
+                    "why_matched": [f"scene_beat_packet:{packet['beat_id']}", f"scene_beat_packet_score:{packet['score']}"] ,
+                })
     expansion_stats: dict[str, Any] | None = None
     if expand_context and filtered and hits_out and first_pass_cap < max_hits:
         hits_out, expansion_stats = _expand_hits(
@@ -958,6 +1054,7 @@ def query_session_memory_candidate(
         "examined_records": examined,
         "matched_records": len(candidates),
         "returned_hits": len(hits_out),
+        "effective_context_size": len(hits_out),
         "session_window": [session_min, session_max],
         "subject_route_substr": subject_route,
         "subject_types": sorted(st_set) if st_set is not None else None,
@@ -986,6 +1083,7 @@ def query_session_memory_candidate(
     trace["query_mode"] = query_mode
     if location_entity_summary is not None:
         trace["location_entity_summary"] = location_entity_summary
+    trace["scene_beat_packets"] = scene_packets_trace
     return CandidateQueryResult(
         schema="dmb_query_session_memory_result_v1",
         contract=QUERY_CONTRACT_CANDIDATE_V1,
@@ -1030,6 +1128,10 @@ def dispatch_query_session_memory_json(
         expand_shared_route_limit = int(args.get("expand_shared_route_limit", 3))
         expand_route_family_limit = int(args.get("expand_route_family_limit", 3))
         expand_same_beat_limit = int(args.get("expand_same_beat_limit", 0))
+        scene_beat_packet_threshold = int(args.get("scene_beat_packet_threshold", 16))
+        scene_beat_packet_top_k = int(args.get("scene_beat_packet_top_k", 3))
+        scene_beat_packet_unit_limit = int(args.get("scene_beat_packet_unit_limit", 8))
+        scene_beat_packet_max_packets = int(args.get("scene_beat_packet_max_packets", 2))
     except (TypeError, ValueError):
         return json.dumps({"ok": False, "error": "expand_* parameters must be integers"})
     efcap_raw = args.get("expand_first_pass_cap")
@@ -1069,6 +1171,11 @@ def dispatch_query_session_memory_json(
             tokenizer_mode=tokenizer_mode,
             expand_same_beat_limit=expand_same_beat_limit,
             query_token_aliases=query_token_aliases,
+            scene_beat_packet_mode=bool(args.get("scene_beat_packet_mode", False)),
+            scene_beat_packet_threshold=scene_beat_packet_threshold,
+            scene_beat_packet_top_k=scene_beat_packet_top_k,
+            scene_beat_packet_unit_limit=scene_beat_packet_unit_limit,
+            scene_beat_packet_max_packets=scene_beat_packet_max_packets,
         )
     except ValueError as exc:
         return json.dumps({"ok": False, "error": str(exc)})

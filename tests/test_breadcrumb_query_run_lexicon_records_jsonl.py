@@ -286,6 +286,28 @@ def test_scene_beat_expansion_flag_emits_row_metadata(tmp_path: Path) -> None:
         assert sb.get("enabled") is True
         assert sb.get("expand_same_beat_limit") == 4
 
+
+def test_scene_beat_packet_flag_emits_row_metadata(tmp_path: Path) -> None:
+    if shutil.which("uv") is None:
+        pytest.skip("uv not available")
+    out_with = tmp_path / "with_scene_packets.json"
+    with_result = _run_breadcrumb_query_run_subprocess(
+        output_path=out_with,
+        extra_args=["--use-scene-beat-packets", "--scene-beat-packet-threshold", "8", "--scene-beat-packet-top-k", "2", "--scene-beat-packet-unit-limit", "5", "--scene-beat-packet-max-packets", "1"],
+    )
+    assert with_result.returncode == 0, with_result.stderr
+    rows_with = json.loads(out_with.read_text(encoding="utf-8"))["results"]
+    assert rows_with
+    for row in rows_with:
+        pkt = row.get("scene_beat_packets")
+        assert isinstance(pkt, dict)
+        assert pkt.get("enabled") is True
+        assert pkt.get("threshold") == 8
+        assert pkt.get("top_k") == 2
+        assert pkt.get("unit_limit") == 5
+        assert pkt.get("max_packets") == 1
+        assert isinstance(pkt.get("packets"), list)
+
 def test_route_equivalence_source_paths_are_workspace_relative_and_cwd_invariant(
     tmp_path: Path,
 ) -> None:
