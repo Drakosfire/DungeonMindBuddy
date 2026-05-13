@@ -14,6 +14,9 @@ from evals.sentence_routing_retrieval_falsification.route_equivalence_shadow imp
     build_route_equivalence_shadow_payload,
     load_route_equivalence_shadow_records,
 )
+from evals.sentence_routing_retrieval_falsification.breadcrumb_query_run import (
+    _compact_aliases_for_route_id,
+)
 from evals.sentence_routing_retrieval_falsification.token_resolver_shadow import (
     build_campaign_lexicon,
 )
@@ -386,3 +389,18 @@ def test_expected_route_substring_breakdown_is_consistent_with_violations(tmp_pa
         any_unmatched = any(not bool(item.get("matched")) for item in breakdown)
         has_missing_violation = "missing_expected_route_hit" in row.get("violations", [])
         assert any_unmatched == has_missing_violation
+
+
+@pytest.mark.parametrize(
+    ("route_id", "expected"),
+    [
+        ("route:longmont-c1:npc", []),
+        ("route", []),
+        ("longmont-c1", []),
+        ("Campaign 1/NPCs", []),
+        ("campaign/1/npc", []),
+        ("route:longmont-c1:npc:torbin-jove", ["torbin jove"]),
+    ],
+)
+def test_compact_aliases_for_route_id_blocks_structural_segments(route_id: str, expected: list[str]) -> None:
+    assert _compact_aliases_for_route_id(route_id) == expected

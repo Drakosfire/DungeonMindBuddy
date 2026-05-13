@@ -151,6 +151,14 @@ def _tokenize_for_equivalence(text: str) -> set[str]:
     return set(re.findall(r"[a-z0-9]+", str(text).lower()))
 
 
+_STRUCTURAL_ROUTE_ALIAS_TOKENS = {"route", "longmont", "elderwyld", "npc", "npcs", "campaign", "c1", "c2"}
+
+
+def _is_structural_route_alias(slug: str) -> bool:
+    tokens = _tokenize_for_equivalence(slug)
+    return bool(tokens) and tokens.issubset(_STRUCTURAL_ROUTE_ALIAS_TOKENS)
+
+
 def _compact_aliases_for_route_id(route_id: str) -> list[str]:
     route_text = str(route_id or "").strip()
     if not route_text:
@@ -164,7 +172,9 @@ def _compact_aliases_for_route_id(route_id: str) -> list[str]:
             return []
         part = pieces[-1]
     slug = re.sub(r"[_-]+", " ", part).strip().lower()
-    return [slug] if slug else []
+    if not slug or _is_structural_route_alias(slug):
+        return []
+    return [slug]
 
 
 def _aliases_for_route_equivalence_record(record: Any) -> list[str]:
