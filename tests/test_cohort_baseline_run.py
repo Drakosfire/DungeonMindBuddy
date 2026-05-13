@@ -352,6 +352,49 @@ def test_mode_both_question_delta_uses_active_delta_path(tmp_path: Path) -> None
     assert data['scenario_level_delta_path'].endswith('natural_delta.json')
 
 
+
+def test_mode_both_c1s13_question_delta_uses_manifest_default_delta(tmp_path: Path) -> None:
+    if shutil.which('uv') is None:
+        pytest.skip('uv not available')
+    qdelta = tmp_path / 'c1s13_qdelta.json'
+    run = subprocess.run([
+        'uv','run','--directory',str(_REPO_ROOT),'python','-m',
+        'evals.sentence_routing_retrieval_falsification.cohort_baseline_run',
+        '--manifest','evals/sentence_routing_retrieval_falsification/cohorts/c1s13_v1.json',
+        '--mode','both','--write-question-delta',str(qdelta)
+    ], capture_output=True, text=True)
+    assert run.returncode == 0, run.stderr
+    data = json.loads(qdelta.read_text(encoding='utf-8'))
+    assert data['scenario_level_delta_path'].endswith('cohort_l3_ab_delta_c1s13_v1.json')
+
+
+def test_mode_both_question_delta_honors_explicit_delta_arg(tmp_path: Path) -> None:
+    if shutil.which('uv') is None:
+        pytest.skip('uv not available')
+    delta = tmp_path / 'explicit_delta.json'
+    qdelta = tmp_path / 'explicit_qdelta.json'
+    run = subprocess.run([
+        'uv','run','--directory',str(_REPO_ROOT),'python','-m',
+        'evals.sentence_routing_retrieval_falsification.cohort_baseline_run',
+        '--manifest','evals/sentence_routing_retrieval_falsification/cohorts/c1s13_v1.json',
+        '--delta',str(delta),
+        '--mode','both','--write-question-delta',str(qdelta)
+    ], capture_output=True, text=True)
+    assert run.returncode == 0, run.stderr
+    data = json.loads(qdelta.read_text(encoding='utf-8'))
+    assert data['scenario_level_delta_path'].endswith('explicit_delta.json')
+
+
+def test_committed_c1s13_question_delta_points_to_c1s13_delta() -> None:
+    payload = json.loads((
+        _REPO_ROOT
+        / 'evals/sentence_routing_retrieval_falsification/artifacts/baselines/cohort_l3_ab_question_delta_c1s13_v1.json'
+    ).read_text(encoding='utf-8'))
+    assert payload['scenario_level_delta_path'] == (
+        'evals/sentence_routing_retrieval_falsification/artifacts/baselines/'
+        'cohort_l3_ab_delta_c1s13_v1.json'
+    )
+
 def test_check_delta_honors_manifest_argument(tmp_path: Path) -> None:
     if shutil.which('uv') is None:
         pytest.skip('uv not available')

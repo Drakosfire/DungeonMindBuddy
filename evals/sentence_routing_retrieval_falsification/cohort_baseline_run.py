@@ -196,6 +196,14 @@ def _default_delta_for_manifest(manifest: Path) -> Path:
         return Path("evals/sentence_routing_retrieval_falsification/artifacts/baselines/cohort_l3_ab_delta_natural_v1.json")
     return _DEFAULT_DELTA
 
+
+
+def _effective_delta_for_args(*, manifest: Path, delta: Path) -> Path:
+    delta_path = Path(delta)
+    if delta_path == _DEFAULT_DELTA:
+        return _default_delta_for_manifest(Path(manifest))
+    return delta_path
+
 def _default_per_scenario_dir(manifest: Path) -> Path:
     cohort_id = json.loads(manifest.read_text(encoding="utf-8"))["cohort_id"]
     day = datetime.now(UTC).date().isoformat()
@@ -523,7 +531,7 @@ def main() -> int:
                 tmp_delta = Path(tmp) / "delta.json"
                 cmd = [sys.executable, "-m", "evals.sentence_routing_retrieval_falsification.cohort_baseline_run", "--manifest", str(args.manifest), "--mode", "both", "--write-delta", str(tmp_delta)]
                 subprocess.run(cmd, cwd=str(_HARNESS_WORKSPACE_ROOT), check=True, capture_output=True, text=True)
-                chosen_delta = _default_delta_for_manifest(Path(args.manifest)) if Path(args.delta) == _DEFAULT_DELTA else Path(args.delta)
+                chosen_delta = _effective_delta_for_args(manifest=Path(args.manifest), delta=Path(args.delta))
                 delta_path = (_HARNESS_WORKSPACE_ROOT / chosen_delta).resolve() if not Path(chosen_delta).is_absolute() else Path(chosen_delta)
                 if tmp_delta.read_bytes() != delta_path.read_bytes():
                     print(f"MISMATCH {_workspace_relative_posix(delta_path, _HARNESS_WORKSPACE_ROOT)}")
@@ -539,8 +547,7 @@ def main() -> int:
                 tmp_q = Path(tmp) / "qdelta.json"
                 qpath = (_HARNESS_WORKSPACE_ROOT / Path(args.check_question_delta)).resolve() if not Path(args.check_question_delta).is_absolute() else Path(args.check_question_delta)
                 expected_qdelta = json.loads(qpath.read_text(encoding="utf-8"))
-                fallback_delta = _default_delta_for_manifest(Path(args.manifest)) if Path(args.delta) == _DEFAULT_DELTA else Path(args.delta)
-                active_delta = Path(str(expected_qdelta.get("scenario_level_delta_path") or fallback_delta))
+                active_delta = _effective_delta_for_args(manifest=Path(args.manifest), delta=Path(args.delta))
                 cmd = [sys.executable, "-m", "evals.sentence_routing_retrieval_falsification.cohort_baseline_run", "--manifest", str(args.manifest), "--mode", "both", "--write-question-delta", str(tmp_q), "--delta", str(active_delta)]
                 subprocess.run(cmd, cwd=str(_HARNESS_WORKSPACE_ROOT), check=True, capture_output=True, text=True)
                 if tmp_q.read_bytes() != qpath.read_bytes():
@@ -627,7 +634,8 @@ def main() -> int:
                     baseline_reports.append(run_one_scenario(scenario=scenario, route_equivalence_jsonl=route_paths, workspace_root=_HARNESS_WORKSPACE_ROOT, per_scenario_out=td / f"{scenario['scenario_id']}_base.json"))
                     equivalence_reports.append(run_one_scenario(scenario=scenario, route_equivalence_jsonl=route_paths, workspace_root=_HARNESS_WORKSPACE_ROOT, per_scenario_out=td / f"{scenario['scenario_id']}_eq.json", use_route_equivalence_for_ranking=True))
             delta = _build_l3_delta(manifest=manifest, baseline_reports=baseline_reports, equivalence_reports=equivalence_reports, manifest_path=manifest_path, route_paths=route_paths, workspace_root=_HARNESS_WORKSPACE_ROOT)
-            delta_out_path = Path(args.write_delta) if args.write_delta else args.delta
+            effective_delta_path = _effective_delta_for_args(manifest=manifest_path, delta=Path(args.delta))
+            delta_out_path = Path(args.write_delta) if args.write_delta else effective_delta_path
             delta_out_path = (_HARNESS_WORKSPACE_ROOT / delta_out_path).resolve() if not delta_out_path.is_absolute() else delta_out_path
             if args.write_delta:
                 out = delta_out_path
