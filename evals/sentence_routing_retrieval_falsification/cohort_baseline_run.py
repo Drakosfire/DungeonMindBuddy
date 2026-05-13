@@ -57,7 +57,7 @@ def load_cohort_manifest(manifest_path: Path) -> dict[str, Any]:
     return data
 
 
-def run_one_scenario(*, scenario: dict[str, Any], route_equivalence_jsonl: Sequence[Path], workspace_root: Path, per_scenario_out: Path, use_route_equivalence_for_ranking: bool = False, records_jsonl_override: Path | None = None, use_scene_beat_expansion: bool = False) -> dict[str, Any]:
+def run_one_scenario(*, scenario: dict[str, Any], route_equivalence_jsonl: Sequence[Path], workspace_root: Path, per_scenario_out: Path, use_route_equivalence_for_ranking: bool = False, records_jsonl_override: Path | None = None, use_scene_beat_expansion: bool = False, use_scene_beat_packets: bool = False, scene_beat_packet_threshold: int = 16, scene_beat_packet_top_k: int = 3, scene_beat_packet_unit_limit: int = 8, scene_beat_packet_max_packets: int = 2) -> dict[str, Any]:
     cmd = [
         "uv", "run", "python", "-m", "evals.sentence_routing_retrieval_falsification.breadcrumb_query_run",
         "--records-jsonl", str(records_jsonl_override or scenario["records_jsonl"]),
@@ -74,6 +74,8 @@ def run_one_scenario(*, scenario: dict[str, Any], route_equivalence_jsonl: Seque
         cmd.append("--use-route-equivalence-for-ranking")
     if use_scene_beat_expansion:
         cmd.extend(["--use-scene-beat-expansion", "--scene-beat-expand-limit", "8"])
+    if use_scene_beat_packets:
+        cmd.extend(["--use-scene-beat-packets", "--scene-beat-packet-threshold", str(scene_beat_packet_threshold), "--scene-beat-packet-top-k", str(scene_beat_packet_top_k), "--scene-beat-packet-unit-limit", str(scene_beat_packet_unit_limit), "--scene-beat-packet-max-packets", str(scene_beat_packet_max_packets)])
     try:
         subprocess.run(cmd, capture_output=True, text=True, cwd=str(workspace_root), check=True)
     except subprocess.CalledProcessError as exc:
@@ -445,6 +447,7 @@ def _build_question_delta(*, manifest: dict[str, Any], baseline_reports: list[di
                     "hit_count": len(((erow.get("full_result") or {}).get("hits") or [])),
                     "ranking_augmented_by_equivalences": bool(erow.get("ranking_augmented_by_equivalences")),
                     **({"scene_beat_expansion": erow.get("scene_beat_expansion")} if include_scene_beat_metadata else {}),
+                    **({"scene_beat_packets": erow.get("scene_beat_packets")} if include_scene_beat_metadata else {}),
                     "top_hits": _top_hits(erow),
                 },
                 "delta": {
@@ -496,6 +499,11 @@ def main() -> int:
     parser.add_argument("--per-scenario-out-dir", type=Path, default=None)
     parser.add_argument("--scene-beat-records-jsonl", type=Path, default=None)
     parser.add_argument("--write-scene-beat-question-delta", type=Path, default=None)
+    parser.add_argument("--use-scene-beat-packets", action="store_true")
+    parser.add_argument("--scene-beat-packet-threshold", type=int, default=16)
+    parser.add_argument("--scene-beat-packet-top-k", type=int, default=3)
+    parser.add_argument("--scene-beat-packet-unit-limit", type=int, default=8)
+    parser.add_argument("--scene-beat-packet-max-packets", type=int, default=2)
     args = parser.parse_args()
     try:
         if args.check_delta:
@@ -551,6 +559,11 @@ def main() -> int:
                             per_scenario_out=td / f"{scenario['scenario_id']}_scene.json",
                             records_jsonl_override=args.scene_beat_records_jsonl,
                             use_scene_beat_expansion=True,
+                            use_scene_beat_packets=bool(args.use_scene_beat_packets),
+                            scene_beat_packet_threshold=int(args.scene_beat_packet_threshold),
+                            scene_beat_packet_top_k=int(args.scene_beat_packet_top_k),
+                            scene_beat_packet_unit_limit=int(args.scene_beat_packet_unit_limit),
+                            scene_beat_packet_max_packets=int(args.scene_beat_packet_max_packets),
                         )
                     )
             qdelta = _build_question_delta(
@@ -566,10 +579,22 @@ def main() -> int:
             qdelta["manifest"] = qdelta.pop("cohort_manifest")
             qdelta["baseline_records_jsonl"] = str(manifest["scenarios"][0]["records_jsonl"]) if manifest.get("scenarios") else None
             qdelta["scene_beat_records_jsonl"] = _workspace_relative_posix(args.scene_beat_records_jsonl, _HARNESS_WORKSPACE_ROOT)
+            packet_ids=set(); q_qual=0; q_added=0; total_added=0
             for scen in qdelta.get("scenarios", []):
                 scen["with_scene_beats_pass_count"] = scen.pop("with_equivalence_pass_count")
                 for q in scen.get("questions", []):
                     q["with_scene_beats"] = q.pop("with_equivalence")
+                    pkt=(q.get("with_scene_beats",{}).get("scene_beat_packets") or ((q.get("with_scene_beats",{}).get("full_result") or {}).get("trace") or {}).get("scene_beat_packets") or {})
+                    if int(pkt.get("qualified_count") or 0)>0: q_qual+=1
+                    if int(pkt.get("units_added") or 0)>0: q_added+=1
+                    total_added += int(pkt.get("units_added") or 0)
+                    for p in (pkt.get("packets") or []):
+                        if isinstance(p, dict) and p.get("beat_id"):
+                            packet_ids.add(str(p.get("beat_id")))
+                    for beat_id in (pkt.get("packet_beat_ids") or []):
+                        if str(beat_id or "").strip():
+                            packet_ids.add(str(beat_id))
+            qdelta["scene_beat_packet_summary"]={"questions_with_qualified_packets":q_qual,"questions_with_packet_units_added":q_added,"total_packet_units_added":total_added,"packet_beat_ids":sorted(packet_ids)}
             outp = (_HARNESS_WORKSPACE_ROOT / args.write_scene_beat_question_delta).resolve() if not args.write_scene_beat_question_delta.is_absolute() else args.write_scene_beat_question_delta
             outp.parent.mkdir(parents=True, exist_ok=True)
             outp.write_text(json.dumps(qdelta, indent=2) + "\n", encoding="utf-8")

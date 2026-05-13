@@ -870,6 +870,11 @@ def main() -> None:
         default=None,
         help="Same-beat expansion per seed beat (default 8 when --use-scene-beat-expansion is set).",
     )
+    parser.add_argument("--use-scene-beat-packets", action="store_true", help="Enable scored scene-beat packet retrieval lane.")
+    parser.add_argument("--scene-beat-packet-threshold", type=int, default=None)
+    parser.add_argument("--scene-beat-packet-top-k", type=int, default=None)
+    parser.add_argument("--scene-beat-packet-unit-limit", type=int, default=None)
+    parser.add_argument("--scene-beat-packet-max-packets", type=int, default=None)
     parser.add_argument(
         "--tagging-baseline-md",
         type=Path,
@@ -1119,10 +1124,23 @@ def main() -> None:
             ranking_augmented_by_equivalences = False
             scene_beat_enabled = bool(args.use_scene_beat_expansion)
             scene_beat_limit = int(args.scene_beat_expand_limit) if args.scene_beat_expand_limit is not None else (8 if scene_beat_enabled else 0)
-            if scene_beat_enabled:
+            scene_packet_enabled = bool(args.use_scene_beat_packets)
+            scene_packet_threshold = int(args.scene_beat_packet_threshold) if args.scene_beat_packet_threshold is not None else 16
+            scene_packet_top_k = int(args.scene_beat_packet_top_k) if args.scene_beat_packet_top_k is not None else 3
+            scene_packet_unit_limit = int(args.scene_beat_packet_unit_limit) if args.scene_beat_packet_unit_limit is not None else 8
+            scene_packet_max_packets = int(args.scene_beat_packet_max_packets) if args.scene_beat_packet_max_packets is not None else 2
+            if scene_beat_enabled or scene_packet_enabled:
                 scen_scene = copy.deepcopy(retrieval_scenario)
                 scen_scene.setdefault("query_spec", {})["expand_context"] = True
-                scen_scene.setdefault("query_spec", {})["expand_same_beat_limit"] = scene_beat_limit
+                if scene_beat_enabled:
+                    scen_scene.setdefault("query_spec", {})["expand_same_beat_limit"] = scene_beat_limit
+                if scene_packet_enabled:
+                    qspec=scen_scene.setdefault("query_spec", {})
+                    qspec["scene_beat_packet_mode"] = True
+                    qspec["scene_beat_packet_threshold"] = scene_packet_threshold
+                    qspec["scene_beat_packet_top_k"] = scene_packet_top_k
+                    qspec["scene_beat_packet_unit_limit"] = scene_packet_unit_limit
+                    qspec["scene_beat_packet_max_packets"] = scene_packet_max_packets
                 retrieval_scenario = scen_scene
             if args.use_route_equivalence_for_ranking and route_equivalence_records:
                 extra_aliases = _build_equivalence_aliases(route_equivalence_records)
@@ -1184,6 +1202,23 @@ def main() -> None:
                     "enabled": True,
                     "expand_same_beat_limit": scene_beat_limit,
                     "records_with_beat_id": sum(1 for r in records if r.get("beat_id")),
+                }
+            if scene_packet_enabled:
+                packet_trace = ((row.get("full_result") or {}).get("trace") or {}).get("scene_beat_packets") or {}
+                row["scene_beat_packets"] = {
+                    "enabled": True,
+                    "threshold": scene_packet_threshold,
+                    "top_k": scene_packet_top_k,
+                    "unit_limit": scene_packet_unit_limit,
+                    "max_packets": scene_packet_max_packets,
+                    "qualified_count": int(packet_trace.get("qualified_count") or 0),
+                    "units_added": int(packet_trace.get("units_added") or 0),
+                    "packets": list(packet_trace.get("packets") or []),
+                    "packet_beat_ids": [
+                        str(pkt.get("beat_id"))
+                        for pkt in (packet_trace.get("packets") or [])
+                        if isinstance(pkt, dict) and str(pkt.get("beat_id") or "")
+                    ],
                 }
             expected_substrings = list(scen.get("expect_route_substrings") or [])
             row["expected_route_substring_breakdown"] = [

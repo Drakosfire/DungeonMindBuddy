@@ -806,3 +806,42 @@ uv run python -m evals.sentence_routing_retrieval_falsification.cohort_baseline_
   --scene-beat-records-jsonl /tmp/c1s13_scene_beat.records_meta.jsonl \
   --write-scene-beat-question-delta /tmp/cohort_l3_scene_beat_question_delta_c1s13_v1.json
 ```
+
+### Candidate scene-beat packets (PR #18 slice)
+
+`--use-scene-beat-expansion` (PR #17) adds sibling rows through the normal expansion budget.  
+`--use-scene-beat-packets` (PR #18) instead scores first-pass hits grouped by `beat_id` and appends a capped packet before ordinary expansion accounting.
+
+Deterministic C1S13 smoke (fixture-only beat labels, no production wiring):
+
+```bash
+uv run python - <<'PY'
+import json
+from pathlib import Path
+from evals.sentence_routing_retrieval_falsification.breadcrumb_unit_annotations_gold import load_gold_beat_index
+records_path = Path("corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Session Recaps/_session_memory/Session 13 - The Meaty and the Dead.records_meta.jsonl")
+gold_path = Path("evals/sentence_routing_retrieval_falsification/manual_labels/Session 13 - The Meaty and the Dead.gold.beats.breadcrumbed.md")
+out = Path("/tmp/c1s13_gold_scene.records_meta.jsonl")
+beat_by_unit = {}
+for beat in load_gold_beat_index(gold_path):
+    for unit_id in beat.unit_ids:
+        beat_by_unit[str(unit_id)] = beat.beat_id
+rows = []
+for line in records_path.read_text(encoding="utf-8").splitlines():
+    if not line.strip():
+        continue
+    row = json.loads(line)
+    beat_id = beat_by_unit.get(str(row.get("unit_id")))
+    if beat_id:
+        row["beat_id"] = beat_id
+    rows.append(row)
+out.write_text("\n".join(json.dumps(row, ensure_ascii=False) for row in rows) + "\n", encoding="utf-8")
+print({"out": str(out), "rows": len(rows), "records_with_beat_id": sum(1 for row in rows if row.get("beat_id")), "beat_count": len(set(beat_by_unit.values()))})
+PY
+
+uv run python -m evals.sentence_routing_retrieval_falsification.cohort_baseline_run \
+  --manifest evals/sentence_routing_retrieval_falsification/cohorts/c1s13_v1.json \
+  --scene-beat-records-jsonl /tmp/c1s13_gold_scene.records_meta.jsonl \
+  --write-scene-beat-question-delta /tmp/cohort_l3_scene_packet_question_delta_c1s13_v1.json \
+  --use-scene-beat-packets
+```
