@@ -6,24 +6,24 @@
   "question_count": 12,
   "summary": {
     "regressed": 0,
-    "improved": 1,
+    "improved": 0,
     "unchanged_pass": 7,
-    "unchanged_fail": 4
+    "unchanged_fail": 5
   },
   "failure_diagnostic_summary": {
     "passed": 7,
-    "equivalence_helped": 1,
-    "ranking_regression": 2,
+    "equivalence_helped": 0,
+    "ranking_regression": 0,
     "missing_lexical_handle": 1,
-    "retriever_support_gap": 0,
-    "gold_or_rubric_gap": 1
+    "retriever_support_gap": 1,
+    "gold_or_rubric_gap": 3
   },
   "scenarios": [
     {
       "scenario_id": "natural_v1",
       "question_count": 12,
       "baseline_pass_count": 7,
-      "with_equivalence_pass_count": 8,
+      "with_equivalence_pass_count": 7,
       "questions": [
         {
           "question_id": "nat_captain_after_forest",
@@ -186,7 +186,7 @@
             "top_hits": [
               {
                 "unit_id": "u-L0017-07",
-                "score": 27,
+                "score": 18,
                 "line_start": 17,
                 "line_end": 17,
                 "routes": [
@@ -200,18 +200,15 @@
                   "lexical_token:forest",
                   "lexical_token:lysandra",
                   "route_token:captain",
-                  "route_token:elderwyld",
                   "route_token:forest",
                   "route_token:ironveil",
-                  "route_token:longmont",
                   "route_token:lysandra",
-                  "route_token:migrating",
-                  "route_token:npc"
+                  "route_token:migrating"
                 ]
               },
               {
                 "unit_id": "u-L0017-04",
-                "score": 26,
+                "score": 17,
                 "line_start": 17,
                 "line_end": 17,
                 "routes": [
@@ -224,18 +221,15 @@
                   "lexical_token:forest",
                   "lexical_token:happened",
                   "route_token:captain",
-                  "route_token:elderwyld",
                   "route_token:forest",
                   "route_token:ironveil",
-                  "route_token:longmont",
                   "route_token:lysandra",
-                  "route_token:migrating",
-                  "route_token:npc"
+                  "route_token:migrating"
                 ]
               },
               {
                 "unit_id": "u-L0019-11",
-                "score": 26,
+                "score": 17,
                 "line_start": 19,
                 "line_end": 19,
                 "routes": [
@@ -248,18 +242,15 @@
                   "lexical_token:after",
                   "lexical_token:lysandra",
                   "route_token:captain",
-                  "route_token:elderwyld",
                   "route_token:forest",
                   "route_token:ironveil",
-                  "route_token:longmont",
                   "route_token:lysandra",
-                  "route_token:migrating",
-                  "route_token:npc"
+                  "route_token:migrating"
                 ]
               },
               {
                 "unit_id": "u-L0019-13",
-                "score": 26,
+                "score": 17,
                 "line_start": 19,
                 "line_end": 19,
                 "routes": [
@@ -272,18 +263,15 @@
                   "lexical_token:after",
                   "lexical_token:forest",
                   "route_token:captain",
-                  "route_token:elderwyld",
                   "route_token:forest",
                   "route_token:ironveil",
-                  "route_token:longmont",
                   "route_token:lysandra",
-                  "route_token:migrating",
-                  "route_token:npc"
+                  "route_token:migrating"
                 ]
               },
               {
                 "unit_id": "u-L0017-03",
-                "score": 25,
+                "score": 16,
                 "line_start": 17,
                 "line_end": 17,
                 "routes": [
@@ -295,13 +283,10 @@
                 "why_matched": [
                   "lexical_token:lysandra",
                   "route_token:captain",
-                  "route_token:elderwyld",
                   "route_token:forest",
                   "route_token:ironveil",
-                  "route_token:longmont",
                   "route_token:lysandra",
-                  "route_token:migrating",
-                  "route_token:npc"
+                  "route_token:migrating"
                 ]
               }
             ]
@@ -310,28 +295,17 @@
             "verdict": "unchanged_pass",
             "support_ratio_delta": 0.0,
             "tokens_added_by_equivalences": [
-              "dustwalker",
-              "elderwyld",
               "ironveil",
-              "jove",
-              "longmont",
-              "lysandra",
-              "npc",
-              "route",
-              "torbin"
+              "lysandra"
             ],
             "tokens_removed_by_equivalences": [],
             "topk_units_swapped_in": [],
             "topk_units_swapped_out": [],
             "full_units_swapped_in": [
-              "u-L0019-04",
-              "u-L0019-05",
-              "u-L0019-06"
+              "u-L0017-05"
             ],
             "full_units_swapped_out": [
-              "meta-session-0020-locations",
-              "u-L0021-01",
-              "u-L0021-02"
+              "meta-session-0020-locations"
             ],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
@@ -487,11 +461,73 @@
               }
             ],
             "hit_count": 18,
-            "ranking_augmented_by_equivalences": true,
+            "ranking_augmented_by_equivalences": false,
             "top_hits": [
               {
+                "unit_id": "meta-session-0020-locations",
+                "score": 5,
+                "line_start": 0,
+                "line_end": 0,
+                "routes": [
+                  "Elderwyld/Cities and Towns/Mirathorn/",
+                  "Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/",
+                  "Elderwyld/Cities and Towns/Mossford/",
+                  "Elderwyld/Cities and Towns/Mossford/Mossford_Location_Dossiers/Half-Burned Warehouse.md",
+                  "Elderwyld/Migrating Forest/",
+                  "Elderwyld/Unknown Sites/Voices Tower/"
+                ],
+                "why_matched": [
+                  "lexical_token:mirathorn",
+                  "lexical_token:places",
+                  "route_token:mirathorn"
+                ]
+              },
+              {
+                "unit_id": "meta-session-0020-open-loops",
+                "score": 4,
+                "line_start": 0,
+                "line_end": 0,
+                "routes": [
+                  "Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/NPCs/professor_merril_tealeaf/",
+                  "Elderwyld/Cities and Towns/Mossford/Mossford_Location_Dossiers/Half-Burned Warehouse.md",
+                  "Elderwyld/Unknown Sites/Voices Tower/"
+                ],
+                "why_matched": [
+                  "lexical_token:mirathorn",
+                  "route_token:mirathorn"
+                ]
+              },
+              {
+                "unit_id": "u-L0017-02",
+                "score": 4,
+                "line_start": 17,
+                "line_end": 17,
+                "routes": [
+                  "Elderwyld/Cities and Towns/Mirathorn/",
+                  "Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/"
+                ],
+                "why_matched": [
+                  "lexical_token:mirathorn",
+                  "route_token:mirathorn"
+                ]
+              },
+              {
+                "unit_id": "u-L0021-03",
+                "score": 4,
+                "line_start": 21,
+                "line_end": 21,
+                "routes": [
+                  "Elderwyld/Cities and Towns/Mirathorn/",
+                  "Longmont Campaign/Campaign 2/PCs/stafl/"
+                ],
+                "why_matched": [
+                  "lexical_token:mirathorn",
+                  "route_token:mirathorn"
+                ]
+              },
+              {
                 "unit_id": "u-L0017-03",
-                "score": 22,
+                "score": 3,
                 "line_start": 17,
                 "line_end": 17,
                 "routes": [
@@ -501,98 +537,7 @@
                   "Longmont Campaign/Campaign 2/PCs/caelynn/"
                 ],
                 "why_matched": [
-                  "lexical_token:lysandra",
-                  "route_token:captain",
-                  "route_token:elderwyld",
-                  "route_token:ironveil",
-                  "route_token:longmont",
-                  "route_token:lysandra",
-                  "route_token:mirathorn",
-                  "route_token:npc"
-                ]
-              },
-              {
-                "unit_id": "u-L0017-04",
-                "score": 21,
-                "line_start": 17,
-                "line_end": 17,
-                "routes": [
-                  "Elderwyld/Migrating Forest/",
-                  "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/",
-                  "Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/",
-                  "Longmont Campaign/Campaign 2/PCs/caelynn/"
-                ],
-                "why_matched": [
-                  "route_token:captain",
-                  "route_token:elderwyld",
-                  "route_token:ironveil",
-                  "route_token:longmont",
-                  "route_token:lysandra",
-                  "route_token:mirathorn",
-                  "route_token:npc"
-                ]
-              },
-              {
-                "unit_id": "u-L0017-05",
-                "score": 19,
-                "line_start": 17,
-                "line_end": 17,
-                "routes": [
-                  "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/",
-                  "Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/",
-                  "Longmont Campaign/Campaign 2/PCs/caelynn/",
-                  "Longmont Campaign/Campaign 2/Parties/questionable_company/"
-                ],
-                "why_matched": [
-                  "lexical_token:lysandra",
-                  "route_token:captain",
-                  "route_token:ironveil",
-                  "route_token:longmont",
-                  "route_token:lysandra",
-                  "route_token:mirathorn",
-                  "route_token:npc"
-                ]
-              },
-              {
-                "unit_id": "u-L0017-07",
-                "score": 19,
-                "line_start": 17,
-                "line_end": 17,
-                "routes": [
-                  "Elderwyld/Migrating Forest/",
-                  "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/",
-                  "Longmont Campaign/Campaign 2/PCs/caelynn/",
-                  "Longmont Campaign/Campaign 2/Parties/questionable_company/"
-                ],
-                "why_matched": [
-                  "lexical_token:lysandra",
-                  "route_token:captain",
-                  "route_token:elderwyld",
-                  "route_token:ironveil",
-                  "route_token:longmont",
-                  "route_token:lysandra",
-                  "route_token:npc"
-                ]
-              },
-              {
-                "unit_id": "u-L0019-11",
-                "score": 19,
-                "line_start": 19,
-                "line_end": 19,
-                "routes": [
-                  "Elderwyld/Migrating Forest/",
-                  "Elderwyld/Unknown Sites/Voices Tower/",
-                  "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/",
-                  "Longmont Campaign/Campaign 2/Parties/questionable_company/"
-                ],
-                "why_matched": [
-                  "lexical_token:lysandra",
-                  "route_token:captain",
-                  "route_token:elderwyld",
-                  "route_token:ironveil",
-                  "route_token:longmont",
-                  "route_token:lysandra",
-                  "route_token:npc"
+                  "route_token:mirathorn"
                 ]
               }
             ]
@@ -600,45 +545,12 @@
           "delta": {
             "verdict": "unchanged_pass",
             "support_ratio_delta": 0.0,
-            "tokens_added_by_equivalences": [
-              "captain",
-              "dustwalker",
-              "elderwyld",
-              "ironveil",
-              "jove",
-              "longmont",
-              "lysandra",
-              "npc",
-              "route",
-              "torbin"
-            ],
+            "tokens_added_by_equivalences": [],
             "tokens_removed_by_equivalences": [],
-            "topk_units_swapped_in": [
-              "u-L0017-04",
-              "u-L0017-05",
-              "u-L0017-07",
-              "u-L0019-11"
-            ],
-            "topk_units_swapped_out": [
-              "meta-session-0020-locations",
-              "meta-session-0020-open-loops",
-              "u-L0017-02",
-              "u-L0021-03"
-            ],
-            "full_units_swapped_in": [
-              "u-L0017-06",
-              "u-L0017-07",
-              "u-L0017-08",
-              "u-L0019-06",
-              "u-L0019-11"
-            ],
-            "full_units_swapped_out": [
-              "meta-session-0020-locations",
-              "meta-session-0020-open-loops",
-              "u-L0017-02",
-              "u-L0023-02",
-              "u-L0023-03"
-            ],
+            "topk_units_swapped_in": [],
+            "topk_units_swapped_out": [],
+            "full_units_swapped_in": [],
+            "full_units_swapped_out": [],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
           },
@@ -801,104 +713,34 @@
               }
             ],
             "hit_count": 18,
-            "ranking_augmented_by_equivalences": true,
+            "ranking_augmented_by_equivalences": false,
             "top_hits": [
               {
-                "unit_id": "u-L0019-11",
-                "score": 28,
-                "line_start": 19,
-                "line_end": 19,
+                "unit_id": "meta-session-0020-locations",
+                "score": 13,
+                "line_start": 0,
+                "line_end": 0,
                 "routes": [
+                  "Elderwyld/Cities and Towns/Mirathorn/",
+                  "Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/",
+                  "Elderwyld/Cities and Towns/Mossford/",
+                  "Elderwyld/Cities and Towns/Mossford/Mossford_Location_Dossiers/Half-Burned Warehouse.md",
                   "Elderwyld/Migrating Forest/",
-                  "Elderwyld/Unknown Sites/Voices Tower/",
-                  "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/",
-                  "Longmont Campaign/Campaign 2/Parties/questionable_company/"
+                  "Elderwyld/Unknown Sites/Voices Tower/"
                 ],
                 "why_matched": [
-                  "lexical_token:lysandra",
-                  "route_token:captain",
-                  "route_token:elderwyld",
-                  "route_token:ironveil",
-                  "route_token:longmont",
-                  "route_token:lysandra",
-                  "route_token:npc",
-                  "route_token:tie",
-                  "route_token:tower",
-                  "route_token:voices"
-                ]
-              },
-              {
-                "unit_id": "u-L0019-13",
-                "score": 28,
-                "line_start": 19,
-                "line_end": 19,
-                "routes": [
-                  "Elderwyld/Migrating Forest/",
-                  "Elderwyld/Unknown Sites/Voices Tower/",
-                  "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/",
-                  "Longmont Campaign/Campaign 2/Parties/questionable_company/"
-                ],
-                "why_matched": [
-                  "lexical_token:voices",
-                  "route_token:captain",
-                  "route_token:elderwyld",
-                  "route_token:ironveil",
-                  "route_token:longmont",
-                  "route_token:lysandra",
-                  "route_token:npc",
-                  "route_token:tie",
-                  "route_token:tower",
-                  "route_token:voices"
-                ]
-              },
-              {
-                "unit_id": "u-L0019-12",
-                "score": 27,
-                "line_start": 19,
-                "line_end": 19,
-                "routes": [
-                  "Elderwyld/Migrating Forest/",
-                  "Elderwyld/Unknown Sites/Voices Tower/",
-                  "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/",
-                  "Longmont Campaign/Campaign 2/Parties/questionable_company/"
-                ],
-                "why_matched": [
-                  "route_token:captain",
-                  "route_token:elderwyld",
-                  "route_token:ironveil",
-                  "route_token:longmont",
-                  "route_token:lysandra",
-                  "route_token:npc",
-                  "route_token:tie",
-                  "route_token:tower",
-                  "route_token:voices"
-                ]
-              },
-              {
-                "unit_id": "u-L0019-06",
-                "score": 26,
-                "line_start": 19,
-                "line_end": 19,
-                "routes": [
-                  "Elderwyld/Unknown Sites/Voices Tower/",
-                  "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/"
-                ],
-                "why_matched": [
+                  "lexical_token:specific",
+                  "lexical_token:tie",
                   "lexical_token:tower",
                   "lexical_token:voices",
-                  "route_token:captain",
-                  "route_token:elderwyld",
-                  "route_token:ironveil",
-                  "route_token:longmont",
-                  "route_token:lysandra",
-                  "route_token:npc",
+                  "route_token:tie",
                   "route_token:tower",
                   "route_token:voices"
                 ]
               },
               {
                 "unit_id": "meta-session-0020-open-loops",
-                "score": 22,
+                "score": 12,
                 "line_start": 0,
                 "line_end": 0,
                 "routes": [
@@ -907,15 +749,61 @@
                   "Elderwyld/Unknown Sites/Voices Tower/"
                 ],
                 "why_matched": [
-                  "lexical_token:elderwyld",
-                  "lexical_token:lysandra",
-                  "lexical_token:npc",
-                  "lexical_token:route",
                   "lexical_token:tie",
                   "lexical_token:tower",
                   "lexical_token:voices",
-                  "route_token:elderwyld",
-                  "route_token:npc",
+                  "route_token:tie",
+                  "route_token:tower",
+                  "route_token:voices"
+                ]
+              },
+              {
+                "unit_id": "u-L0019-13",
+                "score": 10,
+                "line_start": 19,
+                "line_end": 19,
+                "routes": [
+                  "Elderwyld/Migrating Forest/",
+                  "Elderwyld/Unknown Sites/Voices Tower/",
+                  "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/",
+                  "Longmont Campaign/Campaign 2/Parties/questionable_company/"
+                ],
+                "why_matched": [
+                  "lexical_token:voices",
+                  "route_token:tie",
+                  "route_token:tower",
+                  "route_token:voices"
+                ]
+              },
+              {
+                "unit_id": "u-L0019-11",
+                "score": 9,
+                "line_start": 19,
+                "line_end": 19,
+                "routes": [
+                  "Elderwyld/Migrating Forest/",
+                  "Elderwyld/Unknown Sites/Voices Tower/",
+                  "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/",
+                  "Longmont Campaign/Campaign 2/Parties/questionable_company/"
+                ],
+                "why_matched": [
+                  "route_token:tie",
+                  "route_token:tower",
+                  "route_token:voices"
+                ]
+              },
+              {
+                "unit_id": "u-L0019-12",
+                "score": 9,
+                "line_start": 19,
+                "line_end": 19,
+                "routes": [
+                  "Elderwyld/Migrating Forest/",
+                  "Elderwyld/Unknown Sites/Voices Tower/",
+                  "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/",
+                  "Longmont Campaign/Campaign 2/Parties/questionable_company/"
+                ],
+                "why_matched": [
                   "route_token:tie",
                   "route_token:tower",
                   "route_token:voices"
@@ -926,39 +814,12 @@
           "delta": {
             "verdict": "unchanged_pass",
             "support_ratio_delta": 0.0,
-            "tokens_added_by_equivalences": [
-              "captain",
-              "dustwalker",
-              "elderwyld",
-              "ironveil",
-              "jove",
-              "longmont",
-              "lysandra",
-              "npc",
-              "route",
-              "torbin"
-            ],
+            "tokens_added_by_equivalences": [],
             "tokens_removed_by_equivalences": [],
-            "topk_units_swapped_in": [
-              "u-L0019-06"
-            ],
-            "topk_units_swapped_out": [
-              "meta-session-0020-locations"
-            ],
-            "full_units_swapped_in": [
-              "u-L0017-03",
-              "u-L0017-06",
-              "u-L0017-07",
-              "u-L0017-08",
-              "u-L0019-01"
-            ],
-            "full_units_swapped_out": [
-              "meta-session-0020-locations",
-              "u-L0007-01",
-              "u-L0021-01",
-              "u-L0021-02",
-              "u-L0021-03"
-            ],
+            "topk_units_swapped_in": [],
+            "topk_units_swapped_out": [],
+            "full_units_swapped_in": [],
+            "full_units_swapped_out": [],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
           },
@@ -1140,7 +1001,7 @@
             "top_hits": [
               {
                 "unit_id": "u-L0017-07",
-                "score": 24,
+                "score": 15,
                 "line_start": 17,
                 "line_end": 17,
                 "routes": [
@@ -1154,17 +1015,14 @@
                   "lexical_token:forest",
                   "lexical_token:lysandra",
                   "route_token:captain",
-                  "route_token:elderwyld",
                   "route_token:forest",
                   "route_token:ironveil",
-                  "route_token:longmont",
-                  "route_token:lysandra",
-                  "route_token:npc"
+                  "route_token:lysandra"
                 ]
               },
               {
                 "unit_id": "u-L0019-11",
-                "score": 23,
+                "score": 14,
                 "line_start": 19,
                 "line_end": 19,
                 "routes": [
@@ -1177,17 +1035,14 @@
                   "lexical_token:after",
                   "lexical_token:lysandra",
                   "route_token:captain",
-                  "route_token:elderwyld",
                   "route_token:forest",
                   "route_token:ironveil",
-                  "route_token:longmont",
-                  "route_token:lysandra",
-                  "route_token:npc"
+                  "route_token:lysandra"
                 ]
               },
               {
                 "unit_id": "u-L0019-13",
-                "score": 23,
+                "score": 14,
                 "line_start": 19,
                 "line_end": 19,
                 "routes": [
@@ -1200,17 +1055,14 @@
                   "lexical_token:after",
                   "lexical_token:forest",
                   "route_token:captain",
-                  "route_token:elderwyld",
                   "route_token:forest",
                   "route_token:ironveil",
-                  "route_token:longmont",
-                  "route_token:lysandra",
-                  "route_token:npc"
+                  "route_token:lysandra"
                 ]
               },
               {
                 "unit_id": "u-L0017-03",
-                "score": 22,
+                "score": 13,
                 "line_start": 17,
                 "line_end": 17,
                 "routes": [
@@ -1222,17 +1074,14 @@
                 "why_matched": [
                   "lexical_token:lysandra",
                   "route_token:captain",
-                  "route_token:elderwyld",
                   "route_token:forest",
                   "route_token:ironveil",
-                  "route_token:longmont",
-                  "route_token:lysandra",
-                  "route_token:npc"
+                  "route_token:lysandra"
                 ]
               },
               {
                 "unit_id": "u-L0017-04",
-                "score": 22,
+                "score": 13,
                 "line_start": 17,
                 "line_end": 17,
                 "routes": [
@@ -1244,12 +1093,9 @@
                 "why_matched": [
                   "lexical_token:forest",
                   "route_token:captain",
-                  "route_token:elderwyld",
                   "route_token:forest",
                   "route_token:ironveil",
-                  "route_token:longmont",
-                  "route_token:lysandra",
-                  "route_token:npc"
+                  "route_token:lysandra"
                 ]
               }
             ]
@@ -1258,28 +1104,13 @@
             "verdict": "unchanged_fail",
             "support_ratio_delta": 0.0,
             "tokens_added_by_equivalences": [
-              "dustwalker",
-              "elderwyld",
-              "ironveil",
-              "jove",
-              "longmont",
-              "npc",
-              "route",
-              "torbin"
+              "ironveil"
             ],
             "tokens_removed_by_equivalences": [],
             "topk_units_swapped_in": [],
             "topk_units_swapped_out": [],
-            "full_units_swapped_in": [
-              "u-L0019-04",
-              "u-L0019-05",
-              "u-L0019-06"
-            ],
-            "full_units_swapped_out": [
-              "u-L0017-05",
-              "u-L0021-01",
-              "u-L0021-02"
-            ],
+            "full_units_swapped_in": [],
+            "full_units_swapped_out": [],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
           },
@@ -1440,8 +1271,40 @@
             "ranking_augmented_by_equivalences": true,
             "top_hits": [
               {
+                "unit_id": "u-L0015-07",
+                "score": 10,
+                "line_start": 15,
+                "line_end": 15,
+                "routes": [
+                  "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/",
+                  "Longmont Campaign/Campaign 2/PCs/caelynn/"
+                ],
+                "why_matched": [
+                  "lexical_token:lysandra",
+                  "route_token:captain",
+                  "route_token:ironveil",
+                  "route_token:lysandra"
+                ]
+              },
+              {
+                "unit_id": "u-L0017-01",
+                "score": 10,
+                "line_start": 17,
+                "line_end": 17,
+                "routes": [
+                  "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/",
+                  "Longmont Campaign/Campaign 2/PCs/caelynn/"
+                ],
+                "why_matched": [
+                  "lexical_token:lysandra",
+                  "route_token:captain",
+                  "route_token:ironveil",
+                  "route_token:lysandra"
+                ]
+              },
+              {
                 "unit_id": "u-L0017-03",
-                "score": 19,
+                "score": 10,
                 "line_start": 17,
                 "line_end": 17,
                 "routes": [
@@ -1453,16 +1316,31 @@
                 "why_matched": [
                   "lexical_token:lysandra",
                   "route_token:captain",
-                  "route_token:elderwyld",
                   "route_token:ironveil",
-                  "route_token:longmont",
-                  "route_token:lysandra",
-                  "route_token:npc"
+                  "route_token:lysandra"
+                ]
+              },
+              {
+                "unit_id": "u-L0017-05",
+                "score": 10,
+                "line_start": 17,
+                "line_end": 17,
+                "routes": [
+                  "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/",
+                  "Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/",
+                  "Longmont Campaign/Campaign 2/PCs/caelynn/",
+                  "Longmont Campaign/Campaign 2/Parties/questionable_company/"
+                ],
+                "why_matched": [
+                  "lexical_token:lysandra",
+                  "route_token:captain",
+                  "route_token:ironveil",
+                  "route_token:lysandra"
                 ]
               },
               {
                 "unit_id": "u-L0017-07",
-                "score": 19,
+                "score": 10,
                 "line_start": 17,
                 "line_end": 17,
                 "routes": [
@@ -1474,72 +1352,8 @@
                 "why_matched": [
                   "lexical_token:lysandra",
                   "route_token:captain",
-                  "route_token:elderwyld",
                   "route_token:ironveil",
-                  "route_token:longmont",
-                  "route_token:lysandra",
-                  "route_token:npc"
-                ]
-              },
-              {
-                "unit_id": "u-L0019-11",
-                "score": 19,
-                "line_start": 19,
-                "line_end": 19,
-                "routes": [
-                  "Elderwyld/Migrating Forest/",
-                  "Elderwyld/Unknown Sites/Voices Tower/",
-                  "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/",
-                  "Longmont Campaign/Campaign 2/Parties/questionable_company/"
-                ],
-                "why_matched": [
-                  "lexical_token:lysandra",
-                  "route_token:captain",
-                  "route_token:elderwyld",
-                  "route_token:ironveil",
-                  "route_token:longmont",
-                  "route_token:lysandra",
-                  "route_token:npc"
-                ]
-              },
-              {
-                "unit_id": "u-L0017-04",
-                "score": 18,
-                "line_start": 17,
-                "line_end": 17,
-                "routes": [
-                  "Elderwyld/Migrating Forest/",
-                  "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/",
-                  "Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/",
-                  "Longmont Campaign/Campaign 2/PCs/caelynn/"
-                ],
-                "why_matched": [
-                  "route_token:captain",
-                  "route_token:elderwyld",
-                  "route_token:ironveil",
-                  "route_token:longmont",
-                  "route_token:lysandra",
-                  "route_token:npc"
-                ]
-              },
-              {
-                "unit_id": "u-L0017-06",
-                "score": 18,
-                "line_start": 17,
-                "line_end": 17,
-                "routes": [
-                  "Elderwyld/Migrating Forest/",
-                  "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/",
-                  "Longmont Campaign/Campaign 2/PCs/caelynn/",
-                  "Longmont Campaign/Campaign 2/Parties/questionable_company/"
-                ],
-                "why_matched": [
-                  "route_token:captain",
-                  "route_token:elderwyld",
-                  "route_token:ironveil",
-                  "route_token:longmont",
-                  "route_token:lysandra",
-                  "route_token:npc"
+                  "route_token:lysandra"
                 ]
               }
             ]
@@ -1549,40 +1363,13 @@
             "support_ratio_delta": 0.0,
             "tokens_added_by_equivalences": [
               "captain",
-              "dustwalker",
-              "elderwyld",
-              "ironveil",
-              "jove",
-              "longmont",
-              "npc",
-              "route",
-              "torbin"
+              "ironveil"
             ],
             "tokens_removed_by_equivalences": [],
-            "topk_units_swapped_in": [
-              "u-L0017-04",
-              "u-L0017-06",
-              "u-L0019-11"
-            ],
-            "topk_units_swapped_out": [
-              "u-L0015-07",
-              "u-L0017-01",
-              "u-L0017-05"
-            ],
-            "full_units_swapped_in": [
-              "u-L0017-04",
-              "u-L0017-06",
-              "u-L0017-08",
-              "u-L0019-12",
-              "u-L0019-13"
-            ],
-            "full_units_swapped_out": [
-              "u-L0015-07",
-              "u-L0017-01",
-              "u-L0017-02",
-              "u-L0017-05",
-              "u-L0017-09"
-            ],
+            "topk_units_swapped_in": [],
+            "topk_units_swapped_out": [],
+            "full_units_swapped_in": [],
+            "full_units_swapped_out": [],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
           },
@@ -1750,109 +1537,78 @@
               }
             ],
             "hit_count": 18,
-            "ranking_augmented_by_equivalences": true,
+            "ranking_augmented_by_equivalences": false,
             "top_hits": [
               {
-                "unit_id": "u-L0017-03",
-                "score": 19,
-                "line_start": 17,
-                "line_end": 17,
+                "unit_id": "meta-session-0020-locations",
+                "score": 1,
+                "line_start": 0,
+                "line_end": 0,
+                "routes": [
+                  "Elderwyld/Cities and Towns/Mirathorn/",
+                  "Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/",
+                  "Elderwyld/Cities and Towns/Mossford/",
+                  "Elderwyld/Cities and Towns/Mossford/Mossford_Location_Dossiers/Half-Burned Warehouse.md",
+                  "Elderwyld/Migrating Forest/",
+                  "Elderwyld/Unknown Sites/Voices Tower/"
+                ],
+                "why_matched": [
+                  "lexical_token:locations"
+                ]
+              },
+              {
+                "unit_id": "u-L0003-01",
+                "score": 0,
+                "line_start": 3,
+                "line_end": 3,
                 "routes": [
                   "Elderwyld/Migrating Forest/",
-                  "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/",
-                  "Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/",
+                  "Longmont Campaign/Campaign 2/NPCs/thrin_branchborn/",
+                  "Longmont Campaign/Campaign 2/PCs/caelynn/",
+                  "Longmont Campaign/Campaign 2/PCs/ephanna/",
+                  "Longmont Campaign/Campaign 2/PCs/karsemine/"
+                ],
+                "why_matched": [
+                  "expanded_adjacent:u-L0003-01"
+                ]
+              },
+              {
+                "unit_id": "u-L0003-02",
+                "score": 0,
+                "line_start": 3,
+                "line_end": 3,
+                "routes": [
+                  "Longmont Campaign/Campaign 2/NPCs/thrin_branchborn/"
+                ],
+                "why_matched": [
+                  "expanded_adjacent:u-L0003-02"
+                ]
+              },
+              {
+                "unit_id": "u-L0003-03",
+                "score": 0,
+                "line_start": 3,
+                "line_end": 3,
+                "routes": [
+                  "Longmont Campaign/Campaign 2/NPCs/thrin_branchborn/",
                   "Longmont Campaign/Campaign 2/PCs/caelynn/"
                 ],
                 "why_matched": [
-                  "lexical_token:lysandra",
-                  "route_token:captain",
-                  "route_token:elderwyld",
-                  "route_token:ironveil",
-                  "route_token:longmont",
-                  "route_token:lysandra",
-                  "route_token:npc"
+                  "expanded_adjacent:u-L0003-03"
                 ]
               },
               {
-                "unit_id": "u-L0017-07",
-                "score": 19,
-                "line_start": 17,
-                "line_end": 17,
+                "unit_id": "meta-session-0020-open-loops",
+                "score": 0,
+                "line_start": 0,
+                "line_end": 0,
                 "routes": [
-                  "Elderwyld/Migrating Forest/",
-                  "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/",
-                  "Longmont Campaign/Campaign 2/PCs/caelynn/",
-                  "Longmont Campaign/Campaign 2/Parties/questionable_company/"
+                  "Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/NPCs/professor_merril_tealeaf/",
+                  "Elderwyld/Cities and Towns/Mossford/Mossford_Location_Dossiers/Half-Burned Warehouse.md",
+                  "Elderwyld/Unknown Sites/Voices Tower/"
                 ],
                 "why_matched": [
-                  "lexical_token:lysandra",
-                  "route_token:captain",
-                  "route_token:elderwyld",
-                  "route_token:ironveil",
-                  "route_token:longmont",
-                  "route_token:lysandra",
-                  "route_token:npc"
-                ]
-              },
-              {
-                "unit_id": "u-L0019-11",
-                "score": 19,
-                "line_start": 19,
-                "line_end": 19,
-                "routes": [
-                  "Elderwyld/Migrating Forest/",
-                  "Elderwyld/Unknown Sites/Voices Tower/",
-                  "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/",
-                  "Longmont Campaign/Campaign 2/Parties/questionable_company/"
-                ],
-                "why_matched": [
-                  "lexical_token:lysandra",
-                  "route_token:captain",
-                  "route_token:elderwyld",
-                  "route_token:ironveil",
-                  "route_token:longmont",
-                  "route_token:lysandra",
-                  "route_token:npc"
-                ]
-              },
-              {
-                "unit_id": "u-L0017-04",
-                "score": 18,
-                "line_start": 17,
-                "line_end": 17,
-                "routes": [
-                  "Elderwyld/Migrating Forest/",
-                  "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/",
-                  "Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/",
-                  "Longmont Campaign/Campaign 2/PCs/caelynn/"
-                ],
-                "why_matched": [
-                  "route_token:captain",
-                  "route_token:elderwyld",
-                  "route_token:ironveil",
-                  "route_token:longmont",
-                  "route_token:lysandra",
-                  "route_token:npc"
-                ]
-              },
-              {
-                "unit_id": "u-L0017-06",
-                "score": 18,
-                "line_start": 17,
-                "line_end": 17,
-                "routes": [
-                  "Elderwyld/Migrating Forest/",
-                  "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/",
-                  "Longmont Campaign/Campaign 2/PCs/caelynn/",
-                  "Longmont Campaign/Campaign 2/Parties/questionable_company/"
-                ],
-                "why_matched": [
-                  "route_token:captain",
-                  "route_token:elderwyld",
-                  "route_token:ironveil",
-                  "route_token:longmont",
-                  "route_token:lysandra",
-                  "route_token:npc"
+                  "expanded_adjacent:meta-session-0020-open-loops"
                 ]
               }
             ]
@@ -1860,67 +1616,12 @@
           "delta": {
             "verdict": "unchanged_pass",
             "support_ratio_delta": 0.0,
-            "tokens_added_by_equivalences": [
-              "captain",
-              "dustwalker",
-              "elderwyld",
-              "ironveil",
-              "jove",
-              "longmont",
-              "lysandra",
-              "npc",
-              "route",
-              "torbin"
-            ],
+            "tokens_added_by_equivalences": [],
             "tokens_removed_by_equivalences": [],
-            "topk_units_swapped_in": [
-              "u-L0017-03",
-              "u-L0017-04",
-              "u-L0017-06",
-              "u-L0017-07",
-              "u-L0019-11"
-            ],
-            "topk_units_swapped_out": [
-              "meta-session-0020-locations",
-              "meta-session-0020-open-loops",
-              "u-L0003-01",
-              "u-L0003-02",
-              "u-L0003-03"
-            ],
-            "full_units_swapped_in": [
-              "u-L0017-03",
-              "u-L0017-04",
-              "u-L0017-06",
-              "u-L0017-07",
-              "u-L0017-08",
-              "u-L0019-01",
-              "u-L0019-02",
-              "u-L0019-03",
-              "u-L0019-04",
-              "u-L0019-05",
-              "u-L0019-07",
-              "u-L0019-08",
-              "u-L0019-11",
-              "u-L0019-12",
-              "u-L0019-13"
-            ],
-            "full_units_swapped_out": [
-              "meta-session-0020-locations",
-              "meta-session-0020-open-loops",
-              "u-L0003-01",
-              "u-L0003-02",
-              "u-L0003-03",
-              "u-L0005-06",
-              "u-L0007-01",
-              "u-L0007-03",
-              "u-L0009-02",
-              "u-L0011-01",
-              "u-L0011-02",
-              "u-L0013-03",
-              "u-L0017-02",
-              "u-L0021-03",
-              "u-L0021-08"
-            ],
+            "topk_units_swapped_in": [],
+            "topk_units_swapped_out": [],
+            "full_units_swapped_in": [],
+            "full_units_swapped_out": [],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
           },
@@ -2108,56 +1809,8 @@
             "ranking_augmented_by_equivalences": true,
             "top_hits": [
               {
-                "unit_id": "u-L0017-03",
-                "score": 27,
-                "line_start": 17,
-                "line_end": 17,
-                "routes": [
-                  "Elderwyld/Migrating Forest/",
-                  "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/",
-                  "Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/",
-                  "Longmont Campaign/Campaign 2/PCs/caelynn/"
-                ],
-                "why_matched": [
-                  "lexical_token:caelynn",
-                  "lexical_token:lysandra",
-                  "lexical_token:sara",
-                  "route_token:caelynn",
-                  "route_token:captain",
-                  "route_token:elderwyld",
-                  "route_token:ironveil",
-                  "route_token:longmont",
-                  "route_token:lysandra",
-                  "route_token:npc",
-                  "route_token:sara"
-                ]
-              },
-              {
-                "unit_id": "u-L0017-04",
-                "score": 25,
-                "line_start": 17,
-                "line_end": 17,
-                "routes": [
-                  "Elderwyld/Migrating Forest/",
-                  "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/",
-                  "Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/",
-                  "Longmont Campaign/Campaign 2/PCs/caelynn/"
-                ],
-                "why_matched": [
-                  "lexical_token:caelynn",
-                  "route_token:caelynn",
-                  "route_token:captain",
-                  "route_token:elderwyld",
-                  "route_token:ironveil",
-                  "route_token:longmont",
-                  "route_token:lysandra",
-                  "route_token:npc",
-                  "route_token:sara"
-                ]
-              },
-              {
                 "unit_id": "u-L0017-05",
-                "score": 25,
+                "score": 19,
                 "line_start": 17,
                 "line_end": 17,
                 "routes": [
@@ -2174,15 +1827,35 @@
                   "route_token:caelynn",
                   "route_token:captain",
                   "route_token:ironveil",
-                  "route_token:longmont",
                   "route_token:lysandra",
-                  "route_token:npc",
+                  "route_token:sara"
+                ]
+              },
+              {
+                "unit_id": "u-L0017-03",
+                "score": 18,
+                "line_start": 17,
+                "line_end": 17,
+                "routes": [
+                  "Elderwyld/Migrating Forest/",
+                  "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/",
+                  "Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/",
+                  "Longmont Campaign/Campaign 2/PCs/caelynn/"
+                ],
+                "why_matched": [
+                  "lexical_token:caelynn",
+                  "lexical_token:lysandra",
+                  "lexical_token:sara",
+                  "route_token:caelynn",
+                  "route_token:captain",
+                  "route_token:ironveil",
+                  "route_token:lysandra",
                   "route_token:sara"
                 ]
               },
               {
                 "unit_id": "u-L0021-07",
-                "score": 24,
+                "score": 18,
                 "line_start": 21,
                 "line_end": 21,
                 "routes": [
@@ -2197,32 +1870,46 @@
                   "route_token:caelynn",
                   "route_token:captain",
                   "route_token:ironveil",
-                  "route_token:longmont",
                   "route_token:lysandra",
-                  "route_token:npc",
                   "route_token:sara"
                 ]
               },
               {
-                "unit_id": "u-L0017-06",
-                "score": 22,
+                "unit_id": "u-L0017-04",
+                "score": 16,
                 "line_start": 17,
                 "line_end": 17,
                 "routes": [
                   "Elderwyld/Migrating Forest/",
                   "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/",
-                  "Longmont Campaign/Campaign 2/PCs/caelynn/",
-                  "Longmont Campaign/Campaign 2/Parties/questionable_company/"
+                  "Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/",
+                  "Longmont Campaign/Campaign 2/PCs/caelynn/"
                 ],
                 "why_matched": [
                   "lexical_token:caelynn",
                   "route_token:caelynn",
                   "route_token:captain",
-                  "route_token:elderwyld",
                   "route_token:ironveil",
-                  "route_token:longmont",
                   "route_token:lysandra",
-                  "route_token:npc"
+                  "route_token:sara"
+                ]
+              },
+              {
+                "unit_id": "u-L0015-07",
+                "score": 14,
+                "line_start": 15,
+                "line_end": 15,
+                "routes": [
+                  "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/",
+                  "Longmont Campaign/Campaign 2/PCs/caelynn/"
+                ],
+                "why_matched": [
+                  "lexical_token:caelynn",
+                  "lexical_token:lysandra",
+                  "route_token:caelynn",
+                  "route_token:captain",
+                  "route_token:ironveil",
+                  "route_token:lysandra"
                 ]
               }
             ]
@@ -2232,32 +1919,19 @@
             "support_ratio_delta": 0.0,
             "tokens_added_by_equivalences": [
               "captain",
-              "dustwalker",
-              "elderwyld",
-              "ironveil",
-              "jove",
-              "longmont",
-              "npc",
-              "route",
-              "torbin"
+              "ironveil"
             ],
             "tokens_removed_by_equivalences": [],
-            "topk_units_swapped_in": [
-              "u-L0017-06"
-            ],
-            "topk_units_swapped_out": [
-              "u-L0015-07"
-            ],
+            "topk_units_swapped_in": [],
+            "topk_units_swapped_out": [],
             "full_units_swapped_in": [
               "u-L0017-06",
               "u-L0017-07",
-              "u-L0017-08",
               "u-L0019-01"
             ],
             "full_units_swapped_out": [
               "u-L0019-03",
               "u-L0019-04",
-              "u-L0019-07",
               "u-L0023-03"
             ],
             "substrings_flipped_lost": [],
@@ -2395,16 +2069,20 @@
             ]
           },
           "with_equivalence": {
-            "ok": true,
-            "violations": [],
-            "context_support_ratio": 1.0,
+            "ok": false,
+            "violations": [
+              "context_support_below_threshold",
+              "missing_expected_unit_id_hit"
+            ],
+            "context_support_ratio": 0.75,
             "context_must_hits": [
               "confused",
               "meat",
-              "time",
               "voices"
             ],
-            "context_must_hits_missing": [],
+            "context_must_hits_missing": [
+              "time"
+            ],
             "semantic_verdict": "",
             "expected_route_substring_breakdown": [
               {
@@ -2417,7 +2095,7 @@
             "top_hits": [
               {
                 "unit_id": "u-L0017-07",
-                "score": 21,
+                "score": 12,
                 "line_start": 17,
                 "line_end": 17,
                 "routes": [
@@ -2431,16 +2109,13 @@
                   "lexical_token:lysandra",
                   "lexical_token:remember",
                   "route_token:captain",
-                  "route_token:elderwyld",
                   "route_token:ironveil",
-                  "route_token:longmont",
-                  "route_token:lysandra",
-                  "route_token:npc"
+                  "route_token:lysandra"
                 ]
               },
               {
                 "unit_id": "u-L0019-11",
-                "score": 21,
+                "score": 12,
                 "line_start": 19,
                 "line_end": 19,
                 "routes": [
@@ -2454,16 +2129,13 @@
                   "lexical_token:lysandra",
                   "lexical_token:spell",
                   "route_token:captain",
-                  "route_token:elderwyld",
                   "route_token:ironveil",
-                  "route_token:longmont",
-                  "route_token:lysandra",
-                  "route_token:npc"
+                  "route_token:lysandra"
                 ]
               },
               {
                 "unit_id": "u-L0019-13",
-                "score": 20,
+                "score": 11,
                 "line_start": 19,
                 "line_end": 19,
                 "routes": [
@@ -2476,96 +2148,64 @@
                   "lexical_token:after",
                   "lexical_token:remember",
                   "route_token:captain",
-                  "route_token:elderwyld",
                   "route_token:ironveil",
-                  "route_token:longmont",
-                  "route_token:lysandra",
-                  "route_token:npc"
+                  "route_token:lysandra"
                 ]
               },
               {
-                "unit_id": "u-L0017-03",
-                "score": 19,
-                "line_start": 17,
-                "line_end": 17,
+                "unit_id": "u-L0015-07",
+                "score": 10,
+                "line_start": 15,
+                "line_end": 15,
                 "routes": [
-                  "Elderwyld/Migrating Forest/",
                   "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/",
-                  "Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/",
                   "Longmont Campaign/Campaign 2/PCs/caelynn/"
                 ],
                 "why_matched": [
                   "lexical_token:lysandra",
                   "route_token:captain",
-                  "route_token:elderwyld",
                   "route_token:ironveil",
-                  "route_token:longmont",
-                  "route_token:lysandra",
-                  "route_token:npc"
+                  "route_token:lysandra"
                 ]
               },
               {
-                "unit_id": "u-L0017-04",
-                "score": 18,
+                "unit_id": "u-L0017-01",
+                "score": 10,
                 "line_start": 17,
                 "line_end": 17,
                 "routes": [
-                  "Elderwyld/Migrating Forest/",
                   "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/",
-                  "Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/",
                   "Longmont Campaign/Campaign 2/PCs/caelynn/"
                 ],
                 "why_matched": [
+                  "lexical_token:lysandra",
                   "route_token:captain",
-                  "route_token:elderwyld",
                   "route_token:ironveil",
-                  "route_token:longmont",
-                  "route_token:lysandra",
-                  "route_token:npc"
+                  "route_token:lysandra"
                 ]
               }
             ]
           },
           "delta": {
-            "verdict": "improved",
-            "support_ratio_delta": 0.25,
+            "verdict": "unchanged_fail",
+            "support_ratio_delta": 0.0,
             "tokens_added_by_equivalences": [
               "captain",
-              "dustwalker",
-              "elderwyld",
-              "ironveil",
-              "jove",
-              "longmont",
-              "npc",
-              "route",
-              "torbin"
+              "ironveil"
             ],
             "tokens_removed_by_equivalences": [],
-            "topk_units_swapped_in": [
-              "u-L0017-03",
-              "u-L0017-04"
-            ],
-            "topk_units_swapped_out": [
-              "u-L0015-07",
-              "u-L0017-01"
-            ],
-            "full_units_swapped_in": [
-              "u-L0017-04",
-              "u-L0017-06",
-              "u-L0017-08"
-            ],
-            "full_units_swapped_out": [
-              "u-L0015-07",
-              "u-L0017-01",
-              "u-L0017-05"
-            ],
+            "topk_units_swapped_in": [],
+            "topk_units_swapped_out": [],
+            "full_units_swapped_in": [],
+            "full_units_swapped_out": [],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
           },
           "failure_diagnostic": {
-            "bucket": "equivalence_helped",
+            "bucket": "retriever_support_gap",
             "reasons": [
-              "equivalence_mode_passed"
+              "equivalence_context_support_ratio_below_minimum",
+              "equivalence_missing_required_must_hits"
             ],
             "baseline_missing_route_substrings": [],
             "with_equivalence_missing_route_substrings": []
@@ -2728,112 +2368,86 @@
               }
             ],
             "hit_count": 18,
-            "ranking_augmented_by_equivalences": true,
+            "ranking_augmented_by_equivalences": false,
             "top_hits": [
               {
-                "unit_id": "u-L0017-03",
-                "score": 22,
-                "line_start": 17,
-                "line_end": 17,
+                "unit_id": "meta-session-0020-locations",
+                "score": 8,
+                "line_start": 0,
+                "line_end": 0,
                 "routes": [
+                  "Elderwyld/Cities and Towns/Mirathorn/",
+                  "Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/",
+                  "Elderwyld/Cities and Towns/Mossford/",
+                  "Elderwyld/Cities and Towns/Mossford/Mossford_Location_Dossiers/Half-Burned Warehouse.md",
                   "Elderwyld/Migrating Forest/",
-                  "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/",
-                  "Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/",
-                  "Longmont Campaign/Campaign 2/PCs/caelynn/"
+                  "Elderwyld/Unknown Sites/Voices Tower/"
                 ],
                 "why_matched": [
-                  "lexical_token:lysandra",
-                  "route_token:captain",
-                  "route_token:elderwyld",
-                  "route_token:ironveil",
-                  "route_token:longmont",
-                  "route_token:lysandra",
+                  "lexical_token:mirathorn",
+                  "lexical_token:mossford",
                   "route_token:mirathorn",
-                  "route_token:npc"
+                  "route_token:mossford"
                 ]
               },
               {
-                "unit_id": "u-L0017-04",
-                "score": 21,
-                "line_start": 17,
-                "line_end": 17,
+                "unit_id": "meta-session-0020-open-loops",
+                "score": 8,
+                "line_start": 0,
+                "line_end": 0,
                 "routes": [
-                  "Elderwyld/Migrating Forest/",
-                  "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/",
-                  "Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/",
-                  "Longmont Campaign/Campaign 2/PCs/caelynn/"
+                  "Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/NPCs/professor_merril_tealeaf/",
+                  "Elderwyld/Cities and Towns/Mossford/Mossford_Location_Dossiers/Half-Burned Warehouse.md",
+                  "Elderwyld/Unknown Sites/Voices Tower/"
                 ],
                 "why_matched": [
-                  "route_token:captain",
-                  "route_token:elderwyld",
-                  "route_token:ironveil",
-                  "route_token:longmont",
-                  "route_token:lysandra",
+                  "lexical_token:mirathorn",
+                  "lexical_token:mossford",
                   "route_token:mirathorn",
-                  "route_token:npc"
+                  "route_token:mossford"
                 ]
               },
               {
-                "unit_id": "u-L0017-05",
-                "score": 19,
+                "unit_id": "u-L0017-02",
+                "score": 4,
                 "line_start": 17,
                 "line_end": 17,
                 "routes": [
-                  "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/",
-                  "Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/",
-                  "Longmont Campaign/Campaign 2/PCs/caelynn/",
-                  "Longmont Campaign/Campaign 2/Parties/questionable_company/"
+                  "Elderwyld/Cities and Towns/Mirathorn/",
+                  "Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/"
                 ],
                 "why_matched": [
-                  "lexical_token:lysandra",
-                  "route_token:captain",
-                  "route_token:ironveil",
-                  "route_token:longmont",
-                  "route_token:lysandra",
-                  "route_token:mirathorn",
-                  "route_token:npc"
+                  "lexical_token:mirathorn",
+                  "route_token:mirathorn"
                 ]
               },
               {
-                "unit_id": "u-L0017-07",
-                "score": 19,
-                "line_start": 17,
-                "line_end": 17,
+                "unit_id": "u-L0021-03",
+                "score": 4,
+                "line_start": 21,
+                "line_end": 21,
                 "routes": [
-                  "Elderwyld/Migrating Forest/",
-                  "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/",
-                  "Longmont Campaign/Campaign 2/PCs/caelynn/",
-                  "Longmont Campaign/Campaign 2/Parties/questionable_company/"
+                  "Elderwyld/Cities and Towns/Mirathorn/",
+                  "Longmont Campaign/Campaign 2/PCs/stafl/"
                 ],
                 "why_matched": [
-                  "lexical_token:lysandra",
-                  "route_token:captain",
-                  "route_token:elderwyld",
-                  "route_token:ironveil",
-                  "route_token:longmont",
-                  "route_token:lysandra",
-                  "route_token:npc"
+                  "lexical_token:mirathorn",
+                  "route_token:mirathorn"
                 ]
               },
               {
-                "unit_id": "u-L0019-11",
-                "score": 19,
-                "line_start": 19,
-                "line_end": 19,
+                "unit_id": "u-L0007-01",
+                "score": 3,
+                "line_start": 7,
+                "line_end": 7,
                 "routes": [
-                  "Elderwyld/Migrating Forest/",
-                  "Elderwyld/Unknown Sites/Voices Tower/",
-                  "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/",
-                  "Longmont Campaign/Campaign 2/Parties/questionable_company/"
+                  "Elderwyld/Cities and Towns/Mossford/",
+                  "Elderwyld/Cities and Towns/Mossford/Mossford_Location_Dossiers/Half-Burned Warehouse.md",
+                  "Elderwyld/Cities and Towns/Mossford/NPCs/stuart/",
+                  "Longmont Campaign/Campaign 2/PCs/bonogo/"
                 ],
                 "why_matched": [
-                  "lexical_token:lysandra",
-                  "route_token:captain",
-                  "route_token:elderwyld",
-                  "route_token:ironveil",
-                  "route_token:longmont",
-                  "route_token:lysandra",
-                  "route_token:npc"
+                  "route_token:mossford"
                 ]
               }
             ]
@@ -2841,57 +2455,12 @@
           "delta": {
             "verdict": "unchanged_pass",
             "support_ratio_delta": 0.0,
-            "tokens_added_by_equivalences": [
-              "captain",
-              "dustwalker",
-              "elderwyld",
-              "ironveil",
-              "jove",
-              "longmont",
-              "lysandra",
-              "npc",
-              "route",
-              "torbin"
-            ],
+            "tokens_added_by_equivalences": [],
             "tokens_removed_by_equivalences": [],
-            "topk_units_swapped_in": [
-              "u-L0017-03",
-              "u-L0017-04",
-              "u-L0017-05",
-              "u-L0017-07",
-              "u-L0019-11"
-            ],
-            "topk_units_swapped_out": [
-              "meta-session-0020-locations",
-              "meta-session-0020-open-loops",
-              "u-L0007-01",
-              "u-L0017-02",
-              "u-L0021-03"
-            ],
-            "full_units_swapped_in": [
-              "u-L0017-03",
-              "u-L0017-04",
-              "u-L0017-05",
-              "u-L0017-06",
-              "u-L0017-07",
-              "u-L0017-08",
-              "u-L0019-11",
-              "u-L0021-08",
-              "u-L0021-09",
-              "u-L0023-01"
-            ],
-            "full_units_swapped_out": [
-              "meta-session-0020-locations",
-              "u-L0007-01",
-              "u-L0007-02",
-              "u-L0007-03",
-              "u-L0007-04",
-              "u-L0007-05",
-              "u-L0017-01",
-              "u-L0017-02",
-              "u-L0019-12",
-              "u-L0019-13"
-            ],
+            "topk_units_swapped_in": [],
+            "topk_units_swapped_out": [],
+            "full_units_swapped_in": [],
+            "full_units_swapped_out": [],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
           },
@@ -3039,11 +2608,48 @@
               }
             ],
             "hit_count": 18,
-            "ranking_augmented_by_equivalences": true,
+            "ranking_augmented_by_equivalences": false,
             "top_hits": [
               {
+                "unit_id": "meta-session-0020-locations",
+                "score": 8,
+                "line_start": 0,
+                "line_end": 0,
+                "routes": [
+                  "Elderwyld/Cities and Towns/Mirathorn/",
+                  "Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/",
+                  "Elderwyld/Cities and Towns/Mossford/",
+                  "Elderwyld/Cities and Towns/Mossford/Mossford_Location_Dossiers/Half-Burned Warehouse.md",
+                  "Elderwyld/Migrating Forest/",
+                  "Elderwyld/Unknown Sites/Voices Tower/"
+                ],
+                "why_matched": [
+                  "lexical_token:know",
+                  "lexical_token:tower",
+                  "route_token:know",
+                  "route_token:tower"
+                ]
+              },
+              {
+                "unit_id": "meta-session-0020-open-loops",
+                "score": 8,
+                "line_start": 0,
+                "line_end": 0,
+                "routes": [
+                  "Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/NPCs/professor_merril_tealeaf/",
+                  "Elderwyld/Cities and Towns/Mossford/Mossford_Location_Dossiers/Half-Burned Warehouse.md",
+                  "Elderwyld/Unknown Sites/Voices Tower/"
+                ],
+                "why_matched": [
+                  "lexical_token:know",
+                  "lexical_token:tower",
+                  "route_token:know",
+                  "route_token:tower"
+                ]
+              },
+              {
                 "unit_id": "u-L0019-06",
-                "score": 26,
+                "score": 8,
                 "line_start": 19,
                 "line_end": 19,
                 "routes": [
@@ -3053,102 +2659,37 @@
                 "why_matched": [
                   "lexical_token:know",
                   "lexical_token:tower",
-                  "route_token:captain",
-                  "route_token:elderwyld",
-                  "route_token:ironveil",
                   "route_token:know",
-                  "route_token:longmont",
-                  "route_token:lysandra",
-                  "route_token:npc",
                   "route_token:tower"
                 ]
               },
               {
-                "unit_id": "u-L0019-11",
-                "score": 25,
+                "unit_id": "u-L0019-10",
+                "score": 7,
                 "line_start": 19,
                 "line_end": 19,
                 "routes": [
-                  "Elderwyld/Migrating Forest/",
                   "Elderwyld/Unknown Sites/Voices Tower/",
-                  "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/",
-                  "Longmont Campaign/Campaign 2/Parties/questionable_company/"
-                ],
-                "why_matched": [
-                  "lexical_token:lysandra",
-                  "route_token:captain",
-                  "route_token:elderwyld",
-                  "route_token:ironveil",
-                  "route_token:know",
-                  "route_token:longmont",
-                  "route_token:lysandra",
-                  "route_token:npc",
-                  "route_token:tower"
-                ]
-              },
-              {
-                "unit_id": "u-L0019-12",
-                "score": 24,
-                "line_start": 19,
-                "line_end": 19,
-                "routes": [
-                  "Elderwyld/Migrating Forest/",
-                  "Elderwyld/Unknown Sites/Voices Tower/",
-                  "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/",
-                  "Longmont Campaign/Campaign 2/Parties/questionable_company/"
-                ],
-                "why_matched": [
-                  "route_token:captain",
-                  "route_token:elderwyld",
-                  "route_token:ironveil",
-                  "route_token:know",
-                  "route_token:longmont",
-                  "route_token:lysandra",
-                  "route_token:npc",
-                  "route_token:tower"
-                ]
-              },
-              {
-                "unit_id": "u-L0019-13",
-                "score": 24,
-                "line_start": 19,
-                "line_end": 19,
-                "routes": [
-                  "Elderwyld/Migrating Forest/",
-                  "Elderwyld/Unknown Sites/Voices Tower/",
-                  "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/",
-                  "Longmont Campaign/Campaign 2/Parties/questionable_company/"
-                ],
-                "why_matched": [
-                  "route_token:captain",
-                  "route_token:elderwyld",
-                  "route_token:ironveil",
-                  "route_token:know",
-                  "route_token:longmont",
-                  "route_token:lysandra",
-                  "route_token:npc",
-                  "route_token:tower"
-                ]
-              },
-              {
-                "unit_id": "u-L0017-03",
-                "score": 19,
-                "line_start": 17,
-                "line_end": 17,
-                "routes": [
-                  "Elderwyld/Migrating Forest/",
-                  "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/",
-                  "Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/",
                   "Longmont Campaign/Campaign 2/PCs/caelynn/"
                 ],
                 "why_matched": [
-                  "lexical_token:lysandra",
-                  "route_token:captain",
-                  "route_token:elderwyld",
-                  "route_token:ironveil",
-                  "route_token:longmont",
-                  "route_token:lysandra",
-                  "route_token:npc"
+                  "lexical_token:tower",
+                  "route_token:know",
+                  "route_token:tower"
+                ]
+              },
+              {
+                "unit_id": "u-L0019-09",
+                "score": 6,
+                "line_start": 19,
+                "line_end": 19,
+                "routes": [
+                  "Elderwyld/Unknown Sites/Voices Tower/",
+                  "Longmont Campaign/Campaign 2/PCs/caelynn/"
+                ],
+                "why_matched": [
+                  "route_token:know",
+                  "route_token:tower"
                 ]
               }
             ]
@@ -3156,45 +2697,12 @@
           "delta": {
             "verdict": "unchanged_pass",
             "support_ratio_delta": 0.0,
-            "tokens_added_by_equivalences": [
-              "captain",
-              "dustwalker",
-              "elderwyld",
-              "ironveil",
-              "jove",
-              "longmont",
-              "lysandra",
-              "npc",
-              "route",
-              "torbin"
-            ],
+            "tokens_added_by_equivalences": [],
             "tokens_removed_by_equivalences": [],
-            "topk_units_swapped_in": [
-              "u-L0017-03",
-              "u-L0019-11",
-              "u-L0019-12",
-              "u-L0019-13"
-            ],
-            "topk_units_swapped_out": [
-              "meta-session-0020-locations",
-              "meta-session-0020-open-loops",
-              "u-L0019-09",
-              "u-L0019-10"
-            ],
-            "full_units_swapped_in": [
-              "u-L0017-03",
-              "u-L0017-04",
-              "u-L0017-06",
-              "u-L0017-07",
-              "u-L0019-01"
-            ],
-            "full_units_swapped_out": [
-              "meta-session-0020-locations",
-              "u-L0007-06",
-              "u-L0021-01",
-              "u-L0021-02",
-              "u-L0021-03"
-            ],
+            "topk_units_swapped_in": [],
+            "topk_units_swapped_out": [],
+            "full_units_swapped_in": [],
+            "full_units_swapped_out": [],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
           },
@@ -3341,15 +2849,14 @@
             "violations": [
               "missing_expected_unit_id_hit"
             ],
-            "context_support_ratio": 0.75,
+            "context_support_ratio": 1.0,
             "context_must_hits": [
               "forest",
               "lysandra",
-              "meat"
-            ],
-            "context_must_hits_missing": [
+              "meat",
               "storm"
             ],
+            "context_must_hits_missing": [],
             "semantic_verdict": "",
             "expected_route_substring_breakdown": [
               {
@@ -3366,184 +2873,106 @@
               }
             ],
             "hit_count": 18,
-            "ranking_augmented_by_equivalences": true,
+            "ranking_augmented_by_equivalences": false,
             "top_hits": [
               {
-                "unit_id": "u-L0017-07",
-                "score": 23,
-                "line_start": 17,
-                "line_end": 17,
+                "unit_id": "meta-session-0020-locations",
+                "score": 4,
+                "line_start": 0,
+                "line_end": 0,
+                "routes": [
+                  "Elderwyld/Cities and Towns/Mirathorn/",
+                  "Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/",
+                  "Elderwyld/Cities and Towns/Mossford/",
+                  "Elderwyld/Cities and Towns/Mossford/Mossford_Location_Dossiers/Half-Burned Warehouse.md",
+                  "Elderwyld/Migrating Forest/",
+                  "Elderwyld/Unknown Sites/Voices Tower/"
+                ],
+                "why_matched": [
+                  "lexical_token:forest",
+                  "route_token:forest"
+                ]
+              },
+              {
+                "unit_id": "u-L0003-01",
+                "score": 4,
+                "line_start": 3,
+                "line_end": 3,
                 "routes": [
                   "Elderwyld/Migrating Forest/",
-                  "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/",
+                  "Longmont Campaign/Campaign 2/NPCs/thrin_branchborn/",
                   "Longmont Campaign/Campaign 2/PCs/caelynn/",
-                  "Longmont Campaign/Campaign 2/Parties/questionable_company/"
+                  "Longmont Campaign/Campaign 2/PCs/ephanna/",
+                  "Longmont Campaign/Campaign 2/PCs/karsemine/"
                 ],
                 "why_matched": [
                   "lexical_token:forest",
-                  "lexical_token:lysandra",
-                  "route_token:captain",
-                  "route_token:elderwyld",
-                  "route_token:forest",
-                  "route_token:ironveil",
-                  "route_token:longmont",
-                  "route_token:lysandra",
-                  "route_token:npc"
+                  "route_token:forest"
                 ]
               },
               {
-                "unit_id": "u-L0017-03",
-                "score": 22,
-                "line_start": 17,
-                "line_end": 17,
+                "unit_id": "u-L0005-06",
+                "score": 4,
+                "line_start": 5,
+                "line_end": 5,
                 "routes": [
                   "Elderwyld/Migrating Forest/",
-                  "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/",
-                  "Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/",
-                  "Longmont Campaign/Campaign 2/PCs/caelynn/"
-                ],
-                "why_matched": [
-                  "lexical_token:lysandra",
-                  "route_token:captain",
-                  "route_token:elderwyld",
-                  "route_token:forest",
-                  "route_token:ironveil",
-                  "route_token:longmont",
-                  "route_token:lysandra",
-                  "route_token:npc"
-                ]
-              },
-              {
-                "unit_id": "u-L0017-04",
-                "score": 22,
-                "line_start": 17,
-                "line_end": 17,
-                "routes": [
-                  "Elderwyld/Migrating Forest/",
-                  "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/",
-                  "Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/",
+                  "Longmont Campaign/Campaign 2/NPCs/thrin_branchborn/",
                   "Longmont Campaign/Campaign 2/PCs/caelynn/"
                 ],
                 "why_matched": [
                   "lexical_token:forest",
-                  "route_token:captain",
-                  "route_token:elderwyld",
-                  "route_token:forest",
-                  "route_token:ironveil",
-                  "route_token:longmont",
-                  "route_token:lysandra",
-                  "route_token:npc"
+                  "route_token:forest"
                 ]
               },
               {
-                "unit_id": "u-L0019-11",
-                "score": 22,
-                "line_start": 19,
-                "line_end": 19,
+                "unit_id": "u-L0011-02",
+                "score": 4,
+                "line_start": 11,
+                "line_end": 11,
                 "routes": [
                   "Elderwyld/Migrating Forest/",
-                  "Elderwyld/Unknown Sites/Voices Tower/",
-                  "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/",
-                  "Longmont Campaign/Campaign 2/Parties/questionable_company/"
-                ],
-                "why_matched": [
-                  "lexical_token:lysandra",
-                  "route_token:captain",
-                  "route_token:elderwyld",
-                  "route_token:forest",
-                  "route_token:ironveil",
-                  "route_token:longmont",
-                  "route_token:lysandra",
-                  "route_token:npc"
-                ]
-              },
-              {
-                "unit_id": "u-L0019-13",
-                "score": 22,
-                "line_start": 19,
-                "line_end": 19,
-                "routes": [
-                  "Elderwyld/Migrating Forest/",
-                  "Elderwyld/Unknown Sites/Voices Tower/",
-                  "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/",
-                  "Longmont Campaign/Campaign 2/Parties/questionable_company/"
+                  "Longmont Campaign/Campaign 2/PCs/caelynn/",
+                  "Longmont Campaign/Campaign 2/PCs/ephanna/",
+                  "Longmont Campaign/Campaign 2/PCs/karsemine/"
                 ],
                 "why_matched": [
                   "lexical_token:forest",
-                  "route_token:captain",
-                  "route_token:elderwyld",
-                  "route_token:forest",
-                  "route_token:ironveil",
-                  "route_token:longmont",
-                  "route_token:lysandra",
-                  "route_token:npc"
+                  "route_token:forest"
+                ]
+              },
+              {
+                "unit_id": "u-L0013-08",
+                "score": 4,
+                "line_start": 13,
+                "line_end": 13,
+                "routes": [
+                  "Elderwyld/Migrating Forest/",
+                  "Longmont Campaign/Campaign 2/PCs/caelynn/"
+                ],
+                "why_matched": [
+                  "lexical_token:forest",
+                  "route_token:forest"
                 ]
               }
             ]
           },
           "delta": {
             "verdict": "unchanged_fail",
-            "support_ratio_delta": -0.25,
-            "tokens_added_by_equivalences": [
-              "captain",
-              "dustwalker",
-              "elderwyld",
-              "ironveil",
-              "jove",
-              "longmont",
-              "lysandra",
-              "npc",
-              "route",
-              "torbin"
-            ],
+            "support_ratio_delta": 0.0,
+            "tokens_added_by_equivalences": [],
             "tokens_removed_by_equivalences": [],
-            "topk_units_swapped_in": [
-              "u-L0017-03",
-              "u-L0017-04",
-              "u-L0017-07",
-              "u-L0019-11",
-              "u-L0019-13"
-            ],
-            "topk_units_swapped_out": [
-              "meta-session-0020-locations",
-              "u-L0003-01",
-              "u-L0005-06",
-              "u-L0011-02",
-              "u-L0013-08"
-            ],
-            "full_units_swapped_in": [
-              "u-L0019-03",
-              "u-L0019-04",
-              "u-L0019-05",
-              "u-L0019-06",
-              "u-L0019-07",
-              "u-L0019-08",
-              "u-L0019-09",
-              "u-L0019-10",
-              "u-L0019-11",
-              "u-L0019-12",
-              "u-L0019-13"
-            ],
-            "full_units_swapped_out": [
-              "meta-session-0020-locations",
-              "u-L0003-01",
-              "u-L0005-06",
-              "u-L0011-02",
-              "u-L0013-08",
-              "u-L0015-01",
-              "u-L0015-02",
-              "u-L0017-01",
-              "u-L0017-02",
-              "u-L0017-05",
-              "u-L0017-09"
-            ],
+            "topk_units_swapped_in": [],
+            "topk_units_swapped_out": [],
+            "full_units_swapped_in": [],
+            "full_units_swapped_out": [],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
           },
           "failure_diagnostic": {
-            "bucket": "ranking_regression",
+            "bucket": "gold_or_rubric_gap",
             "reasons": [
-              "equivalence_lost_required_must_hits"
+              "no_deterministic_failure_explanation_found"
             ],
             "baseline_missing_route_substrings": [],
             "with_equivalence_missing_route_substrings": []
@@ -3664,20 +3093,16 @@
           "with_equivalence": {
             "ok": false,
             "violations": [
-              "context_support_below_threshold",
-              "missing_expected_route_hit",
-              "missing_expected_unit_id_hit",
-              "semantic_verdict:fail_incomplete"
+              "missing_expected_unit_id_hit"
             ],
-            "context_support_ratio": 0.5,
+            "context_support_ratio": 1.0,
             "context_must_hits": [
+              "storm",
               "supplies",
+              "tealeaf",
               "tower"
             ],
-            "context_must_hits_missing": [
-              "tealeaf",
-              "storm"
-            ],
+            "context_must_hits_missing": [],
             "semantic_verdict": "",
             "expected_route_substring_breakdown": [
               {
@@ -3686,196 +3111,101 @@
               },
               {
                 "substring": "Stormspire Academy",
-                "matched": false
+                "matched": true
               }
             ],
-            "hit_count": 18,
-            "ranking_augmented_by_equivalences": true,
+            "hit_count": 17,
+            "ranking_augmented_by_equivalences": false,
             "top_hits": [
               {
-                "unit_id": "u-L0017-03",
-                "score": 19,
-                "line_start": 17,
-                "line_end": 17,
+                "unit_id": "meta-session-0020-open-loops",
+                "score": 2,
+                "line_start": 0,
+                "line_end": 0,
+                "routes": [
+                  "Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/NPCs/professor_merril_tealeaf/",
+                  "Elderwyld/Cities and Towns/Mossford/Mossford_Location_Dossiers/Half-Burned Warehouse.md",
+                  "Elderwyld/Unknown Sites/Voices Tower/"
+                ],
+                "why_matched": [
+                  "lexical_token:loops",
+                  "lexical_token:open"
+                ]
+              },
+              {
+                "unit_id": "u-L0003-01",
+                "score": 0,
+                "line_start": 3,
+                "line_end": 3,
                 "routes": [
                   "Elderwyld/Migrating Forest/",
-                  "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/",
-                  "Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/",
+                  "Longmont Campaign/Campaign 2/NPCs/thrin_branchborn/",
+                  "Longmont Campaign/Campaign 2/PCs/caelynn/",
+                  "Longmont Campaign/Campaign 2/PCs/ephanna/",
+                  "Longmont Campaign/Campaign 2/PCs/karsemine/"
+                ],
+                "why_matched": [
+                  "expanded_adjacent:u-L0003-01"
+                ]
+              },
+              {
+                "unit_id": "u-L0003-02",
+                "score": 0,
+                "line_start": 3,
+                "line_end": 3,
+                "routes": [
+                  "Longmont Campaign/Campaign 2/NPCs/thrin_branchborn/"
+                ],
+                "why_matched": [
+                  "expanded_adjacent:u-L0003-02"
+                ]
+              },
+              {
+                "unit_id": "u-L0003-03",
+                "score": 0,
+                "line_start": 3,
+                "line_end": 3,
+                "routes": [
+                  "Longmont Campaign/Campaign 2/NPCs/thrin_branchborn/",
                   "Longmont Campaign/Campaign 2/PCs/caelynn/"
                 ],
                 "why_matched": [
-                  "lexical_token:lysandra",
-                  "route_token:captain",
-                  "route_token:elderwyld",
-                  "route_token:ironveil",
-                  "route_token:longmont",
-                  "route_token:lysandra",
-                  "route_token:npc"
+                  "expanded_adjacent:u-L0003-03"
                 ]
               },
               {
-                "unit_id": "u-L0017-07",
-                "score": 19,
-                "line_start": 17,
-                "line_end": 17,
+                "unit_id": "u-L0003-04",
+                "score": 0,
+                "line_start": 3,
+                "line_end": 3,
                 "routes": [
-                  "Elderwyld/Migrating Forest/",
-                  "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/",
-                  "Longmont Campaign/Campaign 2/PCs/caelynn/",
-                  "Longmont Campaign/Campaign 2/Parties/questionable_company/"
-                ],
-                "why_matched": [
-                  "lexical_token:lysandra",
-                  "route_token:captain",
-                  "route_token:elderwyld",
-                  "route_token:ironveil",
-                  "route_token:longmont",
-                  "route_token:lysandra",
-                  "route_token:npc"
-                ]
-              },
-              {
-                "unit_id": "u-L0019-11",
-                "score": 19,
-                "line_start": 19,
-                "line_end": 19,
-                "routes": [
-                  "Elderwyld/Migrating Forest/",
-                  "Elderwyld/Unknown Sites/Voices Tower/",
-                  "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/",
-                  "Longmont Campaign/Campaign 2/Parties/questionable_company/"
-                ],
-                "why_matched": [
-                  "lexical_token:lysandra",
-                  "route_token:captain",
-                  "route_token:elderwyld",
-                  "route_token:ironveil",
-                  "route_token:longmont",
-                  "route_token:lysandra",
-                  "route_token:npc"
-                ]
-              },
-              {
-                "unit_id": "u-L0017-04",
-                "score": 18,
-                "line_start": 17,
-                "line_end": 17,
-                "routes": [
-                  "Elderwyld/Migrating Forest/",
-                  "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/",
-                  "Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/",
                   "Longmont Campaign/Campaign 2/PCs/caelynn/"
                 ],
                 "why_matched": [
-                  "route_token:captain",
-                  "route_token:elderwyld",
-                  "route_token:ironveil",
-                  "route_token:longmont",
-                  "route_token:lysandra",
-                  "route_token:npc"
-                ]
-              },
-              {
-                "unit_id": "u-L0017-06",
-                "score": 18,
-                "line_start": 17,
-                "line_end": 17,
-                "routes": [
-                  "Elderwyld/Migrating Forest/",
-                  "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/",
-                  "Longmont Campaign/Campaign 2/PCs/caelynn/",
-                  "Longmont Campaign/Campaign 2/Parties/questionable_company/"
-                ],
-                "why_matched": [
-                  "route_token:captain",
-                  "route_token:elderwyld",
-                  "route_token:ironveil",
-                  "route_token:longmont",
-                  "route_token:lysandra",
-                  "route_token:npc"
+                  "expanded_adjacent:u-L0003-04"
                 ]
               }
             ]
           },
           "delta": {
             "verdict": "unchanged_fail",
-            "support_ratio_delta": -0.5,
-            "tokens_added_by_equivalences": [
-              "captain",
-              "dustwalker",
-              "elderwyld",
-              "ironveil",
-              "jove",
-              "longmont",
-              "lysandra",
-              "npc",
-              "route",
-              "torbin"
-            ],
+            "support_ratio_delta": 0.0,
+            "tokens_added_by_equivalences": [],
             "tokens_removed_by_equivalences": [],
-            "topk_units_swapped_in": [
-              "u-L0017-03",
-              "u-L0017-04",
-              "u-L0017-06",
-              "u-L0017-07",
-              "u-L0019-11"
-            ],
-            "topk_units_swapped_out": [
-              "meta-session-0020-open-loops",
-              "u-L0003-01",
-              "u-L0003-02",
-              "u-L0003-03",
-              "u-L0003-04"
-            ],
-            "full_units_swapped_in": [
-              "u-L0017-03",
-              "u-L0017-04",
-              "u-L0017-06",
-              "u-L0017-07",
-              "u-L0017-08",
-              "u-L0019-01",
-              "u-L0019-02",
-              "u-L0019-03",
-              "u-L0019-04",
-              "u-L0019-05",
-              "u-L0019-07",
-              "u-L0019-08",
-              "u-L0019-11",
-              "u-L0019-12",
-              "u-L0019-13"
-            ],
-            "full_units_swapped_out": [
-              "meta-session-0020-locations",
-              "meta-session-0020-open-loops",
-              "u-L0003-01",
-              "u-L0003-02",
-              "u-L0003-03",
-              "u-L0003-04",
-              "u-L0007-01",
-              "u-L0007-03",
-              "u-L0011-01",
-              "u-L0013-03",
-              "u-L0017-02",
-              "u-L0021-03",
-              "u-L0021-09",
-              "u-L0023-01"
-            ],
-            "substrings_flipped_lost": [
-              "Stormspire Academy"
-            ],
+            "topk_units_swapped_in": [],
+            "topk_units_swapped_out": [],
+            "full_units_swapped_in": [],
+            "full_units_swapped_out": [],
+            "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
           },
           "failure_diagnostic": {
-            "bucket": "ranking_regression",
+            "bucket": "gold_or_rubric_gap",
             "reasons": [
-              "equivalence_lost_context_support_ratio",
-              "equivalence_lost_required_must_hits",
-              "equivalence_lost_route_substrings"
+              "no_deterministic_failure_explanation_found"
             ],
             "baseline_missing_route_substrings": [],
-            "with_equivalence_missing_route_substrings": [
-              "Stormspire Academy"
-            ]
+            "with_equivalence_missing_route_substrings": []
           }
         }
       ]

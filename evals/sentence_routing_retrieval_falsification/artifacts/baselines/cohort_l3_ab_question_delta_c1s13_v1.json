@@ -5,17 +5,17 @@
   "baseline_schema": "dmb_breadcrumb_query_cohort_summary_v2",
   "question_count": 25,
   "summary": {
-    "regressed": 4,
-    "improved": 2,
-    "unchanged_pass": 12,
-    "unchanged_fail": 7
+    "regressed": 0,
+    "improved": 0,
+    "unchanged_pass": 16,
+    "unchanged_fail": 9
   },
   "failure_diagnostic_summary": {
-    "passed": 12,
-    "equivalence_helped": 2,
-    "ranking_regression": 8,
-    "missing_lexical_handle": 0,
-    "retriever_support_gap": 3,
+    "passed": 16,
+    "equivalence_helped": 0,
+    "ranking_regression": 0,
+    "missing_lexical_handle": 2,
+    "retriever_support_gap": 7,
     "gold_or_rubric_gap": 0
   },
   "scenarios": [
@@ -23,7 +23,7 @@
       "scenario_id": "c1s13",
       "question_count": 25,
       "baseline_pass_count": 16,
-      "with_equivalence_pass_count": 14,
+      "with_equivalence_pass_count": 16,
       "questions": [
         {
           "question_id": "wolf_head_why_academy",
@@ -186,11 +186,11 @@
               }
             ],
             "hit_count": 18,
-            "ranking_augmented_by_equivalences": true,
+            "ranking_augmented_by_equivalences": false,
             "top_hits": [
               {
                 "unit_id": "u-L0003-01",
-                "score": 19,
+                "score": 13,
                 "line_start": 3,
                 "line_end": 3,
                 "routes": [
@@ -203,35 +203,30 @@
                   "lexical_token:take",
                   "lexical_token:wolf",
                   "route_token:academy",
-                  "route_token:longmont",
-                  "route_token:npc",
                   "route_token:stormspire",
                   "route_token:wolf"
                 ]
               },
               {
-                "unit_id": "u-L0011-01",
-                "score": 15,
-                "line_start": 11,
-                "line_end": 11,
+                "unit_id": "meta-session-0013-locations",
+                "score": 8,
+                "line_start": 0,
+                "line_end": 0,
                 "routes": [
-                  "Longmont Campaign/Campaign 1/NPCs/necromancer/",
-                  "Longmont Campaign/Campaign 1/NPCs/torbin/",
-                  "Longmont Campaign/Campaign 1/NPCs/wolf/"
+                  "Longmont Campaign/Campaign 1/Locations/basement_morgue/",
+                  "Longmont Campaign/Campaign 1/Locations/council_chambers/",
+                  "Longmont Campaign/Campaign 1/Locations/stormspire_academy/"
                 ],
                 "why_matched": [
-                  "lexical_token:head",
-                  "lexical_token:torbin",
-                  "lexical_token:wolf",
-                  "route_token:longmont",
-                  "route_token:npc",
-                  "route_token:torbin",
-                  "route_token:wolf"
+                  "lexical_token:academy",
+                  "lexical_token:stormspire",
+                  "route_token:academy",
+                  "route_token:stormspire"
                 ]
               },
               {
                 "unit_id": "u-L0003-04",
-                "score": 14,
+                "score": 8,
                 "line_start": 3,
                 "line_end": 3,
                 "routes": [
@@ -244,33 +239,12 @@
                   "lexical_token:head",
                   "lexical_token:take",
                   "lexical_token:wolf",
-                  "route_token:longmont",
-                  "route_token:npc",
                   "route_token:wolf"
                 ]
               },
               {
-                "unit_id": "meta-session-0013-locations",
-                "score": 12,
-                "line_start": 0,
-                "line_end": 0,
-                "routes": [
-                  "Longmont Campaign/Campaign 1/Locations/basement_morgue/",
-                  "Longmont Campaign/Campaign 1/Locations/council_chambers/",
-                  "Longmont Campaign/Campaign 1/Locations/stormspire_academy/"
-                ],
-                "why_matched": [
-                  "lexical_token:academy",
-                  "lexical_token:longmont",
-                  "lexical_token:stormspire",
-                  "route_token:academy",
-                  "route_token:longmont",
-                  "route_token:stormspire"
-                ]
-              },
-              {
                 "unit_id": "u-L0007-01",
-                "score": 11,
+                "score": 8,
                 "line_start": 7,
                 "line_end": 7,
                 "routes": [
@@ -280,8 +254,22 @@
                   "lexical_token:academy",
                   "lexical_token:stormspire",
                   "route_token:academy",
-                  "route_token:longmont",
                   "route_token:stormspire"
+                ]
+              },
+              {
+                "unit_id": "u-L0007-05",
+                "score": 5,
+                "line_start": 7,
+                "line_end": 7,
+                "routes": [
+                  "Longmont Campaign/Campaign 1/NPCs/professor_cinderbranch/",
+                  "Longmont Campaign/Campaign 1/NPCs/wolf/"
+                ],
+                "why_matched": [
+                  "lexical_token:head",
+                  "lexical_token:wolf",
+                  "route_token:wolf"
                 ]
               }
             ]
@@ -289,31 +277,12 @@
           "delta": {
             "verdict": "unchanged_pass",
             "support_ratio_delta": 0.0,
-            "tokens_added_by_equivalences": [
-              "captain",
-              "dustwalker",
-              "elderwyld",
-              "ironveil",
-              "jove",
-              "longmont",
-              "lysandra",
-              "npc",
-              "route",
-              "torbin"
-            ],
+            "tokens_added_by_equivalences": [],
             "tokens_removed_by_equivalences": [],
-            "topk_units_swapped_in": [
-              "u-L0011-01"
-            ],
-            "topk_units_swapped_out": [
-              "u-L0007-05"
-            ],
-            "full_units_swapped_in": [
-              "u-L0009-02"
-            ],
-            "full_units_swapped_out": [
-              "u-L0007-04"
-            ],
+            "topk_units_swapped_in": [],
+            "topk_units_swapped_out": [],
+            "full_units_swapped_in": [],
+            "full_units_swapped_out": [],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
           },
@@ -466,11 +435,11 @@
               }
             ],
             "hit_count": 18,
-            "ranking_augmented_by_equivalences": true,
+            "ranking_augmented_by_equivalences": false,
             "top_hits": [
               {
                 "unit_id": "u-L0003-02",
-                "score": 14,
+                "score": 11,
                 "line_start": 3,
                 "line_end": 3,
                 "routes": [
@@ -483,13 +452,12 @@
                   "lexical_token:outside",
                   "lexical_token:stopped",
                   "route_token:chambers",
-                  "route_token:council",
-                  "route_token:longmont"
+                  "route_token:council"
                 ]
               },
               {
                 "unit_id": "meta-session-0013-locations",
-                "score": 13,
+                "score": 9,
                 "line_start": 0,
                 "line_end": 0,
                 "routes": [
@@ -500,51 +468,14 @@
                 "why_matched": [
                   "lexical_token:chambers",
                   "lexical_token:council",
-                  "lexical_token:longmont",
                   "lexical_token:outside",
                   "route_token:chambers",
-                  "route_token:council",
-                  "route_token:longmont"
-                ]
-              },
-              {
-                "unit_id": "u-L0009-02",
-                "score": 11,
-                "line_start": 9,
-                "line_end": 9,
-                "routes": [
-                  "Longmont Campaign/Campaign 1/NPCs/professor_tealeaf/",
-                  "Longmont Campaign/Campaign 1/NPCs/torbin/"
-                ],
-                "why_matched": [
-                  "lexical_token:group",
-                  "lexical_token:torbin",
-                  "route_token:longmont",
-                  "route_token:npc",
-                  "route_token:torbin"
-                ]
-              },
-              {
-                "unit_id": "u-L0011-01",
-                "score": 11,
-                "line_start": 11,
-                "line_end": 11,
-                "routes": [
-                  "Longmont Campaign/Campaign 1/NPCs/necromancer/",
-                  "Longmont Campaign/Campaign 1/NPCs/torbin/",
-                  "Longmont Campaign/Campaign 1/NPCs/wolf/"
-                ],
-                "why_matched": [
-                  "lexical_token:group",
-                  "lexical_token:torbin",
-                  "route_token:longmont",
-                  "route_token:npc",
-                  "route_token:torbin"
+                  "route_token:council"
                 ]
               },
               {
                 "unit_id": "u-L0003-03",
-                "score": 10,
+                "score": 4,
                 "line_start": 3,
                 "line_end": 3,
                 "routes": [
@@ -552,9 +483,33 @@
                 ],
                 "why_matched": [
                   "lexical_token:thalia",
-                  "route_token:longmont",
-                  "route_token:npc",
                   "route_token:thalia"
+                ]
+              },
+              {
+                "unit_id": "u-L0017-01",
+                "score": 2,
+                "line_start": 17,
+                "line_end": 17,
+                "routes": [
+                  "Longmont Campaign/Campaign 1/PCs/caelynn/"
+                ],
+                "why_matched": [
+                  "lexical_token:group",
+                  "lexical_token:outside"
+                ]
+              },
+              {
+                "unit_id": "u-L0003-01",
+                "score": 1,
+                "line_start": 3,
+                "line_end": 3,
+                "routes": [
+                  "Longmont Campaign/Campaign 1/Locations/stormspire_academy/",
+                  "Longmont Campaign/Campaign 1/NPCs/wolf/"
+                ],
+                "why_matched": [
+                  "lexical_token:group"
                 ]
               }
             ]
@@ -562,53 +517,12 @@
           "delta": {
             "verdict": "unchanged_pass",
             "support_ratio_delta": 0.0,
-            "tokens_added_by_equivalences": [
-              "captain",
-              "dustwalker",
-              "elderwyld",
-              "ironveil",
-              "jove",
-              "longmont",
-              "lysandra",
-              "npc",
-              "route",
-              "torbin"
-            ],
+            "tokens_added_by_equivalences": [],
             "tokens_removed_by_equivalences": [],
-            "topk_units_swapped_in": [
-              "u-L0009-02",
-              "u-L0011-01"
-            ],
-            "topk_units_swapped_out": [
-              "u-L0003-01",
-              "u-L0017-01"
-            ],
-            "full_units_swapped_in": [
-              "u-L0007-03",
-              "u-L0007-04",
-              "u-L0007-05",
-              "u-L0009-01",
-              "u-L0009-02",
-              "u-L0011-01",
-              "u-L0011-02",
-              "u-L0011-03",
-              "u-L0013-01",
-              "u-L0013-02",
-              "u-L0015-01"
-            ],
-            "full_units_swapped_out": [
-              "u-L0003-01",
-              "u-L0005-02",
-              "u-L0005-03",
-              "u-L0005-04",
-              "u-L0007-01",
-              "u-L0015-05",
-              "u-L0017-01",
-              "u-L0017-02",
-              "u-L0017-03",
-              "u-L0017-04",
-              "u-L0019-01"
-            ],
+            "topk_units_swapped_in": [],
+            "topk_units_swapped_out": [],
+            "full_units_swapped_in": [],
+            "full_units_swapped_out": [],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
           },
@@ -730,20 +644,17 @@
             ]
           },
           "with_equivalence": {
-            "ok": false,
-            "violations": [
-              "semantic_verdict:fail_incomplete"
-            ],
-            "context_support_ratio": 0.6,
+            "ok": true,
+            "violations": [],
+            "context_support_ratio": 1.0,
             "context_must_hits": [
               "Baergrom",
               "Bonogo",
+              "burned",
+              "covert ops",
               "meat"
             ],
-            "context_must_hits_missing": [
-              "covert ops",
-              "burned"
-            ],
+            "context_must_hits_missing": [],
             "semantic_verdict": "",
             "expected_route_substring_breakdown": [
               {
@@ -756,173 +667,90 @@
               }
             ],
             "hit_count": 18,
-            "ranking_augmented_by_equivalences": true,
+            "ranking_augmented_by_equivalences": false,
             "top_hits": [
               {
-                "unit_id": "u-L0009-02",
-                "score": 11,
-                "line_start": 9,
-                "line_end": 9,
+                "unit_id": "u-L0005-02",
+                "score": 3,
+                "line_start": 5,
+                "line_end": 5,
                 "routes": [
-                  "Longmont Campaign/Campaign 1/NPCs/professor_tealeaf/",
-                  "Longmont Campaign/Campaign 1/NPCs/torbin/"
+                  "Longmont Campaign/Campaign 1/PCs/baergrom/",
+                  "Longmont Campaign/Campaign 1/PCs/bonogo/"
                 ],
                 "why_matched": [
+                  "lexical_token:covert",
                   "lexical_token:group",
-                  "lexical_token:torbin",
-                  "route_token:longmont",
-                  "route_token:npc",
-                  "route_token:torbin"
+                  "lexical_token:ops"
                 ]
               },
               {
-                "unit_id": "u-L0011-01",
-                "score": 11,
-                "line_start": 11,
-                "line_end": 11,
+                "unit_id": "u-L0003-01",
+                "score": 1,
+                "line_start": 3,
+                "line_end": 3,
                 "routes": [
-                  "Longmont Campaign/Campaign 1/NPCs/necromancer/",
-                  "Longmont Campaign/Campaign 1/NPCs/torbin/",
+                  "Longmont Campaign/Campaign 1/Locations/stormspire_academy/",
                   "Longmont Campaign/Campaign 1/NPCs/wolf/"
                 ],
                 "why_matched": [
-                  "lexical_token:group",
-                  "lexical_token:torbin",
-                  "route_token:longmont",
-                  "route_token:npc",
-                  "route_token:torbin"
+                  "lexical_token:group"
                 ]
               },
               {
-                "unit_id": "u-L0011-02",
-                "score": 10,
-                "line_start": 11,
-                "line_end": 11,
+                "unit_id": "u-L0005-01",
+                "score": 1,
+                "line_start": 5,
+                "line_end": 5,
                 "routes": [
-                  "Longmont Campaign/Campaign 1/NPCs/necromancer/",
-                  "Longmont Campaign/Campaign 1/NPCs/torbin/",
                   "Longmont Campaign/Campaign 1/PCs/baergrom/",
-                  "Longmont Campaign/Campaign 1/PCs/bonogo/",
-                  "Longmont Campaign/Campaign 1/PCs/caelynn/",
-                  "Longmont Campaign/Campaign 1/PCs/ephanna/",
-                  "Longmont Campaign/Campaign 1/PCs/karsemine/",
-                  "Longmont Campaign/Campaign 1/PCs/stafl/"
+                  "Longmont Campaign/Campaign 1/PCs/bonogo/"
                 ],
                 "why_matched": [
-                  "lexical_token:group",
-                  "route_token:longmont",
-                  "route_token:npc",
-                  "route_token:torbin"
+                  "lexical_token:street"
                 ]
               },
               {
-                "unit_id": "u-L0011-03",
-                "score": 10,
-                "line_start": 11,
-                "line_end": 11,
+                "unit_id": "u-L0005-03",
+                "score": 1,
+                "line_start": 5,
+                "line_end": 5,
                 "routes": [
-                  "Longmont Campaign/Campaign 1/NPCs/necromancer/",
-                  "Longmont Campaign/Campaign 1/NPCs/torbin/",
                   "Longmont Campaign/Campaign 1/PCs/baergrom/",
-                  "Longmont Campaign/Campaign 1/PCs/bonogo/",
-                  "Longmont Campaign/Campaign 1/PCs/caelynn/",
-                  "Longmont Campaign/Campaign 1/PCs/ephanna/",
-                  "Longmont Campaign/Campaign 1/PCs/karsemine/",
-                  "Longmont Campaign/Campaign 1/PCs/stafl/"
+                  "Longmont Campaign/Campaign 1/PCs/bonogo/"
                 ],
                 "why_matched": [
-                  "lexical_token:torbin",
-                  "route_token:longmont",
-                  "route_token:npc",
-                  "route_token:torbin"
+                  "lexical_token:street"
                 ]
               },
               {
-                "unit_id": "u-L0013-01",
-                "score": 10,
-                "line_start": 13,
-                "line_end": 13,
-                "routes": [
-                  "Longmont Campaign/Campaign 1/NPCs/professor_tealeaf/",
-                  "Longmont Campaign/Campaign 1/NPCs/torbin/",
-                  "Longmont Campaign/Campaign 1/PCs/baergrom/",
-                  "Longmont Campaign/Campaign 1/PCs/ephanna/"
-                ],
+                "unit_id": "u-L0005-04",
+                "score": 1,
+                "line_start": 5,
+                "line_end": 5,
+                "routes": [],
                 "why_matched": [
-                  "lexical_token:torbin",
-                  "route_token:longmont",
-                  "route_token:npc",
-                  "route_token:torbin"
+                  "lexical_token:group"
                 ]
               }
             ]
           },
           "delta": {
-            "verdict": "regressed",
-            "support_ratio_delta": -0.4,
-            "tokens_added_by_equivalences": [
-              "captain",
-              "dustwalker",
-              "elderwyld",
-              "ironveil",
-              "jove",
-              "longmont",
-              "lysandra",
-              "npc",
-              "route",
-              "torbin"
-            ],
+            "verdict": "unchanged_pass",
+            "support_ratio_delta": 0.0,
+            "tokens_added_by_equivalences": [],
             "tokens_removed_by_equivalences": [],
-            "topk_units_swapped_in": [
-              "u-L0009-02",
-              "u-L0011-01",
-              "u-L0011-02",
-              "u-L0011-03",
-              "u-L0013-01"
-            ],
-            "topk_units_swapped_out": [
-              "u-L0003-01",
-              "u-L0005-01",
-              "u-L0005-02",
-              "u-L0005-03",
-              "u-L0005-04"
-            ],
-            "full_units_swapped_in": [
-              "u-L0013-01",
-              "u-L0013-02",
-              "u-L0015-01",
-              "u-L0015-02",
-              "u-L0015-03",
-              "u-L0017-01",
-              "u-L0017-02",
-              "u-L0017-03",
-              "u-L0017-04",
-              "u-L0019-01",
-              "u-L0019-02",
-              "u-L0019-03"
-            ],
-            "full_units_swapped_out": [
-              "u-L0003-02",
-              "u-L0003-03",
-              "u-L0003-04",
-              "u-L0005-01",
-              "u-L0005-02",
-              "u-L0005-03",
-              "u-L0005-04",
-              "u-L0007-01",
-              "u-L0007-02",
-              "u-L0007-04",
-              "u-L0007-05",
-              "u-L0009-01"
-            ],
+            "topk_units_swapped_in": [],
+            "topk_units_swapped_out": [],
+            "full_units_swapped_in": [],
+            "full_units_swapped_out": [],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
           },
           "failure_diagnostic": {
-            "bucket": "ranking_regression",
+            "bucket": "passed",
             "reasons": [
-              "equivalence_lost_required_must_hits",
-              "verdict_regressed"
+              "both_modes_pass"
             ],
             "baseline_missing_route_substrings": [],
             "with_equivalence_missing_route_substrings": []
@@ -1044,16 +872,20 @@
             ]
           },
           "with_equivalence": {
-            "ok": true,
-            "violations": [],
-            "context_support_ratio": 1.0,
+            "ok": false,
+            "violations": [
+              "context_support_below_threshold",
+              "semantic_verdict:fail_incomplete"
+            ],
+            "context_support_ratio": 0.25,
             "context_must_hits": [
-              "Stormspire Academy",
+              "Stormspire Academy"
+            ],
+            "context_must_hits_missing": [
               "potions",
               "runes",
               "wards"
             ],
-            "context_must_hits_missing": [],
             "semantic_verdict": "",
             "expected_route_substring_breakdown": [
               {
@@ -1062,11 +894,11 @@
               }
             ],
             "hit_count": 18,
-            "ranking_augmented_by_equivalences": true,
+            "ranking_augmented_by_equivalences": false,
             "top_hits": [
               {
                 "unit_id": "u-L0003-01",
-                "score": 15,
+                "score": 9,
                 "line_start": 3,
                 "line_end": 3,
                 "routes": [
@@ -1078,33 +910,12 @@
                   "lexical_token:group",
                   "lexical_token:stormspire",
                   "route_token:academy",
-                  "route_token:longmont",
-                  "route_token:npc",
-                  "route_token:stormspire"
-                ]
-              },
-              {
-                "unit_id": "meta-session-0013-locations",
-                "score": 12,
-                "line_start": 0,
-                "line_end": 0,
-                "routes": [
-                  "Longmont Campaign/Campaign 1/Locations/basement_morgue/",
-                  "Longmont Campaign/Campaign 1/Locations/council_chambers/",
-                  "Longmont Campaign/Campaign 1/Locations/stormspire_academy/"
-                ],
-                "why_matched": [
-                  "lexical_token:academy",
-                  "lexical_token:longmont",
-                  "lexical_token:stormspire",
-                  "route_token:academy",
-                  "route_token:longmont",
                   "route_token:stormspire"
                 ]
               },
               {
                 "unit_id": "u-L0007-01",
-                "score": 12,
+                "score": 9,
                 "line_start": 7,
                 "line_end": 7,
                 "routes": [
@@ -1115,100 +926,69 @@
                   "lexical_token:group",
                   "lexical_token:stormspire",
                   "route_token:academy",
-                  "route_token:longmont",
                   "route_token:stormspire"
                 ]
               },
               {
-                "unit_id": "u-L0009-02",
-                "score": 11,
-                "line_start": 9,
-                "line_end": 9,
+                "unit_id": "meta-session-0013-locations",
+                "score": 8,
+                "line_start": 0,
+                "line_end": 0,
                 "routes": [
-                  "Longmont Campaign/Campaign 1/NPCs/professor_tealeaf/",
-                  "Longmont Campaign/Campaign 1/NPCs/torbin/"
+                  "Longmont Campaign/Campaign 1/Locations/basement_morgue/",
+                  "Longmont Campaign/Campaign 1/Locations/council_chambers/",
+                  "Longmont Campaign/Campaign 1/Locations/stormspire_academy/"
                 ],
                 "why_matched": [
-                  "lexical_token:group",
-                  "lexical_token:torbin",
-                  "route_token:longmont",
-                  "route_token:npc",
-                  "route_token:torbin"
+                  "lexical_token:academy",
+                  "lexical_token:stormspire",
+                  "route_token:academy",
+                  "route_token:stormspire"
                 ]
               },
               {
-                "unit_id": "u-L0011-01",
-                "score": 11,
-                "line_start": 11,
-                "line_end": 11,
+                "unit_id": "u-L0005-04",
+                "score": 2,
+                "line_start": 5,
+                "line_end": 5,
+                "routes": [],
+                "why_matched": [
+                  "lexical_token:academy",
+                  "lexical_token:group"
+                ]
+              },
+              {
+                "unit_id": "u-L0017-01",
+                "score": 2,
+                "line_start": 17,
+                "line_end": 17,
                 "routes": [
-                  "Longmont Campaign/Campaign 1/NPCs/necromancer/",
-                  "Longmont Campaign/Campaign 1/NPCs/torbin/",
-                  "Longmont Campaign/Campaign 1/NPCs/wolf/"
+                  "Longmont Campaign/Campaign 1/PCs/caelynn/"
                 ],
                 "why_matched": [
-                  "lexical_token:group",
-                  "lexical_token:torbin",
-                  "route_token:longmont",
-                  "route_token:npc",
-                  "route_token:torbin"
+                  "lexical_token:academy",
+                  "lexical_token:group"
                 ]
               }
             ]
           },
           "delta": {
-            "verdict": "improved",
-            "support_ratio_delta": 0.75,
-            "tokens_added_by_equivalences": [
-              "captain",
-              "dustwalker",
-              "elderwyld",
-              "ironveil",
-              "jove",
-              "longmont",
-              "lysandra",
-              "npc",
-              "route",
-              "torbin"
-            ],
+            "verdict": "unchanged_fail",
+            "support_ratio_delta": 0.0,
+            "tokens_added_by_equivalences": [],
             "tokens_removed_by_equivalences": [],
-            "topk_units_swapped_in": [
-              "u-L0009-02",
-              "u-L0011-01"
-            ],
-            "topk_units_swapped_out": [
-              "u-L0005-04",
-              "u-L0017-01"
-            ],
-            "full_units_swapped_in": [
-              "u-L0007-02",
-              "u-L0007-04",
-              "u-L0009-01",
-              "u-L0009-02",
-              "u-L0011-02",
-              "u-L0011-03",
-              "u-L0013-01",
-              "u-L0013-02",
-              "u-L0015-01"
-            ],
-            "full_units_swapped_out": [
-              "u-L0003-04",
-              "u-L0005-02",
-              "u-L0005-04",
-              "u-L0015-05",
-              "u-L0017-01",
-              "u-L0017-02",
-              "u-L0017-03",
-              "u-L0017-04",
-              "u-L0019-01"
-            ],
+            "topk_units_swapped_in": [],
+            "topk_units_swapped_out": [],
+            "full_units_swapped_in": [],
+            "full_units_swapped_out": [],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
           },
           "failure_diagnostic": {
-            "bucket": "equivalence_helped",
+            "bucket": "retriever_support_gap",
             "reasons": [
-              "equivalence_mode_passed"
+              "equivalence_context_support_ratio_below_minimum",
+              "equivalence_missing_required_must_hits"
             ],
             "baseline_missing_route_substrings": [],
             "with_equivalence_missing_route_substrings": []
@@ -1362,11 +1142,11 @@
               }
             ],
             "hit_count": 18,
-            "ranking_augmented_by_equivalences": true,
+            "ranking_augmented_by_equivalences": false,
             "top_hits": [
               {
                 "unit_id": "u-L0009-01",
-                "score": 12,
+                "score": 6,
                 "line_start": 9,
                 "line_end": 9,
                 "routes": [
@@ -1377,31 +1157,12 @@
                   "lexical_token:before",
                   "lexical_token:mossglade",
                   "lexical_token:tell",
-                  "route_token:longmont",
-                  "route_token:mossglade",
-                  "route_token:npc"
-                ]
-              },
-              {
-                "unit_id": "u-L0009-02",
-                "score": 11,
-                "line_start": 9,
-                "line_end": 9,
-                "routes": [
-                  "Longmont Campaign/Campaign 1/NPCs/professor_tealeaf/",
-                  "Longmont Campaign/Campaign 1/NPCs/torbin/"
-                ],
-                "why_matched": [
-                  "lexical_token:tell",
-                  "lexical_token:torbin",
-                  "route_token:longmont",
-                  "route_token:npc",
-                  "route_token:torbin"
+                  "route_token:mossglade"
                 ]
               },
               {
                 "unit_id": "u-L0007-03",
-                "score": 10,
+                "score": 4,
                 "line_start": 7,
                 "line_end": 7,
                 "routes": [
@@ -1409,48 +1170,49 @@
                 ],
                 "why_matched": [
                   "lexical_token:mossglade",
-                  "route_token:longmont",
-                  "route_token:mossglade",
-                  "route_token:npc"
+                  "route_token:mossglade"
                 ]
               },
               {
-                "unit_id": "u-L0011-01",
-                "score": 10,
-                "line_start": 11,
-                "line_end": 11,
+                "unit_id": "u-L0007-02",
+                "score": 3,
+                "line_start": 7,
+                "line_end": 7,
                 "routes": [
-                  "Longmont Campaign/Campaign 1/NPCs/necromancer/",
-                  "Longmont Campaign/Campaign 1/NPCs/torbin/",
-                  "Longmont Campaign/Campaign 1/NPCs/wolf/"
+                  "Longmont Campaign/Campaign 1/NPCs/mossglade/"
                 ],
                 "why_matched": [
-                  "lexical_token:torbin",
-                  "route_token:longmont",
-                  "route_token:npc",
-                  "route_token:torbin"
+                  "route_token:mossglade"
                 ]
               },
               {
-                "unit_id": "u-L0011-02",
-                "score": 10,
-                "line_start": 11,
-                "line_end": 11,
+                "unit_id": "u-L0017-02",
+                "score": 3,
+                "line_start": 17,
+                "line_end": 17,
                 "routes": [
                   "Longmont Campaign/Campaign 1/NPCs/necromancer/",
-                  "Longmont Campaign/Campaign 1/NPCs/torbin/",
                   "Longmont Campaign/Campaign 1/PCs/baergrom/",
                   "Longmont Campaign/Campaign 1/PCs/bonogo/",
                   "Longmont Campaign/Campaign 1/PCs/caelynn/",
-                  "Longmont Campaign/Campaign 1/PCs/ephanna/",
                   "Longmont Campaign/Campaign 1/PCs/karsemine/",
                   "Longmont Campaign/Campaign 1/PCs/stafl/"
                 ],
                 "why_matched": [
                   "lexical_token:split",
-                  "route_token:longmont",
-                  "route_token:npc",
-                  "route_token:torbin"
+                  "lexical_token:things",
+                  "lexical_token:two"
+                ]
+              },
+              {
+                "unit_id": "u-L0039-02",
+                "score": 2,
+                "line_start": 39,
+                "line_end": 39,
+                "routes": [],
+                "why_matched": [
+                  "lexical_token:before",
+                  "lexical_token:party"
                 ]
               }
             ]
@@ -1458,57 +1220,12 @@
           "delta": {
             "verdict": "unchanged_pass",
             "support_ratio_delta": 0.0,
-            "tokens_added_by_equivalences": [
-              "captain",
-              "dustwalker",
-              "elderwyld",
-              "ironveil",
-              "jove",
-              "longmont",
-              "lysandra",
-              "npc",
-              "route",
-              "torbin"
-            ],
+            "tokens_added_by_equivalences": [],
             "tokens_removed_by_equivalences": [],
-            "topk_units_swapped_in": [
-              "u-L0009-02",
-              "u-L0011-01",
-              "u-L0011-02"
-            ],
-            "topk_units_swapped_out": [
-              "u-L0007-02",
-              "u-L0017-02",
-              "u-L0039-02"
-            ],
-            "full_units_swapped_in": [
-              "u-L0011-01",
-              "u-L0011-03",
-              "u-L0013-01",
-              "u-L0013-02",
-              "u-L0015-01",
-              "u-L0015-02",
-              "u-L0015-03",
-              "u-L0017-01",
-              "u-L0017-03",
-              "u-L0017-04",
-              "u-L0019-02",
-              "u-L0019-03"
-            ],
-            "full_units_swapped_out": [
-              "u-L0005-02",
-              "u-L0007-02",
-              "u-L0021-01",
-              "u-L0021-02",
-              "u-L0023-01",
-              "u-L0023-02",
-              "u-L0025-01",
-              "u-L0035-04",
-              "u-L0037-01",
-              "u-L0037-02",
-              "u-L0039-01",
-              "u-L0039-02"
-            ],
+            "topk_units_swapped_in": [],
+            "topk_units_swapped_out": [],
+            "full_units_swapped_in": [],
+            "full_units_swapped_out": [],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
           },
@@ -1739,7 +1456,7 @@
             "top_hits": [
               {
                 "unit_id": "u-L0011-01",
-                "score": 16,
+                "score": 10,
                 "line_start": 11,
                 "line_end": 11,
                 "routes": [
@@ -1752,15 +1469,13 @@
                   "lexical_token:first",
                   "lexical_token:necromancer",
                   "lexical_token:torbin",
-                  "route_token:longmont",
                   "route_token:necromancer",
-                  "route_token:npc",
                   "route_token:torbin"
                 ]
               },
               {
                 "unit_id": "u-L0011-03",
-                "score": 15,
+                "score": 9,
                 "line_start": 11,
                 "line_end": 11,
                 "routes": [
@@ -1777,15 +1492,13 @@
                   "lexical_token:check",
                   "lexical_token:necromancer",
                   "lexical_token:torbin",
-                  "route_token:longmont",
                   "route_token:necromancer",
-                  "route_token:npc",
                   "route_token:torbin"
                 ]
               },
               {
                 "unit_id": "u-L0011-02",
-                "score": 13,
+                "score": 7,
                 "line_start": 11,
                 "line_end": 11,
                 "routes": [
@@ -1800,15 +1513,28 @@
                 ],
                 "why_matched": [
                   "lexical_token:split",
-                  "route_token:longmont",
                   "route_token:necromancer",
-                  "route_token:npc",
                   "route_token:torbin"
                 ]
               },
               {
+                "unit_id": "meta-session-0013-locations",
+                "score": 4,
+                "line_start": 0,
+                "line_end": 0,
+                "routes": [
+                  "Longmont Campaign/Campaign 1/Locations/basement_morgue/",
+                  "Longmont Campaign/Campaign 1/Locations/council_chambers/",
+                  "Longmont Campaign/Campaign 1/Locations/stormspire_academy/"
+                ],
+                "why_matched": [
+                  "lexical_token:academy",
+                  "route_token:academy"
+                ]
+              },
+              {
                 "unit_id": "u-L0003-01",
-                "score": 10,
+                "score": 4,
                 "line_start": 3,
                 "line_end": 3,
                 "routes": [
@@ -1817,25 +1543,7 @@
                 ],
                 "why_matched": [
                   "lexical_token:academy",
-                  "route_token:academy",
-                  "route_token:longmont",
-                  "route_token:npc"
-                ]
-              },
-              {
-                "unit_id": "u-L0009-02",
-                "score": 10,
-                "line_start": 9,
-                "line_end": 9,
-                "routes": [
-                  "Longmont Campaign/Campaign 1/NPCs/professor_tealeaf/",
-                  "Longmont Campaign/Campaign 1/NPCs/torbin/"
-                ],
-                "why_matched": [
-                  "lexical_token:torbin",
-                  "route_token:longmont",
-                  "route_token:npc",
-                  "route_token:torbin"
+                  "route_token:academy"
                 ]
               }
             ]
@@ -1844,41 +1552,13 @@
             "verdict": "unchanged_pass",
             "support_ratio_delta": 0.0,
             "tokens_added_by_equivalences": [
-              "captain",
-              "dustwalker",
-              "elderwyld",
-              "ironveil",
-              "jove",
-              "longmont",
-              "lysandra",
-              "npc",
-              "route"
+              "jove"
             ],
             "tokens_removed_by_equivalences": [],
-            "topk_units_swapped_in": [
-              "u-L0009-02"
-            ],
-            "topk_units_swapped_out": [
-              "meta-session-0013-locations"
-            ],
-            "full_units_swapped_in": [
-              "u-L0015-05",
-              "u-L0017-01",
-              "u-L0017-02",
-              "u-L0017-03",
-              "u-L0017-04",
-              "u-L0019-01",
-              "u-L0019-02"
-            ],
-            "full_units_swapped_out": [
-              "meta-session-0013-locations",
-              "u-L0007-01",
-              "u-L0007-02",
-              "u-L0007-03",
-              "u-L0007-04",
-              "u-L0007-05",
-              "u-L0009-01"
-            ],
+            "topk_units_swapped_in": [],
+            "topk_units_swapped_out": [],
+            "full_units_swapped_in": [],
+            "full_units_swapped_out": [],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
           },
@@ -2080,7 +1760,7 @@
             "top_hits": [
               {
                 "unit_id": "u-L0013-01",
-                "score": 22,
+                "score": 16,
                 "line_start": 13,
                 "line_end": 13,
                 "routes": [
@@ -2096,15 +1776,13 @@
                   "lexical_token:torbin",
                   "route_token:baergrom",
                   "route_token:ephanna",
-                  "route_token:longmont",
-                  "route_token:npc",
                   "route_token:tealeaf",
                   "route_token:torbin"
                 ]
               },
               {
                 "unit_id": "u-L0011-03",
-                "score": 18,
+                "score": 12,
                 "line_start": 11,
                 "line_end": 11,
                 "routes": [
@@ -2123,14 +1801,12 @@
                   "lexical_token:torbin",
                   "route_token:baergrom",
                   "route_token:ephanna",
-                  "route_token:longmont",
-                  "route_token:npc",
                   "route_token:torbin"
                 ]
               },
               {
                 "unit_id": "u-L0011-02",
-                "score": 15,
+                "score": 9,
                 "line_start": 11,
                 "line_end": 11,
                 "routes": [
@@ -2146,14 +1822,12 @@
                 "why_matched": [
                   "route_token:baergrom",
                   "route_token:ephanna",
-                  "route_token:longmont",
-                  "route_token:npc",
                   "route_token:torbin"
                 ]
               },
               {
                 "unit_id": "u-L0009-02",
-                "score": 14,
+                "score": 8,
                 "line_start": 9,
                 "line_end": 9,
                 "routes": [
@@ -2163,15 +1837,13 @@
                 "why_matched": [
                   "lexical_token:tealeaf",
                   "lexical_token:torbin",
-                  "route_token:longmont",
-                  "route_token:npc",
                   "route_token:tealeaf",
                   "route_token:torbin"
                 ]
               },
               {
                 "unit_id": "u-L0013-02",
-                "score": 14,
+                "score": 8,
                 "line_start": 13,
                 "line_end": 13,
                 "routes": [
@@ -2181,8 +1853,6 @@
                 "why_matched": [
                   "lexical_token:tealeaf",
                   "lexical_token:torbin",
-                  "route_token:longmont",
-                  "route_token:npc",
                   "route_token:tealeaf",
                   "route_token:torbin"
                 ]
@@ -2193,25 +1863,13 @@
             "verdict": "unchanged_pass",
             "support_ratio_delta": 0.0,
             "tokens_added_by_equivalences": [
-              "captain",
-              "dustwalker",
-              "elderwyld",
-              "ironveil",
-              "jove",
-              "longmont",
-              "lysandra",
-              "npc",
-              "route"
+              "jove"
             ],
             "tokens_removed_by_equivalences": [],
             "topk_units_swapped_in": [],
             "topk_units_swapped_out": [],
-            "full_units_swapped_in": [
-              "u-L0015-05"
-            ],
-            "full_units_swapped_out": [
-              "u-L0005-03"
-            ],
+            "full_units_swapped_in": [],
+            "full_units_swapped_out": [],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
           },
@@ -2334,15 +1992,14 @@
           "with_equivalence": {
             "ok": true,
             "violations": [],
-            "context_support_ratio": 0.75,
+            "context_support_ratio": 1.0,
             "context_must_hits": [
               "Caelynn",
               "magical short rest",
+              "mother's pan flute",
               "study room"
             ],
-            "context_must_hits_missing": [
-              "mother's pan flute"
-            ],
+            "context_must_hits_missing": [],
             "semantic_verdict": "",
             "expected_route_substring_breakdown": [
               {
@@ -2351,150 +2008,89 @@
               }
             ],
             "hit_count": 18,
-            "ranking_augmented_by_equivalences": true,
+            "ranking_augmented_by_equivalences": false,
             "top_hits": [
               {
-                "unit_id": "u-L0013-02",
-                "score": 11,
-                "line_start": 13,
-                "line_end": 13,
+                "unit_id": "u-L0015-04",
+                "score": 5,
+                "line_start": 15,
+                "line_end": 15,
                 "routes": [
-                  "Longmont Campaign/Campaign 1/NPCs/professor_tealeaf/",
-                  "Longmont Campaign/Campaign 1/NPCs/torbin/"
+                  "Longmont Campaign/Campaign 1/PCs/caelynn/"
                 ],
                 "why_matched": [
+                  "lexical_token:magical",
+                  "lexical_token:rest",
                   "lexical_token:room",
-                  "lexical_token:torbin",
-                  "route_token:longmont",
-                  "route_token:npc",
-                  "route_token:torbin"
+                  "lexical_token:short",
+                  "lexical_token:study"
                 ]
               },
               {
-                "unit_id": "u-L0009-02",
-                "score": 10,
+                "unit_id": "u-L0009-01",
+                "score": 3,
                 "line_start": 9,
                 "line_end": 9,
                 "routes": [
-                  "Longmont Campaign/Campaign 1/NPCs/professor_tealeaf/",
-                  "Longmont Campaign/Campaign 1/NPCs/torbin/"
+                  "Longmont Campaign/Campaign 1/NPCs/mossglade/",
+                  "Longmont Campaign/Campaign 1/NPCs/professor_cinderbranch/"
                 ],
                 "why_matched": [
-                  "lexical_token:torbin",
-                  "route_token:longmont",
-                  "route_token:npc",
-                  "route_token:torbin"
+                  "lexical_token:rest",
+                  "lexical_token:room",
+                  "lexical_token:study"
                 ]
               },
               {
-                "unit_id": "u-L0011-01",
-                "score": 10,
-                "line_start": 11,
-                "line_end": 11,
+                "unit_id": "u-L0015-05",
+                "score": 2,
+                "line_start": 15,
+                "line_end": 15,
                 "routes": [
-                  "Longmont Campaign/Campaign 1/NPCs/necromancer/",
-                  "Longmont Campaign/Campaign 1/NPCs/torbin/",
+                  "Longmont Campaign/Campaign 1/PCs/caelynn/"
+                ],
+                "why_matched": [
+                  "lexical_token:rest",
+                  "lexical_token:short"
+                ]
+              },
+              {
+                "unit_id": "u-L0039-01",
+                "score": 2,
+                "line_start": 39,
+                "line_end": 39,
+                "routes": [
+                  "Longmont Campaign/Campaign 1/NPCs/professor_cinderbranch/"
+                ],
+                "why_matched": [
+                  "lexical_token:happened",
+                  "lexical_token:room"
+                ]
+              },
+              {
+                "unit_id": "u-L0007-05",
+                "score": 1,
+                "line_start": 7,
+                "line_end": 7,
+                "routes": [
+                  "Longmont Campaign/Campaign 1/NPCs/professor_cinderbranch/",
                   "Longmont Campaign/Campaign 1/NPCs/wolf/"
                 ],
                 "why_matched": [
-                  "lexical_token:torbin",
-                  "route_token:longmont",
-                  "route_token:npc",
-                  "route_token:torbin"
-                ]
-              },
-              {
-                "unit_id": "u-L0011-03",
-                "score": 10,
-                "line_start": 11,
-                "line_end": 11,
-                "routes": [
-                  "Longmont Campaign/Campaign 1/NPCs/necromancer/",
-                  "Longmont Campaign/Campaign 1/NPCs/torbin/",
-                  "Longmont Campaign/Campaign 1/PCs/baergrom/",
-                  "Longmont Campaign/Campaign 1/PCs/bonogo/",
-                  "Longmont Campaign/Campaign 1/PCs/caelynn/",
-                  "Longmont Campaign/Campaign 1/PCs/ephanna/",
-                  "Longmont Campaign/Campaign 1/PCs/karsemine/",
-                  "Longmont Campaign/Campaign 1/PCs/stafl/"
-                ],
-                "why_matched": [
-                  "lexical_token:torbin",
-                  "route_token:longmont",
-                  "route_token:npc",
-                  "route_token:torbin"
-                ]
-              },
-              {
-                "unit_id": "u-L0013-01",
-                "score": 10,
-                "line_start": 13,
-                "line_end": 13,
-                "routes": [
-                  "Longmont Campaign/Campaign 1/NPCs/professor_tealeaf/",
-                  "Longmont Campaign/Campaign 1/NPCs/torbin/",
-                  "Longmont Campaign/Campaign 1/PCs/baergrom/",
-                  "Longmont Campaign/Campaign 1/PCs/ephanna/"
-                ],
-                "why_matched": [
-                  "lexical_token:torbin",
-                  "route_token:longmont",
-                  "route_token:npc",
-                  "route_token:torbin"
+                  "lexical_token:rest"
                 ]
               }
             ]
           },
           "delta": {
             "verdict": "unchanged_pass",
-            "support_ratio_delta": -0.25,
-            "tokens_added_by_equivalences": [
-              "captain",
-              "dustwalker",
-              "elderwyld",
-              "ironveil",
-              "jove",
-              "longmont",
-              "lysandra",
-              "npc",
-              "route",
-              "torbin"
-            ],
+            "support_ratio_delta": 0.0,
+            "tokens_added_by_equivalences": [],
             "tokens_removed_by_equivalences": [],
-            "topk_units_swapped_in": [
-              "u-L0009-02",
-              "u-L0011-01",
-              "u-L0011-03",
-              "u-L0013-01",
-              "u-L0013-02"
-            ],
-            "topk_units_swapped_out": [
-              "u-L0007-05",
-              "u-L0009-01",
-              "u-L0015-04",
-              "u-L0015-05",
-              "u-L0039-01"
-            ],
-            "full_units_swapped_in": [
-              "u-L0009-02",
-              "u-L0011-01",
-              "u-L0011-02",
-              "u-L0011-03",
-              "u-L0013-01",
-              "u-L0015-03",
-              "u-L0019-02",
-              "u-L0019-03"
-            ],
-            "full_units_swapped_out": [
-              "u-L0007-05",
-              "u-L0015-05",
-              "u-L0035-03",
-              "u-L0035-04",
-              "u-L0037-01",
-              "u-L0037-02",
-              "u-L0039-01",
-              "u-L0039-02"
-            ],
+            "topk_units_swapped_in": [],
+            "topk_units_swapped_out": [],
+            "full_units_swapped_in": [],
+            "full_units_swapped_out": [],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
           },
@@ -2717,44 +2313,68 @@
               }
             ],
             "hit_count": 18,
-            "ranking_augmented_by_equivalences": true,
+            "ranking_augmented_by_equivalences": false,
             "top_hits": [
               {
-                "unit_id": "u-L0009-02",
-                "score": 10,
-                "line_start": 9,
-                "line_end": 9,
+                "unit_id": "u-L0017-02",
+                "score": 2,
+                "line_start": 17,
+                "line_end": 17,
                 "routes": [
-                  "Longmont Campaign/Campaign 1/NPCs/professor_tealeaf/",
-                  "Longmont Campaign/Campaign 1/NPCs/torbin/"
+                  "Longmont Campaign/Campaign 1/NPCs/necromancer/",
+                  "Longmont Campaign/Campaign 1/PCs/baergrom/",
+                  "Longmont Campaign/Campaign 1/PCs/bonogo/",
+                  "Longmont Campaign/Campaign 1/PCs/caelynn/",
+                  "Longmont Campaign/Campaign 1/PCs/karsemine/",
+                  "Longmont Campaign/Campaign 1/PCs/stafl/"
                 ],
                 "why_matched": [
-                  "lexical_token:torbin",
-                  "route_token:longmont",
-                  "route_token:npc",
-                  "route_token:torbin"
+                  "lexical_token:again",
+                  "lexical_token:split"
                 ]
               },
               {
-                "unit_id": "u-L0011-01",
-                "score": 10,
-                "line_start": 11,
-                "line_end": 11,
+                "unit_id": "u-L0005-03",
+                "score": 1,
+                "line_start": 5,
+                "line_end": 5,
                 "routes": [
-                  "Longmont Campaign/Campaign 1/NPCs/necromancer/",
-                  "Longmont Campaign/Campaign 1/NPCs/torbin/",
+                  "Longmont Campaign/Campaign 1/PCs/baergrom/",
+                  "Longmont Campaign/Campaign 1/PCs/bonogo/"
+                ],
+                "why_matched": [
+                  "lexical_token:after"
+                ]
+              },
+              {
+                "unit_id": "u-L0007-05",
+                "score": 1,
+                "line_start": 7,
+                "line_end": 7,
+                "routes": [
+                  "Longmont Campaign/Campaign 1/NPCs/professor_cinderbranch/",
                   "Longmont Campaign/Campaign 1/NPCs/wolf/"
                 ],
                 "why_matched": [
-                  "lexical_token:torbin",
-                  "route_token:longmont",
-                  "route_token:npc",
-                  "route_token:torbin"
+                  "lexical_token:rest"
+                ]
+              },
+              {
+                "unit_id": "u-L0009-01",
+                "score": 1,
+                "line_start": 9,
+                "line_end": 9,
+                "routes": [
+                  "Longmont Campaign/Campaign 1/NPCs/mossglade/",
+                  "Longmont Campaign/Campaign 1/NPCs/professor_cinderbranch/"
+                ],
+                "why_matched": [
+                  "lexical_token:rest"
                 ]
               },
               {
                 "unit_id": "u-L0011-02",
-                "score": 10,
+                "score": 1,
                 "line_start": 11,
                 "line_end": 11,
                 "routes": [
@@ -2768,50 +2388,7 @@
                   "Longmont Campaign/Campaign 1/PCs/stafl/"
                 ],
                 "why_matched": [
-                  "lexical_token:split",
-                  "route_token:longmont",
-                  "route_token:npc",
-                  "route_token:torbin"
-                ]
-              },
-              {
-                "unit_id": "u-L0011-03",
-                "score": 10,
-                "line_start": 11,
-                "line_end": 11,
-                "routes": [
-                  "Longmont Campaign/Campaign 1/NPCs/necromancer/",
-                  "Longmont Campaign/Campaign 1/NPCs/torbin/",
-                  "Longmont Campaign/Campaign 1/PCs/baergrom/",
-                  "Longmont Campaign/Campaign 1/PCs/bonogo/",
-                  "Longmont Campaign/Campaign 1/PCs/caelynn/",
-                  "Longmont Campaign/Campaign 1/PCs/ephanna/",
-                  "Longmont Campaign/Campaign 1/PCs/karsemine/",
-                  "Longmont Campaign/Campaign 1/PCs/stafl/"
-                ],
-                "why_matched": [
-                  "lexical_token:torbin",
-                  "route_token:longmont",
-                  "route_token:npc",
-                  "route_token:torbin"
-                ]
-              },
-              {
-                "unit_id": "u-L0013-01",
-                "score": 10,
-                "line_start": 13,
-                "line_end": 13,
-                "routes": [
-                  "Longmont Campaign/Campaign 1/NPCs/professor_tealeaf/",
-                  "Longmont Campaign/Campaign 1/NPCs/torbin/",
-                  "Longmont Campaign/Campaign 1/PCs/baergrom/",
-                  "Longmont Campaign/Campaign 1/PCs/ephanna/"
-                ],
-                "why_matched": [
-                  "lexical_token:torbin",
-                  "route_token:longmont",
-                  "route_token:npc",
-                  "route_token:torbin"
+                  "lexical_token:split"
                 ]
               }
             ]
@@ -2819,41 +2396,12 @@
           "delta": {
             "verdict": "unchanged_pass",
             "support_ratio_delta": 0.0,
-            "tokens_added_by_equivalences": [
-              "captain",
-              "dustwalker",
-              "elderwyld",
-              "ironveil",
-              "jove",
-              "longmont",
-              "lysandra",
-              "npc",
-              "route",
-              "torbin"
-            ],
+            "tokens_added_by_equivalences": [],
             "tokens_removed_by_equivalences": [],
-            "topk_units_swapped_in": [
-              "u-L0009-02",
-              "u-L0011-01",
-              "u-L0011-03",
-              "u-L0013-01"
-            ],
-            "topk_units_swapped_out": [
-              "u-L0005-03",
-              "u-L0007-05",
-              "u-L0009-01",
-              "u-L0017-02"
-            ],
-            "full_units_swapped_in": [
-              "u-L0009-02",
-              "u-L0011-03",
-              "u-L0019-03"
-            ],
-            "full_units_swapped_out": [
-              "u-L0005-03",
-              "u-L0009-01",
-              "u-L0015-05"
-            ],
+            "topk_units_swapped_in": [],
+            "topk_units_swapped_out": [],
+            "full_units_swapped_in": [],
+            "full_units_swapped_out": [],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
           },
@@ -3019,18 +2567,16 @@
             ]
           },
           "with_equivalence": {
-            "ok": false,
-            "violations": [
-              "semantic_verdict:fail_incomplete"
-            ],
-            "context_support_ratio": 0.6,
+            "ok": true,
+            "violations": [],
+            "context_support_ratio": 0.8,
             "context_must_hits": [
+              "5 questions",
               "Necromancer",
               "Speak with Dead",
               "Stafl"
             ],
             "context_must_hits_missing": [
-              "5 questions",
               "4"
             ],
             "semantic_verdict": "",
@@ -3053,11 +2599,11 @@
               }
             ],
             "hit_count": 18,
-            "ranking_augmented_by_equivalences": true,
+            "ranking_augmented_by_equivalences": false,
             "top_hits": [
               {
                 "unit_id": "u-L0019-01",
-                "score": 19,
+                "score": 13,
                 "line_start": 19,
                 "line_end": 19,
                 "routes": [
@@ -3072,84 +2618,13 @@
                   "lexical_token:stafl",
                   "lexical_token:wolf",
                   "route_token:bonogo",
-                  "route_token:longmont",
-                  "route_token:npc",
                   "route_token:stafl",
                   "route_token:wolf"
-                ]
-              },
-              {
-                "unit_id": "u-L0011-03",
-                "score": 18,
-                "line_start": 11,
-                "line_end": 11,
-                "routes": [
-                  "Longmont Campaign/Campaign 1/NPCs/necromancer/",
-                  "Longmont Campaign/Campaign 1/NPCs/torbin/",
-                  "Longmont Campaign/Campaign 1/PCs/baergrom/",
-                  "Longmont Campaign/Campaign 1/PCs/bonogo/",
-                  "Longmont Campaign/Campaign 1/PCs/caelynn/",
-                  "Longmont Campaign/Campaign 1/PCs/ephanna/",
-                  "Longmont Campaign/Campaign 1/PCs/karsemine/",
-                  "Longmont Campaign/Campaign 1/PCs/stafl/"
-                ],
-                "why_matched": [
-                  "lexical_token:bonogo",
-                  "lexical_token:stafl",
-                  "lexical_token:torbin",
-                  "route_token:bonogo",
-                  "route_token:longmont",
-                  "route_token:npc",
-                  "route_token:stafl",
-                  "route_token:torbin"
-                ]
-              },
-              {
-                "unit_id": "u-L0011-01",
-                "score": 15,
-                "line_start": 11,
-                "line_end": 11,
-                "routes": [
-                  "Longmont Campaign/Campaign 1/NPCs/necromancer/",
-                  "Longmont Campaign/Campaign 1/NPCs/torbin/",
-                  "Longmont Campaign/Campaign 1/NPCs/wolf/"
-                ],
-                "why_matched": [
-                  "lexical_token:speak",
-                  "lexical_token:torbin",
-                  "lexical_token:wolf",
-                  "route_token:longmont",
-                  "route_token:npc",
-                  "route_token:torbin",
-                  "route_token:wolf"
-                ]
-              },
-              {
-                "unit_id": "u-L0011-02",
-                "score": 15,
-                "line_start": 11,
-                "line_end": 11,
-                "routes": [
-                  "Longmont Campaign/Campaign 1/NPCs/necromancer/",
-                  "Longmont Campaign/Campaign 1/NPCs/torbin/",
-                  "Longmont Campaign/Campaign 1/PCs/baergrom/",
-                  "Longmont Campaign/Campaign 1/PCs/bonogo/",
-                  "Longmont Campaign/Campaign 1/PCs/caelynn/",
-                  "Longmont Campaign/Campaign 1/PCs/ephanna/",
-                  "Longmont Campaign/Campaign 1/PCs/karsemine/",
-                  "Longmont Campaign/Campaign 1/PCs/stafl/"
-                ],
-                "why_matched": [
-                  "route_token:bonogo",
-                  "route_token:longmont",
-                  "route_token:npc",
-                  "route_token:stafl",
-                  "route_token:torbin"
                 ]
               },
               {
                 "unit_id": "u-L0017-03",
-                "score": 15,
+                "score": 9,
                 "line_start": 17,
                 "line_end": 17,
                 "routes": [
@@ -3165,52 +2640,82 @@
                   "lexical_token:ritual",
                   "lexical_token:stafl",
                   "route_token:bonogo",
-                  "route_token:longmont",
-                  "route_token:npc",
+                  "route_token:stafl"
+                ]
+              },
+              {
+                "unit_id": "u-L0003-04",
+                "score": 8,
+                "line_start": 3,
+                "line_end": 3,
+                "routes": [
+                  "Longmont Campaign/Campaign 1/NPCs/wolf/",
+                  "Longmont Campaign/Campaign 1/PCs/bonogo/"
+                ],
+                "why_matched": [
+                  "lexical_token:bonogo",
+                  "lexical_token:wolf",
+                  "route_token:bonogo",
+                  "route_token:wolf"
+                ]
+              },
+              {
+                "unit_id": "u-L0011-03",
+                "score": 8,
+                "line_start": 11,
+                "line_end": 11,
+                "routes": [
+                  "Longmont Campaign/Campaign 1/NPCs/necromancer/",
+                  "Longmont Campaign/Campaign 1/NPCs/torbin/",
+                  "Longmont Campaign/Campaign 1/PCs/baergrom/",
+                  "Longmont Campaign/Campaign 1/PCs/bonogo/",
+                  "Longmont Campaign/Campaign 1/PCs/caelynn/",
+                  "Longmont Campaign/Campaign 1/PCs/ephanna/",
+                  "Longmont Campaign/Campaign 1/PCs/karsemine/",
+                  "Longmont Campaign/Campaign 1/PCs/stafl/"
+                ],
+                "why_matched": [
+                  "lexical_token:bonogo",
+                  "lexical_token:stafl",
+                  "route_token:bonogo",
+                  "route_token:stafl"
+                ]
+              },
+              {
+                "unit_id": "u-L0033-01",
+                "score": 8,
+                "line_start": 33,
+                "line_end": 33,
+                "routes": [
+                  "Longmont Campaign/Campaign 1/NPCs/draven/",
+                  "Longmont Campaign/Campaign 1/PCs/bonogo/",
+                  "Longmont Campaign/Campaign 1/PCs/stafl/"
+                ],
+                "why_matched": [
+                  "lexical_token:bonogo",
+                  "lexical_token:stafl",
+                  "route_token:bonogo",
                   "route_token:stafl"
                 ]
               }
             ]
           },
           "delta": {
-            "verdict": "regressed",
-            "support_ratio_delta": -0.2,
-            "tokens_added_by_equivalences": [
-              "captain",
-              "dustwalker",
-              "elderwyld",
-              "ironveil",
-              "jove",
-              "longmont",
-              "lysandra",
-              "npc",
-              "route",
-              "torbin"
-            ],
+            "verdict": "unchanged_pass",
+            "support_ratio_delta": 0.0,
+            "tokens_added_by_equivalences": [],
             "tokens_removed_by_equivalences": [],
-            "topk_units_swapped_in": [
-              "u-L0011-01",
-              "u-L0011-02"
-            ],
-            "topk_units_swapped_out": [
-              "u-L0003-04",
-              "u-L0033-01"
-            ],
-            "full_units_swapped_in": [
-              "u-L0011-01",
-              "u-L0021-01"
-            ],
-            "full_units_swapped_out": [
-              "u-L0019-02",
-              "u-L0023-01"
-            ],
+            "topk_units_swapped_in": [],
+            "topk_units_swapped_out": [],
+            "full_units_swapped_in": [],
+            "full_units_swapped_out": [],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
           },
           "failure_diagnostic": {
-            "bucket": "ranking_regression",
+            "bucket": "passed",
             "reasons": [
-              "verdict_regressed"
+              "both_modes_pass"
             ],
             "baseline_missing_route_substrings": [],
             "with_equivalence_missing_route_substrings": []
@@ -3336,16 +2841,15 @@
           "with_equivalence": {
             "ok": false,
             "violations": [
-              "context_support_below_threshold",
               "semantic_verdict:fail_incomplete"
             ],
-            "context_support_ratio": 0.4,
+            "context_support_ratio": 0.6,
             "context_must_hits": [
               "Bonogo",
+              "Tell us what killed you",
               "Wolf"
             ],
             "context_must_hits_missing": [
-              "Tell us what killed you",
               "nods",
               "Draven"
             ],
@@ -3361,30 +2865,11 @@
               }
             ],
             "hit_count": 18,
-            "ranking_augmented_by_equivalences": true,
+            "ranking_augmented_by_equivalences": false,
             "top_hits": [
               {
-                "unit_id": "u-L0011-01",
-                "score": 14,
-                "line_start": 11,
-                "line_end": 11,
-                "routes": [
-                  "Longmont Campaign/Campaign 1/NPCs/necromancer/",
-                  "Longmont Campaign/Campaign 1/NPCs/torbin/",
-                  "Longmont Campaign/Campaign 1/NPCs/wolf/"
-                ],
-                "why_matched": [
-                  "lexical_token:torbin",
-                  "lexical_token:wolf",
-                  "route_token:longmont",
-                  "route_token:npc",
-                  "route_token:torbin",
-                  "route_token:wolf"
-                ]
-              },
-              {
                 "unit_id": "u-L0003-01",
-                "score": 10,
+                "score": 4,
                 "line_start": 3,
                 "line_end": 3,
                 "routes": [
@@ -3393,14 +2878,12 @@
                 ],
                 "why_matched": [
                   "lexical_token:wolf",
-                  "route_token:longmont",
-                  "route_token:npc",
                   "route_token:wolf"
                 ]
               },
               {
                 "unit_id": "u-L0003-04",
-                "score": 10,
+                "score": 4,
                 "line_start": 3,
                 "line_end": 3,
                 "routes": [
@@ -3409,14 +2892,12 @@
                 ],
                 "why_matched": [
                   "lexical_token:wolf",
-                  "route_token:longmont",
-                  "route_token:npc",
                   "route_token:wolf"
                 ]
               },
               {
                 "unit_id": "u-L0007-05",
-                "score": 10,
+                "score": 4,
                 "line_start": 7,
                 "line_end": 7,
                 "routes": [
@@ -3425,88 +2906,55 @@
                 ],
                 "why_matched": [
                   "lexical_token:wolf",
-                  "route_token:longmont",
-                  "route_token:npc",
                   "route_token:wolf"
                 ]
               },
               {
-                "unit_id": "u-L0009-02",
-                "score": 10,
-                "line_start": 9,
-                "line_end": 9,
+                "unit_id": "u-L0011-01",
+                "score": 4,
+                "line_start": 11,
+                "line_end": 11,
                 "routes": [
-                  "Longmont Campaign/Campaign 1/NPCs/professor_tealeaf/",
-                  "Longmont Campaign/Campaign 1/NPCs/torbin/"
+                  "Longmont Campaign/Campaign 1/NPCs/necromancer/",
+                  "Longmont Campaign/Campaign 1/NPCs/torbin/",
+                  "Longmont Campaign/Campaign 1/NPCs/wolf/"
                 ],
                 "why_matched": [
-                  "lexical_token:torbin",
-                  "route_token:longmont",
-                  "route_token:npc",
-                  "route_token:torbin"
+                  "lexical_token:wolf",
+                  "route_token:wolf"
+                ]
+              },
+              {
+                "unit_id": "u-L0015-02",
+                "score": 4,
+                "line_start": 15,
+                "line_end": 15,
+                "routes": [
+                  "Longmont Campaign/Campaign 1/NPCs/wolf/"
+                ],
+                "why_matched": [
+                  "lexical_token:wolf",
+                  "route_token:wolf"
                 ]
               }
             ]
           },
           "delta": {
             "verdict": "unchanged_fail",
-            "support_ratio_delta": -0.2,
-            "tokens_added_by_equivalences": [
-              "captain",
-              "dustwalker",
-              "elderwyld",
-              "ironveil",
-              "jove",
-              "longmont",
-              "lysandra",
-              "npc",
-              "route",
-              "torbin"
-            ],
+            "support_ratio_delta": 0.0,
+            "tokens_added_by_equivalences": [],
             "tokens_removed_by_equivalences": [],
-            "topk_units_swapped_in": [
-              "u-L0009-02"
-            ],
-            "topk_units_swapped_out": [
-              "u-L0015-02"
-            ],
-            "full_units_swapped_in": [
-              "u-L0007-01",
-              "u-L0007-02",
-              "u-L0009-01",
-              "u-L0009-02",
-              "u-L0011-02",
-              "u-L0011-03",
-              "u-L0013-01",
-              "u-L0013-02",
-              "u-L0015-01",
-              "u-L0015-03",
-              "u-L0015-04",
-              "u-L0015-05",
-              "u-L0017-01"
-            ],
-            "full_units_swapped_out": [
-              "u-L0007-04",
-              "u-L0019-01",
-              "u-L0021-01",
-              "u-L0025-01",
-              "u-L0025-02",
-              "u-L0027-01",
-              "u-L0027-02",
-              "u-L0027-03",
-              "u-L0029-01",
-              "u-L0029-02",
-              "u-L0029-03",
-              "u-L0029-04",
-              "u-L0029-05"
-            ],
+            "topk_units_swapped_in": [],
+            "topk_units_swapped_out": [],
+            "full_units_swapped_in": [],
+            "full_units_swapped_out": [],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
           },
           "failure_diagnostic": {
-            "bucket": "ranking_regression",
+            "bucket": "retriever_support_gap",
             "reasons": [
-              "equivalence_lost_context_support_ratio"
+              "equivalence_missing_required_must_hits"
             ],
             "baseline_missing_route_substrings": [],
             "with_equivalence_missing_route_substrings": []
@@ -3641,22 +3089,19 @@
             ]
           },
           "with_equivalence": {
-            "ok": false,
-            "violations": [
-              "semantic_verdict:fail_incomplete"
-            ],
-            "context_support_ratio": 0.7142857142857143,
+            "ok": true,
+            "violations": [],
+            "context_support_ratio": 1.0,
             "context_must_hits": [
               "Lira",
               "Shepherd",
+              "break of dawn",
               "everywhere",
               "finish the plot",
-              "minds"
-            ],
-            "context_must_hits_missing": [
-              "break of dawn",
+              "minds",
               "rises from below"
             ],
+            "context_must_hits_missing": [],
             "semantic_verdict": "",
             "expected_route_substring_breakdown": [
               {
@@ -3673,30 +3118,11 @@
               }
             ],
             "hit_count": 18,
-            "ranking_augmented_by_equivalences": true,
+            "ranking_augmented_by_equivalences": false,
             "top_hits": [
               {
-                "unit_id": "u-L0011-01",
-                "score": 14,
-                "line_start": 11,
-                "line_end": 11,
-                "routes": [
-                  "Longmont Campaign/Campaign 1/NPCs/necromancer/",
-                  "Longmont Campaign/Campaign 1/NPCs/torbin/",
-                  "Longmont Campaign/Campaign 1/NPCs/wolf/"
-                ],
-                "why_matched": [
-                  "lexical_token:torbin",
-                  "lexical_token:wolf",
-                  "route_token:longmont",
-                  "route_token:npc",
-                  "route_token:torbin",
-                  "route_token:wolf"
-                ]
-              },
-              {
                 "unit_id": "u-L0003-01",
-                "score": 11,
+                "score": 5,
                 "line_start": 3,
                 "line_end": 3,
                 "routes": [
@@ -3706,14 +3132,12 @@
                 "why_matched": [
                   "lexical_token:about",
                   "lexical_token:wolf",
-                  "route_token:longmont",
-                  "route_token:npc",
                   "route_token:wolf"
                 ]
               },
               {
                 "unit_id": "u-L0003-04",
-                "score": 11,
+                "score": 5,
                 "line_start": 3,
                 "line_end": 3,
                 "routes": [
@@ -3723,33 +3147,12 @@
                 "why_matched": [
                   "lexical_token:not",
                   "lexical_token:wolf",
-                  "route_token:longmont",
-                  "route_token:npc",
                   "route_token:wolf"
                 ]
               },
               {
-                "unit_id": "u-L0013-01",
-                "score": 11,
-                "line_start": 13,
-                "line_end": 13,
-                "routes": [
-                  "Longmont Campaign/Campaign 1/NPCs/professor_tealeaf/",
-                  "Longmont Campaign/Campaign 1/NPCs/torbin/",
-                  "Longmont Campaign/Campaign 1/PCs/baergrom/",
-                  "Longmont Campaign/Campaign 1/PCs/ephanna/"
-                ],
-                "why_matched": [
-                  "lexical_token:not",
-                  "lexical_token:torbin",
-                  "route_token:longmont",
-                  "route_token:npc",
-                  "route_token:torbin"
-                ]
-              },
-              {
                 "unit_id": "u-L0019-01",
-                "score": 11,
+                "score": 5,
                 "line_start": 19,
                 "line_end": 19,
                 "routes": [
@@ -3761,63 +3164,55 @@
                 "why_matched": [
                   "lexical_token:about",
                   "lexical_token:wolf",
-                  "route_token:longmont",
-                  "route_token:npc",
+                  "route_token:wolf"
+                ]
+              },
+              {
+                "unit_id": "u-L0025-02",
+                "score": 5,
+                "line_start": 25,
+                "line_end": 25,
+                "routes": [
+                  "Longmont Campaign/Campaign 1/NPCs/lira/"
+                ],
+                "why_matched": [
+                  "lexical_token:lira",
+                  "lexical_token:not",
+                  "route_token:lira"
+                ]
+              },
+              {
+                "unit_id": "u-L0007-05",
+                "score": 4,
+                "line_start": 7,
+                "line_end": 7,
+                "routes": [
+                  "Longmont Campaign/Campaign 1/NPCs/professor_cinderbranch/",
+                  "Longmont Campaign/Campaign 1/NPCs/wolf/"
+                ],
+                "why_matched": [
+                  "lexical_token:wolf",
                   "route_token:wolf"
                 ]
               }
             ]
           },
           "delta": {
-            "verdict": "regressed",
-            "support_ratio_delta": -0.2857,
-            "tokens_added_by_equivalences": [
-              "captain",
-              "dustwalker",
-              "elderwyld",
-              "ironveil",
-              "jove",
-              "longmont",
-              "lysandra",
-              "npc",
-              "route",
-              "torbin"
-            ],
+            "verdict": "unchanged_pass",
+            "support_ratio_delta": 0.0,
+            "tokens_added_by_equivalences": [],
             "tokens_removed_by_equivalences": [],
-            "topk_units_swapped_in": [
-              "u-L0011-01",
-              "u-L0013-01"
-            ],
-            "topk_units_swapped_out": [
-              "u-L0007-05",
-              "u-L0025-02"
-            ],
-            "full_units_swapped_in": [
-              "u-L0009-02",
-              "u-L0011-03",
-              "u-L0013-01",
-              "u-L0021-01",
-              "u-L0021-02",
-              "u-L0023-01",
-              "u-L0023-02"
-            ],
-            "full_units_swapped_out": [
-              "u-L0015-02",
-              "u-L0029-02",
-              "u-L0029-03",
-              "u-L0029-04",
-              "u-L0029-05",
-              "u-L0031-01",
-              "u-L0031-02"
-            ],
+            "topk_units_swapped_in": [],
+            "topk_units_swapped_out": [],
+            "full_units_swapped_in": [],
+            "full_units_swapped_out": [],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
           },
           "failure_diagnostic": {
-            "bucket": "ranking_regression",
+            "bucket": "passed",
             "reasons": [
-              "equivalence_lost_required_must_hits",
-              "verdict_regressed"
+              "both_modes_pass"
             ],
             "baseline_missing_route_substrings": [],
             "with_equivalence_missing_route_substrings": []
@@ -3965,11 +3360,11 @@
               }
             ],
             "hit_count": 18,
-            "ranking_augmented_by_equivalences": true,
+            "ranking_augmented_by_equivalences": false,
             "top_hits": [
               {
                 "unit_id": "u-L0031-01",
-                "score": 14,
+                "score": 8,
                 "line_start": 31,
                 "line_end": 31,
                 "routes": [
@@ -3980,14 +3375,12 @@
                   "lexical_token:cinderbranch",
                   "lexical_token:draven",
                   "route_token:cinderbranch",
-                  "route_token:draven",
-                  "route_token:longmont",
-                  "route_token:npc"
+                  "route_token:draven"
                 ]
               },
               {
                 "unit_id": "u-L0009-01",
-                "score": 11,
+                "score": 5,
                 "line_start": 9,
                 "line_end": 9,
                 "routes": [
@@ -3997,14 +3390,12 @@
                 "why_matched": [
                   "lexical_token:before",
                   "lexical_token:cinderbranch",
-                  "route_token:cinderbranch",
-                  "route_token:longmont",
-                  "route_token:npc"
+                  "route_token:cinderbranch"
                 ]
               },
               {
                 "unit_id": "u-L0007-05",
-                "score": 10,
+                "score": 4,
                 "line_start": 7,
                 "line_end": 7,
                 "routes": [
@@ -4013,42 +3404,36 @@
                 ],
                 "why_matched": [
                   "lexical_token:cinderbranch",
-                  "route_token:cinderbranch",
-                  "route_token:longmont",
-                  "route_token:npc"
+                  "route_token:cinderbranch"
                 ]
               },
               {
-                "unit_id": "u-L0009-02",
-                "score": 10,
-                "line_start": 9,
-                "line_end": 9,
+                "unit_id": "u-L0033-01",
+                "score": 4,
+                "line_start": 33,
+                "line_end": 33,
                 "routes": [
-                  "Longmont Campaign/Campaign 1/NPCs/professor_tealeaf/",
-                  "Longmont Campaign/Campaign 1/NPCs/torbin/"
+                  "Longmont Campaign/Campaign 1/NPCs/draven/",
+                  "Longmont Campaign/Campaign 1/PCs/bonogo/",
+                  "Longmont Campaign/Campaign 1/PCs/stafl/"
                 ],
                 "why_matched": [
-                  "lexical_token:torbin",
-                  "route_token:longmont",
-                  "route_token:npc",
-                  "route_token:torbin"
+                  "lexical_token:draven",
+                  "route_token:draven"
                 ]
               },
               {
-                "unit_id": "u-L0011-01",
-                "score": 10,
-                "line_start": 11,
-                "line_end": 11,
+                "unit_id": "u-L0033-04",
+                "score": 4,
+                "line_start": 33,
+                "line_end": 33,
                 "routes": [
-                  "Longmont Campaign/Campaign 1/NPCs/necromancer/",
-                  "Longmont Campaign/Campaign 1/NPCs/torbin/",
-                  "Longmont Campaign/Campaign 1/NPCs/wolf/"
+                  "Longmont Campaign/Campaign 1/NPCs/draven/",
+                  "Longmont Campaign/Campaign 1/PCs/stafl/"
                 ],
                 "why_matched": [
-                  "lexical_token:torbin",
-                  "route_token:longmont",
-                  "route_token:npc",
-                  "route_token:torbin"
+                  "lexical_token:draven",
+                  "route_token:draven"
                 ]
               }
             ]
@@ -4056,57 +3441,12 @@
           "delta": {
             "verdict": "unchanged_pass",
             "support_ratio_delta": 0.0,
-            "tokens_added_by_equivalences": [
-              "captain",
-              "dustwalker",
-              "elderwyld",
-              "ironveil",
-              "jove",
-              "longmont",
-              "lysandra",
-              "npc",
-              "route",
-              "torbin"
-            ],
+            "tokens_added_by_equivalences": [],
             "tokens_removed_by_equivalences": [],
-            "topk_units_swapped_in": [
-              "u-L0009-02",
-              "u-L0011-01"
-            ],
-            "topk_units_swapped_out": [
-              "u-L0033-01",
-              "u-L0033-04"
-            ],
-            "full_units_swapped_in": [
-              "u-L0009-02",
-              "u-L0011-01",
-              "u-L0011-03",
-              "u-L0013-01",
-              "u-L0013-02",
-              "u-L0017-04",
-              "u-L0021-01",
-              "u-L0029-02",
-              "u-L0029-03",
-              "u-L0029-04",
-              "u-L0029-05",
-              "u-L0031-02",
-              "u-L0031-03"
-            ],
-            "full_units_swapped_out": [
-              "meta-session-0013-locations",
-              "u-L0007-04",
-              "u-L0025-02",
-              "u-L0033-03",
-              "u-L0033-04",
-              "u-L0035-01",
-              "u-L0035-02",
-              "u-L0035-03",
-              "u-L0035-04",
-              "u-L0037-01",
-              "u-L0037-02",
-              "u-L0039-01",
-              "u-L0039-02"
-            ],
+            "topk_units_swapped_in": [],
+            "topk_units_swapped_out": [],
+            "full_units_swapped_in": [],
+            "full_units_swapped_out": [],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
           },
@@ -4314,11 +3654,11 @@
               }
             ],
             "hit_count": 18,
-            "ranking_augmented_by_equivalences": true,
+            "ranking_augmented_by_equivalences": false,
             "top_hits": [
               {
                 "unit_id": "u-L0011-03",
-                "score": 18,
+                "score": 8,
                 "line_start": 11,
                 "line_end": 11,
                 "routes": [
@@ -4334,40 +3674,13 @@
                 "why_matched": [
                   "lexical_token:bonogo",
                   "lexical_token:stafl",
-                  "lexical_token:torbin",
                   "route_token:bonogo",
-                  "route_token:longmont",
-                  "route_token:npc",
-                  "route_token:stafl",
-                  "route_token:torbin"
-                ]
-              },
-              {
-                "unit_id": "u-L0011-02",
-                "score": 15,
-                "line_start": 11,
-                "line_end": 11,
-                "routes": [
-                  "Longmont Campaign/Campaign 1/NPCs/necromancer/",
-                  "Longmont Campaign/Campaign 1/NPCs/torbin/",
-                  "Longmont Campaign/Campaign 1/PCs/baergrom/",
-                  "Longmont Campaign/Campaign 1/PCs/bonogo/",
-                  "Longmont Campaign/Campaign 1/PCs/caelynn/",
-                  "Longmont Campaign/Campaign 1/PCs/ephanna/",
-                  "Longmont Campaign/Campaign 1/PCs/karsemine/",
-                  "Longmont Campaign/Campaign 1/PCs/stafl/"
-                ],
-                "why_matched": [
-                  "route_token:bonogo",
-                  "route_token:longmont",
-                  "route_token:npc",
-                  "route_token:stafl",
-                  "route_token:torbin"
+                  "route_token:stafl"
                 ]
               },
               {
                 "unit_id": "u-L0017-03",
-                "score": 14,
+                "score": 8,
                 "line_start": 17,
                 "line_end": 17,
                 "routes": [
@@ -4382,14 +3695,12 @@
                   "lexical_token:bonogo",
                   "lexical_token:stafl",
                   "route_token:bonogo",
-                  "route_token:longmont",
-                  "route_token:npc",
                   "route_token:stafl"
                 ]
               },
               {
                 "unit_id": "u-L0019-01",
-                "score": 14,
+                "score": 8,
                 "line_start": 19,
                 "line_end": 19,
                 "routes": [
@@ -4402,14 +3713,12 @@
                   "lexical_token:bonogo",
                   "lexical_token:stafl",
                   "route_token:bonogo",
-                  "route_token:longmont",
-                  "route_token:npc",
                   "route_token:stafl"
                 ]
               },
               {
                 "unit_id": "u-L0033-01",
-                "score": 14,
+                "score": 8,
                 "line_start": 33,
                 "line_end": 33,
                 "routes": [
@@ -4421,8 +3730,26 @@
                   "lexical_token:bonogo",
                   "lexical_token:stafl",
                   "route_token:bonogo",
-                  "route_token:longmont",
-                  "route_token:npc",
+                  "route_token:stafl"
+                ]
+              },
+              {
+                "unit_id": "u-L0011-02",
+                "score": 6,
+                "line_start": 11,
+                "line_end": 11,
+                "routes": [
+                  "Longmont Campaign/Campaign 1/NPCs/necromancer/",
+                  "Longmont Campaign/Campaign 1/NPCs/torbin/",
+                  "Longmont Campaign/Campaign 1/PCs/baergrom/",
+                  "Longmont Campaign/Campaign 1/PCs/bonogo/",
+                  "Longmont Campaign/Campaign 1/PCs/caelynn/",
+                  "Longmont Campaign/Campaign 1/PCs/ephanna/",
+                  "Longmont Campaign/Campaign 1/PCs/karsemine/",
+                  "Longmont Campaign/Campaign 1/PCs/stafl/"
+                ],
+                "why_matched": [
+                  "route_token:bonogo",
                   "route_token:stafl"
                 ]
               }
@@ -4431,31 +3758,12 @@
           "delta": {
             "verdict": "unchanged_fail",
             "support_ratio_delta": 0.0,
-            "tokens_added_by_equivalences": [
-              "captain",
-              "dustwalker",
-              "elderwyld",
-              "ironveil",
-              "jove",
-              "longmont",
-              "lysandra",
-              "npc",
-              "route",
-              "torbin"
-            ],
+            "tokens_added_by_equivalences": [],
             "tokens_removed_by_equivalences": [],
             "topk_units_swapped_in": [],
             "topk_units_swapped_out": [],
-            "full_units_swapped_in": [
-              "u-L0009-02",
-              "u-L0011-01",
-              "u-L0021-01"
-            ],
-            "full_units_swapped_out": [
-              "u-L0005-03",
-              "u-L0019-03",
-              "u-L0023-01"
-            ],
+            "full_units_swapped_in": [],
+            "full_units_swapped_out": [],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
           },
@@ -4583,12 +3891,13 @@
             "ok": false,
             "violations": [
               "context_support_below_threshold",
-              "semantic_verdict:fail_stale"
+              "semantic_verdict:fail_incomplete"
             ],
-            "context_support_ratio": 0.0,
-            "context_must_hits": [],
+            "context_support_ratio": 0.25,
+            "context_must_hits": [
+              "meat storage"
+            ],
             "context_must_hits_missing": [
-              "meat storage",
               "hidden in the walls",
               "guardhouses",
               "underground"
@@ -4601,30 +3910,11 @@
               }
             ],
             "hit_count": 18,
-            "ranking_augmented_by_equivalences": true,
+            "ranking_augmented_by_equivalences": false,
             "top_hits": [
               {
-                "unit_id": "u-L0011-01",
-                "score": 14,
-                "line_start": 11,
-                "line_end": 11,
-                "routes": [
-                  "Longmont Campaign/Campaign 1/NPCs/necromancer/",
-                  "Longmont Campaign/Campaign 1/NPCs/torbin/",
-                  "Longmont Campaign/Campaign 1/NPCs/wolf/"
-                ],
-                "why_matched": [
-                  "lexical_token:torbin",
-                  "lexical_token:wolf",
-                  "route_token:longmont",
-                  "route_token:npc",
-                  "route_token:torbin",
-                  "route_token:wolf"
-                ]
-              },
-              {
                 "unit_id": "u-L0003-01",
-                "score": 10,
+                "score": 4,
                 "line_start": 3,
                 "line_end": 3,
                 "routes": [
@@ -4633,14 +3923,12 @@
                 ],
                 "why_matched": [
                   "lexical_token:wolf",
-                  "route_token:longmont",
-                  "route_token:npc",
                   "route_token:wolf"
                 ]
               },
               {
                 "unit_id": "u-L0003-04",
-                "score": 10,
+                "score": 4,
                 "line_start": 3,
                 "line_end": 3,
                 "routes": [
@@ -4649,14 +3937,12 @@
                 ],
                 "why_matched": [
                   "lexical_token:wolf",
-                  "route_token:longmont",
-                  "route_token:npc",
                   "route_token:wolf"
                 ]
               },
               {
                 "unit_id": "u-L0007-05",
-                "score": 10,
+                "score": 4,
                 "line_start": 7,
                 "line_end": 7,
                 "routes": [
@@ -4665,81 +3951,48 @@
                 ],
                 "why_matched": [
                   "lexical_token:wolf",
-                  "route_token:longmont",
-                  "route_token:npc",
                   "route_token:wolf"
                 ]
               },
               {
-                "unit_id": "u-L0009-02",
-                "score": 10,
-                "line_start": 9,
-                "line_end": 9,
+                "unit_id": "u-L0011-01",
+                "score": 4,
+                "line_start": 11,
+                "line_end": 11,
                 "routes": [
-                  "Longmont Campaign/Campaign 1/NPCs/professor_tealeaf/",
-                  "Longmont Campaign/Campaign 1/NPCs/torbin/"
+                  "Longmont Campaign/Campaign 1/NPCs/necromancer/",
+                  "Longmont Campaign/Campaign 1/NPCs/torbin/",
+                  "Longmont Campaign/Campaign 1/NPCs/wolf/"
                 ],
                 "why_matched": [
-                  "lexical_token:torbin",
-                  "route_token:longmont",
-                  "route_token:npc",
-                  "route_token:torbin"
+                  "lexical_token:wolf",
+                  "route_token:wolf"
+                ]
+              },
+              {
+                "unit_id": "u-L0015-02",
+                "score": 4,
+                "line_start": 15,
+                "line_end": 15,
+                "routes": [
+                  "Longmont Campaign/Campaign 1/NPCs/wolf/"
+                ],
+                "why_matched": [
+                  "lexical_token:wolf",
+                  "route_token:wolf"
                 ]
               }
             ]
           },
           "delta": {
             "verdict": "unchanged_fail",
-            "support_ratio_delta": -0.25,
-            "tokens_added_by_equivalences": [
-              "captain",
-              "dustwalker",
-              "elderwyld",
-              "ironveil",
-              "jove",
-              "longmont",
-              "lysandra",
-              "npc",
-              "route",
-              "torbin"
-            ],
+            "support_ratio_delta": 0.0,
+            "tokens_added_by_equivalences": [],
             "tokens_removed_by_equivalences": [],
-            "topk_units_swapped_in": [
-              "u-L0009-02"
-            ],
-            "topk_units_swapped_out": [
-              "u-L0015-02"
-            ],
-            "full_units_swapped_in": [
-              "u-L0007-01",
-              "u-L0007-02",
-              "u-L0009-01",
-              "u-L0009-02",
-              "u-L0011-02",
-              "u-L0011-03",
-              "u-L0013-01",
-              "u-L0013-02",
-              "u-L0015-01",
-              "u-L0015-03",
-              "u-L0015-04",
-              "u-L0015-05",
-              "u-L0017-01"
-            ],
-            "full_units_swapped_out": [
-              "u-L0007-04",
-              "u-L0019-01",
-              "u-L0023-01",
-              "u-L0027-01",
-              "u-L0029-03",
-              "u-L0029-04",
-              "u-L0029-05",
-              "u-L0031-01",
-              "u-L0031-02",
-              "u-L0031-03",
-              "u-L0033-01",
-              "u-L0033-02",
-              "u-L0033-03"
-            ],
+            "topk_units_swapped_in": [],
+            "topk_units_swapped_out": [],
+            "full_units_swapped_in": [],
+            "full_units_swapped_out": [],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
           },
@@ -4877,15 +4130,15 @@
             "ok": false,
             "violations": [
               "context_support_below_threshold",
-              "missing_expected_route_hit",
               "semantic_verdict:fail_incomplete"
             ],
-            "context_support_ratio": 0.0,
-            "context_must_hits": [],
-            "context_must_hits_missing": [
-              "break of dawn",
+            "context_support_ratio": 0.5,
+            "context_must_hits": [
               "Shepherd",
-              "rises from below",
+              "break of dawn",
+              "rises from below"
+            ],
+            "context_must_hits_missing": [
               "gathering now",
               "erupt",
               "something new"
@@ -4898,34 +4151,15 @@
               },
               {
                 "substring": "Shepherd",
-                "matched": false
+                "matched": true
               }
             ],
             "hit_count": 18,
-            "ranking_augmented_by_equivalences": true,
+            "ranking_augmented_by_equivalences": false,
             "top_hits": [
               {
-                "unit_id": "u-L0011-01",
-                "score": 14,
-                "line_start": 11,
-                "line_end": 11,
-                "routes": [
-                  "Longmont Campaign/Campaign 1/NPCs/necromancer/",
-                  "Longmont Campaign/Campaign 1/NPCs/torbin/",
-                  "Longmont Campaign/Campaign 1/NPCs/wolf/"
-                ],
-                "why_matched": [
-                  "lexical_token:torbin",
-                  "lexical_token:wolf",
-                  "route_token:longmont",
-                  "route_token:npc",
-                  "route_token:torbin",
-                  "route_token:wolf"
-                ]
-              },
-              {
                 "unit_id": "u-L0003-01",
-                "score": 10,
+                "score": 4,
                 "line_start": 3,
                 "line_end": 3,
                 "routes": [
@@ -4934,14 +4168,12 @@
                 ],
                 "why_matched": [
                   "lexical_token:wolf",
-                  "route_token:longmont",
-                  "route_token:npc",
                   "route_token:wolf"
                 ]
               },
               {
                 "unit_id": "u-L0003-04",
-                "score": 10,
+                "score": 4,
                 "line_start": 3,
                 "line_end": 3,
                 "routes": [
@@ -4950,14 +4182,12 @@
                 ],
                 "why_matched": [
                   "lexical_token:wolf",
-                  "route_token:longmont",
-                  "route_token:npc",
                   "route_token:wolf"
                 ]
               },
               {
                 "unit_id": "u-L0007-05",
-                "score": 10,
+                "score": 4,
                 "line_start": 7,
                 "line_end": 7,
                 "routes": [
@@ -4966,95 +4196,59 @@
                 ],
                 "why_matched": [
                   "lexical_token:wolf",
-                  "route_token:longmont",
-                  "route_token:npc",
                   "route_token:wolf"
                 ]
               },
               {
-                "unit_id": "u-L0009-02",
-                "score": 10,
-                "line_start": 9,
-                "line_end": 9,
+                "unit_id": "u-L0011-01",
+                "score": 4,
+                "line_start": 11,
+                "line_end": 11,
                 "routes": [
-                  "Longmont Campaign/Campaign 1/NPCs/professor_tealeaf/",
-                  "Longmont Campaign/Campaign 1/NPCs/torbin/"
+                  "Longmont Campaign/Campaign 1/NPCs/necromancer/",
+                  "Longmont Campaign/Campaign 1/NPCs/torbin/",
+                  "Longmont Campaign/Campaign 1/NPCs/wolf/"
                 ],
                 "why_matched": [
-                  "lexical_token:torbin",
-                  "route_token:longmont",
-                  "route_token:npc",
-                  "route_token:torbin"
+                  "lexical_token:wolf",
+                  "route_token:wolf"
+                ]
+              },
+              {
+                "unit_id": "u-L0015-02",
+                "score": 4,
+                "line_start": 15,
+                "line_end": 15,
+                "routes": [
+                  "Longmont Campaign/Campaign 1/NPCs/wolf/"
+                ],
+                "why_matched": [
+                  "lexical_token:wolf",
+                  "route_token:wolf"
                 ]
               }
             ]
           },
           "delta": {
             "verdict": "unchanged_fail",
-            "support_ratio_delta": -0.5,
-            "tokens_added_by_equivalences": [
-              "captain",
-              "dustwalker",
-              "elderwyld",
-              "ironveil",
-              "jove",
-              "longmont",
-              "lysandra",
-              "npc",
-              "route",
-              "torbin"
-            ],
+            "support_ratio_delta": 0.0,
+            "tokens_added_by_equivalences": [],
             "tokens_removed_by_equivalences": [],
-            "topk_units_swapped_in": [
-              "u-L0009-02"
-            ],
-            "topk_units_swapped_out": [
-              "u-L0015-02"
-            ],
-            "full_units_swapped_in": [
-              "u-L0007-01",
-              "u-L0007-02",
-              "u-L0009-01",
-              "u-L0009-02",
-              "u-L0011-02",
-              "u-L0011-03",
-              "u-L0013-01",
-              "u-L0013-02",
-              "u-L0015-01",
-              "u-L0015-03",
-              "u-L0015-04",
-              "u-L0015-05",
-              "u-L0017-01"
-            ],
-            "full_units_swapped_out": [
-              "u-L0007-04",
-              "u-L0019-01",
-              "u-L0029-01",
-              "u-L0029-05",
-              "u-L0031-01",
-              "u-L0031-02",
-              "u-L0031-03",
-              "u-L0033-01",
-              "u-L0035-04",
-              "u-L0037-01",
-              "u-L0037-02",
-              "u-L0039-01",
-              "u-L0039-02"
-            ],
-            "substrings_flipped_lost": [
-              "Shepherd"
-            ],
+            "topk_units_swapped_in": [],
+            "topk_units_swapped_out": [],
+            "full_units_swapped_in": [],
+            "full_units_swapped_out": [],
+            "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
           },
           "failure_diagnostic": {
-            "bucket": "ranking_regression",
+            "bucket": "retriever_support_gap",
             "reasons": [
-              "equivalence_lost_route_substrings"
+              "equivalence_context_support_ratio_below_minimum",
+              "equivalence_missing_required_must_hits"
             ],
             "baseline_missing_route_substrings": [],
-            "with_equivalence_missing_route_substrings": [
-              "Shepherd"
-            ]
+            "with_equivalence_missing_route_substrings": []
           }
         },
         {
@@ -5214,60 +4408,11 @@
               }
             ],
             "hit_count": 18,
-            "ranking_augmented_by_equivalences": true,
+            "ranking_augmented_by_equivalences": false,
             "top_hits": [
               {
-                "unit_id": "u-L0011-03",
-                "score": 18,
-                "line_start": 11,
-                "line_end": 11,
-                "routes": [
-                  "Longmont Campaign/Campaign 1/NPCs/necromancer/",
-                  "Longmont Campaign/Campaign 1/NPCs/torbin/",
-                  "Longmont Campaign/Campaign 1/PCs/baergrom/",
-                  "Longmont Campaign/Campaign 1/PCs/bonogo/",
-                  "Longmont Campaign/Campaign 1/PCs/caelynn/",
-                  "Longmont Campaign/Campaign 1/PCs/ephanna/",
-                  "Longmont Campaign/Campaign 1/PCs/karsemine/",
-                  "Longmont Campaign/Campaign 1/PCs/stafl/"
-                ],
-                "why_matched": [
-                  "lexical_token:bonogo",
-                  "lexical_token:stafl",
-                  "lexical_token:torbin",
-                  "route_token:bonogo",
-                  "route_token:longmont",
-                  "route_token:npc",
-                  "route_token:stafl",
-                  "route_token:torbin"
-                ]
-              },
-              {
-                "unit_id": "u-L0011-02",
-                "score": 15,
-                "line_start": 11,
-                "line_end": 11,
-                "routes": [
-                  "Longmont Campaign/Campaign 1/NPCs/necromancer/",
-                  "Longmont Campaign/Campaign 1/NPCs/torbin/",
-                  "Longmont Campaign/Campaign 1/PCs/baergrom/",
-                  "Longmont Campaign/Campaign 1/PCs/bonogo/",
-                  "Longmont Campaign/Campaign 1/PCs/caelynn/",
-                  "Longmont Campaign/Campaign 1/PCs/ephanna/",
-                  "Longmont Campaign/Campaign 1/PCs/karsemine/",
-                  "Longmont Campaign/Campaign 1/PCs/stafl/"
-                ],
-                "why_matched": [
-                  "route_token:bonogo",
-                  "route_token:longmont",
-                  "route_token:npc",
-                  "route_token:stafl",
-                  "route_token:torbin"
-                ]
-              },
-              {
                 "unit_id": "u-L0017-03",
-                "score": 15,
+                "score": 9,
                 "line_start": 17,
                 "line_end": 17,
                 "routes": [
@@ -5283,14 +4428,12 @@
                   "lexical_token:ritual",
                   "lexical_token:stafl",
                   "route_token:bonogo",
-                  "route_token:longmont",
-                  "route_token:npc",
                   "route_token:stafl"
                 ]
               },
               {
                 "unit_id": "u-L0019-01",
-                "score": 15,
+                "score": 9,
                 "line_start": 19,
                 "line_end": 19,
                 "routes": [
@@ -5304,14 +4447,34 @@
                   "lexical_token:ritual",
                   "lexical_token:stafl",
                   "route_token:bonogo",
-                  "route_token:longmont",
-                  "route_token:npc",
+                  "route_token:stafl"
+                ]
+              },
+              {
+                "unit_id": "u-L0011-03",
+                "score": 8,
+                "line_start": 11,
+                "line_end": 11,
+                "routes": [
+                  "Longmont Campaign/Campaign 1/NPCs/necromancer/",
+                  "Longmont Campaign/Campaign 1/NPCs/torbin/",
+                  "Longmont Campaign/Campaign 1/PCs/baergrom/",
+                  "Longmont Campaign/Campaign 1/PCs/bonogo/",
+                  "Longmont Campaign/Campaign 1/PCs/caelynn/",
+                  "Longmont Campaign/Campaign 1/PCs/ephanna/",
+                  "Longmont Campaign/Campaign 1/PCs/karsemine/",
+                  "Longmont Campaign/Campaign 1/PCs/stafl/"
+                ],
+                "why_matched": [
+                  "lexical_token:bonogo",
+                  "lexical_token:stafl",
+                  "route_token:bonogo",
                   "route_token:stafl"
                 ]
               },
               {
                 "unit_id": "u-L0033-01",
-                "score": 14,
+                "score": 8,
                 "line_start": 33,
                 "line_end": 33,
                 "routes": [
@@ -5323,9 +4486,26 @@
                   "lexical_token:bonogo",
                   "lexical_token:stafl",
                   "route_token:bonogo",
-                  "route_token:longmont",
-                  "route_token:npc",
                   "route_token:stafl"
+                ]
+              },
+              {
+                "unit_id": "u-L0039-01",
+                "score": 8,
+                "line_start": 39,
+                "line_end": 39,
+                "routes": [
+                  "Longmont Campaign/Campaign 1/NPCs/professor_cinderbranch/"
+                ],
+                "why_matched": [
+                  "lexical_token:after",
+                  "lexical_token:bad",
+                  "lexical_token:empty",
+                  "lexical_token:explain",
+                  "lexical_token:happened",
+                  "lexical_token:ritual",
+                  "lexical_token:room",
+                  "lexical_token:sign"
                 ]
               }
             ]
@@ -5333,31 +4513,12 @@
           "delta": {
             "verdict": "unchanged_pass",
             "support_ratio_delta": 0.0,
-            "tokens_added_by_equivalences": [
-              "captain",
-              "dustwalker",
-              "elderwyld",
-              "ironveil",
-              "jove",
-              "longmont",
-              "lysandra",
-              "npc",
-              "route",
-              "torbin"
-            ],
+            "tokens_added_by_equivalences": [],
             "tokens_removed_by_equivalences": [],
-            "topk_units_swapped_in": [
-              "u-L0011-02"
-            ],
-            "topk_units_swapped_out": [
-              "u-L0039-01"
-            ],
-            "full_units_swapped_in": [
-              "u-L0013-02"
-            ],
-            "full_units_swapped_out": [
-              "u-L0005-03"
-            ],
+            "topk_units_swapped_in": [],
+            "topk_units_swapped_out": [],
+            "full_units_swapped_in": [],
+            "full_units_swapped_out": [],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
           },
@@ -5533,11 +4694,11 @@
               }
             ],
             "hit_count": 18,
-            "ranking_augmented_by_equivalences": true,
+            "ranking_augmented_by_equivalences": false,
             "top_hits": [
               {
                 "unit_id": "meta-session-0013-locations",
-                "score": 13,
+                "score": 9,
                 "line_start": 0,
                 "line_end": 0,
                 "routes": [
@@ -5547,17 +4708,15 @@
                 ],
                 "why_matched": [
                   "lexical_token:academy",
-                  "lexical_token:longmont",
                   "lexical_token:morgue",
                   "lexical_token:outside",
                   "route_token:academy",
-                  "route_token:longmont",
                   "route_token:morgue"
                 ]
               },
               {
                 "unit_id": "u-L0003-01",
-                "score": 10,
+                "score": 4,
                 "line_start": 3,
                 "line_end": 3,
                 "routes": [
@@ -5566,64 +4725,49 @@
                 ],
                 "why_matched": [
                   "lexical_token:academy",
-                  "route_token:academy",
-                  "route_token:longmont",
-                  "route_token:npc"
+                  "route_token:academy"
                 ]
               },
               {
-                "unit_id": "u-L0009-02",
-                "score": 10,
-                "line_start": 9,
-                "line_end": 9,
+                "unit_id": "u-L0007-01",
+                "score": 4,
+                "line_start": 7,
+                "line_end": 7,
                 "routes": [
-                  "Longmont Campaign/Campaign 1/NPCs/professor_tealeaf/",
-                  "Longmont Campaign/Campaign 1/NPCs/torbin/"
+                  "Longmont Campaign/Campaign 1/Locations/stormspire_academy/"
                 ],
                 "why_matched": [
-                  "lexical_token:torbin",
-                  "route_token:longmont",
-                  "route_token:npc",
-                  "route_token:torbin"
+                  "lexical_token:academy",
+                  "route_token:academy"
                 ]
               },
               {
-                "unit_id": "u-L0011-01",
-                "score": 10,
-                "line_start": 11,
-                "line_end": 11,
+                "unit_id": "u-L0019-01",
+                "score": 4,
+                "line_start": 19,
+                "line_end": 19,
                 "routes": [
-                  "Longmont Campaign/Campaign 1/NPCs/necromancer/",
-                  "Longmont Campaign/Campaign 1/NPCs/torbin/",
-                  "Longmont Campaign/Campaign 1/NPCs/wolf/"
-                ],
-                "why_matched": [
-                  "lexical_token:torbin",
-                  "route_token:longmont",
-                  "route_token:npc",
-                  "route_token:torbin"
-                ]
-              },
-              {
-                "unit_id": "u-L0011-03",
-                "score": 10,
-                "line_start": 11,
-                "line_end": 11,
-                "routes": [
-                  "Longmont Campaign/Campaign 1/NPCs/necromancer/",
-                  "Longmont Campaign/Campaign 1/NPCs/torbin/",
-                  "Longmont Campaign/Campaign 1/PCs/baergrom/",
+                  "Longmont Campaign/Campaign 1/Locations/basement_morgue/",
+                  "Longmont Campaign/Campaign 1/NPCs/wolf/",
                   "Longmont Campaign/Campaign 1/PCs/bonogo/",
-                  "Longmont Campaign/Campaign 1/PCs/caelynn/",
-                  "Longmont Campaign/Campaign 1/PCs/ephanna/",
-                  "Longmont Campaign/Campaign 1/PCs/karsemine/",
                   "Longmont Campaign/Campaign 1/PCs/stafl/"
                 ],
                 "why_matched": [
-                  "lexical_token:torbin",
-                  "route_token:longmont",
-                  "route_token:npc",
-                  "route_token:torbin"
+                  "lexical_token:morgue",
+                  "route_token:morgue"
+                ]
+              },
+              {
+                "unit_id": "u-L0017-01",
+                "score": 2,
+                "line_start": 17,
+                "line_end": 17,
+                "routes": [
+                  "Longmont Campaign/Campaign 1/PCs/caelynn/"
+                ],
+                "why_matched": [
+                  "lexical_token:academy",
+                  "lexical_token:outside"
                 ]
               }
             ]
@@ -5631,45 +4775,12 @@
           "delta": {
             "verdict": "unchanged_pass",
             "support_ratio_delta": 0.0,
-            "tokens_added_by_equivalences": [
-              "captain",
-              "dustwalker",
-              "elderwyld",
-              "ironveil",
-              "jove",
-              "longmont",
-              "lysandra",
-              "npc",
-              "route",
-              "torbin"
-            ],
+            "tokens_added_by_equivalences": [],
             "tokens_removed_by_equivalences": [],
-            "topk_units_swapped_in": [
-              "u-L0009-02",
-              "u-L0011-01",
-              "u-L0011-03"
-            ],
-            "topk_units_swapped_out": [
-              "u-L0007-01",
-              "u-L0017-01",
-              "u-L0019-01"
-            ],
-            "full_units_swapped_in": [
-              "u-L0009-02",
-              "u-L0011-01",
-              "u-L0011-03",
-              "u-L0013-01",
-              "u-L0013-02",
-              "u-L0015-01"
-            ],
-            "full_units_swapped_out": [
-              "u-L0003-02",
-              "u-L0003-04",
-              "u-L0005-01",
-              "u-L0005-04",
-              "u-L0007-01",
-              "u-L0015-03"
-            ],
+            "topk_units_swapped_in": [],
+            "topk_units_swapped_out": [],
+            "full_units_swapped_in": [],
+            "full_units_swapped_out": [],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
           },
@@ -5820,22 +4931,23 @@
               "missing_expected_route_hit",
               "semantic_verdict:fail_incomplete"
             ],
-            "context_support_ratio": 0.0,
-            "context_must_hits": [],
+            "context_support_ratio": 0.2857142857142857,
+            "context_must_hits": [
+              "bites",
+              "poisoning"
+            ],
             "context_must_hits_missing": [
               "Draven",
               "2 Elite Guards",
               "Sewer Meat Monster",
               "10 foot radius",
-              "Fear",
-              "poisoning",
-              "bites"
+              "Fear"
             ],
             "semantic_verdict": "",
             "expected_route_substring_breakdown": [
               {
                 "substring": "elite_guard",
-                "matched": false
+                "matched": true
               },
               {
                 "substring": "sewer_meat_monster",
@@ -5851,164 +4963,99 @@
               }
             ],
             "hit_count": 18,
-            "ranking_augmented_by_equivalences": true,
+            "ranking_augmented_by_equivalences": false,
             "top_hits": [
               {
-                "unit_id": "u-L0009-02",
-                "score": 10,
-                "line_start": 9,
-                "line_end": 9,
+                "unit_id": "meta-session-0013-locations",
+                "score": 5,
+                "line_start": 0,
+                "line_end": 0,
                 "routes": [
-                  "Longmont Campaign/Campaign 1/NPCs/professor_tealeaf/",
-                  "Longmont Campaign/Campaign 1/NPCs/torbin/"
+                  "Longmont Campaign/Campaign 1/Locations/basement_morgue/",
+                  "Longmont Campaign/Campaign 1/Locations/council_chambers/",
+                  "Longmont Campaign/Campaign 1/Locations/stormspire_academy/"
                 ],
                 "why_matched": [
-                  "lexical_token:torbin",
-                  "route_token:longmont",
-                  "route_token:npc",
-                  "route_token:torbin"
+                  "lexical_token:ambush",
+                  "lexical_token:morgue",
+                  "route_token:morgue"
                 ]
               },
               {
-                "unit_id": "u-L0011-01",
-                "score": 10,
-                "line_start": 11,
-                "line_end": 11,
+                "unit_id": "u-L0019-01",
+                "score": 4,
+                "line_start": 19,
+                "line_end": 19,
                 "routes": [
-                  "Longmont Campaign/Campaign 1/NPCs/necromancer/",
-                  "Longmont Campaign/Campaign 1/NPCs/torbin/",
-                  "Longmont Campaign/Campaign 1/NPCs/wolf/"
-                ],
-                "why_matched": [
-                  "lexical_token:torbin",
-                  "route_token:longmont",
-                  "route_token:npc",
-                  "route_token:torbin"
-                ]
-              },
-              {
-                "unit_id": "u-L0011-03",
-                "score": 10,
-                "line_start": 11,
-                "line_end": 11,
-                "routes": [
-                  "Longmont Campaign/Campaign 1/NPCs/necromancer/",
-                  "Longmont Campaign/Campaign 1/NPCs/torbin/",
-                  "Longmont Campaign/Campaign 1/PCs/baergrom/",
+                  "Longmont Campaign/Campaign 1/Locations/basement_morgue/",
+                  "Longmont Campaign/Campaign 1/NPCs/wolf/",
                   "Longmont Campaign/Campaign 1/PCs/bonogo/",
-                  "Longmont Campaign/Campaign 1/PCs/caelynn/",
-                  "Longmont Campaign/Campaign 1/PCs/ephanna/",
-                  "Longmont Campaign/Campaign 1/PCs/karsemine/",
                   "Longmont Campaign/Campaign 1/PCs/stafl/"
                 ],
                 "why_matched": [
-                  "lexical_token:torbin",
-                  "route_token:longmont",
-                  "route_token:npc",
-                  "route_token:torbin"
+                  "lexical_token:morgue",
+                  "route_token:morgue"
                 ]
               },
               {
-                "unit_id": "u-L0013-01",
-                "score": 10,
-                "line_start": 13,
-                "line_end": 13,
+                "unit_id": "u-L0037-01",
+                "score": 1,
+                "line_start": 37,
+                "line_end": 37,
                 "routes": [
-                  "Longmont Campaign/Campaign 1/NPCs/professor_tealeaf/",
-                  "Longmont Campaign/Campaign 1/NPCs/torbin/",
-                  "Longmont Campaign/Campaign 1/PCs/baergrom/",
-                  "Longmont Campaign/Campaign 1/PCs/ephanna/"
+                  "Longmont Campaign/Campaign 1/PCs/bonogo/"
                 ],
                 "why_matched": [
-                  "lexical_token:torbin",
-                  "route_token:longmont",
-                  "route_token:npc",
-                  "route_token:torbin"
+                  "lexical_token:enemies"
                 ]
               },
               {
-                "unit_id": "u-L0013-02",
-                "score": 10,
-                "line_start": 13,
-                "line_end": 13,
+                "unit_id": "u-L0037-02",
+                "score": 0,
+                "line_start": 37,
+                "line_end": 37,
                 "routes": [
-                  "Longmont Campaign/Campaign 1/NPCs/professor_tealeaf/",
-                  "Longmont Campaign/Campaign 1/NPCs/torbin/"
+                  "Longmont Campaign/Campaign 1/PCs/bonogo/"
                 ],
                 "why_matched": [
-                  "lexical_token:torbin",
-                  "route_token:longmont",
-                  "route_token:npc",
-                  "route_token:torbin"
+                  "expanded_adjacent:u-L0037-02"
+                ]
+              },
+              {
+                "unit_id": "u-L0039-01",
+                "score": 0,
+                "line_start": 39,
+                "line_end": 39,
+                "routes": [
+                  "Longmont Campaign/Campaign 1/NPCs/professor_cinderbranch/"
+                ],
+                "why_matched": [
+                  "expanded_adjacent:u-L0039-01"
                 ]
               }
             ]
           },
           "delta": {
             "verdict": "unchanged_fail",
-            "support_ratio_delta": -0.2857,
-            "tokens_added_by_equivalences": [
-              "captain",
-              "dustwalker",
-              "elderwyld",
-              "ironveil",
-              "jove",
-              "longmont",
-              "lysandra",
-              "npc",
-              "route",
-              "torbin"
-            ],
+            "support_ratio_delta": 0.0,
+            "tokens_added_by_equivalences": [],
             "tokens_removed_by_equivalences": [],
-            "topk_units_swapped_in": [
-              "u-L0009-02",
-              "u-L0011-01",
-              "u-L0011-03",
-              "u-L0013-01",
-              "u-L0013-02"
-            ],
-            "topk_units_swapped_out": [
-              "meta-session-0013-locations",
-              "u-L0019-01",
-              "u-L0037-01",
-              "u-L0037-02",
-              "u-L0039-01"
-            ],
-            "full_units_swapped_in": [
-              "u-L0009-02",
-              "u-L0011-01",
-              "u-L0011-02",
-              "u-L0011-03",
-              "u-L0013-01",
-              "u-L0013-02",
-              "u-L0015-01",
-              "u-L0015-02"
-            ],
-            "full_units_swapped_out": [
-              "u-L0035-01",
-              "u-L0035-02",
-              "u-L0035-03",
-              "u-L0035-04",
-              "u-L0037-01",
-              "u-L0037-02",
-              "u-L0039-01",
-              "u-L0039-02"
-            ],
-            "substrings_flipped_lost": [
-              "elite_guard"
-            ],
+            "topk_units_swapped_in": [],
+            "topk_units_swapped_out": [],
+            "full_units_swapped_in": [],
+            "full_units_swapped_out": [],
+            "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
           },
           "failure_diagnostic": {
-            "bucket": "ranking_regression",
+            "bucket": "missing_lexical_handle",
             "reasons": [
-              "equivalence_lost_route_substrings"
+              "equivalence_missing_expected_route_substrings"
             ],
             "baseline_missing_route_substrings": [
               "sewer_meat_monster"
             ],
             "with_equivalence_missing_route_substrings": [
-              "elite_guard",
               "sewer_meat_monster"
             ]
           }
@@ -6136,24 +5183,19 @@
             ]
           },
           "with_equivalence": {
-            "ok": false,
-            "violations": [
-              "context_support_below_threshold",
-              "missing_expected_route_hit",
-              "semantic_verdict:fail_incomplete"
-            ],
-            "context_support_ratio": 0.2857142857142857,
+            "ok": true,
+            "violations": [],
+            "context_support_ratio": 1.0,
             "context_must_hits": [
               "Bonogo",
-              "Stafl"
-            ],
-            "context_must_hits_missing": [
-              "Sleep",
               "Draven",
+              "Sleep",
+              "Stafl",
               "falls asleep",
-              "sneak attacks",
-              "remaining enemies"
+              "remaining enemies",
+              "sneak attacks"
             ],
+            "context_must_hits_missing": [],
             "semantic_verdict": "",
             "expected_route_substring_breakdown": [
               {
@@ -6162,7 +5204,7 @@
               },
               {
                 "substring": "Draven",
-                "matched": false
+                "matched": true
               },
               {
                 "substring": "Bonogo",
@@ -6170,178 +5212,98 @@
               }
             ],
             "hit_count": 18,
-            "ranking_augmented_by_equivalences": true,
+            "ranking_augmented_by_equivalences": false,
             "top_hits": [
               {
-                "unit_id": "u-L0009-02",
-                "score": 10,
-                "line_start": 9,
-                "line_end": 9,
+                "unit_id": "meta-session-0013-locations",
+                "score": 4,
+                "line_start": 0,
+                "line_end": 0,
                 "routes": [
-                  "Longmont Campaign/Campaign 1/NPCs/professor_tealeaf/",
-                  "Longmont Campaign/Campaign 1/NPCs/torbin/"
+                  "Longmont Campaign/Campaign 1/Locations/basement_morgue/",
+                  "Longmont Campaign/Campaign 1/Locations/council_chambers/",
+                  "Longmont Campaign/Campaign 1/Locations/stormspire_academy/"
                 ],
                 "why_matched": [
-                  "lexical_token:torbin",
-                  "route_token:longmont",
-                  "route_token:npc",
-                  "route_token:torbin"
+                  "lexical_token:morgue",
+                  "route_token:morgue"
                 ]
               },
               {
-                "unit_id": "u-L0011-01",
-                "score": 10,
-                "line_start": 11,
-                "line_end": 11,
+                "unit_id": "u-L0019-01",
+                "score": 4,
+                "line_start": 19,
+                "line_end": 19,
                 "routes": [
-                  "Longmont Campaign/Campaign 1/NPCs/necromancer/",
-                  "Longmont Campaign/Campaign 1/NPCs/torbin/",
-                  "Longmont Campaign/Campaign 1/NPCs/wolf/"
-                ],
-                "why_matched": [
-                  "lexical_token:torbin",
-                  "route_token:longmont",
-                  "route_token:npc",
-                  "route_token:torbin"
-                ]
-              },
-              {
-                "unit_id": "u-L0011-03",
-                "score": 10,
-                "line_start": 11,
-                "line_end": 11,
-                "routes": [
-                  "Longmont Campaign/Campaign 1/NPCs/necromancer/",
-                  "Longmont Campaign/Campaign 1/NPCs/torbin/",
-                  "Longmont Campaign/Campaign 1/PCs/baergrom/",
+                  "Longmont Campaign/Campaign 1/Locations/basement_morgue/",
+                  "Longmont Campaign/Campaign 1/NPCs/wolf/",
                   "Longmont Campaign/Campaign 1/PCs/bonogo/",
-                  "Longmont Campaign/Campaign 1/PCs/caelynn/",
-                  "Longmont Campaign/Campaign 1/PCs/ephanna/",
-                  "Longmont Campaign/Campaign 1/PCs/karsemine/",
                   "Longmont Campaign/Campaign 1/PCs/stafl/"
                 ],
                 "why_matched": [
-                  "lexical_token:torbin",
-                  "route_token:longmont",
-                  "route_token:npc",
-                  "route_token:torbin"
+                  "lexical_token:morgue",
+                  "route_token:morgue"
                 ]
               },
               {
-                "unit_id": "u-L0013-01",
-                "score": 10,
-                "line_start": 13,
-                "line_end": 13,
+                "unit_id": "u-L0033-04",
+                "score": 1,
+                "line_start": 33,
+                "line_end": 33,
                 "routes": [
-                  "Longmont Campaign/Campaign 1/NPCs/professor_tealeaf/",
-                  "Longmont Campaign/Campaign 1/NPCs/torbin/",
-                  "Longmont Campaign/Campaign 1/PCs/baergrom/",
-                  "Longmont Campaign/Campaign 1/PCs/ephanna/"
+                  "Longmont Campaign/Campaign 1/NPCs/draven/",
+                  "Longmont Campaign/Campaign 1/PCs/stafl/"
                 ],
                 "why_matched": [
-                  "lexical_token:torbin",
-                  "route_token:longmont",
-                  "route_token:npc",
-                  "route_token:torbin"
+                  "lexical_token:sleep"
                 ]
               },
               {
-                "unit_id": "u-L0013-02",
-                "score": 10,
-                "line_start": 13,
-                "line_end": 13,
+                "unit_id": "u-L0033-05",
+                "score": 1,
+                "line_start": 33,
+                "line_end": 33,
                 "routes": [
-                  "Longmont Campaign/Campaign 1/NPCs/professor_tealeaf/",
-                  "Longmont Campaign/Campaign 1/NPCs/torbin/"
+                  "Longmont Campaign/Campaign 1/NPCs/necromancer/",
+                  "Longmont Campaign/Campaign 1/PCs/bonogo/"
                 ],
                 "why_matched": [
-                  "lexical_token:torbin",
-                  "route_token:longmont",
-                  "route_token:npc",
-                  "route_token:torbin"
+                  "lexical_token:sleep"
+                ]
+              },
+              {
+                "unit_id": "u-L0037-01",
+                "score": 1,
+                "line_start": 37,
+                "line_end": 37,
+                "routes": [
+                  "Longmont Campaign/Campaign 1/PCs/bonogo/"
+                ],
+                "why_matched": [
+                  "lexical_token:sleep"
                 ]
               }
             ]
           },
           "delta": {
-            "verdict": "regressed",
-            "support_ratio_delta": -0.7143,
-            "tokens_added_by_equivalences": [
-              "captain",
-              "dustwalker",
-              "elderwyld",
-              "ironveil",
-              "jove",
-              "longmont",
-              "lysandra",
-              "npc",
-              "route",
-              "torbin"
-            ],
+            "verdict": "unchanged_pass",
+            "support_ratio_delta": 0.0,
+            "tokens_added_by_equivalences": [],
             "tokens_removed_by_equivalences": [],
-            "topk_units_swapped_in": [
-              "u-L0009-02",
-              "u-L0011-01",
-              "u-L0011-03",
-              "u-L0013-01",
-              "u-L0013-02"
-            ],
-            "topk_units_swapped_out": [
-              "meta-session-0013-locations",
-              "u-L0019-01",
-              "u-L0033-04",
-              "u-L0033-05",
-              "u-L0037-01"
-            ],
-            "full_units_swapped_in": [
-              "u-L0009-02",
-              "u-L0011-01",
-              "u-L0011-02",
-              "u-L0011-03",
-              "u-L0013-01",
-              "u-L0013-02",
-              "u-L0015-01",
-              "u-L0015-02",
-              "u-L0017-01",
-              "u-L0017-02",
-              "u-L0017-03",
-              "u-L0017-04",
-              "u-L0019-02",
-              "u-L0019-03"
-            ],
-            "full_units_swapped_out": [
-              "u-L0031-03",
-              "u-L0033-01",
-              "u-L0033-02",
-              "u-L0033-03",
-              "u-L0033-04",
-              "u-L0033-05",
-              "u-L0035-01",
-              "u-L0035-02",
-              "u-L0035-03",
-              "u-L0035-04",
-              "u-L0037-01",
-              "u-L0037-02",
-              "u-L0039-01",
-              "u-L0039-02"
-            ],
-            "substrings_flipped_lost": [
-              "Draven"
-            ],
+            "topk_units_swapped_in": [],
+            "topk_units_swapped_out": [],
+            "full_units_swapped_in": [],
+            "full_units_swapped_out": [],
+            "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
           },
           "failure_diagnostic": {
-            "bucket": "ranking_regression",
+            "bucket": "passed",
             "reasons": [
-              "equivalence_lost_context_support_ratio",
-              "equivalence_lost_required_must_hits",
-              "equivalence_lost_route_substrings",
-              "verdict_regressed"
+              "both_modes_pass"
             ],
             "baseline_missing_route_substrings": [],
-            "with_equivalence_missing_route_substrings": [
-              "Draven"
-            ]
+            "with_equivalence_missing_route_substrings": []
           }
         },
         {
@@ -6470,21 +5432,20 @@
           "with_equivalence": {
             "ok": false,
             "violations": [
-              "context_support_below_threshold",
               "missing_location_entity_summary",
               "query_mode_mismatch",
               "semantic_verdict:fail_incomplete"
             ],
-            "context_support_ratio": 0.4444444444444444,
+            "context_support_ratio": 0.5555555555555556,
             "context_must_hits": [
+              "Mossglade",
               "Necromancer",
-              "Professor Tealeaf",
+              "Professor Cinderbranch",
               "Stormspire Academy",
               "Torbin"
             ],
             "context_must_hits_missing": [
-              "Mossglade",
-              "Professor Cinderbranch",
+              "Professor Tealeaf",
               "Draven",
               "Elite Guards",
               "Sewer Meat Monster"
@@ -6497,11 +5458,28 @@
               }
             ],
             "hit_count": 18,
-            "ranking_augmented_by_equivalences": true,
+            "ranking_augmented_by_equivalences": false,
             "top_hits": [
               {
+                "unit_id": "meta-session-0013-locations",
+                "score": 8,
+                "line_start": 0,
+                "line_end": 0,
+                "routes": [
+                  "Longmont Campaign/Campaign 1/Locations/basement_morgue/",
+                  "Longmont Campaign/Campaign 1/Locations/council_chambers/",
+                  "Longmont Campaign/Campaign 1/Locations/stormspire_academy/"
+                ],
+                "why_matched": [
+                  "lexical_token:academy",
+                  "lexical_token:stormspire",
+                  "route_token:academy",
+                  "route_token:stormspire"
+                ]
+              },
+              {
                 "unit_id": "u-L0003-01",
-                "score": 14,
+                "score": 8,
                 "line_start": 3,
                 "line_end": 3,
                 "routes": [
@@ -6512,33 +5490,12 @@
                   "lexical_token:academy",
                   "lexical_token:stormspire",
                   "route_token:academy",
-                  "route_token:longmont",
-                  "route_token:npc",
-                  "route_token:stormspire"
-                ]
-              },
-              {
-                "unit_id": "meta-session-0013-locations",
-                "score": 12,
-                "line_start": 0,
-                "line_end": 0,
-                "routes": [
-                  "Longmont Campaign/Campaign 1/Locations/basement_morgue/",
-                  "Longmont Campaign/Campaign 1/Locations/council_chambers/",
-                  "Longmont Campaign/Campaign 1/Locations/stormspire_academy/"
-                ],
-                "why_matched": [
-                  "lexical_token:academy",
-                  "lexical_token:longmont",
-                  "lexical_token:stormspire",
-                  "route_token:academy",
-                  "route_token:longmont",
                   "route_token:stormspire"
                 ]
               },
               {
                 "unit_id": "u-L0007-01",
-                "score": 11,
+                "score": 8,
                 "line_start": 7,
                 "line_end": 7,
                 "routes": [
@@ -6548,96 +5505,50 @@
                   "lexical_token:academy",
                   "lexical_token:stormspire",
                   "route_token:academy",
-                  "route_token:longmont",
                   "route_token:stormspire"
                 ]
               },
               {
-                "unit_id": "u-L0009-02",
-                "score": 10,
-                "line_start": 9,
-                "line_end": 9,
+                "unit_id": "u-L0003-04",
+                "score": 1,
+                "line_start": 3,
+                "line_end": 3,
                 "routes": [
-                  "Longmont Campaign/Campaign 1/NPCs/professor_tealeaf/",
-                  "Longmont Campaign/Campaign 1/NPCs/torbin/"
+                  "Longmont Campaign/Campaign 1/NPCs/wolf/",
+                  "Longmont Campaign/Campaign 1/PCs/bonogo/"
                 ],
                 "why_matched": [
-                  "lexical_token:torbin",
-                  "route_token:longmont",
-                  "route_token:npc",
-                  "route_token:torbin"
+                  "lexical_token:academy"
                 ]
               },
               {
-                "unit_id": "u-L0011-01",
-                "score": 10,
-                "line_start": 11,
-                "line_end": 11,
-                "routes": [
-                  "Longmont Campaign/Campaign 1/NPCs/necromancer/",
-                  "Longmont Campaign/Campaign 1/NPCs/torbin/",
-                  "Longmont Campaign/Campaign 1/NPCs/wolf/"
-                ],
+                "unit_id": "u-L0005-04",
+                "score": 1,
+                "line_start": 5,
+                "line_end": 5,
+                "routes": [],
                 "why_matched": [
-                  "lexical_token:torbin",
-                  "route_token:longmont",
-                  "route_token:npc",
-                  "route_token:torbin"
+                  "lexical_token:academy"
                 ]
               }
             ]
           },
           "delta": {
             "verdict": "unchanged_fail",
-            "support_ratio_delta": -0.1111,
-            "tokens_added_by_equivalences": [
-              "captain",
-              "dustwalker",
-              "elderwyld",
-              "ironveil",
-              "jove",
-              "longmont",
-              "lysandra",
-              "npc",
-              "route",
-              "torbin"
-            ],
+            "support_ratio_delta": 0.0,
+            "tokens_added_by_equivalences": [],
             "tokens_removed_by_equivalences": [],
-            "topk_units_swapped_in": [
-              "u-L0009-02",
-              "u-L0011-01"
-            ],
-            "topk_units_swapped_out": [
-              "u-L0003-04",
-              "u-L0005-04"
-            ],
-            "full_units_swapped_in": [
-              "u-L0009-02",
-              "u-L0011-01",
-              "u-L0011-03",
-              "u-L0013-01",
-              "u-L0013-02",
-              "u-L0015-01",
-              "u-L0019-02",
-              "u-L0019-03"
-            ],
-            "full_units_swapped_out": [
-              "u-L0003-04",
-              "u-L0005-04",
-              "u-L0007-02",
-              "u-L0007-03",
-              "u-L0007-04",
-              "u-L0007-05",
-              "u-L0015-04",
-              "u-L0015-05"
-            ],
+            "topk_units_swapped_in": [],
+            "topk_units_swapped_out": [],
+            "full_units_swapped_in": [],
+            "full_units_swapped_out": [],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
           },
           "failure_diagnostic": {
-            "bucket": "ranking_regression",
+            "bucket": "retriever_support_gap",
             "reasons": [
-              "equivalence_lost_context_support_ratio"
+              "equivalence_missing_required_must_hits"
             ],
             "baseline_missing_route_substrings": [],
             "with_equivalence_missing_route_substrings": []
@@ -6783,11 +5694,28 @@
               }
             ],
             "hit_count": 18,
-            "ranking_augmented_by_equivalences": true,
+            "ranking_augmented_by_equivalences": false,
             "top_hits": [
               {
+                "unit_id": "meta-session-0013-locations",
+                "score": 8,
+                "line_start": 0,
+                "line_end": 0,
+                "routes": [
+                  "Longmont Campaign/Campaign 1/Locations/basement_morgue/",
+                  "Longmont Campaign/Campaign 1/Locations/council_chambers/",
+                  "Longmont Campaign/Campaign 1/Locations/stormspire_academy/"
+                ],
+                "why_matched": [
+                  "lexical_token:academy",
+                  "lexical_token:stormspire",
+                  "route_token:academy",
+                  "route_token:stormspire"
+                ]
+              },
+              {
                 "unit_id": "u-L0003-01",
-                "score": 14,
+                "score": 8,
                 "line_start": 3,
                 "line_end": 3,
                 "routes": [
@@ -6798,33 +5726,12 @@
                   "lexical_token:academy",
                   "lexical_token:stormspire",
                   "route_token:academy",
-                  "route_token:longmont",
-                  "route_token:npc",
-                  "route_token:stormspire"
-                ]
-              },
-              {
-                "unit_id": "meta-session-0013-locations",
-                "score": 12,
-                "line_start": 0,
-                "line_end": 0,
-                "routes": [
-                  "Longmont Campaign/Campaign 1/Locations/basement_morgue/",
-                  "Longmont Campaign/Campaign 1/Locations/council_chambers/",
-                  "Longmont Campaign/Campaign 1/Locations/stormspire_academy/"
-                ],
-                "why_matched": [
-                  "lexical_token:academy",
-                  "lexical_token:longmont",
-                  "lexical_token:stormspire",
-                  "route_token:academy",
-                  "route_token:longmont",
                   "route_token:stormspire"
                 ]
               },
               {
                 "unit_id": "u-L0007-01",
-                "score": 11,
+                "score": 8,
                 "line_start": 7,
                 "line_end": 7,
                 "routes": [
@@ -6834,13 +5741,12 @@
                   "lexical_token:academy",
                   "lexical_token:stormspire",
                   "route_token:academy",
-                  "route_token:longmont",
                   "route_token:stormspire"
                 ]
               },
               {
                 "unit_id": "u-L0007-03",
-                "score": 10,
+                "score": 4,
                 "line_start": 7,
                 "line_end": 7,
                 "routes": [
@@ -6848,14 +5754,12 @@
                 ],
                 "why_matched": [
                   "lexical_token:mossglade",
-                  "route_token:longmont",
-                  "route_token:mossglade",
-                  "route_token:npc"
+                  "route_token:mossglade"
                 ]
               },
               {
                 "unit_id": "u-L0009-01",
-                "score": 10,
+                "score": 4,
                 "line_start": 9,
                 "line_end": 9,
                 "routes": [
@@ -6864,9 +5768,7 @@
                 ],
                 "why_matched": [
                   "lexical_token:mossglade",
-                  "route_token:longmont",
-                  "route_token:mossglade",
-                  "route_token:npc"
+                  "route_token:mossglade"
                 ]
               }
             ]
@@ -6874,35 +5776,12 @@
           "delta": {
             "verdict": "unchanged_pass",
             "support_ratio_delta": 0.0,
-            "tokens_added_by_equivalences": [
-              "captain",
-              "dustwalker",
-              "elderwyld",
-              "ironveil",
-              "jove",
-              "longmont",
-              "lysandra",
-              "npc",
-              "route",
-              "torbin"
-            ],
+            "tokens_added_by_equivalences": [],
             "tokens_removed_by_equivalences": [],
             "topk_units_swapped_in": [],
             "topk_units_swapped_out": [],
-            "full_units_swapped_in": [
-              "u-L0013-01",
-              "u-L0013-02",
-              "u-L0015-01",
-              "u-L0015-02",
-              "u-L0015-03"
-            ],
-            "full_units_swapped_out": [
-              "u-L0003-03",
-              "u-L0003-04",
-              "u-L0005-02",
-              "u-L0005-03",
-              "u-L0005-04"
-            ],
+            "full_units_swapped_in": [],
+            "full_units_swapped_out": [],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
           },
@@ -7062,11 +5941,11 @@
               }
             ],
             "hit_count": 18,
-            "ranking_augmented_by_equivalences": true,
+            "ranking_augmented_by_equivalences": false,
             "top_hits": [
               {
                 "unit_id": "u-L0011-01",
-                "score": 18,
+                "score": 8,
                 "line_start": 11,
                 "line_end": 11,
                 "routes": [
@@ -7076,64 +5955,14 @@
                 ],
                 "why_matched": [
                   "lexical_token:necromancer",
-                  "lexical_token:torbin",
                   "lexical_token:wolf",
-                  "route_token:longmont",
                   "route_token:necromancer",
-                  "route_token:npc",
-                  "route_token:torbin",
                   "route_token:wolf"
                 ]
               },
               {
-                "unit_id": "u-L0011-03",
-                "score": 14,
-                "line_start": 11,
-                "line_end": 11,
-                "routes": [
-                  "Longmont Campaign/Campaign 1/NPCs/necromancer/",
-                  "Longmont Campaign/Campaign 1/NPCs/torbin/",
-                  "Longmont Campaign/Campaign 1/PCs/baergrom/",
-                  "Longmont Campaign/Campaign 1/PCs/bonogo/",
-                  "Longmont Campaign/Campaign 1/PCs/caelynn/",
-                  "Longmont Campaign/Campaign 1/PCs/ephanna/",
-                  "Longmont Campaign/Campaign 1/PCs/karsemine/",
-                  "Longmont Campaign/Campaign 1/PCs/stafl/"
-                ],
-                "why_matched": [
-                  "lexical_token:necromancer",
-                  "lexical_token:torbin",
-                  "route_token:longmont",
-                  "route_token:necromancer",
-                  "route_token:npc",
-                  "route_token:torbin"
-                ]
-              },
-              {
-                "unit_id": "u-L0011-02",
-                "score": 12,
-                "line_start": 11,
-                "line_end": 11,
-                "routes": [
-                  "Longmont Campaign/Campaign 1/NPCs/necromancer/",
-                  "Longmont Campaign/Campaign 1/NPCs/torbin/",
-                  "Longmont Campaign/Campaign 1/PCs/baergrom/",
-                  "Longmont Campaign/Campaign 1/PCs/bonogo/",
-                  "Longmont Campaign/Campaign 1/PCs/caelynn/",
-                  "Longmont Campaign/Campaign 1/PCs/ephanna/",
-                  "Longmont Campaign/Campaign 1/PCs/karsemine/",
-                  "Longmont Campaign/Campaign 1/PCs/stafl/"
-                ],
-                "why_matched": [
-                  "route_token:longmont",
-                  "route_token:necromancer",
-                  "route_token:npc",
-                  "route_token:torbin"
-                ]
-              },
-              {
                 "unit_id": "u-L0029-01",
-                "score": 11,
+                "score": 5,
                 "line_start": 29,
                 "line_end": 29,
                 "routes": [
@@ -7142,14 +5971,12 @@
                 "why_matched": [
                   "lexical_token:ask",
                   "lexical_token:necromancer",
-                  "route_token:longmont",
-                  "route_token:necromancer",
-                  "route_token:npc"
+                  "route_token:necromancer"
                 ]
               },
               {
                 "unit_id": "u-L0003-01",
-                "score": 10,
+                "score": 4,
                 "line_start": 3,
                 "line_end": 3,
                 "routes": [
@@ -7158,8 +5985,34 @@
                 ],
                 "why_matched": [
                   "lexical_token:wolf",
-                  "route_token:longmont",
-                  "route_token:npc",
+                  "route_token:wolf"
+                ]
+              },
+              {
+                "unit_id": "u-L0003-04",
+                "score": 4,
+                "line_start": 3,
+                "line_end": 3,
+                "routes": [
+                  "Longmont Campaign/Campaign 1/NPCs/wolf/",
+                  "Longmont Campaign/Campaign 1/PCs/bonogo/"
+                ],
+                "why_matched": [
+                  "lexical_token:wolf",
+                  "route_token:wolf"
+                ]
+              },
+              {
+                "unit_id": "u-L0007-04",
+                "score": 4,
+                "line_start": 7,
+                "line_end": 7,
+                "routes": [
+                  "Longmont Campaign/Campaign 1/NPCs/professor_cinderbranch/",
+                  "Longmont Campaign/Campaign 1/NPCs/wolf/"
+                ],
+                "why_matched": [
+                  "lexical_token:ask",
                   "route_token:wolf"
                 ]
               }
@@ -7168,35 +6021,12 @@
           "delta": {
             "verdict": "unchanged_fail",
             "support_ratio_delta": 0.0,
-            "tokens_added_by_equivalences": [
-              "captain",
-              "dustwalker",
-              "elderwyld",
-              "ironveil",
-              "jove",
-              "longmont",
-              "lysandra",
-              "npc",
-              "route",
-              "torbin"
-            ],
+            "tokens_added_by_equivalences": [],
             "tokens_removed_by_equivalences": [],
-            "topk_units_swapped_in": [
-              "u-L0011-02",
-              "u-L0011-03"
-            ],
-            "topk_units_swapped_out": [
-              "u-L0003-04",
-              "u-L0007-04"
-            ],
-            "full_units_swapped_in": [
-              "u-L0009-02",
-              "u-L0011-02"
-            ],
-            "full_units_swapped_out": [
-              "u-L0015-02",
-              "u-L0017-01"
-            ],
+            "topk_units_swapped_in": [],
+            "topk_units_swapped_out": [],
+            "full_units_swapped_in": [],
+            "full_units_swapped_out": [],
             "substrings_flipped_lost": [],
             "substrings_flipped_gained": []
           },
@@ -7341,8 +6171,10 @@
             ]
           },
           "with_equivalence": {
-            "ok": true,
-            "violations": [],
+            "ok": false,
+            "violations": [
+              "missing_expected_route_hit"
+            ],
             "context_support_ratio": 1.0,
             "context_must_hits": [
               "Bonogo",
@@ -7365,15 +6197,15 @@
               },
               {
                 "substring": "sewer_meat_monster",
-                "matched": true
+                "matched": false
               }
             ],
             "hit_count": 18,
-            "ranking_augmented_by_equivalences": true,
+            "ranking_augmented_by_equivalences": false,
             "top_hits": [
               {
                 "unit_id": "u-L0035-01",
-                "score": 18,
+                "score": 12,
                 "line_start": 35,
                 "line_end": 35,
                 "routes": [
@@ -7386,38 +6218,12 @@
                   "lexical_token:guard",
                   "route_token:bonogo",
                   "route_token:elite",
-                  "route_token:guard",
-                  "route_token:longmont",
-                  "route_token:npc"
-                ]
-              },
-              {
-                "unit_id": "u-L0011-03",
-                "score": 14,
-                "line_start": 11,
-                "line_end": 11,
-                "routes": [
-                  "Longmont Campaign/Campaign 1/NPCs/necromancer/",
-                  "Longmont Campaign/Campaign 1/NPCs/torbin/",
-                  "Longmont Campaign/Campaign 1/PCs/baergrom/",
-                  "Longmont Campaign/Campaign 1/PCs/bonogo/",
-                  "Longmont Campaign/Campaign 1/PCs/caelynn/",
-                  "Longmont Campaign/Campaign 1/PCs/ephanna/",
-                  "Longmont Campaign/Campaign 1/PCs/karsemine/",
-                  "Longmont Campaign/Campaign 1/PCs/stafl/"
-                ],
-                "why_matched": [
-                  "lexical_token:bonogo",
-                  "lexical_token:torbin",
-                  "route_token:bonogo",
-                  "route_token:longmont",
-                  "route_token:npc",
-                  "route_token:torbin"
+                  "route_token:guard"
                 ]
               },
               {
                 "unit_id": "u-L0033-03",
-                "score": 14,
+                "score": 8,
                 "line_start": 33,
                 "line_end": 33,
                 "routes": [
@@ -7428,107 +6234,78 @@
                   "lexical_token:elite",
                   "lexical_token:guard",
                   "route_token:elite",
-                  "route_token:guard",
-                  "route_token:longmont",
-                  "route_token:npc"
+                  "route_token:guard"
                 ]
               },
               {
-                "unit_id": "u-L0011-02",
-                "score": 12,
-                "line_start": 11,
-                "line_end": 11,
+                "unit_id": "u-L0005-03",
+                "score": 6,
+                "line_start": 5,
+                "line_end": 5,
                 "routes": [
-                  "Longmont Campaign/Campaign 1/NPCs/necromancer/",
-                  "Longmont Campaign/Campaign 1/NPCs/torbin/",
                   "Longmont Campaign/Campaign 1/PCs/baergrom/",
-                  "Longmont Campaign/Campaign 1/PCs/bonogo/",
-                  "Longmont Campaign/Campaign 1/PCs/caelynn/",
-                  "Longmont Campaign/Campaign 1/PCs/ephanna/",
-                  "Longmont Campaign/Campaign 1/PCs/karsemine/",
-                  "Longmont Campaign/Campaign 1/PCs/stafl/"
+                  "Longmont Campaign/Campaign 1/PCs/bonogo/"
                 ],
                 "why_matched": [
-                  "route_token:bonogo",
-                  "route_token:longmont",
-                  "route_token:npc",
-                  "route_token:torbin"
+                  "lexical_token:after",
+                  "lexical_token:bonogo",
+                  "lexical_token:guard",
+                  "route_token:bonogo"
                 ]
               },
               {
-                "unit_id": "u-L0003-04",
-                "score": 10,
-                "line_start": 3,
-                "line_end": 3,
+                "unit_id": "u-L0035-02",
+                "score": 5,
+                "line_start": 35,
+                "line_end": 35,
                 "routes": [
-                  "Longmont Campaign/Campaign 1/NPCs/wolf/",
                   "Longmont Campaign/Campaign 1/PCs/bonogo/"
                 ],
                 "why_matched": [
                   "lexical_token:bonogo",
-                  "route_token:bonogo",
-                  "route_token:longmont",
-                  "route_token:npc"
+                  "lexical_token:guard",
+                  "route_token:bonogo"
+                ]
+              },
+              {
+                "unit_id": "u-L0037-02",
+                "score": 5,
+                "line_start": 37,
+                "line_end": 37,
+                "routes": [
+                  "Longmont Campaign/Campaign 1/PCs/bonogo/"
+                ],
+                "why_matched": [
+                  "lexical_token:bonogo",
+                  "lexical_token:guard",
+                  "route_token:bonogo"
                 ]
               }
             ]
           },
           "delta": {
-            "verdict": "improved",
+            "verdict": "unchanged_fail",
             "support_ratio_delta": 0.0,
-            "tokens_added_by_equivalences": [
-              "captain",
-              "dustwalker",
-              "elderwyld",
-              "ironveil",
-              "jove",
-              "longmont",
-              "lysandra",
-              "npc",
-              "route",
-              "torbin"
-            ],
+            "tokens_added_by_equivalences": [],
             "tokens_removed_by_equivalences": [],
-            "topk_units_swapped_in": [
-              "u-L0003-04",
-              "u-L0011-02",
-              "u-L0011-03"
-            ],
-            "topk_units_swapped_out": [
-              "u-L0005-03",
-              "u-L0035-02",
-              "u-L0037-02"
-            ],
-            "full_units_swapped_in": [
-              "u-L0009-02",
-              "u-L0011-01",
-              "u-L0011-02",
-              "u-L0013-01",
-              "u-L0013-02",
-              "u-L0031-02"
-            ],
-            "full_units_swapped_out": [
-              "u-L0005-03",
-              "u-L0017-03",
-              "u-L0019-01",
-              "u-L0037-02",
-              "u-L0039-01",
-              "u-L0039-02"
-            ],
+            "topk_units_swapped_in": [],
+            "topk_units_swapped_out": [],
+            "full_units_swapped_in": [],
+            "full_units_swapped_out": [],
             "substrings_flipped_lost": [],
-            "substrings_flipped_gained": [
-              "sewer_meat_monster"
-            ]
+            "substrings_flipped_gained": []
           },
           "failure_diagnostic": {
-            "bucket": "equivalence_helped",
+            "bucket": "missing_lexical_handle",
             "reasons": [
-              "equivalence_mode_passed"
+              "equivalence_missing_expected_route_substrings"
             ],
             "baseline_missing_route_substrings": [
               "sewer_meat_monster"
             ],
-            "with_equivalence_missing_route_substrings": []
+            "with_equivalence_missing_route_substrings": [
+              "sewer_meat_monster"
+            ]
           }
         },
         {
@@ -7692,7 +6469,7 @@
             "top_hits": [
               {
                 "unit_id": "u-L0013-01",
-                "score": 11,
+                "score": 5,
                 "line_start": 13,
                 "line_end": 13,
                 "routes": [
@@ -7704,14 +6481,12 @@
                 "why_matched": [
                   "lexical_token:been",
                   "lexical_token:torbin",
-                  "route_token:longmont",
-                  "route_token:npc",
                   "route_token:torbin"
                 ]
               },
               {
                 "unit_id": "u-L0009-02",
-                "score": 10,
+                "score": 4,
                 "line_start": 9,
                 "line_end": 9,
                 "routes": [
@@ -7720,14 +6495,12 @@
                 ],
                 "why_matched": [
                   "lexical_token:torbin",
-                  "route_token:longmont",
-                  "route_token:npc",
                   "route_token:torbin"
                 ]
               },
               {
                 "unit_id": "u-L0011-01",
-                "score": 10,
+                "score": 4,
                 "line_start": 11,
                 "line_end": 11,
                 "routes": [
@@ -7737,14 +6510,12 @@
                 ],
                 "why_matched": [
                   "lexical_token:torbin",
-                  "route_token:longmont",
-                  "route_token:npc",
                   "route_token:torbin"
                 ]
               },
               {
                 "unit_id": "u-L0011-03",
-                "score": 10,
+                "score": 4,
                 "line_start": 11,
                 "line_end": 11,
                 "routes": [
@@ -7759,14 +6530,12 @@
                 ],
                 "why_matched": [
                   "lexical_token:torbin",
-                  "route_token:longmont",
-                  "route_token:npc",
                   "route_token:torbin"
                 ]
               },
               {
                 "unit_id": "u-L0013-02",
-                "score": 10,
+                "score": 4,
                 "line_start": 13,
                 "line_end": 13,
                 "routes": [
@@ -7775,8 +6544,6 @@
                 ],
                 "why_matched": [
                   "lexical_token:torbin",
-                  "route_token:longmont",
-                  "route_token:npc",
                   "route_token:torbin"
                 ]
               }
@@ -7786,15 +6553,7 @@
             "verdict": "unchanged_pass",
             "support_ratio_delta": 0.0,
             "tokens_added_by_equivalences": [
-              "captain",
-              "dustwalker",
-              "elderwyld",
-              "ironveil",
-              "jove",
-              "longmont",
-              "lysandra",
-              "npc",
-              "route"
+              "jove"
             ],
             "tokens_removed_by_equivalences": [],
             "topk_units_swapped_in": [],

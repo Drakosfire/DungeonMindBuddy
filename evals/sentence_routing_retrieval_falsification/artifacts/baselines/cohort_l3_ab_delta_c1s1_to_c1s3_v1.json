@@ -10,13 +10,10 @@
     {
       "scenario_id": "c1s1",
       "baseline_all_ok": true,
-      "with_equivalence_all_ok": false,
+      "with_equivalence_all_ok": true,
       "baseline_violations": [],
-      "with_equivalence_violations": [
-        "context_support_below_threshold",
-        "semantic_verdict:fail_incomplete"
-      ],
-      "delta_violation_count": 2
+      "with_equivalence_violations": [],
+      "delta_violation_count": 0
     },
     {
       "scenario_id": "c1s2",
@@ -29,21 +26,18 @@
     {
       "scenario_id": "c1s3",
       "baseline_all_ok": true,
-      "with_equivalence_all_ok": false,
+      "with_equivalence_all_ok": true,
       "baseline_violations": [],
-      "with_equivalence_violations": [
-        "context_support_below_threshold",
-        "semantic_verdict:fail_incomplete"
-      ],
-      "delta_violation_count": 2
+      "with_equivalence_violations": [],
+      "delta_violation_count": 0
     }
   ],
   "delta_summary": {
     "total_scenarios": 3,
-    "scenarios_changed": 2,
+    "scenarios_changed": 0,
     "scenarios_improved": 0,
-    "scenarios_regressed": 2,
+    "scenarios_regressed": 0,
     "baseline_all_ok_count": 3,
-    "with_equivalence_all_ok_count": 1
+    "with_equivalence_all_ok_count": 3
   }
 }
