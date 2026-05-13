@@ -845,3 +845,10 @@ uv run python -m evals.sentence_routing_retrieval_falsification.cohort_baseline_
   --write-scene-beat-question-delta /tmp/cohort_l3_scene_packet_question_delta_c1s13_v1.json \
   --use-scene-beat-packets
 ```
+
+
+## Baseline lane policy
+
+- Default `--write` and `--check` now run the promoted equivalence lane (`--mode with-equivalence`).
+- Legacy baseline remains available for diagnostics with `--mode baseline`.
+- Delta and question-delta diagnostics continue to compare legacy baseline vs promoted equivalence using `--mode both`.

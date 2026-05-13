@@ -23,9 +23,9 @@ export default function CohortL3QuestionDeepDiveCanvas() {{
     const fullAdded = Array.isArray(q?.delta?.full_units_swapped_in) ? q.delta.full_units_swapped_in : [];
     return (
       <div style={{{{ border: "1px solid #f59e0b", borderRadius: 6, padding: 8, marginBottom: 8 }}}}>
-        <div><strong>Missed units (baseline only):</strong> {{fullMissed.length ? fullMissed.join(", ") : "none"}}</div>
+        <div><strong>Missed units (legacy baseline only):</strong> {{fullMissed.length ? fullMissed.join(", ") : "none"}}</div>
         <div><strong>Top-5 missed units:</strong> {{topMissed.length ? topMissed.join(", ") : "none"}}</div>
-        <div><strong>Units added (equivalence only):</strong> {{fullAdded.length ? fullAdded.join(", ") : "none"}}</div>
+        <div><strong>Units added (promoted equivalence only):</strong> {{fullAdded.length ? fullAdded.join(", ") : "none"}}</div>
         <div><strong>Top-5 added units:</strong> {{topAdded.length ? topAdded.join(", ") : "none"}}</div>
       </div>
     );
@@ -52,9 +52,9 @@ export default function CohortL3QuestionDeepDiveCanvas() {{
         <details key={{q.question_id}} open={{q.delta.verdict === 'regressed' || q.delta.verdict === 'improved'}}>
           <summary>{{q.question_id}} — {{q.delta.verdict}}</summary>
           {{renderUnitDiff(q)}}
-          <h3>Baseline</h3>
+          <h3>Legacy Baseline (diagnostics)</h3>
           {{renderMustHitComparison(q, "baseline")}}
-          <h3>With Equivalence</h3>
+          <h3>Promoted Equivalence Default</h3>
           {{renderMustHitComparison(q, "with_equivalence")}}
           <pre>{{JSON.stringify(q, null, 2)}}</pre>
         </details>

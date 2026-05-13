@@ -186,13 +186,23 @@ def build_cohort_summary(*, manifest: dict[str, Any], per_scenario_reports: list
     }
 
 
+
+
+def _default_delta_for_manifest(manifest: Path) -> Path:
+    key = manifest.name
+    if key == "c1s13_v1.json":
+        return Path("evals/sentence_routing_retrieval_falsification/artifacts/baselines/cohort_l3_ab_delta_c1s13_v1.json")
+    if key == "natural_v1.json":
+        return Path("evals/sentence_routing_retrieval_falsification/artifacts/baselines/cohort_l3_ab_delta_natural_v1.json")
+    return _DEFAULT_DELTA
+
 def _default_per_scenario_dir(manifest: Path) -> Path:
     cohort_id = json.loads(manifest.read_text(encoding="utf-8"))["cohort_id"]
     day = datetime.now(UTC).date().isoformat()
     return Path(f"evals/sentence_routing_retrieval_falsification/artifacts/runs/{day}/cohort_{cohort_id}")
 
 
-def _write_mode(*, manifest_path: Path, baseline_out: Path, per_scenario_out_dir: Path, workspace_root: Path) -> int:
+def _write_mode(*, manifest_path: Path, baseline_out: Path, per_scenario_out_dir: Path, workspace_root: Path, use_route_equivalence_for_ranking: bool = True, lane_label: str = "promoted_with_equivalence") -> int:
     manifest_path = (workspace_root / manifest_path).resolve() if not manifest_path.is_absolute() else manifest_path
     baseline_out = (workspace_root / baseline_out).resolve() if not baseline_out.is_absolute() else baseline_out
     per_scenario_out_dir = (workspace_root / per_scenario_out_dir).resolve() if not per_scenario_out_dir.is_absolute() else per_scenario_out_dir
@@ -203,7 +213,7 @@ def _write_mode(*, manifest_path: Path, baseline_out: Path, per_scenario_out_dir
     reports = []
     for scenario in manifest["scenarios"]:
         out_file = per_scenario_out_dir / f"{scenario['scenario_id']}_retrieval_baseline.json"
-        reports.append(run_one_scenario(scenario=scenario, route_equivalence_jsonl=route_paths, workspace_root=workspace_root, per_scenario_out=out_file))
+        reports.append(run_one_scenario(scenario=scenario, route_equivalence_jsonl=route_paths, workspace_root=workspace_root, per_scenario_out=out_file, use_route_equivalence_for_ranking=use_route_equivalence_for_ranking))
     summary = build_cohort_summary(
         manifest=manifest,
         per_scenario_reports=reports,
@@ -211,12 +221,14 @@ def _write_mode(*, manifest_path: Path, baseline_out: Path, per_scenario_out_dir
         manifest_path=manifest_path,
         route_equivalence_records=route_equivalence_records,
     )
+    summary["baseline_lane"] = lane_label
+    summary["use_route_equivalence_for_ranking"] = bool(use_route_equivalence_for_ranking)
     baseline_out.parent.mkdir(parents=True, exist_ok=True)
     baseline_out.write_text(json.dumps(summary, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     return 0
 
 
-def _check_mode(*, manifest_path: Path, baseline_path: Path, workspace_root: Path) -> int:
+def _check_mode(*, manifest_path: Path, baseline_path: Path, workspace_root: Path, use_route_equivalence_for_ranking: bool = True, lane_label: str = "promoted_with_equivalence") -> int:
     baseline_path = (workspace_root / baseline_path).resolve() if not baseline_path.is_absolute() else baseline_path
     if not baseline_path.exists():
         print(f"MISSING {_workspace_relative_posix(baseline_path, workspace_root)}", file=sys.stderr)
@@ -226,7 +238,7 @@ def _check_mode(*, manifest_path: Path, baseline_path: Path, workspace_root: Pat
         generated = tmp_dir / baseline_path.name
         per_scenario_tmp = tmp_dir / "per_scenario"
         per_scenario_tmp.mkdir()
-        _write_mode(manifest_path=manifest_path, baseline_out=generated, per_scenario_out_dir=per_scenario_tmp, workspace_root=workspace_root)
+        _write_mode(manifest_path=manifest_path, baseline_out=generated, per_scenario_out_dir=per_scenario_tmp, workspace_root=workspace_root, use_route_equivalence_for_ranking=use_route_equivalence_for_ranking, lane_label=lane_label)
         if generated.read_bytes() != baseline_path.read_bytes():
             print(f"MISMATCH {_workspace_relative_posix(baseline_path, workspace_root)}")
             return 1
@@ -491,7 +503,7 @@ def main() -> int:
     parser.add_argument("--manifest", type=Path, default=_DEFAULT_MANIFEST)
     parser.add_argument("--baseline", type=Path, default=_DEFAULT_BASELINE)
     parser.add_argument("--delta", type=Path, default=_DEFAULT_DELTA)
-    parser.add_argument("--mode", choices=["baseline", "with-equivalence", "both"], default="baseline")
+    parser.add_argument("--mode", choices=["baseline", "with-equivalence", "both"], default="with-equivalence")
     parser.add_argument("--write-delta", nargs="?", const=str(_DEFAULT_DELTA), default=None)
     parser.add_argument("--check-delta", action="store_true")
     parser.add_argument("--write-question-delta", nargs="?", const=str(_DEFAULT_QUESTION_DELTA), default=None)
@@ -511,20 +523,24 @@ def main() -> int:
                 tmp_delta = Path(tmp) / "delta.json"
                 cmd = [sys.executable, "-m", "evals.sentence_routing_retrieval_falsification.cohort_baseline_run", "--manifest", str(args.manifest), "--mode", "both", "--write-delta", str(tmp_delta)]
                 subprocess.run(cmd, cwd=str(_HARNESS_WORKSPACE_ROOT), check=True, capture_output=True, text=True)
-                delta_path = (_HARNESS_WORKSPACE_ROOT / args.delta).resolve() if not args.delta.is_absolute() else args.delta
+                chosen_delta = _default_delta_for_manifest(Path(args.manifest)) if Path(args.delta) == _DEFAULT_DELTA else Path(args.delta)
+                delta_path = (_HARNESS_WORKSPACE_ROOT / chosen_delta).resolve() if not Path(chosen_delta).is_absolute() else Path(chosen_delta)
                 if tmp_delta.read_bytes() != delta_path.read_bytes():
                     print(f"MISMATCH {_workspace_relative_posix(delta_path, _HARNESS_WORKSPACE_ROOT)}")
                     return 1
                 print(f"OK {_workspace_relative_posix(delta_path, _HARNESS_WORKSPACE_ROOT)}")
                 return 0
         if args.check:
-            return _check_mode(manifest_path=args.manifest, baseline_path=args.baseline, workspace_root=_HARNESS_WORKSPACE_ROOT)
+            use_eq = args.mode != "baseline"
+            lane_label = "legacy_baseline" if args.mode == "baseline" else "promoted_with_equivalence"
+            return _check_mode(manifest_path=args.manifest, baseline_path=args.baseline, workspace_root=_HARNESS_WORKSPACE_ROOT, use_route_equivalence_for_ranking=use_eq, lane_label=lane_label)
         if args.check_question_delta:
             with tempfile.TemporaryDirectory() as tmp:
                 tmp_q = Path(tmp) / "qdelta.json"
                 qpath = (_HARNESS_WORKSPACE_ROOT / Path(args.check_question_delta)).resolve() if not Path(args.check_question_delta).is_absolute() else Path(args.check_question_delta)
                 expected_qdelta = json.loads(qpath.read_text(encoding="utf-8"))
-                active_delta = Path(str(expected_qdelta.get("scenario_level_delta_path") or args.delta))
+                fallback_delta = _default_delta_for_manifest(Path(args.manifest)) if Path(args.delta) == _DEFAULT_DELTA else Path(args.delta)
+                active_delta = Path(str(expected_qdelta.get("scenario_level_delta_path") or fallback_delta))
                 cmd = [sys.executable, "-m", "evals.sentence_routing_retrieval_falsification.cohort_baseline_run", "--manifest", str(args.manifest), "--mode", "both", "--write-question-delta", str(tmp_q), "--delta", str(active_delta)]
                 subprocess.run(cmd, cwd=str(_HARNESS_WORKSPACE_ROOT), check=True, capture_output=True, text=True)
                 if tmp_q.read_bytes() != qpath.read_bytes():
@@ -626,7 +642,9 @@ def main() -> int:
             if args.mode == "both":
                 return 0
         per_scenario_dir = args.per_scenario_out_dir or _default_per_scenario_dir(args.manifest)
-        return _write_mode(manifest_path=args.manifest, baseline_out=args.baseline, per_scenario_out_dir=per_scenario_dir, workspace_root=_HARNESS_WORKSPACE_ROOT)
+        use_eq = args.mode != "baseline"
+        lane_label = "legacy_baseline" if args.mode == "baseline" else "promoted_with_equivalence"
+        return _write_mode(manifest_path=args.manifest, baseline_out=args.baseline, per_scenario_out_dir=per_scenario_dir, workspace_root=_HARNESS_WORKSPACE_ROOT, use_route_equivalence_for_ranking=use_eq, lane_label=lane_label)
     except (OSError, ValueError) as exc:
         print(str(exc), file=sys.stderr)
         return 2

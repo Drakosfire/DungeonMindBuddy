@@ -18,8 +18,8 @@
       "gold_schema": "dmb_breadcrumb_query_natural_gold_v1",
       "all_ok": false,
       "scenario_count": 25,
-      "pass_count": 16,
-      "fail_count": 9,
+      "pass_count": 14,
+      "fail_count": 11,
       "violations": [
         {
           "scenario_id": "wolf_head_why_academy",
@@ -33,16 +33,15 @@
         },
         {
           "scenario_id": "covert_ops_meat_check",
-          "ok": true,
-          "violations": []
+          "ok": false,
+          "violations": [
+            "semantic_verdict:fail_incomplete"
+          ]
         },
         {
           "scenario_id": "stormspire_activity_arrival",
-          "ok": false,
-          "violations": [
-            "context_support_below_threshold",
-            "semantic_verdict:fail_incomplete"
-          ]
+          "ok": true,
+          "violations": []
         },
         {
           "scenario_id": "mossglade_study_room_torbin",
@@ -71,20 +70,25 @@
         },
         {
           "scenario_id": "speak_with_dead_question_allocation",
-          "ok": true,
-          "violations": []
-        },
-        {
-          "scenario_id": "wolf_killer_disambiguation",
           "ok": false,
           "violations": [
             "semantic_verdict:fail_incomplete"
           ]
         },
         {
+          "scenario_id": "wolf_killer_disambiguation",
+          "ok": false,
+          "violations": [
+            "context_support_below_threshold",
+            "semantic_verdict:fail_incomplete"
+          ]
+        },
+        {
           "scenario_id": "lira_shepherd_plot_disambiguation",
-          "ok": true,
-          "violations": []
+          "ok": false,
+          "violations": [
+            "semantic_verdict:fail_incomplete"
+          ]
         },
         {
           "scenario_id": "cinderbranch_draven_door_disambiguation",
@@ -103,7 +107,7 @@
           "ok": false,
           "violations": [
             "context_support_below_threshold",
-            "semantic_verdict:fail_incomplete"
+            "semantic_verdict:fail_stale"
           ]
         },
         {
@@ -111,6 +115,7 @@
           "ok": false,
           "violations": [
             "context_support_below_threshold",
+            "missing_expected_route_hit",
             "semantic_verdict:fail_incomplete"
           ]
         },
@@ -135,13 +140,18 @@
         },
         {
           "scenario_id": "sleep_spell_chain_mechanical_prep",
-          "ok": true,
-          "violations": []
+          "ok": false,
+          "violations": [
+            "context_support_below_threshold",
+            "missing_expected_route_hit",
+            "semantic_verdict:fail_incomplete"
+          ]
         },
         {
           "scenario_id": "stormspire_who_shows_up_location_entity_list",
           "ok": false,
           "violations": [
+            "context_support_below_threshold",
             "missing_location_entity_summary",
             "query_mode_mismatch",
             "semantic_verdict:fail_incomplete"
@@ -161,10 +171,8 @@
         },
         {
           "scenario_id": "bonogo_poison_bite_sequence",
-          "ok": false,
-          "violations": [
-            "missing_expected_route_hit"
-          ]
+          "ok": true,
+          "violations": []
         },
         {
           "scenario_id": "torbin_thread_status_end",
@@ -188,11 +196,11 @@
       },
       "recall_via_equivalence": {
         "missed_substrings": [
-          "sewer_meat_monster"
+          "Draven"
         ],
         "rescued_substrings": [],
         "still_missing_substrings": [
-          "sewer_meat_monster"
+          "Draven"
         ],
         "missed_count": 1,
         "rescued_count": 0,
@@ -202,8 +210,8 @@
   ],
   "aggregate": {
     "total_questions": 25,
-    "total_pass": 16,
-    "total_fail": 9,
+    "total_pass": 14,
+    "total_fail": 11,
     "all_scenarios_all_ok": false
   },
   "recall_via_equivalence_aggregate": {
@@ -211,5 +219,7 @@
     "min": 0.0,
     "mean": 0.0,
     "max": 0.0
-  }
+  },
+  "baseline_lane": "promoted_with_equivalence",
+  "use_route_equivalence_for_ranking": true
 }
