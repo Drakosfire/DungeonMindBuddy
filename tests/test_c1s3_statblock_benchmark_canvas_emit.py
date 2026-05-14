@@ -10,6 +10,7 @@ from evals.planner_slice.c1s3_statblock_benchmark_canvas_emit import (
 
 def test_build_payload_includes_three_c1s3_statblock_fixtures() -> None:
     p = build_c1s3_statblock_benchmark_payload()
+    assert p["canvasBasename"] == "c1s3-statblock-benchmark-scenarios.canvas.tsx"
     assert len(p["scenarios"]) == 3
     ids = {str(s["id"]) for s in p["scenarios"]}
     assert "c1s3_pippa_statblock_context_scripted" in ids

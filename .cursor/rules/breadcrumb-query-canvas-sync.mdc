@@ -12,7 +12,7 @@ The canvas is **data-driven**: dynamic metrics, scenario rows, and cards come fr
 
 ## Canvas file (Cursor-managed path)
 
-Cursor only loads canvases from the IDE-managed directory under your user profile, not from the git repo’s `canvases/` folder.
+The semantic-review canvas lives under `~/.cursor/projects/<workspace-slug>/canvases/` for this repo (override the parent with `DMB_CURSOR_CANVAS_DIR` if your layout differs).
 
 For this workspace (DungeonMindBuddy), the canonical file is:
 

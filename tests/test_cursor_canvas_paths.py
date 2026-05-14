@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from evals.sentence_routing_retrieval_falsification import cursor_canvas_paths as ccp
 
 
@@ -19,26 +21,15 @@ def test_default_cursor_canvas_path_under_cursor_projects() -> None:
     assert p == Path.home() / ".cursor" / "projects" / slug / "canvases" / "foo.canvas.tsx"
 
 
-def test_repo_canvases_dir(tmp_path: Path) -> None:
-    assert ccp.repo_canvases_dir(workspace_root=tmp_path) == tmp_path / "canvases"
-
-
-def test_ensure_canvas_file_for_patch_creates_parent_and_seeds(tmp_path: Path) -> None:
-    fake_repo = tmp_path / "buddy"
-    (fake_repo / "canvases").mkdir(parents=True)
-    (fake_repo / "canvases" / "seed.canvas.tsx").write_text("seeded-body", encoding="utf-8")
-    dest = tmp_path / "ide" / "canvases" / "seed.canvas.tsx"
-    out = ccp.ensure_canvas_file_for_patch(dest, workspace_root=fake_repo)
-    assert out == dest.resolve()
-    assert dest.read_text(encoding="utf-8") == "seeded-body"
+def test_ensure_canvas_file_for_patch_creates_parent_raises_when_missing(tmp_path: Path) -> None:
+    dest = tmp_path / "ide" / "canvases" / "missing.canvas.tsx"
+    with pytest.raises(FileNotFoundError, match="Canvas file"):
+        ccp.ensure_canvas_file_for_patch(dest)
 
 
 def test_ensure_canvas_file_for_patch_noop_when_exists(tmp_path: Path) -> None:
-    fake_repo = tmp_path / "buddy"
-    (fake_repo / "canvases").mkdir(parents=True)
-    (fake_repo / "canvases" / "x.canvas.tsx").write_text("repo", encoding="utf-8")
     dest = tmp_path / "ide" / "canvases" / "x.canvas.tsx"
     dest.parent.mkdir(parents=True)
     dest.write_text("local", encoding="utf-8")
-    ccp.ensure_canvas_file_for_patch(dest, workspace_root=fake_repo)
+    ccp.ensure_canvas_file_for_patch(dest)
     assert dest.read_text(encoding="utf-8") == "local"

@@ -595,7 +595,7 @@ The Stage B C1 benchmark workaround landed in commit `0bccafb` — `evals/sessio
 **Insight:** Every die-result lookup against a corpus markdown table is `read line N of file F`. Zero model needed. The current behavior burns latency and tokens for a `sed -n '28p'`-equivalent operation.  
 **Action:** Add a `/roll <table-name-or-path> <n>` shortcut (skill or hook) that grep/reads the matching row from `Elderwyld/Roads/*.md`, `Elderwyld/Wilderness/*.md`, etc., and returns the row text plus the file:line ref. No LLM call.  
 **Surfaces when:** Building any d100/d20 table the user will roll on at the table; designing live-play tooling; corpus-search shortcuts.  
-**Refs:** `canvases/live-play-workflow-analysis.canvas.tsx` (DungeonMindBuddy canvas), corpus files under `corpus/eldyrwild-markdown/Elderwyld/Roads/` and `Elderwyld/Wilderness/`
+**Refs:** `live-play-workflow-analysis.canvas.tsx` (DungeonMindBuddy canvas), corpus files under `corpus/eldyrwild-markdown/Elderwyld/Roads/` and `Elderwyld/Wilderness/`
 
 ## [IDEA] Mirathorn — what is happening while the party is away? — captured 2026-04-18
 
@@ -603,4 +603,4 @@ The Stage B C1 benchmark workaround landed in commit `0bccafb` — `evals/sessio
 **Insight:** The party is multi-day-travel out from Mirathorn, but the city has multiple live threads (tainted jerky / supply chain, Sara's *"who can I trust"* wobble, Tealeaf line still hanging, Lysandra reunion, Dustwalker decoy fallout, curfew council, Stormbark Tea / Mossford handoff). Without a clear authored state, the city goes flat the moment the party turns around.  
 **Action:** Author a `Longmont Campaign/Campaign 2/Mirathorn — While You Were Away.md` doc that timelines what happens in the city across the party's travel days. Pull from the existing threads in `Elderwyld_Narrative_Ledger_Campaign2.md` and the Sara / Lysandra dossiers. Result should answer: *"if the party scries / sends / asks Sara on the rockie-talkie at any point during the journey, what truthful state can the GM relay?"*  
 **Surfaces when:** Prepping any session where a Mirathorn check-in is plausible; party uses a rockie-talkie; party reaches Mossford or further; building the swamp-arc bridge.  
-**Refs:** `corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Elderwyld_Narrative_Ledger_Campaign2.md`, `corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/`, `corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/`, `canvases/live-play-workflow-analysis.canvas.tsx`
+**Refs:** `corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Elderwyld_Narrative_Ledger_Campaign2.md`, `corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/`, `corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/`, `live-play-workflow-analysis.canvas.tsx`

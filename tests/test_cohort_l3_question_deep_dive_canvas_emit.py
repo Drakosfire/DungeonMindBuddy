@@ -8,10 +8,10 @@ from evals.sentence_routing_retrieval_falsification.cohort_l3_question_deep_dive
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_emit_writes_canvas_with_markers() -> None:
-    assert emit() == 0
-    p = _REPO_ROOT / 'canvases/cohort-l3-ab-question-deep-dive.canvas.tsx'
-    text = p.read_text(encoding='utf-8')
+def test_emit_writes_canvas_with_markers(tmp_path: Path) -> None:
+    out = tmp_path / "cohort-l3-deep-dive.canvas.tsx"
+    assert emit(input_path=DEFAULT_INPUT, output_path=out) == 0
+    text = out.read_text(encoding="utf-8")
     assert 'BEGIN GENERATED COHORT_L3_QUESTION_DEEP_DIVE' in text
     assert 'END GENERATED COHORT_L3_QUESTION_DEEP_DIVE' in text
     assert 'Cohort L3 Question Deep Dive' in text

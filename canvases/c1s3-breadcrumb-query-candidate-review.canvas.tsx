@@ -1510,7 +1510,7 @@ export default function C1S3BreadcrumbQueryCandidateReviewCanvas() {
         <Text>
           <Code>uv run python -m evals.sentence_routing_retrieval_falsification.c1s3_query_candidate_build</Code>
           <br />
-          <Code>uv run python -m evals.sentence_routing_retrieval_falsification.c1s3_query_candidate_canvas_emit --candidates {candidateArtifact} --canvas-tsx canvases/c1s3-breadcrumb-query-candidate-review.canvas.tsx</Code>
+          <Code>uv run python -m evals.sentence_routing_retrieval_falsification.c1s3_query_candidate_canvas_emit --candidates {candidateArtifact} --canvas-tsx ~/.cursor/projects/.../canvases/c1s3-breadcrumb-query-candidate-review.canvas.tsx</Code>
         </Text>
       </Callout>
       <Divider />

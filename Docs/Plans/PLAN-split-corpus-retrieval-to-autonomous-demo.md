@@ -6,9 +6,9 @@ title: Split-corpus retrieval to autonomous C1S1–C1S3 demo
 document_class: plan
 plan_kind: execution_super_plan
 status: active
-version: 29
+version: 30
 created_at: "2026-05-09T00:00:00Z"
-last_updated_at: "2026-05-13T16:50:00Z"
+last_updated_at: "2026-05-13T18:45:00Z"
 timezone_note: "Timestamps are UTC; local work may use America/Denver."
 supersedes: []
 superseded_by: null
@@ -59,13 +59,13 @@ execution_state:
     && uv run python -m evals.sentence_routing_retrieval_falsification.cohort_baseline_run --manifest evals/sentence_routing_retrieval_falsification/cohorts/natural_v1.json --delta evals/sentence_routing_retrieval_falsification/artifacts/baselines/cohort_l3_ab_delta_natural_v1.json --check-delta
     && uv run python -m evals.sentence_routing_retrieval_falsification.cohort_baseline_run --manifest evals/sentence_routing_retrieval_falsification/cohorts/natural_v1.json --check-question-delta evals/sentence_routing_retrieval_falsification/artifacts/baselines/cohort_l3_ab_question_delta_natural_v1.json
     && uv run python -m evals.sentence_routing_retrieval_falsification.cohort_l3_question_deep_dive_canvas_emit
-    && uv run python -m evals.sentence_routing_retrieval_falsification.cohort_l3_question_deep_dive_canvas_emit --input evals/sentence_routing_retrieval_falsification/artifacts/baselines/cohort_l3_ab_question_delta_natural_v1.json --output canvases/cohort-l3-ab-question-deep-dive-natural-v1.canvas.tsx
+    && uv run python -m evals.sentence_routing_retrieval_falsification.cohort_l3_question_deep_dive_canvas_emit --input evals/sentence_routing_retrieval_falsification/artifacts/baselines/cohort_l3_ab_question_delta_natural_v1.json --output cohort-l3-ab-question-deep-dive-natural-v1.canvas.tsx
     && uv run pytest tests/test_cohort_l3_alias_saturation_canvas_emit.py -q
-    && uv run python -m evals.sentence_routing_retrieval_falsification.cohort_l3_alias_saturation_canvas_emit --input evals/sentence_routing_retrieval_falsification/artifacts/baselines/cohort_l3_ab_question_delta_c1s1_to_c1s3_v1.json --input evals/sentence_routing_retrieval_falsification/artifacts/baselines/cohort_l3_ab_question_delta_natural_v1.json --output canvases/cohort-l3-alias-saturation.canvas.tsx
+    && uv run python -m evals.sentence_routing_retrieval_falsification.cohort_l3_alias_saturation_canvas_emit --input evals/sentence_routing_retrieval_falsification/artifacts/baselines/cohort_l3_ab_question_delta_c1s1_to_c1s3_v1.json --input evals/sentence_routing_retrieval_falsification/artifacts/baselines/cohort_l3_ab_question_delta_natural_v1.json --output cohort-l3-alias-saturation.canvas.tsx
     && uv run python -m evals.sentence_routing_retrieval_falsification.cohort_baseline_run --manifest evals/sentence_routing_retrieval_falsification/cohorts/c1s13_v1.json --baseline evals/sentence_routing_retrieval_falsification/artifacts/baselines/cohort_baseline_c1s13_v1.json --check
     && uv run python -m evals.sentence_routing_retrieval_falsification.cohort_baseline_run --manifest evals/sentence_routing_retrieval_falsification/cohorts/c1s13_v1.json --delta evals/sentence_routing_retrieval_falsification/artifacts/baselines/cohort_l3_ab_delta_c1s13_v1.json --check-delta
     && uv run python -m evals.sentence_routing_retrieval_falsification.cohort_baseline_run --manifest evals/sentence_routing_retrieval_falsification/cohorts/c1s13_v1.json --check-question-delta evals/sentence_routing_retrieval_falsification/artifacts/baselines/cohort_l3_ab_question_delta_c1s13_v1.json
-    && uv run python -m evals.sentence_routing_retrieval_falsification.cohort_l3_question_deep_dive_canvas_emit --input evals/sentence_routing_retrieval_falsification/artifacts/baselines/cohort_l3_ab_question_delta_c1s13_v1.json --output canvases/cohort-l3-ab-question-deep-dive-c1s13-v1.canvas.tsx
+    && uv run python -m evals.sentence_routing_retrieval_falsification.cohort_l3_question_deep_dive_canvas_emit --input evals/sentence_routing_retrieval_falsification/artifacts/baselines/cohort_l3_ab_question_delta_c1s13_v1.json --output cohort-l3-ab-question-deep-dive-c1s13-v1.canvas.tsx
     && uv run python -m evals.sentence_routing_retrieval_falsification.c1s13_holdout_l3_deep_dive_canvas_emit
   flagged_followups:
     - >-
@@ -84,7 +84,7 @@ execution_state:
     - >-
       PR #21 is MERGED to main (merge commit eabd3a83024b9cabe4a07cc22e4f072512730096, 2026-05-13T15:23:54Z): `cohort_baseline_run.py` `_effective_delta_for_args` — manifest-default scenario-level delta for question-delta write/check without trusting stale JSON `scenario_level_delta_path`; committed `cohort_l3_ab_question_delta_c1s13_v1.json` + `cohort_l3_ab_question_delta_natural_v1.json` regenerated; four-path allowlist; §7 green on head `075ced328c59de89dfc47eeac7fe2ee7402fa93c` (29 cohort tests; C1S13 + natural + default question-delta checks). Cost $0. `github-pr-21` judgment + rubric below; `HANDOFF-pr21-c1s13-question-delta-path.md` archived under `Docs/Plans/archive/2026-05-13/handoffs/`.
     - >-
-      PR #20 is MERGED to main (merge commit bb19d22910c4fb8720704ad6469d35165620936e, 2026-05-13T14:11:45Z): L3 question deep-dive canvas presentation refresh — `cohort_l3_question_deep_dive_canvas_emit.py` + three generated `canvases/cohort-l3-ab-question-deep-dive*.canvas.tsx` + `tests/test_cohort_l3_question_deep_dive_canvas_emit.py`; five-path allowlist; presentation-only (no cohort runner, gold, or retrieval changes). §7 green on head `0f7d93cf26dcbfc71f6bdf771aa6bf543af84673` (pytest slices; manual C1S13 smoke). Cost $0. `github-pr-20` judgment + rubric below; `HANDOFF-pr20-c1s13-l3-canvas-presentation.md` archived under `Docs/Plans/archive/2026-05-13/handoffs/`.
+      PR #20 is MERGED to main (merge commit bb19d22910c4fb8720704ad6469d35165620936e, 2026-05-13T14:11:45Z): L3 question deep-dive canvas presentation refresh — `cohort_l3_question_deep_dive_canvas_emit.py` + three generated `cohort-l3-ab-question-deep-dive*.canvas.tsx` (Cursor-managed default) + `tests/test_cohort_l3_question_deep_dive_canvas_emit.py`; five-path allowlist; presentation-only (no cohort runner, gold, or retrieval changes). §7 green on head `0f7d93cf26dcbfc71f6bdf771aa6bf543af84673` (pytest slices; manual C1S13 smoke). Cost $0. `github-pr-20` judgment + rubric below; `HANDOFF-pr20-c1s13-l3-canvas-presentation.md` archived under `Docs/Plans/archive/2026-05-13/handoffs/`.
     - >-
       PR #19 is MERGED to main (merge commit 75996c52cb074f8c46d8e8615a422605e566c963,
       2026-05-13T03:20:11Z): cohort `cohort_baseline_run` default `--write`/`--check` is equivalence-augmented; legacy baseline behind `--mode baseline`; committed `cohort_baseline_*` + C1S13 scenario report pair refreshed; `c1s13_holdout_l3_deep_dive_canvas_emit` promoted-vs-legacy labels; nine-path allowlist; §7 passed on PR head `010898348b9905b3917f56dc6a2235c3ec119411` (cohort tests 25; holdout emitter tests 2; CLI checks + legacy /tmp smoke; holdout emitter module run). Cost $0. PR #12 `promotion_gate_candidate:none_found` still constrains alias-saturation production promotion; harness default ranking unchanged from PR #18. `github-pr-19` judgment + rubric below; `HANDOFF-pr19-deprecate-baseline-promote-equivalence.md` archived under `Docs/Plans/archive/2026-05-13/handoffs/`.
@@ -172,7 +172,7 @@ execution_state:
       2026-05-11T20:37:15Z): alias-saturation diagnostics — new emitter
       `cohort_l3_alias_saturation_canvas_emit.py`, tests
       `tests/test_cohort_l3_alias_saturation_canvas_emit.py`, README documentation, generated
-      `canvases/cohort-l3-alias-saturation.canvas.tsx` (**strict four-file allowlist**). Parent
+      `cohort-l3-alias-saturation.canvas.tsx` (**strict four-file allowlist**). Parent
       verification on PR head 00659b29d84dbbae57cc8ccd2567d925454a6b9c: existing deep-dive emitter
       tests **3** + cohort **19** + alias-saturation **3** passed; combined payload readout
       `question_count` **56**, `verdict_counts` `regressed:2 improved:1 unchanged_pass:49 unchanged_fail:4`,
@@ -188,7 +188,7 @@ execution_state:
       boundary checks. Adds committed `cohorts/natural_v1.json`,
       `artifacts/baselines/cohort_baseline_natural_v1.json`,
       `cohort_l3_ab_delta_natural_v1.json`, `cohort_l3_ab_question_delta_natural_v1.json`,
-      and generated canvas `canvases/cohort-l3-ab-question-deep-dive-natural-v1.canvas.tsx`.
+      and generated canvas `cohort-l3-ab-question-deep-dive-natural-v1.canvas.tsx`.
       `cohort_baseline_run.py` now forwards caller `--manifest` through `--check-delta` and
       `--check-question-delta` reruns, and question-delta metadata reflects the active
       delta lane path. `cohort_l3_question_deep_dive_canvas_emit.py` gains `--input`/`--output`
@@ -206,7 +206,7 @@ execution_state:
       (`dmb_breadcrumb_query_cohort_l3_question_delta_v1`, `question_count: 44`,
       summary `regressed:2 improved:0 unchanged_pass:42 unchanged_fail:0`);
       new emitter `cohort_l3_question_deep_dive_canvas_emit.py` writes
-      `canvases/cohort-l3-ab-question-deep-dive.canvas.tsx` with generated markers.
+      `cohort-l3-ab-question-deep-dive.canvas.tsx` with generated markers.
       Tests: lexicon **25**; cohort tests **17**; emitter tests **2**; baseline `--check` OK;
       scenario-delta `--check-delta` OK; question-delta smoke + `--check-question-delta` OK.
       Review APPROVE demoted to COMMENTED under self-review fallback (review id `4264759583`).
@@ -254,7 +254,7 @@ execution_state:
       `artifacts/baselines/cohort_baseline_c1s1_to_c1s3_v2.json` (v1 file removed).
       Tests: breadcrumb harness 12, cohort runner 13, combined with lexicon 22
       -> 47 passed on PR head `2bc6ad9e`; cohort `--check` OK; `--write` smoke
-      BYTE-IDENTICAL vs committed v2 baseline; `canvases/` clean. APPROVE demoted to
+      BYTE-IDENTICAL vs committed v2 baseline; working tree clean (canvas emit smoke). APPROVE demoted to
       COMMENTED (self-review fallback, review id `4260504200`). No retrieval, grader,
       gold, producer JSONL, or shadow-module edits. Tight cohort: all three scenarios
       `recall_via_equivalence: null` (denominator zero — load-bearing readout).
@@ -268,7 +268,7 @@ execution_state:
       Single round (PR head `06280c87`); APPROVE demoted to COMMENTED (self-review
       fallback, review id `4260316552`). §7 green: lexicon 22, breadcrumb harness 11,
       manifest `--check` OK, cohort 9 + CWD test, `--check` OK baseline,
-      `--write` vs committed file BYTE-IDENTICAL, `canvases/` clean. No changes to
+      `--write` vs committed file BYTE-IDENTICAL, working tree clean (canvas emit smoke). No changes to
       `breadcrumb_query_run.py`, `route_equivalence_shadow.py`, producer paths,
       gold, or grader. Cost $0 (`--retrieval-only`).
     - >-
@@ -345,6 +345,10 @@ execution_state:
       -> 10 passed (round 2 added byte-identity-when-flag-unset and
       load-failure-emits-error harness-boundary tests).
 changelog:
+  - at: "2026-05-13T18:45:00Z"
+    version: 30
+    summary: >-
+      Doc sync: CHECKLIST Reanchor relabels PR #12 `promotion_gate_candidate:none_found` from "Current blocking red gate" to **Open promotion-decision artifact** (packaged alias-threshold scan had no candidate — measurement evidence, not a failing committed `--check`). Session log twenty-fourth entry; super-plan pointer v30. PLAN Current state snapshot bullets for PR #12 / PR #16 aligned with the same distinction. Cost $0.
   - at: "2026-05-13T16:43:34Z"
     version: 29
     summary: >-
@@ -442,7 +446,7 @@ changelog:
       deep-dive surface. Adds `cohort_l3_ab_question_delta_c1s1_to_c1s3_v1.json`
       (`dmb_breadcrumb_query_cohort_l3_question_delta_v1`) and deterministic emitter
       `cohort_l3_question_deep_dive_canvas_emit.py` for
-      `canvases/cohort-l3-ab-question-deep-dive.canvas.tsx`. `next_gate_command`
+      `cohort-l3-ab-question-deep-dive.canvas.tsx`. `next_gate_command`
       now includes emitter tests + `--check-question-delta` + emitter run. `external_pull_requests`
       gains `github-pr-10` with rubric bullets for per-question determinism, route-vs-support
       distinction, generated-marker contract, allowlist lock, and retrieval-only cost lane.
@@ -701,7 +705,7 @@ external_pull_requests:
       Merged to main on 2026-05-13T14:11:45Z (merge commit bb19d22910c4fb8720704ad6469d35165620936e).
       Verified PR head 0f7d93cf26dcbfc71f6bdf771aa6bf543af84673: strict §4 allowlist 5/5; §7 green on non-heredoc commands
       (`uv run pytest tests/test_cohort_l3_question_deep_dive_canvas_emit.py -q` -> 3 passed;
-      `uv run pytest tests/test_cursor_canvas_paths.py -q` -> 5 passed; three canvas regeneration module runs exit 0).
+      `uv run pytest tests/test_cursor_canvas_paths.py -q` -> 4 passed; three canvas regeneration module runs exit 0).
       `review_external_pr.py verify` line-split the handoff heredoc smoke block; parent reran equivalent `python -c` smoke on PR head (pass).
       Verdict APPROVE expressed as COMMENTED under self-review fallback (review id 4282442311). Cost $0.
     judgment_record:
@@ -717,7 +721,7 @@ external_pull_requests:
       - >-
         **Do not conflate cohort default with production promotion:** PR #12 `promotion_gate_candidate:none_found` can remain true while cohort default lane promotes — record which fork each PR addresses to avoid stale blocker language (carry-forward from PR #19).
       - >-
-        **L3 deep-dive presentation allowlist is five paths:** worker PR touches only `cohort_l3_question_deep_dive_canvas_emit.py`, `tests/test_cohort_l3_question_deep_dive_canvas_emit.py`, and the three generated `canvases/cohort-l3-ab-question-deep-dive*.canvas.tsx`; any `cohort_baseline_run.py`, committed `cohort_l3_ab_question_delta_*.json`, gold, or retriever edit ⇒ scope creep revert.
+        **L3 deep-dive presentation allowlist is five paths:** worker PR touches only `cohort_l3_question_deep_dive_canvas_emit.py`, `tests/test_cohort_l3_question_deep_dive_canvas_emit.py`, and the three generated `cohort-l3-ab-question-deep-dive*.canvas.tsx` (Cursor-managed default); any `cohort_baseline_run.py`, committed `cohort_l3_ab_question_delta_*.json`, gold, or retriever edit ⇒ scope creep revert.
       - >-
         **§7 smoke for folded heredocs:** if handoff §7 embeds a heredoc, also supply a one-line `uv run python -c '...'` equivalent (or fold to single line) so `review_external_pr.py verify` cannot false-fail on line-splitting; parent reruns manual smoke when verify disagrees.
   - id: github-pr-16
@@ -841,7 +845,7 @@ external_pull_requests:
     rubric_when_we_judge:
       - >-
         **Strict nine-path baseline-promotion allowlist:** worker PR touches only HANDOFF-pr19 §4 paths (`cohort_baseline_run.py`, `tests/test_cohort_baseline_run.py`, `c1s13_holdout_l3_deep_dive_canvas_emit.py`, `tests/test_c1s13_holdout_l3_deep_dive_canvas_emit.py`, eval README, three committed `cohort_baseline_*.json`, two `cohort_l3_ab_scenario_report_c1s13_v1_*.json`);
-        any corpus, gold, producer JSONL, planner prompt, harness default-flag, or `canvases/**` runtime output edit ⇒ scope creep revert.
+        any corpus, gold, producer JSONL, planner prompt, harness default-flag, or `Cursor-managed runtime canvas outputs` runtime output edit ⇒ scope creep revert.
       - >-
         **Default `--check` must validate promoted artifacts:** after merge, `cohort_baseline_run --check` with no explicit `--mode` must byte-validate the refreshed committed `cohort_baseline_*` files; forgetting regeneration while flipping argparse defaults is merge-blocking.
       - >-
@@ -1031,7 +1035,7 @@ external_pull_requests:
       Alias-saturation analysis + promotion-gate evidence surface: deterministic emitter
       `cohort_l3_alias_saturation_canvas_emit.py` ingests both committed L3 question-delta JSON artifacts
       (tight `c1s1_to_c1s3` + `natural_v1`) in one CLI invocation and writes generated
-      `canvases/cohort-l3-alias-saturation.canvas.tsx` with schema `dmb_cohort_l3_alias_saturation_v1`,
+      `cohort-l3-alias-saturation.canvas.tsx` with schema `dmb_cohort_l3_alias_saturation_v1`,
       per-question alias/top-K rows, `threshold_scan`, and `promotion_gate_candidate`. Strict four-file
       allowlist; no retrieval core, baseline, question-delta JSON, gold, producer JSONL, or plan/checklist edits
       in the worker PR.
@@ -1138,7 +1142,7 @@ external_pull_requests:
       artifact `cohort_l3_ab_question_delta_c1s1_to_c1s3_v1.json`
       (`dmb_breadcrumb_query_cohort_l3_question_delta_v1`) plus deterministic emitter
       `cohort_l3_question_deep_dive_canvas_emit.py` for
-      `canvases/cohort-l3-ab-question-deep-dive.canvas.tsx`. No retrieval logic flip,
+      `cohort-l3-ab-question-deep-dive.canvas.tsx`. No retrieval logic flip,
       no gold/producers edits.
     review_status: merged
     review_status_meaning: >-
@@ -1306,7 +1310,7 @@ external_pull_requests:
       Parent verification on PR head 2bc6ad9e3dc602a6b34f055f642fb504193ecdf5:
       §7 suite green (lexicon 22; breadcrumb harness 12; manifest --check OK both;
       cohort tests 13 + CWD harness; cohort --check OK v2 baseline; --write smoke
-      BYTE-IDENTICAL; v1 baseline absent; canvases/ clean). Verdict APPROVE demoted
+      BYTE-IDENTICAL; v1 baseline absent; working tree clean (canvas emit smoke)). Verdict APPROVE demoted
       to COMMENTED under self-review fallback (review id 4260504200). Tight cohort
       shows per-scenario recall null and aggregate min/mean/max null
       (scenarios_with_misses: 0) — expected denominator-zero contract.
@@ -1367,7 +1371,7 @@ external_pull_requests:
       §7 suite green (lexicon 22 passed; breadcrumb_query_run harness tests 11;
       manifest --check OK both; cohort_baseline_run tests 9 + CWD harness test;
       cohort --check OK; fresh --write vs committed baseline BYTE-IDENTICAL;
-      canvases/ clean). Verdict APPROVE demoted to COMMENTED under self-review
+      working tree clean (canvas emit smoke)). Verdict APPROVE demoted to COMMENTED under self-review
       fallback (review id 4260316552).
     judgment_record:
       verdict: accepted
@@ -1404,7 +1408,7 @@ external_pull_requests:
         summary builder. (NEW from PR #6; extends PR #5's full-payload subprocess contract.)
       - >-
         **Curated cohort summary must exclude** CWD-dependent absolute paths, LLM cost fields,
-        and per-question volatile retrieval payloads; cohort runs must not perturb `canvases/`
+        and per-question volatile retrieval payloads; cohort runs must not perturb Cursor-managed canvas files under review
         without explicit opt-in. (NEW from PR #6.)
   - id: github-pr-5
     url: https://github.com/Drakosfire/DungeonMindBuddy/pull/5
@@ -1638,12 +1642,12 @@ Build a stepwise, benchmark-first path from current Phase A state to a **fully a
 
 ## Current state snapshot
 
-- Active phase is **B**; **M1 complete**, **M2 in progress** (route-equivalence **sub-lane landed**; broader M2: entity-candidate + lexical-handle surfaces still open), **M3 complete** (Phase C entry via PR #4–#5; **exit** gated wiring + true A/B deltas landed via **PR #9/#10/#11**; **failure-mode diagnostics on committed question-delta JSON** landed via **PR #16** — default retrieval unchanged; **PR #19** promotes equivalence-augmented cohort summaries as default `--write`/`--check`; **PR #22** adds **query-text-gated** compact equivalence aliases at the harness so the default lane does not inject structural or manifest-wide aliases; **PR #12** adds alias-saturation threshold evidence (`promotion_gate_candidate: none_found`) — promotion/fallback-only work remains), **M4 not started**.
-- **Route-equivalence default-lane alias safety baseline is merged:** **PR #22** (`main` merge commit `64b7546dbf72bed6feb911408c7f28cec2d008fd`, 2026-05-13T16:43:34Z) tightens `breadcrumb_query_run.py` ranking-alias activation to **compact**, **query-text-gated**, **gold-free** aliases with an explicit **structural-token** guard on route-id compaction; refreshes committed **`cohort_baseline_*`**, **`cohort_l3_ab_delta_*`**, and **`cohort_l3_ab_question_delta_*`** for tight, natural, and C1S13; **`evals/sentence_routing_retrieval_falsification/README.md`**. Verified on **`1de5524e08b2f3b697794c6162a3b7a37e957c86`**: harness tests **20**, cohort tests **29**, producer **`--check`** OK, cohort **`--check`** / **`--check-delta`** / **`--check-question-delta`** OK on all three manifests; question-delta summaries **0 regressed / 0 improved** each; retrieval-only / **$0**. **PR #12** `promotion_gate_candidate: none_found` unchanged. Handoff archived at `Docs/Plans/archive/2026-05-13/handoffs/HANDOFF-pr22-equivalence-alias-safety-baseline.md`.
-- **L3 question-delta failure diagnostics are merged:** **PR #16** (`main` merge commit `7978cd06151e6104fe064eba2e4c0fed1bb9a8f3`, 2026-05-12T20:24:05Z) adds deterministic per-question `failure_diagnostic` + top-level `failure_diagnostic_summary` on committed tight/natural/C1S13 `cohort_l3_ab_question_delta_*` JSON via `cohort_baseline_run.py` (six-path allowlist; round 2 fixes route-loss regression classification with explicit lost-route set). Verification on head `e110be8`: cohort tests **22**; canvas compatibility **6**; lexicon + breadcrumb harness **37**; question-delta regenerate + `--check-question-delta` trio OK; retrieval-only / **$0**. Default ranking unchanged; PR #12 `promotion_gate_candidate: none_found` still blocks default flip. Handoff archived at `Docs/Plans/archive/2026-05-12/handoffs/HANDOFF-pr16-phase-c-question-delta-failure-diagnostics.md`.
-- **Alias-saturation + promotion-gate evidence is merged:** **PR #12** (`main` merge commit `7eface014b3d5824a11d29ad1e91ed67c153711f`, 2026-05-11T20:37:15Z) adds deterministic emitter `evals/sentence_routing_retrieval_falsification/cohort_l3_alias_saturation_canvas_emit.py`, `tests/test_cohort_l3_alias_saturation_canvas_emit.py`, README documentation, and generated `canvases/cohort-l3-alias-saturation.canvas.tsx` (strict four-file allowlist). Combined tight+natural question-delta readout in one run: `question_count` **56**, `verdict_counts` regressed **2** / improved **1** / unchanged_pass **49** / unchanged_fail **4**; `promotion_gate_candidate.status` **none_found** under the packaged rule — explicit evidence that no candidate alias-count threshold clears the current gate. Retrieval-only invariants confirmed on both committed cohort summaries. Handoff archived at `Docs/Plans/archive/2026-05-11/handoffs/HANDOFF-pr12-alias-saturation-analysis-promotion-gate.md`.
+- Active phase is **B**; **M1 complete**, **M2 in progress** (route-equivalence **sub-lane landed**; broader M2: entity-candidate + lexical-handle surfaces still open), **M3 complete** (Phase C entry via PR #4–#5; **exit** gated wiring + true A/B deltas landed via **PR #9/#10/#11**; **failure-mode diagnostics on committed question-delta JSON** landed via **PR #16** — default retrieval unchanged; **PR #19** promotes equivalence-augmented cohort summaries as default `--write`/`--check`; **PR #22** adds **query-text-gated** compact equivalence aliases at the harness so the default lane does not inject structural or manifest-wide aliases; **PR #12** ships alias-saturation threshold evidence (`promotion_gate_candidate: none_found`) as an **open promotion-decision artifact** (packaged alias-count rule had no threshold candidate — not a committed benchmark `--check` failure); promotion/fallback-only criteria remain open), **M4 not started**.
+- **Route-equivalence default-lane alias safety baseline is merged:** **PR #22** (`main` merge commit `64b7546dbf72bed6feb911408c7f28cec2d008fd`, 2026-05-13T16:43:34Z) tightens `breadcrumb_query_run.py` ranking-alias activation to **compact**, **query-text-gated**, **gold-free** aliases with an explicit **structural-token** guard on route-id compaction; refreshes committed **`cohort_baseline_*`**, **`cohort_l3_ab_delta_*`**, and **`cohort_l3_ab_question_delta_*`** for tight, natural, and C1S13; **`evals/sentence_routing_retrieval_falsification/README.md`**. Verified on **`1de5524e08b2f3b697794c6162a3b7a37e957c86`**: harness tests **20**, cohort tests **29**, producer **`--check`** OK, cohort **`--check`** / **`--check-delta`** / **`--check-question-delta`** OK on all three manifests; question-delta summaries **0 regressed / 0 improved** each; retrieval-only / **$0**. **PR #12** measurement artifact **`promotion_gate_candidate: none_found`** unchanged (no candidate under packaged alias-threshold rule). Handoff archived at `Docs/Plans/archive/2026-05-13/handoffs/HANDOFF-pr22-equivalence-alias-safety-baseline.md`.
+- **L3 question-delta failure diagnostics are merged:** **PR #16** (`main` merge commit `7978cd06151e6104fe064eba2e4c0fed1bb9a8f3`, 2026-05-12T20:24:05Z) adds deterministic per-question `failure_diagnostic` + top-level `failure_diagnostic_summary` on committed tight/natural/C1S13 `cohort_l3_ab_question_delta_*` JSON via `cohort_baseline_run.py` (six-path allowlist; round 2 fixes route-loss regression classification with explicit lost-route set). Verification on head `e110be8`: cohort tests **22**; canvas compatibility **6**; lexicon + breadcrumb harness **37**; question-delta regenerate + `--check-question-delta` trio OK; retrieval-only / **$0**. Default ranking unchanged; **PR #12** alias-threshold **`none_found`** unchanged — leaves **alias-saturation / production-default** promotion narrative undecided; does **not** mean committed cohort checks are red. Handoff archived at `Docs/Plans/archive/2026-05-12/handoffs/HANDOFF-pr16-phase-c-question-delta-failure-diagnostics.md`.
+- **Alias-saturation + promotion-gate evidence is merged:** **PR #12** (`main` merge commit `7eface014b3d5824a11d29ad1e91ed67c153711f`, 2026-05-11T20:37:15Z) adds deterministic emitter `evals/sentence_routing_retrieval_falsification/cohort_l3_alias_saturation_canvas_emit.py`, `tests/test_cohort_l3_alias_saturation_canvas_emit.py`, README documentation, and generated `cohort-l3-alias-saturation.canvas.tsx` (strict four-file allowlist). Combined tight+natural question-delta readout in one run: `question_count` **56**, `verdict_counts` regressed **2** / improved **1** / unchanged_pass **49** / unchanged_fail **4**; `promotion_gate_candidate.status` **none_found** under the packaged rule — explicit evidence that no candidate alias-count threshold clears the current gate. Retrieval-only invariants confirmed on both committed cohort summaries. Handoff archived at `Docs/Plans/archive/2026-05-11/handoffs/HANDOFF-pr12-alias-saturation-analysis-promotion-gate.md`.
 - **Wider-cohort `natural_v1` A/B baselines are merged:** **PR #11** (`main` merge commit `eec38807ea1866e63b5997e21558968d7559ea16`, 2026-05-11T19:39:14Z) adds committed `cohorts/natural_v1.json`, `cohort_baseline_natural_v1.json`, `cohort_l3_ab_delta_natural_v1.json`, `cohort_l3_ab_question_delta_natural_v1.json`, and natural deep-dive canvas `cohort-l3-ab-question-deep-dive-natural-v1.canvas.tsx`. `cohort_baseline_run.py` now forwards caller `--manifest` through `--check-delta`/`--check-question-delta`, and question-delta metadata reflects the active delta lane path. Wider-cohort readout: `question_count 12`, summary `regressed 0 / improved 1 / unchanged_pass 7 / unchanged_fail 4`; retrieval/default behavior remains unchanged. Handoff archived at `Docs/Plans/archive/2026-05-11/handoffs/HANDOFF-pr11-wider-cohort-natural-v1-ab-baseline-and-question-delta.md`.
-- **L3 per-question deep-dive diagnostics are merged:** **PR #10** (`main` merge commit `c75c3f6b622b35658eafd0a5b1641421b791357e`, 2026-05-11T14:54:48Z) adds deterministic question-level artifact `artifacts/baselines/cohort_l3_ab_question_delta_c1s1_to_c1s3_v1.json` (`schema_id` `dmb_breadcrumb_query_cohort_l3_question_delta_v1`, `question_count` 44, summary `regressed` 2 / `improved` 0 / `unchanged_pass` 42 / `unchanged_fail` 0) and emitter `cohort_l3_question_deep_dive_canvas_emit.py` for `canvases/cohort-l3-ab-question-deep-dive.canvas.tsx`. This resolves the review-surface gap from scenario-level-only L3 deltas; retrieval/default behavior remains unchanged. Handoff archived at `Docs/Plans/archive/2026-05-11/handoffs/HANDOFF-pr10-l3-question-deep-dive-canvas.md`.
+- **L3 per-question deep-dive diagnostics are merged:** **PR #10** (`main` merge commit `c75c3f6b622b35658eafd0a5b1641421b791357e`, 2026-05-11T14:54:48Z) adds deterministic question-level artifact `artifacts/baselines/cohort_l3_ab_question_delta_c1s1_to_c1s3_v1.json` (`schema_id` `dmb_breadcrumb_query_cohort_l3_question_delta_v1`, `question_count` 44, summary `regressed` 2 / `improved` 0 / `unchanged_pass` 42 / `unchanged_fail` 0) and emitter `cohort_l3_question_deep_dive_canvas_emit.py` for `cohort-l3-ab-question-deep-dive.canvas.tsx`. This resolves the review-surface gap from scenario-level-only L3 deltas; retrieval/default behavior remains unchanged. Handoff archived at `Docs/Plans/archive/2026-05-11/handoffs/HANDOFF-pr10-l3-question-deep-dive-canvas.md`.
 - No Phase A structural blockers on a machine that has the alignment audit inputs. `scripts/audit_world_campaign_alignment.py` is **PASS** when `out/evals/corpus_remote/normalization_manifest.json` exists at the default path; see `flagged_followups` for clean-checkout caveat.
 - **A/B sprint L2 recall metric is merged:** **PR #7** (`main` merge commit `0036df30e5f53abd7ba76ab510483a9e1df0d3fa`, 2026-05-11T02:59:47Z) bumps the frozen cohort summary to `dmb_breadcrumb_query_cohort_summary_v2` at `artifacts/baselines/cohort_baseline_c1s1_to_c1s3_v2.json`, adds per-row `expected_route_substring_breakdown` + per-scenario `recall_via_equivalence` / aggregate on `cohort_baseline_run.py`, and extends `breadcrumb_query_run.py` + tests (47-pass regression bundle). No retrieval flip; grader unchanged; shadow module and producer JSONL untouched. Tight cohort: all three scenarios `recall_via_equivalence: null` (denominator zero). Handoff `Docs/Plans/archive/2026-05-11/handoffs/HANDOFF-pr7-shadow-recall-via-equivalence-c1s1-to-c1s3.md`.
 - **A/B sprint L1 cohort baseline is merged:** **PR #6** (`main` merge commit `9af4741a635125d3403d66a9f266564f25bad746`, 2026-05-11T01:49:53Z) adds `evals/sentence_routing_retrieval_falsification/cohort_baseline_run.py`, committed manifest `cohorts/c1s1_to_c1s3_v1.json`, frozen curated summary `artifacts/baselines/cohort_baseline_c1s1_to_c1s3_v1.json` (superseded as regression anchor by PR #7's v2 file), and `tests/test_cohort_baseline_run.py`. `--check` mirrors PR #3's producer UX. L1 shipped with no harness / shadow / producer / gold edits (PR #7 later touched `breadcrumb_query_run.py` additively for L2 only). Handoff `Docs/Plans/archive/2026-05-11/handoffs/HANDOFF-pr6-cohort-baseline-runner-c1s1-to-c1s3.md` is the historical context.
@@ -1699,7 +1703,7 @@ flowchart TD
 | **Default-equivalence alias safety baseline PR** | [Drakosfire/DungeonMindBuddy#22](https://github.com/Drakosfire/DungeonMindBuddy/pull/22) — **MERGED** (merge commit `64b7546dbf72bed6feb911408c7f28cec2d008fd`, 2026-05-13T16:43:34Z). `breadcrumb_query_run.py` query-text-gated compact ranking aliases + structural-token compaction guard; refreshed committed `cohort_baseline_*`, `cohort_l3_ab_delta_*`, `cohort_l3_ab_question_delta_*`, eval README; thirteen-path allowlist; verified head `1de5524e08b2f3b697794c6162a3b7a37e957c86`; **$0**. |
 | **Alias-saturation + promotion-gate evidence PR** | [Drakosfire/DungeonMindBuddy#12](https://github.com/Drakosfire/DungeonMindBuddy/pull/12) — **MERGED** (merge commit `7eface014b3d5824a11d29ad1e91ed67c153711f`, 2026-05-11T20:37:15Z). Adds `cohort_l3_alias_saturation_canvas_emit.py`, `tests/test_cohort_l3_alias_saturation_canvas_emit.py`, README section, `cohort-l3-alias-saturation.canvas.tsx` (`dmb_cohort_l3_alias_saturation_v1`); combined readout `question_count` 56, `promotion_gate_candidate.status` `none_found`; four-file allowlist; no retrieval or committed baseline/delta JSON edits. |
 | **Wider-cohort A/B baseline + question delta PR** | [Drakosfire/DungeonMindBuddy#11](https://github.com/Drakosfire/DungeonMindBuddy/pull/11) — **MERGED** (merge commit `eec38807ea1866e63b5997e21558968d7559ea16`, 2026-05-11T19:39:14Z). Adds `cohorts/natural_v1.json`, `cohort_baseline_natural_v1.json`, `cohort_l3_ab_delta_natural_v1.json`, `cohort_l3_ab_question_delta_natural_v1.json`, and `cohort-l3-ab-question-deep-dive-natural-v1.canvas.tsx`; `cohort_baseline_run.py` check reruns now forward `--manifest`; emitter supports `--input`/`--output` without default-lane regression. |
-| **L3 per-question deep-dive diagnostics PR** | [Drakosfire/DungeonMindBuddy#10](https://github.com/Drakosfire/DungeonMindBuddy/pull/10) — **MERGED** (merge commit `c75c3f6b622b35658eafd0a5b1641421b791357e`, 2026-05-11T14:54:48Z). `cohort_baseline_run.py` adds `--write-question-delta` / `--check-question-delta`; committed `cohort_l3_ab_question_delta_c1s1_to_c1s3_v1.json` (`dmb_breadcrumb_query_cohort_l3_question_delta_v1`); new emitter `cohort_l3_question_deep_dive_canvas_emit.py` writes `canvases/cohort-l3-ab-question-deep-dive.canvas.tsx`. No retrieval, gold, producer JSONL, or shadow-module edits. |
+| **L3 per-question deep-dive diagnostics PR** | [Drakosfire/DungeonMindBuddy#10](https://github.com/Drakosfire/DungeonMindBuddy/pull/10) — **MERGED** (merge commit `c75c3f6b622b35658eafd0a5b1641421b791357e`, 2026-05-11T14:54:48Z). `cohort_baseline_run.py` adds `--write-question-delta` / `--check-question-delta`; committed `cohort_l3_ab_question_delta_c1s1_to_c1s3_v1.json` (`dmb_breadcrumb_query_cohort_l3_question_delta_v1`); new emitter `cohort_l3_question_deep_dive_canvas_emit.py` writes `cohort-l3-ab-question-deep-dive.canvas.tsx`. No retrieval, gold, producer JSONL, or shadow-module edits. |
 | **Phase C exit / A/B L3 PR** | [Drakosfire/DungeonMindBuddy#9](https://github.com/Drakosfire/DungeonMindBuddy/pull/9) — **MERGED** (merge commit `976512e94df62e42a27d1a41aa876a2561a0cb70`, 2026-05-11T04:13:54Z). `--use-route-equivalence-for-ranking` + `ranking_augmented_by_equivalences`; cohort `--mode both` + `--write-delta` / `--check-delta`; committed `cohort_l3_ab_delta_c1s1_to_c1s3_v1.json`; derived canvas skip argv. No gold / producer JSONL / `route_equivalence_shadow.py` edits. |
 | **Phase B producer provenance PR** | [Drakosfire/DungeonMindBuddy#8](https://github.com/Drakosfire/DungeonMindBuddy/pull/8) — **MERGED** (merge commit `adeb060911be35f4f477cb15eaf701ab7d409fbf`, 2026-05-11T03:45:24Z). JSONL `0.3.0` + `route_equivalence_manifest_hash` + registry path/sha256; loader + tests. No harness/cohort edits at merge time. |
 | **A/B sprint L2 recall PR** | [Drakosfire/DungeonMindBuddy#7](https://github.com/Drakosfire/DungeonMindBuddy/pull/7) — **MERGED** (merge commit `0036df30e5f53abd7ba76ab510483a9e1df0d3fa`, 2026-05-11T02:59:47Z). Additive `breadcrumb_query_run.py` + `cohort_baseline_run.py` extensions; frozen `dmb_breadcrumb_query_cohort_summary_v2` baseline `cohort_baseline_c1s1_to_c1s3_v2.json`; v1 baseline removed. No shadow / producer / gold / grader edits. |
@@ -1710,7 +1714,7 @@ flowchart TD
 | **Schema + builder PR** | [Drakosfire/DungeonMindBuddy#2](https://github.com/Drakosfire/DungeonMindBuddy/pull/2) — **MERGED** (merge commit `545cf37`, 2026-05-10T02:59Z). |
 | **Superseded PR** | [Drakosfire/DungeonMindBuddy#1](https://github.com/Drakosfire/DungeonMindBuddy/pull/1) — **CLOSED**, superseded by #2 due to test-namespace collision risk on `main`. |
 | **Plan mapping** | **PR #2:** Phase 1 + early Phase 2 builder. **PR #3:** Phase 2 route-equivalence committed artifacts + reproducibility gates. **PR #4:** Phase 5 entry (Phase C entry, shadow-only) — consumes PR #3 artifacts via `--route-equivalence-jsonl` and emits `shadow_route_equivalences` diagnostic alongside the existing `shadow_token_resolution` lane. Opens M3. **PR #5:** Phase 5 entry hardening — `source_paths` byte-stable across operator CWDs. **PR #6:** Phase 3 / A/B sprint L1 — frozen pre-plan cohort baseline for C1S1–C1S3 (`cohort_baseline_run` + committed manifest + baseline JSON + tests). **PR #7:** Phase 3 / A/B sprint L2 — recall-via-equivalence on v2 cohort summary + additive harness row field (no retrieval flip). **PR #8:** Phase 2 producer provenance on JSONL (`0.3.0` + manifest hash + registry bytes). **PR #9:** Phase 5 exit / A/B L3 — gated ranking-input wiring + cohort delta runner + derived canvas skip argv (default path still legacy). **PR #10:** Phase 5 diagnostics extension — per-question L3 delta artifact + deep-dive canvas emitter (no retrieval flip). **PR #12:** Phase 5 diagnostics extension — alias-saturation + threshold-scan canvas over committed question-delta inputs (promotion gate evidence only). **PR #22:** Phase 5 harness safety on the default equivalence lane — query-text-gated compact ranking aliases + structural-token compaction guard + refreshed committed baselines/deltas/question-deltas (no gold, no producer JSONL, no `session_memory_query.py`). |
-| **Review status** | PR #7: §7 at head `2bc6ad9e` — lexicon 22, breadcrumb harness 12, manifest `--check` OK, cohort tests 13 + CWD harness, cohort `--check` OK v2, `--write` BYTE-IDENTICAL vs `cohort_baseline_c1s1_to_c1s3_v2.json`, v1 absent, `canvases/` clean; cost $0; per-scenario recall all `null` on tight cohort. PR #6: §7 at head `06280c87` — lexicon 22, breadcrumb harness 11, manifest `--check` OK, cohort tests 9 + CWD harness, cohort `--check` OK v1 baseline at ship time, `--write` BYTE-IDENTICAL, `canvases/` clean; cost $0. PR #5: `tests/lexicon_phase_b/ -q` -> 22 passed (producer-side untouched); `tests/test_breadcrumb_query_run_lexicon_records_jsonl.py -q` -> 11 passed (10 -> 11 from new harness-boundary CWD-invariance test); `--check` OK; smoke + `python -c` byte-string assertion green. PR #4: `tests/lexicon_phase_b/ -q` -> 17 passed (count grew before PR #5; both PR #4 and PR #5 substantively held "producer-side untouched"); `tests/test_breadcrumb_query_run_lexicon_records_jsonl.py -q` -> 10 passed (round 2 added harness-boundary safety tests after round 1 had only loader-level coverage). PR #3: `build_route_equivalence_manifests.py --check` OK; `tests/lexicon_phase_b/ -q` -> 16 passed. PR #2 pre-merge: combined pytest 28 passed + audit PASS when manifest present. |
+| **Review status** | PR #7: §7 at head `2bc6ad9e` — lexicon 22, breadcrumb harness 12, manifest `--check` OK, cohort tests 13 + CWD harness, cohort `--check` OK v2, `--write` BYTE-IDENTICAL vs `cohort_baseline_c1s1_to_c1s3_v2.json`, v1 absent, working tree clean (canvas emit smoke); cost $0; per-scenario recall all `null` on tight cohort. PR #6: §7 at head `06280c87` — lexicon 22, breadcrumb harness 11, manifest `--check` OK, cohort tests 9 + CWD harness, cohort `--check` OK v1 baseline at ship time, `--write` BYTE-IDENTICAL, working tree clean (canvas emit smoke); cost $0. PR #5: `tests/lexicon_phase_b/ -q` -> 22 passed (producer-side untouched); `tests/test_breadcrumb_query_run_lexicon_records_jsonl.py -q` -> 11 passed (10 -> 11 from new harness-boundary CWD-invariance test); `--check` OK; smoke + `python -c` byte-string assertion green. PR #4: `tests/lexicon_phase_b/ -q` -> 17 passed (count grew before PR #5; both PR #4 and PR #5 substantively held "producer-side untouched"); `tests/test_breadcrumb_query_run_lexicon_records_jsonl.py -q` -> 10 passed (round 2 added harness-boundary safety tests after round 1 had only loader-level coverage). PR #3: `build_route_equivalence_manifests.py --check` OK; `tests/lexicon_phase_b/ -q` -> 16 passed. PR #2 pre-merge: combined pytest 28 passed + audit PASS when manifest present. |
 | **Verdict (YAML)** | `github-pr-22`, `github-pr-21`, `github-pr-20`, `github-pr-19`, `github-pr-18`, `github-pr-17`, `github-pr-16`, `github-pr-15`, `github-pr-14`, `github-pr-13`, `github-pr-12`, `github-pr-11`, `github-pr-10`, `github-pr-9`, `github-pr-8`, `github-pr-7`, `github-pr-6`, `github-pr-5`, `github-pr-4`, `github-pr-3`, `github-pr-2` → `accepted`. PR #1 → `superseded_by_pr_2`. |
 
 **Judgment rubric reference:** the bullets under `rubric_when_we_judge` on **PR #22** (default-equivalence alias safety / structural-token guard on compact aliases), **PR #21** (question-delta `scenario_level_delta_path` / effective default delta), **PR #20** (L3 deep-dive canvas presentation), **PR #19** (cohort default baseline promotion), **PR #18**, **PR #17** (scene-beat / packet falsification lanes), **PR #16** (question-delta diagnostics), **PR #12** (promotion-gate / threshold evidence), **PR #11**, **PR #10**, **PR #9**, **PR #8**, **PR #7**, **PR #6**, **PR #5**, **PR #4**, **PR #3**, and **PR #2** in the YAML `external_pull_requests` list are the acceptance baseline for related future PRs, including lexicon-only tests under `tests/lexicon_phase_b/` and harness-boundary contracts for shadow and cohort surfaces.
@@ -1742,11 +1746,11 @@ flowchart TD
 - `evals/sentence_routing_retrieval_falsification/artifacts/baselines/cohort_l3_ab_question_delta_c1s13_v1.json` (**PR #13** holdout + **PR #21** pointer repair)
 - `evals/sentence_routing_retrieval_falsification/cohort_l3_question_deep_dive_canvas_emit.py` (**PR #10** + **PR #20** presentation)
 - `tests/test_cohort_l3_question_deep_dive_canvas_emit.py` (**PR #10** + **PR #20**)
-- `canvases/cohort-l3-ab-question-deep-dive.canvas.tsx` (**PR #10** + **PR #20** generated deep-dive surface)
-- `canvases/cohort-l3-ab-question-deep-dive-natural-v1.canvas.tsx` (**PR #11** + **PR #20** generated deep-dive surface)
-- `canvases/cohort-l3-ab-question-deep-dive-c1s13-v1.canvas.tsx` (**PR #13** holdout + **PR #20** presentation)
+- `cohort-l3-ab-question-deep-dive.canvas.tsx` (**PR #10** + **PR #20** generated deep-dive surface)
+- `cohort-l3-ab-question-deep-dive-natural-v1.canvas.tsx` (**PR #11** + **PR #20** generated deep-dive surface)
+- `cohort-l3-ab-question-deep-dive-c1s13-v1.canvas.tsx` (**PR #13** holdout + **PR #20** presentation)
 - `evals/sentence_routing_retrieval_falsification/cohort_l3_alias_saturation_canvas_emit.py` (**PR #12**)
-- `canvases/cohort-l3-alias-saturation.canvas.tsx` (**PR #12** generated saturation / threshold-scan surface)
+- `cohort-l3-alias-saturation.canvas.tsx` (**PR #12** generated saturation / threshold-scan surface)
 - `tests/test_cohort_l3_alias_saturation_canvas_emit.py` (**PR #12**)
 - `tests/test_cohort_baseline_run.py` (PR #6 + PR #7 + **PR #9** + **PR #21**)
 - `tests/test_breadcrumb_query_run_lexicon_records_jsonl.py` (PR #4 + PR #5 + PR #7 + **PR #9** + **PR #22**)
@@ -1795,7 +1799,7 @@ flowchart TD
 
 - `evals/sentence_routing_retrieval_falsification/breadcrumb_query_canvas_payload.py`
 - `evals/sentence_routing_retrieval_falsification/c1s1_benchmark_canvas_emit.py`
-- `canvases/c1s1-breadcrumb-query-benchmark-review.canvas.tsx`
+- `c1s1-breadcrumb-query-benchmark-review.canvas.tsx`
 - Same pattern for C1S2/C1S3 emitters and templates.
 
 ## Phase 5: Controlled retriever wiring (Phase C entry → exit)
@@ -1921,8 +1925,8 @@ Track detailed todos in [CHECKLIST-dynamic-lexical-retrieval-rollout.md](CHECKLI
 - [x] **A/B Benchmarking Sprint — wider cohort Option A:** committed `natural_v1` manifest + baseline + scenario/question deltas + natural deep-dive canvas; manifest-aware check reruns in `cohort_baseline_run.py` (**PR #11** merged `eec38807ea1866e63b5997e21558968d7559ea16`)
 - [x] **A/B Benchmarking Sprint — alias-saturation + promotion gate evidence:** combined tight+natural question-delta analysis emitter + generated saturation canvas + tests (**PR #12** merged `7eface014b3d5824a11d29ad1e91ed67c153711f`; `promotion_gate_candidate.status: none_found` under packaged rule)
 - [x] **A/B Benchmarking Sprint — L3 failure-mode diagnostics:** per-question `failure_diagnostic` buckets + `failure_diagnostic_summary` on committed question-delta JSON (**PR #16** merged `7978cd06151e6104fe064eba2e4c0fed1bb9a8f3`; tight/natural/C1S13 artifacts regenerated; default retrieval unchanged)
-- [x] **Cohort default baseline = equivalence (PR #19):** merged `75996c52` — default `--write`/`--check` promotes equivalence-augmented summaries; legacy `--mode baseline`; refreshed committed `cohort_baseline_*` + C1S13 scenario report pair; `c1s13_holdout_l3_deep_dive_canvas_emit` labels; nine paths; §7 green on `010898348` (cohort tests 25; holdout emitter tests 2; cost $0). **PR #12** `promotion_gate_candidate:none_found` still blocks alias-saturation production promotion fork.
-- [x] **Scene-beat rebenchmark + packet lane (opt-in):** **PR #18** merged `545bd088` (packet scoring/surfacing + cohort/harness packet telemetry; eight-path allowlist; temp C1S13 smoke; cost $0) atop **PR #17** merged `28e98a89` (beat-enriched records + same-beat expansion + scene-beat question-delta schema; eleven paths); harness default retrieval unchanged; **PR #12** `promotion_gate_candidate:none_found` still constrains broader default-flip narrative.
+- [x] **Cohort default baseline = equivalence (PR #19):** merged `75996c52` — default `--write`/`--check` promotes equivalence-augmented summaries; legacy `--mode baseline`; refreshed committed `cohort_baseline_*` + C1S13 scenario report pair; `c1s13_holdout_l3_deep_dive_canvas_emit` labels; nine paths; §7 green on `010898348` (cohort tests 25; holdout emitter tests 2; cost $0). **PR #12** **`promotion_gate_candidate:none_found`** unchanged — open **alias-saturation promotion** decision (no threshold candidate under packaged rule), not a cohort **`--check`** failure.
+- [x] **Scene-beat rebenchmark + packet lane (opt-in):** **PR #18** merged `545bd088` (packet scoring/surfacing + cohort/harness packet telemetry; eight-path allowlist; temp C1S13 smoke; cost $0) atop **PR #17** merged `28e98a89` (beat-enriched records + same-beat expansion + scene-beat question-delta schema; eleven paths); harness default retrieval unchanged; **PR #12** **`promotion_gate_candidate:none_found`** unchanged — same open promotion-artifact framing as checklist Reanchor.
 - [x] **Default-equivalence alias safety baseline (PR #22):** merged `64b7546` — query-text-gated compact ranking aliases + structural-token compaction guard in `breadcrumb_query_run.py`; refreshed committed `cohort_baseline_*` + `cohort_l3_ab_delta_*` + `cohort_l3_ab_question_delta_*` + eval README (thirteen-path §4); §7 on `1de5524` (`test_breadcrumb_query_run_lexicon_records_jsonl` 20; `test_cohort_baseline_run` 29; cohort check trio all manifests; **$0**). **PR #12** unchanged.
 - [x] Phase B — producer JSONL provenance: **`route_equivalence_manifest_hash`** + registry path/sha256 on committed artifacts (**PR #8**, merge `adeb060911be35f4f477cb15eaf701ab7d409fbf`)
 - [ ] Phase B remainder: entity-candidate + lexical-handle artifacts per contracts above
@@ -1935,6 +1939,7 @@ Track detailed todos in [CHECKLIST-dynamic-lexical-retrieval-rollout.md](CHECKLI
 
 | Date (UTC) | Version | Summary |
 |------------|---------|---------|
+| 2026-05-13 | 30 | Doc sync: CHECKLIST Reanchor relabels PR #12 `promotion_gate_candidate:none_found` as **Open promotion-decision artifact** (alias-threshold scan had no candidate — measurement evidence, not a failing committed `--check`). Session log twenty-fourth entry; PLAN Current state snapshot (PR #12 / PR #16 bullets) aligned. Cost $0. |
 | 2026-05-13 | 29 | PR #22 merged (`64b7546dbf72bed6feb911408c7f28cec2d008fd`): query-text-gated compact equivalence aliases in `breadcrumb_query_run.py`; structural-token guard + direct test; refreshed committed baselines + L3 deltas/question-deltas + README; thirteen-path allowlist; §7 on `1de5524e08b2f3b697794c6162a3b7a37e957c86` (20 harness + 29 cohort tests; cohort check trio). Cost $0. Added `github-pr-22` rubric; next_gate + integration + verdict table + snapshot + checklist; handoff archived `archive/2026-05-13/handoffs/HANDOFF-pr22-equivalence-alias-safety-baseline.md`. |
 | 2026-05-13 | 28 | PR #21 merged (`eabd3a83024b9cabe4a07cc22e4f072512730096`): `_effective_delta_for_args` for question-delta write/check; regenerated C1S13 + natural `cohort_l3_ab_question_delta_*.json` pointers; four-path allowlist; §7 on `075ced328c59de89dfc47eeac7fe2ee7402fa93c` (29 cohort tests; question-delta checks). Cost $0. Added `github-pr-21` rubric; updated `github-pr-20` judgment note; handoff archived `archive/2026-05-13/handoffs/`. |
 | 2026-05-13 | 27 | PR #20 merged (`bb19d22910c4fb8720704ad6469d35165620936e`): L3 question deep-dive canvas presentation refresh (emitter + three canvases + tests); five-path allowlist; §7 on `0f7d93cf26dcbfc71f6bdf771aa6bf543af84673` (3 + 5 tests; emitter runs; manual smoke); cost $0. Added `github-pr-20` rubric; PR #12 still blocks alias-saturation production promotion. Handoff archived `archive/2026-05-13/handoffs/`. |

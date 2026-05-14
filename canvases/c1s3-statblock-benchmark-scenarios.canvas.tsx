@@ -21,7 +21,7 @@ const c1s3StatblockHarnessGenerated = {
   "regenerateCommand": "uv run python -m evals.planner_slice.c1s3_statblock_benchmark_canvas_emit",
   "fixtureDirRel": "evals/planner_slice/fixtures",
   "harnessTest": "tests/test_planner_eval_scenarios.py",
-  "canvasTemplateRel": "canvases/c1s3-statblock-benchmark-scenarios.canvas.tsx",
+  "canvasBasename": "c1s3-statblock-benchmark-scenarios.canvas.tsx",
   "scenarios": [
     {
       "fixtureFilename": "scenario_c1s3_pippa_statblock_context.json",
@@ -113,7 +113,7 @@ type BenchPayload = {
   regenerateCommand: string;
   fixtureDirRel: string;
   harnessTest: string;
-  canvasTemplateRel: string;
+  canvasBasename: string;
   scenarios: readonly ScenarioBench[];
 };
 
@@ -146,9 +146,8 @@ export default function C1S3StatblockBenchmarkScenarios() {
       {n === 0 ? (
         <Callout tone="warning" title="Payload not generated yet">
           <Text>
-            Run <Code>{g.regenerateCommand}</Code> from the repo root. That writes both the Cursor-managed
-            canvases path (via <Code>ensure_canvas_file_for_patch</Code>) and this repo template under{' '}
-            <Code>{g.canvasTemplateRel}</Code>.
+            Run <Code>{g.regenerateCommand}</Code> from the repo root. That writes the Cursor-managed canvas
+            for <Code>{g.canvasBasename}</Code> (see <Code>cursor_canvas_paths.default_cursor_canvas_path</Code>).
           </Text>
         </Callout>
       ) : null}

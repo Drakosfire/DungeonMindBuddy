@@ -5,9 +5,7 @@ Reads the three ``scenario_c1s3_*_statblock_context*.json`` planner fixtures and
 the region between ``BEGIN GENERATED C1S3_STATBLOCK_SCENARIO_CANVAS`` /
 ``END GENERATED C1S3_STATBLOCK_SCENARIO_CANVAS`` in the target canvas.
 
-By default patches **both** the Cursor-managed canvases directory (see
-``cursor_canvas_paths.default_cursor_canvas_path``) and the committed repo template under
-``canvases/`` so IDE and repo stay aligned.
+By default patches the Cursor-managed canvas (see ``cursor_canvas_paths.default_cursor_canvas_path``).
 
 Example::
 
@@ -25,7 +23,6 @@ from typing import Any
 from evals.sentence_routing_retrieval_falsification.cursor_canvas_paths import (
     default_cursor_canvas_path,
     ensure_canvas_file_for_patch,
-    repo_canvases_dir,
 )
 
 BLOCK_BEGIN = "// BEGIN GENERATED C1S3_STATBLOCK_SCENARIO_CANVAS"
@@ -79,7 +76,7 @@ def build_c1s3_statblock_benchmark_payload() -> dict[str, Any]:
         "regenerateCommand": "uv run python -m evals.planner_slice.c1s3_statblock_benchmark_canvas_emit",
         "fixtureDirRel": "evals/planner_slice/fixtures",
         "harnessTest": "tests/test_planner_eval_scenarios.py",
-        "canvasTemplateRel": f"canvases/{_CANVAS_BASENAME}",
+        "canvasBasename": _CANVAS_BASENAME,
         "scenarios": scenarios,
     }
 
@@ -112,7 +109,7 @@ def patch_statblock_canvas_paths(block: str, paths: list[Path]) -> list[dict[str
     for canvas_path in paths:
         p = canvas_path.expanduser().resolve()
         try:
-            ensure_canvas_file_for_patch(p, workspace_root=_repo_root())
+            ensure_canvas_file_for_patch(p)
             text = p.read_text(encoding="utf-8")
         except OSError as exc:
             out.append({"path": str(p), "error": f"{type(exc).__name__}: {exc}"})
@@ -131,8 +128,8 @@ def patch_statblock_canvas_paths(block: str, paths: list[Path]) -> list[dict[str
 
 
 def default_statblock_benchmark_canvas_targets() -> list[Path]:
-    """IDE-managed path first, then repo template (same basename)."""
-    return [_DEFAULT_IDE_CANVAS, repo_canvases_dir(_repo_root()) / _CANVAS_BASENAME]
+    """Cursor-managed canvas path for this workspace."""
+    return [_DEFAULT_IDE_CANVAS]
 
 
 def main() -> None:
@@ -145,7 +142,7 @@ def main() -> None:
         default=None,
         help=(
             "Target .canvas.tsx (repeat to patch several files). "
-            f"Default: IDE {_DEFAULT_IDE_CANVAS} plus repo canvases/{_CANVAS_BASENAME}."
+            f"Default: Cursor-managed {_DEFAULT_IDE_CANVAS}."
         ),
     )
     args = p.parse_args()

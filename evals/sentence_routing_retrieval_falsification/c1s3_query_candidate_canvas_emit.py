@@ -8,7 +8,7 @@ Example::
 
   uv run python -m evals.sentence_routing_retrieval_falsification.c1s3_query_candidate_canvas_emit \\
     --candidates evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-05-05/c1s3_query_candidates.json \\
-    --canvas-tsx canvases/c1s3-breadcrumb-query-candidate-review.canvas.tsx
+    --canvas-tsx ~/.cursor/projects/<workspace-slug>/canvases/c1s3-breadcrumb-query-candidate-review.canvas.tsx
 """
 
 from __future__ import annotations

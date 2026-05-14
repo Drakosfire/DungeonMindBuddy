@@ -1,6 +1,6 @@
 ---
-description: After each Stage B sentence-routing cohort run, refresh canvases/stage-b-bucket-map.canvas.tsx from the new artifacts (paths, stats, tables, prompts).
-globs: canvases/stage-b-bucket-map.canvas.tsx,evals/sentence_routing_retrieval_falsification/**/*.py
+description: After each Stage B sentence-routing cohort run, refresh the Stage B bucket map canvas (Cursor-managed `stage-b-bucket-map.canvas.tsx`) from the new artifacts (paths, stats, tables, prompts).
+globs: evals/sentence_routing_retrieval_falsification/discourse_prompt.py,evals/sentence_routing_retrieval_falsification/routing_prompt.py,evals/sentence_routing_retrieval_falsification/**/*.py
 alwaysApply: false
 ---
 
@@ -10,7 +10,7 @@ When you **finish a cohort or meaningful re-run** of the sentence-routing Stage 
 
 ## Canvas file
 
-- `canvases/stage-b-bucket-map.canvas.tsx`
+Open `stage-b-bucket-map.canvas.tsx` from your Cursor-managed canvases directory for this workspace (see `evals/sentence_routing_retrieval_falsification/cursor_canvas_paths.default_cursor_canvas_path`). There is no repo-local canvas copy to refresh.
 
 ## What to refresh from disk (evidence-first)
 

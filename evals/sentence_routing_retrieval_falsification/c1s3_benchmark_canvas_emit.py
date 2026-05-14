@@ -10,7 +10,7 @@ Example::
   uv run python -m evals.sentence_routing_retrieval_falsification.c1s3_benchmark_canvas_emit \\
     --report <path>/breadcrumb_query_natural_c1s3_report.json \\
     --gold evals/sentence_routing_retrieval_falsification/gold/breadcrumb_query_natural_c1s3_v1.json \\
-    --canvas-tsx canvases/c1s3-breadcrumb-query-benchmark-review.canvas.tsx
+    --canvas-tsx ~/.cursor/projects/<workspace-slug>/canvases/c1s3-breadcrumb-query-benchmark-review.canvas.tsx
 """
 
 from __future__ import annotations

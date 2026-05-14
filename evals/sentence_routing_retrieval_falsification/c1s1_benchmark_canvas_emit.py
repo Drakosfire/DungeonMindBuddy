@@ -13,8 +13,8 @@ Example:
     --gold evals/sentence_routing_retrieval_falsification/gold/breadcrumb_query_natural_c1s1_v1.json
 
   # Default writes the Cursor-managed canvas under ``~/.cursor/projects/<workspace-slug>/canvases/``.
-  # Override the canvases directory with ``DMB_CURSOR_CANVAS_DIR``, or pass ``--canvas-tsx`` (repeatable),
-  # e.g. to also patch the repo copy: ``--canvas-tsx canvases/c1s1-breadcrumb-query-benchmark-review.canvas.tsx``.
+  # Override the canvases directory with ``DMB_CURSOR_CANVAS_DIR``, or pass ``--canvas-tsx`` (repeatable)
+  # with an explicit path to each ``*.canvas.tsx`` you want patched.
 """
 
 from __future__ import annotations

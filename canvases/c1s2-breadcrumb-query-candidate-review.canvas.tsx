@@ -368,7 +368,7 @@ export default function C1S2BreadcrumbQueryCandidateReviewCanvas() {
         <Text>
           <Code>uv run python -m evals.sentence_routing_retrieval_falsification.c1s2_query_candidate_build</Code>
           <br />
-          <Code>uv run python -m evals.sentence_routing_retrieval_falsification.c1s2_query_candidate_canvas_emit --candidates {candidateArtifact} --canvas-tsx canvases/c1s2-breadcrumb-query-candidate-review.canvas.tsx</Code>
+          <Code>uv run python -m evals.sentence_routing_retrieval_falsification.c1s2_query_candidate_canvas_emit --candidates {candidateArtifact} --canvas-tsx ~/.cursor/projects/.../canvases/c1s2-breadcrumb-query-candidate-review.canvas.tsx</Code>
         </Text>
       </Callout>
       <Divider />

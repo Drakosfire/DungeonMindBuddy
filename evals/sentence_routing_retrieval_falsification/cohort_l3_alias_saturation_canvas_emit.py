@@ -4,8 +4,10 @@ import argparse
 import json
 from pathlib import Path
 
+from evals.sentence_routing_retrieval_falsification.cursor_canvas_paths import default_cursor_canvas_path
+
 _REPO_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_OUTPUT = _REPO_ROOT / "canvases/cohort-l3-alias-saturation.canvas.tsx"
+DEFAULT_OUTPUT = default_cursor_canvas_path("cohort-l3-alias-saturation.canvas.tsx")
 BLOCK_BEGIN = "// BEGIN GENERATED COHORT_L3_ALIAS_SATURATION"
 BLOCK_END = "// END GENERATED COHORT_L3_ALIAS_SATURATION"
 VERDICTS = ("regressed", "improved", "unchanged_pass", "unchanged_fail")

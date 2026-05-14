@@ -4,9 +4,11 @@ import argparse
 import json
 from pathlib import Path
 
+from evals.sentence_routing_retrieval_falsification.cursor_canvas_paths import default_cursor_canvas_path
+
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_INPUT = _REPO_ROOT / "evals/sentence_routing_retrieval_falsification/artifacts/baselines/cohort_l3_ab_question_delta_c1s1_to_c1s3_v1.json"
-DEFAULT_OUTPUT = _REPO_ROOT / "canvases/cohort-l3-ab-question-deep-dive.canvas.tsx"
+DEFAULT_OUTPUT = default_cursor_canvas_path("cohort-l3-ab-question-deep-dive.canvas.tsx")
 BLOCK_BEGIN = "// BEGIN GENERATED COHORT_L3_QUESTION_DEEP_DIVE"
 BLOCK_END = "// END GENERATED COHORT_L3_QUESTION_DEEP_DIVE"
 
