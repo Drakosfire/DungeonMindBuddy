@@ -243,7 +243,7 @@
 - **Structural layering:** deterministic breadcrumb → session-memory record pipeline (`capture`, `breadcrumb_smoke`, `breadcrumb_normalize`) now lives under **`src/session_memory/`**; **`evals/sentence_routing_retrieval_falsification/`** copies are **compatibility shims** re-exporting from `src`. Landed commit **`c71d438989a223a201de55b56e4cb423eae59ccf`**.
 - **Production scripts:** **`scripts/materialize_session_memory.py`** and **`scripts/rebuild_breadcrumb_from_session_memory.py`** import from **`src.session_memory`** (no direct `evals` imports in materialize).
 - **Verification:** `uv run pytest tests/test_session_memory_canonical_location.py` + capture/smoke/natural/session_memory_query + breadcrumb harness slices **green**; **`materialize_session_memory.py --all-blessed --check`** OK; default **`cohort_baseline_run --check`** OK.
-- **Super-plan:** [PLAN-split-corpus-retrieval-to-autonomous-demo.md](PLAN-split-corpus-retrieval-to-autonomous-demo.md) bumped to **v32** with changelog + `integration_notes` bullet; handoff **`HANDOFF-pr25-session-memory-canonical-src-package.md`** (COMPLETED in-IDE).
+- **Super-plan:** [PLAN-split-corpus-retrieval-to-autonomous-demo.md](PLAN-split-corpus-retrieval-to-autonomous-demo.md) bumped to **v32** with changelog + `integration_notes` bullet; handoff **`HANDOFF-pr24-session-memory-canonical-src-package.md`** ([GitHub PR #24](https://github.com/Drakosfire/DungeonMindBuddy/pull/24)).
 - **Cost:** **`$0`** (no LLM cohort).
 
 ### 2026-05-13 (UTC) — twenty-fifth entry, C1S13 nine-failure falsification/patch plan staged
