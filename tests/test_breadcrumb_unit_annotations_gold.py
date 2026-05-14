@@ -6,12 +6,25 @@ from evals.sentence_routing_retrieval_falsification.breadcrumb_unit_annotations_
     GoldBeatEntry,
     compare_unit_annotations_to_gold,
     load_gold_beat_index,
+    unit_beat_id_map_from_gold_beats,
 )
 from evals.sentence_routing_retrieval_falsification.breadcrumb_unit_annotations_schema import (
     BeatIndexEntry,
     RecapUnitAnnotationsV1,
     UnitAnnotation,
 )
+
+
+def test_load_gold_beat_index_c1s13_scene_span_v1() -> None:
+    path = Path(
+        "evals/sentence_routing_retrieval_falsification/manual_labels/"
+        "Session 13 - The Meaty and the Dead.gold.scene_span_v1.breadcrumbed.md"
+    )
+    beats = load_gold_beat_index(path)
+    assert len(beats) == 10
+    m = unit_beat_id_map_from_gold_beats(beats)
+    assert m["u-L0031-02"] == "c1s13-b009-morgue-ambush-fight-scene"
+    assert m["u-L0037-02"] == "c1s13-b009-morgue-ambush-fight-scene"
 
 
 def test_load_gold_beat_index_c1s13() -> None:

@@ -807,6 +807,18 @@ uv run python -m evals.sentence_routing_retrieval_falsification.breadcrumb_query
   --output /tmp/c1s13_scene_beat_run.json
 ```
 
+**Scene-span gold (deterministic, no live LLM):** merge ambush/fight beats in manual gold, then materialize ``beat_id`` onto the canonical Session 13 ``records_meta`` JSONL:
+
+```bash
+uv run python -m evals.sentence_routing_retrieval_falsification.scene_beat_memory \
+  --records-jsonl "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Session Recaps/_session_memory/Session 13 - The Meaty and the Dead.records_meta.jsonl" \
+  --gold-beat-md "evals/sentence_routing_retrieval_falsification/manual_labels/Session 13 - The Meaty and the Dead.gold.scene_span_v1.breadcrumbed.md" \
+  --out-jsonl "evals/sentence_routing_retrieval_falsification/fixtures/c1s13_session13_scene_span_v1.records_meta.jsonl" \
+  --out-meta "evals/sentence_routing_retrieval_falsification/fixtures/c1s13_session13_scene_span_v1.records_meta.meta.json"
+```
+
+Committed fixture and cohort manifest: ``fixtures/c1s13_session13_scene_span_v1.records_meta.jsonl``, ``cohorts/c1s13_scene_span_v1.json``. Use ``--manifest …/c1s13_scene_span_v1.json`` with ``cohort_baseline_run`` for question-delta vs baseline C1S13 records.
+
 - Produce cohort question-level delta (baseline vs with-scene-beats):
 
 ```bash

@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, Sequence
 
 from evals.sentence_routing_retrieval_falsification.breadcrumb_smoke import (
     normalize_corpus_route,
@@ -78,6 +78,16 @@ def _parse_population_block(block: str) -> list[GoldPopulationEvidence]:
     if cur is not None:
         entries.append(cur)
     return entries
+
+
+def unit_beat_id_map_from_gold_beats(beats: Sequence[GoldBeatEntry]) -> dict[str, str]:
+    """Map each ``unit_id`` to its ``beat_id`` (last wins if gold ever overlaps)."""
+    out: dict[str, str] = {}
+    for beat in beats:
+        bid = str(beat.beat_id).strip()
+        for uid in beat.unit_ids:
+            out[str(uid).strip()] = bid
+    return out
 
 
 def load_gold_beat_index(path: Path) -> list[GoldBeatEntry]:

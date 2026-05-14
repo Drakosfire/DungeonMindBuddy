@@ -1,0 +1,18 @@
+{
+  "schema": "dmb_breadcrumb_query_cohort_manifest_v1",
+  "cohort_id": "c1s13_scene_span_v1",
+  "notes": "C1S13 retrieval lane using deterministic beat_id enrichment from manual scene-span gold (merged morgue ambush/fight). Same gold questions as c1s13_v1; records_jsonl carries beat_id for same-beat expansion / packet experiments.",
+  "campaign_id": "longmont-c1",
+  "route_equivalence_jsonl": [
+    "evals/sentence_routing_retrieval_falsification/artifacts/lexicon/route_equivalence_longmont_c1_v1.jsonl",
+    "evals/sentence_routing_retrieval_falsification/artifacts/lexicon/route_equivalence_longmont_c2_v1.jsonl"
+  ],
+  "scenarios": [
+    {
+      "scenario_id": "c1s13",
+      "gold": "evals/sentence_routing_retrieval_falsification/gold/breadcrumb_query_natural_c1s13_v1.json",
+      "records_jsonl": "evals/sentence_routing_retrieval_falsification/fixtures/c1s13_session13_scene_span_v1.records_meta.jsonl",
+      "session_number": 13
+    }
+  ]
+}

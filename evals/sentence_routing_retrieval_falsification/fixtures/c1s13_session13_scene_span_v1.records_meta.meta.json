@@ -1,0 +1,11 @@
+{
+  "schema": "dmb_scene_beat_memory_meta_v1",
+  "records_jsonl": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Session Recaps/_session_memory/Session 13 - The Meaty and the Dead.records_meta.jsonl",
+  "out_jsonl": "evals/sentence_routing_retrieval_falsification/fixtures/c1s13_session13_scene_span_v1.records_meta.jsonl",
+  "out_meta": "evals/sentence_routing_retrieval_falsification/fixtures/c1s13_session13_scene_span_v1.records_meta.meta.json",
+  "gold_beat_md": "evals/sentence_routing_retrieval_falsification/manual_labels/Session 13 - The Meaty and the Dead.gold.scene_span_v1.breadcrumbed.md",
+  "record_count": 63,
+  "records_with_beat_id": 62,
+  "beat_count": 10,
+  "source_recap_path": "Longmont Campaign/Campaign 1/Session Recaps/_normalized/Session 13 - The Meaty and the Dead.md"
+}

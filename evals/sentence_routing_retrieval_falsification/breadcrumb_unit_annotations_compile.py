@@ -58,14 +58,17 @@ def derive_beat_spans(payload: RecapUnitAnnotationsV1) -> list[dict[str, Any]]:
     return out
 
 
-def enrich_records_with_beat_ids(
-    records: list[dict[str, Any]],
-    payload: RecapUnitAnnotationsV1,
-) -> list[dict[str, Any]]:
-    beat_by_unit = {
+def beat_id_map_from_unit_annotations(payload: RecapUnitAnnotationsV1) -> dict[str, str | None]:
+    return {
         str(row.unit_id).strip(): str(row.beat_id).strip() if row.beat_id else None
         for row in payload.unit_annotations
     }
+
+
+def enrich_records_with_beat_id_map(
+    records: list[dict[str, Any]],
+    beat_by_unit: dict[str, str | None],
+) -> list[dict[str, Any]]:
     enriched: list[dict[str, Any]] = []
     for rec in records:
         row = dict(rec)
@@ -75,6 +78,13 @@ def enrich_records_with_beat_ids(
             row["beat_id"] = beat_id
         enriched.append(row)
     return enriched
+
+
+def enrich_records_with_beat_ids(
+    records: list[dict[str, Any]],
+    payload: RecapUnitAnnotationsV1,
+) -> list[dict[str, Any]]:
+    return enrich_records_with_beat_id_map(records, beat_id_map_from_unit_annotations(payload))
 
 
 def _location_key(loc_route: str | None, loc_label: str | None) -> tuple[str, str]:
