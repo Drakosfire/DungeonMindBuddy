@@ -22,6 +22,7 @@ PROMPT_VARIANT_BEAT_EXP_V3_BEAT_ROW_SELF_CHECK = "beat_exp_v3_beat_row_self_chec
 PROMPT_VARIANT_BEAT_EXP_V4_PARTY_SPLIT_HARD = "beat_exp_v4_party_split_hard"
 PROMPT_VARIANT_BEAT_EXP_V5_EVENT_MODE = "beat_exp_v5_event_mode"
 PROMPT_VARIANT_BEAT_EXP_V_ALL = "beat_exp_v_all"
+PROMPT_VARIANT_BEAT_EXP_V6_SCENE_SPAN = "beat_exp_v6_scene_span"
 
 BEAT_BOUNDARY_EXPERIMENT_VARIANTS = (
     PROMPT_VARIANT_BEAT_POPULATION_V1,
@@ -30,6 +31,7 @@ BEAT_BOUNDARY_EXPERIMENT_VARIANTS = (
     PROMPT_VARIANT_BEAT_EXP_V3_BEAT_ROW_SELF_CHECK,
     PROMPT_VARIANT_BEAT_EXP_V4_PARTY_SPLIT_HARD,
     PROMPT_VARIANT_BEAT_EXP_V5_EVENT_MODE,
+    PROMPT_VARIANT_BEAT_EXP_V6_SCENE_SPAN,
     PROMPT_VARIANT_BEAT_EXP_V_ALL,
 )
 
@@ -114,16 +116,29 @@ EVENT MODE OVER LOCATION (isolated experiment):
   rest/prep → regroup/problem discovery.
 """
 
+_EXP_V6_SCENE_SPAN = """\
+
+SCENE-SPAN CONTINUITY (isolated experiment):
+- For replay-style continuity scenes (especially ambush/fight sequences), prefer one
+  beat across adjacent units even when tactical sub-phases change, so long as location
+  and primary active roster remain stable enough to support one coherent replay answer.
+- Start a new beat only when continuity materially breaks (hard location change,
+  roster handoff to a different subgroup, or post-scene aftermath/report phase).
+- Keep scene slug explicit for retrieval handles (for example include ``ambush`` or ``fight``).
+"""
+
 _EXPERIMENT_ADDENDA: dict[str, tuple[str, ...]] = {
     PROMPT_VARIANT_BEAT_EXP_V2_LOC_MENTIONS_NO_MERGE: (_EXP_V2_LOC_MENTIONS_NO_MERGE,),
     PROMPT_VARIANT_BEAT_EXP_V3_BEAT_ROW_SELF_CHECK: (_EXP_V3_BEAT_ROW_SELF_CHECK,),
     PROMPT_VARIANT_BEAT_EXP_V4_PARTY_SPLIT_HARD: (_EXP_V4_PARTY_SPLIT_HARD,),
     PROMPT_VARIANT_BEAT_EXP_V5_EVENT_MODE: (_EXP_V5_EVENT_MODE,),
+    PROMPT_VARIANT_BEAT_EXP_V6_SCENE_SPAN: (_EXP_V6_SCENE_SPAN,),
     PROMPT_VARIANT_BEAT_EXP_V_ALL: (
         _EXP_V2_LOC_MENTIONS_NO_MERGE,
         _EXP_V3_BEAT_ROW_SELF_CHECK,
         _EXP_V4_PARTY_SPLIT_HARD,
         _EXP_V5_EVENT_MODE,
+        _EXP_V6_SCENE_SPAN,
     ),
 }
 
