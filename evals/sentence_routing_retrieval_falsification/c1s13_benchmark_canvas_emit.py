@@ -38,7 +38,12 @@ def _expected_matches_route(expected: str, route: str) -> bool:
     return expected_norm in route_norm
 
 
-def _compact_hit_rows(full: dict[str, Any], *, limit: int) -> list[dict[str, Any]]:
+def _compact_hit_rows(
+    full: dict[str, Any],
+    *,
+    limit: int,
+    beat_by_unit: dict[str, str] | None = None,
+) -> list[dict[str, Any]]:
     hits = list(full.get("hits") or [])
     out: list[dict[str, Any]] = []
     for h in hits[:limit]:
@@ -46,24 +51,166 @@ def _compact_hit_rows(full: dict[str, Any], *, limit: int) -> list[dict[str, Any
         for route in list(h.get("routes") or [])[:4]:
             if isinstance(route, dict):
                 routes.append(str(route.get("normalized_route") or ""))
-        out.append(
+        uid = str(h.get("unit_id") or "").strip()
+        bid = (beat_by_unit or {}).get(uid, "") if beat_by_unit else ""
+        row = {
+            "unit_id": uid,
+            "line_span": f"L{int(h.get('line_start') or 0)}-{int(h.get('line_end') or 0)}",
+            "score": int(h.get("score") or 0),
+            "source_recap_path": str(h.get("source_recap_path") or ""),
+            "routes": routes,
+            "why_matched": [str(x) for x in (h.get("why_matched") or [])],
+        }
+        if bid:
+            row["beat_id"] = bid
+        out.append(row)
+    return out
+
+
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+
+
+def _resolve_records_meta_path(raw: str) -> Path:
+    """Resolve session-memory JSONL; remap ``/workspace/DungeonMindBuddy/`` to this repo root."""
+    s = (raw or "").strip()
+    if not s:
+        return Path()
+    p = Path(s).expanduser()
+    if p.is_file():
+        return p
+    norm = s.replace("\\", "/")
+    marker = "/workspace/DungeonMindBuddy/"
+    if marker in norm:
+        suffix = norm.split(marker, 1)[1].lstrip("/")
+        cand = (_REPO_ROOT / suffix).resolve()
+        if cand.is_file():
+            return cand
+    return p
+
+
+def _scan_records_jsonl_for_beats(path: Path) -> tuple[dict[str, str], dict[str, Any]]:
+    """Return ``(unit_id -> beat_id, corpus_stats)`` for session-memory JSONL."""
+    beat_by_unit: dict[str, str] = {}
+    beat_ids: set[str] = set()
+    record_count = 0
+    with_beat = 0
+    if not path.is_file():
+        return beat_by_unit, {
+            "record_count": 0,
+            "records_with_beat_id": 0,
+            "distinct_beat_count": 0,
+            "beat_ids_sample": [],
+            "error": "records file missing",
+        }
+    for line in path.read_text(encoding="utf-8").splitlines():
+        row = line.strip()
+        if not row:
+            continue
+        try:
+            obj: dict[str, Any] = json.loads(row)
+        except json.JSONDecodeError:
+            continue
+        record_count += 1
+        uid = str(obj.get("unit_id") or "").strip()
+        bid = str(obj.get("beat_id") or "").strip()
+        if uid and bid:
+            beat_by_unit[uid] = bid
+            beat_ids.add(bid)
+            with_beat += 1
+    sample = sorted(beat_ids)[:24]
+    return beat_by_unit, {
+        "record_count": record_count,
+        "records_with_beat_id": with_beat,
+        "distinct_beat_count": len(beat_ids),
+        "beat_ids_sample": sample,
+    }
+
+
+def _slim_scene_packet_trace(pkt_trace: Any) -> dict[str, Any]:
+    if not isinstance(pkt_trace, dict):
+        return {}
+    packets_raw = list(pkt_trace.get("packets") or [])
+    slim: list[dict[str, Any]] = []
+    for pkt in packets_raw[:6]:
+        if not isinstance(pkt, dict):
+            continue
+        fpu = [str(x) for x in (pkt.get("first_pass_unit_ids") or [])][:10]
+        pu = [str(x) for x in (pkt.get("packet_unit_ids") or [])][:16]
+        slim.append(
             {
-                "unit_id": str(h.get("unit_id") or ""),
-                "line_span": f"L{int(h.get('line_start') or 0)}-{int(h.get('line_end') or 0)}",
-                "score": int(h.get("score") or 0),
-                "source_recap_path": str(h.get("source_recap_path") or ""),
-                "routes": routes,
-                "why_matched": [str(x) for x in (h.get("why_matched") or [])],
+                "beat_id": str(pkt.get("beat_id") or ""),
+                "score": int(pkt.get("score") or 0),
+                "first_pass_unit_ids": fpu,
+                "packet_unit_ids": pu,
             }
         )
+    return {
+        "qualified_count": int(pkt_trace.get("qualified_count") or 0),
+        "units_added": int(pkt_trace.get("units_added") or 0),
+        "packets": slim,
+    }
+
+
+def _query_trace_beat_scene(full: dict[str, Any]) -> dict[str, Any]:
+    trace = full.get("trace") if isinstance(full.get("trace"), dict) else {}
+    exp = trace.get("expansion") if isinstance(trace.get("expansion"), dict) else {}
+    out: dict[str, Any] = {
+        "expand_same_beat_limit": trace.get("expand_same_beat_limit"),
+        "expand_adjacent_window": trace.get("expand_adjacent_window"),
+        "expand_context": bool(trace.get("expand_context")),
+        "expansion": {
+            "added_adjacent": int(exp.get("added_adjacent") or 0) if exp else 0,
+            "added_same_beat": int(exp.get("added_same_beat") or 0) if exp else 0,
+            "added_shared_route": int(exp.get("added_shared_route") or 0) if exp else 0,
+            "added_route_family": int(exp.get("added_route_family") or 0) if exp else 0,
+        },
+        "scene_beat_packets_trace": _slim_scene_packet_trace(trace.get("scene_beat_packets")),
+    }
     return out
+
+
+def _slim_harness_scene_packets(sp: Any) -> dict[str, Any] | None:
+    """Shrink harness ``scene_beat_packets`` rows for canvas JSON size."""
+    if not isinstance(sp, dict):
+        return None
+    pkts = list(sp.get("packets") or [])
+    if not (
+        bool(sp.get("enabled"))
+        or int(sp.get("qualified_count") or 0) > 0
+        or int(sp.get("units_added") or 0) > 0
+        or bool(pkts)
+    ):
+        return None
+    slim: list[dict[str, Any]] = []
+    for p in pkts[:6]:
+        if not isinstance(p, dict):
+            continue
+        slim.append(
+            {
+                "beat_id": str(p.get("beat_id") or ""),
+                "score": int(p.get("score") or 0),
+                "first_pass_unit_ids": [str(x) for x in (p.get("first_pass_unit_ids") or [])][:10],
+                "packet_unit_ids": [str(x) for x in (p.get("packet_unit_ids") or [])][:14],
+            }
+        )
+    return {
+        "enabled": bool(sp.get("enabled")),
+        "threshold": sp.get("threshold"),
+        "top_k": sp.get("top_k"),
+        "unit_limit": sp.get("unit_limit"),
+        "max_packets": sp.get("max_packets"),
+        "qualified_count": int(sp.get("qualified_count") or 0),
+        "units_added": int(sp.get("units_added") or 0),
+        "packet_beat_ids": [str(x) for x in (sp.get("packet_beat_ids") or [])][:16],
+        "packets": slim,
+    }
 
 
 def _collect_available_routes(report: dict[str, Any]) -> list[str]:
     src = str(report.get("records_source") or "").strip()
     if not src:
         return []
-    p = Path(src)
+    p = _resolve_records_meta_path(src)
     if not p.is_file():
         return []
     routes: set[str] = set()
@@ -86,6 +233,19 @@ def _collect_available_routes(report: dict[str, Any]) -> list[str]:
 
 def _build_rows(*, report: dict[str, Any], gold: dict[str, Any]) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     by_id = {str(r.get("scenario_id") or ""): r for r in (report.get("results") or [])}
+    records_raw = str(report.get("records_source") or "").strip()
+    records_path = _resolve_records_meta_path(records_raw) if records_raw else Path()
+    records_source_out = str(records_path) if records_path.is_file() else records_raw
+    if not records_raw:
+        beat_by_unit: dict[str, str] = {}
+        corpus_beat_stats = {
+            "record_count": 0,
+            "records_with_beat_id": 0,
+            "distinct_beat_count": 0,
+            "beat_ids_sample": [],
+        }
+    else:
+        beat_by_unit, corpus_beat_stats = _scan_records_jsonl_for_beats(records_path)
     available_routes = _collect_available_routes(report)
     rows: list[dict[str, Any]] = []
     for scen in gold.get("scenarios") or []:
@@ -132,6 +292,9 @@ def _build_rows(*, report: dict[str, Any], gold: dict[str, Any]) -> tuple[list[d
         effective_ok = not effective_violations
         retrieved_context_text = str(r.get("retrieved_context") or "")
         retrieval_hit_context_full = str(r.get("retrieval_hit_context_full") or "")
+        se_raw = r.get("scene_beat_expansion")
+        scene_exp = dict(se_raw) if isinstance(se_raw, dict) else None
+        scene_pkt = _slim_harness_scene_packets(r.get("scene_beat_packets"))
         rows.append(
             {
                 "id": sid,
@@ -163,7 +326,10 @@ def _build_rows(*, report: dict[str, Any], gold: dict[str, Any]) -> tuple[list[d
                 "retrieval_hit_context_full": retrieval_hit_context_full[:16000],
                 "lexical_hit_context_promoted": retrieved_context_text[:16000],
                 "llm_user_message": str(r.get("llm_user_message") or "")[:12000],
-                "hit_rows": _compact_hit_rows(full, limit=20),
+                "scene_beat_expansion": scene_exp,
+                "scene_beat_packets": scene_pkt,
+                "query_trace_beat_scene": _query_trace_beat_scene(full),
+                "hit_rows": _compact_hit_rows(full, limit=20, beat_by_unit=beat_by_unit or None),
             }
         )
 
@@ -175,6 +341,8 @@ def _build_rows(*, report: dict[str, Any], gold: dict[str, Any]) -> tuple[list[d
         "scenarioCount": len(results),
         "scenarioEstimatedCostUsd": report.get("scenario_estimated_cost_usd"),
         "benchmarkReportPath": str(report.get("_emit_report_path") or ""),
+        "recordsSource": records_source_out,
+        "corpusBeatStats": corpus_beat_stats,
     }
     return rows, summary
 

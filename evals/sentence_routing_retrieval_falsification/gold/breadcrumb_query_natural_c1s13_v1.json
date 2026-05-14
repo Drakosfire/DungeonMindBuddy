@@ -449,10 +449,12 @@
     },
     {
       "id": "morgue_combat_mechanical_prep",
-      "question": "If I need to reconstruct the morgue ambush mechanically, what enemies and battlefield effects are explicitly established?",
-      "notes": "Mechanical prep scenario. It tests extraction of combat-relevant details without hallucinating full statblocks. expect_route_substrings uses slug tokens that reliably appear on lexical hits for this query; Draven is still required via must_hit_tokens but is often outside the top hit route slice for this phrasing.",
-      "expected_answer": "The ambush includes Draven, two Elite Guards, and a large disgusting Sewer Meat Monster. The monster moves to the center of the room and oozes goo in a 10-foot radius. Draven casts Fear on Bonogo, the Elite Guards can poison with their attacks, and the Sewer Meat Monster bites Bonogo.",
+      "question": "What happened at the morgue when Draven and the monsters ambushed?",
+      "notes": "Operator-style ambush replay ask. This keeps mechanical-prep pressure but uses table phrasing and explicit ambush wording so scene-beat retrieval has a fair lexical anchor.",
+      "expected_answer": "After the ritual, Draven closes and locks the door, then the ambush starts: two Elite Guards enter with a Sewer Meat Monster. The monster pushes into the room center and oozes goo in a 10-foot radius. Draven casts Fear on Bonogo, the guards poison with their attacks, and the Sewer Meat Monster bites Bonogo.",
       "must_hit_tokens": [
+        "ambush",
+        "basement morgue",
         "Draven",
         "2 Elite Guards",
         "Sewer Meat Monster",
@@ -463,6 +465,7 @@
       ],
       "stale_tokens": [],
       "expect_route_substrings": [
+        "draven",
         "elite_guard",
         "sewer_meat_monster",
         "bonogo",
@@ -608,26 +611,34 @@
     },
     {
       "id": "bonogo_poison_bite_sequence",
-      "question": "What happened to Bonogo after he missed Elite Guard 2?",
-      "notes": "Core recall with tight combat sequence. It requires preserving order across adjacent sentences and resisting summarizing the whole fight.",
-      "expected_answer": "After Bonogo missed Elite Guard 2 with his bonus attack, that guard attacked and hit Bonogo, poisoning him. Just as he was being poisoned, the Sewer Meat Monster bit him and dealt more damage.",
+      "question": "Create a beat by beat replay of the morgue ambush fight.",
+      "notes": "Harder operator-style replay ask. It requires sequence fidelity across the full ambush, not a single local sentence answer.",
+      "expected_answer": "Beat by beat: Cinderbranch leaves; Draven closes and locks the door; two Elite Guards and a Sewer Meat Monster enter; the monster pushes to center and oozes goo in a 10-foot radius; Draven casts Fear on Bonogo; guards and monster attacks apply poison and bite pressure; Stafl casts Sleep; Bonogo follows with major attacks including the kill on Draven and a later strike on a sleeping guard.",
       "must_hit_tokens": [
+        "Cinderbranch leaves",
+        "Draven closes and locks the door",
         "Bonogo",
-        "Elite Guard 2",
-        "misses",
+        "2 Elite Guards",
+        "Sewer Meat Monster",
+        "10 foot radius",
+        "Fear",
         "poisoning",
-        "Sewer Monster",
+        "Stafl",
+        "Sleep",
         "bites"
       ],
       "stale_tokens": [
-        "Fear",
-        "Draven",
-        "Stafl"
+        "street checkpoint",
+        "covert ops",
+        "study room short rest"
       ],
       "expect_route_substrings": [
         "bonogo",
+        "stafl",
+        "draven",
         "elite_guard",
-        "sewer_meat_monster"
+        "sewer_meat_monster",
+        "basement_morgue"
       ],
       "min_context_support_ratio": 0.55,
       "benchmark_lane": "event_context"
