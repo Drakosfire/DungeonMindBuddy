@@ -2,7 +2,7 @@
 
 **Purpose:** Operational tracker for moving from current ingestion state to dynamic lexical retrieval from ingestion artifacts.
 **Decision anchor:** `Docs/Design/DECISION-world-campaign-knowledge-hierarchy.md` (Roadmap section).
-**Super plan (canonical, versioned):** `Docs/Plans/PLAN-split-corpus-retrieval-to-autonomous-demo.md` — YAML frontmatter, changelog, and milestone M1–M4; update that file when the execution narrative shifts. (Current doc version **30** after PR #12 reanchor wording + PLAN snapshot sync.)
+**Super plan (canonical, versioned):** `Docs/Plans/PLAN-split-corpus-retrieval-to-autonomous-demo.md` — YAML frontmatter, changelog, and milestone M1–M4; update that file when the execution narrative shifts. (Current doc version **32** after PR #25 canonical `src/session_memory/` lift; prior **M4 refocus** narrative remains in PLAN v31 block.)
 **Phase 1 + early Phase 2 PR:** [DungeonMindBuddy#2](https://github.com/Drakosfire/DungeonMindBuddy/pull/2) — **MERGED** to `main` 2026-05-10T02:59Z (merge commit `545cf37`). [PR #1](https://github.com/Drakosfire/DungeonMindBuddy/pull/1) is **closed** (superseded). Canonical `judgment_record` for both is in the super-plan YAML `external_pull_requests`.
 **Phase B route-equivalence artifacts PR:** [DungeonMindBuddy#3](https://github.com/Drakosfire/DungeonMindBuddy/pull/3) — **MERGED** to `main` 2026-05-10T05:06Z (merge commit `98c09aaf0fead2aaaf4b3a7c90afcb09bae8026f`): committed JSONL under `evals/sentence_routing_retrieval_falsification/artifacts/lexicon/`, `scripts/build_route_equivalence_manifests.py` (`--write` / `--check`), byte-stable regression `tests/lexicon_phase_b/test_route_equivalence_artifacts_byte_stable.py`, and `_is_campaign_path` fix for relative `Longmont Campaign/...` registry paths.
 **Phase C entry shadow consumer PR:** [DungeonMindBuddy#4](https://github.com/Drakosfire/DungeonMindBuddy/pull/4) — **MERGED** to `main` 2026-05-10T16:22Z (merge commit `21e84392da03095377b4de36defb82edfc37c741`): adds `src/lexicon_phase_b/route_equivalence_loader.py`, `evals/sentence_routing_retrieval_falsification/route_equivalence_shadow.py`, and `--route-equivalence-jsonl` (repeatable) CLI flag on `breadcrumb_query_run`. `shadow_route_equivalences` (`dmb_route_equivalence_shadow_v1`) is emitted only when the flag is set; legacy retrieval, grading, and `shadow_token_resolution` are unchanged. Round 2 added harness-boundary safety tests in `tests/test_breadcrumb_query_run_lexicon_records_jsonl.py`.
@@ -236,6 +236,15 @@
 ---
 
 ## Session Log (append newest first)
+
+### 2026-05-14 (UTC) — twenty-sixth entry, PR #25 Prime-Agent PR-A — canonical `src/session_memory/` package
+
+- Phase moved: **`stayed B`**. `milestone_progress` unchanged (`M2: in_progress`, `M3: complete`, `M4: not_started`).
+- **Structural layering:** deterministic breadcrumb → session-memory record pipeline (`capture`, `breadcrumb_smoke`, `breadcrumb_normalize`) now lives under **`src/session_memory/`**; **`evals/sentence_routing_retrieval_falsification/`** copies are **compatibility shims** re-exporting from `src`. Landed commit **`c71d438989a223a201de55b56e4cb423eae59ccf`**.
+- **Production scripts:** **`scripts/materialize_session_memory.py`** and **`scripts/rebuild_breadcrumb_from_session_memory.py`** import from **`src.session_memory`** (no direct `evals` imports in materialize).
+- **Verification:** `uv run pytest tests/test_session_memory_canonical_location.py` + capture/smoke/natural/session_memory_query + breadcrumb harness slices **green**; **`materialize_session_memory.py --all-blessed --check`** OK; default **`cohort_baseline_run --check`** OK.
+- **Super-plan:** [PLAN-split-corpus-retrieval-to-autonomous-demo.md](PLAN-split-corpus-retrieval-to-autonomous-demo.md) bumped to **v32** with changelog + `integration_notes` bullet; handoff **`HANDOFF-pr25-session-memory-canonical-src-package.md`** (COMPLETED in-IDE).
+- **Cost:** **`$0`** (no LLM cohort).
 
 ### 2026-05-13 (UTC) — twenty-fifth entry, C1S13 nine-failure falsification/patch plan staged
 
