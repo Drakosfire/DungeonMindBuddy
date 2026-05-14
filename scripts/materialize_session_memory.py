@@ -12,7 +12,7 @@ _REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-from evals.sentence_routing_retrieval_falsification.breadcrumb_normalize import (  # noqa: E402
+from src.session_memory.breadcrumb_normalize import (  # noqa: E402
     BreadcrumbNormalizeError,
     normalize_breadcrumb_artifact,
     write_records_jsonl,

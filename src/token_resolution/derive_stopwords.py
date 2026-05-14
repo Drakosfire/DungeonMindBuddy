@@ -99,7 +99,7 @@ def collect_routes_from_breadcrumb_records(records: Iterable[dict]) -> list[str]
     """Helper: pull all ``routes[].normalized_route`` values from session-memory records.
 
     Mirrors the contract of records emitted by
-    :mod:`evals.sentence_routing_retrieval_falsification.breadcrumb_normalize`,
+    :mod:`src.session_memory.breadcrumb_normalize`,
     but keeps the dependency uni-directional so this package stays liftable.
     """
     seen: list[str] = []

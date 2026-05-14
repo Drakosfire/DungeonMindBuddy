@@ -6,9 +6,9 @@ title: Split-corpus retrieval to autonomous C1S1–C1S3 demo
 document_class: plan
 plan_kind: execution_super_plan
 status: active
-version: 30
+version: 32
 created_at: "2026-05-09T00:00:00Z"
-last_updated_at: "2026-05-13T18:45:00Z"
+last_updated_at: "2026-05-14T12:00:00Z"
 timezone_note: "Timestamps are UTC; local work may use America/Denver."
 supersedes: []
 superseded_by: null
@@ -27,6 +27,28 @@ demo_scope:
   campaign: Longmont Campaign 1
   sessions: [1, 2, 3]
   autonomy: fully_autonomous_with_benchmark_gates
+pilot_memory_ingest:
+  recap_scope: >-
+    Blessed Campaign 1 sessions 1–3: `_breadcrumbed/` → corpus `_session_memory/*.records_meta.jsonl`
+    via `scripts/materialize_session_memory.py` (`PILOT_BLESSED_SESSIONS` in `src/corpus/session_recap_paths.py`;
+    convention `Docs/CONVENTION-Session-Recap-Breadcrumbs-And-Memory.md`).
+  beat_scene_enrichment: >-
+    Extend pilot materialization with **beat_id** on every record using the deterministic unit-annotation compile
+    path (`enrich_records_with_beat_ids`, `evals/.../scene_beat_memory.py`, `breadcrumb_unit_annotations_compile.py`)
+    proven on the C1S13 falsification lane (PR #17). Enables same-beat expansion and **scene-beat packet** retrieval
+    (`--use-scene-beat-packets`, PR #18) in benchmark gates for C1S1–C1S3, not only holdout sessions.
+synthetic_session4_prep_benchmark:
+  purpose: >-
+    New retrieval-only benchmark slice: natural-language questions a GM would ask **while prepping Session 4**,
+    with grading against **only** session-memory from **Sessions 1–3** (cross-session “what context do we surface?”).
+    Gold authorship uses the **known** Session 4 outcome text as oracle: corpus
+    `Longmont Campaign/Campaign 1/Session Recaps/_normalized/Session 04 - The Grotesque Tree of Hempholm.md`
+    (rubric design and expected tokens/routes — not pasted into model `user_message`; discovery discipline unchanged).
+  candidate_pool: >-
+    Retrieval must rank over a **combined S1–S3 candidate set** (concatenated JSONL with per-row `session_number`,
+    plus `query_spec.session_min` / `session_max` spanning 1–3), **or** a harness extension to load and merge multiple
+    per-session JSONL paths. Distinct from the tight per-session manifest `cohorts/c1s1_to_c1s3_v1.json`, which stays
+    for regression; ship a **separate** manifest + frozen baselines for this prep slice when implementation lands.
 milestones:
   - id: M1
     label: Phase A complete
@@ -69,6 +91,13 @@ execution_state:
     && uv run python -m evals.sentence_routing_retrieval_falsification.c1s13_holdout_l3_deep_dive_canvas_emit
   flagged_followups:
     - >-
+      **M4 toward demo_scope — pilot beat/scene + synthetic Session 4 prep benchmark:** (1) Re-ingest / refresh
+      blessed **C1S1–C1S3** corpus `_session_memory` JSONL with **beat_id** enrichment and documented regen command;
+      (2) add **synthetic Session 4 prep** cohort + gold + frozen baselines using a **merged S1–S3** session-memory
+      candidate pool and oracle `_normalized/Session 04 - The Grotesque Tree of Hempholm.md` (see `pilot_memory_ingest`
+      / `synthetic_session4_prep_benchmark` in this PLAN frontmatter). Operational detail: `Backlog.md` `[READY]` M4
+      refocus entry; extend `CHECKLIST-dynamic-lexical-retrieval-rollout.md` when an implementation PR opens.
+    - >-
       PR #15 addressed the **Wolf** / **Mossglade** mis-mappings in
       `breadcrumb_query_natural_c1s13_v1.json`; residual C1S13 hierarchy rows and
       **structural** vs **semantic** audit split remain documented in `Backlog.md`
@@ -79,6 +108,14 @@ execution_state:
       is absent; document or generate that manifest before treating the audit as
       a portable gate (separate from route-equivalence JSONL lane).
   integration_notes:
+    - >-
+      **PR #25 (Prime-Agent PR-A — in-IDE, canonical ``src/session_memory``, commit ``c71d438989a223a201de55b56e4cb423eae59ccf``):** Moved ``capture.py``,
+      ``breadcrumb_smoke.py``, ``breadcrumb_normalize.py`` to ``src/session_memory/``; eval paths are thin
+      ``from src.session_memory.* import *`` shims; ``scripts/materialize_session_memory.py`` and
+      ``scripts/rebuild_breadcrumb_from_session_memory.py`` import canonical ``src`` modules; added
+      ``tests/test_session_memory_canonical_location.py``. Verified: ``materialize_session_memory.py --all-blessed --check`` OK;
+      ``cohort_baseline_run --check`` OK; pytest slices (capture/smoke/natural/session_memory_query/breadcrumb harness) green.
+      Handoff: ``Docs/Plans/HANDOFF-pr24-session-memory-canonical-src-package.md``. Cost **$0**.
     - >-
       PR #22 is MERGED to main (merge commit 64b7546dbf72bed6feb911408c7f28cec2d008fd, 2026-05-13T16:43:34Z): `breadcrumb_query_run.py` query-text-gated compact route-equivalence aliases for ranking (no manifest-wide injection; gold-free); structural-token guard + `test_compact_aliases_for_route_id_blocks_structural_segments`; refreshed committed `cohort_baseline_*`, `cohort_l3_ab_delta_*`, `cohort_l3_ab_question_delta_*` + eval README; thirteen-path §4 allowlist; §7 green on head `1de5524e08b2f3b697794c6162a3b7a37e957c86` (`test_breadcrumb_query_run_lexicon_records_jsonl` **20**; `test_cohort_baseline_run` **29**; manifest `--check`; cohort check trio all manifests). Cost $0. `github-pr-22` judgment + rubric below; `HANDOFF-pr22-equivalence-alias-safety-baseline.md` archived under `Docs/Plans/archive/2026-05-13/handoffs/`.
     - >-
@@ -345,6 +382,23 @@ execution_state:
       -> 10 passed (round 2 added byte-identity-when-flag-unset and
       load-failure-emits-error harness-boundary tests).
 changelog:
+  - at: "2026-05-14T12:00:00Z"
+    version: 32
+    summary: >-
+      **PR #25 / Prime-Agent PR-A:** Canonical session-memory ingestion lives under ``src/session_memory/``
+      (``capture``, ``breadcrumb_smoke``, ``breadcrumb_normalize``); eval modules are compatibility shims;
+      ``materialize_session_memory.py`` + ``rebuild_breadcrumb_from_session_memory.py`` import from ``src``;
+      ``tests/test_session_memory_canonical_location.py`` guards script imports. No retrieval/gold/baseline changes.
+      See ``Docs/Plans/HANDOFF-pr24-session-memory-canonical-src-package.md``. Cost $0.
+  - at: "2026-05-14T00:00:00Z"
+    version: 31
+    summary: >-
+      Super-plan **M4 refocus**: frontmatter gains `pilot_memory_ingest` (blessed C1S1–C1S3 recap → `_session_memory`,
+      plus **beat_id** + scene-beat packet lane for pilot) and `synthetic_session4_prep_benchmark` (natural **Session 4
+      prep** questions graded on **merged S1–S3** session-memory; oracle `_normalized/Session 04 - The Grotesque Tree
+      of Hempholm.md`; separate manifest from tight `c1s1_to_c1s3_v1`). New `flagged_followups` bullet ties execution to
+      `Backlog.md` READY entry and future CHECKLIST updates. No code or frozen artifact changes in this doc-only edit.
+      Cost $0.
   - at: "2026-05-13T18:45:00Z"
     version: 30
     summary: >-
