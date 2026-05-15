@@ -8,9 +8,12 @@
 - Passes if preplanning queries produce oracle-safe context bundles
 - Fails if bundle contains C1S4 references
 
-## Gate 2 — Oracle target authoring
-- Future
-- Not in this PR
+## Gate 2 — Oracle target authoring / beat-question target surface
+- Partial.
+- Passes when `gold/c1s4_beat_question_targets.json` exists and validates.
+- Passes when Q1–Q38 are represented with authority labels, oracle-risk labels, known gaps, and must-not-include terms.
+- Fails if the target artifact is planner-visible retrieval material.
+- Does not yet grade planner output.
 
 ## Gate 3 — Live planner trace
 - Future
