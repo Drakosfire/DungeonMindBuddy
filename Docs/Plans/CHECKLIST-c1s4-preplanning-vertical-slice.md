@@ -48,3 +48,18 @@
 - [x] Tests pass.
 
 - [x] PR #35: Add Step 4 generated answer packet harness (`template_stub`) with Q35 skip preservation, guardrail retention, unsupported forbidden-term checks, and no oracle grading.
+
+## Step 5 — Synthetic prep packet
+
+- [x] `synthetic_prep_packet_harness.py` exists.
+- [x] `step5_build_synthetic_prep_packet.py` exists.
+- [x] Prep packet schema is `dmb_c1s4_synthetic_prep_packet_v1`.
+- [x] Required sections exist.
+- [x] Q35 remains skipped.
+- [x] Known gaps are preserved.
+- [x] Must-not-include guardrails are preserved.
+- [x] Retrieval mode is preserved.
+- [x] Packet does not claim observed C1S4 match.
+- [x] Oracle leakage causes validation failure.
+- [x] Unsupported forbidden terms cause validation failure.
+- [x] Tests pass.

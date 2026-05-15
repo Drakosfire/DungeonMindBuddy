@@ -65,7 +65,9 @@ def generate_answer_packet(*, context_packet: dict[str, Any], retrieval_mode: st
     packet["authority_notes"]["manual_gm_decisions_needed"] = packet["structured_answer"]["manual_gm_decisions_needed"]
 
     must_not_include_terms_present: list[dict[str, Any]] = []
-    composite = f"{packet['answer_text']} {json.dumps(packet['structured_answer'], sort_keys=True)}".lower()
+    # Safety term detection should reflect what the generated prose claims,
+    # not opaque context reference identifiers that may contain proper nouns.
+    composite = f"{packet['answer_text']} {packet['structured_answer'].get('summary', '')}".lower()
     for term in guardrails:
         present = str(term).lower() in composite
         if not present:

@@ -93,3 +93,15 @@ The default generator is `template_stub`, which is deterministic and does not ca
 Step 4 does not grade against C1S4 and does not read oracle material.
 
 Generated answer packets must preserve authority labels, known gaps, guardrails, and oracle leakage checks.
+
+## Step 5 — Synthetic prep packet
+
+Step 5 aggregates generated answer packets into a structured synthetic C1S4 prep packet.
+
+It does not read C1S4 oracle material.
+
+It does not grade against observed C1S4.
+
+It does not claim the prep matches what happened.
+
+The prep packet preserves retrieval mode, authority labels, known gaps, must-not-include guardrails, and oracle-risk warnings.
