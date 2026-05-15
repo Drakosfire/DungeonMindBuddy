@@ -37,7 +37,10 @@ Example policy payload:
   "forbidden_oracle_relpaths": [
     "Longmont Campaign/Campaign 1/Session Recaps/Session 4 - The Grotesque Tree of Hempholm.md",
     "Longmont Campaign/Campaign 1/Session Recaps/_normalized/Session 04 - The Grotesque Tree of Hempholm.md",
-    "Longmont Campaign/Campaign 1/Session Recaps/_breadcrumbed/Session 04 - The Grotesque Tree of Hempholm.breadcrumbed.md"
+    "Longmont Campaign/Campaign 1/Session Recaps/_breadcrumbed/Session 04 - The Grotesque Tree of Hempholm.breadcrumbed.md",
+    "src/session_memory/data/longmont-c1/session-04-memory-records.jsonl",
+    "src/session_memory/data/longmont-c1/session-04-memory-meta.json",
+    "evals/c1s4_preplanning_vertical_slice/oracle_targets/session_04_oracle_target.json"
   ],
   "preferred_oracle_source_relpath": "Longmont Campaign/Campaign 1/Session Recaps/_normalized/Session 04 - The Grotesque Tree of Hempholm.md",
   "fallback_oracle_source_relpath": "Longmont Campaign/Campaign 1/Session Recaps/Session 4 - The Grotesque Tree of Hempholm.md"
