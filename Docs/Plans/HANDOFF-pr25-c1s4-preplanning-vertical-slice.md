@@ -60,7 +60,11 @@ Not in scope:
 - corpus changes
 - baseline regeneration
 
-## 5) Verification commands
+## 5) Verification intent
+
+The scaffold PR must prove deterministic boundary enforcement before any live planner or grading step.
+
+## 7) Mandatory verification commands
 
 ```bash
 uv run pytest tests/test_c1s4_preplanning_vertical_slice.py -q
