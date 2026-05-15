@@ -55,3 +55,15 @@ Passes when:
 
 Does not yet generate answers.
 Does not yet grade answers.
+
+## Gate 3B — Generated answer packet harness
+
+Passes when:
+- Step 4 generates answer packets from planner-visible context.
+- Q35 remains skipped.
+- Generated packets preserve authority labels, known gaps, guardrails, and oracle-risk fields.
+- Unsupported forbidden terms are detected.
+- C1S4 oracle material remains excluded.
+- No oracle grading is performed.
+
+Does not yet judge answer quality against C1S4.

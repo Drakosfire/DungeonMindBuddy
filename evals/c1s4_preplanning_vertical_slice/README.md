@@ -83,3 +83,13 @@ Step 3 does not:
 - read oracle material.
 
 All answer packets must have `answer_generation_status: stubbed_not_generated`.
+
+## Step 4 — Generated answer packets
+
+Step 4 converts planner-visible context packets into generated answer packets.
+
+The default generator is `template_stub`, which is deterministic and does not call an LLM.
+
+Step 4 does not grade against C1S4 and does not read oracle material.
+
+Generated answer packets must preserve authority labels, known gaps, guardrails, and oracle leakage checks.
