@@ -46,3 +46,5 @@
 - [x] Eval-only fields are rejected.
 - [x] Oracle leakage checks are preserved.
 - [x] Tests pass.
+
+- [x] PR #35: Add Step 4 generated answer packet harness (`template_stub`) with Q35 skip preservation, guardrail retention, unsupported forbidden-term checks, and no oracle grading.
