@@ -51,7 +51,7 @@ def normalize_support_card(card: dict[str, Any], *, retrieval_mode: SupportRetri
     return {
         "unit_id": f"support:{card.get('support_card_id')}",
         "campaign_id": card.get("campaign_id"),
-        "session_number": 1,
+        "session_number": 0,
         "source_kind": "support_knowledge_card",
         "source_layer": card.get("source_layer"),
         "authority_role": card.get("authority_role"),

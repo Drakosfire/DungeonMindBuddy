@@ -25,6 +25,7 @@ def build_preplanning_context_bundle(*, kb_id: str, campaign_id: str, allowed_se
                 "snippet": snippet,
             }
         if record.get("source_kind") == "support_knowledge_card":
+            item.pop("session_number", None)
             item.update({
                 "source_kind": record.get("source_kind"),
                 "source_layer": record.get("source_layer"),

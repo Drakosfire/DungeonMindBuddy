@@ -42,7 +42,7 @@ def run_step1b(*, mode: SupportRetrievalMode) -> dict[str, Any]:
     records_by_unit_id = {str(r.get("unit_id")): r for r in combined if str(r.get("unit_id") or "")}
     bundles = []
     for q in QUERIES:
-        result = query_session_memory_candidate(records=combined, query=q["query"], campaign_id=manifest["campaign_id"], session_min=1, session_max=3, max_hits=8)
+        result = query_session_memory_candidate(records=combined, query=q["query"], campaign_id=manifest["campaign_id"], session_min=0, session_max=3, max_hits=8)
         bundle = build_preplanning_context_bundle(
             kb_id=manifest["kb_id"],
             campaign_id=manifest["campaign_id"],
@@ -61,6 +61,13 @@ def run_step1b(*, mode: SupportRetrievalMode) -> dict[str, Any]:
         if layer in layer_counts:
             layer_counts[layer] += 1
 
+    bundle_path_hits: list[str] = []
+    bundle_session_hits: list[str] = []
+    for row in bundles:
+        chk = row["bundle"]["oracle_leakage_check"]
+        bundle_path_hits.extend(chk.get("forbidden_path_hits", []))
+        bundle_session_hits.extend(chk.get("forbidden_session_hits", []))
+
     return {
         "schema": "dmb_c1s4_preplanning_step1b_prior_plus_support_summary_v1",
         "retrieval_mode": mode,
@@ -69,7 +76,7 @@ def run_step1b(*, mode: SupportRetrievalMode) -> dict[str, Any]:
         "support_records_by_source_layer": layer_counts,
         "queries": QUERIES,
         "bundles": bundles,
-        "oracle_leakage_check": {"forbidden_path_hits": [], "forbidden_session_hits": []},
+        "oracle_leakage_check": {"forbidden_path_hits": sorted(set(bundle_path_hits)), "forbidden_session_hits": sorted(set(bundle_session_hits))},
     }
 
 
@@ -83,7 +90,8 @@ def main() -> int:
         print(json.dumps({"schema": "dmb_c1s4_preplanning_step1b_prior_plus_support_summary_v1", "error": str(exc)}, indent=2))
         return 1
     print(json.dumps(out, indent=2))
-    return 0
+    leaks = out["oracle_leakage_check"]["forbidden_path_hits"] or out["oracle_leakage_check"]["forbidden_session_hits"]
+    return 1 if leaks else 0
 
 
 if __name__ == "__main__":
