@@ -67,3 +67,15 @@ Passes when:
 - No oracle grading is performed.
 
 Does not yet judge answer quality against C1S4.
+
+## Gate 4A — Synthetic prep packet aggregation
+
+Passes when:
+- Step 5 builds a synthetic prep packet from Step 4 generated answer packets.
+- Required prep sections exist.
+- Q35 remains skipped.
+- Known gaps and guardrails are preserved.
+- Oracle leakage and unsupported forbidden terms cause failure.
+- The packet does not claim to match observed C1S4.
+
+Does not yet grade against C1S4.
