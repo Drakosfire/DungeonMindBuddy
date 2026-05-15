@@ -28,3 +28,14 @@ Policy lives in `gold/kb_policy.json`, distinguishing forbidden planner-visible 
 - Oracle target authoring for C1S4.
 - Live planner trace generation.
 - Oracle grading harness.
+
+## Step 1B — Prior plus support retrieval
+
+Step 1B loads C1S1-C1S3 session memory plus hand-authored support knowledge cards.
+
+It has two diagnostic modes:
+
+- `prior_plus_support_content_only`
+- `prior_plus_support_content_plus_lexical_hints`
+
+The retriever must not use `usable_for_questions`, question IDs, oracle-risk labels, expected context, or benchmark target metadata.
