@@ -60,23 +60,39 @@ def test_generated_packet_rejects_oracle_leakage() -> None:
 def test_unsupported_forbidden_term_check_fails() -> None:
     source = _context_packet("prior_only", 5)
     source["must_not_include_unless_sourced"] = ["Torvak Hempdealer"]
+    source["known_context_gaps"] = ["Torvak Hempdealer"]
+
     packet = generate_answer_packet(context_packet=source, retrieval_mode="prior_only")
-    packet["answer_text"] += " Torvak Hempdealer"
-    packet["safety_checks"]["must_not_include_terms_present"] = [{"term": "Torvak Hempdealer", "supported": False, "reason": "term appears in generated answer but not retrieved context"}]
-    packet["safety_checks"]["oracle_sensitive_terms_supported_or_absent"] = False
-    summary = build_step4_summary(mode="prior_only", question_number=5)
+
+    assert packet["safety_checks"]["must_not_include_terms_present"] == [
+        {
+            "term": "Torvak Hempdealer",
+            "supported": False,
+            "reason": "term appears in generated answer but not retrieved context",
+        }
+    ]
     assert packet["safety_checks"]["oracle_sensitive_terms_supported_or_absent"] is False
-    assert "counts" in summary
+    errs = validate_generated_answer_packet(packet)
+    assert any("unsupported forbidden terms present" in e for e in errs)
 
 
 def test_supported_forbidden_term_can_pass() -> None:
     source = _context_packet("prior_plus_support_content_only", 5)
     source["must_not_include_unless_sourced"] = ["Torvak Hempdealer"]
+    source["known_context_gaps"] = ["Torvak Hempdealer"]
     source["retrieved_context"].append({"unit_id": "support:torvak", "title": "Torvak Hempdealer", "snippet": "Torvak Hempdealer"})
+
     packet = generate_answer_packet(context_packet=source, retrieval_mode="prior_plus_support_content_only")
-    packet["answer_text"] += " Torvak Hempdealer"
-    packet = generate_answer_packet(context_packet=source, retrieval_mode="prior_plus_support_content_only")
-    assert all(item.get("supported", True) for item in packet["safety_checks"]["must_not_include_terms_present"])
+
+    assert packet["safety_checks"]["must_not_include_terms_present"] == [
+        {
+            "term": "Torvak Hempdealer",
+            "supported": True,
+            "reason": "term appears in generated answer and is supported by retrieved context",
+        }
+    ]
+    assert packet["safety_checks"]["oracle_sensitive_terms_supported_or_absent"] is True
+    assert validate_generated_answer_packet(packet) == []
 
 
 def test_template_generator_does_not_claim_oracle_quality() -> None:
