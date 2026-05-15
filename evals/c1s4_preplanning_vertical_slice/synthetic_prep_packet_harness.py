@@ -136,7 +136,16 @@ def validate_synthetic_prep_packet(packet: dict[str, Any]) -> list[str]:
     missing = set(SECTION_QUESTION_MAP) - got_ids
     if missing:
         errs.append(f"required sections missing: {sorted(missing)}")
-    if any(f in str(packet) for f in FORBIDDEN_GRADING_FIELDS):
+    def _contains_forbidden_key(node: Any) -> bool:
+        if isinstance(node, dict):
+            if any(k in FORBIDDEN_GRADING_FIELDS for k in node):
+                return True
+            return any(_contains_forbidden_key(v) for v in node.values())
+        if isinstance(node, list):
+            return any(_contains_forbidden_key(v) for v in node)
+        return False
+
+    if _contains_forbidden_key(packet):
         errs.append("oracle grading fields must be absent")
 
     for section in _as_list(packet.get("sections")):

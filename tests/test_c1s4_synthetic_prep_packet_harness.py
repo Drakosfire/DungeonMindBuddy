@@ -40,6 +40,14 @@ def test_mode_is_preserved() -> None:
         assert _packet(mode)["retrieval_mode"] == mode
 
 
+def test_step5_summaries_are_valid_for_all_modes() -> None:
+    for mode in ["prior_only", "prior_plus_support_content_only", "prior_plus_support_content_plus_lexical_hints"]:
+        summary = build_summary(mode=mode, generator="template_stub")
+        assert summary["prep_packet_built"] is True
+        assert summary["validation_errors"] == []
+        assert summary["counts"]["packets_with_unsupported_forbidden_terms"] == 0
+
+
 def test_prior_only_and_prior_plus_support_are_not_collapsed() -> None:
     p1 = _packet("prior_only")
     p2 = _packet("prior_plus_support_content_only")
@@ -74,7 +82,7 @@ def test_no_oracle_grading_claims() -> None:
 
 def test_section_question_mapping_is_complete_for_planner_questions() -> None:
     packet = _packet("prior_only")
-    seen = [qn for s in packet["sections"] for qn in s["question_numbers"]]
+    seen = [entry["question_number"] for s in packet["sections"] for entry in s["prep_entries"]]
     expected = [q for nums in SECTION_QUESTION_MAP.values() for q in nums]
     assert sorted(seen) == sorted(expected)
     assert len(seen) == len(set(seen))
