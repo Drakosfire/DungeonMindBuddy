@@ -1,0 +1,18 @@
+{
+  "schema": "dmb_c1s4_preplanning_kb_policy_v1",
+  "campaign_id": "longmont-c1",
+  "kb_id": "longmont-c1-sessions-01-03-preplanning-kb-v1",
+  "included_sessions": [1, 2, 3],
+  "heldout_sessions": [4],
+  "included_session_memory_relpaths": [],
+  "forbidden_oracle_relpaths": [
+    "Longmont Campaign/Campaign 1/Session Recaps/Session 4 - The Grotesque Tree of Hempholm.md",
+    "Longmont Campaign/Campaign 1/Session Recaps/_normalized/Session 04 - The Grotesque Tree of Hempholm.md",
+    "Longmont Campaign/Campaign 1/Session Recaps/_breadcrumbed/Session 04 - The Grotesque Tree of Hempholm.breadcrumbed.md",
+    "Longmont Campaign/Campaign 1/Session Recaps/_session_memory/Session 04 - The Grotesque Tree of Hempholm.records_meta.jsonl",
+    "Longmont Campaign/Campaign 1/Session Recaps/_session_memory/Session 04 - The Grotesque Tree of Hempholm.records_meta.json",
+    "evals/c1s4_preplanning_vertical_slice/gold/c1s4_oracle_targets.json"
+  ],
+  "preferred_oracle_source_relpath": "Longmont Campaign/Campaign 1/Session Recaps/_normalized/Session 04 - The Grotesque Tree of Hempholm.md",
+  "fallback_oracle_source_relpath": "Longmont Campaign/Campaign 1/Session Recaps/Session 4 - The Grotesque Tree of Hempholm.md"
+}
