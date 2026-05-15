@@ -14,8 +14,7 @@ def build_preplanning_context_bundle(*, kb_id: str, campaign_id: str, allowed_se
         record = records_by_unit_id.get(unit_id, {})
         snippet_source = record or hit
         snippet = str(snippet_source.get("lexical_plain") or snippet_source.get("text") or hit.get("snippet") or "")[:max_snippet_chars]
-        items.append(
-            {
+        item = {
                 "unit_id": hit.get("unit_id"),
                 "session_number": hit.get("session_number", record.get("session_number")),
                 "source_recap_path": hit.get("source_recap_path", record.get("source_recap_path")),
@@ -25,7 +24,16 @@ def build_preplanning_context_bundle(*, kb_id: str, campaign_id: str, allowed_se
                 "why_matched": hit.get("why_matched") or [],
                 "snippet": snippet,
             }
-        )
+        if record.get("source_kind") == "support_knowledge_card":
+            item.update({
+                "source_kind": record.get("source_kind"),
+                "source_layer": record.get("source_layer"),
+                "authority_role": record.get("authority_role"),
+                "canon_status": record.get("canon_status"),
+                "title": record.get("title"),
+                "source_reference": record.get("source_reference"),
+            })
+        items.append(item)
     leakage = check_oracle_leakage(records_or_items=items, heldout_sessions=heldout_sessions, forbidden_oracle_relpaths=forbidden_oracle_relpaths)
     return {
         "schema": "dmb_preplanning_context_bundle_v1",

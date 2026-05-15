@@ -19,3 +19,9 @@
 ## Gate 4 — Oracle grading
 - Future
 - Not in this PR
+
+## Gate 1B — Prior plus support retrieval
+- Passes when support records load into the same normalized retrieval surface as session memory.
+- Passes when content-only and lexical-hint modes report separately.
+- Fails if retrieval uses question IDs or eval-only fields.
+- Fails if C1S4 oracle material enters planner-visible context.
