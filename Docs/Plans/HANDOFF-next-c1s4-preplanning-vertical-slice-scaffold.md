@@ -1,4 +1,4 @@
-# HANDOFF — PR #25 C1S4 preplanning vertical slice
+# HANDOFF — Next C1S4 preplanning vertical slice scaffold
 
 Status: READY — PR #24 has landed; implementation agents should use `src/session_memory/` as the canonical session-memory ingestion package.
 

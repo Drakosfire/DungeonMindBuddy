@@ -2,7 +2,7 @@
 
 - [ ] Canonical super-plan: `Docs/Plans/PLAN-split-corpus-retrieval-to-autonomous-demo.md` v32, especially `pilot_memory_ingest` and `synthetic_session4_prep_benchmark`.
 - [ ] Planning rationale: `Docs/Plans/RATIONALE-c1s4-preplanning-vertical-slice.md`.
-- [ ] Implementation handoff: `Docs/Plans/HANDOFF-pr25-c1s4-preplanning-vertical-slice.md`.
+- [ ] Implementation handoff: `Docs/Plans/HANDOFF-next-c1s4-preplanning-vertical-slice-scaffold.md`.
 
 ## Deterministic scaffold completion
 

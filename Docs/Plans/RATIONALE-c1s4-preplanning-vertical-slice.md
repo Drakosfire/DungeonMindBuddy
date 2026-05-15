@@ -7,13 +7,15 @@ related_documents:
     role: canonical_super_plan
   - path: Docs/Plans/CHECKLIST-c1s4-preplanning-vertical-slice.md
     role: operational_tracker
-  - path: Docs/Plans/HANDOFF-pr25-c1s4-preplanning-vertical-slice.md
+  - path: Docs/Plans/HANDOFF-next-c1s4-preplanning-vertical-slice-scaffold.md
     role: implementation_handoff
 ---
 
 # C1S4 Preplanning Vertical Slice — Companion Rationale
 
 This rationale explains the C1S4 preplanning vertical-slice reanchor now represented in PLAN v32 under `pilot_memory_ingest` and `synthetic_session4_prep_benchmark`. It does not supersede the super-plan; it explains the implementation strategy and why the next PR should scaffold the deterministic boundary before running a live planner.
+
+PLAN v32 is canonical. This document explains the rationale and implementation sequence for the C1S4 preplanning vertical slice.
 
 PLAN v32 already contains the canonical super-plan anchor. This document is a readable companion rationale for implementation agents and reviewers.
 
