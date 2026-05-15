@@ -1,0 +1,266 @@
+{
+  "schema": "dmb_source_module_facts_v1",
+  "artifact_id": "source_module_of_conks_and_cons_v21_hempholm_seed",
+  "source_document": {
+    "title": "Of Conks & Cons",
+    "version": "2.1",
+    "author": "Christian Eichhorn",
+    "uploaded_filename": "1399969-20190116_Conks-Cons_PF_v21.pdf",
+    "source_role": "third_party_adventure_module",
+    "ingestion_status": "manual_perfect_ingestion_surrogate",
+    "copyright_note": "Hand-authored summaries and structural facts for internal retrieval experiments; not a reproduction of the source text."
+  },
+  "authority": {
+    "layer": "source_module",
+    "authority_role": "planning_support",
+    "canon_status": "not_campaign_canon_until_adapted_or_confirmed_in_play",
+    "may_answer": [
+      "source-assisted planning questions",
+      "module-structure questions",
+      "adaptation candidate questions"
+    ],
+    "must_not_answer": [
+      "observed campaign-state questions",
+      "what actually happened at the Longmont table",
+      "current campaign canon unless promoted by adaptation/canon mapping"
+    ]
+  },
+  "module_summary": {
+    "premise": "A magical tuber/conk is stolen, sold to a desperate village boy, planted, and grows into a grotesque attacking tree in Hempholm.",
+    "surface_problem": "The tree threatens the Jove family home and attacks creatures that come near it.",
+    "deeper_problem": "The tree has a hollow root network beneath the village inhabited by root-like caretakers and protected by a deeper plant-metal structure.",
+    "adventure_shape": [
+      "arrive at Hempholm",
+      "investigate the tree and village",
+      "resolve the visible tree threat",
+      "premature village celebration",
+      "caretaker/root-creature retaliation",
+      "descent into hollow roots",
+      "guardian and marrow/helix reveal",
+      "decision about strange child and future consequences"
+    ]
+  },
+  "setting_context": {
+    "region_source_name": "The Greenfields",
+    "source_world": "Forgotten Realms / Western Heartlands source context",
+    "adaptation_warning": "Regional geography and Faerun references are source-module context and should not be treated as Elderwyld or Longmont campaign canon without explicit adaptation.",
+    "landscape_tone": [
+      "grassland villages",
+      "hemp and arable farming",
+      "small settlements with local artisans",
+      "frequent rain and lush vegetation",
+      "rural roads vulnerable to brigands, beasts, and old strange powers"
+    ]
+  },
+  "locations": [
+    {
+      "source_id": "source_location_hempholm",
+      "name": "Hempholm",
+      "kind": "village",
+      "summary": "A small hemp-growing village of roughly eighty residents in the source module, with additional outlying farms.",
+      "planning_uses": ["small-town crisis site", "hemp economy", "rural social web", "visible magical threat"],
+      "canon_status": "source_only"
+    },
+    {
+      "source_id": "source_location_shacks",
+      "name": "The Shacks",
+      "kind": "lodging_tavern_soup_kitchen",
+      "summary": "A rough lodging and tavern area on Hempholm's outskirts where travelers and migrant workers can stay cheaply.",
+      "notable_associations": ["Bill the Belly", "Narfi Granitetooth", "premature celebration"],
+      "planning_uses": ["public gathering space", "celebration venue", "social complications", "traveler lodging"],
+      "canon_status": "source_only"
+    },
+    {
+      "source_id": "source_location_morwins_store",
+      "name": "Morwin's Store",
+      "kind": "general_store",
+      "summary": "Hempholm's general store, dusty and run by Morwin Blackwell; sells basic goods, farming equipment, and household quantities of potent hemp.",
+      "notable_associations": ["Morwin Blackwell"],
+      "planning_uses": ["supplies", "local gossip", "hemp economy texture", "merchant rivalry"],
+      "canon_status": "source_only"
+    },
+    {
+      "source_id": "source_location_saladins_wagon",
+      "name": "Saladin's Mobile Emporium",
+      "kind": "magical_wagon_shop",
+      "summary": "A gaudy traveling merchant wagon that is much larger inside than outside, run by the elderly elf Saladin.",
+      "notable_associations": ["Saladin"],
+      "planning_uses": ["optional recurring NPC", "magic-trader weirdness", "unbidden-thought lore", "source-module color"],
+      "canon_status": "source_only_optional"
+    },
+    {
+      "source_id": "source_location_jove_home",
+      "name": "The Jove Home",
+      "kind": "family_home",
+      "summary": "The Jove family home sits near the grotesque tree, which occupies the garden and damages the house.",
+      "notable_associations": ["Mark Jove", "Torbin Jove", "Grotesque Tree"],
+      "planning_uses": ["human stakes", "family pressure", "visible damage", "tree investigation"],
+      "canon_status": "source_only"
+    },
+    {
+      "source_id": "source_location_grotesque_tree_site",
+      "name": "The Grotesque Tree",
+      "kind": "hazard_monster_site",
+      "summary": "A sickly, armored-looking, thorned, magical tree with metallic leaves; it attacks creatures that come too close and may retaliate against ranged aggression.",
+      "notable_associations": ["precious metal leaves", "arcane root network", "tree combat"],
+      "planning_uses": ["visible threat", "investigation object", "battlefield centerpiece", "false final boss"],
+      "canon_status": "source_only"
+    },
+    {
+      "source_id": "source_location_root_corridors",
+      "name": "Hollow Root Corridors",
+      "kind": "underground_network",
+      "summary": "Warm, hollow, stone-or-metal-feeling root tunnels beneath Hempholm that connect to the deeper heart of the plant.",
+      "notable_associations": ["caretakers", "guardian", "The Marrow"],
+      "planning_uses": ["dungeon descent", "post-celebration follow-up", "deeper-cause reveal"],
+      "canon_status": "source_only"
+    },
+    {
+      "source_id": "source_location_the_marrow",
+      "name": "The Marrow",
+      "kind": "root_network_core_chamber",
+      "summary": "A central chamber where root corridors converge around a wooden helix and a glowing/translucent sack containing a strange child-like being.",
+      "notable_associations": ["guardian", "helix", "metal resin", "strange child"],
+      "planning_uses": ["moral decision", "treasure temptation", "source of deeper mystery", "future campaign hook"],
+      "canon_status": "source_only"
+    }
+  ],
+  "npcs_and_creatures": [
+    {
+      "source_id": "source_npc_torbin_jove",
+      "name": "Torbin Jove",
+      "kind": "village_boy",
+      "summary": "The boy who bought and planted the magical conk/tuber, hoping it would help feed his family; now fears consequences from his father and village.",
+      "planning_uses": ["sympathetic witness", "source of origin clue", "family tension", "child-in-trouble stakes"],
+      "canon_status": "source_only"
+    },
+    {
+      "source_id": "source_npc_mark_jove",
+      "name": "Mark Jove",
+      "kind": "father_farmer",
+      "summary": "Torbin's angry and worried father, focused on the damage to his home, lost food, family survival, and the need for adventurers to solve the tree problem.",
+      "planning_uses": ["irate parent", "quest pressure", "poverty and survival stakes", "practical reward framing"],
+      "canon_status": "source_only"
+    },
+    {
+      "source_id": "source_npc_morwin_blackwell",
+      "name": "Morwin Blackwell",
+      "kind": "shopkeeper",
+      "summary": "Old, hard-of-hearing, poor-sighted store owner who sells basic goods and hemp blends; irritated by Saladin's presence.",
+      "planning_uses": ["local merchant", "gossip", "hemp economy", "small-problem hook"],
+      "canon_status": "source_only_optional"
+    },
+    {
+      "source_id": "source_npc_saladin",
+      "name": "Saladin",
+      "kind": "elderly_elven_traveling_merchant_mage",
+      "summary": "A very old elf merchant/mage with a magical wagon, unbidden thoughts, money, and a strange remaining item for sale.",
+      "planning_uses": ["recurring NPC candidate", "source of magical context", "merchant foil", "optional lore delivery"],
+      "canon_status": "source_only_optional"
+    },
+    {
+      "source_id": "source_npc_narfi_granitetooth",
+      "name": "Narfi Granitetooth",
+      "kind": "drunken_dwarven_priest",
+      "summary": "A grieving dwarven healer-priest drinking in the Shacks after the murder of her daughter; can be moved toward mercy and service.",
+      "planning_uses": ["healer NPC", "redemption arc", "social challenge", "post-violence care for villagers"],
+      "canon_status": "source_only_optional"
+    },
+    {
+      "source_id": "source_npc_bill_the_belly",
+      "name": "Bill the Belly",
+      "kind": "tavern_proprietor",
+      "summary": "Proprietor associated with the Shacks and the Meal n' Moonshine competition.",
+      "planning_uses": ["celebration host", "food/drink competition", "comic tavern NPC"],
+      "canon_status": "source_only_optional"
+    },
+    {
+      "source_id": "source_npc_lord_fiddlestick",
+      "name": "Lord Fiddlestick",
+      "kind": "gnomish_thief_bard_entrepreneur",
+      "summary": "The thief/con artist who stole the magical conk/tuber and sold it to Torbin in the source module backstory.",
+      "planning_uses": ["upstream cause", "future culprit", "comic criminal", "source hook"],
+      "canon_status": "source_only"
+    },
+    {
+      "source_id": "source_npc_korden",
+      "name": "Korden",
+      "kind": "alchemist_or_guild_contact",
+      "summary": "A worried source-hook NPC connected to the stolen conk and the mages' guild.",
+      "planning_uses": ["formal quest hook", "guild accountability", "source-adventure launch"],
+      "canon_status": "source_only_optional"
+    },
+    {
+      "source_id": "source_npc_paelias_sian",
+      "name": "Paelias Sian",
+      "kind": "mages_guild_agent",
+      "summary": "A later investigator sent to erase evidence, compensate witnesses, and track the strange child or adventurers.",
+      "planning_uses": ["post-adventure consequence", "cover-up antagonist", "recurring pressure"],
+      "canon_status": "source_only_optional"
+    },
+    {
+      "source_id": "source_creature_grotesque_tree",
+      "name": "Grotesque Tree",
+      "kind": "plant_hazard_monster",
+      "summary": "Huge magical plant threat with long reach, hard bark, thorned branches, vulnerability to fire, ability to strike/grapple/throw, and metallic leaves.",
+      "planning_uses": ["visible threat", "battlefield centerpiece", "learned-range hazard", "false final boss"],
+      "canon_status": "source_only"
+    },
+    {
+      "source_id": "source_creature_caretakers",
+      "name": "Caretakers",
+      "kind": "root_beetle_or_twig_blight_like_minions",
+      "summary": "Root-like beetle/plant creatures from the hollow root network that retaliate after the surface tree is destroyed.",
+      "planning_uses": ["second-wave horror", "post-celebration attack", "reveal of deeper threat", "underground lead"],
+      "canon_status": "source_only"
+    },
+    {
+      "source_id": "source_creature_guardian",
+      "name": "Guardian",
+      "kind": "large_root_plant_guardian",
+      "summary": "A deeper root-network guardian with iron-reinforced spike-like attacks and a needle-barrage style ability.",
+      "planning_uses": ["root dungeon boss", "protects helix/marrow", "metal-plant hybrid horror"],
+      "canon_status": "source_only"
+    },
+    {
+      "source_id": "source_entity_child_in_helix",
+      "name": "Child in the Helix",
+      "kind": "strange_plant_metal_child",
+      "summary": "A green, bark/stone/metal-inflected child-like being contained in a glowing sack within a wooden helix, creating a moral and future-campaign decision.",
+      "planning_uses": ["moral decision", "weird offspring", "future custody/cover-up hook", "campaign consequence"],
+      "canon_status": "source_only_optional"
+    }
+  ],
+  "beats": [
+    {"source_beat_id": "source_beat_arrive_hempholm", "title": "Arrive at Hempholm", "summary": "Characters arrive and immediately perceive the village's central problem: a grotesque tree threatening a family home and nearby villagers.", "type": "arrival_investigation"},
+    {"source_beat_id": "source_beat_tree_investigation", "title": "Investigate the Grotesque Tree", "summary": "Characters can examine the tree, identify shiny metallic leaves, sense arcane magic, and infer a magical root system beneath the village.", "type": "investigation_visible_threat"},
+    {"source_beat_id": "source_beat_village_small_problems", "title": "Small Problems Around the Village", "summary": "Hempholm includes optional small social/tool hooks like a broken distillery, gem cutting, and a food/drink competition.", "type": "village_texture"},
+    {"source_beat_id": "source_beat_advancing_tree_danger", "title": "Advancing Tree Danger", "summary": "If players delay, the tree grows, damages homes, risks spreading fire, or mauls villagers who try to attack it.", "type": "escalation_clock"},
+    {"source_beat_id": "source_beat_premature_celebration", "title": "Premature Celebration", "summary": "If the visible tree is destroyed without catastrophe, villagers celebrate in the Shacks with food, ale, stories, children, and lowered guard.", "type": "false_victory"},
+    {"source_beat_id": "source_beat_caretaker_rampage", "title": "Rampage of the Caretakers", "summary": "Hours after the tree is destroyed, root-like caretakers emerge from underground to attack villagers and structures in retaliation.", "type": "second_wave_horror"},
+    {"source_beat_id": "source_beat_descent", "title": "Down Into the Root System", "summary": "Openings torn through the village lead into warm hollow root corridors beneath Hempholm.", "type": "dungeon_descent"},
+    {"source_beat_id": "source_beat_marrow", "title": "The Marrow", "summary": "At the center of the root network, characters encounter a guardian, a helix structure, metal resin, and a strange child-like being.", "type": "deep_reveal_moral_choice"},
+    {"source_beat_id": "source_beat_guild_consequence", "title": "Mages' Guild Cleanup", "summary": "A guild agent can later seek to erase evidence and pursue the child or the adventurers.", "type": "continuation_hook"}
+  ],
+  "mechanics_and_design_notes": {
+    "tree": {
+      "range_and_tactics": "Attacks creatures near it and can retaliate against ranged threats; source stats include long reach, grappling/snaring, and throwing.",
+      "clue_surface": ["metallic leaves", "arcane aura", "underground magical root system", "damaged home/garden"],
+      "fire": "Fire is a potential answer but risks spreading through the village."
+    },
+    "caretakers": {
+      "role": "Second-wave minions and evidence that the tree was only the visible part of a deeper system.",
+      "behavior": "Attack villagers/structures and eventually return underground or flee if enough are destroyed.",
+      "fire": "Afraid of fire in the source module."
+    },
+    "root_descent": {
+      "role": "Turns the local crisis into a dungeon-like follow-up.",
+      "sensory_mode": ["warm roots", "dank air", "stone/metal feel", "clicking hidden creatures"]
+    },
+    "treasure": {
+      "visible_tree": ["precious metal leaves"],
+      "root_core": ["metal resin"],
+      "caretakers": ["wood/root material useful to craftspeople"]
+    }
+  }
+}

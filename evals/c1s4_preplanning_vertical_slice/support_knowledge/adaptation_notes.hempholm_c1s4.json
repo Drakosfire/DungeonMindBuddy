@@ -1,0 +1,175 @@
+{
+  "schema": "dmb_source_adaptation_notes_v1",
+  "artifact_id": "hempholm_c1s4_adaptation_context_seed",
+  "campaign_id": "longmont-c1",
+  "source_document": "source_module_of_conks_and_cons_v21_hempholm_seed",
+  "adaptation_target": "c1s4_hempholm_preplanning_support",
+  "authority": {
+    "layer": "adaptation_planning",
+    "authority_role": "planning_support",
+    "canon_status": "not_observed_play_canon_until_confirmed_by_recap_or_campaign_promotion",
+    "use_in_modes": ["prior_plus_support", "source_assisted_planning"],
+    "exclude_from_modes": ["prior_only", "oracle_grading"]
+  },
+  "adaptation_principles": [
+    "Use the source module as structural support, not as campaign truth.",
+    "Keep C1S4 observed recap and source module facts separate.",
+    "Treat user modifications as adaptation notes, not automatic source facts.",
+    "Prefer source elements as prep candidates; promote only when used or confirmed.",
+    "Answer with authority labels: source-supported, adaptation-inferred, observed-canon, creative."
+  ],
+  "mapping_status_values": [
+    "retained",
+    "retained_modified",
+    "renamed",
+    "replaced",
+    "omitted_or_optional",
+    "unused_source_material",
+    "campaign_specific_addition"
+  ],
+  "mappings": [
+    {
+      "mapping_id": "map_location_hempholm",
+      "source_element": "source_location_hempholm",
+      "campaign_element": "Hempholm",
+      "status": "retained_modified",
+      "notes": "Hempholm remains the hemp-associated village crisis site, but regional/Faerun context should be replaced by Elderwyld/Longmont context."
+    },
+    {
+      "mapping_id": "map_tree",
+      "source_element": "source_creature_grotesque_tree",
+      "campaign_element": "grotesque metallic magical tree",
+      "status": "retained_modified",
+      "notes": "Core visible threat retained: enormous, dangerous, magical/metallic tree. Table version may change exact stats, reach, growth timing, and presentation."
+    },
+    {
+      "mapping_id": "map_torbin",
+      "source_element": "source_npc_torbin_jove",
+      "campaign_element": "Torbin",
+      "status": "retained_modified",
+      "notes": "Boy/witness role retained. Campaign framing can emphasize sadness, fear, being beaten, or guilt rather than copying source dialogue."
+    },
+    {
+      "mapping_id": "map_jove",
+      "source_element": "source_npc_mark_jove",
+      "campaign_element": "Jove",
+      "status": "retained_modified",
+      "notes": "Irate father/survival-pressure role retained; campaign version may compress or rename Mark Jove to Jove."
+    },
+    {
+      "mapping_id": "map_source_hook_to_torvak",
+      "source_element": "source_hook_traveling_merchant_reports_strange_tree",
+      "campaign_element": "Torvak Hempdealer road hook",
+      "status": "replaced",
+      "notes": "The PDF includes generic/formal hooks and merchant rumor structures; the campaign adaptation uses Torvak Hempdealer as the memorable road hook NPC."
+    },
+    {
+      "mapping_id": "map_hemp_economy",
+      "source_element": "Hempholm specializes in hemp cultivation",
+      "campaign_element": "hemp-themed merchant and village premise",
+      "status": "retained_modified",
+      "notes": "Source hemp economy supports Torvak's role and Hempholm's identity, but exact trade/geography should be adapted."
+    },
+    {
+      "mapping_id": "map_saladin",
+      "source_element": "source_npc_saladin",
+      "campaign_element": null,
+      "status": "omitted_or_optional",
+      "notes": "Saladin is useful optional source material but should not appear as campaign canon unless intentionally introduced."
+    },
+    {
+      "mapping_id": "map_morwin",
+      "source_element": "source_npc_morwin_blackwell",
+      "campaign_element": null,
+      "status": "omitted_or_optional",
+      "notes": "Morwin/store can provide village texture if needed, but is not automatically part of observed C1S4 canon."
+    },
+    {
+      "mapping_id": "map_narfi",
+      "source_element": "source_npc_narfi_granitetooth",
+      "campaign_element": null,
+      "status": "omitted_or_optional",
+      "notes": "Narfi can provide healer/social support if the adapted session needs a village NPC, but should not be assumed present."
+    },
+    {
+      "mapping_id": "map_shacks",
+      "source_element": "source_location_shacks",
+      "campaign_element": "celebration/gathering space",
+      "status": "retained_modified",
+      "notes": "The source uses the Shacks for lodging and celebration. The campaign can adapt this into any town revelry/gathering location."
+    },
+    {
+      "mapping_id": "map_tree_leaves",
+      "source_element": "precious metal leaves",
+      "campaign_element": "precious metal leaves / metallic tree remains",
+      "status": "retained_modified",
+      "notes": "Precious metal remains are a strong retained loot/material hook; exact value and crafting use may differ."
+    },
+    {
+      "mapping_id": "map_tree_branch_crafting",
+      "source_element": "tree/root material as valuable crafting material",
+      "campaign_element": "Bonogo-style crafting/trading opportunity",
+      "status": "campaign_specific_addition",
+      "notes": "The observed/adapted table can turn source treasure/materials into PC-specific crafting interactions."
+    },
+    {
+      "mapping_id": "map_caretakers",
+      "source_element": "source_creature_caretakers",
+      "campaign_element": "root-like beetle eruption",
+      "status": "retained_modified",
+      "notes": "Core second-wave threat retained: root/caretaker creatures emerge after the visible tree is destroyed. Campaign language can present them as beetles."
+    },
+    {
+      "mapping_id": "map_premature_celebration",
+      "source_element": "source_beat_premature_celebration",
+      "campaign_element": "town celebration after tree defeat",
+      "status": "retained_modified",
+      "notes": "False-victory celebration retained; campaign can add social friction, PC-specific choices, or ugly local behavior."
+    },
+    {
+      "mapping_id": "map_steve",
+      "source_element": null,
+      "campaign_element": "Steve / ugly celebration social friction",
+      "status": "campaign_specific_addition",
+      "notes": "Racist/socially ugly townsperson is campaign-specific texture; do not derive from PDF unless explicitly present in adaptation notes."
+    },
+    {
+      "mapping_id": "map_root_descent",
+      "source_element": "source_location_root_corridors",
+      "campaign_element": "possible future underground root threat",
+      "status": "retained_modified",
+      "notes": "The PDF's descent can support future-session prep after the beetle eruption, but should be optional until campaign play confirms direction."
+    },
+    {
+      "mapping_id": "map_marrow_child",
+      "source_element": "source_entity_child_in_helix",
+      "campaign_element": null,
+      "status": "omitted_or_optional",
+      "notes": "The child/helix reveal is potent source material but not automatically part of Longmont canon."
+    },
+    {
+      "mapping_id": "map_mages_guild",
+      "source_element": "source_npc_paelias_sian",
+      "campaign_element": null,
+      "status": "omitted_or_optional",
+      "notes": "The mages' guild cleanup hook should be transformed or omitted unless it fits Elderwyld campaign institutions."
+    }
+  ],
+  "mode_guidance": {
+    "prior_only": {
+      "allowed": ["C1S1-C1S3 session-memory records"],
+      "forbidden": ["this support knowledge", "C1S4 recap/oracle"],
+      "expected_behavior": "Infer broad next-session shape only; do not name Hempholm-specific source facts."
+    },
+    "prior_plus_support": {
+      "allowed": ["C1S1-C1S3 session-memory records", "manual Hempholm support knowledge"],
+      "forbidden": ["C1S4 recap/oracle"],
+      "expected_behavior": "Use Hempholm/source-module facts as planning support while preserving authority labels."
+    },
+    "oracle_grading": {
+      "allowed": ["C1S4 oracle targets/recap according to grader policy"],
+      "forbidden": ["planner-visible use of C1S4 during prep generation"],
+      "expected_behavior": "Compare generated prep against observed C1S4 without leaking oracle to planner."
+    }
+  }
+}
