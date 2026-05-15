@@ -68,3 +68,18 @@ It does not grade.
 It does not load target metadata into retrieval.
 
 Evaluator-only questions such as Q35 are skipped for planner-facing packet generation.
+
+
+## Step 3 — Stub answer packets
+
+Step 3 converts Step 2 question context packets into answer packets without generating answers.
+
+This locks the answer-output schema expected by future generated-answer work.
+
+Step 3 does not:
+- call an LLM,
+- generate answer text,
+- grade against C1S4,
+- read oracle material.
+
+All answer packets must have `answer_generation_status: stubbed_not_generated`.

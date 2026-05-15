@@ -41,3 +41,17 @@ Passes when:
 - `answer_slot` remains null.
 
 Does not yet generate answers or grade output.
+
+
+## Gate 3A — Answer packet schema / stub harness
+
+Passes when:
+- Step 3 builds answer packets from Step 2 context packets.
+- Q35 remains skipped.
+- `answer_text` and `structured_answer` remain null.
+- eval-only fields are absent.
+- authority, known-gap, expected-behavior, and oracle-risk fields are preserved.
+- C1S4 oracle leakage checks still pass.
+
+Does not yet generate answers.
+Does not yet grade answers.
