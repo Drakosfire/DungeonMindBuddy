@@ -56,3 +56,15 @@ It separates:
 
 Validation:
 `uv run python evals/c1s4_preplanning_vertical_slice/validate_beat_question_targets.py`
+
+## Step 2 — Question context packets
+
+Step 2 reads the planner-forbidden beat/question target artifact as controller input, retrieves context using one selected retrieval mode, and emits planner-visible question context packets.
+
+It does not generate answers.
+
+It does not grade.
+
+It does not load target metadata into retrieval.
+
+Evaluator-only questions such as Q35 are skipped for planner-facing packet generation.
