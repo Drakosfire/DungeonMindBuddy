@@ -32,3 +32,17 @@
 - [x] Support-knowledge dependency is explicitly marked for Hempholm questions.
 - [x] Target artifact is marked planner-visible: forbidden.
 - [x] Validator and tests pass.
+
+
+## Step 3 — Stub answer packets
+
+- [x] `answer_packet_harness.py` exists.
+- [x] `step3_build_stub_answer_packets.py` exists.
+- [x] Answer packet schema is `dmb_c1s4_answer_packet_v1`.
+- [x] `answer_generation_status` is `stubbed_not_generated`.
+- [x] `answer_text` remains null.
+- [x] `structured_answer` remains null.
+- [x] Q35 remains skipped.
+- [x] Eval-only fields are rejected.
+- [x] Oracle leakage checks are preserved.
+- [x] Tests pass.
