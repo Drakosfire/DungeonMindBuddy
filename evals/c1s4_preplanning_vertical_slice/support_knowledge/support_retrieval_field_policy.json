@@ -1,0 +1,98 @@
+{
+  "schema": "dmb_support_retrieval_field_policy_v1",
+  "policy_id": "c1s4_support_knowledge_retrieval_visibility_v1",
+  "purpose": "Define which support-knowledge fields may be used by retrieval, which fields are eval-only, and which fields may be preserved in planner-visible context bundles after retrieval.",
+  "default_retrieval_mode": "content_only",
+  "retrieval_modes": {
+    "content_only": {
+      "description": "Index support-card title and summary only. Use this as the stricter baseline.",
+      "indexable_fields": ["title", "summary"],
+      "forbidden_fields": [
+        "usable_for_questions",
+        "question_id",
+        "answer_product",
+        "authority_label",
+        "oracle_risk",
+        "expected_retrieval_context",
+        "known_context_gaps",
+        "must_not_include_unless_sourced",
+        "must_not_claim",
+        "source_reference",
+        "schema",
+        "support_card_id",
+        "campaign_id",
+        "source_layer",
+        "authority_role",
+        "canon_status"
+      ]
+    },
+    "content_plus_lexical_hints": {
+      "description": "Index title, summary, and retrieval_terms. Use this to measure lexical-artifact lift over content_only.",
+      "indexable_fields": ["title", "summary", "retrieval_terms"],
+      "forbidden_fields": [
+        "usable_for_questions",
+        "question_id",
+        "answer_product",
+        "authority_label",
+        "oracle_risk",
+        "expected_retrieval_context",
+        "known_context_gaps",
+        "must_not_include_unless_sourced",
+        "must_not_claim",
+        "source_reference",
+        "schema",
+        "support_card_id",
+        "campaign_id",
+        "source_layer",
+        "authority_role",
+        "canon_status"
+      ]
+    }
+  },
+  "eval_only_fields": [
+    "usable_for_questions",
+    "question_id",
+    "answer_product",
+    "authority_label",
+    "oracle_risk",
+    "expected_retrieval_context",
+    "known_context_gaps"
+  ],
+  "guardrail_fields": [
+    "must_not_include_unless_sourced",
+    "must_not_claim"
+  ],
+  "bundle_visible_fields": [
+    "schema",
+    "support_card_id",
+    "campaign_id",
+    "source_layer",
+    "authority_role",
+    "canon_status",
+    "title",
+    "summary",
+    "source_reference",
+    "must_not_include_unless_sourced",
+    "must_not_claim"
+  ],
+  "selection_forbidden_patterns": [
+    "gold_*",
+    "target_*",
+    "expected_*",
+    "oracle_*",
+    "benchmark_*"
+  ],
+  "required_future_tests": [
+    "support_retrieval_does_not_use_usable_for_questions",
+    "support_retrieval_can_find_relevant_card_without_question_id",
+    "support_retrieval_resists_decoys",
+    "support_bundle_preserves_authority_fields",
+    "prior_plus_support_keeps_c1s4_oracle_forbidden",
+    "content_plus_lexical_hints_reports_lift_separately_from_content_only"
+  ],
+  "notes": [
+    "Bundle visibility is not retrieval visibility. A field may be shown after retrieval while still being forbidden for indexing/ranking/selection.",
+    "source_layer, authority_role, and canon_status may be used for policy filtering only after the retrieval mode is selected; they must not boost ranking or select a benchmark target.",
+    "retrieval_terms are hand-authored lexical hints. They are allowed only in content_plus_lexical_hints mode and should be reported separately from content_only."
+  ]
+}
