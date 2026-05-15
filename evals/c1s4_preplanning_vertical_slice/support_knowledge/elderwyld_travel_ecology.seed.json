@@ -1,0 +1,326 @@
+{
+  "schema": "dmb_travel_ecology_support_facts_v1",
+  "artifact_id": "elderwyld_travel_ecology_seed_for_c1s4_support",
+  "campaign_id": "longmont-c1",
+  "ingestion_status": "manual_perfect_ingestion_surrogate",
+  "purpose": "Hand-authored Elderwyld travel and ecology support facts for C1S4 preplanning experiments, especially Beat 1 Q3 and road texture questions.",
+  "authority": {
+    "layer": "worldbuilding_support",
+    "authority_role": "route_and_ecology_planning_support",
+    "canon_status": "mixed_world_canon_and_campaign_stateful_reference",
+    "planner_visibility": "allowed_only_in_prior_plus_support_or_world_support_modes",
+    "must_not_claim": [
+      "Mireward Reach is the Stone Bridge-to-Mirathorn road unless a route source confirms it.",
+      "Campaign 2 travel state applies to Campaign 1.",
+      "Encounter tables are observed play facts.",
+      "All ecology here appears on every Elderwyld road."
+    ]
+  },
+  "source_documents": [
+    {
+      "path": "corpus/eldyrwild-markdown/Elderwyld/Roads/README.md",
+      "role": "road_and_wilderness_index",
+      "authority_label": "world_canon_index"
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Elderwyld/Roads/mireward_reach_road_d100_encounter_table.md",
+      "role": "northbound_road_encounter_grammar",
+      "authority_label": "world_canon_route_specific_to_mireward_reach"
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Elderwyld/Wilderness/pre_era_conical_hills_d20_find.md",
+      "role": "pre_era_plains_geography_and_find_table",
+      "authority_label": "world_canon_wilderness_seed"
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Elderwyld/Wilderness/conical_hills_night_camp_d100.md",
+      "role": "night_camp_table_for_conical_hills",
+      "authority_label": "world_canon_wilderness_seed"
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Elderwyld/Wilderness/geomantic_drake_juvenile_statblock.md",
+      "role": "creature_ecology_and_statblock_seed",
+      "authority_label": "world_canon_creature_seed"
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Elderwyld/Wilderness/geomantic_drake_nest_loot_d100.md",
+      "role": "creature_cache_and_loot_ecology",
+      "authority_label": "world_canon_creature_seed"
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Elderwyld/Migrating Forest/migrating_forest_d_100_universal_encounter_table.md",
+      "role": "migrating_forest_ecology_and_pressure_table",
+      "authority_label": "world_canon_region_seed"
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Journey - Mireward Reach (Campaign 2).md",
+      "role": "campaign_2_travel_tracker_reference",
+      "authority_label": "campaign_stateful_reference_do_not_backport_blindly"
+    }
+  ],
+  "route_families": [
+    {
+      "route_id": "mireward_reach",
+      "name": "The Mireward Reach",
+      "aliases": ["the North Drift", "the Long Tack", "the Grey Mud Road", "the Shepherd's Shadow"],
+      "orientation": "North from Mirathorn toward fen country and the swamp frontier.",
+      "authority_label": "route_specific_world_canon_not_stone_bridge_to_mirathorn_by_default",
+      "summary": "A drove-road and wheel-way carrying trade, troops, rumor, and trouble north from Mirathorn toward swamp country. It is a braid of maintained road, patched county line, and muddy tracks.",
+      "planning_uses": [
+        "Elderwyld road grammar",
+        "swamp-frontier route texture",
+        "campaign 2 travel support",
+        "road encounter inspiration for support mode"
+      ],
+      "encounter_bands": [
+        "Crown, Mud, and Maintenance",
+        "Traffic, Convoys, and Strangers",
+        "Weather, Sky, and Shimmer",
+        "Hamlets, Inns, and Half-Truths",
+        "Predators, Press, and Petty Cruelty",
+        "Shepherd's Shadow",
+        "Forks, Fences, and Bad Maps",
+        "Liminal Weird",
+        "Hard Turns"
+      ],
+      "c1s4_applicability": "Use as route-style support only unless Stone Bridge-to-Mirathorn routing is explicitly linked to this road family."
+    },
+    {
+      "route_id": "stone_bridge_to_mirathorn_missing_gazetteer",
+      "name": "Stone Bridge to Mirathorn route",
+      "orientation": "Known from C1S3 as the likely next travel vector toward Mirathorn, but not represented by a clean route gazetteer in the found corpus.",
+      "authority_label": "known_gap",
+      "summary": "C1S3 supplies the destination vector; the exact road ecology, intermediate settlements, distance-by-day, and route hazards still need a canonical route support artifact.",
+      "planning_uses": ["missing-context warning", "question answering honesty", "future support-knowledge target"],
+      "c1s4_applicability": "Directly relevant to Q3, but currently underspecified."
+    }
+  ],
+  "elderwyld_road_grammar": {
+    "mundane_pressures": [
+      "mud and wheel ruts after rain",
+      "damaged bridge planks",
+      "toll collectors and queues",
+      "ditch crews and washouts",
+      "convoys, drovers, pilgrims, refugees, carters, mercenaries, and funeral traffic",
+      "hamlets with local needs",
+      "inns and waystations with ledgers, rumors, or missing clerks"
+    ],
+    "weather_and_shimmer": [
+      "fog between hedgerows",
+      "sideways rain",
+      "heat without sun",
+      "hail",
+      "thunder without lightning",
+      "static in hair and banners",
+      "raindrop shimmer that signals magic riding a weather front"
+    ],
+    "predation_and_cruelty": [
+      "wolves shadowing the berm",
+      "bandits using false distress",
+      "impress gangs",
+      "poachers and wardens",
+      "escaped beasts",
+      "crows gathering around something dead",
+      "drunk soldiers and fake clerics"
+    ],
+    "cult_and_shepherd_hints": [
+      "meat smoke that smells wrong",
+      "chalk symbols under dust",
+      "free jerky with wrong texture",
+      "crowds humming one note before noticing",
+      "filed coins from Mirathorn mint",
+      "water that tastes like copper and choir",
+      "tavern songs gaining verses no one remembers learning"
+    ],
+    "liminal_weirdness": [
+      "standing stones sheep ignore but dogs avoid",
+      "abandoned carts sorted by an unseen hand",
+      "single boots with no blood or tracks",
+      "hollow trees echoing wagon wheels",
+      "butterflies all one wrong color",
+      "puddles with delayed reflections",
+      "keys dropped by ravens",
+      "bells ringing from no tower"
+    ],
+    "major_turns": [
+      "abandoned hamlets",
+      "sealed orders and riders",
+      "battle spill onto the road",
+      "false checkpoints",
+      "cult processions",
+      "wildfire wind shifts",
+      "flash floods",
+      "plague banners",
+      "sinkholes exposing old roads below",
+      "the road becoming meat under hooves"
+    ]
+  },
+  "pre_era_conical_hills": {
+    "authority_label": "world_canon_wilderness_seed",
+    "region_anchor": "Mireward Reach plains and similar Elderwyld plains unless adapted elsewhere.",
+    "player_facing_read": "Odd little grassy hills with still water on top, pretty and lonely, perhaps cursed or perhaps nothing.",
+    "gm_truth": "The cones are engineered pre-era structures: terrace cores, ward anchors, drained workings, vent systems, old ritual machinery, sealed doors, or similar buried purpose.",
+    "terrain_pattern": [
+      "open plains",
+      "occasional low hills",
+      "hilltop ponds",
+      "old geometry under grass and sheep",
+      "artificial structures mistaken for natural landforms"
+    ],
+    "find_categories": [
+      "wrong reflections",
+      "faceless pre-modern coins",
+      "thermal vents",
+      "stone disks and spiral grooves",
+      "fey afterparty debris",
+      "thunder glass",
+      "carved eyeless faces",
+      "siege-machine bones",
+      "dry-laid stone chambers",
+      "whisper wells",
+      "ice lenses",
+      "lichen script",
+      "geomantic drake nests",
+      "storm bells",
+      "earth doors"
+    ],
+    "planning_uses": [
+      "roadside wonder",
+      "optional dungeon mouth",
+      "pre-era archaeology breadcrumb",
+      "storm/magic foreshadowing",
+      "geomantic creature ecology",
+      "travel scene that rewards curiosity"
+    ],
+    "c1s4_applicability": "Reusable Elderwyld travel ecology, not confirmed on Stone Bridge-to-Mirathorn route unless selected as support flavor."
+  },
+  "conical_hill_night_camps": {
+    "authority_label": "world_canon_wilderness_seed",
+    "summary": "Night camps on conical hills create mostly benign atmosphere with occasional unusual or eventful geomantic phenomena.",
+    "watch_patterns": [
+      "fire and smoke behaving oddly",
+      "wrong sounds in the bush",
+      "pressure and weather shifts",
+      "pond reflections blinking first",
+      "stones humming or pulsing",
+      "small visitors and nocturnal animals",
+      "shared or strange dreams",
+      "lights moving across nearby rises",
+      "notes inside the hill",
+      "geomantic drake appearances"
+    ],
+    "planning_uses": [
+      "camp watch prompts",
+      "travel pacing",
+      "foreshadowing pre-era structures",
+      "gentle weirdness before harder adventure beats",
+      "optional drake encounter"
+    ]
+  },
+  "geomantic_drake_ecology": {
+    "authority_label": "world_canon_creature_seed",
+    "creature_type": "draconic-adjacent monstrosity or elemental-like geomantic creature",
+    "summary": "Geomantic drakes are small to larger draconic-adjacent creatures drawn to buried workings, conical high points, wells, ward anchors, and old geomantic charge. They ground, shed, and nest around pre-era structures.",
+    "behavior": [
+      "crepuscular movement at dawn and dusk",
+      "territorial around nests or charge sinks",
+      "not primarily hungry for people",
+      "posture and push intruders downslope",
+      "drawn to buried workings like moths to heat",
+      "may be sleepy or friendly until the wrong stone is disturbed"
+    ],
+    "sensory_details": [
+      "oil-slick blue-green or bone-matte scales",
+      "warm plates like sun-heated stone",
+      "ozone and wet clay breath",
+      "earth ringing faintly under claws",
+      "milky eyes with flecks tracking hidden forces"
+    ],
+    "nest_and_loot_ecology": [
+      "corvid-like caching behavior",
+      "rival piles",
+      "sorted shinies and secrets dropped on the road",
+      "shed plates useful as alchemical or arcane components",
+      "hex eggshell tesserae",
+      "stormglass, survey pegs, geomantic chalk, old coins, maps, chits, and magical items"
+    ],
+    "planning_uses": [
+      "wilderness creature encounter",
+      "pre-era signal creature",
+      "loot ecology",
+      "Stormspire buyer hooks",
+      "roadside mystery",
+      "environmental combat on sloped terrain"
+    ]
+  },
+  "migrating_forest_ecology": {
+    "authority_label": "world_canon_region_seed",
+    "summary": "The Migrating Forest is a reactive region whose travel logic includes forest attention, dinosaur presence, storm residue, Branchbound influence, resource stress, navigation distortion, psychological pressure, outside influence, and major disruptions.",
+    "ecological_logic": [
+      "The forest notices pressure and remembers repeated actions.",
+      "Routes can close, rotate, loop, or herd travelers.",
+      "Predators and dinosaurs are often first sensed through presence before violence.",
+      "Storm residue and magical weather linger in pools, leaves, bark, and sudden local weather.",
+      "Branchbound figures may assess, guide, judge, or withdraw.",
+      "Resources can spoil, grow heavy, go missing, or become contaminated as a message rather than pure punishment."
+    ],
+    "planning_uses": [
+      "forest travel support",
+      "southern ominous forest flavor if route-adapted",
+      "reactive wilderness design",
+      "Branchbound/Thrin context",
+      "magical weather carryover"
+    ],
+    "c1s4_applicability": "Use only if the Stone Bridge-to-Mirathorn route passes near relevant forest influence or as general Elderwyld ecology flavor with a clear authority note."
+  },
+  "campaign_stateful_references": {
+    "campaign_2_mireward_tracker": {
+      "authority_label": "campaign_stateful_reference_do_not_backport_blindly",
+      "known_values": [
+        "Lysandra's brief for Campaign 2 travel north was about two weeks on horse to the swamp.",
+        "Mossford is about two days from Mirathorn on the Mireward Reach in Campaign 2 notes.",
+        "A Deep Reach milestone working label sits about five days from Mirathorn.",
+        "Current terrain described as open plains with occasional low hills and hilltop ponds."
+      ],
+      "safe_use": "Use to understand Elderwyld travel bookkeeping patterns and ecology motifs, not as direct Campaign 1 route fact."
+    },
+    "campaign_2_notes": {
+      "authority_label": "campaign_stateful_reference_do_not_backport_blindly",
+      "known_threads": [
+        "Magical storms grow and track from northeast toward southwest.",
+        "The Shepherd and Maelthor are connected to corruption, storms, cult influence, and swamp biomass.",
+        "The Flesh Egg in the swamp is a later campaign threat.",
+        "Thrin is associated with the migrating forest / Branchborn context."
+      ],
+      "safe_use": "Useful for later campaign continuity and design grammar, but not fair prior context for C1S4 unless explicitly allowed in source-assisted support mode."
+    }
+  },
+  "c1s4_support_guidance": {
+    "for_q3": {
+      "fair_response_components": [
+        "Use C1S3 for destination and rough distance if available.",
+        "Use Elderwyld world support for travel tone and fantasy ecology.",
+        "Use Mirathorn city support for final approach imagery.",
+        "Warn that the exact Stone Bridge-to-Mirathorn route gazetteer is missing."
+      ],
+      "unsafe_response_components": [
+        "Claiming a specific route name without evidence.",
+        "Using Campaign 2 Mireward distances as Campaign 1 facts.",
+        "Inventing exact settlements between Stone Bridge and Mirathorn as canon.",
+        "Treating encounter tables as events that definitely occur."
+      ]
+    },
+    "for_travel_scene_generation": {
+      "safe_material": [
+        "road traffic and festival-bound travelers",
+        "post-flood muddy roads and repair crews",
+        "floatgoats and fantastic livestock",
+        "weather shimmer and storm residue",
+        "pre-era hills as optional roadside curiosity",
+        "mundane roadside disputes",
+        "Shepherd hints only if campaign tone supports it"
+      ],
+      "authority_label_to_emit": "world_support_generated_from_elderwyld_ecology"
+    }
+  }
+}

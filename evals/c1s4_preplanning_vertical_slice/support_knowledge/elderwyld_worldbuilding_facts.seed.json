@@ -1,0 +1,231 @@
+{
+  "schema": "dmb_worldbuilding_support_facts_v1",
+  "artifact_id": "elderwyld_worldbuilding_facts_seed_for_c1s4_support",
+  "campaign_id": "longmont-c1",
+  "ingestion_status": "manual_perfect_ingestion_surrogate",
+  "purpose": "Hand-authored worldbuilding support facts for the C1S4 preplanning vertical slice. These facts model what a future high-quality worldbuilding ingestion pipeline should expose without blocking the current vertical slice.",
+  "correction_note": "Elderwyld is the continent/world layer. Mirathorn is a city inside Elderwyld and should not be treated as the root worldbuilding object.",
+  "authority": {
+    "layer": "worldbuilding_support",
+    "authority_role": "planning_support",
+    "canon_status": "world_canon_where_sourced_but_not_session_memory",
+    "planner_visibility": "allowed_only_in_prior_plus_support_or_world_support_modes",
+    "not_allowed_in": ["prior_only", "oracle_grading"],
+    "must_not_claim": [
+      "These facts were retrieved from C1S1-C1S3 session memory.",
+      "These facts prove what happened in C1S4.",
+      "Campaign 2 stateful travel notes automatically apply to Campaign 1."
+    ]
+  },
+  "source_documents": [
+    {
+      "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/README.md",
+      "role": "location_hub_index",
+      "authority_label": "world_canon_index"
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/The City of Mirathorn.md",
+      "role": "city_primer_and_worldbuilding_bundle",
+      "authority_label": "world_canon_seed_reference"
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Elderwyld/Roads/README.md",
+      "role": "road_and_wilderness_index",
+      "authority_label": "world_canon_index"
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Campaign 2 Notes.md",
+      "role": "later_campaign_state_reference",
+      "authority_label": "campaign_stateful_reference_do_not_backport_blindly"
+    }
+  ],
+  "world_layer": {
+    "name": "Elderwyld",
+    "kind": "continent_on_the_edge_of_reality",
+    "summary": "Elderwyld is a continent on the edge of reality, shaped by the aftermath of divine war, the Nameless Goddess's sacrifice, settler expansion, wild frontiers, unstable boundaries, and old/pre-era structures beneath the apparent landscape.",
+    "cosmology": [
+      "Long ago, gods lost to forces beyond the planes, the fae, and the gods.",
+      "The Nameless Goddess sacrificed herself to save what remained.",
+      "Beyond the great waterfalls lies something like undefined non-existence: mostly inert, but not entirely.",
+      "Things can crawl out of unreality, ranging from giant fish to packs of wolves or other stranger manifestations."
+    ],
+    "tone_tags": [
+      "frontier garden carved from cosmic aftermath",
+      "pastoral weirdness",
+      "pre-era ruins under ordinary landforms",
+      "magical ecology treated as practical life",
+      "joyful settlement under existential pressure"
+    ],
+    "planning_uses": [
+      "route tone",
+      "travel weirdness",
+      "agricultural fantasy texture",
+      "settler/frontier themes",
+      "pre-era mystery hooks",
+      "cosmic edge-of-reality threats"
+    ]
+  },
+  "measurement_and_travel_language": {
+    "unit": "Reach",
+    "definition": "One Reach is equivalent to 8 kilometers or 5 miles.",
+    "cultural_meaning": "The term comes from early settlement, when every journey beyond the safe outposts felt like reaching into the unknown. It now symbolizes exploration, danger, expansion, and the work of making Elderwyld habitable.",
+    "example_uses": [
+      "It's about 4 Reaches to the next village.",
+      "The borders of Mirathorn extend 20 Reaches from the city center.",
+      "Follow the river for 2 Reaches, then head east."
+    ],
+    "planning_uses": ["distance narration", "regional mapping", "travel handouts", "frontier idiom"]
+  },
+  "mirathorn_city_node": {
+    "name": "Mirathorn",
+    "kind": "city_state_trade_hub",
+    "relationship_to_elderwyld": "A major city and trade hub inside Elderwyld, not the continent itself.",
+    "location": "At the base of the Stormspire Peaks, by Lake Mirathorn.",
+    "population": "Approximately 7000 residents of diverse ancestries, including humans, dwarves, elves, gnomes, halflings, dragonborn, and some goblins and bugbears.",
+    "origin_history": [
+      "Founded over 200 years ago by settlers fleeing the Lundayell Empire.",
+      "The founders repaired an ancient airship, discovered the continent, and cut contact with the Empire to start anew."
+    ],
+    "economy": [
+      "brewing",
+      "craftsmanship",
+      "fishing",
+      "agriculture",
+      "magical goods",
+      "trade through rivers, mountain passes, and maintained roads"
+    ],
+    "governance": "A democratic city-state governed by a council representing races and guilds.",
+    "key_locations": [
+      "Grand Market",
+      "Stormspire Academy",
+      "Lake Mirathorn Docks",
+      "The Broken Blade Inn",
+      "Temple of the Nameless Goddess",
+      "City Council Building",
+      "Sewers",
+      "Wolf Manor"
+    ],
+    "festival_context": {
+      "name": "Festival of Expansion",
+      "purpose": "Commemorates the Nameless Goddess's sacrifice and the city's growth; originally tied to expanding the Aspitome's bubble.",
+      "events": [
+        "Opening Ceremony",
+        "Brewing Competition",
+        "Market Fair",
+        "Magical Demonstrations",
+        "Cultural Exhibitions",
+        "symbolic Ritual of Expansion"
+      ]
+    },
+    "planning_uses": [
+      "destination vector from C1S3",
+      "urban contrast after rural road crises",
+      "festival pull",
+      "political/cult pressure",
+      "final-approach imagery"
+    ]
+  },
+  "approach_to_mirathorn": {
+    "source_orientation": "Approach from the east in the city primer.",
+    "agricultural_landscape": [
+      "expansive lush farmlands",
+      "wheat, barley, and vegetables",
+      "orchards with fruit-laden trees",
+      "vineyards with ripening grapes",
+      "livestock herds",
+      "floatgoats on some farms"
+    ],
+    "industrial_landscape": [
+      "windmills and watermills",
+      "breweries preparing for the festival",
+      "workshops",
+      "blacksmith forges",
+      "smoke, anvils, tools, and craft traffic"
+    ],
+    "population_and_traffic": [
+      "travelers",
+      "merchants",
+      "farmers",
+      "pilgrims",
+      "families with children",
+      "frontier folk bringing goods and regional culture"
+    ],
+    "fortifications_and_entry": [
+      "ancient stone walls with ivy and moss",
+      "guard towers now partly symbolic",
+      "grand reinforced wood and iron gates",
+      "founder statues near the gates",
+      "crowded gate bottlenecks",
+      "steep entry toll",
+      "guards checking goods and managing flow"
+    ],
+    "outtown_and_campgrounds": [
+      "makeshift tents",
+      "temporary shelters",
+      "market stalls",
+      "communal cooking areas",
+      "performers",
+      "communal campfires",
+      "festival overflow population"
+    ],
+    "tension_layer": [
+      "Shepherd's Flock protest outside the main gate",
+      "pamphlets and chanting against the toll",
+      "guard tension",
+      "frustrated travelers",
+      "risk of riot or cult exploitation"
+    ],
+    "applicability_to_c1s4_q3": "Useful for describing the final approach to Mirathorn if the party gets close enough. Not a full Stone Bridge-to-Mirathorn route gazetteer."
+  },
+  "fantastic_livestock_and_domestic_ecology": [
+    {
+      "name": "Luminox Sheep",
+      "summary": "Bioluminescent sheep whose wool, milk, and dyes have practical and magical uses.",
+      "uses": ["glowing textiles", "healing salves", "bioluminescent dye", "nighttime pastoral imagery"]
+    },
+    {
+      "name": "Tidal Turtles",
+      "summary": "Small amphibious turtles with mood/weather-responsive iridescent shells.",
+      "uses": ["weather prediction", "jewelry", "light armor decoration", "medicinal salve"]
+    },
+    {
+      "name": "Starling Cows",
+      "summary": "Calm cattle with starry hides and milk associated with sleep, night vision, and celestial food craft.",
+      "uses": ["night vision potion ingredients", "celestial cheese", "starry leather", "festival delicacies"]
+    },
+    {
+      "name": "Sunflower Ducks",
+      "summary": "Bright yellow, photosynthetic ducks that glow mildly and produce useful feathers, eggs, and oils.",
+      "uses": ["magical quills", "energizing elixirs", "rejuvenating oils", "cheerful farm texture"]
+    },
+    {
+      "name": "Flutter Ferrets",
+      "summary": "Winged, playful ferrets whose wing scales and dust support lightness, agility, and item-finding.",
+      "uses": ["feather-falling components", "agility potions", "companionship", "searching for lost items"]
+    },
+    {
+      "name": "Float Goats",
+      "summary": "Goat-like livestock that can walk on water and provide buoyant wool, milk, cheese, and alchemical dust.",
+      "uses": ["water transport", "travel livestock", "symbols of joy", "festival animal encounters", "Bubbles continuity"]
+    }
+  ],
+  "city_and_region_pressure_threads": {
+    "shepherds_flock": "Cult/protest pressure can appear around tolls, gates, Outtown, road songs, food corruption, or rural resentment.",
+    "magical_storms": "Later campaign notes emphasize magical storms growing in frequency and tracking from northeast toward southwest; do not backport exact Campaign 2 state into C1S4 unless support mode allows later-campaign reference.",
+    "swamp_flesh_egg": "Campaign 2 state includes a swamp corruption biome and flesh egg. Treat as campaign-stateful reference, not C1S4 prior context.",
+    "stormspire_academy": "Major magical institution in Mirathorn that can buy or study strange ecological artifacts such as geomantic drake scales, ancient dragon scales, or unknown magic residues."
+  },
+  "c1s4_vertical_slice_guidance": {
+    "q3_direct_support": [
+      "Mirathorn is the known destination vector.",
+      "Mirathorn's final approach includes farmland, livestock, floatgoats, mills, breweries, smithies, festival traffic, outtown, gates, tolls, and protest tension.",
+      "Elderwyld uses Reaches as a distance unit."
+    ],
+    "q3_known_gaps": [
+      "No clean Stone Bridge-to-Mirathorn route gazetteer was found.",
+      "No canonical day-by-day path from Stone Bridge to Mirathorn is represented in this artifact.",
+      "Mireward Reach material is useful route grammar but is north from Mirathorn, not necessarily the route from Stone Bridge."
+    ],
+    "safe_answer_shape": "A planner may combine C1S3's destination vector with world-supported Mirathorn approach imagery and clearly labeled Elderwyld travel ecology, while admitting that the exact Stone Bridge-to-Mirathorn route remains missing."
+  }
+}
