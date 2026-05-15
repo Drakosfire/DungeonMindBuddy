@@ -39,3 +39,20 @@ It has two diagnostic modes:
 - `prior_plus_support_content_plus_lexical_hints`
 
 The retriever must not use `usable_for_questions`, question IDs, oracle-risk labels, expected context, or benchmark target metadata.
+
+
+## Beat/question target artifact
+
+`gold/c1s4_beat_question_targets.json` defines Q1–Q38, the planning-question target surface for synthetic C1S4 prep.
+
+This artifact is not planner-visible retrieval material. It is a benchmark/evaluation specification.
+
+It separates:
+- prior-recap-supported questions,
+- worldbuilding-required questions,
+- support-knowledge-required questions,
+- creative-generation questions,
+- oracle-only / must-not-predict details.
+
+Validation:
+`uv run python evals/c1s4_preplanning_vertical_slice/validate_beat_question_targets.py`

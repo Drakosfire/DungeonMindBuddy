@@ -1,0 +1,1007 @@
+{
+  "schema": "dmb_c1s4_beat_question_targets_v1",
+  "campaign_id": "longmont-c1",
+  "target_id": "c1s4_preplanning_beat_question_targets_v1",
+  "source_sessions_allowed_for_planner": [
+    1,
+    2,
+    3
+  ],
+  "heldout_session": 4,
+  "purpose": "Beat-by-beat planning questions for synthetic C1S4 prep, with authority and oracle-risk labels.",
+  "planner_visibility": "forbidden",
+  "artifact_role": "benchmark_target_and_planning_question_spec",
+  "authority_label_values": [
+    "prior_recap_supported",
+    "worldbuilding_required",
+    "support_knowledge_required",
+    "creative_generation",
+    "oracle_only",
+    "mixed"
+  ],
+  "oracle_risk_values": [
+    "low",
+    "medium",
+    "high",
+    "must_not_predict"
+  ],
+  "retrieval_mode_expectations": [
+    "prior_only",
+    "prior_plus_support_content_only",
+    "prior_plus_support_content_plus_lexical_hints"
+  ],
+  "beats": [
+    {
+      "beat_id": "beat_01_stone_bridge_morning",
+      "beat_number": 1,
+      "title": "Morning after Stone Bridge",
+      "planned_function": "Use the morning after the flood to establish NPC reactions, aftermath, and why leaving town is natural.",
+      "fair_prior_context": [
+        "The party saved Stone Bridge from the flood.",
+        "Pippa and Bubbles matter emotionally.",
+        "Grishna and the River's Edge Pub are part of the Stone Bridge social context.",
+        "The party is pointed toward Mirathorn as a next destination."
+      ],
+      "support_context_available": [],
+      "oracle_only_facts": [],
+      "questions": [
+        {
+          "question_id": "q01_who_are_the_npcs_the_players_encountered",
+          "question_number": 1,
+          "question": "Who are the NPCs the players encountered in Stone Bridge, how do they think about the party, and what are they doing in the morning after the events of the prior night's flood? Prepare dialogue, a visual description, and emotional/mental states for those NPCs.",
+          "answer_product": [
+            "npc_list",
+            "dialogue",
+            "visual_description",
+            "emotional_state",
+            "mental_state"
+          ],
+          "authority_label": "prior_recap_supported",
+          "oracle_risk": "low",
+          "expected_retrieval_modes": {
+            "prior_only": "should_answer_well",
+            "prior_plus_support_content_only": "should_answer_well",
+            "prior_plus_support_content_plus_lexical_hints": "should_answer_well"
+          },
+          "expected_retrieval_context_eval_only": [
+            "Pippa",
+            "Bubbles",
+            "Grishna",
+            "Stone Bridge flood",
+            "River's Edge Pub"
+          ],
+          "known_context_gaps": [],
+          "must_not_include_unless_sourced": [],
+          "notes": ""
+        },
+        {
+          "question_id": "q02_if_the_players_are_not_ready_to_leave_to",
+          "question_number": 2,
+          "question": "If the players are not ready to leave town, what are some ways we could motivate them to get on the road?",
+          "answer_product": [
+            "prep_notes"
+          ],
+          "authority_label": "mixed",
+          "oracle_risk": "low",
+          "expected_retrieval_modes": {
+            "prior_only": "should_answer_well",
+            "prior_plus_support_content_only": "should_answer_well",
+            "prior_plus_support_content_plus_lexical_hints": "should_answer_well"
+          },
+          "expected_retrieval_context_eval_only": [],
+          "known_context_gaps": [],
+          "must_not_include_unless_sourced": [],
+          "notes": ""
+        },
+        {
+          "question_id": "q03_how_far_away_is_mirathorn_at_this_point",
+          "question_number": 3,
+          "question": "How far away is Mirathorn at this point? Is anyone traveling that direction? What will they see and encounter on the road?",
+          "answer_product": [
+            "prep_notes"
+          ],
+          "authority_label": "worldbuilding_required",
+          "oracle_risk": "medium",
+          "expected_retrieval_modes": {
+            "prior_only": "should_partially_answer_and_admit_gaps",
+            "prior_plus_support_content_only": "should_answer_with_support_and_admit_exact_route_gap",
+            "prior_plus_support_content_plus_lexical_hints": "should_improve_support_retrieval_and_admit_exact_route_gap"
+          },
+          "expected_retrieval_context_eval_only": [],
+          "known_context_gaps": [
+            "exact Stone Bridge-to-Mirathorn route gazetteer",
+            "intermediate settlements",
+            "day-by-day travel route",
+            "route-specific ecology"
+          ],
+          "must_not_include_unless_sourced": [],
+          "notes": ""
+        }
+      ]
+    },
+    {
+      "beat_id": "beat_02_road_hook_merchant",
+      "beat_number": 2,
+      "title": "Road hook merchant",
+      "planned_function": "Create a merchant hook that naturally points the party toward Hempholm.",
+      "fair_prior_context": [],
+      "support_context_available": [
+        "Hempholm support cards",
+        "source adaptation cards"
+      ],
+      "oracle_only_facts": [],
+      "questions": [
+        {
+          "question_id": "q04_we_need_a_good_hemp_dealing_merchant_who",
+          "question_number": 4,
+          "question": "We need a good hemp-dealing merchant who will plant the hook for stopping in Hempholm. Give me a list of NPC names, first and last, with a brief description of appearance and attitude.",
+          "answer_product": [
+            "prep_notes"
+          ],
+          "authority_label": "support_knowledge_required",
+          "oracle_risk": "high",
+          "expected_retrieval_modes": {
+            "prior_only": "should_generate_generic_options_and_admit_no_support",
+            "prior_plus_support_content_only": "should_use_hempholm_support",
+            "prior_plus_support_content_plus_lexical_hints": "should_improve_hempholm_retrieval"
+          },
+          "expected_retrieval_context_eval_only": [],
+          "known_context_gaps": [],
+          "must_not_include_unless_sourced": [
+            "Torvak Hempdealer",
+            "Torbin",
+            "Jove",
+            "Steve",
+            "root-like beetles",
+            "precious metal leaves"
+          ],
+          "notes": ""
+        },
+        {
+          "question_id": "q05_there_is_a_gigantic_tree_growing_in_hemp",
+          "question_number": 5,
+          "question": "There is a gigantic tree growing in Hempholm that can be seen from quite a ways away, it is kinda shiny and metallic and probably magical. How might this be described by the merchant we created who got out of town quick?",
+          "answer_product": [
+            "prep_notes"
+          ],
+          "authority_label": "support_knowledge_required",
+          "oracle_risk": "high",
+          "expected_retrieval_modes": {
+            "prior_only": "should_generate_generic_options_and_admit_no_support",
+            "prior_plus_support_content_only": "should_use_hempholm_support",
+            "prior_plus_support_content_plus_lexical_hints": "should_improve_hempholm_retrieval"
+          },
+          "expected_retrieval_context_eval_only": [],
+          "known_context_gaps": [],
+          "must_not_include_unless_sourced": [
+            "Torvak Hempdealer",
+            "Torbin",
+            "Jove",
+            "Steve",
+            "root-like beetles",
+            "precious metal leaves"
+          ],
+          "notes": ""
+        },
+        {
+          "question_id": "q06_what_are_some_rumors_that_the_npc_could",
+          "question_number": 6,
+          "question": "What are some rumors that the NPC could share? What do they think of the players in their current context?",
+          "answer_product": [
+            "prep_notes"
+          ],
+          "authority_label": "mixed",
+          "oracle_risk": "medium",
+          "expected_retrieval_modes": {
+            "prior_only": "should_generate_generic_options_and_admit_no_support",
+            "prior_plus_support_content_only": "should_use_hempholm_support",
+            "prior_plus_support_content_plus_lexical_hints": "should_improve_hempholm_retrieval"
+          },
+          "expected_retrieval_context_eval_only": [],
+          "known_context_gaps": [],
+          "must_not_include_unless_sourced": [
+            "Torvak Hempdealer",
+            "Torbin",
+            "Jove",
+            "Steve",
+            "root-like beetles",
+            "precious metal leaves"
+          ],
+          "notes": ""
+        }
+      ]
+    },
+    {
+      "beat_id": "beat_03_travel_texture",
+      "beat_number": 3,
+      "title": "Travel texture",
+      "planned_function": "Bridge the transition from Stone Bridge to Mirathorn with road texture.",
+      "fair_prior_context": [],
+      "support_context_available": [],
+      "oracle_only_facts": [],
+      "questions": [
+        {
+          "question_id": "q07_what_is_the_tone_of_the_road_from_stone",
+          "question_number": 7,
+          "question": "What is the tone of the road from Stone Bridge toward Mirathorn after the flood? What sensory details should I use to make the transition feel like travel, not teleportation?",
+          "answer_product": [
+            "prep_notes"
+          ],
+          "authority_label": "worldbuilding_required",
+          "oracle_risk": "medium",
+          "expected_retrieval_modes": {
+            "prior_only": "should_answer_well",
+            "prior_plus_support_content_only": "should_answer_well",
+            "prior_plus_support_content_plus_lexical_hints": "should_answer_well"
+          },
+          "expected_retrieval_context_eval_only": [],
+          "known_context_gaps": [],
+          "must_not_include_unless_sourced": [],
+          "notes": ""
+        },
+        {
+          "question_id": "q08_give_me_three_small_road_events_that_can",
+          "question_number": 8,
+          "question": "Give me three small road events that can happen before the Hempholm hook lands: one comic, one eerie, and one character-focused.",
+          "answer_product": [
+            "prep_notes"
+          ],
+          "authority_label": "creative_generation",
+          "oracle_risk": "low",
+          "expected_retrieval_modes": {
+            "prior_only": "should_answer_well",
+            "prior_plus_support_content_only": "should_answer_well",
+            "prior_plus_support_content_plus_lexical_hints": "should_answer_well"
+          },
+          "expected_retrieval_context_eval_only": [],
+          "known_context_gaps": [],
+          "must_not_include_unless_sourced": [],
+          "notes": ""
+        },
+        {
+          "question_id": "q09_the_players_are_likely_still_riding_the",
+          "question_number": 9,
+          "question": "The players are likely still riding the emotional high of saving Bubbles and Stone Bridge. How can I use that to frame the first road encounter?",
+          "answer_product": [
+            "prep_notes"
+          ],
+          "authority_label": "prior_recap_supported",
+          "oracle_risk": "low",
+          "expected_retrieval_modes": {
+            "prior_only": "should_answer_well",
+            "prior_plus_support_content_only": "should_answer_well",
+            "prior_plus_support_content_plus_lexical_hints": "should_answer_well"
+          },
+          "expected_retrieval_context_eval_only": [],
+          "known_context_gaps": [],
+          "must_not_include_unless_sourced": [],
+          "notes": ""
+        }
+      ]
+    },
+    {
+      "beat_id": "beat_04_arrival_at_crisis_site",
+      "beat_number": 4,
+      "title": "Arrival at crisis site",
+      "planned_function": "Frame first Hempholm impression and immediate social hooks.",
+      "fair_prior_context": [],
+      "support_context_available": [],
+      "oracle_only_facts": [],
+      "questions": [
+        {
+          "question_id": "q10_as_the_party_approaches_hempholm__what_s",
+          "question_number": 10,
+          "question": "As the party approaches Hempholm, what should they see first from a distance? Give me a boxed-text style description and a shorter improvised version.",
+          "answer_product": [
+            "prep_notes"
+          ],
+          "authority_label": "support_knowledge_required",
+          "oracle_risk": "high",
+          "expected_retrieval_modes": {
+            "prior_only": "should_answer_well",
+            "prior_plus_support_content_only": "should_answer_well",
+            "prior_plus_support_content_plus_lexical_hints": "should_answer_well"
+          },
+          "expected_retrieval_context_eval_only": [],
+          "known_context_gaps": [],
+          "must_not_include_unless_sourced": [
+            "Torbin",
+            "Jove",
+            "Steve",
+            "root-like beetles"
+          ],
+          "notes": ""
+        },
+        {
+          "question_id": "q11_what_are_the_first_three_npcs_the_player",
+          "question_number": 11,
+          "question": "What are the first three NPCs the players should meet in Hempholm, and what immediate tension does each one represent?",
+          "answer_product": [
+            "prep_notes"
+          ],
+          "authority_label": "support_knowledge_required",
+          "oracle_risk": "high",
+          "expected_retrieval_modes": {
+            "prior_only": "should_answer_well",
+            "prior_plus_support_content_only": "should_answer_well",
+            "prior_plus_support_content_plus_lexical_hints": "should_answer_well"
+          },
+          "expected_retrieval_context_eval_only": [],
+          "known_context_gaps": [],
+          "must_not_include_unless_sourced": [
+            "Torbin",
+            "Jove",
+            "Steve",
+            "root-like beetles"
+          ],
+          "notes": ""
+        },
+        {
+          "question_id": "q12_what_questions_are_the_players_most_like",
+          "question_number": 12,
+          "question": "What questions are the players most likely to ask when they see a magical metallic tree near a village, and what should my answers be?",
+          "answer_product": [
+            "prep_notes"
+          ],
+          "authority_label": "mixed",
+          "oracle_risk": "medium",
+          "expected_retrieval_modes": {
+            "prior_only": "should_answer_well",
+            "prior_plus_support_content_only": "should_answer_well",
+            "prior_plus_support_content_plus_lexical_hints": "should_answer_well"
+          },
+          "expected_retrieval_context_eval_only": [],
+          "known_context_gaps": [],
+          "must_not_include_unless_sourced": [
+            "Torbin",
+            "Jove",
+            "Steve",
+            "root-like beetles"
+          ],
+          "notes": ""
+        }
+      ]
+    },
+    {
+      "beat_id": "beat_05_investigation_of_visible_threat",
+      "beat_number": 5,
+      "title": "Investigation of visible threat",
+      "planned_function": "Signal danger and investigative affordances before combat starts.",
+      "fair_prior_context": [],
+      "support_context_available": [],
+      "oracle_only_facts": [],
+      "questions": [
+        {
+          "question_id": "q13_what_observable_clues_should_reveal_that",
+          "question_number": 13,
+          "question": "What observable clues should reveal that the tree is dangerous before initiative starts?",
+          "answer_product": [
+            "prep_notes"
+          ],
+          "authority_label": "support_knowledge_required",
+          "oracle_risk": "high",
+          "expected_retrieval_modes": {
+            "prior_only": "should_answer_well",
+            "prior_plus_support_content_only": "should_answer_well",
+            "prior_plus_support_content_plus_lexical_hints": "should_answer_well"
+          },
+          "expected_retrieval_context_eval_only": [],
+          "known_context_gaps": [],
+          "must_not_include_unless_sourced": [
+            "tree swatting Karsemine",
+            "exact C1S4 initiative sequence",
+            "tree growing exactly ten feet"
+          ],
+          "notes": ""
+        },
+        {
+          "question_id": "q14_what_skill_checks_should_be_available_fo",
+          "question_number": 14,
+          "question": "What skill checks should be available for studying the tree, and what information should each reveal?",
+          "answer_product": [
+            "prep_notes"
+          ],
+          "authority_label": "mixed",
+          "oracle_risk": "medium",
+          "expected_retrieval_modes": {
+            "prior_only": "should_answer_well",
+            "prior_plus_support_content_only": "should_answer_well",
+            "prior_plus_support_content_plus_lexical_hints": "should_answer_well"
+          },
+          "expected_retrieval_context_eval_only": [],
+          "known_context_gaps": [],
+          "must_not_include_unless_sourced": [
+            "tree swatting Karsemine",
+            "exact C1S4 initiative sequence",
+            "tree growing exactly ten feet"
+          ],
+          "notes": ""
+        },
+        {
+          "question_id": "q15_how_do_i_teach_the_tree_s_reach_and_move",
+          "question_number": 15,
+          "question": "How do I teach the tree\u2019s reach and movement without simply saying \u201cit has a 30-foot reach\u201d?",
+          "answer_product": [
+            "prep_notes"
+          ],
+          "authority_label": "creative_generation",
+          "oracle_risk": "low",
+          "expected_retrieval_modes": {
+            "prior_only": "should_answer_well",
+            "prior_plus_support_content_only": "should_answer_well",
+            "prior_plus_support_content_plus_lexical_hints": "should_answer_well"
+          },
+          "expected_retrieval_context_eval_only": [],
+          "known_context_gaps": [],
+          "must_not_include_unless_sourced": [
+            "tree swatting Karsemine",
+            "exact C1S4 initiative sequence",
+            "tree growing exactly ten feet"
+          ],
+          "notes": ""
+        }
+      ]
+    },
+    {
+      "beat_id": "beat_06_local_social_pressure",
+      "beat_number": 6,
+      "title": "Local social pressure",
+      "planned_function": "Create pressure from townsfolk and social de-escalation opportunities.",
+      "fair_prior_context": [],
+      "support_context_available": [],
+      "oracle_only_facts": [],
+      "questions": [
+        {
+          "question_id": "q16_who_in_town_wants_to_attack_or_burn_the",
+          "question_number": 16,
+          "question": "Who in town wants to attack or burn the tree, and why? Give me a few NPC archetypes with dialogue.",
+          "answer_product": [
+            "prep_notes"
+          ],
+          "authority_label": "creative_generation",
+          "oracle_risk": "medium",
+          "expected_retrieval_modes": {
+            "prior_only": "should_answer_well",
+            "prior_plus_support_content_only": "should_answer_well",
+            "prior_plus_support_content_plus_lexical_hints": "should_answer_well"
+          },
+          "expected_retrieval_context_eval_only": [],
+          "known_context_gaps": [],
+          "must_not_include_unless_sourced": [],
+          "notes": ""
+        },
+        {
+          "question_id": "q17_how_can_stafl_or_another_social_characte",
+          "question_number": 17,
+          "question": "How can Stafl or another social character talk the mob down? What arguments would work or fail?",
+          "answer_product": [
+            "prep_notes"
+          ],
+          "authority_label": "mixed",
+          "oracle_risk": "low",
+          "expected_retrieval_modes": {
+            "prior_only": "should_answer_well",
+            "prior_plus_support_content_only": "should_answer_well",
+            "prior_plus_support_content_plus_lexical_hints": "should_answer_well"
+          },
+          "expected_retrieval_context_eval_only": [
+            "Stafl social/public-performance pattern"
+          ],
+          "known_context_gaps": [],
+          "must_not_include_unless_sourced": [],
+          "notes": ""
+        },
+        {
+          "question_id": "q18_what_happens_if_the_party_fails_to_stop",
+          "question_number": 18,
+          "question": "What happens if the party fails to stop the townsfolk from doing something reckless?",
+          "answer_product": [
+            "prep_notes"
+          ],
+          "authority_label": "creative_generation",
+          "oracle_risk": "medium",
+          "expected_retrieval_modes": {
+            "prior_only": "should_answer_well",
+            "prior_plus_support_content_only": "should_answer_well",
+            "prior_plus_support_content_plus_lexical_hints": "should_answer_well"
+          },
+          "expected_retrieval_context_eval_only": [],
+          "known_context_gaps": [],
+          "must_not_include_unless_sourced": [],
+          "notes": ""
+        }
+      ]
+    },
+    {
+      "beat_id": "beat_07_escalation_first_set_piece",
+      "beat_number": 7,
+      "title": "Escalation / first set piece",
+      "planned_function": "Turn ominous object into active threat encounter design.",
+      "fair_prior_context": [],
+      "support_context_available": [],
+      "oracle_only_facts": [],
+      "questions": [
+        {
+          "question_id": "q19_what_triggers_the_tree_to_escalate_from",
+          "question_number": 19,
+          "question": "What triggers the tree to escalate from ominous object to active threat?",
+          "answer_product": [
+            "prep_notes"
+          ],
+          "authority_label": "creative_generation",
+          "oracle_risk": "high",
+          "expected_retrieval_modes": {
+            "prior_only": "should_answer_well",
+            "prior_plus_support_content_only": "should_answer_well",
+            "prior_plus_support_content_plus_lexical_hints": "should_answer_well"
+          },
+          "expected_retrieval_context_eval_only": [],
+          "known_context_gaps": [],
+          "must_not_include_unless_sourced": [
+            "tree grows exactly ten feet",
+            "Baergrom is grabbed",
+            "Ephanna starts blasting"
+          ],
+          "notes": ""
+        },
+        {
+          "question_id": "q20_design_the_tree_encounter_as_a_battlefie",
+          "question_number": 20,
+          "question": "Design the tree encounter as a battlefield, not just a monster. What terrain, civilians, hazards, and objectives should be present?",
+          "answer_product": [
+            "prep_notes"
+          ],
+          "authority_label": "support_knowledge_required",
+          "oracle_risk": "low",
+          "expected_retrieval_modes": {
+            "prior_only": "should_answer_well",
+            "prior_plus_support_content_only": "should_answer_well",
+            "prior_plus_support_content_plus_lexical_hints": "should_answer_well"
+          },
+          "expected_retrieval_context_eval_only": [],
+          "known_context_gaps": [],
+          "must_not_include_unless_sourced": [
+            "tree grows exactly ten feet",
+            "Baergrom is grabbed",
+            "Ephanna starts blasting"
+          ],
+          "notes": ""
+        },
+        {
+          "question_id": "q21_what_should_each_type_of_pc_be_able_to_c",
+          "question_number": 21,
+          "question": "What should each type of PC be able to contribute in this scene: social, martial, caster, mobility, investigator?",
+          "answer_product": [
+            "prep_notes"
+          ],
+          "authority_label": "mixed",
+          "oracle_risk": "low",
+          "expected_retrieval_modes": {
+            "prior_only": "should_answer_well",
+            "prior_plus_support_content_only": "should_answer_well",
+            "prior_plus_support_content_plus_lexical_hints": "should_answer_well"
+          },
+          "expected_retrieval_context_eval_only": [],
+          "known_context_gaps": [],
+          "must_not_include_unless_sourced": [
+            "tree grows exactly ten feet",
+            "Baergrom is grabbed",
+            "Ephanna starts blasting"
+          ],
+          "notes": ""
+        }
+      ]
+    },
+    {
+      "beat_id": "beat_08_first_victory_remains_loot",
+      "beat_number": 8,
+      "title": "First victory / remains / loot",
+      "planned_function": "Shape aftermath, reactions, and unresolved implications.",
+      "fair_prior_context": [],
+      "support_context_available": [],
+      "oracle_only_facts": [],
+      "questions": [
+        {
+          "question_id": "q22_if_the_party_defeats_the_tree__what_rema",
+          "question_number": 22,
+          "question": "If the party defeats the tree, what remains? What can be looted, studied, harvested, or misunderstood?",
+          "answer_product": [
+            "prep_notes"
+          ],
+          "authority_label": "support_knowledge_required",
+          "oracle_risk": "high",
+          "expected_retrieval_modes": {
+            "prior_only": "should_answer_well",
+            "prior_plus_support_content_only": "should_answer_well",
+            "prior_plus_support_content_plus_lexical_hints": "should_answer_well"
+          },
+          "expected_retrieval_context_eval_only": [],
+          "known_context_gaps": [],
+          "must_not_include_unless_sourced": [
+            "Bonogo trading branch to blacksmith",
+            "specific observed C1S4 loot negotiation"
+          ],
+          "notes": ""
+        },
+        {
+          "question_id": "q23_how_would_local_craftspeople__farmers__c",
+          "question_number": 23,
+          "question": "How would local craftspeople, farmers, children, and opportunists react to the fallen tree?",
+          "answer_product": [
+            "prep_notes"
+          ],
+          "authority_label": "creative_generation",
+          "oracle_risk": "low",
+          "expected_retrieval_modes": {
+            "prior_only": "should_answer_well",
+            "prior_plus_support_content_only": "should_answer_well",
+            "prior_plus_support_content_plus_lexical_hints": "should_answer_well"
+          },
+          "expected_retrieval_context_eval_only": [],
+          "known_context_gaps": [],
+          "must_not_include_unless_sourced": [
+            "Bonogo trading branch to blacksmith",
+            "specific observed C1S4 loot negotiation"
+          ],
+          "notes": ""
+        },
+        {
+          "question_id": "q24_what_questions_should_the_weird_remains",
+          "question_number": 24,
+          "question": "What questions should the weird remains raise so the players do not assume the problem is fully solved?",
+          "answer_product": [
+            "prep_notes"
+          ],
+          "authority_label": "creative_generation",
+          "oracle_risk": "medium",
+          "expected_retrieval_modes": {
+            "prior_only": "should_answer_well",
+            "prior_plus_support_content_only": "should_answer_well",
+            "prior_plus_support_content_plus_lexical_hints": "should_answer_well"
+          },
+          "expected_retrieval_context_eval_only": [],
+          "known_context_gaps": [],
+          "must_not_include_unless_sourced": [
+            "Bonogo trading branch to blacksmith",
+            "specific observed C1S4 loot negotiation"
+          ],
+          "notes": ""
+        }
+      ]
+    },
+    {
+      "beat_id": "beat_09_celebration_decompression",
+      "beat_number": 9,
+      "title": "Celebration / decompression",
+      "planned_function": "Provide social decompression while keeping setting texture.",
+      "fair_prior_context": [],
+      "support_context_available": [],
+      "oracle_only_facts": [],
+      "questions": [
+        {
+          "question_id": "q25_how_does_hempholm_celebrate_if_the_visib",
+          "question_number": 25,
+          "question": "How does Hempholm celebrate if the visible threat is destroyed? Give me food, drink, music, mood, and NPC behavior.",
+          "answer_product": [
+            "prep_notes"
+          ],
+          "authority_label": "support_knowledge_required",
+          "oracle_risk": "low",
+          "expected_retrieval_modes": {
+            "prior_only": "should_answer_well",
+            "prior_plus_support_content_only": "should_answer_well",
+            "prior_plus_support_content_plus_lexical_hints": "should_answer_well"
+          },
+          "expected_retrieval_context_eval_only": [],
+          "known_context_gaps": [],
+          "must_not_include_unless_sourced": [
+            "Steve",
+            "Steve's racist remarks",
+            "Caelynn abstaining from the drink"
+          ],
+          "notes": ""
+        },
+        {
+          "question_id": "q26_what_social_friction_should_exist_during",
+          "question_number": 26,
+          "question": "What social friction should exist during the celebration so the town feels real and imperfect?",
+          "answer_product": [
+            "prep_notes"
+          ],
+          "authority_label": "creative_generation",
+          "oracle_risk": "medium",
+          "expected_retrieval_modes": {
+            "prior_only": "should_answer_well",
+            "prior_plus_support_content_only": "should_answer_well",
+            "prior_plus_support_content_plus_lexical_hints": "should_answer_well"
+          },
+          "expected_retrieval_context_eval_only": [],
+          "known_context_gaps": [],
+          "must_not_include_unless_sourced": [
+            "Steve",
+            "Steve's racist remarks",
+            "Caelynn abstaining from the drink"
+          ],
+          "notes": ""
+        },
+        {
+          "question_id": "q27_which_pcs_are_likely_to_participate_in_c",
+          "question_number": 27,
+          "question": "Which PCs are likely to participate in celebration, abstain, investigate, or exploit the aftermath based on prior behavior?",
+          "answer_product": [
+            "prep_notes"
+          ],
+          "authority_label": "mixed",
+          "oracle_risk": "low",
+          "expected_retrieval_modes": {
+            "prior_only": "should_answer_well",
+            "prior_plus_support_content_only": "should_answer_well",
+            "prior_plus_support_content_plus_lexical_hints": "should_answer_well"
+          },
+          "expected_retrieval_context_eval_only": [],
+          "known_context_gaps": [],
+          "must_not_include_unless_sourced": [
+            "Steve",
+            "Steve's racist remarks",
+            "Caelynn abstaining from the drink"
+          ],
+          "notes": ""
+        }
+      ]
+    },
+    {
+      "beat_id": "beat_10_deeper_horror_reveal",
+      "beat_number": 10,
+      "title": "Deeper horror reveal",
+      "planned_function": "Foreshadow and stage deeper threat escalation.",
+      "fair_prior_context": [],
+      "support_context_available": [],
+      "oracle_only_facts": [],
+      "questions": [
+        {
+          "question_id": "q28_what_is_the_deeper_problem_beneath_the_v",
+          "question_number": 28,
+          "question": "What is the deeper problem beneath the visible tree threat? Give me three possible explanations, each with different implications for next session.",
+          "answer_product": [
+            "prep_notes"
+          ],
+          "authority_label": "support_knowledge_required",
+          "oracle_risk": "high",
+          "expected_retrieval_modes": {
+            "prior_only": "should_answer_well",
+            "prior_plus_support_content_only": "should_answer_well",
+            "prior_plus_support_content_plus_lexical_hints": "should_answer_well"
+          },
+          "expected_retrieval_context_eval_only": [],
+          "known_context_gaps": [],
+          "must_not_include_unless_sourced": [
+            "root-like beetles",
+            "dozens of beetles erupting from tunnels",
+            "Steve shredded and knocked into fire"
+          ],
+          "notes": ""
+        },
+        {
+          "question_id": "q29_how_do_i_foreshadow_the_deeper_threat_be",
+          "question_number": 29,
+          "question": "How do I foreshadow the deeper threat before it erupts, without giving it away?",
+          "answer_product": [
+            "prep_notes"
+          ],
+          "authority_label": "creative_generation",
+          "oracle_risk": "medium",
+          "expected_retrieval_modes": {
+            "prior_only": "should_answer_well",
+            "prior_plus_support_content_only": "should_answer_well",
+            "prior_plus_support_content_plus_lexical_hints": "should_answer_well"
+          },
+          "expected_retrieval_context_eval_only": [],
+          "known_context_gaps": [],
+          "must_not_include_unless_sourced": [
+            "root-like beetles",
+            "dozens of beetles erupting from tunnels",
+            "Steve shredded and knocked into fire"
+          ],
+          "notes": ""
+        },
+        {
+          "question_id": "q30_what_should_the_cliffhanger_look_like_if",
+          "question_number": 30,
+          "question": "What should the cliffhanger look like if the session ends as the deeper threat erupts?",
+          "answer_product": [
+            "prep_notes"
+          ],
+          "authority_label": "creative_generation",
+          "oracle_risk": "high",
+          "expected_retrieval_modes": {
+            "prior_only": "should_answer_well",
+            "prior_plus_support_content_only": "should_answer_well",
+            "prior_plus_support_content_plus_lexical_hints": "should_answer_well"
+          },
+          "expected_retrieval_context_eval_only": [],
+          "known_context_gaps": [],
+          "must_not_include_unless_sourced": [
+            "root-like beetles",
+            "dozens of beetles erupting from tunnels",
+            "Steve shredded and knocked into fire"
+          ],
+          "notes": ""
+        }
+      ]
+    },
+    {
+      "beat_id": "beat_11_next-session_emergency",
+      "beat_number": 11,
+      "title": "Next-session emergency",
+      "planned_function": "Prepare immediate next-session decisions and unresolved hooks.",
+      "fair_prior_context": [],
+      "support_context_available": [],
+      "oracle_only_facts": [],
+      "questions": [
+        {
+          "question_id": "q31_if_the_session_ends_on_the_deeper_threat",
+          "question_number": 31,
+          "question": "If the session ends on the deeper threat erupting, what are the first three decisions the players should face next session?",
+          "answer_product": [
+            "prep_notes"
+          ],
+          "authority_label": "creative_generation",
+          "oracle_risk": "low",
+          "expected_retrieval_modes": {
+            "prior_only": "should_answer_well",
+            "prior_plus_support_content_only": "should_answer_well",
+            "prior_plus_support_content_plus_lexical_hints": "should_answer_well"
+          },
+          "expected_retrieval_context_eval_only": [],
+          "known_context_gaps": [],
+          "must_not_include_unless_sourced": [],
+          "notes": ""
+        },
+        {
+          "question_id": "q32_what_resources_are_likely_depleted_or_co",
+          "question_number": 32,
+          "question": "What resources are likely depleted or compromised by this point?",
+          "answer_product": [
+            "prep_notes"
+          ],
+          "authority_label": "mixed",
+          "oracle_risk": "low",
+          "expected_retrieval_modes": {
+            "prior_only": "should_answer_well",
+            "prior_plus_support_content_only": "should_answer_well",
+            "prior_plus_support_content_plus_lexical_hints": "should_answer_well"
+          },
+          "expected_retrieval_context_eval_only": [],
+          "known_context_gaps": [],
+          "must_not_include_unless_sourced": [],
+          "notes": ""
+        },
+        {
+          "question_id": "q33_what_unanswered_questions_should_the_pla",
+          "question_number": 33,
+          "question": "What unanswered questions should the players carry out of this session?",
+          "answer_product": [
+            "prep_notes"
+          ],
+          "authority_label": "creative_generation",
+          "oracle_risk": "medium",
+          "expected_retrieval_modes": {
+            "prior_only": "should_answer_well",
+            "prior_plus_support_content_only": "should_answer_well",
+            "prior_plus_support_content_plus_lexical_hints": "should_answer_well"
+          },
+          "expected_retrieval_context_eval_only": [],
+          "known_context_gaps": [],
+          "must_not_include_unless_sourced": [],
+          "notes": ""
+        }
+      ]
+    }
+  ],
+  "meta_questions": [
+    {
+      "question_id": "q34_which_facts_are_retrieved_from_prior_can",
+      "question_number": 34,
+      "question": "Which facts are retrieved from prior canon, which are generated extrapolations, and which require external worldbuilding notes?",
+      "answer_product": [
+        "prep_notes"
+      ],
+      "authority_label": "mixed",
+      "oracle_risk": "low",
+      "expected_retrieval_modes": {
+        "prior_only": "should_answer_well",
+        "prior_plus_support_content_only": "should_answer_well",
+        "prior_plus_support_content_plus_lexical_hints": "should_answer_well"
+      },
+      "expected_retrieval_context_eval_only": [],
+      "known_context_gaps": [],
+      "must_not_include_unless_sourced": [],
+      "notes": ""
+    },
+    {
+      "question_id": "q35_which_proposed_details_would_be_oracle_l",
+      "question_number": 35,
+      "question": "Which proposed details would be oracle leakage if they appear before C1S4 is allowed?",
+      "answer_product": [
+        "prep_notes"
+      ],
+      "authority_label": "oracle_only",
+      "oracle_risk": "must_not_predict",
+      "expected_retrieval_modes": {
+        "prior_only": "should_answer_well",
+        "prior_plus_support_content_only": "should_answer_well",
+        "prior_plus_support_content_plus_lexical_hints": "should_answer_well"
+      },
+      "expected_retrieval_context_eval_only": [],
+      "known_context_gaps": [],
+      "must_not_include_unless_sourced": [
+        "Torvak Hempdealer",
+        "Hempholm",
+        "Torbin",
+        "Jove",
+        "Steve",
+        "grotesque tree",
+        "root-like beetles",
+        "precious metal leaves"
+      ],
+      "notes": "Terms are oracle-sensitive or source-conditional and must not be treated as prior-only facts."
+    },
+    {
+      "question_id": "q36_what_information_is_missing_from_the_cur",
+      "question_number": 36,
+      "question": "What information is missing from the current KB that would improve this beat?",
+      "answer_product": [
+        "prep_notes"
+      ],
+      "authority_label": "worldbuilding_required",
+      "oracle_risk": "low",
+      "expected_retrieval_modes": {
+        "prior_only": "should_answer_well",
+        "prior_plus_support_content_only": "should_answer_well",
+        "prior_plus_support_content_plus_lexical_hints": "should_answer_well"
+      },
+      "expected_retrieval_context_eval_only": [],
+      "known_context_gaps": [],
+      "must_not_include_unless_sourced": [],
+      "notes": ""
+    },
+    {
+      "question_id": "q37_what_prep_can_be_safely_generated_anyway",
+      "question_number": 37,
+      "question": "What prep can be safely generated anyway?",
+      "answer_product": [
+        "prep_notes"
+      ],
+      "authority_label": "creative_generation",
+      "oracle_risk": "low",
+      "expected_retrieval_modes": {
+        "prior_only": "should_answer_well",
+        "prior_plus_support_content_only": "should_answer_well",
+        "prior_plus_support_content_plus_lexical_hints": "should_answer_well"
+      },
+      "expected_retrieval_context_eval_only": [],
+      "known_context_gaps": [],
+      "must_not_include_unless_sourced": [],
+      "notes": ""
+    },
+    {
+      "question_id": "q38_what_should_the_gm_decide_manually",
+      "question_number": 38,
+      "question": "What should the GM decide manually?",
+      "answer_product": [
+        "prep_notes"
+      ],
+      "authority_label": "mixed",
+      "oracle_risk": "low",
+      "expected_retrieval_modes": {
+        "prior_only": "should_answer_well",
+        "prior_plus_support_content_only": "should_answer_well",
+        "prior_plus_support_content_plus_lexical_hints": "should_answer_well"
+      },
+      "expected_retrieval_context_eval_only": [],
+      "known_context_gaps": [],
+      "must_not_include_unless_sourced": [],
+      "notes": ""
+    }
+  ]
+}

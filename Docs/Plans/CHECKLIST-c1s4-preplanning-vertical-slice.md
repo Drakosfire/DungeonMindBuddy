@@ -19,3 +19,16 @@
 - [ ] No corpus mutation.
 - [ ] No baseline regeneration.
 - [ ] No live planner/oracle grading in scaffold PR.
+
+
+## Beat/question target artifact
+
+- [x] `gold/c1s4_beat_question_targets.json` exists.
+- [x] Q1–Q38 are represented.
+- [x] Questions are labeled with authority labels.
+- [x] Questions are labeled with oracle-risk labels.
+- [x] Oracle-sensitive C1S4 terms are forbidden unless sourced.
+- [x] Worldbuilding/ecology gaps are explicitly marked.
+- [x] Support-knowledge dependency is explicitly marked for Hempholm questions.
+- [x] Target artifact is marked planner-visible: forbidden.
+- [x] Validator and tests pass.
