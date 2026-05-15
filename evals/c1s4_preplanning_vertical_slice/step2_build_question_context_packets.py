@@ -24,9 +24,14 @@ from evals.c1s4_preplanning_vertical_slice.support_knowledge_loader import load_
 from src.agent.session_memory_query import query_session_memory_candidate
 
 
+class C1S4BoundaryError(RuntimeError): ...
+
+
 def _retrieve(query: str, mode: QuestionRetrievalMode, campaign_id: str) -> tuple[list[dict[str, Any]], dict[str, list[str]]]:
     policy = json.loads(DEFAULT_POLICY_PATH.read_text(encoding="utf-8"))
     manifest, session_records = load_kb_manifest(DEFAULT_POLICY_PATH)
+    if manifest["forbidden_path_hits"] or manifest["forbidden_session_hits"] or manifest.get("unexpected_session_hits"):
+        raise C1S4BoundaryError("Step 0 manifest is not oracle-safe; aborting Step 2 packet generation")
     combined = list(session_records)
     if mode == "prior_plus_support_content_only":
         combined.extend(load_normalized_support_records(retrieval_mode="content_only"))
@@ -102,7 +107,11 @@ def main() -> int:
     parser.add_argument("--limit", type=int)
     parser.add_argument("--output-json", type=Path)
     args = parser.parse_args()
-    summary = build_summary(mode=args.mode, question_number=args.question_number, limit=args.limit)
+    try:
+        summary = build_summary(mode=args.mode, question_number=args.question_number, limit=args.limit)
+    except C1S4BoundaryError as exc:
+        print(json.dumps({"schema": "dmb_c1s4_step2_question_context_packet_summary_v1", "error": str(exc)}, indent=2))
+        return 1
     if args.output_json:
         args.output_json.write_text(json.dumps(summary, indent=2), encoding="utf-8")
     print(json.dumps(summary, indent=2))

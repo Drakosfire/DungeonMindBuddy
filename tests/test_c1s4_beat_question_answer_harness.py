@@ -80,3 +80,25 @@ def test_packet_validator_rejects_eval_only_target_hints() -> None:
 def test_no_llm_or_answer_generation_side_effects() -> None:
     summary = build_summary(mode="prior_plus_support_content_only", limit=5)
     assert all(p["answer_slot"] is None for p in summary["packets"])
+
+
+def test_step2_rejects_manifest_boundary_violations(monkeypatch) -> None:
+    from evals.c1s4_preplanning_vertical_slice import step2_build_question_context_packets as step2
+
+    bad_manifest = {
+        "kb_id": "x",
+        "campaign_id": "longmont-c1",
+        "included_sessions": [1, 2, 3],
+        "heldout_sessions": [4],
+        "forbidden_path_hits": ["forbidden/path"],
+        "forbidden_session_hits": [4],
+        "unexpected_session_hits": [99],
+    }
+
+    monkeypatch.setattr(step2, "load_kb_manifest", lambda _path: (bad_manifest, []))
+
+    try:
+        step2.build_summary(mode="prior_only", question_number=1)
+    except step2.C1S4BoundaryError:
+        return
+    raise AssertionError("Expected C1S4BoundaryError when manifest has boundary violations")
