@@ -28,3 +28,16 @@
 - Passes when content-only and lexical-hint modes report separately.
 - Fails if retrieval uses question IDs or eval-only fields.
 - Fails if C1S4 oracle material enters planner-visible context.
+
+## Gate 2B — Question context packet harness
+
+Passes when:
+- Q1–Q38 target questions can be loaded.
+- Planner-facing questions produce context packets for each retrieval mode.
+- Evaluator-only Q35 is skipped.
+- Eval-only target fields are absent from packets.
+- Packets preserve authority metadata.
+- C1S4 oracle material remains excluded.
+- `answer_slot` remains null.
+
+Does not yet generate answers or grade output.
