@@ -141,9 +141,9 @@
           "authority_label": "support_knowledge_required",
           "oracle_risk": "high",
           "expected_retrieval_modes": {
-            "prior_only": "should_generate_generic_options_and_admit_no_support",
-            "prior_plus_support_content_only": "should_use_hempholm_support",
-            "prior_plus_support_content_plus_lexical_hints": "should_improve_hempholm_retrieval"
+            "prior_only": "should_generate_generic_and_admit_missing_support",
+            "prior_plus_support_content_only": "should_answer_with_support_specificity",
+            "prior_plus_support_content_plus_lexical_hints": "should_answer_with_support_specificity_and_better_recall"
           },
           "expected_retrieval_context_eval_only": [],
           "known_context_gaps": [],
@@ -167,9 +167,9 @@
           "authority_label": "support_knowledge_required",
           "oracle_risk": "high",
           "expected_retrieval_modes": {
-            "prior_only": "should_generate_generic_options_and_admit_no_support",
-            "prior_plus_support_content_only": "should_use_hempholm_support",
-            "prior_plus_support_content_plus_lexical_hints": "should_improve_hempholm_retrieval"
+            "prior_only": "should_generate_generic_and_admit_missing_support",
+            "prior_plus_support_content_only": "should_answer_with_support_specificity",
+            "prior_plus_support_content_plus_lexical_hints": "should_answer_with_support_specificity_and_better_recall"
           },
           "expected_retrieval_context_eval_only": [],
           "known_context_gaps": [],
@@ -298,9 +298,9 @@
           "authority_label": "support_knowledge_required",
           "oracle_risk": "high",
           "expected_retrieval_modes": {
-            "prior_only": "should_answer_well",
-            "prior_plus_support_content_only": "should_answer_well",
-            "prior_plus_support_content_plus_lexical_hints": "should_answer_well"
+            "prior_only": "should_generate_generic_and_admit_missing_support",
+            "prior_plus_support_content_only": "should_answer_with_support_specificity",
+            "prior_plus_support_content_plus_lexical_hints": "should_answer_with_support_specificity_and_better_recall"
           },
           "expected_retrieval_context_eval_only": [],
           "known_context_gaps": [],
@@ -322,9 +322,9 @@
           "authority_label": "support_knowledge_required",
           "oracle_risk": "high",
           "expected_retrieval_modes": {
-            "prior_only": "should_answer_well",
-            "prior_plus_support_content_only": "should_answer_well",
-            "prior_plus_support_content_plus_lexical_hints": "should_answer_well"
+            "prior_only": "should_generate_generic_and_admit_missing_support",
+            "prior_plus_support_content_only": "should_answer_with_support_specificity",
+            "prior_plus_support_content_plus_lexical_hints": "should_answer_with_support_specificity_and_better_recall"
           },
           "expected_retrieval_context_eval_only": [],
           "known_context_gaps": [],
@@ -381,9 +381,9 @@
           "authority_label": "support_knowledge_required",
           "oracle_risk": "high",
           "expected_retrieval_modes": {
-            "prior_only": "should_answer_well",
-            "prior_plus_support_content_only": "should_answer_well",
-            "prior_plus_support_content_plus_lexical_hints": "should_answer_well"
+            "prior_only": "should_generate_generic_and_admit_missing_support",
+            "prior_plus_support_content_only": "should_answer_with_support_specificity",
+            "prior_plus_support_content_plus_lexical_hints": "should_answer_with_support_specificity_and_better_recall"
           },
           "expected_retrieval_context_eval_only": [],
           "known_context_gaps": [],
@@ -554,9 +554,9 @@
           "authority_label": "support_knowledge_required",
           "oracle_risk": "low",
           "expected_retrieval_modes": {
-            "prior_only": "should_answer_well",
-            "prior_plus_support_content_only": "should_answer_well",
-            "prior_plus_support_content_plus_lexical_hints": "should_answer_well"
+            "prior_only": "should_generate_generic_and_admit_missing_support",
+            "prior_plus_support_content_only": "should_answer_with_support_specificity",
+            "prior_plus_support_content_plus_lexical_hints": "should_answer_with_support_specificity_and_better_recall"
           },
           "expected_retrieval_context_eval_only": [],
           "known_context_gaps": [],
@@ -611,9 +611,9 @@
           "authority_label": "support_knowledge_required",
           "oracle_risk": "high",
           "expected_retrieval_modes": {
-            "prior_only": "should_answer_well",
-            "prior_plus_support_content_only": "should_answer_well",
-            "prior_plus_support_content_plus_lexical_hints": "should_answer_well"
+            "prior_only": "should_generate_generic_and_admit_missing_support",
+            "prior_plus_support_content_only": "should_answer_with_support_specificity",
+            "prior_plus_support_content_plus_lexical_hints": "should_answer_with_support_specificity_and_better_recall"
           },
           "expected_retrieval_context_eval_only": [],
           "known_context_gaps": [],
@@ -688,9 +688,9 @@
           "authority_label": "support_knowledge_required",
           "oracle_risk": "low",
           "expected_retrieval_modes": {
-            "prior_only": "should_answer_well",
-            "prior_plus_support_content_only": "should_answer_well",
-            "prior_plus_support_content_plus_lexical_hints": "should_answer_well"
+            "prior_only": "should_generate_generic_and_admit_missing_support",
+            "prior_plus_support_content_only": "should_answer_with_support_specificity",
+            "prior_plus_support_content_plus_lexical_hints": "should_answer_with_support_specificity_and_better_recall"
           },
           "expected_retrieval_context_eval_only": [],
           "known_context_gaps": [],
@@ -768,9 +768,9 @@
           "authority_label": "support_knowledge_required",
           "oracle_risk": "high",
           "expected_retrieval_modes": {
-            "prior_only": "should_answer_well",
-            "prior_plus_support_content_only": "should_answer_well",
-            "prior_plus_support_content_plus_lexical_hints": "should_answer_well"
+            "prior_only": "should_generate_generic_and_admit_missing_support",
+            "prior_plus_support_content_only": "should_answer_with_support_specificity",
+            "prior_plus_support_content_plus_lexical_hints": "should_answer_with_support_specificity_and_better_recall"
           },
           "expected_retrieval_context_eval_only": [],
           "known_context_gaps": [],
@@ -928,9 +928,9 @@
       "authority_label": "oracle_only",
       "oracle_risk": "must_not_predict",
       "expected_retrieval_modes": {
-        "prior_only": "should_answer_well",
-        "prior_plus_support_content_only": "should_answer_well",
-        "prior_plus_support_content_plus_lexical_hints": "should_answer_well"
+        "prior_only": "evaluator_only_not_planner_facing",
+        "prior_plus_support_content_only": "evaluator_only_not_planner_facing",
+        "prior_plus_support_content_plus_lexical_hints": "evaluator_only_not_planner_facing"
       },
       "expected_retrieval_context_eval_only": [],
       "known_context_gaps": [],
@@ -944,7 +944,7 @@
         "root-like beetles",
         "precious metal leaves"
       ],
-      "notes": "Terms are oracle-sensitive or source-conditional and must not be treated as prior-only facts."
+      "notes": "Evaluator-only oracle leakage audit surface. Planner runs should perform category-level self-audit and avoid exact oracle-term prediction unless explicitly sourced from allowed support context."
     },
     {
       "question_id": "q36_what_information_is_missing_from_the_cur",

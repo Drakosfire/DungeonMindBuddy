@@ -47,3 +47,9 @@ def test_target_artifact_is_not_planner_visible():
 def test_meta_questions_exist():
     nums = {q["question_number"] for q in load_targets()["meta_questions"]}
     assert nums == {34, 35, 36, 37, 38}
+
+
+def test_support_required_questions_do_not_expect_prior_only_full_answer():
+    for q in iter_questions(load_targets()):
+        if q["authority_label"] == "support_knowledge_required":
+            assert q["expected_retrieval_modes"]["prior_only"] != "should_answer_well"

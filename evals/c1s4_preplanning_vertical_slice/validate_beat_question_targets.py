@@ -51,6 +51,10 @@ def validate_targets(targets: dict[str, Any]) -> list[str]:
             errors.append(f"Q{q.get('question_number')} invalid authority_label")
         if q.get("oracle_risk") not in VALID_RISK:
             errors.append(f"Q{q.get('question_number')} invalid oracle_risk")
+        if q.get("authority_label") == "support_knowledge_required" and q.get("expected_retrieval_modes", {}).get("prior_only") == "should_answer_well":
+            errors.append(
+                f"Q{q.get('question_number')} support_knowledge_required cannot set prior_only=should_answer_well"
+            )
 
     nums = [q.get("question_number") for q in questions]
     if sorted(nums) != list(range(1, 39)):
