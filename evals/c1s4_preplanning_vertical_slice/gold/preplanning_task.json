@@ -1,0 +1,28 @@
+{
+  "schema": "dmb_c1s4_preplanning_task_v1",
+  "campaign_id": "longmont-c1",
+  "kb_id": "longmont-c1-sessions-01-03-preplanning-kb-v1",
+  "task_id": "c1s4_preplanning_smoke_v1",
+  "description": "Prepare context for planning Longmont Campaign 1 Session 4 using only Sessions 1-3.",
+  "allowed_sessions": [1, 2, 3],
+  "heldout_sessions": [4],
+  "queries": [
+    {
+      "query_id": "c1s4_prep_current_state",
+      "query": "What important unresolved situations, NPCs, locations, and party commitments should the GM remember before planning the next session?",
+      "intent": "broad_preplanning_context"
+    },
+    {
+      "query_id": "c1s4_prep_locations",
+      "query": "Which locations from the first three sessions seem most relevant for planning the next session?",
+      "intent": "location_context"
+    },
+    {
+      "query_id": "c1s4_prep_open_threads",
+      "query": "What open threads or unresolved consequences should carry forward into Session 4?",
+      "intent": "continuity_threads"
+    }
+  ],
+  "forbidden_sessions": [4],
+  "forbidden_context_policy": "No source path, record, snippet, route, or generated context item may reference heldout session 4."
+}
