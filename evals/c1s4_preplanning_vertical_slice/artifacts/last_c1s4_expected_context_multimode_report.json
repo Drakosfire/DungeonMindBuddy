@@ -1,0 +1,462 @@
+{
+  "schema": "dmb_c1s4_expected_context_benchmark_multimode_report_v1",
+  "campaign_id": "longmont-c1",
+  "modes": [
+    "prior_only",
+    "prior_plus_support_content_only",
+    "prior_plus_support_content_plus_lexical_hints"
+  ],
+  "reports_by_mode": {
+    "prior_only": {
+      "schema": "dmb_c1s4_expected_context_benchmark_report_v1",
+      "campaign_id": "longmont-c1",
+      "retrieval_mode": "prior_only",
+      "gold_path": "evals/c1s4_preplanning_vertical_slice/gold/c1s4_expected_context_gold.json",
+      "planner_visibility": "forbidden_gold_eval_only",
+      "source_packet_schema": "dmb_c1s4_question_context_packet_v1",
+      "counts": {
+        "questions_in_gold": 3,
+        "questions_evaluated": 3,
+        "rows_ok": 2,
+        "rows_failed": 1,
+        "required_context_groups": 3,
+        "required_context_groups_hit": 0,
+        "forbidden_context_group_violations": 0,
+        "known_gap_expectations": 2,
+        "known_gap_expectations_hit": 2
+      },
+      "metrics": {
+        "macro_required_group_recall_at_k": 0.0,
+        "row_pass_rate": 0.6666666666666666,
+        "forbidden_context_violation_rate": 0.0,
+        "known_gap_recall": 1.0
+      },
+      "results": [
+        {
+          "question_number": 1,
+          "question_id": "q01_who_are_the_npcs_the_players_encountered",
+          "retrieval_mode": "prior_only",
+          "top_k": 9,
+          "ok": false,
+          "expected_behavior": "prior recap",
+          "required_context_groups": 3,
+          "required_context_groups_hit": 0,
+          "required_group_recall_at_k": 0.0,
+          "missing_required_groups": [
+            "stone_bridge_flood_aftermath",
+            "pippa_bubbles_grishna_social_context",
+            "river_edge_pub_context"
+          ],
+          "forbidden_context_groups": 0,
+          "forbidden_context_groups_hit": [],
+          "known_gap_expectations_hit": [],
+          "violations": [
+            "missing_required_context_group"
+          ],
+          "matched_groups": [
+            {
+              "group_id": "stone_bridge_flood_aftermath",
+              "ok": false,
+              "min_hits": 1,
+              "hit_count": 0,
+              "matched_context_refs": []
+            },
+            {
+              "group_id": "pippa_bubbles_grishna_social_context",
+              "ok": false,
+              "min_hits": 1,
+              "hit_count": 0,
+              "matched_context_refs": []
+            },
+            {
+              "group_id": "river_edge_pub_context",
+              "ok": false,
+              "min_hits": 1,
+              "hit_count": 0,
+              "matched_context_refs": []
+            }
+          ],
+          "authority_summary": {
+            "session_memory": 8,
+            "source_module": 0,
+            "adaptation_planning": 0,
+            "world_canon": 0,
+            "campaign_stateful_reference": 0,
+            "support_gap": 0,
+            "manual_support_synthesis": 0,
+            "unknown": 0
+          }
+        },
+        {
+          "question_number": 3,
+          "question_id": "q03_how_far_away_is_mirathorn_at_this_point",
+          "retrieval_mode": "prior_only",
+          "top_k": 9,
+          "ok": true,
+          "expected_behavior": "admit gaps",
+          "required_context_groups": 0,
+          "required_context_groups_hit": 0,
+          "required_group_recall_at_k": 1.0,
+          "missing_required_groups": [],
+          "forbidden_context_groups": 0,
+          "forbidden_context_groups_hit": [],
+          "known_gap_expectations_hit": [
+            "exact Stone Bridge-to-Mirathorn route gazetteer",
+            "route-specific ecology"
+          ],
+          "violations": [],
+          "matched_groups": [],
+          "authority_summary": {
+            "session_memory": 8,
+            "source_module": 0,
+            "adaptation_planning": 0,
+            "world_canon": 0,
+            "campaign_stateful_reference": 0,
+            "support_gap": 0,
+            "manual_support_synthesis": 0,
+            "unknown": 0
+          }
+        },
+        {
+          "question_number": 5,
+          "question_id": "q05_there_is_a_gigantic_tree_growing_in_hemp",
+          "retrieval_mode": "prior_only",
+          "top_k": 9,
+          "ok": true,
+          "expected_behavior": "should_generate_generic_and_admit_missing_support",
+          "required_context_groups": 0,
+          "required_context_groups_hit": 0,
+          "required_group_recall_at_k": 1.0,
+          "missing_required_groups": [],
+          "forbidden_context_groups": 1,
+          "forbidden_context_groups_hit": [],
+          "known_gap_expectations_hit": [],
+          "violations": [],
+          "matched_groups": [],
+          "authority_summary": {
+            "session_memory": 8,
+            "source_module": 0,
+            "adaptation_planning": 0,
+            "world_canon": 0,
+            "campaign_stateful_reference": 0,
+            "support_gap": 0,
+            "manual_support_synthesis": 0,
+            "unknown": 0
+          }
+        }
+      ]
+    },
+    "prior_plus_support_content_only": {
+      "schema": "dmb_c1s4_expected_context_benchmark_report_v1",
+      "campaign_id": "longmont-c1",
+      "retrieval_mode": "prior_plus_support_content_only",
+      "gold_path": "evals/c1s4_preplanning_vertical_slice/gold/c1s4_expected_context_gold.json",
+      "planner_visibility": "forbidden_gold_eval_only",
+      "source_packet_schema": "dmb_c1s4_question_context_packet_v1",
+      "counts": {
+        "questions_in_gold": 3,
+        "questions_evaluated": 3,
+        "rows_ok": 1,
+        "rows_failed": 2,
+        "required_context_groups": 4,
+        "required_context_groups_hit": 0,
+        "forbidden_context_group_violations": 0,
+        "known_gap_expectations": 1,
+        "known_gap_expectations_hit": 1
+      },
+      "metrics": {
+        "macro_required_group_recall_at_k": 0.0,
+        "row_pass_rate": 0.3333333333333333,
+        "forbidden_context_violation_rate": 0.0,
+        "known_gap_recall": 1.0
+      },
+      "results": [
+        {
+          "question_number": 1,
+          "question_id": "q01_who_are_the_npcs_the_players_encountered",
+          "retrieval_mode": "prior_plus_support_content_only",
+          "top_k": 9,
+          "ok": false,
+          "expected_behavior": "prior recap",
+          "required_context_groups": 3,
+          "required_context_groups_hit": 0,
+          "required_group_recall_at_k": 0.0,
+          "missing_required_groups": [
+            "stone_bridge_flood_aftermath",
+            "pippa_bubbles_grishna_social_context",
+            "river_edge_pub_context"
+          ],
+          "forbidden_context_groups": 0,
+          "forbidden_context_groups_hit": [],
+          "known_gap_expectations_hit": [],
+          "violations": [
+            "missing_required_context_group"
+          ],
+          "matched_groups": [
+            {
+              "group_id": "stone_bridge_flood_aftermath",
+              "ok": false,
+              "min_hits": 1,
+              "hit_count": 0,
+              "matched_context_refs": []
+            },
+            {
+              "group_id": "pippa_bubbles_grishna_social_context",
+              "ok": false,
+              "min_hits": 1,
+              "hit_count": 0,
+              "matched_context_refs": []
+            },
+            {
+              "group_id": "river_edge_pub_context",
+              "ok": false,
+              "min_hits": 1,
+              "hit_count": 0,
+              "matched_context_refs": []
+            }
+          ],
+          "authority_summary": {
+            "session_memory": 8,
+            "source_module": 0,
+            "adaptation_planning": 0,
+            "world_canon": 0,
+            "campaign_stateful_reference": 0,
+            "support_gap": 0,
+            "manual_support_synthesis": 0,
+            "unknown": 0
+          }
+        },
+        {
+          "question_number": 3,
+          "question_id": "q03_how_far_away_is_mirathorn_at_this_point",
+          "retrieval_mode": "prior_plus_support_content_only",
+          "top_k": 9,
+          "ok": true,
+          "expected_behavior": "admit gaps",
+          "required_context_groups": 0,
+          "required_context_groups_hit": 0,
+          "required_group_recall_at_k": 1.0,
+          "missing_required_groups": [],
+          "forbidden_context_groups": 0,
+          "forbidden_context_groups_hit": [],
+          "known_gap_expectations_hit": [
+            "exact Stone Bridge-to-Mirathorn route gazetteer"
+          ],
+          "violations": [],
+          "matched_groups": [],
+          "authority_summary": {
+            "session_memory": 8,
+            "source_module": 0,
+            "adaptation_planning": 0,
+            "world_canon": 0,
+            "campaign_stateful_reference": 0,
+            "support_gap": 0,
+            "manual_support_synthesis": 0,
+            "unknown": 0
+          }
+        },
+        {
+          "question_number": 5,
+          "question_id": "q05_there_is_a_gigantic_tree_growing_in_hemp",
+          "retrieval_mode": "prior_plus_support_content_only",
+          "top_k": 9,
+          "ok": false,
+          "expected_behavior": "should_answer_with_support_specificity",
+          "required_context_groups": 1,
+          "required_context_groups_hit": 0,
+          "required_group_recall_at_k": 0.0,
+          "missing_required_groups": [
+            "hempholm_tree_visible_threat"
+          ],
+          "forbidden_context_groups": 0,
+          "forbidden_context_groups_hit": [],
+          "known_gap_expectations_hit": [],
+          "violations": [
+            "missing_required_context_group"
+          ],
+          "matched_groups": [
+            {
+              "group_id": "hempholm_tree_visible_threat",
+              "ok": false,
+              "min_hits": 1,
+              "hit_count": 0,
+              "matched_context_refs": []
+            }
+          ],
+          "authority_summary": {
+            "session_memory": 8,
+            "source_module": 0,
+            "adaptation_planning": 0,
+            "world_canon": 0,
+            "campaign_stateful_reference": 0,
+            "support_gap": 0,
+            "manual_support_synthesis": 0,
+            "unknown": 0
+          }
+        }
+      ]
+    },
+    "prior_plus_support_content_plus_lexical_hints": {
+      "schema": "dmb_c1s4_expected_context_benchmark_report_v1",
+      "campaign_id": "longmont-c1",
+      "retrieval_mode": "prior_plus_support_content_plus_lexical_hints",
+      "gold_path": "evals/c1s4_preplanning_vertical_slice/gold/c1s4_expected_context_gold.json",
+      "planner_visibility": "forbidden_gold_eval_only",
+      "source_packet_schema": "dmb_c1s4_question_context_packet_v1",
+      "counts": {
+        "questions_in_gold": 3,
+        "questions_evaluated": 3,
+        "rows_ok": 1,
+        "rows_failed": 2,
+        "required_context_groups": 4,
+        "required_context_groups_hit": 0,
+        "forbidden_context_group_violations": 0,
+        "known_gap_expectations": 1,
+        "known_gap_expectations_hit": 1
+      },
+      "metrics": {
+        "macro_required_group_recall_at_k": 0.0,
+        "row_pass_rate": 0.3333333333333333,
+        "forbidden_context_violation_rate": 0.0,
+        "known_gap_recall": 1.0
+      },
+      "results": [
+        {
+          "question_number": 1,
+          "question_id": "q01_who_are_the_npcs_the_players_encountered",
+          "retrieval_mode": "prior_plus_support_content_plus_lexical_hints",
+          "top_k": 9,
+          "ok": false,
+          "expected_behavior": "prior recap",
+          "required_context_groups": 3,
+          "required_context_groups_hit": 0,
+          "required_group_recall_at_k": 0.0,
+          "missing_required_groups": [
+            "stone_bridge_flood_aftermath",
+            "pippa_bubbles_grishna_social_context",
+            "river_edge_pub_context"
+          ],
+          "forbidden_context_groups": 0,
+          "forbidden_context_groups_hit": [],
+          "known_gap_expectations_hit": [],
+          "violations": [
+            "missing_required_context_group"
+          ],
+          "matched_groups": [
+            {
+              "group_id": "stone_bridge_flood_aftermath",
+              "ok": false,
+              "min_hits": 1,
+              "hit_count": 0,
+              "matched_context_refs": []
+            },
+            {
+              "group_id": "pippa_bubbles_grishna_social_context",
+              "ok": false,
+              "min_hits": 1,
+              "hit_count": 0,
+              "matched_context_refs": []
+            },
+            {
+              "group_id": "river_edge_pub_context",
+              "ok": false,
+              "min_hits": 1,
+              "hit_count": 0,
+              "matched_context_refs": []
+            }
+          ],
+          "authority_summary": {
+            "session_memory": 8,
+            "source_module": 0,
+            "adaptation_planning": 0,
+            "world_canon": 0,
+            "campaign_stateful_reference": 0,
+            "support_gap": 0,
+            "manual_support_synthesis": 0,
+            "unknown": 0
+          }
+        },
+        {
+          "question_number": 3,
+          "question_id": "q03_how_far_away_is_mirathorn_at_this_point",
+          "retrieval_mode": "prior_plus_support_content_plus_lexical_hints",
+          "top_k": 9,
+          "ok": true,
+          "expected_behavior": "admit gaps",
+          "required_context_groups": 0,
+          "required_context_groups_hit": 0,
+          "required_group_recall_at_k": 1.0,
+          "missing_required_groups": [],
+          "forbidden_context_groups": 0,
+          "forbidden_context_groups_hit": [],
+          "known_gap_expectations_hit": [
+            "exact Stone Bridge-to-Mirathorn route gazetteer"
+          ],
+          "violations": [],
+          "matched_groups": [],
+          "authority_summary": {
+            "session_memory": 8,
+            "source_module": 0,
+            "adaptation_planning": 0,
+            "world_canon": 0,
+            "campaign_stateful_reference": 0,
+            "support_gap": 0,
+            "manual_support_synthesis": 0,
+            "unknown": 0
+          }
+        },
+        {
+          "question_number": 5,
+          "question_id": "q05_there_is_a_gigantic_tree_growing_in_hemp",
+          "retrieval_mode": "prior_plus_support_content_plus_lexical_hints",
+          "top_k": 9,
+          "ok": false,
+          "expected_behavior": "should_answer_with_support_specificity_and_better_recall",
+          "required_context_groups": 1,
+          "required_context_groups_hit": 0,
+          "required_group_recall_at_k": 0.0,
+          "missing_required_groups": [
+            "hempholm_tree_visible_threat"
+          ],
+          "forbidden_context_groups": 0,
+          "forbidden_context_groups_hit": [],
+          "known_gap_expectations_hit": [],
+          "violations": [
+            "missing_required_context_group"
+          ],
+          "matched_groups": [
+            {
+              "group_id": "hempholm_tree_visible_threat",
+              "ok": false,
+              "min_hits": 1,
+              "hit_count": 0,
+              "matched_context_refs": []
+            }
+          ],
+          "authority_summary": {
+            "session_memory": 8,
+            "source_module": 0,
+            "adaptation_planning": 0,
+            "world_canon": 0,
+            "campaign_stateful_reference": 0,
+            "support_gap": 0,
+            "manual_support_synthesis": 0,
+            "unknown": 0
+          }
+        }
+      ]
+    }
+  },
+  "mode_deltas": {
+    "support_content_only_vs_prior_only": {
+      "required_group_recall_delta": 0.0,
+      "rows_ok_delta": -1,
+      "newly_satisfied_groups": []
+    },
+    "lexical_hints_vs_content_only": {
+      "required_group_recall_delta": 0.0,
+      "rows_ok_delta": 0,
+      "newly_satisfied_groups": []
+    }
+  }
+}

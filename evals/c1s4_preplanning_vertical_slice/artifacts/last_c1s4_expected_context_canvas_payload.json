@@ -1,0 +1,555 @@
+{
+  "guardrailRows": [
+    {
+      "detail": "Payload generated from Step 2C report; no retrieval performed.",
+      "guardrail": "Gold is eval-only",
+      "status": "PASS"
+    },
+    {
+      "detail": "Canonical state remains benchmark JSON.",
+      "guardrail": "Canvas is projection",
+      "status": "PASS"
+    },
+    {
+      "detail": "Step 2C does not read C1S4 oracle.",
+      "guardrail": "No oracle material",
+      "status": "PASS"
+    }
+  ],
+  "modeDeltas": {
+    "lexical_hints_vs_content_only": {
+      "newly_satisfied_groups": [],
+      "required_group_recall_delta": 0.0,
+      "rows_ok_delta": 0
+    },
+    "support_content_only_vs_prior_only": {
+      "newly_satisfied_groups": [],
+      "required_group_recall_delta": 0.0,
+      "rows_ok_delta": -1
+    }
+  },
+  "modeRows": [
+    {
+      "forbidden_context_violations": 0,
+      "known_gap_recall": "1.00",
+      "mode": "prior_only",
+      "questions_evaluated": 3,
+      "required_group_recall": "0.00",
+      "rows_failed": 1,
+      "rows_ok": 2
+    },
+    {
+      "forbidden_context_violations": 0,
+      "known_gap_recall": "1.00",
+      "mode": "prior_plus_support_content_only",
+      "questions_evaluated": 3,
+      "required_group_recall": "0.00",
+      "rows_failed": 2,
+      "rows_ok": 1
+    },
+    {
+      "forbidden_context_violations": 0,
+      "known_gap_recall": "1.00",
+      "mode": "prior_plus_support_content_plus_lexical_hints",
+      "questions_evaluated": 3,
+      "required_group_recall": "0.00",
+      "rows_failed": 2,
+      "rows_ok": 1
+    }
+  ],
+  "questionCards": [
+    {
+      "authority_summary": {
+        "adaptation_planning": 0,
+        "campaign_stateful_reference": 0,
+        "manual_support_synthesis": 0,
+        "session_memory": 8,
+        "source_module": 0,
+        "support_gap": 0,
+        "unknown": 0,
+        "world_canon": 0
+      },
+      "expected_behavior": "prior recap",
+      "forbidden_context_groups_hit": [],
+      "known_gap_expectations_hit": [],
+      "missing_required_groups": [
+        "stone_bridge_flood_aftermath",
+        "pippa_bubbles_grishna_social_context",
+        "river_edge_pub_context"
+      ],
+      "mode": "prior_only",
+      "open_by_default": true,
+      "question_id": "q01_who_are_the_npcs_the_players_encountered",
+      "question_number": 1,
+      "required_context_groups": [
+        {
+          "group_id": "stone_bridge_flood_aftermath",
+          "hit_count": 0,
+          "matched_context_refs": [],
+          "min_hits": 1,
+          "ok": false
+        },
+        {
+          "group_id": "pippa_bubbles_grishna_social_context",
+          "hit_count": 0,
+          "matched_context_refs": [],
+          "min_hits": 1,
+          "ok": false
+        },
+        {
+          "group_id": "river_edge_pub_context",
+          "hit_count": 0,
+          "matched_context_refs": [],
+          "min_hits": 1,
+          "ok": false
+        }
+      ],
+      "verdict": "FAIL",
+      "violations": [
+        "missing_required_context_group"
+      ]
+    },
+    {
+      "authority_summary": {
+        "adaptation_planning": 0,
+        "campaign_stateful_reference": 0,
+        "manual_support_synthesis": 0,
+        "session_memory": 8,
+        "source_module": 0,
+        "support_gap": 0,
+        "unknown": 0,
+        "world_canon": 0
+      },
+      "expected_behavior": "admit gaps",
+      "forbidden_context_groups_hit": [],
+      "known_gap_expectations_hit": [
+        "exact Stone Bridge-to-Mirathorn route gazetteer",
+        "route-specific ecology"
+      ],
+      "missing_required_groups": [],
+      "mode": "prior_only",
+      "open_by_default": false,
+      "question_id": "q03_how_far_away_is_mirathorn_at_this_point",
+      "question_number": 3,
+      "required_context_groups": [],
+      "verdict": "PASS",
+      "violations": []
+    },
+    {
+      "authority_summary": {
+        "adaptation_planning": 0,
+        "campaign_stateful_reference": 0,
+        "manual_support_synthesis": 0,
+        "session_memory": 8,
+        "source_module": 0,
+        "support_gap": 0,
+        "unknown": 0,
+        "world_canon": 0
+      },
+      "expected_behavior": "should_generate_generic_and_admit_missing_support",
+      "forbidden_context_groups_hit": [],
+      "known_gap_expectations_hit": [],
+      "missing_required_groups": [],
+      "mode": "prior_only",
+      "open_by_default": false,
+      "question_id": "q05_there_is_a_gigantic_tree_growing_in_hemp",
+      "question_number": 5,
+      "required_context_groups": [],
+      "verdict": "PASS",
+      "violations": []
+    },
+    {
+      "authority_summary": {
+        "adaptation_planning": 0,
+        "campaign_stateful_reference": 0,
+        "manual_support_synthesis": 0,
+        "session_memory": 8,
+        "source_module": 0,
+        "support_gap": 0,
+        "unknown": 0,
+        "world_canon": 0
+      },
+      "expected_behavior": "prior recap",
+      "forbidden_context_groups_hit": [],
+      "known_gap_expectations_hit": [],
+      "missing_required_groups": [
+        "stone_bridge_flood_aftermath",
+        "pippa_bubbles_grishna_social_context",
+        "river_edge_pub_context"
+      ],
+      "mode": "prior_plus_support_content_only",
+      "open_by_default": true,
+      "question_id": "q01_who_are_the_npcs_the_players_encountered",
+      "question_number": 1,
+      "required_context_groups": [
+        {
+          "group_id": "stone_bridge_flood_aftermath",
+          "hit_count": 0,
+          "matched_context_refs": [],
+          "min_hits": 1,
+          "ok": false
+        },
+        {
+          "group_id": "pippa_bubbles_grishna_social_context",
+          "hit_count": 0,
+          "matched_context_refs": [],
+          "min_hits": 1,
+          "ok": false
+        },
+        {
+          "group_id": "river_edge_pub_context",
+          "hit_count": 0,
+          "matched_context_refs": [],
+          "min_hits": 1,
+          "ok": false
+        }
+      ],
+      "verdict": "FAIL",
+      "violations": [
+        "missing_required_context_group"
+      ]
+    },
+    {
+      "authority_summary": {
+        "adaptation_planning": 0,
+        "campaign_stateful_reference": 0,
+        "manual_support_synthesis": 0,
+        "session_memory": 8,
+        "source_module": 0,
+        "support_gap": 0,
+        "unknown": 0,
+        "world_canon": 0
+      },
+      "expected_behavior": "admit gaps",
+      "forbidden_context_groups_hit": [],
+      "known_gap_expectations_hit": [
+        "exact Stone Bridge-to-Mirathorn route gazetteer"
+      ],
+      "missing_required_groups": [],
+      "mode": "prior_plus_support_content_only",
+      "open_by_default": false,
+      "question_id": "q03_how_far_away_is_mirathorn_at_this_point",
+      "question_number": 3,
+      "required_context_groups": [],
+      "verdict": "PASS",
+      "violations": []
+    },
+    {
+      "authority_summary": {
+        "adaptation_planning": 0,
+        "campaign_stateful_reference": 0,
+        "manual_support_synthesis": 0,
+        "session_memory": 8,
+        "source_module": 0,
+        "support_gap": 0,
+        "unknown": 0,
+        "world_canon": 0
+      },
+      "expected_behavior": "should_answer_with_support_specificity",
+      "forbidden_context_groups_hit": [],
+      "known_gap_expectations_hit": [],
+      "missing_required_groups": [
+        "hempholm_tree_visible_threat"
+      ],
+      "mode": "prior_plus_support_content_only",
+      "open_by_default": true,
+      "question_id": "q05_there_is_a_gigantic_tree_growing_in_hemp",
+      "question_number": 5,
+      "required_context_groups": [
+        {
+          "group_id": "hempholm_tree_visible_threat",
+          "hit_count": 0,
+          "matched_context_refs": [],
+          "min_hits": 1,
+          "ok": false
+        }
+      ],
+      "verdict": "FAIL",
+      "violations": [
+        "missing_required_context_group"
+      ]
+    },
+    {
+      "authority_summary": {
+        "adaptation_planning": 0,
+        "campaign_stateful_reference": 0,
+        "manual_support_synthesis": 0,
+        "session_memory": 8,
+        "source_module": 0,
+        "support_gap": 0,
+        "unknown": 0,
+        "world_canon": 0
+      },
+      "expected_behavior": "prior recap",
+      "forbidden_context_groups_hit": [],
+      "known_gap_expectations_hit": [],
+      "missing_required_groups": [
+        "stone_bridge_flood_aftermath",
+        "pippa_bubbles_grishna_social_context",
+        "river_edge_pub_context"
+      ],
+      "mode": "prior_plus_support_content_plus_lexical_hints",
+      "open_by_default": true,
+      "question_id": "q01_who_are_the_npcs_the_players_encountered",
+      "question_number": 1,
+      "required_context_groups": [
+        {
+          "group_id": "stone_bridge_flood_aftermath",
+          "hit_count": 0,
+          "matched_context_refs": [],
+          "min_hits": 1,
+          "ok": false
+        },
+        {
+          "group_id": "pippa_bubbles_grishna_social_context",
+          "hit_count": 0,
+          "matched_context_refs": [],
+          "min_hits": 1,
+          "ok": false
+        },
+        {
+          "group_id": "river_edge_pub_context",
+          "hit_count": 0,
+          "matched_context_refs": [],
+          "min_hits": 1,
+          "ok": false
+        }
+      ],
+      "verdict": "FAIL",
+      "violations": [
+        "missing_required_context_group"
+      ]
+    },
+    {
+      "authority_summary": {
+        "adaptation_planning": 0,
+        "campaign_stateful_reference": 0,
+        "manual_support_synthesis": 0,
+        "session_memory": 8,
+        "source_module": 0,
+        "support_gap": 0,
+        "unknown": 0,
+        "world_canon": 0
+      },
+      "expected_behavior": "admit gaps",
+      "forbidden_context_groups_hit": [],
+      "known_gap_expectations_hit": [
+        "exact Stone Bridge-to-Mirathorn route gazetteer"
+      ],
+      "missing_required_groups": [],
+      "mode": "prior_plus_support_content_plus_lexical_hints",
+      "open_by_default": false,
+      "question_id": "q03_how_far_away_is_mirathorn_at_this_point",
+      "question_number": 3,
+      "required_context_groups": [],
+      "verdict": "PASS",
+      "violations": []
+    },
+    {
+      "authority_summary": {
+        "adaptation_planning": 0,
+        "campaign_stateful_reference": 0,
+        "manual_support_synthesis": 0,
+        "session_memory": 8,
+        "source_module": 0,
+        "support_gap": 0,
+        "unknown": 0,
+        "world_canon": 0
+      },
+      "expected_behavior": "should_answer_with_support_specificity_and_better_recall",
+      "forbidden_context_groups_hit": [],
+      "known_gap_expectations_hit": [],
+      "missing_required_groups": [
+        "hempholm_tree_visible_threat"
+      ],
+      "mode": "prior_plus_support_content_plus_lexical_hints",
+      "open_by_default": true,
+      "question_id": "q05_there_is_a_gigantic_tree_growing_in_hemp",
+      "question_number": 5,
+      "required_context_groups": [
+        {
+          "group_id": "hempholm_tree_visible_threat",
+          "hit_count": 0,
+          "matched_context_refs": [],
+          "min_hits": 1,
+          "ok": false
+        }
+      ],
+      "verdict": "FAIL",
+      "violations": [
+        "missing_required_context_group"
+      ]
+    }
+  ],
+  "questionRows": [
+    {
+      "forbidden_hits": [],
+      "known_gaps": "0/?",
+      "missing_required_groups": [
+        "stone_bridge_flood_aftermath",
+        "pippa_bubbles_grishna_social_context",
+        "river_edge_pub_context"
+      ],
+      "mode": "prior_only",
+      "question_id": "q01_who_are_the_npcs_the_players_encountered",
+      "question_number": 1,
+      "required_groups": "0/3",
+      "verdict": "FAIL",
+      "violations": [
+        "missing_required_context_group"
+      ]
+    },
+    {
+      "forbidden_hits": [],
+      "known_gaps": "2/?",
+      "missing_required_groups": [],
+      "mode": "prior_only",
+      "question_id": "q03_how_far_away_is_mirathorn_at_this_point",
+      "question_number": 3,
+      "required_groups": "0/0",
+      "verdict": "PASS",
+      "violations": []
+    },
+    {
+      "forbidden_hits": [],
+      "known_gaps": "0/?",
+      "missing_required_groups": [],
+      "mode": "prior_only",
+      "question_id": "q05_there_is_a_gigantic_tree_growing_in_hemp",
+      "question_number": 5,
+      "required_groups": "0/0",
+      "verdict": "PASS",
+      "violations": []
+    },
+    {
+      "forbidden_hits": [],
+      "known_gaps": "0/?",
+      "missing_required_groups": [
+        "stone_bridge_flood_aftermath",
+        "pippa_bubbles_grishna_social_context",
+        "river_edge_pub_context"
+      ],
+      "mode": "prior_plus_support_content_only",
+      "question_id": "q01_who_are_the_npcs_the_players_encountered",
+      "question_number": 1,
+      "required_groups": "0/3",
+      "verdict": "FAIL",
+      "violations": [
+        "missing_required_context_group"
+      ]
+    },
+    {
+      "forbidden_hits": [],
+      "known_gaps": "1/?",
+      "missing_required_groups": [],
+      "mode": "prior_plus_support_content_only",
+      "question_id": "q03_how_far_away_is_mirathorn_at_this_point",
+      "question_number": 3,
+      "required_groups": "0/0",
+      "verdict": "PASS",
+      "violations": []
+    },
+    {
+      "forbidden_hits": [],
+      "known_gaps": "0/?",
+      "missing_required_groups": [
+        "hempholm_tree_visible_threat"
+      ],
+      "mode": "prior_plus_support_content_only",
+      "question_id": "q05_there_is_a_gigantic_tree_growing_in_hemp",
+      "question_number": 5,
+      "required_groups": "0/1",
+      "verdict": "FAIL",
+      "violations": [
+        "missing_required_context_group"
+      ]
+    },
+    {
+      "forbidden_hits": [],
+      "known_gaps": "0/?",
+      "missing_required_groups": [
+        "stone_bridge_flood_aftermath",
+        "pippa_bubbles_grishna_social_context",
+        "river_edge_pub_context"
+      ],
+      "mode": "prior_plus_support_content_plus_lexical_hints",
+      "question_id": "q01_who_are_the_npcs_the_players_encountered",
+      "question_number": 1,
+      "required_groups": "0/3",
+      "verdict": "FAIL",
+      "violations": [
+        "missing_required_context_group"
+      ]
+    },
+    {
+      "forbidden_hits": [],
+      "known_gaps": "1/?",
+      "missing_required_groups": [],
+      "mode": "prior_plus_support_content_plus_lexical_hints",
+      "question_id": "q03_how_far_away_is_mirathorn_at_this_point",
+      "question_number": 3,
+      "required_groups": "0/0",
+      "verdict": "PASS",
+      "violations": []
+    },
+    {
+      "forbidden_hits": [],
+      "known_gaps": "0/?",
+      "missing_required_groups": [
+        "hempholm_tree_visible_threat"
+      ],
+      "mode": "prior_plus_support_content_plus_lexical_hints",
+      "question_id": "q05_there_is_a_gigantic_tree_growing_in_hemp",
+      "question_number": 5,
+      "required_groups": "0/1",
+      "verdict": "FAIL",
+      "violations": [
+        "missing_required_context_group"
+      ]
+    }
+  ],
+  "schema": "dmb_c1s4_expected_context_canvas_payload_v1",
+  "sources": {
+    "gold": "evals/c1s4_preplanning_vertical_slice/gold/c1s4_expected_context_gold.json",
+    "report": "/tmp/c1s4_expected_context_multimode_report.json"
+  },
+  "subtitle": "Step 2C retrieval/context packet evidence review",
+  "summary": {
+    "modes": [
+      "prior_only",
+      "prior_plus_support_content_only",
+      "prior_plus_support_content_plus_lexical_hints"
+    ],
+    "statTiles": [
+      {
+        "label": "Questions evaluated",
+        "value": 9
+      },
+      {
+        "label": "Rows OK",
+        "value": 4
+      },
+      {
+        "label": "Rows failed",
+        "value": 5
+      },
+      {
+        "label": "Required group recall",
+        "value": "0.00"
+      },
+      {
+        "label": "Forbidden violations",
+        "value": 0
+      },
+      {
+        "label": "Known-gap recall",
+        "value": "1.00"
+      },
+      {
+        "label": "Modes compared",
+        "value": 3
+      }
+    ]
+  },
+  "title": "C1S4 Expected Context Benchmark"
+}
