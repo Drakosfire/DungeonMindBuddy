@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from copy import deepcopy
 
+import pytest
+
 from evals.c1s4_preplanning_vertical_slice.oracle_comparison_harness import (
     build_oracle_comparison_report,
     load_oracle_policy,
@@ -10,6 +12,7 @@ from evals.c1s4_preplanning_vertical_slice.oracle_comparison_harness import (
 )
 from evals.c1s4_preplanning_vertical_slice.step5_build_synthetic_prep_packet import build_summary as build_step5_summary
 from evals.c1s4_preplanning_vertical_slice.synthetic_prep_packet_harness import SECTION_QUESTION_MAP
+import evals.c1s4_preplanning_vertical_slice.step6_compare_synthetic_prep_to_oracle as step6
 
 
 def _build_report(mode: str = "prior_only"):
@@ -98,3 +101,26 @@ def test_validation_rejects_planner_visible_oracle():
     report["planner_visibility"] = "allowed"
     errs = validate_oracle_comparison_report(report)
     assert any("planner_visibility" in e for e in errs)
+
+
+def test_step6_refuses_oracle_load_when_step5_invalid(monkeypatch):
+    def fake_step5_summary(*, mode: str, generator: str):
+        return {
+            "prep_packet_built": False,
+            "counts": {
+                "validation_errors": 1,
+                "packets_with_oracle_leakage": 0,
+                "packets_with_unsupported_forbidden_terms": 0,
+            },
+            "oracle_leakage_check": {"forbidden_path_hits": [], "forbidden_session_hits": []},
+            "prep_packet": {"campaign_id": "longmont-c1"},
+        }
+
+    def fail_if_called(*args, **kwargs):
+        raise AssertionError("oracle should not be loaded when step5 is invalid")
+
+    monkeypatch.setattr(step6, "build_step5_summary", fake_step5_summary)
+    monkeypatch.setattr(step6, "load_oracle_policy", fail_if_called)
+
+    with pytest.raises(ValueError, match="Step 5 summary invalid"):
+        step6.build_summary(mode="prior_only", generator="template_stub")

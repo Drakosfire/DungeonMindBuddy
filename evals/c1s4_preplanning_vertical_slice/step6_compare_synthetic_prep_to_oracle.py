@@ -18,8 +18,29 @@ from evals.c1s4_preplanning_vertical_slice.oracle_comparison_harness import (
 from evals.c1s4_preplanning_vertical_slice.step5_build_synthetic_prep_packet import C1S4BoundaryError, build_summary as build_step5_summary
 
 
+def _validate_step5_summary(step5: dict) -> list[str]:
+    errors: list[str] = []
+    if not step5.get("prep_packet_built", False):
+        errors.append("step5 prep_packet_built is false")
+    counts = step5.get("counts") or {}
+    if counts.get("validation_errors", 0):
+        errors.append(f"step5 validation_errors={counts.get('validation_errors')}")
+    if counts.get("packets_with_oracle_leakage", 0):
+        errors.append(f"step5 packets_with_oracle_leakage={counts.get('packets_with_oracle_leakage')}")
+    if counts.get("packets_with_unsupported_forbidden_terms", 0):
+        errors.append(f"step5 packets_with_unsupported_forbidden_terms={counts.get('packets_with_unsupported_forbidden_terms')}")
+    leak = step5.get("oracle_leakage_check") or {}
+    if leak.get("forbidden_path_hits") or leak.get("forbidden_session_hits"):
+        errors.append("step5 oracle_leakage_check contains forbidden hits")
+    return errors
+
+
 def build_summary(*, mode: str, generator: str, oracle_policy_path: Path | None = None) -> dict:
     step5 = build_step5_summary(mode=mode, generator=generator)
+    step5_errors = _validate_step5_summary(step5)
+    if step5_errors:
+        raise ValueError(f"Step 5 summary invalid for Step 6: {'; '.join(step5_errors)}")
+
     prep_packet = step5["prep_packet"]
     oracle_policy = load_oracle_policy(oracle_policy_path)
     oracle_text_bundle = load_oracle_text(oracle_policy)
@@ -54,7 +75,7 @@ def main() -> int:
 
     try:
         summary = build_summary(mode=args.mode, generator=args.generator, oracle_policy_path=args.oracle_policy)
-    except C1S4BoundaryError as exc:
+    except (C1S4BoundaryError, ValueError) as exc:
         print(json.dumps({"schema": "dmb_c1s4_step6_oracle_comparison_summary_v1", "error": str(exc)}, indent=2))
         return 1
 
