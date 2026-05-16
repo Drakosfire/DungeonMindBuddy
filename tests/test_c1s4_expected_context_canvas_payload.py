@@ -104,6 +104,38 @@ def test_required_group_failures_are_visible():
     assert card["required_context_groups"]
 
 
+
+
+def test_known_gap_ratio_not_misleading_without_gold_totals():
+    report = _single_report(ok=False)
+    row = report["results"][0]
+    row["known_gap_expectations_hit"] = ["gap1"]
+    row["violations"] = ["missing_expected_known_gap"]
+    row.pop("known_gap_expectations", None)
+    payload = build_payload(report=report)
+    assert payload["questionRows"][0]["known_gaps"] == "1/?"
+
+
+def test_known_gap_ratio_uses_gold_totals_when_available():
+    report = _single_report(ok=False)
+    row = report["results"][0]
+    row["known_gap_expectations_hit"] = ["gap1"]
+    row["violations"] = ["missing_expected_known_gap"]
+    gold = {
+        "questions": [
+            {
+                "question_number": 5,
+                "question_id": "q05",
+                "expectations_by_mode": {
+                    "prior_only": {
+                        "expected_known_gaps_contains_any": ["gap1", "gap2"]
+                    }
+                },
+            }
+        ]
+    }
+    payload = build_payload(report=report, gold=gold)
+    assert payload["questionRows"][0]["known_gaps"] == "1/2"
 def test_render_generated_block_has_markers_and_const():
     block = render_generated_block(build_payload(report=_single_report()))
     assert "BEGIN GENERATED C1S4_EXPECTED_CONTEXT_CANVAS_DATA" in block

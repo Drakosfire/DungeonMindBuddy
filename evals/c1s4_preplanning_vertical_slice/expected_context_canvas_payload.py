@@ -39,6 +39,18 @@ def _report_rows(report: dict[str, Any]) -> list[dict[str, Any]]:
     return report.get("results", [])
 
 
+
+def _known_gap_totals_by_mode_question(gold: dict[str, Any] | None) -> dict[tuple[str, int, str], int]:
+    out: dict[tuple[str, int, str], int] = {}
+    if not isinstance(gold, dict):
+        return out
+    for q in gold.get("questions", []):
+        qn = int(q.get("question_number") or 0)
+        qid = str(q.get("question_id") or "")
+        for mode, exp in (q.get("expectations_by_mode") or {}).items():
+            out[(mode, qn, qid)] = len(exp.get("expected_known_gaps_contains_any", []))
+    return out
+
 def build_payload(*, report: dict[str, Any], gold: dict[str, Any] | None = None, report_path: str | None = None, gold_path: str | None = None) -> dict[str, Any]:
     reports_by_mode = report.get("reports_by_mode") or {report.get("retrieval_mode", "prior_only"): report}
     modes = list(reports_by_mode.keys())
@@ -63,26 +75,35 @@ def build_payload(*, report: dict[str, Any], gold: dict[str, Any] | None = None,
         req_sum += float((mode_report.get("metrics") or {}).get("macro_required_group_recall_at_k", 0) or 0)
         gap_sum += float((mode_report.get("metrics") or {}).get("known_gap_recall", 0) or 0)
 
+    known_gap_totals = _known_gap_totals_by_mode_question(gold)
+
     question_rows, question_cards = [], []
     for row in _report_rows(report):
         req_groups = row.get("matched_groups") or []
         req_total = int(row.get("required_context_groups") or 0)
         req_hit = int(row.get("required_context_groups_hit") or 0)
+        mode = str(row.get("retrieval_mode", report.get("retrieval_mode")))
+        qn = int(row.get("question_number") or 0)
+        qid = str(row.get("question_id") or "")
+        known_gap_hit = len(row.get("known_gap_expectations_hit", []))
+        known_gap_total = known_gap_totals.get((mode, qn, qid))
+        known_gap_label = f"{known_gap_hit}/{known_gap_total}" if known_gap_total is not None else f"{known_gap_hit}/?"
+
         question_rows.append({
             "question_number": row.get("question_number"),
             "question_id": row.get("question_id"),
-            "mode": row.get("retrieval_mode", report.get("retrieval_mode")),
+            "mode": mode,
             "verdict": "PASS" if row.get("ok") else "FAIL",
             "required_groups": f"{req_hit}/{req_total}",
             "missing_required_groups": row.get("missing_required_groups", []),
             "forbidden_hits": row.get("forbidden_context_groups_hit", []),
-            "known_gaps": f"{len(row.get('known_gap_expectations_hit', []))}/{int(row.get('known_gap_expectations', len(row.get('known_gap_expectations_hit', []))) or 0)}",
+            "known_gaps": known_gap_label,
             "violations": row.get("violations", []),
         })
         question_cards.append({
             "question_number": row.get("question_number"),
             "question_id": row.get("question_id"),
-            "mode": row.get("retrieval_mode", report.get("retrieval_mode")),
+            "mode": mode,
             "open_by_default": (not row.get("ok")),
             "verdict": "PASS" if row.get("ok") else "FAIL",
             "expected_behavior": row.get("expected_behavior", ""),
