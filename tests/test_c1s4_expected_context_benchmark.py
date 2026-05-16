@@ -9,6 +9,7 @@ from evals.c1s4_preplanning_vertical_slice.expected_context_benchmark import (
     validate_expected_context_report,
 )
 from evals.c1s4_preplanning_vertical_slice.step2_build_question_context_packets import build_summary
+from evals.c1s4_preplanning_vertical_slice.step2c_expected_context_benchmark import _assert_no_retrieved_context_leakage
 
 
 def test_expected_context_gold_is_eval_only():
@@ -108,3 +109,22 @@ def test_q35_not_benchmarked_as_planner_context():
     gold = load_expected_context_gold()
     report = build_expected_context_report(packets=build_summary(mode="prior_only")["packets"], gold=gold, retrieval_mode="prior_only")
     assert all(row["question_number"] != 35 for row in report["results"])
+
+
+def test_packet_level_retrieved_context_leakage_is_rejected_even_without_group_match():
+    packets = [
+        {
+            "question_number": 99,
+            "question_id": "q99",
+            "retrieved_context": [
+                {"source_kind": "session_memory", "text": "unrelated"},
+                {"source_kind": "session_memory", "source_reference": "tmp/c1s4_beat_question_targets.json"},
+            ],
+        }
+    ]
+    try:
+        _assert_no_retrieved_context_leakage(packets)
+        assert False, "expected leakage RuntimeError"
+    except RuntimeError as exc:
+        assert "retrieved_context leakage detected" in str(exc)
+

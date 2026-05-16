@@ -10,6 +10,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from evals.c1s4_preplanning_vertical_slice.expected_context_benchmark import (
+    LEAKAGE_TOKENS,
     RETRIEVAL_MODES,
     build_expected_context_report,
     build_multimode_expected_context_report,
@@ -20,12 +21,26 @@ from evals.c1s4_preplanning_vertical_slice.expected_context_benchmark import (
 from evals.c1s4_preplanning_vertical_slice.step2_build_question_context_packets import C1S4BoundaryError, build_summary
 
 
+def _assert_no_retrieved_context_leakage(packets: list[dict]) -> None:
+    for packet in packets:
+        qn = packet.get("question_number")
+        qid = packet.get("question_id")
+        for idx, item in enumerate(packet.get("retrieved_context", [])):
+            dumped = json.dumps(item, sort_keys=True).lower()
+            for token in LEAKAGE_TOKENS:
+                if token.lower() in dumped:
+                    raise RuntimeError(
+                        f"retrieved_context leakage detected for q{qn} ({qid}) item {idx}: {token}"
+                    )
+
+
 def _run_mode(mode: str, gold_path: Path | None, question_number: int | None, top_k: int | None) -> dict:
     step2 = build_summary(mode=mode, question_number=question_number)
     for packet in step2.get("packets", []):
         forbidden = {"expected_retrieval_context_eval_only", "expected_retrieval_modes", "required_context_groups", "forbidden_context_groups", "expectations_by_mode"}
         if forbidden.intersection(packet):
             raise RuntimeError("eval-only fields leaked into planner packet")
+    _assert_no_retrieved_context_leakage(step2.get("packets", []))
     gold = load_expected_context_gold(gold_path)
     errs = validate_expected_context_gold(gold)
     if errs:
