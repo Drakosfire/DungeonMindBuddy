@@ -106,3 +106,17 @@ Passes when:
 Does not grade generated answers.
 Does not read C1S4 oracle material.
 Does not tune retrieval.
+
+## Gate 2D — Expected-context canvas projection
+
+Passes when:
+- Step 2C benchmark reports can be projected into a deterministic canvas payload.
+- The payload shows mode summaries, question rows, missing required groups, forbidden context hits, known-gap checks, and mode deltas.
+- Failing rows are visible and opened by default.
+- The generated block can patch an existing Cursor canvas by marker.
+- The canvas remains a projection, not canonical benchmark state.
+
+Does not change benchmark metrics.
+Does not tune retrieval.
+Does not read oracle material.
+

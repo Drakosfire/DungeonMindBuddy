@@ -129,3 +129,18 @@ The benchmark grades retrieved context, not generated answers.
 The expected-context gold file is eval-only and planner-forbidden. It must never be used to retrieve records or build context packets.
 
 Step 2C reports required context group recall, forbidden context hits, known-gap handling, and mode deltas between prior-only and support-enabled retrieval.
+
+## Step 2D — Expected-context canvas projection
+
+Step 2D projects Step 2C expected-context benchmark JSON into a Cursor canvas review payload.
+
+The canvas is not canonical benchmark state. It is a generated review surface.
+
+Step 2D does not:
+- change retrieval,
+- change expected-context gold,
+- grade generated answers,
+- read C1S4 oracle material.
+
+The emitter patches a generated JSON block inside an existing Cursor-managed `.canvas.tsx` file.
+
