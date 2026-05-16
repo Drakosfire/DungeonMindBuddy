@@ -93,3 +93,21 @@
 - [ ] Known-gap expectations are graded.
 - [ ] Mode deltas are reported.
 - [ ] Tests prove gold does not leak into Step 2 retrieval/context packets.
+
+## Step 2D — Expected-context canvas projection
+
+- [ ] `expected_context_canvas_payload.py` exists.
+- [ ] `step2d_expected_context_canvas_emit.py` exists.
+- [ ] Payload schema is `dmb_c1s4_expected_context_canvas_payload_v1`.
+- [ ] Payload consumes Step 2C report JSON.
+- [ ] Payload shows mode summaries.
+- [ ] Payload shows per-question pass/fail rows.
+- [ ] Payload shows missing required context groups.
+- [ ] Payload shows forbidden context hits.
+- [ ] Payload shows known-gap checks.
+- [ ] Payload shows mode deltas.
+- [ ] Failing cards open by default.
+- [ ] Canvas emitter patches generated block markers.
+- [ ] Canvas is documented as projection, not canonical state.
+- [ ] Tests pass.
+
