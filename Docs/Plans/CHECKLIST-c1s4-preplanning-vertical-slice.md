@@ -76,3 +76,20 @@
 - [ ] Section comparisons are produced.
 - [ ] No final score is emitted.
 - [ ] Tests pass.
+
+## Step 2C — Expected context benchmark
+
+- [ ] `gold/c1s4_expected_context_gold.json` exists.
+- [ ] `expected_context_benchmark.py` exists.
+- [ ] `step2c_expected_context_benchmark.py` exists.
+- [ ] Gold schema is `dmb_c1s4_expected_context_gold_v1`.
+- [ ] Report schema is `dmb_c1s4_expected_context_benchmark_report_v1`.
+- [ ] Gold is planner-forbidden/eval-only.
+- [ ] Benchmark runs `prior_only`.
+- [ ] Benchmark runs `prior_plus_support_content_only`.
+- [ ] Benchmark runs `prior_plus_support_content_plus_lexical_hints`.
+- [ ] Required context groups are graded.
+- [ ] Forbidden context groups are graded.
+- [ ] Known-gap expectations are graded.
+- [ ] Mode deltas are reported.
+- [ ] Tests prove gold does not leak into Step 2 retrieval/context packets.

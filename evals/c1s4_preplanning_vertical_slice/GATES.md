@@ -91,3 +91,18 @@ Passes when:
 - Validation rejects planner-visible oracle leakage.
 
 Does not yet provide a final grader.
+
+## Gate 2C — Expected context retrieval benchmark
+
+Passes when:
+- Expected-context gold exists and validates.
+- Step 2 packets can be benchmarked across all retrieval modes.
+- Required context groups are graded at top-K.
+- Forbidden context groups are detected.
+- Known-gap expectations are checked.
+- Mode-specific reports and deltas are produced.
+- Expected-context gold remains eval-only and planner-forbidden.
+
+Does not grade generated answers.
+Does not read C1S4 oracle material.
+Does not tune retrieval.

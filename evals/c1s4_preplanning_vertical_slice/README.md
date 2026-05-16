@@ -119,3 +119,13 @@ Step 6 does not:
 - produce a final quality score.
 
 The output is a comparison report, not a pass/fail grade.
+
+## Step 2C — Expected context benchmark
+
+Step 2C benchmarks whether Step 2 question context packets retrieve the expected context for each planning question and retrieval mode.
+
+The benchmark grades retrieved context, not generated answers.
+
+The expected-context gold file is eval-only and planner-forbidden. It must never be used to retrieve records or build context packets.
+
+Step 2C reports required context group recall, forbidden context hits, known-gap handling, and mode deltas between prior-only and support-enabled retrieval.
