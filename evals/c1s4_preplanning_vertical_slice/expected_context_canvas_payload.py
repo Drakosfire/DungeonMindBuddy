@@ -52,30 +52,31 @@ def build_payload(*, report: dict[str, Any], gold: dict[str, Any] | None = None,
             "questions_evaluated": counts.get("questions_evaluated", 0),
             "rows_ok": counts.get("rows_ok", 0),
             "rows_failed": counts.get("rows_failed", 0),
-            "required_group_recall": _ratio(counts.get("required_group_recall", 0)),
-            "forbidden_context_violations": counts.get("forbidden_context_violations", 0),
-            "known_gap_recall": _ratio(counts.get("known_gap_recall", 0)),
+            "required_group_recall": _ratio((mode_report.get("metrics") or {}).get("macro_required_group_recall_at_k", 0)),
+            "forbidden_context_violations": counts.get("forbidden_context_group_violations", 0),
+            "known_gap_recall": _ratio((mode_report.get("metrics") or {}).get("known_gap_recall", 0)),
         })
         total_q += int(counts.get("questions_evaluated", 0) or 0)
         total_ok += int(counts.get("rows_ok", 0) or 0)
         total_fail += int(counts.get("rows_failed", 0) or 0)
-        total_forbidden += int(counts.get("forbidden_context_violations", 0) or 0)
-        req_sum += float(counts.get("required_group_recall", 0) or 0)
-        gap_sum += float(counts.get("known_gap_recall", 0) or 0)
+        total_forbidden += int(counts.get("forbidden_context_group_violations", 0) or 0)
+        req_sum += float((mode_report.get("metrics") or {}).get("macro_required_group_recall_at_k", 0) or 0)
+        gap_sum += float((mode_report.get("metrics") or {}).get("known_gap_recall", 0) or 0)
 
     question_rows, question_cards = [], []
     for row in _report_rows(report):
-        req_groups = row.get("required_context_groups") or []
-        req_ok = sum(1 for g in req_groups if g.get("ok"))
+        req_groups = row.get("matched_groups") or []
+        req_total = int(row.get("required_context_groups") or 0)
+        req_hit = int(row.get("required_context_groups_hit") or 0)
         question_rows.append({
             "question_number": row.get("question_number"),
             "question_id": row.get("question_id"),
             "mode": row.get("retrieval_mode", report.get("retrieval_mode")),
             "verdict": "PASS" if row.get("ok") else "FAIL",
-            "required_groups": f"{req_ok}/{len(req_groups)}",
+            "required_groups": f"{req_hit}/{req_total}",
             "missing_required_groups": row.get("missing_required_groups", []),
             "forbidden_hits": row.get("forbidden_context_groups_hit", []),
-            "known_gaps": f"{len(row.get('known_gap_expectations_hit', []))}/{len(row.get('expected_known_gaps', []))}",
+            "known_gaps": f"{len(row.get('known_gap_expectations_hit', []))}/{int(row.get('known_gap_expectations', len(row.get('known_gap_expectations_hit', []))) or 0)}",
             "violations": row.get("violations", []),
         })
         question_cards.append({

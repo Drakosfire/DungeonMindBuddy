@@ -4,12 +4,18 @@ import json
 import subprocess
 import sys
 
+from evals.c1s4_preplanning_vertical_slice.expected_context_benchmark import (
+    build_expected_context_report,
+    build_multimode_expected_context_report,
+    load_expected_context_gold,
+)
 from evals.c1s4_preplanning_vertical_slice.expected_context_canvas_payload import (
     PAYLOAD_SCHEMA,
     build_payload,
     render_generated_block,
     update_canvas_text,
 )
+from evals.c1s4_preplanning_vertical_slice.step2_build_question_context_packets import build_summary
 
 
 def _single_report(ok: bool = True) -> dict:
@@ -19,8 +25,14 @@ def _single_report(ok: bool = True) -> dict:
             "questions_evaluated": 1,
             "rows_ok": 1 if ok else 0,
             "rows_failed": 0 if ok else 1,
-            "required_group_recall": 1.0 if ok else 0.0,
-            "forbidden_context_violations": 0,
+            "required_context_groups": 1,
+            "required_context_groups_hit": 1 if ok else 0,
+            "forbidden_context_group_violations": 0,
+            "known_gap_expectations": 1,
+            "known_gap_expectations_hit": 1,
+        },
+        "metrics": {
+            "macro_required_group_recall_at_k": 1.0 if ok else 0.0,
             "known_gap_recall": 1.0,
         },
         "results": [
@@ -29,11 +41,13 @@ def _single_report(ok: bool = True) -> dict:
                 "question_id": "q05",
                 "retrieval_mode": "prior_only",
                 "ok": ok,
-                "required_context_groups": [{"group_id": "g1", "ok": ok, "min_hits": 1, "hit_count": 1 if ok else 0, "matched_context_refs": []}],
+                "required_context_groups": 1,
+                "required_context_groups_hit": 1 if ok else 0,
+                "matched_groups": [{"group_id": "g1", "ok": ok, "min_hits": 1, "hit_count": 1 if ok else 0, "matched_context_refs": []}],
                 "missing_required_groups": [] if ok else ["g1"],
                 "forbidden_context_groups_hit": [],
-                "known_gap_expectations_hit": [],
-                "expected_known_gaps": [],
+                "known_gap_expectations": 1,
+                "known_gap_expectations_hit": ["gap1"],
                 "authority_summary": {},
                 "violations": [] if ok else ["missing_required_context_group"],
             }
@@ -44,6 +58,7 @@ def _single_report(ok: bool = True) -> dict:
 def test_build_payload_from_single_mode_report():
     payload = build_payload(report=_single_report())
     assert payload["schema"] == PAYLOAD_SCHEMA
+    assert payload["modeRows"][0]["required_group_recall"] == "1.00"
     for key in ["summary", "modeRows", "questionRows", "questionCards", "guardrailRows"]:
         assert key in payload
 
@@ -60,6 +75,20 @@ def test_build_payload_from_multimode_report():
     payload = build_payload(report=mm)
     assert len(payload["summary"]["modes"]) == 3
     assert payload["modeDeltas"] == {"x": 1}
+
+
+def test_build_payload_from_real_multimode_report():
+    gold = load_expected_context_gold()
+    reports = {m: build_expected_context_report(packets=build_summary(mode=m)["packets"], gold=gold, retrieval_mode=m) for m in [
+        "prior_only",
+        "prior_plus_support_content_only",
+        "prior_plus_support_content_plus_lexical_hints",
+    ]}
+    mm = build_multimode_expected_context_report(reports_by_mode=reports)
+    payload = build_payload(report=mm)
+    assert payload["modeRows"]
+    assert payload["questionRows"]
+    assert payload["questionCards"]
 
 
 def test_failing_rows_open_by_default():
