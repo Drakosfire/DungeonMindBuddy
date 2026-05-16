@@ -63,3 +63,16 @@
 - [x] Oracle leakage causes validation failure.
 - [x] Unsupported forbidden terms cause validation failure.
 - [x] Tests pass.
+
+## Step 6 — Oracle comparison scaffold
+
+- [ ] `oracle_comparison_harness.py` exists.
+- [ ] `step6_compare_synthetic_prep_to_oracle.py` exists.
+- [ ] Oracle policy is explicit.
+- [ ] Oracle visibility is `step6_only`.
+- [ ] Planner visibility is `forbidden`.
+- [ ] Step 6 loads oracle material only inside comparison.
+- [ ] Synthetic prep packet is not mutated with oracle text.
+- [ ] Section comparisons are produced.
+- [ ] No final score is emitted.
+- [ ] Tests pass.

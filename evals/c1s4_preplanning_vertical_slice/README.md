@@ -105,3 +105,17 @@ It does not grade against observed C1S4.
 It does not claim the prep matches what happened.
 
 The prep packet preserves retrieval mode, authority labels, known gaps, must-not-include guardrails, and oracle-risk warnings.
+
+## Step 6 — Oracle comparison scaffold
+
+Step 6 is the first oracle-side stage.
+
+It loads held-out C1S4 oracle material only inside the comparison harness and compares the synthetic prep packet to the oracle at a coarse structural/lexical level.
+
+Step 6 does not:
+- feed oracle material back into retrieval,
+- modify planner-visible packets,
+- tune generation,
+- produce a final quality score.
+
+The output is a comparison report, not a pass/fail grade.

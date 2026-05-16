@@ -79,3 +79,15 @@ Passes when:
 - The packet does not claim to match observed C1S4.
 
 Does not yet grade against C1S4.
+
+## Gate 5A — Oracle comparison scaffold
+
+Passes when:
+- Step 6 loads held-out C1S4 oracle material only inside Step 6.
+- Synthetic prep packets are compared to oracle material in a structured report.
+- The report has no final quality score.
+- Planner-side artifacts remain oracle-free.
+- Mode-specific reports are preserved.
+- Validation rejects planner-visible oracle leakage.
+
+Does not yet provide a final grader.

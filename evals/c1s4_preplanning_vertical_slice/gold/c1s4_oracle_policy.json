@@ -1,0 +1,13 @@
+{
+  "schema": "dmb_c1s4_oracle_policy_v1",
+  "oracle_visibility": "step6_only",
+  "heldout_session": 4,
+  "planner_forbidden": true,
+  "oracle_sources": [
+    {
+      "source_id": "c1s4_original_recap",
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Session Recaps/_normalized/Session 04 - The Grotesque Tree of Hempholm.md",
+      "role": "primary_oracle"
+    }
+  ]
+}
