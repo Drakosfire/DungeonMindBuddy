@@ -13,8 +13,253 @@
   ],
   "notes": "Eval-only expected-context groups for Step 2 question context packets. This file must never be loaded as retrieval material or planner-visible context.",
   "questions": [
-    {"question_number": 1, "question_id": "q01_who_are_the_npcs_the_players_encountered", "authority_label": "prior_canon_sufficient", "oracle_risk": "low", "expectations_by_mode": {"prior_only": {"expected_behavior": "prior recap", "required_context_groups": [{"group_id": "stone_bridge_flood_aftermath", "min_hits": 1, "reason": "prior recap should reference flood", "match": {"text_contains_any": ["stone bridge", "flood"]}}, {"group_id": "pippa_bubbles_grishna_social_context", "min_hits": 1, "reason": "npc social context", "match": {"text_contains_any": ["pippa", "bubbles", "grishna"]}}], "forbidden_context_groups": [], "expected_known_gaps_contains_any": []}, "prior_plus_support_content_only": {"expected_behavior": "prior recap", "required_context_groups": [{"group_id": "river_edge_pub_context", "min_hits": 1, "reason": "river edge tavern context", "match": {"text_contains_any": ["river edge", "pub", "tavern"]}}], "forbidden_context_groups": [], "expected_known_gaps_contains_any": []}, "prior_plus_support_content_plus_lexical_hints": {"expected_behavior": "prior recap", "required_context_groups": [{"group_id": "stone_bridge_flood_aftermath", "min_hits": 1, "reason": "prior recap should reference flood", "match": {"text_contains_any": ["stone bridge", "flood"]}}], "forbidden_context_groups": [], "expected_known_gaps_contains_any": []}}},
-    {"question_number": 3, "question_id": "q03_how_far_away_is_mirathorn_at_this_point", "authority_label": "mixed", "oracle_risk": "low", "expectations_by_mode": {"prior_only": {"expected_behavior": "admit gaps", "required_context_groups": [], "forbidden_context_groups": [], "expected_known_gaps_contains_any": ["exact Stone Bridge-to-Mirathorn route gazetteer", "route-specific ecology"]}, "prior_plus_support_content_only": {"expected_behavior": "admit gaps", "required_context_groups": [], "forbidden_context_groups": [], "expected_known_gaps_contains_any": ["exact Stone Bridge-to-Mirathorn route gazetteer"]}, "prior_plus_support_content_plus_lexical_hints": {"expected_behavior": "admit gaps", "required_context_groups": [], "forbidden_context_groups": [], "expected_known_gaps_contains_any": ["exact Stone Bridge-to-Mirathorn route gazetteer"]}}},
-    {"question_number": 5, "question_id": "q05_there_is_a_gigantic_tree_growing_in_hemp", "authority_label": "support_knowledge_required", "oracle_risk": "high", "expectations_by_mode": {"prior_only": {"expected_behavior": "should_generate_generic_and_admit_missing_support", "required_context_groups": [], "forbidden_context_groups": [{"group_id": "hempholm_specific_support_forbidden_in_prior_only", "reason": "prior_only must not retrieve hand-authored Hempholm support.", "match": {"source_kind": "support_knowledge_card", "text_contains_any": ["Hempholm", "grotesque tree", "precious metal"]}}], "expected_known_gaps_contains_any": []}, "prior_plus_support_content_only": {"expected_behavior": "should_answer_with_support_specificity", "required_context_groups": [{"group_id": "hempholm_tree_visible_threat", "min_hits": 1, "reason": "Support mode should retrieve Hempholm tree/source-adaptation context.", "match": {"source_kind": "support_knowledge_card", "source_layer_any": ["source_module", "adaptation_planning", "world_canon", "manual_support_synthesis"], "text_contains_any": ["Hempholm", "tree", "metallic", "precious metal"]}}], "forbidden_context_groups": [], "expected_known_gaps_contains_any": []}, "prior_plus_support_content_plus_lexical_hints": {"expected_behavior": "should_answer_with_support_specificity_and_better_recall", "required_context_groups": [{"group_id": "hempholm_tree_visible_threat", "min_hits": 1, "reason": "Lexical-hint support mode should retrieve Hempholm tree/source-adaptation context.", "match": {"source_kind": "support_knowledge_card", "source_layer_any": ["source_module", "adaptation_planning", "world_canon", "manual_support_synthesis"], "text_contains_any": ["Hempholm", "tree", "metallic", "precious metal"]}}], "forbidden_context_groups": [], "expected_known_gaps_contains_any": []}}}
+    {
+      "question_number": 1,
+      "question_id": "q01_who_are_the_npcs_the_players_encountered",
+      "authority_label": "prior_recap_supported",
+      "oracle_risk": "low",
+      "expectations_by_mode": {
+        "prior_only": {
+          "expected_behavior": "prior recap",
+          "required_context_groups": [
+            {
+              "group_id": "stone_bridge_flood_aftermath",
+              "min_hits": 1,
+              "reason": "prior recap should reference flood",
+              "match": {
+                "text_contains_any": [
+                  "stone bridge",
+                  "flood"
+                ]
+              }
+            },
+            {
+              "group_id": "pippa_bubbles_grishna_social_context",
+              "min_hits": 1,
+              "reason": "npc social context",
+              "match": {
+                "text_contains_any": [
+                  "pippa",
+                  "bubbles",
+                  "grishna"
+                ]
+              }
+            },
+            {
+              "group_id": "river_edge_pub_context",
+              "min_hits": 1,
+              "reason": "river edge tavern context",
+              "match": {
+                "text_contains_any": [
+                  "river edge",
+                  "pub",
+                  "tavern"
+                ]
+              }
+            }
+          ],
+          "forbidden_context_groups": [],
+          "expected_known_gaps_contains_any": []
+        },
+        "prior_plus_support_content_only": {
+          "expected_behavior": "prior recap",
+          "required_context_groups": [
+            {
+              "group_id": "stone_bridge_flood_aftermath",
+              "min_hits": 1,
+              "reason": "prior recap should reference flood",
+              "match": {
+                "text_contains_any": [
+                  "stone bridge",
+                  "flood"
+                ]
+              }
+            },
+            {
+              "group_id": "pippa_bubbles_grishna_social_context",
+              "min_hits": 1,
+              "reason": "npc social context",
+              "match": {
+                "text_contains_any": [
+                  "pippa",
+                  "bubbles",
+                  "grishna"
+                ]
+              }
+            },
+            {
+              "group_id": "river_edge_pub_context",
+              "min_hits": 1,
+              "reason": "river edge tavern context",
+              "match": {
+                "text_contains_any": [
+                  "river edge",
+                  "pub",
+                  "tavern"
+                ]
+              }
+            }
+          ],
+          "forbidden_context_groups": [],
+          "expected_known_gaps_contains_any": []
+        },
+        "prior_plus_support_content_plus_lexical_hints": {
+          "expected_behavior": "prior recap",
+          "required_context_groups": [
+            {
+              "group_id": "stone_bridge_flood_aftermath",
+              "min_hits": 1,
+              "reason": "prior recap should reference flood",
+              "match": {
+                "text_contains_any": [
+                  "stone bridge",
+                  "flood"
+                ]
+              }
+            },
+            {
+              "group_id": "pippa_bubbles_grishna_social_context",
+              "min_hits": 1,
+              "reason": "npc social context",
+              "match": {
+                "text_contains_any": [
+                  "pippa",
+                  "bubbles",
+                  "grishna"
+                ]
+              }
+            },
+            {
+              "group_id": "river_edge_pub_context",
+              "min_hits": 1,
+              "reason": "river edge tavern context",
+              "match": {
+                "text_contains_any": [
+                  "river edge",
+                  "pub",
+                  "tavern"
+                ]
+              }
+            }
+          ],
+          "forbidden_context_groups": [],
+          "expected_known_gaps_contains_any": []
+        }
+      }
+    },
+    {
+      "question_number": 3,
+      "question_id": "q03_how_far_away_is_mirathorn_at_this_point",
+      "authority_label": "worldbuilding_required",
+      "oracle_risk": "medium",
+      "expectations_by_mode": {
+        "prior_only": {
+          "expected_behavior": "admit gaps",
+          "required_context_groups": [],
+          "forbidden_context_groups": [],
+          "expected_known_gaps_contains_any": [
+            "exact Stone Bridge-to-Mirathorn route gazetteer",
+            "route-specific ecology"
+          ]
+        },
+        "prior_plus_support_content_only": {
+          "expected_behavior": "admit gaps",
+          "required_context_groups": [],
+          "forbidden_context_groups": [],
+          "expected_known_gaps_contains_any": [
+            "exact Stone Bridge-to-Mirathorn route gazetteer"
+          ]
+        },
+        "prior_plus_support_content_plus_lexical_hints": {
+          "expected_behavior": "admit gaps",
+          "required_context_groups": [],
+          "forbidden_context_groups": [],
+          "expected_known_gaps_contains_any": [
+            "exact Stone Bridge-to-Mirathorn route gazetteer"
+          ]
+        }
+      }
+    },
+    {
+      "question_number": 5,
+      "question_id": "q05_there_is_a_gigantic_tree_growing_in_hemp",
+      "authority_label": "support_knowledge_required",
+      "oracle_risk": "high",
+      "expectations_by_mode": {
+        "prior_only": {
+          "expected_behavior": "should_generate_generic_and_admit_missing_support",
+          "required_context_groups": [],
+          "forbidden_context_groups": [
+            {
+              "group_id": "hempholm_specific_support_forbidden_in_prior_only",
+              "reason": "prior_only must not retrieve hand-authored Hempholm support.",
+              "match": {
+                "source_kind": "support_knowledge_card",
+                "text_contains_any": [
+                  "Hempholm",
+                  "grotesque tree",
+                  "precious metal"
+                ]
+              }
+            }
+          ],
+          "expected_known_gaps_contains_any": []
+        },
+        "prior_plus_support_content_only": {
+          "expected_behavior": "should_answer_with_support_specificity",
+          "required_context_groups": [
+            {
+              "group_id": "hempholm_tree_visible_threat",
+              "min_hits": 1,
+              "reason": "Support mode should retrieve Hempholm tree/source-adaptation context.",
+              "match": {
+                "source_kind": "support_knowledge_card",
+                "source_layer_any": [
+                  "source_module",
+                  "adaptation_planning",
+                  "world_canon",
+                  "manual_support_synthesis"
+                ],
+                "text_contains_any": [
+                  "Hempholm",
+                  "tree",
+                  "metallic",
+                  "precious metal"
+                ]
+              }
+            }
+          ],
+          "forbidden_context_groups": [],
+          "expected_known_gaps_contains_any": []
+        },
+        "prior_plus_support_content_plus_lexical_hints": {
+          "expected_behavior": "should_answer_with_support_specificity_and_better_recall",
+          "required_context_groups": [
+            {
+              "group_id": "hempholm_tree_visible_threat",
+              "min_hits": 1,
+              "reason": "Lexical-hint support mode should retrieve Hempholm tree/source-adaptation context.",
+              "match": {
+                "source_kind": "support_knowledge_card",
+                "source_layer_any": [
+                  "source_module",
+                  "adaptation_planning",
+                  "world_canon",
+                  "manual_support_synthesis"
+                ],
+                "text_contains_any": [
+                  "Hempholm",
+                  "tree",
+                  "metallic",
+                  "precious metal"
+                ]
+              }
+            }
+          ],
+          "forbidden_context_groups": [],
+          "expected_known_gaps_contains_any": []
+        }
+      }
+    }
   ]
 }

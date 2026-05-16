@@ -5,7 +5,7 @@ import re
 from pathlib import Path
 from typing import Any, Literal
 
-from evals.c1s4_preplanning_vertical_slice.beat_question_answer_harness import PACKET_SCHEMA
+from evals.c1s4_preplanning_vertical_slice.beat_question_answer_harness import PACKET_SCHEMA, iter_target_questions, load_beat_question_targets
 
 EXPECTED_CONTEXT_GOLD_SCHEMA = "dmb_c1s4_expected_context_gold_v1"
 EXPECTED_CONTEXT_REPORT_SCHEMA = "dmb_c1s4_expected_context_benchmark_report_v1"
@@ -20,6 +20,7 @@ RetrievalMode = Literal[
     "prior_plus_support_content_only",
     "prior_plus_support_content_plus_lexical_hints",
 ]
+LEAKAGE_TOKENS = ["c1s4_expected_context_gold.json", "c1s4_beat_question_targets.json"]
 
 DEFAULT_GOLD_PATH = Path(__file__).resolve().parent / "gold/c1s4_expected_context_gold.json"
 
@@ -50,17 +51,34 @@ def validate_expected_context_gold(gold: dict[str, Any]) -> list[str]:
         errs.append("retrieval_modes missing")
     if not isinstance(gold.get("questions"), list):
         errs.append("questions missing")
+
+    target_questions = {int(q.get("question_number")): q for q in iter_target_questions(load_beat_question_targets())}
+
     for q in gold.get("questions", []):
-        if q.get("question_id") is None or q.get("question_number") is None:
+        qn = q.get("question_number")
+        qid = q.get("question_id")
+        if qid is None or qn is None:
             errs.append("question missing id or number")
+            continue
+        tq = target_questions.get(int(qn))
+        if not tq:
+            errs.append(f"gold question not in targets: {qid}")
+            continue
+        if qid != tq.get("question_id"):
+            errs.append(f"question_id drift for q{qn}")
+        if q.get("authority_label") != tq.get("authority_label"):
+            errs.append(f"authority_label drift for q{qn}")
+        if q.get("oracle_risk") != tq.get("oracle_risk"):
+            errs.append(f"oracle_risk drift for q{qn}")
+
         modes = q.get("expectations_by_mode") or {}
         for mode, exp in modes.items():
             if mode not in RETRIEVAL_MODES:
-                errs.append(f"unknown mode in question {q.get('question_id')}: {mode}")
+                errs.append(f"unknown mode in question {qid}: {mode}")
             for key in ["required_context_groups", "forbidden_context_groups"]:
                 for group in exp.get(key, []):
                     if not group.get("group_id"):
-                        errs.append(f"group_id missing in {q.get('question_id')}")
+                        errs.append(f"group_id missing in {qid}")
                     if not isinstance(group.get("match"), dict):
                         errs.append(f"match missing in group {group.get('group_id')}")
     return errs
@@ -93,15 +111,13 @@ def _get_session_values(item: dict[str, Any]) -> set[int]:
 def match_context_item(item: dict[str, Any], match: dict[str, Any]) -> bool:
     text = context_item_text(item)
     checks: list[bool] = []
-    scalar_fields = ["source_kind", "source_layer", "authority_role", "canon_status"]
-    for f in scalar_fields:
+    for f in ["source_kind", "source_layer", "authority_role", "canon_status"]:
         if f in match:
             checks.append(_norm(item.get(f)) == _norm(match[f]))
         any_key = f"{f}_any"
         if any_key in match:
             checks.append(_norm(item.get(f)) in {_norm(x) for x in match[any_key]})
-    contains_fields = ["unit_id", "title", "snippet", "source_reference", "text"]
-    for f in contains_fields:
+    for f in ["unit_id", "title", "snippet", "source_reference", "text"]:
         k = f"{f}_contains_any"
         if k in match:
             field_text = _norm(item.get(f, ""))
@@ -240,9 +256,16 @@ def validate_expected_context_report(report: dict[str, Any]) -> list[str]:
         errs.append("unknown retrieval_mode")
     if not isinstance(report.get("results"), list):
         errs.append("results missing")
+
     dumped = _norm(json.dumps(report))
-    if "c1s4_expected_context_gold.json" in dumped and "gold_path" not in dumped:
-        errs.append("gold appears in retrieved content")
+    for token in LEAKAGE_TOKENS:
+        for row in report.get("results", []):
+            if token in _norm(json.dumps(row)):
+                errs.append(f"retrieved context leakage token present: {token}")
+                break
+        if token in dumped and token not in _norm(str(report.get("gold_path", ""))):
+            errs.append(f"unexpected leakage token present in report: {token}")
+
     for row in report.get("results", []):
         if row.get("question_number") == 35:
             errs.append("q35 appears as planner-facing benchmark packet")
