@@ -39,6 +39,57 @@ def test_required_context_group_hit_passes_row():
     gq = {"expectations_by_mode": {"prior_only": {"required_context_groups": [{"group_id": "x", "match": {"text_contains_any": ["metallic tree"]}}], "forbidden_context_groups": [], "expected_known_gaps_contains_any": []}}}
     row = grade_question_packet(packet=packet, gold_question=gq, retrieval_mode="prior_only", top_k=9)
     assert row["ok"] is True
+    assert row["retrieved_context_preview"][0]["rank"] == 1
+    assert row["retrieved_context_preview"][0]["matched_required_groups"] == ["x"]
+
+
+def test_retrieved_context_preview_includes_planner_visible_fields():
+    packet = {
+        "question_number": 1,
+        "question_id": "q01",
+        "retrieved_context": [
+            {
+                "unit_id": "u-1",
+                "source_kind": "support_knowledge_card",
+                "source_layer": "source_module",
+                "title": "Hempholm",
+                "snippet": "metal leaves on a tree",
+                "source_reference": {"document": "Of Conks & Cons"},
+            }
+        ],
+        "known_context_gaps": [],
+        "authority_summary": {},
+    }
+    gq = {"expectations_by_mode": {"prior_plus_support_content_only": {"required_context_groups": [], "forbidden_context_groups": [], "expected_known_gaps_contains_any": []}}}
+    row = grade_question_packet(packet=packet, gold_question=gq, retrieval_mode="prior_plus_support_content_only", top_k=9)
+    preview = row["retrieved_context_preview"][0]
+    assert preview["ref"] == "u-1"
+    assert preview["source_kind"] == "support_knowledge_card"
+    assert "Of Conks & Cons" in preview["source_reference"]
+
+
+def test_text_contains_any_matches_even_when_text_field_missing():
+    packet = {"question_number": 1, "question_id": "q01", "retrieved_context": [{"unit_id": "u1", "snippet": "Ride to StoneBridge with Pippa."}], "known_context_gaps": [], "authority_summary": {}}
+    gq = {"expectations_by_mode": {"prior_only": {"required_context_groups": [{"group_id": "g1", "match": {"text_contains_any": ["pippa"]}}], "forbidden_context_groups": [], "expected_known_gaps_contains_any": []}}}
+    row = grade_question_packet(packet=packet, gold_question=gq, retrieval_mode="prior_only", top_k=9)
+    assert row["required_context_groups_hit"] == 1
+
+
+def test_depth_diagnostics_report_first_match_beyond_top_k():
+    packet_top = {"question_number": 5, "question_id": "q05", "retrieved_context": [{"unit_id": "u1", "source_kind": "session_memory", "snippet": "session"}], "known_context_gaps": [], "authority_summary": {}}
+    packet_diag = {"question_number": 5, "question_id": "q05", "retrieved_context": [{"unit_id": "u1", "source_kind": "session_memory", "snippet": "session"}, {"unit_id": "support:hempholm", "source_kind": "support_knowledge_card", "source_layer": "source_module", "snippet": "Hempholm metallic tree"}], "known_context_gaps": [], "authority_summary": {}}
+    gold = {
+        "schema": "dmb_c1s4_expected_context_gold_v1",
+        "campaign_id": "longmont-c1",
+        "questions": [
+            {"question_number": 5, "question_id": "q05", "expectations_by_mode": {"prior_plus_support_content_only": {"required_context_groups": [{"group_id": "hempholm_tree_visible_threat", "match": {"source_kind": "support_knowledge_card", "text_contains_any": ["Hempholm"]}}], "forbidden_context_groups": [], "expected_known_gaps_contains_any": []}}}
+        ],
+    }
+    report = build_expected_context_report(packets=[packet_top], diagnostic_packets=[packet_diag], gold=gold, retrieval_mode="prior_plus_support_content_only", top_k=1)
+    diag = report["results"][0]["retrieval_depth_diagnostics"]["required_groups"]["hempholm_tree_visible_threat"]
+    assert diag["matched_at_top_k"] is False
+    assert diag["matched_at_top_20"] is True
+    assert diag["first_matching_rank"] == 2
 
 
 def test_known_gap_expectation_is_checked_against_packet_gaps():
@@ -127,4 +178,3 @@ def test_packet_level_retrieved_context_leakage_is_rejected_even_without_group_m
         assert False, "expected leakage RuntimeError"
     except RuntimeError as exc:
         assert "retrieved_context leakage detected" in str(exc)
-
