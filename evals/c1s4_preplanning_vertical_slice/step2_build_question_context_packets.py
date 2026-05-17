@@ -19,6 +19,7 @@ from evals.c1s4_preplanning_vertical_slice.beat_question_answer_harness import (
     validate_packet,
 )
 from evals.c1s4_preplanning_vertical_slice.preplanning_context_bundle import build_preplanning_context_bundle
+from evals.c1s4_preplanning_vertical_slice.context_admission import build_budgeted_admission
 from evals.c1s4_preplanning_vertical_slice.step0_kb_materialize import DEFAULT_POLICY_PATH, load_kb_manifest
 from evals.c1s4_preplanning_vertical_slice.support_knowledge_loader import load_normalized_support_records
 from src.agent.session_memory_query import query_session_memory_candidate
@@ -54,7 +55,7 @@ def _retrieve(query: str, mode: QuestionRetrievalMode, campaign_id: str, *, max_
     return bundle["items"], bundle["oracle_leakage_check"]
 
 
-def build_summary(*, mode: QuestionRetrievalMode, question_number: int | None = None, limit: int | None = None, max_hits: int = 8) -> dict[str, Any]:
+def build_summary(*, mode: QuestionRetrievalMode, question_number: int | None = None, limit: int | None = None, max_hits: int = 50, admission_policy: str = "budgeted_v1") -> dict[str, Any]:
     targets = load_beat_question_targets()
     questions = iter_target_questions(targets)
     if question_number is not None:
@@ -72,8 +73,16 @@ def build_summary(*, mode: QuestionRetrievalMode, question_number: int | None = 
         if not is_planner_facing_question(q, retrieval_mode=mode):
             skipped_questions.append({"question_number": q.get("question_number"), "question_id": q.get("question_id"), "status": "skipped", "reason": "evaluator_only_not_planner_facing"})
             continue
-        retrieved_context, leak = _retrieve(str(q.get("question") or ""), mode, targets.get("campaign_id", "longmont-c1"), max_hits=max_hits)
-        packet = build_question_context_packet(question=q, retrieval_mode=mode, retrieved_context=retrieved_context, oracle_leakage_check=leak)
+        question_text = str(q.get("question") or "")
+        candidate_context, leak = _retrieve(question_text, mode, targets.get("campaign_id", "longmont-c1"), max_hits=max_hits)
+        if admission_policy == "legacy_top_k":
+            retrieved_context = candidate_context[:9]
+            packet = build_question_context_packet(question=q, retrieval_mode=mode, retrieved_context=retrieved_context, oracle_leakage_check=leak)
+            packet["admission_policy"] = "legacy_top_k"
+        else:
+            admission = build_budgeted_admission(question_text=question_text, retrieval_mode=mode, candidates=candidate_context, candidate_depth=max_hits, total_budget_chars=8000)
+            packet = build_question_context_packet(question=q, retrieval_mode=mode, retrieved_context=candidate_context[:9], oracle_leakage_check=leak)
+            packet.update(admission)
         errs = validate_packet(packet)
         if errs:
             raise RuntimeError(f"Packet validation failed for q{q.get('question_number')}: {errs}")
@@ -107,9 +116,11 @@ def main() -> int:
     parser.add_argument("--question-number", type=int)
     parser.add_argument("--limit", type=int)
     parser.add_argument("--output-json", type=Path)
+    parser.add_argument("--admission-policy", choices=["legacy_top_k", "budgeted_v1"], default="budgeted_v1")
+    parser.add_argument("--max-hits", type=int, default=50)
     args = parser.parse_args()
     try:
-        summary = build_summary(mode=args.mode, question_number=args.question_number, limit=args.limit)
+        summary = build_summary(mode=args.mode, question_number=args.question_number, limit=args.limit, max_hits=args.max_hits, admission_policy=args.admission_policy)
     except C1S4BoundaryError as exc:
         print(json.dumps({"schema": "dmb_c1s4_step2_question_context_packet_summary_v1", "error": str(exc)}, indent=2))
         return 1
