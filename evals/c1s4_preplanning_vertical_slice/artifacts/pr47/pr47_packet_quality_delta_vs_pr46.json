@@ -5,10 +5,10 @@
     "question_id": "q01_who_are_the_npcs_the_players_encountered",
     "metric": "unknown_lane_ratio",
     "pr46_value": null,
-    "pr47_value": null,
+    "pr47_value": 0.0,
     "delta": null,
     "improved": null,
-    "notes": "PR46 baseline artifact missing in repository path"
+    "notes": "No explicit PR46 baseline provided for this metric row"
   },
   {
     "mode": "prior_only",
@@ -19,7 +19,7 @@
     "pr47_value": null,
     "delta": null,
     "improved": null,
-    "notes": "PR46 baseline artifact missing in repository path"
+    "notes": "No explicit PR46 baseline provided for this metric row"
   },
   {
     "mode": "prior_only",
@@ -27,10 +27,10 @@
     "question_id": "q01_who_are_the_npcs_the_players_encountered",
     "metric": "support_token_share",
     "pr46_value": null,
-    "pr47_value": null,
+    "pr47_value": 0.0,
     "delta": null,
     "improved": null,
-    "notes": "PR46 baseline artifact missing in repository path"
+    "notes": "No explicit PR46 baseline provided for this metric row"
   },
   {
     "mode": "prior_only",
@@ -38,10 +38,10 @@
     "question_id": "q01_who_are_the_npcs_the_players_encountered",
     "metric": "llm_usability.score_1_to_5",
     "pr46_value": null,
-    "pr47_value": null,
+    "pr47_value": 5,
     "delta": null,
     "improved": null,
-    "notes": "PR46 baseline artifact missing in repository path"
+    "notes": "No explicit PR46 baseline provided for this metric row"
   },
   {
     "mode": "prior_only",
@@ -49,10 +49,10 @@
     "question_id": "q01_who_are_the_npcs_the_players_encountered",
     "metric": "flags",
     "pr46_value": null,
-    "pr47_value": null,
+    "pr47_value": [],
     "delta": null,
     "improved": null,
-    "notes": "PR46 baseline artifact missing in repository path"
+    "notes": "No explicit PR46 baseline provided for this metric row"
   },
   {
     "mode": "prior_only",
@@ -63,7 +63,7 @@
     "pr47_value": 1.0,
     "delta": null,
     "improved": null,
-    "notes": "PR46 baseline artifact missing in repository path"
+    "notes": "No explicit PR46 baseline provided for this metric row"
   },
   {
     "mode": "prior_only",
@@ -74,7 +74,7 @@
     "pr47_value": 1.0,
     "delta": null,
     "improved": null,
-    "notes": "PR46 baseline artifact missing in repository path"
+    "notes": "No explicit PR46 baseline provided for this metric row"
   },
   {
     "mode": "prior_only",
@@ -85,7 +85,7 @@
     "pr47_value": 0,
     "delta": null,
     "improved": null,
-    "notes": "PR46 baseline artifact missing in repository path"
+    "notes": "No explicit PR46 baseline provided for this metric row"
   },
   {
     "mode": "prior_only",
@@ -93,10 +93,10 @@
     "question_id": "q03_how_far_away_is_mirathorn_at_this_point",
     "metric": "unknown_lane_ratio",
     "pr46_value": null,
-    "pr47_value": null,
+    "pr47_value": 0.0,
     "delta": null,
     "improved": null,
-    "notes": "PR46 baseline artifact missing in repository path"
+    "notes": "No explicit PR46 baseline provided for this metric row"
   },
   {
     "mode": "prior_only",
@@ -107,7 +107,7 @@
     "pr47_value": null,
     "delta": null,
     "improved": null,
-    "notes": "PR46 baseline artifact missing in repository path"
+    "notes": "No explicit PR46 baseline provided for this metric row"
   },
   {
     "mode": "prior_only",
@@ -115,10 +115,10 @@
     "question_id": "q03_how_far_away_is_mirathorn_at_this_point",
     "metric": "support_token_share",
     "pr46_value": null,
-    "pr47_value": null,
+    "pr47_value": 0.0,
     "delta": null,
     "improved": null,
-    "notes": "PR46 baseline artifact missing in repository path"
+    "notes": "No explicit PR46 baseline provided for this metric row"
   },
   {
     "mode": "prior_only",
@@ -126,10 +126,10 @@
     "question_id": "q03_how_far_away_is_mirathorn_at_this_point",
     "metric": "llm_usability.score_1_to_5",
     "pr46_value": null,
-    "pr47_value": null,
+    "pr47_value": 5,
     "delta": null,
     "improved": null,
-    "notes": "PR46 baseline artifact missing in repository path"
+    "notes": "No explicit PR46 baseline provided for this metric row"
   },
   {
     "mode": "prior_only",
@@ -137,10 +137,10 @@
     "question_id": "q03_how_far_away_is_mirathorn_at_this_point",
     "metric": "flags",
     "pr46_value": null,
-    "pr47_value": null,
+    "pr47_value": [],
     "delta": null,
     "improved": null,
-    "notes": "PR46 baseline artifact missing in repository path"
+    "notes": "No explicit PR46 baseline provided for this metric row"
   },
   {
     "mode": "prior_only",
@@ -151,7 +151,7 @@
     "pr47_value": 1.0,
     "delta": null,
     "improved": null,
-    "notes": "PR46 baseline artifact missing in repository path"
+    "notes": "No explicit PR46 baseline provided for this metric row"
   },
   {
     "mode": "prior_only",
@@ -162,7 +162,7 @@
     "pr47_value": 1.0,
     "delta": null,
     "improved": null,
-    "notes": "PR46 baseline artifact missing in repository path"
+    "notes": "No explicit PR46 baseline provided for this metric row"
   },
   {
     "mode": "prior_only",
@@ -173,7 +173,7 @@
     "pr47_value": 0,
     "delta": null,
     "improved": null,
-    "notes": "PR46 baseline artifact missing in repository path"
+    "notes": "No explicit PR46 baseline provided for this metric row"
   },
   {
     "mode": "prior_only",
@@ -181,10 +181,10 @@
     "question_id": "q05_there_is_a_gigantic_tree_growing_in_hemp",
     "metric": "unknown_lane_ratio",
     "pr46_value": null,
-    "pr47_value": null,
+    "pr47_value": 0.0,
     "delta": null,
     "improved": null,
-    "notes": "PR46 baseline artifact missing in repository path"
+    "notes": "No explicit PR46 baseline provided for this metric row"
   },
   {
     "mode": "prior_only",
@@ -195,7 +195,7 @@
     "pr47_value": null,
     "delta": null,
     "improved": null,
-    "notes": "PR46 baseline artifact missing in repository path"
+    "notes": "No explicit PR46 baseline provided for this metric row"
   },
   {
     "mode": "prior_only",
@@ -203,10 +203,10 @@
     "question_id": "q05_there_is_a_gigantic_tree_growing_in_hemp",
     "metric": "support_token_share",
     "pr46_value": null,
-    "pr47_value": null,
+    "pr47_value": 0.0,
     "delta": null,
     "improved": null,
-    "notes": "PR46 baseline artifact missing in repository path"
+    "notes": "No explicit PR46 baseline provided for this metric row"
   },
   {
     "mode": "prior_only",
@@ -214,10 +214,10 @@
     "question_id": "q05_there_is_a_gigantic_tree_growing_in_hemp",
     "metric": "llm_usability.score_1_to_5",
     "pr46_value": null,
-    "pr47_value": null,
+    "pr47_value": 5,
     "delta": null,
     "improved": null,
-    "notes": "PR46 baseline artifact missing in repository path"
+    "notes": "No explicit PR46 baseline provided for this metric row"
   },
   {
     "mode": "prior_only",
@@ -225,10 +225,10 @@
     "question_id": "q05_there_is_a_gigantic_tree_growing_in_hemp",
     "metric": "flags",
     "pr46_value": null,
-    "pr47_value": null,
+    "pr47_value": [],
     "delta": null,
     "improved": null,
-    "notes": "PR46 baseline artifact missing in repository path"
+    "notes": "No explicit PR46 baseline provided for this metric row"
   },
   {
     "mode": "prior_only",
@@ -239,7 +239,7 @@
     "pr47_value": 1.0,
     "delta": null,
     "improved": null,
-    "notes": "PR46 baseline artifact missing in repository path"
+    "notes": "No explicit PR46 baseline provided for this metric row"
   },
   {
     "mode": "prior_only",
@@ -250,7 +250,7 @@
     "pr47_value": 1.0,
     "delta": null,
     "improved": null,
-    "notes": "PR46 baseline artifact missing in repository path"
+    "notes": "No explicit PR46 baseline provided for this metric row"
   },
   {
     "mode": "prior_only",
@@ -261,7 +261,7 @@
     "pr47_value": 0,
     "delta": null,
     "improved": null,
-    "notes": "PR46 baseline artifact missing in repository path"
+    "notes": "No explicit PR46 baseline provided for this metric row"
   },
   {
     "mode": "prior_plus_support_content_only",
@@ -269,10 +269,10 @@
     "question_id": "q01_who_are_the_npcs_the_players_encountered",
     "metric": "unknown_lane_ratio",
     "pr46_value": null,
-    "pr47_value": null,
+    "pr47_value": 0.0,
     "delta": null,
     "improved": null,
-    "notes": "PR46 baseline artifact missing in repository path"
+    "notes": "No explicit PR46 baseline provided for this metric row"
   },
   {
     "mode": "prior_plus_support_content_only",
@@ -283,7 +283,7 @@
     "pr47_value": null,
     "delta": null,
     "improved": null,
-    "notes": "PR46 baseline artifact missing in repository path"
+    "notes": "No explicit PR46 baseline provided for this metric row"
   },
   {
     "mode": "prior_plus_support_content_only",
@@ -291,10 +291,10 @@
     "question_id": "q01_who_are_the_npcs_the_players_encountered",
     "metric": "support_token_share",
     "pr46_value": null,
-    "pr47_value": null,
+    "pr47_value": 0.0,
     "delta": null,
     "improved": null,
-    "notes": "PR46 baseline artifact missing in repository path"
+    "notes": "No explicit PR46 baseline provided for this metric row"
   },
   {
     "mode": "prior_plus_support_content_only",
@@ -302,10 +302,10 @@
     "question_id": "q01_who_are_the_npcs_the_players_encountered",
     "metric": "llm_usability.score_1_to_5",
     "pr46_value": null,
-    "pr47_value": null,
+    "pr47_value": 4,
     "delta": null,
     "improved": null,
-    "notes": "PR46 baseline artifact missing in repository path"
+    "notes": "No explicit PR46 baseline provided for this metric row"
   },
   {
     "mode": "prior_plus_support_content_only",
@@ -313,10 +313,12 @@
     "question_id": "q01_who_are_the_npcs_the_players_encountered",
     "metric": "flags",
     "pr46_value": null,
-    "pr47_value": null,
+    "pr47_value": [
+      "no_support_in_support_mode"
+    ],
     "delta": null,
     "improved": null,
-    "notes": "PR46 baseline artifact missing in repository path"
+    "notes": "No explicit PR46 baseline provided for this metric row"
   },
   {
     "mode": "prior_plus_support_content_only",
@@ -327,7 +329,7 @@
     "pr47_value": 1.0,
     "delta": null,
     "improved": null,
-    "notes": "PR46 baseline artifact missing in repository path"
+    "notes": "No explicit PR46 baseline provided for this metric row"
   },
   {
     "mode": "prior_plus_support_content_only",
@@ -338,7 +340,7 @@
     "pr47_value": 1.0,
     "delta": null,
     "improved": null,
-    "notes": "PR46 baseline artifact missing in repository path"
+    "notes": "No explicit PR46 baseline provided for this metric row"
   },
   {
     "mode": "prior_plus_support_content_only",
@@ -349,7 +351,7 @@
     "pr47_value": 0,
     "delta": null,
     "improved": null,
-    "notes": "PR46 baseline artifact missing in repository path"
+    "notes": "No explicit PR46 baseline provided for this metric row"
   },
   {
     "mode": "prior_plus_support_content_only",
@@ -357,10 +359,10 @@
     "question_id": "q03_how_far_away_is_mirathorn_at_this_point",
     "metric": "unknown_lane_ratio",
     "pr46_value": null,
-    "pr47_value": null,
+    "pr47_value": 0.0,
     "delta": null,
     "improved": null,
-    "notes": "PR46 baseline artifact missing in repository path"
+    "notes": "No explicit PR46 baseline provided for this metric row"
   },
   {
     "mode": "prior_plus_support_content_only",
@@ -371,7 +373,7 @@
     "pr47_value": null,
     "delta": null,
     "improved": null,
-    "notes": "PR46 baseline artifact missing in repository path"
+    "notes": "No explicit PR46 baseline provided for this metric row"
   },
   {
     "mode": "prior_plus_support_content_only",
@@ -379,10 +381,10 @@
     "question_id": "q03_how_far_away_is_mirathorn_at_this_point",
     "metric": "support_token_share",
     "pr46_value": null,
-    "pr47_value": null,
+    "pr47_value": 0.0,
     "delta": null,
     "improved": null,
-    "notes": "PR46 baseline artifact missing in repository path"
+    "notes": "No explicit PR46 baseline provided for this metric row"
   },
   {
     "mode": "prior_plus_support_content_only",
@@ -390,10 +392,10 @@
     "question_id": "q03_how_far_away_is_mirathorn_at_this_point",
     "metric": "llm_usability.score_1_to_5",
     "pr46_value": null,
-    "pr47_value": null,
+    "pr47_value": 4,
     "delta": null,
     "improved": null,
-    "notes": "PR46 baseline artifact missing in repository path"
+    "notes": "No explicit PR46 baseline provided for this metric row"
   },
   {
     "mode": "prior_plus_support_content_only",
@@ -401,10 +403,12 @@
     "question_id": "q03_how_far_away_is_mirathorn_at_this_point",
     "metric": "flags",
     "pr46_value": null,
-    "pr47_value": null,
+    "pr47_value": [
+      "no_support_in_support_mode"
+    ],
     "delta": null,
     "improved": null,
-    "notes": "PR46 baseline artifact missing in repository path"
+    "notes": "No explicit PR46 baseline provided for this metric row"
   },
   {
     "mode": "prior_plus_support_content_only",
@@ -415,7 +419,7 @@
     "pr47_value": 1.0,
     "delta": null,
     "improved": null,
-    "notes": "PR46 baseline artifact missing in repository path"
+    "notes": "No explicit PR46 baseline provided for this metric row"
   },
   {
     "mode": "prior_plus_support_content_only",
@@ -426,7 +430,7 @@
     "pr47_value": 1.0,
     "delta": null,
     "improved": null,
-    "notes": "PR46 baseline artifact missing in repository path"
+    "notes": "No explicit PR46 baseline provided for this metric row"
   },
   {
     "mode": "prior_plus_support_content_only",
@@ -437,51 +441,51 @@
     "pr47_value": 0,
     "delta": null,
     "improved": null,
-    "notes": "PR46 baseline artifact missing in repository path"
+    "notes": "No explicit PR46 baseline provided for this metric row"
   },
   {
     "mode": "prior_plus_support_content_only",
     "question_number": 5,
     "question_id": "q05_there_is_a_gigantic_tree_growing_in_hemp",
     "metric": "unknown_lane_ratio",
-    "pr46_value": null,
-    "pr47_value": null,
-    "delta": null,
-    "improved": null,
-    "notes": "PR46 baseline artifact missing in repository path"
+    "pr46_value": 0.8864,
+    "pr47_value": 0.0,
+    "delta": -0.8864,
+    "improved": true,
+    "notes": "PR46 baseline from PR46 recorded targets for tracked questions/modes"
   },
   {
     "mode": "prior_plus_support_content_only",
     "question_number": 5,
     "question_id": "q05_there_is_a_gigantic_tree_growing_in_hemp",
     "metric": "support_burial_depth",
-    "pr46_value": null,
-    "pr47_value": null,
-    "delta": null,
-    "improved": null,
-    "notes": "PR46 baseline artifact missing in repository path"
+    "pr46_value": 36,
+    "pr47_value": 22,
+    "delta": -14,
+    "improved": true,
+    "notes": "PR46 baseline from PR46 recorded targets for tracked questions/modes"
   },
   {
     "mode": "prior_plus_support_content_only",
     "question_number": 5,
     "question_id": "q05_there_is_a_gigantic_tree_growing_in_hemp",
     "metric": "support_token_share",
-    "pr46_value": null,
-    "pr47_value": null,
-    "delta": null,
-    "improved": null,
-    "notes": "PR46 baseline artifact missing in repository path"
+    "pr46_value": 0.2393,
+    "pr47_value": 0.399,
+    "delta": 0.1597,
+    "improved": true,
+    "notes": "PR46 baseline from PR46 recorded targets for tracked questions/modes"
   },
   {
     "mode": "prior_plus_support_content_only",
     "question_number": 5,
     "question_id": "q05_there_is_a_gigantic_tree_growing_in_hemp",
     "metric": "llm_usability.score_1_to_5",
-    "pr46_value": null,
-    "pr47_value": null,
-    "delta": null,
-    "improved": null,
-    "notes": "PR46 baseline artifact missing in repository path"
+    "pr46_value": 2,
+    "pr47_value": 4,
+    "delta": 2,
+    "improved": true,
+    "notes": "PR46 baseline from PR46 recorded targets for tracked questions/modes"
   },
   {
     "mode": "prior_plus_support_content_only",
@@ -489,10 +493,12 @@
     "question_id": "q05_there_is_a_gigantic_tree_growing_in_hemp",
     "metric": "flags",
     "pr46_value": null,
-    "pr47_value": null,
+    "pr47_value": [
+      "support_buried_deep"
+    ],
     "delta": null,
     "improved": null,
-    "notes": "PR46 baseline artifact missing in repository path"
+    "notes": "No explicit PR46 baseline provided for this metric row"
   },
   {
     "mode": "prior_plus_support_content_only",
@@ -503,7 +509,7 @@
     "pr47_value": 1.0,
     "delta": null,
     "improved": null,
-    "notes": "PR46 baseline artifact missing in repository path"
+    "notes": "No explicit PR46 baseline provided for this metric row"
   },
   {
     "mode": "prior_plus_support_content_only",
@@ -514,7 +520,7 @@
     "pr47_value": 1.0,
     "delta": null,
     "improved": null,
-    "notes": "PR46 baseline artifact missing in repository path"
+    "notes": "No explicit PR46 baseline provided for this metric row"
   },
   {
     "mode": "prior_plus_support_content_only",
@@ -525,7 +531,7 @@
     "pr47_value": 0,
     "delta": null,
     "improved": null,
-    "notes": "PR46 baseline artifact missing in repository path"
+    "notes": "No explicit PR46 baseline provided for this metric row"
   },
   {
     "mode": "prior_plus_support_content_plus_lexical_hints",
@@ -533,10 +539,10 @@
     "question_id": "q01_who_are_the_npcs_the_players_encountered",
     "metric": "unknown_lane_ratio",
     "pr46_value": null,
-    "pr47_value": null,
+    "pr47_value": 0.0,
     "delta": null,
     "improved": null,
-    "notes": "PR46 baseline artifact missing in repository path"
+    "notes": "No explicit PR46 baseline provided for this metric row"
   },
   {
     "mode": "prior_plus_support_content_plus_lexical_hints",
@@ -547,7 +553,7 @@
     "pr47_value": null,
     "delta": null,
     "improved": null,
-    "notes": "PR46 baseline artifact missing in repository path"
+    "notes": "No explicit PR46 baseline provided for this metric row"
   },
   {
     "mode": "prior_plus_support_content_plus_lexical_hints",
@@ -555,10 +561,10 @@
     "question_id": "q01_who_are_the_npcs_the_players_encountered",
     "metric": "support_token_share",
     "pr46_value": null,
-    "pr47_value": null,
+    "pr47_value": 0.0,
     "delta": null,
     "improved": null,
-    "notes": "PR46 baseline artifact missing in repository path"
+    "notes": "No explicit PR46 baseline provided for this metric row"
   },
   {
     "mode": "prior_plus_support_content_plus_lexical_hints",
@@ -566,10 +572,10 @@
     "question_id": "q01_who_are_the_npcs_the_players_encountered",
     "metric": "llm_usability.score_1_to_5",
     "pr46_value": null,
-    "pr47_value": null,
+    "pr47_value": 4,
     "delta": null,
     "improved": null,
-    "notes": "PR46 baseline artifact missing in repository path"
+    "notes": "No explicit PR46 baseline provided for this metric row"
   },
   {
     "mode": "prior_plus_support_content_plus_lexical_hints",
@@ -577,10 +583,12 @@
     "question_id": "q01_who_are_the_npcs_the_players_encountered",
     "metric": "flags",
     "pr46_value": null,
-    "pr47_value": null,
+    "pr47_value": [
+      "no_support_in_support_mode"
+    ],
     "delta": null,
     "improved": null,
-    "notes": "PR46 baseline artifact missing in repository path"
+    "notes": "No explicit PR46 baseline provided for this metric row"
   },
   {
     "mode": "prior_plus_support_content_plus_lexical_hints",
@@ -591,7 +599,7 @@
     "pr47_value": 1.0,
     "delta": null,
     "improved": null,
-    "notes": "PR46 baseline artifact missing in repository path"
+    "notes": "No explicit PR46 baseline provided for this metric row"
   },
   {
     "mode": "prior_plus_support_content_plus_lexical_hints",
@@ -602,7 +610,7 @@
     "pr47_value": 1.0,
     "delta": null,
     "improved": null,
-    "notes": "PR46 baseline artifact missing in repository path"
+    "notes": "No explicit PR46 baseline provided for this metric row"
   },
   {
     "mode": "prior_plus_support_content_plus_lexical_hints",
@@ -613,7 +621,7 @@
     "pr47_value": 0,
     "delta": null,
     "improved": null,
-    "notes": "PR46 baseline artifact missing in repository path"
+    "notes": "No explicit PR46 baseline provided for this metric row"
   },
   {
     "mode": "prior_plus_support_content_plus_lexical_hints",
@@ -621,10 +629,10 @@
     "question_id": "q03_how_far_away_is_mirathorn_at_this_point",
     "metric": "unknown_lane_ratio",
     "pr46_value": null,
-    "pr47_value": null,
+    "pr47_value": 0.0,
     "delta": null,
     "improved": null,
-    "notes": "PR46 baseline artifact missing in repository path"
+    "notes": "No explicit PR46 baseline provided for this metric row"
   },
   {
     "mode": "prior_plus_support_content_plus_lexical_hints",
@@ -635,7 +643,7 @@
     "pr47_value": null,
     "delta": null,
     "improved": null,
-    "notes": "PR46 baseline artifact missing in repository path"
+    "notes": "No explicit PR46 baseline provided for this metric row"
   },
   {
     "mode": "prior_plus_support_content_plus_lexical_hints",
@@ -643,10 +651,10 @@
     "question_id": "q03_how_far_away_is_mirathorn_at_this_point",
     "metric": "support_token_share",
     "pr46_value": null,
-    "pr47_value": null,
+    "pr47_value": 0.0,
     "delta": null,
     "improved": null,
-    "notes": "PR46 baseline artifact missing in repository path"
+    "notes": "No explicit PR46 baseline provided for this metric row"
   },
   {
     "mode": "prior_plus_support_content_plus_lexical_hints",
@@ -654,10 +662,10 @@
     "question_id": "q03_how_far_away_is_mirathorn_at_this_point",
     "metric": "llm_usability.score_1_to_5",
     "pr46_value": null,
-    "pr47_value": null,
+    "pr47_value": 4,
     "delta": null,
     "improved": null,
-    "notes": "PR46 baseline artifact missing in repository path"
+    "notes": "No explicit PR46 baseline provided for this metric row"
   },
   {
     "mode": "prior_plus_support_content_plus_lexical_hints",
@@ -665,10 +673,12 @@
     "question_id": "q03_how_far_away_is_mirathorn_at_this_point",
     "metric": "flags",
     "pr46_value": null,
-    "pr47_value": null,
+    "pr47_value": [
+      "no_support_in_support_mode"
+    ],
     "delta": null,
     "improved": null,
-    "notes": "PR46 baseline artifact missing in repository path"
+    "notes": "No explicit PR46 baseline provided for this metric row"
   },
   {
     "mode": "prior_plus_support_content_plus_lexical_hints",
@@ -679,7 +689,7 @@
     "pr47_value": 1.0,
     "delta": null,
     "improved": null,
-    "notes": "PR46 baseline artifact missing in repository path"
+    "notes": "No explicit PR46 baseline provided for this metric row"
   },
   {
     "mode": "prior_plus_support_content_plus_lexical_hints",
@@ -690,7 +700,7 @@
     "pr47_value": 1.0,
     "delta": null,
     "improved": null,
-    "notes": "PR46 baseline artifact missing in repository path"
+    "notes": "No explicit PR46 baseline provided for this metric row"
   },
   {
     "mode": "prior_plus_support_content_plus_lexical_hints",
@@ -701,51 +711,51 @@
     "pr47_value": 0,
     "delta": null,
     "improved": null,
-    "notes": "PR46 baseline artifact missing in repository path"
+    "notes": "No explicit PR46 baseline provided for this metric row"
   },
   {
     "mode": "prior_plus_support_content_plus_lexical_hints",
     "question_number": 5,
     "question_id": "q05_there_is_a_gigantic_tree_growing_in_hemp",
     "metric": "unknown_lane_ratio",
-    "pr46_value": null,
-    "pr47_value": null,
-    "delta": null,
-    "improved": null,
-    "notes": "PR46 baseline artifact missing in repository path"
+    "pr46_value": 0.907,
+    "pr47_value": 0.0,
+    "delta": -0.907,
+    "improved": true,
+    "notes": "PR46 baseline from PR46 recorded targets for tracked questions/modes"
   },
   {
     "mode": "prior_plus_support_content_plus_lexical_hints",
     "question_number": 5,
     "question_id": "q05_there_is_a_gigantic_tree_growing_in_hemp",
     "metric": "support_burial_depth",
-    "pr46_value": null,
-    "pr47_value": null,
-    "delta": null,
-    "improved": null,
-    "notes": "PR46 baseline artifact missing in repository path"
+    "pr46_value": 26,
+    "pr47_value": 21,
+    "delta": -5,
+    "improved": true,
+    "notes": "PR46 baseline from PR46 recorded targets for tracked questions/modes"
   },
   {
     "mode": "prior_plus_support_content_plus_lexical_hints",
     "question_number": 5,
     "question_id": "q05_there_is_a_gigantic_tree_growing_in_hemp",
     "metric": "support_token_share",
-    "pr46_value": null,
-    "pr47_value": null,
-    "delta": null,
-    "improved": null,
-    "notes": "PR46 baseline artifact missing in repository path"
+    "pr46_value": 0.2446,
+    "pr47_value": 0.4599,
+    "delta": 0.21529999999999996,
+    "improved": true,
+    "notes": "PR46 baseline from PR46 recorded targets for tracked questions/modes"
   },
   {
     "mode": "prior_plus_support_content_plus_lexical_hints",
     "question_number": 5,
     "question_id": "q05_there_is_a_gigantic_tree_growing_in_hemp",
     "metric": "llm_usability.score_1_to_5",
-    "pr46_value": null,
-    "pr47_value": null,
-    "delta": null,
-    "improved": null,
-    "notes": "PR46 baseline artifact missing in repository path"
+    "pr46_value": 2,
+    "pr47_value": 4,
+    "delta": 2,
+    "improved": true,
+    "notes": "PR46 baseline from PR46 recorded targets for tracked questions/modes"
   },
   {
     "mode": "prior_plus_support_content_plus_lexical_hints",
@@ -753,10 +763,12 @@
     "question_id": "q05_there_is_a_gigantic_tree_growing_in_hemp",
     "metric": "flags",
     "pr46_value": null,
-    "pr47_value": null,
+    "pr47_value": [
+      "support_buried_deep"
+    ],
     "delta": null,
     "improved": null,
-    "notes": "PR46 baseline artifact missing in repository path"
+    "notes": "No explicit PR46 baseline provided for this metric row"
   },
   {
     "mode": "prior_plus_support_content_plus_lexical_hints",
@@ -767,7 +779,7 @@
     "pr47_value": 1.0,
     "delta": null,
     "improved": null,
-    "notes": "PR46 baseline artifact missing in repository path"
+    "notes": "No explicit PR46 baseline provided for this metric row"
   },
   {
     "mode": "prior_plus_support_content_plus_lexical_hints",
@@ -778,7 +790,7 @@
     "pr47_value": 1.0,
     "delta": null,
     "improved": null,
-    "notes": "PR46 baseline artifact missing in repository path"
+    "notes": "No explicit PR46 baseline provided for this metric row"
   },
   {
     "mode": "prior_plus_support_content_plus_lexical_hints",
@@ -789,6 +801,6 @@
     "pr47_value": 0,
     "delta": null,
     "improved": null,
-    "notes": "PR46 baseline artifact missing in repository path"
+    "notes": "No explicit PR46 baseline provided for this metric row"
   }
 ]

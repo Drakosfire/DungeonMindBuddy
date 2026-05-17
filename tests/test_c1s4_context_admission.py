@@ -36,8 +36,11 @@ def test_prior_only_never_admits_support_under_lane_budgeted_policy():
 
 def test_lane_budgeted_admission_reduces_support_burial_for_support_profile():
     cands = [_cand(f's{i}', 'session_memory', 'filler '*20) for i in range(1, 30)]
-    cands.append(_cand('support:late', 'support_knowledge_card', 'Hempholm magical metallic merchant tree'))
+    cands.append(_cand('support:late', 'support_knowledge_card', 'Hempholm magical metallic merchant tree ' + ('lore '*500)))
     plan = build_lane_plan(question_text='Describe Hempholm magical metallic merchant tree', retrieval_mode='prior_plus_support_content_only')
     out = build_lane_budgeted_admission(question_text='Describe Hempholm magical metallic merchant tree', retrieval_mode='prior_plus_support_content_only', candidates=cands, lane_plan=plan)
     hit = next(i for i in out['admitted_context'] if i['source_kind'] == 'support_knowledge_card')
-    assert hit['admission_reason'].startswith('lane_')
+    # flat budgeted_v1 would exclude this late support entirely for this fixture; lane budget should admit it
+    flat = build_budgeted_admission(question_text='Describe Hempholm magical metallic merchant tree', retrieval_mode='prior_plus_support_content_only', candidates=cands)
+    assert not any(i['source_kind'] == 'support_knowledge_card' for i in flat['admitted_context'])
+    assert hit['admitted_rank'] is not None
