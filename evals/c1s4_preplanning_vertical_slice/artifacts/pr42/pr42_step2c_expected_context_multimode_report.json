@@ -54,7 +54,7 @@
               "group_id": "stone_bridge_flood_aftermath",
               "ok": true,
               "min_hits": 1,
-              "hit_count": 9,
+              "hit_count": 47,
               "matched_context_refs": [
                 "u-L0034-01",
                 "u-L0003-01",
@@ -64,14 +64,52 @@
                 "u-L0041-04",
                 "u-L0034-04",
                 "u-L0041-06",
-                "u-L0005-02"
+                "u-L0005-02",
+                "u-L0034-02",
+                "u-L0034-03",
+                "u-L0034-05",
+                "u-L0040-06",
+                "u-L0040-11",
+                "u-L0011-01",
+                "u-L0011-02",
+                "u-L0036-01",
+                "u-L0040-09",
+                "u-L0043-02",
+                "u-L0043-03",
+                "meta-session-0003-locations",
+                "u-L0013-01",
+                "u-L0040-02",
+                "u-L0040-08",
+                "u-L0041-01",
+                "u-L0041-02",
+                "u-L0041-03",
+                "u-L0043-04",
+                "u-L0045-01",
+                "meta-session-0001-locations",
+                "u-L0040-01",
+                "u-L0040-04",
+                "u-L0040-05",
+                "u-L0040-07",
+                "u-L0040-10",
+                "meta-session-0002-locations",
+                "u-L0005-01",
+                "u-L0036-02",
+                "u-L0004-01",
+                "u-L0007-01",
+                "u-L0036-05",
+                "u-L0036-06",
+                "u-L0036-04",
+                "u-L0040-03",
+                "u-L0004-02",
+                "u-L0007-03",
+                "u-L0017-01"
               ]
             },
             {
               "group_id": "pippa_bubbles_grishna_social_context",
               "ok": true,
               "min_hits": 1,
-              "hit_count": 7,
+              "hit_count": 40,
               "matched_context_refs": [
                 "u-L0034-01",
                 "u-L0041-05",
@@ -79,17 +117,68 @@
                 "u-L0041-04",
                 "u-L0034-04",
                 "u-L0041-06",
-                "u-L0005-02"
+                "u-L0005-02",
+                "u-L0034-02",
+                "u-L0034-03",
+                "u-L0034-05",
+                "u-L0040-06",
+                "u-L0040-11",
+                "u-L0011-02",
+                "u-L0036-01",
+                "u-L0040-09",
+                "u-L0043-02",
+                "u-L0043-03",
+                "meta-session-0003-locations",
+                "u-L0040-02",
+                "u-L0040-08",
+                "u-L0041-01",
+                "u-L0041-02",
+                "u-L0041-03",
+                "u-L0043-04",
+                "u-L0045-01",
+                "meta-session-0001-locations",
+                "u-L0040-01",
+                "u-L0040-04",
+                "u-L0040-05",
+                "u-L0040-07",
+                "u-L0040-10",
+                "meta-session-0002-locations",
+                "u-L0036-02",
+                "u-L0004-01",
+                "u-L0007-01",
+                "u-L0036-05",
+                "u-L0036-06",
+                "u-L0036-04",
+                "u-L0040-03",
+                "u-L0004-02"
               ]
             },
             {
               "group_id": "river_edge_pub_context",
               "ok": true,
               "min_hits": 1,
-              "hit_count": 2,
+              "hit_count": 20,
               "matched_context_refs": [
                 "u-L0034-04",
-                "u-L0005-02"
+                "u-L0005-02",
+                "u-L0034-02",
+                "u-L0034-03",
+                "u-L0034-05",
+                "u-L0040-11",
+                "u-L0011-02",
+                "u-L0036-01",
+                "u-L0043-02",
+                "u-L0043-03",
+                "meta-session-0003-locations",
+                "u-L0040-02",
+                "u-L0043-04",
+                "u-L0045-01",
+                "meta-session-0001-locations",
+                "u-L0040-01",
+                "meta-session-0002-locations",
+                "u-L0005-01",
+                "u-L0036-02",
+                "u-L0007-01"
               ]
             }
           ],
@@ -263,10 +352,10 @@
                 "session_memory": 9
               },
               "top_20": {
-                "session_memory": 9
+                "session_memory": 20
               },
               "top_50": {
-                "session_memory": 9
+                "session_memory": 50
               }
             }
           },
@@ -388,14 +477,14 @@
                 "budget_chars": null
               },
               "flat_ranked_4000_chars": {
-                "admitted_items": 9,
-                "admitted_chars": 1215,
-                "estimated_tokens": 304,
+                "admitted_items": 32,
+                "admitted_chars": 3955,
+                "estimated_tokens": 989,
                 "source_kind_counts": {
-                  "session_memory": 9
+                  "session_memory": 32
                 },
                 "source_kind_chars": {
-                  "session_memory": 1215
+                  "session_memory": 3955
                 },
                 "admitted_preview": [
                   {
@@ -491,6 +580,42 @@
                     "ref": "u-L0005-02",
                     "source_kind": "session_memory",
                     "estimated_chars": 233,
+                    "matched_required_groups": [
+                      "stone_bridge_flood_aftermath",
+                      "pippa_bubbles_grishna_social_context",
+                      "river_edge_pub_context"
+                    ]
+                  },
+                  {
+                    "admitted_rank": 10,
+                    "candidate_rank": 10,
+                    "ref": "u-L0034-02",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 192,
+                    "matched_required_groups": [
+                      "stone_bridge_flood_aftermath",
+                      "pippa_bubbles_grishna_social_context",
+                      "river_edge_pub_context"
+                    ]
+                  },
+                  {
+                    "admitted_rank": 11,
+                    "candidate_rank": 11,
+                    "ref": "u-L0034-03",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 85,
+                    "matched_required_groups": [
+                      "stone_bridge_flood_aftermath",
+                      "pippa_bubbles_grishna_social_context",
+                      "river_edge_pub_context"
+                    ]
+                  },
+                  {
+                    "admitted_rank": 12,
+                    "candidate_rank": 12,
+                    "ref": "u-L0034-05",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 152,
                     "matched_required_groups": [
                       "stone_bridge_flood_aftermath",
                       "pippa_bubbles_grishna_social_context",
@@ -501,14 +626,14 @@
                 "budget_chars": 4000
               },
               "flat_ranked_8000_chars": {
-                "admitted_items": 9,
-                "admitted_chars": 1215,
-                "estimated_tokens": 304,
+                "admitted_items": 50,
+                "admitted_chars": 6542,
+                "estimated_tokens": 1636,
                 "source_kind_counts": {
-                  "session_memory": 9
+                  "session_memory": 50
                 },
                 "source_kind_chars": {
-                  "session_memory": 1215
+                  "session_memory": 6542
                 },
                 "admitted_preview": [
                   {
@@ -604,6 +729,42 @@
                     "ref": "u-L0005-02",
                     "source_kind": "session_memory",
                     "estimated_chars": 233,
+                    "matched_required_groups": [
+                      "stone_bridge_flood_aftermath",
+                      "pippa_bubbles_grishna_social_context",
+                      "river_edge_pub_context"
+                    ]
+                  },
+                  {
+                    "admitted_rank": 10,
+                    "candidate_rank": 10,
+                    "ref": "u-L0034-02",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 192,
+                    "matched_required_groups": [
+                      "stone_bridge_flood_aftermath",
+                      "pippa_bubbles_grishna_social_context",
+                      "river_edge_pub_context"
+                    ]
+                  },
+                  {
+                    "admitted_rank": 11,
+                    "candidate_rank": 11,
+                    "ref": "u-L0034-03",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 85,
+                    "matched_required_groups": [
+                      "stone_bridge_flood_aftermath",
+                      "pippa_bubbles_grishna_social_context",
+                      "river_edge_pub_context"
+                    ]
+                  },
+                  {
+                    "admitted_rank": 12,
+                    "candidate_rank": 12,
+                    "ref": "u-L0034-05",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 152,
                     "matched_required_groups": [
                       "stone_bridge_flood_aftermath",
                       "pippa_bubbles_grishna_social_context",
@@ -614,14 +775,14 @@
                 "budget_chars": 8000
               },
               "flat_ranked_12000_chars": {
-                "admitted_items": 9,
-                "admitted_chars": 1215,
-                "estimated_tokens": 304,
+                "admitted_items": 50,
+                "admitted_chars": 6542,
+                "estimated_tokens": 1636,
                 "source_kind_counts": {
-                  "session_memory": 9
+                  "session_memory": 50
                 },
                 "source_kind_chars": {
-                  "session_memory": 1215
+                  "session_memory": 6542
                 },
                 "admitted_preview": [
                   {
@@ -717,6 +878,42 @@
                     "ref": "u-L0005-02",
                     "source_kind": "session_memory",
                     "estimated_chars": 233,
+                    "matched_required_groups": [
+                      "stone_bridge_flood_aftermath",
+                      "pippa_bubbles_grishna_social_context",
+                      "river_edge_pub_context"
+                    ]
+                  },
+                  {
+                    "admitted_rank": 10,
+                    "candidate_rank": 10,
+                    "ref": "u-L0034-02",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 192,
+                    "matched_required_groups": [
+                      "stone_bridge_flood_aftermath",
+                      "pippa_bubbles_grishna_social_context",
+                      "river_edge_pub_context"
+                    ]
+                  },
+                  {
+                    "admitted_rank": 11,
+                    "candidate_rank": 11,
+                    "ref": "u-L0034-03",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 85,
+                    "matched_required_groups": [
+                      "stone_bridge_flood_aftermath",
+                      "pippa_bubbles_grishna_social_context",
+                      "river_edge_pub_context"
+                    ]
+                  },
+                  {
+                    "admitted_rank": 12,
+                    "candidate_rank": 12,
+                    "ref": "u-L0034-05",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 152,
                     "matched_required_groups": [
                       "stone_bridge_flood_aftermath",
                       "pippa_bubbles_grishna_social_context",
@@ -727,14 +924,14 @@
                 "budget_chars": 12000
               },
               "support_reserved_25pct_8000_chars": {
-                "admitted_items": 9,
-                "admitted_chars": 1215,
-                "estimated_tokens": 304,
+                "admitted_items": 46,
+                "admitted_chars": 5898,
+                "estimated_tokens": 1475,
                 "source_kind_counts": {
-                  "session_memory": 9
+                  "session_memory": 46
                 },
                 "source_kind_chars": {
-                  "session_memory": 1215
+                  "session_memory": 5898
                 },
                 "admitted_preview": [
                   {
@@ -830,6 +1027,42 @@
                     "ref": "u-L0005-02",
                     "source_kind": "session_memory",
                     "estimated_chars": 233,
+                    "matched_required_groups": [
+                      "stone_bridge_flood_aftermath",
+                      "pippa_bubbles_grishna_social_context",
+                      "river_edge_pub_context"
+                    ]
+                  },
+                  {
+                    "admitted_rank": 10,
+                    "candidate_rank": 10,
+                    "ref": "u-L0034-02",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 192,
+                    "matched_required_groups": [
+                      "stone_bridge_flood_aftermath",
+                      "pippa_bubbles_grishna_social_context",
+                      "river_edge_pub_context"
+                    ]
+                  },
+                  {
+                    "admitted_rank": 11,
+                    "candidate_rank": 11,
+                    "ref": "u-L0034-03",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 85,
+                    "matched_required_groups": [
+                      "stone_bridge_flood_aftermath",
+                      "pippa_bubbles_grishna_social_context",
+                      "river_edge_pub_context"
+                    ]
+                  },
+                  {
+                    "admitted_rank": 12,
+                    "candidate_rank": 12,
+                    "ref": "u-L0034-05",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 152,
                     "matched_required_groups": [
                       "stone_bridge_flood_aftermath",
                       "pippa_bubbles_grishna_social_context",
@@ -842,14 +1075,14 @@
                 "general_budget_chars": 6000
               },
               "support_reserved_35pct_8000_chars": {
-                "admitted_items": 9,
-                "admitted_chars": 1215,
-                "estimated_tokens": 304,
+                "admitted_items": 41,
+                "admitted_chars": 5179,
+                "estimated_tokens": 1295,
                 "source_kind_counts": {
-                  "session_memory": 9
+                  "session_memory": 41
                 },
                 "source_kind_chars": {
-                  "session_memory": 1215
+                  "session_memory": 5179
                 },
                 "admitted_preview": [
                   {
@@ -945,6 +1178,42 @@
                     "ref": "u-L0005-02",
                     "source_kind": "session_memory",
                     "estimated_chars": 233,
+                    "matched_required_groups": [
+                      "stone_bridge_flood_aftermath",
+                      "pippa_bubbles_grishna_social_context",
+                      "river_edge_pub_context"
+                    ]
+                  },
+                  {
+                    "admitted_rank": 10,
+                    "candidate_rank": 10,
+                    "ref": "u-L0034-02",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 192,
+                    "matched_required_groups": [
+                      "stone_bridge_flood_aftermath",
+                      "pippa_bubbles_grishna_social_context",
+                      "river_edge_pub_context"
+                    ]
+                  },
+                  {
+                    "admitted_rank": 11,
+                    "candidate_rank": 11,
+                    "ref": "u-L0034-03",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 85,
+                    "matched_required_groups": [
+                      "stone_bridge_flood_aftermath",
+                      "pippa_bubbles_grishna_social_context",
+                      "river_edge_pub_context"
+                    ]
+                  },
+                  {
+                    "admitted_rank": 12,
+                    "candidate_rank": 12,
+                    "ref": "u-L0034-05",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 152,
                     "matched_required_groups": [
                       "stone_bridge_flood_aftermath",
                       "pippa_bubbles_grishna_social_context",
@@ -1198,10 +1467,10 @@
                 "session_memory": 9
               },
               "top_20": {
-                "session_memory": 9
+                "session_memory": 20
               },
               "top_50": {
-                "session_memory": 9
+                "session_memory": 50
               }
             }
           },
@@ -1296,14 +1565,14 @@
                 "budget_chars": null
               },
               "flat_ranked_4000_chars": {
-                "admitted_items": 9,
-                "admitted_chars": 1653,
-                "estimated_tokens": 414,
+                "admitted_items": 31,
+                "admitted_chars": 3990,
+                "estimated_tokens": 998,
                 "source_kind_counts": {
-                  "session_memory": 9
+                  "session_memory": 31
                 },
                 "source_kind_chars": {
-                  "session_memory": 1653
+                  "session_memory": 3990
                 },
                 "admitted_preview": [
                   {
@@ -1376,20 +1645,44 @@
                     "ref": "u-L0011-02",
                     "source_kind": "session_memory",
                     "estimated_chars": 79,
+                    "matched_required_groups": []
+                  },
+                  {
+                    "admitted_rank": 10,
+                    "candidate_rank": 10,
+                    "ref": "u-L0036-01",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 75,
+                    "matched_required_groups": []
+                  },
+                  {
+                    "admitted_rank": 11,
+                    "candidate_rank": 11,
+                    "ref": "u-L0043-02",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 126,
+                    "matched_required_groups": []
+                  },
+                  {
+                    "admitted_rank": 12,
+                    "candidate_rank": 12,
+                    "ref": "u-L0043-03",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 129,
                     "matched_required_groups": []
                   }
                 ],
                 "budget_chars": 4000
               },
               "flat_ranked_8000_chars": {
-                "admitted_items": 9,
-                "admitted_chars": 1653,
-                "estimated_tokens": 414,
+                "admitted_items": 50,
+                "admitted_chars": 6249,
+                "estimated_tokens": 1563,
                 "source_kind_counts": {
-                  "session_memory": 9
+                  "session_memory": 50
                 },
                 "source_kind_chars": {
-                  "session_memory": 1653
+                  "session_memory": 6249
                 },
                 "admitted_preview": [
                   {
@@ -1462,20 +1755,44 @@
                     "ref": "u-L0011-02",
                     "source_kind": "session_memory",
                     "estimated_chars": 79,
+                    "matched_required_groups": []
+                  },
+                  {
+                    "admitted_rank": 10,
+                    "candidate_rank": 10,
+                    "ref": "u-L0036-01",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 75,
+                    "matched_required_groups": []
+                  },
+                  {
+                    "admitted_rank": 11,
+                    "candidate_rank": 11,
+                    "ref": "u-L0043-02",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 126,
+                    "matched_required_groups": []
+                  },
+                  {
+                    "admitted_rank": 12,
+                    "candidate_rank": 12,
+                    "ref": "u-L0043-03",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 129,
                     "matched_required_groups": []
                   }
                 ],
                 "budget_chars": 8000
               },
               "flat_ranked_12000_chars": {
-                "admitted_items": 9,
-                "admitted_chars": 1653,
-                "estimated_tokens": 414,
+                "admitted_items": 50,
+                "admitted_chars": 6249,
+                "estimated_tokens": 1563,
                 "source_kind_counts": {
-                  "session_memory": 9
+                  "session_memory": 50
                 },
                 "source_kind_chars": {
-                  "session_memory": 1653
+                  "session_memory": 6249
                 },
                 "admitted_preview": [
                   {
@@ -1548,20 +1865,44 @@
                     "ref": "u-L0011-02",
                     "source_kind": "session_memory",
                     "estimated_chars": 79,
+                    "matched_required_groups": []
+                  },
+                  {
+                    "admitted_rank": 10,
+                    "candidate_rank": 10,
+                    "ref": "u-L0036-01",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 75,
+                    "matched_required_groups": []
+                  },
+                  {
+                    "admitted_rank": 11,
+                    "candidate_rank": 11,
+                    "ref": "u-L0043-02",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 126,
+                    "matched_required_groups": []
+                  },
+                  {
+                    "admitted_rank": 12,
+                    "candidate_rank": 12,
+                    "ref": "u-L0043-03",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 129,
                     "matched_required_groups": []
                   }
                 ],
                 "budget_chars": 12000
               },
               "support_reserved_25pct_8000_chars": {
-                "admitted_items": 9,
-                "admitted_chars": 1653,
-                "estimated_tokens": 414,
+                "admitted_items": 47,
+                "admitted_chars": 6000,
+                "estimated_tokens": 1500,
                 "source_kind_counts": {
-                  "session_memory": 9
+                  "session_memory": 47
                 },
                 "source_kind_chars": {
-                  "session_memory": 1653
+                  "session_memory": 6000
                 },
                 "admitted_preview": [
                   {
@@ -1634,6 +1975,30 @@
                     "ref": "u-L0011-02",
                     "source_kind": "session_memory",
                     "estimated_chars": 79,
+                    "matched_required_groups": []
+                  },
+                  {
+                    "admitted_rank": 10,
+                    "candidate_rank": 10,
+                    "ref": "u-L0036-01",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 75,
+                    "matched_required_groups": []
+                  },
+                  {
+                    "admitted_rank": 11,
+                    "candidate_rank": 11,
+                    "ref": "u-L0043-02",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 126,
+                    "matched_required_groups": []
+                  },
+                  {
+                    "admitted_rank": 12,
+                    "candidate_rank": 12,
+                    "ref": "u-L0043-03",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 129,
                     "matched_required_groups": []
                   }
                 ],
@@ -1642,14 +2007,14 @@
                 "general_budget_chars": 6000
               },
               "support_reserved_35pct_8000_chars": {
-                "admitted_items": 9,
-                "admitted_chars": 1653,
-                "estimated_tokens": 414,
+                "admitted_items": 39,
+                "admitted_chars": 5166,
+                "estimated_tokens": 1292,
                 "source_kind_counts": {
-                  "session_memory": 9
+                  "session_memory": 39
                 },
                 "source_kind_chars": {
-                  "session_memory": 1653
+                  "session_memory": 5166
                 },
                 "admitted_preview": [
                   {
@@ -1722,6 +2087,30 @@
                     "ref": "u-L0011-02",
                     "source_kind": "session_memory",
                     "estimated_chars": 79,
+                    "matched_required_groups": []
+                  },
+                  {
+                    "admitted_rank": 10,
+                    "candidate_rank": 10,
+                    "ref": "u-L0036-01",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 75,
+                    "matched_required_groups": []
+                  },
+                  {
+                    "admitted_rank": 11,
+                    "candidate_rank": 11,
+                    "ref": "u-L0043-02",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 126,
+                    "matched_required_groups": []
+                  },
+                  {
+                    "admitted_rank": 12,
+                    "candidate_rank": 12,
+                    "ref": "u-L0043-03",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 129,
                     "matched_required_groups": []
                   }
                 ],
@@ -1865,10 +2254,10 @@
                 "session_memory": 9
               },
               "top_20": {
-                "session_memory": 9
+                "session_memory": 20
               },
               "top_50": {
-                "session_memory": 9
+                "session_memory": 50
               }
             }
           },
@@ -1963,14 +2352,14 @@
                 "budget_chars": null
               },
               "flat_ranked_4000_chars": {
-                "admitted_items": 9,
-                "admitted_chars": 1740,
-                "estimated_tokens": 435,
+                "admitted_items": 23,
+                "admitted_chars": 3995,
+                "estimated_tokens": 999,
                 "source_kind_counts": {
-                  "session_memory": 9
+                  "session_memory": 23
                 },
                 "source_kind_chars": {
-                  "session_memory": 1740
+                  "session_memory": 3995
                 },
                 "admitted_preview": [
                   {
@@ -2043,20 +2432,44 @@
                     "ref": "u-L0013-01",
                     "source_kind": "session_memory",
                     "estimated_chars": 11,
+                    "matched_required_groups": []
+                  },
+                  {
+                    "admitted_rank": 10,
+                    "candidate_rank": 10,
+                    "ref": "u-L0014-01",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 119,
+                    "matched_required_groups": []
+                  },
+                  {
+                    "admitted_rank": 11,
+                    "candidate_rank": 11,
+                    "ref": "u-L0034-01",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 184,
+                    "matched_required_groups": []
+                  },
+                  {
+                    "admitted_rank": 12,
+                    "candidate_rank": 12,
+                    "ref": "u-L0041-04",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 145,
                     "matched_required_groups": []
                   }
                 ],
                 "budget_chars": 4000
               },
               "flat_ranked_8000_chars": {
-                "admitted_items": 9,
-                "admitted_chars": 1740,
-                "estimated_tokens": 435,
+                "admitted_items": 50,
+                "admitted_chars": 7035,
+                "estimated_tokens": 1759,
                 "source_kind_counts": {
-                  "session_memory": 9
+                  "session_memory": 50
                 },
                 "source_kind_chars": {
-                  "session_memory": 1740
+                  "session_memory": 7035
                 },
                 "admitted_preview": [
                   {
@@ -2129,20 +2542,44 @@
                     "ref": "u-L0013-01",
                     "source_kind": "session_memory",
                     "estimated_chars": 11,
+                    "matched_required_groups": []
+                  },
+                  {
+                    "admitted_rank": 10,
+                    "candidate_rank": 10,
+                    "ref": "u-L0014-01",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 119,
+                    "matched_required_groups": []
+                  },
+                  {
+                    "admitted_rank": 11,
+                    "candidate_rank": 11,
+                    "ref": "u-L0034-01",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 184,
+                    "matched_required_groups": []
+                  },
+                  {
+                    "admitted_rank": 12,
+                    "candidate_rank": 12,
+                    "ref": "u-L0041-04",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 145,
                     "matched_required_groups": []
                   }
                 ],
                 "budget_chars": 8000
               },
               "flat_ranked_12000_chars": {
-                "admitted_items": 9,
-                "admitted_chars": 1740,
-                "estimated_tokens": 435,
+                "admitted_items": 50,
+                "admitted_chars": 7035,
+                "estimated_tokens": 1759,
                 "source_kind_counts": {
-                  "session_memory": 9
+                  "session_memory": 50
                 },
                 "source_kind_chars": {
-                  "session_memory": 1740
+                  "session_memory": 7035
                 },
                 "admitted_preview": [
                   {
@@ -2215,20 +2652,44 @@
                     "ref": "u-L0013-01",
                     "source_kind": "session_memory",
                     "estimated_chars": 11,
+                    "matched_required_groups": []
+                  },
+                  {
+                    "admitted_rank": 10,
+                    "candidate_rank": 10,
+                    "ref": "u-L0014-01",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 119,
+                    "matched_required_groups": []
+                  },
+                  {
+                    "admitted_rank": 11,
+                    "candidate_rank": 11,
+                    "ref": "u-L0034-01",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 184,
+                    "matched_required_groups": []
+                  },
+                  {
+                    "admitted_rank": 12,
+                    "candidate_rank": 12,
+                    "ref": "u-L0041-04",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 145,
                     "matched_required_groups": []
                   }
                 ],
                 "budget_chars": 12000
               },
               "support_reserved_25pct_8000_chars": {
-                "admitted_items": 9,
-                "admitted_chars": 1740,
-                "estimated_tokens": 435,
+                "admitted_items": 39,
+                "admitted_chars": 5982,
+                "estimated_tokens": 1496,
                 "source_kind_counts": {
-                  "session_memory": 9
+                  "session_memory": 39
                 },
                 "source_kind_chars": {
-                  "session_memory": 1740
+                  "session_memory": 5982
                 },
                 "admitted_preview": [
                   {
@@ -2301,6 +2762,30 @@
                     "ref": "u-L0013-01",
                     "source_kind": "session_memory",
                     "estimated_chars": 11,
+                    "matched_required_groups": []
+                  },
+                  {
+                    "admitted_rank": 10,
+                    "candidate_rank": 10,
+                    "ref": "u-L0014-01",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 119,
+                    "matched_required_groups": []
+                  },
+                  {
+                    "admitted_rank": 11,
+                    "candidate_rank": 11,
+                    "ref": "u-L0034-01",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 184,
+                    "matched_required_groups": []
+                  },
+                  {
+                    "admitted_rank": 12,
+                    "candidate_rank": 12,
+                    "ref": "u-L0041-04",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 145,
                     "matched_required_groups": []
                   }
                 ],
@@ -2309,14 +2794,14 @@
                 "general_budget_chars": 6000
               },
               "support_reserved_35pct_8000_chars": {
-                "admitted_items": 9,
-                "admitted_chars": 1740,
-                "estimated_tokens": 435,
+                "admitted_items": 33,
+                "admitted_chars": 5194,
+                "estimated_tokens": 1299,
                 "source_kind_counts": {
-                  "session_memory": 9
+                  "session_memory": 33
                 },
                 "source_kind_chars": {
-                  "session_memory": 1740
+                  "session_memory": 5194
                 },
                 "admitted_preview": [
                   {
@@ -2389,6 +2874,30 @@
                     "ref": "u-L0013-01",
                     "source_kind": "session_memory",
                     "estimated_chars": 11,
+                    "matched_required_groups": []
+                  },
+                  {
+                    "admitted_rank": 10,
+                    "candidate_rank": 10,
+                    "ref": "u-L0014-01",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 119,
+                    "matched_required_groups": []
+                  },
+                  {
+                    "admitted_rank": 11,
+                    "candidate_rank": 11,
+                    "ref": "u-L0034-01",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 184,
+                    "matched_required_groups": []
+                  },
+                  {
+                    "admitted_rank": 12,
+                    "candidate_rank": 12,
+                    "ref": "u-L0041-04",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 145,
                     "matched_required_groups": []
                   }
                 ],
@@ -2413,17 +2922,17 @@
       "counts": {
         "questions_in_gold": 3,
         "questions_evaluated": 3,
-        "rows_ok": 2,
-        "rows_failed": 1,
+        "rows_ok": 3,
+        "rows_failed": 0,
         "required_context_groups": 4,
-        "required_context_groups_hit": 3,
+        "required_context_groups_hit": 4,
         "forbidden_context_group_violations": 0,
         "known_gap_expectations": 1,
         "known_gap_expectations_hit": 1
       },
       "metrics": {
-        "macro_required_group_recall_at_k": 0.75,
-        "row_pass_rate": 0.6666666666666666,
+        "macro_required_group_recall_at_k": 1.0,
+        "row_pass_rate": 1.0,
         "forbidden_context_violation_rate": 0.0,
         "known_gap_recall": 1.0
       },
@@ -2449,7 +2958,7 @@
               "group_id": "stone_bridge_flood_aftermath",
               "ok": true,
               "min_hits": 1,
-              "hit_count": 9,
+              "hit_count": 45,
               "matched_context_refs": [
                 "u-L0034-01",
                 "u-L0003-01",
@@ -2459,14 +2968,50 @@
                 "u-L0041-04",
                 "u-L0034-04",
                 "u-L0041-06",
-                "u-L0005-02"
+                "u-L0005-02",
+                "u-L0034-02",
+                "u-L0034-03",
+                "u-L0034-05",
+                "u-L0040-06",
+                "u-L0040-11",
+                "u-L0011-01",
+                "u-L0011-02",
+                "u-L0036-01",
+                "u-L0040-09",
+                "u-L0043-02",
+                "u-L0043-03",
+                "meta-session-0003-locations",
+                "u-L0013-01",
+                "u-L0040-02",
+                "u-L0040-08",
+                "u-L0041-01",
+                "u-L0041-02",
+                "u-L0041-03",
+                "u-L0043-04",
+                "u-L0045-01",
+                "meta-session-0001-locations",
+                "u-L0040-01",
+                "u-L0040-04",
+                "u-L0040-05",
+                "u-L0040-07",
+                "u-L0040-10",
+                "meta-session-0002-locations",
+                "u-L0005-01",
+                "u-L0036-02",
+                "u-L0004-01",
+                "u-L0007-01",
+                "u-L0036-05",
+                "u-L0036-06",
+                "u-L0036-04",
+                "u-L0040-03",
+                "u-L0004-02"
               ]
             },
             {
               "group_id": "pippa_bubbles_grishna_social_context",
               "ok": true,
               "min_hits": 1,
-              "hit_count": 7,
+              "hit_count": 40,
               "matched_context_refs": [
                 "u-L0034-01",
                 "u-L0041-05",
@@ -2474,17 +3019,68 @@
                 "u-L0041-04",
                 "u-L0034-04",
                 "u-L0041-06",
-                "u-L0005-02"
+                "u-L0005-02",
+                "u-L0034-02",
+                "u-L0034-03",
+                "u-L0034-05",
+                "u-L0040-06",
+                "u-L0040-11",
+                "u-L0011-02",
+                "u-L0036-01",
+                "u-L0040-09",
+                "u-L0043-02",
+                "u-L0043-03",
+                "meta-session-0003-locations",
+                "u-L0040-02",
+                "u-L0040-08",
+                "u-L0041-01",
+                "u-L0041-02",
+                "u-L0041-03",
+                "u-L0043-04",
+                "u-L0045-01",
+                "meta-session-0001-locations",
+                "u-L0040-01",
+                "u-L0040-04",
+                "u-L0040-05",
+                "u-L0040-07",
+                "u-L0040-10",
+                "meta-session-0002-locations",
+                "u-L0036-02",
+                "u-L0004-01",
+                "u-L0007-01",
+                "u-L0036-05",
+                "u-L0036-06",
+                "u-L0036-04",
+                "u-L0040-03",
+                "u-L0004-02"
               ]
             },
             {
               "group_id": "river_edge_pub_context",
               "ok": true,
               "min_hits": 1,
-              "hit_count": 2,
+              "hit_count": 20,
               "matched_context_refs": [
                 "u-L0034-04",
-                "u-L0005-02"
+                "u-L0005-02",
+                "u-L0034-02",
+                "u-L0034-03",
+                "u-L0034-05",
+                "u-L0040-11",
+                "u-L0011-02",
+                "u-L0036-01",
+                "u-L0043-02",
+                "u-L0043-03",
+                "meta-session-0003-locations",
+                "u-L0040-02",
+                "u-L0043-04",
+                "u-L0045-01",
+                "meta-session-0001-locations",
+                "u-L0040-01",
+                "meta-session-0002-locations",
+                "u-L0005-01",
+                "u-L0036-02",
+                "u-L0007-01"
               ]
             }
           ],
@@ -2658,10 +3254,10 @@
                 "session_memory": 9
               },
               "top_20": {
-                "session_memory": 9
+                "session_memory": 20
               },
               "top_50": {
-                "session_memory": 9
+                "session_memory": 50
               }
             }
           },
@@ -2783,14 +3379,14 @@
                 "budget_chars": null
               },
               "flat_ranked_4000_chars": {
-                "admitted_items": 9,
-                "admitted_chars": 1215,
-                "estimated_tokens": 304,
+                "admitted_items": 32,
+                "admitted_chars": 3955,
+                "estimated_tokens": 989,
                 "source_kind_counts": {
-                  "session_memory": 9
+                  "session_memory": 32
                 },
                 "source_kind_chars": {
-                  "session_memory": 1215
+                  "session_memory": 3955
                 },
                 "admitted_preview": [
                   {
@@ -2886,6 +3482,42 @@
                     "ref": "u-L0005-02",
                     "source_kind": "session_memory",
                     "estimated_chars": 233,
+                    "matched_required_groups": [
+                      "stone_bridge_flood_aftermath",
+                      "pippa_bubbles_grishna_social_context",
+                      "river_edge_pub_context"
+                    ]
+                  },
+                  {
+                    "admitted_rank": 10,
+                    "candidate_rank": 10,
+                    "ref": "u-L0034-02",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 192,
+                    "matched_required_groups": [
+                      "stone_bridge_flood_aftermath",
+                      "pippa_bubbles_grishna_social_context",
+                      "river_edge_pub_context"
+                    ]
+                  },
+                  {
+                    "admitted_rank": 11,
+                    "candidate_rank": 11,
+                    "ref": "u-L0034-03",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 85,
+                    "matched_required_groups": [
+                      "stone_bridge_flood_aftermath",
+                      "pippa_bubbles_grishna_social_context",
+                      "river_edge_pub_context"
+                    ]
+                  },
+                  {
+                    "admitted_rank": 12,
+                    "candidate_rank": 12,
+                    "ref": "u-L0034-05",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 152,
                     "matched_required_groups": [
                       "stone_bridge_flood_aftermath",
                       "pippa_bubbles_grishna_social_context",
@@ -2896,14 +3528,14 @@
                 "budget_chars": 4000
               },
               "flat_ranked_8000_chars": {
-                "admitted_items": 9,
-                "admitted_chars": 1215,
-                "estimated_tokens": 304,
+                "admitted_items": 50,
+                "admitted_chars": 6542,
+                "estimated_tokens": 1636,
                 "source_kind_counts": {
-                  "session_memory": 9
+                  "session_memory": 50
                 },
                 "source_kind_chars": {
-                  "session_memory": 1215
+                  "session_memory": 6542
                 },
                 "admitted_preview": [
                   {
@@ -2999,6 +3631,42 @@
                     "ref": "u-L0005-02",
                     "source_kind": "session_memory",
                     "estimated_chars": 233,
+                    "matched_required_groups": [
+                      "stone_bridge_flood_aftermath",
+                      "pippa_bubbles_grishna_social_context",
+                      "river_edge_pub_context"
+                    ]
+                  },
+                  {
+                    "admitted_rank": 10,
+                    "candidate_rank": 10,
+                    "ref": "u-L0034-02",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 192,
+                    "matched_required_groups": [
+                      "stone_bridge_flood_aftermath",
+                      "pippa_bubbles_grishna_social_context",
+                      "river_edge_pub_context"
+                    ]
+                  },
+                  {
+                    "admitted_rank": 11,
+                    "candidate_rank": 11,
+                    "ref": "u-L0034-03",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 85,
+                    "matched_required_groups": [
+                      "stone_bridge_flood_aftermath",
+                      "pippa_bubbles_grishna_social_context",
+                      "river_edge_pub_context"
+                    ]
+                  },
+                  {
+                    "admitted_rank": 12,
+                    "candidate_rank": 12,
+                    "ref": "u-L0034-05",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 152,
                     "matched_required_groups": [
                       "stone_bridge_flood_aftermath",
                       "pippa_bubbles_grishna_social_context",
@@ -3009,14 +3677,14 @@
                 "budget_chars": 8000
               },
               "flat_ranked_12000_chars": {
-                "admitted_items": 9,
-                "admitted_chars": 1215,
-                "estimated_tokens": 304,
+                "admitted_items": 50,
+                "admitted_chars": 6542,
+                "estimated_tokens": 1636,
                 "source_kind_counts": {
-                  "session_memory": 9
+                  "session_memory": 50
                 },
                 "source_kind_chars": {
-                  "session_memory": 1215
+                  "session_memory": 6542
                 },
                 "admitted_preview": [
                   {
@@ -3112,6 +3780,42 @@
                     "ref": "u-L0005-02",
                     "source_kind": "session_memory",
                     "estimated_chars": 233,
+                    "matched_required_groups": [
+                      "stone_bridge_flood_aftermath",
+                      "pippa_bubbles_grishna_social_context",
+                      "river_edge_pub_context"
+                    ]
+                  },
+                  {
+                    "admitted_rank": 10,
+                    "candidate_rank": 10,
+                    "ref": "u-L0034-02",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 192,
+                    "matched_required_groups": [
+                      "stone_bridge_flood_aftermath",
+                      "pippa_bubbles_grishna_social_context",
+                      "river_edge_pub_context"
+                    ]
+                  },
+                  {
+                    "admitted_rank": 11,
+                    "candidate_rank": 11,
+                    "ref": "u-L0034-03",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 85,
+                    "matched_required_groups": [
+                      "stone_bridge_flood_aftermath",
+                      "pippa_bubbles_grishna_social_context",
+                      "river_edge_pub_context"
+                    ]
+                  },
+                  {
+                    "admitted_rank": 12,
+                    "candidate_rank": 12,
+                    "ref": "u-L0034-05",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 152,
                     "matched_required_groups": [
                       "stone_bridge_flood_aftermath",
                       "pippa_bubbles_grishna_social_context",
@@ -3122,14 +3826,14 @@
                 "budget_chars": 12000
               },
               "support_reserved_25pct_8000_chars": {
-                "admitted_items": 9,
-                "admitted_chars": 1215,
-                "estimated_tokens": 304,
+                "admitted_items": 46,
+                "admitted_chars": 5898,
+                "estimated_tokens": 1475,
                 "source_kind_counts": {
-                  "session_memory": 9
+                  "session_memory": 46
                 },
                 "source_kind_chars": {
-                  "session_memory": 1215
+                  "session_memory": 5898
                 },
                 "admitted_preview": [
                   {
@@ -3225,6 +3929,42 @@
                     "ref": "u-L0005-02",
                     "source_kind": "session_memory",
                     "estimated_chars": 233,
+                    "matched_required_groups": [
+                      "stone_bridge_flood_aftermath",
+                      "pippa_bubbles_grishna_social_context",
+                      "river_edge_pub_context"
+                    ]
+                  },
+                  {
+                    "admitted_rank": 10,
+                    "candidate_rank": 10,
+                    "ref": "u-L0034-02",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 192,
+                    "matched_required_groups": [
+                      "stone_bridge_flood_aftermath",
+                      "pippa_bubbles_grishna_social_context",
+                      "river_edge_pub_context"
+                    ]
+                  },
+                  {
+                    "admitted_rank": 11,
+                    "candidate_rank": 11,
+                    "ref": "u-L0034-03",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 85,
+                    "matched_required_groups": [
+                      "stone_bridge_flood_aftermath",
+                      "pippa_bubbles_grishna_social_context",
+                      "river_edge_pub_context"
+                    ]
+                  },
+                  {
+                    "admitted_rank": 12,
+                    "candidate_rank": 12,
+                    "ref": "u-L0034-05",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 152,
                     "matched_required_groups": [
                       "stone_bridge_flood_aftermath",
                       "pippa_bubbles_grishna_social_context",
@@ -3237,14 +3977,14 @@
                 "general_budget_chars": 6000
               },
               "support_reserved_35pct_8000_chars": {
-                "admitted_items": 9,
-                "admitted_chars": 1215,
-                "estimated_tokens": 304,
+                "admitted_items": 41,
+                "admitted_chars": 5179,
+                "estimated_tokens": 1295,
                 "source_kind_counts": {
-                  "session_memory": 9
+                  "session_memory": 41
                 },
                 "source_kind_chars": {
-                  "session_memory": 1215
+                  "session_memory": 5179
                 },
                 "admitted_preview": [
                   {
@@ -3340,6 +4080,42 @@
                     "ref": "u-L0005-02",
                     "source_kind": "session_memory",
                     "estimated_chars": 233,
+                    "matched_required_groups": [
+                      "stone_bridge_flood_aftermath",
+                      "pippa_bubbles_grishna_social_context",
+                      "river_edge_pub_context"
+                    ]
+                  },
+                  {
+                    "admitted_rank": 10,
+                    "candidate_rank": 10,
+                    "ref": "u-L0034-02",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 192,
+                    "matched_required_groups": [
+                      "stone_bridge_flood_aftermath",
+                      "pippa_bubbles_grishna_social_context",
+                      "river_edge_pub_context"
+                    ]
+                  },
+                  {
+                    "admitted_rank": 11,
+                    "candidate_rank": 11,
+                    "ref": "u-L0034-03",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 85,
+                    "matched_required_groups": [
+                      "stone_bridge_flood_aftermath",
+                      "pippa_bubbles_grishna_social_context",
+                      "river_edge_pub_context"
+                    ]
+                  },
+                  {
+                    "admitted_rank": 12,
+                    "candidate_rank": 12,
+                    "ref": "u-L0034-05",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 152,
                     "matched_required_groups": [
                       "stone_bridge_flood_aftermath",
                       "pippa_bubbles_grishna_social_context",
@@ -3592,10 +4368,10 @@
                 "session_memory": 9
               },
               "top_20": {
-                "session_memory": 9
+                "session_memory": 20
               },
               "top_50": {
-                "session_memory": 9
+                "session_memory": 50
               }
             }
           },
@@ -3690,14 +4466,14 @@
                 "budget_chars": null
               },
               "flat_ranked_4000_chars": {
-                "admitted_items": 9,
-                "admitted_chars": 1653,
-                "estimated_tokens": 414,
+                "admitted_items": 31,
+                "admitted_chars": 3990,
+                "estimated_tokens": 998,
                 "source_kind_counts": {
-                  "session_memory": 9
+                  "session_memory": 31
                 },
                 "source_kind_chars": {
-                  "session_memory": 1653
+                  "session_memory": 3990
                 },
                 "admitted_preview": [
                   {
@@ -3770,20 +4546,44 @@
                     "ref": "u-L0011-02",
                     "source_kind": "session_memory",
                     "estimated_chars": 79,
+                    "matched_required_groups": []
+                  },
+                  {
+                    "admitted_rank": 10,
+                    "candidate_rank": 10,
+                    "ref": "u-L0036-01",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 75,
+                    "matched_required_groups": []
+                  },
+                  {
+                    "admitted_rank": 11,
+                    "candidate_rank": 11,
+                    "ref": "u-L0043-02",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 126,
+                    "matched_required_groups": []
+                  },
+                  {
+                    "admitted_rank": 12,
+                    "candidate_rank": 12,
+                    "ref": "u-L0043-03",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 129,
                     "matched_required_groups": []
                   }
                 ],
                 "budget_chars": 4000
               },
               "flat_ranked_8000_chars": {
-                "admitted_items": 9,
-                "admitted_chars": 1653,
-                "estimated_tokens": 414,
+                "admitted_items": 50,
+                "admitted_chars": 6249,
+                "estimated_tokens": 1563,
                 "source_kind_counts": {
-                  "session_memory": 9
+                  "session_memory": 50
                 },
                 "source_kind_chars": {
-                  "session_memory": 1653
+                  "session_memory": 6249
                 },
                 "admitted_preview": [
                   {
@@ -3856,20 +4656,44 @@
                     "ref": "u-L0011-02",
                     "source_kind": "session_memory",
                     "estimated_chars": 79,
+                    "matched_required_groups": []
+                  },
+                  {
+                    "admitted_rank": 10,
+                    "candidate_rank": 10,
+                    "ref": "u-L0036-01",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 75,
+                    "matched_required_groups": []
+                  },
+                  {
+                    "admitted_rank": 11,
+                    "candidate_rank": 11,
+                    "ref": "u-L0043-02",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 126,
+                    "matched_required_groups": []
+                  },
+                  {
+                    "admitted_rank": 12,
+                    "candidate_rank": 12,
+                    "ref": "u-L0043-03",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 129,
                     "matched_required_groups": []
                   }
                 ],
                 "budget_chars": 8000
               },
               "flat_ranked_12000_chars": {
-                "admitted_items": 9,
-                "admitted_chars": 1653,
-                "estimated_tokens": 414,
+                "admitted_items": 50,
+                "admitted_chars": 6249,
+                "estimated_tokens": 1563,
                 "source_kind_counts": {
-                  "session_memory": 9
+                  "session_memory": 50
                 },
                 "source_kind_chars": {
-                  "session_memory": 1653
+                  "session_memory": 6249
                 },
                 "admitted_preview": [
                   {
@@ -3942,20 +4766,44 @@
                     "ref": "u-L0011-02",
                     "source_kind": "session_memory",
                     "estimated_chars": 79,
+                    "matched_required_groups": []
+                  },
+                  {
+                    "admitted_rank": 10,
+                    "candidate_rank": 10,
+                    "ref": "u-L0036-01",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 75,
+                    "matched_required_groups": []
+                  },
+                  {
+                    "admitted_rank": 11,
+                    "candidate_rank": 11,
+                    "ref": "u-L0043-02",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 126,
+                    "matched_required_groups": []
+                  },
+                  {
+                    "admitted_rank": 12,
+                    "candidate_rank": 12,
+                    "ref": "u-L0043-03",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 129,
                     "matched_required_groups": []
                   }
                 ],
                 "budget_chars": 12000
               },
               "support_reserved_25pct_8000_chars": {
-                "admitted_items": 9,
-                "admitted_chars": 1653,
-                "estimated_tokens": 414,
+                "admitted_items": 47,
+                "admitted_chars": 6000,
+                "estimated_tokens": 1500,
                 "source_kind_counts": {
-                  "session_memory": 9
+                  "session_memory": 47
                 },
                 "source_kind_chars": {
-                  "session_memory": 1653
+                  "session_memory": 6000
                 },
                 "admitted_preview": [
                   {
@@ -4028,6 +4876,30 @@
                     "ref": "u-L0011-02",
                     "source_kind": "session_memory",
                     "estimated_chars": 79,
+                    "matched_required_groups": []
+                  },
+                  {
+                    "admitted_rank": 10,
+                    "candidate_rank": 10,
+                    "ref": "u-L0036-01",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 75,
+                    "matched_required_groups": []
+                  },
+                  {
+                    "admitted_rank": 11,
+                    "candidate_rank": 11,
+                    "ref": "u-L0043-02",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 126,
+                    "matched_required_groups": []
+                  },
+                  {
+                    "admitted_rank": 12,
+                    "candidate_rank": 12,
+                    "ref": "u-L0043-03",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 129,
                     "matched_required_groups": []
                   }
                 ],
@@ -4036,14 +4908,14 @@
                 "general_budget_chars": 6000
               },
               "support_reserved_35pct_8000_chars": {
-                "admitted_items": 9,
-                "admitted_chars": 1653,
-                "estimated_tokens": 414,
+                "admitted_items": 39,
+                "admitted_chars": 5166,
+                "estimated_tokens": 1292,
                 "source_kind_counts": {
-                  "session_memory": 9
+                  "session_memory": 39
                 },
                 "source_kind_chars": {
-                  "session_memory": 1653
+                  "session_memory": 5166
                 },
                 "admitted_preview": [
                   {
@@ -4116,6 +4988,30 @@
                     "ref": "u-L0011-02",
                     "source_kind": "session_memory",
                     "estimated_chars": 79,
+                    "matched_required_groups": []
+                  },
+                  {
+                    "admitted_rank": 10,
+                    "candidate_rank": 10,
+                    "ref": "u-L0036-01",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 75,
+                    "matched_required_groups": []
+                  },
+                  {
+                    "admitted_rank": 11,
+                    "candidate_rank": 11,
+                    "ref": "u-L0043-02",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 126,
+                    "matched_required_groups": []
+                  },
+                  {
+                    "admitted_rank": 12,
+                    "candidate_rank": 12,
+                    "ref": "u-L0043-03",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 129,
                     "matched_required_groups": []
                   }
                 ],
@@ -4133,27 +5029,29 @@
           "retrieval_mode": "prior_plus_support_content_only",
           "admission_policy": "budgeted_v1",
           "top_k": 9,
-          "ok": false,
+          "ok": true,
           "expected_behavior": "should_answer_with_support_specificity",
           "required_context_groups": 1,
-          "required_context_groups_hit": 0,
-          "required_group_recall_at_k": 0.0,
-          "missing_required_groups": [
-            "hempholm_tree_visible_threat"
-          ],
+          "required_context_groups_hit": 1,
+          "required_group_recall_at_k": 1.0,
+          "missing_required_groups": [],
           "forbidden_context_groups": 0,
           "forbidden_context_groups_hit": [],
           "known_gap_expectations_hit": [],
-          "violations": [
-            "missing_required_context_group"
-          ],
+          "violations": [],
           "matched_groups": [
             {
               "group_id": "hempholm_tree_visible_threat",
-              "ok": false,
+              "ok": true,
               "min_hits": 1,
-              "hit_count": 0,
-              "matched_context_refs": []
+              "hit_count": 5,
+              "matched_context_refs": [
+                "support:hempholm_road_hook_merchant_role",
+                "support:hempholm_saladin_optional",
+                "support:hempholm_support_overview",
+                "support:hempholm_tree_mechanics_and_clues",
+                "support:hempholm_tree_visible_threat"
+              ]
             }
           ],
           "retrieved_context_preview": [
@@ -4268,12 +5166,12 @@
             "required_groups": {
               "hempholm_tree_visible_threat": {
                 "matched_at_top_k": false,
-                "first_matching_rank": null,
-                "first_matching_ref": null,
-                "first_matching_source_kind": null,
-                "first_matching_source_layer": null,
+                "first_matching_rank": 37,
+                "first_matching_ref": "support:hempholm_road_hook_merchant_role",
+                "first_matching_source_kind": "support_knowledge_card",
+                "first_matching_source_layer": "adaptation_planning",
                 "matched_at_top_20": false,
-                "matched_at_top_50": false
+                "matched_at_top_50": true
               }
             },
             "source_kind_counts_by_depth": {
@@ -4281,10 +5179,11 @@
                 "session_memory": 9
               },
               "top_20": {
-                "session_memory": 9
+                "session_memory": 20
               },
               "top_50": {
-                "session_memory": 9
+                "session_memory": 44,
+                "support_knowledge_card": 6
               }
             }
           },
@@ -4379,14 +5278,14 @@
                 "budget_chars": null
               },
               "flat_ranked_4000_chars": {
-                "admitted_items": 9,
-                "admitted_chars": 1740,
-                "estimated_tokens": 435,
+                "admitted_items": 23,
+                "admitted_chars": 3995,
+                "estimated_tokens": 999,
                 "source_kind_counts": {
-                  "session_memory": 9
+                  "session_memory": 23
                 },
                 "source_kind_chars": {
-                  "session_memory": 1740
+                  "session_memory": 3995
                 },
                 "admitted_preview": [
                   {
@@ -4459,20 +5358,46 @@
                     "ref": "u-L0013-01",
                     "source_kind": "session_memory",
                     "estimated_chars": 11,
+                    "matched_required_groups": []
+                  },
+                  {
+                    "admitted_rank": 10,
+                    "candidate_rank": 10,
+                    "ref": "u-L0014-01",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 119,
+                    "matched_required_groups": []
+                  },
+                  {
+                    "admitted_rank": 11,
+                    "candidate_rank": 11,
+                    "ref": "u-L0034-01",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 184,
+                    "matched_required_groups": []
+                  },
+                  {
+                    "admitted_rank": 12,
+                    "candidate_rank": 12,
+                    "ref": "u-L0041-04",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 145,
                     "matched_required_groups": []
                   }
                 ],
                 "budget_chars": 4000
               },
               "flat_ranked_8000_chars": {
-                "admitted_items": 9,
-                "admitted_chars": 1740,
-                "estimated_tokens": 435,
+                "admitted_items": 47,
+                "admitted_chars": 7964,
+                "estimated_tokens": 1991,
                 "source_kind_counts": {
-                  "session_memory": 9
+                  "session_memory": 43,
+                  "support_knowledge_card": 4
                 },
                 "source_kind_chars": {
-                  "session_memory": 1740
+                  "session_memory": 6427,
+                  "support_knowledge_card": 1537
                 },
                 "admitted_preview": [
                   {
@@ -4545,20 +5470,46 @@
                     "ref": "u-L0013-01",
                     "source_kind": "session_memory",
                     "estimated_chars": 11,
+                    "matched_required_groups": []
+                  },
+                  {
+                    "admitted_rank": 10,
+                    "candidate_rank": 10,
+                    "ref": "u-L0014-01",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 119,
+                    "matched_required_groups": []
+                  },
+                  {
+                    "admitted_rank": 11,
+                    "candidate_rank": 11,
+                    "ref": "u-L0034-01",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 184,
+                    "matched_required_groups": []
+                  },
+                  {
+                    "admitted_rank": 12,
+                    "candidate_rank": 12,
+                    "ref": "u-L0041-04",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 145,
                     "matched_required_groups": []
                   }
                 ],
                 "budget_chars": 8000
               },
               "flat_ranked_12000_chars": {
-                "admitted_items": 9,
-                "admitted_chars": 1740,
-                "estimated_tokens": 435,
+                "admitted_items": 50,
+                "admitted_chars": 8855,
+                "estimated_tokens": 2214,
                 "source_kind_counts": {
-                  "session_memory": 9
+                  "session_memory": 44,
+                  "support_knowledge_card": 6
                 },
                 "source_kind_chars": {
-                  "session_memory": 1740
+                  "session_memory": 6538,
+                  "support_knowledge_card": 2317
                 },
                 "admitted_preview": [
                   {
@@ -4631,20 +5582,46 @@
                     "ref": "u-L0013-01",
                     "source_kind": "session_memory",
                     "estimated_chars": 11,
+                    "matched_required_groups": []
+                  },
+                  {
+                    "admitted_rank": 10,
+                    "candidate_rank": 10,
+                    "ref": "u-L0014-01",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 119,
+                    "matched_required_groups": []
+                  },
+                  {
+                    "admitted_rank": 11,
+                    "candidate_rank": 11,
+                    "ref": "u-L0034-01",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 184,
+                    "matched_required_groups": []
+                  },
+                  {
+                    "admitted_rank": 12,
+                    "candidate_rank": 12,
+                    "ref": "u-L0041-04",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 145,
                     "matched_required_groups": []
                   }
                 ],
                 "budget_chars": 12000
               },
               "support_reserved_25pct_8000_chars": {
-                "admitted_items": 9,
-                "admitted_chars": 1740,
-                "estimated_tokens": 435,
+                "admitted_items": 44,
+                "admitted_chars": 7877,
+                "estimated_tokens": 1970,
                 "source_kind_counts": {
-                  "session_memory": 9
+                  "session_memory": 39,
+                  "support_knowledge_card": 5
                 },
                 "source_kind_chars": {
-                  "session_memory": 1740
+                  "session_memory": 5982,
+                  "support_knowledge_card": 1895
                 },
                 "admitted_preview": [
                   {
@@ -4717,6 +5694,30 @@
                     "ref": "u-L0013-01",
                     "source_kind": "session_memory",
                     "estimated_chars": 11,
+                    "matched_required_groups": []
+                  },
+                  {
+                    "admitted_rank": 10,
+                    "candidate_rank": 10,
+                    "ref": "u-L0014-01",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 119,
+                    "matched_required_groups": []
+                  },
+                  {
+                    "admitted_rank": 11,
+                    "candidate_rank": 11,
+                    "ref": "u-L0034-01",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 184,
+                    "matched_required_groups": []
+                  },
+                  {
+                    "admitted_rank": 12,
+                    "candidate_rank": 12,
+                    "ref": "u-L0041-04",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 145,
                     "matched_required_groups": []
                   }
                 ],
@@ -4725,14 +5726,16 @@
                 "general_budget_chars": 6000
               },
               "support_reserved_35pct_8000_chars": {
-                "admitted_items": 9,
-                "admitted_chars": 1740,
-                "estimated_tokens": 435,
+                "admitted_items": 39,
+                "admitted_chars": 7511,
+                "estimated_tokens": 1878,
                 "source_kind_counts": {
-                  "session_memory": 9
+                  "session_memory": 33,
+                  "support_knowledge_card": 6
                 },
                 "source_kind_chars": {
-                  "session_memory": 1740
+                  "session_memory": 5194,
+                  "support_knowledge_card": 2317
                 },
                 "admitted_preview": [
                   {
@@ -4805,6 +5808,30 @@
                     "ref": "u-L0013-01",
                     "source_kind": "session_memory",
                     "estimated_chars": 11,
+                    "matched_required_groups": []
+                  },
+                  {
+                    "admitted_rank": 10,
+                    "candidate_rank": 10,
+                    "ref": "u-L0014-01",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 119,
+                    "matched_required_groups": []
+                  },
+                  {
+                    "admitted_rank": 11,
+                    "candidate_rank": 11,
+                    "ref": "u-L0034-01",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 184,
+                    "matched_required_groups": []
+                  },
+                  {
+                    "admitted_rank": 12,
+                    "candidate_rank": 12,
+                    "ref": "u-L0041-04",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 145,
                     "matched_required_groups": []
                   }
                 ],
@@ -4815,8 +5842,8 @@
             },
             "required_groups": {
               "hempholm_tree_visible_threat": {
-                "first_matching_candidate_rank": null,
-                "first_matching_candidate_ref": null,
+                "first_matching_candidate_rank": 37,
+                "first_matching_candidate_ref": "support:hempholm_road_hook_merchant_role",
                 "legacy_top_k_9": {
                   "admitted": false,
                   "admitted_rank": null,
@@ -4828,24 +5855,24 @@
                   "admitted_ref": null
                 },
                 "flat_ranked_8000_chars": {
-                  "admitted": false,
-                  "admitted_rank": null,
-                  "admitted_ref": null
+                  "admitted": true,
+                  "admitted_rank": 37,
+                  "admitted_ref": "support:hempholm_road_hook_merchant_role"
                 },
                 "flat_ranked_12000_chars": {
-                  "admitted": false,
-                  "admitted_rank": null,
-                  "admitted_ref": null
+                  "admitted": true,
+                  "admitted_rank": 37,
+                  "admitted_ref": "support:hempholm_road_hook_merchant_role"
                 },
                 "support_reserved_25pct_8000_chars": {
-                  "admitted": false,
-                  "admitted_rank": null,
-                  "admitted_ref": null
+                  "admitted": true,
+                  "admitted_rank": 37,
+                  "admitted_ref": "support:hempholm_road_hook_merchant_role"
                 },
                 "support_reserved_35pct_8000_chars": {
-                  "admitted": false,
-                  "admitted_rank": null,
-                  "admitted_ref": null
+                  "admitted": true,
+                  "admitted_rank": 33,
+                  "admitted_ref": "support:hempholm_road_hook_merchant_role"
                 }
               }
             }
@@ -4864,17 +5891,17 @@
       "counts": {
         "questions_in_gold": 3,
         "questions_evaluated": 3,
-        "rows_ok": 2,
-        "rows_failed": 1,
+        "rows_ok": 3,
+        "rows_failed": 0,
         "required_context_groups": 4,
-        "required_context_groups_hit": 3,
+        "required_context_groups_hit": 4,
         "forbidden_context_group_violations": 0,
         "known_gap_expectations": 1,
         "known_gap_expectations_hit": 1
       },
       "metrics": {
-        "macro_required_group_recall_at_k": 0.75,
-        "row_pass_rate": 0.6666666666666666,
+        "macro_required_group_recall_at_k": 1.0,
+        "row_pass_rate": 1.0,
         "forbidden_context_violation_rate": 0.0,
         "known_gap_recall": 1.0
       },
@@ -4900,7 +5927,7 @@
               "group_id": "stone_bridge_flood_aftermath",
               "ok": true,
               "min_hits": 1,
-              "hit_count": 9,
+              "hit_count": 45,
               "matched_context_refs": [
                 "u-L0034-01",
                 "u-L0003-01",
@@ -4910,14 +5937,50 @@
                 "u-L0041-04",
                 "u-L0034-04",
                 "u-L0041-06",
-                "u-L0005-02"
+                "u-L0005-02",
+                "u-L0034-02",
+                "u-L0034-03",
+                "u-L0034-05",
+                "u-L0040-06",
+                "u-L0040-11",
+                "u-L0011-01",
+                "u-L0011-02",
+                "u-L0036-01",
+                "u-L0040-09",
+                "u-L0043-02",
+                "u-L0043-03",
+                "meta-session-0003-locations",
+                "u-L0013-01",
+                "u-L0040-02",
+                "u-L0040-08",
+                "u-L0041-01",
+                "u-L0041-02",
+                "u-L0041-03",
+                "u-L0043-04",
+                "u-L0045-01",
+                "meta-session-0001-locations",
+                "u-L0040-01",
+                "u-L0040-04",
+                "u-L0040-05",
+                "u-L0040-07",
+                "u-L0040-10",
+                "meta-session-0002-locations",
+                "u-L0005-01",
+                "u-L0036-02",
+                "u-L0004-01",
+                "u-L0007-01",
+                "u-L0036-05",
+                "u-L0036-06",
+                "u-L0036-04",
+                "u-L0040-03",
+                "u-L0004-02"
               ]
             },
             {
               "group_id": "pippa_bubbles_grishna_social_context",
               "ok": true,
               "min_hits": 1,
-              "hit_count": 7,
+              "hit_count": 40,
               "matched_context_refs": [
                 "u-L0034-01",
                 "u-L0041-05",
@@ -4925,17 +5988,68 @@
                 "u-L0041-04",
                 "u-L0034-04",
                 "u-L0041-06",
-                "u-L0005-02"
+                "u-L0005-02",
+                "u-L0034-02",
+                "u-L0034-03",
+                "u-L0034-05",
+                "u-L0040-06",
+                "u-L0040-11",
+                "u-L0011-02",
+                "u-L0036-01",
+                "u-L0040-09",
+                "u-L0043-02",
+                "u-L0043-03",
+                "meta-session-0003-locations",
+                "u-L0040-02",
+                "u-L0040-08",
+                "u-L0041-01",
+                "u-L0041-02",
+                "u-L0041-03",
+                "u-L0043-04",
+                "u-L0045-01",
+                "meta-session-0001-locations",
+                "u-L0040-01",
+                "u-L0040-04",
+                "u-L0040-05",
+                "u-L0040-07",
+                "u-L0040-10",
+                "meta-session-0002-locations",
+                "u-L0036-02",
+                "u-L0004-01",
+                "u-L0007-01",
+                "u-L0036-05",
+                "u-L0036-06",
+                "u-L0036-04",
+                "u-L0040-03",
+                "u-L0004-02"
               ]
             },
             {
               "group_id": "river_edge_pub_context",
               "ok": true,
               "min_hits": 1,
-              "hit_count": 2,
+              "hit_count": 20,
               "matched_context_refs": [
                 "u-L0034-04",
-                "u-L0005-02"
+                "u-L0005-02",
+                "u-L0034-02",
+                "u-L0034-03",
+                "u-L0034-05",
+                "u-L0040-11",
+                "u-L0011-02",
+                "u-L0036-01",
+                "u-L0043-02",
+                "u-L0043-03",
+                "meta-session-0003-locations",
+                "u-L0040-02",
+                "u-L0043-04",
+                "u-L0045-01",
+                "meta-session-0001-locations",
+                "u-L0040-01",
+                "meta-session-0002-locations",
+                "u-L0005-01",
+                "u-L0036-02",
+                "u-L0007-01"
               ]
             }
           ],
@@ -5109,10 +6223,10 @@
                 "session_memory": 9
               },
               "top_20": {
-                "session_memory": 9
+                "session_memory": 20
               },
               "top_50": {
-                "session_memory": 9
+                "session_memory": 50
               }
             }
           },
@@ -5234,14 +6348,14 @@
                 "budget_chars": null
               },
               "flat_ranked_4000_chars": {
-                "admitted_items": 9,
-                "admitted_chars": 1215,
-                "estimated_tokens": 304,
+                "admitted_items": 32,
+                "admitted_chars": 3955,
+                "estimated_tokens": 989,
                 "source_kind_counts": {
-                  "session_memory": 9
+                  "session_memory": 32
                 },
                 "source_kind_chars": {
-                  "session_memory": 1215
+                  "session_memory": 3955
                 },
                 "admitted_preview": [
                   {
@@ -5337,6 +6451,42 @@
                     "ref": "u-L0005-02",
                     "source_kind": "session_memory",
                     "estimated_chars": 233,
+                    "matched_required_groups": [
+                      "stone_bridge_flood_aftermath",
+                      "pippa_bubbles_grishna_social_context",
+                      "river_edge_pub_context"
+                    ]
+                  },
+                  {
+                    "admitted_rank": 10,
+                    "candidate_rank": 10,
+                    "ref": "u-L0034-02",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 192,
+                    "matched_required_groups": [
+                      "stone_bridge_flood_aftermath",
+                      "pippa_bubbles_grishna_social_context",
+                      "river_edge_pub_context"
+                    ]
+                  },
+                  {
+                    "admitted_rank": 11,
+                    "candidate_rank": 11,
+                    "ref": "u-L0034-03",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 85,
+                    "matched_required_groups": [
+                      "stone_bridge_flood_aftermath",
+                      "pippa_bubbles_grishna_social_context",
+                      "river_edge_pub_context"
+                    ]
+                  },
+                  {
+                    "admitted_rank": 12,
+                    "candidate_rank": 12,
+                    "ref": "u-L0034-05",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 152,
                     "matched_required_groups": [
                       "stone_bridge_flood_aftermath",
                       "pippa_bubbles_grishna_social_context",
@@ -5347,14 +6497,14 @@
                 "budget_chars": 4000
               },
               "flat_ranked_8000_chars": {
-                "admitted_items": 9,
-                "admitted_chars": 1215,
-                "estimated_tokens": 304,
+                "admitted_items": 50,
+                "admitted_chars": 6542,
+                "estimated_tokens": 1636,
                 "source_kind_counts": {
-                  "session_memory": 9
+                  "session_memory": 50
                 },
                 "source_kind_chars": {
-                  "session_memory": 1215
+                  "session_memory": 6542
                 },
                 "admitted_preview": [
                   {
@@ -5450,6 +6600,42 @@
                     "ref": "u-L0005-02",
                     "source_kind": "session_memory",
                     "estimated_chars": 233,
+                    "matched_required_groups": [
+                      "stone_bridge_flood_aftermath",
+                      "pippa_bubbles_grishna_social_context",
+                      "river_edge_pub_context"
+                    ]
+                  },
+                  {
+                    "admitted_rank": 10,
+                    "candidate_rank": 10,
+                    "ref": "u-L0034-02",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 192,
+                    "matched_required_groups": [
+                      "stone_bridge_flood_aftermath",
+                      "pippa_bubbles_grishna_social_context",
+                      "river_edge_pub_context"
+                    ]
+                  },
+                  {
+                    "admitted_rank": 11,
+                    "candidate_rank": 11,
+                    "ref": "u-L0034-03",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 85,
+                    "matched_required_groups": [
+                      "stone_bridge_flood_aftermath",
+                      "pippa_bubbles_grishna_social_context",
+                      "river_edge_pub_context"
+                    ]
+                  },
+                  {
+                    "admitted_rank": 12,
+                    "candidate_rank": 12,
+                    "ref": "u-L0034-05",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 152,
                     "matched_required_groups": [
                       "stone_bridge_flood_aftermath",
                       "pippa_bubbles_grishna_social_context",
@@ -5460,14 +6646,14 @@
                 "budget_chars": 8000
               },
               "flat_ranked_12000_chars": {
-                "admitted_items": 9,
-                "admitted_chars": 1215,
-                "estimated_tokens": 304,
+                "admitted_items": 50,
+                "admitted_chars": 6542,
+                "estimated_tokens": 1636,
                 "source_kind_counts": {
-                  "session_memory": 9
+                  "session_memory": 50
                 },
                 "source_kind_chars": {
-                  "session_memory": 1215
+                  "session_memory": 6542
                 },
                 "admitted_preview": [
                   {
@@ -5563,6 +6749,42 @@
                     "ref": "u-L0005-02",
                     "source_kind": "session_memory",
                     "estimated_chars": 233,
+                    "matched_required_groups": [
+                      "stone_bridge_flood_aftermath",
+                      "pippa_bubbles_grishna_social_context",
+                      "river_edge_pub_context"
+                    ]
+                  },
+                  {
+                    "admitted_rank": 10,
+                    "candidate_rank": 10,
+                    "ref": "u-L0034-02",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 192,
+                    "matched_required_groups": [
+                      "stone_bridge_flood_aftermath",
+                      "pippa_bubbles_grishna_social_context",
+                      "river_edge_pub_context"
+                    ]
+                  },
+                  {
+                    "admitted_rank": 11,
+                    "candidate_rank": 11,
+                    "ref": "u-L0034-03",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 85,
+                    "matched_required_groups": [
+                      "stone_bridge_flood_aftermath",
+                      "pippa_bubbles_grishna_social_context",
+                      "river_edge_pub_context"
+                    ]
+                  },
+                  {
+                    "admitted_rank": 12,
+                    "candidate_rank": 12,
+                    "ref": "u-L0034-05",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 152,
                     "matched_required_groups": [
                       "stone_bridge_flood_aftermath",
                       "pippa_bubbles_grishna_social_context",
@@ -5573,14 +6795,14 @@
                 "budget_chars": 12000
               },
               "support_reserved_25pct_8000_chars": {
-                "admitted_items": 9,
-                "admitted_chars": 1215,
-                "estimated_tokens": 304,
+                "admitted_items": 46,
+                "admitted_chars": 5898,
+                "estimated_tokens": 1475,
                 "source_kind_counts": {
-                  "session_memory": 9
+                  "session_memory": 46
                 },
                 "source_kind_chars": {
-                  "session_memory": 1215
+                  "session_memory": 5898
                 },
                 "admitted_preview": [
                   {
@@ -5676,6 +6898,42 @@
                     "ref": "u-L0005-02",
                     "source_kind": "session_memory",
                     "estimated_chars": 233,
+                    "matched_required_groups": [
+                      "stone_bridge_flood_aftermath",
+                      "pippa_bubbles_grishna_social_context",
+                      "river_edge_pub_context"
+                    ]
+                  },
+                  {
+                    "admitted_rank": 10,
+                    "candidate_rank": 10,
+                    "ref": "u-L0034-02",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 192,
+                    "matched_required_groups": [
+                      "stone_bridge_flood_aftermath",
+                      "pippa_bubbles_grishna_social_context",
+                      "river_edge_pub_context"
+                    ]
+                  },
+                  {
+                    "admitted_rank": 11,
+                    "candidate_rank": 11,
+                    "ref": "u-L0034-03",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 85,
+                    "matched_required_groups": [
+                      "stone_bridge_flood_aftermath",
+                      "pippa_bubbles_grishna_social_context",
+                      "river_edge_pub_context"
+                    ]
+                  },
+                  {
+                    "admitted_rank": 12,
+                    "candidate_rank": 12,
+                    "ref": "u-L0034-05",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 152,
                     "matched_required_groups": [
                       "stone_bridge_flood_aftermath",
                       "pippa_bubbles_grishna_social_context",
@@ -5688,14 +6946,14 @@
                 "general_budget_chars": 6000
               },
               "support_reserved_35pct_8000_chars": {
-                "admitted_items": 9,
-                "admitted_chars": 1215,
-                "estimated_tokens": 304,
+                "admitted_items": 41,
+                "admitted_chars": 5179,
+                "estimated_tokens": 1295,
                 "source_kind_counts": {
-                  "session_memory": 9
+                  "session_memory": 41
                 },
                 "source_kind_chars": {
-                  "session_memory": 1215
+                  "session_memory": 5179
                 },
                 "admitted_preview": [
                   {
@@ -5791,6 +7049,42 @@
                     "ref": "u-L0005-02",
                     "source_kind": "session_memory",
                     "estimated_chars": 233,
+                    "matched_required_groups": [
+                      "stone_bridge_flood_aftermath",
+                      "pippa_bubbles_grishna_social_context",
+                      "river_edge_pub_context"
+                    ]
+                  },
+                  {
+                    "admitted_rank": 10,
+                    "candidate_rank": 10,
+                    "ref": "u-L0034-02",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 192,
+                    "matched_required_groups": [
+                      "stone_bridge_flood_aftermath",
+                      "pippa_bubbles_grishna_social_context",
+                      "river_edge_pub_context"
+                    ]
+                  },
+                  {
+                    "admitted_rank": 11,
+                    "candidate_rank": 11,
+                    "ref": "u-L0034-03",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 85,
+                    "matched_required_groups": [
+                      "stone_bridge_flood_aftermath",
+                      "pippa_bubbles_grishna_social_context",
+                      "river_edge_pub_context"
+                    ]
+                  },
+                  {
+                    "admitted_rank": 12,
+                    "candidate_rank": 12,
+                    "ref": "u-L0034-05",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 152,
                     "matched_required_groups": [
                       "stone_bridge_flood_aftermath",
                       "pippa_bubbles_grishna_social_context",
@@ -6043,10 +7337,10 @@
                 "session_memory": 9
               },
               "top_20": {
-                "session_memory": 9
+                "session_memory": 20
               },
               "top_50": {
-                "session_memory": 9
+                "session_memory": 50
               }
             }
           },
@@ -6141,14 +7435,14 @@
                 "budget_chars": null
               },
               "flat_ranked_4000_chars": {
-                "admitted_items": 9,
-                "admitted_chars": 1653,
-                "estimated_tokens": 414,
+                "admitted_items": 31,
+                "admitted_chars": 3990,
+                "estimated_tokens": 998,
                 "source_kind_counts": {
-                  "session_memory": 9
+                  "session_memory": 31
                 },
                 "source_kind_chars": {
-                  "session_memory": 1653
+                  "session_memory": 3990
                 },
                 "admitted_preview": [
                   {
@@ -6221,20 +7515,44 @@
                     "ref": "u-L0011-02",
                     "source_kind": "session_memory",
                     "estimated_chars": 79,
+                    "matched_required_groups": []
+                  },
+                  {
+                    "admitted_rank": 10,
+                    "candidate_rank": 10,
+                    "ref": "u-L0036-01",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 75,
+                    "matched_required_groups": []
+                  },
+                  {
+                    "admitted_rank": 11,
+                    "candidate_rank": 11,
+                    "ref": "u-L0043-02",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 126,
+                    "matched_required_groups": []
+                  },
+                  {
+                    "admitted_rank": 12,
+                    "candidate_rank": 12,
+                    "ref": "u-L0043-03",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 129,
                     "matched_required_groups": []
                   }
                 ],
                 "budget_chars": 4000
               },
               "flat_ranked_8000_chars": {
-                "admitted_items": 9,
-                "admitted_chars": 1653,
-                "estimated_tokens": 414,
+                "admitted_items": 50,
+                "admitted_chars": 6249,
+                "estimated_tokens": 1563,
                 "source_kind_counts": {
-                  "session_memory": 9
+                  "session_memory": 50
                 },
                 "source_kind_chars": {
-                  "session_memory": 1653
+                  "session_memory": 6249
                 },
                 "admitted_preview": [
                   {
@@ -6307,20 +7625,44 @@
                     "ref": "u-L0011-02",
                     "source_kind": "session_memory",
                     "estimated_chars": 79,
+                    "matched_required_groups": []
+                  },
+                  {
+                    "admitted_rank": 10,
+                    "candidate_rank": 10,
+                    "ref": "u-L0036-01",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 75,
+                    "matched_required_groups": []
+                  },
+                  {
+                    "admitted_rank": 11,
+                    "candidate_rank": 11,
+                    "ref": "u-L0043-02",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 126,
+                    "matched_required_groups": []
+                  },
+                  {
+                    "admitted_rank": 12,
+                    "candidate_rank": 12,
+                    "ref": "u-L0043-03",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 129,
                     "matched_required_groups": []
                   }
                 ],
                 "budget_chars": 8000
               },
               "flat_ranked_12000_chars": {
-                "admitted_items": 9,
-                "admitted_chars": 1653,
-                "estimated_tokens": 414,
+                "admitted_items": 50,
+                "admitted_chars": 6249,
+                "estimated_tokens": 1563,
                 "source_kind_counts": {
-                  "session_memory": 9
+                  "session_memory": 50
                 },
                 "source_kind_chars": {
-                  "session_memory": 1653
+                  "session_memory": 6249
                 },
                 "admitted_preview": [
                   {
@@ -6393,20 +7735,44 @@
                     "ref": "u-L0011-02",
                     "source_kind": "session_memory",
                     "estimated_chars": 79,
+                    "matched_required_groups": []
+                  },
+                  {
+                    "admitted_rank": 10,
+                    "candidate_rank": 10,
+                    "ref": "u-L0036-01",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 75,
+                    "matched_required_groups": []
+                  },
+                  {
+                    "admitted_rank": 11,
+                    "candidate_rank": 11,
+                    "ref": "u-L0043-02",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 126,
+                    "matched_required_groups": []
+                  },
+                  {
+                    "admitted_rank": 12,
+                    "candidate_rank": 12,
+                    "ref": "u-L0043-03",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 129,
                     "matched_required_groups": []
                   }
                 ],
                 "budget_chars": 12000
               },
               "support_reserved_25pct_8000_chars": {
-                "admitted_items": 9,
-                "admitted_chars": 1653,
-                "estimated_tokens": 414,
+                "admitted_items": 47,
+                "admitted_chars": 6000,
+                "estimated_tokens": 1500,
                 "source_kind_counts": {
-                  "session_memory": 9
+                  "session_memory": 47
                 },
                 "source_kind_chars": {
-                  "session_memory": 1653
+                  "session_memory": 6000
                 },
                 "admitted_preview": [
                   {
@@ -6479,6 +7845,30 @@
                     "ref": "u-L0011-02",
                     "source_kind": "session_memory",
                     "estimated_chars": 79,
+                    "matched_required_groups": []
+                  },
+                  {
+                    "admitted_rank": 10,
+                    "candidate_rank": 10,
+                    "ref": "u-L0036-01",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 75,
+                    "matched_required_groups": []
+                  },
+                  {
+                    "admitted_rank": 11,
+                    "candidate_rank": 11,
+                    "ref": "u-L0043-02",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 126,
+                    "matched_required_groups": []
+                  },
+                  {
+                    "admitted_rank": 12,
+                    "candidate_rank": 12,
+                    "ref": "u-L0043-03",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 129,
                     "matched_required_groups": []
                   }
                 ],
@@ -6487,14 +7877,14 @@
                 "general_budget_chars": 6000
               },
               "support_reserved_35pct_8000_chars": {
-                "admitted_items": 9,
-                "admitted_chars": 1653,
-                "estimated_tokens": 414,
+                "admitted_items": 39,
+                "admitted_chars": 5166,
+                "estimated_tokens": 1292,
                 "source_kind_counts": {
-                  "session_memory": 9
+                  "session_memory": 39
                 },
                 "source_kind_chars": {
-                  "session_memory": 1653
+                  "session_memory": 5166
                 },
                 "admitted_preview": [
                   {
@@ -6567,6 +7957,30 @@
                     "ref": "u-L0011-02",
                     "source_kind": "session_memory",
                     "estimated_chars": 79,
+                    "matched_required_groups": []
+                  },
+                  {
+                    "admitted_rank": 10,
+                    "candidate_rank": 10,
+                    "ref": "u-L0036-01",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 75,
+                    "matched_required_groups": []
+                  },
+                  {
+                    "admitted_rank": 11,
+                    "candidate_rank": 11,
+                    "ref": "u-L0043-02",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 126,
+                    "matched_required_groups": []
+                  },
+                  {
+                    "admitted_rank": 12,
+                    "candidate_rank": 12,
+                    "ref": "u-L0043-03",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 129,
                     "matched_required_groups": []
                   }
                 ],
@@ -6584,27 +7998,28 @@
           "retrieval_mode": "prior_plus_support_content_plus_lexical_hints",
           "admission_policy": "budgeted_v1",
           "top_k": 9,
-          "ok": false,
+          "ok": true,
           "expected_behavior": "should_answer_with_support_specificity_and_better_recall",
           "required_context_groups": 1,
-          "required_context_groups_hit": 0,
-          "required_group_recall_at_k": 0.0,
-          "missing_required_groups": [
-            "hempholm_tree_visible_threat"
-          ],
+          "required_context_groups_hit": 1,
+          "required_group_recall_at_k": 1.0,
+          "missing_required_groups": [],
           "forbidden_context_groups": 0,
           "forbidden_context_groups_hit": [],
           "known_gap_expectations_hit": [],
-          "violations": [
-            "missing_required_context_group"
-          ],
+          "violations": [],
           "matched_groups": [
             {
               "group_id": "hempholm_tree_visible_threat",
-              "ok": false,
+              "ok": true,
               "min_hits": 1,
-              "hit_count": 0,
-              "matched_context_refs": []
+              "hit_count": 4,
+              "matched_context_refs": [
+                "support:hempholm_road_hook_merchant_role",
+                "support:hempholm_tree_visible_threat",
+                "support:hempholm_saladin_optional",
+                "support:hempholm_support_overview"
+              ]
             }
           ],
           "retrieved_context_preview": [
@@ -6719,12 +8134,12 @@
             "required_groups": {
               "hempholm_tree_visible_threat": {
                 "matched_at_top_k": false,
-                "first_matching_rank": null,
-                "first_matching_ref": null,
-                "first_matching_source_kind": null,
-                "first_matching_source_layer": null,
+                "first_matching_rank": 27,
+                "first_matching_ref": "support:hempholm_road_hook_merchant_role",
+                "first_matching_source_kind": "support_knowledge_card",
+                "first_matching_source_layer": "adaptation_planning",
                 "matched_at_top_20": false,
-                "matched_at_top_50": false
+                "matched_at_top_50": true
               }
             },
             "source_kind_counts_by_depth": {
@@ -6732,10 +8147,11 @@
                 "session_memory": 9
               },
               "top_20": {
-                "session_memory": 9
+                "session_memory": 20
               },
               "top_50": {
-                "session_memory": 9
+                "session_memory": 44,
+                "support_knowledge_card": 6
               }
             }
           },
@@ -6830,14 +8246,14 @@
                 "budget_chars": null
               },
               "flat_ranked_4000_chars": {
-                "admitted_items": 9,
-                "admitted_chars": 1740,
-                "estimated_tokens": 435,
+                "admitted_items": 23,
+                "admitted_chars": 3995,
+                "estimated_tokens": 999,
                 "source_kind_counts": {
-                  "session_memory": 9
+                  "session_memory": 23
                 },
                 "source_kind_chars": {
-                  "session_memory": 1740
+                  "session_memory": 3995
                 },
                 "admitted_preview": [
                   {
@@ -6910,20 +8326,46 @@
                     "ref": "u-L0013-01",
                     "source_kind": "session_memory",
                     "estimated_chars": 11,
+                    "matched_required_groups": []
+                  },
+                  {
+                    "admitted_rank": 10,
+                    "candidate_rank": 10,
+                    "ref": "u-L0014-01",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 119,
+                    "matched_required_groups": []
+                  },
+                  {
+                    "admitted_rank": 11,
+                    "candidate_rank": 11,
+                    "ref": "u-L0034-01",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 184,
+                    "matched_required_groups": []
+                  },
+                  {
+                    "admitted_rank": 12,
+                    "candidate_rank": 12,
+                    "ref": "u-L0041-04",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 145,
                     "matched_required_groups": []
                   }
                 ],
                 "budget_chars": 4000
               },
               "flat_ranked_8000_chars": {
-                "admitted_items": 9,
-                "admitted_chars": 1740,
-                "estimated_tokens": 435,
+                "admitted_items": 46,
+                "admitted_chars": 7899,
+                "estimated_tokens": 1975,
                 "source_kind_counts": {
-                  "session_memory": 9
+                  "session_memory": 43,
+                  "support_knowledge_card": 3
                 },
                 "source_kind_chars": {
-                  "session_memory": 1740
+                  "session_memory": 6427,
+                  "support_knowledge_card": 1472
                 },
                 "admitted_preview": [
                   {
@@ -6996,20 +8438,46 @@
                     "ref": "u-L0013-01",
                     "source_kind": "session_memory",
                     "estimated_chars": 11,
+                    "matched_required_groups": []
+                  },
+                  {
+                    "admitted_rank": 10,
+                    "candidate_rank": 10,
+                    "ref": "u-L0014-01",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 119,
+                    "matched_required_groups": []
+                  },
+                  {
+                    "admitted_rank": 11,
+                    "candidate_rank": 11,
+                    "ref": "u-L0034-01",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 184,
+                    "matched_required_groups": []
+                  },
+                  {
+                    "admitted_rank": 12,
+                    "candidate_rank": 12,
+                    "ref": "u-L0041-04",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 145,
                     "matched_required_groups": []
                   }
                 ],
                 "budget_chars": 8000
               },
               "flat_ranked_12000_chars": {
-                "admitted_items": 9,
-                "admitted_chars": 1740,
-                "estimated_tokens": 435,
+                "admitted_items": 50,
+                "admitted_chars": 9514,
+                "estimated_tokens": 2379,
                 "source_kind_counts": {
-                  "session_memory": 9
+                  "session_memory": 44,
+                  "support_knowledge_card": 6
                 },
                 "source_kind_chars": {
-                  "session_memory": 1740
+                  "session_memory": 6538,
+                  "support_knowledge_card": 2976
                 },
                 "admitted_preview": [
                   {
@@ -7082,20 +8550,46 @@
                     "ref": "u-L0013-01",
                     "source_kind": "session_memory",
                     "estimated_chars": 11,
+                    "matched_required_groups": []
+                  },
+                  {
+                    "admitted_rank": 10,
+                    "candidate_rank": 10,
+                    "ref": "u-L0014-01",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 119,
+                    "matched_required_groups": []
+                  },
+                  {
+                    "admitted_rank": 11,
+                    "candidate_rank": 11,
+                    "ref": "u-L0034-01",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 184,
+                    "matched_required_groups": []
+                  },
+                  {
+                    "admitted_rank": 12,
+                    "candidate_rank": 12,
+                    "ref": "u-L0041-04",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 145,
                     "matched_required_groups": []
                   }
                 ],
                 "budget_chars": 12000
               },
               "support_reserved_25pct_8000_chars": {
-                "admitted_items": 9,
-                "admitted_chars": 1740,
-                "estimated_tokens": 435,
+                "admitted_items": 43,
+                "admitted_chars": 7934,
+                "estimated_tokens": 1984,
                 "source_kind_counts": {
-                  "session_memory": 9
+                  "session_memory": 39,
+                  "support_knowledge_card": 4
                 },
                 "source_kind_chars": {
-                  "session_memory": 1740
+                  "session_memory": 5982,
+                  "support_knowledge_card": 1952
                 },
                 "admitted_preview": [
                   {
@@ -7168,6 +8662,30 @@
                     "ref": "u-L0013-01",
                     "source_kind": "session_memory",
                     "estimated_chars": 11,
+                    "matched_required_groups": []
+                  },
+                  {
+                    "admitted_rank": 10,
+                    "candidate_rank": 10,
+                    "ref": "u-L0014-01",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 119,
+                    "matched_required_groups": []
+                  },
+                  {
+                    "admitted_rank": 11,
+                    "candidate_rank": 11,
+                    "ref": "u-L0034-01",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 184,
+                    "matched_required_groups": []
+                  },
+                  {
+                    "admitted_rank": 12,
+                    "candidate_rank": 12,
+                    "ref": "u-L0041-04",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 145,
                     "matched_required_groups": []
                   }
                 ],
@@ -7176,14 +8694,16 @@
                 "general_budget_chars": 6000
               },
               "support_reserved_35pct_8000_chars": {
-                "admitted_items": 9,
-                "admitted_chars": 1740,
-                "estimated_tokens": 435,
+                "admitted_items": 38,
+                "admitted_chars": 7634,
+                "estimated_tokens": 1909,
                 "source_kind_counts": {
-                  "session_memory": 9
+                  "session_memory": 33,
+                  "support_knowledge_card": 5
                 },
                 "source_kind_chars": {
-                  "session_memory": 1740
+                  "session_memory": 5194,
+                  "support_knowledge_card": 2440
                 },
                 "admitted_preview": [
                   {
@@ -7256,6 +8776,30 @@
                     "ref": "u-L0013-01",
                     "source_kind": "session_memory",
                     "estimated_chars": 11,
+                    "matched_required_groups": []
+                  },
+                  {
+                    "admitted_rank": 10,
+                    "candidate_rank": 10,
+                    "ref": "u-L0014-01",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 119,
+                    "matched_required_groups": []
+                  },
+                  {
+                    "admitted_rank": 11,
+                    "candidate_rank": 11,
+                    "ref": "u-L0034-01",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 184,
+                    "matched_required_groups": []
+                  },
+                  {
+                    "admitted_rank": 12,
+                    "candidate_rank": 12,
+                    "ref": "u-L0041-04",
+                    "source_kind": "session_memory",
+                    "estimated_chars": 145,
                     "matched_required_groups": []
                   }
                 ],
@@ -7266,8 +8810,8 @@
             },
             "required_groups": {
               "hempholm_tree_visible_threat": {
-                "first_matching_candidate_rank": null,
-                "first_matching_candidate_ref": null,
+                "first_matching_candidate_rank": 27,
+                "first_matching_candidate_ref": "support:hempholm_road_hook_merchant_role",
                 "legacy_top_k_9": {
                   "admitted": false,
                   "admitted_rank": null,
@@ -7279,24 +8823,24 @@
                   "admitted_ref": null
                 },
                 "flat_ranked_8000_chars": {
-                  "admitted": false,
-                  "admitted_rank": null,
-                  "admitted_ref": null
+                  "admitted": true,
+                  "admitted_rank": 27,
+                  "admitted_ref": "support:hempholm_road_hook_merchant_role"
                 },
                 "flat_ranked_12000_chars": {
-                  "admitted": false,
-                  "admitted_rank": null,
-                  "admitted_ref": null
+                  "admitted": true,
+                  "admitted_rank": 27,
+                  "admitted_ref": "support:hempholm_road_hook_merchant_role"
                 },
                 "support_reserved_25pct_8000_chars": {
-                  "admitted": false,
-                  "admitted_rank": null,
-                  "admitted_ref": null
+                  "admitted": true,
+                  "admitted_rank": 27,
+                  "admitted_ref": "support:hempholm_road_hook_merchant_role"
                 },
                 "support_reserved_35pct_8000_chars": {
-                  "admitted": false,
-                  "admitted_rank": null,
-                  "admitted_ref": null
+                  "admitted": true,
+                  "admitted_rank": 27,
+                  "admitted_ref": "support:hempholm_road_hook_merchant_role"
                 }
               }
             }
@@ -7307,8 +8851,8 @@
   },
   "mode_deltas": {
     "support_content_only_vs_prior_only": {
-      "required_group_recall_delta": -0.25,
-      "rows_ok_delta": -1,
+      "required_group_recall_delta": 0.0,
+      "rows_ok_delta": 0,
       "newly_satisfied_groups": []
     },
     "lexical_hints_vs_content_only": {

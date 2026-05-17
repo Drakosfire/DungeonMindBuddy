@@ -48,7 +48,7 @@ def support_candidate_is_relevant(question_text: str, item: dict[str, Any]) -> b
         return False
     item_terms = _normalize_terms(render_context_item_for_budget(item))
     overlap = q_terms & item_terms
-    return len(overlap) >= 2 or any(t in item_terms for t in q_terms)
+    return len(overlap) >= 2
 
 
 def classify_presentation_lane(item: dict[str, Any]) -> str:
@@ -113,6 +113,7 @@ def build_budgeted_admission(*, question_text: str, retrieval_mode: str, candida
             "support_budget_chars": 2000 if support_mode else 0,
             "estimated_tokens": math.ceil(admitted_chars / 4),
         },
+        "candidate_context": candidate_context,
         "candidate_context_diagnostics": {"candidate_count": len(candidate_context), "source_kind_counts": counts},
         "admitted_context": admitted_sorted,
     }

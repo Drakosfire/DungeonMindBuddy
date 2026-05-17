@@ -147,9 +147,10 @@ def match_context_item(item: dict[str, Any], match: dict[str, Any]) -> bool:
     return all(checks) if checks else False
 
 
-def match_context_group(*, retrieved_context: list[dict[str, Any]], group: dict[str, Any], top_k: int) -> dict[str, Any]:
+def match_context_group(*, retrieved_context: list[dict[str, Any]], group: dict[str, Any], top_k: int | None) -> dict[str, Any]:
     min_hits = int(group.get("min_hits", 1))
-    matched = [context_item_ref(i) for i in retrieved_context[:top_k] if match_context_item(i, group.get("match", {}))]
+    context_slice = retrieved_context if top_k is None else retrieved_context[:top_k]
+    matched = [context_item_ref(i) for i in context_slice if match_context_item(i, group.get("match", {}))]
     return {"group_id": group.get("group_id"), "ok": len(matched) >= min_hits, "min_hits": min_hits, "hit_count": len(matched), "matched_context_refs": matched}
 
 
@@ -165,8 +166,9 @@ def grade_question_packet(*, packet: dict[str, Any], gold_question: dict[str, An
     required = exp.get("required_context_groups", [])
     forbidden = exp.get("forbidden_context_groups", [])
     grading_context_kind, grading_context = get_grading_context(packet)
-    required_matches = [match_context_group(retrieved_context=grading_context, group=g, top_k=top_k) for g in required]
-    forbidden_matches = [match_context_group(retrieved_context=grading_context, group=g, top_k=top_k) for g in forbidden]
+    effective_top_k = None if grading_context_kind == "admitted_context" else top_k
+    required_matches = [match_context_group(retrieved_context=grading_context, group=g, top_k=effective_top_k) for g in required]
+    forbidden_matches = [match_context_group(retrieved_context=grading_context, group=g, top_k=effective_top_k) for g in forbidden]
     known_hits = [term for term in exp.get("expected_known_gaps_contains_any", []) if any(_norm(term) in _norm(g) for g in packet.get("known_context_gaps", []))]
     violations: list[str] = []
     missing_groups = [m["group_id"] for m in required_matches if not m["ok"]]
@@ -384,6 +386,14 @@ def _build_budget_admission_diagnostics(*, retrieved_context: list[dict[str, Any
     return {"candidate_depth": candidate_depth, "legacy_top_k": top_k, "profiles": profile_results, "required_groups": required_out}
 
 
+def _get_diagnostic_context(packet: dict[str, Any]) -> list[dict[str, Any]]:
+    if isinstance(packet.get("candidate_context"), list):
+        return packet["candidate_context"]
+    if isinstance(packet.get("admitted_context"), list):
+        return packet["admitted_context"]
+    return packet.get("retrieved_context", [])
+
+
 def build_expected_context_report(*, packets: list[dict[str, Any]], gold: dict[str, Any], retrieval_mode: RetrievalMode, top_k: int | None = None, diagnostic_packets: list[dict[str, Any]] | None = None) -> dict[str, Any]:
     by_q = {int(p.get("question_number")): p for p in packets}
     chosen_top_k = top_k or int(gold.get("default_top_k", 9))
@@ -400,13 +410,13 @@ def build_expected_context_report(*, packets: list[dict[str, Any]], gold: dict[s
         exp = (gq.get("expectations_by_mode") or {}).get(retrieval_mode, {})
         diag_pkt = by_q_diag.get(qn, pkt)
         row["retrieval_depth_diagnostics"] = _build_depth_diagnostics(
-            retrieved_context=diag_pkt.get("retrieved_context", []),
+            retrieved_context=_get_diagnostic_context(diag_pkt),
             required_groups=exp.get("required_context_groups", []),
             top_k=chosen_top_k,
             depths=[20, 50],
         )
         row["budget_admission_diagnostics"] = _build_budget_admission_diagnostics(
-            retrieved_context=diag_pkt.get("retrieved_context", []),
+            retrieved_context=_get_diagnostic_context(diag_pkt),
             required_groups=exp.get("required_context_groups", []),
             top_k=chosen_top_k,
             retrieval_mode=retrieval_mode,

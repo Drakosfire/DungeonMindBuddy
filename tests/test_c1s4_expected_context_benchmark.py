@@ -243,3 +243,28 @@ def test_budget_diagnostics_prior_only_marks_support_ineligible():
     row = build_expected_context_report(packets=[packet], diagnostic_packets=[packet], gold=gold, retrieval_mode="prior_only", top_k=1)["results"][0]
     req = row["budget_admission_diagnostics"]["required_groups"]["hempholm"]
     assert req["support_reserved_25pct_8000_chars"]["admitted"] is False
+
+
+def test_admitted_context_not_top_k_sliced_for_grading():
+    packet = {
+        "question_number": 7,
+        "question_id": "q07",
+        "retrieved_context": [{"unit_id": "u1", "text": "irrelevant"}] * 9,
+        "admitted_context": [{"unit_id": f"a{i}", "text": "irrelevant"} for i in range(11)] + [{"unit_id": "target", "text": "Hempholm metallic tree"}],
+        "known_context_gaps": [],
+        "authority_summary": {},
+        "admission_policy": "budgeted_v1",
+    }
+    gq = {"expectations_by_mode": {"prior_plus_support_content_only": {"required_context_groups": [{"group_id": "hem", "match": {"text_contains_any": ["Hempholm metallic tree"]}}], "forbidden_context_groups": [], "expected_known_gaps_contains_any": []}}}
+    row = grade_question_packet(packet=packet, gold_question=gq, retrieval_mode="prior_plus_support_content_only", top_k=9)
+    assert row["ok"] is True
+    assert row["grading_context_kind"] == "admitted_context"
+
+
+def test_depth_diagnostics_uses_candidate_context_when_present():
+    packet_top = {"question_number": 5, "question_id": "q05", "retrieved_context": [{"unit_id": "u1", "source_kind": "session_memory", "snippet": "session"}], "known_context_gaps": [], "authority_summary": {}}
+    packet_diag = {"question_number": 5, "question_id": "q05", "candidate_context": [{"unit_id": "u1", "source_kind": "session_memory", "snippet": "session"}, {"unit_id": "support:hempholm", "source_kind": "support_knowledge_card", "source_layer": "source_module", "snippet": "Hempholm metallic tree"}], "retrieved_context": [{"unit_id": "u1", "source_kind": "session_memory", "snippet": "session"}], "known_context_gaps": [], "authority_summary": {}}
+    gold = {"schema": "dmb_c1s4_expected_context_gold_v1", "campaign_id": "longmont-c1", "questions": [{"question_number": 5, "question_id": "q05", "expectations_by_mode": {"prior_plus_support_content_only": {"required_context_groups": [{"group_id": "hempholm_tree_visible_threat", "match": {"source_kind": "support_knowledge_card", "text_contains_any": ["Hempholm"]}}], "forbidden_context_groups": [], "expected_known_gaps_contains_any": []}}}]}
+    report = build_expected_context_report(packets=[packet_top], diagnostic_packets=[packet_diag], gold=gold, retrieval_mode="prior_plus_support_content_only", top_k=1)
+    diag = report["results"][0]["retrieval_depth_diagnostics"]["required_groups"]["hempholm_tree_visible_threat"]
+    assert diag["first_matching_rank"] == 2
