@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import math
 import re
 from pathlib import Path
 from typing import Any, Literal
@@ -21,6 +22,7 @@ RetrievalMode = Literal[
     "prior_plus_support_content_plus_lexical_hints",
 ]
 LEAKAGE_TOKENS = ["c1s4_expected_context_gold.json", "c1s4_beat_question_targets.json"]
+SUPPORT_KIND = "support_knowledge_card"
 
 DEFAULT_GOLD_PATH = Path(__file__).resolve().parent / "gold/c1s4_expected_context_gold.json"
 
@@ -106,6 +108,28 @@ def context_item_text(item: dict[str, Any]) -> str:
 
 def context_item_ref(item: dict[str, Any]) -> str:
     return str(item.get("unit_id") or item.get("source_reference") or item.get("title") or "unknown")
+
+
+def _jsonish(value: Any) -> str:
+    if isinstance(value, str):
+        return value
+    if value is None:
+        return ""
+    return json.dumps(value, sort_keys=True)
+
+
+def render_context_item_for_budget(item: dict[str, Any]) -> str:
+    parts: list[str] = []
+    for key in ["title", "snippet", "text", "body", "content", "source_reference", "source_kind", "source_layer"]:
+        value = _jsonish(item.get(key))
+        if value:
+            parts.append(value)
+    return "\n".join(parts)
+
+
+def estimate_context_item_size(item: dict[str, Any]) -> tuple[int, int]:
+    chars = len(render_context_item_for_budget(item))
+    return chars, math.ceil(chars / 4)
 
 
 def _get_session_values(item: dict[str, Any]) -> set[int]:
@@ -241,6 +265,135 @@ def _build_depth_diagnostics(*, retrieved_context: list[dict[str, Any]], require
     return {"configured_top_k": top_k, "depths_checked": depths, "required_groups": by_group, "source_kind_counts_by_depth": counts}
 
 
+def _simulate_budget_profile(*, retrieved_context: list[dict[str, Any]], required_groups: list[dict[str, Any]], profile_name: str, top_k: int, retrieval_mode: RetrievalMode) -> dict[str, Any]:
+    profile_configs: dict[str, dict[str, Any]] = {
+        "legacy_top_k_9": {"type": "legacy_top_k"},
+        "flat_ranked_4000_chars": {"type": "flat_ranked", "budget_chars": 4000},
+        "flat_ranked_8000_chars": {"type": "flat_ranked", "budget_chars": 8000},
+        "flat_ranked_12000_chars": {"type": "flat_ranked", "budget_chars": 12000},
+        "support_reserved_25pct_8000_chars": {"type": "support_reserved", "budget_chars": 8000, "support_ratio": 0.25},
+        "support_reserved_35pct_8000_chars": {"type": "support_reserved", "budget_chars": 8000, "support_ratio": 0.35},
+    }
+    cfg = profile_configs[profile_name]
+    sized = []
+    for idx, item in enumerate(retrieved_context, start=1):
+        chars, _ = estimate_context_item_size(item)
+        sized.append({"candidate_rank": idx, "item": item, "chars": chars, "ref": context_item_ref(item), "source_kind": str(item.get("source_kind") or "session_memory")})
+    admitted: list[dict[str, Any]] = []
+    skipped: list[dict[str, Any]] = []
+    if cfg["type"] == "legacy_top_k":
+        admitted = sized[:top_k]
+    elif cfg["type"] == "flat_ranked":
+        remaining = int(cfg["budget_chars"])
+        for c in sized:
+            if c["chars"] <= remaining:
+                admitted.append(c)
+                remaining -= c["chars"]
+            else:
+                skipped.append(c)
+    else:
+        total_budget = int(cfg["budget_chars"])
+        support_budget = int(total_budget * float(cfg["support_ratio"]))
+        general_budget = total_budget - support_budget
+        support_eligible = retrieval_mode != "prior_only"
+        for c in sized:
+            is_support = c["source_kind"] == SUPPORT_KIND
+            if is_support:
+                if not support_eligible:
+                    skipped.append(c)
+                    continue
+                if c["chars"] <= support_budget:
+                    admitted.append(c)
+                    support_budget -= c["chars"]
+                else:
+                    skipped.append(c)
+            else:
+                if c["chars"] <= general_budget:
+                    admitted.append(c)
+                    general_budget -= c["chars"]
+                else:
+                    skipped.append(c)
+    source_kind_counts: dict[str, int] = {}
+    source_kind_chars: dict[str, int] = {}
+    admitted_refs = {a["ref"] for a in admitted}
+    admitted_by_rank = sorted(admitted, key=lambda x: x["candidate_rank"])
+    for admitted_rank, a in enumerate(admitted_by_rank, start=1):
+        a["admitted_rank"] = admitted_rank
+        k = a["source_kind"]
+        source_kind_counts[k] = source_kind_counts.get(k, 0) + 1
+        source_kind_chars[k] = source_kind_chars.get(k, 0) + int(a["chars"])
+    required_by_group: dict[str, Any] = {}
+    for grp in required_groups:
+        gid = str(grp.get("group_id") or "unknown")
+        first_cand = next((c for c in sized if match_context_item(c["item"], grp.get("match", {}))), None)
+        first_admitted = next((c for c in admitted_by_rank if match_context_item(c["item"], grp.get("match", {}))), None)
+        required_by_group[gid] = {
+            "first_matching_candidate_rank": first_cand["candidate_rank"] if first_cand else None,
+            "first_matching_candidate_ref": first_cand["ref"] if first_cand else None,
+            "admitted": first_admitted is not None,
+            "admitted_rank": first_admitted["admitted_rank"] if first_admitted else None,
+            "admitted_ref": first_admitted["ref"] if first_admitted else None,
+        }
+    out: dict[str, Any] = {
+        "admitted_items": len(admitted_by_rank),
+        "admitted_chars": sum(int(a["chars"]) for a in admitted_by_rank),
+        "estimated_tokens": math.ceil(sum(int(a["chars"]) for a in admitted_by_rank) / 4),
+        "source_kind_counts": source_kind_counts,
+        "source_kind_chars": source_kind_chars,
+        "admitted_preview": [
+            {
+                "admitted_rank": a["admitted_rank"],
+                "candidate_rank": a["candidate_rank"],
+                "ref": a["ref"],
+                "source_kind": a["source_kind"],
+                "estimated_chars": a["chars"],
+                "matched_required_groups": [str(grp.get("group_id") or "unknown") for grp in required_groups if match_context_item(a["item"], grp.get("match", {}))],
+            }
+            for a in admitted_by_rank[:12]
+        ],
+        "_required_group_results": required_by_group,
+    }
+    if cfg["type"] == "legacy_top_k":
+        out["budget_chars"] = None
+    elif cfg["type"] == "flat_ranked":
+        out["budget_chars"] = int(cfg["budget_chars"])
+    else:
+        out["budget_chars"] = int(cfg["budget_chars"])
+        out["support_budget_chars"] = int(int(cfg["budget_chars"]) * float(cfg["support_ratio"]))
+        out["general_budget_chars"] = int(cfg["budget_chars"]) - out["support_budget_chars"]
+    return out
+
+
+def _build_budget_admission_diagnostics(*, retrieved_context: list[dict[str, Any]], required_groups: list[dict[str, Any]], top_k: int, retrieval_mode: RetrievalMode, candidate_depth: int = 50) -> dict[str, Any]:
+    profiles = [
+        "legacy_top_k_9",
+        "flat_ranked_4000_chars",
+        "flat_ranked_8000_chars",
+        "flat_ranked_12000_chars",
+        "support_reserved_25pct_8000_chars",
+        "support_reserved_35pct_8000_chars",
+    ]
+    candidate_pool = retrieved_context[:candidate_depth]
+    profile_results: dict[str, Any] = {}
+    required_out: dict[str, Any] = {}
+    for p in profiles:
+        sim = _simulate_budget_profile(retrieved_context=candidate_pool, required_groups=required_groups, profile_name=p, top_k=top_k, retrieval_mode=retrieval_mode)
+        required_group_results = sim.pop("_required_group_results")
+        profile_results[p] = sim
+        for gid, grp_res in required_group_results.items():
+            if gid not in required_out:
+                required_out[gid] = {
+                    "first_matching_candidate_rank": grp_res["first_matching_candidate_rank"],
+                    "first_matching_candidate_ref": grp_res["first_matching_candidate_ref"],
+                }
+            required_out[gid][p] = {
+                "admitted": grp_res["admitted"],
+                "admitted_rank": grp_res["admitted_rank"],
+                "admitted_ref": grp_res["admitted_ref"],
+            }
+    return {"candidate_depth": candidate_depth, "legacy_top_k": top_k, "profiles": profile_results, "required_groups": required_out}
+
+
 def build_expected_context_report(*, packets: list[dict[str, Any]], gold: dict[str, Any], retrieval_mode: RetrievalMode, top_k: int | None = None, diagnostic_packets: list[dict[str, Any]] | None = None) -> dict[str, Any]:
     by_q = {int(p.get("question_number")): p for p in packets}
     chosen_top_k = top_k or int(gold.get("default_top_k", 9))
@@ -261,6 +414,13 @@ def build_expected_context_report(*, packets: list[dict[str, Any]], gold: dict[s
             required_groups=exp.get("required_context_groups", []),
             top_k=chosen_top_k,
             depths=[20, 50],
+        )
+        row["budget_admission_diagnostics"] = _build_budget_admission_diagnostics(
+            retrieved_context=diag_pkt.get("retrieved_context", []),
+            required_groups=exp.get("required_context_groups", []),
+            top_k=chosen_top_k,
+            retrieval_mode=retrieval_mode,
+            candidate_depth=50,
         )
         results.append(row)
     req_total = sum(r["required_context_groups"] for r in results)
