@@ -1,0 +1,124 @@
+{
+  "handoff_id": "PR44_c1s4_rendered_context_canvas_ui",
+  "status": "ready_for_code_agent",
+  "topline": "PR44 should make the rendered LLM context visibly inspectable in the canvas, not merely serialized into the generated data block.",
+  "base_assumption": "PR43 introduced render_context_packet and rendered_context_packet payload fields. PR44 depends on that work.",
+  "problem_statement": {
+    "observed_local_failure": "After generating the canvas locally, the visible canvas did not show the constructed LLM context. The context existed in the payload, but the canvas shell did not render it.",
+    "root_cause": "The Step 2D emitter patches only the generated data block between markers. It does not create or update the React/TSX UI outside those markers. Therefore a canvas shell must explicitly render rendered_context_packet.",
+    "required_fix": "Add or update a repo-local canvas template/shell that renders rendered_context_packet in an expandable details/accordion section for each question card or row."
+  },
+  "scope": {
+    "in_scope": [
+      "Add a repo-local C1S4 canvas TSX template with generated data markers.",
+      "Render benchmark summary, mode summary, guardrails, question cards, and rendered LLM context.",
+      "For each question card, add an expandable details section labeled Rendered LLM Context.",
+      "Render section summaries, full rendered_text, individual sections, and provenance map from rendered_context_packet.",
+      "Update tests to prove the template references rendered_context_packet and includes details/accordion UI.",
+      "Document how to copy/use the template with step2d_expected_context_canvas_emit."
+    ],
+    "out_of_scope": [
+      "Changing retrieval behavior.",
+      "Changing admission behavior.",
+      "Changing expected-context gold.",
+      "Adding query routing.",
+      "Adding shadow LLM retrieval planning.",
+      "Changing renderer semantics unless needed to support display."
+    ]
+  },
+  "files_added_or_expected": [
+    {
+      "path": "evals/c1s4_preplanning_vertical_slice/canvas_templates/c1s4_expected_context_benchmark.canvas.tsx",
+      "purpose": "Repo-local Cursor canvas shell/template that actually renders rendered_context_packet with expandable details UI."
+    },
+    {
+      "path": "Docs/Plans/PR44-c1s4-rendered-context-canvas-handoff.json",
+      "purpose": "Machine-readable handoff and review contract for PR44."
+    }
+  ],
+  "template_requirements": {
+    "generated_data_block": {
+      "must_include_markers": [
+        "// BEGIN GENERATED C1S4_EXPECTED_CONTEXT_CANVAS_DATA",
+        "// END GENERATED C1S4_EXPECTED_CONTEXT_CANVAS_DATA"
+      ],
+      "must_define": [
+        "c1s4ExpectedContextCanvasData",
+        "C1S4ExpectedContextCanvasData"
+      ],
+      "reason": "The existing emitter replaces only this block. The rest of the template must remain stable UI code."
+    },
+    "visible_ui": {
+      "must_render": [
+        "summary stat tiles",
+        "mode summary table",
+        "guardrails",
+        "question cards",
+        "Rendered LLM Context expandable section per question",
+        "section summaries",
+        "full rendered packet text",
+        "individual rendered sections",
+        "provenance map"
+      ],
+      "must_use_fields": [
+        "questionCards[].rendered_context_packet.rendered_text",
+        "questionCards[].rendered_context_packet.sections",
+        "questionCards[].rendered_context_packet.section_summary",
+        "questionCards[].rendered_context_packet.provenance_map"
+      ],
+      "preferred_ui_primitive": "HTML <details>/<summary> because it is simple, deterministic, and does not require extra dependencies."
+    }
+  },
+  "acceptance_criteria": [
+    "A repo-local canvas template exists and can be copied or passed to --canvas-tsx.",
+    "The template contains the generated data block markers used by the emitter.",
+    "The template renders Rendered LLM Context in an expandable details block for every question card.",
+    "The details block displays rendered_context_packet.rendered_text or the sectioned packet content.",
+    "The details block displays section summary counts: refs/items, chars, estimated tokens.",
+    "The details block displays individual sections such as Known Gaps and Safety Constraints, Support / Adaptation Context, and Prior Campaign Memory.",
+    "The details block displays a provenance map with ref, rendered section, source, candidate/admitted rank, and admission reason.",
+    "Q1 rendered prior memory is visible in the canvas when expanded.",
+    "Q3 known gaps are visible in the canvas when expanded.",
+    "Q5 support/adaptation context is visible in the canvas when expanded.",
+    "No retrieval/admission behavior changes are introduced.",
+    "No oracle/eval-only material is added to the rendered UI."
+  ],
+  "tests_to_add_or_update": [
+    {
+      "path": "tests/test_c1s4_expected_context_canvas_payload.py",
+      "intent": "Add a test that reads the repo-local canvas template and asserts it contains generated data markers, details/summary, Rendered LLM Context, and references rendered_context_packet fields."
+    },
+    {
+      "path": "tests/test_c1s4_expected_context_canvas_payload.py",
+      "intent": "Keep existing payload tests proving rendered_context_packet is attached to rows/cards."
+    }
+  ],
+  "manual_local_commands": [
+    "cp evals/c1s4_preplanning_vertical_slice/canvas_templates/c1s4_expected_context_benchmark.canvas.tsx /tmp/c1s4-expected-context-benchmark.canvas.tsx",
+    "uv run python evals/c1s4_preplanning_vertical_slice/step2c_expected_context_benchmark.py --all-modes --output-json /tmp/c1s4_pr44_expected_context_multimode_report.json",
+    "uv run python -m evals.c1s4_preplanning_vertical_slice.step2d_expected_context_canvas_emit --report /tmp/c1s4_pr44_expected_context_multimode_report.json --gold evals/c1s4_preplanning_vertical_slice/gold/c1s4_expected_context_gold.json --payload-out /tmp/c1s4_pr44_canvas_payload.json --canvas-tsx /tmp/c1s4-expected-context-benchmark.canvas.tsx",
+    "grep -n \"Rendered LLM Context\|rendered_context_packet\|Full rendered packet text\" /tmp/c1s4-expected-context-benchmark.canvas.tsx"
+  ],
+  "review_checklist": {
+    "topline_expected": "Approved when template exists, tests prove UI references rendered_context_packet, and generated local canvas visibly renders context.",
+    "blockers": [
+      "No repo-local template exists.",
+      "Template exists but only stores generated data and does not render rendered_context_packet.",
+      "Template uses rendered_context_packet only as raw JSON with no readable sections or provenance.",
+      "Tests only assert payload data exists and do not assert UI template references rendered context fields.",
+      "Any retrieval/admission/gold changes are included."
+    ]
+  },
+  "report_back_format": {
+    "topline": "Approved | Needs revision | Blocked | Approved with caveat",
+    "sections": [
+      "files_changed",
+      "canvas_template_summary",
+      "visible_context_behavior",
+      "commands_run",
+      "tests",
+      "manual_verification",
+      "known_caveats"
+    ]
+  }
+}
