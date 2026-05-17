@@ -1,0 +1,56 @@
+[
+  {
+    "mode": "prior_only",
+    "question_number": 1,
+    "query_features": null,
+    "lane_plan": null
+  },
+  {
+    "mode": "prior_only",
+    "question_number": 3,
+    "query_features": null,
+    "lane_plan": null
+  },
+  {
+    "mode": "prior_only",
+    "question_number": 5,
+    "query_features": null,
+    "lane_plan": null
+  },
+  {
+    "mode": "prior_plus_support_content_only",
+    "question_number": 1,
+    "query_features": null,
+    "lane_plan": null
+  },
+  {
+    "mode": "prior_plus_support_content_only",
+    "question_number": 3,
+    "query_features": null,
+    "lane_plan": null
+  },
+  {
+    "mode": "prior_plus_support_content_only",
+    "question_number": 5,
+    "query_features": null,
+    "lane_plan": null
+  },
+  {
+    "mode": "prior_plus_support_content_plus_lexical_hints",
+    "question_number": 1,
+    "query_features": null,
+    "lane_plan": null
+  },
+  {
+    "mode": "prior_plus_support_content_plus_lexical_hints",
+    "question_number": 3,
+    "query_features": null,
+    "lane_plan": null
+  },
+  {
+    "mode": "prior_plus_support_content_plus_lexical_hints",
+    "question_number": 5,
+    "query_features": null,
+    "lane_plan": null
+  }
+]
