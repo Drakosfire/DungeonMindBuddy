@@ -201,3 +201,10 @@ def test_canvas_renderer_can_emit_expandable_context():
     assert "Known Gaps and Safety Constraints" in block
     assert "Rendered LLM Context" in block or "Constructed Context Packet" in block
     assert "details" in block
+
+
+def test_payload_declares_canvas_ui_scope_boundary():
+    payload = build_payload(report=_single_report())
+    details = " ".join(r.get("detail", "") for r in payload.get("guardrailRows", []))
+    assert "payload + uiHints" in details
+    assert "external Cursor canvas shell" in details

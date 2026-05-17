@@ -158,6 +158,7 @@ def build_payload(*, report: dict[str, Any], gold: dict[str, Any] | None = None,
             {"guardrail": "Gold is eval-only", "status": "PASS", "detail": "Payload generated from Step 2C report; no retrieval performed."},
             {"guardrail": "Canvas is projection", "status": "PASS", "detail": "Canonical state remains benchmark JSON."},
             {"guardrail": "No oracle material", "status": "PASS", "detail": "Step 2C does not read C1S4 oracle."},
+            {"guardrail": "Canvas accordion ownership", "status": "INFO", "detail": "This repo emits payload + uiHints only; external Cursor canvas shell renders accordion/details UI."},
         ],
     }
     return payload
