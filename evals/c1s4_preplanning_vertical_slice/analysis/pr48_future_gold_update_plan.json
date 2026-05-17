@@ -1,23 +1,189 @@
 {
-  "schema": "dmb_c1s4_future_gold_update_plan_v1",
+  "schema": "dmb_c1s4_future_gold_update_plan_v2",
   "handoff_id": "PR48_lane_audit_and_worldbuilding_readiness",
-  "recommendations": "See detailed per-question recommendations in PR48 handoff; this file captures proposed future (non-active) group additions by lane.",
-  "by_question": {
-    "q1": [
-      "stone_bridge_location_baseline",
-      "pippa_bubbles_npc_continuity",
-      "grishna_pub_anchor",
-      "stone_bridge_flood_event_memory"
-    ],
-    "q3": [
-      "stone_bridge_to_mirathorn_known_gap",
-      "stone_bridge_starting_point_context",
-      "mirathorn_destination_hook"
-    ],
-    "q5": [
-      "hempholm_location_baseline",
-      "hempholm_tree_support_context",
-      "support_not_allowed_in_prior_only"
-    ]
-  }
+  "proposed_groups": [
+    {
+      "group_id": "stone_bridge_location_baseline",
+      "question_id": "q01_who_are_the_npcs_the_players_encountered",
+      "expected_section": "location_worldbuilding",
+      "mode_scope": [
+        "prior_only",
+        "prior_plus_support_content_only",
+        "prior_plus_support_content_plus_lexical_hints"
+      ],
+      "reason": "Q1 needs stable place context beyond event fragments.",
+      "match_suggestion": {
+        "text_contains_any": [
+          "Stone Bridge",
+          "River's Edge Pub",
+          "town",
+          "flood",
+          "high ground"
+        ],
+        "source_kind_any": [
+          "campaign_stateful_reference",
+          "session_memory"
+        ],
+        "presentation_lane_any": [
+          "location_worldbuilding"
+        ]
+      }
+    },
+    {
+      "group_id": "pippa_bubbles_npc_continuity",
+      "question_id": "q01_who_are_the_npcs_the_players_encountered",
+      "expected_section": "character_party_behavior",
+      "mode_scope": [
+        "prior_only",
+        "prior_plus_support_content_only",
+        "prior_plus_support_content_plus_lexical_hints"
+      ],
+      "reason": "Q1 asks who NPCs are, how they view party, and next-day behavior.",
+      "match_suggestion": {
+        "text_contains_any": [
+          "Pippa",
+          "Bubbles",
+          "panicked",
+          "rescued",
+          "grateful"
+        ],
+        "source_kind_any": [
+          "campaign_stateful_reference",
+          "session_memory"
+        ],
+        "presentation_lane_any": [
+          "character_party_behavior",
+          "npc_continuity"
+        ]
+      }
+    },
+    {
+      "group_id": "grishna_pub_anchor",
+      "question_id": "q01_who_are_the_npcs_the_players_encountered",
+      "expected_section": "character_party_behavior",
+      "mode_scope": [
+        "prior_only",
+        "prior_plus_support_content_only",
+        "prior_plus_support_content_plus_lexical_hints"
+      ],
+      "reason": "Grishna + pub are social continuity anchors.",
+      "match_suggestion": {
+        "text_contains_any": [
+          "Grishna",
+          "River's Edge",
+          "Pub",
+          "beer",
+          "board"
+        ],
+        "presentation_lane_any": [
+          "character_party_behavior"
+        ]
+      }
+    },
+    {
+      "group_id": "stone_bridge_to_mirathorn_known_gap",
+      "question_id": "q03_how_far_away_is_mirathorn_at_this_point",
+      "expected_section": "known_gaps_and_safety_constraints",
+      "mode_scope": [
+        "prior_only",
+        "prior_plus_support_content_only",
+        "prior_plus_support_content_plus_lexical_hints"
+      ],
+      "reason": "Prevent fabricated route specifics.",
+      "match_suggestion": {
+        "text_contains_any": [
+          "exact Stone Bridge-to-Mirathorn route gazetteer",
+          "route-specific ecology"
+        ],
+        "presentation_lane_any": [
+          "known_gaps"
+        ]
+      }
+    },
+    {
+      "group_id": "stone_bridge_starting_point_context",
+      "question_id": "q03_how_far_away_is_mirathorn_at_this_point",
+      "expected_section": "location_worldbuilding",
+      "mode_scope": [
+        "prior_only",
+        "prior_plus_support_content_only",
+        "prior_plus_support_content_plus_lexical_hints"
+      ],
+      "reason": "Distance answer requires origin baseline.",
+      "match_suggestion": {
+        "text_contains_any": [
+          "Stone Bridge",
+          "starting town",
+          "Mirathorn",
+          "road"
+        ],
+        "presentation_lane_any": [
+          "location_worldbuilding"
+        ]
+      }
+    },
+    {
+      "group_id": "hempholm_location_baseline",
+      "question_id": "q05_there_is_a_gigantic_tree_growing_in_hemp",
+      "expected_section": "location_worldbuilding",
+      "mode_scope": [
+        "prior_plus_support_content_only",
+        "prior_plus_support_content_plus_lexical_hints"
+      ],
+      "reason": "Support answer should include campaign location baseline where available.",
+      "match_suggestion": {
+        "text_contains_any": [
+          "Hempholm",
+          "village",
+          "road",
+          "tree crisis"
+        ],
+        "presentation_lane_any": [
+          "location_worldbuilding"
+        ]
+      }
+    },
+    {
+      "group_id": "hempholm_tree_support_context",
+      "question_id": "q05_there_is_a_gigantic_tree_growing_in_hemp",
+      "expected_section": "support_knowledge",
+      "mode_scope": [
+        "prior_plus_support_content_only",
+        "prior_plus_support_content_plus_lexical_hints"
+      ],
+      "reason": "Support modes should retrieve support cards.",
+      "match_suggestion": {
+        "text_contains_any": [
+          "Hempholm",
+          "tree",
+          "metallic",
+          "precious metal"
+        ],
+        "source_kind_any": [
+          "support_knowledge_card"
+        ],
+        "presentation_lane_any": [
+          "support_knowledge"
+        ]
+      }
+    },
+    {
+      "group_id": "support_not_allowed_in_prior_only",
+      "question_id": "q05_there_is_a_gigantic_tree_growing_in_hemp",
+      "expected_section": "forbidden",
+      "mode_scope": [
+        "prior_only"
+      ],
+      "reason": "Prior-only should not include support cards.",
+      "match_suggestion": {
+        "text_contains_any": [
+          "Hempholm",
+          "precious metal"
+        ],
+        "source_kind_any": [
+          "support_knowledge_card"
+        ]
+      }
+    }
+  ]
 }

@@ -1,7 +1,7 @@
 {
   "schema": "dmb_c1s4_lane_corpus_audit_v1",
   "generated_from": {
-    "git_sha": "36ef4a4c4b7ed492f87c1048f9a94f24ce8b963d",
+    "git_sha": "8406a84a9a8a3a9d5900e5d594f785bea7180194",
     "step2c_report_path": "/tmp/c1s4_pr48_audit_step2c_report.json",
     "gold_path": "evals/c1s4_preplanning_vertical_slice/gold/c1s4_expected_context_gold.json",
     "corpus_root": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1"
@@ -39,7 +39,7 @@
             "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Session Recaps/Session 3 - The Stone Bridge Flood.md"
           ],
           "notes": [
-            "Session recap memory exists and is heavily retrieved."
+            "Session recap memory exists."
           ]
         },
         "character_npc_continuity": {
@@ -49,11 +49,9 @@
             "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/NPCs/bubbles_the_float_goat/README.md",
             "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/NPCs/grishna/README.md"
           ],
-          "missing_recommended_files": [
-            "Locations/N/A"
-          ],
+          "missing_recommended_files": [],
           "notes": [
-            "NPC hubs exist for Pippa/Bubbles/Grishna."
+            "Existing hubs should be verified for indexing/retrieval/admission/classification into character_party_behavior."
           ]
         },
         "location_worldbuilding": {
@@ -64,41 +62,64 @@
             "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Locations/rivers_edge_pub/README.md"
           ],
           "notes": [
-            "Stone Bridge/River's Edge first-class location hubs not found."
+            "Stone Bridge and River's Edge location hubs absent."
           ]
         },
         "support_adaptation": {
           "status": "not_applicable",
           "files": [],
           "notes": [
-            "Not required for this question."
+            "Not required."
           ]
         },
         "known_gaps": {
           "status": "partial",
           "values": [],
           "notes": [
-            "No explicit known-gap requirements in current gold."
+            "No explicit known-gap requirement."
           ]
         }
       },
       "current_packet_observation": {
-        "rendered_sections_present": [
-          "prior_campaign_memory"
-        ],
-        "rendered_sections_empty": [
-          "known_gaps",
-          "support_knowledge",
-          "character_party_behavior",
-          "location_worldbuilding"
-        ],
-        "admitted_counts_by_presentation_lane": {
-          "prior_campaign_memory": 50
+        "mode_observations": {
+          "prior_only": {
+            "admitted_counts_by_presentation_lane": {
+              "prior_campaign_memory": 50
+            },
+            "admitted_counts_by_source_kind": {
+              "unknown": 50
+            },
+            "support_token_share": 0.0,
+            "support_burial_depth": null,
+            "known_gap_expectations_hit": [],
+            "known_context_gaps": []
+          },
+          "prior_plus_support_content_only": {
+            "admitted_counts_by_presentation_lane": {
+              "prior_campaign_memory": 50
+            },
+            "admitted_counts_by_source_kind": {
+              "unknown": 50
+            },
+            "support_token_share": 0.0,
+            "support_burial_depth": null,
+            "known_gap_expectations_hit": [],
+            "known_context_gaps": []
+          },
+          "prior_plus_support_content_plus_lexical_hints": {
+            "admitted_counts_by_presentation_lane": {
+              "prior_campaign_memory": 50
+            },
+            "admitted_counts_by_source_kind": {
+              "unknown": 50
+            },
+            "support_token_share": 0.0,
+            "support_burial_depth": null,
+            "known_gap_expectations_hit": [],
+            "known_context_gaps": []
+          }
         },
-        "candidate_counts_by_source_kind": null,
-        "notes": [
-          "Admitted context predominantly/entirely prior_campaign_memory for Q1/Q3 under current classifier."
-        ]
+        "notes": []
       },
       "future_gold_recommendations": []
     },
@@ -126,37 +147,33 @@
             "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Session Recaps/Session 3 - The Stone Bridge Flood.md"
           ],
           "notes": [
-            "Session recap memory exists and is heavily retrieved."
+            "Session recap memory exists."
           ]
         },
         "character_npc_continuity": {
-          "status": "missing",
+          "status": "not_applicable",
           "files": [],
-          "missing_recommended_files": [
-            "Locations/N/A"
-          ],
+          "missing_recommended_files": [],
           "notes": [
-            "No first-class NPC hubs found."
+            "Not primary lane for this question."
           ]
         },
         "location_worldbuilding": {
-          "status": "present",
-          "files": [
-            "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Session Recaps/Session 3 - The Stone Bridge Flood.md"
-          ],
+          "status": "missing",
+          "files": [],
           "missing_recommended_files": [
             "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Locations/stone_bridge/README.md",
             "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Locations/rivers_edge_pub/README.md"
           ],
           "notes": [
-            "Stone Bridge/River's Edge first-class location hubs not found."
+            "Stone Bridge and River's Edge location hubs absent."
           ]
         },
         "support_adaptation": {
           "status": "not_applicable",
           "files": [],
           "notes": [
-            "Not required for this question."
+            "Not required."
           ]
         },
         "known_gaps": {
@@ -166,26 +183,73 @@
             "route-specific ecology"
           ],
           "notes": [
-            "Known gaps explicitly required in gold for Q3."
+            "Gold explicitly expects these for Q3."
           ]
         }
       },
       "current_packet_observation": {
-        "rendered_sections_present": [
-          "prior_campaign_memory"
-        ],
-        "rendered_sections_empty": [
-          "known_gaps",
-          "support_knowledge",
-          "character_party_behavior",
-          "location_worldbuilding"
-        ],
-        "admitted_counts_by_presentation_lane": {
-          "prior_campaign_memory": 36
+        "mode_observations": {
+          "prior_only": {
+            "admitted_counts_by_presentation_lane": {
+              "prior_campaign_memory": 36
+            },
+            "admitted_counts_by_source_kind": {
+              "unknown": 36
+            },
+            "support_token_share": 0.0,
+            "support_burial_depth": null,
+            "known_gap_expectations_hit": [
+              "exact Stone Bridge-to-Mirathorn route gazetteer",
+              "route-specific ecology"
+            ],
+            "known_context_gaps": [
+              "exact Stone Bridge-to-Mirathorn route gazetteer",
+              "intermediate settlements",
+              "day-by-day travel route",
+              "route-specific ecology"
+            ]
+          },
+          "prior_plus_support_content_only": {
+            "admitted_counts_by_presentation_lane": {
+              "prior_campaign_memory": 36
+            },
+            "admitted_counts_by_source_kind": {
+              "unknown": 36
+            },
+            "support_token_share": 0.0,
+            "support_burial_depth": null,
+            "known_gap_expectations_hit": [
+              "exact Stone Bridge-to-Mirathorn route gazetteer"
+            ],
+            "known_context_gaps": [
+              "exact Stone Bridge-to-Mirathorn route gazetteer",
+              "intermediate settlements",
+              "day-by-day travel route",
+              "route-specific ecology"
+            ]
+          },
+          "prior_plus_support_content_plus_lexical_hints": {
+            "admitted_counts_by_presentation_lane": {
+              "prior_campaign_memory": 36
+            },
+            "admitted_counts_by_source_kind": {
+              "unknown": 36
+            },
+            "support_token_share": 0.0,
+            "support_burial_depth": null,
+            "known_gap_expectations_hit": [
+              "exact Stone Bridge-to-Mirathorn route gazetteer"
+            ],
+            "known_context_gaps": [
+              "exact Stone Bridge-to-Mirathorn route gazetteer",
+              "intermediate settlements",
+              "day-by-day travel route",
+              "route-specific ecology"
+            ]
+          }
         },
-        "candidate_counts_by_source_kind": null,
         "notes": [
-          "Admitted context predominantly/entirely prior_campaign_memory for Q1/Q3 under current classifier."
+          "Known-gap recall is benchmark-level expectation matching (`known_gap_expectations_hit`) and may not imply a populated admitted known-gaps lane."
         ]
       },
       "future_gold_recommendations": []
@@ -216,17 +280,15 @@
             "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Session Recaps/Session 3 - The Stone Bridge Flood.md"
           ],
           "notes": [
-            "Session recap memory exists and is heavily retrieved."
+            "Session recap memory exists."
           ]
         },
         "character_npc_continuity": {
-          "status": "missing",
+          "status": "not_applicable",
           "files": [],
-          "missing_recommended_files": [
-            "Locations/N/A"
-          ],
+          "missing_recommended_files": [],
           "notes": [
-            "No first-class NPC hubs found."
+            "Not primary lane for this question."
           ]
         },
         "location_worldbuilding": {
@@ -236,7 +298,7 @@
           ],
           "missing_recommended_files": [],
           "notes": [
-            "Hempholm location hub exists."
+            "Hempholm location hub exists; verify retrieval/admission/rendering independently from support cards."
           ]
         },
         "support_adaptation": {
@@ -245,33 +307,62 @@
             "evals/c1s4_preplanning_vertical_slice/support_knowledge/retrieval_cards.hempholm_support.jsonl"
           ],
           "notes": [
-            "Support cards present for Hempholm."
+            "Support cards present and used in support modes for Q5."
           ]
         },
         "known_gaps": {
           "status": "partial",
           "values": [],
           "notes": [
-            "No explicit known-gap requirements in current gold."
+            "No explicit known-gap requirement."
           ]
         }
       },
       "current_packet_observation": {
-        "rendered_sections_present": [
-          "prior_campaign_memory"
-        ],
-        "rendered_sections_empty": [
-          "known_gaps",
-          "support_knowledge",
-          "character_party_behavior",
-          "location_worldbuilding"
-        ],
-        "admitted_counts_by_presentation_lane": {
-          "prior_campaign_memory": 44
+        "mode_observations": {
+          "prior_only": {
+            "admitted_counts_by_presentation_lane": {
+              "prior_campaign_memory": 44
+            },
+            "admitted_counts_by_source_kind": {
+              "unknown": 44
+            },
+            "support_token_share": 0.0,
+            "support_burial_depth": null,
+            "known_gap_expectations_hit": [],
+            "known_context_gaps": []
+          },
+          "prior_plus_support_content_only": {
+            "admitted_counts_by_presentation_lane": {
+              "prior_campaign_memory": 22,
+              "support_knowledge": 6
+            },
+            "admitted_counts_by_source_kind": {
+              "unknown": 22,
+              "support_knowledge_card": 6
+            },
+            "support_token_share": 0.399,
+            "support_burial_depth": 22,
+            "known_gap_expectations_hit": [],
+            "known_context_gaps": []
+          },
+          "prior_plus_support_content_plus_lexical_hints": {
+            "admitted_counts_by_presentation_lane": {
+              "prior_campaign_memory": 22,
+              "support_knowledge": 6
+            },
+            "admitted_counts_by_source_kind": {
+              "unknown": 22,
+              "support_knowledge_card": 6
+            },
+            "support_token_share": 0.4599,
+            "support_burial_depth": 21,
+            "known_gap_expectations_hit": [],
+            "known_context_gaps": []
+          }
         },
-        "candidate_counts_by_source_kind": null,
         "notes": [
-          "Admitted context predominantly/entirely prior_campaign_memory for Q1/Q3 under current classifier."
+          "Support appears in support-enabled modes via support_token_share/support_burial_depth; prior_only remains support-empty by policy."
         ]
       },
       "future_gold_recommendations": []
@@ -279,19 +370,20 @@
   ],
   "global_findings": {
     "corpus_gaps": [
-      "No first-class Stone Bridge location hub found.",
-      "No first-class River's Edge Pub location hub found."
+      "Missing first-class location hubs: Stone Bridge and River's Edge Pub.",
+      "NPC hubs for Pippa/Bubbles/Grishna exist already (no duplicate creation needed)."
     ],
     "pipeline_gaps": [
-      "Current admission classifier maps session memory to prior_campaign_memory; no explicit location/NPC lane mapping from first-class hubs yet."
+      "Current admitted context remains overwhelmingly prior_campaign_memory across Q1/Q3, indicating missing/insufficient lane mapping for existing artifact types.",
+      "Known-gap benchmark hits can occur without explicit admitted known-gaps lane entries in packet observation surfaces."
     ],
     "benchmark_gaps": [
-      "Current gold checks text/group hits and known gaps, not rendered section placement."
+      "Current gold does not require lane-specific section placement for most required groups."
     ],
     "recommended_next_prs": [
-      "PR49 create location/NPC hubs",
-      "PR50 lane classification for location/NPC hubs",
-      "PR51 update gold to require lane-balanced placement"
+      "PR49: add missing location hubs + verify NPC hub indexing/aliases",
+      "PR50: lane classification/admission mapping for location + npc continuity artifacts",
+      "PR51: require lane-balanced rendered sections in gold"
     ]
   }
 }
