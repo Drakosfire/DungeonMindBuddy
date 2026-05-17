@@ -350,8 +350,8 @@
         },
         "support_knowledge": {
           "floor_chars": 0,
-          "target_chars": 1000,
-          "max_chars": 2000,
+          "target_chars": 0,
+          "max_chars": 500,
           "priority": 3
         }
       },
@@ -579,8 +579,8 @@
         },
         "support_knowledge": {
           "floor_chars": 0,
-          "target_chars": 1000,
-          "max_chars": 2000,
+          "target_chars": 0,
+          "max_chars": 500,
           "priority": 3
         }
       },

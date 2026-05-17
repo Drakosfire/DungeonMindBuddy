@@ -390,7 +390,7 @@
     "question_id": "q03_how_far_away_is_mirathorn_at_this_point",
     "metric": "llm_usability.score_1_to_5",
     "pr46_value": null,
-    "pr47_value": 4,
+    "pr47_value": 5,
     "delta": null,
     "improved": null,
     "notes": "No PR46 numeric baseline declared for this specific metric/question."
@@ -401,9 +401,7 @@
     "question_id": "q03_how_far_away_is_mirathorn_at_this_point",
     "metric": "flags",
     "pr46_value": null,
-    "pr47_value": [
-      "support_expected_but_absent"
-    ],
+    "pr47_value": [],
     "delta": null,
     "improved": null,
     "notes": "No PR46 numeric baseline declared for this specific metric/question."
@@ -658,7 +656,7 @@
     "question_id": "q03_how_far_away_is_mirathorn_at_this_point",
     "metric": "llm_usability.score_1_to_5",
     "pr46_value": null,
-    "pr47_value": 4,
+    "pr47_value": 5,
     "delta": null,
     "improved": null,
     "notes": "No PR46 numeric baseline declared for this specific metric/question."
@@ -669,9 +667,7 @@
     "question_id": "q03_how_far_away_is_mirathorn_at_this_point",
     "metric": "flags",
     "pr46_value": null,
-    "pr47_value": [
-      "support_expected_but_absent"
-    ],
+    "pr47_value": [],
     "delta": null,
     "improved": null,
     "notes": "No PR46 numeric baseline declared for this specific metric/question."

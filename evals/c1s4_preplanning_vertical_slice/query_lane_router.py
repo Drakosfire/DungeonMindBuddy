@@ -5,7 +5,7 @@ from typing import Any
 
 LANE_PROFILES_V1: dict[str, dict[str, Any]] = {
     "prior_npc_context": {"known_gaps": {"floor_chars": 300, "target_chars": 600, "max_chars": 1000, "priority": 0}, "prior_campaign_memory": {"floor_chars": 4500, "target_chars": 6500, "max_chars": 7500, "priority": 1}, "support_knowledge": {"floor_chars": 0, "target_chars": 0, "max_chars": 500, "priority": 9}},
-    "route_or_distance_gap": {"known_gaps": {"floor_chars": 1000, "target_chars": 1800, "max_chars": 2500, "priority": 0}, "prior_campaign_memory": {"floor_chars": 1500, "target_chars": 3000, "max_chars": 4500, "priority": 2}, "support_knowledge": {"floor_chars": 0, "target_chars": 1000, "max_chars": 2000, "priority": 3}},
+    "route_or_distance_gap": {"known_gaps": {"floor_chars": 1000, "target_chars": 1800, "max_chars": 2500, "priority": 0}, "prior_campaign_memory": {"floor_chars": 1500, "target_chars": 3000, "max_chars": 4500, "priority": 2}, "support_knowledge": {"floor_chars": 0, "target_chars": 0, "max_chars": 500, "priority": 3}},
     "support_description": {"known_gaps": {"floor_chars": 500, "target_chars": 1000, "max_chars": 1500, "priority": 0}, "support_knowledge": {"floor_chars": 2500, "target_chars": 3500, "max_chars": 4500, "priority": 1}, "prior_campaign_memory": {"floor_chars": 1000, "target_chars": 2500, "max_chars": 3500, "priority": 2}},
     "default_mixed": {"known_gaps": {"floor_chars": 500, "target_chars": 1000, "max_chars": 1500, "priority": 0}, "prior_campaign_memory": {"floor_chars": 3000, "target_chars": 5000, "max_chars": 6500, "priority": 1}, "support_knowledge": {"floor_chars": 0, "target_chars": 1500, "max_chars": 2500, "priority": 2}},
 }

@@ -23,3 +23,9 @@ def test_q1_style_support_mode_prefers_prior_profile_over_generic_description():
     q = 'Who are the NPCs encountered in Stone Bridge and what is their description in the morning?'
     plan = build_lane_plan(question_text=q, retrieval_mode='prior_plus_support_content_only')
     assert plan['profile'] == 'prior_npc_context'
+
+
+def test_route_profile_does_not_expect_support_by_default_in_support_modes():
+    plan = build_lane_plan(question_text='How far is the route between Stone Bridge and Mirathorn?', retrieval_mode='prior_plus_support_content_only')
+    assert plan['profile'] == 'route_or_distance_gap'
+    assert plan['lanes']['support_knowledge']['target_chars'] == 0

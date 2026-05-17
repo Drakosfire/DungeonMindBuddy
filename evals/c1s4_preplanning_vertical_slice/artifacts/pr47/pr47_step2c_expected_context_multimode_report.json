@@ -475,8 +475,8 @@
               },
               "support_knowledge": {
                 "floor_chars": 0,
-                "target_chars": 1000,
-                "max_chars": 2000,
+                "target_chars": 0,
+                "max_chars": 500,
                 "priority": 3
               }
             },
@@ -510,11 +510,9 @@
             "support_token_share": 0.0,
             "known_gaps_near_top": true,
             "llm_usability": {
-              "score_1_to_5": 4
+              "score_1_to_5": 5
             },
-            "flags": [
-              "support_expected_but_absent"
-            ]
+            "flags": []
           }
         },
         {
@@ -780,8 +778,8 @@
               },
               "support_knowledge": {
                 "floor_chars": 0,
-                "target_chars": 1000,
-                "max_chars": 2000,
+                "target_chars": 0,
+                "max_chars": 500,
                 "priority": 3
               }
             },
@@ -815,11 +813,9 @@
             "support_token_share": 0.0,
             "known_gaps_near_top": true,
             "llm_usability": {
-              "score_1_to_5": 4
+              "score_1_to_5": 5
             },
-            "flags": [
-              "support_expected_but_absent"
-            ]
+            "flags": []
           }
         },
         {
