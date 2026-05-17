@@ -186,3 +186,15 @@ def test_cli_check_mode_reports_stale_canvas(tmp_path):
         "--check",
     ], capture_output=True, text=True)
     assert proc.returncode == 1
+
+
+def test_canvas_payload_includes_rendered_context_packet():
+    payload = build_payload(report=_single_report())
+    assert "rendered_context_packet" in payload["questionRows"][0]
+    assert payload["questionRows"][0]["rendered_context_packet"]["schema"] == "dmb_planner_context_render_v1"
+
+
+def test_canvas_renderer_can_emit_expandable_context():
+    block = render_generated_block(build_payload(report=_single_report()))
+    assert "rendered_context_packet" in block
+    assert "Known Gaps and Safety Constraints" in block
