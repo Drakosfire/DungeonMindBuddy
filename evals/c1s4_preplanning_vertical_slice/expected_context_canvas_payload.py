@@ -136,6 +136,7 @@ def build_payload(*, report: dict[str, Any], gold: dict[str, Any] | None = None,
         "schema": PAYLOAD_SCHEMA,
         "title": "C1S4 Expected Context Benchmark",
         "subtitle": "Step 2C retrieval/context packet evidence review",
+        "uiHints": {"rendered_context_label": "Rendered LLM Context", "rendered_context_affordance": "details"},
         "sources": {"report": report_path or "", "gold": gold_path or str(_DEFAULT_GOLD_PATH)},
         "summary": {
             "modes": modes,

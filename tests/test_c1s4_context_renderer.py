@@ -42,3 +42,19 @@ def test_renderer_preserves_provenance():
     assert p["candidate_rank"] == 2
     assert p["admitted_rank"] == 2
     assert p["presentation_lane"] == "support_knowledge"
+
+
+def test_renderer_classifies_realish_session_item_without_kind_or_lane_as_prior():
+    packet = {
+        "question_number": 1,
+        "question_id": "q01",
+        "question": "Who are the NPCs?",
+        "retrieval_mode": "prior_only",
+        "admission_policy": "budgeted_v1",
+        "admitted_context": [
+            {"unit_id": "u-L0034-01", "snippet": "Ready for some rest...StoneBridge with Pippa..."}
+        ],
+    }
+    out = render_context_packet(packet)
+    prior = next(s for s in out["sections"] if s["section_id"] == "prior_campaign_memory")
+    assert "u-L0034-01" in prior["refs"]

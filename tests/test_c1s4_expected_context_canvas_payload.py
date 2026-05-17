@@ -198,3 +198,4 @@ def test_canvas_renderer_can_emit_expandable_context():
     block = render_generated_block(build_payload(report=_single_report()))
     assert "rendered_context_packet" in block
     assert "Known Gaps and Safety Constraints" in block
+    assert "Rendered LLM Context" in block or "Constructed Context Packet" in block

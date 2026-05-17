@@ -23,6 +23,15 @@ def _item_text(item: dict[str, Any]) -> str:
     return str(item.get("snippet") or item.get("text") or item.get("title") or item.get("source_reference") or "")
 
 
+def _is_prior_memory_fallback(item: dict[str, Any]) -> bool:
+    unit_id = str(item.get("unit_id") or item.get("ref") or "")
+    if unit_id.startswith("u-L") or unit_id.startswith("meta-session-"):
+        return True
+    if item.get("session_number") is not None or item.get("source_recap_path"):
+        return True
+    return False
+
+
 def render_context_packet(packet: dict[str, Any]) -> dict[str, Any]:
     admitted = packet.get("admitted_context") or []
     mode = str(packet.get("retrieval_mode") or "")
@@ -37,7 +46,7 @@ def render_context_packet(packet: dict[str, Any]) -> dict[str, Any]:
         elif lane == "support_knowledge" or kind == "support_knowledge_card":
             if mode != "prior_only":
                 by_section["support_knowledge"].append(item)
-        elif lane == "prior_campaign_memory" or kind == "session_memory":
+        elif lane == "prior_campaign_memory" or kind == "session_memory" or _is_prior_memory_fallback(item):
             by_section["prior_campaign_memory"].append(item)
         elif lane in {"pc_timeline", "party_timeline"}:
             by_section["character_party_behavior"].append(item)
