@@ -268,3 +268,10 @@ def test_depth_diagnostics_uses_candidate_context_when_present():
     report = build_expected_context_report(packets=[packet_top], diagnostic_packets=[packet_diag], gold=gold, retrieval_mode="prior_plus_support_content_only", top_k=1)
     diag = report["results"][0]["retrieval_depth_diagnostics"]["required_groups"]["hempholm_tree_visible_threat"]
     assert diag["first_matching_rank"] == 2
+
+
+def test_step2c_rows_include_packet_quality_metrics():
+    gold = load_expected_context_gold()
+    report = build_expected_context_report(packets=build_summary(mode="prior_only")["packets"], gold=gold, retrieval_mode="prior_only")
+    assert all("packet_quality_metrics" in row for row in report["results"])
+    assert all("ok" in row and "violations" in row for row in report["results"])

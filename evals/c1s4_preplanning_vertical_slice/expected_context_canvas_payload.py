@@ -113,6 +113,7 @@ def build_payload(*, report: dict[str, Any], gold: dict[str, Any] | None = None,
             "known_gaps": known_gap_label,
             "violations": row.get("violations", []),
             "rendered_context_packet": rendered_packet,
+            "packet_quality_metrics": row.get("packet_quality_metrics"),
         })
 
         question_cards.append({
@@ -129,6 +130,7 @@ def build_payload(*, report: dict[str, Any], gold: dict[str, Any] | None = None,
             "authority_summary": row.get("authority_summary", {}),
             "violations": row.get("violations", []),
             "rendered_context_packet": rendered_packet,
+            "packet_quality_metrics": row.get("packet_quality_metrics"),
         })
 
     mode_count = max(1, len(modes))

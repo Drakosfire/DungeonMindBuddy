@@ -9,6 +9,7 @@ from typing import Any, Literal
 from evals.c1s4_preplanning_vertical_slice.context_admission import estimate_context_item_size, render_context_item_for_budget
 
 from evals.c1s4_preplanning_vertical_slice.beat_question_answer_harness import PACKET_SCHEMA, iter_target_questions, load_beat_question_targets
+from evals.c1s4_preplanning_vertical_slice.context_quality_metrics import compute_packet_quality_metrics
 
 EXPECTED_CONTEXT_GOLD_SCHEMA = "dmb_c1s4_expected_context_gold_v1"
 EXPECTED_CONTEXT_REPORT_SCHEMA = "dmb_c1s4_expected_context_benchmark_report_v1"
@@ -426,6 +427,10 @@ def build_expected_context_report(*, packets: list[dict[str, Any]], gold: dict[s
             retrieval_mode=retrieval_mode,
             candidate_depth=50,
         )
+        row["retrieved_context"] = pkt.get("retrieved_context", [])
+        row["candidate_context"] = pkt.get("candidate_context", [])
+        row["rendered_context_packet"] = pkt.get("rendered_context_packet", {})
+        row["packet_quality_metrics"] = compute_packet_quality_metrics(row=row, gold_question=gq)
         results.append(row)
     req_total = sum(r["required_context_groups"] for r in results)
     req_hit = sum(r["required_context_groups_hit"] for r in results)

@@ -1,0 +1,130 @@
+{
+  "schema": "pr46_packet_quality_summary_v1",
+  "summary": {
+    "prior_only": [
+      {
+        "question_number": 1,
+        "question_id": "q01_who_are_the_npcs_the_players_encountered",
+        "ok": true,
+        "flags": [
+          "high_admitted_count",
+          "high_unknown_lane_ratio"
+        ],
+        "score": 3,
+        "unknown_lane_ratio": 1.0,
+        "support_burial_depth": null,
+        "support_token_share": 0.0
+      },
+      {
+        "question_number": 3,
+        "question_id": "q03_how_far_away_is_mirathorn_at_this_point",
+        "ok": true,
+        "flags": [
+          "high_admitted_count",
+          "high_unknown_lane_ratio"
+        ],
+        "score": 3,
+        "unknown_lane_ratio": 1.0,
+        "support_burial_depth": null,
+        "support_token_share": 0.0
+      },
+      {
+        "question_number": 5,
+        "question_id": "q05_there_is_a_gigantic_tree_growing_in_hemp",
+        "ok": true,
+        "flags": [
+          "high_admitted_count",
+          "high_unknown_lane_ratio"
+        ],
+        "score": 3,
+        "unknown_lane_ratio": 1.0,
+        "support_burial_depth": null,
+        "support_token_share": 0.0
+      }
+    ],
+    "prior_plus_support_content_only": [
+      {
+        "question_number": 1,
+        "question_id": "q01_who_are_the_npcs_the_players_encountered",
+        "ok": true,
+        "flags": [
+          "high_admitted_count",
+          "high_unknown_lane_ratio"
+        ],
+        "score": 3,
+        "unknown_lane_ratio": 1.0,
+        "support_burial_depth": null,
+        "support_token_share": 0.0
+      },
+      {
+        "question_number": 3,
+        "question_id": "q03_how_far_away_is_mirathorn_at_this_point",
+        "ok": true,
+        "flags": [
+          "high_admitted_count",
+          "high_unknown_lane_ratio"
+        ],
+        "score": 3,
+        "unknown_lane_ratio": 1.0,
+        "support_burial_depth": null,
+        "support_token_share": 0.0
+      },
+      {
+        "question_number": 5,
+        "question_id": "q05_there_is_a_gigantic_tree_growing_in_hemp",
+        "ok": true,
+        "flags": [
+          "high_admitted_count",
+          "high_unknown_lane_ratio",
+          "support_buried_after_rank_20"
+        ],
+        "score": 2,
+        "unknown_lane_ratio": 0.8864,
+        "support_burial_depth": 36,
+        "support_token_share": 0.2393
+      }
+    ],
+    "prior_plus_support_content_plus_lexical_hints": [
+      {
+        "question_number": 1,
+        "question_id": "q01_who_are_the_npcs_the_players_encountered",
+        "ok": true,
+        "flags": [
+          "high_admitted_count",
+          "high_unknown_lane_ratio"
+        ],
+        "score": 3,
+        "unknown_lane_ratio": 1.0,
+        "support_burial_depth": null,
+        "support_token_share": 0.0
+      },
+      {
+        "question_number": 3,
+        "question_id": "q03_how_far_away_is_mirathorn_at_this_point",
+        "ok": true,
+        "flags": [
+          "high_admitted_count",
+          "high_unknown_lane_ratio"
+        ],
+        "score": 3,
+        "unknown_lane_ratio": 1.0,
+        "support_burial_depth": null,
+        "support_token_share": 0.0
+      },
+      {
+        "question_number": 5,
+        "question_id": "q05_there_is_a_gigantic_tree_growing_in_hemp",
+        "ok": true,
+        "flags": [
+          "high_admitted_count",
+          "high_unknown_lane_ratio",
+          "support_buried_after_rank_20"
+        ],
+        "score": 2,
+        "unknown_lane_ratio": 0.907,
+        "support_burial_depth": 26,
+        "support_token_share": 0.2446
+      }
+    ]
+  }
+}
