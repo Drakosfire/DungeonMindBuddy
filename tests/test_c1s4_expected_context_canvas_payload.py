@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
+from pathlib import Path
 
 from evals.c1s4_preplanning_vertical_slice.expected_context_benchmark import (
     build_expected_context_report,
@@ -208,3 +209,9 @@ def test_payload_declares_canvas_ui_scope_boundary():
     details = " ".join(r.get("detail", "") for r in payload.get("guardrailRows", []))
     assert "payload + uiHints" in details
     assert "external Cursor canvas shell" in details
+
+
+def test_pr43_readme_explicitly_declares_external_canvas_ui_ownership():
+    txt = Path("evals/c1s4_preplanning_vertical_slice/artifacts/pr43/README.md").read_text(encoding="utf-8")
+    assert "does not" in txt and "accordion/details UI" in txt
+    assert "external Cursor canvas shell/runtime" in txt
