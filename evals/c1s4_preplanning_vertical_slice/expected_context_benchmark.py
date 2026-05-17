@@ -26,8 +26,19 @@ DEFAULT_GOLD_PATH = Path(__file__).resolve().parent / "gold/c1s4_expected_contex
 
 
 def _norm(text: Any) -> str:
-    value = re.sub(r"[^\w\s:/.-]", " ", str(text or "").lower())
+    value = str(text or "").lower().replace("_", " ")
+    value = re.sub(r"[^\w\s:/.-]", " ", value)
     return " ".join(value.split())
+
+
+def _contains_norm(haystack: str, needle: str) -> bool:
+    h = _norm(haystack)
+    n = _norm(needle)
+    if not n:
+        return False
+    if n in h:
+        return True
+    return n.replace(" ", "") in h.replace(" ", "")
 
 
 def load_expected_context_gold(path: Path | None = None) -> dict[str, Any]:
@@ -117,16 +128,16 @@ def match_context_item(item: dict[str, Any], match: dict[str, Any]) -> bool:
         any_key = f"{f}_any"
         if any_key in match:
             checks.append(_norm(item.get(f)) in {_norm(x) for x in match[any_key]})
-    for f in ["unit_id", "title", "snippet", "source_reference", "text"]:
+    for f in ["unit_id", "title", "snippet", "source_reference"]:
         k = f"{f}_contains_any"
         if k in match:
             field_text = _norm(item.get(f, ""))
-            checks.append(any(_norm(tok) in field_text for tok in match[k]))
+            checks.append(any(_contains_norm(field_text, tok) for tok in match[k]))
     if "route_contains_any" in match:
         route_blob = _norm(" ".join([str(item.get("route", "")), str(item.get("normalized_route", "")), str(item.get("source_reference", ""))] + [str((r or {}).get("normalized_route", "")) for r in (item.get("routes", []) or [])]))
         checks.append(any(_norm(tok) in route_blob for tok in match["route_contains_any"]))
     if "text_contains_any" in match:
-        checks.append(any(_norm(tok) in text for tok in match["text_contains_any"]))
+        checks.append(any(_contains_norm(text, tok) for tok in match["text_contains_any"]))
     if "session_number_any" in match:
         checks.append(bool(_get_session_values(item).intersection({int(x) for x in match["session_number_any"]})))
     return all(checks) if checks else False
@@ -155,6 +166,27 @@ def grade_question_packet(*, packet: dict[str, Any], gold_question: dict[str, An
     for term in exp.get("expected_known_gaps_contains_any", []):
         if term not in known_hits:
             violations.append("missing_expected_known_gap")
+    retrieved_preview = []
+    for idx, item in enumerate(packet.get("retrieved_context", [])[:top_k], start=1):
+        matched_required_groups = [
+            grp.get("group_id")
+            for grp in required
+            if match_context_item(item, grp.get("match", {}))
+        ]
+        ref = context_item_ref(item)
+        source_ref = item.get("source_reference")
+        retrieved_preview.append(
+            {
+                "rank": idx,
+                "ref": ref,
+                "source_kind": item.get("source_kind", "session_memory"),
+                "source_layer": item.get("source_layer"),
+                "title": item.get("title"),
+                "snippet": item.get("snippet"),
+                "source_reference": source_ref if isinstance(source_ref, (str, int, float)) else (json.dumps(source_ref, sort_keys=True) if source_ref is not None else None),
+                "matched_required_groups": matched_required_groups,
+            }
+        )
     return {
         "question_number": packet.get("question_number"),
         "question_id": packet.get("question_id"),
@@ -171,14 +203,49 @@ def grade_question_packet(*, packet: dict[str, Any], gold_question: dict[str, An
         "known_gap_expectations_hit": known_hits,
         "violations": violations,
         "matched_groups": required_matches,
+        "retrieved_context_preview": retrieved_preview,
         "authority_summary": packet.get("authority_summary", {}),
     }
 
 
-def build_expected_context_report(*, packets: list[dict[str, Any]], gold: dict[str, Any], retrieval_mode: RetrievalMode, top_k: int | None = None) -> dict[str, Any]:
+def _build_depth_diagnostics(*, retrieved_context: list[dict[str, Any]], required_groups: list[dict[str, Any]], top_k: int, depths: list[int]) -> dict[str, Any]:
+    def _counts(limit: int) -> dict[str, int]:
+        out: dict[str, int] = {}
+        for item in retrieved_context[:limit]:
+            k = str(item.get("source_kind") or "session_memory")
+            out[k] = out.get(k, 0) + 1
+        return out
+    by_group: dict[str, Any] = {}
+    for grp in required_groups:
+        gid = str(grp.get("group_id") or "unknown")
+        first_idx = None
+        first_item = None
+        for idx, item in enumerate(retrieved_context, start=1):
+            if match_context_item(item, grp.get("match", {})):
+                first_idx = idx
+                first_item = item
+                break
+        entry = {
+            "matched_at_top_k": bool(first_idx is not None and first_idx <= top_k),
+            "first_matching_rank": first_idx,
+            "first_matching_ref": context_item_ref(first_item) if first_item else None,
+            "first_matching_source_kind": first_item.get("source_kind", "session_memory") if first_item else None,
+            "first_matching_source_layer": first_item.get("source_layer") if first_item else None,
+        }
+        for d in depths:
+            entry[f"matched_at_top_{d}"] = bool(first_idx is not None and first_idx <= d)
+        by_group[gid] = entry
+    counts = {"top_k": _counts(top_k)}
+    for d in depths:
+        counts[f"top_{d}"] = _counts(d)
+    return {"configured_top_k": top_k, "depths_checked": depths, "required_groups": by_group, "source_kind_counts_by_depth": counts}
+
+
+def build_expected_context_report(*, packets: list[dict[str, Any]], gold: dict[str, Any], retrieval_mode: RetrievalMode, top_k: int | None = None, diagnostic_packets: list[dict[str, Any]] | None = None) -> dict[str, Any]:
     by_q = {int(p.get("question_number")): p for p in packets}
     chosen_top_k = top_k or int(gold.get("default_top_k", 9))
     results = []
+    by_q_diag = {int(p.get("question_number")): p for p in (diagnostic_packets or packets)}
     for gq in gold.get("questions", []):
         qn = int(gq.get("question_number"))
         if qn == 35:
@@ -186,7 +253,16 @@ def build_expected_context_report(*, packets: list[dict[str, Any]], gold: dict[s
         pkt = by_q.get(qn)
         if not pkt:
             continue
-        results.append(grade_question_packet(packet=pkt, gold_question=gq, retrieval_mode=retrieval_mode, top_k=chosen_top_k))
+        row = grade_question_packet(packet=pkt, gold_question=gq, retrieval_mode=retrieval_mode, top_k=chosen_top_k)
+        exp = (gq.get("expectations_by_mode") or {}).get(retrieval_mode, {})
+        diag_pkt = by_q_diag.get(qn, pkt)
+        row["retrieval_depth_diagnostics"] = _build_depth_diagnostics(
+            retrieved_context=diag_pkt.get("retrieved_context", []),
+            required_groups=exp.get("required_context_groups", []),
+            top_k=chosen_top_k,
+            depths=[20, 50],
+        )
+        results.append(row)
     req_total = sum(r["required_context_groups"] for r in results)
     req_hit = sum(r["required_context_groups_hit"] for r in results)
     row_ok = sum(1 for r in results if r["ok"])
@@ -257,13 +333,18 @@ def validate_expected_context_report(report: dict[str, Any]) -> list[str]:
     if not isinstance(report.get("results"), list):
         errs.append("results missing")
 
-    dumped = _norm(json.dumps(report))
+    dumped_raw = json.dumps(report).lower()
+    dumped = _norm(dumped_raw)
+    gold_path_norm = _norm(str(report.get("gold_path", "")))
     for token in LEAKAGE_TOKENS:
+        token_raw = token.lower()
+        token_norm = _norm(token)
         for row in report.get("results", []):
-            if token in _norm(json.dumps(row)):
+            row_dump_raw = json.dumps(row).lower()
+            if token_raw in row_dump_raw or token_norm in _norm(row_dump_raw):
                 errs.append(f"retrieved context leakage token present: {token}")
                 break
-        if token in dumped and token not in _norm(str(report.get("gold_path", ""))):
+        if (token_raw in dumped_raw or token_norm in dumped) and token_norm not in gold_path_norm:
             errs.append(f"unexpected leakage token present in report: {token}")
 
     for row in report.get("results", []):

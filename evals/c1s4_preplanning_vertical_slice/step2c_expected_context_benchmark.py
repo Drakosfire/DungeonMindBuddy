@@ -36,6 +36,7 @@ def _assert_no_retrieved_context_leakage(packets: list[dict]) -> None:
 
 def _run_mode(mode: str, gold_path: Path | None, question_number: int | None, top_k: int | None) -> dict:
     step2 = build_summary(mode=mode, question_number=question_number)
+    step2_diag = build_summary(mode=mode, question_number=question_number, max_hits=50)
     for packet in step2.get("packets", []):
         forbidden = {"expected_retrieval_context_eval_only", "expected_retrieval_modes", "required_context_groups", "forbidden_context_groups", "expectations_by_mode"}
         if forbidden.intersection(packet):
@@ -45,7 +46,13 @@ def _run_mode(mode: str, gold_path: Path | None, question_number: int | None, to
     errs = validate_expected_context_gold(gold)
     if errs:
         raise RuntimeError(f"invalid gold schema: {errs}")
-    report = build_expected_context_report(packets=step2["packets"], gold=gold, retrieval_mode=mode, top_k=top_k)
+    report = build_expected_context_report(
+        packets=step2["packets"],
+        diagnostic_packets=step2_diag["packets"],
+        gold=gold,
+        retrieval_mode=mode,
+        top_k=top_k,
+    )
     rerrs = validate_expected_context_report(report)
     if rerrs:
         raise RuntimeError(f"invalid report shape: {rerrs}")

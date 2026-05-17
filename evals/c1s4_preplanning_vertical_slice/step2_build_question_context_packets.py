@@ -27,7 +27,7 @@ from src.agent.session_memory_query import query_session_memory_candidate
 class C1S4BoundaryError(RuntimeError): ...
 
 
-def _retrieve(query: str, mode: QuestionRetrievalMode, campaign_id: str) -> tuple[list[dict[str, Any]], dict[str, list[str]]]:
+def _retrieve(query: str, mode: QuestionRetrievalMode, campaign_id: str, *, max_hits: int = 8) -> tuple[list[dict[str, Any]], dict[str, list[str]]]:
     policy = json.loads(DEFAULT_POLICY_PATH.read_text(encoding="utf-8"))
     manifest, session_records = load_kb_manifest(DEFAULT_POLICY_PATH)
     if manifest["forbidden_path_hits"] or manifest["forbidden_session_hits"] or manifest.get("unexpected_session_hits"):
@@ -38,7 +38,7 @@ def _retrieve(query: str, mode: QuestionRetrievalMode, campaign_id: str) -> tupl
     elif mode == "prior_plus_support_content_plus_lexical_hints":
         combined.extend(load_normalized_support_records(retrieval_mode="content_plus_lexical_hints"))
 
-    result = query_session_memory_candidate(records=combined, query=query, campaign_id=campaign_id, session_min=0, session_max=3, max_hits=8)
+    result = query_session_memory_candidate(records=combined, query=query, campaign_id=campaign_id, session_min=0, session_max=3, max_hits=max_hits)
     records_by_unit_id = {str(r.get("unit_id")): r for r in combined if r.get("unit_id")}
     bundle = build_preplanning_context_bundle(
         kb_id=manifest["kb_id"],
@@ -47,13 +47,14 @@ def _retrieve(query: str, mode: QuestionRetrievalMode, campaign_id: str) -> tupl
         heldout_sessions=manifest["heldout_sessions"],
         query=query,
         retrieval_result=result,
+        max_items=max_hits,
         forbidden_oracle_relpaths=policy["forbidden_oracle_relpaths"],
         records_by_unit_id=records_by_unit_id,
     )
     return bundle["items"], bundle["oracle_leakage_check"]
 
 
-def build_summary(*, mode: QuestionRetrievalMode, question_number: int | None = None, limit: int | None = None) -> dict[str, Any]:
+def build_summary(*, mode: QuestionRetrievalMode, question_number: int | None = None, limit: int | None = None, max_hits: int = 8) -> dict[str, Any]:
     targets = load_beat_question_targets()
     questions = iter_target_questions(targets)
     if question_number is not None:
@@ -71,7 +72,7 @@ def build_summary(*, mode: QuestionRetrievalMode, question_number: int | None = 
         if not is_planner_facing_question(q, retrieval_mode=mode):
             skipped_questions.append({"question_number": q.get("question_number"), "question_id": q.get("question_id"), "status": "skipped", "reason": "evaluator_only_not_planner_facing"})
             continue
-        retrieved_context, leak = _retrieve(str(q.get("question") or ""), mode, targets.get("campaign_id", "longmont-c1"))
+        retrieved_context, leak = _retrieve(str(q.get("question") or ""), mode, targets.get("campaign_id", "longmont-c1"), max_hits=max_hits)
         packet = build_question_context_packet(question=q, retrieval_mode=mode, retrieved_context=retrieved_context, oracle_leakage_check=leak)
         errs = validate_packet(packet)
         if errs:
