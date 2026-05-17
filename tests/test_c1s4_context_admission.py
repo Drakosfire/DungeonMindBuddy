@@ -22,3 +22,25 @@ def test_support_mode_admits_relevant_support_with_metadata():
 def test_support_mode_excludes_irrelevant_support():
     out = build_budgeted_admission(question_text="Stone bridge route", retrieval_mode="prior_plus_support_content_only", candidates=[_cand("support:1", "support_knowledge_card", "Hempholm metallic tree")])
     assert out["admitted_context"] == []
+
+from evals.c1s4_preplanning_vertical_slice.context_admission import build_lane_budgeted_admission
+from evals.c1s4_preplanning_vertical_slice.query_lane_router import build_lane_plan
+
+
+def test_prior_only_never_admits_support_under_lane_budgeted_policy():
+    cands = [_cand('support:1', 'support_knowledge_card', 'Hempholm metallic tree'), _cand('u-L1', 'session_memory', 'party recap')]
+    plan = build_lane_plan(question_text='Describe Hempholm tree', retrieval_mode='prior_only')
+    out = build_lane_budgeted_admission(question_text='Describe Hempholm tree', retrieval_mode='prior_only', candidates=cands, lane_plan=plan)
+    assert all(i['source_kind'] != 'support_knowledge_card' for i in out['admitted_context'])
+
+
+def test_lane_budgeted_admission_reduces_support_burial_for_support_profile():
+    cands = [_cand(f's{i}', 'session_memory', 'filler '*20) for i in range(1, 30)]
+    cands.append(_cand('support:late', 'support_knowledge_card', 'Hempholm magical metallic merchant tree ' + ('lore '*500)))
+    plan = build_lane_plan(question_text='Describe Hempholm magical metallic merchant tree', retrieval_mode='prior_plus_support_content_only')
+    out = build_lane_budgeted_admission(question_text='Describe Hempholm magical metallic merchant tree', retrieval_mode='prior_plus_support_content_only', candidates=cands, lane_plan=plan)
+    hit = next(i for i in out['admitted_context'] if i['source_kind'] == 'support_knowledge_card')
+    # flat budgeted_v1 would exclude this late support entirely for this fixture; lane budget should admit it
+    flat = build_budgeted_admission(question_text='Describe Hempholm magical metallic merchant tree', retrieval_mode='prior_plus_support_content_only', candidates=cands)
+    assert not any(i['source_kind'] == 'support_knowledge_card' for i in flat['admitted_context'])
+    assert hit['admitted_rank'] is not None

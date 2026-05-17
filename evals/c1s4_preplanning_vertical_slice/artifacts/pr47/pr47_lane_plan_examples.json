@@ -1,0 +1,689 @@
+[
+  {
+    "mode": "prior_only",
+    "question_number": 1,
+    "question_id": "q01_who_are_the_npcs_the_players_encountered",
+    "query_features": {
+      "schema": "dmb_query_features_v1",
+      "detected_terms": {
+        "route_terms": [],
+        "support_terms": [],
+        "prior_terms": [
+          "who are",
+          "npc",
+          "encountered",
+          "stone bridge"
+        ],
+        "gap_terms": []
+      },
+      "intent_signals": {
+        "asks_prior_npc_context": true,
+        "asks_route_or_distance": false,
+        "asks_generation_or_description": true,
+        "asks_support_or_world_context": false,
+        "has_support_specific_entities": false,
+        "asks_known_gap_sensitive_question": false
+      }
+    },
+    "lane_plan": {
+      "schema": "dmb_lane_plan_v1",
+      "profile": "prior_npc_context",
+      "candidate_depth": 50,
+      "total_budget_chars": 8000,
+      "lanes": {
+        "known_gaps": {
+          "floor_chars": 300,
+          "target_chars": 600,
+          "max_chars": 1000,
+          "priority": 0
+        },
+        "prior_campaign_memory": {
+          "floor_chars": 4500,
+          "target_chars": 6500,
+          "max_chars": 7500,
+          "priority": 1
+        },
+        "support_knowledge": {
+          "floor_chars": 0,
+          "target_chars": 0,
+          "max_chars": 0,
+          "priority": 9
+        }
+      },
+      "query_features": {
+        "schema": "dmb_query_features_v1",
+        "detected_terms": {
+          "route_terms": [],
+          "support_terms": [],
+          "prior_terms": [
+            "who are",
+            "npc",
+            "encountered",
+            "stone bridge"
+          ],
+          "gap_terms": []
+        },
+        "intent_signals": {
+          "asks_prior_npc_context": true,
+          "asks_route_or_distance": false,
+          "asks_generation_or_description": true,
+          "asks_support_or_world_context": false,
+          "has_support_specific_entities": false,
+          "asks_known_gap_sensitive_question": false
+        }
+      }
+    }
+  },
+  {
+    "mode": "prior_only",
+    "question_number": 3,
+    "question_id": "q03_how_far_away_is_mirathorn_at_this_point",
+    "query_features": {
+      "schema": "dmb_query_features_v1",
+      "detected_terms": {
+        "route_terms": [
+          "how far",
+          "travel",
+          "road"
+        ],
+        "support_terms": [],
+        "prior_terms": [],
+        "gap_terms": [
+          "how far"
+        ]
+      },
+      "intent_signals": {
+        "asks_prior_npc_context": false,
+        "asks_route_or_distance": true,
+        "asks_generation_or_description": false,
+        "asks_support_or_world_context": false,
+        "has_support_specific_entities": false,
+        "asks_known_gap_sensitive_question": true
+      }
+    },
+    "lane_plan": {
+      "schema": "dmb_lane_plan_v1",
+      "profile": "route_or_distance_gap",
+      "candidate_depth": 50,
+      "total_budget_chars": 8000,
+      "lanes": {
+        "known_gaps": {
+          "floor_chars": 1000,
+          "target_chars": 1800,
+          "max_chars": 2500,
+          "priority": 0
+        },
+        "prior_campaign_memory": {
+          "floor_chars": 1500,
+          "target_chars": 3000,
+          "max_chars": 4500,
+          "priority": 2
+        },
+        "support_knowledge": {
+          "floor_chars": 0,
+          "target_chars": 0,
+          "max_chars": 0,
+          "priority": 9
+        }
+      },
+      "query_features": {
+        "schema": "dmb_query_features_v1",
+        "detected_terms": {
+          "route_terms": [
+            "how far",
+            "travel",
+            "road"
+          ],
+          "support_terms": [],
+          "prior_terms": [],
+          "gap_terms": [
+            "how far"
+          ]
+        },
+        "intent_signals": {
+          "asks_prior_npc_context": false,
+          "asks_route_or_distance": true,
+          "asks_generation_or_description": false,
+          "asks_support_or_world_context": false,
+          "has_support_specific_entities": false,
+          "asks_known_gap_sensitive_question": true
+        }
+      }
+    }
+  },
+  {
+    "mode": "prior_only",
+    "question_number": 5,
+    "question_id": "q05_there_is_a_gigantic_tree_growing_in_hemp",
+    "query_features": {
+      "schema": "dmb_query_features_v1",
+      "detected_terms": {
+        "route_terms": [],
+        "support_terms": [
+          "hempholm",
+          "tree",
+          "magical",
+          "metallic",
+          "merchant"
+        ],
+        "prior_terms": [],
+        "gap_terms": []
+      },
+      "intent_signals": {
+        "asks_prior_npc_context": false,
+        "asks_route_or_distance": false,
+        "asks_generation_or_description": true,
+        "asks_support_or_world_context": true,
+        "has_support_specific_entities": true,
+        "asks_known_gap_sensitive_question": false
+      }
+    },
+    "lane_plan": {
+      "schema": "dmb_lane_plan_v1",
+      "profile": "default_mixed",
+      "candidate_depth": 50,
+      "total_budget_chars": 8000,
+      "lanes": {
+        "known_gaps": {
+          "floor_chars": 500,
+          "target_chars": 1000,
+          "max_chars": 1500,
+          "priority": 0
+        },
+        "prior_campaign_memory": {
+          "floor_chars": 3000,
+          "target_chars": 5000,
+          "max_chars": 6500,
+          "priority": 1
+        },
+        "support_knowledge": {
+          "floor_chars": 0,
+          "target_chars": 0,
+          "max_chars": 0,
+          "priority": 9
+        }
+      },
+      "query_features": {
+        "schema": "dmb_query_features_v1",
+        "detected_terms": {
+          "route_terms": [],
+          "support_terms": [
+            "hempholm",
+            "tree",
+            "magical",
+            "metallic",
+            "merchant"
+          ],
+          "prior_terms": [],
+          "gap_terms": []
+        },
+        "intent_signals": {
+          "asks_prior_npc_context": false,
+          "asks_route_or_distance": false,
+          "asks_generation_or_description": true,
+          "asks_support_or_world_context": true,
+          "has_support_specific_entities": true,
+          "asks_known_gap_sensitive_question": false
+        }
+      }
+    }
+  },
+  {
+    "mode": "prior_plus_support_content_only",
+    "question_number": 1,
+    "question_id": "q01_who_are_the_npcs_the_players_encountered",
+    "query_features": {
+      "schema": "dmb_query_features_v1",
+      "detected_terms": {
+        "route_terms": [],
+        "support_terms": [],
+        "prior_terms": [
+          "who are",
+          "npc",
+          "encountered",
+          "stone bridge"
+        ],
+        "gap_terms": []
+      },
+      "intent_signals": {
+        "asks_prior_npc_context": true,
+        "asks_route_or_distance": false,
+        "asks_generation_or_description": true,
+        "asks_support_or_world_context": false,
+        "has_support_specific_entities": false,
+        "asks_known_gap_sensitive_question": false
+      }
+    },
+    "lane_plan": {
+      "schema": "dmb_lane_plan_v1",
+      "profile": "prior_npc_context",
+      "candidate_depth": 50,
+      "total_budget_chars": 8000,
+      "lanes": {
+        "known_gaps": {
+          "floor_chars": 300,
+          "target_chars": 600,
+          "max_chars": 1000,
+          "priority": 0
+        },
+        "prior_campaign_memory": {
+          "floor_chars": 4500,
+          "target_chars": 6500,
+          "max_chars": 7500,
+          "priority": 1
+        },
+        "support_knowledge": {
+          "floor_chars": 0,
+          "target_chars": 0,
+          "max_chars": 500,
+          "priority": 9
+        }
+      },
+      "query_features": {
+        "schema": "dmb_query_features_v1",
+        "detected_terms": {
+          "route_terms": [],
+          "support_terms": [],
+          "prior_terms": [
+            "who are",
+            "npc",
+            "encountered",
+            "stone bridge"
+          ],
+          "gap_terms": []
+        },
+        "intent_signals": {
+          "asks_prior_npc_context": true,
+          "asks_route_or_distance": false,
+          "asks_generation_or_description": true,
+          "asks_support_or_world_context": false,
+          "has_support_specific_entities": false,
+          "asks_known_gap_sensitive_question": false
+        }
+      }
+    }
+  },
+  {
+    "mode": "prior_plus_support_content_only",
+    "question_number": 3,
+    "question_id": "q03_how_far_away_is_mirathorn_at_this_point",
+    "query_features": {
+      "schema": "dmb_query_features_v1",
+      "detected_terms": {
+        "route_terms": [
+          "how far",
+          "travel",
+          "road"
+        ],
+        "support_terms": [],
+        "prior_terms": [],
+        "gap_terms": [
+          "how far"
+        ]
+      },
+      "intent_signals": {
+        "asks_prior_npc_context": false,
+        "asks_route_or_distance": true,
+        "asks_generation_or_description": false,
+        "asks_support_or_world_context": false,
+        "has_support_specific_entities": false,
+        "asks_known_gap_sensitive_question": true
+      }
+    },
+    "lane_plan": {
+      "schema": "dmb_lane_plan_v1",
+      "profile": "route_or_distance_gap",
+      "candidate_depth": 50,
+      "total_budget_chars": 8000,
+      "lanes": {
+        "known_gaps": {
+          "floor_chars": 1000,
+          "target_chars": 1800,
+          "max_chars": 2500,
+          "priority": 0
+        },
+        "prior_campaign_memory": {
+          "floor_chars": 1500,
+          "target_chars": 3000,
+          "max_chars": 4500,
+          "priority": 2
+        },
+        "support_knowledge": {
+          "floor_chars": 0,
+          "target_chars": 0,
+          "max_chars": 500,
+          "priority": 3
+        }
+      },
+      "query_features": {
+        "schema": "dmb_query_features_v1",
+        "detected_terms": {
+          "route_terms": [
+            "how far",
+            "travel",
+            "road"
+          ],
+          "support_terms": [],
+          "prior_terms": [],
+          "gap_terms": [
+            "how far"
+          ]
+        },
+        "intent_signals": {
+          "asks_prior_npc_context": false,
+          "asks_route_or_distance": true,
+          "asks_generation_or_description": false,
+          "asks_support_or_world_context": false,
+          "has_support_specific_entities": false,
+          "asks_known_gap_sensitive_question": true
+        }
+      }
+    }
+  },
+  {
+    "mode": "prior_plus_support_content_only",
+    "question_number": 5,
+    "question_id": "q05_there_is_a_gigantic_tree_growing_in_hemp",
+    "query_features": {
+      "schema": "dmb_query_features_v1",
+      "detected_terms": {
+        "route_terms": [],
+        "support_terms": [
+          "hempholm",
+          "tree",
+          "magical",
+          "metallic",
+          "merchant"
+        ],
+        "prior_terms": [],
+        "gap_terms": []
+      },
+      "intent_signals": {
+        "asks_prior_npc_context": false,
+        "asks_route_or_distance": false,
+        "asks_generation_or_description": true,
+        "asks_support_or_world_context": true,
+        "has_support_specific_entities": true,
+        "asks_known_gap_sensitive_question": false
+      }
+    },
+    "lane_plan": {
+      "schema": "dmb_lane_plan_v1",
+      "profile": "support_description",
+      "candidate_depth": 50,
+      "total_budget_chars": 8000,
+      "lanes": {
+        "known_gaps": {
+          "floor_chars": 500,
+          "target_chars": 1000,
+          "max_chars": 1500,
+          "priority": 0
+        },
+        "support_knowledge": {
+          "floor_chars": 2500,
+          "target_chars": 3500,
+          "max_chars": 4500,
+          "priority": 1
+        },
+        "prior_campaign_memory": {
+          "floor_chars": 1000,
+          "target_chars": 2500,
+          "max_chars": 3500,
+          "priority": 2
+        }
+      },
+      "query_features": {
+        "schema": "dmb_query_features_v1",
+        "detected_terms": {
+          "route_terms": [],
+          "support_terms": [
+            "hempholm",
+            "tree",
+            "magical",
+            "metallic",
+            "merchant"
+          ],
+          "prior_terms": [],
+          "gap_terms": []
+        },
+        "intent_signals": {
+          "asks_prior_npc_context": false,
+          "asks_route_or_distance": false,
+          "asks_generation_or_description": true,
+          "asks_support_or_world_context": true,
+          "has_support_specific_entities": true,
+          "asks_known_gap_sensitive_question": false
+        }
+      }
+    }
+  },
+  {
+    "mode": "prior_plus_support_content_plus_lexical_hints",
+    "question_number": 1,
+    "question_id": "q01_who_are_the_npcs_the_players_encountered",
+    "query_features": {
+      "schema": "dmb_query_features_v1",
+      "detected_terms": {
+        "route_terms": [],
+        "support_terms": [],
+        "prior_terms": [
+          "who are",
+          "npc",
+          "encountered",
+          "stone bridge"
+        ],
+        "gap_terms": []
+      },
+      "intent_signals": {
+        "asks_prior_npc_context": true,
+        "asks_route_or_distance": false,
+        "asks_generation_or_description": true,
+        "asks_support_or_world_context": false,
+        "has_support_specific_entities": false,
+        "asks_known_gap_sensitive_question": false
+      }
+    },
+    "lane_plan": {
+      "schema": "dmb_lane_plan_v1",
+      "profile": "prior_npc_context",
+      "candidate_depth": 50,
+      "total_budget_chars": 8000,
+      "lanes": {
+        "known_gaps": {
+          "floor_chars": 300,
+          "target_chars": 600,
+          "max_chars": 1000,
+          "priority": 0
+        },
+        "prior_campaign_memory": {
+          "floor_chars": 4500,
+          "target_chars": 6500,
+          "max_chars": 7500,
+          "priority": 1
+        },
+        "support_knowledge": {
+          "floor_chars": 0,
+          "target_chars": 0,
+          "max_chars": 500,
+          "priority": 9
+        }
+      },
+      "query_features": {
+        "schema": "dmb_query_features_v1",
+        "detected_terms": {
+          "route_terms": [],
+          "support_terms": [],
+          "prior_terms": [
+            "who are",
+            "npc",
+            "encountered",
+            "stone bridge"
+          ],
+          "gap_terms": []
+        },
+        "intent_signals": {
+          "asks_prior_npc_context": true,
+          "asks_route_or_distance": false,
+          "asks_generation_or_description": true,
+          "asks_support_or_world_context": false,
+          "has_support_specific_entities": false,
+          "asks_known_gap_sensitive_question": false
+        }
+      }
+    }
+  },
+  {
+    "mode": "prior_plus_support_content_plus_lexical_hints",
+    "question_number": 3,
+    "question_id": "q03_how_far_away_is_mirathorn_at_this_point",
+    "query_features": {
+      "schema": "dmb_query_features_v1",
+      "detected_terms": {
+        "route_terms": [
+          "how far",
+          "travel",
+          "road"
+        ],
+        "support_terms": [],
+        "prior_terms": [],
+        "gap_terms": [
+          "how far"
+        ]
+      },
+      "intent_signals": {
+        "asks_prior_npc_context": false,
+        "asks_route_or_distance": true,
+        "asks_generation_or_description": false,
+        "asks_support_or_world_context": false,
+        "has_support_specific_entities": false,
+        "asks_known_gap_sensitive_question": true
+      }
+    },
+    "lane_plan": {
+      "schema": "dmb_lane_plan_v1",
+      "profile": "route_or_distance_gap",
+      "candidate_depth": 50,
+      "total_budget_chars": 8000,
+      "lanes": {
+        "known_gaps": {
+          "floor_chars": 1000,
+          "target_chars": 1800,
+          "max_chars": 2500,
+          "priority": 0
+        },
+        "prior_campaign_memory": {
+          "floor_chars": 1500,
+          "target_chars": 3000,
+          "max_chars": 4500,
+          "priority": 2
+        },
+        "support_knowledge": {
+          "floor_chars": 0,
+          "target_chars": 0,
+          "max_chars": 500,
+          "priority": 3
+        }
+      },
+      "query_features": {
+        "schema": "dmb_query_features_v1",
+        "detected_terms": {
+          "route_terms": [
+            "how far",
+            "travel",
+            "road"
+          ],
+          "support_terms": [],
+          "prior_terms": [],
+          "gap_terms": [
+            "how far"
+          ]
+        },
+        "intent_signals": {
+          "asks_prior_npc_context": false,
+          "asks_route_or_distance": true,
+          "asks_generation_or_description": false,
+          "asks_support_or_world_context": false,
+          "has_support_specific_entities": false,
+          "asks_known_gap_sensitive_question": true
+        }
+      }
+    }
+  },
+  {
+    "mode": "prior_plus_support_content_plus_lexical_hints",
+    "question_number": 5,
+    "question_id": "q05_there_is_a_gigantic_tree_growing_in_hemp",
+    "query_features": {
+      "schema": "dmb_query_features_v1",
+      "detected_terms": {
+        "route_terms": [],
+        "support_terms": [
+          "hempholm",
+          "tree",
+          "magical",
+          "metallic",
+          "merchant"
+        ],
+        "prior_terms": [],
+        "gap_terms": []
+      },
+      "intent_signals": {
+        "asks_prior_npc_context": false,
+        "asks_route_or_distance": false,
+        "asks_generation_or_description": true,
+        "asks_support_or_world_context": true,
+        "has_support_specific_entities": true,
+        "asks_known_gap_sensitive_question": false
+      }
+    },
+    "lane_plan": {
+      "schema": "dmb_lane_plan_v1",
+      "profile": "support_description",
+      "candidate_depth": 50,
+      "total_budget_chars": 8000,
+      "lanes": {
+        "known_gaps": {
+          "floor_chars": 500,
+          "target_chars": 1000,
+          "max_chars": 1500,
+          "priority": 0
+        },
+        "support_knowledge": {
+          "floor_chars": 2500,
+          "target_chars": 3500,
+          "max_chars": 4500,
+          "priority": 1
+        },
+        "prior_campaign_memory": {
+          "floor_chars": 1000,
+          "target_chars": 2500,
+          "max_chars": 3500,
+          "priority": 2
+        }
+      },
+      "query_features": {
+        "schema": "dmb_query_features_v1",
+        "detected_terms": {
+          "route_terms": [],
+          "support_terms": [
+            "hempholm",
+            "tree",
+            "magical",
+            "metallic",
+            "merchant"
+          ],
+          "prior_terms": [],
+          "gap_terms": []
+        },
+        "intent_signals": {
+          "asks_prior_npc_context": false,
+          "asks_route_or_distance": false,
+          "asks_generation_or_description": true,
+          "asks_support_or_world_context": true,
+          "has_support_specific_entities": true,
+          "asks_known_gap_sensitive_question": false
+        }
+      }
+    }
+  }
+]

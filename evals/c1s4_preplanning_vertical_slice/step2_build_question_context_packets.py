@@ -19,7 +19,8 @@ from evals.c1s4_preplanning_vertical_slice.beat_question_answer_harness import (
     validate_packet,
 )
 from evals.c1s4_preplanning_vertical_slice.preplanning_context_bundle import build_preplanning_context_bundle
-from evals.c1s4_preplanning_vertical_slice.context_admission import build_budgeted_admission
+from evals.c1s4_preplanning_vertical_slice.context_admission import build_budgeted_admission, build_lane_budgeted_admission
+from evals.c1s4_preplanning_vertical_slice.query_lane_router import build_lane_plan
 from evals.c1s4_preplanning_vertical_slice.step0_kb_materialize import DEFAULT_POLICY_PATH, load_kb_manifest
 from evals.c1s4_preplanning_vertical_slice.support_knowledge_loader import load_normalized_support_records
 from src.agent.session_memory_query import query_session_memory_candidate
@@ -55,7 +56,7 @@ def _retrieve(query: str, mode: QuestionRetrievalMode, campaign_id: str, *, max_
     return bundle["items"], bundle["oracle_leakage_check"]
 
 
-def build_summary(*, mode: QuestionRetrievalMode, question_number: int | None = None, limit: int | None = None, max_hits: int = 50, admission_policy: str = "budgeted_v1") -> dict[str, Any]:
+def build_summary(*, mode: QuestionRetrievalMode, question_number: int | None = None, limit: int | None = None, max_hits: int = 50, admission_policy: str = "lane_budgeted_v1") -> dict[str, Any]:
     targets = load_beat_question_targets()
     questions = iter_target_questions(targets)
     if question_number is not None:
@@ -80,8 +81,12 @@ def build_summary(*, mode: QuestionRetrievalMode, question_number: int | None = 
             packet = build_question_context_packet(question=q, retrieval_mode=mode, retrieved_context=retrieved_context, oracle_leakage_check=leak)
             packet["admission_policy"] = "legacy_top_k"
         else:
-            admission = build_budgeted_admission(question_text=question_text, retrieval_mode=mode, candidates=candidate_context, candidate_depth=max_hits, total_budget_chars=8000)
             packet = build_question_context_packet(question=q, retrieval_mode=mode, retrieved_context=candidate_context[:9], oracle_leakage_check=leak)
+            if admission_policy == "lane_budgeted_v1":
+                lane_plan = build_lane_plan(question_text=question_text, retrieval_mode=mode, candidate_depth=max_hits, total_budget_chars=8000)
+                admission = build_lane_budgeted_admission(question_text=question_text, retrieval_mode=mode, candidates=candidate_context, lane_plan=lane_plan, candidate_depth=max_hits, total_budget_chars=8000)
+            else:
+                admission = build_budgeted_admission(question_text=question_text, retrieval_mode=mode, candidates=candidate_context, candidate_depth=max_hits, total_budget_chars=8000)
             packet.update(admission)
         errs = validate_packet(packet)
         if errs:
@@ -116,7 +121,7 @@ def main() -> int:
     parser.add_argument("--question-number", type=int)
     parser.add_argument("--limit", type=int)
     parser.add_argument("--output-json", type=Path)
-    parser.add_argument("--admission-policy", choices=["legacy_top_k", "budgeted_v1"], default="budgeted_v1")
+    parser.add_argument("--admission-policy", choices=["legacy_top_k", "budgeted_v1", "lane_budgeted_v1"], default="lane_budgeted_v1")
     parser.add_argument("--max-hits", type=int, default=50)
     args = parser.parse_args()
     try:
