@@ -6,6 +6,8 @@ import re
 from pathlib import Path
 from typing import Any, Literal
 
+from evals.c1s4_preplanning_vertical_slice.context_admission import estimate_context_item_size, render_context_item_for_budget
+
 from evals.c1s4_preplanning_vertical_slice.beat_question_answer_harness import PACKET_SCHEMA, iter_target_questions, load_beat_question_targets
 
 EXPECTED_CONTEXT_GOLD_SCHEMA = "dmb_c1s4_expected_context_gold_v1"
@@ -110,28 +112,6 @@ def context_item_ref(item: dict[str, Any]) -> str:
     return str(item.get("unit_id") or item.get("source_reference") or item.get("title") or "unknown")
 
 
-def _jsonish(value: Any) -> str:
-    if isinstance(value, str):
-        return value
-    if value is None:
-        return ""
-    return json.dumps(value, sort_keys=True)
-
-
-def render_context_item_for_budget(item: dict[str, Any]) -> str:
-    parts: list[str] = []
-    for key in ["title", "snippet", "text", "body", "content", "source_reference", "source_kind", "source_layer"]:
-        value = _jsonish(item.get(key))
-        if value:
-            parts.append(value)
-    return "\n".join(parts)
-
-
-def estimate_context_item_size(item: dict[str, Any]) -> tuple[int, int]:
-    chars = len(render_context_item_for_budget(item))
-    return chars, math.ceil(chars / 4)
-
-
 def _get_session_values(item: dict[str, Any]) -> set[int]:
     out: set[int] = set()
     for key in ["session_number", "session", "source_session"]:
@@ -167,18 +147,28 @@ def match_context_item(item: dict[str, Any], match: dict[str, Any]) -> bool:
     return all(checks) if checks else False
 
 
-def match_context_group(*, retrieved_context: list[dict[str, Any]], group: dict[str, Any], top_k: int) -> dict[str, Any]:
+def match_context_group(*, retrieved_context: list[dict[str, Any]], group: dict[str, Any], top_k: int | None) -> dict[str, Any]:
     min_hits = int(group.get("min_hits", 1))
-    matched = [context_item_ref(i) for i in retrieved_context[:top_k] if match_context_item(i, group.get("match", {}))]
+    context_slice = retrieved_context if top_k is None else retrieved_context[:top_k]
+    matched = [context_item_ref(i) for i in context_slice if match_context_item(i, group.get("match", {}))]
     return {"group_id": group.get("group_id"), "ok": len(matched) >= min_hits, "min_hits": min_hits, "hit_count": len(matched), "matched_context_refs": matched}
+
+
+def get_grading_context(packet: dict[str, Any]) -> tuple[str, list[dict[str, Any]]]:
+    admitted = packet.get("admitted_context")
+    if isinstance(admitted, list):
+        return "admitted_context", admitted
+    return "legacy_top_k_retrieved_context", packet.get("retrieved_context", [])
 
 
 def grade_question_packet(*, packet: dict[str, Any], gold_question: dict[str, Any], retrieval_mode: RetrievalMode, top_k: int) -> dict[str, Any]:
     exp = (gold_question.get("expectations_by_mode") or {}).get(retrieval_mode, {})
     required = exp.get("required_context_groups", [])
     forbidden = exp.get("forbidden_context_groups", [])
-    required_matches = [match_context_group(retrieved_context=packet.get("retrieved_context", []), group=g, top_k=top_k) for g in required]
-    forbidden_matches = [match_context_group(retrieved_context=packet.get("retrieved_context", []), group=g, top_k=top_k) for g in forbidden]
+    grading_context_kind, grading_context = get_grading_context(packet)
+    effective_top_k = None if grading_context_kind == "admitted_context" else top_k
+    required_matches = [match_context_group(retrieved_context=grading_context, group=g, top_k=effective_top_k) for g in required]
+    forbidden_matches = [match_context_group(retrieved_context=grading_context, group=g, top_k=effective_top_k) for g in forbidden]
     known_hits = [term for term in exp.get("expected_known_gaps_contains_any", []) if any(_norm(term) in _norm(g) for g in packet.get("known_context_gaps", []))]
     violations: list[str] = []
     missing_groups = [m["group_id"] for m in required_matches if not m["ok"]]
@@ -191,7 +181,7 @@ def grade_question_packet(*, packet: dict[str, Any], gold_question: dict[str, An
         if term not in known_hits:
             violations.append("missing_expected_known_gap")
     retrieved_preview = []
-    for idx, item in enumerate(packet.get("retrieved_context", [])[:top_k], start=1):
+    for idx, item in enumerate(grading_context[:top_k], start=1):
         matched_required_groups = [
             grp.get("group_id")
             for grp in required
@@ -215,6 +205,7 @@ def grade_question_packet(*, packet: dict[str, Any], gold_question: dict[str, An
         "question_number": packet.get("question_number"),
         "question_id": packet.get("question_id"),
         "retrieval_mode": retrieval_mode,
+        "admission_policy": str(packet.get("admission_policy") or "legacy_top_k"),
         "top_k": top_k,
         "ok": not violations,
         "expected_behavior": exp.get("expected_behavior", ""),
@@ -229,6 +220,7 @@ def grade_question_packet(*, packet: dict[str, Any], gold_question: dict[str, An
         "matched_groups": required_matches,
         "retrieved_context_preview": retrieved_preview,
         "authority_summary": packet.get("authority_summary", {}),
+        "grading_context_kind": grading_context_kind,
     }
 
 
@@ -394,6 +386,14 @@ def _build_budget_admission_diagnostics(*, retrieved_context: list[dict[str, Any
     return {"candidate_depth": candidate_depth, "legacy_top_k": top_k, "profiles": profile_results, "required_groups": required_out}
 
 
+def _get_diagnostic_context(packet: dict[str, Any]) -> list[dict[str, Any]]:
+    if isinstance(packet.get("candidate_context"), list):
+        return packet["candidate_context"]
+    if isinstance(packet.get("admitted_context"), list):
+        return packet["admitted_context"]
+    return packet.get("retrieved_context", [])
+
+
 def build_expected_context_report(*, packets: list[dict[str, Any]], gold: dict[str, Any], retrieval_mode: RetrievalMode, top_k: int | None = None, diagnostic_packets: list[dict[str, Any]] | None = None) -> dict[str, Any]:
     by_q = {int(p.get("question_number")): p for p in packets}
     chosen_top_k = top_k or int(gold.get("default_top_k", 9))
@@ -410,13 +410,13 @@ def build_expected_context_report(*, packets: list[dict[str, Any]], gold: dict[s
         exp = (gq.get("expectations_by_mode") or {}).get(retrieval_mode, {})
         diag_pkt = by_q_diag.get(qn, pkt)
         row["retrieval_depth_diagnostics"] = _build_depth_diagnostics(
-            retrieved_context=diag_pkt.get("retrieved_context", []),
+            retrieved_context=_get_diagnostic_context(diag_pkt),
             required_groups=exp.get("required_context_groups", []),
             top_k=chosen_top_k,
             depths=[20, 50],
         )
         row["budget_admission_diagnostics"] = _build_budget_admission_diagnostics(
-            retrieved_context=diag_pkt.get("retrieved_context", []),
+            retrieved_context=_get_diagnostic_context(diag_pkt),
             required_groups=exp.get("required_context_groups", []),
             top_k=chosen_top_k,
             retrieval_mode=retrieval_mode,
@@ -432,6 +432,7 @@ def build_expected_context_report(*, packets: list[dict[str, Any]], gold: dict[s
         "schema": EXPECTED_CONTEXT_REPORT_SCHEMA,
         "campaign_id": gold.get("campaign_id", "longmont-c1"),
         "retrieval_mode": retrieval_mode,
+        "admission_policy": str((packets[0].get("admission_policy") if packets else "legacy_top_k") or "legacy_top_k"),
         "gold_path": "evals/c1s4_preplanning_vertical_slice/gold/c1s4_expected_context_gold.json",
         "planner_visibility": "forbidden_gold_eval_only",
         "source_packet_schema": PACKET_SCHEMA,
