@@ -1,0 +1,681 @@
+{
+  "schema": "dmb_c1s4_context_quality_analysis_v1",
+  "generated_from": {
+    "report_path": "/tmp/c1s4_pr45_context_quality_report.json",
+    "payload_path": "/tmp/c1s4_pr45_canvas_payload.json",
+    "git_sha": "f36f50ebbebaad6c69534f4182b4bf803942873c"
+  },
+  "mode_summaries": [
+    {
+      "mode": "prior_only",
+      "questions_evaluated": 3,
+      "rows_ok": 3,
+      "required_group_recall": 1.0,
+      "known_gap_recall": 1.0,
+      "forbidden_violations": 0
+    },
+    {
+      "mode": "prior_plus_support_content_only",
+      "questions_evaluated": 3,
+      "rows_ok": 3,
+      "required_group_recall": 1.0,
+      "known_gap_recall": 1.0,
+      "forbidden_violations": 0
+    },
+    {
+      "mode": "prior_plus_support_content_plus_lexical_hints",
+      "questions_evaluated": 3,
+      "rows_ok": 3,
+      "required_group_recall": 1.0,
+      "known_gap_recall": 1.0,
+      "forbidden_violations": 0
+    }
+  ],
+  "question_mode_analyses": [
+    {
+      "question_number": 1,
+      "question_id": "q01_who_are_the_npcs_the_players_encountered",
+      "mode": "prior_only",
+      "verdict": "PASS",
+      "candidate_context": {
+        "count": 9,
+        "source_kind_counts": {
+          "session_memory": 9
+        },
+        "ref_prefix_counts": {
+          "u": 9
+        },
+        "required_refs_found": [
+          "u-L0034-01",
+          "u-L0003-01",
+          "u-L0041-05",
+          "u-L0043-01",
+          "u-L0005-03",
+          "u-L0041-04",
+          "u-L0034-04",
+          "u-L0041-06"
+        ],
+        "first_required_rank": 1,
+        "noise_notes": [
+          "u-L0003-01",
+          "meta-session-0003-locations",
+          "meta-session-0001-locations"
+        ]
+      },
+      "admitted_context": {
+        "count": 50,
+        "estimated_tokens": 1654,
+        "presentation_lane_counts": {
+          "unknown": 50
+        },
+        "required_refs_admitted": [
+          "u-L0034-01",
+          "u-L0003-01",
+          "u-L0041-05",
+          "u-L0043-01",
+          "u-L0005-03"
+        ],
+        "important_refs_buried_after_rank": [],
+        "noise_notes": [
+          "u-L0003-01",
+          "meta-session-0003-locations",
+          "meta-session-0001-locations"
+        ]
+      },
+      "rendered_context": {
+        "section_counts": {},
+        "sections_with_required_context": [],
+        "known_gaps_near_top": true,
+        "support_labeled_correctly": true,
+        "prior_labeled_correctly": true,
+        "llm_usability_score_1_to_5": 2,
+        "llm_usability_notes": [
+          "High admitted item count likely causes prompt pollution.",
+          "Rendered packet sections unavailable in benchmark row."
+        ]
+      },
+      "critique": {
+        "what_worked": [
+          "Required groups satisfied in benchmark evaluation."
+        ],
+        "what_failed_or_is_weak": [
+          "High admitted item count likely causes prompt pollution.",
+          "Rendered packet sections unavailable in benchmark row."
+        ],
+        "design_implications": [
+          "Benchmark pass does not imply compact or query-focused LLM packet."
+        ]
+      }
+    },
+    {
+      "question_number": 3,
+      "question_id": "q03_how_far_away_is_mirathorn_at_this_point",
+      "mode": "prior_only",
+      "verdict": "PASS",
+      "candidate_context": {
+        "count": 9,
+        "source_kind_counts": {
+          "session_memory": 9
+        },
+        "ref_prefix_counts": {
+          "u": 8,
+          "meta": 1
+        },
+        "required_refs_found": [],
+        "first_required_rank": null,
+        "noise_notes": [
+          "meta-session-0003-locations",
+          "u-L0007-01",
+          "meta-session-0001-locations"
+        ]
+      },
+      "admitted_context": {
+        "count": 50,
+        "estimated_tokens": 1581,
+        "presentation_lane_counts": {
+          "unknown": 50
+        },
+        "required_refs_admitted": [],
+        "important_refs_buried_after_rank": [],
+        "noise_notes": [
+          "meta-session-0003-locations",
+          "u-L0007-01",
+          "meta-session-0001-locations"
+        ]
+      },
+      "rendered_context": {
+        "section_counts": {},
+        "sections_with_required_context": [],
+        "known_gaps_near_top": true,
+        "support_labeled_correctly": true,
+        "prior_labeled_correctly": true,
+        "llm_usability_score_1_to_5": 2,
+        "llm_usability_notes": [
+          "High admitted item count likely causes prompt pollution.",
+          "Rendered packet sections unavailable in benchmark row."
+        ]
+      },
+      "critique": {
+        "what_worked": [
+          "Required groups satisfied in benchmark evaluation."
+        ],
+        "what_failed_or_is_weak": [
+          "High admitted item count likely causes prompt pollution.",
+          "Rendered packet sections unavailable in benchmark row."
+        ],
+        "design_implications": [
+          "Benchmark pass does not imply compact or query-focused LLM packet."
+        ]
+      }
+    },
+    {
+      "question_number": 5,
+      "question_id": "q05_there_is_a_gigantic_tree_growing_in_hemp",
+      "mode": "prior_only",
+      "verdict": "PASS",
+      "candidate_context": {
+        "count": 9,
+        "source_kind_counts": {
+          "session_memory": 9
+        },
+        "ref_prefix_counts": {
+          "u": 7,
+          "meta": 2
+        },
+        "required_refs_found": [],
+        "first_required_rank": null,
+        "noise_notes": [
+          "u-L0007-01",
+          "meta-session-0003-locations",
+          "u-L0003-01"
+        ]
+      },
+      "admitted_context": {
+        "count": 50,
+        "estimated_tokens": 1777,
+        "presentation_lane_counts": {
+          "unknown": 50
+        },
+        "required_refs_admitted": [],
+        "important_refs_buried_after_rank": [],
+        "noise_notes": [
+          "u-L0007-01",
+          "meta-session-0003-locations",
+          "u-L0003-01"
+        ]
+      },
+      "rendered_context": {
+        "section_counts": {},
+        "sections_with_required_context": [],
+        "known_gaps_near_top": true,
+        "support_labeled_correctly": true,
+        "prior_labeled_correctly": true,
+        "llm_usability_score_1_to_5": 2,
+        "llm_usability_notes": [
+          "High admitted item count likely causes prompt pollution.",
+          "Rendered packet sections unavailable in benchmark row."
+        ]
+      },
+      "critique": {
+        "what_worked": [
+          "Required groups satisfied in benchmark evaluation."
+        ],
+        "what_failed_or_is_weak": [
+          "High admitted item count likely causes prompt pollution.",
+          "Rendered packet sections unavailable in benchmark row."
+        ],
+        "design_implications": [
+          "Benchmark pass does not imply compact or query-focused LLM packet."
+        ]
+      }
+    },
+    {
+      "question_number": 1,
+      "question_id": "q01_who_are_the_npcs_the_players_encountered",
+      "mode": "prior_plus_support_content_only",
+      "verdict": "PASS",
+      "candidate_context": {
+        "count": 9,
+        "source_kind_counts": {
+          "session_memory": 9
+        },
+        "ref_prefix_counts": {
+          "u": 9
+        },
+        "required_refs_found": [
+          "u-L0034-01",
+          "u-L0003-01",
+          "u-L0041-05",
+          "u-L0043-01",
+          "u-L0005-03",
+          "u-L0041-04",
+          "u-L0034-04",
+          "u-L0041-06"
+        ],
+        "first_required_rank": 1,
+        "noise_notes": [
+          "u-L0003-01",
+          "meta-session-0003-locations",
+          "meta-session-0001-locations"
+        ]
+      },
+      "admitted_context": {
+        "count": 46,
+        "estimated_tokens": 1492,
+        "presentation_lane_counts": {
+          "unknown": 46
+        },
+        "required_refs_admitted": [
+          "u-L0034-01",
+          "u-L0003-01",
+          "u-L0041-05",
+          "u-L0043-01",
+          "u-L0005-03"
+        ],
+        "important_refs_buried_after_rank": [],
+        "noise_notes": [
+          "u-L0003-01",
+          "meta-session-0003-locations",
+          "meta-session-0001-locations"
+        ]
+      },
+      "rendered_context": {
+        "section_counts": {},
+        "sections_with_required_context": [],
+        "known_gaps_near_top": true,
+        "support_labeled_correctly": true,
+        "prior_labeled_correctly": true,
+        "llm_usability_score_1_to_5": 2,
+        "llm_usability_notes": [
+          "High admitted item count likely causes prompt pollution.",
+          "Rendered packet sections unavailable in benchmark row."
+        ]
+      },
+      "critique": {
+        "what_worked": [
+          "Required groups satisfied in benchmark evaluation."
+        ],
+        "what_failed_or_is_weak": [
+          "High admitted item count likely causes prompt pollution.",
+          "Rendered packet sections unavailable in benchmark row."
+        ],
+        "design_implications": [
+          "Benchmark pass does not imply compact or query-focused LLM packet."
+        ]
+      }
+    },
+    {
+      "question_number": 3,
+      "question_id": "q03_how_far_away_is_mirathorn_at_this_point",
+      "mode": "prior_plus_support_content_only",
+      "verdict": "PASS",
+      "candidate_context": {
+        "count": 9,
+        "source_kind_counts": {
+          "session_memory": 9
+        },
+        "ref_prefix_counts": {
+          "u": 8,
+          "meta": 1
+        },
+        "required_refs_found": [],
+        "first_required_rank": null,
+        "noise_notes": [
+          "meta-session-0003-locations",
+          "u-L0007-01",
+          "meta-session-0001-locations"
+        ]
+      },
+      "admitted_context": {
+        "count": 47,
+        "estimated_tokens": 1518,
+        "presentation_lane_counts": {
+          "unknown": 47
+        },
+        "required_refs_admitted": [],
+        "important_refs_buried_after_rank": [],
+        "noise_notes": [
+          "meta-session-0003-locations",
+          "u-L0007-01",
+          "meta-session-0001-locations"
+        ]
+      },
+      "rendered_context": {
+        "section_counts": {},
+        "sections_with_required_context": [],
+        "known_gaps_near_top": true,
+        "support_labeled_correctly": true,
+        "prior_labeled_correctly": true,
+        "llm_usability_score_1_to_5": 2,
+        "llm_usability_notes": [
+          "High admitted item count likely causes prompt pollution.",
+          "Rendered packet sections unavailable in benchmark row."
+        ]
+      },
+      "critique": {
+        "what_worked": [
+          "Required groups satisfied in benchmark evaluation."
+        ],
+        "what_failed_or_is_weak": [
+          "High admitted item count likely causes prompt pollution.",
+          "Rendered packet sections unavailable in benchmark row."
+        ],
+        "design_implications": [
+          "Benchmark pass does not imply compact or query-focused LLM packet."
+        ]
+      }
+    },
+    {
+      "question_number": 5,
+      "question_id": "q05_there_is_a_gigantic_tree_growing_in_hemp",
+      "mode": "prior_plus_support_content_only",
+      "verdict": "PASS",
+      "candidate_context": {
+        "count": 9,
+        "source_kind_counts": {
+          "session_memory": 9
+        },
+        "ref_prefix_counts": {
+          "u": 7,
+          "meta": 2
+        },
+        "required_refs_found": [
+          "support:hempholm_road_hook_merchant_role",
+          "support:hempholm_saladin_optional",
+          "support:hempholm_support_overview",
+          "support:hempholm_tree_mechanics_and_clues",
+          "support:hempholm_tree_visible_threat"
+        ],
+        "first_required_rank": 1,
+        "noise_notes": [
+          "u-L0007-01",
+          "meta-session-0003-locations",
+          "u-L0003-01"
+        ]
+      },
+      "admitted_context": {
+        "count": 44,
+        "estimated_tokens": 1985,
+        "presentation_lane_counts": {
+          "unknown": 39,
+          "support_knowledge": 5
+        },
+        "required_refs_admitted": [
+          "support:hempholm_road_hook_merchant_role",
+          "support:hempholm_saladin_optional",
+          "support:hempholm_support_overview",
+          "support:hempholm_tree_mechanics_and_clues",
+          "support:hempholm_tree_visible_threat"
+        ],
+        "important_refs_buried_after_rank": [
+          "support:hempholm_road_hook_merchant_role",
+          "support:hempholm_saladin_optional"
+        ],
+        "noise_notes": [
+          "u-L0007-01",
+          "meta-session-0003-locations",
+          "u-L0003-01"
+        ]
+      },
+      "rendered_context": {
+        "section_counts": {},
+        "sections_with_required_context": [],
+        "known_gaps_near_top": true,
+        "support_labeled_correctly": true,
+        "prior_labeled_correctly": true,
+        "llm_usability_score_1_to_5": 2,
+        "llm_usability_notes": [
+          "High admitted item count likely causes prompt pollution.",
+          "Support context appears late in admitted ranking.",
+          "Rendered packet sections unavailable in benchmark row."
+        ]
+      },
+      "critique": {
+        "what_worked": [
+          "Required groups satisfied in benchmark evaluation."
+        ],
+        "what_failed_or_is_weak": [
+          "High admitted item count likely causes prompt pollution.",
+          "Support context appears late in admitted ranking.",
+          "Rendered packet sections unavailable in benchmark row."
+        ],
+        "design_implications": [
+          "Benchmark pass does not imply compact or query-focused LLM packet."
+        ]
+      }
+    },
+    {
+      "question_number": 1,
+      "question_id": "q01_who_are_the_npcs_the_players_encountered",
+      "mode": "prior_plus_support_content_plus_lexical_hints",
+      "verdict": "PASS",
+      "candidate_context": {
+        "count": 9,
+        "source_kind_counts": {
+          "session_memory": 9
+        },
+        "ref_prefix_counts": {
+          "u": 9
+        },
+        "required_refs_found": [
+          "u-L0034-01",
+          "u-L0003-01",
+          "u-L0041-05",
+          "u-L0043-01",
+          "u-L0005-03",
+          "u-L0041-04",
+          "u-L0034-04",
+          "u-L0041-06"
+        ],
+        "first_required_rank": 1,
+        "noise_notes": [
+          "u-L0003-01",
+          "meta-session-0003-locations",
+          "meta-session-0001-locations"
+        ]
+      },
+      "admitted_context": {
+        "count": 46,
+        "estimated_tokens": 1492,
+        "presentation_lane_counts": {
+          "unknown": 46
+        },
+        "required_refs_admitted": [
+          "u-L0034-01",
+          "u-L0003-01",
+          "u-L0041-05",
+          "u-L0043-01",
+          "u-L0005-03"
+        ],
+        "important_refs_buried_after_rank": [],
+        "noise_notes": [
+          "u-L0003-01",
+          "meta-session-0003-locations",
+          "meta-session-0001-locations"
+        ]
+      },
+      "rendered_context": {
+        "section_counts": {},
+        "sections_with_required_context": [],
+        "known_gaps_near_top": true,
+        "support_labeled_correctly": true,
+        "prior_labeled_correctly": true,
+        "llm_usability_score_1_to_5": 2,
+        "llm_usability_notes": [
+          "High admitted item count likely causes prompt pollution.",
+          "Rendered packet sections unavailable in benchmark row."
+        ]
+      },
+      "critique": {
+        "what_worked": [
+          "Required groups satisfied in benchmark evaluation."
+        ],
+        "what_failed_or_is_weak": [
+          "High admitted item count likely causes prompt pollution.",
+          "Rendered packet sections unavailable in benchmark row."
+        ],
+        "design_implications": [
+          "Benchmark pass does not imply compact or query-focused LLM packet."
+        ]
+      }
+    },
+    {
+      "question_number": 3,
+      "question_id": "q03_how_far_away_is_mirathorn_at_this_point",
+      "mode": "prior_plus_support_content_plus_lexical_hints",
+      "verdict": "PASS",
+      "candidate_context": {
+        "count": 9,
+        "source_kind_counts": {
+          "session_memory": 9
+        },
+        "ref_prefix_counts": {
+          "u": 8,
+          "meta": 1
+        },
+        "required_refs_found": [],
+        "first_required_rank": null,
+        "noise_notes": [
+          "meta-session-0003-locations",
+          "u-L0007-01",
+          "meta-session-0001-locations"
+        ]
+      },
+      "admitted_context": {
+        "count": 47,
+        "estimated_tokens": 1518,
+        "presentation_lane_counts": {
+          "unknown": 47
+        },
+        "required_refs_admitted": [],
+        "important_refs_buried_after_rank": [],
+        "noise_notes": [
+          "meta-session-0003-locations",
+          "u-L0007-01",
+          "meta-session-0001-locations"
+        ]
+      },
+      "rendered_context": {
+        "section_counts": {},
+        "sections_with_required_context": [],
+        "known_gaps_near_top": true,
+        "support_labeled_correctly": true,
+        "prior_labeled_correctly": true,
+        "llm_usability_score_1_to_5": 2,
+        "llm_usability_notes": [
+          "High admitted item count likely causes prompt pollution.",
+          "Rendered packet sections unavailable in benchmark row."
+        ]
+      },
+      "critique": {
+        "what_worked": [
+          "Required groups satisfied in benchmark evaluation."
+        ],
+        "what_failed_or_is_weak": [
+          "High admitted item count likely causes prompt pollution.",
+          "Rendered packet sections unavailable in benchmark row."
+        ],
+        "design_implications": [
+          "Benchmark pass does not imply compact or query-focused LLM packet."
+        ]
+      }
+    },
+    {
+      "question_number": 5,
+      "question_id": "q05_there_is_a_gigantic_tree_growing_in_hemp",
+      "mode": "prior_plus_support_content_plus_lexical_hints",
+      "verdict": "PASS",
+      "candidate_context": {
+        "count": 9,
+        "source_kind_counts": {
+          "session_memory": 9
+        },
+        "ref_prefix_counts": {
+          "u": 7,
+          "meta": 2
+        },
+        "required_refs_found": [
+          "support:hempholm_road_hook_merchant_role",
+          "support:hempholm_tree_visible_threat",
+          "support:hempholm_saladin_optional",
+          "support:hempholm_support_overview"
+        ],
+        "first_required_rank": 1,
+        "noise_notes": [
+          "u-L0007-01",
+          "meta-session-0003-locations",
+          "u-L0003-01"
+        ]
+      },
+      "admitted_context": {
+        "count": 43,
+        "estimated_tokens": 1999,
+        "presentation_lane_counts": {
+          "unknown": 39,
+          "support_knowledge": 4
+        },
+        "required_refs_admitted": [
+          "support:hempholm_road_hook_merchant_role",
+          "support:hempholm_tree_visible_threat",
+          "support:hempholm_saladin_optional",
+          "support:hempholm_support_overview"
+        ],
+        "important_refs_buried_after_rank": [
+          "support:hempholm_road_hook_merchant_role",
+          "support:hempholm_tree_visible_threat"
+        ],
+        "noise_notes": [
+          "u-L0007-01",
+          "meta-session-0003-locations",
+          "u-L0003-01"
+        ]
+      },
+      "rendered_context": {
+        "section_counts": {},
+        "sections_with_required_context": [],
+        "known_gaps_near_top": true,
+        "support_labeled_correctly": true,
+        "prior_labeled_correctly": true,
+        "llm_usability_score_1_to_5": 2,
+        "llm_usability_notes": [
+          "High admitted item count likely causes prompt pollution.",
+          "Support context appears late in admitted ranking.",
+          "Rendered packet sections unavailable in benchmark row."
+        ]
+      },
+      "critique": {
+        "what_worked": [
+          "Required groups satisfied in benchmark evaluation."
+        ],
+        "what_failed_or_is_weak": [
+          "High admitted item count likely causes prompt pollution.",
+          "Support context appears late in admitted ranking.",
+          "Rendered packet sections unavailable in benchmark row."
+        ],
+        "design_implications": [
+          "Benchmark pass does not imply compact or query-focused LLM packet."
+        ]
+      }
+    }
+  ],
+  "global_design_critique": {
+    "strengths": [
+      "Required-group and known-gap recall are perfect across evaluated modes.",
+      "Rendered packet pipeline and canvas payload are present, enabling inspection."
+    ],
+    "weaknesses": [
+      "Admitted context is frequently dominated by session-memory rows with unknown lanes.",
+      "Support evidence for Q5 is often admitted late, reducing salience.",
+      "Packets can exceed ~1.8k estimated tokens, causing likely prompt pollution."
+    ],
+    "risks": [
+      "As question set grows, flat budget admission may over-include stale memory and bury key evidence."
+    ],
+    "recommendations": [
+      "Implement query-sensitive lane budgets/routing before adding shadow LLM retrieval planning.",
+      "Add compression/section summarization for long prior-memory blocks.",
+      "Normalize source_kind and presentation_lane metadata upstream to reduce fallback semantics.",
+      "Add rendered-packet quality metrics (burial depth, section token share, relevance density)."
+    ]
+  }
+}

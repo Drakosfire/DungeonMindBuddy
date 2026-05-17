@@ -1,0 +1,190 @@
+{
+  "useful_context": [],
+  "noise_context": [
+    {
+      "mode": "prior_only",
+      "question": 1,
+      "rows": [
+        [
+          "u-L0003-01",
+          "Adventure hook, hear about a mysterious artifact while celebrating."
+        ],
+        [
+          "meta-session-0003-locations",
+          "session locations location places place setting map stonebridge Stone Bridge tow"
+        ],
+        [
+          "meta-session-0001-locations",
+          "session locations location places place setting map stonebridge Starting town; n"
+        ]
+      ]
+    },
+    {
+      "mode": "prior_only",
+      "question": 3,
+      "rows": [
+        [
+          "meta-session-0003-locations",
+          "session locations location places place setting map stonebridge Stone Bridge tow"
+        ],
+        [
+          "u-L0007-01",
+          "Since this room was not part of the original contract, and really neither was th"
+        ],
+        [
+          "meta-session-0001-locations",
+          "session locations location places place setting map stonebridge Starting town; n"
+        ]
+      ]
+    },
+    {
+      "mode": "prior_only",
+      "question": 5,
+      "rows": [
+        [
+          "u-L0007-01",
+          "Since this room was not part of the original contract, and really neither was th"
+        ],
+        [
+          "meta-session-0003-locations",
+          "session locations location places place setting map stonebridge Stone Bridge tow"
+        ],
+        [
+          "u-L0003-01",
+          "Adventure hook, hear about a mysterious artifact while celebrating."
+        ]
+      ]
+    },
+    {
+      "mode": "prior_plus_support_content_only",
+      "question": 1,
+      "rows": [
+        [
+          "u-L0003-01",
+          "Adventure hook, hear about a mysterious artifact while celebrating."
+        ],
+        [
+          "meta-session-0003-locations",
+          "session locations location places place setting map stonebridge Stone Bridge tow"
+        ],
+        [
+          "meta-session-0001-locations",
+          "session locations location places place setting map stonebridge Starting town; n"
+        ]
+      ]
+    },
+    {
+      "mode": "prior_plus_support_content_only",
+      "question": 3,
+      "rows": [
+        [
+          "meta-session-0003-locations",
+          "session locations location places place setting map stonebridge Stone Bridge tow"
+        ],
+        [
+          "u-L0007-01",
+          "Since this room was not part of the original contract, and really neither was th"
+        ],
+        [
+          "meta-session-0001-locations",
+          "session locations location places place setting map stonebridge Starting town; n"
+        ]
+      ]
+    },
+    {
+      "mode": "prior_plus_support_content_only",
+      "question": 5,
+      "rows": [
+        [
+          "u-L0007-01",
+          "Since this room was not part of the original contract, and really neither was th"
+        ],
+        [
+          "meta-session-0003-locations",
+          "session locations location places place setting map stonebridge Stone Bridge tow"
+        ],
+        [
+          "u-L0003-01",
+          "Adventure hook, hear about a mysterious artifact while celebrating."
+        ]
+      ]
+    },
+    {
+      "mode": "prior_plus_support_content_plus_lexical_hints",
+      "question": 1,
+      "rows": [
+        [
+          "u-L0003-01",
+          "Adventure hook, hear about a mysterious artifact while celebrating."
+        ],
+        [
+          "meta-session-0003-locations",
+          "session locations location places place setting map stonebridge Stone Bridge tow"
+        ],
+        [
+          "meta-session-0001-locations",
+          "session locations location places place setting map stonebridge Starting town; n"
+        ]
+      ]
+    },
+    {
+      "mode": "prior_plus_support_content_plus_lexical_hints",
+      "question": 3,
+      "rows": [
+        [
+          "meta-session-0003-locations",
+          "session locations location places place setting map stonebridge Stone Bridge tow"
+        ],
+        [
+          "u-L0007-01",
+          "Since this room was not part of the original contract, and really neither was th"
+        ],
+        [
+          "meta-session-0001-locations",
+          "session locations location places place setting map stonebridge Starting town; n"
+        ]
+      ]
+    },
+    {
+      "mode": "prior_plus_support_content_plus_lexical_hints",
+      "question": 5,
+      "rows": [
+        [
+          "u-L0007-01",
+          "Since this room was not part of the original contract, and really neither was th"
+        ],
+        [
+          "meta-session-0003-locations",
+          "session locations location places place setting map stonebridge Stone Bridge tow"
+        ],
+        [
+          "u-L0003-01",
+          "Adventure hook, hear about a mysterious artifact while celebrating."
+        ]
+      ]
+    }
+  ],
+  "buried_support": [
+    {
+      "mode": "prior_plus_support_content_only",
+      "question": 5,
+      "support_refs": [
+        "support:hempholm_road_hook_merchant_role",
+        "support:hempholm_saladin_optional",
+        "support:hempholm_support_overview"
+      ],
+      "first_support_rank": 37
+    },
+    {
+      "mode": "prior_plus_support_content_plus_lexical_hints",
+      "question": 5,
+      "support_refs": [
+        "support:hempholm_road_hook_merchant_role",
+        "support:hempholm_tree_visible_threat",
+        "support:hempholm_saladin_optional"
+      ],
+      "first_support_rank": 27
+    }
+  ],
+  "rendering_issues": []
+}
