@@ -47,6 +47,7 @@ def _retrieve(query: str, mode: QuestionRetrievalMode, campaign_id: str, *, max_
         heldout_sessions=manifest["heldout_sessions"],
         query=query,
         retrieval_result=result,
+        max_items=max_hits,
         forbidden_oracle_relpaths=policy["forbidden_oracle_relpaths"],
         records_by_unit_id=records_by_unit_id,
     )
