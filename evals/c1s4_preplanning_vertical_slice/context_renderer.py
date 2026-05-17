@@ -73,6 +73,7 @@ def render_context_packet(packet: dict[str, Any]) -> dict[str, Any]:
                 "candidate_rank": i.get("candidate_rank"),
                 "admitted_rank": i.get("admitted_rank"),
                 "presentation_lane": i.get("presentation_lane"),
+                "rendered_section_id": sid,
                 "admission_reason": i.get("admission_reason"),
             }
         text = "\n".join(lines) if lines else "- (none)"

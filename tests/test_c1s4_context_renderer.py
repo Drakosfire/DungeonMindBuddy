@@ -58,3 +58,20 @@ def test_renderer_classifies_realish_session_item_without_kind_or_lane_as_prior(
     out = render_context_packet(packet)
     prior = next(s for s in out["sections"] if s["section_id"] == "prior_campaign_memory")
     assert "u-L0034-01" in prior["refs"]
+
+
+def test_renderer_provenance_includes_rendered_section_id_for_fallback_item():
+    packet = {
+        "question_number": 1,
+        "question_id": "q01",
+        "question": "Who are the NPCs?",
+        "retrieval_mode": "prior_only",
+        "admission_policy": "budgeted_v1",
+        "admitted_context": [
+            {"unit_id": "u-L0034-01", "snippet": "Ready for some rest...StoneBridge with Pippa...", "presentation_lane": "unknown"}
+        ],
+    }
+    out = render_context_packet(packet)
+    prov = out["provenance_map"]["u-L0034-01"]
+    assert prov["presentation_lane"] == "unknown"
+    assert prov["rendered_section_id"] == "prior_campaign_memory"
