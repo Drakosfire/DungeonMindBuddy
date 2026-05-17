@@ -1,0 +1,23 @@
+{
+  "schema": "dmb_c1s4_future_gold_update_plan_v1",
+  "handoff_id": "PR48_lane_audit_and_worldbuilding_readiness",
+  "recommendations": "See detailed per-question recommendations in PR48 handoff; this file captures proposed future (non-active) group additions by lane.",
+  "by_question": {
+    "q1": [
+      "stone_bridge_location_baseline",
+      "pippa_bubbles_npc_continuity",
+      "grishna_pub_anchor",
+      "stone_bridge_flood_event_memory"
+    ],
+    "q3": [
+      "stone_bridge_to_mirathorn_known_gap",
+      "stone_bridge_starting_point_context",
+      "mirathorn_destination_hook"
+    ],
+    "q5": [
+      "hempholm_location_baseline",
+      "hempholm_tree_support_context",
+      "support_not_allowed_in_prior_only"
+    ]
+  }
+}

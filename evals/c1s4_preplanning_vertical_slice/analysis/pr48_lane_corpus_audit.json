@@ -1,0 +1,297 @@
+{
+  "schema": "dmb_c1s4_lane_corpus_audit_v1",
+  "generated_from": {
+    "git_sha": "36ef4a4c4b7ed492f87c1048f9a94f24ce8b963d",
+    "step2c_report_path": "/tmp/c1s4_pr48_audit_step2c_report.json",
+    "gold_path": "evals/c1s4_preplanning_vertical_slice/gold/c1s4_expected_context_gold.json",
+    "corpus_root": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1"
+  },
+  "lanes": [
+    "prior_campaign_memory",
+    "character_npc_continuity",
+    "location_worldbuilding",
+    "support_adaptation",
+    "known_gaps"
+  ],
+  "question_audits": [
+    {
+      "question_number": 1,
+      "question_id": "q01_who_are_the_npcs_the_players_encountered",
+      "current_gold_summary": {
+        "required_group_ids": [
+          "pippa_bubbles_grishna_social_context",
+          "river_edge_pub_context",
+          "stone_bridge_flood_aftermath"
+        ],
+        "forbidden_group_ids": [],
+        "known_gap_expectations": [],
+        "requires_lane_placement": false
+      },
+      "desired_lanes": [
+        "prior_campaign_memory",
+        "character_npc_continuity",
+        "location_worldbuilding"
+      ],
+      "corpus_lane_availability": {
+        "prior_campaign_memory": {
+          "status": "present",
+          "files": [
+            "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Session Recaps/Session 3 - The Stone Bridge Flood.md"
+          ],
+          "notes": [
+            "Session recap memory exists and is heavily retrieved."
+          ]
+        },
+        "character_npc_continuity": {
+          "status": "present",
+          "files": [
+            "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/NPCs/pippa/README.md",
+            "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/NPCs/bubbles_the_float_goat/README.md",
+            "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/NPCs/grishna/README.md"
+          ],
+          "missing_recommended_files": [
+            "Locations/N/A"
+          ],
+          "notes": [
+            "NPC hubs exist for Pippa/Bubbles/Grishna."
+          ]
+        },
+        "location_worldbuilding": {
+          "status": "missing",
+          "files": [],
+          "missing_recommended_files": [
+            "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Locations/stone_bridge/README.md",
+            "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Locations/rivers_edge_pub/README.md"
+          ],
+          "notes": [
+            "Stone Bridge/River's Edge first-class location hubs not found."
+          ]
+        },
+        "support_adaptation": {
+          "status": "not_applicable",
+          "files": [],
+          "notes": [
+            "Not required for this question."
+          ]
+        },
+        "known_gaps": {
+          "status": "partial",
+          "values": [],
+          "notes": [
+            "No explicit known-gap requirements in current gold."
+          ]
+        }
+      },
+      "current_packet_observation": {
+        "rendered_sections_present": [
+          "prior_campaign_memory"
+        ],
+        "rendered_sections_empty": [
+          "known_gaps",
+          "support_knowledge",
+          "character_party_behavior",
+          "location_worldbuilding"
+        ],
+        "admitted_counts_by_presentation_lane": {
+          "prior_campaign_memory": 50
+        },
+        "candidate_counts_by_source_kind": null,
+        "notes": [
+          "Admitted context predominantly/entirely prior_campaign_memory for Q1/Q3 under current classifier."
+        ]
+      },
+      "future_gold_recommendations": []
+    },
+    {
+      "question_number": 3,
+      "question_id": "q03_how_far_away_is_mirathorn_at_this_point",
+      "current_gold_summary": {
+        "required_group_ids": [],
+        "forbidden_group_ids": [],
+        "known_gap_expectations": [
+          "exact Stone Bridge-to-Mirathorn route gazetteer",
+          "route-specific ecology"
+        ],
+        "requires_lane_placement": false
+      },
+      "desired_lanes": [
+        "known_gaps",
+        "location_worldbuilding",
+        "prior_campaign_memory"
+      ],
+      "corpus_lane_availability": {
+        "prior_campaign_memory": {
+          "status": "present",
+          "files": [
+            "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Session Recaps/Session 3 - The Stone Bridge Flood.md"
+          ],
+          "notes": [
+            "Session recap memory exists and is heavily retrieved."
+          ]
+        },
+        "character_npc_continuity": {
+          "status": "missing",
+          "files": [],
+          "missing_recommended_files": [
+            "Locations/N/A"
+          ],
+          "notes": [
+            "No first-class NPC hubs found."
+          ]
+        },
+        "location_worldbuilding": {
+          "status": "present",
+          "files": [
+            "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Session Recaps/Session 3 - The Stone Bridge Flood.md"
+          ],
+          "missing_recommended_files": [
+            "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Locations/stone_bridge/README.md",
+            "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Locations/rivers_edge_pub/README.md"
+          ],
+          "notes": [
+            "Stone Bridge/River's Edge first-class location hubs not found."
+          ]
+        },
+        "support_adaptation": {
+          "status": "not_applicable",
+          "files": [],
+          "notes": [
+            "Not required for this question."
+          ]
+        },
+        "known_gaps": {
+          "status": "present",
+          "values": [
+            "exact Stone Bridge-to-Mirathorn route gazetteer",
+            "route-specific ecology"
+          ],
+          "notes": [
+            "Known gaps explicitly required in gold for Q3."
+          ]
+        }
+      },
+      "current_packet_observation": {
+        "rendered_sections_present": [
+          "prior_campaign_memory"
+        ],
+        "rendered_sections_empty": [
+          "known_gaps",
+          "support_knowledge",
+          "character_party_behavior",
+          "location_worldbuilding"
+        ],
+        "admitted_counts_by_presentation_lane": {
+          "prior_campaign_memory": 36
+        },
+        "candidate_counts_by_source_kind": null,
+        "notes": [
+          "Admitted context predominantly/entirely prior_campaign_memory for Q1/Q3 under current classifier."
+        ]
+      },
+      "future_gold_recommendations": []
+    },
+    {
+      "question_number": 5,
+      "question_id": "q05_there_is_a_gigantic_tree_growing_in_hemp",
+      "current_gold_summary": {
+        "required_group_ids": [
+          "hempholm_tree_visible_threat"
+        ],
+        "forbidden_group_ids": [
+          "hempholm_specific_support_forbidden_in_prior_only"
+        ],
+        "known_gap_expectations": [],
+        "requires_lane_placement": false
+      },
+      "desired_lanes": [
+        "support_adaptation",
+        "location_worldbuilding",
+        "prior_campaign_memory",
+        "known_gaps"
+      ],
+      "corpus_lane_availability": {
+        "prior_campaign_memory": {
+          "status": "present",
+          "files": [
+            "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Session Recaps/Session 3 - The Stone Bridge Flood.md"
+          ],
+          "notes": [
+            "Session recap memory exists and is heavily retrieved."
+          ]
+        },
+        "character_npc_continuity": {
+          "status": "missing",
+          "files": [],
+          "missing_recommended_files": [
+            "Locations/N/A"
+          ],
+          "notes": [
+            "No first-class NPC hubs found."
+          ]
+        },
+        "location_worldbuilding": {
+          "status": "present",
+          "files": [
+            "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Locations/hempholm/README.md"
+          ],
+          "missing_recommended_files": [],
+          "notes": [
+            "Hempholm location hub exists."
+          ]
+        },
+        "support_adaptation": {
+          "status": "present",
+          "files": [
+            "evals/c1s4_preplanning_vertical_slice/support_knowledge/retrieval_cards.hempholm_support.jsonl"
+          ],
+          "notes": [
+            "Support cards present for Hempholm."
+          ]
+        },
+        "known_gaps": {
+          "status": "partial",
+          "values": [],
+          "notes": [
+            "No explicit known-gap requirements in current gold."
+          ]
+        }
+      },
+      "current_packet_observation": {
+        "rendered_sections_present": [
+          "prior_campaign_memory"
+        ],
+        "rendered_sections_empty": [
+          "known_gaps",
+          "support_knowledge",
+          "character_party_behavior",
+          "location_worldbuilding"
+        ],
+        "admitted_counts_by_presentation_lane": {
+          "prior_campaign_memory": 44
+        },
+        "candidate_counts_by_source_kind": null,
+        "notes": [
+          "Admitted context predominantly/entirely prior_campaign_memory for Q1/Q3 under current classifier."
+        ]
+      },
+      "future_gold_recommendations": []
+    }
+  ],
+  "global_findings": {
+    "corpus_gaps": [
+      "No first-class Stone Bridge location hub found.",
+      "No first-class River's Edge Pub location hub found."
+    ],
+    "pipeline_gaps": [
+      "Current admission classifier maps session memory to prior_campaign_memory; no explicit location/NPC lane mapping from first-class hubs yet."
+    ],
+    "benchmark_gaps": [
+      "Current gold checks text/group hits and known gaps, not rendered section placement."
+    ],
+    "recommended_next_prs": [
+      "PR49 create location/NPC hubs",
+      "PR50 lane classification for location/NPC hubs",
+      "PR51 update gold to require lane-balanced placement"
+    ]
+  }
+}
