@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This plan captures the retrieval design direction that emerged from PR40’s Step 2C expected-context benchmark work.
+This plan captures the retrieval design direction that emerged from PR40 and PR41’s Step 2C expected-context benchmark work.
 
 The central finding is that DungeonBuddy should stop treating retrieval as a flat `top_k` list and start treating retrieval as the auditable construction of a planner working-memory packet.
 
@@ -10,11 +10,13 @@ A planning packet is not just “the first N retrieved records.” It is a bound
 
 PR40 showed why this matters. Q5’s Hempholm support card is not absent. It appears at diagnostic depth, but it is not admitted into the graded top-k planner-visible context. That is not a support-loading failure. It is an admission/ranking failure.
 
-This sprint moves from deterministic diagnostics to deterministic budgeted retrieval, then toward shadow-mode LLM retrieval planning.
+PR41 deepened the point. A flat 8k character-budget simulation can admit the Hempholm support card, but it may still appear late in the admitted context. This means we need to distinguish admission from presentation. The eventual consumer is an LLM, not a human reviewer, so context must be structured for model ingestion, not merely dumped as a flat list.
+
+This sprint moves from deterministic diagnostics to deterministic budgeted retrieval, then to LLM-facing context rendering, then toward shadow-mode LLM retrieval planning.
 
 ---
 
-## Current baseline after PR40
+## Current baseline after PR40/PR41
 
 PR40 should be treated as the end of the first diagnostic loop.
 
@@ -26,22 +28,34 @@ PR40 provides:
 - Configurable diagnostic retrieval depth via `max_hits`.
 - PR-scoped benchmark artifacts under `evals/c1s4_preplanning_vertical_slice/artifacts/pr40/`.
 
+PR41 provides:
+
+- `budget_admission_diagnostics` for Step 2C rows.
+- Deterministic character/token estimates.
+- Simulated flat budget profiles.
+- Simulated support-reserved budget profiles.
+- Evidence that Q5 support can be admitted under an 8k character budget, while still failing official top-k grading.
+
 Current benchmark interpretation:
 
 - Q1 now passes in all modes.
 - Q3 known-gap behavior still passes.
 - Q5 prior-only still passes, with no support leakage.
 - Q5 support modes still fail at graded top-k.
-- The Q5 Hempholm support card is found at diagnostic depth, but too late for the current planner packet.
+- The Q5 Hempholm support card is found at diagnostic depth.
+- The Q5 Hempholm support card is admitted by flat 8k budget simulations.
+- The Q5 Hempholm support card may still be late in admitted order, so final LLM packet rendering remains an unsolved problem.
 
-The important distinction:
+Important distinctions:
 
 ```text
 candidate recall at diagnostic depth: yes
+admitted recall under flat 8k budget: yes
 admitted recall at top_k=9: no
+LLM-facing presentation quality: not yet measured
 ```
 
-That distinction should drive the next sprint.
+Those distinctions should drive the next sprint.
 
 ---
 
@@ -56,7 +70,7 @@ question
   -> planner packet
 ```
 
-The target model is lane-aware and budget-aware:
+The target model is lane-aware, budget-aware, and LLM-renderer-aware:
 
 ```text
 question
@@ -69,7 +83,8 @@ question
       - known gaps / constraints
   -> candidate pools
   -> budgeted admission
-  -> planner packet
+  -> structured LLM-facing packet rendering
+  -> planner / generator
 ```
 
 Key distinction:
@@ -81,11 +96,70 @@ Retrieval asks:
 Admission asks:
   What actually enters the planner packet?
 
+Rendering asks:
+  How should admitted context be structured so an LLM can use it correctly?
+
 Benchmarking asks:
-  Did the admitted packet contain the needed context, avoid forbidden material, and surface gaps honestly?
+  Did the admitted/rendered packet contain the needed context, avoid forbidden material, and surface gaps honestly?
 ```
 
-PR40 proved these should not be collapsed into a single flat top-k cutoff.
+PR40 proved retrieval and admission should not be collapsed into a single flat top-k cutoff.
+
+PR41 proved admission and presentation should not be collapsed either. Inclusion somewhere in an 8k context budget is not the same as useful model-facing organization.
+
+---
+
+## LLM-facing packet design principle
+
+The packet consumer is an LLM, not a human reviewing a debug report.
+
+Therefore, packet rendering should not be a flat list of admitted snippets. It should help the model separate:
+
+- prior campaign events,
+- player and PC behavior,
+- NPC relationship history,
+- location and worldbuilding context,
+- support/adaptation material,
+- known gaps,
+- safety constraints,
+- chronological facts,
+- non-chronological world structure.
+
+Different lanes need different ordering rules:
+
+```text
+session_memory:
+  chronological or session-local order often matters
+
+pc_timeline:
+  summary first, then chronological examples
+
+location/worldbuilding:
+  hierarchy and locality often matter more than chronology
+
+support_knowledge:
+  relevance and authority matter more than prior-session chronology
+
+known_gaps/safety_constraints:
+  should appear early, before generative context
+```
+
+The renderer should use chronological order inside chronological sections, but it should not globally sort everything by time.
+
+Bad:
+
+```text
+Sort every admitted item globally by time.
+```
+
+Better:
+
+```text
+Render sections by packet role.
+Sort items inside each section according to that section’s logic.
+```
+
+This avoids burying support/adaptation context behind session-memory snippets while still preserving chronological order where chronology matters.
 
 ---
 
@@ -102,6 +176,7 @@ These rules apply to every PR in this sprint.
 - Do not loosen gold until anything passes.
 - Do not hide failed rows from reports or canvas payloads.
 - Preserve raw candidate rank even when admission changes.
+- Preserve enough metadata for later LLM-facing rendering.
 - Any LLM retrieval planner must propose plans only; deterministic code must validate, execute, filter, and admit context.
 
 ---
@@ -111,11 +186,12 @@ These rules apply to every PR in this sprint.
 ```text
 PR40  Merge diagnostics + Q1 matcher repair
 PR41  Add budget/admission diagnostics without changing behavior
-PR42  Implement deterministic budgeted admission v1
-PR43  Add deterministic query-feature routing and lane planning
-PR44  Expand expected-context gold from 3 questions to 8-10
-PR45  Add shadow LLM retrieval planner
-PR46  Evaluate shadow planner and define promotion gates
+PR42  Implement deterministic budgeted admission v1 and preserve presentation metadata
+PR43  Add structured LLM-facing planner packet renderer
+PR44  Add deterministic query-feature routing and lane planning
+PR45  Expand expected-context gold from 3 questions to 8-10
+PR46  Add shadow LLM retrieval planner
+PR47  Evaluate shadow planner and define promotion gates
 ```
 
 Visual roadmap:
@@ -128,18 +204,21 @@ PR41
  Measure budget behavior
         ↓
 PR42
- Deterministic budgeted admission
+ Deterministic budgeted admission + presentation metadata
         ↓
 PR43
- Deterministic query router / lane plans
+ LLM-facing context renderer
         ↓
 PR44
- Gold expansion / generalization check
+ Deterministic query router / lane plans
         ↓
 PR45
- Shadow LLM retrieval planner
+ Gold expansion / generalization check
         ↓
 PR46
+ Shadow LLM retrieval planner
+        ↓
+PR47
  Compare, gate, maybe promote
 ```
 
@@ -223,7 +302,7 @@ Admitted rank describes where the item enters the planner-visible packet under a
       "hempholm_tree_visible_threat": {
         "first_matching_candidate_rank": 27,
         "legacy_top_k_admitted": false,
-        "flat_ranked_8000_admitted": false,
+        "flat_ranked_8000_admitted": true,
         "support_reserved_25_8000_admitted": true
       }
     }
@@ -267,10 +346,10 @@ flat top_k=9:
   Q5 fails
 
 flat 8000 chars:
-  Q5 may still fail or be inconsistent
+  Q5 passes admission but may admit the relevant support late
 
 8000 chars + support reservation:
-  Q5 likely passes
+  Q5 passes admission and admits more support, but may still need renderer structure
 ```
 
 ## Acceptance criteria
@@ -288,13 +367,15 @@ flat 8000 chars:
 
 ## Proposed title
 
-`Implement deterministic budgeted admission for support retrieval modes`
+`Implement deterministic budgeted admission with presentation metadata`
 
 ## Purpose
 
 Turn the best budget policy from PR41 into actual packet construction.
 
 This is the first PR that should make Q5 pass in support modes.
+
+PR42 should admit the right context, but it should not try to solve final LLM prompt formatting. Instead, it must preserve enough metadata for the next PR to render admitted context well.
 
 ## Core behavior
 
@@ -306,6 +387,7 @@ partition candidates into lanes
 admit into planner packet by budget
 preserve raw candidate rank
 report admitted rank
+preserve presentation metadata
 ```
 
 Initial lanes:
@@ -315,6 +397,40 @@ Initial lanes:
 - `known_gaps_or_constraints`
 
 Do not add PC timeline or world graph lanes yet unless those data products are already reliable.
+
+## Presentation metadata to preserve
+
+Each admitted item should carry at least:
+
+```json
+{
+  "ref": "support:hempholm_road_hook_merchant_role",
+  "source_kind": "support_knowledge_card",
+  "source_layer": "adaptation_planning",
+  "candidate_rank": 37,
+  "admitted_rank": 12,
+  "admission_reason": "support_required_budget_admission",
+  "presentation_lane": "support_knowledge",
+  "estimated_chars": 420,
+  "estimated_tokens": 105
+}
+```
+
+Suggested initial `presentation_lane` values:
+
+- `prior_campaign_memory`
+- `support_knowledge`
+- `known_gap`
+- `safety_constraint`
+- `unknown`
+
+Later PRs can add:
+
+- `pc_timeline`
+- `party_timeline`
+- `location_context`
+- `worldbuilding`
+- `npc_relationship_context`
 
 ## Suggested default budget profiles
 
@@ -373,6 +489,7 @@ known gaps:
 - Assign admitted rank separately.
 - Budget overflow must be deterministic.
 - Unused lane budget may spill over to other lanes in a deterministic priority order.
+- Preserve enough presentation metadata for PR43 to render sections without re-inferring source roles.
 
 ## Q5 target
 
@@ -388,7 +505,8 @@ After:
 
 ```text
 support card candidate rank: preserved
-admitted rank: inside planner packet
+admitted into budgeted packet: yes
+presentation_lane: support_knowledge
 row passes: yes
 ```
 
@@ -400,11 +518,164 @@ row passes: yes
 - Q3 still passes known-gap expectations.
 - Forbidden violations remain 0.
 - The support card is admitted by general policy, not Q5-specific logic.
+- Admitted items preserve `candidate_rank`, `admitted_rank`, `admission_reason`, and `presentation_lane`.
 - Focused tests pass.
 
 ---
 
-# PR43 — Deterministic query-feature router and lane planning
+# PR43 — Structured LLM-facing planner packet renderer
+
+## Proposed title
+
+`Add structured LLM-facing planner packet renderer`
+
+## Purpose
+
+Build the first deterministic renderer for admitted context packets.
+
+The consumer is an LLM, not a human reading debug output. The renderer should organize context so the model can distinguish prior play, worldbuilding, support/adaptation material, known gaps, and safety constraints.
+
+This PR should not change retrieval or admission. It should transform already-admitted context into a structured LLM-ingestion format.
+
+## Core principle
+
+Do not render admitted context as one flat list.
+
+Render by packet role and authority:
+
+```text
+1. Planning question
+2. Retrieval/authority summary
+3. Known gaps and safety constraints
+4. Support / adaptation context
+5. Prior campaign memory
+6. Player / PC / party behavior context, when available
+7. Location / worldbuilding context, when available
+8. Provenance appendix or compact citation map
+```
+
+The first implementation can omit unavailable sections, but the renderer contract should make room for them.
+
+## Suggested rendered structure
+
+```markdown
+# Planning Question
+
+<user/planning question>
+
+# Retrieval and Authority Summary
+
+- Retrieval mode: <mode>
+- Source sessions allowed: C1S1-C1S3
+- Support knowledge allowed: yes/no
+- Oracle material allowed: no
+- Context budget: <chars/tokens>
+
+# Known Gaps and Safety Constraints
+
+- <gap or constraint items>
+
+# Support / Adaptation Context
+
+## <entity/location grouping if available>
+
+- [ref] <support context>
+
+# Prior Campaign Memory
+
+## Chronological session memory
+
+- [session/ref] <prior event/context>
+
+# Character / Party Behavior Context
+
+- [ref] <PC or party behavior context>
+
+# Location / Worldbuilding Context
+
+- [ref] <location/worldbuilding context>
+
+# Provenance Map
+
+- [ref] source_kind=<...> source_layer=<...> candidate_rank=<...> admitted_rank=<...>
+```
+
+## Sorting rules
+
+Use section-specific sorting, not one global sort.
+
+```text
+known gaps / safety constraints:
+  high-priority first, near the top
+
+support knowledge:
+  relevance/admission priority first, grouped by entity/location if possible
+
+prior campaign memory:
+  chronological or session-local order
+
+PC / party behavior:
+  summary first when available, then chronological examples
+
+location / worldbuilding:
+  hierarchy/locality first, then relevance
+```
+
+Do not globally sort all context by chronology. That would bury future-facing support/adaptation context.
+
+## Renderer outputs
+
+At minimum:
+
+```json
+{
+  "schema": "dmb_planner_context_render_v1",
+  "question_id": "...",
+  "retrieval_mode": "...",
+  "rendered_text": "...",
+  "sections": [
+    {
+      "section_id": "support_knowledge",
+      "title": "Support / Adaptation Context",
+      "refs": ["support:hempholm_road_hook_merchant_role"],
+      "chars": 1200,
+      "estimated_tokens": 300
+    }
+  ],
+  "provenance_map": {
+    "support:hempholm_road_hook_merchant_role": {
+      "source_kind": "support_knowledge_card",
+      "source_layer": "adaptation_planning",
+      "candidate_rank": 37,
+      "admitted_rank": 12,
+      "presentation_lane": "support_knowledge"
+    }
+  }
+}
+```
+
+## Tests to add
+
+- Q5 support mode renders Hempholm support in `Support / Adaptation Context`.
+- Q5 prior-only does not render support context.
+- Q1 renders Stone Bridge/Pippa/Bubbles/Grishna context under prior campaign memory.
+- Q3 renders known route gaps near the top.
+- Provenance map preserves candidate/admitted ranks.
+- Renderer output excludes eval-only gold fields and oracle material.
+
+## Acceptance criteria
+
+- Renderer consumes admitted context only.
+- Renderer does not change retrieval/admission behavior.
+- Renderer groups context by LLM-ingestion role.
+- Known gaps/safety constraints are placed before generative/support detail.
+- Support context is clearly labeled as support/adaptation, not prior play.
+- Prior memory preserves chronological/session ordering where available.
+- Tests prove prior-only support exclusion is preserved.
+
+---
+
+# PR44 — Deterministic query-feature router and lane planning
 
 ## Proposed title
 
@@ -510,7 +781,7 @@ Use floors and caps so no plausible lane gets starved.
 
 ---
 
-# PR44 — Expand expected-context gold
+# PR45 — Expand expected-context gold
 
 ## Proposed title
 
@@ -558,11 +829,11 @@ Q35 remains evaluator-only and must not become planner-facing.
 - No expected group depends on oracle material.
 - Q35 remains excluded from planner-facing runs.
 - Benchmark includes at least one support, prior, mixed, and known-gap case.
-- PR42 behavior generalizes beyond Q5.
+- PR42/PR43 behavior generalizes beyond Q5.
 
 ---
 
-# PR45 — Shadow LLM retrieval planner
+# PR46 — Shadow LLM retrieval planner
 
 ## Proposed title
 
@@ -696,7 +967,7 @@ This keeps benchmark runs replayable.
 
 ---
 
-# PR46 — Shadow planner evaluation and promotion gates
+# PR47 — Shadow planner evaluation and promotion gates
 
 ## Proposed title
 
@@ -712,6 +983,7 @@ Compare deterministic baseline versus shadow planner on:
 
 - Candidate recall at depth.
 - Admitted recall under budget.
+- Rendered-section recall.
 - Known-gap recall.
 - Forbidden violation rate.
 - Support-card admission rate.
@@ -724,10 +996,13 @@ Compare deterministic baseline versus shadow planner on:
 
 - Q1:
   - LLM should preserve prior/session focus.
+  - Rendered packet should put Stone Bridge/Pippa/Bubbles/Grishna in prior campaign memory.
 - Q3:
   - LLM should preserve known-gap awareness.
+  - Rendered packet should put route gaps near the top.
 - Q5:
   - LLM should activate support lane and admit Hempholm support.
+  - Rendered packet should put Hempholm support in Support / Adaptation Context.
 - Expanded gold:
   - LLM should improve support/mixed queries without degrading prior-only or known-gap cases.
 
@@ -739,6 +1014,7 @@ The LLM planner may influence deterministic lane plans only if:
 - Known-gap recall does not regress.
 - Prior-only support leakage remains 0.
 - Required-context admitted recall improves meaningfully.
+- Rendered-section placement does not regress.
 - Plan validation failure rate is low.
 - Query drift is inspectable and bounded.
 - Results are replayable from cache.
@@ -773,6 +1049,8 @@ Suggested artifacts:
 - `lane_plan.json`
 - `candidate_pool_diagnostics.json`
 - `budget_admission_diagnostics.json`
+- `rendered_context_packet.json`
+- `rendered_context_packet.md`
 - `expected_context_report.json`
 - `canvas_payload.json`
 
@@ -786,6 +1064,8 @@ Each artifact should help answer:
 - What budget did it consume?
 - Which required groups did it satisfy?
 - What gaps/constraints were surfaced?
+- Where was the context rendered for the LLM?
+- Did rendered structure match the context’s authority and role?
 
 ---
 
@@ -811,7 +1091,17 @@ Mitigation:
 - Keep `prior_only` strict.
 - Use spillover if support is irrelevant.
 
-## Risk 3 — Query-router overconfidence
+## Risk 3 — Admitted context becomes an LLM-hostile blob
+
+A flat list can include the right facts while still making it hard for the LLM to distinguish prior play, support, worldbuilding, known gaps, and constraints.
+
+Mitigation:
+
+- Preserve presentation metadata in PR42.
+- Add structured LLM-facing renderer in PR43.
+- Test rendered section placement for Q1, Q3, and Q5.
+
+## Risk 4 — Query-router overconfidence
 
 Entity detection and keyword signals are noisy.
 
@@ -821,7 +1111,7 @@ Mitigation:
 - Keep baseline retrieval available.
 - Report router decisions.
 
-## Risk 4 — LLM query drift
+## Risk 5 — LLM query drift
 
 LLM expansion can regress retrieval by introducing attractive but wrong vocabulary.
 
@@ -834,13 +1124,13 @@ Mitigation:
 - Compare against deterministic baseline.
 - Keep the original query protected.
 
-## Risk 5 — Benchmark overfits Q5
+## Risk 6 — Benchmark overfits Q5
 
 Q5 is useful but only one support case.
 
 Mitigation:
 
-- Expand gold after deterministic budgeted admission.
+- Expand gold after deterministic budgeted admission and renderer contract.
 - Add multiple support, prior, mixed, and known-gap cases.
 
 ---
@@ -855,24 +1145,28 @@ Sprint B — Budget visibility
   PR41: budget/admission diagnostics and sweeps.
 
 Sprint C — Deterministic packet construction
-  PR42: budgeted lane admission.
+  PR42: budgeted lane admission with presentation metadata.
   Goal: Q5 support modes pass without prior-only leakage.
 
-Sprint D — Query-sensitive routing
-  PR43: deterministic query feature router.
+Sprint D — LLM-facing packet presentation
+  PR43: structured planner packet renderer.
+  Goal: admitted context is organized for model ingestion, not human debug reading.
+
+Sprint E — Query-sensitive routing
+  PR44: deterministic query feature router.
   Goal: lane depth/budget responds to PC/location/session/support signals.
 
-Sprint E — Benchmark expansion
-  PR44: expand gold to 8-10 questions.
-  Goal: prove PR42/43 generalize.
+Sprint F — Benchmark expansion
+  PR45: expand gold to 8-10 questions.
+  Goal: prove PR42/PR43/PR44 generalize.
 
-Sprint F — Agentic retrieval shadow
-  PR45: LLM retrieval planner in shadow.
-  PR46: evaluate and define promotion gates.
+Sprint G — Agentic retrieval shadow
+  PR46: LLM retrieval planner in shadow.
+  PR47: evaluate and define promotion gates.
 ```
 
 ---
 
 ## One-sentence thesis
 
-DungeonBuddy should stop treating retrieval as “top-k results” and start treating it as auditable construction of a planner working-memory packet, where deterministic lane retrieval, budgeted admission, known-gap preservation, and eventually shadow LLM retrieval planning cooperate without compromising oracle safety.
+DungeonBuddy should stop treating retrieval as “top-k results” and start treating it as auditable construction of an LLM-ingestible planner working-memory packet, where deterministic lane retrieval, budgeted admission, structured context rendering, known-gap preservation, and eventually shadow LLM retrieval planning cooperate without compromising oracle safety.
