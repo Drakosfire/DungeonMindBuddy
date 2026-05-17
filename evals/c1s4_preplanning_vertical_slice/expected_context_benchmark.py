@@ -221,6 +221,10 @@ def grade_question_packet(*, packet: dict[str, Any], gold_question: dict[str, An
         "retrieved_context_preview": retrieved_preview,
         "authority_summary": packet.get("authority_summary", {}),
         "grading_context_kind": grading_context_kind,
+        "question": packet.get("question"),
+        "known_context_gaps": packet.get("known_context_gaps", []),
+        "admitted_context": packet.get("admitted_context", []),
+        "admission_budget": packet.get("admission_budget", {}),
     }
 
 

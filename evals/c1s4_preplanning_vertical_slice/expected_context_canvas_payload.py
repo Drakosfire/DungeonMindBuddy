@@ -4,6 +4,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+from evals.c1s4_preplanning_vertical_slice.context_renderer import render_context_packet
+
 PAYLOAD_SCHEMA = "dmb_c1s4_expected_context_canvas_payload_v1"
 CANVAS_BLOCK_BEGIN = "// BEGIN GENERATED C1S4_EXPECTED_CONTEXT_CANVAS_DATA"
 CANVAS_BLOCK_END = "// END GENERATED C1S4_EXPECTED_CONTEXT_CANVAS_DATA"
@@ -89,6 +91,17 @@ def build_payload(*, report: dict[str, Any], gold: dict[str, Any] | None = None,
         known_gap_total = known_gap_totals.get((mode, qn, qid))
         known_gap_label = f"{known_gap_hit}/{known_gap_total}" if known_gap_total is not None else f"{known_gap_hit}/?"
 
+        rendered_packet = render_context_packet({
+            "question_number": row.get("question_number"),
+            "question_id": row.get("question_id"),
+            "question": row.get("question"),
+            "retrieval_mode": mode,
+            "admission_policy": row.get("admission_policy"),
+            "known_context_gaps": row.get("known_context_gaps", []),
+            "admitted_context": row.get("admitted_context", []),
+            "admission_budget": row.get("admission_budget", {}),
+        })
+
         question_rows.append({
             "question_number": row.get("question_number"),
             "question_id": row.get("question_id"),
@@ -99,7 +112,9 @@ def build_payload(*, report: dict[str, Any], gold: dict[str, Any] | None = None,
             "forbidden_hits": row.get("forbidden_context_groups_hit", []),
             "known_gaps": known_gap_label,
             "violations": row.get("violations", []),
+            "rendered_context_packet": rendered_packet,
         })
+
         question_cards.append({
             "question_number": row.get("question_number"),
             "question_id": row.get("question_id"),
@@ -113,6 +128,7 @@ def build_payload(*, report: dict[str, Any], gold: dict[str, Any] | None = None,
             "known_gap_expectations_hit": row.get("known_gap_expectations_hit", []),
             "authority_summary": row.get("authority_summary", {}),
             "violations": row.get("violations", []),
+            "rendered_context_packet": rendered_packet,
         })
 
     mode_count = max(1, len(modes))
@@ -120,6 +136,7 @@ def build_payload(*, report: dict[str, Any], gold: dict[str, Any] | None = None,
         "schema": PAYLOAD_SCHEMA,
         "title": "C1S4 Expected Context Benchmark",
         "subtitle": "Step 2C retrieval/context packet evidence review",
+        "uiHints": {"rendered_context_label": "Rendered LLM Context", "rendered_context_affordance": "details"},
         "sources": {"report": report_path or "", "gold": gold_path or str(_DEFAULT_GOLD_PATH)},
         "summary": {
             "modes": modes,
@@ -141,6 +158,7 @@ def build_payload(*, report: dict[str, Any], gold: dict[str, Any] | None = None,
             {"guardrail": "Gold is eval-only", "status": "PASS", "detail": "Payload generated from Step 2C report; no retrieval performed."},
             {"guardrail": "Canvas is projection", "status": "PASS", "detail": "Canonical state remains benchmark JSON."},
             {"guardrail": "No oracle material", "status": "PASS", "detail": "Step 2C does not read C1S4 oracle."},
+            {"guardrail": "Canvas accordion ownership", "status": "INFO", "detail": "This repo emits payload + uiHints only; external Cursor canvas shell renders accordion/details UI."},
         ],
     }
     return payload

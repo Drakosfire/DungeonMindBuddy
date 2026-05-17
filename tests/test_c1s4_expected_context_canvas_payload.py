@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
+from pathlib import Path
 
 from evals.c1s4_preplanning_vertical_slice.expected_context_benchmark import (
     build_expected_context_report,
@@ -186,3 +187,31 @@ def test_cli_check_mode_reports_stale_canvas(tmp_path):
         "--check",
     ], capture_output=True, text=True)
     assert proc.returncode == 1
+
+
+def test_canvas_payload_includes_rendered_context_packet():
+    payload = build_payload(report=_single_report())
+    assert "rendered_context_packet" in payload["questionRows"][0]
+    assert payload["questionRows"][0]["rendered_context_packet"]["schema"] == "dmb_planner_context_render_v1"
+
+
+def test_canvas_renderer_can_emit_expandable_context():
+    block = render_generated_block(build_payload(report=_single_report()))
+    assert "rendered_context_packet" in block
+    assert "sections" in block
+    assert "Known Gaps and Safety Constraints" in block
+    assert "Rendered LLM Context" in block or "Constructed Context Packet" in block
+    assert "details" in block
+
+
+def test_payload_declares_canvas_ui_scope_boundary():
+    payload = build_payload(report=_single_report())
+    details = " ".join(r.get("detail", "") for r in payload.get("guardrailRows", []))
+    assert "payload + uiHints" in details
+    assert "external Cursor canvas shell" in details
+
+
+def test_pr43_readme_explicitly_declares_external_canvas_ui_ownership():
+    txt = Path("evals/c1s4_preplanning_vertical_slice/artifacts/pr43/README.md").read_text(encoding="utf-8")
+    assert "does not" in txt and "accordion/details UI" in txt
+    assert "external Cursor canvas shell/runtime" in txt
