@@ -2,9 +2,11 @@ from evals.c1s4_preplanning_vertical_slice.expected_context_benchmark import (
     EXPECTED_CONTEXT_REPORT_SCHEMA,
     build_expected_context_report,
     build_multimode_expected_context_report,
+    estimate_context_item_size,
     grade_question_packet,
     load_expected_context_gold,
     match_context_group,
+    render_context_item_for_budget,
     validate_expected_context_gold,
     validate_expected_context_report,
 )
@@ -178,3 +180,66 @@ def test_packet_level_retrieved_context_leakage_is_rejected_even_without_group_m
         assert False, "expected leakage RuntimeError"
     except RuntimeError as exc:
         assert "retrieved_context leakage detected" in str(exc)
+
+
+def test_budget_render_and_size_estimation_are_deterministic():
+    item = {"title": "Hempholm", "snippet": "metallic leaves", "source_reference": {"doc": "Of Conks & Cons"}, "source_kind": "support_knowledge_card", "source_layer": "source_module"}
+    rendered = render_context_item_for_budget(item)
+    assert rendered == render_context_item_for_budget(item)
+    chars, tokens = estimate_context_item_size(item)
+    assert chars == len(rendered)
+    assert tokens == (chars + 3) // 4
+
+
+def test_budget_diagnostics_flat_ranked_skip_oversized_item():
+    packet_top = {"question_number": 1, "question_id": "q01", "retrieved_context": [{"unit_id": "r1", "snippet": "small"}], "known_context_gaps": [], "authority_summary": {}}
+    packet_diag = {
+        "question_number": 1,
+        "question_id": "q01",
+        "retrieved_context": [
+            {"unit_id": "r1", "source_kind": "session_memory", "snippet": "a" * 10},
+            {"unit_id": "r2", "source_kind": "session_memory", "snippet": "b" * 5000},
+            {"unit_id": "r3", "source_kind": "session_memory", "snippet": "c" * 10},
+        ],
+        "known_context_gaps": [],
+        "authority_summary": {},
+    }
+    gold = {"schema": "dmb_c1s4_expected_context_gold_v1", "campaign_id": "longmont-c1", "questions": [{"question_number": 1, "question_id": "q01", "expectations_by_mode": {"prior_only": {"required_context_groups": [], "forbidden_context_groups": [], "expected_known_gaps_contains_any": []}}}]}
+    row = build_expected_context_report(packets=[packet_top], diagnostic_packets=[packet_diag], gold=gold, retrieval_mode="prior_only", top_k=1)["results"][0]
+    preview = row["budget_admission_diagnostics"]["profiles"]["flat_ranked_4000_chars"]["admitted_preview"]
+    assert [p["candidate_rank"] for p in preview[:2]] == [1, 3]
+
+
+def test_budget_diagnostics_support_reserved_and_required_group_tracking():
+    packet = {
+        "question_number": 5,
+        "question_id": "q05",
+        "retrieved_context": [
+            {"unit_id": "s1", "source_kind": "session_memory", "snippet": "road"},
+            {"unit_id": "s2", "source_kind": "session_memory", "snippet": "bridge"},
+            {"unit_id": "support:hempholm", "source_kind": "support_knowledge_card", "source_layer": "source_module", "snippet": "Hempholm metallic tree visible threat"},
+        ],
+        "known_context_gaps": [],
+        "authority_summary": {},
+    }
+    gold = {"schema": "dmb_c1s4_expected_context_gold_v1", "campaign_id": "longmont-c1", "questions": [{"question_number": 5, "question_id": "q05", "expectations_by_mode": {"prior_plus_support_content_only": {"required_context_groups": [{"group_id": "hempholm_tree_visible_threat", "match": {"source_kind": "support_knowledge_card", "text_contains_any": ["Hempholm"]}}], "forbidden_context_groups": [], "expected_known_gaps_contains_any": []}}}]}
+    row = build_expected_context_report(packets=[packet], diagnostic_packets=[packet], gold=gold, retrieval_mode="prior_plus_support_content_only", top_k=2)["results"][0]
+    req = row["budget_admission_diagnostics"]["required_groups"]["hempholm_tree_visible_threat"]
+    assert req["first_matching_candidate_rank"] == 3
+    assert req["legacy_top_k_9"]["admitted"] is False
+    assert req["support_reserved_25pct_8000_chars"]["admitted"] is True
+    assert req["support_reserved_25pct_8000_chars"]["admitted_rank"] is not None
+
+
+def test_budget_diagnostics_prior_only_marks_support_ineligible():
+    packet = {
+        "question_number": 2,
+        "question_id": "q02",
+        "retrieved_context": [{"unit_id": "support:hempholm", "source_kind": "support_knowledge_card", "snippet": "Hempholm"}],
+        "known_context_gaps": [],
+        "authority_summary": {},
+    }
+    gold = {"schema": "dmb_c1s4_expected_context_gold_v1", "campaign_id": "longmont-c1", "questions": [{"question_number": 2, "question_id": "q02", "expectations_by_mode": {"prior_only": {"required_context_groups": [{"group_id": "hempholm", "match": {"source_kind": "support_knowledge_card", "text_contains_any": ["Hempholm"]}}], "forbidden_context_groups": [], "expected_known_gaps_contains_any": []}}}]}
+    row = build_expected_context_report(packets=[packet], diagnostic_packets=[packet], gold=gold, retrieval_mode="prior_only", top_k=1)["results"][0]
+    req = row["budget_admission_diagnostics"]["required_groups"]["hempholm"]
+    assert req["support_reserved_25pct_8000_chars"]["admitted"] is False
