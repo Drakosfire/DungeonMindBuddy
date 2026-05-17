@@ -4,11 +4,11 @@
     "question_number": 1,
     "question_id": "q01_who_are_the_npcs_the_players_encountered",
     "metric": "unknown_lane_ratio",
-    "pr46_value": null,
+    "pr46_value": 1.0,
     "pr47_value": 0.0,
-    "delta": null,
-    "improved": null,
-    "notes": "No explicit PR46 baseline provided for this metric row"
+    "delta": -1.0,
+    "improved": true,
+    "notes": "PR46 baseline seeded from PR46 targets/contract for this metric."
   },
   {
     "mode": "prior_only",
@@ -19,29 +19,29 @@
     "pr47_value": null,
     "delta": null,
     "improved": null,
-    "notes": "No explicit PR46 baseline provided for this metric row"
+    "notes": "No PR46 numeric baseline declared for this specific metric/question."
   },
   {
     "mode": "prior_only",
     "question_number": 1,
     "question_id": "q01_who_are_the_npcs_the_players_encountered",
     "metric": "support_token_share",
-    "pr46_value": null,
+    "pr46_value": 0.0,
     "pr47_value": 0.0,
-    "delta": null,
-    "improved": null,
-    "notes": "No explicit PR46 baseline provided for this metric row"
+    "delta": 0.0,
+    "improved": false,
+    "notes": "PR46 baseline seeded from PR46 targets/contract for this metric."
   },
   {
     "mode": "prior_only",
     "question_number": 1,
     "question_id": "q01_who_are_the_npcs_the_players_encountered",
     "metric": "llm_usability.score_1_to_5",
-    "pr46_value": null,
+    "pr46_value": 3,
     "pr47_value": 5,
-    "delta": null,
-    "improved": null,
-    "notes": "No explicit PR46 baseline provided for this metric row"
+    "delta": 2,
+    "improved": true,
+    "notes": "PR46 baseline seeded from PR46 targets/contract for this metric."
   },
   {
     "mode": "prior_only",
@@ -52,51 +52,51 @@
     "pr47_value": [],
     "delta": null,
     "improved": null,
-    "notes": "No explicit PR46 baseline provided for this metric row"
+    "notes": "No PR46 numeric baseline declared for this specific metric/question."
   },
   {
     "mode": "prior_only",
     "question_number": 1,
     "question_id": "q01_who_are_the_npcs_the_players_encountered",
     "metric": "required_group_recall",
-    "pr46_value": null,
+    "pr46_value": 1.0,
     "pr47_value": 1.0,
-    "delta": null,
-    "improved": null,
-    "notes": "No explicit PR46 baseline provided for this metric row"
+    "delta": 0.0,
+    "improved": false,
+    "notes": "PR46 baseline seeded from PR46 targets/contract for this metric."
   },
   {
     "mode": "prior_only",
     "question_number": 1,
     "question_id": "q01_who_are_the_npcs_the_players_encountered",
     "metric": "known_gap_recall",
-    "pr46_value": null,
+    "pr46_value": 1.0,
     "pr47_value": 1.0,
-    "delta": null,
-    "improved": null,
-    "notes": "No explicit PR46 baseline provided for this metric row"
+    "delta": 0.0,
+    "improved": false,
+    "notes": "PR46 baseline seeded from PR46 targets/contract for this metric."
   },
   {
     "mode": "prior_only",
     "question_number": 1,
     "question_id": "q01_who_are_the_npcs_the_players_encountered",
     "metric": "forbidden_violations",
-    "pr46_value": null,
+    "pr46_value": 0,
     "pr47_value": 0,
-    "delta": null,
-    "improved": null,
-    "notes": "No explicit PR46 baseline provided for this metric row"
+    "delta": 0,
+    "improved": false,
+    "notes": "PR46 baseline seeded from PR46 targets/contract for this metric."
   },
   {
     "mode": "prior_only",
     "question_number": 3,
     "question_id": "q03_how_far_away_is_mirathorn_at_this_point",
     "metric": "unknown_lane_ratio",
-    "pr46_value": null,
+    "pr46_value": 1.0,
     "pr47_value": 0.0,
-    "delta": null,
-    "improved": null,
-    "notes": "No explicit PR46 baseline provided for this metric row"
+    "delta": -1.0,
+    "improved": true,
+    "notes": "PR46 baseline seeded from PR46 targets/contract for this metric."
   },
   {
     "mode": "prior_only",
@@ -107,29 +107,29 @@
     "pr47_value": null,
     "delta": null,
     "improved": null,
-    "notes": "No explicit PR46 baseline provided for this metric row"
+    "notes": "No PR46 numeric baseline declared for this specific metric/question."
   },
   {
     "mode": "prior_only",
     "question_number": 3,
     "question_id": "q03_how_far_away_is_mirathorn_at_this_point",
     "metric": "support_token_share",
-    "pr46_value": null,
+    "pr46_value": 0.0,
     "pr47_value": 0.0,
-    "delta": null,
-    "improved": null,
-    "notes": "No explicit PR46 baseline provided for this metric row"
+    "delta": 0.0,
+    "improved": false,
+    "notes": "PR46 baseline seeded from PR46 targets/contract for this metric."
   },
   {
     "mode": "prior_only",
     "question_number": 3,
     "question_id": "q03_how_far_away_is_mirathorn_at_this_point",
     "metric": "llm_usability.score_1_to_5",
-    "pr46_value": null,
+    "pr46_value": 3,
     "pr47_value": 5,
-    "delta": null,
-    "improved": null,
-    "notes": "No explicit PR46 baseline provided for this metric row"
+    "delta": 2,
+    "improved": true,
+    "notes": "PR46 baseline seeded from PR46 targets/contract for this metric."
   },
   {
     "mode": "prior_only",
@@ -140,51 +140,51 @@
     "pr47_value": [],
     "delta": null,
     "improved": null,
-    "notes": "No explicit PR46 baseline provided for this metric row"
+    "notes": "No PR46 numeric baseline declared for this specific metric/question."
   },
   {
     "mode": "prior_only",
     "question_number": 3,
     "question_id": "q03_how_far_away_is_mirathorn_at_this_point",
     "metric": "required_group_recall",
-    "pr46_value": null,
+    "pr46_value": 1.0,
     "pr47_value": 1.0,
-    "delta": null,
-    "improved": null,
-    "notes": "No explicit PR46 baseline provided for this metric row"
+    "delta": 0.0,
+    "improved": false,
+    "notes": "PR46 baseline seeded from PR46 targets/contract for this metric."
   },
   {
     "mode": "prior_only",
     "question_number": 3,
     "question_id": "q03_how_far_away_is_mirathorn_at_this_point",
     "metric": "known_gap_recall",
-    "pr46_value": null,
+    "pr46_value": 1.0,
     "pr47_value": 1.0,
-    "delta": null,
-    "improved": null,
-    "notes": "No explicit PR46 baseline provided for this metric row"
+    "delta": 0.0,
+    "improved": false,
+    "notes": "PR46 baseline seeded from PR46 targets/contract for this metric."
   },
   {
     "mode": "prior_only",
     "question_number": 3,
     "question_id": "q03_how_far_away_is_mirathorn_at_this_point",
     "metric": "forbidden_violations",
-    "pr46_value": null,
+    "pr46_value": 0,
     "pr47_value": 0,
-    "delta": null,
-    "improved": null,
-    "notes": "No explicit PR46 baseline provided for this metric row"
+    "delta": 0,
+    "improved": false,
+    "notes": "PR46 baseline seeded from PR46 targets/contract for this metric."
   },
   {
     "mode": "prior_only",
     "question_number": 5,
     "question_id": "q05_there_is_a_gigantic_tree_growing_in_hemp",
     "metric": "unknown_lane_ratio",
-    "pr46_value": null,
+    "pr46_value": 1.0,
     "pr47_value": 0.0,
-    "delta": null,
-    "improved": null,
-    "notes": "No explicit PR46 baseline provided for this metric row"
+    "delta": -1.0,
+    "improved": true,
+    "notes": "PR46 baseline seeded from PR46 targets/contract for this metric."
   },
   {
     "mode": "prior_only",
@@ -195,29 +195,29 @@
     "pr47_value": null,
     "delta": null,
     "improved": null,
-    "notes": "No explicit PR46 baseline provided for this metric row"
+    "notes": "No PR46 numeric baseline declared for this specific metric/question."
   },
   {
     "mode": "prior_only",
     "question_number": 5,
     "question_id": "q05_there_is_a_gigantic_tree_growing_in_hemp",
     "metric": "support_token_share",
-    "pr46_value": null,
+    "pr46_value": 0.0,
     "pr47_value": 0.0,
-    "delta": null,
-    "improved": null,
-    "notes": "No explicit PR46 baseline provided for this metric row"
+    "delta": 0.0,
+    "improved": false,
+    "notes": "PR46 baseline seeded from PR46 targets/contract for this metric."
   },
   {
     "mode": "prior_only",
     "question_number": 5,
     "question_id": "q05_there_is_a_gigantic_tree_growing_in_hemp",
     "metric": "llm_usability.score_1_to_5",
-    "pr46_value": null,
+    "pr46_value": 3,
     "pr47_value": 5,
-    "delta": null,
-    "improved": null,
-    "notes": "No explicit PR46 baseline provided for this metric row"
+    "delta": 2,
+    "improved": true,
+    "notes": "PR46 baseline seeded from PR46 targets/contract for this metric."
   },
   {
     "mode": "prior_only",
@@ -228,40 +228,40 @@
     "pr47_value": [],
     "delta": null,
     "improved": null,
-    "notes": "No explicit PR46 baseline provided for this metric row"
+    "notes": "No PR46 numeric baseline declared for this specific metric/question."
   },
   {
     "mode": "prior_only",
     "question_number": 5,
     "question_id": "q05_there_is_a_gigantic_tree_growing_in_hemp",
     "metric": "required_group_recall",
-    "pr46_value": null,
+    "pr46_value": 1.0,
     "pr47_value": 1.0,
-    "delta": null,
-    "improved": null,
-    "notes": "No explicit PR46 baseline provided for this metric row"
+    "delta": 0.0,
+    "improved": false,
+    "notes": "PR46 baseline seeded from PR46 targets/contract for this metric."
   },
   {
     "mode": "prior_only",
     "question_number": 5,
     "question_id": "q05_there_is_a_gigantic_tree_growing_in_hemp",
     "metric": "known_gap_recall",
-    "pr46_value": null,
+    "pr46_value": 1.0,
     "pr47_value": 1.0,
-    "delta": null,
-    "improved": null,
-    "notes": "No explicit PR46 baseline provided for this metric row"
+    "delta": 0.0,
+    "improved": false,
+    "notes": "PR46 baseline seeded from PR46 targets/contract for this metric."
   },
   {
     "mode": "prior_only",
     "question_number": 5,
     "question_id": "q05_there_is_a_gigantic_tree_growing_in_hemp",
     "metric": "forbidden_violations",
-    "pr46_value": null,
+    "pr46_value": 0,
     "pr47_value": 0,
-    "delta": null,
-    "improved": null,
-    "notes": "No explicit PR46 baseline provided for this metric row"
+    "delta": 0,
+    "improved": false,
+    "notes": "PR46 baseline seeded from PR46 targets/contract for this metric."
   },
   {
     "mode": "prior_plus_support_content_only",
@@ -272,7 +272,7 @@
     "pr47_value": 0.0,
     "delta": null,
     "improved": null,
-    "notes": "No explicit PR46 baseline provided for this metric row"
+    "notes": "No PR46 numeric baseline declared for this specific metric/question."
   },
   {
     "mode": "prior_plus_support_content_only",
@@ -283,7 +283,7 @@
     "pr47_value": null,
     "delta": null,
     "improved": null,
-    "notes": "No explicit PR46 baseline provided for this metric row"
+    "notes": "No PR46 numeric baseline declared for this specific metric/question."
   },
   {
     "mode": "prior_plus_support_content_only",
@@ -294,108 +294,106 @@
     "pr47_value": 0.0,
     "delta": null,
     "improved": null,
-    "notes": "No explicit PR46 baseline provided for this metric row"
+    "notes": "No PR46 numeric baseline declared for this specific metric/question."
   },
   {
     "mode": "prior_plus_support_content_only",
     "question_number": 1,
     "question_id": "q01_who_are_the_npcs_the_players_encountered",
+    "metric": "llm_usability.score_1_to_5",
+    "pr46_value": null,
+    "pr47_value": 5,
+    "delta": null,
+    "improved": null,
+    "notes": "No PR46 numeric baseline declared for this specific metric/question."
+  },
+  {
+    "mode": "prior_plus_support_content_only",
+    "question_number": 1,
+    "question_id": "q01_who_are_the_npcs_the_players_encountered",
+    "metric": "flags",
+    "pr46_value": null,
+    "pr47_value": [],
+    "delta": null,
+    "improved": null,
+    "notes": "No PR46 numeric baseline declared for this specific metric/question."
+  },
+  {
+    "mode": "prior_plus_support_content_only",
+    "question_number": 1,
+    "question_id": "q01_who_are_the_npcs_the_players_encountered",
+    "metric": "required_group_recall",
+    "pr46_value": 1.0,
+    "pr47_value": 1.0,
+    "delta": 0.0,
+    "improved": false,
+    "notes": "PR46 baseline seeded from PR46 targets/contract for this metric."
+  },
+  {
+    "mode": "prior_plus_support_content_only",
+    "question_number": 1,
+    "question_id": "q01_who_are_the_npcs_the_players_encountered",
+    "metric": "known_gap_recall",
+    "pr46_value": 1.0,
+    "pr47_value": 1.0,
+    "delta": 0.0,
+    "improved": false,
+    "notes": "PR46 baseline seeded from PR46 targets/contract for this metric."
+  },
+  {
+    "mode": "prior_plus_support_content_only",
+    "question_number": 1,
+    "question_id": "q01_who_are_the_npcs_the_players_encountered",
+    "metric": "forbidden_violations",
+    "pr46_value": 0,
+    "pr47_value": 0,
+    "delta": 0,
+    "improved": false,
+    "notes": "PR46 baseline seeded from PR46 targets/contract for this metric."
+  },
+  {
+    "mode": "prior_plus_support_content_only",
+    "question_number": 3,
+    "question_id": "q03_how_far_away_is_mirathorn_at_this_point",
+    "metric": "unknown_lane_ratio",
+    "pr46_value": null,
+    "pr47_value": 0.0,
+    "delta": null,
+    "improved": null,
+    "notes": "No PR46 numeric baseline declared for this specific metric/question."
+  },
+  {
+    "mode": "prior_plus_support_content_only",
+    "question_number": 3,
+    "question_id": "q03_how_far_away_is_mirathorn_at_this_point",
+    "metric": "support_burial_depth",
+    "pr46_value": null,
+    "pr47_value": null,
+    "delta": null,
+    "improved": null,
+    "notes": "No PR46 numeric baseline declared for this specific metric/question."
+  },
+  {
+    "mode": "prior_plus_support_content_only",
+    "question_number": 3,
+    "question_id": "q03_how_far_away_is_mirathorn_at_this_point",
+    "metric": "support_token_share",
+    "pr46_value": null,
+    "pr47_value": 0.0,
+    "delta": null,
+    "improved": null,
+    "notes": "No PR46 numeric baseline declared for this specific metric/question."
+  },
+  {
+    "mode": "prior_plus_support_content_only",
+    "question_number": 3,
+    "question_id": "q03_how_far_away_is_mirathorn_at_this_point",
     "metric": "llm_usability.score_1_to_5",
     "pr46_value": null,
     "pr47_value": 4,
     "delta": null,
     "improved": null,
-    "notes": "No explicit PR46 baseline provided for this metric row"
-  },
-  {
-    "mode": "prior_plus_support_content_only",
-    "question_number": 1,
-    "question_id": "q01_who_are_the_npcs_the_players_encountered",
-    "metric": "flags",
-    "pr46_value": null,
-    "pr47_value": [
-      "no_support_in_support_mode"
-    ],
-    "delta": null,
-    "improved": null,
-    "notes": "No explicit PR46 baseline provided for this metric row"
-  },
-  {
-    "mode": "prior_plus_support_content_only",
-    "question_number": 1,
-    "question_id": "q01_who_are_the_npcs_the_players_encountered",
-    "metric": "required_group_recall",
-    "pr46_value": null,
-    "pr47_value": 1.0,
-    "delta": null,
-    "improved": null,
-    "notes": "No explicit PR46 baseline provided for this metric row"
-  },
-  {
-    "mode": "prior_plus_support_content_only",
-    "question_number": 1,
-    "question_id": "q01_who_are_the_npcs_the_players_encountered",
-    "metric": "known_gap_recall",
-    "pr46_value": null,
-    "pr47_value": 1.0,
-    "delta": null,
-    "improved": null,
-    "notes": "No explicit PR46 baseline provided for this metric row"
-  },
-  {
-    "mode": "prior_plus_support_content_only",
-    "question_number": 1,
-    "question_id": "q01_who_are_the_npcs_the_players_encountered",
-    "metric": "forbidden_violations",
-    "pr46_value": null,
-    "pr47_value": 0,
-    "delta": null,
-    "improved": null,
-    "notes": "No explicit PR46 baseline provided for this metric row"
-  },
-  {
-    "mode": "prior_plus_support_content_only",
-    "question_number": 3,
-    "question_id": "q03_how_far_away_is_mirathorn_at_this_point",
-    "metric": "unknown_lane_ratio",
-    "pr46_value": null,
-    "pr47_value": 0.0,
-    "delta": null,
-    "improved": null,
-    "notes": "No explicit PR46 baseline provided for this metric row"
-  },
-  {
-    "mode": "prior_plus_support_content_only",
-    "question_number": 3,
-    "question_id": "q03_how_far_away_is_mirathorn_at_this_point",
-    "metric": "support_burial_depth",
-    "pr46_value": null,
-    "pr47_value": null,
-    "delta": null,
-    "improved": null,
-    "notes": "No explicit PR46 baseline provided for this metric row"
-  },
-  {
-    "mode": "prior_plus_support_content_only",
-    "question_number": 3,
-    "question_id": "q03_how_far_away_is_mirathorn_at_this_point",
-    "metric": "support_token_share",
-    "pr46_value": null,
-    "pr47_value": 0.0,
-    "delta": null,
-    "improved": null,
-    "notes": "No explicit PR46 baseline provided for this metric row"
-  },
-  {
-    "mode": "prior_plus_support_content_only",
-    "question_number": 3,
-    "question_id": "q03_how_far_away_is_mirathorn_at_this_point",
-    "metric": "llm_usability.score_1_to_5",
-    "pr46_value": null,
-    "pr47_value": 4,
-    "delta": null,
-    "improved": null,
-    "notes": "No explicit PR46 baseline provided for this metric row"
+    "notes": "No PR46 numeric baseline declared for this specific metric/question."
   },
   {
     "mode": "prior_plus_support_content_only",
@@ -404,44 +402,44 @@
     "metric": "flags",
     "pr46_value": null,
     "pr47_value": [
-      "no_support_in_support_mode"
+      "support_expected_but_absent"
     ],
     "delta": null,
     "improved": null,
-    "notes": "No explicit PR46 baseline provided for this metric row"
+    "notes": "No PR46 numeric baseline declared for this specific metric/question."
   },
   {
     "mode": "prior_plus_support_content_only",
     "question_number": 3,
     "question_id": "q03_how_far_away_is_mirathorn_at_this_point",
     "metric": "required_group_recall",
-    "pr46_value": null,
+    "pr46_value": 1.0,
     "pr47_value": 1.0,
-    "delta": null,
-    "improved": null,
-    "notes": "No explicit PR46 baseline provided for this metric row"
+    "delta": 0.0,
+    "improved": false,
+    "notes": "PR46 baseline seeded from PR46 targets/contract for this metric."
   },
   {
     "mode": "prior_plus_support_content_only",
     "question_number": 3,
     "question_id": "q03_how_far_away_is_mirathorn_at_this_point",
     "metric": "known_gap_recall",
-    "pr46_value": null,
+    "pr46_value": 1.0,
     "pr47_value": 1.0,
-    "delta": null,
-    "improved": null,
-    "notes": "No explicit PR46 baseline provided for this metric row"
+    "delta": 0.0,
+    "improved": false,
+    "notes": "PR46 baseline seeded from PR46 targets/contract for this metric."
   },
   {
     "mode": "prior_plus_support_content_only",
     "question_number": 3,
     "question_id": "q03_how_far_away_is_mirathorn_at_this_point",
     "metric": "forbidden_violations",
-    "pr46_value": null,
+    "pr46_value": 0,
     "pr47_value": 0,
-    "delta": null,
-    "improved": null,
-    "notes": "No explicit PR46 baseline provided for this metric row"
+    "delta": 0,
+    "improved": false,
+    "notes": "PR46 baseline seeded from PR46 targets/contract for this metric."
   },
   {
     "mode": "prior_plus_support_content_only",
@@ -452,7 +450,7 @@
     "pr47_value": 0.0,
     "delta": -0.8864,
     "improved": true,
-    "notes": "PR46 baseline from PR46 recorded targets for tracked questions/modes"
+    "notes": "PR46 baseline seeded from PR46 targets/contract for this metric."
   },
   {
     "mode": "prior_plus_support_content_only",
@@ -463,7 +461,7 @@
     "pr47_value": 22,
     "delta": -14,
     "improved": true,
-    "notes": "PR46 baseline from PR46 recorded targets for tracked questions/modes"
+    "notes": "PR46 baseline seeded from PR46 targets/contract for this metric."
   },
   {
     "mode": "prior_plus_support_content_only",
@@ -474,7 +472,7 @@
     "pr47_value": 0.399,
     "delta": 0.1597,
     "improved": true,
-    "notes": "PR46 baseline from PR46 recorded targets for tracked questions/modes"
+    "notes": "PR46 baseline seeded from PR46 targets/contract for this metric."
   },
   {
     "mode": "prior_plus_support_content_only",
@@ -485,7 +483,7 @@
     "pr47_value": 4,
     "delta": 2,
     "improved": true,
-    "notes": "PR46 baseline from PR46 recorded targets for tracked questions/modes"
+    "notes": "PR46 baseline seeded from PR46 targets/contract for this metric."
   },
   {
     "mode": "prior_plus_support_content_only",
@@ -498,40 +496,40 @@
     ],
     "delta": null,
     "improved": null,
-    "notes": "No explicit PR46 baseline provided for this metric row"
+    "notes": "No PR46 numeric baseline declared for this specific metric/question."
   },
   {
     "mode": "prior_plus_support_content_only",
     "question_number": 5,
     "question_id": "q05_there_is_a_gigantic_tree_growing_in_hemp",
     "metric": "required_group_recall",
-    "pr46_value": null,
+    "pr46_value": 1.0,
     "pr47_value": 1.0,
-    "delta": null,
-    "improved": null,
-    "notes": "No explicit PR46 baseline provided for this metric row"
+    "delta": 0.0,
+    "improved": false,
+    "notes": "PR46 baseline seeded from PR46 targets/contract for this metric."
   },
   {
     "mode": "prior_plus_support_content_only",
     "question_number": 5,
     "question_id": "q05_there_is_a_gigantic_tree_growing_in_hemp",
     "metric": "known_gap_recall",
-    "pr46_value": null,
+    "pr46_value": 1.0,
     "pr47_value": 1.0,
-    "delta": null,
-    "improved": null,
-    "notes": "No explicit PR46 baseline provided for this metric row"
+    "delta": 0.0,
+    "improved": false,
+    "notes": "PR46 baseline seeded from PR46 targets/contract for this metric."
   },
   {
     "mode": "prior_plus_support_content_only",
     "question_number": 5,
     "question_id": "q05_there_is_a_gigantic_tree_growing_in_hemp",
     "metric": "forbidden_violations",
-    "pr46_value": null,
+    "pr46_value": 0,
     "pr47_value": 0,
-    "delta": null,
-    "improved": null,
-    "notes": "No explicit PR46 baseline provided for this metric row"
+    "delta": 0,
+    "improved": false,
+    "notes": "PR46 baseline seeded from PR46 targets/contract for this metric."
   },
   {
     "mode": "prior_plus_support_content_plus_lexical_hints",
@@ -542,7 +540,7 @@
     "pr47_value": 0.0,
     "delta": null,
     "improved": null,
-    "notes": "No explicit PR46 baseline provided for this metric row"
+    "notes": "No PR46 numeric baseline declared for this specific metric/question."
   },
   {
     "mode": "prior_plus_support_content_plus_lexical_hints",
@@ -553,7 +551,7 @@
     "pr47_value": null,
     "delta": null,
     "improved": null,
-    "notes": "No explicit PR46 baseline provided for this metric row"
+    "notes": "No PR46 numeric baseline declared for this specific metric/question."
   },
   {
     "mode": "prior_plus_support_content_plus_lexical_hints",
@@ -564,7 +562,7 @@
     "pr47_value": 0.0,
     "delta": null,
     "improved": null,
-    "notes": "No explicit PR46 baseline provided for this metric row"
+    "notes": "No PR46 numeric baseline declared for this specific metric/question."
   },
   {
     "mode": "prior_plus_support_content_plus_lexical_hints",
@@ -572,10 +570,10 @@
     "question_id": "q01_who_are_the_npcs_the_players_encountered",
     "metric": "llm_usability.score_1_to_5",
     "pr46_value": null,
-    "pr47_value": 4,
+    "pr47_value": 5,
     "delta": null,
     "improved": null,
-    "notes": "No explicit PR46 baseline provided for this metric row"
+    "notes": "No PR46 numeric baseline declared for this specific metric/question."
   },
   {
     "mode": "prior_plus_support_content_plus_lexical_hints",
@@ -583,45 +581,43 @@
     "question_id": "q01_who_are_the_npcs_the_players_encountered",
     "metric": "flags",
     "pr46_value": null,
-    "pr47_value": [
-      "no_support_in_support_mode"
-    ],
+    "pr47_value": [],
     "delta": null,
     "improved": null,
-    "notes": "No explicit PR46 baseline provided for this metric row"
+    "notes": "No PR46 numeric baseline declared for this specific metric/question."
   },
   {
     "mode": "prior_plus_support_content_plus_lexical_hints",
     "question_number": 1,
     "question_id": "q01_who_are_the_npcs_the_players_encountered",
     "metric": "required_group_recall",
-    "pr46_value": null,
+    "pr46_value": 1.0,
     "pr47_value": 1.0,
-    "delta": null,
-    "improved": null,
-    "notes": "No explicit PR46 baseline provided for this metric row"
+    "delta": 0.0,
+    "improved": false,
+    "notes": "PR46 baseline seeded from PR46 targets/contract for this metric."
   },
   {
     "mode": "prior_plus_support_content_plus_lexical_hints",
     "question_number": 1,
     "question_id": "q01_who_are_the_npcs_the_players_encountered",
     "metric": "known_gap_recall",
-    "pr46_value": null,
+    "pr46_value": 1.0,
     "pr47_value": 1.0,
-    "delta": null,
-    "improved": null,
-    "notes": "No explicit PR46 baseline provided for this metric row"
+    "delta": 0.0,
+    "improved": false,
+    "notes": "PR46 baseline seeded from PR46 targets/contract for this metric."
   },
   {
     "mode": "prior_plus_support_content_plus_lexical_hints",
     "question_number": 1,
     "question_id": "q01_who_are_the_npcs_the_players_encountered",
     "metric": "forbidden_violations",
-    "pr46_value": null,
+    "pr46_value": 0,
     "pr47_value": 0,
-    "delta": null,
-    "improved": null,
-    "notes": "No explicit PR46 baseline provided for this metric row"
+    "delta": 0,
+    "improved": false,
+    "notes": "PR46 baseline seeded from PR46 targets/contract for this metric."
   },
   {
     "mode": "prior_plus_support_content_plus_lexical_hints",
@@ -632,7 +628,7 @@
     "pr47_value": 0.0,
     "delta": null,
     "improved": null,
-    "notes": "No explicit PR46 baseline provided for this metric row"
+    "notes": "No PR46 numeric baseline declared for this specific metric/question."
   },
   {
     "mode": "prior_plus_support_content_plus_lexical_hints",
@@ -643,7 +639,7 @@
     "pr47_value": null,
     "delta": null,
     "improved": null,
-    "notes": "No explicit PR46 baseline provided for this metric row"
+    "notes": "No PR46 numeric baseline declared for this specific metric/question."
   },
   {
     "mode": "prior_plus_support_content_plus_lexical_hints",
@@ -654,7 +650,7 @@
     "pr47_value": 0.0,
     "delta": null,
     "improved": null,
-    "notes": "No explicit PR46 baseline provided for this metric row"
+    "notes": "No PR46 numeric baseline declared for this specific metric/question."
   },
   {
     "mode": "prior_plus_support_content_plus_lexical_hints",
@@ -665,7 +661,7 @@
     "pr47_value": 4,
     "delta": null,
     "improved": null,
-    "notes": "No explicit PR46 baseline provided for this metric row"
+    "notes": "No PR46 numeric baseline declared for this specific metric/question."
   },
   {
     "mode": "prior_plus_support_content_plus_lexical_hints",
@@ -674,44 +670,44 @@
     "metric": "flags",
     "pr46_value": null,
     "pr47_value": [
-      "no_support_in_support_mode"
+      "support_expected_but_absent"
     ],
     "delta": null,
     "improved": null,
-    "notes": "No explicit PR46 baseline provided for this metric row"
+    "notes": "No PR46 numeric baseline declared for this specific metric/question."
   },
   {
     "mode": "prior_plus_support_content_plus_lexical_hints",
     "question_number": 3,
     "question_id": "q03_how_far_away_is_mirathorn_at_this_point",
     "metric": "required_group_recall",
-    "pr46_value": null,
+    "pr46_value": 1.0,
     "pr47_value": 1.0,
-    "delta": null,
-    "improved": null,
-    "notes": "No explicit PR46 baseline provided for this metric row"
+    "delta": 0.0,
+    "improved": false,
+    "notes": "PR46 baseline seeded from PR46 targets/contract for this metric."
   },
   {
     "mode": "prior_plus_support_content_plus_lexical_hints",
     "question_number": 3,
     "question_id": "q03_how_far_away_is_mirathorn_at_this_point",
     "metric": "known_gap_recall",
-    "pr46_value": null,
+    "pr46_value": 1.0,
     "pr47_value": 1.0,
-    "delta": null,
-    "improved": null,
-    "notes": "No explicit PR46 baseline provided for this metric row"
+    "delta": 0.0,
+    "improved": false,
+    "notes": "PR46 baseline seeded from PR46 targets/contract for this metric."
   },
   {
     "mode": "prior_plus_support_content_plus_lexical_hints",
     "question_number": 3,
     "question_id": "q03_how_far_away_is_mirathorn_at_this_point",
     "metric": "forbidden_violations",
-    "pr46_value": null,
+    "pr46_value": 0,
     "pr47_value": 0,
-    "delta": null,
-    "improved": null,
-    "notes": "No explicit PR46 baseline provided for this metric row"
+    "delta": 0,
+    "improved": false,
+    "notes": "PR46 baseline seeded from PR46 targets/contract for this metric."
   },
   {
     "mode": "prior_plus_support_content_plus_lexical_hints",
@@ -722,7 +718,7 @@
     "pr47_value": 0.0,
     "delta": -0.907,
     "improved": true,
-    "notes": "PR46 baseline from PR46 recorded targets for tracked questions/modes"
+    "notes": "PR46 baseline seeded from PR46 targets/contract for this metric."
   },
   {
     "mode": "prior_plus_support_content_plus_lexical_hints",
@@ -733,7 +729,7 @@
     "pr47_value": 21,
     "delta": -5,
     "improved": true,
-    "notes": "PR46 baseline from PR46 recorded targets for tracked questions/modes"
+    "notes": "PR46 baseline seeded from PR46 targets/contract for this metric."
   },
   {
     "mode": "prior_plus_support_content_plus_lexical_hints",
@@ -744,7 +740,7 @@
     "pr47_value": 0.4599,
     "delta": 0.21529999999999996,
     "improved": true,
-    "notes": "PR46 baseline from PR46 recorded targets for tracked questions/modes"
+    "notes": "PR46 baseline seeded from PR46 targets/contract for this metric."
   },
   {
     "mode": "prior_plus_support_content_plus_lexical_hints",
@@ -755,7 +751,7 @@
     "pr47_value": 4,
     "delta": 2,
     "improved": true,
-    "notes": "PR46 baseline from PR46 recorded targets for tracked questions/modes"
+    "notes": "PR46 baseline seeded from PR46 targets/contract for this metric."
   },
   {
     "mode": "prior_plus_support_content_plus_lexical_hints",
@@ -768,39 +764,39 @@
     ],
     "delta": null,
     "improved": null,
-    "notes": "No explicit PR46 baseline provided for this metric row"
+    "notes": "No PR46 numeric baseline declared for this specific metric/question."
   },
   {
     "mode": "prior_plus_support_content_plus_lexical_hints",
     "question_number": 5,
     "question_id": "q05_there_is_a_gigantic_tree_growing_in_hemp",
     "metric": "required_group_recall",
-    "pr46_value": null,
+    "pr46_value": 1.0,
     "pr47_value": 1.0,
-    "delta": null,
-    "improved": null,
-    "notes": "No explicit PR46 baseline provided for this metric row"
+    "delta": 0.0,
+    "improved": false,
+    "notes": "PR46 baseline seeded from PR46 targets/contract for this metric."
   },
   {
     "mode": "prior_plus_support_content_plus_lexical_hints",
     "question_number": 5,
     "question_id": "q05_there_is_a_gigantic_tree_growing_in_hemp",
     "metric": "known_gap_recall",
-    "pr46_value": null,
+    "pr46_value": 1.0,
     "pr47_value": 1.0,
-    "delta": null,
-    "improved": null,
-    "notes": "No explicit PR46 baseline provided for this metric row"
+    "delta": 0.0,
+    "improved": false,
+    "notes": "PR46 baseline seeded from PR46 targets/contract for this metric."
   },
   {
     "mode": "prior_plus_support_content_plus_lexical_hints",
     "question_number": 5,
     "question_id": "q05_there_is_a_gigantic_tree_growing_in_hemp",
     "metric": "forbidden_violations",
-    "pr46_value": null,
+    "pr46_value": 0,
     "pr47_value": 0,
-    "delta": null,
-    "improved": null,
-    "notes": "No explicit PR46 baseline provided for this metric row"
+    "delta": 0,
+    "improved": false,
+    "notes": "PR46 baseline seeded from PR46 targets/contract for this metric."
   }
 ]

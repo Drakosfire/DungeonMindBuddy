@@ -42,8 +42,9 @@ def _packet_quality_metrics(packet: dict[str, Any]) -> dict[str, Any]:
     flags=[]
     if mode=="prior_only" and support_positions:
         flags.append("prior_only_support_leakage")
-    if support_first is None and mode!="prior_only":
-        flags.append("no_support_in_support_mode")
+    support_target = int((((packet.get("lane_plan") or {}).get("lanes") or {}).get("support_knowledge") or {}).get("target_chars", 0) or 0)
+    if support_first is None and mode!="prior_only" and support_target > 0:
+        flags.append("support_expected_but_absent")
     if support_first is not None and support_first>20:
         flags.append("support_buried_deep")
     if (unknown/total) > 0.8:

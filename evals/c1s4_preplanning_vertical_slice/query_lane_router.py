@@ -12,7 +12,7 @@ LANE_PROFILES_V1: dict[str, dict[str, Any]] = {
 
 TERM_RULES = {
     "route_terms": ["how far", "distance", "route", "travel", "road", "between", "where is", "how long"],
-    "support_terms": ["hempholm", "tree", "magical", "metallic", "merchant", "visible", "support", "describe", "description"],
+    "support_terms": ["hempholm", "tree", "magical", "metallic", "merchant", "visible", "support"],
     "prior_terms": ["who are", "npc", "encountered", "stone bridge", "pippa", "bubbles", "grishna", "river's edge"],
     "gap_terms": ["do we know", "is it established", "exact", "canon", "how far", "route"],
 }
@@ -24,6 +24,7 @@ def extract_query_features(question_text: str) -> dict[str, Any]:
     t = re.sub(r"\s+", " ", question_text.lower())
     asks_route = _has_any(t, TERM_RULES["route_terms"])
     asks_support = _has_any(t, TERM_RULES["support_terms"])
+    has_support_entities = any(x in t for x in ["hempholm", "tree", "magical", "metallic", "merchant"])
     asks_prior = _has_any(t, TERM_RULES["prior_terms"])
     asks_gap = _has_any(t, TERM_RULES["gap_terms"])
     return {
@@ -39,6 +40,7 @@ def extract_query_features(question_text: str) -> dict[str, Any]:
             "asks_route_or_distance": asks_route,
             "asks_generation_or_description": "describe" in t or "description" in t,
             "asks_support_or_world_context": asks_support,
+            "has_support_specific_entities": has_support_entities,
             "asks_known_gap_sensitive_question": asks_gap,
         },
     }
@@ -49,10 +51,10 @@ def build_lane_plan(*, question_text: str, retrieval_mode: str, candidate_depth:
     profile = "default_mixed"
     if sig["asks_route_or_distance"] or sig["asks_known_gap_sensitive_question"]:
         profile = "route_or_distance_gap"
-    elif sig["asks_support_or_world_context"] and retrieval_mode != "prior_only":
-        profile = "support_description"
     elif sig["asks_prior_npc_context"]:
         profile = "prior_npc_context"
+    elif sig["asks_support_or_world_context"] and retrieval_mode != "prior_only" and sig.get("has_support_specific_entities"):
+        profile = "support_description"
     lanes = {k: dict(v) for k, v in LANE_PROFILES_V1[profile].items()}
     if retrieval_mode == "prior_only":
         lanes["support_knowledge"] = {"floor_chars": 0, "target_chars": 0, "max_chars": 0, "priority": 9}

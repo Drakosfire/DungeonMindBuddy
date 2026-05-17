@@ -18,3 +18,8 @@ def test_query_features_detect_support_description():
     plan = build_lane_plan(question_text='Describe the magical metallic merchant tree in Hempholm', retrieval_mode='prior_plus_support_content_only')
     assert plan['profile'] == 'support_description'
     assert plan['lanes']['support_knowledge']['target_chars'] >= 3500
+
+def test_q1_style_support_mode_prefers_prior_profile_over_generic_description():
+    q = 'Who are the NPCs encountered in Stone Bridge and what is their description in the morning?'
+    plan = build_lane_plan(question_text=q, retrieval_mode='prior_plus_support_content_only')
+    assert plan['profile'] == 'prior_npc_context'

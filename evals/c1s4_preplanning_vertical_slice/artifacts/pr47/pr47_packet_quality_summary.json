@@ -45,10 +45,8 @@
     "unknown_lane_ratio": 0.0,
     "support_burial_depth": null,
     "support_token_share": 0.0,
-    "llm_usability.score_1_to_5": 4,
-    "flags": [
-      "no_support_in_support_mode"
-    ],
+    "llm_usability.score_1_to_5": 5,
+    "flags": [],
     "required_group_recall": 1.0,
     "known_gap_recall": 1.0,
     "forbidden_violations": 0
@@ -62,7 +60,7 @@
     "support_token_share": 0.0,
     "llm_usability.score_1_to_5": 4,
     "flags": [
-      "no_support_in_support_mode"
+      "support_expected_but_absent"
     ],
     "required_group_recall": 1.0,
     "known_gap_recall": 1.0,
@@ -90,10 +88,8 @@
     "unknown_lane_ratio": 0.0,
     "support_burial_depth": null,
     "support_token_share": 0.0,
-    "llm_usability.score_1_to_5": 4,
-    "flags": [
-      "no_support_in_support_mode"
-    ],
+    "llm_usability.score_1_to_5": 5,
+    "flags": [],
     "required_group_recall": 1.0,
     "known_gap_recall": 1.0,
     "forbidden_violations": 0
@@ -107,7 +103,7 @@
     "support_token_share": 0.0,
     "llm_usability.score_1_to_5": 4,
     "flags": [
-      "no_support_in_support_mode"
+      "support_expected_but_absent"
     ],
     "required_group_recall": 1.0,
     "known_gap_recall": 1.0,

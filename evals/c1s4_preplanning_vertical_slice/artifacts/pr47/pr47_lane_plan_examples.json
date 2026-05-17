@@ -7,9 +7,7 @@
       "schema": "dmb_query_features_v1",
       "detected_terms": {
         "route_terms": [],
-        "support_terms": [
-          "description"
-        ],
+        "support_terms": [],
         "prior_terms": [
           "who are",
           "npc",
@@ -22,7 +20,8 @@
         "asks_prior_npc_context": true,
         "asks_route_or_distance": false,
         "asks_generation_or_description": true,
-        "asks_support_or_world_context": true,
+        "asks_support_or_world_context": false,
+        "has_support_specific_entities": false,
         "asks_known_gap_sensitive_question": false
       }
     },
@@ -55,9 +54,7 @@
         "schema": "dmb_query_features_v1",
         "detected_terms": {
           "route_terms": [],
-          "support_terms": [
-            "description"
-          ],
+          "support_terms": [],
           "prior_terms": [
             "who are",
             "npc",
@@ -70,7 +67,8 @@
           "asks_prior_npc_context": true,
           "asks_route_or_distance": false,
           "asks_generation_or_description": true,
-          "asks_support_or_world_context": true,
+          "asks_support_or_world_context": false,
+          "has_support_specific_entities": false,
           "asks_known_gap_sensitive_question": false
         }
       }
@@ -99,6 +97,7 @@
         "asks_route_or_distance": true,
         "asks_generation_or_description": false,
         "asks_support_or_world_context": false,
+        "has_support_specific_entities": false,
         "asks_known_gap_sensitive_question": true
       }
     },
@@ -146,6 +145,7 @@
           "asks_route_or_distance": true,
           "asks_generation_or_description": false,
           "asks_support_or_world_context": false,
+          "has_support_specific_entities": false,
           "asks_known_gap_sensitive_question": true
         }
       }
@@ -164,8 +164,7 @@
           "tree",
           "magical",
           "metallic",
-          "merchant",
-          "describe"
+          "merchant"
         ],
         "prior_terms": [],
         "gap_terms": []
@@ -175,6 +174,7 @@
         "asks_route_or_distance": false,
         "asks_generation_or_description": true,
         "asks_support_or_world_context": true,
+        "has_support_specific_entities": true,
         "asks_known_gap_sensitive_question": false
       }
     },
@@ -212,8 +212,7 @@
             "tree",
             "magical",
             "metallic",
-            "merchant",
-            "describe"
+            "merchant"
           ],
           "prior_terms": [],
           "gap_terms": []
@@ -223,6 +222,7 @@
           "asks_route_or_distance": false,
           "asks_generation_or_description": true,
           "asks_support_or_world_context": true,
+          "has_support_specific_entities": true,
           "asks_known_gap_sensitive_question": false
         }
       }
@@ -236,9 +236,7 @@
       "schema": "dmb_query_features_v1",
       "detected_terms": {
         "route_terms": [],
-        "support_terms": [
-          "description"
-        ],
+        "support_terms": [],
         "prior_terms": [
           "who are",
           "npc",
@@ -251,42 +249,41 @@
         "asks_prior_npc_context": true,
         "asks_route_or_distance": false,
         "asks_generation_or_description": true,
-        "asks_support_or_world_context": true,
+        "asks_support_or_world_context": false,
+        "has_support_specific_entities": false,
         "asks_known_gap_sensitive_question": false
       }
     },
     "lane_plan": {
       "schema": "dmb_lane_plan_v1",
-      "profile": "support_description",
+      "profile": "prior_npc_context",
       "candidate_depth": 50,
       "total_budget_chars": 8000,
       "lanes": {
         "known_gaps": {
-          "floor_chars": 500,
-          "target_chars": 1000,
-          "max_chars": 1500,
+          "floor_chars": 300,
+          "target_chars": 600,
+          "max_chars": 1000,
           "priority": 0
         },
-        "support_knowledge": {
-          "floor_chars": 2500,
-          "target_chars": 3500,
-          "max_chars": 4500,
+        "prior_campaign_memory": {
+          "floor_chars": 4500,
+          "target_chars": 6500,
+          "max_chars": 7500,
           "priority": 1
         },
-        "prior_campaign_memory": {
-          "floor_chars": 1000,
-          "target_chars": 2500,
-          "max_chars": 3500,
-          "priority": 2
+        "support_knowledge": {
+          "floor_chars": 0,
+          "target_chars": 0,
+          "max_chars": 500,
+          "priority": 9
         }
       },
       "query_features": {
         "schema": "dmb_query_features_v1",
         "detected_terms": {
           "route_terms": [],
-          "support_terms": [
-            "description"
-          ],
+          "support_terms": [],
           "prior_terms": [
             "who are",
             "npc",
@@ -299,7 +296,8 @@
           "asks_prior_npc_context": true,
           "asks_route_or_distance": false,
           "asks_generation_or_description": true,
-          "asks_support_or_world_context": true,
+          "asks_support_or_world_context": false,
+          "has_support_specific_entities": false,
           "asks_known_gap_sensitive_question": false
         }
       }
@@ -328,6 +326,7 @@
         "asks_route_or_distance": true,
         "asks_generation_or_description": false,
         "asks_support_or_world_context": false,
+        "has_support_specific_entities": false,
         "asks_known_gap_sensitive_question": true
       }
     },
@@ -375,6 +374,7 @@
           "asks_route_or_distance": true,
           "asks_generation_or_description": false,
           "asks_support_or_world_context": false,
+          "has_support_specific_entities": false,
           "asks_known_gap_sensitive_question": true
         }
       }
@@ -393,8 +393,7 @@
           "tree",
           "magical",
           "metallic",
-          "merchant",
-          "describe"
+          "merchant"
         ],
         "prior_terms": [],
         "gap_terms": []
@@ -404,6 +403,7 @@
         "asks_route_or_distance": false,
         "asks_generation_or_description": true,
         "asks_support_or_world_context": true,
+        "has_support_specific_entities": true,
         "asks_known_gap_sensitive_question": false
       }
     },
@@ -441,8 +441,7 @@
             "tree",
             "magical",
             "metallic",
-            "merchant",
-            "describe"
+            "merchant"
           ],
           "prior_terms": [],
           "gap_terms": []
@@ -452,6 +451,7 @@
           "asks_route_or_distance": false,
           "asks_generation_or_description": true,
           "asks_support_or_world_context": true,
+          "has_support_specific_entities": true,
           "asks_known_gap_sensitive_question": false
         }
       }
@@ -465,9 +465,7 @@
       "schema": "dmb_query_features_v1",
       "detected_terms": {
         "route_terms": [],
-        "support_terms": [
-          "description"
-        ],
+        "support_terms": [],
         "prior_terms": [
           "who are",
           "npc",
@@ -480,42 +478,41 @@
         "asks_prior_npc_context": true,
         "asks_route_or_distance": false,
         "asks_generation_or_description": true,
-        "asks_support_or_world_context": true,
+        "asks_support_or_world_context": false,
+        "has_support_specific_entities": false,
         "asks_known_gap_sensitive_question": false
       }
     },
     "lane_plan": {
       "schema": "dmb_lane_plan_v1",
-      "profile": "support_description",
+      "profile": "prior_npc_context",
       "candidate_depth": 50,
       "total_budget_chars": 8000,
       "lanes": {
         "known_gaps": {
-          "floor_chars": 500,
-          "target_chars": 1000,
-          "max_chars": 1500,
+          "floor_chars": 300,
+          "target_chars": 600,
+          "max_chars": 1000,
           "priority": 0
         },
-        "support_knowledge": {
-          "floor_chars": 2500,
-          "target_chars": 3500,
-          "max_chars": 4500,
+        "prior_campaign_memory": {
+          "floor_chars": 4500,
+          "target_chars": 6500,
+          "max_chars": 7500,
           "priority": 1
         },
-        "prior_campaign_memory": {
-          "floor_chars": 1000,
-          "target_chars": 2500,
-          "max_chars": 3500,
-          "priority": 2
+        "support_knowledge": {
+          "floor_chars": 0,
+          "target_chars": 0,
+          "max_chars": 500,
+          "priority": 9
         }
       },
       "query_features": {
         "schema": "dmb_query_features_v1",
         "detected_terms": {
           "route_terms": [],
-          "support_terms": [
-            "description"
-          ],
+          "support_terms": [],
           "prior_terms": [
             "who are",
             "npc",
@@ -528,7 +525,8 @@
           "asks_prior_npc_context": true,
           "asks_route_or_distance": false,
           "asks_generation_or_description": true,
-          "asks_support_or_world_context": true,
+          "asks_support_or_world_context": false,
+          "has_support_specific_entities": false,
           "asks_known_gap_sensitive_question": false
         }
       }
@@ -557,6 +555,7 @@
         "asks_route_or_distance": true,
         "asks_generation_or_description": false,
         "asks_support_or_world_context": false,
+        "has_support_specific_entities": false,
         "asks_known_gap_sensitive_question": true
       }
     },
@@ -604,6 +603,7 @@
           "asks_route_or_distance": true,
           "asks_generation_or_description": false,
           "asks_support_or_world_context": false,
+          "has_support_specific_entities": false,
           "asks_known_gap_sensitive_question": true
         }
       }
@@ -622,8 +622,7 @@
           "tree",
           "magical",
           "metallic",
-          "merchant",
-          "describe"
+          "merchant"
         ],
         "prior_terms": [],
         "gap_terms": []
@@ -633,6 +632,7 @@
         "asks_route_or_distance": false,
         "asks_generation_or_description": true,
         "asks_support_or_world_context": true,
+        "has_support_specific_entities": true,
         "asks_known_gap_sensitive_question": false
       }
     },
@@ -670,8 +670,7 @@
             "tree",
             "magical",
             "metallic",
-            "merchant",
-            "describe"
+            "merchant"
           ],
           "prior_terms": [],
           "gap_terms": []
@@ -681,6 +680,7 @@
           "asks_route_or_distance": false,
           "asks_generation_or_description": true,
           "asks_support_or_world_context": true,
+          "has_support_specific_entities": true,
           "asks_known_gap_sensitive_question": false
         }
       }
