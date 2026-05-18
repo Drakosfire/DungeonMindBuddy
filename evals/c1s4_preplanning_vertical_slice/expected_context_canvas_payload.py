@@ -91,7 +91,7 @@ def build_payload(*, report: dict[str, Any], gold: dict[str, Any] | None = None,
         known_gap_total = known_gap_totals.get((mode, qn, qid))
         known_gap_label = f"{known_gap_hit}/{known_gap_total}" if known_gap_total is not None else f"{known_gap_hit}/?"
 
-        rendered_packet = render_context_packet({
+        rendered_packet = row.get("rendered_context_packet") or render_context_packet({
             "question_number": row.get("question_number"),
             "question_id": row.get("question_id"),
             "question": row.get("question"),
@@ -113,6 +113,7 @@ def build_payload(*, report: dict[str, Any], gold: dict[str, Any] | None = None,
             "known_gaps": known_gap_label,
             "violations": row.get("violations", []),
             "rendered_context_packet": rendered_packet,
+            "packet_quality_metrics": row.get("packet_quality_metrics"),
         })
 
         question_cards.append({
@@ -129,6 +130,7 @@ def build_payload(*, report: dict[str, Any], gold: dict[str, Any] | None = None,
             "authority_summary": row.get("authority_summary", {}),
             "violations": row.get("violations", []),
             "rendered_context_packet": rendered_packet,
+            "packet_quality_metrics": row.get("packet_quality_metrics"),
         })
 
     mode_count = max(1, len(modes))

@@ -215,3 +215,9 @@ def test_pr43_readme_explicitly_declares_external_canvas_ui_ownership():
     txt = Path("evals/c1s4_preplanning_vertical_slice/artifacts/pr43/README.md").read_text(encoding="utf-8")
     assert "does not" in txt and "accordion/details UI" in txt
     assert "external Cursor canvas shell/runtime" in txt
+
+
+def test_canvas_payload_carries_packet_quality_metrics():
+    payload = build_payload(report=_single_report())
+    assert "packet_quality_metrics" in payload["questionRows"][0]
+    assert "packet_quality_metrics" in payload["questionCards"][0]

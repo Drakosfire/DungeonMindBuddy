@@ -268,3 +268,20 @@ def test_depth_diagnostics_uses_candidate_context_when_present():
     report = build_expected_context_report(packets=[packet_top], diagnostic_packets=[packet_diag], gold=gold, retrieval_mode="prior_plus_support_content_only", top_k=1)
     diag = report["results"][0]["retrieval_depth_diagnostics"]["required_groups"]["hempholm_tree_visible_threat"]
     assert diag["first_matching_rank"] == 2
+
+
+def test_report_rows_include_packet_quality_metrics_and_rendered_packet():
+    gold = load_expected_context_gold()
+    report = build_expected_context_report(packets=build_summary(mode="prior_only")["packets"], gold=gold, retrieval_mode="prior_only")
+    assert report["results"]
+    for row in report["results"]:
+        assert row["packet_quality_metrics"]["schema"] == "dmb_packet_quality_metrics_v1"
+        if row.get("admitted_context"):
+            assert row["rendered_context_packet"].get("sections")
+
+
+def test_metrics_attachment_does_not_change_pass_fail_counts():
+    gold = load_expected_context_gold()
+    report = build_expected_context_report(packets=build_summary(mode="prior_plus_support_content_only")["packets"], gold=gold, retrieval_mode="prior_plus_support_content_only")
+    counts = report["counts"]
+    assert counts["rows_ok"] + counts["rows_failed"] == counts["questions_evaluated"]
