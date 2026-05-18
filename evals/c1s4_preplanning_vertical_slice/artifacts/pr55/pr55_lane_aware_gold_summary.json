@@ -1,0 +1,40 @@
+{
+  "schema": "dmb_pr55_lane_aware_gold_summary_v1",
+  "source_report": "/tmp/c1s4_pr55_lane_aware_multimode_report.json",
+  "counts_by_mode": {
+    "prior_only": {
+      "questions_in_gold": 3,
+      "questions_evaluated": 3,
+      "rows_ok": 0,
+      "rows_failed": 3,
+      "required_context_groups": 8,
+      "required_context_groups_hit": 1,
+      "forbidden_context_group_violations": 0,
+      "known_gap_expectations": 2,
+      "known_gap_expectations_hit": 2
+    },
+    "prior_plus_support_content_only": {
+      "questions_in_gold": 3,
+      "questions_evaluated": 3,
+      "rows_ok": 0,
+      "rows_failed": 3,
+      "required_context_groups": 9,
+      "required_context_groups_hit": 1,
+      "forbidden_context_group_violations": 0,
+      "known_gap_expectations": 1,
+      "known_gap_expectations_hit": 1
+    },
+    "prior_plus_support_content_plus_lexical_hints": {
+      "questions_in_gold": 3,
+      "questions_evaluated": 3,
+      "rows_ok": 0,
+      "rows_failed": 3,
+      "required_context_groups": 9,
+      "required_context_groups_hit": 1,
+      "forbidden_context_group_violations": 0,
+      "known_gap_expectations": 1,
+      "known_gap_expectations_hit": 1
+    }
+  },
+  "legacy_would_have_hit_rejections": 0
+}

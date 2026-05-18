@@ -3,12 +3,20 @@ from __future__ import annotations
 import json
 import math
 import re
+from fnmatch import fnmatch
 from pathlib import Path
 from typing import Any, Literal
 
 from evals.c1s4_preplanning_vertical_slice.context_admission import estimate_context_item_size, render_context_item_for_budget
 from evals.c1s4_preplanning_vertical_slice.context_renderer import render_context_packet
 from evals.c1s4_preplanning_vertical_slice.context_quality_metrics import compute_packet_quality_metrics
+from evals.c1s4_preplanning_vertical_slice.context_classification import (
+    infer_context_subject_class,
+    infer_planner_lane,
+    is_allowed_retrieval_corpus_path,
+    is_context_compatible_with_required_lane,
+    is_navigation_only_context,
+)
 
 from evals.c1s4_preplanning_vertical_slice.beat_question_answer_harness import PACKET_SCHEMA, iter_target_questions, load_beat_question_targets
 
@@ -144,6 +152,8 @@ def match_context_item(item: dict[str, Any], match: dict[str, Any]) -> bool:
         checks.append(any(_norm(tok) in route_blob for tok in match["route_contains_any"]))
     if "text_contains_any" in match:
         checks.append(any(_contains_norm(text, tok) for tok in match["text_contains_any"]))
+    if "text_contains_all" in match:
+        checks.append(all(_contains_norm(text, tok) for tok in match["text_contains_all"]))
     if "session_number_any" in match:
         checks.append(bool(_get_session_values(item).intersection({int(x) for x in match["session_number_any"]})))
     return all(checks) if checks else False
@@ -154,6 +164,82 @@ def match_context_group(*, retrieved_context: list[dict[str, Any]], group: dict[
     context_slice = retrieved_context if top_k is None else retrieved_context[:top_k]
     matched = [context_item_ref(i) for i in context_slice if match_context_item(i, group.get("match", {}))]
     return {"group_id": group.get("group_id"), "ok": len(matched) >= min_hits, "min_hits": min_hits, "hit_count": len(matched), "matched_context_refs": matched}
+
+
+def context_item_satisfies_lane_aware_group(
+    item: dict[str, Any], *, group: dict[str, Any], rendered_context_packet: dict[str, Any] | None = None
+) -> tuple[bool, dict[str, Any]]:
+    ref = context_item_ref(item)
+    source_path = str(item.get("source_path") or item.get("source_reference") or "")
+    source_kind = str(item.get("source_kind") or "")
+    section_heading = str(item.get("section_heading") or "")
+    inferred_lane = infer_planner_lane(item)
+    subject_class = infer_context_subject_class(item)
+    navigation_only = is_navigation_only_context(item)
+    required_lane = group.get("required_lane")
+    expected_section = group.get("expected_rendered_section")
+    rendered_section = None
+    prov = (rendered_context_packet or {}).get("provenance_map") or {}
+    if isinstance(prov, dict) and ref in prov:
+        rendered_section = (prov.get(ref) or {}).get("rendered_section_id")
+    if rendered_section is None and str(item.get("presentation_lane") or "") == "known_gap":
+        rendered_section = "known_gaps_and_safety_constraints"
+
+    diag = {
+        "accepted": False,
+        "ref": ref,
+        "required_lane": required_lane,
+        "inferred_lane": inferred_lane,
+        "subject_class": subject_class,
+        "navigation_only": navigation_only,
+        "rendered_section": rendered_section,
+        "source_kind": source_kind,
+        "source_path": source_path,
+        "section_heading": section_heading,
+    }
+    allowed_source_kinds = set(group.get("allowed_source_kinds", []))
+    if source_path and source_kind != "known_context_gap" and not is_allowed_retrieval_corpus_path(source_path):
+        lower_path = source_path.lower()
+        hard_denied_tokens = ("/evals/", "/docs/", "/gold/", "/artifacts/", "/plans/")
+        if any(tok in lower_path for tok in hard_denied_tokens) or source_kind not in allowed_source_kinds:
+            diag["reason"] = "disallowed_source_path"
+            return False, diag
+    if navigation_only and "navigation_only" in (group.get("disallowed_evidence_roles") or []):
+        diag["reason"] = "navigation_only_context"
+        return False, diag
+    if required_lane == "known_gap":
+        lane_compatible = inferred_lane in {"known_gap", "known_gaps_and_safety_constraints"} or str(item.get("presentation_lane") or "") == "known_gap"
+    else:
+        lane_compatible = inferred_lane == required_lane or is_context_compatible_with_required_lane(item, required_lane)
+    if required_lane and (not lane_compatible) and group.get("requires_evidence_compatible", True):
+        diag["reason"] = "incompatible_required_lane"
+        return False, diag
+    if expected_section and rendered_section != expected_section:
+        diag["reason"] = "wrong_rendered_section"
+        return False, diag
+    if group.get("allowed_subject_classes") and subject_class not in set(group.get("allowed_subject_classes", [])):
+        diag["reason"] = "wrong_subject_class"
+        return False, diag
+    if subject_class in set(group.get("disallowed_subject_classes", [])):
+        diag["reason"] = "disallowed_subject_class"
+        return False, diag
+    if group.get("allowed_source_kinds") and source_kind not in allowed_source_kinds:
+        diag["reason"] = "wrong_source_kind"
+        return False, diag
+    if source_kind in set(group.get("disallowed_source_kinds", [])):
+        diag["reason"] = "disallowed_source_kind"
+        return False, diag
+    if group.get("allowed_source_path_patterns"):
+        patterns = [str(p) for p in group.get("allowed_source_path_patterns", [])]
+        if not any(fnmatch(source_path, pattern) for pattern in patterns):
+            diag["reason"] = "source_path_not_allowed_pattern"
+            return False, diag
+    if section_heading and section_heading in set(group.get("disallowed_section_headings", [])):
+        diag["reason"] = "disallowed_section_heading"
+        return False, diag
+    diag["accepted"] = True
+    diag["reason"] = "accepted"
+    return True, diag
 
 
 def get_grading_context(packet: dict[str, Any]) -> tuple[str, list[dict[str, Any]]]:
@@ -169,13 +255,54 @@ def grade_question_packet(*, packet: dict[str, Any], gold_question: dict[str, An
     forbidden = exp.get("forbidden_context_groups", [])
     grading_context_kind, grading_context = get_grading_context(packet)
     effective_top_k = None if grading_context_kind == "admitted_context" else top_k
+    rendered_context_packet = render_context_packet({
+        "question_number": packet.get("question_number"),
+        "question_id": packet.get("question_id"),
+        "question": packet.get("question"),
+        "retrieval_mode": retrieval_mode,
+        "admission_policy": str(packet.get("admission_policy") or "legacy_top_k"),
+        "known_context_gaps": packet.get("known_context_gaps", []),
+        "admitted_context": packet.get("admitted_context", []),
+        "admission_budget": packet.get("admission_budget", {}),
+    })
     required_matches = [match_context_group(retrieved_context=grading_context, group=g, top_k=effective_top_k) for g in required]
     forbidden_matches = [match_context_group(retrieved_context=grading_context, group=g, top_k=effective_top_k) for g in forbidden]
     known_hits = [term for term in exp.get("expected_known_gaps_contains_any", []) if any(_norm(term) in _norm(g) for g in packet.get("known_context_gaps", []))]
     violations: list[str] = []
     missing_groups = [m["group_id"] for m in required_matches if not m["ok"]]
+    lane_aware_required_matches = []
+    lane_aware_rejected_matches = []
+    lane_aware_legacy_would_have_hit_groups = []
+    for grp in required:
+        slice_ctx = grading_context if effective_top_k is None else grading_context[:effective_top_k]
+        candidates = [i for i in slice_ctx if match_context_item(i, grp.get("match", {}))]
+        if grp.get("required_lane") == "known_gap" or grp.get("expected_rendered_section") == "known_gaps_and_safety_constraints":
+            for gap in packet.get("known_context_gaps", []) or []:
+                synthetic_gap = {
+                    "unit_id": f"known_gap:{gap}",
+                    "ref": f"known_gap:{gap}",
+                    "snippet": str(gap),
+                    "presentation_lane": "known_gap",
+                    "source_kind": "known_context_gap",
+                    "source_reference": f"known_gap:{gap}",
+                }
+                if match_context_item(synthetic_gap, grp.get("match", {})):
+                    candidates.append(synthetic_gap)
+        accepted = []
+        rejected = []
+        for item in candidates:
+            ok, diag = context_item_satisfies_lane_aware_group(item, group=grp, rendered_context_packet=rendered_context_packet)
+            if ok:
+                accepted.append(diag)
+            else:
+                rejected.append(diag)
+        lane_aware_required_matches.append({"group_id": grp.get("group_id"), "ok": len(accepted) >= int(grp.get("min_hits", 1)), "accepted_matches": accepted, "rejected_matches": rejected})
+        lane_aware_rejected_matches.extend([{"group_id": grp.get("group_id"), **r} for r in rejected])
+        if candidates and not accepted:
+            lane_aware_legacy_would_have_hit_groups.append(grp.get("group_id"))
+    lane_aware_missing_groups = [m["group_id"] for m in lane_aware_required_matches if not m["ok"]]
     forbidden_hits = [m["group_id"] for m in forbidden_matches if m["ok"]]
-    if missing_groups:
+    if lane_aware_missing_groups:
         violations.append("missing_required_context_group")
     if forbidden_hits:
         violations.append("forbidden_context_group_hit")
@@ -212,14 +339,22 @@ def grade_question_packet(*, packet: dict[str, Any], gold_question: dict[str, An
         "ok": not violations,
         "expected_behavior": exp.get("expected_behavior", ""),
         "required_context_groups": len(required),
-        "required_context_groups_hit": sum(1 for x in required_matches if x["ok"]),
-        "required_group_recall_at_k": (sum(1 for x in required_matches if x["ok"]) / len(required)) if required else 1.0,
-        "missing_required_groups": missing_groups,
+        "required_context_groups_hit": sum(1 for x in lane_aware_required_matches if x["ok"]),
+        "required_group_recall_at_k": (sum(1 for x in lane_aware_required_matches if x["ok"]) / len(required)) if required else 1.0,
+        "missing_required_groups": lane_aware_missing_groups,
+        "legacy_required_groups_hit": sum(1 for x in required_matches if x["ok"]),
+        "lane_aware_required_groups_hit": sum(1 for x in lane_aware_required_matches if x["ok"]),
         "forbidden_context_groups": len(forbidden),
         "forbidden_context_groups_hit": forbidden_hits,
         "known_gap_expectations_hit": known_hits,
         "violations": violations,
         "matched_groups": required_matches,
+        "lane_aware_diagnostics": {
+            "legacy_would_have_hit_groups": lane_aware_legacy_would_have_hit_groups,
+            "accepted_groups": [m["group_id"] for m in lane_aware_required_matches if m["ok"]],
+            "rejected_matches": lane_aware_rejected_matches,
+            "required_group_results": lane_aware_required_matches,
+        },
         "retrieved_context_preview": retrieved_preview,
         "authority_summary": packet.get("authority_summary", {}),
         "grading_context_kind": grading_context_kind,
