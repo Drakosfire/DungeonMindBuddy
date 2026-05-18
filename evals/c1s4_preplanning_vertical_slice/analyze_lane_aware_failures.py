@@ -79,7 +79,11 @@ def main() -> int:
             if qn not in TARGET_Q:
                 continue
             qgold = _find_gold_question(gold, row.get("question_id", ""))
-            required_by_gid = {g.get("group_id"): g for g in qgold.get("required_context_groups", [])}
+            mode_expectations = (qgold.get("expectations_by_mode") or {}).get(mode, {})
+            required_by_gid = {
+                g.get("group_id"): g
+                for g in mode_expectations.get("required_context_groups", [])
+            }
             diag = row.get("lane_aware_diagnostics", {})
             group_results = {g["group_id"]: g for g in diag.get("required_group_results", [])}
 
