@@ -21,66 +21,66 @@
         {
           "group_id": "pippa_character_continuity",
           "failure_class": "retrieval_miss",
-          "reason": "no_candidate_or_lane_aware_matches"
+          "reason": "no_group_match_in_retrieved_context"
         },
         {
           "group_id": "bubbles_character_continuity",
           "failure_class": "retrieval_miss",
-          "reason": "no_candidate_or_lane_aware_matches"
+          "reason": "no_group_match_in_retrieved_context"
         },
         {
           "group_id": "grishna_character_continuity",
           "failure_class": "retrieval_miss",
-          "reason": "no_candidate_or_lane_aware_matches"
+          "reason": "no_group_match_in_retrieved_context"
         },
         {
           "group_id": "stone_bridge_location_support_context",
           "failure_class": "retrieval_miss",
-          "reason": "no_candidate_or_lane_aware_matches"
+          "reason": "no_group_match_in_retrieved_context"
         }
       ],
       "prior_plus_support_content_only": [
         {
           "group_id": "pippa_character_continuity",
           "failure_class": "retrieval_miss",
-          "reason": "no_candidate_or_lane_aware_matches"
+          "reason": "no_group_match_in_retrieved_context"
         },
         {
           "group_id": "bubbles_character_continuity",
           "failure_class": "retrieval_miss",
-          "reason": "no_candidate_or_lane_aware_matches"
+          "reason": "no_group_match_in_retrieved_context"
         },
         {
           "group_id": "grishna_character_continuity",
           "failure_class": "retrieval_miss",
-          "reason": "no_candidate_or_lane_aware_matches"
+          "reason": "no_group_match_in_retrieved_context"
         },
         {
           "group_id": "stone_bridge_location_support_context",
           "failure_class": "retrieval_miss",
-          "reason": "no_candidate_or_lane_aware_matches"
+          "reason": "no_group_match_in_retrieved_context"
         }
       ],
       "prior_plus_support_content_plus_lexical_hints": [
         {
           "group_id": "pippa_character_continuity",
           "failure_class": "retrieval_miss",
-          "reason": "no_candidate_or_lane_aware_matches"
+          "reason": "no_group_match_in_retrieved_context"
         },
         {
           "group_id": "bubbles_character_continuity",
           "failure_class": "retrieval_miss",
-          "reason": "no_candidate_or_lane_aware_matches"
+          "reason": "no_group_match_in_retrieved_context"
         },
         {
           "group_id": "grishna_character_continuity",
           "failure_class": "retrieval_miss",
-          "reason": "no_candidate_or_lane_aware_matches"
+          "reason": "no_group_match_in_retrieved_context"
         },
         {
           "group_id": "stone_bridge_location_support_context",
           "failure_class": "retrieval_miss",
-          "reason": "no_candidate_or_lane_aware_matches"
+          "reason": "no_group_match_in_retrieved_context"
         }
       ]
     },
@@ -89,36 +89,36 @@
         {
           "group_id": "mirathorn_distance_estimate_from_play",
           "failure_class": "retrieval_miss",
-          "reason": "no_candidate_or_lane_aware_matches"
+          "reason": "no_group_match_in_retrieved_context"
         },
         {
           "group_id": "stone_bridge_location_context",
           "failure_class": "retrieval_miss",
-          "reason": "no_candidate_or_lane_aware_matches"
+          "reason": "no_group_match_in_retrieved_context"
         }
       ],
       "prior_plus_support_content_only": [
         {
           "group_id": "mirathorn_distance_estimate_from_play",
           "failure_class": "retrieval_miss",
-          "reason": "no_candidate_or_lane_aware_matches"
+          "reason": "no_group_match_in_retrieved_context"
         },
         {
           "group_id": "stone_bridge_location_context",
           "failure_class": "retrieval_miss",
-          "reason": "no_candidate_or_lane_aware_matches"
+          "reason": "no_group_match_in_retrieved_context"
         }
       ],
       "prior_plus_support_content_plus_lexical_hints": [
         {
           "group_id": "mirathorn_distance_estimate_from_play",
           "failure_class": "retrieval_miss",
-          "reason": "no_candidate_or_lane_aware_matches"
+          "reason": "no_group_match_in_retrieved_context"
         },
         {
           "group_id": "stone_bridge_location_context",
           "failure_class": "retrieval_miss",
-          "reason": "no_candidate_or_lane_aware_matches"
+          "reason": "no_group_match_in_retrieved_context"
         }
       ]
     },
@@ -127,38 +127,40 @@
         {
           "group_id": "hempholm_location_context",
           "failure_class": "retrieval_miss",
-          "reason": "no_candidate_or_lane_aware_matches"
+          "reason": "no_group_match_in_retrieved_context"
         }
       ],
       "prior_plus_support_content_only": [
         {
           "group_id": "hempholm_location_context",
           "failure_class": "retrieval_miss",
-          "reason": "no_candidate_or_lane_aware_matches"
+          "reason": "no_group_match_in_retrieved_context"
         },
         {
           "group_id": "hempholm_tree_support_context",
           "failure_class": "retrieval_miss",
-          "reason": "no_candidate_or_lane_aware_matches"
+          "reason": "no_group_match_in_retrieved_context"
         }
       ],
       "prior_plus_support_content_plus_lexical_hints": [
         {
           "group_id": "hempholm_location_context",
           "failure_class": "retrieval_miss",
-          "reason": "no_candidate_or_lane_aware_matches"
+          "reason": "no_group_match_in_retrieved_context"
         },
         {
           "group_id": "hempholm_tree_support_context",
           "failure_class": "retrieval_miss",
-          "reason": "no_candidate_or_lane_aware_matches"
+          "reason": "no_group_match_in_retrieved_context"
         }
       ]
     }
   },
   "recommendations": [
-    "retrieval_indexing: retrieved/candidate counts are often zero; verify indexing and route expansion for session memory, npc_hub, location_hub artifacts.",
-    "admission_budgeting: if candidate>admitted in future reruns, add lane floors per required lane before tuning ranker.",
-    "rendering_or_provenance: if accepted matches appear without provenance, audit section map/provenance emission."
+    "retrieval_indexing: verify C1S4 index build includes session_memory, npc_hub, and location_hub artifacts referenced by Q1/Q3/Q5 groups.",
+    "retrieval_indexing: audit path aliases/canonicalization for Stone Bridge, Mirathorn, and Hempholm so group tokens match indexable fields.",
+    "retrieval_indexing: add a diagnostic check in Step2C to fail fast when retrieved_context_count==0 for all three modes on gold questions.",
+    "admission_budgeting (deferred): only evaluate lane-floor/budget tuning after non-zero candidate_match_count appears for failed groups.",
+    "rendering_or_provenance (deferred): only evaluate section-routing fixes after admitted_match_count becomes non-zero."
   ]
 }

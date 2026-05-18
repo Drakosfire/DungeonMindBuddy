@@ -41,3 +41,7 @@ For all classified misses, evidence did not reach candidate context; therefore m
 
 ## Non-goals / Deferred Work
 No ranking, budget, corpus, renderer semantics, or gold definition changes were implemented in PR56.
+
+
+## Step 2D invocation note
+Direct script execution can fail import resolution in this environment; module invocation works: `uv run python -m evals.c1s4_preplanning_vertical_slice.step2d_expected_context_canvas_emit --help`.
