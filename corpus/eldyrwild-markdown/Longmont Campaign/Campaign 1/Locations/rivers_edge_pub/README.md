@@ -69,7 +69,7 @@ These NPC/social anchors are navigation pointers only for retrieval routing. Use
 
 ## Retrieval keywords
 
-River's Edge Pub; River’s Edge Pub; River Edge Pub; pub; tavern; Grishna; beer; board; Pippa; Bubbles; storm; flood; high ground; morning after; Stone Bridge
+River's Edge Pub; River’s Edge Pub; River Edge Pub; pub; tavern; Grishna; beer; board; Pippa; Bubbles; storm; flood; high ground; morning after; Stone Bridge; StoneBridge; Stonebridge
 
 ## Cross-references
 

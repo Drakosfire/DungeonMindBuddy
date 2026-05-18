@@ -10,7 +10,7 @@ session: 3
 origin_session: 3
 last_updated_session: 3
 source_class: observed_session_recap
-table_note: "Campaign-canon location hub scaffolded from Session 3. Recap text remains authoritative. Uncertain details are listed as open questions."
+table_note: "Campaign-canon location hub scaffolded from Session 3. Canonical campaign name is Stone Bridge; canonical campaign slug is stone_bridge. NPC anchor links are navigational and are not NPC continuity evidence."
 ---
 
 # Stone Bridge — Campaign 1 (table)
@@ -27,10 +27,15 @@ This is a campaign-canon location hub derived from observed Session 3 recap mate
 4. `Longmont Campaign/Campaign 1/NPCs/bubbles_the_float_goat/README.md`
 5. `Longmont Campaign/Campaign 1/NPCs/grishna/README.md`
 
+## Canonical name and legacy spellings
+
+- **Display name (canonical prose):** `Stone Bridge`
+- **Campaign 1 hub slug/path:** `stone_bridge` (`Locations/stone_bridge/README.md`)
+- **Legacy/support spellings:** `StoneBridge`, `Stonebridge`
+- Legacy spellings are retrieval aliases only and are not preferred campaign prose.
+
 ## Canon summary
 
-
-- Canonical prose naming: **Stone Bridge**. Legacy spellings **StoneBridge** and **Stonebridge** are retrieval aliases only and are not preferred campaign prose.
 - Stone Bridge is campaign-canon because the party spent Session 3 there.
 - The location is river-associated, with bridge flow channels and dock/barge access used by the party and Pippa.
 - Session 3's storm and flood are a defining Stone Bridge event.
@@ -71,7 +76,7 @@ These NPC anchors are navigation pointers only for retrieval routing. Treat the 
 
 ## Retrieval keywords
 
-Stone Bridge; StoneBridge; Stonebridge; flood; River's Edge Pub; River’s Edge Pub; River Edge Pub; Pippa; Bubbles; Float Goat; Grishna; docks; barge; bridge; Mirathorn; festival; morning after; townsfolk; flood rescue
+Stone Bridge; stone_bridge; StoneBridge; Stonebridge; flood; River's Edge Pub; River’s Edge Pub; River Edge Pub; Pippa; Bubbles; Float Goat; Grishna; docks; barge; bridge; Mirathorn; festival; morning after; townsfolk; flood rescue
 
 ## Cross-references
 
