@@ -46,16 +46,15 @@ Future lane-aware gold must enforce this boundary:
 - `character_party_behavior` / NPC-continuity expectations must require `subject_class: npc` artifacts or observed play records admitted into the NPC/character lane.
 - Location hub `Suggested reads`, `Cross-references`, `Retrieval keywords`, and NPC-anchor lists must not count as evidence for NPC-continuity gold.
 
-## Slug and naming boundary
+## Canonical name and slug decision
 
-The campaign hub uses `stone_bridge` because the observed Session 3 recap title and prose use “Stone Bridge” / “StoneBridge.” Older setting or prep material may use “Stonebridge.” PR49 treats those as spelling aliases for the same location unless a later canon decision deliberately splits them.
+PR49 canonizes the campaign-facing location name as **Stone Bridge**.
 
-Known aliases recorded for retrieval:
+- Canonical campaign display name: `Stone Bridge`
+- Canonical campaign filesystem slug: `stone_bridge`
+- Legacy/support spellings retained only for retrieval: `StoneBridge`, `Stonebridge`
 
-- `Stone Bridge`
-- `StoneBridge`
-- `Stonebridge`
-- `stone_bridge` as the filesystem slug
+Use **Stone Bridge** in new campaign artifacts. Treat `StoneBridge` and `Stonebridge` as older/support spellings unless a later canon decision deliberately splits them into distinct places.
 
 ## Open questions preserved
 
