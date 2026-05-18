@@ -22,7 +22,7 @@ Use `read_corpus_file` with these paths **after** this README (corpus root = `el
 2. `Longmont Campaign/Campaign 1/NPCs/pippa/timeline.md` — session pointer for Pippa-specific beats.
 3. `Longmont Campaign/Campaign 1/Session Recaps/Session 3 - The Stone Bridge Flood.md` — observed recap of Pippa and Bubbles in play.
 4. `Elderwyld/The Stonebridge Flood.md` — prep source with Pippa/Bubbles scene setup and flood-rescue details.
-5. `Elderwyld/Stonebridge and The Wizard Tower Brewing Co.md` — brewery/Stonebridge setup where Pippa first appears.
+5. `Elderwyld/Stonebridge and The Wizard Tower Brewing Co.md` — brewery/Stone Bridge setup where Pippa first appears.
 6. `Elderwyld/Cities and Towns/Mirathorn/The City of Mirathorn.md` — float-goat species and Mirathorn context.
 
 ## Session recaps (no pinned default)

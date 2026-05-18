@@ -56,7 +56,7 @@ entity_index:
       route: "Longmont Campaign/Campaign 1/PCs/stafl/"
   locations:
     - slug: stonebridge
-      proposed_route: "Longmont Campaign/Campaign 1/Locations/stonebridge/"
+      proposed_route: "Longmont Campaign/Campaign 1/Locations/stone_bridge/"
       rationale: "Town referenced in Session 2 hooks."
     - slug: rivers_edge_pub
       proposed_route: "Longmont Campaign/Campaign 1/Locations/rivers_edge_pub/"
@@ -107,6 +107,6 @@ Since this room was not part of the original contract, and really neither was th
 
 After making pretty good money, 25 gp each, a bit of loot, and learning a lot about the dangers of clearing rats out of basements, the group decided to stick together and see where the winds take them.[Party][Longmont Campaign/Campaign 1/Parties/party_merchant_guards/]
 
-Will they ask Glowkindle for more work?[NPC][Longmont Campaign/Campaign 1/NPCs/glowkindle/][Location][Longmont Campaign/Campaign 1/Locations/stonebridge/] Will they had back to Stonebridge to say hi to Grishna at the River's Edge Pub?[Location][Longmont Campaign/Campaign 1/Locations/stonebridge/][NPC][Longmont Campaign/Campaign 1/NPCs/grishna/][Location][Longmont Campaign/Campaign 1/Locations/rivers_edge_pub/][Location][Longmont Campaign/Campaign 1/Locations/wizards_tower_brewing_company/] Will they follow up on the errant thought of what if there is more to the Wizard's Tower?[Location][Longmont Campaign/Campaign 1/Locations/wizards_tower_brewing_company/]
+Will they ask Glowkindle for more work?[NPC][Longmont Campaign/Campaign 1/NPCs/glowkindle/][Location][Longmont Campaign/Campaign 1/Locations/stone_bridge/] Will they had back to Stone Bridge to say hi to Grishna at the River's Edge Pub?[Location][Longmont Campaign/Campaign 1/Locations/stone_bridge/][NPC][Longmont Campaign/Campaign 1/NPCs/grishna/][Location][Longmont Campaign/Campaign 1/Locations/rivers_edge_pub/][Location][Longmont Campaign/Campaign 1/Locations/wizards_tower_brewing_company/] Will they follow up on the errant thought of what if there is more to the Wizard's Tower?[Location][Longmont Campaign/Campaign 1/Locations/wizards_tower_brewing_company/]
 
 Stay tuned!

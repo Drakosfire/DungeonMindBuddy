@@ -1,5 +1,5 @@
 ---
-title: "The town of Stonebridge"
+title: "The town of Stone Bridge"
 document_class: world
 canon_layer: world
 campaign_id: null
@@ -9,21 +9,21 @@ origin_session: null
 last_updated_session: null
 source_class: seed_reference
 ---
-### The town of Stonebridge
+### The town of Stone Bridge
 
-### Environment: Positioned at a strategic crossing of a wide, tumultuous river, Stonebridge is a vital waypoint for caravans. Its sturdy stone architecture reflects its name, and the town is a hub of trade and information.
+### Environment: Positioned at a strategic crossing of a wide, tumultuous river, Stone Bridge is a vital waypoint for caravans. Its sturdy stone architecture reflects its name, and the town is a hub of trade and information.
 
 ### Adventuring Appeal: Players can engage in missions to safeguard caravans from bandits, explore nearby caves, or assist in maintaining the crucial bridge that gives the town its livelihood.
 
 ### Geographical Features:
 
-### The Glimmering Bend: A section of the river near Stonebridge known for its striking beauty and mysterious nighttime luminescence. Locals believe the river here has magical properties, perhaps tied to ancient rituals or celestial alignments.
+### The Glimmering Bend: A section of the river near Stone Bridge known for its striking beauty and mysterious nighttime luminescence. Locals believe the river here has magical properties, perhaps tied to ancient rituals or celestial alignments.
 
-### The Stonewatch Bluffs: Towering cliffs that overlook Stonebridge, offering strategic views of the surrounding lands. These bluffs could house ancient ruins or be the site of a new threat looming over the town.
+### The Stonewatch Bluffs: Towering cliffs that overlook Stone Bridge, offering strategic views of the surrounding lands. These bluffs could house ancient ruins or be the site of a new threat looming over the town.
 
 ### Cultural and Social Dynamics:
 
-### Market Day: A bi-weekly event that attracts traders from distant lands, turning Stonebridge into a bustling market hub. This event can serve as a backdrop for various encounters, from pickpockets to rare item traders.
+### Market Day: A bi-weekly event that attracts traders from distant lands, turning Stone Bridge into a bustling market hub. This event can serve as a backdrop for various encounters, from pickpockets to rare item traders.
 
 ### The Riverguild: A powerful guild of fishermen, traders, and craftsmen who control much of the commerce and navigation on the river. The guild could provide jobs, conflict, or essential information about the river’s secrets.
 
@@ -31,13 +31,13 @@ source_class: seed_reference
 
 ### The River’s Edge Pub: A popular inn and meeting place for travelers and locals, known for its hearty meals and the proprietor’s collection of strange and mysterious relics. The innkeeper, a retired adventurer named Grishna , could serve as a mentor or information source.
 
-### The Old Stonebridge: The original stone bridge, now in ruins, stands as a historical site a short distance from the new bridge. It’s rumored to be haunted or cursed, providing a setting for supernatural investigations or thrilling ghost stories.
+### The Old Stone Bridge: The original stone bridge, now in ruins, stands as a historical site a short distance from the new bridge. It’s rumored to be haunted or cursed, providing a setting for supernatural investigations or thrilling ghost stories.
 
 ### Mira the Rivermage: A reclusive mage who lives in a floating house that drifts along the river. Known for her temperamental nature and mastery of water spells, Mira might need help or could offer training in magical arts.
 
 ## Grishna
 
-**Background:** Grishna's early life was marked by struggle and survival on the margins of society. Born in a small orcish tribe that valued strength and resilience, she learned the harsh realities of life from a young age. However, after her tribe was displaced by a larger kingdom's expansion, Grishna sought a new life in the town of Stonebridge. Here, she encountered both prejudice and opportunity, eventually channeling her formidable skills into running the River’s Edge Pub. Her success is a testament to her adaptability and tenacity, and she has become a respected member of the community, though she still faces occasional distrust due to her orcish heritage.
+**Background:** Grishna's early life was marked by struggle and survival on the margins of society. Born in a small orcish tribe that valued strength and resilience, she learned the harsh realities of life from a young age. However, after her tribe was displaced by a larger kingdom's expansion, Grishna sought a new life in the town of Stone Bridge. Here, she encountered both prejudice and opportunity, eventually channeling her formidable skills into running the River’s Edge Pub. Her success is a testament to her adaptability and tenacity, and she has become a respected member of the community, though she still faces occasional distrust due to her orcish heritage.
 
 ## Personality Traits:
 
@@ -61,9 +61,9 @@ source_class: seed_reference
 
 **Fear of Rejection:** Despite her tough exterior, Grishna harbors a deep-seated fear of rejection. She worries that no matter how much good she does, she will always be seen as an outsider because of her orcish heritage.
 
-**Role in the Community:** Grishna serves as a pillar of the Stonebridge community, often participating in town meetings and contributing to local decisions. Her tavern is a hub for both news and necessities, especially during emergencies like the impending flood, where her leadership and resourcefulness become critical assets.
+**Role in the Community:** Grishna serves as a pillar of the Stone Bridge community, often participating in town meetings and contributing to local decisions. Her tavern is a hub for both news and necessities, especially during emergencies like the impending flood, where her leadership and resourcefulness become critical assets.
 
-**Relationships:** Grishna has fostered numerous relationships throughout Stonebridge, from the local guardsmen who respect her authority to the young misfits who view her as a surrogate mother. Her interactions are characterized by a blend of warmth, humor, and occasional sternness, which endears her to many and garners deep loyalty among her staff and regular patrons.
+**Relationships:** Grishna has fostered numerous relationships throughout Stone Bridge, from the local guardsmen who respect her authority to the young misfits who view her as a surrogate mother. Her interactions are characterized by a blend of warmth, humor, and occasional sternness, which endears her to many and garners deep loyalty among her staff and regular patrons.
 
 By deepening Grishna’s character in these ways, she becomes not just a tavern keeper but a multifaceted protagonist in her own right, whose personal journey and interactions can significantly enrich the narrative and emotional depth of your campaign.
 
@@ -171,7 +171,7 @@ Glowkindle could use some help gathering rare ingredients for brewing.
 
 Glowkindle knows other Gnomes in need in a major town.
 
-More adventures found in StoneBridge:
+More adventures found in Stone Bridge:
 
 The players get back to Stone Bridge and there are bandits.
 
@@ -185,7 +185,7 @@ Treasure she hear about, probably a rumor but you never know!
 
 # Flavor Images and Tokens
 
-StoneBridge:
+Stone Bridge:
 
 Grishna in the River’s Edge Pub:
 

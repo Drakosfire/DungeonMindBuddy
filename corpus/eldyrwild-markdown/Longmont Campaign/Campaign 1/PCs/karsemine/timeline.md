@@ -36,5 +36,5 @@ Append-only index for C1 recap routing. Seeded with pre-campaign context and Ses
 
 | Session | Beat (1-3 lines) | Recap / prep |
 |--------|------------------|--------------|
-| Pre-campaign | Party traveled together as merchant guards before reaching Stonebridge. Specific personal backstory details are table-dependent unless separately documented. | `Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md` |
-| 1 | Inception roster explicitly names Karsemine as **Tiefling Ranger** during the Stonebridge opening and Glowkindle rat-cellar job setup. | `Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md` |
+| Pre-campaign | Party traveled together as merchant guards before reaching Stone Bridge. Specific personal backstory details are table-dependent unless separately documented. | `Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md` |
+| 1 | Inception roster explicitly names Karsemine as **Tiefling Ranger** during the Stone Bridge opening and Glowkindle rat-cellar job setup. | `Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md` |
