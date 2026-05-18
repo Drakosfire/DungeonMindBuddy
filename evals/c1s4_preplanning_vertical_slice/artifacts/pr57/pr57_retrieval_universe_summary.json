@@ -1,0 +1,6 @@
+{
+  "schema": "dmb_pr57_retrieval_universe_summary_v1",
+  "counts": {
+    "direct_probe_hit_step2c_miss": 5
+  }
+}

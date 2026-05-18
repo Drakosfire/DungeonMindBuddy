@@ -1,0 +1,16 @@
+probe,mode,top_k,hit_count,top_refs,expected_refs_hit,expected_paths_hit,first_expected_rank,source_kinds_seen,subject_classes_seen,notes
+Pippa|Pippa Goldwhistle,prior_only,10,1,corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/NPCs/pippa/README.md,True,True,1,session_memory,npc,lexical deterministic proxy
+Pippa|Pippa Goldwhistle,prior_only,20,1,corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/NPCs/pippa/README.md,True,True,1,session_memory,npc,lexical deterministic proxy
+Pippa|Pippa Goldwhistle,prior_only,50,1,corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/NPCs/pippa/README.md,True,True,1,session_memory,npc,lexical deterministic proxy
+Bubbles|Float Goat,prior_only,10,1,corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/NPCs/bubbles_the_float_goat/README.md,True,True,1,session_memory,npc,lexical deterministic proxy
+Bubbles|Float Goat,prior_only,20,1,corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/NPCs/bubbles_the_float_goat/README.md,True,True,1,session_memory,npc,lexical deterministic proxy
+Bubbles|Float Goat,prior_only,50,1,corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/NPCs/bubbles_the_float_goat/README.md,True,True,1,session_memory,npc,lexical deterministic proxy
+Mirathorn|week,prior_only,10,1,corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Session Recaps/Session 3 - The Stone Bridge Flood.md,True,True,1,session_memory,session_memory,lexical deterministic proxy
+Mirathorn|week,prior_only,20,1,corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Session Recaps/Session 3 - The Stone Bridge Flood.md,True,True,1,session_memory,session_memory,lexical deterministic proxy
+Mirathorn|week,prior_only,50,1,corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Session Recaps/Session 3 - The Stone Bridge Flood.md,True,True,1,session_memory,session_memory,lexical deterministic proxy
+Hempholm|tree,prior_only,10,1,corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Locations/hempholm/README.md,True,True,1,session_memory,location,lexical deterministic proxy
+Hempholm|tree,prior_only,20,1,corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Locations/hempholm/README.md,True,True,1,session_memory,location,lexical deterministic proxy
+Hempholm|tree,prior_only,50,1,corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Locations/hempholm/README.md,True,True,1,session_memory,location,lexical deterministic proxy
+Hempholm|visible threat|giant tree,prior_plus_support_content_plus_lexical_hints,10,1,support:hempholm_tree_visible_threat,True,True,1,support_knowledge_card,support,lexical deterministic proxy
+Hempholm|visible threat|giant tree,prior_plus_support_content_plus_lexical_hints,20,1,support:hempholm_tree_visible_threat,True,True,1,support_knowledge_card,support,lexical deterministic proxy
+Hempholm|visible threat|giant tree,prior_plus_support_content_plus_lexical_hints,50,1,support:hempholm_tree_visible_threat,True,True,1,support_knowledge_card,support,lexical deterministic proxy
