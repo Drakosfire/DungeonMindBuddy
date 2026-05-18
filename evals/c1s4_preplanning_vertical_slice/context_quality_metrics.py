@@ -6,7 +6,7 @@ from evals.c1s4_preplanning_vertical_slice.context_admission import estimate_con
 
 SCHEMA = "dmb_packet_quality_metrics_v1"
 SUPPORT_KIND = "support_knowledge_card"
-LEAK_PATH_TOKENS = ("evals/", "docs/", "gold/", "canvas_templates/", "artifacts/", "pr")
+LEAK_PATH_TOKENS = ("evals/", "docs/", "gold/", "canvas_templates/", "artifacts/")
 NAV_ONLY_TOKENS = (
     "retrieval keywords",
     "suggested reads",
@@ -27,6 +27,14 @@ def _item_ref(item: dict[str, Any]) -> str:
 def _item_text(item: dict[str, Any]) -> str:
     return " ".join(str(item.get(k) or "") for k in ["title", "snippet", "text", "source_reference", "source_recap_path", "source"]).lower()
 
+
+
+def _is_leaking_source_path(source_path: str) -> bool:
+    p = source_path.lower()
+    if any(tok in p for tok in LEAK_PATH_TOKENS):
+        return True
+    name = p.rsplit("/", 1)[-1]
+    return name.startswith("pr") and (name.endswith(".md") or name.endswith(".json"))
 
 def compute_packet_quality_metrics(*, row: dict[str, Any], packet: dict[str, Any] | None = None, gold_question: dict[str, Any] | None = None, rendered_context_packet: dict[str, Any] | None = None) -> dict[str, Any]:
     del gold_question
@@ -85,7 +93,7 @@ def compute_packet_quality_metrics(*, row: dict[str, Any], packet: dict[str, Any
         if "meta-session" in ref or "meta summary" in text:
             noise_refs.append(ref)
         source_path = str(item.get("source") or item.get("source_recap_path") or item.get("source_reference") or "").lower()
-        if any(tok in source_path for tok in LEAK_PATH_TOKENS) and ("pr" not in source_path or "pr" in source_path and ".md" in source_path):
+        if _is_leaking_source_path(source_path):
             leakage_paths.append(source_path)
         if "location_hub" in text and "npc" in text:
             continuity_refs.append(ref)
@@ -180,7 +188,7 @@ def compute_packet_quality_metrics(*, row: dict[str, Any], packet: dict[str, Any
             "support_leakage_in_prior_only": support_leak,
             "first_support_candidate_rank": support_candidate_rank,
             "first_support_admitted_rank": support_admitted_rank,
-            "support_burial_depth": support_admitted_rank,
+            "support_burial_depth": (support_admitted_rank - 1) if support_admitted_rank else None,
             "support_token_share": (support_tokens / admitted_tokens if admitted_tokens else 0.0),
             "support_rendered_sections": sorted({str(v.get("rendered_section_id")) for k, v in provenance.items() if str(v.get("source_kind") or "") == SUPPORT_KIND and v.get("rendered_section_id")}),
         },
