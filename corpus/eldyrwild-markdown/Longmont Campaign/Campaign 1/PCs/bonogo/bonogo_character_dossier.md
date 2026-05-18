@@ -20,7 +20,7 @@ table_note: "Mechanical truth (AC, HP, slots/features, inventory accounting) liv
 ## Identity anchors (recap-grounded)
 
 - Session 1 roster token: **Bugbear Rogue**.
-- Party framing at inception: part of a traveling merchant-guard crew arriving at Stonebridge.
+- Party framing at inception: part of a traveling merchant-guard crew arriving at Stone Bridge.
 - Campaign 1 Session 1 roster names Bonogo as "Bugbear Rogue."
 
 ## Continuity boundaries

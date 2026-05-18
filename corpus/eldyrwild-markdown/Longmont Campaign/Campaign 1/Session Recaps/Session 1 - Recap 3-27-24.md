@@ -11,9 +11,9 @@ source_class: observed_session_recap
 ---
 ### Session 1 Recap 3/27/24
 
-After traveling together for some time together as merchant guards, our mish mash of travelers;  Karsemine the Tiefling Ranger, Stafl the 'Human' Bard, Caelynn the Half Elf Sorcerer, Ephanna the Kenku Warlock, Bonogo the Bugbear Rogue, and Baergrom the Dwarf Fighter, found themselves outside the town of Stonebridge.
+After traveling together for some time together as merchant guards, our mish mash of travelers;  Karsemine the Tiefling Ranger, Stafl the 'Human' Bard, Caelynn the Half Elf Sorcerer, Ephanna the Kenku Warlock, Bonogo the Bugbear Rogue, and Baergrom the Dwarf Fighter, found themselves outside the town of Stone Bridge.
 
-The town of Stonebridge is known for very few things, in fact Stonebridge is hardly known. It has the Stonebridge over the river [River name], it's tavern  The River's Edge Pub run by Grishna the Half-orc, and that's about it. It did have a job board, and most importantly the local brewer Glowkindle had posted a help request on the jobs board and spread word all around town of his need of a band of mercenaries to help clean up some rats.
+The town of Stone Bridge is known for very few things, in fact Stone Bridge is hardly known. It has the Stone Bridge over the river [River name], it's tavern  The River's Edge Pub run by Grishna the Half-orc, and that's about it. It did have a job board, and most importantly the local brewer Glowkindle had posted a help request on the jobs board and spread word all around town of his need of a band of mercenaries to help clean up some rats.
 
 While doing some drinking at the Riv'ers Edge Pub to wash away the road, Grishna was quick to share that Glowkindle had been through, where the The Wizard's Tower Brewing Co was located. Up river, west at the big rock, walk till you see it. Bonogo, having very little awareness or care for the cost of things, and greatly enjoying the beer, bought a Firkin of ale for two gold. He quite enjoyed the hike to the brewery.
 

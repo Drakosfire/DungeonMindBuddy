@@ -14,17 +14,17 @@ subject_doc_kind: dossier
 
 # Pippa Goldwhistle
 
-Pippa Goldwhistle is a gnome assistant brewer and innovator tied to the Wizard Tower Brewery / StoneBridge thread. She is petite even for a gnome, with curly red hair, wide curious eyes, practical brewing clothes, and gadgetry of her own making. She is creative, enthusiastic, and optimistic: a brewer who thinks like an alchemist and talks like every problem is one clever experiment away from solving itself.
+Pippa Goldwhistle is a gnome assistant brewer and innovator tied to the Wizard Tower Brewery / Stone Bridge thread. She is petite even for a gnome, with curly red hair, wide curious eyes, practical brewing clothes, and gadgetry of her own making. She is creative, enthusiastic, and optimistic: a brewer who thinks like an alchemist and talks like every problem is one clever experiment away from solving itself.
 
 ## Table Role
 
-- **Function in C1:** Introduces the ride toward StoneBridge, the keg wagon, Bubbles the Float Goat, and the brewery-to-Mirathorn festival thread.
+- **Function in C1:** Introduces the ride toward Stone Bridge, the keg wagon, Bubbles the Float Goat, and the brewery-to-Mirathorn festival thread.
 - **Relationship anchor:** Bubbles is not just livestock; Pippa talks to her like a trusted working companion and panics when the flood puts her in real danger.
 - **Social texture:** Pippa likes experimental brewing, magical ingredients, gadgets, festivals, and flavor science. She can chatter about magically enhanced yeast, temperature-shifting hops, self-stirring brewing gear, alchemy/fermentation overlap, and ambitious seasonal beer ideas.
 
 ## Session 3 State
 
-After the party clears the Wizard Tower Brewery basement, Pippa offers them a ride back toward StoneBridge. Bubbles pulls the wagon full of kegs, while a barge/river setup handles the downriver leg. Pippa notices the river is higher and faster than usual and warns Bubbles to keep steady. At the River's Edge Pub, she means to drop off the beer, have a quick drink and bite, then leave before the weather worsens. The flood overtakes that plan.
+After the party clears the Wizard Tower Brewery basement, Pippa offers them a ride back toward Stone Bridge. Bubbles pulls the wagon full of kegs, while a barge/river setup handles the downriver leg. Pippa notices the river is higher and faster than usual and warns Bubbles to keep steady. At the River's Edge Pub, she means to drop off the beer, have a quick drink and bite, then leave before the weather worsens. The flood overtakes that plan.
 
 When Bubbles goes missing, Pippa is soaked, panicked, and physically endangered by rushing water near the pub. Her fear is specific: Bubbles can walk on water, but fast floodwater would tumble her and make her lose control.
 

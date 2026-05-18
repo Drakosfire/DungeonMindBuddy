@@ -10,7 +10,7 @@ session: 3
 origin_session: 3
 last_updated_session: 3
 source_class: observed_session_recap
-table_note: "Campaign-canon location hub scaffolded from Session 3. Recap text remains authoritative. Uncertain details are listed as open questions. NPC anchor links are navigational and are not NPC continuity evidence."
+table_note: "Campaign-canon location hub scaffolded from Session 3. Recap text remains authoritative. Uncertain details are listed as open questions."
 ---
 
 # River's Edge Pub — Campaign 1 (table)
@@ -51,7 +51,7 @@ This campaign-canon location hub is grounded in observed Session 3 recap materia
 
 ## NPC and social anchors
 
-These links are location-affiliation/navigation anchors only. They do not make this location hub the source of truth for NPC continuity, relationship state, motivation, or behavior. For NPC continuity, open the linked NPC hub/timeline/dossier or the observed recap.
+These NPC/social anchors are navigation pointers only for retrieval routing. Use the linked NPC hubs and Session 3 recap as evidence sources for continuity; this location hub should not be treated as standalone NPC-continuity proof.
 
 - Grishna (`NPCs/grishna/README.md`) for beer/board social anchor context.
 - Pippa (`NPCs/pippa/README.md`) and Bubbles (`NPCs/bubbles_the_float_goat/README.md`) as storm/flood trigger and rescue focus.
@@ -69,7 +69,7 @@ These links are location-affiliation/navigation anchors only. They do not make t
 
 ## Retrieval keywords
 
-River's Edge Pub; River’s Edge Pub; River Edge Pub; pub; tavern; Grishna; beer; board; Pippa; Bubbles; storm; flood; high ground; morning after; Stone Bridge; StoneBridge; Stonebridge
+River's Edge Pub; River’s Edge Pub; River Edge Pub; pub; tavern; Grishna; beer; board; Pippa; Bubbles; storm; flood; high ground; morning after; Stone Bridge
 
 ## Cross-references
 

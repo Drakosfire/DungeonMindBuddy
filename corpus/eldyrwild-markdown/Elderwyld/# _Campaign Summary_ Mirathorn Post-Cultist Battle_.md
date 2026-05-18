@@ -95,7 +95,7 @@ The **Mirathorn City Council**, once fractured by cultist influence, is now unit
 
 ## 3. **The Storm Over Mirathorn**
 
-- Caelynn identified it as unnatural and **identical to the storm that nearly killed the party in StoneBridge**.
+- Caelynn identified it as unnatural and **identical to the storm that nearly killed the party in Stone Bridge**.
 
 - **Is the Shepherd linked to this storm? Or is another force at play?**
 

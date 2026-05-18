@@ -19,6 +19,6 @@ Since this room was not part of the original contract, and really neither was th
 
 After making pretty good money, 25 gp each, a bit of loot, and learning a lot about the dangers of clearing rats out of basements, the group decided to stick together and see where the winds take them.
 
-Will they ask Glowkindle for more work? Will they had back to Stonebridge to say hi to Grishna at the River's Edge Pub? Will they follow up on the errant thought of what if there is more to the Wizard's Tower?
+Will they ask Glowkindle for more work? Will they had back to Stone Bridge to say hi to Grishna at the River's Edge Pub? Will they follow up on the errant thought of what if there is more to the Wizard's Tower?
 
 Stay tuned!

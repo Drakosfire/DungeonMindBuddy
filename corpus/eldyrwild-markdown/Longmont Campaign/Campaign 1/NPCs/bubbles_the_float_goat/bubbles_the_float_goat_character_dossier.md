@@ -14,7 +14,7 @@ subject_doc_kind: dossier
 
 # Bubbles the Float Goat
 
-Bubbles is Pippa Goldwhistle's float goat: a magical working animal used for river transport, beer delivery, and eventually festival spectacle. The table knows Bubbles through the StoneBridge flood rescue: beloved, useful, frightened, and memorable enough that "save Bubbles" becomes the emotional engine of the scene.
+Bubbles is Pippa Goldwhistle's float goat: a magical working animal used for river transport, beer delivery, and eventually festival spectacle. The table knows Bubbles through the Stone Bridge flood rescue: beloved, useful, frightened, and memorable enough that "save Bubbles" becomes the emotional engine of the scene.
 
 ## Float-Goat Species Context
 

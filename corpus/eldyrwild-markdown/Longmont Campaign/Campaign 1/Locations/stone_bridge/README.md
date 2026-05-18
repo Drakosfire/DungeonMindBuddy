@@ -10,7 +10,7 @@ session: 3
 origin_session: 3
 last_updated_session: 3
 source_class: observed_session_recap
-table_note: "Campaign-canon location hub scaffolded from Session 3. Canonical campaign name is Stone Bridge; canonical campaign slug is stone_bridge. NPC anchor links are navigational and are not NPC continuity evidence."
+table_note: "Campaign-canon location hub scaffolded from Session 3. Recap text remains authoritative. Uncertain details are listed as open questions."
 ---
 
 # Stone Bridge — Campaign 1 (table)
@@ -18,12 +18,6 @@ table_note: "Campaign-canon location hub scaffolded from Session 3. Canonical ca
 ## Authority stance
 
 This is a campaign-canon location hub derived from observed Session 3 recap material. The recap is authoritative for claims in this file. Uncertain route and ecology details remain open questions.
-
-## Canonical name and legacy spellings
-
-- **Canonical campaign display name:** Stone Bridge.
-- **Canonical campaign filesystem slug:** `stone_bridge`.
-- **Legacy/support spellings:** `StoneBridge` and `Stonebridge` appear in older recap prose, prep, world, or generated material. Treat them as retrieval aliases for Stone Bridge, not as separate canon entities and not as preferred spellings for new campaign artifacts.
 
 ## Suggested reads
 
@@ -35,6 +29,8 @@ This is a campaign-canon location hub derived from observed Session 3 recap mate
 
 ## Canon summary
 
+
+- Canonical prose naming: **Stone Bridge**. Legacy spellings **StoneBridge** and **Stonebridge** are retrieval aliases only and are not preferred campaign prose.
 - Stone Bridge is campaign-canon because the party spent Session 3 there.
 - The location is river-associated, with bridge flow channels and dock/barge access used by the party and Pippa.
 - Session 3's storm and flood are a defining Stone Bridge event.
@@ -57,7 +53,7 @@ This is a campaign-canon location hub derived from observed Session 3 recap mate
 
 ## Campaign-canon NPCs anchored here
 
-These links are location-affiliation/navigation anchors only. They do not make this location hub the source of truth for NPC continuity, relationship state, motivation, or behavior. For NPC continuity, open the linked NPC hub/timeline/dossier or the observed recap.
+These NPC anchors are navigation pointers only for retrieval routing. Treat the underlying NPC hubs and Session 3 recap as evidence of character continuity; this location hub does not, by itself, establish new NPC-state canon.
 
 - Pippa Goldwhistle (`NPCs/pippa/README.md`)
 - Bubbles the Float Goat (`NPCs/bubbles_the_float_goat/README.md`)
@@ -75,7 +71,7 @@ These links are location-affiliation/navigation anchors only. They do not make t
 
 ## Retrieval keywords
 
-Stone Bridge; stone_bridge; StoneBridge; Stonebridge; flood; River's Edge Pub; River’s Edge Pub; River Edge Pub; Pippa; Bubbles; Float Goat; Grishna; docks; barge; bridge; Mirathorn; festival; morning after; townsfolk; flood rescue
+Stone Bridge; StoneBridge; Stonebridge; flood; River's Edge Pub; River’s Edge Pub; River Edge Pub; Pippa; Bubbles; Float Goat; Grishna; docks; barge; bridge; Mirathorn; festival; morning after; townsfolk; flood rescue
 
 ## Cross-references
 
