@@ -1,16 +1,37 @@
 probe,mode,top_k,hit_count,top_refs,expected_refs_hit,expected_paths_hit,first_expected_rank,source_kinds_seen,subject_classes_seen,notes
-Pippa|Pippa Goldwhistle,prior_only,10,1,corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/NPCs/pippa/README.md,True,True,1,session_memory,npc,lexical deterministic proxy
-Pippa|Pippa Goldwhistle,prior_only,20,1,corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/NPCs/pippa/README.md,True,True,1,session_memory,npc,lexical deterministic proxy
-Pippa|Pippa Goldwhistle,prior_only,50,1,corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/NPCs/pippa/README.md,True,True,1,session_memory,npc,lexical deterministic proxy
-Bubbles|Float Goat,prior_only,10,1,corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/NPCs/bubbles_the_float_goat/README.md,True,True,1,session_memory,npc,lexical deterministic proxy
-Bubbles|Float Goat,prior_only,20,1,corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/NPCs/bubbles_the_float_goat/README.md,True,True,1,session_memory,npc,lexical deterministic proxy
-Bubbles|Float Goat,prior_only,50,1,corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/NPCs/bubbles_the_float_goat/README.md,True,True,1,session_memory,npc,lexical deterministic proxy
-Mirathorn|week,prior_only,10,1,corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Session Recaps/Session 3 - The Stone Bridge Flood.md,True,True,1,session_memory,session_memory,lexical deterministic proxy
-Mirathorn|week,prior_only,20,1,corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Session Recaps/Session 3 - The Stone Bridge Flood.md,True,True,1,session_memory,session_memory,lexical deterministic proxy
-Mirathorn|week,prior_only,50,1,corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Session Recaps/Session 3 - The Stone Bridge Flood.md,True,True,1,session_memory,session_memory,lexical deterministic proxy
-Hempholm|tree,prior_only,10,1,corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Locations/hempholm/README.md,True,True,1,session_memory,location,lexical deterministic proxy
-Hempholm|tree,prior_only,20,1,corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Locations/hempholm/README.md,True,True,1,session_memory,location,lexical deterministic proxy
-Hempholm|tree,prior_only,50,1,corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Locations/hempholm/README.md,True,True,1,session_memory,location,lexical deterministic proxy
-Hempholm|visible threat|giant tree,prior_plus_support_content_plus_lexical_hints,10,1,support:hempholm_tree_visible_threat,True,True,1,support_knowledge_card,support,lexical deterministic proxy
-Hempholm|visible threat|giant tree,prior_plus_support_content_plus_lexical_hints,20,1,support:hempholm_tree_visible_threat,True,True,1,support_knowledge_card,support,lexical deterministic proxy
-Hempholm|visible threat|giant tree,prior_plus_support_content_plus_lexical_hints,50,1,support:hempholm_tree_visible_threat,True,True,1,support_knowledge_card,support,lexical deterministic proxy
+Pippa Pippa Goldwhistle,prior_only,10,10,"['u-L0008-01', 'u-L0018-01', 'u-L0034-01', 'u-L0034-02', 'u-L0040-01']",False,False,,[''],,actual retrieval probe
+Pippa Pippa Goldwhistle,prior_only,20,20,"['u-L0008-01', 'u-L0018-01', 'u-L0034-01', 'u-L0034-02', 'u-L0040-01']",False,False,,[''],,actual retrieval probe
+Pippa Pippa Goldwhistle,prior_only,50,21,"['u-L0008-01', 'u-L0018-01', 'u-L0034-01', 'u-L0034-02', 'u-L0040-01']",False,False,,[''],,actual retrieval probe
+Pippa Pippa Goldwhistle,prior_only,10,10,"['u-L0008-01', 'u-L0018-01', 'u-L0034-01', 'u-L0034-02', 'u-L0040-01']",False,False,,[''],,actual retrieval probe
+Pippa Pippa Goldwhistle,prior_only,20,20,"['u-L0008-01', 'u-L0018-01', 'u-L0034-01', 'u-L0034-02', 'u-L0040-01']",False,False,,[''],,actual retrieval probe
+Pippa Pippa Goldwhistle,prior_only,50,21,"['u-L0008-01', 'u-L0018-01', 'u-L0034-01', 'u-L0034-02', 'u-L0040-01']",False,False,,[''],,actual retrieval probe
+Bubbles Float Goat,prior_only,10,10,"['u-L0034-02', 'u-L0041-01', 'u-L0008-01', 'u-L0018-01', 'u-L0020-01']",False,False,,[''],,actual retrieval probe
+Bubbles Float Goat,prior_only,20,20,"['u-L0034-02', 'u-L0041-01', 'u-L0008-01', 'u-L0018-01', 'u-L0020-01']",False,False,,[''],,actual retrieval probe
+Bubbles Float Goat,prior_only,50,45,"['u-L0034-02', 'u-L0041-01', 'u-L0008-01', 'u-L0018-01', 'u-L0020-01']",False,False,,[''],,actual retrieval probe
+Bubbles Float Goat,prior_only,10,10,"['u-L0034-02', 'u-L0041-01', 'u-L0008-01', 'u-L0018-01', 'u-L0020-01']",False,False,,[''],,actual retrieval probe
+Bubbles Float Goat,prior_only,20,20,"['u-L0034-02', 'u-L0041-01', 'u-L0008-01', 'u-L0018-01', 'u-L0020-01']",False,False,,[''],,actual retrieval probe
+Bubbles Float Goat,prior_only,50,45,"['u-L0034-02', 'u-L0041-01', 'u-L0008-01', 'u-L0018-01', 'u-L0020-01']",False,False,,[''],,actual retrieval probe
+Grishna River's Edge Pub,prior_only,10,10,"['u-L0005-02', 'u-L0011-02', 'u-L0007-01', 'meta-session-0001-locations', 'meta-session-0002-locations']",False,False,,[''],,actual retrieval probe
+Grishna River's Edge Pub,prior_only,20,20,"['u-L0005-02', 'u-L0011-02', 'u-L0007-01', 'meta-session-0001-locations', 'meta-session-0002-locations']",False,False,,[''],,actual retrieval probe
+Grishna River's Edge Pub,prior_only,50,50,"['u-L0005-02', 'u-L0011-02', 'u-L0007-01', 'meta-session-0001-locations', 'meta-session-0002-locations']",False,False,,[''],,actual retrieval probe
+Stone Bridge flood,prior_only,10,10,"['meta-session-0003-locations', 'meta-session-0001-locations', 'meta-session-0002-locations', 'u-L0003-01', 'u-L0005-01']",False,False,,[''],,actual retrieval probe
+Stone Bridge flood,prior_only,20,20,"['meta-session-0003-locations', 'meta-session-0001-locations', 'meta-session-0002-locations', 'u-L0003-01', 'u-L0005-01']",False,False,,[''],,actual retrieval probe
+Stone Bridge flood,prior_only,50,42,"['meta-session-0003-locations', 'meta-session-0001-locations', 'meta-session-0002-locations', 'u-L0003-01', 'u-L0005-01']",False,False,,[''],,actual retrieval probe
+Mirathorn week on foot,prior_only,10,10,"['meta-session-0003-locations', 'u-L0043-02', 'u-L0043-04', 'u-L0045-01', 'u-L0043-03']",False,False,,[''],,actual retrieval probe
+Mirathorn week on foot,prior_only,20,20,"['meta-session-0003-locations', 'u-L0043-02', 'u-L0043-04', 'u-L0045-01', 'u-L0043-03']",False,False,,[''],,actual retrieval probe
+Mirathorn week on foot,prior_only,50,50,"['meta-session-0003-locations', 'u-L0043-02', 'u-L0043-04', 'u-L0045-01', 'u-L0043-03']",False,False,,[''],,actual retrieval probe
+exact route unknown,prior_only,10,1,['meta-session-0003-locations'],False,False,,[''],,actual retrieval probe
+exact route unknown,prior_only,20,1,['meta-session-0003-locations'],False,False,,[''],,actual retrieval probe
+exact route unknown,prior_only,50,1,['meta-session-0003-locations'],False,False,,[''],,actual retrieval probe
+Stone Bridge Mirathorn,prior_only,10,10,"['meta-session-0003-locations', 'u-L0043-02', 'u-L0043-03', 'u-L0043-04', 'u-L0045-01']",False,False,,[''],,actual retrieval probe
+Stone Bridge Mirathorn,prior_only,20,20,"['meta-session-0003-locations', 'u-L0043-02', 'u-L0043-03', 'u-L0043-04', 'u-L0045-01']",False,False,,[''],,actual retrieval probe
+Stone Bridge Mirathorn,prior_only,50,42,"['meta-session-0003-locations', 'u-L0043-02', 'u-L0043-03', 'u-L0043-04', 'u-L0045-01']",False,False,,[''],,actual retrieval probe
+Hempholm giant tree,prior_only,10,3,"['u-L0003-02', 'u-L0013-02', 'u-L0034-04']",False,False,,[''],,actual retrieval probe
+Hempholm giant tree,prior_only,20,3,"['u-L0003-02', 'u-L0013-02', 'u-L0034-04']",False,False,,[''],,actual retrieval probe
+Hempholm giant tree,prior_only,50,3,"['u-L0003-02', 'u-L0013-02', 'u-L0034-04']",False,False,,[''],,actual retrieval probe
+Hempholm visible threat giant tree,prior_plus_support_content_only,10,10,"['u-L0003-02', 'support:hempholm_premature_celebration', 'support:hempholm_support_overview', 'support:hempholm_tree_visible_threat', 'support:hempholm_treasure_materials']",True,True,4,[''],,actual retrieval probe
+Hempholm visible threat giant tree,prior_plus_support_content_only,20,16,"['u-L0003-02', 'support:hempholm_premature_celebration', 'support:hempholm_support_overview', 'support:hempholm_tree_visible_threat', 'support:hempholm_treasure_materials']",True,True,4,[''],,actual retrieval probe
+Hempholm visible threat giant tree,prior_plus_support_content_only,50,16,"['u-L0003-02', 'support:hempholm_premature_celebration', 'support:hempholm_support_overview', 'support:hempholm_tree_visible_threat', 'support:hempholm_treasure_materials']",True,True,4,[''],,actual retrieval probe
+Hempholm visible threat giant tree,prior_plus_support_content_plus_lexical_hints,10,10,"['support:hempholm_tree_visible_threat', 'u-L0003-02', 'support:hempholm_premature_celebration', 'support:hempholm_support_overview', 'support:hempholm_road_hook_merchant_role']",True,True,1,[''],,actual retrieval probe
+Hempholm visible threat giant tree,prior_plus_support_content_plus_lexical_hints,20,16,"['support:hempholm_tree_visible_threat', 'u-L0003-02', 'support:hempholm_premature_celebration', 'support:hempholm_support_overview', 'support:hempholm_road_hook_merchant_role']",True,True,1,[''],,actual retrieval probe
+Hempholm visible threat giant tree,prior_plus_support_content_plus_lexical_hints,50,16,"['support:hempholm_tree_visible_threat', 'u-L0003-02', 'support:hempholm_premature_celebration', 'support:hempholm_support_overview', 'support:hempholm_road_hook_merchant_role']",True,True,1,[''],,actual retrieval probe

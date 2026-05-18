@@ -1,6 +1,8 @@
 {
   "schema": "dmb_pr57_retrieval_universe_summary_v1",
   "counts": {
-    "direct_probe_hit_step2c_miss": 5
+    "source_exists_but_step2c_miss": 2,
+    "source_missing_on_disk": 1,
+    "source_not_materialized_as_retrieval_record": 9
   }
 }
