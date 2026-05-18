@@ -16,6 +16,10 @@ def test_retrieval_corpus_excludes_eval_docs_gold_canvas_and_artifacts():
     ]
     assert all(not is_allowed_retrieval_corpus_path(p) for p in denied)
     assert is_allowed_retrieval_corpus_path('corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Locations/stone_bridge/README.md')
+    assert not is_allowed_retrieval_corpus_path("README.md")
+    assert not is_allowed_retrieval_corpus_path(".cursor/rules/corpus-layout-conventions.mdc")
+    assert not is_allowed_retrieval_corpus_path("scripts/dev_notes.md")
+    assert not is_allowed_retrieval_corpus_path("")
 
 
 def test_location_hubs_classify_as_location_worldbuilding():

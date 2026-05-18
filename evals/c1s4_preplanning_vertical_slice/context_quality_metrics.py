@@ -86,7 +86,7 @@ def compute_packet_quality_metrics(*, row: dict[str, Any], packet: dict[str, Any
         if "meta-session" in ref or "meta summary" in text:
             noise_refs.append(ref)
         source_path = str(item.get("source") or item.get("source_recap_path") or item.get("source_reference") or "").lower()
-        if _is_leaking_source_path(source_path):
+        if source_path and _is_leaking_source_path(source_path):
             leakage_paths.append(source_path)
         if ("location_hub" in text and "npc" in text) or (infer_planner_lane(item) == "location_worldbuilding" and any(t in text for t in NAV_ONLY_HEADINGS) and "npc" in text):
             continuity_refs.append(ref)

@@ -41,14 +41,12 @@ def is_allowed_retrieval_corpus_path(path: str) -> bool:
     p = _canon_path(path)
     if not p:
         return False
-    if p.startswith("corpus/eldyrwild-markdown/"):
-        return True
+    basename = p.rsplit("/", 1)[-1]
     if any(part in p for part in DENIED_RETRIEVAL_PATH_PARTS):
         return False
-    basename = p.rsplit("/", 1)[-1]
     if any(fnmatch(basename, pat) for pat in DENIED_RETRIEVAL_BASENAME_PATTERNS):
         return False
-    return True
+    return p.startswith("corpus/eldyrwild-markdown/")
 
 
 def infer_context_subject_class(item: dict[str, Any]) -> str:

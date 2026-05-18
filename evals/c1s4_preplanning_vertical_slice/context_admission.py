@@ -135,6 +135,8 @@ def _infer_lane(item: dict[str, Any]) -> str:
         return "known_gaps"
     if lane == "support_knowledge":
         return "support_knowledge"
+    if lane in {"location_context", "worldbuilding", "party_timeline", "pc_timeline"}:
+        return "prior_campaign_memory"
     if lane in {"prior_campaign_memory", "unknown"}:
         uid = str(item.get("unit_id") or "")
         if lane == "unknown" and (uid.startswith("u-L") or uid.startswith("meta-session-")):
