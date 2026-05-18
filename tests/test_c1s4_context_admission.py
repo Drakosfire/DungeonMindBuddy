@@ -44,3 +44,27 @@ def test_lane_budgeted_admission_reduces_support_burial_for_support_profile():
     flat = build_budgeted_admission(question_text='Describe Hempholm magical metallic merchant tree', retrieval_mode='prior_plus_support_content_only', candidates=cands)
     assert not any(i['source_kind'] == 'support_knowledge_card' for i in flat['admitted_context'])
     assert hit['admitted_rank'] is not None
+
+
+def test_lane_budgeted_admission_keeps_location_and_npc_artifacts():
+    candidates = [
+        {
+            "unit_id": "loc1",
+            "source_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Locations/stone_bridge/README.md",
+            "snippet": "Stone Bridge location hub",
+        },
+        {
+            "unit_id": "npc1",
+            "source_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/NPCs/pippa/README.md",
+            "snippet": "Pippa NPC hub",
+        },
+    ]
+    plan = build_lane_plan(question_text="Where in Stone Bridge and what about Pippa?", retrieval_mode="prior_only")
+    out = build_lane_budgeted_admission(
+        question_text="Where in Stone Bridge and what about Pippa?",
+        retrieval_mode="prior_only",
+        candidates=candidates,
+        lane_plan=plan,
+    )
+    admitted_ids = {i.get("unit_id") for i in out["admitted_context"]}
+    assert {"loc1", "npc1"}.issubset(admitted_ids)
