@@ -6,7 +6,7 @@ document_class: reference
 canon_layer: campaign
 campaign_id: longmont-c1
 temporal_scope: campaign_stateful
-world_hub_path: Elderwyld/Cities and Towns/Stonebridge/NPCs/grishna/README.md
+world_hub_path: Elderwyld/Cities and Towns/Stone Bridge/NPCs/grishna/README.md
 divergence_mode: inherit
 primary_location_slug: stonebridge
 ---

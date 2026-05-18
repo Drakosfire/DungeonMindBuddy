@@ -32,7 +32,7 @@ Hempholm is now a **campaign-canon location** because the party visited it in Se
 
 ## Canon summary
 
-Hempholm is a village westward on the road from Stonebridge toward Mirathorn. The party reached it after meeting Torvak Hempdealer, who had left Hempholm quickly and warned them of a tree growing huge overnight and seeming to move.
+Hempholm is a village westward on the road from Stone Bridge toward Mirathorn. The party reached it after meeting Torvak Hempdealer, who had left Hempholm quickly and warned them of a tree growing huge overnight and seeming to move.
 
 When the party arrived, Hempholm was already in crisis around a grotesque, arcane, moving tree. They encountered Torbin, his angry and frightened father Mark Jove, and drunken townsfolk who wanted to attack or burn the tree. The tree proved dangerous, grew during the confrontation, and was eventually destroyed by the party. The victory revealed precious metallic leaves/branches and triggered a premature village celebration.
 

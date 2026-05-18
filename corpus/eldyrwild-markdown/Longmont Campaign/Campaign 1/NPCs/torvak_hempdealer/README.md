@@ -26,7 +26,7 @@ Torvak Hempdealer is campaign canon because the party encountered him on the roa
 
 ## Canon summary
 
-Torvak Hempdealer is a hemp caravaner or road merchant encountered by the party while they were traveling west from Stonebridge toward Mirathorn. He pitches the many benefits of hemp and tells the party that his crew left Hempholm quickly because the town seemed to be facing disaster: a tree had grown huge overnight and seemed to move.
+Torvak Hempdealer is a hemp caravaner or road merchant encountered by the party while they were traveling west from Stone Bridge toward Mirathorn. He pitches the many benefits of hemp and tells the party that his crew left Hempholm quickly because the town seemed to be facing disaster: a tree had grown huge overnight and seemed to move.
 
 Torvak functions as the campaign-canon road hook that points the party toward Hempholm and the grotesque tree crisis.
 
@@ -41,7 +41,7 @@ Torvak functions as the campaign-canon road hook that points the party toward He
 
 | Session | Beat | Recap file |
 |---------|------|------------|
-| 4 | Torvak Hempdealer meets the party on the road west from Stonebridge and warns them about the strange moving tree in Hempholm. | `Session 4 - The Grotesque Tree of Hempholm.md` |
+| 4 | Torvak Hempdealer meets the party on the road west from Stone Bridge and warns them about the strange moving tree in Hempholm. | `Session 4 - The Grotesque Tree of Hempholm.md` |
 
 ## Open canon questions
 

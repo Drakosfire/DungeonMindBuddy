@@ -121,7 +121,7 @@ The climax. A secretive event attended by invitation or… infiltration.
 
 Thunder rolls without lightning, and nearby mages or attuned PCs may detect something is wrong—this is not just weather.
 
-**Arcana DC 14**: This isn’t a random storm. It echoes planar energy—something akin to the storm that flooded Stonebridge.
+**Arcana DC 14**: This isn’t a random storm. It echoes planar energy—something akin to the storm that flooded Stone Bridge.
  **Arcana DC 18** or relevant experience: It’s partially being channeled or amplified by a ritual from elsewhere. Not just chaotic—directed.
 
 ### 🧙‍♂️ Mage Response: Skyweaving
@@ -136,7 +136,7 @@ Visual: Blazing white lines of glyphs arc upward, weaving like threads in a tape
 
 ### 🎭 Opportunities for the Party
 
-**Recognize** the magical storm from Stonebridge. (Ephanna, Stafl, or Bonogo might be most attuned.)
+**Recognize** the magical storm from Stone Bridge. (Ephanna, Stafl, or Bonogo might be most attuned.)
 
 **Speak with the mages** post-show—could open new investigations or side quests.
 

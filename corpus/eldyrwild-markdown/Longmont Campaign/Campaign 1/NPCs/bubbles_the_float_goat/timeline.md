@@ -4,7 +4,7 @@
 
 | Session | Beat (short) | Recap / prep |
 |---------|--------------|--------------|
-| 3 | Pulls Pippa's keg wagon toward StoneBridge; panics during the flood, ends up bleating on a rock in the river, bites Ephanna's mage hand, and is eventually rescued. | `Session 3 - The Stone Bridge Flood.md`; prep source `Elderwyld/The Stonebridge Flood.md` |
+| 3 | Pulls Pippa's keg wagon toward Stone Bridge; panics during the flood, ends up bleating on a rock in the river, bites Ephanna's mage hand, and is eventually rescued. | `Session 3 - The Stone Bridge Flood.md`; prep source `Elderwyld/The Stonebridge Flood.md` |
 | Future hook | Later Mirathorn festival prep notes mention Bubbles appearing with a kid riding her and doing flips. | `Elderwyld/Events/The Festival of Expansion/Schedule and Event Details/Day Two /Day Two Notes.md` |
 
 ## How to use this with prep / statblock generation

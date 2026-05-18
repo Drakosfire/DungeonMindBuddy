@@ -21,7 +21,7 @@ This folder is the Campaign 1 continuity hub for **Baergrom**. It keeps recap-gr
 
 1. `Longmont Campaign/Campaign 1/PCs/baergrom/baergrom_character_dossier.md` — Identity/disambiguation and C1 continuity notes with table-dependent boundaries.
 2. `Longmont Campaign/Campaign 1/PCs/baergrom/timeline.md` — Append-ready session index seeded with pre-campaign and Session 1 inception rows.
-3. `Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md` — Inception roster line and Stonebridge/Glowkindle opening.
+3. `Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md` — Inception roster line and Stone Bridge/Glowkindle opening.
 4. `Longmont Campaign/Campaign 1/Session Recaps/Session 2 - Finishing the Job.md` — Immediate follow-up recap for early-C1 continuity checks.
 
 ## Session recaps (no pinned default)
