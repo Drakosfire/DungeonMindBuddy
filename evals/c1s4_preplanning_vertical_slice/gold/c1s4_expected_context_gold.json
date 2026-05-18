@@ -397,7 +397,7 @@
               ],
               "requires_evidence_compatible": true,
               "match": {
-                "text_contains_any": [
+                "text_contains_all": [
                   "mirathorn",
                   "week"
                 ]
@@ -462,7 +462,7 @@
               ],
               "requires_evidence_compatible": true,
               "match": {
-                "text_contains_any": [
+                "text_contains_all": [
                   "mirathorn",
                   "week"
                 ]
@@ -526,7 +526,7 @@
               ],
               "requires_evidence_compatible": true,
               "match": {
-                "text_contains_any": [
+                "text_contains_all": [
                   "mirathorn",
                   "week"
                 ]
@@ -599,7 +599,7 @@
               ],
               "requires_evidence_compatible": true,
               "match": {
-                "text_contains_any": [
+                "text_contains_all": [
                   "hempholm",
                   "tree"
                 ]
@@ -639,7 +639,7 @@
               ],
               "requires_evidence_compatible": true,
               "match": {
-                "text_contains_any": [
+                "text_contains_all": [
                   "hempholm",
                   "tree"
                 ]
@@ -688,7 +688,7 @@
               ],
               "requires_evidence_compatible": true,
               "match": {
-                "text_contains_any": [
+                "text_contains_all": [
                   "hempholm",
                   "tree"
                 ]

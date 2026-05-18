@@ -322,3 +322,64 @@ def test_npc_hub_match_satisfies_character_lane_group():
     ok, diag = context_item_satisfies_lane_aware_group(item, group=group, rendered_context_packet={"provenance_map": {"pippa-hub": {"rendered_section_id": "character_party_behavior"}}})
     assert ok is True
     assert diag["reason"] == "accepted"
+
+
+def test_known_gap_required_group_uses_synthetic_known_gap_candidates():
+    packet = {
+        "question_number": 3,
+        "question_id": "q03",
+        "retrieved_context": [{"unit_id": "u1", "snippet": "uncertain travel time"}],
+        "known_context_gaps": ["exact Stone Bridge-to-Mirathorn route gazetteer"],
+        "authority_summary": {},
+    }
+    gq = {
+        "expectations_by_mode": {
+            "prior_only": {
+                "required_context_groups": [
+                    {
+                        "group_id": "mirathorn_exact_route_gap",
+                        "required_lane": "known_gap",
+                        "expected_rendered_section": "known_gaps_and_safety_constraints",
+                        "match": {"text_contains_all": ["stone bridge-to-mirathorn", "route gazetteer"]},
+                    }
+                ],
+                "forbidden_context_groups": [],
+                "expected_known_gaps_contains_any": ["exact Stone Bridge-to-Mirathorn route gazetteer"],
+            }
+        }
+    }
+    row = grade_question_packet(packet=packet, gold_question=gq, retrieval_mode="prior_only", top_k=9)
+    assert row["ok"] is True
+    assert row["required_context_groups_hit"] == 1
+
+
+def test_support_source_kind_allowed_even_when_non_corpus_path():
+    item = {
+        "unit_id": "support-hempholm",
+        "source_kind": "support_knowledge_card",
+        "source_reference": "support/cards/hempholm.yaml",
+        "snippet": "Hempholm tree metallic leaves",
+        "presentation_lane": "support_knowledge",
+    }
+    group = {
+        "required_lane": "support_knowledge",
+        "allowed_source_kinds": ["support_knowledge_card"],
+        "match": {"text_contains_all": ["hempholm", "tree"]},
+    }
+    ok, diag = context_item_satisfies_lane_aware_group(item, group=group, rendered_context_packet={"provenance_map": {}})
+    assert ok is True
+    assert diag["reason"] == "accepted"
+
+
+def test_support_like_eval_artifact_path_is_still_rejected():
+    item = {
+        "unit_id": "support-evil",
+        "source_kind": "support_knowledge_card",
+        "source_reference": "evals/c1s4_preplanning_vertical_slice/artifacts/pr53/fake_support.json",
+        "snippet": "Hempholm tree metallic leaves",
+        "presentation_lane": "support_knowledge",
+    }
+    group = {"required_lane": "support_knowledge", "allowed_source_kinds": ["support_knowledge_card"]}
+    ok, diag = context_item_satisfies_lane_aware_group(item, group=group, rendered_context_packet={"provenance_map": {}})
+    assert ok is False
+    assert diag["reason"] == "disallowed_source_path"

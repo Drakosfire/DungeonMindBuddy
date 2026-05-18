@@ -8,7 +8,7 @@
       "rows_ok": 0,
       "rows_failed": 3,
       "required_context_groups": 8,
-      "required_context_groups_hit": 0,
+      "required_context_groups_hit": 1,
       "forbidden_context_group_violations": 0,
       "known_gap_expectations": 2,
       "known_gap_expectations_hit": 2
@@ -19,7 +19,7 @@
       "rows_ok": 0,
       "rows_failed": 3,
       "required_context_groups": 9,
-      "required_context_groups_hit": 0,
+      "required_context_groups_hit": 1,
       "forbidden_context_group_violations": 0,
       "known_gap_expectations": 1,
       "known_gap_expectations_hit": 1
@@ -30,7 +30,7 @@
       "rows_ok": 0,
       "rows_failed": 3,
       "required_context_groups": 9,
-      "required_context_groups_hit": 0,
+      "required_context_groups_hit": 1,
       "forbidden_context_group_violations": 0,
       "known_gap_expectations": 1,
       "known_gap_expectations_hit": 1

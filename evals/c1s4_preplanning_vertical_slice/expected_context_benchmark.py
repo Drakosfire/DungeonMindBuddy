@@ -152,6 +152,8 @@ def match_context_item(item: dict[str, Any], match: dict[str, Any]) -> bool:
         checks.append(any(_norm(tok) in route_blob for tok in match["route_contains_any"]))
     if "text_contains_any" in match:
         checks.append(any(_contains_norm(text, tok) for tok in match["text_contains_any"]))
+    if "text_contains_all" in match:
+        checks.append(all(_contains_norm(text, tok) for tok in match["text_contains_all"]))
     if "session_number_any" in match:
         checks.append(bool(_get_session_values(item).intersection({int(x) for x in match["session_number_any"]})))
     return all(checks) if checks else False
@@ -180,6 +182,8 @@ def context_item_satisfies_lane_aware_group(
     prov = (rendered_context_packet or {}).get("provenance_map") or {}
     if isinstance(prov, dict) and ref in prov:
         rendered_section = (prov.get(ref) or {}).get("rendered_section_id")
+    if rendered_section is None and str(item.get("presentation_lane") or "") == "known_gap":
+        rendered_section = "known_gaps_and_safety_constraints"
 
     diag = {
         "accepted": False,
@@ -193,16 +197,23 @@ def context_item_satisfies_lane_aware_group(
         "source_path": source_path,
         "section_heading": section_heading,
     }
-    if source_path and not is_allowed_retrieval_corpus_path(source_path):
-        diag["reason"] = "disallowed_source_path"
-        return False, diag
+    allowed_source_kinds = set(group.get("allowed_source_kinds", []))
+    if source_path and source_kind != "known_context_gap" and not is_allowed_retrieval_corpus_path(source_path):
+        lower_path = source_path.lower()
+        hard_denied_tokens = ("/evals/", "/docs/", "/gold/", "/artifacts/", "/plans/")
+        if any(tok in lower_path for tok in hard_denied_tokens) or source_kind not in allowed_source_kinds:
+            diag["reason"] = "disallowed_source_path"
+            return False, diag
     if navigation_only and "navigation_only" in (group.get("disallowed_evidence_roles") or []):
         diag["reason"] = "navigation_only_context"
         return False, diag
-    if required_lane and infer_planner_lane(item) != required_lane and group.get("requires_evidence_compatible", True):
-        if not is_context_compatible_with_required_lane(item, required_lane):
-            diag["reason"] = "incompatible_required_lane"
-            return False, diag
+    if required_lane == "known_gap":
+        lane_compatible = inferred_lane in {"known_gap", "known_gaps_and_safety_constraints"} or str(item.get("presentation_lane") or "") == "known_gap"
+    else:
+        lane_compatible = inferred_lane == required_lane or is_context_compatible_with_required_lane(item, required_lane)
+    if required_lane and (not lane_compatible) and group.get("requires_evidence_compatible", True):
+        diag["reason"] = "incompatible_required_lane"
+        return False, diag
     if expected_section and rendered_section != expected_section:
         diag["reason"] = "wrong_rendered_section"
         return False, diag
@@ -212,7 +223,7 @@ def context_item_satisfies_lane_aware_group(
     if subject_class in set(group.get("disallowed_subject_classes", [])):
         diag["reason"] = "disallowed_subject_class"
         return False, diag
-    if group.get("allowed_source_kinds") and source_kind not in set(group.get("allowed_source_kinds", [])):
+    if group.get("allowed_source_kinds") and source_kind not in allowed_source_kinds:
         diag["reason"] = "wrong_source_kind"
         return False, diag
     if source_kind in set(group.get("disallowed_source_kinds", [])):
@@ -265,6 +276,18 @@ def grade_question_packet(*, packet: dict[str, Any], gold_question: dict[str, An
     for grp in required:
         slice_ctx = grading_context if effective_top_k is None else grading_context[:effective_top_k]
         candidates = [i for i in slice_ctx if match_context_item(i, grp.get("match", {}))]
+        if grp.get("required_lane") == "known_gap" or grp.get("expected_rendered_section") == "known_gaps_and_safety_constraints":
+            for gap in packet.get("known_context_gaps", []) or []:
+                synthetic_gap = {
+                    "unit_id": f"known_gap:{gap}",
+                    "ref": f"known_gap:{gap}",
+                    "snippet": str(gap),
+                    "presentation_lane": "known_gap",
+                    "source_kind": "known_context_gap",
+                    "source_reference": f"known_gap:{gap}",
+                }
+                if match_context_item(synthetic_gap, grp.get("match", {})):
+                    candidates.append(synthetic_gap)
         accepted = []
         rejected = []
         for item in candidates:
