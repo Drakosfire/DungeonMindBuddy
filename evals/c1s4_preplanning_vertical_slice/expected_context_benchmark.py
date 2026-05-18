@@ -8,6 +8,7 @@ from typing import Any, Literal
 
 from evals.c1s4_preplanning_vertical_slice.context_admission import estimate_context_item_size, render_context_item_for_budget
 from evals.c1s4_preplanning_vertical_slice.context_renderer import render_context_packet
+from evals.c1s4_preplanning_vertical_slice.context_quality_metrics import compute_packet_quality_metrics
 
 from evals.c1s4_preplanning_vertical_slice.beat_question_answer_harness import PACKET_SCHEMA, iter_target_questions, load_beat_question_targets
 
@@ -28,31 +29,6 @@ LEAKAGE_TOKENS = ["c1s4_expected_context_gold.json", "c1s4_beat_question_targets
 SUPPORT_KIND = "support_knowledge_card"
 
 DEFAULT_GOLD_PATH = Path(__file__).resolve().parent / "gold/c1s4_expected_context_gold.json"
-
-
-def _packet_quality_metrics(packet: dict[str, Any]) -> dict[str, Any]:
-    admitted = packet.get("admitted_context") or packet.get("retrieved_context") or []
-    total = len(admitted) or 1
-    unknown = sum(1 for i in admitted if str(i.get("presentation_lane") or "unknown") == "unknown")
-    support_positions = [idx for idx,i in enumerate(admitted, start=1) if str(i.get("source_kind") or "") == SUPPORT_KIND]
-    support_first = support_positions[0] if support_positions else None
-    total_tokens = sum(estimate_context_item_size(i)[1] for i in admitted) or 1
-    support_tokens = sum(estimate_context_item_size(i)[1] for i in admitted if str(i.get("source_kind") or "") == SUPPORT_KIND)
-    mode = str(packet.get("retrieval_mode") or "")
-    flags=[]
-    if mode=="prior_only" and support_positions:
-        flags.append("prior_only_support_leakage")
-    support_target = int((((packet.get("lane_plan") or {}).get("lanes") or {}).get("support_knowledge") or {}).get("target_chars", 0) or 0)
-    if support_first is None and mode!="prior_only" and support_target > 0:
-        flags.append("support_expected_but_absent")
-    if support_first is not None and support_first>20:
-        flags.append("support_buried_deep")
-    if (unknown/total) > 0.8:
-        flags.append("high_unknown_lane_ratio")
-    score = max(1, min(5, 5-len(flags)))
-    rendered = render_context_packet(packet)
-    kg = next((s for s in rendered.get("sections",[]) if s.get("section_id")=="known_gaps_and_safety_constraints"),{})
-    return {"unknown_lane_ratio": round(unknown/total,4), "support_burial_depth": support_first, "support_token_share": round(support_tokens/total_tokens,4), "known_gaps_near_top": True if kg else False, "llm_usability": {"score_1_to_5": score}, "flags": flags}
 
 
 def _norm(text: Any) -> str:
@@ -253,9 +229,30 @@ def grade_question_packet(*, packet: dict[str, Any], gold_question: dict[str, An
         "admission_budget": packet.get("admission_budget", {}),
         "query_features": packet.get("query_features"),
         "lane_plan": packet.get("lane_plan"),
-        "packet_quality_metrics": _packet_quality_metrics(packet),
-        "rendered_context_packet": render_context_packet(packet),
+        "retrieved_context": packet.get("retrieved_context", []),
+        "candidate_context": packet.get("candidate_context", []),
     }
+
+
+def _attach_render_and_metrics(row: dict[str, Any], *, packet: dict[str, Any], gold_question: dict[str, Any] | None = None) -> dict[str, Any]:
+    rendered_context_packet = render_context_packet({
+        "question_number": row.get("question_number"),
+        "question_id": row.get("question_id"),
+        "question": row.get("question"),
+        "retrieval_mode": row.get("retrieval_mode"),
+        "admission_policy": row.get("admission_policy"),
+        "known_context_gaps": row.get("known_context_gaps", []),
+        "admitted_context": row.get("admitted_context", []),
+        "admission_budget": row.get("admission_budget", {}),
+    })
+    row["rendered_context_packet"] = rendered_context_packet
+    row["packet_quality_metrics"] = compute_packet_quality_metrics(
+        row=row,
+        packet=packet,
+        gold_question=gold_question,
+        rendered_context_packet=rendered_context_packet,
+    )
+    return row
 
 
 def _build_depth_diagnostics(*, retrieved_context: list[dict[str, Any]], required_groups: list[dict[str, Any]], top_k: int, depths: list[int]) -> dict[str, Any]:
@@ -441,6 +438,7 @@ def build_expected_context_report(*, packets: list[dict[str, Any]], gold: dict[s
         if not pkt:
             continue
         row = grade_question_packet(packet=pkt, gold_question=gq, retrieval_mode=retrieval_mode, top_k=chosen_top_k)
+        row = _attach_render_and_metrics(row, packet=pkt, gold_question=gq)
         exp = (gq.get("expectations_by_mode") or {}).get(retrieval_mode, {})
         diag_pkt = by_q_diag.get(qn, pkt)
         row["retrieval_depth_diagnostics"] = _build_depth_diagnostics(
