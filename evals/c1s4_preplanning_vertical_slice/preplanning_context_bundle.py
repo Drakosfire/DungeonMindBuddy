@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from evals.c1s4_preplanning_vertical_slice.context_classification import is_allowed_retrieval_corpus_path
 from evals.c1s4_preplanning_vertical_slice.step0_kb_materialize import check_oracle_leakage
 
 
@@ -34,6 +35,9 @@ def build_preplanning_context_bundle(*, kb_id: str, campaign_id: str, allowed_se
                 "title": record.get("title"),
                 "source_reference": record.get("source_reference"),
             })
+        source_path = str(item.get("source_recap_path") or item.get("source_reference") or "")
+        if source_path and not is_allowed_retrieval_corpus_path(source_path):
+            continue
         items.append(item)
     leakage = check_oracle_leakage(records_or_items=items, heldout_sessions=heldout_sessions, forbidden_oracle_relpaths=forbidden_oracle_relpaths)
     return {

@@ -3,6 +3,7 @@ from __future__ import annotations
 import math
 import re
 from typing import Any
+from evals.c1s4_preplanning_vertical_slice.context_classification import infer_planner_lane
 
 SUPPORT_KIND = "support_knowledge_card"
 STOPWORDS = {
@@ -52,6 +53,15 @@ def support_candidate_is_relevant(question_text: str, item: dict[str, Any]) -> b
 
 
 def classify_presentation_lane(item: dict[str, Any]) -> str:
+    inferred = infer_planner_lane(item)
+    if inferred == "location_worldbuilding":
+        return "location_context"
+    if inferred == "character_party_behavior":
+        return "party_timeline"
+    if inferred == "known_gaps_and_safety_constraints":
+        return "known_gap"
+    if inferred in {"prior_campaign_memory", "support_knowledge"}:
+        return inferred
     source_kind = str(item.get("source_kind") or "")
     source_layer = str(item.get("source_layer") or "")
     txt = render_context_item_for_budget(item).lower()

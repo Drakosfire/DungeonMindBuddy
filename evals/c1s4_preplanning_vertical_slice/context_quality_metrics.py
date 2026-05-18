@@ -3,18 +3,15 @@ from __future__ import annotations
 from typing import Any
 
 from evals.c1s4_preplanning_vertical_slice.context_admission import estimate_context_item_size
+from evals.c1s4_preplanning_vertical_slice.context_classification import (
+    NAV_ONLY_HEADINGS,
+    infer_planner_lane,
+    is_allowed_retrieval_corpus_path,
+    is_navigation_only_context,
+)
 
 SCHEMA = "dmb_packet_quality_metrics_v1"
 SUPPORT_KIND = "support_knowledge_card"
-LEAK_PATH_TOKENS = ("evals/", "docs/", "gold/", "canvas_templates/", "artifacts/")
-NAV_ONLY_TOKENS = (
-    "retrieval keywords",
-    "suggested reads",
-    "cross-references",
-    "npcs anchored here",
-    "npc and social anchors",
-)
-
 
 def _as_list(value: Any) -> list[dict[str, Any]]:
     return value if isinstance(value, list) else []
@@ -30,11 +27,7 @@ def _item_text(item: dict[str, Any]) -> str:
 
 
 def _is_leaking_source_path(source_path: str) -> bool:
-    p = source_path.lower()
-    if any(tok in p for tok in LEAK_PATH_TOKENS):
-        return True
-    name = p.rsplit("/", 1)[-1]
-    return name.startswith("pr") and (name.endswith(".md") or name.endswith(".json"))
+    return not is_allowed_retrieval_corpus_path(source_path)
 
 def compute_packet_quality_metrics(*, row: dict[str, Any], packet: dict[str, Any] | None = None, gold_question: dict[str, Any] | None = None, rendered_context_packet: dict[str, Any] | None = None) -> dict[str, Any]:
     del gold_question
@@ -88,14 +81,14 @@ def compute_packet_quality_metrics(*, row: dict[str, Any], packet: dict[str, Any
             support_tokens += tokens
             if support_admitted_rank is None:
                 support_admitted_rank = idx
-        if any(t in text for t in NAV_ONLY_TOKENS):
+        if is_navigation_only_context(item):
             nav_refs.append(ref)
         if "meta-session" in ref or "meta summary" in text:
             noise_refs.append(ref)
         source_path = str(item.get("source") or item.get("source_recap_path") or item.get("source_reference") or "").lower()
         if _is_leaking_source_path(source_path):
             leakage_paths.append(source_path)
-        if "location_hub" in text and "npc" in text:
+        if ("location_hub" in text and "npc" in text) or (infer_planner_lane(item) == "location_worldbuilding" and any(t in text for t in NAV_ONLY_HEADINGS) and "npc" in text):
             continuity_refs.append(ref)
 
     required_total = int(row.get("required_context_groups") or 0)
