@@ -33,7 +33,7 @@ Locations in this corpus today come in **three structural shapes**. The conventi
 
 **Pattern:** A flat folder named `<Location>_Location_Dossiers/` containing one `.md` file per sub-location, no per-sub-location subfolder. Mossford is the prototype:
 
-```
+```text
 Mossford/Mossford_Location_Dossiers/
   Town Hall.md          # subject_doc_kind: location_dossier
   Watch Tower.md
@@ -107,8 +107,17 @@ Same four-section spirit as NPC and PC hubs, with location framing.
 4. **`## NPCs anchored here`**
    - Bullet list or table linking each NPC hub README that names this location as primary.
    - For NPCs that span multiple locations, list the NPC under the location they are most strongly associated with; cross-link from secondary locations.
+   - **Evidence boundary:** this section is an affiliation/navigation index only. It may help a planner decide which NPC hub to open next, but it does not make the location hub a source of NPC continuity evidence. NPC continuity, relationship state, motivation, and behavior must be read from the linked NPC hub, timeline, dossier, or observed play recap.
 
 A **Cross-references** section may follow if the location is connected to others by road, river, sewer, etc.
+
+### 5.1 Name, slug, and alias handling
+
+Use the folder name as the stable filesystem slug: lowercase, underscores, and one subject per folder. The display title may preserve table spelling, punctuation, or typography.
+
+When an existing world/prep source and an observed campaign recap use different spellings for the same place — for example `Stonebridge` in older setting material versus `Stone Bridge` in a campaign recap — do not silently create two canon entities. Pick the hub slug from the authoritative layer being created, preserve known spelling variants as aliases/retrieval keywords, and add a note explaining that the variants are aliases unless a later canon decision deliberately splits them.
+
+Do not add new core frontmatter fields for aliases unless `Docs/CONVENTION-Corpus-Subject-Schemas.md` is amended first; the frontmatter vocabulary is closed. Use body notes and full corpus-relative paths until an alias field is formally introduced.
 
 ---
 
@@ -162,6 +171,8 @@ Setting-side NPCs that live in a location follow the **NPC convention** (`Docs/C
 
 When a campaign-side NPC is bound to a setting-side location (the Lysandra pattern), the campaign NPC hub cross-links to the location's setting-side NPC hub, not directly to the location. The chain is **Location hub → Setting NPC hub → Campaign NPC hub**.
 
+For retrieval evaluation, lane assignment, and gold matching, a location hub may satisfy location/worldbuilding context only. It must not satisfy NPC-continuity requirements merely because it links or names an NPC. NPC-continuity requirements must be satisfied by `subject_class: npc` artifacts or observed play records admitted into the NPC/character continuity lane.
+
 ---
 
 ## 8. Workflow (when does a Location hub get created or extended?)
@@ -180,4 +191,6 @@ When a campaign-side NPC is bound to a setting-side location (the Lysandra patte
 - [ ] For shape §2.1: ensure the world primer file exists and carries `subject_doc_kind: world_primer`.
 - [ ] For shape §2.2: dossier files carry `subject_doc_kind: location_dossier`.
 - [ ] Cross-link any setting-side NPCs anchored here.
+- [ ] Confirm any `NPCs anchored here` section is navigational only and does not duplicate NPC continuity content.
+- [ ] Record known spelling variants in body notes/retrieval keywords without creating duplicate canon entities.
 - [ ] After corpus edits: fingerprint per `.cursor/rules/corpus-layout-conventions.mdc`.

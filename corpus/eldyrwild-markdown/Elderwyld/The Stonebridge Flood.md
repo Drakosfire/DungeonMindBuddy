@@ -1,5 +1,5 @@
 ---
-title: "The Stonebridge Flood"
+title: "The Stone Bridge Flood"
 document_class: world
 canon_layer: world
 campaign_id: null
@@ -9,7 +9,7 @@ origin_session: null
 last_updated_session: null
 source_class: seed_reference
 ---
-The Stonebridge Flood
+The Stone Bridge Flood
 
 ## Opening
 
@@ -81,7 +81,7 @@ Inside the Pub is Grishna and a number of regulars there for dinner and settling
 
 ### Grishna Dialogue:
 
-## On Stonebridge’s Founding:
+## On Stone Bridge’s Founding:
 
 "You know the old stone bridge the town's named after? Legend has it that it was built overnight by a giant who was trying to impress a human maiden. Whether you believe in such tales or not, it's a testament to the enduring spirit of this place. Been standing over two centuries now, and not even the worst floods could take it down."
 
@@ -101,7 +101,7 @@ Inside the Pub is Grishna and a number of regulars there for dinner and settling
 
 "Being an orc in a mostly human town ain’t always easy. When I first came here, let’s just say not everyone was welcoming. But I’ve found my place, and I’ve seen attitudes change. There’s power in proving yourself through actions, not words. And maybe, just maybe, I’m helping pave the way for others like me."
 
-### Stonebridge Tavern Folk
+### Stone Bridge Tavern Folk
 
 **Milo Thatch:** A jovial halfling baker who loves to share gossip. He hints that not all his ingredients are bought—some are mysteriously found.
 
@@ -255,7 +255,7 @@ As the player recovers, Mira shares her insights about the unnatural nature of t
 
 ## Return to Safety:
 
-After ensuring the player is stable, Mira navigates her boat back upstream, aiming to reunite them with the rest of the party at the tavern or another safe location in Stonebridge.
+After ensuring the player is stable, Mira navigates her boat back upstream, aiming to reunite them with the rest of the party at the tavern or another safe location in Stone Bridge.
 
 # Conclusion
 
@@ -299,14 +299,14 @@ Animals affected by the floodwaters might behave strangely, such as fish swimmin
 
 ### Moving Forward
 
-With the immediate danger past, the adventurers and townsfolk face the task of rebuilding and investigating the cause of the flood. This disaster provides a narrative opportunity for the players to deepen their connection to Stonebridge and its people, possibly rallying the community to uncover and confront the magical threats posed by the neighboring kingdom. The juxtaposition of a bright new day against the backdrop of destruction could serve as a powerful metaphor for renewal and resilience, setting the tone for the next chapter of their adventures.
+With the immediate danger past, the adventurers and townsfolk face the task of rebuilding and investigating the cause of the flood. This disaster provides a narrative opportunity for the players to deepen their connection to Stone Bridge and its people, possibly rallying the community to uncover and confront the magical threats posed by the neighboring kingdom. The juxtaposition of a bright new day against the backdrop of destruction could serve as a powerful metaphor for renewal and resilience, setting the tone for the next chapter of their adventures.
 
 Possible next hooks : Shephards ask to escort the crew to the city of Mirathorn. Maybe this aligns with Pippa who want’s to enter in  a brewing contest.
 
 Bandits attack! Because! Maybe they are freedom fighters!
 Grishna has hear tales of a artifact!
 
-StoneBridge:
+Stone Bridge:
 
 Bubbles :
 
