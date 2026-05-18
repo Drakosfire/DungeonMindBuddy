@@ -23,37 +23,113 @@
           "expected_behavior": "prior recap",
           "required_context_groups": [
             {
-              "group_id": "stone_bridge_flood_aftermath",
+              "group_id": "pippa_character_continuity",
               "min_hits": 1,
-              "reason": "prior recap should reference flood",
+              "reason": "Pippa continuity from NPC/play artifacts.",
+              "required_lane": "character_party_behavior",
+              "expected_rendered_section": "character_party_behavior",
+              "allowed_subject_classes": [
+                "npc",
+                "session_memory"
+              ],
+              "disallowed_subject_classes": [
+                "location"
+              ],
+              "disallowed_evidence_roles": [
+                "navigation_only"
+              ],
+              "disallowed_section_headings": [
+                "Retrieval keywords",
+                "Suggested reads",
+                "Cross-references",
+                "Campaign-canon NPCs anchored here",
+                "NPC and social anchors"
+              ],
+              "requires_evidence_compatible": true,
               "match": {
                 "text_contains_any": [
-                  "stone bridge",
-                  "flood"
+                  "pippa"
                 ]
               }
             },
             {
-              "group_id": "pippa_bubbles_grishna_social_context",
+              "group_id": "bubbles_character_continuity",
               "min_hits": 1,
-              "reason": "npc social context",
+              "reason": "Bubbles continuity from NPC/play artifacts.",
+              "required_lane": "character_party_behavior",
+              "expected_rendered_section": "character_party_behavior",
+              "allowed_subject_classes": [
+                "npc",
+                "session_memory"
+              ],
+              "disallowed_subject_classes": [
+                "location"
+              ],
+              "disallowed_evidence_roles": [
+                "navigation_only"
+              ],
+              "disallowed_section_headings": [
+                "Retrieval keywords",
+                "Suggested reads",
+                "Cross-references",
+                "Campaign-canon NPCs anchored here",
+                "NPC and social anchors"
+              ],
+              "requires_evidence_compatible": true,
               "match": {
                 "text_contains_any": [
-                  "pippa",
-                  "bubbles",
+                  "bubbles"
+                ]
+              }
+            },
+            {
+              "group_id": "grishna_character_continuity",
+              "min_hits": 1,
+              "reason": "Grishna continuity from NPC/play artifacts.",
+              "required_lane": "character_party_behavior",
+              "expected_rendered_section": "character_party_behavior",
+              "allowed_subject_classes": [
+                "npc",
+                "session_memory"
+              ],
+              "disallowed_subject_classes": [
+                "location"
+              ],
+              "disallowed_evidence_roles": [
+                "navigation_only"
+              ],
+              "disallowed_section_headings": [
+                "Retrieval keywords",
+                "Suggested reads",
+                "Cross-references",
+                "Campaign-canon NPCs anchored here",
+                "NPC and social anchors"
+              ],
+              "requires_evidence_compatible": true,
+              "match": {
+                "text_contains_any": [
                   "grishna"
                 ]
               }
             },
             {
-              "group_id": "river_edge_pub_context",
+              "group_id": "stone_bridge_location_support_context",
               "min_hits": 1,
-              "reason": "river edge tavern context",
+              "reason": "Location support context remains required.",
+              "required_lane": "location_worldbuilding",
+              "expected_rendered_section": "location_worldbuilding",
+              "allowed_subject_classes": [
+                "location",
+                "session_memory"
+              ],
+              "disallowed_evidence_roles": [
+                "navigation_only"
+              ],
+              "requires_evidence_compatible": true,
               "match": {
                 "text_contains_any": [
-                  "river edge",
-                  "pub",
-                  "tavern"
+                  "stone bridge",
+                  "river edge"
                 ]
               }
             }
@@ -65,37 +141,113 @@
           "expected_behavior": "prior recap",
           "required_context_groups": [
             {
-              "group_id": "stone_bridge_flood_aftermath",
+              "group_id": "pippa_character_continuity",
               "min_hits": 1,
-              "reason": "prior recap should reference flood",
+              "reason": "Pippa continuity from NPC/play artifacts.",
+              "required_lane": "character_party_behavior",
+              "expected_rendered_section": "character_party_behavior",
+              "allowed_subject_classes": [
+                "npc",
+                "session_memory"
+              ],
+              "disallowed_subject_classes": [
+                "location"
+              ],
+              "disallowed_evidence_roles": [
+                "navigation_only"
+              ],
+              "disallowed_section_headings": [
+                "Retrieval keywords",
+                "Suggested reads",
+                "Cross-references",
+                "Campaign-canon NPCs anchored here",
+                "NPC and social anchors"
+              ],
+              "requires_evidence_compatible": true,
               "match": {
                 "text_contains_any": [
-                  "stone bridge",
-                  "flood"
+                  "pippa"
                 ]
               }
             },
             {
-              "group_id": "pippa_bubbles_grishna_social_context",
+              "group_id": "bubbles_character_continuity",
               "min_hits": 1,
-              "reason": "npc social context",
+              "reason": "Bubbles continuity from NPC/play artifacts.",
+              "required_lane": "character_party_behavior",
+              "expected_rendered_section": "character_party_behavior",
+              "allowed_subject_classes": [
+                "npc",
+                "session_memory"
+              ],
+              "disallowed_subject_classes": [
+                "location"
+              ],
+              "disallowed_evidence_roles": [
+                "navigation_only"
+              ],
+              "disallowed_section_headings": [
+                "Retrieval keywords",
+                "Suggested reads",
+                "Cross-references",
+                "Campaign-canon NPCs anchored here",
+                "NPC and social anchors"
+              ],
+              "requires_evidence_compatible": true,
               "match": {
                 "text_contains_any": [
-                  "pippa",
-                  "bubbles",
+                  "bubbles"
+                ]
+              }
+            },
+            {
+              "group_id": "grishna_character_continuity",
+              "min_hits": 1,
+              "reason": "Grishna continuity from NPC/play artifacts.",
+              "required_lane": "character_party_behavior",
+              "expected_rendered_section": "character_party_behavior",
+              "allowed_subject_classes": [
+                "npc",
+                "session_memory"
+              ],
+              "disallowed_subject_classes": [
+                "location"
+              ],
+              "disallowed_evidence_roles": [
+                "navigation_only"
+              ],
+              "disallowed_section_headings": [
+                "Retrieval keywords",
+                "Suggested reads",
+                "Cross-references",
+                "Campaign-canon NPCs anchored here",
+                "NPC and social anchors"
+              ],
+              "requires_evidence_compatible": true,
+              "match": {
+                "text_contains_any": [
                   "grishna"
                 ]
               }
             },
             {
-              "group_id": "river_edge_pub_context",
+              "group_id": "stone_bridge_location_support_context",
               "min_hits": 1,
-              "reason": "river edge tavern context",
+              "reason": "Location support context remains required.",
+              "required_lane": "location_worldbuilding",
+              "expected_rendered_section": "location_worldbuilding",
+              "allowed_subject_classes": [
+                "location",
+                "session_memory"
+              ],
+              "disallowed_evidence_roles": [
+                "navigation_only"
+              ],
+              "requires_evidence_compatible": true,
               "match": {
                 "text_contains_any": [
-                  "river edge",
-                  "pub",
-                  "tavern"
+                  "stone bridge",
+                  "river edge"
                 ]
               }
             }
@@ -107,37 +259,113 @@
           "expected_behavior": "prior recap",
           "required_context_groups": [
             {
-              "group_id": "stone_bridge_flood_aftermath",
+              "group_id": "pippa_character_continuity",
               "min_hits": 1,
-              "reason": "prior recap should reference flood",
+              "reason": "Pippa continuity from NPC/play artifacts.",
+              "required_lane": "character_party_behavior",
+              "expected_rendered_section": "character_party_behavior",
+              "allowed_subject_classes": [
+                "npc",
+                "session_memory"
+              ],
+              "disallowed_subject_classes": [
+                "location"
+              ],
+              "disallowed_evidence_roles": [
+                "navigation_only"
+              ],
+              "disallowed_section_headings": [
+                "Retrieval keywords",
+                "Suggested reads",
+                "Cross-references",
+                "Campaign-canon NPCs anchored here",
+                "NPC and social anchors"
+              ],
+              "requires_evidence_compatible": true,
               "match": {
                 "text_contains_any": [
-                  "stone bridge",
-                  "flood"
+                  "pippa"
                 ]
               }
             },
             {
-              "group_id": "pippa_bubbles_grishna_social_context",
+              "group_id": "bubbles_character_continuity",
               "min_hits": 1,
-              "reason": "npc social context",
+              "reason": "Bubbles continuity from NPC/play artifacts.",
+              "required_lane": "character_party_behavior",
+              "expected_rendered_section": "character_party_behavior",
+              "allowed_subject_classes": [
+                "npc",
+                "session_memory"
+              ],
+              "disallowed_subject_classes": [
+                "location"
+              ],
+              "disallowed_evidence_roles": [
+                "navigation_only"
+              ],
+              "disallowed_section_headings": [
+                "Retrieval keywords",
+                "Suggested reads",
+                "Cross-references",
+                "Campaign-canon NPCs anchored here",
+                "NPC and social anchors"
+              ],
+              "requires_evidence_compatible": true,
               "match": {
                 "text_contains_any": [
-                  "pippa",
-                  "bubbles",
+                  "bubbles"
+                ]
+              }
+            },
+            {
+              "group_id": "grishna_character_continuity",
+              "min_hits": 1,
+              "reason": "Grishna continuity from NPC/play artifacts.",
+              "required_lane": "character_party_behavior",
+              "expected_rendered_section": "character_party_behavior",
+              "allowed_subject_classes": [
+                "npc",
+                "session_memory"
+              ],
+              "disallowed_subject_classes": [
+                "location"
+              ],
+              "disallowed_evidence_roles": [
+                "navigation_only"
+              ],
+              "disallowed_section_headings": [
+                "Retrieval keywords",
+                "Suggested reads",
+                "Cross-references",
+                "Campaign-canon NPCs anchored here",
+                "NPC and social anchors"
+              ],
+              "requires_evidence_compatible": true,
+              "match": {
+                "text_contains_any": [
                   "grishna"
                 ]
               }
             },
             {
-              "group_id": "river_edge_pub_context",
+              "group_id": "stone_bridge_location_support_context",
               "min_hits": 1,
-              "reason": "river edge tavern context",
+              "reason": "Location support context remains required.",
+              "required_lane": "location_worldbuilding",
+              "expected_rendered_section": "location_worldbuilding",
+              "allowed_subject_classes": [
+                "location",
+                "session_memory"
+              ],
+              "disallowed_evidence_roles": [
+                "navigation_only"
+              ],
+              "requires_evidence_compatible": true,
               "match": {
                 "text_contains_any": [
-                  "river edge",
-                  "pub",
-                  "tavern"
+                  "stone bridge",
+                  "river edge"
                 ]
               }
             }
@@ -155,7 +383,63 @@
       "expectations_by_mode": {
         "prior_only": {
           "expected_behavior": "admit gaps",
-          "required_context_groups": [],
+          "required_context_groups": [
+            {
+              "group_id": "mirathorn_distance_estimate_from_play",
+              "min_hits": 1,
+              "required_lane": "prior_campaign_memory",
+              "expected_rendered_section": "prior_campaign_memory",
+              "allowed_subject_classes": [
+                "session_memory"
+              ],
+              "disallowed_evidence_roles": [
+                "navigation_only"
+              ],
+              "requires_evidence_compatible": true,
+              "match": {
+                "text_contains_any": [
+                  "mirathorn",
+                  "week"
+                ]
+              }
+            },
+            {
+              "group_id": "mirathorn_exact_route_gap",
+              "min_hits": 1,
+              "required_lane": "known_gap",
+              "expected_rendered_section": "known_gaps_and_safety_constraints",
+              "disallowed_evidence_roles": [
+                "navigation_only"
+              ],
+              "requires_evidence_compatible": true,
+              "match": {
+                "text_contains_any": [
+                  "exact stone bridge-to-mirathorn route gazetteer",
+                  "route-specific ecology"
+                ]
+              }
+            },
+            {
+              "group_id": "stone_bridge_location_context",
+              "min_hits": 1,
+              "required_lane": "location_worldbuilding",
+              "expected_rendered_section": "location_worldbuilding",
+              "allowed_subject_classes": [
+                "location",
+                "session_memory"
+              ],
+              "disallowed_evidence_roles": [
+                "navigation_only"
+              ],
+              "requires_evidence_compatible": true,
+              "match": {
+                "text_contains_any": [
+                  "stone bridge",
+                  "mirathorn"
+                ]
+              }
+            }
+          ],
           "forbidden_context_groups": [],
           "expected_known_gaps_contains_any": [
             "exact Stone Bridge-to-Mirathorn route gazetteer",
@@ -164,7 +448,63 @@
         },
         "prior_plus_support_content_only": {
           "expected_behavior": "admit gaps",
-          "required_context_groups": [],
+          "required_context_groups": [
+            {
+              "group_id": "mirathorn_distance_estimate_from_play",
+              "min_hits": 1,
+              "required_lane": "prior_campaign_memory",
+              "expected_rendered_section": "prior_campaign_memory",
+              "allowed_subject_classes": [
+                "session_memory"
+              ],
+              "disallowed_evidence_roles": [
+                "navigation_only"
+              ],
+              "requires_evidence_compatible": true,
+              "match": {
+                "text_contains_any": [
+                  "mirathorn",
+                  "week"
+                ]
+              }
+            },
+            {
+              "group_id": "mirathorn_exact_route_gap",
+              "min_hits": 1,
+              "required_lane": "known_gap",
+              "expected_rendered_section": "known_gaps_and_safety_constraints",
+              "disallowed_evidence_roles": [
+                "navigation_only"
+              ],
+              "requires_evidence_compatible": true,
+              "match": {
+                "text_contains_any": [
+                  "exact stone bridge-to-mirathorn route gazetteer",
+                  "route-specific ecology"
+                ]
+              }
+            },
+            {
+              "group_id": "stone_bridge_location_context",
+              "min_hits": 1,
+              "required_lane": "location_worldbuilding",
+              "expected_rendered_section": "location_worldbuilding",
+              "allowed_subject_classes": [
+                "location",
+                "session_memory"
+              ],
+              "disallowed_evidence_roles": [
+                "navigation_only"
+              ],
+              "requires_evidence_compatible": true,
+              "match": {
+                "text_contains_any": [
+                  "stone bridge",
+                  "mirathorn"
+                ]
+              }
+            }
+          ],
           "forbidden_context_groups": [],
           "expected_known_gaps_contains_any": [
             "exact Stone Bridge-to-Mirathorn route gazetteer"
@@ -172,7 +512,63 @@
         },
         "prior_plus_support_content_plus_lexical_hints": {
           "expected_behavior": "admit gaps",
-          "required_context_groups": [],
+          "required_context_groups": [
+            {
+              "group_id": "mirathorn_distance_estimate_from_play",
+              "min_hits": 1,
+              "required_lane": "prior_campaign_memory",
+              "expected_rendered_section": "prior_campaign_memory",
+              "allowed_subject_classes": [
+                "session_memory"
+              ],
+              "disallowed_evidence_roles": [
+                "navigation_only"
+              ],
+              "requires_evidence_compatible": true,
+              "match": {
+                "text_contains_any": [
+                  "mirathorn",
+                  "week"
+                ]
+              }
+            },
+            {
+              "group_id": "mirathorn_exact_route_gap",
+              "min_hits": 1,
+              "required_lane": "known_gap",
+              "expected_rendered_section": "known_gaps_and_safety_constraints",
+              "disallowed_evidence_roles": [
+                "navigation_only"
+              ],
+              "requires_evidence_compatible": true,
+              "match": {
+                "text_contains_any": [
+                  "exact stone bridge-to-mirathorn route gazetteer",
+                  "route-specific ecology"
+                ]
+              }
+            },
+            {
+              "group_id": "stone_bridge_location_context",
+              "min_hits": 1,
+              "required_lane": "location_worldbuilding",
+              "expected_rendered_section": "location_worldbuilding",
+              "allowed_subject_classes": [
+                "location",
+                "session_memory"
+              ],
+              "disallowed_evidence_roles": [
+                "navigation_only"
+              ],
+              "requires_evidence_compatible": true,
+              "match": {
+                "text_contains_any": [
+                  "stone bridge",
+                  "mirathorn"
+                ]
+              }
+            }
+          ],
           "forbidden_context_groups": [],
           "expected_known_gaps_contains_any": [
             "exact Stone Bridge-to-Mirathorn route gazetteer"
@@ -188,7 +584,28 @@
       "expectations_by_mode": {
         "prior_only": {
           "expected_behavior": "should_generate_generic_and_admit_missing_support",
-          "required_context_groups": [],
+          "required_context_groups": [
+            {
+              "group_id": "hempholm_location_context",
+              "min_hits": 1,
+              "required_lane": "location_worldbuilding",
+              "expected_rendered_section": "location_worldbuilding",
+              "allowed_subject_classes": [
+                "location",
+                "session_memory"
+              ],
+              "disallowed_evidence_roles": [
+                "navigation_only"
+              ],
+              "requires_evidence_compatible": true,
+              "match": {
+                "text_contains_any": [
+                  "hempholm",
+                  "tree"
+                ]
+              }
+            }
+          ],
           "forbidden_context_groups": [
             {
               "group_id": "hempholm_specific_support_forbidden_in_prior_only",
@@ -209,19 +626,41 @@
           "expected_behavior": "should_answer_with_support_specificity",
           "required_context_groups": [
             {
-              "group_id": "hempholm_tree_visible_threat",
+              "group_id": "hempholm_location_context",
               "min_hits": 1,
-              "reason": "Support mode should retrieve Hempholm tree/source-adaptation context.",
+              "required_lane": "location_worldbuilding",
+              "expected_rendered_section": "location_worldbuilding",
+              "allowed_subject_classes": [
+                "location",
+                "session_memory"
+              ],
+              "disallowed_evidence_roles": [
+                "navigation_only"
+              ],
+              "requires_evidence_compatible": true,
+              "match": {
+                "text_contains_any": [
+                  "hempholm",
+                  "tree"
+                ]
+              }
+            },
+            {
+              "group_id": "hempholm_tree_support_context",
+              "min_hits": 1,
+              "required_lane": "support_knowledge",
+              "expected_rendered_section": "support_knowledge",
+              "allowed_source_kinds": [
+                "support_knowledge_card"
+              ],
+              "disallowed_evidence_roles": [
+                "navigation_only"
+              ],
+              "requires_evidence_compatible": true,
               "match": {
                 "source_kind": "support_knowledge_card",
-                "source_layer_any": [
-                  "source_module",
-                  "adaptation_planning",
-                  "world_canon",
-                  "manual_support_synthesis"
-                ],
                 "text_contains_any": [
-                  "Hempholm",
+                  "hempholm",
                   "tree",
                   "metallic",
                   "precious metal"
@@ -236,19 +675,41 @@
           "expected_behavior": "should_answer_with_support_specificity_and_better_recall",
           "required_context_groups": [
             {
-              "group_id": "hempholm_tree_visible_threat",
+              "group_id": "hempholm_location_context",
               "min_hits": 1,
-              "reason": "Lexical-hint support mode should retrieve Hempholm tree/source-adaptation context.",
+              "required_lane": "location_worldbuilding",
+              "expected_rendered_section": "location_worldbuilding",
+              "allowed_subject_classes": [
+                "location",
+                "session_memory"
+              ],
+              "disallowed_evidence_roles": [
+                "navigation_only"
+              ],
+              "requires_evidence_compatible": true,
+              "match": {
+                "text_contains_any": [
+                  "hempholm",
+                  "tree"
+                ]
+              }
+            },
+            {
+              "group_id": "hempholm_tree_support_context",
+              "min_hits": 1,
+              "required_lane": "support_knowledge",
+              "expected_rendered_section": "support_knowledge",
+              "allowed_source_kinds": [
+                "support_knowledge_card"
+              ],
+              "disallowed_evidence_roles": [
+                "navigation_only"
+              ],
+              "requires_evidence_compatible": true,
               "match": {
                 "source_kind": "support_knowledge_card",
-                "source_layer_any": [
-                  "source_module",
-                  "adaptation_planning",
-                  "world_canon",
-                  "manual_support_synthesis"
-                ],
                 "text_contains_any": [
-                  "Hempholm",
+                  "hempholm",
                   "tree",
                   "metallic",
                   "precious metal"
