@@ -53,6 +53,8 @@ This is a campaign-canon location hub derived from observed Session 3 recap mate
 
 ## Campaign-canon NPCs anchored here
 
+These NPC anchors are navigation pointers only for retrieval routing. Treat the underlying NPC hubs and Session 3 recap as evidence of character continuity; this location hub does not, by itself, establish new NPC-state canon.
+
 - Pippa Goldwhistle (`NPCs/pippa/README.md`)
 - Bubbles the Float Goat (`NPCs/bubbles_the_float_goat/README.md`)
 - Grishna (`NPCs/grishna/README.md`)
@@ -69,7 +71,7 @@ This is a campaign-canon location hub derived from observed Session 3 recap mate
 
 ## Retrieval keywords
 
-Stone Bridge; Stone Bridge; flood; River's Edge Pub; River’s Edge Pub; River Edge Pub; Pippa; Bubbles; Float Goat; Grishna; docks; barge; bridge; Mirathorn; festival; morning after; townsfolk; flood rescue
+Stone Bridge; StoneBridge; Stonebridge; flood; River's Edge Pub; River’s Edge Pub; River Edge Pub; Pippa; Bubbles; Float Goat; Grishna; docks; barge; bridge; Mirathorn; festival; morning after; townsfolk; flood rescue
 
 ## Cross-references
 

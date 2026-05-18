@@ -1,6 +1,6 @@
 ---
 schema: dmb_recap_breadcrumbs_v1
-source_recap_path: "Longmont Campaign/Campaign 1/Session Recaps/_normalized/Session 01 - Stone Bridge and Glowkindle Rats.md"
+source_recap_path: "Longmont Campaign/Campaign 1/Session Recaps/_normalized/Session 01 - Stonebridge and Glowkindle Rats.md"
 campaign:
   title: "Longmont Campaign"
   campaign_number: 1
@@ -58,7 +58,7 @@ entity_index:
       route: "Longmont Campaign/Campaign 1/PCs/stafl/"
   locations:
     - slug: stonebridge
-      proposed_route: "Longmont Campaign/Campaign 1/Locations/stonebridge/"
+      proposed_route: "Longmont Campaign/Campaign 1/Locations/stone_bridge/"
       rationale: "Starting town; no location hub in corpus yet."
     - slug: rivers_edge_pub
       proposed_route: "Longmont Campaign/Campaign 1/Locations/rivers_edge_pub/"
@@ -100,9 +100,9 @@ counts_by_subject_type:
 ---
 # Session 1 Recap
 
-After traveling together for some time together as merchant guards, our mish mash of travelers;  Karsemine the Tiefling Ranger, Stafl the 'Human' Bard, Caelynn the Half Elf Sorcerer, Ephanna the Kenku Warlock, Bonogo the Bugbear Rogue, and Baergrom the Dwarf Fighter, found themselves outside the town of Stone Bridge.[Party][Longmont Campaign/Campaign 1/Parties/party_merchant_guards/][PC][Longmont Campaign/Campaign 1/PCs/karsemine/][PC][Longmont Campaign/Campaign 1/PCs/stafl/][PC][Longmont Campaign/Campaign 1/PCs/caelynn/][PC][Longmont Campaign/Campaign 1/PCs/ephanna/][PC][Longmont Campaign/Campaign 1/PCs/bonogo/][PC][Longmont Campaign/Campaign 1/PCs/baergrom/][Location][Longmont Campaign/Campaign 1/Locations/stonebridge/]
+After traveling together for some time together as merchant guards, our mish mash of travelers;  Karsemine the Tiefling Ranger, Stafl the 'Human' Bard, Caelynn the Half Elf Sorcerer, Ephanna the Kenku Warlock, Bonogo the Bugbear Rogue, and Baergrom the Dwarf Fighter, found themselves outside the town of Stone Bridge.[Party][Longmont Campaign/Campaign 1/Parties/party_merchant_guards/][PC][Longmont Campaign/Campaign 1/PCs/karsemine/][PC][Longmont Campaign/Campaign 1/PCs/stafl/][PC][Longmont Campaign/Campaign 1/PCs/caelynn/][PC][Longmont Campaign/Campaign 1/PCs/ephanna/][PC][Longmont Campaign/Campaign 1/PCs/bonogo/][PC][Longmont Campaign/Campaign 1/PCs/baergrom/][Location][Longmont Campaign/Campaign 1/Locations/stone_bridge/]
 
-The town of Stone Bridge is known for very few things, in fact Stone Bridge is hardly known.[Location][Longmont Campaign/Campaign 1/Locations/stonebridge/][Location][Longmont Campaign/Campaign 1/Locations/rivers_edge_pub/] It has the Stone Bridge over the river [River name], it's tavern  The River's Edge Pub run by Grishna the Half-orc, and that's about it.[Location][Longmont Campaign/Campaign 1/Locations/rivers_edge_pub/][NPC][Longmont Campaign/Campaign 1/NPCs/grishna/][Location][Longmont Campaign/Campaign 1/Locations/stonebridge/][NPC][Longmont Campaign/Campaign 1/NPCs/glowkindle/] It did have a job board, and most importantly the local brewer Glowkindle had posted a help request on the jobs board and spread word all around town of his need of a band of mercenaries to help clean up some rats.[Location][Longmont Campaign/Campaign 1/Locations/stonebridge/][NPC][Longmont Campaign/Campaign 1/NPCs/glowkindle/][Party][Longmont Campaign/Campaign 1/Parties/party_merchant_guards/]
+The town of Stone Bridge is known for very few things, in fact Stone Bridge is hardly known.[Location][Longmont Campaign/Campaign 1/Locations/stone_bridge/][Location][Longmont Campaign/Campaign 1/Locations/rivers_edge_pub/] It has the Stone Bridge over the river [River name], it's tavern  The River's Edge Pub run by Grishna the Half-orc, and that's about it.[Location][Longmont Campaign/Campaign 1/Locations/rivers_edge_pub/][NPC][Longmont Campaign/Campaign 1/NPCs/grishna/][Location][Longmont Campaign/Campaign 1/Locations/stone_bridge/][NPC][Longmont Campaign/Campaign 1/NPCs/glowkindle/] It did have a job board, and most importantly the local brewer Glowkindle had posted a help request on the jobs board and spread word all around town of his need of a band of mercenaries to help clean up some rats.[Location][Longmont Campaign/Campaign 1/Locations/stone_bridge/][NPC][Longmont Campaign/Campaign 1/NPCs/glowkindle/][Party][Longmont Campaign/Campaign 1/Parties/party_merchant_guards/]
 
 While doing some drinking at the Riv'ers Edge Pub to wash away the road, Grishna was quick to share that Glowkindle had been through, where the The Wizard's Tower Brewing Co was located.[Location][Longmont Campaign/Campaign 1/Locations/rivers_edge_pub/][NPC][Longmont Campaign/Campaign 1/NPCs/grishna/][NPC][Longmont Campaign/Campaign 1/NPCs/glowkindle/][Location][Longmont Campaign/Campaign 1/Locations/wizards_tower_brewing_company/][PC][Longmont Campaign/Campaign 1/PCs/bonogo/] Up river, west at the big rock, walk till you see it.[PC][Longmont Campaign/Campaign 1/PCs/bonogo/] Bonogo, having very little awareness or care for the cost of things, and greatly enjoying the beer, bought a Firkin of ale for two gold.[PC][Longmont Campaign/Campaign 1/PCs/bonogo/][Location][Longmont Campaign/Campaign 1/Locations/wizards_tower_brewing_company/] He quite enjoyed the hike to the brewery.[Location][Longmont Campaign/Campaign 1/Locations/wizards_tower_brewing_company/]
 

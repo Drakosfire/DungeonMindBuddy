@@ -51,6 +51,8 @@ This campaign-canon location hub is grounded in observed Session 3 recap materia
 
 ## NPC and social anchors
 
+These NPC/social anchors are navigation pointers only for retrieval routing. Use the linked NPC hubs and Session 3 recap as evidence sources for continuity; this location hub should not be treated as standalone NPC-continuity proof.
+
 - Grishna (`NPCs/grishna/README.md`) for beer/board social anchor context.
 - Pippa (`NPCs/pippa/README.md`) and Bubbles (`NPCs/bubbles_the_float_goat/README.md`) as storm/flood trigger and rescue focus.
 - Stone Bridge townsfolk gathered and assisted during flood response.
