@@ -10,7 +10,7 @@ session: 3
 origin_session: 3
 last_updated_session: 3
 source_class: observed_session_recap
-table_note: "Campaign-canon location hub scaffolded from Session 3. Recap text remains authoritative. Uncertain details are listed as open questions. NPC anchor links are navigational and are not NPC continuity evidence."
+table_note: "Campaign-canon location hub scaffolded from Session 3. Canonical campaign name is Stone Bridge; canonical campaign slug is stone_bridge. NPC anchor links are navigational and are not NPC continuity evidence."
 ---
 
 # Stone Bridge — Campaign 1 (table)
@@ -19,9 +19,11 @@ table_note: "Campaign-canon location hub scaffolded from Session 3. Recap text r
 
 This is a campaign-canon location hub derived from observed Session 3 recap material. The recap is authoritative for claims in this file. Uncertain route and ecology details remain open questions.
 
-## Naming and alias note
+## Canonical name and legacy spellings
 
-This campaign hub uses the filesystem slug `stone_bridge` because the observed Session 3 recap title and prose use “Stone Bridge” / “StoneBridge.” Older setting or prep material may use “Stonebridge.” Treat those spellings as aliases for retrieval unless a later canon decision deliberately splits them into separate places.
+- **Canonical campaign display name:** Stone Bridge.
+- **Canonical campaign filesystem slug:** `stone_bridge`.
+- **Legacy/support spellings:** `StoneBridge` and `Stonebridge` appear in older recap prose, prep, world, or generated material. Treat them as retrieval aliases for Stone Bridge, not as separate canon entities and not as preferred spellings for new campaign artifacts.
 
 ## Suggested reads
 
@@ -73,7 +75,7 @@ These links are location-affiliation/navigation anchors only. They do not make t
 
 ## Retrieval keywords
 
-Stone Bridge; StoneBridge; Stonebridge; flood; River's Edge Pub; River’s Edge Pub; River Edge Pub; Pippa; Bubbles; Float Goat; Grishna; docks; barge; bridge; Mirathorn; festival; morning after; townsfolk; flood rescue
+Stone Bridge; stone_bridge; StoneBridge; Stonebridge; flood; River's Edge Pub; River’s Edge Pub; River Edge Pub; Pippa; Bubbles; Float Goat; Grishna; docks; barge; bridge; Mirathorn; festival; morning after; townsfolk; flood rescue
 
 ## Cross-references
 
