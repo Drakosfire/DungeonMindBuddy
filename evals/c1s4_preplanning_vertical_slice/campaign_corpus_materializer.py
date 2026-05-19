@@ -224,10 +224,15 @@ def _materialize_file(relpath: str) -> list[dict[str, Any]]:
     text = full_path.read_text(encoding="utf-8")
     sections = _split_markdown_sections(text)
     records: list[dict[str, Any]] = []
-    for _level, heading, section_body in sections:
+    for level, heading, section_body in sections:
+        body_stripped = section_body.strip()
+        if level == 1 and not body_stripped:
+            continue
         evidence_role = _section_role(source_kind=source_kind, heading=heading)
+        if evidence_role == "evidence" and not body_stripped:
+            continue
         heading_slug = _slugify(heading) or "section"
-        lexical = section_body.strip()
+        lexical = body_stripped
         if heading and evidence_role == "evidence":
             lexical = f"{heading}. {lexical}".strip(". ").strip()
         elif heading and evidence_role in {"alias", "cross_reference", "navigation_only", "known_gap"}:

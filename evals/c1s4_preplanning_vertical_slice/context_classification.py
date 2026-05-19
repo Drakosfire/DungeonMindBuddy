@@ -29,7 +29,10 @@ NAV_ONLY_HEADINGS = (
     "npcs anchored here",
     "campaign-canon npcs anchored here",
     "npc and social anchors",
-    "sub-locations and scene anchors",
+)
+
+NON_ADMITTABLE_EVIDENCE_ROLES = frozenset(
+    {"navigation_only", "alias", "cross_reference", "metadata_only", "known_gap"}
 )
 
 
@@ -72,14 +75,33 @@ def infer_context_subject_class(item: dict[str, Any]) -> str:
 
 def is_navigation_only_context(item: dict[str, Any]) -> bool:
     role = str(item.get("evidence_role") or "").lower()
-    if role in {"navigation_only", "alias", "cross_reference"}:
+    if role == "evidence":
+        return False
+    if role in NON_ADMITTABLE_EVIDENCE_ROLES:
         return True
     heading = str(item.get("section_heading") or item.get("heading") or item.get("section") or "").lower()
     text = " ".join(str(item.get(k) or "") for k in ["title", "snippet", "text", "source_reference"]).lower()
     return any(tok in heading or tok in text for tok in NAV_ONLY_HEADINGS)
 
 
+def is_admittable_planner_evidence(item: dict[str, Any]) -> bool:
+    """Recall/routing records may appear in candidate_context; only admittable evidence may render."""
+    role = str(item.get("evidence_role") or "").lower()
+    if role in NON_ADMITTABLE_EVIDENCE_ROLES:
+        return False
+    if role == "evidence":
+        return True
+    if str(item.get("presentation_lane") or "").lower() == "navigation":
+        return False
+    if is_navigation_only_context(item):
+        return False
+    return True
+
+
 def infer_planner_lane(item: dict[str, Any]) -> str:
+    role = str(item.get("evidence_role") or "").lower()
+    if role in NON_ADMITTABLE_EVIDENCE_ROLES or str(item.get("presentation_lane") or "").lower() == "navigation":
+        return "navigation_non_evidence"
     lane = str(item.get("presentation_lane") or "").lower()
     if lane in {"known_gap", "safety_constraint"}:
         return "known_gaps_and_safety_constraints"

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from evals.c1s4_preplanning_vertical_slice.beat_question_answer_harness import load_beat_question_targets
+import pytest
+
+from evals.c1s4_preplanning_vertical_slice.beat_question_answer_harness import load_beat_question_targets, iter_target_questions
 from evals.c1s4_preplanning_vertical_slice.campaign_corpus_materializer import load_campaign_corpus_records_for_c1s4
 from evals.c1s4_preplanning_vertical_slice.preplanning_context_bundle import build_preplanning_context_bundle
 from evals.c1s4_preplanning_vertical_slice.step0_kb_materialize import DEFAULT_POLICY_PATH, load_kb_manifest
@@ -17,6 +19,23 @@ def _combined_records(mode: str) -> list[dict]:
     return combined
 
 
+def _probe_hits(*, records: list[dict], query: str) -> list[dict]:
+    return list(
+        query_session_memory_candidate(
+            records=records,
+            query=query,
+            campaign_id="longmont-c1",
+            session_min=0,
+            session_max=3,
+            max_hits=50,
+        ).hits
+    )
+
+
+def _refs(hits: list[dict]) -> str:
+    return " ".join(str(h.get("source_recap_path") or h.get("unit_id") or "") for h in hits).lower()
+
+
 def test_step2_combined_universe_includes_campaign_corpus_records() -> None:
     combined = _combined_records("prior_only")
     paths = {str(r.get("source_path") or r.get("source_recap_path") or "") for r in combined}
@@ -24,49 +43,45 @@ def test_step2_combined_universe_includes_campaign_corpus_records() -> None:
     assert any("Locations/stone_bridge/README.md" in p for p in paths)
 
 
-def test_q1_direct_query_retrieves_npc_materialized_records() -> None:
-    records = _combined_records("prior_only")
-    targets = load_beat_question_targets()
-    q1 = next(q for q in targets["beats"][0]["questions"] if q["question_number"] == 1)
-    hits = query_session_memory_candidate(
-        records=records,
-        query=str(q1["question"]),
-        campaign_id="longmont-c1",
-        session_min=0,
-        session_max=3,
-        max_hits=50,
-    ).hits
-    refs = " ".join(str(h.get("source_recap_path") or h.get("unit_id") or "") for h in hits).lower()
-    assert "pippa" in refs or "bubbles" in refs or "grishna" in refs
+@pytest.mark.parametrize(
+    ("needle", "query"),
+    [
+        ("pippa", "Pippa Goldwhistle"),
+        ("bubbles_the_float_goat", "Bubbles Float Goat"),
+        ("grishna", "Grishna River's Edge Pub"),
+    ],
+)
+def test_q1_direct_probe_retrieves_each_npc_family(needle: str, query: str) -> None:
+    hits = _probe_hits(records=_combined_records("prior_only"), query=query)
+    assert needle in _refs(hits)
 
 
-def test_q3_direct_query_retrieves_session_and_location_records() -> None:
-    records = _combined_records("prior_only")
-    targets = load_beat_question_targets()
-    q3 = next(q for q in targets["beats"][0]["questions"] if q["question_number"] == 3)
-    hits = query_session_memory_candidate(
-        records=records,
-        query=str(q3["question"]),
-        campaign_id="longmont-c1",
-        session_min=0,
-        session_max=3,
-        max_hits=50,
-    ).hits
-    refs = " ".join(str(h.get("source_recap_path") or h.get("unit_id") or "") for h in hits).lower()
-    assert "session 3" in refs or "stone_bridge" in refs or "mirathorn" in refs
+@pytest.mark.parametrize(
+    ("needle", "query"),
+    [
+        ("session 3 - the stone bridge flood.md", "Mirathorn week on foot"),
+        ("stone_bridge", "Stone Bridge Mirathorn"),
+    ],
+)
+def test_q3_direct_probe_retrieves_session_recap_and_stone_bridge(needle: str, query: str) -> None:
+    hits = _probe_hits(records=_combined_records("prior_only"), query=query)
+    assert needle in _refs(hits)
 
 
-def test_q5_support_path_retrieves_hempholm_tree_support_card() -> None:
-    records = _combined_records("prior_plus_support_content_only")
-    hits = query_session_memory_candidate(
-        records=records,
+def test_q5_support_direct_probe_retrieves_hempholm_tree_support_card() -> None:
+    hits = _probe_hits(
+        records=_combined_records("prior_plus_support_content_only"),
         query="Hempholm visible threat giant tree",
-        campaign_id="longmont-c1",
-        session_min=0,
-        session_max=3,
-        max_hits=50,
-    ).hits
+    )
     assert any(str(h.get("unit_id") or "") == "support:hempholm_tree_visible_threat" for h in hits)
+
+
+def test_q5_actual_question_does_not_yet_surface_support_card_in_step2_retrieve() -> None:
+    targets = load_beat_question_targets()
+    q5 = next(q for q in iter_target_questions(targets) if q["question_number"] == 5)
+    items, _leak = _retrieve(str(q5["question"]), "prior_plus_support_content_only", "longmont-c1", max_hits=50)
+    unit_ids = {str(i.get("unit_id") or "") for i in items}
+    assert "support:hempholm_tree_visible_threat" not in unit_ids
 
 
 def test_support_bundle_preserves_support_card_hits() -> None:
@@ -91,7 +106,7 @@ def test_support_bundle_preserves_support_card_hits() -> None:
 
 def test_step2_retrieve_includes_materialized_pippa_for_q1() -> None:
     targets = load_beat_question_targets()
-    q1 = next(q for q in targets["beats"][0]["questions"] if q["question_number"] == 1)
+    q1 = next(q for q in iter_target_questions(targets) if q["question_number"] == 1)
     items, _leak = _retrieve(str(q1["question"]), "prior_only", "longmont-c1", max_hits=50)
     refs = " ".join(str(i.get("source_path") or i.get("source_recap_path") or i.get("unit_id") or "") for i in items).lower()
     assert "pippa" in refs

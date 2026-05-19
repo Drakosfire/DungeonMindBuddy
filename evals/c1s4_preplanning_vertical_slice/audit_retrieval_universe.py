@@ -15,9 +15,19 @@ if str(ROOT) not in sys.path:
 from evals.c1s4_preplanning_vertical_slice.campaign_corpus_materializer import load_campaign_corpus_records_for_c1s4
 from evals.c1s4_preplanning_vertical_slice.context_classification import is_allowed_retrieval_corpus_path
 from evals.c1s4_preplanning_vertical_slice.step0_kb_materialize import DEFAULT_POLICY_PATH, load_kb_manifest
+from evals.c1s4_preplanning_vertical_slice.expected_context_benchmark import (
+    EXPECTED_CONTEXT_MULTIMODE_REPORT_SCHEMA,
+    EXPECTED_CONTEXT_REPORT_SCHEMA,
+    load_expected_context_gold,
+    validate_expected_context_gold,
+)
 from evals.c1s4_preplanning_vertical_slice.step2_build_question_context_packets import build_summary
-from evals.c1s4_preplanning_vertical_slice.support_knowledge_loader import load_normalized_support_records
 from src.agent.session_memory_query import query_session_memory_candidate
+
+from evals.c1s4_preplanning_vertical_slice.support_knowledge_loader import load_normalized_support_records
+
+DEFAULT_TARGETS_PATH = Path("evals/c1s4_preplanning_vertical_slice/artifacts/pr57/pr57_expected_evidence_targets.json")
+DEFAULT_GOLD_PATH = Path("evals/c1s4_preplanning_vertical_slice/gold/c1s4_expected_context_gold.json")
 
 RETRIEVAL_MODES = ["prior_only", "prior_plus_support_content_only", "prior_plus_support_content_plus_lexical_hints"]
 
@@ -36,13 +46,13 @@ class ExpectedEvidence:
     expected_terms: list[str]
 
 
-def _load_targets() -> dict[str, Any]:
-    return json.loads(Path("evals/c1s4_preplanning_vertical_slice/artifacts/pr57/pr57_expected_evidence_targets.json").read_text(encoding="utf-8"))
+def _load_targets(targets_path: Path) -> dict[str, Any]:
+    return json.loads(targets_path.read_text(encoding="utf-8"))
 
 
-def build_expected_evidence_manifest() -> list[ExpectedEvidence]:
+def build_expected_evidence_manifest(*, targets_path: Path = DEFAULT_TARGETS_PATH) -> list[ExpectedEvidence]:
     rows: list[ExpectedEvidence] = []
-    for t in _load_targets()["targets"]:
+    for t in _load_targets(targets_path)["targets"]:
         for expected_path in t["expected_paths"]:
             payload = {k: t[k] for k in ExpectedEvidence.__dataclass_fields__.keys() if k != "expected_path"}
             rows.append(ExpectedEvidence(**payload, expected_path=expected_path))
@@ -85,12 +95,48 @@ def classify_retrieval_failure(*, exists: bool, allowed: bool, in_records: bool,
     return "ok_or_later_stage"
 
 
-def run_audit(*, output_dir: Path) -> dict[str, Any]:
+def _validate_step2c_report(step2c_report_path: Path) -> dict[str, Any]:
+    report = json.loads(step2c_report_path.read_text(encoding="utf-8"))
+    schema = str(report.get("schema") or "")
+    if schema not in {EXPECTED_CONTEXT_MULTIMODE_REPORT_SCHEMA, EXPECTED_CONTEXT_REPORT_SCHEMA}:
+        raise ValueError(f"unsupported step2c report schema: {schema!r}")
+    return report
+
+
+def _load_packets_by_mode(*, step2_packets_path: Path | None, rebuild_step2c_packets: bool) -> dict[str, list[dict[str, Any]]]:
+    if step2_packets_path is not None:
+        raw = json.loads(step2_packets_path.read_text(encoding="utf-8"))
+        if isinstance(raw.get("packets_by_mode"), dict):
+            return {str(k): list(v) for k, v in raw["packets_by_mode"].items()}
+        return {str(k): list(v) for k, v in raw.items()}
+    if not rebuild_step2c_packets:
+        raise ValueError("Provide --step2-packets-json or pass --rebuild-step2c-packets")
+    return {m: build_summary(mode=m, max_hits=50)["packets"] for m in RETRIEVAL_MODES}
+
+
+def run_audit(
+    *,
+    output_dir: Path,
+    targets_path: Path = DEFAULT_TARGETS_PATH,
+    gold_path: Path | None = None,
+    step2c_report_path: Path | None = None,
+    step2_packets_path: Path | None = None,
+    rebuild_step2c_packets: bool = True,
+) -> dict[str, Any]:
     output_dir.mkdir(parents=True, exist_ok=True)
     prefix = _artifact_prefix(output_dir)
-    manifest = build_expected_evidence_manifest()
+    if gold_path is not None:
+        gold_errs = validate_expected_context_gold(load_expected_context_gold(gold_path))
+        if gold_errs:
+            raise ValueError(f"invalid gold: {gold_errs}")
+    if step2c_report_path is not None:
+        _validate_step2c_report(step2c_report_path)
+    manifest = build_expected_evidence_manifest(targets_path=targets_path)
     records_by_mode = _combined_records_by_mode()
-    packets_by_mode = {m: build_summary(mode=m, max_hits=50)["packets"] for m in RETRIEVAL_MODES}
+    packets_by_mode = _load_packets_by_mode(
+        step2_packets_path=step2_packets_path,
+        rebuild_step2c_packets=rebuild_step2c_packets,
+    )
 
     manifest_rows: list[dict[str, Any]] = []
     probe_rows: list[dict[str, Any]] = []
@@ -169,7 +215,17 @@ def run_audit(*, output_dir: Path) -> dict[str, Any]:
         matrix_rows.append({"question_id": ev.question_id, "group_id": ev.group_id, "mode": ev.mode, "expected_path": ev.expected_path, "lexical_file_probe_hit": lexical_file_probe_hit, "retrieval_probe_hit": retrieval_probe_hit, "step2c_known_gap_hit": False, "step2c_retrieved_hit": step2c_retrieved, "step2c_candidate_hit": step2c_candidate, "classification_status": status})
 
     counts = {k: sum(1 for r in manifest_rows if r["classification_status"] == k) for k in sorted({r["classification_status"] for r in manifest_rows})}
-    summary = {"schema": f"dmb_{prefix}_retrieval_universe_summary_v1", "counts": counts}
+    summary = {
+        "schema": f"dmb_{prefix}_retrieval_universe_summary_v1",
+        "counts": counts,
+        "inputs": {
+            "targets_path": str(targets_path),
+            "gold_path": str(gold_path) if gold_path else None,
+            "step2c_report_path": str(step2c_report_path) if step2c_report_path else None,
+            "step2_packets_path": str(step2_packets_path) if step2_packets_path else None,
+            "rebuild_step2c_packets": rebuild_step2c_packets,
+        },
+    }
 
     def write_csv(path: Path, data: list[dict[str, Any]]) -> None:
         if not data:
@@ -247,12 +303,34 @@ def run_audit(*, output_dir: Path) -> dict[str, Any]:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--gold", type=Path)
-    parser.add_argument("--step2c-report", type=Path)
+    parser = argparse.ArgumentParser(
+        description=(
+            "Audit retrieval-universe materialization vs expected evidence targets. "
+            "Step2C packet surfaces come from --step2-packets-json when provided; "
+            "otherwise --rebuild-step2c-packets (default) regenerates them via build_summary(). "
+            "--step2c-report validates report schema only (graded results, not packet payloads)."
+        )
+    )
+    parser.add_argument("--targets", type=Path, default=DEFAULT_TARGETS_PATH, help="Expected evidence targets JSON")
+    parser.add_argument("--gold", type=Path, default=DEFAULT_GOLD_PATH, help="Validate expected-context gold schema")
+    parser.add_argument("--step2c-report", type=Path, help="Optional Step2C benchmark report for schema validation")
+    parser.add_argument("--step2-packets-json", type=Path, help="Optional {mode: [packets]} JSON for Step2C packet surfaces")
+    parser.add_argument("--rebuild-step2c-packets", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--output-dir", type=Path, required=True)
     args = parser.parse_args()
-    print(json.dumps(run_audit(output_dir=args.output_dir), indent=2))
+    print(
+        json.dumps(
+            run_audit(
+                output_dir=args.output_dir,
+                targets_path=args.targets,
+                gold_path=args.gold,
+                step2c_report_path=args.step2c_report,
+                step2_packets_path=args.step2_packets_json,
+                rebuild_step2c_packets=args.rebuild_step2c_packets,
+            ),
+            indent=2,
+        )
+    )
     return 0
 
 

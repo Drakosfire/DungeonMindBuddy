@@ -3,7 +3,7 @@ from __future__ import annotations
 import math
 import re
 from typing import Any
-from evals.c1s4_preplanning_vertical_slice.context_classification import infer_planner_lane
+from evals.c1s4_preplanning_vertical_slice.context_classification import infer_planner_lane, is_admittable_planner_evidence
 
 SUPPORT_KIND = "support_knowledge_card"
 STOPWORDS = {
@@ -89,6 +89,8 @@ def build_budgeted_admission(*, question_text: str, retrieval_mode: str, candida
     for idx, item in enumerate(candidate_context, start=1):
         kind = str(item.get("source_kind") or "session_memory")
         counts[kind] = counts.get(kind, 0) + 1
+        if not is_admittable_planner_evidence(item):
+            continue
         chars, tokens = estimate_context_item_size(item)
         if kind == SUPPORT_KIND and support_mode and support_candidate_is_relevant(question_text, item):
             support_candidates.append((idx, item, chars, tokens))
@@ -153,6 +155,8 @@ def build_lane_budgeted_admission(*, question_text: str, retrieval_mode: str, ca
     counts={}
     for idx,item in enumerate(candidate_context, start=1):
         k=str(item.get("source_kind") or "session_memory"); counts[k]=counts.get(k,0)+1
+        if not is_admittable_planner_evidence(item):
+            continue
         lane=_infer_lane(item)
         chars,tokens=estimate_context_item_size(item)
         if retrieval_mode=="prior_only" and str(item.get("source_kind"))==SUPPORT_KIND:
@@ -176,6 +180,8 @@ def build_lane_budgeted_admission(*, question_text: str, retrieval_mode: str, ca
         for idx,item in enumerate(candidate_context, start=1):
             if rem_total<=0 or ln_used>=max_chars: break
             if retrieval_mode=="prior_only" and str(item.get("source_kind"))==SUPPORT_KIND: continue
+            if not is_admittable_planner_evidence(item):
+                continue
             if any(int(x.get("candidate_rank",-1))==idx for x in admitted_raw): continue
             if _infer_lane(item)!=ln: continue
             chars,tokens=estimate_context_item_size(item)

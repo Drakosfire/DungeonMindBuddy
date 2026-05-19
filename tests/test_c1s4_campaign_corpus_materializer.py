@@ -64,6 +64,13 @@ def test_no_denied_paths_materialized() -> None:
         assert "session 4" not in path.lower()
 
 
+def test_materializer_skips_empty_title_only_h1_sections() -> None:
+    records = load_campaign_corpus_records_for_c1s4()
+    stone = _by_path(records, "Locations/stone_bridge/README.md")
+    title_only = [r for r in stone if str(r.get("section_heading") or "").startswith("Stone Bridge — Campaign 1")]
+    assert not title_only
+
+
 def test_materialized_records_are_queryable() -> None:
     records = load_campaign_corpus_records_for_c1s4()
     pippa_hits = query_session_memory_candidate(
