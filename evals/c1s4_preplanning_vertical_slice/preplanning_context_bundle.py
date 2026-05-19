@@ -10,6 +10,19 @@ def build_preplanning_context_bundle(*, kb_id: str, campaign_id: str, allowed_se
     hits = retrieval_result.hits if hasattr(retrieval_result, "hits") else (retrieval_result.get("hits", []) if isinstance(retrieval_result, dict) else [])
     items: list[dict[str, Any]] = []
     records_by_unit_id = records_by_unit_id or {}
+    _corpus_fields = (
+        "source_path",
+        "source_kind",
+        "source_layer",
+        "subject_class",
+        "subject_id",
+        "section_heading",
+        "evidence_role",
+        "presentation_lane",
+        "planner_lane_hint",
+        "title",
+        "subject_doc_kind",
+    )
     for hit in hits[:max_items]:
         unit_id = str(hit.get("unit_id") or "")
         record = records_by_unit_id.get(unit_id, {})
@@ -25,6 +38,9 @@ def build_preplanning_context_bundle(*, kb_id: str, campaign_id: str, allowed_se
                 "why_matched": hit.get("why_matched") or [],
                 "snippet": snippet,
             }
+        for field in _corpus_fields:
+            if record.get(field) is not None:
+                item[field] = record[field]
         if record.get("source_kind") == "support_knowledge_card":
             item.pop("session_number", None)
             item.update({
@@ -34,8 +50,12 @@ def build_preplanning_context_bundle(*, kb_id: str, campaign_id: str, allowed_se
                 "canon_status": record.get("canon_status"),
                 "title": record.get("title"),
                 "source_reference": record.get("source_reference"),
+                "presentation_lane": "support_knowledge",
+                "subject_class": "support",
             })
-        source_path = str(item.get("source_recap_path") or item.get("source_reference") or "")
+            items.append(item)
+            continue
+        source_path = str(item.get("source_path") or item.get("source_recap_path") or "")
         if source_path and not is_allowed_retrieval_corpus_path(source_path):
             continue
         items.append(item)

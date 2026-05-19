@@ -21,6 +21,7 @@ from evals.c1s4_preplanning_vertical_slice.beat_question_answer_harness import (
 from evals.c1s4_preplanning_vertical_slice.preplanning_context_bundle import build_preplanning_context_bundle
 from evals.c1s4_preplanning_vertical_slice.context_admission import build_budgeted_admission, build_lane_budgeted_admission
 from evals.c1s4_preplanning_vertical_slice.query_lane_router import build_lane_plan
+from evals.c1s4_preplanning_vertical_slice.campaign_corpus_materializer import load_campaign_corpus_records_for_c1s4
 from evals.c1s4_preplanning_vertical_slice.step0_kb_materialize import DEFAULT_POLICY_PATH, load_kb_manifest
 from evals.c1s4_preplanning_vertical_slice.support_knowledge_loader import load_normalized_support_records
 from src.agent.session_memory_query import query_session_memory_candidate
@@ -35,6 +36,7 @@ def _retrieve(query: str, mode: QuestionRetrievalMode, campaign_id: str, *, max_
     if manifest["forbidden_path_hits"] or manifest["forbidden_session_hits"] or manifest.get("unexpected_session_hits"):
         raise C1S4BoundaryError("Step 0 manifest is not oracle-safe; aborting Step 2 packet generation")
     combined = list(session_records)
+    combined.extend(load_campaign_corpus_records_for_c1s4())
     if mode == "prior_plus_support_content_only":
         combined.extend(load_normalized_support_records(retrieval_mode="content_only"))
     elif mode == "prior_plus_support_content_plus_lexical_hints":

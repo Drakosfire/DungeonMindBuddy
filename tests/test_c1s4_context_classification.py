@@ -37,10 +37,21 @@ def test_location_hub_npc_anchors_are_navigation_only_and_not_character_compatib
         'source_path': 'corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Locations/stone_bridge/README.md',
         'subject_class': 'location',
         'section_heading': 'Campaign-canon NPCs anchored here',
+        'evidence_role': 'navigation_only',
         'snippet': 'Pippa, Bubbles, Grishna',
     }
     assert is_navigation_only_context(item) is True
     assert is_context_compatible_with_required_lane(item, 'character_party_behavior') is False
+
+
+def test_evidence_role_alias_is_navigation_only():
+    item = {
+        'source_path': 'corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Locations/stone_bridge/README.md',
+        'evidence_role': 'alias',
+        'section_heading': 'Retrieval keywords',
+    }
+    assert is_navigation_only_context(item) is True
+    assert is_context_compatible_with_required_lane(item, 'location_worldbuilding') is False
 
 
 def test_npc_hub_content_is_character_compatible():

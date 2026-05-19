@@ -12,6 +12,7 @@ from evals.c1s4_preplanning_vertical_slice.step0_kb_materialize import (
     load_kb_manifest,
 )
 from evals.c1s4_preplanning_vertical_slice.step1_retrieval_context import C1S4BoundaryError, run_step1
+from evals.c1s4_preplanning_vertical_slice.support_knowledge_loader import load_normalized_support_records
 
 
 def _policy() -> dict:
@@ -71,8 +72,44 @@ def test_context_bundle_schema_contains_required_fields():
 
 def test_context_bundle_rejects_c1s4_item():
     p = _policy()
-    bundle = build_preplanning_context_bundle(kb_id=p["kb_id"], campaign_id=p["campaign_id"], allowed_sessions=[1, 2, 3], heldout_sessions=[4], query="q", retrieval_result={"hits": [{"unit_id": "bad", "session_number": 4, "source_recap_path": "x"}]}, forbidden_oracle_relpaths=p["forbidden_oracle_relpaths"])
+    bundle = build_preplanning_context_bundle(
+        kb_id=p["kb_id"],
+        campaign_id=p["campaign_id"],
+        allowed_sessions=[1, 2, 3],
+        heldout_sessions=[4],
+        query="q",
+        retrieval_result={
+            "hits": [
+                {
+                    "unit_id": "bad",
+                    "session_number": 4,
+                    "source_recap_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/NPCs/pippa/README.md",
+                }
+            ]
+        },
+        forbidden_oracle_relpaths=p["forbidden_oracle_relpaths"],
+    )
     assert bundle["oracle_leakage_check"]["forbidden_session_hits"]
+
+
+def test_context_bundle_preserves_support_knowledge_card_hits():
+    p = _policy()
+    support_record = load_normalized_support_records(retrieval_mode="content_only")[0]
+    unit_id = str(support_record["unit_id"])
+    bundle = build_preplanning_context_bundle(
+        kb_id=p["kb_id"],
+        campaign_id=p["campaign_id"],
+        allowed_sessions=[1, 2, 3],
+        heldout_sessions=[4],
+        query="Hempholm tree",
+        retrieval_result={"hits": [{"unit_id": unit_id, "routes": [], "why_matched": ["lexical_token:hempholm"]}]},
+        forbidden_oracle_relpaths=p["forbidden_oracle_relpaths"],
+        records_by_unit_id={unit_id: support_record},
+        max_items=8,
+    )
+    assert bundle["items"]
+    assert bundle["items"][0]["source_kind"] == "support_knowledge_card"
+    assert bundle["items"][0]["unit_id"] == unit_id
 
 
 def test_context_bundle_hydrates_snippet_from_loaded_records():
@@ -83,7 +120,7 @@ def test_context_bundle_hydrates_snippet_from_loaded_records():
         allowed_sessions=[1, 2, 3],
         heldout_sessions=[4],
         query="q",
-        retrieval_result={"hits": [{"unit_id": "u1", "source_recap_path": "path", "session_number": 1}]},
+        retrieval_result={"hits": [{"unit_id": "u1", "source_recap_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/NPCs/pippa/README.md", "session_number": 1}]},
         forbidden_oracle_relpaths=p["forbidden_oracle_relpaths"],
         records_by_unit_id={"u1": {"unit_id": "u1", "lexical_plain": "Hydrated lexical text"}},
     )

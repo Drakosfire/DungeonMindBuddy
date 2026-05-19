@@ -71,6 +71,9 @@ def infer_context_subject_class(item: dict[str, Any]) -> str:
 
 
 def is_navigation_only_context(item: dict[str, Any]) -> bool:
+    role = str(item.get("evidence_role") or "").lower()
+    if role in {"navigation_only", "alias", "cross_reference"}:
+        return True
     heading = str(item.get("section_heading") or item.get("heading") or item.get("section") or "").lower()
     text = " ".join(str(item.get(k) or "") for k in ["title", "snippet", "text", "source_reference"]).lower()
     return any(tok in heading or tok in text for tok in NAV_ONLY_HEADINGS)
