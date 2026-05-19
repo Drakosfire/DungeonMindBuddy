@@ -1,6 +1,7 @@
 from evals.c1s4_preplanning_vertical_slice.context_classification import (
     is_allowed_retrieval_corpus_path,
     infer_planner_lane,
+    is_admittable_planner_evidence,
     is_navigation_only_context,
     is_context_compatible_with_required_lane,
 )
@@ -37,10 +38,35 @@ def test_location_hub_npc_anchors_are_navigation_only_and_not_character_compatib
         'source_path': 'corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Locations/stone_bridge/README.md',
         'subject_class': 'location',
         'section_heading': 'Campaign-canon NPCs anchored here',
+        'evidence_role': 'navigation_only',
         'snippet': 'Pippa, Bubbles, Grishna',
     }
     assert is_navigation_only_context(item) is True
     assert is_context_compatible_with_required_lane(item, 'character_party_behavior') is False
+
+
+def test_evidence_role_alias_is_navigation_only():
+    item = {
+        'source_path': 'corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Locations/stone_bridge/README.md',
+        'evidence_role': 'alias',
+        'section_heading': 'Retrieval keywords',
+    }
+    assert is_navigation_only_context(item) is True
+    assert is_admittable_planner_evidence(item) is False
+    assert is_context_compatible_with_required_lane(item, 'location_worldbuilding') is False
+
+
+def test_explicit_evidence_role_wins_over_heading_heuristic():
+    item = {
+        'source_path': 'corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Locations/stone_bridge/README.md',
+        'subject_class': 'location',
+        'evidence_role': 'evidence',
+        'section_heading': 'Sub-locations and scene anchors',
+        'snippet': "River's Edge Pub as a key social and refuge space.",
+    }
+    assert is_navigation_only_context(item) is False
+    assert is_admittable_planner_evidence(item) is True
+    assert is_context_compatible_with_required_lane(item, 'location_worldbuilding') is True
 
 
 def test_npc_hub_content_is_character_compatible():

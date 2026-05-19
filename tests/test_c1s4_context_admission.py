@@ -52,11 +52,13 @@ def test_lane_budgeted_admission_keeps_location_and_npc_artifacts():
             "unit_id": "loc1",
             "source_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Locations/stone_bridge/README.md",
             "snippet": "Stone Bridge location hub",
+            "evidence_role": "evidence",
         },
         {
             "unit_id": "npc1",
             "source_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/NPCs/pippa/README.md",
             "snippet": "Pippa NPC hub",
+            "evidence_role": "evidence",
         },
     ]
     plan = build_lane_plan(question_text="Where in Stone Bridge and what about Pippa?", retrieval_mode="prior_only")
@@ -68,3 +70,32 @@ def test_lane_budgeted_admission_keeps_location_and_npc_artifacts():
     )
     admitted_ids = {i.get("unit_id") for i in out["admitted_context"]}
     assert {"loc1", "npc1"}.issubset(admitted_ids)
+
+
+def test_lane_budgeted_admission_excludes_non_evidence_roles_from_admitted_context():
+    candidates = [
+        {
+            "unit_id": "alias1",
+            "source_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Locations/stone_bridge/README.md",
+            "snippet": "Stone Bridge flood Mirathorn keywords",
+            "evidence_role": "alias",
+            "presentation_lane": "navigation",
+        },
+        {
+            "unit_id": "evidence1",
+            "source_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Locations/stone_bridge/README.md",
+            "snippet": "Stone Bridge is campaign-canon because the party spent Session 3 there.",
+            "evidence_role": "evidence",
+        },
+    ]
+    plan = build_lane_plan(question_text="Stone Bridge flood", retrieval_mode="prior_only")
+    out = build_lane_budgeted_admission(
+        question_text="Stone Bridge flood",
+        retrieval_mode="prior_only",
+        candidates=candidates,
+        lane_plan=plan,
+    )
+    assert len(out["candidate_context"]) == 2
+    admitted_ids = {i.get("unit_id") for i in out["admitted_context"]}
+    assert "alias1" not in admitted_ids
+    assert "evidence1" in admitted_ids

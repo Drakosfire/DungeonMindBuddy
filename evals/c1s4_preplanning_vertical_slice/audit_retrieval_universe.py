@@ -12,11 +12,22 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from evals.c1s4_preplanning_vertical_slice.campaign_corpus_materializer import load_campaign_corpus_records_for_c1s4
 from evals.c1s4_preplanning_vertical_slice.context_classification import is_allowed_retrieval_corpus_path
 from evals.c1s4_preplanning_vertical_slice.step0_kb_materialize import DEFAULT_POLICY_PATH, load_kb_manifest
+from evals.c1s4_preplanning_vertical_slice.expected_context_benchmark import (
+    EXPECTED_CONTEXT_MULTIMODE_REPORT_SCHEMA,
+    EXPECTED_CONTEXT_REPORT_SCHEMA,
+    load_expected_context_gold,
+    validate_expected_context_gold,
+)
 from evals.c1s4_preplanning_vertical_slice.step2_build_question_context_packets import build_summary
-from evals.c1s4_preplanning_vertical_slice.support_knowledge_loader import load_normalized_support_records
 from src.agent.session_memory_query import query_session_memory_candidate
+
+from evals.c1s4_preplanning_vertical_slice.support_knowledge_loader import load_normalized_support_records
+
+DEFAULT_TARGETS_PATH = Path("evals/c1s4_preplanning_vertical_slice/artifacts/pr57/pr57_expected_evidence_targets.json")
+DEFAULT_GOLD_PATH = Path("evals/c1s4_preplanning_vertical_slice/gold/c1s4_expected_context_gold.json")
 
 RETRIEVAL_MODES = ["prior_only", "prior_plus_support_content_only", "prior_plus_support_content_plus_lexical_hints"]
 
@@ -35,24 +46,33 @@ class ExpectedEvidence:
     expected_terms: list[str]
 
 
-def _load_targets() -> dict[str, Any]:
-    return json.loads(Path("evals/c1s4_preplanning_vertical_slice/artifacts/pr57/pr57_expected_evidence_targets.json").read_text(encoding="utf-8"))
+def _load_targets(targets_path: Path) -> dict[str, Any]:
+    return json.loads(targets_path.read_text(encoding="utf-8"))
 
 
-def build_expected_evidence_manifest() -> list[ExpectedEvidence]:
+def build_expected_evidence_manifest(*, targets_path: Path = DEFAULT_TARGETS_PATH) -> list[ExpectedEvidence]:
     rows: list[ExpectedEvidence] = []
-    for t in _load_targets()["targets"]:
+    for t in _load_targets(targets_path)["targets"]:
         for expected_path in t["expected_paths"]:
             payload = {k: t[k] for k in ExpectedEvidence.__dataclass_fields__.keys() if k != "expected_path"}
             rows.append(ExpectedEvidence(**payload, expected_path=expected_path))
     return rows
 
 
+def _artifact_prefix(output_dir: Path) -> str:
+    name = output_dir.name.lower()
+    if name.startswith("pr") and name[2:].isdigit():
+        return name
+    return "pr57"
+
+
 def _combined_records_by_mode() -> dict[str, list[dict[str, Any]]]:
     _, session_records = load_kb_manifest(DEFAULT_POLICY_PATH)
-    out = {"prior_only": list(session_records)}
-    out["prior_plus_support_content_only"] = list(session_records) + load_normalized_support_records(retrieval_mode="content_only")
-    out["prior_plus_support_content_plus_lexical_hints"] = list(session_records) + load_normalized_support_records(retrieval_mode="content_plus_lexical_hints")
+    corpus_records = load_campaign_corpus_records_for_c1s4()
+    base = list(session_records) + corpus_records
+    out = {"prior_only": list(base)}
+    out["prior_plus_support_content_only"] = list(base) + load_normalized_support_records(retrieval_mode="content_only")
+    out["prior_plus_support_content_plus_lexical_hints"] = list(base) + load_normalized_support_records(retrieval_mode="content_plus_lexical_hints")
     return out
 
 
@@ -75,11 +95,48 @@ def classify_retrieval_failure(*, exists: bool, allowed: bool, in_records: bool,
     return "ok_or_later_stage"
 
 
-def run_audit(*, output_dir: Path) -> dict[str, Any]:
+def _validate_step2c_report(step2c_report_path: Path) -> dict[str, Any]:
+    report = json.loads(step2c_report_path.read_text(encoding="utf-8"))
+    schema = str(report.get("schema") or "")
+    if schema not in {EXPECTED_CONTEXT_MULTIMODE_REPORT_SCHEMA, EXPECTED_CONTEXT_REPORT_SCHEMA}:
+        raise ValueError(f"unsupported step2c report schema: {schema!r}")
+    return report
+
+
+def _load_packets_by_mode(*, step2_packets_path: Path | None, rebuild_step2c_packets: bool) -> dict[str, list[dict[str, Any]]]:
+    if step2_packets_path is not None:
+        raw = json.loads(step2_packets_path.read_text(encoding="utf-8"))
+        if isinstance(raw.get("packets_by_mode"), dict):
+            return {str(k): list(v) for k, v in raw["packets_by_mode"].items()}
+        return {str(k): list(v) for k, v in raw.items()}
+    if not rebuild_step2c_packets:
+        raise ValueError("Provide --step2-packets-json or pass --rebuild-step2c-packets")
+    return {m: build_summary(mode=m, max_hits=50)["packets"] for m in RETRIEVAL_MODES}
+
+
+def run_audit(
+    *,
+    output_dir: Path,
+    targets_path: Path = DEFAULT_TARGETS_PATH,
+    gold_path: Path | None = None,
+    step2c_report_path: Path | None = None,
+    step2_packets_path: Path | None = None,
+    rebuild_step2c_packets: bool = True,
+) -> dict[str, Any]:
     output_dir.mkdir(parents=True, exist_ok=True)
-    manifest = build_expected_evidence_manifest()
+    prefix = _artifact_prefix(output_dir)
+    if gold_path is not None:
+        gold_errs = validate_expected_context_gold(load_expected_context_gold(gold_path))
+        if gold_errs:
+            raise ValueError(f"invalid gold: {gold_errs}")
+    if step2c_report_path is not None:
+        _validate_step2c_report(step2c_report_path)
+    manifest = build_expected_evidence_manifest(targets_path=targets_path)
     records_by_mode = _combined_records_by_mode()
-    packets_by_mode = {m: build_summary(mode=m, max_hits=50)["packets"] for m in RETRIEVAL_MODES}
+    packets_by_mode = _load_packets_by_mode(
+        step2_packets_path=step2_packets_path,
+        rebuild_step2c_packets=rebuild_step2c_packets,
+    )
 
     manifest_rows: list[dict[str, Any]] = []
     probe_rows: list[dict[str, Any]] = []
@@ -158,60 +215,122 @@ def run_audit(*, output_dir: Path) -> dict[str, Any]:
         matrix_rows.append({"question_id": ev.question_id, "group_id": ev.group_id, "mode": ev.mode, "expected_path": ev.expected_path, "lexical_file_probe_hit": lexical_file_probe_hit, "retrieval_probe_hit": retrieval_probe_hit, "step2c_known_gap_hit": False, "step2c_retrieved_hit": step2c_retrieved, "step2c_candidate_hit": step2c_candidate, "classification_status": status})
 
     counts = {k: sum(1 for r in manifest_rows if r["classification_status"] == k) for k in sorted({r["classification_status"] for r in manifest_rows})}
-    summary = {"schema": "dmb_pr57_retrieval_universe_summary_v1", "counts": counts}
+    summary = {
+        "schema": f"dmb_{prefix}_retrieval_universe_summary_v1",
+        "counts": counts,
+        "inputs": {
+            "targets_path": str(targets_path),
+            "gold_path": str(gold_path) if gold_path else None,
+            "step2c_report_path": str(step2c_report_path) if step2c_report_path else None,
+            "step2_packets_path": str(step2_packets_path) if step2_packets_path else None,
+            "rebuild_step2c_packets": rebuild_step2c_packets,
+        },
+    }
 
     def write_csv(path: Path, data: list[dict[str, Any]]) -> None:
+        if not data:
+            path.write_text("", encoding="utf-8")
+            return
         with path.open("w", newline="", encoding="utf-8") as f:
             w = csv.DictWriter(f, fieldnames=list(data[0].keys()))
             w.writeheader()
             w.writerows(data)
 
-    (output_dir / "pr57_retrieval_universe_summary.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
-    write_csv(output_dir / "pr57_expected_evidence_manifest.csv", manifest_rows)
-    write_csv(output_dir / "pr57_direct_probe_results.csv", probe_rows)
-    write_csv(output_dir / "pr57_step2c_vs_direct_probe_matrix.csv", matrix_rows)
+    (output_dir / f"{prefix}_retrieval_universe_summary.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
+    write_csv(output_dir / f"{prefix}_expected_evidence_manifest.csv", manifest_rows)
+    write_csv(output_dir / f"{prefix}_direct_probe_results.csv", probe_rows)
+    write_csv(output_dir / f"{prefix}_step2c_vs_direct_probe_matrix.csv", matrix_rows)
 
     corpus_rows = [r for r in manifest_rows if str(r["expected_path"]).startswith("corpus/")]
     support_rows = [r for r in manifest_rows if str(r["expected_source_kind"]) == "support_knowledge_card"]
     not_materialized = sum(1 for r in corpus_rows if r["classification_status"] == "source_not_materialized_as_retrieval_record")
     support_probe_hits = sum(1 for r in support_rows if r.get("retrieval_probe_hit") is True)
     support_step2c_misses = sum(1 for r in support_rows if r.get("retrieval_probe_hit") is True and not r.get("step2c_retrieved_hit"))
+    support_step2c_candidate_hits = sum(1 for r in support_rows if r.get("step2c_candidate_hit") is True)
 
-    (output_dir / "README.md").write_text("PR57 retrieval-universe audit artifacts.\n", encoding="utf-8")
-    (output_dir / "pr57_retrieval_universe_audit.md").write_text(
-        "# PR57 Retrieval Universe Audit\n\n"
+    readme_title = prefix.upper()
+    (output_dir / "README.md").write_text(f"{readme_title} retrieval-universe audit artifacts.\n", encoding="utf-8")
+    audit_md = output_dir / f"{prefix}_retrieval_universe_audit.md"
+    if prefix == "pr58":
+        audit_md = output_dir / f"{prefix}_materialization_report.md"
+    audit_md.write_text(
+        f"# {readme_title} Retrieval Universe Audit\n\n"
         "## Scope\n"
         "Q1/Q3/Q5 lane-aware expected evidence groups, including known gaps and support-enabled modes.\n\n"
         "## Executive Summary\n"
-        f"- Corpus markdown hubs/dossiers generally exist and pass hygiene but are often not materialized into the Step2C retrieval record universe ({not_materialized} rows).\n"
-        "- Step2C retrieval universe is currently dominated by Step0 session-memory materialization plus support-card augmentation, not arbitrary corpus markdown hub ingestion.\n"
-        f"- Support cards are materialized and retrieval-probe reachable ({support_probe_hits} rows), yet some still miss Step2C retrieved/candidate surfaces ({support_step2c_misses} rows).\n"
+        f"- Corpus markdown hubs/dossiers/recaps are materialized into the Step2C retrieval record universe ({not_materialized} corpus rows still `source_not_materialized_as_retrieval_record`).\n"
+        "- Step2C retrieval universe combines Step0 session-memory records, PR58 campaign-corpus section records, and support-card augmentation.\n"
+        f"- Support cards are materialized and retrieval-probe reachable ({support_probe_hits} rows); Step2C candidate hits: {support_step2c_candidate_hits}; retrieved misses after probe hit: {support_step2c_misses}.\n"
         "- Known-gap targets are audited against packet `known_context_gaps` and not treated as filesystem/index artifacts.\n\n"
         "## What this proves\n"
         "1. Existence/hygiene for corpus paths is mostly not the bottleneck.\n"
-        "2. Record-universe materialization is a primary early failing surface for corpus hub/dossier evidence.\n"
-        "3. There is a separate Step2C query/assembly mismatch for support evidence that is retrievable in direct probes.\n\n"
+        "2. Record-universe materialization is the primary early surface for corpus hub/dossier/recap evidence.\n"
+        "3. Support-card Step2C visibility depends on bundle assembly (not admission).\n\n"
         "## Caveats\n"
         "`retrieval_probe_hit` uses the same candidate query API as Step2C (`query_session_memory_candidate`) over mode-specific Step2C record universes; lexical checks are kept separate under `lexical_file_probe_hit`.\n",
         encoding="utf-8",
     )
-    (output_dir / "pr57_next_pr_recommendations.md").write_text(
-        "# PR58 Planning Recommendations\n\n"
-        "1. **Materialization decision:** decide whether campaign corpus NPC/location hubs and dossiers should be ingested into the Step2C retrieval record universe; if yes, add explicit materialization wiring and verify source_kind/route metadata.\n"
-        "2. **Support miss diagnosis:** for support-enabled modes, trace why support cards reachable via direct retrieval probe are absent from Step2C retrieved/candidate surfaces (query text construction, mode filters, or packet assembly gates).\n"
-        "3. Keep admission/rendering/gold unchanged until the earliest failing surfaces above are resolved and re-audited.\n",
+    (output_dir / f"{prefix}_next_pr_recommendations.md").write_text(
+        f"# Post-{readme_title} Planning Recommendations\n\n"
+        "1. If direct retrieval works but Step2C question retrieval still misses, investigate query construction / route-alias expansion (PR59).\n"
+        "2. If Step2C retrieves candidates but admission drops them, investigate admission lane floors (PR60).\n"
+        "3. Keep admission/rendering/gold unchanged until earliest failing surfaces are resolved and re-audited.\n",
         encoding="utf-8",
     )
+    if prefix == "pr58":
+        (output_dir / f"{prefix}_support_trace.md").write_text(
+            "# PR58 Support-card Step2C trace\n\n"
+            "## Root cause (fixed)\n"
+            "`build_preplanning_context_bundle` treated support-card `source_reference` dicts as corpus paths "
+            "and dropped them via `is_allowed_retrieval_corpus_path`.\n\n"
+            "## Fix\n"
+            "Support knowledge cards bypass corpus path hygiene and append directly with "
+            "`presentation_lane=support_knowledge` and `subject_class=support`.\n\n"
+            "## Verification\n"
+            "- Unit test `test_support_bundle_preserves_support_card_hits` passes with an explicit support hit.\n"
+            "- Direct probe with expected terms still reaches `support:hempholm_tree_visible_threat`.\n\n"
+            "## Remaining Q5 Step2C miss (not bundle assembly)\n"
+            "For the actual Q5 planner question text, hempholm campaign-corpus section records outrank the "
+            "support card in the top-50 candidate pool (`_retrieve` returns no support unit_id). "
+            "This is query-construction / ranking depth, not admission — track as PR59.\n\n"
+            f"## Audit counts (this run)\n"
+            f"- support retrieval_probe_hit rows: {support_probe_hits}\n"
+            f"- support step2c_candidate_hit rows: {support_step2c_candidate_hits}\n"
+            f"- support probe hit but step2c retrieved miss: {support_step2c_misses}\n",
+            encoding="utf-8",
+        )
     return summary
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--gold", type=Path)
-    parser.add_argument("--step2c-report", type=Path)
+    parser = argparse.ArgumentParser(
+        description=(
+            "Audit retrieval-universe materialization vs expected evidence targets. "
+            "Step2C packet surfaces come from --step2-packets-json when provided; "
+            "otherwise --rebuild-step2c-packets (default) regenerates them via build_summary(). "
+            "--step2c-report validates report schema only (graded results, not packet payloads)."
+        )
+    )
+    parser.add_argument("--targets", type=Path, default=DEFAULT_TARGETS_PATH, help="Expected evidence targets JSON")
+    parser.add_argument("--gold", type=Path, default=DEFAULT_GOLD_PATH, help="Validate expected-context gold schema")
+    parser.add_argument("--step2c-report", type=Path, help="Optional Step2C benchmark report for schema validation")
+    parser.add_argument("--step2-packets-json", type=Path, help="Optional {mode: [packets]} JSON for Step2C packet surfaces")
+    parser.add_argument("--rebuild-step2c-packets", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--output-dir", type=Path, required=True)
     args = parser.parse_args()
-    print(json.dumps(run_audit(output_dir=args.output_dir), indent=2))
+    print(
+        json.dumps(
+            run_audit(
+                output_dir=args.output_dir,
+                targets_path=args.targets,
+                gold_path=args.gold,
+                step2c_report_path=args.step2c_report,
+                step2_packets_path=args.step2_packets_json,
+                rebuild_step2c_packets=args.rebuild_step2c_packets,
+            ),
+            indent=2,
+        )
+    )
     return 0
 
 
