@@ -200,15 +200,34 @@ def test_canvas_renderer_can_emit_expandable_context():
     assert "rendered_context_packet" in block
     assert "sections" in block
     assert "Known Gaps and Safety Constraints" in block
-    assert "Rendered LLM Context" in block or "Constructed Context Packet" in block
-    assert "details" in block
+    template = Path(
+        "evals/c1s4_preplanning_vertical_slice/canvas_templates/c1s4_expected_context_benchmark.canvas.tsx"
+    ).read_text(encoding="utf-8")
+    assert 'from "cursor/canvas"' in template
+    assert "Rendered LLM context" in template
+    assert 'className="' not in template
 
 
 def test_payload_declares_canvas_ui_scope_boundary():
     payload = build_payload(report=_single_report())
     details = " ".join(r.get("detail", "") for r in payload.get("guardrailRows", []))
-    assert "payload + uiHints" in details
-    assert "external Cursor canvas shell" in details
+    assert "cursor/canvas" in details
+    assert "generated data block" in details
+
+
+def test_payload_includes_mode_filter_options():
+    mm = {
+        "reports_by_mode": {
+            "prior_only": _single_report(),
+            "prior_plus_support_content_only": _single_report(ok=False),
+        },
+        "mode_deltas": {},
+    }
+    payload = build_payload(report=mm)
+    opts = payload["summary"]["modeOptions"]
+    assert opts[0]["value"] == "all"
+    assert any(o["value"] == "prior_only" for o in opts)
+    assert payload["questionCards"][0]["required_groups_label"] == "1/1"
 
 
 def test_pr43_readme_explicitly_declares_external_canvas_ui_ownership():

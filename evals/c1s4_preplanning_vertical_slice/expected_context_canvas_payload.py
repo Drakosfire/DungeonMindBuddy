@@ -13,6 +13,12 @@ CANVAS_CONST_NAME = "c1s4ExpectedContextCanvasData"
 
 _DEFAULT_GOLD_PATH = Path("evals/c1s4_preplanning_vertical_slice/gold/c1s4_expected_context_gold.json")
 
+_MODE_SHORT = {
+    "prior_only": "Prior only",
+    "prior_plus_support_content_only": "Prior + support",
+    "prior_plus_support_content_plus_lexical_hints": "Prior + hints",
+}
+
 
 def load_report(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
@@ -119,9 +125,13 @@ def build_payload(*, report: dict[str, Any], gold: dict[str, Any] | None = None,
         question_cards.append({
             "question_number": row.get("question_number"),
             "question_id": row.get("question_id"),
+            "question": row.get("question", ""),
             "mode": mode,
+            "mode_short": _MODE_SHORT.get(mode, mode),
             "open_by_default": (not row.get("ok")),
             "verdict": "PASS" if row.get("ok") else "FAIL",
+            "required_groups_label": f"{req_hit}/{req_total}",
+            "lane_aware_required_groups_hit": int(row.get("lane_aware_required_groups_hit") or 0),
             "expected_behavior": row.get("expected_behavior", ""),
             "required_context_groups": req_groups,
             "missing_required_groups": row.get("missing_required_groups", []),
@@ -138,18 +148,19 @@ def build_payload(*, report: dict[str, Any], gold: dict[str, Any] | None = None,
         "schema": PAYLOAD_SCHEMA,
         "title": "C1S4 Expected Context Benchmark",
         "subtitle": "Step 2C retrieval/context packet evidence review",
-        "uiHints": {"rendered_context_label": "Rendered LLM Context", "rendered_context_affordance": "details"},
         "sources": {"report": report_path or "", "gold": gold_path or str(_DEFAULT_GOLD_PATH)},
         "summary": {
             "modes": modes,
+            "modeOptions": [{"value": "all", "label": "All modes"}] + [
+                {"value": m, "label": _MODE_SHORT.get(m, m)} for m in modes
+            ],
             "statTiles": [
-                {"label": "Questions evaluated", "value": total_q},
                 {"label": "Rows OK", "value": total_ok},
                 {"label": "Rows failed", "value": total_fail},
-                {"label": "Required group recall", "value": _ratio(req_sum / mode_count)},
+                {"label": "Required recall (avg)", "value": _ratio(req_sum / mode_count)},
+                {"label": "Known-gap recall (avg)", "value": _ratio(gap_sum / mode_count)},
                 {"label": "Forbidden violations", "value": total_forbidden},
-                {"label": "Known-gap recall", "value": _ratio(gap_sum / mode_count)},
-                {"label": "Modes compared", "value": len(modes)},
+                {"label": "Modes", "value": len(modes)},
             ],
         },
         "modeRows": mode_rows,
@@ -158,9 +169,9 @@ def build_payload(*, report: dict[str, Any], gold: dict[str, Any] | None = None,
         "modeDeltas": report.get("mode_deltas", {}),
         "guardrailRows": [
             {"guardrail": "Gold is eval-only", "status": "PASS", "detail": "Payload generated from Step 2C report; no retrieval performed."},
-            {"guardrail": "Canvas is projection", "status": "PASS", "detail": "Canonical state remains benchmark JSON."},
+            {"guardrail": "Canvas is projection", "status": "PASS", "detail": "Canonical state remains benchmark JSON; canvas is read-only review UI."},
             {"guardrail": "No oracle material", "status": "PASS", "detail": "Step 2C does not read C1S4 oracle."},
-            {"guardrail": "Canvas accordion ownership", "status": "INFO", "detail": "This repo emits payload + uiHints only; external Cursor canvas shell renders accordion/details UI."},
+            {"guardrail": "Canvas shell", "status": "INFO", "detail": "UI uses cursor/canvas SDK in canvas_templates/; emitter patches only the generated data block."},
         ],
     }
     return payload
