@@ -1,0 +1,8 @@
+{
+  "schema": "dmb_pr57_retrieval_universe_summary_v1",
+  "counts": {
+    "known_gap_missing_from_packet": 1,
+    "source_exists_but_step2c_miss": 2,
+    "source_not_materialized_as_retrieval_record": 9
+  }
+}
