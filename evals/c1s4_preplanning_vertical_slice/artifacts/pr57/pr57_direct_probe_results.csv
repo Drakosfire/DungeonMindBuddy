@@ -20,9 +20,6 @@ Stone Bridge flood,prior_only,50,42,"['meta-session-0003-locations', 'meta-sessi
 Mirathorn week on foot,prior_only,10,10,"['meta-session-0003-locations', 'u-L0043-02', 'u-L0043-04', 'u-L0045-01', 'u-L0043-03']",False,False,,[''],,actual retrieval probe
 Mirathorn week on foot,prior_only,20,20,"['meta-session-0003-locations', 'u-L0043-02', 'u-L0043-04', 'u-L0045-01', 'u-L0043-03']",False,False,,[''],,actual retrieval probe
 Mirathorn week on foot,prior_only,50,50,"['meta-session-0003-locations', 'u-L0043-02', 'u-L0043-04', 'u-L0045-01', 'u-L0043-03']",False,False,,[''],,actual retrieval probe
-exact route unknown,prior_only,10,1,['meta-session-0003-locations'],False,False,,[''],,actual retrieval probe
-exact route unknown,prior_only,20,1,['meta-session-0003-locations'],False,False,,[''],,actual retrieval probe
-exact route unknown,prior_only,50,1,['meta-session-0003-locations'],False,False,,[''],,actual retrieval probe
 Stone Bridge Mirathorn,prior_only,10,10,"['meta-session-0003-locations', 'u-L0043-02', 'u-L0043-03', 'u-L0043-04', 'u-L0045-01']",False,False,,[''],,actual retrieval probe
 Stone Bridge Mirathorn,prior_only,20,20,"['meta-session-0003-locations', 'u-L0043-02', 'u-L0043-03', 'u-L0043-04', 'u-L0045-01']",False,False,,[''],,actual retrieval probe
 Stone Bridge Mirathorn,prior_only,50,42,"['meta-session-0003-locations', 'u-L0043-02', 'u-L0043-03', 'u-L0043-04', 'u-L0045-01']",False,False,,[''],,actual retrieval probe

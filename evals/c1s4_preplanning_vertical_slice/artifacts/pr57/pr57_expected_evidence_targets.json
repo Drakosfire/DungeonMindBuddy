@@ -1,15 +1,179 @@
 {
   "schema": "dmb_pr57_expected_evidence_targets_v1",
   "targets": [
-    {"question_id":"q01_who_are_the_npcs_the_players_encountered","group_id":"pippa_character_continuity","mode":"prior_only","required_lane":"character_party_behavior","expected_rendered_section":"character_party_behavior","label":"pippa","expected_paths":["corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/NPCs/pippa/README.md","corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/NPCs/pippa/pippa_character_dossier.md"],"expected_source_kind":"session_memory","expected_subject_class":"npc","expected_terms":["Pippa","Pippa Goldwhistle"]},
-    {"question_id":"q01_who_are_the_npcs_the_players_encountered","group_id":"bubbles_character_continuity","mode":"prior_only","required_lane":"character_party_behavior","expected_rendered_section":"character_party_behavior","label":"bubbles","expected_paths":["corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/NPCs/bubbles_the_float_goat/README.md","corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/NPCs/bubbles_the_float_goat/bubbles_the_float_goat_character_dossier.md"],"expected_source_kind":"session_memory","expected_subject_class":"npc","expected_terms":["Bubbles","Float Goat"]},
-    {"question_id":"q01_who_are_the_npcs_the_players_encountered","group_id":"grishna_character_continuity","mode":"prior_only","required_lane":"character_party_behavior","expected_rendered_section":"character_party_behavior","label":"grishna","expected_paths":["corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/NPCs/grishna/README.md"],"expected_source_kind":"session_memory","expected_subject_class":"npc","expected_terms":["Grishna","River's Edge Pub"]},
-    {"question_id":"q01_who_are_the_npcs_the_players_encountered","group_id":"stone_bridge_location_support_context","mode":"prior_only","required_lane":"location_worldbuilding","expected_rendered_section":"location_worldbuilding","label":"stone_bridge","expected_paths":["corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Locations/stone_bridge/README.md"],"expected_source_kind":"session_memory","expected_subject_class":"location","expected_terms":["Stone Bridge","flood"]},
-    {"question_id":"q03_how_far_away_is_mirathorn_at_this_point","group_id":"mirathorn_distance_estimate_from_play","mode":"prior_only","required_lane":"prior_campaign_memory","expected_rendered_section":"prior_campaign_memory","label":"mirathorn","expected_paths":["corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Session Recaps/Session 3 - The Stone Bridge Flood.md"],"expected_source_kind":"session_memory","expected_subject_class":"session_memory","expected_terms":["Mirathorn","week on foot"]},
-    {"question_id":"q03_how_far_away_is_mirathorn_at_this_point","group_id":"mirathorn_exact_route_gap","mode":"prior_only","required_lane":"known_gaps_and_safety_constraints","expected_rendered_section":"known_gaps_and_safety_constraints","label":"route_gap","expected_paths":["known_gap:mirathorn_exact_route_gap"],"expected_source_kind":"known_context_gap","expected_subject_class":"support","expected_terms":["exact route","unknown"]},
-    {"question_id":"q03_how_far_away_is_mirathorn_at_this_point","group_id":"stone_bridge_location_context","mode":"prior_only","required_lane":"location_worldbuilding","expected_rendered_section":"location_worldbuilding","label":"stone_bridge","expected_paths":["corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Locations/stone_bridge/README.md"],"expected_source_kind":"session_memory","expected_subject_class":"location","expected_terms":["Stone Bridge","Mirathorn"]},
-    {"question_id":"q05_there_is_a_gigantic_tree_growing_in_hemp","group_id":"hempholm_location_context","mode":"prior_only","required_lane":"location_worldbuilding","expected_rendered_section":"location_worldbuilding","label":"hempholm_hub","expected_paths":["corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Locations/hempholm/README.md"],"expected_source_kind":"session_memory","expected_subject_class":"location","expected_terms":["Hempholm","giant tree"]},
-    {"question_id":"q05_there_is_a_gigantic_tree_growing_in_hemp","group_id":"hempholm_tree_support_context","mode":"prior_plus_support_content_only","required_lane":"support_knowledge","expected_rendered_section":"support_knowledge","label":"hempholm_support","expected_paths":["support:hempholm_tree_visible_threat"],"expected_source_kind":"support_knowledge_card","expected_subject_class":"support","expected_terms":["Hempholm","visible threat","giant tree"]},
-    {"question_id":"q05_there_is_a_gigantic_tree_growing_in_hemp","group_id":"hempholm_tree_support_context","mode":"prior_plus_support_content_plus_lexical_hints","required_lane":"support_knowledge","expected_rendered_section":"support_knowledge","label":"hempholm_support","expected_paths":["support:hempholm_tree_visible_threat"],"expected_source_kind":"support_knowledge_card","expected_subject_class":"support","expected_terms":["Hempholm","visible threat","giant tree"]}
+    {
+      "question_id": "q01_who_are_the_npcs_the_players_encountered",
+      "group_id": "pippa_character_continuity",
+      "mode": "prior_only",
+      "required_lane": "character_party_behavior",
+      "expected_rendered_section": "character_party_behavior",
+      "label": "pippa",
+      "expected_paths": [
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/NPCs/pippa/README.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/NPCs/pippa/pippa_character_dossier.md"
+      ],
+      "expected_source_kind": "npc_hub_or_dossier",
+      "expected_subject_class": "npc",
+      "expected_terms": [
+        "Pippa",
+        "Pippa Goldwhistle"
+      ]
+    },
+    {
+      "question_id": "q01_who_are_the_npcs_the_players_encountered",
+      "group_id": "bubbles_character_continuity",
+      "mode": "prior_only",
+      "required_lane": "character_party_behavior",
+      "expected_rendered_section": "character_party_behavior",
+      "label": "bubbles",
+      "expected_paths": [
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/NPCs/bubbles_the_float_goat/README.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/NPCs/bubbles_the_float_goat/bubbles_the_float_goat_character_dossier.md"
+      ],
+      "expected_source_kind": "npc_hub_or_dossier",
+      "expected_subject_class": "npc",
+      "expected_terms": [
+        "Bubbles",
+        "Float Goat"
+      ]
+    },
+    {
+      "question_id": "q01_who_are_the_npcs_the_players_encountered",
+      "group_id": "grishna_character_continuity",
+      "mode": "prior_only",
+      "required_lane": "character_party_behavior",
+      "expected_rendered_section": "character_party_behavior",
+      "label": "grishna",
+      "expected_paths": [
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/NPCs/grishna/README.md"
+      ],
+      "expected_source_kind": "npc_hub_or_dossier",
+      "expected_subject_class": "npc",
+      "expected_terms": [
+        "Grishna",
+        "River's Edge Pub"
+      ]
+    },
+    {
+      "question_id": "q01_who_are_the_npcs_the_players_encountered",
+      "group_id": "stone_bridge_location_support_context",
+      "mode": "prior_only",
+      "required_lane": "location_worldbuilding",
+      "expected_rendered_section": "location_worldbuilding",
+      "label": "stone_bridge",
+      "expected_paths": [
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Locations/stone_bridge/README.md"
+      ],
+      "expected_source_kind": "location_hub",
+      "expected_subject_class": "location",
+      "expected_terms": [
+        "Stone Bridge",
+        "flood"
+      ]
+    },
+    {
+      "question_id": "q03_how_far_away_is_mirathorn_at_this_point",
+      "group_id": "mirathorn_distance_estimate_from_play",
+      "mode": "prior_only",
+      "required_lane": "prior_campaign_memory",
+      "expected_rendered_section": "prior_campaign_memory",
+      "label": "mirathorn",
+      "expected_paths": [
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Session Recaps/Session 3 - The Stone Bridge Flood.md"
+      ],
+      "expected_source_kind": "session_recap",
+      "expected_subject_class": "session_memory",
+      "expected_terms": [
+        "Mirathorn",
+        "week on foot"
+      ]
+    },
+    {
+      "question_id": "q03_how_far_away_is_mirathorn_at_this_point",
+      "group_id": "mirathorn_exact_route_gap",
+      "mode": "prior_only",
+      "required_lane": "known_gaps_and_safety_constraints",
+      "expected_rendered_section": "known_gaps_and_safety_constraints",
+      "label": "route_gap",
+      "expected_paths": [
+        "known_gap:mirathorn_exact_route_gap"
+      ],
+      "expected_source_kind": "known_context_gap",
+      "expected_subject_class": "support",
+      "expected_terms": [
+        "exact route",
+        "unknown"
+      ]
+    },
+    {
+      "question_id": "q03_how_far_away_is_mirathorn_at_this_point",
+      "group_id": "stone_bridge_location_context",
+      "mode": "prior_only",
+      "required_lane": "location_worldbuilding",
+      "expected_rendered_section": "location_worldbuilding",
+      "label": "stone_bridge",
+      "expected_paths": [
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Locations/stone_bridge/README.md"
+      ],
+      "expected_source_kind": "location_hub",
+      "expected_subject_class": "location",
+      "expected_terms": [
+        "Stone Bridge",
+        "Mirathorn"
+      ]
+    },
+    {
+      "question_id": "q05_there_is_a_gigantic_tree_growing_in_hemp",
+      "group_id": "hempholm_location_context",
+      "mode": "prior_only",
+      "required_lane": "location_worldbuilding",
+      "expected_rendered_section": "location_worldbuilding",
+      "label": "hempholm_hub",
+      "expected_paths": [
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Locations/hempholm/README.md"
+      ],
+      "expected_source_kind": "location_hub",
+      "expected_subject_class": "location",
+      "expected_terms": [
+        "Hempholm",
+        "giant tree"
+      ]
+    },
+    {
+      "question_id": "q05_there_is_a_gigantic_tree_growing_in_hemp",
+      "group_id": "hempholm_tree_support_context",
+      "mode": "prior_plus_support_content_only",
+      "required_lane": "support_knowledge",
+      "expected_rendered_section": "support_knowledge",
+      "label": "hempholm_support",
+      "expected_paths": [
+        "support:hempholm_tree_visible_threat"
+      ],
+      "expected_source_kind": "support_knowledge_card",
+      "expected_subject_class": "support",
+      "expected_terms": [
+        "Hempholm",
+        "visible threat",
+        "giant tree"
+      ]
+    },
+    {
+      "question_id": "q05_there_is_a_gigantic_tree_growing_in_hemp",
+      "group_id": "hempholm_tree_support_context",
+      "mode": "prior_plus_support_content_plus_lexical_hints",
+      "required_lane": "support_knowledge",
+      "expected_rendered_section": "support_knowledge",
+      "label": "hempholm_support",
+      "expected_paths": [
+        "support:hempholm_tree_visible_threat"
+      ],
+      "expected_source_kind": "support_knowledge_card",
+      "expected_subject_class": "support",
+      "expected_terms": [
+        "Hempholm",
+        "visible threat",
+        "giant tree"
+      ]
+    }
   ]
 }
