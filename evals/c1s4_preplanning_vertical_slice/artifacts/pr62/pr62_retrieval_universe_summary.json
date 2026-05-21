@@ -1,0 +1,9 @@
+{
+  "schema": "dmb_pr62_retrieval_universe_summary_v1",
+  "rendered_section_mismatch_to_ok": 5,
+  "q1_character_rows_rendered": true,
+  "pr62_surface_counts": {
+    "ok_or_later_stage": 11,
+    "known_gap_missing_from_packet": 1
+  }
+}

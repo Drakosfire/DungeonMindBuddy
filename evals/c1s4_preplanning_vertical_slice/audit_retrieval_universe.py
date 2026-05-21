@@ -25,6 +25,7 @@ from evals.c1s4_preplanning_vertical_slice.step2_build_question_context_packets 
 from evals.c1s4_preplanning_vertical_slice.pr59_artifact_emit import write_pr59_artifacts
 from evals.c1s4_preplanning_vertical_slice.pr60_artifact_emit import write_pr60_artifacts
 from evals.c1s4_preplanning_vertical_slice.pr61_artifact_emit import write_pr61_artifacts
+from evals.c1s4_preplanning_vertical_slice.pr62_artifact_emit import write_pr62_artifacts
 from src.agent.session_memory_query import query_session_memory_candidate
 
 from evals.c1s4_preplanning_vertical_slice.support_knowledge_loader import load_normalized_support_records
@@ -308,6 +309,8 @@ def run_audit(
         write_pr60_artifacts(output_dir=output_dir, packets_by_mode=packets_by_mode)
     if prefix == "pr61":
         write_pr61_artifacts(output_dir=output_dir, packets_by_mode=packets_by_mode)
+    if prefix == "pr62":
+        write_pr62_artifacts(output_dir=output_dir, packets_by_mode=packets_by_mode)
     return summary
 
 

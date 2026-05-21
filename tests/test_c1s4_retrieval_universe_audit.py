@@ -113,6 +113,20 @@ def test_pr59_alias_matrix_moves_support_candidate_forward(tmp_path: Path) -> No
     assert "merged_candidate_hit" in matrix
 
 
+def test_pr62_summary_reports_q1_character_rows_rendered(tmp_path: Path) -> None:
+    run_audit(
+        output_dir=tmp_path / "pr62",
+        gold_path=Path("evals/c1s4_preplanning_vertical_slice/gold/c1s4_expected_context_gold.json"),
+        rebuild_step2c_packets=True,
+    )
+    assert (tmp_path / "pr62" / "pr62_render_section_matrix.csv").exists()
+    assert (tmp_path / "pr62" / "pr62_step2c_surface_matrix.csv").exists()
+    data = json.loads((tmp_path / "pr62" / "pr62_retrieval_universe_summary.json").read_text(encoding="utf-8"))
+    assert data["schema"] == "dmb_pr62_retrieval_universe_summary_v1"
+    assert data["q1_character_rows_rendered"] is True
+    assert data["rendered_section_mismatch_to_ok"] >= 5
+
+
 def test_pr61_summary_reports_q1_grishna_moved_from_candidate_pool_gap_to_admitted_or_rendered_mismatch(
     tmp_path: Path,
 ) -> None:
