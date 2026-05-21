@@ -8,7 +8,10 @@ from typing import Any
 from evals.c1s4_preplanning_vertical_slice.beat_question_answer_harness import iter_target_questions, load_beat_question_targets
 from evals.c1s4_preplanning_vertical_slice.context_renderer import render_context_packet
 from evals.c1s4_preplanning_vertical_slice.query_alias_expansion import build_step2c_query_variants
-from evals.c1s4_preplanning_vertical_slice.query_variant_retrieval import _query_hits
+from evals.c1s4_preplanning_vertical_slice.query_variant_retrieval import (
+    query_hits_for_variant,
+    records_for_query_variant,
+)
 from evals.c1s4_preplanning_vertical_slice.step2_build_question_context_packets import _load_combined_records
 
 
@@ -65,14 +68,13 @@ def write_pr59_artifacts(*, output_dir: Path, packets_by_mode: dict[str, list[di
 
             for idx, variant in enumerate(variants):
                 role = str(variant.get("variant_role") or "")
-                depth = 50 if role == "literal_question" else 20
-                hits = _query_hits(
+                scoped_records = records_for_query_variant(records, variant)
+                hits = query_hits_for_variant(
                     records=records,
-                    query=str(variant["query"]),
+                    variant=variant,
                     campaign_id="longmont-c1",
                     session_min=0,
                     session_max=3,
-                    max_hits=depth,
                 )
                 hit_count = len(hits)
                 top_unit_ids = [str(h.get("unit_id") or "") for h in hits[:5]]
@@ -86,6 +88,8 @@ def write_pr59_artifacts(*, output_dir: Path, packets_by_mode: dict[str, list[di
                         "target_lane": variant.get("target_lane"),
                         "query": variant.get("query"),
                         "reason": variant.get("reason"),
+                        "record_scope": role if role != "literal_question" else "full_universe",
+                        "scoped_record_count": len(scoped_records),
                         "hit_count": hit_count,
                         "top_unit_ids": "|".join(top_unit_ids),
                         "expected_target_hit": "",
@@ -101,25 +105,24 @@ def write_pr59_artifacts(*, output_dir: Path, packets_by_mode: dict[str, list[di
                 question_id, group_id, ev_mode, expected_path = ev_key
                 if question_id != qid or ev_mode != mode:
                     continue
-                literal_hits = _query_hits(
+                literal_variant = variants[0]
+                literal_hits = query_hits_for_variant(
                     records=records,
-                    query=question_text,
+                    variant=literal_variant,
                     campaign_id="longmont-c1",
                     session_min=0,
                     session_max=3,
-                    max_hits=50,
                 )
                 alias_queries = [v for v in variants if v.get("variant_role") != "literal_question"]
                 alias_hits: list[dict[str, Any]] = []
                 for variant in alias_queries:
                     alias_hits.extend(
-                        _query_hits(
+                        query_hits_for_variant(
                             records=records,
-                            query=str(variant["query"]),
+                            variant=variant,
                             campaign_id="longmont-c1",
                             session_min=0,
                             session_max=3,
-                            max_hits=20,
                         )
                     )
                 needle = expected_path.lower()

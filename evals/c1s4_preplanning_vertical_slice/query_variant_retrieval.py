@@ -8,7 +8,7 @@ from src.agent.session_memory_query import query_session_memory_candidate
 SUPPORT_KIND = "support_knowledge_card"
 
 
-def _records_for_variant(records: list[dict[str, Any]], variant: dict[str, Any]) -> list[dict[str, Any]]:
+def records_for_query_variant(records: list[dict[str, Any]], variant: dict[str, Any]) -> list[dict[str, Any]]:
     role = str(variant.get("variant_role") or "")
     if role == "support_alias":
         return [r for r in records if str(r.get("source_kind") or "") == SUPPORT_KIND]
@@ -62,6 +62,28 @@ def _query_hits(
         max_hits=max_hits,
     )
     return list(getattr(result, "hits", []) or [])
+
+
+def query_hits_for_variant(
+    *,
+    records: list[dict[str, Any]],
+    variant: dict[str, Any],
+    campaign_id: str,
+    session_min: int,
+    session_max: int,
+    candidate_depth: int = 50,
+    alias_depth_per_variant: int = MERGE_POLICY_DEFAULTS["alias_depth_per_variant"],
+) -> list[dict[str, Any]]:
+    role = str(variant.get("variant_role") or "")
+    depth = candidate_depth if role == "literal_question" else alias_depth_per_variant
+    return _query_hits(
+        records=records_for_query_variant(records, variant),
+        query=str(variant["query"]),
+        campaign_id=campaign_id,
+        session_min=session_min,
+        session_max=session_max,
+        max_hits=depth,
+    )
 
 
 def stable_dedupe_hits(hits: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -126,30 +148,23 @@ def retrieve_query_variants(
             "variant_hit_counts": [],
         }
 
-    literal_variant = query_variants[0]
-    literal_hits = _query_hits(
-        records=records,
-        query=str(literal_variant["query"]),
-        campaign_id=campaign_id,
-        session_min=session_min,
-        session_max=session_max,
-        max_hits=candidate_depth,
-    )
-
     alias_hits: list[dict[str, Any]] = []
     variant_hit_counts: list[dict[str, Any]] = []
+    literal_hits: list[dict[str, Any]] = []
     for variant in query_variants:
         role = str(variant.get("variant_role") or "")
-        depth = candidate_depth if role == "literal_question" else alias_depth_per_variant
-        scoped_records = _records_for_variant(records, variant)
-        hits = _query_hits(
-            records=scoped_records,
-            query=str(variant["query"]),
+        scoped_records = records_for_query_variant(records, variant)
+        hits = query_hits_for_variant(
+            records=records,
+            variant=variant,
             campaign_id=campaign_id,
             session_min=session_min,
             session_max=session_max,
-            max_hits=depth,
+            candidate_depth=candidate_depth,
+            alias_depth_per_variant=alias_depth_per_variant,
         )
+        if role == "literal_question":
+            literal_hits = hits
         variant_hit_counts.append(
             {
                 "variant_role": role,
