@@ -67,20 +67,6 @@ def test_audit_validates_gold_and_step2c_report(tmp_path: Path) -> None:
     assert summary["inputs"]["step2_packets_path"]
 
 
-def test_pr59_alias_matrix_moves_support_candidate_forward(tmp_path: Path) -> None:
-    summary = run_audit(
-        output_dir=tmp_path / "pr59",
-        gold_path=Path("evals/c1s4_preplanning_vertical_slice/gold/c1s4_expected_context_gold.json"),
-        rebuild_step2c_packets=True,
-    )
-    assert summary["schema"] == "dmb_pr59_retrieval_universe_summary_v1"
-    assert (tmp_path / "pr59" / "pr59_query_variant_manifest.csv").exists()
-    assert (tmp_path / "pr59" / "pr59_step2c_alias_probe_matrix.csv").exists()
-    matrix = (tmp_path / "pr59" / "pr59_step2c_alias_probe_matrix.csv").read_text(encoding="utf-8")
-    assert "support:hempholm_tree_visible_threat" in matrix
-    assert "merged_candidate_hit" in matrix
-
-
 def test_pr59_artifact_alias_probe_uses_scoped_variant_retrieval(tmp_path: Path) -> None:
     run_audit(
         output_dir=tmp_path / "pr59",
@@ -111,6 +97,34 @@ def test_pr59_artifact_alias_probe_uses_scoped_variant_retrieval(tmp_path: Path)
     assert int(grishna_alias_rows[0]["hit_count"]) > 0
     assert grishna_alias_rows[0]["record_scope"] == "npc_target_alias"
     assert int(grishna_alias_rows[0]["scoped_record_count"]) > 0
+
+
+def test_pr59_alias_matrix_moves_support_candidate_forward(tmp_path: Path) -> None:
+    summary = run_audit(
+        output_dir=tmp_path / "pr59",
+        gold_path=Path("evals/c1s4_preplanning_vertical_slice/gold/c1s4_expected_context_gold.json"),
+        rebuild_step2c_packets=True,
+    )
+    assert summary["schema"] == "dmb_pr59_retrieval_universe_summary_v1"
+    assert (tmp_path / "pr59" / "pr59_query_variant_manifest.csv").exists()
+    assert (tmp_path / "pr59" / "pr59_step2c_alias_probe_matrix.csv").exists()
+    matrix = (tmp_path / "pr59" / "pr59_step2c_alias_probe_matrix.csv").read_text(encoding="utf-8")
+    assert "support:hempholm_tree_visible_threat" in matrix
+    assert "merged_candidate_hit" in matrix
+
+
+def test_pr60_summary_honestly_reports_no_deferred_target_moved_yet(tmp_path: Path) -> None:
+    run_audit(
+        output_dir=tmp_path / "pr60",
+        gold_path=Path("evals/c1s4_preplanning_vertical_slice/gold/c1s4_expected_context_gold.json"),
+        rebuild_step2c_packets=True,
+    )
+    assert (tmp_path / "pr60" / "pr60_step2c_surface_matrix.csv").exists()
+    assert (tmp_path / "pr60" / "pr60_admission_preservation_matrix.csv").exists()
+    data = json.loads((tmp_path / "pr60" / "pr60_retrieval_universe_summary.json").read_text(encoding="utf-8"))
+    assert data["schema"] == "dmb_pr60_retrieval_universe_summary_v1"
+    assert data["admission_deferred_to_admitted"] == 0
+    assert data["pr60_surface_counts"].get("candidate_present_admission_deferred") == 1
 
 
 def test_pr57_artifacts_generated(tmp_path: Path) -> None:
