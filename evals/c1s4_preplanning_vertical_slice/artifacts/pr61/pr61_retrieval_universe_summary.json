@@ -1,0 +1,10 @@
+{
+  "schema": "dmb_pr61_retrieval_universe_summary_v1",
+  "candidate_deferred_to_admitted": 1,
+  "q1_grishna_moved_from_candidate_pool_gap": true,
+  "pr61_surface_counts": {
+    "rendered_section_mismatch": 5,
+    "ok_or_later_stage": 6,
+    "known_gap_missing_from_packet": 1
+  }
+}

@@ -101,7 +101,7 @@ def test_q1_actual_question_candidate_context_includes_grishna_after_alias_expan
     assert "grishna" in refs
 
 
-def test_q1_grishna_actual_packet_still_documents_candidate_pool_gap_after_pr60() -> None:
+def test_q1_grishna_actual_packet_candidate_context_contains_admittable_grishna_after_pr61() -> None:
     targets = load_beat_question_targets()
     q1 = next(q for q in iter_target_questions(targets) if q["question_number"] == 1)
 
@@ -109,25 +109,56 @@ def test_q1_grishna_actual_packet_still_documents_candidate_pool_gap_after_pr60(
     packet = summary["packets"][0]
     assert str(packet.get("question_id") or "") == str(q1.get("question_id") or "")
 
-    candidate_context = packet.get("candidate_context") or []
-    admitted_context = packet.get("admitted_context") or []
-
-    admittable_grishna_candidates = [
+    grishna_candidates = [
         i
-        for i in candidate_context
+        for i in packet["candidate_context"]
         if "/npcs/grishna/" in str(i.get("source_path") or "").lower()
         and str(i.get("evidence_role") or "") == "evidence"
     ]
 
-    admitted_grishna = [
-        i for i in admitted_context if "/npcs/grishna/" in str(i.get("source_path") or "").lower()
+    assert grishna_candidates
+    assert any(i.get("merge_reason") == "required_npc_family_coverage" for i in grishna_candidates)
+
+
+def test_q1_actual_packet_admits_grishna_after_pr61() -> None:
+    summary = build_summary(mode="prior_only", question_number=1, max_hits=50)
+    packet = summary["packets"][0]
+
+    admitted = [
+        i
+        for i in packet["admitted_context"]
+        if "/npcs/grishna/" in str(i.get("source_path") or "").lower()
     ]
 
-    assert admittable_grishna_candidates == []
-    assert admitted_grishna == []
+    assert admitted
+    assert any(
+        str(i.get("admission_reason") or "") == "preserved_character_party_behavior_npc_grishna"
+        for i in admitted
+    )
 
-    diag = packet.get("admission_preservation_diagnostics") or {}
-    assert diag.get("schema") == "dmb_admission_preservation_diagnostics_v1"
+
+def test_q5_support_card_still_candidate_and_admitted_in_support_modes() -> None:
+    for mode in ("prior_plus_support_content_only", "prior_plus_support_content_plus_lexical_hints"):
+        summary = build_summary(mode=mode, question_number=5, max_hits=50)
+        packet = summary["packets"][0]
+        support_candidates = [
+            i for i in packet["candidate_context"] if str(i.get("unit_id") or "") == "support:hempholm_tree_visible_threat"
+        ]
+        support_admitted = [
+            i for i in packet["admitted_context"] if str(i.get("unit_id") or "") == "support:hempholm_tree_visible_threat"
+        ]
+        assert support_candidates, mode
+        assert support_admitted, mode
+
+
+def test_q5_prior_only_still_excludes_support_card() -> None:
+    summary = build_summary(mode="prior_only", question_number=5, max_hits=50)
+    packet = summary["packets"][0]
+    refs = " ".join(
+        str(i.get("unit_id") or "")
+        for i in (packet.get("candidate_context") or []) + (packet.get("admitted_context") or [])
+    )
+    assert "support:hempholm_tree_visible_threat" not in refs
 
 
 def test_q3_actual_question_candidate_context_includes_stone_bridge_after_alias_expansion() -> None:
@@ -146,6 +177,8 @@ def test_step2_packet_includes_query_variant_diagnostics() -> None:
     assert isinstance(diag.get("variants"), list)
     assert diag.get("retrieval_merge_policy")
     assert isinstance(diag.get("variant_hit_counts"), list)
+    merge_alloc = diag.get("merge_allocation_diagnostics") or {}
+    assert merge_alloc.get("schema") == "dmb_query_variant_merge_allocation_v1"
 
 
 
