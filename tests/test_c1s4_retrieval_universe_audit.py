@@ -113,7 +113,7 @@ def test_pr59_alias_matrix_moves_support_candidate_forward(tmp_path: Path) -> No
     assert "merged_candidate_hit" in matrix
 
 
-def test_pr60_surface_matrix_moves_grishna_from_deferred_when_admittable(tmp_path: Path) -> None:
+def test_pr60_summary_honestly_reports_no_deferred_target_moved_yet(tmp_path: Path) -> None:
     run_audit(
         output_dir=tmp_path / "pr60",
         gold_path=Path("evals/c1s4_preplanning_vertical_slice/gold/c1s4_expected_context_gold.json"),
@@ -121,8 +121,10 @@ def test_pr60_surface_matrix_moves_grishna_from_deferred_when_admittable(tmp_pat
     )
     assert (tmp_path / "pr60" / "pr60_step2c_surface_matrix.csv").exists()
     assert (tmp_path / "pr60" / "pr60_admission_preservation_matrix.csv").exists()
-    summary = json.loads((tmp_path / "pr60" / "pr60_retrieval_universe_summary.json").read_text(encoding="utf-8"))
-    assert summary["schema"] == "dmb_pr60_retrieval_universe_summary_v1"
+    data = json.loads((tmp_path / "pr60" / "pr60_retrieval_universe_summary.json").read_text(encoding="utf-8"))
+    assert data["schema"] == "dmb_pr60_retrieval_universe_summary_v1"
+    assert data["admission_deferred_to_admitted"] == 0
+    assert data["pr60_surface_counts"].get("candidate_present_admission_deferred") == 1
 
 
 def test_pr57_artifacts_generated(tmp_path: Path) -> None:

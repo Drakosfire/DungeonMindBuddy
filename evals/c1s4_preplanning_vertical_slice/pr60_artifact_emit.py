@@ -156,14 +156,18 @@ def write_pr60_artifacts(*, output_dir: Path, packets_by_mode: dict[str, list[di
     )
 
     (output_dir / "README.md").write_text(
-        "# PR60 admission lane preservation artifacts\n\n"
-        "See `pr60_admission_preservation_matrix.csv` and `pr60_step2c_surface_matrix.csv`.\n",
+        "# PR60 admission preservation infrastructure artifacts\n\n"
+        "PR60 adds bounded admission preservation and diagnostics. It does not complete the Q1 Grishna target row.\n\n"
+        "See `pr60_step2c_surface_matrix.csv` for target-surface status and "
+        "`pr60_admission_preservation_matrix.csv` for preserved items.\n",
         encoding="utf-8",
     )
 
     (output_dir / "pr60_next_pr_recommendations.md").write_text(
         "# Post-PR60 Planning Recommendations\n\n"
-        "1. **PR61 — renderer section repair:** route admitted items by preserved `presentation_lane`.\n"
-        "2. **PR62 — generalize preservation rules** after PR60 evidence holds.\n",
+        "1. **PR61 — candidate merge-depth / alias-slot allocation repair.** "
+        "Q1 Grishna’s useful summary record is alias-retrievable but falls outside the PR59 alias-slot merge window.\n"
+        "2. **PR62 — renderer section repair.** Repair rendering/provenance once candidate/admission surfaces are stable.\n"
+        "3. **PR63 — generalize preservation rules** after benchmark surfaces are stable.\n",
         encoding="utf-8",
     )

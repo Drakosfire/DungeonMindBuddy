@@ -83,7 +83,7 @@ def _filler_candidate(idx: int) -> dict:
     }
 
 
-def test_lane_budgeted_admission_preserves_candidate_visible_npc_family() -> None:
+def test_lane_budgeted_admission_preserves_candidate_visible_grishna_family() -> None:
     grishna = {
         "unit_id": "corpus:npc:grishna:summary",
         "source_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/NPCs/grishna/grishna_character_dossier.md",
@@ -104,10 +104,10 @@ def test_lane_budgeted_admission_preserves_candidate_visible_npc_family() -> Non
         lane_plan=plan,
         total_budget_chars=8000,
     )
-    admitted_ids = {i.get("unit_id") for i in out["admitted_context"]}
-    assert "corpus:npc:grishna:summary" in admitted_ids
     hit = next(i for i in out["admitted_context"] if i.get("unit_id") == "corpus:npc:grishna:summary")
-    assert hit["admission_reason"].startswith("preserved_character_party_behavior_npc_")
+    assert hit["admission_reason"] == "preserved_character_party_behavior_npc_grishna"
+    assert hit["presentation_lane"] == "party_timeline"
+    assert hit["admission_budget_lane"] == "prior_campaign_memory"
 
 
 def test_lane_budgeted_admission_preserves_presentation_lane_separately_from_budget_lane() -> None:
