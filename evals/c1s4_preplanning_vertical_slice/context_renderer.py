@@ -100,10 +100,19 @@ def provenance_matches_expected(prov: dict[str, Any], expected_path_or_unit_id: 
     return any(needle in str(x or "").lower() for x in refs)
 
 
+def _gap_entry(gap: Any, idx: int) -> tuple[str, str]:
+    if isinstance(gap, dict):
+        snippet = str(gap.get("gap") or "").strip()
+        source = str(gap.get("source") or "source_derived")
+        return f"known_gap:{source}:{idx}", snippet
+    text = str(gap or "").strip()
+    return f"known_gap:{text}", text
+
+
 def render_context_packet(packet: dict[str, Any]) -> dict[str, Any]:
     admitted = packet.get("admitted_context") or []
     mode = str(packet.get("retrieval_mode") or "")
-    known_gaps = [str(x) for x in (packet.get("known_context_gaps") or [])]
+    raw_known_gaps = packet.get("known_context_gaps") or []
 
     by_section: dict[str, list[dict[str, Any]]] = {k: [] for k, _ in SECTION_DEFS}
     route_diagnostics: list[dict[str, Any]] = []
@@ -124,9 +133,12 @@ def render_context_packet(packet: dict[str, Any]) -> dict[str, Any]:
             }
         )
 
-    if known_gaps:
-        for gap in known_gaps:
-            by_section["known_gaps_and_safety_constraints"].append({"ref": f"known_gap:{gap}", "snippet": gap})
+    if raw_known_gaps:
+        for idx, gap in enumerate(raw_known_gaps):
+            ref, snippet = _gap_entry(gap, idx)
+            if not snippet:
+                continue
+            by_section["known_gaps_and_safety_constraints"].append({"ref": ref, "snippet": snippet})
 
     sections = []
     provenance_map: dict[str, dict[str, Any]] = {}

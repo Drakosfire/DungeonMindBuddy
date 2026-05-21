@@ -271,7 +271,7 @@ export default function C1S4ExpectedContextBenchmarkCanvas() {
   const modeOptions = asArray<{ value: string; label: string }>(summary.modeOptions);
 
   const [filterMode, setFilterMode] = useCanvasState("c1s4_filter_mode", "all");
-  const [onlyFailures, setOnlyFailures] = useCanvasState("c1s4_only_failures", true);
+  const [onlyFailures, setOnlyFailures] = useCanvasState("c1s4_only_failures", false);
 
   const filteredCards = questionCards.filter((card) => {
     if (filterMode !== "all" && String(card.mode) !== filterMode) return false;

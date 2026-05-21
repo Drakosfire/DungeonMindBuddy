@@ -230,3 +230,44 @@ def test_q3_location_rows_still_render_in_location_worldbuilding() -> None:
     location = next(s for s in rendered["sections"] if s["section_id"] == "location_worldbuilding")
     refs = " ".join(location["refs"]).lower()
     assert "stone" in refs or "mirathorn" in refs or location["refs"]
+
+
+def test_planner_packet_does_not_leak_gold_known_gaps_into_rendered_text() -> None:
+    summary = build_summary(mode="prior_only", question_number=3, max_hits=50)
+    packet = summary["packets"][0]
+    assert "known_context_gaps" not in packet
+    rendered = render_context_packet(packet)
+    text = rendered["rendered_text"]
+    assert "exact Stone Bridge-to-Mirathorn route gazetteer" not in text
+    assert "intermediate settlements" not in text
+    assert "day-by-day travel route" not in text
+    assert "route-specific ecology" not in text
+
+
+def test_q3_renderer_can_show_source_derived_gap_only() -> None:
+    packet = {
+        "question_number": 3,
+        "question_id": "q03",
+        "question": "How far away is Mirathorn?",
+        "retrieval_mode": "prior_only",
+        "admission_policy": "lane_budgeted_v1",
+        "admitted_context": [
+            {
+                "unit_id": "u-session-travel",
+                "source_kind": "session_memory",
+                "presentation_lane": "prior_campaign_memory",
+                "snippet": "Party traveled toward Mirathorn after Stone Bridge.",
+            }
+        ],
+        "known_context_gaps": [
+            {
+                "gap": "route details not established in retrieved prior context",
+                "source": "deterministic_absence_analysis",
+                "evidence_scope": "allowed_prior_context",
+            }
+        ],
+    }
+    rendered = render_context_packet(packet)
+    gaps = next(s for s in rendered["sections"] if s["section_id"] == "known_gaps_and_safety_constraints")
+    assert "route details not established" in gaps["text"]
+    assert "route gazetteer" not in rendered["rendered_text"].lower()

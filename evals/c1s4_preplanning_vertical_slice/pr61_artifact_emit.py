@@ -86,7 +86,6 @@ def write_pr61_artifacts(*, output_dir: Path, packets_by_mode: dict[str, list[di
                     "question": question_text,
                     "retrieval_mode": mode,
                     "admission_policy": packet.get("admission_policy"),
-                    "known_context_gaps": packet.get("known_context_gaps", []),
                     "admitted_context": admitted,
                     "admission_budget": packet.get("admission_budget", {}),
                 }

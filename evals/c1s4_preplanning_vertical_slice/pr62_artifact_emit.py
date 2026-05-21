@@ -97,7 +97,6 @@ def write_pr62_artifacts(*, output_dir: Path, packets_by_mode: dict[str, list[di
                     "question": question_text,
                     "retrieval_mode": mode,
                     "admission_policy": packet.get("admission_policy"),
-                    "known_context_gaps": packet.get("known_context_gaps", []),
                     "admitted_context": admitted,
                     "admission_budget": packet.get("admission_budget", {}),
                 }
@@ -209,7 +208,7 @@ def write_pr62_artifacts(*, output_dir: Path, packets_by_mode: dict[str, list[di
 
     (output_dir / "pr62_next_pr_recommendations.md").write_text(
         "# Post-PR62 Planning Recommendations\n\n"
-        "1. **Known-gap packet materialization** — remaining `known_gap_missing_from_packet` rows.\n"
+        "1. **Source-derived gap admission** — derive known-gap wording from retrieved evidence only; never inject gold gap strings into planner packets.\n"
         "2. **Generalize C1S4-scoped renderer/admission/merge rules** once benchmark surfaces are stable.\n",
         encoding="utf-8",
     )

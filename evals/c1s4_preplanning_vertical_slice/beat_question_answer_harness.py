@@ -56,6 +56,11 @@ def summarize_authority(retrieved_context: list[dict[str, Any]]) -> dict[str, in
     return counts
 
 
+def expected_known_context_gaps_eval_only(question: dict[str, Any]) -> list[str]:
+    """Gold/target known gaps for evaluator grading only — never planner-facing."""
+    return list(question.get("known_context_gaps") or [])
+
+
 def build_question_context_packet(*, question: dict[str, Any], retrieval_mode: QuestionRetrievalMode, retrieved_context: list[dict[str, Any]], oracle_leakage_check: dict[str, list[Any]]) -> dict[str, Any]:
     packet = {
         "schema": PACKET_SCHEMA,
@@ -70,7 +75,6 @@ def build_question_context_packet(*, question: dict[str, Any], retrieval_mode: Q
         "oracle_risk": question.get("oracle_risk"),
         "expected_mode_behavior": expected_behavior_for_mode(question, retrieval_mode),
         "answer_product": question.get("answer_product") or [],
-        "known_context_gaps": question.get("known_context_gaps") or [],
         "must_not_include_unless_sourced": question.get("must_not_include_unless_sourced") or [],
         "retrieved_context": retrieved_context,
         "authority_summary": summarize_authority(retrieved_context),
@@ -94,6 +98,8 @@ def validate_packet(packet: dict[str, Any]) -> list[str]:
         errs.append("expected_retrieval_context_eval_only must be absent")
     if "expected_retrieval_modes" in packet:
         errs.append("expected_retrieval_modes must be absent")
+    if "known_context_gaps" in packet:
+        errs.append("known_context_gaps is evaluator-only and must not appear in planner packet")
     if not isinstance(packet.get("retrieved_context"), list):
         errs.append("retrieved_context must be a list")
     if "oracle_leakage_check" not in packet:

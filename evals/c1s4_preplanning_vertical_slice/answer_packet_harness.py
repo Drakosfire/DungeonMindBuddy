@@ -10,7 +10,7 @@ def build_stub_answer_packet(*, context_packet: dict[str, Any]) -> dict[str, Any
         "forbidden_path_hits": [],
         "forbidden_session_hits": [],
     }
-    known_gaps = list(context_packet.get("known_context_gaps") or [])
+    known_gaps: list[str] = []
     packet = {
         "schema": ANSWER_PACKET_SCHEMA,
         "campaign_id": context_packet.get("campaign_id", "longmont-c1"),
@@ -44,7 +44,11 @@ def build_stub_answer_packet(*, context_packet: dict[str, Any]) -> dict[str, Any
             "unsupported_claim_warnings": [],
             "eval_only_fields_absent": all(
                 field not in context_packet
-                for field in ["expected_retrieval_context_eval_only", "expected_retrieval_modes"]
+                for field in [
+                    "expected_retrieval_context_eval_only",
+                    "expected_retrieval_modes",
+                    "known_context_gaps",
+                ]
             ),
         },
         "oracle_leakage_check": {

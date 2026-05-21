@@ -46,10 +46,11 @@ def test_answer_packet_does_not_embed_retrieved_context() -> None:
     assert "retrieved_context" not in packet
 
 
-def test_answer_packet_preserves_known_gaps_and_guardrails() -> None:
+def test_answer_packet_preserves_guardrails_without_gold_known_gaps() -> None:
     context = _step2_packet(mode="prior_only", question_number=5)
     packet = build_stub_answer_packet(context_packet=context)
-    assert packet["known_context_gaps"] == context["known_context_gaps"]
+    assert "known_context_gaps" not in context
+    assert packet["known_context_gaps"] == []
     assert packet["must_not_include_unless_sourced"] == context["must_not_include_unless_sourced"]
     assert packet["expected_mode_behavior"] == context["expected_mode_behavior"]
 

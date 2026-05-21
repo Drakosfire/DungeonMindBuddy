@@ -29,9 +29,13 @@ def _family_needle(group_id: str, expected_path: str) -> str:
     return expected_path.lower()
 
 
-def _load_pr59_surface_by_key() -> dict[tuple[str, str, str, str], str]:
-    path = Path("evals/c1s4_preplanning_vertical_slice/artifacts/pr59/pr59_step2c_alias_probe_matrix.csv")
-    if not path.exists():
+def _load_pr59_surface_by_key(*, output_dir: Path) -> dict[tuple[str, str, str, str], str]:
+    candidates = [
+        output_dir / "pr59_step2c_alias_probe_matrix.csv",
+        Path("evals/c1s4_preplanning_vertical_slice/artifacts/pr59/pr59_step2c_alias_probe_matrix.csv"),
+    ]
+    path = next((p for p in candidates if p.exists()), None)
+    if path is None:
         return {}
     out: dict[tuple[str, str, str, str], str] = {}
     with path.open(newline="", encoding="utf-8") as f:
@@ -50,7 +54,7 @@ def _field_for_needle(admitted: list[dict[str, Any]], needle: str, field: str) -
 
 def write_pr60_artifacts(*, output_dir: Path, packets_by_mode: dict[str, list[dict[str, Any]]]) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
-    pr59_surface = _load_pr59_surface_by_key()
+    pr59_surface = _load_pr59_surface_by_key(output_dir=output_dir)
     targets = load_beat_question_targets()
     questions = {str(q["question_id"]): q for q in iter_target_questions(targets)}
 
@@ -72,7 +76,6 @@ def write_pr60_artifacts(*, output_dir: Path, packets_by_mode: dict[str, list[di
                     "question": question_text,
                     "retrieval_mode": mode,
                     "admission_policy": packet.get("admission_policy"),
-                    "known_context_gaps": packet.get("known_context_gaps", []),
                     "admitted_context": admitted,
                     "admission_budget": packet.get("admission_budget", {}),
                 }

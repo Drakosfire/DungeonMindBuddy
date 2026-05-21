@@ -103,7 +103,6 @@ def build_payload(*, report: dict[str, Any], gold: dict[str, Any] | None = None,
             "question": row.get("question"),
             "retrieval_mode": mode,
             "admission_policy": row.get("admission_policy"),
-            "known_context_gaps": row.get("known_context_gaps", []),
             "admitted_context": row.get("admitted_context", []),
             "admission_budget": row.get("admission_budget", {}),
         })

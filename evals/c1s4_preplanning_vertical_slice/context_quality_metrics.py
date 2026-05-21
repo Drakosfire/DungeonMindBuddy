@@ -101,7 +101,7 @@ def compute_packet_quality_metrics(*, row: dict[str, Any], packet: dict[str, Any
     rendered_required = [r for r in required_admitted if r in provenance]
     rendered_required_sections = sorted({str((provenance.get(r) or {}).get("rendered_section_id")) for r in rendered_required if (provenance.get(r) or {}).get("rendered_section_id")})
 
-    known_gaps = [str(x) for x in row.get("known_context_gaps", []) or []]
+    known_gaps = [str(x) for x in row.get("expected_known_context_gaps_eval_only", []) or []]
     kg_idx = next((i for i, s in enumerate(sections, start=1) if str(s.get("section_id")) == "known_gaps_and_safety_constraints" and (s.get("refs") or [])), None)
     mode = str(row.get("retrieval_mode") or pkt.get("retrieval_mode") or "")
     unknown_count = lane_counts.get("unknown", 0)

@@ -20,6 +20,21 @@ def _record_refs(item: dict[str, Any]) -> str:
     return " ".join(str(v or "") for v in vals).lower()
 
 
+def _family_needle(group_id: str, expected_path: str) -> str:
+    gl = group_id.lower()
+    if "grishna" in gl:
+        return "npcs/grishna"
+    if "pippa" in gl:
+        return "npcs/pippa"
+    if "bubbles" in gl:
+        return "npcs/bubbles"
+    if "stone_bridge" in gl or "stone bridge" in expected_path.lower():
+        return "stone_bridge"
+    if "hempholm" in gl or "support" in gl:
+        return "support:hempholm"
+    return expected_path.lower()
+
+
 def _load_pr58_status_by_key() -> dict[tuple[str, str, str, str], str]:
     path = Path("evals/c1s4_preplanning_vertical_slice/artifacts/pr58/pr58_step2c_vs_direct_probe_matrix.csv")
     if not path.exists():
@@ -59,7 +74,6 @@ def write_pr59_artifacts(*, output_dir: Path, packets_by_mode: dict[str, list[di
                     "question": question_text,
                     "retrieval_mode": mode,
                     "admission_policy": packet.get("admission_policy"),
-                    "known_context_gaps": packet.get("known_context_gaps", []),
                     "admitted_context": packet.get("admitted_context", []),
                     "admission_budget": packet.get("admission_budget", {}),
                 }
@@ -125,7 +139,29 @@ def write_pr59_artifacts(*, output_dir: Path, packets_by_mode: dict[str, list[di
                             session_max=3,
                         )
                     )
-                needle = expected_path.lower()
+                needle = _family_needle(group_id, expected_path)
+                if expected_path.lower().startswith("known_gap:"):
+                    if packet.get("known_context_gaps"):
+                        next_surface = "known_gap_oracle_leak_in_planner_packet"
+                    else:
+                        next_surface = "known_gap_eval_only_not_in_planner_packet"
+                    matrix_rows.append(
+                        {
+                            "question_id": question_id,
+                            "group_id": group_id,
+                            "mode": mode,
+                            "expected_path_or_unit_id": expected_path,
+                            "pr58_status": pr58_row_status,
+                            "literal_query_hit": False,
+                            "alias_query_hit": False,
+                            "merged_candidate_hit": False,
+                            "retrieved_context_hit": False,
+                            "admitted_context_hit": False,
+                            "rendered_section_hit": False,
+                            "next_failure_surface": next_surface,
+                        }
+                    )
+                    continue
                 literal_query_hit = any(needle in _record_refs(h) for h in literal_hits)
                 alias_query_hit = any(needle in _record_refs(h) for h in alias_hits)
                 merged_candidate_hit = any(needle in _record_refs(i) for i in candidate)

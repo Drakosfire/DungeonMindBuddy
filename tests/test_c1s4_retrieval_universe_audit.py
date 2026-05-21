@@ -143,7 +143,7 @@ def test_pr61_summary_reports_q1_grishna_moved_from_candidate_pool_gap_to_admitt
     assert data["candidate_deferred_to_admitted"] >= 1
 
 
-def test_pr60_summary_honestly_reports_no_deferred_target_moved_yet(tmp_path: Path) -> None:
+def test_pr60_summary_reflects_post_pr61_admission_and_eval_only_known_gaps(tmp_path: Path) -> None:
     run_audit(
         output_dir=tmp_path / "pr60",
         gold_path=Path("evals/c1s4_preplanning_vertical_slice/gold/c1s4_expected_context_gold.json"),
@@ -151,10 +151,11 @@ def test_pr60_summary_honestly_reports_no_deferred_target_moved_yet(tmp_path: Pa
     )
     assert (tmp_path / "pr60" / "pr60_step2c_surface_matrix.csv").exists()
     assert (tmp_path / "pr60" / "pr60_admission_preservation_matrix.csv").exists()
+    assert (tmp_path / "pr60" / "pr59_step2c_alias_probe_matrix.csv").exists()
     data = json.loads((tmp_path / "pr60" / "pr60_retrieval_universe_summary.json").read_text(encoding="utf-8"))
     assert data["schema"] == "dmb_pr60_retrieval_universe_summary_v1"
-    assert data["admission_deferred_to_admitted"] == 0
-    assert data["pr60_surface_counts"].get("candidate_present_admission_deferred") == 1
+    assert data["pr60_surface_counts"].get("known_gap_eval_only_not_in_planner_packet", 0) >= 1
+    assert data["pr60_surface_counts"].get("ok_or_later_stage", 0) >= 1
 
 
 def test_pr57_artifacts_generated(tmp_path: Path) -> None:
