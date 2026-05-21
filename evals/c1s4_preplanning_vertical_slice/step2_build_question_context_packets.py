@@ -22,15 +22,21 @@ from evals.c1s4_preplanning_vertical_slice.preplanning_context_bundle import bui
 from evals.c1s4_preplanning_vertical_slice.context_admission import build_budgeted_admission, build_lane_budgeted_admission
 from evals.c1s4_preplanning_vertical_slice.query_lane_router import build_lane_plan
 from evals.c1s4_preplanning_vertical_slice.campaign_corpus_materializer import load_campaign_corpus_records_for_c1s4
+from evals.c1s4_preplanning_vertical_slice.query_alias_expansion import build_step2c_query_variants
+from evals.c1s4_preplanning_vertical_slice.query_variant_retrieval import retrieve_query_variants
 from evals.c1s4_preplanning_vertical_slice.step0_kb_materialize import DEFAULT_POLICY_PATH, load_kb_manifest
 from evals.c1s4_preplanning_vertical_slice.support_knowledge_loader import load_normalized_support_records
-from src.agent.session_memory_query import query_session_memory_candidate
 
 
 class C1S4BoundaryError(RuntimeError): ...
 
 
-def _retrieve(query: str, mode: QuestionRetrievalMode, campaign_id: str, *, max_hits: int = 8) -> tuple[list[dict[str, Any]], dict[str, list[str]]]:
+class _MergedRetrievalResult:
+    def __init__(self, hits: list[dict[str, Any]]) -> None:
+        self.hits = hits
+
+
+def _load_combined_records(mode: QuestionRetrievalMode) -> tuple[dict[str, Any], list[dict[str, Any]], dict[str, dict[str, Any]], list[str]]:
     policy = json.loads(DEFAULT_POLICY_PATH.read_text(encoding="utf-8"))
     manifest, session_records = load_kb_manifest(DEFAULT_POLICY_PATH)
     if manifest["forbidden_path_hits"] or manifest["forbidden_session_hits"] or manifest.get("unexpected_session_hits"):
@@ -41,21 +47,41 @@ def _retrieve(query: str, mode: QuestionRetrievalMode, campaign_id: str, *, max_
         combined.extend(load_normalized_support_records(retrieval_mode="content_only"))
     elif mode == "prior_plus_support_content_plus_lexical_hints":
         combined.extend(load_normalized_support_records(retrieval_mode="content_plus_lexical_hints"))
-
-    result = query_session_memory_candidate(records=combined, query=query, campaign_id=campaign_id, session_min=0, session_max=3, max_hits=max_hits)
     records_by_unit_id = {str(r.get("unit_id")): r for r in combined if r.get("unit_id")}
+    return manifest, combined, records_by_unit_id, list(policy["forbidden_oracle_relpaths"])
+
+
+def _retrieve(
+    query: str,
+    mode: QuestionRetrievalMode,
+    campaign_id: str,
+    *,
+    max_hits: int = 8,
+    lane_plan: dict[str, Any] | None = None,
+) -> tuple[list[dict[str, Any]], dict[str, list[str]], dict[str, Any]]:
+    manifest, combined, records_by_unit_id, forbidden_oracle_relpaths = _load_combined_records(mode)
+    lane_plan = lane_plan or build_lane_plan(question_text=query, retrieval_mode=mode, candidate_depth=max_hits, total_budget_chars=8000)
+    variants = build_step2c_query_variants(question_text=query, retrieval_mode=mode, lane_plan=lane_plan)
+    merged_hits, query_variant_diagnostics = retrieve_query_variants(
+        records=combined,
+        query_variants=variants,
+        campaign_id=campaign_id,
+        session_min=0,
+        session_max=3,
+        candidate_depth=max_hits,
+    )
     bundle = build_preplanning_context_bundle(
         kb_id=manifest["kb_id"],
         campaign_id=campaign_id,
         allowed_sessions=manifest["included_sessions"],
         heldout_sessions=manifest["heldout_sessions"],
         query=query,
-        retrieval_result=result,
+        retrieval_result=_MergedRetrievalResult(merged_hits),
         max_items=max_hits,
-        forbidden_oracle_relpaths=policy["forbidden_oracle_relpaths"],
+        forbidden_oracle_relpaths=forbidden_oracle_relpaths,
         records_by_unit_id=records_by_unit_id,
     )
-    return bundle["items"], bundle["oracle_leakage_check"]
+    return bundle["items"], bundle["oracle_leakage_check"], query_variant_diagnostics
 
 
 def build_summary(*, mode: QuestionRetrievalMode, question_number: int | None = None, limit: int | None = None, max_hits: int = 50, admission_policy: str = "lane_budgeted_v1") -> dict[str, Any]:
@@ -77,7 +103,14 @@ def build_summary(*, mode: QuestionRetrievalMode, question_number: int | None = 
             skipped_questions.append({"question_number": q.get("question_number"), "question_id": q.get("question_id"), "status": "skipped", "reason": "evaluator_only_not_planner_facing"})
             continue
         question_text = str(q.get("question") or "")
-        candidate_context, leak = _retrieve(question_text, mode, targets.get("campaign_id", "longmont-c1"), max_hits=max_hits)
+        lane_plan = build_lane_plan(question_text=question_text, retrieval_mode=mode, candidate_depth=max_hits, total_budget_chars=8000)
+        candidate_context, leak, query_variant_diagnostics = _retrieve(
+            question_text,
+            mode,
+            targets.get("campaign_id", "longmont-c1"),
+            max_hits=max_hits,
+            lane_plan=lane_plan,
+        )
         if admission_policy == "legacy_top_k":
             retrieved_context = candidate_context[:9]
             packet = build_question_context_packet(question=q, retrieval_mode=mode, retrieved_context=retrieved_context, oracle_leakage_check=leak)
@@ -85,11 +118,13 @@ def build_summary(*, mode: QuestionRetrievalMode, question_number: int | None = 
         else:
             packet = build_question_context_packet(question=q, retrieval_mode=mode, retrieved_context=candidate_context[:9], oracle_leakage_check=leak)
             if admission_policy == "lane_budgeted_v1":
-                lane_plan = build_lane_plan(question_text=question_text, retrieval_mode=mode, candidate_depth=max_hits, total_budget_chars=8000)
                 admission = build_lane_budgeted_admission(question_text=question_text, retrieval_mode=mode, candidates=candidate_context, lane_plan=lane_plan, candidate_depth=max_hits, total_budget_chars=8000)
             else:
                 admission = build_budgeted_admission(question_text=question_text, retrieval_mode=mode, candidates=candidate_context, candidate_depth=max_hits, total_budget_chars=8000)
             packet.update(admission)
+        packet["query_variant_diagnostics"] = query_variant_diagnostics
+        packet["query_features"] = lane_plan.get("query_features")
+        packet["lane_plan"] = lane_plan
         errs = validate_packet(packet)
         if errs:
             raise RuntimeError(f"Packet validation failed for q{q.get('question_number')}: {errs}")

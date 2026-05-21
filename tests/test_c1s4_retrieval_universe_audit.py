@@ -48,8 +48,22 @@ def test_audit_validates_gold_and_step2c_report(tmp_path: Path) -> None:
     assert summary["inputs"]["step2_packets_path"]
 
 
+def test_pr59_alias_matrix_moves_support_candidate_forward(tmp_path: Path) -> None:
+    summary = run_audit(
+        output_dir=tmp_path / "pr59",
+        gold_path=Path("evals/c1s4_preplanning_vertical_slice/gold/c1s4_expected_context_gold.json"),
+        rebuild_step2c_packets=True,
+    )
+    assert summary["schema"] == "dmb_pr59_retrieval_universe_summary_v1"
+    assert (tmp_path / "pr59" / "pr59_query_variant_manifest.csv").exists()
+    assert (tmp_path / "pr59" / "pr59_step2c_alias_probe_matrix.csv").exists()
+    matrix = (tmp_path / "pr59" / "pr59_step2c_alias_probe_matrix.csv").read_text(encoding="utf-8")
+    assert "support:hempholm_tree_visible_threat" in matrix
+    assert "merged_candidate_hit" in matrix
+
+
 def test_pr57_artifacts_generated(tmp_path: Path) -> None:
-    summary = run_audit(output_dir=tmp_path)
+    summary = run_audit(output_dir=tmp_path / "pr57")
     assert summary["schema"]
-    assert (tmp_path / "pr57_retrieval_universe_summary.json").exists()
-    assert (tmp_path / "pr57_expected_evidence_manifest.csv").exists()
+    assert (tmp_path / "pr57" / "pr57_retrieval_universe_summary.json").exists()
+    assert (tmp_path / "pr57" / "pr57_expected_evidence_manifest.csv").exists()

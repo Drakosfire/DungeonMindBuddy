@@ -22,6 +22,7 @@ from evals.c1s4_preplanning_vertical_slice.expected_context_benchmark import (
     validate_expected_context_gold,
 )
 from evals.c1s4_preplanning_vertical_slice.step2_build_question_context_packets import build_summary
+from evals.c1s4_preplanning_vertical_slice.pr59_artifact_emit import write_pr59_artifacts
 from src.agent.session_memory_query import query_session_memory_candidate
 
 from evals.c1s4_preplanning_vertical_slice.support_knowledge_loader import load_normalized_support_records
@@ -299,6 +300,8 @@ def run_audit(
             f"- support probe hit but step2c retrieved miss: {support_step2c_misses}\n",
             encoding="utf-8",
         )
+    if prefix == "pr59":
+        write_pr59_artifacts(output_dir=output_dir, packets_by_mode=packets_by_mode)
     return summary
 
 
