@@ -22,6 +22,33 @@ def _supports_term(term: str, context_packet: dict[str, Any]) -> bool:
     return False
 
 
+def _apply_must_not_include_safety(*, packet: dict[str, Any], context_packet: dict[str, Any]) -> None:
+    guardrails = list(packet.get("must_not_include_unless_sourced") or [])
+    composite = f"{packet['answer_text']} {packet['structured_answer'].get('summary', '')}".lower()
+    must_not_include_terms_present: list[dict[str, Any]] = []
+    for term in guardrails:
+        present = str(term).lower() in composite
+        if not present:
+            continue
+        supported = _supports_term(str(term), context_packet)
+        must_not_include_terms_present.append(
+            {
+                "term": term,
+                "supported": supported,
+                "reason": "term appears in generated answer and is supported by retrieved context"
+                if supported
+                else "term appears in generated answer but not retrieved context",
+            }
+        )
+    packet["safety_checks"].update(
+        {
+            "must_not_include_terms_present": must_not_include_terms_present,
+            "forbidden_terms_checked": True,
+            "oracle_sensitive_terms_supported_or_absent": all(t.get("supported") for t in must_not_include_terms_present),
+        }
+    )
+
+
 def generate_answer_packet(*, context_packet: dict[str, Any], retrieval_mode: str, generator: str = "template_stub") -> dict[str, Any]:
     if generator != "template_stub":
         raise ValueError(f"unsupported generator: {generator}")
@@ -64,33 +91,10 @@ def generate_answer_packet(*, context_packet: dict[str, Any], retrieval_mode: st
     packet["authority_notes"]["known_gaps"] = known_gaps
     packet["authority_notes"]["manual_gm_decisions_needed"] = packet["structured_answer"]["manual_gm_decisions_needed"]
 
-    must_not_include_terms_present: list[dict[str, Any]] = []
-    # Safety term detection should reflect what the generated prose claims,
-    # not opaque context reference identifiers that may contain proper nouns.
-    composite = f"{packet['answer_text']} {packet['structured_answer'].get('summary', '')}".lower()
-    for term in guardrails:
-        present = str(term).lower() in composite
-        if not present:
-            continue
-        supported = _supports_term(str(term), context_packet)
-        must_not_include_terms_present.append(
-            {
-                "term": term,
-                "supported": supported,
-                "reason": "term appears in generated answer and is supported by retrieved context" if supported else "term appears in generated answer but not retrieved context",
-            }
-        )
-
-    packet["safety_checks"].update(
-        {
-            "must_not_include_terms_present": must_not_include_terms_present,
-            "forbidden_terms_checked": True,
-            "oracle_sensitive_terms_supported_or_absent": all(t.get("supported") for t in must_not_include_terms_present),
-            "eval_only_fields_absent": all(
-                field not in packet
-                for field in ["expected_retrieval_context_eval_only", "expected_retrieval_modes", "retrieved_context"]
-            ),
-        }
+    _apply_must_not_include_safety(packet=packet, context_packet=context_packet)
+    packet["safety_checks"]["eval_only_fields_absent"] = all(
+        field not in packet
+        for field in ["expected_retrieval_context_eval_only", "expected_retrieval_modes", "retrieved_context"]
     )
     return packet
 

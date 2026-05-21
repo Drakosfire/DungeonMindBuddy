@@ -21,10 +21,12 @@ from evals.c1s4_preplanning_vertical_slice.expected_context_benchmark import (
     load_expected_context_gold,
     validate_expected_context_gold,
 )
+from evals.c1s4_preplanning_vertical_slice.beat_question_answer_harness import iter_target_questions, load_beat_question_targets
 from evals.c1s4_preplanning_vertical_slice.step2_build_question_context_packets import build_summary
 from evals.c1s4_preplanning_vertical_slice.pr59_artifact_emit import write_pr59_artifacts
 from evals.c1s4_preplanning_vertical_slice.pr60_artifact_emit import write_pr60_artifacts
 from evals.c1s4_preplanning_vertical_slice.pr61_artifact_emit import write_pr61_artifacts
+from evals.c1s4_preplanning_vertical_slice.pr62_artifact_emit import write_pr62_artifacts
 from src.agent.session_memory_query import query_session_memory_candidate
 
 from evals.c1s4_preplanning_vertical_slice.support_knowledge_loader import load_normalized_support_records
@@ -145,17 +147,30 @@ def run_audit(
     probe_rows: list[dict[str, Any]] = []
     matrix_rows: list[dict[str, Any]] = []
 
+    questions_by_id = {str(q.get("question_id")): q for q in iter_target_questions(load_beat_question_targets())}
+
     for ev in manifest:
         records = records_by_mode[ev.mode]
         refs_blob = "\n".join(_record_refs(r) for r in records)
         packets = packets_by_mode[ev.mode]
 
         if ev.expected_source_kind == "known_context_gap":
-            step2c_known_gap_hit = any(
-                pkt.get("question_id") == ev.question_id and any(ev.expected_terms[0].lower() in str(g).lower() or ev.group_id.lower() in str(g).lower() for g in (pkt.get("known_context_gaps") or []))
+            planner_gap_leak = any(
+                pkt.get("question_id") == ev.question_id and bool(pkt.get("known_context_gaps"))
                 for pkt in packets
             )
-            status = "known_gap_present" if step2c_known_gap_hit else "known_gap_missing_from_packet"
+            gold_q = questions_by_id.get(ev.question_id, {})
+            eval_gaps = gold_q.get("known_context_gaps") or []
+            eval_gap_present = any(
+                ev.expected_terms[0].lower() in str(g).lower() or ev.group_id.lower() in str(g).lower()
+                for g in eval_gaps
+            )
+            if planner_gap_leak:
+                status = "known_gap_oracle_leak_in_planner_packet"
+                step2c_known_gap_hit = True
+            else:
+                status = "known_gap_eval_only_not_in_planner_packet"
+                step2c_known_gap_hit = False
             row = asdict(ev) | {
                 "source_exists_on_disk": "n/a",
                 "allowed_by_retrieval_hygiene": True,
@@ -167,7 +182,10 @@ def run_audit(
                 "step2c_retrieved_hit": False,
                 "step2c_candidate_hit": False,
                 "classification_status": status,
-                "notes": "known_context_gap audited from packet known_context_gaps rather than filesystem/records",
+                "notes": (
+                    "Gold known gaps are evaluator-only; planner packets must not carry known_context_gaps. "
+                    f"eval_gap_present_in_gold_targets={eval_gap_present}"
+                ),
             }
             manifest_rows.append(row)
             matrix_rows.append({"question_id": ev.question_id, "group_id": ev.group_id, "mode": ev.mode, "expected_path": ev.expected_path, "lexical_file_probe_hit": "n/a", "retrieval_probe_hit": "n/a", "step2c_known_gap_hit": step2c_known_gap_hit, "step2c_retrieved_hit": False, "step2c_candidate_hit": False, "classification_status": status})
@@ -264,7 +282,8 @@ def run_audit(
         f"- Corpus markdown hubs/dossiers/recaps are materialized into the Step2C retrieval record universe ({not_materialized} corpus rows still `source_not_materialized_as_retrieval_record`).\n"
         "- Step2C retrieval universe combines Step0 session-memory records, PR58 campaign-corpus section records, and support-card augmentation.\n"
         f"- Support cards are materialized and retrieval-probe reachable ({support_probe_hits} rows); Step2C candidate hits: {support_step2c_candidate_hits}; retrieved misses after probe hit: {support_step2c_misses}.\n"
-        "- Known-gap targets are audited against packet `known_context_gaps` and not treated as filesystem/index artifacts.\n\n"
+        "- Gold `known_context_gaps` are evaluator-only; planner packets must not carry `known_context_gaps`.\n"
+        "- Known-gap manifest rows classify as `known_gap_eval_only_not_in_planner_packet` unless oracle leak is detected.\n\n"
         "## What this proves\n"
         "1. Existence/hygiene for corpus paths is mostly not the bottleneck.\n"
         "2. Record-universe materialization is the primary early surface for corpus hub/dossier/recap evidence.\n"
@@ -302,12 +321,14 @@ def run_audit(
             f"- support probe hit but step2c retrieved miss: {support_step2c_misses}\n",
             encoding="utf-8",
         )
-    if prefix == "pr59":
+    if prefix in {"pr59", "pr60", "pr61", "pr62"}:
         write_pr59_artifacts(output_dir=output_dir, packets_by_mode=packets_by_mode)
-    if prefix == "pr60":
+    if prefix in {"pr60", "pr61", "pr62"}:
         write_pr60_artifacts(output_dir=output_dir, packets_by_mode=packets_by_mode)
     if prefix == "pr61":
         write_pr61_artifacts(output_dir=output_dir, packets_by_mode=packets_by_mode)
+    if prefix == "pr62":
+        write_pr62_artifacts(output_dir=output_dir, packets_by_mode=packets_by_mode)
     return summary
 
 

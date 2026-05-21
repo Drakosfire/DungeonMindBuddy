@@ -95,9 +95,18 @@ def test_depth_diagnostics_report_first_match_beyond_top_k():
     assert diag["first_matching_rank"] == 2
 
 
-def test_known_gap_expectation_is_checked_against_packet_gaps():
-    packet = {"question_number": 3, "question_id": "q03", "retrieved_context": [], "known_context_gaps": ["exact Stone Bridge-to-Mirathorn route gazetteer"], "authority_summary": {}}
-    gq = {"expectations_by_mode": {"prior_only": {"required_context_groups": [], "forbidden_context_groups": [], "expected_known_gaps_contains_any": ["exact Stone Bridge-to-Mirathorn route gazetteer", "route-specific ecology"]}}}
+def test_known_gap_expectation_is_checked_against_eval_only_gold_gaps():
+    packet = {"question_number": 3, "question_id": "q03", "retrieved_context": [], "authority_summary": {}}
+    gq = {
+        "known_context_gaps": ["exact Stone Bridge-to-Mirathorn route gazetteer"],
+        "expectations_by_mode": {
+            "prior_only": {
+                "required_context_groups": [],
+                "forbidden_context_groups": [],
+                "expected_known_gaps_contains_any": ["exact Stone Bridge-to-Mirathorn route gazetteer", "route-specific ecology"],
+            }
+        },
+    }
     row = grade_question_packet(packet=packet, gold_question=gq, retrieval_mode="prior_only", top_k=9)
     assert "missing_expected_known_gap" in row["violations"]
     assert row["known_gap_expectations_hit"] == ["exact Stone Bridge-to-Mirathorn route gazetteer"]
@@ -324,15 +333,15 @@ def test_npc_hub_match_satisfies_character_lane_group():
     assert diag["reason"] == "accepted"
 
 
-def test_known_gap_required_group_uses_synthetic_known_gap_candidates():
+def test_known_gap_required_group_uses_eval_only_synthetic_known_gap_candidates():
     packet = {
         "question_number": 3,
         "question_id": "q03",
         "retrieved_context": [{"unit_id": "u1", "snippet": "uncertain travel time"}],
-        "known_context_gaps": ["exact Stone Bridge-to-Mirathorn route gazetteer"],
         "authority_summary": {},
     }
     gq = {
+        "known_context_gaps": ["exact Stone Bridge-to-Mirathorn route gazetteer"],
         "expectations_by_mode": {
             "prior_only": {
                 "required_context_groups": [
@@ -346,7 +355,7 @@ def test_known_gap_required_group_uses_synthetic_known_gap_candidates():
                 "forbidden_context_groups": [],
                 "expected_known_gaps_contains_any": ["exact Stone Bridge-to-Mirathorn route gazetteer"],
             }
-        }
+        },
     }
     row = grade_question_packet(packet=packet, gold_question=gq, retrieval_mode="prior_only", top_k=9)
     assert row["ok"] is True

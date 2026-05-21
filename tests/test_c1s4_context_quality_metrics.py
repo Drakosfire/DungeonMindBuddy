@@ -16,6 +16,7 @@ def _base_row():
         "required_context_groups_hit": 1,
         "matched_groups": [{"matched_context_refs": ["s1"]}],
         "known_context_gaps": ["unknown route"],
+        "expected_known_context_gaps_eval_only": ["unknown route"],
         "retrieved_context": admitted + [{"unit_id": "r3", "source_kind": "session_memory"}],
         "candidate_context": admitted,
         "admitted_context": admitted,

@@ -75,6 +75,21 @@ def test_packet_validator_rejects_eval_only_target_hints() -> None:
     )
     packet["expected_retrieval_context_eval_only"] = ["bad"]
     assert any("expected_retrieval_context_eval_only" in e for e in validate_packet(packet))
+    packet2 = build_question_context_packet(
+        question=q,
+        retrieval_mode="prior_only",
+        retrieved_context=[],
+        oracle_leakage_check={"forbidden_path_hits": [], "forbidden_session_hits": []},
+    )
+    packet2["known_context_gaps"] = ["exact Stone Bridge-to-Mirathorn route gazetteer"]
+    assert any("known_context_gaps" in e for e in validate_packet(packet2))
+
+
+def test_planner_packet_does_not_include_gold_known_context_gaps() -> None:
+    summary = build_summary(mode="prior_only", question_number=3, max_hits=50)
+    packet = summary["packets"][0]
+    assert packet.get("known_context_gaps") in (None, [])
+    assert "known_context_gaps" not in packet
 
 
 def test_no_llm_or_answer_generation_side_effects() -> None:

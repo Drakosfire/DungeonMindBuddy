@@ -18,7 +18,12 @@ from evals.c1s4_preplanning_vertical_slice.context_classification import (
     is_navigation_only_context,
 )
 
-from evals.c1s4_preplanning_vertical_slice.beat_question_answer_harness import PACKET_SCHEMA, iter_target_questions, load_beat_question_targets
+from evals.c1s4_preplanning_vertical_slice.beat_question_answer_harness import (
+    PACKET_SCHEMA,
+    expected_known_context_gaps_eval_only,
+    iter_target_questions,
+    load_beat_question_targets,
+)
 
 EXPECTED_CONTEXT_GOLD_SCHEMA = "dmb_c1s4_expected_context_gold_v1"
 EXPECTED_CONTEXT_REPORT_SCHEMA = "dmb_c1s4_expected_context_benchmark_report_v1"
@@ -255,19 +260,19 @@ def grade_question_packet(*, packet: dict[str, Any], gold_question: dict[str, An
     forbidden = exp.get("forbidden_context_groups", [])
     grading_context_kind, grading_context = get_grading_context(packet)
     effective_top_k = None if grading_context_kind == "admitted_context" else top_k
+    eval_known_gaps = expected_known_context_gaps_eval_only(gold_question)
     rendered_context_packet = render_context_packet({
         "question_number": packet.get("question_number"),
         "question_id": packet.get("question_id"),
         "question": packet.get("question"),
         "retrieval_mode": retrieval_mode,
         "admission_policy": str(packet.get("admission_policy") or "legacy_top_k"),
-        "known_context_gaps": packet.get("known_context_gaps", []),
         "admitted_context": packet.get("admitted_context", []),
         "admission_budget": packet.get("admission_budget", {}),
     })
     required_matches = [match_context_group(retrieved_context=grading_context, group=g, top_k=effective_top_k) for g in required]
     forbidden_matches = [match_context_group(retrieved_context=grading_context, group=g, top_k=effective_top_k) for g in forbidden]
-    known_hits = [term for term in exp.get("expected_known_gaps_contains_any", []) if any(_norm(term) in _norm(g) for g in packet.get("known_context_gaps", []))]
+    known_hits = [term for term in exp.get("expected_known_gaps_contains_any", []) if any(_norm(term) in _norm(g) for g in eval_known_gaps)]
     violations: list[str] = []
     missing_groups = [m["group_id"] for m in required_matches if not m["ok"]]
     lane_aware_required_matches = []
@@ -277,7 +282,7 @@ def grade_question_packet(*, packet: dict[str, Any], gold_question: dict[str, An
         slice_ctx = grading_context if effective_top_k is None else grading_context[:effective_top_k]
         candidates = [i for i in slice_ctx if match_context_item(i, grp.get("match", {}))]
         if grp.get("required_lane") == "known_gap" or grp.get("expected_rendered_section") == "known_gaps_and_safety_constraints":
-            for gap in packet.get("known_context_gaps", []) or []:
+            for gap in eval_known_gaps:
                 synthetic_gap = {
                     "unit_id": f"known_gap:{gap}",
                     "ref": f"known_gap:{gap}",
@@ -359,7 +364,7 @@ def grade_question_packet(*, packet: dict[str, Any], gold_question: dict[str, An
         "authority_summary": packet.get("authority_summary", {}),
         "grading_context_kind": grading_context_kind,
         "question": packet.get("question"),
-        "known_context_gaps": packet.get("known_context_gaps", []),
+        "expected_known_context_gaps_eval_only": eval_known_gaps,
         "admitted_context": packet.get("admitted_context", []),
         "admission_budget": packet.get("admission_budget", {}),
         "query_features": packet.get("query_features"),
@@ -376,7 +381,6 @@ def _attach_render_and_metrics(row: dict[str, Any], *, packet: dict[str, Any], g
         "question": row.get("question"),
         "retrieval_mode": row.get("retrieval_mode"),
         "admission_policy": row.get("admission_policy"),
-        "known_context_gaps": row.get("known_context_gaps", []),
         "admitted_context": row.get("admitted_context", []),
         "admission_budget": row.get("admission_budget", {}),
     })
