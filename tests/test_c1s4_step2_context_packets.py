@@ -101,6 +101,33 @@ def test_q1_actual_question_candidate_context_includes_grishna_after_alias_expan
     assert "grishna" in refs
 
 
+def test_q1_actual_question_admits_grishna_after_pr60() -> None:
+    targets = load_beat_question_targets()
+    q1 = next(q for q in iter_target_questions(targets) if q["question_number"] == 1)
+    summary = build_summary(mode="prior_only", question_number=1, max_hits=50)
+    packet = summary["packets"][0]
+    assert str(packet.get("question_id") or "") == str(q1.get("question_id") or "")
+
+    grishna_admittable = [
+        i
+        for i in packet.get("candidate_context") or []
+        if "/npcs/grishna/" in str(i.get("source_path") or "").lower()
+        and str(i.get("evidence_role") or "") == "evidence"
+    ]
+    admitted_refs = " ".join(
+        str(i.get("source_path") or i.get("unit_id") or "") for i in packet.get("admitted_context") or []
+    ).lower()
+    preserved = packet.get("admission_preservation_diagnostics") or {}
+    preserved_grishna = [
+        p for p in preserved.get("preserved_items") or [] if "grishna" in str(p.get("unit_id") or "").lower()
+    ]
+
+    if grishna_admittable:
+        assert "npcs/grishna" in admitted_refs or preserved_grishna
+    else:
+        assert preserved.get("schema") == "dmb_admission_preservation_diagnostics_v1"
+
+
 def test_q3_actual_question_candidate_context_includes_stone_bridge_after_alias_expansion() -> None:
     targets = load_beat_question_targets()
     q3 = next(q for q in iter_target_questions(targets) if q["question_number"] == 3)

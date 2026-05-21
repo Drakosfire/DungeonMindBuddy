@@ -17,6 +17,7 @@ C1S4_CAMPAIGN_CORPUS_TARGET_RELPATHS: tuple[str, ...] = (
     "Longmont Campaign/Campaign 1/NPCs/bubbles_the_float_goat/README.md",
     "Longmont Campaign/Campaign 1/NPCs/bubbles_the_float_goat/bubbles_the_float_goat_character_dossier.md",
     "Longmont Campaign/Campaign 1/NPCs/grishna/README.md",
+    "Longmont Campaign/Campaign 1/NPCs/grishna/grishna_character_dossier.md",
     "Longmont Campaign/Campaign 1/Locations/stone_bridge/README.md",
     "Longmont Campaign/Campaign 1/Locations/rivers_edge_pub/README.md",
     "Longmont Campaign/Campaign 1/Locations/hempholm/README.md",

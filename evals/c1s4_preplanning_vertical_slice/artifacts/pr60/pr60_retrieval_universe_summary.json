@@ -1,0 +1,10 @@
+{
+  "schema": "dmb_pr60_retrieval_universe_summary_v1",
+  "admission_deferred_to_admitted": 0,
+  "pr60_surface_counts": {
+    "rendered_section_mismatch": 4,
+    "candidate_present_admission_deferred": 1,
+    "ok_or_later_stage": 6,
+    "known_gap_missing_from_packet": 1
+  }
+}

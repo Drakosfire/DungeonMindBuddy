@@ -3,6 +3,7 @@ from __future__ import annotations
 import math
 import re
 from typing import Any
+from evals.c1s4_preplanning_vertical_slice.admission_preservation import apply_admission_preservation
 from evals.c1s4_preplanning_vertical_slice.context_classification import infer_planner_lane, is_admittable_planner_evidence
 
 SUPPORT_KIND = "support_knowledge_card"
@@ -147,49 +148,111 @@ def _infer_lane(item: dict[str, Any]) -> str:
     return "unknown"
 
 
+def _admitted_budget_lane(item: dict[str, Any]) -> str:
+    return str(item.get("admission_budget_lane") or item.get("presentation_lane") or _infer_lane(item))
+
+
 def build_lane_budgeted_admission(*, question_text: str, retrieval_mode: str, candidates: list[dict[str, Any]], lane_plan: dict[str, Any], candidate_depth: int = 50, total_budget_chars: int = 8000) -> dict[str, Any]:
     candidate_context = candidates[:candidate_depth]
     lanes_cfg = lane_plan.get("lanes", {})
     lane_state = {ln: {**cfg, "remaining": int(cfg.get("target_chars", 0))} for ln, cfg in lanes_cfg.items()}
-    admitted_raw=[]
-    counts={}
-    for idx,item in enumerate(candidate_context, start=1):
-        k=str(item.get("source_kind") or "session_memory"); counts[k]=counts.get(k,0)+1
+    admitted_raw: list[dict[str, Any]] = []
+    counts: dict[str, int] = {}
+
+    preserved, preservation_diagnostics = apply_admission_preservation(
+        question_text=question_text,
+        retrieval_mode=retrieval_mode,
+        candidates=candidate_context,
+        lane_plan=lane_plan,
+        lane_state=lane_state,
+        total_budget_chars=total_budget_chars,
+        estimate_size=estimate_context_item_size,
+    )
+    admitted_raw.extend(preserved)
+    preserved_ranks = {int(i["candidate_rank"]) for i in preserved}
+
+    for idx, item in enumerate(candidate_context, start=1):
+        k = str(item.get("source_kind") or "session_memory")
+        counts[k] = counts.get(k, 0) + 1
+        if idx in preserved_ranks:
+            continue
         if not is_admittable_planner_evidence(item):
             continue
-        lane=_infer_lane(item)
-        chars,tokens=estimate_context_item_size(item)
-        if retrieval_mode=="prior_only" and str(item.get("source_kind"))==SUPPORT_KIND:
+        budget_lane = _infer_lane(item)
+        chars, tokens = estimate_context_item_size(item)
+        if retrieval_mode == "prior_only" and str(item.get("source_kind")) == SUPPORT_KIND:
             continue
-        state=lane_state.get(lane)
+        state = lane_state.get(budget_lane)
         if not state:
             continue
-        if chars<=int(state.get("remaining",0)):
-            state["remaining"]-=chars
-            out=dict(item)
-            out.update({"candidate_rank":idx,"admission_policy":"lane_budgeted_v1","admission_reason":f"lane_target_{lane}","presentation_lane":lane,"estimated_chars":chars,"estimated_tokens":tokens})
+        if chars <= int(state.get("remaining", 0)):
+            state["remaining"] -= chars
+            presentation_lane = item.get("presentation_lane") or classify_presentation_lane(item)
+            out = dict(item)
+            out.update(
+                {
+                    "candidate_rank": idx,
+                    "admission_policy": "lane_budgeted_v1",
+                    "admission_reason": f"lane_target_{budget_lane}",
+                    "presentation_lane": presentation_lane,
+                    "admission_budget_lane": budget_lane,
+                    "estimated_chars": chars,
+                    "estimated_tokens": tokens,
+                }
+            )
             admitted_raw.append(out)
 
     # spillover pass
     rem_total = total_budget_chars - sum(int(i["estimated_chars"]) for i in admitted_raw)
-    admitted_ids={id(i) for i in admitted_raw}
-    priorities=sorted(((ln,cfg.get("priority",99)) for ln,cfg in lanes_cfg.items()), key=lambda x:x[1])
-    for ln,_ in priorities:
-        max_chars=int(lanes_cfg.get(ln,{}).get("max_chars",0))
-        ln_used=sum(int(i["estimated_chars"]) for i in admitted_raw if i.get("presentation_lane")==ln)
-        for idx,item in enumerate(candidate_context, start=1):
-            if rem_total<=0 or ln_used>=max_chars: break
-            if retrieval_mode=="prior_only" and str(item.get("source_kind"))==SUPPORT_KIND: continue
+    priorities = sorted(((ln, cfg.get("priority", 99)) for ln, cfg in lanes_cfg.items()), key=lambda x: x[1])
+    for ln, _ in priorities:
+        max_chars = int(lanes_cfg.get(ln, {}).get("max_chars", 0))
+        ln_used = sum(int(i["estimated_chars"]) for i in admitted_raw if _admitted_budget_lane(i) == ln)
+        for idx, item in enumerate(candidate_context, start=1):
+            if rem_total <= 0 or ln_used >= max_chars:
+                break
+            if retrieval_mode == "prior_only" and str(item.get("source_kind")) == SUPPORT_KIND:
+                continue
             if not is_admittable_planner_evidence(item):
                 continue
-            if any(int(x.get("candidate_rank",-1))==idx for x in admitted_raw): continue
-            if _infer_lane(item)!=ln: continue
-            chars,tokens=estimate_context_item_size(item)
-            if chars<=rem_total and ln_used+chars<=max_chars:
-                out=dict(item); out.update({"candidate_rank":idx,"admission_policy":"lane_budgeted_v1","admission_reason":f"lane_spillover_{ln}","presentation_lane":ln,"estimated_chars":chars,"estimated_tokens":tokens})
-                admitted_raw.append(out); rem_total-=chars; ln_used+=chars
+            if any(int(x.get("candidate_rank", -1)) == idx for x in admitted_raw):
+                continue
+            if _infer_lane(item) != ln:
+                continue
+            chars, tokens = estimate_context_item_size(item)
+            if chars <= rem_total and ln_used + chars <= max_chars:
+                presentation_lane = item.get("presentation_lane") or classify_presentation_lane(item)
+                out = dict(item)
+                out.update(
+                    {
+                        "candidate_rank": idx,
+                        "admission_policy": "lane_budgeted_v1",
+                        "admission_reason": f"lane_spillover_{ln}",
+                        "presentation_lane": presentation_lane,
+                        "admission_budget_lane": ln,
+                        "estimated_chars": chars,
+                        "estimated_tokens": tokens,
+                    }
+                )
+                admitted_raw.append(out)
+                rem_total -= chars
+                ln_used += chars
 
-    admitted_sorted=sorted(admitted_raw,key=lambda x:int(x["candidate_rank"]))
-    for i,item in enumerate(admitted_sorted, start=1): item["admitted_rank"]=i
-    admitted_chars=sum(int(i["estimated_chars"]) for i in admitted_sorted)
-    return {"admission_policy":"lane_budgeted_v1","lane_plan":lane_plan,"query_features":lane_plan.get("query_features"),"admission_budget":{"candidate_depth":candidate_depth,"total_budget_chars":total_budget_chars,"estimated_tokens":math.ceil(admitted_chars/4)},"candidate_context":candidate_context,"candidate_context_diagnostics":{"candidate_count":len(candidate_context),"source_kind_counts":counts},"admitted_context":admitted_sorted}
+    admitted_sorted = sorted(admitted_raw, key=lambda x: int(x["candidate_rank"]))
+    for i, item in enumerate(admitted_sorted, start=1):
+        item["admitted_rank"] = i
+    admitted_chars = sum(int(i["estimated_chars"]) for i in admitted_sorted)
+    return {
+        "admission_policy": "lane_budgeted_v1",
+        "lane_plan": lane_plan,
+        "query_features": lane_plan.get("query_features"),
+        "admission_preservation_diagnostics": preservation_diagnostics,
+        "admission_budget": {
+            "candidate_depth": candidate_depth,
+            "total_budget_chars": total_budget_chars,
+            "estimated_tokens": math.ceil(admitted_chars / 4),
+        },
+        "candidate_context": candidate_context,
+        "candidate_context_diagnostics": {"candidate_count": len(candidate_context), "source_kind_counts": counts},
+        "admitted_context": admitted_sorted,
+    }
