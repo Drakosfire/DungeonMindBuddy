@@ -1,9 +1,28 @@
 from pathlib import Path
 
+import csv
 import json
 
 from evals.c1s4_preplanning_vertical_slice.audit_retrieval_universe import build_expected_evidence_manifest, classify_retrieval_failure, run_audit
 from evals.c1s4_preplanning_vertical_slice.context_classification import is_allowed_retrieval_corpus_path
+
+
+def _alias_matrix_row(
+    matrix_path: Path,
+    *,
+    question_id: str,
+    group_id: str,
+    mode: str,
+) -> dict[str, str]:
+    with matrix_path.open(newline="", encoding="utf-8") as f:
+        for row in csv.DictReader(f):
+            if (
+                row["question_id"] == question_id
+                and row["group_id"] == group_id
+                and row["mode"] == mode
+            ):
+                return row
+    raise AssertionError(f"no alias matrix row for {question_id=} {group_id=} {mode=}")
 
 
 def test_expected_manifest_builds() -> None:
@@ -48,8 +67,54 @@ def test_audit_validates_gold_and_step2c_report(tmp_path: Path) -> None:
     assert summary["inputs"]["step2_packets_path"]
 
 
+def test_pr59_alias_matrix_moves_support_candidate_forward(tmp_path: Path) -> None:
+    summary = run_audit(
+        output_dir=tmp_path / "pr59",
+        gold_path=Path("evals/c1s4_preplanning_vertical_slice/gold/c1s4_expected_context_gold.json"),
+        rebuild_step2c_packets=True,
+    )
+    assert summary["schema"] == "dmb_pr59_retrieval_universe_summary_v1"
+    assert (tmp_path / "pr59" / "pr59_query_variant_manifest.csv").exists()
+    assert (tmp_path / "pr59" / "pr59_step2c_alias_probe_matrix.csv").exists()
+    matrix = (tmp_path / "pr59" / "pr59_step2c_alias_probe_matrix.csv").read_text(encoding="utf-8")
+    assert "support:hempholm_tree_visible_threat" in matrix
+    assert "merged_candidate_hit" in matrix
+
+
+def test_pr59_artifact_alias_probe_uses_scoped_variant_retrieval(tmp_path: Path) -> None:
+    run_audit(
+        output_dir=tmp_path / "pr59",
+        gold_path=Path("evals/c1s4_preplanning_vertical_slice/gold/c1s4_expected_context_gold.json"),
+        rebuild_step2c_packets=True,
+    )
+    matrix_path = tmp_path / "pr59" / "pr59_step2c_alias_probe_matrix.csv"
+    row = _alias_matrix_row(
+        matrix_path,
+        question_id="q01_who_are_the_npcs_the_players_encountered",
+        group_id="grishna_character_continuity",
+        mode="prior_only",
+    )
+    assert row["alias_query_hit"] == "True"
+    assert row["merged_candidate_hit"] == "True"
+
+    manifest_path = tmp_path / "pr59" / "pr59_query_variant_manifest.csv"
+    with manifest_path.open(newline="", encoding="utf-8") as f:
+        grishna_alias_rows = [
+            r
+            for r in csv.DictReader(f)
+            if r["question_id"] == "q01_who_are_the_npcs_the_players_encountered"
+            and r["retrieval_mode"] == "prior_only"
+            and r["variant_role"] == "npc_target_alias"
+            and "grishna" in (r.get("query") or "").lower()
+        ]
+    assert grishna_alias_rows, "expected Grishna npc_target_alias manifest row"
+    assert int(grishna_alias_rows[0]["hit_count"]) > 0
+    assert grishna_alias_rows[0]["record_scope"] == "npc_target_alias"
+    assert int(grishna_alias_rows[0]["scoped_record_count"]) > 0
+
+
 def test_pr57_artifacts_generated(tmp_path: Path) -> None:
-    summary = run_audit(output_dir=tmp_path)
+    summary = run_audit(output_dir=tmp_path / "pr57")
     assert summary["schema"]
-    assert (tmp_path / "pr57_retrieval_universe_summary.json").exists()
-    assert (tmp_path / "pr57_expected_evidence_manifest.csv").exists()
+    assert (tmp_path / "pr57" / "pr57_retrieval_universe_summary.json").exists()
+    assert (tmp_path / "pr57" / "pr57_expected_evidence_manifest.csv").exists()

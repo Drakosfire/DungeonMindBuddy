@@ -6,7 +6,7 @@ from evals.c1s4_preplanning_vertical_slice.beat_question_answer_harness import l
 from evals.c1s4_preplanning_vertical_slice.campaign_corpus_materializer import load_campaign_corpus_records_for_c1s4
 from evals.c1s4_preplanning_vertical_slice.preplanning_context_bundle import build_preplanning_context_bundle
 from evals.c1s4_preplanning_vertical_slice.step0_kb_materialize import DEFAULT_POLICY_PATH, load_kb_manifest
-from evals.c1s4_preplanning_vertical_slice.step2_build_question_context_packets import _retrieve
+from evals.c1s4_preplanning_vertical_slice.step2_build_question_context_packets import _retrieve, build_summary
 from evals.c1s4_preplanning_vertical_slice.support_knowledge_loader import load_normalized_support_records
 from src.agent.session_memory_query import query_session_memory_candidate
 
@@ -76,12 +76,48 @@ def test_q5_support_direct_probe_retrieves_hempholm_tree_support_card() -> None:
     assert any(str(h.get("unit_id") or "") == "support:hempholm_tree_visible_threat" for h in hits)
 
 
-def test_q5_actual_question_does_not_yet_surface_support_card_in_step2_retrieve() -> None:
+def test_q5_actual_question_candidate_context_includes_support_card_in_support_modes() -> None:
     targets = load_beat_question_targets()
     q5 = next(q for q in iter_target_questions(targets) if q["question_number"] == 5)
-    items, _leak = _retrieve(str(q5["question"]), "prior_plus_support_content_only", "longmont-c1", max_hits=50)
+    for mode in ("prior_plus_support_content_only", "prior_plus_support_content_plus_lexical_hints"):
+        items, _leak, _diag = _retrieve(str(q5["question"]), mode, "longmont-c1", max_hits=50)
+        unit_ids = {str(i.get("unit_id") or "") for i in items}
+        assert "support:hempholm_tree_visible_threat" in unit_ids
+
+
+def test_q5_actual_question_prior_only_does_not_include_support_card() -> None:
+    targets = load_beat_question_targets()
+    q5 = next(q for q in iter_target_questions(targets) if q["question_number"] == 5)
+    items, _leak, _diag = _retrieve(str(q5["question"]), "prior_only", "longmont-c1", max_hits=50)
     unit_ids = {str(i.get("unit_id") or "") for i in items}
     assert "support:hempholm_tree_visible_threat" not in unit_ids
+
+
+def test_q1_actual_question_candidate_context_includes_grishna_after_alias_expansion() -> None:
+    targets = load_beat_question_targets()
+    q1 = next(q for q in iter_target_questions(targets) if q["question_number"] == 1)
+    items, _leak, _diag = _retrieve(str(q1["question"]), "prior_only", "longmont-c1", max_hits=50)
+    refs = " ".join(str(i.get("source_path") or i.get("source_recap_path") or i.get("unit_id") or "") for i in items).lower()
+    assert "grishna" in refs
+
+
+def test_q3_actual_question_candidate_context_includes_stone_bridge_after_alias_expansion() -> None:
+    targets = load_beat_question_targets()
+    q3 = next(q for q in iter_target_questions(targets) if q["question_number"] == 3)
+    items, _leak, _diag = _retrieve(str(q3["question"]), "prior_only", "longmont-c1", max_hits=50)
+    refs = " ".join(str(i.get("source_path") or i.get("source_recap_path") or i.get("unit_id") or "") for i in items).lower()
+    assert "stone_bridge" in refs or "stone bridge" in refs
+
+
+def test_step2_packet_includes_query_variant_diagnostics() -> None:
+    summary = build_summary(mode="prior_plus_support_content_only", question_number=5, max_hits=50)
+    packet = summary["packets"][0]
+    diag = packet.get("query_variant_diagnostics") or {}
+    assert diag.get("variant_count", 0) >= 2
+    assert isinstance(diag.get("variants"), list)
+    assert diag.get("retrieval_merge_policy")
+    assert isinstance(diag.get("variant_hit_counts"), list)
+
 
 
 def test_support_bundle_preserves_support_card_hits() -> None:
@@ -107,6 +143,6 @@ def test_support_bundle_preserves_support_card_hits() -> None:
 def test_step2_retrieve_includes_materialized_pippa_for_q1() -> None:
     targets = load_beat_question_targets()
     q1 = next(q for q in iter_target_questions(targets) if q["question_number"] == 1)
-    items, _leak = _retrieve(str(q1["question"]), "prior_only", "longmont-c1", max_hits=50)
+    items, _leak, _diag = _retrieve(str(q1["question"]), "prior_only", "longmont-c1", max_hits=50)
     refs = " ".join(str(i.get("source_path") or i.get("source_recap_path") or i.get("unit_id") or "") for i in items).lower()
     assert "pippa" in refs

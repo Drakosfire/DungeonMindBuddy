@@ -1,0 +1,14 @@
+{
+  "schema": "dmb_pr59_retrieval_universe_summary_v1",
+  "pr58_counts": {
+    "known_gap_missing_from_packet": 1,
+    "ok_or_later_stage": 7,
+    "source_exists_but_step2c_miss": 4
+  },
+  "pr59_alias_matrix_counts": {
+    "ok_or_later_stage": 10,
+    "candidate_present_admission_deferred": 1,
+    "known_gap_missing_from_packet": 1
+  },
+  "moved_forward": 4
+}
