@@ -113,6 +113,22 @@ def test_pr59_alias_matrix_moves_support_candidate_forward(tmp_path: Path) -> No
     assert "merged_candidate_hit" in matrix
 
 
+def test_pr61_summary_reports_q1_grishna_moved_from_candidate_pool_gap_to_admitted_or_rendered_mismatch(
+    tmp_path: Path,
+) -> None:
+    run_audit(
+        output_dir=tmp_path / "pr61",
+        gold_path=Path("evals/c1s4_preplanning_vertical_slice/gold/c1s4_expected_context_gold.json"),
+        rebuild_step2c_packets=True,
+    )
+    assert (tmp_path / "pr61" / "pr61_step2c_surface_matrix.csv").exists()
+    assert (tmp_path / "pr61" / "pr61_candidate_merge_allocation_matrix.csv").exists()
+    data = json.loads((tmp_path / "pr61" / "pr61_retrieval_universe_summary.json").read_text(encoding="utf-8"))
+    assert data["schema"] == "dmb_pr61_retrieval_universe_summary_v1"
+    assert data["q1_grishna_moved_from_candidate_pool_gap"] is True
+    assert data["candidate_deferred_to_admitted"] >= 1
+
+
 def test_pr60_summary_honestly_reports_no_deferred_target_moved_yet(tmp_path: Path) -> None:
     run_audit(
         output_dir=tmp_path / "pr60",

@@ -23,6 +23,7 @@ def build_preplanning_context_bundle(*, kb_id: str, campaign_id: str, allowed_se
         "title",
         "subject_doc_kind",
     )
+    _merge_fields = ("merge_reason", "merge_family", "merge_source_variant_role", "merge_source_query")
     for hit in hits[:max_items]:
         unit_id = str(hit.get("unit_id") or "")
         record = records_by_unit_id.get(unit_id, {})
@@ -41,6 +42,9 @@ def build_preplanning_context_bundle(*, kb_id: str, campaign_id: str, allowed_se
         for field in _corpus_fields:
             if record.get(field) is not None:
                 item[field] = record[field]
+        for field in _merge_fields:
+            if hit.get(field) is not None:
+                item[field] = hit[field]
         if record.get("source_kind") == "support_knowledge_card":
             item.pop("session_number", None)
             item.update({
