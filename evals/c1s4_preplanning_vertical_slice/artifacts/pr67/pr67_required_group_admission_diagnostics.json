@@ -255,7 +255,8 @@
           "admission_reason": "admitted",
           "lane_rejection_reason": null,
           "rendered_section": "character_party_behavior"
-        }
+        },
+        "first_source_derived_gap_match": null
       },
       "match_surface": {
         "candidate_match_count": 15,
@@ -377,7 +378,8 @@
           "admission_reason": "admitted",
           "lane_rejection_reason": null,
           "rendered_section": "character_party_behavior"
-        }
+        },
+        "first_source_derived_gap_match": null
       },
       "match_surface": {
         "candidate_match_count": 17,
@@ -499,7 +501,8 @@
           "admission_reason": "admitted",
           "lane_rejection_reason": null,
           "rendered_section": "character_party_behavior"
-        }
+        },
+        "first_source_derived_gap_match": null
       },
       "match_surface": {
         "candidate_match_count": 11,
@@ -621,7 +624,8 @@
           "admission_reason": "admitted",
           "lane_rejection_reason": null,
           "rendered_section": "location_worldbuilding"
-        }
+        },
+        "first_source_derived_gap_match": null
       },
       "match_surface": {
         "candidate_match_count": 14,
@@ -717,7 +721,8 @@
           "lane_rejection_reason": "incompatible_required_lane",
           "rendered_section": "location_worldbuilding"
         },
-        "first_lane_accepted_match": null
+        "first_lane_accepted_match": null,
+        "first_source_derived_gap_match": null
       },
       "match_surface": {
         "candidate_match_count": 10,
@@ -773,6 +778,14 @@
           "admission_reason": "lane_accepted",
           "lane_rejection_reason": null,
           "rendered_section": "known_gaps_and_safety_constraints"
+        },
+        "first_source_derived_gap_match": {
+          "ref": "source_gap:mirathorn_exact_route_gap",
+          "source_kind": "source_derived_gap",
+          "subject_class": "route_gap",
+          "presentation_lane": "known_gap",
+          "rendered_section": "known_gaps_and_safety_constraints",
+          "lane_accepted": true
         }
       },
       "match_surface": {
@@ -790,9 +803,9 @@
         "admission_policy": "lane_budgeted_v1"
       },
       "render_surface": {
-        "rendered": false,
-        "rendered_section": null,
-        "first_rendered_ref": null
+        "rendered": true,
+        "rendered_section": "known_gaps_and_safety_constraints",
+        "first_rendered_ref": "source_gap:mirathorn_exact_route_gap"
       },
       "grading_surface": {
         "legacy_match": false,
@@ -801,7 +814,7 @@
         "grading_context_kind": "admitted_context",
         "effective_grading_surface": "admitted_context"
       },
-      "miss_root_cause": "retrieval_rank"
+      "miss_root_cause": "ok"
     },
     {
       "schema": "dmb_pr67_required_group_admission_row_v2",
@@ -895,7 +908,8 @@
           "admission_reason": "admitted",
           "lane_rejection_reason": null,
           "rendered_section": "location_worldbuilding"
-        }
+        },
+        "first_source_derived_gap_match": null
       },
       "match_surface": {
         "candidate_match_count": 18,
@@ -1017,7 +1031,8 @@
           "admission_reason": "admitted",
           "lane_rejection_reason": null,
           "rendered_section": "character_party_behavior"
-        }
+        },
+        "first_source_derived_gap_match": null
       },
       "match_surface": {
         "candidate_match_count": 10,
@@ -1139,7 +1154,8 @@
           "admission_reason": "admitted",
           "lane_rejection_reason": null,
           "rendered_section": "character_party_behavior"
-        }
+        },
+        "first_source_derived_gap_match": null
       },
       "match_surface": {
         "candidate_match_count": 12,
@@ -1261,7 +1277,8 @@
           "admission_reason": "admitted",
           "lane_rejection_reason": null,
           "rendered_section": "character_party_behavior"
-        }
+        },
+        "first_source_derived_gap_match": null
       },
       "match_surface": {
         "candidate_match_count": 6,
@@ -1383,7 +1400,8 @@
           "admission_reason": "admitted",
           "lane_rejection_reason": null,
           "rendered_section": "location_worldbuilding"
-        }
+        },
+        "first_source_derived_gap_match": null
       },
       "match_surface": {
         "candidate_match_count": 9,
@@ -1479,7 +1497,8 @@
           "lane_rejection_reason": "incompatible_required_lane",
           "rendered_section": "location_worldbuilding"
         },
-        "first_lane_accepted_match": null
+        "first_lane_accepted_match": null,
+        "first_source_derived_gap_match": null
       },
       "match_surface": {
         "candidate_match_count": 5,
@@ -1535,6 +1554,14 @@
           "admission_reason": "lane_accepted",
           "lane_rejection_reason": null,
           "rendered_section": "known_gaps_and_safety_constraints"
+        },
+        "first_source_derived_gap_match": {
+          "ref": "source_gap:mirathorn_exact_route_gap",
+          "source_kind": "source_derived_gap",
+          "subject_class": "route_gap",
+          "presentation_lane": "known_gap",
+          "rendered_section": "known_gaps_and_safety_constraints",
+          "lane_accepted": true
         }
       },
       "match_surface": {
@@ -1552,9 +1579,9 @@
         "admission_policy": "lane_budgeted_v1"
       },
       "render_surface": {
-        "rendered": false,
-        "rendered_section": null,
-        "first_rendered_ref": null
+        "rendered": true,
+        "rendered_section": "known_gaps_and_safety_constraints",
+        "first_rendered_ref": "source_gap:mirathorn_exact_route_gap"
       },
       "grading_surface": {
         "legacy_match": false,
@@ -1563,7 +1590,7 @@
         "grading_context_kind": "admitted_context",
         "effective_grading_surface": "admitted_context"
       },
-      "miss_root_cause": "retrieval_rank"
+      "miss_root_cause": "ok"
     },
     {
       "schema": "dmb_pr67_required_group_admission_row_v2",
@@ -1657,7 +1684,8 @@
           "admission_reason": "admitted",
           "lane_rejection_reason": null,
           "rendered_section": "location_worldbuilding"
-        }
+        },
+        "first_source_derived_gap_match": null
       },
       "match_surface": {
         "candidate_match_count": 13,
@@ -1779,7 +1807,8 @@
           "admission_reason": "admitted",
           "lane_rejection_reason": null,
           "rendered_section": "support_knowledge"
-        }
+        },
+        "first_source_derived_gap_match": null
       },
       "match_surface": {
         "candidate_match_count": 9,
@@ -1901,7 +1930,8 @@
           "admission_reason": "admitted",
           "lane_rejection_reason": null,
           "rendered_section": "character_party_behavior"
-        }
+        },
+        "first_source_derived_gap_match": null
       },
       "match_surface": {
         "candidate_match_count": 8,
@@ -2023,7 +2053,8 @@
           "admission_reason": "admitted",
           "lane_rejection_reason": null,
           "rendered_section": "character_party_behavior"
-        }
+        },
+        "first_source_derived_gap_match": null
       },
       "match_surface": {
         "candidate_match_count": 10,
@@ -2145,7 +2176,8 @@
           "admission_reason": "admitted",
           "lane_rejection_reason": null,
           "rendered_section": "character_party_behavior"
-        }
+        },
+        "first_source_derived_gap_match": null
       },
       "match_surface": {
         "candidate_match_count": 4,
@@ -2267,7 +2299,8 @@
           "admission_reason": "admitted",
           "lane_rejection_reason": null,
           "rendered_section": "location_worldbuilding"
-        }
+        },
+        "first_source_derived_gap_match": null
       },
       "match_surface": {
         "candidate_match_count": 7,
@@ -2363,7 +2396,8 @@
           "lane_rejection_reason": "incompatible_required_lane",
           "rendered_section": "location_worldbuilding"
         },
-        "first_lane_accepted_match": null
+        "first_lane_accepted_match": null,
+        "first_source_derived_gap_match": null
       },
       "match_surface": {
         "candidate_match_count": 3,
@@ -2419,6 +2453,14 @@
           "admission_reason": "lane_accepted",
           "lane_rejection_reason": null,
           "rendered_section": "known_gaps_and_safety_constraints"
+        },
+        "first_source_derived_gap_match": {
+          "ref": "source_gap:mirathorn_exact_route_gap",
+          "source_kind": "source_derived_gap",
+          "subject_class": "route_gap",
+          "presentation_lane": "known_gap",
+          "rendered_section": "known_gaps_and_safety_constraints",
+          "lane_accepted": true
         }
       },
       "match_surface": {
@@ -2436,9 +2478,9 @@
         "admission_policy": "lane_budgeted_v1"
       },
       "render_surface": {
-        "rendered": false,
-        "rendered_section": null,
-        "first_rendered_ref": null
+        "rendered": true,
+        "rendered_section": "known_gaps_and_safety_constraints",
+        "first_rendered_ref": "source_gap:mirathorn_exact_route_gap"
       },
       "grading_surface": {
         "legacy_match": false,
@@ -2447,7 +2489,7 @@
         "grading_context_kind": "admitted_context",
         "effective_grading_surface": "admitted_context"
       },
-      "miss_root_cause": "retrieval_rank"
+      "miss_root_cause": "ok"
     },
     {
       "schema": "dmb_pr67_required_group_admission_row_v2",
@@ -2541,7 +2583,8 @@
           "admission_reason": "admitted",
           "lane_rejection_reason": null,
           "rendered_section": "location_worldbuilding"
-        }
+        },
+        "first_source_derived_gap_match": null
       },
       "match_surface": {
         "candidate_match_count": 11,
@@ -2663,7 +2706,8 @@
           "admission_reason": "admitted",
           "lane_rejection_reason": null,
           "rendered_section": "support_knowledge"
-        }
+        },
+        "first_source_derived_gap_match": null
       },
       "match_surface": {
         "candidate_match_count": 8,

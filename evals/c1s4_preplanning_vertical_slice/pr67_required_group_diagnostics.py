@@ -17,6 +17,10 @@ from evals.c1s4_preplanning_vertical_slice.expected_context_benchmark import (
     load_expected_context_gold,
     match_context_item,
 )
+from evals.c1s4_preplanning_vertical_slice.source_derived_context_gaps import (
+    is_source_derived_route_gap_hit,
+    source_derived_gap_to_grading_item,
+)
 from evals.c1s4_preplanning_vertical_slice.step2_build_question_context_packets import build_summary
 from evals.c1s4_preplanning_vertical_slice.visibility_provenance import is_planner_visible_for_c1s4_preplanning
 
@@ -217,12 +221,53 @@ def _lane_accepted_surface(
     }
 
 
+def _first_source_derived_gap_match(
+    *,
+    packet: dict[str, Any],
+    group: dict[str, Any],
+    rendered_packet: dict[str, Any],
+) -> dict[str, Any] | None:
+    if str(group.get("required_lane") or "") != "known_gap":
+        return None
+    group_id = str(group.get("group_id") or "")
+    match_spec = group.get("match") or {}
+    for gap in packet.get("source_derived_context_gaps") or []:
+        if not isinstance(gap, dict):
+            continue
+        gap_id = str(gap.get("gap_id") or "")
+        item = source_derived_gap_to_grading_item(gap)
+        matched = gap_id == f"source_gap:{group_id}"
+        if not matched and group_id == "mirathorn_exact_route_gap" and is_source_derived_route_gap_hit(gap):
+            matched = True
+        if not matched and match_spec and match_context_item(item, match_spec):
+            matched = True
+        if not matched:
+            continue
+        ok, diag = context_item_satisfies_lane_aware_group(
+            item,
+            group=group,
+            rendered_context_packet=rendered_packet,
+        )
+        return {
+            "ref": gap_id or _context_item_ref(item),
+            "source_kind": str(gap.get("source_kind") or "source_derived_gap"),
+            "subject_class": str(gap.get("subject_class") or infer_context_subject_class(item)),
+            "presentation_lane": str(gap.get("presentation_lane") or "known_gap"),
+            "rendered_section": str(diag.get("rendered_section") or group.get("expected_rendered_section") or ""),
+            "lane_accepted": ok,
+        }
+    return None
+
+
 def _miss_root_cause_from_lineage(
     *,
     lineage: dict[str, Any | None],
     lane_aware_accepted: bool,
     legacy_match: bool,
 ) -> str:
+    if lane_aware_accepted:
+        return "ok"
+
     raw = lineage.get("first_raw_match")
     admittable = lineage.get("first_admittable_match")
     admitted = lineage.get("first_admitted_match")
@@ -319,6 +364,11 @@ def build_required_group_row(
         items=admitted,
         admission_diag=admission_diag,
     )
+    first_source_derived_gap = _first_source_derived_gap_match(
+        packet=packet,
+        group=group,
+        rendered_packet=rendered_packet,
+    )
 
     admitted_flag = first_admitted is not None
     admission_reason = None
@@ -348,11 +398,14 @@ def build_required_group_row(
         "first_admitted_match": first_admitted,
         "first_rendered_match": first_rendered,
         "first_lane_accepted_match": first_lane_accepted,
+        "first_source_derived_gap_match": first_source_derived_gap,
     }
 
     rendered_section = None
     if first_rendered is not None:
         rendered_section = first_rendered.get("rendered_section")
+    elif first_source_derived_gap is not None and lane_aware_accepted:
+        rendered_section = first_source_derived_gap.get("rendered_section")
 
     return {
         "schema": ROW_SCHEMA,
@@ -378,9 +431,11 @@ def build_required_group_row(
             "admission_policy": packet.get("admission_policy"),
         },
         "render_surface": {
-            "rendered": first_rendered is not None,
+            "rendered": first_rendered is not None
+            or (first_source_derived_gap is not None and lane_aware_accepted),
             "rendered_section": rendered_section,
-            "first_rendered_ref": (first_rendered or {}).get("ref"),
+            "first_rendered_ref": (first_rendered or {}).get("ref")
+            or ((first_source_derived_gap or {}).get("ref") if lane_aware_accepted else None),
         },
         "grading_surface": {
             "legacy_match": legacy_match,

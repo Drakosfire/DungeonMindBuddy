@@ -88,6 +88,25 @@ def test_q3_distance_row_does_not_classify_navigation_as_lane_accepted() -> None
         assert lineage.get("first_lane_accepted_match") is None or row.get("grading_surface", {}).get("lane_aware_accepted") is False
 
 
+def test_source_derived_known_gap_rows_report_ok_root_cause() -> None:
+    diagnostics = build_pr67_required_group_diagnostics(max_hits=50)
+    gap_rows = [
+        r
+        for r in diagnostics.get("rows") or []
+        if r.get("group_id") == "mirathorn_exact_route_gap"
+    ]
+    assert gap_rows
+    for row in gap_rows:
+        grading = row.get("grading_surface") or {}
+        lineage = row.get("lineage") or {}
+        assert grading.get("lane_aware_accepted") is True
+        assert row.get("miss_root_cause") == "ok"
+        source_gap = lineage.get("first_source_derived_gap_match") or {}
+        assert source_gap.get("ref") == "source_gap:mirathorn_exact_route_gap"
+        assert source_gap.get("source_kind") == "source_derived_gap"
+        assert source_gap.get("rendered_section") == "known_gaps_and_safety_constraints"
+
+
 def test_pr67_diagnostics_include_q3_distance_rows() -> None:
     diagnostics = build_pr67_required_group_diagnostics(max_hits=50)
     assert diagnostics.get("schema") == "dmb_pr67_required_group_admission_diagnostics_v2"
