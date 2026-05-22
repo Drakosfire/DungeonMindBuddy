@@ -86,6 +86,6 @@ printf 'Payload: %s\n' "$PAYLOAD_OUT"
 printf 'Canvas:  %s\n' "$CANVAS_PATH"
 echo
 echo "Open the Canvas path in Cursor (beside chat)."
-echo "Use the mode filter + 'Only failing rows' toggle; expand question cards for rendered LLM context."
+echo "Use mode + question filters; inspect support retrieval field policy before per-question cards."
 echo "Useful sanity grep:"
-echo "  grep -n \"cursor/canvas\|Only failing rows\|Rendered LLM context\" \"$CANVAS_PATH\" | head -20"
+echo "  grep -n \"SupportFieldPolicyPanel\\|retrieval_terms\\|Rendered LLM context\" \"$CANVAS_PATH\" | head -20"

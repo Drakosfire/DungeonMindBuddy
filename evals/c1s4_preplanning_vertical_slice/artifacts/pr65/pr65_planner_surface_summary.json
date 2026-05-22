@@ -1,0 +1,34 @@
+{
+  "schema": "dmb_pr65_planner_surface_summary_v1",
+  "target_questions_total": 38,
+  "planner_facing_questions": 37,
+  "evaluator_only_questions": 1,
+  "retrieval_modes": 3,
+  "planner_surface_rows": 111,
+  "evaluator_only_rows": 3,
+  "hard_boundary_failures": {
+    "prompt_payload_invalid": 0,
+    "forbidden_prompt_key_hits": 0,
+    "forbidden_prompt_value_hits": 0,
+    "known_context_gaps_leaked": 0,
+    "generated_answer_control_leaks": 0,
+    "prior_only_support_leaks": 0,
+    "must_not_include_terms_in_prompt_payload": 0
+  },
+  "coverage_by_class": {
+    "ok_or_later_stage": 28,
+    "needs_manual_review": 38,
+    "creative_generation_no_strict_context_required": 39,
+    "support_expected_but_missing": 6
+  },
+  "failure_surface_counts": {
+    "ok_or_later_stage": 97,
+    "support_missing_constraint_not_admitted": 8,
+    "support_expected_but_missing": 6
+  },
+  "support_required_rows": 27,
+  "support_required_support_mode_rows": 18,
+  "support_required_prior_only_rows": 9,
+  "tier_a_ok_rows": 9,
+  "next_recommended_pr": "PR66 support-required retrieval/admission expansion"
+}

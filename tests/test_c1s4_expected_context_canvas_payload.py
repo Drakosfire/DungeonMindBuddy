@@ -57,10 +57,10 @@ def _single_report(ok: bool = True) -> dict:
 
 
 def test_build_payload_from_single_mode_report():
-    payload = build_payload(report=_single_report())
+    payload = build_payload(report=_single_report(), include_full_surface=False)
     assert payload["schema"] == PAYLOAD_SCHEMA
-    assert payload["modeRows"][0]["required_group_recall"] == "1.00"
-    for key in ["summary", "modeRows", "questionRows", "questionCards", "guardrailRows"]:
+    assert payload["modeRows"][0]["strict_gold_ok"] == 1 or payload["modeRows"][0].get("rows_ok") == 1
+    for key in ["summary", "modeRows", "questionRows", "questionCards", "guardrailRows", "modeGuide"]:
         assert key in payload
 
 
@@ -73,7 +73,7 @@ def test_build_payload_from_multimode_report():
         },
         "mode_deltas": {"x": 1},
     }
-    payload = build_payload(report=mm)
+    payload = build_payload(report=mm, include_full_surface=False)
     assert len(payload["summary"]["modes"]) == 3
     assert payload["modeDeltas"] == {"x": 1}
 
@@ -86,19 +86,19 @@ def test_build_payload_from_real_multimode_report():
         "prior_plus_support_content_plus_lexical_hints",
     ]}
     mm = build_multimode_expected_context_report(reports_by_mode=reports)
-    payload = build_payload(report=mm)
+    payload = build_payload(report=mm, include_full_surface=False)
     assert payload["modeRows"]
     assert payload["questionRows"]
     assert payload["questionCards"]
 
 
 def test_failing_rows_open_by_default():
-    payload = build_payload(report=_single_report(ok=False))
+    payload = build_payload(report=_single_report(ok=False), include_full_surface=False)
     assert payload["questionCards"][0]["open_by_default"] is True
 
 
 def test_required_group_failures_are_visible():
-    payload = build_payload(report=_single_report(ok=False))
+    payload = build_payload(report=_single_report(ok=False), include_full_surface=False)
     card = payload["questionCards"][0]
     assert card["missing_required_groups"]
     assert card["violations"]
@@ -113,7 +113,7 @@ def test_known_gap_ratio_not_misleading_without_gold_totals():
     row["known_gap_expectations_hit"] = ["gap1"]
     row["violations"] = ["missing_expected_known_gap"]
     row.pop("known_gap_expectations", None)
-    payload = build_payload(report=report)
+    payload = build_payload(report=report, include_full_surface=False)
     assert payload["questionRows"][0]["known_gaps"] == "1/?"
 
 
@@ -135,10 +135,10 @@ def test_known_gap_ratio_uses_gold_totals_when_available():
             }
         ]
     }
-    payload = build_payload(report=report, gold=gold)
+    payload = build_payload(report=report, gold=gold, include_full_surface=False)
     assert payload["questionRows"][0]["known_gaps"] == "1/2"
 def test_render_generated_block_has_markers_and_const():
-    block = render_generated_block(build_payload(report=_single_report()))
+    block = render_generated_block(build_payload(report=_single_report(), include_full_surface=False))
     assert "BEGIN GENERATED C1S4_EXPECTED_CONTEXT_CANVAS_DATA" in block
     assert "END GENERATED C1S4_EXPECTED_CONTEXT_CANVAS_DATA" in block
     assert "const c1s4ExpectedContextCanvasData =" in block
@@ -159,14 +159,14 @@ def test_update_canvas_text_rejects_missing_markers():
 
 
 def test_payload_contains_no_full_oracle_text():
-    payload = build_payload(report=_single_report())
+    payload = build_payload(report=_single_report(), include_full_surface=False)
     dumped = json.dumps(payload)
     for s in ["c1s4_oracle", "observed_c1s4", "oracle_text", "final_score"]:
         assert s not in dumped
 
 
 def test_payload_is_projection_not_canonical_benchmark():
-    payload = build_payload(report=_single_report(), report_path="/tmp/report.json")
+    payload = build_payload(report=_single_report(), report_path="/tmp/report.json", include_full_surface=False)
     dumped = json.dumps(payload)
     assert payload["sources"]["report"] == "/tmp/report.json"
     assert "expectations_by_mode" not in dumped
@@ -190,13 +190,60 @@ def test_cli_check_mode_reports_stale_canvas(tmp_path):
 
 
 def test_canvas_payload_includes_rendered_context_packet():
-    payload = build_payload(report=_single_report())
+    payload = build_payload(report=_single_report(), include_full_surface=False)
     assert "rendered_context_packet" in payload["questionRows"][0]
     assert payload["questionRows"][0]["rendered_context_packet"]["schema"] == "dmb_planner_context_render_v1"
 
 
+def test_full_surface_payload_covers_all_planner_rows():
+    payload = build_payload(report=_single_report(), include_full_surface=True)
+    cards = payload["questionCards"]
+    assert len(cards) >= 111
+    planner = [c for c in cards if c.get("planner_facing") is not False and c.get("verdict") != "EVALUATOR"]
+    assert len(planner) == 111
+    for card in planner:
+        assert card.get("rendered_context_packet", {}).get("schema") == "dmb_planner_context_render_v1"
+        assert card.get("question")
+
+
+def test_payload_includes_mode_guide():
+    payload = build_payload(report=_single_report(), include_full_surface=True)
+    guide = payload.get("modeGuide") or {}
+    assert guide.get("modes")
+    assert guide.get("verdict_legend")
+    assert "111" in str(guide.get("scope") or "")
+    assert "retrieval_terms" in str(guide)
+    assert "manual keyword augmentation" in str(guide)
+
+
+def test_payload_includes_support_field_policy_rank_diagnostics():
+    payload = build_payload(report=_single_report(), include_full_surface=True)
+    policy = payload.get("supportFieldPolicy") or {}
+    assert policy.get("demo_mode") == "prior_plus_support_content_plus_lexical_hints"
+    assert policy.get("ablation_mode") == "prior_plus_support_content_only"
+    assert policy.get("rows")
+    row = policy["rows"][0]
+    for key in [
+        "content_only_candidate_rank",
+        "retrieval_terms_candidate_rank",
+        "content_only_admitted_rank",
+        "retrieval_terms_admitted_rank",
+        "support_token_share_delta",
+    ]:
+        assert key in row
+
+
+def test_payload_includes_planner_surface_coverage_section():
+    payload = build_payload(report=_single_report(), include_full_surface=True)
+    section = payload.get("plannerSurfaceCoverage") or {}
+    assert section.get("schema") == "dmb_pr65_planner_surface_canvas_section_v1"
+    assert section.get("rows")
+    assert int((section.get("summary") or {}).get("planner_surface_rows") or 0) == 111
+    assert section.get("failureSurfaceCounts")
+
+
 def test_canvas_renderer_can_emit_expandable_context():
-    block = render_generated_block(build_payload(report=_single_report()))
+    block = render_generated_block(build_payload(report=_single_report(), include_full_surface=True))
     assert "rendered_context_packet" in block
     assert "sections" in block
     assert "Known Gaps and Safety Constraints" in block
@@ -205,11 +252,15 @@ def test_canvas_renderer_can_emit_expandable_context():
     ).read_text(encoding="utf-8")
     assert 'from "cursor/canvas"' in template
     assert "Rendered LLM context" in template
+    assert "ModeGuidePanel" in template
+    assert "SupportFieldPolicyPanel" in template
+    assert "retrieval_terms" in template
+    assert "full deep dive" in template
     assert 'className="' not in template
 
 
 def test_payload_declares_canvas_ui_scope_boundary():
-    payload = build_payload(report=_single_report())
+    payload = build_payload(report=_single_report(), include_full_surface=False)
     details = " ".join(r.get("detail", "") for r in payload.get("guardrailRows", []))
     assert "cursor/canvas" in details
     assert "generated data block" in details
@@ -223,7 +274,7 @@ def test_payload_includes_mode_filter_options():
         },
         "mode_deltas": {},
     }
-    payload = build_payload(report=mm)
+    payload = build_payload(report=mm, include_full_surface=False)
     opts = payload["summary"]["modeOptions"]
     assert opts[0]["value"] == "all"
     assert any(o["value"] == "prior_only" for o in opts)
@@ -237,6 +288,6 @@ def test_pr43_readme_explicitly_declares_external_canvas_ui_ownership():
 
 
 def test_canvas_payload_carries_packet_quality_metrics():
-    payload = build_payload(report=_single_report())
+    payload = build_payload(report=_single_report(), include_full_surface=False)
     assert "packet_quality_metrics" in payload["questionRows"][0]
     assert "packet_quality_metrics" in payload["questionCards"][0]
