@@ -1,0 +1,77 @@
+[
+  {
+    "schema": "dmb_c1s4_evaluator_control_metadata_v1",
+    "campaign_id": "longmont-c1",
+    "question_number": 1,
+    "question_id": "q01_who_are_the_npcs_the_players_encountered",
+    "target_artifact_visibility": "forbidden",
+    "source_target_artifact": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/c1s4_preplanning_vertical_slice/gold/c1s4_beat_question_targets.json",
+    "authority_label": "prior_recap_supported",
+    "oracle_risk": "low",
+    "expected_mode_behavior": "should_answer_well",
+    "answer_product": [
+      "npc_list",
+      "dialogue",
+      "visual_description",
+      "emotional_state",
+      "mental_state"
+    ],
+    "must_not_include_unless_sourced": [],
+    "expected_known_context_gaps_eval_only": [],
+    "oracle_leakage_check": {
+      "forbidden_path_hits": [],
+      "forbidden_session_hits": []
+    }
+  },
+  {
+    "schema": "dmb_c1s4_evaluator_control_metadata_v1",
+    "campaign_id": "longmont-c1",
+    "question_number": 3,
+    "question_id": "q03_how_far_away_is_mirathorn_at_this_point",
+    "target_artifact_visibility": "forbidden",
+    "source_target_artifact": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/c1s4_preplanning_vertical_slice/gold/c1s4_beat_question_targets.json",
+    "authority_label": "worldbuilding_required",
+    "oracle_risk": "medium",
+    "expected_mode_behavior": "should_partially_answer_and_admit_gaps",
+    "answer_product": [
+      "prep_notes"
+    ],
+    "must_not_include_unless_sourced": [],
+    "expected_known_context_gaps_eval_only": [],
+    "oracle_leakage_check": {
+      "forbidden_path_hits": [
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Locations/hempholm/README.md"
+      ],
+      "forbidden_session_hits": []
+    }
+  },
+  {
+    "schema": "dmb_c1s4_evaluator_control_metadata_v1",
+    "campaign_id": "longmont-c1",
+    "question_number": 5,
+    "question_id": "q05_there_is_a_gigantic_tree_growing_in_hemp",
+    "target_artifact_visibility": "forbidden",
+    "source_target_artifact": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/c1s4_preplanning_vertical_slice/gold/c1s4_beat_question_targets.json",
+    "authority_label": "support_knowledge_required",
+    "oracle_risk": "high",
+    "expected_mode_behavior": "should_generate_generic_and_admit_missing_support",
+    "answer_product": [
+      "prep_notes"
+    ],
+    "must_not_include_unless_sourced": [
+      "Torvak Hempdealer",
+      "Torbin",
+      "Jove",
+      "Steve",
+      "root-like beetles",
+      "precious metal leaves"
+    ],
+    "expected_known_context_gaps_eval_only": [],
+    "oracle_leakage_check": {
+      "forbidden_path_hits": [
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Locations/hempholm/README.md"
+      ],
+      "forbidden_session_hits": []
+    }
+  }
+]

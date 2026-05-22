@@ -10,12 +10,27 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from evals.c1s4_preplanning_vertical_slice.generated_answer_harness import generate_answer_packet, validate_generated_answer_packet
+from evals.c1s4_preplanning_vertical_slice.planner_prompt_payload import (
+    build_evaluator_control_metadata,
+    build_planner_prompt_payload,
+)
 from evals.c1s4_preplanning_vertical_slice.step2_build_question_context_packets import C1S4BoundaryError, build_summary as build_step2_summary
 
 
 def build_summary(*, mode: str, question_number: int | None = None, limit: int | None = None, generator: str = "template_stub") -> dict:
     step2 = build_step2_summary(mode=mode, question_number=question_number, limit=limit)
-    answer_packets = [generate_answer_packet(context_packet=p, retrieval_mode=mode, generator=generator) for p in step2["packets"]]
+    answer_packets = []
+    for p in step2["packets"]:
+        prompt = build_planner_prompt_payload(context_packet=p)
+        meta = build_evaluator_control_metadata(context_packet=p)
+        answer_packets.append(
+            generate_answer_packet(
+                planner_prompt_payload=prompt,
+                evaluator_control_metadata=meta,
+                retrieval_mode=mode,
+                generator=generator,
+            )
+        )
     packet_errors = []
     unsupported_forbidden = 0
     for p in answer_packets:
@@ -25,8 +40,24 @@ def build_summary(*, mode: str, question_number: int | None = None, limit: int |
         if not (p.get("safety_checks") or {}).get("oracle_sensitive_terms_supported_or_absent", True):
             unsupported_forbidden += 1
 
-    oracle_path_hits = sorted({h for p in answer_packets for h in (p.get("oracle_leakage_check") or {}).get("forbidden_path_hits", [])})
-    oracle_session_hits = sorted({h for p in answer_packets for h in (p.get("oracle_leakage_check") or {}).get("forbidden_session_hits", [])})
+    oracle_path_hits = sorted(
+        {
+            h
+            for p in answer_packets
+            for h in ((p.get("evaluator_control_metadata") or {}).get("oracle_leakage_check") or {}).get(
+                "forbidden_path_hits", []
+            )
+        }
+    )
+    oracle_session_hits = sorted(
+        {
+            h
+            for p in answer_packets
+            for h in ((p.get("evaluator_control_metadata") or {}).get("oracle_leakage_check") or {}).get(
+                "forbidden_session_hits", []
+            )
+        }
+    )
     return {
         "schema": "dmb_c1s4_step4_generated_answer_packet_summary_v1",
         "campaign_id": step2.get("campaign_id", "longmont-c1"),
@@ -37,7 +68,16 @@ def build_summary(*, mode: str, question_number: int | None = None, limit: int |
             "context_packets_seen": len(answer_packets) + len(step2["skipped_questions"]),
             "answer_packets_built": len(answer_packets),
             "questions_skipped": len(step2["skipped_questions"]),
-            "packets_with_oracle_leakage": sum(1 for p in answer_packets if (p.get("oracle_leakage_check") or {}).get("forbidden_path_hits") or (p.get("oracle_leakage_check") or {}).get("forbidden_session_hits")),
+            "packets_with_oracle_leakage": sum(
+                1
+                for p in answer_packets
+                if ((p.get("evaluator_control_metadata") or {}).get("oracle_leakage_check") or {}).get(
+                    "forbidden_path_hits"
+                )
+                or ((p.get("evaluator_control_metadata") or {}).get("oracle_leakage_check") or {}).get(
+                    "forbidden_session_hits"
+                )
+            ),
             "packets_with_unsupported_forbidden_terms": unsupported_forbidden,
             "packets_with_validation_errors": len(packet_errors),
         },
