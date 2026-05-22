@@ -1,43 +1,76 @@
 from __future__ import annotations
 
-import json
 from typing import Any
 
 from evals.c1s4_preplanning_vertical_slice.answer_packet_harness import ANSWER_PACKET_SCHEMA, build_stub_answer_packet
+from evals.c1s4_preplanning_vertical_slice.planner_prompt_payload import (
+    build_evaluator_control_metadata,
+    build_planner_prompt_payload,
+    find_forbidden_prompt_material,
+    validate_planner_prompt_payload,
+)
+
+_CONTROL_LEAK_PHRASES = (
+    "expected behavior:",
+    "authority requirement:",
+    "oracle_risk",
+)
 
 
-def _context_refs(context_packet: dict[str, Any]) -> tuple[list[str], list[str]]:
-    refs = [str(i.get("unit_id")) for i in (context_packet.get("retrieved_context") or []) if i.get("unit_id")]
-    used = refs[:3] if refs else []
-    unused = refs[3:] if len(refs) > 3 else []
+def _rendered_context_refs(planner_prompt_payload: dict[str, Any]) -> tuple[list[str], list[str]]:
+    rendered = planner_prompt_payload.get("rendered_context") or {}
+    refs: list[str] = []
+    for section in rendered.get("sections") or []:
+        if not isinstance(section, dict):
+            continue
+        if section.get("section_id") == "support_knowledge" and planner_prompt_payload.get("retrieval_mode") == "prior_only":
+            continue
+        refs.extend(str(r) for r in (section.get("refs") or []) if r)
+    deduped: list[str] = []
+    for ref in refs:
+        if ref not in deduped:
+            deduped.append(ref)
+    used = deduped[:3]
+    unused = deduped[3:]
     return used, unused
 
 
-def _supports_term(term: str, context_packet: dict[str, Any]) -> bool:
+def _supports_term(term: str, planner_prompt_payload: dict[str, Any]) -> bool:
     needle = term.lower()
-    for item in context_packet.get("retrieved_context") or []:
-        hay = " ".join(str(item.get(k, "")) for k in ["title", "snippet", "source", "source_layer", "unit_id"]).lower()
-        if needle in hay:
+    rendered = planner_prompt_payload.get("rendered_context") or {}
+    hay = str(rendered.get("rendered_text") or "").lower()
+    if needle in hay:
+        return True
+    for prov in (rendered.get("provenance_map") or {}).values():
+        if not isinstance(prov, dict):
+            continue
+        blob = " ".join(str(prov.get(k) or "") for k in ("snippet", "source_path", "unit_id", "title")).lower()
+        if needle in blob:
             return True
     return False
 
 
-def _apply_must_not_include_safety(*, packet: dict[str, Any], context_packet: dict[str, Any]) -> None:
-    guardrails = list(packet.get("must_not_include_unless_sourced") or [])
+def _apply_must_not_include_safety(
+    *,
+    packet: dict[str, Any],
+    planner_prompt_payload: dict[str, Any],
+    evaluator_control_metadata: dict[str, Any],
+) -> None:
+    guardrails = list(evaluator_control_metadata.get("must_not_include_unless_sourced") or [])
     composite = f"{packet['answer_text']} {packet['structured_answer'].get('summary', '')}".lower()
     must_not_include_terms_present: list[dict[str, Any]] = []
     for term in guardrails:
         present = str(term).lower() in composite
         if not present:
             continue
-        supported = _supports_term(str(term), context_packet)
+        supported = _supports_term(str(term), planner_prompt_payload)
         must_not_include_terms_present.append(
             {
                 "term": term,
                 "supported": supported,
-                "reason": "term appears in generated answer and is supported by retrieved context"
+                "reason": "term appears in generated answer and is supported by rendered context"
                 if supported
-                else "term appears in generated answer but not retrieved context",
+                else "term appears in generated answer but not supported by rendered context",
             }
         )
     packet["safety_checks"].update(
@@ -49,53 +82,80 @@ def _apply_must_not_include_safety(*, packet: dict[str, Any], context_packet: di
     )
 
 
-def generate_answer_packet(*, context_packet: dict[str, Any], retrieval_mode: str, generator: str = "template_stub") -> dict[str, Any]:
+def generate_answer_packet(
+    *,
+    planner_prompt_payload: dict[str, Any] | None = None,
+    evaluator_control_metadata: dict[str, Any] | None = None,
+    retrieval_mode: str | None = None,
+    context_packet: dict[str, Any] | None = None,
+    generator: str = "template_stub",
+) -> dict[str, Any]:
     if generator != "template_stub":
         raise ValueError(f"unsupported generator: {generator}")
 
-    packet = build_stub_answer_packet(context_packet=context_packet)
-    used_refs, unused_refs = _context_refs(context_packet)
-    known_gaps = list(packet.get("known_context_gaps") or [])
-    guardrails = list(packet.get("must_not_include_unless_sourced") or [])
-    authority = str(packet.get("authority_label") or "unknown")
-    expected_behavior = str(packet.get("expected_mode_behavior") or "")
-    support_missing = retrieval_mode == "prior_only" and authority == "support_knowledge_required"
+    if context_packet is not None:
+        if planner_prompt_payload is None:
+            planner_prompt_payload = build_planner_prompt_payload(context_packet=context_packet)
+        if evaluator_control_metadata is None:
+            evaluator_control_metadata = build_evaluator_control_metadata(context_packet=context_packet)
+    if planner_prompt_payload is None or evaluator_control_metadata is None:
+        raise ValueError("planner_prompt_payload and evaluator_control_metadata are required")
 
+    prompt_errs = validate_planner_prompt_payload(planner_prompt_payload)
+    if prompt_errs:
+        raise ValueError(f"invalid planner_prompt_payload: {prompt_errs}")
+
+    mode = str(retrieval_mode or planner_prompt_payload.get("retrieval_mode") or "")
+    packet = build_stub_answer_packet(
+        planner_prompt_payload=planner_prompt_payload,
+        evaluator_control_metadata=evaluator_control_metadata,
+    )
+    used_refs, unused_refs = _rendered_context_refs(planner_prompt_payload)
+    source_gaps = list(planner_prompt_payload.get("source_derived_context_gaps") or [])
+    gap_ids = [str(g.get("gap_id")) for g in source_gaps if isinstance(g, dict) and g.get("gap_id")]
+
+    gap_note = (
+        f" Source-derived gaps listed: {gap_ids}."
+        if gap_ids
+        else " No source-derived route gaps were listed in the prompt payload."
+    )
     packet["answer_generation_status"] = "generated"
     packet["answer_text"] = (
-        f"Generated with {generator} in {retrieval_mode} mode. "
-        f"Authority requirement: {authority}. "
-        f"Retrieved context refs used: {used_refs if used_refs else 'none'}. "
-        f"Known gaps: {known_gaps if known_gaps else ['none listed']}. "
-        + (
-            "This is prior_only for a support-required question, so the answer remains generic and admits missing support. "
-            if support_missing
-            else "This answer may use planner-visible support context where available. "
-        )
-        + f"Expected behavior: {expected_behavior}. Guardrails preserved in packet metadata."
+        f"Generated with {generator} in {mode} mode. "
+        f"Used rendered context refs: {used_refs if used_refs else 'none'}. "
+        f"No facts are established beyond the rendered context.{gap_note}"
     )
     packet["structured_answer"] = {
         "summary": packet["answer_text"],
         "retrieved_facts_used": used_refs,
         "support_suggestions_used": [r for r in used_refs if r.startswith("support:")],
-        "creative_extrapolations": ["generic/archetype-level framing applied"] if "generic" in expected_behavior or "archetype" in expected_behavior else [],
-        "known_gaps": known_gaps,
-        "manual_gm_decisions_needed": [g for g in known_gaps if any(k in g.lower() for k in ["route", "canon", "manual"])],
-        "oracle_risk_notes": ["No C1S4 oracle context used; planner-visible context only."],
+        "creative_extrapolations": [],
+        "source_derived_context_gaps_used": gap_ids,
+        "known_gaps": gap_ids,
+        "manual_gm_decisions_needed": [],
+        "notes": ["Answer generated from planner_prompt_payload only; evaluator labels were not injected."],
     }
     packet["used_context_refs"] = used_refs
     packet["unused_context_refs"] = unused_refs
-    packet["authority_notes"]["retrieved_prior_recap_facts"] = ["session-memory context available"] if any(r.startswith("session:") for r in used_refs) else []
-    packet["authority_notes"]["support_derived_suggestions"] = ["support knowledge context available"] if any(r.startswith("support:") for r in used_refs) else []
-    packet["authority_notes"]["creative_extrapolations"] = packet["structured_answer"]["creative_extrapolations"]
-    packet["authority_notes"]["known_gaps"] = known_gaps
-    packet["authority_notes"]["manual_gm_decisions_needed"] = packet["structured_answer"]["manual_gm_decisions_needed"]
-
-    _apply_must_not_include_safety(packet=packet, context_packet=context_packet)
-    packet["safety_checks"]["eval_only_fields_absent"] = all(
-        field not in packet
-        for field in ["expected_retrieval_context_eval_only", "expected_retrieval_modes", "retrieved_context"]
+    packet["source_derived_context_gaps_used"] = gap_ids
+    packet["authority_notes"]["retrieved_prior_recap_facts"] = (
+        ["rendered prior-campaign context available"] if used_refs else []
     )
+    packet["authority_notes"]["support_derived_suggestions"] = (
+        ["rendered support context available"] if any(r.startswith("support:") for r in used_refs) else []
+    )
+    packet["authority_notes"]["known_gaps"] = gap_ids
+
+    _apply_must_not_include_safety(
+        packet=packet,
+        planner_prompt_payload=planner_prompt_payload,
+        evaluator_control_metadata=evaluator_control_metadata,
+    )
+    packet["safety_checks"]["planner_prompt_payload_valid"] = True
+    packet["safety_checks"]["no_control_metadata_in_prompt_payload"] = not find_forbidden_prompt_material(
+        planner_prompt_payload
+    )
+    packet["safety_checks"]["eval_only_fields_absent"] = True
     return packet
 
 
@@ -109,15 +169,30 @@ def validate_generated_answer_packet(packet: dict[str, Any]) -> list[str]:
         errs.append("answer_text must be populated")
     if not isinstance(packet.get("structured_answer"), dict):
         errs.append("structured_answer must be populated object")
-    leak = packet.get("oracle_leakage_check") or {}
-    if leak.get("forbidden_path_hits") or leak.get("forbidden_session_hits"):
-        errs.append("oracle leakage detected")
+    for forbidden in (
+        "authority_label",
+        "oracle_risk",
+        "expected_mode_behavior",
+        "must_not_include_unless_sourced",
+        "known_context_gaps",
+        "expected_retrieval_context_eval_only",
+        "expected_retrieval_modes",
+        "retrieved_context",
+    ):
+        if forbidden in packet:
+            errs.append(f"{forbidden} must be absent")
+    meta = packet.get("evaluator_control_metadata") or {}
+    answer_lower = str(packet.get("answer_text") or "").lower()
+    for phrase in _CONTROL_LEAK_PHRASES:
+        if phrase in answer_lower:
+            errs.append(f"answer_text leaks control metadata phrase: {phrase}")
+    if str(meta.get("oracle_risk") or "").lower() and str(meta.get("oracle_risk") or "").lower() in answer_lower:
+        errs.append("answer_text leaks oracle_risk label")
     safety = packet.get("safety_checks") or {}
-    if not safety.get("eval_only_fields_absent", False):
-        errs.append("eval_only_fields_absent must be true")
+    if not safety.get("planner_prompt_payload_valid", False):
+        errs.append("planner_prompt_payload_valid must be true")
+    if not safety.get("no_control_metadata_in_prompt_payload", False):
+        errs.append("no_control_metadata_in_prompt_payload must be true")
     if not safety.get("oracle_sensitive_terms_supported_or_absent", False):
         errs.append("unsupported forbidden terms present")
-    for forbidden_field in ["expected_retrieval_context_eval_only", "expected_retrieval_modes", "retrieved_context"]:
-        if forbidden_field in packet:
-            errs.append(f"{forbidden_field} must be absent")
     return errs

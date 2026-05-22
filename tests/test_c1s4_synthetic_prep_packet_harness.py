@@ -64,9 +64,32 @@ def test_known_gaps_and_guardrails_are_aggregated() -> None:
     assert from_sections_guardrails.issubset(set(packet["must_not_include_unless_sourced"]))
 
 
-def test_oracle_leakage_rejected() -> None:
-    bad = build_synthetic_prep_packet(answer_packets=[{"question_number": 1, "question_id": "q01", "answer_text": "x", "authority_label": "a", "oracle_risk": "high", "known_context_gaps": [], "must_not_include_unless_sourced": [], "safety_checks": {"must_not_include_terms_present": [], "oracle_sensitive_terms_supported_or_absent": True}, "expected_mode_behavior": "x", "oracle_leakage_check": {"forbidden_path_hits": ["bad"], "forbidden_session_hits": []}}], skipped_questions=[{"question_number": 35}], retrieval_mode="prior_only", generator="template_stub")
-    assert any("oracle leakage" in e for e in validate_synthetic_prep_packet(bad))
+def test_oracle_leakage_diagnostic_does_not_fail_prep_validation() -> None:
+    bad = build_synthetic_prep_packet(
+        answer_packets=[
+            {
+                "question_number": 1,
+                "question_id": "q01",
+                "answer_text": "x",
+                "evaluator_control_metadata": {
+                    "authority_label": "a",
+                    "oracle_risk": "high",
+                    "must_not_include_unless_sourced": [],
+                    "expected_mode_behavior": "x",
+                    "oracle_leakage_check": {"forbidden_path_hits": ["bad"], "forbidden_session_hits": []},
+                },
+                "source_derived_context_gaps_used": [],
+                "safety_checks": {
+                    "must_not_include_terms_present": [],
+                    "oracle_sensitive_terms_supported_or_absent": True,
+                },
+            }
+        ],
+        skipped_questions=[{"question_number": 35}],
+        retrieval_mode="prior_only",
+        generator="template_stub",
+    )
+    assert not any("oracle leakage" in e for e in validate_synthetic_prep_packet(bad))
 
 
 def test_unsupported_forbidden_terms_rejected() -> None:

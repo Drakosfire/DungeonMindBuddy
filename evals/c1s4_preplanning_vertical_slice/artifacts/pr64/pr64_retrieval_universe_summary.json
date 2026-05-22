@@ -1,0 +1,11 @@
+{
+  "schema": "dmb_pr64_prompt_control_split_summary_v1",
+  "planner_prompt_payloads_built": 9,
+  "planner_prompt_payloads_valid": 9,
+  "evaluator_control_metadata_built": 9,
+  "forbidden_prompt_key_hits": 0,
+  "forbidden_prompt_value_hits": 0,
+  "generated_answer_expected_behavior_leaks": 0,
+  "generated_answer_authority_label_leaks": 0,
+  "generated_answer_oracle_risk_leaks": 0
+}

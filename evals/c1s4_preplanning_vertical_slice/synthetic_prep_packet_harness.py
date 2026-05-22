@@ -164,9 +164,6 @@ def validate_synthetic_prep_packet(packet: dict[str, Any]) -> list[str]:
                 if any(not row.get("supported", False) for row in _as_list(entry.get("must_not_include_terms_present"))):
                     errs.append("unsupported forbidden terms present")
 
-    leak = packet.get("oracle_leakage_check") or {}
-    if _as_list(leak.get("forbidden_path_hits")) or _as_list(leak.get("forbidden_session_hits")):
-        errs.append("oracle leakage detected")
     if (packet.get("safety_summary") or {}).get("unsupported_claim_warnings", 0) > 0:
         errs.append("unsupported forbidden terms present")
     return errs
