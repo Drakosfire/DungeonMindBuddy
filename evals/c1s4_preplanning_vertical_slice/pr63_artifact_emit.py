@@ -29,14 +29,17 @@ def _load_pr62_surface_by_key() -> dict[tuple[str, str, str, str], str]:
 
 def _expected_section_id(group_id: str, expected_path: str) -> str:
     gl = group_id.lower()
-    if "support" in gl or "hempholm" in gl:
-        return "support_knowledge"
-    if "known_gap" in expected_path.lower() or "route_gap" in gl:
+    ep = expected_path.lower()
+    if "known_gap" in ep or "route_gap" in gl:
         return "known_gaps_and_safety_constraints"
-    if "stone_bridge" in gl or "mirathorn" in gl or "location" in gl:
-        return "location_worldbuilding"
-    if any(token in gl for token in ("pippa", "bubbles", "grishna", "npc", "character", "party")):
+    if "/npcs/" in ep or any(token in gl for token in ("pippa", "bubbles", "grishna", "character", "party")):
         return "character_party_behavior"
+    if expected_path.startswith("support:") or "support:hempholm" in expected_path:
+        return "support_knowledge"
+    if "distance" in gl or "estimate_from_play" in gl or "/session recaps/" in ep or "session_recap" in ep:
+        return "prior_campaign_memory"
+    if "/locations/" in ep or "location" in gl or "stone_bridge" in gl or "mirathorn" in gl:
+        return "location_worldbuilding"
     return "prior_campaign_memory"
 
 
@@ -192,6 +195,21 @@ def write_pr63_artifacts(*, output_dir: Path, packets_by_mode: dict[str, list[di
         if row.get("pr62_surface") == "known_gap_missing_from_packet"
         and row.get("next_failure_surface") == "ok_or_later_stage"
     )
+    pr62_ok_rows = sum(1 for row in matrix_rows if row.get("pr62_surface") == "ok_or_later_stage")
+    pr63_ok_rows = sum(1 for row in matrix_rows if row.get("next_failure_surface") == "ok_or_later_stage")
+    bogus_renderer_mismatches = [
+        row
+        for row in matrix_rows
+        if row.get("pr62_surface") == "ok_or_later_stage"
+        and row.get("next_failure_surface") == "rendered_section_mismatch"
+    ]
+    q3_distance_rows = [
+        row
+        for row in matrix_rows
+        if row.get("question_id") == "q03_how_far_away_is_mirathorn_at_this_point"
+        and row.get("group_id") == "mirathorn_distance_estimate_from_play"
+    ]
+    q3_distance_next_surface = q3_distance_rows[0].get("next_failure_surface") if q3_distance_rows else None
 
     (output_dir / "pr63_retrieval_universe_summary.json").write_text(
         json.dumps(
@@ -201,6 +219,10 @@ def write_pr63_artifacts(*, output_dir: Path, packets_by_mode: dict[str, list[di
                 "q3_route_gap_rendered": q3_route_gap_rendered,
                 "known_gap_missing_from_packet_to_ok": known_gap_missing_to_ok,
                 "gold_gap_phrase_leakage": gold_phrase_leak,
+                "pr62_ok_or_later_stage_rows": pr62_ok_rows,
+                "pr63_ok_or_later_stage_rows": pr63_ok_rows,
+                "bogus_renderer_mismatch_regressions": len(bogus_renderer_mismatches),
+                "q3_distance_group_next_failure_surface": q3_distance_next_surface,
                 "pr63_surface_counts": surface_counts,
             },
             indent=2,

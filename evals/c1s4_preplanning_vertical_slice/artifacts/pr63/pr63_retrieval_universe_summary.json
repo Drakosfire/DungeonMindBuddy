@@ -4,8 +4,11 @@
   "q3_route_gap_rendered": true,
   "known_gap_missing_from_packet_to_ok": 1,
   "gold_gap_phrase_leakage": false,
+  "pr62_ok_or_later_stage_rows": 11,
+  "pr63_ok_or_later_stage_rows": 12,
+  "bogus_renderer_mismatch_regressions": 0,
+  "q3_distance_group_next_failure_surface": "ok_or_later_stage",
   "pr63_surface_counts": {
-    "ok_or_later_stage": 9,
-    "rendered_section_mismatch": 3
+    "ok_or_later_stage": 12
   }
 }

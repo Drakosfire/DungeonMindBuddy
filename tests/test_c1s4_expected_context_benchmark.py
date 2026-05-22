@@ -333,11 +333,13 @@ def test_npc_hub_match_satisfies_character_lane_group():
     assert diag["reason"] == "accepted"
 
 
-def test_known_gap_required_group_uses_eval_only_synthetic_known_gap_candidates():
+def test_known_gap_required_group_fails_without_source_derived_context_gaps_even_when_gold_lists_gaps() -> None:
     packet = {
         "question_number": 3,
-        "question_id": "q03",
-        "retrieved_context": [{"unit_id": "u1", "snippet": "uncertain travel time"}],
+        "question_id": "q03_how_far_away_is_mirathorn_at_this_point",
+        "question": "How far away is Mirathorn?",
+        "retrieved_context": [{"unit_id": "u1", "snippet": "Stone Bridge toward Mirathorn travel"}],
+        "admitted_context": [{"unit_id": "u1", "snippet": "Stone Bridge toward Mirathorn travel"}],
         "authority_summary": {},
     }
     gq = {
@@ -358,8 +360,12 @@ def test_known_gap_required_group_uses_eval_only_synthetic_known_gap_candidates(
         },
     }
     row = grade_question_packet(packet=packet, gold_question=gq, retrieval_mode="prior_only", top_k=9)
-    assert row["ok"] is True
-    assert row["required_context_groups_hit"] == 1
+    route_gap = next(
+        r for r in row["lane_aware_diagnostics"]["required_group_results"] if r["group_id"] == "mirathorn_exact_route_gap"
+    )
+    assert route_gap["ok"] is False
+    assert "missing_required_context_group" in row["violations"]
+    assert row["ok"] is False
 
 
 def test_support_source_kind_allowed_even_when_non_corpus_path():

@@ -156,6 +156,8 @@ def test_pr63_summary_reports_known_gap_missing_moved_to_ok(tmp_path: Path) -> N
     assert data["q3_route_gap_rendered"] is True
     assert data["known_gap_missing_from_packet_to_ok"] >= 1
     assert data["gold_gap_phrase_leakage"] is False
+    assert data.get("bogus_renderer_mismatch_regressions", 0) == 0
+    assert data["pr63_ok_or_later_stage_rows"] >= data["pr62_ok_or_later_stage_rows"]
 
 
 def test_pr60_summary_reflects_post_pr61_admission_and_eval_only_known_gaps(tmp_path: Path) -> None:

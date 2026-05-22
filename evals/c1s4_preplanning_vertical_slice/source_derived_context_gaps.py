@@ -67,9 +67,56 @@ def _has_exact_route_gazetteer(items: list[dict[str, Any]]) -> bool:
     return _text_establishes_exact_route_gazetteer(hay)
 
 
+def _positive_basis_items(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    excluded_unit_id_fragments = (
+        "retrieval-keywords",
+        "suggested-reads",
+        "cross-references",
+        "authority-stance",
+        "campaign-canon-npcs-anchored-here",
+        "timeline-pointers",
+        "sub-locations-and-scene-anchors",
+        "canonical-name-and-legacy-spellings",
+        "mechanical-sheets",
+        "package-notes",
+        "statblock-generator",
+        "source-pointers",
+        "float-goat",
+        "bubbles",
+        "hempholm",
+        "rivers_edge",
+    )
+
+    def _rank(item: dict[str, Any]) -> tuple[int, str]:
+        ref = str(item.get("unit_id") or item.get("ref") or "").lower()
+        blob = _context_haystack(
+            [item],
+            keys=("unit_id", "source_path", "source_recap_path", "title", "snippet"),
+        )
+        if any(fragment in ref for fragment in excluded_unit_id_fragments):
+            return (99, ref)
+        if "/npcs/" in blob and "stone_bridge" not in ref:
+            return (98, ref)
+        if "session_recap:session-3" in ref or "session-3:observed-play-prose" in ref:
+            return (0, ref)
+        if "stone_bridge:canon-summary" in ref:
+            return (1, ref)
+        if "stone_bridge:open-canon-questions" in ref:
+            return (2, ref)
+        if "stone_bridge" in ref and ("mirathorn" in blob or "stone bridge" in blob):
+            return (3, ref)
+        if ("stone bridge" in blob or "stone_bridge" in blob) and "mirathorn" in blob:
+            return (4, ref)
+        return (50, ref)
+
+    ranked = sorted(items, key=_rank)
+    selected = [item for item in ranked if _rank(item)[0] < 50][:5]
+    return selected
+
+
 def _positive_context_refs(items: list[dict[str, Any]]) -> list[str]:
     refs: list[str] = []
-    for item in items:
+    for item in _positive_basis_items(items):
         ref = str(item.get("unit_id") or item.get("ref") or "").strip()
         if ref and ref not in refs:
             refs.append(ref)

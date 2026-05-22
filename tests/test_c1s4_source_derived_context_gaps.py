@@ -17,12 +17,18 @@ def test_q3_route_question_emits_source_derived_gap_when_route_details_absent() 
             {
                 "unit_id": "corpus:session_recap:session-3:observed-play-prose",
                 "snippet": "The party is pointed toward Mirathorn after Stone Bridge.",
-                "source_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Session Recaps/Session 3 - The Stone Bridge Flood.md",
             },
             {
                 "unit_id": "corpus:location:stone_bridge:canon-summary",
                 "snippet": "Stone Bridge is the current location after the flood.",
-                "source_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Locations/stone_bridge/README.md",
+            },
+            {
+                "unit_id": "corpus:npc:bubbles_the_float_goat:bubbles-the-float-goat",
+                "snippet": "Bubbles at Stone Bridge with Mirathorn mentioned in travel notes.",
+            },
+            {
+                "unit_id": "corpus:location:stone_bridge:retrieval-keywords",
+                "snippet": "Stone Bridge Mirathorn keywords",
             },
         ],
         admitted_context=[],
@@ -30,6 +36,10 @@ def test_q3_route_question_emits_source_derived_gap_when_route_details_absent() 
     )
 
     assert gaps
+    basis_refs = (gaps[0].get("basis") or {}).get("positive_context_refs") or []
+    assert len(basis_refs) <= 5
+    assert "corpus:session_recap:session-3:observed-play-prose" in basis_refs
+    assert not any("bubbles" in ref or "retrieval-keywords" in ref for ref in basis_refs)
     gap_text = gaps[0]["gap"]
     assert gaps[0]["schema"] == SOURCE_DERIVED_GAP_SCHEMA
     assert gaps[0]["source"] == "deterministic_absence_analysis"
@@ -115,3 +125,5 @@ def test_source_derived_gap_has_allowed_prior_context_scope() -> None:
     basis = gaps[0].get("basis") or {}
     assert basis.get("positive_context_refs")
     assert basis.get("missing_context_type") == "route_gazetteer"
+    assert len(basis["positive_context_refs"]) <= 5
+    assert not any("bubbles" in ref or "hempholm" in ref for ref in basis["positive_context_refs"])

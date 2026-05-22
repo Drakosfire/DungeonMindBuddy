@@ -290,17 +290,7 @@ def grade_question_packet(*, packet: dict[str, Any], gold_question: dict[str, An
         slice_ctx = grading_context if effective_top_k is None else grading_context[:effective_top_k]
         candidates = [i for i in slice_ctx if match_context_item(i, grp.get("match", {}))]
         if grp.get("required_lane") == "known_gap" or grp.get("expected_rendered_section") == "known_gaps_and_safety_constraints":
-            for gap in eval_known_gaps:
-                synthetic_gap = {
-                    "unit_id": f"known_gap:{gap}",
-                    "ref": f"known_gap:{gap}",
-                    "snippet": str(gap),
-                    "presentation_lane": "known_gap",
-                    "source_kind": "known_context_gap",
-                    "source_reference": f"known_gap:{gap}",
-                }
-                if match_context_item(synthetic_gap, grp.get("match", {})):
-                    candidates.append(synthetic_gap)
+            # Gold gaps define expected semantics for reporting only — never planner evidence.
             for gap_obj in source_derived_gaps:
                 if is_source_derived_route_gap_hit(gap_obj):
                     candidates.append(source_derived_gap_to_grading_item(gap_obj))
