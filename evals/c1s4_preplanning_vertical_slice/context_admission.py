@@ -11,6 +11,8 @@ STOPWORDS = {
     "the","and","for","with","from","that","this","what","when","where","which","into","onto","your","their","have","been","were","about","would","could","should","there","after","before","while","during","than","then","them","they","are","was","did","does","how","why","who","our","you","his","her","its","not","can","may","might","had","has","was","were"
 }
 
+ADMISSION_DECISION_SCHEMA = "dmb_admission_decision_diagnostics_v1"
+
 
 def _jsonish(value: Any) -> str:
     if isinstance(value, str):
@@ -141,6 +143,9 @@ def build_budgeted_admission(*, question_text: str, retrieval_mode: str, candida
 
 
 def _infer_lane(item: dict[str, Any]) -> str:
+    source_kind = str(item.get("source_kind") or "")
+    if source_kind in {"session_recap", "session_memory"}:
+        return "prior_campaign_memory"
     lane = classify_presentation_lane(item)
     if lane == "known_gap":
         return "known_gaps"
@@ -160,12 +165,29 @@ def _admitted_budget_lane(item: dict[str, Any]) -> str:
     return str(item.get("admission_budget_lane") or item.get("presentation_lane") or _infer_lane(item))
 
 
+def _base_attempt_row(*, idx: int, item: dict[str, Any], chars: int, budget_lane: str, presentation_lane: str) -> dict[str, Any]:
+    return {
+        "candidate_rank": idx,
+        "unit_id": item.get("unit_id"),
+        "source_kind": item.get("source_kind"),
+        "presentation_lane": presentation_lane,
+        "budget_lane": budget_lane,
+        "estimated_chars": chars,
+        "admittable": is_admittable_planner_evidence(item),
+        "admitted": False,
+        "reason": "not_evaluated",
+        "lane_remaining_at_decision": None,
+        "total_remaining_at_decision": None,
+    }
+
+
 def build_lane_budgeted_admission(*, question_text: str, retrieval_mode: str, candidates: list[dict[str, Any]], lane_plan: dict[str, Any], candidate_depth: int = 50, total_budget_chars: int = 8000) -> dict[str, Any]:
     candidate_context = candidates[:candidate_depth]
     lanes_cfg = lane_plan.get("lanes", {})
     lane_state = {ln: {**cfg, "remaining": int(cfg.get("target_chars", 0))} for ln, cfg in lanes_cfg.items()}
     admitted_raw: list[dict[str, Any]] = []
     counts: dict[str, int] = {}
+    attempts_by_rank: dict[int, dict[str, Any]] = {}
 
     preserved, preservation_diagnostics = apply_admission_preservation(
         question_text=question_text,
@@ -179,23 +201,53 @@ def build_lane_budgeted_admission(*, question_text: str, retrieval_mode: str, ca
     admitted_raw.extend(preserved)
     preserved_ranks = {int(i["candidate_rank"]) for i in preserved}
 
+    for preserved_item in preserved:
+        rank = int(preserved_item["candidate_rank"])
+        attempts_by_rank[rank] = {
+            "candidate_rank": rank,
+            "unit_id": preserved_item.get("unit_id"),
+            "source_kind": preserved_item.get("source_kind"),
+            "presentation_lane": preserved_item.get("presentation_lane"),
+            "budget_lane": _admitted_budget_lane(preserved_item),
+            "estimated_chars": preserved_item.get("estimated_chars"),
+            "admittable": True,
+            "admitted": True,
+            "reason": str(preserved_item.get("admission_reason") or "already_preserved"),
+            "lane_remaining_at_decision": None,
+            "total_remaining_at_decision": None,
+        }
+
+    def _total_remaining() -> int:
+        return total_budget_chars - sum(int(i["estimated_chars"]) for i in admitted_raw)
+
     for idx, item in enumerate(candidate_context, start=1):
         k = str(item.get("source_kind") or "session_memory")
         counts[k] = counts.get(k, 0) + 1
         if idx in preserved_ranks:
             continue
-        if not is_admittable_planner_evidence(item):
-            continue
-        budget_lane = _infer_lane(item)
         chars, tokens = estimate_context_item_size(item)
+        budget_lane = _infer_lane(item)
+        presentation_lane = item.get("presentation_lane") or classify_presentation_lane(item)
+        attempt = _base_attempt_row(idx=idx, item=item, chars=chars, budget_lane=budget_lane, presentation_lane=presentation_lane)
+        if not attempt["admittable"]:
+            attempt["reason"] = "not_admittable_planner_evidence"
+            attempts_by_rank[idx] = attempt
+            continue
         if retrieval_mode == "prior_only" and str(item.get("source_kind")) == SUPPORT_KIND:
+            attempt["reason"] = "prior_only_support_suppressed"
+            attempts_by_rank[idx] = attempt
             continue
         state = lane_state.get(budget_lane)
+        total_rem = _total_remaining()
+        attempt["total_remaining_at_decision"] = total_rem
         if not state:
+            attempt["reason"] = "no_lane_state"
+            attempts_by_rank[idx] = attempt
             continue
-        if chars <= int(state.get("remaining", 0)):
+        lane_rem = int(state.get("remaining", 0))
+        attempt["lane_remaining_at_decision"] = lane_rem
+        if chars <= lane_rem and chars <= total_rem:
             state["remaining"] -= chars
-            presentation_lane = item.get("presentation_lane") or classify_presentation_lane(item)
             out = dict(item)
             out.update(
                 {
@@ -209,9 +261,17 @@ def build_lane_budgeted_admission(*, question_text: str, retrieval_mode: str, ca
                 }
             )
             admitted_raw.append(out)
+            attempt["admitted"] = True
+            attempt["reason"] = "admitted_lane_target"
+            attempts_by_rank[idx] = attempt
+        elif chars > lane_rem:
+            attempt["reason"] = "lane_remaining_too_small"
+            attempts_by_rank[idx] = attempt
+        elif chars > total_rem:
+            attempt["reason"] = "total_spillover_exhausted"
+            attempts_by_rank[idx] = attempt
 
-    # spillover pass
-    rem_total = total_budget_chars - sum(int(i["estimated_chars"]) for i in admitted_raw)
+    rem_total = _total_remaining()
     priorities = sorted(((ln, cfg.get("priority", 99)) for ln, cfg in lanes_cfg.items()), key=lambda x: x[1])
     for ln, _ in priorities:
         max_chars = int(lanes_cfg.get(ln, {}).get("max_chars", 0))
@@ -219,6 +279,8 @@ def build_lane_budgeted_admission(*, question_text: str, retrieval_mode: str, ca
         for idx, item in enumerate(candidate_context, start=1):
             if rem_total <= 0 or ln_used >= max_chars:
                 break
+            if idx in preserved_ranks:
+                continue
             if retrieval_mode == "prior_only" and str(item.get("source_kind")) == SUPPORT_KIND:
                 continue
             if not is_admittable_planner_evidence(item):
@@ -228,6 +290,14 @@ def build_lane_budgeted_admission(*, question_text: str, retrieval_mode: str, ca
             if _infer_lane(item) != ln:
                 continue
             chars, tokens = estimate_context_item_size(item)
+            attempt = attempts_by_rank.get(idx) or _base_attempt_row(
+                idx=idx,
+                item=item,
+                chars=chars,
+                budget_lane=ln,
+                presentation_lane=item.get("presentation_lane") or classify_presentation_lane(item),
+            )
+            attempt["total_remaining_at_decision"] = rem_total
             if chars <= rem_total and ln_used + chars <= max_chars:
                 presentation_lane = item.get("presentation_lane") or classify_presentation_lane(item)
                 out = dict(item)
@@ -245,16 +315,46 @@ def build_lane_budgeted_admission(*, question_text: str, retrieval_mode: str, ca
                 admitted_raw.append(out)
                 rem_total -= chars
                 ln_used += chars
+                attempt["admitted"] = True
+                attempt["reason"] = "admitted_lane_spillover"
+                attempts_by_rank[idx] = attempt
+            elif ln_used + chars > max_chars and not attempt.get("admitted"):
+                attempt["reason"] = "lane_max_exhausted"
+                attempts_by_rank[idx] = attempt
+            elif rem_total <= 0 and not attempt.get("admitted"):
+                attempt["reason"] = "total_spillover_exhausted"
+                attempts_by_rank[idx] = attempt
+
+    for idx, item in enumerate(candidate_context, start=1):
+        if idx in attempts_by_rank:
+            continue
+        chars, _ = estimate_context_item_size(item)
+        attempt = _base_attempt_row(
+            idx=idx,
+            item=item,
+            chars=chars,
+            budget_lane=_infer_lane(item),
+            presentation_lane=item.get("presentation_lane") or classify_presentation_lane(item),
+        )
+        attempt["reason"] = "outside_candidate_depth" if idx > candidate_depth else "not_matched"
+        attempts_by_rank[idx] = attempt
 
     admitted_sorted = sorted(admitted_raw, key=lambda x: int(x["candidate_rank"]))
     for i, item in enumerate(admitted_sorted, start=1):
         item["admitted_rank"] = i
     admitted_chars = sum(int(i["estimated_chars"]) for i in admitted_sorted)
+    attempts = [attempts_by_rank[i] for i in sorted(attempts_by_rank)]
     return {
         "admission_policy": "lane_budgeted_v1",
         "lane_plan": lane_plan,
         "query_features": lane_plan.get("query_features"),
         "admission_preservation_diagnostics": preservation_diagnostics,
+        "admission_decision_diagnostics": {
+            "schema": ADMISSION_DECISION_SCHEMA,
+            "candidate_depth": candidate_depth,
+            "total_budget_chars": total_budget_chars,
+            "attempts": attempts,
+        },
         "admission_budget": {
             "candidate_depth": candidate_depth,
             "total_budget_chars": total_budget_chars,

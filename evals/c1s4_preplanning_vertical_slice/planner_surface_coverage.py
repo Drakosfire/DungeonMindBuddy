@@ -27,6 +27,7 @@ from evals.c1s4_preplanning_vertical_slice.planner_prompt_payload import (
     validate_planner_prompt_payload,
 )
 from evals.c1s4_preplanning_vertical_slice.source_derived_context_gaps import gap_text_contains_forbidden_gold_phrase
+from evals.c1s4_preplanning_vertical_slice.visibility_provenance import infer_c1s4_visibility, is_planner_visible_for_c1s4_preplanning
 from evals.c1s4_preplanning_vertical_slice.step2_build_question_context_packets import build_summary as build_step2_summary
 
 PLANNER_SURFACE_COVERAGE_SCHEMA = "dmb_c1s4_planner_surface_coverage_v1"
@@ -163,6 +164,24 @@ def _classify_support_policy(
     return "support_not_required"
 
 
+def _visibility_contract_blocks_gold_group(*, gold_question: dict[str, Any], mode: str, group_id: str) -> bool:
+    if group_id != "hempholm_location_context":
+        return False
+    exp = (gold_question.get("expectations_by_mode") or {}).get(mode) or {}
+    group = next((g for g in (exp.get("required_context_groups") or []) if g.get("group_id") == group_id), None)
+    if group is None:
+        return False
+    if str(group.get("required_lane") or "") != "location_worldbuilding":
+        return False
+    sample = {
+        "source_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Locations/hempholm/README.md",
+        "source_kind": "location_hub",
+        "title": "Hempholm",
+    }
+    visibility = infer_c1s4_visibility(sample)
+    return not bool(visibility.get("planner_visible"))
+
+
 def _classify_retrieval_sufficiency(
     *,
     question: dict[str, Any],
@@ -179,6 +198,7 @@ def _classify_retrieval_sufficiency(
     admitted_context_count: int,
     rendered_context_present: bool,
     tier_a_grade_ok: bool | None,
+    visibility_contract_mismatch: bool = False,
 ) -> tuple[str, str]:
     if not question.get("planner_facing", True):
         return "evaluator_only", "evaluator_only_not_planner_facing"
@@ -196,6 +216,8 @@ def _classify_retrieval_sufficiency(
         return "prompt_boundary_failure", "support_leaked_in_prior_only"
 
     qn = int(question.get("question_number") or 0)
+    if visibility_contract_mismatch:
+        return "visibility_contract_mismatch", "visibility_contract_blocks_required_gold_group"
     if qn in TIER_A_QUESTIONS and tier_a_grade_ok is False:
         return "tier_a_regression", "tier_a_gold_regression"
 

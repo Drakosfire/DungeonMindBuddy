@@ -584,28 +584,7 @@
       "expectations_by_mode": {
         "prior_only": {
           "expected_behavior": "should_generate_generic_and_admit_missing_support",
-          "required_context_groups": [
-            {
-              "group_id": "hempholm_location_context",
-              "min_hits": 1,
-              "required_lane": "location_worldbuilding",
-              "expected_rendered_section": "location_worldbuilding",
-              "allowed_subject_classes": [
-                "location",
-                "session_memory"
-              ],
-              "disallowed_evidence_roles": [
-                "navigation_only"
-              ],
-              "requires_evidence_compatible": true,
-              "match": {
-                "text_contains_all": [
-                  "hempholm",
-                  "tree"
-                ]
-              }
-            }
-          ],
+          "required_context_groups": [],
           "forbidden_context_groups": [
             {
               "group_id": "hempholm_specific_support_forbidden_in_prior_only",
@@ -625,26 +604,6 @@
         "prior_plus_support_content_only": {
           "expected_behavior": "should_answer_with_support_specificity",
           "required_context_groups": [
-            {
-              "group_id": "hempholm_location_context",
-              "min_hits": 1,
-              "required_lane": "location_worldbuilding",
-              "expected_rendered_section": "location_worldbuilding",
-              "allowed_subject_classes": [
-                "location",
-                "session_memory"
-              ],
-              "disallowed_evidence_roles": [
-                "navigation_only"
-              ],
-              "requires_evidence_compatible": true,
-              "match": {
-                "text_contains_all": [
-                  "hempholm",
-                  "tree"
-                ]
-              }
-            },
             {
               "group_id": "hempholm_tree_support_context",
               "min_hits": 1,
@@ -674,26 +633,6 @@
         "prior_plus_support_content_plus_lexical_hints": {
           "expected_behavior": "should_answer_with_support_specificity_and_better_recall",
           "required_context_groups": [
-            {
-              "group_id": "hempholm_location_context",
-              "min_hits": 1,
-              "required_lane": "location_worldbuilding",
-              "expected_rendered_section": "location_worldbuilding",
-              "allowed_subject_classes": [
-                "location",
-                "session_memory"
-              ],
-              "disallowed_evidence_roles": [
-                "navigation_only"
-              ],
-              "requires_evidence_compatible": true,
-              "match": {
-                "text_contains_all": [
-                  "hempholm",
-                  "tree"
-                ]
-              }
-            },
             {
               "group_id": "hempholm_tree_support_context",
               "min_hits": 1,

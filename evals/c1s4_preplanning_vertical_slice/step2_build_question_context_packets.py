@@ -123,6 +123,14 @@ def build_summary(*, mode: QuestionRetrievalMode, question_number: int | None = 
             else:
                 admission = build_budgeted_admission(question_text=question_text, retrieval_mode=mode, candidates=candidate_context, candidate_depth=max_hits, total_budget_chars=8000)
             packet.update(admission)
+            packet["grading_surface_labels"] = {
+                "legacy_top_k_preview_count": 9,
+                "candidate_depth": max_hits,
+                "admission_policy": admission_policy,
+                "effective_grading_surface": "admitted_context" if admission.get("admitted_context") else "legacy_top_k_retrieved_context",
+                "admission_budget_chars": 8000,
+                "legacy_retrieved_context_role": "compatibility_preview_only",
+            }
         packet["query_variant_diagnostics"] = query_variant_diagnostics
         packet["query_features"] = lane_plan.get("query_features")
         packet["lane_plan"] = lane_plan

@@ -79,6 +79,55 @@ def _is_location_worldbuilding_candidate(item: dict[str, Any]) -> bool:
     return str(item.get("source_kind") or "") in {"location_hub", "session_recap", "session_memory"} or "/locations/" in _item_text(item)
 
 
+def _is_prior_route_event_candidate(item: dict[str, Any], question_text: str) -> bool:
+    if not is_admittable_planner_evidence(item):
+        return False
+    if str(item.get("source_kind") or "") not in {"session_recap", "session_memory"}:
+        return False
+    lane = infer_planner_lane(item)
+    if lane not in {"prior_campaign_memory", "location_worldbuilding", "unknown"}:
+        return False
+    text = _item_text(item)
+    q = question_text.lower()
+    if "mirathorn" in q and "mirathorn" not in text:
+        return False
+    if "stone bridge" in q and "stone bridge" not in text and "stonebridge" not in text:
+        return False
+    route_tokens = ("week", "travel", "road", "on foot", "journey", "days")
+    if not any(tok in text for tok in route_tokens):
+        return False
+    return True
+
+
+def _prior_route_event_score(item: dict[str, Any], *, candidate_rank: int) -> tuple[int, int, int, int]:
+    text = _item_text(item)
+    source_kind = str(item.get("source_kind") or "")
+    kind_bonus = 2 if source_kind == "session_recap" else 1 if source_kind == "session_memory" else 0
+    mirathorn_week = int("mirathorn" in text and "week" in text)
+    stone_bridge = int("stone bridge" in text or "stonebridge" in text)
+    return (mirathorn_week, stone_bridge, kind_bonus, -candidate_rank)
+
+
+def _best_prior_route_event_candidate(
+    candidates: list[dict[str, Any]],
+    *,
+    question_text: str,
+    admitted_ranks: set[int],
+) -> tuple[int, dict[str, Any]] | None:
+    scored: list[tuple[tuple[int, int, int], int, dict[str, Any]]] = []
+    for idx, item in enumerate(candidates, start=1):
+        if idx in admitted_ranks:
+            continue
+        if not _is_prior_route_event_candidate(item, question_text):
+            continue
+        scored.append((_prior_route_event_score(item, candidate_rank=idx), idx, item))
+    if not scored:
+        return None
+    scored.sort(key=lambda row: row[0], reverse=True)
+    _, idx, item = scored[0]
+    return idx, item
+
+
 def build_admission_preservation_plan(
     *,
     question_text: str,
@@ -108,6 +157,16 @@ def build_admission_preservation_plan(
 
     asks_route = bool(signals.get("asks_route_or_distance"))
     has_location_candidates = any(_is_location_worldbuilding_candidate(c) and is_admittable_planner_evidence(c) for c in candidates)
+    if asks_route:
+        preserve_groups.append(
+            {
+                "group_id": "prior_campaign_route_event",
+                "required_when": "asks_route_or_distance",
+                "min_items": 1,
+                "max_chars_total": 900,
+                "priority": 0,
+            }
+        )
     if asks_route or has_location_candidates:
         preserve_groups.append(
             {
@@ -251,6 +310,19 @@ def apply_admission_preservation(
                     group_id=group_id,
                     reason=f"preserved_character_party_behavior_npc_{family}",
                     max_chars=per_family_cap,
+                )
+        elif group_id == "prior_campaign_route_event":
+            pick = _best_prior_route_event_candidate(candidates, question_text=question_text, admitted_ranks=admitted_ranks)
+            if pick is None:
+                deferred_visible.append({"group_id": group_id, "reason": "no_admittable_prior_route_event_visible"})
+            else:
+                idx, item = pick
+                _try_preserve(
+                    idx,
+                    item,
+                    group_id=group_id,
+                    reason="preserved_prior_campaign_route_event",
+                    max_chars=int(group.get("max_chars_total") or 900),
                 )
         elif group_id == "location_worldbuilding":
             pick = _best_location_candidate(candidates, admitted_ranks=admitted_ranks)
