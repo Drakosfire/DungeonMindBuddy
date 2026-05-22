@@ -21,12 +21,16 @@ MATRIX_COLUMNS = [
     "required_lane",
     "expected_rendered_section",
     "candidate_match_count",
-    "first_candidate_rank",
-    "first_candidate_ref",
-    "first_candidate_source_kind",
+    "first_raw_rank",
+    "first_raw_ref",
+    "first_raw_source_kind",
+    "first_admittable_ref",
+    "first_lane_compatible_ref",
+    "first_admitted_ref",
+    "first_rendered_ref",
+    "first_lane_accepted_ref",
     "visibility_excluded",
     "admitted",
-    "first_admitted_rank",
     "admission_rejection_reason",
     "rendered",
     "rendered_section",
@@ -44,6 +48,7 @@ def _matrix_row(row: dict[str, Any]) -> dict[str, Any]:
     admission_surface = row.get("admission_surface") or {}
     render_surface = row.get("render_surface") or {}
     grading_surface = row.get("grading_surface") or {}
+    lineage = row.get("lineage") or {}
     return {
         "question_number": row.get("question_number"),
         "question_id": row.get("question_id"),
@@ -52,12 +57,16 @@ def _matrix_row(row: dict[str, Any]) -> dict[str, Any]:
         "required_lane": row.get("required_lane"),
         "expected_rendered_section": row.get("expected_rendered_section"),
         "candidate_match_count": match_surface.get("candidate_match_count"),
-        "first_candidate_rank": match_surface.get("first_candidate_rank"),
-        "first_candidate_ref": match_surface.get("first_candidate_ref"),
-        "first_candidate_source_kind": match_surface.get("first_candidate_source_kind"),
+        "first_raw_rank": match_surface.get("first_raw_rank"),
+        "first_raw_ref": match_surface.get("first_raw_ref"),
+        "first_raw_source_kind": match_surface.get("first_raw_source_kind"),
+        "first_admittable_ref": (lineage.get("first_admittable_match") or {}).get("ref"),
+        "first_lane_compatible_ref": (lineage.get("first_lane_compatible_match") or {}).get("ref"),
+        "first_admitted_ref": admission_surface.get("first_admitted_ref"),
+        "first_rendered_ref": render_surface.get("first_rendered_ref"),
+        "first_lane_accepted_ref": (lineage.get("first_lane_accepted_match") or {}).get("ref"),
         "visibility_excluded": match_surface.get("visibility_excluded"),
         "admitted": admission_surface.get("admitted"),
-        "first_admitted_rank": admission_surface.get("first_admitted_rank"),
         "admission_rejection_reason": admission_surface.get("admission_rejection_reason"),
         "rendered": render_surface.get("rendered"),
         "rendered_section": render_surface.get("rendered_section"),
@@ -83,9 +92,12 @@ def build_next_pr_recommendations_markdown(diagnostics: dict[str, Any]) -> str:
         lines.append(f"- `{cause}`: {count}")
     lines.extend(["", "## Q3 prior-distance probe (mirathorn + week)", ""])
     for mode, probe in sorted(q3.items()):
+        lineage = probe.get("lineage") or {}
+        session = lineage.get("first_session_memory_or_recap_match") or {}
         lines.append(
-            f"- **{mode}**: merged_rank={probe.get('merged_candidate_first_rank')} "
-            f"admitted_rank={probe.get('admitted_rank')} failure_stage={probe.get('failure_stage')}"
+            f"- **{mode}**: failure_stage={probe.get('failure_stage')} "
+            f"session_evidence_ref={session.get('ref')} "
+            f"admitted_lane_ref={(lineage.get('first_admitted_required_lane_match') or {}).get('ref')}"
         )
     lines.extend(
         [
@@ -93,7 +105,7 @@ def build_next_pr_recommendations_markdown(diagnostics: dict[str, Any]) -> str:
             "## Recommended follow-ups",
             "",
             "1. If Q3 `failure_stage=admission` persists after route-event preservation, inspect lane budgets for `prior_campaign_memory`.",
-            "2. Q5 should pass strict gold in support modes after visibility-contract gold realignment; do not admit Hempholm campaign hub.",
+            "2. Q5 passes strict gold in support modes after visibility-contract gold realignment (not retrieval improvement); Hempholm campaign hub remains excluded.",
             "3. Keep legacy `top_k=9` labeled as preview/scoring shim only (`grading_surface_labels`).",
             "",
         ]

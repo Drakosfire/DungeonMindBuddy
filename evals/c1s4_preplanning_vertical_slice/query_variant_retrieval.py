@@ -370,6 +370,7 @@ def retrieve_query_variants(
                 "scoped_record_count": len(scoped_records),
                 "hit_count": len(hits),
                 "top_unit_ids": [_hit_unit_id(h) for h in hits[:5] if _hit_unit_id(h)],
+                "hits": hits,
             }
         )
         if role != "literal_question":
