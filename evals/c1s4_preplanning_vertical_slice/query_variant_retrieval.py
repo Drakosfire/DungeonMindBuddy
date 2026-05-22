@@ -29,7 +29,7 @@ _CORPUS_FIELDS_FOR_ENRICHMENT = (
 
 def records_for_query_variant(records: list[dict[str, Any]], variant: dict[str, Any]) -> list[dict[str, Any]]:
     role = str(variant.get("variant_role") or "")
-    if role == "support_alias":
+    if role in {"support_alias", "planner_affordance"}:
         return [r for r in records if str(r.get("source_kind") or "") == SUPPORT_KIND]
     if role == "npc_target_alias":
         scoped: list[dict[str, Any]] = []
@@ -83,6 +83,15 @@ def _query_hits(
     return list(getattr(result, "hits", []) or [])
 
 
+def _channels_for_variant(role: str) -> dict[str, bool]:
+    return {
+        "title_summary": role == "literal_question",
+        "retrieval_terms": role == "support_alias",
+        "planner_affordances": role == "planner_affordance",
+        "support_alias": role == "support_alias",
+    }
+
+
 def query_hits_for_variant(
     *,
     records: list[dict[str, Any]],
@@ -95,7 +104,7 @@ def query_hits_for_variant(
 ) -> list[dict[str, Any]]:
     role = str(variant.get("variant_role") or "")
     depth = candidate_depth if role == "literal_question" else alias_depth_per_variant
-    return _query_hits(
+    hits = _query_hits(
         records=records_for_query_variant(records, variant),
         query=str(variant["query"]),
         campaign_id=campaign_id,
@@ -103,6 +112,27 @@ def query_hits_for_variant(
         session_max=session_max,
         max_hits=depth,
     )
+    if role != "literal_question":
+        channels = _channels_for_variant(role)
+        out = []
+        for hit in hits:
+            marked = dict(hit)
+            marked["merge_source_variant_role"] = role
+            marked["merge_source_query"] = str(variant.get("query") or "")
+            marked["support_match_channels"] = channels
+            marked["query_affordances"] = list(variant.get("query_affordances") or [])
+            out.append(marked)
+        return out
+    out = []
+    channels = _channels_for_variant(role)
+    for hit in hits:
+        if str(hit.get("source_kind") or "") == SUPPORT_KIND or str(hit.get("unit_id") or "").startswith("support:"):
+            marked = dict(hit)
+            marked["support_match_channels"] = channels
+            out.append(marked)
+        else:
+            out.append(hit)
+    return out
 
 
 def stable_dedupe_hits(hits: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -335,6 +365,7 @@ def retrieve_query_variants(
                 "target_lane": variant.get("target_lane"),
                 "reason": variant.get("reason"),
                 "source": variant.get("source"),
+                "query_affordances": variant.get("query_affordances") or [],
                 "record_scope": role if role != "literal_question" else "full_universe",
                 "scoped_record_count": len(scoped_records),
                 "hit_count": len(hits),

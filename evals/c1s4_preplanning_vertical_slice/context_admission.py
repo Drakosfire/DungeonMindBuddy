@@ -45,6 +45,14 @@ def extract_query_terms(question_text: str) -> set[str]:
 
 
 def support_candidate_is_relevant(question_text: str, item: dict[str, Any]) -> bool:
+    query_affordances = {str(a) for a in item.get("query_affordances") or [] if str(a)}
+    item_affordances = {
+        str(a.get("affordance"))
+        for a in (item.get("planner_affordances") or [])
+        if isinstance(a, dict) and a.get("affordance")
+    }
+    if query_affordances and (query_affordances & item_affordances):
+        return True
     q_terms = extract_query_terms(question_text)
     if not q_terms:
         return False

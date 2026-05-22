@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from evals.c1s4_preplanning_vertical_slice.context_classification import is_allowed_retrieval_corpus_path
+from evals.c1s4_preplanning_vertical_slice.visibility_provenance import infer_c1s4_visibility
 
 ROOT = Path(__file__).resolve().parents[2]
 CORPUS_ROOT = ROOT / "corpus/eldyrwild-markdown"
@@ -192,8 +193,7 @@ def _materialize_file(relpath: str) -> list[dict[str, Any]]:
         if not body:
             return []
         unit_slug = "observed-play-prose"
-        return [
-            {
+        record = {
                 "schema": "dmb_campaign_corpus_record_v1",
                 "unit_id": f"corpus:session_recap:session-3:{unit_slug}",
                 "source_path": source_path,
@@ -220,7 +220,8 @@ def _materialize_file(relpath: str) -> list[dict[str, Any]]:
                 "session_max": 3,
                 "subject_doc_kind": "session_recap",
             }
-        ]
+        record["visibility"] = infer_c1s4_visibility(record)
+        return [record] if record["visibility"]["planner_visible"] else []
 
     text = full_path.read_text(encoding="utf-8")
     sections = _split_markdown_sections(text)
@@ -246,8 +247,7 @@ def _materialize_file(relpath: str) -> list[dict[str, Any]]:
             "npc_dossier": "npc",
             "location_hub": "location",
         }[source_kind]
-        records.append(
-            {
+        record = {
                 "schema": "dmb_campaign_corpus_record_v1",
                 "unit_id": f"corpus:{unit_prefix}:{subject_id}:{heading_slug}",
                 "source_path": source_path,
@@ -274,7 +274,9 @@ def _materialize_file(relpath: str) -> list[dict[str, Any]]:
                 "session_max": 3,
                 "subject_doc_kind": "hub_index" if source_kind.endswith("_hub") else "dossier",
             }
-        )
+        record["visibility"] = infer_c1s4_visibility(record)
+        if record["visibility"]["planner_visible"]:
+            records.append(record)
     return records
 
 

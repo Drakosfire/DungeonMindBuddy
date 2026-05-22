@@ -213,7 +213,7 @@ def test_payload_includes_mode_guide():
     assert guide.get("verdict_legend")
     assert "111" in str(guide.get("scope") or "")
     assert "retrieval_terms" in str(guide)
-    assert "manual keyword augmentation" in str(guide)
+    assert "planner affordances" in str(guide)
 
 
 def test_payload_includes_support_field_policy_rank_diagnostics():
@@ -231,6 +231,19 @@ def test_payload_includes_support_field_policy_rank_diagnostics():
         "support_token_share_delta",
     ]:
         assert key in row
+
+
+def test_payload_includes_pr66_planner_affordance_diagnostics():
+    payload = build_payload(report=_single_report(), include_full_surface=True)
+    diagnostics = payload.get("plannerAffordanceDiagnostics") or {}
+    assert diagnostics.get("schema") == "dmb_c1s4_pr66_affordance_canvas_summary_v1"
+    assert diagnostics.get("familyARows")
+    counts = diagnostics.get("counts") or {}
+    assert counts.get("family_a_support_rows") == 6
+    assert counts.get("prior_only_policy_correct_suppression") >= 8
+    row = diagnostics["familyARows"][0]
+    assert "support_match_channels" in row
+    assert "expected_support_refs_eval_only" in row
 
 
 def test_payload_includes_planner_surface_coverage_section():
@@ -254,6 +267,7 @@ def test_canvas_renderer_can_emit_expandable_context():
     assert "Rendered LLM context" in template
     assert "ModeGuidePanel" in template
     assert "SupportFieldPolicyPanel" in template
+    assert "PlannerAffordanceDiagnosticsPanel" in template
     assert "retrieval_terms" in template
     assert "full deep dive" in template
     assert 'className="' not in template

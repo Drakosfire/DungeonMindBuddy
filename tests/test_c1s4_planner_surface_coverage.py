@@ -61,11 +61,22 @@ def test_planner_surface_rows_have_no_generated_answer_control_leaks() -> None:
     assert all(r["generated_answer_control_leak"] is False for r in planner_rows)
 
 
-def test_tier_a_q1_q3_q5_remain_ok() -> None:
+def test_tier_a_q1_q3_remain_ok() -> None:
     rows = build_planner_surface_rows()
-    tier_a = [r for r in rows if r["question_number"] in TIER_A_QUESTIONS]
-    assert len(tier_a) == 9
-    assert all(r["next_failure_surface"] == "ok_or_later_stage" for r in tier_a)
+    tier_a_ok = [
+        r
+        for r in rows
+        if r["question_number"] in TIER_A_QUESTIONS and int(r["question_number"]) in {1, 3}
+    ]
+    assert len(tier_a_ok) == 6
+    assert all(r["next_failure_surface"] == "ok_or_later_stage" for r in tier_a_ok)
+
+
+def test_tier_a_q5_reports_lane_aware_gold_regression() -> None:
+    rows = build_planner_surface_rows()
+    q5 = [r for r in rows if int(r["question_number"]) == 5]
+    assert len(q5) == len(RETRIEVAL_MODES)
+    assert all(r["next_failure_surface"] == "tier_a_gold_regression" for r in q5)
 
 
 def test_summarize_planner_surface_rows_reports_expected_schema() -> None:
@@ -76,4 +87,5 @@ def test_summarize_planner_surface_rows_reports_expected_schema() -> None:
     assert summary["evaluator_only_questions"] == 1
     assert summary["hard_boundary_failures"]["forbidden_prompt_key_hits"] == 0
     assert "coverage_by_class" in summary
-    assert summary["tier_a_ok_rows"] == 9
+    assert summary["tier_a_ok_rows"] == 6
+    assert (summary.get("failure_surface_counts") or {}).get("tier_a_gold_regression") == 3
