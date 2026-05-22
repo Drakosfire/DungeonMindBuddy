@@ -1,0 +1,2741 @@
+{
+  "schema": "dmb_pr67_required_group_admission_diagnostics_v2",
+  "tier_a_questions": [
+    1,
+    3,
+    5
+  ],
+  "row_count": 23,
+  "tier_a_row_count": 23,
+  "tier_a_miss_root_causes": {
+    "strict_gold_lane_mismatch": 3
+  },
+  "q3_prior_distance_probe_by_mode": {
+    "prior_only": {
+      "schema": "dmb_pr67_q3_prior_distance_probe_v2",
+      "lineage": {
+        "first_raw_text_match": {
+          "candidate_rank": 14,
+          "admitted_rank": null,
+          "ref": "corpus:location:stone_bridge:retrieval-keywords",
+          "source_kind": "location_hub",
+          "subject_class": "location",
+          "presentation_lane": "navigation",
+          "evidence_role": "alias",
+          "admittable": false,
+          "visibility_excluded": false,
+          "admission_reason": "not_admittable_planner_evidence",
+          "lane_rejection_reason": null,
+          "rendered_section": null
+        },
+        "first_admittable_text_match": {
+          "candidate_rank": 15,
+          "admitted_rank": null,
+          "ref": "corpus:location:stone_bridge:canonical-name-and-legacy-spellings",
+          "source_kind": "location_hub",
+          "subject_class": "location",
+          "presentation_lane": "location_context",
+          "evidence_role": "evidence",
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": null,
+          "rendered_section": null
+        },
+        "first_session_memory_or_recap_match": null,
+        "first_required_lane_compatible_match": null,
+        "first_admitted_required_lane_match": null,
+        "first_rendered_required_lane_match": null,
+        "first_lane_accepted_match": null
+      },
+      "variant_literal_first_match": null,
+      "variant_route_alias_first_match": {
+        "variant_rank": 1,
+        "variant_role": "route_distance_alias",
+        "query": "Stone Bridge Mirathorn route travel week on foot",
+        "ref": "corpus:location:stone_bridge:canon-summary",
+        "source_kind": null,
+        "subject_class": "location"
+      },
+      "failure_stage": "no_session_evidence",
+      "first_meaningful_ref": null,
+      "first_meaningful_snippet": null
+    },
+    "prior_plus_support_content_only": {
+      "schema": "dmb_pr67_q3_prior_distance_probe_v2",
+      "lineage": {
+        "first_raw_text_match": {
+          "candidate_rank": 19,
+          "admitted_rank": null,
+          "ref": "corpus:location:stone_bridge:retrieval-keywords",
+          "source_kind": "location_hub",
+          "subject_class": "location",
+          "presentation_lane": "navigation",
+          "evidence_role": "alias",
+          "admittable": false,
+          "visibility_excluded": false,
+          "admission_reason": "not_admittable_planner_evidence",
+          "lane_rejection_reason": null,
+          "rendered_section": null
+        },
+        "first_admittable_text_match": {
+          "candidate_rank": 20,
+          "admitted_rank": null,
+          "ref": "corpus:location:stone_bridge:canonical-name-and-legacy-spellings",
+          "source_kind": "location_hub",
+          "subject_class": "location",
+          "presentation_lane": "location_context",
+          "evidence_role": "evidence",
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": null,
+          "rendered_section": null
+        },
+        "first_session_memory_or_recap_match": null,
+        "first_required_lane_compatible_match": null,
+        "first_admitted_required_lane_match": null,
+        "first_rendered_required_lane_match": null,
+        "first_lane_accepted_match": null
+      },
+      "variant_literal_first_match": null,
+      "variant_route_alias_first_match": {
+        "variant_rank": 1,
+        "variant_role": "route_distance_alias",
+        "query": "Stone Bridge Mirathorn route travel week on foot",
+        "ref": "corpus:location:stone_bridge:canon-summary",
+        "source_kind": null,
+        "subject_class": "location"
+      },
+      "failure_stage": "no_session_evidence",
+      "first_meaningful_ref": null,
+      "first_meaningful_snippet": null
+    },
+    "prior_plus_support_content_plus_lexical_hints": {
+      "schema": "dmb_pr67_q3_prior_distance_probe_v2",
+      "lineage": {
+        "first_raw_text_match": {
+          "candidate_rank": 21,
+          "admitted_rank": null,
+          "ref": "corpus:location:stone_bridge:retrieval-keywords",
+          "source_kind": "location_hub",
+          "subject_class": "location",
+          "presentation_lane": "navigation",
+          "evidence_role": "alias",
+          "admittable": false,
+          "visibility_excluded": false,
+          "admission_reason": "not_admittable_planner_evidence",
+          "lane_rejection_reason": null,
+          "rendered_section": null
+        },
+        "first_admittable_text_match": {
+          "candidate_rank": 22,
+          "admitted_rank": null,
+          "ref": "corpus:location:stone_bridge:canonical-name-and-legacy-spellings",
+          "source_kind": "location_hub",
+          "subject_class": "location",
+          "presentation_lane": "location_context",
+          "evidence_role": "evidence",
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": null,
+          "rendered_section": null
+        },
+        "first_session_memory_or_recap_match": null,
+        "first_required_lane_compatible_match": null,
+        "first_admitted_required_lane_match": null,
+        "first_rendered_required_lane_match": null,
+        "first_lane_accepted_match": null
+      },
+      "variant_literal_first_match": null,
+      "variant_route_alias_first_match": {
+        "variant_rank": 1,
+        "variant_role": "route_distance_alias",
+        "query": "Stone Bridge Mirathorn route travel week on foot",
+        "ref": "corpus:location:stone_bridge:canon-summary",
+        "source_kind": null,
+        "subject_class": "location"
+      },
+      "failure_stage": "no_session_evidence",
+      "first_meaningful_ref": null,
+      "first_meaningful_snippet": null
+    }
+  },
+  "rows": [
+    {
+      "schema": "dmb_pr67_required_group_admission_row_v2",
+      "question_number": 1,
+      "question_id": "q01_who_are_the_npcs_the_players_encountered",
+      "mode": "prior_only",
+      "group_id": "pippa_character_continuity",
+      "required_lane": "character_party_behavior",
+      "expected_rendered_section": "character_party_behavior",
+      "lineage": {
+        "first_raw_match": {
+          "candidate_rank": 1,
+          "admitted_rank": null,
+          "ref": "corpus:npc:bubbles_the_float_goat:suggested-reads-in-order",
+          "source_kind": "npc_hub",
+          "subject_class": "npc",
+          "presentation_lane": "navigation",
+          "evidence_role": "navigation_only",
+          "admittable": false,
+          "visibility_excluded": false,
+          "admission_reason": "not_admittable_planner_evidence",
+          "lane_rejection_reason": null,
+          "rendered_section": null
+        },
+        "first_admittable_match": {
+          "candidate_rank": 2,
+          "admitted_rank": null,
+          "ref": "corpus:location:stone_bridge:canon-summary",
+          "source_kind": "location_hub",
+          "subject_class": "location",
+          "presentation_lane": "location_context",
+          "evidence_role": "evidence",
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": null,
+          "rendered_section": null
+        },
+        "first_lane_compatible_match": {
+          "candidate_rank": 3,
+          "admitted_rank": null,
+          "ref": "corpus:npc:bubbles_the_float_goat:bubbles-at-the-table",
+          "source_kind": "npc_dossier",
+          "subject_class": "npc",
+          "presentation_lane": "party_timeline",
+          "evidence_role": "evidence",
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": null,
+          "rendered_section": "character_party_behavior"
+        },
+        "first_admitted_match": {
+          "candidate_rank": 2,
+          "admitted_rank": 1,
+          "ref": "corpus:location:stone_bridge:canon-summary",
+          "source_kind": "location_hub",
+          "subject_class": "location",
+          "presentation_lane": "location_context",
+          "evidence_role": "evidence",
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": null,
+          "rendered_section": null
+        },
+        "first_rendered_match": {
+          "candidate_rank": 2,
+          "admitted_rank": 1,
+          "ref": "corpus:location:stone_bridge:canon-summary",
+          "source_kind": "location_hub",
+          "subject_class": "location",
+          "presentation_lane": "location_context",
+          "evidence_role": "evidence",
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": "incompatible_required_lane",
+          "rendered_section": "location_worldbuilding"
+        },
+        "first_lane_accepted_match": {
+          "candidate_rank": 3,
+          "admitted_rank": 2,
+          "ref": "corpus:npc:bubbles_the_float_goat:bubbles-at-the-table",
+          "source_kind": "npc_dossier",
+          "subject_class": "npc",
+          "presentation_lane": "party_timeline",
+          "evidence_role": "evidence",
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": null,
+          "rendered_section": "character_party_behavior"
+        },
+        "first_source_derived_gap_match": null
+      },
+      "match_surface": {
+        "candidate_match_count": 15,
+        "first_raw_rank": 1,
+        "first_raw_ref": "corpus:npc:bubbles_the_float_goat:suggested-reads-in-order",
+        "first_raw_source_kind": "npc_hub",
+        "visibility_excluded": false
+      },
+      "admission_surface": {
+        "admitted": true,
+        "first_admitted_rank": 2,
+        "first_admitted_ref": "corpus:location:stone_bridge:canon-summary",
+        "admission_rejection_reason": "admitted",
+        "admission_policy": "lane_budgeted_v1"
+      },
+      "render_surface": {
+        "rendered": true,
+        "rendered_section": "location_worldbuilding",
+        "first_rendered_ref": "corpus:location:stone_bridge:canon-summary"
+      },
+      "grading_surface": {
+        "legacy_match": true,
+        "lane_aware_accepted": true,
+        "lane_aware_rejection_reason": null,
+        "grading_context_kind": "admitted_context",
+        "effective_grading_surface": "admitted_context"
+      },
+      "miss_root_cause": "ok"
+    },
+    {
+      "schema": "dmb_pr67_required_group_admission_row_v2",
+      "question_number": 1,
+      "question_id": "q01_who_are_the_npcs_the_players_encountered",
+      "mode": "prior_only",
+      "group_id": "bubbles_character_continuity",
+      "required_lane": "character_party_behavior",
+      "expected_rendered_section": "character_party_behavior",
+      "lineage": {
+        "first_raw_match": {
+          "candidate_rank": 1,
+          "admitted_rank": null,
+          "ref": "corpus:npc:bubbles_the_float_goat:suggested-reads-in-order",
+          "source_kind": "npc_hub",
+          "subject_class": "npc",
+          "presentation_lane": "navigation",
+          "evidence_role": "navigation_only",
+          "admittable": false,
+          "visibility_excluded": false,
+          "admission_reason": "not_admittable_planner_evidence",
+          "lane_rejection_reason": null,
+          "rendered_section": null
+        },
+        "first_admittable_match": {
+          "candidate_rank": 2,
+          "admitted_rank": null,
+          "ref": "corpus:location:stone_bridge:canon-summary",
+          "source_kind": "location_hub",
+          "subject_class": "location",
+          "presentation_lane": "location_context",
+          "evidence_role": "evidence",
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": null,
+          "rendered_section": null
+        },
+        "first_lane_compatible_match": {
+          "candidate_rank": 3,
+          "admitted_rank": null,
+          "ref": "corpus:npc:bubbles_the_float_goat:bubbles-at-the-table",
+          "source_kind": "npc_dossier",
+          "subject_class": "npc",
+          "presentation_lane": "party_timeline",
+          "evidence_role": "evidence",
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": null,
+          "rendered_section": "character_party_behavior"
+        },
+        "first_admitted_match": {
+          "candidate_rank": 2,
+          "admitted_rank": 1,
+          "ref": "corpus:location:stone_bridge:canon-summary",
+          "source_kind": "location_hub",
+          "subject_class": "location",
+          "presentation_lane": "location_context",
+          "evidence_role": "evidence",
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": null,
+          "rendered_section": null
+        },
+        "first_rendered_match": {
+          "candidate_rank": 2,
+          "admitted_rank": 1,
+          "ref": "corpus:location:stone_bridge:canon-summary",
+          "source_kind": "location_hub",
+          "subject_class": "location",
+          "presentation_lane": "location_context",
+          "evidence_role": "evidence",
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": "incompatible_required_lane",
+          "rendered_section": "location_worldbuilding"
+        },
+        "first_lane_accepted_match": {
+          "candidate_rank": 3,
+          "admitted_rank": 2,
+          "ref": "corpus:npc:bubbles_the_float_goat:bubbles-at-the-table",
+          "source_kind": "npc_dossier",
+          "subject_class": "npc",
+          "presentation_lane": "party_timeline",
+          "evidence_role": "evidence",
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": null,
+          "rendered_section": "character_party_behavior"
+        },
+        "first_source_derived_gap_match": null
+      },
+      "match_surface": {
+        "candidate_match_count": 17,
+        "first_raw_rank": 1,
+        "first_raw_ref": "corpus:npc:bubbles_the_float_goat:suggested-reads-in-order",
+        "first_raw_source_kind": "npc_hub",
+        "visibility_excluded": false
+      },
+      "admission_surface": {
+        "admitted": true,
+        "first_admitted_rank": 2,
+        "first_admitted_ref": "corpus:location:stone_bridge:canon-summary",
+        "admission_rejection_reason": "admitted",
+        "admission_policy": "lane_budgeted_v1"
+      },
+      "render_surface": {
+        "rendered": true,
+        "rendered_section": "location_worldbuilding",
+        "first_rendered_ref": "corpus:location:stone_bridge:canon-summary"
+      },
+      "grading_surface": {
+        "legacy_match": true,
+        "lane_aware_accepted": true,
+        "lane_aware_rejection_reason": null,
+        "grading_context_kind": "admitted_context",
+        "effective_grading_surface": "admitted_context"
+      },
+      "miss_root_cause": "ok"
+    },
+    {
+      "schema": "dmb_pr67_required_group_admission_row_v2",
+      "question_number": 1,
+      "question_id": "q01_who_are_the_npcs_the_players_encountered",
+      "mode": "prior_only",
+      "group_id": "grishna_character_continuity",
+      "required_lane": "character_party_behavior",
+      "expected_rendered_section": "character_party_behavior",
+      "lineage": {
+        "first_raw_match": {
+          "candidate_rank": 6,
+          "admitted_rank": null,
+          "ref": "corpus:location:stone_bridge:campaign-canon-npcs-anchored-here",
+          "source_kind": "location_hub",
+          "subject_class": "location",
+          "presentation_lane": "navigation",
+          "evidence_role": "navigation_only",
+          "admittable": false,
+          "visibility_excluded": false,
+          "admission_reason": "not_admittable_planner_evidence",
+          "lane_rejection_reason": null,
+          "rendered_section": null
+        },
+        "first_admittable_match": {
+          "candidate_rank": 9,
+          "admitted_rank": null,
+          "ref": "corpus:npc:pippa:table-role",
+          "source_kind": "npc_dossier",
+          "subject_class": "npc",
+          "presentation_lane": "party_timeline",
+          "evidence_role": "evidence",
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": null,
+          "rendered_section": null
+        },
+        "first_lane_compatible_match": {
+          "candidate_rank": 9,
+          "admitted_rank": null,
+          "ref": "corpus:npc:pippa:table-role",
+          "source_kind": "npc_dossier",
+          "subject_class": "npc",
+          "presentation_lane": "party_timeline",
+          "evidence_role": "evidence",
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": null,
+          "rendered_section": "character_party_behavior"
+        },
+        "first_admitted_match": {
+          "candidate_rank": 9,
+          "admitted_rank": 5,
+          "ref": "corpus:npc:pippa:table-role",
+          "source_kind": "npc_dossier",
+          "subject_class": "npc",
+          "presentation_lane": "party_timeline",
+          "evidence_role": "evidence",
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": null,
+          "rendered_section": null
+        },
+        "first_rendered_match": {
+          "candidate_rank": 9,
+          "admitted_rank": 5,
+          "ref": "corpus:npc:pippa:table-role",
+          "source_kind": "npc_dossier",
+          "subject_class": "npc",
+          "presentation_lane": "party_timeline",
+          "evidence_role": "evidence",
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": null,
+          "rendered_section": "character_party_behavior"
+        },
+        "first_lane_accepted_match": {
+          "candidate_rank": 9,
+          "admitted_rank": 5,
+          "ref": "corpus:npc:pippa:table-role",
+          "source_kind": "npc_dossier",
+          "subject_class": "npc",
+          "presentation_lane": "party_timeline",
+          "evidence_role": "evidence",
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": null,
+          "rendered_section": "character_party_behavior"
+        },
+        "first_source_derived_gap_match": null
+      },
+      "match_surface": {
+        "candidate_match_count": 11,
+        "first_raw_rank": 6,
+        "first_raw_ref": "corpus:location:stone_bridge:campaign-canon-npcs-anchored-here",
+        "first_raw_source_kind": "location_hub",
+        "visibility_excluded": false
+      },
+      "admission_surface": {
+        "admitted": true,
+        "first_admitted_rank": 9,
+        "first_admitted_ref": "corpus:npc:pippa:table-role",
+        "admission_rejection_reason": "admitted",
+        "admission_policy": "lane_budgeted_v1"
+      },
+      "render_surface": {
+        "rendered": true,
+        "rendered_section": "character_party_behavior",
+        "first_rendered_ref": "corpus:npc:pippa:table-role"
+      },
+      "grading_surface": {
+        "legacy_match": true,
+        "lane_aware_accepted": true,
+        "lane_aware_rejection_reason": null,
+        "grading_context_kind": "admitted_context",
+        "effective_grading_surface": "admitted_context"
+      },
+      "miss_root_cause": "ok"
+    },
+    {
+      "schema": "dmb_pr67_required_group_admission_row_v2",
+      "question_number": 1,
+      "question_id": "q01_who_are_the_npcs_the_players_encountered",
+      "mode": "prior_only",
+      "group_id": "stone_bridge_location_support_context",
+      "required_lane": "location_worldbuilding",
+      "expected_rendered_section": "location_worldbuilding",
+      "lineage": {
+        "first_raw_match": {
+          "candidate_rank": 2,
+          "admitted_rank": null,
+          "ref": "corpus:location:stone_bridge:canon-summary",
+          "source_kind": "location_hub",
+          "subject_class": "location",
+          "presentation_lane": "location_context",
+          "evidence_role": "evidence",
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": null,
+          "rendered_section": null
+        },
+        "first_admittable_match": {
+          "candidate_rank": 2,
+          "admitted_rank": null,
+          "ref": "corpus:location:stone_bridge:canon-summary",
+          "source_kind": "location_hub",
+          "subject_class": "location",
+          "presentation_lane": "location_context",
+          "evidence_role": "evidence",
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": null,
+          "rendered_section": null
+        },
+        "first_lane_compatible_match": {
+          "candidate_rank": 2,
+          "admitted_rank": null,
+          "ref": "corpus:location:stone_bridge:canon-summary",
+          "source_kind": "location_hub",
+          "subject_class": "location",
+          "presentation_lane": "location_context",
+          "evidence_role": "evidence",
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": null,
+          "rendered_section": "location_worldbuilding"
+        },
+        "first_admitted_match": {
+          "candidate_rank": 2,
+          "admitted_rank": 1,
+          "ref": "corpus:location:stone_bridge:canon-summary",
+          "source_kind": "location_hub",
+          "subject_class": "location",
+          "presentation_lane": "location_context",
+          "evidence_role": "evidence",
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": null,
+          "rendered_section": null
+        },
+        "first_rendered_match": {
+          "candidate_rank": 2,
+          "admitted_rank": 1,
+          "ref": "corpus:location:stone_bridge:canon-summary",
+          "source_kind": "location_hub",
+          "subject_class": "location",
+          "presentation_lane": "location_context",
+          "evidence_role": "evidence",
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": null,
+          "rendered_section": "location_worldbuilding"
+        },
+        "first_lane_accepted_match": {
+          "candidate_rank": 2,
+          "admitted_rank": 1,
+          "ref": "corpus:location:stone_bridge:canon-summary",
+          "source_kind": "location_hub",
+          "subject_class": "location",
+          "presentation_lane": "location_context",
+          "evidence_role": "evidence",
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": null,
+          "rendered_section": "location_worldbuilding"
+        },
+        "first_source_derived_gap_match": null
+      },
+      "match_surface": {
+        "candidate_match_count": 14,
+        "first_raw_rank": 2,
+        "first_raw_ref": "corpus:location:stone_bridge:canon-summary",
+        "first_raw_source_kind": "location_hub",
+        "visibility_excluded": false
+      },
+      "admission_surface": {
+        "admitted": true,
+        "first_admitted_rank": 2,
+        "first_admitted_ref": "corpus:location:stone_bridge:canon-summary",
+        "admission_rejection_reason": "admitted",
+        "admission_policy": "lane_budgeted_v1"
+      },
+      "render_surface": {
+        "rendered": true,
+        "rendered_section": "location_worldbuilding",
+        "first_rendered_ref": "corpus:location:stone_bridge:canon-summary"
+      },
+      "grading_surface": {
+        "legacy_match": true,
+        "lane_aware_accepted": true,
+        "lane_aware_rejection_reason": null,
+        "grading_context_kind": "admitted_context",
+        "effective_grading_surface": "admitted_context"
+      },
+      "miss_root_cause": "ok"
+    },
+    {
+      "schema": "dmb_pr67_required_group_admission_row_v2",
+      "question_number": 3,
+      "question_id": "q03_how_far_away_is_mirathorn_at_this_point",
+      "mode": "prior_only",
+      "group_id": "mirathorn_distance_estimate_from_play",
+      "required_lane": "prior_campaign_memory",
+      "expected_rendered_section": "prior_campaign_memory",
+      "lineage": {
+        "first_raw_match": {
+          "candidate_rank": 14,
+          "admitted_rank": null,
+          "ref": "corpus:location:stone_bridge:retrieval-keywords",
+          "source_kind": "location_hub",
+          "subject_class": "location",
+          "presentation_lane": "navigation",
+          "evidence_role": "alias",
+          "admittable": false,
+          "visibility_excluded": false,
+          "admission_reason": "not_admittable_planner_evidence",
+          "lane_rejection_reason": null,
+          "rendered_section": null
+        },
+        "first_admittable_match": {
+          "candidate_rank": 15,
+          "admitted_rank": null,
+          "ref": "corpus:location:stone_bridge:canonical-name-and-legacy-spellings",
+          "source_kind": "location_hub",
+          "subject_class": "location",
+          "presentation_lane": "location_context",
+          "evidence_role": "evidence",
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": null,
+          "rendered_section": null
+        },
+        "first_lane_compatible_match": null,
+        "first_admitted_match": {
+          "candidate_rank": 15,
+          "admitted_rank": 8,
+          "ref": "corpus:location:stone_bridge:canonical-name-and-legacy-spellings",
+          "source_kind": "location_hub",
+          "subject_class": "location",
+          "presentation_lane": "location_context",
+          "evidence_role": "evidence",
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": null,
+          "rendered_section": null
+        },
+        "first_rendered_match": {
+          "candidate_rank": 15,
+          "admitted_rank": 8,
+          "ref": "corpus:location:stone_bridge:canonical-name-and-legacy-spellings",
+          "source_kind": "location_hub",
+          "subject_class": "location",
+          "presentation_lane": "location_context",
+          "evidence_role": "evidence",
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": "incompatible_required_lane",
+          "rendered_section": "location_worldbuilding"
+        },
+        "first_lane_accepted_match": null,
+        "first_source_derived_gap_match": null
+      },
+      "match_surface": {
+        "candidate_match_count": 10,
+        "first_raw_rank": 14,
+        "first_raw_ref": "corpus:location:stone_bridge:retrieval-keywords",
+        "first_raw_source_kind": "location_hub",
+        "visibility_excluded": false
+      },
+      "admission_surface": {
+        "admitted": true,
+        "first_admitted_rank": 15,
+        "first_admitted_ref": "corpus:location:stone_bridge:canonical-name-and-legacy-spellings",
+        "admission_rejection_reason": "admitted",
+        "admission_policy": "lane_budgeted_v1"
+      },
+      "render_surface": {
+        "rendered": true,
+        "rendered_section": "location_worldbuilding",
+        "first_rendered_ref": "corpus:location:stone_bridge:canonical-name-and-legacy-spellings"
+      },
+      "grading_surface": {
+        "legacy_match": true,
+        "lane_aware_accepted": false,
+        "lane_aware_rejection_reason": "incompatible_required_lane",
+        "grading_context_kind": "admitted_context",
+        "effective_grading_surface": "admitted_context"
+      },
+      "miss_root_cause": "strict_gold_lane_mismatch"
+    },
+    {
+      "schema": "dmb_pr67_required_group_admission_row_v2",
+      "question_number": 3,
+      "question_id": "q03_how_far_away_is_mirathorn_at_this_point",
+      "mode": "prior_only",
+      "group_id": "mirathorn_exact_route_gap",
+      "required_lane": "known_gap",
+      "expected_rendered_section": "known_gaps_and_safety_constraints",
+      "lineage": {
+        "first_raw_match": null,
+        "first_admittable_match": null,
+        "first_lane_compatible_match": null,
+        "first_admitted_match": null,
+        "first_rendered_match": null,
+        "first_lane_accepted_match": {
+          "candidate_rank": null,
+          "ref": "source_gap:mirathorn_exact_route_gap",
+          "source_kind": "source_derived_gap",
+          "subject_class": "unknown",
+          "presentation_lane": null,
+          "evidence_role": null,
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "lane_accepted",
+          "lane_rejection_reason": null,
+          "rendered_section": "known_gaps_and_safety_constraints"
+        },
+        "first_source_derived_gap_match": {
+          "ref": "source_gap:mirathorn_exact_route_gap",
+          "source_kind": "source_derived_gap",
+          "subject_class": "route_gap",
+          "presentation_lane": "known_gap",
+          "rendered_section": "known_gaps_and_safety_constraints",
+          "lane_accepted": true
+        }
+      },
+      "match_surface": {
+        "candidate_match_count": 0,
+        "first_raw_rank": null,
+        "first_raw_ref": null,
+        "first_raw_source_kind": null,
+        "visibility_excluded": false
+      },
+      "admission_surface": {
+        "admitted": false,
+        "first_admitted_rank": null,
+        "first_admitted_ref": null,
+        "admission_rejection_reason": null,
+        "admission_policy": "lane_budgeted_v1"
+      },
+      "render_surface": {
+        "rendered": true,
+        "rendered_section": "known_gaps_and_safety_constraints",
+        "first_rendered_ref": "source_gap:mirathorn_exact_route_gap"
+      },
+      "grading_surface": {
+        "legacy_match": false,
+        "lane_aware_accepted": true,
+        "lane_aware_rejection_reason": null,
+        "grading_context_kind": "admitted_context",
+        "effective_grading_surface": "admitted_context"
+      },
+      "miss_root_cause": "ok"
+    },
+    {
+      "schema": "dmb_pr67_required_group_admission_row_v2",
+      "question_number": 3,
+      "question_id": "q03_how_far_away_is_mirathorn_at_this_point",
+      "mode": "prior_only",
+      "group_id": "stone_bridge_location_context",
+      "required_lane": "location_worldbuilding",
+      "expected_rendered_section": "location_worldbuilding",
+      "lineage": {
+        "first_raw_match": {
+          "candidate_rank": 1,
+          "admitted_rank": null,
+          "ref": "corpus:npc:bubbles_the_float_goat:suggested-reads-in-order",
+          "source_kind": "npc_hub",
+          "subject_class": "npc",
+          "presentation_lane": "navigation",
+          "evidence_role": "navigation_only",
+          "admittable": false,
+          "visibility_excluded": false,
+          "admission_reason": "not_admittable_planner_evidence",
+          "lane_rejection_reason": null,
+          "rendered_section": null
+        },
+        "first_admittable_match": {
+          "candidate_rank": 2,
+          "admitted_rank": null,
+          "ref": "corpus:npc:bubbles_the_float_goat:bubbles-at-the-table",
+          "source_kind": "npc_dossier",
+          "subject_class": "npc",
+          "presentation_lane": "party_timeline",
+          "evidence_role": "evidence",
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": null,
+          "rendered_section": null
+        },
+        "first_lane_compatible_match": {
+          "candidate_rank": 13,
+          "admitted_rank": null,
+          "ref": "corpus:location:stone_bridge:canon-summary",
+          "source_kind": "location_hub",
+          "subject_class": "location",
+          "presentation_lane": "location_context",
+          "evidence_role": "evidence",
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": null,
+          "rendered_section": "location_worldbuilding"
+        },
+        "first_admitted_match": {
+          "candidate_rank": 2,
+          "admitted_rank": 1,
+          "ref": "corpus:npc:bubbles_the_float_goat:bubbles-at-the-table",
+          "source_kind": "npc_dossier",
+          "subject_class": "npc",
+          "presentation_lane": "party_timeline",
+          "evidence_role": "evidence",
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": null,
+          "rendered_section": null
+        },
+        "first_rendered_match": {
+          "candidate_rank": 2,
+          "admitted_rank": 1,
+          "ref": "corpus:npc:bubbles_the_float_goat:bubbles-at-the-table",
+          "source_kind": "npc_dossier",
+          "subject_class": "npc",
+          "presentation_lane": "party_timeline",
+          "evidence_role": "evidence",
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": "incompatible_required_lane",
+          "rendered_section": "character_party_behavior"
+        },
+        "first_lane_accepted_match": {
+          "candidate_rank": 13,
+          "admitted_rank": 7,
+          "ref": "corpus:location:stone_bridge:canon-summary",
+          "source_kind": "location_hub",
+          "subject_class": "location",
+          "presentation_lane": "location_context",
+          "evidence_role": "evidence",
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": null,
+          "rendered_section": "location_worldbuilding"
+        },
+        "first_source_derived_gap_match": null
+      },
+      "match_surface": {
+        "candidate_match_count": 18,
+        "first_raw_rank": 1,
+        "first_raw_ref": "corpus:npc:bubbles_the_float_goat:suggested-reads-in-order",
+        "first_raw_source_kind": "npc_hub",
+        "visibility_excluded": false
+      },
+      "admission_surface": {
+        "admitted": true,
+        "first_admitted_rank": 2,
+        "first_admitted_ref": "corpus:npc:bubbles_the_float_goat:bubbles-at-the-table",
+        "admission_rejection_reason": "admitted",
+        "admission_policy": "lane_budgeted_v1"
+      },
+      "render_surface": {
+        "rendered": true,
+        "rendered_section": "character_party_behavior",
+        "first_rendered_ref": "corpus:npc:bubbles_the_float_goat:bubbles-at-the-table"
+      },
+      "grading_surface": {
+        "legacy_match": true,
+        "lane_aware_accepted": true,
+        "lane_aware_rejection_reason": null,
+        "grading_context_kind": "admitted_context",
+        "effective_grading_surface": "admitted_context"
+      },
+      "miss_root_cause": "ok"
+    },
+    {
+      "schema": "dmb_pr67_required_group_admission_row_v2",
+      "question_number": 1,
+      "question_id": "q01_who_are_the_npcs_the_players_encountered",
+      "mode": "prior_plus_support_content_only",
+      "group_id": "pippa_character_continuity",
+      "required_lane": "character_party_behavior",
+      "expected_rendered_section": "character_party_behavior",
+      "lineage": {
+        "first_raw_match": {
+          "candidate_rank": 1,
+          "admitted_rank": null,
+          "ref": "corpus:npc:bubbles_the_float_goat:suggested-reads-in-order",
+          "source_kind": "npc_hub",
+          "subject_class": "npc",
+          "presentation_lane": "navigation",
+          "evidence_role": "navigation_only",
+          "admittable": false,
+          "visibility_excluded": false,
+          "admission_reason": "not_admittable_planner_evidence",
+          "lane_rejection_reason": null,
+          "rendered_section": null
+        },
+        "first_admittable_match": {
+          "candidate_rank": 2,
+          "admitted_rank": null,
+          "ref": "corpus:location:stone_bridge:canon-summary",
+          "source_kind": "location_hub",
+          "subject_class": "location",
+          "presentation_lane": "location_context",
+          "evidence_role": "evidence",
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": null,
+          "rendered_section": null
+        },
+        "first_lane_compatible_match": {
+          "candidate_rank": 3,
+          "admitted_rank": null,
+          "ref": "corpus:npc:bubbles_the_float_goat:bubbles-at-the-table",
+          "source_kind": "npc_dossier",
+          "subject_class": "npc",
+          "presentation_lane": "party_timeline",
+          "evidence_role": "evidence",
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": null,
+          "rendered_section": "character_party_behavior"
+        },
+        "first_admitted_match": {
+          "candidate_rank": 2,
+          "admitted_rank": 1,
+          "ref": "corpus:location:stone_bridge:canon-summary",
+          "source_kind": "location_hub",
+          "subject_class": "location",
+          "presentation_lane": "location_context",
+          "evidence_role": "evidence",
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": null,
+          "rendered_section": null
+        },
+        "first_rendered_match": {
+          "candidate_rank": 2,
+          "admitted_rank": 1,
+          "ref": "corpus:location:stone_bridge:canon-summary",
+          "source_kind": "location_hub",
+          "subject_class": "location",
+          "presentation_lane": "location_context",
+          "evidence_role": "evidence",
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": "incompatible_required_lane",
+          "rendered_section": "location_worldbuilding"
+        },
+        "first_lane_accepted_match": {
+          "candidate_rank": 3,
+          "admitted_rank": 2,
+          "ref": "corpus:npc:bubbles_the_float_goat:bubbles-at-the-table",
+          "source_kind": "npc_dossier",
+          "subject_class": "npc",
+          "presentation_lane": "party_timeline",
+          "evidence_role": "evidence",
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": null,
+          "rendered_section": "character_party_behavior"
+        },
+        "first_source_derived_gap_match": null
+      },
+      "match_surface": {
+        "candidate_match_count": 10,
+        "first_raw_rank": 1,
+        "first_raw_ref": "corpus:npc:bubbles_the_float_goat:suggested-reads-in-order",
+        "first_raw_source_kind": "npc_hub",
+        "visibility_excluded": false
+      },
+      "admission_surface": {
+        "admitted": true,
+        "first_admitted_rank": 2,
+        "first_admitted_ref": "corpus:location:stone_bridge:canon-summary",
+        "admission_rejection_reason": "admitted",
+        "admission_policy": "lane_budgeted_v1"
+      },
+      "render_surface": {
+        "rendered": true,
+        "rendered_section": "location_worldbuilding",
+        "first_rendered_ref": "corpus:location:stone_bridge:canon-summary"
+      },
+      "grading_surface": {
+        "legacy_match": true,
+        "lane_aware_accepted": true,
+        "lane_aware_rejection_reason": null,
+        "grading_context_kind": "admitted_context",
+        "effective_grading_surface": "admitted_context"
+      },
+      "miss_root_cause": "ok"
+    },
+    {
+      "schema": "dmb_pr67_required_group_admission_row_v2",
+      "question_number": 1,
+      "question_id": "q01_who_are_the_npcs_the_players_encountered",
+      "mode": "prior_plus_support_content_only",
+      "group_id": "bubbles_character_continuity",
+      "required_lane": "character_party_behavior",
+      "expected_rendered_section": "character_party_behavior",
+      "lineage": {
+        "first_raw_match": {
+          "candidate_rank": 1,
+          "admitted_rank": null,
+          "ref": "corpus:npc:bubbles_the_float_goat:suggested-reads-in-order",
+          "source_kind": "npc_hub",
+          "subject_class": "npc",
+          "presentation_lane": "navigation",
+          "evidence_role": "navigation_only",
+          "admittable": false,
+          "visibility_excluded": false,
+          "admission_reason": "not_admittable_planner_evidence",
+          "lane_rejection_reason": null,
+          "rendered_section": null
+        },
+        "first_admittable_match": {
+          "candidate_rank": 2,
+          "admitted_rank": null,
+          "ref": "corpus:location:stone_bridge:canon-summary",
+          "source_kind": "location_hub",
+          "subject_class": "location",
+          "presentation_lane": "location_context",
+          "evidence_role": "evidence",
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": null,
+          "rendered_section": null
+        },
+        "first_lane_compatible_match": {
+          "candidate_rank": 3,
+          "admitted_rank": null,
+          "ref": "corpus:npc:bubbles_the_float_goat:bubbles-at-the-table",
+          "source_kind": "npc_dossier",
+          "subject_class": "npc",
+          "presentation_lane": "party_timeline",
+          "evidence_role": "evidence",
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": null,
+          "rendered_section": "character_party_behavior"
+        },
+        "first_admitted_match": {
+          "candidate_rank": 2,
+          "admitted_rank": 1,
+          "ref": "corpus:location:stone_bridge:canon-summary",
+          "source_kind": "location_hub",
+          "subject_class": "location",
+          "presentation_lane": "location_context",
+          "evidence_role": "evidence",
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": null,
+          "rendered_section": null
+        },
+        "first_rendered_match": {
+          "candidate_rank": 2,
+          "admitted_rank": 1,
+          "ref": "corpus:location:stone_bridge:canon-summary",
+          "source_kind": "location_hub",
+          "subject_class": "location",
+          "presentation_lane": "location_context",
+          "evidence_role": "evidence",
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": "incompatible_required_lane",
+          "rendered_section": "location_worldbuilding"
+        },
+        "first_lane_accepted_match": {
+          "candidate_rank": 3,
+          "admitted_rank": 2,
+          "ref": "corpus:npc:bubbles_the_float_goat:bubbles-at-the-table",
+          "source_kind": "npc_dossier",
+          "subject_class": "npc",
+          "presentation_lane": "party_timeline",
+          "evidence_role": "evidence",
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": null,
+          "rendered_section": "character_party_behavior"
+        },
+        "first_source_derived_gap_match": null
+      },
+      "match_surface": {
+        "candidate_match_count": 12,
+        "first_raw_rank": 1,
+        "first_raw_ref": "corpus:npc:bubbles_the_float_goat:suggested-reads-in-order",
+        "first_raw_source_kind": "npc_hub",
+        "visibility_excluded": false
+      },
+      "admission_surface": {
+        "admitted": true,
+        "first_admitted_rank": 2,
+        "first_admitted_ref": "corpus:location:stone_bridge:canon-summary",
+        "admission_rejection_reason": "admitted",
+        "admission_policy": "lane_budgeted_v1"
+      },
+      "render_surface": {
+        "rendered": true,
+        "rendered_section": "location_worldbuilding",
+        "first_rendered_ref": "corpus:location:stone_bridge:canon-summary"
+      },
+      "grading_surface": {
+        "legacy_match": true,
+        "lane_aware_accepted": true,
+        "lane_aware_rejection_reason": null,
+        "grading_context_kind": "admitted_context",
+        "effective_grading_surface": "admitted_context"
+      },
+      "miss_root_cause": "ok"
+    },
+    {
+      "schema": "dmb_pr67_required_group_admission_row_v2",
+      "question_number": 1,
+      "question_id": "q01_who_are_the_npcs_the_players_encountered",
+      "mode": "prior_plus_support_content_only",
+      "group_id": "grishna_character_continuity",
+      "required_lane": "character_party_behavior",
+      "expected_rendered_section": "character_party_behavior",
+      "lineage": {
+        "first_raw_match": {
+          "candidate_rank": 6,
+          "admitted_rank": null,
+          "ref": "corpus:location:stone_bridge:campaign-canon-npcs-anchored-here",
+          "source_kind": "location_hub",
+          "subject_class": "location",
+          "presentation_lane": "navigation",
+          "evidence_role": "navigation_only",
+          "admittable": false,
+          "visibility_excluded": false,
+          "admission_reason": "not_admittable_planner_evidence",
+          "lane_rejection_reason": null,
+          "rendered_section": null
+        },
+        "first_admittable_match": {
+          "candidate_rank": 9,
+          "admitted_rank": null,
+          "ref": "corpus:npc:pippa:table-role",
+          "source_kind": "npc_dossier",
+          "subject_class": "npc",
+          "presentation_lane": "party_timeline",
+          "evidence_role": "evidence",
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": null,
+          "rendered_section": null
+        },
+        "first_lane_compatible_match": {
+          "candidate_rank": 9,
+          "admitted_rank": null,
+          "ref": "corpus:npc:pippa:table-role",
+          "source_kind": "npc_dossier",
+          "subject_class": "npc",
+          "presentation_lane": "party_timeline",
+          "evidence_role": "evidence",
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": null,
+          "rendered_section": "character_party_behavior"
+        },
+        "first_admitted_match": {
+          "candidate_rank": 9,
+          "admitted_rank": 5,
+          "ref": "corpus:npc:pippa:table-role",
+          "source_kind": "npc_dossier",
+          "subject_class": "npc",
+          "presentation_lane": "party_timeline",
+          "evidence_role": "evidence",
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": null,
+          "rendered_section": null
+        },
+        "first_rendered_match": {
+          "candidate_rank": 9,
+          "admitted_rank": 5,
+          "ref": "corpus:npc:pippa:table-role",
+          "source_kind": "npc_dossier",
+          "subject_class": "npc",
+          "presentation_lane": "party_timeline",
+          "evidence_role": "evidence",
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": null,
+          "rendered_section": "character_party_behavior"
+        },
+        "first_lane_accepted_match": {
+          "candidate_rank": 9,
+          "admitted_rank": 5,
+          "ref": "corpus:npc:pippa:table-role",
+          "source_kind": "npc_dossier",
+          "subject_class": "npc",
+          "presentation_lane": "party_timeline",
+          "evidence_role": "evidence",
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": null,
+          "rendered_section": "character_party_behavior"
+        },
+        "first_source_derived_gap_match": null
+      },
+      "match_surface": {
+        "candidate_match_count": 6,
+        "first_raw_rank": 6,
+        "first_raw_ref": "corpus:location:stone_bridge:campaign-canon-npcs-anchored-here",
+        "first_raw_source_kind": "location_hub",
+        "visibility_excluded": false
+      },
+      "admission_surface": {
+        "admitted": true,
+        "first_admitted_rank": 9,
+        "first_admitted_ref": "corpus:npc:pippa:table-role",
+        "admission_rejection_reason": "admitted",
+        "admission_policy": "lane_budgeted_v1"
+      },
+      "render_surface": {
+        "rendered": true,
+        "rendered_section": "character_party_behavior",
+        "first_rendered_ref": "corpus:npc:pippa:table-role"
+      },
+      "grading_surface": {
+        "legacy_match": true,
+        "lane_aware_accepted": true,
+        "lane_aware_rejection_reason": null,
+        "grading_context_kind": "admitted_context",
+        "effective_grading_surface": "admitted_context"
+      },
+      "miss_root_cause": "ok"
+    },
+    {
+      "schema": "dmb_pr67_required_group_admission_row_v2",
+      "question_number": 1,
+      "question_id": "q01_who_are_the_npcs_the_players_encountered",
+      "mode": "prior_plus_support_content_only",
+      "group_id": "stone_bridge_location_support_context",
+      "required_lane": "location_worldbuilding",
+      "expected_rendered_section": "location_worldbuilding",
+      "lineage": {
+        "first_raw_match": {
+          "candidate_rank": 2,
+          "admitted_rank": null,
+          "ref": "corpus:location:stone_bridge:canon-summary",
+          "source_kind": "location_hub",
+          "subject_class": "location",
+          "presentation_lane": "location_context",
+          "evidence_role": "evidence",
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": null,
+          "rendered_section": null
+        },
+        "first_admittable_match": {
+          "candidate_rank": 2,
+          "admitted_rank": null,
+          "ref": "corpus:location:stone_bridge:canon-summary",
+          "source_kind": "location_hub",
+          "subject_class": "location",
+          "presentation_lane": "location_context",
+          "evidence_role": "evidence",
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": null,
+          "rendered_section": null
+        },
+        "first_lane_compatible_match": {
+          "candidate_rank": 2,
+          "admitted_rank": null,
+          "ref": "corpus:location:stone_bridge:canon-summary",
+          "source_kind": "location_hub",
+          "subject_class": "location",
+          "presentation_lane": "location_context",
+          "evidence_role": "evidence",
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": null,
+          "rendered_section": "location_worldbuilding"
+        },
+        "first_admitted_match": {
+          "candidate_rank": 2,
+          "admitted_rank": 1,
+          "ref": "corpus:location:stone_bridge:canon-summary",
+          "source_kind": "location_hub",
+          "subject_class": "location",
+          "presentation_lane": "location_context",
+          "evidence_role": "evidence",
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": null,
+          "rendered_section": null
+        },
+        "first_rendered_match": {
+          "candidate_rank": 2,
+          "admitted_rank": 1,
+          "ref": "corpus:location:stone_bridge:canon-summary",
+          "source_kind": "location_hub",
+          "subject_class": "location",
+          "presentation_lane": "location_context",
+          "evidence_role": "evidence",
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": null,
+          "rendered_section": "location_worldbuilding"
+        },
+        "first_lane_accepted_match": {
+          "candidate_rank": 2,
+          "admitted_rank": 1,
+          "ref": "corpus:location:stone_bridge:canon-summary",
+          "source_kind": "location_hub",
+          "subject_class": "location",
+          "presentation_lane": "location_context",
+          "evidence_role": "evidence",
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": null,
+          "rendered_section": "location_worldbuilding"
+        },
+        "first_source_derived_gap_match": null
+      },
+      "match_surface": {
+        "candidate_match_count": 9,
+        "first_raw_rank": 2,
+        "first_raw_ref": "corpus:location:stone_bridge:canon-summary",
+        "first_raw_source_kind": "location_hub",
+        "visibility_excluded": false
+      },
+      "admission_surface": {
+        "admitted": true,
+        "first_admitted_rank": 2,
+        "first_admitted_ref": "corpus:location:stone_bridge:canon-summary",
+        "admission_rejection_reason": "admitted",
+        "admission_policy": "lane_budgeted_v1"
+      },
+      "render_surface": {
+        "rendered": true,
+        "rendered_section": "location_worldbuilding",
+        "first_rendered_ref": "corpus:location:stone_bridge:canon-summary"
+      },
+      "grading_surface": {
+        "legacy_match": true,
+        "lane_aware_accepted": true,
+        "lane_aware_rejection_reason": null,
+        "grading_context_kind": "admitted_context",
+        "effective_grading_surface": "admitted_context"
+      },
+      "miss_root_cause": "ok"
+    },
+    {
+      "schema": "dmb_pr67_required_group_admission_row_v2",
+      "question_number": 3,
+      "question_id": "q03_how_far_away_is_mirathorn_at_this_point",
+      "mode": "prior_plus_support_content_only",
+      "group_id": "mirathorn_distance_estimate_from_play",
+      "required_lane": "prior_campaign_memory",
+      "expected_rendered_section": "prior_campaign_memory",
+      "lineage": {
+        "first_raw_match": {
+          "candidate_rank": 19,
+          "admitted_rank": null,
+          "ref": "corpus:location:stone_bridge:retrieval-keywords",
+          "source_kind": "location_hub",
+          "subject_class": "location",
+          "presentation_lane": "navigation",
+          "evidence_role": "alias",
+          "admittable": false,
+          "visibility_excluded": false,
+          "admission_reason": "not_admittable_planner_evidence",
+          "lane_rejection_reason": null,
+          "rendered_section": null
+        },
+        "first_admittable_match": {
+          "candidate_rank": 20,
+          "admitted_rank": null,
+          "ref": "corpus:location:stone_bridge:canonical-name-and-legacy-spellings",
+          "source_kind": "location_hub",
+          "subject_class": "location",
+          "presentation_lane": "location_context",
+          "evidence_role": "evidence",
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": null,
+          "rendered_section": null
+        },
+        "first_lane_compatible_match": null,
+        "first_admitted_match": {
+          "candidate_rank": 20,
+          "admitted_rank": 9,
+          "ref": "corpus:location:stone_bridge:canonical-name-and-legacy-spellings",
+          "source_kind": "location_hub",
+          "subject_class": "location",
+          "presentation_lane": "location_context",
+          "evidence_role": "evidence",
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": null,
+          "rendered_section": null
+        },
+        "first_rendered_match": {
+          "candidate_rank": 20,
+          "admitted_rank": 9,
+          "ref": "corpus:location:stone_bridge:canonical-name-and-legacy-spellings",
+          "source_kind": "location_hub",
+          "subject_class": "location",
+          "presentation_lane": "location_context",
+          "evidence_role": "evidence",
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": "incompatible_required_lane",
+          "rendered_section": "location_worldbuilding"
+        },
+        "first_lane_accepted_match": null,
+        "first_source_derived_gap_match": null
+      },
+      "match_surface": {
+        "candidate_match_count": 5,
+        "first_raw_rank": 19,
+        "first_raw_ref": "corpus:location:stone_bridge:retrieval-keywords",
+        "first_raw_source_kind": "location_hub",
+        "visibility_excluded": false
+      },
+      "admission_surface": {
+        "admitted": true,
+        "first_admitted_rank": 20,
+        "first_admitted_ref": "corpus:location:stone_bridge:canonical-name-and-legacy-spellings",
+        "admission_rejection_reason": "admitted",
+        "admission_policy": "lane_budgeted_v1"
+      },
+      "render_surface": {
+        "rendered": true,
+        "rendered_section": "location_worldbuilding",
+        "first_rendered_ref": "corpus:location:stone_bridge:canonical-name-and-legacy-spellings"
+      },
+      "grading_surface": {
+        "legacy_match": true,
+        "lane_aware_accepted": false,
+        "lane_aware_rejection_reason": "incompatible_required_lane",
+        "grading_context_kind": "admitted_context",
+        "effective_grading_surface": "admitted_context"
+      },
+      "miss_root_cause": "strict_gold_lane_mismatch"
+    },
+    {
+      "schema": "dmb_pr67_required_group_admission_row_v2",
+      "question_number": 3,
+      "question_id": "q03_how_far_away_is_mirathorn_at_this_point",
+      "mode": "prior_plus_support_content_only",
+      "group_id": "mirathorn_exact_route_gap",
+      "required_lane": "known_gap",
+      "expected_rendered_section": "known_gaps_and_safety_constraints",
+      "lineage": {
+        "first_raw_match": null,
+        "first_admittable_match": null,
+        "first_lane_compatible_match": null,
+        "first_admitted_match": null,
+        "first_rendered_match": null,
+        "first_lane_accepted_match": {
+          "candidate_rank": null,
+          "ref": "source_gap:mirathorn_exact_route_gap",
+          "source_kind": "source_derived_gap",
+          "subject_class": "unknown",
+          "presentation_lane": null,
+          "evidence_role": null,
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "lane_accepted",
+          "lane_rejection_reason": null,
+          "rendered_section": "known_gaps_and_safety_constraints"
+        },
+        "first_source_derived_gap_match": {
+          "ref": "source_gap:mirathorn_exact_route_gap",
+          "source_kind": "source_derived_gap",
+          "subject_class": "route_gap",
+          "presentation_lane": "known_gap",
+          "rendered_section": "known_gaps_and_safety_constraints",
+          "lane_accepted": true
+        }
+      },
+      "match_surface": {
+        "candidate_match_count": 0,
+        "first_raw_rank": null,
+        "first_raw_ref": null,
+        "first_raw_source_kind": null,
+        "visibility_excluded": false
+      },
+      "admission_surface": {
+        "admitted": false,
+        "first_admitted_rank": null,
+        "first_admitted_ref": null,
+        "admission_rejection_reason": null,
+        "admission_policy": "lane_budgeted_v1"
+      },
+      "render_surface": {
+        "rendered": true,
+        "rendered_section": "known_gaps_and_safety_constraints",
+        "first_rendered_ref": "source_gap:mirathorn_exact_route_gap"
+      },
+      "grading_surface": {
+        "legacy_match": false,
+        "lane_aware_accepted": true,
+        "lane_aware_rejection_reason": null,
+        "grading_context_kind": "admitted_context",
+        "effective_grading_surface": "admitted_context"
+      },
+      "miss_root_cause": "ok"
+    },
+    {
+      "schema": "dmb_pr67_required_group_admission_row_v2",
+      "question_number": 3,
+      "question_id": "q03_how_far_away_is_mirathorn_at_this_point",
+      "mode": "prior_plus_support_content_only",
+      "group_id": "stone_bridge_location_context",
+      "required_lane": "location_worldbuilding",
+      "expected_rendered_section": "location_worldbuilding",
+      "lineage": {
+        "first_raw_match": {
+          "candidate_rank": 1,
+          "admitted_rank": null,
+          "ref": "corpus:npc:bubbles_the_float_goat:suggested-reads-in-order",
+          "source_kind": "npc_hub",
+          "subject_class": "npc",
+          "presentation_lane": "navigation",
+          "evidence_role": "navigation_only",
+          "admittable": false,
+          "visibility_excluded": false,
+          "admission_reason": "not_admittable_planner_evidence",
+          "lane_rejection_reason": null,
+          "rendered_section": null
+        },
+        "first_admittable_match": {
+          "candidate_rank": 2,
+          "admitted_rank": null,
+          "ref": "corpus:npc:bubbles_the_float_goat:bubbles-at-the-table",
+          "source_kind": "npc_dossier",
+          "subject_class": "npc",
+          "presentation_lane": "party_timeline",
+          "evidence_role": "evidence",
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": null,
+          "rendered_section": null
+        },
+        "first_lane_compatible_match": {
+          "candidate_rank": 13,
+          "admitted_rank": null,
+          "ref": "corpus:location:stone_bridge:canon-summary",
+          "source_kind": "location_hub",
+          "subject_class": "location",
+          "presentation_lane": "location_context",
+          "evidence_role": "evidence",
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": null,
+          "rendered_section": "location_worldbuilding"
+        },
+        "first_admitted_match": {
+          "candidate_rank": 2,
+          "admitted_rank": 1,
+          "ref": "corpus:npc:bubbles_the_float_goat:bubbles-at-the-table",
+          "source_kind": "npc_dossier",
+          "subject_class": "npc",
+          "presentation_lane": "party_timeline",
+          "evidence_role": "evidence",
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": null,
+          "rendered_section": null
+        },
+        "first_rendered_match": {
+          "candidate_rank": 2,
+          "admitted_rank": 1,
+          "ref": "corpus:npc:bubbles_the_float_goat:bubbles-at-the-table",
+          "source_kind": "npc_dossier",
+          "subject_class": "npc",
+          "presentation_lane": "party_timeline",
+          "evidence_role": "evidence",
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": "incompatible_required_lane",
+          "rendered_section": "character_party_behavior"
+        },
+        "first_lane_accepted_match": {
+          "candidate_rank": 13,
+          "admitted_rank": 7,
+          "ref": "corpus:location:stone_bridge:canon-summary",
+          "source_kind": "location_hub",
+          "subject_class": "location",
+          "presentation_lane": "location_context",
+          "evidence_role": "evidence",
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": null,
+          "rendered_section": "location_worldbuilding"
+        },
+        "first_source_derived_gap_match": null
+      },
+      "match_surface": {
+        "candidate_match_count": 13,
+        "first_raw_rank": 1,
+        "first_raw_ref": "corpus:npc:bubbles_the_float_goat:suggested-reads-in-order",
+        "first_raw_source_kind": "npc_hub",
+        "visibility_excluded": false
+      },
+      "admission_surface": {
+        "admitted": true,
+        "first_admitted_rank": 2,
+        "first_admitted_ref": "corpus:npc:bubbles_the_float_goat:bubbles-at-the-table",
+        "admission_rejection_reason": "admitted",
+        "admission_policy": "lane_budgeted_v1"
+      },
+      "render_surface": {
+        "rendered": true,
+        "rendered_section": "character_party_behavior",
+        "first_rendered_ref": "corpus:npc:bubbles_the_float_goat:bubbles-at-the-table"
+      },
+      "grading_surface": {
+        "legacy_match": true,
+        "lane_aware_accepted": true,
+        "lane_aware_rejection_reason": null,
+        "grading_context_kind": "admitted_context",
+        "effective_grading_surface": "admitted_context"
+      },
+      "miss_root_cause": "ok"
+    },
+    {
+      "schema": "dmb_pr67_required_group_admission_row_v2",
+      "question_number": 5,
+      "question_id": "q05_there_is_a_gigantic_tree_growing_in_hemp",
+      "mode": "prior_plus_support_content_only",
+      "group_id": "hempholm_tree_support_context",
+      "required_lane": "support_knowledge",
+      "expected_rendered_section": "support_knowledge",
+      "lineage": {
+        "first_raw_match": {
+          "candidate_rank": 16,
+          "admitted_rank": null,
+          "ref": "support:hempholm_premature_celebration",
+          "source_kind": "support_knowledge_card",
+          "subject_class": "support",
+          "presentation_lane": "support_knowledge",
+          "evidence_role": null,
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": null,
+          "rendered_section": null
+        },
+        "first_admittable_match": {
+          "candidate_rank": 16,
+          "admitted_rank": null,
+          "ref": "support:hempholm_premature_celebration",
+          "source_kind": "support_knowledge_card",
+          "subject_class": "support",
+          "presentation_lane": "support_knowledge",
+          "evidence_role": null,
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": null,
+          "rendered_section": null
+        },
+        "first_lane_compatible_match": {
+          "candidate_rank": 16,
+          "admitted_rank": null,
+          "ref": "support:hempholm_premature_celebration",
+          "source_kind": "support_knowledge_card",
+          "subject_class": "support",
+          "presentation_lane": "support_knowledge",
+          "evidence_role": null,
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": null,
+          "rendered_section": "support_knowledge"
+        },
+        "first_admitted_match": {
+          "candidate_rank": 16,
+          "admitted_rank": 8,
+          "ref": "support:hempholm_premature_celebration",
+          "source_kind": "support_knowledge_card",
+          "subject_class": "support",
+          "presentation_lane": "support_knowledge",
+          "evidence_role": null,
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": null,
+          "rendered_section": null
+        },
+        "first_rendered_match": {
+          "candidate_rank": 16,
+          "admitted_rank": 8,
+          "ref": "support:hempholm_premature_celebration",
+          "source_kind": "support_knowledge_card",
+          "subject_class": "support",
+          "presentation_lane": "support_knowledge",
+          "evidence_role": null,
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": null,
+          "rendered_section": "support_knowledge"
+        },
+        "first_lane_accepted_match": {
+          "candidate_rank": 16,
+          "admitted_rank": 8,
+          "ref": "support:hempholm_premature_celebration",
+          "source_kind": "support_knowledge_card",
+          "subject_class": "support",
+          "presentation_lane": "support_knowledge",
+          "evidence_role": null,
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": null,
+          "rendered_section": "support_knowledge"
+        },
+        "first_source_derived_gap_match": null
+      },
+      "match_surface": {
+        "candidate_match_count": 9,
+        "first_raw_rank": 16,
+        "first_raw_ref": "support:hempholm_premature_celebration",
+        "first_raw_source_kind": "support_knowledge_card",
+        "visibility_excluded": false
+      },
+      "admission_surface": {
+        "admitted": true,
+        "first_admitted_rank": 16,
+        "first_admitted_ref": "support:hempholm_premature_celebration",
+        "admission_rejection_reason": "admitted",
+        "admission_policy": "lane_budgeted_v1"
+      },
+      "render_surface": {
+        "rendered": true,
+        "rendered_section": "support_knowledge",
+        "first_rendered_ref": "support:hempholm_premature_celebration"
+      },
+      "grading_surface": {
+        "legacy_match": true,
+        "lane_aware_accepted": true,
+        "lane_aware_rejection_reason": null,
+        "grading_context_kind": "admitted_context",
+        "effective_grading_surface": "admitted_context"
+      },
+      "miss_root_cause": "ok"
+    },
+    {
+      "schema": "dmb_pr67_required_group_admission_row_v2",
+      "question_number": 1,
+      "question_id": "q01_who_are_the_npcs_the_players_encountered",
+      "mode": "prior_plus_support_content_plus_lexical_hints",
+      "group_id": "pippa_character_continuity",
+      "required_lane": "character_party_behavior",
+      "expected_rendered_section": "character_party_behavior",
+      "lineage": {
+        "first_raw_match": {
+          "candidate_rank": 1,
+          "admitted_rank": null,
+          "ref": "corpus:npc:bubbles_the_float_goat:suggested-reads-in-order",
+          "source_kind": "npc_hub",
+          "subject_class": "npc",
+          "presentation_lane": "navigation",
+          "evidence_role": "navigation_only",
+          "admittable": false,
+          "visibility_excluded": false,
+          "admission_reason": "not_admittable_planner_evidence",
+          "lane_rejection_reason": null,
+          "rendered_section": null
+        },
+        "first_admittable_match": {
+          "candidate_rank": 2,
+          "admitted_rank": null,
+          "ref": "corpus:location:stone_bridge:canon-summary",
+          "source_kind": "location_hub",
+          "subject_class": "location",
+          "presentation_lane": "location_context",
+          "evidence_role": "evidence",
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": null,
+          "rendered_section": null
+        },
+        "first_lane_compatible_match": {
+          "candidate_rank": 3,
+          "admitted_rank": null,
+          "ref": "corpus:npc:bubbles_the_float_goat:bubbles-at-the-table",
+          "source_kind": "npc_dossier",
+          "subject_class": "npc",
+          "presentation_lane": "party_timeline",
+          "evidence_role": "evidence",
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": null,
+          "rendered_section": "character_party_behavior"
+        },
+        "first_admitted_match": {
+          "candidate_rank": 2,
+          "admitted_rank": 1,
+          "ref": "corpus:location:stone_bridge:canon-summary",
+          "source_kind": "location_hub",
+          "subject_class": "location",
+          "presentation_lane": "location_context",
+          "evidence_role": "evidence",
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": null,
+          "rendered_section": null
+        },
+        "first_rendered_match": {
+          "candidate_rank": 2,
+          "admitted_rank": 1,
+          "ref": "corpus:location:stone_bridge:canon-summary",
+          "source_kind": "location_hub",
+          "subject_class": "location",
+          "presentation_lane": "location_context",
+          "evidence_role": "evidence",
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": "incompatible_required_lane",
+          "rendered_section": "location_worldbuilding"
+        },
+        "first_lane_accepted_match": {
+          "candidate_rank": 3,
+          "admitted_rank": 2,
+          "ref": "corpus:npc:bubbles_the_float_goat:bubbles-at-the-table",
+          "source_kind": "npc_dossier",
+          "subject_class": "npc",
+          "presentation_lane": "party_timeline",
+          "evidence_role": "evidence",
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": null,
+          "rendered_section": "character_party_behavior"
+        },
+        "first_source_derived_gap_match": null
+      },
+      "match_surface": {
+        "candidate_match_count": 8,
+        "first_raw_rank": 1,
+        "first_raw_ref": "corpus:npc:bubbles_the_float_goat:suggested-reads-in-order",
+        "first_raw_source_kind": "npc_hub",
+        "visibility_excluded": false
+      },
+      "admission_surface": {
+        "admitted": true,
+        "first_admitted_rank": 2,
+        "first_admitted_ref": "corpus:location:stone_bridge:canon-summary",
+        "admission_rejection_reason": "admitted",
+        "admission_policy": "lane_budgeted_v1"
+      },
+      "render_surface": {
+        "rendered": true,
+        "rendered_section": "location_worldbuilding",
+        "first_rendered_ref": "corpus:location:stone_bridge:canon-summary"
+      },
+      "grading_surface": {
+        "legacy_match": true,
+        "lane_aware_accepted": true,
+        "lane_aware_rejection_reason": null,
+        "grading_context_kind": "admitted_context",
+        "effective_grading_surface": "admitted_context"
+      },
+      "miss_root_cause": "ok"
+    },
+    {
+      "schema": "dmb_pr67_required_group_admission_row_v2",
+      "question_number": 1,
+      "question_id": "q01_who_are_the_npcs_the_players_encountered",
+      "mode": "prior_plus_support_content_plus_lexical_hints",
+      "group_id": "bubbles_character_continuity",
+      "required_lane": "character_party_behavior",
+      "expected_rendered_section": "character_party_behavior",
+      "lineage": {
+        "first_raw_match": {
+          "candidate_rank": 1,
+          "admitted_rank": null,
+          "ref": "corpus:npc:bubbles_the_float_goat:suggested-reads-in-order",
+          "source_kind": "npc_hub",
+          "subject_class": "npc",
+          "presentation_lane": "navigation",
+          "evidence_role": "navigation_only",
+          "admittable": false,
+          "visibility_excluded": false,
+          "admission_reason": "not_admittable_planner_evidence",
+          "lane_rejection_reason": null,
+          "rendered_section": null
+        },
+        "first_admittable_match": {
+          "candidate_rank": 2,
+          "admitted_rank": null,
+          "ref": "corpus:location:stone_bridge:canon-summary",
+          "source_kind": "location_hub",
+          "subject_class": "location",
+          "presentation_lane": "location_context",
+          "evidence_role": "evidence",
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": null,
+          "rendered_section": null
+        },
+        "first_lane_compatible_match": {
+          "candidate_rank": 3,
+          "admitted_rank": null,
+          "ref": "corpus:npc:bubbles_the_float_goat:bubbles-at-the-table",
+          "source_kind": "npc_dossier",
+          "subject_class": "npc",
+          "presentation_lane": "party_timeline",
+          "evidence_role": "evidence",
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": null,
+          "rendered_section": "character_party_behavior"
+        },
+        "first_admitted_match": {
+          "candidate_rank": 2,
+          "admitted_rank": 1,
+          "ref": "corpus:location:stone_bridge:canon-summary",
+          "source_kind": "location_hub",
+          "subject_class": "location",
+          "presentation_lane": "location_context",
+          "evidence_role": "evidence",
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": null,
+          "rendered_section": null
+        },
+        "first_rendered_match": {
+          "candidate_rank": 2,
+          "admitted_rank": 1,
+          "ref": "corpus:location:stone_bridge:canon-summary",
+          "source_kind": "location_hub",
+          "subject_class": "location",
+          "presentation_lane": "location_context",
+          "evidence_role": "evidence",
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": "incompatible_required_lane",
+          "rendered_section": "location_worldbuilding"
+        },
+        "first_lane_accepted_match": {
+          "candidate_rank": 3,
+          "admitted_rank": 2,
+          "ref": "corpus:npc:bubbles_the_float_goat:bubbles-at-the-table",
+          "source_kind": "npc_dossier",
+          "subject_class": "npc",
+          "presentation_lane": "party_timeline",
+          "evidence_role": "evidence",
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": null,
+          "rendered_section": "character_party_behavior"
+        },
+        "first_source_derived_gap_match": null
+      },
+      "match_surface": {
+        "candidate_match_count": 10,
+        "first_raw_rank": 1,
+        "first_raw_ref": "corpus:npc:bubbles_the_float_goat:suggested-reads-in-order",
+        "first_raw_source_kind": "npc_hub",
+        "visibility_excluded": false
+      },
+      "admission_surface": {
+        "admitted": true,
+        "first_admitted_rank": 2,
+        "first_admitted_ref": "corpus:location:stone_bridge:canon-summary",
+        "admission_rejection_reason": "admitted",
+        "admission_policy": "lane_budgeted_v1"
+      },
+      "render_surface": {
+        "rendered": true,
+        "rendered_section": "location_worldbuilding",
+        "first_rendered_ref": "corpus:location:stone_bridge:canon-summary"
+      },
+      "grading_surface": {
+        "legacy_match": true,
+        "lane_aware_accepted": true,
+        "lane_aware_rejection_reason": null,
+        "grading_context_kind": "admitted_context",
+        "effective_grading_surface": "admitted_context"
+      },
+      "miss_root_cause": "ok"
+    },
+    {
+      "schema": "dmb_pr67_required_group_admission_row_v2",
+      "question_number": 1,
+      "question_id": "q01_who_are_the_npcs_the_players_encountered",
+      "mode": "prior_plus_support_content_plus_lexical_hints",
+      "group_id": "grishna_character_continuity",
+      "required_lane": "character_party_behavior",
+      "expected_rendered_section": "character_party_behavior",
+      "lineage": {
+        "first_raw_match": {
+          "candidate_rank": 6,
+          "admitted_rank": null,
+          "ref": "corpus:location:stone_bridge:campaign-canon-npcs-anchored-here",
+          "source_kind": "location_hub",
+          "subject_class": "location",
+          "presentation_lane": "navigation",
+          "evidence_role": "navigation_only",
+          "admittable": false,
+          "visibility_excluded": false,
+          "admission_reason": "not_admittable_planner_evidence",
+          "lane_rejection_reason": null,
+          "rendered_section": null
+        },
+        "first_admittable_match": {
+          "candidate_rank": 9,
+          "admitted_rank": null,
+          "ref": "corpus:npc:pippa:table-role",
+          "source_kind": "npc_dossier",
+          "subject_class": "npc",
+          "presentation_lane": "party_timeline",
+          "evidence_role": "evidence",
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": null,
+          "rendered_section": null
+        },
+        "first_lane_compatible_match": {
+          "candidate_rank": 9,
+          "admitted_rank": null,
+          "ref": "corpus:npc:pippa:table-role",
+          "source_kind": "npc_dossier",
+          "subject_class": "npc",
+          "presentation_lane": "party_timeline",
+          "evidence_role": "evidence",
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": null,
+          "rendered_section": "character_party_behavior"
+        },
+        "first_admitted_match": {
+          "candidate_rank": 9,
+          "admitted_rank": 5,
+          "ref": "corpus:npc:pippa:table-role",
+          "source_kind": "npc_dossier",
+          "subject_class": "npc",
+          "presentation_lane": "party_timeline",
+          "evidence_role": "evidence",
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": null,
+          "rendered_section": null
+        },
+        "first_rendered_match": {
+          "candidate_rank": 9,
+          "admitted_rank": 5,
+          "ref": "corpus:npc:pippa:table-role",
+          "source_kind": "npc_dossier",
+          "subject_class": "npc",
+          "presentation_lane": "party_timeline",
+          "evidence_role": "evidence",
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": null,
+          "rendered_section": "character_party_behavior"
+        },
+        "first_lane_accepted_match": {
+          "candidate_rank": 9,
+          "admitted_rank": 5,
+          "ref": "corpus:npc:pippa:table-role",
+          "source_kind": "npc_dossier",
+          "subject_class": "npc",
+          "presentation_lane": "party_timeline",
+          "evidence_role": "evidence",
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": null,
+          "rendered_section": "character_party_behavior"
+        },
+        "first_source_derived_gap_match": null
+      },
+      "match_surface": {
+        "candidate_match_count": 4,
+        "first_raw_rank": 6,
+        "first_raw_ref": "corpus:location:stone_bridge:campaign-canon-npcs-anchored-here",
+        "first_raw_source_kind": "location_hub",
+        "visibility_excluded": false
+      },
+      "admission_surface": {
+        "admitted": true,
+        "first_admitted_rank": 9,
+        "first_admitted_ref": "corpus:npc:pippa:table-role",
+        "admission_rejection_reason": "admitted",
+        "admission_policy": "lane_budgeted_v1"
+      },
+      "render_surface": {
+        "rendered": true,
+        "rendered_section": "character_party_behavior",
+        "first_rendered_ref": "corpus:npc:pippa:table-role"
+      },
+      "grading_surface": {
+        "legacy_match": true,
+        "lane_aware_accepted": true,
+        "lane_aware_rejection_reason": null,
+        "grading_context_kind": "admitted_context",
+        "effective_grading_surface": "admitted_context"
+      },
+      "miss_root_cause": "ok"
+    },
+    {
+      "schema": "dmb_pr67_required_group_admission_row_v2",
+      "question_number": 1,
+      "question_id": "q01_who_are_the_npcs_the_players_encountered",
+      "mode": "prior_plus_support_content_plus_lexical_hints",
+      "group_id": "stone_bridge_location_support_context",
+      "required_lane": "location_worldbuilding",
+      "expected_rendered_section": "location_worldbuilding",
+      "lineage": {
+        "first_raw_match": {
+          "candidate_rank": 2,
+          "admitted_rank": null,
+          "ref": "corpus:location:stone_bridge:canon-summary",
+          "source_kind": "location_hub",
+          "subject_class": "location",
+          "presentation_lane": "location_context",
+          "evidence_role": "evidence",
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": null,
+          "rendered_section": null
+        },
+        "first_admittable_match": {
+          "candidate_rank": 2,
+          "admitted_rank": null,
+          "ref": "corpus:location:stone_bridge:canon-summary",
+          "source_kind": "location_hub",
+          "subject_class": "location",
+          "presentation_lane": "location_context",
+          "evidence_role": "evidence",
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": null,
+          "rendered_section": null
+        },
+        "first_lane_compatible_match": {
+          "candidate_rank": 2,
+          "admitted_rank": null,
+          "ref": "corpus:location:stone_bridge:canon-summary",
+          "source_kind": "location_hub",
+          "subject_class": "location",
+          "presentation_lane": "location_context",
+          "evidence_role": "evidence",
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": null,
+          "rendered_section": "location_worldbuilding"
+        },
+        "first_admitted_match": {
+          "candidate_rank": 2,
+          "admitted_rank": 1,
+          "ref": "corpus:location:stone_bridge:canon-summary",
+          "source_kind": "location_hub",
+          "subject_class": "location",
+          "presentation_lane": "location_context",
+          "evidence_role": "evidence",
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": null,
+          "rendered_section": null
+        },
+        "first_rendered_match": {
+          "candidate_rank": 2,
+          "admitted_rank": 1,
+          "ref": "corpus:location:stone_bridge:canon-summary",
+          "source_kind": "location_hub",
+          "subject_class": "location",
+          "presentation_lane": "location_context",
+          "evidence_role": "evidence",
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": null,
+          "rendered_section": "location_worldbuilding"
+        },
+        "first_lane_accepted_match": {
+          "candidate_rank": 2,
+          "admitted_rank": 1,
+          "ref": "corpus:location:stone_bridge:canon-summary",
+          "source_kind": "location_hub",
+          "subject_class": "location",
+          "presentation_lane": "location_context",
+          "evidence_role": "evidence",
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": null,
+          "rendered_section": "location_worldbuilding"
+        },
+        "first_source_derived_gap_match": null
+      },
+      "match_surface": {
+        "candidate_match_count": 7,
+        "first_raw_rank": 2,
+        "first_raw_ref": "corpus:location:stone_bridge:canon-summary",
+        "first_raw_source_kind": "location_hub",
+        "visibility_excluded": false
+      },
+      "admission_surface": {
+        "admitted": true,
+        "first_admitted_rank": 2,
+        "first_admitted_ref": "corpus:location:stone_bridge:canon-summary",
+        "admission_rejection_reason": "admitted",
+        "admission_policy": "lane_budgeted_v1"
+      },
+      "render_surface": {
+        "rendered": true,
+        "rendered_section": "location_worldbuilding",
+        "first_rendered_ref": "corpus:location:stone_bridge:canon-summary"
+      },
+      "grading_surface": {
+        "legacy_match": true,
+        "lane_aware_accepted": true,
+        "lane_aware_rejection_reason": null,
+        "grading_context_kind": "admitted_context",
+        "effective_grading_surface": "admitted_context"
+      },
+      "miss_root_cause": "ok"
+    },
+    {
+      "schema": "dmb_pr67_required_group_admission_row_v2",
+      "question_number": 3,
+      "question_id": "q03_how_far_away_is_mirathorn_at_this_point",
+      "mode": "prior_plus_support_content_plus_lexical_hints",
+      "group_id": "mirathorn_distance_estimate_from_play",
+      "required_lane": "prior_campaign_memory",
+      "expected_rendered_section": "prior_campaign_memory",
+      "lineage": {
+        "first_raw_match": {
+          "candidate_rank": 21,
+          "admitted_rank": null,
+          "ref": "corpus:location:stone_bridge:retrieval-keywords",
+          "source_kind": "location_hub",
+          "subject_class": "location",
+          "presentation_lane": "navigation",
+          "evidence_role": "alias",
+          "admittable": false,
+          "visibility_excluded": false,
+          "admission_reason": "not_admittable_planner_evidence",
+          "lane_rejection_reason": null,
+          "rendered_section": null
+        },
+        "first_admittable_match": {
+          "candidate_rank": 22,
+          "admitted_rank": null,
+          "ref": "corpus:location:stone_bridge:canonical-name-and-legacy-spellings",
+          "source_kind": "location_hub",
+          "subject_class": "location",
+          "presentation_lane": "location_context",
+          "evidence_role": "evidence",
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": null,
+          "rendered_section": null
+        },
+        "first_lane_compatible_match": null,
+        "first_admitted_match": {
+          "candidate_rank": 22,
+          "admitted_rank": 9,
+          "ref": "corpus:location:stone_bridge:canonical-name-and-legacy-spellings",
+          "source_kind": "location_hub",
+          "subject_class": "location",
+          "presentation_lane": "location_context",
+          "evidence_role": "evidence",
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": null,
+          "rendered_section": null
+        },
+        "first_rendered_match": {
+          "candidate_rank": 22,
+          "admitted_rank": 9,
+          "ref": "corpus:location:stone_bridge:canonical-name-and-legacy-spellings",
+          "source_kind": "location_hub",
+          "subject_class": "location",
+          "presentation_lane": "location_context",
+          "evidence_role": "evidence",
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": "incompatible_required_lane",
+          "rendered_section": "location_worldbuilding"
+        },
+        "first_lane_accepted_match": null,
+        "first_source_derived_gap_match": null
+      },
+      "match_surface": {
+        "candidate_match_count": 3,
+        "first_raw_rank": 21,
+        "first_raw_ref": "corpus:location:stone_bridge:retrieval-keywords",
+        "first_raw_source_kind": "location_hub",
+        "visibility_excluded": false
+      },
+      "admission_surface": {
+        "admitted": true,
+        "first_admitted_rank": 22,
+        "first_admitted_ref": "corpus:location:stone_bridge:canonical-name-and-legacy-spellings",
+        "admission_rejection_reason": "admitted",
+        "admission_policy": "lane_budgeted_v1"
+      },
+      "render_surface": {
+        "rendered": true,
+        "rendered_section": "location_worldbuilding",
+        "first_rendered_ref": "corpus:location:stone_bridge:canonical-name-and-legacy-spellings"
+      },
+      "grading_surface": {
+        "legacy_match": true,
+        "lane_aware_accepted": false,
+        "lane_aware_rejection_reason": "incompatible_required_lane",
+        "grading_context_kind": "admitted_context",
+        "effective_grading_surface": "admitted_context"
+      },
+      "miss_root_cause": "strict_gold_lane_mismatch"
+    },
+    {
+      "schema": "dmb_pr67_required_group_admission_row_v2",
+      "question_number": 3,
+      "question_id": "q03_how_far_away_is_mirathorn_at_this_point",
+      "mode": "prior_plus_support_content_plus_lexical_hints",
+      "group_id": "mirathorn_exact_route_gap",
+      "required_lane": "known_gap",
+      "expected_rendered_section": "known_gaps_and_safety_constraints",
+      "lineage": {
+        "first_raw_match": null,
+        "first_admittable_match": null,
+        "first_lane_compatible_match": null,
+        "first_admitted_match": null,
+        "first_rendered_match": null,
+        "first_lane_accepted_match": {
+          "candidate_rank": null,
+          "ref": "source_gap:mirathorn_exact_route_gap",
+          "source_kind": "source_derived_gap",
+          "subject_class": "unknown",
+          "presentation_lane": null,
+          "evidence_role": null,
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "lane_accepted",
+          "lane_rejection_reason": null,
+          "rendered_section": "known_gaps_and_safety_constraints"
+        },
+        "first_source_derived_gap_match": {
+          "ref": "source_gap:mirathorn_exact_route_gap",
+          "source_kind": "source_derived_gap",
+          "subject_class": "route_gap",
+          "presentation_lane": "known_gap",
+          "rendered_section": "known_gaps_and_safety_constraints",
+          "lane_accepted": true
+        }
+      },
+      "match_surface": {
+        "candidate_match_count": 0,
+        "first_raw_rank": null,
+        "first_raw_ref": null,
+        "first_raw_source_kind": null,
+        "visibility_excluded": false
+      },
+      "admission_surface": {
+        "admitted": false,
+        "first_admitted_rank": null,
+        "first_admitted_ref": null,
+        "admission_rejection_reason": null,
+        "admission_policy": "lane_budgeted_v1"
+      },
+      "render_surface": {
+        "rendered": true,
+        "rendered_section": "known_gaps_and_safety_constraints",
+        "first_rendered_ref": "source_gap:mirathorn_exact_route_gap"
+      },
+      "grading_surface": {
+        "legacy_match": false,
+        "lane_aware_accepted": true,
+        "lane_aware_rejection_reason": null,
+        "grading_context_kind": "admitted_context",
+        "effective_grading_surface": "admitted_context"
+      },
+      "miss_root_cause": "ok"
+    },
+    {
+      "schema": "dmb_pr67_required_group_admission_row_v2",
+      "question_number": 3,
+      "question_id": "q03_how_far_away_is_mirathorn_at_this_point",
+      "mode": "prior_plus_support_content_plus_lexical_hints",
+      "group_id": "stone_bridge_location_context",
+      "required_lane": "location_worldbuilding",
+      "expected_rendered_section": "location_worldbuilding",
+      "lineage": {
+        "first_raw_match": {
+          "candidate_rank": 1,
+          "admitted_rank": null,
+          "ref": "corpus:npc:bubbles_the_float_goat:suggested-reads-in-order",
+          "source_kind": "npc_hub",
+          "subject_class": "npc",
+          "presentation_lane": "navigation",
+          "evidence_role": "navigation_only",
+          "admittable": false,
+          "visibility_excluded": false,
+          "admission_reason": "not_admittable_planner_evidence",
+          "lane_rejection_reason": null,
+          "rendered_section": null
+        },
+        "first_admittable_match": {
+          "candidate_rank": 2,
+          "admitted_rank": null,
+          "ref": "corpus:npc:bubbles_the_float_goat:bubbles-at-the-table",
+          "source_kind": "npc_dossier",
+          "subject_class": "npc",
+          "presentation_lane": "party_timeline",
+          "evidence_role": "evidence",
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": null,
+          "rendered_section": null
+        },
+        "first_lane_compatible_match": {
+          "candidate_rank": 13,
+          "admitted_rank": null,
+          "ref": "corpus:location:stone_bridge:canon-summary",
+          "source_kind": "location_hub",
+          "subject_class": "location",
+          "presentation_lane": "location_context",
+          "evidence_role": "evidence",
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": null,
+          "rendered_section": "location_worldbuilding"
+        },
+        "first_admitted_match": {
+          "candidate_rank": 2,
+          "admitted_rank": 1,
+          "ref": "corpus:npc:bubbles_the_float_goat:bubbles-at-the-table",
+          "source_kind": "npc_dossier",
+          "subject_class": "npc",
+          "presentation_lane": "party_timeline",
+          "evidence_role": "evidence",
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": null,
+          "rendered_section": null
+        },
+        "first_rendered_match": {
+          "candidate_rank": 2,
+          "admitted_rank": 1,
+          "ref": "corpus:npc:bubbles_the_float_goat:bubbles-at-the-table",
+          "source_kind": "npc_dossier",
+          "subject_class": "npc",
+          "presentation_lane": "party_timeline",
+          "evidence_role": "evidence",
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": "incompatible_required_lane",
+          "rendered_section": "character_party_behavior"
+        },
+        "first_lane_accepted_match": {
+          "candidate_rank": 13,
+          "admitted_rank": 7,
+          "ref": "corpus:location:stone_bridge:canon-summary",
+          "source_kind": "location_hub",
+          "subject_class": "location",
+          "presentation_lane": "location_context",
+          "evidence_role": "evidence",
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": null,
+          "rendered_section": "location_worldbuilding"
+        },
+        "first_source_derived_gap_match": null
+      },
+      "match_surface": {
+        "candidate_match_count": 11,
+        "first_raw_rank": 1,
+        "first_raw_ref": "corpus:npc:bubbles_the_float_goat:suggested-reads-in-order",
+        "first_raw_source_kind": "npc_hub",
+        "visibility_excluded": false
+      },
+      "admission_surface": {
+        "admitted": true,
+        "first_admitted_rank": 2,
+        "first_admitted_ref": "corpus:npc:bubbles_the_float_goat:bubbles-at-the-table",
+        "admission_rejection_reason": "admitted",
+        "admission_policy": "lane_budgeted_v1"
+      },
+      "render_surface": {
+        "rendered": true,
+        "rendered_section": "character_party_behavior",
+        "first_rendered_ref": "corpus:npc:bubbles_the_float_goat:bubbles-at-the-table"
+      },
+      "grading_surface": {
+        "legacy_match": true,
+        "lane_aware_accepted": true,
+        "lane_aware_rejection_reason": null,
+        "grading_context_kind": "admitted_context",
+        "effective_grading_surface": "admitted_context"
+      },
+      "miss_root_cause": "ok"
+    },
+    {
+      "schema": "dmb_pr67_required_group_admission_row_v2",
+      "question_number": 5,
+      "question_id": "q05_there_is_a_gigantic_tree_growing_in_hemp",
+      "mode": "prior_plus_support_content_plus_lexical_hints",
+      "group_id": "hempholm_tree_support_context",
+      "required_lane": "support_knowledge",
+      "expected_rendered_section": "support_knowledge",
+      "lineage": {
+        "first_raw_match": {
+          "candidate_rank": 16,
+          "admitted_rank": null,
+          "ref": "support:hempholm_premature_celebration",
+          "source_kind": "support_knowledge_card",
+          "subject_class": "support",
+          "presentation_lane": "support_knowledge",
+          "evidence_role": null,
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": null,
+          "rendered_section": null
+        },
+        "first_admittable_match": {
+          "candidate_rank": 16,
+          "admitted_rank": null,
+          "ref": "support:hempholm_premature_celebration",
+          "source_kind": "support_knowledge_card",
+          "subject_class": "support",
+          "presentation_lane": "support_knowledge",
+          "evidence_role": null,
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": null,
+          "rendered_section": null
+        },
+        "first_lane_compatible_match": {
+          "candidate_rank": 16,
+          "admitted_rank": null,
+          "ref": "support:hempholm_premature_celebration",
+          "source_kind": "support_knowledge_card",
+          "subject_class": "support",
+          "presentation_lane": "support_knowledge",
+          "evidence_role": null,
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": null,
+          "rendered_section": "support_knowledge"
+        },
+        "first_admitted_match": {
+          "candidate_rank": 16,
+          "admitted_rank": 8,
+          "ref": "support:hempholm_premature_celebration",
+          "source_kind": "support_knowledge_card",
+          "subject_class": "support",
+          "presentation_lane": "support_knowledge",
+          "evidence_role": null,
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": null,
+          "rendered_section": null
+        },
+        "first_rendered_match": {
+          "candidate_rank": 16,
+          "admitted_rank": 8,
+          "ref": "support:hempholm_premature_celebration",
+          "source_kind": "support_knowledge_card",
+          "subject_class": "support",
+          "presentation_lane": "support_knowledge",
+          "evidence_role": null,
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": null,
+          "rendered_section": "support_knowledge"
+        },
+        "first_lane_accepted_match": {
+          "candidate_rank": 16,
+          "admitted_rank": 8,
+          "ref": "support:hempholm_premature_celebration",
+          "source_kind": "support_knowledge_card",
+          "subject_class": "support",
+          "presentation_lane": "support_knowledge",
+          "evidence_role": null,
+          "admittable": true,
+          "visibility_excluded": false,
+          "admission_reason": "admitted",
+          "lane_rejection_reason": null,
+          "rendered_section": "support_knowledge"
+        },
+        "first_source_derived_gap_match": null
+      },
+      "match_surface": {
+        "candidate_match_count": 8,
+        "first_raw_rank": 16,
+        "first_raw_ref": "support:hempholm_premature_celebration",
+        "first_raw_source_kind": "support_knowledge_card",
+        "visibility_excluded": false
+      },
+      "admission_surface": {
+        "admitted": true,
+        "first_admitted_rank": 16,
+        "first_admitted_ref": "support:hempholm_premature_celebration",
+        "admission_rejection_reason": "admitted",
+        "admission_policy": "lane_budgeted_v1"
+      },
+      "render_surface": {
+        "rendered": true,
+        "rendered_section": "support_knowledge",
+        "first_rendered_ref": "support:hempholm_premature_celebration"
+      },
+      "grading_surface": {
+        "legacy_match": true,
+        "lane_aware_accepted": true,
+        "lane_aware_rejection_reason": null,
+        "grading_context_kind": "admitted_context",
+        "effective_grading_surface": "admitted_context"
+      },
+      "miss_root_cause": "ok"
+    }
+  ]
+}

@@ -27,6 +27,7 @@ from evals.c1s4_preplanning_vertical_slice.planner_prompt_payload import (
     validate_planner_prompt_payload,
 )
 from evals.c1s4_preplanning_vertical_slice.source_derived_context_gaps import gap_text_contains_forbidden_gold_phrase
+from evals.c1s4_preplanning_vertical_slice.visibility_provenance import is_planner_visible_for_c1s4_preplanning
 from evals.c1s4_preplanning_vertical_slice.step2_build_question_context_packets import build_summary as build_step2_summary
 
 PLANNER_SURFACE_COVERAGE_SCHEMA = "dmb_c1s4_planner_surface_coverage_v1"
