@@ -24,6 +24,10 @@ from evals.c1s4_preplanning_vertical_slice.beat_question_answer_harness import (
     iter_target_questions,
     load_beat_question_targets,
 )
+from evals.c1s4_preplanning_vertical_slice.source_derived_context_gaps import (
+    is_source_derived_route_gap_hit,
+    source_derived_gap_to_grading_item,
+)
 
 EXPECTED_CONTEXT_GOLD_SCHEMA = "dmb_c1s4_expected_context_gold_v1"
 EXPECTED_CONTEXT_REPORT_SCHEMA = "dmb_c1s4_expected_context_benchmark_report_v1"
@@ -261,6 +265,7 @@ def grade_question_packet(*, packet: dict[str, Any], gold_question: dict[str, An
     grading_context_kind, grading_context = get_grading_context(packet)
     effective_top_k = None if grading_context_kind == "admitted_context" else top_k
     eval_known_gaps = expected_known_context_gaps_eval_only(gold_question)
+    source_derived_gaps = packet.get("source_derived_context_gaps") or []
     rendered_context_packet = render_context_packet({
         "question_number": packet.get("question_number"),
         "question_id": packet.get("question_id"),
@@ -269,10 +274,13 @@ def grade_question_packet(*, packet: dict[str, Any], gold_question: dict[str, An
         "admission_policy": str(packet.get("admission_policy") or "legacy_top_k"),
         "admitted_context": packet.get("admitted_context", []),
         "admission_budget": packet.get("admission_budget", {}),
+        "source_derived_context_gaps": source_derived_gaps,
     })
     required_matches = [match_context_group(retrieved_context=grading_context, group=g, top_k=effective_top_k) for g in required]
     forbidden_matches = [match_context_group(retrieved_context=grading_context, group=g, top_k=effective_top_k) for g in forbidden]
     known_hits = [term for term in exp.get("expected_known_gaps_contains_any", []) if any(_norm(term) in _norm(g) for g in eval_known_gaps)]
+    if any(is_source_derived_route_gap_hit(g) for g in source_derived_gaps):
+        known_hits = list(exp.get("expected_known_gaps_contains_any", []))
     violations: list[str] = []
     missing_groups = [m["group_id"] for m in required_matches if not m["ok"]]
     lane_aware_required_matches = []
@@ -293,6 +301,9 @@ def grade_question_packet(*, packet: dict[str, Any], gold_question: dict[str, An
                 }
                 if match_context_item(synthetic_gap, grp.get("match", {})):
                     candidates.append(synthetic_gap)
+            for gap_obj in source_derived_gaps:
+                if is_source_derived_route_gap_hit(gap_obj):
+                    candidates.append(source_derived_gap_to_grading_item(gap_obj))
         accepted = []
         rejected = []
         for item in candidates:
@@ -370,6 +381,7 @@ def grade_question_packet(*, packet: dict[str, Any], gold_question: dict[str, An
         "query_features": packet.get("query_features"),
         "lane_plan": packet.get("lane_plan"),
         "retrieved_context": packet.get("retrieved_context", []),
+        "source_derived_context_gaps": packet.get("source_derived_context_gaps", []),
         "candidate_context": packet.get("candidate_context", []),
     }
 
@@ -383,6 +395,7 @@ def _attach_render_and_metrics(row: dict[str, Any], *, packet: dict[str, Any], g
         "admission_policy": row.get("admission_policy"),
         "admitted_context": row.get("admitted_context", []),
         "admission_budget": row.get("admission_budget", {}),
+        "source_derived_context_gaps": packet.get("source_derived_context_gaps", []),
     })
     row["rendered_context_packet"] = rendered_context_packet
     row["packet_quality_metrics"] = compute_packet_quality_metrics(

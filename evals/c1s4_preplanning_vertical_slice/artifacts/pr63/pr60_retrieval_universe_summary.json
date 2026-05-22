@@ -1,0 +1,8 @@
+{
+  "schema": "dmb_pr60_retrieval_universe_summary_v1",
+  "admission_deferred_to_admitted": 0,
+  "pr60_surface_counts": {
+    "ok_or_later_stage": 11,
+    "known_gap_eval_only_not_in_planner_packet": 1
+  }
+}

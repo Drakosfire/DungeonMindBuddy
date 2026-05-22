@@ -392,3 +392,47 @@ def test_support_like_eval_artifact_path_is_still_rejected():
     ok, diag = context_item_satisfies_lane_aware_group(item, group=group, rendered_context_packet={"provenance_map": {}})
     assert ok is False
     assert diag["reason"] == "disallowed_source_path"
+
+
+def test_q3_known_gap_group_passes_after_pr63() -> None:
+    summary = build_summary(mode="prior_only", question_number=3, max_hits=50)
+    packet = summary["packets"][0]
+    gold = load_expected_context_gold()
+    gq = next(q for q in gold["questions"] if q["question_id"] == packet["question_id"])
+    row = grade_question_packet(packet=packet, gold_question=gq, retrieval_mode="prior_only", top_k=50)
+    route_gap = next(
+        r for r in row["lane_aware_diagnostics"]["required_group_results"] if r["group_id"] == "mirathorn_exact_route_gap"
+    )
+    assert route_gap["ok"] is True
+    assert "missing_expected_known_gap" not in row["violations"]
+
+
+def test_q3_source_derived_gap_satisfies_known_gap_lane_aware_group() -> None:
+    from evals.c1s4_preplanning_vertical_slice.source_derived_context_gaps import build_source_derived_context_gaps
+
+    gaps = build_source_derived_context_gaps(
+        question_id="q03_how_far_away_is_mirathorn_at_this_point",
+        question_text="How far away is Mirathorn? Traveling on the road?",
+        retrieval_mode="prior_only",
+        candidate_context=[
+            {"unit_id": "corpus:location:stone_bridge:canon-summary", "snippet": "Stone Bridge toward Mirathorn"},
+        ],
+        admitted_context=[],
+        query_features={},
+    )
+    packet = {
+        "question_number": 3,
+        "question_id": "q03_how_far_away_is_mirathorn_at_this_point",
+        "question": "How far away is Mirathorn?",
+        "retrieval_mode": "prior_only",
+        "admitted_context": [],
+        "source_derived_context_gaps": gaps,
+        "authority_summary": {},
+    }
+    gold = load_expected_context_gold()
+    gq = next(q for q in gold["questions"] if q["question_id"] == packet["question_id"])
+    row = grade_question_packet(packet=packet, gold_question=gq, retrieval_mode="prior_only", top_k=9)
+    route_gap = next(
+        r for r in row["lane_aware_diagnostics"]["required_group_results"] if r["group_id"] == "mirathorn_exact_route_gap"
+    )
+    assert route_gap["ok"] is True

@@ -9,7 +9,16 @@ def _packet(mode="prior_plus_support_content_only"):
         "question": "What should we do in Hempholm?",
         "retrieval_mode": mode,
         "admission_policy": "budgeted_v1",
-        "known_context_gaps": ["Route details uncertain"],
+        "source_derived_context_gaps": [
+            {
+                "gap_id": "source_gap:test:0",
+                "gap": "Route details uncertain",
+                "source": "deterministic_absence_analysis",
+                "evidence_scope": "allowed_prior_context",
+                "presentation_lane": "known_gap",
+                "source_kind": "source_derived_gap",
+            }
+        ],
         "admitted_context": [
             {"ref": "prior:stone_bridge", "source_kind": "session_memory", "presentation_lane": "prior_campaign_memory", "snippet": "Stone Bridge events", "candidate_rank": 1, "admitted_rank": 1},
             {"ref": "support:hempholm", "source_kind": "support_knowledge_card", "presentation_lane": "support_knowledge", "snippet": "Hempholm metallic tree", "candidate_rank": 2, "admitted_rank": 2},
@@ -259,15 +268,41 @@ def test_q3_renderer_can_show_source_derived_gap_only() -> None:
                 "snippet": "Party traveled toward Mirathorn after Stone Bridge.",
             }
         ],
-        "known_context_gaps": [
+        "source_derived_context_gaps": [
             {
-                "gap": "route details not established in retrieved prior context",
+                "schema": "dmb_source_derived_context_gap_v1",
+                "gap_id": "source_gap:mirathorn_exact_route_gap",
+                "gap": "Retrieved prior context supports Stone Bridge and Mirathorn but does not establish the exact route.",
                 "source": "deterministic_absence_analysis",
                 "evidence_scope": "allowed_prior_context",
+                "presentation_lane": "known_gap",
+                "source_kind": "source_derived_gap",
+                "subject_class": "route_gap",
             }
         ],
     }
     rendered = render_context_packet(packet)
     gaps = next(s for s in rendered["sections"] if s["section_id"] == "known_gaps_and_safety_constraints")
-    assert "route details not established" in gaps["text"]
+    assert "does not establish" in gaps["text"]
     assert "route gazetteer" not in rendered["rendered_text"].lower()
+    prov = rendered["provenance_map"]["source_gap:mirathorn_exact_route_gap"]
+    assert prov["rendered_section_id"] == "known_gaps_and_safety_constraints"
+    assert prov["route_reason"] == "source_derived_context_gap"
+
+
+def test_q3_rendered_text_contains_source_derived_gap() -> None:
+    summary = build_summary(mode="prior_only", question_number=3, max_hits=50)
+    packet = summary["packets"][0]
+    rendered = render_context_packet(packet)
+    assert "source_gap:mirathorn_exact_route_gap" in rendered["rendered_text"]
+    assert "does not establish" in rendered["rendered_text"].lower()
+
+
+def test_q3_rendered_text_does_not_contain_gold_gap_phrases() -> None:
+    summary = build_summary(mode="prior_only", question_number=3, max_hits=50)
+    rendered = render_context_packet(summary["packets"][0])
+    text = rendered["rendered_text"]
+    assert "exact Stone Bridge-to-Mirathorn route gazetteer" not in text
+    assert "intermediate settlements" not in text
+    assert "day-by-day travel route" not in text
+    assert "route-specific ecology" not in text

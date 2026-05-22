@@ -1,0 +1,11 @@
+{
+  "schema": "dmb_pr63_retrieval_universe_summary_v1",
+  "source_derived_gaps_emitted": 6,
+  "q3_route_gap_rendered": true,
+  "known_gap_missing_from_packet_to_ok": 1,
+  "gold_gap_phrase_leakage": false,
+  "pr63_surface_counts": {
+    "ok_or_later_stage": 9,
+    "rendered_section_mismatch": 3
+  }
+}
