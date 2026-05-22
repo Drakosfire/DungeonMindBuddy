@@ -1,0 +1,1131 @@
+{
+  "schema": "dmb_pr65_question_mode_findings_v1",
+  "rows_by_next_failure_surface": {
+    "ok_or_later_stage": [
+      {
+        "question_number": 1,
+        "question_id": "q01_who_are_the_npcs_the_players_encountered",
+        "mode": "prior_only"
+      },
+      {
+        "question_number": 2,
+        "question_id": "q02_if_the_players_are_not_ready_to_leave_to",
+        "mode": "prior_only"
+      },
+      {
+        "question_number": 3,
+        "question_id": "q03_how_far_away_is_mirathorn_at_this_point",
+        "mode": "prior_only"
+      },
+      {
+        "question_number": 5,
+        "question_id": "q05_there_is_a_gigantic_tree_growing_in_hemp",
+        "mode": "prior_only"
+      },
+      {
+        "question_number": 6,
+        "question_id": "q06_what_are_some_rumors_that_the_npc_could",
+        "mode": "prior_only"
+      },
+      {
+        "question_number": 7,
+        "question_id": "q07_what_is_the_tone_of_the_road_from_stone",
+        "mode": "prior_only"
+      },
+      {
+        "question_number": 8,
+        "question_id": "q08_give_me_three_small_road_events_that_can",
+        "mode": "prior_only"
+      },
+      {
+        "question_number": 9,
+        "question_id": "q09_the_players_are_likely_still_riding_the",
+        "mode": "prior_only"
+      },
+      {
+        "question_number": 12,
+        "question_id": "q12_what_questions_are_the_players_most_like",
+        "mode": "prior_only"
+      },
+      {
+        "question_number": 14,
+        "question_id": "q14_what_skill_checks_should_be_available_fo",
+        "mode": "prior_only"
+      },
+      {
+        "question_number": 15,
+        "question_id": "q15_how_do_i_teach_the_tree_s_reach_and_move",
+        "mode": "prior_only"
+      },
+      {
+        "question_number": 16,
+        "question_id": "q16_who_in_town_wants_to_attack_or_burn_the",
+        "mode": "prior_only"
+      },
+      {
+        "question_number": 17,
+        "question_id": "q17_how_can_stafl_or_another_social_characte",
+        "mode": "prior_only"
+      },
+      {
+        "question_number": 18,
+        "question_id": "q18_what_happens_if_the_party_fails_to_stop",
+        "mode": "prior_only"
+      },
+      {
+        "question_number": 19,
+        "question_id": "q19_what_triggers_the_tree_to_escalate_from",
+        "mode": "prior_only"
+      },
+      {
+        "question_number": 21,
+        "question_id": "q21_what_should_each_type_of_pc_be_able_to_c",
+        "mode": "prior_only"
+      },
+      {
+        "question_number": 23,
+        "question_id": "q23_how_would_local_craftspeople__farmers__c",
+        "mode": "prior_only"
+      },
+      {
+        "question_number": 24,
+        "question_id": "q24_what_questions_should_the_weird_remains",
+        "mode": "prior_only"
+      },
+      {
+        "question_number": 26,
+        "question_id": "q26_what_social_friction_should_exist_during",
+        "mode": "prior_only"
+      },
+      {
+        "question_number": 27,
+        "question_id": "q27_which_pcs_are_likely_to_participate_in_c",
+        "mode": "prior_only"
+      },
+      {
+        "question_number": 29,
+        "question_id": "q29_how_do_i_foreshadow_the_deeper_threat_be",
+        "mode": "prior_only"
+      },
+      {
+        "question_number": 30,
+        "question_id": "q30_what_should_the_cliffhanger_look_like_if",
+        "mode": "prior_only"
+      },
+      {
+        "question_number": 31,
+        "question_id": "q31_if_the_session_ends_on_the_deeper_threat",
+        "mode": "prior_only"
+      },
+      {
+        "question_number": 32,
+        "question_id": "q32_what_resources_are_likely_depleted_or_co",
+        "mode": "prior_only"
+      },
+      {
+        "question_number": 33,
+        "question_id": "q33_what_unanswered_questions_should_the_pla",
+        "mode": "prior_only"
+      },
+      {
+        "question_number": 34,
+        "question_id": "q34_which_facts_are_retrieved_from_prior_can",
+        "mode": "prior_only"
+      },
+      {
+        "question_number": 36,
+        "question_id": "q36_what_information_is_missing_from_the_cur",
+        "mode": "prior_only"
+      },
+      {
+        "question_number": 37,
+        "question_id": "q37_what_prep_can_be_safely_generated_anyway",
+        "mode": "prior_only"
+      },
+      {
+        "question_number": 38,
+        "question_id": "q38_what_should_the_gm_decide_manually",
+        "mode": "prior_only"
+      },
+      {
+        "question_number": 1,
+        "question_id": "q01_who_are_the_npcs_the_players_encountered",
+        "mode": "prior_plus_support_content_only"
+      },
+      {
+        "question_number": 2,
+        "question_id": "q02_if_the_players_are_not_ready_to_leave_to",
+        "mode": "prior_plus_support_content_only"
+      },
+      {
+        "question_number": 3,
+        "question_id": "q03_how_far_away_is_mirathorn_at_this_point",
+        "mode": "prior_plus_support_content_only"
+      },
+      {
+        "question_number": 4,
+        "question_id": "q04_we_need_a_good_hemp_dealing_merchant_who",
+        "mode": "prior_plus_support_content_only"
+      },
+      {
+        "question_number": 5,
+        "question_id": "q05_there_is_a_gigantic_tree_growing_in_hemp",
+        "mode": "prior_plus_support_content_only"
+      },
+      {
+        "question_number": 6,
+        "question_id": "q06_what_are_some_rumors_that_the_npc_could",
+        "mode": "prior_plus_support_content_only"
+      },
+      {
+        "question_number": 7,
+        "question_id": "q07_what_is_the_tone_of_the_road_from_stone",
+        "mode": "prior_plus_support_content_only"
+      },
+      {
+        "question_number": 8,
+        "question_id": "q08_give_me_three_small_road_events_that_can",
+        "mode": "prior_plus_support_content_only"
+      },
+      {
+        "question_number": 9,
+        "question_id": "q09_the_players_are_likely_still_riding_the",
+        "mode": "prior_plus_support_content_only"
+      },
+      {
+        "question_number": 12,
+        "question_id": "q12_what_questions_are_the_players_most_like",
+        "mode": "prior_plus_support_content_only"
+      },
+      {
+        "question_number": 13,
+        "question_id": "q13_what_observable_clues_should_reveal_that",
+        "mode": "prior_plus_support_content_only"
+      },
+      {
+        "question_number": 14,
+        "question_id": "q14_what_skill_checks_should_be_available_fo",
+        "mode": "prior_plus_support_content_only"
+      },
+      {
+        "question_number": 15,
+        "question_id": "q15_how_do_i_teach_the_tree_s_reach_and_move",
+        "mode": "prior_plus_support_content_only"
+      },
+      {
+        "question_number": 16,
+        "question_id": "q16_who_in_town_wants_to_attack_or_burn_the",
+        "mode": "prior_plus_support_content_only"
+      },
+      {
+        "question_number": 17,
+        "question_id": "q17_how_can_stafl_or_another_social_characte",
+        "mode": "prior_plus_support_content_only"
+      },
+      {
+        "question_number": 18,
+        "question_id": "q18_what_happens_if_the_party_fails_to_stop",
+        "mode": "prior_plus_support_content_only"
+      },
+      {
+        "question_number": 19,
+        "question_id": "q19_what_triggers_the_tree_to_escalate_from",
+        "mode": "prior_plus_support_content_only"
+      },
+      {
+        "question_number": 21,
+        "question_id": "q21_what_should_each_type_of_pc_be_able_to_c",
+        "mode": "prior_plus_support_content_only"
+      },
+      {
+        "question_number": 22,
+        "question_id": "q22_if_the_party_defeats_the_tree__what_rema",
+        "mode": "prior_plus_support_content_only"
+      },
+      {
+        "question_number": 23,
+        "question_id": "q23_how_would_local_craftspeople__farmers__c",
+        "mode": "prior_plus_support_content_only"
+      },
+      {
+        "question_number": 24,
+        "question_id": "q24_what_questions_should_the_weird_remains",
+        "mode": "prior_plus_support_content_only"
+      },
+      {
+        "question_number": 25,
+        "question_id": "q25_how_does_hempholm_celebrate_if_the_visib",
+        "mode": "prior_plus_support_content_only"
+      },
+      {
+        "question_number": 26,
+        "question_id": "q26_what_social_friction_should_exist_during",
+        "mode": "prior_plus_support_content_only"
+      },
+      {
+        "question_number": 27,
+        "question_id": "q27_which_pcs_are_likely_to_participate_in_c",
+        "mode": "prior_plus_support_content_only"
+      },
+      {
+        "question_number": 28,
+        "question_id": "q28_what_is_the_deeper_problem_beneath_the_v",
+        "mode": "prior_plus_support_content_only"
+      },
+      {
+        "question_number": 29,
+        "question_id": "q29_how_do_i_foreshadow_the_deeper_threat_be",
+        "mode": "prior_plus_support_content_only"
+      },
+      {
+        "question_number": 30,
+        "question_id": "q30_what_should_the_cliffhanger_look_like_if",
+        "mode": "prior_plus_support_content_only"
+      },
+      {
+        "question_number": 31,
+        "question_id": "q31_if_the_session_ends_on_the_deeper_threat",
+        "mode": "prior_plus_support_content_only"
+      },
+      {
+        "question_number": 32,
+        "question_id": "q32_what_resources_are_likely_depleted_or_co",
+        "mode": "prior_plus_support_content_only"
+      },
+      {
+        "question_number": 33,
+        "question_id": "q33_what_unanswered_questions_should_the_pla",
+        "mode": "prior_plus_support_content_only"
+      },
+      {
+        "question_number": 34,
+        "question_id": "q34_which_facts_are_retrieved_from_prior_can",
+        "mode": "prior_plus_support_content_only"
+      },
+      {
+        "question_number": 36,
+        "question_id": "q36_what_information_is_missing_from_the_cur",
+        "mode": "prior_plus_support_content_only"
+      },
+      {
+        "question_number": 37,
+        "question_id": "q37_what_prep_can_be_safely_generated_anyway",
+        "mode": "prior_plus_support_content_only"
+      },
+      {
+        "question_number": 38,
+        "question_id": "q38_what_should_the_gm_decide_manually",
+        "mode": "prior_plus_support_content_only"
+      },
+      {
+        "question_number": 1,
+        "question_id": "q01_who_are_the_npcs_the_players_encountered",
+        "mode": "prior_plus_support_content_plus_lexical_hints"
+      },
+      {
+        "question_number": 2,
+        "question_id": "q02_if_the_players_are_not_ready_to_leave_to",
+        "mode": "prior_plus_support_content_plus_lexical_hints"
+      },
+      {
+        "question_number": 3,
+        "question_id": "q03_how_far_away_is_mirathorn_at_this_point",
+        "mode": "prior_plus_support_content_plus_lexical_hints"
+      },
+      {
+        "question_number": 4,
+        "question_id": "q04_we_need_a_good_hemp_dealing_merchant_who",
+        "mode": "prior_plus_support_content_plus_lexical_hints"
+      },
+      {
+        "question_number": 5,
+        "question_id": "q05_there_is_a_gigantic_tree_growing_in_hemp",
+        "mode": "prior_plus_support_content_plus_lexical_hints"
+      },
+      {
+        "question_number": 6,
+        "question_id": "q06_what_are_some_rumors_that_the_npc_could",
+        "mode": "prior_plus_support_content_plus_lexical_hints"
+      },
+      {
+        "question_number": 7,
+        "question_id": "q07_what_is_the_tone_of_the_road_from_stone",
+        "mode": "prior_plus_support_content_plus_lexical_hints"
+      },
+      {
+        "question_number": 8,
+        "question_id": "q08_give_me_three_small_road_events_that_can",
+        "mode": "prior_plus_support_content_plus_lexical_hints"
+      },
+      {
+        "question_number": 9,
+        "question_id": "q09_the_players_are_likely_still_riding_the",
+        "mode": "prior_plus_support_content_plus_lexical_hints"
+      },
+      {
+        "question_number": 12,
+        "question_id": "q12_what_questions_are_the_players_most_like",
+        "mode": "prior_plus_support_content_plus_lexical_hints"
+      },
+      {
+        "question_number": 13,
+        "question_id": "q13_what_observable_clues_should_reveal_that",
+        "mode": "prior_plus_support_content_plus_lexical_hints"
+      },
+      {
+        "question_number": 14,
+        "question_id": "q14_what_skill_checks_should_be_available_fo",
+        "mode": "prior_plus_support_content_plus_lexical_hints"
+      },
+      {
+        "question_number": 15,
+        "question_id": "q15_how_do_i_teach_the_tree_s_reach_and_move",
+        "mode": "prior_plus_support_content_plus_lexical_hints"
+      },
+      {
+        "question_number": 16,
+        "question_id": "q16_who_in_town_wants_to_attack_or_burn_the",
+        "mode": "prior_plus_support_content_plus_lexical_hints"
+      },
+      {
+        "question_number": 17,
+        "question_id": "q17_how_can_stafl_or_another_social_characte",
+        "mode": "prior_plus_support_content_plus_lexical_hints"
+      },
+      {
+        "question_number": 18,
+        "question_id": "q18_what_happens_if_the_party_fails_to_stop",
+        "mode": "prior_plus_support_content_plus_lexical_hints"
+      },
+      {
+        "question_number": 19,
+        "question_id": "q19_what_triggers_the_tree_to_escalate_from",
+        "mode": "prior_plus_support_content_plus_lexical_hints"
+      },
+      {
+        "question_number": 21,
+        "question_id": "q21_what_should_each_type_of_pc_be_able_to_c",
+        "mode": "prior_plus_support_content_plus_lexical_hints"
+      },
+      {
+        "question_number": 22,
+        "question_id": "q22_if_the_party_defeats_the_tree__what_rema",
+        "mode": "prior_plus_support_content_plus_lexical_hints"
+      },
+      {
+        "question_number": 23,
+        "question_id": "q23_how_would_local_craftspeople__farmers__c",
+        "mode": "prior_plus_support_content_plus_lexical_hints"
+      },
+      {
+        "question_number": 24,
+        "question_id": "q24_what_questions_should_the_weird_remains",
+        "mode": "prior_plus_support_content_plus_lexical_hints"
+      },
+      {
+        "question_number": 25,
+        "question_id": "q25_how_does_hempholm_celebrate_if_the_visib",
+        "mode": "prior_plus_support_content_plus_lexical_hints"
+      },
+      {
+        "question_number": 26,
+        "question_id": "q26_what_social_friction_should_exist_during",
+        "mode": "prior_plus_support_content_plus_lexical_hints"
+      },
+      {
+        "question_number": 27,
+        "question_id": "q27_which_pcs_are_likely_to_participate_in_c",
+        "mode": "prior_plus_support_content_plus_lexical_hints"
+      },
+      {
+        "question_number": 28,
+        "question_id": "q28_what_is_the_deeper_problem_beneath_the_v",
+        "mode": "prior_plus_support_content_plus_lexical_hints"
+      },
+      {
+        "question_number": 29,
+        "question_id": "q29_how_do_i_foreshadow_the_deeper_threat_be",
+        "mode": "prior_plus_support_content_plus_lexical_hints"
+      },
+      {
+        "question_number": 30,
+        "question_id": "q30_what_should_the_cliffhanger_look_like_if",
+        "mode": "prior_plus_support_content_plus_lexical_hints"
+      },
+      {
+        "question_number": 31,
+        "question_id": "q31_if_the_session_ends_on_the_deeper_threat",
+        "mode": "prior_plus_support_content_plus_lexical_hints"
+      },
+      {
+        "question_number": 32,
+        "question_id": "q32_what_resources_are_likely_depleted_or_co",
+        "mode": "prior_plus_support_content_plus_lexical_hints"
+      },
+      {
+        "question_number": 33,
+        "question_id": "q33_what_unanswered_questions_should_the_pla",
+        "mode": "prior_plus_support_content_plus_lexical_hints"
+      },
+      {
+        "question_number": 34,
+        "question_id": "q34_which_facts_are_retrieved_from_prior_can",
+        "mode": "prior_plus_support_content_plus_lexical_hints"
+      },
+      {
+        "question_number": 36,
+        "question_id": "q36_what_information_is_missing_from_the_cur",
+        "mode": "prior_plus_support_content_plus_lexical_hints"
+      },
+      {
+        "question_number": 37,
+        "question_id": "q37_what_prep_can_be_safely_generated_anyway",
+        "mode": "prior_plus_support_content_plus_lexical_hints"
+      },
+      {
+        "question_number": 38,
+        "question_id": "q38_what_should_the_gm_decide_manually",
+        "mode": "prior_plus_support_content_plus_lexical_hints"
+      }
+    ],
+    "support_missing_constraint_not_admitted": [
+      {
+        "question_number": 4,
+        "question_id": "q04_we_need_a_good_hemp_dealing_merchant_who",
+        "mode": "prior_only"
+      },
+      {
+        "question_number": 10,
+        "question_id": "q10_as_the_party_approaches_hempholm__what_s",
+        "mode": "prior_only"
+      },
+      {
+        "question_number": 11,
+        "question_id": "q11_what_are_the_first_three_npcs_the_player",
+        "mode": "prior_only"
+      },
+      {
+        "question_number": 13,
+        "question_id": "q13_what_observable_clues_should_reveal_that",
+        "mode": "prior_only"
+      },
+      {
+        "question_number": 20,
+        "question_id": "q20_design_the_tree_encounter_as_a_battlefie",
+        "mode": "prior_only"
+      },
+      {
+        "question_number": 22,
+        "question_id": "q22_if_the_party_defeats_the_tree__what_rema",
+        "mode": "prior_only"
+      },
+      {
+        "question_number": 25,
+        "question_id": "q25_how_does_hempholm_celebrate_if_the_visib",
+        "mode": "prior_only"
+      },
+      {
+        "question_number": 28,
+        "question_id": "q28_what_is_the_deeper_problem_beneath_the_v",
+        "mode": "prior_only"
+      }
+    ],
+    "support_expected_but_missing": [
+      {
+        "question_number": 10,
+        "question_id": "q10_as_the_party_approaches_hempholm__what_s",
+        "mode": "prior_plus_support_content_only"
+      },
+      {
+        "question_number": 11,
+        "question_id": "q11_what_are_the_first_three_npcs_the_player",
+        "mode": "prior_plus_support_content_only"
+      },
+      {
+        "question_number": 20,
+        "question_id": "q20_design_the_tree_encounter_as_a_battlefie",
+        "mode": "prior_plus_support_content_only"
+      },
+      {
+        "question_number": 10,
+        "question_id": "q10_as_the_party_approaches_hempholm__what_s",
+        "mode": "prior_plus_support_content_plus_lexical_hints"
+      },
+      {
+        "question_number": 11,
+        "question_id": "q11_what_are_the_first_three_npcs_the_player",
+        "mode": "prior_plus_support_content_plus_lexical_hints"
+      },
+      {
+        "question_number": 20,
+        "question_id": "q20_design_the_tree_encounter_as_a_battlefie",
+        "mode": "prior_plus_support_content_plus_lexical_hints"
+      }
+    ]
+  },
+  "rows_by_retrieval_sufficiency_class": {
+    "ok_or_later_stage": [
+      {
+        "question_number": 1,
+        "question_id": "q01_who_are_the_npcs_the_players_encountered",
+        "mode": "prior_only"
+      },
+      {
+        "question_number": 3,
+        "question_id": "q03_how_far_away_is_mirathorn_at_this_point",
+        "mode": "prior_only"
+      },
+      {
+        "question_number": 5,
+        "question_id": "q05_there_is_a_gigantic_tree_growing_in_hemp",
+        "mode": "prior_only"
+      },
+      {
+        "question_number": 7,
+        "question_id": "q07_what_is_the_tone_of_the_road_from_stone",
+        "mode": "prior_only"
+      },
+      {
+        "question_number": 9,
+        "question_id": "q09_the_players_are_likely_still_riding_the",
+        "mode": "prior_only"
+      },
+      {
+        "question_number": 36,
+        "question_id": "q36_what_information_is_missing_from_the_cur",
+        "mode": "prior_only"
+      },
+      {
+        "question_number": 1,
+        "question_id": "q01_who_are_the_npcs_the_players_encountered",
+        "mode": "prior_plus_support_content_only"
+      },
+      {
+        "question_number": 3,
+        "question_id": "q03_how_far_away_is_mirathorn_at_this_point",
+        "mode": "prior_plus_support_content_only"
+      },
+      {
+        "question_number": 4,
+        "question_id": "q04_we_need_a_good_hemp_dealing_merchant_who",
+        "mode": "prior_plus_support_content_only"
+      },
+      {
+        "question_number": 5,
+        "question_id": "q05_there_is_a_gigantic_tree_growing_in_hemp",
+        "mode": "prior_plus_support_content_only"
+      },
+      {
+        "question_number": 7,
+        "question_id": "q07_what_is_the_tone_of_the_road_from_stone",
+        "mode": "prior_plus_support_content_only"
+      },
+      {
+        "question_number": 9,
+        "question_id": "q09_the_players_are_likely_still_riding_the",
+        "mode": "prior_plus_support_content_only"
+      },
+      {
+        "question_number": 13,
+        "question_id": "q13_what_observable_clues_should_reveal_that",
+        "mode": "prior_plus_support_content_only"
+      },
+      {
+        "question_number": 22,
+        "question_id": "q22_if_the_party_defeats_the_tree__what_rema",
+        "mode": "prior_plus_support_content_only"
+      },
+      {
+        "question_number": 25,
+        "question_id": "q25_how_does_hempholm_celebrate_if_the_visib",
+        "mode": "prior_plus_support_content_only"
+      },
+      {
+        "question_number": 28,
+        "question_id": "q28_what_is_the_deeper_problem_beneath_the_v",
+        "mode": "prior_plus_support_content_only"
+      },
+      {
+        "question_number": 36,
+        "question_id": "q36_what_information_is_missing_from_the_cur",
+        "mode": "prior_plus_support_content_only"
+      },
+      {
+        "question_number": 1,
+        "question_id": "q01_who_are_the_npcs_the_players_encountered",
+        "mode": "prior_plus_support_content_plus_lexical_hints"
+      },
+      {
+        "question_number": 3,
+        "question_id": "q03_how_far_away_is_mirathorn_at_this_point",
+        "mode": "prior_plus_support_content_plus_lexical_hints"
+      },
+      {
+        "question_number": 4,
+        "question_id": "q04_we_need_a_good_hemp_dealing_merchant_who",
+        "mode": "prior_plus_support_content_plus_lexical_hints"
+      },
+      {
+        "question_number": 5,
+        "question_id": "q05_there_is_a_gigantic_tree_growing_in_hemp",
+        "mode": "prior_plus_support_content_plus_lexical_hints"
+      },
+      {
+        "question_number": 7,
+        "question_id": "q07_what_is_the_tone_of_the_road_from_stone",
+        "mode": "prior_plus_support_content_plus_lexical_hints"
+      },
+      {
+        "question_number": 9,
+        "question_id": "q09_the_players_are_likely_still_riding_the",
+        "mode": "prior_plus_support_content_plus_lexical_hints"
+      },
+      {
+        "question_number": 13,
+        "question_id": "q13_what_observable_clues_should_reveal_that",
+        "mode": "prior_plus_support_content_plus_lexical_hints"
+      },
+      {
+        "question_number": 22,
+        "question_id": "q22_if_the_party_defeats_the_tree__what_rema",
+        "mode": "prior_plus_support_content_plus_lexical_hints"
+      },
+      {
+        "question_number": 25,
+        "question_id": "q25_how_does_hempholm_celebrate_if_the_visib",
+        "mode": "prior_plus_support_content_plus_lexical_hints"
+      },
+      {
+        "question_number": 28,
+        "question_id": "q28_what_is_the_deeper_problem_beneath_the_v",
+        "mode": "prior_plus_support_content_plus_lexical_hints"
+      },
+      {
+        "question_number": 36,
+        "question_id": "q36_what_information_is_missing_from_the_cur",
+        "mode": "prior_plus_support_content_plus_lexical_hints"
+      }
+    ],
+    "needs_manual_review": [
+      {
+        "question_number": 2,
+        "question_id": "q02_if_the_players_are_not_ready_to_leave_to",
+        "mode": "prior_only"
+      },
+      {
+        "question_number": 4,
+        "question_id": "q04_we_need_a_good_hemp_dealing_merchant_who",
+        "mode": "prior_only"
+      },
+      {
+        "question_number": 6,
+        "question_id": "q06_what_are_some_rumors_that_the_npc_could",
+        "mode": "prior_only"
+      },
+      {
+        "question_number": 10,
+        "question_id": "q10_as_the_party_approaches_hempholm__what_s",
+        "mode": "prior_only"
+      },
+      {
+        "question_number": 11,
+        "question_id": "q11_what_are_the_first_three_npcs_the_player",
+        "mode": "prior_only"
+      },
+      {
+        "question_number": 12,
+        "question_id": "q12_what_questions_are_the_players_most_like",
+        "mode": "prior_only"
+      },
+      {
+        "question_number": 13,
+        "question_id": "q13_what_observable_clues_should_reveal_that",
+        "mode": "prior_only"
+      },
+      {
+        "question_number": 14,
+        "question_id": "q14_what_skill_checks_should_be_available_fo",
+        "mode": "prior_only"
+      },
+      {
+        "question_number": 17,
+        "question_id": "q17_how_can_stafl_or_another_social_characte",
+        "mode": "prior_only"
+      },
+      {
+        "question_number": 20,
+        "question_id": "q20_design_the_tree_encounter_as_a_battlefie",
+        "mode": "prior_only"
+      },
+      {
+        "question_number": 21,
+        "question_id": "q21_what_should_each_type_of_pc_be_able_to_c",
+        "mode": "prior_only"
+      },
+      {
+        "question_number": 22,
+        "question_id": "q22_if_the_party_defeats_the_tree__what_rema",
+        "mode": "prior_only"
+      },
+      {
+        "question_number": 25,
+        "question_id": "q25_how_does_hempholm_celebrate_if_the_visib",
+        "mode": "prior_only"
+      },
+      {
+        "question_number": 27,
+        "question_id": "q27_which_pcs_are_likely_to_participate_in_c",
+        "mode": "prior_only"
+      },
+      {
+        "question_number": 28,
+        "question_id": "q28_what_is_the_deeper_problem_beneath_the_v",
+        "mode": "prior_only"
+      },
+      {
+        "question_number": 32,
+        "question_id": "q32_what_resources_are_likely_depleted_or_co",
+        "mode": "prior_only"
+      },
+      {
+        "question_number": 34,
+        "question_id": "q34_which_facts_are_retrieved_from_prior_can",
+        "mode": "prior_only"
+      },
+      {
+        "question_number": 38,
+        "question_id": "q38_what_should_the_gm_decide_manually",
+        "mode": "prior_only"
+      },
+      {
+        "question_number": 2,
+        "question_id": "q02_if_the_players_are_not_ready_to_leave_to",
+        "mode": "prior_plus_support_content_only"
+      },
+      {
+        "question_number": 6,
+        "question_id": "q06_what_are_some_rumors_that_the_npc_could",
+        "mode": "prior_plus_support_content_only"
+      },
+      {
+        "question_number": 12,
+        "question_id": "q12_what_questions_are_the_players_most_like",
+        "mode": "prior_plus_support_content_only"
+      },
+      {
+        "question_number": 14,
+        "question_id": "q14_what_skill_checks_should_be_available_fo",
+        "mode": "prior_plus_support_content_only"
+      },
+      {
+        "question_number": 17,
+        "question_id": "q17_how_can_stafl_or_another_social_characte",
+        "mode": "prior_plus_support_content_only"
+      },
+      {
+        "question_number": 21,
+        "question_id": "q21_what_should_each_type_of_pc_be_able_to_c",
+        "mode": "prior_plus_support_content_only"
+      },
+      {
+        "question_number": 27,
+        "question_id": "q27_which_pcs_are_likely_to_participate_in_c",
+        "mode": "prior_plus_support_content_only"
+      },
+      {
+        "question_number": 32,
+        "question_id": "q32_what_resources_are_likely_depleted_or_co",
+        "mode": "prior_plus_support_content_only"
+      },
+      {
+        "question_number": 34,
+        "question_id": "q34_which_facts_are_retrieved_from_prior_can",
+        "mode": "prior_plus_support_content_only"
+      },
+      {
+        "question_number": 38,
+        "question_id": "q38_what_should_the_gm_decide_manually",
+        "mode": "prior_plus_support_content_only"
+      },
+      {
+        "question_number": 2,
+        "question_id": "q02_if_the_players_are_not_ready_to_leave_to",
+        "mode": "prior_plus_support_content_plus_lexical_hints"
+      },
+      {
+        "question_number": 6,
+        "question_id": "q06_what_are_some_rumors_that_the_npc_could",
+        "mode": "prior_plus_support_content_plus_lexical_hints"
+      },
+      {
+        "question_number": 12,
+        "question_id": "q12_what_questions_are_the_players_most_like",
+        "mode": "prior_plus_support_content_plus_lexical_hints"
+      },
+      {
+        "question_number": 14,
+        "question_id": "q14_what_skill_checks_should_be_available_fo",
+        "mode": "prior_plus_support_content_plus_lexical_hints"
+      },
+      {
+        "question_number": 17,
+        "question_id": "q17_how_can_stafl_or_another_social_characte",
+        "mode": "prior_plus_support_content_plus_lexical_hints"
+      },
+      {
+        "question_number": 21,
+        "question_id": "q21_what_should_each_type_of_pc_be_able_to_c",
+        "mode": "prior_plus_support_content_plus_lexical_hints"
+      },
+      {
+        "question_number": 27,
+        "question_id": "q27_which_pcs_are_likely_to_participate_in_c",
+        "mode": "prior_plus_support_content_plus_lexical_hints"
+      },
+      {
+        "question_number": 32,
+        "question_id": "q32_what_resources_are_likely_depleted_or_co",
+        "mode": "prior_plus_support_content_plus_lexical_hints"
+      },
+      {
+        "question_number": 34,
+        "question_id": "q34_which_facts_are_retrieved_from_prior_can",
+        "mode": "prior_plus_support_content_plus_lexical_hints"
+      },
+      {
+        "question_number": 38,
+        "question_id": "q38_what_should_the_gm_decide_manually",
+        "mode": "prior_plus_support_content_plus_lexical_hints"
+      }
+    ],
+    "creative_generation_no_strict_context_required": [
+      {
+        "question_number": 8,
+        "question_id": "q08_give_me_three_small_road_events_that_can",
+        "mode": "prior_only"
+      },
+      {
+        "question_number": 15,
+        "question_id": "q15_how_do_i_teach_the_tree_s_reach_and_move",
+        "mode": "prior_only"
+      },
+      {
+        "question_number": 16,
+        "question_id": "q16_who_in_town_wants_to_attack_or_burn_the",
+        "mode": "prior_only"
+      },
+      {
+        "question_number": 18,
+        "question_id": "q18_what_happens_if_the_party_fails_to_stop",
+        "mode": "prior_only"
+      },
+      {
+        "question_number": 19,
+        "question_id": "q19_what_triggers_the_tree_to_escalate_from",
+        "mode": "prior_only"
+      },
+      {
+        "question_number": 23,
+        "question_id": "q23_how_would_local_craftspeople__farmers__c",
+        "mode": "prior_only"
+      },
+      {
+        "question_number": 24,
+        "question_id": "q24_what_questions_should_the_weird_remains",
+        "mode": "prior_only"
+      },
+      {
+        "question_number": 26,
+        "question_id": "q26_what_social_friction_should_exist_during",
+        "mode": "prior_only"
+      },
+      {
+        "question_number": 29,
+        "question_id": "q29_how_do_i_foreshadow_the_deeper_threat_be",
+        "mode": "prior_only"
+      },
+      {
+        "question_number": 30,
+        "question_id": "q30_what_should_the_cliffhanger_look_like_if",
+        "mode": "prior_only"
+      },
+      {
+        "question_number": 31,
+        "question_id": "q31_if_the_session_ends_on_the_deeper_threat",
+        "mode": "prior_only"
+      },
+      {
+        "question_number": 33,
+        "question_id": "q33_what_unanswered_questions_should_the_pla",
+        "mode": "prior_only"
+      },
+      {
+        "question_number": 37,
+        "question_id": "q37_what_prep_can_be_safely_generated_anyway",
+        "mode": "prior_only"
+      },
+      {
+        "question_number": 8,
+        "question_id": "q08_give_me_three_small_road_events_that_can",
+        "mode": "prior_plus_support_content_only"
+      },
+      {
+        "question_number": 15,
+        "question_id": "q15_how_do_i_teach_the_tree_s_reach_and_move",
+        "mode": "prior_plus_support_content_only"
+      },
+      {
+        "question_number": 16,
+        "question_id": "q16_who_in_town_wants_to_attack_or_burn_the",
+        "mode": "prior_plus_support_content_only"
+      },
+      {
+        "question_number": 18,
+        "question_id": "q18_what_happens_if_the_party_fails_to_stop",
+        "mode": "prior_plus_support_content_only"
+      },
+      {
+        "question_number": 19,
+        "question_id": "q19_what_triggers_the_tree_to_escalate_from",
+        "mode": "prior_plus_support_content_only"
+      },
+      {
+        "question_number": 23,
+        "question_id": "q23_how_would_local_craftspeople__farmers__c",
+        "mode": "prior_plus_support_content_only"
+      },
+      {
+        "question_number": 24,
+        "question_id": "q24_what_questions_should_the_weird_remains",
+        "mode": "prior_plus_support_content_only"
+      },
+      {
+        "question_number": 26,
+        "question_id": "q26_what_social_friction_should_exist_during",
+        "mode": "prior_plus_support_content_only"
+      },
+      {
+        "question_number": 29,
+        "question_id": "q29_how_do_i_foreshadow_the_deeper_threat_be",
+        "mode": "prior_plus_support_content_only"
+      },
+      {
+        "question_number": 30,
+        "question_id": "q30_what_should_the_cliffhanger_look_like_if",
+        "mode": "prior_plus_support_content_only"
+      },
+      {
+        "question_number": 31,
+        "question_id": "q31_if_the_session_ends_on_the_deeper_threat",
+        "mode": "prior_plus_support_content_only"
+      },
+      {
+        "question_number": 33,
+        "question_id": "q33_what_unanswered_questions_should_the_pla",
+        "mode": "prior_plus_support_content_only"
+      },
+      {
+        "question_number": 37,
+        "question_id": "q37_what_prep_can_be_safely_generated_anyway",
+        "mode": "prior_plus_support_content_only"
+      },
+      {
+        "question_number": 8,
+        "question_id": "q08_give_me_three_small_road_events_that_can",
+        "mode": "prior_plus_support_content_plus_lexical_hints"
+      },
+      {
+        "question_number": 15,
+        "question_id": "q15_how_do_i_teach_the_tree_s_reach_and_move",
+        "mode": "prior_plus_support_content_plus_lexical_hints"
+      },
+      {
+        "question_number": 16,
+        "question_id": "q16_who_in_town_wants_to_attack_or_burn_the",
+        "mode": "prior_plus_support_content_plus_lexical_hints"
+      },
+      {
+        "question_number": 18,
+        "question_id": "q18_what_happens_if_the_party_fails_to_stop",
+        "mode": "prior_plus_support_content_plus_lexical_hints"
+      },
+      {
+        "question_number": 19,
+        "question_id": "q19_what_triggers_the_tree_to_escalate_from",
+        "mode": "prior_plus_support_content_plus_lexical_hints"
+      },
+      {
+        "question_number": 23,
+        "question_id": "q23_how_would_local_craftspeople__farmers__c",
+        "mode": "prior_plus_support_content_plus_lexical_hints"
+      },
+      {
+        "question_number": 24,
+        "question_id": "q24_what_questions_should_the_weird_remains",
+        "mode": "prior_plus_support_content_plus_lexical_hints"
+      },
+      {
+        "question_number": 26,
+        "question_id": "q26_what_social_friction_should_exist_during",
+        "mode": "prior_plus_support_content_plus_lexical_hints"
+      },
+      {
+        "question_number": 29,
+        "question_id": "q29_how_do_i_foreshadow_the_deeper_threat_be",
+        "mode": "prior_plus_support_content_plus_lexical_hints"
+      },
+      {
+        "question_number": 30,
+        "question_id": "q30_what_should_the_cliffhanger_look_like_if",
+        "mode": "prior_plus_support_content_plus_lexical_hints"
+      },
+      {
+        "question_number": 31,
+        "question_id": "q31_if_the_session_ends_on_the_deeper_threat",
+        "mode": "prior_plus_support_content_plus_lexical_hints"
+      },
+      {
+        "question_number": 33,
+        "question_id": "q33_what_unanswered_questions_should_the_pla",
+        "mode": "prior_plus_support_content_plus_lexical_hints"
+      },
+      {
+        "question_number": 37,
+        "question_id": "q37_what_prep_can_be_safely_generated_anyway",
+        "mode": "prior_plus_support_content_plus_lexical_hints"
+      }
+    ],
+    "support_expected_but_missing": [
+      {
+        "question_number": 10,
+        "question_id": "q10_as_the_party_approaches_hempholm__what_s",
+        "mode": "prior_plus_support_content_only"
+      },
+      {
+        "question_number": 11,
+        "question_id": "q11_what_are_the_first_three_npcs_the_player",
+        "mode": "prior_plus_support_content_only"
+      },
+      {
+        "question_number": 20,
+        "question_id": "q20_design_the_tree_encounter_as_a_battlefie",
+        "mode": "prior_plus_support_content_only"
+      },
+      {
+        "question_number": 10,
+        "question_id": "q10_as_the_party_approaches_hempholm__what_s",
+        "mode": "prior_plus_support_content_plus_lexical_hints"
+      },
+      {
+        "question_number": 11,
+        "question_id": "q11_what_are_the_first_three_npcs_the_player",
+        "mode": "prior_plus_support_content_plus_lexical_hints"
+      },
+      {
+        "question_number": 20,
+        "question_id": "q20_design_the_tree_encounter_as_a_battlefie",
+        "mode": "prior_plus_support_content_plus_lexical_hints"
+      }
+    ]
+  }
+}
