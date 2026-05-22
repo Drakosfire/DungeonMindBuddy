@@ -18,6 +18,7 @@
   "scenarios": [
     {
       "id": "wolf_head_why_academy",
+      "gold_beat_id": "c1s13-b001-plan-academy-departure",
       "question": "Why did the party take Wolf’s head to Stormspire Academy instead of just carrying the whole body?",
       "notes": "Core recall with entity/action routing. It requires joining the party’s Speak with Dead plan with Bonogo removing the head, not merely matching Wolf or Academy.",
       "expected_answer": "The group wanted someone at Stormspire Academy to help cast Speak with Dead so they could learn more about Wolf’s plans. Bonogo did not want to carry an entire body, so he removed Wolf’s head and brought that instead.",
@@ -46,6 +47,7 @@
     },
     {
       "id": "guards_oily_eyes_alert",
+      "gold_beat_id": "c1s13-b001-plan-academy-departure",
       "question": "What did Thalia do when the guards stopped the group outside the Council Chambers?",
       "notes": "Core recall with a guard/Thalia collision risk. A weak retriever may return later Elite Guard combat instead of the earlier city guard alert.",
       "expected_answer": "Thalia explained the situation to the guards and set them on alert for anyone with oily eyes.",
@@ -68,6 +70,7 @@
     },
     {
       "id": "covert_ops_meat_check",
+      "gold_beat_id": "c1s13-b002-street-meat-incident",
       "question": "What weird checkpoint did the covert ops group create in the street, and how did the party respond?",
       "notes": "Core recall plus odd phrasing. It tests whether retrieval finds the street scene rather than later loot from covert ops groups.",
       "expected_answer": "A covert ops group shone a light on the party and demanded to know if they were carrying any meat. Bonogo and Baergrom dumped hundreds of pounds of meat into the street, and the guards acted quickly while a mage burned the tainted meat.",
@@ -91,8 +94,9 @@
     },
     {
       "id": "stormspire_activity_arrival",
+      "gold_beat_id": "c1s13-b003-stormspire-arrival-desk",
       "question": "When the group arrived at Stormspire Academy, what was the Academy already doing to respond to the crisis?",
-      "notes": "Core recall anchored to a location. It tests location-context retrieval rather than PC-only matching.",
+      "notes": "Core recall anchored to a location. It tests location-context retrieval rather than PC-only matching. Under current Session 13 records_meta, the arrival clause routes to Locations/stormspire_academy/ (u-L0007-01) while the follow-on sentence that carries potions/runes/wards routes to NPCs/mossglade/ (u-L0007-02) because inline tagging attached that span to Mossglade; expect both until breadcrumb ingest re-tags that unit with the academy location.",
       "expected_answer": "Stormspire Academy was bustling with activity. Wizards were making potions, crafting runes, and working on wards.",
       "must_hit_tokens": [
         "Stormspire Academy",
@@ -102,7 +106,8 @@
       ],
       "stale_tokens": [],
       "expect_route_substrings": [
-        "Stormspire Academy"
+        "Stormspire Academy",
+        "Mossglade"
       ],
       "location_hierarchy_equivalences": {
         "Stormspire Academy": [
@@ -116,6 +121,7 @@
     },
     {
       "id": "mossglade_study_room_torbin",
+      "gold_beat_id": "c1s13-b004-stormspire-options-and-split",
       "question": "What two useful things did Mossglade tell the party before they split up?",
       "notes": "Core recall with multi-fact answer. Retrieval must preserve that Mossglade is the source of both the study room and Torbin information.",
       "expected_answer": "Mossglade told them about the study room where they could rest and recharge, and she told them Torbin was in the infirmary under Professor Tealeaf’s care.",
@@ -137,6 +143,7 @@
     },
     {
       "id": "party_first_split_assignments",
+      "gold_beat_id": "c1s13-b004-stormspire-options-and-split",
       "question": "When the party first split at the Academy, who went to check on Torbin and who went toward the Necromancer?",
       "notes": "Core recall with list membership and split-party routing. It should expose systems that collapse all PCs into one party route.",
       "expected_answer": "Ephanna and Baergrom went to check on Torbin. Karsemine, Bonogo, Stafl, and Caelynn went to meet with the Necromancer.",
@@ -165,6 +172,7 @@
     },
     {
       "id": "tealeaf_unable_to_help",
+      "gold_beat_id": "c1s13-b005-infirmary-torbin-thread",
       "question": "What did Ephanna and Baergrom learn about Tealeaf’s situation with Torbin?",
       "notes": "Core recall with pronoun-adjacent ambiguity. It distinguishes Tealeaf’s failure to help Torbin from Tealeaf’s inability to help with potions.",
       "expected_answer": "They learned that Professor Tealeaf had been unable to help Torbin and had also not been able to help work on potions.",
@@ -187,6 +195,7 @@
     },
     {
       "id": "study_room_short_rest_song",
+      "gold_beat_id": "c1s13-b006-study-room-short-rest",
       "question": "What happened during the magical short rest in the study room?",
       "notes": "Core recall that tests whether the retriever can link the study room rest to Caelynn’s song, not just Mossglade’s earlier description.",
       "expected_answer": "The group used the study room for a magical short rest, and Caelynn played a wonderful song on her mother’s pan flute.",
@@ -205,6 +214,7 @@
     },
     {
       "id": "escaped_meat_second_split",
+      "gold_beat_id": "c1s13-b007-escaped-meat-second-split",
       "question": "After the rest, what problem forced the party to split again, and who took each job?",
       "notes": "Core recall with two split events in the same recap. A weak retriever may merge the first split with the second split.",
       "expected_answer": "A piece of meat from Caelynn’s bag had escaped and was loose in the Academy. Stafl and Bonogo went to the Necromancer for the ritual, Caelynn, Baergrom, and Karsemine hunted the meat, and Ephanna stayed with Torbin.",
@@ -238,6 +248,7 @@
     },
     {
       "id": "speak_with_dead_question_allocation",
+      "gold_beat_id": "c1s13-b008-basement-morgue-speak-with-dead",
       "question": "Why did Stafl and Bonogo only get four questions for Wolf during the Speak with Dead ritual?",
       "notes": "Core recall that tests count reasoning. It must retrieve the ritual constraint and Stafl’s promise to the Necromancer.",
       "expected_answer": "The Speak with Dead ritual granted five questions, but Stafl had promised one question to the Necromancer, leaving Stafl and Bonogo with four.",
@@ -260,6 +271,7 @@
     },
     {
       "id": "wolf_killer_disambiguation",
+      "gold_beat_id": "c1s13-b008-basement-morgue-speak-with-dead",
       "question": "When Wolf was asked what killed him, who did he indicate, and why is that easy to confuse with the later fight?",
       "notes": "Entity/event disambiguation. Bonogo later kills Draven and a guard, so retrieval must bind Wolf’s answer to the ritual question, not the later combat sequence. Draven is asserted via must_hit_tokens only; his hub route often sits outside the lexical top slice for this question phrasing.",
       "expected_answer": "Wolf indicated Bonogo by nodding toward him. This is distinct from the later basement fight where Bonogo kills Draven and later attacks a sleeping guard.",
@@ -280,6 +292,7 @@
     },
     {
       "id": "lira_shepherd_plot_disambiguation",
+      "gold_beat_id": "c1s13-b008-basement-morgue-speak-with-dead",
       "question": "What did Wolf say about Lira versus the Shepherd, and what should I not conflate between them?",
       "notes": "Entity/event disambiguation with near-role collision. It tests whether Lira finishing the plot gets merged with the Shepherd rising below.",
       "expected_answer": "Wolf said the plotters operate in small groups, so the total number is not known, but Lira will finish the plot before she dies. Separately, Wolf said the Shepherd is everywhere, in the minds of the people, and that the Shepherd will rise from below at the break of dawn.",
@@ -303,6 +316,7 @@
     },
     {
       "id": "cinderbranch_draven_door_disambiguation",
+      "gold_beat_id": "c1s13-b009-morgue-ambush-fight-scene",
       "question": "Right before the ambush, what did Cinderbranch do and what did Draven do?",
       "notes": "Entity/event disambiguation across adjacent actions. It tests whether the retriever keeps Cinderbranch leaving separate from Draven locking the door.",
       "expected_answer": "After the ritual, Professor Cinderbranch left the room. Just as that happened, Draven closed and locked the door.",
@@ -323,6 +337,7 @@
     },
     {
       "id": "elite_guards_city_guards_disambiguation",
+      "gold_beat_id": "c1s13-b001-plan-academy-departure",
       "question": "Which guards were helpful earlier, and which guards attacked Stafl and Bonogo later?",
       "notes": "Entity disambiguation for repeated guard labels. Weak lexical retrieval may merge city guards, covert ops, and Elite Guards. Route anchors use slug substrings that appear on retrieved hits for this query (morgue beat + PCs); Thalia / early street beats are asserted via must_hit_tokens, not expect_route_substrings, because Thalia’s unit is often outside the lexical top slice.",
       "expected_answer": "Earlier, city guards stopped the group but Thalia explained the situation and set them on alert; guards also acted when the tainted meat was dumped in the street. Later, two Elite Guards entered the basement morgue with the Sewer Meat Monster and attacked Stafl and Bonogo.",
@@ -347,6 +362,7 @@
     },
     {
       "id": "meat_storage_strongholds_locations",
+      "gold_beat_id": "c1s13-b008-basement-morgue-speak-with-dead",
       "question": "Where did Wolf say the meat-storage strongholds were?",
       "notes": "Core recall with location-like answer that is not a named location. It tests restrained tokenization and phrase matching.",
       "expected_answer": "Wolf said the meat-storage strongholds were hidden in the walls, the guardhouses, and underground.",
@@ -373,6 +389,7 @@
     },
     {
       "id": "shepherd_break_of_dawn_hook",
+      "gold_beat_id": "c1s13-b008-basement-morgue-speak-with-dead",
       "question": "What exactly is the unresolved dawn threat the party learned from Wolf?",
       "notes": "Consequence/hook scenario. The answer is intentionally incomplete because the recap gives ominous prophecy, not the full event resolution.",
       "expected_answer": "Wolf said there is no stopping the plan, that they are gathering now and will soon erupt as something new led by the Shepherd. The sign of completion will be at the break of dawn, when the Shepherd rises from below. The recap does not resolve what the Shepherd physically is or exactly where below means.",
@@ -394,6 +411,7 @@
     },
     {
       "id": "empty_ritual_room_bad_sign",
+      "gold_beat_id": "c1s13-b012-post-ambush-empty-room-tunnel",
       "question": "Why is the empty ritual room a bad sign after Stafl and Bonogo explain what happened?",
       "notes": "Consequence/hook scenario requiring inference only from recap language. It should not invent who escaped or what happens next.",
       "expected_answer": "After Stafl and Bonogo explained the ambush to Cinderbranch, the ritual room was found empty. The recap frames that as a bad sign of what is to come, but it does not specify exactly who or what removed the contents or what immediate consequence follows.",
@@ -416,6 +434,7 @@
     },
     {
       "id": "escaped_meat_academy_hook",
+      "gold_beat_id": "c1s13-b007-escaped-meat-second-split",
       "question": "What unresolved Academy problem exists outside the morgue fight?",
       "notes": "Consequence/hook scenario that checks whether retrieval tracks the loose meat thread separately from the basement ambush.",
       "expected_answer": "A piece of meat from Caelynn’s bag escaped and was loose in the Academy. Caelynn, Baergrom, and Karsemine went to hunt it, but the recap does not describe the resolution of that hunt.",
@@ -449,6 +468,7 @@
     },
     {
       "id": "morgue_combat_mechanical_prep",
+      "gold_beat_id": "c1s13-b009-morgue-ambush-fight-scene",
       "question": "What happened at the morgue when Draven and the monsters ambushed?",
       "notes": "Operator-style ambush replay ask. This keeps mechanical-prep pressure but uses table phrasing and explicit ambush wording so scene-beat retrieval has a fair lexical anchor.",
       "expected_answer": "After the ritual, Draven closes and locks the door, then the ambush starts: two Elite Guards enter with a Sewer Meat Monster. The monster pushes into the room center and oozes goo in a 10-foot radius. Draven casts Fear on Bonogo, the guards poison with their attacks, and the Sewer Meat Monster bites Bonogo.",
@@ -476,6 +496,7 @@
     },
     {
       "id": "sleep_spell_chain_mechanical_prep",
+      "gold_beat_id": "c1s13-b009-morgue-ambush-fight-scene",
       "question": "How did Sleep change the morgue fight, and who used it?",
       "notes": "Mechanical prep plus event sequence. It exposes systems that retrieve only the spell name but miss caster/target order.",
       "expected_answer": "Stafl cast Sleep on Draven, causing Draven to fall asleep, which let Bonogo sneak attack him for massive damage and kill him. Later, after running outside the door and yelling for help, Stafl cast Sleep on the remaining enemies.",
@@ -499,6 +520,7 @@
     },
     {
       "id": "stormspire_who_shows_up_location_entity_list",
+      "gold_beat_id": "c1s13-b003-stormspire-arrival-desk",
       "question": "Who shows up or is meaningfully present at Stormspire Academy during this session?",
       "notes": "Location-entity-list scenario. This should include entities actually present or meaningfully active at the Academy, while forbidding entities merely mentioned in answers or future hooks without presence there.",
       "expected_answer": "At Stormspire Academy, the recap meaningfully places Head Clerk Mossglade, Professor Cinderbranch, Professor Tealeaf, Torbin in the infirmary, the Necromancer, Draven, Stafl, Bonogo, Caelynn, Baergrom, Karsemine, Ephanna, wizards or mages working on potions, runes, and wards, two Elite Guards, and the Sewer Meat Monster. Wolf’s head is also brought there for the ritual, but Wolf is dead rather than living there.",
@@ -558,6 +580,7 @@
     },
     {
       "id": "mossglade_residency_vs_association",
+      "gold_beat_id": "c1s13-b003-stormspire-arrival-desk",
       "question": "Does the recap establish that Mossglade lives at Stormspire Academy, or only that she works there?",
       "notes": "Entity/location disambiguation focused on association versus residency. This should punish systems that convert presence at a desk into residence.",
       "expected_answer": "The recap only establishes that Mossglade is the Head Clerk at Stormspire Academy and is at the desk when the party arrives. It does not say she lives there.",
@@ -591,6 +614,7 @@
     },
     {
       "id": "necromancer_question_identity_trap",
+      "gold_beat_id": "c1s13-b008-basement-morgue-speak-with-dead",
       "question": "What did the Necromancer ask Wolf, and is the Necromancer identified as Draven before the ambush?",
       "notes": "Entity disambiguation/hook. The recap later names Draven locking the door, but earlier refers to the ritual caster as the Necromancer; this tests cautious identity handling. Draven is required in must_hit_tokens only; draven/ routes often miss the lexical top slice for this question.",
       "expected_answer": "The Necromancer asked: what is the plan and how will we know when it is complete? The recap does not explicitly state that the Necromancer and Draven are the same person before the ambush, though Draven closes and locks the door immediately after Cinderbranch leaves.",
@@ -611,6 +635,7 @@
     },
     {
       "id": "bonogo_poison_bite_sequence",
+      "gold_beat_id": "c1s13-b009-morgue-ambush-fight-scene",
       "question": "Create a beat by beat replay of the morgue ambush fight.",
       "notes": "Harder operator-style replay ask. It requires sequence fidelity across the full ambush, not a single local sentence answer.",
       "expected_answer": "Beat by beat: Cinderbranch leaves; Draven closes and locks the door; two Elite Guards and a Sewer Meat Monster enter; the monster pushes to center and oozes goo in a 10-foot radius; Draven casts Fear on Bonogo; guards and monster attacks apply poison and bite pressure; Stafl casts Sleep; Bonogo follows with major attacks including the kill on Draven and a later strike on a sleeping guard.",
@@ -645,6 +670,7 @@
     },
     {
       "id": "torbin_thread_status_end",
+      "gold_beat_id": "c1s13-b005-infirmary-torbin-thread",
       "question": "By the end of the recap, what has actually been resolved about Torbin?",
       "notes": "Consequence/hook scenario. It tests whether the answer correctly says the Torbin thread remains unresolved rather than inventing recovery.",
       "expected_answer": "Nothing in the recap resolves Torbin’s condition. Ephanna stays with him, and earlier Ephanna and Baergrom learned that Tealeaf had been unable to help him, but the recap does not state that Torbin recovers.",

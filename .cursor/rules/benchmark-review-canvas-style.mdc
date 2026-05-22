@@ -1,0 +1,16 @@
+---
+description: Canon layout and emitter patterns for sentence-routing benchmark review canvases (C1S2-style deep dives).
+globs: evals/sentence_routing_retrieval_falsification/*canvas*.py,evals/sentence_routing_retrieval_falsification/benchmark_review_canvas_template.py
+alwaysApply: false
+---
+
+# Benchmark review canvas style
+
+When adding or refreshing a **breadcrumb / cohort benchmark review** canvas (not the Stage B bucket map or the natural semantic-review canvas):
+
+1. Read **`.cursor/skills/benchmark-review-canvas/SKILL.md`**.
+2. Reuse **`evals/sentence_routing_retrieval_falsification/benchmark_review_canvas_template.py`** for imports, `preSmall`, list helpers, hit compaction, missed-row tables, and generated-block wiring.
+3. Write canvases only under the Cursor-managed path from **`cursor_canvas_paths.default_cursor_canvas_path`**.
+4. Keep **one** `BEGIN GENERATED …` / `END GENERATED …` block per canvas; refresh via the matching `*_canvas_emit.py` module, not hand edits inside the block.
+
+Sibling rules: `.cursor/rules/breadcrumb-query-canvas-sync.mdc` (natural semantic review), `.cursor/rules/stage-b-bucket-canvas-sync.mdc` (Stage B bucket map).

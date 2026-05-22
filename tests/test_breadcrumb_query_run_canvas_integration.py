@@ -268,6 +268,7 @@ def test_c1s13_canvas_refresh_emits_beat_scene_metrics(tmp_path: Path) -> None:
         "scenarios": [
             {
                 "id": "wolf_head_why_academy",
+                "gold_beat_id": "c1s13-b001-plan-academy-departure",
                 "question": "Q?",
                 "expected_answer": "A.",
                 "must_hit_tokens": ["wolf"],
@@ -356,3 +357,7 @@ def test_c1s13_canvas_refresh_emits_beat_scene_metrics(tmp_path: Path) -> None:
     assert "scene_beat_expansion" in text
     assert "scene_beat_packets" in text
     assert "beat-alpha" in text
+    assert "beat_retrieval_rollups" in text
+    assert "gold_beat_id" in text
+    assert "is_primary_gold_beat" in text
+    assert "beat_rollup_diagnostic" in text

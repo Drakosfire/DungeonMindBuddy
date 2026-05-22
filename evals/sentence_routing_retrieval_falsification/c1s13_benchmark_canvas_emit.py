@@ -69,6 +69,185 @@ def _compact_hit_rows(
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 
+_C1S13_SCENE_SPAN_GOLD = (
+    _REPO_ROOT
+    / "evals/sentence_routing_retrieval_falsification/manual_labels"
+    / "Session 13 - The Meaty and the Dead.gold.scene_span_v1.breadcrumbed.md"
+)
+
+
+def _load_gold_beat_unit_map(scene_span_md: Path) -> dict[str, str]:
+    """Map ``unit_id`` → gold ``beat_id`` from scene-span YAML (first frontmatter block)."""
+    if not scene_span_md.is_file():
+        return {}
+    text = scene_span_md.read_text(encoding="utf-8")
+    if not text.startswith("---"):
+        return {}
+    parts = text.split("---", 2)
+    if len(parts) < 3:
+        return {}
+    yaml_body = parts[1]
+    out: dict[str, str] = {}
+    current: str | None = None
+    unit_re = re.compile(r"^\s*unit_ids:\s*\[(.+)\]\s*$")
+    beat_re = re.compile(r"^\s*-\s*beat_id:\s*(.+)\s*$")
+    for line in yaml_body.splitlines():
+        m_beat = beat_re.match(line)
+        if m_beat:
+            current = m_beat.group(1).strip()
+            continue
+        if current and (m_u := unit_re.match(line)):
+            raw = m_u.group(1)
+            for piece in raw.split(","):
+                uid = piece.strip().strip("\"'")
+                if uid.startswith("u-"):
+                    out[uid] = current
+    return out
+
+
+def _rollup_retrieval_hits_by_gold_beat(
+    hits: list[dict[str, Any]],
+    unit_to_beat: dict[str, str],
+) -> list[dict[str, Any]]:
+    """Group retrieval hits by gold beat; sort beats by descending summed hit scores."""
+    buckets: dict[str, list[dict[str, Any]]] = {}
+    for i, h in enumerate(hits):
+        uid = str(h.get("unit_id") or "").strip()
+        if not uid:
+            bid = "__no_unit__"
+        elif uid.startswith("meta-session-"):
+            bid = "__session_meta__"
+        else:
+            bid = unit_to_beat.get(uid, "__unmapped__")
+        score = int(h.get("score") or 0)
+        line_span = f"L{int(h.get('line_start') or 0)}-{int(h.get('line_end') or 0)}"
+        buckets.setdefault(bid, []).append(
+            {"rank": i + 1, "unit_id": uid, "score": score, "line_span": line_span}
+        )
+    rows: list[dict[str, Any]] = []
+    for bid, hx in buckets.items():
+        hx_sorted = sorted(hx, key=lambda x: int(x["rank"]))
+        summed = sum(int(x["score"]) for x in hx_sorted)
+        rows.append(
+            {
+                "beat_id": bid,
+                "summed_score": summed,
+                "hit_count": len(hx_sorted),
+                "hits": hx_sorted,
+            }
+        )
+    rows.sort(key=lambda x: (-int(x["summed_score"]), str(x["beat_id"])))
+    return rows
+
+
+def _tag_rollups_primary_gold_beat(
+    rollups: list[dict[str, Any]],
+    gold_beat_id: str | None,
+) -> list[dict[str, Any]]:
+    """Mark the rollup row that matches manual-query ``gold_beat_id`` (for canvas row highlighting)."""
+    gold = (gold_beat_id or "").strip()
+    for r in rollups:
+        r["is_primary_gold_beat"] = bool(gold and str(r.get("beat_id") or "") == gold)
+    return rollups
+
+
+def _annotate_rollups_table_metrics(rollups: list[dict[str, Any]]) -> None:
+    """Per-row rank and distance to the first row's Σ (current table sort order)."""
+    if not rollups:
+        return
+    top_s = int(rollups[0].get("summed_score") or 0)
+    for i, r in enumerate(rollups):
+        s = int(r.get("summed_score") or 0)
+        r["rollup_rank"] = i + 1
+        r["delta_from_table_top"] = top_s - s
+        r["ratio_to_table_top"] = round(s / max(1, top_s), 4)
+
+
+def _beat_rollup_diagnostic(
+    rollups: list[dict[str, Any]],
+    gold_beat_id: str | None,
+) -> dict[str, Any]:
+    """Scenario-level rollup vs. gold-beat summary for canvas triage (threshold / meta dominance)."""
+    gid = (gold_beat_id or "").strip()
+    empty: dict[str, Any] = {
+        "promotion_hint": "no_rollups",
+        "meta_is_table_top": False,
+        "gold_rank": None,
+        "gold_rank_non_meta": None,
+        "top_beat_id": None,
+        "top_summed_score": None,
+        "top_non_meta_beat_id": None,
+        "top_non_meta_summed_score": None,
+        "gold_summed_score": None,
+        "delta_table_top_minus_gold": None,
+        "delta_non_meta_top_minus_gold": None,
+        "ratio_gold_to_table_top": None,
+        "ratio_gold_to_non_meta_top": None,
+    }
+    if not rollups:
+        return dict(empty)
+    non_meta = [r for r in rollups if str(r.get("beat_id") or "") != "__session_meta__"]
+    top_all = rollups[0]
+    top_bid = str(top_all.get("beat_id") or "")
+    top_s = int(top_all.get("summed_score") or 0)
+    top_nm = non_meta[0] if non_meta else None
+    top_nm_bid = str(top_nm.get("beat_id") or "") if top_nm else None
+    top_nm_s = int(top_nm.get("summed_score") or 0) if top_nm else None
+
+    gold_roll = next((r for r in rollups if str(r.get("beat_id") or "") == gid), None) if gid else None
+    g_s = int(gold_roll.get("summed_score") or 0) if gold_roll else None
+
+    gold_rank: int | None = None
+    gold_rank_nm: int | None = None
+    if gold_roll is not None:
+        gold_rank = rollups.index(gold_roll) + 1
+        if str(gold_roll.get("beat_id") or "") != "__session_meta__":
+            for j, r in enumerate(non_meta):
+                if r is gold_roll:
+                    gold_rank_nm = j + 1
+                    break
+
+    delta_tbl = (top_s - g_s) if g_s is not None else None
+    delta_nm = (top_nm_s - g_s) if (g_s is not None and top_nm_s is not None) else None
+    ratio_tbl = round(g_s / max(1, top_s), 4) if g_s is not None else None
+    ratio_nm = round(g_s / max(1, top_nm_s or 1), 4) if (g_s is not None and top_nm_s is not None) else None
+
+    hint = "no_gold_beat"
+    if not gid:
+        hint = "no_gold_beat"
+    elif gold_roll is None:
+        hint = "gold_not_in_rollups"
+    elif gold_rank == 1:
+        hint = "gold_top"
+    else:
+        meta_top = top_bid == "__session_meta__"
+        if meta_top and gold_rank_nm == 1:
+            hint = "gold_top_non_meta_meta_leads_table"
+        elif meta_top:
+            hint = "meta_leads_table"
+        elif gold_rank is not None and gold_rank <= 3 and delta_tbl is not None and delta_tbl <= 3:
+            hint = "gold_near_top"
+        elif ratio_tbl is not None and ratio_tbl >= 0.85:
+            hint = "gold_near_top"
+        else:
+            hint = "gold_depressed"
+
+    return {
+        "promotion_hint": hint,
+        "meta_is_table_top": top_bid == "__session_meta__",
+        "gold_rank": gold_rank,
+        "gold_rank_non_meta": gold_rank_nm,
+        "top_beat_id": top_bid or None,
+        "top_summed_score": top_s,
+        "top_non_meta_beat_id": top_nm_bid,
+        "top_non_meta_summed_score": top_nm_s,
+        "gold_summed_score": g_s,
+        "delta_table_top_minus_gold": delta_tbl,
+        "delta_non_meta_top_minus_gold": delta_nm,
+        "ratio_gold_to_table_top": ratio_tbl,
+        "ratio_gold_to_non_meta_top": ratio_nm,
+    }
+
 
 def _resolve_records_meta_path(raw: str) -> Path:
     """Resolve session-memory JSONL; remap ``/workspace/DungeonMindBuddy/`` to this repo root."""
@@ -247,9 +426,11 @@ def _build_rows(*, report: dict[str, Any], gold: dict[str, Any]) -> tuple[list[d
     else:
         beat_by_unit, corpus_beat_stats = _scan_records_jsonl_for_beats(records_path)
     available_routes = _collect_available_routes(report)
+    unit_to_gold_beat = _load_gold_beat_unit_map(_C1S13_SCENE_SPAN_GOLD)
     rows: list[dict[str, Any]] = []
     for scen in gold.get("scenarios") or []:
         sid = str(scen.get("id") or "")
+        gold_beat_id = str(scen.get("gold_beat_id") or "").strip() or None
         r = by_id.get(sid) or {}
         llm_prev = str(r.get("llm_answer_preview") or "")
         full = r.get("full_result") if isinstance(r.get("full_result"), dict) else {}
@@ -295,9 +476,17 @@ def _build_rows(*, report: dict[str, Any], gold: dict[str, Any]) -> tuple[list[d
         se_raw = r.get("scene_beat_expansion")
         scene_exp = dict(se_raw) if isinstance(se_raw, dict) else None
         scene_pkt = _slim_harness_scene_packets(r.get("scene_beat_packets"))
+        rollups_raw = _rollup_retrieval_hits_by_gold_beat(
+            list(full.get("hits") or []),
+            unit_to_gold_beat,
+        )
+        rollups_tagged = _tag_rollups_primary_gold_beat(rollups_raw, gold_beat_id)
+        beat_rollup_diagnostic = _beat_rollup_diagnostic(rollups_tagged, gold_beat_id)
+        _annotate_rollups_table_metrics(rollups_tagged)
         rows.append(
             {
                 "id": sid,
+                "gold_beat_id": gold_beat_id,
                 "ok": effective_ok,
                 "benchmark_ok_raw": bool(r.get("ok")),
                 "question": str(scen.get("question") or ""),
@@ -330,6 +519,8 @@ def _build_rows(*, report: dict[str, Any], gold: dict[str, Any]) -> tuple[list[d
                 "scene_beat_packets": scene_pkt,
                 "query_trace_beat_scene": _query_trace_beat_scene(full),
                 "hit_rows": _compact_hit_rows(full, limit=20, beat_by_unit=beat_by_unit or None),
+                "beat_rollup_diagnostic": beat_rollup_diagnostic,
+                "beat_retrieval_rollups": rollups_tagged,
             }
         )
 

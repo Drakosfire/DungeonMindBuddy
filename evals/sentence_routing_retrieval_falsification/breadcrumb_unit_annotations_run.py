@@ -3,13 +3,21 @@
 
 Writes a default artifact under ``artifacts/runs/<date>/`` unless ``--output`` is set.
 
-Example (Campaign 1 Session 13):
+Example (Campaign 1 Session 13, with optional manual beat gold compare):
 
   uv run python -m evals.sentence_routing_retrieval_falsification.breadcrumb_unit_annotations_run \\
     --corpus-root corpus/eldyrwild-markdown \\
     --ingest-recap-md "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Session Recaps/_normalized/Session 13 - The Meaty and the Dead.md" \\
     --ingest-frontmatter-seed-md "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Session Recaps/_breadcrumbed/Session 13 - The Meaty and the Dead.frontmatter_seed.md" \\
     --gold-md evals/sentence_routing_retrieval_falsification/manual_labels/Session\\ 13\\ -\\ The\\ Meaty\\ and\\ the\\ Dead.gold.beats.breadcrumbed.md
+
+Example (Campaign 1 Session 1 — no manual beat gold yet; omit ``--gold-md``):
+
+  uv run python -m evals.sentence_routing_retrieval_falsification.breadcrumb_unit_annotations_run \\
+    --corpus-root corpus/eldyrwild-markdown \\
+    --ingest-recap-md "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Session Recaps/_normalized/Session 01 - Stonebridge and Glowkindle Rats.md" \\
+    --ingest-frontmatter-seed-md "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Session Recaps/_breadcrumbed/Session 01 - Stonebridge and Glowkindle Rats.breadcrumbed.md" \\
+    --output /tmp/unit_annotations_c1s1.json
 """
 
 from __future__ import annotations
@@ -225,11 +233,12 @@ def main() -> None:
     parser.add_argument(
         "--gold-md",
         type=Path,
-        default=Path(
-            "evals/sentence_routing_retrieval_falsification/manual_labels/"
-            "Session 13 - The Meaty and the Dead.gold.beats.breadcrumbed.md"
+        default=None,
+        help=(
+            "Optional manual beat-population gold markdown for comparison "
+            "(e.g. Session 13 gold). Omit for pilot sessions that do not yet "
+            "have a `*.gold.beats.breadcrumbed.md` artifact."
         ),
-        help="Manual beat-population gold for comparison.",
     )
     parser.add_argument(
         "--ingest-model",

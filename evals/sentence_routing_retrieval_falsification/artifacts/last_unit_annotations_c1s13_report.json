@@ -1,0 +1,4306 @@
+{
+  "schema": "dmb_unit_annotations_ingest_report_v1",
+  "source_recap_path": "Longmont Campaign/Campaign 1/Session Recaps/_normalized/Session 13 - The Meaty and the Dead.md",
+  "campaign_id": "longmont-c1",
+  "session_number": 13,
+  "model": "gpt-5.3-codex",
+  "prompt_variant": "beat_population_v1",
+  "unit_count": 62,
+  "validation_error": null,
+  "telemetry_cost": {
+    "scenario_estimated_cost_usd": 0.16616775,
+    "usage": {
+      "input_tokens": 7817,
+      "output_tokens": 10892,
+      "cached_tokens": 0
+    }
+  },
+  "parsed": {
+    "schema": "dmb_recap_unit_annotations_v1",
+    "source_recap_path": "Longmont Campaign/Campaign 1/Session Recaps/_normalized/Session 13 - The Meaty and the Dead.md",
+    "campaign_id": "longmont-c1",
+    "session_number": 13,
+    "beat_index": [
+      {
+        "beat_id": "c1s13-b001-council-exit-guard-stop",
+        "summary": "Outside council chambers, guards stop the party and Thalia intervenes while Wolf's head is prepared for transport."
+      },
+      {
+        "beat_id": "c1s13-b002-street-meat-inspection",
+        "summary": "On the street en route to the academy, covert guards inspect for meat and tainted meat is burned."
+      },
+      {
+        "beat_id": "c1s13-b003-academy-intake-briefing",
+        "summary": "At Stormspire Academy intake, Mossglade and Cinderbranch receive the party and discuss next steps."
+      },
+      {
+        "beat_id": "c1s13-b004-academy-split-planning",
+        "summary": "Academy planning beat where options are set and the party splits between Torbin and necromancer tracks."
+      },
+      {
+        "beat_id": "c1s13-b005-infirmary-torbin-check",
+        "summary": "Ephanna and Baergrom check on Torbin with Tealeaf and remain with him."
+      },
+      {
+        "beat_id": "c1s13-b006-necromancer-ritual-prep-rest",
+        "summary": "Necromancer agrees to help and ritual prep proceeds while others take a short rest in the study room."
+      },
+      {
+        "beat_id": "c1s13-b007-academy-regroup-meat-hunt-split",
+        "summary": "Group regroups in academy corridor, discovers escaped meat, and splits into ritual and hunt teams."
+      },
+      {
+        "beat_id": "c1s13-b008-basement-morgue-questioning",
+        "summary": "In the basement morgue, Stafl and Bonogo conduct Speak with Dead questioning of Wolf."
+      },
+      {
+        "beat_id": "c1s13-b009-basement-morgue-ambush-reveal",
+        "summary": "Post-ritual reveal as Draven locks the room and elite guards plus sewer monster emerge."
+      },
+      {
+        "beat_id": "c1s13-b010-basement-morgue-combat-exchange",
+        "summary": "Combat exchange in the morgue between Stafl/Bonogo and Draven, elite guards, and sewer monster."
+      },
+      {
+        "beat_id": "c1s13-b011-morgue-doorway-retreat",
+        "summary": "Retreat phase at the morgue doorway as Stafl calls for help and Bonogo disengages after a final strike."
+      },
+      {
+        "beat_id": "c1s13-b012-post-fight-report-resupply",
+        "summary": "Aftermath report to Cinderbranch, empty ritual room discovered, and mages assist pre-tunnel resupply."
+      }
+    ],
+    "unit_annotations": [
+      {
+        "unit_id": "u-L0003-01",
+        "beat_id": "c1s13-b001-council-exit-guard-stop",
+        "tags": [
+          {
+            "tag_type": "Location",
+            "route": "Longmont Campaign/Campaign 1/Locations/stormspire_academy/"
+          },
+          {
+            "tag_type": "NewHubCandidate",
+            "route": "Longmont Campaign/Campaign 1/NPCs/wolf/"
+          }
+        ],
+        "location_mentions": [
+          {
+            "location_route": "Longmont Campaign/Campaign 1/Locations/stormspire_academy/",
+            "location_label": null,
+            "presence_kind": "mentioned_only"
+          }
+        ],
+        "population_mentions": [
+          {
+            "entity_route": "Longmont Campaign/Campaign 1/NPCs/wolf/",
+            "entity_label": null,
+            "subject_class": "npc",
+            "presence_kind": "mentioned_only",
+            "entity_state": "dead_body_or_head",
+            "support_unit_ids": [
+              "u-L0003-01"
+            ]
+          }
+        ]
+      },
+      {
+        "unit_id": "u-L0003-02",
+        "beat_id": "c1s13-b001-council-exit-guard-stop",
+        "tags": [
+          {
+            "tag_type": "Location",
+            "route": "Longmont Campaign/Campaign 1/Locations/council_chambers/"
+          }
+        ],
+        "location_mentions": [
+          {
+            "location_route": "Longmont Campaign/Campaign 1/Locations/council_chambers/",
+            "location_label": null,
+            "presence_kind": "explicit"
+          }
+        ],
+        "population_mentions": [
+          {
+            "entity_route": null,
+            "entity_label": "guards",
+            "subject_class": "npc_group",
+            "presence_kind": "explicit",
+            "entity_state": null,
+            "support_unit_ids": [
+              "u-L0003-02"
+            ]
+          }
+        ]
+      },
+      {
+        "unit_id": "u-L0003-03",
+        "beat_id": "c1s13-b001-council-exit-guard-stop",
+        "tags": [
+          {
+            "tag_type": "NewHubCandidate",
+            "route": "Longmont Campaign/Campaign 1/NPCs/thalia/"
+          }
+        ],
+        "location_mentions": [
+          {
+            "location_route": "Longmont Campaign/Campaign 1/Locations/council_chambers/",
+            "location_label": null,
+            "presence_kind": "carried"
+          }
+        ],
+        "population_mentions": [
+          {
+            "entity_route": "Longmont Campaign/Campaign 1/NPCs/thalia/",
+            "entity_label": null,
+            "subject_class": "npc",
+            "presence_kind": "explicit",
+            "entity_state": null,
+            "support_unit_ids": [
+              "u-L0003-03"
+            ]
+          },
+          {
+            "entity_route": null,
+            "entity_label": "guards",
+            "subject_class": "npc_group",
+            "presence_kind": "carried",
+            "entity_state": "alerted",
+            "support_unit_ids": [
+              "u-L0003-02",
+              "u-L0003-03"
+            ]
+          }
+        ]
+      },
+      {
+        "unit_id": "u-L0003-04",
+        "beat_id": "c1s13-b001-council-exit-guard-stop",
+        "tags": [
+          {
+            "tag_type": "PC",
+            "route": "Longmont Campaign/Campaign 1/PCs/bonogo/"
+          },
+          {
+            "tag_type": "NewHubCandidate",
+            "route": "Longmont Campaign/Campaign 1/NPCs/wolf/"
+          }
+        ],
+        "location_mentions": [
+          {
+            "location_route": "Longmont Campaign/Campaign 1/Locations/council_chambers/",
+            "location_label": null,
+            "presence_kind": "carried"
+          }
+        ],
+        "population_mentions": [
+          {
+            "entity_route": "Longmont Campaign/Campaign 1/PCs/bonogo/",
+            "entity_label": null,
+            "subject_class": "pc",
+            "presence_kind": "explicit",
+            "entity_state": null,
+            "support_unit_ids": [
+              "u-L0003-04"
+            ]
+          },
+          {
+            "entity_route": "Longmont Campaign/Campaign 1/NPCs/wolf/",
+            "entity_label": null,
+            "subject_class": "npc",
+            "presence_kind": "explicit",
+            "entity_state": "dead_body_or_head",
+            "support_unit_ids": [
+              "u-L0003-04"
+            ]
+          }
+        ]
+      },
+      {
+        "unit_id": "u-L0005-01",
+        "beat_id": "c1s13-b002-street-meat-inspection",
+        "tags": [],
+        "location_mentions": [
+          {
+            "location_route": null,
+            "location_label": "street outside council chambers",
+            "presence_kind": "explicit"
+          }
+        ],
+        "population_mentions": []
+      },
+      {
+        "unit_id": "u-L0005-02",
+        "beat_id": "c1s13-b002-street-meat-inspection",
+        "tags": [],
+        "location_mentions": [
+          {
+            "location_route": null,
+            "location_label": "street outside council chambers",
+            "presence_kind": "carried"
+          }
+        ],
+        "population_mentions": [
+          {
+            "entity_route": null,
+            "entity_label": "covert ops group",
+            "subject_class": "npc_group",
+            "presence_kind": "explicit",
+            "entity_state": null,
+            "support_unit_ids": [
+              "u-L0005-02"
+            ]
+          }
+        ]
+      },
+      {
+        "unit_id": "u-L0005-03",
+        "beat_id": "c1s13-b002-street-meat-inspection",
+        "tags": [
+          {
+            "tag_type": "PC",
+            "route": "Longmont Campaign/Campaign 1/PCs/bonogo/"
+          },
+          {
+            "tag_type": "PC",
+            "route": "Longmont Campaign/Campaign 1/PCs/baergrom/"
+          }
+        ],
+        "location_mentions": [
+          {
+            "location_route": null,
+            "location_label": "street outside council chambers",
+            "presence_kind": "carried"
+          }
+        ],
+        "population_mentions": [
+          {
+            "entity_route": "Longmont Campaign/Campaign 1/PCs/bonogo/",
+            "entity_label": null,
+            "subject_class": "pc",
+            "presence_kind": "explicit",
+            "entity_state": null,
+            "support_unit_ids": [
+              "u-L0005-03"
+            ]
+          },
+          {
+            "entity_route": "Longmont Campaign/Campaign 1/PCs/baergrom/",
+            "entity_label": null,
+            "subject_class": "pc",
+            "presence_kind": "explicit",
+            "entity_state": null,
+            "support_unit_ids": [
+              "u-L0005-03"
+            ]
+          },
+          {
+            "entity_route": null,
+            "entity_label": "guards",
+            "subject_class": "npc_group",
+            "presence_kind": "explicit",
+            "entity_state": null,
+            "support_unit_ids": [
+              "u-L0005-03"
+            ]
+          }
+        ]
+      },
+      {
+        "unit_id": "u-L0005-04",
+        "beat_id": "c1s13-b002-street-meat-inspection",
+        "tags": [],
+        "location_mentions": [
+          {
+            "location_route": null,
+            "location_label": "route to Stormspire Academy",
+            "presence_kind": "explicit"
+          },
+          {
+            "location_route": "Longmont Campaign/Campaign 1/Locations/stormspire_academy/",
+            "location_label": null,
+            "presence_kind": "mentioned_only"
+          }
+        ],
+        "population_mentions": [
+          {
+            "entity_route": null,
+            "entity_label": "mages",
+            "subject_class": "npc_group",
+            "presence_kind": "explicit",
+            "entity_state": null,
+            "support_unit_ids": [
+              "u-L0005-04"
+            ]
+          }
+        ]
+      },
+      {
+        "unit_id": "u-L0007-01",
+        "beat_id": "c1s13-b003-academy-intake-briefing",
+        "tags": [
+          {
+            "tag_type": "Location",
+            "route": "Longmont Campaign/Campaign 1/Locations/stormspire_academy/"
+          }
+        ],
+        "location_mentions": [
+          {
+            "location_route": "Longmont Campaign/Campaign 1/Locations/stormspire_academy/",
+            "location_label": null,
+            "presence_kind": "explicit"
+          }
+        ],
+        "population_mentions": []
+      },
+      {
+        "unit_id": "u-L0007-02",
+        "beat_id": "c1s13-b003-academy-intake-briefing",
+        "tags": [],
+        "location_mentions": [
+          {
+            "location_route": "Longmont Campaign/Campaign 1/Locations/stormspire_academy/",
+            "location_label": null,
+            "presence_kind": "carried"
+          }
+        ],
+        "population_mentions": [
+          {
+            "entity_route": null,
+            "entity_label": "wizards",
+            "subject_class": "npc_group",
+            "presence_kind": "explicit",
+            "entity_state": null,
+            "support_unit_ids": [
+              "u-L0007-02"
+            ]
+          }
+        ]
+      },
+      {
+        "unit_id": "u-L0007-03",
+        "beat_id": "c1s13-b003-academy-intake-briefing",
+        "tags": [
+          {
+            "tag_type": "NewHubCandidate",
+            "route": "Longmont Campaign/Campaign 1/NPCs/mossglade/"
+          }
+        ],
+        "location_mentions": [
+          {
+            "location_route": "Longmont Campaign/Campaign 1/Locations/stormspire_academy/",
+            "location_label": null,
+            "presence_kind": "carried"
+          }
+        ],
+        "population_mentions": [
+          {
+            "entity_route": "Longmont Campaign/Campaign 1/NPCs/mossglade/",
+            "entity_label": null,
+            "subject_class": "npc",
+            "presence_kind": "explicit",
+            "entity_state": null,
+            "support_unit_ids": [
+              "u-L0007-03"
+            ]
+          }
+        ]
+      },
+      {
+        "unit_id": "u-L0007-04",
+        "beat_id": "c1s13-b003-academy-intake-briefing",
+        "tags": [],
+        "location_mentions": [
+          {
+            "location_route": "Longmont Campaign/Campaign 1/Locations/stormspire_academy/",
+            "location_label": null,
+            "presence_kind": "carried"
+          }
+        ],
+        "population_mentions": [
+          {
+            "entity_route": "Longmont Campaign/Campaign 1/NPCs/mossglade/",
+            "entity_label": null,
+            "subject_class": "npc",
+            "presence_kind": "carried",
+            "entity_state": null,
+            "support_unit_ids": [
+              "u-L0007-03",
+              "u-L0007-04"
+            ]
+          }
+        ]
+      },
+      {
+        "unit_id": "u-L0007-05",
+        "beat_id": "c1s13-b003-academy-intake-briefing",
+        "tags": [
+          {
+            "tag_type": "NewHubCandidate",
+            "route": "Longmont Campaign/Campaign 1/NPCs/professor_cinderbranch/"
+          }
+        ],
+        "location_mentions": [
+          {
+            "location_route": "Longmont Campaign/Campaign 1/Locations/stormspire_academy/",
+            "location_label": null,
+            "presence_kind": "carried"
+          }
+        ],
+        "population_mentions": [
+          {
+            "entity_route": "Longmont Campaign/Campaign 1/NPCs/professor_cinderbranch/",
+            "entity_label": null,
+            "subject_class": "npc",
+            "presence_kind": "explicit",
+            "entity_state": null,
+            "support_unit_ids": [
+              "u-L0007-05"
+            ]
+          },
+          {
+            "entity_route": "Longmont Campaign/Campaign 1/NPCs/wolf/",
+            "entity_label": null,
+            "subject_class": "npc",
+            "presence_kind": "mentioned_only",
+            "entity_state": "dead_body_or_head",
+            "support_unit_ids": [
+              "u-L0007-05"
+            ]
+          }
+        ]
+      },
+      {
+        "unit_id": "u-L0009-01",
+        "beat_id": "c1s13-b004-academy-split-planning",
+        "tags": [],
+        "location_mentions": [
+          {
+            "location_route": "Longmont Campaign/Campaign 1/Locations/stormspire_academy/",
+            "location_label": null,
+            "presence_kind": "explicit"
+          },
+          {
+            "location_route": null,
+            "location_label": "study room",
+            "presence_kind": "mentioned_only"
+          }
+        ],
+        "population_mentions": [
+          {
+            "entity_route": "Longmont Campaign/Campaign 1/NPCs/professor_cinderbranch/",
+            "entity_label": null,
+            "subject_class": "npc",
+            "presence_kind": "mentioned_only",
+            "entity_state": null,
+            "support_unit_ids": [
+              "u-L0009-01"
+            ]
+          },
+          {
+            "entity_route": "Longmont Campaign/Campaign 1/NPCs/mossglade/",
+            "entity_label": null,
+            "subject_class": "npc",
+            "presence_kind": "explicit",
+            "entity_state": null,
+            "support_unit_ids": [
+              "u-L0009-01"
+            ]
+          }
+        ]
+      },
+      {
+        "unit_id": "u-L0009-02",
+        "beat_id": "c1s13-b004-academy-split-planning",
+        "tags": [
+          {
+            "tag_type": "NewHubCandidate",
+            "route": "Longmont Campaign/Campaign 1/NPCs/torbin/"
+          },
+          {
+            "tag_type": "NewHubCandidate",
+            "route": "Longmont Campaign/Campaign 1/NPCs/professor_tealeaf/"
+          }
+        ],
+        "location_mentions": [
+          {
+            "location_route": "Longmont Campaign/Campaign 1/Locations/stormspire_academy/",
+            "location_label": null,
+            "presence_kind": "carried"
+          },
+          {
+            "location_route": null,
+            "location_label": "infirmary",
+            "presence_kind": "mentioned_only"
+          }
+        ],
+        "population_mentions": [
+          {
+            "entity_route": "Longmont Campaign/Campaign 1/NPCs/torbin/",
+            "entity_label": null,
+            "subject_class": "npc",
+            "presence_kind": "mentioned_only",
+            "entity_state": "injured",
+            "support_unit_ids": [
+              "u-L0009-02"
+            ]
+          },
+          {
+            "entity_route": "Longmont Campaign/Campaign 1/NPCs/professor_tealeaf/",
+            "entity_label": null,
+            "subject_class": "npc",
+            "presence_kind": "mentioned_only",
+            "entity_state": null,
+            "support_unit_ids": [
+              "u-L0009-02"
+            ]
+          }
+        ]
+      },
+      {
+        "unit_id": "u-L0011-01",
+        "beat_id": "c1s13-b004-academy-split-planning",
+        "tags": [
+          {
+            "tag_type": "NewHubCandidate",
+            "route": "Longmont Campaign/Campaign 1/NPCs/necromancer/"
+          },
+          {
+            "tag_type": "NewHubCandidate",
+            "route": "Longmont Campaign/Campaign 1/NPCs/torbin/"
+          }
+        ],
+        "location_mentions": [
+          {
+            "location_route": "Longmont Campaign/Campaign 1/Locations/stormspire_academy/",
+            "location_label": null,
+            "presence_kind": "carried"
+          },
+          {
+            "location_route": null,
+            "location_label": "infirmary",
+            "presence_kind": "mentioned_only"
+          }
+        ],
+        "population_mentions": [
+          {
+            "entity_route": "Longmont Campaign/Campaign 1/NPCs/necromancer/",
+            "entity_label": null,
+            "subject_class": "npc",
+            "presence_kind": "mentioned_only",
+            "entity_state": null,
+            "support_unit_ids": [
+              "u-L0011-01"
+            ]
+          },
+          {
+            "entity_route": "Longmont Campaign/Campaign 1/NPCs/torbin/",
+            "entity_label": null,
+            "subject_class": "npc",
+            "presence_kind": "mentioned_only",
+            "entity_state": "injured",
+            "support_unit_ids": [
+              "u-L0011-01"
+            ]
+          },
+          {
+            "entity_route": "Longmont Campaign/Campaign 1/NPCs/wolf/",
+            "entity_label": null,
+            "subject_class": "npc",
+            "presence_kind": "mentioned_only",
+            "entity_state": "dead_body_or_head",
+            "support_unit_ids": [
+              "u-L0011-01"
+            ]
+          }
+        ]
+      },
+      {
+        "unit_id": "u-L0011-02",
+        "beat_id": "c1s13-b004-academy-split-planning",
+        "tags": [],
+        "location_mentions": [
+          {
+            "location_route": "Longmont Campaign/Campaign 1/Locations/stormspire_academy/",
+            "location_label": null,
+            "presence_kind": "carried"
+          }
+        ],
+        "population_mentions": []
+      },
+      {
+        "unit_id": "u-L0011-03",
+        "beat_id": "c1s13-b004-academy-split-planning",
+        "tags": [
+          {
+            "tag_type": "PC",
+            "route": "Longmont Campaign/Campaign 1/PCs/ephanna/"
+          },
+          {
+            "tag_type": "PC",
+            "route": "Longmont Campaign/Campaign 1/PCs/baergrom/"
+          },
+          {
+            "tag_type": "PC",
+            "route": "Longmont Campaign/Campaign 1/PCs/karsemine/"
+          },
+          {
+            "tag_type": "PC",
+            "route": "Longmont Campaign/Campaign 1/PCs/bonogo/"
+          },
+          {
+            "tag_type": "PC",
+            "route": "Longmont Campaign/Campaign 1/PCs/stafl/"
+          },
+          {
+            "tag_type": "PC",
+            "route": "Longmont Campaign/Campaign 1/PCs/caelynn/"
+          }
+        ],
+        "location_mentions": [
+          {
+            "location_route": "Longmont Campaign/Campaign 1/Locations/stormspire_academy/",
+            "location_label": null,
+            "presence_kind": "carried"
+          }
+        ],
+        "population_mentions": [
+          {
+            "entity_route": "Longmont Campaign/Campaign 1/PCs/ephanna/",
+            "entity_label": null,
+            "subject_class": "pc",
+            "presence_kind": "explicit",
+            "entity_state": null,
+            "support_unit_ids": [
+              "u-L0011-03"
+            ]
+          },
+          {
+            "entity_route": "Longmont Campaign/Campaign 1/PCs/baergrom/",
+            "entity_label": null,
+            "subject_class": "pc",
+            "presence_kind": "explicit",
+            "entity_state": null,
+            "support_unit_ids": [
+              "u-L0011-03"
+            ]
+          },
+          {
+            "entity_route": "Longmont Campaign/Campaign 1/PCs/karsemine/",
+            "entity_label": null,
+            "subject_class": "pc",
+            "presence_kind": "explicit",
+            "entity_state": null,
+            "support_unit_ids": [
+              "u-L0011-03"
+            ]
+          },
+          {
+            "entity_route": "Longmont Campaign/Campaign 1/PCs/bonogo/",
+            "entity_label": null,
+            "subject_class": "pc",
+            "presence_kind": "explicit",
+            "entity_state": null,
+            "support_unit_ids": [
+              "u-L0011-03"
+            ]
+          },
+          {
+            "entity_route": "Longmont Campaign/Campaign 1/PCs/stafl/",
+            "entity_label": null,
+            "subject_class": "pc",
+            "presence_kind": "explicit",
+            "entity_state": null,
+            "support_unit_ids": [
+              "u-L0011-03"
+            ]
+          },
+          {
+            "entity_route": "Longmont Campaign/Campaign 1/PCs/caelynn/",
+            "entity_label": null,
+            "subject_class": "pc",
+            "presence_kind": "explicit",
+            "entity_state": null,
+            "support_unit_ids": [
+              "u-L0011-03"
+            ]
+          },
+          {
+            "entity_route": "Longmont Campaign/Campaign 1/NPCs/necromancer/",
+            "entity_label": null,
+            "subject_class": "npc",
+            "presence_kind": "mentioned_only",
+            "entity_state": null,
+            "support_unit_ids": [
+              "u-L0011-03"
+            ]
+          },
+          {
+            "entity_route": "Longmont Campaign/Campaign 1/NPCs/torbin/",
+            "entity_label": null,
+            "subject_class": "npc",
+            "presence_kind": "mentioned_only",
+            "entity_state": "injured",
+            "support_unit_ids": [
+              "u-L0011-03"
+            ]
+          }
+        ]
+      },
+      {
+        "unit_id": "u-L0013-01",
+        "beat_id": "c1s13-b005-infirmary-torbin-check",
+        "tags": [],
+        "location_mentions": [
+          {
+            "location_route": "Longmont Campaign/Campaign 1/Locations/stormspire_academy/",
+            "location_label": null,
+            "presence_kind": "explicit"
+          },
+          {
+            "location_route": null,
+            "location_label": "infirmary",
+            "presence_kind": "explicit"
+          }
+        ],
+        "population_mentions": [
+          {
+            "entity_route": "Longmont Campaign/Campaign 1/PCs/ephanna/",
+            "entity_label": null,
+            "subject_class": "pc",
+            "presence_kind": "explicit",
+            "entity_state": null,
+            "support_unit_ids": [
+              "u-L0013-01"
+            ]
+          },
+          {
+            "entity_route": "Longmont Campaign/Campaign 1/PCs/baergrom/",
+            "entity_label": null,
+            "subject_class": "pc",
+            "presence_kind": "explicit",
+            "entity_state": null,
+            "support_unit_ids": [
+              "u-L0013-01"
+            ]
+          },
+          {
+            "entity_route": "Longmont Campaign/Campaign 1/NPCs/professor_tealeaf/",
+            "entity_label": null,
+            "subject_class": "npc",
+            "presence_kind": "explicit",
+            "entity_state": null,
+            "support_unit_ids": [
+              "u-L0013-01"
+            ]
+          },
+          {
+            "entity_route": "Longmont Campaign/Campaign 1/NPCs/torbin/",
+            "entity_label": null,
+            "subject_class": "npc",
+            "presence_kind": "explicit",
+            "entity_state": "injured",
+            "support_unit_ids": [
+              "u-L0013-01"
+            ]
+          }
+        ]
+      },
+      {
+        "unit_id": "u-L0013-02",
+        "beat_id": "c1s13-b005-infirmary-torbin-check",
+        "tags": [],
+        "location_mentions": [
+          {
+            "location_route": "Longmont Campaign/Campaign 1/Locations/stormspire_academy/",
+            "location_label": null,
+            "presence_kind": "carried"
+          },
+          {
+            "location_route": null,
+            "location_label": "infirmary",
+            "presence_kind": "carried"
+          }
+        ],
+        "population_mentions": [
+          {
+            "entity_route": "Longmont Campaign/Campaign 1/NPCs/torbin/",
+            "entity_label": null,
+            "subject_class": "npc",
+            "presence_kind": "carried",
+            "entity_state": "injured",
+            "support_unit_ids": [
+              "u-L0013-01",
+              "u-L0013-02"
+            ]
+          },
+          {
+            "entity_route": "Longmont Campaign/Campaign 1/NPCs/professor_tealeaf/",
+            "entity_label": null,
+            "subject_class": "npc",
+            "presence_kind": "explicit",
+            "entity_state": null,
+            "support_unit_ids": [
+              "u-L0013-02"
+            ]
+          }
+        ]
+      },
+      {
+        "unit_id": "u-L0015-01",
+        "beat_id": "c1s13-b006-necromancer-ritual-prep-rest",
+        "tags": [],
+        "location_mentions": [
+          {
+            "location_route": "Longmont Campaign/Campaign 1/Locations/stormspire_academy/",
+            "location_label": null,
+            "presence_kind": "explicit"
+          }
+        ],
+        "population_mentions": [
+          {
+            "entity_route": "Longmont Campaign/Campaign 1/NPCs/necromancer/",
+            "entity_label": null,
+            "subject_class": "npc",
+            "presence_kind": "explicit",
+            "entity_state": null,
+            "support_unit_ids": [
+              "u-L0015-01"
+            ]
+          }
+        ]
+      },
+      {
+        "unit_id": "u-L0015-02",
+        "beat_id": "c1s13-b006-necromancer-ritual-prep-rest",
+        "tags": [],
+        "location_mentions": [
+          {
+            "location_route": "Longmont Campaign/Campaign 1/Locations/stormspire_academy/",
+            "location_label": null,
+            "presence_kind": "carried"
+          }
+        ],
+        "population_mentions": [
+          {
+            "entity_route": "Longmont Campaign/Campaign 1/NPCs/necromancer/",
+            "entity_label": null,
+            "subject_class": "npc",
+            "presence_kind": "carried",
+            "entity_state": null,
+            "support_unit_ids": [
+              "u-L0015-01",
+              "u-L0015-02"
+            ]
+          },
+          {
+            "entity_route": "Longmont Campaign/Campaign 1/NPCs/wolf/",
+            "entity_label": null,
+            "subject_class": "npc",
+            "presence_kind": "explicit",
+            "entity_state": "dead_body_or_head",
+            "support_unit_ids": [
+              "u-L0015-02"
+            ]
+          }
+        ]
+      },
+      {
+        "unit_id": "u-L0015-03",
+        "beat_id": "c1s13-b006-necromancer-ritual-prep-rest",
+        "tags": [],
+        "location_mentions": [
+          {
+            "location_route": "Longmont Campaign/Campaign 1/Locations/stormspire_academy/",
+            "location_label": null,
+            "presence_kind": "carried"
+          }
+        ],
+        "population_mentions": [
+          {
+            "entity_route": "Longmont Campaign/Campaign 1/NPCs/necromancer/",
+            "entity_label": null,
+            "subject_class": "npc",
+            "presence_kind": "carried",
+            "entity_state": "ritual_preparing",
+            "support_unit_ids": [
+              "u-L0015-01",
+              "u-L0015-03"
+            ]
+          }
+        ]
+      },
+      {
+        "unit_id": "u-L0015-04",
+        "beat_id": "c1s13-b006-necromancer-ritual-prep-rest",
+        "tags": [],
+        "location_mentions": [
+          {
+            "location_route": null,
+            "location_label": "study room",
+            "presence_kind": "explicit"
+          },
+          {
+            "location_route": "Longmont Campaign/Campaign 1/Locations/stormspire_academy/",
+            "location_label": null,
+            "presence_kind": "carried"
+          }
+        ],
+        "population_mentions": []
+      },
+      {
+        "unit_id": "u-L0015-05",
+        "beat_id": "c1s13-b006-necromancer-ritual-prep-rest",
+        "tags": [],
+        "location_mentions": [
+          {
+            "location_route": null,
+            "location_label": "study room",
+            "presence_kind": "carried"
+          }
+        ],
+        "population_mentions": [
+          {
+            "entity_route": "Longmont Campaign/Campaign 1/PCs/caelynn/",
+            "entity_label": null,
+            "subject_class": "pc",
+            "presence_kind": "explicit",
+            "entity_state": null,
+            "support_unit_ids": [
+              "u-L0015-05"
+            ]
+          }
+        ]
+      },
+      {
+        "unit_id": "u-L0017-01",
+        "beat_id": "c1s13-b007-academy-regroup-meat-hunt-split",
+        "tags": [],
+        "location_mentions": [
+          {
+            "location_route": "Longmont Campaign/Campaign 1/Locations/stormspire_academy/",
+            "location_label": null,
+            "presence_kind": "explicit"
+          },
+          {
+            "location_route": null,
+            "location_label": "outside ritual/study room",
+            "presence_kind": "explicit"
+          }
+        ],
+        "population_mentions": [
+          {
+            "entity_route": "Longmont Campaign/Campaign 1/PCs/caelynn/",
+            "entity_label": null,
+            "subject_class": "pc",
+            "presence_kind": "explicit",
+            "entity_state": null,
+            "support_unit_ids": [
+              "u-L0017-01"
+            ]
+          }
+        ]
+      },
+      {
+        "unit_id": "u-L0017-02",
+        "beat_id": "c1s13-b007-academy-regroup-meat-hunt-split",
+        "tags": [],
+        "location_mentions": [
+          {
+            "location_route": "Longmont Campaign/Campaign 1/Locations/stormspire_academy/",
+            "location_label": null,
+            "presence_kind": "carried"
+          }
+        ],
+        "population_mentions": []
+      },
+      {
+        "unit_id": "u-L0017-03",
+        "beat_id": "c1s13-b007-academy-regroup-meat-hunt-split",
+        "tags": [],
+        "location_mentions": [
+          {
+            "location_route": "Longmont Campaign/Campaign 1/Locations/stormspire_academy/",
+            "location_label": null,
+            "presence_kind": "carried"
+          }
+        ],
+        "population_mentions": [
+          {
+            "entity_route": "Longmont Campaign/Campaign 1/PCs/stafl/",
+            "entity_label": null,
+            "subject_class": "pc",
+            "presence_kind": "explicit",
+            "entity_state": null,
+            "support_unit_ids": [
+              "u-L0017-03"
+            ]
+          },
+          {
+            "entity_route": "Longmont Campaign/Campaign 1/PCs/bonogo/",
+            "entity_label": null,
+            "subject_class": "pc",
+            "presence_kind": "explicit",
+            "entity_state": null,
+            "support_unit_ids": [
+              "u-L0017-03"
+            ]
+          },
+          {
+            "entity_route": "Longmont Campaign/Campaign 1/PCs/caelynn/",
+            "entity_label": null,
+            "subject_class": "pc",
+            "presence_kind": "explicit",
+            "entity_state": null,
+            "support_unit_ids": [
+              "u-L0017-03"
+            ]
+          },
+          {
+            "entity_route": "Longmont Campaign/Campaign 1/PCs/baergrom/",
+            "entity_label": null,
+            "subject_class": "pc",
+            "presence_kind": "explicit",
+            "entity_state": null,
+            "support_unit_ids": [
+              "u-L0017-03"
+            ]
+          },
+          {
+            "entity_route": "Longmont Campaign/Campaign 1/PCs/karsemine/",
+            "entity_label": null,
+            "subject_class": "pc",
+            "presence_kind": "explicit",
+            "entity_state": null,
+            "support_unit_ids": [
+              "u-L0017-03"
+            ]
+          },
+          {
+            "entity_route": "Longmont Campaign/Campaign 1/NPCs/necromancer/",
+            "entity_label": null,
+            "subject_class": "npc",
+            "presence_kind": "mentioned_only",
+            "entity_state": null,
+            "support_unit_ids": [
+              "u-L0017-03"
+            ]
+          }
+        ]
+      },
+      {
+        "unit_id": "u-L0017-04",
+        "beat_id": "c1s13-b007-academy-regroup-meat-hunt-split",
+        "tags": [],
+        "location_mentions": [
+          {
+            "location_route": "Longmont Campaign/Campaign 1/Locations/stormspire_academy/",
+            "location_label": null,
+            "presence_kind": "carried"
+          },
+          {
+            "location_route": null,
+            "location_label": "infirmary",
+            "presence_kind": "mentioned_only"
+          }
+        ],
+        "population_mentions": [
+          {
+            "entity_route": "Longmont Campaign/Campaign 1/PCs/ephanna/",
+            "entity_label": null,
+            "subject_class": "pc",
+            "presence_kind": "explicit",
+            "entity_state": null,
+            "support_unit_ids": [
+              "u-L0017-04"
+            ]
+          },
+          {
+            "entity_route": "Longmont Campaign/Campaign 1/NPCs/torbin/",
+            "entity_label": null,
+            "subject_class": "npc",
+            "presence_kind": "mentioned_only",
+            "entity_state": "injured",
+            "support_unit_ids": [
+              "u-L0017-04"
+            ]
+          }
+        ]
+      },
+      {
+        "unit_id": "u-L0019-01",
+        "beat_id": "c1s13-b008-basement-morgue-questioning",
+        "tags": [
+          {
+            "tag_type": "Location",
+            "route": "Longmont Campaign/Campaign 1/Locations/basement_morgue/"
+          }
+        ],
+        "location_mentions": [
+          {
+            "location_route": "Longmont Campaign/Campaign 1/Locations/basement_morgue/",
+            "location_label": null,
+            "presence_kind": "explicit"
+          }
+        ],
+        "population_mentions": [
+          {
+            "entity_route": "Longmont Campaign/Campaign 1/PCs/stafl/",
+            "entity_label": null,
+            "subject_class": "pc",
+            "presence_kind": "explicit",
+            "entity_state": null,
+            "support_unit_ids": [
+              "u-L0019-01"
+            ]
+          },
+          {
+            "entity_route": "Longmont Campaign/Campaign 1/PCs/bonogo/",
+            "entity_label": null,
+            "subject_class": "pc",
+            "presence_kind": "explicit",
+            "entity_state": null,
+            "support_unit_ids": [
+              "u-L0019-01"
+            ]
+          },
+          {
+            "entity_route": "Longmont Campaign/Campaign 1/NPCs/wolf/",
+            "entity_label": null,
+            "subject_class": "npc",
+            "presence_kind": "explicit",
+            "entity_state": "dead_body_or_head",
+            "support_unit_ids": [
+              "u-L0019-01"
+            ]
+          },
+          {
+            "entity_route": "Longmont Campaign/Campaign 1/NPCs/necromancer/",
+            "entity_label": null,
+            "subject_class": "npc",
+            "presence_kind": "explicit",
+            "entity_state": "ritual_leading",
+            "support_unit_ids": [
+              "u-L0019-01"
+            ]
+          }
+        ]
+      },
+      {
+        "unit_id": "u-L0019-02",
+        "beat_id": "c1s13-b008-basement-morgue-questioning",
+        "tags": [],
+        "location_mentions": [
+          {
+            "location_route": "Longmont Campaign/Campaign 1/Locations/basement_morgue/",
+            "location_label": null,
+            "presence_kind": "carried"
+          }
+        ],
+        "population_mentions": [
+          {
+            "entity_route": "Longmont Campaign/Campaign 1/NPCs/wolf/",
+            "entity_label": null,
+            "subject_class": "npc",
+            "presence_kind": "carried",
+            "entity_state": "dead_body_or_head",
+            "support_unit_ids": [
+              "u-L0019-01",
+              "u-L0019-02"
+            ]
+          }
+        ]
+      },
+      {
+        "unit_id": "u-L0019-03",
+        "beat_id": "c1s13-b008-basement-morgue-questioning",
+        "tags": [],
+        "location_mentions": [
+          {
+            "location_route": "Longmont Campaign/Campaign 1/Locations/basement_morgue/",
+            "location_label": null,
+            "presence_kind": "carried"
+          }
+        ],
+        "population_mentions": [
+          {
+            "entity_route": "Longmont Campaign/Campaign 1/PCs/stafl/",
+            "entity_label": null,
+            "subject_class": "pc",
+            "presence_kind": "explicit",
+            "entity_state": null,
+            "support_unit_ids": [
+              "u-L0019-03"
+            ]
+          },
+          {
+            "entity_route": "Longmont Campaign/Campaign 1/NPCs/necromancer/",
+            "entity_label": null,
+            "subject_class": "npc",
+            "presence_kind": "explicit",
+            "entity_state": null,
+            "support_unit_ids": [
+              "u-L0019-03"
+            ]
+          }
+        ]
+      },
+      {
+        "unit_id": "u-L0021-01",
+        "beat_id": "c1s13-b008-basement-morgue-questioning",
+        "tags": [],
+        "location_mentions": [
+          {
+            "location_route": "Longmont Campaign/Campaign 1/Locations/basement_morgue/",
+            "location_label": null,
+            "presence_kind": "carried"
+          }
+        ],
+        "population_mentions": [
+          {
+            "entity_route": "Longmont Campaign/Campaign 1/NPCs/wolf/",
+            "entity_label": null,
+            "subject_class": "npc",
+            "presence_kind": "explicit",
+            "entity_state": "dead_body_or_head",
+            "support_unit_ids": [
+              "u-L0021-01"
+            ]
+          }
+        ]
+      },
+      {
+        "unit_id": "u-L0021-02",
+        "beat_id": "c1s13-b008-basement-morgue-questioning",
+        "tags": [],
+        "location_mentions": [
+          {
+            "location_route": "Longmont Campaign/Campaign 1/Locations/basement_morgue/",
+            "location_label": null,
+            "presence_kind": "carried"
+          }
+        ],
+        "population_mentions": [
+          {
+            "entity_route": "Longmont Campaign/Campaign 1/PCs/bonogo/",
+            "entity_label": null,
+            "subject_class": "pc",
+            "presence_kind": "explicit",
+            "entity_state": null,
+            "support_unit_ids": [
+              "u-L0021-02"
+            ]
+          },
+          {
+            "entity_route": "Longmont Campaign/Campaign 1/NPCs/wolf/",
+            "entity_label": null,
+            "subject_class": "npc",
+            "presence_kind": "carried",
+            "entity_state": "dead_body_or_head",
+            "support_unit_ids": [
+              "u-L0021-01",
+              "u-L0021-02"
+            ]
+          }
+        ]
+      },
+      {
+        "unit_id": "u-L0023-01",
+        "beat_id": "c1s13-b008-basement-morgue-questioning",
+        "tags": [],
+        "location_mentions": [
+          {
+            "location_route": "Longmont Campaign/Campaign 1/Locations/basement_morgue/",
+            "location_label": null,
+            "presence_kind": "carried"
+          }
+        ],
+        "population_mentions": []
+      },
+      {
+        "unit_id": "u-L0023-02",
+        "beat_id": "c1s13-b008-basement-morgue-questioning",
+        "tags": [],
+        "location_mentions": [
+          {
+            "location_route": "Longmont Campaign/Campaign 1/Locations/basement_morgue/",
+            "location_label": null,
+            "presence_kind": "carried"
+          }
+        ],
+        "population_mentions": []
+      },
+      {
+        "unit_id": "u-L0025-01",
+        "beat_id": "c1s13-b008-basement-morgue-questioning",
+        "tags": [],
+        "location_mentions": [
+          {
+            "location_route": "Longmont Campaign/Campaign 1/Locations/basement_morgue/",
+            "location_label": null,
+            "presence_kind": "carried"
+          }
+        ],
+        "population_mentions": []
+      },
+      {
+        "unit_id": "u-L0025-02",
+        "beat_id": "c1s13-b008-basement-morgue-questioning",
+        "tags": [
+          {
+            "tag_type": "NewHubCandidate",
+            "route": "Longmont Campaign/Campaign 1/NPCs/lira/"
+          }
+        ],
+        "location_mentions": [
+          {
+            "location_route": "Longmont Campaign/Campaign 1/Locations/basement_morgue/",
+            "location_label": null,
+            "presence_kind": "carried"
+          }
+        ],
+        "population_mentions": [
+          {
+            "entity_route": "Longmont Campaign/Campaign 1/NPCs/lira/",
+            "entity_label": null,
+            "subject_class": "npc",
+            "presence_kind": "mentioned_only",
+            "entity_state": null,
+            "support_unit_ids": [
+              "u-L0025-02"
+            ]
+          }
+        ]
+      },
+      {
+        "unit_id": "u-L0027-01",
+        "beat_id": "c1s13-b008-basement-morgue-questioning",
+        "tags": [
+          {
+            "tag_type": "NewHubCandidate",
+            "route": "Longmont Campaign/Campaign 1/NPCs/shepherd/"
+          }
+        ],
+        "location_mentions": [
+          {
+            "location_route": "Longmont Campaign/Campaign 1/Locations/basement_morgue/",
+            "location_label": null,
+            "presence_kind": "carried"
+          }
+        ],
+        "population_mentions": [
+          {
+            "entity_route": "Longmont Campaign/Campaign 1/NPCs/shepherd/",
+            "entity_label": null,
+            "subject_class": "npc",
+            "presence_kind": "mentioned_only",
+            "entity_state": null,
+            "support_unit_ids": [
+              "u-L0027-01"
+            ]
+          }
+        ]
+      },
+      {
+        "unit_id": "u-L0027-02",
+        "beat_id": "c1s13-b008-basement-morgue-questioning",
+        "tags": [],
+        "location_mentions": [
+          {
+            "location_route": "Longmont Campaign/Campaign 1/Locations/basement_morgue/",
+            "location_label": null,
+            "presence_kind": "carried"
+          }
+        ],
+        "population_mentions": [
+          {
+            "entity_route": "Longmont Campaign/Campaign 1/NPCs/shepherd/",
+            "entity_label": null,
+            "subject_class": "npc",
+            "presence_kind": "mentioned_only",
+            "entity_state": "omnipresent_claim",
+            "support_unit_ids": [
+              "u-L0027-02"
+            ]
+          }
+        ]
+      },
+      {
+        "unit_id": "u-L0027-03",
+        "beat_id": "c1s13-b008-basement-morgue-questioning",
+        "tags": [],
+        "location_mentions": [
+          {
+            "location_route": "Longmont Campaign/Campaign 1/Locations/basement_morgue/",
+            "location_label": null,
+            "presence_kind": "carried"
+          }
+        ],
+        "population_mentions": [
+          {
+            "entity_route": "Longmont Campaign/Campaign 1/NPCs/shepherd/",
+            "entity_label": null,
+            "subject_class": "npc",
+            "presence_kind": "mentioned_only",
+            "entity_state": null,
+            "support_unit_ids": [
+              "u-L0027-03"
+            ]
+          }
+        ]
+      },
+      {
+        "unit_id": "u-L0029-01",
+        "beat_id": "c1s13-b008-basement-morgue-questioning",
+        "tags": [],
+        "location_mentions": [
+          {
+            "location_route": "Longmont Campaign/Campaign 1/Locations/basement_morgue/",
+            "location_label": null,
+            "presence_kind": "carried"
+          }
+        ],
+        "population_mentions": [
+          {
+            "entity_route": "Longmont Campaign/Campaign 1/NPCs/necromancer/",
+            "entity_label": null,
+            "subject_class": "npc",
+            "presence_kind": "explicit",
+            "entity_state": null,
+            "support_unit_ids": [
+              "u-L0029-01"
+            ]
+          }
+        ]
+      },
+      {
+        "unit_id": "u-L0029-02",
+        "beat_id": "c1s13-b008-basement-morgue-questioning",
+        "tags": [],
+        "location_mentions": [
+          {
+            "location_route": "Longmont Campaign/Campaign 1/Locations/basement_morgue/",
+            "location_label": null,
+            "presence_kind": "carried"
+          }
+        ],
+        "population_mentions": []
+      },
+      {
+        "unit_id": "u-L0029-03",
+        "beat_id": "c1s13-b008-basement-morgue-questioning",
+        "tags": [],
+        "location_mentions": [
+          {
+            "location_route": "Longmont Campaign/Campaign 1/Locations/basement_morgue/",
+            "location_label": null,
+            "presence_kind": "carried"
+          }
+        ],
+        "population_mentions": [
+          {
+            "entity_route": "Longmont Campaign/Campaign 1/NPCs/shepherd/",
+            "entity_label": null,
+            "subject_class": "npc",
+            "presence_kind": "mentioned_only",
+            "entity_state": "leader_of_emergence",
+            "support_unit_ids": [
+              "u-L0029-03"
+            ]
+          }
+        ]
+      },
+      {
+        "unit_id": "u-L0029-04",
+        "beat_id": "c1s13-b008-basement-morgue-questioning",
+        "tags": [],
+        "location_mentions": [
+          {
+            "location_route": "Longmont Campaign/Campaign 1/Locations/basement_morgue/",
+            "location_label": null,
+            "presence_kind": "carried"
+          }
+        ],
+        "population_mentions": []
+      },
+      {
+        "unit_id": "u-L0029-05",
+        "beat_id": "c1s13-b008-basement-morgue-questioning",
+        "tags": [],
+        "location_mentions": [
+          {
+            "location_route": "Longmont Campaign/Campaign 1/Locations/basement_morgue/",
+            "location_label": null,
+            "presence_kind": "carried"
+          }
+        ],
+        "population_mentions": [
+          {
+            "entity_route": "Longmont Campaign/Campaign 1/NPCs/shepherd/",
+            "entity_label": null,
+            "subject_class": "npc",
+            "presence_kind": "mentioned_only",
+            "entity_state": "rises_from_below_at_dawn",
+            "support_unit_ids": [
+              "u-L0029-05"
+            ]
+          }
+        ]
+      },
+      {
+        "unit_id": "u-L0031-01",
+        "beat_id": "c1s13-b009-basement-morgue-ambush-reveal",
+        "tags": [
+          {
+            "tag_type": "NewHubCandidate",
+            "route": "Longmont Campaign/Campaign 1/NPCs/draven/"
+          }
+        ],
+        "location_mentions": [
+          {
+            "location_route": "Longmont Campaign/Campaign 1/Locations/basement_morgue/",
+            "location_label": null,
+            "presence_kind": "explicit"
+          }
+        ],
+        "population_mentions": [
+          {
+            "entity_route": "Longmont Campaign/Campaign 1/NPCs/professor_cinderbranch/",
+            "entity_label": null,
+            "subject_class": "npc",
+            "presence_kind": "explicit",
+            "entity_state": "leaving_room",
+            "support_unit_ids": [
+              "u-L0031-01"
+            ]
+          },
+          {
+            "entity_route": "Longmont Campaign/Campaign 1/NPCs/draven/",
+            "entity_label": null,
+            "subject_class": "npc",
+            "presence_kind": "explicit",
+            "entity_state": "locks_door",
+            "support_unit_ids": [
+              "u-L0031-01"
+            ]
+          }
+        ]
+      },
+      {
+        "unit_id": "u-L0031-02",
+        "beat_id": "c1s13-b009-basement-morgue-ambush-reveal",
+        "tags": [
+          {
+            "tag_type": "NewHubCandidate",
+            "route": "Longmont Campaign/Campaign 1/NPCs/elite_guard/"
+          },
+          {
+            "tag_type": "NewHubCandidate",
+            "route": "Longmont Campaign/Campaign 1/NPCs/sewer_meat_monster/"
+          }
+        ],
+        "location_mentions": [
+          {
+            "location_route": "Longmont Campaign/Campaign 1/Locations/basement_morgue/",
+            "location_label": null,
+            "presence_kind": "carried"
+          }
+        ],
+        "population_mentions": [
+          {
+            "entity_route": "Longmont Campaign/Campaign 1/NPCs/elite_guard/",
+            "entity_label": null,
+            "subject_class": "npc",
+            "presence_kind": "explicit",
+            "entity_state": "two_present",
+            "support_unit_ids": [
+              "u-L0031-02"
+            ]
+          },
+          {
+            "entity_route": "Longmont Campaign/Campaign 1/NPCs/sewer_meat_monster/",
+            "entity_label": null,
+            "subject_class": "npc",
+            "presence_kind": "explicit",
+            "entity_state": null,
+            "support_unit_ids": [
+              "u-L0031-02"
+            ]
+          }
+        ]
+      },
+      {
+        "unit_id": "u-L0031-03",
+        "beat_id": "c1s13-b009-basement-morgue-ambush-reveal",
+        "tags": [],
+        "location_mentions": [
+          {
+            "location_route": "Longmont Campaign/Campaign 1/Locations/basement_morgue/",
+            "location_label": null,
+            "presence_kind": "carried"
+          }
+        ],
+        "population_mentions": [
+          {
+            "entity_route": "Longmont Campaign/Campaign 1/NPCs/sewer_meat_monster/",
+            "entity_label": null,
+            "subject_class": "npc",
+            "presence_kind": "carried",
+            "entity_state": "oozing_hazard",
+            "support_unit_ids": [
+              "u-L0031-02",
+              "u-L0031-03"
+            ]
+          }
+        ]
+      },
+      {
+        "unit_id": "u-L0033-01",
+        "beat_id": "c1s13-b010-basement-morgue-combat-exchange",
+        "tags": [],
+        "location_mentions": [
+          {
+            "location_route": "Longmont Campaign/Campaign 1/Locations/basement_morgue/",
+            "location_label": null,
+            "presence_kind": "explicit"
+          }
+        ],
+        "population_mentions": [
+          {
+            "entity_route": "Longmont Campaign/Campaign 1/NPCs/draven/",
+            "entity_label": null,
+            "subject_class": "npc",
+            "presence_kind": "explicit",
+            "entity_state": "casting_fear",
+            "support_unit_ids": [
+              "u-L0033-01"
+            ]
+          },
+          {
+            "entity_route": "Longmont Campaign/Campaign 1/PCs/stafl/",
+            "entity_label": null,
+            "subject_class": "pc",
+            "presence_kind": "explicit",
+            "entity_state": null,
+            "support_unit_ids": [
+              "u-L0033-01"
+            ]
+          },
+          {
+            "entity_route": "Longmont Campaign/Campaign 1/PCs/bonogo/",
+            "entity_label": null,
+            "subject_class": "pc",
+            "presence_kind": "explicit",
+            "entity_state": "targeted_by_fear",
+            "support_unit_ids": [
+              "u-L0033-01"
+            ]
+          }
+        ]
+      },
+      {
+        "unit_id": "u-L0033-02",
+        "beat_id": "c1s13-b010-basement-morgue-combat-exchange",
+        "tags": [],
+        "location_mentions": [
+          {
+            "location_route": "Longmont Campaign/Campaign 1/Locations/basement_morgue/",
+            "location_label": null,
+            "presence_kind": "carried"
+          }
+        ],
+        "population_mentions": [
+          {
+            "entity_route": "Longmont Campaign/Campaign 1/PCs/stafl/",
+            "entity_label": null,
+            "subject_class": "pc",
+            "presence_kind": "explicit",
+            "entity_state": null,
+            "support_unit_ids": [
+              "u-L0033-02"
+            ]
+          }
+        ]
+      },
+      {
+        "unit_id": "u-L0033-03",
+        "beat_id": "c1s13-b010-basement-morgue-combat-exchange",
+        "tags": [],
+        "location_mentions": [
+          {
+            "location_route": "Longmont Campaign/Campaign 1/Locations/basement_morgue/",
+            "location_label": null,
+            "presence_kind": "carried"
+          }
+        ],
+        "population_mentions": [
+          {
+            "entity_route": "Longmont Campaign/Campaign 1/NPCs/elite_guard/",
+            "entity_label": null,
+            "subject_class": "npc",
+            "presence_kind": "explicit",
+            "entity_state": "attacking",
+            "support_unit_ids": [
+              "u-L0033-03"
+            ]
+          },
+          {
+            "entity_route": "Longmont Campaign/Campaign 1/PCs/stafl/",
+            "entity_label": null,
+            "subject_class": "pc",
+            "presence_kind": "explicit",
+            "entity_state": "poisoned",
+            "support_unit_ids": [
+              "u-L0033-03"
+            ]
+          }
+        ]
+      },
+      {
+        "unit_id": "u-L0033-04",
+        "beat_id": "c1s13-b010-basement-morgue-combat-exchange",
+        "tags": [],
+        "location_mentions": [
+          {
+            "location_route": "Longmont Campaign/Campaign 1/Locations/basement_morgue/",
+            "location_label": null,
+            "presence_kind": "carried"
+          }
+        ],
+        "population_mentions": [
+          {
+            "entity_route": "Longmont Campaign/Campaign 1/PCs/stafl/",
+            "entity_label": null,
+            "subject_class": "pc",
+            "presence_kind": "explicit",
+            "entity_state": null,
+            "support_unit_ids": [
+              "u-L0033-04"
+            ]
+          },
+          {
+            "entity_route": "Longmont Campaign/Campaign 1/NPCs/draven/",
+            "entity_label": null,
+            "subject_class": "npc",
+            "presence_kind": "explicit",
+            "entity_state": "asleep",
+            "support_unit_ids": [
+              "u-L0033-04"
+            ]
+          }
+        ]
+      },
+      {
+        "unit_id": "u-L0033-05",
+        "beat_id": "c1s13-b010-basement-morgue-combat-exchange",
+        "tags": [],
+        "location_mentions": [
+          {
+            "location_route": "Longmont Campaign/Campaign 1/Locations/basement_morgue/",
+            "location_label": null,
+            "presence_kind": "carried"
+          }
+        ],
+        "population_mentions": [
+          {
+            "entity_route": "Longmont Campaign/Campaign 1/PCs/bonogo/",
+            "entity_label": null,
+            "subject_class": "pc",
+            "presence_kind": "explicit",
+            "entity_state": null,
+            "support_unit_ids": [
+              "u-L0033-05"
+            ]
+          },
+          {
+            "entity_route": "Longmont Campaign/Campaign 1/NPCs/draven/",
+            "entity_label": null,
+            "subject_class": "npc",
+            "presence_kind": "explicit",
+            "entity_state": "killed",
+            "support_unit_ids": [
+              "u-L0033-05"
+            ]
+          }
+        ]
+      },
+      {
+        "unit_id": "u-L0035-01",
+        "beat_id": "c1s13-b010-basement-morgue-combat-exchange",
+        "tags": [],
+        "location_mentions": [
+          {
+            "location_route": "Longmont Campaign/Campaign 1/Locations/basement_morgue/",
+            "location_label": null,
+            "presence_kind": "carried"
+          }
+        ],
+        "population_mentions": [
+          {
+            "entity_route": "Longmont Campaign/Campaign 1/PCs/bonogo/",
+            "entity_label": null,
+            "subject_class": "pc",
+            "presence_kind": "explicit",
+            "entity_state": null,
+            "support_unit_ids": [
+              "u-L0035-01"
+            ]
+          },
+          {
+            "entity_route": "Longmont Campaign/Campaign 1/NPCs/elite_guard/",
+            "entity_label": null,
+            "subject_class": "npc",
+            "presence_kind": "explicit",
+            "entity_state": null,
+            "support_unit_ids": [
+              "u-L0035-01"
+            ]
+          }
+        ]
+      },
+      {
+        "unit_id": "u-L0035-02",
+        "beat_id": "c1s13-b010-basement-morgue-combat-exchange",
+        "tags": [],
+        "location_mentions": [
+          {
+            "location_route": "Longmont Campaign/Campaign 1/Locations/basement_morgue/",
+            "location_label": null,
+            "presence_kind": "carried"
+          }
+        ],
+        "population_mentions": [
+          {
+            "entity_route": "Longmont Campaign/Campaign 1/NPCs/elite_guard/",
+            "entity_label": null,
+            "subject_class": "npc",
+            "presence_kind": "explicit",
+            "entity_state": "attacking",
+            "support_unit_ids": [
+              "u-L0035-02"
+            ]
+          },
+          {
+            "entity_route": "Longmont Campaign/Campaign 1/PCs/bonogo/",
+            "entity_label": null,
+            "subject_class": "pc",
+            "presence_kind": "explicit",
+            "entity_state": "poisoned",
+            "support_unit_ids": [
+              "u-L0035-02"
+            ]
+          }
+        ]
+      },
+      {
+        "unit_id": "u-L0035-03",
+        "beat_id": "c1s13-b010-basement-morgue-combat-exchange",
+        "tags": [],
+        "location_mentions": [
+          {
+            "location_route": "Longmont Campaign/Campaign 1/Locations/basement_morgue/",
+            "location_label": null,
+            "presence_kind": "carried"
+          }
+        ],
+        "population_mentions": [
+          {
+            "entity_route": "Longmont Campaign/Campaign 1/NPCs/sewer_meat_monster/",
+            "entity_label": null,
+            "subject_class": "npc",
+            "presence_kind": "explicit",
+            "entity_state": "attacking",
+            "support_unit_ids": [
+              "u-L0035-03"
+            ]
+          },
+          {
+            "entity_route": "Longmont Campaign/Campaign 1/PCs/bonogo/",
+            "entity_label": null,
+            "subject_class": "pc",
+            "presence_kind": "explicit",
+            "entity_state": "injured",
+            "support_unit_ids": [
+              "u-L0035-03"
+            ]
+          }
+        ]
+      },
+      {
+        "unit_id": "u-L0035-04",
+        "beat_id": "c1s13-b010-basement-morgue-combat-exchange",
+        "tags": [],
+        "location_mentions": [
+          {
+            "location_route": "Longmont Campaign/Campaign 1/Locations/basement_morgue/",
+            "location_label": null,
+            "presence_kind": "carried"
+          }
+        ],
+        "population_mentions": [
+          {
+            "entity_route": "Longmont Campaign/Campaign 1/NPCs/elite_guard/",
+            "entity_label": null,
+            "subject_class": "npc",
+            "presence_kind": "explicit",
+            "entity_state": "attacking",
+            "support_unit_ids": [
+              "u-L0035-04"
+            ]
+          },
+          {
+            "entity_route": "Longmont Campaign/Campaign 1/PCs/stafl/",
+            "entity_label": null,
+            "subject_class": "pc",
+            "presence_kind": "explicit",
+            "entity_state": "retreating_to_door",
+            "support_unit_ids": [
+              "u-L0035-04"
+            ]
+          }
+        ]
+      },
+      {
+        "unit_id": "u-L0037-01",
+        "beat_id": "c1s13-b011-morgue-doorway-retreat",
+        "tags": [],
+        "location_mentions": [
+          {
+            "location_route": "Longmont Campaign/Campaign 1/Locations/basement_morgue/",
+            "location_label": null,
+            "presence_kind": "explicit"
+          },
+          {
+            "location_route": null,
+            "location_label": "morgue doorway/hall outside door",
+            "presence_kind": "explicit"
+          }
+        ],
+        "population_mentions": [
+          {
+            "entity_route": "Longmont Campaign/Campaign 1/PCs/stafl/",
+            "entity_label": null,
+            "subject_class": "pc",
+            "presence_kind": "explicit",
+            "entity_state": null,
+            "support_unit_ids": [
+              "u-L0037-01"
+            ]
+          },
+          {
+            "entity_route": "Longmont Campaign/Campaign 1/NPCs/elite_guard/",
+            "entity_label": null,
+            "subject_class": "npc",
+            "presence_kind": "mentioned_only",
+            "entity_state": "remaining_enemies",
+            "support_unit_ids": [
+              "u-L0037-01"
+            ]
+          },
+          {
+            "entity_route": "Longmont Campaign/Campaign 1/NPCs/sewer_meat_monster/",
+            "entity_label": null,
+            "subject_class": "npc",
+            "presence_kind": "mentioned_only",
+            "entity_state": "remaining_enemies",
+            "support_unit_ids": [
+              "u-L0037-01"
+            ]
+          }
+        ]
+      },
+      {
+        "unit_id": "u-L0037-02",
+        "beat_id": "c1s13-b011-morgue-doorway-retreat",
+        "tags": [],
+        "location_mentions": [
+          {
+            "location_route": "Longmont Campaign/Campaign 1/Locations/basement_morgue/",
+            "location_label": null,
+            "presence_kind": "carried"
+          },
+          {
+            "location_route": null,
+            "location_label": "morgue doorway/hall outside door",
+            "presence_kind": "carried"
+          }
+        ],
+        "population_mentions": [
+          {
+            "entity_route": "Longmont Campaign/Campaign 1/PCs/bonogo/",
+            "entity_label": null,
+            "subject_class": "pc",
+            "presence_kind": "explicit",
+            "entity_state": "retreating",
+            "support_unit_ids": [
+              "u-L0037-02"
+            ]
+          },
+          {
+            "entity_route": "Longmont Campaign/Campaign 1/NPCs/elite_guard/",
+            "entity_label": null,
+            "subject_class": "npc",
+            "presence_kind": "explicit",
+            "entity_state": "sleeping_then_killed",
+            "support_unit_ids": [
+              "u-L0037-02"
+            ]
+          }
+        ]
+      },
+      {
+        "unit_id": "u-L0039-01",
+        "beat_id": "c1s13-b012-post-fight-report-resupply",
+        "tags": [],
+        "location_mentions": [
+          {
+            "location_route": "Longmont Campaign/Campaign 1/Locations/basement_morgue/",
+            "location_label": null,
+            "presence_kind": "explicit"
+          }
+        ],
+        "population_mentions": [
+          {
+            "entity_route": "Longmont Campaign/Campaign 1/NPCs/professor_cinderbranch/",
+            "entity_label": null,
+            "subject_class": "npc",
+            "presence_kind": "explicit",
+            "entity_state": null,
+            "support_unit_ids": [
+              "u-L0039-01"
+            ]
+          }
+        ]
+      },
+      {
+        "unit_id": "u-L0039-02",
+        "beat_id": "c1s13-b012-post-fight-report-resupply",
+        "tags": [],
+        "location_mentions": [
+          {
+            "location_route": "Longmont Campaign/Campaign 1/Locations/basement_morgue/",
+            "location_label": null,
+            "presence_kind": "carried"
+          },
+          {
+            "location_route": null,
+            "location_label": "tunnel below academy",
+            "presence_kind": "mentioned_only"
+          }
+        ],
+        "population_mentions": [
+          {
+            "entity_route": null,
+            "entity_label": "mages",
+            "subject_class": "npc_group",
+            "presence_kind": "explicit",
+            "entity_state": "assisting_resupply",
+            "support_unit_ids": [
+              "u-L0039-02"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "beat_spans": [
+    {
+      "beat_id": "c1s13-b001-council-exit-guard-stop",
+      "summary": "Outside council chambers, guards stop the party and Thalia intervenes while Wolf's head is prepared for transport.",
+      "unit_ids": [
+        "u-L0003-01",
+        "u-L0003-02",
+        "u-L0003-03",
+        "u-L0003-04"
+      ],
+      "start_unit_id": "u-L0003-01",
+      "end_unit_id": "u-L0003-04"
+    },
+    {
+      "beat_id": "c1s13-b002-street-meat-inspection",
+      "summary": "On the street en route to the academy, covert guards inspect for meat and tainted meat is burned.",
+      "unit_ids": [
+        "u-L0005-01",
+        "u-L0005-02",
+        "u-L0005-03",
+        "u-L0005-04"
+      ],
+      "start_unit_id": "u-L0005-01",
+      "end_unit_id": "u-L0005-04"
+    },
+    {
+      "beat_id": "c1s13-b003-academy-intake-briefing",
+      "summary": "At Stormspire Academy intake, Mossglade and Cinderbranch receive the party and discuss next steps.",
+      "unit_ids": [
+        "u-L0007-01",
+        "u-L0007-02",
+        "u-L0007-03",
+        "u-L0007-04",
+        "u-L0007-05"
+      ],
+      "start_unit_id": "u-L0007-01",
+      "end_unit_id": "u-L0007-05"
+    },
+    {
+      "beat_id": "c1s13-b004-academy-split-planning",
+      "summary": "Academy planning beat where options are set and the party splits between Torbin and necromancer tracks.",
+      "unit_ids": [
+        "u-L0009-01",
+        "u-L0009-02",
+        "u-L0011-01",
+        "u-L0011-02",
+        "u-L0011-03"
+      ],
+      "start_unit_id": "u-L0009-01",
+      "end_unit_id": "u-L0011-03"
+    },
+    {
+      "beat_id": "c1s13-b005-infirmary-torbin-check",
+      "summary": "Ephanna and Baergrom check on Torbin with Tealeaf and remain with him.",
+      "unit_ids": [
+        "u-L0013-01",
+        "u-L0013-02"
+      ],
+      "start_unit_id": "u-L0013-01",
+      "end_unit_id": "u-L0013-02"
+    },
+    {
+      "beat_id": "c1s13-b006-necromancer-ritual-prep-rest",
+      "summary": "Necromancer agrees to help and ritual prep proceeds while others take a short rest in the study room.",
+      "unit_ids": [
+        "u-L0015-01",
+        "u-L0015-02",
+        "u-L0015-03",
+        "u-L0015-04",
+        "u-L0015-05"
+      ],
+      "start_unit_id": "u-L0015-01",
+      "end_unit_id": "u-L0015-05"
+    },
+    {
+      "beat_id": "c1s13-b007-academy-regroup-meat-hunt-split",
+      "summary": "Group regroups in academy corridor, discovers escaped meat, and splits into ritual and hunt teams.",
+      "unit_ids": [
+        "u-L0017-01",
+        "u-L0017-02",
+        "u-L0017-03",
+        "u-L0017-04"
+      ],
+      "start_unit_id": "u-L0017-01",
+      "end_unit_id": "u-L0017-04"
+    },
+    {
+      "beat_id": "c1s13-b008-basement-morgue-questioning",
+      "summary": "In the basement morgue, Stafl and Bonogo conduct Speak with Dead questioning of Wolf.",
+      "unit_ids": [
+        "u-L0019-01",
+        "u-L0019-02",
+        "u-L0019-03",
+        "u-L0021-01",
+        "u-L0021-02",
+        "u-L0023-01",
+        "u-L0023-02",
+        "u-L0025-01",
+        "u-L0025-02",
+        "u-L0027-01",
+        "u-L0027-02",
+        "u-L0027-03",
+        "u-L0029-01",
+        "u-L0029-02",
+        "u-L0029-03",
+        "u-L0029-04",
+        "u-L0029-05"
+      ],
+      "start_unit_id": "u-L0019-01",
+      "end_unit_id": "u-L0029-05"
+    },
+    {
+      "beat_id": "c1s13-b009-basement-morgue-ambush-reveal",
+      "summary": "Post-ritual reveal as Draven locks the room and elite guards plus sewer monster emerge.",
+      "unit_ids": [
+        "u-L0031-01",
+        "u-L0031-02",
+        "u-L0031-03"
+      ],
+      "start_unit_id": "u-L0031-01",
+      "end_unit_id": "u-L0031-03"
+    },
+    {
+      "beat_id": "c1s13-b010-basement-morgue-combat-exchange",
+      "summary": "Combat exchange in the morgue between Stafl/Bonogo and Draven, elite guards, and sewer monster.",
+      "unit_ids": [
+        "u-L0033-01",
+        "u-L0033-02",
+        "u-L0033-03",
+        "u-L0033-04",
+        "u-L0033-05",
+        "u-L0035-01",
+        "u-L0035-02",
+        "u-L0035-03",
+        "u-L0035-04"
+      ],
+      "start_unit_id": "u-L0033-01",
+      "end_unit_id": "u-L0035-04"
+    },
+    {
+      "beat_id": "c1s13-b011-morgue-doorway-retreat",
+      "summary": "Retreat phase at the morgue doorway as Stafl calls for help and Bonogo disengages after a final strike.",
+      "unit_ids": [
+        "u-L0037-01",
+        "u-L0037-02"
+      ],
+      "start_unit_id": "u-L0037-01",
+      "end_unit_id": "u-L0037-02"
+    },
+    {
+      "beat_id": "c1s13-b012-post-fight-report-resupply",
+      "summary": "Aftermath report to Cinderbranch, empty ritual room discovered, and mages assist pre-tunnel resupply.",
+      "unit_ids": [
+        "u-L0039-01",
+        "u-L0039-02"
+      ],
+      "start_unit_id": "u-L0039-01",
+      "end_unit_id": "u-L0039-02"
+    }
+  ],
+  "location_beat_rows": [
+    {
+      "schema": "dmb_location_beat_population_v1",
+      "record_kind": "location_beat_population",
+      "beat_id": "c1s13-b001-council-exit-guard-stop",
+      "campaign_id": "longmont-c1",
+      "session_number": 13,
+      "source_recap_path": "Longmont Campaign/Campaign 1/Session Recaps/_normalized/Session 13 - The Meaty and the Dead.md",
+      "location_routes": [
+        "Longmont Campaign/Campaign 1/Locations/council_chambers/"
+      ],
+      "location_labels": [],
+      "entity_routes_present": [
+        "Longmont Campaign/Campaign 1/NPCs/thalia/",
+        "Longmont Campaign/Campaign 1/PCs/bonogo/",
+        "Longmont Campaign/Campaign 1/NPCs/wolf/"
+      ],
+      "unit_ids": [
+        "u-L0003-02",
+        "u-L0003-03",
+        "u-L0003-04"
+      ],
+      "population_evidence": [
+        {
+          "entity_route": null,
+          "entity_label": "guards",
+          "presence_kind": "explicit",
+          "entity_state": null,
+          "evidence_unit_ids": [
+            "u-L0003-02",
+            "u-L0003-03"
+          ]
+        },
+        {
+          "entity_route": "Longmont Campaign/Campaign 1/NPCs/thalia/",
+          "entity_label": null,
+          "presence_kind": "explicit",
+          "entity_state": null,
+          "evidence_unit_ids": [
+            "u-L0003-03"
+          ]
+        },
+        {
+          "entity_route": "Longmont Campaign/Campaign 1/PCs/bonogo/",
+          "entity_label": null,
+          "presence_kind": "explicit",
+          "entity_state": null,
+          "evidence_unit_ids": [
+            "u-L0003-04"
+          ]
+        },
+        {
+          "entity_route": "Longmont Campaign/Campaign 1/NPCs/wolf/",
+          "entity_label": null,
+          "presence_kind": "explicit",
+          "entity_state": "dead_body_or_head",
+          "evidence_unit_ids": [
+            "u-L0003-04"
+          ]
+        }
+      ],
+      "lexical_plain": "c1s13 b001 council exit guard stop Longmont Campaign/Campaign 1/Locations/council_chambers/ guards explicit thalia explicit bonogo explicit wolf explicit"
+    },
+    {
+      "schema": "dmb_location_beat_population_v1",
+      "record_kind": "location_beat_population",
+      "beat_id": "c1s13-b001-council-exit-guard-stop",
+      "campaign_id": "longmont-c1",
+      "session_number": 13,
+      "source_recap_path": "Longmont Campaign/Campaign 1/Session Recaps/_normalized/Session 13 - The Meaty and the Dead.md",
+      "location_routes": [
+        "Longmont Campaign/Campaign 1/Locations/stormspire_academy/"
+      ],
+      "location_labels": [],
+      "entity_routes_present": [],
+      "unit_ids": [
+        "u-L0003-01"
+      ],
+      "population_evidence": [],
+      "lexical_plain": "c1s13 b001 council exit guard stop Longmont Campaign/Campaign 1/Locations/stormspire_academy/"
+    },
+    {
+      "schema": "dmb_location_beat_population_v1",
+      "record_kind": "location_beat_population",
+      "beat_id": "c1s13-b002-street-meat-inspection",
+      "campaign_id": "longmont-c1",
+      "session_number": 13,
+      "source_recap_path": "Longmont Campaign/Campaign 1/Session Recaps/_normalized/Session 13 - The Meaty and the Dead.md",
+      "location_routes": [
+        "Longmont Campaign/Campaign 1/Locations/stormspire_academy/"
+      ],
+      "location_labels": [],
+      "entity_routes_present": [],
+      "unit_ids": [
+        "u-L0005-04"
+      ],
+      "population_evidence": [
+        {
+          "entity_route": null,
+          "entity_label": "mages",
+          "presence_kind": "explicit",
+          "entity_state": null,
+          "evidence_unit_ids": [
+            "u-L0005-04"
+          ]
+        }
+      ],
+      "lexical_plain": "c1s13 b002 street meat inspection Longmont Campaign/Campaign 1/Locations/stormspire_academy/ mages explicit"
+    },
+    {
+      "schema": "dmb_location_beat_population_v1",
+      "record_kind": "location_beat_population",
+      "beat_id": "c1s13-b002-street-meat-inspection",
+      "campaign_id": "longmont-c1",
+      "session_number": 13,
+      "source_recap_path": "Longmont Campaign/Campaign 1/Session Recaps/_normalized/Session 13 - The Meaty and the Dead.md",
+      "location_routes": [],
+      "location_labels": [
+        "route to Stormspire Academy"
+      ],
+      "entity_routes_present": [],
+      "unit_ids": [
+        "u-L0005-04"
+      ],
+      "population_evidence": [
+        {
+          "entity_route": null,
+          "entity_label": "mages",
+          "presence_kind": "explicit",
+          "entity_state": null,
+          "evidence_unit_ids": [
+            "u-L0005-04"
+          ]
+        }
+      ],
+      "lexical_plain": "c1s13 b002 street meat inspection route to Stormspire Academy mages explicit"
+    },
+    {
+      "schema": "dmb_location_beat_population_v1",
+      "record_kind": "location_beat_population",
+      "beat_id": "c1s13-b002-street-meat-inspection",
+      "campaign_id": "longmont-c1",
+      "session_number": 13,
+      "source_recap_path": "Longmont Campaign/Campaign 1/Session Recaps/_normalized/Session 13 - The Meaty and the Dead.md",
+      "location_routes": [],
+      "location_labels": [
+        "street outside council chambers"
+      ],
+      "entity_routes_present": [
+        "Longmont Campaign/Campaign 1/PCs/bonogo/",
+        "Longmont Campaign/Campaign 1/PCs/baergrom/"
+      ],
+      "unit_ids": [
+        "u-L0005-01",
+        "u-L0005-02",
+        "u-L0005-03"
+      ],
+      "population_evidence": [
+        {
+          "entity_route": null,
+          "entity_label": "covert ops group",
+          "presence_kind": "explicit",
+          "entity_state": null,
+          "evidence_unit_ids": [
+            "u-L0005-02"
+          ]
+        },
+        {
+          "entity_route": "Longmont Campaign/Campaign 1/PCs/bonogo/",
+          "entity_label": null,
+          "presence_kind": "explicit",
+          "entity_state": null,
+          "evidence_unit_ids": [
+            "u-L0005-03"
+          ]
+        },
+        {
+          "entity_route": "Longmont Campaign/Campaign 1/PCs/baergrom/",
+          "entity_label": null,
+          "presence_kind": "explicit",
+          "entity_state": null,
+          "evidence_unit_ids": [
+            "u-L0005-03"
+          ]
+        },
+        {
+          "entity_route": null,
+          "entity_label": "guards",
+          "presence_kind": "explicit",
+          "entity_state": null,
+          "evidence_unit_ids": [
+            "u-L0005-03"
+          ]
+        }
+      ],
+      "lexical_plain": "c1s13 b002 street meat inspection street outside council chambers covert ops group explicit bonogo explicit baergrom explicit guards explicit"
+    },
+    {
+      "schema": "dmb_location_beat_population_v1",
+      "record_kind": "location_beat_population",
+      "beat_id": "c1s13-b003-academy-intake-briefing",
+      "campaign_id": "longmont-c1",
+      "session_number": 13,
+      "source_recap_path": "Longmont Campaign/Campaign 1/Session Recaps/_normalized/Session 13 - The Meaty and the Dead.md",
+      "location_routes": [
+        "Longmont Campaign/Campaign 1/Locations/stormspire_academy/"
+      ],
+      "location_labels": [],
+      "entity_routes_present": [
+        "Longmont Campaign/Campaign 1/NPCs/mossglade/",
+        "Longmont Campaign/Campaign 1/NPCs/professor_cinderbranch/"
+      ],
+      "unit_ids": [
+        "u-L0007-01",
+        "u-L0007-02",
+        "u-L0007-03",
+        "u-L0007-04",
+        "u-L0007-05"
+      ],
+      "population_evidence": [
+        {
+          "entity_route": null,
+          "entity_label": "wizards",
+          "presence_kind": "explicit",
+          "entity_state": null,
+          "evidence_unit_ids": [
+            "u-L0007-02"
+          ]
+        },
+        {
+          "entity_route": "Longmont Campaign/Campaign 1/NPCs/mossglade/",
+          "entity_label": null,
+          "presence_kind": "explicit",
+          "entity_state": null,
+          "evidence_unit_ids": [
+            "u-L0007-03",
+            "u-L0007-04"
+          ]
+        },
+        {
+          "entity_route": "Longmont Campaign/Campaign 1/NPCs/professor_cinderbranch/",
+          "entity_label": null,
+          "presence_kind": "explicit",
+          "entity_state": null,
+          "evidence_unit_ids": [
+            "u-L0007-05"
+          ]
+        }
+      ],
+      "lexical_plain": "c1s13 b003 academy intake briefing Longmont Campaign/Campaign 1/Locations/stormspire_academy/ wizards explicit mossglade explicit professor_cinderbranch explicit"
+    },
+    {
+      "schema": "dmb_location_beat_population_v1",
+      "record_kind": "location_beat_population",
+      "beat_id": "c1s13-b004-academy-split-planning",
+      "campaign_id": "longmont-c1",
+      "session_number": 13,
+      "source_recap_path": "Longmont Campaign/Campaign 1/Session Recaps/_normalized/Session 13 - The Meaty and the Dead.md",
+      "location_routes": [
+        "Longmont Campaign/Campaign 1/Locations/stormspire_academy/"
+      ],
+      "location_labels": [],
+      "entity_routes_present": [
+        "Longmont Campaign/Campaign 1/NPCs/mossglade/",
+        "Longmont Campaign/Campaign 1/PCs/ephanna/",
+        "Longmont Campaign/Campaign 1/PCs/baergrom/",
+        "Longmont Campaign/Campaign 1/PCs/karsemine/",
+        "Longmont Campaign/Campaign 1/PCs/bonogo/",
+        "Longmont Campaign/Campaign 1/PCs/stafl/",
+        "Longmont Campaign/Campaign 1/PCs/caelynn/"
+      ],
+      "unit_ids": [
+        "u-L0009-01",
+        "u-L0009-02",
+        "u-L0011-01",
+        "u-L0011-02",
+        "u-L0011-03"
+      ],
+      "population_evidence": [
+        {
+          "entity_route": "Longmont Campaign/Campaign 1/NPCs/mossglade/",
+          "entity_label": null,
+          "presence_kind": "explicit",
+          "entity_state": null,
+          "evidence_unit_ids": [
+            "u-L0009-01"
+          ]
+        },
+        {
+          "entity_route": "Longmont Campaign/Campaign 1/PCs/ephanna/",
+          "entity_label": null,
+          "presence_kind": "explicit",
+          "entity_state": null,
+          "evidence_unit_ids": [
+            "u-L0011-03"
+          ]
+        },
+        {
+          "entity_route": "Longmont Campaign/Campaign 1/PCs/baergrom/",
+          "entity_label": null,
+          "presence_kind": "explicit",
+          "entity_state": null,
+          "evidence_unit_ids": [
+            "u-L0011-03"
+          ]
+        },
+        {
+          "entity_route": "Longmont Campaign/Campaign 1/PCs/karsemine/",
+          "entity_label": null,
+          "presence_kind": "explicit",
+          "entity_state": null,
+          "evidence_unit_ids": [
+            "u-L0011-03"
+          ]
+        },
+        {
+          "entity_route": "Longmont Campaign/Campaign 1/PCs/bonogo/",
+          "entity_label": null,
+          "presence_kind": "explicit",
+          "entity_state": null,
+          "evidence_unit_ids": [
+            "u-L0011-03"
+          ]
+        },
+        {
+          "entity_route": "Longmont Campaign/Campaign 1/PCs/stafl/",
+          "entity_label": null,
+          "presence_kind": "explicit",
+          "entity_state": null,
+          "evidence_unit_ids": [
+            "u-L0011-03"
+          ]
+        },
+        {
+          "entity_route": "Longmont Campaign/Campaign 1/PCs/caelynn/",
+          "entity_label": null,
+          "presence_kind": "explicit",
+          "entity_state": null,
+          "evidence_unit_ids": [
+            "u-L0011-03"
+          ]
+        }
+      ],
+      "lexical_plain": "c1s13 b004 academy split planning Longmont Campaign/Campaign 1/Locations/stormspire_academy/ mossglade explicit ephanna explicit baergrom explicit karsemine explicit bonogo explicit stafl explicit caelynn explicit"
+    },
+    {
+      "schema": "dmb_location_beat_population_v1",
+      "record_kind": "location_beat_population",
+      "beat_id": "c1s13-b004-academy-split-planning",
+      "campaign_id": "longmont-c1",
+      "session_number": 13,
+      "source_recap_path": "Longmont Campaign/Campaign 1/Session Recaps/_normalized/Session 13 - The Meaty and the Dead.md",
+      "location_routes": [],
+      "location_labels": [
+        "infirmary"
+      ],
+      "entity_routes_present": [],
+      "unit_ids": [
+        "u-L0009-02",
+        "u-L0011-01"
+      ],
+      "population_evidence": [],
+      "lexical_plain": "c1s13 b004 academy split planning infirmary"
+    },
+    {
+      "schema": "dmb_location_beat_population_v1",
+      "record_kind": "location_beat_population",
+      "beat_id": "c1s13-b004-academy-split-planning",
+      "campaign_id": "longmont-c1",
+      "session_number": 13,
+      "source_recap_path": "Longmont Campaign/Campaign 1/Session Recaps/_normalized/Session 13 - The Meaty and the Dead.md",
+      "location_routes": [],
+      "location_labels": [
+        "study room"
+      ],
+      "entity_routes_present": [
+        "Longmont Campaign/Campaign 1/NPCs/mossglade/"
+      ],
+      "unit_ids": [
+        "u-L0009-01"
+      ],
+      "population_evidence": [
+        {
+          "entity_route": "Longmont Campaign/Campaign 1/NPCs/mossglade/",
+          "entity_label": null,
+          "presence_kind": "explicit",
+          "entity_state": null,
+          "evidence_unit_ids": [
+            "u-L0009-01"
+          ]
+        }
+      ],
+      "lexical_plain": "c1s13 b004 academy split planning study room mossglade explicit"
+    },
+    {
+      "schema": "dmb_location_beat_population_v1",
+      "record_kind": "location_beat_population",
+      "beat_id": "c1s13-b005-infirmary-torbin-check",
+      "campaign_id": "longmont-c1",
+      "session_number": 13,
+      "source_recap_path": "Longmont Campaign/Campaign 1/Session Recaps/_normalized/Session 13 - The Meaty and the Dead.md",
+      "location_routes": [
+        "Longmont Campaign/Campaign 1/Locations/stormspire_academy/"
+      ],
+      "location_labels": [],
+      "entity_routes_present": [
+        "Longmont Campaign/Campaign 1/PCs/ephanna/",
+        "Longmont Campaign/Campaign 1/PCs/baergrom/",
+        "Longmont Campaign/Campaign 1/NPCs/professor_tealeaf/",
+        "Longmont Campaign/Campaign 1/NPCs/torbin/"
+      ],
+      "unit_ids": [
+        "u-L0013-01",
+        "u-L0013-02"
+      ],
+      "population_evidence": [
+        {
+          "entity_route": "Longmont Campaign/Campaign 1/PCs/ephanna/",
+          "entity_label": null,
+          "presence_kind": "explicit",
+          "entity_state": null,
+          "evidence_unit_ids": [
+            "u-L0013-01"
+          ]
+        },
+        {
+          "entity_route": "Longmont Campaign/Campaign 1/PCs/baergrom/",
+          "entity_label": null,
+          "presence_kind": "explicit",
+          "entity_state": null,
+          "evidence_unit_ids": [
+            "u-L0013-01"
+          ]
+        },
+        {
+          "entity_route": "Longmont Campaign/Campaign 1/NPCs/professor_tealeaf/",
+          "entity_label": null,
+          "presence_kind": "explicit",
+          "entity_state": null,
+          "evidence_unit_ids": [
+            "u-L0013-01",
+            "u-L0013-02"
+          ]
+        },
+        {
+          "entity_route": "Longmont Campaign/Campaign 1/NPCs/torbin/",
+          "entity_label": null,
+          "presence_kind": "explicit",
+          "entity_state": "injured",
+          "evidence_unit_ids": [
+            "u-L0013-01",
+            "u-L0013-02"
+          ]
+        }
+      ],
+      "lexical_plain": "c1s13 b005 infirmary torbin check Longmont Campaign/Campaign 1/Locations/stormspire_academy/ ephanna explicit baergrom explicit professor_tealeaf explicit torbin explicit"
+    },
+    {
+      "schema": "dmb_location_beat_population_v1",
+      "record_kind": "location_beat_population",
+      "beat_id": "c1s13-b005-infirmary-torbin-check",
+      "campaign_id": "longmont-c1",
+      "session_number": 13,
+      "source_recap_path": "Longmont Campaign/Campaign 1/Session Recaps/_normalized/Session 13 - The Meaty and the Dead.md",
+      "location_routes": [],
+      "location_labels": [
+        "infirmary"
+      ],
+      "entity_routes_present": [
+        "Longmont Campaign/Campaign 1/PCs/ephanna/",
+        "Longmont Campaign/Campaign 1/PCs/baergrom/",
+        "Longmont Campaign/Campaign 1/NPCs/professor_tealeaf/",
+        "Longmont Campaign/Campaign 1/NPCs/torbin/"
+      ],
+      "unit_ids": [
+        "u-L0013-01",
+        "u-L0013-02"
+      ],
+      "population_evidence": [
+        {
+          "entity_route": "Longmont Campaign/Campaign 1/PCs/ephanna/",
+          "entity_label": null,
+          "presence_kind": "explicit",
+          "entity_state": null,
+          "evidence_unit_ids": [
+            "u-L0013-01"
+          ]
+        },
+        {
+          "entity_route": "Longmont Campaign/Campaign 1/PCs/baergrom/",
+          "entity_label": null,
+          "presence_kind": "explicit",
+          "entity_state": null,
+          "evidence_unit_ids": [
+            "u-L0013-01"
+          ]
+        },
+        {
+          "entity_route": "Longmont Campaign/Campaign 1/NPCs/professor_tealeaf/",
+          "entity_label": null,
+          "presence_kind": "explicit",
+          "entity_state": null,
+          "evidence_unit_ids": [
+            "u-L0013-01",
+            "u-L0013-02"
+          ]
+        },
+        {
+          "entity_route": "Longmont Campaign/Campaign 1/NPCs/torbin/",
+          "entity_label": null,
+          "presence_kind": "explicit",
+          "entity_state": "injured",
+          "evidence_unit_ids": [
+            "u-L0013-01",
+            "u-L0013-02"
+          ]
+        }
+      ],
+      "lexical_plain": "c1s13 b005 infirmary torbin check infirmary ephanna explicit baergrom explicit professor_tealeaf explicit torbin explicit"
+    },
+    {
+      "schema": "dmb_location_beat_population_v1",
+      "record_kind": "location_beat_population",
+      "beat_id": "c1s13-b006-necromancer-ritual-prep-rest",
+      "campaign_id": "longmont-c1",
+      "session_number": 13,
+      "source_recap_path": "Longmont Campaign/Campaign 1/Session Recaps/_normalized/Session 13 - The Meaty and the Dead.md",
+      "location_routes": [
+        "Longmont Campaign/Campaign 1/Locations/stormspire_academy/"
+      ],
+      "location_labels": [],
+      "entity_routes_present": [
+        "Longmont Campaign/Campaign 1/NPCs/necromancer/",
+        "Longmont Campaign/Campaign 1/NPCs/wolf/"
+      ],
+      "unit_ids": [
+        "u-L0015-01",
+        "u-L0015-02",
+        "u-L0015-03",
+        "u-L0015-04"
+      ],
+      "population_evidence": [
+        {
+          "entity_route": "Longmont Campaign/Campaign 1/NPCs/necromancer/",
+          "entity_label": null,
+          "presence_kind": "explicit",
+          "entity_state": null,
+          "evidence_unit_ids": [
+            "u-L0015-01",
+            "u-L0015-02",
+            "u-L0015-03"
+          ]
+        },
+        {
+          "entity_route": "Longmont Campaign/Campaign 1/NPCs/wolf/",
+          "entity_label": null,
+          "presence_kind": "explicit",
+          "entity_state": "dead_body_or_head",
+          "evidence_unit_ids": [
+            "u-L0015-02"
+          ]
+        }
+      ],
+      "lexical_plain": "c1s13 b006 necromancer ritual prep rest Longmont Campaign/Campaign 1/Locations/stormspire_academy/ necromancer explicit wolf explicit"
+    },
+    {
+      "schema": "dmb_location_beat_population_v1",
+      "record_kind": "location_beat_population",
+      "beat_id": "c1s13-b006-necromancer-ritual-prep-rest",
+      "campaign_id": "longmont-c1",
+      "session_number": 13,
+      "source_recap_path": "Longmont Campaign/Campaign 1/Session Recaps/_normalized/Session 13 - The Meaty and the Dead.md",
+      "location_routes": [],
+      "location_labels": [
+        "study room"
+      ],
+      "entity_routes_present": [
+        "Longmont Campaign/Campaign 1/PCs/caelynn/"
+      ],
+      "unit_ids": [
+        "u-L0015-04",
+        "u-L0015-05"
+      ],
+      "population_evidence": [
+        {
+          "entity_route": "Longmont Campaign/Campaign 1/PCs/caelynn/",
+          "entity_label": null,
+          "presence_kind": "explicit",
+          "entity_state": null,
+          "evidence_unit_ids": [
+            "u-L0015-05"
+          ]
+        }
+      ],
+      "lexical_plain": "c1s13 b006 necromancer ritual prep rest study room caelynn explicit"
+    },
+    {
+      "schema": "dmb_location_beat_population_v1",
+      "record_kind": "location_beat_population",
+      "beat_id": "c1s13-b007-academy-regroup-meat-hunt-split",
+      "campaign_id": "longmont-c1",
+      "session_number": 13,
+      "source_recap_path": "Longmont Campaign/Campaign 1/Session Recaps/_normalized/Session 13 - The Meaty and the Dead.md",
+      "location_routes": [
+        "Longmont Campaign/Campaign 1/Locations/stormspire_academy/"
+      ],
+      "location_labels": [],
+      "entity_routes_present": [
+        "Longmont Campaign/Campaign 1/PCs/caelynn/",
+        "Longmont Campaign/Campaign 1/PCs/stafl/",
+        "Longmont Campaign/Campaign 1/PCs/bonogo/",
+        "Longmont Campaign/Campaign 1/PCs/baergrom/",
+        "Longmont Campaign/Campaign 1/PCs/karsemine/",
+        "Longmont Campaign/Campaign 1/PCs/ephanna/"
+      ],
+      "unit_ids": [
+        "u-L0017-01",
+        "u-L0017-02",
+        "u-L0017-03",
+        "u-L0017-04"
+      ],
+      "population_evidence": [
+        {
+          "entity_route": "Longmont Campaign/Campaign 1/PCs/caelynn/",
+          "entity_label": null,
+          "presence_kind": "explicit",
+          "entity_state": null,
+          "evidence_unit_ids": [
+            "u-L0017-01",
+            "u-L0017-03"
+          ]
+        },
+        {
+          "entity_route": "Longmont Campaign/Campaign 1/PCs/stafl/",
+          "entity_label": null,
+          "presence_kind": "explicit",
+          "entity_state": null,
+          "evidence_unit_ids": [
+            "u-L0017-03"
+          ]
+        },
+        {
+          "entity_route": "Longmont Campaign/Campaign 1/PCs/bonogo/",
+          "entity_label": null,
+          "presence_kind": "explicit",
+          "entity_state": null,
+          "evidence_unit_ids": [
+            "u-L0017-03"
+          ]
+        },
+        {
+          "entity_route": "Longmont Campaign/Campaign 1/PCs/baergrom/",
+          "entity_label": null,
+          "presence_kind": "explicit",
+          "entity_state": null,
+          "evidence_unit_ids": [
+            "u-L0017-03"
+          ]
+        },
+        {
+          "entity_route": "Longmont Campaign/Campaign 1/PCs/karsemine/",
+          "entity_label": null,
+          "presence_kind": "explicit",
+          "entity_state": null,
+          "evidence_unit_ids": [
+            "u-L0017-03"
+          ]
+        },
+        {
+          "entity_route": "Longmont Campaign/Campaign 1/PCs/ephanna/",
+          "entity_label": null,
+          "presence_kind": "explicit",
+          "entity_state": null,
+          "evidence_unit_ids": [
+            "u-L0017-04"
+          ]
+        }
+      ],
+      "lexical_plain": "c1s13 b007 academy regroup meat hunt split Longmont Campaign/Campaign 1/Locations/stormspire_academy/ caelynn explicit stafl explicit bonogo explicit baergrom explicit karsemine explicit ephanna explicit"
+    },
+    {
+      "schema": "dmb_location_beat_population_v1",
+      "record_kind": "location_beat_population",
+      "beat_id": "c1s13-b007-academy-regroup-meat-hunt-split",
+      "campaign_id": "longmont-c1",
+      "session_number": 13,
+      "source_recap_path": "Longmont Campaign/Campaign 1/Session Recaps/_normalized/Session 13 - The Meaty and the Dead.md",
+      "location_routes": [],
+      "location_labels": [
+        "infirmary"
+      ],
+      "entity_routes_present": [
+        "Longmont Campaign/Campaign 1/PCs/ephanna/"
+      ],
+      "unit_ids": [
+        "u-L0017-04"
+      ],
+      "population_evidence": [
+        {
+          "entity_route": "Longmont Campaign/Campaign 1/PCs/ephanna/",
+          "entity_label": null,
+          "presence_kind": "explicit",
+          "entity_state": null,
+          "evidence_unit_ids": [
+            "u-L0017-04"
+          ]
+        }
+      ],
+      "lexical_plain": "c1s13 b007 academy regroup meat hunt split infirmary ephanna explicit"
+    },
+    {
+      "schema": "dmb_location_beat_population_v1",
+      "record_kind": "location_beat_population",
+      "beat_id": "c1s13-b007-academy-regroup-meat-hunt-split",
+      "campaign_id": "longmont-c1",
+      "session_number": 13,
+      "source_recap_path": "Longmont Campaign/Campaign 1/Session Recaps/_normalized/Session 13 - The Meaty and the Dead.md",
+      "location_routes": [],
+      "location_labels": [
+        "outside ritual/study room"
+      ],
+      "entity_routes_present": [
+        "Longmont Campaign/Campaign 1/PCs/caelynn/"
+      ],
+      "unit_ids": [
+        "u-L0017-01"
+      ],
+      "population_evidence": [
+        {
+          "entity_route": "Longmont Campaign/Campaign 1/PCs/caelynn/",
+          "entity_label": null,
+          "presence_kind": "explicit",
+          "entity_state": null,
+          "evidence_unit_ids": [
+            "u-L0017-01"
+          ]
+        }
+      ],
+      "lexical_plain": "c1s13 b007 academy regroup meat hunt split outside ritual/study room caelynn explicit"
+    },
+    {
+      "schema": "dmb_location_beat_population_v1",
+      "record_kind": "location_beat_population",
+      "beat_id": "c1s13-b008-basement-morgue-questioning",
+      "campaign_id": "longmont-c1",
+      "session_number": 13,
+      "source_recap_path": "Longmont Campaign/Campaign 1/Session Recaps/_normalized/Session 13 - The Meaty and the Dead.md",
+      "location_routes": [
+        "Longmont Campaign/Campaign 1/Locations/basement_morgue/"
+      ],
+      "location_labels": [],
+      "entity_routes_present": [
+        "Longmont Campaign/Campaign 1/PCs/stafl/",
+        "Longmont Campaign/Campaign 1/PCs/bonogo/",
+        "Longmont Campaign/Campaign 1/NPCs/wolf/",
+        "Longmont Campaign/Campaign 1/NPCs/necromancer/"
+      ],
+      "unit_ids": [
+        "u-L0019-01",
+        "u-L0019-02",
+        "u-L0019-03",
+        "u-L0021-01",
+        "u-L0021-02",
+        "u-L0023-01",
+        "u-L0023-02",
+        "u-L0025-01",
+        "u-L0025-02",
+        "u-L0027-01",
+        "u-L0027-02",
+        "u-L0027-03",
+        "u-L0029-01",
+        "u-L0029-02",
+        "u-L0029-03",
+        "u-L0029-04",
+        "u-L0029-05"
+      ],
+      "population_evidence": [
+        {
+          "entity_route": "Longmont Campaign/Campaign 1/PCs/stafl/",
+          "entity_label": null,
+          "presence_kind": "explicit",
+          "entity_state": null,
+          "evidence_unit_ids": [
+            "u-L0019-01",
+            "u-L0019-03"
+          ]
+        },
+        {
+          "entity_route": "Longmont Campaign/Campaign 1/PCs/bonogo/",
+          "entity_label": null,
+          "presence_kind": "explicit",
+          "entity_state": null,
+          "evidence_unit_ids": [
+            "u-L0019-01",
+            "u-L0021-02"
+          ]
+        },
+        {
+          "entity_route": "Longmont Campaign/Campaign 1/NPCs/wolf/",
+          "entity_label": null,
+          "presence_kind": "explicit",
+          "entity_state": "dead_body_or_head",
+          "evidence_unit_ids": [
+            "u-L0019-01",
+            "u-L0019-02",
+            "u-L0021-01",
+            "u-L0021-02"
+          ]
+        },
+        {
+          "entity_route": "Longmont Campaign/Campaign 1/NPCs/necromancer/",
+          "entity_label": null,
+          "presence_kind": "explicit",
+          "entity_state": "ritual_leading",
+          "evidence_unit_ids": [
+            "u-L0019-01",
+            "u-L0019-03",
+            "u-L0029-01"
+          ]
+        }
+      ],
+      "lexical_plain": "c1s13 b008 basement morgue questioning Longmont Campaign/Campaign 1/Locations/basement_morgue/ stafl explicit bonogo explicit wolf explicit necromancer explicit"
+    },
+    {
+      "schema": "dmb_location_beat_population_v1",
+      "record_kind": "location_beat_population",
+      "beat_id": "c1s13-b009-basement-morgue-ambush-reveal",
+      "campaign_id": "longmont-c1",
+      "session_number": 13,
+      "source_recap_path": "Longmont Campaign/Campaign 1/Session Recaps/_normalized/Session 13 - The Meaty and the Dead.md",
+      "location_routes": [
+        "Longmont Campaign/Campaign 1/Locations/basement_morgue/"
+      ],
+      "location_labels": [],
+      "entity_routes_present": [
+        "Longmont Campaign/Campaign 1/NPCs/professor_cinderbranch/",
+        "Longmont Campaign/Campaign 1/NPCs/draven/",
+        "Longmont Campaign/Campaign 1/NPCs/elite_guard/",
+        "Longmont Campaign/Campaign 1/NPCs/sewer_meat_monster/"
+      ],
+      "unit_ids": [
+        "u-L0031-01",
+        "u-L0031-02",
+        "u-L0031-03"
+      ],
+      "population_evidence": [
+        {
+          "entity_route": "Longmont Campaign/Campaign 1/NPCs/professor_cinderbranch/",
+          "entity_label": null,
+          "presence_kind": "explicit",
+          "entity_state": "leaving_room",
+          "evidence_unit_ids": [
+            "u-L0031-01"
+          ]
+        },
+        {
+          "entity_route": "Longmont Campaign/Campaign 1/NPCs/draven/",
+          "entity_label": null,
+          "presence_kind": "explicit",
+          "entity_state": "locks_door",
+          "evidence_unit_ids": [
+            "u-L0031-01"
+          ]
+        },
+        {
+          "entity_route": "Longmont Campaign/Campaign 1/NPCs/elite_guard/",
+          "entity_label": null,
+          "presence_kind": "explicit",
+          "entity_state": "two_present",
+          "evidence_unit_ids": [
+            "u-L0031-02"
+          ]
+        },
+        {
+          "entity_route": "Longmont Campaign/Campaign 1/NPCs/sewer_meat_monster/",
+          "entity_label": null,
+          "presence_kind": "explicit",
+          "entity_state": null,
+          "evidence_unit_ids": [
+            "u-L0031-02",
+            "u-L0031-03"
+          ]
+        }
+      ],
+      "lexical_plain": "c1s13 b009 basement morgue ambush reveal Longmont Campaign/Campaign 1/Locations/basement_morgue/ professor_cinderbranch explicit draven explicit elite_guard explicit sewer_meat_monster explicit"
+    },
+    {
+      "schema": "dmb_location_beat_population_v1",
+      "record_kind": "location_beat_population",
+      "beat_id": "c1s13-b010-basement-morgue-combat-exchange",
+      "campaign_id": "longmont-c1",
+      "session_number": 13,
+      "source_recap_path": "Longmont Campaign/Campaign 1/Session Recaps/_normalized/Session 13 - The Meaty and the Dead.md",
+      "location_routes": [
+        "Longmont Campaign/Campaign 1/Locations/basement_morgue/"
+      ],
+      "location_labels": [],
+      "entity_routes_present": [
+        "Longmont Campaign/Campaign 1/NPCs/draven/",
+        "Longmont Campaign/Campaign 1/PCs/stafl/",
+        "Longmont Campaign/Campaign 1/PCs/bonogo/",
+        "Longmont Campaign/Campaign 1/NPCs/elite_guard/",
+        "Longmont Campaign/Campaign 1/NPCs/sewer_meat_monster/"
+      ],
+      "unit_ids": [
+        "u-L0033-01",
+        "u-L0033-02",
+        "u-L0033-03",
+        "u-L0033-04",
+        "u-L0033-05",
+        "u-L0035-01",
+        "u-L0035-02",
+        "u-L0035-03",
+        "u-L0035-04"
+      ],
+      "population_evidence": [
+        {
+          "entity_route": "Longmont Campaign/Campaign 1/NPCs/draven/",
+          "entity_label": null,
+          "presence_kind": "explicit",
+          "entity_state": "casting_fear",
+          "evidence_unit_ids": [
+            "u-L0033-01",
+            "u-L0033-04",
+            "u-L0033-05"
+          ]
+        },
+        {
+          "entity_route": "Longmont Campaign/Campaign 1/PCs/stafl/",
+          "entity_label": null,
+          "presence_kind": "explicit",
+          "entity_state": null,
+          "evidence_unit_ids": [
+            "u-L0033-01",
+            "u-L0033-02",
+            "u-L0033-03",
+            "u-L0033-04",
+            "u-L0035-04"
+          ]
+        },
+        {
+          "entity_route": "Longmont Campaign/Campaign 1/PCs/bonogo/",
+          "entity_label": null,
+          "presence_kind": "explicit",
+          "entity_state": "targeted_by_fear",
+          "evidence_unit_ids": [
+            "u-L0033-01",
+            "u-L0033-05",
+            "u-L0035-01",
+            "u-L0035-02",
+            "u-L0035-03"
+          ]
+        },
+        {
+          "entity_route": "Longmont Campaign/Campaign 1/NPCs/elite_guard/",
+          "entity_label": null,
+          "presence_kind": "explicit",
+          "entity_state": "attacking",
+          "evidence_unit_ids": [
+            "u-L0033-03",
+            "u-L0035-01",
+            "u-L0035-02",
+            "u-L0035-04"
+          ]
+        },
+        {
+          "entity_route": "Longmont Campaign/Campaign 1/NPCs/sewer_meat_monster/",
+          "entity_label": null,
+          "presence_kind": "explicit",
+          "entity_state": "attacking",
+          "evidence_unit_ids": [
+            "u-L0035-03"
+          ]
+        }
+      ],
+      "lexical_plain": "c1s13 b010 basement morgue combat exchange Longmont Campaign/Campaign 1/Locations/basement_morgue/ draven explicit stafl explicit bonogo explicit elite_guard explicit sewer_meat_monster explicit"
+    },
+    {
+      "schema": "dmb_location_beat_population_v1",
+      "record_kind": "location_beat_population",
+      "beat_id": "c1s13-b011-morgue-doorway-retreat",
+      "campaign_id": "longmont-c1",
+      "session_number": 13,
+      "source_recap_path": "Longmont Campaign/Campaign 1/Session Recaps/_normalized/Session 13 - The Meaty and the Dead.md",
+      "location_routes": [
+        "Longmont Campaign/Campaign 1/Locations/basement_morgue/"
+      ],
+      "location_labels": [],
+      "entity_routes_present": [
+        "Longmont Campaign/Campaign 1/PCs/stafl/",
+        "Longmont Campaign/Campaign 1/PCs/bonogo/",
+        "Longmont Campaign/Campaign 1/NPCs/elite_guard/"
+      ],
+      "unit_ids": [
+        "u-L0037-01",
+        "u-L0037-02"
+      ],
+      "population_evidence": [
+        {
+          "entity_route": "Longmont Campaign/Campaign 1/PCs/stafl/",
+          "entity_label": null,
+          "presence_kind": "explicit",
+          "entity_state": null,
+          "evidence_unit_ids": [
+            "u-L0037-01"
+          ]
+        },
+        {
+          "entity_route": "Longmont Campaign/Campaign 1/PCs/bonogo/",
+          "entity_label": null,
+          "presence_kind": "explicit",
+          "entity_state": "retreating",
+          "evidence_unit_ids": [
+            "u-L0037-02"
+          ]
+        },
+        {
+          "entity_route": "Longmont Campaign/Campaign 1/NPCs/elite_guard/",
+          "entity_label": null,
+          "presence_kind": "explicit",
+          "entity_state": "sleeping_then_killed",
+          "evidence_unit_ids": [
+            "u-L0037-02"
+          ]
+        }
+      ],
+      "lexical_plain": "c1s13 b011 morgue doorway retreat Longmont Campaign/Campaign 1/Locations/basement_morgue/ stafl explicit bonogo explicit elite_guard explicit"
+    },
+    {
+      "schema": "dmb_location_beat_population_v1",
+      "record_kind": "location_beat_population",
+      "beat_id": "c1s13-b011-morgue-doorway-retreat",
+      "campaign_id": "longmont-c1",
+      "session_number": 13,
+      "source_recap_path": "Longmont Campaign/Campaign 1/Session Recaps/_normalized/Session 13 - The Meaty and the Dead.md",
+      "location_routes": [],
+      "location_labels": [
+        "morgue doorway/hall outside door"
+      ],
+      "entity_routes_present": [
+        "Longmont Campaign/Campaign 1/PCs/stafl/",
+        "Longmont Campaign/Campaign 1/PCs/bonogo/",
+        "Longmont Campaign/Campaign 1/NPCs/elite_guard/"
+      ],
+      "unit_ids": [
+        "u-L0037-01",
+        "u-L0037-02"
+      ],
+      "population_evidence": [
+        {
+          "entity_route": "Longmont Campaign/Campaign 1/PCs/stafl/",
+          "entity_label": null,
+          "presence_kind": "explicit",
+          "entity_state": null,
+          "evidence_unit_ids": [
+            "u-L0037-01"
+          ]
+        },
+        {
+          "entity_route": "Longmont Campaign/Campaign 1/PCs/bonogo/",
+          "entity_label": null,
+          "presence_kind": "explicit",
+          "entity_state": "retreating",
+          "evidence_unit_ids": [
+            "u-L0037-02"
+          ]
+        },
+        {
+          "entity_route": "Longmont Campaign/Campaign 1/NPCs/elite_guard/",
+          "entity_label": null,
+          "presence_kind": "explicit",
+          "entity_state": "sleeping_then_killed",
+          "evidence_unit_ids": [
+            "u-L0037-02"
+          ]
+        }
+      ],
+      "lexical_plain": "c1s13 b011 morgue doorway retreat morgue doorway/hall outside door stafl explicit bonogo explicit elite_guard explicit"
+    },
+    {
+      "schema": "dmb_location_beat_population_v1",
+      "record_kind": "location_beat_population",
+      "beat_id": "c1s13-b012-post-fight-report-resupply",
+      "campaign_id": "longmont-c1",
+      "session_number": 13,
+      "source_recap_path": "Longmont Campaign/Campaign 1/Session Recaps/_normalized/Session 13 - The Meaty and the Dead.md",
+      "location_routes": [
+        "Longmont Campaign/Campaign 1/Locations/basement_morgue/"
+      ],
+      "location_labels": [],
+      "entity_routes_present": [
+        "Longmont Campaign/Campaign 1/NPCs/professor_cinderbranch/"
+      ],
+      "unit_ids": [
+        "u-L0039-01",
+        "u-L0039-02"
+      ],
+      "population_evidence": [
+        {
+          "entity_route": "Longmont Campaign/Campaign 1/NPCs/professor_cinderbranch/",
+          "entity_label": null,
+          "presence_kind": "explicit",
+          "entity_state": null,
+          "evidence_unit_ids": [
+            "u-L0039-01"
+          ]
+        },
+        {
+          "entity_route": null,
+          "entity_label": "mages",
+          "presence_kind": "explicit",
+          "entity_state": "assisting_resupply",
+          "evidence_unit_ids": [
+            "u-L0039-02"
+          ]
+        }
+      ],
+      "lexical_plain": "c1s13 b012 post fight report resupply Longmont Campaign/Campaign 1/Locations/basement_morgue/ professor_cinderbranch explicit mages explicit"
+    },
+    {
+      "schema": "dmb_location_beat_population_v1",
+      "record_kind": "location_beat_population",
+      "beat_id": "c1s13-b012-post-fight-report-resupply",
+      "campaign_id": "longmont-c1",
+      "session_number": 13,
+      "source_recap_path": "Longmont Campaign/Campaign 1/Session Recaps/_normalized/Session 13 - The Meaty and the Dead.md",
+      "location_routes": [],
+      "location_labels": [
+        "tunnel below academy"
+      ],
+      "entity_routes_present": [],
+      "unit_ids": [
+        "u-L0039-02"
+      ],
+      "population_evidence": [
+        {
+          "entity_route": null,
+          "entity_label": "mages",
+          "presence_kind": "explicit",
+          "entity_state": "assisting_resupply",
+          "evidence_unit_ids": [
+            "u-L0039-02"
+          ]
+        }
+      ],
+      "lexical_plain": "c1s13 b012 post fight report resupply tunnel below academy mages explicit"
+    }
+  ],
+  "gold_compare": {
+    "gold_beat_count": 12,
+    "model_beat_count": 12,
+    "missing_beats": [
+      "c1s13-b001-plan-academy-departure",
+      "c1s13-b002-street-meat-incident",
+      "c1s13-b003-stormspire-arrival-desk",
+      "c1s13-b004-stormspire-options-and-split",
+      "c1s13-b005-infirmary-torbin-thread",
+      "c1s13-b006-study-room-short-rest",
+      "c1s13-b007-escaped-meat-second-split",
+      "c1s13-b008-basement-morgue-speak-with-dead",
+      "c1s13-b009-morgue-ambush-opens",
+      "c1s13-b010-morgue-fight-draven-kill",
+      "c1s13-b011-morgue-fight-escape-and-sleep",
+      "c1s13-b012-post-ambush-empty-room-tunnel"
+    ],
+    "extra_beats": [
+      "c1s13-b001-council-exit-guard-stop",
+      "c1s13-b002-street-meat-inspection",
+      "c1s13-b003-academy-intake-briefing",
+      "c1s13-b004-academy-split-planning",
+      "c1s13-b005-infirmary-torbin-check",
+      "c1s13-b006-necromancer-ritual-prep-rest",
+      "c1s13-b007-academy-regroup-meat-hunt-split",
+      "c1s13-b008-basement-morgue-questioning",
+      "c1s13-b009-basement-morgue-ambush-reveal",
+      "c1s13-b010-basement-morgue-combat-exchange",
+      "c1s13-b011-morgue-doorway-retreat",
+      "c1s13-b012-post-fight-report-resupply"
+    ],
+    "dimension_pass_rates": {
+      "beat_unit_membership": 0.0,
+      "location_routes_and_labels": 0.0,
+      "present_population": 0.0,
+      "mentioned_only_population": 0.0
+    },
+    "unit_span_alignment": {
+      "exact_unit_span_matches": 10,
+      "best_unit_jaccard_mean": 0.9099
+    },
+    "per_beat": [
+      {
+        "beat_id": "c1s13-b001-plan-academy-departure",
+        "unit_ids_match": false,
+        "gold_unit_ids": [
+          "u-L0003-01",
+          "u-L0003-02",
+          "u-L0003-03",
+          "u-L0003-04"
+        ],
+        "model_unit_ids": [],
+        "missing_unit_ids": [
+          "u-L0003-01",
+          "u-L0003-02",
+          "u-L0003-03",
+          "u-L0003-04"
+        ],
+        "extra_unit_ids": [],
+        "location_gold": [
+          "Longmont Campaign/Campaign 1/Locations/council_chambers/"
+        ],
+        "location_model": [],
+        "present_population_match": false,
+        "gold_present_population": [
+          [
+            "label:alerted guards",
+            "explicit"
+          ],
+          [
+            "route:Longmont Campaign/Campaign 1/NPCs/thalia/",
+            "explicit"
+          ],
+          [
+            "route:Longmont Campaign/Campaign 1/NPCs/wolf/",
+            "explicit"
+          ],
+          [
+            "route:Longmont Campaign/Campaign 1/PCs/baergrom/",
+            "carried"
+          ],
+          [
+            "route:Longmont Campaign/Campaign 1/PCs/bonogo/",
+            "explicit"
+          ],
+          [
+            "route:Longmont Campaign/Campaign 1/PCs/caelynn/",
+            "carried"
+          ],
+          [
+            "route:Longmont Campaign/Campaign 1/PCs/ephanna/",
+            "carried"
+          ],
+          [
+            "route:Longmont Campaign/Campaign 1/PCs/karsemine/",
+            "carried"
+          ],
+          [
+            "route:Longmont Campaign/Campaign 1/PCs/stafl/",
+            "carried"
+          ]
+        ],
+        "model_present_population": [],
+        "mentioned_only_match": true,
+        "gold_mentioned_only": [],
+        "model_mentioned_only": [],
+        "best_model_unit_span_match": {
+          "beat_id": "c1s13-b001-council-exit-guard-stop",
+          "unit_jaccard": 1.0,
+          "overlap_count": 4,
+          "unit_ids": [
+            "u-L0003-01",
+            "u-L0003-02",
+            "u-L0003-03",
+            "u-L0003-04"
+          ],
+          "missing_unit_ids": [],
+          "extra_unit_ids": []
+        }
+      },
+      {
+        "beat_id": "c1s13-b002-street-meat-incident",
+        "unit_ids_match": false,
+        "gold_unit_ids": [
+          "u-L0005-01",
+          "u-L0005-02",
+          "u-L0005-03",
+          "u-L0005-04"
+        ],
+        "model_unit_ids": [],
+        "missing_unit_ids": [
+          "u-L0005-01",
+          "u-L0005-02",
+          "u-L0005-03",
+          "u-L0005-04"
+        ],
+        "extra_unit_ids": [],
+        "location_gold": [
+          "street between council chambers and stormspire academy"
+        ],
+        "location_model": [],
+        "present_population_match": false,
+        "gold_present_population": [
+          [
+            "label:covert ops group",
+            "explicit"
+          ],
+          [
+            "label:guards",
+            "explicit"
+          ],
+          [
+            "label:mage",
+            "explicit"
+          ],
+          [
+            "label:party",
+            "carried"
+          ],
+          [
+            "route:Longmont Campaign/Campaign 1/PCs/baergrom/",
+            "explicit"
+          ],
+          [
+            "route:Longmont Campaign/Campaign 1/PCs/bonogo/",
+            "explicit"
+          ]
+        ],
+        "model_present_population": [],
+        "mentioned_only_match": true,
+        "gold_mentioned_only": [],
+        "model_mentioned_only": [],
+        "best_model_unit_span_match": {
+          "beat_id": "c1s13-b002-street-meat-inspection",
+          "unit_jaccard": 1.0,
+          "overlap_count": 4,
+          "unit_ids": [
+            "u-L0005-01",
+            "u-L0005-02",
+            "u-L0005-03",
+            "u-L0005-04"
+          ],
+          "missing_unit_ids": [],
+          "extra_unit_ids": []
+        }
+      },
+      {
+        "beat_id": "c1s13-b003-stormspire-arrival-desk",
+        "unit_ids_match": false,
+        "gold_unit_ids": [
+          "u-L0007-01",
+          "u-L0007-02",
+          "u-L0007-03",
+          "u-L0007-04",
+          "u-L0007-05"
+        ],
+        "model_unit_ids": [],
+        "missing_unit_ids": [
+          "u-L0007-01",
+          "u-L0007-02",
+          "u-L0007-03",
+          "u-L0007-04",
+          "u-L0007-05"
+        ],
+        "extra_unit_ids": [],
+        "location_gold": [
+          "Longmont Campaign/Campaign 1/Locations/stormspire_academy/"
+        ],
+        "location_model": [],
+        "present_population_match": false,
+        "gold_present_population": [
+          [
+            "label:party",
+            "explicit"
+          ],
+          [
+            "label:wizards",
+            "explicit"
+          ],
+          [
+            "route:Longmont Campaign/Campaign 1/NPCs/mossglade/",
+            "explicit"
+          ],
+          [
+            "route:Longmont Campaign/Campaign 1/NPCs/professor_cinderbranch/",
+            "explicit"
+          ],
+          [
+            "route:Longmont Campaign/Campaign 1/NPCs/wolf/",
+            "explicit"
+          ]
+        ],
+        "model_present_population": [],
+        "mentioned_only_match": true,
+        "gold_mentioned_only": [],
+        "model_mentioned_only": [],
+        "best_model_unit_span_match": {
+          "beat_id": "c1s13-b003-academy-intake-briefing",
+          "unit_jaccard": 1.0,
+          "overlap_count": 5,
+          "unit_ids": [
+            "u-L0007-01",
+            "u-L0007-02",
+            "u-L0007-03",
+            "u-L0007-04",
+            "u-L0007-05"
+          ],
+          "missing_unit_ids": [],
+          "extra_unit_ids": []
+        }
+      },
+      {
+        "beat_id": "c1s13-b004-stormspire-options-and-split",
+        "unit_ids_match": false,
+        "gold_unit_ids": [
+          "u-L0009-01",
+          "u-L0009-02",
+          "u-L0011-01",
+          "u-L0011-02",
+          "u-L0011-03"
+        ],
+        "model_unit_ids": [],
+        "missing_unit_ids": [
+          "u-L0009-01",
+          "u-L0009-02",
+          "u-L0011-01",
+          "u-L0011-02",
+          "u-L0011-03"
+        ],
+        "extra_unit_ids": [],
+        "location_gold": [
+          "Longmont Campaign/Campaign 1/Locations/stormspire_academy/",
+          "desk area",
+          "infirmary",
+          "necromancer route"
+        ],
+        "location_model": [],
+        "present_population_match": false,
+        "gold_present_population": [
+          [
+            "label:party",
+            "explicit"
+          ],
+          [
+            "route:Longmont Campaign/Campaign 1/NPCs/mossglade/",
+            "explicit"
+          ],
+          [
+            "route:Longmont Campaign/Campaign 1/NPCs/professor_cinderbranch/",
+            "explicit"
+          ]
+        ],
+        "model_present_population": [],
+        "mentioned_only_match": false,
+        "gold_mentioned_only": [
+          "route:Longmont Campaign/Campaign 1/NPCs/necromancer/",
+          "route:Longmont Campaign/Campaign 1/NPCs/professor_tealeaf/",
+          "route:Longmont Campaign/Campaign 1/NPCs/torbin/"
+        ],
+        "model_mentioned_only": [],
+        "best_model_unit_span_match": {
+          "beat_id": "c1s13-b004-academy-split-planning",
+          "unit_jaccard": 1.0,
+          "overlap_count": 5,
+          "unit_ids": [
+            "u-L0009-01",
+            "u-L0009-02",
+            "u-L0011-01",
+            "u-L0011-02",
+            "u-L0011-03"
+          ],
+          "missing_unit_ids": [],
+          "extra_unit_ids": []
+        }
+      },
+      {
+        "beat_id": "c1s13-b005-infirmary-torbin-thread",
+        "unit_ids_match": false,
+        "gold_unit_ids": [
+          "u-L0013-01",
+          "u-L0013-02"
+        ],
+        "model_unit_ids": [],
+        "missing_unit_ids": [
+          "u-L0013-01",
+          "u-L0013-02"
+        ],
+        "extra_unit_ids": [],
+        "location_gold": [
+          "Longmont Campaign/Campaign 1/Locations/infirmary/"
+        ],
+        "location_model": [],
+        "present_population_match": false,
+        "gold_present_population": [
+          [
+            "route:Longmont Campaign/Campaign 1/NPCs/professor_tealeaf/",
+            "explicit"
+          ],
+          [
+            "route:Longmont Campaign/Campaign 1/NPCs/torbin/",
+            "explicit"
+          ],
+          [
+            "route:Longmont Campaign/Campaign 1/PCs/baergrom/",
+            "explicit"
+          ],
+          [
+            "route:Longmont Campaign/Campaign 1/PCs/ephanna/",
+            "explicit"
+          ]
+        ],
+        "model_present_population": [],
+        "mentioned_only_match": true,
+        "gold_mentioned_only": [],
+        "model_mentioned_only": [],
+        "best_model_unit_span_match": {
+          "beat_id": "c1s13-b005-infirmary-torbin-check",
+          "unit_jaccard": 1.0,
+          "overlap_count": 2,
+          "unit_ids": [
+            "u-L0013-01",
+            "u-L0013-02"
+          ],
+          "missing_unit_ids": [],
+          "extra_unit_ids": []
+        }
+      },
+      {
+        "beat_id": "c1s13-b006-study-room-short-rest",
+        "unit_ids_match": false,
+        "gold_unit_ids": [
+          "u-L0015-01",
+          "u-L0015-02",
+          "u-L0015-03",
+          "u-L0015-04",
+          "u-L0015-05"
+        ],
+        "model_unit_ids": [],
+        "missing_unit_ids": [
+          "u-L0015-01",
+          "u-L0015-02",
+          "u-L0015-03",
+          "u-L0015-04",
+          "u-L0015-05"
+        ],
+        "extra_unit_ids": [],
+        "location_gold": [
+          "Longmont Campaign/Campaign 1/Locations/study_room/"
+        ],
+        "location_model": [],
+        "present_population_match": false,
+        "gold_present_population": [
+          [
+            "route:Longmont Campaign/Campaign 1/NPCs/necromancer/",
+            "explicit"
+          ],
+          [
+            "route:Longmont Campaign/Campaign 1/NPCs/wolf/",
+            "explicit"
+          ],
+          [
+            "route:Longmont Campaign/Campaign 1/PCs/bonogo/",
+            "carried"
+          ],
+          [
+            "route:Longmont Campaign/Campaign 1/PCs/caelynn/",
+            "explicit"
+          ],
+          [
+            "route:Longmont Campaign/Campaign 1/PCs/karsemine/",
+            "carried"
+          ],
+          [
+            "route:Longmont Campaign/Campaign 1/PCs/stafl/",
+            "carried"
+          ]
+        ],
+        "model_present_population": [],
+        "mentioned_only_match": true,
+        "gold_mentioned_only": [],
+        "model_mentioned_only": [],
+        "best_model_unit_span_match": {
+          "beat_id": "c1s13-b006-necromancer-ritual-prep-rest",
+          "unit_jaccard": 1.0,
+          "overlap_count": 5,
+          "unit_ids": [
+            "u-L0015-01",
+            "u-L0015-02",
+            "u-L0015-03",
+            "u-L0015-04",
+            "u-L0015-05"
+          ],
+          "missing_unit_ids": [],
+          "extra_unit_ids": []
+        }
+      },
+      {
+        "beat_id": "c1s13-b007-escaped-meat-second-split",
+        "unit_ids_match": false,
+        "gold_unit_ids": [
+          "u-L0017-01",
+          "u-L0017-02",
+          "u-L0017-03",
+          "u-L0017-04"
+        ],
+        "model_unit_ids": [],
+        "missing_unit_ids": [
+          "u-L0017-01",
+          "u-L0017-02",
+          "u-L0017-03",
+          "u-L0017-04"
+        ],
+        "extra_unit_ids": [],
+        "location_gold": [
+          "Longmont Campaign/Campaign 1/Locations/stormspire_academy/"
+        ],
+        "location_model": [],
+        "present_population_match": false,
+        "gold_present_population": [
+          [
+            "label:escaped meat",
+            "explicit"
+          ],
+          [
+            "label:party",
+            "explicit"
+          ],
+          [
+            "route:Longmont Campaign/Campaign 1/NPCs/torbin/",
+            "explicit"
+          ],
+          [
+            "route:Longmont Campaign/Campaign 1/PCs/baergrom/",
+            "explicit"
+          ],
+          [
+            "route:Longmont Campaign/Campaign 1/PCs/bonogo/",
+            "explicit"
+          ],
+          [
+            "route:Longmont Campaign/Campaign 1/PCs/caelynn/",
+            "explicit"
+          ],
+          [
+            "route:Longmont Campaign/Campaign 1/PCs/ephanna/",
+            "explicit"
+          ],
+          [
+            "route:Longmont Campaign/Campaign 1/PCs/karsemine/",
+            "explicit"
+          ],
+          [
+            "route:Longmont Campaign/Campaign 1/PCs/stafl/",
+            "explicit"
+          ]
+        ],
+        "model_present_population": [],
+        "mentioned_only_match": false,
+        "gold_mentioned_only": [
+          "route:Longmont Campaign/Campaign 1/NPCs/necromancer/"
+        ],
+        "model_mentioned_only": [],
+        "best_model_unit_span_match": {
+          "beat_id": "c1s13-b007-academy-regroup-meat-hunt-split",
+          "unit_jaccard": 1.0,
+          "overlap_count": 4,
+          "unit_ids": [
+            "u-L0017-01",
+            "u-L0017-02",
+            "u-L0017-03",
+            "u-L0017-04"
+          ],
+          "missing_unit_ids": [],
+          "extra_unit_ids": []
+        }
+      },
+      {
+        "beat_id": "c1s13-b008-basement-morgue-speak-with-dead",
+        "unit_ids_match": false,
+        "gold_unit_ids": [
+          "u-L0019-01",
+          "u-L0019-02",
+          "u-L0019-03",
+          "u-L0021-01",
+          "u-L0021-02",
+          "u-L0023-01",
+          "u-L0023-02",
+          "u-L0025-01",
+          "u-L0025-02",
+          "u-L0027-01",
+          "u-L0027-02",
+          "u-L0027-03",
+          "u-L0029-01",
+          "u-L0029-02",
+          "u-L0029-03",
+          "u-L0029-04",
+          "u-L0029-05"
+        ],
+        "model_unit_ids": [],
+        "missing_unit_ids": [
+          "u-L0019-01",
+          "u-L0019-02",
+          "u-L0019-03",
+          "u-L0021-01",
+          "u-L0021-02",
+          "u-L0023-01",
+          "u-L0023-02",
+          "u-L0025-01",
+          "u-L0025-02",
+          "u-L0027-01",
+          "u-L0027-02",
+          "u-L0027-03",
+          "u-L0029-01",
+          "u-L0029-02",
+          "u-L0029-03",
+          "u-L0029-04",
+          "u-L0029-05"
+        ],
+        "extra_unit_ids": [],
+        "location_gold": [
+          "Longmont Campaign/Campaign 1/Locations/basement_morgue/",
+          "Longmont Campaign/Campaign 1/Locations/ritual_room/"
+        ],
+        "location_model": [],
+        "present_population_match": false,
+        "gold_present_population": [
+          [
+            "route:Longmont Campaign/Campaign 1/NPCs/necromancer/",
+            "explicit"
+          ],
+          [
+            "route:Longmont Campaign/Campaign 1/NPCs/wolf/",
+            "explicit"
+          ],
+          [
+            "route:Longmont Campaign/Campaign 1/PCs/bonogo/",
+            "explicit"
+          ],
+          [
+            "route:Longmont Campaign/Campaign 1/PCs/stafl/",
+            "explicit"
+          ]
+        ],
+        "model_present_population": [],
+        "mentioned_only_match": false,
+        "gold_mentioned_only": [
+          "route:Longmont Campaign/Campaign 1/NPCs/lira/",
+          "route:Longmont Campaign/Campaign 1/NPCs/shepherd/"
+        ],
+        "model_mentioned_only": [],
+        "best_model_unit_span_match": {
+          "beat_id": "c1s13-b008-basement-morgue-questioning",
+          "unit_jaccard": 1.0,
+          "overlap_count": 17,
+          "unit_ids": [
+            "u-L0019-01",
+            "u-L0019-02",
+            "u-L0019-03",
+            "u-L0021-01",
+            "u-L0021-02",
+            "u-L0023-01",
+            "u-L0023-02",
+            "u-L0025-01",
+            "u-L0025-02",
+            "u-L0027-01",
+            "u-L0027-02",
+            "u-L0027-03",
+            "u-L0029-01",
+            "u-L0029-02",
+            "u-L0029-03",
+            "u-L0029-04",
+            "u-L0029-05"
+          ],
+          "missing_unit_ids": [],
+          "extra_unit_ids": []
+        }
+      },
+      {
+        "beat_id": "c1s13-b009-morgue-ambush-opens",
+        "unit_ids_match": false,
+        "gold_unit_ids": [
+          "u-L0031-01",
+          "u-L0031-02",
+          "u-L0031-03"
+        ],
+        "model_unit_ids": [],
+        "missing_unit_ids": [
+          "u-L0031-01",
+          "u-L0031-02",
+          "u-L0031-03"
+        ],
+        "extra_unit_ids": [],
+        "location_gold": [
+          "Longmont Campaign/Campaign 1/Locations/basement_morgue/",
+          "Longmont Campaign/Campaign 1/Locations/ritual_room/"
+        ],
+        "location_model": [],
+        "present_population_match": false,
+        "gold_present_population": [
+          [
+            "route:Longmont Campaign/Campaign 1/NPCs/draven/",
+            "explicit"
+          ],
+          [
+            "route:Longmont Campaign/Campaign 1/NPCs/elite_guard/",
+            "explicit"
+          ],
+          [
+            "route:Longmont Campaign/Campaign 1/NPCs/professor_cinderbranch/",
+            "explicit"
+          ],
+          [
+            "route:Longmont Campaign/Campaign 1/NPCs/sewer_meat_monster/",
+            "explicit"
+          ],
+          [
+            "route:Longmont Campaign/Campaign 1/PCs/bonogo/",
+            "carried"
+          ],
+          [
+            "route:Longmont Campaign/Campaign 1/PCs/stafl/",
+            "carried"
+          ]
+        ],
+        "model_present_population": [],
+        "mentioned_only_match": true,
+        "gold_mentioned_only": [],
+        "model_mentioned_only": [],
+        "best_model_unit_span_match": {
+          "beat_id": "c1s13-b009-basement-morgue-ambush-reveal",
+          "unit_jaccard": 1.0,
+          "overlap_count": 3,
+          "unit_ids": [
+            "u-L0031-01",
+            "u-L0031-02",
+            "u-L0031-03"
+          ],
+          "missing_unit_ids": [],
+          "extra_unit_ids": []
+        }
+      },
+      {
+        "beat_id": "c1s13-b010-morgue-fight-draven-kill",
+        "unit_ids_match": false,
+        "gold_unit_ids": [
+          "u-L0033-01",
+          "u-L0033-02",
+          "u-L0033-03",
+          "u-L0033-04",
+          "u-L0033-05"
+        ],
+        "model_unit_ids": [],
+        "missing_unit_ids": [
+          "u-L0033-01",
+          "u-L0033-02",
+          "u-L0033-03",
+          "u-L0033-04",
+          "u-L0033-05"
+        ],
+        "extra_unit_ids": [],
+        "location_gold": [
+          "Longmont Campaign/Campaign 1/Locations/basement_morgue/"
+        ],
+        "location_model": [],
+        "present_population_match": false,
+        "gold_present_population": [
+          [
+            "route:Longmont Campaign/Campaign 1/NPCs/draven/",
+            "explicit"
+          ],
+          [
+            "route:Longmont Campaign/Campaign 1/NPCs/elite_guard/",
+            "explicit"
+          ],
+          [
+            "route:Longmont Campaign/Campaign 1/NPCs/necromancer/",
+            "explicit"
+          ],
+          [
+            "route:Longmont Campaign/Campaign 1/NPCs/sewer_meat_monster/",
+            "carried"
+          ],
+          [
+            "route:Longmont Campaign/Campaign 1/PCs/bonogo/",
+            "explicit"
+          ],
+          [
+            "route:Longmont Campaign/Campaign 1/PCs/stafl/",
+            "explicit"
+          ]
+        ],
+        "model_present_population": [],
+        "mentioned_only_match": true,
+        "gold_mentioned_only": [],
+        "model_mentioned_only": [],
+        "best_model_unit_span_match": {
+          "beat_id": "c1s13-b010-basement-morgue-combat-exchange",
+          "unit_jaccard": 0.5556,
+          "overlap_count": 5,
+          "unit_ids": [
+            "u-L0033-01",
+            "u-L0033-02",
+            "u-L0033-03",
+            "u-L0033-04",
+            "u-L0033-05",
+            "u-L0035-01",
+            "u-L0035-02",
+            "u-L0035-03",
+            "u-L0035-04"
+          ],
+          "missing_unit_ids": [],
+          "extra_unit_ids": [
+            "u-L0035-01",
+            "u-L0035-02",
+            "u-L0035-03",
+            "u-L0035-04"
+          ]
+        }
+      },
+      {
+        "beat_id": "c1s13-b011-morgue-fight-escape-and-sleep",
+        "unit_ids_match": false,
+        "gold_unit_ids": [
+          "u-L0035-01",
+          "u-L0035-02",
+          "u-L0035-03",
+          "u-L0035-04",
+          "u-L0037-01",
+          "u-L0037-02"
+        ],
+        "model_unit_ids": [],
+        "missing_unit_ids": [
+          "u-L0035-01",
+          "u-L0035-02",
+          "u-L0035-03",
+          "u-L0035-04",
+          "u-L0037-01",
+          "u-L0037-02"
+        ],
+        "extra_unit_ids": [],
+        "location_gold": [
+          "Longmont Campaign/Campaign 1/Locations/basement_morgue/",
+          "morgue doorway"
+        ],
+        "location_model": [],
+        "present_population_match": false,
+        "gold_present_population": [
+          [
+            "route:Longmont Campaign/Campaign 1/NPCs/elite_guard/",
+            "explicit"
+          ],
+          [
+            "route:Longmont Campaign/Campaign 1/NPCs/sewer_meat_monster/",
+            "explicit"
+          ],
+          [
+            "route:Longmont Campaign/Campaign 1/PCs/bonogo/",
+            "explicit"
+          ],
+          [
+            "route:Longmont Campaign/Campaign 1/PCs/stafl/",
+            "explicit"
+          ]
+        ],
+        "model_present_population": [],
+        "mentioned_only_match": true,
+        "gold_mentioned_only": [],
+        "model_mentioned_only": [],
+        "best_model_unit_span_match": {
+          "beat_id": "c1s13-b010-basement-morgue-combat-exchange",
+          "unit_jaccard": 0.3636,
+          "overlap_count": 4,
+          "unit_ids": [
+            "u-L0033-01",
+            "u-L0033-02",
+            "u-L0033-03",
+            "u-L0033-04",
+            "u-L0033-05",
+            "u-L0035-01",
+            "u-L0035-02",
+            "u-L0035-03",
+            "u-L0035-04"
+          ],
+          "missing_unit_ids": [
+            "u-L0037-01",
+            "u-L0037-02"
+          ],
+          "extra_unit_ids": [
+            "u-L0033-01",
+            "u-L0033-02",
+            "u-L0033-03",
+            "u-L0033-04",
+            "u-L0033-05"
+          ]
+        }
+      },
+      {
+        "beat_id": "c1s13-b012-post-ambush-empty-room-tunnel",
+        "unit_ids_match": false,
+        "gold_unit_ids": [
+          "u-L0039-01",
+          "u-L0039-02"
+        ],
+        "model_unit_ids": [],
+        "missing_unit_ids": [
+          "u-L0039-01",
+          "u-L0039-02"
+        ],
+        "extra_unit_ids": [],
+        "location_gold": [
+          "Longmont Campaign/Campaign 1/Locations/ritual_room/",
+          "Longmont Campaign/Campaign 1/Locations/tunnel_entrance/"
+        ],
+        "location_model": [],
+        "present_population_match": false,
+        "gold_present_population": [
+          [
+            "label:mages",
+            "explicit"
+          ],
+          [
+            "label:party",
+            "carried"
+          ],
+          [
+            "route:Longmont Campaign/Campaign 1/NPCs/professor_cinderbranch/",
+            "explicit"
+          ]
+        ],
+        "model_present_population": [],
+        "mentioned_only_match": true,
+        "gold_mentioned_only": [],
+        "model_mentioned_only": [],
+        "best_model_unit_span_match": {
+          "beat_id": "c1s13-b012-post-fight-report-resupply",
+          "unit_jaccard": 1.0,
+          "overlap_count": 2,
+          "unit_ids": [
+            "u-L0039-01",
+            "u-L0039-02"
+          ],
+          "missing_unit_ids": [],
+          "extra_unit_ids": []
+        }
+      }
+    ]
+  },
+  "second_pass": {
+    "decision": "single_pass_sufficient",
+    "rationale": "weak dimensions without separable second-pass failure modes",
+    "failure_mode": null
+  }
+}

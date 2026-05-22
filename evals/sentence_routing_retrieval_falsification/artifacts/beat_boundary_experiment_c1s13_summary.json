@@ -1,0 +1,1095 @@
+{
+  "schema": "dmb_unit_annotations_beat_boundary_experiment_v1",
+  "source_recap_path": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-05-12/unit_annotations_c1s13--beat_population_v1--20260512T175823Z.json",
+  "model": "gpt-5.3-codex",
+  "variants": [
+    "beat_population_v1",
+    "beat_exp_v1_no_largest",
+    "beat_exp_v2_loc_mentions_no_merge",
+    "beat_exp_v3_beat_row_self_check",
+    "beat_exp_v4_party_split_hard",
+    "beat_exp_v5_event_mode",
+    "beat_exp_v_all"
+  ],
+  "skip_semantic": false,
+  "aggregate": {
+    "variant_count": 7,
+    "scenario_estimated_cost_usd_sum": 1.184837
+  },
+  "variant_summaries": [
+    {
+      "prompt_variant": "beat_population_v1",
+      "model": "gpt-5.3-codex",
+      "validation_error": null,
+      "scenario_estimated_cost_usd": 0.16754325,
+      "model_beat_count": 12,
+      "gold_beat_count": 12,
+      "dimension_pass_rates": {
+        "beat_unit_membership": 0.0,
+        "location_routes_and_labels": 0.0,
+        "present_population": 0.0,
+        "mentioned_only_population": 0.0
+      },
+      "unit_span_alignment": {
+        "exact_unit_span_matches": 8,
+        "best_unit_jaccard_mean": 0.8528
+      },
+      "missing_beats": [
+        "c1s13-b001-plan-academy-departure",
+        "c1s13-b002-street-meat-incident",
+        "c1s13-b003-stormspire-arrival-desk",
+        "c1s13-b004-stormspire-options-and-split",
+        "c1s13-b005-infirmary-torbin-thread",
+        "c1s13-b006-study-room-short-rest",
+        "c1s13-b007-escaped-meat-second-split",
+        "c1s13-b008-basement-morgue-speak-with-dead",
+        "c1s13-b009-morgue-ambush-opens",
+        "c1s13-b010-morgue-fight-draven-kill",
+        "c1s13-b011-morgue-fight-escape-and-sleep",
+        "c1s13-b012-post-ambush-empty-room-tunnel"
+      ],
+      "extra_beats": [
+        "c1s13-b001-council-exit-guard-stop",
+        "c1s13-b002-street-meat-check",
+        "c1s13-b003-academy-intake-briefing",
+        "c1s13-b004-split-plan-assignment",
+        "c1s13-b005-infirmary-torbin-watch",
+        "c1s13-b006-necromancer-setup-study-rest",
+        "c1s13-b007-regroup-meat-escape-resplit",
+        "c1s13-b008-basement-morgue-ritual-questions",
+        "c1s13-b009-morgue-ambush-reveal",
+        "c1s13-b010-morgue-combat-exchange",
+        "c1s13-b011-morgue-combat-retreat",
+        "c1s13-b012-postfight-report-resupply"
+      ],
+      "tracked_gold_beats": {
+        "c1s13-b001-plan-academy-departure": {
+          "unit_ids_match": false,
+          "best_model_unit_span_match": {
+            "beat_id": "c1s13-b001-council-exit-guard-stop",
+            "unit_jaccard": 1.0,
+            "overlap_count": 4,
+            "unit_ids": [
+              "u-L0003-01",
+              "u-L0003-02",
+              "u-L0003-03",
+              "u-L0003-04"
+            ],
+            "missing_unit_ids": [],
+            "extra_unit_ids": []
+          }
+        },
+        "c1s13-b002-street-meat-incident": {
+          "unit_ids_match": false,
+          "best_model_unit_span_match": {
+            "beat_id": "c1s13-b002-street-meat-check",
+            "unit_jaccard": 1.0,
+            "overlap_count": 4,
+            "unit_ids": [
+              "u-L0005-01",
+              "u-L0005-02",
+              "u-L0005-03",
+              "u-L0005-04"
+            ],
+            "missing_unit_ids": [],
+            "extra_unit_ids": []
+          }
+        },
+        "c1s13-b004-stormspire-options-and-split": {
+          "unit_ids_match": false,
+          "best_model_unit_span_match": {
+            "beat_id": "c1s13-b004-split-plan-assignment",
+            "unit_jaccard": 0.6,
+            "overlap_count": 3,
+            "unit_ids": [
+              "u-L0011-01",
+              "u-L0011-02",
+              "u-L0011-03"
+            ],
+            "missing_unit_ids": [
+              "u-L0009-01",
+              "u-L0009-02"
+            ],
+            "extra_unit_ids": []
+          }
+        },
+        "c1s13-b008-basement-morgue-speak-with-dead": {
+          "unit_ids_match": false,
+          "best_model_unit_span_match": {
+            "beat_id": "c1s13-b008-basement-morgue-ritual-questions",
+            "unit_jaccard": 1.0,
+            "overlap_count": 17,
+            "unit_ids": [
+              "u-L0019-01",
+              "u-L0019-02",
+              "u-L0019-03",
+              "u-L0021-01",
+              "u-L0021-02",
+              "u-L0023-01",
+              "u-L0023-02",
+              "u-L0025-01",
+              "u-L0025-02",
+              "u-L0027-01",
+              "u-L0027-02",
+              "u-L0027-03",
+              "u-L0029-01",
+              "u-L0029-02",
+              "u-L0029-03",
+              "u-L0029-04",
+              "u-L0029-05"
+            ],
+            "missing_unit_ids": [],
+            "extra_unit_ids": []
+          }
+        },
+        "c1s13-b012-post-ambush-empty-room-tunnel": {
+          "unit_ids_match": false,
+          "best_model_unit_span_match": {
+            "beat_id": "c1s13-b012-postfight-report-resupply",
+            "unit_jaccard": 1.0,
+            "overlap_count": 2,
+            "unit_ids": [
+              "u-L0039-01",
+              "u-L0039-02"
+            ],
+            "missing_unit_ids": [],
+            "extra_unit_ids": []
+          }
+        }
+      },
+      "split_unit_beats": {
+        "u-L0009-01": "c1s13-b003-academy-intake-briefing",
+        "u-L0009-02": "c1s13-b003-academy-intake-briefing",
+        "u-L0011-01": "c1s13-b004-split-plan-assignment",
+        "u-L0011-02": "c1s13-b004-split-plan-assignment",
+        "u-L0011-03": "c1s13-b004-split-plan-assignment"
+      },
+      "split_unit_distinct_model_beats": [
+        "c1s13-b003-academy-intake-briefing",
+        "c1s13-b004-split-plan-assignment"
+      ],
+      "artifact_path": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-05-12/unit_annotations_c1s13--beat_population_v1--20260512T175823Z.json"
+    },
+    {
+      "prompt_variant": "beat_exp_v1_no_largest",
+      "model": "gpt-5.3-codex",
+      "validation_error": null,
+      "scenario_estimated_cost_usd": 0.17351775,
+      "model_beat_count": 12,
+      "gold_beat_count": 12,
+      "dimension_pass_rates": {
+        "beat_unit_membership": 0.0,
+        "location_routes_and_labels": 0.0,
+        "present_population": 0.0,
+        "mentioned_only_population": 0.0
+      },
+      "unit_span_alignment": {
+        "exact_unit_span_matches": 10,
+        "best_unit_jaccard_mean": 0.9099
+      },
+      "missing_beats": [
+        "c1s13-b001-plan-academy-departure",
+        "c1s13-b002-street-meat-incident",
+        "c1s13-b003-stormspire-arrival-desk",
+        "c1s13-b004-stormspire-options-and-split",
+        "c1s13-b005-infirmary-torbin-thread",
+        "c1s13-b006-study-room-short-rest",
+        "c1s13-b007-escaped-meat-second-split",
+        "c1s13-b008-basement-morgue-speak-with-dead",
+        "c1s13-b009-morgue-ambush-opens",
+        "c1s13-b010-morgue-fight-draven-kill",
+        "c1s13-b011-morgue-fight-escape-and-sleep",
+        "c1s13-b012-post-ambush-empty-room-tunnel"
+      ],
+      "extra_beats": [
+        "c1s13-b001-outside-council-stop",
+        "c1s13-b002-street-meat-check",
+        "c1s13-b003-academy-reception",
+        "c1s13-b004-academy-briefing-split",
+        "c1s13-b005-infirmary-torbin-check",
+        "c1s13-b006-necromancer-ritual-setup-rest",
+        "c1s13-b007-academy-hall-second-split",
+        "c1s13-b008-basement-morgue-questioning",
+        "c1s13-b009-basement-morgue-ambush-reveal",
+        "c1s13-b010-basement-morgue-combat",
+        "c1s13-b011-morgue-door-retreat",
+        "c1s13-b012-post-fight-report-resupply"
+      ],
+      "tracked_gold_beats": {
+        "c1s13-b001-plan-academy-departure": {
+          "unit_ids_match": false,
+          "best_model_unit_span_match": {
+            "beat_id": "c1s13-b001-outside-council-stop",
+            "unit_jaccard": 1.0,
+            "overlap_count": 4,
+            "unit_ids": [
+              "u-L0003-01",
+              "u-L0003-02",
+              "u-L0003-03",
+              "u-L0003-04"
+            ],
+            "missing_unit_ids": [],
+            "extra_unit_ids": []
+          }
+        },
+        "c1s13-b002-street-meat-incident": {
+          "unit_ids_match": false,
+          "best_model_unit_span_match": {
+            "beat_id": "c1s13-b002-street-meat-check",
+            "unit_jaccard": 1.0,
+            "overlap_count": 4,
+            "unit_ids": [
+              "u-L0005-01",
+              "u-L0005-02",
+              "u-L0005-03",
+              "u-L0005-04"
+            ],
+            "missing_unit_ids": [],
+            "extra_unit_ids": []
+          }
+        },
+        "c1s13-b004-stormspire-options-and-split": {
+          "unit_ids_match": false,
+          "best_model_unit_span_match": {
+            "beat_id": "c1s13-b004-academy-briefing-split",
+            "unit_jaccard": 1.0,
+            "overlap_count": 5,
+            "unit_ids": [
+              "u-L0009-01",
+              "u-L0009-02",
+              "u-L0011-01",
+              "u-L0011-02",
+              "u-L0011-03"
+            ],
+            "missing_unit_ids": [],
+            "extra_unit_ids": []
+          }
+        },
+        "c1s13-b008-basement-morgue-speak-with-dead": {
+          "unit_ids_match": false,
+          "best_model_unit_span_match": {
+            "beat_id": "c1s13-b008-basement-morgue-questioning",
+            "unit_jaccard": 1.0,
+            "overlap_count": 17,
+            "unit_ids": [
+              "u-L0019-01",
+              "u-L0019-02",
+              "u-L0019-03",
+              "u-L0021-01",
+              "u-L0021-02",
+              "u-L0023-01",
+              "u-L0023-02",
+              "u-L0025-01",
+              "u-L0025-02",
+              "u-L0027-01",
+              "u-L0027-02",
+              "u-L0027-03",
+              "u-L0029-01",
+              "u-L0029-02",
+              "u-L0029-03",
+              "u-L0029-04",
+              "u-L0029-05"
+            ],
+            "missing_unit_ids": [],
+            "extra_unit_ids": []
+          }
+        },
+        "c1s13-b012-post-ambush-empty-room-tunnel": {
+          "unit_ids_match": false,
+          "best_model_unit_span_match": {
+            "beat_id": "c1s13-b012-post-fight-report-resupply",
+            "unit_jaccard": 1.0,
+            "overlap_count": 2,
+            "unit_ids": [
+              "u-L0039-01",
+              "u-L0039-02"
+            ],
+            "missing_unit_ids": [],
+            "extra_unit_ids": []
+          }
+        }
+      },
+      "split_unit_beats": {
+        "u-L0009-01": "c1s13-b004-academy-briefing-split",
+        "u-L0009-02": "c1s13-b004-academy-briefing-split",
+        "u-L0011-01": "c1s13-b004-academy-briefing-split",
+        "u-L0011-02": "c1s13-b004-academy-briefing-split",
+        "u-L0011-03": "c1s13-b004-academy-briefing-split"
+      },
+      "split_unit_distinct_model_beats": [
+        "c1s13-b004-academy-briefing-split"
+      ],
+      "artifact_path": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-05-12/unit_annotations_c1s13--beat_exp_v1_no_largest--20260512T180008Z.json"
+    },
+    {
+      "prompt_variant": "beat_exp_v2_loc_mentions_no_merge",
+      "model": "gpt-5.3-codex",
+      "validation_error": null,
+      "scenario_estimated_cost_usd": 0.1680028,
+      "model_beat_count": 12,
+      "gold_beat_count": 12,
+      "dimension_pass_rates": {
+        "beat_unit_membership": 0.0,
+        "location_routes_and_labels": 0.0,
+        "present_population": 0.0,
+        "mentioned_only_population": 0.0
+      },
+      "unit_span_alignment": {
+        "exact_unit_span_matches": 8,
+        "best_unit_jaccard_mean": 0.8528
+      },
+      "missing_beats": [
+        "c1s13-b001-plan-academy-departure",
+        "c1s13-b002-street-meat-incident",
+        "c1s13-b003-stormspire-arrival-desk",
+        "c1s13-b004-stormspire-options-and-split",
+        "c1s13-b005-infirmary-torbin-thread",
+        "c1s13-b006-study-room-short-rest",
+        "c1s13-b007-escaped-meat-second-split",
+        "c1s13-b008-basement-morgue-speak-with-dead",
+        "c1s13-b009-morgue-ambush-opens",
+        "c1s13-b010-morgue-fight-draven-kill",
+        "c1s13-b011-morgue-fight-escape-and-sleep",
+        "c1s13-b012-post-ambush-empty-room-tunnel"
+      ],
+      "extra_beats": [
+        "c1s13-b001-council-exit-guard-stop",
+        "c1s13-b002-street-meat-checkpoint",
+        "c1s13-b003-academy-intake-briefing",
+        "c1s13-b004-split-plan-infirmary-vs-necromancer",
+        "c1s13-b005-infirmary-check-torbin",
+        "c1s13-b006-necromancer-prep-and-study-rest",
+        "c1s13-b007-academy-hall-meat-escape-resplit",
+        "c1s13-b008-basement-morgue-ritual-questioning",
+        "c1s13-b009-basement-morgue-ambush-reveal",
+        "c1s13-b010-basement-morgue-combat-exchange",
+        "c1s13-b011-morgue-door-retreat-and-cleanup",
+        "c1s13-b012-post-fight-report-and-resupply"
+      ],
+      "tracked_gold_beats": {
+        "c1s13-b001-plan-academy-departure": {
+          "unit_ids_match": false,
+          "best_model_unit_span_match": {
+            "beat_id": "c1s13-b001-council-exit-guard-stop",
+            "unit_jaccard": 1.0,
+            "overlap_count": 4,
+            "unit_ids": [
+              "u-L0003-01",
+              "u-L0003-02",
+              "u-L0003-03",
+              "u-L0003-04"
+            ],
+            "missing_unit_ids": [],
+            "extra_unit_ids": []
+          }
+        },
+        "c1s13-b002-street-meat-incident": {
+          "unit_ids_match": false,
+          "best_model_unit_span_match": {
+            "beat_id": "c1s13-b002-street-meat-checkpoint",
+            "unit_jaccard": 1.0,
+            "overlap_count": 4,
+            "unit_ids": [
+              "u-L0005-01",
+              "u-L0005-02",
+              "u-L0005-03",
+              "u-L0005-04"
+            ],
+            "missing_unit_ids": [],
+            "extra_unit_ids": []
+          }
+        },
+        "c1s13-b004-stormspire-options-and-split": {
+          "unit_ids_match": false,
+          "best_model_unit_span_match": {
+            "beat_id": "c1s13-b004-split-plan-infirmary-vs-necromancer",
+            "unit_jaccard": 0.6,
+            "overlap_count": 3,
+            "unit_ids": [
+              "u-L0011-01",
+              "u-L0011-02",
+              "u-L0011-03"
+            ],
+            "missing_unit_ids": [
+              "u-L0009-01",
+              "u-L0009-02"
+            ],
+            "extra_unit_ids": []
+          }
+        },
+        "c1s13-b008-basement-morgue-speak-with-dead": {
+          "unit_ids_match": false,
+          "best_model_unit_span_match": {
+            "beat_id": "c1s13-b008-basement-morgue-ritual-questioning",
+            "unit_jaccard": 1.0,
+            "overlap_count": 17,
+            "unit_ids": [
+              "u-L0019-01",
+              "u-L0019-02",
+              "u-L0019-03",
+              "u-L0021-01",
+              "u-L0021-02",
+              "u-L0023-01",
+              "u-L0023-02",
+              "u-L0025-01",
+              "u-L0025-02",
+              "u-L0027-01",
+              "u-L0027-02",
+              "u-L0027-03",
+              "u-L0029-01",
+              "u-L0029-02",
+              "u-L0029-03",
+              "u-L0029-04",
+              "u-L0029-05"
+            ],
+            "missing_unit_ids": [],
+            "extra_unit_ids": []
+          }
+        },
+        "c1s13-b012-post-ambush-empty-room-tunnel": {
+          "unit_ids_match": false,
+          "best_model_unit_span_match": {
+            "beat_id": "c1s13-b012-post-fight-report-and-resupply",
+            "unit_jaccard": 1.0,
+            "overlap_count": 2,
+            "unit_ids": [
+              "u-L0039-01",
+              "u-L0039-02"
+            ],
+            "missing_unit_ids": [],
+            "extra_unit_ids": []
+          }
+        }
+      },
+      "split_unit_beats": {
+        "u-L0009-01": "c1s13-b003-academy-intake-briefing",
+        "u-L0009-02": "c1s13-b003-academy-intake-briefing",
+        "u-L0011-01": "c1s13-b004-split-plan-infirmary-vs-necromancer",
+        "u-L0011-02": "c1s13-b004-split-plan-infirmary-vs-necromancer",
+        "u-L0011-03": "c1s13-b004-split-plan-infirmary-vs-necromancer"
+      },
+      "split_unit_distinct_model_beats": [
+        "c1s13-b003-academy-intake-briefing",
+        "c1s13-b004-split-plan-infirmary-vs-necromancer"
+      ],
+      "artifact_path": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-05-12/unit_annotations_c1s13--beat_exp_v2_loc_mentions_no_merge--20260512T180155Z.json"
+    },
+    {
+      "prompt_variant": "beat_exp_v3_beat_row_self_check",
+      "model": "gpt-5.3-codex",
+      "validation_error": null,
+      "scenario_estimated_cost_usd": 0.1685215,
+      "model_beat_count": 12,
+      "gold_beat_count": 12,
+      "dimension_pass_rates": {
+        "beat_unit_membership": 0.0,
+        "location_routes_and_labels": 0.0,
+        "present_population": 0.0,
+        "mentioned_only_population": 0.0
+      },
+      "unit_span_alignment": {
+        "exact_unit_span_matches": 8,
+        "best_unit_jaccard_mean": 0.8528
+      },
+      "missing_beats": [
+        "c1s13-b001-plan-academy-departure",
+        "c1s13-b002-street-meat-incident",
+        "c1s13-b003-stormspire-arrival-desk",
+        "c1s13-b004-stormspire-options-and-split",
+        "c1s13-b005-infirmary-torbin-thread",
+        "c1s13-b006-study-room-short-rest",
+        "c1s13-b007-escaped-meat-second-split",
+        "c1s13-b008-basement-morgue-speak-with-dead",
+        "c1s13-b009-morgue-ambush-opens",
+        "c1s13-b010-morgue-fight-draven-kill",
+        "c1s13-b011-morgue-fight-escape-and-sleep",
+        "c1s13-b012-post-ambush-empty-room-tunnel"
+      ],
+      "extra_beats": [
+        "c1s13-b001-council-exit-guard-stop",
+        "c1s13-b002-street-meat-checkpoint",
+        "c1s13-b003-academy-intake-briefing",
+        "c1s13-b004-split-assignment",
+        "c1s13-b005-infirmary-torbin-check",
+        "c1s13-b006-necromancer-ritual-prep-rest",
+        "c1s13-b007-regroup-second-split",
+        "c1s13-b008-basement-morgue-questioning",
+        "c1s13-b009-morgue-ambush-reveal",
+        "c1s13-b010-morgue-combat-exchange",
+        "c1s13-b011-doorway-retreat",
+        "c1s13-b012-postfight-report-resupply"
+      ],
+      "tracked_gold_beats": {
+        "c1s13-b001-plan-academy-departure": {
+          "unit_ids_match": false,
+          "best_model_unit_span_match": {
+            "beat_id": "c1s13-b001-council-exit-guard-stop",
+            "unit_jaccard": 1.0,
+            "overlap_count": 4,
+            "unit_ids": [
+              "u-L0003-01",
+              "u-L0003-02",
+              "u-L0003-03",
+              "u-L0003-04"
+            ],
+            "missing_unit_ids": [],
+            "extra_unit_ids": []
+          }
+        },
+        "c1s13-b002-street-meat-incident": {
+          "unit_ids_match": false,
+          "best_model_unit_span_match": {
+            "beat_id": "c1s13-b002-street-meat-checkpoint",
+            "unit_jaccard": 1.0,
+            "overlap_count": 4,
+            "unit_ids": [
+              "u-L0005-01",
+              "u-L0005-02",
+              "u-L0005-03",
+              "u-L0005-04"
+            ],
+            "missing_unit_ids": [],
+            "extra_unit_ids": []
+          }
+        },
+        "c1s13-b004-stormspire-options-and-split": {
+          "unit_ids_match": false,
+          "best_model_unit_span_match": {
+            "beat_id": "c1s13-b004-split-assignment",
+            "unit_jaccard": 0.6,
+            "overlap_count": 3,
+            "unit_ids": [
+              "u-L0011-01",
+              "u-L0011-02",
+              "u-L0011-03"
+            ],
+            "missing_unit_ids": [
+              "u-L0009-01",
+              "u-L0009-02"
+            ],
+            "extra_unit_ids": []
+          }
+        },
+        "c1s13-b008-basement-morgue-speak-with-dead": {
+          "unit_ids_match": false,
+          "best_model_unit_span_match": {
+            "beat_id": "c1s13-b008-basement-morgue-questioning",
+            "unit_jaccard": 1.0,
+            "overlap_count": 17,
+            "unit_ids": [
+              "u-L0019-01",
+              "u-L0019-02",
+              "u-L0019-03",
+              "u-L0021-01",
+              "u-L0021-02",
+              "u-L0023-01",
+              "u-L0023-02",
+              "u-L0025-01",
+              "u-L0025-02",
+              "u-L0027-01",
+              "u-L0027-02",
+              "u-L0027-03",
+              "u-L0029-01",
+              "u-L0029-02",
+              "u-L0029-03",
+              "u-L0029-04",
+              "u-L0029-05"
+            ],
+            "missing_unit_ids": [],
+            "extra_unit_ids": []
+          }
+        },
+        "c1s13-b012-post-ambush-empty-room-tunnel": {
+          "unit_ids_match": false,
+          "best_model_unit_span_match": {
+            "beat_id": "c1s13-b012-postfight-report-resupply",
+            "unit_jaccard": 1.0,
+            "overlap_count": 2,
+            "unit_ids": [
+              "u-L0039-01",
+              "u-L0039-02"
+            ],
+            "missing_unit_ids": [],
+            "extra_unit_ids": []
+          }
+        }
+      },
+      "split_unit_beats": {
+        "u-L0009-01": "c1s13-b003-academy-intake-briefing",
+        "u-L0009-02": "c1s13-b003-academy-intake-briefing",
+        "u-L0011-01": "c1s13-b004-split-assignment",
+        "u-L0011-02": "c1s13-b004-split-assignment",
+        "u-L0011-03": "c1s13-b004-split-assignment"
+      },
+      "split_unit_distinct_model_beats": [
+        "c1s13-b003-academy-intake-briefing",
+        "c1s13-b004-split-assignment"
+      ],
+      "artifact_path": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-05-12/unit_annotations_c1s13--beat_exp_v3_beat_row_self_check--20260512T180338Z.json"
+    },
+    {
+      "prompt_variant": "beat_exp_v4_party_split_hard",
+      "model": "gpt-5.3-codex",
+      "validation_error": null,
+      "scenario_estimated_cost_usd": 0.17277855,
+      "model_beat_count": 12,
+      "gold_beat_count": 12,
+      "dimension_pass_rates": {
+        "beat_unit_membership": 0.0,
+        "location_routes_and_labels": 0.0,
+        "present_population": 0.0,
+        "mentioned_only_population": 0.0
+      },
+      "unit_span_alignment": {
+        "exact_unit_span_matches": 10,
+        "best_unit_jaccard_mean": 0.9099
+      },
+      "missing_beats": [
+        "c1s13-b001-plan-academy-departure",
+        "c1s13-b002-street-meat-incident",
+        "c1s13-b003-stormspire-arrival-desk",
+        "c1s13-b004-stormspire-options-and-split",
+        "c1s13-b005-infirmary-torbin-thread",
+        "c1s13-b006-study-room-short-rest",
+        "c1s13-b007-escaped-meat-second-split",
+        "c1s13-b008-basement-morgue-speak-with-dead",
+        "c1s13-b009-morgue-ambush-opens",
+        "c1s13-b010-morgue-fight-draven-kill",
+        "c1s13-b011-morgue-fight-escape-and-sleep",
+        "c1s13-b012-post-ambush-empty-room-tunnel"
+      ],
+      "extra_beats": [
+        "c1s13-b001-council-exit-guard-stop",
+        "c1s13-b002-street-meat-checkpoint",
+        "c1s13-b003-academy-clerk-briefing",
+        "c1s13-b004-academy-options-brief",
+        "c1s13-b005-infirmary-check-torbin",
+        "c1s13-b006-necromancer-ritual-prep-rest",
+        "c1s13-b007-academy-regroup-second-split",
+        "c1s13-b008-basement-morgue-questioning",
+        "c1s13-b009-basement-morgue-ambush-reveal",
+        "c1s13-b010-basement-morgue-combat-exchange",
+        "c1s13-b011-morgue-door-retreat",
+        "c1s13-b012-postfight-report-resupply"
+      ],
+      "tracked_gold_beats": {
+        "c1s13-b001-plan-academy-departure": {
+          "unit_ids_match": false,
+          "best_model_unit_span_match": {
+            "beat_id": "c1s13-b001-council-exit-guard-stop",
+            "unit_jaccard": 1.0,
+            "overlap_count": 4,
+            "unit_ids": [
+              "u-L0003-01",
+              "u-L0003-02",
+              "u-L0003-03",
+              "u-L0003-04"
+            ],
+            "missing_unit_ids": [],
+            "extra_unit_ids": []
+          }
+        },
+        "c1s13-b002-street-meat-incident": {
+          "unit_ids_match": false,
+          "best_model_unit_span_match": {
+            "beat_id": "c1s13-b002-street-meat-checkpoint",
+            "unit_jaccard": 1.0,
+            "overlap_count": 4,
+            "unit_ids": [
+              "u-L0005-01",
+              "u-L0005-02",
+              "u-L0005-03",
+              "u-L0005-04"
+            ],
+            "missing_unit_ids": [],
+            "extra_unit_ids": []
+          }
+        },
+        "c1s13-b004-stormspire-options-and-split": {
+          "unit_ids_match": false,
+          "best_model_unit_span_match": {
+            "beat_id": "c1s13-b004-academy-options-brief",
+            "unit_jaccard": 1.0,
+            "overlap_count": 5,
+            "unit_ids": [
+              "u-L0009-01",
+              "u-L0009-02",
+              "u-L0011-01",
+              "u-L0011-02",
+              "u-L0011-03"
+            ],
+            "missing_unit_ids": [],
+            "extra_unit_ids": []
+          }
+        },
+        "c1s13-b008-basement-morgue-speak-with-dead": {
+          "unit_ids_match": false,
+          "best_model_unit_span_match": {
+            "beat_id": "c1s13-b008-basement-morgue-questioning",
+            "unit_jaccard": 1.0,
+            "overlap_count": 17,
+            "unit_ids": [
+              "u-L0019-01",
+              "u-L0019-02",
+              "u-L0019-03",
+              "u-L0021-01",
+              "u-L0021-02",
+              "u-L0023-01",
+              "u-L0023-02",
+              "u-L0025-01",
+              "u-L0025-02",
+              "u-L0027-01",
+              "u-L0027-02",
+              "u-L0027-03",
+              "u-L0029-01",
+              "u-L0029-02",
+              "u-L0029-03",
+              "u-L0029-04",
+              "u-L0029-05"
+            ],
+            "missing_unit_ids": [],
+            "extra_unit_ids": []
+          }
+        },
+        "c1s13-b012-post-ambush-empty-room-tunnel": {
+          "unit_ids_match": false,
+          "best_model_unit_span_match": {
+            "beat_id": "c1s13-b012-postfight-report-resupply",
+            "unit_jaccard": 1.0,
+            "overlap_count": 2,
+            "unit_ids": [
+              "u-L0039-01",
+              "u-L0039-02"
+            ],
+            "missing_unit_ids": [],
+            "extra_unit_ids": []
+          }
+        }
+      },
+      "split_unit_beats": {
+        "u-L0009-01": "c1s13-b004-academy-options-brief",
+        "u-L0009-02": "c1s13-b004-academy-options-brief",
+        "u-L0011-01": "c1s13-b004-academy-options-brief",
+        "u-L0011-02": "c1s13-b004-academy-options-brief",
+        "u-L0011-03": "c1s13-b004-academy-options-brief"
+      },
+      "split_unit_distinct_model_beats": [
+        "c1s13-b004-academy-options-brief"
+      ],
+      "artifact_path": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-05-12/unit_annotations_c1s13--beat_exp_v4_party_split_hard--20260512T180525Z.json"
+    },
+    {
+      "prompt_variant": "beat_exp_v5_event_mode",
+      "model": "gpt-5.3-codex",
+      "validation_error": null,
+      "scenario_estimated_cost_usd": 0.16262505000000002,
+      "model_beat_count": 12,
+      "gold_beat_count": 12,
+      "dimension_pass_rates": {
+        "beat_unit_membership": 0.0,
+        "location_routes_and_labels": 0.0,
+        "present_population": 0.0,
+        "mentioned_only_population": 0.0
+      },
+      "unit_span_alignment": {
+        "exact_unit_span_matches": 10,
+        "best_unit_jaccard_mean": 0.9099
+      },
+      "missing_beats": [
+        "c1s13-b001-plan-academy-departure",
+        "c1s13-b002-street-meat-incident",
+        "c1s13-b003-stormspire-arrival-desk",
+        "c1s13-b004-stormspire-options-and-split",
+        "c1s13-b005-infirmary-torbin-thread",
+        "c1s13-b006-study-room-short-rest",
+        "c1s13-b007-escaped-meat-second-split",
+        "c1s13-b008-basement-morgue-speak-with-dead",
+        "c1s13-b009-morgue-ambush-opens",
+        "c1s13-b010-morgue-fight-draven-kill",
+        "c1s13-b011-morgue-fight-escape-and-sleep",
+        "c1s13-b012-post-ambush-empty-room-tunnel"
+      ],
+      "extra_beats": [
+        "c1s13-b001-council-exit-guard-stop",
+        "c1s13-b002-street-meat-inspection",
+        "c1s13-b003-academy-arrival-clerk-briefing",
+        "c1s13-b004-academy-options-briefing",
+        "c1s13-b005-infirmary-check-torbin",
+        "c1s13-b006-necromancer-ritual-prep-rest",
+        "c1s13-b007-regroup-second-split",
+        "c1s13-b008-morgue-speak-with-dead",
+        "c1s13-b009-morgue-ambush-reveal",
+        "c1s13-b010-morgue-combat-exchange",
+        "c1s13-b011-morgue-combat-retreat",
+        "c1s13-b012-post-combat-report-resupply"
+      ],
+      "tracked_gold_beats": {
+        "c1s13-b001-plan-academy-departure": {
+          "unit_ids_match": false,
+          "best_model_unit_span_match": {
+            "beat_id": "c1s13-b001-council-exit-guard-stop",
+            "unit_jaccard": 1.0,
+            "overlap_count": 4,
+            "unit_ids": [
+              "u-L0003-01",
+              "u-L0003-02",
+              "u-L0003-03",
+              "u-L0003-04"
+            ],
+            "missing_unit_ids": [],
+            "extra_unit_ids": []
+          }
+        },
+        "c1s13-b002-street-meat-incident": {
+          "unit_ids_match": false,
+          "best_model_unit_span_match": {
+            "beat_id": "c1s13-b002-street-meat-inspection",
+            "unit_jaccard": 1.0,
+            "overlap_count": 4,
+            "unit_ids": [
+              "u-L0005-01",
+              "u-L0005-02",
+              "u-L0005-03",
+              "u-L0005-04"
+            ],
+            "missing_unit_ids": [],
+            "extra_unit_ids": []
+          }
+        },
+        "c1s13-b004-stormspire-options-and-split": {
+          "unit_ids_match": false,
+          "best_model_unit_span_match": {
+            "beat_id": "c1s13-b004-academy-options-briefing",
+            "unit_jaccard": 1.0,
+            "overlap_count": 5,
+            "unit_ids": [
+              "u-L0009-01",
+              "u-L0009-02",
+              "u-L0011-01",
+              "u-L0011-02",
+              "u-L0011-03"
+            ],
+            "missing_unit_ids": [],
+            "extra_unit_ids": []
+          }
+        },
+        "c1s13-b008-basement-morgue-speak-with-dead": {
+          "unit_ids_match": false,
+          "best_model_unit_span_match": {
+            "beat_id": "c1s13-b008-morgue-speak-with-dead",
+            "unit_jaccard": 1.0,
+            "overlap_count": 17,
+            "unit_ids": [
+              "u-L0019-01",
+              "u-L0019-02",
+              "u-L0019-03",
+              "u-L0021-01",
+              "u-L0021-02",
+              "u-L0023-01",
+              "u-L0023-02",
+              "u-L0025-01",
+              "u-L0025-02",
+              "u-L0027-01",
+              "u-L0027-02",
+              "u-L0027-03",
+              "u-L0029-01",
+              "u-L0029-02",
+              "u-L0029-03",
+              "u-L0029-04",
+              "u-L0029-05"
+            ],
+            "missing_unit_ids": [],
+            "extra_unit_ids": []
+          }
+        },
+        "c1s13-b012-post-ambush-empty-room-tunnel": {
+          "unit_ids_match": false,
+          "best_model_unit_span_match": {
+            "beat_id": "c1s13-b012-post-combat-report-resupply",
+            "unit_jaccard": 1.0,
+            "overlap_count": 2,
+            "unit_ids": [
+              "u-L0039-01",
+              "u-L0039-02"
+            ],
+            "missing_unit_ids": [],
+            "extra_unit_ids": []
+          }
+        }
+      },
+      "split_unit_beats": {
+        "u-L0009-01": "c1s13-b004-academy-options-briefing",
+        "u-L0009-02": "c1s13-b004-academy-options-briefing",
+        "u-L0011-01": "c1s13-b004-academy-options-briefing",
+        "u-L0011-02": "c1s13-b004-academy-options-briefing",
+        "u-L0011-03": "c1s13-b004-academy-options-briefing"
+      },
+      "split_unit_distinct_model_beats": [
+        "c1s13-b004-academy-options-briefing"
+      ],
+      "artifact_path": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-05-12/unit_annotations_c1s13--beat_exp_v5_event_mode--20260512T180709Z.json"
+    },
+    {
+      "prompt_variant": "beat_exp_v_all",
+      "model": "gpt-5.3-codex",
+      "validation_error": null,
+      "scenario_estimated_cost_usd": 0.17184825,
+      "model_beat_count": 13,
+      "gold_beat_count": 12,
+      "dimension_pass_rates": {
+        "beat_unit_membership": 0.0,
+        "location_routes_and_labels": 0.0,
+        "present_population": 0.0,
+        "mentioned_only_population": 0.0
+      },
+      "unit_span_alignment": {
+        "exact_unit_span_matches": 9,
+        "best_unit_jaccard_mean": 0.8891
+      },
+      "missing_beats": [
+        "c1s13-b001-plan-academy-departure",
+        "c1s13-b002-street-meat-incident",
+        "c1s13-b003-stormspire-arrival-desk",
+        "c1s13-b004-stormspire-options-and-split",
+        "c1s13-b005-infirmary-torbin-thread",
+        "c1s13-b006-study-room-short-rest",
+        "c1s13-b007-escaped-meat-second-split",
+        "c1s13-b008-basement-morgue-speak-with-dead",
+        "c1s13-b009-morgue-ambush-opens",
+        "c1s13-b010-morgue-fight-draven-kill",
+        "c1s13-b011-morgue-fight-escape-and-sleep",
+        "c1s13-b012-post-ambush-empty-room-tunnel"
+      ],
+      "extra_beats": [
+        "c1s13-b001-plan-academy",
+        "c1s13-b002-guard-stop-council",
+        "c1s13-b003-street-meat-check",
+        "c1s13-b004-academy-intake",
+        "c1s13-b005-options-and-split",
+        "c1s13-b006-infirmary-torbin",
+        "c1s13-b007-necromancer-prep-rest",
+        "c1s13-b008-regroup-meat-escape-split",
+        "c1s13-b009-morgue-ritual-questions",
+        "c1s13-b010-ambush-reveal",
+        "c1s13-b011-morgue-combat",
+        "c1s13-b012-doorway-retreat",
+        "c1s13-b013-postfight-empty-room"
+      ],
+      "tracked_gold_beats": {
+        "c1s13-b001-plan-academy-departure": {
+          "unit_ids_match": false,
+          "best_model_unit_span_match": {
+            "beat_id": "c1s13-b002-guard-stop-council",
+            "unit_jaccard": 0.75,
+            "overlap_count": 3,
+            "unit_ids": [
+              "u-L0003-02",
+              "u-L0003-03",
+              "u-L0003-04"
+            ],
+            "missing_unit_ids": [
+              "u-L0003-01"
+            ],
+            "extra_unit_ids": []
+          }
+        },
+        "c1s13-b002-street-meat-incident": {
+          "unit_ids_match": false,
+          "best_model_unit_span_match": {
+            "beat_id": "c1s13-b003-street-meat-check",
+            "unit_jaccard": 1.0,
+            "overlap_count": 4,
+            "unit_ids": [
+              "u-L0005-01",
+              "u-L0005-02",
+              "u-L0005-03",
+              "u-L0005-04"
+            ],
+            "missing_unit_ids": [],
+            "extra_unit_ids": []
+          }
+        },
+        "c1s13-b004-stormspire-options-and-split": {
+          "unit_ids_match": false,
+          "best_model_unit_span_match": {
+            "beat_id": "c1s13-b005-options-and-split",
+            "unit_jaccard": 1.0,
+            "overlap_count": 5,
+            "unit_ids": [
+              "u-L0009-01",
+              "u-L0009-02",
+              "u-L0011-01",
+              "u-L0011-02",
+              "u-L0011-03"
+            ],
+            "missing_unit_ids": [],
+            "extra_unit_ids": []
+          }
+        },
+        "c1s13-b008-basement-morgue-speak-with-dead": {
+          "unit_ids_match": false,
+          "best_model_unit_span_match": {
+            "beat_id": "c1s13-b009-morgue-ritual-questions",
+            "unit_jaccard": 1.0,
+            "overlap_count": 17,
+            "unit_ids": [
+              "u-L0019-01",
+              "u-L0019-02",
+              "u-L0019-03",
+              "u-L0021-01",
+              "u-L0021-02",
+              "u-L0023-01",
+              "u-L0023-02",
+              "u-L0025-01",
+              "u-L0025-02",
+              "u-L0027-01",
+              "u-L0027-02",
+              "u-L0027-03",
+              "u-L0029-01",
+              "u-L0029-02",
+              "u-L0029-03",
+              "u-L0029-04",
+              "u-L0029-05"
+            ],
+            "missing_unit_ids": [],
+            "extra_unit_ids": []
+          }
+        },
+        "c1s13-b012-post-ambush-empty-room-tunnel": {
+          "unit_ids_match": false,
+          "best_model_unit_span_match": {
+            "beat_id": "c1s13-b013-postfight-empty-room",
+            "unit_jaccard": 1.0,
+            "overlap_count": 2,
+            "unit_ids": [
+              "u-L0039-01",
+              "u-L0039-02"
+            ],
+            "missing_unit_ids": [],
+            "extra_unit_ids": []
+          }
+        }
+      },
+      "split_unit_beats": {
+        "u-L0009-01": "c1s13-b005-options-and-split",
+        "u-L0009-02": "c1s13-b005-options-and-split",
+        "u-L0011-01": "c1s13-b005-options-and-split",
+        "u-L0011-02": "c1s13-b005-options-and-split",
+        "u-L0011-03": "c1s13-b005-options-and-split"
+      },
+      "split_unit_distinct_model_beats": [
+        "c1s13-b005-options-and-split"
+      ],
+      "artifact_path": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-05-12/unit_annotations_c1s13--beat_exp_v_all--20260512T180852Z.json"
+    }
+  ],
+  "artifact_paths": [
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-05-12/unit_annotations_c1s13--beat_population_v1--20260512T175823Z.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-05-12/unit_annotations_c1s13--beat_exp_v1_no_largest--20260512T180008Z.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-05-12/unit_annotations_c1s13--beat_exp_v2_loc_mentions_no_merge--20260512T180155Z.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-05-12/unit_annotations_c1s13--beat_exp_v3_beat_row_self_check--20260512T180338Z.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-05-12/unit_annotations_c1s13--beat_exp_v4_party_split_hard--20260512T180525Z.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-05-12/unit_annotations_c1s13--beat_exp_v5_event_mode--20260512T180709Z.json",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-05-12/unit_annotations_c1s13--beat_exp_v_all--20260512T180852Z.json"
+  ]
+}
