@@ -5,8 +5,8 @@
   "default_retrieval_mode": "content_only",
   "retrieval_modes": {
     "content_only": {
-      "description": "Index support-card title and summary only. Use this as the stricter baseline.",
-      "indexable_fields": ["title", "summary"],
+      "description": "Index support-card title, summary, and deterministic planner_affordances derived from those content fields. Retrieval terms remain excluded, so this is the stricter baseline for hand-authored lexical lift.",
+      "indexable_fields": ["title", "summary", "planner_affordances"],
       "forbidden_fields": [
         "usable_for_questions",
         "question_id",
@@ -27,8 +27,8 @@
       ]
     },
     "content_plus_lexical_hints": {
-      "description": "Index title, summary, and retrieval_terms. Use this to measure lexical-artifact lift over content_only.",
-      "indexable_fields": ["title", "summary", "retrieval_terms"],
+      "description": "Index title, summary, retrieval_terms, and deterministic planner_affordances derived from retrieval-visible support fields. Use this to measure lexical/artifact lift over content_only.",
+      "indexable_fields": ["title", "summary", "retrieval_terms", "planner_affordances"],
       "forbidden_fields": [
         "usable_for_questions",
         "question_id",

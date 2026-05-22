@@ -3,6 +3,11 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from evals.c1s4_preplanning_vertical_slice.planner_affordances import (
+    affordance_query_text,
+    derive_query_planner_affordances,
+)
+
 SUPPORT_ENABLED_MODES = frozenset(
     {
         "prior_plus_support_content_only",
@@ -187,6 +192,21 @@ def build_step2c_query_variants(
         }
     ]
     normalized = _norm(literal)
+
+    if retrieval_mode in SUPPORT_ENABLED_MODES:
+        affordances = derive_query_planner_affordances(literal)
+        query = affordance_query_text(affordances)
+        if query:
+            variants.append(
+                {
+                    "query": query,
+                    "variant_role": "planner_affordance",
+                    "target_lane": "support_knowledge",
+                    "reason": "question-text-derived planner affordance bridge",
+                    "source": "deterministic_query_affordance_rules_v1",
+                    "query_affordances": affordances,
+                }
+            )
 
     if _is_broad_npc_question(normalized):
         for query, reason in NPC_TARGET_ALIASES:

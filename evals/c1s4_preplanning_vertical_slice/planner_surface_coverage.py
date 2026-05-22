@@ -150,8 +150,8 @@ def _classify_support_policy(
         if support_context_rendered:
             return "support_leaked_in_prior_only"
         if support_in_admitted or support_in_candidate:
-            return "support_correctly_absent"
-        return "support_missing_constraint_not_admitted"
+            return "support_leaked_in_prior_only"
+        return "support_required_policy_suppressed_expected"
     if support_context_rendered:
         return "support_allowed_and_present"
     if support_in_admitted:
@@ -208,7 +208,12 @@ def _classify_retrieval_sufficiency(
         return "evaluator_only", "evaluator_only_not_planner_facing"
 
     if authority_label == "support_knowledge_required":
-        if support_policy_status in {"support_allowed_and_present", "support_correctly_absent", "support_present_incidental"}:
+        if support_policy_status == "support_required_policy_suppressed_expected":
+            return "policy_correct", "support_required_policy_suppressed_expected"
+        if support_policy_status in {
+            "support_allowed_and_present",
+            "support_present_incidental",
+        }:
             return "ok_or_later_stage", "ok_or_later_stage"
         if support_policy_status in {"support_expected_but_missing", "support_allowed_but_missing"}:
             return "support_expected_but_missing", "support_expected_but_missing"

@@ -26,6 +26,9 @@ CANVAS_CONST_NAME = "c1s4ExpectedContextCanvasData"
 
 _DEFAULT_GOLD_PATH = Path("evals/c1s4_preplanning_vertical_slice/gold/c1s4_expected_context_gold.json")
 _DEFAULT_TARGETS_PATH = Path("evals/c1s4_preplanning_vertical_slice/gold/c1s4_beat_question_targets.json")
+_DEFAULT_PR66_DIAGNOSTICS_PATH = Path(
+    "evals/c1s4_preplanning_vertical_slice/artifacts/pr66/pr66_support_affordance_diagnostics.json"
+)
 
 _MODE_SHORT = {
     "prior_only": "Prior only",
@@ -34,18 +37,19 @@ _MODE_SHORT = {
 }
 
 MODE_GUIDE: dict[str, Any] = {
-    "title": "Retrieval field policy (what each lane means)",
+    "title": "Retrieval field policy (what each lane means after PR66)",
     "scope": (
         "This canvas reviews all 38 C1S4 benchmark planning questions (Q1–Q38). "
         "Q35 is evaluator-only in every mode. Each planner-facing question appears once per "
         "retrieval mode (37 × 3 = 111 rows). Expand any card to inspect the rendered LLM context "
-        "the planner would receive. The primary demo lane is support content + retrieval_terms; "
-        "content-only is an ablation, and prior-only is a boundary/control lane."
+        "the planner would receive. PR66 adds deterministic planner affordances as a source-derived "
+        "retrieval bridge for support cards. Support-enabled lanes may use those affordances; prior-only "
+        "is still a boundary/control lane where support absence is policy-correct."
     ),
     "decision": (
-        "Retrieval terms are currently manual keyword augmentation for support-card indexing, not a "
-        "general retrieval enhancement subsystem. Judge them by candidate/admitted support-card rank "
-        "and token share, not only by whether a final row flips from fail to pass."
+        "The demo path is now provenance-safe support retrieval: support cards meet GM-prep questions "
+        "through controlled-vocabulary planner affordances derived from title/summary/retrieval-visible "
+        "fields, not through question IDs, usable_for_questions, or gold metadata."
     ),
     "modes": [
         {
@@ -59,18 +63,18 @@ MODE_GUIDE: dict[str, Any] = {
         {
             "id": "prior_plus_support_content_only",
             "label": _MODE_SHORT["prior_plus_support_content_only"],
-            "summary": "Prior memory plus support cards retrieved on title + summary text.",
-            "includes": ["Everything in prior_only", "Support cards matched on title/summary"],
+            "summary": "Prior memory plus support cards retrieved on title, summary, and source-derived planner affordances.",
+            "includes": ["Everything in prior_only", "Support cards matched on title/summary", "Planner affordances derived from title/summary"],
             "excludes": ["retrieval_terms field on support cards"],
-            "diagnostic_use": "Ablation lane: isolates what support title/summary can retrieve without keyword augmentation.",
+            "diagnostic_use": "Ablation lane: isolates source-derived affordance retrieval without hand-authored retrieval_terms.",
         },
         {
             "id": "prior_plus_support_content_plus_lexical_hints",
             "label": _MODE_SHORT["prior_plus_support_content_plus_lexical_hints"],
-            "summary": "Demo lane: prior + support with title, summary, and support-card retrieval_terms.",
-            "includes": ["Everything in prior + support", "retrieval_terms field on support cards"],
+            "summary": "Demo lane: prior + support with title, summary, source-derived planner affordances, and support-card retrieval_terms.",
+            "includes": ["Everything in prior + support", "retrieval_terms field on support cards", "Planner affordances may also use retrieval_terms as visible basis"],
             "excludes": [],
-            "diagnostic_use": "Demo policy: use rank/candidate/admission diagnostics to tell whether retrieval_terms help.",
+            "diagnostic_use": "Demo policy: use support rank, admission, rendered status, and match-channel diagnostics to prove why retrieval improved.",
         },
     ],
     "verdict_legend": [
@@ -312,6 +316,76 @@ def _rank_label(value: Any) -> str:
     return "miss" if value in {None, ""} else str(value)
 
 
+def _load_pr66_affordance_diagnostics(path: Path | None = None) -> dict[str, Any]:
+    diag_path = path or _DEFAULT_PR66_DIAGNOSTICS_PATH
+    if not diag_path.exists():
+        return {}
+    return json.loads(diag_path.read_text(encoding="utf-8"))
+
+
+def _pr66_row_key(row: dict[str, Any]) -> tuple[str, int, str]:
+    return (str(row.get("mode") or ""), int(row.get("question_number") or 0), str(row.get("question_id") or ""))
+
+
+def _pr66_affordance_summary(diagnostics: dict[str, Any]) -> dict[str, Any]:
+    rows = list(diagnostics.get("rows") or [])
+    family_a_numbers = {10, 11, 20}
+    family_a_rows = [
+        r
+        for r in rows
+        if int(r.get("question_number") or 0) in family_a_numbers
+        and r.get("support_allowed_for_mode")
+    ]
+    prior_policy_rows = [
+        r
+        for r in rows
+        if str(r.get("mode") or "") == "prior_only"
+        and str(r.get("authority_label") or "") == "support_knowledge_required"
+    ]
+    rendered = sum(1 for r in family_a_rows if r.get("required_support_rendered"))
+    affordance_channel = sum(
+        1
+        for r in family_a_rows
+        if (r.get("support_match_channels") or {}).get("planner_affordances")
+    )
+    title_summary_channel = sum(
+        1
+        for r in family_a_rows
+        if (r.get("support_match_channels") or {}).get("title_summary")
+    )
+    retrieval_terms_channel = sum(
+        1
+        for r in family_a_rows
+        if (r.get("support_match_channels") or {}).get("retrieval_terms")
+    )
+    policy_correct = sum(
+        1
+        for r in prior_policy_rows
+        if r.get("next_failure_surface") == "support_required_policy_suppressed_expected"
+    )
+    return {
+        "schema": "dmb_c1s4_pr66_affordance_canvas_summary_v1",
+        "artifactPath": str(_DEFAULT_PR66_DIAGNOSTICS_PATH),
+        "rows": rows,
+        "familyARows": family_a_rows,
+        "counts": {
+            "diagnostic_rows": len(rows),
+            "family_a_support_rows": len(family_a_rows),
+            "family_a_required_support_rendered": rendered,
+            "family_a_planner_affordance_channel": affordance_channel,
+            "family_a_title_summary_channel": title_summary_channel,
+            "family_a_retrieval_terms_channel": retrieval_terms_channel,
+            "prior_only_policy_correct_suppression": policy_correct,
+            "prior_only_support_required_rows": len(prior_policy_rows),
+        },
+        "notes": [
+            "expected_support_refs_eval_only is diagnostic-only; it is not used for retrieval, ranking, indexing, or admission.",
+            "planner_affordances means the support card and question met through controlled vocabulary, not benchmark IDs.",
+            "prior-only support-required rows should show policy-correct suppression, not retrieval failure.",
+        ],
+    }
+
+
 def _support_field_policy_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     by_question: dict[int, dict[str, Any]] = defaultdict(dict)
     question_ids: dict[int, str] = {}
@@ -404,12 +478,12 @@ def _support_field_policy_summary(rows: list[dict[str, Any]]) -> dict[str, Any]:
             "support_token_share_increases": token_share_improvements,
         },
         "decision_note": (
-            "Use content+retrieval_terms as the demo support retrieval field policy; keep content-only "
-            "as an ablation and prior-only as a boundary/control lane."
+            "Use source-derived planner affordances plus retrieval_terms as the demo support retrieval field policy; "
+            "keep content-only affordances as an ablation and prior-only as a boundary/control lane."
         ),
         "metric_note": (
-            "A zero pass/fail delta can still hide retrieval movement. Compare support first candidate rank, "
-            "first admitted rank, candidate/admitted hit booleans, and support token share."
+            "A zero pass/fail delta can still hide retrieval movement. Compare required support rank, "
+            "first admitted rank, match channels, and support token share."
         ),
     }
 
@@ -572,12 +646,26 @@ def build_payload(
 ) -> dict[str, Any]:
     surface_summary: dict[str, Any] = {}
     surface_rows: list[dict[str, Any]] = []
+    pr66_diagnostics = _load_pr66_affordance_diagnostics()
+    pr66_summary = _pr66_affordance_summary(pr66_diagnostics) if pr66_diagnostics else {}
+    pr66_by_key = {_pr66_row_key(row): row for row in pr66_summary.get("rows", [])} if pr66_summary else {}
     if include_full_surface:
         question_rows, question_cards, surface_rows, surface_summary = _build_surface_question_cards(
             report=report,
             gold=gold,
             include_generated_answer=False,
         )
+        if pr66_by_key:
+            for card in question_cards:
+                diag = pr66_by_key.get(
+                    (
+                        str(card.get("mode") or ""),
+                        int(card.get("question_number") or 0),
+                        str(card.get("question_id") or ""),
+                    )
+                )
+                if diag:
+                    card["pr66_affordance_diagnostics"] = diag
     elif report:
         question_rows, question_cards = _legacy_cards_from_report(report, gold)
     else:
@@ -633,6 +721,7 @@ def build_payload(
         },
         "modeGuide": MODE_GUIDE,
         "supportFieldPolicy": _support_field_policy_summary(surface_rows) if include_full_surface else {},
+        "plannerAffordanceDiagnostics": pr66_summary if include_full_surface else {},
         "summary": {
             "modes": modes,
             "modeOptions": [{"value": "all", "label": "All modes"}]
@@ -653,7 +742,12 @@ def build_payload(
             {
                 "guardrail": "Demo retrieval field policy",
                 "status": "INFO",
-                "detail": "Primary demo lane is support content + retrieval_terms; content-only is an ablation and prior-only is a boundary/control lane.",
+                "detail": "Primary demo lane uses source-derived planner affordances plus retrieval_terms; content-only is affordance-without-retrieval_terms ablation and prior-only is a boundary/control lane.",
+            },
+            {
+                "guardrail": "PR66 affordance provenance",
+                "status": "PASS" if pr66_summary else "INFO",
+                "detail": "Planner affordance diagnostics loaded from PR66 artifact; expected support refs are eval-only diagnostics, not retrieval inputs.",
             },
             {
                 "guardrail": "Gold is eval-only",

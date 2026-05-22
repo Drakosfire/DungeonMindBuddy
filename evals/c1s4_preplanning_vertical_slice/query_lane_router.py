@@ -49,12 +49,12 @@ def build_lane_plan(*, question_text: str, retrieval_mode: str, candidate_depth:
     qf = extract_query_features(question_text)
     sig = qf["intent_signals"]
     profile = "default_mixed"
-    if sig["asks_route_or_distance"] or sig["asks_known_gap_sensitive_question"]:
+    if sig["asks_support_or_world_context"] and retrieval_mode != "prior_only" and sig.get("has_support_specific_entities"):
+        profile = "support_description"
+    elif sig["asks_route_or_distance"] or sig["asks_known_gap_sensitive_question"]:
         profile = "route_or_distance_gap"
     elif sig["asks_prior_npc_context"]:
         profile = "prior_npc_context"
-    elif sig["asks_support_or_world_context"] and retrieval_mode != "prior_only" and sig.get("has_support_specific_entities"):
-        profile = "support_description"
     lanes = {k: dict(v) for k, v in LANE_PROFILES_V1[profile].items()}
     if retrieval_mode == "prior_only":
         lanes["support_knowledge"] = {"floor_chars": 0, "target_chars": 0, "max_chars": 0, "priority": 9}

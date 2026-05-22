@@ -4,6 +4,8 @@ import json
 from pathlib import Path
 from typing import Any, Literal
 
+from evals.c1s4_preplanning_vertical_slice.planner_affordances import derive_planner_affordances_for_support_card
+
 SupportRetrievalMode = Literal[
     "content_only",
     "content_plus_lexical_hints",
@@ -38,6 +40,10 @@ def normalize_support_card(card: dict[str, Any], *, retrieval_mode: SupportRetri
     title = str(card.get("title") or "").strip()
     summary = str(card.get("summary") or "").strip()
     retrieval_terms = [str(t).strip() for t in (card.get("retrieval_terms") or []) if str(t).strip()]
+    planner_affordances = derive_planner_affordances_for_support_card(
+        card,
+        include_retrieval_terms="retrieval_terms" in indexable_fields,
+    )
 
     lexical_parts = []
     if "title" in indexable_fields and title:
@@ -47,6 +53,9 @@ def normalize_support_card(card: dict[str, Any], *, retrieval_mode: SupportRetri
     lexical_plain = ". ".join(lexical_parts)
     if "retrieval_terms" in indexable_fields and retrieval_terms:
         lexical_plain = f"{lexical_plain} Keywords: {', '.join(retrieval_terms)}" if lexical_plain else f"Keywords: {', '.join(retrieval_terms)}"
+    if "planner_affordances" in indexable_fields and planner_affordances:
+        labels = " ".join(str(a.get("affordance") or "").replace("_", " ") for a in planner_affordances)
+        lexical_plain = f"{lexical_plain} Planner affordances: {labels}" if lexical_plain else f"Planner affordances: {labels}"
 
     return {
         "unit_id": f"support:{card.get('support_card_id')}",
@@ -57,8 +66,10 @@ def normalize_support_card(card: dict[str, Any], *, retrieval_mode: SupportRetri
         "authority_role": card.get("authority_role"),
         "canon_status": card.get("canon_status"),
         "title": title,
+        "summary": summary,
         "lexical_plain": lexical_plain,
         "retrieval_terms": retrieval_terms,
+        "planner_affordances": planner_affordances,
         "source_reference": card.get("source_reference") or {},
         "eval_metadata": {
             "usable_for_questions": card.get("usable_for_questions") or [],

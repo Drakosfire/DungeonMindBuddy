@@ -11,6 +11,7 @@ const c1s4ExpectedContextCanvasData = {
   sources: { report: "", gold: "", targets: "" },
   modeGuide: { title: "", scope: "", modes: [], verdict_legend: [], contracts: [] },
   supportFieldPolicy: {},
+  plannerAffordanceDiagnostics: {},
   summary: {
     modes: ["prior_only"],
     statTiles: [{ label: "Planner rows", value: 0 }],
@@ -261,6 +262,69 @@ function rankText(value: unknown): string {
   return String(value);
 }
 
+function channelText(value: unknown): string {
+  const channels = asRecord(value);
+  const active = Object.entries(channels)
+    .filter(([, enabled]) => Boolean(enabled))
+    .map(([key]) => key);
+  return active.length ? active.join(" + ") : "none";
+}
+
+function PlannerAffordanceDiagnosticsPanel({ diagnostics }: { diagnostics: AnyRecord }) {
+  const rows = asArray<AnyRecord>(diagnostics.familyARows);
+  const counts = asRecord(diagnostics.counts);
+  const notes = asArray<string>(diagnostics.notes);
+
+  if (!rows.length) return null;
+
+  return (
+    <Stack gap={10}>
+      <H2>PR66 Planner Affordance Retrieval</H2>
+      <Callout tone="success" title="Family A retrieval repair">
+        Q10/Q11/Q20 support rows now retrieve and render required support without question IDs, gold groups,
+        or usable_for_questions. Match channels below show whether retrieval came from source-derived
+        planner_affordances, title/summary, retrieval_terms, or support aliases.
+      </Callout>
+      <Grid columns={4} gap={8}>
+        <Stat value={`${String(counts.family_a_required_support_rendered ?? 0)}/${String(counts.family_a_support_rows ?? rows.length)}`} label="Family A rendered" tone="success" />
+        <Stat value={String(counts.family_a_planner_affordance_channel ?? 0)} label="Planner-affordance channel" tone="success" />
+        <Stat value={String(counts.family_a_title_summary_channel ?? 0)} label="Title/summary channel" />
+        <Stat value={`${String(counts.prior_only_policy_correct_suppression ?? 0)}/${String(counts.prior_only_support_required_rows ?? 0)}`} label="Prior-only policy suppressions" tone="success" />
+      </Grid>
+      <Table
+        headers={[
+          "Q#",
+          "Mode",
+          "PR65 any support",
+          "Required candidate",
+          "Required admitted",
+          "Rendered",
+          "Match channel",
+          "Surface",
+        ]}
+        rows={rows.map((row) => [
+          `Q${String(row.question_number ?? "")}`,
+          modeLabel(String(row.mode ?? "")),
+          rankText(row.baseline_pr65_first_any_support_candidate_rank),
+          rankText(row.first_required_support_candidate_rank),
+          rankText(row.first_required_support_admitted_rank),
+          row.required_support_rendered ? "yes" : "no",
+          channelText(row.support_match_channels),
+          String(row.next_failure_surface ?? ""),
+        ])}
+      />
+      <Stack gap={4}>
+        {notes.map((note) => (
+          <Text key={note} size="small" tone="secondary">
+            {note}
+          </Text>
+        ))}
+      </Stack>
+      {diagnostics.artifactPath ? <Code>{String(diagnostics.artifactPath)}</Code> : null}
+    </Stack>
+  );
+}
+
 function SupportFieldPolicyPanel({ policy }: { policy: AnyRecord }) {
   const rows = asArray<AnyRecord>(policy.rows);
   const counts = asRecord(policy.counts);
@@ -285,12 +349,12 @@ function SupportFieldPolicyPanel({ policy }: { policy: AnyRecord }) {
       <Table
         headers={[
           "Q#",
-          "Content candidate",
-          "Terms candidate",
-          "Content admitted",
-          "Terms admitted",
+          "Affordance candidate",
+          "Affordance + terms candidate",
+          "Affordance admitted",
+          "Affordance + terms admitted",
           "Token share delta",
-          "Terms surface",
+          "Demo surface",
         ]}
         rows={rows.map((row) => [
           `Q${String(row.question_number ?? "")}`,
@@ -312,6 +376,7 @@ function QuestionReviewCard({ card }: { card: AnyRecord }) {
   const matched = asArray(card.required_context_groups);
   const packet = asRecord(card.rendered_context_packet);
   const metrics = asRecord(card.packet_quality_metrics);
+  const pr66 = asRecord(card.pr66_affordance_diagnostics);
   const admitted = asArray<AnyRecord>(card.admitted_context_preview);
   const gaps = asArray(card.source_derived_context_gaps);
   const violations = asArray<string>(card.violations);
@@ -394,6 +459,12 @@ function QuestionReviewCard({ card }: { card: AnyRecord }) {
               {card.first_support_admitted_rank ? (
                 <Pill tone="neutral">admitted rank {String(card.first_support_admitted_rank)}</Pill>
               ) : null}
+              {pr66.first_required_support_candidate_rank ? (
+                <Pill tone="info">required support candidate {String(pr66.first_required_support_candidate_rank)}</Pill>
+              ) : null}
+              {pr66.support_match_channels ? (
+                <Pill tone="info">channels: {channelText(pr66.support_match_channels)}</Pill>
+              ) : null}
               {card.known_context_gaps_leaked ? <Pill tone="danger">gap_leak</Pill> : null}
               {card.generated_answer_control_leak ? <Pill tone="danger">answer_control_leak</Pill> : null}
             </Row>
@@ -468,6 +539,7 @@ export default function C1S4ExpectedContextBenchmarkCanvas() {
   const questionCards = asArray<AnyRecord>(data.questionCards);
   const modeGuide = asRecord(data.modeGuide);
   const supportFieldPolicy = asRecord(data.supportFieldPolicy);
+  const plannerAffordanceDiagnostics = asRecord(data.plannerAffordanceDiagnostics);
   const sources = asRecord(data.sources);
   const surfaceSummary = asRecord(summary.surfaceSummary);
   const failureCounts = asRecord(surfaceSummary.failure_surface_counts);
@@ -558,7 +630,8 @@ export default function C1S4ExpectedContextBenchmarkCanvas() {
         <Stack gap={10}>
           <H2>Mode comparison</H2>
           <Text size="small" tone="secondary">
-            Demo policy is content + retrieval_terms. Content-only and prior-only remain ablations/controls.
+            Demo policy is support retrieval through source-derived planner affordances plus retrieval_terms.
+            Content-only and prior-only remain ablations/controls.
             Green = ok_or_later_stage heuristic · Strict gold = Q1/Q3/Q5 only.
           </Text>
           <BarChart
@@ -589,6 +662,13 @@ export default function C1S4ExpectedContextBenchmarkCanvas() {
         <>
           <Divider />
           <SupportFieldPolicyPanel policy={supportFieldPolicy} />
+        </>
+      ) : null}
+
+      {Object.keys(plannerAffordanceDiagnostics).length ? (
+        <>
+          <Divider />
+          <PlannerAffordanceDiagnosticsPanel diagnostics={plannerAffordanceDiagnostics} />
         </>
       ) : null}
 

@@ -1,0 +1,3129 @@
+{
+  "schema": "dmb_pr66_support_affordance_diagnostics_v1",
+  "retrieval_modes": [
+    "prior_only",
+    "prior_plus_support_content_only",
+    "prior_plus_support_content_plus_lexical_hints"
+  ],
+  "rows": [
+    {
+      "question_number": 1,
+      "question_id": "q01_who_are_the_npcs_the_players_encountered",
+      "mode": "prior_only",
+      "authority_label": "prior_recap_supported",
+      "support_allowed_for_mode": false,
+      "query_affordances": [],
+      "expected_support_refs_eval_only": [],
+      "baseline_pr65_first_any_support_candidate_rank": null,
+      "first_any_support_candidate_rank": null,
+      "first_required_support_candidate_rank": null,
+      "first_required_support_candidate_ref": null,
+      "first_required_support_admitted_rank": null,
+      "required_support_rendered": false,
+      "support_token_share": 0.0016,
+      "support_match_channels": {
+        "title_summary": false,
+        "retrieval_terms": false,
+        "planner_affordances": false,
+        "support_alias": false
+      },
+      "policy_classification": "support_not_required",
+      "next_failure_surface": "ok_or_later_stage"
+    },
+    {
+      "question_number": 2,
+      "question_id": "q02_if_the_players_are_not_ready_to_leave_to",
+      "mode": "prior_only",
+      "authority_label": "mixed",
+      "support_allowed_for_mode": false,
+      "query_affordances": [],
+      "expected_support_refs_eval_only": [],
+      "baseline_pr65_first_any_support_candidate_rank": null,
+      "first_any_support_candidate_rank": null,
+      "first_required_support_candidate_rank": null,
+      "first_required_support_candidate_ref": null,
+      "first_required_support_admitted_rank": null,
+      "required_support_rendered": false,
+      "support_token_share": 0.0019,
+      "support_match_channels": {
+        "title_summary": false,
+        "retrieval_terms": false,
+        "planner_affordances": false,
+        "support_alias": false
+      },
+      "policy_classification": "support_not_required",
+      "next_failure_surface": "ok_or_later_stage"
+    },
+    {
+      "question_number": 3,
+      "question_id": "q03_how_far_away_is_mirathorn_at_this_point",
+      "mode": "prior_only",
+      "authority_label": "worldbuilding_required",
+      "support_allowed_for_mode": false,
+      "query_affordances": [],
+      "expected_support_refs_eval_only": [
+        "support:campaign2_mireward_tracker_do_not_backport",
+        "support:elderwyld_fantastic_livestock",
+        "support:elderwyld_reaches_distance_unit",
+        "support:elderwyld_road_grammar_general",
+        "support:elderwyld_travel_safe_generation_guidance",
+        "support:elderwyld_world_layer_overview",
+        "support:hempholm_support_overview",
+        "support:migrating_forest_pressure_logic",
+        "support:mirathorn_city_destination_node",
+        "support:mirathorn_final_approach_from_east",
+        "support:mireward_reach_northbound_route_warning",
+        "support:pre_era_conical_hills_world_ecology",
+        "support:stone_bridge_to_mirathorn_route_gap"
+      ],
+      "baseline_pr65_first_any_support_candidate_rank": null,
+      "first_any_support_candidate_rank": null,
+      "first_required_support_candidate_rank": null,
+      "first_required_support_candidate_ref": null,
+      "first_required_support_admitted_rank": null,
+      "required_support_rendered": false,
+      "support_token_share": 0.0018,
+      "support_match_channels": {
+        "title_summary": false,
+        "retrieval_terms": false,
+        "planner_affordances": false,
+        "support_alias": false
+      },
+      "policy_classification": "support_not_required",
+      "next_failure_surface": "ok_or_later_stage"
+    },
+    {
+      "question_number": 4,
+      "question_id": "q04_we_need_a_good_hemp_dealing_merchant_who",
+      "mode": "prior_only",
+      "authority_label": "support_knowledge_required",
+      "support_allowed_for_mode": false,
+      "query_affordances": [],
+      "expected_support_refs_eval_only": [
+        "support:hempholm_hemp_economy",
+        "support:hempholm_road_hook_merchant_role",
+        "support:hempholm_saladin_optional",
+        "support:hempholm_support_overview"
+      ],
+      "baseline_pr65_first_any_support_candidate_rank": null,
+      "first_any_support_candidate_rank": null,
+      "first_required_support_candidate_rank": null,
+      "first_required_support_candidate_ref": null,
+      "first_required_support_admitted_rank": null,
+      "required_support_rendered": false,
+      "support_token_share": 0.0016,
+      "support_match_channels": {
+        "title_summary": false,
+        "retrieval_terms": false,
+        "planner_affordances": false,
+        "support_alias": false
+      },
+      "policy_classification": "support_required_policy_suppressed_expected",
+      "next_failure_surface": "support_required_policy_suppressed_expected"
+    },
+    {
+      "question_number": 5,
+      "question_id": "q05_there_is_a_gigantic_tree_growing_in_hemp",
+      "mode": "prior_only",
+      "authority_label": "support_knowledge_required",
+      "support_allowed_for_mode": false,
+      "query_affordances": [],
+      "expected_support_refs_eval_only": [
+        "support:hempholm_road_hook_merchant_role",
+        "support:hempholm_tree_visible_threat"
+      ],
+      "baseline_pr65_first_any_support_candidate_rank": null,
+      "first_any_support_candidate_rank": null,
+      "first_required_support_candidate_rank": null,
+      "first_required_support_candidate_ref": null,
+      "first_required_support_admitted_rank": null,
+      "required_support_rendered": false,
+      "support_token_share": 0.0015,
+      "support_match_channels": {
+        "title_summary": false,
+        "retrieval_terms": false,
+        "planner_affordances": false,
+        "support_alias": false
+      },
+      "policy_classification": "support_required_policy_suppressed_expected",
+      "next_failure_surface": "tier_a_gold_regression"
+    },
+    {
+      "question_number": 6,
+      "question_id": "q06_what_are_some_rumors_that_the_npc_could",
+      "mode": "prior_only",
+      "authority_label": "mixed",
+      "support_allowed_for_mode": false,
+      "query_affordances": [],
+      "expected_support_refs_eval_only": [
+        "support:hempholm_hemp_economy",
+        "support:hempholm_road_hook_merchant_role"
+      ],
+      "baseline_pr65_first_any_support_candidate_rank": null,
+      "first_any_support_candidate_rank": null,
+      "first_required_support_candidate_rank": null,
+      "first_required_support_candidate_ref": null,
+      "first_required_support_admitted_rank": null,
+      "required_support_rendered": false,
+      "support_token_share": 0.0016,
+      "support_match_channels": {
+        "title_summary": false,
+        "retrieval_terms": false,
+        "planner_affordances": false,
+        "support_alias": false
+      },
+      "policy_classification": "support_not_required",
+      "next_failure_surface": "ok_or_later_stage"
+    },
+    {
+      "question_number": 7,
+      "question_id": "q07_what_is_the_tone_of_the_road_from_stone",
+      "mode": "prior_only",
+      "authority_label": "worldbuilding_required",
+      "support_allowed_for_mode": false,
+      "query_affordances": [],
+      "expected_support_refs_eval_only": [
+        "support:elderwyld_fantastic_livestock",
+        "support:elderwyld_reaches_distance_unit",
+        "support:elderwyld_road_grammar_general",
+        "support:migrating_forest_pressure_logic",
+        "support:mirathorn_final_approach_from_east",
+        "support:pre_era_conical_hills_world_ecology"
+      ],
+      "baseline_pr65_first_any_support_candidate_rank": null,
+      "first_any_support_candidate_rank": null,
+      "first_required_support_candidate_rank": null,
+      "first_required_support_candidate_ref": null,
+      "first_required_support_admitted_rank": null,
+      "required_support_rendered": false,
+      "support_token_share": 0.0026,
+      "support_match_channels": {
+        "title_summary": false,
+        "retrieval_terms": false,
+        "planner_affordances": false,
+        "support_alias": false
+      },
+      "policy_classification": "support_not_required",
+      "next_failure_surface": "ok_or_later_stage"
+    },
+    {
+      "question_number": 8,
+      "question_id": "q08_give_me_three_small_road_events_that_can",
+      "mode": "prior_only",
+      "authority_label": "creative_generation",
+      "support_allowed_for_mode": false,
+      "query_affordances": [],
+      "expected_support_refs_eval_only": [
+        "support:conical_hill_night_camp_texture",
+        "support:elderwyld_fantastic_livestock",
+        "support:elderwyld_road_grammar_general",
+        "support:geomantic_drake_ecology",
+        "support:migrating_forest_pressure_logic",
+        "support:pre_era_conical_hills_world_ecology"
+      ],
+      "baseline_pr65_first_any_support_candidate_rank": null,
+      "first_any_support_candidate_rank": null,
+      "first_required_support_candidate_rank": null,
+      "first_required_support_candidate_ref": null,
+      "first_required_support_admitted_rank": null,
+      "required_support_rendered": false,
+      "support_token_share": 0.0019,
+      "support_match_channels": {
+        "title_summary": false,
+        "retrieval_terms": false,
+        "planner_affordances": false,
+        "support_alias": false
+      },
+      "policy_classification": "support_not_required",
+      "next_failure_surface": "ok_or_later_stage"
+    },
+    {
+      "question_number": 9,
+      "question_id": "q09_the_players_are_likely_still_riding_the",
+      "mode": "prior_only",
+      "authority_label": "prior_recap_supported",
+      "support_allowed_for_mode": false,
+      "query_affordances": [],
+      "expected_support_refs_eval_only": [
+        "support:conical_hill_night_camp_texture"
+      ],
+      "baseline_pr65_first_any_support_candidate_rank": null,
+      "first_any_support_candidate_rank": null,
+      "first_required_support_candidate_rank": null,
+      "first_required_support_candidate_ref": null,
+      "first_required_support_admitted_rank": null,
+      "required_support_rendered": false,
+      "support_token_share": 0.0028,
+      "support_match_channels": {
+        "title_summary": false,
+        "retrieval_terms": false,
+        "planner_affordances": false,
+        "support_alias": false
+      },
+      "policy_classification": "support_not_required",
+      "next_failure_surface": "ok_or_later_stage"
+    },
+    {
+      "question_number": 10,
+      "question_id": "q10_as_the_party_approaches_hempholm__what_s",
+      "mode": "prior_only",
+      "authority_label": "support_knowledge_required",
+      "support_allowed_for_mode": false,
+      "query_affordances": [],
+      "expected_support_refs_eval_only": [
+        "support:hempholm_support_overview",
+        "support:hempholm_tree_visible_threat"
+      ],
+      "baseline_pr65_first_any_support_candidate_rank": null,
+      "first_any_support_candidate_rank": null,
+      "first_required_support_candidate_rank": null,
+      "first_required_support_candidate_ref": null,
+      "first_required_support_admitted_rank": null,
+      "required_support_rendered": false,
+      "support_token_share": 0.0019,
+      "support_match_channels": {
+        "title_summary": false,
+        "retrieval_terms": false,
+        "planner_affordances": false,
+        "support_alias": false
+      },
+      "policy_classification": "support_required_policy_suppressed_expected",
+      "next_failure_surface": "support_required_policy_suppressed_expected"
+    },
+    {
+      "question_number": 11,
+      "question_id": "q11_what_are_the_first_three_npcs_the_player",
+      "mode": "prior_only",
+      "authority_label": "support_knowledge_required",
+      "support_allowed_for_mode": false,
+      "query_affordances": [],
+      "expected_support_refs_eval_only": [
+        "support:hempholm_jove_family",
+        "support:hempholm_morwin_store",
+        "support:hempholm_narfi_optional_healer",
+        "support:hempholm_saladin_optional"
+      ],
+      "baseline_pr65_first_any_support_candidate_rank": null,
+      "first_any_support_candidate_rank": null,
+      "first_required_support_candidate_rank": null,
+      "first_required_support_candidate_ref": null,
+      "first_required_support_admitted_rank": null,
+      "required_support_rendered": false,
+      "support_token_share": 0.0016,
+      "support_match_channels": {
+        "title_summary": false,
+        "retrieval_terms": false,
+        "planner_affordances": false,
+        "support_alias": false
+      },
+      "policy_classification": "support_required_policy_suppressed_expected",
+      "next_failure_surface": "support_required_policy_suppressed_expected"
+    },
+    {
+      "question_number": 12,
+      "question_id": "q12_what_questions_are_the_players_most_like",
+      "mode": "prior_only",
+      "authority_label": "mixed",
+      "support_allowed_for_mode": false,
+      "query_affordances": [],
+      "expected_support_refs_eval_only": [
+        "support:hempholm_jove_family",
+        "support:hempholm_tree_mechanics_and_clues"
+      ],
+      "baseline_pr65_first_any_support_candidate_rank": null,
+      "first_any_support_candidate_rank": null,
+      "first_required_support_candidate_rank": null,
+      "first_required_support_candidate_ref": null,
+      "first_required_support_admitted_rank": null,
+      "required_support_rendered": false,
+      "support_token_share": 0.0018,
+      "support_match_channels": {
+        "title_summary": false,
+        "retrieval_terms": false,
+        "planner_affordances": false,
+        "support_alias": false
+      },
+      "policy_classification": "support_not_required",
+      "next_failure_surface": "ok_or_later_stage"
+    },
+    {
+      "question_number": 13,
+      "question_id": "q13_what_observable_clues_should_reveal_that",
+      "mode": "prior_only",
+      "authority_label": "support_knowledge_required",
+      "support_allowed_for_mode": false,
+      "query_affordances": [],
+      "expected_support_refs_eval_only": [
+        "support:hempholm_tree_mechanics_and_clues",
+        "support:hempholm_tree_visible_threat"
+      ],
+      "baseline_pr65_first_any_support_candidate_rank": null,
+      "first_any_support_candidate_rank": null,
+      "first_required_support_candidate_rank": null,
+      "first_required_support_candidate_ref": null,
+      "first_required_support_admitted_rank": null,
+      "required_support_rendered": false,
+      "support_token_share": 0.0022,
+      "support_match_channels": {
+        "title_summary": false,
+        "retrieval_terms": false,
+        "planner_affordances": false,
+        "support_alias": false
+      },
+      "policy_classification": "support_required_policy_suppressed_expected",
+      "next_failure_surface": "support_required_policy_suppressed_expected"
+    },
+    {
+      "question_number": 14,
+      "question_id": "q14_what_skill_checks_should_be_available_fo",
+      "mode": "prior_only",
+      "authority_label": "mixed",
+      "support_allowed_for_mode": false,
+      "query_affordances": [],
+      "expected_support_refs_eval_only": [
+        "support:geomantic_drake_ecology",
+        "support:hempholm_tree_mechanics_and_clues",
+        "support:hempholm_tree_visible_threat"
+      ],
+      "baseline_pr65_first_any_support_candidate_rank": null,
+      "first_any_support_candidate_rank": null,
+      "first_required_support_candidate_rank": null,
+      "first_required_support_candidate_ref": null,
+      "first_required_support_admitted_rank": null,
+      "required_support_rendered": false,
+      "support_token_share": 0.0023,
+      "support_match_channels": {
+        "title_summary": false,
+        "retrieval_terms": false,
+        "planner_affordances": false,
+        "support_alias": false
+      },
+      "policy_classification": "support_not_required",
+      "next_failure_surface": "ok_or_later_stage"
+    },
+    {
+      "question_number": 15,
+      "question_id": "q15_how_do_i_teach_the_tree_s_reach_and_move",
+      "mode": "prior_only",
+      "authority_label": "creative_generation",
+      "support_allowed_for_mode": false,
+      "query_affordances": [],
+      "expected_support_refs_eval_only": [
+        "support:hempholm_tree_mechanics_and_clues",
+        "support:hempholm_tree_visible_threat"
+      ],
+      "baseline_pr65_first_any_support_candidate_rank": null,
+      "first_any_support_candidate_rank": null,
+      "first_required_support_candidate_rank": null,
+      "first_required_support_candidate_ref": null,
+      "first_required_support_admitted_rank": null,
+      "required_support_rendered": false,
+      "support_token_share": 0.0021,
+      "support_match_channels": {
+        "title_summary": false,
+        "retrieval_terms": false,
+        "planner_affordances": false,
+        "support_alias": false
+      },
+      "policy_classification": "support_not_required",
+      "next_failure_surface": "ok_or_later_stage"
+    },
+    {
+      "question_number": 16,
+      "question_id": "q16_who_in_town_wants_to_attack_or_burn_the",
+      "mode": "prior_only",
+      "authority_label": "creative_generation",
+      "support_allowed_for_mode": false,
+      "query_affordances": [],
+      "expected_support_refs_eval_only": [
+        "support:hempholm_jove_family",
+        "support:hempholm_local_social_pressure"
+      ],
+      "baseline_pr65_first_any_support_candidate_rank": null,
+      "first_any_support_candidate_rank": null,
+      "first_required_support_candidate_rank": null,
+      "first_required_support_candidate_ref": null,
+      "first_required_support_admitted_rank": null,
+      "required_support_rendered": false,
+      "support_token_share": 0.0016,
+      "support_match_channels": {
+        "title_summary": false,
+        "retrieval_terms": false,
+        "planner_affordances": false,
+        "support_alias": false
+      },
+      "policy_classification": "support_not_required",
+      "next_failure_surface": "ok_or_later_stage"
+    },
+    {
+      "question_number": 17,
+      "question_id": "q17_how_can_stafl_or_another_social_characte",
+      "mode": "prior_only",
+      "authority_label": "mixed",
+      "support_allowed_for_mode": false,
+      "query_affordances": [],
+      "expected_support_refs_eval_only": [
+        "support:hempholm_local_social_pressure",
+        "support:hempholm_narfi_optional_healer"
+      ],
+      "baseline_pr65_first_any_support_candidate_rank": null,
+      "first_any_support_candidate_rank": null,
+      "first_required_support_candidate_rank": null,
+      "first_required_support_candidate_ref": null,
+      "first_required_support_admitted_rank": null,
+      "required_support_rendered": false,
+      "support_token_share": 0.0016,
+      "support_match_channels": {
+        "title_summary": false,
+        "retrieval_terms": false,
+        "planner_affordances": false,
+        "support_alias": false
+      },
+      "policy_classification": "support_not_required",
+      "next_failure_surface": "ok_or_later_stage"
+    },
+    {
+      "question_number": 18,
+      "question_id": "q18_what_happens_if_the_party_fails_to_stop",
+      "mode": "prior_only",
+      "authority_label": "creative_generation",
+      "support_allowed_for_mode": false,
+      "query_affordances": [],
+      "expected_support_refs_eval_only": [
+        "support:hempholm_local_social_pressure",
+        "support:hempholm_narfi_optional_healer"
+      ],
+      "baseline_pr65_first_any_support_candidate_rank": null,
+      "first_any_support_candidate_rank": null,
+      "first_required_support_candidate_rank": null,
+      "first_required_support_candidate_ref": null,
+      "first_required_support_admitted_rank": null,
+      "required_support_rendered": false,
+      "support_token_share": 0.0027,
+      "support_match_channels": {
+        "title_summary": false,
+        "retrieval_terms": false,
+        "planner_affordances": false,
+        "support_alias": false
+      },
+      "policy_classification": "support_not_required",
+      "next_failure_surface": "ok_or_later_stage"
+    },
+    {
+      "question_number": 19,
+      "question_id": "q19_what_triggers_the_tree_to_escalate_from",
+      "mode": "prior_only",
+      "authority_label": "creative_generation",
+      "support_allowed_for_mode": false,
+      "query_affordances": [],
+      "expected_support_refs_eval_only": [],
+      "baseline_pr65_first_any_support_candidate_rank": null,
+      "first_any_support_candidate_rank": null,
+      "first_required_support_candidate_rank": null,
+      "first_required_support_candidate_ref": null,
+      "first_required_support_admitted_rank": null,
+      "required_support_rendered": false,
+      "support_token_share": 0.003,
+      "support_match_channels": {
+        "title_summary": false,
+        "retrieval_terms": false,
+        "planner_affordances": false,
+        "support_alias": false
+      },
+      "policy_classification": "support_not_required",
+      "next_failure_surface": "ok_or_later_stage"
+    },
+    {
+      "question_number": 20,
+      "question_id": "q20_design_the_tree_encounter_as_a_battlefie",
+      "mode": "prior_only",
+      "authority_label": "support_knowledge_required",
+      "support_allowed_for_mode": false,
+      "query_affordances": [],
+      "expected_support_refs_eval_only": [
+        "support:hempholm_tree_mechanics_and_clues"
+      ],
+      "baseline_pr65_first_any_support_candidate_rank": null,
+      "first_any_support_candidate_rank": null,
+      "first_required_support_candidate_rank": null,
+      "first_required_support_candidate_ref": null,
+      "first_required_support_admitted_rank": null,
+      "required_support_rendered": false,
+      "support_token_share": 0.0016,
+      "support_match_channels": {
+        "title_summary": false,
+        "retrieval_terms": false,
+        "planner_affordances": false,
+        "support_alias": false
+      },
+      "policy_classification": "support_required_policy_suppressed_expected",
+      "next_failure_surface": "support_required_policy_suppressed_expected"
+    },
+    {
+      "question_number": 21,
+      "question_id": "q21_what_should_each_type_of_pc_be_able_to_c",
+      "mode": "prior_only",
+      "authority_label": "mixed",
+      "support_allowed_for_mode": false,
+      "query_affordances": [],
+      "expected_support_refs_eval_only": [],
+      "baseline_pr65_first_any_support_candidate_rank": null,
+      "first_any_support_candidate_rank": null,
+      "first_required_support_candidate_rank": null,
+      "first_required_support_candidate_ref": null,
+      "first_required_support_admitted_rank": null,
+      "required_support_rendered": false,
+      "support_token_share": 0.0017,
+      "support_match_channels": {
+        "title_summary": false,
+        "retrieval_terms": false,
+        "planner_affordances": false,
+        "support_alias": false
+      },
+      "policy_classification": "support_not_required",
+      "next_failure_surface": "ok_or_later_stage"
+    },
+    {
+      "question_number": 22,
+      "question_id": "q22_if_the_party_defeats_the_tree__what_rema",
+      "mode": "prior_only",
+      "authority_label": "support_knowledge_required",
+      "support_allowed_for_mode": false,
+      "query_affordances": [],
+      "expected_support_refs_eval_only": [
+        "support:geomantic_drake_ecology",
+        "support:hempholm_treasure_materials"
+      ],
+      "baseline_pr65_first_any_support_candidate_rank": null,
+      "first_any_support_candidate_rank": null,
+      "first_required_support_candidate_rank": null,
+      "first_required_support_candidate_ref": null,
+      "first_required_support_admitted_rank": null,
+      "required_support_rendered": false,
+      "support_token_share": 0.0015,
+      "support_match_channels": {
+        "title_summary": false,
+        "retrieval_terms": false,
+        "planner_affordances": false,
+        "support_alias": false
+      },
+      "policy_classification": "support_required_policy_suppressed_expected",
+      "next_failure_surface": "support_required_policy_suppressed_expected"
+    },
+    {
+      "question_number": 23,
+      "question_id": "q23_how_would_local_craftspeople__farmers__c",
+      "mode": "prior_only",
+      "authority_label": "creative_generation",
+      "support_allowed_for_mode": false,
+      "query_affordances": [],
+      "expected_support_refs_eval_only": [
+        "support:hempholm_morwin_store",
+        "support:hempholm_small_problems",
+        "support:hempholm_treasure_materials"
+      ],
+      "baseline_pr65_first_any_support_candidate_rank": null,
+      "first_any_support_candidate_rank": null,
+      "first_required_support_candidate_rank": null,
+      "first_required_support_candidate_ref": null,
+      "first_required_support_admitted_rank": null,
+      "required_support_rendered": false,
+      "support_token_share": 0.003,
+      "support_match_channels": {
+        "title_summary": false,
+        "retrieval_terms": false,
+        "planner_affordances": false,
+        "support_alias": false
+      },
+      "policy_classification": "support_not_required",
+      "next_failure_surface": "ok_or_later_stage"
+    },
+    {
+      "question_number": 24,
+      "question_id": "q24_what_questions_should_the_weird_remains",
+      "mode": "prior_only",
+      "authority_label": "creative_generation",
+      "support_allowed_for_mode": false,
+      "query_affordances": [],
+      "expected_support_refs_eval_only": [
+        "support:hempholm_treasure_materials"
+      ],
+      "baseline_pr65_first_any_support_candidate_rank": null,
+      "first_any_support_candidate_rank": null,
+      "first_required_support_candidate_rank": null,
+      "first_required_support_candidate_ref": null,
+      "first_required_support_admitted_rank": null,
+      "required_support_rendered": false,
+      "support_token_share": 0.0015,
+      "support_match_channels": {
+        "title_summary": false,
+        "retrieval_terms": false,
+        "planner_affordances": false,
+        "support_alias": false
+      },
+      "policy_classification": "support_not_required",
+      "next_failure_surface": "ok_or_later_stage"
+    },
+    {
+      "question_number": 25,
+      "question_id": "q25_how_does_hempholm_celebrate_if_the_visib",
+      "mode": "prior_only",
+      "authority_label": "support_knowledge_required",
+      "support_allowed_for_mode": false,
+      "query_affordances": [],
+      "expected_support_refs_eval_only": [
+        "support:hempholm_morwin_store",
+        "support:hempholm_premature_celebration",
+        "support:hempholm_small_problems"
+      ],
+      "baseline_pr65_first_any_support_candidate_rank": null,
+      "first_any_support_candidate_rank": null,
+      "first_required_support_candidate_rank": null,
+      "first_required_support_candidate_ref": null,
+      "first_required_support_admitted_rank": null,
+      "required_support_rendered": false,
+      "support_token_share": 0.0016,
+      "support_match_channels": {
+        "title_summary": false,
+        "retrieval_terms": false,
+        "planner_affordances": false,
+        "support_alias": false
+      },
+      "policy_classification": "support_required_policy_suppressed_expected",
+      "next_failure_surface": "support_required_policy_suppressed_expected"
+    },
+    {
+      "question_number": 26,
+      "question_id": "q26_what_social_friction_should_exist_during",
+      "mode": "prior_only",
+      "authority_label": "creative_generation",
+      "support_allowed_for_mode": false,
+      "query_affordances": [],
+      "expected_support_refs_eval_only": [
+        "support:hempholm_premature_celebration"
+      ],
+      "baseline_pr65_first_any_support_candidate_rank": null,
+      "first_any_support_candidate_rank": null,
+      "first_required_support_candidate_rank": null,
+      "first_required_support_candidate_ref": null,
+      "first_required_support_admitted_rank": null,
+      "required_support_rendered": false,
+      "support_token_share": 0.0016,
+      "support_match_channels": {
+        "title_summary": false,
+        "retrieval_terms": false,
+        "planner_affordances": false,
+        "support_alias": false
+      },
+      "policy_classification": "support_not_required",
+      "next_failure_surface": "ok_or_later_stage"
+    },
+    {
+      "question_number": 27,
+      "question_id": "q27_which_pcs_are_likely_to_participate_in_c",
+      "mode": "prior_only",
+      "authority_label": "mixed",
+      "support_allowed_for_mode": false,
+      "query_affordances": [],
+      "expected_support_refs_eval_only": [
+        "support:hempholm_premature_celebration",
+        "support:hempholm_small_problems"
+      ],
+      "baseline_pr65_first_any_support_candidate_rank": null,
+      "first_any_support_candidate_rank": null,
+      "first_required_support_candidate_rank": null,
+      "first_required_support_candidate_ref": null,
+      "first_required_support_admitted_rank": null,
+      "required_support_rendered": false,
+      "support_token_share": 0.0032,
+      "support_match_channels": {
+        "title_summary": false,
+        "retrieval_terms": false,
+        "planner_affordances": false,
+        "support_alias": false
+      },
+      "policy_classification": "support_not_required",
+      "next_failure_surface": "ok_or_later_stage"
+    },
+    {
+      "question_number": 28,
+      "question_id": "q28_what_is_the_deeper_problem_beneath_the_v",
+      "mode": "prior_only",
+      "authority_label": "support_knowledge_required",
+      "support_allowed_for_mode": false,
+      "query_affordances": [],
+      "expected_support_refs_eval_only": [
+        "support:hempholm_caretaker_second_wave",
+        "support:hempholm_marrow_guardian_child",
+        "support:hempholm_root_descent",
+        "support:hempholm_saladin_optional"
+      ],
+      "baseline_pr65_first_any_support_candidate_rank": null,
+      "first_any_support_candidate_rank": null,
+      "first_required_support_candidate_rank": null,
+      "first_required_support_candidate_ref": null,
+      "first_required_support_admitted_rank": null,
+      "required_support_rendered": false,
+      "support_token_share": 0.0018,
+      "support_match_channels": {
+        "title_summary": false,
+        "retrieval_terms": false,
+        "planner_affordances": false,
+        "support_alias": false
+      },
+      "policy_classification": "support_required_policy_suppressed_expected",
+      "next_failure_surface": "support_required_policy_suppressed_expected"
+    },
+    {
+      "question_number": 29,
+      "question_id": "q29_how_do_i_foreshadow_the_deeper_threat_be",
+      "mode": "prior_only",
+      "authority_label": "creative_generation",
+      "support_allowed_for_mode": false,
+      "query_affordances": [],
+      "expected_support_refs_eval_only": [
+        "support:hempholm_caretaker_second_wave",
+        "support:hempholm_root_descent"
+      ],
+      "baseline_pr65_first_any_support_candidate_rank": null,
+      "first_any_support_candidate_rank": null,
+      "first_required_support_candidate_rank": null,
+      "first_required_support_candidate_ref": null,
+      "first_required_support_admitted_rank": null,
+      "required_support_rendered": false,
+      "support_token_share": 0.0015,
+      "support_match_channels": {
+        "title_summary": false,
+        "retrieval_terms": false,
+        "planner_affordances": false,
+        "support_alias": false
+      },
+      "policy_classification": "support_not_required",
+      "next_failure_surface": "ok_or_later_stage"
+    },
+    {
+      "question_number": 30,
+      "question_id": "q30_what_should_the_cliffhanger_look_like_if",
+      "mode": "prior_only",
+      "authority_label": "creative_generation",
+      "support_allowed_for_mode": false,
+      "query_affordances": [],
+      "expected_support_refs_eval_only": [
+        "support:hempholm_caretaker_second_wave",
+        "support:hempholm_premature_celebration"
+      ],
+      "baseline_pr65_first_any_support_candidate_rank": null,
+      "first_any_support_candidate_rank": null,
+      "first_required_support_candidate_rank": null,
+      "first_required_support_candidate_ref": null,
+      "first_required_support_admitted_rank": null,
+      "required_support_rendered": false,
+      "support_token_share": 0.0014,
+      "support_match_channels": {
+        "title_summary": false,
+        "retrieval_terms": false,
+        "planner_affordances": false,
+        "support_alias": false
+      },
+      "policy_classification": "support_not_required",
+      "next_failure_surface": "ok_or_later_stage"
+    },
+    {
+      "question_number": 31,
+      "question_id": "q31_if_the_session_ends_on_the_deeper_threat",
+      "mode": "prior_only",
+      "authority_label": "creative_generation",
+      "support_allowed_for_mode": false,
+      "query_affordances": [],
+      "expected_support_refs_eval_only": [
+        "support:hempholm_caretaker_second_wave",
+        "support:hempholm_marrow_guardian_child",
+        "support:hempholm_root_descent"
+      ],
+      "baseline_pr65_first_any_support_candidate_rank": null,
+      "first_any_support_candidate_rank": null,
+      "first_required_support_candidate_rank": null,
+      "first_required_support_candidate_ref": null,
+      "first_required_support_admitted_rank": null,
+      "required_support_rendered": false,
+      "support_token_share": 0.0017,
+      "support_match_channels": {
+        "title_summary": false,
+        "retrieval_terms": false,
+        "planner_affordances": false,
+        "support_alias": false
+      },
+      "policy_classification": "support_not_required",
+      "next_failure_surface": "ok_or_later_stage"
+    },
+    {
+      "question_number": 32,
+      "question_id": "q32_what_resources_are_likely_depleted_or_co",
+      "mode": "prior_only",
+      "authority_label": "mixed",
+      "support_allowed_for_mode": false,
+      "query_affordances": [],
+      "expected_support_refs_eval_only": [],
+      "baseline_pr65_first_any_support_candidate_rank": null,
+      "first_any_support_candidate_rank": null,
+      "first_required_support_candidate_rank": null,
+      "first_required_support_candidate_ref": null,
+      "first_required_support_admitted_rank": null,
+      "required_support_rendered": false,
+      "support_token_share": 0.0013,
+      "support_match_channels": {
+        "title_summary": false,
+        "retrieval_terms": false,
+        "planner_affordances": false,
+        "support_alias": false
+      },
+      "policy_classification": "support_not_required",
+      "next_failure_surface": "ok_or_later_stage"
+    },
+    {
+      "question_number": 33,
+      "question_id": "q33_what_unanswered_questions_should_the_pla",
+      "mode": "prior_only",
+      "authority_label": "creative_generation",
+      "support_allowed_for_mode": false,
+      "query_affordances": [],
+      "expected_support_refs_eval_only": [
+        "support:hempholm_continuation_guild_cleanup",
+        "support:hempholm_marrow_guardian_child",
+        "support:hempholm_root_descent"
+      ],
+      "baseline_pr65_first_any_support_candidate_rank": null,
+      "first_any_support_candidate_rank": null,
+      "first_required_support_candidate_rank": null,
+      "first_required_support_candidate_ref": null,
+      "first_required_support_admitted_rank": null,
+      "required_support_rendered": false,
+      "support_token_share": 0.0017,
+      "support_match_channels": {
+        "title_summary": false,
+        "retrieval_terms": false,
+        "planner_affordances": false,
+        "support_alias": false
+      },
+      "policy_classification": "support_not_required",
+      "next_failure_surface": "ok_or_later_stage"
+    },
+    {
+      "question_number": 34,
+      "question_id": "q34_which_facts_are_retrieved_from_prior_can",
+      "mode": "prior_only",
+      "authority_label": "mixed",
+      "support_allowed_for_mode": false,
+      "query_affordances": [],
+      "expected_support_refs_eval_only": [
+        "support:campaign2_mireward_tracker_do_not_backport",
+        "support:elderwyld_travel_safe_generation_guidance",
+        "support:elderwyld_world_layer_overview",
+        "support:hempholm_continuation_guild_cleanup",
+        "support:mirathorn_city_destination_node",
+        "support:mireward_reach_northbound_route_warning"
+      ],
+      "baseline_pr65_first_any_support_candidate_rank": null,
+      "first_any_support_candidate_rank": null,
+      "first_required_support_candidate_rank": null,
+      "first_required_support_candidate_ref": null,
+      "first_required_support_admitted_rank": null,
+      "required_support_rendered": false,
+      "support_token_share": 0.0018,
+      "support_match_channels": {
+        "title_summary": false,
+        "retrieval_terms": false,
+        "planner_affordances": false,
+        "support_alias": false
+      },
+      "policy_classification": "support_not_required",
+      "next_failure_surface": "ok_or_later_stage"
+    },
+    {
+      "question_number": 36,
+      "question_id": "q36_what_information_is_missing_from_the_cur",
+      "mode": "prior_only",
+      "authority_label": "worldbuilding_required",
+      "support_allowed_for_mode": false,
+      "query_affordances": [],
+      "expected_support_refs_eval_only": [
+        "support:campaign2_mireward_tracker_do_not_backport",
+        "support:elderwyld_world_layer_overview",
+        "support:mirathorn_city_destination_node",
+        "support:mireward_reach_northbound_route_warning",
+        "support:stone_bridge_to_mirathorn_route_gap"
+      ],
+      "baseline_pr65_first_any_support_candidate_rank": null,
+      "first_any_support_candidate_rank": null,
+      "first_required_support_candidate_rank": null,
+      "first_required_support_candidate_ref": null,
+      "first_required_support_admitted_rank": null,
+      "required_support_rendered": false,
+      "support_token_share": 0.0024,
+      "support_match_channels": {
+        "title_summary": false,
+        "retrieval_terms": false,
+        "planner_affordances": false,
+        "support_alias": false
+      },
+      "policy_classification": "support_not_required",
+      "next_failure_surface": "ok_or_later_stage"
+    },
+    {
+      "question_number": 37,
+      "question_id": "q37_what_prep_can_be_safely_generated_anyway",
+      "mode": "prior_only",
+      "authority_label": "creative_generation",
+      "support_allowed_for_mode": false,
+      "query_affordances": [],
+      "expected_support_refs_eval_only": [
+        "support:elderwyld_travel_safe_generation_guidance"
+      ],
+      "baseline_pr65_first_any_support_candidate_rank": null,
+      "first_any_support_candidate_rank": null,
+      "first_required_support_candidate_rank": null,
+      "first_required_support_candidate_ref": null,
+      "first_required_support_admitted_rank": null,
+      "required_support_rendered": false,
+      "support_token_share": 0.0013,
+      "support_match_channels": {
+        "title_summary": false,
+        "retrieval_terms": false,
+        "planner_affordances": false,
+        "support_alias": false
+      },
+      "policy_classification": "support_not_required",
+      "next_failure_surface": "ok_or_later_stage"
+    },
+    {
+      "question_number": 38,
+      "question_id": "q38_what_should_the_gm_decide_manually",
+      "mode": "prior_only",
+      "authority_label": "mixed",
+      "support_allowed_for_mode": false,
+      "query_affordances": [],
+      "expected_support_refs_eval_only": [
+        "support:elderwyld_travel_safe_generation_guidance",
+        "support:hempholm_continuation_guild_cleanup",
+        "support:stone_bridge_to_mirathorn_route_gap"
+      ],
+      "baseline_pr65_first_any_support_candidate_rank": null,
+      "first_any_support_candidate_rank": null,
+      "first_required_support_candidate_rank": null,
+      "first_required_support_candidate_ref": null,
+      "first_required_support_admitted_rank": null,
+      "required_support_rendered": false,
+      "support_token_share": 0.0032,
+      "support_match_channels": {
+        "title_summary": false,
+        "retrieval_terms": false,
+        "planner_affordances": false,
+        "support_alias": false
+      },
+      "policy_classification": "support_not_required",
+      "next_failure_surface": "ok_or_later_stage"
+    },
+    {
+      "question_number": 1,
+      "question_id": "q01_who_are_the_npcs_the_players_encountered",
+      "mode": "prior_plus_support_content_only",
+      "authority_label": "prior_recap_supported",
+      "support_allowed_for_mode": true,
+      "query_affordances": [
+        "encounter_design"
+      ],
+      "expected_support_refs_eval_only": [],
+      "baseline_pr65_first_any_support_candidate_rank": null,
+      "first_any_support_candidate_rank": 12,
+      "first_required_support_candidate_rank": 12,
+      "first_required_support_candidate_ref": "support:hempholm_local_social_pressure",
+      "first_required_support_admitted_rank": 8,
+      "required_support_rendered": false,
+      "support_token_share": 0.0634,
+      "support_match_channels": {
+        "title_summary": false,
+        "retrieval_terms": false,
+        "planner_affordances": true,
+        "support_alias": false
+      },
+      "policy_classification": "support_present_incidental",
+      "next_failure_surface": "ok_or_later_stage"
+    },
+    {
+      "question_number": 2,
+      "question_id": "q02_if_the_players_are_not_ready_to_leave_to",
+      "mode": "prior_plus_support_content_only",
+      "authority_label": "mixed",
+      "support_allowed_for_mode": true,
+      "query_affordances": [],
+      "expected_support_refs_eval_only": [],
+      "baseline_pr65_first_any_support_candidate_rank": null,
+      "first_any_support_candidate_rank": null,
+      "first_required_support_candidate_rank": null,
+      "first_required_support_candidate_ref": null,
+      "first_required_support_admitted_rank": null,
+      "required_support_rendered": false,
+      "support_token_share": 0.0019,
+      "support_match_channels": {
+        "title_summary": false,
+        "retrieval_terms": false,
+        "planner_affordances": false,
+        "support_alias": false
+      },
+      "policy_classification": "support_not_required",
+      "next_failure_surface": "ok_or_later_stage"
+    },
+    {
+      "question_number": 3,
+      "question_id": "q03_how_far_away_is_mirathorn_at_this_point",
+      "mode": "prior_plus_support_content_only",
+      "authority_label": "worldbuilding_required",
+      "support_allowed_for_mode": true,
+      "query_affordances": [
+        "encounter_design"
+      ],
+      "expected_support_refs_eval_only": [
+        "support:campaign2_mireward_tracker_do_not_backport",
+        "support:elderwyld_fantastic_livestock",
+        "support:elderwyld_reaches_distance_unit",
+        "support:elderwyld_road_grammar_general",
+        "support:elderwyld_travel_safe_generation_guidance",
+        "support:elderwyld_world_layer_overview",
+        "support:hempholm_support_overview",
+        "support:migrating_forest_pressure_logic",
+        "support:mirathorn_city_destination_node",
+        "support:mirathorn_final_approach_from_east",
+        "support:mireward_reach_northbound_route_warning",
+        "support:pre_era_conical_hills_world_ecology",
+        "support:stone_bridge_to_mirathorn_route_gap"
+      ],
+      "baseline_pr65_first_any_support_candidate_rank": null,
+      "first_any_support_candidate_rank": 14,
+      "first_required_support_candidate_rank": 15,
+      "first_required_support_candidate_ref": "support:hempholm_support_overview",
+      "first_required_support_admitted_rank": null,
+      "required_support_rendered": false,
+      "support_token_share": 0.0535,
+      "support_match_channels": {
+        "title_summary": false,
+        "retrieval_terms": false,
+        "planner_affordances": true,
+        "support_alias": false
+      },
+      "policy_classification": "support_present_incidental",
+      "next_failure_surface": "ok_or_later_stage"
+    },
+    {
+      "question_number": 4,
+      "question_id": "q04_we_need_a_good_hemp_dealing_merchant_who",
+      "mode": "prior_plus_support_content_only",
+      "authority_label": "support_knowledge_required",
+      "support_allowed_for_mode": true,
+      "query_affordances": [
+        "first_impression"
+      ],
+      "expected_support_refs_eval_only": [
+        "support:hempholm_hemp_economy",
+        "support:hempholm_road_hook_merchant_role",
+        "support:hempholm_saladin_optional",
+        "support:hempholm_support_overview"
+      ],
+      "baseline_pr65_first_any_support_candidate_rank": 31,
+      "first_any_support_candidate_rank": 12,
+      "first_required_support_candidate_rank": 12,
+      "first_required_support_candidate_ref": "support:hempholm_road_hook_merchant_role",
+      "first_required_support_admitted_rank": 7,
+      "required_support_rendered": true,
+      "support_token_share": 0.3749,
+      "support_match_channels": {
+        "title_summary": true,
+        "retrieval_terms": false,
+        "planner_affordances": false,
+        "support_alias": false
+      },
+      "policy_classification": "support_allowed_and_present",
+      "next_failure_surface": "ok_or_later_stage"
+    },
+    {
+      "question_number": 5,
+      "question_id": "q05_there_is_a_gigantic_tree_growing_in_hemp",
+      "mode": "prior_plus_support_content_only",
+      "authority_label": "support_knowledge_required",
+      "support_allowed_for_mode": true,
+      "query_affordances": [
+        "visible_landmark"
+      ],
+      "expected_support_refs_eval_only": [
+        "support:hempholm_road_hook_merchant_role",
+        "support:hempholm_tree_visible_threat"
+      ],
+      "baseline_pr65_first_any_support_candidate_rank": 22,
+      "first_any_support_candidate_rank": 15,
+      "first_required_support_candidate_rank": 19,
+      "first_required_support_candidate_ref": "support:hempholm_tree_visible_threat",
+      "first_required_support_admitted_rank": 11,
+      "required_support_rendered": true,
+      "support_token_share": 0.4003,
+      "support_match_channels": {
+        "title_summary": false,
+        "retrieval_terms": false,
+        "planner_affordances": true,
+        "support_alias": false
+      },
+      "policy_classification": "support_allowed_and_present",
+      "next_failure_surface": "tier_a_gold_regression"
+    },
+    {
+      "question_number": 6,
+      "question_id": "q06_what_are_some_rumors_that_the_npc_could",
+      "mode": "prior_plus_support_content_only",
+      "authority_label": "mixed",
+      "support_allowed_for_mode": true,
+      "query_affordances": [],
+      "expected_support_refs_eval_only": [
+        "support:hempholm_hemp_economy",
+        "support:hempholm_road_hook_merchant_role"
+      ],
+      "baseline_pr65_first_any_support_candidate_rank": null,
+      "first_any_support_candidate_rank": null,
+      "first_required_support_candidate_rank": null,
+      "first_required_support_candidate_ref": null,
+      "first_required_support_admitted_rank": null,
+      "required_support_rendered": false,
+      "support_token_share": 0.0016,
+      "support_match_channels": {
+        "title_summary": false,
+        "retrieval_terms": false,
+        "planner_affordances": false,
+        "support_alias": false
+      },
+      "policy_classification": "support_not_required",
+      "next_failure_surface": "ok_or_later_stage"
+    },
+    {
+      "question_number": 7,
+      "question_id": "q07_what_is_the_tone_of_the_road_from_stone",
+      "mode": "prior_plus_support_content_only",
+      "authority_label": "worldbuilding_required",
+      "support_allowed_for_mode": true,
+      "query_affordances": [],
+      "expected_support_refs_eval_only": [
+        "support:elderwyld_fantastic_livestock",
+        "support:elderwyld_reaches_distance_unit",
+        "support:elderwyld_road_grammar_general",
+        "support:migrating_forest_pressure_logic",
+        "support:mirathorn_final_approach_from_east",
+        "support:pre_era_conical_hills_world_ecology"
+      ],
+      "baseline_pr65_first_any_support_candidate_rank": null,
+      "first_any_support_candidate_rank": null,
+      "first_required_support_candidate_rank": null,
+      "first_required_support_candidate_ref": null,
+      "first_required_support_admitted_rank": null,
+      "required_support_rendered": false,
+      "support_token_share": 0.0026,
+      "support_match_channels": {
+        "title_summary": false,
+        "retrieval_terms": false,
+        "planner_affordances": false,
+        "support_alias": false
+      },
+      "policy_classification": "support_not_required",
+      "next_failure_surface": "ok_or_later_stage"
+    },
+    {
+      "question_number": 8,
+      "question_id": "q08_give_me_three_small_road_events_that_can",
+      "mode": "prior_plus_support_content_only",
+      "authority_label": "creative_generation",
+      "support_allowed_for_mode": true,
+      "query_affordances": [],
+      "expected_support_refs_eval_only": [
+        "support:conical_hill_night_camp_texture",
+        "support:elderwyld_fantastic_livestock",
+        "support:elderwyld_road_grammar_general",
+        "support:geomantic_drake_ecology",
+        "support:migrating_forest_pressure_logic",
+        "support:pre_era_conical_hills_world_ecology"
+      ],
+      "baseline_pr65_first_any_support_candidate_rank": 19,
+      "first_any_support_candidate_rank": 9,
+      "first_required_support_candidate_rank": null,
+      "first_required_support_candidate_ref": null,
+      "first_required_support_admitted_rank": null,
+      "required_support_rendered": false,
+      "support_token_share": 0.451,
+      "support_match_channels": {
+        "title_summary": false,
+        "retrieval_terms": false,
+        "planner_affordances": false,
+        "support_alias": false
+      },
+      "policy_classification": "support_present_incidental",
+      "next_failure_surface": "ok_or_later_stage"
+    },
+    {
+      "question_number": 9,
+      "question_id": "q09_the_players_are_likely_still_riding_the",
+      "mode": "prior_plus_support_content_only",
+      "authority_label": "prior_recap_supported",
+      "support_allowed_for_mode": true,
+      "query_affordances": [
+        "first_impression",
+        "encounter_design"
+      ],
+      "expected_support_refs_eval_only": [
+        "support:conical_hill_night_camp_texture"
+      ],
+      "baseline_pr65_first_any_support_candidate_rank": null,
+      "first_any_support_candidate_rank": 12,
+      "first_required_support_candidate_rank": null,
+      "first_required_support_candidate_ref": null,
+      "first_required_support_admitted_rank": null,
+      "required_support_rendered": false,
+      "support_token_share": 0.0773,
+      "support_match_channels": {
+        "title_summary": false,
+        "retrieval_terms": false,
+        "planner_affordances": false,
+        "support_alias": false
+      },
+      "policy_classification": "support_present_incidental",
+      "next_failure_surface": "ok_or_later_stage"
+    },
+    {
+      "question_number": 10,
+      "question_id": "q10_as_the_party_approaches_hempholm__what_s",
+      "mode": "prior_plus_support_content_only",
+      "authority_label": "support_knowledge_required",
+      "support_allowed_for_mode": true,
+      "query_affordances": [
+        "approach_description",
+        "boxed_text",
+        "visible_landmark",
+        "first_impression"
+      ],
+      "expected_support_refs_eval_only": [
+        "support:hempholm_support_overview",
+        "support:hempholm_tree_visible_threat"
+      ],
+      "baseline_pr65_first_any_support_candidate_rank": null,
+      "first_any_support_candidate_rank": 13,
+      "first_required_support_candidate_rank": 13,
+      "first_required_support_candidate_ref": "support:hempholm_tree_visible_threat",
+      "first_required_support_admitted_rank": 8,
+      "required_support_rendered": true,
+      "support_token_share": 0.4178,
+      "support_match_channels": {
+        "title_summary": false,
+        "retrieval_terms": false,
+        "planner_affordances": true,
+        "support_alias": false
+      },
+      "policy_classification": "support_allowed_and_present",
+      "next_failure_surface": "ok_or_later_stage"
+    },
+    {
+      "question_number": 11,
+      "question_id": "q11_what_are_the_first_three_npcs_the_player",
+      "mode": "prior_plus_support_content_only",
+      "authority_label": "support_knowledge_required",
+      "support_allowed_for_mode": true,
+      "query_affordances": [
+        "first_impression",
+        "npc_intro",
+        "social_tension"
+      ],
+      "expected_support_refs_eval_only": [
+        "support:hempholm_jove_family",
+        "support:hempholm_morwin_store",
+        "support:hempholm_narfi_optional_healer",
+        "support:hempholm_saladin_optional"
+      ],
+      "baseline_pr65_first_any_support_candidate_rank": null,
+      "first_any_support_candidate_rank": 12,
+      "first_required_support_candidate_rank": 13,
+      "first_required_support_candidate_ref": "support:hempholm_jove_family",
+      "first_required_support_admitted_rank": 9,
+      "required_support_rendered": true,
+      "support_token_share": 0.3417,
+      "support_match_channels": {
+        "title_summary": false,
+        "retrieval_terms": false,
+        "planner_affordances": true,
+        "support_alias": false
+      },
+      "policy_classification": "support_allowed_and_present",
+      "next_failure_surface": "ok_or_later_stage"
+    },
+    {
+      "question_number": 12,
+      "question_id": "q12_what_questions_are_the_players_most_like",
+      "mode": "prior_plus_support_content_only",
+      "authority_label": "mixed",
+      "support_allowed_for_mode": true,
+      "query_affordances": [],
+      "expected_support_refs_eval_only": [
+        "support:hempholm_jove_family",
+        "support:hempholm_tree_mechanics_and_clues"
+      ],
+      "baseline_pr65_first_any_support_candidate_rank": 18,
+      "first_any_support_candidate_rank": 11,
+      "first_required_support_candidate_rank": 15,
+      "first_required_support_candidate_ref": "support:hempholm_tree_mechanics_and_clues",
+      "first_required_support_admitted_rank": 11,
+      "required_support_rendered": true,
+      "support_token_share": 0.4269,
+      "support_match_channels": {
+        "title_summary": false,
+        "retrieval_terms": true,
+        "planner_affordances": false,
+        "support_alias": true
+      },
+      "policy_classification": "support_present_incidental",
+      "next_failure_surface": "ok_or_later_stage"
+    },
+    {
+      "question_number": 13,
+      "question_id": "q13_what_observable_clues_should_reveal_that",
+      "mode": "prior_plus_support_content_only",
+      "authority_label": "support_knowledge_required",
+      "support_allowed_for_mode": true,
+      "query_affordances": [
+        "environmental_hazard"
+      ],
+      "expected_support_refs_eval_only": [
+        "support:hempholm_tree_mechanics_and_clues",
+        "support:hempholm_tree_visible_threat"
+      ],
+      "baseline_pr65_first_any_support_candidate_rank": 17,
+      "first_any_support_candidate_rank": 13,
+      "first_required_support_candidate_rank": 14,
+      "first_required_support_candidate_ref": "support:hempholm_tree_mechanics_and_clues",
+      "first_required_support_admitted_rank": 8,
+      "required_support_rendered": true,
+      "support_token_share": 0.4841,
+      "support_match_channels": {
+        "title_summary": true,
+        "retrieval_terms": false,
+        "planner_affordances": false,
+        "support_alias": false
+      },
+      "policy_classification": "support_allowed_and_present",
+      "next_failure_surface": "ok_or_later_stage"
+    },
+    {
+      "question_number": 14,
+      "question_id": "q14_what_skill_checks_should_be_available_fo",
+      "mode": "prior_plus_support_content_only",
+      "authority_label": "mixed",
+      "support_allowed_for_mode": true,
+      "query_affordances": [],
+      "expected_support_refs_eval_only": [
+        "support:geomantic_drake_ecology",
+        "support:hempholm_tree_mechanics_and_clues",
+        "support:hempholm_tree_visible_threat"
+      ],
+      "baseline_pr65_first_any_support_candidate_rank": 17,
+      "first_any_support_candidate_rank": 8,
+      "first_required_support_candidate_rank": 16,
+      "first_required_support_candidate_ref": "support:hempholm_tree_mechanics_and_clues",
+      "first_required_support_admitted_rank": 10,
+      "required_support_rendered": true,
+      "support_token_share": 0.4881,
+      "support_match_channels": {
+        "title_summary": true,
+        "retrieval_terms": false,
+        "planner_affordances": false,
+        "support_alias": false
+      },
+      "policy_classification": "support_present_incidental",
+      "next_failure_surface": "ok_or_later_stage"
+    },
+    {
+      "question_number": 15,
+      "question_id": "q15_how_do_i_teach_the_tree_s_reach_and_move",
+      "mode": "prior_plus_support_content_only",
+      "authority_label": "creative_generation",
+      "support_allowed_for_mode": true,
+      "query_affordances": [],
+      "expected_support_refs_eval_only": [
+        "support:hempholm_tree_mechanics_and_clues",
+        "support:hempholm_tree_visible_threat"
+      ],
+      "baseline_pr65_first_any_support_candidate_rank": null,
+      "first_any_support_candidate_rank": null,
+      "first_required_support_candidate_rank": null,
+      "first_required_support_candidate_ref": null,
+      "first_required_support_admitted_rank": null,
+      "required_support_rendered": false,
+      "support_token_share": 0.0024,
+      "support_match_channels": {
+        "title_summary": false,
+        "retrieval_terms": false,
+        "planner_affordances": false,
+        "support_alias": false
+      },
+      "policy_classification": "support_not_required",
+      "next_failure_surface": "ok_or_later_stage"
+    },
+    {
+      "question_number": 16,
+      "question_id": "q16_who_in_town_wants_to_attack_or_burn_the",
+      "mode": "prior_plus_support_content_only",
+      "authority_label": "creative_generation",
+      "support_allowed_for_mode": true,
+      "query_affordances": [],
+      "expected_support_refs_eval_only": [
+        "support:hempholm_jove_family",
+        "support:hempholm_local_social_pressure"
+      ],
+      "baseline_pr65_first_any_support_candidate_rank": null,
+      "first_any_support_candidate_rank": null,
+      "first_required_support_candidate_rank": null,
+      "first_required_support_candidate_ref": null,
+      "first_required_support_admitted_rank": null,
+      "required_support_rendered": false,
+      "support_token_share": 0.0024,
+      "support_match_channels": {
+        "title_summary": false,
+        "retrieval_terms": false,
+        "planner_affordances": false,
+        "support_alias": false
+      },
+      "policy_classification": "support_not_required",
+      "next_failure_surface": "ok_or_later_stage"
+    },
+    {
+      "question_number": 17,
+      "question_id": "q17_how_can_stafl_or_another_social_characte",
+      "mode": "prior_plus_support_content_only",
+      "authority_label": "mixed",
+      "support_allowed_for_mode": true,
+      "query_affordances": [],
+      "expected_support_refs_eval_only": [
+        "support:hempholm_local_social_pressure",
+        "support:hempholm_narfi_optional_healer"
+      ],
+      "baseline_pr65_first_any_support_candidate_rank": null,
+      "first_any_support_candidate_rank": 18,
+      "first_required_support_candidate_rank": 19,
+      "first_required_support_candidate_ref": "support:hempholm_narfi_optional_healer",
+      "first_required_support_admitted_rank": 12,
+      "required_support_rendered": true,
+      "support_token_share": 0.1139,
+      "support_match_channels": {
+        "title_summary": true,
+        "retrieval_terms": false,
+        "planner_affordances": false,
+        "support_alias": false
+      },
+      "policy_classification": "support_present_incidental",
+      "next_failure_surface": "ok_or_later_stage"
+    },
+    {
+      "question_number": 18,
+      "question_id": "q18_what_happens_if_the_party_fails_to_stop",
+      "mode": "prior_plus_support_content_only",
+      "authority_label": "creative_generation",
+      "support_allowed_for_mode": true,
+      "query_affordances": [],
+      "expected_support_refs_eval_only": [
+        "support:hempholm_local_social_pressure",
+        "support:hempholm_narfi_optional_healer"
+      ],
+      "baseline_pr65_first_any_support_candidate_rank": null,
+      "first_any_support_candidate_rank": null,
+      "first_required_support_candidate_rank": null,
+      "first_required_support_candidate_ref": null,
+      "first_required_support_admitted_rank": null,
+      "required_support_rendered": false,
+      "support_token_share": 0.0027,
+      "support_match_channels": {
+        "title_summary": false,
+        "retrieval_terms": false,
+        "planner_affordances": false,
+        "support_alias": false
+      },
+      "policy_classification": "support_not_required",
+      "next_failure_surface": "ok_or_later_stage"
+    },
+    {
+      "question_number": 19,
+      "question_id": "q19_what_triggers_the_tree_to_escalate_from",
+      "mode": "prior_plus_support_content_only",
+      "authority_label": "creative_generation",
+      "support_allowed_for_mode": true,
+      "query_affordances": [],
+      "expected_support_refs_eval_only": [],
+      "baseline_pr65_first_any_support_candidate_rank": null,
+      "first_any_support_candidate_rank": null,
+      "first_required_support_candidate_rank": null,
+      "first_required_support_candidate_ref": null,
+      "first_required_support_admitted_rank": null,
+      "required_support_rendered": false,
+      "support_token_share": 0.003,
+      "support_match_channels": {
+        "title_summary": false,
+        "retrieval_terms": false,
+        "planner_affordances": false,
+        "support_alias": false
+      },
+      "policy_classification": "support_not_required",
+      "next_failure_surface": "ok_or_later_stage"
+    },
+    {
+      "question_number": 20,
+      "question_id": "q20_design_the_tree_encounter_as_a_battlefie",
+      "mode": "prior_plus_support_content_only",
+      "authority_label": "support_knowledge_required",
+      "support_allowed_for_mode": true,
+      "query_affordances": [
+        "encounter_design",
+        "battlefield_terrain",
+        "civilian_pressure",
+        "environmental_hazard",
+        "objective_design"
+      ],
+      "expected_support_refs_eval_only": [
+        "support:hempholm_tree_mechanics_and_clues"
+      ],
+      "baseline_pr65_first_any_support_candidate_rank": null,
+      "first_any_support_candidate_rank": 12,
+      "first_required_support_candidate_rank": 13,
+      "first_required_support_candidate_ref": "support:hempholm_tree_mechanics_and_clues",
+      "first_required_support_admitted_rank": 8,
+      "required_support_rendered": true,
+      "support_token_share": 0.4942,
+      "support_match_channels": {
+        "title_summary": true,
+        "retrieval_terms": false,
+        "planner_affordances": false,
+        "support_alias": false
+      },
+      "policy_classification": "support_allowed_and_present",
+      "next_failure_surface": "ok_or_later_stage"
+    },
+    {
+      "question_number": 21,
+      "question_id": "q21_what_should_each_type_of_pc_be_able_to_c",
+      "mode": "prior_plus_support_content_only",
+      "authority_label": "mixed",
+      "support_allowed_for_mode": true,
+      "query_affordances": [],
+      "expected_support_refs_eval_only": [],
+      "baseline_pr65_first_any_support_candidate_rank": null,
+      "first_any_support_candidate_rank": null,
+      "first_required_support_candidate_rank": null,
+      "first_required_support_candidate_ref": null,
+      "first_required_support_admitted_rank": null,
+      "required_support_rendered": false,
+      "support_token_share": 0.0017,
+      "support_match_channels": {
+        "title_summary": false,
+        "retrieval_terms": false,
+        "planner_affordances": false,
+        "support_alias": false
+      },
+      "policy_classification": "support_not_required",
+      "next_failure_surface": "ok_or_later_stage"
+    },
+    {
+      "question_number": 22,
+      "question_id": "q22_if_the_party_defeats_the_tree__what_rema",
+      "mode": "prior_plus_support_content_only",
+      "authority_label": "support_knowledge_required",
+      "support_allowed_for_mode": true,
+      "query_affordances": [],
+      "expected_support_refs_eval_only": [
+        "support:geomantic_drake_ecology",
+        "support:hempholm_treasure_materials"
+      ],
+      "baseline_pr65_first_any_support_candidate_rank": 23,
+      "first_any_support_candidate_rank": 14,
+      "first_required_support_candidate_rank": null,
+      "first_required_support_candidate_ref": null,
+      "first_required_support_admitted_rank": null,
+      "required_support_rendered": false,
+      "support_token_share": 0.274,
+      "support_match_channels": {
+        "title_summary": false,
+        "retrieval_terms": false,
+        "planner_affordances": false,
+        "support_alias": false
+      },
+      "policy_classification": "support_allowed_and_present",
+      "next_failure_surface": "ok_or_later_stage"
+    },
+    {
+      "question_number": 23,
+      "question_id": "q23_how_would_local_craftspeople__farmers__c",
+      "mode": "prior_plus_support_content_only",
+      "authority_label": "creative_generation",
+      "support_allowed_for_mode": true,
+      "query_affordances": [],
+      "expected_support_refs_eval_only": [
+        "support:hempholm_morwin_store",
+        "support:hempholm_small_problems",
+        "support:hempholm_treasure_materials"
+      ],
+      "baseline_pr65_first_any_support_candidate_rank": null,
+      "first_any_support_candidate_rank": null,
+      "first_required_support_candidate_rank": null,
+      "first_required_support_candidate_ref": null,
+      "first_required_support_admitted_rank": null,
+      "required_support_rendered": false,
+      "support_token_share": 0.003,
+      "support_match_channels": {
+        "title_summary": false,
+        "retrieval_terms": false,
+        "planner_affordances": false,
+        "support_alias": false
+      },
+      "policy_classification": "support_not_required",
+      "next_failure_surface": "ok_or_later_stage"
+    },
+    {
+      "question_number": 24,
+      "question_id": "q24_what_questions_should_the_weird_remains",
+      "mode": "prior_plus_support_content_only",
+      "authority_label": "creative_generation",
+      "support_allowed_for_mode": true,
+      "query_affordances": [],
+      "expected_support_refs_eval_only": [
+        "support:hempholm_treasure_materials"
+      ],
+      "baseline_pr65_first_any_support_candidate_rank": 20,
+      "first_any_support_candidate_rank": 16,
+      "first_required_support_candidate_rank": null,
+      "first_required_support_candidate_ref": null,
+      "first_required_support_admitted_rank": null,
+      "required_support_rendered": false,
+      "support_token_share": 0.1658,
+      "support_match_channels": {
+        "title_summary": false,
+        "retrieval_terms": false,
+        "planner_affordances": false,
+        "support_alias": false
+      },
+      "policy_classification": "support_present_incidental",
+      "next_failure_surface": "ok_or_later_stage"
+    },
+    {
+      "question_number": 25,
+      "question_id": "q25_how_does_hempholm_celebrate_if_the_visib",
+      "mode": "prior_plus_support_content_only",
+      "authority_label": "support_knowledge_required",
+      "support_allowed_for_mode": true,
+      "query_affordances": [
+        "visible_landmark"
+      ],
+      "expected_support_refs_eval_only": [
+        "support:hempholm_morwin_store",
+        "support:hempholm_premature_celebration",
+        "support:hempholm_small_problems"
+      ],
+      "baseline_pr65_first_any_support_candidate_rank": 29,
+      "first_any_support_candidate_rank": 11,
+      "first_required_support_candidate_rank": 11,
+      "first_required_support_candidate_ref": "support:hempholm_premature_celebration",
+      "first_required_support_admitted_rank": 7,
+      "required_support_rendered": true,
+      "support_token_share": 0.2466,
+      "support_match_channels": {
+        "title_summary": true,
+        "retrieval_terms": false,
+        "planner_affordances": false,
+        "support_alias": false
+      },
+      "policy_classification": "support_allowed_and_present",
+      "next_failure_surface": "ok_or_later_stage"
+    },
+    {
+      "question_number": 26,
+      "question_id": "q26_what_social_friction_should_exist_during",
+      "mode": "prior_plus_support_content_only",
+      "authority_label": "creative_generation",
+      "support_allowed_for_mode": true,
+      "query_affordances": [],
+      "expected_support_refs_eval_only": [
+        "support:hempholm_premature_celebration"
+      ],
+      "baseline_pr65_first_any_support_candidate_rank": 19,
+      "first_any_support_candidate_rank": 15,
+      "first_required_support_candidate_rank": null,
+      "first_required_support_candidate_ref": null,
+      "first_required_support_admitted_rank": null,
+      "required_support_rendered": false,
+      "support_token_share": 0.2228,
+      "support_match_channels": {
+        "title_summary": false,
+        "retrieval_terms": false,
+        "planner_affordances": false,
+        "support_alias": false
+      },
+      "policy_classification": "support_present_incidental",
+      "next_failure_surface": "ok_or_later_stage"
+    },
+    {
+      "question_number": 27,
+      "question_id": "q27_which_pcs_are_likely_to_participate_in_c",
+      "mode": "prior_plus_support_content_only",
+      "authority_label": "mixed",
+      "support_allowed_for_mode": true,
+      "query_affordances": [],
+      "expected_support_refs_eval_only": [
+        "support:hempholm_premature_celebration",
+        "support:hempholm_small_problems"
+      ],
+      "baseline_pr65_first_any_support_candidate_rank": null,
+      "first_any_support_candidate_rank": null,
+      "first_required_support_candidate_rank": null,
+      "first_required_support_candidate_ref": null,
+      "first_required_support_admitted_rank": null,
+      "required_support_rendered": false,
+      "support_token_share": 0.0032,
+      "support_match_channels": {
+        "title_summary": false,
+        "retrieval_terms": false,
+        "planner_affordances": false,
+        "support_alias": false
+      },
+      "policy_classification": "support_not_required",
+      "next_failure_surface": "ok_or_later_stage"
+    },
+    {
+      "question_number": 28,
+      "question_id": "q28_what_is_the_deeper_problem_beneath_the_v",
+      "mode": "prior_plus_support_content_only",
+      "authority_label": "support_knowledge_required",
+      "support_allowed_for_mode": true,
+      "query_affordances": [
+        "visible_landmark"
+      ],
+      "expected_support_refs_eval_only": [
+        "support:hempholm_caretaker_second_wave",
+        "support:hempholm_marrow_guardian_child",
+        "support:hempholm_root_descent",
+        "support:hempholm_saladin_optional"
+      ],
+      "baseline_pr65_first_any_support_candidate_rank": 8,
+      "first_any_support_candidate_rank": 4,
+      "first_required_support_candidate_rank": 27,
+      "first_required_support_candidate_ref": "support:hempholm_marrow_guardian_child",
+      "first_required_support_admitted_rank": 14,
+      "required_support_rendered": true,
+      "support_token_share": 0.4125,
+      "support_match_channels": {
+        "title_summary": true,
+        "retrieval_terms": false,
+        "planner_affordances": false,
+        "support_alias": false
+      },
+      "policy_classification": "support_allowed_and_present",
+      "next_failure_surface": "ok_or_later_stage"
+    },
+    {
+      "question_number": 29,
+      "question_id": "q29_how_do_i_foreshadow_the_deeper_threat_be",
+      "mode": "prior_plus_support_content_only",
+      "authority_label": "creative_generation",
+      "support_allowed_for_mode": true,
+      "query_affordances": [],
+      "expected_support_refs_eval_only": [
+        "support:hempholm_caretaker_second_wave",
+        "support:hempholm_root_descent"
+      ],
+      "baseline_pr65_first_any_support_candidate_rank": null,
+      "first_any_support_candidate_rank": null,
+      "first_required_support_candidate_rank": null,
+      "first_required_support_candidate_ref": null,
+      "first_required_support_admitted_rank": null,
+      "required_support_rendered": false,
+      "support_token_share": 0.0015,
+      "support_match_channels": {
+        "title_summary": false,
+        "retrieval_terms": false,
+        "planner_affordances": false,
+        "support_alias": false
+      },
+      "policy_classification": "support_not_required",
+      "next_failure_surface": "ok_or_later_stage"
+    },
+    {
+      "question_number": 30,
+      "question_id": "q30_what_should_the_cliffhanger_look_like_if",
+      "mode": "prior_plus_support_content_only",
+      "authority_label": "creative_generation",
+      "support_allowed_for_mode": true,
+      "query_affordances": [],
+      "expected_support_refs_eval_only": [
+        "support:hempholm_caretaker_second_wave",
+        "support:hempholm_premature_celebration"
+      ],
+      "baseline_pr65_first_any_support_candidate_rank": 17,
+      "first_any_support_candidate_rank": 14,
+      "first_required_support_candidate_rank": null,
+      "first_required_support_candidate_ref": null,
+      "first_required_support_admitted_rank": null,
+      "required_support_rendered": false,
+      "support_token_share": 0.0376,
+      "support_match_channels": {
+        "title_summary": false,
+        "retrieval_terms": false,
+        "planner_affordances": false,
+        "support_alias": false
+      },
+      "policy_classification": "support_present_incidental",
+      "next_failure_surface": "ok_or_later_stage"
+    },
+    {
+      "question_number": 31,
+      "question_id": "q31_if_the_session_ends_on_the_deeper_threat",
+      "mode": "prior_plus_support_content_only",
+      "authority_label": "creative_generation",
+      "support_allowed_for_mode": true,
+      "query_affordances": [
+        "first_impression"
+      ],
+      "expected_support_refs_eval_only": [
+        "support:hempholm_caretaker_second_wave",
+        "support:hempholm_marrow_guardian_child",
+        "support:hempholm_root_descent"
+      ],
+      "baseline_pr65_first_any_support_candidate_rank": null,
+      "first_any_support_candidate_rank": 18,
+      "first_required_support_candidate_rank": null,
+      "first_required_support_candidate_ref": null,
+      "first_required_support_admitted_rank": null,
+      "required_support_rendered": false,
+      "support_token_share": 0.2523,
+      "support_match_channels": {
+        "title_summary": false,
+        "retrieval_terms": false,
+        "planner_affordances": false,
+        "support_alias": false
+      },
+      "policy_classification": "support_present_incidental",
+      "next_failure_surface": "ok_or_later_stage"
+    },
+    {
+      "question_number": 32,
+      "question_id": "q32_what_resources_are_likely_depleted_or_co",
+      "mode": "prior_plus_support_content_only",
+      "authority_label": "mixed",
+      "support_allowed_for_mode": true,
+      "query_affordances": [],
+      "expected_support_refs_eval_only": [],
+      "baseline_pr65_first_any_support_candidate_rank": 23,
+      "first_any_support_candidate_rank": 12,
+      "first_required_support_candidate_rank": 12,
+      "first_required_support_candidate_ref": "support:geomantic_drake_ecology",
+      "first_required_support_admitted_rank": 6,
+      "required_support_rendered": false,
+      "support_token_share": 0.2243,
+      "support_match_channels": {
+        "title_summary": true,
+        "retrieval_terms": false,
+        "planner_affordances": false,
+        "support_alias": false
+      },
+      "policy_classification": "support_present_incidental",
+      "next_failure_surface": "ok_or_later_stage"
+    },
+    {
+      "question_number": 33,
+      "question_id": "q33_what_unanswered_questions_should_the_pla",
+      "mode": "prior_plus_support_content_only",
+      "authority_label": "creative_generation",
+      "support_allowed_for_mode": true,
+      "query_affordances": [],
+      "expected_support_refs_eval_only": [
+        "support:hempholm_continuation_guild_cleanup",
+        "support:hempholm_marrow_guardian_child",
+        "support:hempholm_root_descent"
+      ],
+      "baseline_pr65_first_any_support_candidate_rank": 17,
+      "first_any_support_candidate_rank": 13,
+      "first_required_support_candidate_rank": null,
+      "first_required_support_candidate_ref": null,
+      "first_required_support_admitted_rank": null,
+      "required_support_rendered": false,
+      "support_token_share": 0.0623,
+      "support_match_channels": {
+        "title_summary": false,
+        "retrieval_terms": false,
+        "planner_affordances": false,
+        "support_alias": false
+      },
+      "policy_classification": "support_present_incidental",
+      "next_failure_surface": "ok_or_later_stage"
+    },
+    {
+      "question_number": 34,
+      "question_id": "q34_which_facts_are_retrieved_from_prior_can",
+      "mode": "prior_plus_support_content_only",
+      "authority_label": "mixed",
+      "support_allowed_for_mode": true,
+      "query_affordances": [],
+      "expected_support_refs_eval_only": [
+        "support:campaign2_mireward_tracker_do_not_backport",
+        "support:elderwyld_travel_safe_generation_guidance",
+        "support:elderwyld_world_layer_overview",
+        "support:hempholm_continuation_guild_cleanup",
+        "support:mirathorn_city_destination_node",
+        "support:mireward_reach_northbound_route_warning"
+      ],
+      "baseline_pr65_first_any_support_candidate_rank": 3,
+      "first_any_support_candidate_rank": 1,
+      "first_required_support_candidate_rank": 1,
+      "first_required_support_candidate_ref": "support:campaign2_mireward_tracker_do_not_backport",
+      "first_required_support_admitted_rank": 1,
+      "required_support_rendered": true,
+      "support_token_share": 0.0672,
+      "support_match_channels": {
+        "title_summary": true,
+        "retrieval_terms": false,
+        "planner_affordances": false,
+        "support_alias": false
+      },
+      "policy_classification": "support_present_incidental",
+      "next_failure_surface": "ok_or_later_stage"
+    },
+    {
+      "question_number": 36,
+      "question_id": "q36_what_information_is_missing_from_the_cur",
+      "mode": "prior_plus_support_content_only",
+      "authority_label": "worldbuilding_required",
+      "support_allowed_for_mode": true,
+      "query_affordances": [],
+      "expected_support_refs_eval_only": [
+        "support:campaign2_mireward_tracker_do_not_backport",
+        "support:elderwyld_world_layer_overview",
+        "support:mirathorn_city_destination_node",
+        "support:mireward_reach_northbound_route_warning",
+        "support:stone_bridge_to_mirathorn_route_gap"
+      ],
+      "baseline_pr65_first_any_support_candidate_rank": 18,
+      "first_any_support_candidate_rank": 14,
+      "first_required_support_candidate_rank": 14,
+      "first_required_support_candidate_ref": "support:stone_bridge_to_mirathorn_route_gap",
+      "first_required_support_admitted_rank": 7,
+      "required_support_rendered": true,
+      "support_token_share": 0.0851,
+      "support_match_channels": {
+        "title_summary": true,
+        "retrieval_terms": false,
+        "planner_affordances": false,
+        "support_alias": false
+      },
+      "policy_classification": "support_present_incidental",
+      "next_failure_surface": "ok_or_later_stage"
+    },
+    {
+      "question_number": 37,
+      "question_id": "q37_what_prep_can_be_safely_generated_anyway",
+      "mode": "prior_plus_support_content_only",
+      "authority_label": "creative_generation",
+      "support_allowed_for_mode": true,
+      "query_affordances": [],
+      "expected_support_refs_eval_only": [
+        "support:elderwyld_travel_safe_generation_guidance"
+      ],
+      "baseline_pr65_first_any_support_candidate_rank": 22,
+      "first_any_support_candidate_rank": 12,
+      "first_required_support_candidate_rank": 32,
+      "first_required_support_candidate_ref": "support:elderwyld_travel_safe_generation_guidance",
+      "first_required_support_admitted_rank": null,
+      "required_support_rendered": false,
+      "support_token_share": 0.1528,
+      "support_match_channels": {
+        "title_summary": true,
+        "retrieval_terms": false,
+        "planner_affordances": false,
+        "support_alias": false
+      },
+      "policy_classification": "support_present_incidental",
+      "next_failure_surface": "ok_or_later_stage"
+    },
+    {
+      "question_number": 38,
+      "question_id": "q38_what_should_the_gm_decide_manually",
+      "mode": "prior_plus_support_content_only",
+      "authority_label": "mixed",
+      "support_allowed_for_mode": true,
+      "query_affordances": [],
+      "expected_support_refs_eval_only": [
+        "support:elderwyld_travel_safe_generation_guidance",
+        "support:hempholm_continuation_guild_cleanup",
+        "support:stone_bridge_to_mirathorn_route_gap"
+      ],
+      "baseline_pr65_first_any_support_candidate_rank": null,
+      "first_any_support_candidate_rank": null,
+      "first_required_support_candidate_rank": null,
+      "first_required_support_candidate_ref": null,
+      "first_required_support_admitted_rank": null,
+      "required_support_rendered": false,
+      "support_token_share": 0.0032,
+      "support_match_channels": {
+        "title_summary": false,
+        "retrieval_terms": false,
+        "planner_affordances": false,
+        "support_alias": false
+      },
+      "policy_classification": "support_not_required",
+      "next_failure_surface": "ok_or_later_stage"
+    },
+    {
+      "question_number": 1,
+      "question_id": "q01_who_are_the_npcs_the_players_encountered",
+      "mode": "prior_plus_support_content_plus_lexical_hints",
+      "authority_label": "prior_recap_supported",
+      "support_allowed_for_mode": true,
+      "query_affordances": [
+        "encounter_design"
+      ],
+      "expected_support_refs_eval_only": [],
+      "baseline_pr65_first_any_support_candidate_rank": null,
+      "first_any_support_candidate_rank": 12,
+      "first_required_support_candidate_rank": 12,
+      "first_required_support_candidate_ref": "support:elderwyld_road_grammar_general",
+      "first_required_support_admitted_rank": 8,
+      "required_support_rendered": false,
+      "support_token_share": 0.0717,
+      "support_match_channels": {
+        "title_summary": false,
+        "retrieval_terms": false,
+        "planner_affordances": true,
+        "support_alias": false
+      },
+      "policy_classification": "support_present_incidental",
+      "next_failure_surface": "ok_or_later_stage"
+    },
+    {
+      "question_number": 2,
+      "question_id": "q02_if_the_players_are_not_ready_to_leave_to",
+      "mode": "prior_plus_support_content_plus_lexical_hints",
+      "authority_label": "mixed",
+      "support_allowed_for_mode": true,
+      "query_affordances": [],
+      "expected_support_refs_eval_only": [],
+      "baseline_pr65_first_any_support_candidate_rank": null,
+      "first_any_support_candidate_rank": null,
+      "first_required_support_candidate_rank": null,
+      "first_required_support_candidate_ref": null,
+      "first_required_support_admitted_rank": null,
+      "required_support_rendered": false,
+      "support_token_share": 0.0019,
+      "support_match_channels": {
+        "title_summary": false,
+        "retrieval_terms": false,
+        "planner_affordances": false,
+        "support_alias": false
+      },
+      "policy_classification": "support_not_required",
+      "next_failure_surface": "ok_or_later_stage"
+    },
+    {
+      "question_number": 3,
+      "question_id": "q03_how_far_away_is_mirathorn_at_this_point",
+      "mode": "prior_plus_support_content_plus_lexical_hints",
+      "authority_label": "worldbuilding_required",
+      "support_allowed_for_mode": true,
+      "query_affordances": [
+        "encounter_design"
+      ],
+      "expected_support_refs_eval_only": [
+        "support:campaign2_mireward_tracker_do_not_backport",
+        "support:elderwyld_fantastic_livestock",
+        "support:elderwyld_reaches_distance_unit",
+        "support:elderwyld_road_grammar_general",
+        "support:elderwyld_travel_safe_generation_guidance",
+        "support:elderwyld_world_layer_overview",
+        "support:hempholm_support_overview",
+        "support:migrating_forest_pressure_logic",
+        "support:mirathorn_city_destination_node",
+        "support:mirathorn_final_approach_from_east",
+        "support:mireward_reach_northbound_route_warning",
+        "support:pre_era_conical_hills_world_ecology",
+        "support:stone_bridge_to_mirathorn_route_gap"
+      ],
+      "baseline_pr65_first_any_support_candidate_rank": null,
+      "first_any_support_candidate_rank": 14,
+      "first_required_support_candidate_rank": 14,
+      "first_required_support_candidate_ref": "support:elderwyld_road_grammar_general",
+      "first_required_support_admitted_rank": 8,
+      "required_support_rendered": true,
+      "support_token_share": 0.0596,
+      "support_match_channels": {
+        "title_summary": false,
+        "retrieval_terms": false,
+        "planner_affordances": true,
+        "support_alias": false
+      },
+      "policy_classification": "support_present_incidental",
+      "next_failure_surface": "ok_or_later_stage"
+    },
+    {
+      "question_number": 4,
+      "question_id": "q04_we_need_a_good_hemp_dealing_merchant_who",
+      "mode": "prior_plus_support_content_plus_lexical_hints",
+      "authority_label": "support_knowledge_required",
+      "support_allowed_for_mode": true,
+      "query_affordances": [
+        "first_impression"
+      ],
+      "expected_support_refs_eval_only": [
+        "support:hempholm_hemp_economy",
+        "support:hempholm_road_hook_merchant_role",
+        "support:hempholm_saladin_optional",
+        "support:hempholm_support_overview"
+      ],
+      "baseline_pr65_first_any_support_candidate_rank": 31,
+      "first_any_support_candidate_rank": 12,
+      "first_required_support_candidate_rank": 12,
+      "first_required_support_candidate_ref": "support:hempholm_road_hook_merchant_role",
+      "first_required_support_admitted_rank": 7,
+      "required_support_rendered": true,
+      "support_token_share": 0.3749,
+      "support_match_channels": {
+        "title_summary": true,
+        "retrieval_terms": false,
+        "planner_affordances": false,
+        "support_alias": false
+      },
+      "policy_classification": "support_allowed_and_present",
+      "next_failure_surface": "ok_or_later_stage"
+    },
+    {
+      "question_number": 5,
+      "question_id": "q05_there_is_a_gigantic_tree_growing_in_hemp",
+      "mode": "prior_plus_support_content_plus_lexical_hints",
+      "authority_label": "support_knowledge_required",
+      "support_allowed_for_mode": true,
+      "query_affordances": [
+        "visible_landmark"
+      ],
+      "expected_support_refs_eval_only": [
+        "support:hempholm_road_hook_merchant_role",
+        "support:hempholm_tree_visible_threat"
+      ],
+      "baseline_pr65_first_any_support_candidate_rank": 22,
+      "first_any_support_candidate_rank": 15,
+      "first_required_support_candidate_rank": 19,
+      "first_required_support_candidate_ref": "support:hempholm_tree_visible_threat",
+      "first_required_support_admitted_rank": 11,
+      "required_support_rendered": true,
+      "support_token_share": 0.4109,
+      "support_match_channels": {
+        "title_summary": false,
+        "retrieval_terms": false,
+        "planner_affordances": true,
+        "support_alias": false
+      },
+      "policy_classification": "support_allowed_and_present",
+      "next_failure_surface": "tier_a_gold_regression"
+    },
+    {
+      "question_number": 6,
+      "question_id": "q06_what_are_some_rumors_that_the_npc_could",
+      "mode": "prior_plus_support_content_plus_lexical_hints",
+      "authority_label": "mixed",
+      "support_allowed_for_mode": true,
+      "query_affordances": [],
+      "expected_support_refs_eval_only": [
+        "support:hempholm_hemp_economy",
+        "support:hempholm_road_hook_merchant_role"
+      ],
+      "baseline_pr65_first_any_support_candidate_rank": null,
+      "first_any_support_candidate_rank": null,
+      "first_required_support_candidate_rank": null,
+      "first_required_support_candidate_ref": null,
+      "first_required_support_admitted_rank": null,
+      "required_support_rendered": false,
+      "support_token_share": 0.0016,
+      "support_match_channels": {
+        "title_summary": false,
+        "retrieval_terms": false,
+        "planner_affordances": false,
+        "support_alias": false
+      },
+      "policy_classification": "support_not_required",
+      "next_failure_surface": "ok_or_later_stage"
+    },
+    {
+      "question_number": 7,
+      "question_id": "q07_what_is_the_tone_of_the_road_from_stone",
+      "mode": "prior_plus_support_content_plus_lexical_hints",
+      "authority_label": "worldbuilding_required",
+      "support_allowed_for_mode": true,
+      "query_affordances": [],
+      "expected_support_refs_eval_only": [
+        "support:elderwyld_fantastic_livestock",
+        "support:elderwyld_reaches_distance_unit",
+        "support:elderwyld_road_grammar_general",
+        "support:migrating_forest_pressure_logic",
+        "support:mirathorn_final_approach_from_east",
+        "support:pre_era_conical_hills_world_ecology"
+      ],
+      "baseline_pr65_first_any_support_candidate_rank": null,
+      "first_any_support_candidate_rank": null,
+      "first_required_support_candidate_rank": null,
+      "first_required_support_candidate_ref": null,
+      "first_required_support_admitted_rank": null,
+      "required_support_rendered": false,
+      "support_token_share": 0.0026,
+      "support_match_channels": {
+        "title_summary": false,
+        "retrieval_terms": false,
+        "planner_affordances": false,
+        "support_alias": false
+      },
+      "policy_classification": "support_not_required",
+      "next_failure_surface": "ok_or_later_stage"
+    },
+    {
+      "question_number": 8,
+      "question_id": "q08_give_me_three_small_road_events_that_can",
+      "mode": "prior_plus_support_content_plus_lexical_hints",
+      "authority_label": "creative_generation",
+      "support_allowed_for_mode": true,
+      "query_affordances": [],
+      "expected_support_refs_eval_only": [
+        "support:conical_hill_night_camp_texture",
+        "support:elderwyld_fantastic_livestock",
+        "support:elderwyld_road_grammar_general",
+        "support:geomantic_drake_ecology",
+        "support:migrating_forest_pressure_logic",
+        "support:pre_era_conical_hills_world_ecology"
+      ],
+      "baseline_pr65_first_any_support_candidate_rank": 19,
+      "first_any_support_candidate_rank": 9,
+      "first_required_support_candidate_rank": null,
+      "first_required_support_candidate_ref": null,
+      "first_required_support_admitted_rank": null,
+      "required_support_rendered": false,
+      "support_token_share": 0.4712,
+      "support_match_channels": {
+        "title_summary": false,
+        "retrieval_terms": false,
+        "planner_affordances": false,
+        "support_alias": false
+      },
+      "policy_classification": "support_present_incidental",
+      "next_failure_surface": "ok_or_later_stage"
+    },
+    {
+      "question_number": 9,
+      "question_id": "q09_the_players_are_likely_still_riding_the",
+      "mode": "prior_plus_support_content_plus_lexical_hints",
+      "authority_label": "prior_recap_supported",
+      "support_allowed_for_mode": true,
+      "query_affordances": [
+        "first_impression",
+        "encounter_design"
+      ],
+      "expected_support_refs_eval_only": [
+        "support:conical_hill_night_camp_texture"
+      ],
+      "baseline_pr65_first_any_support_candidate_rank": null,
+      "first_any_support_candidate_rank": 12,
+      "first_required_support_candidate_rank": null,
+      "first_required_support_candidate_ref": null,
+      "first_required_support_admitted_rank": null,
+      "required_support_rendered": false,
+      "support_token_share": 0.0773,
+      "support_match_channels": {
+        "title_summary": false,
+        "retrieval_terms": false,
+        "planner_affordances": false,
+        "support_alias": false
+      },
+      "policy_classification": "support_present_incidental",
+      "next_failure_surface": "ok_or_later_stage"
+    },
+    {
+      "question_number": 10,
+      "question_id": "q10_as_the_party_approaches_hempholm__what_s",
+      "mode": "prior_plus_support_content_plus_lexical_hints",
+      "authority_label": "support_knowledge_required",
+      "support_allowed_for_mode": true,
+      "query_affordances": [
+        "approach_description",
+        "boxed_text",
+        "visible_landmark",
+        "first_impression"
+      ],
+      "expected_support_refs_eval_only": [
+        "support:hempholm_support_overview",
+        "support:hempholm_tree_visible_threat"
+      ],
+      "baseline_pr65_first_any_support_candidate_rank": null,
+      "first_any_support_candidate_rank": 13,
+      "first_required_support_candidate_rank": 13,
+      "first_required_support_candidate_ref": "support:hempholm_tree_visible_threat",
+      "first_required_support_admitted_rank": 8,
+      "required_support_rendered": true,
+      "support_token_share": 0.4214,
+      "support_match_channels": {
+        "title_summary": false,
+        "retrieval_terms": false,
+        "planner_affordances": true,
+        "support_alias": false
+      },
+      "policy_classification": "support_allowed_and_present",
+      "next_failure_surface": "ok_or_later_stage"
+    },
+    {
+      "question_number": 11,
+      "question_id": "q11_what_are_the_first_three_npcs_the_player",
+      "mode": "prior_plus_support_content_plus_lexical_hints",
+      "authority_label": "support_knowledge_required",
+      "support_allowed_for_mode": true,
+      "query_affordances": [
+        "first_impression",
+        "npc_intro",
+        "social_tension"
+      ],
+      "expected_support_refs_eval_only": [
+        "support:hempholm_jove_family",
+        "support:hempholm_morwin_store",
+        "support:hempholm_narfi_optional_healer",
+        "support:hempholm_saladin_optional"
+      ],
+      "baseline_pr65_first_any_support_candidate_rank": null,
+      "first_any_support_candidate_rank": 12,
+      "first_required_support_candidate_rank": 12,
+      "first_required_support_candidate_ref": "support:hempholm_saladin_optional",
+      "first_required_support_admitted_rank": 8,
+      "required_support_rendered": true,
+      "support_token_share": 0.333,
+      "support_match_channels": {
+        "title_summary": false,
+        "retrieval_terms": false,
+        "planner_affordances": true,
+        "support_alias": false
+      },
+      "policy_classification": "support_allowed_and_present",
+      "next_failure_surface": "ok_or_later_stage"
+    },
+    {
+      "question_number": 12,
+      "question_id": "q12_what_questions_are_the_players_most_like",
+      "mode": "prior_plus_support_content_plus_lexical_hints",
+      "authority_label": "mixed",
+      "support_allowed_for_mode": true,
+      "query_affordances": [],
+      "expected_support_refs_eval_only": [
+        "support:hempholm_jove_family",
+        "support:hempholm_tree_mechanics_and_clues"
+      ],
+      "baseline_pr65_first_any_support_candidate_rank": 18,
+      "first_any_support_candidate_rank": 11,
+      "first_required_support_candidate_rank": 16,
+      "first_required_support_candidate_ref": "support:hempholm_tree_mechanics_and_clues",
+      "first_required_support_admitted_rank": 12,
+      "required_support_rendered": true,
+      "support_token_share": 0.4304,
+      "support_match_channels": {
+        "title_summary": false,
+        "retrieval_terms": true,
+        "planner_affordances": false,
+        "support_alias": true
+      },
+      "policy_classification": "support_present_incidental",
+      "next_failure_surface": "ok_or_later_stage"
+    },
+    {
+      "question_number": 13,
+      "question_id": "q13_what_observable_clues_should_reveal_that",
+      "mode": "prior_plus_support_content_plus_lexical_hints",
+      "authority_label": "support_knowledge_required",
+      "support_allowed_for_mode": true,
+      "query_affordances": [
+        "environmental_hazard"
+      ],
+      "expected_support_refs_eval_only": [
+        "support:hempholm_tree_mechanics_and_clues",
+        "support:hempholm_tree_visible_threat"
+      ],
+      "baseline_pr65_first_any_support_candidate_rank": 17,
+      "first_any_support_candidate_rank": 13,
+      "first_required_support_candidate_rank": 15,
+      "first_required_support_candidate_ref": "support:hempholm_tree_mechanics_and_clues",
+      "first_required_support_admitted_rank": 9,
+      "required_support_rendered": true,
+      "support_token_share": 0.4852,
+      "support_match_channels": {
+        "title_summary": true,
+        "retrieval_terms": false,
+        "planner_affordances": false,
+        "support_alias": false
+      },
+      "policy_classification": "support_allowed_and_present",
+      "next_failure_surface": "ok_or_later_stage"
+    },
+    {
+      "question_number": 14,
+      "question_id": "q14_what_skill_checks_should_be_available_fo",
+      "mode": "prior_plus_support_content_plus_lexical_hints",
+      "authority_label": "mixed",
+      "support_allowed_for_mode": true,
+      "query_affordances": [],
+      "expected_support_refs_eval_only": [
+        "support:geomantic_drake_ecology",
+        "support:hempholm_tree_mechanics_and_clues",
+        "support:hempholm_tree_visible_threat"
+      ],
+      "baseline_pr65_first_any_support_candidate_rank": 17,
+      "first_any_support_candidate_rank": 8,
+      "first_required_support_candidate_rank": 9,
+      "first_required_support_candidate_ref": "support:hempholm_tree_mechanics_and_clues",
+      "first_required_support_admitted_rank": 7,
+      "required_support_rendered": true,
+      "support_token_share": 0.4881,
+      "support_match_channels": {
+        "title_summary": true,
+        "retrieval_terms": false,
+        "planner_affordances": false,
+        "support_alias": false
+      },
+      "policy_classification": "support_present_incidental",
+      "next_failure_surface": "ok_or_later_stage"
+    },
+    {
+      "question_number": 15,
+      "question_id": "q15_how_do_i_teach_the_tree_s_reach_and_move",
+      "mode": "prior_plus_support_content_plus_lexical_hints",
+      "authority_label": "creative_generation",
+      "support_allowed_for_mode": true,
+      "query_affordances": [],
+      "expected_support_refs_eval_only": [
+        "support:hempholm_tree_mechanics_and_clues",
+        "support:hempholm_tree_visible_threat"
+      ],
+      "baseline_pr65_first_any_support_candidate_rank": null,
+      "first_any_support_candidate_rank": null,
+      "first_required_support_candidate_rank": null,
+      "first_required_support_candidate_ref": null,
+      "first_required_support_admitted_rank": null,
+      "required_support_rendered": false,
+      "support_token_share": 0.0024,
+      "support_match_channels": {
+        "title_summary": false,
+        "retrieval_terms": false,
+        "planner_affordances": false,
+        "support_alias": false
+      },
+      "policy_classification": "support_not_required",
+      "next_failure_surface": "ok_or_later_stage"
+    },
+    {
+      "question_number": 16,
+      "question_id": "q16_who_in_town_wants_to_attack_or_burn_the",
+      "mode": "prior_plus_support_content_plus_lexical_hints",
+      "authority_label": "creative_generation",
+      "support_allowed_for_mode": true,
+      "query_affordances": [],
+      "expected_support_refs_eval_only": [
+        "support:hempholm_jove_family",
+        "support:hempholm_local_social_pressure"
+      ],
+      "baseline_pr65_first_any_support_candidate_rank": null,
+      "first_any_support_candidate_rank": null,
+      "first_required_support_candidate_rank": null,
+      "first_required_support_candidate_ref": null,
+      "first_required_support_admitted_rank": null,
+      "required_support_rendered": false,
+      "support_token_share": 0.0024,
+      "support_match_channels": {
+        "title_summary": false,
+        "retrieval_terms": false,
+        "planner_affordances": false,
+        "support_alias": false
+      },
+      "policy_classification": "support_not_required",
+      "next_failure_surface": "ok_or_later_stage"
+    },
+    {
+      "question_number": 17,
+      "question_id": "q17_how_can_stafl_or_another_social_characte",
+      "mode": "prior_plus_support_content_plus_lexical_hints",
+      "authority_label": "mixed",
+      "support_allowed_for_mode": true,
+      "query_affordances": [],
+      "expected_support_refs_eval_only": [
+        "support:hempholm_local_social_pressure",
+        "support:hempholm_narfi_optional_healer"
+      ],
+      "baseline_pr65_first_any_support_candidate_rank": null,
+      "first_any_support_candidate_rank": 18,
+      "first_required_support_candidate_rank": 19,
+      "first_required_support_candidate_ref": "support:hempholm_local_social_pressure",
+      "first_required_support_admitted_rank": 12,
+      "required_support_rendered": true,
+      "support_token_share": 0.1196,
+      "support_match_channels": {
+        "title_summary": true,
+        "retrieval_terms": false,
+        "planner_affordances": false,
+        "support_alias": false
+      },
+      "policy_classification": "support_present_incidental",
+      "next_failure_surface": "ok_or_later_stage"
+    },
+    {
+      "question_number": 18,
+      "question_id": "q18_what_happens_if_the_party_fails_to_stop",
+      "mode": "prior_plus_support_content_plus_lexical_hints",
+      "authority_label": "creative_generation",
+      "support_allowed_for_mode": true,
+      "query_affordances": [],
+      "expected_support_refs_eval_only": [
+        "support:hempholm_local_social_pressure",
+        "support:hempholm_narfi_optional_healer"
+      ],
+      "baseline_pr65_first_any_support_candidate_rank": null,
+      "first_any_support_candidate_rank": null,
+      "first_required_support_candidate_rank": null,
+      "first_required_support_candidate_ref": null,
+      "first_required_support_admitted_rank": null,
+      "required_support_rendered": false,
+      "support_token_share": 0.0027,
+      "support_match_channels": {
+        "title_summary": false,
+        "retrieval_terms": false,
+        "planner_affordances": false,
+        "support_alias": false
+      },
+      "policy_classification": "support_not_required",
+      "next_failure_surface": "ok_or_later_stage"
+    },
+    {
+      "question_number": 19,
+      "question_id": "q19_what_triggers_the_tree_to_escalate_from",
+      "mode": "prior_plus_support_content_plus_lexical_hints",
+      "authority_label": "creative_generation",
+      "support_allowed_for_mode": true,
+      "query_affordances": [],
+      "expected_support_refs_eval_only": [],
+      "baseline_pr65_first_any_support_candidate_rank": null,
+      "first_any_support_candidate_rank": null,
+      "first_required_support_candidate_rank": null,
+      "first_required_support_candidate_ref": null,
+      "first_required_support_admitted_rank": null,
+      "required_support_rendered": false,
+      "support_token_share": 0.003,
+      "support_match_channels": {
+        "title_summary": false,
+        "retrieval_terms": false,
+        "planner_affordances": false,
+        "support_alias": false
+      },
+      "policy_classification": "support_not_required",
+      "next_failure_surface": "ok_or_later_stage"
+    },
+    {
+      "question_number": 20,
+      "question_id": "q20_design_the_tree_encounter_as_a_battlefie",
+      "mode": "prior_plus_support_content_plus_lexical_hints",
+      "authority_label": "support_knowledge_required",
+      "support_allowed_for_mode": true,
+      "query_affordances": [
+        "encounter_design",
+        "battlefield_terrain",
+        "civilian_pressure",
+        "environmental_hazard",
+        "objective_design"
+      ],
+      "expected_support_refs_eval_only": [
+        "support:hempholm_tree_mechanics_and_clues"
+      ],
+      "baseline_pr65_first_any_support_candidate_rank": null,
+      "first_any_support_candidate_rank": 12,
+      "first_required_support_candidate_rank": 13,
+      "first_required_support_candidate_ref": "support:hempholm_tree_mechanics_and_clues",
+      "first_required_support_admitted_rank": 8,
+      "required_support_rendered": true,
+      "support_token_share": 0.4939,
+      "support_match_channels": {
+        "title_summary": true,
+        "retrieval_terms": false,
+        "planner_affordances": false,
+        "support_alias": false
+      },
+      "policy_classification": "support_allowed_and_present",
+      "next_failure_surface": "ok_or_later_stage"
+    },
+    {
+      "question_number": 21,
+      "question_id": "q21_what_should_each_type_of_pc_be_able_to_c",
+      "mode": "prior_plus_support_content_plus_lexical_hints",
+      "authority_label": "mixed",
+      "support_allowed_for_mode": true,
+      "query_affordances": [],
+      "expected_support_refs_eval_only": [],
+      "baseline_pr65_first_any_support_candidate_rank": null,
+      "first_any_support_candidate_rank": null,
+      "first_required_support_candidate_rank": null,
+      "first_required_support_candidate_ref": null,
+      "first_required_support_admitted_rank": null,
+      "required_support_rendered": false,
+      "support_token_share": 0.0017,
+      "support_match_channels": {
+        "title_summary": false,
+        "retrieval_terms": false,
+        "planner_affordances": false,
+        "support_alias": false
+      },
+      "policy_classification": "support_not_required",
+      "next_failure_surface": "ok_or_later_stage"
+    },
+    {
+      "question_number": 22,
+      "question_id": "q22_if_the_party_defeats_the_tree__what_rema",
+      "mode": "prior_plus_support_content_plus_lexical_hints",
+      "authority_label": "support_knowledge_required",
+      "support_allowed_for_mode": true,
+      "query_affordances": [],
+      "expected_support_refs_eval_only": [
+        "support:geomantic_drake_ecology",
+        "support:hempholm_treasure_materials"
+      ],
+      "baseline_pr65_first_any_support_candidate_rank": 23,
+      "first_any_support_candidate_rank": 14,
+      "first_required_support_candidate_rank": null,
+      "first_required_support_candidate_ref": null,
+      "first_required_support_admitted_rank": null,
+      "required_support_rendered": false,
+      "support_token_share": 0.274,
+      "support_match_channels": {
+        "title_summary": false,
+        "retrieval_terms": false,
+        "planner_affordances": false,
+        "support_alias": false
+      },
+      "policy_classification": "support_allowed_and_present",
+      "next_failure_surface": "ok_or_later_stage"
+    },
+    {
+      "question_number": 23,
+      "question_id": "q23_how_would_local_craftspeople__farmers__c",
+      "mode": "prior_plus_support_content_plus_lexical_hints",
+      "authority_label": "creative_generation",
+      "support_allowed_for_mode": true,
+      "query_affordances": [],
+      "expected_support_refs_eval_only": [
+        "support:hempholm_morwin_store",
+        "support:hempholm_small_problems",
+        "support:hempholm_treasure_materials"
+      ],
+      "baseline_pr65_first_any_support_candidate_rank": null,
+      "first_any_support_candidate_rank": null,
+      "first_required_support_candidate_rank": null,
+      "first_required_support_candidate_ref": null,
+      "first_required_support_admitted_rank": null,
+      "required_support_rendered": false,
+      "support_token_share": 0.003,
+      "support_match_channels": {
+        "title_summary": false,
+        "retrieval_terms": false,
+        "planner_affordances": false,
+        "support_alias": false
+      },
+      "policy_classification": "support_not_required",
+      "next_failure_surface": "ok_or_later_stage"
+    },
+    {
+      "question_number": 24,
+      "question_id": "q24_what_questions_should_the_weird_remains",
+      "mode": "prior_plus_support_content_plus_lexical_hints",
+      "authority_label": "creative_generation",
+      "support_allowed_for_mode": true,
+      "query_affordances": [],
+      "expected_support_refs_eval_only": [
+        "support:hempholm_treasure_materials"
+      ],
+      "baseline_pr65_first_any_support_candidate_rank": 20,
+      "first_any_support_candidate_rank": 16,
+      "first_required_support_candidate_rank": null,
+      "first_required_support_candidate_ref": null,
+      "first_required_support_admitted_rank": null,
+      "required_support_rendered": false,
+      "support_token_share": 0.1607,
+      "support_match_channels": {
+        "title_summary": false,
+        "retrieval_terms": false,
+        "planner_affordances": false,
+        "support_alias": false
+      },
+      "policy_classification": "support_present_incidental",
+      "next_failure_surface": "ok_or_later_stage"
+    },
+    {
+      "question_number": 25,
+      "question_id": "q25_how_does_hempholm_celebrate_if_the_visib",
+      "mode": "prior_plus_support_content_plus_lexical_hints",
+      "authority_label": "support_knowledge_required",
+      "support_allowed_for_mode": true,
+      "query_affordances": [
+        "visible_landmark"
+      ],
+      "expected_support_refs_eval_only": [
+        "support:hempholm_morwin_store",
+        "support:hempholm_premature_celebration",
+        "support:hempholm_small_problems"
+      ],
+      "baseline_pr65_first_any_support_candidate_rank": 29,
+      "first_any_support_candidate_rank": 11,
+      "first_required_support_candidate_rank": 11,
+      "first_required_support_candidate_ref": "support:hempholm_premature_celebration",
+      "first_required_support_admitted_rank": 7,
+      "required_support_rendered": true,
+      "support_token_share": 0.2955,
+      "support_match_channels": {
+        "title_summary": true,
+        "retrieval_terms": false,
+        "planner_affordances": false,
+        "support_alias": false
+      },
+      "policy_classification": "support_allowed_and_present",
+      "next_failure_surface": "ok_or_later_stage"
+    },
+    {
+      "question_number": 26,
+      "question_id": "q26_what_social_friction_should_exist_during",
+      "mode": "prior_plus_support_content_plus_lexical_hints",
+      "authority_label": "creative_generation",
+      "support_allowed_for_mode": true,
+      "query_affordances": [],
+      "expected_support_refs_eval_only": [
+        "support:hempholm_premature_celebration"
+      ],
+      "baseline_pr65_first_any_support_candidate_rank": 19,
+      "first_any_support_candidate_rank": 15,
+      "first_required_support_candidate_rank": null,
+      "first_required_support_candidate_ref": null,
+      "first_required_support_admitted_rank": null,
+      "required_support_rendered": false,
+      "support_token_share": 0.2305,
+      "support_match_channels": {
+        "title_summary": false,
+        "retrieval_terms": false,
+        "planner_affordances": false,
+        "support_alias": false
+      },
+      "policy_classification": "support_present_incidental",
+      "next_failure_surface": "ok_or_later_stage"
+    },
+    {
+      "question_number": 27,
+      "question_id": "q27_which_pcs_are_likely_to_participate_in_c",
+      "mode": "prior_plus_support_content_plus_lexical_hints",
+      "authority_label": "mixed",
+      "support_allowed_for_mode": true,
+      "query_affordances": [],
+      "expected_support_refs_eval_only": [
+        "support:hempholm_premature_celebration",
+        "support:hempholm_small_problems"
+      ],
+      "baseline_pr65_first_any_support_candidate_rank": null,
+      "first_any_support_candidate_rank": null,
+      "first_required_support_candidate_rank": null,
+      "first_required_support_candidate_ref": null,
+      "first_required_support_admitted_rank": null,
+      "required_support_rendered": false,
+      "support_token_share": 0.0032,
+      "support_match_channels": {
+        "title_summary": false,
+        "retrieval_terms": false,
+        "planner_affordances": false,
+        "support_alias": false
+      },
+      "policy_classification": "support_not_required",
+      "next_failure_surface": "ok_or_later_stage"
+    },
+    {
+      "question_number": 28,
+      "question_id": "q28_what_is_the_deeper_problem_beneath_the_v",
+      "mode": "prior_plus_support_content_plus_lexical_hints",
+      "authority_label": "support_knowledge_required",
+      "support_allowed_for_mode": true,
+      "query_affordances": [
+        "visible_landmark"
+      ],
+      "expected_support_refs_eval_only": [
+        "support:hempholm_caretaker_second_wave",
+        "support:hempholm_marrow_guardian_child",
+        "support:hempholm_root_descent",
+        "support:hempholm_saladin_optional"
+      ],
+      "baseline_pr65_first_any_support_candidate_rank": 8,
+      "first_any_support_candidate_rank": 4,
+      "first_required_support_candidate_rank": null,
+      "first_required_support_candidate_ref": null,
+      "first_required_support_admitted_rank": null,
+      "required_support_rendered": false,
+      "support_token_share": 0.4553,
+      "support_match_channels": {
+        "title_summary": false,
+        "retrieval_terms": false,
+        "planner_affordances": false,
+        "support_alias": false
+      },
+      "policy_classification": "support_allowed_and_present",
+      "next_failure_surface": "ok_or_later_stage"
+    },
+    {
+      "question_number": 29,
+      "question_id": "q29_how_do_i_foreshadow_the_deeper_threat_be",
+      "mode": "prior_plus_support_content_plus_lexical_hints",
+      "authority_label": "creative_generation",
+      "support_allowed_for_mode": true,
+      "query_affordances": [],
+      "expected_support_refs_eval_only": [
+        "support:hempholm_caretaker_second_wave",
+        "support:hempholm_root_descent"
+      ],
+      "baseline_pr65_first_any_support_candidate_rank": null,
+      "first_any_support_candidate_rank": null,
+      "first_required_support_candidate_rank": null,
+      "first_required_support_candidate_ref": null,
+      "first_required_support_admitted_rank": null,
+      "required_support_rendered": false,
+      "support_token_share": 0.0015,
+      "support_match_channels": {
+        "title_summary": false,
+        "retrieval_terms": false,
+        "planner_affordances": false,
+        "support_alias": false
+      },
+      "policy_classification": "support_not_required",
+      "next_failure_surface": "ok_or_later_stage"
+    },
+    {
+      "question_number": 30,
+      "question_id": "q30_what_should_the_cliffhanger_look_like_if",
+      "mode": "prior_plus_support_content_plus_lexical_hints",
+      "authority_label": "creative_generation",
+      "support_allowed_for_mode": true,
+      "query_affordances": [],
+      "expected_support_refs_eval_only": [
+        "support:hempholm_caretaker_second_wave",
+        "support:hempholm_premature_celebration"
+      ],
+      "baseline_pr65_first_any_support_candidate_rank": 17,
+      "first_any_support_candidate_rank": 14,
+      "first_required_support_candidate_rank": null,
+      "first_required_support_candidate_ref": null,
+      "first_required_support_admitted_rank": null,
+      "required_support_rendered": false,
+      "support_token_share": 0.085,
+      "support_match_channels": {
+        "title_summary": false,
+        "retrieval_terms": false,
+        "planner_affordances": false,
+        "support_alias": false
+      },
+      "policy_classification": "support_present_incidental",
+      "next_failure_surface": "ok_or_later_stage"
+    },
+    {
+      "question_number": 31,
+      "question_id": "q31_if_the_session_ends_on_the_deeper_threat",
+      "mode": "prior_plus_support_content_plus_lexical_hints",
+      "authority_label": "creative_generation",
+      "support_allowed_for_mode": true,
+      "query_affordances": [
+        "first_impression"
+      ],
+      "expected_support_refs_eval_only": [
+        "support:hempholm_caretaker_second_wave",
+        "support:hempholm_marrow_guardian_child",
+        "support:hempholm_root_descent"
+      ],
+      "baseline_pr65_first_any_support_candidate_rank": null,
+      "first_any_support_candidate_rank": 18,
+      "first_required_support_candidate_rank": null,
+      "first_required_support_candidate_ref": null,
+      "first_required_support_admitted_rank": null,
+      "required_support_rendered": false,
+      "support_token_share": 0.2523,
+      "support_match_channels": {
+        "title_summary": false,
+        "retrieval_terms": false,
+        "planner_affordances": false,
+        "support_alias": false
+      },
+      "policy_classification": "support_present_incidental",
+      "next_failure_surface": "ok_or_later_stage"
+    },
+    {
+      "question_number": 32,
+      "question_id": "q32_what_resources_are_likely_depleted_or_co",
+      "mode": "prior_plus_support_content_plus_lexical_hints",
+      "authority_label": "mixed",
+      "support_allowed_for_mode": true,
+      "query_affordances": [],
+      "expected_support_refs_eval_only": [],
+      "baseline_pr65_first_any_support_candidate_rank": 23,
+      "first_any_support_candidate_rank": 12,
+      "first_required_support_candidate_rank": 12,
+      "first_required_support_candidate_ref": "support:geomantic_drake_ecology",
+      "first_required_support_admitted_rank": 6,
+      "required_support_rendered": false,
+      "support_token_share": 0.2243,
+      "support_match_channels": {
+        "title_summary": true,
+        "retrieval_terms": false,
+        "planner_affordances": false,
+        "support_alias": false
+      },
+      "policy_classification": "support_present_incidental",
+      "next_failure_surface": "ok_or_later_stage"
+    },
+    {
+      "question_number": 33,
+      "question_id": "q33_what_unanswered_questions_should_the_pla",
+      "mode": "prior_plus_support_content_plus_lexical_hints",
+      "authority_label": "creative_generation",
+      "support_allowed_for_mode": true,
+      "query_affordances": [],
+      "expected_support_refs_eval_only": [
+        "support:hempholm_continuation_guild_cleanup",
+        "support:hempholm_marrow_guardian_child",
+        "support:hempholm_root_descent"
+      ],
+      "baseline_pr65_first_any_support_candidate_rank": 17,
+      "first_any_support_candidate_rank": 13,
+      "first_required_support_candidate_rank": null,
+      "first_required_support_candidate_ref": null,
+      "first_required_support_admitted_rank": null,
+      "required_support_rendered": false,
+      "support_token_share": 0.0623,
+      "support_match_channels": {
+        "title_summary": false,
+        "retrieval_terms": false,
+        "planner_affordances": false,
+        "support_alias": false
+      },
+      "policy_classification": "support_present_incidental",
+      "next_failure_surface": "ok_or_later_stage"
+    },
+    {
+      "question_number": 34,
+      "question_id": "q34_which_facts_are_retrieved_from_prior_can",
+      "mode": "prior_plus_support_content_plus_lexical_hints",
+      "authority_label": "mixed",
+      "support_allowed_for_mode": true,
+      "query_affordances": [],
+      "expected_support_refs_eval_only": [
+        "support:campaign2_mireward_tracker_do_not_backport",
+        "support:elderwyld_travel_safe_generation_guidance",
+        "support:elderwyld_world_layer_overview",
+        "support:hempholm_continuation_guild_cleanup",
+        "support:mirathorn_city_destination_node",
+        "support:mireward_reach_northbound_route_warning"
+      ],
+      "baseline_pr65_first_any_support_candidate_rank": 3,
+      "first_any_support_candidate_rank": 1,
+      "first_required_support_candidate_rank": 1,
+      "first_required_support_candidate_ref": "support:campaign2_mireward_tracker_do_not_backport",
+      "first_required_support_admitted_rank": 1,
+      "required_support_rendered": true,
+      "support_token_share": 0.0672,
+      "support_match_channels": {
+        "title_summary": true,
+        "retrieval_terms": false,
+        "planner_affordances": false,
+        "support_alias": false
+      },
+      "policy_classification": "support_present_incidental",
+      "next_failure_surface": "ok_or_later_stage"
+    },
+    {
+      "question_number": 36,
+      "question_id": "q36_what_information_is_missing_from_the_cur",
+      "mode": "prior_plus_support_content_plus_lexical_hints",
+      "authority_label": "worldbuilding_required",
+      "support_allowed_for_mode": true,
+      "query_affordances": [],
+      "expected_support_refs_eval_only": [
+        "support:campaign2_mireward_tracker_do_not_backport",
+        "support:elderwyld_world_layer_overview",
+        "support:mirathorn_city_destination_node",
+        "support:mireward_reach_northbound_route_warning",
+        "support:stone_bridge_to_mirathorn_route_gap"
+      ],
+      "baseline_pr65_first_any_support_candidate_rank": 18,
+      "first_any_support_candidate_rank": 14,
+      "first_required_support_candidate_rank": 14,
+      "first_required_support_candidate_ref": "support:stone_bridge_to_mirathorn_route_gap",
+      "first_required_support_admitted_rank": 7,
+      "required_support_rendered": true,
+      "support_token_share": 0.0851,
+      "support_match_channels": {
+        "title_summary": true,
+        "retrieval_terms": false,
+        "planner_affordances": false,
+        "support_alias": false
+      },
+      "policy_classification": "support_present_incidental",
+      "next_failure_surface": "ok_or_later_stage"
+    },
+    {
+      "question_number": 37,
+      "question_id": "q37_what_prep_can_be_safely_generated_anyway",
+      "mode": "prior_plus_support_content_plus_lexical_hints",
+      "authority_label": "creative_generation",
+      "support_allowed_for_mode": true,
+      "query_affordances": [],
+      "expected_support_refs_eval_only": [
+        "support:elderwyld_travel_safe_generation_guidance"
+      ],
+      "baseline_pr65_first_any_support_candidate_rank": 22,
+      "first_any_support_candidate_rank": 12,
+      "first_required_support_candidate_rank": 32,
+      "first_required_support_candidate_ref": "support:elderwyld_travel_safe_generation_guidance",
+      "first_required_support_admitted_rank": null,
+      "required_support_rendered": false,
+      "support_token_share": 0.1528,
+      "support_match_channels": {
+        "title_summary": true,
+        "retrieval_terms": false,
+        "planner_affordances": false,
+        "support_alias": false
+      },
+      "policy_classification": "support_present_incidental",
+      "next_failure_surface": "ok_or_later_stage"
+    },
+    {
+      "question_number": 38,
+      "question_id": "q38_what_should_the_gm_decide_manually",
+      "mode": "prior_plus_support_content_plus_lexical_hints",
+      "authority_label": "mixed",
+      "support_allowed_for_mode": true,
+      "query_affordances": [],
+      "expected_support_refs_eval_only": [
+        "support:elderwyld_travel_safe_generation_guidance",
+        "support:hempholm_continuation_guild_cleanup",
+        "support:stone_bridge_to_mirathorn_route_gap"
+      ],
+      "baseline_pr65_first_any_support_candidate_rank": null,
+      "first_any_support_candidate_rank": null,
+      "first_required_support_candidate_rank": null,
+      "first_required_support_candidate_ref": null,
+      "first_required_support_admitted_rank": null,
+      "required_support_rendered": false,
+      "support_token_share": 0.0032,
+      "support_match_channels": {
+        "title_summary": false,
+        "retrieval_terms": false,
+        "planner_affordances": false,
+        "support_alias": false
+      },
+      "policy_classification": "support_not_required",
+      "next_failure_surface": "ok_or_later_stage"
+    }
+  ]
+}

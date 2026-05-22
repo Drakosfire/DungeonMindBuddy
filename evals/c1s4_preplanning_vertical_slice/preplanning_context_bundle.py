@@ -22,8 +22,17 @@ def build_preplanning_context_bundle(*, kb_id: str, campaign_id: str, allowed_se
         "planner_lane_hint",
         "title",
         "subject_doc_kind",
+        "planner_affordances",
+        "visibility",
     )
-    _merge_fields = ("merge_reason", "merge_family", "merge_source_variant_role", "merge_source_query")
+    _merge_fields = (
+        "merge_reason",
+        "merge_family",
+        "merge_source_variant_role",
+        "merge_source_query",
+        "support_match_channels",
+        "query_affordances",
+    )
     for hit in hits[:max_items]:
         unit_id = str(hit.get("unit_id") or "")
         record = records_by_unit_id.get(unit_id, {})
@@ -57,6 +66,8 @@ def build_preplanning_context_bundle(*, kb_id: str, campaign_id: str, allowed_se
                 "presentation_lane": "support_knowledge",
                 "subject_class": "support",
             })
+            if record.get("summary"):
+                item["snippet"] = str(record.get("summary"))[:max_snippet_chars]
             items.append(item)
             continue
         source_path = str(item.get("source_path") or item.get("source_recap_path") or "")
