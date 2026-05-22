@@ -7,6 +7,7 @@ from evals.c1s4_preplanning_vertical_slice.beat_question_answer_harness import (
     load_beat_question_targets,
     validate_packet,
 )
+from evals.c1s4_preplanning_vertical_slice.context_renderer import render_context_packet
 from evals.c1s4_preplanning_vertical_slice.step2_build_question_context_packets import build_summary
 
 
@@ -83,6 +84,49 @@ def test_packet_validator_rejects_eval_only_target_hints() -> None:
     )
     packet2["known_context_gaps"] = ["exact Stone Bridge-to-Mirathorn route gazetteer"]
     assert any("known_context_gaps" in e for e in validate_packet(packet2))
+
+
+def test_validate_packet_accepts_source_derived_context_gaps() -> None:
+    q = _find_question(3)
+    packet = build_question_context_packet(
+        question=q,
+        retrieval_mode="prior_only",
+        retrieved_context=[],
+        oracle_leakage_check={"forbidden_path_hits": [], "forbidden_session_hits": []},
+    )
+    packet["source_derived_context_gaps"] = [
+        {
+            "schema": "dmb_source_derived_context_gap_v1",
+            "gap_id": "source_gap:mirathorn_exact_route_gap",
+            "gap": "Retrieved prior context supports Stone Bridge and Mirathorn but does not establish the exact route.",
+            "source": "deterministic_absence_analysis",
+            "evidence_scope": "allowed_prior_context",
+            "presentation_lane": "known_gap",
+            "source_kind": "source_derived_gap",
+            "subject_class": "route_gap",
+            "question_id": q["question_id"],
+            "basis": {"positive_context_refs": ["corpus:location:stone_bridge:canon-summary"], "missing_context_type": "route_gazetteer"},
+        }
+    ]
+    assert validate_packet(packet) == []
+
+
+def test_q3_planner_packet_includes_source_derived_gap_not_known_context_gaps() -> None:
+    summary = build_summary(mode="prior_only", question_number=3, max_hits=50)
+    packet = summary["packets"][0]
+
+    assert "known_context_gaps" not in packet
+    gaps = packet.get("source_derived_context_gaps") or []
+    assert gaps
+
+    rendered = render_context_packet(packet)
+    text = rendered["rendered_text"]
+
+    assert "route" in text.lower() and ("exact route" in text.lower() or "does not establish" in text.lower())
+    assert "exact Stone Bridge-to-Mirathorn route gazetteer" not in text
+    assert "intermediate settlements" not in text
+    assert "day-by-day travel route" not in text
+    assert "route-specific ecology" not in text
 
 
 def test_planner_packet_does_not_include_gold_known_context_gaps() -> None:

@@ -85,6 +85,9 @@ def _provenance_entry(*, item: dict[str, Any], ref: str, section_id: str, route_
         "merge_reason": item.get("merge_reason"),
         "merge_family": item.get("merge_family"),
         "route_reason": route_reason,
+        "evidence_scope": item.get("evidence_scope"),
+        "basis": item.get("basis"),
+        "gap": item.get("gap"),
     }
 
 
@@ -103,16 +106,32 @@ def provenance_matches_expected(prov: dict[str, Any], expected_path_or_unit_id: 
 def _gap_entry(gap: Any, idx: int) -> tuple[str, str]:
     if isinstance(gap, dict):
         snippet = str(gap.get("gap") or "").strip()
-        source = str(gap.get("source") or "source_derived")
-        return f"known_gap:{source}:{idx}", snippet
+        ref = str(gap.get("gap_id") or f"source_gap:{gap.get('source') or 'source_derived'}:{idx}")
+        return ref, snippet
     text = str(gap or "").strip()
     return f"known_gap:{text}", text
+
+
+def _gap_provenance_item(gap: dict[str, Any], *, ref: str, snippet: str) -> dict[str, Any]:
+    return {
+        "ref": ref,
+        "unit_id": ref,
+        "snippet": snippet,
+        "gap": gap.get("gap"),
+        "source_kind": gap.get("source_kind", "source_derived_gap"),
+        "source_layer": gap.get("source", "deterministic_absence_analysis"),
+        "source": gap.get("source"),
+        "evidence_scope": gap.get("evidence_scope"),
+        "presentation_lane": gap.get("presentation_lane", "known_gap"),
+        "subject_class": gap.get("subject_class", "route_gap"),
+        "basis": gap.get("basis"),
+    }
 
 
 def render_context_packet(packet: dict[str, Any]) -> dict[str, Any]:
     admitted = packet.get("admitted_context") or []
     mode = str(packet.get("retrieval_mode") or "")
-    raw_known_gaps = packet.get("known_context_gaps") or []
+    raw_source_derived_gaps = packet.get("source_derived_context_gaps") or []
 
     by_section: dict[str, list[dict[str, Any]]] = {k: [] for k, _ in SECTION_DEFS}
     route_diagnostics: list[dict[str, Any]] = []
@@ -133,12 +152,15 @@ def render_context_packet(packet: dict[str, Any]) -> dict[str, Any]:
             }
         )
 
-    if raw_known_gaps:
-        for idx, gap in enumerate(raw_known_gaps):
+    if raw_source_derived_gaps:
+        for idx, gap in enumerate(raw_source_derived_gaps):
+            if not isinstance(gap, dict):
+                continue
             ref, snippet = _gap_entry(gap, idx)
             if not snippet:
                 continue
-            by_section["known_gaps_and_safety_constraints"].append({"ref": ref, "snippet": snippet})
+            gap_item = _gap_provenance_item(gap, ref=ref, snippet=snippet)
+            by_section["known_gaps_and_safety_constraints"].append(gap_item)
 
     sections = []
     provenance_map: dict[str, dict[str, Any]] = {}
@@ -150,8 +172,8 @@ def render_context_packet(packet: dict[str, Any]) -> dict[str, Any]:
             ref = _item_ref(i)
             refs.append(ref)
             lines.append(f"- [{ref}] {_item_text(i)}")
-            if str(ref).startswith("known_gap:"):
-                route_reason = "known_gap"
+            if str(ref).startswith(("known_gap:", "source_gap:")):
+                route_reason = "source_derived_context_gap" if str(ref).startswith("source_gap:") else "known_gap"
             else:
                 _, route_reason = _route_item_to_section(i, mode=mode)
             provenance_map[ref] = _provenance_entry(item=i, ref=ref, section_id=sid, route_reason=route_reason)

@@ -24,6 +24,7 @@ from evals.c1s4_preplanning_vertical_slice.query_lane_router import build_lane_p
 from evals.c1s4_preplanning_vertical_slice.campaign_corpus_materializer import load_campaign_corpus_records_for_c1s4
 from evals.c1s4_preplanning_vertical_slice.query_alias_expansion import build_step2c_query_variants
 from evals.c1s4_preplanning_vertical_slice.query_variant_retrieval import retrieve_query_variants
+from evals.c1s4_preplanning_vertical_slice.source_derived_context_gaps import build_source_derived_context_gaps
 from evals.c1s4_preplanning_vertical_slice.step0_kb_materialize import DEFAULT_POLICY_PATH, load_kb_manifest
 from evals.c1s4_preplanning_vertical_slice.support_knowledge_loader import load_normalized_support_records
 
@@ -125,6 +126,16 @@ def build_summary(*, mode: QuestionRetrievalMode, question_number: int | None = 
         packet["query_variant_diagnostics"] = query_variant_diagnostics
         packet["query_features"] = lane_plan.get("query_features")
         packet["lane_plan"] = lane_plan
+        source_gaps = build_source_derived_context_gaps(
+            question_id=str(q.get("question_id") or ""),
+            question_text=question_text,
+            retrieval_mode=mode,
+            candidate_context=packet.get("candidate_context") or candidate_context,
+            admitted_context=packet.get("admitted_context") or packet.get("retrieved_context") or [],
+            query_features=lane_plan.get("query_features"),
+        )
+        if source_gaps:
+            packet["source_derived_context_gaps"] = source_gaps
         errs = validate_packet(packet)
         if errs:
             raise RuntimeError(f"Packet validation failed for q{q.get('question_number')}: {errs}")

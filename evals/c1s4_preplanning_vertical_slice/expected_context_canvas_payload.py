@@ -105,6 +105,7 @@ def build_payload(*, report: dict[str, Any], gold: dict[str, Any] | None = None,
             "admission_policy": row.get("admission_policy"),
             "admitted_context": row.get("admitted_context", []),
             "admission_budget": row.get("admission_budget", {}),
+            "source_derived_context_gaps": row.get("source_derived_context_gaps", []),
         })
 
         question_rows.append({

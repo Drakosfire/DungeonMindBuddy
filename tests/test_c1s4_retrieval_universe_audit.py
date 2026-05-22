@@ -143,6 +143,23 @@ def test_pr61_summary_reports_q1_grishna_moved_from_candidate_pool_gap_to_admitt
     assert data["candidate_deferred_to_admitted"] >= 1
 
 
+def test_pr63_summary_reports_known_gap_missing_moved_to_ok(tmp_path: Path) -> None:
+    run_audit(
+        output_dir=tmp_path / "pr63",
+        gold_path=Path("evals/c1s4_preplanning_vertical_slice/gold/c1s4_expected_context_gold.json"),
+        rebuild_step2c_packets=True,
+    )
+    assert (tmp_path / "pr63" / "pr63_source_derived_gap_matrix.csv").exists()
+    assert (tmp_path / "pr63" / "pr63_step2c_surface_matrix.csv").exists()
+    data = json.loads((tmp_path / "pr63" / "pr63_retrieval_universe_summary.json").read_text(encoding="utf-8"))
+    assert data["schema"] == "dmb_pr63_retrieval_universe_summary_v1"
+    assert data["q3_route_gap_rendered"] is True
+    assert data["known_gap_missing_from_packet_to_ok"] >= 1
+    assert data["gold_gap_phrase_leakage"] is False
+    assert data.get("bogus_renderer_mismatch_regressions", 0) == 0
+    assert data["pr63_ok_or_later_stage_rows"] >= data["pr62_ok_or_later_stage_rows"]
+
+
 def test_pr60_summary_reflects_post_pr61_admission_and_eval_only_known_gaps(tmp_path: Path) -> None:
     run_audit(
         output_dir=tmp_path / "pr60",

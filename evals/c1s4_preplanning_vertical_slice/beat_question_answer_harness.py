@@ -4,6 +4,11 @@ import json
 from pathlib import Path
 from typing import Any, Literal
 
+from evals.c1s4_preplanning_vertical_slice.source_derived_context_gaps import (
+    SOURCE_DERIVED_GAP_SCHEMA,
+    gap_text_contains_forbidden_gold_phrase,
+)
+
 QuestionRetrievalMode = Literal[
     "prior_only",
     "prior_plus_support_content_only",
@@ -100,6 +105,24 @@ def validate_packet(packet: dict[str, Any]) -> list[str]:
         errs.append("expected_retrieval_modes must be absent")
     if "known_context_gaps" in packet:
         errs.append("known_context_gaps is evaluator-only and must not appear in planner packet")
+    source_gaps = packet.get("source_derived_context_gaps")
+    if source_gaps is not None:
+        if not isinstance(source_gaps, list):
+            errs.append("source_derived_context_gaps must be a list")
+        else:
+            for idx, gap in enumerate(source_gaps):
+                if not isinstance(gap, dict):
+                    errs.append(f"source_derived_context_gaps[{idx}] must be an object")
+                    continue
+                if gap.get("schema") != SOURCE_DERIVED_GAP_SCHEMA:
+                    errs.append(f"source_derived_context_gaps[{idx}] invalid schema")
+                if gap.get("source") != "deterministic_absence_analysis":
+                    errs.append(f"source_derived_context_gaps[{idx}] must be deterministic_absence_analysis")
+                if gap.get("evidence_scope") != "allowed_prior_context":
+                    errs.append(f"source_derived_context_gaps[{idx}] must use allowed_prior_context")
+                gap_text = str(gap.get("gap") or "")
+                if gap_text_contains_forbidden_gold_phrase(gap_text):
+                    errs.append(f"source_derived_context_gaps[{idx}] copies forbidden gold gap phrasing")
     if not isinstance(packet.get("retrieved_context"), list):
         errs.append("retrieved_context must be a list")
     if "oracle_leakage_check" not in packet:

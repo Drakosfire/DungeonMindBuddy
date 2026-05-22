@@ -27,6 +27,7 @@ from evals.c1s4_preplanning_vertical_slice.pr59_artifact_emit import write_pr59_
 from evals.c1s4_preplanning_vertical_slice.pr60_artifact_emit import write_pr60_artifacts
 from evals.c1s4_preplanning_vertical_slice.pr61_artifact_emit import write_pr61_artifacts
 from evals.c1s4_preplanning_vertical_slice.pr62_artifact_emit import write_pr62_artifacts
+from evals.c1s4_preplanning_vertical_slice.pr63_artifact_emit import write_pr63_artifacts
 from src.agent.session_memory_query import query_session_memory_candidate
 
 from evals.c1s4_preplanning_vertical_slice.support_knowledge_loader import load_normalized_support_records
@@ -155,9 +156,17 @@ def run_audit(
         packets = packets_by_mode[ev.mode]
 
         if ev.expected_source_kind == "known_context_gap":
-            planner_gap_leak = any(
+            planner_gold_gap_leak = any(
                 pkt.get("question_id") == ev.question_id and bool(pkt.get("known_context_gaps"))
                 for pkt in packets
+            )
+            planner_source_gap = next(
+                (
+                    pkt
+                    for pkt in packets
+                    if pkt.get("question_id") == ev.question_id and bool(pkt.get("source_derived_context_gaps"))
+                ),
+                None,
             )
             gold_q = questions_by_id.get(ev.question_id, {})
             eval_gaps = gold_q.get("known_context_gaps") or []
@@ -165,8 +174,11 @@ def run_audit(
                 ev.expected_terms[0].lower() in str(g).lower() or ev.group_id.lower() in str(g).lower()
                 for g in eval_gaps
             )
-            if planner_gap_leak:
+            if planner_gold_gap_leak:
                 status = "known_gap_oracle_leak_in_planner_packet"
+                step2c_known_gap_hit = True
+            elif planner_source_gap:
+                status = "source_derived_gap_in_planner_packet"
                 step2c_known_gap_hit = True
             else:
                 status = "known_gap_eval_only_not_in_planner_packet"
@@ -183,8 +195,9 @@ def run_audit(
                 "step2c_candidate_hit": False,
                 "classification_status": status,
                 "notes": (
-                    "Gold known gaps are evaluator-only; planner packets must not carry known_context_gaps. "
-                    f"eval_gap_present_in_gold_targets={eval_gap_present}"
+                    "Gold known gaps are evaluator-only; planner packets use source_derived_context_gaps when present. "
+                    f"eval_gap_present_in_gold_targets={eval_gap_present}; "
+                    f"source_derived_gap_count={len(planner_source_gap.get('source_derived_context_gaps') or []) if planner_source_gap else 0}"
                 ),
             }
             manifest_rows.append(row)
@@ -321,14 +334,16 @@ def run_audit(
             f"- support probe hit but step2c retrieved miss: {support_step2c_misses}\n",
             encoding="utf-8",
         )
-    if prefix in {"pr59", "pr60", "pr61", "pr62"}:
+    if prefix in {"pr59", "pr60", "pr61", "pr62", "pr63"}:
         write_pr59_artifacts(output_dir=output_dir, packets_by_mode=packets_by_mode)
-    if prefix in {"pr60", "pr61", "pr62"}:
+    if prefix in {"pr60", "pr61", "pr62", "pr63"}:
         write_pr60_artifacts(output_dir=output_dir, packets_by_mode=packets_by_mode)
     if prefix == "pr61":
         write_pr61_artifacts(output_dir=output_dir, packets_by_mode=packets_by_mode)
     if prefix == "pr62":
         write_pr62_artifacts(output_dir=output_dir, packets_by_mode=packets_by_mode)
+    if prefix == "pr63":
+        write_pr63_artifacts(output_dir=output_dir, packets_by_mode=packets_by_mode)
     return summary
 
 
