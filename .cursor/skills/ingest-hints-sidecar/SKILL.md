@@ -36,8 +36,8 @@ Generate `_ingest_staging/session_{N}_raw_notes.ingest_hints.json` — structure
 1. Confirm raw notes path under `_ingest_staging/` (mechanical preprocess may have run separately).
 2. Compute `raw_notes_sha256` of the ground-truth file the hints describe.
 3. Build messages via `src/prompts/ingest_hints_sidecar.py::build_ingest_hints_messages`.
-4. Call the LLM with strict JSON output (`ingest_hints_v1` schema when wired).
-5. Validate with `validate_ingest_hints_payload`.
+4. Call the LLM with strict structured output — pass `text=ingest_hints_text_format()` from `src/agent/ingest_hints_output_schema.py` alongside the messages from step 3. Do not rely on prompt copy alone for shape enforcement.
+5. Validate with `validate_ingest_hints_payload` (authoritative nested contract check; must pass before writing the sidecar).
 6. Write sidecar to disk for **operator review** — not via corpus writer allowlist in v1 unless a future slice adds an explicit staging sidecar path.
 
 ## What this skill does NOT do
@@ -50,5 +50,5 @@ Generate `_ingest_staging/session_{N}_raw_notes.ingest_hints.json` — structure
 
 - `Docs/Plans/C2S21-S22-DEMO-ARCHITECT-SESSION-NOTES.md` §9.8 — sidecar path and authority boundary
 - `.cursor/skills/recap-write/SKILL.md` — canonical recap write target
-- `src/agent/ingest_hints_output_schema.py` — schema + validator
+- `src/agent/ingest_hints_output_schema.py` — schema, `ingest_hints_text_format()`, validator
 - `src/prompts/ingest_hints_sidecar.py` — prompt builder

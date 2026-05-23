@@ -13,8 +13,11 @@ from src.agent.ingest_hints_output_schema import (
     PROMOTION_NOTE_TITLE,
     ingest_hints_forbidden_payload_keys,
     ingest_hints_output_json_schema,
+    ingest_hints_text_format,
     validate_ingest_hints_payload,
 )
+
+_VALID_SHA256 = "a" * 64
 
 
 def _evidence(
@@ -46,7 +49,7 @@ def _minimal_payload() -> dict:
             "raw_notes_path": (
                 "Longmont Campaign/Campaign 2/_ingest_staging/session_21_raw_notes.md"
             ),
-            "raw_notes_sha256": "abc123",
+            "raw_notes_sha256": _VALID_SHA256,
             "preprocessed_notes_path": None,
             "preprocess_profile": None,
         },
@@ -81,6 +84,14 @@ def test_ingest_hints_output_json_schema_rejects_additional_properties() -> None
     schema = ingest_hints_output_json_schema()
     assert schema.get("additionalProperties") is False
     assert schema["properties"]["schema_version"]["enum"] == [INGEST_HINTS_SCHEMA_VERSION]
+
+
+def test_ingest_hints_text_format_uses_strict_json_schema() -> None:
+    text_format = ingest_hints_text_format()
+    assert text_format["format"]["type"] == "json_schema"
+    assert text_format["format"]["name"] == "ingest_hints_v1"
+    assert text_format["format"]["strict"] is True
+    assert text_format["format"]["schema"] == ingest_hints_output_json_schema()
 
 
 def test_validate_ingest_hints_payload_accepts_minimal_payload() -> None:
@@ -201,3 +212,65 @@ def test_validate_ingest_hints_payload_accepts_rich_payload() -> None:
         }
     ]
     assert validate_ingest_hints_payload(payload) == []
+
+
+def test_validate_ingest_hints_payload_rejects_invalid_sha256() -> None:
+    payload = _minimal_payload()
+    payload["source"]["raw_notes_sha256"] = "abc123"
+    violations = validate_ingest_hints_payload(payload)
+    assert any("raw_notes_sha256" in v for v in violations)
+
+
+def test_validate_ingest_hints_payload_rejects_missing_source_field() -> None:
+    payload = _minimal_payload()
+    del payload["source"]["campaign_id"]
+    violations = validate_ingest_hints_payload(payload)
+    assert any("source.campaign_id" in v or "source missing required key" in v for v in violations)
+
+
+def test_validate_ingest_hints_payload_rejects_unknown_nested_keys() -> None:
+    payload = _minimal_payload()
+    payload["warnings"] = [
+        {
+            "code": "missing_prep",
+            "message": "No prep inputs provided.",
+            "evidence": [],
+            "extra_field": "nope",
+        }
+    ]
+    violations = validate_ingest_hints_payload(payload)
+    assert any("unknown keys" in v and "extra_field" in v for v in violations)
+
+
+def test_validate_ingest_hints_payload_rejects_invalid_evidence_source_enum() -> None:
+    payload = _minimal_payload()
+    payload["warnings"] = [
+        {
+            "code": "low_confidence",
+            "message": "Title uncertain.",
+            "evidence": [_evidence(source="corpus_file")],
+        }
+    ]
+    violations = validate_ingest_hints_payload(payload)
+    assert any("evidence" in v and "source" in v for v in violations)
+
+
+def test_validate_ingest_hints_payload_rejects_preprocess_profile_without_path() -> None:
+    payload = _minimal_payload()
+    payload["source"]["preprocess_profile"] = "numbered_list_v1"
+    violations = validate_ingest_hints_payload(payload)
+    assert any("preprocessed_notes_path" in v for v in violations)
+
+
+def test_validate_ingest_hints_payload_rejects_spelling_variant_with_one_form() -> None:
+    payload = _minimal_payload()
+    payload["spelling_variants"] = [
+        {
+            "canonical_unknown": True,
+            "variants": ["Mirathorn"],
+            "recommendation": "audit_only_do_not_autocorrect",
+            "evidence": [_evidence(quote="Mirathorn")],
+        }
+    ]
+    violations = validate_ingest_hints_payload(payload)
+    assert any("spelling_variants[0].variants" in v for v in violations)

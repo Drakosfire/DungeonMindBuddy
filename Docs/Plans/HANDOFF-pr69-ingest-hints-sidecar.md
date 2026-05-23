@@ -1,4 +1,4 @@
-# HANDOFF — PR #68: Review-only ingest hints sidecar (ingest_hints_v1)
+# HANDOFF — PR #69: Review-only ingest hints sidecar (ingest_hints_v1)
 
 **Created:** 2026-05-23 (UTC).
 **Status:** ACTIVE — in-IDE slice on `feature/ingest-hints-sidecar-v1`.
@@ -32,7 +32,7 @@ This PR formalizes the sidecar only. It does **not** wire the sidecar into recap
 | Create | `.cursor/skills/ingest-hints-sidecar/SKILL.md` |
 | Create | `tests/test_ingest_hints_output_schema.py` |
 | Create | `tests/test_ingest_hints_prompt_contract.py` |
-| Create | `Docs/Plans/HANDOFF-pr68-ingest-hints-sidecar.md` |
+| Create | `Docs/Plans/HANDOFF-pr69-ingest-hints-sidecar.md` |
 | Modify | `Docs/Plans/C2S21-S22-DEMO-ARCHITECT-SESSION-NOTES.md` |
 | Modify | `Docs/Plans/HANDOFF-prep-agent-c2-ingest-s21-plan-s22-cursor-first.md` |
 
@@ -54,7 +54,8 @@ uv run pytest tests/test_ingest_hints_prompt_contract.py -q
 ## §6 Acceptance criteria
 
 - [x] Prompt importable via `build_ingest_hints_messages`
-- [x] `ingest_hints_v1` schema + validator require evidence on concrete hints
+- [x] `ingest_hints_v1` schema + validator enforce nested contract (types, enums, unknown keys, source lineage)
+- [x] `ingest_hints_text_format()` exported for strict Responses API calls alongside prompt builder
 - [x] Authority flags enforce review-only (`may_modify_prose: false`, etc.)
 - [x] Forbidden canon keys rejected (`recap_body`, `normalized_body`, …)
 - [x] Docs link §9.8 to this implementation

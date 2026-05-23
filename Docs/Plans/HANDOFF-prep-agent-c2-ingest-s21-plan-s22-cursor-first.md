@@ -11,7 +11,7 @@
 | **Dispatch / repo execution** (this file) — commands, modules, verification, Python entry pattern | `Docs/Plans/HANDOFF-prep-agent-c2-ingest-s21-plan-s22-cursor-first.md` |
 | **Operating manual** — proof surfaces, ledgers, Session 22 prep brief shape, demo-readiness rubric, fallback ladder | [`Docs/Plans/DEMO-ARCHITECT-AGENT-MANUAL-c2s21-s22.md`](DEMO-ARCHITECT-AGENT-MANUAL-c2s21-s22.md) |
 | **Living session notes** — architecture map, step log, D/J tally, rebuild backlog (update each step) | [`Docs/Plans/C2S21-S22-DEMO-ARCHITECT-SESSION-NOTES.md`](C2S21-S22-DEMO-ARCHITECT-SESSION-NOTES.md) |
-| **Ingest hints sidecar (optional LLM triage)** | [`HANDOFF-pr68-ingest-hints-sidecar.md`](HANDOFF-pr68-ingest-hints-sidecar.md), `.cursor/skills/ingest-hints-sidecar/SKILL.md` |
+| **Ingest hints sidecar (optional LLM triage)** | [`HANDOFF-pr69-ingest-hints-sidecar.md`](HANDOFF-pr69-ingest-hints-sidecar.md), `.cursor/skills/ingest-hints-sidecar/SKILL.md` |
 | **Plan anchor** | [`Docs/Plans/PLAN-split-corpus-retrieval-to-autonomous-demo.md`](PLAN-split-corpus-retrieval-to-autonomous-demo.md) |
 | **Retrieval milestones (PR58–67)** | [`Docs/Plans/CHECKLIST-c1s4-preplanning-vertical-slice.md`](CHECKLIST-c1s4-preplanning-vertical-slice.md) |
 

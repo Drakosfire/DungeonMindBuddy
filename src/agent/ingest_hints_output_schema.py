@@ -6,9 +6,11 @@ judgment; they must never rewrite prose or promote canon without operator review
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 INGEST_HINTS_SCHEMA_VERSION = "ingest_hints_v1"
+_INGEST_HINTS_TEXT_FORMAT_NAME = "ingest_hints_v1"
 
 CONFIDENCE_ENUM = ("high", "medium", "low")
 EVIDENCE_SOURCE_ENUM = ("raw_notes", "preprocessed_notes", "prep_draft")
@@ -16,6 +18,7 @@ AUTHORITY_STATUS = "review_only"
 PROMOTION_NOTE_TITLE = "Operator must approve before recap title or _SLUGS use."
 PROMOTION_NOTE_SLUG = "Operator must approve before _SLUGS or normalized filename use."
 SPELLING_RECOMMENDATION = "audit_only_do_not_autocorrect"
+_SHA256_HEX_RE = re.compile(r"^[0-9a-fA-F]{64}$")
 
 FORBIDDEN_CANON_PAYLOAD_KEYS = frozenset(
     {
@@ -75,7 +78,7 @@ _SOURCE_SCHEMA: dict[str, Any] = {
         "campaign_id": {"type": "string", "minLength": 1},
         "session": {"type": "integer", "minimum": 1},
         "raw_notes_path": {"type": "string", "minLength": 1},
-        "raw_notes_sha256": {"type": "string"},
+        "raw_notes_sha256": {"type": "string", "minLength": 64},
         "preprocessed_notes_path": {"type": ["string", "null"]},
         "preprocess_profile": {"type": ["string", "null"]},
     },
@@ -257,73 +260,200 @@ def ingest_hints_output_json_schema() -> dict[str, Any]:
     }
 
 
+def ingest_hints_text_format(*, strict: bool = True) -> dict[str, Any]:
+    """``text=`` argument for ``client.responses.create`` on ingest-hints sidecar calls.
+
+    Pair with :func:`src.prompts.ingest_hints_sidecar.build_ingest_hints_messages`.
+    """
+    return {
+        "format": {
+            "type": "json_schema",
+            "name": _INGEST_HINTS_TEXT_FORMAT_NAME,
+            "strict": strict,
+            "schema": ingest_hints_output_json_schema(),
+        }
+    }
+
+
 def ingest_hints_forbidden_payload_keys(payload: dict[str, Any]) -> list[str]:
     """Return forbidden canon/prose keys if present at top level."""
     return sorted(k for k in payload if k in FORBIDDEN_CANON_PAYLOAD_KEYS)
 
 
-def _validate_evidence_list(
-    violations: list[str],
-    *,
-    path: str,
-    evidence: Any,
-    required: bool,
-) -> None:
-    if not isinstance(evidence, list):
-        violations.append(f"{path} must be a list")
-        return
-    if required and not evidence:
-        violations.append(f"{path} must include at least one evidence object")
-        return
-    for i, item in enumerate(evidence):
-        if not isinstance(item, dict):
-            violations.append(f"{path}[{i}] must be an object")
-            continue
-        for key in _EVIDENCE_SCHEMA["required"]:
-            if key not in item:
-                violations.append(f"{path}[{i}] missing required key: {key!r}")
-        source = item.get("source")
-        if source is not None and source not in EVIDENCE_SOURCE_ENUM:
-            violations.append(f"{path}[{i}].source invalid: {source!r}")
+def _schema_types(schema: dict[str, Any]) -> list[str]:
+    type_spec = schema.get("type")
+    if isinstance(type_spec, list):
+        return [t for t in type_spec if t != "null"]
+    if isinstance(type_spec, str):
+        return [type_spec]
+    return []
 
 
-def _validate_hint_with_evidence(
-    violations: list[str],
-    *,
-    path: str,
-    obj: Any,
-    promotion_note_expected: str,
-) -> None:
-    if not isinstance(obj, dict):
-        violations.append(f"{path} must be an object")
+def _allows_null(schema: dict[str, Any]) -> bool:
+    type_spec = schema.get("type")
+    return isinstance(type_spec, list) and "null" in type_spec
+
+
+def _validate_string(value: Any, schema: dict[str, Any], path: str, violations: list[str]) -> None:
+    if not isinstance(value, str):
+        violations.append(f"{path} must be a string, got {type(value).__name__}")
         return
-    for key in _HINT_WITH_EVIDENCE_SCHEMA["required"]:
-        if key not in obj:
+    min_len = schema.get("minLength")
+    if isinstance(min_len, int) and len(value) < min_len:
+        violations.append(f"{path} must have minLength {min_len}, got {len(value)}")
+    enum = schema.get("enum")
+    if enum is not None and value not in enum:
+        violations.append(f"{path} must be one of {enum!r}, got {value!r}")
+
+
+def _validate_integer(value: Any, schema: dict[str, Any], path: str, violations: list[str]) -> None:
+    if not isinstance(value, int) or isinstance(value, bool):
+        violations.append(f"{path} must be an integer, got {type(value).__name__}")
+        return
+    minimum = schema.get("minimum")
+    if isinstance(minimum, int) and value < minimum:
+        violations.append(f"{path} must be >= {minimum}, got {value}")
+
+
+def _validate_boolean(value: Any, schema: dict[str, Any], path: str, violations: list[str]) -> None:
+    if not isinstance(value, bool):
+        violations.append(f"{path} must be a boolean, got {type(value).__name__}")
+        return
+    enum = schema.get("enum")
+    if enum is not None and value not in enum:
+        violations.append(f"{path} must be one of {enum!r}, got {value!r}")
+
+
+def _validate_array(value: Any, schema: dict[str, Any], path: str, violations: list[str]) -> None:
+    if not isinstance(value, list):
+        violations.append(f"{path} must be a list, got {type(value).__name__}")
+        return
+    min_items = schema.get("minItems")
+    if isinstance(min_items, int) and len(value) < min_items:
+        violations.append(f"{path} must have at least {min_items} items, got {len(value)}")
+    item_schema = schema.get("items")
+    if isinstance(item_schema, dict):
+        for i, item in enumerate(value):
+            _validate_value(item, item_schema, f"{path}[{i}]", violations)
+
+
+def _validate_object(value: Any, schema: dict[str, Any], path: str, violations: list[str]) -> None:
+    if not isinstance(value, dict):
+        violations.append(f"{path} must be an object, got {type(value).__name__}")
+        return
+    properties = schema.get("properties") or {}
+    if schema.get("additionalProperties") is False:
+        unknown = set(value) - set(properties)
+        if unknown:
+            violations.append(f"{path} has unknown keys: {sorted(unknown)!r}")
+    for key in schema.get("required") or []:
+        if key not in value:
             violations.append(f"{path} missing required key: {key!r}")
-    value = obj.get("value")
-    evidence = obj.get("evidence")
-    if value is not None:
-        if not isinstance(value, str) or not value.strip():
-            violations.append(f"{path}.value must be a non-empty string when set")
-        _validate_evidence_list(
-            violations, path=f"{path}.evidence", evidence=evidence, required=True
+    for key, prop_schema in properties.items():
+        if key in value:
+            _validate_value(value[key], prop_schema, f"{path}.{key}", violations)
+
+
+def _validate_value(value: Any, schema: dict[str, Any], path: str, violations: list[str]) -> None:
+    if value is None:
+        if _allows_null(schema):
+            return
+        violations.append(f"{path} must not be null")
+        return
+
+    types = _schema_types(schema)
+    if not types:
+        return
+
+    if len(types) == 1:
+        t = types[0]
+        if t == "object":
+            _validate_object(value, schema, path, violations)
+        elif t == "array":
+            _validate_array(value, schema, path, violations)
+        elif t == "string":
+            _validate_string(value, schema, path, violations)
+        elif t == "integer":
+            _validate_integer(value, schema, path, violations)
+        elif t == "boolean":
+            _validate_boolean(value, schema, path, violations)
+        else:
+            violations.append(f"{path} has unsupported schema type {t!r}")
+        return
+
+    matched = False
+    for t in types:
+        if t == "string" and isinstance(value, str):
+            _validate_string(value, schema, path, violations)
+            matched = True
+            break
+        if t == "integer" and isinstance(value, int) and not isinstance(value, bool):
+            _validate_integer(value, schema, path, violations)
+            matched = True
+            break
+        if t == "boolean" and isinstance(value, bool):
+            _validate_boolean(value, schema, path, violations)
+            matched = True
+            break
+        if t == "object" and isinstance(value, dict):
+            _validate_object(value, schema, path, violations)
+            matched = True
+            break
+        if t == "array" and isinstance(value, list):
+            _validate_array(value, schema, path, violations)
+            matched = True
+            break
+    if not matched:
+        violations.append(f"{path} must match one of {types!r}, got {type(value).__name__}")
+
+
+def _validate_source_lineage(source: dict[str, Any], violations: list[str]) -> None:
+    sha = source.get("raw_notes_sha256")
+    if isinstance(sha, str) and sha and not _SHA256_HEX_RE.match(sha):
+        violations.append(
+            "source.raw_notes_sha256 must be 64 lowercase/uppercase hex characters"
         )
-        note = obj.get("promotion_note")
-        if note != promotion_note_expected:
-            violations.append(
-                f"{path}.promotion_note must be {promotion_note_expected!r} when value is set"
-            )
-    else:
-        _validate_evidence_list(
-            violations, path=f"{path}.evidence", evidence=evidence, required=False
+    prep_path = source.get("preprocessed_notes_path")
+    profile = source.get("preprocess_profile")
+    if prep_path is not None and profile is None:
+        violations.append(
+            "source.preprocess_profile must be set when preprocessed_notes_path is non-null"
         )
-    conf = obj.get("confidence")
-    if conf not in CONFIDENCE_ENUM:
-        violations.append(f"{path}.confidence must be one of {CONFIDENCE_ENUM}, got {conf!r}")
+    if prep_path is None and profile is not None:
+        violations.append(
+            "source.preprocessed_notes_path must be set when preprocess_profile is non-null"
+        )
+
+
+def _validate_hint_promotion_rules(payload: dict[str, Any], violations: list[str]) -> None:
+    for path, expected_note in (
+        ("suggested_title", PROMOTION_NOTE_TITLE),
+        ("suggested_slug", PROMOTION_NOTE_SLUG),
+    ):
+        obj = payload.get(path)
+        if not isinstance(obj, dict):
+            continue
+        value = obj.get("value")
+        evidence = obj.get("evidence")
+        if value is not None:
+            if not isinstance(value, str) or not value.strip():
+                violations.append(f"{path}.value must be a non-empty string when set")
+            if not isinstance(evidence, list) or not evidence:
+                violations.append(f"{path}.evidence must include at least one item when value is set")
+            if obj.get("promotion_note") != expected_note:
+                violations.append(
+                    f"{path}.promotion_note must be {expected_note!r} when value is set"
+                )
 
 
 def validate_ingest_hints_payload(payload: dict[str, Any]) -> list[str]:
-    """Return human-readable violations; empty list means structurally valid."""
+    """Return human-readable violations; empty list means structurally valid.
+
+    Enforces the nested ``ingest_hints_v1`` contract (types, required keys,
+    ``additionalProperties: false``, enums, evidence minima) plus sidecar-specific
+    lineage and promotion rules. This is the operational trust boundary named in
+    ``ingest-hints-sidecar`` skill docs — not a loose forensic helper.
+    """
     violations: list[str] = []
 
     if not isinstance(payload, dict):
@@ -334,121 +464,12 @@ def validate_ingest_hints_payload(payload: dict[str, Any]) -> list[str]:
         for k in ingest_hints_forbidden_payload_keys(payload)
     )
 
-    unknown = set(payload) - set(ingest_hints_output_json_schema()["properties"])
-    if unknown:
-        violations.append(f"unknown top-level keys: {sorted(unknown)!r}")
+    _validate_value(payload, ingest_hints_output_json_schema(), "payload", violations)
 
-    schema = ingest_hints_output_json_schema()
-    for key in schema["required"]:
-        if key not in payload:
-            violations.append(f"missing required top-level key: {key!r}")
+    source = payload.get("source")
+    if isinstance(source, dict):
+        _validate_source_lineage(source, violations)
 
-    if payload.get("schema_version") != INGEST_HINTS_SCHEMA_VERSION:
-        violations.append(
-            f"schema_version must be {INGEST_HINTS_SCHEMA_VERSION!r}, "
-            f"got {payload.get('schema_version')!r}"
-        )
-
-    authority = payload.get("authority")
-    if isinstance(authority, dict):
-        if authority.get("status") != AUTHORITY_STATUS:
-            violations.append(f"authority.status must be {AUTHORITY_STATUS!r}")
-        for flag in (
-            "may_modify_prose",
-            "may_modify_canon",
-            "may_modify_slug",
-        ):
-            if authority.get(flag) is not False:
-                violations.append(f"authority.{flag} must be false")
-        if authority.get("promotion_requires_operator_review") is not True:
-            violations.append("authority.promotion_requires_operator_review must be true")
-    elif authority is not None:
-        violations.append("authority must be an object")
-
-    _validate_hint_with_evidence(
-        violations,
-        path="suggested_title",
-        obj=payload.get("suggested_title"),
-        promotion_note_expected=PROMOTION_NOTE_TITLE,
-    )
-    _validate_hint_with_evidence(
-        violations,
-        path="suggested_slug",
-        obj=payload.get("suggested_slug"),
-        promotion_note_expected=PROMOTION_NOTE_SLUG,
-    )
-
-    entities = payload.get("entities")
-    if isinstance(entities, dict):
-        for bucket in _ENTITIES_SCHEMA["required"]:
-            items = entities.get(bucket)
-            if not isinstance(items, list):
-                violations.append(f"entities.{bucket} must be a list")
-                continue
-            for i, item in enumerate(items):
-                if not isinstance(item, dict):
-                    violations.append(f"entities.{bucket}[{i}] must be an object")
-                    continue
-                for key in _ENTITY_SCHEMA["required"]:
-                    if key not in item:
-                        violations.append(
-                            f"entities.{bucket}[{i}] missing required key: {key!r}"
-                        )
-                _validate_evidence_list(
-                    violations,
-                    path=f"entities.{bucket}[{i}].evidence",
-                    evidence=item.get("evidence"),
-                    required=True,
-                )
-    elif entities is not None:
-        violations.append("entities must be an object")
-
-    for i, thread in enumerate(payload.get("open_threads") or []):
-        if not isinstance(thread, dict):
-            violations.append(f"open_threads[{i}] must be an object")
-            continue
-        for key in _OPEN_THREAD_SCHEMA["required"]:
-            if key not in thread:
-                violations.append(f"open_threads[{i}] missing required key: {key!r}")
-        _validate_evidence_list(
-            violations,
-            path=f"open_threads[{i}].evidence",
-            evidence=thread.get("evidence"),
-            required=True,
-        )
-
-    for i, variant in enumerate(payload.get("spelling_variants") or []):
-        if not isinstance(variant, dict):
-            violations.append(f"spelling_variants[{i}] must be an object")
-            continue
-        for key in _SPELLING_VARIANT_SCHEMA["required"]:
-            if key not in variant:
-                violations.append(f"spelling_variants[{i}] missing required key: {key!r}")
-        _validate_evidence_list(
-            violations,
-            path=f"spelling_variants[{i}].evidence",
-            evidence=variant.get("evidence"),
-            required=True,
-        )
-
-    for i, ref in enumerate(payload.get("prep_cross_refs") or []):
-        if not isinstance(ref, dict):
-            violations.append(f"prep_cross_refs[{i}] must be an object")
-            continue
-        for key in _PREP_CROSS_REF_SCHEMA["required"]:
-            if key not in ref:
-                violations.append(f"prep_cross_refs[{i}] missing required key: {key!r}")
-        if not ref.get("prep_path"):
-            violations.append(f"prep_cross_refs[{i}].prep_path is required")
-        _validate_evidence_list(
-            violations,
-            path=f"prep_cross_refs[{i}].evidence",
-            evidence=ref.get("evidence"),
-            required=True,
-        )
-
-    notes = payload.get("notes_for_operator")
-    if not isinstance(notes, str):
-        violations.append("notes_for_operator must be a string")
+    _validate_hint_promotion_rules(payload, violations)
 
     return violations

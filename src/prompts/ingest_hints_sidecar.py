@@ -1,4 +1,9 @@
-"""Prompt builder for the review-only ingest-hints sidecar generator."""
+"""Prompt builder for the review-only ingest-hints sidecar generator.
+
+Pair ``build_ingest_hints_messages()`` with ``ingest_hints_text_format()`` from
+``src.agent.ingest_hints_output_schema`` when calling ``client.responses.create``.
+Prompt copy alone does not enforce the full ``ingest_hints_v1`` contract.
+"""
 
 from __future__ import annotations
 

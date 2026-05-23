@@ -379,7 +379,7 @@ Empirical: S21 → **6 paragraphs**, `title_stripped: true` — ready for `assem
 
 #### Optional LLM sidecar (metadata only — separate file)
 
-**Implementation:** `src/agent/ingest_hints_output_schema.py`, `src/prompts/ingest_hints_sidecar.py`, `.cursor/skills/ingest-hints-sidecar/SKILL.md` (PR #68 / `HANDOFF-pr68-ingest-hints-sidecar.md`).
+**Implementation:** `src/agent/ingest_hints_output_schema.py`, `src/prompts/ingest_hints_sidecar.py`, `.cursor/skills/ingest-hints-sidecar/SKILL.md` (PR #69 / `HANDOFF-pr69-ingest-hints-sidecar.md`).
 
 **Path:** `_ingest_staging/session_{N}_raw_notes.ingest_hints.json` (or `.md` for human skim)
 
