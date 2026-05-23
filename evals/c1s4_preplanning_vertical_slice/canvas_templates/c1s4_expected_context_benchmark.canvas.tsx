@@ -325,6 +325,94 @@ function PlannerAffordanceDiagnosticsPanel({ diagnostics }: { diagnostics: AnyRe
   );
 }
 
+function AdmissionDiagnosticsPanel({ diagnostics }: { diagnostics: AnyRecord }) {
+  const tierRows = asArray<AnyRecord>(diagnostics.tierAGroupRows);
+  const q3Probe = asRecord(diagnostics.q3PriorDistanceProbeByMode);
+  const missCauses = asRecord(diagnostics.tierAMissRootCauses);
+  const notes = asArray<string>(diagnostics.notes);
+
+  if (!tierRows.length && !Object.keys(q3Probe).length) return null;
+
+  const q3Rows = Object.entries(q3Probe).map(([mode, probe]) => {
+    const row = asRecord(probe);
+    return [
+      modeLabel(mode),
+      String(row.failure_stage ?? ""),
+      String(row.first_raw_ref ?? "—"),
+      String(row.first_session_evidence_ref ?? "—"),
+      String(row.first_meaningful_ref ?? "—"),
+    ];
+  });
+
+  return (
+    <Stack gap={10}>
+      <H2>PR67 Admission Decision Diagnostics</H2>
+      <Callout tone="info" title="Q3 distance story">
+        When session-memory mirathorn+week evidence is absent, the probe reports failure_stage=no_session_evidence.
+        That is a gold/data contract gap, not an admission-budget failure. Raw location keyword matches stay in
+        first_raw_ref and must not be read as prior-play distance evidence.
+      </Callout>
+      <Grid columns={3} gap={8}>
+        <Stat
+          value={String(Object.keys(missCauses).length ? Object.values(missCauses).reduce((a, b) => Number(a) + Number(b), 0) : 0)}
+          label="Tier A miss rows"
+          tone={Object.keys(missCauses).length ? "warning" : "success"}
+        />
+        <Stat
+          value={String(missCauses.strict_gold_lane_mismatch ?? 0)}
+          label="Strict lane mismatch"
+          tone={Number(missCauses.strict_gold_lane_mismatch ?? 0) > 0 ? "warning" : "success"}
+        />
+        <Stat
+          value={String(
+            Object.values(q3Probe).filter((probe) => asRecord(probe).failure_stage === "no_session_evidence").length,
+          )}
+          label="Q3 no_session_evidence modes"
+          tone="warning"
+        />
+      </Grid>
+      {q3Rows.length ? (
+        <Table
+          headers={["Mode", "Failure stage", "First raw ref", "Session evidence ref", "Meaningful ref"]}
+          rows={q3Rows}
+        />
+      ) : null}
+      {tierRows.length ? (
+        <Table
+          headers={[
+            "Q#",
+            "Mode",
+            "Group",
+            "Root cause",
+            "Lane OK",
+            "Raw ref",
+            "Admitted ref",
+            "Gap ref",
+          ]}
+          rows={tierRows.map((row) => [
+            `Q${String(row.question_number ?? "")}`,
+            modeLabel(String(row.mode ?? "")),
+            String(row.group_id ?? ""),
+            String(row.miss_root_cause ?? ""),
+            row.lane_aware_accepted ? "yes" : "no",
+            String(row.first_raw_ref ?? "—"),
+            String(row.first_admitted_ref ?? "—"),
+            String(row.first_source_derived_gap_ref ?? "—"),
+          ])}
+        />
+      ) : null}
+      <Stack gap={4}>
+        {notes.map((note) => (
+          <Text key={note} size="small" tone="secondary">
+            {note}
+          </Text>
+        ))}
+      </Stack>
+      {diagnostics.artifactPath ? <Code>{String(diagnostics.artifactPath)}</Code> : null}
+    </Stack>
+  );
+}
+
 function SupportFieldPolicyPanel({ policy }: { policy: AnyRecord }) {
   const rows = asArray<AnyRecord>(policy.rows);
   const counts = asRecord(policy.counts);
@@ -377,6 +465,7 @@ function QuestionReviewCard({ card }: { card: AnyRecord }) {
   const packet = asRecord(card.rendered_context_packet);
   const metrics = asRecord(card.packet_quality_metrics);
   const pr66 = asRecord(card.pr66_affordance_diagnostics);
+  const pr67Groups = asArray<AnyRecord>(card.pr67_admission_diagnostics);
   const admitted = asArray<AnyRecord>(card.admitted_context_preview);
   const gaps = asArray(card.source_derived_context_gaps);
   const violations = asArray<string>(card.violations);
@@ -470,6 +559,25 @@ function QuestionReviewCard({ card }: { card: AnyRecord }) {
             </Row>
           ) : null}
 
+          {!isEvaluator && pr67Groups.length ? (
+            <Stack gap={6}>
+              <Text size="small" tone="secondary">
+                PR67 required-group lineage ({pr67Groups.length})
+              </Text>
+              <Table
+                headers={["Group", "Root cause", "Lane OK", "Raw", "Admitted", "Gap"]}
+                rows={pr67Groups.map((row) => [
+                  String(row.group_id ?? ""),
+                  String(row.miss_root_cause ?? ""),
+                  row.lane_aware_accepted ? "yes" : "no",
+                  String(row.first_raw_ref ?? "—"),
+                  String(row.first_admitted_ref ?? "—"),
+                  String(row.first_source_derived_gap_ref ?? "—"),
+                ])}
+              />
+            </Stack>
+          ) : null}
+
           {!isEvaluator && matched.length ? (
             <Stack gap={6}>
               <Text size="small" tone="secondary">
@@ -540,6 +648,7 @@ export default function C1S4ExpectedContextBenchmarkCanvas() {
   const modeGuide = asRecord(data.modeGuide);
   const supportFieldPolicy = asRecord(data.supportFieldPolicy);
   const plannerAffordanceDiagnostics = asRecord(data.plannerAffordanceDiagnostics);
+  const admissionDecisionDiagnostics = asRecord(data.admissionDecisionDiagnostics);
   const sources = asRecord(data.sources);
   const surfaceSummary = asRecord(summary.surfaceSummary);
   const failureCounts = asRecord(surfaceSummary.failure_surface_counts);
@@ -669,6 +778,13 @@ export default function C1S4ExpectedContextBenchmarkCanvas() {
         <>
           <Divider />
           <PlannerAffordanceDiagnosticsPanel diagnostics={plannerAffordanceDiagnostics} />
+        </>
+      ) : null}
+
+      {Object.keys(admissionDecisionDiagnostics).length ? (
+        <>
+          <Divider />
+          <AdmissionDiagnosticsPanel diagnostics={admissionDecisionDiagnostics} />
         </>
       ) : null}
 

@@ -86,6 +86,6 @@ printf 'Payload: %s\n' "$PAYLOAD_OUT"
 printf 'Canvas:  %s\n' "$CANVAS_PATH"
 echo
 echo "Open the Canvas path in Cursor (beside chat)."
-echo "Use mode + question filters; inspect PR66 planner affordance diagnostics before per-question cards."
+echo "Use mode + question filters; inspect PR66 affordance and PR67 admission diagnostics before per-question cards."
 echo "Useful sanity grep:"
-echo "  grep -n \"PlannerAffordanceDiagnosticsPanel\\|SupportFieldPolicyPanel\\|Rendered LLM context\" \"$CANVAS_PATH\" | head -20"
+echo "  grep -n \"AdmissionDiagnosticsPanel\\|PlannerAffordanceDiagnosticsPanel\\|SupportFieldPolicyPanel\\|Rendered LLM context\" \"$CANVAS_PATH\" | head -20"
