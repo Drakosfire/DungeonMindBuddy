@@ -6,9 +6,9 @@ title: Split-corpus retrieval to autonomous C1S1–C1S3 demo
 document_class: plan
 plan_kind: execution_super_plan
 status: active
-version: 32
+version: 33
 created_at: "2026-05-09T00:00:00Z"
-last_updated_at: "2026-05-14T12:00:00Z"
+last_updated_at: "2026-05-22T22:30:00Z"
 timezone_note: "Timestamps are UTC; local work may use America/Denver."
 supersedes: []
 superseded_by: null
@@ -108,6 +108,23 @@ execution_state:
       is absent; document or generate that manifest before treating the audit as
       a portable gate (separate from route-equivalence JSONL lane).
   integration_notes:
+    - >-
+      **PR #67 (C1S4 Step 2C — MERGED to main, merge commit ``8978e92efed1b3ca61146d600dbcf3aaa8a337ea``, 2026-05-22T22:04:29Z):** Budgeted admission
+      decision diagnostics (`pr67_required_group_diagnostics.py`, schema v2 lineage surfaces); Q3 probe v2 with
+      `failure_stage=no_session_evidence`; prior campaign route-event preservation; Q5 strict gold realignment after PR66
+      visibility contract; variant-hit `hits` wiring; dead visibility classifier removed. Artifacts under
+      `evals/c1s4_preplanning_vertical_slice/artifacts/pr67/`. Post-merge canvas/artifact refresh on commit ``e4a2495``
+      (cherry-picked to main in same doc-sync batch). Dominant open gap: Q3 distance needs session-memory evidence or
+      gold-contract decision. Cost **$0**. CHECKLIST Reanchor + session log synced.
+    - >-
+      **PR #66 (C1S4 Step 2C — MERGED to main, merge commit ``66972d2114ee0642bdf78f596564148f8074ecaf``, 2026-05-22T18:24:30Z):**
+      Provenance-safe planner affordance retrieval (`planner_affordances.py`, support field policy, visibility provenance);
+      PR66 support affordance matrix artifacts; Hempholm hub visibility drives Q5 gold realignment in PR67. Cost **$0**.
+    - >-
+      **PR #65 (C1S4 Step 2C — MERGED to main, merge commit ``777a8bc7e89bd61309bd7f9659793b6de93339ed``, 2026-05-22T18:22:50Z):**
+      Planner-surface coverage expanded to full C1S4 expected-context benchmark; benchmark canvas refresh. Stacked on PR
+      #58–#64 Step 2C retrieval lane (alias expansion, admission preservation, merge allocation, renderer provenance,
+      source-derived gaps, prompt/control split). Cost **$0**.
     - >-
       **PR #25 (Prime-Agent PR-A — in-IDE, canonical ``src/session_memory``, commit ``c71d438989a223a201de55b56e4cb423eae59ccf``):** Moved ``capture.py``,
       ``breadcrumb_smoke.py``, ``breadcrumb_normalize.py`` to ``src/session_memory/``; eval paths are thin
@@ -382,6 +399,12 @@ execution_state:
       -> 10 passed (round 2 added byte-identity-when-flag-unset and
       load-failure-emits-error harness-boundary tests).
 changelog:
+  - at: "2026-05-22T22:30:00Z"
+    version: 33
+    summary: >-
+      **C1S4 PR #65–#67 doc-sync:** CHECKLIST Reanchor block + Step 2C/2D/PR milestone rows closed; Step 6 scaffold noted;
+      scaffold handoff archived ``2026-05-22``; integration_notes prepend PR65–67 merge lines; artifact commit ``e4a2495``
+      (PR67 canvas diagnostics + last Step 2C/canvas JSON) landed on main. Cost **$0**.
   - at: "2026-05-14T12:00:00Z"
     version: 32
     summary: >-

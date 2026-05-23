@@ -1,25 +1,48 @@
 # CHECKLIST — C1S4 preplanning vertical slice
 
-- [ ] Canonical super-plan: `Docs/Plans/PLAN-split-corpus-retrieval-to-autonomous-demo.md` v32, especially `pilot_memory_ingest` and `synthetic_session4_prep_benchmark`.
-- [ ] Planning rationale: `Docs/Plans/RATIONALE-c1s4-preplanning-vertical-slice.md`.
-- [ ] Implementation handoff: `Docs/Plans/HANDOFF-next-c1s4-preplanning-vertical-slice-scaffold.md`.
+- [x] Canonical super-plan: `Docs/Plans/PLAN-split-corpus-retrieval-to-autonomous-demo.md` v33, especially `pilot_memory_ingest` and `synthetic_session4_prep_benchmark`.
+- [x] Planning rationale: `Docs/Plans/RATIONALE-c1s4-preplanning-vertical-slice.md`.
+- [x] Implementation handoff: superseded — see `Docs/Plans/archive/2026-05-22/handoffs/HANDOFF-next-c1s4-preplanning-vertical-slice-scaffold.md`.
+
+## Reanchor block (fill first each session)
+
+- [x] **Active slice:** C1S4 preplanning vertical slice — Step 2C expected-context benchmark lane through PR #67 admission diagnostics; Steps 3–5 stub/synthetic prep complete; Step 6 oracle scaffold exists.
+- [x] **Last green artifact (path):** PR #67 merge **`8978e92`** (2026-05-22T22:04:29Z) — `evals/c1s4_preplanning_vertical_slice/artifacts/pr67/pr67_required_group_admission_diagnostics.json`; Step 2C multimode report `artifacts/last_c1s4_step2c_multimode_report.json` refreshed on branch commit **`e4a2495`** (canvas + payload; land on `main` pending cherry-pick). Tier-A strict misses: Q3 distance only (`strict_gold_lane_mismatch` ×3); Q3 route gap passes via source-derived gap; Q5 strict passes via gold realignment (PR66 visibility). **Cost:** $0 (deterministic harness).
+- [x] **Open evidence gap:** Q3 distance (`mirathorn_distance_estimate_from_play`) — `failure_stage=no_session_evidence`; needs corpus session-memory evidence for “mirathorn + week” or explicit gold-contract decision (not admission budget tuning).
+- [x] **Next command to run:** `uv run pytest tests/test_c1s4_*.py -q`; `bash scripts/c1s4_update_expected_context_canvas.sh` after landing **`e4a2495`** on `main`.
+
+---
 
 ## Deterministic scaffold completion
 
-- [ ] C1S1–C1S3 are the only planner-visible KB inputs.
-- [ ] C1S4 is held out as oracle-only.
-- [ ] All C1S4 source/derivative surfaces are excluded from planner-visible context.
-- [ ] Preferred oracle source is normalized C1S4 recap when present.
-- [ ] Original C1S4 recap remains fallback oracle source and forbidden planner-visible source.
-- [ ] Canonical session-memory ingestion location is `src/session_memory/`.
+- [x] C1S1–C1S3 are the only planner-visible KB inputs.
+- [x] C1S4 is held out as oracle-only.
+- [x] All C1S4 source/derivative surfaces are excluded from planner-visible context.
+- [x] Preferred oracle source is normalized C1S4 recap when present.
+- [x] Original C1S4 recap remains fallback oracle source and forbidden planner-visible source.
+- [x] Canonical session-memory ingestion location is `src/session_memory/`.
 
-## Out-of-scope guardrails
+## Out-of-scope guardrails (scaffold PR only)
 
-- [ ] No retrieval tuning introduced in the scaffold PR.
-- [ ] No corpus mutation.
-- [ ] No baseline regeneration.
-- [ ] No live planner/oracle grading in scaffold PR.
+Scaffold-era guardrails; post-scaffold PR #58–#67 intentionally extended retrieval, gold, and canvas surfaces.
 
+- [x] No retrieval tuning introduced in the scaffold PR.
+- [x] No corpus mutation.
+- [x] No baseline regeneration.
+- [x] No live planner/oracle grading in scaffold PR.
+
+## PR milestones — Step 2C retrieval lane (PR #58–#67)
+
+- [x] PR #58 — campaign corpus record materialization.
+- [x] PR #59 — Step 2C query alias expansion.
+- [x] PR #60 — admission preservation infrastructure.
+- [x] PR #61 — candidate merge allocation repair.
+- [x] PR #62 — renderer provenance / section repair.
+- [x] PR #63 — source-derived context gaps; gold known-gaps removed from planner packets.
+- [x] PR #64 — planner prompt / evaluator control split.
+- [x] PR #65 — planner-surface coverage to full benchmark (merge **`777a8bc`**, 2026-05-22).
+- [x] PR #66 — provenance-safe planner affordance retrieval (merge **`66972d2`**, 2026-05-22).
+- [x] PR #67 — budgeted admission diagnostics + prior route-event preservation (merge **`8978e92`**, 2026-05-22).
 
 ## Beat/question target artifact
 
@@ -32,7 +55,6 @@
 - [x] Support-knowledge dependency is explicitly marked for Hempholm questions.
 - [x] Target artifact is marked planner-visible: forbidden.
 - [x] Validator and tests pass.
-
 
 ## Step 3 — Stub answer packets
 
@@ -66,48 +88,61 @@
 
 ## Step 6 — Oracle comparison scaffold
 
-- [ ] `oracle_comparison_harness.py` exists.
-- [ ] `step6_compare_synthetic_prep_to_oracle.py` exists.
-- [ ] Oracle policy is explicit.
-- [ ] Oracle visibility is `step6_only`.
-- [ ] Planner visibility is `forbidden`.
-- [ ] Step 6 loads oracle material only inside comparison.
-- [ ] Synthetic prep packet is not mutated with oracle text.
-- [ ] Section comparisons are produced.
-- [ ] No final score is emitted.
-- [ ] Tests pass.
+**Status:** harness exists; unit tests green (`tests/test_c1s4_oracle_comparison_harness.py`); full end-to-end live prep→oracle grading cohort not yet exercised.
+
+- [x] `oracle_comparison_harness.py` exists.
+- [x] `step6_compare_synthetic_prep_to_oracle.py` exists.
+- [x] Oracle policy is explicit.
+- [x] Oracle visibility is `step6_only`.
+- [x] Planner visibility is `forbidden`.
+- [x] Step 6 loads oracle material only inside comparison.
+- [x] Synthetic prep packet is not mutated with oracle text.
+- [x] Section comparisons are produced.
+- [x] No final score is emitted.
+- [x] Tests pass.
 
 ## Step 2C — Expected context benchmark
 
-- [ ] `gold/c1s4_expected_context_gold.json` exists.
-- [ ] `expected_context_benchmark.py` exists.
-- [ ] `step2c_expected_context_benchmark.py` exists.
-- [ ] Gold schema is `dmb_c1s4_expected_context_gold_v1`.
-- [ ] Report schema is `dmb_c1s4_expected_context_benchmark_report_v1`.
-- [ ] Gold is planner-forbidden/eval-only.
-- [ ] Benchmark runs `prior_only`.
-- [ ] Benchmark runs `prior_plus_support_content_only`.
-- [ ] Benchmark runs `prior_plus_support_content_plus_lexical_hints`.
-- [ ] Required context groups are graded.
-- [ ] Forbidden context groups are graded.
-- [ ] Known-gap expectations are graded.
-- [ ] Mode deltas are reported.
-- [ ] Tests prove gold does not leak into Step 2 retrieval/context packets.
+- [x] `gold/c1s4_expected_context_gold.json` exists.
+- [x] `expected_context_benchmark.py` exists.
+- [x] `step2c_expected_context_benchmark.py` exists.
+- [x] Gold schema is `dmb_c1s4_expected_context_gold_v1`.
+- [x] Report schema is `dmb_c1s4_expected_context_benchmark_report_v1`.
+- [x] Gold is planner-forbidden/eval-only.
+- [x] Benchmark runs `prior_only`.
+- [x] Benchmark runs `prior_plus_support_content_only`.
+- [x] Benchmark runs `prior_plus_support_content_plus_lexical_hints`.
+- [x] Required context groups are graded.
+- [x] Forbidden context groups are graded.
+- [x] Known-gap expectations are graded.
+- [x] Mode deltas are reported.
+- [x] Tests prove gold does not leak into Step 2 retrieval/context packets.
 
 ## Step 2D — Expected-context canvas projection
 
-- [ ] `expected_context_canvas_payload.py` exists.
-- [ ] `step2d_expected_context_canvas_emit.py` exists.
-- [ ] Payload schema is `dmb_c1s4_expected_context_canvas_payload_v1`.
-- [ ] Payload consumes Step 2C report JSON.
-- [ ] Payload shows mode summaries.
-- [ ] Payload shows per-question pass/fail rows.
-- [ ] Payload shows missing required context groups.
-- [ ] Payload shows forbidden context hits.
-- [ ] Payload shows known-gap checks.
-- [ ] Payload shows mode deltas.
-- [ ] Failing cards open by default.
-- [ ] Canvas emitter patches generated block markers.
-- [ ] Canvas is documented as projection, not canonical state.
-- [ ] Tests pass.
+- [x] `expected_context_canvas_payload.py` exists.
+- [x] `step2d_expected_context_canvas_emit.py` exists.
+- [x] Payload schema is `dmb_c1s4_expected_context_canvas_payload_v1`.
+- [x] Payload consumes Step 2C report JSON.
+- [x] Payload shows mode summaries.
+- [x] Payload shows per-question pass/fail rows.
+- [x] Payload shows missing required context groups.
+- [x] Payload shows forbidden context hits.
+- [x] Payload shows known-gap checks.
+- [x] Payload shows mode deltas.
+- [x] Failing cards open by default.
+- [x] Canvas emitter patches generated block markers.
+- [x] Canvas is documented as projection, not canonical state.
+- [x] Tests pass.
 
+---
+
+## Session log
+
+### 2026-05-22 (UTC) — atomic doc-sync after PR #65–#67 + artifact landing prep
+
+- What turned green: [PR #65](https://github.com/Drakosfire/DungeonMindBuddy/pull/65) merge **`777a8bc`**; [PR #66](https://github.com/Drakosfire/DungeonMindBuddy/pull/66) merge **`66972d2`**; [PR #67](https://github.com/Drakosfire/DungeonMindBuddy/pull/67) merge **`8978e92`**. Step 2C/2D checklist rows closed; PR #58–#67 milestone block added. Scaffold handoff archived under `Docs/Plans/archive/2026-05-22/handoffs/`.
+- Artifact commit **`e4a2495`**: PR67 admission diagnostics on expected-context canvas + refreshed `last_c1s4_step2c_multimode_report.json` / `last_c1s4_expected_context_canvas_payload.json` — cherry-pick to `main` in same doc-sync batch.
+- Step 6: harness + tests exist; marked complete at scaffold level; end-to-end oracle cohort still open.
+- Dominant open gap: Q3 distance `no_session_evidence` (gold/data contract, not admission budget).
+- **Cost:** $0.
