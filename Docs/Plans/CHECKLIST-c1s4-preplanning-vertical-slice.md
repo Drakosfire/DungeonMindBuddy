@@ -7,9 +7,9 @@
 ## Reanchor block (fill first each session)
 
 - [x] **Active slice:** C1S4 preplanning vertical slice — Step 2C expected-context benchmark lane through PR #67 admission diagnostics; Steps 3–5 stub/synthetic prep complete; Step 6 oracle scaffold exists.
-- [x] **Last green artifact (path):** PR #67 merge **`8978e92`** (2026-05-22T22:04:29Z) — `evals/c1s4_preplanning_vertical_slice/artifacts/pr67/pr67_required_group_admission_diagnostics.json`; Step 2C multimode report `artifacts/last_c1s4_step2c_multimode_report.json` refreshed on branch commit **`e4a2495`** (canvas + payload; land on `main` pending cherry-pick). Tier-A strict misses: Q3 distance only (`strict_gold_lane_mismatch` ×3); Q3 route gap passes via source-derived gap; Q5 strict passes via gold realignment (PR66 visibility). **Cost:** $0 (deterministic harness).
+- [x] **Last green artifact (path):** PR #67 merge **`8978e92`** (2026-05-22T22:04:29Z) — `evals/c1s4_preplanning_vertical_slice/artifacts/pr67/pr67_required_group_admission_diagnostics.json`; Step 2C multimode report + canvas payload on **`main`** @ **`f4f25f7`** (`chore(c1s4): refresh benchmark artifacts and PR67 canvas diagnostics`). Tier-A strict misses: Q3 distance only (`strict_gold_lane_mismatch` ×3); Q3 route gap passes via source-derived gap; Q5 strict passes via gold realignment (PR66 visibility). **Cost:** $0 (deterministic harness).
 - [x] **Open evidence gap:** Q3 distance (`mirathorn_distance_estimate_from_play`) — `failure_stage=no_session_evidence`; needs corpus session-memory evidence for “mirathorn + week” or explicit gold-contract decision (not admission budget tuning).
-- [x] **Next command to run:** `uv run pytest tests/test_c1s4_*.py -q`; `bash scripts/c1s4_update_expected_context_canvas.sh` after landing **`e4a2495`** on `main`.
+- [x] **Next command to run:** `uv run pytest tests/test_c1s4_*.py -q`; `bash scripts/c1s4_update_expected_context_canvas.sh` (optional live canvas refresh).
 
 ---
 
@@ -142,7 +142,7 @@ Scaffold-era guardrails; post-scaffold PR #58–#67 intentionally extended retri
 ### 2026-05-22 (UTC) — atomic doc-sync after PR #65–#67 + artifact landing prep
 
 - What turned green: [PR #65](https://github.com/Drakosfire/DungeonMindBuddy/pull/65) merge **`777a8bc`**; [PR #66](https://github.com/Drakosfire/DungeonMindBuddy/pull/66) merge **`66972d2`**; [PR #67](https://github.com/Drakosfire/DungeonMindBuddy/pull/67) merge **`8978e92`**. Step 2C/2D checklist rows closed; PR #58–#67 milestone block added. Scaffold handoff archived under `Docs/Plans/archive/2026-05-22/handoffs/`.
-- Artifact commit **`e4a2495`**: PR67 admission diagnostics on expected-context canvas + refreshed `last_c1s4_step2c_multimode_report.json` / `last_c1s4_expected_context_canvas_payload.json` — cherry-pick to `main` in same doc-sync batch.
+- Artifact commit **`f4f25f7`** (cherry-pick of **`e4a2495`**): PR67 admission diagnostics on expected-context canvas + refreshed `last_c1s4_step2c_multimode_report.json` / `last_c1s4_expected_context_canvas_payload.json` — on `main`.
 - Step 6: harness + tests exist; marked complete at scaffold level; end-to-end oracle cohort still open.
 - Dominant open gap: Q3 distance `no_session_evidence` (gold/data contract, not admission budget).
 - **Cost:** $0.
