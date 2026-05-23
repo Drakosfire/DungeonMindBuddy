@@ -1,8 +1,8 @@
 # HANDOFF — PR #69: Review-only ingest hints sidecar (ingest_hints_v1)
 
 **Created:** 2026-05-23 (UTC).
-**Status:** ACTIVE — in-IDE slice on `feature/ingest-hints-sidecar-v1`.
-**Branch:** `feature/ingest-hints-sidecar-v1`
+**Status:** MERGED — `main` @ `1f5e495` (2026-05-23).
+**Branch:** `feature/ingest-hints-sidecar-v1` (merged)
 
 ---
 
