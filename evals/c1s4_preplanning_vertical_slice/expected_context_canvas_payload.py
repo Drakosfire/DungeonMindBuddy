@@ -29,6 +29,9 @@ _DEFAULT_TARGETS_PATH = Path("evals/c1s4_preplanning_vertical_slice/gold/c1s4_be
 _DEFAULT_PR66_DIAGNOSTICS_PATH = Path(
     "evals/c1s4_preplanning_vertical_slice/artifacts/pr66/pr66_support_affordance_diagnostics.json"
 )
+_DEFAULT_PR67_DIAGNOSTICS_PATH = Path(
+    "evals/c1s4_preplanning_vertical_slice/artifacts/pr67/pr67_required_group_admission_diagnostics.json"
+)
 
 _MODE_SHORT = {
     "prior_only": "Prior only",
@@ -43,7 +46,8 @@ MODE_GUIDE: dict[str, Any] = {
         "Q35 is evaluator-only in every mode. Each planner-facing question appears once per "
         "retrieval mode (37 × 3 = 111 rows). Expand any card to inspect the rendered LLM context "
         "the planner would receive. PR66 adds deterministic planner affordances as a source-derived "
-        "retrieval bridge for support cards. Support-enabled lanes may use those affordances; prior-only "
+        "retrieval bridge for support cards. PR67 adds lineage-honest admission diagnostics for strict-gold "
+        "required groups (Q1/Q3/Q5). Support-enabled lanes may use those affordances; prior-only "
         "is still a boundary/control lane where support absence is policy-correct."
     ),
     "decision": (
@@ -386,6 +390,67 @@ def _pr66_affordance_summary(diagnostics: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _load_pr67_admission_diagnostics(path: Path | None = None) -> dict[str, Any]:
+    diag_path = path or _DEFAULT_PR67_DIAGNOSTICS_PATH
+    if not diag_path.exists():
+        return {}
+    return json.loads(diag_path.read_text(encoding="utf-8"))
+
+
+def _pr67_question_mode_key(row: dict[str, Any]) -> tuple[str, int]:
+    return (str(row.get("mode") or ""), int(row.get("question_number") or 0))
+
+
+def _compact_pr67_group_row(row: dict[str, Any]) -> dict[str, Any]:
+    lineage = row.get("lineage") or {}
+    grading = row.get("grading_surface") or {}
+    admission = row.get("admission_surface") or {}
+    return {
+        "mode": row.get("mode"),
+        "question_number": row.get("question_number"),
+        "question_id": row.get("question_id"),
+        "group_id": row.get("group_id"),
+        "required_lane": row.get("required_lane"),
+        "miss_root_cause": row.get("miss_root_cause"),
+        "lane_aware_accepted": grading.get("lane_aware_accepted"),
+        "admission_reason": admission.get("admission_rejection_reason"),
+        "first_raw_ref": (lineage.get("first_raw_match") or {}).get("ref"),
+        "first_admitted_ref": (lineage.get("first_admitted_match") or {}).get("ref"),
+        "first_lane_accepted_ref": (lineage.get("first_lane_accepted_match") or {}).get("ref"),
+        "first_source_derived_gap_ref": (lineage.get("first_source_derived_gap_match") or {}).get("ref"),
+    }
+
+
+def _pr67_admission_summary(diagnostics: dict[str, Any]) -> dict[str, Any]:
+    rows = [_compact_pr67_group_row(row) for row in (diagnostics.get("rows") or [])]
+    tier_a_rows = [row for row in rows if int(row.get("question_number") or 0) in TIER_A_QUESTIONS]
+    q3_probe = diagnostics.get("q3_prior_distance_probe_by_mode") or {}
+    q3_by_mode = {
+        mode: {
+            "failure_stage": probe.get("failure_stage"),
+            "first_raw_ref": ((probe.get("lineage") or {}).get("first_raw_text_match") or {}).get("ref"),
+            "first_session_evidence_ref": (
+                (probe.get("lineage") or {}).get("first_session_memory_or_recap_match") or {}
+            ).get("ref"),
+            "first_meaningful_ref": probe.get("first_meaningful_ref"),
+        }
+        for mode, probe in q3_probe.items()
+    }
+    return {
+        "schema": "dmb_c1s4_pr67_admission_canvas_summary_v1",
+        "artifactPath": str(_DEFAULT_PR67_DIAGNOSTICS_PATH),
+        "tierAMissRootCauses": diagnostics.get("tier_a_miss_root_causes") or {},
+        "q3PriorDistanceProbeByMode": q3_by_mode,
+        "tierAGroupRows": tier_a_rows,
+        "notes": [
+            "Q3 distance miss is no_session_evidence: no visible session-memory mirathorn+week source, not admission budget.",
+            "Source-derived known-gap rows use first_source_derived_gap_match; miss_root_cause=ok when lane-aware accepted.",
+            "Lineage separates raw/admittable/admitted/rendered/lane-accepted surfaces — do not conflate keyword hits with admitted items.",
+            "Q5 strict gold passes by visibility-contract gold realignment (Hempholm hub excluded), not retrieval improvement.",
+        ],
+    }
+
+
 def _support_field_policy_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     by_question: dict[int, dict[str, Any]] = defaultdict(dict)
     question_ids: dict[int, str] = {}
@@ -649,6 +714,11 @@ def build_payload(
     pr66_diagnostics = _load_pr66_affordance_diagnostics()
     pr66_summary = _pr66_affordance_summary(pr66_diagnostics) if pr66_diagnostics else {}
     pr66_by_key = {_pr66_row_key(row): row for row in pr66_summary.get("rows", [])} if pr66_summary else {}
+    pr67_diagnostics = _load_pr67_admission_diagnostics()
+    pr67_summary = _pr67_admission_summary(pr67_diagnostics) if pr67_diagnostics else {}
+    pr67_by_question_mode: dict[tuple[str, int], list[dict[str, Any]]] = defaultdict(list)
+    for row in pr67_summary.get("tierAGroupRows") or []:
+        pr67_by_question_mode[_pr67_question_mode_key(row)].append(row)
     if include_full_surface:
         question_rows, question_cards, surface_rows, surface_summary = _build_surface_question_cards(
             report=report,
@@ -666,6 +736,12 @@ def build_payload(
                 )
                 if diag:
                     card["pr66_affordance_diagnostics"] = diag
+                pr67_groups = pr67_by_question_mode.get(
+                    (str(card.get("mode") or ""), int(card.get("question_number") or 0)),
+                    [],
+                )
+                if pr67_groups:
+                    card["pr67_admission_diagnostics"] = pr67_groups
     elif report:
         question_rows, question_cards = _legacy_cards_from_report(report, gold)
     else:
@@ -722,6 +798,7 @@ def build_payload(
         "modeGuide": MODE_GUIDE,
         "supportFieldPolicy": _support_field_policy_summary(surface_rows) if include_full_surface else {},
         "plannerAffordanceDiagnostics": pr66_summary if include_full_surface else {},
+        "admissionDecisionDiagnostics": pr67_summary if include_full_surface else {},
         "summary": {
             "modes": modes,
             "modeOptions": [{"value": "all", "label": "All modes"}]
@@ -748,6 +825,11 @@ def build_payload(
                 "guardrail": "PR66 affordance provenance",
                 "status": "PASS" if pr66_summary else "INFO",
                 "detail": "Planner affordance diagnostics loaded from PR66 artifact; expected support refs are eval-only diagnostics, not retrieval inputs.",
+            },
+            {
+                "guardrail": "PR67 admission lineage",
+                "status": "PASS" if pr67_summary else "INFO",
+                "detail": "Required-group admission diagnostics loaded from PR67 artifact; Q3 distance probe reports no_session_evidence when session-memory mirathorn+week is absent.",
             },
             {
                 "guardrail": "Gold is eval-only",

@@ -301,6 +301,19 @@ def test_pr43_readme_explicitly_declares_external_canvas_ui_ownership():
     assert "external Cursor canvas shell/runtime" in txt
 
 
+def test_canvas_payload_includes_pr67_admission_diagnostics():
+    payload = build_payload(report=_single_report(), include_full_surface=True)
+    admission = payload.get("admissionDecisionDiagnostics") or {}
+    assert admission.get("schema") == "dmb_c1s4_pr67_admission_canvas_summary_v1"
+    assert admission.get("tierAGroupRows")
+    tier_a_cards = [
+        card
+        for card in payload.get("questionCards") or []
+        if int(card.get("question_number") or 0) in {1, 3, 5}
+    ]
+    assert any(card.get("pr67_admission_diagnostics") for card in tier_a_cards)
+
+
 def test_canvas_payload_carries_packet_quality_metrics():
     payload = build_payload(report=_single_report(), include_full_surface=False)
     assert "packet_quality_metrics" in payload["questionRows"][0]
