@@ -84,7 +84,9 @@ flowchart TB
 
 ### Step 1 — Recap-write preview (pending)
 
-*(Fill after `get_recap_context` → shape survey → `assemble_recap_draft` → `write_corpus_file` dry_run.)*
+Optional pre-step: run **ingest-hints-sidecar** (`.cursor/skills/ingest-hints-sidecar/SKILL.md`) to emit review-only `_ingest_staging/session_21_raw_notes.ingest_hints.json`. Not wired into recap-write in v1 — operator reviews hints before recap-write uses them as seeds.
+
+*(Fill after mechanical preprocess → `get_recap_context` → shape survey → `assemble_recap_draft` → `write_corpus_file` dry_run.)*
 
 ### Step 2 — GM apply + commit (pending)
 
@@ -376,6 +378,8 @@ Session N Recap
 Empirical: S21 → **6 paragraphs**, `title_stripped: true` — ready for `assemble_recap_draft`.
 
 #### Optional LLM sidecar (metadata only — separate file)
+
+**Implementation:** `src/agent/ingest_hints_output_schema.py`, `src/prompts/ingest_hints_sidecar.py`, `.cursor/skills/ingest-hints-sidecar/SKILL.md` (PR #69 / `HANDOFF-pr69-ingest-hints-sidecar.md`).
 
 **Path:** `_ingest_staging/session_{N}_raw_notes.ingest_hints.json` (or `.md` for human skim)
 
