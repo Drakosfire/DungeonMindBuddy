@@ -1,0 +1,230 @@
+{
+  "extra_probes": [
+    {
+      "question_id": "lysandra_state_probe",
+      "question": "How is Captain Lysandra Ironveil doing right now — physical state, emotional state, Mirathorn comms, relationship with Caelynn, and anything weird since Session 20?",
+      "candidate_count": 50,
+      "admitted_count": 50,
+      "lane_id": null,
+      "admission_diagnostics": {
+        "first_admitted_match": null,
+        "first_raw_match": null,
+        "failure_stage": null,
+        "miss_root_cause": null
+      },
+      "admitted_top": [
+        {
+          "unit_id": "u-L0017-05",
+          "session_number": 20,
+          "route": null,
+          "snippet": "Sara then connects Caelynn directly to Lysandra who is relieved and overjoyed that the group is ok and that they took care of the forest.",
+          "source_path": null
+        },
+        {
+          "unit_id": "u-L0017-03",
+          "session_number": 20,
+          "route": null,
+          "snippet": "Caelynn relays her request and Sara calls Lysandra.",
+          "source_path": null
+        },
+        {
+          "unit_id": "u-L0021-07",
+          "session_number": 20,
+          "route": null,
+          "snippet": "Caelynn calls Sara to tell her the good news about Lysandra, and bad news about the tainted meat.",
+          "source_path": null
+        },
+        {
+          "unit_id": "u-L0017-04",
+          "session_number": 20,
+          "route": null,
+          "snippet": "She tells Caelynn that all she could hear was mumbling about the forest leaving and that something strange happened to the time.",
+          "source_path": null
+        },
+        {
+          "unit_id": "u-L0005-08",
+          "session_number": 21,
+          "route": null,
+          "snippet": "After conferring with Lysandra, they determine that they are 3 days from Mirathorn and the next little town north along the road will be Mireward, about 5 days out.",
+          "source_path": null
+        },
+        {
+          "unit_id": "u-L0011-09",
+          "session_number": 21,
+          "route": null,
+          "snippet": "In need of a friend, she approaches Lysandra to tell her what just happened, but Lysandra doesn't appear to notice that Caelynn is barely holding back tears.",
+          "source_path": null
+        },
+        {
+          "unit_id": "u-L0011-12",
+          "session_number": 21,
+          "route": null,
+          "snippet": "She takes the chance to approach Caelynn again and asks for some tea and finally notices the state that Caelynn is in.",
+          "source_path": null
+        },
+        {
+          "unit_id": "u-L0013-01",
+          "session_number": 21,
+          "route": null,
+          "snippet": "Ephanna moves in to speak with Lysandra and tell her about the earlier call to Mirathorn.",
+          "source_path": null
+        }
+      ],
+      "source_derived_context_gaps": [],
+      "rendered_sections": [],
+      "rendered_text_excerpt": "# Planning Question\n\nHow is Captain Lysandra Ironveil doing right now — physical state, emotional state, Mirathorn comms, relationship with Caelynn, and anything weird since Session 20?\n\n# Retrieval and Authority Summary\n\n- Retrieval mode: prior_only\n- Admission policy: lane_budgeted_v1\n- Grading context: admitted_context\n- Support knowledge allowed: no\n- Oracle material allowed: no\n- Candidate depth: 50\n- Admitted context items: 50\n- Estimated rendered tokens: 1833\n\n# Known Gaps and Safety Constraints\n\n- (none)\n\n# Support / Adaptation Context\n\n- (none)\n\n# Prior Campaign Memory\n\n- [u-L0017-05] Sara then connects Caelynn directly to Lysandra who is relieved and overjoyed that the group is ok and that they took care of the forest.\n- [u-L0017-03] Caelynn relays her request and Sara calls Lysandra.\n- [u-L0021-07] Caelynn calls Sara to tell her the good news about Lysandra, and bad news about the tainted meat.\n- [u-L0017-04] She tells Caelynn that all she could hear was mumbling about the forest leaving and that something strange happened to the time.\n- [u-L0005-08] After conferring with Lysandra, they determine that they are 3 days from Mirathorn and the next little town north along th"
+    },
+    {
+      "question_id": "thrin_foreground",
+      "question": "What does Thrin Branchbound need at the table in Session 22 — his goals, recent beats, forest magic, and why he keeps fading from prep?",
+      "candidate_count": 49,
+      "admitted_count": 48,
+      "lane_id": null,
+      "admission_diagnostics": {
+        "first_admitted_match": null,
+        "first_raw_match": null,
+        "failure_stage": null,
+        "miss_root_cause": null
+      },
+      "admitted_top": [
+        {
+          "unit_id": "u-L0003-01",
+          "session_number": 21,
+          "route": null,
+          "snippet": "While still waiting for a response Caelynn studies the sky once again.",
+          "source_path": null
+        },
+        {
+          "unit_id": "meta-session-0021-locations",
+          "session_number": 21,
+          "route": null,
+          "snippet": "session locations location places place setting map mirathorn elderwyld cities and towns cities and towns mossford young_drake_nest_hill Major session set-piece: iridescent young drake nest bowl with elder drakes and loot. unknown sites unk",
+          "source_path": null
+        },
+        {
+          "unit_id": "u-L0005-06",
+          "session_number": 21,
+          "route": null,
+          "snippet": "They leave the wagon and the animals at the bottom and make their way up until they reach a giant bowl of water surrounded by a grove of trees.",
+          "source_path": null
+        },
+        {
+          "unit_id": "u-L0017-04",
+          "session_number": 20,
+          "route": null,
+          "snippet": "She tells Caelynn that all she could hear was mumbling about the forest leaving and that something strange happened to the time.",
+          "source_path": null
+        },
+        {
+          "unit_id": "u-L0017-07",
+          "session_number": 20,
+          "route": null,
+          "snippet": "Lysandra tells her that she can't remember much after the group left, only that she decided to go around the forest and she could smell meat while trying to sleep.",
+          "source_path": null
+        },
+        {
+          "unit_id": "meta-session-0020-locations",
+          "session_number": 20,
+          "route": null,
+          "snippet": "session locations location places place setting map mirathorn elderwyld cities and towns cities and towns mossford migrating_forest migrating forest migrating forest stormspire_academy stormspire academy stormspire academy half_burned_wareh",
+          "source_path": null
+        },
+        {
+          "unit_id": "u-L0015-01",
+          "session_number": 20,
+          "route": null,
+          "snippet": "Questionable Company, along with the townsfolk, watch as the forest comes within range of their plan.",
+          "source_path": null
+        },
+        {
+          "unit_id": "u-L0015-02",
+          "session_number": 20,
+          "route": null,
+          "snippet": "As the forest finally reaches the fortifications, the fires are lit in the ditches.",
+          "source_path": null
+        }
+      ],
+      "source_derived_context_gaps": [],
+      "rendered_sections": [],
+      "rendered_text_excerpt": "# Planning Question\n\nWhat does Thrin Branchbound need at the table in Session 22 — his goals, recent beats, forest magic, and why he keeps fading from prep?\n\n# Retrieval and Authority Summary\n\n- Retrieval mode: prior_only\n- Admission policy: lane_budgeted_v1\n- Grading context: admitted_context\n- Support knowledge allowed: no\n- Oracle material allowed: no\n- Candidate depth: 50\n- Admitted context items: 48\n- Estimated rendered tokens: 1829\n\n# Known Gaps and Safety Constraints\n\n- (none)\n\n# Support / Adaptation Context\n\n- (none)\n\n# Prior Campaign Memory\n\n- [u-L0003-01] While still waiting for a response Caelynn studies the sky once again.\n- [meta-session-0021-locations] session locations location places place setting map mirathorn elderwyld cities and towns cities and towns mossford young_drake_nest_hill Major session set-piece: iridescent young drake nest bowl with elder drakes and loot. unknown sites unknown sites young drake nest hill young drake nest hill edge_of_the_world Sheriff rumor destination for cultist music conversion; named northbound town. edge of the world edge of the world mireward Named next town north on the road (~5 days out per Lysandra).\n- [u-L0005-06] They leave "
+    },
+    {
+      "question_id": "storm_travel",
+      "question": "How is the storm affecting travel on Mireward Reach and what pressure does it create between here and Mireward?",
+      "candidate_count": 50,
+      "admitted_count": 28,
+      "lane_id": null,
+      "admission_diagnostics": {
+        "first_admitted_match": null,
+        "first_raw_match": null,
+        "failure_stage": null,
+        "miss_root_cause": null
+      },
+      "admitted_top": [
+        {
+          "unit_id": "meta-session-0020-open-loops",
+          "session_number": 20,
+          "route": null,
+          "snippet": "session unresolved open questions loops open loops actionable follow up next session half_burned_warehouse Should the half-burned warehouse be promoted as a Mossford location dossier, or folded into an existing Mossford district dossier suc",
+          "source_path": null
+        },
+        {
+          "unit_id": "meta-session-0021-locations",
+          "session_number": 21,
+          "route": null,
+          "snippet": "session locations location places place setting map mirathorn elderwyld cities and towns cities and towns mossford young_drake_nest_hill Major session set-piece: iridescent young drake nest bowl with elder drakes and loot. unknown sites unk",
+          "source_path": null
+        },
+        {
+          "unit_id": "meta-session-0020-locations",
+          "session_number": 20,
+          "route": null,
+          "snippet": "session locations location places place setting map mirathorn elderwyld cities and towns cities and towns mossford migrating_forest migrating forest migrating forest stormspire_academy stormspire academy stormspire academy half_burned_wareh",
+          "source_path": null
+        },
+        {
+          "unit_id": "u-L0005-08",
+          "session_number": 21,
+          "route": null,
+          "snippet": "After conferring with Lysandra, they determine that they are 3 days from Mirathorn and the next little town north along the road will be Mireward, about 5 days out.",
+          "source_path": null
+        },
+        {
+          "unit_id": "u-L0005-06",
+          "session_number": 21,
+          "route": null,
+          "snippet": "They leave the wagon and the animals at the bottom and make their way up until they reach a giant bowl of water surrounded by a grove of trees.",
+          "source_path": null
+        },
+        {
+          "unit_id": "u-L0005-07",
+          "session_number": 21,
+          "route": null,
+          "snippet": "From this position they can see out along the plains for a fairly long distance.",
+          "source_path": null
+        },
+        {
+          "unit_id": "meta-session-0021-open-loops",
+          "session_number": 21,
+          "route": null,
+          "snippet": "session unresolved open questions loops open loops actionable follow up next session mirathorn_festival_resumed Mirathorn resumed the Festival; Frank hung up; Lysandra cannot get through — is the city compromised or merely distracted? elder",
+          "source_path": null
+        },
+        {
+          "unit_id": "u-L0015-06",
+          "session_number": 20,
+          "route": null,
+          "snippet": "Marla approaches Caelynn and asks her how she should deal with Bonogo, but Ephanna quickly intervenes, letting her, and the town, know that the Questionable Company is leaving town to continue their journey.",
+          "source_path": null
+        }
+      ],
+      "source_derived_context_gaps": [],
+      "rendered_sections": [],
+      "rendered_text_excerpt": "# Planning Question\n\nHow is the storm affecting travel on Mireward Reach and what pressure does it create between here and Mireward?\n\n# Retrieval and Authority Summary\n\n- Retrieval mode: prior_only\n- Admission policy: lane_budgeted_v1\n- Grading context: admitted_context\n- Support knowledge allowed: no\n- Oracle material allowed: no\n- Candidate depth: 50\n- Admitted context items: 28\n- Estimated rendered tokens: 1262\n\n# Known Gaps and Safety Constraints\n\n- (none)\n\n# Support / Adaptation Context\n\n- (none)\n\n# Prior Campaign Memory\n\n- [meta-session-0020-open-loops] session unresolved open questions loops open loops actionable follow up next session half_burned_warehouse Should the half-burned warehouse be promoted as a Mossford location dossier, or folded into an existing Mossford district dossier such as Dense Worker Housing? elderwyld cities and towns cities and towns mossford location dossiers mossford location dossiers half burned warehouse half burned warehouse professor_merril_tealeaf Should Professor Tealeaf receive a dedicated NPC hub under Stormsp\n- [meta-session-0021-locations] session locations location places place setting map mirathorn elderwyld cities and towns cities and t"
+    }
+  ],
+  "sources": [
+    "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 20 - Gnat Swarm Marla Lysandra.records_meta.jsonl",
+    "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 21 - Drake Nest Mirathorn Call.records_meta.jsonl"
+  ]
+}

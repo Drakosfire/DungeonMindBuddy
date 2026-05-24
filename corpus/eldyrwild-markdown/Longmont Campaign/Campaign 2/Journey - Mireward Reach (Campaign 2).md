@@ -16,8 +16,9 @@ The **Mireward Reach** is the name of the whole northbound drove-road in the wor
 
 | Anchor | Days from Mirathorn | Notes |
 |--------|---------------------|--------|
-| **Mossford** | ~2 | Town; forest crisis site (Session 20). |
-| **Deep Reach milestone (working label)** | ~5 | User-facing “where the Reach is *about* five days out.” Party currently **~2 days** from Mirathorn → **~3 days** to this milestone. **Edit the label** when you canonize the waypoint (waystation, county line, crossroads, etc.). |
+| **Mossford** | ~2 | Town; forest crisis site (Session 20). Party **left northbound** end of Session 21. |
+| **Mireward** | ~5 | **Next town north** (table name, Session 21). Hub **scaffold in build**: `Elderwyld/Cities and Towns/Mireward/` (`Mireward_PLACE_BUILD_SCAFFOLD.md`). Party at end S21: **~3 days** from Mirathorn → **~2 days** to Mossford (behind) / **~5 days** to Mireward (ahead). |
+| **Edge of the World** | ~7–8 (estimate) | Sheriff Marr (S21): cult-music rumors; **~1 week from Mossford**. Stub: `Elderwyld/Cities and Towns/Edge of the World/README.md`. |
 
 ## Terrain — current march
 
@@ -28,8 +29,13 @@ The **Mireward Reach** is the name of the whole northbound drove-road in the wor
 | Field | Value | Notes |
 |--------|--------|--------|
 | **Clock / hours traveled (this leg)** | ~6.5 h | Cumulative in-world travel time logged since leaving Mirathorn (or since last tracker reset — pick one convention and keep it). |
-| **Distance from Mirathorn** | ~2 days’ travel | At normal mounted pace on the main drift; adjust if they shortcut or stall. |
-| **To Deep Reach milestone** | ~3 days | See geography table (~5 days total Mirathorn→milestone minus party position). |
+| **Distance from Mirathorn** | ~3 days’ travel | Session 21 table confer (Lysandra + party on conical hill camp). |
+| **To Mireward (next town north)** | ~5 days | Session 21 table name; hub scaffold: `Elderwyld/Cities and Towns/Mireward/` |
+| **Party camp (end S21)** | Conical hills north of Mossford | Hilltop pond bowl; wagon downslope; drake-nest detour completed. |
+| **Weather / storm (end S21)** | **Edge of front passed; building west** | Soaked camp; **savory/shimmer** rain in pools; Caelynn/Ephanna: storm **not done**. See runbook §3. |
+| **Weather front position** | `west / building` | Update each travel day: `west` → `overhead` → `passed` → `fen-humid` → `arrival squall` |
+| **Last magic tell** | Shimmer puddles, savory rain | Static, heat lightning, copper well, etc. |
+| **Comms (rockie-talkie)** | Degraded (festival + storm) | `clear` / `static` / `dead` — worsens in rain (runbook §3.4) |
 | **Remaining to swamp arc / Lysandra objective** | ~10 days’ travel | Rough; should stay roughly consistent with Session 13’s ~two-week total unless the table changes the goal or route. |
 
 **Implied total leg (if both estimates hold):** ~12 days on the road from Mirathorn to the swamp-facing end of this journey (2 + 10), which is **close to** the original “about two weeks” without needing to be exact.
@@ -38,11 +44,14 @@ The **Mireward Reach** is the name of the whole northbound drove-road in the wor
 
 - **Day of travel:** e.g. “Day 3 since Mirathorn”
 - **Pace:** mounted / wagon / forced march
-- **Weather / storm:** link storm position to [Session 21 - Session intro](Session%20Prep/Session%2021%20-%20Session%20intro.md) when relevant
+- **Weather / storm:** `session_22_travel_to_mireward_runbook.md` **§3** (five-day spine); link S21 savory/shimmer rain
 
 ## Related corpus
 
 - Road encounters: [mireward_reach_road_d100_encounter_table.md](../../Elderwyld/Roads/mireward_reach_road_d100_encounter_table.md)
+- **Mireward hub (in build):** [Mireward/README.md](../../Elderwyld/Cities and Towns/Mireward/README.md) · [Mireward_PLACE_BUILD_SCAFFOLD.md](../../Elderwyld/Cities and Towns/Mireward/Mireward_PLACE_BUILD_SCAFFOLD.md)
 - **Conical hill sites** (d20 finds — GM knows mounds are artificial): [pre_era_conical_hills_d20_find.md](../../Elderwyld/Wilderness/pre_era_conical_hills_d20_find.md)
 - **Night camp on a conical hill** (d100 — atmosphere + ~5 events): [conical_hills_night_camp_d100.md](../../Elderwyld/Wilderness/conical_hills_night_camp_d100.md)
 - Narrative ledger: [Elderwyld_Narrative_Ledger_Campaign2.md](Elderwyld_Narrative_Ledger_Campaign2.md)
+- **Mirathorn while away (GM):** [Mirathorn — While You Were Away.md](Mirathorn%20%E2%80%94%20While%20You%20Were%20Away.md)
+- **Session 22 handoff:** [HANDOFF-session-22-travel-north-active-NPCs.md](../../../Docs/Plans/HANDOFF-session-22-travel-north-active-NPCs.md)

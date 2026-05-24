@@ -7,6 +7,70 @@ Project-specific learnings, ideas, and follow-ups for the DungeonMindBuddy repo 
 
 Sort newest → oldest within each status; promote with `/promote`; archive with `/done` or `/drop`.
 
+## [IDEA] Mireward — Reach folk identity, garrison thin, Orin anchor (scaffold §A2–§F2) — captured 2026-05-23
+
+**Context:** C2 Session 22 prep; place-build pilot (`Mireward_PLACE_BUILD_SCAFFOLD.md`). Chat synthesized **who lives on the Reach** after pruning generic grassland economy ideas.
+
+**Insight:** Mireward is **not** dilapidated frontier — it’s a **mix of four legs**: (1) **garrison & crown service** (pension town with bell; patrols weeks–months; **thin now** because festival recalled young spears to Mirathorn + long patrol(s) still out — over-trust in long peace, not rot), (2) **stink-trades** (guild-dropout tanners/lime/charcoal downwind), (3) **deliberate not-Mirathorn identity** (sky not spires; Lundayell-flavored **tolerance as regional self-image**), (4) **festival/pilgrimage spillover** (apron still looks fine → south misreads north). **Knob #2 locked:** stacked refugee fear + **Orin Vell** at **The Last Dry Bed** (swamp escapee, family denies cult framing). Refugees are **pressure on** this town, not its original soul.
+
+**Action:** Canon lives in scaffold until promotion: §A2 (who), §B–§C (crush + deaf south), §F2 (Orin/Maera), §D–§E (pillars + dossiers). **Still TBD at table:** who runs town (reeve vs sergeant-emeritus), out-patrol name/return window, downwind signature craft, Orin kin details. **Planning anchor:** `Session Prep/session_22/session_22_planning_anchor.md`. After first Mireward session → promote §A2 into gazetteer + dossiers; strike promoted blocks in scaffold.
+
+**Surfaces when:** Session 22+ travel north; Mireward arrival; Edge of the World parity; “build a place” skill extraction; garrison/NPC naming.
+
+**Refs:** `corpus/.../Mireward/Mireward_PLACE_BUILD_SCAFFOLD.md` §A2, §F2, §H; `README.md`; `Journey - Mireward Reach (Campaign 2).md`; S21 festival resumed; place-build workflow IDEA below.
+
+## [IDEA] Corpus — standardize “build a place” workflow (scaffold → canon promotion) — captured 2026-05-23
+
+**Context:** Mireward prep (C2 Session 22). First pass was a **scaffold** in chat: refugee crush, why south is deaf to it, location/NPC roles, open knobs — most of which will **not** become table canon until promoted. Mossford hub is the **target shape** (`README` → map key → location dossiers → anchor NPCs); Mireward is the pilot instance.
+
+**Insight:** “Build a place” is a repeatable workflow distinct from recap ingest or session prep: **brainstorm comfortably in planning artifacts**, then **promote** chosen beats into `reference`/`world` hub files. Early brainstorming should not feel like corruption — need explicit **authority tiers** (scaffold / planning / reference) and a **promotion checklist** (what moves, what gets deleted, fingerprint if needed). **v0 tool:** GitHub (PRs, diffs, review) — corpus files + `document_class: planning` scaffolds in-repo. **Longer term:** consider skill + template + optional lint (“hub incomplete”, “scaffold stale vs README”); maybe issue labels or a `Docs/Templates/PLACE_BUILD_SCAFFOLD.template.md` — do not build tooling until a second location hub proves the schema.
+
+**Action:** (1) Treat `Elderwyld/Cities and Towns/Mireward/Mireward_PLACE_BUILD_SCAFFOLD.md` as the **reference instance** of the schema — **§A2** is the worked example of a locked “who lives here” social layer. (2) After Mireward play or second hub (e.g. Edge of the World), extract **PLACE-BUILD-WORKFLOW** doc or `.cursor/skills/build-a-place/SKILL.md`: phases (scaffold → knobs → gazetteer → dossiers → NPCs → promote), frontmatter contract, anti-patterns (promoting brainstorm verbatim). (3) Optional: `scripts/lint_corpus_hubs.py` flag for location hubs with scaffold but no gazetteer.
+
+**Surfaces when:** Authoring any new location hub; Session Prep “we need a town”; external agent asked to expand a stub README; planning corpus layout conventions.
+
+**Refs:** `corpus/.../Mireward/Mireward_PLACE_BUILD_SCAFFOLD.md`, `corpus/.../Mireward/README.md`, `Docs/CONVENTION-Location-Hub.md`, Mossford hub pattern, `Backlog.md` ingest frontmatter-seed entry (parallel “don’t smuggle judgment into canon” lesson).
+
+## [READY] Ingest — automated breadcrumb frontmatter seed (stop hand-curating `entity_index`) — captured 2026-05-23
+
+**Priority:** High — blocks trustworthy Phase A → Phase B ingest without agent judgment smuggled into the route allowlist.
+
+**Context:** C2S21 Demo Architect Phase A (2026-05-23). Normalize → breadcrumb → session memory is automated **after** a `*.frontmatter_seed.md` exists. Routing-only breadcrumb ingest (`breadcrumb_query_run --ingest-routing-only`) **consumes** the seed’s route allowlist; it does not generate it. For S21 the seed was hand-authored (adapted from S20) — same bootstrap pattern as C1S13 and S20, not a missing pipeline we forgot to run. Phase A passed `--check` (81 records, 79 routed), but the **entity_index was operator/agent judgment**, reproducing the soft-oracle risk called out in `C1S13 Breadcrumb Retrieval Review.md` §7: *“Stop hand-curating entity_index for new sessions.”*
+
+**Insight:** The ingest stack has three layers with different automation status: (1) mechanical recap/normalize ✅, (2) **frontmatter seed / route allowlist ❌ (manual)**, (3) routing-only inline tags ✅ (LLM, constrained by seed). Skipping (2) makes every new session depend on whoever runs ingest to enumerate hubs correctly before the LLM step runs.
+
+**Action (pick one v1 path; ideas already on the table):**
+
+1. **Registry + hub scan (deterministic skeleton):** From normalized recap + `{campaign}/_npc_registry.json` + campaign `PCs/` / `NPCs/` hub README routes → emit `entity_index` skeleton (`dmb_recap_breadcrumbs_v1`); flag `new_hub_candidates` only for proper nouns in recap with no registry/hub match. Reuse `scripts/rebuild_breadcrumb_from_session_memory.py::copy_frontmatter_seed` only as a **prior-session template fallback**, not the primary path.
+2. **ingest-hints → approved sidecar → seed compiler:** After operator reviews `ingest_hints_v1` JSON (PR #69), compile `entities` + evidence into seed `entity_index` / `new_hub_candidates`; routing-only breadcrumb runs on compiled seed. Keeps LLM judgment in the review-only sidecar, not in chat ad hoc.
+3. **Hybrid (recommended sequencing):** (1) deterministic skeleton + (2) sidecar fills gaps + operator approves → then `--ingest-routing-only`. Emit a loud **`hand_authored_seed: false`** (or equivalent) gate in harness output when seed was compiler-generated vs manual.
+
+**Acceptance:** New session ingest (e.g. C2S22 replay or fresh C2S21 re-run) produces `*.frontmatter_seed.md` without hand-written `entity_index`; routing-only ingest passes readiness gate; `materialize_session_memory.py --check` OK; diff shows no regression vs hand seed on route coverage for a pilot set of prep questions.
+
+**Surfaces when:** Any new session breadcrumb ingest; Demo Architect Phase A derivatives; M4 demo ingest orchestrator; re-ingest C2S1–S19 bulk materialization; wiring ingest-hints sidecar to downstream consumers.
+
+**Refs:** `Docs/Plans/C2S21-S22-DEMO-ARCHITECT-SESSION-NOTES.md` (L3, R7, §9 breadcrumb), `C1S13 Breadcrumb Retrieval Review.md` §7, `scripts/rebuild_breadcrumb_from_session_memory.py::copy_frontmatter_seed`, `evals/sentence_routing_retrieval_falsification/breadcrumb_query_run.py` (`--ingest-routing-only`), `.cursor/skills/ingest-hints-sidecar/SKILL.md`, `corpus/.../Campaign 2/_npc_registry.json`, `Docs/CONVENTION-Session-Recap-Breadcrumbs-Session-Memory-And-Tokens.md`.
+
+## [READY] C1S4 — separate planner LLM prompt payloads from evaluator metadata — captured 2026-05-21
+
+**Context:** PR #62 re-review (`codex/pr62-renderer-provenance-section-repair`, commit `488bb74`). Known-gap oracle leak fixed; broader boundary hardening deferred.
+**Insight:** Gold `known_context_gaps` no longer reach planner/rendered packets, but other beat-target fields still ride on `planner_visibility: allowed_packet` — especially `expected_mode_behavior` (benchmark outcome labels echoed into generated-answer harness prose), plus `authority_label`, `oracle_risk`, `answer_product`, `must_not_include_unless_sourced`. Behavior *rules* belong in prompts; benchmark *expected-outcome labels* do not.
+**Action:** Split Step2 packet into (a) true LLM-facing prompt payload and (b) evaluator-only control plane. Move target-derived fields to `*_eval_only` accessors; stop copying them into answer/generation harness visible text. Add validate_packet rejects for eval-only keys on planner packets (same pattern as `known_context_gaps`).
+**Surfaces when:** Wiring C1S4 packets into live planner calls; any PR claiming "LLM-facing boundary hardening"; generated-answer or synthetic-prep harness work.
+**Refs:** `evals/c1s4_preplanning_vertical_slice/beat_question_answer_harness.py`, `generated_answer_harness.py`, `answer_packet_harness.py`, PR #62 oracle-boundary note.
+
+## [READY] M4 refocus — beat/scene-enriched C1S1–C1S3 corpus memory + synthetic “prep for C1S4” retrieval benchmark — captured 2026-05-14
+
+**Context:** Super-plan demo scope remains **Longmont Campaign 1, sessions 1–3**, M4 **demo-ready autonomous loop** (`Docs/Plans/PLAN-split-corpus-retrieval-to-autonomous-demo.md` `demo_scope`). C1S13 / `natural_v1` lanes stay **falsification / stress**, not the M4 title. Beat IDs + scene-beat packets are proven opt-in surfaces (PR #17–#18); blessed pilot `records_meta` for C1S1–C1S3 today is **breadcrumb-normalize only** (`scripts/materialize_session_memory.py` from `_breadcrumbed/`). **Session 4 ground truth exists:** `_normalized/Session 04 - The Grotesque Tree of Hempholm.md` for rubric design.
+
+**Goal:** (1) Re-materialize **C1S1–C1S3** session-memory JSONL with **`beat_id`** enrichment (same deterministic spine as C1S13: unit annotations → `enrich_records_with_beat_ids`, see `scene_beat_memory.py` / `breadcrumb_unit_annotations_compile.py`). (2) Add a **new gold file + manifest** for **synthetic Session-4 prep**: natural-language questions a GM would ask *before* running S4, graded only against **retrieval from S1–S3 memory** (requires **merged candidate pool** — one concatenated JSONL with `session_number` 1–3 and `query_spec.session_min`/`session_max` spanning 1–3, **or** a small harness extension to load N JSONL — pick one; merged file is simpler for `breadcrumb_query_run` as written). (3) Author expected gates from **S4 recap as oracle** (must-hit tokens / route substrings / optional beat rollup) without provisioning those paths into `user_message` (`llm-context-discovery.mdc`).
+
+**Verification (when slice ships):** `uv run python scripts/materialize_session_memory.py --all-blessed --check`; targeted pytest for any new compile/enrich path; `cohort_baseline_run --manifest <new_manifest> --check` retrieval-only; optional `--use-scene-beat-packets` A/B row on the new gold.
+
+**Surfaces when:** executing toward M4; closing “C1S13-only” narrative drift; measuring cross-session prep retrieval before touching planner autonomy.
+
+**Refs:** `evals/sentence_routing_retrieval_falsification/cohorts/c1s1_to_c1s3_v1.json` (per-session `records_jsonl` today), `src/corpus/session_recap_paths.py` `PILOT_BLESSED_SESSIONS`, `corpus/.../_normalized/Session 04 - The Grotesque Tree of Hempholm.md`, `evals/.../scene_beat_memory.py`, `Docs/Plans/PLAN-split-corpus-retrieval-to-autonomous-demo.md` `demo_scope` / `execution_state`.
+
 **Grounding alignment pass (2026-04-20):** The `[READY]` entries titled `(grounding P1)` … `(grounding P6)` were intentionally ordered **P1 (highest) → P6** as one stack. **Update (2026-04-21):** P1 **live** `perturbation_setup` **wiring** is `[DONE]` in `Backlog-DONE.md` (implementation + wired cohort report). The two perturbation-derived planner findings immediately below are the new highest-leverage recap-ingest items; the rest of `[READY]` follows newest-first within the file.
 
 **Stage 2 lineage (2026-04-21):** Stage 2 is "downstream corpus enrichment after recap ingest." `[DONE]` v0 is `evals/session_recap_timeline_append_vertical_slice/` — operator-instructed Lysandra-only append (proves the `append_timeline_row` tool surface + grading). The four entries tagged **(Stage-2 lineage)** below are the next ring: the autonomous timeline-pass slice now in design, plus its natural siblings (NPC hub-creation slice, setting-hub create, recap-footer pointer apply). Captured here so they're not lost when the autonomous-pass slice is the active focus.
@@ -597,10 +661,10 @@ The Stage B C1 benchmark workaround landed in commit `0bccafb` — `evals/sessio
 **Surfaces when:** Building any d100/d20 table the user will roll on at the table; designing live-play tooling; corpus-search shortcuts.  
 **Refs:** `live-play-workflow-analysis.canvas.tsx` (DungeonMindBuddy canvas), corpus files under `corpus/eldyrwild-markdown/Elderwyld/Roads/` and `Elderwyld/Wilderness/`
 
-## [IDEA] Mirathorn — what is happening while the party is away? — captured 2026-04-18
+## [READY] Mirathorn — day-by-day timeline while party is away — captured 2026-04-18, stub landed 2026-04-23
 
-**Context:** Closing aside in the live-play workflow analysis: *"The question of what is happening in Mirathorn is one I need to think more about and have very clear ideas about."* This is the canonical example of a side-thought that needed a parking lot.  
-**Insight:** The party is multi-day-travel out from Mirathorn, but the city has multiple live threads (tainted jerky / supply chain, Sara's *"who can I trust"* wobble, Tealeaf line still hanging, Lysandra reunion, Dustwalker decoy fallout, curfew council, Stormbark Tea / Mossford handoff). Without a clear authored state, the city goes flat the moment the party turns around.  
-**Action:** Author a `Longmont Campaign/Campaign 2/Mirathorn — While You Were Away.md` doc that timelines what happens in the city across the party's travel days. Pull from the existing threads in `Elderwyld_Narrative_Ledger_Campaign2.md` and the Sara / Lysandra dossiers. Result should answer: *"if the party scries / sends / asks Sara on the rockie-talkie at any point during the journey, what truthful state can the GM relay?"*  
-**Surfaces when:** Prepping any session where a Mirathorn check-in is plausible; party uses a rockie-talkie; party reaches Mossford or further; building the swamp-arc bridge.  
-**Refs:** `corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Elderwyld_Narrative_Ledger_Campaign2.md`, `corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/`, `corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/`, `live-play-workflow-analysis.canvas.tsx`
+**Context:** Party is northbound; S21 comms (festival resumed, Frank hung up, Lysandra no answer) need a backing timeline if they turn around or call again.
+**Insight:** Thread index + S21 beats now live in `Mirathorn — While You Were Away.md`; **day-by-day rows are still empty**.
+**Action:** Fill § Timeline in `corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Mirathorn — While You Were Away.md`. Use `Docs/Plans/HANDOFF-session-22-travel-north-active-NPCs.md` §5.
+**Surfaces when:** Mirathorn rockie-talkie; turnaround; prep Session 22+.
+**Refs:** `Mirathorn — While You Were Away.md`, `HANDOFF-session-22-travel-north-active-NPCs.md`, `Elderwyld_Narrative_Ledger_Campaign2.md`
