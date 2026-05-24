@@ -23,7 +23,7 @@ Skip this rule for narrow tasks where the scope is obvious (single-file fix, imm
 
 Canonical sources, read in this order:
 
-1. `Docs/Plans/CHECKLIST-<rollout>.md` § *Reanchor block* — three fields: `Active phase`, `Last green artifact (path)`, `Next command to run`.
+1. `Docs/Plans/CHECKLIST-<rollout>.md` § *Reanchor block* — at minimum: `Active phase`, `Last green artifact (path)`, `Next command to run`; also read the open **promotion / evidence** line (e.g. **Open promotion-decision artifact**) so measurement artifacts are not mistaken for failing committed `--check` gates.
 2. `Docs/Plans/PLAN-<plan>.md` frontmatter — `version`, `last_updated_at`, and the full `execution_state` block (`active_phase`, `milestone_progress`, `next_gate_command`, `integration_notes`, `flagged_followups`, `blockers`).
 3. `Docs/Plans/PLAN-<plan>.md` `external_pull_requests[]` — most recent entry's `judgment_record.notes` (what shipped, what's pending) and `rubric_when_we_judge` (what to carry forward into the next slice's HANDOFF §9).
 4. `git rev-parse HEAD` + `git show -s --format='%h %s' HEAD` — confirm local `main` matches the most recent `integration_notes` merge hash. If they diverge, **stop**: either the doc-sync didn't land or someone pushed past it.
