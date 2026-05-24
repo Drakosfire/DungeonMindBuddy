@@ -76,10 +76,10 @@ Mireward place-build (when northbound town matters):
 | **R4** | Edge of the World hub | `Elderwyld/Cities and Towns/Edge of the World/README.md` | draft | promote_after_play | Expand if sheriff rumor pays off |
 | **R5** | Travel d100 (road) | `Elderwyld/Roads/mireward_reach_road_d100_encounter_table.md` | ready | reference | Use at table; do not duplicate rows in prep |
 | **R6** | Night camp d100 | `Elderwyld/Wilderness/conical_hills_night_camp_d100.md` | ready | reference | Same |
-| **T-NPC** | NPC spotlight d12 | `Session Prep/session_22/travel_npc_spotlight_d12.md` | **missing** | n/a | Spec in P2b §6.3 — mandatory 1×/day |
-| **T-DIL** | Travel dilemma d12 | `Session Prep/session_22/travel_dilemma_d12.md` | **missing** | n/a | Spec in P2b §6.5 |
-| **T-DIL-G** | Gate dilemma d6 | `Session Prep/session_22/mireward_gate_dilemma_d6.md` | **missing** | n/a | Spec in P2b §6.6 |
-| **T-CF** | Campfire prompt d8 | `Session Prep/session_22/travel_campfire_d8.md` | **missing** | n/a | Spec in P2b §6.7 |
+| **T-NPC** | NPC spotlight d12 | `Session Prep/session_22/travel_npc_spotlight_d12.md` | **ready** | n/a | Mandatory 1×/day — P2b §6.3 |
+| **T-DIL** | Travel dilemma d12 | `Session Prep/session_22/travel_dilemma_d12.md` | **ready** | n/a | P2b §6.5 |
+| **T-DIL-G** | Gate dilemma d6 | `Session Prep/session_22/mireward_gate_dilemma_d6.md` | **ready** | n/a | P2b §6.6 |
+| **T-CF** | Campfire prompt d8 | `Session Prep/session_22/travel_campfire_d8.md` | **ready** | n/a | P2b §6.7 |
 | **—** | Table authoring guide | `Event Table Design Guidance.md` (repo root) | reference | n/a | P2b §6.0 maps principles → Session 22 tables |
 | **R7** | Boots / nest loot | `PCs/bonogo/loot_geomantic_drake_nest.md` + printed card / `Homebrew Items/Item_ Boots of the Crowing Wings.md` | **done** | reference | Synced to CardGenerator card 2026-05-23 |
 | **R8** | Raucous Saints module | `Factions/Raucous_Saints_of_the_Rolling_Longhouse.md` | ready | reference | Seed/ladder in prep brief; not in session memory yet |
@@ -138,6 +138,7 @@ Session Prep/session_<N>/
 
 - [x] P2b travel runbook `ready` (primary at-table doc)
 - [x] P2 prep brief `ready` (NPC / Saints detail)
+- [x] T-NPC, T-DIL, T-DIL-G, T-CF roll tables `ready` (player rolls per P2b §7)
 - [ ] P1 knobs reviewed — any must-decide before play?
 - [ ] R5–R6 travel tables open at table (read rows from file, not from memory)
 - [ ] R1 journey tracker matches S21 end-state (~3 days south to Mirathorn, ~5 to Mireward)

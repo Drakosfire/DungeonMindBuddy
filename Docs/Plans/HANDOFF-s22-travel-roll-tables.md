@@ -15,7 +15,7 @@ pr_body_template: |
 # HANDOFF — Session 22 travel roll tables (T-NPC, T-DIL, T-DIL-G, T-CF)
 
 **Created:** 2026-05-23 (UTC).  
-**Status:** ACTIVE — dispatch to one agent (external PR or in-IDE). One PR / one commit batch. Do not split across PRs.  
+**Status:** MERGED on branch `cursor/session-22-prep` (PR #70) — tables filed 2026-05-23; register synced in follow-up commit.  
 **Parent agent:** Cursor agent; post-merge: bump P0 register + runbook §6.1/§12 status columns.  
 **Plan anchor:** Session 22 travel prep — `session_22_travel_to_mireward_runbook.md` §6 roll registry. No PLAN YAML milestone; corpus-only slice.
 

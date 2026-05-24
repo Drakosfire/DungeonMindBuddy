@@ -181,7 +181,7 @@ Each **node** = one compressed march beat. At every node **except arrival**, the
 
 ## 6. Roll table registry *(metadata only — rows live in corpus files)*
 
-This section describes **what to roll, when, and how tables are ordered by theme**. It does **not** author encounter text. Build missing tables as separate corpus files; register them in `Session Prep/session_22/README.md` when filed.
+This section describes **what to roll, when, and how tables are ordered by theme**. Row text lives in the corpus files below; status is tracked in `Session Prep/session_22/README.md`.
 
 **Authoring contract:** `Event Table Design Guidance.md` (repo root). Apply §6.0 below when writing **T-NPC**, **T-DIL**, **T-DIL-G**, **T-CF**; use it to audit **R5** / **R6** at table.
 
@@ -214,10 +214,10 @@ This section describes **what to roll, when, and how tables are ordered by theme
 |----|------|------|-----------|------|--------|
 | **R5** | Mireward Reach road encounters | **d100** (10 thematic bands) | **Player** | 1× per march day (beats 1–3) | **Exists** — `Elderwyld/Roads/mireward_reach_road_d100_encounter_table.md` |
 | **R6** | Conical hill night camp | **d100** (10 thematic bands) | **Player** | Each watch at camp, or **1×/night** (GM choice) | **Exists** — `Elderwyld/Wilderness/conical_hills_night_camp_d100.md` |
-| **T-NPC** | Travel NPC spotlight | **d12** | **Player** | **Mandatory** 1× per march day (beats 1–3) | **To build** — see §6.0; blocks §6.3 |
-| **T-DIL** | Travel dilemma | **d12** | **Player** | 1× per march day (beats 1–3) | **To build** — tone mix §6.0; blocks §6.5 |
-| **T-DIL-G** | Gate / arrival dilemma | **d6** | **Player** | Beat 4 (Mireward gate or first inn) | **To build** — slot 6 = wildcard §6.6 |
-| **T-CF** | Campfire prompt | **d8** | **Player** | 1× per night camp | **To build** — RP only, no mechanics §6.7 |
+| **T-NPC** | Travel NPC spotlight | **d12** | **Player** | **Mandatory** 1× per march day (beats 1–3) | **Exists** — `travel_npc_spotlight_d12.md` |
+| **T-DIL** | Travel dilemma | **d12** | **Player** | 1× per march day (beats 1–3) | **Exists** — `travel_dilemma_d12.md` |
+| **T-DIL-G** | Gate / arrival dilemma | **d6** | **Player** | Beat 4 (Mireward gate or first inn) | **Exists** — `mireward_gate_dilemma_d6.md` |
+| **T-CF** | Campfire prompt | **d8** | **Player** | 1× per night camp | **Exists** — `travel_campfire_d8.md` |
 | **T-WX** | Weather texture garnish *(optional)* | **d10** | **Player** | Only if a watch needs extra sky/mud detail beyond §3.3 | **Optional** — can reuse R5 **21–30** or R6 **21–30** instead |
 
 ### 6.2 R5 — Road encounter (existing): band map & beat routing
@@ -253,7 +253,7 @@ This section describes **what to roll, when, and how tables are ordered by theme
 
 **Do not:** Chain multiple R5 rolls per day unless players choose to linger. **Do not:** GM curate “best” row — reroll only on band miss or duplicate verbatim (per R5 escalation rule).
 
-### 6.3 T-NPC — Mandatory NPC spotlight *(to build)*
+### 6.3 T-NPC — Mandatory NPC spotlight
 
 **Purpose:** One **foreground NPC beat per march day** so guides and emotional anchors don't fade (Thrin, Lysandra, etc.).
 
@@ -280,7 +280,7 @@ This section describes **what to roll, when, and how tables are ordered by theme
 - No row **resolves** Mirathorn off-screen or **confirms** Dustwalker.
 - Rows are **prompts**, not scripts — GM adapts to camp vs march timing.
 
-**Proposed path:** `Session Prep/session_22/travel_npc_spotlight_d12.md` (or `Elderwyld/Roads/mireward_reach_travel_npc_d12.md` if evergreen).
+**File:** `Session Prep/session_22/travel_npc_spotlight_d12.md`
 
 ### 6.4 R6 — Night camp (existing)
 
@@ -306,7 +306,7 @@ This section describes **what to roll, when, and how tables are ordered by theme
 
 **Session 22 default:** **1 roll per night** unless players split watches for tension — then roll per watch on beats 1–2 only.
 
-### 6.5 T-DIL — Travel dilemma *(to build)*
+### 6.5 T-DIL — Travel dilemma
 
 **Purpose:** Player-facing **choice with consequence** — not damage saves. One roll **forces a decision**; GM frames from row theme.
 
@@ -332,9 +332,9 @@ This section describes **what to roll, when, and how tables are ordered by theme
 - **No row** auto-starts combat.
 - Gate dilemmas live on **T-DIL-G**, not here.
 
-**Proposed path:** `Session Prep/session_22/travel_dilemma_d12.md`
+**File:** `Session Prep/session_22/travel_dilemma_d12.md`
 
-### 6.6 T-DIL-G — Gate / arrival dilemma *(to build)*
+### 6.6 T-DIL-G — Gate / arrival dilemma
 
 | Field | Spec |
 |-------|------|
@@ -351,9 +351,9 @@ This section describes **what to roll, when, and how tables are ordered by theme
 | **5** | **Name-drop Mirathorn** — faster passage, local resentment |
 | **6** | **Bribe / side gate / scout first** — Bonogo flight or Lysandra rank |
 
-**Proposed path:** `Session Prep/session_22/mireward_gate_dilemma_d6.md`
+**File:** `Session Prep/session_22/mireward_gate_dilemma_d6.md`
 
-### 6.7 T-CF — Campfire prompt *(to build)*
+### 6.7 T-CF — Campfire prompt
 
 | Field | Spec |
 |-------|------|
@@ -374,7 +374,7 @@ This section describes **what to roll, when, and how tables are ordered by theme
 | **7** | Festival elsewhere while you're wet |
 | **8** | Open — player picks whose story |
 
-**Proposed path:** `Session Prep/session_22/travel_campfire_d8.md`
+**File:** `Session Prep/session_22/travel_campfire_d8.md`
 
 ### 6.8 Keyed expansions *(optional deep kits — not roll tables)*
 
@@ -416,7 +416,7 @@ When R5 lands in certain bands, GM **may** attach a keyed location — still dri
 
 ## 8. Campfire prompts
 
-**Moved to roll table T-CF (§6.7).** Author **d8** rows in `travel_campfire_d8.md`. Until filed, GM may roll **d6** on the legacy list below — migrate rows into T-CF without changing themes.
+**Moved to roll table T-CF (§6.7).** Rows in `travel_campfire_d8.md`.
 
 | # | Theme (migrate to T-CF) |
 |---|-------------------------|
@@ -512,7 +512,7 @@ Walk them past **named texture** — no map required:
 - [ ] **Approach ladder** sensory (§4) + **§3.7** weather at gate before districts
 - [ ] **Mireward place reveal** — ≥2 districts + **Maera/Orin** or gate queue
 - [ ] Update **journey tracker**
-- [ ] File / register any **new tables** built from §6 specs in P0 README
+- [ ] File / register any **new tables** built from §6 specs in P0 README *(T-NPC–T-CF filed)*
 
 ---
 
@@ -524,10 +524,10 @@ Walk them past **named texture** — no map required:
 | **Roll procedure** | §7 | ready |
 | **R5** Road encounters | `Elderwyld/Roads/mireward_reach_road_d100_encounter_table.md` | **exists** |
 | **R6** Night camp | `Elderwyld/Wilderness/conical_hills_night_camp_d100.md` | **exists** |
-| **T-NPC** Spotlight | `Session Prep/session_22/travel_npc_spotlight_d12.md` | **to build** |
-| **T-DIL** Travel dilemma | `Session Prep/session_22/travel_dilemma_d12.md` | **to build** |
-| **T-DIL-G** Gate dilemma | `Session Prep/session_22/mireward_gate_dilemma_d6.md` | **to build** |
-| **T-CF** Campfire | `Session Prep/session_22/travel_campfire_d8.md` | **to build** |
+| **T-NPC** Spotlight | `Session Prep/session_22/travel_npc_spotlight_d12.md` | **exists** |
+| **T-DIL** Travel dilemma | `Session Prep/session_22/travel_dilemma_d12.md` | **exists** |
+| **T-DIL-G** Gate dilemma | `Session Prep/session_22/mireward_gate_dilemma_d6.md` | **exists** |
+| **T-CF** Campfire | `Session Prep/session_22/travel_campfire_d8.md` | **exists** |
 | **Weather spine** | §3 | ready |
 | Journey clock | `Journey - Mireward Reach (Campaign 2).md` | draft |
 | Mireward design | `Mireward/Mireward_PLACE_BUILD_SCAFFOLD.md` §A2, §F2, §B | scaffold |
