@@ -96,6 +96,7 @@ Full agent runbook: `DungeonMindBuddy/Docs/Plans/HANDOFF-s22-live-play-agent.md`
 | **T-CF** | Campfire prompt d8 | `Session Prep/session_22/travel_campfire_d8.md` | **ready** | n/a | P2b §6.7 |
 | **T-WX** | Storm weather d20 | `Session Prep/session_22/travel_storm_weather_d20.md` | **ready** | n/a | **1×/march day** before T-NPC — P2b §3.3, §7 |
 | **T-WATCH** | Night watch d12 | `Session Prep/session_22/travel_night_watch_d12.md` | **ready** | n/a | **1×/watch** (4/night) — P2b §6.4 |
+| **T-COMMS** | Mirathorn retry d100 | `Session Prep/session_22/travel_mirathorn_comms_d100.md` | **ready** | n/a | Roll on explicit Mirathorn retry / T-DIL 7 / T-WATCH 1 or 7 / Lysandra comms beat |
 | **—** | Table authoring guide | `Event Table Design Guidance.md` (repo root) | reference | n/a | P2b §6.0 maps principles → Session 22 tables |
 | **R7** | Boots / nest loot | `PCs/bonogo/loot_geomantic_drake_nest.md` + printed card / `Homebrew Items/Item_ Boots of the Crowing Wings.md` | **done** | reference | Synced to CardGenerator card 2026-05-23 |
 | **R8** | Raucous Saints module | `Factions/Raucous_Saints_of_the_Rolling_Longhouse.md` | ready | reference | Seed/ladder in prep brief; not in session memory yet |
@@ -114,6 +115,7 @@ Full agent runbook: `DungeonMindBuddy/Docs/Plans/HANDOFF-s22-live-play-agent.md`
 | **A** | Ingest Session 21 → recap + session memory | done | S21 recap + JSONL on disk; `--check` OK |
 | **B-smoke** | PR58–67 retrieval over S20+S21 memory | done | `evals/c2_live_prep/artifacts/runs/2026-05-23/` |
 | **B-prep** | Prep brief + proof ledger | **done** | P2 `session_22_prep_brief.md` |
+| **B-comms** | T-COMMS Mirathorn retry d100 | **done** | `travel_mirathorn_comms_d100.md` |
 | **Play** | Run Session 22 at table | pending | C3 missing |
 | **Post** | Recap, timeline rows, journey update, register | pending | — |
 
@@ -127,7 +129,7 @@ Track in prep brief (P2) when written; pointers only here.
 |-------|----------------|----------|
 | **Thrin foreground** | `NPCs/thrin_branchborn/` | One beat per session in P2 §3 |
 | **Lysandra weird week** | `NPCs/captain_lysandra_ironveil/` | P1 knob: city investigation target |
-| **Mirathorn if turnaround** | `Mirathorn — While You Were Away.md`, S21 open loops | R2 |
+| **Mirathorn if turnaround** | `Mirathorn — While You Were Away.md`, S21 open loops, `travel_mirathorn_comms_d100.md` | R2 / T-COMMS |
 | **Travel north + storm** | `Journey - Mireward Reach…`, d100 R5–R6 | R1 |
 | **Music / Saints vs Dustwalker** | `Factions/Raucous_Saints…`, S21 sheriff beat | R8; not in retrieval index alone |
 | **Boots of Crowing Wings** | Bonogo loot log + item card | R7, P1 |
@@ -156,7 +158,7 @@ Session Prep/session_<N>/
 
 - [x] P2b travel runbook `ready` (primary at-table doc)
 - [x] P2 prep brief `ready` (NPC / Saints detail)
-- [x] T-NPC, T-DIL, T-DIL-G, T-CF, **T-WX** roll tables `ready` (player rolls per P2b §7)
+- [x] T-NPC, T-DIL, T-DIL-G, T-CF, **T-WX**, **T-COMMS** roll tables `ready` (player rolls per P2b §7)
 - [ ] P1 knobs reviewed — any must-decide before play?
 - [ ] **S22-staging** ready if pasting raw notes (`_ingest_staging/session_22_raw_notes.md`)
 - [ ] R5–R6 travel tables open at table (read rows from file, not from memory; **do not log outcomes in table files**)
