@@ -45,6 +45,7 @@ Pull detail from linked files; do not invent contradictions.
 | **Magical storms over city** | Ongoing | Ledger §3 |
 | **Shepherd & Maelthor** | Ongoing | Ledger §1 |
 | **Rocky-talkie static / “Mael—”** | Ledger §37 | `Elderwyld_Narrative_Ledger_Campaign2.md` |
+| **Mirathorn retry table** | Session 22 planning tool | `Session Prep/session_22/travel_mirathorn_comms_d100.md` |
 
 ---
 
@@ -53,6 +54,8 @@ Pull detail from linked files; do not invent contradictions.
 **Sara & Frank** — fraternal twins, Mirathorn switchboard. Session 21: **Frank** on the line, **festival hangover**, stressed, not cruel — **overwhelmed and cutting off** when the call gets too heavy.
 
 **Dossier:** `NPCs/sara_mirathorn_operator/sara_mirathorn_operator_character_dossier.md`
+
+**At-table retry tool:** roll `Session Prep/session_22/travel_mirathorn_comms_d100.md` when the party explicitly calls Mirathorn, triggers T-DIL 7, hits a comms night-watch lull, or a Lysandra comms spotlight asks for it.
 
 ---
 
@@ -81,6 +84,7 @@ Minimum beats to prep before allowing a turnaround session:
 
 ## Related
 
+- `Longmont Campaign/Campaign 2/Session Prep/session_22/travel_mirathorn_comms_d100.md`
 - `Elderwyld/Cities and Towns/Mirathorn/README.md`
 - `Elderwyld_Narrative_Ledger_Campaign2.md`
 - `Backlog.md` — *Mirathorn — what is happening while the party is away?*
