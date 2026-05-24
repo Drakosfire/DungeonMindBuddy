@@ -25,7 +25,7 @@ table_note: "Runnable travel session ending at Mireward gate or first night in t
 
 | From travel guide | This session |
 |-------------------|--------------|
-| **Sensory narration every ~10 min** | Rotate **Reach sensory palette** (§4) **and weather beat** (§3) each march beat |
+| **Sensory narration every ~10 min** | Rotate **Reach sensory palette** (§4) **and T-WX weather roll** (§3) each march beat |
 | **Discoveries & landmarks** | **1 player road roll per march day** (§6 **R5** + beat band); not hourly rolls |
 | **Point-crawl structure** | **4 march beats + arrival** (§5) — each node = **rolls + mandatory NPC** |
 | **Meaningful choices** | **1 player dilemma roll per march day** (§7 **T-DIL**); **gate roll** at arrival (**T-DIL-G**) |
@@ -43,12 +43,26 @@ Assume **~5 days** of march **compressed** into one session:
 | Beat | In-world | Spotlight | Weather (§3) | Goal |
 |------|----------|-----------|--------------|------|
 | **0** | Pre-march | Leave S21 camp | **Aftermath** — edge-soaked, front still west | Forward intent; name Mireward as **today's horizon** |
-| **1** | Day 1–2 | Open Reach, storm front | **Main front passes** — mud, shimmer rain, static | **Rolls:** R5 (beat 1 bands) + **T-NPC** + **T-DIL**; night **R6** + **T-CF** |
-| **2** | Day 3 | First **north pressure** signs | **Wrong calm** — heat lightning, fen breath on wind | **Rolls:** R5 (beat 2 bands) + **T-NPC** + **T-DIL**; night **R6** + **T-CF** |
-| **3** | Day 4 | **Approach ladder** begins | **Humidity + fog** — smell before rain | **Rolls:** R5 (beat 3 bands) + **T-NPC** + **T-DIL**; night **R6** + **T-CF** |
-| **4** | Day 5 | **Mireward** | **Arrival squall or mud queue** — storm drives crowd inside walls | **Roll:** **T-DIL-G**; **§10** place reveal (no R5 unless time) |
+| **1** | Day 1–2 | Open Reach, storm front | **Player T-WX (d20)** — storm texture; §3.3 optional GM fallback | **Rolls:** **T-WX** + R5 (beat 1 bands) + **T-NPC** + **T-DIL**; night **R6** + **T-CF** |
+| **2** | Day 3 | First **north pressure** signs | **Player T-WX (d20)** | **Rolls:** **T-WX** + R5 (beat 2 bands) + **T-NPC** + **T-DIL**; night **R6** + **T-CF** |
+| **3** | Day 4 | **Approach ladder** begins | **Player T-WX (d20)** | **Rolls:** **T-WX** + R5 (beat 3 bands) + **T-NPC** + **T-DIL**; night **R6** + **T-CF** |
+| **4** | Day 5 | **Mireward** | **T-WX (d20)** or §3.7 gate layer — squall / mud queue | **Roll:** **T-WX** (optional) + **T-DIL-G**; **§10** place reveal (no R5 unless time) |
 
 **Pace knob:** If session runs long, merge beats 1–2; if short, start at beat 2 with "you've been marching three days."
+
+### 2.1 Runtime — **3+ hours at table**
+
+| Target | Suggested shape | March days rolled | Nights (full watches) |
+|--------|-----------------|-------------------|------------------------|
+| **~3 hours** | Beat 0 + **2** march days + **arrival** (beat 4) | 2× full daily stack (T-WX → T-NPC → R5 → T-DIL) | 2× **four T-WATCH rolls** + 2× T-CF; optional 1× R6/night |
+| **~4 hours** | Beat 0 + **3** march days + arrival | 3× daily stack | 3× watches + T-CF |
+| **~5 hours** | Full compression arc (beats 1–3 distinct) + arrival | 3× daily stack, do not merge | 3× full watch blocks |
+
+**Per march day (table time ~45–60 min):** T-WX + T-NPC scene + R5 scene + T-DIL choice scene + §4 sensory pass between beats.
+
+**Per night (~25–35 min):** Assign four watches → **four T-WATCH d12 rolls** (on-duty player each) → **one T-CF d8** when party shares fire → long rest.
+
+**Arrival (~45–60 min):** T-WX or §3.7 + T-DIL-G + §10 districts + Maera/Orin or queue play.
 
 **After play:** Update `Journey - Mireward Reach (Campaign 2).md` — days elapsed, camp, **weather / storm position** (§3.6).
 
@@ -78,9 +92,13 @@ Weather is **literal pressure** (mud, visibility, camp quality) and **metaphor**
 - **North (fen-ward):** Humidity rises before you see reeds — **smell before sight**. Fog sits **low** while sky clears wrong.
 - **Mireward:** Walls mean **refugees compress** when it rains — hay in chapel, queue in mud (scaffold §B).
 
-### 3.3 Five-day weather track (narrate one beat per march day)
+### 3.3 Weather at table — player roll (T-WX)
 
-Use **one row per day** as default narration spine. Pull detail from **Reach d100 §21–30** or **conical hill night camp §21–30** when a watch needs texture.
+**Primary:** Player rolls **d20** once per march day → read row from `travel_storm_weather_d20.md` (**T-WX**). The western front is normal meteorology and is **not** following the party.
+
+**Optional GM fallback (arc pacing only):** If you need a compressed five-day **shape** without rolling (merge beats, teach new GMs), use the table below as **tone reference** — do not read it aloud when T-WX is in use.
+
+Pull extra watch texture from **R6 §21–30** when a night needs more sky detail.
 
 | Day | Beat | Sky & wind | Ground & body | Magic tell | GM tool |
 |-----|------|------------|---------------|------------|---------|
@@ -123,7 +141,7 @@ After each long rest, update `Journey - Mireward Reach (Campaign 2).md` **Weathe
 - **Front position:** west / overhead / passed / fen-humid  
 - **Last magic tell:** e.g. shimmer puddles, static, savory rain  
 - **Comms quality:** clear / static / dead  
-- **Next beat:** which row from §3.3 you’re on  
+- **Next beat:** last **T-WX** row rolled + front position west/overhead/passed  
 
 ### 3.7 Mireward arrival — weather as place
 
@@ -150,7 +168,7 @@ Layer **before** §10 district walk:
 | **Touch** | Static in hair (storm inheritance); mud to the knee | Crowd press; **mud queue**; rain on lime kilns |
 | **Feel** | Scale — sky big, city small behind | **Storm drove everyone inside** — apron cheerful / interior strained |
 
-**Narration habit:** When ~10 minutes pass in real time or you finish a beat, pick **one** row from this table **or** advance **§3.3 weather day** — often both.
+**Narration habit:** When ~10 minutes pass in real time or you finish a beat, pick **one** row from §4 sensory palette **or** echo the day’s **T-WX** row — often both.
 
 ---
 
@@ -158,20 +176,20 @@ Layer **before** §10 district walk:
 
 Each **node** = one compressed march beat. At every node **except arrival**, the table rolls in this order:
 
-1. **Weather beat** (§3.3 — GM narrates day row; not a die roll unless you add **T-WX** later)
+1. **T-WX** — player **d20** storm weather (`travel_storm_weather_d20.md`; §3.3)
 2. **T-NPC** — mandatory NPC spotlight (player rolls)
 3. **R5** — road encounter (player rolls; beat band in §6.2)
 4. **T-DIL** — travel dilemma (player rolls)
-5. **Night:** **R6** (per watch or once per night — §6.4) + **T-CF** campfire (player rolls)
+5. **Night:** **four watches** — on-duty player **T-WATCH (d12)** each watch (§6.4) · **one T-CF (d8)** at fire · optional **one R6 (d100)** per night for extra cone weirdness
 
 ```
 [S21 camp] ──beat 1──► [Conical hill night] ──beat 2──► [Open road] ──beat 3──► [Approach road] ──beat 4──► [MIREWARD GATE]
      │                      │                      │                      │                      │
-  T-NPC + R5(b1)        R6 + T-CF              T-NPC + R5(b2)       T-NPC + R5(b3)       T-DIL-G + §10
+  T-WX + T-NPC + R5(b1)  4× T-WATCH + T-CF     T-WX + T-NPC + R5(b2) T-WX + T-NPC + R5(b3) T-WX? + T-DIL-G + §10
   + T-DIL               (repeat per night)     + T-DIL                + T-DIL
 ```
 
-**Beat 0 (pre-march):** No rolls — name Mireward, set weather aftermath (§3.3 Day 1).
+**Beat 0 (pre-march):** No rolls — name Mireward, reference S21 aftermath (soaked edge, front west). First **T-WX** roll opens beat 1.
 
 **Optional detour:** Pre-era hill pond (`pre_era_conical_hills_d20_find.md`) — costs half a day; **skip next R5 roll**; player still rolls **T-NPC** if you want the beat.
 
@@ -217,8 +235,9 @@ This section describes **what to roll, when, and how tables are ordered by theme
 | **T-NPC** | Travel NPC spotlight | **d12** | **Player** | **Mandatory** 1× per march day (beats 1–3) | **Exists** — `travel_npc_spotlight_d12.md` |
 | **T-DIL** | Travel dilemma | **d12** | **Player** | 1× per march day (beats 1–3) | **Exists** — `travel_dilemma_d12.md` |
 | **T-DIL-G** | Gate / arrival dilemma | **d6** | **Player** | Beat 4 (Mireward gate or first inn) | **Exists** — `mireward_gate_dilemma_d6.md` |
-| **T-CF** | Campfire prompt | **d8** | **Player** | 1× per night camp | **Exists** — `travel_campfire_d8.md` |
-| **T-WX** | Weather texture garnish *(optional)* | **d10** | **Player** | Only if a watch needs extra sky/mud detail beyond §3.3 | **Optional** — can reuse R5 **21–30** or R6 **21–30** instead |
+| **T-CF** | Campfire prompt | **d8** | **Player** | 1× per night at fire | **Exists** — `travel_campfire_d8.md` |
+| **T-WATCH** | Night watch | **d12** | **On-duty watcher** | **1× per watch** (4/night default) | **Exists** — `travel_night_watch_d12.md` |
+| **T-WX** | Storm weather (not chasing you) | **d20** | **Player** | **1× per march day** before T-NPC; optional at gate (beat 4) | **Exists** — `travel_storm_weather_d20.md` |
 
 ### 6.2 R5 — Road encounter (existing): band map & beat routing
 
@@ -282,29 +301,22 @@ This section describes **what to roll, when, and how tables are ordered by theme
 
 **File:** `Session Prep/session_22/travel_npc_spotlight_d12.md`
 
-### 6.4 R6 — Night camp (existing)
+### 6.4 Night camp — watches (T-WATCH) + optional R6
 
-**File:** `Elderwyld/Wilderness/conical_hills_night_camp_d100.md`  
-**Roll:** Player, **one roll per watch** (file default) or **one roll per night** (session compression).
+**Primary (Session 22):** `travel_night_watch_d12.md` (**T-WATCH**) — **one d12 roll per watch**, rolled by the **on-duty watcher**.
 
-**Thematic order:**
+| Field | Spec |
+|-------|------|
+| **Size** | **d12** |
+| **Rolled by** | **On-duty watch PC's player**, start of each watch |
+| **When** | **Four watches per night** on conical-hill camp (beats 1–3); shorten to two watches only if session time is tight |
+| **Row shape** | Notice · optional check · wake camp or quiet handle |
 
-| Rows | Band | Theme | Count | Notes |
-|------|------|-------|-------|-------|
-| **01–10** | Settling In | Fire, bedrolls, cone geometry | 10 | Mostly benign |
-| **11–20** | Sounds in the Bush | Audio atmosphere | 10 | Benign |
-| **21–30** | Sky and Air | Weather foreshadow, wind | 10 | Ties to §3 |
-| **31–40** | The Pond on the Crown | Hill pond, shimmer | 10 | S21 callback |
-| **41–50** | The Hill Itself | Geomantic undertone | 10 | **[U]** unusual markers |
-| **51–60** | Visitors at the Edge | Edge encounters | 10 | Mix benign / **[U]** |
-| **61–70** | Sleep and Dream | Dreams, watches | 10 | RP hooks |
-| **71–80** | Lights and Lines | Liminal | 10 | **[U]** |
-| **81–90** | The Hill Speaks | Stronger weird | 10 | **[U]** / rare **[E]** |
-| **91–100** | Things That Come | Events | 10 | **[E]** — use sparingly |
+**Optional depth:** `conical_hills_night_camp_d100.md` (**R6**) — **at most one d100 roll per night** (not per watch) after watches or on watch 2, for pond/cone/drake texture. File default is one roll per watch; **Session 22 uses T-WATCH for per-watch play** to avoid four d100 rolls per night.
 
-**Distribution (from file):** ~62 benign · ~33 unusual **[U]** · ~5 events **[E]**.
+**Campfire:** **T-CF d8** — **once per night** when the party is together at fire (after watch 1 or before sleep), not once per watch.
 
-**Session 22 default:** **1 roll per night** unless players split watches for tension — then roll per watch on beats 1–2 only.
+**Session 22 default (3+ hr):** **4× T-WATCH** + **1× T-CF** + **0–1× R6** per night.
 
 ### 6.5 T-DIL — Travel dilemma
 
@@ -395,22 +407,22 @@ When R5 lands in certain bands, GM **may** attach a keyed location — still dri
 **Per march day (beats 1–3):**
 
 ```
-1. GM — weather day row (§3.3)
+1. Player — T-WX (d20) → travel_storm_weather_d20.md
 2. Player — T-NPC (d12)
 3. Player — R5 (d100 within beat band, §6.2)
 4. Player — T-DIL (d12)
-5. Night — Player R6 (d100, §6.4) + Player T-CF (d8)
+5. Night — assign 4 watches; each watch on-duty player — T-WATCH (d12); once at fire — T-CF (d8); optional 1× R6 (d100)
 ```
 
 **Arrival (beat 4):**
 
 ```
-1. GM — §3.7 weather at gate
+1. Player — T-WX (d20) or GM §3.7 gate layer (pick one)
 2. Player — T-DIL-G (d6)
 3. GM — §10 place reveal (district walk, Maera/Orin as needed)
 ```
 
-**Minimum session bar:** 3× **T-NPC**, 3× **R5**, 3× **T-DIL**, 1× **T-DIL-G**, ≥2× **T-CF** (or 3 if three nights played out).
+**Minimum session bar (~3 hr):** 2× full march days **or** 3× if 4+ hr; **2× (4 T-WATCH + T-CF)** nights; **1× T-DIL-G** at gate; **2× T-WX + T-NPC + R5 + T-DIL** per day played.
 
 ---
 
@@ -433,7 +445,10 @@ When R5 lands in certain bands, GM **may** attach a keyed location — still dri
 
 ## 9. Optional discovery — Tollers Gap (keyed kit)
 
-**When to use:** Player R5 roll lands in **81–100 Hard Turns** and GM chooses an **abandoned hamlet** read — not a separate roll.
+**When to use:**
+
+1. Player **R5** roll lands in **81–100 Hard Turns** and GM chooses an **abandoned hamlet** read — not a separate roll.
+2. Party chooses **detour** on **T-DIL 10** (ransacked-town rumor) to verify — same kit shape; name the place at table, promote in recap.
 
 **Working name:** **Tollers Gap** — crown mile-marker **seven**, tithe apron gone to grass. **Not canon** until recap names it.
 
@@ -501,14 +516,14 @@ Walk them past **named texture** — no map required:
 
 ## 11. Mandatory beats checklist
 
-- [ ] **Weather spine** — ≥2 days from §3.3 narrated; weather **choice** when **T-DIL** or play demands (§3.4)
+- [ ] **Weather spine** — ≥3× **T-WX** player rolls; weather **choice** when **T-DIL** or T-WX spark demands (§3.4)
 - [ ] Forward motion — **Mireward named** as destination beat 0
 - [ ] **≥3× T-NPC** rolls (mandatory NPC spotlight per march day)
 - [ ] **≥3× R5** player rolls (one per day, beat bands §6.2)
 - [ ] **≥3× T-DIL** player rolls (one per day)
 - [ ] **1× T-DIL-G** at gate
-- [ ] **≥2× T-CF** (or 3 if three nights)
-- [ ] **≥1× R6** night roll per camp
+- [ ] **≥2× (4 T-WATCH + T-CF)** per night camp (3+ hr session)
+- [ ] **Optional 0–1× R6** per night if cone/pond depth wanted
 - [ ] **Approach ladder** sensory (§4) + **§3.7** weather at gate before districts
 - [ ] **Mireward place reveal** — ≥2 districts + **Maera/Orin** or gate queue
 - [ ] Update **journey tracker**
@@ -528,7 +543,9 @@ Walk them past **named texture** — no map required:
 | **T-DIL** Travel dilemma | `Session Prep/session_22/travel_dilemma_d12.md` | **exists** |
 | **T-DIL-G** Gate dilemma | `Session Prep/session_22/mireward_gate_dilemma_d6.md` | **exists** |
 | **T-CF** Campfire | `Session Prep/session_22/travel_campfire_d8.md` | **exists** |
-| **Weather spine** | §3 | ready |
+| **T-WATCH** Night watch | `Session Prep/session_22/travel_night_watch_d12.md` | **exists** |
+| **T-WX** Storm weather | `Session Prep/session_22/travel_storm_weather_d20.md` | **exists** |
+| **Weather spine** | §3 + T-WX | ready |
 | Journey clock | `Journey - Mireward Reach (Campaign 2).md` | draft |
 | Mireward design | `Mireward/Mireward_PLACE_BUILD_SCAFFOLD.md` §A2, §F2, §B | scaffold |
 | Boots | Bonogo printed card / loot log | ready |

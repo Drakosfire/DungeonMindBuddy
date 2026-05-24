@@ -79,7 +79,8 @@ table_note: "Where-we-are snapshot for Session 22 prep. Not table canon. Refresh
 
 | Path | Role |
 |------|------|
-| `Docs/Plans/HANDOFF-session-22-travel-north-active-NPCs.md` | Agent path index |
+| `Docs/Plans/HANDOFF-s22-live-play-agent.md` | **Live play agent** — resources, retrieval, corpus search |
+| `Docs/Plans/HANDOFF-session-22-travel-north-active-NPCs.md` | Legacy path index |
 | `Docs/Plans/HANDOFF-prep-agent-c2-ingest-s21-plan-s22-cursor-first.md` | Ingest + retrieval workflow |
 | `evals/c2_live_prep/artifacts/runs/2026-05-23/` | Retrieval smoke (S20+S21 memory) |
 | `Backlog.md` | Project meta (place-build workflow, Mireward capture) |
@@ -94,7 +95,7 @@ table_note: "Where-we-are snapshot for Session 22 prep. Not table canon. Refresh
 2. `session_22_travel_to_mireward_runbook.md` — **primary runnable plan** (this session)
 3. `session_22_prep_brief.md` — NPC detail, Saints ladder, proof ledger
 4. `Journey - Mireward Reach (Campaign 2).md` — update after long rests
-5. `mireward_reach_road_d100_encounter_table.md` + `conical_hills_night_camp_d100.md` — **roll from file** (curated in runbook §5)
+5. `mireward_reach_road_d100_encounter_table.md` + `conical_hills_night_camp_d100.md` + **T-NPC/T-DIL/T-CF/T-DIL-G** — **player rolls; read row from file** (runbook §6–§7)
 6. `Session 22 - open GM knobs.md` — decide-before-payoff only
 7. `Mireward_PLACE_BUILD_SCAFFOLD.md` — if you need depth beyond runbook §9
 
