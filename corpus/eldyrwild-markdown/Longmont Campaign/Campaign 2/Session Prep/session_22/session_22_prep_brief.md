@@ -80,7 +80,7 @@ Session 22 is a **travel-and-pressure** session: the Questionable Company marche
 | **Conical hill camp** | S21 camp pattern — pond bowl, wagon downslope | Night camp d100; Thrin shelter; storm front | S21 recap; R6 table; R1 journey tracker | Pre-era hill d20 optional detour |
 | **Mireward (town)** | **Scaffold** — ~5 days north | Probably **not** arrival this session unless accelerated | `Elderwyld/Cities and Towns/Mireward/Mireward_PLACE_BUILD_SCAFFOLD.md` | Knobs §H before promotion |
 | **Edge of the World** | Stub; sheriff rumor ~1 week from Mossford | Rumor only | S21 recap; R4 stub | Cult vs Saints ambiguity (P1) |
-| **Mirathorn (remote)** | Festival; comms bad | Turn-back session or call-in only | `Mirathorn — While You Were Away.md` | Day-by-day timeline **TODO** (R2) |
+| **Mirathorn (remote)** | Festival; comms bad | Turn-back session or call-in only | `Mirathorn — While You Were Away.md`, `Mirathorn — rockie-talkie comms timeline.md`, **T-COMMS** | Day tables in comms timeline §3–§4 |
 
 ---
 

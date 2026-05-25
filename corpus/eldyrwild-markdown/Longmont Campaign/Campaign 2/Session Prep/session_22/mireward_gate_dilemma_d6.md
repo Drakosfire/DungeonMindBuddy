@@ -32,6 +32,6 @@ table_note: "Player-rolled Session 22 Mireward arrival dilemma table. Planning-o
 
 ## Table notes
 
-- Sergeant Hald Voss can frame any row with: “Road’s open. Town’s full. If you’re Mirathorn heroes, help or wait — your choice.”
+- **Lysandro Ironveil** (Lysandra’s **father** — **C2 table canon**) can frame any row with: “Road’s open. Town’s full. If you’re Mirathorn heroes, help or wait — your choice.” Prep name **Hald Voss** superseded at table until recap.
 - These rows should not resolve the town’s core problem. They expose capacity, resentment, and the difference between apron order and interior strain.
 - If players create a strong new fact at the gate, promote it after play through the Session 22 recap and Mireward scaffold checklist.

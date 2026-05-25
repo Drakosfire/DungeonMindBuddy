@@ -30,6 +30,7 @@ This folder is the **GM-facing index** for everything produced while planning Se
 5. `Longmont Campaign/Campaign 2/Session Prep/Session 22 - open GM knobs.md` — unresolved GM decisions (not lore until written elsewhere).
 6. `Longmont Campaign/Campaign 2/Journey - Mireward Reach (Campaign 2).md` — distances, terrain; **update during play** for clock / weather / comms.
 7. `Longmont Campaign/Campaign 2/Mirathorn — While You Were Away.md` — if party turns back or calls Mirathorn again.
+8. `Longmont Campaign/Campaign 2/Mirathorn — rockie-talkie comms timeline.md` — full wire log + city-day / march-day comms tables.
 8. `Elderwyld/Cities and Towns/Mireward/Mireward_PLACE_BUILD_SCAFFOLD.md` — design scaffold (not table canon).
 9. `Longmont Campaign/Campaign 2/Session Prep/session_22/README.md` — **this file** (artifact register, promotion rules, **§2 notes table**).
 
@@ -85,7 +86,7 @@ Full agent runbook: `DungeonMindBuddy/Docs/Plans/HANDOFF-s22-live-play-agent.md`
 | **P4** | Agent live-play handoff | `Docs/Plans/HANDOFF-s22-live-play-agent.md` | **ready** | n/a | Primary agent entry for S22 play + lookup |
 | **P4b** | Legacy agent index | `Docs/Plans/HANDOFF-session-22-travel-north-active-NPCs.md` | draft | n/a | Superseded by P4 for retrieval/corpus ladder |
 | **R1** | Journey tracker | `Journey - Mireward Reach (Campaign 2).md` | draft | promote_after_play | Update distances / camp location after play |
-| **R2** | Mirathorn away stub | `Mirathorn — While You Were Away.md` | draft | promote_after_play | Fill § Timeline if Mirathorn beats occur off-screen or on call |
+| **R2** | Mirathorn away + comms + **dual-front arc** | `Mirathorn — While You Were Away.md`, `Mirathorn — rockie-talkie comms timeline.md`, `Campaign 2 — Dual Front Shepherd Arc (GM planning).md` | **ready** | promote_after_play | Promote wire beats + any **proven** truths to recap |
 | **R3** | Mireward hub | `Elderwyld/Cities and Towns/Mireward/` + `Mireward_PLACE_BUILD_SCAFFOLD.md` | **scaffold** | planning → reference | Promote via checklist in scaffold §J |
 | **R4** | Edge of the World hub | `Elderwyld/Cities and Towns/Edge of the World/README.md` | draft | promote_after_play | Expand if sheriff rumor pays off |
 | **R5** | Travel d100 (road) | `Elderwyld/Roads/mireward_reach_road_d100_encounter_table.md` | ready | reference | Use at table; do not duplicate rows in prep |

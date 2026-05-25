@@ -8,7 +8,7 @@ session: null
 origin_session: null
 last_updated_session: 21
 source_class: authored_dossier
-table_note: "GM-facing state doc for Mirathorn during Questionable Company's northbound march. Day-by-day timeline is TODO; Session 21 comms beats are table canon."
+table_note: "GM-facing state doc for Mirathorn during Questionable Company's northbound march. Day-by-day + full wire index live in Mirathorn — rockie-talkie comms timeline.md."
 ---
 
 # Mirathorn — while you were away
@@ -16,6 +16,32 @@ table_note: "GM-facing state doc for Mirathorn during Questionable Company's nor
 The party is **~3 days’ travel north** of Mirathorn (Session 21) and chose to **press toward the swamp**, but they may **turn back** or **call in** at any time. This file answers: *what truthful state can the GM relay on the rockie-talkie, scry, or return visit?*
 
 **Handoff index:** `DungeonMindBuddy/Docs/Plans/HANDOFF-session-22-travel-north-active-NPCs.md`
+
+**Comms index (full wire log + day tables):** `Mirathorn — rockie-talkie comms timeline.md` · **S22 retry d100:** `Session Prep/session_22/travel_mirathorn_comms_d100.md`
+
+---
+
+## Shape (while the party is northbound)
+
+**GM arc lock:** `Campaign 2 — Dual Front Shepherd Arc (GM planning).md` — read before any Mirathorn wire beat or return session.
+
+**Table canon (what they heard):** Frank said the **Festival resumed** (S21). The table **cannot know yet** whether that is true.
+
+**GM truth (planning):**
+
+| Thread | Reality |
+|--------|---------|
+| **One root cause** | Party **tainted rations** and Mirathorn **city crisis** share the **same Shepherd meat pipeline** — not separate accidents. |
+| **Festival** | **Not actually back on.** **Fresh guard corruption** (subtle) feeds operators a **“festival resumed / long night”** script so field liaisons **stay north** toward the swamp. |
+| **Frank’s hang-up** | Delivers **authorized reassurance**, then **cuts** before Caelynn can argue turnaround or report jerky findings — **steer-north**, not random rudeness. |
+| **Lysandra no answer** | Inbound captain traffic **blocked or triaged** on a **compromised guard net** — not “empty city.” |
+| **Long game** | **North:** swamp **flesh pit** (Lysandra’s map) → pit big bad. **South (parallel):** hierarchy **summoning** in Mirathorn assuming the pit falls first. **Second front** is **quieter** than Globe/Dustwalker. |
+
+**Operators:** Sara and Frank **relay guard-authored lines**; Sara’s S20 **trust crisis** may track **closer to truth** than Frank’s festival register.
+
+**Party cannot know without investigation:** festival lie, summoning prep, pit–city link, who owns the jerky chain.
+
+Detail: arc doc above · comms tables · `Mirathorn — rockie-talkie comms timeline.md` §2–§4.
 
 ---
 
@@ -59,15 +85,11 @@ Pull detail from linked files; do not invent contradictions.
 
 ---
 
-## GM TODO — day-by-day timeline
+## Day-by-day timeline
 
-Author one row per **in-world day** since the party left Mirathorn (or since Session 21). Each row: **public face** (what anyone in the city sees) + **GM truth** (what actually happened) + **comms truth** (what Sara/Frank can honestly say on the wire).
+**Authoritative table:** `Mirathorn — rockie-talkie comms timeline.md` §3 (city days since Outtown, Day 0 = Session 15 departure) and §4 (Session 22 march-day comms environment).
 
-| Day (relative) | Public face | GM truth | Comms (Sara/Frank) |
-|----------------|-------------|----------|---------------------|
-| *TODO* | | | |
-
-**Design goal:** If the party **turns around**, Mirathorn is not flat — festival momentum, cult pressure, and logistics scandal all moved without them.
+**Design goal:** If the party **turns around**, Mirathorn is not flat — festival momentum, cult pressure, and logistics scandal all moved without them. **Promote** any row used at table to recap + `NPCs/sara_mirathorn_operator/timeline.md`.
 
 ---
 
@@ -75,16 +97,21 @@ Author one row per **in-world day** since the party left Mirathorn (or since Ses
 
 Minimum beats to prep before allowing a turnaround session:
 
-1. **Gate / curfew** — still festival season? Guard posture?
-2. **Who is clean** in the jerky scandal — names or factions, not just “insiders.”
-3. **One scene** that shows cost of their absence (someone they care about hurt, helped, or changed).
-4. **Dustwalker / music** — is the city hearing Saint-style rumor or cult hymn-work?
+1. **Gate / curfew** — **No real festival crowds**; guard **insists** celebration continues (lie or staged pockets).
+2. **Who signed the meat** — same chain as party jerky; **guard-adjacent** names, not abstract “insiders.”
+3. **One scene** — cost of absence + **evidence** the pit and city share a **pipeline** (crates, hymn, map echo).
+4. **Summoning pressure** — something **mid-ritual** or **one night from completion** (arc doc § South arc).
+
+**North-first table:** If they **finish the pit** then return, Mirathorn may be **mid-transformation** — the cult assumed the pit would fall **first**.
 
 ---
 
 ## Related
 
 - `Longmont Campaign/Campaign 2/Session Prep/session_22/travel_mirathorn_comms_d100.md`
+- `Campaign 2 — Dual Front Shepherd Arc (GM planning).md` — **vision lock** (meat pipeline, festival lie, dual front)
+- `Mirathorn — rockie-talkie comms timeline.md` — full wire index + day tables
+- `Session Prep/session_22/travel_mirathorn_comms_d100.md` — T-COMMS retry at table
 - `Elderwyld/Cities and Towns/Mirathorn/README.md`
 - `Elderwyld_Narrative_Ledger_Campaign2.md`
 - `Backlog.md` — *Mirathorn — what is happening while the party is away?*

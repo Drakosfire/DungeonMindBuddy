@@ -7,6 +7,64 @@ Project-specific learnings, ideas, and follow-ups for the DungeonMindBuddy repo 
 
 Sort newest → oldest within each status; promote with `/promote`; archive with `/done` or `/drop`.
 
+## [IDEA] Product slice — C2 Live Control Surface v0 Query Pane — captured 2026-05-24
+
+**Context:** Session 22 dogfood proved the live-play workflow inside Cursor: roll lookup, canon commits, staging notes, open-loop tracking, grounded context lookup, and post-session propagation all worked, but the IDE/repo-agent loop made the demo feel like engineering scaffolding rather than a DungeonBuddy product.
+
+**Insight:** The next demo jump should be a focused local product surface, not a fuller Cursor canvas: **Game Master Live Play Control Surface — Query Pane v0**. A GM types one turn (“Weather 7. Caelynn Nature 19.” / “Grobnok does not call” / “Lysandro is her father”), the server classifies latency mode, returns a fast answer, appends a file-backed event, queues slower side effects, and updates Now / Open Loops / Roll Stack / Queue panels. Fast live turns must not run repo-wide search; context lookups can still invoke the existing retrieval packet path and expose admitted context, candidate context, gaps, provenance, lane plan, and diagnostics.
+
+**Action:** Anchor as a PR-sliced product handoff before coding. Proposed slices: (1) live packet + event/job schemas under `evals/c2_live_prep/live/session_22/`; (2) roll resolver + live classifier with transcript examples; (3) FastAPI `/api/live/query` loop with file-backed event/job writes; (4) light React/Vite query pane showing answer, Now, Open Loops, Roll Stack, Queue. Explicitly defer full corpus browser, auth, database, drag/drop canvas, document editor, map, timeline authoring, and full recap-write UI.
+
+**Surfaces when:** Moving the demo out of Cursor; designing a live-play server; implementing roll resolver / classifier; creating HANDOFF-pr<N> docs for the next DungeonBuddy product slice; evaluating whether a UI is a product surface or an IDE artifact.
+
+**Refs:** Session 22 transcript `[Session 22 live play](873301f8-c5de-4bee-a629-8c553e0b86b0)`; `Docs/Plans/HANDOFF-s22-live-play-agent.md`; `evals/c2_live_prep/artifacts/runs/2026-05-23/c2s22_smoke_report.md`; `_ingest_staging/session_22_raw_notes.md`; `Session Prep/session_22/session_22_travel_to_mireward_runbook.md`.
+
+## [READY] Session 22 — capture Grobnok callback verbatim (Silver Raven reply) — captured 2026-05-23
+
+**Context:** Travel Day 1 — Silver Raven note + Thieves’ Cant to **Grobnok FuckFight** (Mirathorn). Grobnok **called back**; GM will detail what he said later. Recorded now: he **committed to contact again in the morning and definitely in the evening**.
+
+**Action:** Write Grobnok’s callback **verbatim** into `_ingest_staging/session_22_raw_notes.md` § Grobnok reply, then promote to C3 recap when Session 22 closes. Do not leave as schedule-only.
+
+**Surfaces when:** Session 22 live play continues; recap-write; dual comms (Tealeaf/Sara vs Grobnok); user says “Grobnok reply” or “what did Grobnock say.”
+
+**Refs:** `_ingest_staging/session_22_raw_notes.md` (Silver Raven + Grobnok reply); `The City Council.md` (Grobnok).
+
+## [READY] Tooling — d-table generator workflow (scaffold → corpus roll_table) — captured 2026-05-23
+
+**Context:** Session 22 prep dogfood: travel tables (HANDOFF-s22-travel-roll-tables, PR #70), T-COMMS d12→d100 creative HANDOFF (`HANDOFF-s22-mirathorn-comms-d100-creative.md`), manual §7 verification (`rg -c '^[0-9]+\.'`, band headers, stale pointer grep). Each table re-derived frontmatter, band allocation, row schema, register row, escalation rule, and acceptance rubric from scratch.
+
+**Insight:** **d-table authoring is a repeatable pipeline**, not one-off creative writing. Inputs: die size, `table_id`, band weights, row field schema (e.g. T-COMMS six-field vs T-DIL three-clause), NPC/responder matrix, canon guardrails, trigger hooks (T-DIL 7 → T-COMMS). Outputs: corpus markdown with correct YAML (`source_class: roll_table`, `table_id`, `dice`), band headers, numbered rows, How to use, session_22 README register line, optional HANDOFF §7 commands. **Next sprint** should productize so GM prep + external creative agents don't re-invent format every time.
+
+**Action:** (1) `.cursor/skills/d-table-generator/SKILL.md` — phases: **spec sheet** (from HANDOFF or inline) → **scaffold file** → **band fill** (human or agent) → **verify** (row count, bands, forbidden grep) → **register sync** (README + cross-refs). (2) Optional CLI `scripts/scaffold_roll_table.py` — emits empty banded template from JSON spec (die, bands, row template placeholders). (3) Mirror validators in §7 as script: `scripts/lint_roll_table.py --table path` (row count, gaps, frontmatter). (4) Dogfood: regenerate T-COMMS d100 scaffold from spec; compare to creative-agent output.
+
+**Surfaces when:** Next sprint; any new `travel_*_d*.md` or `*_d100`; HANDOFF to creative writing agent; live-play canvas table embed; "build a place" / capture-gm-prep sibling workflows.
+
+**Refs:** `Event Table Design Guidance.md`, `HANDOFF-s22-travel-roll-tables.md`, `HANDOFF-s22-mirathorn-comms-d100-creative.md`, `mireward_reach_road_d100_encounter_table.md`, `travel_mirathorn_comms_d100.md`, `Backlog.md` prep-flow + place-build IDEA, `~/.cursor/learnings/Backlog.md` agent prep capture IDEA.
+
+## [IDEA] Prep flow — capture arc vision + worldbuilding in corpus (Mirathorn dogfood) — captured 2026-05-23
+
+**Context:** Session 22 prep dogfood: chat turned GM imagination (meat pipeline = city crisis, festival **lie**, dual-front endgame, swamp flesh pit) into **layered corpus** without promoting to table canon. Transcript: Mirathorn comms timeline work → user arc refinement → `Campaign 2 — Dual Front Shepherd Arc (GM planning).md`.
+
+**Insight:** **Runnable session prep** (d12 tables, runbook) is only one layer. The same flow must also capture **future planning** and **worldbuilding** that won't pay off for many sessions — with explicit **authority separation**:
+
+| Layer | `document_class` / role | Example from dogfood |
+|-------|-------------------------|----------------------|
+| **Table canon** | `play` recaps | Frank said festival resumed (S21) — **unchanged** |
+| **Arc / vision lock** | `planning` + `authored_dossier` | `Dual Front Shepherd Arc` — GM truth, promotion rules |
+| **Remote state while away** | `planning` dossier | `Mirathorn — While You Were Away.md` |
+| **Operational index** | `planning` reference | `rockie-talkie comms timeline.md` — canon index + day rows |
+| **At-table mechanic** | `roll_table` | `travel_mirathorn_comms_d100.md` (T-COMMS) |
+| **Hub continuity** | `reference` timeline | Sara timeline rows |
+| **Register / knobs** | session prep README, open knobs | R2 ready; Mirathorn timeline knob closed |
+
+**Flow that worked:** (1) synthesize shape in conversation, (2) write **arc lock** first (single source of GM intent), (3) fan out to **comms + tables + hubs**, (4) wire **register + knobs**, (5) **never** merge GM truth into recap prose until table learns it. **Gap:** this was ad-hoc agent behavior — no skill, no lint, no planner tool for "capture GM vision."
+
+**Action:** (1) Extract `.cursor/skills/capture-gm-prep/SKILL.md` (or section in `build-a-place` sibling): phases **shape → arc lock → operational artifacts → hub/register sync → promotion rule**; frontmatter template; anti-patterns (promoting festival lie as canon; one blob file). (2) Add `Docs/CONVENTION-Campaign-Arc-Planning.md` or extend `CONVENTION-Corpus-Subject-Schemas.md` with `document_class: planning` subtypes (`arc_lock`, `remote_state`, `comms_index`, `roll_table`). (3) Optional harness: eval that given a GM vision paragraph, agent emits correct file set + tier — dogfood metric for live-play agent.
+
+**Surfaces when:** Mid-prep worldbuilding; "what's happening in X while party is away"; long-horizon cult/endgame; live-play agent HANDOFF; any task mixing **runnable S22** with **S25+ arc**.
+
+**Refs:** `Campaign 2 — Dual Front Shepherd Arc (GM planning).md`, `Mirathorn — rockie-talkie comms timeline.md`, `Mirathorn — While You Were Away.md`, `Session Prep/session_22/travel_mirathorn_comms_d100.md`, `Session 21 - brainstorming dump.md`, `Backlog.md` place-build workflow IDEA, `Docs/Plans/HANDOFF-s22-live-play-agent.md`.
+
 ## [IDEA] Mireward — Reach folk identity, garrison thin, Orin anchor (scaffold §A2–§F2) — captured 2026-05-23
 
 **Context:** C2 Session 22 prep; place-build pilot (`Mireward_PLACE_BUILD_SCAFFOLD.md`). Chat synthesized **who lives on the Reach** after pruning generic grassland economy ideas.
@@ -660,11 +718,3 @@ The Stage B C1 benchmark workaround landed in commit `0bccafb` — `evals/sessio
 **Action:** Add a `/roll <table-name-or-path> <n>` shortcut (skill or hook) that grep/reads the matching row from `Elderwyld/Roads/*.md`, `Elderwyld/Wilderness/*.md`, etc., and returns the row text plus the file:line ref. No LLM call.  
 **Surfaces when:** Building any d100/d20 table the user will roll on at the table; designing live-play tooling; corpus-search shortcuts.  
 **Refs:** `live-play-workflow-analysis.canvas.tsx` (DungeonMindBuddy canvas), corpus files under `corpus/eldyrwild-markdown/Elderwyld/Roads/` and `Elderwyld/Wilderness/`
-
-## [READY] Mirathorn — day-by-day timeline while party is away — captured 2026-04-18, stub landed 2026-04-23
-
-**Context:** Party is northbound; S21 comms (festival resumed, Frank hung up, Lysandra no answer) need a backing timeline if they turn around or call again.
-**Insight:** Thread index + S21 beats now live in `Mirathorn — While You Were Away.md`; **day-by-day rows are still empty**.
-**Action:** Fill § Timeline in `corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Mirathorn — While You Were Away.md`. Use `Docs/Plans/HANDOFF-session-22-travel-north-active-NPCs.md` §5.
-**Surfaces when:** Mirathorn rockie-talkie; turnaround; prep Session 22+.
-**Refs:** `Mirathorn — While You Were Away.md`, `HANDOFF-session-22-travel-north-active-NPCs.md`, `Elderwyld_Narrative_Ledger_Campaign2.md`

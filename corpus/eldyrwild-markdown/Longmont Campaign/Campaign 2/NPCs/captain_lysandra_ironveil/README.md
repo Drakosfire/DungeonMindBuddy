@@ -19,7 +19,8 @@ subject_doc_kind: hub_index
 Use `read_corpus_file` with these paths **after** this README (corpus root = `eldyrwild-markdown/`):
 
 1. `Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_character_dossier.md` — primary **character reference** (psychology, command style, GM-sourced ledger bullets).
-2. `Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/timeline.md` — C2 beats + which recap to open next.
+2. `Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/lysandra_ironveil_mireward_history.md` — **Mireward upbringing, Ironveil family soap, gate/homecoming beats** (read when she is on Reach soil).
+3. `Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/timeline.md` — C2 beats + which recap to open next.
 3. `Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_statblock_cr4.md` — **CR 4** leveled mechanical sheet (Mirathorn export; current default for combat numbers).
 4. `Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_statblock_cr2.md` — **CR 2** baseline sheet (earlier tier).
 5. `Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/README.md` — Mirathorn hub (seed + statblock pointers); optional if you already opened those files.
@@ -46,6 +47,7 @@ Avoid opening `Longmont Campaign/Campaign 2/Campaign 2 Notes.md` unless you need
 | File | Role |
 |------|------|
 | `captain_lysandra_ironveil_character_dossier.md` | Character reference (voice, psychology, how to run her in scenes). |
+| `lysandra_ironveil_mireward_history.md` | Mireward roots, Ironveil family cast, soapy timeline, gate/homecoming. |
 | `timeline.md` | Session-ordered beats for **this** campaign (curated from recaps + historical `Campaign 2 Notes.md` pulls). |
 
 **Setting / pre-contact:** Mirathorn seed and the statblock exports (**CR 4** current, **CR 2** baseline) live under  

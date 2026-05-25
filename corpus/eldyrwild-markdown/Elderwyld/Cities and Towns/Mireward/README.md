@@ -38,8 +38,10 @@ table_note: "Hub in build. Table canon: named S21, ~5 days north of end-S21 camp
 1. **`Mireward_PLACE_BUILD_SCAFFOLD.md`** — current design scaffold (start here while building).
 2. `Elderwyld/Roads/mireward_reach_road_d100_encounter_table.md` — travel on the Reach.
 3. `Longmont Campaign/Campaign 2/Journey - Mireward Reach (Campaign 2).md` — party distances and camp state.
-4. `Elderwyld/Cities and Towns/Mossford/README.md` — target hub shape when promotion begins.
-5. `Elderwyld/Cities and Towns/Edge of the World/README.md` — farther-north rumor stub.
+4. `Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/lysandra_ironveil_mireward_history.md` — **Ironveil family / Lysandra homecoming soap** (C2 table canon from S22 gate).
+5. `Elderwyld/Cities and Towns/Mireward/NPCs/lysandro_ironveil/character_seed.md` — gate emeritus (Lysandra’s **father**).
+6. `Elderwyld/Cities and Towns/Mossford/README.md` — target hub shape when promotion begins.
+7. `Elderwyld/Cities and Towns/Edge of the World/README.md` — farther-north rumor stub.
 
 ---
 
@@ -50,7 +52,7 @@ table_note: "Hub in build. Table canon: named S21, ~5 days north of end-S21 camp
 | Build scaffold | `Mireward_PLACE_BUILD_SCAFFOLD.md` | **exists** |
 | Map key / gazetteer | `Mireward_Map_Key_and_Gazetteer.md` | pending |
 | Location dossiers | `Mireward_Location_Dossiers/` | pending |
-| Anchor NPCs | `NPCs/` | pending |
+| Anchor NPCs | `NPCs/` | **in progress** — `lysandro_ironveil/character_seed.md` |
 
 ---
 

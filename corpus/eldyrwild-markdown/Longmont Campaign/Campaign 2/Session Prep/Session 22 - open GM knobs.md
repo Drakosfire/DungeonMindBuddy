@@ -18,7 +18,7 @@ Items discussed in planning that **must be decided by the GM** before they pay o
 | Knob | Question | Write answer to |
 |------|----------|-----------------|
 | **Lysandra investigation** | Who is the **“person they spoke about back in the city”** that Lysandra investigated (Session 21)? | `NPCs/captain_lysandra_ironveil/timeline.md` + optional dossier beat |
-| **Mirathorn timeline** | What happened in Mirathorn **each day** while the party marched north? | `Mirathorn — While You Were Away.md` § Timeline |
+| **Mirathorn timeline / arc** | **Locked** at planning layer — festival **lie**, shared **meat pipeline**, dual front. Day rows + comms in `Mirathorn — rockie-talkie comms timeline.md`; vision in `Campaign 2 — Dual Front Shepherd Arc (GM planning).md`. | Arc doc + comms timeline |
 | **Mireward** | Town identity, Orin anchor, open §H knobs (town head, patrol return, downwind craft) | `Elderwyld/Cities and Towns/Mireward/Mireward_PLACE_BUILD_SCAFFOLD.md` + `session_22_planning_anchor.md` §2 |
 | **Edge of the World** | Cult, Saints, or both? Where on the map? | `Elderwyld/Cities and Towns/Edge of the World/README.md` |
 | **Boots mechanics** | **Resolved** — synced to Bonogo's printed card (1/short rest jump + flight; Jump and Crow / flap wings). | `Homebrew Items/Player Copies/Player Copy Item_ Boots of the Crowing Wings.md` |

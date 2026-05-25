@@ -208,17 +208,36 @@ The following bullets were **distilled** from `Longmont Campaign/Campaign 2/Camp
 
 ---
 
+## ORIGIN — MIREWARD & THE IRONVEILS
+
+**Full soap (family cast, timeline, secrets, gate pickup):**  
+`lysandra_ironveil_mireward_history.md` in this folder.
+
+**Compressed:**
+
+- **Raised in Mireward**, not Mirathorn — charter bell, wall walk, downwind fuller's row, ferry steps.
+- **Ironveil family:** embarrassingly **sincere anti-authoritarian** — toll protest picnics, mock reeve campaigns, optional salutes, **mutual aid sermons at the gate**. Lysandra **shares their beliefs** and **hates their volume**.
+- **Father Lysandro** — emeritus gate sergeant; **S22 table canon** at Reach Gate. Calls her **Lysa**. **Torr** (grandfather) is the quiet tithe clerk with the framed commendation.
+- **Left at ~19** for Mirathorn Guard “**one season**”; stayed; **Delwen Rast** (ferry master’s daughter) waited, then married elsewhere.
+- **Recruited by Commander Thalia Ashenvale** after a tithe-barn de-escalation; family blames Thalia **by name**.
+- **Sara / Frank:** trusted switchboard operators, **not kin**; asked Sara **not to patch family line** (S22) — failed by arriving in person.
+- **Mirathorn irony:** gate captain closing toll protests while Ironveil values echo in the crowd; promotion under charm; field command north — **first homecoming** at S22 gate.
+
+**At Mireward she is:** daughter before captain; **deflects** backstory; her **father will not**.
+
+---
+
 ## KNOWN GAPS / TODOs (INTENTIONALLY UNFILLED)
 
-These are explicitly open and should not be assumed until played or authored:
+These remain open until played or authored:
 
-- Family history and upbringing
-- Path into the Guard
-- Specific reasons her trust skews toward the party
-- Prior mentors or formative failures
-- Relationship to Commander Thalia Ashenvale
-- Nature and history of ties to **Sara & Frank** (operators — see `Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/`)
-- What Mirathorn means to her beyond duty
+- Specific reasons her **early trust** skewed toward the Questionable Company (beyond observed competence)
+- **Thalia Ashenvale** after charm/promotion — doubt, support, or confrontation
+- Whether **Delwen** meets her at ferry head this visit
+- Fate of **Calyx’s unanswered petition** (charm-week timing)
+- What Mirathorn means to her **beyond duty** (still mostly duty)
+
+**Filled (see `lysandra_ironveil_mireward_history.md`):** family history, Mireward upbringing, path into Guard, Sara/Frank relationship frame, Lysandro & chorus cast.
 
 ---
 

@@ -3,7 +3,7 @@ title: "Journey — Mireward Reach (Campaign 2)"
 type: campaign-tracker
 campaign: "Campaign 2"
 road: "The Mireward Reach"
-last_updated_session: 21
+last_updated_session: 22
 ---
 
 # Journey — Mireward Reach (Campaign 2)
@@ -28,14 +28,15 @@ The **Mireward Reach** is the name of the whole northbound drove-road in the wor
 
 | Field | Value | Notes |
 |--------|--------|--------|
-| **Clock / hours traveled (this leg)** | ~6.5 h | Cumulative in-world travel time logged since leaving Mirathorn (or since last tracker reset — pick one convention and keep it). |
-| **Distance from Mirathorn** | ~3 days’ travel | Session 21 table confer (Lysandra + party on conical hill camp). |
-| **To Mireward (next town north)** | ~5 days | Session 21 table name; hub scaffold: `Elderwyld/Cities and Towns/Mireward/` |
-| **Party camp (end S21)** | Conical hills north of Mossford | Hilltop pond bowl; wagon downslope; drake-nest detour completed. |
-| **Weather / storm (end S21)** | **Edge of front passed; building west** | Soaked camp; **savory/shimmer** rain in pools; Caelynn/Ephanna: storm **not done**. See runbook §3. |
-| **Weather front position** | `west / building` | Update each travel day: `west` → `overhead` → `passed` → `fen-humid` → `arrival squall` |
-| **Last magic tell** | Shimmer puddles, savory rain | Static, heat lightning, copper well, etc. |
-| **Comms (rockie-talkie)** | Degraded (festival + storm) | `clear` / `static` / `dead` — worsens in rain (runbook §3.4) |
+| **Day of travel** | **Travel Day 2** (S22) | Day 1 closed; northbound on Reach |
+| **Clock / hours traveled (this leg)** | **+5 h forced march** (Day 2 pm→~22:00) | No camp on Reach |
+| **Distance from Mirathorn** | ~**4 days’** travel (est.) | Was ~3 at S21 camp; +1 day north |
+| **To Mireward (next town north)** | **At outskirts / gate apron** | Forced march from fork (~20 mi sign) |
+| **Party position** | **Mireward outskirts ~22:00** (Day 2) | Mud apron; palisade in torchlight; **outside wall** unless table enters |
+| **Weather / storm (Travel Day 2)** | Hail **2 min** → **sleet/slush** → **cold drizzle** at arrival | T-WX **7**; magical front still west/north |
+| **Weather front position** | `on the town` — passed through, not clear | Bruised sky; fen grey north |
+| **Last magic tell** | Savory slush in crown ruts; static at 10 pm | Conjuration puddle sample (Caelynn) |
+| **Grobnok reply** | Morning: **no call** · Evening window: **@ ~22:00** — play if used | Callback words TODO |
 | **Remaining to swamp arc / Lysandra objective** | ~10 days’ travel | Rough; should stay roughly consistent with Session 13’s ~two-week total unless the table changes the goal or route. |
 
 **Implied total leg (if both estimates hold):** ~12 days on the road from Mirathorn to the swamp-facing end of this journey (2 + 10), which is **close to** the original “about two weeks” without needing to be exact.

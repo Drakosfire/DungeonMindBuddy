@@ -180,7 +180,7 @@ Someone **did** report upstream and was ignored/buried — festival press, requi
 |------|-----|------|-----------|
 | Town head | Mayor OR crown reeve (pick one) | TBD | |
 | Law | Sheriff / constable **or veteran sergeant holding the post** | TBD | §A2 |
-| Gate voice | **Whoever’s left** after festival recall | TBD | §A2 |
+| Gate voice | **Lysandro Ironveil** (emeritus; Lysandra’s **father**) — **C2 table canon S22** | **Lysandro Ironveil** | sketch §F3 |
 | Inn keeper (floor) | Rumor dispenser; runs beds / bar | **Maera Vell** *(working)* | sketch §F2 |
 | Inn family (back room) | Keeps escaped relative; Lundayell-tolerance lens | **Orin Vell** *(working)* + family | sketch §F2 |
 | Refugee voice | One family anchor (non-inn) | TBD | |
@@ -227,6 +227,26 @@ Someone **did** report upstream and was ignored/buried — festival press, requi
 - **Contrast:** Refugee barn screams **capacity**; inn screams **denial** — both true at once.
 
 **Promotion:** When locked after play → `Mireward_Location_Dossiers/the_last_dry_bed.md` + optional `NPCs/orin_vell/` or family hub. Until then, **this block only**.
+
+---
+
+## F3. Ironveil family — Mireward natives *(C2 table canon; expand in campaign dossier)*
+
+**Purpose:** **Homecoming soap** when **Captain Lysandra Ironveil** returns north. Mireward is **her birthplace**; Mirathorn is **her rank**. Gate scene **S22:** **Lysandro Ironveil** (**father**) on the wall walk.
+
+| Name | Role | Soap handle |
+|------|------|-------------|
+| **Lysandro Ironveil** | Gate emeritus, **father** | Loud sincere anti-authoritarian; **Lysa**; stories that mortify |
+| **Merrow Ironveil** | Fuller, mother | Mock reeve speeches; pride as criticism |
+| **Torr Ironveil** | Retired tithe clerk, **grandfather** | Quiet; fixes her strap; framed commendation hidden |
+| **Calyx Ironveil** | Younger brother (~22) | Green gate kid; wants Mirathorn Guard; unanswered petitions |
+| **Sibil “Bib” Ironveil** | Aunt, shrine | Patrol widow; husband **Hest Voss** still out on fen rotation |
+| **Delwen Rast** | Ex-almost (ferry head) | Married **Orrin Kettle** after Lysandra stayed in city |
+
+**Full timeline, secrets, embarrassment table:**  
+`Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/lysandra_ironveil_mireward_history.md`
+
+**Seed (Lysandro):** `Elderwyld/Cities and Towns/Mireward/NPCs/lysandro_ironveil/character_seed.md`
 
 ---
 
