@@ -31,15 +31,15 @@ product_scope:
   surface: local runtime-configurable live-play surface shell
   autonomy: server-mediated live turn classification, file-backed events, background job queue
 execution_state:
-  active_slice: L2_roll_resolver_classifier
+  active_slice: L1_packet_event_job_schema
   milestone_progress:
     L0_plan_lock: complete
-    L1_packet_event_job_schema: complete
+    L1_packet_event_job_schema: in_review
     L2_roll_resolver_classifier: not_started
     L3_fastapi_query_loop: not_started
     L4_react_query_pane: not_started
   blockers: []
-  next_gate_command: "Author or dispatch the L2 roll resolver + live classifier slice against the verified L1 substrate."
+  next_gate_command: "Merge PR #72 (L1 live substrate), then author or dispatch L2 roll resolver + live classifier."
   flagged_followups:
     - "Keep current C1S1-C1S3 retrieval/autonomy demo separate; cross-link only. This sprint productizes live GM interaction and consumes retrieval packet concepts when needed."
     - "Session 22 transcript examples are the seed regression set; do not generalize to all campaigns until the pane feels good on this slice."
@@ -391,8 +391,8 @@ The demo should show:
 
 ### v1.2 — 2026-05-25
 
-- L1 live substrate landed on PR #72: schemas, Session 22 seeds, `live_store.py`, and focused tests (`7 passed`).
-- Advanced execution state to `L2_roll_resolver_classifier`.
+- PR #72 proposes the L1 live substrate: schemas, Session 22 seeds, `live_store.py`, and focused tests.
+- Advance `execution_state.active_slice` to `L2_roll_resolver_classifier` only after PR #72 merges.
 
 ### v1.1 — 2026-05-26
 
