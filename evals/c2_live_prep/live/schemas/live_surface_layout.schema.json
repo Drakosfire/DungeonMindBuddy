@@ -22,7 +22,8 @@
     },
     "updated_at": {
       "type": "string",
-      "format": "date-time"
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
     },
     "campaign_id": {
       "type": "string",
@@ -88,7 +89,29 @@
         },
         "additionalProperties": false
       },
-      "minItems": 2
+      "minItems": 2,
+      "allOf": [
+        {
+          "contains": {
+            "type": "object",
+            "required": ["module_id", "enabled"],
+            "properties": {
+              "module_id": { "const": "chat" },
+              "enabled": { "const": true }
+            }
+          }
+        },
+        {
+          "contains": {
+            "type": "object",
+            "required": ["module_id", "enabled"],
+            "properties": {
+              "module_id": { "const": "record" },
+              "enabled": { "const": true }
+            }
+          }
+        }
+      ]
     }
   },
   "additionalProperties": false

@@ -11,8 +11,7 @@
     "session",
     "session_clock",
     "event_type",
-    "latency_mode",
-    "input_text",
+    "event_origin",
     "summary",
     "derived_fields",
     "provenance",
@@ -30,7 +29,8 @@
     },
     "created_at": {
       "type": "string",
-      "format": "date-time"
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
     },
     "campaign_id": {
       "type": "string",
@@ -58,18 +58,32 @@
         "surface_config_updated"
       ]
     },
-    "latency_mode": {
+    "event_origin": {
       "type": "string",
+      "enum": [
+        "user_input",
+        "system",
+        "server"
+      ]
+    },
+    "latency_mode": {
+      "type": [
+        "string",
+        "null"
+      ],
       "enum": [
         "fast_live",
         "context_lookup",
         "prep_architect",
-        "post_session"
+        "post_session",
+        null
       ]
     },
     "input_text": {
-      "type": "string",
-      "minLength": 1
+      "type": [
+        "string",
+        "null"
+      ]
     },
     "summary": {
       "type": "string",
@@ -160,5 +174,40 @@
       }
     }
   },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "event_origin": {
+            "const": "user_input"
+          }
+        },
+        "required": [
+          "event_origin"
+        ]
+      },
+      "then": {
+        "required": [
+          "latency_mode",
+          "input_text"
+        ],
+        "properties": {
+          "latency_mode": {
+            "type": "string",
+            "enum": [
+              "fast_live",
+              "context_lookup",
+              "prep_architect",
+              "post_session"
+            ]
+          },
+          "input_text": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    }
+  ],
   "additionalProperties": false
 }

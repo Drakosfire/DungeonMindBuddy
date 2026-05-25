@@ -45,6 +45,7 @@
         "queued",
         "in_progress",
         "blocked",
+        "failed",
         "complete",
         "cancelled"
       ]
