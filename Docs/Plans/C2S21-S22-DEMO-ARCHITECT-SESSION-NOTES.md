@@ -55,11 +55,11 @@ flowchart TB
 
 | Layer | What it is | C2S21 status |
 |-------|------------|--------------|
-| **Ground truth (raw)** | Unprocessed GM notes | ✅ `Longmont Campaign/Campaign 2/_ingest_staging/session_21_raw_notes.md` |
-| **Canonical recap** | Frontmatter + de-duped play prose | ⬜ pending recap-write |
-| **Normalized** | Mechanical sibling under `_normalized/` | ⬜ |
-| **Breadcrumb** | Unit-tagged artifact under `_breadcrumbed/` | ⬜ (operator/LLM cost) |
-| **Session memory** | JSONL retrieval index | ⬜ |
+| **Ground truth (raw)** | Unprocessed GM notes | ✅ `.orig.md` preserved; staging **preprocessed** (6 paragraphs) |
+| **Canonical recap** | Frontmatter + de-duped play prose | ✅ `Session 21 - Drake Nest Mirathorn Call.md` |
+| **Normalized** | Mechanical sibling under `_normalized/` | ✅ `Session 21 - Drake Nest Mirathorn Call.md` |
+| **Breadcrumb** | Unit-tagged artifact under `_breadcrumbed/` | ✅ routing-only ingest promoted |
+| **Session memory** | JSONL retrieval index | ✅ 81 records, 79 routed (`--check` OK) |
 | **Retrieval packet** | admitted_context + gaps + rendered sections | ⬜ Phase B |
 | **Prep brief** | GM-facing S22 plan + proof ledger | ⬜ Phase B |
 
@@ -82,32 +82,82 @@ flowchart TB
 
 **Learning L0b — raw artifact shape differs from S20:** S21 source uses numbered lines (`1. …`, `2. …`) with single newlines, not blank-line-separated paragraphs. `recap_ingest_helpers.assemble_recap` paragraph splitting will matter — watch duplicate detection and paragraph boundaries in Step 1 preview.
 
-### Step 1 — Recap-write preview (pending)
+### Step 0.5 — Mechanical preprocess (2026-05-23)
 
-Optional pre-step: run **ingest-hints-sidecar** (`.cursor/skills/ingest-hints-sidecar/SKILL.md`) to emit review-only `_ingest_staging/session_21_raw_notes.ingest_hints.json`. Not wired into recap-write in v1 — operator reviews hints before recap-write uses them as seeds.
+**Action:** Deterministic numbered-list layout repair per §9.8 (no LLM, prose unchanged).
 
-*(Fill after mechanical preprocess → `get_recap_context` → shape survey → `assemble_recap_draft` → `write_corpus_file` dry_run.)*
+| Field | Value |
+|-------|--------|
+| Lineage | `session_21_raw_notes.orig.md` (immutable numbered transcript) |
+| Output | `session_21_raw_notes.md` — `Session 21 Recap` title + 6 `\n\n`-separated paragraphs |
+| Profile | `numbered_list_v1` |
+| `assemble_recap` check | `paragraph_count_in=6`, `title_stripped=true` |
 
-### Step 2 — GM apply + commit (pending)
+**Next gate:** recap-write preview (`get_recap_context` → shape survey → `assemble_recap_draft` → `write_corpus_file` dry_run).
 
-### Step 3 — Normalize (pending)
+### Step 1 — Recap-write preview (2026-05-23)
 
-```bash
-uv run python scripts/materialize_normalized_recaps.py
-```
+**Action:** `get_recap_context` → shape survey (S18–S20) → `assemble_recap_draft` → `write_corpus_file` dry_run.
 
-### Step 4 — Breadcrumb (pending)
+| Field | Value |
+|-------|--------|
+| Target path | `Session Recaps/Session 21 - Drake Nest Mirathorn Call.md` |
+| `prep_doc_path` | `null` (no `session_21_*.md`) |
+| Paragraphs | 6 in / 6 out; 0 duplicates removed |
+| Preview artifact | `evals/session_recap_ingest_vertical_slice/artifacts/c2s21_recap_write_preview.json` |
+| Status | **Committed** (8172 bytes) |
 
-### Step 5 — Session memory (pending)
+### Step 2 — GM apply + commit (2026-05-23)
+
+**Action:** `write_corpus_file` commit with `confirm_token=2c5125652f309f78126f8cbe430e5495`.
+
+| Field | Value |
+|-------|--------|
+| Path | `Longmont Campaign/Campaign 2/Session Recaps/Session 21 - Drake Nest Mirathorn Call.md` |
+| Corpus fingerprint | `b4b39ef54b7ee9f548c491f9fdeff03e` (update lysandra step0 gold if committing corpus) |
+
+### Step 3 — Normalize (2026-05-23)
+
+**Action:** `materialize_normalized_recaps` logic for S21 only (descriptive slug from title tail — no `_SLUGS` entry needed).
+
+| Field | Value |
+|-------|--------|
+| Path | `_normalized/Session 21 - Drake Nest Mirathorn Call.md` |
+
+### Step 4 — Breadcrumb (2026-05-23)
+
+**Action:** routing-only LLM ingest (`breadcrumb_query_run --ingest-routing-only`) + promote to corpus.
+
+| Field | Value |
+|-------|--------|
+| Frontmatter seed | `manual_labels/Session 21 - Drake Nest Mirathorn Call.normalized.breadcrumbed.frontmatter_seed.md` |
+| Seed provenance | **Hand-authored** (adapted S20) — not registry/sidecar-generated; see L3 / `Backlog.md` |
+| Staging artifact | `artifacts/runs/2026-05-23/c2s21_routing.breadcrumbed.md` |
+| Corpus path | `_breadcrumbed/Session 21 - Drake Nest Mirathorn Call.breadcrumbed.md` |
+| Routed records | 77 non-meta at ingest; 79 routes in normalize pass |
+
+### Step 5 — Session memory (2026-05-23)
 
 ```bash
 uv run python scripts/materialize_session_memory.py --campaign 2 --session 21
 uv run python scripts/materialize_session_memory.py --campaign 2 --session 21 --check
 ```
 
-### Step 6 — Phase B retrieval dogfood (pending)
+| Field | Value |
+|-------|--------|
+| JSONL | `_session_memory/Session 21 - Drake Nest Mirathorn Call.records_meta.jsonl` |
+| Records | **81** (79 with routes) |
+| `--check` | **OK** |
 
-### Step 7 — Session 22 prep brief (pending)
+### Step 6 — Phase B retrieval dogfood
+
+**Smoke (2026-05-23):** `evals/c2_live_prep/artifacts/runs/2026-05-23/` — 5 questions, S20+S21 pool.
+
+**Planning hub:** `Session Prep/session_22/README.md` · **Prep brief (P2):** `session_22/session_22_prep_brief.md`
+
+### Step 7 — Session 22 prep brief
+
+**Status:** ready (2026-05-23). Run at table; close-out per P2 §11 after play.
 
 ---
 
@@ -126,7 +176,8 @@ Track per step. Expand as we execute.
 | D4 | Strip leading title / split paragraphs | `assemble_recap_draft` |
 | D5 | Duplicate paragraph detection | Same helper |
 | D6 | Two-phase preview diff | `write_corpus_file` dry_run |
-| D7 | Normalize → breadcrumb → session memory | Scripts (post-commit) |
+| D7 | Normalize → session memory (given seed) | Scripts (post-commit) |
+| D7-gap | **Frontmatter seed / `entity_index`** | **Not automated** — manual or copy-adapt prior session; blocks fully deterministic Phase A |
 
 ### Judgment (human or LLM must choose)
 
@@ -153,6 +204,7 @@ Items surfaced during this exercise that should inform a cleaner orchestrator (n
 | R3 | Phase B has no `c2_prep_retrieval_packet.py` yet | HANDOFF §5.3 scratch wrapper → permanent CLI (manual §13 slice 1) |
 | R4 | C2S1–S19 recaps exist but no session memory | Bulk materialization is optional depth; document tradeoff in every prep run |
 | R6 | Numbered-list raw notes ( `1. …` / `2. …` ) collapse to one paragraph in `assemble_recap` | Extend `split_paragraphs_robust` or ingest pre-processor for numbered GM transcripts |
+| R7 | **Frontmatter seed is hand-authored today** — routing-only breadcrumb only tags within a manual `entity_index` allowlist | **Automated seed compiler** (registry/hub scan + optional ingest-hints sidecar); see `Backlog.md` `[READY] Ingest — automated breadcrumb frontmatter seed` |
 
 ---
 
@@ -164,6 +216,7 @@ Items surfaced during this exercise that should inform a cleaner orchestrator (n
 | L0b | Numbered single-newline paragraphs — verify `assemble_recap` split behavior | 0 |
 | L1 | **`assemble_recap` collapses C2S21 raw to 1 paragraph** — numbered lines (`2. They…`) don't trigger `split_paragraphs_robust`; embedded title on line 1 not stripped | 0 (empirical) |
 | L2 | **Mechanical preprocess** (title line + strip `N.` + blank-line join) → 6 paragraphs; `title_stripped: true` — matches S20 ingest shape | preprocess design |
+| L3 | **Frontmatter seed has no generator** — `copy_frontmatter_seed` only patches `source_recap_path`; S21 seed was hand-adapted from S20 (bootstrap, not pipeline). **Prioritize** automated seed: registry/hub skeleton + ingest-hints compiler (`Backlog.md` READY) | breadcrumb Step 4 |
 
 *(Append one row per learning as we go.)*
 
@@ -419,10 +472,12 @@ Empirical: S21 → **6 paragraphs**, `title_stripped: true` — ready for `assem
 | Stage | Status | Blocker |
 |-------|--------|---------|
 | 0 Raw staging | ✅ Done | — |
-| 1–5 Recap-write | ⬜ Pending | Paragraph split behavior (L1); GM notes paste not required (on disk) |
-| 6 Normalize | ⬜ | Needs committed recap + likely `_SLUGS` entry for S21 |
-| 7 Breadcrumb | ⬜ | Operator/LLM step |
-| 8 Session memory | ⬜ | Needs breadcrumb |
+| 0.5 Mechanical preprocess | ✅ Done | `numbered_list_v1`; 6 paragraphs verified |
+| 1–5 Recap-write | ✅ Done | Committed canonical recap |
+| 6 Normalize | ✅ Done | Slug from title tail |
+| 7 Breadcrumb | ✅ Done | routing-only LLM ingest |
+| 8 Session memory | ✅ Done | `--check` OK (81 records) |
+| Phase B prep | ⬜ **Next** | PR58–67 retrieval dogfood |
 
 **Prep drafts (context only, not ingest input):**
 

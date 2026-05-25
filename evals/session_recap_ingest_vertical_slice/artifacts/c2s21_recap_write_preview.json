@@ -1,0 +1,79 @@
+{
+  "recap_path": "Longmont Campaign/Campaign 2/Session Recaps/Session 21 - Drake Nest Mirathorn Call.md",
+  "title": "Session 21 - Drake Nest Mirathorn Call",
+  "confirm_token": "2c5125652f309f78126f8cbe430e5495",
+  "context": {
+    "campaign_id": "longmont-c2",
+    "target_session": 21,
+    "prep_doc_path": null,
+    "recent_recaps": [
+      "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md",
+      "Longmont Campaign/Campaign 2/Session Recaps/Session 19 - Recap.md",
+      "Longmont Campaign/Campaign 2/Session Recaps/Session 18 - Recap.md"
+    ]
+  },
+  "ingest_report": {
+    "paragraph_count_in": 6,
+    "paragraph_count_out": 6,
+    "title_line_stripped": true,
+    "duplicates_removed": 0
+  },
+  "recap_write_followups": {
+    "duplicate_paragraphs": [],
+    "npc_audit": {
+      "timeline_append_candidates": [
+        {
+          "slug": "lysandra",
+          "reason": "Mirathorn call failure; emotional beat with Caelynn; city may be in trouble"
+        },
+        {
+          "slug": "frank",
+          "reason": "Hung-over festival contact; hung up on Caelynn \u2014 first named Frank appearance?"
+        }
+      ],
+      "new_hub_proposals": [
+        {
+          "name": "Frank",
+          "reason": "Mirathorn operator contact; city-side festival resumed"
+        }
+      ],
+      "dismissed": [
+        {
+          "name": "Sara",
+          "reason": "Not mentioned in S21 notes (prior sessions only)"
+        }
+      ]
+    },
+    "plot_artifacts": [
+      {
+        "name": "Boots of Striding (Crowing Wings)",
+        "summary": "Bonogo loot from drake nest human remains",
+        "candidate_paths": [
+          "Plot Artifacts/",
+          "PC equipment notes"
+        ]
+      },
+      {
+        "name": "Metal slab with buttons",
+        "summary": "Found in drake nest; unidentified tech",
+        "candidate_paths": [
+          "Plot Artifacts/",
+          "Items/"
+        ]
+      },
+      {
+        "name": "Strangely flat rock",
+        "summary": "Ephanna collected on watch",
+        "candidate_paths": [
+          "Plot Artifacts/"
+        ]
+      }
+    ],
+    "prep_pointer_proposal": null,
+    "notes_for_gm": [
+      "Spelling variants in raw notes: Karsemine/Karemine; signing vs rhyming in para 1 may be GM typo for 'singing'.",
+      "End-of-session fork: press on to swamp vs return to Mirathorn \u2014 S22 prep hook.",
+      "Canonical filename uses descriptive slug; S19-S20 canonical files still generic 'Recap' \u2014 normalize may need _SLUGS entry."
+    ]
+  }
+}

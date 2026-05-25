@@ -298,7 +298,7 @@ the following in one edit batch:
 
 #### Checklist (`Docs/Plans/CHECKLIST-*.md`)
 
-- *Reanchor block*: `Last green artifact (path)`, `Current blocking red gate`,
+- *Reanchor block*: `Last green artifact (path)`, `Open promotion-decision artifact` (or equivalent: distinguish measurement/promotion artifacts from failing committed `--check` gates),
   `Next command to run`.
 - *Phase Evidence*: file list, test counts, command outputs from §7.
 - *Session log*: prepend a new entry. Use

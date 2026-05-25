@@ -11,6 +11,14 @@ Sort newest → oldest within each status.
 
 ## DONE
 
+## [DONE] Mirathorn — day-by-day timeline + comms while party away — completed 2026-05-23
+
+**Context:** Party northbound after S21; rockie-talkie beats needed backing for Session 22 travel and turnaround prep. Original stub `Mirathorn — While You Were Away.md` (2026-04-23).
+**Insight:** Delivered as **multi-file layer** not one § Timeline table: comms index, T-COMMS d100, dual-front arc lock, Sara hub rows, session_22 register — see dogfood entry `Prep flow — capture arc vision`.
+**Action:** *(completed)* `Mirathorn — rockie-talkie comms timeline.md`, `travel_mirathorn_comms_d100.md`, `Campaign 2 — Dual Front Shepherd Arc (GM planning).md`, updated While You Were Away + knobs.
+**Surfaces when:** *(archived — use arc doc + comms timeline for ongoing prep)*
+**Refs:** `Mirathorn — While You Were Away.md`, `Mirathorn — rockie-talkie comms timeline.md`, `Campaign 2 — Dual Front Shepherd Arc (GM planning).md`
+
 ## [DONE] Backlog hygiene — migrate dynamic lexical rollout tracking to checklist — completed 2026-05-08
 
 **Closure (2026-05-08):** Moved rollout-tracking items from `Backlog.md` into the dedicated operational tracker `Docs/Plans/CHECKLIST-dynamic-lexical-retrieval-rollout.md` to avoid duplicate planning surfaces.

@@ -1,0 +1,389 @@
+{
+  "meta": {
+    "run_date": "2026-05-23",
+    "record_count": 170,
+    "sources": [
+      "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 20 - Gnat Swarm Marla Lysandra.records_meta.jsonl",
+      "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 21 - Drake Nest Mirathorn Call.records_meta.jsonl"
+    ],
+    "questions": [
+      "active_npcs_thrin_lysandra",
+      "mirathorn_turnaround",
+      "travel_north_mireward",
+      "raucous_saints_dustwalker",
+      "boots_crowing_wings"
+    ]
+  },
+  "summaries": [
+    {
+      "question_id": "active_npcs_thrin_lysandra",
+      "question": "For Session 22 prep: which beats matter for Thrin Branchbound (keep him in foreground) and Captain Lysandra Ironveil (weird week, Mirathorn comms, Caelynn bond)?",
+      "candidate_count": 49,
+      "admitted_count": 48,
+      "lane_id": null,
+      "admission_diagnostics": {
+        "first_admitted_match": null,
+        "first_raw_match": null,
+        "failure_stage": null,
+        "miss_root_cause": null
+      },
+      "admitted_top": [
+        {
+          "unit_id": "u-L0017-04",
+          "session_number": 20,
+          "route": null,
+          "snippet": "She tells Caelynn that all she could hear was mumbling about the forest leaving and that something strange happened to the time.",
+          "source_path": null
+        },
+        {
+          "unit_id": "u-L0017-03",
+          "session_number": 20,
+          "route": null,
+          "snippet": "Caelynn relays her request and Sara calls Lysandra.",
+          "source_path": null
+        },
+        {
+          "unit_id": "u-L0017-05",
+          "session_number": 20,
+          "route": null,
+          "snippet": "Sara then connects Caelynn directly to Lysandra who is relieved and overjoyed that the group is ok and that they took care of the forest.",
+          "source_path": null
+        },
+        {
+          "unit_id": "u-L0017-07",
+          "session_number": 20,
+          "route": null,
+          "snippet": "Lysandra tells her that she can't remember much after the group left, only that she decided to go around the forest and she could smell meat while trying to sleep.",
+          "source_path": null
+        },
+        {
+          "unit_id": "u-L0021-07",
+          "session_number": 20,
+          "route": null,
+          "snippet": "Caelynn calls Sara to tell her the good news about Lysandra, and bad news about the tainted meat.",
+          "source_path": null
+        },
+        {
+          "unit_id": "u-L0017-06",
+          "session_number": 20,
+          "route": null,
+          "snippet": "Caelynn wants to know if she is ok and where she is.",
+          "source_path": null
+        },
+        {
+          "unit_id": "u-L0019-07",
+          "session_number": 20,
+          "route": null,
+          "snippet": "The first thing Caelynn notices about Lysandra is that her eyes are shimmery, just like the members of the cult.",
+          "source_path": null
+        },
+        {
+          "unit_id": "u-L0005-08",
+          "session_number": 21,
+          "route": null,
+          "snippet": "After conferring with Lysandra, they determine that they are 3 days from Mirathorn and the next little town north along the road will be Mireward, about 5 days out.",
+          "source_path": null
+        }
+      ],
+      "source_derived_context_gaps": [],
+      "rendered_sections": [],
+      "rendered_text_excerpt": "# Planning Question\n\nFor Session 22 prep: which beats matter for Thrin Branchbound (keep him in foreground) and Captain Lysandra Ironveil (weird week, Mirathorn comms, Caelynn bond)?\n\n# Retrieval and Authority Summary\n\n- Retrieval mode: prior_only\n- Admission policy: lane_budgeted_v1\n- Grading context: admitted_context\n- Support knowledge allowed: no\n- Oracle material allowed: no\n- Candidate depth: 50\n- Admitted context items: 48\n- Estimated rendered tokens: 1821\n\n# Known Gaps and Safety Constraints\n\n- (none)\n\n# Support / Adaptation Context\n\n- (none)\n\n# Prior Campaign Memory\n\n- [u-L0017-04] She tells Caelynn that all she could hear was mumbling about the forest leaving and that something strange happened to the time.\n- [u-L0017-03] Caelynn relays her request and Sara calls Lysandra.\n- [u-L0017-05] Sara then connects Caelynn directly to Lysandra who is relieved and overjoyed that the group is ok and that they took care of the forest.\n- [u-L0017-07] Lysandra tells her that she can't remember much after the group left, only that she decided to go around the forest and she could smell meat while trying to sleep.\n- [u-L0021-07] Caelynn calls Sara to tell her the good news about Lysandra"
+    },
+    {
+      "question_id": "mirathorn_turnaround",
+      "question": "If the party turns back toward Mirathorn or calls again, what happened there and what open threads must we honor from Sessions 20–21?",
+      "candidate_count": 46,
+      "admitted_count": 46,
+      "lane_id": null,
+      "admission_diagnostics": {
+        "first_admitted_match": null,
+        "first_raw_match": null,
+        "failure_stage": null,
+        "miss_root_cause": null
+      },
+      "admitted_top": [
+        {
+          "unit_id": "meta-session-0020-open-loops",
+          "session_number": 20,
+          "route": null,
+          "snippet": "session unresolved open questions loops open loops actionable follow up next session half_burned_warehouse Should the half-burned warehouse be promoted as a Mossford location dossier, or folded into an existing Mossford district dossier suc",
+          "source_path": null
+        },
+        {
+          "unit_id": "meta-session-0020-locations",
+          "session_number": 20,
+          "route": null,
+          "snippet": "session locations location places place setting map mirathorn elderwyld cities and towns cities and towns mossford migrating_forest migrating forest migrating forest stormspire_academy stormspire academy stormspire academy half_burned_wareh",
+          "source_path": null
+        },
+        {
+          "unit_id": "meta-session-0021-locations",
+          "session_number": 21,
+          "route": null,
+          "snippet": "session locations location places place setting map mirathorn elderwyld cities and towns cities and towns mossford young_drake_nest_hill Major session set-piece: iridescent young drake nest bowl with elder drakes and loot. unknown sites unk",
+          "source_path": null
+        },
+        {
+          "unit_id": "meta-session-0021-open-loops",
+          "session_number": 21,
+          "route": null,
+          "snippet": "session unresolved open questions loops open loops actionable follow up next session mirathorn_festival_resumed Mirathorn resumed the Festival; Frank hung up; Lysandra cannot get through — is the city compromised or merely distracted? elder",
+          "source_path": null
+        },
+        {
+          "unit_id": "u-L0003-12",
+          "session_number": 21,
+          "route": null,
+          "snippet": "He warns the group about rumors coming from a town to the north about cultists using music to convert others.",
+          "source_path": null
+        },
+        {
+          "unit_id": "u-L0003-14",
+          "session_number": 21,
+          "route": null,
+          "snippet": "They warn the sheriff about tainted meat and Karsemine uses her Thaumaturgy to show them what to look for when people begin to change.",
+          "source_path": null
+        },
+        {
+          "unit_id": "u-L0005-08",
+          "session_number": 21,
+          "route": null,
+          "snippet": "After conferring with Lysandra, they determine that they are 3 days from Mirathorn and the next little town north along the road will be Mireward, about 5 days out.",
+          "source_path": null
+        },
+        {
+          "unit_id": "u-L0015-05",
+          "session_number": 20,
+          "route": null,
+          "snippet": "The mayor and sheriff congratulate the heroes and thank them again for all their help.",
+          "source_path": null
+        }
+      ],
+      "source_derived_context_gaps": [],
+      "rendered_sections": [],
+      "rendered_text_excerpt": "# Planning Question\n\nIf the party turns back toward Mirathorn or calls again, what happened there and what open threads must we honor from Sessions 20–21?\n\n# Retrieval and Authority Summary\n\n- Retrieval mode: prior_only\n- Admission policy: lane_budgeted_v1\n- Grading context: admitted_context\n- Support knowledge allowed: no\n- Oracle material allowed: no\n- Candidate depth: 50\n- Admitted context items: 46\n- Estimated rendered tokens: 1779\n\n# Known Gaps and Safety Constraints\n\n- (none)\n\n# Support / Adaptation Context\n\n- (none)\n\n# Prior Campaign Memory\n\n- [meta-session-0020-open-loops] session unresolved open questions loops open loops actionable follow up next session half_burned_warehouse Should the half-burned warehouse be promoted as a Mossford location dossier, or folded into an existing Mossford district dossier such as Dense Worker Housing? elderwyld cities and towns cities and towns mossford location dossiers mossford location dossiers half burned warehouse half burned warehouse professor_merril_tealeaf Should Professor Tealeaf receive a dedicated NPC hub under Stormsp\n- [meta-session-0020-locations] session locations location places place setting map mirathorn elderwyld cities "
+    },
+    {
+      "question_id": "travel_north_mireward",
+      "question": "Moving forward on the Mireward Reach: what is the next town, how far away, storm pressure, and what travel encounter tables apply?",
+      "candidate_count": 50,
+      "admitted_count": 27,
+      "lane_id": null,
+      "admission_diagnostics": {
+        "first_admitted_match": null,
+        "first_raw_match": null,
+        "failure_stage": null,
+        "miss_root_cause": null
+      },
+      "admitted_top": [
+        {
+          "unit_id": "meta-session-0020-open-loops",
+          "session_number": 20,
+          "route": null,
+          "snippet": "session unresolved open questions loops open loops actionable follow up next session half_burned_warehouse Should the half-burned warehouse be promoted as a Mossford location dossier, or folded into an existing Mossford district dossier suc",
+          "source_path": null
+        },
+        {
+          "unit_id": "meta-session-0021-locations",
+          "session_number": 21,
+          "route": null,
+          "snippet": "session locations location places place setting map mirathorn elderwyld cities and towns cities and towns mossford young_drake_nest_hill Major session set-piece: iridescent young drake nest bowl with elder drakes and loot. unknown sites unk",
+          "source_path": null
+        },
+        {
+          "unit_id": "u-L0005-08",
+          "session_number": 21,
+          "route": null,
+          "snippet": "After conferring with Lysandra, they determine that they are 3 days from Mirathorn and the next little town north along the road will be Mireward, about 5 days out.",
+          "source_path": null
+        },
+        {
+          "unit_id": "meta-session-0020-locations",
+          "session_number": 20,
+          "route": null,
+          "snippet": "session locations location places place setting map mirathorn elderwyld cities and towns cities and towns mossford migrating_forest migrating forest migrating forest stormspire_academy stormspire academy stormspire academy half_burned_wareh",
+          "source_path": null
+        },
+        {
+          "unit_id": "meta-session-0021-open-loops",
+          "session_number": 21,
+          "route": null,
+          "snippet": "session unresolved open questions loops open loops actionable follow up next session mirathorn_festival_resumed Mirathorn resumed the Festival; Frank hung up; Lysandra cannot get through — is the city compromised or merely distracted? elder",
+          "source_path": null
+        },
+        {
+          "unit_id": "u-L0005-06",
+          "session_number": 21,
+          "route": null,
+          "snippet": "They leave the wagon and the animals at the bottom and make their way up until they reach a giant bowl of water surrounded by a grove of trees.",
+          "source_path": null
+        },
+        {
+          "unit_id": "u-L0005-07",
+          "session_number": 21,
+          "route": null,
+          "snippet": "From this position they can see out along the plains for a fairly long distance.",
+          "source_path": null
+        },
+        {
+          "unit_id": "u-L0015-06",
+          "session_number": 20,
+          "route": null,
+          "snippet": "Marla approaches Caelynn and asks her how she should deal with Bonogo, but Ephanna quickly intervenes, letting her, and the town, know that the Questionable Company is leaving town to continue their journey.",
+          "source_path": null
+        }
+      ],
+      "source_derived_context_gaps": [],
+      "rendered_sections": [],
+      "rendered_text_excerpt": "# Planning Question\n\nMoving forward on the Mireward Reach: what is the next town, how far away, storm pressure, and what travel encounter tables apply?\n\n# Retrieval and Authority Summary\n\n- Retrieval mode: prior_only\n- Admission policy: lane_budgeted_v1\n- Grading context: admitted_context\n- Support knowledge allowed: no\n- Oracle material allowed: no\n- Candidate depth: 50\n- Admitted context items: 27\n- Estimated rendered tokens: 1257\n\n# Known Gaps and Safety Constraints\n\n- (none)\n\n# Support / Adaptation Context\n\n- (none)\n\n# Prior Campaign Memory\n\n- [meta-session-0020-open-loops] session unresolved open questions loops open loops actionable follow up next session half_burned_warehouse Should the half-burned warehouse be promoted as a Mossford location dossier, or folded into an existing Mossford district dossier such as Dense Worker Housing? elderwyld cities and towns cities and towns mossford location dossiers mossford location dossiers half burned warehouse half burned warehouse professor_merril_tealeaf Should Professor Tealeaf receive a dedicated NPC hub under Stormsp\n- [meta-session-0021-locations] session locations location places place setting map mirathorn elderwyld cities and"
+    },
+    {
+      "question_id": "raucous_saints_dustwalker",
+      "question": "Celtic punk band / organized music north toward the swamp — Raucous Saints vs Dustwalker rumors from Mossford and Session 21?",
+      "candidate_count": 50,
+      "admitted_count": 47,
+      "lane_id": null,
+      "admission_diagnostics": {
+        "first_admitted_match": null,
+        "first_raw_match": null,
+        "failure_stage": null,
+        "miss_root_cause": null
+      },
+      "admitted_top": [
+        {
+          "unit_id": "meta-session-0021-locations",
+          "session_number": 21,
+          "route": null,
+          "snippet": "session locations location places place setting map mirathorn elderwyld cities and towns cities and towns mossford young_drake_nest_hill Major session set-piece: iridescent young drake nest bowl with elder drakes and loot. unknown sites unk",
+          "source_path": null
+        },
+        {
+          "unit_id": "u-L0003-12",
+          "session_number": 21,
+          "route": null,
+          "snippet": "He warns the group about rumors coming from a town to the north about cultists using music to convert others.",
+          "source_path": null
+        },
+        {
+          "unit_id": "meta-session-0020-open-loops",
+          "session_number": 20,
+          "route": null,
+          "snippet": "session unresolved open questions loops open loops actionable follow up next session half_burned_warehouse Should the half-burned warehouse be promoted as a Mossford location dossier, or folded into an existing Mossford district dossier suc",
+          "source_path": null
+        },
+        {
+          "unit_id": "meta-session-0020-locations",
+          "session_number": 20,
+          "route": null,
+          "snippet": "session locations location places place setting map mirathorn elderwyld cities and towns cities and towns mossford migrating_forest migrating forest migrating forest stormspire_academy stormspire academy stormspire academy half_burned_wareh",
+          "source_path": null
+        },
+        {
+          "unit_id": "u-L0003-04",
+          "session_number": 21,
+          "route": null,
+          "snippet": "They plan to head back up the main road through town and continue north.",
+          "source_path": null
+        },
+        {
+          "unit_id": "u-L0003-05",
+          "session_number": 21,
+          "route": null,
+          "snippet": "This will give them a chance to warn the Mossford of the approaching storm and gather any supplies they might need.",
+          "source_path": null
+        },
+        {
+          "unit_id": "u-L0011-01",
+          "session_number": 21,
+          "route": null,
+          "snippet": "Stafl is on first watch, with little happening, until the sky darkens further and he can just make out a huge swarm of wings.",
+          "source_path": null
+        },
+        {
+          "unit_id": "u-L0015-03",
+          "session_number": 20,
+          "route": null,
+          "snippet": "Immediately they can all see the trees pull back and then start to turn to the east, away from the town.",
+          "source_path": null
+        }
+      ],
+      "source_derived_context_gaps": [],
+      "rendered_sections": [],
+      "rendered_text_excerpt": "# Planning Question\n\nCeltic punk band / organized music north toward the swamp — Raucous Saints vs Dustwalker rumors from Mossford and Session 21?\n\n# Retrieval and Authority Summary\n\n- Retrieval mode: prior_only\n- Admission policy: lane_budgeted_v1\n- Grading context: admitted_context\n- Support knowledge allowed: no\n- Oracle material allowed: no\n- Candidate depth: 50\n- Admitted context items: 47\n- Estimated rendered tokens: 1829\n\n# Known Gaps and Safety Constraints\n\n- (none)\n\n# Support / Adaptation Context\n\n- (none)\n\n# Prior Campaign Memory\n\n- [meta-session-0021-locations] session locations location places place setting map mirathorn elderwyld cities and towns cities and towns mossford young_drake_nest_hill Major session set-piece: iridescent young drake nest bowl with elder drakes and loot. unknown sites unknown sites young drake nest hill young drake nest hill edge_of_the_world Sheriff rumor destination for cultist music conversion; named northbound town. edge of the world edge of the world mireward Named next town north on the road (~5 days out per Lysandra).\n- [u-L0003-12] He warns the group about rumors coming from a town to the north about cultists using music to convert other"
+    },
+    {
+      "question_id": "boots_crowing_wings",
+      "question": "Boots of Crowing Wings from the geomantic drake nest — what does the table know and what mechanics or loot notes exist?",
+      "candidate_count": 49,
+      "admitted_count": 47,
+      "lane_id": null,
+      "admission_diagnostics": {
+        "first_admitted_match": null,
+        "first_raw_match": null,
+        "failure_stage": null,
+        "miss_root_cause": null
+      },
+      "admitted_top": [
+        {
+          "unit_id": "meta-session-0021-locations",
+          "session_number": 21,
+          "route": null,
+          "snippet": "session locations location places place setting map mirathorn elderwyld cities and towns cities and towns mossford young_drake_nest_hill Major session set-piece: iridescent young drake nest bowl with elder drakes and loot. unknown sites unk",
+          "source_path": null
+        },
+        {
+          "unit_id": "u-L0009-07",
+          "session_number": 21,
+          "route": null,
+          "snippet": "He is able to find a few valuable things right away: a metal slab with buttons and a pair of beat-up old boots.",
+          "source_path": null
+        },
+        {
+          "unit_id": "meta-session-0020-open-loops",
+          "session_number": 20,
+          "route": null,
+          "snippet": "session unresolved open questions loops open loops actionable follow up next session half_burned_warehouse Should the half-burned warehouse be promoted as a Mossford location dossier, or folded into an existing Mossford district dossier suc",
+          "source_path": null
+        },
+        {
+          "unit_id": "u-L0009-09",
+          "session_number": 21,
+          "route": null,
+          "snippet": "He is disappointed in the loot until he tries on the boots and discovers that they are the Boots of Crowing Wings.",
+          "source_path": null
+        },
+        {
+          "unit_id": "u-L0003-12",
+          "session_number": 21,
+          "route": null,
+          "snippet": "He warns the group about rumors coming from a town to the north about cultists using music to convert others.",
+          "source_path": null
+        },
+        {
+          "unit_id": "u-L0003-13",
+          "session_number": 21,
+          "route": null,
+          "snippet": "The town, called Edge of the World, is about a one week trip to reach.",
+          "source_path": null
+        },
+        {
+          "unit_id": "u-L0009-01",
+          "session_number": 21,
+          "route": null,
+          "snippet": "As the group spends the next few minutes deciding what to do next, the majority want to leave right away, suddenly a large group of the reptiles fly up and away.",
+          "source_path": null
+        },
+        {
+          "unit_id": "u-L0009-03",
+          "session_number": 21,
+          "route": null,
+          "snippet": "Based on their size five of these would be a tough battle for the group, so it doesn't look good if they are caught fighting the whole nest.",
+          "source_path": null
+        }
+      ],
+      "source_derived_context_gaps": [],
+      "rendered_sections": [],
+      "rendered_text_excerpt": "# Planning Question\n\nBoots of Crowing Wings from the geomantic drake nest — what does the table know and what mechanics or loot notes exist?\n\n# Retrieval and Authority Summary\n\n- Retrieval mode: prior_only\n- Admission policy: lane_budgeted_v1\n- Grading context: admitted_context\n- Support knowledge allowed: no\n- Oracle material allowed: no\n- Candidate depth: 50\n- Admitted context items: 47\n- Estimated rendered tokens: 1830\n\n# Known Gaps and Safety Constraints\n\n- (none)\n\n# Support / Adaptation Context\n\n- (none)\n\n# Prior Campaign Memory\n\n- [meta-session-0021-locations] session locations location places place setting map mirathorn elderwyld cities and towns cities and towns mossford young_drake_nest_hill Major session set-piece: iridescent young drake nest bowl with elder drakes and loot. unknown sites unknown sites young drake nest hill young drake nest hill edge_of_the_world Sheriff rumor destination for cultist music conversion; named northbound town. edge of the world edge of the world mireward Named next town north on the road (~5 days out per Lysandra).\n- [u-L0009-07] He is able to find a few valuable things right away: a metal slab with buttons and a pair of beat-up old boots.\n-"
+    }
+  ]
+}

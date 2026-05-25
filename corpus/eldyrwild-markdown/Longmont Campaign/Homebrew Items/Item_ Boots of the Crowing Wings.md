@@ -1,50 +1,85 @@
 ---
-title: "Item  Boots of the Crowing Wings"
+title: "Item — Boots of the Crowing Wings"
 document_class: reference
 canon_layer: campaign
 campaign_id: longmont-c2
 temporal_scope: evergreen
 session: null
-origin_session: null
+origin_session: 21
 last_updated_session: 21
 source_class: ledger_or_dossier
+subject_class: item
+subject_doc_kind: item_card
+table_note: "Mechanical truth synced to Bonogo's printed player card (CardGenerator, 2026-05-23). Card text is table-facing authority."
 ---
 
-### Item: Boots of the Crowing Wings
+# Boots of the Crowing Wings
 
-“They strut before they fly. Honestly, that's the warning.”
+*Wondrous item, boots · 2 lbs*
 
-**Type**: Wondrous item, Boots (Uncommon, requires attunement)
+## Printed card text (table authority)
 
-### Appearance
+**Flavor:** *Pulled 'em off a dead man's feet in a geomantic drake pit — still smell like lizard and bad decisions. Gold's mostly gone, but the feathers? Those stayed fancy.*
 
-A pair of soft, well-worn travelling boots in cracked tan leather. The seams and cuffs are stitched with **gold filigree shaped into small, silly chicken wings** — wings mid-flap, wings folded tight to the body, one wing scratched in profile like a barnyard scratch-mark. Most of the gilt has flaked away in the drake nest, leaving scuffed leather with only a few stubborn glints to suggest what they once were. The right boot's tongue carries a tiny embroidered comb; the left boot's heel has three claw-tally lines.
+**Brass-gold feather — Crowing double jump (1/short rest)**  
+A normal jump action. **Jump and Crow** to activate.
 
-When activated, the surviving filigree **shimmers like sunlit feathers** and the boots emit a single, dignity-free **chicken cluck** at takeoff.
+**Crow-violet feather — Crowing flight (1/short rest)**  
+Flight for your **full move**. **Flap wings** to activate/sustain.
 
-### Abilities
+**Epigraph:** *They strut before they fly. Honestly, that's the warning.*
 
-**Boots of the Crowing Wings** (Reskinned **Winged Boots**, DMG):
+**Value:** 250 gp
 
-While you wear these boots, you have a **flying speed equal to your walking speed**. You can use the boots to fly for up to **4 hours, all at once or in several shorter flights**, each one using a minimum of 1 minute from the duration. If you are flying when the duration expires, you descend at a rate of 30 feet per round until you land.
+---
 
-The boots **regain 2 hours of flying capability for every 12 hours they aren't in use**.
+## Statblock (GM reference)
 
-### Quirks (flavour, no mechanical penalty unless the table wants it)
+| | |
+|---|---|
+| **Rarity** | Uncommon |
+| **Category** | Wondrous item (boots) |
+| **Weight** | 2 lb. |
+| **Value** | 250 gp |
+| **Recharge** | Each feather property recharges on **short or long rest** |
 
-- **The Cluck of Commitment**: Each time the wearer takes off, the boots emit one clear, audible chicken cluck. It does not echo; it does not carry; it does not give a Stealth penalty by itself, but it will absolutely be heard by anyone within 30 feet who is paying attention.
-- **The Strut**: The wearer takes one obvious, unbidden chicken-strut step before lift-off. Roleplay it. No mechanical effect.
-- **Roost behaviour**: When stowed for the night near a fire, the boots have a tendency to end up sitting **toe-up, side by side, beak-style**. No one has ever seen them move on their own. Probably.
+### Feather charges
 
-### Roleplaying and Utility
+| Feather | Color | Property | Recharge |
+|---------|-------|----------|----------|
+| **Jump** | Brass-gold | Crowing double jump | 1/short rest |
+| **Flight** | Crow-violet (iridescent) | Crowing flight | 1/short rest |
 
-**Bonogo's prize**: Looted unidentified from the geomantic drake nest as part of his **double haul** (see `Longmont Campaign/Campaign 2/PCs/bonogo/loot_geomantic_drake_nest.md`). Until someone investigates them they're "beat-up boots with a little gold left." Once identified, they're a **clean flight tool** that fits Bonogo's "send me up there" instincts.
+### Crowing double jump (1/short rest)
 
-**Tone**: These boots are **silly, but they work**. Don't punish Bonogo for the chicken theatre. Lean into the cluck and the strut as table comedy that **doesn't tax** combat — they're flavour, not penalties.
+On your turn, take the **Jump** action as normal. To activate the magic, **Jump and Crow** — a loud, unmistakable chicken crow as you leave the ground (audible within ~30 ft).
 
-**Crow connection**: A clever PC who connects the **chicken-wing motif** to the **drakes-as-corvids** behaviour can argue the boots were a **collected curiosity**, not a core relic — useful for any later "do the drakes want it back" conversation.
+**Effect:** After your first jump (or at the apex), you may immediately jump again using your **normal jump distance**. You may **change horizontal direction** on the second hop.
 
-### Notes
+Uses the **brass-gold feather** charge. Recharges on short or long rest.
 
-- Mechanically identical to standard **Winged Boots**; reskin only.
-- If your table prefers, treat the cluck as imposing **disadvantage on Stealth** during the round of takeoff (and only that round). The card defaults to **no Stealth penalty** — choose at the table.
+*Session 21 recap:* Bonogo's first try felt like “additional jumping distance” — this is that beat.
+
+### Crowing flight (1/short rest)
+
+**Activate:** **Flap wings** (arms) — visible, audible.
+
+**Effect:** You gain a **flying speed equal to your walking speed**. On each of your turns while airborne, **flap wings** to **sustain** flight that turn; you may use your **full move** at fly speed. You may **change direction** freely. Ends when you **land** or when you stop sustaining.
+
+Uses the **crow-violet feather** charge. Recharges on short or long rest.
+
+### Appearance (found state → worn)
+
+Tan/caramel travelling boots — lace-up, side zip, wing engraving on the outer ankle. **Brass-gold** and **crow-violet** feathers at the heel (violet → orange/gold iridescence). Found in a geomantic drake nest ichor pile on human remains; most gold filigree gone; feathers stayed fancy.
+
+### Lore hooks
+
+- **Bonogo's prize:** `Campaign 2/PCs/bonogo/loot_geomantic_drake_nest.md`
+- **Nest:** juvenile **geomantic drakes** — iridescent, corvid-hoard behaviour
+- **Tone:** Silly, but they work
+
+## Related paths
+
+- **Player copy / printed card source:** `Player Copies/Player Copy Item_ Boots of the Crowing Wings.md`
+- **Plot artifact router:** `Campaign 2/Plot Artifacts/boots_of_crowing_wings.md`
+- **Discovery recap:** `Campaign 2/Session Recaps/Session 21 - Drake Nest Mirathorn Call.md`

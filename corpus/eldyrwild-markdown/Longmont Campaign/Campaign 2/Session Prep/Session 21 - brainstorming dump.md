@@ -8,7 +8,7 @@ session: 21
 origin_session: 21
 last_updated_session: 21
 source_class: brainstorming_unrefined
-gm_notes: "NOT CANON. Raw idea dump only. Unedited prose; not all ideas are intended to ship."
+gm_notes: "NOT CANON. Raw idea dump only. Unedited prose; not all ideas are intended to ship. Refined arc lock: Campaign 2 — Dual Front Shepherd Arc (GM planning).md"
 ---
 
 # Session 21 prep — brainstorming (unrefined)

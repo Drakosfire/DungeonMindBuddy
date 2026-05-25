@@ -49,7 +49,12 @@ def is_allowed_retrieval_corpus_path(path: str) -> bool:
         return False
     if any(fnmatch(basename, pat) for pat in DENIED_RETRIEVAL_BASENAME_PATTERNS):
         return False
-    return p.startswith("corpus/eldyrwild-markdown/")
+    if p.startswith("corpus/eldyrwild-markdown/"):
+        return True
+    # Session-memory records and some planner paths are corpus-relative (no repo prefix).
+    if p.startswith(("longmont campaign/", "elderwyld/")):
+        return True
+    return False
 
 
 def infer_context_subject_class(item: dict[str, Any]) -> str:
