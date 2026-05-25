@@ -21,6 +21,10 @@ related_documents:
     role: retrieval_prep_smoke_artifact
   - path: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/_ingest_staging/session_22_raw_notes.md
     role: live_play_transcript_staging
+  - path: Docs/Plans/STUDY-c2-live-play-cursor-handoff-process.md
+    role: product_friction_study
+  - path: Docs/Plans/HANDOFF-pr71-c2-live-packet-event-job-schema.md
+    role: active_l1_implementation_handoff
 product_scope:
   campaign: Longmont Campaign 2
   seed_session: 22
@@ -35,10 +39,11 @@ execution_state:
     L3_fastapi_query_loop: not_started
     L4_react_query_pane: not_started
   blockers: []
-  next_gate_command: "Draft the first implementation handoff: live packet + event/job schema."
+  next_gate_command: "Dispatch HANDOFF-pr71-c2-live-packet-event-job-schema.md for live packet + event/job schema."
   flagged_followups:
     - "Keep current C1S1-C1S3 retrieval/autonomy demo separate; cross-link only. This sprint productizes live GM interaction and consumes retrieval packet concepts when needed."
     - "Session 22 transcript examples are the seed regression set; do not generalize to all campaigns until the pane feels good on this slice."
+    - "Before designing UI or classifier examples, re-read STUDY-c2-live-play-cursor-handoff-process.md to remember the Cursor friction: dashboard shape, file-name-first navigation, and slow repo-agent loops."
 ---
 
 # C2 Live Control Surface v0 — Query Pane
@@ -46,6 +51,8 @@ execution_state:
 ## Thesis
 
 Cursor proved the workflow: during Session 22, the agent could answer live GM questions, resolve rolls, log canon commits, track open loops, use grounded context, and queue post-session propagation. Cursor also made the demo feel like engineering scaffolding: the GM had to work through an IDE repo-agent loop for actions that should feel like DungeonBuddy product behavior.
+
+Product-friction anchor: `STUDY-c2-live-play-cursor-handoff-process.md` captures the Cursor export that motivated this sprint. Re-read it before implementing the classifier/UI so the pane does not regress into a dashboard or file browser.
 
 This sprint builds the first product-shaped pane:
 
@@ -344,3 +351,4 @@ The demo should show:
 - Locked scope as local server + light UI over file-backed live packet / event log / job queue.
 - Kept current C1 retrieval/autonomy demo as a separate workstream.
 - Accepted as an active sibling sprint; execution state moved from `planning_lock` to `L1_packet_event_job_schema`.
+- Authored `HANDOFF-pr71-c2-live-packet-event-job-schema.md` as the L1 implementation handoff.

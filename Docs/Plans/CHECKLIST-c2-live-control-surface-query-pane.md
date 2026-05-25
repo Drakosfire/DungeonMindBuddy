@@ -16,7 +16,8 @@
   - `corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/_ingest_staging/session_22_raw_notes.md`
   - `corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_travel_to_mireward_runbook.md`
   - `evals/c2_live_prep/artifacts/runs/2026-05-23/c2s22_smoke_report.md`
-- [x] **Next command / action:** Author the first implementation handoff for live packet + event/job schemas.
+  - `Docs/Plans/STUDY-c2-live-play-cursor-handoff-process.md`
+- [x] **Next command / action:** Dispatch `Docs/Plans/HANDOFF-pr71-c2-live-packet-event-job-schema.md`.
 - [x] **Open product decision:** Resolved — keep as sibling sprint, not folded into the current C1 retrieval/autonomy demo.
 - [x] **Blocker type:** none for L1; PLAN/CHECKLIST accepted as active sprint anchors.
 
@@ -65,6 +66,7 @@ It does not build the whole control surface.
 - [ ] `context_lookup` can expose admitted context, candidate context, source-derived gaps, rendered packet, provenance, lane plan, and diagnostics.
 - [ ] `post_session` drains queued jobs and patches corpus surfaces later; it does not patch multiple corpus files inline during live play.
 - [ ] Session 22 transcript examples remain regression fixtures for the classifier / resolver.
+- [ ] UI and classifier work re-read `STUDY-c2-live-play-cursor-handoff-process.md` before implementation to avoid dashboard/file-name-first regressions.
 
 ---
 
@@ -109,7 +111,9 @@ evals/c2_live_prep/live/session_22/benchmark_candidates.jsonl
 - [ ] Define `live_packet` schema: campaign/session, packet provenance, known roll tables, current state seed, open loops, source paths.
 - [ ] Define `live_event` schema: id, timestamp, session clock, event_type, text, derived fields, provenance, source mode.
 - [ ] Define `live_job` schema: id, job_type, payload, status, dependencies, created_from_event_id.
+- [x] Author implementation handoff: `Docs/Plans/HANDOFF-pr71-c2-live-packet-event-job-schema.md`.
 - [ ] Seed Session 22 packet from staging + runbook + journey tracker.
+- [ ] Seed packet / examples include friction-study prompts from `STUDY-c2-live-play-cursor-handoff-process.md`.
 - [ ] Add tests that load schemas and validate seed files.
 - [ ] Add append tests for event/job JSONL writes.
 - [ ] Mark `current_state.json` as derived in schema or metadata.
@@ -240,6 +244,8 @@ apps/live-control-ui/
 - [ ] Query pane sends text to `POST /api/live/query`.
 - [ ] Response panel shows answer, classification, events written, jobs queued, next suggestions.
 - [ ] Context windows show Now, Open Loops, Roll Stack, Sources, Queue.
+- [ ] UI labels are human-first (`Storm weather`, `Road encounter`, `Gate dilemma`) with file paths only in source/provenance captions.
+- [ ] Roll tables expand inline; no artifact-register dashboard as the primary surface.
 - [ ] UI refreshes state after query.
 - [ ] UI handles `fast_live` and `context_lookup` responses differently enough to see sources/gaps when present.
 - [ ] UI does not write source files directly.
@@ -277,8 +283,15 @@ Append dated entries here as PRs land.
 
 - Created `PLAN-c2-live-control-surface-query-pane.md`.
 - Created this checklist.
+- Added `STUDY-c2-live-play-cursor-handoff-process.md` as the product-friction anchor from the Cursor export.
 - Accepted as active sibling sprint.
 - Starting implementation state: `L1_packet_event_job_schema`; no code yet.
+
+### 2026-05-25 — L1 Handoff Authored
+
+- Added `Docs/Plans/HANDOFF-pr71-c2-live-packet-event-job-schema.md`.
+- The handoff points a fresh agent through the anchor route: root rules, PLAN, CHECKLIST, STUDY, Session 22 dogfood handoff, staging notes, journey tracker, runbook, and C2 smoke artifact.
+- Next action: dispatch the handoff for the L1 substrate PR.
 
 ---
 
