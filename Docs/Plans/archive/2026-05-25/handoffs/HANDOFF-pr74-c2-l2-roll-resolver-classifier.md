@@ -1,7 +1,7 @@
 # HANDOFF — PR 74: C2 Live Control Surface L2 Roll Resolver + Live Classifier
 
 **Created:** 2026-05-25 (UTC).  
-**Status:** ACTIVE — dispatch this to one fresh external/Codex agent. One PR. Do not split into multiple PRs.  
+**Status:** MERGED — PR #74 landed on `main` (merge commit `3f2cabd`, 2026-05-25 UTC).  
 **Parent agent:** Cursor agent; parent owns review, merge, and atomic doc-sync after the PR lands.  
 **Plan anchor:** `Docs/Plans/PLAN-c2-live-control-surface-query-pane.md` (`execution_state.active_slice: L2_roll_resolver_classifier`).  
 **Checklist anchor:** `Docs/Plans/CHECKLIST-c2-live-control-surface-query-pane.md` Phase L2.  

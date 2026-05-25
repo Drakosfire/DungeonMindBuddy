@@ -10,16 +10,17 @@
 
 ## Reanchor Block (fill first each session)
 
-- [x] **Active slice:** `L2_roll_resolver_classifier`
-- [x] **Last green artifact (path):** L1 merged on `main` (PR #72, merge `7d6648d`):
-  - `evals/c2_live_prep/live/session_22/live_packet.json`
-  - `evals/c2_live_prep/live/session_22/surface_layout.json`
-  - `src/live_play/live_store.py`
-  - `src/live_play/surface_layout_invariants.py`
-  - `src/live_play/current_state_derive.py`
-  - `tests/test_live_play_schemas.py`
-  - Verification: `uv run pytest tests/test_live_play_schemas.py -q` → `19 passed`.
-- [x] **Next command / action:** Author or dispatch L2 roll resolver + live classifier handoff.
+- [x] **Active slice:** `L3_fastapi_query_loop`
+- [x] **Last green artifact (path):** L2 merged on `main` (PR #74, merge `3f2cabd`):
+  - `src/live_play/roll_table_registry.py`
+  - `src/live_play/resolve_roll.py`
+  - `src/live_play/classify_live_turn.py`
+  - `src/live_play/live_turn.py`
+  - `tests/test_live_play_resolve_roll.py`
+  - `tests/test_live_play_classify_turn.py`
+  - `tests/test_live_play_turn_loop.py`
+  - Verification: `uv run pytest tests/test_live_play_resolve_roll.py tests/test_live_play_classify_turn.py tests/test_live_play_turn_loop.py -q` → `25 passed`; with L1 schemas → `44 passed`.
+- [x] **Next command / action:** Author or dispatch L3 FastAPI live query loop handoff (wrap `handle_live_turn`, persist events/jobs, state/surface endpoints).
 - [x] **Open product decision:** Resolved — keep as sibling sprint, not folded into the current C1 retrieval/autonomy demo.
 - [x] **Blocker type:** none for L1; PLAN/CHECKLIST accepted as active sprint anchors.
 
@@ -72,7 +73,7 @@ It does not build the whole control surface.
 - [ ] `fast_live` does not invoke repo-wide search.
 - [ ] `context_lookup` can expose admitted context, candidate context, source-derived gaps, rendered packet, provenance, lane plan, and diagnostics.
 - [ ] `post_session` drains queued jobs and patches corpus surfaces later; it does not patch multiple corpus files inline during live play.
-- [ ] Session 22 transcript examples remain regression fixtures for the classifier / resolver.
+- [x] Session 22 transcript examples remain regression fixtures for the classifier / resolver (L2 tests on `main`, PR #74).
 - [ ] UI and classifier work re-read `STUDY-c2-live-play-cursor-handoff-process.md` before implementation to avoid dashboard/file-name-first regressions.
 - [ ] HTTP/API contract is documented (OpenAPI) so the server can be reimplemented outside Python without rewriting surface modules.
 
@@ -172,12 +173,13 @@ tests/test_live_play_turn_loop.py
 
 ### Checklist
 
-- [ ] Registry maps table IDs to corpus paths and row shape.
-- [ ] Resolver supports pipe-row tables (`T-WX`, `T-DIL-G`, etc.).
-- [ ] Resolver supports R5 band/paragraph shape or emits a clear unsupported-table diagnostic until implemented.
-- [ ] Classifier separates `roll_result`, `skill_check`, `canon_commit`, `open_loop_update`, `canon_correction`, `context_question`, `prep_request`.
-- [ ] `handle_live_turn(packet, text) -> LiveTurnResult` runs without FastAPI.
-- [ ] LiveTurnResult includes answer, classification, events_to_write, jobs_to_queue, next_suggestions, source/provenance fields.
+- [x] Registry maps table IDs to corpus paths and row shape.
+- [x] Resolver supports pipe-row tables (`T-WX`, `T-DIL-G`, etc.).
+- [x] Resolver supports R5 band/paragraph shape (PR #74); unsupported shapes return structured diagnostics.
+- [x] Classifier separates `roll_result`, `skill_check`, `canon_commit`, `open_loop_update`, `canon_correction`, `context_question`, `prep_request`.
+- [x] `handle_live_turn(packet, text) -> LiveTurnResult` runs without FastAPI.
+- [x] LiveTurnResult includes answer, classification, events_to_write, jobs_to_queue, next_suggestions, source/provenance fields.
+- [x] Merged PR #74; handoff archived: `Docs/Plans/archive/2026-05-25/handoffs/HANDOFF-pr74-c2-l2-roll-resolver-classifier.md`.
 
 ### Verification
 
@@ -310,6 +312,12 @@ Use the repo's actual package manager / app conventions once the UI package exis
 
 Append dated entries here as PRs land.
 
+### 2026-05-25 — L2 Roll Resolver + Classifier Merged (PR #74)
+
+- Merged PR #74 to `main` (merge commit `3f2cabd`): `roll_table_registry`, `resolve_roll`, `classify_live_turn`, `live_turn`, L2 test trio.
+- Verification on `main`: L2 `25 passed`; L1+L2 `44 passed`.
+- `execution_state.active_slice` advanced to `L3_fastapi_query_loop`.
+
 ### 2026-05-25 — L1 Live Substrate Merged (PR #72)
 
 - Merged PR #72 to `main` (merge commit `7d6648d`): schemas, Session 22 seeds, `live_store.py`, layout/event invariants, `tests/test_live_play_schemas.py`.
@@ -348,6 +356,6 @@ Append dated entries here as PRs land.
 - [ ] Should UI live under `apps/live-control-ui/` or a demo/evals UI folder first?
 - [x] Runtime surface configurability: **yes** — `surface_layout.json` + server persistence (locked 2026-05-26).
 - [x] Does PR 1 include `benchmark_candidates.jsonl` schema, or defer until classifier can emit candidates? Resolved for L1: defer dedicated schema; file parses as JSONL and classifier will define candidate row shape later.
-- [ ] Should R5 paragraph-table resolution land in PR 2 or be a follow-up after pipe-row tables?
+- [x] Should R5 paragraph-table resolution land in PR 2 or be a follow-up after pipe-row tables? **Resolved:** R5 band/paragraph resolution shipped in PR #74 (L2).
 - [ ] Should `context_lookup` initially read an existing packet only, or be allowed to rebuild packet in PR 3?
 - [ ] Drag-and-drop layout polish: required in L4 v0 or acceptable as follow-up after toggle/reorder/slot-move works?

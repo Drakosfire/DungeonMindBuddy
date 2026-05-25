@@ -4,9 +4,9 @@ title: C2 Live Control Surface v0 — Query Pane
 document_class: plan
 plan_kind: product_sprint_plan
 status: active
-version: 1.2
+version: 1.3
 created_at: "2026-05-25T03:11:00Z"
-last_updated_at: "2026-05-25T17:05:00Z"
+last_updated_at: "2026-05-25T19:14:00Z"
 timezone_note: "Timestamps are UTC; local work may use America/Denver."
 supersedes: []
 superseded_by: null
@@ -25,26 +25,45 @@ related_documents:
     role: product_friction_study
   - path: Docs/Plans/archive/2026-05-25/handoffs/HANDOFF-pr72-c2-live-packet-event-job-schema.md
     role: completed_l1_implementation_handoff
+  - path: Docs/Plans/archive/2026-05-25/handoffs/HANDOFF-pr74-c2-l2-roll-resolver-classifier.md
+    role: completed_l2_implementation_handoff
 product_scope:
   campaign: Longmont Campaign 2
   seed_session: 22
   surface: local runtime-configurable live-play surface shell
   autonomy: server-mediated live turn classification, file-backed events, background job queue
 execution_state:
-  active_slice: L2_roll_resolver_classifier
+  active_slice: L3_fastapi_query_loop
   milestone_progress:
     L0_plan_lock: complete
     L1_packet_event_job_schema: complete
-    L2_roll_resolver_classifier: not_started
+    L2_roll_resolver_classifier: complete
     L3_fastapi_query_loop: not_started
     L4_react_query_pane: not_started
   blockers: []
-  next_gate_command: "Author or dispatch HANDOFF for L2 roll resolver + live classifier against the merged L1 substrate."
+  next_gate_command: "Author or dispatch HANDOFF for L3 FastAPI live query loop (wrap handle_live_turn, append events/jobs, expose state/surface endpoints)."
   flagged_followups:
     - "Keep current C1S1-C1S3 retrieval/autonomy demo separate; cross-link only. This sprint productizes live GM interaction and consumes retrieval packet concepts when needed."
     - "Session 22 transcript examples are the seed regression set; do not generalize to all campaigns until the pane feels good on this slice."
     - "Before designing UI or classifier examples, re-read STUDY-c2-live-play-cursor-handoff-process.md to remember the Cursor friction: dashboard shape, file-name-first navigation, and slow repo-agent loops."
 external_pull_requests:
+  - pr: 74
+    handoff: Docs/Plans/archive/2026-05-25/handoffs/HANDOFF-pr74-c2-l2-roll-resolver-classifier.md
+    slice: L2_roll_resolver_classifier
+    verdict: accepted
+    evaluated_at: "2026-05-25T19:14:00Z"
+    evaluator: Cursor agent
+    notes:
+      - "Merged PR #74 (merge commit 3f2cabd): roll registry/resolver, rule-based classifier, handle_live_turn without HTTP; Session 22 seed tests; live_job rows returned at top level for L3 append path."
+      - "Review follow-up: classifier/resolver punctuation alignment, job schema tests, pipe-row delimiter strip, canon correction preserves input text; PR body lists complete diff vs allowlist."
+    verification:
+      - "uv run pytest tests/test_live_play_resolve_roll.py tests/test_live_play_classify_turn.py tests/test_live_play_turn_loop.py -q → 25 passed"
+      - "uv run pytest tests/test_live_play_schemas.py tests/test_live_play_resolve_roll.py tests/test_live_play_classify_turn.py tests/test_live_play_turn_loop.py -q → 44 passed"
+    rubric_when_we_judge:
+      - "L2 stays inside HANDOFF allowlist; no server, UI, schema mutation, corpus writes, or committed seed JSONL mutation."
+      - "Weather 7/16 and R5 54 resolve with provenance; classifier matches resolver punctuation tolerance."
+      - "handle_live_turn returns schema-valid events and top-level live_job rows without writing JSONL inline."
+      - "context_lookup classifies without roll resolution; canon correction/commit queue jobs only."
   - pr: 72
     handoff: Docs/Plans/archive/2026-05-25/handoffs/HANDOFF-pr72-c2-live-packet-event-job-schema.md
     slice: L1_packet_event_job_schema
@@ -405,6 +424,11 @@ The demo should show:
 - HTTP/API contract is documented (OpenAPI) so the server implementation can move off Python later without rewriting modules.
 
 ## Changelog
+
+### v1.3 — 2026-05-25
+
+- Merged PR #74: L2 roll resolver, live classifier, and `handle_live_turn` (registry, pipe + R5 band tables, Session 22 tests, 25 L2 / 44 combined with L1).
+- Advanced `execution_state.active_slice` to `L3_fastapi_query_loop`.
 
 ### v1.2 — 2026-05-25
 
