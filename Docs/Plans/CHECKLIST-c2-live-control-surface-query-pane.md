@@ -10,15 +10,16 @@
 
 ## Reanchor Block (fill first each session)
 
-- [x] **Active slice:** `L1_packet_event_job_schema` (in review on PR #72)
-- [x] **Last green artifact (path):** L1 substrate proposed on branch `cursor/c2-l1-live-substrate-pr72`:
+- [x] **Active slice:** `L2_roll_resolver_classifier`
+- [x] **Last green artifact (path):** L1 merged on `main` (PR #72, merge `7d6648d`):
   - `evals/c2_live_prep/live/session_22/live_packet.json`
   - `evals/c2_live_prep/live/session_22/surface_layout.json`
-  - `evals/c2_live_prep/live/session_22/current_state.json`
   - `src/live_play/live_store.py`
+  - `src/live_play/surface_layout_invariants.py`
+  - `src/live_play/current_state_derive.py`
   - `tests/test_live_play_schemas.py`
-  - Verification (branch): `uv run pytest tests/test_live_play_schemas.py -q`
-- [x] **Next command / action:** Complete PR #72 review; merge; then dispatch L2 roll resolver + live classifier.
+  - Verification: `uv run pytest tests/test_live_play_schemas.py -q` → `19 passed`.
+- [x] **Next command / action:** Author or dispatch L2 roll resolver + live classifier handoff.
 - [x] **Open product decision:** Resolved — keep as sibling sprint, not folded into the current C1 retrieval/autonomy demo.
 - [x] **Blocker type:** none for L1; PLAN/CHECKLIST accepted as active sprint anchors.
 
@@ -309,14 +310,15 @@ Use the repo's actual package manager / app conventions once the UI package exis
 
 Append dated entries here as PRs land.
 
+### 2026-05-25 — L1 Live Substrate Merged (PR #72)
+
+- Merged PR #72 to `main` (merge commit `7d6648d`): schemas, Session 22 seeds, `live_store.py`, layout/event invariants, `tests/test_live_play_schemas.py`.
+- Verification on `main`: `uv run pytest tests/test_live_play_schemas.py -q` → `19 passed`.
+- `execution_state.active_slice` advanced to `L2_roll_resolver_classifier`.
+
 ### 2026-05-26 — L1 Live Substrate Proposed in PR #72
 
-- PR #72 proposes the L1 file-backed substrate: four live schemas, Session 22 seed files, `src/live_play/live_store.py`, and `tests/test_live_play_schemas.py`.
-- Verification on branch (paste outputs in PR body before merge):
-  - `uv run pytest tests/test_live_play_schemas.py -q`
-  - JSON/JSONL parse smoke
-  - `git diff --name-only` / allowlisted `git diff --stat`
-- Advance `execution_state.active_slice` to `L2_roll_resolver_classifier` only after PR #72 merges.
+- PR #72 opened with file-backed substrate; review rounds addressed scope, layout/event contracts, and derived `current_state.now`.
 
 ### 2026-05-25 — Plan/Checklist Created
 

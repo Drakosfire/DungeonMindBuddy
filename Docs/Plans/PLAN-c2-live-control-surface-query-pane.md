@@ -6,7 +6,7 @@ plan_kind: product_sprint_plan
 status: active
 version: 1.2
 created_at: "2026-05-25T03:11:00Z"
-last_updated_at: "2026-05-25T05:35:00Z"
+last_updated_at: "2026-05-25T17:05:00Z"
 timezone_note: "Timestamps are UTC; local work may use America/Denver."
 supersedes: []
 superseded_by: null
@@ -23,27 +23,44 @@ related_documents:
     role: live_play_transcript_staging
   - path: Docs/Plans/STUDY-c2-live-play-cursor-handoff-process.md
     role: product_friction_study
-  - path: Docs/Plans/HANDOFF-pr72-c2-live-packet-event-job-schema.md
-    role: active_l1_implementation_handoff
+  - path: Docs/Plans/archive/2026-05-25/handoffs/HANDOFF-pr72-c2-live-packet-event-job-schema.md
+    role: completed_l1_implementation_handoff
 product_scope:
   campaign: Longmont Campaign 2
   seed_session: 22
   surface: local runtime-configurable live-play surface shell
   autonomy: server-mediated live turn classification, file-backed events, background job queue
 execution_state:
-  active_slice: L1_packet_event_job_schema
+  active_slice: L2_roll_resolver_classifier
   milestone_progress:
     L0_plan_lock: complete
-    L1_packet_event_job_schema: in_review
+    L1_packet_event_job_schema: complete
     L2_roll_resolver_classifier: not_started
     L3_fastapi_query_loop: not_started
     L4_react_query_pane: not_started
   blockers: []
-  next_gate_command: "Merge PR #72 (L1 live substrate), then author or dispatch L2 roll resolver + live classifier."
+  next_gate_command: "Author or dispatch HANDOFF for L2 roll resolver + live classifier against the merged L1 substrate."
   flagged_followups:
     - "Keep current C1S1-C1S3 retrieval/autonomy demo separate; cross-link only. This sprint productizes live GM interaction and consumes retrieval packet concepts when needed."
     - "Session 22 transcript examples are the seed regression set; do not generalize to all campaigns until the pane feels good on this slice."
     - "Before designing UI or classifier examples, re-read STUDY-c2-live-play-cursor-handoff-process.md to remember the Cursor friction: dashboard shape, file-name-first navigation, and slow repo-agent loops."
+external_pull_requests:
+  - pr: 72
+    handoff: Docs/Plans/archive/2026-05-25/handoffs/HANDOFF-pr72-c2-live-packet-event-job-schema.md
+    slice: L1_packet_event_job_schema
+    verdict: accepted
+    evaluated_at: "2026-05-25T17:03:17Z"
+    evaluator: Cursor agent
+    notes:
+      - "Merged PR #72 (merge commit 7d6648d): L1 file-backed substrate with schemas, Session 22 seeds, live_store helpers, layout/event invariants, and 19-test verification spine."
+      - "Re-review gates satisfied: scope limited to allowlist; chat/record layout enforcement; event_origin for system events; derived current_state including now; catalog/layout consistency."
+    verification:
+      - "uv run pytest tests/test_live_play_schemas.py -q → 19 passed"
+    rubric_when_we_judge:
+      - "Seed JSON/JSONL and layout rows validate against schemas with format checker enabled."
+      - "surface_layout.json enforces required enabled chat and record; layout module IDs ⊆ surface_catalog."
+      - "current_state.json derived fields (including now) match recomputation from packet, layout, event_log, job_queue."
+      - "L1 PR must not include server, UI, classifier, roll resolver, or corpus writes."
 ---
 
 # C2 Live Control Surface v0 — Query Pane
@@ -391,8 +408,8 @@ The demo should show:
 
 ### v1.2 — 2026-05-25
 
-- PR #72 proposes the L1 live substrate: schemas, Session 22 seeds, `live_store.py`, and focused tests.
-- Advance `execution_state.active_slice` to `L2_roll_resolver_classifier` only after PR #72 merges.
+- Merged PR #72: L1 live substrate (schemas, Session 22 seeds, `live_store.py`, invariants, 19 tests).
+- Advanced `execution_state.active_slice` to `L2_roll_resolver_classifier`.
 
 ### v1.1 — 2026-05-26
 
