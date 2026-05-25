@@ -16,6 +16,10 @@ Correctness overrides token savings. Preserve failed tests, stack traces, compil
 
 Never run destructive commands without explicit user approval.
 
+## Git — nano commits on PR branches
+
+PR branches tell a **review story**: many small commits, one concern each, in build order (design/contract → implementation → tests → doc-sync). See `.cursor/rules/dungeonbuddy-git-workflow.mdc` § Nano commits. Avoid landing an entire HANDOFF slice in a single commit.
+
 ## External-agent PR loop
 
 When work lands via a GitHub PR opened by a Codex-style external agent (HANDOFF write → external PR → judgment record → atomic doc-sync), the procedure / runbook is `.cursor/skills/external-agent-pr-loop/SKILL.md` (read on demand). The non-negotiable invariants are in `.cursor/rules/external-agent-pr-loop.mdc` (always-on). Use `scripts/review_external_pr.py {fetch | verify | post}` for the review loop — manual `gh + git + sed` is the anti-pattern.
