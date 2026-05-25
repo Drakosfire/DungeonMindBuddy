@@ -25,29 +25,4 @@ For **DungeonMindBuddy** right now:
 
 **Still do:** clear commit messages, atomic-ish commits where practical, and don’t push secrets.
 
-## Nano commits (default for PRs)
-
-A PR is a **review story**, not a single dump. Prefer **many small commits** that a reviewer can walk in order — each commit should do one thing, compile/test when applicable, and explain *why* in the subject + body.
-
-**Default shape**
-
-1. **Design / contract first** — PLAN, CHECKLIST, HANDOFF, or schema-only commits before behavior.
-2. **One concern per commit** — e.g. one schema file, one seed file group, one test file, one doc-sync beat.
-3. **Build upward** — later commits may assume earlier ones; avoid “everything at once” on the first commit.
-4. **Final doc-sync commit** — tick checklist / execution state *after* the code it references is in the branch (judgment records and post-merge archive sync stay in the external-agent PR loop).
-
-**Commit message contract**
-
-- Subject: imperative, scoped (`feat(live): …`, `docs(c2): …`, `test(live): …`).
-- Body (when useful): one short paragraph — what changed, what invariant it establishes, what the next commit will build on.
-- Target: **roughly ≤200 lines changed per commit** unless a single generated/seed artifact makes splitting artificial (then split schema vs seed vs tests instead).
-
-**Anti-patterns**
-
-- One commit for an entire HANDOFF slice (schemas + seeds + store + tests + doc-sync).
-- Mixing unrelated PLAN edits with implementation in the same commit.
-- “Fix review” commits that replay the whole feature — add a focused follow-up commit instead.
-
-**When a single commit is OK:** typo-only, revert, or an emergency hotfix on `main`.
-
 **When this rule should be revisited:** the first time Buddy ships on a schedule, shares `main` with another team, or CI must block merges—then tighten branch policy and document the change here or in a short ADR.
