@@ -3,10 +3,10 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-WEATHER_ROLL_RE = re.compile(r"Weather\s+(\d+)\.", re.IGNORECASE)
-R5_ROLL_RE = re.compile(r"R5\s+(\d+)\.", re.IGNORECASE)
-TABLE_ROLL_RE = re.compile(r"(T-[A-Z0-9-]+|R\d+)\s+(\d+)\.", re.IGNORECASE)
-SKILL_CHECK_RE = re.compile(r"\.\s+([A-Za-z]+)\s+Nature\s+(\d+)", re.IGNORECASE)
+WEATHER_ROLL_RE = re.compile(r"Weather\s+(\d+)\.?", re.IGNORECASE)
+R5_ROLL_RE = re.compile(r"R5\s+(\d+)\.?", re.IGNORECASE)
+TABLE_ROLL_RE = re.compile(r"(T-[A-Z0-9-]+|R\d+)\s+(\d+)\.?", re.IGNORECASE)
+NATURE_SKILL_RE = re.compile(r"([A-Za-z]+)\s+Nature\s+(\d+)", re.IGNORECASE)
 CONTEXT_QUESTION_RE = re.compile(
     r"^\s*what\s+is\b.+\?\s*$|^\s*how\s+.+\?\s*$",
     re.IGNORECASE,
@@ -72,7 +72,7 @@ def classify_live_turn(text: str) -> TurnClassification:
         )
 
     table_id, roll = _extract_roll(stripped)
-    skill_match = SKILL_CHECK_RE.search(stripped)
+    skill_match = NATURE_SKILL_RE.search(stripped)
     skill_check = None
     if skill_match:
         skill_check = {

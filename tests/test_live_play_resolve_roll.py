@@ -24,7 +24,14 @@ def test_weather_7_resolves_t_wx_hail_dent(packet: dict) -> None:
     assert resolved.table_id == "T-WX"
     assert resolved.roll == 7
     assert "Hail dent" in resolved.row_text
+    assert not resolved.row_text.endswith("|")
     assert resolved.row_locator == "pipe_row:d20=7"
+
+
+def test_weather_7_without_period(packet: dict) -> None:
+    resolved = resolve_roll_from_packet(packet, "Weather 7", root=ROOT)
+    assert resolved.roll == 7
+    assert not resolved.row_text.endswith("|")
 
 
 def test_weather_16_resolves_t_wx_fixed_distance_front(packet: dict) -> None:

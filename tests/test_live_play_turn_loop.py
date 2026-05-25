@@ -28,6 +28,21 @@ def _event_validator() -> Draft202012Validator:
     )
 
 
+def _job_validator() -> Draft202012Validator:
+    schema = _load_schema("live_job.schema.json")
+    Draft202012Validator.check_schema(schema)
+    return Draft202012Validator(
+        schema,
+        format_checker=Draft202012Validator.FORMAT_CHECKER,
+    )
+
+
+def _assert_jobs_valid(jobs: list[dict[str, object]], job_validator: Draft202012Validator) -> None:
+    assert jobs, "expected at least one top-level job row"
+    for job in jobs:
+        job_validator.validate(job)
+
+
 @pytest.fixture
 def packet() -> dict:
     return json.loads(PACKET_PATH.read_text(encoding="utf-8"))
@@ -38,7 +53,16 @@ def event_validator() -> Draft202012Validator:
     return _event_validator()
 
 
-def test_handle_weather_7_with_skill_check(packet: dict, event_validator: Draft202012Validator) -> None:
+@pytest.fixture
+def job_validator() -> Draft202012Validator:
+    return _job_validator()
+
+
+def test_handle_weather_7_with_skill_check(
+    packet: dict,
+    event_validator: Draft202012Validator,
+    job_validator: Draft202012Validator,
+) -> None:
     result = handle_live_turn(
         packet,
         "Weather 7. Caelynn Nature 19.",
@@ -60,6 +84,26 @@ def test_handle_weather_7_with_skill_check(packet: dict, event_validator: Draft2
     assert event["derived_fields"]["table_id"] == "T-WX"
     assert event["derived_fields"]["roll"] == 7
     assert any(s in result.next_suggestions for s in ("T-NPC", "R5", "T-DIL"))
+    _assert_jobs_valid(result.jobs_to_queue, job_validator)
+    assert result.jobs_to_queue[0]["job_type"] == "benchmark_candidate"
+
+
+def test_handle_weather_7_without_period(
+    packet: dict,
+    event_validator: Draft202012Validator,
+    job_validator: Draft202012Validator,
+) -> None:
+    result = handle_live_turn(
+        packet,
+        "Weather 7",
+        root=ROOT,
+        created_at="2026-05-25T12:00:00Z",
+        event_id_factory=lambda: "evt-test-weather-7-bare",
+    )
+    assert result.classification.event_type == "roll_result"
+    assert "Hail dent" in result.answer
+    event_validator.validate(result.events_to_write[0])
+    _assert_jobs_valid(result.jobs_to_queue, job_validator)
 
 
 def test_handle_grobnok_open_loop(packet: dict, event_validator: Draft202012Validator) -> None:
@@ -77,7 +121,11 @@ def test_handle_grobnok_open_loop(packet: dict, event_validator: Draft202012Vali
     assert event["derived_fields"]["status"] == "owed"
 
 
-def test_handle_lysandro_canon_correction(packet: dict, event_validator: Draft202012Validator) -> None:
+def test_handle_lysandro_canon_correction(
+    packet: dict,
+    event_validator: Draft202012Validator,
+    job_validator: Draft202012Validator,
+) -> None:
     result = handle_live_turn(
         packet,
         "Lysandro is her father.",
@@ -88,15 +136,23 @@ def test_handle_lysandro_canon_correction(packet: dict, event_validator: Draft20
     assert result.classification.event_type == "canon_correction"
     event = result.events_to_write[0]
     event_validator.validate(event)
+    assert event["derived_fields"]["correction"] == "Lysandro is her father."
     job_types = {job["job_type"] for job in result.jobs_to_queue}
     assert "post_session_propagation" in job_types
+    _assert_jobs_valid(result.jobs_to_queue, job_validator)
+    propagation = next(j for j in result.jobs_to_queue if j["job_type"] == "post_session_propagation")
+    assert propagation["payload"]["correction"] == "Lysandro is her father."
     assert any(
         job["job_type"] == "post_session_propagation"
         for job in event["jobs_to_queue"]
     )
 
 
-def test_handle_caelynn_canon_commit(packet: dict, event_validator: Draft202012Validator) -> None:
+def test_handle_caelynn_canon_commit(
+    packet: dict,
+    event_validator: Draft202012Validator,
+    job_validator: Draft202012Validator,
+) -> None:
     result = handle_live_turn(
         packet,
         "Caelynn bottles the puddle water.",
@@ -109,6 +165,7 @@ def test_handle_caelynn_canon_commit(packet: dict, event_validator: Draft202012V
     job_types = {job["job_type"] for job in result.jobs_to_queue}
     assert "append_staging" in job_types
     assert "benchmark_candidate" in job_types
+    _assert_jobs_valid(result.jobs_to_queue, job_validator)
 
 
 def test_handle_context_question_no_roll(packet: dict, event_validator: Draft202012Validator) -> None:

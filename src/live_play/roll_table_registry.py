@@ -57,7 +57,10 @@ def _parse_pipe_rows(text: str) -> dict[int, str]:
         if not match:
             continue
         roll = int(match.group(1))
-        rows[roll] = match.group(2).strip()
+        row_text = match.group(2).strip()
+        if row_text.endswith("|"):
+            row_text = row_text[:-1].rstrip()
+        rows[roll] = row_text
     return rows
 
 

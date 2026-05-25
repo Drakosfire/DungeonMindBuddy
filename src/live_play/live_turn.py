@@ -50,6 +50,41 @@ def _headline_from_row(row_text: str) -> str:
     return row_text.split("·", 1)[0].strip()[:80]
 
 
+def _build_live_job(
+    *,
+    job_id: str,
+    created_at: str,
+    job_type: str,
+    event_id: str,
+    payload: dict[str, object],
+    provenance_notes: str | None = None,
+    source_paths: list[dict[str, object]] | None = None,
+) -> dict[str, object]:
+    return {
+        "schema_version": "0.1.0",
+        "id": job_id,
+        "created_at": created_at,
+        "job_type": job_type,
+        "status": "queued",
+        "payload": payload,
+        "created_from_event_id": event_id,
+        "dependencies": [],
+        "provenance": {
+            "source_paths": source_paths or [],
+            "generated_by": "handle_live_turn",
+            "notes": provenance_notes,
+        },
+    }
+
+
+def _embedded_job_proposal(
+    job_type: str,
+    payload: dict[str, object],
+    reason: str,
+) -> dict[str, object]:
+    return {"job_type": job_type, "payload": payload, "reason": reason}
+
+
 def _build_event(
     packet: dict[str, Any],
     text: str,
@@ -132,13 +167,16 @@ def handle_live_turn(
         if classification.skill_check:
             derived["skill_check"] = classification.skill_check
         event_id = _next_event_id(event_id_factory)
-        event_jobs = [
-            {
-                "job_type": "benchmark_candidate",
-                "payload": {"source_event_id": event_id},
-                "reason": "Live prompt belongs in the Session 22 regression set.",
-            }
-        ]
+        benchmark_payload = {"source_event_id": event_id}
+        benchmark_job = _build_live_job(
+            job_id=f"job-{event_id}-benchmark",
+            created_at=created_at,
+            job_type="benchmark_candidate",
+            event_id=event_id,
+            payload=benchmark_payload,
+            provenance_notes="Live prompt belongs in the Session 22 regression set.",
+        )
+        jobs = [benchmark_job]
         events.append(
             _build_event(
                 packet,
@@ -149,7 +187,13 @@ def handle_live_turn(
                 session_clock=clock,
                 derived_fields=derived,
                 summary=f"Resolved {resolved.table_id} roll {resolved.roll}: {headline}.",
-                jobs_to_queue=event_jobs,
+                jobs_to_queue=[
+                    _embedded_job_proposal(
+                        "benchmark_candidate",
+                        benchmark_payload,
+                        "Live prompt belongs in the Session 22 regression set.",
+                    )
+                ],
                 provenance=resolved.provenance,
             )
         )
@@ -157,7 +201,7 @@ def handle_live_turn(
             answer=answer,
             classification=classification,
             events_to_write=events,
-            jobs_to_queue=[],
+            jobs_to_queue=jobs,
             next_suggestions=_pending_roll_suggestions(packet, resolved.table_id),
             provenance={"resolved_roll": resolved.provenance, "generated_by": "handle_live_turn"},
             diagnostics=diagnostics,
@@ -200,37 +244,27 @@ def handle_live_turn(
 
     if classification.event_type == "canon_correction":
         event_id = _next_event_id(event_id_factory)
+        correction_text = text.strip()
+        propagation_payload = {
+            "source_event_id": event_id,
+            "correction": correction_text,
+        }
         jobs = [
-            {
-                "schema_version": "0.1.0",
-                "id": f"job-{event_id}-propagation",
-                "created_at": created_at,
-                "job_type": "post_session_propagation",
-                "status": "queued",
-                "payload": {"source_event_id": event_id, "correction": "Lysandro is Lysandra's father"},
-                "created_from_event_id": event_id,
-                "dependencies": [],
-                "provenance": {
-                    "source_paths": [],
-                    "generated_by": "handle_live_turn",
-                    "notes": "Queued for post-session propagation; no inline corpus edit.",
-                },
-            },
-            {
-                "schema_version": "0.1.0",
-                "id": f"job-{event_id}-review",
-                "created_at": created_at,
-                "job_type": "manual_review",
-                "status": "queued",
-                "payload": {"source_event_id": event_id},
-                "created_from_event_id": event_id,
-                "dependencies": [],
-                "provenance": {
-                    "source_paths": [],
-                    "generated_by": "handle_live_turn",
-                    "notes": None,
-                },
-            },
+            _build_live_job(
+                job_id=f"job-{event_id}-propagation",
+                created_at=created_at,
+                job_type="post_session_propagation",
+                event_id=event_id,
+                payload=propagation_payload,
+                provenance_notes="Queued for post-session propagation; no inline corpus edit.",
+            ),
+            _build_live_job(
+                job_id=f"job-{event_id}-review",
+                created_at=created_at,
+                job_type="manual_review",
+                event_id=event_id,
+                payload={"source_event_id": event_id},
+            ),
         ]
         events.append(
             _build_event(
@@ -240,19 +274,19 @@ def handle_live_turn(
                 created_at=created_at,
                 event_id=event_id,
                 session_clock=clock,
-                derived_fields={"correction": "Lysandro is Lysandra's father (C2 table canon)"},
+                derived_fields={"correction": correction_text},
                 summary="Canon correction logged; post-session propagation queued.",
                 jobs_to_queue=[
-                    {
-                        "job_type": "post_session_propagation",
-                        "payload": jobs[0]["payload"],
-                        "reason": "Canon correction must not patch corpus inline during live play.",
-                    },
-                    {
-                        "job_type": "manual_review",
-                        "payload": {"source_event_id": event_id},
-                        "reason": "GM-facing correction needs review before promotion.",
-                    },
+                    _embedded_job_proposal(
+                        "post_session_propagation",
+                        propagation_payload,
+                        "Canon correction must not patch corpus inline during live play.",
+                    ),
+                    _embedded_job_proposal(
+                        "manual_review",
+                        {"source_event_id": event_id},
+                        "GM-facing correction needs review before promotion.",
+                    ),
                 ],
                 provenance=provenance,
             )
@@ -269,43 +303,32 @@ def handle_live_turn(
 
     if classification.event_type == "canon_commit":
         event_id = _next_event_id(event_id_factory)
+        commit_note = text.strip()
+        staging_payload = {"source_event_id": event_id, "note": commit_note}
+        benchmark_payload = {"source_event_id": event_id}
+        staging_paths = [
+            {
+                "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/_ingest_staging/session_22_raw_notes.md",
+                "role": "staging_notes",
+                "notes": None,
+            }
+        ]
         jobs = [
-            {
-                "schema_version": "0.1.0",
-                "id": f"job-{event_id}-staging",
-                "created_at": created_at,
-                "job_type": "append_staging",
-                "status": "queued",
-                "payload": {"source_event_id": event_id, "note": text.strip()},
-                "created_from_event_id": event_id,
-                "dependencies": [],
-                "provenance": {
-                    "source_paths": [
-                        {
-                            "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/_ingest_staging/session_22_raw_notes.md",
-                            "role": "staging_notes",
-                            "notes": None,
-                        }
-                    ],
-                    "generated_by": "handle_live_turn",
-                    "notes": None,
-                },
-            },
-            {
-                "schema_version": "0.1.0",
-                "id": f"job-{event_id}-benchmark",
-                "created_at": created_at,
-                "job_type": "benchmark_candidate",
-                "status": "queued",
-                "payload": {"source_event_id": event_id},
-                "created_from_event_id": event_id,
-                "dependencies": [],
-                "provenance": {
-                    "source_paths": [],
-                    "generated_by": "handle_live_turn",
-                    "notes": None,
-                },
-            },
+            _build_live_job(
+                job_id=f"job-{event_id}-staging",
+                created_at=created_at,
+                job_type="append_staging",
+                event_id=event_id,
+                payload=staging_payload,
+                source_paths=staging_paths,
+            ),
+            _build_live_job(
+                job_id=f"job-{event_id}-benchmark",
+                created_at=created_at,
+                job_type="benchmark_candidate",
+                event_id=event_id,
+                payload=benchmark_payload,
+            ),
         ]
         events.append(
             _build_event(
@@ -315,19 +338,19 @@ def handle_live_turn(
                 created_at=created_at,
                 event_id=event_id,
                 session_clock=clock,
-                derived_fields={"canon_commit": text.strip()},
+                derived_fields={"canon_commit": commit_note},
                 summary="Canon commit logged; staging append and benchmark candidate queued.",
                 jobs_to_queue=[
-                    {
-                        "job_type": "append_staging",
-                        "payload": jobs[0]["payload"],
-                        "reason": "Session notes land in staging until recap promotion.",
-                    },
-                    {
-                        "job_type": "benchmark_candidate",
-                        "payload": {"source_event_id": event_id},
-                        "reason": "Live canon commit is a regression fixture candidate.",
-                    },
+                    _embedded_job_proposal(
+                        "append_staging",
+                        staging_payload,
+                        "Session notes land in staging until recap promotion.",
+                    ),
+                    _embedded_job_proposal(
+                        "benchmark_candidate",
+                        benchmark_payload,
+                        "Live canon commit is a regression fixture candidate.",
+                    ),
                 ],
                 provenance=provenance,
             )

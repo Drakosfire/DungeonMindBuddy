@@ -49,6 +49,22 @@ def test_caelynn_canon_commit() -> None:
     assert result.event_type == "canon_commit"
 
 
+@pytest.mark.parametrize(
+    "text,table_id,roll",
+    [
+        ("Weather 7", "T-WX", 7),
+        ("Weather 16", "T-WX", 16),
+        ("R5 54", "R5", 54),
+        ("T-WX 7", "T-WX", 7),
+    ],
+)
+def test_roll_commands_without_trailing_period(text: str, table_id: str, roll: int) -> None:
+    result = classify_live_turn(text)
+    assert result.event_type == "roll_result"
+    assert result.table_id == table_id
+    assert result.roll == roll
+
+
 def test_lysandra_gate_context_lookup() -> None:
     result = classify_live_turn("What is Lysandra feeling at the gate?")
     assert result.latency_mode == "context_lookup"
