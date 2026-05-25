@@ -1,0 +1,164 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "live_event.schema.json",
+  "title": "C2 Live Play Event Row v0.1",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "id",
+    "created_at",
+    "campaign_id",
+    "session",
+    "session_clock",
+    "event_type",
+    "latency_mode",
+    "input_text",
+    "summary",
+    "derived_fields",
+    "provenance",
+    "jobs_to_queue"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "pattern": "^0\\.1\\.\\d+$"
+    },
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9_.:-]+$"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "campaign_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "session": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "session_clock": {
+      "type": "string",
+      "minLength": 1
+    },
+    "event_type": {
+      "type": "string",
+      "enum": [
+        "roll_result",
+        "skill_check",
+        "canon_commit",
+        "canon_correction",
+        "open_loop_update",
+        "context_question",
+        "prep_request",
+        "state_note",
+        "surface_config_updated"
+      ]
+    },
+    "latency_mode": {
+      "type": "string",
+      "enum": [
+        "fast_live",
+        "context_lookup",
+        "prep_architect",
+        "post_session"
+      ]
+    },
+    "input_text": {
+      "type": "string",
+      "minLength": 1
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 1
+    },
+    "derived_fields": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "provenance": {
+      "type": "object",
+      "required": [
+        "source_paths",
+        "generated_by"
+      ],
+      "properties": {
+        "source_paths": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "path",
+              "role"
+            ],
+            "properties": {
+              "path": {
+                "type": "string",
+                "minLength": 1
+              },
+              "role": {
+                "type": "string",
+                "minLength": 1
+              },
+              "notes": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "generated_by": {
+          "type": "string",
+          "minLength": 1
+        },
+        "notes": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "jobs_to_queue": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "job_type",
+          "payload",
+          "reason"
+        ],
+        "properties": {
+          "job_type": {
+            "type": "string",
+            "enum": [
+              "append_staging",
+              "benchmark_candidate",
+              "post_session_propagation",
+              "packet_rebuild",
+              "recap_input",
+              "manual_review"
+            ]
+          },
+          "payload": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}
