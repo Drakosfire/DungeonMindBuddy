@@ -1,7 +1,7 @@
 # HANDOFF — PR 72: C2 Live Control Surface L1 Packet + Event/Job + Surface Layout Schema
 
 **Created:** 2026-05-25 (UTC).  
-**Status:** ACTIVE — ready for implementation on branch `cursor/c2-l1-live-substrate-pr72` (PR #72).  
+**Status:** ACTIVE — implementation on PR #72; pending review/merge.
 **Parent agent:** Cursor agent; parent owns review and atomic doc-sync.  
 **Plan anchor:** `Docs/Plans/PLAN-c2-live-control-surface-query-pane.md` (`execution_state.active_slice: L1_packet_event_job_schema`).  
 **Checklist anchor:** `Docs/Plans/CHECKLIST-c2-live-control-surface-query-pane.md` Phase L1.

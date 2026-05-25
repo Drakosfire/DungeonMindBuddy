@@ -10,9 +10,15 @@
 
 ## Reanchor Block (fill first each session)
 
-- [x] **Active slice:** `L1_packet_event_job_schema`
-- [ ] **Last green artifact (path):** none — L1 substrate not yet on branch.
-- [x] **Next command / action:** Dispatch `HANDOFF-pr72-c2-live-packet-event-job-schema.md`.
+- [x] **Active slice:** `L2_roll_resolver_classifier`
+- [x] **Last green artifact (path):** L1 live substrate verified:
+  - `evals/c2_live_prep/live/session_22/live_packet.json`
+  - `evals/c2_live_prep/live/session_22/surface_layout.json`
+  - `evals/c2_live_prep/live/session_22/current_state.json`
+  - `src/live_play/live_store.py`
+  - `tests/test_live_play_schemas.py`
+  - Verification: `uv run pytest tests/test_live_play_schemas.py -q` → `7 passed`.
+- [x] **Next command / action:** Author or dispatch L2 roll resolver + live classifier slice.
 - [x] **Open product decision:** Resolved — keep as sibling sprint, not folded into the current C1 retrieval/autonomy demo.
 - [x] **Blocker type:** none for L1; PLAN/CHECKLIST accepted as active sprint anchors.
 
@@ -57,11 +63,11 @@ It does not build the whole control surface.
 
 ## Product Invariants
 
-- [ ] UI is **not** source of truth.
-- [ ] **`surface_layout.json` is authoritative for runtime UI layout**; GM changes persist through the server (`PUT /api/live/surface/layout`), not browser-only memory.
-- [ ] **`live_packet.surface_catalog` declares available modules**; `chat` and `record` are required and cannot be disabled.
-- [ ] Disabling a surface module never deletes events; **Record** stays complete.
-- [ ] `current_state.json` is derived from `live_packet.json` + `surface_layout.json` + `event_log.jsonl` + `job_queue.jsonl`.
+- [x] UI is **not** source of truth.
+- [x] **`surface_layout.json` is authoritative for runtime UI layout**; GM changes persist through the server (`PUT /api/live/surface/layout`), not browser-only memory.
+- [x] **`live_packet.surface_catalog` declares available modules**; `chat` and `record` are required and cannot be disabled.
+- [x] Disabling a surface module never deletes events; **Record** stays complete.
+- [x] `current_state.json` is derived from `live_packet.json` + `surface_layout.json` + `event_log.jsonl` + `job_queue.jsonl`.
 - [ ] `fast_live` does not invoke repo-wide search.
 - [ ] `context_lookup` can expose admitted context, candidate context, source-derived gaps, rendered packet, provenance, lane plan, and diagnostics.
 - [ ] `post_session` drains queued jobs and patches corpus surfaces later; it does not patch multiple corpus files inline during live play.
@@ -113,19 +119,19 @@ tests/test_live_play_schemas.py
 
 ### Checklist
 
-- [ ] Define `live_packet` schema: campaign/session, packet provenance, known roll tables, current state seed, open loops, source paths, **`surface_catalog`**.
-- [ ] Define `live_surface_layout` schema: layout_version, updated_at, slot enum, module instances (id, slot, order, collapsed, config).
-- [ ] Define `live_event` schema: id, timestamp, session clock, event_type, text, derived fields, provenance, source mode.
-- [ ] Define `live_job` schema: id, job_type, payload, status, dependencies, created_from_event_id.
-- [ ] Seed `surface_catalog` with required `chat` + `record` and Session 22 optional modules.
-- [ ] Seed default `surface_layout.json` (Chat + Record + at least one optional module enabled).
-- [ ] Author implementation handoff: `Docs/Plans/HANDOFF-pr72-c2-live-packet-event-job-schema.md`.
-- [ ] Seed Session 22 packet from staging + runbook + journey tracker.
-- [ ] Seed packet / examples include friction-study prompts from `STUDY-c2-live-play-cursor-handoff-process.md`.
-- [ ] Add tests that load schemas and validate seed files.
-- [ ] Add append tests for event/job JSONL writes.
-- [ ] Add round-trip test for `write_json` on `surface_layout.json`.
-- [ ] Mark `current_state.json` as derived in schema or metadata.
+- [x] Define `live_packet` schema: campaign/session, packet provenance, known roll tables, current state seed, open loops, source paths, **`surface_catalog`**.
+- [x] Define `live_surface_layout` schema: layout_version, updated_at, slot enum, module instances (id, slot, order, collapsed, config).
+- [x] Define `live_event` schema: id, timestamp, session clock, event_type, text, derived fields, provenance, source mode.
+- [x] Define `live_job` schema: id, job_type, payload, status, dependencies, created_from_event_id.
+- [x] Seed `surface_catalog` with required `chat` + `record` and Session 22 optional modules.
+- [x] Seed default `surface_layout.json` (Chat + Record + at least one optional module enabled).
+- [x] Author implementation handoff: `Docs/Plans/HANDOFF-pr72-c2-live-packet-event-job-schema.md`.
+- [x] Seed Session 22 packet from staging + runbook + journey tracker.
+- [x] Seed packet / examples include friction-study prompts from `STUDY-c2-live-play-cursor-handoff-process.md`.
+- [x] Add tests that load schemas and validate seed files.
+- [x] Add append tests for event/job JSONL writes.
+- [x] Add round-trip test for `write_json` on `surface_layout.json`.
+- [x] Mark `current_state.json` as derived in schema or metadata.
 
 ### Verification
 
