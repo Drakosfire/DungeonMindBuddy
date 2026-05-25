@@ -1,0 +1,293 @@
+{
+  "schema_version": "0.1.0",
+  "campaign_id": "longmont-c2",
+  "session": 22,
+  "packet_id": "longmont-c2-session-22-live-packet",
+  "created_at": "2026-05-25T00:00:00Z",
+  "source_paths": [
+    {
+      "path": "Docs/Plans/PLAN-c2-live-control-surface-query-pane.md",
+      "role": "product_plan",
+      "notes": "L1/L2/L3/L4 product shape and invariants."
+    },
+    {
+      "path": "Docs/Plans/CHECKLIST-c2-live-control-surface-query-pane.md",
+      "role": "operational_tracker",
+      "notes": "Phase L1 checklist and verification."
+    },
+    {
+      "path": "Docs/Plans/STUDY-c2-live-play-cursor-handoff-process.md",
+      "role": "product_friction_study",
+      "notes": "Human-first modular surface guardrails."
+    },
+    {
+      "path": "Docs/Plans/HANDOFF-s22-live-play-agent.md",
+      "role": "session_22_live_play_contract",
+      "notes": "Roll stack, notes discipline, and live-play modes."
+    },
+    {
+      "path": "evals/c2_live_prep/artifacts/runs/2026-05-23/c2s22_smoke_report.md",
+      "role": "retrieval_smoke_artifact",
+      "notes": "Prior-only retrieval smoke used by context_lookup later."
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/_ingest_staging/session_22_raw_notes.md",
+      "role": "staging_notes",
+      "notes": "Pre-recap live notes destination; not table canon."
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Journey - Mireward Reach (Campaign 2).md",
+      "role": "journey_tracker",
+      "notes": "Party position, travel clock, weather/comms scratch state."
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_travel_to_mireward_runbook.md",
+      "role": "primary_runbook",
+      "notes": "At-table route, weather, roll procedures, and Mireward arrival."
+    }
+  ],
+  "latency_modes": [
+    "fast_live",
+    "context_lookup",
+    "prep_architect",
+    "post_session"
+  ],
+  "known_roll_tables": [
+    {
+      "table_id": "T-WX",
+      "title": "Storm weather",
+      "dice": "d20",
+      "source_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/travel_storm_weather_d20.md",
+      "status": "pending",
+      "default_latency_mode": "fast_live"
+    },
+    {
+      "table_id": "T-NPC",
+      "title": "NPC spotlight",
+      "dice": "d12",
+      "source_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/travel_npc_spotlight_d12.md",
+      "status": "pending",
+      "default_latency_mode": "fast_live"
+    },
+    {
+      "table_id": "R5",
+      "title": "Road encounter",
+      "dice": "d100",
+      "source_path": "corpus/eldyrwild-markdown/Elderwyld/Roads/mireward_reach_road_d100_encounter_table.md",
+      "status": "pending",
+      "default_latency_mode": "fast_live"
+    },
+    {
+      "table_id": "T-DIL",
+      "title": "Travel dilemma",
+      "dice": "d12",
+      "source_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/travel_dilemma_d12.md",
+      "status": "pending",
+      "default_latency_mode": "fast_live"
+    },
+    {
+      "table_id": "T-DIL-G",
+      "title": "Gate dilemma",
+      "dice": "d6",
+      "source_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/mireward_gate_dilemma_d6.md",
+      "status": "pending",
+      "default_latency_mode": "fast_live"
+    },
+    {
+      "table_id": "T-CF",
+      "title": "Campfire roleplay",
+      "dice": "d8",
+      "source_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/travel_campfire_d8.md",
+      "status": "optional",
+      "default_latency_mode": "fast_live"
+    },
+    {
+      "table_id": "T-WATCH",
+      "title": "Night watch",
+      "dice": "d12",
+      "source_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/travel_night_watch_d12.md",
+      "status": "optional",
+      "default_latency_mode": "fast_live"
+    },
+    {
+      "table_id": "R6",
+      "title": "Conical hills night camp",
+      "dice": "d100",
+      "source_path": "corpus/eldyrwild-markdown/Elderwyld/Wilderness/conical_hills_night_camp_d100.md",
+      "status": "optional",
+      "default_latency_mode": "fast_live"
+    }
+  ],
+  "current_state_seed": {
+    "day_label": "Session 22 start",
+    "party_position": "Conical-hill camp north of Mossford; party intent is to press north toward Mireward.",
+    "route_intent": "Travel north on Mireward Reach; Mirathorn turnaround only if table reopens comms.",
+    "active_weather": null,
+    "next_suggested_beat": "T-WX storm weather roll for the next march day."
+  },
+  "open_loops": [
+    {
+      "loop_id": "grobnok-evening-contact",
+      "title": "Grobnok evening contact",
+      "status": "owed",
+      "summary": "Grobnok committed to contact again in the morning and definitely in the evening; keep this as an open live-play loop until resolved.",
+      "source_paths": [
+        {
+          "path": "Docs/Plans/HANDOFF-s22-live-play-agent.md",
+          "role": "session_22_live_play_contract",
+          "notes": "Roll stack, notes discipline, and live-play modes."
+        },
+        {
+          "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/_ingest_staging/session_22_raw_notes.md",
+          "role": "staging_notes",
+          "notes": "Pre-recap live notes destination; not table canon."
+        }
+      ]
+    },
+    {
+      "loop_id": "silver-raven-reply",
+      "title": "Silver Raven reply",
+      "status": "open",
+      "summary": "Comms remain part of the live session state and should become events/jobs rather than inline corpus edits.",
+      "source_paths": [
+        {
+          "path": "Docs/Plans/HANDOFF-s22-live-play-agent.md",
+          "role": "session_22_live_play_contract",
+          "notes": "Roll stack, notes discipline, and live-play modes."
+        },
+        {
+          "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/_ingest_staging/session_22_raw_notes.md",
+          "role": "staging_notes",
+          "notes": "Pre-recap live notes destination; not table canon."
+        }
+      ]
+    },
+    {
+      "loop_id": "post-session-propagation",
+      "title": "Post-session propagation chores",
+      "status": "open",
+      "summary": "Canon commits and corrections queue propagation jobs; they do not patch multiple corpus files during live play.",
+      "source_paths": [
+        {
+          "path": "Docs/Plans/PLAN-c2-live-control-surface-query-pane.md",
+          "role": "product_plan",
+          "notes": "L1/L2/L3/L4 product shape and invariants."
+        },
+        {
+          "path": "Docs/Plans/STUDY-c2-live-play-cursor-handoff-process.md",
+          "role": "product_friction_study",
+          "notes": "Human-first modular surface guardrails."
+        }
+      ]
+    }
+  ],
+  "roll_stack": [
+    {
+      "table_id": "T-WX",
+      "title": "Storm weather",
+      "status": "pending",
+      "source_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/travel_storm_weather_d20.md",
+      "next_roll_due": "Each march day."
+    },
+    {
+      "table_id": "T-NPC",
+      "title": "NPC spotlight",
+      "status": "pending",
+      "source_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/travel_npc_spotlight_d12.md",
+      "next_roll_due": "Each march day."
+    },
+    {
+      "table_id": "R5",
+      "title": "Road encounter",
+      "status": "pending",
+      "source_path": "corpus/eldyrwild-markdown/Elderwyld/Roads/mireward_reach_road_d100_encounter_table.md",
+      "next_roll_due": "Each march day."
+    },
+    {
+      "table_id": "T-DIL",
+      "title": "Travel dilemma",
+      "status": "pending",
+      "source_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/travel_dilemma_d12.md",
+      "next_roll_due": "When travel dilemma beat triggers."
+    },
+    {
+      "table_id": "T-DIL-G",
+      "title": "Gate dilemma",
+      "status": "pending",
+      "source_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/mireward_gate_dilemma_d6.md",
+      "next_roll_due": "At Mireward gate if reached."
+    }
+  ],
+  "surface_catalog": [
+    {
+      "module_id": "chat",
+      "title": "Chat",
+      "default_slot": "main",
+      "required": true,
+      "enabled_by_default": true,
+      "description": "Live query input, answer, classification badge, and next suggestions.",
+      "config_schema": null
+    },
+    {
+      "module_id": "record",
+      "title": "Record",
+      "default_slot": "sidebar",
+      "required": true,
+      "enabled_by_default": true,
+      "description": "Append-only session event stream with provenance.",
+      "config_schema": null
+    },
+    {
+      "module_id": "now",
+      "title": "Now",
+      "default_slot": "sidebar",
+      "required": false,
+      "enabled_by_default": true,
+      "description": "Current day, party position, weather, and suggested next beat.",
+      "config_schema": null
+    },
+    {
+      "module_id": "open_loops",
+      "title": "Open loops",
+      "default_slot": "sidebar",
+      "required": false,
+      "enabled_by_default": true,
+      "description": "Outstanding live-session obligations such as Grobnok contact.",
+      "config_schema": null
+    },
+    {
+      "module_id": "roll_stack",
+      "title": "Roll stack",
+      "default_slot": "bottom",
+      "required": false,
+      "enabled_by_default": true,
+      "description": "Pending and resolved tables with human labels and future inline expansion.",
+      "config_schema": null
+    },
+    {
+      "module_id": "sources",
+      "title": "Sources",
+      "default_slot": "overlay",
+      "required": false,
+      "enabled_by_default": false,
+      "description": "Context lookup provenance, admitted/candidate context, and gaps.",
+      "config_schema": null
+    },
+    {
+      "module_id": "queue",
+      "title": "Queue",
+      "default_slot": "bottom",
+      "required": false,
+      "enabled_by_default": true,
+      "description": "Background jobs for staging append, benchmark candidates, propagation, and packet rebuild.",
+      "config_schema": null
+    }
+  ],
+  "context_packets": [
+    {
+      "path": "evals/c2_live_prep/artifacts/runs/2026-05-23/c2s22_smoke_report.md",
+      "role": "retrieval_smoke_report",
+      "notes": "Reference artifact for future context_lookup responses; not read for fast_live rolls."
+    }
+  ]
+}
