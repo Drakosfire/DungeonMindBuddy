@@ -1,0 +1,369 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "live_packet.schema.json",
+  "title": "C2 Live Play Packet v0.1",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "campaign_id",
+    "session",
+    "packet_id",
+    "created_at",
+    "source_paths",
+    "latency_modes",
+    "known_roll_tables",
+    "current_state_seed",
+    "open_loops",
+    "roll_stack",
+    "surface_catalog"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "pattern": "^0\\.1\\.\\d+$"
+    },
+    "campaign_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "session": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "packet_id": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9_.:-]+$"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "source_paths": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "path",
+          "role"
+        ],
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "role": {
+            "type": "string",
+            "minLength": 1
+          },
+          "notes": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "minItems": 1
+    },
+    "latency_modes": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "fast_live",
+          "context_lookup",
+          "prep_architect",
+          "post_session"
+        ]
+      },
+      "uniqueItems": true
+    },
+    "known_roll_tables": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "table_id",
+          "title",
+          "dice",
+          "source_path",
+          "status"
+        ],
+        "properties": {
+          "table_id": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "dice": {
+            "type": "string",
+            "minLength": 1
+          },
+          "source_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "resolved",
+              "optional",
+              "reference"
+            ]
+          },
+          "default_latency_mode": {
+            "type": "string",
+            "enum": [
+              "fast_live",
+              "context_lookup",
+              "prep_architect",
+              "post_session"
+            ]
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "current_state_seed": {
+      "type": "object",
+      "required": [
+        "day_label",
+        "party_position",
+        "route_intent",
+        "active_weather",
+        "next_suggested_beat"
+      ],
+      "properties": {
+        "day_label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "party_position": {
+          "type": "string",
+          "minLength": 1
+        },
+        "route_intent": {
+          "type": "string",
+          "minLength": 1
+        },
+        "active_weather": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "next_suggested_beat": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "open_loops": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "loop_id",
+          "title",
+          "status",
+          "summary",
+          "source_paths"
+        ],
+        "properties": {
+          "loop_id": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "open",
+              "owed",
+              "blocked",
+              "closed"
+            ]
+          },
+          "summary": {
+            "type": "string",
+            "minLength": 1
+          },
+          "source_paths": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "path",
+                "role"
+              ],
+              "properties": {
+                "path": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "role": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "notes": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "additionalProperties": false
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "roll_stack": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "table_id",
+          "title",
+          "status",
+          "source_path"
+        ],
+        "properties": {
+          "table_id": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "resolved",
+              "skipped",
+              "optional"
+            ]
+          },
+          "source_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "next_roll_due": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "surface_catalog": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "module_id",
+          "title",
+          "default_slot",
+          "required",
+          "enabled_by_default"
+        ],
+        "properties": {
+          "module_id": {
+            "type": "string",
+            "enum": [
+              "chat",
+              "record",
+              "now",
+              "open_loops",
+              "roll_stack",
+              "sources",
+              "queue"
+            ]
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "default_slot": {
+            "type": "string",
+            "enum": [
+              "main",
+              "sidebar",
+              "bottom",
+              "overlay"
+            ]
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "enabled_by_default": {
+            "type": "boolean"
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "config_schema": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "additionalProperties": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "minItems": 2
+    },
+    "context_packets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "path",
+          "role"
+        ],
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "role": {
+            "type": "string",
+            "minLength": 1
+          },
+          "notes": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}
