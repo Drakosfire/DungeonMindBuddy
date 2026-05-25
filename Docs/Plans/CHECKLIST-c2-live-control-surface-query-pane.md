@@ -1,6 +1,6 @@
 # Checklist — C2 Live Control Surface v0 Query Pane
 
-**Purpose:** Operational tracker for the product-surface sprint that turns Session 22 live-play dogfood into a local server + light UI query pane.
+**Purpose:** Operational tracker for the product-surface sprint that turns Session 22 live-play dogfood into a local server + **runtime-configurable modular UI shell** (Chat + Record first).
 
 **Plan anchor:** `Docs/Plans/PLAN-c2-live-control-surface-query-pane.md`
 
@@ -10,14 +10,15 @@
 
 ## Reanchor Block (fill first each session)
 
-- [x] **Active slice:** `L1_packet_event_job_schema`
-- [x] **Last green artifact (path):** Session 22 dogfood artifacts exist and are usable as seed evidence:
-  - `Docs/Plans/HANDOFF-s22-live-play-agent.md`
-  - `corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/_ingest_staging/session_22_raw_notes.md`
-  - `corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_travel_to_mireward_runbook.md`
-  - `evals/c2_live_prep/artifacts/runs/2026-05-23/c2s22_smoke_report.md`
-  - `Docs/Plans/STUDY-c2-live-play-cursor-handoff-process.md`
-- [x] **Next command / action:** Dispatch `Docs/Plans/HANDOFF-pr71-c2-live-packet-event-job-schema.md`.
+- [x] **Active slice:** `L1_packet_event_job_schema` (in review on PR #72)
+- [x] **Last green artifact (path):** L1 substrate proposed on branch `cursor/c2-l1-live-substrate-pr72`:
+  - `evals/c2_live_prep/live/session_22/live_packet.json`
+  - `evals/c2_live_prep/live/session_22/surface_layout.json`
+  - `evals/c2_live_prep/live/session_22/current_state.json`
+  - `src/live_play/live_store.py`
+  - `tests/test_live_play_schemas.py`
+  - Verification (branch): `uv run pytest tests/test_live_play_schemas.py -q`
+- [x] **Next command / action:** Complete PR #72 review; merge; then dispatch L2 roll resolver + live classifier.
 - [x] **Open product decision:** Resolved — keep as sibling sprint, not folded into the current C1 retrieval/autonomy demo.
 - [x] **Blocker type:** none for L1; PLAN/CHECKLIST accepted as active sprint anchors.
 
@@ -27,15 +28,17 @@
 
 This sprint proves one product surface:
 
-> A GM can type a live-play turn, DungeonBuddy can answer in the right mode, and the system keeps session state organized through event logs and queued jobs.
+> A GM can type a live-play turn, DungeonBuddy can answer in the right mode, and the system keeps session state organized through event logs and queued jobs — in a **layout the GM can change at the table** and recover after refresh.
 
 It does not build the whole control surface.
 
 ### In Scope
 
-- Local FastAPI server
-- Light React / Vite query pane
-- File-backed live packet
+- Local server (first implementation may be FastAPI; contract is language-agnostic)
+- **Modular surface shell** — runtime-configurable layout, module registry
+- Required modules: **Chat**, **Record**
+- Optional catalog modules: Now, Open Loops, Roll Stack, Sources, Queue, …
+- File-backed live packet + **surface_layout**
 - Event log
 - Job queue
 - Derived current state
@@ -60,13 +63,17 @@ It does not build the whole control surface.
 
 ## Product Invariants
 
-- [ ] UI is **not** source of truth.
-- [ ] `current_state.json` is derived from `live_packet.json` + `event_log.jsonl` + `job_queue.jsonl`.
+- [x] UI is **not** source of truth.
+- [x] **`surface_layout.json` is authoritative for runtime UI layout**; GM changes persist through the server (`PUT /api/live/surface/layout`), not browser-only memory.
+- [x] **`live_packet.surface_catalog` declares available modules**; `chat` and `record` are required and cannot be disabled.
+- [x] Disabling a surface module never deletes events; **Record** stays complete.
+- [x] `current_state.json` is derived from `live_packet.json` + `surface_layout.json` + `event_log.jsonl` + `job_queue.jsonl`.
 - [ ] `fast_live` does not invoke repo-wide search.
 - [ ] `context_lookup` can expose admitted context, candidate context, source-derived gaps, rendered packet, provenance, lane plan, and diagnostics.
 - [ ] `post_session` drains queued jobs and patches corpus surfaces later; it does not patch multiple corpus files inline during live play.
 - [ ] Session 22 transcript examples remain regression fixtures for the classifier / resolver.
 - [ ] UI and classifier work re-read `STUDY-c2-live-play-cursor-handoff-process.md` before implementation to avoid dashboard/file-name-first regressions.
+- [ ] HTTP/API contract is documented (OpenAPI) so the server can be reimplemented outside Python without rewriting surface modules.
 
 ---
 
@@ -89,9 +96,9 @@ It does not build the whole control surface.
 
 ---
 
-## Phase L1 — Live Packet + Event/Job Schema
+## Phase L1 — Live Packet + Event/Job Schema + Surface Layout
 
-**Goal:** Create the file-backed state substrate without a server or UI.
+**Goal:** Create the file-backed state substrate (including runtime surface layout contract) without a server or UI.
 
 ### Files
 
@@ -99,24 +106,32 @@ It does not build the whole control surface.
 evals/c2_live_prep/live/schemas/live_packet.schema.json
 evals/c2_live_prep/live/schemas/live_event.schema.json
 evals/c2_live_prep/live/schemas/live_job.schema.json
-evals/c2_live_prep/live/session_22/live_packet.json
+evals/c2_live_prep/live/schemas/live_surface_layout.schema.json
+evals/c2_live_prep/live/session_22/live_packet.json       # includes surface_catalog
+evals/c2_live_prep/live/session_22/surface_layout.json
 evals/c2_live_prep/live/session_22/event_log.jsonl
 evals/c2_live_prep/live/session_22/job_queue.jsonl
 evals/c2_live_prep/live/session_22/current_state.json
 evals/c2_live_prep/live/session_22/benchmark_candidates.jsonl
+src/live_play/live_store.py
+tests/test_live_play_schemas.py
 ```
 
 ### Checklist
 
-- [ ] Define `live_packet` schema: campaign/session, packet provenance, known roll tables, current state seed, open loops, source paths.
-- [ ] Define `live_event` schema: id, timestamp, session clock, event_type, text, derived fields, provenance, source mode.
-- [ ] Define `live_job` schema: id, job_type, payload, status, dependencies, created_from_event_id.
-- [x] Author implementation handoff: `Docs/Plans/HANDOFF-pr71-c2-live-packet-event-job-schema.md`.
-- [ ] Seed Session 22 packet from staging + runbook + journey tracker.
-- [ ] Seed packet / examples include friction-study prompts from `STUDY-c2-live-play-cursor-handoff-process.md`.
-- [ ] Add tests that load schemas and validate seed files.
-- [ ] Add append tests for event/job JSONL writes.
-- [ ] Mark `current_state.json` as derived in schema or metadata.
+- [x] Define `live_packet` schema: campaign/session, packet provenance, known roll tables, current state seed, open loops, source paths, **`surface_catalog`**.
+- [x] Define `live_surface_layout` schema: layout_version, updated_at, slot enum, module instances (id, slot, order, collapsed, config).
+- [x] Define `live_event` schema: id, timestamp, session clock, event_type, text, derived fields, provenance, source mode.
+- [x] Define `live_job` schema: id, job_type, payload, status, dependencies, created_from_event_id.
+- [x] Seed `surface_catalog` with required `chat` + `record` and Session 22 optional modules.
+- [x] Seed default `surface_layout.json` (Chat + Record + at least one optional module enabled).
+- [x] Author implementation handoff: `Docs/Plans/HANDOFF-pr72-c2-live-packet-event-job-schema.md`.
+- [x] Seed Session 22 packet from staging + runbook + journey tracker.
+- [x] Seed packet / examples include friction-study prompts from `STUDY-c2-live-play-cursor-handoff-process.md`.
+- [x] Add tests that load schemas and validate seed files.
+- [x] Add append tests for event/job JSONL writes.
+- [x] Add round-trip test for `write_json` on `surface_layout.json`.
+- [x] Mark `current_state.json` as derived in schema or metadata.
 
 ### Verification
 
@@ -190,22 +205,28 @@ apps/live-control-server/
 ```text
 POST /api/live/query
 GET  /api/live/state
-GET  /api/live/events
+GET  /api/live/events              # ?since= for record tail
 GET  /api/live/jobs
 POST /api/live/jobs/{id}/complete
 POST /api/live/resolve-roll
 POST /api/live/rebuild-packet
+GET  /api/live/surface
+PUT  /api/live/surface/layout
 ```
 
 ### Checklist
 
-- [ ] Server loads Session 22 live packet from file.
+- [ ] Server loads Session 22 live packet + surface layout from file.
 - [ ] `POST /api/live/query` calls `handle_live_turn`.
 - [ ] Event/job writes are atomic enough for local single-user use.
 - [ ] `GET /api/live/state` returns derived current state.
-- [ ] `GET /api/live/events` returns recent events.
+- [ ] `GET /api/live/events` returns recent events (`?since=` supported for Record module).
 - [ ] `GET /api/live/jobs` returns queued jobs.
+- [ ] `GET /api/live/surface` returns catalog + current layout.
+- [ ] `PUT /api/live/surface/layout` validates against schema and writes `surface_layout.json` atomically.
+- [ ] Layout updates may append `surface_config_updated` to the event log.
 - [ ] `POST /api/live/jobs/{id}/complete` marks job complete without deleting history.
+- [ ] OpenAPI schema published for live endpoints.
 - [ ] Curl smoke for `Weather 7. Caelynn Nature 19.` passes.
 
 ### Verification
@@ -225,30 +246,37 @@ curl -s -X POST http://127.0.0.1:8000/api/live/query \
 
 ---
 
-## Phase L4 — Light UI Query Pane
+## Phase L4 — Modular Surface Shell
 
-**Goal:** Make the loop feel like DungeonBuddy instead of a repo-agent chat.
+**Goal:** Make the loop feel like DungeonBuddy instead of a repo-agent chat, with a **runtime-configurable** module layout.
 
 ### Files
 
 ```text
 apps/live-control-ui/
   src/App.tsx
-  src/components/QueryPane.tsx
-  src/components/ResponsePanel.tsx
-  src/components/ContextWindows.tsx
+  src/surface/SurfaceShell.tsx
+  src/surface/moduleRegistry.ts
+  src/surface/modules/ChatModule.tsx
+  src/surface/modules/RecordModule.tsx
+  src/surface/modules/RollStackModule.tsx   # or another proof optional module
+  src/surface/LayoutControls.tsx
 ```
 
 ### Checklist
 
-- [ ] Query pane sends text to `POST /api/live/query`.
-- [ ] Response panel shows answer, classification, events written, jobs queued, next suggestions.
-- [ ] Context windows show Now, Open Loops, Roll Stack, Sources, Queue.
+- [ ] SurfaceShell loads catalog + layout from `GET /api/live/surface`.
+- [ ] Chat module sends text to `POST /api/live/query` and shows answer, classification, next suggestions.
+- [ ] Record module tails `GET /api/live/events?since=` (or polls recent events).
+- [ ] At least one optional catalog module renders from shared server state (proof of plugin path).
+- [ ] LayoutControls let GM enable/disable optional modules, reorder, and move between slots.
+- [ ] Layout changes persist via `PUT /api/live/surface/layout` (not localStorage-only).
+- [ ] Required modules `chat` and `record` cannot be disabled.
 - [ ] UI labels are human-first (`Storm weather`, `Road encounter`, `Gate dilemma`) with file paths only in source/provenance captions.
-- [ ] Roll tables expand inline; no artifact-register dashboard as the primary surface.
-- [ ] UI refreshes state after query.
+- [ ] Roll tables expand inline inside modules; no artifact-register dashboard as the primary surface.
+- [ ] UI refreshes module data after query.
 - [ ] UI handles `fast_live` and `context_lookup` responses differently enough to see sources/gaps when present.
-- [ ] UI does not write source files directly.
+- [ ] UI does not write session source files directly (layout goes through server API).
 
 ### Verification
 
@@ -264,20 +292,31 @@ Use the repo's actual package manager / app conventions once the UI package exis
 ## Demo Script
 
 1. Start server and UI.
-2. Type: `Weather 7. Caelynn Nature 19.`
-3. Observe: immediate T-WX answer, event log write, Roll Stack marks T-WX done.
-4. Type: `Grobnok does not call in the morning.`
-5. Observe: Open Loops keeps evening contact owed.
-6. Type: `What is Lysandra feeling at the gate?`
-7. Observe: `context_lookup` answer with sources / provenance.
-8. Type: `Lysandro is her father.`
-9. Observe: canon correction event + queued propagation job, not inline corpus patching.
+2. Confirm default layout shows Chat + Record (+ seeded optional module).
+3. Type: `Weather 7. Caelynn Nature 19.`
+4. Observe: immediate T-WX answer in Chat; roll_result row in Record; optional Roll Stack marks T-WX done.
+5. Toggle/reorder a module; refresh browser; layout persists.
+6. Type: `Grobnok does not call in the morning.`
+7. Observe: Open Loops module (if enabled) keeps evening contact owed.
+8. Type: `What is Lysandra feeling at the gate?`
+9. Observe: `context_lookup` answer with sources / provenance in Sources module when enabled.
+10. Type: `Lysandro is her father.`
+11. Observe: canon correction event + queued propagation job, not inline corpus patching.
 
 ---
 
 ## Evidence Log
 
 Append dated entries here as PRs land.
+
+### 2026-05-26 — L1 Live Substrate Proposed in PR #72
+
+- PR #72 proposes the L1 file-backed substrate: four live schemas, Session 22 seed files, `src/live_play/live_store.py`, and `tests/test_live_play_schemas.py`.
+- Verification on branch (paste outputs in PR body before merge):
+  - `uv run pytest tests/test_live_play_schemas.py -q`
+  - JSON/JSONL parse smoke
+  - `git diff --name-only` / allowlisted `git diff --stat`
+- Advance `execution_state.active_slice` to `L2_roll_resolver_classifier` only after PR #72 merges.
 
 ### 2026-05-25 — Plan/Checklist Created
 
@@ -287,9 +326,15 @@ Append dated entries here as PRs land.
 - Accepted as active sibling sprint.
 - Starting implementation state: `L1_packet_event_job_schema`; no code yet.
 
+### 2026-05-26 — Modular runtime surface design locked
+
+- PLAN v1.1: reframed v0 as runtime-configurable surface shell (Chat + Record required).
+- Added `surface_catalog`, `surface_layout.json`, and `GET/PUT /api/live/surface` to L1/L3/L4 contracts.
+- CHECKLIST + HANDOFF-pr72 updated to include surface layout schema and seed in PR 72 scope.
+
 ### 2026-05-25 — L1 Handoff Authored
 
-- Added `Docs/Plans/HANDOFF-pr71-c2-live-packet-event-job-schema.md`.
+- Added `Docs/Plans/HANDOFF-pr72-c2-live-packet-event-job-schema.md`.
 - The handoff points a fresh agent through the anchor route: root rules, PLAN, CHECKLIST, STUDY, Session 22 dogfood handoff, staging notes, journey tracker, runbook, and C2 smoke artifact.
 - Next action: dispatch the handoff for the L1 substrate PR.
 
@@ -299,6 +344,8 @@ Append dated entries here as PRs land.
 
 - [ ] Should server live under `apps/live-control-server/` or integrated under `src/live_play/server.py` first?
 - [ ] Should UI live under `apps/live-control-ui/` or a demo/evals UI folder first?
-- [ ] Does PR 1 include `benchmark_candidates.jsonl` schema, or defer until classifier can emit candidates?
+- [x] Runtime surface configurability: **yes** — `surface_layout.json` + server persistence (locked 2026-05-26).
+- [x] Does PR 1 include `benchmark_candidates.jsonl` schema, or defer until classifier can emit candidates? Resolved for L1: defer dedicated schema; file parses as JSONL and classifier will define candidate row shape later.
 - [ ] Should R5 paragraph-table resolution land in PR 2 or be a follow-up after pipe-row tables?
 - [ ] Should `context_lookup` initially read an existing packet only, or be allowed to rebuild packet in PR 3?
+- [ ] Drag-and-drop layout polish: required in L4 v0 or acceptable as follow-up after toggle/reorder/slot-move works?
