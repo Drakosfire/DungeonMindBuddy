@@ -11,7 +11,10 @@ from jsonschema.exceptions import ValidationError
 
 from src.live_play.current_state_derive import derive_current_state_fields
 from src.live_play.live_store import append_jsonl, iter_jsonl, load_json, write_json
-from src.live_play.surface_layout_invariants import validate_surface_layout_invariants
+from src.live_play.surface_layout_invariants import (
+    validate_catalog_layout_consistency,
+    validate_surface_layout_invariants,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_DIR = ROOT / "evals/c2_live_prep/live/schemas"
@@ -209,6 +212,8 @@ def test_current_state_derived_fields_match_authoritative_sources() -> None:
     ]
 
     derived = derive_current_state_fields(packet, layout, events, jobs)
+    assert state["now"] == derived["now"]
+    assert state["now"] == packet["current_state_seed"]
     assert state["open_loop_count"] == derived["open_loop_count"]
     assert state["pending_roll_tables"] == derived["pending_roll_tables"]
     assert state["enabled_surface_modules"] == derived["enabled_surface_modules"]
@@ -225,11 +230,34 @@ def test_surface_catalog_and_layout_seed_required_modules() -> None:
     assert catalog["record"]["required"] is True
     assert {"now", "open_loops", "roll_stack", "sources", "queue"}.issubset(catalog)
 
+    catalog_ids = [row["module_id"] for row in packet["surface_catalog"]]
+    layout_ids = [row["module_id"] for row in layout["modules"]]
+    assert len(catalog_ids) == len(set(catalog_ids))
+    assert set(layout_ids).issubset(set(catalog_ids))
+    validate_catalog_layout_consistency(packet, layout)
+
     enabled_layout = {module["module_id"]: module for module in layout["modules"] if module["enabled"]}
     assert "chat" in enabled_layout
     assert "record" in enabled_layout
     assert any(module_id not in {"chat", "record"} for module_id in enabled_layout)
     _validate_surface_layout(layout)
+
+
+def test_layout_rejects_module_not_in_surface_catalog() -> None:
+    packet = load_json(SESSION_DIR / "live_packet.json")
+    layout = load_json(SESSION_DIR / "surface_layout.json")
+    orphan = copy.deepcopy(layout)
+    orphan["modules"].append(
+        {
+            "module_id": "not_in_catalog",
+            "slot": "sidebar",
+            "order": 99,
+            "enabled": True,
+            "collapsed": False,
+        }
+    )
+    with pytest.raises(ValueError, match="not in surface_catalog"):
+        validate_catalog_layout_consistency(packet, orphan)
 
 
 def test_surface_layout_rejects_missing_chat() -> None:

@@ -9,8 +9,9 @@ def derive_current_state_fields(
     events: list[dict[str, Any]],
     jobs: list[dict[str, Any]],
 ) -> dict[str, Any]:
-    """Recompute count/list fields that current_state.json must mirror from authoritative sources."""
+    """Recompute fields that current_state.json must mirror from authoritative sources."""
     return {
+        "now": packet["current_state_seed"],
         "open_loop_count": len(packet["open_loops"]),
         "pending_roll_tables": [
             row["table_id"] for row in packet["roll_stack"] if row["status"] == "pending"
