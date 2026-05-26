@@ -19,6 +19,7 @@ SCHEMA_DIR = ROOT / "evals/c2_live_prep/live/schemas"
 SEED_SESSION = ROOT / "evals/c2_live_prep/live/session_22"
 COMMITTED_EVENT_LOG = SEED_SESSION / "event_log.jsonl"
 COMMITTED_JOB_QUEUE = SEED_SESSION / "job_queue.jsonl"
+COMMITTED_SURFACE_LAYOUT = SEED_SESSION / "surface_layout.json"
 
 
 def _load_schema(name: str) -> dict:
@@ -210,3 +211,157 @@ def test_get_jobs_after_canon_correction(client: TestClient) -> None:
     jobs_body = client.get("/api/live/jobs").json()
     job_types = {row["job_type"] for row in jobs_body["jobs"]}
     assert "post_session_propagation" in job_types
+
+
+def test_get_surface_returns_catalog_layout_state(client: TestClient) -> None:
+    body = client.get("/api/live/surface").json()
+    assert "catalog" in body
+    assert "layout" in body
+    assert "state" in body
+    catalog_ids = {row["module_id"] for row in body["catalog"]}
+    assert "chat" in catalog_ids
+    assert "record" in catalog_ids
+    layout_ids = {row["module_id"] for row in body["layout"]["modules"] if row.get("enabled")}
+    assert "chat" in layout_ids
+    assert "record" in layout_ids
+    assert body["state"]["derived"] is True
+
+
+def test_put_surface_layout_persists_valid_layout(
+    client: TestClient,
+    isolated_session: Path,
+) -> None:
+    before_layout = COMMITTED_SURFACE_LAYOUT.read_bytes()
+    layout = load_json(isolated_session / "surface_layout.json")
+    layout["layout_version"] = layout.get("layout_version", 1) + 1
+
+    response = client.put("/api/live/surface/layout", json=layout)
+    assert response.status_code == 200
+    saved = response.json()["layout"]
+    assert saved["layout_version"] == layout["layout_version"]
+    on_disk = load_json(isolated_session / "surface_layout.json")
+    assert on_disk["layout_version"] == layout["layout_version"]
+    assert COMMITTED_SURFACE_LAYOUT.read_bytes() == before_layout
+
+
+def test_put_surface_layout_rejects_disabled_chat(client: TestClient) -> None:
+    layout = client.get("/api/live/surface").json()["layout"]
+    for row in layout["modules"]:
+        if row["module_id"] == "chat":
+            row["enabled"] = False
+    response = client.put("/api/live/surface/layout", json=layout)
+    assert response.status_code == 422
+
+
+def test_put_surface_layout_rejects_unknown_module(client: TestClient) -> None:
+    layout = client.get("/api/live/surface").json()["layout"]
+    layout["modules"] = list(layout["modules"]) + [
+        {
+            "module_id": "bogus_module",
+            "slot": "overlay",
+            "order": 99,
+            "enabled": True,
+            "collapsed": True,
+            "size": None,
+            "config": {},
+        }
+    ]
+    response = client.put("/api/live/surface/layout", json=layout)
+    assert response.status_code == 422
+
+
+def test_complete_job_marks_queued_job_complete(client: TestClient, isolated_session: Path) -> None:
+    query = client.post(
+        "/api/live/query",
+        json={
+            "campaign_id": "longmont-c2",
+            "session": 22,
+            "mode": "live",
+            "text": "Weather 7.",
+        },
+    )
+    assert query.status_code == 200
+    job_id = query.json()["jobs_queued"][0]
+
+    complete = client.post(f"/api/live/jobs/{job_id}/complete")
+    assert complete.status_code == 200
+    job = complete.json()["job"]
+    assert job["status"] == "complete"
+    assert job["id"] == job_id
+
+    jobs_on_disk = (isolated_session / "job_queue.jsonl").read_text(encoding="utf-8").strip().splitlines()
+    assert len(jobs_on_disk) == 1
+    persisted = json.loads(jobs_on_disk[0])
+    assert persisted["status"] == "complete"
+    assert persisted["job_type"] == "benchmark_candidate"
+
+
+def test_complete_job_returns_404_for_missing_id(client: TestClient) -> None:
+    response = client.post("/api/live/jobs/job-does-not-exist/complete")
+    assert response.status_code == 404
+
+
+def test_resolve_roll_weather_16_without_append(
+    client: TestClient,
+    isolated_session: Path,
+) -> None:
+    events_before = len(
+        (isolated_session / "event_log.jsonl").read_text(encoding="utf-8").strip().splitlines()
+    )
+    jobs_before = len(
+        (isolated_session / "job_queue.jsonl").read_text(encoding="utf-8").strip().splitlines()
+    )
+
+    response = client.post("/api/live/resolve-roll", json={"command": "Weather 16"})
+    assert response.status_code == 200
+    body = response.json()
+    assert body["table_id"] == "T-WX"
+    assert body["roll"] == 16
+    assert "Fixed-distance front" in body["row_text"]
+
+    events_after = len(
+        (isolated_session / "event_log.jsonl").read_text(encoding="utf-8").strip().splitlines()
+    )
+    jobs_after = len(
+        (isolated_session / "job_queue.jsonl").read_text(encoding="utf-8").strip().splitlines()
+    )
+    assert events_after == events_before
+    assert jobs_after == jobs_before
+
+
+def test_rebuild_packet_queues_packet_rebuild_job(
+    client: TestClient,
+    isolated_session: Path,
+) -> None:
+    before_jobs = COMMITTED_JOB_QUEUE.read_bytes()
+    response = client.post("/api/live/rebuild-packet")
+    assert response.status_code == 202
+    body = response.json()
+    assert body["status"] == "queued"
+    assert body["job"]["job_type"] == "packet_rebuild"
+
+    job_validator = Draft202012Validator(
+        _load_schema("live_job.schema.json"),
+        format_checker=Draft202012Validator.FORMAT_CHECKER,
+    )
+    jobs = (isolated_session / "job_queue.jsonl").read_text(encoding="utf-8").strip().splitlines()
+    assert len(jobs) == 1
+    job_validator.validate(json.loads(jobs[0]))
+    assert COMMITTED_JOB_QUEUE.read_bytes() == before_jobs
+
+
+def test_openapi_contains_required_live_paths(client: TestClient) -> None:
+    spec = client.get("/openapi.json").json()
+    paths = set(spec["paths"])
+    required = {
+        "/api/live/query",
+        "/api/live/state",
+        "/api/live/events",
+        "/api/live/jobs",
+        "/api/live/jobs/{job_id}/complete",
+        "/api/live/resolve-roll",
+        "/api/live/rebuild-packet",
+        "/api/live/surface",
+        "/api/live/surface/layout",
+    }
+    assert required <= paths

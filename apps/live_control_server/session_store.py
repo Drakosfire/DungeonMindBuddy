@@ -1,12 +1,22 @@
 from __future__ import annotations
 
+import json
+import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from apps.live_control_server.schema_validation import validate_before_append
+from apps.live_control_server.schema_validation import (
+    validate_before_append,
+    validate_live_job_row,
+    validate_live_surface_layout,
+)
 from src.live_play.current_state_derive import derive_current_state_fields
 from src.live_play.live_store import append_jsonl, iter_jsonl, load_json, write_json
+from src.live_play.surface_layout_invariants import (
+    validate_catalog_layout_consistency,
+    validate_surface_layout_invariants,
+)
 
 
 def _paths(base: Path) -> dict[str, Path]:
@@ -81,3 +91,80 @@ def events_since(events: list[dict[str, Any]], since_id: str | None) -> list[dic
         elif event.get("id") == since_id:
             seen = True
     return tail
+
+
+def _rewrite_jsonl(path: Path, rows: list[dict[str, Any]]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temp_path = path.with_name(f".{path.name}.tmp")
+    lines = [json.dumps(row, ensure_ascii=False, separators=(",", ":")) for row in rows]
+    temp_path.write_text(("".join(f"{line}\n" for line in lines)), encoding="utf-8")
+    temp_path.replace(path)
+
+
+def validate_and_save_layout(
+    base: Path,
+    packet: dict[str, Any],
+    layout: dict[str, Any],
+) -> dict[str, Any]:
+    validate_live_surface_layout(layout)
+    validate_surface_layout_invariants(layout)
+    validate_catalog_layout_consistency(packet, layout)
+    layout = dict(layout)
+    layout["updated_at"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    write_json(_paths(base)["layout"], layout)
+    return layout
+
+
+def complete_job(base: Path, job_id: str) -> dict[str, Any] | None:
+    paths = _paths(base)
+    jobs = iter_jsonl(paths["jobs"]) if paths["jobs"].is_file() else []
+    updated: dict[str, Any] | None = None
+    for index, row in enumerate(jobs):
+        if row.get("id") == job_id:
+            updated = {**row, "status": "complete"}
+            jobs[index] = updated
+            break
+    if updated is None:
+        return None
+    validate_live_job_row(updated)
+    for row in jobs:
+        validate_live_job_row(row)
+    _rewrite_jsonl(paths["jobs"], jobs)
+    return updated
+
+
+def queue_packet_rebuild_job(base: Path, packet: dict[str, Any]) -> dict[str, Any]:
+    created_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    job_id = f"job-packet-rebuild-{uuid.uuid4().hex[:12]}"
+    job: dict[str, Any] = {
+        "schema_version": "0.1.0",
+        "id": job_id,
+        "created_at": created_at,
+        "job_type": "packet_rebuild",
+        "status": "queued",
+        "payload": {
+            "campaign_id": packet["campaign_id"],
+            "session": packet["session"],
+            "packet_id": packet.get("packet_id"),
+        },
+        "created_from_event_id": None,
+        "dependencies": [],
+        "provenance": {
+            "source_paths": [
+                {
+                    "path": "live_packet.json",
+                    "role": "live_packet",
+                    "notes": "Rebuild requested via POST /api/live/rebuild-packet; execution deferred.",
+                }
+            ],
+            "generated_by": "live_control_server",
+            "notes": "Queued for later retrieval rebuild; no inline packet mutation in L3-rest.",
+        },
+    }
+    validate_live_job_row(job)
+    paths = _paths(base)
+    paths["jobs"].parent.mkdir(parents=True, exist_ok=True)
+    if not paths["jobs"].is_file():
+        paths["jobs"].write_text("", encoding="utf-8")
+    append_jsonl(paths["jobs"], job)
+    return job

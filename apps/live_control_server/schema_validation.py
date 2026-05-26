@@ -38,6 +38,13 @@ def validate_live_job_row(row: dict[str, Any]) -> None:
         raise LiveRowValidationError(f"invalid live job row: {exc.message}") from exc
 
 
+def validate_live_surface_layout(layout: dict[str, Any]) -> None:
+    try:
+        _validator("live_surface_layout.schema.json").validate(layout)
+    except ValidationError as exc:
+        raise LiveRowValidationError(f"invalid surface layout: {exc.message}") from exc
+
+
 def validate_before_append(
     events: list[dict[str, Any]],
     jobs: list[dict[str, Any]],
