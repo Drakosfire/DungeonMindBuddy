@@ -10,17 +10,12 @@
 
 ## Reanchor Block (fill first each session)
 
-- [x] **Active slice:** `L3_fastapi_query_loop`
-- [x] **Last green artifact (path):** L2 merged on `main` (PR #74, merge `3f2cabd`):
-  - `src/live_play/roll_table_registry.py`
-  - `src/live_play/resolve_roll.py`
-  - `src/live_play/classify_live_turn.py`
-  - `src/live_play/live_turn.py`
-  - `tests/test_live_play_resolve_roll.py`
-  - `tests/test_live_play_classify_turn.py`
-  - `tests/test_live_play_turn_loop.py`
-  - Verification: `uv run pytest tests/test_live_play_resolve_roll.py tests/test_live_play_classify_turn.py tests/test_live_play_turn_loop.py -q` → `25 passed`; with L1 schemas → `44 passed`.
-- [x] **Next command / action:** Author or dispatch L3 FastAPI live query loop handoff (wrap `handle_live_turn`, persist events/jobs, state/surface endpoints).
+- [x] **Active slice:** `L4_react_query_pane`
+- [x] **Last green artifact (path):** L3 merged on `main` (PR #75 merge `af27c47`, PR #76 merge `aae7d795`):
+  - `apps/live_control_server/` (`main.py`, `routes/live.py`, `session_store.py`, `schema_validation.py`, `services/live_agent_loop.py`)
+  - `tests/test_live_control_server.py`
+  - Verification: `uv run pytest tests/test_live_control_server.py -q` → `18 passed`; L1+L2+L3 → `62 passed`.
+- [x] **Next command / action:** Author or dispatch L4 modular surface shell handoff (`apps/live-control-ui/`, SurfaceShell, Chat + Record, `GET/PUT /api/live/surface`).
 - [x] **Open product decision:** Resolved — keep as sibling sprint, not folded into the current C1 retrieval/autonomy demo.
 - [x] **Blocker type:** none for L1; PLAN/CHECKLIST accepted as active sprint anchors.
 
@@ -196,11 +191,12 @@ uv run pytest tests/test_live_play_resolve_roll.py tests/test_live_play_classify
 ### Files
 
 ```text
-apps/live-control-server/
+apps/live_control_server/
   main.py
   routes/live.py
+  session_store.py
+  schema_validation.py
   services/live_agent_loop.py
-  pyproject.toml   # optional; prefer repo-integrated if cleaner
 ```
 
 ### Endpoints
@@ -219,24 +215,27 @@ PUT  /api/live/surface/layout
 
 ### Checklist
 
-- [ ] Server loads Session 22 live packet + surface layout from file.
-- [ ] `POST /api/live/query` calls `handle_live_turn`.
-- [ ] Event/job writes are atomic enough for local single-user use.
-- [ ] `GET /api/live/state` returns derived current state.
-- [ ] `GET /api/live/events` returns recent events (`?since=` supported for Record module).
-- [ ] `GET /api/live/jobs` returns queued jobs.
-- [ ] `GET /api/live/surface` returns catalog + current layout.
-- [ ] `PUT /api/live/surface/layout` validates against schema and writes `surface_layout.json` atomically.
-- [ ] Layout updates may append `surface_config_updated` to the event log.
-- [ ] `POST /api/live/jobs/{id}/complete` marks job complete without deleting history.
-- [ ] OpenAPI schema published for live endpoints.
-- [ ] Curl smoke for `Weather 7. Caelynn Nature 19.` passes.
+- [x] Server loads Session 22 live packet + surface layout from file.
+- [x] `POST /api/live/query` calls `handle_live_turn`.
+- [x] Event/job writes are atomic enough for local single-user use.
+- [x] `GET /api/live/state` returns derived current state (recomputes on read).
+- [x] `GET /api/live/events` returns recent events (`?since=` supported for Record module).
+- [x] `GET /api/live/jobs` returns queued jobs.
+- [x] `GET /api/live/surface` returns catalog + current layout + derived state.
+- [x] `PUT /api/live/surface/layout` validates against schema and writes `surface_layout.json` atomically.
+- [ ] Layout updates append `surface_config_updated` to the event log. *(deferred — PR #76; validation+persist path is live.)*
+- [x] `POST /api/live/jobs/{id}/complete` marks job complete without deleting history.
+- [x] `POST /api/live/resolve-roll` debug wrapper (no append).
+- [x] `POST /api/live/rebuild-packet` queues `packet_rebuild` job (no inline rebuild).
+- [x] OpenAPI paths covered for live endpoints (`/openapi.json` tested).
+- [ ] Curl smoke for `Weather 7. Caelynn Nature 19.` passes. *(optional manual; pytest boundary green.)*
 
 ### Verification
 
 ```bash
 uv run pytest tests/test_live_control_server.py -q
-uv run uvicorn apps.live-control-server.main:app --reload
+uv run pytest tests/test_live_play_schemas.py tests/test_live_play_resolve_roll.py tests/test_live_play_classify_turn.py tests/test_live_play_turn_loop.py tests/test_live_control_server.py -q
+uv run uvicorn apps.live_control_server.main:app --reload
 ```
 
 Curl smoke:
@@ -312,6 +311,13 @@ Use the repo's actual package manager / app conventions once the UI package exis
 
 Append dated entries here as PRs land.
 
+### 2026-05-26 — L3 FastAPI Server Complete (PR #75 + PR #76)
+
+- Merged PR #75 to `main` (merge `af27c47`): L3-min — `POST /api/live/query`, `GET /state|events|jobs`, schema validation before append, fresh state recompute.
+- Merged PR #76 to `main` (merge `aae7d795`): L3-rest — `GET/PUT /api/live/surface`, job complete, resolve-roll, rebuild-packet queue, OpenAPI path tests.
+- Verification on `main`: `tests/test_live_control_server.py` → `18 passed`; L1+L2+L3 → `62 passed`.
+- `execution_state.active_slice` advanced to `L4_react_query_pane`; Phase L3 checklist complete except deferred `surface_config_updated` audit event.
+
 ### 2026-05-25 — L2 Roll Resolver + Classifier Merged (PR #74)
 
 - Merged PR #74 to `main` (merge commit `3f2cabd`): `roll_table_registry`, `resolve_roll`, `classify_live_turn`, `live_turn`, L2 test trio.
@@ -352,7 +358,7 @@ Append dated entries here as PRs land.
 
 ## Open Questions
 
-- [ ] Should server live under `apps/live-control-server/` or integrated under `src/live_play/server.py` first?
+- [x] Should server live under `apps/live-control-server/` or integrated under `src/live_play/server.py` first? **Resolved:** `apps/live_control_server/` (PR #75/#76).
 - [ ] Should UI live under `apps/live-control-ui/` or a demo/evals UI folder first?
 - [x] Runtime surface configurability: **yes** — `surface_layout.json` + server persistence (locked 2026-05-26).
 - [x] Does PR 1 include `benchmark_candidates.jsonl` schema, or defer until classifier can emit candidates? Resolved for L1: defer dedicated schema; file parses as JSONL and classifier will define candidate row shape later.

@@ -4,9 +4,9 @@ title: C2 Live Control Surface v0 — Query Pane
 document_class: plan
 plan_kind: product_sprint_plan
 status: active
-version: 1.3
+version: 1.4
 created_at: "2026-05-25T03:11:00Z"
-last_updated_at: "2026-05-25T19:14:00Z"
+last_updated_at: "2026-05-26T01:44:00Z"
 timezone_note: "Timestamps are UTC; local work may use America/Denver."
 supersedes: []
 superseded_by: null
@@ -27,26 +27,62 @@ related_documents:
     role: completed_l1_implementation_handoff
   - path: Docs/Plans/archive/2026-05-25/handoffs/HANDOFF-pr74-c2-l2-roll-resolver-classifier.md
     role: completed_l2_implementation_handoff
+  - path: Docs/Plans/archive/2026-05-26/handoffs/HANDOFF-pr75-c2-l3-fastapi-query-loop-min.md
+    role: completed_l3_min_implementation_handoff
+  - path: Docs/Plans/archive/2026-05-26/handoffs/HANDOFF-pr76-c2-l3-rest-server-contract.md
+    role: completed_l3_rest_implementation_handoff
+  - path: Docs/Plans/README-c2-live-control-ui.md
+    role: l4_ui_planning_readme
 product_scope:
   campaign: Longmont Campaign 2
   seed_session: 22
   surface: local runtime-configurable live-play surface shell
   autonomy: server-mediated live turn classification, file-backed events, background job queue
 execution_state:
-  active_slice: L3_fastapi_query_loop
+  active_slice: L4_react_query_pane
   milestone_progress:
     L0_plan_lock: complete
     L1_packet_event_job_schema: complete
     L2_roll_resolver_classifier: complete
-    L3_fastapi_query_loop: not_started
+    L3_fastapi_query_loop: complete
     L4_react_query_pane: not_started
   blockers: []
-  next_gate_command: "Author or dispatch HANDOFF for L3 FastAPI live query loop (wrap handle_live_turn, append events/jobs, expose state/surface endpoints)."
+  next_gate_command: "Author or dispatch HANDOFF for L4 modular surface shell (React SurfaceShell, Chat + Record modules, layout controls via GET/PUT /api/live/surface)."
   flagged_followups:
     - "Keep current C1S1-C1S3 retrieval/autonomy demo separate; cross-link only. This sprint productizes live GM interaction and consumes retrieval packet concepts when needed."
     - "Session 22 transcript examples are the seed regression set; do not generalize to all campaigns until the pane feels good on this slice."
     - "Before designing UI or classifier examples, re-read STUDY-c2-live-play-cursor-handoff-process.md to remember the Cursor friction: dashboard shape, file-name-first navigation, and slow repo-agent loops."
+    - "L3 `surface_config_updated` audit event on layout PUT is deferred; core path is schema + invariant validation + atomic persist (documented in PR #76 body)."
 external_pull_requests:
+  - pr: 76
+    handoff: Docs/Plans/archive/2026-05-26/handoffs/HANDOFF-pr76-c2-l3-rest-server-contract.md
+    slice: L3_rest_fastapi_server_contract
+    verdict: accepted
+    evaluated_at: "2026-05-26T01:44:00Z"
+    evaluator: Cursor agent
+    notes:
+      - "Merged PR #76 (merge commit aae7d795): GET/PUT surface, job complete with schema-gated JSONL rewrite, resolve-roll debug, packet_rebuild queue (202); OpenAPI path coverage; 18 server / 62 L1+L2+L3 tests."
+      - "Review follow-up: PR body audit artifact, main.py on allowlist, complete_job validates all rows before rewrite; surface_config_updated audit event deferred."
+    verification:
+      - "uv run pytest tests/test_live_control_server.py -q → 18 passed"
+      - "uv run pytest tests/test_live_play_schemas.py tests/test_live_play_resolve_roll.py tests/test_live_play_classify_turn.py tests/test_live_play_turn_loop.py tests/test_live_control_server.py -q → 62 passed"
+    rubric_when_we_judge:
+      - "L3-rest stays inside HANDOFF allowlist; no React UI, schema mutation, corpus writes, or committed seed JSONL/layout mutation."
+      - "L3-min endpoints remain intact; surface returns catalog+layout+derived state; layout PUT validates schema+invariants; resolve-roll does not append; rebuild-packet queues job only."
+  - pr: 75
+    handoff: Docs/Plans/archive/2026-05-26/handoffs/HANDOFF-pr75-c2-l3-fastapi-query-loop-min.md
+    slice: L3_min_fastapi_query_loop
+    verdict: accepted
+    evaluated_at: "2026-05-26T00:58:15Z"
+    evaluator: Cursor agent
+    notes:
+      - "Merged PR #75 (merge commit af27c47): FastAPI query/state/events/jobs spine over handle_live_turn; pre-append schema validation; fresh GET /state; temp-session tests."
+      - "Doc-sync with PR #76 closure: L3-min + L3-rest together complete Phase L3 checklist."
+    verification:
+      - "uv run pytest tests/test_live_control_server.py -q (L3-min cohort; expanded to 18 after PR #76)"
+    rubric_when_we_judge:
+      - "L3-min does not claim full Phase L3; defers surface/layout/job-complete/resolve-roll/rebuild to L3-rest."
+      - "POST /api/live/query persists validated events/jobs; GET /state recomputes; unknown events since returns empty."
   - pr: 74
     handoff: Docs/Plans/archive/2026-05-25/handoffs/HANDOFF-pr74-c2-l2-roll-resolver-classifier.md
     slice: L2_roll_resolver_classifier
@@ -339,9 +375,11 @@ Acceptance: examples produce correct intents, blocking tool choices, event types
 Files:
 
 ```text
-apps/live-control-server/
+apps/live_control_server/
   main.py
   routes/live.py
+  session_store.py
+  schema_validation.py
   services/live_agent_loop.py
 ```
 
@@ -424,6 +462,12 @@ The demo should show:
 - HTTP/API contract is documented (OpenAPI) so the server implementation can move off Python later without rewriting modules.
 
 ## Changelog
+
+### v1.4 — 2026-05-26
+
+- Merged PR #75 (merge `af27c47`): L3-min FastAPI spine — query/state/events/jobs, schema validation before append, isolated server tests.
+- Merged PR #76 (merge `aae7d795`): L3-rest — surface GET/PUT, job complete, resolve-roll, rebuild-packet queue, OpenAPI path tests; `apps/live_control_server/` on `main`.
+- Advanced `execution_state.active_slice` to `L4_react_query_pane`; `L3_fastapi_query_loop` → `complete`.
 
 ### v1.3 — 2026-05-25
 

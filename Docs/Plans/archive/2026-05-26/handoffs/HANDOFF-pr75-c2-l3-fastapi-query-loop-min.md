@@ -1,7 +1,7 @@
 # HANDOFF — PR 75: C2 Live Control Surface L3-min FastAPI Query Loop
 
 **Created:** 2026-05-25 (UTC).  
-**Status:** ACTIVE — L3-min spine only; **does not complete** full CHECKLIST Phase L3.  
+**Status:** MERGED — PR #75 landed on `main` (merge commit `af27c47`, 2026-05-26 UTC). L3-min spine; full Phase L3 completed by PR #76.  
 **Parent agent:** Cursor agent; parent owns review, merge, and atomic doc-sync after the PR lands.  
 **Plan anchor:** `Docs/Plans/PLAN-c2-live-control-surface-query-pane.md` (`execution_state.active_slice: L3_fastapi_query_loop` remains `not_started` for full L3 until L3-rest lands).  
 **Checklist anchor:** `Docs/Plans/CHECKLIST-c2-live-control-surface-query-pane.md` — this PR satisfies the L3-min spine subset only.  

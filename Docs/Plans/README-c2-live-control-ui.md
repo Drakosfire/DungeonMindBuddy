@@ -1,6 +1,6 @@
 # C2 Live Control UI — README
 
-**Status:** planning/implementation guide. The UI package does not exist yet. This README describes the UI layer we intend to build, the backing runtime it will need, and how it should consume the merged C2 L1 live substrate.
+**Status:** planning/implementation guide for **L4**. The UI package does not exist yet. The **L3 FastAPI server** is merged on `main` at `apps/live_control_server/` (PR #75 L3-min + PR #76 L3-rest). This README describes the UI layer to build next and how it consumes the live API + L1 substrate.
 
 **Target future location:** once the UI package exists, keep this document as the planning anchor and copy/adapt the implementation sections into `apps/live-control-ui/README.md`.
 
@@ -26,12 +26,13 @@ Read these before implementing the UI:
 2. `Docs/Plans/CHECKLIST-c2-live-control-surface-query-pane.md` — phase checklist, UI acceptance criteria, and demo script.
 3. `Docs/Plans/STUDY-c2-live-play-cursor-handoff-process.md` — product-friction study from the Cursor live-play workflow.
 4. `Docs/Plans/archive/2026-05-25/handoffs/HANDOFF-pr72-c2-live-packet-event-job-schema.md` — completed L1 substrate handoff.
-5. `evals/c2_live_prep/live/session_22/live_packet.json` — Session 22 live packet and `surface_catalog`.
-6. `evals/c2_live_prep/live/session_22/surface_layout.json` — runtime layout seed.
-7. `evals/c2_live_prep/live/session_22/current_state.json` — derived state seed, not source truth.
-8. `src/live_play/live_store.py` — file-backed JSON/JSONL helpers.
-9. `src/live_play/surface_layout_invariants.py` — layout/catalog invariants.
-10. `src/live_play/current_state_derive.py` — derived current-state contract.
+5. `apps/live_control_server/` — merged L3 HTTP API (`GET/PUT /api/live/surface`, query/state/events/jobs, resolve-roll, rebuild-packet).
+6. `evals/c2_live_prep/live/session_22/live_packet.json` — Session 22 live packet and `surface_catalog`.
+7. `evals/c2_live_prep/live/session_22/surface_layout.json` — runtime layout seed.
+8. `evals/c2_live_prep/live/session_22/current_state.json` — derived state seed, not source truth.
+9. `src/live_play/live_store.py` — file-backed JSON/JSONL helpers.
+10. `src/live_play/surface_layout_invariants.py` — layout/catalog invariants.
+11. `src/live_play/current_state_derive.py` — derived current-state contract.
 
 The UI should treat those files as contracts, not inspiration to reinterpret freely.
 

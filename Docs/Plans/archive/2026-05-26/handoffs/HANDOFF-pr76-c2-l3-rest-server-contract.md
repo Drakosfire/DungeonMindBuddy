@@ -1,7 +1,7 @@
 # HANDOFF — PR 76: C2 Live Control Surface L3-rest Server Contract
 
 **Created:** 2026-05-26 (UTC).  
-**Status:** ACTIVE — dispatch this to one fresh external/Codex agent. One PR. Do not split into multiple PRs.  
+**Status:** MERGED — PR #76 landed on `main` (merge commit `aae7d795`, 2026-05-26 UTC). Completes Phase L3 server contract with PR #75 L3-min spine.  
 **Parent agent:** Cursor agent; parent owns review, merge, and atomic doc-sync after the PR lands.  
 **Base:** `main` after PR #75 merge (`af27c47`) — L3-min FastAPI query loop landed, but full Phase L3 is not complete.  
 **Plan anchor:** `Docs/Plans/PLAN-c2-live-control-surface-query-pane.md` (`execution_state.active_slice: L3_fastapi_query_loop`).  
