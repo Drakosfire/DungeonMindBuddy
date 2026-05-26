@@ -5,7 +5,7 @@ import os
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from src.agent.synthesis import _load_api_key
 from src.live_play.live_turn_classification_schema import LiveTurnClassificationModel
@@ -24,9 +24,11 @@ CONTEXT_QUESTION_RE = re.compile(
 )
 
 _CLASSIFIER_MODEL_ENV = "LIVE_TURN_CLASSIFIER_MODEL"
+_CLASSIFIER_MODE_ENV = "LIVE_TURN_CLASSIFIER_MODE"
 _FALLBACK_ENV = "LIVE_TURN_CLASSIFIER_ALLOW_HEURISTIC_FALLBACK"
 _POLICY_ACTION = "live_turn_classifier"
 _DEFAULT_CLASSIFIER_MODEL = "gpt-4o-mini"
+ClassifierMode = Literal["heuristic", "llm", "llm_with_heuristic_fallback"]
 
 
 @dataclass(frozen=True)
@@ -71,10 +73,39 @@ def _resolve_classifier_model(model: str | None) -> str:
     return _DEFAULT_CLASSIFIER_MODEL
 
 
-def _allow_heuristic_fallback(allow_heuristic_fallback: bool | None) -> bool:
-    if allow_heuristic_fallback is not None:
-        return allow_heuristic_fallback
-    return os.environ.get(_FALLBACK_ENV, "").strip() in {"1", "true", "yes"}
+def _truthy_env(name: str) -> bool | None:
+    raw = os.environ.get(name)
+    if raw is None:
+        return None
+    normalized = raw.strip().lower()
+    if normalized in {"1", "true", "yes", "on"}:
+        return True
+    if normalized in {"0", "false", "no", "off"}:
+        return False
+    return None
+
+
+def _classifier_mode(allow_heuristic_fallback: bool | None) -> ClassifierMode:
+    """Resolve runtime classifier mode.
+
+    Default runtime behavior is LLM-first with deterministic fallback. This keeps the
+    live app usable when the OpenAI key/network is unavailable while preserving LLM
+    routing as the normal configured path.
+    """
+    if allow_heuristic_fallback is False:
+        return "llm"
+
+    explicit_mode = os.environ.get(_CLASSIFIER_MODE_ENV, "").strip().lower()
+    if explicit_mode in {"heuristic", "llm", "llm_with_heuristic_fallback"}:
+        return explicit_mode  # type: ignore[return-value]
+
+    if allow_heuristic_fallback is True:
+        return "llm_with_heuristic_fallback"
+
+    fallback_env = _truthy_env(_FALLBACK_ENV)
+    if fallback_env is False:
+        return "llm"
+    return "llm_with_heuristic_fallback"
 
 
 def _extract_roll(text: str) -> tuple[str | None, int | None]:
@@ -241,11 +272,13 @@ def classify_live_turn(
     allow_heuristic_fallback: bool | None = None,
 ) -> TurnClassification:
     """
-    Classify GM live-play input via LLM (Responses API structured parse).
+    Classify GM live-play input via LLM-first routing.
 
-    Pass ``openai_client=`` in tests (``SequenceLiveTurnClassifierClient`` via
-    ``OpenAILiveTurnClassifierClient(sdk_client=...)``). When omitted, requires
-    ``OPENAI_API_KEY`` unless ``LIVE_TURN_CLASSIFIER_ALLOW_HEURISTIC_FALLBACK=1``.
+    Defaults to LLM routing with deterministic heuristic fallback so the local live
+    control surface remains usable without an API key or network. Pass
+    ``allow_heuristic_fallback=False`` or set ``LIVE_TURN_CLASSIFIER_MODE=llm``
+    when a caller wants hard failure instead of fallback. Tests may pass a
+    ``client=`` such as ``SequenceLiveTurnClassifierClient``.
     """
     stripped = text.strip()
     if not stripped:
@@ -256,25 +289,26 @@ def classify_live_turn(
             confidence="high",
         )
 
-    use_heuristic = _allow_heuristic_fallback(allow_heuristic_fallback)
-    mid = _resolve_classifier_model(model)
-
-    if client is None and use_heuristic:
+    mode = _classifier_mode(allow_heuristic_fallback)
+    if mode == "heuristic":
         return classify_live_turn_heuristic(stripped)
 
     if client is None:
         api_key = _load_api_key()
         if not api_key:
+            if mode == "llm_with_heuristic_fallback":
+                return classify_live_turn_heuristic(stripped)
             raise RuntimeError(
-                "OPENAI_API_KEY is required for classify_live_turn unless "
-                f"{_FALLBACK_ENV}=1 or you pass openai_client=..."
+                "OPENAI_API_KEY is required for classify_live_turn when "
+                f"{_CLASSIFIER_MODE_ENV}=llm or allow_heuristic_fallback=False"
             )
 
-    adapter = OpenAILiveTurnClassifierClient(sdk_client=client)
+    mid = _resolve_classifier_model(model)
     try:
+        adapter = OpenAILiveTurnClassifierClient(sdk_client=client)
         parsed = adapter.classify_turn(model=mid, text=stripped)
-    except (ValueError, TypeError) as exc:
-        if use_heuristic:
+    except Exception as exc:
+        if mode == "llm_with_heuristic_fallback":
             return classify_live_turn_heuristic(stripped)
         raise RuntimeError(f"Live turn classifier failed: {exc}") from exc
     classification = _turn_classification_from_model(parsed)
