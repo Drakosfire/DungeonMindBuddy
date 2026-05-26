@@ -139,7 +139,7 @@ export const mockRollEvent: LiveEvent = {
   session: 22,
   event_type: "roll_result",
   latency_mode: "fast_live",
-  origin: "gm_input",
+  event_origin: "user_input",
   summary: "Resolved T-WX roll 7: Hail dent.",
   derived_fields: { table_id: "T-WX", roll: 7, headline: "Hail dent" },
 };

@@ -20,7 +20,9 @@ export function RecordModule({ events }: RecordModuleProps) {
                 <time dateTime={event.created_at}>{event.created_at}</time>
                 <span className="badge">{event.event_type}</span>
                 <span className="badge muted">{event.latency_mode}</span>
-                {event.origin ? <span className="badge muted">{event.origin}</span> : null}
+                {event.event_origin ? (
+                  <span className="badge muted">{event.event_origin}</span>
+                ) : null}
               </div>
               <p className="record-summary">{event.summary}</p>
             </li>

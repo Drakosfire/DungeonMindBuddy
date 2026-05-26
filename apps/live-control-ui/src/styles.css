@@ -54,6 +54,45 @@ code {
   font-size: 0.95rem;
 }
 
+.surface-layout-panel {
+  border: 1px solid #2a3142;
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  background: #181b24;
+}
+
+.surface-layout-panel-title {
+  margin: 0 0 0.25rem;
+  font-size: 1rem;
+}
+
+.surface-layout-panel-hint {
+  margin: 0 0 0.75rem;
+  font-size: 0.9rem;
+}
+
+.surface-layout-panel-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.surface-layout-panel-row-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.surface-layout-panel-row-header h3 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
 .module-layout-controls {
   display: flex;
   flex-wrap: wrap;

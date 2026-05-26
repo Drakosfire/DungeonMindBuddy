@@ -11,6 +11,7 @@ describe("RecordModule", () => {
     render(<RecordModule events={[mockRollEvent]} />);
     expect(screen.getByText(/Resolved T-WX roll 7: Hail dent/)).toBeInTheDocument();
     expect(screen.getByText("roll_result")).toBeInTheDocument();
+    expect(screen.getByText("user_input")).toBeInTheDocument();
   });
 
   it("handles empty event list", () => {

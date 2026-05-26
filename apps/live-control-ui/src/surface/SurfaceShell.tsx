@@ -8,9 +8,10 @@ import type {
   SurfaceModuleInstance,
 } from "../api/types";
 import { LayoutDraftProvider, useLayoutDraft } from "./LayoutDraftContext";
-import { sortModules } from "./layoutUtils";
+import { enabledModules } from "./layoutUtils";
 import { ModuleLayoutControls } from "./ModuleLayoutControls";
 import { catalogTitle, ModuleContent, type ModuleRenderContext } from "./moduleRegistry";
+import { SurfaceLayoutPanel } from "./SurfaceLayoutPanel";
 
 interface SurfaceShellProps {
   catalog: SurfaceModuleDefinition[];
@@ -52,35 +53,28 @@ function SurfaceShellBody({
     onQuerySuccess,
   };
 
-  const orderedModules = sortModules(draft.modules);
+  const surfaceModules = enabledModules(draft);
 
   function renderSlot(slot: SurfaceModuleInstance["slot"], className: string) {
-    const rows = modulesForSlot(orderedModules, slot);
+    const rows = modulesForSlot(surfaceModules, slot);
     if (rows.length === 0) {
       return null;
     }
     return (
       <section className={className} data-slot={slot}>
         {rows.map((row) => {
-          const showBody = row.enabled && !row.collapsed;
+          const showBody = !row.collapsed;
           return (
             <article
               key={row.module_id}
-              className={`surface-module ${row.collapsed ? "collapsed" : ""} ${
-                row.enabled ? "" : "module-disabled"
-              }`}
+              className={`surface-module ${row.collapsed ? "collapsed" : ""}`}
               data-module-id={row.module_id}
             >
               <header className="surface-module-header">
                 <h3>{catalogTitle(catalogById, row.module_id)}</h3>
                 <ModuleLayoutControls moduleId={row.module_id} />
               </header>
-              {!row.enabled ? (
-                <p className="module-muted module-hidden-note">Module hidden — turn on to show.</p>
-              ) : null}
-              {row.enabled && row.collapsed ? (
-                <p className="module-muted">Collapsed</p>
-              ) : null}
+              {row.collapsed ? <p className="module-muted">Collapsed</p> : null}
               {showBody ? (
                 <div className="surface-module-body">
                   <ModuleContent row={row} context={context} />
@@ -108,6 +102,7 @@ function SurfaceShellBody({
         {renderSlot("bottom", "surface-slot surface-slot-bottom")}
         {renderSlot("overlay", "surface-slot surface-slot-overlay")}
       </div>
+      <SurfaceLayoutPanel />
     </div>
   );
 }

@@ -92,8 +92,8 @@ export interface LiveEvent {
   campaign_id: string;
   session: number;
   event_type: string;
-  latency_mode: string;
-  origin: string;
+  latency_mode: string | null;
+  event_origin: string;
   summary: string;
   input_text?: string;
   derived_fields?: Record<string, unknown>;
