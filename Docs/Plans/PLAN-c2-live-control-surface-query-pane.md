@@ -4,9 +4,9 @@ title: C2 Live Control Surface v0 — Query Pane
 document_class: plan
 plan_kind: product_sprint_plan
 status: active
-version: 1.4
+version: 1.5
 created_at: "2026-05-25T03:11:00Z"
-last_updated_at: "2026-05-26T01:44:00Z"
+last_updated_at: "2026-05-26T03:03:06Z"
 timezone_note: "Timestamps are UTC; local work may use America/Denver."
 supersedes: []
 superseded_by: null
@@ -31,6 +31,8 @@ related_documents:
     role: completed_l3_min_implementation_handoff
   - path: Docs/Plans/archive/2026-05-26/handoffs/HANDOFF-pr76-c2-l3-rest-server-contract.md
     role: completed_l3_rest_implementation_handoff
+  - path: Docs/Plans/archive/2026-05-26/handoffs/HANDOFF-pr77-c2-l4-react-surface-shell.md
+    role: completed_l4_implementation_handoff
   - path: Docs/Plans/README-c2-live-control-ui.md
     role: l4_ui_planning_readme
 product_scope:
@@ -45,15 +47,34 @@ execution_state:
     L1_packet_event_job_schema: complete
     L2_roll_resolver_classifier: complete
     L3_fastapi_query_loop: complete
-    L4_react_query_pane: not_started
+    L4_react_query_pane: complete
   blockers: []
-  next_gate_command: "Author or dispatch HANDOFF for L4 modular surface shell (React SurfaceShell, Chat + Record modules, layout controls via GET/PUT /api/live/surface)."
+  next_gate_command: "Run CHECKLIST Demo Script: `DUNGEONMIND_LIVE_SESSION_DIR=evals/c2_live_prep/live/session_22 uv run uvicorn apps.live_control_server.main:app --reload` + `cd apps/live-control-ui && npm run dev`; manual Session 22 browser smoke."
   flagged_followups:
     - "Keep current C1S1-C1S3 retrieval/autonomy demo separate; cross-link only. This sprint productizes live GM interaction and consumes retrieval packet concepts when needed."
     - "Session 22 transcript examples are the seed regression set; do not generalize to all campaigns until the pane feels good on this slice."
     - "Before designing UI or classifier examples, re-read STUDY-c2-live-play-cursor-handoff-process.md to remember the Cursor friction: dashboard shape, file-name-first navigation, and slow repo-agent loops."
     - "L3 `surface_config_updated` audit event on layout PUT is deferred; core path is schema + invariant validation + atomic persist (documented in PR #76 body)."
+    - "L4 v0 shell complete (PR #77): Queue/Sources modules not implemented; `LiveJob` TS type simplified vs L3 job schema; RollStack Session 22 title fallback is display-only — align server/state before Queue UI."
 external_pull_requests:
+  - pr: 77
+    handoff: Docs/Plans/archive/2026-05-26/handoffs/HANDOFF-pr77-c2-l4-react-surface-shell.md
+    slice: L4_react_surface_shell_v0
+    verdict: accepted
+    evaluated_at: "2026-05-26T03:03:06Z"
+    evaluator: Cursor agent
+    notes:
+      - "Merged PR #77 (merge commit dc4dbf88): apps/live-control-ui/ Vite+React SurfaceShell; Chat/Record/RollStack/Now; embedded ModuleLayoutControls; enabled-only surface grid + Hidden modules panel; event_origin contract; 14 Vitest / UI build / 18 server regression."
+      - "Review follow-up: event_origin not origin; disabled optional modules off primary grid; PR body full git diff --name-only (34 files)."
+    verification:
+      - "cd apps/live-control-ui && npm test → 14 passed"
+      - "cd apps/live-control-ui && npm run build → OK"
+      - "uv run pytest tests/test_live_control_server.py -q → 18 passed"
+    rubric_when_we_judge:
+      - "L4 stays inside HANDOFF allowlist; no server, live-play Python, schemas, corpus, or committed session seed mutation."
+      - "UI consumes L3 via liveApi.ts only; required chat/record locked; layout persists via PUT /api/live/surface/layout."
+      - "LiveEvent uses event_origin; disabled optional modules absent from surface grid but re-enableable via layout panel."
+      - "At least one optional catalog module proves plugin path; Vitest covers Chat, Record, layout persistence, and disable-from-grid behavior."
   - pr: 76
     handoff: Docs/Plans/archive/2026-05-26/handoffs/HANDOFF-pr76-c2-l3-rest-server-contract.md
     slice: L3_rest_fastapi_server_contract
@@ -462,6 +483,11 @@ The demo should show:
 - HTTP/API contract is documented (OpenAPI) so the server implementation can move off Python later without rewriting modules.
 
 ## Changelog
+
+### v1.5 — 2026-05-26
+
+- Merged PR #77 (merge `dc4dbf88`): L4 v0 React surface shell — `apps/live-control-ui/`, SurfaceShell + Chat/Record/RollStack, embedded layout controls, enabled-only grid, Hidden modules panel; 14 UI tests + build OK.
+- `L4_react_query_pane` → `complete`; next gate is CHECKLIST Demo Script / manual browser smoke.
 
 ### v1.4 — 2026-05-26
 

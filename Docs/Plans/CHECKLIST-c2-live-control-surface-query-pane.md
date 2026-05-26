@@ -10,12 +10,12 @@
 
 ## Reanchor Block (fill first each session)
 
-- [x] **Active slice:** `L4_react_query_pane`
-- [x] **Last green artifact (path):** L3 merged on `main` (PR #75 merge `af27c47`, PR #76 merge `aae7d795`):
-  - `apps/live_control_server/` (`main.py`, `routes/live.py`, `session_store.py`, `schema_validation.py`, `services/live_agent_loop.py`)
-  - `tests/test_live_control_server.py`
-  - Verification: `uv run pytest tests/test_live_control_server.py -q` → `18 passed`; L1+L2+L3 → `62 passed`.
-- [x] **Next command / action:** Author or dispatch L4 modular surface shell handoff (`apps/live-control-ui/`, SurfaceShell, Chat + Record, `GET/PUT /api/live/surface`).
+- [x] **Active slice:** `L4_react_query_pane` (v0 shell **complete** on `main`)
+- [x] **Last green artifact (path):** L4 merged on `main` (PR #77 merge `dc4dbf88`):
+  - `apps/live-control-ui/` (`SurfaceShell`, `liveApi.ts`, Chat/Record/RollStack modules, `ModuleLayoutControls`, `SurfaceLayoutPanel`)
+  - `Docs/Plans/archive/2026-05-26/handoffs/HANDOFF-pr77-c2-l4-react-surface-shell.md`
+  - Verification: `cd apps/live-control-ui && npm test` → `14 passed`; `npm run build` → OK; `uv run pytest tests/test_live_control_server.py -q` → `18 passed`.
+- [x] **Next command / action:** CHECKLIST Demo Script — start server + UI dev, manual Session 22 browser smoke; optional follow-ups: Queue/Sources modules, `LiveJob` type alignment, server-driven roll titles.
 - [x] **Open product decision:** Resolved — keep as sibling sprint, not folded into the current C1 retrieval/autonomy demo.
 - [x] **Blocker type:** none for L1; PLAN/CHECKLIST accepted as active sprint anchors.
 
@@ -257,37 +257,40 @@ curl -s -X POST http://127.0.0.1:8000/api/live/query \
 ```text
 apps/live-control-ui/
   src/App.tsx
+  src/api/liveApi.ts
   src/surface/SurfaceShell.tsx
-  src/surface/moduleRegistry.ts
+  src/surface/SurfaceLayoutPanel.tsx
+  src/surface/ModuleLayoutControls.tsx
+  src/surface/moduleRegistry.tsx
   src/surface/modules/ChatModule.tsx
   src/surface/modules/RecordModule.tsx
-  src/surface/modules/RollStackModule.tsx   # or another proof optional module
-  src/surface/LayoutControls.tsx
+  src/surface/modules/RollStackModule.tsx
 ```
 
 ### Checklist
 
-- [ ] SurfaceShell loads catalog + layout from `GET /api/live/surface`.
-- [ ] Chat module sends text to `POST /api/live/query` and shows answer, classification, next suggestions.
-- [ ] Record module tails `GET /api/live/events?since=` (or polls recent events).
-- [ ] At least one optional catalog module renders from shared server state (proof of plugin path).
-- [ ] LayoutControls let GM enable/disable optional modules, reorder, and move between slots.
-- [ ] Layout changes persist via `PUT /api/live/surface/layout` (not localStorage-only).
-- [ ] Required modules `chat` and `record` cannot be disabled.
-- [ ] UI labels are human-first (`Storm weather`, `Road encounter`, `Gate dilemma`) with file paths only in source/provenance captions.
-- [ ] Roll tables expand inline inside modules; no artifact-register dashboard as the primary surface.
-- [ ] UI refreshes module data after query.
-- [ ] UI handles `fast_live` and `context_lookup` responses differently enough to see sources/gaps when present.
-- [ ] UI does not write session source files directly (layout goes through server API).
+- [x] SurfaceShell loads catalog + layout from `GET /api/live/surface`.
+- [x] Chat module sends text to `POST /api/live/query` and shows answer, classification, next suggestions.
+- [x] Record module displays events from parent refresh (`GET /api/live/events` on bootstrap / post-query).
+- [x] At least one optional catalog module renders from shared server state (`roll_stack` proof).
+- [x] Embedded `ModuleLayoutControls` let GM enable/disable optional modules, reorder, and move between slots; disabled optional modules in Hidden modules panel (not primary grid).
+- [x] Layout changes persist via `PUT /api/live/surface/layout` (not localStorage-only).
+- [x] Required modules `chat` and `record` cannot be disabled.
+- [x] UI labels are human-first (`Storm weather`, etc.) with Session 22 roll-title fallback (v0 debt — prefer server/state payload next).
+- [x] Roll stack lists pending tables inline; no artifact-register dashboard as the primary surface.
+- [x] UI refreshes module data after query (`App.tsx` callback).
+- [x] UI handles `fast_live` and `context_lookup` responses differently (classification badge + diagnostics/provenance).
+- [x] UI does not write session source files directly (layout goes through server API).
+- [ ] **Follow-up:** Queue and Sources modules (catalog entries exist; UI placeholders only).
+- [ ] **Follow-up:** Manual browser smoke per Demo Script below.
 
 ### Verification
 
 ```bash
-npm test
-npm run build
+cd apps/live-control-ui && npm test
+cd apps/live-control-ui && npm run build
+uv run pytest tests/test_live_control_server.py -q
 ```
-
-Use the repo's actual package manager / app conventions once the UI package exists; commands above are placeholders until Phase L4 decides package shape.
 
 ---
 
@@ -310,6 +313,12 @@ Use the repo's actual package manager / app conventions once the UI package exis
 ## Evidence Log
 
 Append dated entries here as PRs land.
+
+### 2026-05-26 — L4 v0 React Surface Shell Complete (PR #77)
+
+- Merged PR #77 to `main` (merge `dc4dbf88`): `apps/live-control-ui/` — Vite + React + TypeScript; `SurfaceShell` with enabled-only grid; Chat, Record, RollStack (+ Now when enabled); embedded `ModuleLayoutControls`; `SurfaceLayoutPanel` for hidden optional modules; `event_origin` on `LiveEvent`.
+- Verification on `main`: `cd apps/live-control-ui && npm test` → `14 passed`; `npm run build` → OK; `uv run pytest tests/test_live_control_server.py -q` → `18 passed`.
+- `execution_state.L4_react_query_pane` → `complete`; next gate = Demo Script / manual browser smoke. v0 debt: simplified `LiveJob` type, Session 22 roll-title fallback, Queue/Sources not implemented.
 
 ### 2026-05-26 — L3 FastAPI Server Complete (PR #75 + PR #76)
 
@@ -364,4 +373,4 @@ Append dated entries here as PRs land.
 - [x] Does PR 1 include `benchmark_candidates.jsonl` schema, or defer until classifier can emit candidates? Resolved for L1: defer dedicated schema; file parses as JSONL and classifier will define candidate row shape later.
 - [x] Should R5 paragraph-table resolution land in PR 2 or be a follow-up after pipe-row tables? **Resolved:** R5 band/paragraph resolution shipped in PR #74 (L2).
 - [ ] Should `context_lookup` initially read an existing packet only, or be allowed to rebuild packet in PR 3?
-- [ ] Drag-and-drop layout polish: required in L4 v0 or acceptable as follow-up after toggle/reorder/slot-move works?
+- [x] Drag-and-drop layout polish: deferred — toggle/reorder/slot-move + per-module Save shipped in L4 v0 (PR #77).

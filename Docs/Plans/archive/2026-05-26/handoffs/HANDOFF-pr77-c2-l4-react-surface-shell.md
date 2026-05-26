@@ -1,7 +1,9 @@
 # HANDOFF — PR 77: C2 Live Control Surface L4 React Surface Shell
 
+> **COMPLETED** — merged PR #77 (`dc4dbf88`) on 2026-05-26. L4 v0 React surface shell under `apps/live-control-ui/`; 14 Vitest passed, UI build OK; backend regression 18 passed. Follow-ups: Queue/Sources module polish, `LiveJob` type vs full schema, server-driven roll table titles, manual browser smoke per CHECKLIST Demo Script.
+
 **Created:** 2026-05-25 (America/Denver) / 2026-05-26 (UTC).  
-**Status:** ACTIVE — dispatch this to one fresh external/Codex agent. One PR. Do not split into multiple PRs.  
+**Status:** ARCHIVED — merged on `main`; do not dispatch.  
 **Parent agent:** Cursor agent; parent owns review, merge, and atomic doc-sync after the PR lands.  
 **Base:** `main` after PR #76 post-merge doc-sync (`c99f811`) — L0–L3 complete, L4 not started.  
 **Plan anchor:** `Docs/Plans/PLAN-c2-live-control-surface-query-pane.md` (`execution_state.active_slice: L4_react_query_pane`).  
