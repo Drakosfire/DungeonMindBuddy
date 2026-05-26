@@ -101,6 +101,7 @@ The worker's expected diff must be expressible from this table.
 | Modify | `apps/live_control_server/routes/live.py` | Add L3-rest routes. |
 | Modify | `apps/live_control_server/session_store.py` | Add layout read/write, job completion, rebuild job append helpers as needed. |
 | Modify | `apps/live_control_server/schema_validation.py` | Add layout schema validation helper if useful. |
+| Modify | `apps/live_control_server/main.py` | Update app metadata/OpenAPI description for full L3 endpoint surface. |
 | Modify if useful | `apps/live_control_server/services/live_agent_loop.py` | Add thin service functions only if route handlers would otherwise grow. |
 | Create if useful | `apps/live_control_server/services/surface_service.py` | Optional surface/layout service if this keeps route code small. |
 | Create if useful | `apps/live_control_server/services/job_queue.py` | Optional job queue service if this keeps rewrite/complete behavior isolated. |
@@ -333,6 +334,7 @@ git diff --stat -- \
   apps/live_control_server/routes/live.py \
   apps/live_control_server/session_store.py \
   apps/live_control_server/schema_validation.py \
+  apps/live_control_server/main.py \
   apps/live_control_server/services/live_agent_loop.py \
   apps/live_control_server/services/surface_service.py \
   apps/live_control_server/services/job_queue.py \

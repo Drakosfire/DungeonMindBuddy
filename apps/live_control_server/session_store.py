@@ -126,6 +126,9 @@ def complete_job(base: Path, job_id: str) -> dict[str, Any] | None:
             break
     if updated is None:
         return None
+    validate_live_job_row(updated)
+    for row in jobs:
+        validate_live_job_row(row)
     _rewrite_jsonl(paths["jobs"], jobs)
     return updated
 
