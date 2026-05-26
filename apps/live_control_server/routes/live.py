@@ -6,6 +6,7 @@ from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from apps.live_control_server.config import session_dir
+from apps.live_control_server.schema_validation import LiveRowValidationError
 from apps.live_control_server.services.live_agent_loop import process_live_query
 from apps.live_control_server.session_store import events_since, load_session, refresh_current_state
 
@@ -28,18 +29,15 @@ def post_live_query(body: LiveQueryRequest) -> dict[str, Any]:
             status_code=400,
             detail="campaign_id/session do not match loaded live packet",
         )
-    return process_live_query(body.text, base=base)
+    try:
+        return process_live_query(body.text, base=base)
+    except LiveRowValidationError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
 @router.get("/state")
 def get_live_state() -> dict[str, Any]:
-    from src.live_play.live_store import load_json
-
-    base = session_dir()
-    state_path = base / "current_state.json"
-    if state_path.is_file():
-        return load_json(state_path)
-    return refresh_current_state(base)
+    return refresh_current_state(session_dir())
 
 
 @router.get("/events")

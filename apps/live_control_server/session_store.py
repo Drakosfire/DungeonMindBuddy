@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from apps.live_control_server.schema_validation import validate_before_append
 from src.live_play.current_state_derive import derive_current_state_fields
 from src.live_play.live_store import append_jsonl, iter_jsonl, load_json, write_json
 
@@ -39,6 +40,7 @@ def append_events_and_jobs(
         paths["events"].write_text("", encoding="utf-8")
     if not paths["jobs"].is_file():
         paths["jobs"].write_text("", encoding="utf-8")
+    validate_before_append(events, jobs)
     for event in events:
         append_jsonl(paths["events"], event)
     for job in jobs:
@@ -68,6 +70,7 @@ def refresh_current_state(base: Path) -> dict[str, Any]:
 
 
 def events_since(events: list[dict[str, Any]], since_id: str | None) -> list[dict[str, Any]]:
+    """Return events strictly after ``since_id``. Unknown cursor → empty list (no full-log replay)."""
     if not since_id:
         return events
     seen = False
@@ -77,4 +80,4 @@ def events_since(events: list[dict[str, Any]], since_id: str | None) -> list[dic
             tail.append(event)
         elif event.get("id") == since_id:
             seen = True
-    return tail if seen else events
+    return tail

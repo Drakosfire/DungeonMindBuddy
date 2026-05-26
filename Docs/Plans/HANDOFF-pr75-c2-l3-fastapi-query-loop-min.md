@@ -1,11 +1,12 @@
 # HANDOFF — PR 75: C2 Live Control Surface L3-min FastAPI Query Loop
 
 **Created:** 2026-05-25 (UTC).  
-**Status:** ACTIVE — dispatch this to one fresh external/Codex agent. One PR. Do not split into multiple PRs.  
+**Status:** ACTIVE — L3-min spine only; **does not complete** full CHECKLIST Phase L3.  
 **Parent agent:** Cursor agent; parent owns review, merge, and atomic doc-sync after the PR lands.  
-**Plan anchor:** `Docs/Plans/PLAN-c2-live-control-surface-query-pane.md` (`execution_state.active_slice: L3_fastapi_query_loop`).  
-**Checklist anchor:** `Docs/Plans/CHECKLIST-c2-live-control-surface-query-pane.md` Phase L3 (L3-min spine).  
-**Substrate anchor:** PR #72 L1 merged; PR #74 L2 `handle_live_turn` merged on `main`.
+**Plan anchor:** `Docs/Plans/PLAN-c2-live-control-surface-query-pane.md` (`execution_state.active_slice: L3_fastapi_query_loop` remains `not_started` for full L3 until L3-rest lands).  
+**Checklist anchor:** `Docs/Plans/CHECKLIST-c2-live-control-surface-query-pane.md` — this PR satisfies the L3-min spine subset only.  
+**Substrate anchor:** PR #72 L1 merged; PR #74 L2 `handle_live_turn` merged on `main`.  
+**Follow-on:** L3-rest (PR #76 or next) — `GET/PUT /api/live/surface`, job complete, resolve-roll, rebuild-packet stub, OpenAPI path tests.
 
 ---
 
@@ -32,6 +33,10 @@ Expose the L2 live turn loop over a local FastAPI server (**L3-min spine**):
 2. `GET /api/live/state` — return derived current state from session files.
 3. `GET /api/live/events` — optional `?since=<event_id>` tail for Record.
 4. `GET /api/live/jobs` — list queued jobs from `job_queue.jsonl`.
+5. `GET /api/live/state` — **always** recomputes via `refresh_current_state` (never serves stale `current_state.json` as authoritative).
+6. Pre-append validation of event/job rows against L1 schemas before JSONL append.
+
+**Explicitly deferred to L3-rest:** `GET/PUT /api/live/surface`, `POST /api/live/jobs/{id}/complete`, `POST /api/live/resolve-roll`, `POST /api/live/rebuild-packet`, OpenAPI export tests.
 
 Make L4 boring: UI talks HTTP only; never reads `session_22/*.jsonl` directly.
 

@@ -10,6 +10,9 @@ from jsonschema import Draft202012Validator
 
 from apps.live_control_server.config import SESSION_DIR_ENV
 from apps.live_control_server.main import create_app
+from apps.live_control_server.schema_validation import LiveRowValidationError, validate_before_append
+from apps.live_control_server.session_store import events_since
+from src.live_play.live_store import append_jsonl, load_json, write_json
 
 ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_DIR = ROOT / "evals/c2_live_prep/live/schemas"
@@ -130,6 +133,68 @@ def test_invalid_campaign_returns_400(client: TestClient) -> None:
         },
     )
     assert response.status_code == 400
+
+
+def test_get_state_recomputes_after_direct_event_append(
+    client: TestClient,
+    isolated_session: Path,
+) -> None:
+    stale_state = load_json(isolated_session / "current_state.json")
+    stale_state["recent_event_count"] = 0
+    write_json(isolated_session / "current_state.json", stale_state)
+
+    direct_event = {
+        "schema_version": "0.1.0",
+        "id": "evt-test-direct-append",
+        "created_at": "2026-05-25T12:00:00Z",
+        "campaign_id": "longmont-c2",
+        "session": 22,
+        "session_clock": "test",
+        "event_type": "state_note",
+        "event_origin": "user_input",
+        "latency_mode": "fast_live",
+        "input_text": "direct append",
+        "summary": "Direct JSONL append for state recompute test.",
+        "derived_fields": {},
+        "provenance": {
+            "source_paths": [],
+            "generated_by": "test_live_control_server",
+            "notes": None,
+        },
+        "jobs_to_queue": [],
+    }
+    validate_before_append([direct_event], [])
+    append_jsonl(isolated_session / "event_log.jsonl", direct_event)
+
+    state = client.get("/api/live/state").json()
+    assert state["recent_event_count"] >= 1
+
+
+def test_get_events_unknown_since_returns_empty(client: TestClient) -> None:
+    client.post(
+        "/api/live/query",
+        json={
+            "campaign_id": "longmont-c2",
+            "session": 22,
+            "mode": "live",
+            "text": "Weather 7.",
+        },
+    )
+    body = client.get("/api/live/events", params={"since": "evt-does-not-exist"}).json()
+    assert body["events"] == []
+
+
+def test_events_since_unknown_cursor_returns_empty() -> None:
+    events = [
+        {"id": "evt-a"},
+        {"id": "evt-b"},
+    ]
+    assert events_since(events, "evt-missing") == []
+
+
+def test_validate_before_append_rejects_invalid_event() -> None:
+    with pytest.raises(LiveRowValidationError):
+        validate_before_append([{"id": "not-a-valid-event"}], [])
 
 
 def test_get_jobs_after_canon_correction(client: TestClient) -> None:
