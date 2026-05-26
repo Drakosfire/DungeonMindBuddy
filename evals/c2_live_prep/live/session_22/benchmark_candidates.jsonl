@@ -1,0 +1,13 @@
+{"id":"s22_day1_twx_16","session":22,"user_line":"Weather 16.","gold_path":"evals/c2_live_prep/gold/session_22_live_turn_classifier.json","source_section":"Travel Day 1 — T-WX weather"}
+{"id":"s22_day1_canon_bottle_sample","session":22,"user_line":"Caelynn bottles the puddle water.","gold_path":"evals/c2_live_prep/gold/session_22_live_turn_classifier.json","source_section":"Travel Day 1 — march beats"}
+{"id":"s22_day1_identify_bottle","session":22,"user_line":"Stafl casts Identify on the bottled puddle water sample.","gold_path":"evals/c2_live_prep/gold/session_22_live_turn_classifier.json","source_section":"Travel Day 1 — Identify (Stafl)"}
+{"id":"s22_day2_grobnok_morning_silence","session":22,"user_line":"Grobnok does not call in the morning.","gold_path":"evals/c2_live_prep/gold/session_22_live_turn_classifier.json","source_section":"Day 2 log — Grobnok comms"}
+{"id":"s22_day2_twx_7_nature_19","session":22,"user_line":"Weather 7. Caelynn Nature 19.","gold_path":"evals/c2_live_prep/gold/session_22_live_turn_classifier.json","source_section":"Day 2 log — T-WX + Nature 19"}
+{"id":"s22_day2_twx_7_only","session":22,"user_line":"Weather 7.","gold_path":"evals/c2_live_prep/gold/session_22_live_turn_classifier.json","source_section":"Day 2 log — T-WX d20=7"}
+{"id":"s22_day2_r5_54","session":22,"user_line":"R5 54.","gold_path":"evals/c2_live_prep/gold/session_22_live_turn_classifier.json","source_section":"Day 2 log — R5 d100=54"}
+{"id":"s22_day2_shebta_pass_by","session":22,"user_line":"We pass Shebta's Meat on a Stick — abandoned, note it.","gold_path":"evals/c2_live_prep/gold/session_22_live_turn_classifier.json","source_section":"Road pass-by — Shebta's Meat"}
+{"id":"s22_day2_forced_march_mireward","session":22,"user_line":"Forced march to Mireward outskirts tonight.","gold_path":"evals/c2_live_prep/gold/session_22_live_turn_classifier.json","source_section":"Forced march — Mireward outskirts"}
+{"id":"s22_gate_lysandra_feeling","session":22,"user_line":"What is Lysandra feeling at the gate?","gold_path":"evals/c2_live_prep/gold/session_22_live_turn_classifier.json","source_section":"Pickup — Mireward gate"}
+{"id":"s22_gate_lysandro_father","session":22,"user_line":"Lysandro is her father.","gold_path":"evals/c2_live_prep/gold/session_22_live_turn_classifier.json","source_section":"Pickup — Mireward gate"}
+{"id":"s22_prep_mireward_context","session":22,"user_line":"What does Lysandra know about Mireward?","gold_path":"evals/c2_live_prep/gold/session_22_live_turn_classifier.json","source_section":"PLAN demo / prep shape"}
+{"id":"s22_runbook_tnpc_roll","session":22,"user_line":"T-NPC 7.","gold_path":"evals/c2_live_prep/gold/session_22_live_turn_classifier.json","source_section":"Runbook stack — T-NPC"}

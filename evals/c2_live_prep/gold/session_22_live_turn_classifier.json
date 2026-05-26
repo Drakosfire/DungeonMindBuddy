@@ -1,0 +1,230 @@
+{
+  "schema": "c2_live_turn_classifier_benchmark_v1",
+  "description": "Expected live-turn classifier routes for Campaign 2 Session 22. GM lines are reconstructed Live Control utterances derived from table rolls and beats in the session staging document — not a verbatim Cursor chat log.",
+  "campaign_id": "longmont-c2",
+  "session": 22,
+  "source_document": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/_ingest_staging/session_22_raw_notes.md",
+  "corpus_rationale": "Each fixture cites the staging section where the roll or beat was logged. Realign gold when staging canon changes (verify-before-debug); do not deflate expectations to match a single LLM run.",
+  "fixtures": [
+    {
+      "id": "s22_day1_twx_16",
+      "source_section": "Travel Day 1 — T-WX weather",
+      "source_evidence": "d20 = 16 (Fixed-distance front)",
+      "user_line": "Weather 16.",
+      "verify_heuristic": true,
+      "expect": {
+        "latency_mode": "fast_live",
+        "event_type": "roll_result",
+        "intent": "resolve_roll_table",
+        "table_id": "T-WX",
+        "roll": 16,
+        "skill_check": null
+      }
+    },
+    {
+      "id": "s22_day1_canon_bottle_sample",
+      "source_section": "Travel Day 1 — march beats (reflections, rider)",
+      "source_evidence": "Caelynn collects a bottle of the delayed-reflection puddle water",
+      "user_line": "Caelynn bottles the puddle water.",
+      "verify_heuristic": true,
+      "expect": {
+        "latency_mode": "fast_live",
+        "event_type": "canon_commit",
+        "intent": "session_canon_commit",
+        "table_id": null,
+        "roll": null,
+        "skill_check": null
+      }
+    },
+    {
+      "id": "s22_day1_identify_bottle",
+      "source_section": "Travel Day 1 — Identify (Stafl) on bottled sample",
+      "source_evidence": "Cast Identify on the bottled sample — rules read at table",
+      "user_line": "Stafl casts Identify on the bottled puddle water sample.",
+      "verify_heuristic": false,
+      "expect": {
+        "latency_mode": "context_lookup",
+        "event_type": "context_question",
+        "intent": "rules_or_item_identification",
+        "table_id": null,
+        "roll": null,
+        "skill_check": null
+      },
+      "notes": "Classifier routes rules/mechanics questions to context_lookup even though L2 handler is still a stub.",
+      "routing_alternates": [
+        {
+          "latency_mode": "fast_live",
+          "event_type": "state_note",
+          "table_id": null,
+          "roll": null,
+          "skill_check": null
+        }
+      ]
+    },
+    {
+      "id": "s22_day2_grobnok_morning_silence",
+      "source_section": "Day 2 log — Grobnok comms (morning)",
+      "source_evidence": "Morning window: No contact — Grobnok does not call",
+      "user_line": "Grobnok does not call in the morning.",
+      "verify_heuristic": true,
+      "expect": {
+        "latency_mode": "fast_live",
+        "event_type": "open_loop_update",
+        "intent": "open_loop_status",
+        "table_id": null,
+        "roll": null,
+        "skill_check": null
+      }
+    },
+    {
+      "id": "s22_day2_twx_7_nature_19",
+      "source_section": "Day 2 log — T-WX d20=7 + Caelynn Nature 19",
+      "source_evidence": "Hail dent row; Caelynn read-ahead Nature 19 on hail timing",
+      "user_line": "Weather 7. Caelynn Nature 19.",
+      "verify_heuristic": true,
+      "expect": {
+        "latency_mode": "fast_live",
+        "event_type": "roll_result",
+        "intent": "resolve_roll_table",
+        "table_id": "T-WX",
+        "roll": 7,
+        "skill_check": {
+          "actor": "Caelynn",
+          "skill": "Nature",
+          "total": 19
+        }
+      }
+    },
+    {
+      "id": "s22_day2_twx_7_only",
+      "source_section": "Day 2 log — T-WX d20=7",
+      "source_evidence": "Roll prompt without bundled skill check",
+      "user_line": "Weather 7.",
+      "verify_heuristic": true,
+      "expect": {
+        "latency_mode": "fast_live",
+        "event_type": "roll_result",
+        "intent": "resolve_roll_table",
+        "table_id": "T-WX",
+        "roll": 7,
+        "skill_check": null
+      }
+    },
+    {
+      "id": "s22_day2_r5_54",
+      "source_section": "Day 2 log — R5 d100=54",
+      "source_evidence": "Shepherd's Shadow band — crowd hums one note",
+      "user_line": "R5 54.",
+      "verify_heuristic": true,
+      "expect": {
+        "latency_mode": "fast_live",
+        "event_type": "roll_result",
+        "intent": "resolve_roll_table",
+        "table_id": "R5",
+        "roll": 54,
+        "skill_check": null
+      }
+    },
+    {
+      "id": "s22_day2_shebta_pass_by",
+      "source_section": "Road pass-by — Shebta's Meat on a Stick",
+      "source_evidence": "Abandoned pull-off during march; not a table roll",
+      "user_line": "We pass Shebta's Meat on a Stick — abandoned, note it.",
+      "verify_heuristic": false,
+      "routing_alternates": [
+        {
+          "latency_mode": "fast_live",
+          "event_type": "canon_commit",
+          "table_id": null,
+          "roll": null,
+          "skill_check": null
+        }
+      ],
+      "expect": {
+        "latency_mode": "fast_live",
+        "event_type": "state_note",
+        "intent": "scene_note",
+        "table_id": null,
+        "roll": null,
+        "skill_check": null
+      }
+    },
+    {
+      "id": "s22_day2_forced_march_mireward",
+      "source_section": "Forced march — Day 2 → Mireward outskirts",
+      "source_evidence": "Party pushes through to gate apron ~22:00",
+      "user_line": "Forced march to Mireward outskirts tonight.",
+      "verify_heuristic": false,
+      "expect": {
+        "latency_mode": "fast_live",
+        "event_type": "state_note",
+        "intent": "travel_decision",
+        "table_id": null,
+        "roll": null,
+        "skill_check": null
+      }
+    },
+    {
+      "id": "s22_gate_lysandra_feeling",
+      "source_section": "Pickup — Mireward gate · Lysandro Ironveil",
+      "source_evidence": "Demo-path NPC status question at torchlight gate",
+      "user_line": "What is Lysandra feeling at the gate?",
+      "verify_heuristic": true,
+      "expect": {
+        "latency_mode": "context_lookup",
+        "event_type": "context_question",
+        "intent": "npc_or_scene_context",
+        "table_id": null,
+        "roll": null,
+        "skill_check": null
+      }
+    },
+    {
+      "id": "s22_gate_lysandro_father",
+      "source_section": "Pickup — Mireward gate · Lysandro Ironveil",
+      "source_evidence": "Table canon: Lysandro is her father (relationship correction)",
+      "user_line": "Lysandro is her father.",
+      "verify_heuristic": true,
+      "expect": {
+        "latency_mode": "fast_live",
+        "event_type": "canon_correction",
+        "intent": "relationship_correction",
+        "table_id": null,
+        "roll": null,
+        "skill_check": null
+      }
+    },
+    {
+      "id": "s22_prep_mireward_context",
+      "source_section": "PLAN demo / between-scene prep shape",
+      "source_evidence": "Retrieval-shaped prep ask (not yet played in staging log)",
+      "user_line": "What does Lysandra know about Mireward?",
+      "verify_heuristic": false,
+      "expect": {
+        "latency_mode": "context_lookup",
+        "event_type": "context_question",
+        "intent": "npc_or_scene_context",
+        "table_id": null,
+        "roll": null,
+        "skill_check": null
+      },
+      "notes": "Included for PLAN § Retrieval Integration; promote to played canon when C3 recap confirms the ask."
+    },
+    {
+      "id": "s22_runbook_tnpc_roll",
+      "source_section": "Runbook stack — T-NPC player d12",
+      "source_evidence": "Player roll tables often typed as table id + result",
+      "user_line": "T-NPC 7.",
+      "verify_heuristic": true,
+      "expect": {
+        "latency_mode": "fast_live",
+        "event_type": "roll_result",
+        "intent": "resolve_roll_table",
+        "table_id": "T-NPC",
+        "roll": 7,
+        "skill_check": null
+      },
+      "notes": "Thrin spotlight beat in staging used custom dialogue; table row 7 is forests-lying theme — GM may type T-NPC N instead of narrative."
+    }
+  ]
+}

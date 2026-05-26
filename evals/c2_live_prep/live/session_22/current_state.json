@@ -10,7 +10,7 @@
     "event_log.jsonl",
     "job_queue.jsonl"
   ],
-  "generated_at": "2026-05-25T00:00:00Z",
+  "generated_at": "2026-05-26T03:20:54Z",
   "now": {
     "day_label": "Session 22 start",
     "party_position": "Conical-hill camp north of Mossford; party intent is to press north toward Mireward.",
@@ -34,6 +34,6 @@
     "roll_stack",
     "queue"
   ],
-  "queued_job_count": 0,
-  "recent_event_count": 0
+  "queued_job_count": 1,
+  "recent_event_count": 4
 }
