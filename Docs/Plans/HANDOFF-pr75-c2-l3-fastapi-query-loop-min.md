@@ -59,6 +59,7 @@ L2 proved classify → resolve → structured events/jobs in-process. L3-min pro
 | Create | `apps/live_control_server/__init__.py` | Package marker. |
 | Create | `apps/live_control_server/config.py` | Repo root + `DUNGEONMIND_LIVE_SESSION_DIR` session path. |
 | Create | `apps/live_control_server/session_store.py` | Load session files, append events/jobs, rebuild `current_state.json`. |
+| Create | `apps/live_control_server/schema_validation.py` | Validate `live_event` / `live_job` rows before JSONL append. |
 | Create | `apps/live_control_server/services/live_agent_loop.py` | `process_live_query(text)` orchestration. |
 | Create | `apps/live_control_server/routes/live.py` | FastAPI routes under `/api/live`. |
 | Create | `apps/live_control_server/main.py` | `create_app()` factory + `app` for uvicorn. |
