@@ -4,8 +4,8 @@
 
 - [x] Active slice: `L5_projection_command_architecture`
 - [x] L4 shell remains green on `main`
-- [x] Last green artifact: PR #79 (`pr79-l5a`) — `src/live_play/projections/`, `tests/test_live_projection_contracts.py`
-- [x] Next gate: L5B plan-view projection (`build_session_plan_projection`, `GET /api/live/plan-view`)
+- [x] Last green artifact: PR #80 (`pr80-l5b-plan-view`) — plan-view schema, builder, endpoint, and tests
+- [x] Next gate: L5C timeline module (`timeline` module + typed API client + read-only projection render)
 - [ ] Re-read `STUDY-c2-live-play-cursor-handoff-process.md` before UI expansion work
 
 ---
@@ -86,12 +86,32 @@ Build derived session projection endpoint.
 
 ### Checklist
 
-- [ ] Add `build_session_plan_projection(...)`.
-- [ ] Add `plan_view.schema.json`.
-- [ ] Add Session 22 sample projection payload.
-- [ ] Add `GET /api/live/plan-view`.
-- [ ] Validate `authoritative=false` invariant.
-- [ ] Add typed refs and human labels.
+- [x] Add `build_session_plan_projection(...)`.
+- [x] Add `plan_view.schema.json`.
+- [x] Add Session 22 sample projection payload.
+- [x] Add `GET /api/live/plan-view`.
+- [x] Validate `authoritative=false` invariant.
+- [x] Add typed refs and human labels.
+
+### Verification
+
+```bash
+uv run pytest tests/test_live_plan_view_projection.py -q
+uv run pytest tests/test_live_control_server.py -q
+```
+
+### Evidence (PR #80, 2026-05-28)
+
+- Branch: `pr80-l5b-plan-view` → `main`
+- Handoff: `Docs/Plans/HANDOFF-pr80-l5b-plan-view-projection.md`
+- Added schema: `evals/c2_live_prep/live/schemas/plan_view.schema.json`
+- Added sample: `evals/c2_live_prep/live/session_22/plan_view.sample.json`
+- Added builder: `src/live_play/projections/plan_view.py`
+- Added endpoint: `GET /api/live/plan-view` in `apps/live_control_server/routes/live.py`
+- Added tests: `tests/test_live_plan_view_projection.py` and OpenAPI coverage update in `tests/test_live_control_server.py`
+- `uv run pytest tests/test_live_plan_view_projection.py -q` → 5 passed
+- `uv run pytest tests/test_live_control_server.py -q` → 18 passed
+- Scope held: read-only projection slice; no UI pane work, no command execution, no artifact writes, no retrieval integration
 
 ---
 
