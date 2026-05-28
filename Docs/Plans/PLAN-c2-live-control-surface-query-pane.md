@@ -4,9 +4,9 @@ title: C2 Live Control Surface v0 — Query Pane
 document_class: plan
 plan_kind: product_sprint_plan
 status: active
-version: 1.5
+version: 1.6
 created_at: "2026-05-25T03:11:00Z"
-last_updated_at: "2026-05-26T03:03:06Z"
+last_updated_at: "2026-05-28T02:18:00Z"
 timezone_note: "Timestamps are UTC; local work may use America/Denver."
 supersedes: []
 superseded_by: null
@@ -41,21 +41,24 @@ product_scope:
   surface: local runtime-configurable live-play surface shell
   autonomy: server-mediated live turn classification, file-backed events, background job queue
 execution_state:
-  active_slice: L4_react_query_pane
+  active_slice: L5_ui_plan_projection
   milestone_progress:
     L0_plan_lock: complete
     L1_packet_event_job_schema: complete
     L2_roll_resolver_classifier: complete
     L3_fastapi_query_loop: complete
     L4_react_query_pane: complete
+    L5_ui_plan_projection: in_progress
   blockers: []
-  next_gate_command: "Run CHECKLIST Demo Script: `DUNGEONMIND_LIVE_SESSION_DIR=evals/c2_live_prep/live/session_22 uv run uvicorn apps.live_control_server.main:app --reload` + `cd apps/live-control-ui && npm run dev`; manual Session 22 browser smoke."
+  next_gate_command: "Implement and verify plan projection UI slice: add server-derived plan-view endpoint + UI timeline module + detail pane wiring; run `uv run pytest tests/test_live_control_server.py -q` and `cd apps/live-control-ui && npm test`."
   flagged_followups:
     - "Keep current C1S1-C1S3 retrieval/autonomy demo separate; cross-link only. This sprint productizes live GM interaction and consumes retrieval packet concepts when needed."
     - "Session 22 transcript examples are the seed regression set; do not generalize to all campaigns until the pane feels good on this slice."
     - "Before designing UI or classifier examples, re-read STUDY-c2-live-play-cursor-handoff-process.md to remember the Cursor friction: dashboard shape, file-name-first navigation, and slow repo-agent loops."
     - "L3 `surface_config_updated` audit event on layout PUT is deferred; core path is schema + invariant validation + atomic persist (documented in PR #76 body)."
     - "L4 v0 shell complete (PR #77): Queue/Sources modules not implemented; `LiveJob` TS type simplified vs L3 job schema; RollStack Session 22 title fallback is display-only — align server/state before Queue UI."
+    - "L5 lock: projection is derived on-the-fly from corpus + live packet; no new authoritative session-plan file."
+    - "L5 lock: avoid GM distraction — no mandatory beat status workflow or live reconciliation ceremony; recap remains the canonical reconciliation surface."
 external_pull_requests:
   - pr: 77
     handoff: Docs/Plans/archive/2026-05-26/handoffs/HANDOFF-pr77-c2-l4-react-surface-shell.md
@@ -177,6 +180,8 @@ v0 ships **Chat** + **Record** as required modules. Optional modules (Now, Open 
 
 The surface answers and organizes. It does not edit the whole corpus inline.
 
+v0.1 UI pivot: show a **projected beat timeline** for Session 22 that is derived from source truth (runbook + packet + runtime state), not a second authored truth surface. Timeline rows must carry human labels and hyperlinks to constituent sources (NPC hubs, location hubs, runbook sections, roll tables); selecting an item opens an inspector pane for review/edit/save on the underlying source file.
+
 ## Minimal Architecture
 
 ```text
@@ -189,6 +194,7 @@ live turn handler
 Tools:
   - roll resolver
   - live turn classifier
+  - session-plan projection builder (derived view)
   - retrieval packet reader / builder
   - staging/event logger
   - job queue writer
@@ -208,6 +214,23 @@ evals/c2_live_prep/live/session_22/
 ```
 
 `current_state.json` is derived, not authoritative. Durable facts live in `live_packet.json`, `surface_layout.json`, `event_log.jsonl`, `job_queue.jsonl`, corpus markdown, and retrieval artifacts.
+
+### Session Plan Projection Contract (L5)
+
+The timeline/project view is constructed on demand:
+
+```text
+corpus Session Prep docs + live_packet + event/job state
+→ build_session_plan_projection(...)
+→ UI timeline + hyperlinks + inspector pane
+```
+
+Rules:
+
+- Projection is **derived**; no new authoritative `session_plan*.json` source-of-truth file.
+- Hyperlinks open constituent artifacts in-pane (NPC/location details, runbook sections, roll tables).
+- Roll-table edits persist to the underlying table file via server write path; projection refreshes from source.
+- Any reconciliation that can wait should wait: avoid interruptive beat-management workflows during live play; reconcile against recap post-session.
 
 ## Modular Surface UI
 
@@ -433,7 +456,7 @@ Out of scope for v0:
 - Database
 - Drag/drop canvas
 - Document editor
-- Timeline authoring UI
+- Timeline authoring/reconciliation workflow that interrupts live play
 - Rich map
 - Full recap-write UI
 
@@ -477,12 +500,22 @@ The demo should show:
 - `surface_catalog` + `surface_layout.json` define a runtime-configurable modular UI; Chat and Record are required and cannot be disabled.
 - GM layout changes persist through the server (`PUT /api/live/surface/layout`), not browser-only state.
 - UI shell renders enabled modules from layout; at least one optional catalog module proves the plugin path in v0.
+- Session plan projection is computed on-the-fly from source truth (no second authored plan file).
+- Timeline/project view links to constituent artifacts and opens them in an inspector pane.
+- Roll-table review/edit/save operates on the underlying table file, not on copied projection text.
 - Session 22 transcript examples are tests.
 - Retrieval packet path remains available for `context_lookup`.
 - UI is not source of truth.
+- Live session does not require manual beat reconciliation steps; recap remains canonical reconciliation.
 - HTTP/API contract is documented (OpenAPI) so the server implementation can move off Python later without rewriting modules.
 
 ## Changelog
+
+### v1.6 — 2026-05-28
+
+- Captured UI pivot decisions: on-the-fly session-plan projection (no special plan SoT file), hyperlinked project/timeline view into constituent artifacts, and no-distraction live-play posture (defer reconciliation to recap).
+- Opened new active slice `L5_ui_plan_projection` for timeline + inspector pane implementation.
+- Clarified out-of-scope boundary: no live timeline authoring/reconciliation workflow that burdens the GM.
 
 ### v1.5 — 2026-05-26
 

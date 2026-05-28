@@ -10,12 +10,12 @@
 
 ## Reanchor Block (fill first each session)
 
-- [x] **Active slice:** `L4_react_query_pane` (v0 shell **complete** on `main`)
+- [x] **Active slice:** `L5_ui_plan_projection` (UI pivot: projected timeline + inspector pane)
 - [x] **Last green artifact (path):** L4 merged on `main` (PR #77 merge `dc4dbf88`):
   - `apps/live-control-ui/` (`SurfaceShell`, `liveApi.ts`, Chat/Record/RollStack modules, `ModuleLayoutControls`, `SurfaceLayoutPanel`)
   - `Docs/Plans/archive/2026-05-26/handoffs/HANDOFF-pr77-c2-l4-react-surface-shell.md`
   - Verification: `cd apps/live-control-ui && npm test` → `14 passed`; `npm run build` → OK; `uv run pytest tests/test_live_control_server.py -q` → `18 passed`.
-- [x] **Next command / action:** CHECKLIST Demo Script — start server + UI dev, manual Session 22 browser smoke; optional follow-ups: Queue/Sources modules, `LiveJob` type alignment, server-driven roll titles.
+- [x] **Next command / action:** Implement projection endpoint + timeline module + inspector pane wiring; verify with `uv run pytest tests/test_live_control_server.py -q` and `cd apps/live-control-ui && npm test`.
 - [x] **Open product decision:** Resolved — keep as sibling sprint, not folded into the current C1 retrieval/autonomy demo.
 - [x] **Blocker type:** none for L1; PLAN/CHECKLIST accepted as active sprint anchors.
 
@@ -53,7 +53,7 @@ It does not build the whole control surface.
 - Drag/drop canvas
 - Document editor
 - Rich map
-- Timeline authoring UI
+- Timeline authoring/reconciliation workflow during live play
 - Full recap-write UI
 
 ---
@@ -71,6 +71,10 @@ It does not build the whole control surface.
 - [x] Session 22 transcript examples remain regression fixtures for the classifier / resolver (L2 tests on `main`, PR #74).
 - [ ] UI and classifier work re-read `STUDY-c2-live-play-cursor-handoff-process.md` before implementation to avoid dashboard/file-name-first regressions.
 - [ ] HTTP/API contract is documented (OpenAPI) so the server can be reimplemented outside Python without rewriting surface modules.
+- [ ] Session plan/timeline view is derived on-the-fly from corpus + packet + runtime state; no new authoritative plan file.
+- [ ] Timeline rows are hyperlink-first (NPC/location/runbook/roll table) and open constituent artifacts in an inspector pane.
+- [ ] Roll-table review/edit/save updates the underlying table file through server APIs; projection only mirrors source.
+- [ ] No forced beat reconciliation UX during live play; reconciliation defers to recap/post-session workflows.
 
 ---
 
@@ -294,6 +298,38 @@ uv run pytest tests/test_live_control_server.py -q
 
 ---
 
+## Phase L5 — Projected Session Timeline + Inspector Pane
+
+**Goal:** Shift fully to UI by projecting the expected session plan on-the-fly and making constituent artifacts explorable/editable in-pane.
+
+### Scope (L5)
+
+- Build server-side derived **plan view** from existing source truth:
+  - Session Prep runbook/anchor/brief + live packet + runtime event/job state.
+- Add UI **timeline/project module** with human labels for beats and linked artifacts.
+- Add shared **inspector pane** that opens linked artifacts (NPC/location/runbook/roll tables).
+- Add roll-table edit/save flow against underlying source files (no projection-only edits).
+
+### Checklist
+
+- [ ] Add server function and endpoint for derived plan projection (authoritative=false read model).
+- [ ] Include beat timeline rows with linked refs (`roll_table`, `npc_hub`, `location_hub`, `planning_doc`, `scratch_tracker`).
+- [ ] Add `plan` (or `timeline`) optional module entry in `surface_catalog` and render it in UI.
+- [ ] Build inspector pane component and wire click-through from timeline/ref chips.
+- [ ] Add roll-table pane save action routed through server write path; refresh projection after save.
+- [ ] Keep live flow lightweight: no required beat-status authoring/reconciliation prompts at table.
+- [ ] Add server + UI tests for projection payload, link rendering, and inspector open/save round trip.
+
+### Verification
+
+```bash
+uv run pytest tests/test_live_control_server.py -q
+cd apps/live-control-ui && npm test
+cd apps/live-control-ui && npm run build
+```
+
+---
+
 ## Demo Script
 
 1. Start server and UI.
@@ -319,6 +355,13 @@ Append dated entries here as PRs land.
 - Merged PR #77 to `main` (merge `dc4dbf88`): `apps/live-control-ui/` — Vite + React + TypeScript; `SurfaceShell` with enabled-only grid; Chat, Record, RollStack (+ Now when enabled); embedded `ModuleLayoutControls`; `SurfaceLayoutPanel` for hidden optional modules; `event_origin` on `LiveEvent`.
 - Verification on `main`: `cd apps/live-control-ui && npm test` → `14 passed`; `npm run build` → OK; `uv run pytest tests/test_live_control_server.py -q` → `18 passed`.
 - `execution_state.L4_react_query_pane` → `complete`; next gate = Demo Script / manual browser smoke. v0 debt: simplified `LiveJob` type, Session 22 roll-title fallback, Queue/Sources not implemented.
+
+### 2026-05-28 — UI pivot captured: derived timeline project view (L5)
+
+- Locked design direction: no special session-plan source file; projection computed on-the-fly from corpus + packet + runtime state.
+- Locked UX direction: timeline/project view is hyperlink-first and opens constituent artifacts in an inspector pane.
+- Locked live-play posture: avoid forced reconciliation workflows during play; defer reconciliation to recap/post-session.
+- `execution_state.active_slice` moved to `L5_ui_plan_projection`.
 
 ### 2026-05-26 — L3 FastAPI Server Complete (PR #75 + PR #76)
 
