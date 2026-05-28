@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 
-import { getEvents, getJobs, getSurface } from "./api/liveApi";
+import { getEvents, getJobs, getPlanView, getSurface } from "./api/liveApi";
 import type {
   LiveEvent,
   LiveJob,
+  PlanViewProjection,
   LiveQueryResponse,
   LiveState,
   SurfaceLayout,
@@ -21,15 +22,21 @@ export function App() {
   const [state, setState] = useState<LiveState | null>(null);
   const [events, setEvents] = useState<LiveEvent[]>([]);
   const [jobs, setJobs] = useState<LiveJob[]>([]);
+  const [planView, setPlanView] = useState<PlanViewProjection | null>(null);
 
   const refreshAll = useCallback(async () => {
     const surface = await getSurface();
-    const [eventsResponse, jobsResponse] = await Promise.all([getEvents(), getJobs()]);
+    const [eventsResponse, jobsResponse, planViewResponse] = await Promise.all([
+      getEvents(),
+      getJobs(),
+      getPlanView(),
+    ]);
     setCatalog(surface.catalog);
     setLayout(surface.layout);
     setState(surface.state);
     setEvents(eventsResponse.events);
     setJobs(jobsResponse.jobs);
+    setPlanView(planViewResponse);
   }, []);
 
   useEffect(() => {
@@ -77,7 +84,7 @@ export function App() {
     );
   }
 
-  if (status === "error" || !layout || !state) {
+  if (status === "error" || !layout || !state || !planView) {
     return (
       <main className="app-status app-error">
         <h1>Live Control</h1>
@@ -99,6 +106,7 @@ export function App() {
         state={state}
         events={events}
         jobs={jobs}
+        planView={planView}
         onQuerySuccess={handleQuerySuccess}
         onLayoutSaved={handleLayoutSaved}
       />

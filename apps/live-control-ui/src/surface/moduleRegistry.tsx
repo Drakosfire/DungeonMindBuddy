@@ -3,6 +3,7 @@ import type { ComponentType } from "react";
 import type {
   LiveEvent,
   LiveJob,
+  PlanViewProjection,
   LiveQueryResponse,
   LiveState,
   SurfaceModuleDefinition,
@@ -19,6 +20,7 @@ export interface ModuleRenderContext {
   state: LiveState;
   events: LiveEvent[];
   jobs: LiveJob[];
+  planView: PlanViewProjection;
   campaignId: string;
   session: number;
   onQuerySuccess: (response: LiveQueryResponse) => void | Promise<void>;

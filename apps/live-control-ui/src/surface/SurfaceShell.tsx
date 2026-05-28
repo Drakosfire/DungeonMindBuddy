@@ -1,6 +1,7 @@
 import type {
   LiveEvent,
   LiveJob,
+  PlanViewProjection,
   LiveQueryResponse,
   LiveState,
   SurfaceLayout,
@@ -19,6 +20,7 @@ interface SurfaceShellProps {
   state: LiveState;
   events: LiveEvent[];
   jobs: LiveJob[];
+  planView: PlanViewProjection;
   onQuerySuccess: (response: LiveQueryResponse) => void | Promise<void>;
   onLayoutSaved: (layout: SurfaceLayout) => void | Promise<void>;
 }
@@ -34,11 +36,13 @@ function SurfaceShellBody({
   state,
   events,
   jobs,
+  planView,
   onQuerySuccess,
 }: {
   state: LiveState;
   events: LiveEvent[];
   jobs: LiveJob[];
+  planView: PlanViewProjection;
   onQuerySuccess: (response: LiveQueryResponse) => void | Promise<void>;
 }) {
   const { draft, catalogById } = useLayoutDraft();
@@ -48,6 +52,7 @@ function SurfaceShellBody({
     state,
     events,
     jobs,
+    planView,
     campaignId: draft.campaign_id,
     session: draft.session,
     onQuerySuccess,
@@ -113,6 +118,7 @@ export function SurfaceShell({
   state,
   events,
   jobs,
+  planView,
   onQuerySuccess,
   onLayoutSaved,
 }: SurfaceShellProps) {
@@ -122,6 +128,7 @@ export function SurfaceShell({
         state={state}
         events={events}
         jobs={jobs}
+        planView={planView}
         onQuerySuccess={onQuerySuccess}
       />
     </LayoutDraftProvider>
