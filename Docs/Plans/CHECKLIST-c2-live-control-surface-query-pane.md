@@ -4,7 +4,8 @@
 
 - [x] Active slice: `L5_projection_command_architecture`
 - [x] L4 shell remains green on `main`
-- [ ] Next gate: projection contracts + command bus foundations
+- [x] Last green artifact: PR #79 (`pr79-l5a`) — `src/live_play/projections/`, `tests/test_live_projection_contracts.py`
+- [x] Next gate: L5B plan-view projection (`build_session_plan_projection`, `GET /api/live/plan-view`)
 - [ ] Re-read `STUDY-c2-live-play-cursor-handoff-process.md` before UI expansion work
 
 ---
@@ -43,20 +44,37 @@ src/live_play/projections/
 
 ### Checklist
 
-- [ ] Define `ProjectionTarget`.
-- [ ] Define `ProjectionCapability`.
-- [ ] Define `ProjectionCommand`.
-- [ ] Define `ProjectionWriteResult`.
-- [ ] Define `ProjectionInvalidation`.
-- [ ] Define write lanes.
-- [ ] Add schema/tests for contracts.
-- [ ] Add command validation tests.
+- [x] Define `ProjectionTarget`.
+- [x] Define `ProjectionCapability`.
+- [x] Define `ProjectionCommand`.
+- [x] Define `ProjectionWriteResult`.
+- [x] Define `ProjectionInvalidation`.
+- [x] Define write lanes.
+- [x] Add schema/tests for contracts.
+- [x] Add command validation tests.
 
 ### Verification
 
 ```bash
 uv run pytest tests/test_live_projection_contracts.py -q
 ```
+
+### Evidence (PR #79, 2026-05-28)
+
+- Branch: `pr79-l5a` → `main` ([PR #79](https://github.com/Drakosfire/DungeonMindBuddy/pull/79))
+- Handoff: `Docs/Plans/HANDOFF-pr79-l5a-projection-command-contracts.md`
+- `uv run pytest tests/test_live_projection_contracts.py -q` → 16 passed
+- `uv run pytest tests/test_live_control_server.py tests/test_live_play_turn_loop.py -q` → 25 passed
+- Scope held: contracts + tests only; no FastAPI routes, UI, command bus execution, or corpus writes
+
+### L5A follow-ups (non-blocking; track in L5B–L5G)
+
+1. Preserve nano-commit discipline on future L5 slices (this PR landed as one commit).
+2. Tighten `ProjectionCapability`: reject `disabled_reason` when `enabled=True` (or document permissiveness explicitly).
+3. Add command/lane compatibility matching before command execution (L5G command bus).
+4. Add projection-key constants/registry before invalidation drives UI refresh.
+5. Add JSON-compatibility checks for `payload`/`metadata` before FastAPI exposure.
+6. Document `make_target(..., **metadata)` collision risk if helper gains named args.
 
 ---
 

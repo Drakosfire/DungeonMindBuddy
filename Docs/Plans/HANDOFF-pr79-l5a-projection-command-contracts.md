@@ -99,6 +99,7 @@ Read and preserve these invariants from the L5 design doc:
 - Every write declares a lane.
 - Ambiguous edits become reviewable work rather than silent canon mutation.
 - Command results eventually carry audit identity and invalidation hints.
+- Any future `patch_artifact` execution path must preserve corpus write safety (preview/confirm-token CAS semantics), not direct blind writes.
 
 ## Core Types
 
@@ -213,7 +214,7 @@ class ProjectionEvidenceRef(BaseModel):
     note: str | None = None
 ```
 
-Command types for this slice:
+Command types for this slice (v0 provisional contract surface for L5A):
 
 ```text
 append_observation
@@ -228,7 +229,7 @@ request_retrieval_refresh
 update_layout
 ```
 
-Write lanes for this slice:
+Write lanes for this slice (v0 provisional contract surface for L5A):
 
 ```text
 observed_play
@@ -369,6 +370,7 @@ Minimum tests:
 8. Defaults use empty lists/dicts instead of shared mutable defaults.
 9. JSON round-trip works with `model_dump(mode="json")` and `model_validate(...)`.
 10. Public imports from `src.live_play.projections` expose the primary model classes.
+11. Blank-string rejects are enforced for required identity/reason fields (`target_id`, `label`, `projection_key`, `reason`, `write_id`).
 
 Suggested command:
 
