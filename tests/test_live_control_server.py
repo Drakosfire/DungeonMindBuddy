@@ -363,5 +363,6 @@ def test_openapi_contains_required_live_paths(client: TestClient) -> None:
         "/api/live/rebuild-packet",
         "/api/live/surface",
         "/api/live/surface/layout",
+        "/api/live/plan-view",
     }
     assert required <= paths
