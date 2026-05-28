@@ -1,0 +1,208 @@
+{
+  "schema_version": "0.1.0",
+  "campaign_id": "longmont-c2",
+  "session": 22,
+  "authoritative": false,
+  "generated_at": "2026-05-28T00:00:00Z",
+  "derived_from": [
+    "live_packet.json",
+    "event_log.jsonl",
+    "job_queue.jsonl"
+  ],
+  "timeline": [
+    {
+      "id": "beat-pretravel-silver-raven-dispatch",
+      "label": "Pre-travel Silver Raven dispatch",
+      "status": "projected",
+      "time_hint": "Pre-travel",
+      "summary": "The session opens with comms pressure and Silver Raven coordination before the march north.",
+      "table_ready_prompt": "Who receives the next outbound message first?",
+      "refs": [
+        {
+          "target_type": "runbook_section",
+          "target_id": "session22-runbook-pretravel",
+          "label": "Session 22 runbook pre-travel beats",
+          "source_status": "derived",
+          "role": "procedural_anchor"
+        },
+        {
+          "target_type": "open_loop",
+          "target_id": "silver-raven-reply",
+          "label": "Silver Raven reply",
+          "source_status": "authoritative",
+          "role": "open_loop"
+        }
+      ],
+      "state_links": {
+        "event_ids": [],
+        "job_ids": [],
+        "open_loop_ids": [
+          "silver-raven-reply"
+        ]
+      }
+    },
+    {
+      "id": "beat-day1-weather-front",
+      "label": "Travel Day 1 weather/front beat",
+      "status": "projected",
+      "time_hint": "Day 1",
+      "summary": "Roll weather and march pressure to establish the travel frame for the first day.",
+      "table_ready_prompt": "Roll T-WX and narrate immediate travel consequences.",
+      "refs": [
+        {
+          "target_type": "roll_table",
+          "target_id": "T-WX",
+          "label": "Storm weather",
+          "source_status": "authoritative",
+          "role": "next_roll"
+        }
+      ],
+      "state_links": {
+        "event_ids": [],
+        "job_ids": [],
+        "open_loop_ids": []
+      }
+    },
+    {
+      "id": "beat-day1-puddle-identify",
+      "label": "Delayed reflection puddle / Identify beat",
+      "status": "projected",
+      "time_hint": "Day 1, after weather",
+      "summary": "A bottled puddle sample and delayed reflection mystery become a context beat rather than a roll-only beat.",
+      "table_ready_prompt": "Decide if this routes to context lookup or state note at the table.",
+      "refs": [
+        {
+          "target_type": "runbook_section",
+          "target_id": "session22-runbook-delayed-reflection",
+          "label": "Delayed reflection notes",
+          "source_status": "derived",
+          "role": "context_anchor"
+        }
+      ],
+      "state_links": {
+        "event_ids": [],
+        "job_ids": [],
+        "open_loop_ids": []
+      }
+    },
+    {
+      "id": "beat-day1-hester-mull-courier",
+      "label": "Hester Mull courier encounter",
+      "status": "projected",
+      "time_hint": "Day 1",
+      "summary": "A road encounter beat provides social pressure and route color during the northward leg.",
+      "table_ready_prompt": "Roll R5 if encounter pressure is needed now.",
+      "refs": [
+        {
+          "target_type": "roll_table",
+          "target_id": "R5",
+          "label": "Road encounter",
+          "source_status": "authoritative",
+          "role": "encounter_roll"
+        }
+      ],
+      "state_links": {
+        "event_ids": [],
+        "job_ids": [],
+        "open_loop_ids": []
+      }
+    },
+    {
+      "id": "beat-grobnok-callback-no-call-loop",
+      "label": "Grobnok callback / no-call open loop",
+      "status": "projected",
+      "time_hint": "Day 1 evening -> Day 2 morning",
+      "summary": "Grobnok contact is tracked as an owed live loop and should remain visible until resolved.",
+      "table_ready_prompt": "Has the evening contact occurred, or does the loop remain owed?",
+      "refs": [
+        {
+          "target_type": "open_loop",
+          "target_id": "grobnok-evening-contact",
+          "label": "Grobnok evening contact",
+          "source_status": "authoritative",
+          "role": "open_loop"
+        }
+      ],
+      "state_links": {
+        "event_ids": [],
+        "job_ids": [],
+        "open_loop_ids": [
+          "grobnok-evening-contact"
+        ]
+      }
+    },
+    {
+      "id": "beat-day2-forced-march-outskirts",
+      "label": "Day 2 forced march to Mireward outskirts",
+      "status": "projected",
+      "time_hint": "Day 2 late",
+      "summary": "Travel pressure escalates as the party pushes into Mireward outskirts before gate arrival.",
+      "table_ready_prompt": "Use T-DIL if a travel complication beat is needed before the gate.",
+      "refs": [
+        {
+          "target_type": "roll_table",
+          "target_id": "T-DIL",
+          "label": "Travel dilemma",
+          "source_status": "authoritative",
+          "role": "complication_roll"
+        }
+      ],
+      "state_links": {
+        "event_ids": [],
+        "job_ids": [],
+        "open_loop_ids": []
+      }
+    },
+    {
+      "id": "beat-mireward-gate-arrival-lysandro-reveal",
+      "label": "Mireward gate arrival / Lysandro reveal",
+      "status": "projected",
+      "time_hint": "Day 2, ~22:00",
+      "summary": "The party reaches the gate apron and relationship revelations can shift social stakes immediately.",
+      "table_ready_prompt": "What does the party see first at the gate apron?",
+      "refs": [
+        {
+          "target_type": "location",
+          "target_id": "mireward-gate",
+          "label": "Mireward Gate",
+          "source_status": "derived",
+          "role": "scene_location"
+        },
+        {
+          "target_type": "npc",
+          "target_id": "lysandro-ironveil",
+          "label": "Lysandro Ironveil",
+          "source_status": "derived",
+          "role": "scene_npc"
+        }
+      ],
+      "state_links": {
+        "event_ids": [],
+        "job_ids": [],
+        "open_loop_ids": []
+      }
+    },
+    {
+      "id": "beat-gate-dilemma-next-roll",
+      "label": "Gate dilemma next roll",
+      "status": "projected",
+      "time_hint": "At gate trigger",
+      "summary": "If the gate beat branches into procedural tension, the gate dilemma table is the next deterministic input.",
+      "table_ready_prompt": "Roll T-DIL-G when gate pressure calls for a dilemma beat.",
+      "refs": [
+        {
+          "target_type": "roll_table",
+          "target_id": "T-DIL-G",
+          "label": "Gate dilemma table",
+          "source_status": "authoritative",
+          "role": "next_roll"
+        }
+      ],
+      "state_links": {
+        "event_ids": [],
+        "job_ids": [],
+        "open_loop_ids": []
+      }
+    }
+  ]
+}
