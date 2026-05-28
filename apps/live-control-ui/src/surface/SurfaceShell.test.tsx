@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import * as liveApi from "../api/liveApi";
 
-import { mockCatalog, mockLayout, mockRollEvent, mockState } from "../test/fixtures";
+import { mockCatalog, mockLayout, mockPlanView, mockRollEvent, mockState } from "../test/fixtures";
 import { SurfaceShell } from "./SurfaceShell";
 
 describe("SurfaceShell", () => {
@@ -16,6 +16,7 @@ describe("SurfaceShell", () => {
         state={mockState}
         events={[mockRollEvent]}
         jobs={[]}
+        planView={mockPlanView}
         onQuerySuccess={vi.fn()}
         onLayoutSaved={vi.fn()}
       />,
@@ -40,6 +41,7 @@ describe("SurfaceShell", () => {
         state={mockState}
         events={[]}
         jobs={[]}
+        planView={mockPlanView}
         onQuerySuccess={vi.fn()}
         onLayoutSaved={vi.fn()}
       />,
@@ -64,6 +66,7 @@ describe("SurfaceShell", () => {
         state={mockState}
         events={[]}
         jobs={[]}
+        planView={mockPlanView}
         onQuerySuccess={vi.fn()}
         onLayoutSaved={vi.fn()}
       />,
@@ -86,6 +89,7 @@ describe("SurfaceShell", () => {
         state={mockState}
         events={[]}
         jobs={[]}
+        planView={mockPlanView}
         onQuerySuccess={vi.fn()}
         onLayoutSaved={vi.fn()}
       />,
@@ -102,5 +106,24 @@ describe("SurfaceShell", () => {
     expect(document.querySelector('.surface-grid [data-module-id="roll_stack"]')).toBeNull();
     expect(screen.queryByText("Storm weather")).not.toBeInTheDocument();
     expect(screen.getByLabelText(/Layout controls for Roll stack/i)).toBeInTheDocument();
+  });
+
+  it("renders timeline rows and typed ref chips as inert text", () => {
+    render(
+      <SurfaceShell
+        catalog={mockCatalog}
+        layout={mockLayout}
+        state={mockState}
+        events={[]}
+        jobs={[]}
+        planView={mockPlanView}
+        onQuerySuccess={vi.fn()}
+        onLayoutSaved={vi.fn()}
+      />,
+    );
+
+    expect(screen.getAllByText("Timeline").length).toBeGreaterThan(0);
+    expect(screen.getByText(/Travel Day 1 weather\/front beat/)).toBeInTheDocument();
+    expect(screen.getByText(/roll table · Travel weather table/i)).toBeInTheDocument();
   });
 });

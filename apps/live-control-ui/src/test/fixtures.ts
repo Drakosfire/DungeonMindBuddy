@@ -1,5 +1,6 @@
 import type {
   LiveEvent,
+  PlanViewProjection,
   LiveQueryResponse,
   LiveState,
   SurfaceLayout,
@@ -32,6 +33,15 @@ export const mockCatalog: SurfaceModuleDefinition[] = [
     required: false,
     enabled_by_default: true,
     description: "Pending tables",
+    config_schema: null,
+  },
+  {
+    module_id: "timeline",
+    title: "Timeline",
+    default_slot: "bottom",
+    required: false,
+    enabled_by_default: true,
+    description: "Projected beats",
     config_schema: null,
   },
   {
@@ -89,6 +99,15 @@ export const mockLayout: SurfaceLayout = {
       config: {},
     },
     {
+      module_id: "timeline",
+      slot: "bottom",
+      order: 1,
+      enabled: true,
+      collapsed: false,
+      size: null,
+      config: {},
+    },
+    {
       module_id: "sources",
       slot: "overlay",
       order: 0,
@@ -126,9 +145,42 @@ export const mockState: LiveState = {
   },
   open_loop_count: 1,
   pending_roll_tables: ["T-WX", "R5"],
-  enabled_surface_modules: ["chat", "record", "roll_stack"],
+  enabled_surface_modules: ["chat", "record", "roll_stack", "timeline"],
   queued_job_count: 0,
   recent_event_count: 0,
+};
+
+export const mockPlanView: PlanViewProjection = {
+  schema_version: "0.1.0",
+  campaign_id: "longmont-c2",
+  session: 22,
+  authoritative: false,
+  generated_at: "2026-05-28T00:00:00Z",
+  derived_from: ["live_packet.json", "event_log.jsonl", "job_queue.jsonl"],
+  timeline: [
+    {
+      id: "beat-day1-weather-front",
+      label: "Travel Day 1 weather/front beat",
+      status: "projected",
+      time_hint: "Day 1",
+      summary: "Weather and march pressure establish the day-one travel frame.",
+      table_ready_prompt: "Roll T-WX and narrate immediate travel consequences.",
+      refs: [
+        {
+          target_type: "roll_table",
+          target_id: "T-WX",
+          label: "Travel weather table",
+          source_status: "authoritative",
+          role: "next_roll",
+        },
+      ],
+      state_links: {
+        event_ids: [],
+        job_ids: [],
+        open_loop_ids: [],
+      },
+    },
+  ],
 };
 
 export const mockRollEvent: LiveEvent = {
