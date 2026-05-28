@@ -16,6 +16,7 @@ from apps.live_control_server.session_store import (
     refresh_current_state,
     validate_and_save_layout,
 )
+from src.live_play.projections import build_session_plan_projection
 from src.live_play.resolve_roll import RollResolveError, resolve_roll_from_packet
 
 router = APIRouter(prefix="/api/live", tags=["live"])
@@ -75,6 +76,13 @@ def get_live_surface() -> dict[str, Any]:
         "layout": layout,
         "state": refresh_current_state(base),
     }
+
+
+@router.get("/plan-view")
+def get_live_plan_view() -> dict[str, Any]:
+    base = session_dir()
+    packet, _, events, jobs = load_session(base)
+    return build_session_plan_projection(packet, events, jobs)
 
 
 @router.put("/surface/layout")
