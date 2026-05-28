@@ -13,6 +13,7 @@ import { ChatModule } from "./modules/ChatModule";
 import { NowModule } from "./modules/NowModule";
 import { RecordModule } from "./modules/RecordModule";
 import { RollStackModule } from "./modules/RollStackModule";
+import { TimelineModule } from "./modules/TimelineModule";
 import { UnsupportedModule } from "./modules/UnsupportedModule";
 
 export interface ModuleRenderContext {
@@ -61,6 +62,13 @@ export function renderModule(
         <NowModule
           state={context.state}
           catalogEntry={context.catalogById.get("now")}
+        />
+      );
+    case "timeline":
+      return () => (
+        <TimelineModule
+          planView={context.planView}
+          catalogEntry={context.catalogById.get("timeline")}
         />
       );
     default:
