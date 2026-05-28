@@ -55,6 +55,15 @@
       }
     },
     {
+      "module_id": "timeline",
+      "slot": "bottom",
+      "order": 2,
+      "enabled": true,
+      "collapsed": false,
+      "size": null,
+      "config": {}
+    },
+    {
       "module_id": "queue",
       "slot": "bottom",
       "order": 1,

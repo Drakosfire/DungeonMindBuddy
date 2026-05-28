@@ -5,7 +5,7 @@
 - [x] Active slice: `L5_projection_command_architecture`
 - [x] L4 shell remains green on `main`
 - [x] Last green artifact: PR #80 (`pr80-l5b-plan-view`) — plan-view schema, builder, endpoint, and tests
-- [x] Next gate: L5C timeline module (`timeline` module + typed API client + read-only projection render)
+- [x] Next gate: L5D universal inspector pane shell + target state
 - [ ] Re-read `STUDY-c2-live-play-cursor-handoff-process.md` before UI expansion work
 
 ---
@@ -123,12 +123,38 @@ Render read-only timeline projection.
 
 ### Checklist
 
-- [ ] Add `timeline` module.
-- [ ] Add typed API client.
-- [ ] Render beat rows + refs.
-- [ ] Render empty/error states.
-- [ ] Add minimal timeline styling.
-- [ ] Add tests.
+- [x] Add `timeline` module.
+- [x] Add typed API client.
+- [x] Render beat rows + refs.
+- [x] Render empty/error states.
+- [x] Add minimal timeline styling.
+- [x] Add tests.
+
+### Verification
+
+```bash
+cd apps/live-control-ui && npm test && npm run build
+uv run pytest tests/test_live_play_schemas.py -q
+uv run pytest tests/test_live_control_server.py -q
+```
+
+### Evidence (PR #81, 2026-05-28)
+
+- Branch: `pr81-l5c-timeline-module` (in progress)
+- Handoff: `Docs/Plans/HANDOFF-pr81-l5c-timeline-module.md`
+- Added typed API contract + client helper: `apps/live-control-ui/src/api/types.ts`, `apps/live-control-ui/src/api/liveApi.ts`
+- Wired `planView` load/path: `apps/live-control-ui/src/App.tsx`, `apps/live-control-ui/src/surface/SurfaceShell.tsx`, `apps/live-control-ui/src/surface/moduleRegistry.tsx`
+- Added module + styling: `apps/live-control-ui/src/surface/modules/TimelineModule.tsx`, `apps/live-control-ui/src/styles.css`
+- Added tests/fixtures: `apps/live-control-ui/src/surface/modules/TimelineModule.test.tsx`, `apps/live-control-ui/src/surface/SurfaceShell.test.tsx`, `apps/live-control-ui/src/surface/ModuleLayoutControls.test.tsx`, `apps/live-control-ui/src/test/fixtures.ts`
+- Updated seed catalog/layout + schemas for timeline module and synced derived state:
+  - `evals/c2_live_prep/live/session_22/live_packet.json`
+  - `evals/c2_live_prep/live/session_22/surface_layout.json`
+  - `evals/c2_live_prep/live/session_22/current_state.json`
+  - `evals/c2_live_prep/live/schemas/live_packet.schema.json`
+  - `evals/c2_live_prep/live/schemas/live_surface_layout.schema.json`
+- `cd apps/live-control-ui && npm test && npm run build` → 5 files passed / 18 tests passed; build succeeded
+- `uv run pytest tests/test_live_play_schemas.py -q` → 19 passed
+- `uv run pytest tests/test_live_control_server.py -q` → 18 passed
 
 ---
 

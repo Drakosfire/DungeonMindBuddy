@@ -296,6 +296,7 @@
               "now",
               "open_loops",
               "roll_stack",
+              "timeline",
               "sources",
               "queue"
             ]

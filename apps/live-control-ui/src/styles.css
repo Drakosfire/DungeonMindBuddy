@@ -341,6 +341,74 @@ code {
   margin: 0.1rem 0 0;
 }
 
+.timeline-derived-note {
+  margin: 0 0 0.75rem;
+}
+
+.timeline-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.timeline-row {
+  padding: 0.6rem;
+  border-radius: 6px;
+  background: #0f1218;
+}
+
+.timeline-row-header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  align-items: baseline;
+}
+
+.timeline-status {
+  text-transform: lowercase;
+}
+
+.timeline-label {
+  font-weight: 600;
+}
+
+.timeline-time {
+  margin: 0.35rem 0 0;
+  color: #9aa3b5;
+  font-size: 0.82rem;
+}
+
+.timeline-summary {
+  margin: 0.35rem 0 0;
+}
+
+.timeline-prompt {
+  margin: 0.45rem 0 0;
+  color: #d5deef;
+  font-size: 0.9rem;
+}
+
+.timeline-ref-list {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.timeline-ref-chip {
+  display: inline-block;
+  padding: 0.2rem 0.45rem;
+  border-radius: 999px;
+  background: #232833;
+  color: #c8cfde;
+  font-size: 0.78rem;
+}
+
 button,
 select {
   font: inherit;

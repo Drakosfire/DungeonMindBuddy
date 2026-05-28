@@ -4,7 +4,7 @@ import type { ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import * as liveApi from "../api/liveApi";
-import { mockCatalog, mockLayout, mockState } from "../test/fixtures";
+import { mockCatalog, mockLayout, mockPlanView, mockState } from "../test/fixtures";
 import { LayoutDraftProvider } from "./LayoutDraftContext";
 import { ModuleLayoutControls } from "./ModuleLayoutControls";
 import { SurfaceShell } from "./SurfaceShell";
@@ -79,6 +79,7 @@ describe("SurfaceShell embedded layout controls", () => {
         state={mockState}
         events={[]}
         jobs={[]}
+        planView={mockPlanView}
         onQuerySuccess={vi.fn()}
         onLayoutSaved={vi.fn()}
       />,
