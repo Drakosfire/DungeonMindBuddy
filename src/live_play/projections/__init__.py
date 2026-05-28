@@ -11,6 +11,7 @@ from .commands import (
     ProjectionWriteLane,
 )
 from .invalidation import ProjectionInvalidation
+from .plan_view import PLAN_VIEW_SCHEMA_VERSION, build_session_plan_projection
 from .targets import ProjectionSourceStatus, ProjectionTarget, ProjectionTargetType
 from .write_results import (
     ProjectionConflict,
@@ -33,6 +34,8 @@ __all__ = [
     "ProjectionWriteLane",
     "ProjectionWriteResult",
     "ProjectionWriteStatus",
+    "PLAN_VIEW_SCHEMA_VERSION",
+    "build_session_plan_projection",
     "make_invalidation",
     "make_target",
 ]
