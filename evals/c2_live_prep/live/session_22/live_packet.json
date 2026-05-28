@@ -265,6 +265,15 @@
       "config_schema": null
     },
     {
+      "module_id": "timeline",
+      "title": "Timeline",
+      "default_slot": "bottom",
+      "required": false,
+      "enabled_by_default": true,
+      "description": "Read-only projected session beats from the derived plan-view projection.",
+      "config_schema": null
+    },
+    {
       "module_id": "sources",
       "title": "Sources",
       "default_slot": "overlay",

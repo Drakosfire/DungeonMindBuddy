@@ -53,6 +53,7 @@
               "now",
               "open_loops",
               "roll_stack",
+              "timeline",
               "sources",
               "queue"
             ]
@@ -94,20 +95,34 @@
         {
           "contains": {
             "type": "object",
-            "required": ["module_id", "enabled"],
+            "required": [
+              "module_id",
+              "enabled"
+            ],
             "properties": {
-              "module_id": { "const": "chat" },
-              "enabled": { "const": true }
+              "module_id": {
+                "const": "chat"
+              },
+              "enabled": {
+                "const": true
+              }
             }
           }
         },
         {
           "contains": {
             "type": "object",
-            "required": ["module_id", "enabled"],
+            "required": [
+              "module_id",
+              "enabled"
+            ],
             "properties": {
-              "module_id": { "const": "record" },
-              "enabled": { "const": true }
+              "module_id": {
+                "const": "record"
+              },
+              "enabled": {
+                "const": true
+              }
             }
           }
         }
