@@ -4,15 +4,17 @@ title: C2 Live Control Surface v0 — Query Pane
 document_class: plan
 plan_kind: product_sprint_plan
 status: active
-version: 1.6
+version: 1.7
 created_at: "2026-05-25T03:11:00Z"
-last_updated_at: "2026-05-28T02:18:00Z"
+last_updated_at: "2026-05-28T02:53:00Z"
 timezone_note: "Timestamps are UTC; local work may use America/Denver."
 supersedes: []
 superseded_by: null
 related_documents:
   - path: Docs/Plans/CHECKLIST-c2-live-control-surface-query-pane.md
     role: operational_tracker
+  - path: Docs/Plans/DESIGN-c2-live-control-l5-pane-state-boundaries.md
+    role: l5_architecture_design
   - path: Docs/Plans/PLAN-split-corpus-retrieval-to-autonomous-demo.md
     role: sibling_retrieval_autonomy_plan
   - path: Docs/Plans/HANDOFF-s22-live-play-agent.md

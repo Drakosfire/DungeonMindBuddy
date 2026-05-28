@@ -9,6 +9,31 @@ import type {
 
 const baseUrl = (import.meta.env.VITE_LIVE_API_BASE_URL as string | undefined) ?? "";
 
+function htmlInsteadOfJsonHint(): string {
+  return (
+    "The API returned an HTML page instead of JSON. Usually the L3 server is not running, " +
+    "or the UI is not proxying /api to it. Terminal 1 (repo root): " +
+    "export DUNGEONMIND_LIVE_SESSION_DIR=evals/c2_live_prep/live/session_22 && " +
+    "uv run uvicorn apps.live_control_server.main:app --reload. " +
+    "Terminal 2: cd apps/live-control-ui && npm run dev (use dev, not preview)."
+  );
+}
+
+async function parseJsonBody<T>(response: Response): Promise<T> {
+  const text = await response.text();
+  const trimmed = text.trimStart();
+  if (trimmed.startsWith("<!") || trimmed.toLowerCase().startsWith("<html")) {
+    throw new Error(htmlInsteadOfJsonHint());
+  }
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    throw new Error(
+      `API response is not valid JSON (HTTP ${response.status}). ${htmlInsteadOfJsonHint()}`,
+    );
+  }
+}
+
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${baseUrl}${path}`, {
     ...init,
@@ -20,18 +45,20 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   if (!response.ok) {
     let detail = response.statusText;
     try {
-      const body = (await response.json()) as { detail?: unknown };
+      const body = await parseJsonBody<{ detail?: unknown }>(response);
       if (typeof body.detail === "string") {
         detail = body.detail;
       } else if (body.detail != null) {
         detail = JSON.stringify(body.detail);
       }
-    } catch {
-      // keep status text
+    } catch (parseError) {
+      if (parseError instanceof Error) {
+        detail = parseError.message;
+      }
     }
     throw new Error(detail);
   }
-  return (await response.json()) as T;
+  return parseJsonBody<T>(response);
 }
 
 export async function getSurface(): Promise<LiveSurfaceResponse> {
