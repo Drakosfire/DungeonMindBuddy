@@ -1,6 +1,7 @@
 import type {
   LiveEventsResponse,
   LiveJobsResponse,
+  PlanViewProjection,
   LiveQueryResponse,
   LiveSurfaceResponse,
   ResolvedRollResponse,
@@ -72,6 +73,10 @@ export async function getEvents(since?: string): Promise<LiveEventsResponse> {
 
 export async function getJobs(): Promise<LiveJobsResponse> {
   return apiFetch<LiveJobsResponse>("/api/live/jobs");
+}
+
+export async function getPlanView(): Promise<PlanViewProjection> {
+  return apiFetch<PlanViewProjection>("/api/live/plan-view");
 }
 
 export async function postLiveQuery(

@@ -67,6 +67,61 @@ export interface LiveJobsResponse {
   jobs: LiveJob[];
 }
 
+export type ProjectionTargetType =
+  | "event"
+  | "roll_table"
+  | "npc"
+  | "location"
+  | "runbook_section"
+  | "job"
+  | "open_loop"
+  | "source_packet";
+
+export type ProjectionSourceStatus =
+  | "derived"
+  | "authoritative"
+  | "live_only"
+  | "stale"
+  | "missing"
+  | "unknown";
+
+export type TimelineStatus = "projected" | "active" | "played" | "skipped" | "blocked" | "unknown";
+
+export interface PlanViewRef {
+  target_type: ProjectionTargetType;
+  target_id: string;
+  label: string;
+  source_status: ProjectionSourceStatus;
+  role?: string | null;
+}
+
+export interface PlanViewStateLinks {
+  event_ids: string[];
+  job_ids: string[];
+  open_loop_ids: string[];
+}
+
+export interface PlanViewTimelineRow {
+  id: string;
+  label: string;
+  status: TimelineStatus;
+  time_hint?: string | null;
+  summary: string;
+  table_ready_prompt?: string | null;
+  refs: PlanViewRef[];
+  state_links: PlanViewStateLinks;
+}
+
+export interface PlanViewProjection {
+  schema_version: string;
+  campaign_id: string;
+  session: number;
+  authoritative: false;
+  generated_at: string;
+  derived_from: string[];
+  timeline: PlanViewTimelineRow[];
+}
+
 export interface TurnClassification {
   latency_mode: string;
   event_type: string;
