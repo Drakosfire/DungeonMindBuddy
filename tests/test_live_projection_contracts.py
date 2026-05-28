@@ -55,6 +55,17 @@ def test_projection_capability_serializes_enabled_and_disabled() -> None:
     assert disabled.model_dump(mode="json")["disabled_reason"] == "Readonly mode"
 
 
+def test_projection_capability_rejects_disabled_reason_when_enabled() -> None:
+    with pytest.raises(ValidationError, match="disabled_reason"):
+        ProjectionCapability(
+            command_type="patch_artifact",
+            label="Patch roll table",
+            lane="prep_note",
+            enabled=True,
+            disabled_reason="stale reason",
+        )
+
+
 def test_projection_command_requires_lane_target_requester_and_valid_type() -> None:
     with pytest.raises(ValidationError):
         ProjectionCommand.model_validate(
