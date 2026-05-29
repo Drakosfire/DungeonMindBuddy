@@ -4,12 +4,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { App } from "./App";
 import * as liveApi from "./api/liveApi";
-import { mockCatalog, mockLayout, mockPlanView, mockState } from "./test/fixtures";
+import { makeCapabilityResponse, makeRollTableArtifact, mockCatalog, mockLayout, mockPlanView, mockState } from "./test/fixtures";
 
 vi.mock("./api/liveApi");
 
 describe("App inspector integration", () => {
   beforeEach(() => {
+    vi.clearAllMocks();
     vi.mocked(liveApi.getSurface).mockResolvedValue({
       catalog: mockCatalog,
       layout: mockLayout,
@@ -18,6 +19,8 @@ describe("App inspector integration", () => {
     vi.mocked(liveApi.getEvents).mockResolvedValue({ events: [] });
     vi.mocked(liveApi.getJobs).mockResolvedValue({ jobs: [] });
     vi.mocked(liveApi.getPlanView).mockResolvedValue(mockPlanView);
+    vi.mocked(liveApi.getArtifact).mockResolvedValue(makeRollTableArtifact());
+    vi.mocked(liveApi.getCapabilities).mockResolvedValue(makeCapabilityResponse());
   });
 
   it("opens empty inspector from app chrome control", async () => {

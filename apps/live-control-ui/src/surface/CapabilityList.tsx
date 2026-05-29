@@ -1,10 +1,32 @@
-import type { ProjectionCapability } from "../api/types";
+import type {
+  ProjectionCapability,
+  ProjectionCommand,
+  ProjectionTarget,
+  ProjectionWriteResult,
+} from "../api/types";
+import { AppendObservationAction } from "./AppendObservationAction";
 
 interface CapabilityListProps {
+  target: ProjectionTarget;
   capabilities: ProjectionCapability[];
+  onSubmitCommand?: (command: ProjectionCommand) => Promise<ProjectionWriteResult>;
+  onCommandAccepted?: (result: ProjectionWriteResult) => Promise<void> | void;
 }
 
-export function CapabilityList({ capabilities }: CapabilityListProps) {
+function isAppendObservationCapability(capability: ProjectionCapability): boolean {
+  return (
+    capability.enabled &&
+    capability.command_type === "append_observation" &&
+    capability.lane === "observed_play"
+  );
+}
+
+export function CapabilityList({
+  target,
+  capabilities,
+  onSubmitCommand,
+  onCommandAccepted,
+}: CapabilityListProps) {
   if (capabilities.length === 0) {
     return (
       <section className="capability-list" aria-label="Future capabilities">
@@ -25,7 +47,10 @@ export function CapabilityList({ capabilities }: CapabilityListProps) {
             data-enabled={capability.enabled ? "true" : "false"}
           >
             <p className="capability-label">
-              <span className="badge muted">disabled</span> {capability.label}
+              <span className={`badge ${capability.enabled ? "locked" : "muted"}`}>
+                {capability.enabled ? "enabled" : "disabled"}
+              </span>{" "}
+              {capability.label}
             </p>
             <p className="module-muted">
               command: <code>{capability.command_type}</code> · lane: <code>{capability.lane}</code> · risk:{" "}
@@ -35,6 +60,17 @@ export function CapabilityList({ capabilities }: CapabilityListProps) {
               <p className="module-muted">
                 reason: <span>{capability.disabled_reason}</span>
               </p>
+            ) : null}
+            {isAppendObservationCapability(capability) && onSubmitCommand ? (
+              <AppendObservationAction
+                target={target}
+                capability={capability}
+                onSubmitCommand={onSubmitCommand}
+                onAccepted={onCommandAccepted}
+              />
+            ) : null}
+            {capability.enabled && !isAppendObservationCapability(capability) ? (
+              <p className="module-muted">Action not supported in this pane version.</p>
             ) : null}
           </li>
         ))}

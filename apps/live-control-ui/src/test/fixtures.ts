@@ -3,7 +3,9 @@ import type {
   CapabilityReadResponse,
   LiveEvent,
   PlanViewProjection,
+  ProjectionCommand,
   ProjectionCapability,
+  ProjectionWriteResult,
   LiveQueryResponse,
   LiveState,
   SurfaceLayout,
@@ -321,18 +323,18 @@ export function makeCapabilityResponse(
       enabled: false,
       required_fields: [],
       risk_level: "medium",
-      disabled_reason: "Command bus not implemented until PR85.",
+      disabled_reason: "Not implemented in PR85.",
       metadata: {},
     },
     {
       command_type: "append_observation",
       label: "Append observation",
       lane: "observed_play",
-      enabled: false,
-      required_fields: [],
+      enabled: true,
+      required_fields: ["observation"],
       risk_level: "low",
-      disabled_reason: "Command bus not implemented until PR85.",
-      metadata: {},
+      disabled_reason: null,
+      metadata: { supported_in_pr: 85 },
     },
   ];
   return {
@@ -346,6 +348,56 @@ export function makeCapabilityResponse(
     },
     capabilities,
     metadata: {},
+    ...overrides,
+  };
+}
+
+export function makeAppendObservationCommand(
+  overrides: Partial<ProjectionCommand> = {},
+): ProjectionCommand {
+  return {
+    command_type: "append_observation",
+    target: {
+      target_type: "roll_table",
+      target_id: "T-WX",
+      label: "Storm weather",
+      source_status: "authoritative",
+      metadata: {},
+    },
+    lane: "observed_play",
+    payload: {
+      observation: "Remember this as wagon axle pressure.",
+      session_clock: "live-control",
+      visibility: "live_note",
+    },
+    evidence: [],
+    requested_by: {
+      requester_type: "human_ui",
+      requester_id: "live-control-ui",
+    },
+    idempotency_key: "ui-append-observation:roll_table:T-WX:test-id",
+    ...overrides,
+  };
+}
+
+export function makeWriteResult(
+  overrides: Partial<ProjectionWriteResult> = {},
+): ProjectionWriteResult {
+  return {
+    write_id: "write-test-1",
+    status: "accepted",
+    events_appended: ["evt-observation-1"],
+    jobs_queued: [],
+    artifacts_changed: [],
+    invalidations: [
+      {
+        projection_key: "live.events",
+        target: null,
+        reason: "append_observation appended live event",
+      },
+    ],
+    conflicts: [],
+    diagnostics: [],
     ...overrides,
   };
 }

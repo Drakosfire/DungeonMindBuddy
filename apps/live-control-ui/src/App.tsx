@@ -5,6 +5,7 @@ import type {
   LiveEvent,
   LiveJob,
   PlanViewProjection,
+  ProjectionWriteResult,
   LiveQueryResponse,
   LiveState,
   SurfaceLayout,
@@ -91,6 +92,13 @@ export function App() {
     setInspectorPane({ status: "closed" });
   }, []);
 
+  const handleCommandAccepted = useCallback(
+    async (_result: ProjectionWriteResult) => {
+      await refreshAll();
+    },
+    [refreshAll],
+  );
+
   if (status === "loading") {
     return (
       <main className="app-status">
@@ -131,7 +139,11 @@ export function App() {
         onLayoutSaved={handleLayoutSaved}
         onSelectTarget={handleSelectTarget}
       />
-      <InspectorPane state={inspectorPane} onClose={handleCloseInspector} />
+      <InspectorPane
+        state={inspectorPane}
+        onClose={handleCloseInspector}
+        onCommandAccepted={handleCommandAccepted}
+      />
     </main>
   );
 }

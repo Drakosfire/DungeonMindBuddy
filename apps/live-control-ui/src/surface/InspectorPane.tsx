@@ -1,7 +1,13 @@
 import { useEffect, useState } from "react";
 
-import { getArtifact, getCapabilities } from "../api/liveApi";
-import type { ArtifactReadResponse, CapabilityReadResponse, ProjectionTargetType } from "../api/types";
+import { getArtifact, getCapabilities, postCommand } from "../api/liveApi";
+import type {
+  ArtifactReadResponse,
+  CapabilityReadResponse,
+  ProjectionCommand,
+  ProjectionTargetType,
+  ProjectionWriteResult,
+} from "../api/types";
 import { EventArtifactRenderer, RollTableArtifactRenderer } from "./ArtifactRenderers";
 import { CapabilityList } from "./CapabilityList";
 import { formatTargetType, type PaneTarget } from "./targetTypes";
@@ -13,6 +19,7 @@ export type InspectorPaneState =
 interface InspectorPaneProps {
   state: InspectorPaneState;
   onClose: () => void;
+  onCommandAccepted?: (result: ProjectionWriteResult) => Promise<void> | void;
 }
 
 type InspectorReadState =
@@ -28,7 +35,7 @@ function isReadableTargetType(
   return targetType === "event" || targetType === "roll_table";
 }
 
-export function InspectorPane({ state, onClose }: InspectorPaneProps) {
+export function InspectorPane({ state, onClose, onCommandAccepted }: InspectorPaneProps) {
   const [readState, setReadState] = useState<InspectorReadState>({ status: "idle" });
 
   useEffect(() => {
@@ -36,8 +43,9 @@ export function InspectorPane({ state, onClose }: InspectorPaneProps) {
       setReadState({ status: "idle" });
       return;
     }
+    const target = state.target;
 
-    if (!isReadableTargetType(state.target.target_type)) {
+    if (!isReadableTargetType(target.target_type)) {
       setReadState({
         status: "unsupported",
         message: "Read renderer not implemented for this target type yet.",
@@ -46,8 +54,45 @@ export function InspectorPane({ state, onClose }: InspectorPaneProps) {
     }
 
     let cancelled = false;
-    setReadState({ status: "loading" });
-    Promise.all([
+    async function loadSelectedTarget() {
+      setReadState({ status: "loading" });
+      try {
+        const [artifact, capabilities] = await Promise.all([
+          getArtifact({
+            target_type: target.target_type,
+            target_id: target.target_id,
+          }),
+          getCapabilities({
+            target_type: target.target_type,
+            target_id: target.target_id,
+          }),
+        ]);
+        if (!cancelled) {
+          setReadState({ status: "ready", artifact, capabilities });
+        }
+      } catch (error: unknown) {
+        if (!cancelled) {
+          const message = error instanceof Error ? error.message : "Failed to load artifact.";
+          setReadState({ status: "error", message });
+        }
+      }
+    }
+    void loadSelectedTarget();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [state]);
+
+  async function handleSubmitCommand(command: ProjectionCommand): Promise<ProjectionWriteResult> {
+    return postCommand(command);
+  }
+
+  async function handleCommandAccepted(result: ProjectionWriteResult): Promise<void> {
+    if (state.status !== "open" || state.target == null || !isReadableTargetType(state.target.target_type)) {
+      return;
+    }
+    const [artifact, capabilities] = await Promise.all([
       getArtifact({
         target_type: state.target.target_type,
         target_id: state.target.target_id,
@@ -56,25 +101,10 @@ export function InspectorPane({ state, onClose }: InspectorPaneProps) {
         target_type: state.target.target_type,
         target_id: state.target.target_id,
       }),
-    ])
-      .then(([artifact, capabilities]) => {
-        if (cancelled) {
-          return;
-        }
-        setReadState({ status: "ready", artifact, capabilities });
-      })
-      .catch((error: unknown) => {
-        if (cancelled) {
-          return;
-        }
-        const message = error instanceof Error ? error.message : "Failed to load artifact.";
-        setReadState({ status: "error", message });
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [state]);
+    ]);
+    setReadState({ status: "ready", artifact, capabilities });
+    await onCommandAccepted?.(result);
+  }
 
   if (state.status === "closed") {
     return null;
@@ -134,7 +164,12 @@ export function InspectorPane({ state, onClose }: InspectorPaneProps) {
               ) : (
                 <p className="module-muted">No read renderer is available for this target type yet.</p>
               )}
-              <CapabilityList capabilities={readState.capabilities.capabilities} />
+              <CapabilityList
+                target={readState.artifact.target}
+                capabilities={readState.capabilities.capabilities}
+                onSubmitCommand={handleSubmitCommand}
+                onCommandAccepted={handleCommandAccepted}
+              />
               <p className="module-muted">
                 provenance: {readState.artifact.provenance.source_role ?? "unknown"}
                 {readState.artifact.provenance.source_path
