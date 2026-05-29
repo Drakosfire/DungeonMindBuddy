@@ -4,6 +4,8 @@ import type {
   LiveEventsResponse,
   LiveJobsResponse,
   PlanViewProjection,
+  ProjectionCommand,
+  ProjectionWriteResult,
   ProjectionTarget,
   LiveQueryResponse,
   LiveSurfaceResponse,
@@ -100,6 +102,13 @@ export async function getCapabilities(
     target_id: target.target_id,
   });
   return apiFetch<CapabilityReadResponse>(`/api/live/capabilities?${query.toString()}`);
+}
+
+export async function postCommand(command: ProjectionCommand): Promise<ProjectionWriteResult> {
+  return apiFetch<ProjectionWriteResult>("/api/live/commands", {
+    method: "POST",
+    body: JSON.stringify(command),
+  });
 }
 
 export async function postLiveQuery(

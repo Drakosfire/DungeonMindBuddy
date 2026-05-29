@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { getArtifact, getCapabilities } from "./liveApi";
+import { getArtifact, getCapabilities, postCommand } from "./liveApi";
+import type { ProjectionCommand, ProjectionWriteResult } from "./types";
 
 function mockJsonResponse(payload: unknown): Response {
   return {
@@ -50,5 +51,61 @@ describe("liveApi artifact/capability helpers", () => {
     expect(String(url)).not.toContain("file_path");
     expect(String(url)).not.toContain("absolute_path");
     expect(String(url)).not.toContain("relative_path");
+  });
+
+  it("postCommand posts command body unchanged to commands endpoint", async () => {
+    const command: ProjectionCommand = {
+      command_type: "append_observation",
+      target: {
+        target_type: "roll_table",
+        target_id: "T-WX",
+        label: "Storm weather",
+        source_status: "authoritative",
+        metadata: {},
+      },
+      lane: "observed_play",
+      payload: {
+        observation: "Remember this as wagon axle pressure.",
+        session_clock: "live-control",
+        visibility: "live_note",
+      },
+      evidence: [],
+      requested_by: {
+        requester_type: "human_ui",
+        requester_id: "live-control-ui",
+      },
+      idempotency_key: "ui-append-observation:roll_table:T-WX:test-id",
+    };
+    const expected: ProjectionWriteResult = {
+      write_id: "write-test-1",
+      status: "accepted",
+      events_appended: ["evt-observation-1"],
+      jobs_queued: [],
+      artifacts_changed: [],
+      invalidations: [
+        {
+          projection_key: "live.events",
+          target: null,
+          reason: "append_observation appended live event",
+        },
+      ],
+      conflicts: [],
+      diagnostics: [],
+    };
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(mockJsonResponse(expected));
+
+    const response = await postCommand(command);
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchSpy.mock.calls[0];
+    expect(String(url)).toBe("/api/live/commands");
+    expect(init?.method).toBe("POST");
+    const body = JSON.parse(String(init?.body));
+    expect(body).toEqual(command);
+    expect(JSON.stringify(body)).not.toContain("source_path");
+    expect(JSON.stringify(body)).not.toContain("file_path");
+    expect(JSON.stringify(body)).not.toContain("absolute_path");
+    expect(JSON.stringify(body)).not.toContain("relative_path");
+    expect(response).toEqual(expected);
   });
 });

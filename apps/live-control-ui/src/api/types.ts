@@ -160,14 +160,26 @@ export interface ArtifactReadResponse {
 }
 
 export type ProjectionCommandType =
-  | "queue_canon_patch"
   | "append_observation"
-  | "patch_artifact";
+  | "queue_canon_patch"
+  | "patch_artifact"
+  | "create_open_loop"
+  | "update_open_loop"
+  | "pin_scene_state"
+  | "update_job_status"
+  | "record_ruling"
+  | "request_retrieval_refresh"
+  | "update_layout";
 
 export type ProjectionWriteLane =
-  | "canon_patch"
   | "observed_play"
-  | "prep_note";
+  | "canon_patch"
+  | "prep_note"
+  | "live_state_pin"
+  | "job_queue"
+  | "retrieval_curation"
+  | "layout_config"
+  | "rules_ruling";
 
 export type ProjectionRiskLevel = "low" | "medium" | "high";
 
@@ -187,6 +199,54 @@ export interface CapabilityReadResponse {
   target: ProjectionTarget;
   capabilities: ProjectionCapability[];
   metadata: Record<string, unknown>;
+}
+
+export type ProjectionRequesterType = "human_ui" | "agent" | "system";
+
+export interface ProjectionCommandRequester {
+  requester_type: ProjectionRequesterType;
+  requester_id: string | null;
+}
+
+export interface ProjectionEvidenceRef {
+  target: ProjectionTarget;
+  note: string | null;
+}
+
+export interface ProjectionCommand {
+  command_type: ProjectionCommandType;
+  target: ProjectionTarget;
+  lane: ProjectionWriteLane;
+  payload: Record<string, unknown>;
+  evidence: ProjectionEvidenceRef[];
+  requested_by: ProjectionCommandRequester;
+  idempotency_key: string | null;
+}
+
+export interface ProjectionInvalidation {
+  projection_key: string;
+  target: ProjectionTarget | null;
+  reason: string;
+}
+
+export type ProjectionWriteStatus = "accepted" | "rejected" | "conflict" | "noop";
+
+export interface ProjectionConflict {
+  conflict_type: string;
+  message: string;
+  target: ProjectionTarget | null;
+  recoverable: boolean;
+}
+
+export interface ProjectionWriteResult {
+  write_id: string;
+  status: ProjectionWriteStatus;
+  events_appended: string[];
+  jobs_queued: string[];
+  artifacts_changed: ProjectionTarget[];
+  invalidations: ProjectionInvalidation[];
+  conflicts: ProjectionConflict[];
+  diagnostics: string[];
 }
 
 export interface TurnClassification {

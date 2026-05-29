@@ -537,6 +537,49 @@ code {
   font-weight: 600;
 }
 
+.append-observation-action {
+  margin-top: 0.5rem;
+}
+
+.append-observation-form {
+  margin-top: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.append-observation-form textarea,
+.append-observation-form input {
+  width: 100%;
+  border-radius: 6px;
+  border: 1px solid #3a4358;
+  background: #0f1218;
+  color: inherit;
+  padding: 0.45rem;
+}
+
+.append-observation-form textarea {
+  min-height: 5rem;
+  resize: vertical;
+}
+
+.append-observation-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.write-result {
+  margin-top: 0.35rem;
+  border-left: 2px solid #314571;
+  padding-left: 0.45rem;
+}
+
+.write-result-title {
+  margin: 0 0 0.25rem;
+  font-weight: 600;
+}
+
 button,
 select {
   font: inherit;

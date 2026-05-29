@@ -3,7 +3,12 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import * as liveApi from "../api/liveApi";
-import { makeCapabilityResponse, makeEventArtifact, makeRollTableArtifact } from "../test/fixtures";
+import {
+  makeCapabilityResponse,
+  makeEventArtifact,
+  makeRollTableArtifact,
+  makeWriteResult,
+} from "../test/fixtures";
 import { InspectorPane } from "./InspectorPane";
 import type { PaneTarget } from "./targetTypes";
 
@@ -26,6 +31,7 @@ describe("InspectorPane", () => {
     vi.clearAllMocks();
     vi.mocked(liveApi.getArtifact).mockResolvedValue(makeEventArtifact());
     vi.mocked(liveApi.getCapabilities).mockResolvedValue(makeCapabilityResponse());
+    vi.mocked(liveApi.postCommand).mockResolvedValue(makeWriteResult());
   });
 
   it("renders closed state as hidden/unmounted", () => {
@@ -81,14 +87,40 @@ describe("InspectorPane", () => {
     expect(screen.getByText("T-WX")).toBeInTheDocument();
   });
 
-  it("renders capabilities as informational rows, not action buttons", async () => {
+  it("renders only append_observation as action and keeps others informational", async () => {
     render(<InspectorPane state={{ status: "open", target }} onClose={vi.fn()} />);
     await screen.findByText(/Future capabilities/i);
     expect(screen.getByText(/Patch artifact/i)).toBeInTheDocument();
-    const actionButtons = screen
+    expect(screen.getByRole("button", { name: "Append observation" })).toBeInTheDocument();
+    const patchButtons = screen
       .queryAllByRole("button")
-      .filter((button) => /patch artifact|append observation/i.test(button.textContent ?? ""));
-    expect(actionButtons).toHaveLength(0);
+      .filter((button) => /patch artifact/i.test(button.textContent ?? ""));
+    expect(patchButtons).toHaveLength(0);
+  });
+
+  it("submits append_observation and refreshes selected reads + app callback", async () => {
+    const user = userEvent.setup();
+    const onCommandAccepted = vi.fn(async () => undefined);
+    vi.mocked(liveApi.getArtifact).mockResolvedValue(makeRollTableArtifact());
+    render(
+      <InspectorPane
+        state={{ status: "open", target }}
+        onClose={vi.fn()}
+        onCommandAccepted={onCommandAccepted}
+      />,
+    );
+
+    await screen.findByText(/Future capabilities/i);
+    await user.click(screen.getByRole("button", { name: "Append observation" }));
+    await user.type(screen.getByLabelText("Observation"), "Remember this pressure.");
+    await user.click(screen.getByRole("button", { name: "Submit observation" }));
+
+    expect(await screen.findByText("Observation appended.")).toBeInTheDocument();
+    expect(liveApi.postCommand).toHaveBeenCalledTimes(1);
+    expect(liveApi.getArtifact).toHaveBeenCalledTimes(2);
+    expect(liveApi.getCapabilities).toHaveBeenCalledTimes(2);
+    expect(onCommandAccepted).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("button", { name: /close/i })).toBeInTheDocument();
   });
 
   it("renders selected metadata", async () => {

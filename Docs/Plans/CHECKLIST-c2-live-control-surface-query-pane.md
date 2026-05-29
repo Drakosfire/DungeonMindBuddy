@@ -4,8 +4,8 @@
 
 - [x] Active slice: `L5_projection_command_architecture`
 - [x] L4 shell remains green on `main`
-- [x] Last green artifact: PR #84 (`pr84-l5f-read-only-pane-renderers`) — inspector read-only renderers for event/roll_table
-- [x] Next gate: L5H pane actions (`append_observation` UI submit path)
+- [x] Last green artifact: PR #85 (`pr85-l5g-command-bus-first-write`) — backend command bus with first safe write
+- [x] Next gate: L5I scoped artifact writes (roll-table patch semantics design)
 - [ ] Re-read `STUDY-c2-live-play-cursor-handoff-process.md` before UI expansion work
 
 ---
@@ -354,12 +354,48 @@ Allow UI actions to submit typed commands.
 
 ### Checklist
 
-- [ ] Pane renders server-provided capabilities.
-- [ ] Timeline submits commands.
-- [ ] Queue submits commands.
-- [ ] Open loops submit commands.
-- [ ] UI refreshes invalidated projections.
-- [ ] Tests for refresh orchestration.
+- [x] Pane renders server-provided capabilities with action gating.
+- [x] Enabled `append_observation` renders controlled form affordance.
+- [x] Disabled capabilities remain informational/non-clickable.
+- [x] `patch_artifact` and `queue_canon_patch` remain non-actionable.
+- [x] Submission posts typed `ProjectionCommand` to `POST /api/live/commands`.
+- [x] Write result statuses render accepted/rejected/noop/error states.
+- [x] Accepted/noop path refreshes selected target reads.
+- [x] Accepted/noop path triggers App-level `refreshAll()` callback.
+- [x] Tests cover command shape, action gating, and refresh orchestration.
+
+### Verification
+
+```bash
+cd apps/live-control-ui && npm test
+cd apps/live-control-ui && npm run build
+```
+
+### Evidence (PR #86, 2026-05-29)
+
+- Branch: `pr86-l5h-pane-action-ui-append-observation`
+- Handoff: `Docs/Plans/HANDOFF-pr86-l5h-pane-action-ui-append-observation.md`
+- Added typed command/write-result contract coverage in UI:
+  - `apps/live-control-ui/src/api/types.ts`
+- Added command client helper:
+  - `apps/live-control-ui/src/api/liveApi.ts` (`postCommand`)
+- Added first scoped action component:
+  - `apps/live-control-ui/src/surface/AppendObservationAction.tsx`
+- Updated capability/action gating and inspector wiring:
+  - `apps/live-control-ui/src/surface/CapabilityList.tsx`
+  - `apps/live-control-ui/src/surface/InspectorPane.tsx`
+  - `apps/live-control-ui/src/App.tsx`
+- Added/updated tests:
+  - `apps/live-control-ui/src/surface/AppendObservationAction.test.tsx`
+  - `apps/live-control-ui/src/surface/CapabilityList.test.tsx`
+  - `apps/live-control-ui/src/surface/InspectorPane.test.tsx`
+  - `apps/live-control-ui/src/api/liveApi.test.ts`
+  - `apps/live-control-ui/src/App.commandAccepted.test.tsx`
+- Added fixture builders and styling support:
+  - `apps/live-control-ui/src/test/fixtures.ts`
+  - `apps/live-control-ui/src/styles.css`
+- `cd apps/live-control-ui && npm test` → 13 files passed / 49 tests passed
+- `cd apps/live-control-ui && npm run build` → build succeeded
 
 ---
 
