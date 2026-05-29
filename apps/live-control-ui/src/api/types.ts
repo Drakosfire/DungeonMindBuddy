@@ -247,6 +247,20 @@ export interface ProjectionWriteResult {
   invalidations: ProjectionInvalidation[];
   conflicts: ProjectionConflict[];
   diagnostics: string[];
+  metadata: Record<string, unknown>;
+}
+
+export interface PatchArtifactMetadata {
+  patch?: {
+    dry_run?: boolean;
+    source_path?: string;
+    file_state_token_before?: string;
+    file_state_token_after?: string;
+    old_text_length?: number;
+    new_text_length?: number;
+    replacement_count?: number;
+    unified_diff?: string;
+  };
 }
 
 export interface TurnClassification {

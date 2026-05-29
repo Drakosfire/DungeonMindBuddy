@@ -70,6 +70,7 @@ describe("InspectorPane", () => {
     expect(await screen.findByText("Storm weather")).toBeInTheDocument();
     expect(await screen.findByText("d20")).toBeInTheDocument();
     expect(await screen.findByText(/## 1-4/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Patch artifact" })).toBeInTheDocument();
   });
 
   it("does not fetch unsupported target types and shows unsupported message", async () => {
@@ -87,15 +88,20 @@ describe("InspectorPane", () => {
     expect(screen.getByText("T-WX")).toBeInTheDocument();
   });
 
-  it("renders only append_observation as action and keeps others informational", async () => {
+  it("renders patch_artifact and append_observation actions for roll_table", async () => {
+    vi.mocked(liveApi.getArtifact).mockResolvedValue(makeRollTableArtifact());
     render(<InspectorPane state={{ status: "open", target }} onClose={vi.fn()} />);
     await screen.findByText(/Future capabilities/i);
-    expect(screen.getByText(/Patch artifact/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Patch artifact" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Append observation" })).toBeInTheDocument();
-    const patchButtons = screen
-      .queryAllByRole("button")
-      .filter((button) => /patch artifact/i.test(button.textContent ?? ""));
-    expect(patchButtons).toHaveLength(0);
+  });
+
+  it("does not show roll-table patch action for event artifacts", async () => {
+    vi.mocked(liveApi.getArtifact).mockResolvedValue(makeEventArtifact());
+    render(<InspectorPane state={{ status: "open", target: { ...target, target_type: "event" } }} onClose={vi.fn()} />);
+    await screen.findByText(/Future capabilities/i);
+    expect(screen.queryByRole("button", { name: "Patch artifact" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Append observation" })).toBeInTheDocument();
   });
 
   it("submits append_observation and refreshes selected reads + app callback", async () => {

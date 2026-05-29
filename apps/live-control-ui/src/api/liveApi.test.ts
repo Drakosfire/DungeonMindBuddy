@@ -91,6 +91,7 @@ describe("liveApi artifact/capability helpers", () => {
       ],
       conflicts: [],
       diagnostics: [],
+      metadata: {},
     };
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(mockJsonResponse(expected));
 

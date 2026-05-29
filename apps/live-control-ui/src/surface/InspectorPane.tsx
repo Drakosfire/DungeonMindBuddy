@@ -166,6 +166,7 @@ export function InspectorPane({ state, onClose, onCommandAccepted }: InspectorPa
               )}
               <CapabilityList
                 target={readState.artifact.target}
+                artifact={readState.artifact}
                 capabilities={readState.capabilities.capabilities}
                 onSubmitCommand={handleSubmitCommand}
                 onCommandAccepted={handleCommandAccepted}
