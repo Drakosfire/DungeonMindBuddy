@@ -34,6 +34,14 @@ code {
   min-height: 100vh;
 }
 
+.app-chrome {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0.75rem 1rem 0;
+  display: flex;
+  justify-content: flex-end;
+}
+
 .surface-shell {
   display: flex;
   flex-direction: column;
@@ -407,6 +415,51 @@ code {
   background: #232833;
   color: #c8cfde;
   font-size: 0.78rem;
+}
+
+.timeline-ref-button {
+  border: 1px solid #36405a;
+  background: #202736;
+}
+
+.inspector-pane {
+  max-width: 1400px;
+  margin: 0.75rem auto 0;
+  border: 1px solid #2a3142;
+  border-radius: 8px;
+  background: #181b24;
+  padding: 0.75rem 1rem;
+}
+
+.inspector-pane-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.inspector-pane-header h2 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.inspector-pane-title {
+  margin: 0;
+  font-weight: 600;
+}
+
+.inspector-pane-metadata {
+  list-style: none;
+  margin: 0.5rem 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.inspector-key {
+  color: #9aa3b5;
 }
 
 button,

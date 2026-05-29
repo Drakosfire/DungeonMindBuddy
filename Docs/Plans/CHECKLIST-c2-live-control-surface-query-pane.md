@@ -5,7 +5,7 @@
 - [x] Active slice: `L5_projection_command_architecture`
 - [x] L4 shell remains green on `main`
 - [x] Last green artifact: PR #80 (`pr80-l5b-plan-view`) — plan-view schema, builder, endpoint, and tests
-- [x] Next gate: L5D universal inspector pane shell + target state
+- [x] Next gate: L5E artifact + capability reads
 - [ ] Re-read `STUDY-c2-live-play-cursor-handoff-process.md` before UI expansion work
 
 ---
@@ -166,12 +166,39 @@ Introduce shared pane shell and pane state.
 
 ### Checklist
 
-- [ ] Add pane target state domain.
-- [ ] Add InspectorPane shell.
-- [ ] Timeline refs open pane.
-- [ ] Record events open pane.
-- [ ] Add responsive overlay behavior.
-- [ ] Add tests.
+- [x] Add pane target state domain.
+- [x] Add InspectorPane shell.
+- [x] Timeline refs open pane.
+- [x] Add open-empty and selected-target placeholder states.
+- [x] Keep selection metadata-only (no artifact reads/actions).
+- [x] Add tests.
+
+### Verification
+
+```bash
+cd apps/live-control-ui && npm test && npm run build
+```
+
+### Evidence (PR #82, 2026-05-28)
+
+- Branch: `pr82-l5d-inspector-pane-shell` (in progress)
+- Handoff: `Docs/Plans/HANDOFF-pr82-l5d-inspector-pane-shell.md`
+- Added target model helpers: `apps/live-control-ui/src/surface/targetTypes.ts`
+- Added selectable/inert chip helper: `apps/live-control-ui/src/surface/TargetChip.tsx`
+- Added shared pane shell + state type: `apps/live-control-ui/src/surface/InspectorPane.tsx`
+- Wired app-level inspector state + chrome: `apps/live-control-ui/src/App.tsx`
+- Wired selection callback through module seam:
+  - `apps/live-control-ui/src/surface/SurfaceShell.tsx`
+  - `apps/live-control-ui/src/surface/moduleRegistry.tsx`
+  - `apps/live-control-ui/src/surface/modules/TimelineModule.tsx`
+- Added tests:
+  - `apps/live-control-ui/src/surface/InspectorPane.test.tsx`
+  - `apps/live-control-ui/src/surface/TargetChip.test.tsx`
+  - updated `apps/live-control-ui/src/surface/modules/TimelineModule.test.tsx`
+  - updated `apps/live-control-ui/src/surface/SurfaceShell.test.tsx`
+  - added `apps/live-control-ui/src/App.test.tsx`
+- Updated styles for inspector pane/chips/app chrome: `apps/live-control-ui/src/styles.css`
+- `cd apps/live-control-ui && npm test && npm run build` → 8 files passed / 26 tests passed; build succeeded
 
 ---
 

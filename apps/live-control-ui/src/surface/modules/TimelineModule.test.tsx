@@ -1,5 +1,6 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import userEvent from "@testing-library/user-event";
+import { describe, expect, it, vi } from "vitest";
 
 import { mockCatalog, mockPlanView } from "../../test/fixtures";
 import { TimelineModule } from "./TimelineModule";
@@ -23,6 +24,26 @@ describe("TimelineModule", () => {
   it("renders typed ref chips with human labels", () => {
     render(<TimelineModule planView={mockPlanView} />);
     expect(screen.getByText(/roll table · Travel weather table/i)).toBeInTheDocument();
+    expect(screen.queryByRole("button")).toBeNull();
+  });
+
+  it("renders selectable chips and emits pane target from row/ref metadata", async () => {
+    const user = userEvent.setup();
+    const onSelectTarget = vi.fn();
+    render(<TimelineModule planView={mockPlanView} onSelectTarget={onSelectTarget} />);
+
+    await user.click(screen.getByRole("button", { name: /roll table · Travel weather table/i }));
+    expect(onSelectTarget).toHaveBeenCalledWith({
+      target_type: "roll_table",
+      target_id: "T-WX",
+      label: "Travel weather table",
+      source_status: "authoritative",
+      role: "next_roll",
+      origin: {
+        module_id: "timeline",
+        row_id: "beat-day1-weather-front",
+      },
+    });
   });
 
   it("renders empty state when no timeline rows exist", () => {

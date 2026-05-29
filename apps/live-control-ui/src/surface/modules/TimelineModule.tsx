@@ -1,11 +1,14 @@
 import type { PlanViewProjection, SurfaceModuleDefinition } from "../../api/types";
+import { TargetChip } from "../TargetChip";
+import { paneTargetFromPlanViewRef, type PaneTarget } from "../targetTypes";
 
 interface TimelineModuleProps {
   planView: PlanViewProjection;
   catalogEntry?: SurfaceModuleDefinition;
+  onSelectTarget?: (target: PaneTarget) => void;
 }
 
-export function TimelineModule({ planView, catalogEntry }: TimelineModuleProps) {
+export function TimelineModule({ planView, catalogEntry, onSelectTarget }: TimelineModuleProps) {
   const title = catalogEntry?.title ?? "Timeline";
 
   return (
@@ -33,9 +36,21 @@ export function TimelineModule({ planView, catalogEntry }: TimelineModuleProps) 
                 <ul className="timeline-ref-list">
                   {row.refs.map((ref) => (
                     <li key={`${row.id}-${ref.target_type}-${ref.target_id}`}>
-                      <span className="timeline-ref-chip">
-                        {ref.target_type.replace("_", " ")} · {ref.label}
-                      </span>
+                      <TargetChip
+                        targetType={ref.target_type}
+                        label={ref.label}
+                        onSelectTarget={
+                          onSelectTarget
+                            ? () =>
+                                onSelectTarget(
+                                  paneTargetFromPlanViewRef(ref, {
+                                    module_id: "timeline",
+                                    row_id: row.id,
+                                  }),
+                                )
+                            : undefined
+                        }
+                      />
                     </li>
                   ))}
                 </ul>

@@ -15,6 +15,7 @@ import { RecordModule } from "./modules/RecordModule";
 import { RollStackModule } from "./modules/RollStackModule";
 import { TimelineModule } from "./modules/TimelineModule";
 import { UnsupportedModule } from "./modules/UnsupportedModule";
+import type { PaneTarget } from "./targetTypes";
 
 export interface ModuleRenderContext {
   catalogById: Map<string, SurfaceModuleDefinition>;
@@ -25,6 +26,7 @@ export interface ModuleRenderContext {
   campaignId: string;
   session: number;
   onQuerySuccess: (response: LiveQueryResponse) => void | Promise<void>;
+  onSelectTarget?: (target: PaneTarget) => void;
 }
 
 export function catalogTitle(
@@ -69,6 +71,7 @@ export function renderModule(
         <TimelineModule
           planView={context.planView}
           catalogEntry={context.catalogById.get("timeline")}
+          onSelectTarget={context.onSelectTarget}
         />
       );
     default:

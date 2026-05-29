@@ -125,5 +125,33 @@ describe("SurfaceShell", () => {
     expect(screen.getAllByText("Timeline").length).toBeGreaterThan(0);
     expect(screen.getByText(/Travel Day 1 weather\/front beat/)).toBeInTheDocument();
     expect(screen.getByText(/roll table · Travel weather table/i)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /roll table · Travel weather table/i })).toBeNull();
+  });
+
+  it("selects timeline target via callback when enabled", async () => {
+    const user = userEvent.setup();
+    const onSelectTarget = vi.fn();
+    render(
+      <SurfaceShell
+        catalog={mockCatalog}
+        layout={mockLayout}
+        state={mockState}
+        events={[]}
+        jobs={[]}
+        planView={mockPlanView}
+        onQuerySuccess={vi.fn()}
+        onLayoutSaved={vi.fn()}
+        onSelectTarget={onSelectTarget}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: /roll table · Travel weather table/i }));
+    expect(onSelectTarget).toHaveBeenCalledWith(
+      expect.objectContaining({
+        target_type: "roll_table",
+        target_id: "T-WX",
+        label: "Travel weather table",
+      }),
+    );
   });
 });
