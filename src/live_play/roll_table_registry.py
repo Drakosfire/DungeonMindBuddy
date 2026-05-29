@@ -92,11 +92,7 @@ def _parse_band_sections(text: str) -> dict[tuple[int, int], list[str]]:
     return sections
 
 
-def load_parsed_table(ref: RollTableRef, root: Path) -> ParsedRollTable:
-    path = root / ref.source_path
-    if not path.is_file():
-        raise FileNotFoundError(f"roll table source missing: {ref.source_path}")
-    text = path.read_text(encoding="utf-8")
+def parse_roll_table_text(ref: RollTableRef, text: str) -> ParsedRollTable:
     pipe_rows = _parse_pipe_rows(text)
     if pipe_rows:
         return ParsedRollTable(ref=ref, shape="pipe", pipe_rows=pipe_rows, band_sections={})
@@ -104,6 +100,14 @@ def load_parsed_table(ref: RollTableRef, root: Path) -> ParsedRollTable:
     if band_sections:
         return ParsedRollTable(ref=ref, shape="band", pipe_rows={}, band_sections=band_sections)
     raise ValueError(f"unsupported roll table shape for {ref.table_id} at {ref.source_path}")
+
+
+def load_parsed_table(ref: RollTableRef, root: Path) -> ParsedRollTable:
+    path = root / ref.source_path
+    if not path.is_file():
+        raise FileNotFoundError(f"roll table source missing: {ref.source_path}")
+    text = path.read_text(encoding="utf-8")
+    return parse_roll_table_text(ref, text)
 
 
 class RollTableRegistry:

@@ -169,7 +169,7 @@ def test_artifact_reads_do_not_mutate_session_files(client: TestClient, isolated
     assert before == after
 
 
-def test_get_capabilities_event_returns_disabled_capabilities(client: TestClient) -> None:
+def test_get_capabilities_event_returns_expected_capabilities(client: TestClient) -> None:
     event_id = _seed_event(client)
     response = client.get(
         "/api/live/capabilities",
@@ -196,7 +196,7 @@ def test_get_capabilities_event_unknown_id_returns_404(client: TestClient) -> No
     assert response.status_code == 404
 
 
-def test_get_capabilities_roll_table_returns_disabled_capabilities(client: TestClient) -> None:
+def test_get_capabilities_roll_table_returns_expected_capabilities(client: TestClient) -> None:
     response = client.get(
         "/api/live/capabilities",
         params={"target_type": "roll_table", "target_id": "T-WX"},
@@ -210,8 +210,9 @@ def test_get_capabilities_roll_table_returns_disabled_capabilities(client: TestC
     assert append["enabled"] is True
     assert append["disabled_reason"] is None
     assert append["required_fields"] == ["observation"]
-    assert patch["enabled"] is False
-    assert patch["disabled_reason"]
+    assert patch["enabled"] is True
+    assert patch["disabled_reason"] is None
+    assert patch["required_fields"] == ["expected_file_state_token", "old_text", "new_text"]
 
 
 def test_get_capabilities_roll_table_unknown_id_returns_404(client: TestClient) -> None:

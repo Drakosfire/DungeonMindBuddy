@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from typing import Any
 from typing import Literal
 
 from pydantic import BaseModel, Field
@@ -26,3 +27,4 @@ class ProjectionWriteResult(BaseModel):
     invalidations: list[ProjectionInvalidation] = Field(default_factory=list)
     conflicts: list[ProjectionConflict] = Field(default_factory=list)
     diagnostics: list[str] = Field(default_factory=list)
+    metadata: dict[str, Any] = Field(default_factory=dict)

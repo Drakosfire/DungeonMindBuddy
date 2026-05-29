@@ -68,7 +68,7 @@ def _event_token(event_row: dict[str, Any]) -> str:
     return _sha256_hex(canonical.encode("utf-8"))
 
 
-def _file_token(path: Path, text: str) -> str:
+def file_state_token_for_text(path: Path, text: str) -> str:
     payload = f"{path.as_posix()}:{len(text)}:{_sha256_hex(text.encode('utf-8'))}"
     return _sha256_hex(payload.encode("utf-8"))
 
@@ -157,7 +157,7 @@ def read_roll_table_artifact(*, target_id: str, packet: dict[str, Any], root: Pa
         target=target,
         artifact_kind="roll_table",
         title=ref.title,
-        file_state_token=_file_token(Path(ref.source_path), text),
+        file_state_token=file_state_token_for_text(Path(ref.source_path), text),
         payload=ArtifactReadPayload(content_type="text/markdown", text=text),
         provenance=ArtifactReadProvenance(
             source_path=ref.source_path,

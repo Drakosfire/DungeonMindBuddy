@@ -7,6 +7,7 @@ from typing import Any, Literal
 
 from apps.live_control_server.schema_validation import validate_before_append
 from src.live_play.live_store import append_jsonl
+from src.live_play.projections.artifact_patching import execute_patch_artifact_command
 from src.live_play.projections.commands import ProjectionCommand
 from src.live_play.projections.invalidation import ProjectionInvalidation
 from src.live_play.projections.targets import ProjectionTarget
@@ -198,16 +199,25 @@ def execute_projection_command(
     *,
     command: ProjectionCommand,
     base: Path,
+    root: Path,
     packet: dict[str, Any],
     events: list[dict[str, Any]],
     jobs: list[dict[str, Any]],
 ) -> ProjectionWriteResult:
     del jobs  # PR85 command path must not mutate or queue jobs.
+    if command.command_type == "patch_artifact":
+        return execute_patch_artifact_command(
+            command=command,
+            base=base,
+            root=root,
+            packet=packet,
+            events=events,
+        )
     if command.command_type != "append_observation":
         return _conflict_result(
             command=command,
             conflict_type="unsupported_command",
-            message=f"unsupported command_type for PR85: {command.command_type}",
+            message=f"unsupported command_type for current command bus: {command.command_type}",
         )
     if command.lane != "observed_play":
         return _conflict_result(

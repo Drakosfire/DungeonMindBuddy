@@ -185,7 +185,7 @@ def test_unsupported_command_rejected_without_mutation(client: TestClient, isola
             target_type="event",
             target_id=event["id"],
             label=event["summary"],
-            command_type="patch_artifact",
+            command_type="update_layout",
         ),
     )
     assert response.status_code == 200
@@ -296,7 +296,7 @@ def test_capabilities_enable_append_observation_for_event(client: TestClient) ->
     assert queue["enabled"] is False
 
 
-def test_capabilities_enable_append_observation_for_roll_table(client: TestClient) -> None:
+def test_capabilities_enable_patch_and_append_for_roll_table(client: TestClient) -> None:
     response = client.get(
         "/api/live/capabilities",
         params={"target_type": "roll_table", "target_id": "T-WX"},
@@ -308,4 +308,6 @@ def test_capabilities_enable_append_observation_for_roll_table(client: TestClien
     assert append["enabled"] is True
     assert append["disabled_reason"] is None
     assert append["required_fields"] == ["observation"]
-    assert patch["enabled"] is False
+    assert patch["enabled"] is True
+    assert patch["disabled_reason"] is None
+    assert patch["required_fields"] == ["expected_file_state_token", "old_text", "new_text"]

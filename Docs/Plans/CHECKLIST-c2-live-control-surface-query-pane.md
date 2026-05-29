@@ -4,8 +4,8 @@
 
 - [x] Active slice: `L5_projection_command_architecture`
 - [x] L4 shell remains green on `main`
-- [x] Last green artifact: PR #85 (`pr85-l5g-command-bus-first-write`) — backend command bus with first safe write
-- [x] Next gate: L5I scoped artifact writes (roll-table patch semantics design)
+- [x] Last green artifact: PR #86 (`pr86-l5h-pane-action-ui-append-observation`) — first scoped pane action with accepted/noop refresh orchestration
+- [x] Next gate: L5I scoped artifact writes (`patch_artifact` roll-table command semantics)
 - [ ] Re-read `STUDY-c2-live-play-cursor-handoff-process.md` before UI expansion work
 
 ---
@@ -407,12 +407,59 @@ Enable first safe direct artifact patch flow.
 
 ### Checklist
 
-- [ ] Roll-table patch endpoint.
-- [ ] File-state/etag enforcement.
-- [ ] Conflict response handling.
-- [ ] Projection refresh after save.
-- [ ] Read-after-write verification.
-- [ ] Tests.
+- [x] Implement `patch_artifact` in existing command bus path (`POST /api/live/commands`).
+- [x] Restrict to `target_type=roll_table` and `lane=prep_note`.
+- [x] Resolve source path only from `live_packet.known_roll_tables`.
+- [x] Reject client payload path fields and unknown payload fields.
+- [x] Require `expected_file_state_token`, `old_text`, `new_text`.
+- [x] Enforce stale-token conflict (`status=conflict`) with no write.
+- [x] Enforce exactly-once `old_text` replacement semantics.
+- [x] Validate patched markdown using roll-table parser before write.
+- [x] Support `dry_run` preview (`status=noop`) with metadata and no writes.
+- [x] Write accepted patch via temp-file + replace.
+- [x] Append one patch audit `state_note` event on accepted patch.
+- [x] Add additive `metadata` to `ProjectionWriteResult` for patch details.
+- [x] Enable `patch_artifact` capability for roll_table only.
+- [x] Keep non-roll-table patching disabled/inert.
+- [x] Add tests for success, dry-run, stale token, rejection, idempotency, path safety, and mutation boundaries.
+
+### Verification
+
+```bash
+uv run pytest tests/test_live_artifact_patching.py -q
+uv run pytest tests/test_live_command_bus.py -q
+uv run pytest tests/test_live_artifact_reads.py -q
+uv run pytest tests/test_live_control_server.py -q
+uv run pytest tests/test_live_projection_contracts.py -q
+```
+
+### Evidence (PR #87, 2026-05-29)
+
+- Branch: `pr87-l5i-scoped-roll-table-patch-command`
+- Handoff: `Docs/Plans/HANDOFF-pr87-l5i-scoped-roll-table-patch-command.md`
+- Added scoped roll-table patch command engine:
+  - `src/live_play/projections/artifact_patching.py`
+- Updated command bus dispatch to support `patch_artifact` while preserving `append_observation`:
+  - `src/live_play/projections/command_bus.py`
+  - `apps/live_control_server/routes/live.py`
+- Added parser reuse helper and token helper reuse:
+  - `src/live_play/roll_table_registry.py`
+  - `src/live_play/projections/artifacts.py`
+- Added additive write-result metadata contract:
+  - `src/live_play/projections/write_results.py`
+- Enabled roll-table `patch_artifact` capability metadata:
+  - `src/live_play/projections/capability_registry.py`
+- Added focused artifact patching tests:
+  - `tests/test_live_artifact_patching.py`
+- Updated related command/capability expectations:
+  - `tests/test_live_command_bus.py`
+  - `tests/test_live_artifact_reads.py`
+  - `tests/test_live_control_server.py`
+- `uv run pytest tests/test_live_artifact_patching.py -q` → 15 passed
+- `uv run pytest tests/test_live_command_bus.py -q` → 13 passed
+- `uv run pytest tests/test_live_artifact_reads.py -q` → 15 passed
+- `uv run pytest tests/test_live_control_server.py -q` → 18 passed
+- `uv run pytest tests/test_live_projection_contracts.py -q` → 17 passed
 
 ---
 
