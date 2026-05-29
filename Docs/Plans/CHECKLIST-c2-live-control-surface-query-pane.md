@@ -4,8 +4,8 @@
 
 - [x] Active slice: `L5_projection_command_architecture`
 - [x] L4 shell remains green on `main`
-- [x] Last green artifact: PR #80 (`pr80-l5b-plan-view`) — plan-view schema, builder, endpoint, and tests
-- [x] Next gate: L5E artifact + capability reads
+- [x] Last green artifact: PR #82 (`pr82-l5d-inspector-pane-shell`) — inspector pane shell + target-selection wiring
+- [x] Next gate: L5F read-only pane renderers (after PR #83 merge)
 - [ ] Re-read `STUDY-c2-live-play-cursor-handoff-process.md` before UI expansion work
 
 ---
@@ -210,12 +210,37 @@ Allow panes and agents to inspect targets safely.
 
 ### Checklist
 
-- [ ] Add allowlisted artifact read endpoint.
-- [ ] Add capability discovery endpoint.
-- [ ] Support `event` target.
-- [ ] Support `roll_table` target.
-- [ ] Add token/etag safety.
-- [ ] Add allowlist rejection tests.
+- [x] Add allowlisted artifact read endpoint.
+- [x] Add capability discovery endpoint.
+- [x] Support `event` target.
+- [x] Support `roll_table` target.
+- [x] Add token/etag safety.
+- [x] Add allowlist rejection tests.
+
+### Verification
+
+```bash
+uv run pytest tests/test_live_artifact_reads.py -q
+uv run pytest tests/test_live_control_server.py -q
+uv run pytest tests/test_live_projection_contracts.py -q
+```
+
+### Evidence (PR #83, 2026-05-29)
+
+- Branch: `pr83-l5e-artifact-capability-reads`
+- Handoff: `Docs/Plans/HANDOFF-pr83-l5e-artifact-capability-reads.md`
+- Added artifact read contracts + resolvers:
+  - `src/live_play/projections/artifacts.py`
+  - `apps/live_control_server/routes/live.py` (`GET /api/live/artifact`)
+- Added capability discovery contracts + registry:
+  - `src/live_play/projections/capability_registry.py`
+  - `apps/live_control_server/routes/live.py` (`GET /api/live/capabilities`)
+- Exported projection helpers in `src/live_play/projections/__init__.py`
+- Added focused endpoint contract tests: `tests/test_live_artifact_reads.py`
+- Updated OpenAPI required paths coverage in `tests/test_live_control_server.py`
+- `uv run pytest tests/test_live_artifact_reads.py -q` → 12 passed
+- `uv run pytest tests/test_live_control_server.py -q` → 18 passed
+- `uv run pytest tests/test_live_projection_contracts.py -q` → 17 passed
 
 ---
 

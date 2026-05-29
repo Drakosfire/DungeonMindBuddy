@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from .artifacts import ArtifactReadResponse, read_artifact_for_target
+from .capability_registry import CapabilityReadResponse, build_capability_response
 from .capabilities import ProjectionCapability, ProjectionRiskLevel
 from .commands import (
     ProjectionCommand,
@@ -35,7 +37,11 @@ __all__ = [
     "ProjectionWriteResult",
     "ProjectionWriteStatus",
     "PLAN_VIEW_SCHEMA_VERSION",
+    "ArtifactReadResponse",
+    "CapabilityReadResponse",
     "build_session_plan_projection",
+    "build_capability_response",
+    "read_artifact_for_target",
     "make_invalidation",
     "make_target",
 ]
