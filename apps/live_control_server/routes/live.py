@@ -189,6 +189,7 @@ def post_live_command(command: ProjectionCommand) -> dict[str, Any]:
     result = execute_projection_command(
         command=command,
         base=base,
+        root=repo_root(),
         packet=packet,
         events=events,
         jobs=jobs,

@@ -42,8 +42,16 @@ def capabilities_for_target(target: ProjectionTarget) -> list[ProjectionCapabili
                 command_type="patch_artifact",
                 label="Patch artifact",
                 lane="prep_note",
-                enabled=False,
-                disabled_reason=DISABLED_REASON,
+                enabled=True,
+                required_fields=["expected_file_state_token", "old_text", "new_text"],
+                risk_level="medium",
+                disabled_reason=None,
+                metadata={
+                    "supported_in_pr": 87,
+                    "patch_kind": "replace_text",
+                    "requires_file_state_token": True,
+                    "supports_dry_run": True,
+                },
             ),
             ProjectionCapability(
                 command_type="append_observation",
