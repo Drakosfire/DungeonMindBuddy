@@ -52,20 +52,38 @@ def _reject_forbidden_query_fields(request: Request) -> None:
         )
 
 
-def _target_from_query(*, target_type: INSPECTABLE_TARGET_TYPE, target_id: str) -> ProjectionTarget:
+def _target_from_session(
+    *,
+    target_type: INSPECTABLE_TARGET_TYPE,
+    target_id: str,
+    packet: dict[str, Any],
+    events: list[dict[str, Any]],
+) -> ProjectionTarget:
     if target_type == "event":
+        for event in events:
+            if event.get("id") != target_id:
+                continue
+            summary = str(event.get("summary") or "").strip()
+            label = summary or f"Event {target_id}"
+            return ProjectionTarget(
+                target_type="event",
+                target_id=target_id,
+                label=label,
+                source_status="authoritative",
+            )
+        raise HTTPException(status_code=404, detail=f"unknown target id for event: {target_id}")
+
+    for row in packet.get("known_roll_tables", []):
+        if row.get("table_id") != target_id:
+            continue
+        title = str(row.get("title") or "").strip() or f"Roll table {target_id}"
         return ProjectionTarget(
-            target_type="event",
+            target_type="roll_table",
             target_id=target_id,
-            label=f"Event {target_id}",
+            label=title,
             source_status="authoritative",
         )
-    return ProjectionTarget(
-        target_type="roll_table",
-        target_id=target_id,
-        label=f"Roll table {target_id}",
-        source_status="authoritative",
-    )
+    raise HTTPException(status_code=404, detail=f"unknown target id for roll_table: {target_id}")
 
 
 @router.post("/query")
@@ -149,7 +167,14 @@ def get_live_capabilities(
     target_id: Annotated[str, Query(min_length=1)],
 ) -> dict[str, Any]:
     _reject_forbidden_query_fields(request)
-    target = _target_from_query(target_type=target_type, target_id=target_id)
+    base = session_dir()
+    packet, _, events, _ = load_session(base)
+    target = _target_from_session(
+        target_type=target_type,
+        target_id=target_id,
+        packet=packet,
+        events=events,
+    )
     response = build_capability_response(target)
     return response.model_dump(mode="json")
 

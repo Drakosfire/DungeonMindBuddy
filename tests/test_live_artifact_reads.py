@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import shutil
 from pathlib import Path
 
@@ -103,6 +104,25 @@ def test_get_artifact_roll_table_unknown_id_returns_404(client: TestClient) -> N
     assert response.status_code == 404
 
 
+def test_get_artifact_roll_table_rejects_escape_source_path_in_packet(
+    client: TestClient,
+    isolated_session: Path,
+) -> None:
+    packet_path = isolated_session / "live_packet.json"
+    packet = json.loads(packet_path.read_text(encoding="utf-8"))
+    tables = list(packet.get("known_roll_tables", []))
+    assert tables
+    tables[0]["source_path"] = "../../etc/passwd"
+    packet["known_roll_tables"] = tables
+    packet_path.write_text(json.dumps(packet, indent=2) + "\n", encoding="utf-8")
+
+    response = client.get(
+        "/api/live/artifact",
+        params={"target_type": "roll_table", "target_id": tables[0]["table_id"]},
+    )
+    assert response.status_code == 404
+
+
 def test_get_artifact_unsupported_target_type_returns_422(client: TestClient) -> None:
     response = client.get(
         "/api/live/artifact",
@@ -164,6 +184,14 @@ def test_get_capabilities_event_returns_disabled_capabilities(client: TestClient
         assert capability["disabled_reason"]
 
 
+def test_get_capabilities_event_unknown_id_returns_404(client: TestClient) -> None:
+    response = client.get(
+        "/api/live/capabilities",
+        params={"target_type": "event", "target_id": "evt-does-not-exist"},
+    )
+    assert response.status_code == 404
+
+
 def test_get_capabilities_roll_table_returns_disabled_capabilities(client: TestClient) -> None:
     response = client.get(
         "/api/live/capabilities",
@@ -176,6 +204,14 @@ def test_get_capabilities_roll_table_returns_disabled_capabilities(client: TestC
     for capability in body["capabilities"]:
         assert capability["enabled"] is False
         assert capability["disabled_reason"]
+
+
+def test_get_capabilities_roll_table_unknown_id_returns_404(client: TestClient) -> None:
+    response = client.get(
+        "/api/live/capabilities",
+        params={"target_type": "roll_table", "target_id": "T-DOES-NOT-EXIST"},
+    )
+    assert response.status_code == 404
 
 
 def test_get_capabilities_unsupported_target_type_returns_422(client: TestClient) -> None:
