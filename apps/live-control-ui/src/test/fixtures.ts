@@ -1,6 +1,9 @@
 import type {
+  ArtifactReadResponse,
+  CapabilityReadResponse,
   LiveEvent,
   PlanViewProjection,
+  ProjectionCapability,
   LiveQueryResponse,
   LiveState,
   SurfaceLayout,
@@ -223,3 +226,126 @@ export const mockContextResponse: LiveQueryResponse = {
   diagnostics: { note: "stub" },
   provenance: { mode: "context_lookup" },
 };
+
+export function makeEventArtifact(
+  overrides: Partial<ArtifactReadResponse> = {},
+): ArtifactReadResponse {
+  return {
+    schema_version: "0.1.0",
+    target: {
+      target_type: "event",
+      target_id: "evt-roll-1",
+      label: "Weather roll resolved",
+      source_status: "authoritative",
+      metadata: {},
+    },
+    artifact_kind: "event",
+    title: "Weather roll resolved",
+    read_only: true,
+    file_state_token: "evt-token-1",
+    payload: {
+      content_type: "application/json",
+      data: {
+        id: "evt-roll-1",
+        event_type: "roll_result",
+        created_at: "2026-05-25T12:00:00Z",
+        summary: "Weather resolved to 16.",
+        latency_mode: "fast_live",
+        event_origin: "user_input",
+        input_text: "Weather 16.",
+        derived_fields: { table_id: "T-WX", roll: 16 },
+      },
+      text: null,
+    },
+    provenance: {
+      source_path: "event_log.jsonl",
+      source_role: "event_log",
+      generated_by: "live_control_server",
+      notes: null,
+    },
+    metadata: {
+      event_type: "roll_result",
+    },
+    ...overrides,
+  };
+}
+
+export function makeRollTableArtifact(
+  overrides: Partial<ArtifactReadResponse> = {},
+): ArtifactReadResponse {
+  return {
+    schema_version: "0.1.0",
+    target: {
+      target_type: "roll_table",
+      target_id: "T-WX",
+      label: "Storm weather",
+      source_status: "authoritative",
+      metadata: {},
+    },
+    artifact_kind: "roll_table",
+    title: "Storm weather",
+    read_only: true,
+    file_state_token: "table-token-1",
+    payload: {
+      content_type: "text/markdown",
+      data: null,
+      text: "## 1-4\nCalm skies\n## 5-8\nHail and crosswind",
+    },
+    provenance: {
+      source_path:
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/travel_storm_weather_d20.md",
+      source_role: "known_roll_table",
+      generated_by: "live_control_server",
+      notes: null,
+    },
+    metadata: {
+      table_id: "T-WX",
+      title: "Storm weather",
+      dice: "d20",
+      status: "pending",
+      default_latency_mode: "fast_live",
+      parsed_summary: { shape: "band", band_count: 2, row_count: 8 },
+    },
+    ...overrides,
+  };
+}
+
+export function makeCapabilityResponse(
+  overrides: Partial<CapabilityReadResponse> = {},
+): CapabilityReadResponse {
+  const capabilities: ProjectionCapability[] = [
+    {
+      command_type: "patch_artifact",
+      label: "Patch artifact",
+      lane: "prep_note",
+      enabled: false,
+      required_fields: [],
+      risk_level: "medium",
+      disabled_reason: "Command bus not implemented until PR85.",
+      metadata: {},
+    },
+    {
+      command_type: "append_observation",
+      label: "Append observation",
+      lane: "observed_play",
+      enabled: false,
+      required_fields: [],
+      risk_level: "low",
+      disabled_reason: "Command bus not implemented until PR85.",
+      metadata: {},
+    },
+  ];
+  return {
+    schema_version: "0.1.0",
+    target: {
+      target_type: "roll_table",
+      target_id: "T-WX",
+      label: "Storm weather",
+      source_status: "authoritative",
+      metadata: {},
+    },
+    capabilities,
+    metadata: {},
+    ...overrides,
+  };
+}
