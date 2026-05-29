@@ -178,10 +178,14 @@ def test_get_capabilities_event_returns_disabled_capabilities(client: TestClient
     assert response.status_code == 200
     body = response.json()
     assert body["target"]["target_type"] == "event"
-    assert len(body["capabilities"]) >= 1
-    for capability in body["capabilities"]:
-        assert capability["enabled"] is False
-        assert capability["disabled_reason"]
+    capabilities = body["capabilities"]
+    append = next(cap for cap in capabilities if cap["command_type"] == "append_observation")
+    queue = next(cap for cap in capabilities if cap["command_type"] == "queue_canon_patch")
+    assert append["enabled"] is True
+    assert append["disabled_reason"] is None
+    assert append["required_fields"] == ["observation"]
+    assert queue["enabled"] is False
+    assert queue["disabled_reason"]
 
 
 def test_get_capabilities_event_unknown_id_returns_404(client: TestClient) -> None:
@@ -200,10 +204,14 @@ def test_get_capabilities_roll_table_returns_disabled_capabilities(client: TestC
     assert response.status_code == 200
     body = response.json()
     assert body["target"]["target_type"] == "roll_table"
-    assert len(body["capabilities"]) >= 1
-    for capability in body["capabilities"]:
-        assert capability["enabled"] is False
-        assert capability["disabled_reason"]
+    capabilities = body["capabilities"]
+    append = next(cap for cap in capabilities if cap["command_type"] == "append_observation")
+    patch = next(cap for cap in capabilities if cap["command_type"] == "patch_artifact")
+    assert append["enabled"] is True
+    assert append["disabled_reason"] is None
+    assert append["required_fields"] == ["observation"]
+    assert patch["enabled"] is False
+    assert patch["disabled_reason"]
 
 
 def test_get_capabilities_roll_table_unknown_id_returns_404(client: TestClient) -> None:

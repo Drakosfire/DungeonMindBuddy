@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field
 from src.live_play.projections.capabilities import ProjectionCapability
 from src.live_play.projections.targets import ProjectionTarget
 
-DISABLED_REASON = "Command bus not implemented until PR85."
+DISABLED_REASON = "Not implemented in PR85."
 
 
 class CapabilityReadResponse(BaseModel):
@@ -29,8 +29,11 @@ def capabilities_for_target(target: ProjectionTarget) -> list[ProjectionCapabili
                 command_type="append_observation",
                 label="Append observation",
                 lane="observed_play",
-                enabled=False,
-                disabled_reason=DISABLED_REASON,
+                enabled=True,
+                required_fields=["observation"],
+                risk_level="low",
+                disabled_reason=None,
+                metadata={"supported_in_pr": 85},
             ),
         ]
     if target.target_type == "roll_table":
@@ -46,8 +49,11 @@ def capabilities_for_target(target: ProjectionTarget) -> list[ProjectionCapabili
                 command_type="append_observation",
                 label="Append observation",
                 lane="observed_play",
-                enabled=False,
-                disabled_reason=DISABLED_REASON,
+                enabled=True,
+                required_fields=["observation"],
+                risk_level="low",
+                disabled_reason=None,
+                metadata={"supported_in_pr": 85},
             ),
         ]
     return []

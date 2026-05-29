@@ -4,8 +4,8 @@
 
 - [x] Active slice: `L5_projection_command_architecture`
 - [x] L4 shell remains green on `main`
-- [x] Last green artifact: PR #83 (`pr83-l5e-artifact-capability-reads`) — artifact/capability read contracts with target validation
-- [x] Next gate: L5G command bus
+- [x] Last green artifact: PR #84 (`pr84-l5f-read-only-pane-renderers`) — inspector read-only renderers for event/roll_table
+- [x] Next gate: L5H pane actions (`append_observation` UI submit path)
 - [ ] Re-read `STUDY-c2-live-play-cursor-handoff-process.md` before UI expansion work
 
 ---
@@ -16,8 +16,8 @@
 - [x] `surface_layout.json` is authoritative for runtime layout.
 - [x] Chat + Record are required modules.
 - [x] Session plan/timeline remains derived.
-- [ ] Every write declares a write lane.
-- [ ] Every command returns invalidation info.
+- [x] Every write declares a write lane.
+- [x] Every command returns invalidation info.
 - [ ] Human pane actions and agent tools share the same command layer.
 - [ ] Retrieval stays off fast-live critical path.
 - [ ] Projection refresh after writes is deterministic.
@@ -300,15 +300,49 @@ Unify pane writes and agent writes.
 
 ### Checklist
 
-- [ ] Add `POST /api/live/commands`.
-- [ ] Add command routing.
-- [ ] Add audit events.
-- [ ] Add invalidation responses.
-- [ ] Add first commands:
-  - [ ] `append_observation`
-  - [ ] `update_job_status`
-  - [ ] `pin_scene_state`
-- [ ] Add command result tests.
+- [x] Add `POST /api/live/commands`.
+- [x] Add command routing.
+- [x] Add audit events.
+- [x] Add invalidation responses.
+- [x] Add first commands:
+  - [x] `append_observation`
+  - [ ] `update_job_status` (deferred)
+  - [ ] `pin_scene_state` (deferred)
+- [x] Add command result tests.
+
+### Verification
+
+```bash
+uv run pytest tests/test_live_command_bus.py -q
+uv run pytest tests/test_live_artifact_reads.py -q
+uv run pytest tests/test_live_control_server.py -q
+uv run pytest tests/test_live_projection_contracts.py -q
+uv run pytest tests/test_live_play_schemas.py -q
+```
+
+### Evidence (PR #85, 2026-05-29)
+
+- Branch: `pr85-l5g-command-bus-first-write`
+- Handoff: `Docs/Plans/HANDOFF-pr85-l5g-command-bus-first-write.md`
+- Added command bus executor with first safe write command:
+  - `src/live_play/projections/command_bus.py`
+- Added `POST /api/live/commands` thin route:
+  - `apps/live_control_server/routes/live.py`
+- Enabled only `append_observation` capabilities for event/roll_table:
+  - `src/live_play/projections/capability_registry.py`
+- Exported command bus entrypoint:
+  - `src/live_play/projections/__init__.py`
+- Added focused command-bus tests:
+  - `tests/test_live_command_bus.py`
+- Updated capability behavior assertions:
+  - `tests/test_live_artifact_reads.py`
+- Updated OpenAPI required paths:
+  - `tests/test_live_control_server.py`
+- `uv run pytest tests/test_live_command_bus.py -q` → 13 passed
+- `uv run pytest tests/test_live_artifact_reads.py -q` → 15 passed
+- `uv run pytest tests/test_live_control_server.py -q` → 18 passed
+- `uv run pytest tests/test_live_projection_contracts.py -q` → 17 passed
+- `uv run pytest tests/test_live_play_schemas.py -q` → 19 passed
 
 ---
 
