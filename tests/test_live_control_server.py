@@ -198,7 +198,7 @@ def test_validate_before_append_rejects_invalid_event() -> None:
         validate_before_append([{"id": "not-a-valid-event"}], [])
 
 
-def test_get_jobs_after_canon_correction(client: TestClient) -> None:
+def test_get_jobs_after_canon_fact_input(client: TestClient) -> None:
     client.post(
         "/api/live/query",
         json={
@@ -210,7 +210,7 @@ def test_get_jobs_after_canon_correction(client: TestClient) -> None:
     )
     jobs_body = client.get("/api/live/jobs").json()
     job_types = {row["job_type"] for row in jobs_body["jobs"]}
-    assert "post_session_propagation" in job_types
+    assert {"append_staging", "benchmark_candidate"} <= job_types
 
 
 def test_get_surface_returns_catalog_layout_state(client: TestClient) -> None:
@@ -364,5 +364,7 @@ def test_openapi_contains_required_live_paths(client: TestClient) -> None:
         "/api/live/surface",
         "/api/live/surface/layout",
         "/api/live/plan-view",
+        "/api/live/artifact",
+        "/api/live/capabilities",
     }
     assert required <= paths

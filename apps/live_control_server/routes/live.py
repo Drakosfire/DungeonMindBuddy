@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
 from apps.live_control_server.config import repo_root, session_dir
@@ -16,10 +16,20 @@ from apps.live_control_server.session_store import (
     refresh_current_state,
     validate_and_save_layout,
 )
-from src.live_play.projections import build_session_plan_projection
+from src.live_play.projections import (
+    ArtifactReadResponse,
+    CapabilityReadResponse,
+    ProjectionTarget,
+    build_capability_response,
+    build_session_plan_projection,
+    read_artifact_for_target,
+)
+from src.live_play.projections.artifacts import ArtifactReadError
 from src.live_play.resolve_roll import RollResolveError, resolve_roll_from_packet
 
 router = APIRouter(prefix="/api/live", tags=["live"])
+INSPECTABLE_TARGET_TYPE = Literal["event", "roll_table"]
+FORBIDDEN_PATH_QUERY_FIELDS = frozenset({"source_path", "file_path", "path", "absolute_path", "relative_path"})
 
 
 class LiveQueryRequest(BaseModel):
@@ -31,6 +41,31 @@ class LiveQueryRequest(BaseModel):
 
 class ResolveRollRequest(BaseModel):
     command: str = Field(min_length=1)
+
+
+def _reject_forbidden_query_fields(request: Request) -> None:
+    blocked = sorted(FORBIDDEN_PATH_QUERY_FIELDS & set(request.query_params.keys()))
+    if blocked:
+        raise HTTPException(
+            status_code=422,
+            detail=f"forbidden query fields: {', '.join(blocked)}",
+        )
+
+
+def _target_from_query(*, target_type: INSPECTABLE_TARGET_TYPE, target_id: str) -> ProjectionTarget:
+    if target_type == "event":
+        return ProjectionTarget(
+            target_type="event",
+            target_id=target_id,
+            label=f"Event {target_id}",
+            source_status="authoritative",
+        )
+    return ProjectionTarget(
+        target_type="roll_table",
+        target_id=target_id,
+        label=f"Roll table {target_id}",
+        source_status="authoritative",
+    )
 
 
 @router.post("/query")
@@ -83,6 +118,40 @@ def get_live_plan_view() -> dict[str, Any]:
     base = session_dir()
     packet, _, events, jobs = load_session(base)
     return build_session_plan_projection(packet, events, jobs)
+
+
+@router.get("/artifact", response_model=ArtifactReadResponse)
+def get_live_artifact(
+    request: Request,
+    target_type: Annotated[INSPECTABLE_TARGET_TYPE, Query()],
+    target_id: Annotated[str, Query(min_length=1)],
+) -> dict[str, Any]:
+    _reject_forbidden_query_fields(request)
+    base = session_dir()
+    packet, _, events, _ = load_session(base)
+    try:
+        artifact = read_artifact_for_target(
+            target_type=target_type,
+            target_id=target_id,
+            packet=packet,
+            events=events,
+            root=repo_root(),
+        )
+    except ArtifactReadError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    return artifact.model_dump(mode="json")
+
+
+@router.get("/capabilities", response_model=CapabilityReadResponse)
+def get_live_capabilities(
+    request: Request,
+    target_type: Annotated[INSPECTABLE_TARGET_TYPE, Query()],
+    target_id: Annotated[str, Query(min_length=1)],
+) -> dict[str, Any]:
+    _reject_forbidden_query_fields(request)
+    target = _target_from_query(target_type=target_type, target_id=target_id)
+    response = build_capability_response(target)
+    return response.model_dump(mode="json")
 
 
 @router.put("/surface/layout")
