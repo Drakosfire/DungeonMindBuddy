@@ -5,6 +5,7 @@ from typing import Any
 from .artifacts import ArtifactReadResponse, read_artifact_for_target
 from .capability_registry import CapabilityReadResponse, build_capability_response
 from .capabilities import ProjectionCapability, ProjectionRiskLevel
+from .command_bus import execute_projection_command
 from .commands import (
     ProjectionCommand,
     ProjectionCommandRequester,
@@ -41,6 +42,7 @@ __all__ = [
     "CapabilityReadResponse",
     "build_session_plan_projection",
     "build_capability_response",
+    "execute_projection_command",
     "read_artifact_for_target",
     "make_invalidation",
     "make_target",

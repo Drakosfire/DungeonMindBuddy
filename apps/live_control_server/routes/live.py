@@ -19,9 +19,12 @@ from apps.live_control_server.session_store import (
 from src.live_play.projections import (
     ArtifactReadResponse,
     CapabilityReadResponse,
+    ProjectionCommand,
     ProjectionTarget,
+    ProjectionWriteResult,
     build_capability_response,
     build_session_plan_projection,
+    execute_projection_command,
     read_artifact_for_target,
 )
 from src.live_play.projections.artifacts import ArtifactReadError
@@ -177,6 +180,20 @@ def get_live_capabilities(
     )
     response = build_capability_response(target)
     return response.model_dump(mode="json")
+
+
+@router.post("/commands", response_model=ProjectionWriteResult)
+def post_live_command(command: ProjectionCommand) -> dict[str, Any]:
+    base = session_dir()
+    packet, _, events, jobs = load_session(base)
+    result = execute_projection_command(
+        command=command,
+        base=base,
+        packet=packet,
+        events=events,
+        jobs=jobs,
+    )
+    return result.model_dump(mode="json")
 
 
 @router.put("/surface/layout")
