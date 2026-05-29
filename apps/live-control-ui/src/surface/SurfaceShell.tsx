@@ -13,6 +13,7 @@ import { enabledModules } from "./layoutUtils";
 import { ModuleLayoutControls } from "./ModuleLayoutControls";
 import { catalogTitle, ModuleContent, type ModuleRenderContext } from "./moduleRegistry";
 import { SurfaceLayoutPanel } from "./SurfaceLayoutPanel";
+import type { PaneTarget } from "./targetTypes";
 
 interface SurfaceShellProps {
   catalog: SurfaceModuleDefinition[];
@@ -23,6 +24,7 @@ interface SurfaceShellProps {
   planView: PlanViewProjection;
   onQuerySuccess: (response: LiveQueryResponse) => void | Promise<void>;
   onLayoutSaved: (layout: SurfaceLayout) => void | Promise<void>;
+  onSelectTarget?: (target: PaneTarget) => void;
 }
 
 function modulesForSlot(
@@ -38,12 +40,14 @@ function SurfaceShellBody({
   jobs,
   planView,
   onQuerySuccess,
+  onSelectTarget,
 }: {
   state: LiveState;
   events: LiveEvent[];
   jobs: LiveJob[];
   planView: PlanViewProjection;
   onQuerySuccess: (response: LiveQueryResponse) => void | Promise<void>;
+  onSelectTarget?: (target: PaneTarget) => void;
 }) {
   const { draft, catalogById } = useLayoutDraft();
 
@@ -56,6 +60,7 @@ function SurfaceShellBody({
     campaignId: draft.campaign_id,
     session: draft.session,
     onQuerySuccess,
+    onSelectTarget,
   };
 
   const surfaceModules = enabledModules(draft);
@@ -121,6 +126,7 @@ export function SurfaceShell({
   planView,
   onQuerySuccess,
   onLayoutSaved,
+  onSelectTarget,
 }: SurfaceShellProps) {
   return (
     <LayoutDraftProvider layout={layout} catalog={catalog} onLayoutSaved={onLayoutSaved}>
@@ -130,6 +136,7 @@ export function SurfaceShell({
         jobs={jobs}
         planView={planView}
         onQuerySuccess={onQuerySuccess}
+        onSelectTarget={onSelectTarget}
       />
     </LayoutDraftProvider>
   );

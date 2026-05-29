@@ -10,7 +10,9 @@ import type {
   SurfaceLayout,
   SurfaceModuleDefinition,
 } from "./api/types";
+import { InspectorPane, type InspectorPaneState } from "./surface/InspectorPane";
 import { SurfaceShell } from "./surface/SurfaceShell";
+import type { PaneTarget } from "./surface/targetTypes";
 
 type LoadStatus = "loading" | "ready" | "error";
 
@@ -23,6 +25,7 @@ export function App() {
   const [events, setEvents] = useState<LiveEvent[]>([]);
   const [jobs, setJobs] = useState<LiveJob[]>([]);
   const [planView, setPlanView] = useState<PlanViewProjection | null>(null);
+  const [inspectorPane, setInspectorPane] = useState<InspectorPaneState>({ status: "closed" });
 
   const refreshAll = useCallback(async () => {
     const surface = await getSurface();
@@ -76,6 +79,18 @@ export function App() {
     [refreshAll],
   );
 
+  const handleSelectTarget = useCallback((target: PaneTarget) => {
+    setInspectorPane({ status: "open", target });
+  }, []);
+
+  const handleOpenInspector = useCallback(() => {
+    setInspectorPane({ status: "open", target: null });
+  }, []);
+
+  const handleCloseInspector = useCallback(() => {
+    setInspectorPane({ status: "closed" });
+  }, []);
+
   if (status === "loading") {
     return (
       <main className="app-status">
@@ -100,6 +115,11 @@ export function App() {
 
   return (
     <main className="app-root">
+      <div className="app-chrome">
+        <button type="button" onClick={handleOpenInspector}>
+          Inspector
+        </button>
+      </div>
       <SurfaceShell
         catalog={catalog}
         layout={layout}
@@ -109,7 +129,9 @@ export function App() {
         planView={planView}
         onQuerySuccess={handleQuerySuccess}
         onLayoutSaved={handleLayoutSaved}
+        onSelectTarget={handleSelectTarget}
       />
+      <InspectorPane state={inspectorPane} onClose={handleCloseInspector} />
     </main>
   );
 }
