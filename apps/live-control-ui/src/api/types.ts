@@ -122,6 +122,73 @@ export interface PlanViewProjection {
   timeline: PlanViewTimelineRow[];
 }
 
+export type ArtifactKind = "event" | "roll_table";
+
+export type ArtifactContentType = "application/json" | "text/markdown";
+
+export interface ProjectionTarget {
+  target_type: ProjectionTargetType;
+  target_id: string;
+  label: string;
+  source_status: ProjectionSourceStatus;
+  metadata?: Record<string, unknown>;
+}
+
+export interface ArtifactReadProvenance {
+  source_path: string | null;
+  source_role: string | null;
+  generated_by: string;
+  notes: string | null;
+}
+
+export interface ArtifactReadPayload {
+  content_type: ArtifactContentType;
+  data: Record<string, unknown> | null;
+  text: string | null;
+}
+
+export interface ArtifactReadResponse {
+  schema_version: string;
+  target: ProjectionTarget;
+  artifact_kind: ArtifactKind;
+  title: string;
+  read_only: true;
+  file_state_token: string | null;
+  payload: ArtifactReadPayload;
+  provenance: ArtifactReadProvenance;
+  metadata: Record<string, unknown>;
+}
+
+export type ProjectionCommandType =
+  | "queue_canon_patch"
+  | "append_observation"
+  | "patch_artifact";
+
+export type ProjectionWriteLane =
+  | "canon_patch"
+  | "observed_play"
+  | "prep_note";
+
+export type ProjectionRiskLevel = "low" | "medium" | "high";
+
+export interface ProjectionCapability {
+  command_type: ProjectionCommandType;
+  label: string;
+  lane: ProjectionWriteLane;
+  enabled: boolean;
+  required_fields: string[];
+  risk_level: ProjectionRiskLevel;
+  disabled_reason: string | null;
+  metadata: Record<string, unknown>;
+}
+
+export interface CapabilityReadResponse {
+  schema_version: string;
+  target: ProjectionTarget;
+  capabilities: ProjectionCapability[];
+  metadata: Record<string, unknown>;
+}
+
 export interface TurnClassification {
   latency_mode: string;
   event_type: string;

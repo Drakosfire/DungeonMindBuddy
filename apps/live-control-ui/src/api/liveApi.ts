@@ -1,7 +1,10 @@
 import type {
+  ArtifactReadResponse,
+  CapabilityReadResponse,
   LiveEventsResponse,
   LiveJobsResponse,
   PlanViewProjection,
+  ProjectionTarget,
   LiveQueryResponse,
   LiveSurfaceResponse,
   ResolvedRollResponse,
@@ -77,6 +80,26 @@ export async function getJobs(): Promise<LiveJobsResponse> {
 
 export async function getPlanView(): Promise<PlanViewProjection> {
   return apiFetch<PlanViewProjection>("/api/live/plan-view");
+}
+
+export async function getArtifact(
+  target: Pick<ProjectionTarget, "target_type" | "target_id">,
+): Promise<ArtifactReadResponse> {
+  const query = new URLSearchParams({
+    target_type: target.target_type,
+    target_id: target.target_id,
+  });
+  return apiFetch<ArtifactReadResponse>(`/api/live/artifact?${query.toString()}`);
+}
+
+export async function getCapabilities(
+  target: Pick<ProjectionTarget, "target_type" | "target_id">,
+): Promise<CapabilityReadResponse> {
+  const query = new URLSearchParams({
+    target_type: target.target_type,
+    target_id: target.target_id,
+  });
+  return apiFetch<CapabilityReadResponse>(`/api/live/capabilities?${query.toString()}`);
 }
 
 export async function postLiveQuery(

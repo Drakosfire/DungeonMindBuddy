@@ -1,3 +1,9 @@
+import { useEffect, useState } from "react";
+
+import { getArtifact, getCapabilities } from "../api/liveApi";
+import type { ArtifactReadResponse, CapabilityReadResponse, ProjectionTargetType } from "../api/types";
+import { EventArtifactRenderer, RollTableArtifactRenderer } from "./ArtifactRenderers";
+import { CapabilityList } from "./CapabilityList";
 import { formatTargetType, type PaneTarget } from "./targetTypes";
 
 export type InspectorPaneState =
@@ -9,7 +15,67 @@ interface InspectorPaneProps {
   onClose: () => void;
 }
 
+type InspectorReadState =
+  | { status: "idle" }
+  | { status: "loading" }
+  | { status: "ready"; artifact: ArtifactReadResponse; capabilities: CapabilityReadResponse }
+  | { status: "error"; message: string }
+  | { status: "unsupported"; message: string };
+
+function isReadableTargetType(
+  targetType: ProjectionTargetType,
+): targetType is "event" | "roll_table" {
+  return targetType === "event" || targetType === "roll_table";
+}
+
 export function InspectorPane({ state, onClose }: InspectorPaneProps) {
+  const [readState, setReadState] = useState<InspectorReadState>({ status: "idle" });
+
+  useEffect(() => {
+    if (state.status === "closed" || state.target == null) {
+      setReadState({ status: "idle" });
+      return;
+    }
+
+    if (!isReadableTargetType(state.target.target_type)) {
+      setReadState({
+        status: "unsupported",
+        message: "Read renderer not implemented for this target type yet.",
+      });
+      return;
+    }
+
+    let cancelled = false;
+    setReadState({ status: "loading" });
+    Promise.all([
+      getArtifact({
+        target_type: state.target.target_type,
+        target_id: state.target.target_id,
+      }),
+      getCapabilities({
+        target_type: state.target.target_type,
+        target_id: state.target.target_id,
+      }),
+    ])
+      .then(([artifact, capabilities]) => {
+        if (cancelled) {
+          return;
+        }
+        setReadState({ status: "ready", artifact, capabilities });
+      })
+      .catch((error: unknown) => {
+        if (cancelled) {
+          return;
+        }
+        const message = error instanceof Error ? error.message : "Failed to load artifact.";
+        setReadState({ status: "error", message });
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [state]);
+
   if (state.status === "closed") {
     return null;
   }
@@ -48,9 +114,40 @@ export function InspectorPane({ state, onClose }: InspectorPaneProps) {
               </li>
             ) : null}
           </ul>
-          <p className="module-muted">
-            Read renderer not implemented yet. Artifact and capability reads arrive in PR83.
-          </p>
+          {readState.status === "loading" ? (
+            <p className="module-muted">Loading artifact…</p>
+          ) : null}
+          {readState.status === "unsupported" ? (
+            <p className="module-muted">{readState.message}</p>
+          ) : null}
+          {readState.status === "error" ? <p className="module-error">{readState.message}</p> : null}
+          {readState.status === "ready" ? (
+            <>
+              {readState.artifact.artifact_kind === "event" ? (
+                <EventArtifactRenderer
+                  artifact={readState.artifact as ArtifactReadResponse & { artifact_kind: "event" }}
+                />
+              ) : readState.artifact.artifact_kind === "roll_table" ? (
+                <RollTableArtifactRenderer
+                  artifact={readState.artifact as ArtifactReadResponse & { artifact_kind: "roll_table" }}
+                />
+              ) : (
+                <p className="module-muted">No read renderer is available for this target type yet.</p>
+              )}
+              <CapabilityList capabilities={readState.capabilities.capabilities} />
+              <p className="module-muted">
+                provenance: {readState.artifact.provenance.source_role ?? "unknown"}
+                {readState.artifact.provenance.source_path
+                  ? ` / ${readState.artifact.provenance.source_path}`
+                  : ""}
+              </p>
+              {readState.artifact.file_state_token ? (
+                <p className="module-muted">
+                  state token: <code>{readState.artifact.file_state_token}</code>
+                </p>
+              ) : null}
+            </>
+          ) : null}
         </div>
       )}
     </aside>

@@ -4,8 +4,8 @@
 
 - [x] Active slice: `L5_projection_command_architecture`
 - [x] L4 shell remains green on `main`
-- [x] Last green artifact: PR #82 (`pr82-l5d-inspector-pane-shell`) — inspector pane shell + target-selection wiring
-- [x] Next gate: L5F read-only pane renderers (after PR #83 merge)
+- [x] Last green artifact: PR #83 (`pr83-l5e-artifact-capability-reads`) — artifact/capability read contracts with target validation
+- [x] Next gate: L5G command bus
 - [ ] Re-read `STUDY-c2-live-play-cursor-handoff-process.md` before UI expansion work
 
 ---
@@ -252,12 +252,43 @@ Render artifact targets in inspector.
 
 ### Checklist
 
-- [ ] Event artifact renderer.
-- [ ] Roll-table artifact renderer.
-- [ ] Loading/error states.
-- [ ] Human-first labels.
-- [ ] Provenance disclosure.
-- [ ] Tests.
+- [x] Event artifact renderer.
+- [x] Roll-table artifact renderer.
+- [x] Loading/error states.
+- [x] Human-first labels.
+- [x] Provenance disclosure.
+- [x] Tests.
+
+### Verification
+
+```bash
+cd apps/live-control-ui && npm test
+cd apps/live-control-ui && npm run build
+```
+
+### Evidence (PR #84, 2026-05-29)
+
+- Branch: `pr84-l5f-read-only-pane-renderers`
+- Handoff: `Docs/Plans/HANDOFF-pr84-l5f-read-only-pane-renderers.md`
+- Added typed artifact/capability contracts:
+  - `apps/live-control-ui/src/api/types.ts`
+- Added read-only client helpers:
+  - `apps/live-control-ui/src/api/liveApi.ts` (`getArtifact`, `getCapabilities`)
+- Added read-only renderer components:
+  - `apps/live-control-ui/src/surface/ArtifactRenderers.tsx`
+  - `apps/live-control-ui/src/surface/CapabilityList.tsx`
+- Wired Inspector pane read states/fetch behavior:
+  - `apps/live-control-ui/src/surface/InspectorPane.tsx`
+- Added/updated tests:
+  - `apps/live-control-ui/src/api/liveApi.test.ts`
+  - `apps/live-control-ui/src/surface/InspectorPane.test.tsx`
+  - `apps/live-control-ui/src/surface/ArtifactRenderers.test.tsx`
+  - `apps/live-control-ui/src/surface/CapabilityList.test.tsx`
+  - `apps/live-control-ui/src/test/fixtures.ts`
+- Updated styling for read-only inspector renderers/capability rows:
+  - `apps/live-control-ui/src/styles.css`
+- `cd apps/live-control-ui && npm test` → 11 files passed / 37 tests passed
+- `cd apps/live-control-ui && npm run build` → build succeeded
 
 ---
 

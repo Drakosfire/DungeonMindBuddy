@@ -462,6 +462,81 @@ code {
   color: #9aa3b5;
 }
 
+.artifact-block,
+.capability-list {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid #252b38;
+}
+
+.artifact-title {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.artifact-subtitle {
+  margin: 0.6rem 0 0.35rem;
+  font-size: 0.88rem;
+  color: #c8cfde;
+}
+
+.artifact-summary {
+  margin: 0;
+}
+
+.artifact-fields {
+  margin: 0.5rem 0 0;
+  display: grid;
+  gap: 0.25rem;
+}
+
+.artifact-fields div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.artifact-fields dt {
+  color: #9aa3b5;
+}
+
+.artifact-fields dd {
+  margin: 0;
+}
+
+.artifact-pre,
+.artifact-markdown {
+  margin: 0;
+  padding: 0.45rem;
+  border-radius: 6px;
+  background: #0f1218;
+  color: #dde5f5;
+  overflow: auto;
+  white-space: pre-wrap;
+  font-size: 0.82rem;
+}
+
+.capability-items {
+  list-style: none;
+  margin: 0.6rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.capability-item {
+  border: 1px solid #2f3749;
+  border-radius: 6px;
+  padding: 0.45rem 0.55rem;
+  background: #121621;
+}
+
+.capability-label {
+  margin: 0;
+  font-weight: 600;
+}
+
 button,
 select {
   font: inherit;
