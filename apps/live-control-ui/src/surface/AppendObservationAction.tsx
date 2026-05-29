@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 
 import type {
   ProjectionCapability,
@@ -37,7 +37,6 @@ export function AppendObservationAction({
   const trimmedObservation = observation.trim();
   const tooLong = trimmedObservation.length > 2000;
   const canSubmit = trimmedObservation.length > 0 && !tooLong && !submitting;
-  const idempotencyKey = useMemo(() => makeIdempotencyKey(target), [target.target_id, target.target_type]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -65,7 +64,7 @@ export function AppendObservationAction({
         requester_type: "human_ui",
         requester_id: "live-control-ui",
       },
-      idempotency_key: idempotencyKey,
+      idempotency_key: makeIdempotencyKey(target),
     };
     setSubmitting(true);
     try {

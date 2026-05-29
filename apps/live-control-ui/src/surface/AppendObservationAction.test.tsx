@@ -139,4 +139,30 @@ describe("AppendObservationAction", () => {
     await user.click(screen.getByRole("button", { name: "Submit observation" }));
     expect(await screen.findByText("server unavailable")).toBeInTheDocument();
   });
+
+  it("uses a fresh idempotency key for each submission", async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn(async () => makeWriteResult());
+    render(
+      <AppendObservationAction target={target} capability={capability} onSubmitCommand={onSubmit} />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Append observation" }));
+    const observationInput = screen.getByLabelText("Observation");
+
+    await user.type(observationInput, "First note");
+    await user.click(screen.getByRole("button", { name: "Submit observation" }));
+    await screen.findByText("Observation appended.");
+
+    await user.clear(observationInput);
+    await user.type(observationInput, "Second note");
+    await user.click(screen.getByRole("button", { name: "Submit observation" }));
+
+    expect(onSubmit).toHaveBeenCalledTimes(2);
+    const firstKey = onSubmit.mock.calls[0][0].idempotency_key;
+    const secondKey = onSubmit.mock.calls[1][0].idempotency_key;
+    expect(firstKey).toContain("ui-append-observation");
+    expect(secondKey).toContain("ui-append-observation");
+    expect(firstKey).not.toEqual(secondKey);
+  });
 });
