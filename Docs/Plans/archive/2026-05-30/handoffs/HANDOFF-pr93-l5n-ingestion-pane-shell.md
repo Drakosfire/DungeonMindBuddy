@@ -1,5 +1,9 @@
 # HANDOFF — PR93 L5N Ingestion Pane Shell / Operator Surface
 
+> **COMPLETED** — merged PR #93 (`c4299770`) on 2026-05-30. Optional `ingestion` module; `POST /api/live/recap-ingest` wraps PR92 `run_pipeline`; editable recap/source session decoupled from live workspace session. Verification: backend recap-ingest tests, PR92 pipeline regression, UI tests + build.
+
+**Status:** ARCHIVED — merged on `main`; do not dispatch.
+
 ## Mission
 
 Add an operator-facing ingestion pane to live control that wraps the PR92 recap ingest orchestrator through a narrow server API, without reimplementing ingest logic in React.

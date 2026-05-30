@@ -4,8 +4,8 @@
 
 - [x] Active slice: `L5_projection_command_architecture`
 - [x] L4 shell remains green on `main`
-- [x] Last green artifact: PR #90 (`pr90-l5l-fresh-recap-ingestion-session-bootstrap`) — deterministic recap bootstrap CLI, planning_beats plan-view, dogfood runbook
-- [x] Next gate: L5N ingestion pane shell / operator surface (PR93)
+- [x] Last green artifact: PR #93 (`c4299770`) — L5N ingestion pane over PR92 `run_pipeline`, editable recap/source session, `POST /api/live/recap-ingest`
+- [ ] Next gate: Step 0 — ingest Session 22 via L5N pane; then C2S23 activated planning corpus manifest (see `ROADMAP-c2s23-authority-activation-and-dogfood.md`)
 - [ ] Re-read `STUDY-c2-live-play-cursor-handoff-process.md` before UI expansion work
 
 ---
@@ -664,6 +664,7 @@ Expose PR92 recap ingestion as an optional live-control operator pane with expli
   - [x] spelling/entity audit rendered as review-only
   - [x] read-only canonical preview diff (`<pre>`)
   - [x] advanced overwrite controls behind explicit disclosure
+  - [x] editable recap/source session (defaults live session − 1; all ingest ops use local session)
 - [x] Added UI tests for state machine actions and guardrails.
 - [x] Added `ingestion` as optional module in catalog/layout schema + session bootstrap defaults.
 
