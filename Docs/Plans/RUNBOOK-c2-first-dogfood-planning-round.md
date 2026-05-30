@@ -49,7 +49,7 @@ roll tables          → prep tools, not happened facts
 live workspace       → active planning surface / observations
 ```
 
-## 2. Raw recap ingestion path (PR92)
+## 2. Raw recap ingestion path — CLI (L5M / PR92)
 
 Use the ingestion orchestrator before bootstrap when the source recap is still raw notes:
 
@@ -96,6 +96,10 @@ Pipeline interpretation:
 5. Stop at `breadcrumb_required` if `_breadcrumbed/*.breadcrumbed.md` is absent.
 6. Materialize `_session_memory/*.records_meta.{jsonl,json}` only when breadcrumb exists.
 7. Treat session as planning-activation ready only after canonical recap + derivatives are in place.
+
+### Operator pane (L5N / PR93)
+
+When live-control is already running for Session 23 planning, enable the optional **Ingestion** module in the surface layout. Set **Recap/source session** to `22` (defaults to live session − 1) while the live workspace remains Session 23. The pane calls `POST /api/live/recap-ingest` with the same stage/preview → apply/normalize → materialize-session-memory flow as the CLI; it does not accept browser file paths.
 
 ## 3. Bootstrap a session workspace
 
@@ -168,7 +172,7 @@ Capture:
 - friction / missing context
 - uncertainty
 
-This baseline is intentionally pre-PR92/PR93. It gives the later manifest-backed query path something to beat.
+This baseline is intentionally pre–C2S23 activation manifest (see `ROADMAP-c2s23-authority-activation-and-dogfood.md`). It gives the later manifest-backed query path something to beat.
 
 ## 7. Append observations
 

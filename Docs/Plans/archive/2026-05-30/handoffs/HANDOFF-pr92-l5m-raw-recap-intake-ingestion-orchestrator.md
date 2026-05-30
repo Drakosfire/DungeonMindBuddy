@@ -1,5 +1,9 @@
 # PR 92 Handoff — L5M Raw Recap Intake + Ingestion Orchestrator
 
+> **COMPLETED** — merged PR #92 (`4faf76ca`) on 2026-05-30. CLI/backend `recap_ingest_pipeline` orchestrator: stage, preview, apply, normalize, `breadcrumb_required`, session-memory materialization. Runbook authority boundaries preserved.
+
+**Status:** ARCHIVED — merged on `main`; do not dispatch.
+
 ## Mission
 
 Add a backend/CLI ingestion orchestrator that accepts raw recap text (file or stdin) and drives deterministic ingest stages:

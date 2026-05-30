@@ -4,9 +4,9 @@ title: C2 Live Control Surface v0 — Query Pane
 document_class: plan
 plan_kind: product_sprint_plan
 status: active
-version: 1.9
+version: 2.0
 created_at: "2026-05-25T03:11:00Z"
-last_updated_at: "2026-05-30T03:50:00Z"
+last_updated_at: "2026-05-30T19:30:00Z"
 ---
 
 # C2 Live Control Surface v0 — Query Pane
@@ -111,10 +111,16 @@ The first L5 spine is now substantially built:
 | PR88 / L5J | Preview-first roll-table patch UI |
 | PR89 / L5K | Patch UX hardening / read-after-write evidence |
 | PR90 / L5L | Fresh recap ingestion / session bootstrap |
+| PR92 / L5M | Raw recap intake + ingestion orchestrator (CLI) |
+| PR93 / L5N | Ingestion operator pane + `POST /api/live/recap-ingest` |
 
 This gives us:
 
 ```text
+raw recap (CLI or ingestion pane)
+→ staged notes + canonical recap preview/apply
+→ normalized recap (+ breadcrumb boundary)
+→ session memory when breadcrumb exists
 fresh recap
 → bootstrapped live workspace
 → plan-view timeline
@@ -126,7 +132,7 @@ fresh recap
 
 ## Current Dogfood Boundary
 
-PR90 can bootstrap a session workspace from a fresh recap, but it does not create manifest-backed cross-session retrieval.
+L5M/L5N can drive raw recap intake through the PR92 orchestrator (CLI or live-control ingestion pane, with recap/source session decoupled from the live workspace session). PR90 can bootstrap a session workspace from a fresh recap, but neither path creates manifest-backed cross-session retrieval.
 
 The system can now support a first planning pass, but context lookup across Session 21, Session 22, prep scaffold, live workspace files, roll tables, and hub evidence still needs an explicit activation boundary.
 
