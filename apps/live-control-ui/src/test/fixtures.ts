@@ -320,11 +320,15 @@ export function makeCapabilityResponse(
       command_type: "patch_artifact",
       label: "Patch artifact",
       lane: "prep_note",
-      enabled: false,
-      required_fields: [],
+      enabled: true,
+      required_fields: ["expected_file_state_token", "old_text", "new_text"],
       risk_level: "medium",
-      disabled_reason: "Not implemented in PR85.",
-      metadata: {},
+      disabled_reason: null,
+      metadata: {
+        patch_kind: "replace_text",
+        requires_file_state_token: true,
+        supports_dry_run: true,
+      },
     },
     {
       command_type: "append_observation",
@@ -398,6 +402,7 @@ export function makeWriteResult(
     ],
     conflicts: [],
     diagnostics: [],
+    metadata: {},
     ...overrides,
   };
 }

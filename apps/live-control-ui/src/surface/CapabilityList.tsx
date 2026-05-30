@@ -1,13 +1,16 @@
 import type {
+  ArtifactReadResponse,
   ProjectionCapability,
   ProjectionCommand,
   ProjectionTarget,
   ProjectionWriteResult,
 } from "../api/types";
 import { AppendObservationAction } from "./AppendObservationAction";
+import { PatchArtifactAction } from "./PatchArtifactAction";
 
 interface CapabilityListProps {
   target: ProjectionTarget;
+  artifact: ArtifactReadResponse;
   capabilities: ProjectionCapability[];
   onSubmitCommand?: (command: ProjectionCommand) => Promise<ProjectionWriteResult>;
   onCommandAccepted?: (result: ProjectionWriteResult) => Promise<void> | void;
@@ -21,8 +24,27 @@ function isAppendObservationCapability(capability: ProjectionCapability): boolea
   );
 }
 
+function isPatchArtifactCapability(
+  target: ProjectionTarget,
+  capability: ProjectionCapability,
+): boolean {
+  return (
+    target.target_type === "roll_table" &&
+    capability.enabled &&
+    capability.command_type === "patch_artifact" &&
+    capability.lane === "prep_note"
+  );
+}
+
+function isRollTableArtifact(
+  artifact: ArtifactReadResponse,
+): artifact is ArtifactReadResponse & { artifact_kind: "roll_table" } {
+  return artifact.artifact_kind === "roll_table";
+}
+
 export function CapabilityList({
   target,
+  artifact,
   capabilities,
   onSubmitCommand,
   onCommandAccepted,
@@ -69,7 +91,20 @@ export function CapabilityList({
                 onAccepted={onCommandAccepted}
               />
             ) : null}
-            {capability.enabled && !isAppendObservationCapability(capability) ? (
+            {isPatchArtifactCapability(target, capability) &&
+            onSubmitCommand &&
+            isRollTableArtifact(artifact) ? (
+              <PatchArtifactAction
+                target={target}
+                capability={capability}
+                artifact={artifact}
+                onSubmitCommand={onSubmitCommand}
+                onAccepted={onCommandAccepted}
+              />
+            ) : null}
+            {capability.enabled &&
+            !isAppendObservationCapability(capability) &&
+            !isPatchArtifactCapability(target, capability) ? (
               <p className="module-muted">Action not supported in this pane version.</p>
             ) : null}
           </li>

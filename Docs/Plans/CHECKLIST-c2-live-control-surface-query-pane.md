@@ -4,8 +4,8 @@
 
 - [x] Active slice: `L5_projection_command_architecture`
 - [x] L4 shell remains green on `main`
-- [x] Last green artifact: PR #86 (`pr86-l5h-pane-action-ui-append-observation`) — first scoped pane action with accepted/noop refresh orchestration
-- [x] Next gate: L5I scoped artifact writes (`patch_artifact` roll-table command semantics)
+- [x] Last green artifact: PR #87 (`pr87-l5i-scoped-roll-table-patch-command`) — backend-safe scoped `patch_artifact` semantics for roll-table targets
+- [x] Next gate: L5K patch UX hardening / read-after-write evidence
 - [ ] Re-read `STUDY-c2-live-play-cursor-handoff-process.md` before UI expansion work
 
 ---
@@ -460,6 +460,64 @@ uv run pytest tests/test_live_projection_contracts.py -q
 - `uv run pytest tests/test_live_artifact_reads.py -q` → 15 passed
 - `uv run pytest tests/test_live_control_server.py -q` → 18 passed
 - `uv run pytest tests/test_live_projection_contracts.py -q` → 17 passed
+
+---
+
+## Phase L5J — Roll-table Patch UI Preview
+
+### Goal
+
+Expose backend-safe roll-table patch semantics through preview-first inspector UI.
+
+### Checklist
+
+- [x] UI `ProjectionWriteResult` contract includes additive `metadata`.
+- [x] Inspector passes current artifact into capability actions.
+- [x] `patch_artifact` action gated to enabled `roll_table` + `prep_note` capability only.
+- [x] Added preview-first `PatchArtifactAction` state flow:
+  - [x] dry-run preview submission (`dry_run: true`)
+  - [x] confirm gated on successful server preview
+  - [x] confirm submission (`dry_run: false`) uses previewed values only
+  - [x] confirm idempotency key reused on retry for same preview
+  - [x] new preview after edit generates new confirm idempotency key
+- [x] Preview metadata (including diff/tokens when present) rendered defensively.
+- [x] Accepted/conflict/rejected/noop/error outcomes rendered honestly.
+- [x] Accepted confirm reuses existing selected-target + App refresh seam.
+- [x] Pane remains open after accepted confirm.
+- [x] `append_observation` remains supported.
+- [x] `queue_canon_patch` and unsupported enabled capabilities remain inert.
+- [x] No generic capability runner introduced.
+- [x] No markdown editor introduced.
+
+### Verification
+
+```bash
+cd apps/live-control-ui && npm test
+cd apps/live-control-ui && npm run build
+```
+
+### Evidence (PR #88, 2026-05-29)
+
+- Branch: `pr88-l5j-roll-table-patch-ui-preview`
+- Handoff: `Docs/Plans/HANDOFF-pr88-l5j-roll-table-patch-ui-preview.md`
+- Added roll-table preview-first patch action component:
+  - `apps/live-control-ui/src/surface/PatchArtifactAction.tsx`
+- Updated capability/action gating + artifact-aware action seam:
+  - `apps/live-control-ui/src/surface/CapabilityList.tsx`
+  - `apps/live-control-ui/src/surface/InspectorPane.tsx`
+- Updated UI command/result contracts + fixtures:
+  - `apps/live-control-ui/src/api/types.ts`
+  - `apps/live-control-ui/src/test/fixtures.ts`
+  - `apps/live-control-ui/src/api/liveApi.test.ts`
+- Added/updated focused tests:
+  - `apps/live-control-ui/src/surface/PatchArtifactAction.test.tsx`
+  - `apps/live-control-ui/src/surface/CapabilityList.test.tsx`
+  - `apps/live-control-ui/src/surface/InspectorPane.test.tsx`
+  - non-regression: `apps/live-control-ui/src/surface/AppendObservationAction.test.tsx`
+- Styling updates:
+  - `apps/live-control-ui/src/styles.css`
+- `cd apps/live-control-ui && npm test` → 14 files passed / 64 tests passed
+- `cd apps/live-control-ui && npm run build` → build succeeded
 
 ---
 

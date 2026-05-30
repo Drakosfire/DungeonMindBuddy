@@ -541,7 +541,8 @@ code {
   margin-top: 0.5rem;
 }
 
-.append-observation-form {
+.append-observation-form,
+.patch-artifact-form {
   margin-top: 0.5rem;
   display: flex;
   flex-direction: column;
@@ -549,7 +550,9 @@ code {
 }
 
 .append-observation-form textarea,
-.append-observation-form input {
+.append-observation-form input,
+.patch-artifact-form textarea,
+.patch-artifact-form input {
   width: 100%;
   border-radius: 6px;
   border: 1px solid #3a4358;
@@ -563,7 +566,13 @@ code {
   resize: vertical;
 }
 
-.append-observation-actions {
+.patch-artifact-form textarea {
+  min-height: 4.5rem;
+  resize: vertical;
+}
+
+.append-observation-actions,
+.patch-artifact-actions {
   display: flex;
   gap: 0.5rem;
   flex-wrap: wrap;
