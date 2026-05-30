@@ -4,6 +4,7 @@ import { getArtifact, getCapabilities, postCommand } from "../api/liveApi";
 import type {
   ArtifactReadResponse,
   CapabilityReadResponse,
+  CommandRefreshResult,
   ProjectionCommand,
   ProjectionTargetType,
   ProjectionWriteResult,
@@ -88,22 +89,39 @@ export function InspectorPane({ state, onClose, onCommandAccepted }: InspectorPa
     return postCommand(command);
   }
 
-  async function handleCommandAccepted(result: ProjectionWriteResult): Promise<void> {
+  async function handleCommandAccepted(
+    result: ProjectionWriteResult,
+  ): Promise<CommandRefreshResult> {
     if (state.status !== "open" || state.target == null || !isReadableTargetType(state.target.target_type)) {
-      return;
+      return {
+        status: "refresh_failed",
+        artifact: null,
+        error: "Refresh unavailable for this target type.",
+      };
     }
-    const [artifact, capabilities] = await Promise.all([
-      getArtifact({
-        target_type: state.target.target_type,
-        target_id: state.target.target_id,
-      }),
-      getCapabilities({
-        target_type: state.target.target_type,
-        target_id: state.target.target_id,
-      }),
-    ]);
-    setReadState({ status: "ready", artifact, capabilities });
-    await onCommandAccepted?.(result);
+    try {
+      const [artifact, capabilities] = await Promise.all([
+        getArtifact({
+          target_type: state.target.target_type,
+          target_id: state.target.target_id,
+        }),
+        getCapabilities({
+          target_type: state.target.target_type,
+          target_id: state.target.target_id,
+        }),
+      ]);
+      setReadState({ status: "ready", artifact, capabilities });
+      await onCommandAccepted?.(result);
+      return { status: "refreshed", artifact };
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : "Refresh failed after command acceptance.";
+      return {
+        status: "refresh_failed",
+        artifact: null,
+        error: message,
+      };
+    }
   }
 
   if (state.status === "closed") {

@@ -263,6 +263,12 @@ export interface PatchArtifactMetadata {
   };
 }
 
+export interface CommandRefreshResult {
+  status: "refreshed" | "refresh_failed";
+  artifact?: ArtifactReadResponse | null;
+  error?: string | null;
+}
+
 export interface TurnClassification {
   latency_mode: string;
   event_type: string;

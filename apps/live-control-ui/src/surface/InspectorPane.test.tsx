@@ -129,6 +129,106 @@ describe("InspectorPane", () => {
     expect(screen.getByRole("button", { name: /close/i })).toBeInTheDocument();
   });
 
+  it("shows verified read-after-write evidence after accepted patch and successful refresh", async () => {
+    const user = userEvent.setup();
+    vi.mocked(liveApi.getArtifact).mockResolvedValue(makeRollTableArtifact());
+    vi.mocked(liveApi.postCommand)
+      .mockResolvedValueOnce(
+        makeWriteResult({
+          status: "noop",
+          metadata: {
+            patch: {
+              dry_run: true,
+              file_state_token_before: "table-token-1",
+              file_state_token_after: "table-token-2",
+              replacement_count: 1,
+            },
+          },
+        }),
+      )
+      .mockResolvedValueOnce(
+        makeWriteResult({
+          status: "accepted",
+          events_appended: ["evt-patch-1"],
+          artifacts_changed: [
+            {
+              target_type: "roll_table",
+              target_id: "T-WX",
+              label: "Storm weather",
+              source_status: "authoritative",
+              metadata: {},
+            },
+          ],
+          metadata: {
+            patch: {
+              dry_run: false,
+              file_state_token_before: "table-token-1",
+              file_state_token_after: "table-token-1",
+              replacement_count: 1,
+            },
+          },
+        }),
+      );
+
+    render(<InspectorPane state={{ status: "open", target }} onClose={vi.fn()} />);
+    await screen.findByRole("button", { name: "Patch artifact" });
+    await user.click(screen.getByRole("button", { name: "Patch artifact" }));
+    await user.type(screen.getByLabelText("Text to replace"), "Calm skies");
+    await user.type(screen.getByLabelText("Replacement text"), "Heavy hail");
+    await user.click(screen.getByRole("button", { name: "Preview patch" }));
+    await user.click(screen.getByRole("button", { name: "Confirm patch" }));
+
+    expect(
+      await screen.findByText("Verified: refreshed artifact matches patched state."),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /close/i })).toBeInTheDocument();
+  });
+
+  it("shows accepted-refresh-failed evidence when reload fails after accepted patch", async () => {
+    const user = userEvent.setup();
+    vi.mocked(liveApi.getArtifact).mockResolvedValue(makeRollTableArtifact());
+    vi.mocked(liveApi.getCapabilities)
+      .mockResolvedValueOnce(makeCapabilityResponse())
+      .mockRejectedValueOnce(new Error("reload failed"));
+    vi.mocked(liveApi.postCommand)
+      .mockResolvedValueOnce(
+        makeWriteResult({
+          status: "noop",
+          metadata: {
+            patch: {
+              dry_run: true,
+            },
+          },
+        }),
+      )
+      .mockResolvedValueOnce(
+        makeWriteResult({
+          status: "accepted",
+          events_appended: ["evt-patch-2"],
+          metadata: {
+            patch: {
+              dry_run: false,
+              file_state_token_after: "table-token-2",
+            },
+          },
+        }),
+      );
+
+    render(<InspectorPane state={{ status: "open", target }} onClose={vi.fn()} />);
+    await screen.findByRole("button", { name: "Patch artifact" });
+    await user.click(screen.getByRole("button", { name: "Patch artifact" }));
+    await user.type(screen.getByLabelText("Text to replace"), "Calm skies");
+    await user.type(screen.getByLabelText("Replacement text"), "Heavy hail");
+    await user.click(screen.getByRole("button", { name: "Preview patch" }));
+    await user.click(screen.getByRole("button", { name: "Confirm patch" }));
+
+    expect(
+      await screen.findByText(/Patch accepted, but refresh failed\./),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Refresh error: reload failed")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /close/i })).toBeInTheDocument();
+  });
+
   it("renders selected metadata", async () => {
     const user = userEvent.setup();
     const onClose = vi.fn();
