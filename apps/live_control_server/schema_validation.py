@@ -38,6 +38,13 @@ def validate_live_job_row(row: dict[str, Any]) -> None:
         raise LiveRowValidationError(f"invalid live job row: {exc.message}") from exc
 
 
+def validate_live_packet(packet: dict[str, Any]) -> None:
+    try:
+        _validator("live_packet.schema.json").validate(packet)
+    except ValidationError as exc:
+        raise LiveRowValidationError(f"invalid live packet: {exc.message}") from exc
+
+
 def validate_live_surface_layout(layout: dict[str, Any]) -> None:
     try:
         _validator("live_surface_layout.schema.json").validate(layout)

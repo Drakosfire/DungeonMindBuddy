@@ -4,8 +4,8 @@
 
 - [x] Active slice: `L5_projection_command_architecture`
 - [x] L4 shell remains green on `main`
-- [x] Last green artifact: PR #88 (`pr88-l5j-roll-table-patch-ui-preview`) — preview-first roll-table patch UI through existing command path
-- [x] Next gate: L5L fresh recap ingestion / session bootstrap
+- [x] Last green artifact: PR #90 (`pr90-l5l-fresh-recap-ingestion-session-bootstrap`) — deterministic recap bootstrap CLI, planning_beats plan-view, dogfood runbook
+- [x] Next gate: L5M first dogfood planning round harness (PR91)
 - [ ] Re-read `STUDY-c2-live-play-cursor-handoff-process.md` before UI expansion work
 
 ---
@@ -569,6 +569,40 @@ cd apps/live-control-ui && npm run build
   - `apps/live-control-ui/src/styles.css`
 - `cd apps/live-control-ui && npm test` → tests passed
 - `cd apps/live-control-ui && npm run build` → build succeeded
+
+---
+
+## Phase L5L — Fresh Recap Ingestion / Session Bootstrap
+
+### Goal
+
+Bootstrap a live session workspace from a fresh recap file for first dogfooding planning.
+
+### Checklist
+
+- [x] Added `session_paths`, `recap_ingestion`, `session_bootstrap` modules.
+- [x] CLI: `uv run python -m src.live_play.session_bootstrap`.
+- [x] Writes `recap.md`, `live_packet.json`, `event_log.jsonl`, `job_queue.jsonl`, `current_state.json`, `surface_layout.json`.
+- [x] Optional `planning_beats` on live packet; plan-view uses beats when present.
+- [x] Deterministic recap heuristics (headings, bullets, open-loop phrases).
+- [x] No invented roll tables; empty `known_roll_tables` / `roll_stack`.
+- [x] Overwrite guard + `--force`; output dir under `evals/c2_live_prep/live/`.
+- [x] `--write-current-live` / `--activate` copies workspace to default live dir.
+- [x] Tests: bootstrap, ingestion, plan-view, server load.
+- [x] Runbook: `Docs/Plans/RUNBOOK-c2-first-dogfood-planning-round.md`.
+
+### Verification
+
+```bash
+uv run pytest tests/test_live_session_bootstrap.py tests/test_live_recap_ingestion.py -q
+uv run pytest tests/test_live_plan_view_projection.py tests/test_live_control_server.py tests/test_live_play_schemas.py -q
+uv run pytest tests/test_live_command_bus.py tests/test_live_artifact_reads.py tests/test_live_artifact_patching.py -q
+```
+
+### Evidence (PR #90, 2026-05-29)
+
+- Handoff: `Docs/Plans/HANDOFF-pr90-l5l-fresh-recap-ingestion-session-bootstrap.md`
+- Fixture: `tests/fixtures/live_bootstrap/session_22_fresh_recap.md`
 
 ---
 

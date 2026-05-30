@@ -79,6 +79,68 @@ def _loop_status(packet: dict[str, Any], loop_id: str) -> TimelineStatus:
     return "projected"
 
 
+def _build_planning_beats_timeline(
+    packet: dict[str, Any],
+    events: list[dict[str, Any]],
+) -> list[dict[str, Any]] | None:
+    beats = packet.get("planning_beats")
+    if not isinstance(beats, list) or not beats:
+        return None
+
+    bootstrap_event_ids = _event_ids_for(events, event_type="state_note")
+    rows: list[dict[str, Any]] = []
+    for beat in beats:
+        if not isinstance(beat, dict):
+            continue
+        beat_id = beat.get("beat_id")
+        label = beat.get("label")
+        if not isinstance(beat_id, str) or not beat_id.strip():
+            continue
+        if not isinstance(label, str) or not label.strip():
+            continue
+        open_loop_ids = [
+            loop.get("loop_id")
+            for loop in packet.get("open_loops", [])
+            if isinstance(loop, dict) and isinstance(loop.get("loop_id"), str)
+        ]
+        refs = [
+            _ref(
+                target_type="source_packet",
+                target_id="recap.md",
+                label="Fresh recap",
+                source_status="authoritative",
+                role="fresh_recap",
+            )
+        ]
+        if open_loop_ids:
+            refs.append(
+                _ref(
+                    target_type="open_loop",
+                    target_id=open_loop_ids[0],
+                    label=open_loop_ids[0].replace("-", " ").title(),
+                    source_status="authoritative",
+                    role="open_loop",
+                )
+            )
+        rows.append(
+            {
+                "id": f"beat-{beat_id}",
+                "label": label,
+                "status": beat.get("status") or "projected",
+                "time_hint": beat.get("time_hint"),
+                "summary": beat.get("summary") or label,
+                "table_ready_prompt": beat.get("table_ready_prompt")
+                or f"What should the table resolve for {label}?",
+                "refs": refs,
+                "state_links": _state_links(
+                    event_ids=bootstrap_event_ids[:1],
+                    open_loop_ids=open_loop_ids[:3],
+                ),
+            }
+        )
+    return rows or None
+
+
 def _build_seeded_timeline(packet: dict[str, Any], events: list[dict[str, Any]], jobs: list[dict[str, Any]]) -> list[dict[str, Any]]:
     correction_event_ids = _event_ids_for(events, event_type="canon_correction")
     commit_event_ids = _event_ids_for(events, event_type="canon_commit")
@@ -266,6 +328,10 @@ def build_session_plan_projection(
             ]
         )
 
+    timeline = _build_planning_beats_timeline(packet, events)
+    if timeline is None:
+        timeline = _build_seeded_timeline(packet, events, jobs)
+
     return {
         "schema_version": PLAN_VIEW_SCHEMA_VERSION,
         "campaign_id": packet["campaign_id"],
@@ -273,5 +339,5 @@ def build_session_plan_projection(
         "authoritative": False,
         "generated_at": generated_at or _now_utc(),
         "derived_from": derived_from,
-        "timeline": _build_seeded_timeline(packet, events, jobs),
+        "timeline": timeline,
     }
