@@ -130,6 +130,15 @@ def _default_surface_catalog() -> list[dict[str, Any]]:
             "config_schema": None,
         },
         {
+            "module_id": "ingestion",
+            "title": "Ingestion",
+            "default_slot": "sidebar",
+            "required": False,
+            "enabled_by_default": False,
+            "description": "Raw recap ingestion operator pane over PR92 orchestration.",
+            "config_schema": None,
+        },
+        {
             "module_id": "sources",
             "title": "Sources",
             "default_slot": "overlay",
@@ -167,6 +176,7 @@ def _default_surface_layout(
             {"module_id": "record", "slot": "sidebar", "order": 0, "enabled": True, "collapsed": False, "size": "1fr", "config": {"tail_count": 50}},
             {"module_id": "now", "slot": "sidebar", "order": 1, "enabled": True, "collapsed": False, "size": None, "config": {}},
             {"module_id": "open_loops", "slot": "sidebar", "order": 2, "enabled": True, "collapsed": False, "size": None, "config": {}},
+            {"module_id": "ingestion", "slot": "sidebar", "order": 3, "enabled": False, "collapsed": True, "size": None, "config": {}},
             {"module_id": "roll_stack", "slot": "bottom", "order": 0, "enabled": True, "collapsed": False, "size": "compact", "config": {"expand_tables_inline": True}},
             {"module_id": "timeline", "slot": "bottom", "order": 1, "enabled": True, "collapsed": False, "size": None, "config": {}},
             {"module_id": "queue", "slot": "bottom", "order": 2, "enabled": False, "collapsed": True, "size": "compact", "config": {"show_completed": False}},

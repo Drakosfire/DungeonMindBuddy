@@ -274,6 +274,15 @@
       "config_schema": null
     },
     {
+      "module_id": "ingestion",
+      "title": "Ingestion",
+      "default_slot": "sidebar",
+      "required": false,
+      "enabled_by_default": false,
+      "description": "Raw recap ingestion operator pane over PR92 orchestration.",
+      "config_schema": null
+    },
+    {
       "module_id": "sources",
       "title": "Sources",
       "default_slot": "overlay",

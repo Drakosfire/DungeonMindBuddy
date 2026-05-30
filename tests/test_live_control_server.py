@@ -371,5 +371,6 @@ def test_openapi_contains_required_live_paths(client: TestClient) -> None:
         "/api/live/artifact",
         "/api/live/capabilities",
         "/api/live/commands",
+        "/api/live/recap-ingest",
     }
     assert required <= paths

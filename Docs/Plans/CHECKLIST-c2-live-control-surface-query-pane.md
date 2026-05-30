@@ -5,7 +5,7 @@
 - [x] Active slice: `L5_projection_command_architecture`
 - [x] L4 shell remains green on `main`
 - [x] Last green artifact: PR #90 (`pr90-l5l-fresh-recap-ingestion-session-bootstrap`) — deterministic recap bootstrap CLI, planning_beats plan-view, dogfood runbook
-- [x] Next gate: L5M raw recap intake + ingestion orchestrator (PR92)
+- [x] Next gate: L5N ingestion pane shell / operator surface (PR93)
 - [ ] Re-read `STUDY-c2-live-play-cursor-handoff-process.md` before UI expansion work
 
 ---
@@ -637,6 +637,45 @@ uv run pytest tests/test_live_recap_ingest_pipeline.py -q
 uv run pytest tests/test_live_session_bootstrap.py -q
 uv run pytest tests/test_live_recap_ingestion.py -q
 uv run pytest tests/test_live_play_schemas.py -q
+```
+
+---
+
+## Phase L5N — Ingestion Pane Shell / Operator Surface (PR93)
+
+### Goal
+
+Expose PR92 recap ingestion as an optional live-control operator pane with explicit authority boundaries and `breadcrumb_required` stop semantics.
+
+### Checklist
+
+- [x] Added narrow backend route: `POST /api/live/recap-ingest`.
+- [x] Backend wraps `run_pipeline(...)` directly with operation-scoped options.
+- [x] API forbids browser-supplied server path fields (`extra="forbid"` request model).
+- [x] Added operation modes: `stage_preview`, `apply_normalize`, `materialize_session_memory`.
+- [x] Added backend route tests with mutation-boundary assertions.
+- [x] Added typed UI API client for recap ingest status.
+- [x] Added optional `ingestion` module renderer in module registry.
+- [x] Added ingestion pane with:
+  - [x] raw recap paste + stage/preview submit
+  - [x] apply/normalize guard on preview + non-generic slug/title
+  - [x] materialize-session-memory action with breadcrumb boundary handling
+  - [x] authority transition panel with explicit anti-collapse copy
+  - [x] spelling/entity audit rendered as review-only
+  - [x] read-only canonical preview diff (`<pre>`)
+  - [x] advanced overwrite controls behind explicit disclosure
+- [x] Added UI tests for state machine actions and guardrails.
+- [x] Added `ingestion` as optional module in catalog/layout schema + session bootstrap defaults.
+
+### Verification
+
+```bash
+uv run pytest tests/test_live_recap_ingest_api.py -q
+uv run pytest tests/test_live_recap_ingest_pipeline.py -q
+uv run pytest tests/test_live_session_bootstrap.py -q
+uv run pytest tests/test_live_play_schemas.py -q
+cd apps/live-control-ui && npm test
+cd apps/live-control-ui && npm run build
 ```
 
 ---

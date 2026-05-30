@@ -9,6 +9,7 @@ import type {
   SurfaceModuleDefinition,
   SurfaceModuleInstance,
 } from "../api/types";
+import { IngestionModule } from "../modules/IngestionModule";
 import { ChatModule } from "./modules/ChatModule";
 import { NowModule } from "./modules/NowModule";
 import { RecordModule } from "./modules/RecordModule";
@@ -74,6 +75,8 @@ export function renderModule(
           onSelectTarget={context.onSelectTarget}
         />
       );
+    case "ingestion":
+      return () => <IngestionModule campaignId={context.campaignId} session={context.session} />;
     default:
       return null;
   }
