@@ -49,6 +49,53 @@ roll tables          → prep tools, not happened facts
 live workspace       → active planning surface / observations
 ```
 
+## Raw recap ingestion path (PR92)
+
+Use the ingestion orchestrator before bootstrap when the source recap is still raw notes:
+
+```bash
+uv run python -m src.live_play.recap_ingest_pipeline \
+  --campaign-id longmont-c2 \
+  --session 22 \
+  --raw-path ~/notes/session_22_raw.md \
+  --stage \
+  --preview \
+  --json
+```
+
+Then apply + normalize:
+
+```bash
+uv run python -m src.live_play.recap_ingest_pipeline \
+  --campaign-id longmont-c2 \
+  --session 22 \
+  --raw-path ~/notes/session_22_raw.md \
+  --slug "Mireward Road and Lysandro" \
+  --stage \
+  --apply \
+  --normalize
+```
+
+Then materialize session memory (only after breadcrumb exists/blessed):
+
+```bash
+uv run python -m src.live_play.recap_ingest_pipeline \
+  --campaign-id longmont-c2 \
+  --session 22 \
+  --slug "Mireward Road and Lysandro" \
+  --materialize-session-memory \
+  --check
+```
+
+Pipeline interpretation:
+
+1. Stage raw recap under `_ingest_staging/session_<N>_raw_notes.md`.
+2. Preview canonical recap assembly (frontmatter + H1 + de-dup report).
+3. Apply only with non-generic slug/title.
+4. Normalize the canonical recap.
+5. Stop at `breadcrumb_required` if `_breadcrumbed/*.breadcrumbed.md` is absent.
+6. Materialize `_session_memory/*.records_meta.{jsonl,json}` only when breadcrumb exists.
+7. Treat session as planning-activation ready only after canonical recap + derivatives are in place.
 ## 2. Bootstrap a session workspace
 
 ```bash
