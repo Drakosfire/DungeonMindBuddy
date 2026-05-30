@@ -364,6 +364,54 @@
         },
         "additionalProperties": false
       }
+    },
+    "planning_beats": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "beat_id",
+          "label",
+          "summary",
+          "status",
+          "table_ready_prompt"
+        ],
+        "properties": {
+          "beat_id": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "label": {
+            "type": "string",
+            "minLength": 1
+          },
+          "summary": {
+            "type": "string",
+            "minLength": 1
+          },
+          "time_hint": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "projected",
+              "active",
+              "blocked",
+              "played"
+            ]
+          },
+          "table_ready_prompt": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "additionalProperties": false
+      }
     }
   },
   "additionalProperties": false

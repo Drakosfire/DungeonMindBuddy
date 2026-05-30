@@ -92,6 +92,33 @@ def test_get_plan_view_endpoint_returns_valid_payload(client: TestClient) -> Non
     assert body["timeline"]
 
 
+def test_builder_uses_planning_beats_when_present(tmp_path: Path) -> None:
+    import shutil
+
+    from src.live_play.session_bootstrap import bootstrap_session_workspace
+    from src.live_play.session_paths import live_sessions_root
+
+    fixture = ROOT / "tests/fixtures/live_bootstrap/session_22_fresh_recap.md"
+    out = live_sessions_root() / "_pytest" / tmp_path.name / "session_23"
+    if out.exists():
+        shutil.rmtree(out)
+    bootstrap_session_workspace(
+        recap_path=fixture,
+        campaign_id="longmont-c2",
+        session=23,
+        output_dir=out,
+        source_session=22,
+    )
+    try:
+        packet, _, events, jobs = load_session(out)
+        projection = build_session_plan_projection(packet, events, jobs, generated_at="2026-05-29T00:00:00Z")
+        assert len(projection["timeline"]) >= 2
+        assert projection["timeline"][0]["id"].startswith("beat-")
+    finally:
+        if out.exists():
+            shutil.rmtree(out, ignore_errors=True)
+
+
 def test_get_plan_view_endpoint_is_read_only(client: TestClient, isolated_session: Path) -> None:
     events_before = (isolated_session / "event_log.jsonl").read_text(encoding="utf-8")
     jobs_before = (isolated_session / "job_queue.jsonl").read_text(encoding="utf-8")
