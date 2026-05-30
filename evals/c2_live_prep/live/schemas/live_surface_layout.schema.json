@@ -54,6 +54,7 @@
               "open_loops",
               "roll_stack",
               "timeline",
+              "ingestion",
               "sources",
               "queue"
             ]

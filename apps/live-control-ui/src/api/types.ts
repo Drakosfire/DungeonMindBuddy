@@ -323,3 +323,35 @@ export interface ResolvedRollResponse {
   source_path: string;
   provenance: Record<string, unknown>;
 }
+
+export type RecapIngestOperation =
+  | "stage_preview"
+  | "apply_normalize"
+  | "materialize_session_memory";
+
+export interface RecapIngestRequest {
+  operation: RecapIngestOperation;
+  campaign_id: string;
+  session: number;
+  raw_text?: string;
+  slug?: string;
+  title?: string;
+  force_stage?: boolean;
+  force_recap?: boolean;
+  check?: boolean;
+}
+
+export interface RecapIngestStatus {
+  schema: "dmb_raw_recap_ingest_status_v1";
+  campaign_id: string;
+  session: number;
+  status: string;
+  states: string[];
+  paths: Record<string, string | null>;
+  authority: Record<string, string>;
+  warnings: string[];
+  errors: string[];
+  next_actions: string[];
+  ingest_report: Record<string, unknown>;
+  entity_spelling_audit: Array<Record<string, unknown>>;
+}
