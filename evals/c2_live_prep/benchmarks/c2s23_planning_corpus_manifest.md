@@ -13,7 +13,7 @@ Routes are repo-relative references; this manifest inlines no corpus prose. `rou
 | Session | Route | Exists | Admissible | Allowed | Forbidden |
 |---|---|---|---|---|---|
 | 21 | `corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/_ingest_staging/session_21_raw_notes.md` | yes | yes | provenance, pre_recap_evidence | play_facts |
-| 22 | `corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/_ingest_staging/session_22_raw_notes.md` | yes | yes | provenance, pre_recap_evidence | — |
+| 22 | `corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/_ingest_staging/session_22_raw_notes.md` | yes | yes | provenance, pre_recap_evidence | play_facts |
 
 ## play_recap — authority: canon_play
 
@@ -22,9 +22,9 @@ Routes are repo-relative references; this manifest inlines no corpus prose. `rou
 | 21 | `corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 21 - Drake Nest Mirathorn Call.breadcrumbed.md` | yes | yes | play_facts, open_loops, planning_context, continuity | — |
 | 21 | `corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 21 - Drake Nest Mirathorn Call.md` | yes | yes | play_facts, open_loops, planning_context, continuity | — |
 | 21 | `corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 21 - Drake Nest Mirathorn Call.md` | yes | yes | play_facts, open_loops, planning_context, continuity | — |
-| 22 | `corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - (uningested).breadcrumbed.md` | no | no | — | play_facts |
-| 22 | `corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - (uningested).md` | no | no | — | play_facts |
-| 22 | `corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 22 - (uningested).md` | no | no | — | play_facts |
+| 22 | `corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Gate Lysandro Ironveil.breadcrumbed.md` | no | no | — | play_facts |
+| 22 | `corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Gate Lysandro Ironveil.md` | yes | yes | play_facts, open_loops, planning_context, continuity | — |
+| 22 | `corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Gate Lysandro Ironveil.md` | yes | yes | play_facts, open_loops, planning_context, continuity | — |
 
 ## session_memory — authority: derived_memory
 
@@ -32,8 +32,8 @@ Routes are repo-relative references; this manifest inlines no corpus prose. `rou
 |---|---|---|---|---|---|
 | 21 | `corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 21 - Drake Nest Mirathorn Call.records_meta.json` | yes | yes | play_facts, search, routing, evidence_support | — |
 | 21 | `corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 21 - Drake Nest Mirathorn Call.records_meta.jsonl` | yes | yes | play_facts, search, routing, evidence_support | — |
-| 22 | `corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 22 - (uningested).records_meta.json` | no | no | — | play_facts |
-| 22 | `corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 22 - (uningested).records_meta.jsonl` | no | no | — | play_facts |
+| 22 | `corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 22 - Mireward Gate Lysandro Ironveil.records_meta.json` | no | no | — | play_facts |
+| 22 | `corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 22 - Mireward Gate Lysandro Ironveil.records_meta.jsonl` | no | no | — | play_facts |
 
 ## prep_scaffold — authority: planning_scaffold
 

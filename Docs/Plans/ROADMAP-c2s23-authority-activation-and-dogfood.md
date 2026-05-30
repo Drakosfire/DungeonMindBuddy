@@ -3,11 +3,16 @@ document_id: dmb-roadmap-c2s23-authority-activation-and-dogfood
 title: C2S23 Authority Activation and Dogfood Roadmap
 document_class: roadmap
 status: active
-version: 0.1
+version: 0.2
 created_at: "2026-05-30T03:45:00Z"
+last_updated_at: "2026-05-30T21:15:00Z"
 ---
 
 # C2S23 Authority Activation and Dogfood Roadmap
+
+## Changelog
+
+- **2026-05-30** (`02c0f9f`): **PR95 merged** — C2S23 activated planning corpus manifest (`src.live_play.planning_corpus_manifest`, schema-valid artifact, bootstrapped `session_23` workspace). Next: Step 0 Session 22 ingest completion (breadcrumb → session memory) then query/admission over manifest (git PR96 / roadmap PR93).
 
 ## Purpose
 
@@ -97,6 +102,8 @@ Suggested authority values:
 
 ### Step 0 — Ingest Session 22
 
+**Status:** in progress (2026-05-30). CLI apply+normalize landed canonical recap `Session 22 - Mireward Gate Lysandro Ironveil.md`; pipeline stopped at **`breadcrumb_required`** (expected). Next: bless/generate breadcrumb, then `--materialize-session-memory`.
+
 Run the existing content operation on staged Session 22 notes, then normalize, breadcrumb, and generate session memory.
 
 If the notes are not final, mark PR91 as using a projected post-ingest state.
@@ -110,6 +117,8 @@ Do not author questions by surveying source files. That risks oracle leakage.
 Capture manual baseline answers and friction using the current workflow.
 
 ### PR92 — C2S23 Activated Planning Corpus Manifest
+
+**Status:** ✅ merged as git **PR #95** (`02c0f9f`, 2026-05-30).
 
 Build the session-scoped activation manifest.
 

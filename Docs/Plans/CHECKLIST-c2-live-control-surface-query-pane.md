@@ -4,9 +4,22 @@
 
 - [x] Active slice: `L5_projection_command_architecture`
 - [x] L4 shell remains green on `main`
-- [x] Last green artifact: PR #95 — C2S23 activated planning corpus manifest (read-only `src.live_play.planning_corpus_manifest`; `evals/c2_live_prep/benchmarks/c2s23_planning_corpus_manifest.json`, schema-valid, 44 entries; `tests/test_planning_corpus_manifest.py`)
-- [ ] Next gate: query / admission **over** the activated manifest (roadmap PR93 / git PR96) — consume `route` + `authority` + allowed/forbidden uses; no retrieval was added in PR95
+- [x] Last green artifact: PR #95 (`02c0f9f`) — C2S23 activated planning corpus manifest (`src.live_play.planning_corpus_manifest`; `evals/c2_live_prep/benchmarks/c2s23_planning_corpus_manifest.json`, schema-valid, **43 entries** + bootstrapped `evals/c2_live_prep/live/session_23/*`; `tests/test_planning_corpus_manifest.py` **22 passed**)
+- [ ] Next gate: **Step 0** — complete Session 22 ingest (breadcrumb → session memory); then query/admission **over** the manifest (roadmap PR93 / git PR96)
 - [ ] Re-read `STUDY-c2-live-play-cursor-handoff-process.md` before UI expansion work
+
+---
+
+## Session Log (append newest first)
+
+### 2026-05-30 (UTC) — PR #95 merged + doc-sync; Step 0 ingest started
+
+- Phase moved: **L5 projection architecture stayed active**; C2S23 **manifest composition slice landed** (roadmap PR92 / git PR95).
+- What turned green: [PR #95](https://github.com/Drakosfire/DungeonMindBuddy/pull/95) **MERGED** to `main` (merge commit `02c0f9f8f2a4121ab18996412f2d53982b24b1a7`, 2026-05-30T21:01:45Z). Read-only manifest builder + schema + committed artifact + bootstrapped `session_23` workspace.
+- Pre-merge verification: `tests/test_planning_corpus_manifest.py` → **22 passed**; adjacent bootstrap/schema tests → **36 passed**; schema OK **43 entries**; corpus fingerprint unchanged across manifest build.
+- Known follow-up (not blocking merge): roll tables not registered in bootstrapped S23 `live_packet.json` (prep tables still in manifest as `prep_scaffold`).
+- What stayed open: query/admission over manifest (PR96); live `context_lookup`; Session 22 breadcrumb + session memory.
+- Next single action: **Complete Step 0** — bless breadcrumb for Session 22, materialize session memory, re-run manifest; dogfood via live-control ingestion pane against `session_23` workspace.
 
 ---
 
