@@ -11,6 +11,10 @@ interface IngestionModuleProps {
   session: number;
 }
 
+function defaultRecapSession(liveSession: number): number {
+  return Math.max(1, liveSession - 1);
+}
+
 type IngestionPaneState =
   | { status: "idle" }
   | { status: "previewing" }
@@ -42,6 +46,7 @@ function hasState(result: RecapIngestStatus | null, state: string): boolean {
 
 export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
   const [rawText, setRawText] = useState("");
+  const [recapSession, setRecapSession] = useState<number>(() => defaultRecapSession(session));
   const [slug, setSlug] = useState("");
   const [title, setTitle] = useState("");
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -51,10 +56,17 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
   const [state, setState] = useState<IngestionPaneState>({ status: "idle" });
   const [latestResult, setLatestResult] = useState<RecapIngestStatus | null>(null);
   const [previewSignature, setPreviewSignature] = useState<string | null>(null);
+  const validRecapSession = Number.isInteger(recapSession) && recapSession > 0;
 
   const currentSignature = useMemo(
-    () => JSON.stringify({ rawText: rawText.trim(), slug: slug.trim(), title: title.trim() }),
-    [rawText, slug, title],
+    () =>
+      JSON.stringify({
+        recapSession,
+        rawText: rawText.trim(),
+        slug: slug.trim(),
+        title: title.trim(),
+      }),
+    [recapSession, rawText, slug, title],
   );
   const previewInvalidated = previewSignature != null && previewSignature !== currentSignature;
   const busy = ["previewing", "applying", "materializing"].includes(state.status);
@@ -74,7 +86,7 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
       const result = await postRecapIngest({
         operation: "stage_preview",
         campaign_id: campaignId,
-        session,
+        session: recapSession,
         raw_text: rawText,
         slug: slug.trim() || undefined,
         title: title.trim() || undefined,
@@ -102,7 +114,7 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
       const result = await postRecapIngest({
         operation: "apply_normalize",
         campaign_id: campaignId,
-        session,
+        session: recapSession,
         slug: slug.trim() || undefined,
         title: title.trim() || undefined,
         force_recap: forceRecap || undefined,
@@ -128,7 +140,7 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
       const result = await postRecapIngest({
         operation: "materialize_session_memory",
         campaign_id: campaignId,
-        session,
+        session: recapSession,
         slug: slug.trim() || undefined,
         title: title.trim() || undefined,
         check: true,
@@ -155,8 +167,21 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
       <h2 className="module-title">Raw Recap Ingestion</h2>
       <p className="module-muted">Operator prep tool over the PR92 ingestion orchestrator.</p>
       <p className="module-muted">
-        Campaign: <strong>{campaignId}</strong> · Session: <strong>{session}</strong>
+        Campaign: <strong>{campaignId}</strong> · Live workspace session: <strong>{session}</strong>
       </p>
+
+      <label htmlFor="ingestion-recap-session">Recap/source session</label>
+      <input
+        id="ingestion-recap-session"
+        type="number"
+        min={1}
+        step={1}
+        value={recapSession}
+        onChange={(event) => {
+          const nextValue = Number.parseInt(event.target.value, 10);
+          setRecapSession(Number.isNaN(nextValue) ? 0 : nextValue);
+        }}
+      />
 
       <label htmlFor="ingestion-slug">Slug</label>
       <input
@@ -219,18 +244,22 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
         <button
           type="button"
           onClick={stagePreview}
-          disabled={busy || rawText.trim().length === 0}
+          disabled={busy || rawText.trim().length === 0 || !validRecapSession}
         >
           Stage + Preview
         </button>
         <button
           type="button"
           onClick={applyNormalize}
-          disabled={busy || !hasPreview || !genericGuardPass}
+          disabled={busy || !hasPreview || !genericGuardPass || !validRecapSession}
         >
           Apply + Normalize
         </button>
-        <button type="button" onClick={materializeSessionMemory} disabled={!canMaterialize}>
+        <button
+          type="button"
+          onClick={materializeSessionMemory}
+          disabled={!canMaterialize || !validRecapSession}
+        >
           Materialize Session Memory
         </button>
       </div>
@@ -251,6 +280,9 @@ export function IngestionModule({ campaignId, session }: IngestionModuleProps) {
       ) : null}
       {!genericGuardPass ? (
         <p className="module-muted">Apply is disabled until slug/title is non-generic.</p>
+      ) : null}
+      {!validRecapSession ? (
+        <p className="module-muted">Enter a valid recap/source session number (1+).</p>
       ) : null}
 
       <IngestionStatusPanel result={latestResult} />

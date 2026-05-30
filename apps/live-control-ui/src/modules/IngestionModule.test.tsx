@@ -58,6 +58,17 @@ function makeStatus(overrides: Partial<RecapIngestStatus> = {}): RecapIngestStat
 }
 
 describe("IngestionModule", () => {
+  it("renders editable recap/source session input", async () => {
+    const user = userEvent.setup();
+    render(<IngestionModule campaignId="longmont-c2" session={23} />);
+
+    const recapSessionInput = screen.getByLabelText("Recap/source session");
+    expect(recapSessionInput).toHaveValue(22);
+    await user.clear(recapSessionInput);
+    await user.type(recapSessionInput, "21");
+    expect(recapSessionInput).toHaveValue(21);
+  });
+
   it("renders from surface catalog when ingestion module is enabled", () => {
     const catalog = [
       ...mockCatalog,
@@ -106,12 +117,15 @@ describe("IngestionModule", () => {
     expect(screen.getByRole("button", { name: "Stage + Preview" })).toBeDisabled();
   });
 
-  it("submits stage_preview with raw_text and no raw_path", async () => {
+  it("submits stage_preview with edited recap session and no raw_path", async () => {
     const user = userEvent.setup();
     const spy = vi.spyOn(recapIngestApi, "postRecapIngest").mockResolvedValue(makeStatus());
     const commandSpy = vi.spyOn(liveApi, "postCommand");
 
-    render(<IngestionModule campaignId="longmont-c2" session={22} />);
+    render(<IngestionModule campaignId="longmont-c2" session={23} />);
+    const recapSessionInput = screen.getByLabelText("Recap/source session");
+    await user.clear(recapSessionInput);
+    await user.type(recapSessionInput, "21");
     await user.type(
       screen.getByLabelText("Raw recap text"),
       "Session 22 Recap\n\nThe group turns their focus...",
@@ -123,6 +137,7 @@ describe("IngestionModule", () => {
     expect(spy).toHaveBeenCalledWith(
       expect.objectContaining({
         operation: "stage_preview",
+        session: 21,
         raw_text: expect.stringContaining("Session 22 Recap"),
       }),
     );
@@ -175,14 +190,17 @@ describe("IngestionModule", () => {
     expect(screen.getByRole("button", { name: "Apply + Normalize" })).toBeDisabled();
   });
 
-  it("submits apply_normalize after valid preview", async () => {
+  it("submits apply_normalize with edited recap session after valid preview", async () => {
     const user = userEvent.setup();
     const spy = vi.spyOn(recapIngestApi, "postRecapIngest");
     spy
       .mockResolvedValueOnce(makeStatus())
       .mockResolvedValueOnce(makeStatus({ status: "breadcrumb_required", states: ["breadcrumb_required"], next_actions: ["Generate/bless breadcrumb artifact"] }));
 
-    render(<IngestionModule campaignId="longmont-c2" session={22} />);
+    render(<IngestionModule campaignId="longmont-c2" session={23} />);
+    const recapSessionInput = screen.getByLabelText("Recap/source session");
+    await user.clear(recapSessionInput);
+    await user.type(recapSessionInput, "21");
     await user.type(screen.getByLabelText("Raw recap text"), "Session 22 Recap\n\n...");
     await user.type(screen.getByLabelText("Slug"), "Mireward Road and Lysandro");
     await user.click(screen.getByRole("button", { name: "Stage + Preview" }));
@@ -191,13 +209,13 @@ describe("IngestionModule", () => {
 
     await waitFor(() =>
       expect(spy).toHaveBeenLastCalledWith(
-        expect.objectContaining({ operation: "apply_normalize" }),
+        expect.objectContaining({ operation: "apply_normalize", session: 21 }),
       ),
     );
     expect(screen.getByText(/Generate\/bless breadcrumb artifact/)).toBeInTheDocument();
   });
 
-  it("submits materialize_session_memory and shows ready state", async () => {
+  it("submits materialize_session_memory with edited recap session and shows ready state", async () => {
     const user = userEvent.setup();
     const spy = vi.spyOn(recapIngestApi, "postRecapIngest");
     spy
@@ -210,7 +228,10 @@ describe("IngestionModule", () => {
         }),
       );
 
-    render(<IngestionModule campaignId="longmont-c2" session={22} />);
+    render(<IngestionModule campaignId="longmont-c2" session={23} />);
+    const recapSessionInput = screen.getByLabelText("Recap/source session");
+    await user.clear(recapSessionInput);
+    await user.type(recapSessionInput, "21");
     await user.type(screen.getByLabelText("Raw recap text"), "Session 22 Recap\n\n...");
     await user.type(screen.getByLabelText("Slug"), "Mireward Road and Lysandro");
     await user.click(screen.getByRole("button", { name: "Stage + Preview" }));
@@ -221,7 +242,7 @@ describe("IngestionModule", () => {
 
     await waitFor(() =>
       expect(spy).toHaveBeenLastCalledWith(
-        expect.objectContaining({ operation: "materialize_session_memory" }),
+        expect.objectContaining({ operation: "materialize_session_memory", session: 21 }),
       ),
     );
     expect(screen.getAllByText("ready_for_planning_activation").length).toBeGreaterThan(0);
