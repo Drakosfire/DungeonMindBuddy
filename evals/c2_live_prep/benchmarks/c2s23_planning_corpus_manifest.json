@@ -6,8 +6,24 @@
     21,
     22
   ],
-  "generated_at": "2026-05-30T20:43:45Z",
+  "generated_at": "2026-05-30T20:55:05Z",
   "entries": [
+    {
+      "source_id": "fresh_recap-s23-session-23-recap-md",
+      "source_role": "fresh_recap",
+      "authority": "pre_canonical_evidence",
+      "session_scope": [
+        23
+      ],
+      "route": "evals/c2_live_prep/live/session_23/recap.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "planning_input"
+      ],
+      "forbidden_uses": [],
+      "notes": "Fresh recap bootstrapped into the workspace; planning input until ingested."
+    },
     {
       "source_id": "hub_evidence-s21-baergrom-readme-md",
       "source_role": "hub_evidence",
@@ -19,6 +35,7 @@
       ],
       "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/baergrom/README.md",
       "route_exists": true,
+      "admissible": true,
       "allowed_uses": [
         "planning_context",
         "continuity",
@@ -38,6 +55,7 @@
       ],
       "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/bonogo/README.md",
       "route_exists": true,
+      "admissible": true,
       "allowed_uses": [
         "planning_context",
         "continuity",
@@ -57,6 +75,7 @@
       ],
       "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/caelynn/README.md",
       "route_exists": true,
+      "admissible": true,
       "allowed_uses": [
         "planning_context",
         "continuity",
@@ -76,6 +95,7 @@
       ],
       "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/README.md",
       "route_exists": true,
+      "admissible": true,
       "allowed_uses": [
         "planning_context",
         "continuity",
@@ -95,6 +115,7 @@
       ],
       "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/dustwalker/README.md",
       "route_exists": true,
+      "admissible": true,
       "allowed_uses": [
         "planning_context",
         "continuity",
@@ -114,6 +135,7 @@
       ],
       "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/ephanna/README.md",
       "route_exists": true,
+      "admissible": true,
       "allowed_uses": [
         "planning_context",
         "continuity",
@@ -133,6 +155,7 @@
       ],
       "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Factions/README.md",
       "route_exists": true,
+      "admissible": true,
       "allowed_uses": [
         "planning_context",
         "continuity",
@@ -152,6 +175,7 @@
       ],
       "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/karsemine/README.md",
       "route_exists": true,
+      "admissible": true,
       "allowed_uses": [
         "planning_context",
         "continuity",
@@ -171,6 +195,7 @@
       ],
       "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Plot Artifacts/README.md",
       "route_exists": true,
+      "admissible": true,
       "allowed_uses": [
         "planning_context",
         "continuity",
@@ -190,6 +215,7 @@
       ],
       "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/README.md",
       "route_exists": true,
+      "admissible": true,
       "allowed_uses": [
         "planning_context",
         "continuity",
@@ -209,6 +235,7 @@
       ],
       "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/stafl/README.md",
       "route_exists": true,
+      "admissible": true,
       "allowed_uses": [
         "planning_context",
         "continuity",
@@ -228,6 +255,7 @@
       ],
       "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/thrin_branchborn/README.md",
       "route_exists": true,
+      "admissible": true,
       "allowed_uses": [
         "planning_context",
         "continuity",
@@ -247,6 +275,7 @@
       ],
       "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/torbin_jove/README.md",
       "route_exists": true,
+      "admissible": true,
       "allowed_uses": [
         "planning_context",
         "continuity",
@@ -256,14 +285,15 @@
       "notes": "Campaign hub index; canonical reference for continuity and grounding."
     },
     {
-      "source_id": "live_event-s22-session-22-event-log-jsonl",
+      "source_id": "live_event-s23-session-23-event-log-jsonl",
       "source_role": "live_event",
       "authority": "live_observation",
       "session_scope": [
-        22
+        23
       ],
-      "route": "evals/c2_live_prep/live/session_22/event_log.jsonl",
+      "route": "evals/c2_live_prep/live/session_23/event_log.jsonl",
       "route_exists": true,
+      "admissible": true,
       "allowed_uses": [
         "observed_play",
         "planning_observation",
@@ -275,14 +305,15 @@
       "notes": "Live event log; observations appended during play, not retroactive canon."
     },
     {
-      "source_id": "live_packet-s22-session-22-live-packet-json",
+      "source_id": "live_packet-s23-session-23-live-packet-json",
       "source_role": "live_packet",
       "authority": "planning_scaffold",
       "session_scope": [
-        22
+        23
       ],
-      "route": "evals/c2_live_prep/live/session_22/live_packet.json",
+      "route": "evals/c2_live_prep/live/session_23/live_packet.json",
       "route_exists": true,
+      "admissible": true,
       "allowed_uses": [
         "active_session_orientation",
         "planning_context"
@@ -290,7 +321,7 @@
       "forbidden_uses": [
         "play_facts"
       ],
-      "notes": "Active live-control packet for the planning workspace."
+      "notes": "Active live-control packet for Session 23 planning workspace."
     },
     {
       "source_id": "play_recap-s21-breadcrumbed-session-21-drake-nest-mirathorn-call-breadcrumbed-md",
@@ -301,6 +332,7 @@
       ],
       "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 21 - Drake Nest Mirathorn Call.breadcrumbed.md",
       "route_exists": true,
+      "admissible": true,
       "allowed_uses": [
         "play_facts",
         "open_loops",
@@ -319,6 +351,7 @@
       ],
       "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 21 - Drake Nest Mirathorn Call.md",
       "route_exists": true,
+      "admissible": true,
       "allowed_uses": [
         "play_facts",
         "open_loops",
@@ -337,6 +370,7 @@
       ],
       "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 21 - Drake Nest Mirathorn Call.md",
       "route_exists": true,
+      "admissible": true,
       "allowed_uses": [
         "play_facts",
         "open_loops",
@@ -355,13 +389,11 @@
       ],
       "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - (uningested).breadcrumbed.md",
       "route_exists": false,
-      "allowed_uses": [
-        "play_facts",
-        "open_loops",
-        "planning_context",
-        "continuity"
+      "admissible": false,
+      "allowed_uses": [],
+      "forbidden_uses": [
+        "play_facts"
       ],
-      "forbidden_uses": [],
       "notes": "Breadcrumbed (route-anchored) recap; canonical play memory. Not yet materialized (session not ingested)."
     },
     {
@@ -373,13 +405,11 @@
       ],
       "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - (uningested).md",
       "route_exists": false,
-      "allowed_uses": [
-        "play_facts",
-        "open_loops",
-        "planning_context",
-        "continuity"
+      "admissible": false,
+      "allowed_uses": [],
+      "forbidden_uses": [
+        "play_facts"
       ],
-      "forbidden_uses": [],
       "notes": "Normalized recap; canonical play memory. Not yet materialized (session not ingested)."
     },
     {
@@ -391,13 +421,11 @@
       ],
       "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 22 - (uningested).md",
       "route_exists": false,
-      "allowed_uses": [
-        "play_facts",
-        "open_loops",
-        "planning_context",
-        "continuity"
+      "admissible": false,
+      "allowed_uses": [],
+      "forbidden_uses": [
+        "play_facts"
       ],
-      "forbidden_uses": [],
       "notes": "Played recap of what happened; canonical play memory. Not yet materialized (session not ingested)."
     },
     {
@@ -409,6 +437,7 @@
       ],
       "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/Session 21 - brainstorming dump.md",
       "route_exists": true,
+      "admissible": true,
       "allowed_uses": [
         "planning_context",
         "reusable_prep"
@@ -427,6 +456,7 @@
       ],
       "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/Session 21 - Mossford Saltfen rumor shop.md",
       "route_exists": true,
+      "admissible": true,
       "allowed_uses": [
         "planning_context",
         "reusable_prep"
@@ -445,6 +475,7 @@
       ],
       "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/Session 21 - prep exercise agentic trace.md",
       "route_exists": true,
+      "admissible": true,
       "allowed_uses": [
         "planning_context",
         "reusable_prep"
@@ -463,6 +494,26 @@
       ],
       "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/Session 21 - Session intro.md",
       "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "planning_context",
+        "reusable_prep"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "GM prep scaffold; planning intent, not a played fact."
+    },
+    {
+      "source_id": "prep_scaffold-s22-session-22-mireward-gate-dilemma-d6-md",
+      "source_role": "prep_scaffold",
+      "authority": "planning_scaffold",
+      "session_scope": [
+        22
+      ],
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/mireward_gate_dilemma_d6.md",
+      "route_exists": true,
+      "admissible": true,
       "allowed_uses": [
         "planning_context",
         "reusable_prep"
@@ -481,6 +532,7 @@
       ],
       "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_planning_anchor.md",
       "route_exists": true,
+      "admissible": true,
       "allowed_uses": [
         "planning_context",
         "reusable_prep"
@@ -499,6 +551,7 @@
       ],
       "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_prep_brief.md",
       "route_exists": true,
+      "admissible": true,
       "allowed_uses": [
         "planning_context",
         "reusable_prep"
@@ -517,6 +570,45 @@
       ],
       "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_travel_to_mireward_runbook.md",
       "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "planning_context",
+        "reusable_prep"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "GM prep scaffold; planning intent, not a played fact."
+    },
+    {
+      "source_id": "prep_scaffold-s22-session-22-travel-campfire-d8-md",
+      "source_role": "prep_scaffold",
+      "authority": "planning_scaffold",
+      "session_scope": [
+        22
+      ],
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/travel_campfire_d8.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "planning_context",
+        "reusable_prep"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "GM prep scaffold; planning intent, not a played fact."
+    },
+    {
+      "source_id": "prep_scaffold-s22-session-22-travel-dilemma-d12-md",
+      "source_role": "prep_scaffold",
+      "authority": "planning_scaffold",
+      "session_scope": [
+        22
+      ],
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/travel_dilemma_d12.md",
+      "route_exists": true,
+      "admissible": true,
       "allowed_uses": [
         "planning_context",
         "reusable_prep"
@@ -535,6 +627,64 @@
       ],
       "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/travel_mirathorn_comms_d100.md",
       "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "planning_context",
+        "reusable_prep"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "GM prep scaffold; planning intent, not a played fact."
+    },
+    {
+      "source_id": "prep_scaffold-s22-session-22-travel-night-watch-d12-md",
+      "source_role": "prep_scaffold",
+      "authority": "planning_scaffold",
+      "session_scope": [
+        22
+      ],
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/travel_night_watch_d12.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "planning_context",
+        "reusable_prep"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "GM prep scaffold; planning intent, not a played fact."
+    },
+    {
+      "source_id": "prep_scaffold-s22-session-22-travel-npc-spotlight-d12-md",
+      "source_role": "prep_scaffold",
+      "authority": "planning_scaffold",
+      "session_scope": [
+        22
+      ],
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/travel_npc_spotlight_d12.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "planning_context",
+        "reusable_prep"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "GM prep scaffold; planning intent, not a played fact."
+    },
+    {
+      "source_id": "prep_scaffold-s22-session-22-travel-storm-weather-d20-md",
+      "source_role": "prep_scaffold",
+      "authority": "planning_scaffold",
+      "session_scope": [
+        22
+      ],
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/travel_storm_weather_d20.md",
+      "route_exists": true,
+      "admissible": true,
       "allowed_uses": [
         "planning_context",
         "reusable_prep"
@@ -553,6 +703,7 @@
       ],
       "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/Session 22 - open GM knobs.md",
       "route_exists": true,
+      "admissible": true,
       "allowed_uses": [
         "planning_context",
         "reusable_prep"
@@ -563,150 +714,6 @@
       "notes": "GM prep scaffold; planning intent, not a played fact."
     },
     {
-      "source_id": "roll_table-s22-roads-mireward-reach-road-d100-encounter-table-md",
-      "source_role": "roll_table",
-      "authority": "reference_tool",
-      "session_scope": [
-        22
-      ],
-      "route": "corpus/eldyrwild-markdown/Elderwyld/Roads/mireward_reach_road_d100_encounter_table.md",
-      "route_exists": true,
-      "allowed_uses": [
-        "table_use",
-        "table_patch"
-      ],
-      "forbidden_uses": [
-        "play_facts"
-      ],
-      "notes": "Prep roll table (Road encounter); a tool, not a played fact."
-    },
-    {
-      "source_id": "roll_table-s22-session-22-mireward-gate-dilemma-d6-md",
-      "source_role": "roll_table",
-      "authority": "reference_tool",
-      "session_scope": [
-        22
-      ],
-      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/mireward_gate_dilemma_d6.md",
-      "route_exists": true,
-      "allowed_uses": [
-        "table_use",
-        "table_patch"
-      ],
-      "forbidden_uses": [
-        "play_facts"
-      ],
-      "notes": "Prep roll table (Gate dilemma); a tool, not a played fact."
-    },
-    {
-      "source_id": "roll_table-s22-session-22-travel-campfire-d8-md",
-      "source_role": "roll_table",
-      "authority": "reference_tool",
-      "session_scope": [
-        22
-      ],
-      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/travel_campfire_d8.md",
-      "route_exists": true,
-      "allowed_uses": [
-        "table_use",
-        "table_patch"
-      ],
-      "forbidden_uses": [
-        "play_facts"
-      ],
-      "notes": "Prep roll table (Campfire roleplay); a tool, not a played fact."
-    },
-    {
-      "source_id": "roll_table-s22-session-22-travel-dilemma-d12-md",
-      "source_role": "roll_table",
-      "authority": "reference_tool",
-      "session_scope": [
-        22
-      ],
-      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/travel_dilemma_d12.md",
-      "route_exists": true,
-      "allowed_uses": [
-        "table_use",
-        "table_patch"
-      ],
-      "forbidden_uses": [
-        "play_facts"
-      ],
-      "notes": "Prep roll table (Travel dilemma); a tool, not a played fact."
-    },
-    {
-      "source_id": "roll_table-s22-session-22-travel-night-watch-d12-md",
-      "source_role": "roll_table",
-      "authority": "reference_tool",
-      "session_scope": [
-        22
-      ],
-      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/travel_night_watch_d12.md",
-      "route_exists": true,
-      "allowed_uses": [
-        "table_use",
-        "table_patch"
-      ],
-      "forbidden_uses": [
-        "play_facts"
-      ],
-      "notes": "Prep roll table (Night watch); a tool, not a played fact."
-    },
-    {
-      "source_id": "roll_table-s22-session-22-travel-npc-spotlight-d12-md",
-      "source_role": "roll_table",
-      "authority": "reference_tool",
-      "session_scope": [
-        22
-      ],
-      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/travel_npc_spotlight_d12.md",
-      "route_exists": true,
-      "allowed_uses": [
-        "table_use",
-        "table_patch"
-      ],
-      "forbidden_uses": [
-        "play_facts"
-      ],
-      "notes": "Prep roll table (NPC spotlight); a tool, not a played fact."
-    },
-    {
-      "source_id": "roll_table-s22-session-22-travel-storm-weather-d20-md",
-      "source_role": "roll_table",
-      "authority": "reference_tool",
-      "session_scope": [
-        22
-      ],
-      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/travel_storm_weather_d20.md",
-      "route_exists": true,
-      "allowed_uses": [
-        "table_use",
-        "table_patch"
-      ],
-      "forbidden_uses": [
-        "play_facts"
-      ],
-      "notes": "Prep roll table (Storm weather); a tool, not a played fact."
-    },
-    {
-      "source_id": "roll_table-s22-wilderness-conical-hills-night-camp-d100-md",
-      "source_role": "roll_table",
-      "authority": "reference_tool",
-      "session_scope": [
-        22
-      ],
-      "route": "corpus/eldyrwild-markdown/Elderwyld/Wilderness/conical_hills_night_camp_d100.md",
-      "route_exists": true,
-      "allowed_uses": [
-        "table_use",
-        "table_patch"
-      ],
-      "forbidden_uses": [
-        "play_facts"
-      ],
-      "notes": "Prep roll table (Conical hills night camp); a tool, not a played fact."
-    },
-    {
       "source_id": "session_memory-s21-session-memory-session-21-drake-nest-mirathorn-call-records-meta-json",
       "source_role": "session_memory",
       "authority": "derived_memory",
@@ -715,6 +722,7 @@
       ],
       "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 21 - Drake Nest Mirathorn Call.records_meta.json",
       "route_exists": true,
+      "admissible": true,
       "allowed_uses": [
         "play_facts",
         "search",
@@ -733,6 +741,7 @@
       ],
       "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 21 - Drake Nest Mirathorn Call.records_meta.jsonl",
       "route_exists": true,
+      "admissible": true,
       "allowed_uses": [
         "play_facts",
         "search",
@@ -751,13 +760,11 @@
       ],
       "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 22 - (uningested).records_meta.json",
       "route_exists": false,
-      "allowed_uses": [
-        "play_facts",
-        "search",
-        "routing",
-        "evidence_support"
+      "admissible": false,
+      "allowed_uses": [],
+      "forbidden_uses": [
+        "play_facts"
       ],
-      "forbidden_uses": [],
       "notes": "Retrieval-record metadata derived from the recap. Not yet materialized (session not ingested)."
     },
     {
@@ -769,13 +776,11 @@
       ],
       "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 22 - (uningested).records_meta.jsonl",
       "route_exists": false,
-      "allowed_uses": [
-        "play_facts",
-        "search",
-        "routing",
-        "evidence_support"
+      "admissible": false,
+      "allowed_uses": [],
+      "forbidden_uses": [
+        "play_facts"
       ],
-      "forbidden_uses": [],
       "notes": "Retrieval records derived from the recap. Not yet materialized (session not ingested)."
     },
     {
@@ -787,6 +792,7 @@
       ],
       "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/_ingest_staging/session_21_raw_notes.md",
       "route_exists": true,
+      "admissible": true,
       "allowed_uses": [
         "provenance",
         "pre_recap_evidence"
@@ -805,6 +811,7 @@
       ],
       "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/_ingest_staging/session_22_raw_notes.md",
       "route_exists": true,
+      "admissible": true,
       "allowed_uses": [
         "provenance",
         "pre_recap_evidence"
@@ -812,5 +819,6 @@
       "forbidden_uses": [],
       "notes": "Pre-canonical table notes; current evidence until a recap is written."
     }
-  ]
+  ],
+  "planning_live_workspace_dir": "evals/c2_live_prep/live/session_23"
 }

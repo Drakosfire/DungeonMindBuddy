@@ -1,0 +1,249 @@
+{
+  "schema_version": "0.1.0",
+  "campaign_id": "longmont-c2",
+  "session": 23,
+  "packet_id": "longmont-c2-session-23-live-packet",
+  "created_at": "2026-05-30T20:55:02Z",
+  "source_paths": [
+    {
+      "path": "recap.md",
+      "role": "fresh_recap",
+      "notes": "Bootstrapped from tests/fixtures/live_bootstrap/session_22_fresh_recap.md"
+    }
+  ],
+  "latency_modes": [
+    "fast_live",
+    "context_lookup",
+    "prep_architect",
+    "post_session"
+  ],
+  "known_roll_tables": [],
+  "current_state_seed": {
+    "day_label": "Session 23",
+    "party_position": "From recap bootstrap",
+    "route_intent": "Review recap and prepare next session",
+    "active_weather": null,
+    "next_suggested_beat": "Silver Raven comms pressure"
+  },
+  "open_loops": [
+    {
+      "loop_id": "the-table-should-decide-who-carries-the-next-out",
+      "title": "The table should decide who carries the next outbound message before the march d",
+      "status": "open",
+      "summary": "- The table should decide who carries the next outbound message before the march day ends.",
+      "source_paths": [
+        {
+          "path": "recap.md",
+          "role": "fresh_recap",
+          "notes": "- The table should decide who carries the next outbound message before the march day ends."
+        }
+      ]
+    },
+    {
+      "loop_id": "storm-fronts-made-the-first-march-day-tense-we-n",
+      "title": "Storm fronts made the first march day tense; we need to plan the next weather ro",
+      "status": "open",
+      "summary": "- Storm fronts made the first march day tense; we need to plan the next weather roll beat for Session 23.",
+      "source_paths": [
+        {
+          "path": "recap.md",
+          "role": "fresh_recap",
+          "notes": "- Storm fronts made the first march day tense; we need to plan the next weather roll beat for Session 23."
+        }
+      ]
+    },
+    {
+      "loop_id": "hester-mull-appeared-as-a-courier-encounter-unre",
+      "title": "Hester Mull appeared as a courier encounter; unresolved whether the party trusts",
+      "status": "open",
+      "summary": "- Hester Mull appeared as a courier encounter; unresolved whether the party trusts the detour offer.",
+      "source_paths": [
+        {
+          "path": "recap.md",
+          "role": "fresh_recap",
+          "notes": "- Hester Mull appeared as a courier encounter; unresolved whether the party trusts the detour offer."
+        }
+      ]
+    },
+    {
+      "loop_id": "grobnok-promised-evening-contact-again-this-thre",
+      "title": "Grobnok promised evening contact again. This thread is still open and should fol",
+      "status": "open",
+      "summary": "Grobnok promised evening contact again. This thread is still open and should follow into next session prep.",
+      "source_paths": [
+        {
+          "path": "recap.md",
+          "role": "fresh_recap",
+          "notes": "Grobnok promised evening contact again. This thread is still open and should follow into next session prep."
+        }
+      ]
+    }
+  ],
+  "roll_stack": [],
+  "planning_beats": [
+    {
+      "beat_id": "silver-raven-comms-pressure",
+      "label": "Silver Raven comms pressure",
+      "summary": "Silver Raven comms pressure",
+      "time_hint": null,
+      "status": "projected",
+      "table_ready_prompt": "What should the table resolve for Silver Raven comms pressure?"
+    },
+    {
+      "beat_id": "captain-lysandra-ironveil-still-owes-a-reply-on-",
+      "label": "Captain Lysandra Ironveil still owes a reply on the Silver Raven dispatch thread",
+      "summary": "Captain Lysandra Ironveil still owes a reply on the Silver Raven dispatch thread.",
+      "time_hint": "Silver Raven comms pressure",
+      "status": "projected",
+      "table_ready_prompt": "Review prep for: Captain Lysandra Ironveil still owes a reply on the Silver Raven dispatch thread."
+    },
+    {
+      "beat_id": "the-table-should-decide-who-carries-the-next-out",
+      "label": "The table should decide who carries the next outbound message before the march d",
+      "summary": "The table should decide who carries the next outbound message before the march day ends.",
+      "time_hint": "Silver Raven comms pressure",
+      "status": "projected",
+      "table_ready_prompt": "Review prep for: The table should decide who carries the next outbound message before the march day ends."
+    },
+    {
+      "beat_id": "road-and-weather-beats",
+      "label": "Road and weather beats",
+      "summary": "Road and weather beats",
+      "time_hint": null,
+      "status": "projected",
+      "table_ready_prompt": "What should the table resolve for Road and weather beats?"
+    },
+    {
+      "beat_id": "storm-fronts-made-the-first-march-day-tense-we-n",
+      "label": "Storm fronts made the first march day tense; we need to plan the next weather ro",
+      "summary": "Storm fronts made the first march day tense; we need to plan the next weather roll beat for Session 23.",
+      "time_hint": "Road and weather beats",
+      "status": "projected",
+      "table_ready_prompt": "Review prep for: Storm fronts made the first march day tense; we need to plan the next weather roll beat for Session "
+    },
+    {
+      "beat_id": "hester-mull-appeared-as-a-courier-encounter-unre",
+      "label": "Hester Mull appeared as a courier encounter; unresolved whether the party trusts",
+      "summary": "Hester Mull appeared as a courier encounter; unresolved whether the party trusts the detour offer.",
+      "time_hint": "Road and weather beats",
+      "status": "projected",
+      "table_ready_prompt": "Review prep for: Hester Mull appeared as a courier encounter; unresolved whether the party trusts the detour offer."
+    },
+    {
+      "beat_id": "grobnok-callback",
+      "label": "Grobnok callback",
+      "summary": "Grobnok callback",
+      "time_hint": null,
+      "status": "projected",
+      "table_ready_prompt": "What should the table resolve for Grobnok callback?"
+    },
+    {
+      "beat_id": "mireward-gate-planning",
+      "label": "Mireward gate planning",
+      "summary": "Mireward gate planning",
+      "time_hint": null,
+      "status": "projected",
+      "table_ready_prompt": "What should the table resolve for Mireward gate planning?"
+    },
+    {
+      "beat_id": "review-gate-arrival-framing-and-lysandra-reveal-",
+      "label": "Review gate arrival framing and Lysandra reveal timing for the opening beat.",
+      "summary": "Review gate arrival framing and Lysandra reveal timing for the opening beat.",
+      "time_hint": "Mireward gate planning",
+      "status": "projected",
+      "table_ready_prompt": "Review prep for: Review gate arrival framing and Lysandra reveal timing for the opening beat."
+    },
+    {
+      "beat_id": "plan-whether-the-gate-dilemma-table-is-the-first",
+      "label": "Plan whether the gate dilemma table is the first roll at the apron.",
+      "summary": "Plan whether the gate dilemma table is the first roll at the apron.",
+      "time_hint": "Mireward gate planning",
+      "status": "projected",
+      "table_ready_prompt": "Review prep for: Plan whether the gate dilemma table is the first roll at the apron."
+    }
+  ],
+  "surface_catalog": [
+    {
+      "module_id": "chat",
+      "title": "Chat",
+      "default_slot": "main",
+      "required": true,
+      "enabled_by_default": true,
+      "description": "Live query input and classification.",
+      "config_schema": null
+    },
+    {
+      "module_id": "record",
+      "title": "Record",
+      "default_slot": "sidebar",
+      "required": true,
+      "enabled_by_default": true,
+      "description": "Append-only session event stream.",
+      "config_schema": null
+    },
+    {
+      "module_id": "now",
+      "title": "Now",
+      "default_slot": "sidebar",
+      "required": false,
+      "enabled_by_default": true,
+      "description": "Current planning frame from recap bootstrap.",
+      "config_schema": null
+    },
+    {
+      "module_id": "open_loops",
+      "title": "Open loops",
+      "default_slot": "sidebar",
+      "required": false,
+      "enabled_by_default": true,
+      "description": "Recap-derived open threads for next-session prep.",
+      "config_schema": null
+    },
+    {
+      "module_id": "roll_stack",
+      "title": "Roll stack",
+      "default_slot": "bottom",
+      "required": false,
+      "enabled_by_default": true,
+      "description": "Pending tables when seeded later; empty at bootstrap.",
+      "config_schema": null
+    },
+    {
+      "module_id": "timeline",
+      "title": "Timeline",
+      "default_slot": "bottom",
+      "required": false,
+      "enabled_by_default": true,
+      "description": "Plan-view beats from recap ingestion.",
+      "config_schema": null
+    },
+    {
+      "module_id": "ingestion",
+      "title": "Ingestion",
+      "default_slot": "sidebar",
+      "required": false,
+      "enabled_by_default": false,
+      "description": "Raw recap ingestion operator pane over PR92 orchestration.",
+      "config_schema": null
+    },
+    {
+      "module_id": "sources",
+      "title": "Sources",
+      "default_slot": "overlay",
+      "required": false,
+      "enabled_by_default": false,
+      "description": "Context lookup provenance (off until wired).",
+      "config_schema": null
+    },
+    {
+      "module_id": "queue",
+      "title": "Queue",
+      "default_slot": "bottom",
+      "required": false,
+      "enabled_by_default": false,
+      "description": "Background jobs; none seeded at bootstrap.",
+      "config_schema": null
+    }
+  ],
+  "context_packets": []
+}

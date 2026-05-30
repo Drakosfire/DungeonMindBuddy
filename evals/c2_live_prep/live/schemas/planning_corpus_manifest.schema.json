@@ -36,6 +36,10 @@
       "type": "string",
       "format": "date-time"
     },
+    "planning_live_workspace_dir": {
+      "type": "string",
+      "minLength": 1
+    },
     "entries": {
       "type": "array",
       "items": {
@@ -47,6 +51,7 @@
           "session_scope",
           "route",
           "route_exists",
+          "admissible",
           "allowed_uses",
           "forbidden_uses"
         ],
@@ -96,6 +101,9 @@
             "minLength": 1
           },
           "route_exists": {
+            "type": "boolean"
+          },
+          "admissible": {
             "type": "boolean"
           },
           "allowed_uses": {

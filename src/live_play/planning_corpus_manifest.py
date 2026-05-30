@@ -143,6 +143,7 @@ class ManifestEntry:
     session_scope: list[int]
     route: str
     route_exists: bool
+    admissible: bool
     allowed_uses: list[str]
     forbidden_uses: list[str]
     notes: str | None = None
@@ -155,6 +156,7 @@ class ManifestEntry:
             "session_scope": list(self.session_scope),
             "route": self.route,
             "route_exists": self.route_exists,
+            "admissible": self.admissible,
             "allowed_uses": list(self.allowed_uses),
             "forbidden_uses": list(self.forbidden_uses),
             "notes": self.notes,
@@ -268,6 +270,11 @@ def _build_entry(
     forbidden = list(_FORBIDDEN_BY_ROLE[role])
     if forbid_play_facts and PLAY_FACT_USE not in forbidden:
         forbidden.append(PLAY_FACT_USE)
+    # Non-materialized routes must not advertise allowed uses (especially play_facts).
+    admissible = route_exists
+    allowed = list(_ALLOWED_BY_ROLE[role]) if admissible else []
+    if not admissible and PLAY_FACT_USE not in forbidden:
+        forbidden.append(PLAY_FACT_USE)
     return ManifestEntry(
         source_id=_make_source_id(role, scope, route),
         source_role=role,  # type: ignore[arg-type]
@@ -275,10 +282,35 @@ def _build_entry(
         session_scope=scope,
         route=route,
         route_exists=route_exists,
-        allowed_uses=list(_ALLOWED_BY_ROLE[role]),
+        admissible=admissible,
+        allowed_uses=allowed,
         forbidden_uses=forbidden,
         notes=notes,
     )
+
+
+def _resolve_live_workspace_session(
+    live_workspace_dir: Path,
+    *,
+    planning_session: int,
+    allow_session_mismatch: bool,
+) -> int:
+    packet_path = live_workspace_dir / "live_packet.json"
+    if not packet_path.is_file():
+        return int(planning_session)
+    packet = json.loads(packet_path.read_text(encoding="utf-8"))
+    packet_session = int(packet.get("session", planning_session))
+    if packet_session != planning_session and not allow_session_mismatch:
+        raise ValueError(
+            f"live_packet.session ({packet_session}) does not match planning_session "
+            f"({planning_session}) for workspace {live_workspace_dir}; bootstrap a "
+            f"session_{planning_session} workspace or pass allow_live_workspace_session_mismatch=True"
+        )
+    return packet_session
+
+
+def _live_workspace_relpath(live_workspace_dir: Path, repo: Path) -> str:
+    return _relativize(live_workspace_dir.resolve(), repo, live_workspace_dir)
 
 
 def build_planning_corpus_manifest(
@@ -288,12 +320,15 @@ def build_planning_corpus_manifest(
     source_sessions: list[int],
     corpus_root: Path,
     live_workspace_dir: Path | None,
+    allow_live_workspace_session_mismatch: bool = False,
 ) -> dict[str, Any]:
     """Compose in-bounds planning sources into the manifest dict.
 
     Pure and deterministic. Never raises on a missing source file (those are
-    recorded with ``route_exists: false``); raises ``ValueError`` only on bad
-    inputs (unknown ``campaign_id`` or empty ``source_sessions``).
+    recorded with ``route_exists: false`` and ``admissible: false``); raises
+    ``ValueError`` on bad inputs (unknown ``campaign_id``, empty
+    ``source_sessions``, or ``live_packet.session`` ≠ ``planning_session`` when
+    a live workspace is supplied without ``allow_live_workspace_session_mismatch``).
     """
     campaign_number = campaign_number_from_id(campaign_id)
     if not source_sessions:
@@ -351,14 +386,20 @@ def build_planning_corpus_manifest(
             )
         )
 
+    planning_live_workspace_dir: str | None = None
+
     # 3) Live workspace: roll tables (from the packet), the packet, and event log.
     roll_routes: set[str] = set()
     if lwd is not None:
+        packet_session = _resolve_live_workspace_session(
+            lwd,
+            planning_session=int(planning_session),
+            allow_session_mismatch=allow_live_workspace_session_mismatch,
+        )
+        planning_live_workspace_dir = _live_workspace_relpath(lwd, repo)
         packet_path = lwd / "live_packet.json"
-        packet_session = int(planning_session)
         if packet_path.is_file():
             packet = json.loads(packet_path.read_text(encoding="utf-8"))
-            packet_session = int(packet.get("session", planning_session))
             for table in packet.get("known_roll_tables", []):
                 source_path = table.get("source_path")
                 if not source_path:
@@ -371,7 +412,7 @@ def build_planning_corpus_manifest(
                 entries.append(
                     _build_entry(
                         "roll_table",
-                        [packet_session],
+                        [int(planning_session)],
                         route,
                         exists,
                         notes=f"Prep roll table ({title}); a tool, not a played fact.",
@@ -381,10 +422,13 @@ def build_planning_corpus_manifest(
         entries.append(
             _build_entry(
                 "live_packet",
-                [packet_session],
+                [int(planning_session)],
                 route,
                 exists,
-                notes="Active live-control packet for the planning workspace.",
+                notes=(
+                    f"Active live-control packet for Session {planning_session} planning "
+                    f"workspace."
+                ),
             )
         )
         event_log = lwd / "event_log.jsonl"
@@ -392,7 +436,7 @@ def build_planning_corpus_manifest(
         entries.append(
             _build_entry(
                 "live_event",
-                [packet_session],
+                [int(planning_session)],
                 route,
                 exists,
                 notes="Live event log; observations appended during play, not retroactive canon.",
@@ -404,11 +448,11 @@ def build_planning_corpus_manifest(
             entries.append(
                 _build_entry(
                     "fresh_recap",
-                    [packet_session],
+                    [int(planning_session)],
                     route,
                     exists,
                     notes="Fresh recap bootstrapped into the workspace; planning input until ingested.",
-                    forbid_play_facts=packet_session in materialized_recap_sessions,
+                    forbid_play_facts=int(planning_session) in materialized_recap_sessions,
                 )
             )
 
@@ -475,7 +519,7 @@ def build_planning_corpus_manifest(
             raise ValueError(f"duplicate source_id: {entry.source_id}")
         seen.add(entry.source_id)
 
-    return {
+    payload: dict[str, Any] = {
         "schema": SCHEMA_ID,
         "campaign_id": campaign_id,
         "planning_session": int(planning_session),
@@ -483,6 +527,9 @@ def build_planning_corpus_manifest(
         "generated_at": _now_utc(),
         "entries": [entry.to_dict() for entry in entries],
     }
+    if planning_live_workspace_dir is not None:
+        payload["planning_live_workspace_dir"] = planning_live_workspace_dir
+    return payload
 
 
 def render_manifest_markdown(manifest: dict[str, Any]) -> str:
@@ -496,10 +543,15 @@ def render_manifest_markdown(manifest: dict[str, Any]) -> str:
         f"- **source_sessions:** {', '.join(str(s) for s in manifest['source_sessions'])}"
     )
     lines.append(f"- **entries:** {len(manifest['entries'])}")
+    if manifest.get("planning_live_workspace_dir"):
+        lines.append(
+            f"- **planning_live_workspace_dir:** `{manifest['planning_live_workspace_dir']}`"
+        )
     lines.append("")
     lines.append(
         "Routes are repo-relative references; this manifest inlines no corpus prose. "
-        "`route_exists: false` marks an in-bounds source that is not yet materialized."
+        "`route_exists: false` / `admissible: false` marks an in-bounds source that is "
+        "not yet materialized and must not be used for admission."
     )
     lines.append("")
 
@@ -514,15 +566,16 @@ def render_manifest_markdown(manifest: dict[str, Any]) -> str:
         authority = rows[0]["authority"]
         lines.append(f"## {role} — authority: {authority}")
         lines.append("")
-        lines.append("| Session | Route | Exists | Allowed | Forbidden |")
-        lines.append("|---|---|---|---|---|")
+        lines.append("| Session | Route | Exists | Admissible | Allowed | Forbidden |")
+        lines.append("|---|---|---|---|---|---|")
         for entry in sorted(rows, key=lambda e: (min(e["session_scope"]), e["source_id"])):
             scope = ", ".join(str(s) for s in entry["session_scope"])
             exists = "yes" if entry["route_exists"] else "no"
+            admissible = "yes" if entry["admissible"] else "no"
             allowed = ", ".join(entry["allowed_uses"]) or "—"
             forbidden = ", ".join(entry["forbidden_uses"]) or "—"
             lines.append(
-                f"| {scope} | `{entry['route']}` | {exists} | {allowed} | {forbidden} |"
+                f"| {scope} | `{entry['route']}` | {exists} | {admissible} | {allowed} | {forbidden} |"
             )
         lines.append("")
 
@@ -549,6 +602,14 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--corpus-root", type=Path, required=True)
     parser.add_argument("--live-workspace-dir", type=Path, default=None)
     parser.add_argument(
+        "--allow-live-workspace-session-mismatch",
+        action="store_true",
+        help=(
+            "Allow live_packet.session to differ from --planning-session (escape hatch "
+            "for dogfood only; default is to fail fast)."
+        ),
+    )
+    parser.add_argument(
         "--out",
         type=Path,
         default=None,
@@ -572,6 +633,7 @@ def main(argv: list[str] | None = None) -> int:
             source_sessions=args.source_sessions,
             corpus_root=args.corpus_root,
             live_workspace_dir=args.live_workspace_dir,
+            allow_live_workspace_session_mismatch=args.allow_live_workspace_session_mismatch,
         )
     except ValueError as exc:
         print(str(exc), file=sys.stderr, flush=True)

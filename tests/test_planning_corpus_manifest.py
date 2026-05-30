@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 import json
+import shutil
 from pathlib import Path
 from typing import Any
 
@@ -17,12 +18,16 @@ from src.live_play.planning_corpus_manifest import (
     main,
     render_manifest_markdown,
 )
+from src.live_play.session_bootstrap import bootstrap_session_workspace
+from src.live_play.session_paths import live_sessions_root
 
 ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_PATH = ROOT / "evals/c2_live_prep/live/schemas/planning_corpus_manifest.schema.json"
 ARTIFACT_PATH = ROOT / "evals/c2_live_prep/benchmarks/c2s23_planning_corpus_manifest.json"
 CORPUS_ROOT = ROOT / "corpus/eldyrwild-markdown"
-LIVE_WORKSPACE = ROOT / "evals/c2_live_prep/live/session_22"
+LIVE_WORKSPACE = ROOT / "evals/c2_live_prep/live/session_23"
+BOOTSTRAP_RECAP = ROOT / "tests/fixtures/live_bootstrap/session_22_fresh_recap.md"
+PLAY_FACT_USE = "play_facts"
 
 
 def _validator() -> Draft202012Validator:
@@ -39,6 +44,12 @@ def _build_real() -> dict[str, Any]:
         corpus_root=CORPUS_ROOT,
         live_workspace_dir=LIVE_WORKSPACE,
     )
+
+
+def _without_generated_at(manifest: dict[str, Any]) -> dict[str, Any]:
+    out = copy.deepcopy(manifest)
+    out.pop("generated_at", None)
+    return out
 
 
 def _snapshot_tree(root: Path) -> dict[str, bytes]:
@@ -65,6 +76,22 @@ def _make_synthetic_corpus(tmp_path: Path, *, with_recap: bool) -> Path:
     return root
 
 
+def _bootstrap_workspace(tmp_path: Path, *, session: int) -> Path:
+    out = live_sessions_root() / "_pytest" / tmp_path.name / f"session_{session}"
+    if out.exists():
+        shutil.rmtree(out)
+    bootstrap_session_workspace(
+        recap_path=BOOTSTRAP_RECAP,
+        campaign_id="longmont-c2",
+        session=session,
+        output_dir=out,
+        source_session=session - 1,
+        next_session_label=f"Session {session}",
+        force=True,
+    )
+    return out
+
+
 # --- committed-artifact boundary -------------------------------------------------
 
 
@@ -77,6 +104,57 @@ def test_committed_artifact_validates_against_schema() -> None:
 
 def test_builder_output_validates_against_schema() -> None:
     _validator().validate(_build_real())
+
+
+def test_committed_artifact_matches_fresh_builder_output() -> None:
+    committed = json.loads(ARTIFACT_PATH.read_text(encoding="utf-8"))
+    fresh = _build_real()
+    assert _without_generated_at(committed) == _without_generated_at(fresh)
+
+
+# --- planning workspace session alignment ----------------------------------------
+
+
+def test_manifest_uses_session_23_planning_live_workspace() -> None:
+    manifest = _build_real()
+    assert manifest["planning_session"] == 23
+    assert manifest["planning_live_workspace_dir"] == "evals/c2_live_prep/live/session_23"
+    live_entries = [
+        e
+        for e in manifest["entries"]
+        if e["source_role"] in ("live_packet", "live_event", "fresh_recap")
+    ]
+    assert live_entries
+    for entry in live_entries:
+        assert entry["session_scope"] == [23]
+        assert "/session_23/" in entry["route"]
+
+
+def test_live_workspace_session_mismatch_raises_by_default(tmp_path: Path) -> None:
+    workspace = _bootstrap_workspace(tmp_path, session=22)
+    with pytest.raises(ValueError, match="live_packet.session \\(22\\)"):
+        build_planning_corpus_manifest(
+            campaign_id="longmont-c2",
+            planning_session=23,
+            source_sessions=[21, 22],
+            corpus_root=CORPUS_ROOT,
+            live_workspace_dir=workspace,
+        )
+
+
+def test_live_workspace_session_mismatch_escape_hatch(tmp_path: Path) -> None:
+    workspace = _bootstrap_workspace(tmp_path, session=22)
+    manifest = build_planning_corpus_manifest(
+        campaign_id="longmont-c2",
+        planning_session=23,
+        source_sessions=[21, 22],
+        corpus_root=CORPUS_ROOT,
+        live_workspace_dir=workspace,
+        allow_live_workspace_session_mismatch=True,
+    )
+    live_packet = next(e for e in manifest["entries"] if e["source_role"] == "live_packet")
+    assert live_packet["session_scope"] == [23]
+    assert "/session_22/" in live_packet["route"]
 
 
 # --- role / authority correctness ------------------------------------------------
@@ -95,7 +173,7 @@ def test_scaffold_and_roll_table_forbid_play_facts() -> None:
     manifest = _build_real()
     for entry in manifest["entries"]:
         if entry["source_role"] in ("prep_scaffold", "roll_table"):
-            assert "play_facts" in entry["forbidden_uses"], entry["route"]
+            assert PLAY_FACT_USE in entry["forbidden_uses"], entry["route"]
 
 
 def test_table_notes_forbid_play_facts_only_after_recap_materializes() -> None:
@@ -110,9 +188,9 @@ def test_table_notes_forbid_play_facts_only_after_recap_materializes() -> None:
     for entry in table_notes:
         session = min(entry["session_scope"])
         if session in recap_sessions:
-            assert "play_facts" in entry["forbidden_uses"], entry["route"]
+            assert PLAY_FACT_USE in entry["forbidden_uses"], entry["route"]
         else:
-            assert "play_facts" not in entry["forbidden_uses"], entry["route"]
+            assert PLAY_FACT_USE not in entry["forbidden_uses"], entry["route"]
 
 
 def test_synthetic_table_notes_conditional_on_recap(tmp_path: Path) -> None:
@@ -134,8 +212,30 @@ def test_synthetic_table_notes_conditional_on_recap(tmp_path: Path) -> None:
     notes_without = next(
         e for e in without_recap["entries"] if e["source_role"] == "table_notes"
     )
-    assert "play_facts" in notes_with["forbidden_uses"]
-    assert "play_facts" not in notes_without["forbidden_uses"]
+    assert PLAY_FACT_USE in notes_with["forbidden_uses"]
+    assert PLAY_FACT_USE not in notes_without["forbidden_uses"]
+
+
+def test_non_materialized_entries_are_not_admissible_and_cannot_prove_play_facts() -> None:
+    manifest = _build_real()
+    missing = [e for e in manifest["entries"] if not e["route_exists"]]
+    assert missing, "expected at least one honest gap (Session 22 recap derivatives)"
+    for entry in missing:
+        assert entry["admissible"] is False
+        assert entry["allowed_uses"] == []
+        assert PLAY_FACT_USE in entry["forbidden_uses"], entry["source_id"]
+
+
+def test_admissible_play_fact_candidates_exclude_non_existing_routes() -> None:
+    manifest = _build_real()
+    candidates = [
+        e
+        for e in manifest["entries"]
+        if e["admissible"] and PLAY_FACT_USE in e["allowed_uses"]
+    ]
+    assert candidates
+    for entry in candidates:
+        assert entry["route_exists"] is True
 
 
 # --- honest gaps -----------------------------------------------------------------
@@ -143,8 +243,6 @@ def test_synthetic_table_notes_conditional_on_recap(tmp_path: Path) -> None:
 
 def test_missing_sources_recorded_not_dropped() -> None:
     manifest = _build_real()
-    # Session 22 recap is not yet materialized: its derivative rows must be present
-    # with route_exists=false, not silently dropped.
     s22_recap = [
         e
         for e in manifest["entries"]
@@ -173,7 +271,6 @@ def test_two_builds_produce_identical_entries() -> None:
     first = _build_real()
     second = _build_real()
     assert first["entries"] == second["entries"]
-    # source_ids are unique within a build.
     ids = [e["source_id"] for e in first["entries"]]
     assert len(ids) == len(set(ids))
 
@@ -283,6 +380,5 @@ def test_markdown_mirror_is_deterministic_and_route_only() -> None:
     second = render_manifest_markdown(copy.deepcopy(manifest))
     assert first == second
     assert SCHEMA_ID in first
-    # The mirror references routes; it must contain every entry's route token.
     for entry in manifest["entries"]:
         assert entry["route"] in first
