@@ -364,13 +364,22 @@ def bootstrap_session_workspace(
     return out
 
 
-def activate_session_workspace(source_dir: Path, *, target_dir: Path | None = None) -> Path:
+def activate_session_workspace(
+    source_dir: Path,
+    *,
+    target_dir: Path | None = None,
+    force: bool = False,
+) -> Path:
     """Copy a bootstrapped workspace into the live session directory the server reads."""
     src = source_dir.resolve()
     if not (src / "live_packet.json").is_file():
         raise ValueError(f"not a bootstrapped workspace: {src}")
 
     dest = (target_dir or default_live_session_dir()).resolve()
+    if workspace_has_live_files(dest) and not force:
+        raise FileExistsError(
+            f"live target already contains session files at {dest}; pass --force to overwrite"
+        )
     dest.mkdir(parents=True, exist_ok=True)
     names = (
         "recap.md",
@@ -446,9 +455,13 @@ def main(argv: list[str] | None = None) -> int:
 
     print(f"bootstrapped session workspace: {workspace}", flush=True)
 
-    if args.write_current_live or args.activate:
-        live_dir = activate_session_workspace(workspace)
-        print(f"activated live session directory: {live_dir}", flush=True)
+    try:
+        if args.write_current_live or args.activate:
+            live_dir = activate_session_workspace(workspace, force=args.force)
+            print(f"activated live session directory: {live_dir}", flush=True)
+    except (FileExistsError, ValueError) as exc:
+        print(str(exc), flush=True)
+        return 2
 
     return 0
 

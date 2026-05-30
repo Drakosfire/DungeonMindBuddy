@@ -254,6 +254,50 @@ def test_activate_copies_into_target(tmp_path: Path) -> None:
             shutil.rmtree(source, ignore_errors=True)
 
 
+def test_activate_refuses_existing_target_without_force(tmp_path: Path) -> None:
+    source = _pytest_workspace(tmp_path, session=23)
+    target = tmp_path / "live_active"
+    target.mkdir(parents=True, exist_ok=True)
+    (target / "live_packet.json").write_text("{\"schema_version\":\"0.1.0\"}\n", encoding="utf-8")
+    try:
+        bootstrap_session_workspace(
+            recap_path=FIXTURE,
+            campaign_id="longmont-c2",
+            session=23,
+            output_dir=source,
+            source_session=22,
+        )
+        with pytest.raises(FileExistsError, match="pass --force to overwrite"):
+            activate_session_workspace(source, target_dir=target)
+    finally:
+        if source.exists():
+            shutil.rmtree(source, ignore_errors=True)
+
+
+def test_activate_with_force_overwrites_intended_live_files(tmp_path: Path) -> None:
+    source = _pytest_workspace(tmp_path, session=23)
+    target = tmp_path / "live_active"
+    target.mkdir(parents=True, exist_ok=True)
+    (target / "live_packet.json").write_text(
+        "{\"schema_version\":\"0.1.0\",\"campaign_id\":\"x\",\"session\":999}\n",
+        encoding="utf-8",
+    )
+    try:
+        bootstrap_session_workspace(
+            recap_path=FIXTURE,
+            campaign_id="longmont-c2",
+            session=23,
+            output_dir=source,
+            source_session=22,
+        )
+        activate_session_workspace(source, target_dir=target, force=True)
+        assert load_json(target / "live_packet.json")["session"] == 23
+        assert (target / "current_state.json").is_file()
+    finally:
+        if source.exists():
+            shutil.rmtree(source, ignore_errors=True)
+
+
 def test_allowed_output_under_live_root(tmp_path: Path) -> None:
     allowed_parent = tmp_path / "evals/c2_live_prep/live"
     allowed_parent.mkdir(parents=True)
