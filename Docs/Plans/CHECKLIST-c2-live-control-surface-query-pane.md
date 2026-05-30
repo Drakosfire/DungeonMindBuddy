@@ -5,7 +5,7 @@
 - [x] Active slice: `L5_projection_command_architecture`
 - [x] L4 shell remains green on `main`
 - [x] Last green artifact: PR #90 (`pr90-l5l-fresh-recap-ingestion-session-bootstrap`) — deterministic recap bootstrap CLI, planning_beats plan-view, dogfood runbook
-- [x] Next gate: L5M first dogfood planning round harness (PR91)
+- [x] Next gate: L5M raw recap intake + ingestion orchestrator (PR92)
 - [ ] Re-read `STUDY-c2-live-play-cursor-handoff-process.md` before UI expansion work
 
 ---
@@ -603,6 +603,41 @@ uv run pytest tests/test_live_command_bus.py tests/test_live_artifact_reads.py t
 
 - Handoff: `Docs/Plans/HANDOFF-pr90-l5l-fresh-recap-ingestion-session-bootstrap.md`
 - Fixture: `tests/fixtures/live_bootstrap/session_22_fresh_recap.md`
+
+---
+
+## Phase L5M — Raw Recap Intake + Ingestion Orchestrator (PR92)
+
+### Goal
+
+Add a deterministic, CLI-first orchestration path to ingest raw recap notes into canonical recap + derivatives while preserving explicit safety boundaries.
+
+### Checklist
+
+- [x] Added `src/live_play/recap_ingest_pipeline.py` CLI (`python -m src.live_play.recap_ingest_pipeline`).
+- [x] Added deterministic campaign/session path derivation helper (`src/live_play/recap_stage_paths.py`).
+- [x] Added machine-readable status schema envelope (`dmb_raw_recap_ingest_status_v1`) via `src/live_play/recap_ingest_status.py`.
+- [x] Supports `--raw-path` and `--raw-stdin` intake.
+- [x] Safe defaults: no-op flags imply `--stage --preview`.
+- [x] Stage path fixed to campaign `_ingest_staging/session_<N>_raw_notes.md`.
+- [x] Preview uses `src.agent.recap_ingest_helpers.assemble_recap` and reports ingest counts.
+- [x] Apply requires non-generic slug/title and refuses silent overwrite without `--force-recap`.
+- [x] Optional normalize step writes `_normalized/Session NN - <slug>.md`.
+- [x] Session-memory step stops at `breadcrumb_required` when breadcrumb artifact is absent.
+- [x] Session-memory materialization/check path uses existing deterministic materializer.
+- [x] Review-only spelling variant audit surfaced in status warnings.
+- [x] Added realistic fixture and orchestration tests (`tests/test_live_recap_ingest_pipeline.py`).
+- [x] Runbook updated with raw recap ingestion path.
+- [x] No ingestion pane, no FastAPI route, no LLM rewrite, no retrieval/manifest integration.
+
+### Verification
+
+```bash
+uv run pytest tests/test_live_recap_ingest_pipeline.py -q
+uv run pytest tests/test_live_session_bootstrap.py -q
+uv run pytest tests/test_live_recap_ingestion.py -q
+uv run pytest tests/test_live_play_schemas.py -q
+```
 
 ---
 

@@ -49,7 +49,55 @@ roll tables          → prep tools, not happened facts
 live workspace       → active planning surface / observations
 ```
 
-## 2. Bootstrap a session workspace
+## 2. Raw recap ingestion path (PR92)
+
+Use the ingestion orchestrator before bootstrap when the source recap is still raw notes:
+
+```bash
+uv run python -m src.live_play.recap_ingest_pipeline \
+  --campaign-id longmont-c2 \
+  --session 22 \
+  --raw-path ~/notes/session_22_raw.md \
+  --stage \
+  --preview \
+  --json
+```
+
+Then apply + normalize:
+
+```bash
+uv run python -m src.live_play.recap_ingest_pipeline \
+  --campaign-id longmont-c2 \
+  --session 22 \
+  --raw-path ~/notes/session_22_raw.md \
+  --slug "Mireward Road and Lysandro" \
+  --stage \
+  --apply \
+  --normalize
+```
+
+Then materialize session memory (only after breadcrumb exists/blessed):
+
+```bash
+uv run python -m src.live_play.recap_ingest_pipeline \
+  --campaign-id longmont-c2 \
+  --session 22 \
+  --slug "Mireward Road and Lysandro" \
+  --materialize-session-memory \
+  --check
+```
+
+Pipeline interpretation:
+
+1. Stage raw recap under `_ingest_staging/session_<N>_raw_notes.md`.
+2. Preview canonical recap assembly (frontmatter + H1 + de-dup report).
+3. Apply only with non-generic slug/title.
+4. Normalize the canonical recap.
+5. Stop at `breadcrumb_required` if `_breadcrumbed/*.breadcrumbed.md` is absent.
+6. Materialize `_session_memory/*.records_meta.{jsonl,json}` only when breadcrumb exists.
+7. Treat session as planning-activation ready only after canonical recap + derivatives are in place.
+
+## 3. Bootstrap a session workspace
 
 ```bash
 cd /path/to/DungeonMindBuddy
@@ -77,7 +125,7 @@ uv run python -m src.live_play.session_bootstrap \
 
 `--force` is required when the output workspace or live directory already has live files.
 
-## 3. Start server and UI
+## 4. Start server and UI
 
 ```bash
 # optional: explicit session dir
@@ -90,7 +138,7 @@ uv run uvicorn apps.live_control_server.main:app --reload
 cd apps/live-control-ui && npm run dev
 ```
 
-## 4. Inspect first in Timeline
+## 5. Inspect first in Timeline
 
 Open the Timeline module. Rows should come from recap-derived `planning_beats` with human labels (not corpus paths). Confirm at least one row references the fresh recap as a source packet.
 
@@ -107,7 +155,7 @@ audit
 
 Do not treat planning scaffold as proof of what happened.
 
-## 5. Run the manual baseline questions
+## 6. Run the manual baseline questions
 
 For PR91, answer the Session 23 planning questions manually through the current workflow before manifest-backed retrieval exists.
 
@@ -122,7 +170,7 @@ Capture:
 
 This baseline is intentionally pre-PR92/PR93. It gives the later manifest-backed query path something to beat.
 
-## 6. Append observations
+## 7. Append observations
 
 Use Inspector → **Append observation** on an open loop or timeline ref. Confirm Record shows a new event and current state refreshes.
 
@@ -134,13 +182,13 @@ append_observation → live_observation
 
 It is not automatically long-term canon.
 
-## 7. Patch roll tables (if applicable)
+## 8. Patch roll tables (if applicable)
 
 Only when a real roll-table artifact exists in the workspace/corpus path the server can read. Use preview → confirm. Review **Write evidence** after confirm.
 
 Roll tables are `reference_tool` / prep-tier artifacts. Patching a roll table changes the tool; it does not assert that a result happened in play.
 
-## 8. Capture dogfood evidence
+## 9. Capture dogfood evidence
 
 Note:
 
@@ -153,7 +201,7 @@ Note:
 - Which sources were confusing because authority was unclear
 - Friction (missing beats, wrong open loops, UI confusion)
 
-## 9. What not to trust yet
+## 10. What not to trust yet
 
 - Recap heuristics are deterministic stubs, not LLM understanding
 - No activated planning corpus manifest yet
