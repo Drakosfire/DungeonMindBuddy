@@ -1,0 +1,96 @@
+{
+  "schema_version": "0.1.0",
+  "layout_version": 1,
+  "updated_at": "2026-05-30T20:55:02Z",
+  "campaign_id": "longmont-c2",
+  "session": 23,
+  "modules": [
+    {
+      "module_id": "chat",
+      "slot": "main",
+      "order": 0,
+      "enabled": true,
+      "collapsed": false,
+      "size": "2fr",
+      "config": {}
+    },
+    {
+      "module_id": "record",
+      "slot": "sidebar",
+      "order": 0,
+      "enabled": true,
+      "collapsed": false,
+      "size": "1fr",
+      "config": {
+        "tail_count": 50
+      }
+    },
+    {
+      "module_id": "now",
+      "slot": "sidebar",
+      "order": 1,
+      "enabled": true,
+      "collapsed": false,
+      "size": null,
+      "config": {}
+    },
+    {
+      "module_id": "open_loops",
+      "slot": "sidebar",
+      "order": 2,
+      "enabled": true,
+      "collapsed": false,
+      "size": null,
+      "config": {}
+    },
+    {
+      "module_id": "ingestion",
+      "slot": "sidebar",
+      "order": 3,
+      "enabled": false,
+      "collapsed": true,
+      "size": null,
+      "config": {}
+    },
+    {
+      "module_id": "roll_stack",
+      "slot": "bottom",
+      "order": 0,
+      "enabled": true,
+      "collapsed": false,
+      "size": "compact",
+      "config": {
+        "expand_tables_inline": true
+      }
+    },
+    {
+      "module_id": "timeline",
+      "slot": "bottom",
+      "order": 1,
+      "enabled": true,
+      "collapsed": false,
+      "size": null,
+      "config": {}
+    },
+    {
+      "module_id": "queue",
+      "slot": "bottom",
+      "order": 2,
+      "enabled": false,
+      "collapsed": true,
+      "size": "compact",
+      "config": {
+        "show_completed": false
+      }
+    },
+    {
+      "module_id": "sources",
+      "slot": "overlay",
+      "order": 0,
+      "enabled": false,
+      "collapsed": true,
+      "size": null,
+      "config": {}
+    }
+  ]
+}
