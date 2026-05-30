@@ -4,7 +4,51 @@ Use this after PR90 (L5L) lands. The goal is one real planning pass: fresh recap
 
 This runbook now has an additional authority-boundary purpose: do not flatten played recap, staged table notes, and GM planning scaffold into one kind of truth.
 
+**C2S23 benchmark pack (PR94):**
+
+- Charter: `Docs/Plans/BENCHMARK-c2s23-dogfood-planning-charter.md`
+- Seed questions: `evals/c2_live_prep/benchmarks/c2s23_dogfood_questions.seed.json`
+- Manual baseline: `evals/c2_live_prep/benchmarks/c2s23_manual_baseline.template.md`
+- Capability inventory: `Docs/Plans/CAPABILITY-INVENTORY-c2s23-planning-artifact-actions.md`
+
 See also: `Docs/Plans/ROADMAP-c2s23-authority-activation-and-dogfood.md`.
+
+## First C2S23 dogfood round (ordered checklist)
+
+Use this sequence for the first real Session 23 planning pass. Details for CLI/UI commands are in sections below.
+
+1. **Ingest raw Session 22 recap** — CLI (§2) or ingestion pane (§2, L5N) with recap/source session `22` while live workspace targets Session 23.
+2. **Apply and normalize** with explicit non-generic slug and title.
+3. **Stop if breadcrumb is required** — do not treat as failure; generate or bless breadcrumb by existing content process.
+4. **Generate/bless breadcrumb artifact** — outside this runbook’s code path; use established breadcrumb workflow.
+5. **Materialize Session 22 session memory** — only when breadcrumb exists.
+6. **Start or activate Session 23 live workspace** — bootstrap (§3); set `DUNGEONMIND_LIVE_SESSION_DIR` or `--write-current-live`.
+7. **Run benchmark questions manually first** — copy `c2s23_manual_baseline.template.md`; work from `c2s23_dogfood_questions.seed.json` (no gold, no corpus-oracle pass).
+8. **Record source roles and authority notes** — per question in the template; use charter role vocabulary.
+9. **Identify desired artifact actions** — from seed `expected_artifact_actions` and planning intent.
+10. **Attempt only currently supported actions** — see capability inventory; log blocked actions explicitly.
+11. **Log gaps** — missing tools, bad retrieval, context confusion, authority failures; update inventory and open PR95/PR96 as needed.
+
+### What counts as success
+
+- Session 22 ingest and derivatives are in a known state (including explicit `breadcrumb_required` if applicable).
+- Session 23 live workspace is running in the UI with Timeline and Inspector used at least once.
+- ≥15 seed questions have manual baseline rows with sources, roles, and attempted actions filled in.
+- Authority trap questions are answered without using forbidden roles for play facts.
+- Friction is captured with a recommended follow-up PR where the inventory says **missing** or **partial**.
+
+### What counts as failure
+
+- Play-fact answers sourced from prep scaffold, roll tables, or staging after canonical recap exists.
+- Dogfood proceeds without ingest/bootstrap because tooling is broken (fix L5M/L5N/L5L first).
+- Baseline filled by reading corpus files ahead of the live workflow (oracle leakage).
+- Unscoped corpus writes outside allowlist.
+
+### When to stop and create follow-up PRs
+
+- Same **missing** capability blocks three or more questions → open PR95 (activation, roll-table seed/create, route workflow) or PR96 (live retrieval, context packets, hub write UX) per inventory.
+- Repeated authority failures → prioritize activated manifest + admission (roadmap PR92/PR93), not more UI panes.
+- Regression in `tests/test_live_recap_ingest_pipeline.py`, `tests/test_live_recap_ingest_api.py`, or `tests/test_live_session_bootstrap.py` → stop dogfood; fix tests before continuing.
 
 ## 0. Confirm Session 22 content state
 
@@ -161,16 +205,24 @@ Do not treat planning scaffold as proof of what happened.
 
 ## 6. Run the manual baseline questions
 
-For PR91, answer the Session 23 planning questions manually through the current workflow before manifest-backed retrieval exists.
+Use the PR94 seed and template (not ad-hoc question lists):
 
-Capture:
+```text
+evals/c2_live_prep/benchmarks/c2s23_dogfood_questions.seed.json
+evals/c2_live_prep/benchmarks/c2s23_manual_baseline.template.md
+```
 
-- question
+Answer through the current live-control workflow **before** manifest-backed retrieval exists. Do not pre-survey corpus files to write answers.
+
+Capture per question:
+
+- question id and text
 - manual answer
-- sources you consulted
-- whether each source was canon/play, planning scaffold, live workspace, roll table, or hub evidence
-- friction / missing context
-- uncertainty
+- sources consulted (paths or APIs)
+- source roles (charter vocabulary)
+- authority notes
+- artifact actions desired vs attempted
+- friction and confidence
 
 This baseline is intentionally pre–C2S23 activation manifest (see `ROADMAP-c2s23-authority-activation-and-dogfood.md`). It gives the later manifest-backed query path something to beat.
 

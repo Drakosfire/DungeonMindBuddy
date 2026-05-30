@@ -1,0 +1,277 @@
+{
+  "schema": "dmb_c2s23_dogfood_planning_benchmark_v0",
+  "campaign_id": "longmont-c2",
+  "planning_session": 23,
+  "source_sessions": [21, 22],
+  "questions": [
+    {
+      "id": "s22-ingest-01",
+      "question": "After ingesting the raw Session 22 table notes, what are the three most important play outcomes I need to carry into Session 23 prep?",
+      "category": "raw_recap_ingestion_session_22_understanding",
+      "expected_source_roles": ["canon_play", "derived_memory"],
+      "forbidden_source_roles_for_play_facts": ["pre_canonical_evidence", "planning_scaffold", "reference_tool"],
+      "expected_artifact_actions": ["ingest_stage_preview", "ingest_apply_normalize"],
+      "answer_requirements": [
+        "Name play outcomes, not prep intentions",
+        "Note whether canonical recap or session memory was used",
+        "If only preview completed, say so explicitly"
+      ]
+    },
+    {
+      "id": "s22-ingest-02",
+      "question": "Which Session 22 NPCs were foreground at the table versus background mentions, as reflected in the ingested recap?",
+      "category": "raw_recap_ingestion_session_22_understanding",
+      "expected_source_roles": ["canon_play", "derived_memory"],
+      "forbidden_source_roles_for_play_facts": ["planning_scaffold", "live_observation"],
+      "expected_artifact_actions": ["ingest_apply_normalize", "inspector_read_artifact"],
+      "answer_requirements": [
+        "Distinguish played presence from prep mentions",
+        "Cite recap or memory route, not staging file alone"
+      ]
+    },
+    {
+      "id": "s22-ingest-03",
+      "question": "What pipeline state must be true before I treat Session 22 as ready_for_planning_activation for cross-session planning?",
+      "category": "raw_recap_ingestion_session_22_understanding",
+      "expected_source_roles": ["audit", "canon_play", "derived_memory"],
+      "forbidden_source_roles_for_play_facts": [],
+      "expected_artifact_actions": ["ingest_materialize_session_memory"],
+      "answer_requirements": [
+        "List states: canonical recap, normalized, breadcrumb if required, session memory",
+        "If blocked at breadcrumb_required, state next operator action"
+      ]
+    },
+    {
+      "id": "xsession-01",
+      "question": "What Session 21 threads still constrain the party's position and goals at the start of Session 23?",
+      "category": "cross_session_continuity",
+      "expected_source_roles": ["canon_play", "derived_memory"],
+      "forbidden_source_roles_for_play_facts": ["planning_scaffold"],
+      "expected_artifact_actions": ["timeline_read", "manual_corpus_read"],
+      "answer_requirements": [
+        "Reference Session 21 play or memory, not only S22",
+        "Separate resolved vs open threads"
+      ]
+    },
+    {
+      "id": "xsession-02",
+      "question": "Which open loops detected at the end of Session 22 should appear on the Session 23 planning timeline?",
+      "category": "cross_session_continuity",
+      "expected_source_roles": ["canon_play", "planning_scaffold"],
+      "forbidden_source_roles_for_play_facts": ["reference_tool"],
+      "expected_artifact_actions": ["timeline_read", "append_observation"],
+      "answer_requirements": [
+        "Open loops from play recap; planning beats are follow-on, not substitutes",
+        "Note if bootstrap heuristics mis-tagged a loop"
+      ]
+    },
+    {
+      "id": "xsession-03",
+      "question": "If the party continues north toward Mireward Reach, what changed between Session 21 travel context and where Session 22 ended?",
+      "category": "cross_session_continuity",
+      "expected_source_roles": ["canon_play", "derived_memory"],
+      "forbidden_source_roles_for_play_facts": ["planning_scaffold", "reference_tool"],
+      "expected_artifact_actions": ["manual_corpus_read", "timeline_read"],
+      "answer_requirements": [
+        "Geographic or situation delta across sessions",
+        "Do not invent distance or town names from roll tables alone"
+      ]
+    },
+    {
+      "id": "roll-01",
+      "question": "Which travel or encounter roll table should govern the next leg of overland travel after Session 22?",
+      "category": "roll_table_creation_mutation",
+      "expected_source_roles": ["reference_tool", "planning_scaffold"],
+      "forbidden_source_roles_for_play_facts": ["reference_tool"],
+      "expected_artifact_actions": ["inspector_read_artifact", "roll_table_patch"],
+      "answer_requirements": [
+        "Identify table as prep tool",
+        "State whether table is registered on live_packet.known_roll_tables",
+        "Do not assert encounters already happened because a table exists"
+      ]
+    },
+    {
+      "id": "roll-02",
+      "question": "Can I add a new swamp-side random encounter table for Session 23 prep from the live-control surface, register it on the packet, and patch rows?",
+      "category": "roll_table_creation_mutation",
+      "expected_source_roles": ["reference_tool"],
+      "forbidden_source_roles_for_play_facts": ["reference_tool"],
+      "expected_artifact_actions": ["roll_table_create", "roll_table_patch"],
+      "answer_requirements": [
+        "Answer yes/no with actual entrypoint attempted",
+        "Log friction if create is missing",
+        "Patch only if table already exists"
+      ]
+    },
+    {
+      "id": "roll-03",
+      "question": "I want to adjust encounter weights on an existing prep table for shepherd-cult pressure—what is the safe preview-first workflow?",
+      "category": "roll_table_creation_mutation",
+      "expected_source_roles": ["reference_tool", "audit"],
+      "forbidden_source_roles_for_play_facts": ["reference_tool"],
+      "expected_artifact_actions": ["roll_table_patch", "inspector_read_write_evidence"],
+      "answer_requirements": [
+        "Describe preview then confirm",
+        "Clarify patch changes the tool, not play history"
+      ]
+    },
+    {
+      "id": "loc-01",
+      "question": "Where did the party end Session 22 in the fiction, and which location hubs should I open for scene grounding?",
+      "category": "location_creation_mutation",
+      "expected_source_roles": ["canon_play", "derived_memory"],
+      "forbidden_source_roles_for_play_facts": ["planning_scaffold"],
+      "expected_artifact_actions": ["timeline_read", "manual_corpus_read", "inspector_read_artifact"],
+      "answer_requirements": [
+        "End state from play recap",
+        "Hub paths are reads, not proof of events"
+      ]
+    },
+    {
+      "id": "loc-02",
+      "question": "Can I create a new named sub-location hub markdown file for a waystation north of the last stop using DungeonBuddy tooling during this dogfood round?",
+      "category": "location_creation_mutation",
+      "expected_source_roles": ["planning_scaffold"],
+      "forbidden_source_roles_for_play_facts": ["planning_scaffold"],
+      "expected_artifact_actions": ["location_hub_write", "manual_corpus_write"],
+      "answer_requirements": [
+        "State supported vs partial vs missing",
+        "If using planner/IDE, note two-phase commit",
+        "Do not treat the new file as play canon until narrated"
+      ]
+    },
+    {
+      "id": "npc-01",
+      "question": "What is Captain Lysandra Ironveil's state going into Session 23 (relationships, commitments, immediate pressures)?",
+      "category": "npc_creation_mutation",
+      "expected_source_roles": ["canon_play", "derived_memory"],
+      "forbidden_source_roles_for_play_facts": ["planning_scaffold", "reference_tool"],
+      "expected_artifact_actions": ["manual_corpus_read", "inspector_read_artifact"],
+      "answer_requirements": [
+        "Ground in play recap or dossier read after statblock rule",
+        "Flag if only prep scaffold was available"
+      ]
+    },
+    {
+      "id": "npc-02",
+      "question": "A recurring NPC surfaced in Session 22 notes but has no campaign hub yet—can I create the hub folder, timeline, and recap pointer from live-control?",
+      "category": "npc_creation_mutation",
+      "expected_source_roles": ["canon_play"],
+      "forbidden_source_roles_for_play_facts": [],
+      "expected_artifact_actions": ["npc_hub_write", "append_timeline_row"],
+      "answer_requirements": [
+        "List what write paths are actually available",
+        "Dossier/statblock remain read-only on allowlist"
+      ]
+    },
+    {
+      "id": "npc-03",
+      "question": "For Thrin Branchbound, which beats from Sessions 21–22 must stay in foreground for Session 23?",
+      "category": "npc_creation_mutation",
+      "expected_source_roles": ["canon_play", "derived_memory"],
+      "forbidden_source_roles_for_play_facts": ["planning_scaffold"],
+      "expected_artifact_actions": ["timeline_read", "manual_corpus_read"],
+      "answer_requirements": [
+        "Cross-session NPC continuity",
+        "Cite session memory or recap routes"
+      ]
+    },
+    {
+      "id": "town-01",
+      "question": "What is the next town or settlement toward Mireward, and what trade or economy hooks matter for Session 23 opening scenes?",
+      "category": "town_economy_planning_model",
+      "expected_source_roles": ["canon_play", "planning_scaffold", "derived_memory"],
+      "forbidden_source_roles_for_play_facts": ["reference_tool"],
+      "expected_artifact_actions": ["manual_corpus_read", "append_observation"],
+      "answer_requirements": [
+        "Separate confirmed play facts from prep possibilities",
+        "Economy hooks may be scaffold if not yet played"
+      ]
+    },
+    {
+      "id": "town-02",
+      "question": "Where should I record town-distance and storm-pressure prep notes so they do not collide with Session 22 play canon?",
+      "category": "town_economy_planning_model",
+      "expected_source_roles": ["planning_scaffold", "live_observation"],
+      "forbidden_source_roles_for_play_facts": ["live_observation"],
+      "expected_artifact_actions": ["append_observation", "session_prep_append"],
+      "answer_requirements": [
+        "Name authority lane for each write target",
+        "Session Prep vs event log vs recap"
+      ]
+    },
+    {
+      "id": "auth-01",
+      "question": "Did the shepherd-cult confrontation at the end of Session 22 definitely happen in play, or only appear in prep notes?",
+      "category": "authority_trap_questions",
+      "expected_source_roles": ["canon_play", "pre_canonical_evidence"],
+      "forbidden_source_roles_for_play_facts": ["planning_scaffold", "reference_tool"],
+      "expected_artifact_actions": ["ingest_apply_normalize", "manual_corpus_read"],
+      "answer_requirements": [
+        "Must choose play vs prep provenance",
+        "If only staging exists, answer is not yet canon"
+      ]
+    },
+    {
+      "id": "auth-02",
+      "question": "A rolled result on a prep travel table was noted during planning—does that prove the encounter happened at the table?",
+      "category": "authority_trap_questions",
+      "expected_source_roles": ["reference_tool"],
+      "forbidden_source_roles_for_play_facts": ["reference_tool", "planning_scaffold"],
+      "expected_artifact_actions": [],
+      "answer_requirements": [
+        "Explicit no: reference_tool is not play fact",
+        "Describe what source would prove it happened"
+      ]
+    },
+    {
+      "id": "auth-03",
+      "question": "If I append a planning observation in the Session 23 live workspace about Session 22, does that retroactively become play canon?",
+      "category": "authority_trap_questions",
+      "expected_source_roles": ["live_observation", "audit"],
+      "forbidden_source_roles_for_play_facts": ["live_observation"],
+      "expected_artifact_actions": ["append_observation"],
+      "answer_requirements": [
+        "Answer no for past-session play facts",
+        "State promotion path if any (recap-write, not observation alone)"
+      ]
+    },
+    {
+      "id": "auth-04",
+      "question": "Can I answer 'what happened in Session 22 combat' using only the Session 23 planning scaffold in the live packet?",
+      "category": "authority_trap_questions",
+      "expected_source_roles": ["canon_play"],
+      "forbidden_source_roles_for_play_facts": ["planning_scaffold", "planning_input"],
+      "expected_artifact_actions": ["timeline_read"],
+      "answer_requirements": [
+        "Must refuse or redirect to canon_play sources",
+        "Name confusion if scaffold was tempting"
+      ]
+    },
+    {
+      "id": "auth-05",
+      "question": "After canonical Session 22 recap exists, may I still use raw staged table notes as normal retrieval evidence for play-fact questions?",
+      "category": "authority_trap_questions",
+      "expected_source_roles": ["canon_play", "pre_canonical_evidence"],
+      "forbidden_source_roles_for_play_facts": ["pre_canonical_evidence"],
+      "expected_artifact_actions": ["ingest_stage_preview"],
+      "answer_requirements": [
+        "Staged notes are provenance-only after recap",
+        "Point to canon recap or derived memory instead"
+      ]
+    },
+    {
+      "id": "manifest-01",
+      "question": "Can I issue one planning query that searches Session 21 recap, Session 22 memory, Session 23 workspace, prep scaffold, roll tables, and hub evidence with correct roles?",
+      "category": "cross_session_continuity",
+      "expected_source_roles": ["derived_memory", "planning_scaffold", "reference_tool", "live_observation"],
+      "forbidden_source_roles_for_play_facts": [],
+      "expected_artifact_actions": ["manifest_activation_query"],
+      "answer_requirements": [
+        "Document current behavior (expected: not available)",
+        "List manual steps used instead",
+        "Tag PR95/PR96 if blocked"
+      ]
+    }
+  ]
+}
