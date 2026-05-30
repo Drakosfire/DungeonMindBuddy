@@ -3,19 +3,21 @@ import type { ChangeEvent, FormEvent } from "react";
 
 import type {
   ArtifactReadResponse,
+  CommandRefreshResult,
   PatchArtifactMetadata,
   ProjectionCapability,
   ProjectionCommand,
   ProjectionTarget,
   ProjectionWriteResult,
 } from "../api/types";
+import { WriteEvidencePanel } from "./WriteEvidencePanel";
 
 interface PatchArtifactActionProps {
   target: ProjectionTarget;
   capability: ProjectionCapability;
   artifact: ArtifactReadResponse & { artifact_kind: "roll_table" };
   onSubmitCommand: (command: ProjectionCommand) => Promise<ProjectionWriteResult>;
-  onAccepted?: (result: ProjectionWriteResult) => Promise<void> | void;
+  onAccepted?: (result: ProjectionWriteResult) => Promise<CommandRefreshResult> | CommandRefreshResult;
 }
 
 interface PreviewState {
@@ -72,7 +74,12 @@ export function PatchArtifactAction({
   const [newText, setNewText] = useState("");
   const [rationale, setRationale] = useState("");
   const [previewState, setPreviewState] = useState<PreviewState | null>(null);
-  const [result, setResult] = useState<ProjectionWriteResult | null>(null);
+  const [transientResult, setTransientResult] = useState<ProjectionWriteResult | null>(null);
+  const [evidenceResult, setEvidenceResult] = useState<ProjectionWriteResult | null>(null);
+  const [refreshResult, setRefreshResult] = useState<{
+    refreshedArtifactToken: string | null;
+    refreshError: string | null;
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [previewing, setPreviewing] = useState(false);
   const [confirming, setConfirming] = useState(false);
@@ -118,6 +125,22 @@ export function PatchArtifactAction({
     setPreviewState(null);
   }
 
+  function clearDraftState() {
+    setOldText("");
+    setNewText("");
+    setRationale("");
+    clearPreviewState();
+    setTransientResult(null);
+    setError(null);
+  }
+
+  function hasStaleArtifactConflict(result: ProjectionWriteResult | null): boolean {
+    if (result == null || result.status !== "conflict") {
+      return false;
+    }
+    return result.conflicts.some((conflict) => conflict.conflict_type === "stale_artifact");
+  }
+
   function handleEditChange(
     setter: (value: string) => void,
   ): (event: ChangeEvent<HTMLTextAreaElement | HTMLInputElement>) => void {
@@ -132,7 +155,7 @@ export function PatchArtifactAction({
   async function handlePreview(event: FormEvent) {
     event.preventDefault();
     setError(null);
-    setResult(null);
+    setTransientResult(null);
     if (validationMessage) {
       setError(validationMessage);
       return;
@@ -173,7 +196,7 @@ export function PatchArtifactAction({
     setPreviewing(true);
     try {
       const previewResult = await onSubmitCommand(command);
-      setResult(previewResult);
+      setTransientResult(previewResult);
       if (isPreviewReadyResult(previewResult)) {
         setPreviewState({
           result: previewResult,
@@ -236,13 +259,41 @@ export function PatchArtifactAction({
     setConfirming(true);
     try {
       const confirmResult = await onSubmitCommand(command);
-      setResult(confirmResult);
+      setTransientResult(confirmResult);
       if (confirmResult.status === "accepted") {
+        let commandRefreshResult: CommandRefreshResult = {
+          status: "refreshed",
+          artifact: null,
+          error: null,
+        };
+        if (onAccepted) {
+          try {
+            commandRefreshResult = await onAccepted(confirmResult);
+          } catch (refreshError: unknown) {
+            commandRefreshResult = {
+              status: "refresh_failed",
+              artifact: null,
+              error: refreshError instanceof Error ? refreshError.message : "Refresh failed after acceptance.",
+            };
+          }
+        }
+        setEvidenceResult(confirmResult);
+        setRefreshResult({
+          refreshedArtifactToken:
+            commandRefreshResult.status === "refreshed"
+              ? (commandRefreshResult.artifact?.file_state_token ?? null)
+              : null,
+          refreshError:
+            commandRefreshResult.status === "refresh_failed"
+              ? (commandRefreshResult.error ?? "Refresh failed after acceptance.")
+              : null,
+        });
+
         clearPreviewState();
         setOldText("");
         setNewText("");
         setRationale("");
-        await onAccepted?.(confirmResult);
+        setError(null);
       }
     } catch (confirmError: unknown) {
       setError(confirmError instanceof Error ? confirmError.message : "Confirm failed.");
@@ -251,8 +302,10 @@ export function PatchArtifactAction({
     }
   }
 
-  const patchMetadata = result ? getPatchMetadata(result) : null;
+  const resultToRender = evidenceResult ?? transientResult;
+  const patchMetadata = transientResult ? getPatchMetadata(transientResult) : null;
   const previewPatchMetadata = previewState ? getPatchMetadata(previewState.result) : null;
+  const staleConflict = hasStaleArtifactConflict(transientResult);
 
   return (
     <section className="patch-artifact-action" aria-label="Patch roll table action">
@@ -311,6 +364,7 @@ export function PatchArtifactAction({
               type="button"
               onClick={() => {
                 setExpanded(false);
+                clearDraftState();
               }}
               disabled={previewing || confirming}
             >
@@ -325,64 +379,45 @@ export function PatchArtifactAction({
               Artifact token changed since preview. Refresh and preview again before confirming.
             </p>
           ) : null}
+          {staleConflict ? (
+            <p className="module-error">
+              The artifact changed since your preview/read. Refresh the pane, review the current
+              table, then preview again.
+            </p>
+          ) : null}
           {error ? <p className="module-error">{error}</p> : null}
-          {result ? (
-            <div className="write-result">
-              <p className="write-result-title">Status: {result.status}</p>
-              {result.status === "accepted" ? <p className="module-muted">Patch applied.</p> : null}
-              {result.conflicts.map((conflict, index) => (
-                <p key={`${conflict.conflict_type}:${index}`} className="module-muted">
-                  {conflict.conflict_type}: {conflict.message}
-                </p>
-              ))}
-              {result.diagnostics.map((diag, index) => (
-                <p key={`${diag}:${index}`} className="module-muted">
-                  {diag}
-                </p>
-              ))}
-              {result.events_appended.map((eventId) => (
-                <p key={eventId} className="module-muted">
-                  Audit event: {eventId}
-                </p>
-              ))}
-              {result.artifacts_changed.map((changed) => (
-                <p key={`${changed.target_type}:${changed.target_id}`} className="module-muted">
-                  Artifact changed: {changed.target_type} {changed.target_id}
-                </p>
-              ))}
-              {result.invalidations.map((invalidation, index) => (
-                <p
-                  key={`${invalidation.projection_key}:${index}`}
-                  className="module-muted"
-                >{`Invalidation: ${invalidation.projection_key}`}</p>
-              ))}
-              {patchMetadata?.file_state_token_before ? (
-                <p className="module-muted">Before token: {patchMetadata.file_state_token_before}</p>
-              ) : null}
-              {patchMetadata?.file_state_token_after ? (
-                <p className="module-muted">After token: {patchMetadata.file_state_token_after}</p>
-              ) : null}
-              {typeof patchMetadata?.replacement_count === "number" ? (
-                <p className="module-muted">Replacement count: {patchMetadata.replacement_count}</p>
-              ) : null}
-              {typeof patchMetadata?.old_text_length === "number" ? (
-                <p className="module-muted">Old length: {patchMetadata.old_text_length}</p>
-              ) : null}
-              {typeof patchMetadata?.new_text_length === "number" ? (
-                <p className="module-muted">New length: {patchMetadata.new_text_length}</p>
-              ) : null}
-              {patchMetadata?.unified_diff ? (
-                <>
-                  <p className="module-muted">Server preview:</p>
-                  <pre className="artifact-markdown">{patchMetadata.unified_diff}</pre>
-                </>
-              ) : null}
-            </div>
+          {patchMetadata?.unified_diff ? (
+            <>
+              <p className="module-muted">Server dry-run diff.</p>
+              <pre className="artifact-markdown">{patchMetadata.unified_diff}</pre>
+            </>
           ) : null}
           {previewPatchMetadata?.dry_run ? (
             <p className="module-muted">Preview mode: server dry-run confirmed.</p>
           ) : null}
         </form>
+      ) : null}
+      {resultToRender ? (
+        <div className="write-result">
+          <WriteEvidencePanel
+            result={resultToRender}
+            refreshedArtifactToken={refreshResult?.refreshedArtifactToken ?? null}
+            refreshError={refreshResult?.refreshError ?? null}
+          />
+          <div className="patch-artifact-actions">
+            <button
+              type="button"
+              onClick={() => {
+                setEvidenceResult(null);
+                setTransientResult(null);
+                setRefreshResult(null);
+              }}
+              disabled={previewing || confirming}
+            >
+              Dismiss result
+            </button>
+          </div>
+        </div>
       ) : null}
     </section>
   );

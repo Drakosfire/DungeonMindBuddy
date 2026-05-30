@@ -4,8 +4,8 @@
 
 - [x] Active slice: `L5_projection_command_architecture`
 - [x] L4 shell remains green on `main`
-- [x] Last green artifact: PR #87 (`pr87-l5i-scoped-roll-table-patch-command`) — backend-safe scoped `patch_artifact` semantics for roll-table targets
-- [x] Next gate: L5K patch UX hardening / read-after-write evidence
+- [x] Last green artifact: PR #88 (`pr88-l5j-roll-table-patch-ui-preview`) — preview-first roll-table patch UI through existing command path
+- [x] Next gate: L5L fresh recap ingestion / session bootstrap
 - [ ] Re-read `STUDY-c2-live-play-cursor-handoff-process.md` before UI expansion work
 
 ---
@@ -517,6 +517,57 @@ cd apps/live-control-ui && npm run build
 - Styling updates:
   - `apps/live-control-ui/src/styles.css`
 - `cd apps/live-control-ui && npm test` → 14 files passed / 64 tests passed
+- `cd apps/live-control-ui && npm run build` → build succeeded
+
+---
+
+## Phase L5K — Patch UX Hardening / Read-after-write Evidence
+
+### Goal
+
+Harden roll-table patch UX so accepted writes remain trustworthy even when post-write refresh fails.
+
+### Checklist
+
+- [x] Added structured refresh-result contract from Inspector accepted-command flow.
+- [x] Added read-only `WriteEvidencePanel` for write evidence visibility.
+- [x] Distinguish `accepted` write from `accepted but refresh failed`.
+- [x] Verify refreshed artifact token against write-result after-token when available.
+- [x] Surface token mismatch warning without claiming write failure.
+- [x] Keep audit/write evidence visible across refresh failure.
+- [x] Clarified stale-token conflict recovery copy.
+- [x] Made patch cancel/reset semantics explicit (clear draft + preview, keep durable evidence).
+- [x] Added explicit "Dismiss result" action for evidence panel lifecycle.
+- [x] Preserved preview-first confirm gating and idempotency behavior from L5J.
+- [x] Preserved roll-table-only patch scope and inert unsupported capabilities.
+- [x] Preserved `append_observation` refresh path behavior.
+
+### Verification
+
+```bash
+cd apps/live-control-ui && npm test
+cd apps/live-control-ui && npm run build
+```
+
+### Evidence (PR #89, 2026-05-30)
+
+- Branch: `pr89-l5k-patch-ux-hardening-read-after-write-evidence`
+- Handoff: `Docs/Plans/HANDOFF-pr89-l5k-patch-ux-hardening-read-after-write-evidence.md`
+- Added write-evidence component:
+  - `apps/live-control-ui/src/surface/WriteEvidencePanel.tsx`
+  - `apps/live-control-ui/src/surface/WriteEvidencePanel.test.tsx`
+- Hardened patch action lifecycle + refresh-state handling:
+  - `apps/live-control-ui/src/surface/PatchArtifactAction.tsx`
+  - `apps/live-control-ui/src/surface/PatchArtifactAction.test.tsx`
+- Added structured refresh-result contract wiring:
+  - `apps/live-control-ui/src/api/types.ts`
+  - `apps/live-control-ui/src/surface/CapabilityList.tsx`
+  - `apps/live-control-ui/src/surface/InspectorPane.tsx`
+  - `apps/live-control-ui/src/surface/InspectorPane.test.tsx`
+  - `apps/live-control-ui/src/surface/AppendObservationAction.tsx`
+- Styling updates:
+  - `apps/live-control-ui/src/styles.css`
+- `cd apps/live-control-ui && npm test` → tests passed
 - `cd apps/live-control-ui && npm run build` → build succeeded
 
 ---

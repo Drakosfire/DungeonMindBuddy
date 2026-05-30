@@ -516,6 +516,10 @@ code {
   font-size: 0.82rem;
 }
 
+.artifact-markdown {
+  max-height: 14rem;
+}
+
 .capability-items {
   list-style: none;
   margin: 0.6rem 0 0;
@@ -587,6 +591,11 @@ code {
 .write-result-title {
   margin: 0 0 0.25rem;
   font-weight: 600;
+}
+
+.write-evidence-panel {
+  border-top: 1px solid #2f3749;
+  padding-top: 0.45rem;
 }
 
 button,

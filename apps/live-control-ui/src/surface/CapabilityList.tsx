@@ -1,5 +1,6 @@
 import type {
   ArtifactReadResponse,
+  CommandRefreshResult,
   ProjectionCapability,
   ProjectionCommand,
   ProjectionTarget,
@@ -13,7 +14,7 @@ interface CapabilityListProps {
   artifact: ArtifactReadResponse;
   capabilities: ProjectionCapability[];
   onSubmitCommand?: (command: ProjectionCommand) => Promise<ProjectionWriteResult>;
-  onCommandAccepted?: (result: ProjectionWriteResult) => Promise<void> | void;
+  onCommandAccepted?: (result: ProjectionWriteResult) => Promise<CommandRefreshResult> | CommandRefreshResult;
 }
 
 function isAppendObservationCapability(capability: ProjectionCapability): boolean {

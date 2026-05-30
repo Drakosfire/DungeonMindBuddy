@@ -30,6 +30,30 @@ function makePreviewResult() {
 }
 
 describe("PatchArtifactAction", () => {
+  it("cancel while editing clears draft and preview state", async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn(async () => makePreviewResult());
+    render(
+      <PatchArtifactAction
+        target={target}
+        capability={capability}
+        artifact={makeRollTableArtifact()}
+        onSubmitCommand={onSubmit}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: "Patch artifact" }));
+    await user.type(screen.getByLabelText("Text to replace"), "Calm skies");
+    await user.type(screen.getByLabelText("Replacement text"), "Heavy hail");
+    await user.click(screen.getByRole("button", { name: "Preview patch" }));
+    expect(screen.getByRole("button", { name: "Confirm patch" })).toBeEnabled();
+
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    await user.click(screen.getByRole("button", { name: "Patch artifact" }));
+    expect(screen.getByLabelText("Text to replace")).toHaveValue("");
+    expect(screen.getByLabelText("Replacement text")).toHaveValue("");
+    expect(screen.getByRole("button", { name: "Confirm patch" })).toBeDisabled();
+  });
+
   it("blocks preview when old_text is empty", async () => {
     const user = userEvent.setup();
     const onSubmit = vi.fn(async () => makePreviewResult());
@@ -202,7 +226,11 @@ describe("PatchArtifactAction", () => {
           },
         }),
       );
-    const onAccepted = vi.fn(async () => undefined);
+    const onAccepted = vi.fn(async () => ({
+      status: "refreshed",
+      artifact: makeRollTableArtifact({ file_state_token: "table-token-2" }),
+      error: null,
+    }));
     render(
       <PatchArtifactAction
         target={target}
@@ -228,12 +256,60 @@ describe("PatchArtifactAction", () => {
     });
     expect(typeof confirmCommand.idempotency_key).toBe("string");
     expect(confirmCommand.idempotency_key).toContain("ui-patch-artifact");
-    expect(await screen.findByText("Patch applied.")).toBeInTheDocument();
+    expect(await screen.findByText("Patch accepted.")).toBeInTheDocument();
     expect(screen.getByText("Audit event: evt-patch-1")).toBeInTheDocument();
-    expect(screen.getByText("Artifact changed: roll_table T-WX")).toBeInTheDocument();
+    expect(screen.getByText("Changed artifact: roll_table T-WX")).toBeInTheDocument();
+    expect(
+      screen.getByText("Verified: refreshed artifact matches patched state."),
+    ).toBeInTheDocument();
     expect(onAccepted).toHaveBeenCalledTimes(1);
     expect(screen.getByLabelText("Text to replace")).toHaveValue("");
     expect(screen.getByLabelText("Replacement text")).toHaveValue("");
+  });
+
+  it("shows accepted-but-refresh-failed state without claiming write failure", async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi
+      .fn()
+      .mockResolvedValueOnce(makePreviewResult())
+      .mockResolvedValueOnce(
+        makeWriteResult({
+          status: "accepted",
+          events_appended: ["evt-patch-2"],
+          metadata: {
+            patch: {
+              dry_run: false,
+              file_state_token_before: "table-token-1",
+              file_state_token_after: "table-token-2",
+            },
+          },
+        }),
+      );
+    const onAccepted = vi.fn(async () => ({
+      status: "refresh_failed",
+      artifact: null,
+      error: "artifact reload failed",
+    }));
+    render(
+      <PatchArtifactAction
+        target={target}
+        capability={capability}
+        artifact={makeRollTableArtifact()}
+        onSubmitCommand={onSubmit}
+        onAccepted={onAccepted}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: "Patch artifact" }));
+    await user.type(screen.getByLabelText("Text to replace"), "Calm skies");
+    await user.type(screen.getByLabelText("Replacement text"), "Heavy hail");
+    await user.click(screen.getByRole("button", { name: "Preview patch" }));
+    await user.click(screen.getByRole("button", { name: "Confirm patch" }));
+
+    expect(
+      await screen.findByText(/Patch accepted, but refresh failed\./),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Patch request failed before a write result/i)).not.toBeInTheDocument();
+    expect(onSubmit).toHaveBeenCalledTimes(2);
   });
 
   it("shows conflict/rejected/noop diagnostics without claiming success", async () => {
@@ -294,7 +370,10 @@ describe("PatchArtifactAction", () => {
     await user.type(screen.getByLabelText("Replacement text"), "Heavy hail");
     await user.click(screen.getByRole("button", { name: "Preview patch" }));
     expect(await screen.findByText(/stale_artifact: artifact changed since last read/)).toBeInTheDocument();
-    expect(screen.queryByText("Patch applied.")).not.toBeInTheDocument();
+    expect(
+      screen.getByText(/Refresh the pane, review the current table, then preview again/),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Patch accepted.")).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Preview patch" }));
     expect(await screen.findByText(/invalid_payload: old_text must match exactly once/)).toBeInTheDocument();
@@ -359,5 +438,26 @@ describe("PatchArtifactAction", () => {
     await user.click(screen.getByRole("button", { name: "Confirm patch" }));
     const nextPatchConfirmKey = onSubmit.mock.calls[4][0].idempotency_key;
     expect(nextPatchConfirmKey).not.toEqual(failedConfirmKey);
+  });
+
+  it("network/API error before write result does not claim accepted write", async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn(async () => {
+      throw new Error("request dropped");
+    });
+    render(
+      <PatchArtifactAction
+        target={target}
+        capability={capability}
+        artifact={makeRollTableArtifact()}
+        onSubmitCommand={onSubmit}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: "Patch artifact" }));
+    await user.type(screen.getByLabelText("Text to replace"), "Calm skies");
+    await user.type(screen.getByLabelText("Replacement text"), "Heavy hail");
+    await user.click(screen.getByRole("button", { name: "Preview patch" }));
+    expect(await screen.findByText("request dropped")).toBeInTheDocument();
+    expect(screen.queryByText("Patch accepted.")).not.toBeInTheDocument();
   });
 });

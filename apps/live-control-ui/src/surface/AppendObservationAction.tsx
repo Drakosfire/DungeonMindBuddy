@@ -1,6 +1,7 @@
 import { useState } from "react";
 
 import type {
+  CommandRefreshResult,
   ProjectionCapability,
   ProjectionCommand,
   ProjectionTarget,
@@ -11,7 +12,7 @@ interface AppendObservationActionProps {
   target: ProjectionTarget;
   capability: ProjectionCapability;
   onSubmitCommand: (command: ProjectionCommand) => Promise<ProjectionWriteResult>;
-  onAccepted?: (result: ProjectionWriteResult) => Promise<void> | void;
+  onAccepted?: (result: ProjectionWriteResult) => Promise<CommandRefreshResult> | CommandRefreshResult;
 }
 
 function makeIdempotencyKey(target: ProjectionTarget): string {
