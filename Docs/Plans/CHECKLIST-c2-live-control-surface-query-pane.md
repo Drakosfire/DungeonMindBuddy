@@ -4,8 +4,8 @@
 
 - [x] Active slice: `L5_projection_command_architecture`
 - [x] L4 shell remains green on `main`
-- [x] Last green artifact: PR #93 (`c4299770`) — L5N ingestion pane over PR92 `run_pipeline`, editable recap/source session, `POST /api/live/recap-ingest`
-- [ ] Next gate: Step 0 — ingest Session 22 via L5N pane; then C2S23 activated planning corpus manifest (see `ROADMAP-c2s23-authority-activation-and-dogfood.md`)
+- [x] Last green artifact: PR #95 — C2S23 activated planning corpus manifest (read-only `src.live_play.planning_corpus_manifest`; `evals/c2_live_prep/benchmarks/c2s23_planning_corpus_manifest.json`, schema-valid, 44 entries; `tests/test_planning_corpus_manifest.py`)
+- [ ] Next gate: query / admission **over** the activated manifest (roadmap PR93 / git PR96) — consume `route` + `authority` + allowed/forbidden uses; no retrieval was added in PR95
 - [ ] Re-read `STUDY-c2-live-play-cursor-handoff-process.md` before UI expansion work
 
 ---

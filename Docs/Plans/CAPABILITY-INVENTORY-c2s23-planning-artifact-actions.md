@@ -79,7 +79,7 @@ Operational inventory for the first Session 23 dogfood round. **Status** meaning
 
 | Capability | Status | Entrypoint / path | Authority lane | Evidence | Dogfood implication | If missing |
 |------------|--------|-------------------|----------------|----------|---------------------|------------|
-| Manifest-like source activation | missing | Planned PR92 in roadmap (not this PR) | role + authority per source | `ROADMAP-c2s23-authority-activation-and-dogfood.md` | Cannot answer “query all relevant S23 sources” in one pass | **PR95** |
+| Manifest-like source activation | supported | CLI: `src.live_play.planning_corpus_manifest`; artifact: `evals/c2_live_prep/benchmarks/c2s23_planning_corpus_manifest.json` | role + authority per source | `tests/test_planning_corpus_manifest.py`; schema `evals/c2_live_prep/live/schemas/planning_corpus_manifest.schema.json` | Composes all in-bounds S23 sources (role + authority + scope + routes + allowed/forbidden) in one read-only pass; honest `route_exists` gaps | — (query/admission **over** the manifest is **PR96**) |
 | Retrieval over ingested context (live) | missing | `context_lookup` stub in `live_turn.py` | `derived_memory`, hubs | diagnostic `context_lookup_not_executed_in_L2` | Chat will not ground NPC/scene answers | **PR96** |
 | Retrieval smoke (offline) | supported | `evals/c2_live_prep/smoke_retrieval_packets.py` | session memory JSONL | C2S22 artifact runs | Use for comparison only; not wired to live UI | — |
 | Session memory query (library) | supported | `src.agent.session_memory_query` | `derived_memory` | Used by C1S4 / smoke scripts | Manual or script-assisted recall | PR96 to expose in live |
@@ -98,8 +98,8 @@ Operational inventory for the first Session 23 dogfood round. **Status** meaning
 
 ## Summary for dogfood
 
-**Ready today:** S22 ingest (CLI or pane), S23 bootstrap, timeline, inspector reads, append observation, roll-table patch on **existing** registered tables, manual corpus navigation.
+**Ready today:** S22 ingest (CLI or pane), S23 bootstrap, timeline, inspector reads, append observation, roll-table patch on **existing** registered tables, manual corpus navigation, **activated planning corpus manifest** (read-only composition of in-bounds S23 sources via `src.live_play.planning_corpus_manifest`).
 
-**Blockers for full benchmark categories:** activated manifest (PR95), live retrieval / context packets (PR96), roll-table creation + packet seeding (PR95), unified operator writes for hubs/prep (PR96).
+**Blockers for full benchmark categories:** query/admission **over** the manifest (PR96), live retrieval / context packets (PR96), roll-table creation + packet seeding (PR95), unified operator writes for hubs/prep (PR96).
 
 Update this table after the first manual baseline if friction reveals misclassified statuses.

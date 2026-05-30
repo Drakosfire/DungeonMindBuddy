@@ -1,0 +1,127 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "planning_corpus_manifest.schema.json",
+  "title": "C2S23 Activated Planning Corpus Manifest v0",
+  "type": "object",
+  "required": [
+    "schema",
+    "campaign_id",
+    "planning_session",
+    "source_sessions",
+    "entries"
+  ],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "dmb_c2s23_planning_corpus_manifest_v0"
+    },
+    "campaign_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "planning_session": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "source_sessions": {
+      "type": "array",
+      "items": {
+        "type": "integer",
+        "minimum": 1
+      },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "entries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "source_id",
+          "source_role",
+          "authority",
+          "session_scope",
+          "route",
+          "route_exists",
+          "allowed_uses",
+          "forbidden_uses"
+        ],
+        "properties": {
+          "source_id": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "source_role": {
+            "type": "string",
+            "enum": [
+              "table_notes",
+              "play_recap",
+              "session_memory",
+              "prep_scaffold",
+              "roll_table",
+              "live_packet",
+              "live_event",
+              "fresh_recap",
+              "hub_evidence"
+            ]
+          },
+          "authority": {
+            "type": "string",
+            "enum": [
+              "pre_canonical_evidence",
+              "canon_play",
+              "derived_memory",
+              "planning_scaffold",
+              "reference_tool",
+              "live_observation",
+              "audit"
+            ]
+          },
+          "session_scope": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "minItems": 1,
+            "uniqueItems": true
+          },
+          "route": {
+            "type": "string",
+            "minLength": 1
+          },
+          "route_exists": {
+            "type": "boolean"
+          },
+          "allowed_uses": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "forbidden_uses": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "notes": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}
