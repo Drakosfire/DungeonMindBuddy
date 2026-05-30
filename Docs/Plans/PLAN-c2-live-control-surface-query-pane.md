@@ -4,9 +4,9 @@ title: C2 Live Control Surface v0 — Query Pane
 document_class: plan
 plan_kind: product_sprint_plan
 status: active
-version: 1.8
+version: 1.9
 created_at: "2026-05-25T03:11:00Z"
-last_updated_at: "2026-05-28T03:48:00Z"
+last_updated_at: "2026-05-30T03:50:00Z"
 ---
 
 # C2 Live Control Surface v0 — Query Pane
@@ -15,13 +15,22 @@ last_updated_at: "2026-05-28T03:48:00Z"
 
 DungeonBuddy is evolving from a repo-agent workflow into a live GM control surface.
 
-The core architectural direction is now locked:
+The core architectural direction is locked:
 
 - The UI is projection and interaction, not source of truth.
 - The server owns projections, writes, audit, invalidation, and retrieval orchestration.
 - Human panes and agent tools share the same typed command/capability layer.
 - Session plan/timeline views are derived from source truth, not separately authored.
 - Live play prioritizes low-friction capture over immediate canon reconciliation.
+
+After PR90, the project has crossed from cockpit construction into dogfooding preparation. The next work is not another UI pane or a new corpus system. The next work is authority-safe planning over an activated Session 23 corpus.
+
+See also:
+
+```text
+Docs/Plans/ROADMAP-c2s23-authority-activation-and-dogfood.md
+Docs/Plans/RUNBOOK-c2-first-dogfood-planning-round.md
+```
 
 ## Product Shape
 
@@ -84,56 +93,56 @@ Projection
 
 The UI and agent tools both use this command layer.
 
-## Python-First Kernel
+## Implemented L5 Spine
 
-The next implementation center of gravity should remain Python.
+The first L5 spine is now substantially built:
 
-Recommended domain layer:
+| Slice | Result |
+|---|---|
+| PR79 / L5A | Projection and command contracts |
+| PR80 / L5B | Plan-view projection endpoint |
+| PR81 / L5C | Read-only Timeline module |
+| PR82 / L5D | Universal Inspector Pane shell |
+| PR83 / L5E | Artifact and capability reads |
+| PR84 / L5F | Read-only pane renderers |
+| PR85 / L5G | Command bus first write: append_observation |
+| PR86 / L5H | Append observation pane action |
+| PR87 / L5I | Scoped roll-table patch command |
+| PR88 / L5J | Preview-first roll-table patch UI |
+| PR89 / L5K | Patch UX hardening / read-after-write evidence |
+| PR90 / L5L | Fresh recap ingestion / session bootstrap |
+
+This gives us:
 
 ```text
-src/live_play/projections/
-  targets.py
-  capabilities.py
-  commands.py
-  invalidation.py
-  write_results.py
-  plan_view.py
-  artifact_read.py
-  command_bus.py
+fresh recap
+→ bootstrapped live workspace
+→ plan-view timeline
+→ inspector artifact/capability reads
+→ append observations
+→ preview/confirm roll-table patch
+→ write evidence and refresh
 ```
 
-Core functions:
+## Current Dogfood Boundary
 
-```python
-build_projection(...)
-resolve_capabilities(...)
-execute_command(...)
+PR90 can bootstrap a session workspace from a fresh recap, but it does not create manifest-backed cross-session retrieval.
+
+The system can now support a first planning pass, but context lookup across Session 21, Session 22, prep scaffold, live workspace files, roll tables, and hub evidence still needs an explicit activation boundary.
+
+The next correctness risk is not UI mechanics. It is authority collapse.
+
+Do not treat these as equivalent:
+
+```text
+raw table notes      → evidence awaiting recap-write
+played recap         → canon/play memory after recap-write
+session memory       → derived retrieval records from played recap
+planning anchor      → GM scaffold, not canon
+prep brief/runbook   → intended possibility space, not canon
+roll tables          → prep tools, not happened facts
+live workspace       → active planning surface / observations
 ```
-
-FastAPI is the transport adapter.
-React renders projections and submits commands.
-
-## Pane Inventory
-
-### Implemented
-
-- Chat / Command
-- Record
-- Now
-- Roll Stack
-- Layout Controls
-
-### Designed / Planned
-
-- Queue
-- Open Loops
-- Sources / Evidence
-- Timeline / Projected Session Plan
-- Universal Inspector
-- NPC Focus
-- Location Context
-- Rules / Mechanics
-- Post-session Work
 
 ## Write Lanes
 
@@ -152,17 +161,20 @@ Every write must declare intent:
 
 ## Shared Command Bus
 
-Prefer a unified command endpoint:
+The unified command endpoint is:
 
 ```text
 POST /api/live/commands
 ```
 
-Example commands:
+Implemented command paths include:
 
 - append_observation
+- patch_artifact for allowlisted roll_table targets
+
+Planned/deferred command paths include:
+
 - queue_canon_patch
-- patch_artifact
 - create_open_loop
 - update_open_loop
 - pin_scene_state
@@ -193,7 +205,7 @@ Example commands:
 ### ProjectionWriteResult
 
 ```text
-(events_appended, jobs_queued, invalidations, conflicts)
+(events_appended, jobs_queued, invalidations, conflicts, metadata)
 ```
 
 ## API Direction
@@ -205,65 +217,61 @@ GET  /api/live/capabilities
 POST /api/live/commands
 ```
 
-Artifact patch routes may remain internally, but panes and agents should primarily use commands.
+Panes and agents should primarily use commands for writes.
 
-## Delivery Sequence
+## Forward Delivery Sequence
 
-### PR A — Projection Contracts
+### Step 0 — Ingest Session 22
 
-- ProjectionTarget
-- ProjectionCapability
-- ProjectionCommand
-- ProjectionWriteResult
-- ProjectionInvalidation
+Run the existing content operation on staged notes:
 
-### PR B — Plan View Endpoint
+```text
+corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/_ingest_staging/session_22_raw_notes.md
+→ recap-write
+→ normalized recap
+→ breadcrumbed recap
+→ session memory JSONL
+```
 
-- derived timeline projection
-- Session 22 sample payload
-- schema + tests
+This is not a code PR unless the existing content operation fails.
 
-### PR C — Timeline Module
+### PR91 — C2S23 Dogfood Planning Benchmark + Manual Baseline
 
-- read-only projection rendering
-- ref chips
-- no inspector yet
+Author 15–25 planning questions from GM intent, not by reverse-engineering source files.
 
-### PR D — Inspector Pane Shell
+Capture manual baseline answers and friction using the current workflow.
 
-- pane target state
-- shared pane chrome
-- no artifact reads yet
+No automated scoring required yet.
 
-### PR E — Artifact Read Contracts
+### PR92 — C2S23 Activated Planning Corpus Manifest
 
-- allowlisted artifact read endpoint
-- event + roll_table support
-- capability discovery
+Compose the existing corpus/session-memory/live-workspace machinery into one session-scoped activation manifest.
 
-### PR F — Inspector Rendering
+This is not a new ingestion system and not retrieval.
 
-- event renderer
-- roll-table renderer
-- read-only first
+The manifest should define:
 
-### PR G — Command Bus First Writes
+- in-bounds sources
+- source_role
+- authority
+- session scope
+- lifecycle state
+- routes / normalized routes where available
+- allowed and forbidden uses
 
-- append observation
-- update job status
-- pin scene state
-- invalidation handling
+It should emit a canonical JSON manifest and an optional generated markdown mirror.
 
-### PR H — Pane Actions
+### PR93 — Query / Admission over Activated Planning Corpus
 
-- submit typed commands
-- refresh invalidated projections
+Wire query/admission to consume the activation manifest.
 
-### PR I — Scoped Artifact Writes
+The query layer should know both what is in bounds and how each source may be used.
 
-- roll-table editing
-- etag/file-state safety
-- source refresh
+### PR94 — Instrumented Dogfood Re-run
+
+Re-run PR91 questions against manifest-backed query/admission.
+
+Compare evidence recall, authority discipline, planning usefulness, and friction against the manual baseline.
 
 ## Product Invariants
 
@@ -274,6 +282,9 @@ Artifact patch routes may remain internally, but panes and agents should primari
 - Agent tools do not bypass validation or corpus safety.
 - Live play favors capture over reconciliation.
 - Conflicts should become reviewable events/jobs rather than silent corruption.
+- Prep scaffold must not be treated as canon/play fact.
+- Raw table notes should be provenance-only after recap-write produces a played recap.
+- Roll tables are reference tools, not evidence that something happened.
 
 ## Risks
 
@@ -283,6 +294,8 @@ Artifact patch routes may remain internally, but panes and agents should primari
 - Silent canon corruption
 - Retrieval latency bleeding into fast-live
 - Overly broad agent write authority
+- Authority collapse between played recap and planning scaffold
+- Question gold accidentally reverse-engineered from source files
 
 ## Success Criteria
 
@@ -290,4 +303,6 @@ Artifact patch routes may remain internally, but panes and agents should primari
 - Human and agent interactions share one command architecture.
 - Projection refreshes are deterministic and explicit.
 - Writes return invalidation and audit information.
-- Session 22 feels like a coherent live GM surface instead of repo tooling.
+- Session 23 can be planned from bootstrapped live workspace plus correctly activated prior context.
+- The system can distinguish canon_play, planning_scaffold, planning_input, reference_tool, live_observation, and audit sources.
+- DungeonBuddy feels like a coherent GM cockpit instead of repo tooling.
