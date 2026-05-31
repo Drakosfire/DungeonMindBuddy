@@ -432,7 +432,10 @@ def _extract_markdown_spans(
 
     scored: list[tuple[float, int, int, str]] = []
     for s, e, body in spans:
-        if body.lstrip().lower().startswith("--- schema:"):
+        body_lc = body.lstrip().lower()
+        if body_lc.startswith("--- schema:") or body_lc.startswith("schema:"):
+            continue
+        if s <= 200 and "breadcrumb_semantics:" in body_lc:
             continue
         tokens = _tokenize(body)
         overlap = len(tokens & question_tokens)
@@ -810,7 +813,11 @@ def build_context_packet(
                 "forbidden_uses": list(virtual["forbidden_uses"]),
             }
         )
-        virtual_reason = _admission_reason(virtual, claim_type, virtual, resolved_config)
+        virtual_reason: str | None
+        if claim_type != "pipeline_state":
+            virtual_reason = "ingest_status_for_non_pipeline_claim"
+        else:
+            virtual_reason = _admission_reason(virtual, claim_type, virtual, resolved_config)
         if virtual_reason:
             rejected.append({"evidence": virtual, "reason_code": virtual_reason})
         else:

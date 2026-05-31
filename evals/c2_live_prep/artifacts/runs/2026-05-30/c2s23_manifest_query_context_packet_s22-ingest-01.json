@@ -1193,7 +1193,7 @@
           "evals/c2_live_prep/benchmarks/c2s23_planning_corpus_manifest.json"
         ]
       },
-      "reason_code": "use_forbidden_by_manifest"
+      "reason_code": "ingest_status_for_non_pipeline_claim"
     },
     {
       "evidence": {

@@ -386,6 +386,7 @@ def test_play_fact_packet_skips_breadcrumb_frontmatter_schema_spans(
         assert not excerpt.startswith("---")
         assert not excerpt.startswith("schema:")
         assert not excerpt.startswith("--- schema:")
+        assert "breadcrumb_semantics" not in excerpt
 
 
 def test_unrelated_same_session_span_is_not_admitted_when_relevant_spans_exist(
