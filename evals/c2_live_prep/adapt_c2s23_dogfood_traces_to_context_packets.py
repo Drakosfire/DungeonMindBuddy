@@ -80,14 +80,14 @@ def corpus_preconditions() -> dict[str, Any]:
 
 def capability_status_for_question(question_id: str, tool_calls: list[str], blocked: list[dict[str, str]]) -> dict[str, Any]:
     q = question_id.lower()
-    if "manifest" in q and not tool_calls:
+    if "manifest" in q:
         blocked.append(
             {
                 "code": "missing_manifest_query_admission",
                 "message": "Manifest-backed query/admission is not executed in this trace-adapter run.",
             }
         )
-        return {"status": "missing", "evidence": ["zero_tool_calls_for_manifest_question"]}
+        return {"status": "missing", "evidence": ["trace_adapter_not_manifest_query_admission"]}
     if q in {"loc-02", "roll-02", "npc-02"}:
         if not tool_calls:
             blocked.append(

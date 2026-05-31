@@ -643,12 +643,17 @@
     "Capability responses should default to missing/partial/unknown without evidence."
   ],
   "capability_status": {
-    "status": "partial",
+    "status": "missing",
     "evidence": [
-      "inferred_from_current_dogfood_behavior"
+      "trace_adapter_not_manifest_query_admission"
     ]
   },
-  "blocked_or_missing": [],
+  "blocked_or_missing": [
+    {
+      "code": "missing_manifest_query_admission",
+      "message": "Manifest-backed query/admission is not executed in this trace-adapter run."
+    }
+  ],
   "citation_policy": {
     "play_fact_allowed_authorities": [
       "canon_play",

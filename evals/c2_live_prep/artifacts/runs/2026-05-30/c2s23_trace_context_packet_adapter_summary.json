@@ -1,6 +1,6 @@
 {
   "schema": "dmb_c2s23_trace_context_packet_adapter_run_v1",
-  "generated_at": "2026-05-31T02:27:14Z",
+  "generated_at": "2026-05-31T03:11:47Z",
   "manifest_path": "evals/c2_live_prep/benchmarks/c2s23_planning_corpus_manifest.json",
   "dogfood_summary_path": "evals/c2_live_prep/artifacts/last_c2s23_dogfood_planner_summary.json",
   "packet_schema_path": "evals/c2_live_prep/schemas/enriched_planning_context_packet.schema.json",
@@ -202,8 +202,8 @@
       "retrieved_count": 9,
       "admitted_count": 8,
       "rejected_count": 1,
-      "capability_status": "partial",
-      "blocked_or_missing_count": 0
+      "capability_status": "missing",
+      "blocked_or_missing_count": 1
     }
   ]
 }

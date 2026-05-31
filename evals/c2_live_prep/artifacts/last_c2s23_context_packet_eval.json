@@ -1,11 +1,11 @@
 {
   "schema": "dmb_c2s23_context_packet_eval_v1",
-  "generated_at": "2026-05-31T02:26:51Z",
+  "generated_at": "2026-05-31T03:11:47Z",
   "gold_path": "evals/c2_live_prep/benchmarks/c2s23_route_evidence_gold.json",
   "packet_dir": "evals/c2_live_prep/artifacts/runs/2026-05-30",
   "questions_total": 6,
-  "questions_passed": 4,
-  "questions_failed": 2,
+  "questions_passed": 5,
+  "questions_failed": 1,
   "rows": [
     {
       "question_id": "s22-ingest-01",
@@ -23,10 +23,8 @@
     },
     {
       "question_id": "manifest-01",
-      "passed": false,
-      "violations": [
-        "missing_blocked_or_missing_entry"
-      ]
+      "passed": true,
+      "violations": []
     },
     {
       "question_id": "loc-02",
