@@ -368,6 +368,7 @@
       "session_scope": [
         22
       ],
+      "route_exists": true,
       "unit_id": null,
       "breadcrumb_id": null,
       "line_start": null,
@@ -543,17 +544,17 @@
       ]
     },
     {
-      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.breadcrumbed.md",
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 21 - Drake Nest Mirathorn Call.md",
       "source_role": "play_recap",
       "authority": "canon_play",
       "session_scope": [
-        22
+        21
       ],
       "unit_id": null,
       "breadcrumb_id": null,
-      "line_start": 1,
-      "line_end": 118,
-      "text_excerpt": "--- schema: dmb_recap_breadcrumbs_v1 source_recap_path: \"Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md\" campaign: title: \"Longmont Campaign\" campaign_number: 2 campaign_id: longmont-c2 session: number: 22 title: \"Session 22 - Mireward Road and Lysandro\" document_class: play canon_layer: campaign temporal_scope: session_specific origin_session: 22 last_updated_session: 22 source_class: observed_session_recap breadcrumb_semantics: purpose: \"Machine-facing session memory index: inline labels mark source-aligned recap spans with durable retrieval value for agentic planning, live-play querying, hub routing, or proposed hub review.\" placement_ru",
+      "line_start": 25,
+      "line_end": 25,
+      "text_excerpt": "As the group spends the next few minutes deciding what to do next, the majority want to leave right away, suddenly a large group of the reptiles fly up and away. Karsemine is able to tell now that they are young drakes. Based on their size five of these would be a tough battle for the group, so it doesn't look good if they are caught fighting the whole nest. Bonogo decides now is a good time to check again on how many remained in the nest. What he finds is nine young drakes remain, but he also discovers two large elder drakes and seven more sitting on smaller nests. Because of the spell from Karsemine he is able to sneak even closer without being seen. He is able to find a few valuable thing",
       "evidence_score": 5.0,
       "admissible": true,
       "allowed_uses": [
@@ -564,7 +565,7 @@
       ],
       "forbidden_uses": [],
       "routes": [
-        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.breadcrumbed.md"
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 21 - Drake Nest Mirathorn Call.md"
       ]
     },
     {
@@ -677,9 +678,9 @@
       ],
       "unit_id": null,
       "breadcrumb_id": null,
-      "line_start": 1,
-      "line_end": 8,
-      "text_excerpt": "--- campaign_id: longmont-c2 source_session: 22 planning_session: 23 ingested_at: '2026-05-30T21:27:01Z' generated_by: \"session_bootstrap\" --- # Session 22 — Travel North (Fresh Recap Stub)",
+      "line_start": 19,
+      "line_end": 20,
+      "text_excerpt": "- Storm fronts made the first march day tense; we need to plan the next weather roll beat for Session 23. - Hester Mull appeared as a courier encounter; unresolved whether the party trusts the detour offer.",
       "evidence_score": 3.0,
       "admissible": true,
       "allowed_uses": [
@@ -907,6 +908,7 @@
       "session_scope": [
         22
       ],
+      "route_exists": true,
       "unit_id": null,
       "breadcrumb_id": null,
       "line_start": null,
@@ -1057,17 +1059,17 @@
       ]
     },
     {
-      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.breadcrumbed.md",
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 21 - Drake Nest Mirathorn Call.md",
       "source_role": "play_recap",
       "authority": "canon_play",
       "session_scope": [
-        22
+        21
       ],
       "unit_id": null,
       "breadcrumb_id": null,
-      "line_start": 1,
-      "line_end": 118,
-      "text_excerpt": "--- schema: dmb_recap_breadcrumbs_v1 source_recap_path: \"Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md\" campaign: title: \"Longmont Campaign\" campaign_number: 2 campaign_id: longmont-c2 session: number: 22 title: \"Session 22 - Mireward Road and Lysandro\" document_class: play canon_layer: campaign temporal_scope: session_specific origin_session: 22 last_updated_session: 22 source_class: observed_session_recap breadcrumb_semantics: purpose: \"Machine-facing session memory index: inline labels mark source-aligned recap spans with durable retrieval value for agentic planning, live-play querying, hub routing, or proposed hub review.\" placement_ru",
+      "line_start": 25,
+      "line_end": 25,
+      "text_excerpt": "As the group spends the next few minutes deciding what to do next, the majority want to leave right away, suddenly a large group of the reptiles fly up and away. Karsemine is able to tell now that they are young drakes. Based on their size five of these would be a tough battle for the group, so it doesn't look good if they are caught fighting the whole nest. Bonogo decides now is a good time to check again on how many remained in the nest. What he finds is nine young drakes remain, but he also discovers two large elder drakes and seven more sitting on smaller nests. Because of the spell from Karsemine he is able to sneak even closer without being seen. He is able to find a few valuable thing",
       "evidence_score": 5.0,
       "admissible": true,
       "allowed_uses": [
@@ -1078,7 +1080,7 @@
       ],
       "forbidden_uses": [],
       "routes": [
-        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.breadcrumbed.md"
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 21 - Drake Nest Mirathorn Call.md"
       ]
     },
     {
@@ -1256,9 +1258,9 @@
         ],
         "unit_id": null,
         "breadcrumb_id": null,
-        "line_start": 1,
-        "line_end": 12,
-        "text_excerpt": "--- title: \"Session 22 — planning anchor\" document_class: planning canon_layer: campaign campaign_id: longmont-c2 temporal_scope: session_specific session: 22 origin_session: 21 last_updated_session: 21 source_class: scene_module table_note: \"Where-we-are snapshot for Session 22 prep. Not table canon. Refresh after play or major scaffold edits.\" ---",
+        "line_start": 57,
+        "line_end": 68,
+        "text_excerpt": "| ID | Path | Role | Status | |----|------|------|--------| | **P0** | `session_22/README.md` | Planning hub — register, phases, checklist | draft | | **P1** | `Session Prep/Session 22 - open GM knobs.md` | GM decisions not yet in lore files | draft | | **P2** | `session_22/session_22_prep_brief.md` | Runnable prep (threads, NPC beats, travel) | **ready** | | **P2a** | `session_22/session_22_planning_anchor.md` | **This file** — where-we-are snapshot | **ready** | | **R1** | `Journey - Mireward Reach (Campaign 2).md` | Distances, terrain, camp | draft | | **R3** | `Elderwyld/Cities and Towns/Mireward/README.md` | Location hub index | scaffold | | **R3b** | `…/Mireward/Mireward_PLACE_BUILD_SC",
         "evidence_score": 4.0,
         "admissible": true,
         "allowed_uses": [
@@ -1284,9 +1286,9 @@
         ],
         "unit_id": null,
         "breadcrumb_id": null,
-        "line_start": 57,
-        "line_end": 68,
-        "text_excerpt": "| ID | Path | Role | Status | |----|------|------|--------| | **P0** | `session_22/README.md` | Planning hub — register, phases, checklist | draft | | **P1** | `Session Prep/Session 22 - open GM knobs.md` | GM decisions not yet in lore files | draft | | **P2** | `session_22/session_22_prep_brief.md` | Runnable prep (threads, NPC beats, travel) | **ready** | | **P2a** | `session_22/session_22_planning_anchor.md` | **This file** — where-we-are snapshot | **ready** | | **R1** | `Journey - Mireward Reach (Campaign 2).md` | Distances, terrain, camp | draft | | **R3** | `Elderwyld/Cities and Towns/Mireward/README.md` | Location hub index | scaffold | | **R3b** | `…/Mireward/Mireward_PLACE_BUILD_SC",
+        "line_start": 90,
+        "line_end": 90,
+        "text_excerpt": "## 4. What to use for Session 22 (read stack)",
         "evidence_score": 4.0,
         "admissible": true,
         "allowed_uses": [
@@ -1388,59 +1390,6 @@
     },
     {
       "evidence": {
-        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/mireward_gate_dilemma_d6.md",
-        "source_role": "prep_scaffold",
-        "authority": "planning_scaffold",
-        "session_scope": [
-          22
-        ],
-        "unit_id": null,
-        "breadcrumb_id": null,
-        "line_start": 1,
-        "line_end": 14,
-        "text_excerpt": "--- title: \"Session 22 — Mireward gate dilemma d6\" document_class: planning canon_layer: campaign campaign_id: longmont-c2 temporal_scope: session_specific session: 22 origin_session: 21 last_updated_session: 21 source_class: roll_table table_id: T-DIL-G dice: d6 table_note: \"Player-rolled Session 22 Mireward arrival dilemma table. Planning-only until Session 22 recap promotes facts of play.\" ---",
-        "evidence_score": 3.0,
-        "admissible": true,
-        "allowed_uses": [
-          "planning_context",
-          "reusable_prep"
-        ],
-        "forbidden_uses": [
-          "play_facts"
-        ],
-        "routes": [
-          "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/mireward_gate_dilemma_d6.md"
-        ]
-      },
-      "reason_code": "source_role_forbidden_for_pipeline_state"
-    },
-    {
-      "evidence": {
-        "path": "evals/c2_live_prep/live/session_23/recap.md",
-        "source_role": "fresh_recap",
-        "authority": "pre_canonical_evidence",
-        "session_scope": [
-          23
-        ],
-        "unit_id": null,
-        "breadcrumb_id": null,
-        "line_start": 1,
-        "line_end": 8,
-        "text_excerpt": "--- campaign_id: longmont-c2 source_session: 22 planning_session: 23 ingested_at: '2026-05-30T21:27:01Z' generated_by: \"session_bootstrap\" --- # Session 22 — Travel North (Fresh Recap Stub)",
-        "evidence_score": 3.0,
-        "admissible": true,
-        "allowed_uses": [
-          "planning_input"
-        ],
-        "forbidden_uses": [],
-        "routes": [
-          "evals/c2_live_prep/live/session_23/recap.md"
-        ]
-      },
-      "reason_code": "use_forbidden_by_manifest"
-    },
-    {
-      "evidence": {
         "path": "evals/c2_live_prep/live/session_23/recap.md",
         "source_role": "fresh_recap",
         "authority": "pre_canonical_evidence",
@@ -1491,6 +1440,62 @@
         ]
       },
       "reason_code": "use_forbidden_by_manifest"
+    },
+    {
+      "evidence": {
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/_ingest_staging/session_22_raw_notes.md",
+        "source_role": "table_notes",
+        "authority": "pre_canonical_evidence",
+        "session_scope": [
+          22
+        ],
+        "unit_id": null,
+        "breadcrumb_id": null,
+        "line_start": 12,
+        "line_end": 12,
+        "text_excerpt": "While sitting around the fire, Stafl uses Identify on the vial and isn't able to tell much except that no one should drink it. After another arcana check, it appears the magic is some sort of bleed from another plane of existence and something is conjuring it. They are even more concerned about the effect this will have on the flora and fauna in the area. Suddenly Ephanna can hear a muffled voice coming from the rockie-talkie. They can just make out the code phrase before they realize it is Grobnok. What follows is not a great update from the city. Grobnok took the rockie-talkie from Frank after it appears he has been compromised and he has not seen Sara recently. The council was not able to",
+        "evidence_score": 3.0,
+        "admissible": true,
+        "allowed_uses": [
+          "provenance",
+          "pre_recap_evidence"
+        ],
+        "forbidden_uses": [
+          "play_facts"
+        ],
+        "routes": [
+          "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/_ingest_staging/session_22_raw_notes.md"
+        ]
+      },
+      "reason_code": "use_forbidden_by_manifest"
+    },
+    {
+      "evidence": {
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/mireward_gate_dilemma_d6.md",
+        "source_role": "prep_scaffold",
+        "authority": "planning_scaffold",
+        "session_scope": [
+          22
+        ],
+        "unit_id": null,
+        "breadcrumb_id": null,
+        "line_start": 35,
+        "line_end": 37,
+        "text_excerpt": "- **Lysandro Ironveil** (Lysandra’s **father** — **C2 table canon**) can frame any row with: “Road’s open. Town’s full. If you’re Mirathorn heroes, help or wait — your choice.” Prep name **Hald Voss** superseded at table until recap. - These rows should not resolve the town’s core problem. They expose capacity, resentment, and the difference between apron order and interior strain. - If players create a strong new fact at the gate, promote it after play through the Session 22 recap and Mireward scaffold checklist.",
+        "evidence_score": 2.0,
+        "admissible": true,
+        "allowed_uses": [
+          "planning_context",
+          "reusable_prep"
+        ],
+        "forbidden_uses": [
+          "play_facts"
+        ],
+        "routes": [
+          "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/mireward_gate_dilemma_d6.md"
+        ]
+      },
+      "reason_code": "source_role_forbidden_for_pipeline_state"
     }
   ],
   "claims": [
@@ -1505,7 +1510,7 @@
         "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 21 - Drake Nest Mirathorn Call.md",
         "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 21 - Drake Nest Mirathorn Call.md",
         "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 21 - Drake Nest Mirathorn Call.breadcrumbed.md",
-        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.breadcrumbed.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 21 - Drake Nest Mirathorn Call.md",
         "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/README.md",
         "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/README.md",
         "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/dustwalker/README.md"
@@ -1517,7 +1522,7 @@
         "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 21 - Drake Nest Mirathorn Call.md",
         "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 21 - Drake Nest Mirathorn Call.md",
         "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 21 - Drake Nest Mirathorn Call.breadcrumbed.md",
-        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.breadcrumbed.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 21 - Drake Nest Mirathorn Call.md",
         "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/README.md",
         "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/README.md",
         "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/dustwalker/README.md"
@@ -1558,7 +1563,7 @@
       "authority": "canon_play"
     },
     {
-      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.breadcrumbed.md",
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 21 - Drake Nest Mirathorn Call.md",
       "source_role": "play_recap",
       "authority": "canon_play"
     },

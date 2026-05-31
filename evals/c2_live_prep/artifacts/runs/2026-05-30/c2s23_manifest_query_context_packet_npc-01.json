@@ -373,56 +373,6 @@
       ]
     },
     {
-      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 21 - Drake Nest Mirathorn Call.breadcrumbed.md",
-      "source_role": "play_recap",
-      "authority": "canon_play",
-      "session_scope": [
-        21
-      ],
-      "unit_id": null,
-      "breadcrumb_id": null,
-      "line_start": 1,
-      "line_end": 118,
-      "text_excerpt": "--- schema: dmb_recap_breadcrumbs_v1 source_recap_path: \"Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 21 - Drake Nest Mirathorn Call.md\" campaign: title: \"Longmont Campaign\" campaign_number: 2 campaign_id: longmont-c2 session: number: 21 title: \"Session 21 - Drake Nest Mirathorn Call\" document_class: play canon_layer: campaign temporal_scope: session_specific origin_session: 21 last_updated_session: 21 source_class: observed_session_recap breadcrumb_semantics: purpose: \"Machine-facing session memory index: inline labels mark source-aligned recap spans with durable retrieval value for agentic planning, live-play querying, hub routing, or proposed hub review.\" placement_rule",
-      "evidence_score": 7.0,
-      "admissible": true,
-      "allowed_uses": [
-        "play_facts",
-        "open_loops",
-        "planning_context",
-        "continuity"
-      ],
-      "forbidden_uses": [],
-      "routes": [
-        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 21 - Drake Nest Mirathorn Call.breadcrumbed.md"
-      ]
-    },
-    {
-      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.breadcrumbed.md",
-      "source_role": "play_recap",
-      "authority": "canon_play",
-      "session_scope": [
-        22
-      ],
-      "unit_id": null,
-      "breadcrumb_id": null,
-      "line_start": 1,
-      "line_end": 118,
-      "text_excerpt": "--- schema: dmb_recap_breadcrumbs_v1 source_recap_path: \"Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md\" campaign: title: \"Longmont Campaign\" campaign_number: 2 campaign_id: longmont-c2 session: number: 22 title: \"Session 22 - Mireward Road and Lysandro\" document_class: play canon_layer: campaign temporal_scope: session_specific origin_session: 22 last_updated_session: 22 source_class: observed_session_recap breadcrumb_semantics: purpose: \"Machine-facing session memory index: inline labels mark source-aligned recap spans with durable retrieval value for agentic planning, live-play querying, hub routing, or proposed hub review.\" placement_ru",
-      "evidence_score": 7.0,
-      "admissible": true,
-      "allowed_uses": [
-        "play_facts",
-        "open_loops",
-        "planning_context",
-        "continuity"
-      ],
-      "forbidden_uses": [],
-      "routes": [
-        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.breadcrumbed.md"
-      ]
-    },
-    {
       "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.breadcrumbed.md",
       "source_role": "play_recap",
       "authority": "canon_play",
@@ -495,6 +445,56 @@
       "forbidden_uses": [],
       "routes": [
         "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 21 - Drake Nest Mirathorn Call.md"
+      ]
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 21 - Drake Nest Mirathorn Call.breadcrumbed.md",
+      "source_role": "play_recap",
+      "authority": "canon_play",
+      "session_scope": [
+        21
+      ],
+      "unit_id": null,
+      "breadcrumb_id": null,
+      "line_start": 122,
+      "line_end": 122,
+      "text_excerpt": "They continue on north with Karsemine and Caelynn keeping an eye out for high ground for a place to stop for the night. While on this short trip everyone is able to relax and have a short rest. Because of their timing leaving the town and their navigation skills, the wagon is able to make it far enough north to just hit the very edge of the storm and only get soaked. They are able to see the sheen of magic as the rain pools up and instead of the usual petrichor the rain smells savory. Karsemine and Caelynn spot a good camping spot on the top of a conical hill.[PC][Longmont Campaign/Campaign 2/PCs/karsemine/][PC][Longmont Campaign/Campaign 2/PCs/caelynn/] They leave the wagon and the animals ",
+      "evidence_score": 6.0,
+      "admissible": true,
+      "allowed_uses": [
+        "play_facts",
+        "open_loops",
+        "planning_context",
+        "continuity"
+      ],
+      "forbidden_uses": [],
+      "routes": [
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 21 - Drake Nest Mirathorn Call.breadcrumbed.md"
+      ]
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.breadcrumbed.md",
+      "source_role": "play_recap",
+      "authority": "canon_play",
+      "session_scope": [
+        22
+      ],
+      "unit_id": null,
+      "breadcrumb_id": null,
+      "line_start": 126,
+      "line_end": 126,
+      "text_excerpt": "The group continues on when they see a cloud of dust as something is moving fast in their direction. They soon encounter a young rider on a horse at top speed. She slows long enough to say that they cannot stop unless they have food for her horse so that she can continue on. The horse has clearly been running at full speed for a long time and could use a short break. Caeylynn conjures some Good Berries for the horse and fetches some water.[PC][Longmont Campaign/Campaign 2/PCs/caelynn/] Stafl immediately recognizes the soldier’s uniform of the Elderwild Reach, the same uniform he wore before leaving and joining this group.[PC][Longmont Campaign/Campaign 2/PCs/stafl/] The woman introduces hers",
+      "evidence_score": 6.0,
+      "admissible": true,
+      "allowed_uses": [
+        "play_facts",
+        "open_loops",
+        "planning_context",
+        "continuity"
+      ],
+      "forbidden_uses": [],
+      "routes": [
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.breadcrumbed.md"
       ]
     },
     {
@@ -583,9 +583,9 @@
       ],
       "unit_id": null,
       "breadcrumb_id": null,
-      "line_start": 1,
-      "line_end": 13,
-      "text_excerpt": "--- title: \"Captain Lysandra Ironveil — Campaign 2\" document_class: reference canon_layer: campaign campaign_id: longmont-c2 temporal_scope: campaign_stateful session: null origin_session: null last_updated_session: null source_class: ledger_or_dossier subject_class: npc subject_doc_kind: hub_index ---",
+      "line_start": 21,
+      "line_end": 26,
+      "text_excerpt": "1. `Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_character_dossier.md` — primary **character reference** (psychology, command style, GM-sourced ledger bullets). 2. `Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/lysandra_ironveil_mireward_history.md` — **Mireward upbringing, Ironveil family soap, gate/homecoming beats** (read when she is on Reach soil). 3. `Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/timeline.md` — C2 beats + which recap to open next. 3. `Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_statblock_cr4.md` — **CR 4** leveled mechanical sheet (Mirathorn export; cur",
       "evidence_score": 4.0,
       "admissible": true,
       "allowed_uses": [
@@ -609,9 +609,9 @@
       ],
       "unit_id": null,
       "breadcrumb_id": null,
-      "line_start": 21,
-      "line_end": 26,
-      "text_excerpt": "1. `Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_character_dossier.md` — primary **character reference** (psychology, command style, GM-sourced ledger bullets). 2. `Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/lysandra_ironveil_mireward_history.md` — **Mireward upbringing, Ironveil family soap, gate/homecoming beats** (read when she is on Reach soil). 3. `Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/timeline.md` — C2 beats + which recap to open next. 3. `Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_statblock_cr4.md` — **CR 4** leveled mechanical sheet (Mirathorn export; cur",
+      "line_start": 36,
+      "line_end": 41,
+      "text_excerpt": "| Priority | Path (corpus root = `eldyrwild-markdown/`) | Role | |----------|--------------------------------------------|------| | **1 — table override (if present)** | In **this folder**: any `.md` whose name starts with `captain_lysandra_ironveil_statblock_c2_` | **Most current for Campaign 2** when such a file exists. Use the exact path from the corpus tree (no globs in `read_corpus_file`). If several exist, prefer the **highest session number** in the filename. | | **2 — Mirathorn leveled export** | `Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_statblock_cr4.md` | **CR 4** current mechanical default from the setting hub when no C2-only ov",
       "evidence_score": 4.0,
       "admissible": true,
       "allowed_uses": [
@@ -883,56 +883,6 @@
       ]
     },
     {
-      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 21 - Drake Nest Mirathorn Call.breadcrumbed.md",
-      "source_role": "play_recap",
-      "authority": "canon_play",
-      "session_scope": [
-        21
-      ],
-      "unit_id": null,
-      "breadcrumb_id": null,
-      "line_start": 1,
-      "line_end": 118,
-      "text_excerpt": "--- schema: dmb_recap_breadcrumbs_v1 source_recap_path: \"Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 21 - Drake Nest Mirathorn Call.md\" campaign: title: \"Longmont Campaign\" campaign_number: 2 campaign_id: longmont-c2 session: number: 21 title: \"Session 21 - Drake Nest Mirathorn Call\" document_class: play canon_layer: campaign temporal_scope: session_specific origin_session: 21 last_updated_session: 21 source_class: observed_session_recap breadcrumb_semantics: purpose: \"Machine-facing session memory index: inline labels mark source-aligned recap spans with durable retrieval value for agentic planning, live-play querying, hub routing, or proposed hub review.\" placement_rule",
-      "evidence_score": 7.0,
-      "admissible": true,
-      "allowed_uses": [
-        "play_facts",
-        "open_loops",
-        "planning_context",
-        "continuity"
-      ],
-      "forbidden_uses": [],
-      "routes": [
-        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 21 - Drake Nest Mirathorn Call.breadcrumbed.md"
-      ]
-    },
-    {
-      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.breadcrumbed.md",
-      "source_role": "play_recap",
-      "authority": "canon_play",
-      "session_scope": [
-        22
-      ],
-      "unit_id": null,
-      "breadcrumb_id": null,
-      "line_start": 1,
-      "line_end": 118,
-      "text_excerpt": "--- schema: dmb_recap_breadcrumbs_v1 source_recap_path: \"Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md\" campaign: title: \"Longmont Campaign\" campaign_number: 2 campaign_id: longmont-c2 session: number: 22 title: \"Session 22 - Mireward Road and Lysandro\" document_class: play canon_layer: campaign temporal_scope: session_specific origin_session: 22 last_updated_session: 22 source_class: observed_session_recap breadcrumb_semantics: purpose: \"Machine-facing session memory index: inline labels mark source-aligned recap spans with durable retrieval value for agentic planning, live-play querying, hub routing, or proposed hub review.\" placement_ru",
-      "evidence_score": 7.0,
-      "admissible": true,
-      "allowed_uses": [
-        "play_facts",
-        "open_loops",
-        "planning_context",
-        "continuity"
-      ],
-      "forbidden_uses": [],
-      "routes": [
-        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.breadcrumbed.md"
-      ]
-    },
-    {
       "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.breadcrumbed.md",
       "source_role": "play_recap",
       "authority": "canon_play",
@@ -1005,6 +955,56 @@
       "forbidden_uses": [],
       "routes": [
         "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 21 - Drake Nest Mirathorn Call.md"
+      ]
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 21 - Drake Nest Mirathorn Call.breadcrumbed.md",
+      "source_role": "play_recap",
+      "authority": "canon_play",
+      "session_scope": [
+        21
+      ],
+      "unit_id": null,
+      "breadcrumb_id": null,
+      "line_start": 122,
+      "line_end": 122,
+      "text_excerpt": "They continue on north with Karsemine and Caelynn keeping an eye out for high ground for a place to stop for the night. While on this short trip everyone is able to relax and have a short rest. Because of their timing leaving the town and their navigation skills, the wagon is able to make it far enough north to just hit the very edge of the storm and only get soaked. They are able to see the sheen of magic as the rain pools up and instead of the usual petrichor the rain smells savory. Karsemine and Caelynn spot a good camping spot on the top of a conical hill.[PC][Longmont Campaign/Campaign 2/PCs/karsemine/][PC][Longmont Campaign/Campaign 2/PCs/caelynn/] They leave the wagon and the animals ",
+      "evidence_score": 6.0,
+      "admissible": true,
+      "allowed_uses": [
+        "play_facts",
+        "open_loops",
+        "planning_context",
+        "continuity"
+      ],
+      "forbidden_uses": [],
+      "routes": [
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 21 - Drake Nest Mirathorn Call.breadcrumbed.md"
+      ]
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.breadcrumbed.md",
+      "source_role": "play_recap",
+      "authority": "canon_play",
+      "session_scope": [
+        22
+      ],
+      "unit_id": null,
+      "breadcrumb_id": null,
+      "line_start": 126,
+      "line_end": 126,
+      "text_excerpt": "The group continues on when they see a cloud of dust as something is moving fast in their direction. They soon encounter a young rider on a horse at top speed. She slows long enough to say that they cannot stop unless they have food for her horse so that she can continue on. The horse has clearly been running at full speed for a long time and could use a short break. Caeylynn conjures some Good Berries for the horse and fetches some water.[PC][Longmont Campaign/Campaign 2/PCs/caelynn/] Stafl immediately recognizes the soldier’s uniform of the Elderwild Reach, the same uniform he wore before leaving and joining this group.[PC][Longmont Campaign/Campaign 2/PCs/stafl/] The woman introduces hers",
+      "evidence_score": 6.0,
+      "admissible": true,
+      "allowed_uses": [
+        "play_facts",
+        "open_loops",
+        "planning_context",
+        "continuity"
+      ],
+      "forbidden_uses": [],
+      "routes": [
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.breadcrumbed.md"
       ]
     },
     {
@@ -1093,9 +1093,9 @@
       ],
       "unit_id": null,
       "breadcrumb_id": null,
-      "line_start": 1,
-      "line_end": 13,
-      "text_excerpt": "--- title: \"Captain Lysandra Ironveil — Campaign 2\" document_class: reference canon_layer: campaign campaign_id: longmont-c2 temporal_scope: campaign_stateful session: null origin_session: null last_updated_session: null source_class: ledger_or_dossier subject_class: npc subject_doc_kind: hub_index ---",
+      "line_start": 21,
+      "line_end": 26,
+      "text_excerpt": "1. `Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_character_dossier.md` — primary **character reference** (psychology, command style, GM-sourced ledger bullets). 2. `Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/lysandra_ironveil_mireward_history.md` — **Mireward upbringing, Ironveil family soap, gate/homecoming beats** (read when she is on Reach soil). 3. `Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/timeline.md` — C2 beats + which recap to open next. 3. `Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_statblock_cr4.md` — **CR 4** leveled mechanical sheet (Mirathorn export; cur",
       "evidence_score": 4.0,
       "admissible": true,
       "allowed_uses": [
@@ -1119,9 +1119,9 @@
       ],
       "unit_id": null,
       "breadcrumb_id": null,
-      "line_start": 21,
-      "line_end": 26,
-      "text_excerpt": "1. `Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_character_dossier.md` — primary **character reference** (psychology, command style, GM-sourced ledger bullets). 2. `Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/lysandra_ironveil_mireward_history.md` — **Mireward upbringing, Ironveil family soap, gate/homecoming beats** (read when she is on Reach soil). 3. `Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/timeline.md` — C2 beats + which recap to open next. 3. `Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_statblock_cr4.md` — **CR 4** leveled mechanical sheet (Mirathorn export; cur",
+      "line_start": 36,
+      "line_end": 41,
+      "text_excerpt": "| Priority | Path (corpus root = `eldyrwild-markdown/`) | Role | |----------|--------------------------------------------|------| | **1 — table override (if present)** | In **this folder**: any `.md` whose name starts with `captain_lysandra_ironveil_statblock_c2_` | **Most current for Campaign 2** when such a file exists. Use the exact path from the corpus tree (no globs in `read_corpus_file`). If several exist, prefer the **highest session number** in the filename. | | **2 — Mirathorn leveled export** | `Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_statblock_cr4.md` | **CR 4** current mechanical default from the setting hub when no C2-only ov",
       "evidence_score": 4.0,
       "admissible": true,
       "allowed_uses": [
@@ -1170,11 +1170,11 @@
       "support_status": "supported",
       "supporting_evidence_refs": [
         "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 21 - Drake Nest Mirathorn Call.breadcrumbed.md",
-        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 21 - Drake Nest Mirathorn Call.breadcrumbed.md",
-        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.breadcrumbed.md",
         "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.breadcrumbed.md",
         "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/Session 21 - Session intro.md",
         "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 21 - Drake Nest Mirathorn Call.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 21 - Drake Nest Mirathorn Call.breadcrumbed.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.breadcrumbed.md",
         "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 21 - Drake Nest Mirathorn Call.md",
         "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/_ingest_staging/session_21_raw_notes.md",
         "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/Session 21 - Session intro.md",
@@ -1184,11 +1184,11 @@
       ],
       "route_refs": [
         "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 21 - Drake Nest Mirathorn Call.breadcrumbed.md",
-        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 21 - Drake Nest Mirathorn Call.breadcrumbed.md",
-        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.breadcrumbed.md",
         "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.breadcrumbed.md",
         "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/Session 21 - Session intro.md",
         "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 21 - Drake Nest Mirathorn Call.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 21 - Drake Nest Mirathorn Call.breadcrumbed.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.breadcrumbed.md",
         "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 21 - Drake Nest Mirathorn Call.md",
         "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/_ingest_staging/session_21_raw_notes.md",
         "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/Session 21 - Session intro.md",
@@ -1207,16 +1207,6 @@
       "authority": "canon_play"
     },
     {
-      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 21 - Drake Nest Mirathorn Call.breadcrumbed.md",
-      "source_role": "play_recap",
-      "authority": "canon_play"
-    },
-    {
-      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.breadcrumbed.md",
-      "source_role": "play_recap",
-      "authority": "canon_play"
-    },
-    {
       "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.breadcrumbed.md",
       "source_role": "play_recap",
       "authority": "canon_play"
@@ -1228,6 +1218,16 @@
     },
     {
       "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 21 - Drake Nest Mirathorn Call.md",
+      "source_role": "play_recap",
+      "authority": "canon_play"
+    },
+    {
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 21 - Drake Nest Mirathorn Call.breadcrumbed.md",
+      "source_role": "play_recap",
+      "authority": "canon_play"
+    },
+    {
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.breadcrumbed.md",
       "source_role": "play_recap",
       "authority": "canon_play"
     },

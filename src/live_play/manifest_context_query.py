@@ -263,6 +263,7 @@ def build_virtual_precondition_evidence(preconditions: dict[str, Any], config: Q
         "source_role": "ingest_status",
         "authority": "audit",
         "session_scope": list(config.virtual_precondition_session_scope),
+        "route_exists": True,
         "unit_id": None,
         "breadcrumb_id": None,
         "line_start": None,
@@ -407,10 +408,16 @@ def _extract_markdown_spans(
 ) -> list[dict[str, Any]]:
     text = abs_path.read_text(encoding="utf-8")
     lines = text.splitlines()
+    content_start_idx = 0
+    if lines and lines[0].strip() == "---":
+        for idx, line in enumerate(lines[1:], start=1):
+            if line.strip() == "---":
+                content_start_idx = idx + 1
+                break
     spans: list[tuple[int, int, str]] = []
     start: int | None = None
     bucket: list[str] = []
-    for idx, line in enumerate(lines, start=1):
+    for idx, line in enumerate(lines[content_start_idx:], start=content_start_idx + 1):
         if line.strip():
             if start is None:
                 start = idx
@@ -425,6 +432,8 @@ def _extract_markdown_spans(
 
     scored: list[tuple[float, int, int, str]] = []
     for s, e, body in spans:
+        if body.lstrip().lower().startswith("--- schema:"):
+            continue
         tokens = _tokenize(body)
         overlap = len(tokens & question_tokens)
         if overlap < MIN_CONTENT_OVERLAP:
@@ -801,14 +810,11 @@ def build_context_packet(
                 "forbidden_uses": list(virtual["forbidden_uses"]),
             }
         )
-        admitted.append(virtual)
-        route_context.append(
-            {
-                "route": virtual["path"],
-                "source_role": virtual["source_role"],
-                "authority": virtual["authority"],
-            }
-        )
+        virtual_reason = _admission_reason(virtual, claim_type, virtual, resolved_config)
+        if virtual_reason:
+            rejected.append({"evidence": virtual, "reason_code": virtual_reason})
+        else:
+            admitted.append(virtual)
 
     candidates = retrieve_candidates(entries, request, query_plan)
     for entry in candidates:

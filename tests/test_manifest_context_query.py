@@ -355,6 +355,39 @@ def test_s22_ingest_01_claim_type_is_play_fact(manifest: dict, query_config: Que
     assert packet["intent_class"] in {"play_fact_retrieval", "cross_session_planning"}
 
 
+def test_play_fact_packet_does_not_admit_ingest_status_audit(manifest: dict, query_config: QueryConfig) -> None:
+    packet = build_context_packet(
+        _request(
+            "s22-ingest-01",
+            "After ingesting Session 22 raw notes, what are the three most important play outcomes to carry into Session 23 prep?",
+        ),
+        manifest,
+        root=ROOT,
+        config=query_config,
+    )
+    assert all(e.get("source_role") != "ingest_status" for e in packet["admitted_evidence"])
+    assert all("play_facts" not in list(e.get("forbidden_uses") or []) for e in packet["admitted_evidence"])
+
+
+def test_play_fact_packet_skips_breadcrumb_frontmatter_schema_spans(
+    manifest: dict, query_config: QueryConfig
+) -> None:
+    packet = build_context_packet(
+        _request(
+            "s22-ingest-01",
+            "After ingesting Session 22 raw notes, what are the three most important play outcomes to carry into Session 23 prep?",
+        ),
+        manifest,
+        root=ROOT,
+        config=query_config,
+    )
+    for evidence in packet["admitted_evidence"]:
+        excerpt = str(evidence.get("text_excerpt") or "").lstrip().lower()
+        assert not excerpt.startswith("---")
+        assert not excerpt.startswith("schema:")
+        assert not excerpt.startswith("--- schema:")
+
+
 def test_unrelated_same_session_span_is_not_admitted_when_relevant_spans_exist(
     manifest: dict, query_config: QueryConfig
 ) -> None:

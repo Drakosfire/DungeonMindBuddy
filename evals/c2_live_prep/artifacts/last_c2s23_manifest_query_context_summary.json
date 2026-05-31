@@ -1,6 +1,6 @@
 {
   "schema": "dmb_c2s23_manifest_query_context_run_v1",
-  "generated_at": "2026-05-31T04:35:22Z",
+  "generated_at": "2026-05-31T05:09:51Z",
   "manifest_path": "evals/c2_live_prep/benchmarks/c2s23_planning_corpus_manifest.json",
   "questions_path": "evals/c2_live_prep/benchmarks/c2s23_dogfood_questions.seed.json",
   "packet_count": 22,
