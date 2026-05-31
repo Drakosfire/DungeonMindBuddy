@@ -7,6 +7,18 @@ Project-specific learnings, ideas, and follow-ups for the DungeonMindBuddy repo 
 
 Sort newest → oldest within each status; promote with `/promote`; archive with `/done` or `/drop`.
 
+## [READY] Ingest guardrail — deterministic duplicate-normalized handling for session materialization — captured 2026-05-30
+
+**Context:** Session 22 live ingest blocked at `materialize_session_memory` despite breadcrumb being present. Root causes stacked: (1) duplicate `_normalized/Session 22*.md` files, and (2) a **mis-promoted prep/staging doc** (`Session 22 - Mireward Gate Lysandro Ironveil.md` — body literally says "Staging only — not canon") had been written through normalize/breadcrumb/session-memory while the real played recap lived under `Mireward Road and Lysandro`. UI surfaced a long-lived warning toast, which looked like a hung job rather than an immediate deterministic precondition failure.
+
+**Insight:** The materialization contract currently assumes a single normalized recap per `(campaign, session)` but does not enforce that invariant early or provide structured recovery metadata. Worse, ingest can canonize the wrong slug if staging/prep prose is committed under `Session Recaps/` with play frontmatter. This creates repeated manual cleanup loops and operator confusion ("still waiting" vs "hard blocked").
+
+**Action:** Add robust ingest guardrails: (1) preflight endpoint (or ingest status field) that reports duplicate candidates with exact paths before materialization click, (2) explicit machine-readable error code for duplicate-normalized collision, (3) deterministic resolver policy (`canonical` selection rule or quarantine lane) plus optional one-click operator remediation in UI, (4) **reject or quarantine `Session Recaps/` files whose body contains staging-only markers** (e.g. "Staging only — not canon") before apply/normalize, (5) regression tests covering duplicate normalized files and mis-promoted staging docs.
+
+**Surfaces when:** Any `materialize_session_memory` run; `_normalized/Session N*.md` ingest prep; toast/next-step UX for ingest blocking states; session recap canonicalization workflows.
+
+**Refs:** `apps/live-control-ui/src/modules/IngestionModule.tsx`, `apps/live_control_server/routes/live.py`, `scripts/materialize_session_memory.py`, `corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/`.
+
 ## [IDEA] Product slice — C2 Live Control Surface v0 Query Pane — captured 2026-05-24
 
 **Context:** Session 22 dogfood proved the live-play workflow inside Cursor: roll lookup, canon commits, staging notes, open-loop tracking, grounded context lookup, and post-session propagation all worked, but the IDE/repo-agent loop made the demo feel like engineering scaffolding rather than a DungeonBuddy product.

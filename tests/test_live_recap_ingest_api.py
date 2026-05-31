@@ -230,3 +230,25 @@ def test_invalid_operation_rejected(client: TestClient) -> None:
         },
     )
     assert response.status_code == 422
+
+
+def test_inspect_status_is_read_only_and_reports_disk(client: TestClient, isolated_session: Path) -> None:
+    corpus = Path(isolated_session / "corpus/eldyrwild-markdown")
+    recap = corpus / "Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md"
+    recap.parent.mkdir(parents=True, exist_ok=True)
+    recap.write_text("canonical on disk", encoding="utf-8")
+    response = client.post(
+        "/api/live/recap-ingest",
+        json={
+            "operation": "inspect_status",
+            "campaign_id": "longmont-c2",
+            "session": 22,
+            "slug": "Mireward Road and Lysandro",
+        },
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["schema"] == "dmb_raw_recap_ingest_status_v1"
+    assert "ingest_status_inspected" in body["states"]
+    assert "recap_reused" in body["states"]
+    assert recap.read_text(encoding="utf-8") == "canonical on disk"

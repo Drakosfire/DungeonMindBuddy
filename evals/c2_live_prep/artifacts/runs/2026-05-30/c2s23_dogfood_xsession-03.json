@@ -1,0 +1,56 @@
+{
+  "question_id": "xsession-03",
+  "question": "If the party continues north toward Mireward Reach, what changed between Session 21 travel context and where Session 22 ended?",
+  "category": "cross_session_continuity",
+  "expected_source_roles": [
+    "canon_play",
+    "derived_memory"
+  ],
+  "forbidden_source_roles_for_play_facts": [
+    "planning_scaffold",
+    "reference_tool"
+  ],
+  "expected_artifact_actions": [
+    "manual_corpus_read",
+    "timeline_read"
+  ],
+  "answer_requirements": [
+    "Geographic or situation delta across sessions",
+    "Do not invent distance or town names from roll tables alone"
+  ],
+  "planner": {
+    "turn_count": 2,
+    "tool_calls": [
+      "read_corpus_file",
+      "read_corpus_file"
+    ],
+    "corpus_paths_read": [
+      "Longmont Campaign/Campaign 2/Session Recaps/Session 21 - Drake Nest Mirathorn Call.md",
+      "Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md"
+    ],
+    "final_message": "Between Session 21’s travel context and where Session 22 ended, the northward situation changed in a few key ways in **Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 21 - Drake Nest Mirathorn Call.md** and **Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md**:\n\n- **Route pressure changed:** Session 21 had them leaving Mirathorn area with a destination decision still unsettled, while Session 22 committed them to the Reach and onward toward Mireward.\n- **Weather escalated:** Session 21 had a single gathering storm that they mostly dodged; by Session 22 it had become a **major storm system**, with a second storm merging in and eventually producing a **huge hail storm**.\n- **Mirathorn got worse:** In Session 21 the city still seemed functional but off; by Session 22 repeated contact failures, Grobnok’s message, and reports of a **full-blown corrupted meat outbreak** showed the city had deteriorated sharply.\n- **The party got a clearer mission:** Session 21 ended with uncertainty about whether to turn back; Session 22 confirmed the council wanted them to **continue to the swamp**, where the problem was believed to originate.\n- **Travel became more uncanny:** Session 22 added delayed reflections in puddles, a rhythmic song traveling on the wind, strange mist with a savory smell, and the humming spell-effect that matched the Dustwalker’s festival song.\n- **They picked up a new contact:** they met **Private Hester**, who delivered the warning to speak with Commander Vale before going into the swamp.\n- **The endpoint shifted from camp to revelation:** Session 21 ended on a planned push north; Session 22 ended with the group at the north road checkpoint meeting **Lysandro**, revealing Lysandra’s father.\n\nSo the big change is: the journey north went from “stormy travel with uncertainty” to “storm-corrupted travel with direct evidence that the city is compromised, and a confirmed push toward the swamp source.”",
+    "final_message_parse_error": null,
+    "user_intent": "status_or_recap_request",
+    "scenario_estimated_cost_usd": null,
+    "planner_estimated_cost_usd": 0.008331
+  },
+  "tool_trace": [
+    {
+      "tool": "read_corpus_file",
+      "arguments": {
+        "path": "Longmont Campaign/Campaign 2/Session Recaps/Session 21 - Drake Nest Mirathorn Call.md"
+      },
+      "output_chars": 8158,
+      "output_excerpt": "---\ntitle: \"Session 21 - Drake Nest Mirathorn Call\"\ndocument_class: play\ncanon_layer: campaign\ncampaign_id: longmont-c2\ntemporal_scope: session_specific\nsession: 21\norigin_session: 21\nlast_updated_session: 21\nsource_class: observed_session_recap\n---\n# Session 21 Recap\n\nWhile still waiting for a response Caelynn studies the sky once again. She estimates that the gathering storm will arrive in about seven hours. The group then decides to load up the wagon and head out in hopes of beating the storm. They plan to head back up the main road through town and continue north. This will give them a chance to warn the Mossford of the approaching storm and gather any supplies they might need. Stafl and Lysandra, both in need of a good rest, lay down in the back of the wagon, using this time to rechar"
+    },
+    {
+      "tool": "read_corpus_file",
+      "arguments": {
+        "path": "Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md"
+      },
+      "output_chars": 9930,
+      "output_excerpt": "---\ntitle: \"Session 22 - Mireward Road and Lysandro\"\ndocument_class: play\ncanon_layer: campaign\ncampaign_id: longmont-c2\ntemporal_scope: session_specific\nsession: 22\norigin_session: 22\nlast_updated_session: 22\nsource_class: observed_session_recap\n---\n# Session 22 Recap\n\nThe group turns their focus to the Reach; the vast Golden Fields to the north. If they decide to continue on, their destination is Mireward. If they decide to turn around, it's a multiday journey back to Mirathorn. The first thing to do is break their camp and head back to the wagon. The trail is damp from the rain and a magical sheen lies everywhere. In the distance to the west another storm appears to be building and there is a constant feeling of an approaching storm.\n\nAfter another failed attempt to contact Mirathorn by"
+    }
+  ],
+  "final_text": "{\"user_intent\":\"status_or_recap_request\",\"message\":\"Between Session 21’s travel context and where Session 22 ended, the northward situation changed in a few key ways in **Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 21 - Drake Nest Mirathorn Call.md** and **Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md**:\\n\\n- **Route pressure changed:** Session 21 had them leaving Mirathorn area with a destination decision still unsettled, while Session 22 committed them to the Reach and onward toward Mireward.\\n- **Weather escalated:** Session 21 had a single gathering storm that they mostly dodged; by Session 22 it had become a **major storm system**, with a second storm merging in and eventually producing a **huge hail storm**.\\n- **Mirathorn got worse:** In Session 21 the city still seemed functional but off; by Session 22 repeated contact failures, Grobnok’s message, and reports of a **full-blown corrupted meat outbreak** showed the city had deteriorated sharply.\\n- **The party got a clearer mission:** Session 21 ended with uncertainty about whether to turn back; Session 22 confirmed the council wanted them to **continue to the swamp**, where the problem was believed to originate.\\n- **Travel became more uncanny:** Session 22 added delayed reflections in puddles, a rhythmic song traveling on the wind, strange mist with a savory smell, and the humming spell-effect that matched the Dustwalker’s festival song.\\n- **They picked up a new contact:** they met **Private Hester**, who delivered the warning to speak with Commander Vale before going into the swamp.\\n- **The endpoint shifted from camp to revelation:** Session 21 ended on a planned push north; Session 22 ended with the group at the north road checkpoint meeting **Lysandro**, revealing Lysandra’s father.\\n\\nSo the big change is: the journey north went from “stormy travel with uncertainty” to “storm-corrupted travel with direct evidence that the city is compromised, and a confirmed push toward the swamp source.”\",\"unsure_queue\":null}"
+}

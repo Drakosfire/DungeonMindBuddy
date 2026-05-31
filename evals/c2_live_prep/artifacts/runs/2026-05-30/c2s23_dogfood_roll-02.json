@@ -1,0 +1,32 @@
+{
+  "question_id": "roll-02",
+  "question": "Can I add a new swamp-side random encounter table for Session 23 prep from the live-control surface, register it on the packet, and patch rows?",
+  "category": "roll_table_creation_mutation",
+  "expected_source_roles": [
+    "reference_tool"
+  ],
+  "forbidden_source_roles_for_play_facts": [
+    "reference_tool"
+  ],
+  "expected_artifact_actions": [
+    "roll_table_create",
+    "roll_table_patch"
+  ],
+  "answer_requirements": [
+    "Answer yes/no with actual entrypoint attempted",
+    "Log friction if create is missing",
+    "Patch only if table already exists"
+  ],
+  "planner": {
+    "turn_count": 1,
+    "tool_calls": [],
+    "corpus_paths_read": [],
+    "final_message": "Yes — that’s a workflow/planning task. I can help structure the swamp-side random encounter table for Session 23 prep, but I’ll need the relevant prep packet / control-surface file paths opened first (for example the Session 23 prep folder or packet artifact under `Longmont Campaign/Campaign 2/Session Prep/`). If you want, I can proceed by locating the session 23 prep hub, then draft the encounter table and the row patch plan against the packet.",
+    "final_message_parse_error": null,
+    "user_intent": "planning_request",
+    "scenario_estimated_cost_usd": null,
+    "planner_estimated_cost_usd": 0.002175
+  },
+  "tool_trace": [],
+  "final_text": "{\"user_intent\":\"planning_request\",\"message\":\"Yes — that’s a workflow/planning task. I can help structure the swamp-side random encounter table for Session 23 prep, but I’ll need the relevant prep packet / control-surface file paths opened first (for example the Session 23 prep folder or packet artifact under `Longmont Campaign/Campaign 2/Session Prep/`). If you want, I can proceed by locating the session 23 prep hub, then draft the encounter table and the row patch plan against the packet.\",\"unsure_queue\":null}"
+}

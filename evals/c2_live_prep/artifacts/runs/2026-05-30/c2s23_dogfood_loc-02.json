@@ -1,0 +1,32 @@
+{
+  "question_id": "loc-02",
+  "question": "Can I create a new named sub-location hub markdown file for a waystation north of the last stop using DungeonBuddy tooling during this dogfood round?",
+  "category": "location_creation_mutation",
+  "expected_source_roles": [
+    "planning_scaffold"
+  ],
+  "forbidden_source_roles_for_play_facts": [
+    "planning_scaffold"
+  ],
+  "expected_artifact_actions": [
+    "location_hub_write",
+    "manual_corpus_write"
+  ],
+  "answer_requirements": [
+    "State supported vs partial vs missing",
+    "If using planner/IDE, note two-phase commit",
+    "Do not treat the new file as play canon until narrated"
+  ],
+  "planner": {
+    "turn_count": 1,
+    "tool_calls": [],
+    "corpus_paths_read": [],
+    "final_message": "Not with the tools available in this turn: I can read corpus markdown, attach markdown, recall NPC context, list hub folders, and generate statblocks, but there is no DungeonBuddy write/create tool exposed here for making a new sub-location hub markdown file. If you want, I can still help draft the hub content and point to an appropriate existing location pattern in the corpus, such as a location README structure like `Longmont Campaign/Campaign 1/Locations/hempholm/README.md` or `Elderwyld/Cities and Towns/Mirathorn/README.md`.",
+    "final_message_parse_error": null,
+    "user_intent": "factual_lookup",
+    "scenario_estimated_cost_usd": null,
+    "planner_estimated_cost_usd": 0.002282
+  },
+  "tool_trace": [],
+  "final_text": "{\"user_intent\":\"factual_lookup\",\"message\":\"Not with the tools available in this turn: I can read corpus markdown, attach markdown, recall NPC context, list hub folders, and generate statblocks, but there is no DungeonBuddy write/create tool exposed here for making a new sub-location hub markdown file. If you want, I can still help draft the hub content and point to an appropriate existing location pattern in the corpus, such as a location README structure like `Longmont Campaign/Campaign 1/Locations/hempholm/README.md` or `Elderwyld/Cities and Towns/Mirathorn/README.md`.\",\"unsure_queue\":null}"
+}

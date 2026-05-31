@@ -1,0 +1,66 @@
+{
+  "question_id": "roll-01",
+  "question": "Which travel or encounter roll table should govern the next leg of overland travel after Session 22?",
+  "category": "roll_table_creation_mutation",
+  "expected_source_roles": [
+    "reference_tool",
+    "planning_scaffold"
+  ],
+  "forbidden_source_roles_for_play_facts": [
+    "reference_tool"
+  ],
+  "expected_artifact_actions": [
+    "inspector_read_artifact",
+    "roll_table_patch"
+  ],
+  "answer_requirements": [
+    "Identify table as prep tool",
+    "State whether table is registered on live_packet.known_roll_tables",
+    "Do not assert encounters already happened because a table exists"
+  ],
+  "planner": {
+    "turn_count": 2,
+    "tool_calls": [
+      "read_corpus_file",
+      "read_corpus_file",
+      "read_corpus_file"
+    ],
+    "corpus_paths_read": [
+      "Longmont Campaign/Campaign 2/Session Prep/session_22/README.md",
+      "Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_prep_brief.md",
+      "Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_travel_to_mireward_runbook.md"
+    ],
+    "final_message": "For the next leg after Session 22, the governing travel layer is the Session 22 travel stack in `Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_travel_to_mireward_runbook.md`: **T-WX** (storm weather) every march day, **T-NPC** once per day, **R5** `Elderwyld/Roads/mireward_reach_road_d100_encounter_table.md` for road encounters, **T-DIL** once per day, and at camp **T-WATCH** `travel_night_watch_d12.md` plus **T-CF** `travel_campfire_d8.md` (with optional **R6** `Elderwyld/Wilderness/conical_hills_night_camp_d100.md` for extra night texture). The prep brief also says the road table and night camp table are the ones to use at the table, not to invent new rows in prep, in `Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_prep_brief.md`.",
+    "final_message_parse_error": null,
+    "user_intent": "factual_lookup",
+    "scenario_estimated_cost_usd": null,
+    "planner_estimated_cost_usd": 0.016845
+  },
+  "tool_trace": [
+    {
+      "tool": "read_corpus_file",
+      "arguments": {
+        "path": "Longmont Campaign/Campaign 2/Session Prep/session_22/README.md"
+      },
+      "output_chars": 12710,
+      "output_excerpt": "---\ntitle: \"Session 22 — planning package (hub index)\"\ndocument_class: planning\ncanon_layer: campaign\ncampaign_id: longmont-c2\ntemporal_scope: session_specific\nsession: 22\norigin_session: 21\nlast_updated_session: 21\nsource_class: scene_module\ntable_note: \"Planning hub only — not table canon. After Session 22 play, promote facts via recap + timeline rows; do not treat this README as chronology.\"\n---\n\n# Session 22 — planning package\n\n**Campaign:** Longmont Campaign 2 (Questionable Company)  \n**Prep target:** Session **22** (travel north on the Mireward Reach after Session 21 drake nest / Mirathorn comms)  \n**Table canon through:** `Session Recaps/Session 21 - Drake Nest Mirathorn Call.md`\n\nThis folder is the **GM-facing index** for everything produced while planning Session 22: what exists, "
+    },
+    {
+      "tool": "read_corpus_file",
+      "arguments": {
+        "path": "Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_prep_brief.md"
+      },
+      "output_chars": 15146,
+      "output_excerpt": "---\ntitle: \"Session 22 — prep brief\"\ndocument_class: planning\ncanon_layer: campaign\ncampaign_id: longmont-c2\ntemporal_scope: session_specific\nsession: 22\norigin_session: 21\nlast_updated_session: 21\nsource_class: scene_module\ntable_note: \"Runnable Session 22 plan. Not table canon — facts of play land in Session 22 recap after play.\"\n---\n\n# Session 22 Prep Brief\n\n**Route intent (table canon):** Press **north** on the Mireward Reach toward the swamp objective — not turn back to Mirathorn unless the table reverses at the table.  \n**End-state anchor (Session 21):** Conical-hill camp north of Mossford; ~**3 days** south to Mirathorn; **Mireward ~5 days** north; storm **building** (savory/shimmer rain at the edge).\n\n---\n\n## 1. Executive prep read\n\nSession 22 is a **travel-and-pressure** session: "
+    },
+    {
+      "tool": "read_corpus_file",
+      "arguments": {
+        "path": "Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_travel_to_mireward_runbook.md"
+      },
+      "output_chars": 30061,
+      "output_excerpt": "---\ntitle: \"Session 22 — travel to Mireward (runbook)\"\ndocument_class: planning\ncanon_layer: campaign\ncampaign_id: longmont-c2\ntemporal_scope: session_specific\nsession: 22\norigin_session: 21\nlast_updated_session: 21\nsource_class: scene_module\ntable_note: \"Runnable travel session ending at Mireward gate or first night in town. Applies Making Travel Sessions Memorable practices. Not table canon until recap.\"\n---\n\n# Session 22 — travel to Mireward (runbook)\n\n**Session endpoint:** Party **arrives Mireward** (gate line or first night inside walls) unless table chooses delay.  \n**Start:** Conical-hill camp north of Mossford (~**5 days** to Mireward at S21 end).  \n**Design source:** `Making Travel Sessions Memorable and Fun in TTRPGs.md` (repo root) — principles below, not random-hour grinding.\n\n"
+    }
+  ],
+  "final_text": "{\"user_intent\":\"factual_lookup\",\"message\":\"For the next leg after Session 22, the governing travel layer is the Session 22 travel stack in `Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_travel_to_mireward_runbook.md`: **T-WX** (storm weather) every march day, **T-NPC** once per day, **R5** `Elderwyld/Roads/mireward_reach_road_d100_encounter_table.md` for road encounters, **T-DIL** once per day, and at camp **T-WATCH** `travel_night_watch_d12.md` plus **T-CF** `travel_campfire_d8.md` (with optional **R6** `Elderwyld/Wilderness/conical_hills_night_camp_d100.md` for extra night texture). The prep brief also says the road table and night camp table are the ones to use at the table, not to invent new rows in prep, in `Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_prep_brief.md`.\",\"unsure_queue\":null}"
+}

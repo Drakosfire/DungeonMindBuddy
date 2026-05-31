@@ -327,7 +327,8 @@ export interface ResolvedRollResponse {
 export type RecapIngestOperation =
   | "stage_preview"
   | "apply_normalize"
-  | "materialize_session_memory";
+  | "materialize_session_memory"
+  | "inspect_status";
 
 export interface RecapIngestRequest {
   operation: RecapIngestOperation;

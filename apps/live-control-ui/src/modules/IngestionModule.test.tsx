@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import * as liveApi from "../api/liveApi";
 import * as recapIngestApi from "../api/recapIngestApi";
@@ -57,7 +57,39 @@ function makeStatus(overrides: Partial<RecapIngestStatus> = {}): RecapIngestStat
   };
 }
 
+function mockRecapIngestWithInspect(
+  handler: (
+    body: Parameters<typeof recapIngestApi.postRecapIngest>[0],
+  ) => RecapIngestStatus | Promise<RecapIngestStatus>,
+) {
+  return vi.spyOn(recapIngestApi, "postRecapIngest").mockImplementation(async (body) => {
+    if (body.operation === "inspect_status") {
+      return makeStatus({
+        status: "initialized",
+        states: ["ingest_status_inspected"],
+        entity_spelling_audit: [],
+      });
+    }
+    return handler(body);
+  });
+}
+
 describe("IngestionModule", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+    vi.spyOn(recapIngestApi, "postRecapIngest").mockResolvedValue(
+      makeStatus({
+        status: "initialized",
+        states: ["ingest_status_inspected"],
+        entity_spelling_audit: [],
+      }),
+    );
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it("renders editable recap/source session input", async () => {
     const user = userEvent.setup();
     render(<IngestionModule campaignId="longmont-c2" session={23} />);
@@ -69,7 +101,14 @@ describe("IngestionModule", () => {
     expect(recapSessionInput).toHaveValue(21);
   });
 
-  it("renders from surface catalog when ingestion module is enabled", () => {
+  it("renders from surface catalog when ingestion module is enabled", async () => {
+    vi.spyOn(recapIngestApi, "postRecapIngest").mockResolvedValue(
+      makeStatus({
+        status: "initialized",
+        states: ["ingest_status_inspected"],
+        entity_spelling_audit: [],
+      }),
+    );
     const catalog = [
       ...mockCatalog,
       {
@@ -109,7 +148,7 @@ describe("IngestionModule", () => {
         onLayoutSaved={vi.fn()}
       />,
     );
-    expect(screen.getByText("Raw Recap Ingestion")).toBeInTheDocument();
+    expect(await screen.findByText("Raw Recap Ingestion")).toBeInTheDocument();
   });
 
   it("disables stage preview with empty raw text", () => {
@@ -119,7 +158,7 @@ describe("IngestionModule", () => {
 
   it("submits stage_preview with edited recap session and no raw_path", async () => {
     const user = userEvent.setup();
-    const spy = vi.spyOn(recapIngestApi, "postRecapIngest").mockResolvedValue(makeStatus());
+    const spy = mockRecapIngestWithInspect(() => makeStatus());
     const commandSpy = vi.spyOn(liveApi, "postCommand");
 
     render(<IngestionModule campaignId="longmont-c2" session={23} />);
@@ -133,7 +172,9 @@ describe("IngestionModule", () => {
     await user.type(screen.getByLabelText("Slug"), "Mireward Road and Lysandro");
     await user.click(screen.getByRole("button", { name: "Stage + Preview" }));
 
-    await waitFor(() => expect(spy).toHaveBeenCalledTimes(1));
+    await waitFor(() =>
+      expect(spy.mock.calls.some(([body]) => body.operation === "stage_preview")).toBe(true),
+    );
     expect(spy).toHaveBeenCalledWith(
       expect.objectContaining({
         operation: "stage_preview",
@@ -192,10 +233,18 @@ describe("IngestionModule", () => {
 
   it("submits apply_normalize with edited recap session after valid preview", async () => {
     const user = userEvent.setup();
-    const spy = vi.spyOn(recapIngestApi, "postRecapIngest");
-    spy
-      .mockResolvedValueOnce(makeStatus())
-      .mockResolvedValueOnce(makeStatus({ status: "breadcrumb_required", states: ["breadcrumb_required"], next_actions: ["Generate/bless breadcrumb artifact"] }));
+    const spy = mockRecapIngestWithInspect((body) => {
+      if (body.operation === "apply_normalize") {
+        return makeStatus({
+          status: "breadcrumb_required",
+          states: ["recap_applied", "normalized_created", "breadcrumb_required"],
+          next_actions: [
+            "Generate/bless breadcrumb artifact for Session 21, then rerun --materialize-session-memory.",
+          ],
+        });
+      }
+      return makeStatus();
+    });
 
     render(<IngestionModule campaignId="longmont-c2" session={23} />);
     const recapSessionInput = screen.getByLabelText("Recap/source session");
@@ -212,21 +261,25 @@ describe("IngestionModule", () => {
         expect.objectContaining({ operation: "apply_normalize", session: 21 }),
       ),
     );
-    expect(screen.getByText(/Generate\/bless breadcrumb artifact/)).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByText("breadcrumb_required")).toBeInTheDocument(),
+    );
   });
 
   it("submits materialize_session_memory with edited recap session and shows ready state", async () => {
     const user = userEvent.setup();
-    const spy = vi.spyOn(recapIngestApi, "postRecapIngest");
-    spy
-      .mockResolvedValueOnce(makeStatus({ states: ["raw_text_received", "recap_preview_created", "breadcrumb_found"] }))
-      .mockResolvedValueOnce(
-        makeStatus({
+    const spy = mockRecapIngestWithInspect((body) => {
+      if (body.operation === "materialize_session_memory") {
+        return makeStatus({
           status: "ready_for_planning_activation",
           states: ["breadcrumb_found", "session_memory_materialized", "ready_for_planning_activation"],
           ingest_report: { session_memory_record_count: 10, session_memory_check: "ok" },
-        }),
-      );
+        });
+      }
+      return makeStatus({
+        states: ["raw_text_received", "recap_preview_created", "breadcrumb_found"],
+      });
+    });
 
     render(<IngestionModule campaignId="longmont-c2" session={23} />);
     const recapSessionInput = screen.getByLabelText("Recap/source session");

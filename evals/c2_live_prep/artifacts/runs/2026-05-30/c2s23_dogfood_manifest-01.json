@@ -1,0 +1,140 @@
+{
+  "question_id": "manifest-01",
+  "question": "Can I issue one planning query that searches Session 21 recap, Session 22 memory, Session 23 workspace, prep scaffold, roll tables, and hub evidence with correct roles?",
+  "category": "cross_session_continuity",
+  "expected_source_roles": [
+    "derived_memory",
+    "planning_scaffold",
+    "reference_tool",
+    "live_observation"
+  ],
+  "forbidden_source_roles_for_play_facts": [],
+  "expected_artifact_actions": [
+    "manifest_activation_query"
+  ],
+  "answer_requirements": [
+    "Document current behavior (expected: not available)",
+    "List manual steps used instead",
+    "Tag PR95/PR96 if blocked"
+  ],
+  "planner": {
+    "turn_count": 2,
+    "tool_calls": [
+      "query_session_memory",
+      "read_corpus_file",
+      "read_corpus_file",
+      "read_corpus_file",
+      "read_corpus_file",
+      "read_corpus_file",
+      "read_corpus_file",
+      "read_corpus_file",
+      "read_corpus_file",
+      "read_corpus_file"
+    ],
+    "corpus_paths_read": [
+      "Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 21 - Drake Nest Mirathorn Call.md",
+      "Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md",
+      "Longmont Campaign/Campaign 2/Session Prep/session_22/README.md",
+      "Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_prep_brief.md",
+      "Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_planning_anchor.md",
+      "Longmont Campaign/Campaign 2/Session Prep/session_22/travel_dilemma_d12.md",
+      "Longmont Campaign/Campaign 2/Session Prep/session_22/travel_npc_spotlight_d12.md",
+      "Longmont Campaign/Campaign 2/Factions/README.md",
+      "Longmont Campaign/Campaign 2/NPCs/torbin_jove/README.md"
+    ],
+    "final_message": "Yes — for a single planning query, use **Session 21 recap** (`Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 21 - Drake Nest Mirathorn Call.md`) as table canon, **Session 22 memory** only as retrieval hints (no direct hit surfaced in `query_session_memory`), **Session 23 workspace** as the current prep layer if you have one, and then layer in the **prep scaffold** (`Longmont Campaign/Campaign 2/Session Prep/session_22/README.md`, `.../session_22_prep_brief.md`, `.../session_22_planning_anchor.md`) plus the relevant **roll tables** (`.../travel_dilemma_d12.md`, `.../travel_npc_spotlight_d12.md`) and any **hub evidence** like `Longmont Campaign/Campaign 2/Factions/README.md` or an NPC hub README when the question depends on faction/NPC grounding. The right role split is: **recap = canon**, **memory = recall aid**, **workspace/scaffold = planning notes**, **roll tables = live prompts**, **hub READMEs = grounding/indexes**. If you want, I can also map that into one exact read order for your query flow.",
+    "final_message_parse_error": null,
+    "user_intent": "status_or_recap_request",
+    "scenario_estimated_cost_usd": null,
+    "planner_estimated_cost_usd": 0.019623
+  },
+  "tool_trace": [
+    {
+      "tool": "query_session_memory",
+      "arguments": {
+        "query": "Session 23 workspace prep scaffold roll tables hub evidence planning query roles",
+        "campaign_id": "longmont-c1",
+        "session_min": 21,
+        "session_max": 23,
+        "mode": "candidate",
+        "max_hits": 8,
+        "expand_context": true
+      },
+      "output_chars": 1222,
+      "output_excerpt": "{\"schema\": \"dmb_query_session_memory_result_v1\", \"contract\": \"candidate_mode_v1\", \"campaign_id\": \"longmont-c1\", \"query\": \"Session 23 workspace prep scaffold roll tables hub evidence planning query roles\", \"hits\": [], \"trace\": {\"trace_schema\": \"dmb_query_session_memory_trace_v1\", \"examined_records\": 176, \"matched_records\": 0, \"returned_hits\": 0, \"effective_context_size\": 0, \"session_window\": [21, 23], \"subject_route_substr\": null, \"subject_types\": null, \"proposed_only\": false, \"max_hits\": 8, \"filtered_records\": 0, \"expand_context\": true, \"expand_seed_hits\": 5, \"expand_adjacent_window\": 2, \"expand_shared_route_limit\": 3, \"expand_route_family_limit\": 3, \"expand_same_beat_limit\": 0, \"expand_first_pass_cap\": 5, \"expansion_allocation_mode\": \"round_robin\", \"expansion\": {\"added_adjacent\": 0, \"added_shared_route\": 0, \"added_route_family\": 0}, \"tokenizer_mode\": \"default\", \"query_tokens\": [\"session\", \"23\", \"workspace\", \"prep\", \"scaffold\", \"roll\", \"tables\", \"hub\", \"evidence\", \"planning\", \"query\", \"roles\"], \"query_mode\": \"lexical_route_overlap\", \"scene_beat_packets\": {\"enabled\": false, \"threshold\": 16, \"top_k\": 3, \"unit_limit\": 8, \"max_packets\": 2, \"qualified_count\": 0, \"units_added\": 0, \"packets\": []}}, \"ok\": true}"
+    },
+    {
+      "tool": "read_corpus_file",
+      "arguments": {
+        "path": "Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 21 - Drake Nest Mirathorn Call.md"
+      },
+      "output_chars": 8375,
+      "output_excerpt": "---\ntitle: Session 21 - Drake Nest Mirathorn Call\ndocument_class: play\ncanon_layer: campaign\ncampaign_id: longmont-c2\ntemporal_scope: session_specific\nsession: 21\norigin_session: 21\nlast_updated_session: 21\nsource_class: observed_session_recap\nsubject_class: null\nsubject_doc_kind: recap\nnormalized_from: Longmont Campaign/Campaign 2/Session Recaps/Session 21 - Drake Nest Mirathorn Call.md\nnormalized_on: 2026-05-08\nnormalization_schema: dmb_recap_normalized_v1\n---\n# Session 21 Recap\n\nWhile still waiting for a response Caelynn studies the sky once again. She estimates that the gathering storm will arrive in about seven hours. The group then decides to load up the wagon and head out in hopes of beating the storm. They plan to head back up the main road through town and continue north. This wil"
+    },
+    {
+      "tool": "read_corpus_file",
+      "arguments": {
+        "path": "Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md"
+      },
+      "output_chars": 10145,
+      "output_excerpt": "---\ntitle: Session 22 - Mireward Road and Lysandro\ndocument_class: play\ncanon_layer: campaign\ncampaign_id: longmont-c2\ntemporal_scope: session_specific\nsession: 22\norigin_session: 22\nlast_updated_session: 22\nsource_class: observed_session_recap\nsubject_class: null\nsubject_doc_kind: recap\nnormalized_from: Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md\nnormalized_on: 2026-05-08\nnormalization_schema: dmb_recap_normalized_v1\n---\n# Session 22 Recap\n\nThe group turns their focus to the Reach; the vast Golden Fields to the north. If they decide to continue on, their destination is Mireward. If they decide to turn around, it's a multiday journey back to Mirathorn. The first thing to do is break their camp and head back to the wagon. The trail is damp from the"
+    },
+    {
+      "tool": "read_corpus_file",
+      "arguments": {
+        "path": "Longmont Campaign/Campaign 2/Session Prep/session_22/README.md"
+      },
+      "output_chars": 12710,
+      "output_excerpt": "---\ntitle: \"Session 22 — planning package (hub index)\"\ndocument_class: planning\ncanon_layer: campaign\ncampaign_id: longmont-c2\ntemporal_scope: session_specific\nsession: 22\norigin_session: 21\nlast_updated_session: 21\nsource_class: scene_module\ntable_note: \"Planning hub only — not table canon. After Session 22 play, promote facts via recap + timeline rows; do not treat this README as chronology.\"\n---\n\n# Session 22 — planning package\n\n**Campaign:** Longmont Campaign 2 (Questionable Company)  \n**Prep target:** Session **22** (travel north on the Mireward Reach after Session 21 drake nest / Mirathorn comms)  \n**Table canon through:** `Session Recaps/Session 21 - Drake Nest Mirathorn Call.md`\n\nThis folder is the **GM-facing index** for everything produced while planning Session 22: what exists, "
+    },
+    {
+      "tool": "read_corpus_file",
+      "arguments": {
+        "path": "Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_prep_brief.md"
+      },
+      "output_chars": 15146,
+      "output_excerpt": "---\ntitle: \"Session 22 — prep brief\"\ndocument_class: planning\ncanon_layer: campaign\ncampaign_id: longmont-c2\ntemporal_scope: session_specific\nsession: 22\norigin_session: 21\nlast_updated_session: 21\nsource_class: scene_module\ntable_note: \"Runnable Session 22 plan. Not table canon — facts of play land in Session 22 recap after play.\"\n---\n\n# Session 22 Prep Brief\n\n**Route intent (table canon):** Press **north** on the Mireward Reach toward the swamp objective — not turn back to Mirathorn unless the table reverses at the table.  \n**End-state anchor (Session 21):** Conical-hill camp north of Mossford; ~**3 days** south to Mirathorn; **Mireward ~5 days** north; storm **building** (savory/shimmer rain at the edge).\n\n---\n\n## 1. Executive prep read\n\nSession 22 is a **travel-and-pressure** session: "
+    },
+    {
+      "tool": "read_corpus_file",
+      "arguments": {
+        "path": "Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_planning_anchor.md"
+      },
+      "output_chars": 6180,
+      "output_excerpt": "---\ntitle: \"Session 22 — planning anchor\"\ndocument_class: planning\ncanon_layer: campaign\ncampaign_id: longmont-c2\ntemporal_scope: session_specific\nsession: 22\norigin_session: 21\nlast_updated_session: 21\nsource_class: scene_module\ntable_note: \"Where-we-are snapshot for Session 22 prep. Not table canon. Refresh after play or major scaffold edits.\"\n---\n\n# Session 22 — planning anchor\n\n**Recorded:** 2026-05-23  \n**Hub index:** `Session Prep/session_22/README.md`  \n**Table canon through:** `Session Recaps/Session 21 - Drake Nest Mirathorn Call.md`\n\n---\n\n## 1. Where the table is\n\n| Field | Value |\n|-------|--------|\n| **Party position** | Conical-hill camp **north of Mossford** (end Session 21) |\n| **Mirathorn** | ~**3 days** south |\n| **Mireward** | ~**5 days** north (named Session 21; **scaffo"
+    },
+    {
+      "tool": "read_corpus_file",
+      "arguments": {
+        "path": "Longmont Campaign/Campaign 2/Session Prep/session_22/travel_dilemma_d12.md"
+      },
+      "output_chars": 6207,
+      "output_excerpt": "---\ntitle: \"Session 22 — travel dilemma d12\"\ndocument_class: planning\ncanon_layer: campaign\ncampaign_id: longmont-c2\ntemporal_scope: session_specific\nsession: 22\norigin_session: 21\nlast_updated_session: 21\nsource_class: roll_table\ntable_id: T-DIL\ndice: d12\ntable_note: \"Player-rolled Session 22 travel dilemma table. Planning-only until Session 22 recap promotes facts of play.\"\n---\n\n# Travel Dilemma d12\n\n**Use:** Roll once per march day after the road encounter. Each row should become a choice, not a punishment roll. The party may solve, defer, exploit, ignore, or make it worse.\n\n**Tone target:** About 4 benign/neutral, 5 pressure, 3 ominous. No row auto-starts combat.\n\n**Row shape:** `{situation headline} · {2–3 player choices} · {consequence if ignored}`\n\n**Repeat rule:** If a row repeats,"
+    },
+    {
+      "tool": "read_corpus_file",
+      "arguments": {
+        "path": "Longmont Campaign/Campaign 2/Session Prep/session_22/travel_npc_spotlight_d12.md"
+      },
+      "output_chars": 5609,
+      "output_excerpt": "---\ntitle: \"Session 22 — travel NPC spotlight d12\"\ndocument_class: planning\ncanon_layer: campaign\ncampaign_id: longmont-c2\ntemporal_scope: session_specific\nsession: 22\norigin_session: 21\nlast_updated_session: 21\nsource_class: roll_table\ntable_id: T-NPC\ndice: d12\ntable_note: \"Player-rolled Session 22 travel spotlight table. Planning-only until Session 22 recap promotes facts of play.\"\n---\n\n# Travel NPC Spotlight d12\n\n**Use:** Roll once per march day before the road encounter. This table forces one companion or PC spotlight so the journey stays inhabited instead of becoming weather plus distance.\n\n**Row shape:** `{npc} · {trigger} · {ask of party} · {one action that changes scene}`\n\n**Repeat rule:** If a row repeats during this journey, keep the same NPC but intensify the pressure: static wo"
+    },
+    {
+      "tool": "read_corpus_file",
+      "arguments": {
+        "path": "Longmont Campaign/Campaign 2/Factions/README.md"
+      },
+      "output_chars": 297,
+      "output_excerpt": "# Campaign 2 — factions (corpus)\n\n| Document | Notes |\n|----------|--------|\n| `Raucous_Saints_of_the_Rolling_Longhouse.md` | Modular Eldyrwyld itinerant band / counter-hymn fellowship; table use for rumors mistaken for Dustwalker hymn-work. |\n\nCorpus paths are relative to `eldyrwild-markdown/`.\n"
+    },
+    {
+      "tool": "read_corpus_file",
+      "arguments": {
+        "path": "Longmont Campaign/Campaign 2/NPCs/torbin_jove/README.md"
+      },
+      "output_chars": 2984,
+      "output_excerpt": "---\ntitle: \"Torbin Jove — Campaign 2\"\ndocument_class: reference\ncanon_layer: campaign\ncampaign_id: longmont-c2\ntemporal_scope: campaign_stateful\nsession: null\norigin_session: null\nlast_updated_session: null\nsource_class: ledger_or_dossier\nsubject_class: npc\nsubject_doc_kind: hub_index\n---\n\n# Torbin Jove — Campaign 2 (table)\n\n## Suggested reads (in order)\n\nUse `read_corpus_file` with these paths **after** this README (corpus root = `eldyrwild-markdown/`):\n\n1. `Longmont Campaign/Campaign 2/NPCs/torbin_jove/torbin_jove_character_dossier.md` — **primary character reference** (who he is at this table, continuity spine, disambiguators).\n2. `Longmont Campaign/Campaign 2/NPCs/torbin_jove/timeline.md` — C1 + C2 recap pointers for Torbin-specific beats.\n3. `Longmont Campaign/Campaign 2/NPCs/torbin_j"
+    }
+  ],
+  "final_text": "{\"user_intent\":\"status_or_recap_request\",\"message\":\"Yes — for a single planning query, use **Session 21 recap** (`Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 21 - Drake Nest Mirathorn Call.md`) as table canon, **Session 22 memory** only as retrieval hints (no direct hit surfaced in `query_session_memory`), **Session 23 workspace** as the current prep layer if you have one, and then layer in the **prep scaffold** (`Longmont Campaign/Campaign 2/Session Prep/session_22/README.md`, `.../session_22_prep_brief.md`, `.../session_22_planning_anchor.md`) plus the relevant **roll tables** (`.../travel_dilemma_d12.md`, `.../travel_npc_spotlight_d12.md`) and any **hub evidence** like `Longmont Campaign/Campaign 2/Factions/README.md` or an NPC hub README when the question depends on faction/NPC grounding. The right role split is: **recap = canon**, **memory = recall aid**, **workspace/scaffold = planning notes**, **roll tables = live prompts**, **hub READMEs = grounding/indexes**. If you want, I can also map that into one exact read order for your query flow.\",\"unsure_queue\":null}"
+}

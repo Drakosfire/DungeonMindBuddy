@@ -3,9 +3,28 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import * as liveApi from "../api/liveApi";
+import * as recapIngestApi from "../api/recapIngestApi";
+import type { RecapIngestStatus } from "../api/types";
 
 import { mockCatalog, mockLayout, mockPlanView, mockRollEvent, mockState } from "../test/fixtures";
 import { SurfaceShell } from "./SurfaceShell";
+
+function inspectStatus(): RecapIngestStatus {
+  return {
+    schema: "dmb_raw_recap_ingest_status_v1",
+    campaign_id: "longmont-c2",
+    session: 22,
+    status: "ready_for_planning_activation",
+    states: ["ingest_status_inspected", "ready_for_planning_activation"],
+    paths: {},
+    authority: {},
+    warnings: [],
+    errors: [],
+    next_actions: [],
+    ingest_report: {},
+    entity_spelling_audit: [],
+  };
+}
 
 describe("SurfaceShell", () => {
   it("renders required Chat and Record from surface data", () => {
@@ -126,6 +145,49 @@ describe("SurfaceShell", () => {
     expect(screen.getByText(/Travel Day 1 weather\/front beat/)).toBeInTheDocument();
     expect(screen.getByText(/roll table · Travel weather table/i)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /roll table · Travel weather table/i })).toBeNull();
+  });
+
+  it("does not remount ingestion when another pane expands", async () => {
+    const user = userEvent.setup();
+    const inspectSpy = vi
+      .spyOn(recapIngestApi, "postRecapIngest")
+      .mockResolvedValue(inspectStatus());
+
+    const layout = {
+      ...mockLayout,
+      modules: mockLayout.modules.map((row) => {
+        if (row.module_id === "ingestion") {
+          return { ...row, enabled: true, collapsed: false, slot: "main" as const };
+        }
+        if (row.module_id === "record") {
+          return { ...row, collapsed: true };
+        }
+        return row;
+      }),
+    };
+
+    render(
+      <SurfaceShell
+        catalog={mockCatalog}
+        layout={layout}
+        state={mockState}
+        events={[mockRollEvent]}
+        jobs={[]}
+        planView={mockPlanView}
+        onQuerySuccess={vi.fn()}
+        onLayoutSaved={vi.fn()}
+      />,
+    );
+
+    await screen.findByText("Raw Recap Ingestion");
+    expect(inspectSpy).toHaveBeenCalledTimes(1);
+
+    const recordPanel = document.querySelector('.surface-grid [data-module-id="record"]')!;
+    await user.click(within(recordPanel as HTMLElement).getByRole("button", { name: /^Expand$/i }));
+
+    expect(screen.getByText(/Resolved T-WX roll 7/)).toBeInTheDocument();
+    expect(inspectSpy).toHaveBeenCalledTimes(1);
+    inspectSpy.mockRestore();
   });
 
   it("selects timeline target via callback when enabled", async () => {

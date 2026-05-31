@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from src.live_play.recap_ingest_pipeline import PipelineOptions, run_pipeline
+from src.live_play.recap_ingest_pipeline import PipelineOptions, inspect_recap_ingest_status, run_pipeline
 
 ROOT = Path(__file__).resolve().parents[1]
 RAW_FIXTURE = ROOT / "tests/fixtures/live_recap_ingest/session_22_raw_recap.md"
@@ -96,13 +96,70 @@ def test_apply_writes_canonical_recap_path(tmp_path: Path) -> None:
     assert not text.split("# Session 22 Recap", 1)[1].lstrip().startswith("Session 22 Recap")
 
 
-def test_apply_refuses_existing_recap_without_force(tmp_path: Path) -> None:
+def test_apply_reuses_existing_recap_without_force(tmp_path: Path) -> None:
     corpus = _seed_corpus(tmp_path)
     recap_path = corpus / "Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md"
     recap_path.write_text("existing", encoding="utf-8")
     status = run_pipeline(_opts(apply=True, slug="Mireward Road and Lysandro"), corpus=corpus)
-    assert status["status"] == "error"
-    assert any("already exists" in msg for msg in status["errors"])
+    assert status["status"] == "breadcrumb_required"
+    assert "recap_reused" in status["states"]
+    assert recap_path.read_text(encoding="utf-8") == "existing"
+
+
+def test_normalize_reuses_existing_normalized(tmp_path: Path) -> None:
+    corpus = _seed_corpus(tmp_path)
+    recap_path = corpus / "Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md"
+    normalized = corpus / (
+        "Longmont Campaign/Campaign 2/Session Recaps/_normalized/"
+        "Session 22 - Mireward Road and Lysandro.md"
+    )
+    recap_path.parent.mkdir(parents=True, exist_ok=True)
+    recap_path.write_text(
+        "---\ntitle: Session 22 - Mireward Road and Lysandro\n---\n# Session 22 Recap\n",
+        encoding="utf-8",
+    )
+    normalized.parent.mkdir(parents=True, exist_ok=True)
+    normalized.write_text("existing normalized", encoding="utf-8")
+    status = run_pipeline(
+        _opts(apply=True, normalize=True, slug="Mireward Road and Lysandro"),
+        corpus=corpus,
+    )
+    assert status["status"] == "breadcrumb_required"
+    assert "normalized_reused" in status["states"]
+    assert normalized.read_text(encoding="utf-8") == "existing normalized"
+
+
+def test_inspect_status_reports_disk_progress(tmp_path: Path) -> None:
+    corpus = _seed_corpus(tmp_path)
+    recap_path = corpus / "Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md"
+    normalized = corpus / (
+        "Longmont Campaign/Campaign 2/Session Recaps/_normalized/"
+        "Session 22 - Mireward Road and Lysandro.md"
+    )
+    breadcrumb = corpus / (
+        "Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/"
+        "Session 22 - Mireward Road and Lysandro.breadcrumbed.md"
+    )
+    recap_path.parent.mkdir(parents=True, exist_ok=True)
+    recap_path.write_text("canonical", encoding="utf-8")
+    normalized.parent.mkdir(parents=True, exist_ok=True)
+    normalized.write_text("normalized", encoding="utf-8")
+    breadcrumb.parent.mkdir(parents=True, exist_ok=True)
+    breadcrumb.write_text("breadcrumb", encoding="utf-8")
+
+    status = inspect_recap_ingest_status(
+        campaign_id="longmont-c2",
+        session=22,
+        title="Session 22 - Mireward Road and Lysandro",
+        slug="Mireward Road and Lysandro",
+        corpus=corpus,
+    )
+    assert status["status"] == "recap_applied"
+    assert "ingest_status_inspected" in status["states"]
+    assert "recap_reused" in status["states"]
+    assert "normalized_reused" in status["states"]
+    assert "breadcrumb_found" in status["states"]
+    assert any("Materialize Session Memory" in item for item in status["next_actions"])
 
 
 def test_apply_force_recap_overwrites_target_only(tmp_path: Path) -> None:
@@ -188,6 +245,55 @@ def test_materialize_runs_when_breadcrumb_exists(tmp_path: Path, monkeypatch: py
     assert status["status"] == "ready_for_planning_activation"
     assert "session_memory_materialized" in status["states"]
     assert status["ingest_report"]["session_memory_record_count"] == 7
+
+
+def test_materialize_uses_disk_breadcrumb_when_slug_mismatches(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    corpus = _seed_corpus(tmp_path)
+    recap = corpus / (
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md"
+    )
+    normalized = corpus / (
+        "Longmont Campaign/Campaign 2/Session Recaps/_normalized/"
+        "Session 22 - Mireward Road and Lysandro.md"
+    )
+    breadcrumb = corpus / (
+        "Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/"
+        "Session 22 - Mireward Road and Lysandro.breadcrumbed.md"
+    )
+    recap.parent.mkdir(parents=True, exist_ok=True)
+    recap.write_text("---\ntitle: Session 22 - Mireward Road and Lysandro\n---\n# Session 22 Recap\n", encoding="utf-8")
+    normalized.parent.mkdir(parents=True, exist_ok=True)
+    normalized.write_text("---\ntitle: Session 22 - Mireward Road and Lysandro\n---\n# Session 22 Recap\n", encoding="utf-8")
+    breadcrumb.parent.mkdir(parents=True, exist_ok=True)
+    breadcrumb.write_text("---\n---\n", encoding="utf-8")
+
+    called: dict[str, bool] = {"materialize": False}
+
+    def _fake_materialize_one(**_kwargs: object) -> dict[str, object]:
+        called["materialize"] = True
+        return {"record_count": 3}
+
+    monkeypatch.setattr("src.live_play.recap_ingest_pipeline._materialize_one", _fake_materialize_one)
+    monkeypatch.setattr("src.live_play.recap_ingest_pipeline._check_one", lambda **_kwargs: True)
+
+    status = run_pipeline(
+        _opts(
+            slug="Wrong Slug Entirely",
+            materialize_session_memory=True,
+            check=True,
+            apply=False,
+            preview=False,
+            stage=False,
+        ),
+        corpus=corpus,
+    )
+    assert called["materialize"] is True
+    assert status["status"] == "ready_for_planning_activation"
+    assert "breadcrumb_found" in status["states"]
+    assert "slug_mismatch_used_disk_breadcrumb" in status["warnings"]
+    assert status["paths"]["breadcrumbed_recap"].endswith("Mireward Road and Lysandro.breadcrumbed.md")
 
 
 def test_status_includes_authority_and_spelling_audit(tmp_path: Path) -> None:

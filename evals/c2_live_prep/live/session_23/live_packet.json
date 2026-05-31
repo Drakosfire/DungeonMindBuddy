@@ -3,12 +3,12 @@
   "campaign_id": "longmont-c2",
   "session": 23,
   "packet_id": "longmont-c2-session-23-live-packet",
-  "created_at": "2026-05-30T20:55:02Z",
+  "created_at": "2026-05-30T21:27:01Z",
   "source_paths": [
     {
       "path": "recap.md",
       "role": "fresh_recap",
-      "notes": "Bootstrapped from tests/fixtures/live_bootstrap/session_22_fresh_recap.md"
+      "notes": "Bootstrapped from /home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/c2_live_prep/live/session_23/recap.md"
     }
   ],
   "latency_modes": [
@@ -220,9 +220,9 @@
     {
       "module_id": "ingestion",
       "title": "Ingestion",
-      "default_slot": "sidebar",
+      "default_slot": "main",
       "required": false,
-      "enabled_by_default": false,
+      "enabled_by_default": true,
       "description": "Raw recap ingestion operator pane over PR92 orchestration.",
       "config_schema": null
     },

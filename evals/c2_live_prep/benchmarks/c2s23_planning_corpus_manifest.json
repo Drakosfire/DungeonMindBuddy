@@ -6,7 +6,7 @@
     21,
     22
   ],
-  "generated_at": "2026-05-30T21:08:20Z",
+  "generated_at": "2026-05-31T02:26:27Z",
   "entries": [
     {
       "source_id": "fresh_recap-s23-session-23-recap-md",
@@ -381,29 +381,32 @@
       "notes": "Played recap of what happened; canonical play memory."
     },
     {
-      "source_id": "play_recap-s22-breadcrumbed-session-22-mireward-gate-lysandro-ironveil-breadcrumbed-md",
+      "source_id": "play_recap-s22-breadcrumbed-session-22-mireward-road-and-lysandro-breadcrumbed-md",
       "source_role": "play_recap",
       "authority": "canon_play",
       "session_scope": [
         22
       ],
-      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Gate Lysandro Ironveil.breadcrumbed.md",
-      "route_exists": false,
-      "admissible": false,
-      "allowed_uses": [],
-      "forbidden_uses": [
-        "play_facts"
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.breadcrumbed.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "play_facts",
+        "open_loops",
+        "planning_context",
+        "continuity"
       ],
-      "notes": "Breadcrumbed (route-anchored) recap; canonical play memory. Not yet materialized (session not ingested)."
+      "forbidden_uses": [],
+      "notes": "Breadcrumbed (route-anchored) recap; canonical play memory."
     },
     {
-      "source_id": "play_recap-s22-normalized-session-22-mireward-gate-lysandro-ironveil-md",
+      "source_id": "play_recap-s22-normalized-session-22-mireward-road-and-lysandro-md",
       "source_role": "play_recap",
       "authority": "canon_play",
       "session_scope": [
         22
       ],
-      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Gate Lysandro Ironveil.md",
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md",
       "route_exists": true,
       "admissible": true,
       "allowed_uses": [
@@ -416,13 +419,13 @@
       "notes": "Normalized recap; canonical play memory."
     },
     {
-      "source_id": "play_recap-s22-session-recaps-session-22-mireward-gate-lysandro-ironveil-md",
+      "source_id": "play_recap-s22-session-recaps-session-22-mireward-road-and-lysandro-md",
       "source_role": "play_recap",
       "authority": "canon_play",
       "session_scope": [
         22
       ],
-      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Gate Lysandro Ironveil.md",
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md",
       "route_exists": true,
       "admissible": true,
       "allowed_uses": [
@@ -758,36 +761,42 @@
       "notes": "Retrieval records derived from the recap."
     },
     {
-      "source_id": "session_memory-s22-session-memory-session-22-mireward-gate-lysandro-ironveil-records-meta-json",
+      "source_id": "session_memory-s22-session-memory-session-22-mireward-road-and-lysandro-records-meta-json",
       "source_role": "session_memory",
       "authority": "derived_memory",
       "session_scope": [
         22
       ],
-      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 22 - Mireward Gate Lysandro Ironveil.records_meta.json",
-      "route_exists": false,
-      "admissible": false,
-      "allowed_uses": [],
-      "forbidden_uses": [
-        "play_facts"
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 22 - Mireward Road and Lysandro.records_meta.json",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "play_facts",
+        "search",
+        "routing",
+        "evidence_support"
       ],
-      "notes": "Retrieval-record metadata derived from the recap. Not yet materialized (session not ingested)."
+      "forbidden_uses": [],
+      "notes": "Retrieval-record metadata derived from the recap."
     },
     {
-      "source_id": "session_memory-s22-session-memory-session-22-mireward-gate-lysandro-ironveil-records-meta-jsonl",
+      "source_id": "session_memory-s22-session-memory-session-22-mireward-road-and-lysandro-records-meta-jsonl",
       "source_role": "session_memory",
       "authority": "derived_memory",
       "session_scope": [
         22
       ],
-      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 22 - Mireward Gate Lysandro Ironveil.records_meta.jsonl",
-      "route_exists": false,
-      "admissible": false,
-      "allowed_uses": [],
-      "forbidden_uses": [
-        "play_facts"
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 22 - Mireward Road and Lysandro.records_meta.jsonl",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "play_facts",
+        "search",
+        "routing",
+        "evidence_support"
       ],
-      "notes": "Retrieval records derived from the recap. Not yet materialized (session not ingested)."
+      "forbidden_uses": [],
+      "notes": "Retrieval records derived from the recap."
     },
     {
       "source_id": "table_notes-s21-ingest-staging-session-21-raw-notes-md",

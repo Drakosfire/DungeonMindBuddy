@@ -1,0 +1,65 @@
+{
+  "question_id": "xsession-02",
+  "question": "Which open loops detected at the end of Session 22 should appear on the Session 23 planning timeline?",
+  "category": "cross_session_continuity",
+  "expected_source_roles": [
+    "canon_play",
+    "planning_scaffold"
+  ],
+  "forbidden_source_roles_for_play_facts": [
+    "reference_tool"
+  ],
+  "expected_artifact_actions": [
+    "timeline_read",
+    "append_observation"
+  ],
+  "answer_requirements": [
+    "Open loops from play recap; planning beats are follow-on, not substitutes",
+    "Note if bootstrap heuristics mis-tagged a loop"
+  ],
+  "planner": {
+    "turn_count": 2,
+    "tool_calls": [
+      "read_corpus_file",
+      "read_corpus_file",
+      "read_corpus_file"
+    ],
+    "corpus_paths_read": [
+      "Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.frontmatter_seed.md",
+      "Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md",
+      "Longmont Campaign/Campaign 2/Session Prep/Session 22 - open GM knobs.md"
+    ],
+    "final_message": "For Session 23, the strongest open loops from the end of Session 22 are:\n\n- **Mirathorn status is unresolved**: the recap shows the city messaging has gone bad, with Grobnok saying Frank is compromised, Sara is missing, the council hired mercenaries, the meat outbreak is back, and only Grobnok will contact the party going forward. The open question is whether **Mirathorn is compromised or merely distracted**; see `Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md`.\n- **The swamp / cult source remains the immediate mission**: the party is explicitly told to keep going to the swamp because that is where the problem originates, and the recap ends with them heading north toward Mireward and the swamp trail still active. Same recap: `Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md`.\n- **The music / song effect needs follow-through**: they all start humming the same festival song and later the same rhythm is linked to the Dustwalker performance, so this is a lingering weirdness that should stay on the planning timeline. Same recap: `Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md`.\n- **The strange reflected puddle / conjuration bleed** is still unresolved: Caelynn detects conjuration in the water and Stafl concludes it’s a bleed from another plane of existence. Same recap: `Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md`.\n- **The northbound road mystery**: the abandoned meat-on-a-stick restaurant, the chalkboard note (“headed south, north wrong”), the knocking-with-no-door, and the hard storm sheltering all point to an unsettled road-side anomaly cluster worth carrying into Session 23. Same recap: `Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md`.\n- **Lysandro has entered play**: the session ends on meeting Lysandra’s father, who appears at the gate as a new active NPC/thread. If you want him on the Session 23 timeline, he should be carried forward from the end of `Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md`.\n\nThe planning-only knob file also flags unresolved follow-ups around Mirathorn and Mireward in `Longmont Campaign/Campaign 2/Session Prep/Session 22 - open GM knobs.md`, but the recap itself is the stronger source for what actually became open at session end.",
+    "final_message_parse_error": null,
+    "user_intent": "status_or_recap_request",
+    "scenario_estimated_cost_usd": null,
+    "planner_estimated_cost_usd": 0.009247
+  },
+  "tool_trace": [
+    {
+      "tool": "read_corpus_file",
+      "arguments": {
+        "path": "Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.frontmatter_seed.md"
+      },
+      "output_chars": 5834,
+      "output_excerpt": "---\nschema: dmb_recap_breadcrumbs_v1\nsource_recap_path: \"Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md\"\ncampaign:\n  title: \"Longmont Campaign\"\n  campaign_number: 2\n  campaign_id: longmont-c2\nsession:\n  number: 22\n  title: \"Session 22 - Mireward Road and Lysandro\"\n  document_class: play\n  canon_layer: campaign\n  temporal_scope: session_specific\n  origin_session: 22\n  last_updated_session: 22\n  source_class: observed_session_recap\nbreadcrumb_semantics:\n  purpose: \"Machine-facing session memory index: inline labels mark source-aligned recap spans with durable retrieval value for agentic planning, live-play querying, hub routing, or proposed hub review.\"\n  placement_rule: \"Place tags immediately after the source-derived span that should rout"
+    },
+    {
+      "tool": "read_corpus_file",
+      "arguments": {
+        "path": "Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md"
+      },
+      "output_chars": 9930,
+      "output_excerpt": "---\ntitle: \"Session 22 - Mireward Road and Lysandro\"\ndocument_class: play\ncanon_layer: campaign\ncampaign_id: longmont-c2\ntemporal_scope: session_specific\nsession: 22\norigin_session: 22\nlast_updated_session: 22\nsource_class: observed_session_recap\n---\n# Session 22 Recap\n\nThe group turns their focus to the Reach; the vast Golden Fields to the north. If they decide to continue on, their destination is Mireward. If they decide to turn around, it's a multiday journey back to Mirathorn. The first thing to do is break their camp and head back to the wagon. The trail is damp from the rain and a magical sheen lies everywhere. In the distance to the west another storm appears to be building and there is a constant feeling of an approaching storm.\n\nAfter another failed attempt to contact Mirathorn by"
+    },
+    {
+      "tool": "read_corpus_file",
+      "arguments": {
+        "path": "Longmont Campaign/Campaign 2/Session Prep/Session 22 - open GM knobs.md"
+      },
+      "output_chars": 1964,
+      "output_excerpt": "---\ntitle: \"Session 22 — open GM knobs (not yet in corpus)\"\ndocument_class: planning\ncanon_layer: campaign\ncampaign_id: longmont-c2\ntemporal_scope: session_specific\nsession: 22\norigin_session: null\nlast_updated_session: 21\nsource_class: scene_module\ntable_note: \"Decisions the GM has not fixed in lore files yet. Delete or move rows when authored elsewhere.\"\n---\n\n# Session 22 — open GM knobs\n\nItems discussed in planning that **must be decided by the GM** before they pay off at the table. When decided, write the answer into the linked target file and remove or update the row here.\n\n| Knob | Question | Write answer to |\n|------|----------|-----------------|\n| **Lysandra investigation** | Who is the **“person they spoke about back in the city”** that Lysandra investigated (Session 21)? | `NPCs/"
+    }
+  ],
+  "final_text": "{\"user_intent\":\"status_or_recap_request\",\"message\":\"For Session 23, the strongest open loops from the end of Session 22 are:\\n\\n- **Mirathorn status is unresolved**: the recap shows the city messaging has gone bad, with Grobnok saying Frank is compromised, Sara is missing, the council hired mercenaries, the meat outbreak is back, and only Grobnok will contact the party going forward. The open question is whether **Mirathorn is compromised or merely distracted**; see `Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md`.\\n- **The swamp / cult source remains the immediate mission**: the party is explicitly told to keep going to the swamp because that is where the problem originates, and the recap ends with them heading north toward Mireward and the swamp trail still active. Same recap: `Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md`.\\n- **The music / song effect needs follow-through**: they all start humming the same festival song and later the same rhythm is linked to the Dustwalker performance, so this is a lingering weirdness that should stay on the planning timeline. Same recap: `Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md`.\\n- **The strange reflected puddle / conjuration bleed** is still unresolved: Caelynn detects conjuration in the water and Stafl concludes it’s a bleed from another plane of existence. Same recap: `Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md`.\\n- **The northbound road mystery**: the abandoned meat-on-a-stick restaurant, the chalkboard note (“headed south, north wrong”), the knocking-with-no-door, and the hard storm sheltering all point to an unsettled road-side anomaly cluster worth carrying into Session 23. Same recap: `Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md`.\\n- **Lysandro has entered play**: the session ends on meeting Lysandra’s father, who appears at the gate as a new active NPC/thread. If you want him on the Session 23 timeline, he should be carried forward from the end of `Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md`.\\n\\nThe planning-only knob file also flags unresolved follow-ups around Mirathorn and Mireward in `Longmont Campaign/Campaign 2/Session Prep/Session 22 - open GM knobs.md`, but the recap itself is the stronger source for what actually became open at session end.\",\"unsure_queue\":null}"
+}

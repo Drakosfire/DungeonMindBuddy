@@ -1,0 +1,66 @@
+{
+  "question_id": "s22-ingest-02",
+  "question": "Which Session 22 NPCs were foreground at the table versus background mentions, as reflected in the ingested recap?",
+  "category": "raw_recap_ingestion_session_22_understanding",
+  "expected_source_roles": [
+    "canon_play",
+    "derived_memory"
+  ],
+  "forbidden_source_roles_for_play_facts": [
+    "planning_scaffold",
+    "live_observation"
+  ],
+  "expected_artifact_actions": [
+    "ingest_apply_normalize",
+    "inspector_read_artifact"
+  ],
+  "answer_requirements": [
+    "Distinguish played presence from prep mentions",
+    "Cite recap or memory route, not staging file alone"
+  ],
+  "planner": {
+    "turn_count": 2,
+    "tool_calls": [
+      "read_corpus_file",
+      "read_corpus_file",
+      "read_corpus_file"
+    ],
+    "corpus_paths_read": [
+      "Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.breadcrumbed.md",
+      "Longmont Campaign/Campaign 2/NPCs/torbin_jove/README.md",
+      "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/README.md"
+    ],
+    "final_message": "In the ingested recap for `Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.breadcrumbed.md`, the **foreground/table NPCs** were:\n- **Captain Lysandra Ironveil** — repeatedly on-scene in direct dialogue, including the rockie-talkie exchange, the morale conversation, and the father reveal.\n- **Thrin Branchborn** — appears in a live table moment asking Ephanna whether the forest can lie.\n- **Sara / Grobnok via the rockie-talkie** — not physically present, but functionally active in the scene through the city call and update.\n- **Lysandro** — appears at the end as the new, scene-defining reveal/father encounter.\n\nThe **background mentions** were:\n- **Professor Tealeaf** — referenced as the person the party intends to contact / later working with Grobnok.\n- **Commander Vale** — named in Hester’s advice, but not otherwise foregrounded.\n- **Private Hester** — a brief courier encounter; present for a scene beat, but not sustained foreground focus.\n- **Frank** — mentioned only in the city-status update as the compromised handoff point for the rockie-talkie.\n\nSo, if you’re separating by recap emphasis: **foreground = Lysandra, Thrin, Grobnok/Sara-through-the-call, Lysandro**; **background mentions = Tealeaf, Vale, Frank, with Hester as a brief supporting encounter**.",
+    "final_message_parse_error": null,
+    "user_intent": "status_or_recap_request",
+    "scenario_estimated_cost_usd": null,
+    "planner_estimated_cost_usd": 0.010497
+  },
+  "tool_trace": [
+    {
+      "tool": "read_corpus_file",
+      "arguments": {
+        "path": "Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.breadcrumbed.md"
+      },
+      "output_chars": 19876,
+      "output_excerpt": "---\nschema: dmb_recap_breadcrumbs_v1\nsource_recap_path: \"Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md\"\ncampaign:\n  title: \"Longmont Campaign\"\n  campaign_number: 2\n  campaign_id: longmont-c2\nsession:\n  number: 22\n  title: \"Session 22 - Mireward Road and Lysandro\"\n  document_class: play\n  canon_layer: campaign\n  temporal_scope: session_specific\n  origin_session: 22\n  last_updated_session: 22\n  source_class: observed_session_recap\nbreadcrumb_semantics:\n  purpose: \"Machine-facing session memory index: inline labels mark source-aligned recap spans with durable retrieval value for agentic planning, live-play querying, hub routing, or proposed hub review.\"\n  placement_rule: \"Place tags immediately after the source-derived span that should rout"
+    },
+    {
+      "tool": "read_corpus_file",
+      "arguments": {
+        "path": "Longmont Campaign/Campaign 2/NPCs/torbin_jove/README.md"
+      },
+      "output_chars": 2984,
+      "output_excerpt": "---\ntitle: \"Torbin Jove — Campaign 2\"\ndocument_class: reference\ncanon_layer: campaign\ncampaign_id: longmont-c2\ntemporal_scope: campaign_stateful\nsession: null\norigin_session: null\nlast_updated_session: null\nsource_class: ledger_or_dossier\nsubject_class: npc\nsubject_doc_kind: hub_index\n---\n\n# Torbin Jove — Campaign 2 (table)\n\n## Suggested reads (in order)\n\nUse `read_corpus_file` with these paths **after** this README (corpus root = `eldyrwild-markdown/`):\n\n1. `Longmont Campaign/Campaign 2/NPCs/torbin_jove/torbin_jove_character_dossier.md` — **primary character reference** (who he is at this table, continuity spine, disambiguators).\n2. `Longmont Campaign/Campaign 2/NPCs/torbin_jove/timeline.md` — C1 + C2 recap pointers for Torbin-specific beats.\n3. `Longmont Campaign/Campaign 2/NPCs/torbin_j"
+    },
+    {
+      "tool": "read_corpus_file",
+      "arguments": {
+        "path": "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/README.md"
+      },
+      "output_chars": 4328,
+      "output_excerpt": "---\ntitle: \"Captain Lysandra Ironveil — Campaign 2\"\ndocument_class: reference\ncanon_layer: campaign\ncampaign_id: longmont-c2\ntemporal_scope: campaign_stateful\nsession: null\norigin_session: null\nlast_updated_session: null\nsource_class: ledger_or_dossier\nsubject_class: npc\nsubject_doc_kind: hub_index\n---\n\n# Captain Lysandra Ironveil — Campaign 2 (table)\n\n## Suggested reads (in order)\n\nUse `read_corpus_file` with these paths **after** this README (corpus root = `eldyrwild-markdown/`):\n\n1. `Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_character_dossier.md` — primary **character reference** (psychology, command style, GM-sourced ledger bullets).\n2. `Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/lysandra_ironveil_mireward_history.md` — **Mir"
+    }
+  ],
+  "final_text": "{\"user_intent\":\"status_or_recap_request\",\"message\":\"In the ingested recap for `Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.breadcrumbed.md`, the **foreground/table NPCs** were:\\n- **Captain Lysandra Ironveil** — repeatedly on-scene in direct dialogue, including the rockie-talkie exchange, the morale conversation, and the father reveal.\\n- **Thrin Branchborn** — appears in a live table moment asking Ephanna whether the forest can lie.\\n- **Sara / Grobnok via the rockie-talkie** — not physically present, but functionally active in the scene through the city call and update.\\n- **Lysandro** — appears at the end as the new, scene-defining reveal/father encounter.\\n\\nThe **background mentions** were:\\n- **Professor Tealeaf** — referenced as the person the party intends to contact / later working with Grobnok.\\n- **Commander Vale** — named in Hester’s advice, but not otherwise foregrounded.\\n- **Private Hester** — a brief courier encounter; present for a scene beat, but not sustained foreground focus.\\n- **Frank** — mentioned only in the city-status update as the compromised handoff point for the rockie-talkie.\\n\\nSo, if you’re separating by recap emphasis: **foreground = Lysandra, Thrin, Grobnok/Sara-through-the-call, Lysandro**; **background mentions = Tealeaf, Vale, Frank, with Hester as a brief supporting encounter**.\",\"unsure_queue\":null}"
+}

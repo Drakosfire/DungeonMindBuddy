@@ -1,0 +1,58 @@
+{
+  "question_id": "s22-ingest-01",
+  "question": "After ingesting the raw Session 22 table notes, what are the three most important play outcomes I need to carry into Session 23 prep?",
+  "category": "raw_recap_ingestion_session_22_understanding",
+  "expected_source_roles": [
+    "canon_play",
+    "derived_memory"
+  ],
+  "forbidden_source_roles_for_play_facts": [
+    "pre_canonical_evidence",
+    "planning_scaffold",
+    "reference_tool"
+  ],
+  "expected_artifact_actions": [
+    "ingest_stage_preview",
+    "ingest_apply_normalize"
+  ],
+  "answer_requirements": [
+    "Name play outcomes, not prep intentions",
+    "Note whether canonical recap or session memory was used",
+    "If only preview completed, say so explicitly"
+  ],
+  "planner": {
+    "turn_count": 3,
+    "tool_calls": [
+      "read_corpus_file",
+      "read_corpus_file"
+    ],
+    "corpus_paths_read": [
+      "Longmont Campaign/Campaign 2/_ingest_staging/session_22_raw_notes.md",
+      "Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md"
+    ],
+    "final_message": "Three carry-forward outcomes from Session 22 for Session 23 prep:\n\n1. **The party is now committed to the swamp/source-of-cult mission.** Grobnok relayed that Mirathorn can’t spare the group’s attention right now, that the city’s corrupted-meat outbreak is back, and that the council wants them to continue to where the problem originates. This is the main directive coming out of `Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md`.\n\n2. **The world around them is visibly getting worse and weirder on the road.** They saw delayed reflections in puddles, a conjuration-linked magical bleed, the shared humming of the Dustwalker song, a strange savory mist, and then a massive hail-storm wall. Those are strong “something supernatural is spreading” signals to build on from the same recap path.\n\n3. **Lysandra’s role shifted, and family contact landed at the end.** She opened up about struggling to lead, then—after a Suggestion cast—said her intent is to keep the team focused on destroying the cult source. The session closed with the party meeting her father Lysandro at the wall, which is likely to matter immediately in Session 23.\n\nIf you want the shortest prep framing: **get the swamp/cult thread ready, escalate the corruption/weather/magic weirdness, and plan for a Lysandro follow-up scene** in `Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md` and the raw ingest notes `Longmont Campaign/Campaign 2/_ingest_staging/session_22_raw_notes.md`.",
+    "final_message_parse_error": null,
+    "user_intent": "status_or_recap_request",
+    "scenario_estimated_cost_usd": null,
+    "planner_estimated_cost_usd": 0.020525
+  },
+  "tool_trace": [
+    {
+      "tool": "read_corpus_file",
+      "arguments": {
+        "path": "Longmont Campaign/Campaign 2/_ingest_staging/session_22_raw_notes.md"
+      },
+      "output_chars": 9659,
+      "output_excerpt": "\nThe group turns their focus to the Reach; the vast Golden Fields to the north. If they decide to continue on, their destination is Mireward. If they decide to turn around, it's a multiday journey back to Mirathorn. The first thing to do is break their camp and head back to the wagon. The trail is damp from the rain and a magical sheen lies everywhere. In the distance to the west another storm appears to be building and there is a constant feeling of an approaching storm.\n\nAfter another failed attempt to contact Mirathorn by rockie-talkie, the group decides they need to come up with a plan to contact someone in the city they can trust. After some debate, they decide they should send a message to Professor Tealeaf, assuming the Wizard’s College is the least likely to be affected by anything"
+    },
+    {
+      "tool": "read_corpus_file",
+      "arguments": {
+        "path": "Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md"
+      },
+      "output_chars": 10145,
+      "output_excerpt": "---\ntitle: Session 22 - Mireward Road and Lysandro\ndocument_class: play\ncanon_layer: campaign\ncampaign_id: longmont-c2\ntemporal_scope: session_specific\nsession: 22\norigin_session: 22\nlast_updated_session: 22\nsource_class: observed_session_recap\nsubject_class: null\nsubject_doc_kind: recap\nnormalized_from: Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md\nnormalized_on: 2026-05-08\nnormalization_schema: dmb_recap_normalized_v1\n---\n# Session 22 Recap\n\nThe group turns their focus to the Reach; the vast Golden Fields to the north. If they decide to continue on, their destination is Mireward. If they decide to turn around, it's a multiday journey back to Mirathorn. The first thing to do is break their camp and head back to the wagon. The trail is damp from the"
+    }
+  ],
+  "final_text": "{\"user_intent\":\"status_or_recap_request\",\"message\":\"Three carry-forward outcomes from Session 22 for Session 23 prep:\\n\\n1. **The party is now committed to the swamp/source-of-cult mission.** Grobnok relayed that Mirathorn can’t spare the group’s attention right now, that the city’s corrupted-meat outbreak is back, and that the council wants them to continue to where the problem originates. This is the main directive coming out of `Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md`.\\n\\n2. **The world around them is visibly getting worse and weirder on the road.** They saw delayed reflections in puddles, a conjuration-linked magical bleed, the shared humming of the Dustwalker song, a strange savory mist, and then a massive hail-storm wall. Those are strong “something supernatural is spreading” signals to build on from the same recap path.\\n\\n3. **Lysandra’s role shifted, and family contact landed at the end.** She opened up about struggling to lead, then—after a Suggestion cast—said her intent is to keep the team focused on destroying the cult source. The session closed with the party meeting her father Lysandro at the wall, which is likely to matter immediately in Session 23.\\n\\nIf you want the shortest prep framing: **get the swamp/cult thread ready, escalate the corruption/weather/magic weirdness, and plan for a Lysandro follow-up scene** in `Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md` and the raw ingest notes `Longmont Campaign/Campaign 2/_ingest_staging/session_22_raw_notes.md`.\",\"unsure_queue\":null}"
+}

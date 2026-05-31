@@ -1,0 +1,65 @@
+{
+  "question_id": "roll-03",
+  "question": "I want to adjust encounter weights on an existing prep table for shepherd-cult pressure—what is the safe preview-first workflow?",
+  "category": "roll_table_creation_mutation",
+  "expected_source_roles": [
+    "reference_tool",
+    "audit"
+  ],
+  "forbidden_source_roles_for_play_facts": [
+    "reference_tool"
+  ],
+  "expected_artifact_actions": [
+    "roll_table_patch",
+    "inspector_read_write_evidence"
+  ],
+  "answer_requirements": [
+    "Describe preview then confirm",
+    "Clarify patch changes the tool, not play history"
+  ],
+  "planner": {
+    "turn_count": 3,
+    "tool_calls": [
+      "read_corpus_file",
+      "read_corpus_file",
+      "read_corpus_file"
+    ],
+    "corpus_paths_read": [
+      "Elderwyld/Shephards Flock/The cult of the Great  Shephard.md",
+      "Elderwyld/Shephards Flock/NPCs/dustwalker/README.md",
+      "Elderwyld/Shephards Flock/NPCs/dustwalker/README.md"
+    ],
+    "final_message": "Do you want the workflow for a generic preview-first edit, or for a specific table like `Longmont Campaign/Campaign 2/Session Prep/session_22/travel_mirathorn_comms_d100.md`?",
+    "final_message_parse_error": null,
+    "user_intent": "needs_clarification",
+    "scenario_estimated_cost_usd": null,
+    "planner_estimated_cost_usd": 0.00833
+  },
+  "tool_trace": [
+    {
+      "tool": "read_corpus_file",
+      "arguments": {
+        "path": "Elderwyld/Shephards Flock/The cult of the Great  Shephard.md"
+      },
+      "output_chars": 11707,
+      "output_excerpt": "---\n\n## title: \"The Shepherds’ Flock Cult\"\ndocument_class: world\ncanon_layer: world\ncampaign_id: null\ntemporal_scope: evergreen\nsession: null\norigin_session: null\nlast_updated_session: null\nsource_class: seed_reference\n\n### The Shepherds’ Flock Cult\n\nThe **Shepherds’ Flock** is a secretive and growing force within the city of Mirathorn, though its roots run deep in the continent's swamps. What began as a group of disillusioned human refugees has now transformed into a fanatical cult, whose members carry out violent acts in the shadows, aiming to overthrow the diverse populace of Mirathorn and establish a human-only dominion.\n\n#### Origins:\n\nThe Shepherds’ Flock was born from the same refugee wave that saw the founding of Mirathorn. However, while the majority of refugees embraced the city'"
+    },
+    {
+      "tool": "read_corpus_file",
+      "arguments": {
+        "path": "Elderwyld/Shephards Flock/NPCs/dustwalker/README.md"
+      },
+      "output_chars": 2590,
+      "output_excerpt": "---\ntitle: \"Dustwalker (Sorin Haldrim) — Shepherd’s Flock\"\ndocument_class: reference\ncanon_layer: world\ncampaign_id: null\ntemporal_scope: evergreen\nsession: null\norigin_session: null\nlast_updated_session: null\nsource_class: seed_reference\nsubject_class: npc\nsubject_doc_kind: hub_index\n---\n\n# Dustwalker (Sorin Haldrim) — Shepherd’s Flock (setting)\n\n## Suggested reads (in order)\n\nUse `read_corpus_file` with these paths **after** this README (corpus root = `eldyrwild-markdown/`):\n\n1. `Elderwyld/Shephards Flock/NPCs/dustwalker/dustwalker_statblock.md` — **mechanical JSON + combat actions** plus **interrogation profile**, lore, and aliases (**Sorin Haldrim**, The Spiral Voice, Maelthor’s Echo).\n2. `Elderwyld/Shephards Flock/NPCs/dustwalker/character_seed.md` — short **faction hooks** and pointe"
+    },
+    {
+      "tool": "read_corpus_file",
+      "arguments": {
+        "path": "Elderwyld/Shephards Flock/NPCs/dustwalker/README.md"
+      },
+      "output_chars": 2590,
+      "output_excerpt": "---\ntitle: \"Dustwalker (Sorin Haldrim) — Shepherd’s Flock\"\ndocument_class: reference\ncanon_layer: world\ncampaign_id: null\ntemporal_scope: evergreen\nsession: null\norigin_session: null\nlast_updated_session: null\nsource_class: seed_reference\nsubject_class: npc\nsubject_doc_kind: hub_index\n---\n\n# Dustwalker (Sorin Haldrim) — Shepherd’s Flock (setting)\n\n## Suggested reads (in order)\n\nUse `read_corpus_file` with these paths **after** this README (corpus root = `eldyrwild-markdown/`):\n\n1. `Elderwyld/Shephards Flock/NPCs/dustwalker/dustwalker_statblock.md` — **mechanical JSON + combat actions** plus **interrogation profile**, lore, and aliases (**Sorin Haldrim**, The Spiral Voice, Maelthor’s Echo).\n2. `Elderwyld/Shephards Flock/NPCs/dustwalker/character_seed.md` — short **faction hooks** and pointe"
+    }
+  ],
+  "final_text": "{\"user_intent\":\"needs_clarification\",\"message\":\"Do you want the workflow for a generic preview-first edit, or for a specific table like `Longmont Campaign/Campaign 2/Session Prep/session_22/travel_mirathorn_comms_d100.md`?\",\"unsure_queue\":null}"
+}
