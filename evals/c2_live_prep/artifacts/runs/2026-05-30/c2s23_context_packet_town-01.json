@@ -1,0 +1,468 @@
+{
+  "schema": "dmb_enriched_planning_context_packet_v1",
+  "question_id": "town-01",
+  "intent_class": "cross_session_planning",
+  "corpus_preconditions": {
+    "all_required_present": true,
+    "checks": [
+      {
+        "key": "canonical_recap_s22",
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md",
+        "exists": true
+      },
+      {
+        "key": "normalized_recap_s22",
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md",
+        "exists": true
+      },
+      {
+        "key": "breadcrumb_recap_s22",
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.breadcrumbed.md",
+        "exists": true
+      },
+      {
+        "key": "session_memory_jsonl_s22",
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 22 - Mireward Road and Lysandro.records_meta.jsonl",
+        "exists": true
+      },
+      {
+        "key": "session_memory_meta_s22",
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 22 - Mireward Road and Lysandro.records_meta.json",
+        "exists": true
+      },
+      {
+        "key": "live_workspace_s23_packet",
+        "path": "evals/c2_live_prep/live/session_23/live_packet.json",
+        "exists": true
+      },
+      {
+        "key": "activated_manifest",
+        "path": "evals/c2_live_prep/benchmarks/c2s23_planning_corpus_manifest.json",
+        "exists": true
+      }
+    ]
+  },
+  "activation_manifest_refs": [
+    {
+      "source_id": "prep_scaffold-s22-session-22-session-22-travel-to-mireward-runbook-md",
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_travel_to_mireward_runbook.md",
+      "source_role": "prep_scaffold",
+      "authority": "planning_scaffold",
+      "admissible": true,
+      "allowed_uses": [
+        "planning_context",
+        "reusable_prep"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ]
+    },
+    {
+      "source_id": "prep_scaffold-s22-session-22-session-22-planning-anchor-md",
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_planning_anchor.md",
+      "source_role": "prep_scaffold",
+      "authority": "planning_scaffold",
+      "admissible": true,
+      "allowed_uses": [
+        "planning_context",
+        "reusable_prep"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ]
+    },
+    {
+      "source_id": "play_recap-s21-session-recaps-session-21-drake-nest-mirathorn-call-md",
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 21 - Drake Nest Mirathorn Call.md",
+      "source_role": "play_recap",
+      "authority": "canon_play",
+      "admissible": true,
+      "allowed_uses": [
+        "play_facts",
+        "open_loops",
+        "planning_context",
+        "continuity"
+      ],
+      "forbidden_uses": []
+    }
+  ],
+  "retrieved_evidence": [
+    {
+      "path": "Longmont Campaign/Campaign 2/README.md",
+      "source_role": "unknown",
+      "authority": "unknown",
+      "session_scope": [],
+      "unit_id": null,
+      "breadcrumb_id": null,
+      "line_start": null,
+      "line_end": null,
+      "admissible": false,
+      "allowed_uses": [],
+      "forbidden_uses": [],
+      "routes": [
+        "Longmont Campaign/Campaign 2/README.md"
+      ]
+    },
+    {
+      "path": "Longmont Campaign/Campaign 2/Session Prep/session_22/README.md",
+      "source_role": "unknown",
+      "authority": "unknown",
+      "session_scope": [],
+      "unit_id": null,
+      "breadcrumb_id": null,
+      "line_start": null,
+      "line_end": null,
+      "admissible": false,
+      "allowed_uses": [],
+      "forbidden_uses": [],
+      "routes": [
+        "Longmont Campaign/Campaign 2/Session Prep/session_22/README.md"
+      ]
+    },
+    {
+      "path": "Longmont Campaign/Campaign 2/Journey - Mireward Reach (Campaign 2).md",
+      "source_role": "unknown",
+      "authority": "unknown",
+      "session_scope": [],
+      "unit_id": null,
+      "breadcrumb_id": null,
+      "line_start": null,
+      "line_end": null,
+      "admissible": false,
+      "allowed_uses": [],
+      "forbidden_uses": [],
+      "routes": [
+        "Longmont Campaign/Campaign 2/Journey - Mireward Reach (Campaign 2).md"
+      ]
+    },
+    {
+      "path": "Longmont Campaign/Campaign 2/Campaign 2 Notes.md",
+      "source_role": "unknown",
+      "authority": "unknown",
+      "session_scope": [],
+      "unit_id": null,
+      "breadcrumb_id": null,
+      "line_start": null,
+      "line_end": null,
+      "admissible": false,
+      "allowed_uses": [],
+      "forbidden_uses": [],
+      "routes": [
+        "Longmont Campaign/Campaign 2/Campaign 2 Notes.md"
+      ]
+    },
+    {
+      "path": "Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_travel_to_mireward_runbook.md",
+      "source_role": "prep_scaffold",
+      "authority": "planning_scaffold",
+      "session_scope": [
+        22
+      ],
+      "unit_id": null,
+      "breadcrumb_id": null,
+      "line_start": null,
+      "line_end": null,
+      "admissible": true,
+      "allowed_uses": [
+        "planning_context",
+        "reusable_prep"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "routes": [
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_travel_to_mireward_runbook.md"
+      ]
+    },
+    {
+      "path": "Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_planning_anchor.md",
+      "source_role": "prep_scaffold",
+      "authority": "planning_scaffold",
+      "session_scope": [
+        22
+      ],
+      "unit_id": null,
+      "breadcrumb_id": null,
+      "line_start": null,
+      "line_end": null,
+      "admissible": true,
+      "allowed_uses": [
+        "planning_context",
+        "reusable_prep"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "routes": [
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_planning_anchor.md"
+      ]
+    },
+    {
+      "path": "Elderwyld/Cities and Towns/Mireward/Mireward_PLACE_BUILD_SCAFFOLD.md",
+      "source_role": "unknown",
+      "authority": "unknown",
+      "session_scope": [],
+      "unit_id": null,
+      "breadcrumb_id": null,
+      "line_start": null,
+      "line_end": null,
+      "admissible": false,
+      "allowed_uses": [],
+      "forbidden_uses": [],
+      "routes": [
+        "Elderwyld/Cities and Towns/Mireward/Mireward_PLACE_BUILD_SCAFFOLD.md"
+      ]
+    },
+    {
+      "path": "Longmont Campaign/Campaign 2/Session Recaps/Session 21 - Drake Nest Mirathorn Call.md",
+      "source_role": "play_recap",
+      "authority": "canon_play",
+      "session_scope": [
+        21
+      ],
+      "unit_id": null,
+      "breadcrumb_id": null,
+      "line_start": null,
+      "line_end": null,
+      "admissible": true,
+      "allowed_uses": [
+        "play_facts",
+        "open_loops",
+        "planning_context",
+        "continuity"
+      ],
+      "forbidden_uses": [],
+      "routes": [
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 21 - Drake Nest Mirathorn Call.md"
+      ]
+    }
+  ],
+  "admitted_evidence": [
+    {
+      "path": "Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_travel_to_mireward_runbook.md",
+      "source_role": "prep_scaffold",
+      "authority": "planning_scaffold",
+      "session_scope": [
+        22
+      ],
+      "unit_id": null,
+      "breadcrumb_id": null,
+      "line_start": null,
+      "line_end": null,
+      "admissible": true,
+      "allowed_uses": [
+        "planning_context",
+        "reusable_prep"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "routes": [
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_travel_to_mireward_runbook.md"
+      ]
+    },
+    {
+      "path": "Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_planning_anchor.md",
+      "source_role": "prep_scaffold",
+      "authority": "planning_scaffold",
+      "session_scope": [
+        22
+      ],
+      "unit_id": null,
+      "breadcrumb_id": null,
+      "line_start": null,
+      "line_end": null,
+      "admissible": true,
+      "allowed_uses": [
+        "planning_context",
+        "reusable_prep"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "routes": [
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_planning_anchor.md"
+      ]
+    },
+    {
+      "path": "Longmont Campaign/Campaign 2/Session Recaps/Session 21 - Drake Nest Mirathorn Call.md",
+      "source_role": "play_recap",
+      "authority": "canon_play",
+      "session_scope": [
+        21
+      ],
+      "unit_id": null,
+      "breadcrumb_id": null,
+      "line_start": null,
+      "line_end": null,
+      "admissible": true,
+      "allowed_uses": [
+        "play_facts",
+        "open_loops",
+        "planning_context",
+        "continuity"
+      ],
+      "forbidden_uses": [],
+      "routes": [
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 21 - Drake Nest Mirathorn Call.md"
+      ]
+    }
+  ],
+  "rejected_evidence": [
+    {
+      "evidence": {
+        "path": "Longmont Campaign/Campaign 2/README.md",
+        "source_role": "unknown",
+        "authority": "unknown",
+        "session_scope": [],
+        "unit_id": null,
+        "breadcrumb_id": null,
+        "line_start": null,
+        "line_end": null,
+        "admissible": false,
+        "allowed_uses": [],
+        "forbidden_uses": [],
+        "routes": [
+          "Longmont Campaign/Campaign 2/README.md"
+        ]
+      },
+      "reason_code": "missing_manifest_entry"
+    },
+    {
+      "evidence": {
+        "path": "Longmont Campaign/Campaign 2/Session Prep/session_22/README.md",
+        "source_role": "unknown",
+        "authority": "unknown",
+        "session_scope": [],
+        "unit_id": null,
+        "breadcrumb_id": null,
+        "line_start": null,
+        "line_end": null,
+        "admissible": false,
+        "allowed_uses": [],
+        "forbidden_uses": [],
+        "routes": [
+          "Longmont Campaign/Campaign 2/Session Prep/session_22/README.md"
+        ]
+      },
+      "reason_code": "missing_manifest_entry"
+    },
+    {
+      "evidence": {
+        "path": "Longmont Campaign/Campaign 2/Journey - Mireward Reach (Campaign 2).md",
+        "source_role": "unknown",
+        "authority": "unknown",
+        "session_scope": [],
+        "unit_id": null,
+        "breadcrumb_id": null,
+        "line_start": null,
+        "line_end": null,
+        "admissible": false,
+        "allowed_uses": [],
+        "forbidden_uses": [],
+        "routes": [
+          "Longmont Campaign/Campaign 2/Journey - Mireward Reach (Campaign 2).md"
+        ]
+      },
+      "reason_code": "missing_manifest_entry"
+    },
+    {
+      "evidence": {
+        "path": "Longmont Campaign/Campaign 2/Campaign 2 Notes.md",
+        "source_role": "unknown",
+        "authority": "unknown",
+        "session_scope": [],
+        "unit_id": null,
+        "breadcrumb_id": null,
+        "line_start": null,
+        "line_end": null,
+        "admissible": false,
+        "allowed_uses": [],
+        "forbidden_uses": [],
+        "routes": [
+          "Longmont Campaign/Campaign 2/Campaign 2 Notes.md"
+        ]
+      },
+      "reason_code": "missing_manifest_entry"
+    },
+    {
+      "evidence": {
+        "path": "Elderwyld/Cities and Towns/Mireward/Mireward_PLACE_BUILD_SCAFFOLD.md",
+        "source_role": "unknown",
+        "authority": "unknown",
+        "session_scope": [],
+        "unit_id": null,
+        "breadcrumb_id": null,
+        "line_start": null,
+        "line_end": null,
+        "admissible": false,
+        "allowed_uses": [],
+        "forbidden_uses": [],
+        "routes": [
+          "Elderwyld/Cities and Towns/Mireward/Mireward_PLACE_BUILD_SCAFFOLD.md"
+        ]
+      },
+      "reason_code": "missing_manifest_entry"
+    }
+  ],
+  "claims": [
+    {
+      "claim_id": "town-01_primary_claim",
+      "claim_type": "planning_context",
+      "support_status": "partial",
+      "supporting_evidence_refs": [
+        "Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_travel_to_mireward_runbook.md",
+        "Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_planning_anchor.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 21 - Drake Nest Mirathorn Call.md"
+      ],
+      "route_refs": [
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_travel_to_mireward_runbook.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_planning_anchor.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 21 - Drake Nest Mirathorn Call.md"
+      ],
+      "planning_implication": "Use admitted evidence only; rejected evidence remains audit-visible.",
+      "authority_notes": "Play-fact claims require canon_play/derived_memory only."
+    }
+  ],
+  "route_context": [
+    {
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_travel_to_mireward_runbook.md",
+      "source_role": "prep_scaffold",
+      "authority": "planning_scaffold"
+    },
+    {
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_planning_anchor.md",
+      "source_role": "prep_scaffold",
+      "authority": "planning_scaffold"
+    },
+    {
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 21 - Drake Nest Mirathorn Call.md",
+      "source_role": "play_recap",
+      "authority": "canon_play"
+    }
+  ],
+  "planning_implications": [
+    "Packet is evidence-first; unsupported claims should remain blocked.",
+    "Capability responses should default to missing/partial/unknown without evidence."
+  ],
+  "capability_status": {
+    "status": "partial",
+    "evidence": [
+      "inferred_from_current_dogfood_behavior"
+    ]
+  },
+  "blocked_or_missing": [],
+  "citation_policy": {
+    "play_fact_allowed_authorities": [
+      "canon_play",
+      "derived_memory"
+    ],
+    "play_fact_forbidden_authorities": [
+      "pre_canonical_evidence",
+      "planning_scaffold",
+      "reference_tool",
+      "live_observation"
+    ]
+  },
+  "source_excerpt": "Mireward is the next town north on the Reach, about **5 days** from Mirathorn per `Longmont Campaign/Campaign 2/Journey - Mireward Reach (Campaign 2).md`; the Session 21 recap confirms the party was already oriented that way and named Mireward as the next stop. For Session 23 opening scenes, the strongest economy hooks in the current Mireward scaffold are the **garrison-and-ferry town** feel, **st"
+}

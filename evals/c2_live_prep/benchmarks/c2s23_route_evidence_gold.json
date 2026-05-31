@@ -1,0 +1,120 @@
+{
+  "schema": "dmb_c2s23_route_evidence_gold_v1",
+  "campaign_id": "longmont-c2",
+  "planning_session": 23,
+  "notes": "Evidence-reference gold for PR97 packet checks. Focuses on authority and capability invariants over prose.",
+  "questions": [
+    {
+      "question_id": "s22-ingest-01",
+      "claim_expectations": [
+        {
+          "claim_id": "swamp_active_objective",
+          "claim_type": "play_fact",
+          "required_authority_any": [
+            "canon_play",
+            "derived_memory"
+          ],
+          "forbidden_evidence_roles": [
+            "pre_canonical_evidence",
+            "planning_scaffold",
+            "reference_tool"
+          ],
+          "acceptable_path_contains_any": [
+            "Session Recaps/Session 22 - Mireward Road and Lysandro.md",
+            "Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md",
+            "Session Recaps/_session_memory/Session 22 - Mireward Road and Lysandro.records_meta.jsonl"
+          ]
+        }
+      ]
+    },
+    {
+      "question_id": "s22-ingest-03",
+      "claim_expectations": [
+        {
+          "claim_id": "ingest_readiness_states",
+          "claim_type": "pipeline_state",
+          "required_authority_any": [
+            "audit",
+            "canon_play",
+            "derived_memory"
+          ],
+          "forbidden_evidence_roles": [
+            "planning_scaffold"
+          ],
+          "required_state_flags_any": [
+            "ready_for_planning_activation",
+            "session_memory_materialized",
+            "breadcrumb_found",
+            "normalized_reused",
+            "recap_reused"
+          ]
+        }
+      ]
+    },
+    {
+      "question_id": "manifest-01",
+      "claim_expectations": [
+        {
+          "claim_id": "manifest_query_capability",
+          "claim_type": "capability_check",
+          "required_capability_status_any": [
+            "missing",
+            "partial",
+            "unknown"
+          ],
+          "must_report_blocker": true
+        }
+      ]
+    },
+    {
+      "question_id": "loc-02",
+      "claim_expectations": [
+        {
+          "claim_id": "location_hub_write_support",
+          "claim_type": "capability_check",
+          "required_capability_status_any": [
+            "missing",
+            "partial",
+            "unknown"
+          ],
+          "must_report_blocker": true
+        }
+      ]
+    },
+    {
+      "question_id": "roll-02",
+      "claim_expectations": [
+        {
+          "claim_id": "roll_table_create_support",
+          "claim_type": "capability_check",
+          "required_capability_status_any": [
+            "missing",
+            "partial",
+            "unknown"
+          ],
+          "must_report_blocker": true
+        }
+      ]
+    },
+    {
+      "question_id": "auth-05",
+      "claim_expectations": [
+        {
+          "claim_id": "staging_not_normal_play_fact_evidence",
+          "claim_type": "authority_guardrail",
+          "required_authority_any": [
+            "canon_play",
+            "derived_memory"
+          ],
+          "forbidden_evidence_roles": [
+            "pre_canonical_evidence"
+          ],
+          "required_verdict_contains_any": [
+            "No",
+            "not as normal retrieval evidence"
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,265 @@
+{
+  "schema": "dmb_enriched_planning_context_packet_v1",
+  "question_id": "npc-01",
+  "intent_class": "planning_mutation_or_tooling",
+  "corpus_preconditions": {
+    "all_required_present": true,
+    "checks": [
+      {
+        "key": "canonical_recap_s22",
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md",
+        "exists": true
+      },
+      {
+        "key": "normalized_recap_s22",
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md",
+        "exists": true
+      },
+      {
+        "key": "breadcrumb_recap_s22",
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.breadcrumbed.md",
+        "exists": true
+      },
+      {
+        "key": "session_memory_jsonl_s22",
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 22 - Mireward Road and Lysandro.records_meta.jsonl",
+        "exists": true
+      },
+      {
+        "key": "session_memory_meta_s22",
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 22 - Mireward Road and Lysandro.records_meta.json",
+        "exists": true
+      },
+      {
+        "key": "live_workspace_s23_packet",
+        "path": "evals/c2_live_prep/live/session_23/live_packet.json",
+        "exists": true
+      },
+      {
+        "key": "activated_manifest",
+        "path": "evals/c2_live_prep/benchmarks/c2s23_planning_corpus_manifest.json",
+        "exists": true
+      }
+    ]
+  },
+  "activation_manifest_refs": [
+    {
+      "source_id": "hub_evidence-s21-captain-lysandra-ironveil-readme-md",
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/README.md",
+      "source_role": "hub_evidence",
+      "authority": "canon_play",
+      "admissible": true,
+      "allowed_uses": [
+        "planning_context",
+        "continuity",
+        "npc_grounding"
+      ],
+      "forbidden_uses": []
+    }
+  ],
+  "retrieved_evidence": [
+    {
+      "path": "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/README.md",
+      "source_role": "hub_evidence",
+      "authority": "canon_play",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "unit_id": null,
+      "breadcrumb_id": null,
+      "line_start": null,
+      "line_end": null,
+      "admissible": true,
+      "allowed_uses": [
+        "planning_context",
+        "continuity",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [],
+      "routes": [
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/README.md"
+      ]
+    },
+    {
+      "path": "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/timeline.md",
+      "source_role": "unknown",
+      "authority": "unknown",
+      "session_scope": [],
+      "unit_id": null,
+      "breadcrumb_id": null,
+      "line_start": null,
+      "line_end": null,
+      "admissible": false,
+      "allowed_uses": [],
+      "forbidden_uses": [],
+      "routes": [
+        "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/timeline.md"
+      ]
+    },
+    {
+      "path": "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_character_dossier.md",
+      "source_role": "unknown",
+      "authority": "unknown",
+      "session_scope": [],
+      "unit_id": null,
+      "breadcrumb_id": null,
+      "line_start": null,
+      "line_end": null,
+      "admissible": false,
+      "allowed_uses": [],
+      "forbidden_uses": [],
+      "routes": [
+        "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_character_dossier.md"
+      ]
+    },
+    {
+      "path": "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/timeline.md",
+      "source_role": "unknown",
+      "authority": "unknown",
+      "session_scope": [],
+      "unit_id": null,
+      "breadcrumb_id": null,
+      "line_start": null,
+      "line_end": null,
+      "admissible": false,
+      "allowed_uses": [],
+      "forbidden_uses": [],
+      "routes": [
+        "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/timeline.md"
+      ]
+    }
+  ],
+  "admitted_evidence": [
+    {
+      "path": "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/README.md",
+      "source_role": "hub_evidence",
+      "authority": "canon_play",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "unit_id": null,
+      "breadcrumb_id": null,
+      "line_start": null,
+      "line_end": null,
+      "admissible": true,
+      "allowed_uses": [
+        "planning_context",
+        "continuity",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [],
+      "routes": [
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/README.md"
+      ]
+    }
+  ],
+  "rejected_evidence": [
+    {
+      "evidence": {
+        "path": "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/timeline.md",
+        "source_role": "unknown",
+        "authority": "unknown",
+        "session_scope": [],
+        "unit_id": null,
+        "breadcrumb_id": null,
+        "line_start": null,
+        "line_end": null,
+        "admissible": false,
+        "allowed_uses": [],
+        "forbidden_uses": [],
+        "routes": [
+          "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/timeline.md"
+        ]
+      },
+      "reason_code": "missing_manifest_entry"
+    },
+    {
+      "evidence": {
+        "path": "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_character_dossier.md",
+        "source_role": "unknown",
+        "authority": "unknown",
+        "session_scope": [],
+        "unit_id": null,
+        "breadcrumb_id": null,
+        "line_start": null,
+        "line_end": null,
+        "admissible": false,
+        "allowed_uses": [],
+        "forbidden_uses": [],
+        "routes": [
+          "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_character_dossier.md"
+        ]
+      },
+      "reason_code": "missing_manifest_entry"
+    },
+    {
+      "evidence": {
+        "path": "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/timeline.md",
+        "source_role": "unknown",
+        "authority": "unknown",
+        "session_scope": [],
+        "unit_id": null,
+        "breadcrumb_id": null,
+        "line_start": null,
+        "line_end": null,
+        "admissible": false,
+        "allowed_uses": [],
+        "forbidden_uses": [],
+        "routes": [
+          "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/timeline.md"
+        ]
+      },
+      "reason_code": "missing_manifest_entry"
+    }
+  ],
+  "claims": [
+    {
+      "claim_id": "npc-01_primary_claim",
+      "claim_type": "planning_context",
+      "support_status": "partial",
+      "supporting_evidence_refs": [
+        "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/README.md"
+      ],
+      "route_refs": [
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/README.md"
+      ],
+      "planning_implication": "Use admitted evidence only; rejected evidence remains audit-visible.",
+      "authority_notes": "Play-fact claims require canon_play/derived_memory only."
+    }
+  ],
+  "route_context": [
+    {
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/README.md",
+      "source_role": "hub_evidence",
+      "authority": "canon_play"
+    }
+  ],
+  "planning_implications": [
+    "Packet is evidence-first; unsupported claims should remain blocked.",
+    "Capability responses should default to missing/partial/unknown without evidence."
+  ],
+  "capability_status": {
+    "status": "partial",
+    "evidence": [
+      "inferred_from_current_dogfood_behavior"
+    ]
+  },
+  "blocked_or_missing": [],
+  "citation_policy": {
+    "play_fact_allowed_authorities": [
+      "canon_play",
+      "derived_memory"
+    ],
+    "play_fact_forbidden_authorities": [
+      "pre_canonical_evidence",
+      "planning_scaffold",
+      "reference_tool",
+      "live_observation"
+    ]
+  },
+  "source_excerpt": "Captain Lysandra Ironveil enters Session 23 as an operationally functional but emotionally overloaded field commander, as laid out in `Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_character_dossier.md`. Her standing relationships and pressures are:\n\n- **Questionable Company:** she sees them as necessary, effective, and unpredictable; she intends to command "
+}

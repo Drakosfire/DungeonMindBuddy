@@ -1,0 +1,401 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "enriched_planning_context_packet.schema.json",
+  "title": "C2S23 Enriched Planning Context Packet v1",
+  "type": "object",
+  "required": [
+    "schema",
+    "question_id",
+    "intent_class",
+    "corpus_preconditions",
+    "activation_manifest_refs",
+    "retrieved_evidence",
+    "admitted_evidence",
+    "rejected_evidence",
+    "claims",
+    "route_context",
+    "planning_implications",
+    "capability_status",
+    "blocked_or_missing",
+    "citation_policy"
+  ],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "dmb_enriched_planning_context_packet_v1"
+    },
+    "question_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "intent_class": {
+      "type": "string",
+      "minLength": 1
+    },
+    "corpus_preconditions": {
+      "type": "object",
+      "required": [
+        "all_required_present",
+        "checks"
+      ],
+      "properties": {
+        "all_required_present": {
+          "type": "boolean"
+        },
+        "checks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "key",
+              "path",
+              "exists"
+            ],
+            "properties": {
+              "key": {
+                "type": "string",
+                "minLength": 1
+              },
+              "path": {
+                "type": "string",
+                "minLength": 1
+              },
+              "exists": {
+                "type": "boolean"
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "activation_manifest_refs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "source_id",
+          "route",
+          "source_role",
+          "authority",
+          "admissible",
+          "allowed_uses",
+          "forbidden_uses"
+        ],
+        "properties": {
+          "source_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "route": {
+            "type": "string",
+            "minLength": 1
+          },
+          "source_role": {
+            "type": "string",
+            "minLength": 1
+          },
+          "authority": {
+            "type": "string",
+            "minLength": 1
+          },
+          "admissible": {
+            "type": "boolean"
+          },
+          "allowed_uses": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "forbidden_uses": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "retrieved_evidence": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/evidenceRef"
+      }
+    },
+    "admitted_evidence": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/evidenceRef"
+      }
+    },
+    "rejected_evidence": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "evidence",
+          "reason_code"
+        ],
+        "properties": {
+          "evidence": {
+            "$ref": "#/$defs/evidenceRef"
+          },
+          "reason_code": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "claims": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "claim_id",
+          "claim_type",
+          "support_status",
+          "supporting_evidence_refs",
+          "route_refs",
+          "planning_implication",
+          "authority_notes"
+        ],
+        "properties": {
+          "claim_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "claim_type": {
+            "type": "string",
+            "minLength": 1
+          },
+          "support_status": {
+            "type": "string",
+            "enum": [
+              "supported",
+              "unsupported",
+              "partial"
+            ]
+          },
+          "supporting_evidence_refs": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "route_refs": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "planning_implication": {
+            "type": "string"
+          },
+          "authority_notes": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "route_context": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "route",
+          "source_role",
+          "authority"
+        ],
+        "properties": {
+          "route": {
+            "type": "string",
+            "minLength": 1
+          },
+          "source_role": {
+            "type": "string",
+            "minLength": 1
+          },
+          "authority": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "planning_implications": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "capability_status": {
+      "type": "object",
+      "required": [
+        "status",
+        "evidence"
+      ],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": [
+            "supported",
+            "partial",
+            "missing",
+            "unknown"
+          ]
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "blocked_or_missing": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "code",
+          "message"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "minLength": 1
+          },
+          "message": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "citation_policy": {
+      "type": "object",
+      "required": [
+        "play_fact_allowed_authorities",
+        "play_fact_forbidden_authorities"
+      ],
+      "properties": {
+        "play_fact_allowed_authorities": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "play_fact_forbidden_authorities": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "$defs": {
+    "evidenceRef": {
+      "type": "object",
+      "required": [
+        "path",
+        "source_role",
+        "authority",
+        "admissible",
+        "allowed_uses",
+        "forbidden_uses",
+        "routes"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_role": {
+          "type": "string",
+          "minLength": 1
+        },
+        "authority": {
+          "type": "string",
+          "minLength": 1
+        },
+        "session_scope": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "unit_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "breadcrumb_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "line_start": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "line_end": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "admissible": {
+          "type": "boolean"
+        },
+        "allowed_uses": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "forbidden_uses": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "routes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}
