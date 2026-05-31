@@ -10,9 +10,11 @@ from fastapi.testclient import TestClient
 from apps.live_control_server.config import SESSION_DIR_ENV
 from apps.live_control_server.main import create_app
 from apps.live_control_server.services.live_agent_loop import process_live_query
+from src.live_play import live_query_context
 
 ROOT = Path(__file__).resolve().parents[1]
 SEED_SESSION = ROOT / "evals/c2_live_prep/live/session_23"
+TEST_MANIFEST_PATH = "evals/c2_live_prep/benchmarks/c2s23_planning_corpus_manifest.json"
 
 
 @pytest.fixture
@@ -43,6 +45,7 @@ def test_context_lookup_returns_packet_with_admitted_and_rejected_evidence(clien
             "session": 23,
             "mode": "live",
             "text": "What Session 22 outcomes matter for Session 23 prep?",
+            "manifest_path": TEST_MANIFEST_PATH,
         },
     )
     assert response.status_code == 200
@@ -55,7 +58,18 @@ def test_context_lookup_returns_packet_with_admitted_and_rejected_evidence(clien
     assert packet["admitted_evidence"], "expected admitted evidence"
     assert isinstance(packet["rejected_evidence"], list)
 
-    prompt = body["provenance"].get("grounded_prompt", "")
+    policy = body["provenance"].get("grounding_prompt_policy") or {}
+    assert policy == {
+        "uses_admitted_evidence": True,
+        "forbids_rejected_support": True,
+        "requires_evidence_id_citations": True,
+        "read_only": True,
+    }
+    assert "grounded_prompt" not in body["provenance"]
+    prompt = live_query_context.render_grounded_prompt(
+        "What Session 22 outcomes matter for Session 23 prep?",
+        packet,
+    )
     assert "ADMITTED EVIDENCE" in prompt
     assert "REJECTED EVIDENCE" in prompt
     assert "Do not use rejected evidence as support." in prompt
@@ -70,6 +84,7 @@ def test_context_lookup_citations_reference_admitted_evidence(client: TestClient
             "session": 23,
             "mode": "live",
             "text": "What Session 22 outcomes matter for Session 23 prep?",
+            "manifest_path": TEST_MANIFEST_PATH,
         },
     )
     assert response.status_code == 200
@@ -95,6 +110,7 @@ def test_ingest_question_surfaces_rejected_reason_codes(client: TestClient) -> N
             "session": 23,
             "mode": "live",
             "text": "After ingesting Session 22 raw notes, what Session 22 outcomes matter for Session 23 prep?",
+            "manifest_path": TEST_MANIFEST_PATH,
         },
     )
     assert response.status_code == 200
@@ -112,6 +128,7 @@ def test_context_lookup_mutation_request_is_refused_read_only(client: TestClient
             "session": 23,
             "mode": "live",
             "text": "What should we prep next, and can you create a new Mireward location hub and write it?",
+            "manifest_path": TEST_MANIFEST_PATH,
         },
     )
     assert response.status_code == 200
@@ -159,7 +176,45 @@ def test_context_lookup_does_not_read_gold_or_dogfood_trace(
         "What Session 22 outcomes matter for Session 23 prep?",
         base=isolated_session_23,
         root=ROOT,
+        request_manifest_path=TEST_MANIFEST_PATH,
     )
     assert body["mode"] == "context_lookup"
     assert (isolated_session_23 / "event_log.jsonl").read_text(encoding="utf-8") == before_events
     assert (isolated_session_23 / "job_queue.jsonl").read_text(encoding="utf-8") == before_jobs
+
+
+def test_context_lookup_without_manifest_defaults_is_truthful_when_dogfood_off(
+    isolated_session_23: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("DMB_C2S23_DOGFOOD_DEFAULTS", raising=False)
+    body = process_live_query(
+        "What Session 22 outcomes matter for Session 23 prep?",
+        base=isolated_session_23,
+        root=ROOT,
+    )
+    assert body["mode"] == "context_lookup"
+    assert body["status"] == "missing_context_manifest"
+    assert body["context_packet"] is None
+
+
+def test_context_lookup_stubbed_llm_path_emits_citations(
+    isolated_session_23: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def _fake_llm_answer(*, question: str, packet: dict[str, object], root: Path) -> tuple[str | None, list[str]]:
+        admitted = list(packet.get("admitted_evidence") or [])
+        assert admitted, "expected admitted evidence for stubbed llm test"
+        evidence_id = str(admitted[0].get("evidence_id") or "ev-unknown")
+        return f"Stub grounded answer citing [{evidence_id}].", []
+
+    monkeypatch.setattr(live_query_context, "_run_llm_grounded_answer", _fake_llm_answer)
+    body = process_live_query(
+        "What Session 22 outcomes matter for Session 23 prep?",
+        base=isolated_session_23,
+        root=ROOT,
+        request_manifest_path=TEST_MANIFEST_PATH,
+    )
+    assert body["mode"] == "context_lookup"
+    assert body["status"] == "ok"
+    assert "stub grounded answer citing" in body["answer"].lower()
+    assert body["citations"], "expected citations from stubbed llm answer"
+    assert "llm_grounding_call_failed" not in (body.get("warnings") or [])

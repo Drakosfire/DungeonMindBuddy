@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 import uuid
 from dataclasses import dataclass
@@ -44,6 +45,8 @@ _DEFAULT_PRECONDITION_PATHS: dict[str, str] = {
     "live_workspace_s23_packet": "evals/c2_live_prep/live/session_23/live_packet.json",
     "activated_manifest": "evals/c2_live_prep/benchmarks/c2s23_planning_corpus_manifest.json",
 }
+_DOGFOOD_DEFAULTS_ENV = "DMB_C2S23_DOGFOOD_DEFAULTS"
+_DEBUG_GROUNDED_PROMPT_ENV = "DMB_LIVE_QUERY_INCLUDE_GROUNDED_PROMPT"
 
 
 @dataclass(frozen=True)
@@ -80,6 +83,20 @@ def _live_query_model(root: Path) -> str:
     return candidate or "gpt-5.3-chat-latest"
 
 
+def _env_flag_enabled(name: str) -> bool:
+    raw = str(os.getenv(name, "")).strip().lower()
+    return raw in {"1", "true", "yes", "on"}
+
+
+def _grounding_prompt_policy() -> dict[str, bool]:
+    return {
+        "uses_admitted_evidence": True,
+        "forbids_rejected_support": True,
+        "requires_evidence_id_citations": True,
+        "read_only": True,
+    }
+
+
 def resolve_manifest_path(
     *,
     request_manifest_path: str | None,
@@ -111,7 +128,8 @@ def resolve_manifest_path(
         raw = packet.get(key)
         if isinstance(raw, str) and raw.strip():
             candidates.append(raw.strip())
-    candidates.append(str(_DEFAULT_MANIFEST_PATH))
+    if _env_flag_enabled(_DOGFOOD_DEFAULTS_ENV):
+        candidates.append(str(_DEFAULT_MANIFEST_PATH))
 
     for candidate in candidates:
         resolved = _resolve_in_repo(candidate)
@@ -121,6 +139,8 @@ def resolve_manifest_path(
 
 
 def _default_query_config() -> QueryConfig:
+    if not _env_flag_enabled(_DOGFOOD_DEFAULTS_ENV):
+        return QueryConfig()
     return QueryConfig(
         precondition_paths=_DEFAULT_PRECONDITION_PATHS,
         virtual_precondition_path="virtual://c2s23/corpus_preconditions/session_22",
@@ -399,6 +419,19 @@ def run_context_lookup_turn(
     citations, citation_warnings = _build_citations(answer, context_packet)
     warnings = llm_warnings + citation_warnings
 
+    provenance: dict[str, Any] = {
+        "mode": "context_lookup",
+        "manifest_path": str(manifest_path.relative_to(root)),
+        "generated_at": _utc_now_z(),
+        "grounding_summary": {
+            "admitted_count": len(context_packet.get("admitted_evidence") or []),
+            "rejected_count": len(context_packet.get("rejected_evidence") or []),
+        },
+        "grounding_prompt_policy": _grounding_prompt_policy(),
+    }
+    if _env_flag_enabled(_DEBUG_GROUNDED_PROMPT_ENV):
+        provenance["grounded_prompt"] = render_grounded_prompt(question, context_packet)
+
     response = {
         "schema": "dmb_live_query_response_v1",
         "query_id": query_id,
@@ -419,16 +452,7 @@ def run_context_lookup_turn(
         "jobs_queued": [],
         "next_suggestions": [],
         "diagnostics": [],
-        "provenance": {
-            "mode": "context_lookup",
-            "manifest_path": str(manifest_path.relative_to(root)),
-            "generated_at": _utc_now_z(),
-            "grounding_summary": {
-                "admitted_count": len(context_packet.get("admitted_evidence") or []),
-                "rejected_count": len(context_packet.get("rejected_evidence") or []),
-            },
-            "grounded_prompt": render_grounded_prompt(question, context_packet),
-        },
+        "provenance": provenance,
         "citations": citations,
         "context_packet": context_packet,
         "warnings": warnings,
