@@ -18,48 +18,48 @@
     "Clarify patch changes the tool, not play history"
   ],
   "planner": {
-    "turn_count": 2,
+    "turn_count": 3,
     "tool_calls": [
       "read_corpus_file",
       "read_corpus_file",
       "read_corpus_file"
     ],
     "corpus_paths_read": [
-      "Longmont Campaign/Campaign 2/Session Prep/session_22/README.md",
-      "Longmont Campaign/Campaign 2/Session Prep/Session 22 - open GM knobs.md",
-      "Longmont Campaign/Campaign 2/Campaign 2 Notes.md"
+      "Elderwyld/Shephards Flock/The cult of the Great  Shephard.md",
+      "Elderwyld/Shephards Flock/NPCs/dustwalker/README.md",
+      "Elderwyld/Shephards Flock/NPCs/dustwalker/README.md"
     ],
-    "final_message": "Safe preview-first workflow for adjusting an existing prep table:\n\n1. Open the hub/plan first: `Longmont Campaign/Campaign 2/Session Prep/session_22/README.md` and the specific knobs file `Longmont Campaign/Campaign 2/Session Prep/Session 22 - open GM knobs.md` to confirm what is planning-only versus canon.\n2. Preview the table *in read-only mode* from its source file(s) — for shepherd-cult pressure, that means the relevant encounter table(s) listed in the hub, such as `Elderwyld/Roads/mireward_reach_road_d100_encounter_table.md` or `Elderwyld/Wilderness/conical_hills_night_camp_d100.md` if the pressure is on-road or at camp.\n3. Decide the preview shape before any rewrite: keep the same slot count, label existing entries by weight band, and note which results become rarer/commoner rather than editing outcomes first.\n4. Apply only a small delta on the copied draft: shift 1–2 weight points per affected entry, or swap one low-impact result for a cult-pressure variant, then re-preview the distribution to make sure you didn’t flatten variety.\n5. Promote the change only after you like the preview; keep the original table intact until you’re ready to overwrite the authoritative file, because the hub explicitly treats planning docs as non-canon and the road/camp tables as reference canon.\n\nFor shepherd-cult pressure specifically, the planning docs point to the travel and camp tables in the hub (`Longmont Campaign/Campaign 2/Session Prep/session_22/README.md`) and the open GM knobs file for unresolved pressure themes (`Longmont Campaign/Campaign 2/Session Prep/Session 22 - open GM knobs.md`).",
+    "final_message": "Do you want the workflow for a generic preview-first edit, or for a specific table like `Longmont Campaign/Campaign 2/Session Prep/session_22/travel_mirathorn_comms_d100.md`?",
     "final_message_parse_error": null,
-    "user_intent": "planning_request",
+    "user_intent": "needs_clarification",
     "scenario_estimated_cost_usd": null,
-    "planner_estimated_cost_usd": 0.013913
+    "planner_estimated_cost_usd": 0.00833
   },
   "tool_trace": [
     {
       "tool": "read_corpus_file",
       "arguments": {
-        "path": "Longmont Campaign/Campaign 2/Session Prep/session_22/README.md"
+        "path": "Elderwyld/Shephards Flock/The cult of the Great  Shephard.md"
       },
-      "output_chars": 12710,
-      "output_excerpt": "---\ntitle: \"Session 22 — planning package (hub index)\"\ndocument_class: planning\ncanon_layer: campaign\ncampaign_id: longmont-c2\ntemporal_scope: session_specific\nsession: 22\norigin_session: 21\nlast_updated_session: 21\nsource_class: scene_module\ntable_note: \"Planning hub only — not table canon. After Session 22 play, promote facts via recap + timeline rows; do not treat this README as chronology.\"\n---\n\n# Session 22 — planning package\n\n**Campaign:** Longmont Campaign 2 (Questionable Company)  \n**Prep target:** Session **22** (travel north on the Mireward Reach after Session 21 drake nest / Mirathorn comms)  \n**Table canon through:** `Session Recaps/Session 21 - Drake Nest Mirathorn Call.md`\n\nThis folder is the **GM-facing index** for everything produced while planning Session 22: what exists, "
+      "output_chars": 11707,
+      "output_excerpt": "---\n\n## title: \"The Shepherds’ Flock Cult\"\ndocument_class: world\ncanon_layer: world\ncampaign_id: null\ntemporal_scope: evergreen\nsession: null\norigin_session: null\nlast_updated_session: null\nsource_class: seed_reference\n\n### The Shepherds’ Flock Cult\n\nThe **Shepherds’ Flock** is a secretive and growing force within the city of Mirathorn, though its roots run deep in the continent's swamps. What began as a group of disillusioned human refugees has now transformed into a fanatical cult, whose members carry out violent acts in the shadows, aiming to overthrow the diverse populace of Mirathorn and establish a human-only dominion.\n\n#### Origins:\n\nThe Shepherds’ Flock was born from the same refugee wave that saw the founding of Mirathorn. However, while the majority of refugees embraced the city'"
     },
     {
       "tool": "read_corpus_file",
       "arguments": {
-        "path": "Longmont Campaign/Campaign 2/Session Prep/Session 22 - open GM knobs.md"
+        "path": "Elderwyld/Shephards Flock/NPCs/dustwalker/README.md"
       },
-      "output_chars": 1964,
-      "output_excerpt": "---\ntitle: \"Session 22 — open GM knobs (not yet in corpus)\"\ndocument_class: planning\ncanon_layer: campaign\ncampaign_id: longmont-c2\ntemporal_scope: session_specific\nsession: 22\norigin_session: null\nlast_updated_session: 21\nsource_class: scene_module\ntable_note: \"Decisions the GM has not fixed in lore files yet. Delete or move rows when authored elsewhere.\"\n---\n\n# Session 22 — open GM knobs\n\nItems discussed in planning that **must be decided by the GM** before they pay off at the table. When decided, write the answer into the linked target file and remove or update the row here.\n\n| Knob | Question | Write answer to |\n|------|----------|-----------------|\n| **Lysandra investigation** | Who is the **“person they spoke about back in the city”** that Lysandra investigated (Session 21)? | `NPCs/"
+      "output_chars": 2590,
+      "output_excerpt": "---\ntitle: \"Dustwalker (Sorin Haldrim) — Shepherd’s Flock\"\ndocument_class: reference\ncanon_layer: world\ncampaign_id: null\ntemporal_scope: evergreen\nsession: null\norigin_session: null\nlast_updated_session: null\nsource_class: seed_reference\nsubject_class: npc\nsubject_doc_kind: hub_index\n---\n\n# Dustwalker (Sorin Haldrim) — Shepherd’s Flock (setting)\n\n## Suggested reads (in order)\n\nUse `read_corpus_file` with these paths **after** this README (corpus root = `eldyrwild-markdown/`):\n\n1. `Elderwyld/Shephards Flock/NPCs/dustwalker/dustwalker_statblock.md` — **mechanical JSON + combat actions** plus **interrogation profile**, lore, and aliases (**Sorin Haldrim**, The Spiral Voice, Maelthor’s Echo).\n2. `Elderwyld/Shephards Flock/NPCs/dustwalker/character_seed.md` — short **faction hooks** and pointe"
     },
     {
       "tool": "read_corpus_file",
       "arguments": {
-        "path": "Longmont Campaign/Campaign 2/Campaign 2 Notes.md"
+        "path": "Elderwyld/Shephards Flock/NPCs/dustwalker/README.md"
       },
-      "output_chars": 30061,
-      "output_excerpt": "---\ntitle: \"Campaign 2 Notes\"\ndocument_class: reference\ncanon_layer: campaign\ncampaign_id: longmont-c2\ntemporal_scope: campaign_stateful\nsession: null\norigin_session: null\nlast_updated_session: null\nsource_class: ledger_or_dossier\n---\nTab 1\n\nCampaign 2 Threads, NPCs\n\n# Campaign 2 GM Notes\n\n**Story threads backlog** (table-spawned / low-priority hooks before they hit the narrative ledger): `Story threads backlog.md`.\n\n## 🧑‍🤝‍🧑 Significant NPCs (Current/Active)\n\n### 🏛️ Mirathorn Civic & Military\n\n**Thalia Ashenvale** – Commander of the city guard; respected, decisive leader. Authorized gifting the Wolf’s estate to the party.\n\n**Captain Lysandra Ironveil** — *Dossier, timeline, and prep beats:* `NPCs/captain_lysandra_ironveil/` (see `README.md` there). *Setting seed + CR2 sheet:* `Elderwyld/C"
+      "output_chars": 2590,
+      "output_excerpt": "---\ntitle: \"Dustwalker (Sorin Haldrim) — Shepherd’s Flock\"\ndocument_class: reference\ncanon_layer: world\ncampaign_id: null\ntemporal_scope: evergreen\nsession: null\norigin_session: null\nlast_updated_session: null\nsource_class: seed_reference\nsubject_class: npc\nsubject_doc_kind: hub_index\n---\n\n# Dustwalker (Sorin Haldrim) — Shepherd’s Flock (setting)\n\n## Suggested reads (in order)\n\nUse `read_corpus_file` with these paths **after** this README (corpus root = `eldyrwild-markdown/`):\n\n1. `Elderwyld/Shephards Flock/NPCs/dustwalker/dustwalker_statblock.md` — **mechanical JSON + combat actions** plus **interrogation profile**, lore, and aliases (**Sorin Haldrim**, The Spiral Voice, Maelthor’s Echo).\n2. `Elderwyld/Shephards Flock/NPCs/dustwalker/character_seed.md` — short **faction hooks** and pointe"
     }
   ],
-  "final_text": "{\"user_intent\":\"planning_request\",\"message\":\"Safe preview-first workflow for adjusting an existing prep table:\\n\\n1. Open the hub/plan first: `Longmont Campaign/Campaign 2/Session Prep/session_22/README.md` and the specific knobs file `Longmont Campaign/Campaign 2/Session Prep/Session 22 - open GM knobs.md` to confirm what is planning-only versus canon.\\n2. Preview the table *in read-only mode* from its source file(s) — for shepherd-cult pressure, that means the relevant encounter table(s) listed in the hub, such as `Elderwyld/Roads/mireward_reach_road_d100_encounter_table.md` or `Elderwyld/Wilderness/conical_hills_night_camp_d100.md` if the pressure is on-road or at camp.\\n3. Decide the preview shape before any rewrite: keep the same slot count, label existing entries by weight band, and note which results become rarer/commoner rather than editing outcomes first.\\n4. Apply only a small delta on the copied draft: shift 1–2 weight points per affected entry, or swap one low-impact result for a cult-pressure variant, then re-preview the distribution to make sure you didn’t flatten variety.\\n5. Promote the change only after you like the preview; keep the original table intact until you’re ready to overwrite the authoritative file, because the hub explicitly treats planning docs as non-canon and the road/camp tables as reference canon.\\n\\nFor shepherd-cult pressure specifically, the planning docs point to the travel and camp tables in the hub (`Longmont Campaign/Campaign 2/Session Prep/session_22/README.md`) and the open GM knobs file for unresolved pressure themes (`Longmont Campaign/Campaign 2/Session Prep/Session 22 - open GM knobs.md`).\",\"unsure_queue\":null}"
+  "final_text": "{\"user_intent\":\"needs_clarification\",\"message\":\"Do you want the workflow for a generic preview-first edit, or for a specific table like `Longmont Campaign/Campaign 2/Session Prep/session_22/travel_mirathorn_comms_d100.md`?\",\"unsure_queue\":null}"
 }

@@ -19,33 +19,41 @@
     "Economy hooks may be scaffold if not yet played"
   ],
   "planner": {
-    "turn_count": 2,
+    "turn_count": 3,
     "tool_calls": [
+      "read_corpus_file",
+      "read_corpus_file",
+      "read_corpus_file",
+      "read_corpus_file",
       "read_corpus_file",
       "read_corpus_file",
       "read_corpus_file",
       "read_corpus_file"
     ],
     "corpus_paths_read": [
-      "Longmont Campaign/Campaign 2/Journey - Mireward Reach (Campaign 2).md",
+      "Longmont Campaign/Campaign 2/README.md",
       "Longmont Campaign/Campaign 2/Session Prep/session_22/README.md",
-      "Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_prep_brief.md",
-      "Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_planning_anchor.md"
+      "Longmont Campaign/Campaign 2/Journey - Mireward Reach (Campaign 2).md",
+      "Longmont Campaign/Campaign 2/Campaign 2 Notes.md",
+      "Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_travel_to_mireward_runbook.md",
+      "Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_planning_anchor.md",
+      "Elderwyld/Cities and Towns/Mireward/Mireward_PLACE_BUILD_SCAFFOLD.md",
+      "Longmont Campaign/Campaign 2/Session Recaps/Session 21 - Drake Nest Mirathorn Call.md"
     ],
-    "final_message": "The next town toward Mireward is **Mireward itself** — the journey tracker says it’s the **next town north** and places the party at the **Mireward outskirts / gate apron** in `Longmont Campaign/Campaign 2/Journey - Mireward Reach (Campaign 2).md`. For Session 23 opening scenes, the strongest trade/economy hooks currently sitting in the Mireward scaffold are: **a garrison-town identity**, **stink-trades / downwind craft**, and a **refugee-capacity squeeze** with the **Last Dry Bed** family angle in the planning anchor and prep brief (`Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_planning_anchor.md`, `Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_prep_brief.md`).\n\nPractical opening-scene hooks: 1) gate traffic and rationing pressure at the town edge, 2) a merchant or handler trying to move goods through a thin garrison town, 3) displaced travelers competing for beds, water, or work, and 4) a local craft or supply problem tied to the windward stink-trades rather than a full market district yet. The scaffold is still **planning only**, so exact shops and officials are not canon until promoted in `Elderwyld/Cities and Towns/Mireward/Mireward_PLACE_BUILD_SCAFFOLD.md`.",
+    "final_message": "Mireward is the next town north on the Reach, about **5 days** from Mirathorn per `Longmont Campaign/Campaign 2/Journey - Mireward Reach (Campaign 2).md`; the Session 21 recap confirms the party was already oriented that way and named Mireward as the next stop. For Session 23 opening scenes, the strongest economy hooks in the current Mireward scaffold are the **garrison-and-ferry town** feel, **stink-trades** downwind, and **capacity pressure** from refugees: think **tithe barn / grain weight / queue control**, **ferry or causeway tolls**, **lime-kiln / tannery / charcoal smoke**, and a town that looks fine from the apron while the haylofts are overcrowded (`Elderwyld/Cities and Towns/Mireward/Mireward_PLACE_BUILD_SCAFFOLD.md`). The opening scene menu in that scaffold points you toward **gate line**, **inn floor**, **tithe barn**, or **bell/shrine** beats, with the table’s first impression being “we’re fine” over visible strain.",
     "final_message_parse_error": null,
     "user_intent": "planning_request",
     "scenario_estimated_cost_usd": null,
-    "planner_estimated_cost_usd": 0.01339
+    "planner_estimated_cost_usd": 0.03048
   },
   "tool_trace": [
     {
       "tool": "read_corpus_file",
       "arguments": {
-        "path": "Longmont Campaign/Campaign 2/Journey - Mireward Reach (Campaign 2).md"
+        "path": "Longmont Campaign/Campaign 2/README.md"
       },
-      "output_chars": 4786,
-      "output_excerpt": "---\ntitle: \"Journey — Mireward Reach (Campaign 2)\"\ntype: campaign-tracker\ncampaign: \"Campaign 2\"\nroad: \"The Mireward Reach\"\nlast_updated_session: 22\n---\n\n# Journey — Mireward Reach (Campaign 2)\n\nSingle place to update **travel bookkeeping** so prep, recaps, and encounter pacing stay aligned. Lysandra’s original brief was **~2 weeks on horse** to the swamp ([Session 13 - Recap](Session%20Recaps/Session%2013%20-%20Recap.md)); treat numbers below as **GM estimates** until you revise after play.\n\n## Geography — anchor distances (from Mirathorn)\n\nThe **Mireward Reach** is the name of the whole northbound drove-road in the world doc; **milestones below are travel-time anchors** along it — rename or key them when you attach a proper settlement or fork.\n\n| Anchor | Days from Mirathorn | Notes |\n|-"
+      "output_chars": 177,
+      "output_excerpt": "Error: path must be a markdown file relative to the corpus root (use paths from the corpus tree, e.g. `Elderwyld/Migrating Forest/the_migrating_forest_executive_dm_summary.md`)."
     },
     {
       "tool": "read_corpus_file",
@@ -58,10 +66,26 @@
     {
       "tool": "read_corpus_file",
       "arguments": {
-        "path": "Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_prep_brief.md"
+        "path": "Longmont Campaign/Campaign 2/Journey - Mireward Reach (Campaign 2).md"
       },
-      "output_chars": 15146,
-      "output_excerpt": "---\ntitle: \"Session 22 — prep brief\"\ndocument_class: planning\ncanon_layer: campaign\ncampaign_id: longmont-c2\ntemporal_scope: session_specific\nsession: 22\norigin_session: 21\nlast_updated_session: 21\nsource_class: scene_module\ntable_note: \"Runnable Session 22 plan. Not table canon — facts of play land in Session 22 recap after play.\"\n---\n\n# Session 22 Prep Brief\n\n**Route intent (table canon):** Press **north** on the Mireward Reach toward the swamp objective — not turn back to Mirathorn unless the table reverses at the table.  \n**End-state anchor (Session 21):** Conical-hill camp north of Mossford; ~**3 days** south to Mirathorn; **Mireward ~5 days** north; storm **building** (savory/shimmer rain at the edge).\n\n---\n\n## 1. Executive prep read\n\nSession 22 is a **travel-and-pressure** session: "
+      "output_chars": 4786,
+      "output_excerpt": "---\ntitle: \"Journey — Mireward Reach (Campaign 2)\"\ntype: campaign-tracker\ncampaign: \"Campaign 2\"\nroad: \"The Mireward Reach\"\nlast_updated_session: 22\n---\n\n# Journey — Mireward Reach (Campaign 2)\n\nSingle place to update **travel bookkeeping** so prep, recaps, and encounter pacing stay aligned. Lysandra’s original brief was **~2 weeks on horse** to the swamp ([Session 13 - Recap](Session%20Recaps/Session%2013%20-%20Recap.md)); treat numbers below as **GM estimates** until you revise after play.\n\n## Geography — anchor distances (from Mirathorn)\n\nThe **Mireward Reach** is the name of the whole northbound drove-road in the world doc; **milestones below are travel-time anchors** along it — rename or key them when you attach a proper settlement or fork.\n\n| Anchor | Days from Mirathorn | Notes |\n|-"
+    },
+    {
+      "tool": "read_corpus_file",
+      "arguments": {
+        "path": "Longmont Campaign/Campaign 2/Campaign 2 Notes.md"
+      },
+      "output_chars": 30061,
+      "output_excerpt": "---\ntitle: \"Campaign 2 Notes\"\ndocument_class: reference\ncanon_layer: campaign\ncampaign_id: longmont-c2\ntemporal_scope: campaign_stateful\nsession: null\norigin_session: null\nlast_updated_session: null\nsource_class: ledger_or_dossier\n---\nTab 1\n\nCampaign 2 Threads, NPCs\n\n# Campaign 2 GM Notes\n\n**Story threads backlog** (table-spawned / low-priority hooks before they hit the narrative ledger): `Story threads backlog.md`.\n\n## 🧑‍🤝‍🧑 Significant NPCs (Current/Active)\n\n### 🏛️ Mirathorn Civic & Military\n\n**Thalia Ashenvale** – Commander of the city guard; respected, decisive leader. Authorized gifting the Wolf’s estate to the party.\n\n**Captain Lysandra Ironveil** — *Dossier, timeline, and prep beats:* `NPCs/captain_lysandra_ironveil/` (see `README.md` there). *Setting seed + CR2 sheet:* `Elderwyld/C"
+    },
+    {
+      "tool": "read_corpus_file",
+      "arguments": {
+        "path": "Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_travel_to_mireward_runbook.md"
+      },
+      "output_chars": 30061,
+      "output_excerpt": "---\ntitle: \"Session 22 — travel to Mireward (runbook)\"\ndocument_class: planning\ncanon_layer: campaign\ncampaign_id: longmont-c2\ntemporal_scope: session_specific\nsession: 22\norigin_session: 21\nlast_updated_session: 21\nsource_class: scene_module\ntable_note: \"Runnable travel session ending at Mireward gate or first night in town. Applies Making Travel Sessions Memorable practices. Not table canon until recap.\"\n---\n\n# Session 22 — travel to Mireward (runbook)\n\n**Session endpoint:** Party **arrives Mireward** (gate line or first night inside walls) unless table chooses delay.  \n**Start:** Conical-hill camp north of Mossford (~**5 days** to Mireward at S21 end).  \n**Design source:** `Making Travel Sessions Memorable and Fun in TTRPGs.md` (repo root) — principles below, not random-hour grinding.\n\n"
     },
     {
       "tool": "read_corpus_file",
@@ -70,7 +94,23 @@
       },
       "output_chars": 6180,
       "output_excerpt": "---\ntitle: \"Session 22 — planning anchor\"\ndocument_class: planning\ncanon_layer: campaign\ncampaign_id: longmont-c2\ntemporal_scope: session_specific\nsession: 22\norigin_session: 21\nlast_updated_session: 21\nsource_class: scene_module\ntable_note: \"Where-we-are snapshot for Session 22 prep. Not table canon. Refresh after play or major scaffold edits.\"\n---\n\n# Session 22 — planning anchor\n\n**Recorded:** 2026-05-23  \n**Hub index:** `Session Prep/session_22/README.md`  \n**Table canon through:** `Session Recaps/Session 21 - Drake Nest Mirathorn Call.md`\n\n---\n\n## 1. Where the table is\n\n| Field | Value |\n|-------|--------|\n| **Party position** | Conical-hill camp **north of Mossford** (end Session 21) |\n| **Mirathorn** | ~**3 days** south |\n| **Mireward** | ~**5 days** north (named Session 21; **scaffo"
+    },
+    {
+      "tool": "read_corpus_file",
+      "arguments": {
+        "path": "Elderwyld/Cities and Towns/Mireward/Mireward_PLACE_BUILD_SCAFFOLD.md"
+      },
+      "output_chars": 19304,
+      "output_excerpt": "---\ntitle: \"Mireward — place build scaffold (non-canon until promoted)\"\ndocument_class: planning\nsubject_class: location\nsubject_doc_kind: notes_aggregate\ncanon_layer: world\ncampaign_id: null\ntemporal_scope: campaign_stateful\nsession: null\norigin_session: 21\nlast_updated_session: 21\nsource_class: planning_document\ntable_note: \"Brainstorm + structure for building Mireward. NOT table canon. Promote sections into README, gazetteer, dossiers, NPC hubs; delete or strike promoted blocks here.\"\n---\n\n# Mireward — place build scaffold\n\n**Status:** `scaffold` — iterate here; promote to canon files when locked.  \n**Pilot for:** “build a place” workflow (see `Backlog.md` → `[IDEA] Corpus — standardize build a place workflow`).  \n**Table canon already fixed:** Named Session 21; ~5 days north of party a"
+    },
+    {
+      "tool": "read_corpus_file",
+      "arguments": {
+        "path": "Longmont Campaign/Campaign 2/Session Recaps/Session 21 - Drake Nest Mirathorn Call.md"
+      },
+      "output_chars": 8158,
+      "output_excerpt": "---\ntitle: \"Session 21 - Drake Nest Mirathorn Call\"\ndocument_class: play\ncanon_layer: campaign\ncampaign_id: longmont-c2\ntemporal_scope: session_specific\nsession: 21\norigin_session: 21\nlast_updated_session: 21\nsource_class: observed_session_recap\n---\n# Session 21 Recap\n\nWhile still waiting for a response Caelynn studies the sky once again. She estimates that the gathering storm will arrive in about seven hours. The group then decides to load up the wagon and head out in hopes of beating the storm. They plan to head back up the main road through town and continue north. This will give them a chance to warn the Mossford of the approaching storm and gather any supplies they might need. Stafl and Lysandra, both in need of a good rest, lay down in the back of the wagon, using this time to rechar"
     }
   ],
-  "final_text": "{\"user_intent\":\"planning_request\",\"message\":\"The next town toward Mireward is **Mireward itself** — the journey tracker says it’s the **next town north** and places the party at the **Mireward outskirts / gate apron** in `Longmont Campaign/Campaign 2/Journey - Mireward Reach (Campaign 2).md`. For Session 23 opening scenes, the strongest trade/economy hooks currently sitting in the Mireward scaffold are: **a garrison-town identity**, **stink-trades / downwind craft**, and a **refugee-capacity squeeze** with the **Last Dry Bed** family angle in the planning anchor and prep brief (`Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_planning_anchor.md`, `Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_prep_brief.md`).\\n\\nPractical opening-scene hooks: 1) gate traffic and rationing pressure at the town edge, 2) a merchant or handler trying to move goods through a thin garrison town, 3) displaced travelers competing for beds, water, or work, and 4) a local craft or supply problem tied to the windward stink-trades rather than a full market district yet. The scaffold is still **planning only**, so exact shops and officials are not canon until promoted in `Elderwyld/Cities and Towns/Mireward/Mireward_PLACE_BUILD_SCAFFOLD.md`.\",\"unsure_queue\":null}"
+  "final_text": "{\"user_intent\":\"planning_request\",\"message\":\"Mireward is the next town north on the Reach, about **5 days** from Mirathorn per `Longmont Campaign/Campaign 2/Journey - Mireward Reach (Campaign 2).md`; the Session 21 recap confirms the party was already oriented that way and named Mireward as the next stop. For Session 23 opening scenes, the strongest economy hooks in the current Mireward scaffold are the **garrison-and-ferry town** feel, **stink-trades** downwind, and **capacity pressure** from refugees: think **tithe barn / grain weight / queue control**, **ferry or causeway tolls**, **lime-kiln / tannery / charcoal smoke**, and a town that looks fine from the apron while the haylofts are overcrowded (`Elderwyld/Cities and Towns/Mireward/Mireward_PLACE_BUILD_SCAFFOLD.md`). The opening scene menu in that scaffold points you toward **gate line**, **inn floor**, **tithe barn**, or **bell/shrine** beats, with the table’s first impression being “we’re fine” over visible strain.\",\"unsure_queue\":null}"
 }

@@ -15,27 +15,22 @@
     "Dossier/statblock remain read-only on allowlist"
   ],
   "planner": {
-    "turn_count": 4,
+    "turn_count": 2,
     "tool_calls": [
-      "query_session_memory",
-      "read_corpus_file",
-      "read_corpus_file"
+      "query_session_memory"
     ],
-    "corpus_paths_read": [
-      "Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md",
-      "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/README.md"
-    ],
-    "final_message": "I can’t create corpus folders or recap pointers from here, but I can help identify the NPC package and the best hub files to open. If you want the hub for the Session 22 NPC who “met her father Lysandro,” should that be **Lysandra Ironveil** in `Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/`?",
+    "corpus_paths_read": [],
+    "final_message": "Yes—if you want a new NPC hub created from Session 22 live-control, which NPC should it be, and what canon route should I use for the hub folder/recap pointer?",
     "final_message_parse_error": null,
     "user_intent": "needs_clarification",
     "scenario_estimated_cost_usd": null,
-    "planner_estimated_cost_usd": 0.009999
+    "planner_estimated_cost_usd": 0.003846
   },
   "tool_trace": [
     {
       "tool": "query_session_memory",
       "arguments": {
-        "query": "recurring NPC surfaced in Session 22 notes but has no campaign hub yet create hub folder timeline recap pointer live-control",
+        "query": "Session 22 recurring NPC surfaced no hub yet create hub folder timeline recap pointer live-control",
         "campaign_id": "longmont-c1",
         "subject_types": [
           "NPC"
@@ -44,25 +39,9 @@
         "max_hits": 8,
         "expand_context": true
       },
-      "output_chars": 1337,
-      "output_excerpt": "{\"schema\": \"dmb_query_session_memory_result_v1\", \"contract\": \"candidate_mode_v1\", \"campaign_id\": \"longmont-c1\", \"query\": \"recurring NPC surfaced in Session 22 notes but has no campaign hub yet create hub folder timeline recap pointer live-control\", \"hits\": [], \"trace\": {\"trace_schema\": \"dmb_query_session_memory_trace_v1\", \"examined_records\": 176, \"matched_records\": 0, \"returned_hits\": 0, \"effective_context_size\": 0, \"session_window\": [null, null], \"subject_route_substr\": null, \"subject_types\": [\"NPC\"], \"proposed_only\": false, \"max_hits\": 8, \"filtered_records\": 0, \"expand_context\": true, \"expand_seed_hits\": 5, \"expand_adjacent_window\": 2, \"expand_shared_route_limit\": 3, \"expand_route_family_limit\": 3, \"expand_same_beat_limit\": 0, \"expand_first_pass_cap\": 5, \"expansion_allocation_mode\": \"round_robin\", \"expansion\": {\"added_adjacent\": 0, \"added_shared_route\": 0, \"added_route_family\": 0}, \"tokenizer_mode\": \"default\", \"query_tokens\": [\"recurring\", \"npc\", \"surfaced\", \"in\", \"session\", \"22\", \"notes\", \"but\", \"has\", \"no\", \"campaign\", \"hub\", \"yet\", \"create\", \"folder\", \"timeline\", \"recap\", \"pointer\", \"live\", \"control\"], \"query_mode\": \"lexical_route_overlap\", \"scene_beat_packets\": {\"enabled\": false, \"threshold\": 16, \"top_k\": 3, \"unit_limit\": 8, \"max_packets\": 2, \"qualified_count\": 0, \"units_added\": 0, \"packets\": []}}, \"ok\": true}"
-    },
-    {
-      "tool": "read_corpus_file",
-      "arguments": {
-        "path": "Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md"
-      },
-      "output_chars": 10145,
-      "output_excerpt": "---\ntitle: Session 22 - Mireward Road and Lysandro\ndocument_class: play\ncanon_layer: campaign\ncampaign_id: longmont-c2\ntemporal_scope: session_specific\nsession: 22\norigin_session: 22\nlast_updated_session: 22\nsource_class: observed_session_recap\nsubject_class: null\nsubject_doc_kind: recap\nnormalized_from: Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md\nnormalized_on: 2026-05-08\nnormalization_schema: dmb_recap_normalized_v1\n---\n# Session 22 Recap\n\nThe group turns their focus to the Reach; the vast Golden Fields to the north. If they decide to continue on, their destination is Mireward. If they decide to turn around, it's a multiday journey back to Mirathorn. The first thing to do is break their camp and head back to the wagon. The trail is damp from the"
-    },
-    {
-      "tool": "read_corpus_file",
-      "arguments": {
-        "path": "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/README.md"
-      },
-      "output_chars": 4328,
-      "output_excerpt": "---\ntitle: \"Captain Lysandra Ironveil — Campaign 2\"\ndocument_class: reference\ncanon_layer: campaign\ncampaign_id: longmont-c2\ntemporal_scope: campaign_stateful\nsession: null\norigin_session: null\nlast_updated_session: null\nsource_class: ledger_or_dossier\nsubject_class: npc\nsubject_doc_kind: hub_index\n---\n\n# Captain Lysandra Ironveil — Campaign 2 (table)\n\n## Suggested reads (in order)\n\nUse `read_corpus_file` with these paths **after** this README (corpus root = `eldyrwild-markdown/`):\n\n1. `Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_character_dossier.md` — primary **character reference** (psychology, command style, GM-sourced ledger bullets).\n2. `Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/lysandra_ironveil_mireward_history.md` — **Mir"
+      "output_chars": 1270,
+      "output_excerpt": "{\"schema\": \"dmb_query_session_memory_result_v1\", \"contract\": \"candidate_mode_v1\", \"campaign_id\": \"longmont-c1\", \"query\": \"Session 22 recurring NPC surfaced no hub yet create hub folder timeline recap pointer live-control\", \"hits\": [], \"trace\": {\"trace_schema\": \"dmb_query_session_memory_trace_v1\", \"examined_records\": 176, \"matched_records\": 0, \"returned_hits\": 0, \"effective_context_size\": 0, \"session_window\": [null, null], \"subject_route_substr\": null, \"subject_types\": [\"NPC\"], \"proposed_only\": false, \"max_hits\": 8, \"filtered_records\": 0, \"expand_context\": true, \"expand_seed_hits\": 5, \"expand_adjacent_window\": 2, \"expand_shared_route_limit\": 3, \"expand_route_family_limit\": 3, \"expand_same_beat_limit\": 0, \"expand_first_pass_cap\": 5, \"expansion_allocation_mode\": \"round_robin\", \"expansion\": {\"added_adjacent\": 0, \"added_shared_route\": 0, \"added_route_family\": 0}, \"tokenizer_mode\": \"default\", \"query_tokens\": [\"session\", \"22\", \"recurring\", \"npc\", \"surfaced\", \"no\", \"hub\", \"yet\", \"create\", \"folder\", \"timeline\", \"recap\", \"pointer\", \"live\", \"control\"], \"query_mode\": \"lexical_route_overlap\", \"scene_beat_packets\": {\"enabled\": false, \"threshold\": 16, \"top_k\": 3, \"unit_limit\": 8, \"max_packets\": 2, \"qualified_count\": 0, \"units_added\": 0, \"packets\": []}}, \"ok\": true}"
     }
   ],
-  "final_text": "{\"user_intent\":\"needs_clarification\",\"message\":\"I can’t create corpus folders or recap pointers from here, but I can help identify the NPC package and the best hub files to open. If you want the hub for the Session 22 NPC who “met her father Lysandro,” should that be **Lysandra Ironveil** in `Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/`?\",\"unsure_queue\":null}"
+  "final_text": "{\"user_intent\":\"needs_clarification\",\"message\":\"Yes—if you want a new NPC hub created from Session 22 live-control, which NPC should it be, and what canon route should I use for the hub folder/recap pointer?\",\"unsure_queue\":null}"
 }

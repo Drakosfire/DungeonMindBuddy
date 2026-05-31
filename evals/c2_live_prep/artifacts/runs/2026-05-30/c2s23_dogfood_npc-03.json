@@ -24,20 +24,22 @@
       "read_corpus_file",
       "read_corpus_file",
       "read_corpus_file",
+      "read_corpus_file",
       "read_corpus_file"
     ],
     "corpus_paths_read": [
       "Longmont Campaign/Campaign 2/NPCs/thrin_branchborn/README.md",
       "Longmont Campaign/Campaign 2/NPCs/thrin_branchborn/timeline.md",
+      "c:7e0bc88d8e",
+      "Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 17 - Migrating Forest and Thrin.md",
       "Longmont Campaign/Campaign 2/Session Recaps/Session 21 - Drake Nest Mirathorn Call.md",
-      "Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md",
-      "Longmont Campaign/Campaign 1/NPCs/mossglade/timeline.md"
+      "Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.breadcrumbed.md"
     ],
-    "final_message": "For Thrin, the Session 21–22 foreground beats to carry into Session 23 are: he is still on **Ephanna’s watch** from the prep note in `Longmont Campaign/Campaign 2/Session Prep/Session 21 - Session intro.md`, and by Session 22 he is still **out of the forest, reactive, and trying to orient himself**: he thanks the party for getting him out, asks whether the forest can lie, helps make shelter, and remains tied to the group’s swamp-bound mission in `Longmont Campaign/Campaign 2/Session Recaps/Session 21 - Drake Nest Mirathorn Call.md` and `Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md`. The strongest “must stay foreground” beats are: 1) **Ephanna is actively monitoring Thrin**, 2) **Thrin’s outsider status / lack of trust in the forest and its rules**, 3) **his usefulness in practical survival tasks**, and 4) **his unresolved place in the party while they continue toward the swamp and the cult source**.",
+    "final_message": "For Thrin, the Session 21–22 beats that should stay foregrounded in Session 23 are:\n\n- His **departure from the forest and unresolved outsider status**: in `Longmont Campaign/Campaign 2/Session Recaps/Session 17 - Migrating Forest and Thrin.md`, he says he broke the forest’s rules and wants out; by Session 21–22 he’s still traveling with the party, but not fully settled into them.\n- His **forest-lore / route role**: the timeline notes he guides the canopy route and fixes bridges in `Longmont Campaign/Campaign 2/NPCs/thrin_branchborn/timeline.md`, so he remains useful as the party heads onward.\n- His **ongoing unease / watchfulness**: Session 22 explicitly has Thrin asking Ephanna whether the forest can lie, showing he’s still keyed to hidden danger and deception in `Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md`.\n- His **positive reaction to being out**: Session 21 has him excitedly thanking the group again for taking him out of the forest, which keeps his “new life outside the woods” beat alive in `Longmont Campaign/Campaign 2/Session Recaps/Session 21 - Drake Nest Mirathorn Call.md`.\n- His **still-unresolved watch by Ephanna**: the timeline says he was still flagged on Ephanna’s watch in Session 21, and that hasn’t been resolved yet in the recap material at `Longmont Campaign/Campaign 2/NPCs/thrin_branchborn/timeline.md`.\n\nSo for Session 23, the clean foreground is: **Thrin is still a displaced forest outsider, useful guide, and cautious lie-sensitive observer whose integration is not complete yet.**",
     "final_message_parse_error": null,
     "user_intent": "status_or_recap_request",
     "scenario_estimated_cost_usd": null,
-    "planner_estimated_cost_usd": 0.010231
+    "planner_estimated_cost_usd": 0.014156
   },
   "tool_trace": [
     {
@@ -59,6 +61,22 @@
     {
       "tool": "read_corpus_file",
       "arguments": {
+        "path": "c:7e0bc88d8e"
+      },
+      "output_chars": 157,
+      "output_excerpt": "Error: unknown corpus file ref 'c:7e0bc88d8e'. Copy a ` [c:…] ` token from the corpus tree after the `.md` name, or pass the full corpus-relative `.md` path."
+    },
+    {
+      "tool": "read_corpus_file",
+      "arguments": {
+        "path": "Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 17 - Migrating Forest and Thrin.md"
+      },
+      "output_chars": 7102,
+      "output_excerpt": "---\ntitle: Session 17 - Migrating Forest and Thrin\ndocument_class: play\ncanon_layer: campaign\ncampaign_id: longmont-c2\ntemporal_scope: session_specific\nsession: 17\norigin_session: 17\nlast_updated_session: 17\nsource_class: observed_session_recap\nsubject_class: null\nsubject_doc_kind: recap\nnormalized_from: Longmont Campaign/Campaign 2/Session Recaps/Session 17 - Migrating Forest and Thrin.md\nnormalized_on: 2026-05-08\nnormalization_schema: dmb_recap_normalized_v1\n---\n# Session 17 Recap\n\nSession 17 Recap:\n\nCaelynn and Bonogo approach the large dinosaur-like creatures. At over 15 feet long they appear intimidating, but welcome Caelynn while Bonogo picks up a broken piece of plate armor from the baby. The ankylosaurus family then wanders back into the trees and the group looks for the next path "
+    },
+    {
+      "tool": "read_corpus_file",
+      "arguments": {
         "path": "Longmont Campaign/Campaign 2/Session Recaps/Session 21 - Drake Nest Mirathorn Call.md"
       },
       "output_chars": 8158,
@@ -67,19 +85,11 @@
     {
       "tool": "read_corpus_file",
       "arguments": {
-        "path": "Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md"
+        "path": "Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.breadcrumbed.md"
       },
-      "output_chars": 9930,
-      "output_excerpt": "---\ntitle: \"Session 22 - Mireward Road and Lysandro\"\ndocument_class: play\ncanon_layer: campaign\ncampaign_id: longmont-c2\ntemporal_scope: session_specific\nsession: 22\norigin_session: 22\nlast_updated_session: 22\nsource_class: observed_session_recap\n---\n# Session 22 Recap\n\nThe group turns their focus to the Reach; the vast Golden Fields to the north. If they decide to continue on, their destination is Mireward. If they decide to turn around, it's a multiday journey back to Mirathorn. The first thing to do is break their camp and head back to the wagon. The trail is damp from the rain and a magical sheen lies everywhere. In the distance to the west another storm appears to be building and there is a constant feeling of an approaching storm.\n\nAfter another failed attempt to contact Mirathorn by"
-    },
-    {
-      "tool": "read_corpus_file",
-      "arguments": {
-        "path": "Longmont Campaign/Campaign 1/NPCs/mossglade/timeline.md"
-      },
-      "output_chars": 830,
-      "output_excerpt": "---\ntitle: \"Head Clerk Mossglade — Campaign 1 timeline\"\ndocument_class: reference\nsubject_class: npc\nsubject_doc_kind: timeline\ncanon_layer: campaign\ncampaign_id: longmont-c1\ntemporal_scope: campaign_stateful\nsession: null\norigin_session: 13\nlast_updated_session: 13\nsource_class: observed_session_recap\ntable_note: \"Append-only pointer table; recap text remains authoritative.\"\n---\n# Head Clerk Mossglade — Campaign 1 Timeline\n\nPrimary chronology: `Longmont Campaign/Campaign 1/Session Recaps/`.\nTimeline rows are pointers, not replacements for recap text.\n\n| Session | Beat (short) | Recap file |\n|---------|--------------|------------|\n| 13 | At Stormspire Academy, Mossglade receives the party, names the study room, and tells them Torbin is in the infirmary under Tealeaf's care. | `Session 13 -"
+      "output_chars": 19876,
+      "output_excerpt": "---\nschema: dmb_recap_breadcrumbs_v1\nsource_recap_path: \"Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md\"\ncampaign:\n  title: \"Longmont Campaign\"\n  campaign_number: 2\n  campaign_id: longmont-c2\nsession:\n  number: 22\n  title: \"Session 22 - Mireward Road and Lysandro\"\n  document_class: play\n  canon_layer: campaign\n  temporal_scope: session_specific\n  origin_session: 22\n  last_updated_session: 22\n  source_class: observed_session_recap\nbreadcrumb_semantics:\n  purpose: \"Machine-facing session memory index: inline labels mark source-aligned recap spans with durable retrieval value for agentic planning, live-play querying, hub routing, or proposed hub review.\"\n  placement_rule: \"Place tags immediately after the source-derived span that should rout"
     }
   ],
-  "final_text": "{\"user_intent\":\"status_or_recap_request\",\"message\":\"For Thrin, the Session 21–22 foreground beats to carry into Session 23 are: he is still on **Ephanna’s watch** from the prep note in `Longmont Campaign/Campaign 2/Session Prep/Session 21 - Session intro.md`, and by Session 22 he is still **out of the forest, reactive, and trying to orient himself**: he thanks the party for getting him out, asks whether the forest can lie, helps make shelter, and remains tied to the group’s swamp-bound mission in `Longmont Campaign/Campaign 2/Session Recaps/Session 21 - Drake Nest Mirathorn Call.md` and `Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md`. The strongest “must stay foreground” beats are: 1) **Ephanna is actively monitoring Thrin**, 2) **Thrin’s outsider status / lack of trust in the forest and its rules**, 3) **his usefulness in practical survival tasks**, and 4) **his unresolved place in the party while they continue toward the swamp and the cult source**.\",\"unsure_queue\":null}"
+  "final_text": "{\"user_intent\":\"status_or_recap_request\",\"message\":\"For Thrin, the Session 21–22 beats that should stay foregrounded in Session 23 are:\\n\\n- His **departure from the forest and unresolved outsider status**: in `Longmont Campaign/Campaign 2/Session Recaps/Session 17 - Migrating Forest and Thrin.md`, he says he broke the forest’s rules and wants out; by Session 21–22 he’s still traveling with the party, but not fully settled into them.\\n- His **forest-lore / route role**: the timeline notes he guides the canopy route and fixes bridges in `Longmont Campaign/Campaign 2/NPCs/thrin_branchborn/timeline.md`, so he remains useful as the party heads onward.\\n- His **ongoing unease / watchfulness**: Session 22 explicitly has Thrin asking Ephanna whether the forest can lie, showing he’s still keyed to hidden danger and deception in `Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md`.\\n- His **positive reaction to being out**: Session 21 has him excitedly thanking the group again for taking him out of the forest, which keeps his “new life outside the woods” beat alive in `Longmont Campaign/Campaign 2/Session Recaps/Session 21 - Drake Nest Mirathorn Call.md`.\\n- His **still-unresolved watch by Ephanna**: the timeline says he was still flagged on Ephanna’s watch in Session 21, and that hasn’t been resolved yet in the recap material at `Longmont Campaign/Campaign 2/NPCs/thrin_branchborn/timeline.md`.\\n\\nSo for Session 23, the clean foreground is: **Thrin is still a displaced forest outsider, useful guide, and cautious lie-sensitive observer whose integration is not complete yet.**\",\"unsure_queue\":null}"
 }

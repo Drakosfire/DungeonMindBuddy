@@ -27,11 +27,11 @@
       "Longmont Campaign/Campaign 2/Session Prep/session_22/README.md",
       "Longmont Campaign/Campaign 2/Session Prep/Session 22 - open GM knobs.md"
     ],
-    "final_message": "Record them in the Session 22 planning layer, not in play canon: use `Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_planning_anchor.md` for the town-distance / weather-pressure snapshot, and keep live travel clocks in `Longmont Campaign/Campaign 2/Journey - Mireward Reach (Campaign 2).md` since that file is the reference scratch for travel state. If it becomes table fact, promote it after play into `Longmont Campaign/Campaign 2/Session Recaps/Session 22 - <slug>.md` and then update the journey tracker.",
+    "final_message": "Record them in the **planning layer**, not in Session 22 play canon: use `Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_planning_anchor.md` for the where-we-are snapshot, and if they’re still unresolved, keep them in `Longmont Campaign/Campaign 2/Session Prep/Session 22 - open GM knobs.md`. The Session 22 hub says `Journey - Mireward Reach (Campaign 2).md` is for **travel clock / weather / comms** scratch and should be updated during play, while `Session Recaps/Session 22 - <slug>.md` is the only place those facts become table canon after play.",
     "final_message_parse_error": null,
     "user_intent": "planning_request",
     "scenario_estimated_cost_usd": null,
-    "planner_estimated_cost_usd": 0.007084
+    "planner_estimated_cost_usd": 0.007165
   },
   "tool_trace": [
     {
@@ -51,5 +51,5 @@
       "output_excerpt": "---\ntitle: \"Session 22 — open GM knobs (not yet in corpus)\"\ndocument_class: planning\ncanon_layer: campaign\ncampaign_id: longmont-c2\ntemporal_scope: session_specific\nsession: 22\norigin_session: null\nlast_updated_session: 21\nsource_class: scene_module\ntable_note: \"Decisions the GM has not fixed in lore files yet. Delete or move rows when authored elsewhere.\"\n---\n\n# Session 22 — open GM knobs\n\nItems discussed in planning that **must be decided by the GM** before they pay off at the table. When decided, write the answer into the linked target file and remove or update the row here.\n\n| Knob | Question | Write answer to |\n|------|----------|-----------------|\n| **Lysandra investigation** | Who is the **“person they spoke about back in the city”** that Lysandra investigated (Session 21)? | `NPCs/"
     }
   ],
-  "final_text": "{\"user_intent\":\"planning_request\",\"message\":\"Record them in the Session 22 planning layer, not in play canon: use `Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_planning_anchor.md` for the town-distance / weather-pressure snapshot, and keep live travel clocks in `Longmont Campaign/Campaign 2/Journey - Mireward Reach (Campaign 2).md` since that file is the reference scratch for travel state. If it becomes table fact, promote it after play into `Longmont Campaign/Campaign 2/Session Recaps/Session 22 - <slug>.md` and then update the journey tracker.\",\"unsure_queue\":null}"
+  "final_text": "{\"user_intent\":\"planning_request\",\"message\":\"Record them in the **planning layer**, not in Session 22 play canon: use `Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_planning_anchor.md` for the where-we-are snapshot, and if they’re still unresolved, keep them in `Longmont Campaign/Campaign 2/Session Prep/Session 22 - open GM knobs.md`. The Session 22 hub says `Journey - Mireward Reach (Campaign 2).md` is for **travel clock / weather / comms** scratch and should be updated during play, while `Session Recaps/Session 22 - <slug>.md` is the only place those facts become table canon after play.\",\"unsure_queue\":null}"
 }

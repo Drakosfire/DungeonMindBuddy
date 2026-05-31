@@ -19,16 +19,18 @@
   "planner": {
     "turn_count": 2,
     "tool_calls": [
+      "read_corpus_file",
       "read_corpus_file"
     ],
     "corpus_paths_read": [
-      "Longmont Campaign/Campaign 2/Session Prep/session_22/README.md"
+      "Longmont Campaign/Campaign 2/Session Prep/session_22/README.md",
+      "Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_prep_brief.md"
     ],
-    "final_message": "No. In `Longmont Campaign/Campaign 2/Session Prep/session_22/README.md`, Session 22 planning files are **planning-only** and **not canon**; the file says, “Files under `Session Prep/` and this README are **not canon**” and “Agent chat, eval JSON — **Never** canon.” A planning observation in a Session 23 live workspace about Session 22 would stay planning/reference until it’s promoted into the Session 22 recap (`Session Recaps/Session 22 - <slug>.md`) and, if needed, related timeline/journey files.",
+    "final_message": "No — Session 22 planning notes stay planning-only in `Longmont Campaign/Campaign 2/Session Prep/session_22/README.md` and `Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_prep_brief.md`; they do not become play canon until they’re promoted into the Session 22 recap (`Longmont Campaign/Campaign 2/Session Recaps/Session 22 - <slug>.md`) or another canonical reference after play. Do you mean a note you want treated as canon immediately, or just a planning observation for later promotion?",
     "final_message_parse_error": null,
-    "user_intent": "factual_lookup",
+    "user_intent": "needs_clarification",
     "scenario_estimated_cost_usd": null,
-    "planner_estimated_cost_usd": 0.006835
+    "planner_estimated_cost_usd": 0.009713
   },
   "tool_trace": [
     {
@@ -38,7 +40,15 @@
       },
       "output_chars": 12710,
       "output_excerpt": "---\ntitle: \"Session 22 — planning package (hub index)\"\ndocument_class: planning\ncanon_layer: campaign\ncampaign_id: longmont-c2\ntemporal_scope: session_specific\nsession: 22\norigin_session: 21\nlast_updated_session: 21\nsource_class: scene_module\ntable_note: \"Planning hub only — not table canon. After Session 22 play, promote facts via recap + timeline rows; do not treat this README as chronology.\"\n---\n\n# Session 22 — planning package\n\n**Campaign:** Longmont Campaign 2 (Questionable Company)  \n**Prep target:** Session **22** (travel north on the Mireward Reach after Session 21 drake nest / Mirathorn comms)  \n**Table canon through:** `Session Recaps/Session 21 - Drake Nest Mirathorn Call.md`\n\nThis folder is the **GM-facing index** for everything produced while planning Session 22: what exists, "
+    },
+    {
+      "tool": "read_corpus_file",
+      "arguments": {
+        "path": "Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_prep_brief.md"
+      },
+      "output_chars": 15146,
+      "output_excerpt": "---\ntitle: \"Session 22 — prep brief\"\ndocument_class: planning\ncanon_layer: campaign\ncampaign_id: longmont-c2\ntemporal_scope: session_specific\nsession: 22\norigin_session: 21\nlast_updated_session: 21\nsource_class: scene_module\ntable_note: \"Runnable Session 22 plan. Not table canon — facts of play land in Session 22 recap after play.\"\n---\n\n# Session 22 Prep Brief\n\n**Route intent (table canon):** Press **north** on the Mireward Reach toward the swamp objective — not turn back to Mirathorn unless the table reverses at the table.  \n**End-state anchor (Session 21):** Conical-hill camp north of Mossford; ~**3 days** south to Mirathorn; **Mireward ~5 days** north; storm **building** (savory/shimmer rain at the edge).\n\n---\n\n## 1. Executive prep read\n\nSession 22 is a **travel-and-pressure** session: "
     }
   ],
-  "final_text": "{\"user_intent\":\"factual_lookup\",\"message\":\"No. In `Longmont Campaign/Campaign 2/Session Prep/session_22/README.md`, Session 22 planning files are **planning-only** and **not canon**; the file says, “Files under `Session Prep/` and this README are **not canon**” and “Agent chat, eval JSON — **Never** canon.” A planning observation in a Session 23 live workspace about Session 22 would stay planning/reference until it’s promoted into the Session 22 recap (`Session Recaps/Session 22 - <slug>.md`) and, if needed, related timeline/journey files.\",\"unsure_queue\":null}"
+  "final_text": "{\"user_intent\":\"needs_clarification\",\"message\":\"No — Session 22 planning notes stay planning-only in `Longmont Campaign/Campaign 2/Session Prep/session_22/README.md` and `Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_prep_brief.md`; they do not become play canon until they’re promoted into the Session 22 recap (`Longmont Campaign/Campaign 2/Session Recaps/Session 22 - <slug>.md`) or another canonical reference after play. Do you mean a note you want treated as canon immediately, or just a planning observation for later promotion?\",\"unsure_queue\":null}"
 }

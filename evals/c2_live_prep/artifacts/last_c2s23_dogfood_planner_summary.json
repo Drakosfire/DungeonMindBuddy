@@ -1,6 +1,6 @@
 {
   "schema": "dmb_c2s23_dogfood_planner_run_v0",
-  "generated_at": "2026-05-31T00:51:48Z",
+  "generated_at": "2026-05-31T01:14:28Z",
   "campaign_id": "longmont-c2",
   "planning_session": 23,
   "source_sessions": [
@@ -13,10 +13,10 @@
   "question_count": 22,
   "aggregate": {
     "cost_usd": {
-      "min": 0.0,
-      "mean": 0.0,
-      "max": 0.0,
-      "sum": 0
+      "min": 0.002175,
+      "mean": 0.010418,
+      "max": 0.03048,
+      "sum": 0.229191
     }
   },
   "results": [
@@ -24,253 +24,258 @@
       "question_id": "s22-ingest-01",
       "category": "raw_recap_ingestion_session_22_understanding",
       "error": null,
-      "final_message_excerpt": "Three carry-forward outcomes for Session 23 prep from `Longmont Campaign/Campaign 2/_ingest_staging/session_22_raw_notes.md` and `Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md`:\n\n1. **The swamp is now the active objective, and it is tied to both the cult and the city’s outbreak.** Grobnok relayed that Mirathorn’s corrupted-meat crisis has flared",
+      "final_message_excerpt": "Three carry-forward outcomes from Session 22 for Session 23 prep:\n\n1. **The party is now committed to the swamp/source-of-cult mission.** Grobnok relayed that Mirathorn can’t spare the group’s attention right now, that the city’s corrupted-meat outbreak is back, and that the council wants them to continue to where the problem originates. This is the main directive coming out of `Longmont Campaign/",
       "corpus_paths_read": [
         "Longmont Campaign/Campaign 2/_ingest_staging/session_22_raw_notes.md",
         "Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md"
       ],
-      "scenario_estimated_cost_usd": null
+      "planner_estimated_cost_usd": 0.020525
     },
     {
       "question_id": "s22-ingest-02",
       "category": "raw_recap_ingestion_session_22_understanding",
       "error": null,
-      "final_message_excerpt": "In the ingested Session 22 recap, the foreground-at-table NPCs were **Captain Lysandra Ironveil**, **Thrin Branchborn**, **Grobnok** (via the rockie-talkie / Mirathorn update), **Private Hester**, and **Lysandro** at the end of the session in `Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md`.\n\nThe recap also treats **Sara / Frank** as background m",
+      "final_message_excerpt": "In the ingested recap for `Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.breadcrumbed.md`, the **foreground/table NPCs** were:\n- **Captain Lysandra Ironveil** — repeatedly on-scene in direct dialogue, including the rockie-talkie exchange, the morale conversation, and the father reveal.\n- **Thrin Branchborn** — appears in a live table moment askin",
       "corpus_paths_read": [
-        "Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.breadcrumbed.md"
+        "Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.breadcrumbed.md",
+        "Longmont Campaign/Campaign 2/NPCs/torbin_jove/README.md",
+        "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/README.md"
       ],
-      "scenario_estimated_cost_usd": null
+      "planner_estimated_cost_usd": 0.010497
     },
     {
       "question_id": "s22-ingest-03",
       "category": "raw_recap_ingestion_session_22_understanding",
       "error": null,
-      "final_message_excerpt": "For Session 22 to be `ready_for_planning_activation`, the pipeline needs the planning package in place and the post-play closeout not yet done: `Longmont Campaign/Campaign 2/Session Prep/session_22/README.md` shows P2/P2a/P2b as **ready**, the travel tables and comms table as **ready**, and the remaining blockers are only the pre-play review items in §7 plus the fact that **C3 Session 22 recap is ",
+      "final_message_excerpt": "Session 22 is ready for cross-session planning once the **planning package is in place and the canon boundary is clear**: the Session 22 hub is present with its prep artifacts marked ready in `Longmont Campaign/Campaign 2/Session Prep/session_22/README.md`, and the table canon has been pinned through Session 21 in `Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road ",
       "corpus_paths_read": [
-        "Longmont Campaign/Campaign 2/Session Prep/session_22/README.md"
+        "Longmont Campaign/Campaign 2/Session Prep/session_22/README.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.frontmatter_seed.md",
+        "Longmont Campaign/Campaign 2/Session Prep/Session 22 - open GM knobs.md"
       ],
-      "scenario_estimated_cost_usd": null
+      "planner_estimated_cost_usd": 0.00889
     },
     {
       "question_id": "xsession-01",
       "category": "cross_session_continuity",
       "error": null,
-      "final_message_excerpt": "At the start of Session 23, the Session 21 threads that still constrain the party are:\n\n- **The Mirathorn contact crisis:** in **Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 21 - Drake Nest Mirathorn Call.md**, Caelynn and then Lysandra lose contact with the city; by the end, the city looks wrong and the group has to choose between turning back or pressing on. Session 22 confirm",
+      "final_message_excerpt": "At the start of Session 23, the Session 21 threads still constraining the party are:\n\n- **The Mirathorn contact failure** in `Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 21 - Drake Nest Mirathorn Call.md`: Caelynn’s call gets cut off by Frank, Lysandra’s follow-up call gets no answer, and the party ends Session 21 knowing **something seems wrong back in the city** but not what.",
       "corpus_paths_read": [
         "Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 21 - Drake Nest Mirathorn Call.md",
-        "Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md"
+        "Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 21 - Drake Nest Mirathorn Call.md"
       ],
-      "scenario_estimated_cost_usd": null
+      "planner_estimated_cost_usd": 0.010034
     },
     {
       "question_id": "xsession-02",
       "category": "cross_session_continuity",
       "error": null,
-      "final_message_excerpt": "For Session 23 planning, carry forward the Session 22 open loops that were still active by the end of `Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md`:\n\n- **Mirathorn contact breakdown:** repeated failed rockie-talkie contact means the party is now relying on **Grobnok** as the only safe callback, and he said he’d try each evening.\n- **City crisis escalation",
+      "final_message_excerpt": "For Session 23, the strongest open loops from the end of Session 22 are:\n\n- **Mirathorn status is unresolved**: the recap shows the city messaging has gone bad, with Grobnok saying Frank is compromised, Sara is missing, the council hired mercenaries, the meat outbreak is back, and only Grobnok will contact the party going forward. The open question is whether **Mirathorn is compromised or merely d",
       "corpus_paths_read": [
+        "Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.frontmatter_seed.md",
         "Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md",
-        "Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/README.md",
-        "Longmont Campaign/Campaign 2/NPCs/torbin_jove/README.md",
-        "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/README.md",
-        "Longmont Campaign/Campaign 1/NPCs/pippa/README.md",
-        "Longmont Campaign/Campaign 2/NPCs/torbin_jove/README.md",
-        "Longmont Campaign/Campaign 2/NPCs/torbin_jove/torbin_jove_character_dossier.md",
-        "Longmont Campaign/Campaign 1/NPCs/grishna/grishna_character_dossier.md",
-        "Longmont Campaign/Campaign 1/NPCs/bubbles_the_float_goat/timeline.md",
-        "Longmont Campaign/Campaign 2/NPCs/torbin_jove/timeline.md",
-        "Longmont Campaign/Campaign 1/NPCs/kirfan/timeline.md"
+        "Longmont Campaign/Campaign 2/Session Prep/Session 22 - open GM knobs.md"
       ],
-      "scenario_estimated_cost_usd": null
+      "planner_estimated_cost_usd": 0.009247
     },
     {
       "question_id": "xsession-03",
       "category": "cross_session_continuity",
       "error": null,
-      "final_message_excerpt": "Between **Session 21** and the end of **Session 22** (`Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 21 - Drake Nest Mirathorn Call.md` → `Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md`), the big changes were:\n\n- **Weather escalated**: Session 21 ended with a single approaching storm and a detour through a drake nest; Session 2",
+      "final_message_excerpt": "Between Session 21’s travel context and where Session 22 ended, the northward situation changed in a few key ways in **Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 21 - Drake Nest Mirathorn Call.md** and **Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md**:\n\n- **Route pressure changed:** Session 21 had them leaving Mirathorn area",
       "corpus_paths_read": [
         "Longmont Campaign/Campaign 2/Session Recaps/Session 21 - Drake Nest Mirathorn Call.md",
         "Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md"
       ],
-      "scenario_estimated_cost_usd": null
+      "planner_estimated_cost_usd": 0.008331
     },
     {
       "question_id": "roll-01",
       "category": "roll_table_creation_mutation",
       "error": null,
-      "final_message_excerpt": "Use the Session 22 travel package: the next leg is governed by the Session 22 runbook’s daily stack — **T-WX** `Session Prep/session_22/travel_storm_weather_d20.md`, then **T-NPC**, then **R5** `Elderwyld/Roads/mireward_reach_road_d100_encounter_table.md`, then **T-DIL**; at camp, use **T-WATCH** and **T-CF**, with **R6** `Elderwyld/Wilderness/conical_hills_night_camp_d100.md` only as optional ext",
+      "final_message_excerpt": "For the next leg after Session 22, the governing travel layer is the Session 22 travel stack in `Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_travel_to_mireward_runbook.md`: **T-WX** (storm weather) every march day, **T-NPC** once per day, **R5** `Elderwyld/Roads/mireward_reach_road_d100_encounter_table.md` for road encounters, **T-DIL** once per day, and at camp **T-WATCH** `tr",
       "corpus_paths_read": [
         "Longmont Campaign/Campaign 2/Session Prep/session_22/README.md",
-        "Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_travel_to_mireward_runbook.md",
-        "Longmont Campaign/Campaign 2/Session Prep/Session 22 - open GM knobs.md"
+        "Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_prep_brief.md",
+        "Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_travel_to_mireward_runbook.md"
       ],
-      "scenario_estimated_cost_usd": null
+      "planner_estimated_cost_usd": 0.016845
     },
     {
       "question_id": "roll-02",
       "category": "roll_table_creation_mutation",
       "error": null,
-      "final_message_excerpt": "Yes—but I need the exact target packet/rule surface first: which Session 23 packet file should I register the new swamp-side encounter table in, and do you want a new table file under `Session Prep/session_23/` or a patch to an existing reference table such as `Elderwyld/Wilderness/conical_hills_night_camp_d100.md`?",
-      "corpus_paths_read": [
-        "Longmont Campaign/Campaign 2/Session Prep/session_22/README.md"
-      ],
-      "scenario_estimated_cost_usd": null
+      "final_message_excerpt": "Yes — that’s a workflow/planning task. I can help structure the swamp-side random encounter table for Session 23 prep, but I’ll need the relevant prep packet / control-surface file paths opened first (for example the Session 23 prep folder or packet artifact under `Longmont Campaign/Campaign 2/Session Prep/`). If you want, I can proceed by locating the session 23 prep hub, then draft the encounter",
+      "corpus_paths_read": [],
+      "planner_estimated_cost_usd": 0.002175
     },
     {
       "question_id": "roll-03",
       "category": "roll_table_creation_mutation",
       "error": null,
-      "final_message_excerpt": "Safe preview-first workflow for adjusting an existing prep table:\n\n1. Open the hub/plan first: `Longmont Campaign/Campaign 2/Session Prep/session_22/README.md` and the specific knobs file `Longmont Campaign/Campaign 2/Session Prep/Session 22 - open GM knobs.md` to confirm what is planning-only versus canon.\n2. Preview the table *in read-only mode* from its source file(s) — for shepherd-cult pressu",
+      "final_message_excerpt": "Do you want the workflow for a generic preview-first edit, or for a specific table like `Longmont Campaign/Campaign 2/Session Prep/session_22/travel_mirathorn_comms_d100.md`?",
       "corpus_paths_read": [
-        "Longmont Campaign/Campaign 2/Session Prep/session_22/README.md",
-        "Longmont Campaign/Campaign 2/Session Prep/Session 22 - open GM knobs.md",
-        "Longmont Campaign/Campaign 2/Campaign 2 Notes.md"
+        "Elderwyld/Shephards Flock/The cult of the Great  Shephard.md",
+        "Elderwyld/Shephards Flock/NPCs/dustwalker/README.md",
+        "Elderwyld/Shephards Flock/NPCs/dustwalker/README.md"
       ],
-      "scenario_estimated_cost_usd": null
+      "planner_estimated_cost_usd": 0.00833
     },
     {
       "question_id": "loc-01",
       "category": "location_creation_mutation",
       "error": null,
-      "final_message_excerpt": "Session 22 ended at the northward road stop when the party reached the wall and met Lysandro, identified as Lysandra’s father, at the guard post outside Mireward. For scene grounding, open the Mireward hub files first: `Elderwyld/Cities and Towns/Mireward/README.md` and then the listed location docs it points to; that hub is the right place to anchor arrival scenes. If you want the immediate trave",
+      "final_message_excerpt": "Session 22 ended with the party at the northbound road fork outside an abandoned meat-on-a-stick restaurant, sheltering from a brutal hailstorm, then camped up and finally reaching the point where they met Lysandro at the wall/gate as night closed in. For scene grounding, open the travel and destination hubs tied to that ending: `Elderwyld/Cities and Towns/Mireward/Mireward_PLACE_BUILD_SCAFFOLD.md",
       "corpus_paths_read": [
-        "Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.frontmatter_seed.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md",
         "Longmont Campaign/Campaign 2/Session Prep/session_22/README.md"
       ],
-      "scenario_estimated_cost_usd": null
+      "planner_estimated_cost_usd": 0.009996
     },
     {
       "question_id": "loc-02",
       "category": "location_creation_mutation",
       "error": null,
-      "final_message_excerpt": "Yes — during this dogfood round, you can create a new named sub-location hub markdown file for a waystation north of the last stop using the DungeonBuddy tooling. If you want, I can help you shape the hub content and file naming so it fits the existing corpus structure.",
+      "final_message_excerpt": "Not with the tools available in this turn: I can read corpus markdown, attach markdown, recall NPC context, list hub folders, and generate statblocks, but there is no DungeonBuddy write/create tool exposed here for making a new sub-location hub markdown file. If you want, I can still help draft the hub content and point to an appropriate existing location pattern in the corpus, such as a location ",
       "corpus_paths_read": [],
-      "scenario_estimated_cost_usd": null
+      "planner_estimated_cost_usd": 0.002282
     },
     {
       "question_id": "npc-01",
       "category": "npc_creation_mutation",
       "error": null,
-      "final_message_excerpt": "Captain Lysandra Ironveil is going into Session 23 as **operationally functional but overloaded**: she’s determined to get the party to the swamp and destroy the cult source, while also trying to reassert herself as the group’s leader after admitting she’s been handling the mission poorly in **Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md**.\n\n**",
+      "final_message_excerpt": "Captain Lysandra Ironveil enters Session 23 as an operationally functional but emotionally overloaded field commander, as laid out in `Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_character_dossier.md`. Her standing relationships and pressures are:\n\n- **Questionable Company:** she sees them as necessary, effective, and unpredictable; she intends to command ",
       "corpus_paths_read": [
         "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/README.md",
         "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/timeline.md",
         "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_character_dossier.md",
-        "Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md"
+        "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/timeline.md"
       ],
-      "scenario_estimated_cost_usd": null
+      "planner_estimated_cost_usd": 0.010959
     },
     {
       "question_id": "npc-02",
       "category": "npc_creation_mutation",
       "error": null,
-      "final_message_excerpt": "I can’t create corpus folders or recap pointers from here, but I can help identify the NPC package and the best hub files to open. If you want the hub for the Session 22 NPC who “met her father Lysandro,” should that be **Lysandra Ironveil** in `Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/`?",
-      "corpus_paths_read": [
-        "Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md",
-        "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/README.md"
-      ],
-      "scenario_estimated_cost_usd": null
+      "final_message_excerpt": "Yes—if you want a new NPC hub created from Session 22 live-control, which NPC should it be, and what canon route should I use for the hub folder/recap pointer?",
+      "corpus_paths_read": [],
+      "planner_estimated_cost_usd": 0.003846
     },
     {
       "question_id": "npc-03",
       "category": "npc_creation_mutation",
       "error": null,
-      "final_message_excerpt": "For Thrin, the Session 21–22 foreground beats to carry into Session 23 are: he is still on **Ephanna’s watch** from the prep note in `Longmont Campaign/Campaign 2/Session Prep/Session 21 - Session intro.md`, and by Session 22 he is still **out of the forest, reactive, and trying to orient himself**: he thanks the party for getting him out, asks whether the forest can lie, helps make shelter, and r",
+      "final_message_excerpt": "For Thrin, the Session 21–22 beats that should stay foregrounded in Session 23 are:\n\n- His **departure from the forest and unresolved outsider status**: in `Longmont Campaign/Campaign 2/Session Recaps/Session 17 - Migrating Forest and Thrin.md`, he says he broke the forest’s rules and wants out; by Session 21–22 he’s still traveling with the party, but not fully settled into them.\n- His **forest-l",
       "corpus_paths_read": [
         "Longmont Campaign/Campaign 2/NPCs/thrin_branchborn/README.md",
         "Longmont Campaign/Campaign 2/NPCs/thrin_branchborn/timeline.md",
+        "c:7e0bc88d8e",
+        "Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 17 - Migrating Forest and Thrin.md",
         "Longmont Campaign/Campaign 2/Session Recaps/Session 21 - Drake Nest Mirathorn Call.md",
-        "Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md",
-        "Longmont Campaign/Campaign 1/NPCs/mossglade/timeline.md"
+        "Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.breadcrumbed.md"
       ],
-      "scenario_estimated_cost_usd": null
+      "planner_estimated_cost_usd": 0.014156
     },
     {
       "question_id": "town-01",
       "category": "town_economy_planning_model",
       "error": null,
-      "final_message_excerpt": "The next town toward Mireward is **Mireward itself** — the journey tracker says it’s the **next town north** and places the party at the **Mireward outskirts / gate apron** in `Longmont Campaign/Campaign 2/Journey - Mireward Reach (Campaign 2).md`. For Session 23 opening scenes, the strongest trade/economy hooks currently sitting in the Mireward scaffold are: **a garrison-town identity**, **stink-",
+      "final_message_excerpt": "Mireward is the next town north on the Reach, about **5 days** from Mirathorn per `Longmont Campaign/Campaign 2/Journey - Mireward Reach (Campaign 2).md`; the Session 21 recap confirms the party was already oriented that way and named Mireward as the next stop. For Session 23 opening scenes, the strongest economy hooks in the current Mireward scaffold are the **garrison-and-ferry town** feel, **st",
       "corpus_paths_read": [
-        "Longmont Campaign/Campaign 2/Journey - Mireward Reach (Campaign 2).md",
+        "Longmont Campaign/Campaign 2/README.md",
         "Longmont Campaign/Campaign 2/Session Prep/session_22/README.md",
-        "Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_prep_brief.md",
-        "Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_planning_anchor.md"
+        "Longmont Campaign/Campaign 2/Journey - Mireward Reach (Campaign 2).md",
+        "Longmont Campaign/Campaign 2/Campaign 2 Notes.md",
+        "Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_travel_to_mireward_runbook.md",
+        "Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_planning_anchor.md",
+        "Elderwyld/Cities and Towns/Mireward/Mireward_PLACE_BUILD_SCAFFOLD.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 21 - Drake Nest Mirathorn Call.md"
       ],
-      "scenario_estimated_cost_usd": null
+      "planner_estimated_cost_usd": 0.03048
     },
     {
       "question_id": "town-02",
       "category": "town_economy_planning_model",
       "error": null,
-      "final_message_excerpt": "Record them in the Session 22 planning layer, not in play canon: use `Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_planning_anchor.md` for the town-distance / weather-pressure snapshot, and keep live travel clocks in `Longmont Campaign/Campaign 2/Journey - Mireward Reach (Campaign 2).md` since that file is the reference scratch for travel state. If it becomes table fact, promote",
+      "final_message_excerpt": "Record them in the **planning layer**, not in Session 22 play canon: use `Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_planning_anchor.md` for the where-we-are snapshot, and if they’re still unresolved, keep them in `Longmont Campaign/Campaign 2/Session Prep/Session 22 - open GM knobs.md`. The Session 22 hub says `Journey - Mireward Reach (Campaign 2).md` is for **travel clock /",
       "corpus_paths_read": [
         "Longmont Campaign/Campaign 2/Session Prep/session_22/README.md",
         "Longmont Campaign/Campaign 2/Session Prep/Session 22 - open GM knobs.md"
       ],
-      "scenario_estimated_cost_usd": null
+      "planner_estimated_cost_usd": 0.007165
     },
     {
       "question_id": "auth-01",
       "category": "authority_trap_questions",
       "error": null,
-      "final_message_excerpt": "It definitely happened in play. The observed recap in `Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md` ends with the party reaching Lysandro’s post and the guard asking, “Is that little Lysandra?” followed by “No dad, it’s Lieutenant Lysandra now” — that’s the live confrontation, not just prep. The corresponding breadcrumb file `Longmont Campaign",
+      "final_message_excerpt": "It happened in play, not just in prep notes: the observed recap at **Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md** ends with the party reaching Lysandro at the wall and meeting him on the spot. The shepherd/cult material is also treated as active session fiction in the same recap, with Grobnok reporting the Shepherd recruitment and the group s",
       "corpus_paths_read": [
-        "Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md",
-        "Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.frontmatter_seed.md"
+        "Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.frontmatter_seed.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md"
       ],
-      "scenario_estimated_cost_usd": null
+      "planner_estimated_cost_usd": 0.006555
     },
     {
       "question_id": "auth-02",
       "category": "authority_trap_questions",
       "error": null,
-      "final_message_excerpt": "No — a rolled result noted during planning only proves the table outcome was **recorded in prep**, not that it became table canon. `Longmont Campaign/Campaign 2/Session Prep/session_22/README.md` explicitly says planning files are **not canon**, and that roll-table files / prep notes are **prompts & intent — not a roll log**; after play, the fact must be promoted through the Session 22 recap. `Lon",
+      "final_message_excerpt": "No — a result noted during planning only proves it was rolled or recorded in prep. In `Longmont Campaign/Campaign 2/Session Prep/session_22/README.md`, the hub says the travel prompt table is “planning-only until Session 22 recap promotes facts of play,” and `Longmont Campaign/Campaign 2/Session Prep/session_22/travel_campfire_d8.md` says these prompts are for Session 22 camp use, not chronology. ",
       "corpus_paths_read": [
-        "Longmont Campaign/Campaign 2/Session Prep/session_22/README.md",
-        "Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_travel_to_mireward_runbook.md",
-        "Longmont Campaign/Campaign 2/Session Prep/Session 22 - open GM knobs.md"
+        "Longmont Campaign/Campaign 2/Session Prep/session_22/travel_campfire_d8.md",
+        "Longmont Campaign/Campaign 2/Session Prep/session_22/README.md"
       ],
-      "scenario_estimated_cost_usd": null
+      "planner_estimated_cost_usd": 0.007997
     },
     {
       "question_id": "auth-03",
       "category": "authority_trap_questions",
       "error": null,
-      "final_message_excerpt": "No. In `Longmont Campaign/Campaign 2/Session Prep/session_22/README.md`, Session 22 planning files are **planning-only** and **not canon**; the file says, “Files under `Session Prep/` and this README are **not canon**” and “Agent chat, eval JSON — **Never** canon.” A planning observation in a Session 23 live workspace about Session 22 would stay planning/reference until it’s promoted into the Sess",
+      "final_message_excerpt": "No — Session 22 planning notes stay planning-only in `Longmont Campaign/Campaign 2/Session Prep/session_22/README.md` and `Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_prep_brief.md`; they do not become play canon until they’re promoted into the Session 22 recap (`Longmont Campaign/Campaign 2/Session Recaps/Session 22 - <slug>.md`) or another canonical reference after play. Do y",
       "corpus_paths_read": [
-        "Longmont Campaign/Campaign 2/Session Prep/session_22/README.md"
+        "Longmont Campaign/Campaign 2/Session Prep/session_22/README.md",
+        "Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_prep_brief.md"
       ],
-      "scenario_estimated_cost_usd": null
+      "planner_estimated_cost_usd": 0.009713
     },
     {
       "question_id": "auth-04",
       "category": "authority_trap_questions",
       "error": null,
-      "final_message_excerpt": "Not from the Session 23 planning scaffold alone. The live packet’s Session 22 materials still contain the actual combat outcome in `Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md`, and the planning files explicitly say `Session Prep/session_22/session_22_prep_brief.md` is **not** table canon for chronology. The prep scaffold can guide what to say, but it can",
+      "final_message_excerpt": "No — **`Longmont Campaign/Campaign 2/Session Prep/session_22/README.md`** is only a planning hub and explicitly says planning files are **not canon**; for “what happened in Session 22 combat,” you need the actual post-play recap (`Session Recaps/Session 22 - <slug>.md`) or promoted timeline rows, not the Session 23/22 planning scaffold.",
       "corpus_paths_read": [
-        "Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_prep_brief.md",
-        "Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md",
         "Longmont Campaign/Campaign 2/Session Prep/session_22/README.md"
       ],
-      "scenario_estimated_cost_usd": null
+      "planner_estimated_cost_usd": 0.006354
     },
     {
       "question_id": "auth-05",
       "category": "authority_trap_questions",
       "error": null,
-      "final_message_excerpt": "Yes — **for retrieval only**, you can still use raw staged notes as evidence, but once the canonical recap exists the **canonical Session 22 recap** should be the normal source of truth for play-fact questions: `Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md`. The breadcrumb file `Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session ",
+      "final_message_excerpt": "No. Once the canonical Session 22 recap exists at `Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md`, use that as the play-fact source of truth; raw staged table notes are only staging material unless the recap itself says otherwise. If the recap and the staged notes disagree, the recap wins.",
       "corpus_paths_read": [
-        "Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md",
-        "Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.frontmatter_seed.md"
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md"
       ],
-      "scenario_estimated_cost_usd": null
+      "planner_estimated_cost_usd": 0.005191
     },
     {
       "question_id": "manifest-01",
       "category": "cross_session_continuity",
       "error": null,
-      "final_message_excerpt": "Yes — but I need to know the exact subject and whether you want a **single blended search** or **separate role-specific reads**. I can structure one planning pass across Session 21 recap, Session 22 memory, the Session 23 workspace, prep scaffold, roll tables, and hub evidence, with the right sources prioritized by role, once you tell me the target topic.",
-      "corpus_paths_read": [],
-      "scenario_estimated_cost_usd": null
+      "final_message_excerpt": "Yes — for a single planning query, use **Session 21 recap** (`Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 21 - Drake Nest Mirathorn Call.md`) as table canon, **Session 22 memory** only as retrieval hints (no direct hit surfaced in `query_session_memory`), **Session 23 workspace** as the current prep layer if you have one, and then layer in the **prep scaffold** (`Longmont Campa",
+      "corpus_paths_read": [
+        "Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 21 - Drake Nest Mirathorn Call.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md",
+        "Longmont Campaign/Campaign 2/Session Prep/session_22/README.md",
+        "Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_prep_brief.md",
+        "Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_planning_anchor.md",
+        "Longmont Campaign/Campaign 2/Session Prep/session_22/travel_dilemma_d12.md",
+        "Longmont Campaign/Campaign 2/Session Prep/session_22/travel_npc_spotlight_d12.md",
+        "Longmont Campaign/Campaign 2/Factions/README.md",
+        "Longmont Campaign/Campaign 2/NPCs/torbin_jove/README.md"
+      ],
+      "planner_estimated_cost_usd": 0.019623
     }
   ]
 }

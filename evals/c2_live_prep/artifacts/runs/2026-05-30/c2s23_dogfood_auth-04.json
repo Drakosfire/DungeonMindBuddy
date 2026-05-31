@@ -19,38 +19,18 @@
   "planner": {
     "turn_count": 2,
     "tool_calls": [
-      "read_corpus_file",
-      "read_corpus_file",
       "read_corpus_file"
     ],
     "corpus_paths_read": [
-      "Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_prep_brief.md",
-      "Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md",
       "Longmont Campaign/Campaign 2/Session Prep/session_22/README.md"
     ],
-    "final_message": "Not from the Session 23 planning scaffold alone. The live packet’s Session 22 materials still contain the actual combat outcome in `Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md`, and the planning files explicitly say `Session Prep/session_22/session_22_prep_brief.md` is **not** table canon for chronology. The prep scaffold can guide what to say, but it cannot safely answer “what happened in Session 22 combat” by itself.",
+    "final_message": "No — **`Longmont Campaign/Campaign 2/Session Prep/session_22/README.md`** is only a planning hub and explicitly says planning files are **not canon**; for “what happened in Session 22 combat,” you need the actual post-play recap (`Session Recaps/Session 22 - <slug>.md`) or promoted timeline rows, not the Session 23/22 planning scaffold.",
     "final_message_parse_error": null,
-    "user_intent": "factual_lookup",
+    "user_intent": "status_or_recap_request",
     "scenario_estimated_cost_usd": null,
-    "planner_estimated_cost_usd": 0.011632
+    "planner_estimated_cost_usd": 0.006354
   },
   "tool_trace": [
-    {
-      "tool": "read_corpus_file",
-      "arguments": {
-        "path": "Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_prep_brief.md"
-      },
-      "output_chars": 15146,
-      "output_excerpt": "---\ntitle: \"Session 22 — prep brief\"\ndocument_class: planning\ncanon_layer: campaign\ncampaign_id: longmont-c2\ntemporal_scope: session_specific\nsession: 22\norigin_session: 21\nlast_updated_session: 21\nsource_class: scene_module\ntable_note: \"Runnable Session 22 plan. Not table canon — facts of play land in Session 22 recap after play.\"\n---\n\n# Session 22 Prep Brief\n\n**Route intent (table canon):** Press **north** on the Mireward Reach toward the swamp objective — not turn back to Mirathorn unless the table reverses at the table.  \n**End-state anchor (Session 21):** Conical-hill camp north of Mossford; ~**3 days** south to Mirathorn; **Mireward ~5 days** north; storm **building** (savory/shimmer rain at the edge).\n\n---\n\n## 1. Executive prep read\n\nSession 22 is a **travel-and-pressure** session: "
-    },
-    {
-      "tool": "read_corpus_file",
-      "arguments": {
-        "path": "Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md"
-      },
-      "output_chars": 10145,
-      "output_excerpt": "---\ntitle: Session 22 - Mireward Road and Lysandro\ndocument_class: play\ncanon_layer: campaign\ncampaign_id: longmont-c2\ntemporal_scope: session_specific\nsession: 22\norigin_session: 22\nlast_updated_session: 22\nsource_class: observed_session_recap\nsubject_class: null\nsubject_doc_kind: recap\nnormalized_from: Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md\nnormalized_on: 2026-05-08\nnormalization_schema: dmb_recap_normalized_v1\n---\n# Session 22 Recap\n\nThe group turns their focus to the Reach; the vast Golden Fields to the north. If they decide to continue on, their destination is Mireward. If they decide to turn around, it's a multiday journey back to Mirathorn. The first thing to do is break their camp and head back to the wagon. The trail is damp from the"
-    },
     {
       "tool": "read_corpus_file",
       "arguments": {
@@ -60,5 +40,5 @@
       "output_excerpt": "---\ntitle: \"Session 22 — planning package (hub index)\"\ndocument_class: planning\ncanon_layer: campaign\ncampaign_id: longmont-c2\ntemporal_scope: session_specific\nsession: 22\norigin_session: 21\nlast_updated_session: 21\nsource_class: scene_module\ntable_note: \"Planning hub only — not table canon. After Session 22 play, promote facts via recap + timeline rows; do not treat this README as chronology.\"\n---\n\n# Session 22 — planning package\n\n**Campaign:** Longmont Campaign 2 (Questionable Company)  \n**Prep target:** Session **22** (travel north on the Mireward Reach after Session 21 drake nest / Mirathorn comms)  \n**Table canon through:** `Session Recaps/Session 21 - Drake Nest Mirathorn Call.md`\n\nThis folder is the **GM-facing index** for everything produced while planning Session 22: what exists, "
     }
   ],
-  "final_text": "{\"user_intent\":\"factual_lookup\",\"message\":\"Not from the Session 23 planning scaffold alone. The live packet’s Session 22 materials still contain the actual combat outcome in `Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md`, and the planning files explicitly say `Session Prep/session_22/session_22_prep_brief.md` is **not** table canon for chronology. The prep scaffold can guide what to say, but it cannot safely answer “what happened in Session 22 combat” by itself.\",\"unsure_queue\":null}"
+  "final_text": "{\"user_intent\":\"status_or_recap_request\",\"message\":\"No — **`Longmont Campaign/Campaign 2/Session Prep/session_22/README.md`** is only a planning hub and explicitly says planning files are **not canon**; for “what happened in Session 22 combat,” you need the actual post-play recap (`Session Recaps/Session 22 - <slug>.md`) or promoted timeline rows, not the Session 23/22 planning scaffold.\",\"unsure_queue\":null}"
 }

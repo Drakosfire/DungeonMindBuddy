@@ -18,28 +18,15 @@
     "Patch only if table already exists"
   ],
   "planner": {
-    "turn_count": 2,
-    "tool_calls": [
-      "read_corpus_file"
-    ],
-    "corpus_paths_read": [
-      "Longmont Campaign/Campaign 2/Session Prep/session_22/README.md"
-    ],
-    "final_message": "Yes—but I need the exact target packet/rule surface first: which Session 23 packet file should I register the new swamp-side encounter table in, and do you want a new table file under `Session Prep/session_23/` or a patch to an existing reference table such as `Elderwyld/Wilderness/conical_hills_night_camp_d100.md`?",
+    "turn_count": 1,
+    "tool_calls": [],
+    "corpus_paths_read": [],
+    "final_message": "Yes — that’s a workflow/planning task. I can help structure the swamp-side random encounter table for Session 23 prep, but I’ll need the relevant prep packet / control-surface file paths opened first (for example the Session 23 prep folder or packet artifact under `Longmont Campaign/Campaign 2/Session Prep/`). If you want, I can proceed by locating the session 23 prep hub, then draft the encounter table and the row patch plan against the packet.",
     "final_message_parse_error": null,
-    "user_intent": "needs_clarification",
+    "user_intent": "planning_request",
     "scenario_estimated_cost_usd": null,
-    "planner_estimated_cost_usd": 0.006331
+    "planner_estimated_cost_usd": 0.002175
   },
-  "tool_trace": [
-    {
-      "tool": "read_corpus_file",
-      "arguments": {
-        "path": "Longmont Campaign/Campaign 2/Session Prep/session_22/README.md"
-      },
-      "output_chars": 12710,
-      "output_excerpt": "---\ntitle: \"Session 22 — planning package (hub index)\"\ndocument_class: planning\ncanon_layer: campaign\ncampaign_id: longmont-c2\ntemporal_scope: session_specific\nsession: 22\norigin_session: 21\nlast_updated_session: 21\nsource_class: scene_module\ntable_note: \"Planning hub only — not table canon. After Session 22 play, promote facts via recap + timeline rows; do not treat this README as chronology.\"\n---\n\n# Session 22 — planning package\n\n**Campaign:** Longmont Campaign 2 (Questionable Company)  \n**Prep target:** Session **22** (travel north on the Mireward Reach after Session 21 drake nest / Mirathorn comms)  \n**Table canon through:** `Session Recaps/Session 21 - Drake Nest Mirathorn Call.md`\n\nThis folder is the **GM-facing index** for everything produced while planning Session 22: what exists, "
-    }
-  ],
-  "final_text": "{\"user_intent\":\"needs_clarification\",\"message\":\"Yes—but I need the exact target packet/rule surface first: which Session 23 packet file should I register the new swamp-side encounter table in, and do you want a new table file under `Session Prep/session_23/` or a patch to an existing reference table such as `Elderwyld/Wilderness/conical_hills_night_camp_d100.md`?\",\"unsure_queue\":null}"
+  "tool_trace": [],
+  "final_text": "{\"user_intent\":\"planning_request\",\"message\":\"Yes — that’s a workflow/planning task. I can help structure the swamp-side random encounter table for Session 23 prep, but I’ll need the relevant prep packet / control-surface file paths opened first (for example the Session 23 prep folder or packet artifact under `Longmont Campaign/Campaign 2/Session Prep/`). If you want, I can proceed by locating the session 23 prep hub, then draft the encounter table and the row patch plan against the packet.\",\"unsure_queue\":null}"
 }
