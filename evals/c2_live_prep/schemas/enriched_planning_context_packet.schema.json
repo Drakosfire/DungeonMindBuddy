@@ -309,6 +309,9 @@
         }
       },
       "additionalProperties": false
+    },
+    "source_excerpt": {
+      "type": "string"
     }
   },
   "$defs": {

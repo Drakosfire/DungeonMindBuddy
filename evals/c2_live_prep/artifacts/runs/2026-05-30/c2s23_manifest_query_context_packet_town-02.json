@@ -1,0 +1,1531 @@
+{
+  "schema": "dmb_enriched_planning_context_packet_v1",
+  "question_id": "town-02",
+  "intent_class": "play_fact_retrieval",
+  "corpus_preconditions": {
+    "all_required_present": true,
+    "checks": [
+      {
+        "key": "canonical_recap_s22",
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md",
+        "exists": true
+      },
+      {
+        "key": "normalized_recap_s22",
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md",
+        "exists": true
+      },
+      {
+        "key": "breadcrumb_recap_s22",
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.breadcrumbed.md",
+        "exists": true
+      },
+      {
+        "key": "session_memory_jsonl_s22",
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 22 - Mireward Road and Lysandro.records_meta.jsonl",
+        "exists": true
+      },
+      {
+        "key": "session_memory_meta_s22",
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 22 - Mireward Road and Lysandro.records_meta.json",
+        "exists": true
+      },
+      {
+        "key": "live_workspace_s23_packet",
+        "path": "evals/c2_live_prep/live/session_23/live_packet.json",
+        "exists": true
+      },
+      {
+        "key": "activated_manifest",
+        "path": "evals/c2_live_prep/benchmarks/c2s23_planning_corpus_manifest.json",
+        "exists": true
+      }
+    ]
+  },
+  "activation_manifest_refs": [
+    {
+      "source_id": "play_recap-s22-session-recaps-session-22-mireward-road-and-lysandro-md",
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md",
+      "source_role": "play_recap",
+      "authority": "canon_play",
+      "admissible": true,
+      "allowed_uses": [
+        "play_facts",
+        "open_loops",
+        "planning_context",
+        "continuity"
+      ],
+      "forbidden_uses": []
+    },
+    {
+      "source_id": "play_recap-s22-normalized-session-22-mireward-road-and-lysandro-md",
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md",
+      "source_role": "play_recap",
+      "authority": "canon_play",
+      "admissible": true,
+      "allowed_uses": [
+        "play_facts",
+        "open_loops",
+        "planning_context",
+        "continuity"
+      ],
+      "forbidden_uses": []
+    },
+    {
+      "source_id": "play_recap-s21-session-recaps-session-21-drake-nest-mirathorn-call-md",
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 21 - Drake Nest Mirathorn Call.md",
+      "source_role": "play_recap",
+      "authority": "canon_play",
+      "admissible": true,
+      "allowed_uses": [
+        "play_facts",
+        "open_loops",
+        "planning_context",
+        "continuity"
+      ],
+      "forbidden_uses": []
+    },
+    {
+      "source_id": "play_recap-s21-normalized-session-21-drake-nest-mirathorn-call-md",
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 21 - Drake Nest Mirathorn Call.md",
+      "source_role": "play_recap",
+      "authority": "canon_play",
+      "admissible": true,
+      "allowed_uses": [
+        "play_facts",
+        "open_loops",
+        "planning_context",
+        "continuity"
+      ],
+      "forbidden_uses": []
+    },
+    {
+      "source_id": "session_memory-s22-session-memory-session-22-mireward-road-and-lysandro-records-meta-json",
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 22 - Mireward Road and Lysandro.records_meta.json",
+      "source_role": "session_memory",
+      "authority": "derived_memory",
+      "admissible": true,
+      "allowed_uses": [
+        "play_facts",
+        "search",
+        "routing",
+        "evidence_support"
+      ],
+      "forbidden_uses": []
+    },
+    {
+      "source_id": "session_memory-s22-session-memory-session-22-mireward-road-and-lysandro-records-meta-jsonl",
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 22 - Mireward Road and Lysandro.records_meta.jsonl",
+      "source_role": "session_memory",
+      "authority": "derived_memory",
+      "admissible": true,
+      "allowed_uses": [
+        "play_facts",
+        "search",
+        "routing",
+        "evidence_support"
+      ],
+      "forbidden_uses": []
+    },
+    {
+      "source_id": "session_memory-s21-session-memory-session-21-drake-nest-mirathorn-call-records-meta-json",
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 21 - Drake Nest Mirathorn Call.records_meta.json",
+      "source_role": "session_memory",
+      "authority": "derived_memory",
+      "admissible": true,
+      "allowed_uses": [
+        "play_facts",
+        "search",
+        "routing",
+        "evidence_support"
+      ],
+      "forbidden_uses": []
+    },
+    {
+      "source_id": "session_memory-s21-session-memory-session-21-drake-nest-mirathorn-call-records-meta-jsonl",
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 21 - Drake Nest Mirathorn Call.records_meta.jsonl",
+      "source_role": "session_memory",
+      "authority": "derived_memory",
+      "admissible": true,
+      "allowed_uses": [
+        "play_facts",
+        "search",
+        "routing",
+        "evidence_support"
+      ],
+      "forbidden_uses": []
+    },
+    {
+      "source_id": "play_recap-s22-breadcrumbed-session-22-mireward-road-and-lysandro-breadcrumbed-md",
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.breadcrumbed.md",
+      "source_role": "play_recap",
+      "authority": "canon_play",
+      "admissible": true,
+      "allowed_uses": [
+        "play_facts",
+        "open_loops",
+        "planning_context",
+        "continuity"
+      ],
+      "forbidden_uses": []
+    },
+    {
+      "source_id": "play_recap-s21-breadcrumbed-session-21-drake-nest-mirathorn-call-breadcrumbed-md",
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 21 - Drake Nest Mirathorn Call.breadcrumbed.md",
+      "source_role": "play_recap",
+      "authority": "canon_play",
+      "admissible": true,
+      "allowed_uses": [
+        "play_facts",
+        "open_loops",
+        "planning_context",
+        "continuity"
+      ],
+      "forbidden_uses": []
+    },
+    {
+      "source_id": "hub_evidence-s21-factions-readme-md",
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Factions/README.md",
+      "source_role": "hub_evidence",
+      "authority": "canon_play",
+      "admissible": true,
+      "allowed_uses": [
+        "planning_context",
+        "continuity",
+        "npc_grounding"
+      ],
+      "forbidden_uses": []
+    },
+    {
+      "source_id": "hub_evidence-s21-captain-lysandra-ironveil-readme-md",
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/README.md",
+      "source_role": "hub_evidence",
+      "authority": "canon_play",
+      "admissible": true,
+      "allowed_uses": [
+        "planning_context",
+        "continuity",
+        "npc_grounding"
+      ],
+      "forbidden_uses": []
+    },
+    {
+      "source_id": "hub_evidence-s21-dustwalker-readme-md",
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/dustwalker/README.md",
+      "source_role": "hub_evidence",
+      "authority": "canon_play",
+      "admissible": true,
+      "allowed_uses": [
+        "planning_context",
+        "continuity",
+        "npc_grounding"
+      ],
+      "forbidden_uses": []
+    },
+    {
+      "source_id": "hub_evidence-s21-sara-mirathorn-operator-readme-md",
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/README.md",
+      "source_role": "hub_evidence",
+      "authority": "canon_play",
+      "admissible": true,
+      "allowed_uses": [
+        "planning_context",
+        "continuity",
+        "npc_grounding"
+      ],
+      "forbidden_uses": []
+    },
+    {
+      "source_id": "prep_scaffold-s22-session-22-travel-storm-weather-d20-md",
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/travel_storm_weather_d20.md",
+      "source_role": "prep_scaffold",
+      "authority": "planning_scaffold",
+      "admissible": true,
+      "allowed_uses": [
+        "planning_context",
+        "reusable_prep"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ]
+    },
+    {
+      "source_id": "prep_scaffold-s22-session-prep-session-22-open-gm-knobs-md",
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/Session 22 - open GM knobs.md",
+      "source_role": "prep_scaffold",
+      "authority": "planning_scaffold",
+      "admissible": true,
+      "allowed_uses": [
+        "planning_context",
+        "reusable_prep"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ]
+    },
+    {
+      "source_id": "prep_scaffold-s22-session-22-mireward-gate-dilemma-d6-md",
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/mireward_gate_dilemma_d6.md",
+      "source_role": "prep_scaffold",
+      "authority": "planning_scaffold",
+      "admissible": true,
+      "allowed_uses": [
+        "planning_context",
+        "reusable_prep"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ]
+    },
+    {
+      "source_id": "live_packet-s23-session-23-live-packet-json",
+      "route": "evals/c2_live_prep/live/session_23/live_packet.json",
+      "source_role": "live_packet",
+      "authority": "planning_scaffold",
+      "admissible": true,
+      "allowed_uses": [
+        "active_session_orientation",
+        "planning_context"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ]
+    },
+    {
+      "source_id": "live_event-s23-session-23-event-log-jsonl",
+      "route": "evals/c2_live_prep/live/session_23/event_log.jsonl",
+      "source_role": "live_event",
+      "authority": "live_observation",
+      "admissible": true,
+      "allowed_uses": [
+        "observed_play",
+        "planning_observation",
+        "audit_evidence"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ]
+    },
+    {
+      "source_id": "fresh_recap-s23-session-23-recap-md",
+      "route": "evals/c2_live_prep/live/session_23/recap.md",
+      "source_role": "fresh_recap",
+      "authority": "pre_canonical_evidence",
+      "admissible": true,
+      "allowed_uses": [
+        "planning_input"
+      ],
+      "forbidden_uses": []
+    },
+    {
+      "source_id": "table_notes-s22-ingest-staging-session-22-raw-notes-md",
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/_ingest_staging/session_22_raw_notes.md",
+      "source_role": "table_notes",
+      "authority": "pre_canonical_evidence",
+      "admissible": true,
+      "allowed_uses": [
+        "provenance",
+        "pre_recap_evidence"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ]
+    },
+    {
+      "source_id": "table_notes-s21-ingest-staging-session-21-raw-notes-md",
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/_ingest_staging/session_21_raw_notes.md",
+      "source_role": "table_notes",
+      "authority": "pre_canonical_evidence",
+      "admissible": true,
+      "allowed_uses": [
+        "provenance",
+        "pre_recap_evidence"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ]
+    }
+  ],
+  "retrieved_evidence": [
+    {
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md",
+      "source_role": "play_recap",
+      "authority": "canon_play",
+      "session_scope": [
+        22
+      ],
+      "unit_id": null,
+      "breadcrumb_id": null,
+      "line_start": null,
+      "line_end": null,
+      "admissible": true,
+      "allowed_uses": [
+        "play_facts",
+        "open_loops",
+        "planning_context",
+        "continuity"
+      ],
+      "forbidden_uses": [],
+      "routes": [
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md"
+      ]
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md",
+      "source_role": "play_recap",
+      "authority": "canon_play",
+      "session_scope": [
+        22
+      ],
+      "unit_id": null,
+      "breadcrumb_id": null,
+      "line_start": null,
+      "line_end": null,
+      "admissible": true,
+      "allowed_uses": [
+        "play_facts",
+        "open_loops",
+        "planning_context",
+        "continuity"
+      ],
+      "forbidden_uses": [],
+      "routes": [
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md"
+      ]
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 21 - Drake Nest Mirathorn Call.md",
+      "source_role": "play_recap",
+      "authority": "canon_play",
+      "session_scope": [
+        21
+      ],
+      "unit_id": null,
+      "breadcrumb_id": null,
+      "line_start": null,
+      "line_end": null,
+      "admissible": true,
+      "allowed_uses": [
+        "play_facts",
+        "open_loops",
+        "planning_context",
+        "continuity"
+      ],
+      "forbidden_uses": [],
+      "routes": [
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 21 - Drake Nest Mirathorn Call.md"
+      ]
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 21 - Drake Nest Mirathorn Call.md",
+      "source_role": "play_recap",
+      "authority": "canon_play",
+      "session_scope": [
+        21
+      ],
+      "unit_id": null,
+      "breadcrumb_id": null,
+      "line_start": null,
+      "line_end": null,
+      "admissible": true,
+      "allowed_uses": [
+        "play_facts",
+        "open_loops",
+        "planning_context",
+        "continuity"
+      ],
+      "forbidden_uses": [],
+      "routes": [
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 21 - Drake Nest Mirathorn Call.md"
+      ]
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 22 - Mireward Road and Lysandro.records_meta.json",
+      "source_role": "session_memory",
+      "authority": "derived_memory",
+      "session_scope": [
+        22
+      ],
+      "unit_id": null,
+      "breadcrumb_id": null,
+      "line_start": null,
+      "line_end": null,
+      "admissible": true,
+      "allowed_uses": [
+        "play_facts",
+        "search",
+        "routing",
+        "evidence_support"
+      ],
+      "forbidden_uses": [],
+      "routes": [
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 22 - Mireward Road and Lysandro.records_meta.json"
+      ]
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 22 - Mireward Road and Lysandro.records_meta.jsonl",
+      "source_role": "session_memory",
+      "authority": "derived_memory",
+      "session_scope": [
+        22
+      ],
+      "unit_id": null,
+      "breadcrumb_id": null,
+      "line_start": null,
+      "line_end": null,
+      "admissible": true,
+      "allowed_uses": [
+        "play_facts",
+        "search",
+        "routing",
+        "evidence_support"
+      ],
+      "forbidden_uses": [],
+      "routes": [
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 22 - Mireward Road and Lysandro.records_meta.jsonl"
+      ]
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 21 - Drake Nest Mirathorn Call.records_meta.json",
+      "source_role": "session_memory",
+      "authority": "derived_memory",
+      "session_scope": [
+        21
+      ],
+      "unit_id": null,
+      "breadcrumb_id": null,
+      "line_start": null,
+      "line_end": null,
+      "admissible": true,
+      "allowed_uses": [
+        "play_facts",
+        "search",
+        "routing",
+        "evidence_support"
+      ],
+      "forbidden_uses": [],
+      "routes": [
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 21 - Drake Nest Mirathorn Call.records_meta.json"
+      ]
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 21 - Drake Nest Mirathorn Call.records_meta.jsonl",
+      "source_role": "session_memory",
+      "authority": "derived_memory",
+      "session_scope": [
+        21
+      ],
+      "unit_id": null,
+      "breadcrumb_id": null,
+      "line_start": null,
+      "line_end": null,
+      "admissible": true,
+      "allowed_uses": [
+        "play_facts",
+        "search",
+        "routing",
+        "evidence_support"
+      ],
+      "forbidden_uses": [],
+      "routes": [
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 21 - Drake Nest Mirathorn Call.records_meta.jsonl"
+      ]
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.breadcrumbed.md",
+      "source_role": "play_recap",
+      "authority": "canon_play",
+      "session_scope": [
+        22
+      ],
+      "unit_id": null,
+      "breadcrumb_id": null,
+      "line_start": null,
+      "line_end": null,
+      "admissible": true,
+      "allowed_uses": [
+        "play_facts",
+        "open_loops",
+        "planning_context",
+        "continuity"
+      ],
+      "forbidden_uses": [],
+      "routes": [
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.breadcrumbed.md"
+      ]
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 21 - Drake Nest Mirathorn Call.breadcrumbed.md",
+      "source_role": "play_recap",
+      "authority": "canon_play",
+      "session_scope": [
+        21
+      ],
+      "unit_id": null,
+      "breadcrumb_id": null,
+      "line_start": null,
+      "line_end": null,
+      "admissible": true,
+      "allowed_uses": [
+        "play_facts",
+        "open_loops",
+        "planning_context",
+        "continuity"
+      ],
+      "forbidden_uses": [],
+      "routes": [
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 21 - Drake Nest Mirathorn Call.breadcrumbed.md"
+      ]
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Factions/README.md",
+      "source_role": "hub_evidence",
+      "authority": "canon_play",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "unit_id": null,
+      "breadcrumb_id": null,
+      "line_start": null,
+      "line_end": null,
+      "admissible": true,
+      "allowed_uses": [
+        "planning_context",
+        "continuity",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [],
+      "routes": [
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Factions/README.md"
+      ]
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/README.md",
+      "source_role": "hub_evidence",
+      "authority": "canon_play",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "unit_id": null,
+      "breadcrumb_id": null,
+      "line_start": null,
+      "line_end": null,
+      "admissible": true,
+      "allowed_uses": [
+        "planning_context",
+        "continuity",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [],
+      "routes": [
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/README.md"
+      ]
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/dustwalker/README.md",
+      "source_role": "hub_evidence",
+      "authority": "canon_play",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "unit_id": null,
+      "breadcrumb_id": null,
+      "line_start": null,
+      "line_end": null,
+      "admissible": true,
+      "allowed_uses": [
+        "planning_context",
+        "continuity",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [],
+      "routes": [
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/dustwalker/README.md"
+      ]
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/README.md",
+      "source_role": "hub_evidence",
+      "authority": "canon_play",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "unit_id": null,
+      "breadcrumb_id": null,
+      "line_start": null,
+      "line_end": null,
+      "admissible": true,
+      "allowed_uses": [
+        "planning_context",
+        "continuity",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [],
+      "routes": [
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/README.md"
+      ]
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/travel_storm_weather_d20.md",
+      "source_role": "prep_scaffold",
+      "authority": "planning_scaffold",
+      "session_scope": [
+        22
+      ],
+      "unit_id": null,
+      "breadcrumb_id": null,
+      "line_start": null,
+      "line_end": null,
+      "admissible": true,
+      "allowed_uses": [
+        "planning_context",
+        "reusable_prep"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "routes": [
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/travel_storm_weather_d20.md"
+      ]
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/Session 22 - open GM knobs.md",
+      "source_role": "prep_scaffold",
+      "authority": "planning_scaffold",
+      "session_scope": [
+        22
+      ],
+      "unit_id": null,
+      "breadcrumb_id": null,
+      "line_start": null,
+      "line_end": null,
+      "admissible": true,
+      "allowed_uses": [
+        "planning_context",
+        "reusable_prep"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "routes": [
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/Session 22 - open GM knobs.md"
+      ]
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/mireward_gate_dilemma_d6.md",
+      "source_role": "prep_scaffold",
+      "authority": "planning_scaffold",
+      "session_scope": [
+        22
+      ],
+      "unit_id": null,
+      "breadcrumb_id": null,
+      "line_start": null,
+      "line_end": null,
+      "admissible": true,
+      "allowed_uses": [
+        "planning_context",
+        "reusable_prep"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "routes": [
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/mireward_gate_dilemma_d6.md"
+      ]
+    },
+    {
+      "path": "evals/c2_live_prep/live/session_23/live_packet.json",
+      "source_role": "live_packet",
+      "authority": "planning_scaffold",
+      "session_scope": [
+        23
+      ],
+      "unit_id": null,
+      "breadcrumb_id": null,
+      "line_start": null,
+      "line_end": null,
+      "admissible": true,
+      "allowed_uses": [
+        "active_session_orientation",
+        "planning_context"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "routes": [
+        "evals/c2_live_prep/live/session_23/live_packet.json"
+      ]
+    },
+    {
+      "path": "evals/c2_live_prep/live/session_23/event_log.jsonl",
+      "source_role": "live_event",
+      "authority": "live_observation",
+      "session_scope": [
+        23
+      ],
+      "unit_id": null,
+      "breadcrumb_id": null,
+      "line_start": null,
+      "line_end": null,
+      "admissible": true,
+      "allowed_uses": [
+        "observed_play",
+        "planning_observation",
+        "audit_evidence"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "routes": [
+        "evals/c2_live_prep/live/session_23/event_log.jsonl"
+      ]
+    },
+    {
+      "path": "evals/c2_live_prep/live/session_23/recap.md",
+      "source_role": "fresh_recap",
+      "authority": "pre_canonical_evidence",
+      "session_scope": [
+        23
+      ],
+      "unit_id": null,
+      "breadcrumb_id": null,
+      "line_start": null,
+      "line_end": null,
+      "admissible": true,
+      "allowed_uses": [
+        "planning_input"
+      ],
+      "forbidden_uses": [],
+      "routes": [
+        "evals/c2_live_prep/live/session_23/recap.md"
+      ]
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/_ingest_staging/session_22_raw_notes.md",
+      "source_role": "table_notes",
+      "authority": "pre_canonical_evidence",
+      "session_scope": [
+        22
+      ],
+      "unit_id": null,
+      "breadcrumb_id": null,
+      "line_start": null,
+      "line_end": null,
+      "admissible": true,
+      "allowed_uses": [
+        "provenance",
+        "pre_recap_evidence"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "routes": [
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/_ingest_staging/session_22_raw_notes.md"
+      ]
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/_ingest_staging/session_21_raw_notes.md",
+      "source_role": "table_notes",
+      "authority": "pre_canonical_evidence",
+      "session_scope": [
+        21
+      ],
+      "unit_id": null,
+      "breadcrumb_id": null,
+      "line_start": null,
+      "line_end": null,
+      "admissible": true,
+      "allowed_uses": [
+        "provenance",
+        "pre_recap_evidence"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "routes": [
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/_ingest_staging/session_21_raw_notes.md"
+      ]
+    }
+  ],
+  "admitted_evidence": [
+    {
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md",
+      "source_role": "play_recap",
+      "authority": "canon_play",
+      "session_scope": [
+        22
+      ],
+      "unit_id": null,
+      "breadcrumb_id": null,
+      "line_start": null,
+      "line_end": null,
+      "admissible": true,
+      "allowed_uses": [
+        "play_facts",
+        "open_loops",
+        "planning_context",
+        "continuity"
+      ],
+      "forbidden_uses": [],
+      "routes": [
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md"
+      ]
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md",
+      "source_role": "play_recap",
+      "authority": "canon_play",
+      "session_scope": [
+        22
+      ],
+      "unit_id": null,
+      "breadcrumb_id": null,
+      "line_start": null,
+      "line_end": null,
+      "admissible": true,
+      "allowed_uses": [
+        "play_facts",
+        "open_loops",
+        "planning_context",
+        "continuity"
+      ],
+      "forbidden_uses": [],
+      "routes": [
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md"
+      ]
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 21 - Drake Nest Mirathorn Call.md",
+      "source_role": "play_recap",
+      "authority": "canon_play",
+      "session_scope": [
+        21
+      ],
+      "unit_id": null,
+      "breadcrumb_id": null,
+      "line_start": null,
+      "line_end": null,
+      "admissible": true,
+      "allowed_uses": [
+        "play_facts",
+        "open_loops",
+        "planning_context",
+        "continuity"
+      ],
+      "forbidden_uses": [],
+      "routes": [
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 21 - Drake Nest Mirathorn Call.md"
+      ]
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 21 - Drake Nest Mirathorn Call.md",
+      "source_role": "play_recap",
+      "authority": "canon_play",
+      "session_scope": [
+        21
+      ],
+      "unit_id": null,
+      "breadcrumb_id": null,
+      "line_start": null,
+      "line_end": null,
+      "admissible": true,
+      "allowed_uses": [
+        "play_facts",
+        "open_loops",
+        "planning_context",
+        "continuity"
+      ],
+      "forbidden_uses": [],
+      "routes": [
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 21 - Drake Nest Mirathorn Call.md"
+      ]
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 22 - Mireward Road and Lysandro.records_meta.json",
+      "source_role": "session_memory",
+      "authority": "derived_memory",
+      "session_scope": [
+        22
+      ],
+      "unit_id": null,
+      "breadcrumb_id": null,
+      "line_start": null,
+      "line_end": null,
+      "admissible": true,
+      "allowed_uses": [
+        "play_facts",
+        "search",
+        "routing",
+        "evidence_support"
+      ],
+      "forbidden_uses": [],
+      "routes": [
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 22 - Mireward Road and Lysandro.records_meta.json"
+      ]
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 22 - Mireward Road and Lysandro.records_meta.jsonl",
+      "source_role": "session_memory",
+      "authority": "derived_memory",
+      "session_scope": [
+        22
+      ],
+      "unit_id": null,
+      "breadcrumb_id": null,
+      "line_start": null,
+      "line_end": null,
+      "admissible": true,
+      "allowed_uses": [
+        "play_facts",
+        "search",
+        "routing",
+        "evidence_support"
+      ],
+      "forbidden_uses": [],
+      "routes": [
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 22 - Mireward Road and Lysandro.records_meta.jsonl"
+      ]
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 21 - Drake Nest Mirathorn Call.records_meta.json",
+      "source_role": "session_memory",
+      "authority": "derived_memory",
+      "session_scope": [
+        21
+      ],
+      "unit_id": null,
+      "breadcrumb_id": null,
+      "line_start": null,
+      "line_end": null,
+      "admissible": true,
+      "allowed_uses": [
+        "play_facts",
+        "search",
+        "routing",
+        "evidence_support"
+      ],
+      "forbidden_uses": [],
+      "routes": [
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 21 - Drake Nest Mirathorn Call.records_meta.json"
+      ]
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 21 - Drake Nest Mirathorn Call.records_meta.jsonl",
+      "source_role": "session_memory",
+      "authority": "derived_memory",
+      "session_scope": [
+        21
+      ],
+      "unit_id": null,
+      "breadcrumb_id": null,
+      "line_start": null,
+      "line_end": null,
+      "admissible": true,
+      "allowed_uses": [
+        "play_facts",
+        "search",
+        "routing",
+        "evidence_support"
+      ],
+      "forbidden_uses": [],
+      "routes": [
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 21 - Drake Nest Mirathorn Call.records_meta.jsonl"
+      ]
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.breadcrumbed.md",
+      "source_role": "play_recap",
+      "authority": "canon_play",
+      "session_scope": [
+        22
+      ],
+      "unit_id": null,
+      "breadcrumb_id": null,
+      "line_start": null,
+      "line_end": null,
+      "admissible": true,
+      "allowed_uses": [
+        "play_facts",
+        "open_loops",
+        "planning_context",
+        "continuity"
+      ],
+      "forbidden_uses": [],
+      "routes": [
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.breadcrumbed.md"
+      ]
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 21 - Drake Nest Mirathorn Call.breadcrumbed.md",
+      "source_role": "play_recap",
+      "authority": "canon_play",
+      "session_scope": [
+        21
+      ],
+      "unit_id": null,
+      "breadcrumb_id": null,
+      "line_start": null,
+      "line_end": null,
+      "admissible": true,
+      "allowed_uses": [
+        "play_facts",
+        "open_loops",
+        "planning_context",
+        "continuity"
+      ],
+      "forbidden_uses": [],
+      "routes": [
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 21 - Drake Nest Mirathorn Call.breadcrumbed.md"
+      ]
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Factions/README.md",
+      "source_role": "hub_evidence",
+      "authority": "canon_play",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "unit_id": null,
+      "breadcrumb_id": null,
+      "line_start": null,
+      "line_end": null,
+      "admissible": true,
+      "allowed_uses": [
+        "planning_context",
+        "continuity",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [],
+      "routes": [
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Factions/README.md"
+      ]
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/README.md",
+      "source_role": "hub_evidence",
+      "authority": "canon_play",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "unit_id": null,
+      "breadcrumb_id": null,
+      "line_start": null,
+      "line_end": null,
+      "admissible": true,
+      "allowed_uses": [
+        "planning_context",
+        "continuity",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [],
+      "routes": [
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/README.md"
+      ]
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/dustwalker/README.md",
+      "source_role": "hub_evidence",
+      "authority": "canon_play",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "unit_id": null,
+      "breadcrumb_id": null,
+      "line_start": null,
+      "line_end": null,
+      "admissible": true,
+      "allowed_uses": [
+        "planning_context",
+        "continuity",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [],
+      "routes": [
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/dustwalker/README.md"
+      ]
+    },
+    {
+      "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/README.md",
+      "source_role": "hub_evidence",
+      "authority": "canon_play",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "unit_id": null,
+      "breadcrumb_id": null,
+      "line_start": null,
+      "line_end": null,
+      "admissible": true,
+      "allowed_uses": [
+        "planning_context",
+        "continuity",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [],
+      "routes": [
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/README.md"
+      ]
+    }
+  ],
+  "rejected_evidence": [
+    {
+      "evidence": {
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/travel_storm_weather_d20.md",
+        "source_role": "prep_scaffold",
+        "authority": "planning_scaffold",
+        "session_scope": [
+          22
+        ],
+        "unit_id": null,
+        "breadcrumb_id": null,
+        "line_start": null,
+        "line_end": null,
+        "admissible": true,
+        "allowed_uses": [
+          "planning_context",
+          "reusable_prep"
+        ],
+        "forbidden_uses": [
+          "play_facts"
+        ],
+        "routes": [
+          "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/travel_storm_weather_d20.md"
+        ]
+      },
+      "reason_code": "authority_forbidden_for_play_fact"
+    },
+    {
+      "evidence": {
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/Session 22 - open GM knobs.md",
+        "source_role": "prep_scaffold",
+        "authority": "planning_scaffold",
+        "session_scope": [
+          22
+        ],
+        "unit_id": null,
+        "breadcrumb_id": null,
+        "line_start": null,
+        "line_end": null,
+        "admissible": true,
+        "allowed_uses": [
+          "planning_context",
+          "reusable_prep"
+        ],
+        "forbidden_uses": [
+          "play_facts"
+        ],
+        "routes": [
+          "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/Session 22 - open GM knobs.md"
+        ]
+      },
+      "reason_code": "authority_forbidden_for_play_fact"
+    },
+    {
+      "evidence": {
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/mireward_gate_dilemma_d6.md",
+        "source_role": "prep_scaffold",
+        "authority": "planning_scaffold",
+        "session_scope": [
+          22
+        ],
+        "unit_id": null,
+        "breadcrumb_id": null,
+        "line_start": null,
+        "line_end": null,
+        "admissible": true,
+        "allowed_uses": [
+          "planning_context",
+          "reusable_prep"
+        ],
+        "forbidden_uses": [
+          "play_facts"
+        ],
+        "routes": [
+          "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/mireward_gate_dilemma_d6.md"
+        ]
+      },
+      "reason_code": "authority_forbidden_for_play_fact"
+    },
+    {
+      "evidence": {
+        "path": "evals/c2_live_prep/live/session_23/live_packet.json",
+        "source_role": "live_packet",
+        "authority": "planning_scaffold",
+        "session_scope": [
+          23
+        ],
+        "unit_id": null,
+        "breadcrumb_id": null,
+        "line_start": null,
+        "line_end": null,
+        "admissible": true,
+        "allowed_uses": [
+          "active_session_orientation",
+          "planning_context"
+        ],
+        "forbidden_uses": [
+          "play_facts"
+        ],
+        "routes": [
+          "evals/c2_live_prep/live/session_23/live_packet.json"
+        ]
+      },
+      "reason_code": "authority_forbidden_for_play_fact"
+    },
+    {
+      "evidence": {
+        "path": "evals/c2_live_prep/live/session_23/event_log.jsonl",
+        "source_role": "live_event",
+        "authority": "live_observation",
+        "session_scope": [
+          23
+        ],
+        "unit_id": null,
+        "breadcrumb_id": null,
+        "line_start": null,
+        "line_end": null,
+        "admissible": true,
+        "allowed_uses": [
+          "observed_play",
+          "planning_observation",
+          "audit_evidence"
+        ],
+        "forbidden_uses": [
+          "play_facts"
+        ],
+        "routes": [
+          "evals/c2_live_prep/live/session_23/event_log.jsonl"
+        ]
+      },
+      "reason_code": "authority_forbidden_for_play_fact"
+    },
+    {
+      "evidence": {
+        "path": "evals/c2_live_prep/live/session_23/recap.md",
+        "source_role": "fresh_recap",
+        "authority": "pre_canonical_evidence",
+        "session_scope": [
+          23
+        ],
+        "unit_id": null,
+        "breadcrumb_id": null,
+        "line_start": null,
+        "line_end": null,
+        "admissible": true,
+        "allowed_uses": [
+          "planning_input"
+        ],
+        "forbidden_uses": [],
+        "routes": [
+          "evals/c2_live_prep/live/session_23/recap.md"
+        ]
+      },
+      "reason_code": "authority_forbidden_for_play_fact"
+    },
+    {
+      "evidence": {
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/_ingest_staging/session_22_raw_notes.md",
+        "source_role": "table_notes",
+        "authority": "pre_canonical_evidence",
+        "session_scope": [
+          22
+        ],
+        "unit_id": null,
+        "breadcrumb_id": null,
+        "line_start": null,
+        "line_end": null,
+        "admissible": true,
+        "allowed_uses": [
+          "provenance",
+          "pre_recap_evidence"
+        ],
+        "forbidden_uses": [
+          "play_facts"
+        ],
+        "routes": [
+          "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/_ingest_staging/session_22_raw_notes.md"
+        ]
+      },
+      "reason_code": "authority_forbidden_for_play_fact"
+    },
+    {
+      "evidence": {
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/_ingest_staging/session_21_raw_notes.md",
+        "source_role": "table_notes",
+        "authority": "pre_canonical_evidence",
+        "session_scope": [
+          21
+        ],
+        "unit_id": null,
+        "breadcrumb_id": null,
+        "line_start": null,
+        "line_end": null,
+        "admissible": true,
+        "allowed_uses": [
+          "provenance",
+          "pre_recap_evidence"
+        ],
+        "forbidden_uses": [
+          "play_facts"
+        ],
+        "routes": [
+          "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/_ingest_staging/session_21_raw_notes.md"
+        ]
+      },
+      "reason_code": "authority_forbidden_for_play_fact"
+    }
+  ],
+  "claims": [
+    {
+      "claim_id": "town-02_primary_claim",
+      "claim_type": "play_fact",
+      "support_status": "partial",
+      "supporting_evidence_refs": [
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 21 - Drake Nest Mirathorn Call.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 21 - Drake Nest Mirathorn Call.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 22 - Mireward Road and Lysandro.records_meta.json",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 22 - Mireward Road and Lysandro.records_meta.jsonl",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 21 - Drake Nest Mirathorn Call.records_meta.json",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 21 - Drake Nest Mirathorn Call.records_meta.jsonl",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.breadcrumbed.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 21 - Drake Nest Mirathorn Call.breadcrumbed.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Factions/README.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/README.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/dustwalker/README.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/README.md"
+      ],
+      "route_refs": [
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 21 - Drake Nest Mirathorn Call.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 21 - Drake Nest Mirathorn Call.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 22 - Mireward Road and Lysandro.records_meta.json",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 22 - Mireward Road and Lysandro.records_meta.jsonl",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 21 - Drake Nest Mirathorn Call.records_meta.json",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 21 - Drake Nest Mirathorn Call.records_meta.jsonl",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.breadcrumbed.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 21 - Drake Nest Mirathorn Call.breadcrumbed.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Factions/README.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/README.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/dustwalker/README.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/README.md"
+      ],
+      "planning_implication": "Use admitted evidence only; rejected evidence remains audit-visible.",
+      "authority_notes": "Play-fact claims require canon_play/derived_memory only."
+    }
+  ],
+  "route_context": [
+    {
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md",
+      "source_role": "play_recap",
+      "authority": "canon_play"
+    },
+    {
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md",
+      "source_role": "play_recap",
+      "authority": "canon_play"
+    },
+    {
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 21 - Drake Nest Mirathorn Call.md",
+      "source_role": "play_recap",
+      "authority": "canon_play"
+    },
+    {
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 21 - Drake Nest Mirathorn Call.md",
+      "source_role": "play_recap",
+      "authority": "canon_play"
+    },
+    {
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 22 - Mireward Road and Lysandro.records_meta.json",
+      "source_role": "session_memory",
+      "authority": "derived_memory"
+    },
+    {
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 22 - Mireward Road and Lysandro.records_meta.jsonl",
+      "source_role": "session_memory",
+      "authority": "derived_memory"
+    },
+    {
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 21 - Drake Nest Mirathorn Call.records_meta.json",
+      "source_role": "session_memory",
+      "authority": "derived_memory"
+    },
+    {
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 21 - Drake Nest Mirathorn Call.records_meta.jsonl",
+      "source_role": "session_memory",
+      "authority": "derived_memory"
+    },
+    {
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.breadcrumbed.md",
+      "source_role": "play_recap",
+      "authority": "canon_play"
+    },
+    {
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 21 - Drake Nest Mirathorn Call.breadcrumbed.md",
+      "source_role": "play_recap",
+      "authority": "canon_play"
+    },
+    {
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Factions/README.md",
+      "source_role": "hub_evidence",
+      "authority": "canon_play"
+    },
+    {
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/README.md",
+      "source_role": "hub_evidence",
+      "authority": "canon_play"
+    },
+    {
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/dustwalker/README.md",
+      "source_role": "hub_evidence",
+      "authority": "canon_play"
+    },
+    {
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/README.md",
+      "source_role": "hub_evidence",
+      "authority": "canon_play"
+    }
+  ],
+  "planning_implications": [
+    "Packet is evidence-first; unsupported claims should remain blocked.",
+    "PR97 manifest query/admission runner — not the PR96 trace adapter."
+  ],
+  "capability_status": {
+    "status": "unknown",
+    "evidence": [
+      "not_a_capability_question"
+    ]
+  },
+  "blocked_or_missing": [],
+  "citation_policy": {
+    "play_fact_allowed_authorities": [
+      "canon_play",
+      "derived_memory"
+    ],
+    "play_fact_forbidden_authorities": [
+      "live_observation",
+      "planning_scaffold",
+      "pre_canonical_evidence",
+      "reference_tool"
+    ]
+  }
+}

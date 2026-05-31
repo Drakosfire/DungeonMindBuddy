@@ -13,7 +13,19 @@ ROOT = Path(__file__).resolve().parents[2]
 
 DEFAULT_GOLD = ROOT / "evals/c2_live_prep/benchmarks/c2s23_route_evidence_gold.json"
 DEFAULT_PACKET_DIR = ROOT / "evals/c2_live_prep/artifacts/runs" / str(date.today())
+DEFAULT_PACKET_PREFIX = "c2s23_context_packet_"
 DEFAULT_SUMMARY = DEFAULT_PACKET_DIR / "c2s23_trace_context_packet_adapter_summary.json"
+DEFAULT_OUTPUT = ROOT / "evals/c2_live_prep/artifacts/last_c2s23_context_packet_eval.json"
+
+ACCEPTED_GOLD_SCHEMAS = {
+    "dmb_c2s23_route_evidence_gold_v1",
+    "dmb_c2s23_manifest_query_gold_v1",
+}
+ACCEPTED_SUMMARY_SCHEMAS = {
+    "dmb_c2s23_trace_context_packet_adapter_run_v1",
+    "dmb_c2s23_manifest_context_benchmark_run_v1",
+    "dmb_c2s23_manifest_query_context_run_v1",
+}
 
 
 def _utc_now_z() -> str:
@@ -99,6 +111,27 @@ def check_claim_expectation(packet: dict[str, Any], claim: dict[str, Any]) -> tu
     if bool(claim.get("must_report_blocker")) and not blocked:
         violations.append("missing_blocked_or_missing_entry")
 
+    required_blocker_codes_any = set(claim.get("required_blocker_codes_any") or [])
+    if required_blocker_codes_any:
+        seen_codes = {str(b.get("code") or "") for b in blocked}
+        if not (required_blocker_codes_any & seen_codes):
+            violations.append("missing_required_blocker_code")
+
+    required_roles_any = set(claim.get("required_admitted_source_roles_any") or [])
+    if required_roles_any:
+        admitted_roles = {str(e.get("source_role") or "") for e in admitted}
+        if not (required_roles_any & admitted_roles):
+            violations.append("missing_required_admitted_source_roles_any")
+
+    refs_min = claim.get("required_activation_manifest_refs_min")
+    if refs_min is not None:
+        refs = list(packet.get("activation_manifest_refs") or [])
+        if len(refs) < int(refs_min):
+            violations.append("insufficient_activation_manifest_refs")
+
+    if bool(claim.get("must_include_rejected_evidence")) and not rejected:
+        violations.append("missing_rejected_evidence")
+
     required_verdict_contains_any = [str(x) for x in claim.get("required_verdict_contains_any") or []]
     if required_verdict_contains_any:
         if not any(token in excerpt for token in required_verdict_contains_any):
@@ -122,24 +155,22 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--gold", type=Path, default=DEFAULT_GOLD)
     parser.add_argument("--packet-dir", type=Path, default=DEFAULT_PACKET_DIR)
+    parser.add_argument("--packet-prefix", type=str, default=DEFAULT_PACKET_PREFIX)
     parser.add_argument("--summary", type=Path, default=DEFAULT_SUMMARY)
-    parser.add_argument(
-        "--output",
-        type=Path,
-        default=ROOT / "evals/c2_live_prep/artifacts/last_c2s23_context_packet_eval.json",
-    )
+    parser.add_argument("--summary-schema", type=str, default="")
+    parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     args = parser.parse_args()
 
     gold = load_json(args.gold.resolve())
     summary = load_json(args.summary.resolve())
     packet_dir = args.packet_dir.resolve()
 
-    if str(gold.get("schema") or "") != "dmb_c2s23_route_evidence_gold_v1":
+    if str(gold.get("schema") or "") not in ACCEPTED_GOLD_SCHEMAS:
         raise SystemExit("unexpected gold schema")
-    if str(summary.get("schema") or "") not in {
-        "dmb_c2s23_trace_context_packet_adapter_run_v1",
-        "dmb_c2s23_manifest_context_benchmark_run_v1",
-    }:
+    summary_schema = str(summary.get("schema") or "")
+    if args.summary_schema and summary_schema != args.summary_schema:
+        raise SystemExit("unexpected packet summary schema (explicit)")
+    if summary_schema not in ACCEPTED_SUMMARY_SCHEMAS:
         raise SystemExit("unexpected packet summary schema")
 
     by_question = {
@@ -150,7 +181,7 @@ def main() -> int:
     failed = 0
 
     for qid, spec in by_question.items():
-        packet_path = packet_dir / f"c2s23_context_packet_{qid}.json"
+        packet_path = packet_dir / f"{args.packet_prefix}{qid}.json"
         if not packet_path.is_file():
             rows.append(
                 {
