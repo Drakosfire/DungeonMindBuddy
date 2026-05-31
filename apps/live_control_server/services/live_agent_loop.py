@@ -54,6 +54,8 @@ def process_live_query(
     base: Path | None = None,
     root: Path | None = None,
     request_manifest_path: str | None = None,
+    llm_model_override: str | None = None,
+    require_llm_override: bool | None = None,
 ) -> dict[str, Any]:
     session_base = base or session_dir()
     repo = root or repo_root()
@@ -68,6 +70,8 @@ def process_live_query(
             root=repo,
             session=int(packet["session"]),
             request_manifest_path=request_manifest_path,
+            llm_model_override=llm_model_override,
+            require_llm_override=require_llm_override,
         )
         return context_result.response
 

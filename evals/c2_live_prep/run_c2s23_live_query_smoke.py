@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from datetime import date, datetime, timezone
 from pathlib import Path
@@ -30,14 +31,22 @@ def _utc_now_z() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+def _env_flag_enabled(name: str) -> bool:
+    raw = str(os.getenv(name, "")).strip().lower()
+    return raw in {"1", "true", "yes", "on"}
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--session-dir", type=Path, default=DEFAULT_SESSION_DIR)
     parser.add_argument("--question", type=str, default=DEFAULT_QUESTION)
     parser.add_argument("--rejection-question", type=str, default=DEFAULT_REJECTION_QUESTION)
     parser.add_argument("--manifest-path", type=str, default=DEFAULT_MANIFEST_PATH)
+    parser.add_argument("--require-llm", action="store_true")
+    parser.add_argument("--model", type=str, default=None)
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR)
     args = parser.parse_args()
+    require_llm = bool(args.require_llm or _env_flag_enabled("DMB_LIVE_QUERY_REQUIRE_LLM"))
 
     cases = [
         {"name": "baseline", "question": args.question, "admitted_count_min": 1, "rejected_count_min": 0},
@@ -57,11 +66,15 @@ def main() -> int:
             base=args.session_dir.resolve(),
             root=ROOT,
             request_manifest_path=args.manifest_path,
+            llm_model_override=args.model,
+            require_llm_override=require_llm,
         )
         packet = response.get("context_packet") or {}
         citations = response.get("citations") or []
-        warnings = response.get("warnings") or []
-        has_llm_fallback_warning = "llm_grounding_call_failed" in warnings
+        warnings = list(response.get("warnings") or [])
+        provenance = dict(response.get("provenance") or {})
+        answer_source = str(provenance.get("grounding_answer_source") or "none")
+        llm_path_available = bool(provenance.get("llm_path_available"))
         smoke = {
             "name": case["name"],
             "question": case["question"],
@@ -76,7 +89,9 @@ def main() -> int:
             "mode": response.get("mode"),
             "status": response.get("status"),
             "warnings": warnings,
-            "llm_path_available": not has_llm_fallback_warning,
+            "grounding_answer_source": answer_source,
+            "llm_path_available": llm_path_available,
+            "llm_model": provenance.get("llm_model"),
         }
         smoke_ok = (
             bool(smoke["has_answer"])
@@ -88,20 +103,34 @@ def main() -> int:
             and smoke["mode"] == "context_lookup"
             and smoke["status"] == "ok"
         )
+        if require_llm:
+            smoke_ok = (
+                smoke_ok
+                and smoke["grounding_answer_source"] == "llm"
+                and bool(smoke["llm_path_available"])
+                and not bool(smoke["warnings"])
+            )
         smoke["ok"] = smoke_ok
         all_ok = all_ok and smoke_ok
         case_results.append(smoke)
 
     smoke_report = {
-        "schema": "dmb_c2s23_live_query_context_smoke_v2",
+        "schema": "dmb_c2s23_live_query_context_smoke_v3",
         "generated_at": _utc_now_z(),
         "manifest_path": args.manifest_path,
+        "require_llm": require_llm,
+        "model_override": args.model,
         "cases": case_results,
     }
 
     out_dir = args.output_dir.resolve()
     out_dir.mkdir(parents=True, exist_ok=True)
-    out_path = out_dir / "c2s23_live_query_context_smoke.json"
+    out_name = (
+        "c2s23_live_query_context_smoke_llm.json"
+        if require_llm
+        else "c2s23_live_query_context_smoke_offline.json"
+    )
+    out_path = out_dir / out_name
     out_path.write_text(json.dumps(smoke_report, indent=2, ensure_ascii=False), encoding="utf-8")
     print(json.dumps({"ok": all_ok, "output": str(out_path.relative_to(ROOT)), "smoke": smoke_report}, indent=2))
     return 0 if all_ok else 1

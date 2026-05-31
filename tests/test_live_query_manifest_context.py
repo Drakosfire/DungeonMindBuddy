@@ -3,6 +3,7 @@ from __future__ import annotations
 import builtins
 import shutil
 from pathlib import Path
+from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
@@ -35,6 +36,20 @@ def isolated_session_23(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path
 @pytest.fixture
 def client(isolated_session_23: Path) -> TestClient:
     return TestClient(create_app())
+
+
+def _live_query(
+    *,
+    isolated_session_23: Path,
+    text: str,
+    manifest_path: str = TEST_MANIFEST_PATH,
+) -> dict[str, Any]:
+    return process_live_query(
+        text,
+        base=isolated_session_23,
+        root=ROOT,
+        request_manifest_path=manifest_path,
+    )
 
 
 def test_context_lookup_returns_packet_with_admitted_and_rejected_evidence(client: TestClient) -> None:
@@ -74,6 +89,7 @@ def test_context_lookup_returns_packet_with_admitted_and_rejected_evidence(clien
     assert "REJECTED EVIDENCE" in prompt
     assert "Do not use rejected evidence as support." in prompt
     assert "Never claim write capability in this response path; it is read-only." in prompt
+    assert "Every factual campaign claim in your answer must include at least one admitted evidence citation." in prompt
 
 
 def test_context_lookup_citations_reference_admitted_evidence(client: TestClient) -> None:
@@ -183,6 +199,108 @@ def test_context_lookup_does_not_read_gold_or_dogfood_trace(
     assert (isolated_session_23 / "job_queue.jsonl").read_text(encoding="utf-8") == before_jobs
 
 
+def test_missing_api_key_falls_back_when_llm_not_required(
+    isolated_session_23: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(live_query_context, "_load_api_key", lambda: "")
+    monkeypatch.delenv("DMB_LIVE_QUERY_REQUIRE_LLM", raising=False)
+    body = _live_query(
+        isolated_session_23=isolated_session_23,
+        text="What Session 22 outcomes matter for Session 23 prep?",
+    )
+    assert body["status"] == "ok"
+    assert body["provenance"]["grounding_answer_source"] == "fallback"
+    assert "llm_api_key_missing" in (body.get("warnings") or [])
+    assert body["citations"], "fallback answer should remain cited"
+
+
+def test_missing_api_key_fails_when_llm_required(
+    isolated_session_23: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(live_query_context, "_load_api_key", lambda: "")
+    monkeypatch.setenv("DMB_LIVE_QUERY_REQUIRE_LLM", "1")
+    body = _live_query(
+        isolated_session_23=isolated_session_23,
+        text="What Session 22 outcomes matter for Session 23 prep?",
+    )
+    assert body["status"] == "llm_unavailable"
+    assert body["answer"] == ""
+    assert body["provenance"]["grounding_answer_source"] == "none"
+    assert "llm_api_key_missing" in (body.get("warnings") or [])
+
+
+def test_stubbed_llm_success_is_marked_llm_source(
+    isolated_session_23: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def _fake_llm_answer(**kwargs: Any) -> live_query_context.GroundedAnswerResult:
+        admitted = list((kwargs.get("packet") or {}).get("admitted_evidence") or [])
+        assert admitted, "expected admitted evidence for stubbed llm test"
+        evidence_id = str(admitted[0].get("evidence_id") or "ev-unknown")
+        return live_query_context.GroundedAnswerResult(
+            answer=f"Stub grounded answer citing [{evidence_id}].",
+            source="llm",
+            warnings=[],
+            diagnostics=[{"code": "stubbed_llm"}],
+        )
+
+    monkeypatch.setattr(live_query_context, "_run_llm_grounded_answer", _fake_llm_answer)
+    monkeypatch.setenv("DMB_LIVE_QUERY_REQUIRE_LLM", "1")
+    body = _live_query(
+        isolated_session_23=isolated_session_23,
+        text="What Session 22 outcomes matter for Session 23 prep?",
+    )
+    assert body["status"] == "ok"
+    assert body["provenance"]["grounding_answer_source"] == "llm"
+    assert body["provenance"]["llm_path_available"] is True
+    assert body["citations"], "expected citations from llm answer"
+    assert "llm_fallback_used" not in (body.get("warnings") or [])
+
+
+def test_llm_answer_without_citations_fails_when_required(
+    isolated_session_23: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def _fake_llm_answer(**kwargs: Any) -> live_query_context.GroundedAnswerResult:
+        return live_query_context.GroundedAnswerResult(
+            answer="This answer has no evidence citations.",
+            source="llm",
+            warnings=[],
+            diagnostics=[{"code": "stubbed_llm"}],
+        )
+
+    monkeypatch.setattr(live_query_context, "_run_llm_grounded_answer", _fake_llm_answer)
+    monkeypatch.setenv("DMB_LIVE_QUERY_REQUIRE_LLM", "1")
+    body = _live_query(
+        isolated_session_23=isolated_session_23,
+        text="What Session 22 outcomes matter for Session 23 prep?",
+    )
+    assert body["status"] == "llm_grounding_failed"
+    assert body["answer"] == ""
+    assert "llm_answer_missing_citations" in (body.get("warnings") or [])
+
+
+def test_llm_answer_with_unknown_or_rejected_citation_fails_when_required(
+    isolated_session_23: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def _fake_llm_answer(**kwargs: Any) -> live_query_context.GroundedAnswerResult:
+        return live_query_context.GroundedAnswerResult(
+            answer="Unsupported reference [ev-doesnotexist].",
+            source="llm",
+            warnings=[],
+            diagnostics=[{"code": "stubbed_llm"}],
+        )
+
+    monkeypatch.setattr(live_query_context, "_run_llm_grounded_answer", _fake_llm_answer)
+    monkeypatch.setenv("DMB_LIVE_QUERY_REQUIRE_LLM", "1")
+    body = _live_query(
+        isolated_session_23=isolated_session_23,
+        text="After ingesting Session 22 raw notes, what Session 22 outcomes matter for Session 23 prep?",
+    )
+    assert body["status"] == "llm_grounding_failed"
+    warnings = body.get("warnings") or []
+    assert "llm_answer_cited_rejected_or_unknown_evidence" in warnings
+    assert body["provenance"]["grounding_answer_source"] == "none"
+
+
 def test_context_lookup_without_manifest_defaults_is_truthful_when_dogfood_off(
     isolated_session_23: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -197,24 +315,22 @@ def test_context_lookup_without_manifest_defaults_is_truthful_when_dogfood_off(
     assert body["context_packet"] is None
 
 
-def test_context_lookup_stubbed_llm_path_emits_citations(
+def test_fallback_answer_citations_only_reference_admitted_evidence(
     isolated_session_23: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    def _fake_llm_answer(*, question: str, packet: dict[str, object], root: Path) -> tuple[str | None, list[str]]:
-        admitted = list(packet.get("admitted_evidence") or [])
-        assert admitted, "expected admitted evidence for stubbed llm test"
-        evidence_id = str(admitted[0].get("evidence_id") or "ev-unknown")
-        return f"Stub grounded answer citing [{evidence_id}].", []
-
-    monkeypatch.setattr(live_query_context, "_run_llm_grounded_answer", _fake_llm_answer)
-    body = process_live_query(
-        "What Session 22 outcomes matter for Session 23 prep?",
-        base=isolated_session_23,
-        root=ROOT,
-        request_manifest_path=TEST_MANIFEST_PATH,
+    monkeypatch.setattr(live_query_context, "_load_api_key", lambda: "")
+    monkeypatch.delenv("DMB_LIVE_QUERY_REQUIRE_LLM", raising=False)
+    body = _live_query(
+        isolated_session_23=isolated_session_23,
+        text="After ingesting Session 22 raw notes, what Session 22 outcomes matter for Session 23 prep?",
     )
-    assert body["mode"] == "context_lookup"
-    assert body["status"] == "ok"
-    assert "stub grounded answer citing" in body["answer"].lower()
-    assert body["citations"], "expected citations from stubbed llm answer"
-    assert "llm_grounding_call_failed" not in (body.get("warnings") or [])
+    assert body["provenance"]["grounding_answer_source"] == "fallback"
+    citations = body.get("citations") or []
+    assert citations, "fallback should produce admitted-evidence citations"
+    packet = body["context_packet"]
+    admitted_ids = {row.get("evidence_id") for row in packet["admitted_evidence"]}
+    rejected_ids = {row.get("evidence", {}).get("evidence_id") for row in packet["rejected_evidence"]}
+    for row in citations:
+        evidence_id = row["evidence_id"]
+        assert evidence_id in admitted_ids
+        assert evidence_id not in rejected_ids

@@ -8,7 +8,7 @@ import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable, Literal
 
 from src.agent.synthesis import _load_api_key
 from src.bootstrap_env import load_dungeonmindbuddy_dotenv
@@ -47,6 +47,11 @@ _DEFAULT_PRECONDITION_PATHS: dict[str, str] = {
 }
 _DOGFOOD_DEFAULTS_ENV = "DMB_C2S23_DOGFOOD_DEFAULTS"
 _DEBUG_GROUNDED_PROMPT_ENV = "DMB_LIVE_QUERY_INCLUDE_GROUNDED_PROMPT"
+_REQUIRE_LLM_ENV = "DMB_LIVE_QUERY_REQUIRE_LLM"
+_LIVE_QUERY_MODEL_ENV = "DMB_LIVE_QUERY_MODEL"
+_LIVE_QUERY_TEMP_ENV = "DMB_LIVE_QUERY_TEMPERATURE"
+_LIVE_QUERY_MAX_TOKENS_ENV = "DMB_LIVE_QUERY_MAX_OUTPUT_TOKENS"
+_LIVE_QUERY_PROVIDER_ENV = "DMB_LIVE_QUERY_PROVIDER"
 
 
 @dataclass(frozen=True)
@@ -54,6 +59,30 @@ class ContextLookupResult:
     response: dict[str, Any]
     events_to_write: list[dict[str, object]]
     jobs_to_queue: list[dict[str, object]]
+
+
+@dataclass(frozen=True)
+class LiveQueryLLMConfig:
+    provider: str
+    model: str
+    require_llm: bool
+    max_output_tokens: int = 600
+    temperature: float = 0.2
+
+
+@dataclass(frozen=True)
+class GroundedAnswerResult:
+    answer: str | None
+    source: Literal["llm", "stub", "fallback", "none"]
+    warnings: list[str]
+    diagnostics: list[dict[str, Any]]
+
+
+@dataclass(frozen=True)
+class CitationValidationResult:
+    citations: list[dict[str, Any]]
+    warnings: list[str]
+    diagnostics: dict[str, Any]
 
 
 def _utc_now_z() -> str:
@@ -88,6 +117,43 @@ def _env_flag_enabled(name: str) -> bool:
     return raw in {"1", "true", "yes", "on"}
 
 
+def _env_text(name: str) -> str | None:
+    raw = str(os.getenv(name, "")).strip()
+    return raw or None
+
+
+def _env_int(name: str, default: int) -> int:
+    raw = _env_text(name)
+    if raw is None:
+        return default
+    try:
+        value = int(raw)
+    except ValueError:
+        return default
+    return value if value > 0 else default
+
+
+def _env_float(name: str, default: float) -> float:
+    raw = _env_text(name)
+    if raw is None:
+        return default
+    try:
+        return float(raw)
+    except ValueError:
+        return default
+
+
+def _dedupe_strs(values: list[str]) -> list[str]:
+    out: list[str] = []
+    seen: set[str] = set()
+    for value in values:
+        if value in seen:
+            continue
+        seen.add(value)
+        out.append(value)
+    return out
+
+
 def _grounding_prompt_policy() -> dict[str, bool]:
     return {
         "uses_admitted_evidence": True,
@@ -95,6 +161,34 @@ def _grounding_prompt_policy() -> dict[str, bool]:
         "requires_evidence_id_citations": True,
         "read_only": True,
     }
+
+
+def resolve_live_query_llm_config(
+    root: Path,
+    *,
+    override: LiveQueryLLMConfig | None = None,
+    model_override: str | None = None,
+    require_llm_override: bool | None = None,
+) -> LiveQueryLLMConfig:
+    if override is not None:
+        return override
+
+    provider = _env_text(_LIVE_QUERY_PROVIDER_ENV) or "openai"
+    model = (
+        (model_override or "").strip()
+        or (_env_text(_LIVE_QUERY_MODEL_ENV) or "").strip()
+        or _live_query_model(root)
+    )
+    require_llm = require_llm_override if require_llm_override is not None else _env_flag_enabled(_REQUIRE_LLM_ENV)
+    max_output_tokens = _env_int(_LIVE_QUERY_MAX_TOKENS_ENV, 600)
+    temperature = _env_float(_LIVE_QUERY_TEMP_ENV, 0.2)
+    return LiveQueryLLMConfig(
+        provider=provider,
+        model=model,
+        require_llm=bool(require_llm),
+        max_output_tokens=max_output_tokens,
+        temperature=temperature,
+    )
 
 
 def resolve_manifest_path(
@@ -218,6 +312,7 @@ def render_grounded_prompt(question: str, packet: dict[str, Any]) -> str:
         "Distinguish play facts from planning suggestions.",
         "Never claim write capability in this response path; it is read-only.",
         "If asked to mutate artifacts, explicitly refuse mutation and stay read-only.",
+        "Every factual campaign claim in your answer must include at least one admitted evidence citation.",
     ]
     return "\n\n".join(
         [
@@ -297,52 +392,82 @@ def _run_llm_grounded_answer(
     *,
     question: str,
     packet: dict[str, Any],
-    root: Path,
-) -> tuple[str | None, list[str]]:
+    llm_config: LiveQueryLLMConfig,
+    client_factory: Callable[[], Any] | None = None,
+) -> GroundedAnswerResult:
+    diagnostics: list[dict[str, Any]] = []
     warnings: list[str] = []
+
+    if not llm_config.model.strip():
+        code = "llm_model_config_missing"
+        warnings.append(code)
+        diagnostics.append({"code": code})
+        return GroundedAnswerResult(answer=None, source="none", warnings=warnings, diagnostics=diagnostics)
+
     load_dungeonmindbuddy_dotenv()
     if not (_load_api_key() or "").strip():
-        return None, warnings
+        code = "llm_api_key_missing"
+        warnings.append(code)
+        diagnostics.append({"code": code})
+        return GroundedAnswerResult(answer=None, source="none", warnings=warnings, diagnostics=diagnostics)
 
     try:
         from openai import OpenAI  # type: ignore
-    except Exception:
-        warnings.append("llm_client_unavailable")
-        return None, warnings
+    except Exception as exc:
+        code = "llm_client_unavailable"
+        warnings.append(code)
+        diagnostics.append({"code": code, "error_type": type(exc).__name__})
+        return GroundedAnswerResult(answer=None, source="none", warnings=warnings, diagnostics=diagnostics)
 
     prompt = render_grounded_prompt(question, packet)
-    model = _live_query_model(root)
     try:
-        client = OpenAI()
+        client = client_factory() if client_factory is not None else OpenAI()
+    except Exception as exc:
+        code = "llm_client_unavailable"
+        warnings.append(code)
+        diagnostics.append({"code": code, "error_type": type(exc).__name__})
+        return GroundedAnswerResult(answer=None, source="none", warnings=warnings, diagnostics=diagnostics)
+
+    try:
         response = client.responses.create(
-            model=model,
+            model=llm_config.model,
             input=prompt,
-            temperature=0.2,
-            max_output_tokens=400,
+            temperature=llm_config.temperature,
+            max_output_tokens=llm_config.max_output_tokens,
         )
-    except Exception:
-        warnings.append("llm_grounding_call_failed")
-        return None, warnings
+    except Exception as exc:
+        code = "llm_request_failed"
+        warnings.append(code)
+        diagnostics.append({"code": code, "error_type": type(exc).__name__})
+        return GroundedAnswerResult(answer=None, source="none", warnings=warnings, diagnostics=diagnostics)
 
     answer = _extract_answer_text(response)
     if not answer:
-        warnings.append("llm_empty_answer_fallback_used")
-        return None, warnings
-    return answer, warnings
+        code = "llm_empty_answer"
+        warnings.append(code)
+        diagnostics.append({"code": code})
+        return GroundedAnswerResult(answer=None, source="none", warnings=warnings, diagnostics=diagnostics)
+
+    return GroundedAnswerResult(answer=answer, source="llm", warnings=warnings, diagnostics=diagnostics)
 
 
-def _build_citations(answer: str, packet: dict[str, Any]) -> tuple[list[dict[str, Any]], list[str]]:
-    warnings: list[str] = []
+def _build_citations(answer: str, packet: dict[str, Any]) -> CitationValidationResult:
     cited = _extract_cited_evidence_ids(answer)
-    by_id = {
+    admitted_by_id = {
         str(row.get("evidence_id") or ""): row
         for row in list(packet.get("admitted_evidence") or [])
         if row.get("evidence_id")
     }
+    rejected_ids = {
+        str(row.get("evidence", {}).get("evidence_id") or "")
+        for row in list(packet.get("rejected_evidence") or [])
+        if row.get("evidence", {}).get("evidence_id")
+    }
+
     citations: list[dict[str, Any]] = []
     for eid in cited:
-        row = by_id.get(eid)
-        if not row:
+        row = admitted_by_id.get(eid)
+        if row is None:
             continue
         citations.append(
             {
@@ -354,91 +479,55 @@ def _build_citations(answer: str, packet: dict[str, Any]) -> tuple[list[dict[str
                 "authority": row.get("authority"),
             }
         )
-    if not citations:
-        warnings.append("ungrounded_answer_missing_citations")
-    return citations, warnings
 
+    warnings: list[str] = []
+    if not cited:
+        warnings.append("llm_answer_missing_citations")
+    unknown_ids = sorted([eid for eid in cited if eid not in admitted_by_id and eid not in rejected_ids])
+    cited_rejected_ids = sorted([eid for eid in cited if eid in rejected_ids])
+    if unknown_ids or cited_rejected_ids:
+        warnings.append("llm_answer_cited_rejected_or_unknown_evidence")
+    if cited and not citations:
+        warnings.append("llm_answer_missing_citations")
 
-def run_context_lookup_turn(
-    *,
-    question: str,
-    classification: TurnClassification,
-    packet: dict[str, Any],
-    root: Path,
-    session: int,
-    request_manifest_path: str | None = None,
-) -> ContextLookupResult:
-    query_id = f"live-query-{uuid.uuid4().hex[:12]}"
-    manifest_path = resolve_manifest_path(
-        request_manifest_path=request_manifest_path,
-        packet=packet,
-        root=root,
-    )
-    if manifest_path is None:
-        response = {
-            "schema": "dmb_live_query_response_v1",
-            "query_id": query_id,
-            "session": session,
-            "mode": "context_lookup",
-            "status": "missing_context_manifest",
-            "answer": "I cannot ground this answer because no activated planning corpus manifest is configured.",
-            "classification": {
-                "latency_mode": classification.latency_mode,
-                "event_type": classification.event_type,
-                "intent": classification.intent,
-                "table_id": classification.table_id,
-                "roll": classification.roll,
-                "skill_check": classification.skill_check,
-                "confidence": classification.confidence,
-            },
-            "events_written": [],
-            "jobs_queued": [],
-            "next_suggestions": [],
-            "diagnostics": ["missing_context_manifest"],
-            "provenance": {"mode": "context_lookup"},
-            "citations": [],
-            "context_packet": None,
-            "warnings": [],
-            "mutations": [],
-        }
-        return ContextLookupResult(response=response, events_to_write=[], jobs_to_queue=[])
-
-    manifest = load_manifest(manifest_path)
-    query_request = QueryRequest(question_id=query_id, question=question, category=None)
-    context_packet = build_context_packet(query_request, manifest, root=root, config=_default_query_config())
-    context_packet = assign_evidence_ids(context_packet)
-
-    answer, llm_warnings = _run_llm_grounded_answer(
-        question=question,
-        packet=context_packet,
-        root=root,
-    )
-    if answer is None:
-        answer = build_fallback_grounded_answer(question, context_packet)
-
-    citations, citation_warnings = _build_citations(answer, context_packet)
-    warnings = llm_warnings + citation_warnings
-
-    provenance: dict[str, Any] = {
-        "mode": "context_lookup",
-        "manifest_path": str(manifest_path.relative_to(root)),
-        "generated_at": _utc_now_z(),
-        "grounding_summary": {
-            "admitted_count": len(context_packet.get("admitted_evidence") or []),
-            "rejected_count": len(context_packet.get("rejected_evidence") or []),
-        },
-        "grounding_prompt_policy": _grounding_prompt_policy(),
+    diagnostics = {
+        "cited_evidence_ids": cited,
+        "admitted_citation_ids": [c["evidence_id"] for c in citations],
+        "unknown_citation_ids": unknown_ids,
+        "rejected_citation_ids": cited_rejected_ids,
     }
-    if _env_flag_enabled(_DEBUG_GROUNDED_PROMPT_ENV):
-        provenance["grounded_prompt"] = render_grounded_prompt(question, context_packet)
+    return CitationValidationResult(
+        citations=citations,
+        warnings=_dedupe_strs(warnings),
+        diagnostics=diagnostics,
+    )
 
-    response = {
+
+def _classify_llm_failure_status(warnings: list[str]) -> str:
+    unavailable_codes = {
+        "llm_api_key_missing",
+        "llm_client_unavailable",
+        "llm_model_config_missing",
+    }
+    if any(code in unavailable_codes for code in warnings):
+        return "llm_unavailable"
+    return "llm_grounding_failed"
+
+
+def _base_response(
+    *,
+    query_id: str,
+    session: int,
+    classification: TurnClassification,
+    mode: str,
+    status: str,
+) -> dict[str, Any]:
+    return {
         "schema": "dmb_live_query_response_v1",
         "query_id": query_id,
         "session": session,
-        "mode": "context_lookup",
-        "status": "ok",
-        "answer": answer,
+        "mode": mode,
+        "status": status,
         "classification": {
             "latency_mode": classification.latency_mode,
             "event_type": classification.event_type,
@@ -452,10 +541,141 @@ def run_context_lookup_turn(
         "jobs_queued": [],
         "next_suggestions": [],
         "diagnostics": [],
-        "provenance": provenance,
-        "citations": citations,
-        "context_packet": context_packet,
-        "warnings": warnings,
         "mutations": [],
     }
+
+
+def run_context_lookup_turn(
+    *,
+    question: str,
+    classification: TurnClassification,
+    packet: dict[str, Any],
+    root: Path,
+    session: int,
+    request_manifest_path: str | None = None,
+    llm_config_override: LiveQueryLLMConfig | None = None,
+    llm_model_override: str | None = None,
+    require_llm_override: bool | None = None,
+    llm_client_factory: Callable[[], Any] | None = None,
+) -> ContextLookupResult:
+    query_id = f"live-query-{uuid.uuid4().hex[:12]}"
+    manifest_path = resolve_manifest_path(
+        request_manifest_path=request_manifest_path,
+        packet=packet,
+        root=root,
+    )
+    if manifest_path is None:
+        response = _base_response(
+            query_id=query_id,
+            session=session,
+            classification=classification,
+            mode="context_lookup",
+            status="missing_context_manifest",
+        )
+        response.update(
+            {
+                "answer": "I cannot ground this answer because no activated planning corpus manifest is configured.",
+                "diagnostics": ["missing_context_manifest"],
+                "provenance": {
+                    "mode": "context_lookup",
+                    "grounding_answer_source": "none",
+                    "grounding_prompt_policy": _grounding_prompt_policy(),
+                },
+                "citations": [],
+                "context_packet": None,
+                "warnings": [],
+            }
+        )
+        return ContextLookupResult(response=response, events_to_write=[], jobs_to_queue=[])
+
+    llm_config = resolve_live_query_llm_config(
+        root,
+        override=llm_config_override,
+        model_override=llm_model_override,
+        require_llm_override=require_llm_override,
+    )
+    manifest = load_manifest(manifest_path)
+    query_request = QueryRequest(question_id=query_id, question=question, category=None)
+    context_packet = build_context_packet(query_request, manifest, root=root, config=_default_query_config())
+    context_packet = assign_evidence_ids(context_packet)
+
+    llm_result = _run_llm_grounded_answer(
+        question=question,
+        packet=context_packet,
+        llm_config=llm_config,
+        client_factory=llm_client_factory,
+    )
+    llm_citations = CitationValidationResult(citations=[], warnings=[], diagnostics={})
+    answer_source: Literal["llm", "stub", "fallback", "none"] = llm_result.source
+    warnings = list(llm_result.warnings)
+    diagnostics = list(llm_result.diagnostics)
+    answer = llm_result.answer or ""
+    status = "ok"
+
+    if llm_result.answer is not None:
+        llm_citations = _build_citations(llm_result.answer, context_packet)
+        warnings.extend(llm_citations.warnings)
+        diagnostics.append({"code": "llm_citation_validation", **llm_citations.diagnostics})
+        llm_citation_failure = any(
+            code in llm_citations.warnings
+            for code in ("llm_answer_missing_citations", "llm_answer_cited_rejected_or_unknown_evidence")
+        )
+        if llm_citation_failure and llm_config.require_llm:
+            status = "llm_grounding_failed"
+            answer = ""
+            answer_source = "none"
+        elif llm_citation_failure:
+            answer = build_fallback_grounded_answer(question, context_packet)
+            answer_source = "fallback"
+            warnings.append("llm_fallback_used")
+    else:
+        if llm_config.require_llm:
+            status = _classify_llm_failure_status(warnings)
+            answer = ""
+            answer_source = "none"
+        else:
+            answer = build_fallback_grounded_answer(question, context_packet)
+            answer_source = "fallback"
+            warnings.append("llm_fallback_used")
+
+    citation_result = _build_citations(answer, context_packet) if answer else CitationValidationResult([], [], {})
+    if answer_source != "llm":
+        warnings.extend(citation_result.warnings)
+
+    warnings = _dedupe_strs(warnings)
+    provenance: dict[str, Any] = {
+        "mode": "context_lookup",
+        "manifest_path": str(manifest_path.relative_to(root)),
+        "generated_at": _utc_now_z(),
+        "grounding_summary": {
+            "admitted_count": len(context_packet.get("admitted_evidence") or []),
+            "rejected_count": len(context_packet.get("rejected_evidence") or []),
+        },
+        "grounding_prompt_policy": _grounding_prompt_policy(),
+        "grounding_answer_source": answer_source,
+        "llm_path_available": answer_source == "llm",
+        "llm_model": llm_config.model,
+        "llm_provider": llm_config.provider,
+        "llm_require_llm": llm_config.require_llm,
+        "llm_diagnostics": diagnostics,
+    }
+    if _env_flag_enabled(_DEBUG_GROUNDED_PROMPT_ENV):
+        provenance["grounded_prompt"] = render_grounded_prompt(question, context_packet)
+
+    response = _base_response(
+        query_id=query_id,
+        session=session,
+        classification=classification,
+        mode="context_lookup",
+        status=status,
+    )
+    response.update(
+        {
+            "answer": answer,
+            "provenance": provenance,
+            "citations": citation_result.citations,
+            "context_packet": context_packet,
+            "warnings": warnings,
+        }
+    )
     return ContextLookupResult(response=response, events_to_write=[], jobs_to_queue=[])

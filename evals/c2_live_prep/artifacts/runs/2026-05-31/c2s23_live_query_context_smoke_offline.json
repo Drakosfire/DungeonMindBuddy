@@ -1,7 +1,9 @@
 {
-  "schema": "dmb_c2s23_live_query_context_smoke_v2",
-  "generated_at": "2026-05-31T22:32:22Z",
+  "schema": "dmb_c2s23_live_query_context_smoke_v3",
+  "generated_at": "2026-05-31T23:55:49Z",
   "manifest_path": "evals/c2_live_prep/benchmarks/c2s23_planning_corpus_manifest.json",
+  "require_llm": false,
+  "model_override": null,
   "cases": [
     {
       "name": "baseline",
@@ -17,9 +19,12 @@
       "mode": "context_lookup",
       "status": "ok",
       "warnings": [
-        "llm_grounding_call_failed"
+        "llm_request_failed",
+        "llm_fallback_used"
       ],
+      "grounding_answer_source": "fallback",
       "llm_path_available": false,
+      "llm_model": "gpt-5.3-chat-latest",
       "ok": true
     },
     {
@@ -36,9 +41,12 @@
       "mode": "context_lookup",
       "status": "ok",
       "warnings": [
-        "llm_grounding_call_failed"
+        "llm_request_failed",
+        "llm_fallback_used"
       ],
+      "grounding_answer_source": "fallback",
       "llm_path_available": false,
+      "llm_model": "gpt-5.3-chat-latest",
       "ok": true
     }
   ]
