@@ -309,6 +309,9 @@
         }
       },
       "additionalProperties": false
+    },
+    "source_excerpt": {
+      "type": "string"
     }
   },
   "$defs": {
@@ -368,6 +371,18 @@
             "null"
           ],
           "minimum": 1
+        },
+        "text_excerpt": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "evidence_score": {
+          "type": [
+            "number",
+            "null"
+          ]
         },
         "admissible": {
           "type": "boolean"

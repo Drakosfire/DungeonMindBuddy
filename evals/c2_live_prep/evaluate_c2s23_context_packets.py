@@ -13,7 +13,19 @@ ROOT = Path(__file__).resolve().parents[2]
 
 DEFAULT_GOLD = ROOT / "evals/c2_live_prep/benchmarks/c2s23_route_evidence_gold.json"
 DEFAULT_PACKET_DIR = ROOT / "evals/c2_live_prep/artifacts/runs" / str(date.today())
+DEFAULT_PACKET_PREFIX = "c2s23_context_packet_"
 DEFAULT_SUMMARY = DEFAULT_PACKET_DIR / "c2s23_trace_context_packet_adapter_summary.json"
+DEFAULT_OUTPUT = ROOT / "evals/c2_live_prep/artifacts/last_c2s23_context_packet_eval.json"
+
+ACCEPTED_GOLD_SCHEMAS = {
+    "dmb_c2s23_route_evidence_gold_v1",
+    "dmb_c2s23_manifest_query_gold_v1",
+}
+ACCEPTED_SUMMARY_SCHEMAS = {
+    "dmb_c2s23_trace_context_packet_adapter_run_v1",
+    "dmb_c2s23_manifest_context_benchmark_run_v1",
+    "dmb_c2s23_manifest_query_context_run_v1",
+}
 
 
 def _utc_now_z() -> str:
@@ -60,6 +72,18 @@ def check_claim_expectation(packet: dict[str, Any], claim: dict[str, Any]) -> tu
         if not (required_auth & seen_auth):
             violations.append(f"missing_required_authority_any:{sorted(required_auth)}")
 
+    required_packet_claim_type = str(claim.get("required_packet_claim_type") or "").strip()
+    if required_packet_claim_type:
+        packet_claim_types = {str(c.get("claim_type") or "") for c in claims}
+        if required_packet_claim_type not in packet_claim_types:
+            violations.append(f"missing_required_packet_claim_type:{required_packet_claim_type}")
+
+    required_intent_any = set(claim.get("required_intent_class_any") or [])
+    if required_intent_any:
+        intent = str(packet.get("intent_class") or "")
+        if intent not in required_intent_any:
+            violations.append(f"intent_class_unexpected:{intent}")
+
     forbidden_roles = set(claim.get("forbidden_source_roles") or claim.get("forbidden_evidence_roles") or [])
     for e in admitted:
         role = str(e.get("source_role") or "")
@@ -99,6 +123,93 @@ def check_claim_expectation(packet: dict[str, Any], claim: dict[str, Any]) -> tu
     if bool(claim.get("must_report_blocker")) and not blocked:
         violations.append("missing_blocked_or_missing_entry")
 
+    required_blocker_codes_any = set(claim.get("required_blocker_codes_any") or [])
+    if required_blocker_codes_any:
+        seen_codes = {str(b.get("code") or "") for b in blocked}
+        if not (required_blocker_codes_any & seen_codes):
+            violations.append("missing_required_blocker_code")
+
+    required_roles_any = set(claim.get("required_admitted_source_roles_any") or [])
+    if required_roles_any:
+        admitted_roles = {str(e.get("source_role") or "") for e in admitted}
+        if not (required_roles_any & admitted_roles):
+            violations.append("missing_required_admitted_source_roles_any")
+    required_roles_all = set(claim.get("required_admitted_source_roles_all") or [])
+    if required_roles_all:
+        admitted_roles = {str(e.get("source_role") or "") for e in admitted}
+        missing = sorted(required_roles_all - admitted_roles)
+        if missing:
+            violations.append(f"missing_required_admitted_source_roles_all:{missing}")
+
+    refs_min = claim.get("required_activation_manifest_refs_min")
+    if refs_min is not None:
+        refs = list(packet.get("activation_manifest_refs") or [])
+        if len(refs) < int(refs_min):
+            violations.append("insufficient_activation_manifest_refs")
+
+    required_distinct_authorities_min = claim.get("required_distinct_authorities_min")
+    if required_distinct_authorities_min is not None:
+        seen_auth = {str(e.get("authority") or "") for e in admitted if str(e.get("authority") or "")}
+        if len(seen_auth) < int(required_distinct_authorities_min):
+            violations.append("insufficient_distinct_authorities")
+
+    required_granularity_any = set(claim.get("required_evidence_granularity_any") or [])
+    if required_granularity_any:
+        granularity_seen: set[str] = set()
+        for e in admitted:
+            if str(e.get("unit_id") or "").strip():
+                granularity_seen.add("unit_id")
+            if str(e.get("breadcrumb_id") or "").strip():
+                granularity_seen.add("breadcrumb_id")
+            if e.get("line_start") is not None and e.get("line_end") is not None:
+                granularity_seen.add("line_range")
+            if str(e.get("text_excerpt") or "").strip():
+                granularity_seen.add("text_excerpt")
+        if not (required_granularity_any & granularity_seen):
+            violations.append("missing_required_evidence_granularity")
+
+    if bool(claim.get("must_preserve_authority_separation")):
+        policy = dict(packet.get("citation_policy") or {})
+        allowed = set(policy.get("play_fact_allowed_authorities") or [])
+        forbidden = set(policy.get("play_fact_forbidden_authorities") or [])
+        if not allowed or not forbidden:
+            violations.append("missing_authority_separation_policy")
+        elif allowed & forbidden:
+            violations.append("authority_separation_policy_overlap")
+
+    if bool(claim.get("must_include_rejected_evidence")) and not rejected:
+        violations.append("missing_rejected_evidence")
+
+    max_retrieved = claim.get("max_retrieved_evidence")
+    if max_retrieved is not None and len(list(packet.get("retrieved_evidence") or [])) > int(max_retrieved):
+        violations.append("retrieved_evidence_over_budget")
+    max_admitted = claim.get("max_admitted_evidence")
+    if max_admitted is not None and len(admitted) > int(max_admitted):
+        violations.append("admitted_evidence_over_budget")
+    max_rejected = claim.get("max_rejected_evidence")
+    if max_rejected is not None and len(rejected) > int(max_rejected):
+        violations.append("rejected_evidence_over_budget")
+
+    max_admitted_per_role = dict(claim.get("max_admitted_per_source_role") or {})
+    if max_admitted_per_role:
+        counts: dict[str, int] = {}
+        for e in admitted:
+            role = str(e.get("source_role") or "")
+            counts[role] = counts.get(role, 0) + 1
+        for role, cap in max_admitted_per_role.items():
+            if counts.get(str(role), 0) > int(cap):
+                violations.append(f"admitted_source_role_over_budget:{role}")
+
+    min_supporting_score = claim.get("min_supporting_evidence_score")
+    if min_supporting_score is not None:
+        observed = [
+            float(e.get("evidence_score"))
+            for e in admitted
+            if isinstance(e.get("evidence_score"), (int, float))
+        ]
+        if not observed or max(observed) < float(min_supporting_score):
+            violations.append("supporting_evidence_score_too_low")
+
     required_verdict_contains_any = [str(x) for x in claim.get("required_verdict_contains_any") or []]
     if required_verdict_contains_any:
         if not any(token in excerpt for token in required_verdict_contains_any):
@@ -122,24 +233,22 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--gold", type=Path, default=DEFAULT_GOLD)
     parser.add_argument("--packet-dir", type=Path, default=DEFAULT_PACKET_DIR)
+    parser.add_argument("--packet-prefix", type=str, default=DEFAULT_PACKET_PREFIX)
     parser.add_argument("--summary", type=Path, default=DEFAULT_SUMMARY)
-    parser.add_argument(
-        "--output",
-        type=Path,
-        default=ROOT / "evals/c2_live_prep/artifacts/last_c2s23_context_packet_eval.json",
-    )
+    parser.add_argument("--summary-schema", type=str, default="")
+    parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     args = parser.parse_args()
 
     gold = load_json(args.gold.resolve())
     summary = load_json(args.summary.resolve())
     packet_dir = args.packet_dir.resolve()
 
-    if str(gold.get("schema") or "") != "dmb_c2s23_route_evidence_gold_v1":
+    if str(gold.get("schema") or "") not in ACCEPTED_GOLD_SCHEMAS:
         raise SystemExit("unexpected gold schema")
-    if str(summary.get("schema") or "") not in {
-        "dmb_c2s23_trace_context_packet_adapter_run_v1",
-        "dmb_c2s23_manifest_context_benchmark_run_v1",
-    }:
+    summary_schema = str(summary.get("schema") or "")
+    if args.summary_schema and summary_schema != args.summary_schema:
+        raise SystemExit("unexpected packet summary schema (explicit)")
+    if summary_schema not in ACCEPTED_SUMMARY_SCHEMAS:
         raise SystemExit("unexpected packet summary schema")
 
     by_question = {
@@ -150,7 +259,7 @@ def main() -> int:
     failed = 0
 
     for qid, spec in by_question.items():
-        packet_path = packet_dir / f"c2s23_context_packet_{qid}.json"
+        packet_path = packet_dir / f"{args.packet_prefix}{qid}.json"
         if not packet_path.is_file():
             rows.append(
                 {

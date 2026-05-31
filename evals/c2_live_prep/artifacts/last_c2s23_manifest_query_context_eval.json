@@ -1,0 +1,41 @@
+{
+  "schema": "dmb_c2s23_context_packet_eval_v1",
+  "generated_at": "2026-05-31T05:21:52Z",
+  "gold_path": "evals/c2_live_prep/benchmarks/c2s23_manifest_query_gold.json",
+  "packet_dir": "evals/c2_live_prep/artifacts/runs/2026-05-30",
+  "questions_total": 6,
+  "questions_passed": 6,
+  "questions_failed": 0,
+  "rows": [
+    {
+      "question_id": "s22-ingest-01",
+      "passed": true,
+      "violations": []
+    },
+    {
+      "question_id": "s22-ingest-03",
+      "passed": true,
+      "violations": []
+    },
+    {
+      "question_id": "manifest-01",
+      "passed": true,
+      "violations": []
+    },
+    {
+      "question_id": "loc-02",
+      "passed": true,
+      "violations": []
+    },
+    {
+      "question_id": "roll-02",
+      "passed": true,
+      "violations": []
+    },
+    {
+      "question_id": "auth-05",
+      "passed": true,
+      "violations": []
+    }
+  ]
+}
