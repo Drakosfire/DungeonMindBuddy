@@ -54,7 +54,8 @@ describe("ChatModule", () => {
     await waitFor(() => {
       expect(screen.getByText("context_lookup")).toBeInTheDocument();
     });
-    expect(screen.getByText(/Context lookup path/i)).toBeInTheDocument();
+    expect(screen.getByText(/swamp as the likely source/i)).toBeInTheDocument();
+    expect(screen.getByText(/Grounding \(1 admitted \/ 1 rejected\)/i)).toBeInTheDocument();
     expect(document.querySelector(".chat-response.context-lookup")).toBeTruthy();
   });
 });

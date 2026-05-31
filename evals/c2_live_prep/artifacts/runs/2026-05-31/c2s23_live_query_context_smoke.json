@@ -1,0 +1,18 @@
+{
+  "schema": "dmb_c2s23_live_query_context_smoke_v1",
+  "generated_at": "2026-05-31T06:40:19Z",
+  "question": "What Session 22 outcomes matter for Session 23 prep?",
+  "has_answer": true,
+  "has_context_packet": true,
+  "admitted_count": 12,
+  "rejected_count": 0,
+  "admitted_count_min": 1,
+  "rejected_count_min": 1,
+  "answer_has_evidence_citation": true,
+  "mutations_count": 0,
+  "mode": "context_lookup",
+  "status": "ok",
+  "warnings": [
+    "llm_grounding_call_failed"
+  ]
+}
