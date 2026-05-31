@@ -14,7 +14,12 @@
             "canon_play",
             "derived_memory"
           ],
-          "forbidden_evidence_roles": [
+          "forbidden_source_roles": [
+            "table_notes",
+            "prep_scaffold",
+            "roll_table"
+          ],
+          "forbidden_authorities": [
             "pre_canonical_evidence",
             "planning_scaffold",
             "reference_tool"
@@ -38,7 +43,10 @@
             "canon_play",
             "derived_memory"
           ],
-          "forbidden_evidence_roles": [
+          "forbidden_source_roles": [
+            "prep_scaffold"
+          ],
+          "forbidden_authorities": [
             "planning_scaffold"
           ],
           "required_state_flags_any": [
@@ -106,7 +114,10 @@
             "canon_play",
             "derived_memory"
           ],
-          "forbidden_evidence_roles": [
+          "forbidden_source_roles": [
+            "table_notes"
+          ],
+          "forbidden_authorities": [
             "pre_canonical_evidence"
           ],
           "required_verdict_contains_any": [

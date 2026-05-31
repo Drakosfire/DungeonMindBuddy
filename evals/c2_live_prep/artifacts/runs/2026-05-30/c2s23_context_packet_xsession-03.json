@@ -56,6 +56,20 @@
         "continuity"
       ],
       "forbidden_uses": []
+    },
+    {
+      "source_id": "play_recap-s22-session-recaps-session-22-mireward-road-and-lysandro-md",
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md",
+      "source_role": "play_recap",
+      "authority": "canon_play",
+      "admissible": true,
+      "allowed_uses": [
+        "play_facts",
+        "open_loops",
+        "planning_context",
+        "continuity"
+      ],
+      "forbidden_uses": []
     }
   ],
   "retrieved_evidence": [
@@ -84,18 +98,25 @@
     },
     {
       "path": "Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md",
-      "source_role": "unknown",
-      "authority": "unknown",
-      "session_scope": [],
+      "source_role": "play_recap",
+      "authority": "canon_play",
+      "session_scope": [
+        22
+      ],
       "unit_id": null,
       "breadcrumb_id": null,
       "line_start": null,
       "line_end": null,
-      "admissible": false,
-      "allowed_uses": [],
+      "admissible": true,
+      "allowed_uses": [
+        "play_facts",
+        "open_loops",
+        "planning_context",
+        "continuity"
+      ],
       "forbidden_uses": [],
       "routes": [
-        "Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md"
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md"
       ]
     }
   ],
@@ -122,39 +143,44 @@
       "routes": [
         "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 21 - Drake Nest Mirathorn Call.md"
       ]
-    }
-  ],
-  "rejected_evidence": [
+    },
     {
-      "evidence": {
-        "path": "Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md",
-        "source_role": "unknown",
-        "authority": "unknown",
-        "session_scope": [],
-        "unit_id": null,
-        "breadcrumb_id": null,
-        "line_start": null,
-        "line_end": null,
-        "admissible": false,
-        "allowed_uses": [],
-        "forbidden_uses": [],
-        "routes": [
-          "Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md"
-        ]
-      },
-      "reason_code": "missing_manifest_entry"
+      "path": "Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md",
+      "source_role": "play_recap",
+      "authority": "canon_play",
+      "session_scope": [
+        22
+      ],
+      "unit_id": null,
+      "breadcrumb_id": null,
+      "line_start": null,
+      "line_end": null,
+      "admissible": true,
+      "allowed_uses": [
+        "play_facts",
+        "open_loops",
+        "planning_context",
+        "continuity"
+      ],
+      "forbidden_uses": [],
+      "routes": [
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md"
+      ]
     }
   ],
+  "rejected_evidence": [],
   "claims": [
     {
       "claim_id": "xsession-03_primary_claim",
       "claim_type": "continuity",
-      "support_status": "partial",
+      "support_status": "supported",
       "supporting_evidence_refs": [
-        "Longmont Campaign/Campaign 2/Session Recaps/Session 21 - Drake Nest Mirathorn Call.md"
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 21 - Drake Nest Mirathorn Call.md",
+        "Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md"
       ],
       "route_refs": [
-        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 21 - Drake Nest Mirathorn Call.md"
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 21 - Drake Nest Mirathorn Call.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md"
       ],
       "planning_implication": "Use admitted evidence only; rejected evidence remains audit-visible.",
       "authority_notes": "Play-fact claims require canon_play/derived_memory only."
@@ -163,6 +189,11 @@
   "route_context": [
     {
       "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 21 - Drake Nest Mirathorn Call.md",
+      "source_role": "play_recap",
+      "authority": "canon_play"
+    },
+    {
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md",
       "source_role": "play_recap",
       "authority": "canon_play"
     }

@@ -174,6 +174,15 @@ PR97 is benchmarked only when the harness demonstrates:
 - Do not hide rejected evidence.
 - Do not mutate campaign corpus during retrieval benchmark execution.
 
+## Prototype vs PR97
+
+The current adapter (`adapt_c2s23_dogfood_traces_to_context_packets.py`) is a
+prototype bridge from dogfood traces into packet format. It is intentionally not
+the final PR97 query/admission runner.
+
+PR97 acceptance requires a true manifest-backed query/admission pass (Layer 3),
+not only post-processing of prior planner traces.
+
 ## Initial PR97 File Set
 
 ```text
@@ -181,7 +190,7 @@ Docs/Plans/BENCHMARK-PHILOSOPHY-evidence-reference-context-packets.md
 evals/c2_live_prep/benchmarks/c2s23_route_evidence_gold.json
 evals/c2_live_prep/schemas/enriched_planning_context_packet.schema.json
 evals/c2_live_prep/evaluate_c2s23_context_packets.py
-evals/c2_live_prep/run_c2s23_manifest_context_benchmark.py
+evals/c2_live_prep/adapt_c2s23_dogfood_traces_to_context_packets.py
 ```
 
 ## Relationship to Existing Work

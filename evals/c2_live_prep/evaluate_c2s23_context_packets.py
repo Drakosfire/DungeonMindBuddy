@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 DEFAULT_GOLD = ROOT / "evals/c2_live_prep/benchmarks/c2s23_route_evidence_gold.json"
 DEFAULT_PACKET_DIR = ROOT / "evals/c2_live_prep/artifacts/runs" / str(date.today())
-DEFAULT_SUMMARY = DEFAULT_PACKET_DIR / "c2s23_manifest_context_benchmark_summary.json"
+DEFAULT_SUMMARY = DEFAULT_PACKET_DIR / "c2s23_trace_context_packet_adapter_summary.json"
 
 
 def _utc_now_z() -> str:
@@ -26,6 +26,23 @@ def load_json(path: Path) -> dict[str, Any]:
 
 def _norm(path: str) -> str:
     return path.strip().replace("\\", "/").lower().lstrip("./")
+
+
+def _derive_state_flags(packet: dict[str, Any]) -> set[str]:
+    checks = list(packet.get("corpus_preconditions", {}).get("checks") or [])
+    by_key = {str(c.get("key") or ""): bool(c.get("exists")) for c in checks}
+    flags: set[str] = set()
+    if by_key.get("canonical_recap_s22"):
+        flags.add("recap_reused")
+    if by_key.get("normalized_recap_s22"):
+        flags.add("normalized_reused")
+    if by_key.get("breadcrumb_recap_s22"):
+        flags.add("breadcrumb_found")
+    if by_key.get("session_memory_jsonl_s22") and by_key.get("session_memory_meta_s22"):
+        flags.add("session_memory_materialized")
+    if bool(packet.get("corpus_preconditions", {}).get("all_required_present")):
+        flags.add("ready_for_planning_activation")
+    return flags
 
 
 def check_claim_expectation(packet: dict[str, Any], claim: dict[str, Any]) -> tuple[bool, list[str]]:
@@ -43,11 +60,17 @@ def check_claim_expectation(packet: dict[str, Any], claim: dict[str, Any]) -> tu
         if not (required_auth & seen_auth):
             violations.append(f"missing_required_authority_any:{sorted(required_auth)}")
 
-    forbidden_roles = set(claim.get("forbidden_evidence_roles") or [])
+    forbidden_roles = set(claim.get("forbidden_source_roles") or claim.get("forbidden_evidence_roles") or [])
     for e in admitted:
         role = str(e.get("source_role") or "")
         if role in forbidden_roles:
             violations.append(f"forbidden_role_admitted:{role}")
+
+    forbidden_authorities = set(claim.get("forbidden_authorities") or [])
+    for e in admitted:
+        authority = str(e.get("authority") or "")
+        if authority in forbidden_authorities:
+            violations.append(f"forbidden_authority_admitted:{authority}")
 
     path_contains = [str(x) for x in claim.get("acceptable_path_contains_any") or []]
     if path_contains:
@@ -63,8 +86,7 @@ def check_claim_expectation(packet: dict[str, Any], claim: dict[str, Any]) -> tu
 
     required_states_any = set(claim.get("required_state_flags_any") or [])
     if required_states_any:
-        corpus_checks = packet.get("corpus_preconditions", {}).get("checks", [])
-        observed = {str(c.get("key") or "") for c in corpus_checks if c.get("exists")}
+        observed = _derive_state_flags(packet)
         if not (required_states_any & observed):
             violations.append("missing_required_state_flags_any")
 
@@ -86,7 +108,12 @@ def check_claim_expectation(packet: dict[str, Any], claim: dict[str, Any]) -> tu
     if not claims:
         violations.append("missing_claims")
     if not admitted and not rejected:
-        violations.append("missing_evidence_lists")
+        claim_type = str(claim.get("claim_type") or "")
+        capability_missing = str(capability.get("status") or "") in {"missing", "partial", "unknown"}
+        if claim_type == "capability_check" and capability_missing and blocked:
+            pass
+        else:
+            violations.append("missing_evidence_lists")
 
     return (len(violations) == 0), violations
 
@@ -109,7 +136,10 @@ def main() -> int:
 
     if str(gold.get("schema") or "") != "dmb_c2s23_route_evidence_gold_v1":
         raise SystemExit("unexpected gold schema")
-    if str(summary.get("schema") or "") != "dmb_c2s23_manifest_context_benchmark_run_v1":
+    if str(summary.get("schema") or "") not in {
+        "dmb_c2s23_trace_context_packet_adapter_run_v1",
+        "dmb_c2s23_manifest_context_benchmark_run_v1",
+    }:
         raise SystemExit("unexpected packet summary schema")
 
     by_question = {

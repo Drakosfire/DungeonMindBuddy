@@ -44,6 +44,20 @@
   },
   "activation_manifest_refs": [
     {
+      "source_id": "play_recap-s22-breadcrumbed-session-22-mireward-road-and-lysandro-breadcrumbed-md",
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.breadcrumbed.md",
+      "source_role": "play_recap",
+      "authority": "canon_play",
+      "admissible": true,
+      "allowed_uses": [
+        "play_facts",
+        "open_loops",
+        "planning_context",
+        "continuity"
+      ],
+      "forbidden_uses": []
+    },
+    {
       "source_id": "hub_evidence-s21-torbin-jove-readme-md",
       "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/torbin_jove/README.md",
       "source_role": "hub_evidence",
@@ -73,18 +87,25 @@
   "retrieved_evidence": [
     {
       "path": "Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.breadcrumbed.md",
-      "source_role": "unknown",
-      "authority": "unknown",
-      "session_scope": [],
+      "source_role": "play_recap",
+      "authority": "canon_play",
+      "session_scope": [
+        22
+      ],
       "unit_id": null,
       "breadcrumb_id": null,
       "line_start": null,
       "line_end": null,
-      "admissible": false,
-      "allowed_uses": [],
+      "admissible": true,
+      "allowed_uses": [
+        "play_facts",
+        "open_loops",
+        "planning_context",
+        "continuity"
+      ],
       "forbidden_uses": [],
       "routes": [
-        "Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.breadcrumbed.md"
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.breadcrumbed.md"
       ]
     },
     {
@@ -138,6 +159,29 @@
   ],
   "admitted_evidence": [
     {
+      "path": "Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.breadcrumbed.md",
+      "source_role": "play_recap",
+      "authority": "canon_play",
+      "session_scope": [
+        22
+      ],
+      "unit_id": null,
+      "breadcrumb_id": null,
+      "line_start": null,
+      "line_end": null,
+      "admissible": true,
+      "allowed_uses": [
+        "play_facts",
+        "open_loops",
+        "planning_context",
+        "continuity"
+      ],
+      "forbidden_uses": [],
+      "routes": [
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.breadcrumbed.md"
+      ]
+    },
+    {
       "path": "Longmont Campaign/Campaign 2/NPCs/torbin_jove/README.md",
       "source_role": "hub_evidence",
       "authority": "canon_play",
@@ -186,37 +230,19 @@
       ]
     }
   ],
-  "rejected_evidence": [
-    {
-      "evidence": {
-        "path": "Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.breadcrumbed.md",
-        "source_role": "unknown",
-        "authority": "unknown",
-        "session_scope": [],
-        "unit_id": null,
-        "breadcrumb_id": null,
-        "line_start": null,
-        "line_end": null,
-        "admissible": false,
-        "allowed_uses": [],
-        "forbidden_uses": [],
-        "routes": [
-          "Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.breadcrumbed.md"
-        ]
-      },
-      "reason_code": "missing_manifest_entry"
-    }
-  ],
+  "rejected_evidence": [],
   "claims": [
     {
       "claim_id": "s22-ingest-02_primary_claim",
       "claim_type": "play_fact",
-      "support_status": "partial",
+      "support_status": "supported",
       "supporting_evidence_refs": [
+        "Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.breadcrumbed.md",
         "Longmont Campaign/Campaign 2/NPCs/torbin_jove/README.md",
         "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/README.md"
       ],
       "route_refs": [
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.breadcrumbed.md",
         "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/torbin_jove/README.md",
         "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/README.md"
       ],
@@ -225,6 +251,11 @@
     }
   ],
   "route_context": [
+    {
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.breadcrumbed.md",
+      "source_role": "play_recap",
+      "authority": "canon_play"
+    },
     {
       "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/torbin_jove/README.md",
       "source_role": "hub_evidence",

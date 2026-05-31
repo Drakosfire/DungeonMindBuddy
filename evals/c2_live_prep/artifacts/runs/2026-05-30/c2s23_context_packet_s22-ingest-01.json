@@ -56,6 +56,20 @@
       "forbidden_uses": [
         "play_facts"
       ]
+    },
+    {
+      "source_id": "play_recap-s22-normalized-session-22-mireward-road-and-lysandro-md",
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md",
+      "source_role": "play_recap",
+      "authority": "canon_play",
+      "admissible": true,
+      "allowed_uses": [
+        "play_facts",
+        "open_loops",
+        "planning_context",
+        "continuity"
+      ],
+      "forbidden_uses": []
     }
   ],
   "retrieved_evidence": [
@@ -84,22 +98,53 @@
     },
     {
       "path": "Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md",
-      "source_role": "unknown",
-      "authority": "unknown",
-      "session_scope": [],
+      "source_role": "play_recap",
+      "authority": "canon_play",
+      "session_scope": [
+        22
+      ],
       "unit_id": null,
       "breadcrumb_id": null,
       "line_start": null,
       "line_end": null,
-      "admissible": false,
-      "allowed_uses": [],
+      "admissible": true,
+      "allowed_uses": [
+        "play_facts",
+        "open_loops",
+        "planning_context",
+        "continuity"
+      ],
       "forbidden_uses": [],
       "routes": [
-        "Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md"
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md"
       ]
     }
   ],
-  "admitted_evidence": [],
+  "admitted_evidence": [
+    {
+      "path": "Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md",
+      "source_role": "play_recap",
+      "authority": "canon_play",
+      "session_scope": [
+        22
+      ],
+      "unit_id": null,
+      "breadcrumb_id": null,
+      "line_start": null,
+      "line_end": null,
+      "admissible": true,
+      "allowed_uses": [
+        "play_facts",
+        "open_loops",
+        "planning_context",
+        "continuity"
+      ],
+      "forbidden_uses": [],
+      "routes": [
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md"
+      ]
+    }
+  ],
   "rejected_evidence": [
     {
       "evidence": {
@@ -126,39 +171,30 @@
         ]
       },
       "reason_code": "authority_forbidden_for_play_fact"
-    },
-    {
-      "evidence": {
-        "path": "Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md",
-        "source_role": "unknown",
-        "authority": "unknown",
-        "session_scope": [],
-        "unit_id": null,
-        "breadcrumb_id": null,
-        "line_start": null,
-        "line_end": null,
-        "admissible": false,
-        "allowed_uses": [],
-        "forbidden_uses": [],
-        "routes": [
-          "Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md"
-        ]
-      },
-      "reason_code": "missing_manifest_entry"
     }
   ],
   "claims": [
     {
       "claim_id": "s22-ingest-01_primary_claim",
       "claim_type": "play_fact",
-      "support_status": "unsupported",
-      "supporting_evidence_refs": [],
-      "route_refs": [],
+      "support_status": "partial",
+      "supporting_evidence_refs": [
+        "Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md"
+      ],
+      "route_refs": [
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md"
+      ],
       "planning_implication": "Use admitted evidence only; rejected evidence remains audit-visible.",
       "authority_notes": "Play-fact claims require canon_play/derived_memory only."
     }
   ],
-  "route_context": [],
+  "route_context": [
+    {
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md",
+      "source_role": "play_recap",
+      "authority": "canon_play"
+    }
+  ],
   "planning_implications": [
     "Packet is evidence-first; unsupported claims should remain blocked.",
     "Capability responses should default to missing/partial/unknown without evidence."

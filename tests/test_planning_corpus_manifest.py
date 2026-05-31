@@ -219,7 +219,6 @@ def test_synthetic_table_notes_conditional_on_recap(tmp_path: Path) -> None:
 def test_non_materialized_entries_are_not_admissible_and_cannot_prove_play_facts() -> None:
     manifest = _build_real()
     missing = [e for e in manifest["entries"] if not e["route_exists"]]
-    assert missing, "expected at least one honest gap (Session 22 recap derivatives)"
     for entry in missing:
         assert entry["admissible"] is False
         assert entry["allowed_uses"] == []
@@ -241,7 +240,7 @@ def test_admissible_play_fact_candidates_exclude_non_existing_routes() -> None:
 # --- honest gaps -----------------------------------------------------------------
 
 
-def test_missing_sources_recorded_not_dropped() -> None:
+def test_session_22_recap_derivatives_are_materialized() -> None:
     manifest = _build_real()
     s22_recap = [
         e
@@ -249,7 +248,7 @@ def test_missing_sources_recorded_not_dropped() -> None:
         if e["source_role"] == "play_recap" and e["session_scope"] == [22]
     ]
     assert len(s22_recap) == 3
-    assert all(e["route_exists"] is False for e in s22_recap)
+    assert all(e["route_exists"] is True for e in s22_recap)
 
 
 def test_builder_does_not_raise_on_missing_files(tmp_path: Path) -> None:

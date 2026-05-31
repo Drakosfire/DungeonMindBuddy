@@ -1,26 +1,24 @@
 {
   "schema": "dmb_c2s23_context_packet_eval_v1",
-  "generated_at": "2026-05-31T02:02:15Z",
+  "generated_at": "2026-05-31T02:26:51Z",
   "gold_path": "evals/c2_live_prep/benchmarks/c2s23_route_evidence_gold.json",
   "packet_dir": "evals/c2_live_prep/artifacts/runs/2026-05-30",
   "questions_total": 6,
-  "questions_passed": 0,
-  "questions_failed": 6,
+  "questions_passed": 4,
+  "questions_failed": 2,
   "rows": [
     {
       "question_id": "s22-ingest-01",
-      "passed": false,
-      "violations": [
-        "missing_required_authority_any:['canon_play', 'derived_memory']",
-        "missing_acceptable_path_contains_any"
-      ]
+      "passed": true,
+      "violations": []
     },
     {
       "question_id": "s22-ingest-03",
       "passed": false,
       "violations": [
         "missing_required_authority_any:['audit', 'canon_play', 'derived_memory']",
-        "missing_required_state_flags_any"
+        "forbidden_role_admitted:prep_scaffold",
+        "forbidden_authority_admitted:planning_scaffold"
       ]
     },
     {
@@ -32,24 +30,18 @@
     },
     {
       "question_id": "loc-02",
-      "passed": false,
-      "violations": [
-        "missing_evidence_lists"
-      ]
+      "passed": true,
+      "violations": []
     },
     {
       "question_id": "roll-02",
-      "passed": false,
-      "violations": [
-        "missing_evidence_lists"
-      ]
+      "passed": true,
+      "violations": []
     },
     {
       "question_id": "auth-05",
-      "passed": false,
-      "violations": [
-        "missing_required_authority_any:['canon_play', 'derived_memory']"
-      ]
+      "passed": true,
+      "violations": []
     }
   ]
 }
