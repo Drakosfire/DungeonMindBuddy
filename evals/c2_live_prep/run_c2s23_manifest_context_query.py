@@ -14,7 +14,7 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from src.live_play.manifest_context_query import QueryRequest, build_context_packet, load_manifest
+from src.live_play.manifest_context_query import QueryConfig, QueryRequest, build_context_packet, load_manifest
 from src.live_play.session_paths import repo_root
 
 ROOT = repo_root()
@@ -22,6 +22,31 @@ ROOT = repo_root()
 DEFAULT_QUESTIONS = ROOT / "evals/c2_live_prep/benchmarks/c2s23_dogfood_questions.seed.json"
 DEFAULT_MANIFEST = ROOT / "evals/c2_live_prep/benchmarks/c2s23_planning_corpus_manifest.json"
 DEFAULT_OUTPUT_DIR = ROOT / "evals/c2_live_prep/artifacts/runs" / str(date.today())
+
+C2S23_PRECONDITION_PATHS: dict[str, str] = {
+    "canonical_recap_s22": (
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/"
+        "Session 22 - Mireward Road and Lysandro.md"
+    ),
+    "normalized_recap_s22": (
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/"
+        "Session 22 - Mireward Road and Lysandro.md"
+    ),
+    "breadcrumb_recap_s22": (
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/"
+        "Session 22 - Mireward Road and Lysandro.breadcrumbed.md"
+    ),
+    "session_memory_jsonl_s22": (
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/"
+        "Session 22 - Mireward Road and Lysandro.records_meta.jsonl"
+    ),
+    "session_memory_meta_s22": (
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/"
+        "Session 22 - Mireward Road and Lysandro.records_meta.json"
+    ),
+    "live_workspace_s23_packet": "evals/c2_live_prep/live/session_23/live_packet.json",
+    "activated_manifest": "evals/c2_live_prep/benchmarks/c2s23_planning_corpus_manifest.json",
+}
 
 
 def _utc_now_z() -> str:
@@ -42,6 +67,11 @@ def main() -> int:
 
     manifest = load_manifest(args.manifest.resolve())
     questions = load_questions(args.questions.resolve())
+    query_config = QueryConfig(
+        precondition_paths=C2S23_PRECONDITION_PATHS,
+        virtual_precondition_path="virtual://c2s23/corpus_preconditions/session_22",
+        virtual_precondition_session_scope=(22,),
+    )
     out_dir = args.output_dir.resolve()
     out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -52,7 +82,7 @@ def main() -> int:
         if not qid or not question:
             continue
         request = QueryRequest(question_id=qid, question=question, category=str(row.get("category") or "") or None)
-        packet = build_context_packet(request, manifest, root=ROOT)
+        packet = build_context_packet(request, manifest, root=ROOT, config=query_config)
         packets.append(packet)
         out_path = out_dir / f"c2s23_manifest_query_context_packet_{qid}.json"
         out_path.write_text(json.dumps(packet, indent=2, ensure_ascii=False), encoding="utf-8")

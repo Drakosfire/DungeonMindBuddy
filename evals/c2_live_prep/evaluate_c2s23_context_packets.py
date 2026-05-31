@@ -122,12 +122,48 @@ def check_claim_expectation(packet: dict[str, Any], claim: dict[str, Any]) -> tu
         admitted_roles = {str(e.get("source_role") or "") for e in admitted}
         if not (required_roles_any & admitted_roles):
             violations.append("missing_required_admitted_source_roles_any")
+    required_roles_all = set(claim.get("required_admitted_source_roles_all") or [])
+    if required_roles_all:
+        admitted_roles = {str(e.get("source_role") or "") for e in admitted}
+        missing = sorted(required_roles_all - admitted_roles)
+        if missing:
+            violations.append(f"missing_required_admitted_source_roles_all:{missing}")
 
     refs_min = claim.get("required_activation_manifest_refs_min")
     if refs_min is not None:
         refs = list(packet.get("activation_manifest_refs") or [])
         if len(refs) < int(refs_min):
             violations.append("insufficient_activation_manifest_refs")
+
+    required_distinct_authorities_min = claim.get("required_distinct_authorities_min")
+    if required_distinct_authorities_min is not None:
+        seen_auth = {str(e.get("authority") or "") for e in admitted if str(e.get("authority") or "")}
+        if len(seen_auth) < int(required_distinct_authorities_min):
+            violations.append("insufficient_distinct_authorities")
+
+    required_granularity_any = set(claim.get("required_evidence_granularity_any") or [])
+    if required_granularity_any:
+        granularity_seen: set[str] = set()
+        for e in admitted:
+            if str(e.get("unit_id") or "").strip():
+                granularity_seen.add("unit_id")
+            if str(e.get("breadcrumb_id") or "").strip():
+                granularity_seen.add("breadcrumb_id")
+            if e.get("line_start") is not None and e.get("line_end") is not None:
+                granularity_seen.add("line_range")
+            if str(e.get("text_excerpt") or "").strip():
+                granularity_seen.add("text_excerpt")
+        if not (required_granularity_any & granularity_seen):
+            violations.append("missing_required_evidence_granularity")
+
+    if bool(claim.get("must_preserve_authority_separation")):
+        policy = dict(packet.get("citation_policy") or {})
+        allowed = set(policy.get("play_fact_allowed_authorities") or [])
+        forbidden = set(policy.get("play_fact_forbidden_authorities") or [])
+        if not allowed or not forbidden:
+            violations.append("missing_authority_separation_policy")
+        elif allowed & forbidden:
+            violations.append("authority_separation_policy_overlap")
 
     if bool(claim.get("must_include_rejected_evidence")) and not rejected:
         violations.append("missing_rejected_evidence")

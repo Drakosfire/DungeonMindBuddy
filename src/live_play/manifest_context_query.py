@@ -1,8 +1,8 @@
 """Blind manifest-backed query/admission for planning context packets.
 
-Loads an activated planning corpus manifest, retrieves candidate evidence from
-manifest-admissible sources using question text and generic policy only, admits
-or rejects candidates by authority/use rules, and emits enriched context packets.
+This module implements a generic manifest query/admission contract:
+manifest sources are selected from question text and manifest metadata, then
+source content is read to extract citable evidence units/spans before admission.
 
 The runner must not read benchmark gold, dogfood traces, or route by question_id.
 """
@@ -26,31 +26,6 @@ PIPELINE_STATE_FORBIDDEN_ROLES = frozenset({"prep_scaffold", "roll_table"})
 PIPELINE_STATE_FORBIDDEN_AUTHORITIES = frozenset({"planning_scaffold", "reference_tool"})
 AUTHORITY_GUARDRAIL_FORBIDDEN_ROLES = frozenset({"table_notes"})
 AUTHORITY_GUARDRAIL_FORBIDDEN_AUTHORITIES = frozenset({"pre_canonical_evidence"})
-
-PRECONDITION_PATHS: dict[str, str] = {
-    "canonical_recap_s22": (
-        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/"
-        "Session 22 - Mireward Road and Lysandro.md"
-    ),
-    "normalized_recap_s22": (
-        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/"
-        "Session 22 - Mireward Road and Lysandro.md"
-    ),
-    "breadcrumb_recap_s22": (
-        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/"
-        "Session 22 - Mireward Road and Lysandro.breadcrumbed.md"
-    ),
-    "session_memory_jsonl_s22": (
-        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/"
-        "Session 22 - Mireward Road and Lysandro.records_meta.jsonl"
-    ),
-    "session_memory_meta_s22": (
-        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/"
-        "Session 22 - Mireward Road and Lysandro.records_meta.json"
-    ),
-    "live_workspace_s23_packet": "evals/c2_live_prep/live/session_23/live_packet.json",
-    "activated_manifest": "evals/c2_live_prep/benchmarks/c2s23_planning_corpus_manifest.json",
-}
 
 DEFAULT_LANE_BUDGETS: dict[str, int] = {
     "play_recap": 4,
@@ -76,6 +51,7 @@ ROLE_LANE: dict[str, str] = {
     "hub_evidence": "hub_evidence",
     "table_notes": "table_notes",
 }
+MIN_CONTENT_OVERLAP = 2
 
 FORBIDDEN_GOLD_SUBSTRINGS = ("gold",)
 FORBIDDEN_DOGFOOD_SUBSTRINGS = ("c2s23_dogfood_", "c2s23_dogfood_planner_summary")
@@ -86,6 +62,13 @@ class QueryRequest:
     question_id: str
     question: str
     category: str | None = None
+
+
+@dataclass(frozen=True)
+class QueryConfig:
+    precondition_paths: dict[str, str] | None = None
+    virtual_precondition_path: str = "virtual://manifest_query/corpus_preconditions"
+    virtual_precondition_session_scope: tuple[int, ...] = ()
 
 
 def _norm(path: str) -> str:
@@ -227,26 +210,33 @@ def build_manifest_index(manifest: dict[str, Any]) -> tuple[dict[str, dict[str, 
     return by_route, entries
 
 
-def build_corpus_preconditions(root: Path | None = None) -> dict[str, Any]:
+def build_corpus_preconditions(precondition_paths: dict[str, str], root: Path | None = None) -> dict[str, Any]:
     base = root or repo_root()
     checks = []
-    for key, rel in PRECONDITION_PATHS.items():
+    for key, rel in precondition_paths.items():
         p = base / rel
         checks.append({"key": key, "path": rel, "exists": p.is_file()})
     return {"all_required_present": all(bool(c["exists"]) for c in checks), "checks": checks}
 
 
-def build_virtual_precondition_evidence(preconditions: dict[str, Any]) -> dict[str, Any]:
-    routes = [str(c["path"]) for c in list(preconditions.get("checks") or []) if c.get("exists")]
+def build_virtual_precondition_evidence(preconditions: dict[str, Any], config: QueryConfig) -> dict[str, Any]:
+    checks = list(preconditions.get("checks") or [])
+    routes = [str(c["path"]) for c in checks if c.get("exists")]
+    present = [str(c.get("key") or "") for c in checks if c.get("exists")]
+    state_excerpt = (
+        "Corpus precondition audit: "
+        + (", ".join(sorted(present)) if present else "no configured preconditions")
+    )
     return {
-        "path": "virtual://c2s23/corpus_preconditions/session_22",
+        "path": config.virtual_precondition_path,
         "source_role": "ingest_status",
         "authority": "audit",
-        "session_scope": [22],
+        "session_scope": list(config.virtual_precondition_session_scope),
         "unit_id": None,
         "breadcrumb_id": None,
         "line_start": None,
         "line_end": None,
+        "text_excerpt": state_excerpt,
         "admissible": True,
         "allowed_uses": ["pipeline_state", "planning_activation_readiness"],
         "forbidden_uses": [PLAY_FACT_USE],
@@ -347,6 +337,7 @@ def _entry_to_evidence(entry: dict[str, Any], *, path_override: str | None = Non
         "breadcrumb_id": None,
         "line_start": None,
         "line_end": None,
+        "text_excerpt": None,
         "admissible": bool(entry.get("admissible")),
         "allowed_uses": list(entry.get("allowed_uses") or []),
         "forbidden_uses": list(entry.get("forbidden_uses") or []),
@@ -354,7 +345,161 @@ def _entry_to_evidence(entry: dict[str, Any], *, path_override: str | None = Non
     }
 
 
-def _admission_reason(entry: dict[str, Any], claim_type: str) -> str | None:
+def _evidence_from_entry(
+    entry: dict[str, Any],
+    *,
+    path: str,
+    unit_id: str | None = None,
+    line_start: int | None = None,
+    line_end: int | None = None,
+    breadcrumb_id: str | None = None,
+    text_excerpt: str | None = None,
+    routes: list[str] | None = None,
+) -> dict[str, Any]:
+    ev = _entry_to_evidence(entry, path_override=path)
+    ev["unit_id"] = unit_id
+    ev["line_start"] = line_start
+    ev["line_end"] = line_end
+    ev["breadcrumb_id"] = breadcrumb_id
+    ev["text_excerpt"] = text_excerpt
+    if routes is not None:
+        ev["routes"] = routes
+    return ev
+
+
+def _extract_markdown_spans(entry: dict[str, Any], abs_path: Path, question_tokens: set[str]) -> list[dict[str, Any]]:
+    text = abs_path.read_text(encoding="utf-8")
+    lines = text.splitlines()
+    spans: list[tuple[int, int, str]] = []
+    start: int | None = None
+    bucket: list[str] = []
+    for idx, line in enumerate(lines, start=1):
+        if line.strip():
+            if start is None:
+                start = idx
+            bucket.append(line.strip())
+            continue
+        if start is not None and bucket:
+            spans.append((start, idx - 1, " ".join(bucket)))
+            start = None
+            bucket = []
+    if start is not None and bucket:
+        spans.append((start, len(lines), " ".join(bucket)))
+
+    scored: list[tuple[float, int, int, str]] = []
+    for s, e, body in spans:
+        tokens = _tokenize(body)
+        overlap = len(tokens & question_tokens)
+        if overlap < MIN_CONTENT_OVERLAP:
+            continue
+        scored.append((float(overlap), s, e, body))
+    scored.sort(key=lambda t: (-t[0], t[1]))
+
+    route = str(entry.get("route") or "")
+    out: list[dict[str, Any]] = []
+    for _, s, e, body in scored[:4]:
+        out.append(
+            _evidence_from_entry(
+                entry,
+                path=route,
+                line_start=s,
+                line_end=e,
+                text_excerpt=body[:700],
+            )
+        )
+    return out
+
+
+def _extract_session_memory_units(entry: dict[str, Any], abs_path: Path, question_tokens: set[str]) -> list[dict[str, Any]]:
+    route = str(entry.get("route") or "")
+    rows: list[tuple[float, dict[str, Any]]] = []
+    for raw in abs_path.read_text(encoding="utf-8").splitlines():
+        row = raw.strip()
+        if not row:
+            continue
+        try:
+            obj = json.loads(row)
+        except json.JSONDecodeError:
+            continue
+        excerpt = str(obj.get("lexical_plain") or "").strip()
+        if not excerpt:
+            continue
+        tokens = _tokenize(excerpt)
+        overlap = len(tokens & question_tokens)
+        if overlap < MIN_CONTENT_OVERLAP:
+            continue
+        route_bonus = 0.0
+        for rr in list(obj.get("routes") or []):
+            route_bonus += float(len(_tokenize(str(rr.get("normalized_route") or "")) & question_tokens))
+        rows.append((float(overlap) + (route_bonus * 0.25), obj))
+    rows.sort(key=lambda t: -t[0])
+
+    out: list[dict[str, Any]] = []
+    for _, obj in rows[:6]:
+        route_refs = [str(r.get("normalized_route") or "") for r in list(obj.get("routes") or []) if r.get("normalized_route")]
+        if route not in route_refs:
+            route_refs.insert(0, route)
+        out.append(
+            _evidence_from_entry(
+                entry,
+                path=route,
+                unit_id=str(obj.get("unit_id") or "") or None,
+                line_start=int(obj["line_start"]) if isinstance(obj.get("line_start"), int) else None,
+                line_end=int(obj["line_end"]) if isinstance(obj.get("line_end"), int) else None,
+                text_excerpt=str(obj.get("lexical_plain") or "")[:700] or None,
+                routes=route_refs,
+            )
+        )
+    return out
+
+
+def _extract_generic_excerpt(entry: dict[str, Any], abs_path: Path, question_tokens: set[str]) -> list[dict[str, Any]]:
+    text = abs_path.read_text(encoding="utf-8")
+    first = text.strip().splitlines()
+    if not first:
+        return []
+    excerpt = " ".join(first[:4]).strip()
+    overlap = len(_tokenize(excerpt) & question_tokens)
+    if overlap <= 0:
+        return []
+    route = str(entry.get("route") or "")
+    return [_evidence_from_entry(entry, path=route, text_excerpt=excerpt[:700])]
+
+
+def extract_evidence_units(
+    entry: dict[str, Any],
+    *,
+    question_tokens: set[str],
+    root: Path,
+) -> list[dict[str, Any]]:
+    route = str(entry.get("route") or "")
+    if not route:
+        return []
+    abs_path = root / route
+    if not abs_path.is_file():
+        return []
+    role = str(entry.get("source_role") or "")
+
+    if role == "session_memory" and route.endswith(".jsonl"):
+        return _extract_session_memory_units(entry, abs_path, question_tokens)
+    if route.endswith(".md"):
+        return _extract_markdown_spans(entry, abs_path, question_tokens)
+    return _extract_generic_excerpt(entry, abs_path, question_tokens)
+
+
+def _has_evidence_granularity(evidence: dict[str, Any]) -> bool:
+    if str(evidence.get("unit_id") or "").strip():
+        return True
+    if str(evidence.get("breadcrumb_id") or "").strip():
+        return True
+    if evidence.get("line_start") is not None and evidence.get("line_end") is not None:
+        return True
+    if str(evidence.get("text_excerpt") or "").strip():
+        return True
+    return False
+
+
+def _admission_reason(entry: dict[str, Any], claim_type: str, evidence: dict[str, Any]) -> str | None:
     if not bool(entry.get("route_exists")):
         return "route_missing"
     if not bool(entry.get("admissible")):
@@ -366,6 +511,8 @@ def _admission_reason(entry: dict[str, Any], claim_type: str) -> str | None:
     allowed_uses = set(entry.get("allowed_uses") or [])
 
     if claim_type == "play_fact":
+        if not _has_evidence_granularity(evidence):
+            return "missing_evidence_granularity"
         if authority in PLAY_FACT_FORBIDDEN_AUTHORITIES:
             return "authority_forbidden_for_play_fact"
         if PLAY_FACT_USE in forbidden_uses:
@@ -388,6 +535,8 @@ def _admission_reason(entry: dict[str, Any], claim_type: str) -> str | None:
         return "use_forbidden_by_manifest"
 
     if claim_type == "authority_guardrail":
+        if not _has_evidence_granularity(evidence):
+            return "missing_evidence_granularity"
         if role in AUTHORITY_GUARDRAIL_FORBIDDEN_ROLES or authority in AUTHORITY_GUARDRAIL_FORBIDDEN_AUTHORITIES:
             return "authority_forbidden_for_play_fact"
         if PLAY_FACT_USE in forbidden_uses and role == "table_notes":
@@ -512,13 +661,17 @@ def build_context_packet(
     manifest: dict[str, Any],
     *,
     root: Path | None = None,
+    config: QueryConfig | None = None,
 ) -> dict[str, Any]:
     base = root or repo_root()
+    resolved_config = config or QueryConfig()
+    precondition_paths = dict(resolved_config.precondition_paths or {})
     _manifest_by_route, entries = build_manifest_index(manifest)
     query_plan = build_query_plan(request)
     hints = set(query_plan["intent_hints"])
     claim_type = str(query_plan["primary_claim_type"])
-    preconditions = build_corpus_preconditions(base)
+    preconditions = build_corpus_preconditions(precondition_paths, base)
+    question_tokens = _tokenize(request.question)
 
     retrieved: list[dict[str, Any]] = []
     admitted: list[dict[str, Any]] = []
@@ -526,8 +679,8 @@ def build_context_packet(
     activation_refs: list[dict[str, Any]] = []
     route_context: list[dict[str, Any]] = []
 
-    if "pipeline_state" in hints:
-        virtual = build_virtual_precondition_evidence(preconditions)
+    if "pipeline_state" in hints and precondition_paths:
+        virtual = build_virtual_precondition_evidence(preconditions, resolved_config)
         retrieved.append(virtual)
         activation_refs.append(
             {
@@ -551,13 +704,15 @@ def build_context_packet(
 
     candidates = retrieve_candidates(entries, request, query_plan)
     for entry in candidates:
-        evidence = _entry_to_evidence(entry)
-        retrieved.append(evidence)
         activation_refs.append(_manifest_activation_ref(entry))
-        reason = _admission_reason(entry, claim_type)
-        if reason:
-            rejected.append({"evidence": evidence, "reason_code": reason})
-        else:
+        extracted = extract_evidence_units(entry, question_tokens=question_tokens, root=base)
+        evidence_units = extracted or [_entry_to_evidence(entry)]
+        for evidence in evidence_units:
+            retrieved.append(evidence)
+            reason = _admission_reason(entry, claim_type, evidence)
+            if reason:
+                rejected.append({"evidence": evidence, "reason_code": reason})
+                continue
             admitted.append(evidence)
             route_context.append(
                 {

@@ -13,6 +13,7 @@
           "required_authority_any": ["canon_play", "derived_memory"],
           "forbidden_source_roles": ["table_notes", "prep_scaffold", "roll_table"],
           "forbidden_authorities": ["pre_canonical_evidence", "planning_scaffold", "reference_tool"],
+          "required_evidence_granularity_any": ["unit_id", "line_range", "text_excerpt"],
           "acceptable_path_contains_any": [
             "Session Recaps/Session 22 - Mireward Road and Lysandro.md",
             "Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md",
@@ -48,14 +49,15 @@
           "claim_type": "capability_check",
           "required_capability_status_any": ["partial", "supported"],
           "required_activation_manifest_refs_min": 3,
-          "required_admitted_source_roles_any": [
+          "required_admitted_source_roles_all": [
             "play_recap",
             "session_memory",
             "prep_scaffold",
-            "roll_table",
             "hub_evidence",
             "live_packet"
           ],
+          "required_distinct_authorities_min": 3,
+          "must_preserve_authority_separation": true,
           "must_include_rejected_evidence": true
         }
       ]
@@ -93,6 +95,7 @@
           "required_authority_any": ["canon_play", "derived_memory"],
           "forbidden_source_roles": ["table_notes"],
           "forbidden_authorities": ["pre_canonical_evidence"],
+          "required_evidence_granularity_any": ["unit_id", "line_range", "text_excerpt"],
           "required_verdict_contains_any": ["No", "not as normal retrieval evidence"],
           "must_include_rejected_evidence": true
         }

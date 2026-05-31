@@ -1,6 +1,6 @@
 {
   "schema": "dmb_c2s23_context_packet_eval_v1",
-  "generated_at": "2026-05-31T03:27:00Z",
+  "generated_at": "2026-05-31T04:10:10Z",
   "gold_path": "evals/c2_live_prep/benchmarks/c2s23_manifest_query_gold.json",
   "packet_dir": "evals/c2_live_prep/artifacts/runs/2026-05-30",
   "questions_total": 6,
