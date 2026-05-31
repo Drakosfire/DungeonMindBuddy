@@ -325,6 +325,53 @@ def test_s22_ingest_01_supporting_evidence_mentions_swamp_or_mirathorn_or_lysand
     assert any(tok in blobs for tok in ("swamp", "mirathorn", "lysandra", "mireward"))
 
 
+def test_packet_admission_respects_noise_budget(manifest: dict, query_config: QueryConfig) -> None:
+    packet = build_context_packet(
+        _request(
+            "s22-ingest-01",
+            "After ingesting Session 22 raw notes, what play outcomes carry into Session 23 prep?",
+        ),
+        manifest,
+        root=ROOT,
+        config=query_config,
+    )
+    assert len(packet["retrieved_evidence"]) <= 30
+    assert len(packet["admitted_evidence"]) <= 12
+    assert len(packet["rejected_evidence"]) <= 12
+
+
+def test_s22_ingest_01_claim_type_is_play_fact(manifest: dict, query_config: QueryConfig) -> None:
+    packet = build_context_packet(
+        _request(
+            "s22-ingest-01",
+            "After ingesting Session 22 raw notes, what are the three most important play outcomes to carry into Session 23 prep?",
+        ),
+        manifest,
+        root=ROOT,
+        config=query_config,
+    )
+    claim_types = {str(c.get("claim_type") or "") for c in packet["claims"]}
+    assert "play_fact" in claim_types
+    assert packet["intent_class"] in {"play_fact_retrieval", "cross_session_planning"}
+
+
+def test_unrelated_same_session_span_is_not_admitted_when_relevant_spans_exist(
+    manifest: dict, query_config: QueryConfig
+) -> None:
+    packet = build_context_packet(
+        _request(
+            "s22-ingest-01",
+            "After ingesting Session 22 raw notes, what are the three most important play outcomes to carry into Session 23 prep?",
+        ),
+        manifest,
+        root=ROOT,
+        config=query_config,
+    )
+    admitted_blobs = " ".join(str(e.get("text_excerpt") or "") for e in packet["admitted_evidence"]).lower()
+    assert "savory rain" not in admitted_blobs
+    assert "another uneventful night" not in admitted_blobs
+
+
 def test_auth05_rejected_staging_and_admitted_canon_have_excerpts(manifest: dict, query_config: QueryConfig) -> None:
     packet = build_context_packet(
         _request(

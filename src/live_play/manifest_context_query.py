@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import json
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -69,6 +69,26 @@ class QueryConfig:
     precondition_paths: dict[str, str] | None = None
     virtual_precondition_path: str = "virtual://manifest_query/corpus_preconditions"
     virtual_precondition_session_scope: tuple[int, ...] = ()
+    max_retrieved_evidence: int = 30
+    max_admitted_evidence: int = 12
+    max_rejected_evidence: int = 12
+    max_admitted_per_source_role: dict[str, int] = field(
+        default_factory=lambda: {
+            "play_recap": 6,
+            "session_memory": 4,
+            "hub_evidence": 3,
+            "prep_scaffold": 3,
+            "live_packet": 1,
+            "live_event": 1,
+            "table_notes": 1,
+            "roll_table": 1,
+            "fresh_recap": 1,
+            "ingest_status": 1,
+        }
+    )
+    max_spans_per_markdown_source: int = 2
+    max_units_per_session_memory_source: int = 3
+    min_supporting_evidence_score: float = 2.0
 
 
 def _norm(path: str) -> str:
@@ -122,13 +142,24 @@ def infer_intent_hints(question: str) -> set[str]:
         )
     ):
         hints.add("capability_check")
-    if any(t in q for t in ("happened", "in play", "canon", "recap", "table", "session", "played", "outcomes")):
+    if any(
+        t in q
+        for t in (
+            "happened",
+            "in play",
+            "played",
+            "play outcomes",
+            "carry into",
+            "foreground",
+            "background mentions",
+            "normal retrieval evidence",
+        )
+    ):
         hints.add("play_fact")
     if any(t in q for t in ("prep", "plan", "session 23", "opening", "next", "carry forward")):
         hints.add("planning_context")
-    if any(
-        t in q
-        for t in ("raw notes", "staged", "authority", "prove", "source of truth", "normal retrieval evidence")
+    if any(t in q for t in ("authority", "prove", "source of truth", "normal retrieval evidence")) or (
+        "raw staged" in q and "normal retrieval evidence" in q
     ):
         hints.add("authority_guardrail")
     return hints or {"planning_context"}
@@ -144,8 +175,8 @@ def primary_claim_type(hints: set[str]) -> str:
     priority = (
         "authority_guardrail",
         "capability_check",
-        "pipeline_state",
         "play_fact",
+        "pipeline_state",
         "planning_context",
     )
     for claim in priority:
@@ -159,10 +190,10 @@ def intent_class_from_hints(hints: set[str]) -> str:
         return "authority_check"
     if "capability_check" in hints:
         return "capability_check"
-    if "pipeline_state" in hints:
-        return "ingest_state_check"
     if "play_fact" in hints:
         return "play_fact_retrieval"
+    if "pipeline_state" in hints:
+        return "ingest_state_check"
     return "cross_session_planning"
 
 
@@ -237,6 +268,7 @@ def build_virtual_precondition_evidence(preconditions: dict[str, Any], config: Q
         "line_start": None,
         "line_end": None,
         "text_excerpt": state_excerpt,
+        "evidence_score": 100.0,
         "admissible": True,
         "allowed_uses": ["pipeline_state", "planning_activation_readiness"],
         "forbidden_uses": [PLAY_FACT_USE],
@@ -338,6 +370,7 @@ def _entry_to_evidence(entry: dict[str, Any], *, path_override: str | None = Non
         "line_start": None,
         "line_end": None,
         "text_excerpt": None,
+        "evidence_score": None,
         "admissible": bool(entry.get("admissible")),
         "allowed_uses": list(entry.get("allowed_uses") or []),
         "forbidden_uses": list(entry.get("forbidden_uses") or []),
@@ -355,6 +388,7 @@ def _evidence_from_entry(
     breadcrumb_id: str | None = None,
     text_excerpt: str | None = None,
     routes: list[str] | None = None,
+    evidence_score: float | None = None,
 ) -> dict[str, Any]:
     ev = _entry_to_evidence(entry, path_override=path)
     ev["unit_id"] = unit_id
@@ -362,12 +396,15 @@ def _evidence_from_entry(
     ev["line_end"] = line_end
     ev["breadcrumb_id"] = breadcrumb_id
     ev["text_excerpt"] = text_excerpt
+    ev["evidence_score"] = evidence_score
     if routes is not None:
         ev["routes"] = routes
     return ev
 
 
-def _extract_markdown_spans(entry: dict[str, Any], abs_path: Path, question_tokens: set[str]) -> list[dict[str, Any]]:
+def _extract_markdown_spans(
+    entry: dict[str, Any], abs_path: Path, question_tokens: set[str], max_spans: int
+) -> list[dict[str, Any]]:
     text = abs_path.read_text(encoding="utf-8")
     lines = text.splitlines()
     spans: list[tuple[int, int, str]] = []
@@ -397,7 +434,7 @@ def _extract_markdown_spans(entry: dict[str, Any], abs_path: Path, question_toke
 
     route = str(entry.get("route") or "")
     out: list[dict[str, Any]] = []
-    for _, s, e, body in scored[:4]:
+    for score, s, e, body in scored[:max(1, max_spans)]:
         out.append(
             _evidence_from_entry(
                 entry,
@@ -405,12 +442,15 @@ def _extract_markdown_spans(entry: dict[str, Any], abs_path: Path, question_toke
                 line_start=s,
                 line_end=e,
                 text_excerpt=body[:700],
+                evidence_score=score,
             )
         )
     return out
 
 
-def _extract_session_memory_units(entry: dict[str, Any], abs_path: Path, question_tokens: set[str]) -> list[dict[str, Any]]:
+def _extract_session_memory_units(
+    entry: dict[str, Any], abs_path: Path, question_tokens: set[str], max_units: int
+) -> list[dict[str, Any]]:
     route = str(entry.get("route") or "")
     rows: list[tuple[float, dict[str, Any]]] = []
     for raw in abs_path.read_text(encoding="utf-8").splitlines():
@@ -435,7 +475,7 @@ def _extract_session_memory_units(entry: dict[str, Any], abs_path: Path, questio
     rows.sort(key=lambda t: -t[0])
 
     out: list[dict[str, Any]] = []
-    for _, obj in rows[:6]:
+    for score, obj in rows[: max(1, max_units)]:
         route_refs = [str(r.get("normalized_route") or "") for r in list(obj.get("routes") or []) if r.get("normalized_route")]
         if route not in route_refs:
             route_refs.insert(0, route)
@@ -448,6 +488,7 @@ def _extract_session_memory_units(entry: dict[str, Any], abs_path: Path, questio
                 line_end=int(obj["line_end"]) if isinstance(obj.get("line_end"), int) else None,
                 text_excerpt=str(obj.get("lexical_plain") or "")[:700] or None,
                 routes=route_refs,
+                evidence_score=score,
             )
         )
     return out
@@ -463,7 +504,7 @@ def _extract_generic_excerpt(entry: dict[str, Any], abs_path: Path, question_tok
     if overlap <= 0:
         return []
     route = str(entry.get("route") or "")
-    return [_evidence_from_entry(entry, path=route, text_excerpt=excerpt[:700])]
+    return [_evidence_from_entry(entry, path=route, text_excerpt=excerpt[:700], evidence_score=float(overlap))]
 
 
 def extract_evidence_units(
@@ -471,6 +512,7 @@ def extract_evidence_units(
     *,
     question_tokens: set[str],
     root: Path,
+    config: QueryConfig,
 ) -> list[dict[str, Any]]:
     route = str(entry.get("route") or "")
     if not route:
@@ -481,9 +523,13 @@ def extract_evidence_units(
     role = str(entry.get("source_role") or "")
 
     if role == "session_memory" and route.endswith(".jsonl"):
-        return _extract_session_memory_units(entry, abs_path, question_tokens)
+        return _extract_session_memory_units(
+            entry, abs_path, question_tokens, max_units=config.max_units_per_session_memory_source
+        )
     if route.endswith(".md"):
-        return _extract_markdown_spans(entry, abs_path, question_tokens)
+        return _extract_markdown_spans(
+            entry, abs_path, question_tokens, max_spans=config.max_spans_per_markdown_source
+        )
     return _extract_generic_excerpt(entry, abs_path, question_tokens)
 
 
@@ -499,7 +545,65 @@ def _has_evidence_granularity(evidence: dict[str, Any]) -> bool:
     return False
 
 
-def _admission_reason(entry: dict[str, Any], claim_type: str, evidence: dict[str, Any]) -> str | None:
+def _evidence_score(evidence: dict[str, Any]) -> float:
+    raw = evidence.get("evidence_score")
+    if isinstance(raw, (int, float)):
+        return float(raw)
+    return 0.0
+
+
+def _apply_evidence_budget(
+    evidence: list[dict[str, Any]],
+    *,
+    max_total: int,
+    per_role_cap: dict[str, int] | None = None,
+    ensure_roles: set[str] | None = None,
+) -> list[dict[str, Any]]:
+    if not evidence:
+        return []
+    ranked = sorted(evidence, key=lambda e: (-_evidence_score(e), str(e.get("path") or "")))
+    role_caps = dict(per_role_cap or {})
+    role_counts: dict[str, int] = {}
+    out: list[dict[str, Any]] = []
+    required_roles = set(ensure_roles or set())
+
+    for role in sorted(required_roles):
+        cap = int(role_caps.get(role, max_total))
+        if cap <= 0:
+            continue
+        picked = next((row for row in ranked if str(row.get("source_role") or "") == role), None)
+        if picked is None:
+            continue
+        out.append(picked)
+        role_counts[role] = role_counts.get(role, 0) + 1
+        if len(out) >= max_total:
+            return out
+
+    for row in ranked:
+        if row in out:
+            continue
+        role = str(row.get("source_role") or "")
+        cap = int(role_caps.get(role, max_total))
+        if role_counts.get(role, 0) >= cap:
+            continue
+        out.append(row)
+        role_counts[role] = role_counts.get(role, 0) + 1
+        if len(out) >= max_total:
+            break
+    return out
+
+
+def _apply_rejected_budget(rejected: list[dict[str, Any]], *, max_total: int) -> list[dict[str, Any]]:
+    ranked = sorted(
+        rejected,
+        key=lambda r: (-_evidence_score(dict(r.get("evidence") or {})), str(r.get("reason_code") or "")),
+    )
+    return ranked[:max_total]
+
+
+def _admission_reason(
+    entry: dict[str, Any], claim_type: str, evidence: dict[str, Any], config: QueryConfig
+) -> str | None:
     if not bool(entry.get("route_exists")):
         return "route_missing"
     if not bool(entry.get("admissible")):
@@ -513,6 +617,8 @@ def _admission_reason(entry: dict[str, Any], claim_type: str, evidence: dict[str
     if claim_type == "play_fact":
         if not _has_evidence_granularity(evidence):
             return "missing_evidence_granularity"
+        if _evidence_score(evidence) < config.min_supporting_evidence_score:
+            return "insufficient_evidence_score"
         if authority in PLAY_FACT_FORBIDDEN_AUTHORITIES:
             return "authority_forbidden_for_play_fact"
         if PLAY_FACT_USE in forbidden_uses:
@@ -537,6 +643,8 @@ def _admission_reason(entry: dict[str, Any], claim_type: str, evidence: dict[str
     if claim_type == "authority_guardrail":
         if not _has_evidence_granularity(evidence):
             return "missing_evidence_granularity"
+        if _evidence_score(evidence) < config.min_supporting_evidence_score:
+            return "insufficient_evidence_score"
         if role in AUTHORITY_GUARDRAIL_FORBIDDEN_ROLES or authority in AUTHORITY_GUARDRAIL_FORBIDDEN_AUTHORITIES:
             return "authority_forbidden_for_play_fact"
         if PLAY_FACT_USE in forbidden_uses and role == "table_notes":
@@ -705,22 +813,46 @@ def build_context_packet(
     candidates = retrieve_candidates(entries, request, query_plan)
     for entry in candidates:
         activation_refs.append(_manifest_activation_ref(entry))
-        extracted = extract_evidence_units(entry, question_tokens=question_tokens, root=base)
+        extracted = extract_evidence_units(
+            entry, question_tokens=question_tokens, root=base, config=resolved_config
+        )
         evidence_units = extracted or [_entry_to_evidence(entry)]
         for evidence in evidence_units:
             retrieved.append(evidence)
-            reason = _admission_reason(entry, claim_type, evidence)
+            reason = _admission_reason(entry, claim_type, evidence, resolved_config)
             if reason:
                 rejected.append({"evidence": evidence, "reason_code": reason})
                 continue
             admitted.append(evidence)
-            route_context.append(
-                {
-                    "route": str(entry.get("route") or ""),
-                    "source_role": str(entry.get("source_role") or ""),
-                    "authority": str(entry.get("authority") or ""),
-                }
-            )
+
+    admitted_cap = max(1, resolved_config.max_admitted_evidence)
+    if claim_type in {"play_fact", "pipeline_state", "authority_guardrail"}:
+        admitted_cap = min(admitted_cap, 10)
+    ensure_roles: set[str] | None = None
+    if claim_type == "capability_check":
+        ensure_roles = {"play_recap", "session_memory", "prep_scaffold", "hub_evidence", "live_packet"}
+
+    retrieved = _apply_evidence_budget(
+        retrieved,
+        max_total=max(1, resolved_config.max_retrieved_evidence),
+        per_role_cap=resolved_config.max_admitted_per_source_role,
+    )
+    admitted = _apply_evidence_budget(
+        admitted,
+        max_total=admitted_cap,
+        per_role_cap=resolved_config.max_admitted_per_source_role,
+        ensure_roles=ensure_roles,
+    )
+    rejected = _apply_rejected_budget(rejected, max_total=max(1, resolved_config.max_rejected_evidence))
+
+    route_context = [
+        {
+            "route": str(e.get("path") or ""),
+            "source_role": str(e.get("source_role") or ""),
+            "authority": str(e.get("authority") or ""),
+        }
+        for e in admitted
+    ]
 
     blocked: list[dict[str, str]] = []
     capability_status = _capability_status(request, hints, admitted, blocked)

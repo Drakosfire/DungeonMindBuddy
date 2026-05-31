@@ -10,10 +10,23 @@
         {
           "claim_id": "swamp_active_objective",
           "claim_type": "play_fact",
+          "required_packet_claim_type": "play_fact",
+          "required_intent_class_any": ["play_fact_retrieval", "cross_session_planning"],
           "required_authority_any": ["canon_play", "derived_memory"],
           "forbidden_source_roles": ["table_notes", "prep_scaffold", "roll_table"],
           "forbidden_authorities": ["pre_canonical_evidence", "planning_scaffold", "reference_tool"],
           "required_evidence_granularity_any": ["unit_id", "line_range", "text_excerpt"],
+          "max_retrieved_evidence": 30,
+          "max_admitted_evidence": 10,
+          "max_rejected_evidence": 12,
+          "max_admitted_per_source_role": {
+            "play_recap": 6,
+            "session_memory": 4,
+            "hub_evidence": 3,
+            "prep_scaffold": 3,
+            "live_packet": 1
+          },
+          "min_supporting_evidence_score": 2.0,
           "acceptable_path_contains_any": [
             "Session Recaps/Session 22 - Mireward Road and Lysandro.md",
             "Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md",
@@ -28,9 +41,21 @@
         {
           "claim_id": "ingest_readiness_states",
           "claim_type": "pipeline_state",
+          "required_packet_claim_type": "pipeline_state",
+          "required_intent_class_any": ["ingest_state_check", "play_fact_retrieval", "cross_session_planning"],
           "required_authority_any": ["audit", "canon_play", "derived_memory"],
           "forbidden_source_roles": ["prep_scaffold"],
           "forbidden_authorities": ["planning_scaffold"],
+          "max_retrieved_evidence": 30,
+          "max_admitted_evidence": 10,
+          "max_rejected_evidence": 12,
+          "max_admitted_per_source_role": {
+            "play_recap": 6,
+            "session_memory": 4,
+            "hub_evidence": 3,
+            "prep_scaffold": 3,
+            "live_packet": 1
+          },
           "required_state_flags_any": [
             "ready_for_planning_activation",
             "session_memory_materialized",
@@ -47,6 +72,8 @@
         {
           "claim_id": "manifest_query_capability",
           "claim_type": "capability_check",
+          "required_packet_claim_type": "capability_check",
+          "required_intent_class_any": ["capability_check"],
           "required_capability_status_any": ["partial", "supported"],
           "required_activation_manifest_refs_min": 3,
           "required_admitted_source_roles_all": [
@@ -58,6 +85,16 @@
           ],
           "required_distinct_authorities_min": 3,
           "must_preserve_authority_separation": true,
+          "max_retrieved_evidence": 30,
+          "max_admitted_evidence": 12,
+          "max_rejected_evidence": 12,
+          "max_admitted_per_source_role": {
+            "play_recap": 6,
+            "session_memory": 4,
+            "hub_evidence": 3,
+            "prep_scaffold": 3,
+            "live_packet": 1
+          },
           "must_include_rejected_evidence": true
         }
       ]
@@ -68,8 +105,20 @@
         {
           "claim_id": "location_hub_write_support",
           "claim_type": "capability_check",
+          "required_packet_claim_type": "capability_check",
+          "required_intent_class_any": ["capability_check"],
           "required_capability_status_any": ["missing", "partial", "unknown"],
           "must_report_blocker": true,
+          "max_retrieved_evidence": 30,
+          "max_admitted_evidence": 12,
+          "max_rejected_evidence": 12,
+          "max_admitted_per_source_role": {
+            "play_recap": 6,
+            "session_memory": 4,
+            "hub_evidence": 3,
+            "prep_scaffold": 3,
+            "live_packet": 1
+          },
           "required_blocker_codes_any": ["missing_live_write_capability"]
         }
       ]
@@ -80,8 +129,20 @@
         {
           "claim_id": "roll_table_create_support",
           "claim_type": "capability_check",
+          "required_packet_claim_type": "capability_check",
+          "required_intent_class_any": ["capability_check"],
           "required_capability_status_any": ["missing", "partial", "unknown"],
           "must_report_blocker": true,
+          "max_retrieved_evidence": 30,
+          "max_admitted_evidence": 12,
+          "max_rejected_evidence": 12,
+          "max_admitted_per_source_role": {
+            "play_recap": 6,
+            "session_memory": 4,
+            "hub_evidence": 3,
+            "prep_scaffold": 3,
+            "live_packet": 1
+          },
           "required_blocker_codes_any": ["missing_roll_table_create_register_capability"]
         }
       ]
@@ -92,10 +153,23 @@
         {
           "claim_id": "staging_not_normal_play_fact_evidence",
           "claim_type": "authority_guardrail",
+          "required_packet_claim_type": "authority_guardrail",
+          "required_intent_class_any": ["authority_check"],
           "required_authority_any": ["canon_play", "derived_memory"],
           "forbidden_source_roles": ["table_notes"],
           "forbidden_authorities": ["pre_canonical_evidence"],
           "required_evidence_granularity_any": ["unit_id", "line_range", "text_excerpt"],
+          "max_retrieved_evidence": 30,
+          "max_admitted_evidence": 10,
+          "max_rejected_evidence": 12,
+          "max_admitted_per_source_role": {
+            "play_recap": 6,
+            "session_memory": 4,
+            "hub_evidence": 3,
+            "prep_scaffold": 3,
+            "live_packet": 1
+          },
+          "min_supporting_evidence_score": 2.0,
           "required_verdict_contains_any": ["No", "not as normal retrieval evidence"],
           "must_include_rejected_evidence": true
         }

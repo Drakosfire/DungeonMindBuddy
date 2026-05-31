@@ -72,6 +72,18 @@ def check_claim_expectation(packet: dict[str, Any], claim: dict[str, Any]) -> tu
         if not (required_auth & seen_auth):
             violations.append(f"missing_required_authority_any:{sorted(required_auth)}")
 
+    required_packet_claim_type = str(claim.get("required_packet_claim_type") or "").strip()
+    if required_packet_claim_type:
+        packet_claim_types = {str(c.get("claim_type") or "") for c in claims}
+        if required_packet_claim_type not in packet_claim_types:
+            violations.append(f"missing_required_packet_claim_type:{required_packet_claim_type}")
+
+    required_intent_any = set(claim.get("required_intent_class_any") or [])
+    if required_intent_any:
+        intent = str(packet.get("intent_class") or "")
+        if intent not in required_intent_any:
+            violations.append(f"intent_class_unexpected:{intent}")
+
     forbidden_roles = set(claim.get("forbidden_source_roles") or claim.get("forbidden_evidence_roles") or [])
     for e in admitted:
         role = str(e.get("source_role") or "")
@@ -167,6 +179,36 @@ def check_claim_expectation(packet: dict[str, Any], claim: dict[str, Any]) -> tu
 
     if bool(claim.get("must_include_rejected_evidence")) and not rejected:
         violations.append("missing_rejected_evidence")
+
+    max_retrieved = claim.get("max_retrieved_evidence")
+    if max_retrieved is not None and len(list(packet.get("retrieved_evidence") or [])) > int(max_retrieved):
+        violations.append("retrieved_evidence_over_budget")
+    max_admitted = claim.get("max_admitted_evidence")
+    if max_admitted is not None and len(admitted) > int(max_admitted):
+        violations.append("admitted_evidence_over_budget")
+    max_rejected = claim.get("max_rejected_evidence")
+    if max_rejected is not None and len(rejected) > int(max_rejected):
+        violations.append("rejected_evidence_over_budget")
+
+    max_admitted_per_role = dict(claim.get("max_admitted_per_source_role") or {})
+    if max_admitted_per_role:
+        counts: dict[str, int] = {}
+        for e in admitted:
+            role = str(e.get("source_role") or "")
+            counts[role] = counts.get(role, 0) + 1
+        for role, cap in max_admitted_per_role.items():
+            if counts.get(str(role), 0) > int(cap):
+                violations.append(f"admitted_source_role_over_budget:{role}")
+
+    min_supporting_score = claim.get("min_supporting_evidence_score")
+    if min_supporting_score is not None:
+        observed = [
+            float(e.get("evidence_score"))
+            for e in admitted
+            if isinstance(e.get("evidence_score"), (int, float))
+        ]
+        if not observed or max(observed) < float(min_supporting_score):
+            violations.append("supporting_evidence_score_too_low")
 
     required_verdict_contains_any = [str(x) for x in claim.get("required_verdict_contains_any") or []]
     if required_verdict_contains_any:

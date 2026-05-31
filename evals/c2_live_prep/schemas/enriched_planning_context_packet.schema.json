@@ -378,6 +378,12 @@
             "null"
           ]
         },
+        "evidence_score": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
         "admissible": {
           "type": "boolean"
         },
