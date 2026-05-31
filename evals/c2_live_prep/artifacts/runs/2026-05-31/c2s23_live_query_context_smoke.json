@@ -1,0 +1,45 @@
+{
+  "schema": "dmb_c2s23_live_query_context_smoke_v2",
+  "generated_at": "2026-05-31T22:32:22Z",
+  "manifest_path": "evals/c2_live_prep/benchmarks/c2s23_planning_corpus_manifest.json",
+  "cases": [
+    {
+      "name": "baseline",
+      "question": "What Session 22 outcomes matter for Session 23 prep?",
+      "has_answer": true,
+      "has_context_packet": true,
+      "admitted_count": 12,
+      "rejected_count": 0,
+      "admitted_count_min": 1,
+      "rejected_count_min": 0,
+      "answer_has_evidence_citation": true,
+      "mutations_count": 0,
+      "mode": "context_lookup",
+      "status": "ok",
+      "warnings": [
+        "llm_grounding_call_failed"
+      ],
+      "llm_path_available": false,
+      "ok": true
+    },
+    {
+      "name": "rejection_authority",
+      "question": "After ingesting Session 22 raw notes, what Session 22 outcomes matter for Session 23 prep?",
+      "has_answer": true,
+      "has_context_packet": true,
+      "admitted_count": 10,
+      "rejected_count": 12,
+      "admitted_count_min": 1,
+      "rejected_count_min": 1,
+      "answer_has_evidence_citation": true,
+      "mutations_count": 0,
+      "mode": "context_lookup",
+      "status": "ok",
+      "warnings": [
+        "llm_grounding_call_failed"
+      ],
+      "llm_path_available": false,
+      "ok": true
+    }
+  ]
+}

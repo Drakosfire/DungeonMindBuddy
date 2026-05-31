@@ -42,6 +42,11 @@ export function ChatModule({ campaignId, session, onQuerySuccess }: ChatModulePr
   const latencyMode = lastResponse?.classification.latency_mode;
   const eventType = lastResponse?.classification.event_type;
   const isContextLookup = latencyMode === "context_lookup";
+  const hasDiagnostics = Array.isArray(lastResponse?.diagnostics)
+    ? (lastResponse?.diagnostics.length ?? 0) > 0
+    : Object.keys((lastResponse?.diagnostics as Record<string, unknown>) ?? {}).length > 0;
+  const admittedEvidence = lastResponse?.context_packet?.admitted_evidence ?? [];
+  const rejectedEvidence = lastResponse?.context_packet?.rejected_evidence ?? [];
 
   return (
     <div className="module-panel chat-module" data-module-id="chat">
@@ -97,10 +102,30 @@ export function ChatModule({ campaignId, session, onQuerySuccess }: ChatModulePr
               <pre>{JSON.stringify(lastResponse.provenance, null, 2)}</pre>
             </details>
           ) : null}
-          {isContextLookup && Object.keys(lastResponse.diagnostics).length > 0 ? (
+          {isContextLookup && hasDiagnostics ? (
             <details className="chat-diagnostics">
               <summary>Diagnostics</summary>
               <pre>{JSON.stringify(lastResponse.diagnostics, null, 2)}</pre>
+            </details>
+          ) : null}
+          {isContextLookup && (admittedEvidence.length > 0 || rejectedEvidence.length > 0) ? (
+            <details className="chat-grounding" open>
+              <summary>
+                Grounding ({admittedEvidence.length} admitted / {rejectedEvidence.length} rejected)
+              </summary>
+              <pre>
+                {JSON.stringify(
+                  {
+                    citations: lastResponse.citations ?? [],
+                    admitted_evidence: admittedEvidence,
+                    rejected_evidence: rejectedEvidence,
+                    warnings: lastResponse.warnings ?? [],
+                    mutations: lastResponse.mutations ?? [],
+                  },
+                  null,
+                  2,
+                )}
+              </pre>
             </details>
           ) : null}
         </div>

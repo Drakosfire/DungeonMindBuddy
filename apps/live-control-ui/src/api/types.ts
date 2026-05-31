@@ -272,19 +272,69 @@ export interface CommandRefreshResult {
 export interface TurnClassification {
   latency_mode: string;
   event_type: string;
+  intent?: string;
+  confidence?: string;
   table_id?: string | null;
   roll?: number | null;
   skill_check?: Record<string, unknown> | null;
 }
 
+export interface LiveQueryCitation {
+  evidence_id: string;
+  path: string;
+  line_start: number | null;
+  line_end: number | null;
+  source_role: string;
+  authority: string;
+}
+
+export interface LiveContextEvidenceRef {
+  evidence_id?: string;
+  path: string;
+  source_role: string;
+  authority: string;
+  unit_id?: string | null;
+  line_start?: number | null;
+  line_end?: number | null;
+  text_excerpt?: string | null;
+  routes?: string[];
+  forbidden_uses?: string[];
+}
+
+export interface LiveContextRejectedRef {
+  rejection_id?: string;
+  reason_code: string;
+  evidence: LiveContextEvidenceRef;
+}
+
+export interface LiveContextPacket {
+  schema: string;
+  question_id: string;
+  intent_class: string;
+  admitted_evidence: LiveContextEvidenceRef[];
+  rejected_evidence: LiveContextRejectedRef[];
+  claims?: Array<Record<string, unknown>>;
+  planning_implications?: string[];
+  capability_status?: Record<string, unknown>;
+}
+
 export interface LiveQueryResponse {
+  schema?: string;
+  query_id?: string;
+  session?: number;
+  mode?: string;
+  status?: string;
   answer: string;
   classification: TurnClassification;
   events_written: string[];
   jobs_queued: string[];
   next_suggestions: string[];
-  diagnostics: Record<string, unknown>;
+  diagnostics: unknown;
   provenance: Record<string, unknown>;
+  citations?: LiveQueryCitation[];
+  context_packet?: LiveContextPacket | null;
+  warnings?: string[];
+  mutations?: unknown[];
 }
 
 export interface LiveEvent {

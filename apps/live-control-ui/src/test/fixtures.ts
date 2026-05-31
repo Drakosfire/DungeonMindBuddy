@@ -220,6 +220,11 @@ export const mockRollEvent: LiveEvent = {
 };
 
 export const mockQueryResponse: LiveQueryResponse = {
+  schema: "dmb_live_query_response_v1",
+  query_id: "live-query-fast-001",
+  session: 22,
+  mode: "live_turn",
+  status: "ok",
   answer: "Storm weather (T-WX 7): Hail dent — ...",
   classification: {
     latency_mode: "fast_live",
@@ -230,21 +235,72 @@ export const mockQueryResponse: LiveQueryResponse = {
   events_written: ["evt-roll-1"],
   jobs_queued: ["job-1"],
   next_suggestions: ["Road encounter R5 when travel beat triggers."],
-  diagnostics: {},
+  diagnostics: [],
   provenance: {},
+  citations: [],
+  context_packet: null,
+  warnings: [],
+  mutations: [],
 };
 
 export const mockContextResponse: LiveQueryResponse = {
-  answer: "Context lookup path; retrieval UI deferred.",
+  schema: "dmb_live_query_response_v1",
+  query_id: "live-query-context-001",
+  session: 22,
+  mode: "context_lookup",
+  status: "ok",
+  answer:
+    "The party remains pointed toward the swamp as the likely source of Mirathorn pressure [ev-a1b2c3d4e5].",
   classification: {
     latency_mode: "context_lookup",
     event_type: "context_question",
   },
-  events_written: ["evt-ctx-1"],
+  events_written: [],
   jobs_queued: [],
   next_suggestions: [],
-  diagnostics: { note: "stub" },
+  diagnostics: [],
   provenance: { mode: "context_lookup" },
+  citations: [
+    {
+      evidence_id: "ev-a1b2c3d4e5",
+      path: "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md",
+      line_start: 24,
+      line_end: 24,
+      source_role: "play_recap",
+      authority: "canon_play",
+    },
+  ],
+  context_packet: {
+    schema: "dmb_enriched_planning_context_packet_v1",
+    question_id: "live-query-context-001",
+    intent_class: "play_fact_retrieval",
+    admitted_evidence: [
+      {
+        evidence_id: "ev-a1b2c3d4e5",
+        path: "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md",
+        source_role: "play_recap",
+        authority: "canon_play",
+        line_start: 24,
+        line_end: 24,
+        text_excerpt: "The group decides to continue toward the swamp.",
+      },
+    ],
+    rejected_evidence: [
+      {
+        rejection_id: "rej-001",
+        reason_code: "authority_forbidden_for_play_fact",
+        evidence: {
+          evidence_id: "ev-ffffeeee11",
+          path: "corpus/.../_ingest_staging/session_22_raw_notes.md",
+          source_role: "table_notes",
+          authority: "pre_canonical_evidence",
+          text_excerpt: "staging only",
+        },
+      },
+    ],
+  },
+  warnings: [],
+  mutations: [],
 };
 
 export function makeEventArtifact(
