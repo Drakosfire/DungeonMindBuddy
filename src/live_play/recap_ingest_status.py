@@ -52,7 +52,7 @@ class RecapIngestStatus:
         if "ready_for_planning_activation" in self.states:
             self.status = "ready_for_planning_activation"
             return
-        if "recap_applied" in self.states:
+        if "recap_applied" in self.states or "recap_reused" in self.states:
             self.status = "recap_applied"
             return
         if "recap_preview_created" in self.states:

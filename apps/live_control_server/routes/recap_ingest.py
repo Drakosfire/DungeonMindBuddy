@@ -8,7 +8,7 @@ from typing import Annotated, Any, Literal
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, ConfigDict, Field
 
-from src.live_play.recap_ingest_pipeline import PipelineOptions, run_pipeline
+from src.live_play.recap_ingest_pipeline import PipelineOptions, inspect_recap_ingest_status, run_pipeline
 
 router = APIRouter(prefix="/api/live", tags=["live"])
 
@@ -16,6 +16,7 @@ RecapIngestOperation = Literal[
     "stage_preview",
     "apply_normalize",
     "materialize_session_memory",
+    "inspect_status",
 ]
 
 _CORPUS_ROOT_ENV = "DUNGEONMIND_RECAP_INGEST_CORPUS_ROOT"
@@ -128,35 +129,46 @@ def _options_for_request(body: RecapIngestRequest) -> PipelineOptions:
             json_output=True,
         )
 
-    if not _is_non_generic_slug_or_title(slug=body.slug, title=body.title):
-        raise HTTPException(
-            status_code=422,
-            detail="materialize_session_memory requires non-generic slug or title",
+    if operation == "materialize_session_memory":
+        if not _is_non_generic_slug_or_title(slug=body.slug, title=body.title):
+            raise HTTPException(
+                status_code=422,
+                detail="materialize_session_memory requires non-generic slug or title",
+            )
+        return PipelineOptions(
+            campaign_id=body.campaign_id,
+            session=body.session,
+            raw_path=None,
+            raw_stdin=False,
+            title=body.title,
+            slug=body.slug,
+            stage=False,
+            preview=False,
+            apply=False,
+            normalize=False,
+            materialize_session_memory=True,
+            check=body.check,
+            force_stage=False,
+            force_recap=False,
+            json_output=True,
         )
-    return PipelineOptions(
-        campaign_id=body.campaign_id,
-        session=body.session,
-        raw_path=None,
-        raw_stdin=False,
-        title=body.title,
-        slug=body.slug,
-        stage=False,
-        preview=False,
-        apply=False,
-        normalize=False,
-        materialize_session_memory=True,
-        check=body.check,
-        force_stage=False,
-        force_recap=False,
-        json_output=True,
-    )
+
+    raise HTTPException(status_code=422, detail=f"unsupported operation: {operation}")
 
 
 @router.post("/recap-ingest", response_model=RecapIngestStatusResponse)
 def post_recap_ingest(body: RecapIngestRequest) -> dict[str, Any]:
-    options = _options_for_request(body)
     try:
         corpus = _pipeline_corpus_root()
+        if body.operation == "inspect_status":
+            return inspect_recap_ingest_status(
+                campaign_id=body.campaign_id,
+                session=body.session,
+                title=body.title,
+                slug=body.slug,
+                corpus=corpus,
+            )
+        options = _options_for_request(body)
         if body.operation == "stage_preview":
             status = run_pipeline(
                 options,

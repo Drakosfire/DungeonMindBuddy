@@ -1,0 +1,46 @@
+{
+  "question_id": "s22-ingest-02",
+  "question": "Which Session 22 NPCs were foreground at the table versus background mentions, as reflected in the ingested recap?",
+  "category": "raw_recap_ingestion_session_22_understanding",
+  "expected_source_roles": [
+    "canon_play",
+    "derived_memory"
+  ],
+  "forbidden_source_roles_for_play_facts": [
+    "planning_scaffold",
+    "live_observation"
+  ],
+  "expected_artifact_actions": [
+    "ingest_apply_normalize",
+    "inspector_read_artifact"
+  ],
+  "answer_requirements": [
+    "Distinguish played presence from prep mentions",
+    "Cite recap or memory route, not staging file alone"
+  ],
+  "planner": {
+    "turn_count": 2,
+    "tool_calls": [
+      "read_corpus_file"
+    ],
+    "corpus_paths_read": [
+      "Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.breadcrumbed.md"
+    ],
+    "final_message": "In the ingested Session 22 recap, the foreground-at-table NPCs were **Captain Lysandra Ironveil**, **Thrin Branchborn**, **Grobnok** (via the rockie-talkie / Mirathorn update), **Private Hester**, and **Lysandro** at the end of the session in `Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md`.\n\nThe recap also treats **Sara / Frank** as background mentions or off-table communication context rather than on-table foreground presence: they appear through the rockie-talkie updates and city status reports, but not as scene-present NPCs. Same for the broader Mirathorn crisis references in that recap path.",
+    "final_message_parse_error": null,
+    "user_intent": "factual_lookup",
+    "scenario_estimated_cost_usd": null,
+    "planner_estimated_cost_usd": 0.007634
+  },
+  "tool_trace": [
+    {
+      "tool": "read_corpus_file",
+      "arguments": {
+        "path": "Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.breadcrumbed.md"
+      },
+      "output_chars": 19876,
+      "output_excerpt": "---\nschema: dmb_recap_breadcrumbs_v1\nsource_recap_path: \"Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md\"\ncampaign:\n  title: \"Longmont Campaign\"\n  campaign_number: 2\n  campaign_id: longmont-c2\nsession:\n  number: 22\n  title: \"Session 22 - Mireward Road and Lysandro\"\n  document_class: play\n  canon_layer: campaign\n  temporal_scope: session_specific\n  origin_session: 22\n  last_updated_session: 22\n  source_class: observed_session_recap\nbreadcrumb_semantics:\n  purpose: \"Machine-facing session memory index: inline labels mark source-aligned recap spans with durable retrieval value for agentic planning, live-play querying, hub routing, or proposed hub review.\"\n  placement_rule: \"Place tags immediately after the source-derived span that should rout"
+    }
+  ],
+  "final_text": "{\"user_intent\":\"factual_lookup\",\"message\":\"In the ingested Session 22 recap, the foreground-at-table NPCs were **Captain Lysandra Ironveil**, **Thrin Branchborn**, **Grobnok** (via the rockie-talkie / Mirathorn update), **Private Hester**, and **Lysandro** at the end of the session in `Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md`.\\n\\nThe recap also treats **Sara / Frank** as background mentions or off-table communication context rather than on-table foreground presence: they appear through the rockie-talkie updates and city status reports, but not as scene-present NPCs. Same for the broader Mirathorn crisis references in that recap path.\",\"unsure_queue\":null}"
+}

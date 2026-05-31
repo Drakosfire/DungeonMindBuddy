@@ -2,6 +2,8 @@ import { FormEvent, useState } from "react";
 
 import { postLiveQuery } from "../../api/liveApi";
 import type { LiveQueryResponse } from "../../api/types";
+import { corpusReadyForPlanning, corpusStatusHeadline, corpusStatusTone } from "../../modules/corpusIngestDisplay";
+import { useCorpusIngestStatus } from "../../modules/useCorpusIngestStatus";
 
 interface ChatModuleProps {
   campaignId: string;
@@ -14,6 +16,8 @@ export function ChatModule({ campaignId, session, onQuerySuccess }: ChatModulePr
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastResponse, setLastResponse] = useState<LiveQueryResponse | null>(null);
+  const corpus = useCorpusIngestStatus(campaignId, session);
+  const corpusTone = corpusStatusTone(corpus.result);
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -42,6 +46,20 @@ export function ChatModule({ campaignId, session, onQuerySuccess }: ChatModulePr
   return (
     <div className="module-panel chat-module" data-module-id="chat">
       <h2 className="module-title">Chat</h2>
+      <div
+        className={`chat-corpus-ribbon corpus-status-${corpusTone}`}
+        role="status"
+        aria-live="polite"
+        data-testid="chat-corpus-ribbon"
+      >
+        <span className="chat-corpus-ribbon-label">
+          Session {corpus.recapSession} recap corpus
+        </span>
+        <span className="chat-corpus-ribbon-value">{corpusStatusHeadline(corpus.result)}</span>
+        {!corpus.loading && corpus.result && !corpusReadyForPlanning(corpus.result) ? (
+          <span className="chat-corpus-ribbon-hint">Expand Sources for details</span>
+        ) : null}
+      </div>
       <form className="chat-form" onSubmit={handleSubmit}>
         <label className="sr-only" htmlFor="live-query-input">
           Live query

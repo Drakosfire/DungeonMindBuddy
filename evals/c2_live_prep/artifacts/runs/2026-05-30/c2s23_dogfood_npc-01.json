@@ -1,0 +1,76 @@
+{
+  "question_id": "npc-01",
+  "question": "What is Captain Lysandra Ironveil's state going into Session 23 (relationships, commitments, immediate pressures)?",
+  "category": "npc_creation_mutation",
+  "expected_source_roles": [
+    "canon_play",
+    "derived_memory"
+  ],
+  "forbidden_source_roles_for_play_facts": [
+    "planning_scaffold",
+    "reference_tool"
+  ],
+  "expected_artifact_actions": [
+    "manual_corpus_read",
+    "inspector_read_artifact"
+  ],
+  "answer_requirements": [
+    "Ground in play recap or dossier read after statblock rule",
+    "Flag if only prep scaffold was available"
+  ],
+  "planner": {
+    "turn_count": 2,
+    "tool_calls": [
+      "read_corpus_file",
+      "read_corpus_file",
+      "read_corpus_file",
+      "read_corpus_file"
+    ],
+    "corpus_paths_read": [
+      "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/README.md",
+      "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/timeline.md",
+      "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_character_dossier.md",
+      "Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md"
+    ],
+    "final_message": "Captain Lysandra Ironveil is going into Session 23 as **operationally functional but overloaded**: she’s determined to get the party to the swamp and destroy the cult source, while also trying to reassert herself as the group’s leader after admitting she’s been handling the mission poorly in **Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md**.\n\n**Relationships:**\n- With the party, she sees them as effective, necessary allies and wants to keep them focused on mission success; she’s especially in leadership tension with Stafl after he used Suggestion on her to probe her motives.\n- With her father Lysandro, the relationship has just shifted into direct homecoming territory: they finally met at the gate, and he immediately recognized her as “little Lysandra,” prompting her dry correction, “Lieutenant Lysandra now.”\n- With Mirathorn’s institutions, she’s still wary and feels the city is out of control, with her promotion and authority coming under strained, compromised circumstances, as summarized in the dossier at `Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_character_dossier.md`.\n\n**Commitments:**\n- She is committed to keeping the Questionable Company moving north toward the swamp.\n- She is committed to destroying the cult/source problem rather than detouring.\n- She is committed to re-establishing herself as a capable leader, not just a passenger on the road.\n\n**Immediate pressures:**\n- The city behind them is still unstable and compromised.\n- Grobnok’s reports say Mirathorn has a renewed “meat” outbreak, reduced guard capacity, mercenaries being hired, and the Shepherd recruiting openly.\n- Lysandra is under personal strain because this is her first real homecoming to Mireward, with family history and old obligations now physically in front of her.\n- She’s also carrying the pressure of having just admitted her own leadership struggles while trying not to lose control of the mission.\n\nHer current state is basically: **tired, embarrassed by the job, but still resolved to push the team forward and act like the captain she needs to be.**",
+    "final_message_parse_error": null,
+    "user_intent": "status_or_recap_request",
+    "scenario_estimated_cost_usd": null,
+    "planner_estimated_cost_usd": 0.011316
+  },
+  "tool_trace": [
+    {
+      "tool": "read_corpus_file",
+      "arguments": {
+        "path": "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/README.md"
+      },
+      "output_chars": 4328,
+      "output_excerpt": "---\ntitle: \"Captain Lysandra Ironveil — Campaign 2\"\ndocument_class: reference\ncanon_layer: campaign\ncampaign_id: longmont-c2\ntemporal_scope: campaign_stateful\nsession: null\norigin_session: null\nlast_updated_session: null\nsource_class: ledger_or_dossier\nsubject_class: npc\nsubject_doc_kind: hub_index\n---\n\n# Captain Lysandra Ironveil — Campaign 2 (table)\n\n## Suggested reads (in order)\n\nUse `read_corpus_file` with these paths **after** this README (corpus root = `eldyrwild-markdown/`):\n\n1. `Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_character_dossier.md` — primary **character reference** (psychology, command style, GM-sourced ledger bullets).\n2. `Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/lysandra_ironveil_mireward_history.md` — **Mir"
+    },
+    {
+      "tool": "read_corpus_file",
+      "arguments": {
+        "path": "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/timeline.md"
+      },
+      "output_chars": 3157,
+      "output_excerpt": "# Lysandra Ironveil — Campaign 2 timeline\n\nDeterministic hub timeline generated from `dmb_session_memory_record_v1` rows.\nFilter: routes containing `NPCs/captain_lysandra_ironveil` | Source: `evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-05-02/breadcrumb_query_natural_llm_semantic_expanded_report.records_meta.jsonl`\n\n| Session | Order | Unit ID | Recap file | Text |\n| --- | ---: | --- | --- | --- |\n| 20 | 1 | `u-L0015-07` | `Session 20 - Recap.md` | And now that the danger has passed Caelynn asks the mayor about Lysandra, but finds out that they have never heard of her. |\n| 20 | 2 | `u-L0017-01` | `Session 20 - Recap.md` | Caelynn quickly pulls out the \"rockie-talkie\" and attempts to call Lysandra. |\n| 20 | 3 | `u-L0017-03` | `Session 20 - Recap.md` | Caelynn relays he"
+    },
+    {
+      "tool": "read_corpus_file",
+      "arguments": {
+        "path": "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_character_dossier.md"
+      },
+      "output_chars": 9109,
+      "output_excerpt": "---\n\n## title: \"captain lysandra ironveil character dossier\"\ndocument_class: reference\ncanon_layer: campaign\ncampaign_id: longmont-c2\ntemporal_scope: campaign_stateful\nsession: null\norigin_session: null\nlast_updated_session: null\nsource_class: other\n\n# DOSSIER\n\n## Lieutenant Lysandra Ironveil\n\n*Mirathorn City Guard*\n\n---\n\n## CURRENT STATUS\n\n**Rank:** Lieutenant, Mirathorn City Guard  \n**Appointment Context:** Emergency promotion during civic instability, following a City Council session influenced by magical compulsion.  \n**Personal Reaction to Promotion:** Negative, contained, deliberately deferred.  \n**Public Posture:** Professional acceptance without celebration.  \n**Private Assessment:** Politically expedient, procedurally tainted, strategically inconvenient.\n\n**Operational Role:**\n\n- "
+    },
+    {
+      "tool": "read_corpus_file",
+      "arguments": {
+        "path": "Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md"
+      },
+      "output_chars": 10145,
+      "output_excerpt": "---\ntitle: Session 22 - Mireward Road and Lysandro\ndocument_class: play\ncanon_layer: campaign\ncampaign_id: longmont-c2\ntemporal_scope: session_specific\nsession: 22\norigin_session: 22\nlast_updated_session: 22\nsource_class: observed_session_recap\nsubject_class: null\nsubject_doc_kind: recap\nnormalized_from: Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md\nnormalized_on: 2026-05-08\nnormalization_schema: dmb_recap_normalized_v1\n---\n# Session 22 Recap\n\nThe group turns their focus to the Reach; the vast Golden Fields to the north. If they decide to continue on, their destination is Mireward. If they decide to turn around, it's a multiday journey back to Mirathorn. The first thing to do is break their camp and head back to the wagon. The trail is damp from the"
+    }
+  ],
+  "final_text": "{\"user_intent\":\"status_or_recap_request\",\"message\":\"Captain Lysandra Ironveil is going into Session 23 as **operationally functional but overloaded**: she’s determined to get the party to the swamp and destroy the cult source, while also trying to reassert herself as the group’s leader after admitting she’s been handling the mission poorly in **Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md**.\\n\\n**Relationships:**\\n- With the party, she sees them as effective, necessary allies and wants to keep them focused on mission success; she’s especially in leadership tension with Stafl after he used Suggestion on her to probe her motives.\\n- With her father Lysandro, the relationship has just shifted into direct homecoming territory: they finally met at the gate, and he immediately recognized her as “little Lysandra,” prompting her dry correction, “Lieutenant Lysandra now.”\\n- With Mirathorn’s institutions, she’s still wary and feels the city is out of control, with her promotion and authority coming under strained, compromised circumstances, as summarized in the dossier at `Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_character_dossier.md`.\\n\\n**Commitments:**\\n- She is committed to keeping the Questionable Company moving north toward the swamp.\\n- She is committed to destroying the cult/source problem rather than detouring.\\n- She is committed to re-establishing herself as a capable leader, not just a passenger on the road.\\n\\n**Immediate pressures:**\\n- The city behind them is still unstable and compromised.\\n- Grobnok’s reports say Mirathorn has a renewed “meat” outbreak, reduced guard capacity, mercenaries being hired, and the Shepherd recruiting openly.\\n- Lysandra is under personal strain because this is her first real homecoming to Mireward, with family history and old obligations now physically in front of her.\\n- She’s also carrying the pressure of having just admitted her own leadership struggles while trying not to lose control of the mission.\\n\\nHer current state is basically: **tired, embarrassed by the job, but still resolved to push the team forward and act like the captain she needs to be.**\",\"unsure_queue\":null}"
+}

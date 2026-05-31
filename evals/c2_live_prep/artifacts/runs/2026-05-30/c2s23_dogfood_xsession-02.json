@@ -1,0 +1,145 @@
+{
+  "question_id": "xsession-02",
+  "question": "Which open loops detected at the end of Session 22 should appear on the Session 23 planning timeline?",
+  "category": "cross_session_continuity",
+  "expected_source_roles": [
+    "canon_play",
+    "planning_scaffold"
+  ],
+  "forbidden_source_roles_for_play_facts": [
+    "reference_tool"
+  ],
+  "expected_artifact_actions": [
+    "timeline_read",
+    "append_observation"
+  ],
+  "answer_requirements": [
+    "Open loops from play recap; planning beats are follow-on, not substitutes",
+    "Note if bootstrap heuristics mis-tagged a loop"
+  ],
+  "planner": {
+    "turn_count": 3,
+    "tool_calls": [
+      "read_corpus_file",
+      "read_corpus_file",
+      "read_corpus_file",
+      "read_corpus_file",
+      "read_corpus_file",
+      "read_corpus_file",
+      "read_corpus_file",
+      "read_corpus_file",
+      "read_corpus_file",
+      "read_corpus_file",
+      "read_corpus_file"
+    ],
+    "corpus_paths_read": [
+      "Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md",
+      "Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/README.md",
+      "Longmont Campaign/Campaign 2/NPCs/torbin_jove/README.md",
+      "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/README.md",
+      "Longmont Campaign/Campaign 1/NPCs/pippa/README.md",
+      "Longmont Campaign/Campaign 2/NPCs/torbin_jove/README.md",
+      "Longmont Campaign/Campaign 2/NPCs/torbin_jove/torbin_jove_character_dossier.md",
+      "Longmont Campaign/Campaign 1/NPCs/grishna/grishna_character_dossier.md",
+      "Longmont Campaign/Campaign 1/NPCs/bubbles_the_float_goat/timeline.md",
+      "Longmont Campaign/Campaign 2/NPCs/torbin_jove/timeline.md",
+      "Longmont Campaign/Campaign 1/NPCs/kirfan/timeline.md"
+    ],
+    "final_message": "For Session 23 planning, carry forward the Session 22 open loops that were still active by the end of `Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md`:\n\n- **Mirathorn contact breakdown:** repeated failed rockie-talkie contact means the party is now relying on **Grobnok** as the only safe callback, and he said he’d try each evening.\n- **City crisis escalation:** Grobnok reported a renewed **corrupted meat outbreak**, a compromised **Frank**, **Sara** missing, reduced city guard, hired mercenaries, and an uneasy truce with the “meat heads.”\n- **Next authority to consult:** the council / Hester’s instruction to **speak to Commander Vale** before going into the swamp.\n- **Swamp-source mission:** the council believes the problem originates in the swamp, and the party is still headed there.\n- **Mystery song / rhythmic hum:** everyone started humming the same song tied to the Dustwalker performance and the rhythmic sound Karsemine heard overnight.\n- **Storm / weather hazard:** the converging storms were shaping into a **huge hail storm**, with shelter and travel safety still relevant.\n- **Delayed-reflection puddles / conjuration bleed:** the weird puddles, magical seepage, and possible other-planar bleed affecting flora and fauna remained unresolved.\n- **Knocking-without-a-door:** Karsemine heard a door-knock sound with no source found.\n- **Lysandro homecoming:** the session ended with the group meeting **Lysandra’s father Lysandro**, so the family scene is a live thread for Session 23.\n\nIf you want this as a Session 23 timeline, the cleanest source path to anchor it is `Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md`.",
+    "final_message_parse_error": null,
+    "user_intent": "status_or_recap_request",
+    "scenario_estimated_cost_usd": null,
+    "planner_estimated_cost_usd": 0.01428
+  },
+  "tool_trace": [
+    {
+      "tool": "read_corpus_file",
+      "arguments": {
+        "path": "Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md"
+      },
+      "output_chars": 9930,
+      "output_excerpt": "---\ntitle: \"Session 22 - Mireward Road and Lysandro\"\ndocument_class: play\ncanon_layer: campaign\ncampaign_id: longmont-c2\ntemporal_scope: session_specific\nsession: 22\norigin_session: 22\nlast_updated_session: 22\nsource_class: observed_session_recap\n---\n# Session 22 Recap\n\nThe group turns their focus to the Reach; the vast Golden Fields to the north. If they decide to continue on, their destination is Mireward. If they decide to turn around, it's a multiday journey back to Mirathorn. The first thing to do is break their camp and head back to the wagon. The trail is damp from the rain and a magical sheen lies everywhere. In the distance to the west another storm appears to be building and there is a constant feeling of an approaching storm.\n\nAfter another failed attempt to contact Mirathorn by"
+    },
+    {
+      "tool": "read_corpus_file",
+      "arguments": {
+        "path": "Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/README.md"
+      },
+      "output_chars": 912,
+      "output_excerpt": "---\ntitle: \"Sara — Mirathorn rockie-talkie operator (Campaign 2)\"\ndocument_class: reference\ncanon_layer: campaign\ncampaign_id: longmont-c2\ntemporal_scope: campaign_stateful\nsession: null\norigin_session: null\nlast_updated_session: null\nsource_class: ledger_or_dossier\nsubject_class: npc\nsubject_doc_kind: hub_index\n---\n\n# Sara — Mirathorn rockie-talkie operator (Campaign 2)\n\n## Suggested reads (in order)\n\nCorpus root: `DungeonMindBuddy/corpus/eldyrwild-markdown/`.\n\n1. **`sara_mirathorn_operator_character_dossier.md`** — Primary reference: **Sara** and her **fraternal twin**, **Frank**; switchboard role; recap beats; voice prompts.\n2. **`timeline.md`** — Session-ordered pointers where Sara or Frank is on the wire.\n\n**Mechanics:** No statblock in this hub — treat as **civilian comms specialists"
+    },
+    {
+      "tool": "read_corpus_file",
+      "arguments": {
+        "path": "Longmont Campaign/Campaign 2/NPCs/torbin_jove/README.md"
+      },
+      "output_chars": 2984,
+      "output_excerpt": "---\ntitle: \"Torbin Jove — Campaign 2\"\ndocument_class: reference\ncanon_layer: campaign\ncampaign_id: longmont-c2\ntemporal_scope: campaign_stateful\nsession: null\norigin_session: null\nlast_updated_session: null\nsource_class: ledger_or_dossier\nsubject_class: npc\nsubject_doc_kind: hub_index\n---\n\n# Torbin Jove — Campaign 2 (table)\n\n## Suggested reads (in order)\n\nUse `read_corpus_file` with these paths **after** this README (corpus root = `eldyrwild-markdown/`):\n\n1. `Longmont Campaign/Campaign 2/NPCs/torbin_jove/torbin_jove_character_dossier.md` — **primary character reference** (who he is at this table, continuity spine, disambiguators).\n2. `Longmont Campaign/Campaign 2/NPCs/torbin_jove/timeline.md` — C1 + C2 recap pointers for Torbin-specific beats.\n3. `Longmont Campaign/Campaign 2/NPCs/torbin_j"
+    },
+    {
+      "tool": "read_corpus_file",
+      "arguments": {
+        "path": "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/README.md"
+      },
+      "output_chars": 4328,
+      "output_excerpt": "---\ntitle: \"Captain Lysandra Ironveil — Campaign 2\"\ndocument_class: reference\ncanon_layer: campaign\ncampaign_id: longmont-c2\ntemporal_scope: campaign_stateful\nsession: null\norigin_session: null\nlast_updated_session: null\nsource_class: ledger_or_dossier\nsubject_class: npc\nsubject_doc_kind: hub_index\n---\n\n# Captain Lysandra Ironveil — Campaign 2 (table)\n\n## Suggested reads (in order)\n\nUse `read_corpus_file` with these paths **after** this README (corpus root = `eldyrwild-markdown/`):\n\n1. `Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_character_dossier.md` — primary **character reference** (psychology, command style, GM-sourced ledger bullets).\n2. `Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/lysandra_ironveil_mireward_history.md` — **Mir"
+    },
+    {
+      "tool": "read_corpus_file",
+      "arguments": {
+        "path": "Longmont Campaign/Campaign 1/NPCs/pippa/README.md"
+      },
+      "output_chars": 2368,
+      "output_excerpt": "---\ntitle: \"Pippa Goldwhistle — Campaign 1\"\ndocument_class: reference\ncanon_layer: campaign\ncampaign_id: longmont-c1\ntemporal_scope: campaign_stateful\nsession: null\norigin_session: 3\nlast_updated_session: 3\nsource_class: ledger_or_dossier\nsubject_class: npc\nsubject_doc_kind: hub_index\n---\n\n# Pippa Goldwhistle — Campaign 1 (table)\n\n## Suggested reads (in order)\n\nUse `read_corpus_file` with these paths **after** this README (corpus root = `eldyrwild-markdown/`):\n\n1. `Longmont Campaign/Campaign 1/NPCs/pippa/pippa_character_dossier.md` — table-facing personality, role, and statblock-generation context.\n2. `Longmont Campaign/Campaign 1/NPCs/pippa/timeline.md` — session pointer for Pippa-specific beats.\n3. `Longmont Campaign/Campaign 1/Session Recaps/Session 3 - The Stone Bridge Flood.md` — obse"
+    },
+    {
+      "tool": "read_corpus_file",
+      "arguments": {
+        "path": "Longmont Campaign/Campaign 2/NPCs/torbin_jove/README.md"
+      },
+      "output_chars": 2984,
+      "output_excerpt": "---\ntitle: \"Torbin Jove — Campaign 2\"\ndocument_class: reference\ncanon_layer: campaign\ncampaign_id: longmont-c2\ntemporal_scope: campaign_stateful\nsession: null\norigin_session: null\nlast_updated_session: null\nsource_class: ledger_or_dossier\nsubject_class: npc\nsubject_doc_kind: hub_index\n---\n\n# Torbin Jove — Campaign 2 (table)\n\n## Suggested reads (in order)\n\nUse `read_corpus_file` with these paths **after** this README (corpus root = `eldyrwild-markdown/`):\n\n1. `Longmont Campaign/Campaign 2/NPCs/torbin_jove/torbin_jove_character_dossier.md` — **primary character reference** (who he is at this table, continuity spine, disambiguators).\n2. `Longmont Campaign/Campaign 2/NPCs/torbin_jove/timeline.md` — C1 + C2 recap pointers for Torbin-specific beats.\n3. `Longmont Campaign/Campaign 2/NPCs/torbin_j"
+    },
+    {
+      "tool": "read_corpus_file",
+      "arguments": {
+        "path": "Longmont Campaign/Campaign 2/NPCs/torbin_jove/torbin_jove_character_dossier.md"
+      },
+      "output_chars": 3964,
+      "output_excerpt": "---\ntitle: \"Torbin Jove — character dossier (Campaign 2 table)\"\ndocument_class: reference\ncanon_layer: campaign\ncampaign_id: longmont-c2\ntemporal_scope: campaign_stateful\nsession: null\norigin_session: null\nlast_updated_session: null\nsource_class: authored_dossier\n---\n# Torbin Jove — party ward (Hempholm → Mirathorn)\n\n**Torbin Jove** is the **party-recruited** boy from **Hempholm** (Campaign 1): bright, impulsive, candy-obsessed, hero-struck. At the **Longmont** table he became the group’s **ward** with a negotiated contract (education, room and board, visits to his father). He was caught up in **Shepherd’s Flock** meat corruption, **Stormspire Academy** care, and (in Campaign 2) recovery alongside **Ethel** and ongoing **cult / dream** pressure. For **AC, HP, CR, attacks**, read the mechan"
+    },
+    {
+      "tool": "read_corpus_file",
+      "arguments": {
+        "path": "Longmont Campaign/Campaign 1/NPCs/grishna/grishna_character_dossier.md"
+      },
+      "output_chars": 36,
+      "output_excerpt": "# Grishna dossier\n\n## Summary\n\nTBD.\n"
+    },
+    {
+      "tool": "read_corpus_file",
+      "arguments": {
+        "path": "Longmont Campaign/Campaign 1/NPCs/bubbles_the_float_goat/timeline.md"
+      },
+      "output_chars": 1175,
+      "output_excerpt": "# Bubbles the Float Goat — Campaign 1 timeline\n\n**Primary chronology:** `Longmont Campaign/Campaign 1/Session Recaps/`. Timeline rows are pointers, not replacements for recap prose.\n\n| Session | Beat (short) | Recap / prep |\n|---------|--------------|--------------|\n| 3 | Pulls Pippa's keg wagon toward Stone Bridge; panics during the flood, ends up bleating on a rock in the river, bites Ephanna's mage hand, and is eventually rescued. | `Session 3 - The Stone Bridge Flood.md`; prep source `Elderwyld/The Stonebridge Flood.md` |\n| Future hook | Later Mirathorn festival prep notes mention Bubbles appearing with a kid riding her and doing flips. | `Elderwyld/Events/The Festival of Expansion/Schedule and Event Details/Day Two /Day Two Notes.md` |\n\n## How to use this with prep / statblock generat"
+    },
+    {
+      "tool": "read_corpus_file",
+      "arguments": {
+        "path": "Longmont Campaign/Campaign 2/NPCs/torbin_jove/timeline.md"
+      },
+      "output_chars": 3018,
+      "output_excerpt": "# Torbin Jove — Longmont timeline (Campaign 1 + Campaign 2)\n\n**Primary chronology (C1):** `Longmont Campaign/Campaign 1/Session Recaps/`. **Primary chronology (C2):** `Longmont Campaign/Campaign 2/Session Recaps/`. **Aggregated digests:** `Longmont Campaign/Campaign 2/Campaign 2 Notes.md`, `Longmont Campaign/Campaign 2/Elderwyld_Narrative_Ledger_Campaign2.md` — use for search, not as a substitute for recap prose.\n\nRows use **full corpus-relative paths** so planners never confuse duplicate session numbers across campaigns.\n\n| Campaign | Session | Torbin beat (short) | Recap (corpus-relative path) |\n| -------- | ------- | ------------------- | ---------------------------- |\n| C1 | 4 | Meet sad boy at Hempholm tree; father **Jove** | `Longmont Campaign/Campaign 1/Session Recaps/Session 4 - Th"
+    },
+    {
+      "tool": "read_corpus_file",
+      "arguments": {
+        "path": "Longmont Campaign/Campaign 1/NPCs/kirfan/timeline.md"
+      },
+      "output_chars": 81,
+      "output_excerpt": "# Kirfan timeline\n\n| Session | Beat (short) | Recap / prep |\n| --- | --- | --- |\n"
+    }
+  ],
+  "final_text": "{\"user_intent\":\"status_or_recap_request\",\"message\":\"For Session 23 planning, carry forward the Session 22 open loops that were still active by the end of `Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md`:\\n\\n- **Mirathorn contact breakdown:** repeated failed rockie-talkie contact means the party is now relying on **Grobnok** as the only safe callback, and he said he’d try each evening.\\n- **City crisis escalation:** Grobnok reported a renewed **corrupted meat outbreak**, a compromised **Frank**, **Sara** missing, reduced city guard, hired mercenaries, and an uneasy truce with the “meat heads.”\\n- **Next authority to consult:** the council / Hester’s instruction to **speak to Commander Vale** before going into the swamp.\\n- **Swamp-source mission:** the council believes the problem originates in the swamp, and the party is still headed there.\\n- **Mystery song / rhythmic hum:** everyone started humming the same song tied to the Dustwalker performance and the rhythmic sound Karsemine heard overnight.\\n- **Storm / weather hazard:** the converging storms were shaping into a **huge hail storm**, with shelter and travel safety still relevant.\\n- **Delayed-reflection puddles / conjuration bleed:** the weird puddles, magical seepage, and possible other-planar bleed affecting flora and fauna remained unresolved.\\n- **Knocking-without-a-door:** Karsemine heard a door-knock sound with no source found.\\n- **Lysandro homecoming:** the session ended with the group meeting **Lysandra’s father Lysandro**, so the family scene is a live thread for Session 23.\\n\\nIf you want this as a Session 23 timeline, the cleanest source path to anchor it is `Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md`.\",\"unsure_queue\":null}"
+}

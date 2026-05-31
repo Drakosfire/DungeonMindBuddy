@@ -1,0 +1,66 @@
+{
+  "question_id": "roll-01",
+  "question": "Which travel or encounter roll table should govern the next leg of overland travel after Session 22?",
+  "category": "roll_table_creation_mutation",
+  "expected_source_roles": [
+    "reference_tool",
+    "planning_scaffold"
+  ],
+  "forbidden_source_roles_for_play_facts": [
+    "reference_tool"
+  ],
+  "expected_artifact_actions": [
+    "inspector_read_artifact",
+    "roll_table_patch"
+  ],
+  "answer_requirements": [
+    "Identify table as prep tool",
+    "State whether table is registered on live_packet.known_roll_tables",
+    "Do not assert encounters already happened because a table exists"
+  ],
+  "planner": {
+    "turn_count": 2,
+    "tool_calls": [
+      "read_corpus_file",
+      "read_corpus_file",
+      "read_corpus_file"
+    ],
+    "corpus_paths_read": [
+      "Longmont Campaign/Campaign 2/Session Prep/session_22/README.md",
+      "Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_travel_to_mireward_runbook.md",
+      "Longmont Campaign/Campaign 2/Session Prep/Session 22 - open GM knobs.md"
+    ],
+    "final_message": "Use the Session 22 travel package: the next leg is governed by the Session 22 runbook’s daily stack — **T-WX** `Session Prep/session_22/travel_storm_weather_d20.md`, then **T-NPC**, then **R5** `Elderwyld/Roads/mireward_reach_road_d100_encounter_table.md`, then **T-DIL**; at camp, use **T-WATCH** and **T-CF**, with **R6** `Elderwyld/Wilderness/conical_hills_night_camp_d100.md` only as optional extra depth. The planning hub `Longmont Campaign/Campaign 2/Session Prep/session_22/README.md` explicitly marks R5/R6 as the travel tables to read at table, and the runbook says the Session 22 march sequence is T-WX → T-NPC → R5 → T-DIL.",
+    "final_message_parse_error": null,
+    "user_intent": "factual_lookup",
+    "scenario_estimated_cost_usd": null,
+    "planner_estimated_cost_usd": 0.014054
+  },
+  "tool_trace": [
+    {
+      "tool": "read_corpus_file",
+      "arguments": {
+        "path": "Longmont Campaign/Campaign 2/Session Prep/session_22/README.md"
+      },
+      "output_chars": 12710,
+      "output_excerpt": "---\ntitle: \"Session 22 — planning package (hub index)\"\ndocument_class: planning\ncanon_layer: campaign\ncampaign_id: longmont-c2\ntemporal_scope: session_specific\nsession: 22\norigin_session: 21\nlast_updated_session: 21\nsource_class: scene_module\ntable_note: \"Planning hub only — not table canon. After Session 22 play, promote facts via recap + timeline rows; do not treat this README as chronology.\"\n---\n\n# Session 22 — planning package\n\n**Campaign:** Longmont Campaign 2 (Questionable Company)  \n**Prep target:** Session **22** (travel north on the Mireward Reach after Session 21 drake nest / Mirathorn comms)  \n**Table canon through:** `Session Recaps/Session 21 - Drake Nest Mirathorn Call.md`\n\nThis folder is the **GM-facing index** for everything produced while planning Session 22: what exists, "
+    },
+    {
+      "tool": "read_corpus_file",
+      "arguments": {
+        "path": "Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_travel_to_mireward_runbook.md"
+      },
+      "output_chars": 30061,
+      "output_excerpt": "---\ntitle: \"Session 22 — travel to Mireward (runbook)\"\ndocument_class: planning\ncanon_layer: campaign\ncampaign_id: longmont-c2\ntemporal_scope: session_specific\nsession: 22\norigin_session: 21\nlast_updated_session: 21\nsource_class: scene_module\ntable_note: \"Runnable travel session ending at Mireward gate or first night in town. Applies Making Travel Sessions Memorable practices. Not table canon until recap.\"\n---\n\n# Session 22 — travel to Mireward (runbook)\n\n**Session endpoint:** Party **arrives Mireward** (gate line or first night inside walls) unless table chooses delay.  \n**Start:** Conical-hill camp north of Mossford (~**5 days** to Mireward at S21 end).  \n**Design source:** `Making Travel Sessions Memorable and Fun in TTRPGs.md` (repo root) — principles below, not random-hour grinding.\n\n"
+    },
+    {
+      "tool": "read_corpus_file",
+      "arguments": {
+        "path": "Longmont Campaign/Campaign 2/Session Prep/Session 22 - open GM knobs.md"
+      },
+      "output_chars": 1964,
+      "output_excerpt": "---\ntitle: \"Session 22 — open GM knobs (not yet in corpus)\"\ndocument_class: planning\ncanon_layer: campaign\ncampaign_id: longmont-c2\ntemporal_scope: session_specific\nsession: 22\norigin_session: null\nlast_updated_session: 21\nsource_class: scene_module\ntable_note: \"Decisions the GM has not fixed in lore files yet. Delete or move rows when authored elsewhere.\"\n---\n\n# Session 22 — open GM knobs\n\nItems discussed in planning that **must be decided by the GM** before they pay off at the table. When decided, write the answer into the linked target file and remove or update the row here.\n\n| Knob | Question | Write answer to |\n|------|----------|-----------------|\n| **Lysandra investigation** | Who is the **“person they spoke about back in the city”** that Lysandra investigated (Session 21)? | `NPCs/"
+    }
+  ],
+  "final_text": "{\"user_intent\":\"factual_lookup\",\"message\":\"Use the Session 22 travel package: the next leg is governed by the Session 22 runbook’s daily stack — **T-WX** `Session Prep/session_22/travel_storm_weather_d20.md`, then **T-NPC**, then **R5** `Elderwyld/Roads/mireward_reach_road_d100_encounter_table.md`, then **T-DIL**; at camp, use **T-WATCH** and **T-CF**, with **R6** `Elderwyld/Wilderness/conical_hills_night_camp_d100.md` only as optional extra depth. The planning hub `Longmont Campaign/Campaign 2/Session Prep/session_22/README.md` explicitly marks R5/R6 as the travel tables to read at table, and the runbook says the Session 22 march sequence is T-WX → T-NPC → R5 → T-DIL.\",\"unsure_queue\":null}"
+}

@@ -10,7 +10,7 @@
     "event_log.jsonl",
     "job_queue.jsonl"
   ],
-  "generated_at": "2026-05-30T20:55:02Z",
+  "generated_at": "2026-05-31T00:48:09Z",
   "now": {
     "day_label": "Session 23",
     "party_position": "From recap bootstrap",
@@ -22,12 +22,15 @@
   "pending_roll_tables": [],
   "enabled_surface_modules": [
     "chat",
+    "ingestion",
     "record",
     "now",
     "open_loops",
     "roll_stack",
-    "timeline"
+    "timeline",
+    "queue",
+    "sources"
   ],
   "queued_job_count": 0,
-  "recent_event_count": 1
+  "recent_event_count": 2
 }

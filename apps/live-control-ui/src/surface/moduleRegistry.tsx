@@ -1,5 +1,3 @@
-import type { ComponentType } from "react";
-
 import type {
   LiveEvent,
   LiveJob,
@@ -10,6 +8,7 @@ import type {
   SurfaceModuleInstance,
 } from "../api/types";
 import { IngestionModule } from "../modules/IngestionModule";
+import { SourcesModule } from "../modules/SourcesModule";
 import { ChatModule } from "./modules/ChatModule";
 import { NowModule } from "./modules/NowModule";
 import { RecordModule } from "./modules/RecordModule";
@@ -37,51 +36,6 @@ export function catalogTitle(
   return catalogById.get(moduleId)?.title ?? moduleId;
 }
 
-export function renderModule(
-  row: SurfaceModuleInstance,
-  context: ModuleRenderContext,
-): ComponentType | null {
-  switch (row.module_id) {
-    case "chat":
-      return () => (
-        <ChatModule
-          campaignId={context.campaignId}
-          session={context.session}
-          onQuerySuccess={context.onQuerySuccess}
-        />
-      );
-    case "record":
-      return () => <RecordModule events={context.events} />;
-    case "roll_stack":
-      return () => (
-        <RollStackModule
-          state={context.state}
-          catalogEntry={context.catalogById.get("roll_stack")}
-          events={context.events}
-        />
-      );
-    case "now":
-      return () => (
-        <NowModule
-          state={context.state}
-          catalogEntry={context.catalogById.get("now")}
-        />
-      );
-    case "timeline":
-      return () => (
-        <TimelineModule
-          planView={context.planView}
-          catalogEntry={context.catalogById.get("timeline")}
-          onSelectTarget={context.onSelectTarget}
-        />
-      );
-    case "ingestion":
-      return () => <IngestionModule campaignId={context.campaignId} session={context.session} />;
-    default:
-      return null;
-  }
-}
-
 export function ModuleContent({
   row,
   context,
@@ -89,14 +43,47 @@ export function ModuleContent({
   row: SurfaceModuleInstance;
   context: ModuleRenderContext;
 }) {
-  const Component = renderModule(row, context);
-  if (Component) {
-    return <Component />;
+  switch (row.module_id) {
+    case "chat":
+      return (
+        <ChatModule
+          campaignId={context.campaignId}
+          session={context.session}
+          onQuerySuccess={context.onQuerySuccess}
+        />
+      );
+    case "record":
+      return <RecordModule events={context.events} />;
+    case "roll_stack":
+      return (
+        <RollStackModule
+          state={context.state}
+          catalogEntry={context.catalogById.get("roll_stack")}
+          events={context.events}
+        />
+      );
+    case "now":
+      return (
+        <NowModule state={context.state} catalogEntry={context.catalogById.get("now")} />
+      );
+    case "timeline":
+      return (
+        <TimelineModule
+          planView={context.planView}
+          catalogEntry={context.catalogById.get("timeline")}
+          onSelectTarget={context.onSelectTarget}
+        />
+      );
+    case "ingestion":
+      return <IngestionModule campaignId={context.campaignId} session={context.session} />;
+    case "sources":
+      return <SourcesModule campaignId={context.campaignId} session={context.session} />;
+    default:
+      return (
+        <UnsupportedModule
+          moduleId={row.module_id}
+          title={catalogTitle(context.catalogById, row.module_id)}
+        />
+      );
   }
-  return (
-    <UnsupportedModule
-      moduleId={row.module_id}
-      title={catalogTitle(context.catalogById, row.module_id)}
-    />
-  );
 }

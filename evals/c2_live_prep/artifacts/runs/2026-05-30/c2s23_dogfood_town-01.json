@@ -1,0 +1,76 @@
+{
+  "question_id": "town-01",
+  "question": "What is the next town or settlement toward Mireward, and what trade or economy hooks matter for Session 23 opening scenes?",
+  "category": "town_economy_planning_model",
+  "expected_source_roles": [
+    "canon_play",
+    "planning_scaffold",
+    "derived_memory"
+  ],
+  "forbidden_source_roles_for_play_facts": [
+    "reference_tool"
+  ],
+  "expected_artifact_actions": [
+    "manual_corpus_read",
+    "append_observation"
+  ],
+  "answer_requirements": [
+    "Separate confirmed play facts from prep possibilities",
+    "Economy hooks may be scaffold if not yet played"
+  ],
+  "planner": {
+    "turn_count": 2,
+    "tool_calls": [
+      "read_corpus_file",
+      "read_corpus_file",
+      "read_corpus_file",
+      "read_corpus_file"
+    ],
+    "corpus_paths_read": [
+      "Longmont Campaign/Campaign 2/Journey - Mireward Reach (Campaign 2).md",
+      "Longmont Campaign/Campaign 2/Session Prep/session_22/README.md",
+      "Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_prep_brief.md",
+      "Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_planning_anchor.md"
+    ],
+    "final_message": "The next town toward Mireward is **Mireward itself** — the journey tracker says it’s the **next town north** and places the party at the **Mireward outskirts / gate apron** in `Longmont Campaign/Campaign 2/Journey - Mireward Reach (Campaign 2).md`. For Session 23 opening scenes, the strongest trade/economy hooks currently sitting in the Mireward scaffold are: **a garrison-town identity**, **stink-trades / downwind craft**, and a **refugee-capacity squeeze** with the **Last Dry Bed** family angle in the planning anchor and prep brief (`Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_planning_anchor.md`, `Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_prep_brief.md`).\n\nPractical opening-scene hooks: 1) gate traffic and rationing pressure at the town edge, 2) a merchant or handler trying to move goods through a thin garrison town, 3) displaced travelers competing for beds, water, or work, and 4) a local craft or supply problem tied to the windward stink-trades rather than a full market district yet. The scaffold is still **planning only**, so exact shops and officials are not canon until promoted in `Elderwyld/Cities and Towns/Mireward/Mireward_PLACE_BUILD_SCAFFOLD.md`.",
+    "final_message_parse_error": null,
+    "user_intent": "planning_request",
+    "scenario_estimated_cost_usd": null,
+    "planner_estimated_cost_usd": 0.01339
+  },
+  "tool_trace": [
+    {
+      "tool": "read_corpus_file",
+      "arguments": {
+        "path": "Longmont Campaign/Campaign 2/Journey - Mireward Reach (Campaign 2).md"
+      },
+      "output_chars": 4786,
+      "output_excerpt": "---\ntitle: \"Journey — Mireward Reach (Campaign 2)\"\ntype: campaign-tracker\ncampaign: \"Campaign 2\"\nroad: \"The Mireward Reach\"\nlast_updated_session: 22\n---\n\n# Journey — Mireward Reach (Campaign 2)\n\nSingle place to update **travel bookkeeping** so prep, recaps, and encounter pacing stay aligned. Lysandra’s original brief was **~2 weeks on horse** to the swamp ([Session 13 - Recap](Session%20Recaps/Session%2013%20-%20Recap.md)); treat numbers below as **GM estimates** until you revise after play.\n\n## Geography — anchor distances (from Mirathorn)\n\nThe **Mireward Reach** is the name of the whole northbound drove-road in the world doc; **milestones below are travel-time anchors** along it — rename or key them when you attach a proper settlement or fork.\n\n| Anchor | Days from Mirathorn | Notes |\n|-"
+    },
+    {
+      "tool": "read_corpus_file",
+      "arguments": {
+        "path": "Longmont Campaign/Campaign 2/Session Prep/session_22/README.md"
+      },
+      "output_chars": 12710,
+      "output_excerpt": "---\ntitle: \"Session 22 — planning package (hub index)\"\ndocument_class: planning\ncanon_layer: campaign\ncampaign_id: longmont-c2\ntemporal_scope: session_specific\nsession: 22\norigin_session: 21\nlast_updated_session: 21\nsource_class: scene_module\ntable_note: \"Planning hub only — not table canon. After Session 22 play, promote facts via recap + timeline rows; do not treat this README as chronology.\"\n---\n\n# Session 22 — planning package\n\n**Campaign:** Longmont Campaign 2 (Questionable Company)  \n**Prep target:** Session **22** (travel north on the Mireward Reach after Session 21 drake nest / Mirathorn comms)  \n**Table canon through:** `Session Recaps/Session 21 - Drake Nest Mirathorn Call.md`\n\nThis folder is the **GM-facing index** for everything produced while planning Session 22: what exists, "
+    },
+    {
+      "tool": "read_corpus_file",
+      "arguments": {
+        "path": "Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_prep_brief.md"
+      },
+      "output_chars": 15146,
+      "output_excerpt": "---\ntitle: \"Session 22 — prep brief\"\ndocument_class: planning\ncanon_layer: campaign\ncampaign_id: longmont-c2\ntemporal_scope: session_specific\nsession: 22\norigin_session: 21\nlast_updated_session: 21\nsource_class: scene_module\ntable_note: \"Runnable Session 22 plan. Not table canon — facts of play land in Session 22 recap after play.\"\n---\n\n# Session 22 Prep Brief\n\n**Route intent (table canon):** Press **north** on the Mireward Reach toward the swamp objective — not turn back to Mirathorn unless the table reverses at the table.  \n**End-state anchor (Session 21):** Conical-hill camp north of Mossford; ~**3 days** south to Mirathorn; **Mireward ~5 days** north; storm **building** (savory/shimmer rain at the edge).\n\n---\n\n## 1. Executive prep read\n\nSession 22 is a **travel-and-pressure** session: "
+    },
+    {
+      "tool": "read_corpus_file",
+      "arguments": {
+        "path": "Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_planning_anchor.md"
+      },
+      "output_chars": 6180,
+      "output_excerpt": "---\ntitle: \"Session 22 — planning anchor\"\ndocument_class: planning\ncanon_layer: campaign\ncampaign_id: longmont-c2\ntemporal_scope: session_specific\nsession: 22\norigin_session: 21\nlast_updated_session: 21\nsource_class: scene_module\ntable_note: \"Where-we-are snapshot for Session 22 prep. Not table canon. Refresh after play or major scaffold edits.\"\n---\n\n# Session 22 — planning anchor\n\n**Recorded:** 2026-05-23  \n**Hub index:** `Session Prep/session_22/README.md`  \n**Table canon through:** `Session Recaps/Session 21 - Drake Nest Mirathorn Call.md`\n\n---\n\n## 1. Where the table is\n\n| Field | Value |\n|-------|--------|\n| **Party position** | Conical-hill camp **north of Mossford** (end Session 21) |\n| **Mirathorn** | ~**3 days** south |\n| **Mireward** | ~**5 days** north (named Session 21; **scaffo"
+    }
+  ],
+  "final_text": "{\"user_intent\":\"planning_request\",\"message\":\"The next town toward Mireward is **Mireward itself** — the journey tracker says it’s the **next town north** and places the party at the **Mireward outskirts / gate apron** in `Longmont Campaign/Campaign 2/Journey - Mireward Reach (Campaign 2).md`. For Session 23 opening scenes, the strongest trade/economy hooks currently sitting in the Mireward scaffold are: **a garrison-town identity**, **stink-trades / downwind craft**, and a **refugee-capacity squeeze** with the **Last Dry Bed** family angle in the planning anchor and prep brief (`Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_planning_anchor.md`, `Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_prep_brief.md`).\\n\\nPractical opening-scene hooks: 1) gate traffic and rationing pressure at the town edge, 2) a merchant or handler trying to move goods through a thin garrison town, 3) displaced travelers competing for beds, water, or work, and 4) a local craft or supply problem tied to the windward stink-trades rather than a full market district yet. The scaffold is still **planning only**, so exact shops and officials are not canon until promoted in `Elderwyld/Cities and Towns/Mireward/Mireward_PLACE_BUILD_SCAFFOLD.md`.\",\"unsure_queue\":null}"
+}

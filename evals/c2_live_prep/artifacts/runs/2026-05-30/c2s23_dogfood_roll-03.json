@@ -1,0 +1,65 @@
+{
+  "question_id": "roll-03",
+  "question": "I want to adjust encounter weights on an existing prep table for shepherd-cult pressure—what is the safe preview-first workflow?",
+  "category": "roll_table_creation_mutation",
+  "expected_source_roles": [
+    "reference_tool",
+    "audit"
+  ],
+  "forbidden_source_roles_for_play_facts": [
+    "reference_tool"
+  ],
+  "expected_artifact_actions": [
+    "roll_table_patch",
+    "inspector_read_write_evidence"
+  ],
+  "answer_requirements": [
+    "Describe preview then confirm",
+    "Clarify patch changes the tool, not play history"
+  ],
+  "planner": {
+    "turn_count": 2,
+    "tool_calls": [
+      "read_corpus_file",
+      "read_corpus_file",
+      "read_corpus_file"
+    ],
+    "corpus_paths_read": [
+      "Longmont Campaign/Campaign 2/Session Prep/session_22/README.md",
+      "Longmont Campaign/Campaign 2/Session Prep/Session 22 - open GM knobs.md",
+      "Longmont Campaign/Campaign 2/Campaign 2 Notes.md"
+    ],
+    "final_message": "Safe preview-first workflow for adjusting an existing prep table:\n\n1. Open the hub/plan first: `Longmont Campaign/Campaign 2/Session Prep/session_22/README.md` and the specific knobs file `Longmont Campaign/Campaign 2/Session Prep/Session 22 - open GM knobs.md` to confirm what is planning-only versus canon.\n2. Preview the table *in read-only mode* from its source file(s) — for shepherd-cult pressure, that means the relevant encounter table(s) listed in the hub, such as `Elderwyld/Roads/mireward_reach_road_d100_encounter_table.md` or `Elderwyld/Wilderness/conical_hills_night_camp_d100.md` if the pressure is on-road or at camp.\n3. Decide the preview shape before any rewrite: keep the same slot count, label existing entries by weight band, and note which results become rarer/commoner rather than editing outcomes first.\n4. Apply only a small delta on the copied draft: shift 1–2 weight points per affected entry, or swap one low-impact result for a cult-pressure variant, then re-preview the distribution to make sure you didn’t flatten variety.\n5. Promote the change only after you like the preview; keep the original table intact until you’re ready to overwrite the authoritative file, because the hub explicitly treats planning docs as non-canon and the road/camp tables as reference canon.\n\nFor shepherd-cult pressure specifically, the planning docs point to the travel and camp tables in the hub (`Longmont Campaign/Campaign 2/Session Prep/session_22/README.md`) and the open GM knobs file for unresolved pressure themes (`Longmont Campaign/Campaign 2/Session Prep/Session 22 - open GM knobs.md`).",
+    "final_message_parse_error": null,
+    "user_intent": "planning_request",
+    "scenario_estimated_cost_usd": null,
+    "planner_estimated_cost_usd": 0.013913
+  },
+  "tool_trace": [
+    {
+      "tool": "read_corpus_file",
+      "arguments": {
+        "path": "Longmont Campaign/Campaign 2/Session Prep/session_22/README.md"
+      },
+      "output_chars": 12710,
+      "output_excerpt": "---\ntitle: \"Session 22 — planning package (hub index)\"\ndocument_class: planning\ncanon_layer: campaign\ncampaign_id: longmont-c2\ntemporal_scope: session_specific\nsession: 22\norigin_session: 21\nlast_updated_session: 21\nsource_class: scene_module\ntable_note: \"Planning hub only — not table canon. After Session 22 play, promote facts via recap + timeline rows; do not treat this README as chronology.\"\n---\n\n# Session 22 — planning package\n\n**Campaign:** Longmont Campaign 2 (Questionable Company)  \n**Prep target:** Session **22** (travel north on the Mireward Reach after Session 21 drake nest / Mirathorn comms)  \n**Table canon through:** `Session Recaps/Session 21 - Drake Nest Mirathorn Call.md`\n\nThis folder is the **GM-facing index** for everything produced while planning Session 22: what exists, "
+    },
+    {
+      "tool": "read_corpus_file",
+      "arguments": {
+        "path": "Longmont Campaign/Campaign 2/Session Prep/Session 22 - open GM knobs.md"
+      },
+      "output_chars": 1964,
+      "output_excerpt": "---\ntitle: \"Session 22 — open GM knobs (not yet in corpus)\"\ndocument_class: planning\ncanon_layer: campaign\ncampaign_id: longmont-c2\ntemporal_scope: session_specific\nsession: 22\norigin_session: null\nlast_updated_session: 21\nsource_class: scene_module\ntable_note: \"Decisions the GM has not fixed in lore files yet. Delete or move rows when authored elsewhere.\"\n---\n\n# Session 22 — open GM knobs\n\nItems discussed in planning that **must be decided by the GM** before they pay off at the table. When decided, write the answer into the linked target file and remove or update the row here.\n\n| Knob | Question | Write answer to |\n|------|----------|-----------------|\n| **Lysandra investigation** | Who is the **“person they spoke about back in the city”** that Lysandra investigated (Session 21)? | `NPCs/"
+    },
+    {
+      "tool": "read_corpus_file",
+      "arguments": {
+        "path": "Longmont Campaign/Campaign 2/Campaign 2 Notes.md"
+      },
+      "output_chars": 30061,
+      "output_excerpt": "---\ntitle: \"Campaign 2 Notes\"\ndocument_class: reference\ncanon_layer: campaign\ncampaign_id: longmont-c2\ntemporal_scope: campaign_stateful\nsession: null\norigin_session: null\nlast_updated_session: null\nsource_class: ledger_or_dossier\n---\nTab 1\n\nCampaign 2 Threads, NPCs\n\n# Campaign 2 GM Notes\n\n**Story threads backlog** (table-spawned / low-priority hooks before they hit the narrative ledger): `Story threads backlog.md`.\n\n## 🧑‍🤝‍🧑 Significant NPCs (Current/Active)\n\n### 🏛️ Mirathorn Civic & Military\n\n**Thalia Ashenvale** – Commander of the city guard; respected, decisive leader. Authorized gifting the Wolf’s estate to the party.\n\n**Captain Lysandra Ironveil** — *Dossier, timeline, and prep beats:* `NPCs/captain_lysandra_ironveil/` (see `README.md` there). *Setting seed + CR2 sheet:* `Elderwyld/C"
+    }
+  ],
+  "final_text": "{\"user_intent\":\"planning_request\",\"message\":\"Safe preview-first workflow for adjusting an existing prep table:\\n\\n1. Open the hub/plan first: `Longmont Campaign/Campaign 2/Session Prep/session_22/README.md` and the specific knobs file `Longmont Campaign/Campaign 2/Session Prep/Session 22 - open GM knobs.md` to confirm what is planning-only versus canon.\\n2. Preview the table *in read-only mode* from its source file(s) — for shepherd-cult pressure, that means the relevant encounter table(s) listed in the hub, such as `Elderwyld/Roads/mireward_reach_road_d100_encounter_table.md` or `Elderwyld/Wilderness/conical_hills_night_camp_d100.md` if the pressure is on-road or at camp.\\n3. Decide the preview shape before any rewrite: keep the same slot count, label existing entries by weight band, and note which results become rarer/commoner rather than editing outcomes first.\\n4. Apply only a small delta on the copied draft: shift 1–2 weight points per affected entry, or swap one low-impact result for a cult-pressure variant, then re-preview the distribution to make sure you didn’t flatten variety.\\n5. Promote the change only after you like the preview; keep the original table intact until you’re ready to overwrite the authoritative file, because the hub explicitly treats planning docs as non-canon and the road/camp tables as reference canon.\\n\\nFor shepherd-cult pressure specifically, the planning docs point to the travel and camp tables in the hub (`Longmont Campaign/Campaign 2/Session Prep/session_22/README.md`) and the open GM knobs file for unresolved pressure themes (`Longmont Campaign/Campaign 2/Session Prep/Session 22 - open GM knobs.md`).\",\"unsure_queue\":null}"
+}

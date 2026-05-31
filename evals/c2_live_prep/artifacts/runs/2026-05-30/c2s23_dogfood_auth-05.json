@@ -1,0 +1,54 @@
+{
+  "question_id": "auth-05",
+  "question": "After canonical Session 22 recap exists, may I still use raw staged table notes as normal retrieval evidence for play-fact questions?",
+  "category": "authority_trap_questions",
+  "expected_source_roles": [
+    "canon_play",
+    "pre_canonical_evidence"
+  ],
+  "forbidden_source_roles_for_play_facts": [
+    "pre_canonical_evidence"
+  ],
+  "expected_artifact_actions": [
+    "ingest_stage_preview"
+  ],
+  "answer_requirements": [
+    "Staged notes are provenance-only after recap",
+    "Point to canon recap or derived memory instead"
+  ],
+  "planner": {
+    "turn_count": 2,
+    "tool_calls": [
+      "read_corpus_file",
+      "read_corpus_file"
+    ],
+    "corpus_paths_read": [
+      "Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md",
+      "Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.frontmatter_seed.md"
+    ],
+    "final_message": "Yes — **for retrieval only**, you can still use raw staged notes as evidence, but once the canonical recap exists the **canonical Session 22 recap** should be the normal source of truth for play-fact questions: `Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md`. The breadcrumb file `Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.breadcrumbed.md` is an index/artifact, not the canonical prose recap. So: raw staged notes can inform or help you find things, but answer play-fact questions from the canonical recap first unless you are explicitly reconciling drafts or staging notes.",
+    "final_message_parse_error": null,
+    "user_intent": "status_or_recap_request",
+    "scenario_estimated_cost_usd": null,
+    "planner_estimated_cost_usd": 0.006795
+  },
+  "tool_trace": [
+    {
+      "tool": "read_corpus_file",
+      "arguments": {
+        "path": "Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md"
+      },
+      "output_chars": 9930,
+      "output_excerpt": "---\ntitle: \"Session 22 - Mireward Road and Lysandro\"\ndocument_class: play\ncanon_layer: campaign\ncampaign_id: longmont-c2\ntemporal_scope: session_specific\nsession: 22\norigin_session: 22\nlast_updated_session: 22\nsource_class: observed_session_recap\n---\n# Session 22 Recap\n\nThe group turns their focus to the Reach; the vast Golden Fields to the north. If they decide to continue on, their destination is Mireward. If they decide to turn around, it's a multiday journey back to Mirathorn. The first thing to do is break their camp and head back to the wagon. The trail is damp from the rain and a magical sheen lies everywhere. In the distance to the west another storm appears to be building and there is a constant feeling of an approaching storm.\n\nAfter another failed attempt to contact Mirathorn by"
+    },
+    {
+      "tool": "read_corpus_file",
+      "arguments": {
+        "path": "Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.frontmatter_seed.md"
+      },
+      "output_chars": 5834,
+      "output_excerpt": "---\nschema: dmb_recap_breadcrumbs_v1\nsource_recap_path: \"Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md\"\ncampaign:\n  title: \"Longmont Campaign\"\n  campaign_number: 2\n  campaign_id: longmont-c2\nsession:\n  number: 22\n  title: \"Session 22 - Mireward Road and Lysandro\"\n  document_class: play\n  canon_layer: campaign\n  temporal_scope: session_specific\n  origin_session: 22\n  last_updated_session: 22\n  source_class: observed_session_recap\nbreadcrumb_semantics:\n  purpose: \"Machine-facing session memory index: inline labels mark source-aligned recap spans with durable retrieval value for agentic planning, live-play querying, hub routing, or proposed hub review.\"\n  placement_rule: \"Place tags immediately after the source-derived span that should rout"
+    }
+  ],
+  "final_text": "{\"user_intent\":\"status_or_recap_request\",\"message\":\"Yes — **for retrieval only**, you can still use raw staged notes as evidence, but once the canonical recap exists the **canonical Session 22 recap** should be the normal source of truth for play-fact questions: `Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md`. The breadcrumb file `Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.breadcrumbed.md` is an index/artifact, not the canonical prose recap. So: raw staged notes can inform or help you find things, but answer play-fact questions from the canonical recap first unless you are explicitly reconciling drafts or staging notes.\",\"unsure_queue\":null}"
+}

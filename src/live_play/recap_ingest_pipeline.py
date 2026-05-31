@@ -18,6 +18,13 @@ from scripts.materialize_normalized_recaps import (
 from scripts.materialize_session_memory import _check_one, _materialize_one
 from src.agent.corpus_writer import is_writable_corpus_path, write_corpus_file
 from src.agent.recap_ingest_helpers import assemble_recap
+from src.corpus.session_recap_paths import (
+    breadcrumbed_relpath,
+    normalized_recap_relpath,
+    resolve_under_corpus,
+    session_memory_jsonl_relpath,
+    session_memory_meta_relpath,
+)
 from src.live_play.recap_ingest_status import RecapIngestStatus
 from src.live_play.recap_stage_paths import RecapStagePaths, corpus_root
 
@@ -220,19 +227,23 @@ def _safe_write_recap(
     recap_rel: str,
     recap_text: str,
     force_recap: bool,
-) -> tuple[bool, str | None]:
+) -> tuple[str, str | None]:
+    """Return (outcome, error). Outcome is created, reused, or failed."""
     allowed, reason = is_writable_corpus_path(recap_rel, "create")
     if not allowed:
-        return False, reason
+        return "failed", reason
     target = (corpus / recap_rel).resolve()
     try:
         target.relative_to(corpus.resolve())
     except ValueError:
-        return False, "canonical recap path escapes corpus root"
+        return "failed", "canonical recap path escapes corpus root"
+
+    if target.exists() and not force_recap:
+        return "reused", None
 
     if target.exists() and force_recap:
         target.write_text(recap_text if recap_text.endswith("\n") else recap_text + "\n", encoding="utf-8")
-        return True, None
+        return "created", None
 
     preview = write_corpus_file(
         corpus,
@@ -242,7 +253,7 @@ def _safe_write_recap(
         dry_run=True,
     )
     if not preview.get("ok"):
-        return False, str(preview.get("error") or "recap preview failed")
+        return "failed", str(preview.get("error") or "recap preview failed")
     commit = write_corpus_file(
         corpus,
         path=recap_rel,
@@ -252,8 +263,61 @@ def _safe_write_recap(
         confirm_token=str(preview.get("confirm_token") or ""),
     )
     if not commit.get("ok"):
-        return False, str(commit.get("error") or "recap commit failed")
-    return True, None
+        return "failed", str(commit.get("error") or "recap commit failed")
+    return "created", None
+
+
+def _disk_derivative_paths(
+    corpus_dir: Path,
+    *,
+    campaign_number: int,
+    session: int,
+) -> dict[str, str]:
+    """Resolve derivative recap paths from the single on-disk normalized basename."""
+    return {
+        "normalized_recap": normalized_recap_relpath(
+            campaign_number=campaign_number,
+            session=session,
+            corpus_root=corpus_dir,
+        ),
+        "breadcrumbed_recap": breadcrumbed_relpath(
+            campaign_number=campaign_number,
+            session=session,
+            corpus_root=corpus_dir,
+        ),
+        "session_memory_jsonl": session_memory_jsonl_relpath(
+            campaign_number=campaign_number,
+            session=session,
+            corpus_root=corpus_dir,
+        ),
+        "session_memory_meta": session_memory_meta_relpath(
+            campaign_number=campaign_number,
+            session=session,
+            corpus_root=corpus_dir,
+        ),
+    }
+
+
+def _resolve_breadcrumb_path(
+    corpus_dir: Path,
+    *,
+    campaign_number: int,
+    session: int,
+    slug_derived_rel: str,
+) -> tuple[Path, str]:
+    """Prefer the blessed on-disk chain over slug-derived paths when unambiguous."""
+    try:
+        disk_paths = _disk_derivative_paths(
+            corpus_dir,
+            campaign_number=campaign_number,
+            session=session,
+        )
+    except FileNotFoundError:
+        disk_paths = None
+    if disk_paths is not None:
+        rel = disk_paths["breadcrumbed_recap"]
+        return resolve_under_corpus(corpus_dir, rel), rel
+    return (corpus_dir / slug_derived_rel).resolve(), slug_derived_rel
 
 
 def _normalize_one(
@@ -261,16 +325,21 @@ def _normalize_one(
     corpus: Path,
     canonical_recap_rel: str,
     normalized_recap_rel: str,
-) -> tuple[bool, str | None]:
+) -> tuple[str, str | None]:
+    """Return (outcome, error). Outcome is created, reused, or failed."""
+    normalized_target = (corpus / normalized_recap_rel).resolve()
+    if normalized_target.is_file():
+        return "reused", None
+
     recap_path = (corpus / canonical_recap_rel).resolve()
     if not recap_path.is_file():
-        return False, f"canonical recap missing for normalize step: {canonical_recap_rel}"
+        return "failed", f"canonical recap missing for normalize step: {canonical_recap_rel}"
 
     text = recap_path.read_text(encoding="utf-8")
     fm, body = _parse_minimal_frontmatter(text)
     title = str(fm.get("title") or "").strip()
     if _GENERIC_RECAP_TITLE_RE.match(title):
-        return False, "normalize blocked: generic recap title requires non-generic slug/title"
+        return "failed", "normalize blocked: generic recap title requires non-generic slug/title"
     recap_raw, _ = _extract_recap_raw(body)
     clean = _clean_body(recap_raw)
     content = _build_normalized_content(
@@ -288,7 +357,7 @@ def _normalize_one(
         dry_run=True,
     )
     if not preview.get("ok"):
-        return False, str(preview.get("error") or "normalize preview failed")
+        return "failed", str(preview.get("error") or "normalize preview failed")
     commit = write_corpus_file(
         corpus,
         path=normalized_recap_rel,
@@ -298,8 +367,8 @@ def _normalize_one(
         confirm_token=str(preview.get("confirm_token") or ""),
     )
     if not commit.get("ok"):
-        return False, str(commit.get("error") or "normalize commit failed")
-    return True, None
+        return "failed", str(commit.get("error") or "normalize commit failed")
+    return "created", None
 
 
 def run_pipeline(
@@ -423,10 +492,13 @@ def run_pipeline(
             recap_text=recap_preview,
             force_recap=options.force_recap,
         )
-        if not ok:
+        if ok == "failed":
             status.add_error(err or "failed to apply canonical recap")
             return status.to_dict()
-        status.add_state("recap_applied")
+        if ok == "reused":
+            status.add_state("recap_reused")
+        else:
+            status.add_state("recap_applied")
 
     if options.normalize:
         ok, err = _normalize_one(
@@ -434,16 +506,43 @@ def run_pipeline(
             canonical_recap_rel=paths.canonical_recap_rel,
             normalized_recap_rel=paths.normalized_recap_rel,
         )
-        if ok:
-            status.add_state("normalized_created")
-        else:
+        if ok == "failed":
             status.add_state("normalized_skipped")
             status.add_error(err or "normalize step failed")
             return status.to_dict()
+        if ok == "reused":
+            status.add_state("normalized_reused")
+        else:
+            status.add_state("normalized_created")
     else:
         status.add_state("normalized_skipped")
 
-    breadcrumb_path = (corpus_dir / paths.breadcrumbed_recap_rel).resolve()
+    try:
+        breadcrumb_path, breadcrumb_rel = _resolve_breadcrumb_path(
+            corpus_dir,
+            campaign_number=paths.campaign_number,
+            session=options.session,
+            slug_derived_rel=paths.breadcrumbed_recap_rel,
+        )
+    except FileNotFoundError as exc:
+        status.add_error(str(exc))
+        return status.to_dict()
+
+    if breadcrumb_rel != paths.breadcrumbed_recap_rel:
+        status.paths["breadcrumbed_recap"] = breadcrumb_rel
+        try:
+            disk_paths = _disk_derivative_paths(
+                corpus_dir,
+                campaign_number=paths.campaign_number,
+                session=options.session,
+            )
+            status.paths.update(
+                {key: disk_paths[key] for key in disk_paths if key in status.paths}
+            )
+        except FileNotFoundError:
+            pass
+        status.add_warning("slug_mismatch_used_disk_breadcrumb")
+
     if breadcrumb_path.is_file():
         status.add_state("breadcrumb_found")
     else:
@@ -479,6 +578,94 @@ def run_pipeline(
     else:
         status.add_state("session_memory_skipped")
 
+    return status.to_dict()
+
+
+def inspect_recap_ingest_status(
+    *,
+    campaign_id: str,
+    session: int,
+    title: str | None,
+    slug: str | None,
+    corpus: Path | None = None,
+) -> dict[str, object]:
+    """Read-only probe of on-disk recap ingest artifacts for wizard resume."""
+    status = RecapIngestStatus(campaign_id=campaign_id, session=session)
+    corpus_dir = (corpus or corpus_root()).resolve()
+    paths = RecapStagePaths.build(
+        campaign_id=campaign_id,
+        session=session,
+        slug_tail=_slug_tail(session=session, title=title, slug=slug),
+    )
+    status.paths = {
+        "staged_raw_notes": paths.staged_raw_notes_rel,
+        "canonical_recap": paths.canonical_recap_rel,
+        "normalized_recap": paths.normalized_recap_rel,
+        "breadcrumbed_recap": paths.breadcrumbed_recap_rel,
+        "session_memory_jsonl": paths.session_memory_jsonl_rel,
+        "session_memory_meta": paths.session_memory_meta_rel,
+    }
+
+    try:
+        disk_paths = _disk_derivative_paths(
+            corpus_dir,
+            campaign_number=paths.campaign_number,
+            session=session,
+        )
+        status.paths.update(disk_paths)
+        if disk_paths["normalized_recap"] != paths.normalized_recap_rel:
+            status.add_warning("slug_mismatch_used_disk_breadcrumb")
+    except FileNotFoundError:
+        pass
+
+    staged_path = (corpus_dir / str(status.paths["staged_raw_notes"])).resolve()
+    if staged_path.is_file():
+        status.add_state("staged_raw_notes_reused")
+        raw_text = staged_path.read_text(encoding="utf-8")
+        status.entity_spelling_audit = _spelling_audit(raw_text)
+        if status.entity_spelling_audit:
+            status.add_warning("entity spelling variants detected; review_only")
+
+    canonical_path = (corpus_dir / str(status.paths["canonical_recap"])).resolve()
+    if canonical_path.is_file():
+        status.add_state("recap_reused")
+
+    normalized_path = (corpus_dir / str(status.paths["normalized_recap"])).resolve()
+    if normalized_path.is_file():
+        status.add_state("normalized_reused")
+
+    try:
+        breadcrumb_path, breadcrumb_rel = _resolve_breadcrumb_path(
+            corpus_dir,
+            campaign_number=paths.campaign_number,
+            session=session,
+            slug_derived_rel=str(status.paths["breadcrumbed_recap"]),
+        )
+    except FileNotFoundError as exc:
+        status.add_error(str(exc))
+        return status.to_dict()
+
+    if breadcrumb_rel != status.paths["breadcrumbed_recap"]:
+        status.paths["breadcrumbed_recap"] = breadcrumb_rel
+
+    if breadcrumb_path.is_file():
+        status.add_state("breadcrumb_found")
+    else:
+        status.add_state("breadcrumb_required")
+        status.add_next_action(
+            f"Generate/bless breadcrumb artifact for Session {session}, then rerun "
+            "--materialize-session-memory."
+        )
+
+    memory_jsonl = (corpus_dir / str(status.paths["session_memory_jsonl"])).resolve()
+    if memory_jsonl.is_file():
+        status.add_state("session_memory_materialized")
+        status.add_state("ready_for_planning_activation")
+        status.add_next_action("Ingest complete. Proceed with planning activation.")
+    elif "breadcrumb_found" in status.states:
+        status.add_next_action("Run Materialize Session Memory.")
+
+    status.add_state("ingest_status_inspected")
     return status.to_dict()
 
 

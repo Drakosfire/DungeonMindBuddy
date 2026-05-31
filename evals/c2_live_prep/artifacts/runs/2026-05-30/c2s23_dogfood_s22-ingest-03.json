@@ -1,0 +1,43 @@
+{
+  "question_id": "s22-ingest-03",
+  "question": "What pipeline state must be true before I treat Session 22 as ready_for_planning_activation for cross-session planning?",
+  "category": "raw_recap_ingestion_session_22_understanding",
+  "expected_source_roles": [
+    "audit",
+    "canon_play",
+    "derived_memory"
+  ],
+  "forbidden_source_roles_for_play_facts": [],
+  "expected_artifact_actions": [
+    "ingest_materialize_session_memory"
+  ],
+  "answer_requirements": [
+    "List states: canonical recap, normalized, breadcrumb if required, session memory",
+    "If blocked at breadcrumb_required, state next operator action"
+  ],
+  "planner": {
+    "turn_count": 2,
+    "tool_calls": [
+      "read_corpus_file"
+    ],
+    "corpus_paths_read": [
+      "Longmont Campaign/Campaign 2/Session Prep/session_22/README.md"
+    ],
+    "final_message": "For Session 22 to be `ready_for_planning_activation`, the pipeline needs the planning package in place and the post-play closeout not yet done: `Longmont Campaign/Campaign 2/Session Prep/session_22/README.md` shows P2/P2a/P2b as **ready**, the travel tables and comms table as **ready**, and the remaining blockers are only the pre-play review items in §7 plus the fact that **C3 Session 22 recap is still missing**. In practical terms, the state you want is: (1) the hub README exists and points to the runnable docs, (2) the Session 22 prep/runbook artifacts are marked ready, (3) raw notes staging is available if needed, and (4) Session 22 has not yet been played/recapped—because once played, the closeout becomes C3 recap → C4 memory → R1 update → P1 promotion. The README explicitly says the table canon through prep is still `Session Recaps/Session 21 - Drake Nest Mirathorn Call.md`, so Session 22 is planning-ready, not yet post-play canon.",
+    "final_message_parse_error": null,
+    "user_intent": "status_or_recap_request",
+    "scenario_estimated_cost_usd": null,
+    "planner_estimated_cost_usd": 0.006993
+  },
+  "tool_trace": [
+    {
+      "tool": "read_corpus_file",
+      "arguments": {
+        "path": "Longmont Campaign/Campaign 2/Session Prep/session_22/README.md"
+      },
+      "output_chars": 12710,
+      "output_excerpt": "---\ntitle: \"Session 22 — planning package (hub index)\"\ndocument_class: planning\ncanon_layer: campaign\ncampaign_id: longmont-c2\ntemporal_scope: session_specific\nsession: 22\norigin_session: 21\nlast_updated_session: 21\nsource_class: scene_module\ntable_note: \"Planning hub only — not table canon. After Session 22 play, promote facts via recap + timeline rows; do not treat this README as chronology.\"\n---\n\n# Session 22 — planning package\n\n**Campaign:** Longmont Campaign 2 (Questionable Company)  \n**Prep target:** Session **22** (travel north on the Mireward Reach after Session 21 drake nest / Mirathorn comms)  \n**Table canon through:** `Session Recaps/Session 21 - Drake Nest Mirathorn Call.md`\n\nThis folder is the **GM-facing index** for everything produced while planning Session 22: what exists, "
+    }
+  ],
+  "final_text": "{\"user_intent\":\"status_or_recap_request\",\"message\":\"For Session 22 to be `ready_for_planning_activation`, the pipeline needs the planning package in place and the post-play closeout not yet done: `Longmont Campaign/Campaign 2/Session Prep/session_22/README.md` shows P2/P2a/P2b as **ready**, the travel tables and comms table as **ready**, and the remaining blockers are only the pre-play review items in §7 plus the fact that **C3 Session 22 recap is still missing**. In practical terms, the state you want is: (1) the hub README exists and points to the runnable docs, (2) the Session 22 prep/runbook artifacts are marked ready, (3) raw notes staging is available if needed, and (4) Session 22 has not yet been played/recapped—because once played, the closeout becomes C3 recap → C4 memory → R1 update → P1 promotion. The README explicitly says the table canon through prep is still `Session Recaps/Session 21 - Drake Nest Mirathorn Call.md`, so Session 22 is planning-ready, not yet post-play canon.\",\"unsure_queue\":null}"
+}

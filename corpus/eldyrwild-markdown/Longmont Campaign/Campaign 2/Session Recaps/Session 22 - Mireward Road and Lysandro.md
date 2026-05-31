@@ -1,3 +1,15 @@
+---
+title: "Session 22 - Mireward Road and Lysandro"
+document_class: play
+canon_layer: campaign
+campaign_id: longmont-c2
+temporal_scope: session_specific
+session: 22
+origin_session: 22
+last_updated_session: 22
+source_class: observed_session_recap
+---
+# Session 22 Recap
 
 The group turns their focus to the Reach; the vast Golden Fields to the north. If they decide to continue on, their destination is Mireward. If they decide to turn around, it's a multiday journey back to Mirathorn. The first thing to do is break their camp and head back to the wagon. The trail is damp from the rain and a magical sheen lies everywhere. In the distance to the west another storm appears to be building and there is a constant feeling of an approaching storm.
 

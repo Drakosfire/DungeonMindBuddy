@@ -51,11 +51,11 @@ export const mockCatalog: SurfaceModuleDefinition[] = [
   },
   {
     module_id: "sources",
-    title: "Sources",
-    default_slot: "overlay",
+    title: "Corpus & sources",
+    default_slot: "sidebar",
     required: false,
-    enabled_by_default: false,
-    description: "Provenance",
+    enabled_by_default: true,
+    description: "On-disk recap ingest ladder and planning readiness.",
     config_schema: null,
   },
   {

@@ -1,0 +1,56 @@
+{
+  "question_id": "xsession-03",
+  "question": "If the party continues north toward Mireward Reach, what changed between Session 21 travel context and where Session 22 ended?",
+  "category": "cross_session_continuity",
+  "expected_source_roles": [
+    "canon_play",
+    "derived_memory"
+  ],
+  "forbidden_source_roles_for_play_facts": [
+    "planning_scaffold",
+    "reference_tool"
+  ],
+  "expected_artifact_actions": [
+    "manual_corpus_read",
+    "timeline_read"
+  ],
+  "answer_requirements": [
+    "Geographic or situation delta across sessions",
+    "Do not invent distance or town names from roll tables alone"
+  ],
+  "planner": {
+    "turn_count": 2,
+    "tool_calls": [
+      "read_corpus_file",
+      "read_corpus_file"
+    ],
+    "corpus_paths_read": [
+      "Longmont Campaign/Campaign 2/Session Recaps/Session 21 - Drake Nest Mirathorn Call.md",
+      "Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md"
+    ],
+    "final_message": "Between **Session 21** and the end of **Session 22** (`Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 21 - Drake Nest Mirathorn Call.md` → `Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md`), the big changes were:\n\n- **Weather escalated**: Session 21 ended with a single approaching storm and a detour through a drake nest; Session 22 opens with the Reach under worsening conditions, then a second storm merges in and turns into a **huge hail storm**.\n- **Mirathorn got worse**: in Session 21, the city sounded off but uncertain; by Session 22, repeated calls fail, Grobnok reports Frank compromised, Sara missing, the city guard decimated, and a **full-blown corrupted meat outbreak** forcing mercenaries into the city.\n- **Mission clarity improved**: Session 21 still had a choice about whether to turn back; Session 22 removes that ambiguity — the council explicitly tells them to **continue to the swamp**, because the problem seems to originate there.\n- **Travel-state changed**: they leave from a damp camp with magical puddle/reflection weirdness, then on the road they notice **delayed reflections in puddles**, hear the same humming song from the festival, and find signs that Mireward is still ahead.\n- **New NPC contact**: Session 22 introduces **Private Hester** and later ends with meeting **Lysandro** at the guarded wall, which reframes Lysandra’s role and confirms they’ve reached a new checkpoint north of the open road.\n\nSo, if the party keeps heading north toward Mireward Reach, they’re moving from “storm-avoidant travel with a still-unclear city problem” into “storm-battered road travel with a confirmed cult outbreak, explicit council directive, and a hard northward push toward Mireward.”",
+    "final_message_parse_error": null,
+    "user_intent": "status_or_recap_request",
+    "scenario_estimated_cost_usd": null,
+    "planner_estimated_cost_usd": 0.008214
+  },
+  "tool_trace": [
+    {
+      "tool": "read_corpus_file",
+      "arguments": {
+        "path": "Longmont Campaign/Campaign 2/Session Recaps/Session 21 - Drake Nest Mirathorn Call.md"
+      },
+      "output_chars": 8158,
+      "output_excerpt": "---\ntitle: \"Session 21 - Drake Nest Mirathorn Call\"\ndocument_class: play\ncanon_layer: campaign\ncampaign_id: longmont-c2\ntemporal_scope: session_specific\nsession: 21\norigin_session: 21\nlast_updated_session: 21\nsource_class: observed_session_recap\n---\n# Session 21 Recap\n\nWhile still waiting for a response Caelynn studies the sky once again. She estimates that the gathering storm will arrive in about seven hours. The group then decides to load up the wagon and head out in hopes of beating the storm. They plan to head back up the main road through town and continue north. This will give them a chance to warn the Mossford of the approaching storm and gather any supplies they might need. Stafl and Lysandra, both in need of a good rest, lay down in the back of the wagon, using this time to rechar"
+    },
+    {
+      "tool": "read_corpus_file",
+      "arguments": {
+        "path": "Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md"
+      },
+      "output_chars": 9930,
+      "output_excerpt": "---\ntitle: \"Session 22 - Mireward Road and Lysandro\"\ndocument_class: play\ncanon_layer: campaign\ncampaign_id: longmont-c2\ntemporal_scope: session_specific\nsession: 22\norigin_session: 22\nlast_updated_session: 22\nsource_class: observed_session_recap\n---\n# Session 22 Recap\n\nThe group turns their focus to the Reach; the vast Golden Fields to the north. If they decide to continue on, their destination is Mireward. If they decide to turn around, it's a multiday journey back to Mirathorn. The first thing to do is break their camp and head back to the wagon. The trail is damp from the rain and a magical sheen lies everywhere. In the distance to the west another storm appears to be building and there is a constant feeling of an approaching storm.\n\nAfter another failed attempt to contact Mirathorn by"
+    }
+  ],
+  "final_text": "{\"user_intent\":\"status_or_recap_request\",\"message\":\"Between **Session 21** and the end of **Session 22** (`Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 21 - Drake Nest Mirathorn Call.md` → `Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md`), the big changes were:\\n\\n- **Weather escalated**: Session 21 ended with a single approaching storm and a detour through a drake nest; Session 22 opens with the Reach under worsening conditions, then a second storm merges in and turns into a **huge hail storm**.\\n- **Mirathorn got worse**: in Session 21, the city sounded off but uncertain; by Session 22, repeated calls fail, Grobnok reports Frank compromised, Sara missing, the city guard decimated, and a **full-blown corrupted meat outbreak** forcing mercenaries into the city.\\n- **Mission clarity improved**: Session 21 still had a choice about whether to turn back; Session 22 removes that ambiguity — the council explicitly tells them to **continue to the swamp**, because the problem seems to originate there.\\n- **Travel-state changed**: they leave from a damp camp with magical puddle/reflection weirdness, then on the road they notice **delayed reflections in puddles**, hear the same humming song from the festival, and find signs that Mireward is still ahead.\\n- **New NPC contact**: Session 22 introduces **Private Hester** and later ends with meeting **Lysandro** at the guarded wall, which reframes Lysandra’s role and confirms they’ve reached a new checkpoint north of the open road.\\n\\nSo, if the party keeps heading north toward Mireward Reach, they’re moving from “storm-avoidant travel with a still-unclear city problem” into “storm-battered road travel with a confirmed cult outbreak, explicit council directive, and a hard northward push toward Mireward.”\",\"unsure_queue\":null}"
+}

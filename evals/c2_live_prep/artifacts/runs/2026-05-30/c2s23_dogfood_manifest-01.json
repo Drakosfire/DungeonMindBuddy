@@ -1,0 +1,32 @@
+{
+  "question_id": "manifest-01",
+  "question": "Can I issue one planning query that searches Session 21 recap, Session 22 memory, Session 23 workspace, prep scaffold, roll tables, and hub evidence with correct roles?",
+  "category": "cross_session_continuity",
+  "expected_source_roles": [
+    "derived_memory",
+    "planning_scaffold",
+    "reference_tool",
+    "live_observation"
+  ],
+  "forbidden_source_roles_for_play_facts": [],
+  "expected_artifact_actions": [
+    "manifest_activation_query"
+  ],
+  "answer_requirements": [
+    "Document current behavior (expected: not available)",
+    "List manual steps used instead",
+    "Tag PR95/PR96 if blocked"
+  ],
+  "planner": {
+    "turn_count": 1,
+    "tool_calls": [],
+    "corpus_paths_read": [],
+    "final_message": "Yes — but I need to know the exact subject and whether you want a **single blended search** or **separate role-specific reads**. I can structure one planning pass across Session 21 recap, Session 22 memory, the Session 23 workspace, prep scaffold, roll tables, and hub evidence, with the right sources prioritized by role, once you tell me the target topic.",
+    "final_message_parse_error": null,
+    "user_intent": "planning_request",
+    "scenario_estimated_cost_usd": null,
+    "planner_estimated_cost_usd": 0.002089
+  },
+  "tool_trace": [],
+  "final_text": "{\"user_intent\":\"planning_request\",\"message\":\"Yes — but I need to know the exact subject and whether you want a **single blended search** or **separate role-specific reads**. I can structure one planning pass across Session 21 recap, Session 22 memory, the Session 23 workspace, prep scaffold, roll tables, and hub evidence, with the right sources prioritized by role, once you tell me the target topic.\",\"unsure_queue\":null}"
+}

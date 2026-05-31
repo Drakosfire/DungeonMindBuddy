@@ -1,0 +1,55 @@
+{
+  "question_id": "xsession-01",
+  "question": "What Session 21 threads still constrain the party's position and goals at the start of Session 23?",
+  "category": "cross_session_continuity",
+  "expected_source_roles": [
+    "canon_play",
+    "derived_memory"
+  ],
+  "forbidden_source_roles_for_play_facts": [
+    "planning_scaffold"
+  ],
+  "expected_artifact_actions": [
+    "timeline_read",
+    "manual_corpus_read"
+  ],
+  "answer_requirements": [
+    "Reference Session 21 play or memory, not only S22",
+    "Separate resolved vs open threads"
+  ],
+  "planner": {
+    "turn_count": 3,
+    "tool_calls": [
+      "read_corpus_file",
+      "read_corpus_file"
+    ],
+    "corpus_paths_read": [
+      "Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 21 - Drake Nest Mirathorn Call.md",
+      "Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md"
+    ],
+    "final_message": "At the start of Session 23, the Session 21 threads that still constrain the party are:\n\n- **The Mirathorn contact crisis:** in **Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 21 - Drake Nest Mirathorn Call.md**, Caelynn and then Lysandra lose contact with the city; by the end, the city looks wrong and the group has to choose between turning back or pressing on. Session 22 confirms they **pressed on** and still lack reliable city contact.\n- **The storm clock:** Session 21 establishes a looming storm window, and Session 22 escalates that into the double-storm / hail problem, so their route and shelter choices are still being shaped by weather urgency.\n- **The swamp mission remains active:** Session 21 ends with the party choosing to continue to the swamp instead of returning to Mirathorn, and Session 22 shows the council reinforcing that order through Grobnok / Tealeaf: keep going to the swamp because the cult source is believed to be there.\n- **The Shepherd / cult threat is now tied to music and infection:** Session 21 introduces rumors of cultists using music to convert people and the drake-nest call back to the city raises concern about tainted meat / ongoing corruption; Session 22 confirms the city outbreak has returned, the song is spreading, and the party is still on the hook to reach the source.\n- **Lysandra’s leadership and personal stakes are unresolved:** Session 21 has her reacting hard to the Mirathorn situation, and Session 22 shows her trying to reassert leadership while admitting she’s struggling. That means the party’s internal direction is still constrained by her need to keep everyone focused.\n\nIn short: they are still moving north under a storm deadline, without stable Mirathorn comms, and with the city/cult outbreak unresolved while they continue toward the swamp.",
+    "final_message_parse_error": null,
+    "user_intent": "status_or_recap_request",
+    "scenario_estimated_cost_usd": null,
+    "planner_estimated_cost_usd": 0.009999
+  },
+  "tool_trace": [
+    {
+      "tool": "read_corpus_file",
+      "arguments": {
+        "path": "Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 21 - Drake Nest Mirathorn Call.md"
+      },
+      "output_chars": 8375,
+      "output_excerpt": "---\ntitle: Session 21 - Drake Nest Mirathorn Call\ndocument_class: play\ncanon_layer: campaign\ncampaign_id: longmont-c2\ntemporal_scope: session_specific\nsession: 21\norigin_session: 21\nlast_updated_session: 21\nsource_class: observed_session_recap\nsubject_class: null\nsubject_doc_kind: recap\nnormalized_from: Longmont Campaign/Campaign 2/Session Recaps/Session 21 - Drake Nest Mirathorn Call.md\nnormalized_on: 2026-05-08\nnormalization_schema: dmb_recap_normalized_v1\n---\n# Session 21 Recap\n\nWhile still waiting for a response Caelynn studies the sky once again. She estimates that the gathering storm will arrive in about seven hours. The group then decides to load up the wagon and head out in hopes of beating the storm. They plan to head back up the main road through town and continue north. This wil"
+    },
+    {
+      "tool": "read_corpus_file",
+      "arguments": {
+        "path": "Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md"
+      },
+      "output_chars": 10145,
+      "output_excerpt": "---\ntitle: Session 22 - Mireward Road and Lysandro\ndocument_class: play\ncanon_layer: campaign\ncampaign_id: longmont-c2\ntemporal_scope: session_specific\nsession: 22\norigin_session: 22\nlast_updated_session: 22\nsource_class: observed_session_recap\nsubject_class: null\nsubject_doc_kind: recap\nnormalized_from: Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md\nnormalized_on: 2026-05-08\nnormalization_schema: dmb_recap_normalized_v1\n---\n# Session 22 Recap\n\nThe group turns their focus to the Reach; the vast Golden Fields to the north. If they decide to continue on, their destination is Mireward. If they decide to turn around, it's a multiday journey back to Mirathorn. The first thing to do is break their camp and head back to the wagon. The trail is damp from the"
+    }
+  ],
+  "final_text": "{\"user_intent\":\"status_or_recap_request\",\"message\":\"At the start of Session 23, the Session 21 threads that still constrain the party are:\\n\\n- **The Mirathorn contact crisis:** in **Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 21 - Drake Nest Mirathorn Call.md**, Caelynn and then Lysandra lose contact with the city; by the end, the city looks wrong and the group has to choose between turning back or pressing on. Session 22 confirms they **pressed on** and still lack reliable city contact.\\n- **The storm clock:** Session 21 establishes a looming storm window, and Session 22 escalates that into the double-storm / hail problem, so their route and shelter choices are still being shaped by weather urgency.\\n- **The swamp mission remains active:** Session 21 ends with the party choosing to continue to the swamp instead of returning to Mirathorn, and Session 22 shows the council reinforcing that order through Grobnok / Tealeaf: keep going to the swamp because the cult source is believed to be there.\\n- **The Shepherd / cult threat is now tied to music and infection:** Session 21 introduces rumors of cultists using music to convert people and the drake-nest call back to the city raises concern about tainted meat / ongoing corruption; Session 22 confirms the city outbreak has returned, the song is spreading, and the party is still on the hook to reach the source.\\n- **Lysandra’s leadership and personal stakes are unresolved:** Session 21 has her reacting hard to the Mirathorn situation, and Session 22 shows her trying to reassert leadership while admitting she’s struggling. That means the party’s internal direction is still constrained by her need to keep everyone focused.\\n\\nIn short: they are still moving north under a storm deadline, without stable Mirathorn comms, and with the city/cult outbreak unresolved while they continue toward the swamp.\",\"unsure_queue\":null}"
+}
