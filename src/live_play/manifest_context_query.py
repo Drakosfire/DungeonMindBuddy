@@ -52,6 +52,40 @@ ROLE_LANE: dict[str, str] = {
     "table_notes": "table_notes",
 }
 MIN_CONTENT_OVERLAP = 2
+COMMON_QUERY_TOKENS = frozenset(
+    {
+        "a",
+        "an",
+        "and",
+        "as",
+        "at",
+        "be",
+        "by",
+        "for",
+        "from",
+        "happened",
+        "in",
+        "is",
+        "it",
+        "last",
+        "memory",
+        "of",
+        "on",
+        "or",
+        "play",
+        "record",
+        "recap",
+        "session",
+        "that",
+        "the",
+        "thing",
+        "timeline",
+        "to",
+        "use",
+        "was",
+        "what",
+    }
+)
 
 FORBIDDEN_GOLD_SUBSTRINGS = ("gold",)
 FORBIDDEN_DOGFOOD_SUBSTRINGS = ("c2s23_dogfood_", "c2s23_dogfood_planner_summary")
@@ -91,6 +125,22 @@ class QueryConfig:
     min_supporting_evidence_score: float = 2.0
 
 
+@dataclass(frozen=True)
+class QueryFeatures:
+    raw_question: str
+    tokens: set[str]
+    content_tokens: set[str]
+    stopword_tokens: set[str]
+    distinctive_tokens: set[str]
+    session_numbers: set[int]
+    exact_phrases: tuple[str, ...]
+    title_phrases: tuple[str, ...]
+    aliases: tuple[str, ...]
+    tags: tuple[str, ...]
+    asks_for_last_or_final: bool
+    asks_for_play_event: bool
+
+
 def _norm(path: str) -> str:
     return path.strip().replace("\\", "/").lower().lstrip("./")
 
@@ -106,6 +156,73 @@ def _manifest_route_variants(route: str) -> set[str]:
 
 def _tokenize(text: str) -> set[str]:
     return set(re.findall(r"[a-z0-9]+", text.lower()))
+
+
+def _parse_aliases(question: str) -> tuple[str, ...]:
+    lowered = question.lower()
+    if "aliases:" not in lowered:
+        return ()
+    idx = lowered.rfind("aliases:")
+    chunk = question[idx + len("aliases:") :].strip().strip(".")
+    if not chunk:
+        return ()
+    aliases = [x.strip() for x in chunk.split(",") if x.strip()]
+    return tuple(dict.fromkeys(aliases[:12]).keys())
+
+
+def _extract_quoted_phrases(question: str) -> tuple[str, ...]:
+    phrases = [p.strip().lower() for p in re.findall(r'"([^"]+)"', question) if p.strip()]
+    return tuple(dict.fromkeys(phrases).keys())
+
+
+def _extract_title_phrases(question: str, sessions: set[int]) -> tuple[str, ...]:
+    titles: list[str] = list(_extract_quoted_phrases(question))
+    for match in re.finditer(r"(session\s*\d+\s*-\s*[a-z0-9][a-z0-9\s_\-]+)", question.lower()):
+        title = re.sub(r"\s+", " ", str(match.group(1) or "").strip())
+        if title:
+            titles.append(title)
+    for session in sorted(sessions):
+        titles.append(f"session {session}")
+    return tuple(dict.fromkeys([t for t in titles if t]).keys())
+
+
+def _build_query_features(question: str, *, hints: set[str], sessions: set[int]) -> QueryFeatures:
+    tokens = _tokenize(question)
+    stop_tokens = {t for t in tokens if t in COMMON_QUERY_TOKENS}
+    content_tokens = {t for t in tokens if t not in COMMON_QUERY_TOKENS}
+    distinctive_tokens = {t for t in content_tokens if len(t) > 2 or t.isdigit()}
+    aliases = _parse_aliases(question)
+    title_phrases = _extract_title_phrases(question, sessions)
+    asks_for_last_or_final = any(t in question.lower() for t in ("last", "latest", "most recent", "final", "ending"))
+    asks_for_play_event = "play_fact" in hints or any(
+        t in question.lower() for t in ("what happened", "last thing", "final beat", "last event", "outcome")
+    )
+    return QueryFeatures(
+        raw_question=question,
+        tokens=tokens,
+        content_tokens=content_tokens,
+        stopword_tokens=stop_tokens,
+        distinctive_tokens=distinctive_tokens,
+        session_numbers=sessions,
+        exact_phrases=_extract_quoted_phrases(question),
+        title_phrases=title_phrases,
+        aliases=aliases,
+        tags=tuple(sorted(hints)),
+        asks_for_last_or_final=asks_for_last_or_final,
+        asks_for_play_event=asks_for_play_event,
+    )
+
+
+def _token_overlap_score(candidate_tokens: set[str], features: QueryFeatures) -> tuple[float, dict[str, float]]:
+    distinctive_overlap = float(len(candidate_tokens & features.distinctive_tokens))
+    content_overlap = float(len(candidate_tokens & features.content_tokens))
+    stopword_overlap = float(len(candidate_tokens & features.stopword_tokens))
+    score = (distinctive_overlap * 2.5) + (content_overlap * 0.8) - (stopword_overlap * 0.2)
+    return score, {
+        "distinctive_token_overlap": distinctive_overlap,
+        "query_token_overlap": content_overlap,
+        "stopword_overlap": stopword_overlap,
+    }
 
 
 def infer_intent_hints(question: str) -> set[str]:
@@ -285,82 +402,168 @@ def _lane_for_entry(entry: dict[str, Any]) -> str:
     return ROLE_LANE.get(role, "hub_evidence")
 
 
-def _score_entry(entry: dict[str, Any], question_tokens: set[str], hints: set[str], sessions: set[int]) -> float:
+def _score_entry(entry: dict[str, Any], features: QueryFeatures, hints: set[str]) -> tuple[float, dict[str, float]]:
     route = str(entry.get("route") or "")
+    source_id = str(entry.get("source_id") or "")
+    notes = " ".join(str(x) for x in list(entry.get("notes") or []) if str(x).strip())
+    lexical = " ".join(str(x) for x in list(entry.get("lexical_terms") or []) if str(x).strip())
     role = str(entry.get("source_role") or "")
     authority = str(entry.get("authority") or "")
     scopes = {int(s) for s in list(entry.get("session_scope") or []) if str(s).isdigit()}
     score = 0.0
+    components: dict[str, float] = {}
 
-    path_tokens = _tokenize(route)
-    score += len(question_tokens & path_tokens) * 2.0
+    route_tokens = _tokenize(route)
+    source_id_tokens = _tokenize(source_id)
+    notes_tokens = _tokenize(notes)
+    lexical_tokens = _tokenize(lexical)
 
-    if sessions and scopes & sessions:
-        score += 6.0
-    elif not sessions and scopes:
-        score += 1.0
+    route_score, route_overlap = _token_overlap_score(route_tokens, features)
+    source_id_score, source_id_overlap = _token_overlap_score(source_id_tokens, features)
+    notes_score, notes_overlap = _token_overlap_score(notes_tokens, features)
+    lexical_score, lexical_overlap = _token_overlap_score(lexical_tokens, features)
+    score += route_score + (source_id_score * 0.75) + (notes_score * 0.4) + (lexical_score * 0.6)
+    components["route_token_score"] = route_score
+    components["source_id_token_score"] = source_id_score * 0.75
+    components["notes_token_score"] = notes_score * 0.4
+    components["lexical_term_score"] = lexical_score * 0.6
+    components.update({f"route_{k}": v for k, v in route_overlap.items()})
+    components.update({f"source_id_{k}": v for k, v in source_id_overlap.items()})
+    components.update({f"notes_{k}": v for k, v in notes_overlap.items()})
+    components.update({f"lexical_{k}": v for k, v in lexical_overlap.items()})
+
+    session_scope_score = 0.0
+    if features.session_numbers and scopes & features.session_numbers:
+        session_scope_score += 8.0
+    elif features.session_numbers and scopes:
+        session_scope_score -= 2.5
+    elif not features.session_numbers and scopes:
+        session_scope_score += 1.0
+    score += session_scope_score
+    components["session_scope_score"] = session_scope_score
+
+    role_score = 0.0
 
     if "play_fact" in hints and role in {"play_recap", "session_memory"}:
-        score += 10.0
+        role_score += 10.0
     if "pipeline_state" in hints and role in {"play_recap", "session_memory"}:
-        score += 9.0
+        role_score += 9.0
     if "pipeline_state" in hints and authority == "audit":
-        score += 8.0
+        role_score += 8.0
     if "planning_context" in hints and role in {"prep_scaffold", "hub_evidence", "live_packet"}:
-        score += 5.0
+        role_score += 5.0
     if "capability_check" in hints and role in {"live_packet", "roll_table", "prep_scaffold", "hub_evidence"}:
-        score += 4.0
+        role_score += 4.0
     if "authority_guardrail" in hints and role == "table_notes":
-        score += 8.0
+        role_score += 8.0
     if "authority_guardrail" in hints and role in {"play_recap", "session_memory"}:
-        score += 6.0
-    if "play_fact" in hints and role == "table_notes" and sessions and scopes & sessions:
-        score += 7.0
+        role_score += 6.0
+    if "play_fact" in hints and role == "table_notes" and features.session_numbers and scopes & features.session_numbers:
+        role_score += 7.0
+    if features.asks_for_play_event and role in {"play_recap", "session_memory"}:
+        role_score += 6.0
+    if features.asks_for_play_event and role == "hub_evidence":
+        role_score -= 4.0
+    if features.asks_for_last_or_final and role == "play_recap":
+        role_score += 2.0
+    score += role_score
+    components["source_role_score"] = role_score
 
+    searchable_text = " ".join((route.lower(), source_id.lower(), notes.lower(), lexical.lower()))
+    title_matches = float(sum(1 for phrase in features.title_phrases if phrase and phrase in searchable_text))
+    exact_title_match_score = title_matches * 6.0
+    alias_matches = float(sum(1 for alias in features.aliases if alias.lower() in searchable_text))
+    alias_match_score = alias_matches * 2.0
+    score += exact_title_match_score + alias_match_score
+    components["exact_title_match_score"] = exact_title_match_score
+    components["alias_match_score"] = alias_match_score
+    components["title_match_count"] = title_matches
+    components["alias_match_count"] = alias_matches
+
+    admissibility_penalty = 0.0
     if not bool(entry.get("route_exists")):
-        score -= 100.0
+        admissibility_penalty -= 100.0
     if not bool(entry.get("admissible")):
-        score -= 50.0
-    return score
+        admissibility_penalty -= 50.0
+    score += admissibility_penalty
+    components["admissibility_penalty"] = admissibility_penalty
+    components["final_score"] = score
+    return score, components
 
 
 def retrieve_candidates(
     entries: list[dict[str, Any]],
     request: QueryRequest,
     query_plan: dict[str, Any],
-) -> list[dict[str, Any]]:
+    query_features: QueryFeatures,
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     hints = set(query_plan["intent_hints"])
-    sessions = set(query_plan["session_numbers"])
     budgets = dict(query_plan["lane_budgets"])
-    question_tokens = _tokenize(request.question)
 
-    by_lane: dict[str, list[tuple[float, dict[str, Any]]]] = {}
+    by_lane: dict[str, list[tuple[float, dict[str, Any], dict[str, float]]]] = {}
+    manifest_scores: list[dict[str, Any]] = []
     for entry in entries:
         lane = _lane_for_entry(entry)
-        sc = _score_entry(entry, question_tokens, hints, sessions)
-        by_lane.setdefault(lane, []).append((sc, entry))
+        sc, components = _score_entry(entry, query_features, hints)
+        by_lane.setdefault(lane, []).append((sc, entry, components))
+        manifest_scores.append(
+            {
+                "route": str(entry.get("route") or ""),
+                "source_id": str(entry.get("source_id") or ""),
+                "source_role": str(entry.get("source_role") or ""),
+                "authority": str(entry.get("authority") or ""),
+                "session_scope": list(entry.get("session_scope") or []),
+                "lane": lane,
+                "final_score": sc,
+                "score_components": components,
+            }
+        )
 
     selected: list[dict[str, Any]] = []
     seen_routes: set[str] = set()
+    lane_top: dict[str, list[dict[str, Any]]] = {}
     for lane, budget in budgets.items():
         ranked = sorted(by_lane.get(lane, []), key=lambda t: (-t[0], str(t[1].get("route") or "")))
+        lane_top[lane] = [
+            {
+                "route": str(entry.get("route") or ""),
+                "source_role": str(entry.get("source_role") or ""),
+                "authority": str(entry.get("authority") or ""),
+                "final_score": score,
+                "score_components": components,
+            }
+            for score, entry, components in ranked[:5]
+        ]
         taken = 0
-        for sc, entry in ranked:
+        for sc, entry, components in ranked:
             if sc <= -50:
                 continue
             route = _norm(str(entry.get("route") or ""))
             if route in seen_routes:
                 continue
             seen_routes.add(route)
-            selected.append(entry)
+            enriched = dict(entry)
+            enriched["_entry_score"] = sc
+            enriched["_entry_score_components"] = dict(components)
+            enriched["_entry_lane"] = lane
+            selected.append(enriched)
             taken += 1
             if taken >= budget:
                 break
-    return selected
+    trace = {
+        "query": request.question,
+        "top_manifest_entries": sorted(manifest_scores, key=lambda row: (-float(row["final_score"]), row["route"]))[:30],
+        "lane_top_entries": lane_top,
+    }
+    return selected, trace
 
 
 def _entry_to_evidence(entry: dict[str, Any], *, path_override: str | None = None) -> dict[str, Any]:
     route = path_override or str(entry.get("route") or "")
+    entry_score = float(entry.get("_entry_score") or 0.0)
+    entry_components = dict(entry.get("_entry_score_components") or {})
+    if "final_score" not in entry_components:
+        entry_components["final_score"] = entry_score
     return {
         "path": route,
         "source_role": str(entry.get("source_role") or ""),
@@ -371,7 +574,8 @@ def _entry_to_evidence(entry: dict[str, Any], *, path_override: str | None = Non
         "line_start": None,
         "line_end": None,
         "text_excerpt": None,
-        "evidence_score": None,
+        "evidence_score": entry_score,
+        "score_components": entry_components,
         "admissible": bool(entry.get("admissible")),
         "allowed_uses": list(entry.get("allowed_uses") or []),
         "forbidden_uses": list(entry.get("forbidden_uses") or []),
@@ -390,6 +594,7 @@ def _evidence_from_entry(
     text_excerpt: str | None = None,
     routes: list[str] | None = None,
     evidence_score: float | None = None,
+    score_components: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     ev = _entry_to_evidence(entry, path_override=path)
     ev["unit_id"] = unit_id
@@ -398,13 +603,16 @@ def _evidence_from_entry(
     ev["breadcrumb_id"] = breadcrumb_id
     ev["text_excerpt"] = text_excerpt
     ev["evidence_score"] = evidence_score
+    ev["score_components"] = dict(score_components or {})
+    if evidence_score is not None and "final_score" not in ev["score_components"]:
+        ev["score_components"]["final_score"] = float(evidence_score)
     if routes is not None:
         ev["routes"] = routes
     return ev
 
 
 def _extract_markdown_spans(
-    entry: dict[str, Any], abs_path: Path, question_tokens: set[str], max_spans: int
+    entry: dict[str, Any], abs_path: Path, query_features: QueryFeatures, max_spans: int
 ) -> list[dict[str, Any]]:
     text = abs_path.read_text(encoding="utf-8")
     lines = text.splitlines()
@@ -430,23 +638,71 @@ def _extract_markdown_spans(
     if start is not None and bucket:
         spans.append((start, len(lines), " ".join(bucket)))
 
-    scored: list[tuple[float, int, int, str]] = []
+    scored: list[tuple[float, int, int, str, dict[str, float]]] = []
+    entry_score = float(entry.get("_entry_score") or 0.0)
+    entry_components = dict(entry.get("_entry_score_components") or {})
+    entry_role_score = float(entry_components.get("source_role_score", 0.0))
+    entry_session_scope_score = float(entry_components.get("session_scope_score", 0.0))
+    entry_title_score = float(entry_components.get("exact_title_match_score", 0.0))
     for s, e, body in spans:
         body_lc = body.lstrip().lower()
         if body_lc.startswith("--- schema:") or body_lc.startswith("schema:"):
             continue
         if s <= 200 and "breadcrumb_semantics:" in body_lc:
             continue
-        tokens = _tokenize(body)
-        overlap = len(tokens & question_tokens)
-        if overlap < MIN_CONTENT_OVERLAP:
+        if query_features.asks_for_play_event and body_lc.startswith("#"):
             continue
-        scored.append((float(overlap), s, e, body))
+        tokens = _tokenize(body)
+        overlap_score, overlap_components = _token_overlap_score(tokens, query_features)
+        min_overlap = 1.0 if query_features.asks_for_last_or_final else float(MIN_CONTENT_OVERLAP)
+        if overlap_components["query_token_overlap"] < min_overlap:
+            continue
+        body_lc = body.lower()
+        exact_title_hits = float(sum(1 for phrase in query_features.title_phrases if phrase and phrase in body_lc))
+        exact_title_match_score = exact_title_hits * 2.0
+        route_title_score = max(0.0, entry_title_score * 0.4) + exact_title_match_score
+        document_position_score = 0.0
+        if query_features.asks_for_last_or_final:
+            document_position_score = float(e) / float(max(1, len(lines)))
+            if str(entry.get("source_role") or "") == "play_recap":
+                document_position_score *= 8.0
+            else:
+                document_position_score *= 4.0
+        ending_phrase_score = 0.0
+        if query_features.asks_for_last_or_final and any(
+            marker in body_lc
+            for marker in ("and that is how", "that's when", "finally", "at the end", "met her father")
+        ):
+            ending_phrase_score += 2.5
+        final_score = (
+            (entry_score * 0.55)
+            + overlap_score
+            + route_title_score
+            + (entry_session_scope_score * 0.7)
+            + (entry_role_score * 0.35)
+            + document_position_score
+            + ending_phrase_score
+        )
+        components = {
+            "entry_score": entry_score,
+            "span_score": overlap_score,
+            "route_title_score": route_title_score,
+            "session_scope_score": entry_session_scope_score * 0.7,
+            "source_role_score": entry_role_score * 0.35,
+            "exact_title_match_score": exact_title_match_score,
+            "document_position_score": document_position_score,
+            "ending_phrase_score": ending_phrase_score,
+            "query_token_overlap": overlap_components["query_token_overlap"],
+            "distinctive_token_overlap": overlap_components["distinctive_token_overlap"],
+            "stopword_overlap": overlap_components["stopword_overlap"],
+            "final_score": final_score,
+        }
+        scored.append((final_score, s, e, body, components))
     scored.sort(key=lambda t: (-t[0], t[1]))
 
     route = str(entry.get("route") or "")
     out: list[dict[str, Any]] = []
-    for score, s, e, body in scored[:max(1, max_spans)]:
+    for score, s, e, body, components in scored[:max(1, max_spans)]:
         out.append(
             _evidence_from_entry(
                 entry,
@@ -455,16 +711,19 @@ def _extract_markdown_spans(
                 line_end=e,
                 text_excerpt=body[:700],
                 evidence_score=score,
+                score_components=components,
             )
         )
     return out
 
 
 def _extract_session_memory_units(
-    entry: dict[str, Any], abs_path: Path, question_tokens: set[str], max_units: int
+    entry: dict[str, Any], abs_path: Path, query_features: QueryFeatures, max_units: int
 ) -> list[dict[str, Any]]:
     route = str(entry.get("route") or "")
-    rows: list[tuple[float, dict[str, Any]]] = []
+    entry_score = float(entry.get("_entry_score") or 0.0)
+    entry_components = dict(entry.get("_entry_score_components") or {})
+    rows: list[tuple[float, dict[str, Any], dict[str, float], list[str]]] = []
     for raw in abs_path.read_text(encoding="utf-8").splitlines():
         row = raw.strip()
         if not row:
@@ -477,18 +736,69 @@ def _extract_session_memory_units(
         if not excerpt:
             continue
         tokens = _tokenize(excerpt)
-        overlap = len(tokens & question_tokens)
-        if overlap < MIN_CONTENT_OVERLAP:
-            continue
+        overlap_score, overlap_components = _token_overlap_score(tokens, query_features)
+        route_refs = [str(r.get("normalized_route") or "") for r in list(obj.get("routes") or []) if r.get("normalized_route")]
+        source_recap_path = str(obj.get("source_recap_path") or "")
+        if source_recap_path:
+            route_refs.append(source_recap_path)
         route_bonus = 0.0
+        route_refs_lc = " ".join(route_refs).lower()
+        route_title_hits = float(sum(1 for phrase in query_features.title_phrases if phrase and phrase in route_refs_lc))
+        route_bonus += route_title_hits * 2.0
         for rr in list(obj.get("routes") or []):
-            route_bonus += float(len(_tokenize(str(rr.get("normalized_route") or "")) & question_tokens))
-        rows.append((float(overlap) + (route_bonus * 0.25), obj))
+            route_bonus += float(len(_tokenize(str(rr.get("normalized_route") or "")) & query_features.distinctive_tokens)) * 0.25
+        source_recap_alignment_score = 0.0
+        if source_recap_path and query_features.session_numbers:
+            if any(f"session {s}" in source_recap_path.lower() for s in query_features.session_numbers):
+                source_recap_alignment_score += 4.0
+            else:
+                source_recap_alignment_score -= 1.5
+        min_overlap = 1.0 if query_features.asks_for_last_or_final else float(MIN_CONTENT_OVERLAP)
+        if overlap_components["query_token_overlap"] < min_overlap and source_recap_alignment_score <= 0.0:
+            continue
+        unit_id = str(obj.get("unit_id") or "")
+        meta_dampening = -2.5 if query_features.asks_for_play_event and unit_id.startswith("meta-") else 0.0
+        line_start = int(obj["line_start"]) if isinstance(obj.get("line_start"), int) else 0
+        document_position_score = 0.0
+        if query_features.asks_for_last_or_final:
+            document_position_score = min(8.0, float(max(0, line_start)) / 4.0)
+        excerpt_lc = excerpt.lower()
+        ending_phrase_score = 0.0
+        if query_features.asks_for_last_or_final and any(
+            marker in excerpt_lc
+            for marker in ("and that is how", "that's when", "finally", "at the end", "met her father")
+        ):
+            ending_phrase_score += 2.5
+        final_score = (
+            (entry_score * 0.5)
+            + overlap_score
+            + route_bonus
+            + source_recap_alignment_score
+            + meta_dampening
+            + (float(entry_components.get("source_role_score", 0.0)) * 0.25)
+            + document_position_score
+            + ending_phrase_score
+        )
+        components = {
+            "entry_score": entry_score,
+            "unit_score": overlap_score,
+            "route_title_score": route_bonus,
+            "source_recap_alignment_score": source_recap_alignment_score,
+            "session_scope_score": float(entry_components.get("session_scope_score", 0.0)) * 0.4,
+            "source_role_score": float(entry_components.get("source_role_score", 0.0)) * 0.25,
+            "meta_dampening": meta_dampening,
+            "document_position_score": document_position_score,
+            "ending_phrase_score": ending_phrase_score,
+            "query_token_overlap": overlap_components["query_token_overlap"],
+            "distinctive_token_overlap": overlap_components["distinctive_token_overlap"],
+            "stopword_overlap": overlap_components["stopword_overlap"],
+            "final_score": final_score,
+        }
+        rows.append((final_score, obj, components, route_refs))
     rows.sort(key=lambda t: -t[0])
 
     out: list[dict[str, Any]] = []
-    for score, obj in rows[: max(1, max_units)]:
-        route_refs = [str(r.get("normalized_route") or "") for r in list(obj.get("routes") or []) if r.get("normalized_route")]
+    for score, obj, components, route_refs in rows[: max(1, max_units)]:
         if route not in route_refs:
             route_refs.insert(0, route)
         out.append(
@@ -501,28 +811,50 @@ def _extract_session_memory_units(
                 text_excerpt=str(obj.get("lexical_plain") or "")[:700] or None,
                 routes=route_refs,
                 evidence_score=score,
+                score_components=components,
             )
         )
     return out
 
 
-def _extract_generic_excerpt(entry: dict[str, Any], abs_path: Path, question_tokens: set[str]) -> list[dict[str, Any]]:
+def _extract_generic_excerpt(entry: dict[str, Any], abs_path: Path, query_features: QueryFeatures) -> list[dict[str, Any]]:
     text = abs_path.read_text(encoding="utf-8")
     first = text.strip().splitlines()
     if not first:
         return []
     excerpt = " ".join(first[:4]).strip()
-    overlap = len(_tokenize(excerpt) & question_tokens)
-    if overlap <= 0:
+    excerpt_tokens = _tokenize(excerpt)
+    overlap_score, overlap_components = _token_overlap_score(excerpt_tokens, query_features)
+    total_overlap = float(len(excerpt_tokens & query_features.tokens))
+    if total_overlap <= 0:
         return []
     route = str(entry.get("route") or "")
-    return [_evidence_from_entry(entry, path=route, text_excerpt=excerpt[:700], evidence_score=float(overlap))]
+    entry_score = float(entry.get("_entry_score") or 0.0)
+    content_score = overlap_score + (total_overlap * 0.25)
+    final_score = (entry_score * 0.7) + content_score
+    return [
+        _evidence_from_entry(
+            entry,
+            path=route,
+            text_excerpt=excerpt[:700],
+            evidence_score=final_score,
+            score_components={
+                "entry_score": entry_score,
+                "content_score": content_score,
+                "total_token_overlap": total_overlap,
+                "query_token_overlap": overlap_components["query_token_overlap"],
+                "distinctive_token_overlap": overlap_components["distinctive_token_overlap"],
+                "stopword_overlap": overlap_components["stopword_overlap"],
+                "final_score": final_score,
+            },
+        )
+    ]
 
 
 def extract_evidence_units(
     entry: dict[str, Any],
     *,
-    question_tokens: set[str],
+    query_features: QueryFeatures,
     root: Path,
     config: QueryConfig,
 ) -> list[dict[str, Any]]:
@@ -536,13 +868,13 @@ def extract_evidence_units(
 
     if role == "session_memory" and route.endswith(".jsonl"):
         return _extract_session_memory_units(
-            entry, abs_path, question_tokens, max_units=config.max_units_per_session_memory_source
+            entry, abs_path, query_features, max_units=config.max_units_per_session_memory_source
         )
     if route.endswith(".md"):
         return _extract_markdown_spans(
-            entry, abs_path, question_tokens, max_spans=config.max_spans_per_markdown_source
+            entry, abs_path, query_features, max_spans=config.max_spans_per_markdown_source
         )
-    return _extract_generic_excerpt(entry, abs_path, question_tokens)
+    return _extract_generic_excerpt(entry, abs_path, query_features)
 
 
 def _has_evidence_granularity(evidence: dict[str, Any]) -> bool:
@@ -575,9 +907,14 @@ def _apply_evidence_budget(
         return []
     ranked = sorted(evidence, key=lambda e: (-_evidence_score(e), str(e.get("path") or "")))
     role_caps = dict(per_role_cap or {})
+    for before_rank, row in enumerate(ranked, start=1):
+        components = dict(row.get("score_components") or {})
+        components["budget_rank_before_cap"] = before_rank
+        row["score_components"] = components
     role_counts: dict[str, int] = {}
     out: list[dict[str, Any]] = []
     required_roles = set(ensure_roles or set())
+    after_rank = 0
 
     for role in sorted(required_roles):
         cap = int(role_caps.get(role, max_total))
@@ -587,6 +924,10 @@ def _apply_evidence_budget(
         if picked is None:
             continue
         out.append(picked)
+        after_rank += 1
+        picked_components = dict(picked.get("score_components") or {})
+        picked_components["budget_rank_after_cap"] = after_rank
+        picked["score_components"] = picked_components
         role_counts[role] = role_counts.get(role, 0) + 1
         if len(out) >= max_total:
             return out
@@ -599,6 +940,10 @@ def _apply_evidence_budget(
         if role_counts.get(role, 0) >= cap:
             continue
         out.append(row)
+        after_rank += 1
+        row_components = dict(row.get("score_components") or {})
+        row_components["budget_rank_after_cap"] = after_rank
+        row["score_components"] = row_components
         role_counts[role] = role_counts.get(role, 0) + 1
         if len(out) >= max_total:
             break
@@ -791,7 +1136,7 @@ def build_context_packet(
     hints = set(query_plan["intent_hints"])
     claim_type = str(query_plan["primary_claim_type"])
     preconditions = build_corpus_preconditions(precondition_paths, base)
-    question_tokens = _tokenize(request.question)
+    query_features = _build_query_features(request.question, hints=hints, sessions=set(query_plan["session_numbers"]))
 
     retrieved: list[dict[str, Any]] = []
     admitted: list[dict[str, Any]] = []
@@ -823,12 +1168,28 @@ def build_context_packet(
         else:
             admitted.append(virtual)
 
-    candidates = retrieve_candidates(entries, request, query_plan)
+    candidates, candidate_trace = retrieve_candidates(entries, request, query_plan, query_features)
+    markdown_span_trace: list[dict[str, Any]] = []
+    session_memory_trace: list[dict[str, Any]] = []
     for entry in candidates:
         activation_refs.append(_manifest_activation_ref(entry))
         extracted = extract_evidence_units(
-            entry, question_tokens=question_tokens, root=base, config=resolved_config
+            entry, query_features=query_features, root=base, config=resolved_config
         )
+        for evidence in extracted:
+            trace_row = {
+                "path": str(evidence.get("path") or ""),
+                "source_role": str(evidence.get("source_role") or ""),
+                "line_start": evidence.get("line_start"),
+                "line_end": evidence.get("line_end"),
+                "unit_id": evidence.get("unit_id"),
+                "final_score": _evidence_score(evidence),
+                "score_components": dict(evidence.get("score_components") or {}),
+            }
+            if str(evidence.get("source_role") or "") == "session_memory":
+                session_memory_trace.append(trace_row)
+            else:
+                markdown_span_trace.append(trace_row)
         evidence_units = extracted or [_entry_to_evidence(entry)]
         for evidence in evidence_units:
             retrieved.append(evidence)
@@ -842,6 +1203,8 @@ def build_context_packet(
     if claim_type in {"play_fact", "pipeline_state", "authority_guardrail"}:
         admitted_cap = min(admitted_cap, 10)
     ensure_roles: set[str] | None = None
+    if claim_type == "play_fact":
+        ensure_roles = {"play_recap", "session_memory"}
     if claim_type == "capability_check":
         ensure_roles = {"play_recap", "session_memory", "prep_scaffold", "hub_evidence", "live_packet"}
 
@@ -885,6 +1248,52 @@ def build_context_packet(
         "authority_notes": "Play-fact claims require canon_play/derived_memory only.",
     }
 
+    admitted_trace = [
+        {
+            "path": str(e.get("path") or ""),
+            "source_role": str(e.get("source_role") or ""),
+            "authority": str(e.get("authority") or ""),
+            "final_score": _evidence_score(e),
+            "score_components": dict(e.get("score_components") or {}),
+            "admission_reason": "admitted",
+        }
+        for e in admitted
+    ]
+    rejected_trace = [
+        {
+            "path": str(r.get("evidence", {}).get("path") or ""),
+            "source_role": str(r.get("evidence", {}).get("source_role") or ""),
+            "authority": str(r.get("evidence", {}).get("authority") or ""),
+            "final_score": _evidence_score(dict(r.get("evidence") or {})),
+            "score_components": dict(r.get("evidence", {}).get("score_components") or {}),
+            "rejection_reason": str(r.get("reason_code") or ""),
+        }
+        for r in rejected
+    ]
+    retrieval_trace = {
+        "question": request.question,
+        "intent_hints": sorted(hints),
+        "session_numbers": sorted(query_features.session_numbers),
+        "tokens": sorted(query_features.tokens),
+        "content_tokens": sorted(query_features.content_tokens),
+        "stopword_tokens": sorted(query_features.stopword_tokens),
+        "distinctive_tokens": sorted(query_features.distinctive_tokens),
+        "aliases": list(query_features.aliases),
+        "tags": list(query_features.tags),
+        "title_phrases": list(query_features.title_phrases),
+        "exact_phrases": list(query_features.exact_phrases),
+        "asks_for_last_or_final": query_features.asks_for_last_or_final,
+        "asks_for_play_event": query_features.asks_for_play_event,
+        "top_manifest_entries": candidate_trace.get("top_manifest_entries", []),
+        "lane_top_entries": candidate_trace.get("lane_top_entries", {}),
+        "top_markdown_spans": sorted(markdown_span_trace, key=lambda r: (-float(r["final_score"]), str(r["path"])))[:30],
+        "top_session_memory_units": sorted(
+            session_memory_trace, key=lambda r: (-float(r["final_score"]), str(r["path"]))
+        )[:30],
+        "admitted_evidence": admitted_trace,
+        "rejected_evidence": rejected_trace,
+    }
+
     packet: dict[str, Any] = {
         "schema": "dmb_enriched_planning_context_packet_v1",
         "question_id": request.question_id,
@@ -906,6 +1315,7 @@ def build_context_packet(
             "play_fact_allowed_authorities": sorted(PLAY_FACT_ALLOWED_AUTHORITIES),
             "play_fact_forbidden_authorities": sorted(PLAY_FACT_FORBIDDEN_AUTHORITIES),
         },
+        "retrieval_trace": retrieval_trace,
     }
     if verdict:
         packet["source_excerpt"] = verdict

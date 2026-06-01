@@ -460,3 +460,93 @@ def test_manifest_entry_without_matching_content_is_not_enough_for_claim_support
     assert not packet["admitted_evidence"]
     reasons = {str(r.get("reason_code") or "") for r in packet["rejected_evidence"]}
     assert "missing_evidence_granularity" in reasons
+
+
+def test_effective_question_exact_session22_title_boosts_session22_recap_family(
+    manifest: dict, query_config: QueryConfig
+) -> None:
+    question = (
+        'Session 22 canon play recap: what was the last event or final beat in Session 22? '
+        'Use the Session 22 recap / session memory / timeline record, especially the canonical recap '
+        'for "Session 22 - Mireward Road and Lysandro". Aliases: Session 22, S22, session recap, session memory.'
+    )
+    packet = build_context_packet(_request("s22-last", question), manifest, root=ROOT, config=query_config)
+    admitted_paths = [str(e.get("path") or "") for e in packet["admitted_evidence"]]
+    assert any("Session 22 - Mireward Road and Lysandro" in p for p in admitted_paths[:3])
+
+
+def test_session22_last_thing_query_ranks_session22_closing_beat_above_session21_conical_hill(
+    manifest: dict, query_config: QueryConfig
+) -> None:
+    question = (
+        "what was the last thing that happened in Session 22? "
+        'Use "Session 22 - Mireward Road and Lysandro" recap family and session memory.'
+    )
+    packet = build_context_packet(_request("s22-last-beat", question), manifest, root=ROOT, config=query_config)
+    top_rows = list(packet["admitted_evidence"])[:12]
+    excerpts = [str(e.get("text_excerpt") or "").lower() for e in top_rows]
+    closing_idx = next(
+        (
+            idx
+            for idx, text in enumerate(excerpts)
+            if "lieutenant lysandra now" in text or "met her father lysandro" in text or "is that little lysandra" in text
+        ),
+        None,
+    )
+    conical_idx = next((idx for idx, text in enumerate(excerpts) if "giant bowl of water" in text), None)
+    assert closing_idx is not None
+    assert conical_idx is None or closing_idx < conical_idx
+
+
+def test_retrieval_trace_and_score_components_present(manifest: dict, query_config: QueryConfig) -> None:
+    packet = build_context_packet(
+        _request("trace", "What was the final beat in Session 22 recap around Mireward and Lysandro?"),
+        manifest,
+        root=ROOT,
+        config=query_config,
+    )
+    trace = packet.get("retrieval_trace") or {}
+    assert trace.get("top_manifest_entries")
+    assert trace.get("admitted_evidence") is not None
+    for evidence in packet["admitted_evidence"]:
+        components = dict(evidence.get("score_components") or {})
+        assert "final_score" in components
+        assert "budget_rank_before_cap" in components
+        assert "budget_rank_after_cap" in components
+
+
+def test_hub_instructional_snippets_do_not_outrank_play_recap_events_for_what_happened(
+    manifest: dict, query_config: QueryConfig
+) -> None:
+    packet = build_context_packet(
+        _request(
+            "hub-damp",
+            "What happened last in Session 22? Focus on event outcome in Session 22 recap.",
+        ),
+        manifest,
+        root=ROOT,
+        config=query_config,
+    )
+    roles = [str(e.get("source_role") or "") for e in packet["admitted_evidence"]]
+    assert roles
+    assert roles[0] in {"play_recap", "session_memory"}
+    if "hub_evidence" in roles:
+        recap_or_memory_idx = min(idx for idx, role in enumerate(roles) if role in {"play_recap", "session_memory"})
+        assert roles.index("hub_evidence") > recap_or_memory_idx
+
+
+def test_cross_session_question_can_still_retrieve_multiple_sessions(
+    manifest: dict, query_config: QueryConfig
+) -> None:
+    packet = build_context_packet(
+        _request(
+            "cross-session",
+            "Compare major played outcomes from Session 21 and Session 22 that matter for Session 23 planning.",
+        ),
+        manifest,
+        root=ROOT,
+        config=query_config,
+    )
+    admitted_paths = " ".join(str(e.get("path") or "") for e in packet["admitted_evidence"])
+    assert "Session 21 - Drake Nest Mirathorn Call" in admitted_paths
+    assert "Session 22 - Mireward Road and Lysandro" in admitted_paths
