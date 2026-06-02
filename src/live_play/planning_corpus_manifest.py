@@ -47,6 +47,7 @@ from src.corpus.session_recap_paths import (
 from src.live_play.session_paths import repo_root
 
 SCHEMA_ID = "dmb_c2s23_planning_corpus_manifest_v0"
+DOGFOOD_FULL_SCHEMA_ID = "dmb_c2s23_dogfood_full_manifest_v1"
 
 # Closed vocab — mirror ROADMAP § "Source Role and Authority Axis".
 SOURCE_ROLE = Literal[
@@ -59,6 +60,7 @@ SOURCE_ROLE = Literal[
     "live_event",
     "fresh_recap",
     "hub_evidence",
+    "world_evidence",
 ]
 # Closed vocab — mirror BENCHMARK charter § "Source authority roles".
 AUTHORITY = Literal[
@@ -81,6 +83,7 @@ SOURCE_ROLES: tuple[str, ...] = (
     "live_event",
     "fresh_recap",
     "hub_evidence",
+    "world_evidence",
 )
 AUTHORITIES: tuple[str, ...] = (
     "pre_canonical_evidence",
@@ -103,6 +106,7 @@ _AUTHORITY_BY_ROLE: dict[str, str] = {
     "live_event": "live_observation",
     "fresh_recap": "pre_canonical_evidence",
     "hub_evidence": "canon_play",
+    "world_evidence": "reference_tool",
 }
 
 _ALLOWED_BY_ROLE: dict[str, list[str]] = {
@@ -115,7 +119,10 @@ _ALLOWED_BY_ROLE: dict[str, list[str]] = {
     "live_event": ["observed_play", "planning_observation", "audit_evidence"],
     "fresh_recap": ["planning_input"],
     "hub_evidence": ["planning_context", "continuity", "npc_grounding"],
+    "world_evidence": ["setting_context", "mechanical_reference", "npc_grounding"],
 }
+
+PLAY_FACT_USE = "play_facts"
 
 # Roles that may never prove a play fact (the manifest's hard authority floor).
 # ``table_notes`` and ``fresh_recap`` are conditional: they only forbid play_facts
@@ -130,9 +137,8 @@ _FORBIDDEN_BY_ROLE: dict[str, list[str]] = {
     "live_event": ["play_facts"],
     "fresh_recap": [],
     "hub_evidence": [],
+    "world_evidence": [PLAY_FACT_USE],
 }
-
-PLAY_FACT_USE = "play_facts"
 
 
 @dataclass(frozen=True)
@@ -532,6 +538,118 @@ def build_planning_corpus_manifest(
     return payload
 
 
+HUB_ENTITY_DIRS: tuple[str, ...] = ("NPCs", "PCs", "Factions", "Plot Artifacts")
+
+
+def _hub_satellite_notes(path: Path) -> str:
+    name = path.name.lower()
+    if "statblock" in name or name == "character_seed.md":
+        return "Mechanical or seed reference; not play proof."
+    if "character_dossier" in name or name == "timeline.md":
+        return "Campaign continuity hub satellite."
+    return "Campaign hub satellite."
+
+
+def build_dogfood_full_manifest(
+    *,
+    campaign_id: str,
+    planning_session: int,
+    source_sessions: list[int],
+    corpus_root: Path,
+    live_workspace_dir: Path | None,
+    allow_live_workspace_session_mismatch: bool = False,
+) -> dict[str, Any]:
+    """Compose slim planning manifest plus C2 hub satellites and full Elderwyld world layer."""
+    base = build_planning_corpus_manifest(
+        campaign_id=campaign_id,
+        planning_session=planning_session,
+        source_sessions=source_sessions,
+        corpus_root=corpus_root,
+        live_workspace_dir=live_workspace_dir,
+        allow_live_workspace_session_mismatch=allow_live_workspace_session_mismatch,
+    )
+    window = sorted(set(source_sessions))
+    repo = repo_root()
+    campaign_number = campaign_number_from_id(campaign_id)
+    campaign_dir = corpus_root / _campaign_dir_relpath(campaign_number)
+
+    entries: list[ManifestEntry] = [
+        ManifestEntry(
+            source_id=str(e["source_id"]),
+            source_role=e["source_role"],  # type: ignore[arg-type]
+            authority=e["authority"],  # type: ignore[arg-type]
+            session_scope=list(e["session_scope"]),
+            route=str(e["route"]),
+            route_exists=bool(e["route_exists"]),
+            admissible=bool(e["admissible"]),
+            allowed_uses=list(e["allowed_uses"]),
+            forbidden_uses=list(e["forbidden_uses"]),
+            notes=e.get("notes"),
+        )
+        for e in base["entries"]
+    ]
+    existing_routes = {e.route for e in entries}
+
+    if campaign_dir.is_dir():
+        for entity_dir in HUB_ENTITY_DIRS:
+            hub_root = campaign_dir / entity_dir
+            if not hub_root.is_dir():
+                continue
+            for path in sorted(hub_root.rglob("*.md")):
+                if path.name == "README.md":
+                    continue
+                route, exists = _route_and_exists(path, repo=repo, fallback=corpus_root)
+                if route in existing_routes:
+                    continue
+                entries.append(
+                    _build_entry(
+                        "hub_evidence",
+                        window,
+                        route,
+                        exists,
+                        notes=_hub_satellite_notes(path),
+                    )
+                )
+                existing_routes.add(route)
+
+    elderwyld_root = corpus_root / "Elderwyld"
+    if elderwyld_root.is_dir():
+        for path in sorted(elderwyld_root.rglob("*.md")):
+            route, exists = _route_and_exists(path, repo=repo, fallback=corpus_root)
+            if route in existing_routes:
+                continue
+            entries.append(
+                _build_entry(
+                    "world_evidence",
+                    window,
+                    route,
+                    exists,
+                    notes="Elderwyld world-layer reference; not play proof.",
+                )
+            )
+            existing_routes.add(route)
+
+    entries.sort(key=lambda e: (e.source_role, min(e.session_scope), e.source_id))
+
+    seen: set[str] = set()
+    for entry in entries:
+        if entry.source_id in seen:
+            raise ValueError(f"duplicate source_id: {entry.source_id}")
+        seen.add(entry.source_id)
+
+    payload: dict[str, Any] = {
+        "schema": DOGFOOD_FULL_SCHEMA_ID,
+        "campaign_id": campaign_id,
+        "planning_session": int(planning_session),
+        "source_sessions": sorted(set(source_sessions)),
+        "generated_at": _now_utc(),
+        "entries": [entry.to_dict() for entry in entries],
+    }
+    if live_workspace_dir is not None:
+        payload["planning_live_workspace_dir"] = _live_workspace_relpath(live_workspace_dir, repo)
+    return payload
+
+
 def render_manifest_markdown(manifest: dict[str, Any]) -> str:
     """Deterministic GM-readable mirror grouped by source_role then session."""
     lines: list[str] = []
@@ -596,10 +714,19 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
             "(source_role + authority + session scope + routes + allowed/forbidden uses)."
         ),
     )
-    parser.add_argument("--campaign-id", required=True)
-    parser.add_argument("--planning-session", type=int, required=True)
-    parser.add_argument("--source-sessions", type=int, nargs="+", required=True)
-    parser.add_argument("--corpus-root", type=Path, required=True)
+    parser.add_argument(
+        "--variant",
+        choices=("slim", "dogfood-full"),
+        default="slim",
+        help=(
+            "slim: C2S23 planning slice (PR97 regression). "
+            "dogfood-full: slim entries plus C2 hub satellites and full Elderwyld."
+        ),
+    )
+    parser.add_argument("--campaign-id", default=None)
+    parser.add_argument("--planning-session", type=int, default=None)
+    parser.add_argument("--source-sessions", type=int, nargs="+", default=None)
+    parser.add_argument("--corpus-root", type=Path, default=None)
     parser.add_argument("--live-workspace-dir", type=Path, default=None)
     parser.add_argument(
         "--allow-live-workspace-session-mismatch",
@@ -624,15 +751,55 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
+def _dogfood_full_defaults(repo: Path) -> dict[str, Any]:
+    return {
+        "campaign_id": "longmont-c2",
+        "planning_session": 23,
+        "source_sessions": [21, 22, 23],
+        "corpus_root": repo / "corpus/eldyrwild-markdown",
+        "live_workspace_dir": repo / "evals/c2_live_prep/live/session_23",
+    }
+
+
 def main(argv: list[str] | None = None) -> int:
     args = _parse_args(argv)
+    repo = repo_root()
+    if args.variant == "dogfood-full":
+        defaults = _dogfood_full_defaults(repo)
+        campaign_id = args.campaign_id or defaults["campaign_id"]
+        planning_session = args.planning_session if args.planning_session is not None else defaults["planning_session"]
+        source_sessions = args.source_sessions or defaults["source_sessions"]
+        corpus_root = args.corpus_root or defaults["corpus_root"]
+        live_workspace_dir = args.live_workspace_dir if args.live_workspace_dir is not None else defaults["live_workspace_dir"]
+        builder = build_dogfood_full_manifest
+    else:
+        missing = [
+            name
+            for name, val in (
+                ("--campaign-id", args.campaign_id),
+                ("--planning-session", args.planning_session),
+                ("--source-sessions", args.source_sessions),
+                ("--corpus-root", args.corpus_root),
+            )
+            if val is None
+        ]
+        if missing:
+            print(f"slim variant requires: {', '.join(missing)}", file=sys.stderr, flush=True)
+            return 2
+        campaign_id = str(args.campaign_id)
+        planning_session = int(args.planning_session)
+        source_sessions = list(args.source_sessions)
+        corpus_root = args.corpus_root
+        live_workspace_dir = args.live_workspace_dir
+        builder = build_planning_corpus_manifest
+
     try:
-        manifest = build_planning_corpus_manifest(
-            campaign_id=args.campaign_id,
-            planning_session=args.planning_session,
-            source_sessions=args.source_sessions,
-            corpus_root=args.corpus_root,
-            live_workspace_dir=args.live_workspace_dir,
+        manifest = builder(
+            campaign_id=campaign_id,
+            planning_session=planning_session,
+            source_sessions=source_sessions,
+            corpus_root=corpus_root,
+            live_workspace_dir=live_workspace_dir,
             allow_live_workspace_session_mismatch=args.allow_live_workspace_session_mismatch,
         )
     except ValueError as exc:

@@ -14,6 +14,7 @@ from src.live_play.session_paths import repo_root
 
 ROOT = repo_root()
 MANIFEST_PATH = ROOT / "evals/c2_live_prep/benchmarks/c2s23_planning_corpus_manifest.json"
+DOGFOOD_MANIFEST_PATH = ROOT / "evals/c2_live_prep/benchmarks/c2s23_dogfood_full_manifest.json"
 QUESTIONS_PATH = ROOT / "evals/c2_live_prep/benchmarks/c2s23_dogfood_questions.seed.json"
 C2S23_PRECONDITION_PATHS: dict[str, str] = {
     "canonical_recap_s22": (
@@ -871,3 +872,107 @@ def test_only_session_query_enforces_explicit_session_lock(tmp_path: Path) -> No
     )
     admitted_paths = [str(e.get("path") or "") for e in packet["admitted_evidence"]]
     assert admitted_paths and all("Session 22 - Mireward Road and Lysandro" in path for path in admitted_paths)
+
+
+@pytest.fixture(scope="module")
+def dogfood_manifest() -> dict:
+    return load_manifest(DOGFOOD_MANIFEST_PATH)
+
+
+def test_lysandra_ac_admits_elderwyld_statblock(dogfood_manifest: dict, query_config: QueryConfig) -> None:
+    packet = build_context_packet(
+        _request("hub-stat-01", "What is Captain Lysandra Ironveil's AC?"),
+        dogfood_manifest,
+        root=ROOT,
+        config=query_config,
+    )
+    admitted_paths = " ".join(str(e.get("path") or "") for e in packet["admitted_evidence"])
+    assert "captain_lysandra_ironveil_statblock" in admitted_paths
+    assert "Elderwyld" in admitted_paths
+
+
+def test_session_22_end_play_recap_ranks_above_world_evidence(dogfood_manifest: dict, query_config: QueryConfig) -> None:
+    packet = build_context_packet(
+        _request("play-s22-end", "What happened at the end of Session 22?"),
+        dogfood_manifest,
+        root=ROOT,
+        config=query_config,
+    )
+    top_routes = [str(row.get("route") or "") for row in packet["retrieval_trace"]["top_manifest_entries"][:8]]
+    play_idx = next(
+        (i for i, route in enumerate(top_routes) if "Session 22 - Mireward Road and Lysandro" in route),
+        None,
+    )
+    world_idx = next(
+        (i for i, route in enumerate(top_routes) if "Elderwyld/" in route),
+        None,
+    )
+    assert play_idx is not None
+    if world_idx is not None:
+        assert play_idx < world_idx
+    admitted_roles = {str(e.get("source_role") or "") for e in packet["admitted_evidence"]}
+    assert admitted_roles & {"play_recap", "session_memory"}
+
+
+def test_thrin_timeline_prefers_c2_campaign_timeline(dogfood_manifest: dict, query_config: QueryConfig) -> None:
+    packet = build_context_packet(
+        _request("hub-timeline-01", "What is on Thrin's campaign timeline for Sessions 21 and 22?"),
+        dogfood_manifest,
+        root=ROOT,
+        config=query_config,
+    )
+    top_routes = [str(row.get("route") or "") for row in packet["retrieval_trace"]["top_manifest_entries"][:12]]
+    c2_timeline_idx = next(
+        (i for i, route in enumerate(top_routes) if "thrin_branchborn/timeline.md" in route),
+        None,
+    )
+    elderwyld_seed_idx = next(
+        (i for i, route in enumerate(top_routes) if "Elderwyld/" in route and "character_seed" in route),
+        None,
+    )
+    assert c2_timeline_idx is not None
+    if elderwyld_seed_idx is not None:
+        assert c2_timeline_idx < elderwyld_seed_idx
+    admitted_paths = " ".join(str(e.get("path") or "") for e in packet["admitted_evidence"])
+    assert "thrin_branchborn/timeline.md" in admitted_paths
+
+
+def test_world_evidence_rejected_for_play_fact_claim(tmp_path: Path) -> None:
+    world_route = "corpus/Elderwyld/Roads/mireward_reach_road_d100_encounter_table.md"
+    recap_route = "corpus/Session Recaps/Session 22 - Mireward Road and Lysandro.md"
+    _write_markdown(tmp_path, world_route, "d100 encounter table for the northern road.\n")
+    _write_markdown(tmp_path, recap_route, "Session 22 ended with Lysandro on the Mireward road.\n")
+    manifest = {
+        "entries": [
+            {
+                **_manifest_entry(
+                    source_id="world-road",
+                    route=world_route,
+                    source_role="world_evidence",
+                    authority="reference_tool",
+                    session_scope=[21, 22, 23],
+                ),
+                "allowed_uses": ["setting_context", "mechanical_reference", "npc_grounding"],
+                "forbidden_uses": ["play_facts"],
+            },
+            _manifest_entry(
+                source_id="s22",
+                route=recap_route,
+                source_role="play_recap",
+                authority="canon_play",
+                session_scope=[22],
+            ),
+        ]
+    }
+    packet = build_context_packet(
+        _request(
+            "auth-world-01",
+            "What happened in play when we rolled the d100 road encounter from the Mireward Reach table in Session 22?",
+        ),
+        manifest,
+        root=tmp_path,
+        config=QueryConfig(),
+    )
+    admitted_roles = {str(e.get("source_role") or "") for e in packet["admitted_evidence"]}
+    assert "play_recap" in admitted_roles
+    assert "world_evidence" not in admitted_roles

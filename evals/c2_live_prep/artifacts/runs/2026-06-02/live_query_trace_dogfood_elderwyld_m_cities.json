@@ -1,0 +1,185 @@
+{
+  "question": "Why do all cities in the Elderwyld seem to start with M",
+  "target_session": null,
+  "manifest_path": "evals/c2_live_prep/benchmarks/c2s23_dogfood_full_manifest.json",
+  "llm_config": {
+    "provider": "openai",
+    "model": "gpt-5.4-mini",
+    "require_llm": true,
+    "max_output_tokens": 600,
+    "temperature": 0.2
+  },
+  "generated_at": "2026-06-02T16:37:59Z",
+  "step_2_context_packet": {
+    "retrieval_query": "Why do all cities in the Elderwyld seem to start with M",
+    "effective_question": "Why do all cities in the Elderwyld seem to start with M",
+    "admitted_count": 12,
+    "rejected_count": 0,
+    "top_admitted": [
+      {
+        "evidence_id": "ev-e7d4aa4910",
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/City Council Building/Battle with The Wolf and Aftermath.md",
+        "source_role": "world_evidence",
+        "authority": "reference_tool",
+        "line_start": null,
+        "line_end": null,
+        "text_excerpt": null
+      },
+      {
+        "evidence_id": "ev-2301fa9e1f",
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/README.md",
+        "source_role": "world_evidence",
+        "authority": "reference_tool",
+        "line_start": 21,
+        "line_end": 25,
+        "text_excerpt": "1. `Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/character_seed.md` — pre–player-contact hooks (short). 2. `Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_statblock_cr4.md` — **CR 4** leveled mechanical sheet (current Mirathorn export; RulesIngestion from Level-Up PDF). 3. `Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_statblock_cr2.md` — **CR 2** baseline sheet (archive / earlier tier). 4. `Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_character_dossier.md` — table-facing dossier (voice, arcs). 5. `Longmont Campaign/Campaign 2/NPCs/cap"
+      },
+      {
+        "evidence_id": "ev-7a7563f21e",
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_statblock_cr2.md",
+        "source_role": "world_evidence",
+        "authority": "reference_tool",
+        "line_start": null,
+        "line_end": null,
+        "text_excerpt": null
+      },
+      {
+        "evidence_id": "ev-2aac5cadac",
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/README.md",
+        "source_role": "hub_evidence",
+        "authority": "canon_play",
+        "line_start": 36,
+        "line_end": 41,
+        "text_excerpt": "| Priority | Path (corpus root = `eldyrwild-markdown/`) | Role | |----------|--------------------------------------------|------| | **1 — table override (if present)** | In **this folder**: any `.md` whose name starts with `captain_lysandra_ironveil_statblock_c2_` | **Most current for Campaign 2** when such a file exists. Use the exact path from the corpus tree (no globs in `read_corpus_file`). If several exist, prefer the **highest session number** in the filename. | | **2 — Mirathorn leveled export** | `Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_statblock_cr4.md` | **CR 4** current mechanical default from the setting hub when no C2-only ov"
+      },
+      {
+        "evidence_id": "ev-19c60991c9",
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.breadcrumbed.md",
+        "source_role": "play_recap",
+        "authority": "canon_play",
+        "line_start": 124,
+        "line_end": 124,
+        "text_excerpt": "With nothing left to do for Mirathorn, the group loads up the wagon and continues north, all the while a gigantic storm from the west appears to be merging with a storm coming from the south.[Location][Elderwyld/Cities and Towns/Mirathorn/] Most of the day is spent quietly traveling. Thrin asks Ephanna whether or not the forest can lie, which he is informed it does, while this breaks Caelynn out of her silent contemplation long enough to comment that people lie too; with a glance towards Lysandra.[NPC][Longmont Campaign/Campaign 2/NPCs/thrin_branchborn/][PC][Longmont Campaign/Campaign 2/PCs/ephanna/][PC][Longmont Campaign/Campaign 2/PCs/caelynn/][NPC][Longmont Campaign/Campaign 2/NPCs/captai"
+      }
+    ],
+    "top_rejected": []
+  },
+  "step_3_answer_llm": {
+    "request": {
+      "model": "gpt-5.4-mini",
+      "input": "You are answering a live planning question for a TTRPG campaign.\n\nRules:\n- Every factual campaign claim in your answer must include at least one admitted evidence citation.\n- Use admitted evidence for factual claims.\n- Do not use rejected evidence as support.\n- Cite admitted evidence IDs inline as [ev-...].\n- Distinguish play facts from planning suggestions.\n- Never claim write capability in this response path; it is read-only.\n- If asked to mutate artifacts, explicitly refuse mutation and stay read-only.\n\nQuestion:\nWhy do all cities in the Elderwyld seem to start with M\n\nADMITTED EVIDENCE:\n[ev-e7d4aa4910]\nrole: world_evidence\nauthority: reference_tool\npath: corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/City Council Building/Battle with The Wolf and Aftermath.md\nline_range: None-None\nunit_id: None\nexcerpt: \n\n[ev-2301fa9e1f]\nrole: world_evidence\nauthority: reference_tool\npath: corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/README.md\nline_range: 21-25\nunit_id: None\nexcerpt: 1. `Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/character_seed.md` — pre–player-contact hooks (short). 2. `Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_statblock_cr4.md` — **CR 4** leveled mechanical sheet (current Mirathorn export; RulesIngestion from Level-Up PDF). 3. `Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_statblock_cr2.md` — **CR 2** baseline sheet (archive / earlier tier). 4. `Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_character_dossier.md` — table-facing dossier (voice, arcs). 5. `Longmont Campaign/Campaign 2/NPCs/cap\n\n[ev-7a7563f21e]\nrole: world_evidence\nauthority: reference_tool\npath: corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_statblock_cr2.md\nline_range: None-None\nunit_id: None\nexcerpt: \n\n[ev-2aac5cadac]\nrole: hub_evidence\nauthority: canon_play\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/README.md\nline_range: 36-41\nunit_id: None\nexcerpt: | Priority | Path (corpus root = `eldyrwild-markdown/`) | Role | |----------|--------------------------------------------|------| | **1 — table override (if present)** | In **this folder**: any `.md` whose name starts with `captain_lysandra_ironveil_statblock_c2_` | **Most current for Campaign 2** when such a file exists. Use the exact path from the corpus tree (no globs in `read_corpus_file`). If several exist, prefer the **highest session number** in the filename. | | **2 — Mirathorn leveled export** | `Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_statblock_cr4.md` | **CR 4** current mechanical default from the setting hub when no C2-only ov\n\n[ev-19c60991c9]\nrole: play_recap\nauthority: canon_play\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.breadcrumbed.md\nline_range: 124-124\nunit_id: None\nexcerpt: With nothing left to do for Mirathorn, the group loads up the wagon and continues north, all the while a gigantic storm from the west appears to be merging with a storm coming from the south.[Location][Elderwyld/Cities and Towns/Mirathorn/] Most of the day is spent quietly traveling. Thrin asks Ephanna whether or not the forest can lie, which he is informed it does, while this breaks Caelynn out of her silent contemplation long enough to comment that people lie too; with a glance towards Lysandra.[NPC][Longmont Campaign/Campaign 2/NPCs/thrin_branchborn/][PC][Longmont Campaign/Campaign 2/PCs/ephanna/][PC][Longmont Campaign/Campaign 2/PCs/caelynn/][NPC][Longmont Campaign/Campaign 2/NPCs/captai\n\n[ev-fbdf021a9d]\nrole: play_recap\nauthority: canon_play\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 21 - Drake Nest Mirathorn Call.breadcrumbed.md\nline_range: 122-122\nunit_id: None\nexcerpt: They continue on north with Karsemine and Caelynn keeping an eye out for high ground for a place to stop for the night. While on this short trip everyone is able to relax and have a short rest. Because of their timing leaving the town and their navigation skills, the wagon is able to make it far enough north to just hit the very edge of the storm and only get soaked. They are able to see the sheen of magic as the rain pools up and instead of the usual petrichor the rain smells savory. Karsemine and Caelynn spot a good camping spot on the top of a conical hill.[PC][Longmont Campaign/Campaign 2/PCs/karsemine/][PC][Longmont Campaign/Campaign 2/PCs/caelynn/] They leave the wagon and the animals\n\n[ev-695c262523]\nrole: play_recap\nauthority: canon_play\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.breadcrumbed.md\nline_range: 134-134\nunit_id: None\nexcerpt: The ride is much more pleasant as both Lysandra and Caelynn are in much better moods.[NPC][Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/][PC][Longmont Campaign/Campaign 2/PCs/caelynn/] Having a goal and helping the group really boosted morale. Lysandra opens up to Ephanna about how poorly she is handling the mission she has been given.[NPC][Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/][PC][Longmont Campaign/Campaign 2/PCs/ephanna/] She is upset with how difficult it is to keep Mirathorn out of trouble, but is determined to get back to being the group leader.[NPC][Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/][Location][Elderwyld/Cities and Towns/\n\n[ev-e383657da4]\nrole: session_memory\nauthority: derived_memory\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 21 - Drake Nest Mirathorn Call.records_meta.jsonl\nline_range: 0-0\nunit_id: meta-session-0021-locations\nexcerpt: session locations location places place setting map mirathorn elderwyld cities and towns cities and towns mossford young_drake_nest_hill Major session set-piece: iridescent young drake nest bowl with elder drakes and loot. unknown sites unknown sites young drake nest hill young drake nest hill edge_of_the_world Sheriff rumor destination for cultist music conversion; named northbound town. edge of the world edge of the world mireward Named next town north on the road (~5 days out per Lysandra).\n\n[ev-43ca501690]\nrole: session_memory\nauthority: derived_memory\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 22 - Mireward Road and Lysandro.records_meta.jsonl\nline_range: 0-0\nunit_id: meta-session-0022-locations\nexcerpt: session locations location places place setting map mirathorn elderwyld cities and towns cities and towns mossford young_drake_nest_hill Major session set-piece: iridescent young drake nest bowl with elder drakes and loot. unknown sites unknown sites young drake nest hill young drake nest hill edge_of_the_world Sheriff rumor destination for cultist music conversion; named northbound town. edge of the world edge of the world mireward Named next town north on the road (~5 days out per Lysandra).\n\n[ev-bebf219ae1]\nrole: hub_evidence\nauthority: canon_play\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/README.md\nline_range: 21-26\nunit_id: None\nexcerpt: 1. `Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_character_dossier.md` — primary **character reference** (psychology, command style, GM-sourced ledger bullets). 2. `Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/lysandra_ironveil_mireward_history.md` — **Mireward upbringing, Ironveil family soap, gate/homecoming beats** (read when she is on Reach soil). 3. `Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/timeline.md` — C2 beats + which recap to open next. 3. `Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_statblock_cr4.md` — **CR 4** leveled mechanical sheet (Mirathorn export; cur\n\n[ev-ec5928818b]\nrole: prep_scaffold\nauthority: planning_scaffold\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/Session 21 - brainstorming dump.md\nline_range: 16-16\nunit_id: None\nexcerpt: Lets start with an brainstorming idea dump, not everything here works, this is just ideas. I don't want model assistance here, I want to have my unrefined prose stored and flagged as brainstorming.  This is prep for Longmont Campaign 2 Session 21\n\n[ev-93845f624a]\nrole: hub_evidence\nauthority: canon_play\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/lysandra_ironveil_mireward_history.md\nline_range: 194-199\nunit_id: None\nexcerpt: | File | Role | |------|------| | `captain_lysandra_ironveil_character_dossier.md` | Psychology + command — **this file is the soap**. | | `Elderwyld/Cities and Towns/Mireward/Mireward_PLACE_BUILD_SCAFFOLD.md` | Town tone; Ironveil row in §F | | `Session Prep/session_22/mireward_gate_dilemma_d6.md` | Gate pressures — **Lysandro voice**, not Hald Voss | | `Longmont Campaign/Campaign 2/_ingest_staging/session_22_raw_notes.md` | S22 play log |\n\nREJECTED EVIDENCE:\n(none)",
+      "temperature": 0.2,
+      "max_output_tokens": 600
+    },
+    "response_output_text": "I can’t verify a canon reason that **all** Elderwyld cities start with **M** from the admitted evidence alone. What the evidence does show is that **Mirathorn** is a named city in Elderwyld [ev-19c60991c9], and **Mireward** is a named next town on the road north from Mirathorn [ev-e383657da4][ev-43ca501690]. The setting materials also explicitly reference **Mireward** as a place tied to Lysandra’s history [ev-bebf219ae1][ev-93845f624a].\n\nSo, as a **planning suggestion** rather than a play fact: the “M” pattern may be an intentional naming motif, but the current evidence only supports that there are multiple M-named settlements, not that the setting has a rule that all cities must begin with M [ev-19c60991c9][ev-e383657da4].\n\nIf you want, I can help you formulate a **diegetic explanation** for the M-naming pattern that fits the existing canon without mutating anything.",
+    "result": {
+      "answer": "I can’t verify a canon reason that **all** Elderwyld cities start with **M** from the admitted evidence alone. What the evidence does show is that **Mirathorn** is a named city in Elderwyld [ev-19c60991c9], and **Mireward** is a named next town on the road north from Mirathorn [ev-e383657da4][ev-43ca501690]. The setting materials also explicitly reference **Mireward** as a place tied to Lysandra’s history [ev-bebf219ae1][ev-93845f624a].\n\nSo, as a **planning suggestion** rather than a play fact: the “M” pattern may be an intentional naming motif, but the current evidence only supports that there are multiple M-named settlements, not that the setting has a rule that all cities must begin with M [ev-19c60991c9][ev-e383657da4].\n\nIf you want, I can help you formulate a **diegetic explanation** for the M-naming pattern that fits the existing canon without mutating anything.",
+      "source": "llm",
+      "warnings": [],
+      "diagnostics": []
+    },
+    "rendered_prompt": "You are answering a live planning question for a TTRPG campaign.\n\nRules:\n- Every factual campaign claim in your answer must include at least one admitted evidence citation.\n- Use admitted evidence for factual claims.\n- Do not use rejected evidence as support.\n- Cite admitted evidence IDs inline as [ev-...].\n- Distinguish play facts from planning suggestions.\n- Never claim write capability in this response path; it is read-only.\n- If asked to mutate artifacts, explicitly refuse mutation and stay read-only.\n\nQuestion:\nWhy do all cities in the Elderwyld seem to start with M\n\nADMITTED EVIDENCE:\n[ev-e7d4aa4910]\nrole: world_evidence\nauthority: reference_tool\npath: corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/City Council Building/Battle with The Wolf and Aftermath.md\nline_range: None-None\nunit_id: None\nexcerpt: \n\n[ev-2301fa9e1f]\nrole: world_evidence\nauthority: reference_tool\npath: corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/README.md\nline_range: 21-25\nunit_id: None\nexcerpt: 1. `Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/character_seed.md` — pre–player-contact hooks (short). 2. `Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_statblock_cr4.md` — **CR 4** leveled mechanical sheet (current Mirathorn export; RulesIngestion from Level-Up PDF). 3. `Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_statblock_cr2.md` — **CR 2** baseline sheet (archive / earlier tier). 4. `Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_character_dossier.md` — table-facing dossier (voice, arcs). 5. `Longmont Campaign/Campaign 2/NPCs/cap\n\n[ev-7a7563f21e]\nrole: world_evidence\nauthority: reference_tool\npath: corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_statblock_cr2.md\nline_range: None-None\nunit_id: None\nexcerpt: \n\n[ev-2aac5cadac]\nrole: hub_evidence\nauthority: canon_play\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/README.md\nline_range: 36-41\nunit_id: None\nexcerpt: | Priority | Path (corpus root = `eldyrwild-markdown/`) | Role | |----------|--------------------------------------------|------| | **1 — table override (if present)** | In **this folder**: any `.md` whose name starts with `captain_lysandra_ironveil_statblock_c2_` | **Most current for Campaign 2** when such a file exists. Use the exact path from the corpus tree (no globs in `read_corpus_file`). If several exist, prefer the **highest session number** in the filename. | | **2 — Mirathorn leveled export** | `Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_statblock_cr4.md` | **CR 4** current mechanical default from the setting hub when no C2-only ov\n\n[ev-19c60991c9]\nrole: play_recap\nauthority: canon_play\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.breadcrumbed.md\nline_range: 124-124\nunit_id: None\nexcerpt: With nothing left to do for Mirathorn, the group loads up the wagon and continues north, all the while a gigantic storm from the west appears to be merging with a storm coming from the south.[Location][Elderwyld/Cities and Towns/Mirathorn/] Most of the day is spent quietly traveling. Thrin asks Ephanna whether or not the forest can lie, which he is informed it does, while this breaks Caelynn out of her silent contemplation long enough to comment that people lie too; with a glance towards Lysandra.[NPC][Longmont Campaign/Campaign 2/NPCs/thrin_branchborn/][PC][Longmont Campaign/Campaign 2/PCs/ephanna/][PC][Longmont Campaign/Campaign 2/PCs/caelynn/][NPC][Longmont Campaign/Campaign 2/NPCs/captai\n\n[ev-fbdf021a9d]\nrole: play_recap\nauthority: canon_play\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 21 - Drake Nest Mirathorn Call.breadcrumbed.md\nline_range: 122-122\nunit_id: None\nexcerpt: They continue on north with Karsemine and Caelynn keeping an eye out for high ground for a place to stop for the night. While on this short trip everyone is able to relax and have a short rest. Because of their timing leaving the town and their navigation skills, the wagon is able to make it far enough north to just hit the very edge of the storm and only get soaked. They are able to see the sheen of magic as the rain pools up and instead of the usual petrichor the rain smells savory. Karsemine and Caelynn spot a good camping spot on the top of a conical hill.[PC][Longmont Campaign/Campaign 2/PCs/karsemine/][PC][Longmont Campaign/Campaign 2/PCs/caelynn/] They leave the wagon and the animals\n\n[ev-695c262523]\nrole: play_recap\nauthority: canon_play\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.breadcrumbed.md\nline_range: 134-134\nunit_id: None\nexcerpt: The ride is much more pleasant as both Lysandra and Caelynn are in much better moods.[NPC][Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/][PC][Longmont Campaign/Campaign 2/PCs/caelynn/] Having a goal and helping the group really boosted morale. Lysandra opens up to Ephanna about how poorly she is handling the mission she has been given.[NPC][Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/][PC][Longmont Campaign/Campaign 2/PCs/ephanna/] She is upset with how difficult it is to keep Mirathorn out of trouble, but is determined to get back to being the group leader.[NPC][Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/][Location][Elderwyld/Cities and Towns/\n\n[ev-e383657da4]\nrole: session_memory\nauthority: derived_memory\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 21 - Drake Nest Mirathorn Call.records_meta.jsonl\nline_range: 0-0\nunit_id: meta-session-0021-locations\nexcerpt: session locations location places place setting map mirathorn elderwyld cities and towns cities and towns mossford young_drake_nest_hill Major session set-piece: iridescent young drake nest bowl with elder drakes and loot. unknown sites unknown sites young drake nest hill young drake nest hill edge_of_the_world Sheriff rumor destination for cultist music conversion; named northbound town. edge of the world edge of the world mireward Named next town north on the road (~5 days out per Lysandra).\n\n[ev-43ca501690]\nrole: session_memory\nauthority: derived_memory\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 22 - Mireward Road and Lysandro.records_meta.jsonl\nline_range: 0-0\nunit_id: meta-session-0022-locations\nexcerpt: session locations location places place setting map mirathorn elderwyld cities and towns cities and towns mossford young_drake_nest_hill Major session set-piece: iridescent young drake nest bowl with elder drakes and loot. unknown sites unknown sites young drake nest hill young drake nest hill edge_of_the_world Sheriff rumor destination for cultist music conversion; named northbound town. edge of the world edge of the world mireward Named next town north on the road (~5 days out per Lysandra).\n\n[ev-bebf219ae1]\nrole: hub_evidence\nauthority: canon_play\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/README.md\nline_range: 21-26\nunit_id: None\nexcerpt: 1. `Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_character_dossier.md` — primary **character reference** (psychology, command style, GM-sourced ledger bullets). 2. `Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/lysandra_ironveil_mireward_history.md` — **Mireward upbringing, Ironveil family soap, gate/homecoming beats** (read when she is on Reach soil). 3. `Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/timeline.md` — C2 beats + which recap to open next. 3. `Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_statblock_cr4.md` — **CR 4** leveled mechanical sheet (Mirathorn export; cur\n\n[ev-ec5928818b]\nrole: prep_scaffold\nauthority: planning_scaffold\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/Session 21 - brainstorming dump.md\nline_range: 16-16\nunit_id: None\nexcerpt: Lets start with an brainstorming idea dump, not everything here works, this is just ideas. I don't want model assistance here, I want to have my unrefined prose stored and flagged as brainstorming.  This is prep for Longmont Campaign 2 Session 21\n\n[ev-93845f624a]\nrole: hub_evidence\nauthority: canon_play\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/lysandra_ironveil_mireward_history.md\nline_range: 194-199\nunit_id: None\nexcerpt: | File | Role | |------|------| | `captain_lysandra_ironveil_character_dossier.md` | Psychology + command — **this file is the soap**. | | `Elderwyld/Cities and Towns/Mireward/Mireward_PLACE_BUILD_SCAFFOLD.md` | Town tone; Ironveil row in §F | | `Session Prep/session_22/mireward_gate_dilemma_d6.md` | Gate pressures — **Lysandro voice**, not Hald Voss | | `Longmont Campaign/Campaign 2/_ingest_staging/session_22_raw_notes.md` | S22 play log |\n\nREJECTED EVIDENCE:\n(none)"
+  },
+  "step_4_validation_and_decision": {
+    "warnings": [],
+    "decision_steps": [
+      {
+        "step": "citation_validation",
+        "llm_citation_failure": false,
+        "citation_warnings": [],
+        "citation_diagnostics": {
+          "cited_evidence_ids": [
+            "ev-19c60991c9",
+            "ev-e383657da4",
+            "ev-43ca501690",
+            "ev-bebf219ae1",
+            "ev-93845f624a"
+          ],
+          "admitted_citation_ids": [
+            "ev-19c60991c9",
+            "ev-e383657da4",
+            "ev-43ca501690",
+            "ev-bebf219ae1",
+            "ev-93845f624a"
+          ],
+          "unknown_citation_ids": [],
+          "rejected_citation_ids": []
+        }
+      },
+      {
+        "step": "acceptance_gate",
+        "decision": "accept_answer",
+        "status": "ok",
+        "answer_source": "llm"
+      }
+    ],
+    "citation_validation": {
+      "citations": [
+        {
+          "evidence_id": "ev-19c60991c9",
+          "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.breadcrumbed.md",
+          "line_start": 124,
+          "line_end": 124,
+          "source_role": "play_recap",
+          "authority": "canon_play"
+        },
+        {
+          "evidence_id": "ev-e383657da4",
+          "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 21 - Drake Nest Mirathorn Call.records_meta.jsonl",
+          "line_start": 0,
+          "line_end": 0,
+          "source_role": "session_memory",
+          "authority": "derived_memory"
+        },
+        {
+          "evidence_id": "ev-43ca501690",
+          "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 22 - Mireward Road and Lysandro.records_meta.jsonl",
+          "line_start": 0,
+          "line_end": 0,
+          "source_role": "session_memory",
+          "authority": "derived_memory"
+        },
+        {
+          "evidence_id": "ev-bebf219ae1",
+          "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/README.md",
+          "line_start": 21,
+          "line_end": 26,
+          "source_role": "hub_evidence",
+          "authority": "canon_play"
+        },
+        {
+          "evidence_id": "ev-93845f624a",
+          "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/lysandra_ironveil_mireward_history.md",
+          "line_start": 194,
+          "line_end": 199,
+          "source_role": "hub_evidence",
+          "authority": "canon_play"
+        }
+      ],
+      "warnings": [],
+      "diagnostics": {
+        "cited_evidence_ids": [
+          "ev-19c60991c9",
+          "ev-e383657da4",
+          "ev-43ca501690",
+          "ev-bebf219ae1",
+          "ev-93845f624a"
+        ],
+        "admitted_citation_ids": [
+          "ev-19c60991c9",
+          "ev-e383657da4",
+          "ev-43ca501690",
+          "ev-bebf219ae1",
+          "ev-93845f624a"
+        ],
+        "unknown_citation_ids": [],
+        "rejected_citation_ids": []
+      }
+    },
+    "final": {
+      "status": "ok",
+      "grounding_answer_source": "llm",
+      "answer": "I can’t verify a canon reason that **all** Elderwyld cities start with **M** from the admitted evidence alone. What the evidence does show is that **Mirathorn** is a named city in Elderwyld [ev-19c60991c9], and **Mireward** is a named next town on the road north from Mirathorn [ev-e383657da4][ev-43ca501690]. The setting materials also explicitly reference **Mireward** as a place tied to Lysandra’s history [ev-bebf219ae1][ev-93845f624a].\n\nSo, as a **planning suggestion** rather than a play fact: the “M” pattern may be an intentional naming motif, but the current evidence only supports that there are multiple M-named settlements, not that the setting has a rule that all cities must begin with M [ev-19c60991c9][ev-e383657da4].\n\nIf you want, I can help you formulate a **diegetic explanation** for the M-naming pattern that fits the existing canon without mutating anything."
+    }
+  }
+}

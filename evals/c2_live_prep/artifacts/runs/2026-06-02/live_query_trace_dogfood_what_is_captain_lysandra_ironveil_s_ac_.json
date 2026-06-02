@@ -1,0 +1,171 @@
+{
+  "question": "What is Captain Lysandra Ironveil's AC?",
+  "target_session": null,
+  "manifest_path": "evals/c2_live_prep/benchmarks/c2s23_dogfood_full_manifest.json",
+  "llm_config": {
+    "provider": "openai",
+    "model": "gpt-5.4-mini",
+    "require_llm": true,
+    "max_output_tokens": 600,
+    "temperature": 0.2
+  },
+  "generated_at": "2026-06-02T16:13:33Z",
+  "step_2_context_packet": {
+    "retrieval_query": "What is Captain Lysandra Ironveil's AC?",
+    "effective_question": "What is Captain Lysandra Ironveil's AC?",
+    "admitted_count": 12,
+    "rejected_count": 0,
+    "top_admitted": [
+      {
+        "evidence_id": "ev-f09e502eb0",
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_statblock_cr4.md",
+        "source_role": "world_evidence",
+        "authority": "reference_tool",
+        "line_start": 15,
+        "line_end": 18,
+        "text_excerpt": "RESPECTED AND RALLYING, CAPTAIN LYSANDRA IRONVEIL STANDS AT THE FORE OF THE BATTLEFIELD WITH HER BREASTPLATE POLISHED AND CLOAK SNAPPING IN THE WIND, HER PRESENCE A BEACON OF DISCIPLINE AND HOPE. A MASTER OF TACTICAL MANEUVER AND A SEASONED INSPIRATIONAL LEADER, SHE EXPERTLY BLENDS SWIFT SWORDPLAY WITH BATTLEFIELD ORDERS THAT TURN THE TIDE OF BATTLE, COORDINATING HER ALLIES WITH PIERCING SHOUTS AND CALCULATED STRIKES. HER INDOMITABLE WILL, FORGED THROUGH THE DEFENSE OF HER CITY AND THE TRIBULATIONS OF COMMAND, GRANTS HER NEAR-UNSHAKABLE RESOLVE—EVEN IN THE PRESENCE OF THE MOST HARROWING FOES—AND AN AURA THAT STEELS HER COMPANIONS AGAINST AMBUSH AND FEAR. UNDER LYSANDRA'S VIGILANT GAZE, CHAOS"
+      },
+      {
+        "evidence_id": "ev-e9dba597ea",
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/README.md",
+        "source_role": "world_evidence",
+        "authority": "reference_tool",
+        "line_start": 35,
+        "line_end": 39,
+        "text_excerpt": "| Priority | Path (relative to this folder unless noted) | Role | |----------|-----------------------------------------------|------| | **1 — current mechanical** | `captain_lysandra_ironveil_statblock_cr4.md` | **Authoritative leveled** Mirathorn export (**CR 4**). Read this first for CR/HP/AC when this file exists. | | **2 — baseline / archive** | `captain_lysandra_ironveil_statblock_cr2.md` | Earlier **CR 2** export — use for comparison or when CR4 is not in scope. | | **3 — other drafts** | `captain_lysandra_ironveil_statblock_original.md` (or other `*_statblock_*.md` not listed above) | Drafts — cite only if the user asks for history. |"
+      },
+      {
+        "evidence_id": "ev-44545a2057",
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_statblock_cr2.md",
+        "source_role": "world_evidence",
+        "authority": "reference_tool",
+        "line_start": 7,
+        "line_end": 7,
+        "text_excerpt": "CAPTAIN LYSANDRA IRONVEIL IS A FORMIDABLE AND IMPOSING FIGURE, STANDING AT SIX FEET TALL WITH A MUSCULAR BUILD HONED FROM YEARS OF RIGOROUS TRAINING AND COMBAT. HER SKIN IS A RICH TAN, MARKED BY A FEW BATTLE SCARS THAT SPEAK TO HER EXPERIENCE AND RESILIENCE. LYSANDRA'S PIERCING BLUE EYES ARE SHARP AND OBSERVANT, CONSTANTLY SCANNING HER SURROUNDINGS FOR ANY SIGN OF TROUBLE. HER HAIR IS A CASCADE OF DARK, WAVY LOCKS THAT SHE OFTEN TIES BACK IN A PRACTICAL BRAID DURING DUTY HOURS. SHE WEARS THE TRADITIONAL ARMOR OF THE MIRATHORN GUARD, BUT WITH ADDITIONAL ORNATE ENGRAVINGS AND A CLOAK THAT SIGNIFIES HER RANK AS CAPTAIN. THE ARMOR, POLISHED TO A GLEAMING FINISH, BEARS THE EMBLEM OF THE CITY—A MO"
+      },
+      {
+        "evidence_id": "ev-cca83b0ea8",
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/lysandra_ironveil_mireward_history.md",
+        "source_role": "hub_evidence",
+        "authority": "canon_play",
+        "line_start": 114,
+        "line_end": 125,
+        "text_excerpt": "| Age / year | Beat | |------------|------| | **Child** | Learns head-count at tithe scale from **Torr**; **Lysandro’s** wall walk; **toll protest picnics** (family **brings stew** to protesters **and** guards). | | **~15** | Charter youth militia — family **approves** (“**people’s** wall”). First kiss with **Delwen** at ferry steps; Merrow **already** planning mock reeve speech. | | **~17** | Real fight at **tithe barn overflow** — Lysandra **de-escalates** without crown backup; **Thalia Ashenvale** (Mirathorn Guard, north recruitment ride) **notices**. | | **~19** | Leaves for Mirathorn “**one season**” — training intake. Delwen **waves every ferry day** for a month. | | **~20–24** | Stays"
+      },
+      {
+        "evidence_id": "ev-2922af8a17",
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_character_dossier.md",
+        "source_role": "hub_evidence",
+        "authority": "canon_play",
+        "line_start": 218,
+        "line_end": 224,
+        "text_excerpt": "- **Raised in Mireward**, not Mirathorn — charter bell, wall walk, downwind fuller's row, ferry steps. - **Ironveil family:** embarrassingly **sincere anti-authoritarian** — toll protest picnics, mock reeve campaigns, optional salutes, **mutual aid sermons at the gate**. Lysandra **shares their beliefs** and **hates their volume**. - **Father Lysandro** — emeritus gate sergeant; **S22 table canon** at Reach Gate. Calls her **Lysa**. **Torr** (grandfather) is the quiet tithe clerk with the framed commendation. - **Left at ~19** for Mirathorn Guard “**one season**”; stayed; **Delwen Rast** (ferry master’s daughter) waited, then married elsewhere. - **Recruited by Commander Thalia Ashenvale** a"
+      }
+    ],
+    "top_rejected": []
+  },
+  "step_3_answer_llm": {
+    "request": {
+      "model": "gpt-5.4-mini",
+      "input": "You are answering a live planning question for a TTRPG campaign.\n\nRules:\n- Every factual campaign claim in your answer must include at least one admitted evidence citation.\n- Use admitted evidence for factual claims.\n- Do not use rejected evidence as support.\n- Cite admitted evidence IDs inline as [ev-...].\n- Distinguish play facts from planning suggestions.\n- Never claim write capability in this response path; it is read-only.\n- If asked to mutate artifacts, explicitly refuse mutation and stay read-only.\n\nQuestion:\nWhat is Captain Lysandra Ironveil's AC?\n\nADMITTED EVIDENCE:\n[ev-f09e502eb0]\nrole: world_evidence\nauthority: reference_tool\npath: corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_statblock_cr4.md\nline_range: 15-18\nunit_id: None\nexcerpt: RESPECTED AND RALLYING, CAPTAIN LYSANDRA IRONVEIL STANDS AT THE FORE OF THE BATTLEFIELD WITH HER BREASTPLATE POLISHED AND CLOAK SNAPPING IN THE WIND, HER PRESENCE A BEACON OF DISCIPLINE AND HOPE. A MASTER OF TACTICAL MANEUVER AND A SEASONED INSPIRATIONAL LEADER, SHE EXPERTLY BLENDS SWIFT SWORDPLAY WITH BATTLEFIELD ORDERS THAT TURN THE TIDE OF BATTLE, COORDINATING HER ALLIES WITH PIERCING SHOUTS AND CALCULATED STRIKES. HER INDOMITABLE WILL, FORGED THROUGH THE DEFENSE OF HER CITY AND THE TRIBULATIONS OF COMMAND, GRANTS HER NEAR-UNSHAKABLE RESOLVE—EVEN IN THE PRESENCE OF THE MOST HARROWING FOES—AND AN AURA THAT STEELS HER COMPANIONS AGAINST AMBUSH AND FEAR. UNDER LYSANDRA'S VIGILANT GAZE, CHAOS\n\n[ev-e9dba597ea]\nrole: world_evidence\nauthority: reference_tool\npath: corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/README.md\nline_range: 35-39\nunit_id: None\nexcerpt: | Priority | Path (relative to this folder unless noted) | Role | |----------|-----------------------------------------------|------| | **1 — current mechanical** | `captain_lysandra_ironveil_statblock_cr4.md` | **Authoritative leveled** Mirathorn export (**CR 4**). Read this first for CR/HP/AC when this file exists. | | **2 — baseline / archive** | `captain_lysandra_ironveil_statblock_cr2.md` | Earlier **CR 2** export — use for comparison or when CR4 is not in scope. | | **3 — other drafts** | `captain_lysandra_ironveil_statblock_original.md` (or other `*_statblock_*.md` not listed above) | Drafts — cite only if the user asks for history. |\n\n[ev-44545a2057]\nrole: world_evidence\nauthority: reference_tool\npath: corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_statblock_cr2.md\nline_range: 7-7\nunit_id: None\nexcerpt: CAPTAIN LYSANDRA IRONVEIL IS A FORMIDABLE AND IMPOSING FIGURE, STANDING AT SIX FEET TALL WITH A MUSCULAR BUILD HONED FROM YEARS OF RIGOROUS TRAINING AND COMBAT. HER SKIN IS A RICH TAN, MARKED BY A FEW BATTLE SCARS THAT SPEAK TO HER EXPERIENCE AND RESILIENCE. LYSANDRA'S PIERCING BLUE EYES ARE SHARP AND OBSERVANT, CONSTANTLY SCANNING HER SURROUNDINGS FOR ANY SIGN OF TROUBLE. HER HAIR IS A CASCADE OF DARK, WAVY LOCKS THAT SHE OFTEN TIES BACK IN A PRACTICAL BRAID DURING DUTY HOURS. SHE WEARS THE TRADITIONAL ARMOR OF THE MIRATHORN GUARD, BUT WITH ADDITIONAL ORNATE ENGRAVINGS AND A CLOAK THAT SIGNIFIES HER RANK AS CAPTAIN. THE ARMOR, POLISHED TO A GLEAMING FINISH, BEARS THE EMBLEM OF THE CITY—A MO\n\n[ev-cca83b0ea8]\nrole: hub_evidence\nauthority: canon_play\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/lysandra_ironveil_mireward_history.md\nline_range: 114-125\nunit_id: None\nexcerpt: | Age / year | Beat | |------------|------| | **Child** | Learns head-count at tithe scale from **Torr**; **Lysandro’s** wall walk; **toll protest picnics** (family **brings stew** to protesters **and** guards). | | **~15** | Charter youth militia — family **approves** (“**people’s** wall”). First kiss with **Delwen** at ferry steps; Merrow **already** planning mock reeve speech. | | **~17** | Real fight at **tithe barn overflow** — Lysandra **de-escalates** without crown backup; **Thalia Ashenvale** (Mirathorn Guard, north recruitment ride) **notices**. | | **~19** | Leaves for Mirathorn “**one season**” — training intake. Delwen **waves every ferry day** for a month. | | **~20–24** | Stays\n\n[ev-2922af8a17]\nrole: hub_evidence\nauthority: canon_play\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_character_dossier.md\nline_range: 218-224\nunit_id: None\nexcerpt: - **Raised in Mireward**, not Mirathorn — charter bell, wall walk, downwind fuller's row, ferry steps. - **Ironveil family:** embarrassingly **sincere anti-authoritarian** — toll protest picnics, mock reeve campaigns, optional salutes, **mutual aid sermons at the gate**. Lysandra **shares their beliefs** and **hates their volume**. - **Father Lysandro** — emeritus gate sergeant; **S22 table canon** at Reach Gate. Calls her **Lysa**. **Torr** (grandfather) is the quiet tithe clerk with the framed commendation. - **Left at ~19** for Mirathorn Guard “**one season**”; stayed; **Delwen Rast** (ferry master’s daughter) waited, then married elsewhere. - **Recruited by Commander Thalia Ashenvale** a\n\n[ev-fbe92f76cd]\nrole: hub_evidence\nauthority: canon_play\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/timeline.md\nline_range: 3-4\nunit_id: None\nexcerpt: Deterministic hub timeline generated from `dmb_session_memory_record_v1` rows. Filter: routes containing `NPCs/captain_lysandra_ironveil` | Source: `evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-05-02/breadcrumb_query_natural_llm_semantic_expanded_report.records_meta.jsonl`\n\n[ev-2f117e7107]\nrole: play_recap\nauthority: canon_play\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.breadcrumbed.md\nline_range: 126-126\nunit_id: None\nexcerpt: The group continues on when they see a cloud of dust as something is moving fast in their direction. They soon encounter a young rider on a horse at top speed. She slows long enough to say that they cannot stop unless they have food for her horse so that she can continue on. The horse has clearly been running at full speed for a long time and could use a short break. Caeylynn conjures some Good Berries for the horse and fetches some water.[PC][Longmont Campaign/Campaign 2/PCs/caelynn/] Stafl immediately recognizes the soldier’s uniform of the Elderwild Reach, the same uniform he wore before leaving and joining this group.[PC][Longmont Campaign/Campaign 2/PCs/stafl/] The woman introduces hers\n\n[ev-2a0c592b07]\nrole: play_recap\nauthority: canon_play\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.breadcrumbed.md\nline_range: 142-142\nunit_id: None\nexcerpt: That's when Stalf casts Suggestion on Lysandra, intending to find out her motivations.[PC][Longmont Campaign/Campaign 2/PCs/stafl/][NPC][Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/] He asks her to tell him her true intentions, to which she responds that her goal is to keep the team focused on going to the swamp and destroying the source of the cult.[PC][Longmont Campaign/Campaign 2/PCs/stafl/][NPC][Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/] It is well into the night when they spot a wall in the darkness and can just make out a person standing guard at the top. He demands that the group stop and to identify themselves. Stafl casts Light so he can more clear\n\n[ev-fbdf021a9d]\nrole: play_recap\nauthority: canon_play\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 21 - Drake Nest Mirathorn Call.breadcrumbed.md\nline_range: 122-122\nunit_id: None\nexcerpt: They continue on north with Karsemine and Caelynn keeping an eye out for high ground for a place to stop for the night. While on this short trip everyone is able to relax and have a short rest. Because of their timing leaving the town and their navigation skills, the wagon is able to make it far enough north to just hit the very edge of the storm and only get soaked. They are able to see the sheen of magic as the rain pools up and instead of the usual petrichor the rain smells savory. Karsemine and Caelynn spot a good camping spot on the top of a conical hill.[PC][Longmont Campaign/Campaign 2/PCs/karsemine/][PC][Longmont Campaign/Campaign 2/PCs/caelynn/] They leave the wagon and the animals\n\n[ev-3f0b03eb81]\nrole: play_recap\nauthority: canon_play\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 21 - Drake Nest Mirathorn Call.breadcrumbed.md\nline_range: 128-128\nunit_id: None\nexcerpt: Stafl is on first watch, with little happening, until the sky darkens further and he can just make out a huge swarm of wings.[PC][Longmont Campaign/Campaign 2/PCs/stafl/] Ephanna takes the next watch, and the only notable thing that happens is they find a strangely flat rock, which they put into their pack.[PC][Longmont Campaign/Campaign 2/PCs/ephanna/] Shortly after sunrise Caelynn decides to call Mirathorn again.[PC][Longmont Campaign/Campaign 2/PCs/caelynn/][Location][Elderwyld/Cities and Towns/Mirathorn/] After a pause she is finally connected with Frank, who sounds very hung over.[PC][Longmont Campaign/Campaign 2/PCs/caelynn/][NPC][Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operat\n\n[ev-e03b4709f2]\nrole: fresh_recap\nauthority: pre_canonical_evidence\npath: evals/c2_live_prep/live/session_23/recap.md\nline_range: 14-15\nunit_id: None\nexcerpt: - Captain Lysandra Ironveil still owes a reply on the Silver Raven dispatch thread. - The table should decide who carries the next outbound message before the march day ends.\n\n[ev-aadc9b6849]\nrole: live_packet\nauthority: planning_scaffold\npath: evals/c2_live_prep/live/session_23/live_packet.json\nline_range: None-None\nunit_id: None\nexcerpt: \n\nREJECTED EVIDENCE:\n(none)",
+      "temperature": 0.2,
+      "max_output_tokens": 600
+    },
+    "response_output_text": "",
+    "result": {
+      "answer": null,
+      "source": "none",
+      "warnings": [
+        "llm_grounding_call_failed"
+      ],
+      "diagnostics": [
+        {
+          "code": "llm_grounding_call_failed",
+          "error_type": "APIConnectionError"
+        }
+      ]
+    },
+    "rendered_prompt": "You are answering a live planning question for a TTRPG campaign.\n\nRules:\n- Every factual campaign claim in your answer must include at least one admitted evidence citation.\n- Use admitted evidence for factual claims.\n- Do not use rejected evidence as support.\n- Cite admitted evidence IDs inline as [ev-...].\n- Distinguish play facts from planning suggestions.\n- Never claim write capability in this response path; it is read-only.\n- If asked to mutate artifacts, explicitly refuse mutation and stay read-only.\n\nQuestion:\nWhat is Captain Lysandra Ironveil's AC?\n\nADMITTED EVIDENCE:\n[ev-f09e502eb0]\nrole: world_evidence\nauthority: reference_tool\npath: corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_statblock_cr4.md\nline_range: 15-18\nunit_id: None\nexcerpt: RESPECTED AND RALLYING, CAPTAIN LYSANDRA IRONVEIL STANDS AT THE FORE OF THE BATTLEFIELD WITH HER BREASTPLATE POLISHED AND CLOAK SNAPPING IN THE WIND, HER PRESENCE A BEACON OF DISCIPLINE AND HOPE. A MASTER OF TACTICAL MANEUVER AND A SEASONED INSPIRATIONAL LEADER, SHE EXPERTLY BLENDS SWIFT SWORDPLAY WITH BATTLEFIELD ORDERS THAT TURN THE TIDE OF BATTLE, COORDINATING HER ALLIES WITH PIERCING SHOUTS AND CALCULATED STRIKES. HER INDOMITABLE WILL, FORGED THROUGH THE DEFENSE OF HER CITY AND THE TRIBULATIONS OF COMMAND, GRANTS HER NEAR-UNSHAKABLE RESOLVE—EVEN IN THE PRESENCE OF THE MOST HARROWING FOES—AND AN AURA THAT STEELS HER COMPANIONS AGAINST AMBUSH AND FEAR. UNDER LYSANDRA'S VIGILANT GAZE, CHAOS\n\n[ev-e9dba597ea]\nrole: world_evidence\nauthority: reference_tool\npath: corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/README.md\nline_range: 35-39\nunit_id: None\nexcerpt: | Priority | Path (relative to this folder unless noted) | Role | |----------|-----------------------------------------------|------| | **1 — current mechanical** | `captain_lysandra_ironveil_statblock_cr4.md` | **Authoritative leveled** Mirathorn export (**CR 4**). Read this first for CR/HP/AC when this file exists. | | **2 — baseline / archive** | `captain_lysandra_ironveil_statblock_cr2.md` | Earlier **CR 2** export — use for comparison or when CR4 is not in scope. | | **3 — other drafts** | `captain_lysandra_ironveil_statblock_original.md` (or other `*_statblock_*.md` not listed above) | Drafts — cite only if the user asks for history. |\n\n[ev-44545a2057]\nrole: world_evidence\nauthority: reference_tool\npath: corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_statblock_cr2.md\nline_range: 7-7\nunit_id: None\nexcerpt: CAPTAIN LYSANDRA IRONVEIL IS A FORMIDABLE AND IMPOSING FIGURE, STANDING AT SIX FEET TALL WITH A MUSCULAR BUILD HONED FROM YEARS OF RIGOROUS TRAINING AND COMBAT. HER SKIN IS A RICH TAN, MARKED BY A FEW BATTLE SCARS THAT SPEAK TO HER EXPERIENCE AND RESILIENCE. LYSANDRA'S PIERCING BLUE EYES ARE SHARP AND OBSERVANT, CONSTANTLY SCANNING HER SURROUNDINGS FOR ANY SIGN OF TROUBLE. HER HAIR IS A CASCADE OF DARK, WAVY LOCKS THAT SHE OFTEN TIES BACK IN A PRACTICAL BRAID DURING DUTY HOURS. SHE WEARS THE TRADITIONAL ARMOR OF THE MIRATHORN GUARD, BUT WITH ADDITIONAL ORNATE ENGRAVINGS AND A CLOAK THAT SIGNIFIES HER RANK AS CAPTAIN. THE ARMOR, POLISHED TO A GLEAMING FINISH, BEARS THE EMBLEM OF THE CITY—A MO\n\n[ev-cca83b0ea8]\nrole: hub_evidence\nauthority: canon_play\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/lysandra_ironveil_mireward_history.md\nline_range: 114-125\nunit_id: None\nexcerpt: | Age / year | Beat | |------------|------| | **Child** | Learns head-count at tithe scale from **Torr**; **Lysandro’s** wall walk; **toll protest picnics** (family **brings stew** to protesters **and** guards). | | **~15** | Charter youth militia — family **approves** (“**people’s** wall”). First kiss with **Delwen** at ferry steps; Merrow **already** planning mock reeve speech. | | **~17** | Real fight at **tithe barn overflow** — Lysandra **de-escalates** without crown backup; **Thalia Ashenvale** (Mirathorn Guard, north recruitment ride) **notices**. | | **~19** | Leaves for Mirathorn “**one season**” — training intake. Delwen **waves every ferry day** for a month. | | **~20–24** | Stays\n\n[ev-2922af8a17]\nrole: hub_evidence\nauthority: canon_play\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_character_dossier.md\nline_range: 218-224\nunit_id: None\nexcerpt: - **Raised in Mireward**, not Mirathorn — charter bell, wall walk, downwind fuller's row, ferry steps. - **Ironveil family:** embarrassingly **sincere anti-authoritarian** — toll protest picnics, mock reeve campaigns, optional salutes, **mutual aid sermons at the gate**. Lysandra **shares their beliefs** and **hates their volume**. - **Father Lysandro** — emeritus gate sergeant; **S22 table canon** at Reach Gate. Calls her **Lysa**. **Torr** (grandfather) is the quiet tithe clerk with the framed commendation. - **Left at ~19** for Mirathorn Guard “**one season**”; stayed; **Delwen Rast** (ferry master’s daughter) waited, then married elsewhere. - **Recruited by Commander Thalia Ashenvale** a\n\n[ev-fbe92f76cd]\nrole: hub_evidence\nauthority: canon_play\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/timeline.md\nline_range: 3-4\nunit_id: None\nexcerpt: Deterministic hub timeline generated from `dmb_session_memory_record_v1` rows. Filter: routes containing `NPCs/captain_lysandra_ironveil` | Source: `evals/sentence_routing_retrieval_falsification/artifacts/runs/2026-05-02/breadcrumb_query_natural_llm_semantic_expanded_report.records_meta.jsonl`\n\n[ev-2f117e7107]\nrole: play_recap\nauthority: canon_play\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.breadcrumbed.md\nline_range: 126-126\nunit_id: None\nexcerpt: The group continues on when they see a cloud of dust as something is moving fast in their direction. They soon encounter a young rider on a horse at top speed. She slows long enough to say that they cannot stop unless they have food for her horse so that she can continue on. The horse has clearly been running at full speed for a long time and could use a short break. Caeylynn conjures some Good Berries for the horse and fetches some water.[PC][Longmont Campaign/Campaign 2/PCs/caelynn/] Stafl immediately recognizes the soldier’s uniform of the Elderwild Reach, the same uniform he wore before leaving and joining this group.[PC][Longmont Campaign/Campaign 2/PCs/stafl/] The woman introduces hers\n\n[ev-2a0c592b07]\nrole: play_recap\nauthority: canon_play\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.breadcrumbed.md\nline_range: 142-142\nunit_id: None\nexcerpt: That's when Stalf casts Suggestion on Lysandra, intending to find out her motivations.[PC][Longmont Campaign/Campaign 2/PCs/stafl/][NPC][Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/] He asks her to tell him her true intentions, to which she responds that her goal is to keep the team focused on going to the swamp and destroying the source of the cult.[PC][Longmont Campaign/Campaign 2/PCs/stafl/][NPC][Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/] It is well into the night when they spot a wall in the darkness and can just make out a person standing guard at the top. He demands that the group stop and to identify themselves. Stafl casts Light so he can more clear\n\n[ev-fbdf021a9d]\nrole: play_recap\nauthority: canon_play\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 21 - Drake Nest Mirathorn Call.breadcrumbed.md\nline_range: 122-122\nunit_id: None\nexcerpt: They continue on north with Karsemine and Caelynn keeping an eye out for high ground for a place to stop for the night. While on this short trip everyone is able to relax and have a short rest. Because of their timing leaving the town and their navigation skills, the wagon is able to make it far enough north to just hit the very edge of the storm and only get soaked. They are able to see the sheen of magic as the rain pools up and instead of the usual petrichor the rain smells savory. Karsemine and Caelynn spot a good camping spot on the top of a conical hill.[PC][Longmont Campaign/Campaign 2/PCs/karsemine/][PC][Longmont Campaign/Campaign 2/PCs/caelynn/] They leave the wagon and the animals\n\n[ev-3f0b03eb81]\nrole: play_recap\nauthority: canon_play\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 21 - Drake Nest Mirathorn Call.breadcrumbed.md\nline_range: 128-128\nunit_id: None\nexcerpt: Stafl is on first watch, with little happening, until the sky darkens further and he can just make out a huge swarm of wings.[PC][Longmont Campaign/Campaign 2/PCs/stafl/] Ephanna takes the next watch, and the only notable thing that happens is they find a strangely flat rock, which they put into their pack.[PC][Longmont Campaign/Campaign 2/PCs/ephanna/] Shortly after sunrise Caelynn decides to call Mirathorn again.[PC][Longmont Campaign/Campaign 2/PCs/caelynn/][Location][Elderwyld/Cities and Towns/Mirathorn/] After a pause she is finally connected with Frank, who sounds very hung over.[PC][Longmont Campaign/Campaign 2/PCs/caelynn/][NPC][Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operat\n\n[ev-e03b4709f2]\nrole: fresh_recap\nauthority: pre_canonical_evidence\npath: evals/c2_live_prep/live/session_23/recap.md\nline_range: 14-15\nunit_id: None\nexcerpt: - Captain Lysandra Ironveil still owes a reply on the Silver Raven dispatch thread. - The table should decide who carries the next outbound message before the march day ends.\n\n[ev-aadc9b6849]\nrole: live_packet\nauthority: planning_scaffold\npath: evals/c2_live_prep/live/session_23/live_packet.json\nline_range: None-None\nunit_id: None\nexcerpt: \n\nREJECTED EVIDENCE:\n(none)"
+  },
+  "step_4_validation_and_decision": {
+    "warnings": [
+      "llm_grounding_call_failed",
+      "llm_empty_answer_fallback_used"
+    ],
+    "decision_steps": [
+      {
+        "step": "citation_validation",
+        "llm_citation_failure": true,
+        "citation_warnings": [],
+        "citation_diagnostics": {
+          "cited_evidence_ids": [
+            "ev-f09e502eb0",
+            "ev-e9dba597ea",
+            "ev-44545a2057"
+          ],
+          "admitted_citation_ids": [
+            "ev-f09e502eb0",
+            "ev-e9dba597ea",
+            "ev-44545a2057"
+          ],
+          "unknown_citation_ids": [],
+          "rejected_citation_ids": []
+        }
+      },
+      {
+        "step": "acceptance_gate",
+        "decision": "reject_or_fallback",
+        "status": "llm_grounding_failed",
+        "answer_source": "fallback"
+      }
+    ],
+    "citation_validation": {
+      "citations": [
+        {
+          "evidence_id": "ev-f09e502eb0",
+          "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_statblock_cr4.md",
+          "line_start": 15,
+          "line_end": 18,
+          "source_role": "world_evidence",
+          "authority": "reference_tool"
+        },
+        {
+          "evidence_id": "ev-e9dba597ea",
+          "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/README.md",
+          "line_start": 35,
+          "line_end": 39,
+          "source_role": "world_evidence",
+          "authority": "reference_tool"
+        },
+        {
+          "evidence_id": "ev-44545a2057",
+          "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_statblock_cr2.md",
+          "line_start": 7,
+          "line_end": 7,
+          "source_role": "world_evidence",
+          "authority": "reference_tool"
+        }
+      ],
+      "warnings": [],
+      "diagnostics": {
+        "cited_evidence_ids": [
+          "ev-f09e502eb0",
+          "ev-e9dba597ea",
+          "ev-44545a2057"
+        ],
+        "admitted_citation_ids": [
+          "ev-f09e502eb0",
+          "ev-e9dba597ea",
+          "ev-44545a2057"
+        ],
+        "unknown_citation_ids": [],
+        "rejected_citation_ids": []
+      }
+    },
+    "final": {
+      "status": "llm_grounding_failed",
+      "grounding_answer_source": "fallback",
+      "answer": "RESPECTED AND RALLYING, CAPTAIN LYSANDRA IRONVEIL STANDS AT THE FORE OF THE BATTLEFIELD WITH HER BREASTPLATE POLISHED AND CLOAK SNAPPING IN THE WIND, HER PRESENCE A BEACON OF DISCIPLINE AND HOPE. A MASTER OF TACTICAL MANEUVER AND A SEASONED INSPIRATIONAL LEADER, SHE EXPERTLY BLENDS SWIFT SWORDPLAY WITH BATTLEFIELD ORDERS THAT TURN THE TIDE OF BATTLE, COORDINATING HER ALLIES WITH PIERCING SHOUTS AND CALCULATED STRIKES. HER INDOMITABLE WILL, FORGED THROUGH THE DEFENSE OF HER CITY AND THE TRIBULATIONS OF COMMAND, GRANTS HER NEAR-UNSHAKABLE RESOLVE—EVEN IN THE PRESENCE OF THE MOST HARROWING FOES—AND AN AURA THAT STEELS HER COMPANIONS AGAINST AMBUSH AND FEAR. UNDER LYSANDRA'S VIGILANT GAZE, CHAOS [ev-f09e502eb0] | Priority | Path (relative to this folder unless noted) | Role | |----------|-----------------------------------------------|------| | **1 — current mechanical** | `captain_lysandra_ironveil_statblock_cr4.md` | **Authoritative leveled** Mirathorn export (**CR 4**). Read this first for CR/HP/AC when this file exists. | | **2 — baseline / archive** | `captain_lysandra_ironveil_statblock_cr2.md` | Earlier **CR 2** export — use for comparison or when CR4 is not in scope. | | **3 — other drafts** | `captain_lysandra_ironveil_statblock_original.md` (or other `*_statblock_*.md` not listed above) | Drafts — cite only if the user asks for history. | [ev-e9dba597ea] CAPTAIN LYSANDRA IRONVEIL IS A FORMIDABLE AND IMPOSING FIGURE, STANDING AT SIX FEET TALL WITH A MUSCULAR BUILD HONED FROM YEARS OF RIGOROUS TRAINING AND COMBAT. HER SKIN IS A RICH TAN, MARKED BY A FEW BATTLE SCARS THAT SPEAK TO HER EXPERIENCE AND RESILIENCE. LYSANDRA'S PIERCING BLUE EYES ARE SHARP AND OBSERVANT, CONSTANTLY SCANNING HER SURROUNDINGS FOR ANY SIGN OF TROUBLE. HER HAIR IS A CASCADE OF DARK, WAVY LOCKS THAT SHE OFTEN TIES BACK IN A PRACTICAL BRAID DURING DUTY HOURS. SHE WEARS THE TRADITIONAL ARMOR OF THE MIRATHORN GUARD, BUT WITH ADDITIONAL ORNATE ENGRAVINGS AND A CLOAK THAT SIGNIFIES HER RANK AS CAPTAIN. THE ARMOR, POLISHED TO A GLEAMING FINISH, BEARS THE EMBLEM OF THE CITY—A MO [ev-44545a2057]"
+    }
+  }
+}

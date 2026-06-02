@@ -1,0 +1,191 @@
+{
+  "schema": "dmb_c2s23_hub_world_query_gold_v1",
+  "campaign_id": "longmont-c2",
+  "planning_session": 23,
+  "notes": "Hub + Elderwyld dogfood-full manifest admission gold. Evaluator-only.",
+  "questions": [
+    {
+      "question_id": "hub-stat-01",
+      "claim_expectations": [
+        {
+          "claim_id": "lysandra_setting_statblock",
+          "claim_type": "planning_context",
+          "required_packet_claim_type": "planning_context",
+          "required_intent_class_any": ["cross_session_planning"],
+          "required_authority_any": ["reference_tool"],
+          "required_admitted_source_roles_any": ["world_evidence"],
+          "acceptable_path_contains_any": [
+            "Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_statblock"
+          ],
+          "forbidden_source_roles": ["prep_scaffold"],
+          "max_retrieved_evidence": 30,
+          "max_admitted_evidence": 12,
+          "max_rejected_evidence": 12
+        }
+      ]
+    },
+    {
+      "question_id": "hub-stat-02",
+      "claim_expectations": [
+        {
+          "claim_id": "karsemine_c2_statblock",
+          "claim_type": "planning_context",
+          "required_packet_claim_type": "planning_context",
+          "required_authority_any": ["canon_play"],
+          "required_admitted_source_roles_any": ["hub_evidence"],
+          "acceptable_path_contains_any": [
+            "Campaign 2/PCs/karsemine/karsemine_statblock"
+          ],
+          "max_retrieved_evidence": 30,
+          "max_admitted_evidence": 12,
+          "max_rejected_evidence": 12
+        }
+      ]
+    },
+    {
+      "question_id": "hub-dossier-01",
+      "claim_expectations": [
+        {
+          "claim_id": "lysandra_campaign_state",
+          "claim_type": "planning_context",
+          "required_packet_claim_type": "planning_context",
+          "required_admitted_source_roles_any": ["hub_evidence", "play_recap"],
+          "acceptable_path_contains_any": [
+            "captain_lysandra_ironveil_character_dossier",
+            "Session 21 - Drake Nest Mirathorn Call",
+            "Session 22 - Mireward Road and Lysandro"
+          ],
+          "max_retrieved_evidence": 30,
+          "max_admitted_evidence": 12,
+          "max_rejected_evidence": 12
+        }
+      ]
+    },
+    {
+      "question_id": "hub-timeline-01",
+      "claim_expectations": [
+        {
+          "claim_id": "thrin_campaign_timeline",
+          "claim_type": "planning_context",
+          "required_packet_claim_type": "planning_context",
+          "required_admitted_source_roles_any": ["hub_evidence"],
+          "acceptable_path_contains_any": [
+            "NPCs/thrin_branchborn/timeline.md"
+          ],
+          "max_retrieved_evidence": 30,
+          "max_admitted_evidence": 12,
+          "max_rejected_evidence": 12
+        }
+      ]
+    },
+    {
+      "question_id": "world-loc-01",
+      "claim_expectations": [
+        {
+          "claim_id": "mireward_orientation",
+          "claim_type": "planning_context",
+          "required_packet_claim_type": "planning_context",
+          "required_authority_any": ["reference_tool"],
+          "required_admitted_source_roles_any": ["world_evidence"],
+          "acceptable_path_contains_any": [
+            "Elderwyld/Cities and Towns/Mireward/README.md"
+          ],
+          "max_retrieved_evidence": 30,
+          "max_admitted_evidence": 12,
+          "max_rejected_evidence": 12
+        }
+      ]
+    },
+    {
+      "question_id": "world-road-01",
+      "claim_expectations": [
+        {
+          "claim_id": "north_road_encounter_table",
+          "claim_type": "planning_context",
+          "required_packet_claim_type": "planning_context",
+          "required_authority_any": ["reference_tool"],
+          "required_admitted_source_roles_any": ["world_evidence"],
+          "acceptable_path_contains_any": [
+            "Elderwyld/Roads/mireward_reach_road_d100_encounter_table.md"
+          ],
+          "max_retrieved_evidence": 30,
+          "max_admitted_evidence": 12,
+          "max_rejected_evidence": 12
+        }
+      ]
+    },
+    {
+      "question_id": "auth-world-01",
+      "claim_expectations": [
+        {
+          "claim_id": "world_table_not_play_proof",
+          "claim_type": "play_fact",
+          "required_packet_claim_type": "play_fact",
+          "required_intent_class_any": ["play_fact_retrieval"],
+          "required_admitted_source_roles_any": ["play_recap", "session_memory"],
+          "forbidden_source_roles": ["world_evidence"],
+          "acceptable_path_contains_any": [
+            "Session 22 - Mireward Road and Lysandro"
+          ],
+          "max_retrieved_evidence": 30,
+          "max_admitted_evidence": 10,
+          "max_rejected_evidence": 12
+        }
+      ]
+    },
+    {
+      "question_id": "auth-hub-01",
+      "claim_expectations": [
+        {
+          "claim_id": "dossier_not_combat_proof",
+          "claim_type": "play_fact",
+          "required_packet_claim_type": "play_fact",
+          "required_intent_class_any": ["play_fact_retrieval"],
+          "required_admitted_source_roles_any": ["play_recap", "session_memory"],
+          "acceptable_path_contains_any": [
+            "Session 22 - Mireward Road and Lysandro"
+          ],
+          "max_retrieved_evidence": 30,
+          "max_admitted_evidence": 10,
+          "max_rejected_evidence": 12
+        }
+      ]
+    },
+    {
+      "question_id": "xlayer-01",
+      "claim_expectations": [
+        {
+          "claim_id": "setting_vs_campaign_statblocks",
+          "claim_type": "planning_context",
+          "required_packet_claim_type": "planning_context",
+          "required_admitted_source_roles_all": ["hub_evidence", "world_evidence"],
+          "required_distinct_authorities_min": 2,
+          "acceptable_path_contains_any": [
+            "Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_statblock",
+            "Campaign 2/NPCs/captain_lysandra_ironveil"
+          ],
+          "max_retrieved_evidence": 30,
+          "max_admitted_evidence": 12,
+          "max_rejected_evidence": 12
+        }
+      ]
+    },
+    {
+      "question_id": "manifest-02",
+      "claim_expectations": [
+        {
+          "claim_id": "multi_lane_hub_world",
+          "claim_type": "capability_check",
+          "required_packet_claim_type": "capability_check",
+          "required_intent_class_any": ["capability_check"],
+          "required_capability_status_any": ["partial", "supported"],
+          "required_admitted_source_roles_all": ["hub_evidence", "world_evidence"],
+          "required_activation_manifest_refs_min": 3,
+          "max_retrieved_evidence": 30,
+          "max_admitted_evidence": 12,
+          "max_rejected_evidence": 12
+        }
+      ]
+    }
+  ]
+}

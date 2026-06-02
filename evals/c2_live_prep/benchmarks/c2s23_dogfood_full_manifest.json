@@ -1,0 +1,3804 @@
+{
+  "schema": "dmb_c2s23_dogfood_full_manifest_v1",
+  "campaign_id": "longmont-c2",
+  "planning_session": 23,
+  "source_sessions": [
+    21,
+    22,
+    23
+  ],
+  "generated_at": "2026-06-02T16:07:16Z",
+  "entries": [
+    {
+      "source_id": "fresh_recap-s23-session-23-recap-md",
+      "source_role": "fresh_recap",
+      "authority": "pre_canonical_evidence",
+      "session_scope": [
+        23
+      ],
+      "route": "evals/c2_live_prep/live/session_23/recap.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "planning_input"
+      ],
+      "forbidden_uses": [],
+      "notes": "Fresh recap bootstrapped into the workspace; planning input until ingested."
+    },
+    {
+      "source_id": "hub_evidence-s21-baergrom-baergrom-character-dossier-md",
+      "source_role": "hub_evidence",
+      "authority": "canon_play",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/baergrom/baergrom_character_dossier.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "planning_context",
+        "continuity",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [],
+      "notes": "Campaign continuity hub satellite."
+    },
+    {
+      "source_id": "hub_evidence-s21-baergrom-baergrom-statblock-dnd-beyond-level5-md",
+      "source_role": "hub_evidence",
+      "authority": "canon_play",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/baergrom/baergrom_statblock_dnd_beyond_level5.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "planning_context",
+        "continuity",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [],
+      "notes": "Mechanical or seed reference; not play proof."
+    },
+    {
+      "source_id": "hub_evidence-s21-baergrom-readme-md",
+      "source_role": "hub_evidence",
+      "authority": "canon_play",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/baergrom/README.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "planning_context",
+        "continuity",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [],
+      "notes": "Campaign hub index; canonical reference for continuity and grounding."
+    },
+    {
+      "source_id": "hub_evidence-s21-baergrom-timeline-md",
+      "source_role": "hub_evidence",
+      "authority": "canon_play",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/baergrom/timeline.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "planning_context",
+        "continuity",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [],
+      "notes": "Campaign continuity hub satellite."
+    },
+    {
+      "source_id": "hub_evidence-s21-bonogo-bonogo-character-dossier-md",
+      "source_role": "hub_evidence",
+      "authority": "canon_play",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/bonogo/bonogo_character_dossier.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "planning_context",
+        "continuity",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [],
+      "notes": "Campaign continuity hub satellite."
+    },
+    {
+      "source_id": "hub_evidence-s21-bonogo-bonogo-statblock-dnd-beyond-level5-md",
+      "source_role": "hub_evidence",
+      "authority": "canon_play",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/bonogo/bonogo_statblock_dnd_beyond_level5.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "planning_context",
+        "continuity",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [],
+      "notes": "Mechanical or seed reference; not play proof."
+    },
+    {
+      "source_id": "hub_evidence-s21-bonogo-loot-geomantic-drake-nest-md",
+      "source_role": "hub_evidence",
+      "authority": "canon_play",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/bonogo/loot_geomantic_drake_nest.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "planning_context",
+        "continuity",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [],
+      "notes": "Campaign hub satellite."
+    },
+    {
+      "source_id": "hub_evidence-s21-bonogo-readme-md",
+      "source_role": "hub_evidence",
+      "authority": "canon_play",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/bonogo/README.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "planning_context",
+        "continuity",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [],
+      "notes": "Campaign hub index; canonical reference for continuity and grounding."
+    },
+    {
+      "source_id": "hub_evidence-s21-bonogo-timeline-md",
+      "source_role": "hub_evidence",
+      "authority": "canon_play",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/bonogo/timeline.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "planning_context",
+        "continuity",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [],
+      "notes": "Campaign continuity hub satellite."
+    },
+    {
+      "source_id": "hub_evidence-s21-caelynn-caelynn-character-dossier-md",
+      "source_role": "hub_evidence",
+      "authority": "canon_play",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/caelynn/caelynn_character_dossier.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "planning_context",
+        "continuity",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [],
+      "notes": "Campaign continuity hub satellite."
+    },
+    {
+      "source_id": "hub_evidence-s21-caelynn-caelynn-statblock-dnd-beyond-level5-md",
+      "source_role": "hub_evidence",
+      "authority": "canon_play",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/caelynn/caelynn_statblock_dnd_beyond_level5.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "planning_context",
+        "continuity",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [],
+      "notes": "Mechanical or seed reference; not play proof."
+    },
+    {
+      "source_id": "hub_evidence-s21-caelynn-readme-md",
+      "source_role": "hub_evidence",
+      "authority": "canon_play",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/caelynn/README.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "planning_context",
+        "continuity",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [],
+      "notes": "Campaign hub index; canonical reference for continuity and grounding."
+    },
+    {
+      "source_id": "hub_evidence-s21-caelynn-timeline-md",
+      "source_role": "hub_evidence",
+      "authority": "canon_play",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/caelynn/timeline.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "planning_context",
+        "continuity",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [],
+      "notes": "Campaign continuity hub satellite."
+    },
+    {
+      "source_id": "hub_evidence-s21-captain-lysandra-ironveil-captain-lysandra-ironveil-character-dossier-md",
+      "source_role": "hub_evidence",
+      "authority": "canon_play",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_character_dossier.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "planning_context",
+        "continuity",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [],
+      "notes": "Campaign continuity hub satellite."
+    },
+    {
+      "source_id": "hub_evidence-s21-captain-lysandra-ironveil-lysandra-ironveil-mireward-history-md",
+      "source_role": "hub_evidence",
+      "authority": "canon_play",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/lysandra_ironveil_mireward_history.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "planning_context",
+        "continuity",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [],
+      "notes": "Campaign hub satellite."
+    },
+    {
+      "source_id": "hub_evidence-s21-captain-lysandra-ironveil-readme-md",
+      "source_role": "hub_evidence",
+      "authority": "canon_play",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/README.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "planning_context",
+        "continuity",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [],
+      "notes": "Campaign hub index; canonical reference for continuity and grounding."
+    },
+    {
+      "source_id": "hub_evidence-s21-captain-lysandra-ironveil-timeline-md",
+      "source_role": "hub_evidence",
+      "authority": "canon_play",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/timeline.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "planning_context",
+        "continuity",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [],
+      "notes": "Campaign continuity hub satellite."
+    },
+    {
+      "source_id": "hub_evidence-s21-dustwalker-dustwalker-character-dossier-md",
+      "source_role": "hub_evidence",
+      "authority": "canon_play",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/dustwalker/dustwalker_character_dossier.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "planning_context",
+        "continuity",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [],
+      "notes": "Campaign continuity hub satellite."
+    },
+    {
+      "source_id": "hub_evidence-s21-dustwalker-readme-md",
+      "source_role": "hub_evidence",
+      "authority": "canon_play",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/dustwalker/README.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "planning_context",
+        "continuity",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [],
+      "notes": "Campaign hub index; canonical reference for continuity and grounding."
+    },
+    {
+      "source_id": "hub_evidence-s21-dustwalker-timeline-md",
+      "source_role": "hub_evidence",
+      "authority": "canon_play",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/dustwalker/timeline.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "planning_context",
+        "continuity",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [],
+      "notes": "Campaign continuity hub satellite."
+    },
+    {
+      "source_id": "hub_evidence-s21-ephanna-ephanna-character-dossier-md",
+      "source_role": "hub_evidence",
+      "authority": "canon_play",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/ephanna/ephanna_character_dossier.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "planning_context",
+        "continuity",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [],
+      "notes": "Campaign continuity hub satellite."
+    },
+    {
+      "source_id": "hub_evidence-s21-ephanna-ephanna-statblock-dnd-beyond-level5-md",
+      "source_role": "hub_evidence",
+      "authority": "canon_play",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/ephanna/ephanna_statblock_dnd_beyond_level5.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "planning_context",
+        "continuity",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [],
+      "notes": "Mechanical or seed reference; not play proof."
+    },
+    {
+      "source_id": "hub_evidence-s21-ephanna-readme-md",
+      "source_role": "hub_evidence",
+      "authority": "canon_play",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/ephanna/README.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "planning_context",
+        "continuity",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [],
+      "notes": "Campaign hub index; canonical reference for continuity and grounding."
+    },
+    {
+      "source_id": "hub_evidence-s21-ephanna-timeline-md",
+      "source_role": "hub_evidence",
+      "authority": "canon_play",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/ephanna/timeline.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "planning_context",
+        "continuity",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [],
+      "notes": "Campaign continuity hub satellite."
+    },
+    {
+      "source_id": "hub_evidence-s21-factions-raucous-saints-of-the-rolling-longhouse-md",
+      "source_role": "hub_evidence",
+      "authority": "canon_play",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Factions/Raucous_Saints_of_the_Rolling_Longhouse.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "planning_context",
+        "continuity",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [],
+      "notes": "Campaign hub satellite."
+    },
+    {
+      "source_id": "hub_evidence-s21-factions-readme-md",
+      "source_role": "hub_evidence",
+      "authority": "canon_play",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Factions/README.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "planning_context",
+        "continuity",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [],
+      "notes": "Campaign hub index; canonical reference for continuity and grounding."
+    },
+    {
+      "source_id": "hub_evidence-s21-karsemine-karsemine-character-dossier-md",
+      "source_role": "hub_evidence",
+      "authority": "canon_play",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/karsemine/karsemine_character_dossier.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "planning_context",
+        "continuity",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [],
+      "notes": "Campaign continuity hub satellite."
+    },
+    {
+      "source_id": "hub_evidence-s21-karsemine-karsemine-statblock-dnd-beyond-level5-md",
+      "source_role": "hub_evidence",
+      "authority": "canon_play",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/karsemine/karsemine_statblock_dnd_beyond_level5.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "planning_context",
+        "continuity",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [],
+      "notes": "Mechanical or seed reference; not play proof."
+    },
+    {
+      "source_id": "hub_evidence-s21-karsemine-readme-md",
+      "source_role": "hub_evidence",
+      "authority": "canon_play",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/karsemine/README.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "planning_context",
+        "continuity",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [],
+      "notes": "Campaign hub index; canonical reference for continuity and grounding."
+    },
+    {
+      "source_id": "hub_evidence-s21-karsemine-timeline-md",
+      "source_role": "hub_evidence",
+      "authority": "canon_play",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/karsemine/timeline.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "planning_context",
+        "continuity",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [],
+      "notes": "Campaign continuity hub satellite."
+    },
+    {
+      "source_id": "hub_evidence-s21-plot-artifacts-boots-of-crowing-wings-md",
+      "source_role": "hub_evidence",
+      "authority": "canon_play",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Plot Artifacts/boots_of_crowing_wings.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "planning_context",
+        "continuity",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [],
+      "notes": "Campaign hub satellite."
+    },
+    {
+      "source_id": "hub_evidence-s21-plot-artifacts-readme-md",
+      "source_role": "hub_evidence",
+      "authority": "canon_play",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Plot Artifacts/README.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "planning_context",
+        "continuity",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [],
+      "notes": "Campaign hub index; canonical reference for continuity and grounding."
+    },
+    {
+      "source_id": "hub_evidence-s21-sara-mirathorn-operator-readme-md",
+      "source_role": "hub_evidence",
+      "authority": "canon_play",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/README.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "planning_context",
+        "continuity",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [],
+      "notes": "Campaign hub index; canonical reference for continuity and grounding."
+    },
+    {
+      "source_id": "hub_evidence-s21-sara-mirathorn-operator-sara-mirathorn-operator-character-dossier-md",
+      "source_role": "hub_evidence",
+      "authority": "canon_play",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/sara_mirathorn_operator_character_dossier.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "planning_context",
+        "continuity",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [],
+      "notes": "Campaign continuity hub satellite."
+    },
+    {
+      "source_id": "hub_evidence-s21-sara-mirathorn-operator-timeline-md",
+      "source_role": "hub_evidence",
+      "authority": "canon_play",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/timeline.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "planning_context",
+        "continuity",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [],
+      "notes": "Campaign continuity hub satellite."
+    },
+    {
+      "source_id": "hub_evidence-s21-stafl-readme-md",
+      "source_role": "hub_evidence",
+      "authority": "canon_play",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/stafl/README.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "planning_context",
+        "continuity",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [],
+      "notes": "Campaign hub index; canonical reference for continuity and grounding."
+    },
+    {
+      "source_id": "hub_evidence-s21-stafl-stafl-character-dossier-md",
+      "source_role": "hub_evidence",
+      "authority": "canon_play",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/stafl/stafl_character_dossier.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "planning_context",
+        "continuity",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [],
+      "notes": "Campaign continuity hub satellite."
+    },
+    {
+      "source_id": "hub_evidence-s21-stafl-stafl-statblock-dnd-beyond-level5-md",
+      "source_role": "hub_evidence",
+      "authority": "canon_play",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/stafl/stafl_statblock_dnd_beyond_level5.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "planning_context",
+        "continuity",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [],
+      "notes": "Mechanical or seed reference; not play proof."
+    },
+    {
+      "source_id": "hub_evidence-s21-stafl-timeline-md",
+      "source_role": "hub_evidence",
+      "authority": "canon_play",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/stafl/timeline.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "planning_context",
+        "continuity",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [],
+      "notes": "Campaign continuity hub satellite."
+    },
+    {
+      "source_id": "hub_evidence-s21-thrin-branchborn-readme-md",
+      "source_role": "hub_evidence",
+      "authority": "canon_play",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/thrin_branchborn/README.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "planning_context",
+        "continuity",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [],
+      "notes": "Campaign hub index; canonical reference for continuity and grounding."
+    },
+    {
+      "source_id": "hub_evidence-s21-thrin-branchborn-thrin-branchborn-character-dossier-md",
+      "source_role": "hub_evidence",
+      "authority": "canon_play",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/thrin_branchborn/thrin_branchborn_character_dossier.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "planning_context",
+        "continuity",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [],
+      "notes": "Campaign continuity hub satellite."
+    },
+    {
+      "source_id": "hub_evidence-s21-thrin-branchborn-timeline-md",
+      "source_role": "hub_evidence",
+      "authority": "canon_play",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/thrin_branchborn/timeline.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "planning_context",
+        "continuity",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [],
+      "notes": "Campaign continuity hub satellite."
+    },
+    {
+      "source_id": "hub_evidence-s21-torbin-jove-readme-md",
+      "source_role": "hub_evidence",
+      "authority": "canon_play",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/torbin_jove/README.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "planning_context",
+        "continuity",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [],
+      "notes": "Campaign hub index; canonical reference for continuity and grounding."
+    },
+    {
+      "source_id": "hub_evidence-s21-torbin-jove-timeline-md",
+      "source_role": "hub_evidence",
+      "authority": "canon_play",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/torbin_jove/timeline.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "planning_context",
+        "continuity",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [],
+      "notes": "Campaign continuity hub satellite."
+    },
+    {
+      "source_id": "hub_evidence-s21-torbin-jove-torbin-jove-care-guidelines-md",
+      "source_role": "hub_evidence",
+      "authority": "canon_play",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/torbin_jove/torbin_jove_care_guidelines.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "planning_context",
+        "continuity",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [],
+      "notes": "Campaign hub satellite."
+    },
+    {
+      "source_id": "hub_evidence-s21-torbin-jove-torbin-jove-character-dossier-md",
+      "source_role": "hub_evidence",
+      "authority": "canon_play",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/torbin_jove/torbin_jove_character_dossier.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "planning_context",
+        "continuity",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [],
+      "notes": "Campaign continuity hub satellite."
+    },
+    {
+      "source_id": "live_event-s23-session-23-event-log-jsonl",
+      "source_role": "live_event",
+      "authority": "live_observation",
+      "session_scope": [
+        23
+      ],
+      "route": "evals/c2_live_prep/live/session_23/event_log.jsonl",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "observed_play",
+        "planning_observation",
+        "audit_evidence"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Live event log; observations appended during play, not retroactive canon."
+    },
+    {
+      "source_id": "live_packet-s23-session-23-live-packet-json",
+      "source_role": "live_packet",
+      "authority": "planning_scaffold",
+      "session_scope": [
+        23
+      ],
+      "route": "evals/c2_live_prep/live/session_23/live_packet.json",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "active_session_orientation",
+        "planning_context"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Active live-control packet for Session 23 planning workspace."
+    },
+    {
+      "source_id": "play_recap-s21-breadcrumbed-session-21-drake-nest-mirathorn-call-breadcrumbed-md",
+      "source_role": "play_recap",
+      "authority": "canon_play",
+      "session_scope": [
+        21
+      ],
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 21 - Drake Nest Mirathorn Call.breadcrumbed.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "play_facts",
+        "open_loops",
+        "planning_context",
+        "continuity"
+      ],
+      "forbidden_uses": [],
+      "notes": "Breadcrumbed (route-anchored) recap; canonical play memory."
+    },
+    {
+      "source_id": "play_recap-s21-normalized-session-21-drake-nest-mirathorn-call-md",
+      "source_role": "play_recap",
+      "authority": "canon_play",
+      "session_scope": [
+        21
+      ],
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 21 - Drake Nest Mirathorn Call.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "play_facts",
+        "open_loops",
+        "planning_context",
+        "continuity"
+      ],
+      "forbidden_uses": [],
+      "notes": "Normalized recap; canonical play memory."
+    },
+    {
+      "source_id": "play_recap-s21-session-recaps-session-21-drake-nest-mirathorn-call-md",
+      "source_role": "play_recap",
+      "authority": "canon_play",
+      "session_scope": [
+        21
+      ],
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 21 - Drake Nest Mirathorn Call.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "play_facts",
+        "open_loops",
+        "planning_context",
+        "continuity"
+      ],
+      "forbidden_uses": [],
+      "notes": "Played recap of what happened; canonical play memory."
+    },
+    {
+      "source_id": "play_recap-s22-breadcrumbed-session-22-mireward-road-and-lysandro-breadcrumbed-md",
+      "source_role": "play_recap",
+      "authority": "canon_play",
+      "session_scope": [
+        22
+      ],
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.breadcrumbed.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "play_facts",
+        "open_loops",
+        "planning_context",
+        "continuity"
+      ],
+      "forbidden_uses": [],
+      "notes": "Breadcrumbed (route-anchored) recap; canonical play memory."
+    },
+    {
+      "source_id": "play_recap-s22-normalized-session-22-mireward-road-and-lysandro-md",
+      "source_role": "play_recap",
+      "authority": "canon_play",
+      "session_scope": [
+        22
+      ],
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "play_facts",
+        "open_loops",
+        "planning_context",
+        "continuity"
+      ],
+      "forbidden_uses": [],
+      "notes": "Normalized recap; canonical play memory."
+    },
+    {
+      "source_id": "play_recap-s22-session-recaps-session-22-mireward-road-and-lysandro-md",
+      "source_role": "play_recap",
+      "authority": "canon_play",
+      "session_scope": [
+        22
+      ],
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "play_facts",
+        "open_loops",
+        "planning_context",
+        "continuity"
+      ],
+      "forbidden_uses": [],
+      "notes": "Played recap of what happened; canonical play memory."
+    },
+    {
+      "source_id": "play_recap-s23-breadcrumbed-session-23-uningested-breadcrumbed-md",
+      "source_role": "play_recap",
+      "authority": "canon_play",
+      "session_scope": [
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 23 - (uningested).breadcrumbed.md",
+      "route_exists": false,
+      "admissible": false,
+      "allowed_uses": [],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Breadcrumbed (route-anchored) recap; canonical play memory. Not yet materialized (session not ingested)."
+    },
+    {
+      "source_id": "play_recap-s23-normalized-session-23-uningested-md",
+      "source_role": "play_recap",
+      "authority": "canon_play",
+      "session_scope": [
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 23 - (uningested).md",
+      "route_exists": false,
+      "admissible": false,
+      "allowed_uses": [],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Normalized recap; canonical play memory. Not yet materialized (session not ingested)."
+    },
+    {
+      "source_id": "play_recap-s23-session-recaps-session-23-uningested-md",
+      "source_role": "play_recap",
+      "authority": "canon_play",
+      "session_scope": [
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 23 - (uningested).md",
+      "route_exists": false,
+      "admissible": false,
+      "allowed_uses": [],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Played recap of what happened; canonical play memory. Not yet materialized (session not ingested)."
+    },
+    {
+      "source_id": "prep_scaffold-s21-session-prep-session-21-brainstorming-dump-md",
+      "source_role": "prep_scaffold",
+      "authority": "planning_scaffold",
+      "session_scope": [
+        21
+      ],
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/Session 21 - brainstorming dump.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "planning_context",
+        "reusable_prep"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "GM prep scaffold; planning intent, not a played fact."
+    },
+    {
+      "source_id": "prep_scaffold-s21-session-prep-session-21-mossford-saltfen-rumor-shop-md",
+      "source_role": "prep_scaffold",
+      "authority": "planning_scaffold",
+      "session_scope": [
+        21
+      ],
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/Session 21 - Mossford Saltfen rumor shop.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "planning_context",
+        "reusable_prep"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "GM prep scaffold; planning intent, not a played fact."
+    },
+    {
+      "source_id": "prep_scaffold-s21-session-prep-session-21-prep-exercise-agentic-trace-md",
+      "source_role": "prep_scaffold",
+      "authority": "planning_scaffold",
+      "session_scope": [
+        21
+      ],
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/Session 21 - prep exercise agentic trace.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "planning_context",
+        "reusable_prep"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "GM prep scaffold; planning intent, not a played fact."
+    },
+    {
+      "source_id": "prep_scaffold-s21-session-prep-session-21-session-intro-md",
+      "source_role": "prep_scaffold",
+      "authority": "planning_scaffold",
+      "session_scope": [
+        21
+      ],
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/Session 21 - Session intro.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "planning_context",
+        "reusable_prep"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "GM prep scaffold; planning intent, not a played fact."
+    },
+    {
+      "source_id": "prep_scaffold-s22-session-22-mireward-gate-dilemma-d6-md",
+      "source_role": "prep_scaffold",
+      "authority": "planning_scaffold",
+      "session_scope": [
+        22
+      ],
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/mireward_gate_dilemma_d6.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "planning_context",
+        "reusable_prep"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "GM prep scaffold; planning intent, not a played fact."
+    },
+    {
+      "source_id": "prep_scaffold-s22-session-22-session-22-planning-anchor-md",
+      "source_role": "prep_scaffold",
+      "authority": "planning_scaffold",
+      "session_scope": [
+        22
+      ],
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_planning_anchor.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "planning_context",
+        "reusable_prep"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "GM prep scaffold; planning intent, not a played fact."
+    },
+    {
+      "source_id": "prep_scaffold-s22-session-22-session-22-prep-brief-md",
+      "source_role": "prep_scaffold",
+      "authority": "planning_scaffold",
+      "session_scope": [
+        22
+      ],
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_prep_brief.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "planning_context",
+        "reusable_prep"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "GM prep scaffold; planning intent, not a played fact."
+    },
+    {
+      "source_id": "prep_scaffold-s22-session-22-session-22-travel-to-mireward-runbook-md",
+      "source_role": "prep_scaffold",
+      "authority": "planning_scaffold",
+      "session_scope": [
+        22
+      ],
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_travel_to_mireward_runbook.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "planning_context",
+        "reusable_prep"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "GM prep scaffold; planning intent, not a played fact."
+    },
+    {
+      "source_id": "prep_scaffold-s22-session-22-travel-campfire-d8-md",
+      "source_role": "prep_scaffold",
+      "authority": "planning_scaffold",
+      "session_scope": [
+        22
+      ],
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/travel_campfire_d8.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "planning_context",
+        "reusable_prep"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "GM prep scaffold; planning intent, not a played fact."
+    },
+    {
+      "source_id": "prep_scaffold-s22-session-22-travel-dilemma-d12-md",
+      "source_role": "prep_scaffold",
+      "authority": "planning_scaffold",
+      "session_scope": [
+        22
+      ],
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/travel_dilemma_d12.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "planning_context",
+        "reusable_prep"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "GM prep scaffold; planning intent, not a played fact."
+    },
+    {
+      "source_id": "prep_scaffold-s22-session-22-travel-mirathorn-comms-d100-md",
+      "source_role": "prep_scaffold",
+      "authority": "planning_scaffold",
+      "session_scope": [
+        22
+      ],
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/travel_mirathorn_comms_d100.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "planning_context",
+        "reusable_prep"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "GM prep scaffold; planning intent, not a played fact."
+    },
+    {
+      "source_id": "prep_scaffold-s22-session-22-travel-night-watch-d12-md",
+      "source_role": "prep_scaffold",
+      "authority": "planning_scaffold",
+      "session_scope": [
+        22
+      ],
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/travel_night_watch_d12.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "planning_context",
+        "reusable_prep"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "GM prep scaffold; planning intent, not a played fact."
+    },
+    {
+      "source_id": "prep_scaffold-s22-session-22-travel-npc-spotlight-d12-md",
+      "source_role": "prep_scaffold",
+      "authority": "planning_scaffold",
+      "session_scope": [
+        22
+      ],
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/travel_npc_spotlight_d12.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "planning_context",
+        "reusable_prep"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "GM prep scaffold; planning intent, not a played fact."
+    },
+    {
+      "source_id": "prep_scaffold-s22-session-22-travel-storm-weather-d20-md",
+      "source_role": "prep_scaffold",
+      "authority": "planning_scaffold",
+      "session_scope": [
+        22
+      ],
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/travel_storm_weather_d20.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "planning_context",
+        "reusable_prep"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "GM prep scaffold; planning intent, not a played fact."
+    },
+    {
+      "source_id": "prep_scaffold-s22-session-prep-session-22-open-gm-knobs-md",
+      "source_role": "prep_scaffold",
+      "authority": "planning_scaffold",
+      "session_scope": [
+        22
+      ],
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/Session 22 - open GM knobs.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "planning_context",
+        "reusable_prep"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "GM prep scaffold; planning intent, not a played fact."
+    },
+    {
+      "source_id": "session_memory-s21-session-memory-session-21-drake-nest-mirathorn-call-records-meta-json",
+      "source_role": "session_memory",
+      "authority": "derived_memory",
+      "session_scope": [
+        21
+      ],
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 21 - Drake Nest Mirathorn Call.records_meta.json",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "play_facts",
+        "search",
+        "routing",
+        "evidence_support"
+      ],
+      "forbidden_uses": [],
+      "notes": "Retrieval-record metadata derived from the recap."
+    },
+    {
+      "source_id": "session_memory-s21-session-memory-session-21-drake-nest-mirathorn-call-records-meta-jsonl",
+      "source_role": "session_memory",
+      "authority": "derived_memory",
+      "session_scope": [
+        21
+      ],
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 21 - Drake Nest Mirathorn Call.records_meta.jsonl",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "play_facts",
+        "search",
+        "routing",
+        "evidence_support"
+      ],
+      "forbidden_uses": [],
+      "notes": "Retrieval records derived from the recap."
+    },
+    {
+      "source_id": "session_memory-s22-session-memory-session-22-mireward-road-and-lysandro-records-meta-json",
+      "source_role": "session_memory",
+      "authority": "derived_memory",
+      "session_scope": [
+        22
+      ],
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 22 - Mireward Road and Lysandro.records_meta.json",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "play_facts",
+        "search",
+        "routing",
+        "evidence_support"
+      ],
+      "forbidden_uses": [],
+      "notes": "Retrieval-record metadata derived from the recap."
+    },
+    {
+      "source_id": "session_memory-s22-session-memory-session-22-mireward-road-and-lysandro-records-meta-jsonl",
+      "source_role": "session_memory",
+      "authority": "derived_memory",
+      "session_scope": [
+        22
+      ],
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 22 - Mireward Road and Lysandro.records_meta.jsonl",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "play_facts",
+        "search",
+        "routing",
+        "evidence_support"
+      ],
+      "forbidden_uses": [],
+      "notes": "Retrieval records derived from the recap."
+    },
+    {
+      "source_id": "session_memory-s23-session-memory-session-23-uningested-records-meta-json",
+      "source_role": "session_memory",
+      "authority": "derived_memory",
+      "session_scope": [
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 23 - (uningested).records_meta.json",
+      "route_exists": false,
+      "admissible": false,
+      "allowed_uses": [],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Retrieval-record metadata derived from the recap. Not yet materialized (session not ingested)."
+    },
+    {
+      "source_id": "session_memory-s23-session-memory-session-23-uningested-records-meta-jsonl",
+      "source_role": "session_memory",
+      "authority": "derived_memory",
+      "session_scope": [
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 23 - (uningested).records_meta.jsonl",
+      "route_exists": false,
+      "admissible": false,
+      "allowed_uses": [],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Retrieval records derived from the recap. Not yet materialized (session not ingested)."
+    },
+    {
+      "source_id": "table_notes-s21-ingest-staging-session-21-raw-notes-md",
+      "source_role": "table_notes",
+      "authority": "pre_canonical_evidence",
+      "session_scope": [
+        21
+      ],
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/_ingest_staging/session_21_raw_notes.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "provenance",
+        "pre_recap_evidence"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Pre-canonical table notes; provenance only now that the recap exists."
+    },
+    {
+      "source_id": "table_notes-s22-ingest-staging-session-22-raw-notes-md",
+      "source_role": "table_notes",
+      "authority": "pre_canonical_evidence",
+      "session_scope": [
+        22
+      ],
+      "route": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/_ingest_staging/session_22_raw_notes.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "provenance",
+        "pre_recap_evidence"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Pre-canonical table notes; provenance only now that the recap exists."
+    },
+    {
+      "source_id": "world_evidence-s21-branchbound-branchbound-culture-pack-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Migrating Forest/Branchbound/branchbound_culture_pack.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-branchbound-branchbound-indirect-help-encounters-ash-in-the-canopy-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Migrating Forest/Branchbound/branchbound_indirect_help_encounters_ash_in_the_canopy.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-branchbound-readme-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Migrating Forest/Branchbound/README.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-branchbound-the-witness-seed-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Migrating Forest/Branchbound/The Witness Seed.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-branchbound-threnn-of-second-bloom-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Migrating Forest/Branchbound/Threnn-of-Second-Bloom.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-captain-lysandra-ironveil-captain-lysandra-ironveil-statblock-cr2-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_statblock_cr2.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-captain-lysandra-ironveil-captain-lysandra-ironveil-statblock-cr4-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_statblock_cr4.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-captain-lysandra-ironveil-character-seed-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/character_seed.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-captain-lysandra-ironveil-readme-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/README.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-city-council-building-battle-with-the-wolf-and-aftermath-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/City Council Building/Battle with The Wolf and Aftermath.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-city-council-building-the-city-council-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/City Council Building/The City Council.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-city-council-building-the-council-room-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/City Council Building/The Council Room.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-city-council-building-the-emergency-council-meeting-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/City Council Building/The Emergency Council Meeting.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-day-four-bardic-storytelling-circle-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Events/The Festival of Expansion/Schedule and Event Details/Day Four/Bardic Storytelling Circle.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-day-three-cultural-ceremonies-at-the-temple-of-the-aspitome-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Events/The Festival of Expansion/Schedule and Event Details/Day Three/Cultural Ceremonies at the Temple of the Aspitome.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-day-three-festival-crafting-chaos-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Events/The Festival of Expansion/Schedule and Event Details/Day Three/Festival Crafting Chaos.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-day-two-day-two-notes-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Events/The Festival of Expansion/Schedule and Event Details/Day Two /Day Two Notes.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-dustwalker-character-seed-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/NPCs/dustwalker/character_seed.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-dustwalker-dustwalker-statblock-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/NPCs/dustwalker/dustwalker_statblock.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-dustwalker-readme-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/NPCs/dustwalker/README.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-edge-of-the-world-readme-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Edge of the World/README.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-elderwyld-campaign-summary-mirathorn-post-cultist-battle-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/# _Campaign Summary_ Mirathorn Post-Cultist Battle_.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-elderwyld-stonebridge-and-the-wizard-tower-brewing-co-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Stonebridge and The Wizard Tower Brewing Co.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-elderwyld-the-stonebridge-flood-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/The Stonebridge Flood.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-elderwyld-unrefined-heading-into-the-flesh-kaiju-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/UnRefined Heading into the Flesh Kaiju.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-grishna-character-seed-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Stonebridge/NPCs/grishna/character_seed.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-grishna-readme-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Stonebridge/NPCs/grishna/README.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-inns-and-shops-the-copper-quartz-inn-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Inns and Shops/The Copper & Quartz Inn.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-item-cards-untitled-document-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Item Cards/Untitled document.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-kirfan-character-seed-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Upriver River Route/NPCs/kirfan/character_seed.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-kirfan-readme-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Upriver River Route/NPCs/kirfan/README.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-lysandro-ironveil-character-seed-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/lysandro_ironveil/character_seed.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-marla-brambleback-character-seed-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mossford/NPCs/marla_brambleback/character_seed.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-marla-brambleback-readme-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mossford/NPCs/marla_brambleback/README.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-migrating-forest-hex-key-the-migrating-forest-board-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Migrating Forest/HEX KEY_ THE MIGRATING FOREST BOARD.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-migrating-forest-migrating-forest-d-100-universal-encounter-table-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Migrating Forest/migrating_forest_d_100_universal_encounter_table.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-migrating-forest-migrating-forest-hex-expansion-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Migrating Forest/migrating_forest_hex_expansion.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-migrating-forest-readme-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Migrating Forest/README.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-migrating-forest-the-migrating-forest-executive-dm-summary-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Migrating Forest/the_migrating_forest_executive_dm_summary.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-mirathorn-readme-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/README.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-mirathorn-the-city-of-mirathorn-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/The City of Mirathorn.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-mireward-mireward-place-build-scaffold-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/Mireward_PLACE_BUILD_SCAFFOLD.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-mireward-readme-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/README.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-mossford-location-dossiers-copper-moss-brewery-waterwheel-mill-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mossford/Mossford_Location_Dossiers/Copper Moss Brewery & Waterwheel Mill.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-mossford-location-dossiers-dense-worker-housing-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mossford/Mossford_Location_Dossiers/Dense Worker Housing.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-mossford-location-dossiers-drying-barns-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mossford/Mossford_Location_Dossiers/Drying Barns.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-mossford-location-dossiers-market-square-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mossford/Mossford_Location_Dossiers/Market Square.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-mossford-location-dossiers-moldyards-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mossford/Mossford_Location_Dossiers/Moldyards.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-mossford-location-dossiers-mossford-inn-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mossford/Mossford_Location_Dossiers/Mossford Inn.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-mossford-location-dossiers-southern-road-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mossford/Mossford_Location_Dossiers/Southern Road.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-mossford-location-dossiers-stone-bridge-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mossford/Mossford_Location_Dossiers/Stone Bridge.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-mossford-location-dossiers-stoneweir-dam-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mossford/Mossford_Location_Dossiers/Stoneweir Dam.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-mossford-location-dossiers-temple-of-the-nameless-stone-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mossford/Mossford_Location_Dossiers/Temple of the Nameless Stone.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-mossford-location-dossiers-town-hall-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mossford/Mossford_Location_Dossiers/Town Hall.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-mossford-location-dossiers-watch-tower-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mossford/Mossford_Location_Dossiers/Watch Tower.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-mossford-mossford-map-key-and-gazetteer-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mossford/Mossford_Map_Key_and_Gazetteer.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-mossford-readme-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mossford/README.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-roads-mireward-reach-road-d100-encounter-table-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Roads/mireward_reach_road_d100_encounter_table.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-roads-reach-npc-first-names-d100-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Roads/reach_npc_first_names_d100.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-roads-reach-npc-last-names-d100-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Roads/reach_npc_last_names_d100.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-roads-reach-npc-naming-conventions-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Roads/reach_npc_naming_conventions.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-roads-readme-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Roads/README.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-schedule-and-event-details-event-posters-pamphlets-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Events/The Festival of Expansion/Schedule and Event Details/Event Posters & Pamphlets.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-schedule-and-event-details-festival-of-expansion-schedule-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Events/The Festival of Expansion/Schedule and Event Details/Festival of Expansion Schedule.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-sewers-allies-hideout-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/allies_hideout.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-sewers-loot-room-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/loot_room.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-sewers-mirathorn-sewers-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/Mirathorn Sewers.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-sewers-nameless-goddess-temple-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/nameless_goddess_temple.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-sewers-path-to-temple-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/path_to_temple.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-sewers-ritual-chamber-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/ritual_chamber.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-sewers-sewer-traps-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/Sewer Traps.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-shephards-flock-the-cult-of-the-great-shephard-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/The cult of the Great  Shephard.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-sheriff-roderic-marr-character-seed-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mossford/NPCs/sheriff_roderic_marr/character_seed.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-sheriff-roderic-marr-readme-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mossford/NPCs/sheriff_roderic_marr/README.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-stacey-brambleback-character-seed-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mossford/NPCs/stacey_brambleback/character_seed.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-stacey-brambleback-readme-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mossford/NPCs/stacey_brambleback/README.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-statblocks-and-tokens-dustwalker-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/DustWalker.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-stormspire-academy-readme-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/README.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-stormspire-academy-stormspire-academy-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/Stormspire Academy.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-stormspire-academy-what-the-wolf-knows-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/What the Wolf knows.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-stormspire-academy-wynna-mossglade-clerk-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/Wynna Mossglade _ Clerk.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-stuart-character-seed-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mossford/NPCs/stuart/character_seed.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-stuart-readme-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mossford/NPCs/stuart/README.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-the-festival-of-expansion-events-mechanics-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Events/The Festival of Expansion/Events Mechanics.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-the-festival-of-expansion-the-festival-of-expansion-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Events/The Festival of Expansion/The Festival of Expansion.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-the-hearthbound-bake-off-bakeoff-mechanics-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Events/The Hearthbound Bake-Off/Bakeoff Mechanics.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-the-hearthbound-bake-off-forageables-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Events/The Hearthbound Bake-Off/Forageables.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-the-hearthbound-bake-off-other-teams-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Events/The Hearthbound Bake-Off/Other Teams.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-the-hearthbound-bake-off-the-baked-goods-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Events/The Hearthbound Bake-Off/The Baked Goods.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-the-hearthbound-bake-off-the-hearthbound-bake-off-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Events/The Hearthbound Bake-Off/The Hearthbound Bake-Off.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-the-hearthbound-bake-off-tilly-tuffcrust-and-harland-broadquill-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Events/The Hearthbound Bake-Off/Tilly TuffCrust and Harland Broadquill_.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-tokens-cultist-and-corrupted-meat-token-sheet-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/Tokens/Cultist and Corrupted Meat Token Sheet.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-tokens-shephards-flock-tokens-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/Tokens/Shephards Flock Tokens.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-torbin-jove-character-seed-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/torbin_jove/character_seed.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-torbin-jove-readme-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/torbin_jove/README.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-torbin-jove-torbin-jove-statblock-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/torbin_jove/torbin_jove_statblock.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-wilderness-conical-hills-night-camp-d100-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Wilderness/conical_hills_night_camp_d100.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-wilderness-geomantic-drake-juvenile-statblock-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Wilderness/geomantic_drake_juvenile_statblock.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-wilderness-geomantic-drake-nest-loot-d100-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Wilderness/geomantic_drake_nest_loot_d100.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-wilderness-pre-era-conical-hills-d20-find-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Wilderness/pre_era_conical_hills_d20_find.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    },
+    {
+      "source_id": "world_evidence-s21-wolf-manor-wolf-s-manor-architectural-description-md",
+      "source_role": "world_evidence",
+      "authority": "reference_tool",
+      "session_scope": [
+        21,
+        22,
+        23
+      ],
+      "route": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Wolf Manor/Wolf_s Manor Architectural description_.md",
+      "route_exists": true,
+      "admissible": true,
+      "allowed_uses": [
+        "setting_context",
+        "mechanical_reference",
+        "npc_grounding"
+      ],
+      "forbidden_uses": [
+        "play_facts"
+      ],
+      "notes": "Elderwyld world-layer reference; not play proof."
+    }
+  ],
+  "planning_live_workspace_dir": "evals/c2_live_prep/live/session_23"
+}

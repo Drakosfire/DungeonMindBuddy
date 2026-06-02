@@ -1,0 +1,277 @@
+{
+  "question": "what was the last thing that happened in Session 22",
+  "target_session": null,
+  "manifest_path": "evals/c2_live_prep/benchmarks/c2s23_dogfood_full_manifest.json",
+  "llm_config": {
+    "provider": "openai",
+    "model": "gpt-5.4-mini",
+    "require_llm": true,
+    "max_output_tokens": 600,
+    "temperature": 0.2
+  },
+  "generated_at": "2026-06-02T16:22:13Z",
+  "step_2_context_packet": {
+    "retrieval_query": "Session 22 canon play recap: what was the last event or final beat in Session 22? Use the Session 22 recap / session memory / timeline record, especially the canonical recap for \"Session 22 - Mireward Road and Lysandro\". Aliases: Session 22, S22, canon play recap, session recap, session memory, timeline.",
+    "effective_question": "Session 22 canon play recap: what was the last event or final beat in Session 22? Use the Session 22 recap / session memory / timeline record, especially the canonical recap for \"Session 22 - Mireward Road and Lysandro\". Aliases: Session 22, S22, canon play recap, session recap, session memory, timeline.",
+    "admitted_count": 10,
+    "rejected_count": 12,
+    "top_admitted": [
+      {
+        "evidence_id": "ev-3b57f84c3b",
+        "path": "virtual://c2s23/corpus_preconditions/session_22",
+        "source_role": "ingest_status",
+        "authority": "audit",
+        "line_start": null,
+        "line_end": null,
+        "text_excerpt": "Corpus precondition audit: activated_manifest, breadcrumb_recap_s22, canonical_recap_s22, live_workspace_s23_packet, normalized_recap_s22, session_memory_jsonl_s22, session_memory_meta_s22"
+      },
+      {
+        "evidence_id": "ev-8cf057a87d",
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md",
+        "source_role": "play_recap",
+        "authority": "canon_play",
+        "line_start": 38,
+        "line_end": 38,
+        "text_excerpt": "“Is that little Lysandra?” he asks. “No dad, it’s Lieutenant Lysandra now”. And that is how they all met her father Lysandro."
+      },
+      {
+        "evidence_id": "ev-3452cf3ee6",
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.breadcrumbed.md",
+        "source_role": "play_recap",
+        "authority": "canon_play",
+        "line_start": 144,
+        "line_end": 144,
+        "text_excerpt": "“Is that little Lysandra?” he asks.[NPC][Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/] “No dad, it’s Lieutenant Lysandra now”.[NPC][Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/] And that is how they all met her father Lysandro.[NPC][Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/]"
+      },
+      {
+        "evidence_id": "ev-cb6ffef5a3",
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md",
+        "source_role": "play_recap",
+        "authority": "canon_play",
+        "line_start": 43,
+        "line_end": 43,
+        "text_excerpt": "“Is that little Lysandra?” he asks. “No dad, it’s Lieutenant Lysandra now”. And that is how they all met her father Lysandro."
+      },
+      {
+        "evidence_id": "ev-695c262523",
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.breadcrumbed.md",
+        "source_role": "play_recap",
+        "authority": "canon_play",
+        "line_start": 134,
+        "line_end": 134,
+        "text_excerpt": "The ride is much more pleasant as both Lysandra and Caelynn are in much better moods.[NPC][Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/][PC][Longmont Campaign/Campaign 2/PCs/caelynn/] Having a goal and helping the group really boosted morale. Lysandra opens up to Ephanna about how poorly she is handling the mission she has been given.[NPC][Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/][PC][Longmont Campaign/Campaign 2/PCs/ephanna/] She is upset with how difficult it is to keep Mirathorn out of trouble, but is determined to get back to being the group leader.[NPC][Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/][Location][Elderwyld/Cities and Towns/"
+      }
+    ],
+    "top_rejected": [
+      {
+        "evidence_id": "ev-85b3756c9a",
+        "reason_code": "source_role_forbidden_for_pipeline_state",
+        "source_role": "prep_scaffold",
+        "authority": "planning_scaffold",
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/mireward_gate_dilemma_d6.md"
+      },
+      {
+        "evidence_id": "ev-602dc27cd4",
+        "reason_code": "source_role_forbidden_for_pipeline_state",
+        "source_role": "prep_scaffold",
+        "authority": "planning_scaffold",
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/Session 22 - open GM knobs.md"
+      },
+      {
+        "evidence_id": "ev-665b338721",
+        "reason_code": "source_role_forbidden_for_pipeline_state",
+        "source_role": "prep_scaffold",
+        "authority": "planning_scaffold",
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/Session 22 - open GM knobs.md"
+      },
+      {
+        "evidence_id": "ev-84ae08c374",
+        "reason_code": "authority_forbidden_for_pipeline_state",
+        "source_role": "world_evidence",
+        "authority": "reference_tool",
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/README.md"
+      },
+      {
+        "evidence_id": "ev-d34fd49342",
+        "reason_code": "authority_forbidden_for_pipeline_state",
+        "source_role": "world_evidence",
+        "authority": "reference_tool",
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Roads/mireward_reach_road_d100_encounter_table.md"
+      }
+    ]
+  },
+  "step_3_answer_llm": {
+    "request": {
+      "model": "gpt-5.4-mini",
+      "input": "You are answering a live planning question for a TTRPG campaign.\n\nRules:\n- Every factual campaign claim in your answer must include at least one admitted evidence citation.\n- Use admitted evidence for factual claims.\n- Do not use rejected evidence as support.\n- Cite admitted evidence IDs inline as [ev-...].\n- Distinguish play facts from planning suggestions.\n- Never claim write capability in this response path; it is read-only.\n- If asked to mutate artifacts, explicitly refuse mutation and stay read-only.\n\nQuestion:\nwhat was the last thing that happened in Session 22\n\nADMITTED EVIDENCE:\n[ev-3b57f84c3b]\nrole: ingest_status\nauthority: audit\npath: virtual://c2s23/corpus_preconditions/session_22\nline_range: None-None\nunit_id: None\nexcerpt: Corpus precondition audit: activated_manifest, breadcrumb_recap_s22, canonical_recap_s22, live_workspace_s23_packet, normalized_recap_s22, session_memory_jsonl_s22, session_memory_meta_s22\n\n[ev-8cf057a87d]\nrole: play_recap\nauthority: canon_play\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md\nline_range: 38-38\nunit_id: None\nexcerpt: “Is that little Lysandra?” he asks. “No dad, it’s Lieutenant Lysandra now”. And that is how they all met her father Lysandro.\n\n[ev-3452cf3ee6]\nrole: play_recap\nauthority: canon_play\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.breadcrumbed.md\nline_range: 144-144\nunit_id: None\nexcerpt: “Is that little Lysandra?” he asks.[NPC][Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/] “No dad, it’s Lieutenant Lysandra now”.[NPC][Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/] And that is how they all met her father Lysandro.[NPC][Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/]\n\n[ev-cb6ffef5a3]\nrole: play_recap\nauthority: canon_play\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md\nline_range: 43-43\nunit_id: None\nexcerpt: “Is that little Lysandra?” he asks. “No dad, it’s Lieutenant Lysandra now”. And that is how they all met her father Lysandro.\n\n[ev-695c262523]\nrole: play_recap\nauthority: canon_play\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.breadcrumbed.md\nline_range: 134-134\nunit_id: None\nexcerpt: The ride is much more pleasant as both Lysandra and Caelynn are in much better moods.[NPC][Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/][PC][Longmont Campaign/Campaign 2/PCs/caelynn/] Having a goal and helping the group really boosted morale. Lysandra opens up to Ephanna about how poorly she is handling the mission she has been given.[NPC][Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/][PC][Longmont Campaign/Campaign 2/PCs/ephanna/] She is upset with how difficult it is to keep Mirathorn out of trouble, but is determined to get back to being the group leader.[NPC][Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/][Location][Elderwyld/Cities and Towns/\n\n[ev-54e15b78f8]\nrole: play_recap\nauthority: canon_play\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md\nline_range: 33-33\nunit_id: None\nexcerpt: The ride is much more pleasant as both Lysandra and Caelynn are in much better moods. Having a goal and helping the group really boosted morale. Lysandra opens up to Ephanna about how poorly she is handling the mission she has been given. She is upset with how difficult it is to keep Mirathorn out of trouble, but is determined to get back to being the group leader. After a nice stretch of peaceful travel, one by one the each member realizes they are humming some sort of song. Even more, they are all humming the same song. Karesmine identifies it as the rhythm she heard the night before, and Ephanna figures out it is the song they all heard the Dustwalker perform at the festival. Up ahead, at\n\n[ev-a27c751a70]\nrole: play_recap\nauthority: canon_play\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md\nline_range: 28-28\nunit_id: None\nexcerpt: The ride is much more pleasant as both Lysandra and Caelynn are in much better moods. Having a goal and helping the group really boosted morale. Lysandra opens up to Ephanna about how poorly she is handling the mission she has been given. She is upset with how difficult it is to keep Mirathorn out of trouble, but is determined to get back to being the group leader. After a nice stretch of peaceful travel, one by one the each member realizes they are humming some sort of song. Even more, they are all humming the same song. Karesmine identifies it as the rhythm she heard the night before, and Ephanna figures out it is the song they all heard the Dustwalker perform at the festival. Up ahead, at\n\n[ev-7a640d26ee]\nrole: session_memory\nauthority: derived_memory\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 22 - Mireward Road and Lysandro.records_meta.json\nline_range: None-None\nunit_id: None\nexcerpt: {   \"source_recap_path\": \"Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md\",   \"campaign_id\": \"longmont-c2\",   \"session_number\": 22,\n\n[ev-a41c23095b]\nrole: session_memory\nauthority: derived_memory\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 22 - Mireward Road and Lysandro.records_meta.jsonl\nline_range: 27-27\nunit_id: u-L0027-03\nexcerpt: And that is how they all met her father Lysandro.\n\n[ev-ffb5066bc9]\nrole: session_memory\nauthority: derived_memory\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 22 - Mireward Road and Lysandro.records_meta.jsonl\nline_range: 17-17\nunit_id: u-L0017-08\nexcerpt: Up ahead, at the fork in the road, is a small building and a sign indicating Mireward 20 miles north.\n\nREJECTED EVIDENCE:\n[rej-001]\nreason_code: source_role_forbidden_for_pipeline_state\nevidence_id: ev-85b3756c9a\nrole: prep_scaffold\nauthority: planning_scaffold\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/mireward_gate_dilemma_d6.md\nexcerpt: - **Lysandro Ironveil** (Lysandra’s **father** — **C2 table canon**) can frame any row with: “Road’s open. Town’s full. If you’re Mirathorn heroes, help or wait — your choice.” Prep name **Hald Voss** superseded at table until recap. - These rows should not resolve the town’s core problem. They expose capacity, resentment, and the difference between apron order and interior strain. - If players create a strong new fact at the gate, promote it after play through the Session 22 recap and Mireward scaffold checklist.\n\n[rej-002]\nreason_code: source_role_forbidden_for_pipeline_state\nevidence_id: ev-602dc27cd4\nrole: prep_scaffold\nauthority: planning_scaffold\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/Session 22 - open GM knobs.md\nexcerpt: | Knob | Question | Write answer to | |------|----------|-----------------| | **Lysandra investigation** | Who is the **“person they spoke about back in the city”** that Lysandra investigated (Session 21)? | `NPCs/captain_lysandra_ironveil/timeline.md` + optional dossier beat | | **Mirathorn timeline / arc** | **Locked** at planning layer — festival **lie**, shared **meat pipeline**, dual front. Day rows + comms in `Mirathorn — rockie-talkie comms timeline.md`; vision in `Campaign 2 — Dual Front Shepherd Arc (GM planning).md`. | Arc doc + comms timeline | | **Mireward** | Town identity, Orin anchor, open §H knobs (town head, patrol return, downwind craft) | `Elderwyld/Cities and Towns/Mirewa\n\n[rej-003]\nreason_code: source_role_forbidden_for_pipeline_state\nevidence_id: ev-665b338721\nrole: prep_scaffold\nauthority: planning_scaffold\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/Session 22 - open GM knobs.md\nexcerpt: **Index:** `Session Prep/session_22/README.md` (corpus hub) · `Docs/Plans/HANDOFF-session-22-travel-north-active-NPCs.md` (agent dispatch)\n\n[rej-004]\nreason_code: authority_forbidden_for_pipeline_state\nevidence_id: ev-84ae08c374\nrole: world_evidence\nauthority: reference_tool\npath: corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/README.md\nexcerpt: 1. **`Mireward_PLACE_BUILD_SCAFFOLD.md`** — current design scaffold (start here while building). 2. `Elderwyld/Roads/mireward_reach_road_d100_encounter_table.md` — travel on the Reach. 3. `Longmont Campaign/Campaign 2/Journey - Mireward Reach (Campaign 2).md` — party distances and camp state. 4. `Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/lysandra_ironveil_mireward_history.md` — **Ironveil family / Lysandra homecoming soap** (C2 table canon from S22 gate). 5. `Elderwyld/Cities and Towns/Mireward/NPCs/lysandro_ironveil/character_seed.md` — gate emeritus (Lysandra’s **father**). 6. `Elderwyld/Cities and Towns/Mossford/README.md` — target hub shape when promotion begins. 7. `El\n\n[rej-005]\nreason_code: authority_forbidden_for_pipeline_state\nevidence_id: ev-d34fd49342\nrole: world_evidence\nauthority: reference_tool\npath: corpus/eldyrwild-markdown/Elderwyld/Roads/mireward_reach_road_d100_encounter_table.md\nexcerpt: document_class: world canon_layer: world campaign_id: null temporal_scope: evergreen session: null origin_session: null last_updated_session: null source_class: seed_reference road_name: \"The Mireward Reach\" road_aliases: \"the North Drift, the Long Tack, the Grey Mud Road (insults), the Shepherd's Shadow (fearful)\"\n\n[rej-006]\nreason_code: source_role_forbidden_for_pipeline_state\nevidence_id: ev-58dd128abb\nrole: prep_scaffold\nauthority: planning_scaffold\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/mireward_gate_dilemma_d6.md\nexcerpt: **Row shape:** `{gate pressure} · {choices} · {what this reveals about Mireward}`\n\n[rej-007]\nreason_code: use_forbidden_by_manifest\nevidence_id: ev-7bc1c5e429\nrole: table_notes\nauthority: pre_canonical_evidence\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/_ingest_staging/session_22_raw_notes.md\nexcerpt: “Is that little Lysandra?” he asks. “No dad, it’s Lieutenant Lysandra now”. And that is how they all met her father Lysandro.\n\n[rej-008]\nreason_code: use_forbidden_by_manifest\nevidence_id: ev-2bf69a3efe\nrole: table_notes\nauthority: pre_canonical_evidence\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/_ingest_staging/session_22_raw_notes.md\nexcerpt: The ride is much more pleasant as both Lysandra and Caelynn are in much better moods. Having a goal and helping the group really boosted morale. Lysandra opens up to Ephanna about how poorly she is handling the mission she has been given. She is upset with how difficult it is to keep Mirathorn out of trouble, but is determined to get back to being the group leader. After a nice stretch of peaceful travel, one by one the each member realizes they are humming some sort of song. Even more, they are all humming the same song. Karesmine identifies it as the rhythm she heard the night before, and Ephanna figures out it is the song they all heard the Dustwalker perform at the festival. Up ahead, at\n\n[rej-009]\nreason_code: authority_forbidden_for_pipeline_state\nevidence_id: ev-378f9adfe9\nrole: world_evidence\nauthority: reference_tool\npath: corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/Mireward_PLACE_BUILD_SCAFFOLD.md\nexcerpt: **Purpose:** **Homecoming soap** when **Captain Lysandra Ironveil** returns north. Mireward is **her birthplace**; Mirathorn is **her rank**. Gate scene **S22:** **Lysandro Ironveil** (**father**) on the wall walk.\n\n[rej-010]\nreason_code: authority_forbidden_for_pipeline_state\nevidence_id: ev-98fc2dce9b\nrole: world_evidence\nauthority: reference_tool\npath: corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/Mireward_PLACE_BUILD_SCAFFOLD.md\nexcerpt: | Source | Use | |--------|-----| | `Longmont Campaign/Campaign 2/Journey - Mireward Reach (Campaign 2).md` | Distances; update on arrival | | `Elderwyld/Roads/mireward_reach_road_d100_encounter_table.md` | Last day rolls before gate | | `Elderwyld/Cities and Towns/Edge of the World/README.md` | Rumor from refugees | | `Longmont Campaign/Campaign 2/Mirathorn — While You Were Away.md` | Comms / festival | | `Elderwyld/Cities and Towns/Mossford/NPCs/sheriff_roderic_marr/` | Marr warned Edge, not Mireward | | `Elderwyld/Shephards Flock/The cult of the Great  Shephard.md` | Lundayell schism DNA; swamp city — **not** what Maera’s family believes about “swamp folk” | | `Longmont Campaign/Campaign\n\n[rej-011]\nreason_code: authority_forbidden_for_pipeline_state\nevidence_id: ev-2431133027\nrole: world_evidence\nauthority: reference_tool\npath: corpus/eldyrwild-markdown/Elderwyld/Roads/mireward_reach_road_d100_encounter_table.md\nexcerpt: Sinkhole opens — reveals old road below this one. Voices carry up clearer than they should.\n\n[rej-012]\nreason_code: authority_forbidden_for_pipeline_state\nevidence_id: ev-715ed0dd86\nrole: world_evidence\nauthority: reference_tool\npath: corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/README.md\nexcerpt: **Table canon (Session 21):** **Mireward** is the **next little town north** on the Mireward Reach — about **five days** from the party’s conical-hill camp at end Session 21 (~five days from Mirathorn along the same road).",
+      "temperature": 0.2,
+      "max_output_tokens": 600
+    },
+    "response_output_text": "The last thing that happened in Session 22 was that the party met Lysandra’s father, Lysandro, when he recognized her on the road: “Is that little Lysandra?” and she replied, “No dad, it’s Lieutenant Lysandra now.” [ev-8cf057a87d][ev-cb6ffef5a3]\n\nA slightly fuller read of the ending is that this came right after the group noticed they were all humming the same song from the Dustwalker performance, and then they reached the fork in the road where Mireward was indicated ahead. [ev-54e15b78f8][ev-7a640d26ee]\n\nIf you want, I can also give you a 1–2 sentence “end of session recap” version.",
+    "result": {
+      "answer": "The last thing that happened in Session 22 was that the party met Lysandra’s father, Lysandro, when he recognized her on the road: “Is that little Lysandra?” and she replied, “No dad, it’s Lieutenant Lysandra now.” [ev-8cf057a87d][ev-cb6ffef5a3]\n\nA slightly fuller read of the ending is that this came right after the group noticed they were all humming the same song from the Dustwalker performance, and then they reached the fork in the road where Mireward was indicated ahead. [ev-54e15b78f8][ev-7a640d26ee]\n\nIf you want, I can also give you a 1–2 sentence “end of session recap” version.",
+      "source": "llm",
+      "warnings": [],
+      "diagnostics": []
+    },
+    "rendered_prompt": "You are answering a live planning question for a TTRPG campaign.\n\nRules:\n- Every factual campaign claim in your answer must include at least one admitted evidence citation.\n- Use admitted evidence for factual claims.\n- Do not use rejected evidence as support.\n- Cite admitted evidence IDs inline as [ev-...].\n- Distinguish play facts from planning suggestions.\n- Never claim write capability in this response path; it is read-only.\n- If asked to mutate artifacts, explicitly refuse mutation and stay read-only.\n\nQuestion:\nwhat was the last thing that happened in Session 22\n\nADMITTED EVIDENCE:\n[ev-3b57f84c3b]\nrole: ingest_status\nauthority: audit\npath: virtual://c2s23/corpus_preconditions/session_22\nline_range: None-None\nunit_id: None\nexcerpt: Corpus precondition audit: activated_manifest, breadcrumb_recap_s22, canonical_recap_s22, live_workspace_s23_packet, normalized_recap_s22, session_memory_jsonl_s22, session_memory_meta_s22\n\n[ev-8cf057a87d]\nrole: play_recap\nauthority: canon_play\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md\nline_range: 38-38\nunit_id: None\nexcerpt: “Is that little Lysandra?” he asks. “No dad, it’s Lieutenant Lysandra now”. And that is how they all met her father Lysandro.\n\n[ev-3452cf3ee6]\nrole: play_recap\nauthority: canon_play\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.breadcrumbed.md\nline_range: 144-144\nunit_id: None\nexcerpt: “Is that little Lysandra?” he asks.[NPC][Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/] “No dad, it’s Lieutenant Lysandra now”.[NPC][Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/] And that is how they all met her father Lysandro.[NPC][Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/]\n\n[ev-cb6ffef5a3]\nrole: play_recap\nauthority: canon_play\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md\nline_range: 43-43\nunit_id: None\nexcerpt: “Is that little Lysandra?” he asks. “No dad, it’s Lieutenant Lysandra now”. And that is how they all met her father Lysandro.\n\n[ev-695c262523]\nrole: play_recap\nauthority: canon_play\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.breadcrumbed.md\nline_range: 134-134\nunit_id: None\nexcerpt: The ride is much more pleasant as both Lysandra and Caelynn are in much better moods.[NPC][Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/][PC][Longmont Campaign/Campaign 2/PCs/caelynn/] Having a goal and helping the group really boosted morale. Lysandra opens up to Ephanna about how poorly she is handling the mission she has been given.[NPC][Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/][PC][Longmont Campaign/Campaign 2/PCs/ephanna/] She is upset with how difficult it is to keep Mirathorn out of trouble, but is determined to get back to being the group leader.[NPC][Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/][Location][Elderwyld/Cities and Towns/\n\n[ev-54e15b78f8]\nrole: play_recap\nauthority: canon_play\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md\nline_range: 33-33\nunit_id: None\nexcerpt: The ride is much more pleasant as both Lysandra and Caelynn are in much better moods. Having a goal and helping the group really boosted morale. Lysandra opens up to Ephanna about how poorly she is handling the mission she has been given. She is upset with how difficult it is to keep Mirathorn out of trouble, but is determined to get back to being the group leader. After a nice stretch of peaceful travel, one by one the each member realizes they are humming some sort of song. Even more, they are all humming the same song. Karesmine identifies it as the rhythm she heard the night before, and Ephanna figures out it is the song they all heard the Dustwalker perform at the festival. Up ahead, at\n\n[ev-a27c751a70]\nrole: play_recap\nauthority: canon_play\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md\nline_range: 28-28\nunit_id: None\nexcerpt: The ride is much more pleasant as both Lysandra and Caelynn are in much better moods. Having a goal and helping the group really boosted morale. Lysandra opens up to Ephanna about how poorly she is handling the mission she has been given. She is upset with how difficult it is to keep Mirathorn out of trouble, but is determined to get back to being the group leader. After a nice stretch of peaceful travel, one by one the each member realizes they are humming some sort of song. Even more, they are all humming the same song. Karesmine identifies it as the rhythm she heard the night before, and Ephanna figures out it is the song they all heard the Dustwalker perform at the festival. Up ahead, at\n\n[ev-7a640d26ee]\nrole: session_memory\nauthority: derived_memory\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 22 - Mireward Road and Lysandro.records_meta.json\nline_range: None-None\nunit_id: None\nexcerpt: {   \"source_recap_path\": \"Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md\",   \"campaign_id\": \"longmont-c2\",   \"session_number\": 22,\n\n[ev-a41c23095b]\nrole: session_memory\nauthority: derived_memory\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 22 - Mireward Road and Lysandro.records_meta.jsonl\nline_range: 27-27\nunit_id: u-L0027-03\nexcerpt: And that is how they all met her father Lysandro.\n\n[ev-ffb5066bc9]\nrole: session_memory\nauthority: derived_memory\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 22 - Mireward Road and Lysandro.records_meta.jsonl\nline_range: 17-17\nunit_id: u-L0017-08\nexcerpt: Up ahead, at the fork in the road, is a small building and a sign indicating Mireward 20 miles north.\n\nREJECTED EVIDENCE:\n[rej-001]\nreason_code: source_role_forbidden_for_pipeline_state\nevidence_id: ev-85b3756c9a\nrole: prep_scaffold\nauthority: planning_scaffold\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/mireward_gate_dilemma_d6.md\nexcerpt: - **Lysandro Ironveil** (Lysandra’s **father** — **C2 table canon**) can frame any row with: “Road’s open. Town’s full. If you’re Mirathorn heroes, help or wait — your choice.” Prep name **Hald Voss** superseded at table until recap. - These rows should not resolve the town’s core problem. They expose capacity, resentment, and the difference between apron order and interior strain. - If players create a strong new fact at the gate, promote it after play through the Session 22 recap and Mireward scaffold checklist.\n\n[rej-002]\nreason_code: source_role_forbidden_for_pipeline_state\nevidence_id: ev-602dc27cd4\nrole: prep_scaffold\nauthority: planning_scaffold\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/Session 22 - open GM knobs.md\nexcerpt: | Knob | Question | Write answer to | |------|----------|-----------------| | **Lysandra investigation** | Who is the **“person they spoke about back in the city”** that Lysandra investigated (Session 21)? | `NPCs/captain_lysandra_ironveil/timeline.md` + optional dossier beat | | **Mirathorn timeline / arc** | **Locked** at planning layer — festival **lie**, shared **meat pipeline**, dual front. Day rows + comms in `Mirathorn — rockie-talkie comms timeline.md`; vision in `Campaign 2 — Dual Front Shepherd Arc (GM planning).md`. | Arc doc + comms timeline | | **Mireward** | Town identity, Orin anchor, open §H knobs (town head, patrol return, downwind craft) | `Elderwyld/Cities and Towns/Mirewa\n\n[rej-003]\nreason_code: source_role_forbidden_for_pipeline_state\nevidence_id: ev-665b338721\nrole: prep_scaffold\nauthority: planning_scaffold\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/Session 22 - open GM knobs.md\nexcerpt: **Index:** `Session Prep/session_22/README.md` (corpus hub) · `Docs/Plans/HANDOFF-session-22-travel-north-active-NPCs.md` (agent dispatch)\n\n[rej-004]\nreason_code: authority_forbidden_for_pipeline_state\nevidence_id: ev-84ae08c374\nrole: world_evidence\nauthority: reference_tool\npath: corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/README.md\nexcerpt: 1. **`Mireward_PLACE_BUILD_SCAFFOLD.md`** — current design scaffold (start here while building). 2. `Elderwyld/Roads/mireward_reach_road_d100_encounter_table.md` — travel on the Reach. 3. `Longmont Campaign/Campaign 2/Journey - Mireward Reach (Campaign 2).md` — party distances and camp state. 4. `Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/lysandra_ironveil_mireward_history.md` — **Ironveil family / Lysandra homecoming soap** (C2 table canon from S22 gate). 5. `Elderwyld/Cities and Towns/Mireward/NPCs/lysandro_ironveil/character_seed.md` — gate emeritus (Lysandra’s **father**). 6. `Elderwyld/Cities and Towns/Mossford/README.md` — target hub shape when promotion begins. 7. `El\n\n[rej-005]\nreason_code: authority_forbidden_for_pipeline_state\nevidence_id: ev-d34fd49342\nrole: world_evidence\nauthority: reference_tool\npath: corpus/eldyrwild-markdown/Elderwyld/Roads/mireward_reach_road_d100_encounter_table.md\nexcerpt: document_class: world canon_layer: world campaign_id: null temporal_scope: evergreen session: null origin_session: null last_updated_session: null source_class: seed_reference road_name: \"The Mireward Reach\" road_aliases: \"the North Drift, the Long Tack, the Grey Mud Road (insults), the Shepherd's Shadow (fearful)\"\n\n[rej-006]\nreason_code: source_role_forbidden_for_pipeline_state\nevidence_id: ev-58dd128abb\nrole: prep_scaffold\nauthority: planning_scaffold\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/mireward_gate_dilemma_d6.md\nexcerpt: **Row shape:** `{gate pressure} · {choices} · {what this reveals about Mireward}`\n\n[rej-007]\nreason_code: use_forbidden_by_manifest\nevidence_id: ev-7bc1c5e429\nrole: table_notes\nauthority: pre_canonical_evidence\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/_ingest_staging/session_22_raw_notes.md\nexcerpt: “Is that little Lysandra?” he asks. “No dad, it’s Lieutenant Lysandra now”. And that is how they all met her father Lysandro.\n\n[rej-008]\nreason_code: use_forbidden_by_manifest\nevidence_id: ev-2bf69a3efe\nrole: table_notes\nauthority: pre_canonical_evidence\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/_ingest_staging/session_22_raw_notes.md\nexcerpt: The ride is much more pleasant as both Lysandra and Caelynn are in much better moods. Having a goal and helping the group really boosted morale. Lysandra opens up to Ephanna about how poorly she is handling the mission she has been given. She is upset with how difficult it is to keep Mirathorn out of trouble, but is determined to get back to being the group leader. After a nice stretch of peaceful travel, one by one the each member realizes they are humming some sort of song. Even more, they are all humming the same song. Karesmine identifies it as the rhythm she heard the night before, and Ephanna figures out it is the song they all heard the Dustwalker perform at the festival. Up ahead, at\n\n[rej-009]\nreason_code: authority_forbidden_for_pipeline_state\nevidence_id: ev-378f9adfe9\nrole: world_evidence\nauthority: reference_tool\npath: corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/Mireward_PLACE_BUILD_SCAFFOLD.md\nexcerpt: **Purpose:** **Homecoming soap** when **Captain Lysandra Ironveil** returns north. Mireward is **her birthplace**; Mirathorn is **her rank**. Gate scene **S22:** **Lysandro Ironveil** (**father**) on the wall walk.\n\n[rej-010]\nreason_code: authority_forbidden_for_pipeline_state\nevidence_id: ev-98fc2dce9b\nrole: world_evidence\nauthority: reference_tool\npath: corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/Mireward_PLACE_BUILD_SCAFFOLD.md\nexcerpt: | Source | Use | |--------|-----| | `Longmont Campaign/Campaign 2/Journey - Mireward Reach (Campaign 2).md` | Distances; update on arrival | | `Elderwyld/Roads/mireward_reach_road_d100_encounter_table.md` | Last day rolls before gate | | `Elderwyld/Cities and Towns/Edge of the World/README.md` | Rumor from refugees | | `Longmont Campaign/Campaign 2/Mirathorn — While You Were Away.md` | Comms / festival | | `Elderwyld/Cities and Towns/Mossford/NPCs/sheriff_roderic_marr/` | Marr warned Edge, not Mireward | | `Elderwyld/Shephards Flock/The cult of the Great  Shephard.md` | Lundayell schism DNA; swamp city — **not** what Maera’s family believes about “swamp folk” | | `Longmont Campaign/Campaign\n\n[rej-011]\nreason_code: authority_forbidden_for_pipeline_state\nevidence_id: ev-2431133027\nrole: world_evidence\nauthority: reference_tool\npath: corpus/eldyrwild-markdown/Elderwyld/Roads/mireward_reach_road_d100_encounter_table.md\nexcerpt: Sinkhole opens — reveals old road below this one. Voices carry up clearer than they should.\n\n[rej-012]\nreason_code: authority_forbidden_for_pipeline_state\nevidence_id: ev-715ed0dd86\nrole: world_evidence\nauthority: reference_tool\npath: corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/README.md\nexcerpt: **Table canon (Session 21):** **Mireward** is the **next little town north** on the Mireward Reach — about **five days** from the party’s conical-hill camp at end Session 21 (~five days from Mirathorn along the same road)."
+  },
+  "step_4_validation_and_decision": {
+    "warnings": [],
+    "decision_steps": [
+      {
+        "step": "citation_validation",
+        "llm_citation_failure": false,
+        "citation_warnings": [],
+        "citation_diagnostics": {
+          "cited_evidence_ids": [
+            "ev-8cf057a87d",
+            "ev-cb6ffef5a3",
+            "ev-54e15b78f8",
+            "ev-7a640d26ee"
+          ],
+          "admitted_citation_ids": [
+            "ev-8cf057a87d",
+            "ev-cb6ffef5a3",
+            "ev-54e15b78f8",
+            "ev-7a640d26ee"
+          ],
+          "unknown_citation_ids": [],
+          "rejected_citation_ids": []
+        }
+      },
+      {
+        "step": "acceptance_gate",
+        "decision": "accept_answer",
+        "status": "ok",
+        "answer_source": "llm"
+      }
+    ],
+    "citation_validation": {
+      "citations": [
+        {
+          "evidence_id": "ev-8cf057a87d",
+          "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md",
+          "line_start": 38,
+          "line_end": 38,
+          "source_role": "play_recap",
+          "authority": "canon_play"
+        },
+        {
+          "evidence_id": "ev-cb6ffef5a3",
+          "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md",
+          "line_start": 43,
+          "line_end": 43,
+          "source_role": "play_recap",
+          "authority": "canon_play"
+        },
+        {
+          "evidence_id": "ev-54e15b78f8",
+          "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md",
+          "line_start": 33,
+          "line_end": 33,
+          "source_role": "play_recap",
+          "authority": "canon_play"
+        },
+        {
+          "evidence_id": "ev-7a640d26ee",
+          "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 22 - Mireward Road and Lysandro.records_meta.json",
+          "line_start": null,
+          "line_end": null,
+          "source_role": "session_memory",
+          "authority": "derived_memory"
+        }
+      ],
+      "warnings": [],
+      "diagnostics": {
+        "cited_evidence_ids": [
+          "ev-8cf057a87d",
+          "ev-cb6ffef5a3",
+          "ev-54e15b78f8",
+          "ev-7a640d26ee"
+        ],
+        "admitted_citation_ids": [
+          "ev-8cf057a87d",
+          "ev-cb6ffef5a3",
+          "ev-54e15b78f8",
+          "ev-7a640d26ee"
+        ],
+        "unknown_citation_ids": [],
+        "rejected_citation_ids": []
+      }
+    },
+    "final": {
+      "status": "ok",
+      "grounding_answer_source": "llm",
+      "answer": "The last thing that happened in Session 22 was that the party met Lysandra’s father, Lysandro, when he recognized her on the road: “Is that little Lysandra?” and she replied, “No dad, it’s Lieutenant Lysandra now.” [ev-8cf057a87d][ev-cb6ffef5a3]\n\nA slightly fuller read of the ending is that this came right after the group noticed they were all humming the same song from the Dustwalker performance, and then they reached the fork in the road where Mireward was indicated ahead. [ev-54e15b78f8][ev-7a640d26ee]\n\nIf you want, I can also give you a 1–2 sentence “end of session recap” version."
+    }
+  },
+  "step_1_query_enhancement": {
+    "result": {
+      "original_question": "what was the last thing that happened in Session 22",
+      "effective_question": "Session 22 canon play recap: what was the last event or final beat in Session 22? Use the Session 22 recap / session memory / timeline record, especially the canonical recap for \"Session 22 - Mireward Road and Lysandro\". Aliases: Session 22, S22, canon play recap, session recap, session memory, timeline.",
+      "source": "llm",
+      "warnings": [],
+      "diagnostics": [
+        {
+          "code": "query_enhancement_llm_applied",
+          "aliases": [
+            "Session 22",
+            "S22",
+            "canon play recap",
+            "session recap",
+            "session memory",
+            "timeline"
+          ],
+          "tags": [
+            "session_targeting",
+            "canonical_recap_precedence",
+            "lexical_recall",
+            "concise_retrieval_phrasing",
+            "route_alignment"
+          ]
+        }
+      ]
+    },
+    "request": {
+      "model": "gpt-5.4-mini",
+      "input": "System:\nRewrite a GM planning query for better lexical retrieval over a corpus manifest index. Focus on session targeting, canonical recap precedence, lexical recall, and concise retrieval phrasing.\n\nInput:\n{\"original_question\": \"what was the last thing that happened in Session 22\", \"manifest_index_rows\": [{\"route\": \"evals/c2_live_prep/live/session_23/recap.md\", \"source_role\": \"fresh_recap\", \"authority\": \"pre_canonical_evidence\", \"session_scope\": \"23\"}, {\"route\": \"corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Factions/README.md\", \"source_role\": \"hub_evidence\", \"authority\": \"canon_play\", \"session_scope\": \"21,22,23\"}, {\"route\": \"corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/README.md\", \"source_role\": \"hub_evidence\", \"authority\": \"canon_play\", \"session_scope\": \"21,22,23\"}, {\"route\": \"corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/dustwalker/README.md\", \"source_role\": \"hub_evidence\", \"authority\": \"canon_play\", \"session_scope\": \"21,22,23\"}, {\"route\": \"corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/README.md\", \"source_role\": \"hub_evidence\", \"authority\": \"canon_play\", \"session_scope\": \"21,22,23\"}, {\"route\": \"corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/thrin_branchborn/README.md\", \"source_role\": \"hub_evidence\", \"authority\": \"canon_play\", \"session_scope\": \"21,22,23\"}, {\"route\": \"corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/torbin_jove/README.md\", \"source_role\": \"hub_evidence\", \"authority\": \"canon_play\", \"session_scope\": \"21,22,23\"}, {\"route\": \"corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/baergrom/README.md\", \"source_role\": \"hub_evidence\", \"authority\": \"canon_play\", \"session_scope\": \"21,22,23\"}, {\"route\": \"corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/bonogo/README.md\", \"source_role\": \"hub_evidence\", \"authority\": \"canon_play\", \"session_scope\": \"21,22,23\"}, {\"route\": \"corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/caelynn/README.md\", \"source_role\": \"hub_evidence\", \"authority\": \"canon_play\", \"session_scope\": \"21,22,23\"}, {\"route\": \"corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/ephanna/README.md\", \"source_role\": \"hub_evidence\", \"authority\": \"canon_play\", \"session_scope\": \"21,22,23\"}, {\"route\": \"corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/karsemine/README.md\", \"source_role\": \"hub_evidence\", \"authority\": \"canon_play\", \"session_scope\": \"21,22,23\"}, {\"route\": \"corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/stafl/README.md\", \"source_role\": \"hub_evidence\", \"authority\": \"canon_play\", \"session_scope\": \"21,22,23\"}, {\"route\": \"corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Plot Artifacts/README.md\", \"source_role\": \"hub_evidence\", \"authority\": \"canon_play\", \"session_scope\": \"21,22,23\"}, {\"route\": \"evals/c2_live_prep/live/session_23/event_log.jsonl\", \"source_role\": \"live_event\", \"authority\": \"live_observation\", \"session_scope\": \"23\"}, {\"route\": \"evals/c2_live_prep/live/session_23/live_packet.json\", \"source_role\": \"live_packet\", \"authority\": \"planning_scaffold\", \"session_scope\": \"23\"}, {\"route\": \"corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 21 - Drake Nest Mirathorn Call.md\", \"source_role\": \"play_recap\", \"authority\": \"canon_play\", \"session_scope\": \"21\"}, {\"route\": \"corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md\", \"source_role\": \"play_recap\", \"authority\": \"canon_play\", \"session_scope\": \"22\"}, {\"route\": \"corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 21 - Drake Nest Mirathorn Call.breadcrumbed.md\", \"source_role\": \"play_recap\", \"authority\": \"canon_play\", \"session_scope\": \"21\"}, {\"route\": \"corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.breadcrumbed.md\", \"source_role\": \"play_recap\", \"authority\": \"canon_play\", \"session_scope\": \"22\"}, {\"route\": \"corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 21 - Drake Nest Mirathorn Call.md\", \"source_role\": \"play_recap\", \"authority\": \"canon_play\", \"session_scope\": \"21\"}, {\"route\": \"corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md\", \"source_role\": \"play_recap\", \"authority\": \"canon_play\", \"session_scope\": \"22\"}, {\"route\": \"corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/Session 21 - Mossford Saltfen rumor shop.md\", \"source_role\": \"prep_scaffold\", \"authority\": \"planning_scaffold\", \"session_scope\": \"21\"}, {\"route\": \"corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/Session 21 - Session intro.md\", \"source_role\": \"prep_scaffold\", \"authority\": \"planning_scaffold\", \"session_scope\": \"21\"}, {\"route\": \"corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/Session 21 - brainstorming dump.md\", \"source_role\": \"prep_scaffold\", \"authority\": \"planning_scaffold\", \"session_scope\": \"21\"}, {\"route\": \"corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/Session 21 - prep exercise agentic trace.md\", \"source_role\": \"prep_scaffold\", \"authority\": \"planning_scaffold\", \"session_scope\": \"21\"}, {\"route\": \"corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/Session 22 - open GM knobs.md\", \"source_role\": \"prep_scaffold\", \"authority\": \"planning_scaffold\", \"session_scope\": \"22\"}, {\"route\": \"corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/mireward_gate_dilemma_d6.md\", \"source_role\": \"prep_scaffold\", \"authority\": \"planning_scaffold\", \"session_scope\": \"22\"}, {\"route\": \"corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_planning_anchor.md\", \"source_role\": \"prep_scaffold\", \"authority\": \"planning_scaffold\", \"session_scope\": \"22\"}, {\"route\": \"corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_prep_brief.md\", \"source_role\": \"prep_scaffold\", \"authority\": \"planning_scaffold\", \"session_scope\": \"22\"}, {\"route\": \"corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_travel_to_mireward_runbook.md\", \"source_role\": \"prep_scaffold\", \"authority\": \"planning_scaffold\", \"session_scope\": \"22\"}, {\"route\": \"corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/travel_campfire_d8.md\", \"source_role\": \"prep_scaffold\", \"authority\": \"planning_scaffold\", \"session_scope\": \"22\"}, {\"route\": \"corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/travel_dilemma_d12.md\", \"source_role\": \"prep_scaffold\", \"authority\": \"planning_scaffold\", \"session_scope\": \"22\"}, {\"route\": \"corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/travel_mirathorn_comms_d100.md\", \"source_role\": \"prep_scaffold\", \"authority\": \"planning_scaffold\", \"session_scope\": \"22\"}, {\"route\": \"corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/travel_night_watch_d12.md\", \"source_role\": \"prep_scaffold\", \"authority\": \"planning_scaffold\", \"session_scope\": \"22\"}, {\"route\": \"corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/travel_npc_spotlight_d12.md\", \"source_role\": \"prep_scaffold\", \"authority\": \"planning_scaffold\", \"session_scope\": \"22\"}], \"existing_hubs\": [{\"hub_route\": \"corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Factions/README.md\", \"hub_slug\": \"Factions\", \"hub_class\": \"hub\", \"authority\": \"canon_play\", \"session_scope\": \"21,22,23\"}, {\"hub_route\": \"corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/README.md\", \"hub_slug\": \"captain_lysandra_ironveil\", \"hub_class\": \"npc_hub\", \"authority\": \"canon_play\", \"session_scope\": \"21,22,23\"}, {\"hub_route\": \"corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/dustwalker/README.md\", \"hub_slug\": \"dustwalker\", \"hub_class\": \"npc_hub\", \"authority\": \"canon_play\", \"session_scope\": \"21,22,23\"}, {\"hub_route\": \"corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/README.md\", \"hub_slug\": \"sara_mirathorn_operator\", \"hub_class\": \"npc_hub\", \"authority\": \"canon_play\", \"session_scope\": \"21,22,23\"}, {\"hub_route\": \"corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/thrin_branchborn/README.md\", \"hub_slug\": \"thrin_branchborn\", \"hub_class\": \"npc_hub\", \"authority\": \"canon_play\", \"session_scope\": \"21,22,23\"}, {\"hub_route\": \"corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/torbin_jove/README.md\", \"hub_slug\": \"torbin_jove\", \"hub_class\": \"npc_hub\", \"authority\": \"canon_play\", \"session_scope\": \"21,22,23\"}, {\"hub_route\": \"corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/baergrom/README.md\", \"hub_slug\": \"baergrom\", \"hub_class\": \"pc_hub\", \"authority\": \"canon_play\", \"session_scope\": \"21,22,23\"}, {\"hub_route\": \"corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/bonogo/README.md\", \"hub_slug\": \"bonogo\", \"hub_class\": \"pc_hub\", \"authority\": \"canon_play\", \"session_scope\": \"21,22,23\"}, {\"hub_route\": \"corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/caelynn/README.md\", \"hub_slug\": \"caelynn\", \"hub_class\": \"pc_hub\", \"authority\": \"canon_play\", \"session_scope\": \"21,22,23\"}, {\"hub_route\": \"corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/ephanna/README.md\", \"hub_slug\": \"ephanna\", \"hub_class\": \"pc_hub\", \"authority\": \"canon_play\", \"session_scope\": \"21,22,23\"}, {\"hub_route\": \"corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/karsemine/README.md\", \"hub_slug\": \"karsemine\", \"hub_class\": \"pc_hub\", \"authority\": \"canon_play\", \"session_scope\": \"21,22,23\"}, {\"hub_route\": \"corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/stafl/README.md\", \"hub_slug\": \"stafl\", \"hub_class\": \"pc_hub\", \"authority\": \"canon_play\", \"session_scope\": \"21,22,23\"}, {\"hub_route\": \"corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Plot Artifacts/README.md\", \"hub_slug\": \"Plot Artifacts\", \"hub_class\": \"hub\", \"authority\": \"canon_play\", \"session_scope\": \"21,22,23\"}], \"lexical_match_terms\": [\"last\", \"latest\", \"final\", \"end\", \"happened\", \"event\", \"outcome\", \"beat\", \"session 22\", \"s22\", \"canon play recap\", \"session memory\", \"timeline\", \"play\", \"recap\", \"recaps\", \"mireward\", \"road\", \"lysandro\", \"played\", \"of\", \"what\", \"canonical\", \"memory\", \"session 22 mireward road and lysandro\", \"breadcrumbed\", \"route\", \"anchored\", \"session 22 mireward road and lysandro.breadcrumbed\", \"normalized\", \"retrieval\", \"record\", \"metadata\", \"derived\", \"session 22 mireward road and lysandro.records meta\", \"records\", \"meta\", \"hub\", \"evidence\", \"s21\", \"factions\", \"index\", \"reference\", \"continuity\", \"grounding\", \"raucous\", \"saints\", \"rolling\", \"longhouse\", \"raucous saints of the rolling longhouse\", \"eldyrwild markdown\", \"captain\", \"lysandra\", \"ironveil\", \"npcs\", \"captain lysandra ironveil\", \"read\", \"file\", \"read corpus file\", \"character\", \"dossier\", \"captain lysandra ironveil character dossier\", \"history\", \"lysandra ironveil mireward history\", \"elderwyld\", \"cities\", \"towns\", \"mirathorn\", \"statblock\", \"cr4\", \"captain lysandra ironveil statblock cr4\", \"cr2\", \"captain lysandra ironveil statblock cr2\", \"readme\", \"session recaps\", \"c2\", \"captain lysandra ironveil statblock c2\", \"* statblock *\", \"campaign 2 notes\", \"post\", \"sessnn\", \"captain lysandra ironveil statblock c2 post sessnn\"], \"navigation_guidance\": [\"Use lexical_match_terms as the primary retrieval vocabulary supplied by ingestion and manifest routes.\", \"Prefer queries that align to existing manifest routes and existing hub slugs.\", \"When the question is event-history, prioritize canon play recap and session memory route families.\", \"Treat hub README routes as entry points for continuity context; do not invent hub slugs or routes.\", \"Keep the rewrite grounded in available corpus route families and avoid speculative lore phrasing.\"], \"instructions\": [\"Keep intent unchanged.\", \"Prefer explicit session numbers when present.\", \"Prefer canon play recap/session memory language for event-history questions.\", \"Include lexical cues that improve matching against route tokens and known hub slugs.\", \"Do not invent lore facts.\"]}",
+      "temperature": 0.0,
+      "max_output_tokens": 300,
+      "text": {
+        "format": {
+          "type": "json_schema",
+          "name": "live_query_enhancement_v1",
+          "strict": true,
+          "schema": {
+            "type": "object",
+            "properties": {
+              "enhanced_query": {
+                "type": "string"
+              },
+              "lexical_aliases": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "reasoning_tags": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": [
+              "enhanced_query",
+              "lexical_aliases",
+              "reasoning_tags"
+            ],
+            "additionalProperties": false
+          }
+        }
+      }
+    },
+    "response_output_text": "{\"enhanced_query\":\"Session 22 canon play recap: what was the last event or final beat in Session 22? Use the Session 22 recap / session memory / timeline record, especially the canonical recap for \\\"Session 22 - Mireward Road and Lysandro\\\".\",\"lexical_aliases\":[\"Session 22\",\"S22\",\"canon play recap\",\"session recap\",\"session memory\",\"timeline\",\"final beat\",\"last event\",\"outcome\",\"record\",\"Mireward Road and Lysandro\",\"breadcrumbed\",\"normalized\",\"recap.md\"],\"reasoning_tags\":[\"session_targeting\",\"canonical_recap_precedence\",\"lexical_recall\",\"concise_retrieval_phrasing\",\"route_alignment\"]}"
+  }
+}

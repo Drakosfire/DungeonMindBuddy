@@ -1,0 +1,173 @@
+{
+  "question": "How is Mirathorn Goverened",
+  "target_session": null,
+  "manifest_path": "evals/c2_live_prep/benchmarks/c2s23_dogfood_full_manifest.json",
+  "llm_config": {
+    "provider": "openai",
+    "model": "gpt-5.4-mini",
+    "require_llm": true,
+    "max_output_tokens": 600,
+    "temperature": 0.2
+  },
+  "generated_at": "2026-06-02T16:37:55Z",
+  "step_2_context_packet": {
+    "retrieval_query": "How is Mirathorn Goverened",
+    "effective_question": "How is Mirathorn Goverened",
+    "admitted_count": 12,
+    "rejected_count": 0,
+    "top_admitted": [
+      {
+        "evidence_id": "ev-9e927e50e0",
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/travel_mirathorn_comms_d100.md",
+        "source_role": "prep_scaffold",
+        "authority": "planning_scaffold",
+        "line_start": 55,
+        "line_end": 69,
+        "text_excerpt": "11. **Static lull** · *Heard:* \"—say again? North road? You're breaking—\" · *GM truth:* The caller grazes a real operator queue but cannot hold it. · *Responder knows:* Someone knows the party is northbound. · *Corruption:* n/a · *Cut/Repeat:* Repeat lets the same voice ask, \"How far north?\" 12. **Static lull** · *Heard:* \"If this is road patrol, use channel seven—no, not seven—\" · *GM truth:* Guard channels are being reorganized mid-crisis. · *Responder knows:* A switchboard worker is confused and afraid of procedure. · *Corruption:* n/a · *Cut/Repeat:* Repeat gives a wrong channel number and an immediate cut. 13. **Static lull** · *Heard:* A clean tone holds for six seconds; anyone may spe"
+      },
+      {
+        "evidence_id": "ev-54a6121f43",
+        "path": "corpus/eldyrwild-markdown/Elderwyld/# _Campaign Summary_ Mirathorn Post-Cultist Battle_.md",
+        "source_role": "world_evidence",
+        "authority": "reference_tool",
+        "line_start": null,
+        "line_end": null,
+        "text_excerpt": null
+      },
+      {
+        "evidence_id": "ev-287114206f",
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/README.md",
+        "source_role": "world_evidence",
+        "authority": "reference_tool",
+        "line_start": null,
+        "line_end": null,
+        "text_excerpt": null
+      },
+      {
+        "evidence_id": "ev-c17c51442a",
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/Mirathorn Sewers.md",
+        "source_role": "world_evidence",
+        "authority": "reference_tool",
+        "line_start": null,
+        "line_end": null,
+        "text_excerpt": null
+      },
+      {
+        "evidence_id": "ev-c8010e1dc8",
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/README.md",
+        "source_role": "hub_evidence",
+        "authority": "canon_play",
+        "line_start": null,
+        "line_end": null,
+        "text_excerpt": null
+      }
+    ],
+    "top_rejected": []
+  },
+  "step_3_answer_llm": {
+    "request": {
+      "model": "gpt-5.4-mini",
+      "input": "You are answering a live planning question for a TTRPG campaign.\n\nRules:\n- Every factual campaign claim in your answer must include at least one admitted evidence citation.\n- Use admitted evidence for factual claims.\n- Do not use rejected evidence as support.\n- Cite admitted evidence IDs inline as [ev-...].\n- Distinguish play facts from planning suggestions.\n- Never claim write capability in this response path; it is read-only.\n- If asked to mutate artifacts, explicitly refuse mutation and stay read-only.\n\nQuestion:\nHow is Mirathorn Goverened\n\nADMITTED EVIDENCE:\n[ev-9e927e50e0]\nrole: prep_scaffold\nauthority: planning_scaffold\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/travel_mirathorn_comms_d100.md\nline_range: 55-69\nunit_id: None\nexcerpt: 11. **Static lull** · *Heard:* \"—say again? North road? You're breaking—\" · *GM truth:* The caller grazes a real operator queue but cannot hold it. · *Responder knows:* Someone knows the party is northbound. · *Corruption:* n/a · *Cut/Repeat:* Repeat lets the same voice ask, \"How far north?\" 12. **Static lull** · *Heard:* \"If this is road patrol, use channel seven—no, not seven—\" · *GM truth:* Guard channels are being reorganized mid-crisis. · *Responder knows:* A switchboard worker is confused and afraid of procedure. · *Corruption:* n/a · *Cut/Repeat:* Repeat gives a wrong channel number and an immediate cut. 13. **Static lull** · *Heard:* A clean tone holds for six seconds; anyone may spe\n\n[ev-54a6121f43]\nrole: world_evidence\nauthority: reference_tool\npath: corpus/eldyrwild-markdown/Elderwyld/# _Campaign Summary_ Mirathorn Post-Cultist Battle_.md\nline_range: None-None\nunit_id: None\nexcerpt: \n\n[ev-287114206f]\nrole: world_evidence\nauthority: reference_tool\npath: corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/README.md\nline_range: None-None\nunit_id: None\nexcerpt: \n\n[ev-c17c51442a]\nrole: world_evidence\nauthority: reference_tool\npath: corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/Mirathorn Sewers.md\nline_range: None-None\nunit_id: None\nexcerpt: \n\n[ev-c8010e1dc8]\nrole: hub_evidence\nauthority: canon_play\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/README.md\nline_range: None-None\nunit_id: None\nexcerpt: \n\n[ev-fe12b1acdc]\nrole: hub_evidence\nauthority: canon_play\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/sara_mirathorn_operator_character_dossier.md\nline_range: None-None\nunit_id: None\nexcerpt: \n\n[ev-e2c494e757]\nrole: hub_evidence\nauthority: canon_play\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/timeline.md\nline_range: None-None\nunit_id: None\nexcerpt: \n\n[ev-1905128d39]\nrole: play_recap\nauthority: canon_play\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 21 - Drake Nest Mirathorn Call.md\nline_range: 22-22\nunit_id: None\nexcerpt: Stafl is on first watch, with little happening, until the sky darkens further and he can just make out a huge swarm of wings. Ephanna takes the next watch, and the only notable thing that happens is they find a strangely flat rock, which they put into their pack. Shortly after sunrise Caelynn decides to call Mirathorn again. After a pause she is finally connected with Frank, who sounds very hung over. He apologizes to her, telling Caelynn that the city resumed the Festival and it was a long night. She is very upset at the news about the festival, but before she can tell Frank he abruptly hangs up on her. Now she is devastated. And things don’t appear to be improving. In need of a friend, she\n\n[ev-3f0b03eb81]\nrole: play_recap\nauthority: canon_play\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 21 - Drake Nest Mirathorn Call.breadcrumbed.md\nline_range: 128-128\nunit_id: None\nexcerpt: Stafl is on first watch, with little happening, until the sky darkens further and he can just make out a huge swarm of wings.[PC][Longmont Campaign/Campaign 2/PCs/stafl/] Ephanna takes the next watch, and the only notable thing that happens is they find a strangely flat rock, which they put into their pack.[PC][Longmont Campaign/Campaign 2/PCs/ephanna/] Shortly after sunrise Caelynn decides to call Mirathorn again.[PC][Longmont Campaign/Campaign 2/PCs/caelynn/][Location][Elderwyld/Cities and Towns/Mirathorn/] After a pause she is finally connected with Frank, who sounds very hung over.[PC][Longmont Campaign/Campaign 2/PCs/caelynn/][NPC][Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operat\n\n[ev-8c15f06e33]\nrole: play_recap\nauthority: canon_play\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 21 - Drake Nest Mirathorn Call.md\nline_range: 27-27\nunit_id: None\nexcerpt: Stafl is on first watch, with little happening, until the sky darkens further and he can just make out a huge swarm of wings. Ephanna takes the next watch, and the only notable thing that happens is they find a strangely flat rock, which they put into their pack. Shortly after sunrise Caelynn decides to call Mirathorn again. After a pause she is finally connected with Frank, who sounds very hung over. He apologizes to her, telling Caelynn that the city resumed the Festival and it was a long night. She is very upset at the news about the festival, but before she can tell Frank he abruptly hangs up on her. Now she is devastated. And things don’t appear to be improving. In need of a friend, she\n\n[ev-3d3548f389]\nrole: session_memory\nauthority: derived_memory\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 21 - Drake Nest Mirathorn Call.records_meta.json\nline_range: None-None\nunit_id: None\nexcerpt: {   \"source_recap_path\": \"Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 21 - Drake Nest Mirathorn Call.md\",   \"campaign_id\": \"longmont-c2\",   \"session_number\": 21,\n\n[ev-ed6ae74621]\nrole: session_memory\nauthority: derived_memory\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 21 - Drake Nest Mirathorn Call.records_meta.jsonl\nline_range: None-None\nunit_id: None\nexcerpt: \n\nREJECTED EVIDENCE:\n(none)",
+      "temperature": 0.2,
+      "max_output_tokens": 600
+    },
+    "response_output_text": "I can’t determine **how Mirathorn is governed** from the admitted evidence currently available.\n\nWhat the evidence does show is:\n- Mirathorn has active communications infrastructure, including guard channels and a switchboard/operator queue that is being reorganized during a crisis [ev-9e927e50e0].\n- A recent call reached a Mirathorn operator named Frank, who said the city had resumed the Festival, suggesting there is some functioning civic coordination or public event management [ev-1905128d39].\n- The operator connection was routed through an NPC/operator context in the campaign materials, but the admitted excerpts do not describe the city’s formal government structure [ev-c8010e1dc8][ev-fe12b1acdc].\n\n**Planning suggestion:** If you want to establish Mirathorn’s governance for play, the safest read from the evidence is that it has at least a functioning municipal communications/dispatch layer, but the actual ruling body is not specified in the admitted material [ev-9e927e50e0][ev-1905128d39].\n\nIf you want, I can help you infer a likely governance model from the available clues, but I’ll keep it clearly labeled as speculation.",
+    "result": {
+      "answer": "I can’t determine **how Mirathorn is governed** from the admitted evidence currently available.\n\nWhat the evidence does show is:\n- Mirathorn has active communications infrastructure, including guard channels and a switchboard/operator queue that is being reorganized during a crisis [ev-9e927e50e0].\n- A recent call reached a Mirathorn operator named Frank, who said the city had resumed the Festival, suggesting there is some functioning civic coordination or public event management [ev-1905128d39].\n- The operator connection was routed through an NPC/operator context in the campaign materials, but the admitted excerpts do not describe the city’s formal government structure [ev-c8010e1dc8][ev-fe12b1acdc].\n\n**Planning suggestion:** If you want to establish Mirathorn’s governance for play, the safest read from the evidence is that it has at least a functioning municipal communications/dispatch layer, but the actual ruling body is not specified in the admitted material [ev-9e927e50e0][ev-1905128d39].\n\nIf you want, I can help you infer a likely governance model from the available clues, but I’ll keep it clearly labeled as speculation.",
+      "source": "llm",
+      "warnings": [],
+      "diagnostics": []
+    },
+    "rendered_prompt": "You are answering a live planning question for a TTRPG campaign.\n\nRules:\n- Every factual campaign claim in your answer must include at least one admitted evidence citation.\n- Use admitted evidence for factual claims.\n- Do not use rejected evidence as support.\n- Cite admitted evidence IDs inline as [ev-...].\n- Distinguish play facts from planning suggestions.\n- Never claim write capability in this response path; it is read-only.\n- If asked to mutate artifacts, explicitly refuse mutation and stay read-only.\n\nQuestion:\nHow is Mirathorn Goverened\n\nADMITTED EVIDENCE:\n[ev-9e927e50e0]\nrole: prep_scaffold\nauthority: planning_scaffold\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/travel_mirathorn_comms_d100.md\nline_range: 55-69\nunit_id: None\nexcerpt: 11. **Static lull** · *Heard:* \"—say again? North road? You're breaking—\" · *GM truth:* The caller grazes a real operator queue but cannot hold it. · *Responder knows:* Someone knows the party is northbound. · *Corruption:* n/a · *Cut/Repeat:* Repeat lets the same voice ask, \"How far north?\" 12. **Static lull** · *Heard:* \"If this is road patrol, use channel seven—no, not seven—\" · *GM truth:* Guard channels are being reorganized mid-crisis. · *Responder knows:* A switchboard worker is confused and afraid of procedure. · *Corruption:* n/a · *Cut/Repeat:* Repeat gives a wrong channel number and an immediate cut. 13. **Static lull** · *Heard:* A clean tone holds for six seconds; anyone may spe\n\n[ev-54a6121f43]\nrole: world_evidence\nauthority: reference_tool\npath: corpus/eldyrwild-markdown/Elderwyld/# _Campaign Summary_ Mirathorn Post-Cultist Battle_.md\nline_range: None-None\nunit_id: None\nexcerpt: \n\n[ev-287114206f]\nrole: world_evidence\nauthority: reference_tool\npath: corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/README.md\nline_range: None-None\nunit_id: None\nexcerpt: \n\n[ev-c17c51442a]\nrole: world_evidence\nauthority: reference_tool\npath: corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/Mirathorn Sewers.md\nline_range: None-None\nunit_id: None\nexcerpt: \n\n[ev-c8010e1dc8]\nrole: hub_evidence\nauthority: canon_play\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/README.md\nline_range: None-None\nunit_id: None\nexcerpt: \n\n[ev-fe12b1acdc]\nrole: hub_evidence\nauthority: canon_play\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/sara_mirathorn_operator_character_dossier.md\nline_range: None-None\nunit_id: None\nexcerpt: \n\n[ev-e2c494e757]\nrole: hub_evidence\nauthority: canon_play\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/timeline.md\nline_range: None-None\nunit_id: None\nexcerpt: \n\n[ev-1905128d39]\nrole: play_recap\nauthority: canon_play\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 21 - Drake Nest Mirathorn Call.md\nline_range: 22-22\nunit_id: None\nexcerpt: Stafl is on first watch, with little happening, until the sky darkens further and he can just make out a huge swarm of wings. Ephanna takes the next watch, and the only notable thing that happens is they find a strangely flat rock, which they put into their pack. Shortly after sunrise Caelynn decides to call Mirathorn again. After a pause she is finally connected with Frank, who sounds very hung over. He apologizes to her, telling Caelynn that the city resumed the Festival and it was a long night. She is very upset at the news about the festival, but before she can tell Frank he abruptly hangs up on her. Now she is devastated. And things don’t appear to be improving. In need of a friend, she\n\n[ev-3f0b03eb81]\nrole: play_recap\nauthority: canon_play\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 21 - Drake Nest Mirathorn Call.breadcrumbed.md\nline_range: 128-128\nunit_id: None\nexcerpt: Stafl is on first watch, with little happening, until the sky darkens further and he can just make out a huge swarm of wings.[PC][Longmont Campaign/Campaign 2/PCs/stafl/] Ephanna takes the next watch, and the only notable thing that happens is they find a strangely flat rock, which they put into their pack.[PC][Longmont Campaign/Campaign 2/PCs/ephanna/] Shortly after sunrise Caelynn decides to call Mirathorn again.[PC][Longmont Campaign/Campaign 2/PCs/caelynn/][Location][Elderwyld/Cities and Towns/Mirathorn/] After a pause she is finally connected with Frank, who sounds very hung over.[PC][Longmont Campaign/Campaign 2/PCs/caelynn/][NPC][Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operat\n\n[ev-8c15f06e33]\nrole: play_recap\nauthority: canon_play\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 21 - Drake Nest Mirathorn Call.md\nline_range: 27-27\nunit_id: None\nexcerpt: Stafl is on first watch, with little happening, until the sky darkens further and he can just make out a huge swarm of wings. Ephanna takes the next watch, and the only notable thing that happens is they find a strangely flat rock, which they put into their pack. Shortly after sunrise Caelynn decides to call Mirathorn again. After a pause she is finally connected with Frank, who sounds very hung over. He apologizes to her, telling Caelynn that the city resumed the Festival and it was a long night. She is very upset at the news about the festival, but before she can tell Frank he abruptly hangs up on her. Now she is devastated. And things don’t appear to be improving. In need of a friend, she\n\n[ev-3d3548f389]\nrole: session_memory\nauthority: derived_memory\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 21 - Drake Nest Mirathorn Call.records_meta.json\nline_range: None-None\nunit_id: None\nexcerpt: {   \"source_recap_path\": \"Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 21 - Drake Nest Mirathorn Call.md\",   \"campaign_id\": \"longmont-c2\",   \"session_number\": 21,\n\n[ev-ed6ae74621]\nrole: session_memory\nauthority: derived_memory\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 21 - Drake Nest Mirathorn Call.records_meta.jsonl\nline_range: None-None\nunit_id: None\nexcerpt: \n\nREJECTED EVIDENCE:\n(none)"
+  },
+  "step_4_validation_and_decision": {
+    "warnings": [],
+    "decision_steps": [
+      {
+        "step": "citation_validation",
+        "llm_citation_failure": false,
+        "citation_warnings": [],
+        "citation_diagnostics": {
+          "cited_evidence_ids": [
+            "ev-9e927e50e0",
+            "ev-1905128d39",
+            "ev-c8010e1dc8",
+            "ev-fe12b1acdc"
+          ],
+          "admitted_citation_ids": [
+            "ev-9e927e50e0",
+            "ev-1905128d39",
+            "ev-c8010e1dc8",
+            "ev-fe12b1acdc"
+          ],
+          "unknown_citation_ids": [],
+          "rejected_citation_ids": []
+        }
+      },
+      {
+        "step": "acceptance_gate",
+        "decision": "accept_answer",
+        "status": "ok",
+        "answer_source": "llm"
+      }
+    ],
+    "citation_validation": {
+      "citations": [
+        {
+          "evidence_id": "ev-9e927e50e0",
+          "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/travel_mirathorn_comms_d100.md",
+          "line_start": 55,
+          "line_end": 69,
+          "source_role": "prep_scaffold",
+          "authority": "planning_scaffold"
+        },
+        {
+          "evidence_id": "ev-1905128d39",
+          "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 21 - Drake Nest Mirathorn Call.md",
+          "line_start": 22,
+          "line_end": 22,
+          "source_role": "play_recap",
+          "authority": "canon_play"
+        },
+        {
+          "evidence_id": "ev-c8010e1dc8",
+          "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/README.md",
+          "line_start": null,
+          "line_end": null,
+          "source_role": "hub_evidence",
+          "authority": "canon_play"
+        },
+        {
+          "evidence_id": "ev-fe12b1acdc",
+          "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/sara_mirathorn_operator_character_dossier.md",
+          "line_start": null,
+          "line_end": null,
+          "source_role": "hub_evidence",
+          "authority": "canon_play"
+        }
+      ],
+      "warnings": [],
+      "diagnostics": {
+        "cited_evidence_ids": [
+          "ev-9e927e50e0",
+          "ev-1905128d39",
+          "ev-c8010e1dc8",
+          "ev-fe12b1acdc"
+        ],
+        "admitted_citation_ids": [
+          "ev-9e927e50e0",
+          "ev-1905128d39",
+          "ev-c8010e1dc8",
+          "ev-fe12b1acdc"
+        ],
+        "unknown_citation_ids": [],
+        "rejected_citation_ids": []
+      }
+    },
+    "final": {
+      "status": "ok",
+      "grounding_answer_source": "llm",
+      "answer": "I can’t determine **how Mirathorn is governed** from the admitted evidence currently available.\n\nWhat the evidence does show is:\n- Mirathorn has active communications infrastructure, including guard channels and a switchboard/operator queue that is being reorganized during a crisis [ev-9e927e50e0].\n- A recent call reached a Mirathorn operator named Frank, who said the city had resumed the Festival, suggesting there is some functioning civic coordination or public event management [ev-1905128d39].\n- The operator connection was routed through an NPC/operator context in the campaign materials, but the admitted excerpts do not describe the city’s formal government structure [ev-c8010e1dc8][ev-fe12b1acdc].\n\n**Planning suggestion:** If you want to establish Mirathorn’s governance for play, the safest read from the evidence is that it has at least a functioning municipal communications/dispatch layer, but the actual ruling body is not specified in the admitted material [ev-9e927e50e0][ev-1905128d39].\n\nIf you want, I can help you infer a likely governance model from the available clues, but I’ll keep it clearly labeled as speculation."
+    }
+  }
+}

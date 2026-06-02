@@ -7,6 +7,30 @@ Project-specific learnings, ideas, and follow-ups for the DungeonMindBuddy repo 
 
 Sort newest → oldest within each status; promote with `/promote`; archive with `/done` or `/drop`.
 
+## [IDEA] Corpus ingest — monster & ecology layer (scattered, unorganized) — captured 2026-06-02
+
+**Context:** C2S23 dogfood-full live-query probe: “What is a float goat?” returned honest “no admitted evidence” despite float goats appearing in Session 6 recap, `Campaign 2 Notes.md`, C1 `bubbles_the_float_goat` hub, etc. Those routes sit outside the planning manifest window (S21–23) and were never organized as a discoverable world/ecology layer.
+
+**Insight:** Monster, creature, and ecology material is spread across early recaps, campaign notes, prep docs, and one-off NPC hubs — not ingested into subject hubs, location dossiers, or a reference taxonomy. Retrieval cannot ground lore questions until that content is **intentionally organized** (not just “on disk somewhere”). Not critical for current live-play slice; blocks grounded answers for creature/ecology asks.
+
+**Action:** When capacity allows: (1) inventory scattered monster/ecology mentions (`float goat`, fauna tables, paddock/ritual scenes, etc.), (2) decide hub shape (Elderwyld ecology index vs per-creature mini-hubs vs `reference` roll-table adjacency), (3) ingest with `subject_class` / `document_class` conventions and README suggested-reads, (4) optionally extend manifest or scoring once hubs exist — **not** a scoring-only patch for terms outside activated routes.
+
+**Surfaces when:** Live-query creature/lore questions fail despite corpus hits on disk; planning manifest expansion beyond S21–23; location-hub or world-bible ingest sprints; user asks about fauna, monsters, or ecology grounding.
+
+**Refs:** `evals/c2_live_prep/artifacts/runs/2026-06-02/live_query_trace_dogfood_float_goat.json`; `corpus/.../Session 6 - Recap.md`; `corpus/.../Campaign 2 Notes.md`; `corpus/.../Campaign 1/NPCs/bubbles_the_float_goat/`; `evals/c2_live_prep/benchmarks/c2s23_dogfood_full_manifest.json`.
+
+## [IDEA] Corpus ingest — Mirathorn city council & governance world docs — captured 2026-06-02
+
+**Context:** C2S23 dogfood-full live-query probe: “How is Mirathorn Goverened?” admitted prep comms, README, sewers, campaign summary — **not** `The City of Mirathorn.md` or `City Council Building/The City Council.md`, though both are in the dogfood manifest. `The City of Mirathorn.md` states governance explicitly (“democratic city-state governed by a council…”). Answer was “can’t determine governance” — a **retrieval miss**, not an authority-trap.
+
+**Insight:** Mirathorn world-layer docs exist on disk and in manifest, but council/governance content is not **hub-organized** for discovery (README suggested-reads, location dossier priority, council building as a sub-hub). Scoring alone won’t reliably win “how is X governed” against prep/comms noise until ingest makes governance docs first-class navigation targets.
+
+**Action:** Thoughtful ingest pass for Mirathorn civic layer: (1) audit `Elderwyld/Cities and Towns/Mirathorn/` — `The City of Mirathorn.md`, `City Council Building/The City Council.md`, related NPC seeds; (2) align Mirathorn hub README (suggested reads + mechanical/priority table for governance vs comms vs sewers); (3) consider `City Council Building/` as a location sub-hub per `Docs/CONVENTION-Location-Hub.md`; (4) after hub shape is stable, add hub-world gold question(s) for governance retrieval; (5) only then tune manifest scoring if dossier still loses to prep_scaffold.
+
+**Surfaces when:** Mirathorn governance, council, or civic-structure questions; dogfood-full hub-world benchmark expansion; location-hub lint or README work under `Mirathorn/`; live-query retrieval misses on world docs that are manifest-present but rank poorly.
+
+**Refs:** `evals/c2_live_prep/artifacts/runs/2026-06-02/live_query_trace_dogfood_mirathorn_governance.json`; `corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/The City of Mirathorn.md`; `corpus/.../Mirathorn/City Council Building/The City Council.md`; `corpus/.../Mirathorn/README.md`; `Docs/CONVENTION-Location-Hub.md`; `evals/c2_live_prep/benchmarks/c2s23_hub_world_query_gold.json`.
+
 ## [READY] Ingest guardrail — deterministic duplicate-normalized handling for session materialization — captured 2026-05-30
 
 **Context:** Session 22 live ingest blocked at `materialize_session_memory` despite breadcrumb being present. Root causes stacked: (1) duplicate `_normalized/Session 22*.md` files, and (2) a **mis-promoted prep/staging doc** (`Session 22 - Mireward Gate Lysandro Ironveil.md` — body literally says "Staging only — not canon") had been written through normalize/breadcrumb/session-memory while the real played recap lived under `Mireward Road and Lysandro`. UI surfaced a long-lived warning toast, which looked like a hung job rather than an immediate deterministic precondition failure.

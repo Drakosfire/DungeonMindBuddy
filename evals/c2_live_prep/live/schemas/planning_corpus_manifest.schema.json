@@ -13,7 +13,10 @@
   "properties": {
     "schema": {
       "type": "string",
-      "const": "dmb_c2s23_planning_corpus_manifest_v0"
+      "enum": [
+        "dmb_c2s23_planning_corpus_manifest_v0",
+        "dmb_c2s23_dogfood_full_manifest_v1"
+      ]
     },
     "campaign_id": {
       "type": "string",
@@ -72,7 +75,8 @@
               "live_packet",
               "live_event",
               "fresh_recap",
-              "hub_evidence"
+              "hub_evidence",
+              "world_evidence"
             ]
           },
           "authority": {

@@ -1,0 +1,2261 @@
+{
+  "schema": "dmb_ingested_corpus_library_v1",
+  "generated_at": "2026-06-02T16:13:17Z",
+  "corpus_root": "corpus/eldyrwild-markdown",
+  "summary": {
+    "campaign_count": 2,
+    "session_pipeline_tiers": {
+      "breadcrumb_memory": 5,
+      "full_with_staging": 2,
+      "normalized_only": 32
+    },
+    "pilot_blessed_sessions": [
+      {
+        "campaign_id": "longmont-c1",
+        "session": 1
+      },
+      {
+        "campaign_id": "longmont-c1",
+        "session": 2
+      },
+      {
+        "campaign_id": "longmont-c1",
+        "session": 3
+      },
+      {
+        "campaign_id": "longmont-c1",
+        "session": 13
+      },
+      {
+        "campaign_id": "longmont-c2",
+        "session": 20
+      }
+    ],
+    "total_corpus_md_files": 363
+  },
+  "campaigns": [
+    {
+      "campaign_id": "longmont-c1",
+      "campaign_number": 1,
+      "session_recaps_prefix": "Longmont Campaign/Campaign 1/Session Recaps",
+      "session_count": 17,
+      "sessions": [
+        {
+          "session": 1,
+          "campaign_id": "longmont-c1",
+          "pilot_blessed": true,
+          "pipeline_tier": "breadcrumb_memory",
+          "stages": {
+            "canon_recap": {
+              "route": "Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md",
+              "exists": true,
+              "size_bytes": 2917,
+              "generic_title": false
+            },
+            "normalized": {
+              "route": "Longmont Campaign/Campaign 1/Session Recaps/_normalized/Session 01 - Stonebridge and Glowkindle Rats.md",
+              "exists": true,
+              "size_bytes": 3130
+            },
+            "breadcrumbed": {
+              "route": "Longmont Campaign/Campaign 1/Session Recaps/_breadcrumbed/Session 01 - Stonebridge and Glowkindle Rats.breadcrumbed.md",
+              "exists": true,
+              "size_bytes": 9960
+            },
+            "session_memory_jsonl": {
+              "route": "Longmont Campaign/Campaign 1/Session Recaps/_session_memory/Session 01 - Stonebridge and Glowkindle Rats.records_meta.jsonl",
+              "exists": true,
+              "size_bytes": 18773
+            },
+            "session_memory_meta": {
+              "route": "Longmont Campaign/Campaign 1/Session Recaps/_session_memory/Session 01 - Stonebridge and Glowkindle Rats.records_meta.json",
+              "exists": true,
+              "size_bytes": 357
+            }
+          }
+        },
+        {
+          "session": 2,
+          "campaign_id": "longmont-c1",
+          "pilot_blessed": true,
+          "pipeline_tier": "breadcrumb_memory",
+          "stages": {
+            "canon_recap": {
+              "route": "Longmont Campaign/Campaign 1/Session Recaps/Session 2 - Finishing the Job.md",
+              "exists": true,
+              "size_bytes": 1548,
+              "generic_title": false
+            },
+            "normalized": {
+              "route": "Longmont Campaign/Campaign 1/Session Recaps/_normalized/Session 02 - Finishing the Job.md",
+              "exists": true,
+              "size_bytes": 1740
+            },
+            "breadcrumbed": {
+              "route": "Longmont Campaign/Campaign 1/Session Recaps/_breadcrumbed/Session 02 - Finishing the Job.breadcrumbed.md",
+              "exists": true,
+              "size_bytes": 6775
+            },
+            "session_memory_jsonl": {
+              "route": "Longmont Campaign/Campaign 1/Session Recaps/_session_memory/Session 02 - Finishing the Job.records_meta.jsonl",
+              "exists": true,
+              "size_bytes": 9448
+            },
+            "session_memory_meta": {
+              "route": "Longmont Campaign/Campaign 1/Session Recaps/_session_memory/Session 02 - Finishing the Job.records_meta.json",
+              "exists": true,
+              "size_bytes": 343
+            }
+          }
+        },
+        {
+          "session": 3,
+          "campaign_id": "longmont-c1",
+          "pilot_blessed": true,
+          "pipeline_tier": "breadcrumb_memory",
+          "stages": {
+            "canon_recap": {
+              "route": "Longmont Campaign/Campaign 1/Session Recaps/Session 3 - The Stone Bridge Flood.md",
+              "exists": true,
+              "size_bytes": 5439,
+              "generic_title": false
+            },
+            "normalized": {
+              "route": "Longmont Campaign/Campaign 1/Session Recaps/_normalized/Session 03 - The Stone Bridge Flood.md",
+              "exists": true,
+              "size_bytes": 5628
+            },
+            "breadcrumbed": {
+              "route": "Longmont Campaign/Campaign 1/Session Recaps/_breadcrumbed/Session 03 - The Stone Bridge Flood.breadcrumbed.md",
+              "exists": true,
+              "size_bytes": 21591
+            },
+            "session_memory_jsonl": {
+              "route": "Longmont Campaign/Campaign 1/Session Recaps/_session_memory/Session 03 - The Stone Bridge Flood.records_meta.jsonl",
+              "exists": true,
+              "size_bytes": 58425
+            },
+            "session_memory_meta": {
+              "route": "Longmont Campaign/Campaign 1/Session Recaps/_session_memory/Session 03 - The Stone Bridge Flood.records_meta.json",
+              "exists": true,
+              "size_bytes": 348
+            }
+          }
+        },
+        {
+          "session": 4,
+          "campaign_id": "longmont-c1",
+          "pilot_blessed": false,
+          "pipeline_tier": "normalized_only",
+          "stages": {
+            "canon_recap": {
+              "route": "Longmont Campaign/Campaign 1/Session Recaps/Session 4 - The Grotesque Tree of Hempholm.md",
+              "exists": true,
+              "size_bytes": 3766,
+              "generic_title": false
+            },
+            "normalized": {
+              "route": "Longmont Campaign/Campaign 1/Session Recaps/_normalized/Session 04 - The Grotesque Tree of Hempholm.md",
+              "exists": true,
+              "size_bytes": 3354
+            }
+          }
+        },
+        {
+          "session": 5,
+          "campaign_id": "longmont-c1",
+          "pilot_blessed": false,
+          "pipeline_tier": "normalized_only",
+          "stages": {
+            "canon_recap": {
+              "route": "Longmont Campaign/Campaign 1/Session Recaps/Session 5 - Underneath Hempholm.md",
+              "exists": true,
+              "size_bytes": 3569,
+              "generic_title": false
+            },
+            "normalized": {
+              "route": "Longmont Campaign/Campaign 1/Session Recaps/_normalized/Session 05 - Underneath Hempholm.md",
+              "exists": true,
+              "size_bytes": 3117
+            }
+          }
+        },
+        {
+          "session": 6,
+          "campaign_id": "longmont-c1",
+          "pilot_blessed": false,
+          "pipeline_tier": "normalized_only",
+          "stages": {
+            "canon_recap": {
+              "route": "Longmont Campaign/Campaign 1/Session Recaps/Session 6 - The Road to Miraholm.md",
+              "exists": true,
+              "size_bytes": 4481,
+              "generic_title": false
+            },
+            "normalized": {
+              "route": "Longmont Campaign/Campaign 1/Session Recaps/_normalized/Session 06 - The Road to Miraholm.md",
+              "exists": true,
+              "size_bytes": 3831
+            }
+          }
+        },
+        {
+          "session": 7,
+          "campaign_id": "longmont-c1",
+          "pilot_blessed": false,
+          "pipeline_tier": "normalized_only",
+          "stages": {
+            "canon_recap": {
+              "route": "Longmont Campaign/Campaign 1/Session Recaps/Session 7 - Passing Mirathorn Gates.md",
+              "exists": true,
+              "size_bytes": 5502,
+              "generic_title": false
+            },
+            "normalized": {
+              "route": "Longmont Campaign/Campaign 1/Session Recaps/_normalized/Session 07 - Passing Mirathorn Gates.md",
+              "exists": true,
+              "size_bytes": 5628
+            }
+          }
+        },
+        {
+          "session": 8,
+          "campaign_id": "longmont-c1",
+          "pilot_blessed": false,
+          "pipeline_tier": "normalized_only",
+          "stages": {
+            "canon_recap": {
+              "route": "Longmont Campaign/Campaign 1/Session Recaps/Session 8 - Captain Lysandra Quest.md",
+              "exists": true,
+              "size_bytes": 6172,
+              "generic_title": false
+            },
+            "normalized": {
+              "route": "Longmont Campaign/Campaign 1/Session Recaps/_normalized/Session 08 - Captain Lysandra Quest.md",
+              "exists": true,
+              "size_bytes": 6364
+            }
+          }
+        },
+        {
+          "session": 9,
+          "campaign_id": "longmont-c1",
+          "pilot_blessed": false,
+          "pipeline_tier": "normalized_only",
+          "stages": {
+            "canon_recap": {
+              "route": "Longmont Campaign/Campaign 1/Session Recaps/Session 9 - Battle with the Meat Monsters.md",
+              "exists": true,
+              "size_bytes": 6294,
+              "generic_title": false
+            },
+            "normalized": {
+              "route": "Longmont Campaign/Campaign 1/Session Recaps/_normalized/Session 09 - Battle with the Meat Monsters.md",
+              "exists": true,
+              "size_bytes": 4588
+            }
+          }
+        },
+        {
+          "session": 10,
+          "campaign_id": "longmont-c1",
+          "pilot_blessed": false,
+          "pipeline_tier": "normalized_only",
+          "stages": {
+            "canon_recap": {
+              "route": "Longmont Campaign/Campaign 1/Session Recaps/Session 10 - Battle with the Meat Monsters.md",
+              "exists": true,
+              "size_bytes": 3368,
+              "generic_title": false
+            },
+            "normalized": {
+              "route": "Longmont Campaign/Campaign 1/Session Recaps/_normalized/Session 10 - Thraxx and the Last Warehouse.md",
+              "exists": true,
+              "size_bytes": 3447
+            }
+          }
+        },
+        {
+          "session": 11,
+          "campaign_id": "longmont-c1",
+          "pilot_blessed": false,
+          "pipeline_tier": "normalized_only",
+          "stages": {
+            "canon_recap": {
+              "route": "Longmont Campaign/Campaign 1/Session Recaps/Session 11 - Midnight Politics.md",
+              "exists": true,
+              "size_bytes": 4353,
+              "generic_title": false
+            },
+            "normalized": {
+              "route": "Longmont Campaign/Campaign 1/Session Recaps/_normalized/Session 11 - Midnight Politics.md",
+              "exists": true,
+              "size_bytes": 4436
+            }
+          }
+        },
+        {
+          "session": 12,
+          "campaign_id": "longmont-c1",
+          "pilot_blessed": false,
+          "pipeline_tier": "normalized_only",
+          "stages": {
+            "canon_recap": {
+              "route": "Longmont Campaign/Campaign 1/Session Recaps/Session 12 - One Persistent Bugbear or Sneaky Fucking Bugbear.md",
+              "exists": true,
+              "size_bytes": 4481,
+              "generic_title": false
+            },
+            "normalized": {
+              "route": "Longmont Campaign/Campaign 1/Session Recaps/_normalized/Session 12 - The Persistent Bugbear.md",
+              "exists": true,
+              "size_bytes": 4426
+            }
+          }
+        },
+        {
+          "session": 13,
+          "campaign_id": "longmont-c1",
+          "pilot_blessed": true,
+          "pipeline_tier": "breadcrumb_memory",
+          "stages": {
+            "canon_recap": {
+              "route": "Longmont Campaign/Campaign 1/Session Recaps/Session 13 - The Meaty and the Dead.md",
+              "exists": true,
+              "size_bytes": 5931,
+              "generic_title": false
+            },
+            "normalized": {
+              "route": "Longmont Campaign/Campaign 1/Session Recaps/_normalized/Session 13 - The Meaty and the Dead.md",
+              "exists": true,
+              "size_bytes": 5724
+            },
+            "breadcrumbed": {
+              "route": "Longmont Campaign/Campaign 1/Session Recaps/_breadcrumbed/Session 13 - The Meaty and the Dead.breadcrumbed.md",
+              "exists": true,
+              "size_bytes": 12757
+            },
+            "frontmatter_seed": {
+              "route": "Longmont Campaign/Campaign 1/Session Recaps/_breadcrumbed/Session 13 - The Meaty and the Dead.frontmatter_seed.md",
+              "exists": true,
+              "size_bytes": 3189
+            },
+            "session_memory_jsonl": {
+              "route": "Longmont Campaign/Campaign 1/Session Recaps/_session_memory/Session 13 - The Meaty and the Dead.records_meta.jsonl",
+              "exists": true,
+              "size_bytes": 45334
+            },
+            "session_memory_meta": {
+              "route": "Longmont Campaign/Campaign 1/Session Recaps/_session_memory/Session 13 - The Meaty and the Dead.records_meta.json",
+              "exists": true,
+              "size_bytes": 349
+            }
+          }
+        },
+        {
+          "session": 14,
+          "campaign_id": "longmont-c1",
+          "pilot_blessed": false,
+          "pipeline_tier": "normalized_only",
+          "stages": {
+            "canon_recap": {
+              "route": "Longmont Campaign/Campaign 1/Session Recaps/Session 14 - Into the Meat Grinder.md",
+              "exists": true,
+              "size_bytes": 7471,
+              "generic_title": false
+            },
+            "normalized": {
+              "route": "Longmont Campaign/Campaign 1/Session Recaps/_normalized/Session 14 - Into the Meat Grinder.md",
+              "exists": true,
+              "size_bytes": 7271
+            }
+          }
+        },
+        {
+          "session": 15,
+          "campaign_id": "longmont-c1",
+          "pilot_blessed": false,
+          "pipeline_tier": "normalized_only",
+          "stages": {
+            "canon_recap": {
+              "route": "Longmont Campaign/Campaign 1/Session Recaps/Session 15 - Into the Meat Grinder.md",
+              "exists": true,
+              "size_bytes": 5894,
+              "generic_title": false
+            },
+            "normalized": {
+              "route": "Longmont Campaign/Campaign 1/Session Recaps/_normalized/Session 15 - Cult Tunnels and Captain Idris.md",
+              "exists": true,
+              "size_bytes": 6052
+            }
+          }
+        },
+        {
+          "session": 16,
+          "campaign_id": "longmont-c1",
+          "pilot_blessed": false,
+          "pipeline_tier": "normalized_only",
+          "stages": {
+            "canon_recap": {
+              "route": "Longmont Campaign/Campaign 1/Session Recaps/Session 16 - Recap.md",
+              "exists": true,
+              "size_bytes": 5954,
+              "generic_title": true
+            },
+            "normalized": {
+              "route": "Longmont Campaign/Campaign 1/Session Recaps/_normalized/Session 16 - Peacemaker Fiddle Meat Pile.md",
+              "exists": true,
+              "size_bytes": 6132
+            }
+          }
+        },
+        {
+          "session": 17,
+          "campaign_id": "longmont-c1",
+          "pilot_blessed": false,
+          "pipeline_tier": "normalized_only",
+          "stages": {
+            "canon_recap": {
+              "route": "Longmont Campaign/Campaign 1/Session Recaps/Session 17 - Recap.md",
+              "exists": true,
+              "size_bytes": 6135,
+              "generic_title": true
+            },
+            "normalized": {
+              "route": "Longmont Campaign/Campaign 1/Session Recaps/_normalized/Session 17 - Festival Aftermath Loose Ends.md",
+              "exists": true,
+              "size_bytes": 6376
+            }
+          }
+        }
+      ],
+      "hubs": {
+        "npcs": {
+          "hub_kind": "npcs",
+          "entity_count": 21,
+          "file_kind_totals": {
+            "dossier": 4,
+            "readme": 21,
+            "timeline": 15
+          },
+          "entities": [
+            {
+              "slug": "annie_thistlebloom",
+              "files_by_kind": {
+                "readme": [
+                  "Longmont Campaign/Campaign 1/NPCs/annie_thistlebloom/README.md"
+                ]
+              },
+              "file_count": 1
+            },
+            {
+              "slug": "bill_the_belly",
+              "files_by_kind": {
+                "readme": [
+                  "Longmont Campaign/Campaign 1/NPCs/bill_the_belly/README.md"
+                ]
+              },
+              "file_count": 1
+            },
+            {
+              "slug": "bubbles_the_float_goat",
+              "files_by_kind": {
+                "dossier": [
+                  "Longmont Campaign/Campaign 1/NPCs/bubbles_the_float_goat/bubbles_the_float_goat_character_dossier.md"
+                ],
+                "readme": [
+                  "Longmont Campaign/Campaign 1/NPCs/bubbles_the_float_goat/README.md"
+                ],
+                "timeline": [
+                  "Longmont Campaign/Campaign 1/NPCs/bubbles_the_float_goat/timeline.md"
+                ]
+              },
+              "file_count": 3
+            },
+            {
+              "slug": "elite_guard",
+              "files_by_kind": {
+                "readme": [
+                  "Longmont Campaign/Campaign 1/NPCs/elite_guard/README.md"
+                ],
+                "timeline": [
+                  "Longmont Campaign/Campaign 1/NPCs/elite_guard/timeline.md"
+                ]
+              },
+              "file_count": 2
+            },
+            {
+              "slug": "grandma_thistlebloom",
+              "files_by_kind": {
+                "readme": [
+                  "Longmont Campaign/Campaign 1/NPCs/grandma_thistlebloom/README.md"
+                ]
+              },
+              "file_count": 1
+            },
+            {
+              "slug": "grishna",
+              "files_by_kind": {
+                "dossier": [
+                  "Longmont Campaign/Campaign 1/NPCs/grishna/grishna_character_dossier.md"
+                ],
+                "readme": [
+                  "Longmont Campaign/Campaign 1/NPCs/grishna/README.md"
+                ],
+                "timeline": [
+                  "Longmont Campaign/Campaign 1/NPCs/grishna/timeline.md"
+                ]
+              },
+              "file_count": 3
+            },
+            {
+              "slug": "kirfan",
+              "files_by_kind": {
+                "dossier": [
+                  "Longmont Campaign/Campaign 1/NPCs/kirfan/kirfan_character_dossier.md"
+                ],
+                "readme": [
+                  "Longmont Campaign/Campaign 1/NPCs/kirfan/README.md"
+                ],
+                "timeline": [
+                  "Longmont Campaign/Campaign 1/NPCs/kirfan/timeline.md"
+                ]
+              },
+              "file_count": 3
+            },
+            {
+              "slug": "lira",
+              "files_by_kind": {
+                "readme": [
+                  "Longmont Campaign/Campaign 1/NPCs/lira/README.md"
+                ],
+                "timeline": [
+                  "Longmont Campaign/Campaign 1/NPCs/lira/timeline.md"
+                ]
+              },
+              "file_count": 2
+            },
+            {
+              "slug": "mark_jove",
+              "files_by_kind": {
+                "readme": [
+                  "Longmont Campaign/Campaign 1/NPCs/mark_jove/README.md"
+                ]
+              },
+              "file_count": 1
+            },
+            {
+              "slug": "mossglade",
+              "files_by_kind": {
+                "readme": [
+                  "Longmont Campaign/Campaign 1/NPCs/mossglade/README.md"
+                ],
+                "timeline": [
+                  "Longmont Campaign/Campaign 1/NPCs/mossglade/timeline.md"
+                ]
+              },
+              "file_count": 2
+            },
+            {
+              "slug": "necromancer",
+              "files_by_kind": {
+                "readme": [
+                  "Longmont Campaign/Campaign 1/NPCs/necromancer/README.md"
+                ],
+                "timeline": [
+                  "Longmont Campaign/Campaign 1/NPCs/necromancer/timeline.md"
+                ]
+              },
+              "file_count": 2
+            },
+            {
+              "slug": "pippa",
+              "files_by_kind": {
+                "dossier": [
+                  "Longmont Campaign/Campaign 1/NPCs/pippa/pippa_character_dossier.md"
+                ],
+                "readme": [
+                  "Longmont Campaign/Campaign 1/NPCs/pippa/README.md"
+                ],
+                "timeline": [
+                  "Longmont Campaign/Campaign 1/NPCs/pippa/timeline.md"
+                ]
+              },
+              "file_count": 3
+            },
+            {
+              "slug": "professor_cinderbranch",
+              "files_by_kind": {
+                "readme": [
+                  "Longmont Campaign/Campaign 1/NPCs/professor_cinderbranch/README.md"
+                ],
+                "timeline": [
+                  "Longmont Campaign/Campaign 1/NPCs/professor_cinderbranch/timeline.md"
+                ]
+              },
+              "file_count": 2
+            },
+            {
+              "slug": "professor_tealeaf",
+              "files_by_kind": {
+                "readme": [
+                  "Longmont Campaign/Campaign 1/NPCs/professor_tealeaf/README.md"
+                ],
+                "timeline": [
+                  "Longmont Campaign/Campaign 1/NPCs/professor_tealeaf/timeline.md"
+                ]
+              },
+              "file_count": 2
+            },
+            {
+              "slug": "riciberga",
+              "files_by_kind": {
+                "readme": [
+                  "Longmont Campaign/Campaign 1/NPCs/riciberga/README.md"
+                ]
+              },
+              "file_count": 1
+            },
+            {
+              "slug": "sewer_meat_monster",
+              "files_by_kind": {
+                "readme": [
+                  "Longmont Campaign/Campaign 1/NPCs/sewer_meat_monster/README.md"
+                ],
+                "timeline": [
+                  "Longmont Campaign/Campaign 1/NPCs/sewer_meat_monster/timeline.md"
+                ]
+              },
+              "file_count": 2
+            },
+            {
+              "slug": "shepherd",
+              "files_by_kind": {
+                "readme": [
+                  "Longmont Campaign/Campaign 1/NPCs/shepherd/README.md"
+                ],
+                "timeline": [
+                  "Longmont Campaign/Campaign 1/NPCs/shepherd/timeline.md"
+                ]
+              },
+              "file_count": 2
+            },
+            {
+              "slug": "thalia",
+              "files_by_kind": {
+                "readme": [
+                  "Longmont Campaign/Campaign 1/NPCs/thalia/README.md"
+                ],
+                "timeline": [
+                  "Longmont Campaign/Campaign 1/NPCs/thalia/timeline.md"
+                ]
+              },
+              "file_count": 2
+            },
+            {
+              "slug": "torbin",
+              "files_by_kind": {
+                "readme": [
+                  "Longmont Campaign/Campaign 1/NPCs/torbin/README.md"
+                ],
+                "timeline": [
+                  "Longmont Campaign/Campaign 1/NPCs/torbin/timeline.md"
+                ]
+              },
+              "file_count": 2
+            },
+            {
+              "slug": "torvak_hempdealer",
+              "files_by_kind": {
+                "readme": [
+                  "Longmont Campaign/Campaign 1/NPCs/torvak_hempdealer/README.md"
+                ]
+              },
+              "file_count": 1
+            },
+            {
+              "slug": "wolf",
+              "files_by_kind": {
+                "readme": [
+                  "Longmont Campaign/Campaign 1/NPCs/wolf/README.md"
+                ],
+                "timeline": [
+                  "Longmont Campaign/Campaign 1/NPCs/wolf/timeline.md"
+                ]
+              },
+              "file_count": 2
+            }
+          ]
+        },
+        "pcs": {
+          "hub_kind": "pcs",
+          "entity_count": 6,
+          "file_kind_totals": {
+            "dossier": 6,
+            "readme": 6,
+            "timeline": 6
+          },
+          "entities": [
+            {
+              "slug": "baergrom",
+              "files_by_kind": {
+                "dossier": [
+                  "Longmont Campaign/Campaign 1/PCs/baergrom/baergrom_character_dossier.md"
+                ],
+                "readme": [
+                  "Longmont Campaign/Campaign 1/PCs/baergrom/README.md"
+                ],
+                "timeline": [
+                  "Longmont Campaign/Campaign 1/PCs/baergrom/timeline.md"
+                ]
+              },
+              "file_count": 3
+            },
+            {
+              "slug": "bonogo",
+              "files_by_kind": {
+                "dossier": [
+                  "Longmont Campaign/Campaign 1/PCs/bonogo/bonogo_character_dossier.md"
+                ],
+                "readme": [
+                  "Longmont Campaign/Campaign 1/PCs/bonogo/README.md"
+                ],
+                "timeline": [
+                  "Longmont Campaign/Campaign 1/PCs/bonogo/timeline.md"
+                ]
+              },
+              "file_count": 3
+            },
+            {
+              "slug": "caelynn",
+              "files_by_kind": {
+                "dossier": [
+                  "Longmont Campaign/Campaign 1/PCs/caelynn/caelynn_character_dossier.md"
+                ],
+                "readme": [
+                  "Longmont Campaign/Campaign 1/PCs/caelynn/README.md"
+                ],
+                "timeline": [
+                  "Longmont Campaign/Campaign 1/PCs/caelynn/timeline.md"
+                ]
+              },
+              "file_count": 3
+            },
+            {
+              "slug": "ephanna",
+              "files_by_kind": {
+                "dossier": [
+                  "Longmont Campaign/Campaign 1/PCs/ephanna/ephanna_character_dossier.md"
+                ],
+                "readme": [
+                  "Longmont Campaign/Campaign 1/PCs/ephanna/README.md"
+                ],
+                "timeline": [
+                  "Longmont Campaign/Campaign 1/PCs/ephanna/timeline.md"
+                ]
+              },
+              "file_count": 3
+            },
+            {
+              "slug": "karsemine",
+              "files_by_kind": {
+                "dossier": [
+                  "Longmont Campaign/Campaign 1/PCs/karsemine/karsemine_character_dossier.md"
+                ],
+                "readme": [
+                  "Longmont Campaign/Campaign 1/PCs/karsemine/README.md"
+                ],
+                "timeline": [
+                  "Longmont Campaign/Campaign 1/PCs/karsemine/timeline.md"
+                ]
+              },
+              "file_count": 3
+            },
+            {
+              "slug": "stafl",
+              "files_by_kind": {
+                "dossier": [
+                  "Longmont Campaign/Campaign 1/PCs/stafl/stafl_character_dossier.md"
+                ],
+                "readme": [
+                  "Longmont Campaign/Campaign 1/PCs/stafl/README.md"
+                ],
+                "timeline": [
+                  "Longmont Campaign/Campaign 1/PCs/stafl/timeline.md"
+                ]
+              },
+              "file_count": 3
+            }
+          ]
+        },
+        "locations": {
+          "hub_kind": "locations",
+          "entity_count": 10,
+          "file_kind_totals": {
+            "readme": 10
+          },
+          "entities": [
+            {
+              "slug": "basement_morgue",
+              "files_by_kind": {
+                "readme": [
+                  "Longmont Campaign/Campaign 1/Locations/basement_morgue/README.md"
+                ]
+              },
+              "file_count": 1
+            },
+            {
+              "slug": "council_chambers",
+              "files_by_kind": {
+                "readme": [
+                  "Longmont Campaign/Campaign 1/Locations/council_chambers/README.md"
+                ]
+              },
+              "file_count": 1
+            },
+            {
+              "slug": "hempholm",
+              "files_by_kind": {
+                "readme": [
+                  "Longmont Campaign/Campaign 1/Locations/hempholm/README.md"
+                ]
+              },
+              "file_count": 1
+            },
+            {
+              "slug": "infirmary",
+              "files_by_kind": {
+                "readme": [
+                  "Longmont Campaign/Campaign 1/Locations/infirmary/README.md"
+                ]
+              },
+              "file_count": 1
+            },
+            {
+              "slug": "ritual_room",
+              "files_by_kind": {
+                "readme": [
+                  "Longmont Campaign/Campaign 1/Locations/ritual_room/README.md"
+                ]
+              },
+              "file_count": 1
+            },
+            {
+              "slug": "rivers_edge_pub",
+              "files_by_kind": {
+                "readme": [
+                  "Longmont Campaign/Campaign 1/Locations/rivers_edge_pub/README.md"
+                ]
+              },
+              "file_count": 1
+            },
+            {
+              "slug": "stone_bridge",
+              "files_by_kind": {
+                "readme": [
+                  "Longmont Campaign/Campaign 1/Locations/stone_bridge/README.md"
+                ]
+              },
+              "file_count": 1
+            },
+            {
+              "slug": "stormspire_academy",
+              "files_by_kind": {
+                "readme": [
+                  "Longmont Campaign/Campaign 1/Locations/stormspire_academy/README.md"
+                ]
+              },
+              "file_count": 1
+            },
+            {
+              "slug": "study_room",
+              "files_by_kind": {
+                "readme": [
+                  "Longmont Campaign/Campaign 1/Locations/study_room/README.md"
+                ]
+              },
+              "file_count": 1
+            },
+            {
+              "slug": "tunnel_entrance",
+              "files_by_kind": {
+                "readme": [
+                  "Longmont Campaign/Campaign 1/Locations/tunnel_entrance/README.md"
+                ]
+              },
+              "file_count": 1
+            }
+          ]
+        },
+        "factions": {
+          "hub_kind": "factions",
+          "entity_count": 0,
+          "entities": []
+        },
+        "plot artifacts": {
+          "hub_kind": "plot artifacts",
+          "entity_count": 0,
+          "entities": []
+        }
+      },
+      "session_prep": [],
+      "loose_markdown": [
+        {
+          "route": "Longmont Campaign/Campaign 1/Longmont Campaign General Notes.md",
+          "basename": "Longmont Campaign General Notes.md"
+        }
+      ],
+      "registries": [
+        {
+          "route": "Longmont Campaign/Campaign 1/_npc_registry.json",
+          "exists": true,
+          "size_bytes": 2628
+        }
+      ]
+    },
+    {
+      "campaign_id": "longmont-c2",
+      "campaign_number": 2,
+      "session_recaps_prefix": "Longmont Campaign/Campaign 2/Session Recaps",
+      "session_count": 22,
+      "sessions": [
+        {
+          "session": 1,
+          "campaign_id": "longmont-c2",
+          "pilot_blessed": false,
+          "pipeline_tier": "normalized_only",
+          "stages": {
+            "canon_recap": {
+              "route": "Longmont Campaign/Campaign 2/Session Recaps/Session 1 - Let the Games Begin.md",
+              "exists": true,
+              "size_bytes": 5303,
+              "generic_title": false
+            },
+            "normalized": {
+              "route": "Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 01 - Let the Games Begin.md",
+              "exists": true,
+              "size_bytes": 5532
+            }
+          }
+        },
+        {
+          "session": 2,
+          "campaign_id": "longmont-c2",
+          "pilot_blessed": false,
+          "pipeline_tier": "normalized_only",
+          "stages": {
+            "canon_recap": {
+              "route": "Longmont Campaign/Campaign 2/Session Recaps/Session 2 - Recap.md",
+              "exists": true,
+              "size_bytes": 8630,
+              "generic_title": true
+            },
+            "normalized": {
+              "route": "Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 02 - Steel Fangs Colosseum.md",
+              "exists": true,
+              "size_bytes": 8840
+            }
+          }
+        },
+        {
+          "session": 3,
+          "campaign_id": "longmont-c2",
+          "pilot_blessed": false,
+          "pipeline_tier": "normalized_only",
+          "stages": {
+            "canon_recap": {
+              "route": "Longmont Campaign/Campaign 2/Session Recaps/Session 3 - Recap.md",
+              "exists": true,
+              "size_bytes": 9817,
+              "generic_title": true
+            },
+            "normalized": {
+              "route": "Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 03 - Storms Torbin and Shepherd.md",
+              "exists": true,
+              "size_bytes": 10032
+            }
+          }
+        },
+        {
+          "session": 4,
+          "campaign_id": "longmont-c2",
+          "pilot_blessed": false,
+          "pipeline_tier": "normalized_only",
+          "stages": {
+            "canon_recap": {
+              "route": "Longmont Campaign/Campaign 2/Session Recaps/Session 4 - Recap.md",
+              "exists": true,
+              "size_bytes": 11650,
+              "generic_title": true
+            },
+            "normalized": {
+              "route": "Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 04 - Wolf Manor Mage Duel.md",
+              "exists": true,
+              "size_bytes": 11859
+            }
+          }
+        },
+        {
+          "session": 5,
+          "campaign_id": "longmont-c2",
+          "pilot_blessed": false,
+          "pipeline_tier": "normalized_only",
+          "stages": {
+            "canon_recap": {
+              "route": "Longmont Campaign/Campaign 2/Session Recaps/Session 5 - Recap.md",
+              "exists": true,
+              "size_bytes": 6811,
+              "generic_title": true
+            },
+            "normalized": {
+              "route": "Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 05 - Lysandra Tea Guardhouse.md",
+              "exists": true,
+              "size_bytes": 7023
+            }
+          }
+        },
+        {
+          "session": 6,
+          "campaign_id": "longmont-c2",
+          "pilot_blessed": false,
+          "pipeline_tier": "normalized_only",
+          "stages": {
+            "canon_recap": {
+              "route": "Longmont Campaign/Campaign 2/Session Recaps/Session 6 - Recap.md",
+              "exists": true,
+              "size_bytes": 9528,
+              "generic_title": true
+            },
+            "normalized": {
+              "route": "Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 06 - Barn Fleshborn Shepherd Wake.md",
+              "exists": true,
+              "size_bytes": 9745
+            }
+          }
+        },
+        {
+          "session": 7,
+          "campaign_id": "longmont-c2",
+          "pilot_blessed": false,
+          "pipeline_tier": "normalized_only",
+          "stages": {
+            "canon_recap": {
+              "route": "Longmont Campaign/Campaign 2/Session Recaps/Session 7 - Recap.md",
+              "exists": true,
+              "size_bytes": 5670,
+              "generic_title": true
+            },
+            "normalized": {
+              "route": "Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 07 - Portals Tentacles Barn.md",
+              "exists": true,
+              "size_bytes": 5881
+            }
+          }
+        },
+        {
+          "session": 8,
+          "campaign_id": "longmont-c2",
+          "pilot_blessed": false,
+          "pipeline_tier": "normalized_only",
+          "stages": {
+            "canon_recap": {
+              "route": "Longmont Campaign/Campaign 2/Session Recaps/Session 8 - Recap.md",
+              "exists": true,
+              "size_bytes": 3736,
+              "generic_title": true
+            },
+            "normalized": {
+              "route": "Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 08 - Dustwalker Cellar Barin Party.md",
+              "exists": true,
+              "size_bytes": 3954
+            }
+          }
+        },
+        {
+          "session": 9,
+          "campaign_id": "longmont-c2",
+          "pilot_blessed": false,
+          "pipeline_tier": "normalized_only",
+          "stages": {
+            "canon_recap": {
+              "route": "Longmont Campaign/Campaign 2/Session Recaps/Session 9 - Recap.md",
+              "exists": true,
+              "size_bytes": 5414,
+              "generic_title": true
+            },
+            "normalized": {
+              "route": "Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 09 - Costume Contest Temple Aspitome.md",
+              "exists": true,
+              "size_bytes": 5636
+            }
+          }
+        },
+        {
+          "session": 10,
+          "campaign_id": "longmont-c2",
+          "pilot_blessed": false,
+          "pipeline_tier": "normalized_only",
+          "stages": {
+            "canon_recap": {
+              "route": "Longmont Campaign/Campaign 2/Session Recaps/Session 10 - Recap.md",
+              "exists": true,
+              "size_bytes": 6386,
+              "generic_title": true
+            },
+            "normalized": {
+              "route": "Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 10 - Festival Crafting Elementals.md",
+              "exists": true,
+              "size_bytes": 6605
+            }
+          }
+        },
+        {
+          "session": 11,
+          "campaign_id": "longmont-c2",
+          "pilot_blessed": false,
+          "pipeline_tier": "normalized_only",
+          "stages": {
+            "canon_recap": {
+              "route": "Longmont Campaign/Campaign 2/Session Recaps/Session 11 - Recap.md",
+              "exists": true,
+              "size_bytes": 4688,
+              "generic_title": true
+            },
+            "normalized": {
+              "route": "Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 11 - Coliseum Finals Tealeaf Tea.md",
+              "exists": true,
+              "size_bytes": 4905
+            }
+          }
+        },
+        {
+          "session": 12,
+          "campaign_id": "longmont-c2",
+          "pilot_blessed": false,
+          "pipeline_tier": "normalized_only",
+          "stages": {
+            "canon_recap": {
+              "route": "Longmont Campaign/Campaign 2/Session Recaps/Session 12 - Recap.md",
+              "exists": true,
+              "size_bytes": 5242,
+              "generic_title": true
+            },
+            "normalized": {
+              "route": "Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 12 - Dustwalker Globe Duel.md",
+              "exists": true,
+              "size_bytes": 5453
+            }
+          }
+        },
+        {
+          "session": 13,
+          "campaign_id": "longmont-c2",
+          "pilot_blessed": false,
+          "pipeline_tier": "normalized_only",
+          "stages": {
+            "canon_recap": {
+              "route": "Longmont Campaign/Campaign 2/Session Recaps/Session 13 - Recap.md",
+              "exists": true,
+              "size_bytes": 4585,
+              "generic_title": true
+            },
+            "normalized": {
+              "route": "Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 13 - Council Curfew Swamp March.md",
+              "exists": true,
+              "size_bytes": 4801
+            }
+          }
+        },
+        {
+          "session": 14,
+          "campaign_id": "longmont-c2",
+          "pilot_blessed": false,
+          "pipeline_tier": "normalized_only",
+          "stages": {
+            "canon_recap": {
+              "route": "Longmont Campaign/Campaign 2/Session Recaps/Session 14 - Recap.md",
+              "exists": true,
+              "size_bytes": 7048,
+              "generic_title": true
+            },
+            "normalized": {
+              "route": "Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 14 - Supplies Wolf Crypt Letter.md",
+              "exists": true,
+              "size_bytes": 7264
+            }
+          }
+        },
+        {
+          "session": 15,
+          "campaign_id": "longmont-c2",
+          "pilot_blessed": false,
+          "pipeline_tier": "normalized_only",
+          "stages": {
+            "canon_recap": {
+              "route": "Longmont Campaign/Campaign 2/Session Recaps/Session 15 - Recap.md",
+              "exists": true,
+              "size_bytes": 5724,
+              "generic_title": true
+            },
+            "normalized": {
+              "route": "Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 15 - Ride Out Mossford Ale.md",
+              "exists": true,
+              "size_bytes": 5937
+            }
+          }
+        },
+        {
+          "session": 16,
+          "campaign_id": "longmont-c2",
+          "pilot_blessed": false,
+          "pipeline_tier": "normalized_only",
+          "stages": {
+            "canon_recap": {
+              "route": "Longmont Campaign/Campaign 2/Session Recaps/Session 16 - Recap.md",
+              "exists": true,
+              "size_bytes": 8277,
+              "generic_title": true
+            },
+            "normalized": {
+              "route": "Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 16 - Thinking Tree Sneaking Forest.md",
+              "exists": true,
+              "size_bytes": 8496
+            }
+          }
+        },
+        {
+          "session": 17,
+          "campaign_id": "longmont-c2",
+          "pilot_blessed": false,
+          "pipeline_tier": "normalized_only",
+          "stages": {
+            "canon_recap": {
+              "route": "Longmont Campaign/Campaign 2/Session Recaps/Session 17 - Migrating Forest and Thrin.md",
+              "exists": true,
+              "size_bytes": 6875,
+              "generic_title": false
+            },
+            "normalized": {
+              "route": "Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 17 - Migrating Forest and Thrin.md",
+              "exists": true,
+              "size_bytes": 7112
+            }
+          }
+        },
+        {
+          "session": 18,
+          "campaign_id": "longmont-c2",
+          "pilot_blessed": false,
+          "pipeline_tier": "normalized_only",
+          "stages": {
+            "canon_recap": {
+              "route": "Longmont Campaign/Campaign 2/Session Recaps/Session 18 - Recap.md",
+              "exists": true,
+              "size_bytes": 7262,
+              "generic_title": true
+            },
+            "normalized": {
+              "route": "Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 18 - Wyvern Mother Fallen Spine.md",
+              "exists": true,
+              "size_bytes": 7478
+            }
+          }
+        },
+        {
+          "session": 19,
+          "campaign_id": "longmont-c2",
+          "pilot_blessed": false,
+          "pipeline_tier": "normalized_only",
+          "stages": {
+            "canon_recap": {
+              "route": "Longmont Campaign/Campaign 2/Session Recaps/Session 19 - Recap.md",
+              "exists": true,
+              "size_bytes": 7011,
+              "generic_title": true
+            },
+            "normalized": {
+              "route": "Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 19 - Mossford Plans Stuart Inn.md",
+              "exists": true,
+              "size_bytes": 7228
+            }
+          }
+        },
+        {
+          "session": 20,
+          "campaign_id": "longmont-c2",
+          "pilot_blessed": true,
+          "pipeline_tier": "breadcrumb_memory",
+          "stages": {
+            "canon_recap": {
+              "route": "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md",
+              "exists": true,
+              "size_bytes": 8759,
+              "generic_title": true
+            },
+            "normalized": {
+              "route": "Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 20 - Gnat Swarm Marla Lysandra.md",
+              "exists": true,
+              "size_bytes": 8972
+            },
+            "breadcrumbed": {
+              "route": "Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 20 - Gnat Swarm Marla Lysandra.breadcrumbed.md",
+              "exists": true,
+              "size_bytes": 26273
+            },
+            "frontmatter_seed": {
+              "route": "Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 20 - Gnat Swarm Marla Lysandra.frontmatter_seed.md",
+              "exists": true,
+              "size_bytes": 6666
+            },
+            "session_memory_jsonl": {
+              "route": "Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 20 - Gnat Swarm Marla Lysandra.records_meta.jsonl",
+              "exists": true,
+              "size_bytes": 73991
+            },
+            "session_memory_meta": {
+              "route": "Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 20 - Gnat Swarm Marla Lysandra.records_meta.json",
+              "exists": true,
+              "size_bytes": 352
+            }
+          }
+        },
+        {
+          "session": 21,
+          "campaign_id": "longmont-c2",
+          "pilot_blessed": false,
+          "pipeline_tier": "full_with_staging",
+          "stages": {
+            "canon_recap": {
+              "route": "Longmont Campaign/Campaign 2/Session Recaps/Session 21 - Drake Nest Mirathorn Call.md",
+              "exists": true,
+              "size_bytes": 8172,
+              "generic_title": false
+            },
+            "normalized": {
+              "route": "Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 21 - Drake Nest Mirathorn Call.md",
+              "exists": true,
+              "size_bytes": 8389
+            },
+            "breadcrumbed": {
+              "route": "Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 21 - Drake Nest Mirathorn Call.breadcrumbed.md",
+              "exists": true,
+              "size_bytes": 18797
+            },
+            "frontmatter_seed": {
+              "route": "Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 21 - Drake Nest Mirathorn Call.frontmatter_seed.md",
+              "exists": true,
+              "size_bytes": 5840
+            },
+            "session_memory_jsonl": {
+              "route": "Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 21 - Drake Nest Mirathorn Call.records_meta.jsonl",
+              "exists": true,
+              "size_bytes": 58418
+            },
+            "session_memory_meta": {
+              "route": "Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 21 - Drake Nest Mirathorn Call.records_meta.json",
+              "exists": true,
+              "size_bytes": 352
+            },
+            "ingest_staging": [
+              {
+                "route": "Longmont Campaign/Campaign 2/_ingest_staging/session_21_raw_notes.md",
+                "exists": true,
+                "size_bytes": 7919
+              },
+              {
+                "route": "Longmont Campaign/Campaign 2/_ingest_staging/session_21_raw_notes.orig.md",
+                "exists": true,
+                "size_bytes": 7933
+              }
+            ]
+          }
+        },
+        {
+          "session": 22,
+          "campaign_id": "longmont-c2",
+          "pilot_blessed": false,
+          "pipeline_tier": "full_with_staging",
+          "stages": {
+            "canon_recap": {
+              "route": "Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md",
+              "exists": true,
+              "size_bytes": 9960,
+              "generic_title": false
+            },
+            "normalized": {
+              "route": "Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md",
+              "exists": true,
+              "size_bytes": 10175
+            },
+            "breadcrumbed": {
+              "route": "Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.breadcrumbed.md",
+              "exists": true,
+              "size_bytes": 19912
+            },
+            "frontmatter_seed": {
+              "route": "Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.frontmatter_seed.md",
+              "exists": true,
+              "size_bytes": 5842
+            },
+            "session_memory_jsonl": {
+              "route": "Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 22 - Mireward Road and Lysandro.records_meta.jsonl",
+              "exists": true,
+              "size_bytes": 63735
+            },
+            "session_memory_meta": {
+              "route": "Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 22 - Mireward Road and Lysandro.records_meta.json",
+              "exists": true,
+              "size_bytes": 353
+            },
+            "ingest_staging": [
+              {
+                "route": "Longmont Campaign/Campaign 2/_ingest_staging/session_22_raw_notes.md",
+                "exists": true,
+                "size_bytes": 9689
+              }
+            ]
+          }
+        }
+      ],
+      "hubs": {
+        "npcs": {
+          "hub_kind": "npcs",
+          "entity_count": 5,
+          "file_kind_totals": {
+            "dossier": 5,
+            "other": 2,
+            "readme": 5,
+            "timeline": 5
+          },
+          "entities": [
+            {
+              "slug": "captain_lysandra_ironveil",
+              "files_by_kind": {
+                "dossier": [
+                  "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_character_dossier.md"
+                ],
+                "other": [
+                  "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/lysandra_ironveil_mireward_history.md"
+                ],
+                "readme": [
+                  "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/README.md"
+                ],
+                "timeline": [
+                  "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/timeline.md"
+                ]
+              },
+              "file_count": 4
+            },
+            {
+              "slug": "dustwalker",
+              "files_by_kind": {
+                "dossier": [
+                  "Longmont Campaign/Campaign 2/NPCs/dustwalker/dustwalker_character_dossier.md"
+                ],
+                "readme": [
+                  "Longmont Campaign/Campaign 2/NPCs/dustwalker/README.md"
+                ],
+                "timeline": [
+                  "Longmont Campaign/Campaign 2/NPCs/dustwalker/timeline.md"
+                ]
+              },
+              "file_count": 3
+            },
+            {
+              "slug": "sara_mirathorn_operator",
+              "files_by_kind": {
+                "dossier": [
+                  "Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/sara_mirathorn_operator_character_dossier.md"
+                ],
+                "readme": [
+                  "Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/README.md"
+                ],
+                "timeline": [
+                  "Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/timeline.md"
+                ]
+              },
+              "file_count": 3
+            },
+            {
+              "slug": "thrin_branchborn",
+              "files_by_kind": {
+                "dossier": [
+                  "Longmont Campaign/Campaign 2/NPCs/thrin_branchborn/thrin_branchborn_character_dossier.md"
+                ],
+                "readme": [
+                  "Longmont Campaign/Campaign 2/NPCs/thrin_branchborn/README.md"
+                ],
+                "timeline": [
+                  "Longmont Campaign/Campaign 2/NPCs/thrin_branchborn/timeline.md"
+                ]
+              },
+              "file_count": 3
+            },
+            {
+              "slug": "torbin_jove",
+              "files_by_kind": {
+                "dossier": [
+                  "Longmont Campaign/Campaign 2/NPCs/torbin_jove/torbin_jove_character_dossier.md"
+                ],
+                "other": [
+                  "Longmont Campaign/Campaign 2/NPCs/torbin_jove/torbin_jove_care_guidelines.md"
+                ],
+                "readme": [
+                  "Longmont Campaign/Campaign 2/NPCs/torbin_jove/README.md"
+                ],
+                "timeline": [
+                  "Longmont Campaign/Campaign 2/NPCs/torbin_jove/timeline.md"
+                ]
+              },
+              "file_count": 4
+            }
+          ]
+        },
+        "pcs": {
+          "hub_kind": "pcs",
+          "entity_count": 6,
+          "file_kind_totals": {
+            "dossier": 6,
+            "other": 1,
+            "readme": 6,
+            "statblock": 6,
+            "timeline": 6
+          },
+          "entities": [
+            {
+              "slug": "baergrom",
+              "files_by_kind": {
+                "dossier": [
+                  "Longmont Campaign/Campaign 2/PCs/baergrom/baergrom_character_dossier.md"
+                ],
+                "readme": [
+                  "Longmont Campaign/Campaign 2/PCs/baergrom/README.md"
+                ],
+                "statblock": [
+                  "Longmont Campaign/Campaign 2/PCs/baergrom/baergrom_statblock_dnd_beyond_level5.md"
+                ],
+                "timeline": [
+                  "Longmont Campaign/Campaign 2/PCs/baergrom/timeline.md"
+                ]
+              },
+              "file_count": 4
+            },
+            {
+              "slug": "bonogo",
+              "files_by_kind": {
+                "dossier": [
+                  "Longmont Campaign/Campaign 2/PCs/bonogo/bonogo_character_dossier.md"
+                ],
+                "other": [
+                  "Longmont Campaign/Campaign 2/PCs/bonogo/loot_geomantic_drake_nest.md"
+                ],
+                "readme": [
+                  "Longmont Campaign/Campaign 2/PCs/bonogo/README.md"
+                ],
+                "statblock": [
+                  "Longmont Campaign/Campaign 2/PCs/bonogo/bonogo_statblock_dnd_beyond_level5.md"
+                ],
+                "timeline": [
+                  "Longmont Campaign/Campaign 2/PCs/bonogo/timeline.md"
+                ]
+              },
+              "file_count": 5
+            },
+            {
+              "slug": "caelynn",
+              "files_by_kind": {
+                "dossier": [
+                  "Longmont Campaign/Campaign 2/PCs/caelynn/caelynn_character_dossier.md"
+                ],
+                "readme": [
+                  "Longmont Campaign/Campaign 2/PCs/caelynn/README.md"
+                ],
+                "statblock": [
+                  "Longmont Campaign/Campaign 2/PCs/caelynn/caelynn_statblock_dnd_beyond_level5.md"
+                ],
+                "timeline": [
+                  "Longmont Campaign/Campaign 2/PCs/caelynn/timeline.md"
+                ]
+              },
+              "file_count": 4
+            },
+            {
+              "slug": "ephanna",
+              "files_by_kind": {
+                "dossier": [
+                  "Longmont Campaign/Campaign 2/PCs/ephanna/ephanna_character_dossier.md"
+                ],
+                "readme": [
+                  "Longmont Campaign/Campaign 2/PCs/ephanna/README.md"
+                ],
+                "statblock": [
+                  "Longmont Campaign/Campaign 2/PCs/ephanna/ephanna_statblock_dnd_beyond_level5.md"
+                ],
+                "timeline": [
+                  "Longmont Campaign/Campaign 2/PCs/ephanna/timeline.md"
+                ]
+              },
+              "file_count": 4
+            },
+            {
+              "slug": "karsemine",
+              "files_by_kind": {
+                "dossier": [
+                  "Longmont Campaign/Campaign 2/PCs/karsemine/karsemine_character_dossier.md"
+                ],
+                "readme": [
+                  "Longmont Campaign/Campaign 2/PCs/karsemine/README.md"
+                ],
+                "statblock": [
+                  "Longmont Campaign/Campaign 2/PCs/karsemine/karsemine_statblock_dnd_beyond_level5.md"
+                ],
+                "timeline": [
+                  "Longmont Campaign/Campaign 2/PCs/karsemine/timeline.md"
+                ]
+              },
+              "file_count": 4
+            },
+            {
+              "slug": "stafl",
+              "files_by_kind": {
+                "dossier": [
+                  "Longmont Campaign/Campaign 2/PCs/stafl/stafl_character_dossier.md"
+                ],
+                "readme": [
+                  "Longmont Campaign/Campaign 2/PCs/stafl/README.md"
+                ],
+                "statblock": [
+                  "Longmont Campaign/Campaign 2/PCs/stafl/stafl_statblock_dnd_beyond_level5.md"
+                ],
+                "timeline": [
+                  "Longmont Campaign/Campaign 2/PCs/stafl/timeline.md"
+                ]
+              },
+              "file_count": 4
+            }
+          ]
+        },
+        "locations": {
+          "hub_kind": "locations",
+          "entity_count": 0,
+          "entities": []
+        },
+        "factions": {
+          "hub_kind": "factions",
+          "entity_count": 0,
+          "file_kind_totals": {},
+          "entities": []
+        },
+        "plot artifacts": {
+          "hub_kind": "plot artifacts",
+          "entity_count": 0,
+          "file_kind_totals": {},
+          "entities": []
+        }
+      },
+      "session_prep": [
+        {
+          "session": 2,
+          "route": "Longmont Campaign/Campaign 2/Session Prep/Session 2 Prep.md",
+          "basename": "Session 2 Prep.md"
+        },
+        {
+          "session": 21,
+          "route": "Longmont Campaign/Campaign 2/Session Prep/Session 21 - Mossford Saltfen rumor shop.md",
+          "basename": "Session 21 - Mossford Saltfen rumor shop.md"
+        },
+        {
+          "session": 21,
+          "route": "Longmont Campaign/Campaign 2/Session Prep/Session 21 - Session intro.md",
+          "basename": "Session 21 - Session intro.md"
+        },
+        {
+          "session": 21,
+          "route": "Longmont Campaign/Campaign 2/Session Prep/Session 21 - brainstorming dump.md",
+          "basename": "Session 21 - brainstorming dump.md"
+        },
+        {
+          "session": 21,
+          "route": "Longmont Campaign/Campaign 2/Session Prep/Session 21 - prep exercise agentic trace.md",
+          "basename": "Session 21 - prep exercise agentic trace.md"
+        },
+        {
+          "session": 22,
+          "route": "Longmont Campaign/Campaign 2/Session Prep/Session 22 - open GM knobs.md",
+          "basename": "Session 22 - open GM knobs.md"
+        },
+        {
+          "session": 3,
+          "route": "Longmont Campaign/Campaign 2/Session Prep/Session 3 Prep.md",
+          "basename": "Session 3 Prep.md"
+        },
+        {
+          "session": 20,
+          "route": "Longmont Campaign/Campaign 2/Session Prep/session_20_stacey_stuart_marla_reference.md",
+          "basename": "session_20_stacey_stuart_marla_reference.md"
+        },
+        {
+          "session": null,
+          "route": "Longmont Campaign/Campaign 2/Session Prep/session_22/README.md",
+          "basename": "README.md"
+        },
+        {
+          "session": null,
+          "route": "Longmont Campaign/Campaign 2/Session Prep/session_22/mireward_gate_dilemma_d6.md",
+          "basename": "mireward_gate_dilemma_d6.md"
+        },
+        {
+          "session": 22,
+          "route": "Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_planning_anchor.md",
+          "basename": "session_22_planning_anchor.md"
+        },
+        {
+          "session": 22,
+          "route": "Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_prep_brief.md",
+          "basename": "session_22_prep_brief.md"
+        },
+        {
+          "session": 22,
+          "route": "Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_travel_to_mireward_runbook.md",
+          "basename": "session_22_travel_to_mireward_runbook.md"
+        },
+        {
+          "session": null,
+          "route": "Longmont Campaign/Campaign 2/Session Prep/session_22/travel_campfire_d8.md",
+          "basename": "travel_campfire_d8.md"
+        },
+        {
+          "session": null,
+          "route": "Longmont Campaign/Campaign 2/Session Prep/session_22/travel_dilemma_d12.md",
+          "basename": "travel_dilemma_d12.md"
+        },
+        {
+          "session": null,
+          "route": "Longmont Campaign/Campaign 2/Session Prep/session_22/travel_mirathorn_comms_d100.md",
+          "basename": "travel_mirathorn_comms_d100.md"
+        },
+        {
+          "session": null,
+          "route": "Longmont Campaign/Campaign 2/Session Prep/session_22/travel_night_watch_d12.md",
+          "basename": "travel_night_watch_d12.md"
+        },
+        {
+          "session": null,
+          "route": "Longmont Campaign/Campaign 2/Session Prep/session_22/travel_npc_spotlight_d12.md",
+          "basename": "travel_npc_spotlight_d12.md"
+        },
+        {
+          "session": null,
+          "route": "Longmont Campaign/Campaign 2/Session Prep/session_22/travel_storm_weather_d20.md",
+          "basename": "travel_storm_weather_d20.md"
+        }
+      ],
+      "loose_markdown": [
+        {
+          "route": "Longmont Campaign/Campaign 2/Campaign 2 Notes.md",
+          "basename": "Campaign 2 Notes.md"
+        },
+        {
+          "route": "Longmont Campaign/Campaign 2/Campaign 2 Session Recaps.md",
+          "basename": "Campaign 2 Session Recaps.md"
+        },
+        {
+          "route": "Longmont Campaign/Campaign 2/Campaign 2 — Dual Front Shepherd Arc (GM planning).md",
+          "basename": "Campaign 2 — Dual Front Shepherd Arc (GM planning).md"
+        },
+        {
+          "route": "Longmont Campaign/Campaign 2/Elderwyld_Narrative_Ledger_2.md",
+          "basename": "Elderwyld_Narrative_Ledger_2.md"
+        },
+        {
+          "route": "Longmont Campaign/Campaign 2/Elderwyld_Narrative_Ledger_Campaign2.md",
+          "basename": "Elderwyld_Narrative_Ledger_Campaign2.md"
+        },
+        {
+          "route": "Longmont Campaign/Campaign 2/Factions/README.md",
+          "basename": "README.md"
+        },
+        {
+          "route": "Longmont Campaign/Campaign 2/Factions/Raucous_Saints_of_the_Rolling_Longhouse.md",
+          "basename": "Raucous_Saints_of_the_Rolling_Longhouse.md"
+        },
+        {
+          "route": "Longmont Campaign/Campaign 2/Journey - Mireward Reach (Campaign 2).md",
+          "basename": "Journey - Mireward Reach (Campaign 2).md"
+        },
+        {
+          "route": "Longmont Campaign/Campaign 2/Mirathorn — While You Were Away.md",
+          "basename": "Mirathorn — While You Were Away.md"
+        },
+        {
+          "route": "Longmont Campaign/Campaign 2/Mirathorn — rockie-talkie comms timeline.md",
+          "basename": "Mirathorn — rockie-talkie comms timeline.md"
+        },
+        {
+          "route": "Longmont Campaign/Campaign 2/Plot Artifacts/README.md",
+          "basename": "README.md"
+        },
+        {
+          "route": "Longmont Campaign/Campaign 2/Plot Artifacts/boots_of_crowing_wings.md",
+          "basename": "boots_of_crowing_wings.md"
+        },
+        {
+          "route": "Longmont Campaign/Campaign 2/Story threads backlog.md",
+          "basename": "Story threads backlog.md"
+        }
+      ],
+      "registries": [
+        {
+          "route": "Longmont Campaign/Campaign 2/_npc_registry.json",
+          "exists": true,
+          "size_bytes": 4023
+        },
+        {
+          "route": "Longmont Campaign/Campaign 2/_party_registry.json",
+          "exists": true,
+          "size_bytes": 795
+        }
+      ]
+    }
+  ],
+  "elderwyld": {
+    "exists": true,
+    "md_file_count": 101,
+    "top_level_dirs": [
+      "Cities and Towns",
+      "Events",
+      "Inns and Shops",
+      "Item Cards",
+      "Migrating Forest",
+      "Roads",
+      "Shephards Flock",
+      "Wilderness"
+    ],
+    "mirathorn_npc_sample": {
+      "hub_kind": "elderwyld_npc",
+      "entity_count": 2,
+      "file_kind_totals": {
+        "readme": 2,
+        "seed": 2,
+        "statblock": 3
+      },
+      "entities": [
+        {
+          "slug": "captain_lysandra_ironveil",
+          "files_by_kind": {
+            "readme": [
+              "Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/README.md"
+            ],
+            "seed": [
+              "Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/character_seed.md"
+            ],
+            "statblock": [
+              "Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_statblock_cr2.md",
+              "Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_statblock_cr4.md"
+            ]
+          },
+          "file_count": 4
+        },
+        {
+          "slug": "torbin_jove",
+          "files_by_kind": {
+            "readme": [
+              "Elderwyld/Cities and Towns/Mirathorn/NPCs/torbin_jove/README.md"
+            ],
+            "seed": [
+              "Elderwyld/Cities and Towns/Mirathorn/NPCs/torbin_jove/character_seed.md"
+            ],
+            "statblock": [
+              "Elderwyld/Cities and Towns/Mirathorn/NPCs/torbin_jove/torbin_jove_statblock.md"
+            ]
+          },
+          "file_count": 3
+        }
+      ]
+    },
+    "npc_dir_count": 6
+  },
+  "live_workspaces": [
+    {
+      "session": 22,
+      "workspace_dir": "evals/c2_live_prep/live/session_22",
+      "artifacts": [
+        {
+          "basename": "live_packet.json",
+          "route": "evals/c2_live_prep/live/session_22/live_packet.json"
+        },
+        {
+          "basename": "event_log.jsonl",
+          "route": "evals/c2_live_prep/live/session_22/event_log.jsonl"
+        },
+        {
+          "basename": "current_state.json",
+          "route": "evals/c2_live_prep/live/session_22/current_state.json"
+        },
+        {
+          "basename": "surface_layout.json",
+          "route": "evals/c2_live_prep/live/session_22/surface_layout.json"
+        }
+      ]
+    },
+    {
+      "session": 23,
+      "workspace_dir": "evals/c2_live_prep/live/session_23",
+      "artifacts": [
+        {
+          "basename": "live_packet.json",
+          "route": "evals/c2_live_prep/live/session_23/live_packet.json"
+        },
+        {
+          "basename": "recap.md",
+          "route": "evals/c2_live_prep/live/session_23/recap.md"
+        },
+        {
+          "basename": "event_log.jsonl",
+          "route": "evals/c2_live_prep/live/session_23/event_log.jsonl"
+        },
+        {
+          "basename": "current_state.json",
+          "route": "evals/c2_live_prep/live/session_23/current_state.json"
+        },
+        {
+          "basename": "surface_layout.json",
+          "route": "evals/c2_live_prep/live/session_23/surface_layout.json"
+        }
+      ]
+    }
+  ],
+  "eval_ingest_artifacts": {
+    "merged_session_memory_s21_s22": {
+      "route": "evals/c2_live_prep/artifacts/runs/2026-05-30/merged_session_memory_s21_s22.jsonl",
+      "exists": true,
+      "size_bytes": 122153
+    },
+    "route_equivalence_c1": {
+      "route": "evals/sentence_routing_retrieval_falsification/route_equivalence_longmont_c1_v1.jsonl",
+      "exists": false
+    },
+    "route_equivalence_c2": {
+      "route": "evals/sentence_routing_retrieval_falsification/route_equivalence_longmont_c2_v1.jsonl",
+      "exists": false
+    },
+    "stage_d_vertical_slice": {
+      "route": "evals/stage_d_entity_resolution_vertical_slice",
+      "exists": true,
+      "file_count": 225
+    }
+  },
+  "retrieval_activation": {
+    "c2s23_planning_manifest": {
+      "exists": true,
+      "manifest_path": "evals/c2_live_prep/benchmarks/c2s23_planning_corpus_manifest.json",
+      "schema": "dmb_c2s23_planning_corpus_manifest_v0",
+      "entry_count": 43,
+      "planning_session": 23,
+      "source_sessions": [
+        21,
+        22
+      ],
+      "routes": [
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Factions/README.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/README.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/dustwalker/README.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/README.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/thrin_branchborn/README.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/torbin_jove/README.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/baergrom/README.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/bonogo/README.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/caelynn/README.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/ephanna/README.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/karsemine/README.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/stafl/README.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Plot Artifacts/README.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/Session 21 - Mossford Saltfen rumor shop.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/Session 21 - Session intro.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/Session 21 - brainstorming dump.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/Session 21 - prep exercise agentic trace.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/Session 22 - open GM knobs.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/mireward_gate_dilemma_d6.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_planning_anchor.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_prep_brief.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_travel_to_mireward_runbook.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/travel_campfire_d8.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/travel_dilemma_d12.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/travel_mirathorn_comms_d100.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/travel_night_watch_d12.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/travel_npc_spotlight_d12.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/travel_storm_weather_d20.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 21 - Drake Nest Mirathorn Call.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 21 - Drake Nest Mirathorn Call.breadcrumbed.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.breadcrumbed.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 21 - Drake Nest Mirathorn Call.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 21 - Drake Nest Mirathorn Call.records_meta.json",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 21 - Drake Nest Mirathorn Call.records_meta.jsonl",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 22 - Mireward Road and Lysandro.records_meta.json",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 22 - Mireward Road and Lysandro.records_meta.jsonl",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/_ingest_staging/session_21_raw_notes.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/_ingest_staging/session_22_raw_notes.md",
+        "evals/c2_live_prep/live/session_23/event_log.jsonl",
+        "evals/c2_live_prep/live/session_23/live_packet.json",
+        "evals/c2_live_prep/live/session_23/recap.md"
+      ]
+    },
+    "c2s23_dogfood_full_manifest": {
+      "exists": true,
+      "manifest_path": "evals/c2_live_prep/benchmarks/c2s23_dogfood_full_manifest.json",
+      "schema": "dmb_c2s23_dogfood_full_manifest_v1",
+      "entry_count": 182,
+      "planning_session": 23,
+      "source_sessions": [
+        21,
+        22,
+        23
+      ],
+      "routes": [
+        "corpus/eldyrwild-markdown/Elderwyld/# _Campaign Summary_ Mirathorn Post-Cultist Battle_.md",
+        "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Edge of the World/README.md",
+        "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/City Council Building/Battle with The Wolf and Aftermath.md",
+        "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/City Council Building/The City Council.md",
+        "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/City Council Building/The Council Room.md",
+        "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/City Council Building/The Emergency Council Meeting.md",
+        "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/README.md",
+        "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_statblock_cr2.md",
+        "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_statblock_cr4.md",
+        "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/captain_lysandra_ironveil/character_seed.md",
+        "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/torbin_jove/README.md",
+        "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/torbin_jove/character_seed.md",
+        "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/NPCs/torbin_jove/torbin_jove_statblock.md",
+        "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/README.md",
+        "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/Mirathorn Sewers.md",
+        "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/Sewer Traps.md",
+        "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/allies_hideout.md",
+        "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/loot_room.md",
+        "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/nameless_goddess_temple.md",
+        "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/path_to_temple.md",
+        "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/ritual_chamber.md",
+        "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/README.md",
+        "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/Stormspire Academy.md",
+        "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/What the Wolf knows.md",
+        "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/Wynna Mossglade _ Clerk.md",
+        "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/The City of Mirathorn.md",
+        "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Wolf Manor/Wolf_s Manor Architectural description_.md",
+        "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/Mireward_PLACE_BUILD_SCAFFOLD.md",
+        "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/lysandro_ironveil/character_seed.md",
+        "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/README.md",
+        "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mossford/Mossford_Location_Dossiers/Copper Moss Brewery & Waterwheel Mill.md",
+        "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mossford/Mossford_Location_Dossiers/Dense Worker Housing.md",
+        "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mossford/Mossford_Location_Dossiers/Drying Barns.md",
+        "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mossford/Mossford_Location_Dossiers/Market Square.md",
+        "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mossford/Mossford_Location_Dossiers/Moldyards.md",
+        "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mossford/Mossford_Location_Dossiers/Mossford Inn.md",
+        "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mossford/Mossford_Location_Dossiers/Southern Road.md",
+        "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mossford/Mossford_Location_Dossiers/Stone Bridge.md",
+        "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mossford/Mossford_Location_Dossiers/Stoneweir Dam.md",
+        "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mossford/Mossford_Location_Dossiers/Temple of the Nameless Stone.md",
+        "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mossford/Mossford_Location_Dossiers/Town Hall.md",
+        "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mossford/Mossford_Location_Dossiers/Watch Tower.md",
+        "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mossford/Mossford_Map_Key_and_Gazetteer.md",
+        "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mossford/NPCs/marla_brambleback/README.md",
+        "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mossford/NPCs/marla_brambleback/character_seed.md",
+        "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mossford/NPCs/sheriff_roderic_marr/README.md",
+        "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mossford/NPCs/sheriff_roderic_marr/character_seed.md",
+        "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mossford/NPCs/stacey_brambleback/README.md",
+        "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mossford/NPCs/stacey_brambleback/character_seed.md",
+        "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mossford/NPCs/stuart/README.md",
+        "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mossford/NPCs/stuart/character_seed.md",
+        "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mossford/README.md",
+        "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Stonebridge/NPCs/grishna/README.md",
+        "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Stonebridge/NPCs/grishna/character_seed.md",
+        "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Upriver River Route/NPCs/kirfan/README.md",
+        "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Upriver River Route/NPCs/kirfan/character_seed.md",
+        "corpus/eldyrwild-markdown/Elderwyld/Events/The Festival of Expansion/Events Mechanics.md",
+        "corpus/eldyrwild-markdown/Elderwyld/Events/The Festival of Expansion/Schedule and Event Details/Day Four/Bardic Storytelling Circle.md",
+        "corpus/eldyrwild-markdown/Elderwyld/Events/The Festival of Expansion/Schedule and Event Details/Day Three/Cultural Ceremonies at the Temple of the Aspitome.md",
+        "corpus/eldyrwild-markdown/Elderwyld/Events/The Festival of Expansion/Schedule and Event Details/Day Three/Festival Crafting Chaos.md",
+        "corpus/eldyrwild-markdown/Elderwyld/Events/The Festival of Expansion/Schedule and Event Details/Day Two /Day Two Notes.md",
+        "corpus/eldyrwild-markdown/Elderwyld/Events/The Festival of Expansion/Schedule and Event Details/Event Posters & Pamphlets.md",
+        "corpus/eldyrwild-markdown/Elderwyld/Events/The Festival of Expansion/Schedule and Event Details/Festival of Expansion Schedule.md",
+        "corpus/eldyrwild-markdown/Elderwyld/Events/The Festival of Expansion/The Festival of Expansion.md",
+        "corpus/eldyrwild-markdown/Elderwyld/Events/The Hearthbound Bake-Off/Bakeoff Mechanics.md",
+        "corpus/eldyrwild-markdown/Elderwyld/Events/The Hearthbound Bake-Off/Forageables.md",
+        "corpus/eldyrwild-markdown/Elderwyld/Events/The Hearthbound Bake-Off/Other Teams.md",
+        "corpus/eldyrwild-markdown/Elderwyld/Events/The Hearthbound Bake-Off/The Baked Goods.md",
+        "corpus/eldyrwild-markdown/Elderwyld/Events/The Hearthbound Bake-Off/The Hearthbound Bake-Off.md",
+        "corpus/eldyrwild-markdown/Elderwyld/Events/The Hearthbound Bake-Off/Tilly TuffCrust and Harland Broadquill_.md",
+        "corpus/eldyrwild-markdown/Elderwyld/Inns and Shops/The Copper & Quartz Inn.md",
+        "corpus/eldyrwild-markdown/Elderwyld/Item Cards/Untitled document.md",
+        "corpus/eldyrwild-markdown/Elderwyld/Migrating Forest/Branchbound/README.md",
+        "corpus/eldyrwild-markdown/Elderwyld/Migrating Forest/Branchbound/The Witness Seed.md",
+        "corpus/eldyrwild-markdown/Elderwyld/Migrating Forest/Branchbound/Threnn-of-Second-Bloom.md",
+        "corpus/eldyrwild-markdown/Elderwyld/Migrating Forest/Branchbound/branchbound_culture_pack.md",
+        "corpus/eldyrwild-markdown/Elderwyld/Migrating Forest/Branchbound/branchbound_indirect_help_encounters_ash_in_the_canopy.md",
+        "corpus/eldyrwild-markdown/Elderwyld/Migrating Forest/HEX KEY_ THE MIGRATING FOREST BOARD.md",
+        "corpus/eldyrwild-markdown/Elderwyld/Migrating Forest/README.md",
+        "corpus/eldyrwild-markdown/Elderwyld/Migrating Forest/migrating_forest_d_100_universal_encounter_table.md",
+        "corpus/eldyrwild-markdown/Elderwyld/Migrating Forest/migrating_forest_hex_expansion.md",
+        "corpus/eldyrwild-markdown/Elderwyld/Migrating Forest/the_migrating_forest_executive_dm_summary.md",
+        "corpus/eldyrwild-markdown/Elderwyld/Roads/README.md",
+        "corpus/eldyrwild-markdown/Elderwyld/Roads/mireward_reach_road_d100_encounter_table.md",
+        "corpus/eldyrwild-markdown/Elderwyld/Roads/reach_npc_first_names_d100.md",
+        "corpus/eldyrwild-markdown/Elderwyld/Roads/reach_npc_last_names_d100.md",
+        "corpus/eldyrwild-markdown/Elderwyld/Roads/reach_npc_naming_conventions.md",
+        "corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/NPCs/dustwalker/README.md",
+        "corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/NPCs/dustwalker/character_seed.md",
+        "corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/NPCs/dustwalker/dustwalker_statblock.md",
+        "corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/DustWalker.md",
+        "corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/Tokens/Cultist and Corrupted Meat Token Sheet.md",
+        "corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/Tokens/Shephards Flock Tokens.md",
+        "corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/The cult of the Great  Shephard.md",
+        "corpus/eldyrwild-markdown/Elderwyld/Stonebridge and The Wizard Tower Brewing Co.md",
+        "corpus/eldyrwild-markdown/Elderwyld/The Stonebridge Flood.md",
+        "corpus/eldyrwild-markdown/Elderwyld/UnRefined Heading into the Flesh Kaiju.md",
+        "corpus/eldyrwild-markdown/Elderwyld/Wilderness/conical_hills_night_camp_d100.md",
+        "corpus/eldyrwild-markdown/Elderwyld/Wilderness/geomantic_drake_juvenile_statblock.md",
+        "corpus/eldyrwild-markdown/Elderwyld/Wilderness/geomantic_drake_nest_loot_d100.md",
+        "corpus/eldyrwild-markdown/Elderwyld/Wilderness/pre_era_conical_hills_d20_find.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Factions/README.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Factions/Raucous_Saints_of_the_Rolling_Longhouse.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/README.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/captain_lysandra_ironveil_character_dossier.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/lysandra_ironveil_mireward_history.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/timeline.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/dustwalker/README.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/dustwalker/dustwalker_character_dossier.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/dustwalker/timeline.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/README.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/sara_mirathorn_operator_character_dossier.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/timeline.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/thrin_branchborn/README.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/thrin_branchborn/thrin_branchborn_character_dossier.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/thrin_branchborn/timeline.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/torbin_jove/README.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/torbin_jove/timeline.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/torbin_jove/torbin_jove_care_guidelines.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/torbin_jove/torbin_jove_character_dossier.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/baergrom/README.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/baergrom/baergrom_character_dossier.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/baergrom/baergrom_statblock_dnd_beyond_level5.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/baergrom/timeline.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/bonogo/README.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/bonogo/bonogo_character_dossier.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/bonogo/bonogo_statblock_dnd_beyond_level5.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/bonogo/loot_geomantic_drake_nest.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/bonogo/timeline.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/caelynn/README.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/caelynn/caelynn_character_dossier.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/caelynn/caelynn_statblock_dnd_beyond_level5.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/caelynn/timeline.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/ephanna/README.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/ephanna/ephanna_character_dossier.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/ephanna/ephanna_statblock_dnd_beyond_level5.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/ephanna/timeline.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/karsemine/README.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/karsemine/karsemine_character_dossier.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/karsemine/karsemine_statblock_dnd_beyond_level5.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/karsemine/timeline.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/stafl/README.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/stafl/stafl_character_dossier.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/stafl/stafl_statblock_dnd_beyond_level5.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/PCs/stafl/timeline.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Plot Artifacts/README.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Plot Artifacts/boots_of_crowing_wings.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/Session 21 - Mossford Saltfen rumor shop.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/Session 21 - Session intro.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/Session 21 - brainstorming dump.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/Session 21 - prep exercise agentic trace.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/Session 22 - open GM knobs.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/mireward_gate_dilemma_d6.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_planning_anchor.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_prep_brief.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_travel_to_mireward_runbook.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/travel_campfire_d8.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/travel_dilemma_d12.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/travel_mirathorn_comms_d100.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/travel_night_watch_d12.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/travel_npc_spotlight_d12.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22/travel_storm_weather_d20.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 21 - Drake Nest Mirathorn Call.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 23 - (uningested).md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 21 - Drake Nest Mirathorn Call.breadcrumbed.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 22 - Mireward Road and Lysandro.breadcrumbed.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/Session 23 - (uningested).breadcrumbed.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 21 - Drake Nest Mirathorn Call.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 22 - Mireward Road and Lysandro.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 23 - (uningested).md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 21 - Drake Nest Mirathorn Call.records_meta.json",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 21 - Drake Nest Mirathorn Call.records_meta.jsonl",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 22 - Mireward Road and Lysandro.records_meta.json",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 22 - Mireward Road and Lysandro.records_meta.jsonl",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 23 - (uningested).records_meta.json",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_session_memory/Session 23 - (uningested).records_meta.jsonl",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/_ingest_staging/session_21_raw_notes.md",
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/_ingest_staging/session_22_raw_notes.md",
+        "evals/c2_live_prep/live/session_23/event_log.jsonl",
+        "evals/c2_live_prep/live/session_23/live_packet.json",
+        "evals/c2_live_prep/live/session_23/recap.md"
+      ]
+    },
+    "ingest_routes_on_disk": 249,
+    "ingest_routes_in_c2s23_manifest": 40,
+    "ingest_routes_not_in_c2s23_manifest": 209,
+    "ingest_routes_in_dogfood_full_manifest": 73,
+    "ingest_routes_not_in_dogfood_full_manifest": 176,
+    "sample_routes_not_in_manifest": [
+      "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Locations/basement_morgue/README.md",
+      "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Locations/council_chambers/README.md",
+      "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Locations/hempholm/README.md",
+      "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Locations/infirmary/README.md",
+      "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Locations/ritual_room/README.md",
+      "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Locations/rivers_edge_pub/README.md",
+      "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Locations/stone_bridge/README.md",
+      "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Locations/stormspire_academy/README.md",
+      "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Locations/study_room/README.md",
+      "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Locations/tunnel_entrance/README.md",
+      "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Longmont Campaign General Notes.md",
+      "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/NPCs/annie_thistlebloom/README.md",
+      "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/NPCs/bill_the_belly/README.md",
+      "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/NPCs/bubbles_the_float_goat/README.md",
+      "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/NPCs/bubbles_the_float_goat/bubbles_the_float_goat_character_dossier.md",
+      "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/NPCs/bubbles_the_float_goat/timeline.md",
+      "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/NPCs/elite_guard/README.md",
+      "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/NPCs/elite_guard/timeline.md",
+      "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/NPCs/grandma_thistlebloom/README.md",
+      "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/NPCs/grishna/README.md",
+      "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/NPCs/grishna/grishna_character_dossier.md",
+      "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/NPCs/grishna/timeline.md",
+      "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/NPCs/kirfan/README.md",
+      "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/NPCs/kirfan/kirfan_character_dossier.md",
+      "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/NPCs/kirfan/timeline.md"
+    ],
+    "sample_routes_not_in_dogfood_manifest": [
+      "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Locations/basement_morgue/README.md",
+      "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Locations/council_chambers/README.md",
+      "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Locations/hempholm/README.md",
+      "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Locations/infirmary/README.md",
+      "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Locations/ritual_room/README.md",
+      "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Locations/rivers_edge_pub/README.md",
+      "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Locations/stone_bridge/README.md",
+      "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Locations/stormspire_academy/README.md",
+      "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Locations/study_room/README.md",
+      "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Locations/tunnel_entrance/README.md",
+      "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Longmont Campaign General Notes.md",
+      "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/NPCs/annie_thistlebloom/README.md",
+      "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/NPCs/bill_the_belly/README.md",
+      "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/NPCs/bubbles_the_float_goat/README.md",
+      "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/NPCs/bubbles_the_float_goat/bubbles_the_float_goat_character_dossier.md",
+      "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/NPCs/bubbles_the_float_goat/timeline.md",
+      "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/NPCs/elite_guard/README.md",
+      "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/NPCs/elite_guard/timeline.md",
+      "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/NPCs/grandma_thistlebloom/README.md",
+      "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/NPCs/grishna/README.md",
+      "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/NPCs/grishna/grishna_character_dossier.md",
+      "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/NPCs/grishna/timeline.md",
+      "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/NPCs/kirfan/README.md",
+      "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/NPCs/kirfan/kirfan_character_dossier.md",
+      "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/NPCs/kirfan/timeline.md"
+    ]
+  }
+}

@@ -20,6 +20,7 @@ DEFAULT_OUTPUT = ROOT / "evals/c2_live_prep/artifacts/last_c2s23_context_packet_
 ACCEPTED_GOLD_SCHEMAS = {
     "dmb_c2s23_route_evidence_gold_v1",
     "dmb_c2s23_manifest_query_gold_v1",
+    "dmb_c2s23_hub_world_query_gold_v1",
 }
 ACCEPTED_SUMMARY_SCHEMAS = {
     "dmb_c2s23_trace_context_packet_adapter_run_v1",

@@ -44,6 +44,7 @@ from src.live_play.manifest_context_query import (  # noqa: E402
 )
 
 _DEFAULT_MANIFEST = "evals/c2_live_prep/benchmarks/c2s23_planning_corpus_manifest.json"
+_DOGFOOD_FULL_MANIFEST = "evals/c2_live_prep/benchmarks/c2s23_dogfood_full_manifest.json"
 _DEFAULT_ENHANCEMENT = (
     "evals/c2_live_prep/artifacts/runs/2026-06-01/"
     "live_query_trace_session22_fresh_ingested_lexical.json"
@@ -360,6 +361,17 @@ def run_telemetry_trace(
     return out
 
 
+def _env_flag_enabled(name: str) -> bool:
+    raw = str(os.getenv(name, "")).strip().lower()
+    return raw in {"1", "true", "yes", "on"}
+
+
+def _default_manifest_path() -> str:
+    if _env_flag_enabled(_DOGFOOD_DEFAULTS_ENV):
+        return _DOGFOOD_FULL_MANIFEST
+    return _DEFAULT_MANIFEST
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--question", type=str, default=_DEFAULT_QUESTION)
@@ -369,7 +381,7 @@ def main() -> int:
         default=None,
         help="Scope retrieval to this session when the question omits an explicit session number.",
     )
-    parser.add_argument("--manifest-path", type=str, default=_DEFAULT_MANIFEST)
+    parser.add_argument("--manifest-path", type=str, default=None)
     parser.add_argument("--enhancement-from", type=Path, default=Path(_DEFAULT_ENHANCEMENT))
     parser.add_argument(
         "--no-enhancement",
@@ -396,7 +408,7 @@ def main() -> int:
         if isinstance(enhancement_artifact.get("llm_config"), dict):
             llm_config = dict(enhancement_artifact["llm_config"])
 
-    manifest_path = (ROOT / args.manifest_path).resolve()
+    manifest_path = (ROOT / (args.manifest_path or _default_manifest_path())).resolve()
     trace = run_telemetry_trace(
         question=args.question.strip(),
         manifest_path=manifest_path,

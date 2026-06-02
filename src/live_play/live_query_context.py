@@ -21,6 +21,7 @@ from src.live_play.manifest_context_query import (
 )
 
 _DEFAULT_MANIFEST_PATH = Path("evals/c2_live_prep/benchmarks/c2s23_planning_corpus_manifest.json")
+_DOGFOOD_FULL_MANIFEST_PATH = Path("evals/c2_live_prep/benchmarks/c2s23_dogfood_full_manifest.json")
 _DEFAULT_PRECONDITION_PATHS: dict[str, str] = {
     "canonical_recap_s22": (
         "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/"
@@ -129,7 +130,7 @@ def resolve_manifest_path(
         if isinstance(raw, str) and raw.strip():
             candidates.append(raw.strip())
     if _env_flag_enabled(_DOGFOOD_DEFAULTS_ENV):
-        candidates.append(str(_DEFAULT_MANIFEST_PATH))
+        candidates.append(str(_DOGFOOD_FULL_MANIFEST_PATH))
 
     for candidate in candidates:
         resolved = _resolve_in_repo(candidate)

@@ -11,9 +11,11 @@ from jsonschema import Draft202012Validator
 
 from src.live_play.planning_corpus_manifest import (
     AUTHORITIES,
+    DOGFOOD_FULL_SCHEMA_ID,
     SCHEMA_ID,
     SOURCE_ROLES,
     _AUTHORITY_BY_ROLE,
+    build_dogfood_full_manifest,
     build_planning_corpus_manifest,
     main,
     render_manifest_markdown,
@@ -24,6 +26,7 @@ from src.live_play.session_paths import live_sessions_root
 ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_PATH = ROOT / "evals/c2_live_prep/live/schemas/planning_corpus_manifest.schema.json"
 ARTIFACT_PATH = ROOT / "evals/c2_live_prep/benchmarks/c2s23_planning_corpus_manifest.json"
+DOGFOOD_ARTIFACT_PATH = ROOT / "evals/c2_live_prep/benchmarks/c2s23_dogfood_full_manifest.json"
 CORPUS_ROOT = ROOT / "corpus/eldyrwild-markdown"
 LIVE_WORKSPACE = ROOT / "evals/c2_live_prep/live/session_23"
 BOOTSTRAP_RECAP = ROOT / "tests/fixtures/live_bootstrap/session_22_fresh_recap.md"
@@ -41,6 +44,16 @@ def _build_real() -> dict[str, Any]:
         campaign_id="longmont-c2",
         planning_session=23,
         source_sessions=[21, 22],
+        corpus_root=CORPUS_ROOT,
+        live_workspace_dir=LIVE_WORKSPACE,
+    )
+
+
+def _build_dogfood_full() -> dict[str, Any]:
+    return build_dogfood_full_manifest(
+        campaign_id="longmont-c2",
+        planning_session=23,
+        source_sessions=[21, 22, 23],
         corpus_root=CORPUS_ROOT,
         live_workspace_dir=LIVE_WORKSPACE,
     )
@@ -381,3 +394,58 @@ def test_markdown_mirror_is_deterministic_and_route_only() -> None:
     assert SCHEMA_ID in first
     for entry in manifest["entries"]:
         assert entry["route"] in first
+
+
+# --- dogfood-full manifest -------------------------------------------------------
+
+
+def test_dogfood_full_manifest_validates_and_meets_entry_floor() -> None:
+    manifest = _build_dogfood_full()
+    _validator().validate(manifest)
+    assert manifest["schema"] == DOGFOOD_FULL_SCHEMA_ID
+    assert len(manifest["entries"]) >= 160
+    missing = [e for e in manifest["entries"] if not e["route_exists"]]
+    assert missing
+    assert all("(uningested)" in e["route"] for e in missing)
+
+
+def test_dogfood_full_includes_every_elderwyld_md_once() -> None:
+    manifest = _build_dogfood_full()
+    elderwyld_paths = {
+        p.relative_to(CORPUS_ROOT).as_posix()
+        for p in (CORPUS_ROOT / "Elderwyld").rglob("*.md")
+    }
+    world_routes = {
+        e["route"].removeprefix("corpus/eldyrwild-markdown/")
+        for e in manifest["entries"]
+        if e["source_role"] == "world_evidence"
+    }
+    assert elderwyld_paths == world_routes
+
+
+def test_dogfood_full_includes_c2_hub_satellites() -> None:
+    manifest = _build_dogfood_full()
+    hub_satellite_routes = {
+        e["route"]
+        for e in manifest["entries"]
+        if e["source_role"] == "hub_evidence" and e["route"].endswith(".md") and not e["route"].endswith("README.md")
+    }
+    assert any("NPCs/thrin_branchborn/timeline.md" in r for r in hub_satellite_routes)
+    assert any("PCs/karsemine/karsemine_statblock" in r for r in hub_satellite_routes)
+
+
+def test_world_evidence_entries_forbid_play_facts_in_allowed_uses() -> None:
+    manifest = _build_dogfood_full()
+    for entry in manifest["entries"]:
+        if entry["source_role"] != "world_evidence":
+            continue
+        assert PLAY_FACT_USE not in entry["allowed_uses"]
+        assert PLAY_FACT_USE in entry["forbidden_uses"]
+
+
+def test_committed_dogfood_artifact_matches_fresh_builder_output() -> None:
+    if not DOGFOOD_ARTIFACT_PATH.is_file():
+        pytest.skip("dogfood-full manifest artifact not committed yet")
+    committed = json.loads(DOGFOOD_ARTIFACT_PATH.read_text(encoding="utf-8"))
+    fresh = _build_dogfood_full()
+    assert _without_generated_at(committed) == _without_generated_at(fresh)

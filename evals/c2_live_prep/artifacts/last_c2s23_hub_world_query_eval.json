@@ -1,0 +1,61 @@
+{
+  "schema": "dmb_c2s23_context_packet_eval_v1",
+  "generated_at": "2026-06-02T16:13:18Z",
+  "gold_path": "evals/c2_live_prep/benchmarks/c2s23_hub_world_query_gold.json",
+  "packet_dir": "evals/c2_live_prep/artifacts/runs/2026-06-02",
+  "questions_total": 10,
+  "questions_passed": 10,
+  "questions_failed": 0,
+  "rows": [
+    {
+      "question_id": "hub-stat-01",
+      "passed": true,
+      "violations": []
+    },
+    {
+      "question_id": "hub-stat-02",
+      "passed": true,
+      "violations": []
+    },
+    {
+      "question_id": "hub-dossier-01",
+      "passed": true,
+      "violations": []
+    },
+    {
+      "question_id": "hub-timeline-01",
+      "passed": true,
+      "violations": []
+    },
+    {
+      "question_id": "world-loc-01",
+      "passed": true,
+      "violations": []
+    },
+    {
+      "question_id": "world-road-01",
+      "passed": true,
+      "violations": []
+    },
+    {
+      "question_id": "auth-world-01",
+      "passed": true,
+      "violations": []
+    },
+    {
+      "question_id": "auth-hub-01",
+      "passed": true,
+      "violations": []
+    },
+    {
+      "question_id": "xlayer-01",
+      "passed": true,
+      "violations": []
+    },
+    {
+      "question_id": "manifest-02",
+      "passed": true,
+      "violations": []
+    }
+  ]
+}

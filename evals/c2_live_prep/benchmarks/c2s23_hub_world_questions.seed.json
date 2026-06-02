@@ -1,0 +1,57 @@
+{
+  "schema": "dmb_c2s23_hub_world_questions_seed_v1",
+  "campaign_id": "longmont-c2",
+  "planning_session": 23,
+  "questions": [
+    {
+      "id": "hub-stat-01",
+      "category": "mechanical",
+      "question": "What is Captain Lysandra Ironveil's AC?"
+    },
+    {
+      "id": "hub-stat-02",
+      "category": "mechanical",
+      "question": "What is Karsemine's AC from the Campaign 2 PC statblock?"
+    },
+    {
+      "id": "hub-dossier-01",
+      "category": "continuity",
+      "question": "What is Lysandra's current campaign state and relationships after Sessions 21 and 22?"
+    },
+    {
+      "id": "hub-timeline-01",
+      "category": "continuity",
+      "question": "What is on Thrin's campaign timeline for Sessions 21 and 22?"
+    },
+    {
+      "id": "world-loc-01",
+      "category": "setting",
+      "question": "Give me orientation on Mireward and Mossford for Session 23 planning."
+    },
+    {
+      "id": "world-road-01",
+      "category": "setting",
+      "question": "What travel encounter table covers the road north from Mireward?"
+    },
+    {
+      "id": "auth-world-01",
+      "category": "authority",
+      "question": "What happened in play when we rolled the d100 road encounter from the Mireward Reach table in Session 22?"
+    },
+    {
+      "id": "auth-hub-01",
+      "category": "authority",
+      "question": "What combat happened to Lysandra at the end of Session 22?"
+    },
+    {
+      "id": "xlayer-01",
+      "category": "disambiguation",
+      "question": "Which Lysandra statblock should I use — setting layer or Campaign 2 layer?"
+    },
+    {
+      "id": "manifest-02",
+      "category": "capability",
+      "question": "Can one query reach both a C2 hub satellite and Elderwyld world reference?"
+    }
+  ]
+}

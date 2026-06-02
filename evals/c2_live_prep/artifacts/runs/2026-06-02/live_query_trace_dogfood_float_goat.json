@@ -1,0 +1,269 @@
+{
+  "question": "What is a float goat",
+  "target_session": null,
+  "manifest_path": "evals/c2_live_prep/benchmarks/c2s23_dogfood_full_manifest.json",
+  "llm_config": {
+    "provider": "openai",
+    "model": "gpt-5.4-mini",
+    "require_llm": true,
+    "max_output_tokens": 600,
+    "temperature": 0.2
+  },
+  "generated_at": "2026-06-02T16:37:50Z",
+  "step_2_context_packet": {
+    "retrieval_query": "What is a float goat",
+    "effective_question": "What is a float goat",
+    "admitted_count": 12,
+    "rejected_count": 0,
+    "top_admitted": [
+      {
+        "evidence_id": "ev-54a6121f43",
+        "path": "corpus/eldyrwild-markdown/Elderwyld/# _Campaign Summary_ Mirathorn Post-Cultist Battle_.md",
+        "source_role": "world_evidence",
+        "authority": "reference_tool",
+        "line_start": null,
+        "line_end": null,
+        "text_excerpt": null
+      },
+      {
+        "evidence_id": "ev-6b5bdd99ce",
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Edge of the World/README.md",
+        "source_role": "world_evidence",
+        "authority": "reference_tool",
+        "line_start": null,
+        "line_end": null,
+        "text_excerpt": null
+      },
+      {
+        "evidence_id": "ev-e7d4aa4910",
+        "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/City Council Building/Battle with The Wolf and Aftermath.md",
+        "source_role": "world_evidence",
+        "authority": "reference_tool",
+        "line_start": null,
+        "line_end": null,
+        "text_excerpt": null
+      },
+      {
+        "evidence_id": "ev-5c76b97907",
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Factions/README.md",
+        "source_role": "hub_evidence",
+        "authority": "canon_play",
+        "line_start": null,
+        "line_end": null,
+        "text_excerpt": null
+      },
+      {
+        "evidence_id": "ev-a3e31c0b32",
+        "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Factions/Raucous_Saints_of_the_Rolling_Longhouse.md",
+        "source_role": "hub_evidence",
+        "authority": "canon_play",
+        "line_start": null,
+        "line_end": null,
+        "text_excerpt": null
+      }
+    ],
+    "top_rejected": []
+  },
+  "step_3_answer_llm": {
+    "request": {
+      "model": "gpt-5.4-mini",
+      "input": "You are answering a live planning question for a TTRPG campaign.\n\nRules:\n- Every factual campaign claim in your answer must include at least one admitted evidence citation.\n- Use admitted evidence for factual claims.\n- Do not use rejected evidence as support.\n- Cite admitted evidence IDs inline as [ev-...].\n- Distinguish play facts from planning suggestions.\n- Never claim write capability in this response path; it is read-only.\n- If asked to mutate artifacts, explicitly refuse mutation and stay read-only.\n\nQuestion:\nWhat is a float goat\n\nADMITTED EVIDENCE:\n[ev-54a6121f43]\nrole: world_evidence\nauthority: reference_tool\npath: corpus/eldyrwild-markdown/Elderwyld/# _Campaign Summary_ Mirathorn Post-Cultist Battle_.md\nline_range: None-None\nunit_id: None\nexcerpt: \n\n[ev-6b5bdd99ce]\nrole: world_evidence\nauthority: reference_tool\npath: corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Edge of the World/README.md\nline_range: None-None\nunit_id: None\nexcerpt: \n\n[ev-e7d4aa4910]\nrole: world_evidence\nauthority: reference_tool\npath: corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/City Council Building/Battle with The Wolf and Aftermath.md\nline_range: None-None\nunit_id: None\nexcerpt: \n\n[ev-5c76b97907]\nrole: hub_evidence\nauthority: canon_play\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Factions/README.md\nline_range: None-None\nunit_id: None\nexcerpt: \n\n[ev-a3e31c0b32]\nrole: hub_evidence\nauthority: canon_play\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Factions/Raucous_Saints_of_the_Rolling_Longhouse.md\nline_range: None-None\nunit_id: None\nexcerpt: \n\n[ev-2e6ae4a83e]\nrole: hub_evidence\nauthority: canon_play\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/README.md\nline_range: None-None\nunit_id: None\nexcerpt: \n\n[ev-cd83cb956e]\nrole: prep_scaffold\nauthority: planning_scaffold\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/Session 21 - Mossford Saltfen rumor shop.md\nline_range: None-None\nunit_id: None\nexcerpt: \n\n[ev-4e9e482175]\nrole: prep_scaffold\nauthority: planning_scaffold\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/Session 21 - Session intro.md\nline_range: None-None\nunit_id: None\nexcerpt: \n\n[ev-8170ae04ed]\nrole: prep_scaffold\nauthority: planning_scaffold\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/Session 21 - brainstorming dump.md\nline_range: None-None\nunit_id: None\nexcerpt: \n\n[ev-aadc9b6849]\nrole: live_packet\nauthority: planning_scaffold\npath: evals/c2_live_prep/live/session_23/live_packet.json\nline_range: None-None\nunit_id: None\nexcerpt: \n\n[ev-396d430baa]\nrole: play_recap\nauthority: canon_play\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 21 - Drake Nest Mirathorn Call.md\nline_range: None-None\nunit_id: None\nexcerpt: \n\n[ev-c91ae2cc55]\nrole: play_recap\nauthority: canon_play\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md\nline_range: None-None\nunit_id: None\nexcerpt: \n\nREJECTED EVIDENCE:\n(none)",
+      "temperature": 0.2,
+      "max_output_tokens": 600
+    },
+    "response_output_text": "I don’t have any admitted evidence that defines or mentions a “float goat” in the provided campaign materials, so I can’t state it as a campaign fact [ev-54a6121f43][ev-6b5bdd99ce][ev-e7d4aa4910][ev-5c76b97907][ev-a3e31c0b32][ev-2e6ae4a83e][ev-cd83cb956e][ev-4e9e482175][ev-8170ae04ed][ev-aadc9b6849][ev-396d430baa][ev-c91ae2cc55].\n\nPlanning suggestion: if you meant a local slang term, creature, or item, I can help you infer a likely meaning from surrounding context if you share the scene, NPC, or excerpt where it appears.",
+    "result": {
+      "answer": "I don’t have any admitted evidence that defines or mentions a “float goat” in the provided campaign materials, so I can’t state it as a campaign fact [ev-54a6121f43][ev-6b5bdd99ce][ev-e7d4aa4910][ev-5c76b97907][ev-a3e31c0b32][ev-2e6ae4a83e][ev-cd83cb956e][ev-4e9e482175][ev-8170ae04ed][ev-aadc9b6849][ev-396d430baa][ev-c91ae2cc55].\n\nPlanning suggestion: if you meant a local slang term, creature, or item, I can help you infer a likely meaning from surrounding context if you share the scene, NPC, or excerpt where it appears.",
+      "source": "llm",
+      "warnings": [],
+      "diagnostics": []
+    },
+    "rendered_prompt": "You are answering a live planning question for a TTRPG campaign.\n\nRules:\n- Every factual campaign claim in your answer must include at least one admitted evidence citation.\n- Use admitted evidence for factual claims.\n- Do not use rejected evidence as support.\n- Cite admitted evidence IDs inline as [ev-...].\n- Distinguish play facts from planning suggestions.\n- Never claim write capability in this response path; it is read-only.\n- If asked to mutate artifacts, explicitly refuse mutation and stay read-only.\n\nQuestion:\nWhat is a float goat\n\nADMITTED EVIDENCE:\n[ev-54a6121f43]\nrole: world_evidence\nauthority: reference_tool\npath: corpus/eldyrwild-markdown/Elderwyld/# _Campaign Summary_ Mirathorn Post-Cultist Battle_.md\nline_range: None-None\nunit_id: None\nexcerpt: \n\n[ev-6b5bdd99ce]\nrole: world_evidence\nauthority: reference_tool\npath: corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Edge of the World/README.md\nline_range: None-None\nunit_id: None\nexcerpt: \n\n[ev-e7d4aa4910]\nrole: world_evidence\nauthority: reference_tool\npath: corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/City Council Building/Battle with The Wolf and Aftermath.md\nline_range: None-None\nunit_id: None\nexcerpt: \n\n[ev-5c76b97907]\nrole: hub_evidence\nauthority: canon_play\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Factions/README.md\nline_range: None-None\nunit_id: None\nexcerpt: \n\n[ev-a3e31c0b32]\nrole: hub_evidence\nauthority: canon_play\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Factions/Raucous_Saints_of_the_Rolling_Longhouse.md\nline_range: None-None\nunit_id: None\nexcerpt: \n\n[ev-2e6ae4a83e]\nrole: hub_evidence\nauthority: canon_play\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/README.md\nline_range: None-None\nunit_id: None\nexcerpt: \n\n[ev-cd83cb956e]\nrole: prep_scaffold\nauthority: planning_scaffold\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/Session 21 - Mossford Saltfen rumor shop.md\nline_range: None-None\nunit_id: None\nexcerpt: \n\n[ev-4e9e482175]\nrole: prep_scaffold\nauthority: planning_scaffold\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/Session 21 - Session intro.md\nline_range: None-None\nunit_id: None\nexcerpt: \n\n[ev-8170ae04ed]\nrole: prep_scaffold\nauthority: planning_scaffold\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/Session 21 - brainstorming dump.md\nline_range: None-None\nunit_id: None\nexcerpt: \n\n[ev-aadc9b6849]\nrole: live_packet\nauthority: planning_scaffold\npath: evals/c2_live_prep/live/session_23/live_packet.json\nline_range: None-None\nunit_id: None\nexcerpt: \n\n[ev-396d430baa]\nrole: play_recap\nauthority: canon_play\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 21 - Drake Nest Mirathorn Call.md\nline_range: None-None\nunit_id: None\nexcerpt: \n\n[ev-c91ae2cc55]\nrole: play_recap\nauthority: canon_play\npath: corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md\nline_range: None-None\nunit_id: None\nexcerpt: \n\nREJECTED EVIDENCE:\n(none)"
+  },
+  "step_4_validation_and_decision": {
+    "warnings": [],
+    "decision_steps": [
+      {
+        "step": "citation_validation",
+        "llm_citation_failure": false,
+        "citation_warnings": [],
+        "citation_diagnostics": {
+          "cited_evidence_ids": [
+            "ev-54a6121f43",
+            "ev-6b5bdd99ce",
+            "ev-e7d4aa4910",
+            "ev-5c76b97907",
+            "ev-a3e31c0b32",
+            "ev-2e6ae4a83e",
+            "ev-cd83cb956e",
+            "ev-4e9e482175",
+            "ev-8170ae04ed",
+            "ev-aadc9b6849",
+            "ev-396d430baa",
+            "ev-c91ae2cc55"
+          ],
+          "admitted_citation_ids": [
+            "ev-54a6121f43",
+            "ev-6b5bdd99ce",
+            "ev-e7d4aa4910",
+            "ev-5c76b97907",
+            "ev-a3e31c0b32",
+            "ev-2e6ae4a83e",
+            "ev-cd83cb956e",
+            "ev-4e9e482175",
+            "ev-8170ae04ed",
+            "ev-aadc9b6849",
+            "ev-396d430baa",
+            "ev-c91ae2cc55"
+          ],
+          "unknown_citation_ids": [],
+          "rejected_citation_ids": []
+        }
+      },
+      {
+        "step": "acceptance_gate",
+        "decision": "accept_answer",
+        "status": "ok",
+        "answer_source": "llm"
+      }
+    ],
+    "citation_validation": {
+      "citations": [
+        {
+          "evidence_id": "ev-54a6121f43",
+          "path": "corpus/eldyrwild-markdown/Elderwyld/# _Campaign Summary_ Mirathorn Post-Cultist Battle_.md",
+          "line_start": null,
+          "line_end": null,
+          "source_role": "world_evidence",
+          "authority": "reference_tool"
+        },
+        {
+          "evidence_id": "ev-6b5bdd99ce",
+          "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Edge of the World/README.md",
+          "line_start": null,
+          "line_end": null,
+          "source_role": "world_evidence",
+          "authority": "reference_tool"
+        },
+        {
+          "evidence_id": "ev-e7d4aa4910",
+          "path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/City Council Building/Battle with The Wolf and Aftermath.md",
+          "line_start": null,
+          "line_end": null,
+          "source_role": "world_evidence",
+          "authority": "reference_tool"
+        },
+        {
+          "evidence_id": "ev-5c76b97907",
+          "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Factions/README.md",
+          "line_start": null,
+          "line_end": null,
+          "source_role": "hub_evidence",
+          "authority": "canon_play"
+        },
+        {
+          "evidence_id": "ev-a3e31c0b32",
+          "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Factions/Raucous_Saints_of_the_Rolling_Longhouse.md",
+          "line_start": null,
+          "line_end": null,
+          "source_role": "hub_evidence",
+          "authority": "canon_play"
+        },
+        {
+          "evidence_id": "ev-2e6ae4a83e",
+          "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/README.md",
+          "line_start": null,
+          "line_end": null,
+          "source_role": "hub_evidence",
+          "authority": "canon_play"
+        },
+        {
+          "evidence_id": "ev-cd83cb956e",
+          "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/Session 21 - Mossford Saltfen rumor shop.md",
+          "line_start": null,
+          "line_end": null,
+          "source_role": "prep_scaffold",
+          "authority": "planning_scaffold"
+        },
+        {
+          "evidence_id": "ev-4e9e482175",
+          "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/Session 21 - Session intro.md",
+          "line_start": null,
+          "line_end": null,
+          "source_role": "prep_scaffold",
+          "authority": "planning_scaffold"
+        },
+        {
+          "evidence_id": "ev-8170ae04ed",
+          "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/Session 21 - brainstorming dump.md",
+          "line_start": null,
+          "line_end": null,
+          "source_role": "prep_scaffold",
+          "authority": "planning_scaffold"
+        },
+        {
+          "evidence_id": "ev-aadc9b6849",
+          "path": "evals/c2_live_prep/live/session_23/live_packet.json",
+          "line_start": null,
+          "line_end": null,
+          "source_role": "live_packet",
+          "authority": "planning_scaffold"
+        },
+        {
+          "evidence_id": "ev-396d430baa",
+          "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 21 - Drake Nest Mirathorn Call.md",
+          "line_start": null,
+          "line_end": null,
+          "source_role": "play_recap",
+          "authority": "canon_play"
+        },
+        {
+          "evidence_id": "ev-c91ae2cc55",
+          "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md",
+          "line_start": null,
+          "line_end": null,
+          "source_role": "play_recap",
+          "authority": "canon_play"
+        }
+      ],
+      "warnings": [],
+      "diagnostics": {
+        "cited_evidence_ids": [
+          "ev-54a6121f43",
+          "ev-6b5bdd99ce",
+          "ev-e7d4aa4910",
+          "ev-5c76b97907",
+          "ev-a3e31c0b32",
+          "ev-2e6ae4a83e",
+          "ev-cd83cb956e",
+          "ev-4e9e482175",
+          "ev-8170ae04ed",
+          "ev-aadc9b6849",
+          "ev-396d430baa",
+          "ev-c91ae2cc55"
+        ],
+        "admitted_citation_ids": [
+          "ev-54a6121f43",
+          "ev-6b5bdd99ce",
+          "ev-e7d4aa4910",
+          "ev-5c76b97907",
+          "ev-a3e31c0b32",
+          "ev-2e6ae4a83e",
+          "ev-cd83cb956e",
+          "ev-4e9e482175",
+          "ev-8170ae04ed",
+          "ev-aadc9b6849",
+          "ev-396d430baa",
+          "ev-c91ae2cc55"
+        ],
+        "unknown_citation_ids": [],
+        "rejected_citation_ids": []
+      }
+    },
+    "final": {
+      "status": "ok",
+      "grounding_answer_source": "llm",
+      "answer": "I don’t have any admitted evidence that defines or mentions a “float goat” in the provided campaign materials, so I can’t state it as a campaign fact [ev-54a6121f43][ev-6b5bdd99ce][ev-e7d4aa4910][ev-5c76b97907][ev-a3e31c0b32][ev-2e6ae4a83e][ev-cd83cb956e][ev-4e9e482175][ev-8170ae04ed][ev-aadc9b6849][ev-396d430baa][ev-c91ae2cc55].\n\nPlanning suggestion: if you meant a local slang term, creature, or item, I can help you infer a likely meaning from surrounding context if you share the scene, NPC, or excerpt where it appears."
+    }
+  }
+}

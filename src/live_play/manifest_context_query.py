@@ -32,6 +32,7 @@ DEFAULT_LANE_BUDGETS: dict[str, int] = {
     "session_memory": 4,
     "breadcrumbed_recap": 3,
     "hub_evidence": 4,
+    "world_reference": 4,
     "prep_scaffold": 3,
     "live_workspace": 3,
     "roll_reference": 2,
@@ -49,8 +50,28 @@ ROLE_LANE: dict[str, str] = {
     "live_event": "live_workspace",
     "fresh_recap": "live_workspace",
     "hub_evidence": "hub_evidence",
+    "world_evidence": "world_reference",
     "table_notes": "table_notes",
 }
+MECHANICAL_QUERY_TOKENS = frozenset(
+    {
+        "ac",
+        "armor",
+        "class",
+        "cr",
+        "challenge",
+        "rating",
+        "hp",
+        "hit",
+        "points",
+        "save",
+        "saves",
+        "saving",
+        "statblock",
+        "stat",
+        "block",
+    }
+)
 MIN_CONTENT_OVERLAP = 2
 COMMON_QUERY_TOKENS = frozenset(
     {
@@ -111,6 +132,7 @@ class QueryConfig:
             "play_recap": 6,
             "session_memory": 4,
             "hub_evidence": 3,
+            "world_evidence": 3,
             "prep_scaffold": 3,
             "live_packet": 1,
             "live_event": 1,
@@ -265,6 +287,7 @@ def infer_intent_hints(question: str) -> set[str]:
         for t in (
             "can i",
             "can we",
+            "can one",
             "supported",
             "capability",
             "tool",
@@ -349,7 +372,8 @@ def compute_lane_budgets(hints: set[str]) -> dict[str, int]:
         budgets["play_recap"] = max(budgets["play_recap"], 3)
     if "planning_context" in hints:
         budgets["prep_scaffold"] = max(budgets["prep_scaffold"], 3)
-        budgets["hub_evidence"] = max(budgets["hub_evidence"], 3)
+        budgets["hub_evidence"] = max(budgets["hub_evidence"], 4)
+        budgets["world_reference"] = max(budgets["world_reference"], 4)
     return budgets
 
 
@@ -419,6 +443,19 @@ def _lane_for_entry(entry: dict[str, Any]) -> str:
     return ROLE_LANE.get(role, "hub_evidence")
 
 
+def _is_mechanical_query(features: QueryFeatures) -> bool:
+    lowered = features.raw_question.lower()
+    if "statblock" in lowered or "armor class" in lowered:
+        return True
+    return bool(features.content_tokens & MECHANICAL_QUERY_TOKENS)
+
+
+def _path_slug_token_boost(route: str, features: QueryFeatures) -> float:
+    segments = set(re.findall(r"[a-z0-9]+", route.lower()))
+    overlap = features.content_tokens & segments
+    return float(len(overlap)) * 1.5
+
+
 def _score_entry(entry: dict[str, Any], features: QueryFeatures, hints: set[str]) -> tuple[float, dict[str, float]]:
     route = str(entry.get("route") or "")
     source_id = str(entry.get("source_id") or "")
@@ -477,9 +514,15 @@ def _score_entry(entry: dict[str, Any], features: QueryFeatures, hints: set[str]
         role_score += 9.0
     if "pipeline_state" in hints and authority == "audit":
         role_score += 8.0
-    if "planning_context" in hints and role in {"prep_scaffold", "hub_evidence", "live_packet"}:
+    if "planning_context" in hints and role in {"prep_scaffold", "hub_evidence", "live_packet", "world_evidence"}:
         role_score += 5.0
-    if "capability_check" in hints and role in {"live_packet", "roll_table", "prep_scaffold", "hub_evidence"}:
+    if "capability_check" in hints and role in {
+        "live_packet",
+        "roll_table",
+        "prep_scaffold",
+        "hub_evidence",
+        "world_evidence",
+    }:
         role_score += 4.0
     if "authority_guardrail" in hints and role == "table_notes":
         role_score += 8.0
@@ -491,8 +534,22 @@ def _score_entry(entry: dict[str, Any], features: QueryFeatures, hints: set[str]
         role_score += 6.0
     if features.asks_for_play_event and role == "hub_evidence":
         role_score -= 4.0
+    if features.asks_for_play_event and role == "world_evidence":
+        role_score -= 5.0
     if features.asks_for_last_or_final and role == "play_recap":
         role_score += 2.0
+    route_lower = route.lower()
+    if _is_mechanical_query(features) and (
+        role == "world_evidence" or "statblock" in route_lower
+    ):
+        role_score += 6.0
+    if _is_mechanical_query(features) and role == "prep_scaffold":
+        role_score -= 6.0
+    if "timeline" in features.tokens and route_lower.endswith("/timeline.md"):
+        role_score += 5.0
+    slug_boost = _path_slug_token_boost(route, features)
+    role_score += slug_boost
+    components["path_slug_boost"] = slug_boost
     score += role_score
     components["source_role_score"] = role_score
 
@@ -1042,7 +1099,16 @@ def _admission_reason(
     if claim_type == "capability_check":
         if role == "table_notes" or authority == "pre_canonical_evidence":
             return "authority_forbidden_for_play_fact"
-        if role in {"live_packet", "roll_table", "prep_scaffold", "hub_evidence", "play_recap", "session_memory", "live_event"}:
+        if role in {
+            "live_packet",
+            "roll_table",
+            "prep_scaffold",
+            "hub_evidence",
+            "world_evidence",
+            "play_recap",
+            "session_memory",
+            "live_event",
+        }:
             return None
         if authority in {"audit", "planning_scaffold", "reference_tool", "live_observation"}:
             return None
@@ -1079,6 +1145,10 @@ def _detect_capability_topic(question: str) -> str | None:
             "across the activated",
         )
     ) and any(t in q for t in ("prep scaffold", "roll tables", "session 21", "session 22 memory", "workspace")):
+        return "manifest_query"
+    if any(t in q for t in ("hub satellite", "elderwyld", "world reference")) and any(
+        t in q for t in ("query", "reach", "manifest", "one query")
+    ):
         return "manifest_query"
     if any(t in q for t in ("sub-location", "location hub", "named sub-location", "hub markdown")):
         return "location_write"
@@ -1233,7 +1303,14 @@ def build_context_packet(
     if claim_type == "play_fact":
         ensure_roles = {"play_recap", "session_memory"}
     if claim_type == "capability_check":
-        ensure_roles = {"play_recap", "session_memory", "prep_scaffold", "hub_evidence", "live_packet"}
+        ensure_roles = {
+            "play_recap",
+            "session_memory",
+            "prep_scaffold",
+            "hub_evidence",
+            "world_evidence",
+            "live_packet",
+        }
 
     retrieved = _apply_evidence_budget(
         retrieved,
