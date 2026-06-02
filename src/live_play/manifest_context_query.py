@@ -139,6 +139,8 @@ class QueryFeatures:
     tags: tuple[str, ...]
     asks_for_last_or_final: bool
     asks_for_play_event: bool
+    asks_historical_continuity: bool
+    explicit_session_only: bool
 
 
 def _norm(path: str) -> str:
@@ -186,16 +188,29 @@ def _extract_title_phrases(question: str, sessions: set[int]) -> tuple[str, ...]
     return tuple(dict.fromkeys([t for t in titles if t]).keys())
 
 
+def _explicit_session_only(question: str, sessions: set[int]) -> bool:
+    if not sessions:
+        return False
+    lowered = question.lower()
+    if re.search(r"\bonly\s+(use\s+)?session\s*\d{1,2}\b", lowered):
+        return True
+    return bool(re.search(r"\b(session\s*\d{1,2}).*(only|exclusively)\b", lowered))
+
+
 def _build_query_features(question: str, *, hints: set[str], sessions: set[int]) -> QueryFeatures:
+    lowered = question.lower()
     tokens = _tokenize(question)
     stop_tokens = {t for t in tokens if t in COMMON_QUERY_TOKENS}
     content_tokens = {t for t in tokens if t not in COMMON_QUERY_TOKENS}
     distinctive_tokens = {t for t in content_tokens if len(t) > 2 or t.isdigit()}
     aliases = _parse_aliases(question)
     title_phrases = _extract_title_phrases(question, sessions)
-    asks_for_last_or_final = any(t in question.lower() for t in ("last", "latest", "most recent", "final", "ending"))
+    asks_for_last_or_final = any(t in lowered for t in ("last", "latest", "most recent", "recently", "final", "ending"))
     asks_for_play_event = "play_fact" in hints or any(
-        t in question.lower() for t in ("what happened", "last thing", "final beat", "last event", "outcome")
+        t in lowered for t in ("what happened", "last thing", "final beat", "last event", "outcome")
+    )
+    asks_historical_continuity = any(
+        t in lowered for t in ("old threads", "earlier sessions", "over time", "historical continuity", "changed over time")
     )
     return QueryFeatures(
         raw_question=question,
@@ -210,6 +225,8 @@ def _build_query_features(question: str, *, hints: set[str], sessions: set[int])
         tags=tuple(sorted(hints)),
         asks_for_last_or_final=asks_for_last_or_final,
         asks_for_play_event=asks_for_play_event,
+        asks_historical_continuity=asks_historical_continuity,
+        explicit_session_only=_explicit_session_only(question, sessions),
     )
 
 
@@ -436,11 +453,21 @@ def _score_entry(entry: dict[str, Any], features: QueryFeatures, hints: set[str]
     if features.session_numbers and scopes & features.session_numbers:
         session_scope_score += 8.0
     elif features.session_numbers and scopes:
-        session_scope_score -= 2.5
+        session_scope_score -= 0.75 if features.asks_historical_continuity else 2.5
     elif not features.session_numbers and scopes:
         session_scope_score += 1.0
-    score += session_scope_score
+    if features.explicit_session_only and features.session_numbers:
+        if scopes and not (scopes & features.session_numbers):
+            session_scope_score -= 100.0
+        elif not scopes:
+            session_scope_score -= 20.0
+    recency_score = 0.0
+    if not features.session_numbers and features.asks_for_last_or_final and scopes:
+        recency_score = max(scopes) * 0.12
+
+    score += session_scope_score + recency_score
     components["session_scope_score"] = session_scope_score
+    components["recency_score"] = recency_score
 
     role_score = 0.0
 
@@ -1284,6 +1311,8 @@ def build_context_packet(
         "exact_phrases": list(query_features.exact_phrases),
         "asks_for_last_or_final": query_features.asks_for_last_or_final,
         "asks_for_play_event": query_features.asks_for_play_event,
+        "asks_historical_continuity": query_features.asks_historical_continuity,
+        "explicit_session_only": query_features.explicit_session_only,
         "top_manifest_entries": candidate_trace.get("top_manifest_entries", []),
         "lane_top_entries": candidate_trace.get("lane_top_entries", {}),
         "top_markdown_spans": sorted(markdown_span_trace, key=lambda r: (-float(r["final_score"]), str(r["path"])))[:30],

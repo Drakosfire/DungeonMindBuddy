@@ -5,6 +5,7 @@ from __future__ import annotations
 import builtins
 import json
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -56,6 +57,36 @@ def query_config() -> QueryConfig:
 
 def _request(qid: str, question: str, *, category: str | None = None) -> QueryRequest:
     return QueryRequest(question_id=qid, question=question, category=category)
+
+
+def _write_markdown(root: Path, route: str, body: str) -> None:
+    p = root / route
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(body, encoding="utf-8")
+
+
+def _manifest_entry(
+    *,
+    source_id: str,
+    route: str,
+    source_role: str,
+    authority: str,
+    session_scope: list[int],
+    lexical_terms: list[str] | None = None,
+) -> dict[str, Any]:
+    return {
+        "source_id": source_id,
+        "source_role": source_role,
+        "authority": authority,
+        "session_scope": session_scope,
+        "route": route,
+        "route_exists": True,
+        "admissible": True,
+        "allowed_uses": ["play_facts", "planning_context"],
+        "forbidden_uses": [],
+        "lexical_terms": lexical_terms or [],
+        "notes": [],
+    }
 
 
 def test_runner_does_not_load_gold_file(monkeypatch: pytest.MonkeyPatch, query_config: QueryConfig) -> None:
@@ -550,3 +581,293 @@ def test_cross_session_question_can_still_retrieve_multiple_sessions(
     admitted_paths = " ".join(str(e.get("path") or "") for e in packet["admitted_evidence"])
     assert "Session 21 - Drake Nest Mirathorn Call" in admitted_paths
     assert "Session 22 - Mireward Road and Lysandro" in admitted_paths
+
+
+def test_session22_exact_title_wins_in_expanded_session_window(tmp_path: Path) -> None:
+    s22 = "corpus/Session Recaps/Session 22 - Mireward Road and Lysandro.md"
+    s21 = "corpus/Session Recaps/Session 21 - Drake Nest Mirathorn Call.md"
+    s12 = "corpus/Session Recaps/Session 12 - Giant Bowl and Conical Hill.md"
+    hub = "corpus/NPCs/captain_lysandra_ironveil/README.md"
+    _write_markdown(
+        tmp_path,
+        s22,
+        "# Session 22 - Mireward Road and Lysandro\n\nThe last thing that happened in Session 22 was Lysandra meeting her father Lysandro on the road.\n",
+    )
+    _write_markdown(tmp_path, s21, "# Session 21 - Drake Nest Mirathorn Call\nConical hill and giant bowl of water.\n")
+    _write_markdown(tmp_path, s12, "# Session 12 - Giant Bowl and Conical Hill\nOlder events and unrelated beats.\n")
+    _write_markdown(tmp_path, hub, "# Lysandra hub\nReference biography for campaign planning.\n")
+    manifest = {
+        "entries": [
+            _manifest_entry(
+                source_id="s22-recap",
+                route=s22,
+                source_role="play_recap",
+                authority="canon_play",
+                session_scope=[22],
+                lexical_terms=["mireward", "lysandro", "final beat"],
+            ),
+            _manifest_entry(
+                source_id="s21-recap",
+                route=s21,
+                source_role="play_recap",
+                authority="canon_play",
+                session_scope=[21],
+                lexical_terms=["conical hill", "drake nest"],
+            ),
+            _manifest_entry(
+                source_id="s12-recap",
+                route=s12,
+                source_role="play_recap",
+                authority="canon_play",
+                session_scope=[12],
+            ),
+            _manifest_entry(
+                source_id="lysandra-hub",
+                route=hub,
+                source_role="hub_evidence",
+                authority="reference_tool",
+                session_scope=[12, 21, 22],
+                lexical_terms=["lysandra", "relationship"],
+            ),
+        ]
+    }
+    packet = build_context_packet(
+        _request("s22-title", "what was the last thing that happened in Session 22"),
+        manifest,
+        root=tmp_path,
+        config=QueryConfig(),
+    )
+    admitted_paths = [str(e.get("path") or "") for e in packet["admitted_evidence"]]
+    assert admitted_paths
+    assert "Session 22 - Mireward Road and Lysandro" in admitted_paths[0]
+    top_manifest_routes = [str(row.get("route") or "") for row in packet["retrieval_trace"]["top_manifest_entries"]]
+    assert any("Session 21 - Drake Nest Mirathorn Call" in route for route in top_manifest_routes)
+
+
+def test_session22_last_thing_not_dependent_on_prior_session_lock(tmp_path: Path) -> None:
+    s22 = "corpus/Session Recaps/Session 22 - Mireward Road and Lysandro.md"
+    s21 = "corpus/Session Recaps/Session 21 - Drake Nest Mirathorn Call.md"
+    s23 = "corpus/Session Recaps/Session 23 - Opening Fog and Watch.md"
+    _write_markdown(tmp_path, s22, "Final beat in Session 22: Lysandra met Lysandro near Mireward.\n")
+    _write_markdown(tmp_path, s21, "Session 21 details: giant bowl and conical hill.\n")
+    _write_markdown(tmp_path, s23, "Session 23 setup and prep notes.\n")
+    manifest = {
+        "entries": [
+            _manifest_entry(
+                source_id="s22-recap",
+                route=s22,
+                source_role="play_recap",
+                authority="canon_play",
+                session_scope=[22],
+            ),
+            _manifest_entry(
+                source_id="s21-recap",
+                route=s21,
+                source_role="play_recap",
+                authority="canon_play",
+                session_scope=[21],
+            ),
+            _manifest_entry(
+                source_id="s23-recap",
+                route=s23,
+                source_role="play_recap",
+                authority="canon_play",
+                session_scope=[23],
+            ),
+        ]
+    }
+    packet = build_context_packet(
+        _request("s22-last", "what was the last thing that happened in Session 22"),
+        manifest,
+        root=tmp_path,
+        config=QueryConfig(),
+    )
+    admitted_paths = [str(e.get("path") or "") for e in packet["admitted_evidence"]]
+    assert admitted_paths and "Session 22 - Mireward Road and Lysandro" in admitted_paths[0]
+    top_manifest_routes = [str(row.get("route") or "") for row in packet["retrieval_trace"]["top_manifest_entries"]]
+    assert any("Session 21 - Drake Nest Mirathorn Call" in route for route in top_manifest_routes)
+    assert any("Session 23 - Opening Fog and Watch" in route for route in top_manifest_routes)
+
+
+def test_broad_continuity_question_can_retrieve_older_sessions(tmp_path: Path) -> None:
+    s15 = "corpus/Session Recaps/Session 15 - Old Debt in Mireward.md"
+    s18 = "corpus/Session Recaps/Session 18 - Marsh Contact and Tensions.md"
+    s22 = "corpus/Session Recaps/Session 22 - Mireward Road and Lysandro.md"
+    _write_markdown(tmp_path, s15, "Old threads: debt with marsh guide and unresolved favor.\n")
+    _write_markdown(tmp_path, s18, "Earlier sessions established Lysandra tension and council distrust.\n")
+    _write_markdown(tmp_path, s22, "Current lead-in for Session 23 planning.\n")
+    manifest = {
+        "entries": [
+            _manifest_entry(
+                source_id="s15",
+                route=s15,
+                source_role="play_recap",
+                authority="canon_play",
+                session_scope=[15],
+                lexical_terms=["old threads", "earlier sessions"],
+            ),
+            _manifest_entry(
+                source_id="s18",
+                route=s18,
+                source_role="play_recap",
+                authority="canon_play",
+                session_scope=[18],
+                lexical_terms=["earlier sessions", "continuity"],
+            ),
+            _manifest_entry(
+                source_id="s22",
+                route=s22,
+                source_role="play_recap",
+                authority="canon_play",
+                session_scope=[22],
+                lexical_terms=["session 23 planning"],
+            ),
+        ]
+    }
+    packet = build_context_packet(
+        _request("continuity", "what old threads from earlier sessions still matter for Session 23?"),
+        manifest,
+        root=tmp_path,
+        config=QueryConfig(),
+    )
+    admitted_paths = " ".join(str(e.get("path") or "") for e in packet["admitted_evidence"])
+    assert "Session 15 - Old Debt in Mireward" in admitted_paths
+    assert "Session 18 - Marsh Contact and Tensions" in admitted_paths
+
+
+def test_exact_session_query_prefers_target_without_excluding_cross_session_context(tmp_path: Path) -> None:
+    s22 = "corpus/Session Recaps/Session 22 - Mireward Road and Lysandro.md"
+    s21 = "corpus/Session Recaps/Session 21 - Drake Nest Mirathorn Call.md"
+    hub = "corpus/NPCs/captain_lysandra_ironveil/timeline.md"
+    _write_markdown(tmp_path, s22, "Session 22 closing beat with Lysandra and Lysandro.\n")
+    _write_markdown(tmp_path, s21, "Session 21 established the call thread that continues.\n")
+    _write_markdown(tmp_path, hub, "Timeline references Session 21 and Session 22 continuity.\n")
+    manifest = {
+        "entries": [
+            _manifest_entry(
+                source_id="s22",
+                route=s22,
+                source_role="play_recap",
+                authority="canon_play",
+                session_scope=[22],
+                lexical_terms=["last thing", "mireward"],
+            ),
+            _manifest_entry(
+                source_id="s21",
+                route=s21,
+                source_role="play_recap",
+                authority="canon_play",
+                session_scope=[21],
+                lexical_terms=["continuity", "call thread"],
+            ),
+            _manifest_entry(
+                source_id="hub",
+                route=hub,
+                source_role="hub_evidence",
+                authority="reference_tool",
+                session_scope=[21, 22],
+                lexical_terms=["lysandra", "relationship"],
+            ),
+        ]
+    }
+    packet = build_context_packet(
+        _request(
+            "exact-session",
+            "what was the last thing that happened in Session 22 and what context still matters from nearby sessions?",
+        ),
+        manifest,
+        root=tmp_path,
+        config=QueryConfig(),
+    )
+    admitted_paths = [str(e.get("path") or "") for e in packet["admitted_evidence"]]
+    assert admitted_paths and "Session 22 - Mireward Road and Lysandro" in admitted_paths[0]
+    top_manifest_routes = [str(row.get("route") or "") for row in packet["retrieval_trace"]["top_manifest_entries"]]
+    assert any(
+        "Session 21 - Drake Nest Mirathorn Call" in route or "captain_lysandra_ironveil/timeline.md" in route
+        for route in top_manifest_routes
+    )
+
+
+def test_no_session_query_uses_recency_authority_and_content_not_session_lock(tmp_path: Path) -> None:
+    s12 = "corpus/Session Recaps/Session 12 - Early Mireward Contact.md"
+    s22 = "corpus/Session Recaps/Session 22 - Mireward Road and Lysandro.md"
+    prep = "corpus/Session Prep/session_23/session_23_opening.md"
+    _write_markdown(tmp_path, s12, "Older mention of Lysandra during a past stop.\n")
+    _write_markdown(
+        tmp_path,
+        s22,
+        "Most recently, Lysandra changed stance after meeting Lysandro; this is the current planning signal.\n",
+    )
+    _write_markdown(tmp_path, prep, "Prep scaffold references weather and logistics only.\n")
+    manifest = {
+        "entries": [
+            _manifest_entry(
+                source_id="s12",
+                route=s12,
+                source_role="play_recap",
+                authority="canon_play",
+                session_scope=[12],
+                lexical_terms=["lysandra"],
+            ),
+            _manifest_entry(
+                source_id="s22",
+                route=s22,
+                source_role="play_recap",
+                authority="canon_play",
+                session_scope=[22],
+                lexical_terms=["recent", "lysandra", "mireward"],
+            ),
+            _manifest_entry(
+                source_id="prep",
+                route=prep,
+                source_role="prep_scaffold",
+                authority="planning_scaffold",
+                session_scope=[23],
+                lexical_terms=["opening", "logistics"],
+            ),
+        ]
+    }
+    packet = build_context_packet(
+        _request("no-session", "what changed most recently with Lysandra that matters for planning?"),
+        manifest,
+        root=tmp_path,
+        config=QueryConfig(),
+    )
+    admitted = list(packet["admitted_evidence"])
+    assert admitted
+    assert "Session 22 - Mireward Road and Lysandro" in str(admitted[0].get("path") or "")
+
+
+def test_only_session_query_enforces_explicit_session_lock(tmp_path: Path) -> None:
+    s22 = "corpus/Session Recaps/Session 22 - Mireward Road and Lysandro.md"
+    s21 = "corpus/Session Recaps/Session 21 - Drake Nest Mirathorn Call.md"
+    _write_markdown(tmp_path, s22, "Session 22 evidence line about Lysandra and Lysandro.\n")
+    _write_markdown(tmp_path, s21, "Session 21 conical hill evidence.\n")
+    manifest = {
+        "entries": [
+            _manifest_entry(
+                source_id="s22",
+                route=s22,
+                source_role="play_recap",
+                authority="canon_play",
+                session_scope=[22],
+                lexical_terms=["session 22"],
+            ),
+            _manifest_entry(
+                source_id="s21",
+                route=s21,
+                source_role="play_recap",
+                authority="canon_play",
+                session_scope=[21],
+                lexical_terms=["session 21"],
+            ),
+        ]
+    }
+    packet = build_context_packet(
+        _request("only-s22", "only use Session 22 recap evidence for what happened last."),
+        manifest,
+        root=tmp_path,
+        config=QueryConfig(),
+    )
+    admitted_paths = [str(e.get("path") or "") for e in packet["admitted_evidence"]]
+    assert admitted_paths and all("Session 22 - Mireward Road and Lysandro" in path for path in admitted_paths)
