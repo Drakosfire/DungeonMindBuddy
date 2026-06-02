@@ -56,6 +56,19 @@ from src.agent.corpus_writer import (
             "create",
         ),
         ("Elderwyld/Locations/tower_mossford_stub.md", "create"),
+        (
+            "Elderwyld/Cities and Towns/Mireward/Mireward_Map_Key_and_Gazetteer.md",
+            "create",
+        ),
+        (
+            "Elderwyld/Cities and Towns/Mireward/Mireward_Map_Key_and_Gazetteer.md",
+            "append",
+        ),
+        (
+            "Elderwyld/Cities and Towns/Mireward/Mireward_Location_Dossiers/south_gate.md",
+            "create",
+        ),
+        ("Elderwyld/Cities and Towns/Mireward/README.md", "append"),
         ("Longmont Campaign/Campaign 2/NPCs/marla_brambleback/marla_brambleback_character_dossier.md", "create"),
         (
             "Longmont Campaign/Campaign 2/Session Prep/session_20_stacey_stuart_marla_reference.md",
@@ -172,6 +185,34 @@ def test_allowlist_blocks_append_for_random_md() -> None:
     assert "NPCs" in reason or "Session Prep" in reason
 
 
+@pytest.mark.parametrize(
+    "rel_path,mode",
+    [
+        (
+            "Elderwyld/Cities and Towns/Edge of the World/Mireward_Map_Key_and_Gazetteer.md",
+            "create",
+        ),
+        (
+            "Elderwyld/Cities and Towns/Mireward/Mireward_Location_Dossiers/SouthGate.md",
+            "create",
+        ),
+        (
+            "Elderwyld/Cities and Towns/Mireward/Mireward_Location_Dossiers/south-gate.md",
+            "create",
+        ),
+        (
+            "Elderwyld/Cities and Towns/Mireward/Mireward_Location_Dossiers/.hidden.md",
+            "create",
+        ),
+        ("Elderwyld/Cities and Towns/Mireward/Mireward_PLACE_BUILD_SCAFFOLD.md", "append"),
+    ],
+)
+def test_allowlist_blocks_mireward_out_of_policy_paths(rel_path: str, mode: str) -> None:
+    allowed, reason = is_writable_corpus_path(rel_path, mode)
+    assert not allowed, f"unexpectedly allowed: {rel_path} ({mode})"
+    assert "not allowed" in reason
+
+
 def test_allowlist_blocks_unknown_mode() -> None:
     allowed, reason = is_writable_corpus_path(
         "Longmont Campaign/Campaign 2/Session Recaps/Session 20 - x.md", "overwrite"
@@ -227,6 +268,26 @@ def test_create_commit_with_token_writes_file(tmp_path: Path) -> None:
     written = (tmp_path / rel).read_text(encoding="utf-8")
     assert written.startswith("# Session 20")
     assert "fingerprint_reminder" in commit
+
+
+def test_mireward_gazetteer_create_commit_with_token_writes_file(tmp_path: Path) -> None:
+    rel = "Elderwyld/Cities and Towns/Mireward/Mireward_Map_Key_and_Gazetteer.md"
+    body = "# Mireward Map Key\n\n## South Gate\n\nDraft canon structure.\n"
+
+    preview = write_corpus_file(tmp_path, path=rel, mode="create", content=body, dry_run=True)
+    assert preview["ok"] is True
+    assert not (tmp_path / rel).exists()
+
+    commit = write_corpus_file(
+        tmp_path,
+        path=rel,
+        mode="create",
+        content=body,
+        dry_run=False,
+        confirm_token=preview["confirm_token"],
+    )
+    assert commit["ok"] is True
+    assert (tmp_path / rel).read_text(encoding="utf-8").startswith("# Mireward Map Key")
 
 
 def test_commit_without_token_errors(tmp_path: Path) -> None:
@@ -372,6 +433,49 @@ def test_append_timeline_unknown_recap_errors(tmp_path: Path) -> None:
     )
     assert out["ok"] is False
     assert "does not exist" in out["error"]
+
+
+def test_mireward_readme_append_dry_run_does_not_mutate(tmp_path: Path) -> None:
+    rel = "Elderwyld/Cities and Towns/Mireward/README.md"
+    target = tmp_path / rel
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text("# Mireward\n", encoding="utf-8")
+
+    out = write_corpus_file(
+        tmp_path,
+        path=rel,
+        mode="append",
+        content="- `Mireward_Map_Key_and_Gazetteer.md` — promoted index\n",
+        dry_run=True,
+    )
+    assert out["ok"] is True
+    assert "Mireward_Map_Key_and_Gazetteer.md" in out["diff"]
+    assert target.read_text(encoding="utf-8") == "# Mireward\n"
+
+
+def test_mireward_dossier_create_blocks_uppercase_slug_at_write_time(tmp_path: Path) -> None:
+    rel = "Elderwyld/Cities and Towns/Mireward/Mireward_Location_Dossiers/SouthGate.md"
+    out = write_corpus_file(
+        tmp_path,
+        path=rel,
+        mode="create",
+        content="# South Gate\n",
+        dry_run=True,
+    )
+    assert out["ok"] is False
+    assert "not allowed" in out["error"]
+
+
+def test_mireward_dossier_create_blocks_jsonl_even_with_allowed_prefix(tmp_path: Path) -> None:
+    rel = "Elderwyld/Cities and Towns/Mireward/Mireward_Location_Dossiers/south_gate.jsonl"
+    out = write_corpus_file(
+        tmp_path,
+        path=rel,
+        mode="create",
+        content="{}\n",
+        dry_run=True,
+    )
+    assert out["ok"] is False
 
 
 def test_append_timeline_disambiguates_by_recap_campaign_path(tmp_path: Path) -> None:

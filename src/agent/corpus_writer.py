@@ -67,6 +67,15 @@ _CAMPAIGN_DOSSIER_CREATE_RE = re.compile(
     r"^Longmont Campaign/Campaign \d+/NPCs/[^/]+/[^/]+_character_dossier\.md$"
 )
 _LOCATIONS_CREATE_RE = re.compile(r"^Elderwyld/Locations/[^/]+\.md$")
+_MIREWARD_README_RE = re.compile(
+    r"^Elderwyld/Cities and Towns/Mireward/README\.md$"
+)
+_MIREWARD_GAZETTEER_RE = re.compile(
+    r"^Elderwyld/Cities and Towns/Mireward/Mireward_Map_Key_and_Gazetteer\.md$"
+)
+_MIREWARD_LOCATION_DOSSIER_RE = re.compile(
+    r"^Elderwyld/Cities and Towns/Mireward/Mireward_Location_Dossiers/[a-z0-9_]+\.md$"
+)
 _PREP_SESSION_APPEND_RE = re.compile(
     r"^Longmont Campaign/Campaign \d+/Session Prep/[^/]+\.md$"
 )
@@ -146,23 +155,30 @@ def is_writable_corpus_path(rel_path: str, mode: str) -> tuple[bool, str]:
             return True, ""
         if _LOCATIONS_CREATE_RE.match(cleaned):
             return True, ""
+        if _MIREWARD_GAZETTEER_RE.match(cleaned):
+            return True, ""
+        if _MIREWARD_LOCATION_DOSSIER_RE.match(cleaned):
+            return True, ""
         return False, (
             "create mode is not allowed for this path (allowed: "
             "`**/Session Recaps/{Session NN - <slug>.md,_normalized/Session NN - <slug>.md,_breadcrumbed/Session NN - <slug>.{breadcrumbed,frontmatter_seed}.md,_session_memory/Session NN - <slug>.records_meta.{jsonl,json}}`, "
             "Elderwyld `.../Cities and Towns/<town>/NPCs/<slug>/{README.md,character_seed.md}`, "
+            "Mireward `.../Mireward/{Mireward_Map_Key_and_Gazetteer.md,Mireward_Location_Dossiers/<safe_slug>.md}`, "
             "campaign `.../NPCs/<slug>/{README.md,timeline.md,*_character_dossier.md}`, "
             "or `Elderwyld/Locations/<stub>.md`)."
         )
     if (
         _TIMELINE_RE.search(cleaned)
         or _HUB_README_RE.search(cleaned)
+        or _MIREWARD_README_RE.match(cleaned)
+        or _MIREWARD_GAZETTEER_RE.match(cleaned)
         or _PREP_SESSION_APPEND_RE.match(cleaned)
     ):
         return True, ""
     return False, (
         "append mode is not allowed for this path (allowed: "
         "`**/NPCs/<slug>/timeline.md`, `**/PCs/<slug>/timeline.md`, "
-        "`**/NPCs/<slug>/README.md`, "
+        "`**/NPCs/<slug>/README.md`, Mireward `README.md` and `Mireward_Map_Key_and_Gazetteer.md`, "
         "or `Longmont Campaign/Campaign N/Session Prep/*.md`)."
     )
 
