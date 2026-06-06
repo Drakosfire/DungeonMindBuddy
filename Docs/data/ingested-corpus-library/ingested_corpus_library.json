@@ -1,6 +1,6 @@
 {
   "schema": "dmb_ingested_corpus_library_v1",
-  "generated_at": "2026-06-02T16:13:17Z",
+  "generated_at": "2026-06-06T23:11:15Z",
   "corpus_root": "corpus/eldyrwild-markdown",
   "summary": {
     "campaign_count": 2,
@@ -31,7 +31,7 @@
         "session": 20
       }
     ],
-    "total_corpus_md_files": 363
+    "total_corpus_md_files": 388
   },
   "campaigns": [
     {
@@ -1820,7 +1820,7 @@
   ],
   "elderwyld": {
     "exists": true,
-    "md_file_count": 101,
+    "md_file_count": 126,
     "top_level_dirs": [
       "Cities and Towns",
       "Events",

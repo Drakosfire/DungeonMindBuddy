@@ -98,6 +98,7 @@ Reach folk are mostly **less city, not less civilized**. Mirathorn is lake, rive
 - Fen-edge farmers and reed-cutters  
 - Hamlet folk from **north** of Mireward (closer than Edge of the World)  
 - A few **southbound stragglers** who stopped here  
+- **Edge support column (S23 locked):** Mireward civilians who marched **north** to Edge as cooks, menders, tally-keepers, and charter-guilt relief — now fleeing south ahead of a meat-monster flank (§F4)  
 - **Not** a organized Mirathorn exodus (reserve for another beat)
 
 **Emotional texture (locked with knob #2):** Crowd fear is **logistical** (no beds, no grain) layered with **northbound dread** (empty hamlets, bad water, wrong songs). At human scale, **The Last Dry Bed** family models **Lundayell-style non-judgment** toward Orin — which may be **compassionate and dangerously wrong** at once. See §F2.
@@ -178,17 +179,222 @@ Someone **did** report upstream and was ignored/buried — festival press, requi
 
 | Role | Job | Name | Promoted? |
 |------|-----|------|-----------|
-| Town head | Mayor OR crown reeve (pick one) | TBD | |
-| Law | Sheriff / constable **or veteran sergeant holding the post** | TBD | §A2 |
-| Gate voice | **Lysandro Ironveil** (emeritus; Lysandra’s **father**) — **C2 table canon S22** | **Lysandro Ironveil** | sketch §F3 |
-| Inn keeper (floor) | Rumor dispenser; runs beds / bar | **Maera Vell** *(working)* | sketch §F2 |
-| Inn family (back room) | Keeps escaped relative; Lundayell-tolerance lens | **Orin Vell** *(working)* + family | sketch §F2 |
-| Refugee voice | One family anchor (non-inn) | TBD | |
-| Ferry master | Fen truth | TBD | |
-| Crown rider *(optional)* | Just left Mirathorn | TBD | |
+| Crown logistics | Holds Hester's Edge packet; ration lists, tithe barn, requisition authority | **Reeve Salla Vey** *(working)* | `NPCs/salla_vey/` |
+| Civil town head | Keeps panic down; festival/civilian face; argues against stampede logic | **Mayor Orric Tane** *(working)* | `NPCs/orric_tane/` |
+| Wall defense | Sergeant-emeritus / acting defense lead; believes the packet immediately | **Nera Coalstep** *(working)* | `NPCs/nera_coalstep/` §A2 |
+| Gate voice | **Lysandro Ironveil** (first-family artisan / merchant; Lysandra's **father**; S23 wall volunteer) — **C2 table canon S22** | **Lysandro Ironveil** | `NPCs/lysandro_ironveil/` §F3 |
+| Inn keeper (floor) | Rumor dispenser; runs beds / bar | **Maera Vell** *(working)* | `NPCs/maera_vell/` §F2 |
+| Inn family (back room) | Keeps escaped relative; Lundayell-tolerance lens | **Orin Vell** *(working)* + family | `NPCs/orin_vell/` §F2 |
+| Refugee voice | Edge support column lead; charter-guilt relief train | **Brin Holloway** *(working)* | `NPCs/brin_holloway/` §F4 |
+| Ferry master | Fen truth; causeway/ferry control if Edge collapses | **Delwen Rast** *(working from Lysandra dossier)* | `NPCs/delwen_rast/` |
+| Crown rider | Edge courier who already stopped in Mireward and continued south to Mirathorn | **Private Hester** | `NPCs/private_hester/` S22 recap |
 | Music thread | One wrong verse | TBD | |
 
 **Party hook:** Famous heroes arriving **northbound** — relief, suspicion, or “take this letter to Mirathorn.”
+
+### F1. Locked S23 setup — Hester's Edge packet reached Mireward first
+
+**Decision:** **Private Hester already reached Mireward, delivered a local Edge packet, changed horse / restocked, and continued south with the sealed tube for Mirathorn.** This preserves the Session 22 recap: the party meets her southbound with reports for Mirathorn, while Mireward has already received its own copy.
+
+**Courier chain:** **Edge of the World → Mireward → Mirathorn.** Hester carried two layers:
+
+- **Mireward field packet:** delivered before the party arrives; meant for immediate civil / wall action.
+- **Mirathorn sealed tube:** still in Hester's hand when the party meets her on the road; meant for higher command and broader Reach response.
+
+**What the Mireward packet says (detailed, not vague):**
+
+- Edge is **pinned / under siege pressure**, not merely worried by rumor.
+- The north road is no longer reliable: at least one patrol is missing, one relay failed to return, and known mile markers have gone quiet.
+- Music incidents are specific: repeated wrong-verse hymn fragments, night calls from the fen edge, and people walking fen-ward without answering restraint.
+- Several affected people showed **glassy or delayed eyes**; Hester did not have Karsemine's exact prior vocabulary until the road encounter.
+- Edge requests concrete preparation: beds, grain, water discipline, runners, bell codes, a wall muster, refugee intake rules, and ferry / causeway control.
+- Commander Vale asks Mireward to prepare a **fallback channel south** and keep a small route open for scouts, not send a slow militia column north.
+
+**Who received / heard it in Mireward:**
+
+- **Reeve Salla Vey** — crown tithe/logistics authority; physically holds the packet; wants ration lists, requisition control, and legal order.
+- **Mayor Orric Tane** — civil face; worries that naming "siege" during the counter-festival will break the town before the enemy does.
+- **Nera Coalstep** — sergeant-emeritus / acting wall lead; believes the packet immediately and wants bells, barricades, and watchers now.
+- **Lysandro Ironveil** — not formal command, but Hester insists he hear it because people actually follow his wall habits.
+- **Delwen Rast** — ferry/causeway operator; pulled in because any northbound or fallback movement hinges on the wet road.
+
+**Opening tension:** Mireward is **informed but not aligned**. Salla says stores and orders; Orric says calm and no stampede; Nera says the enemy has already arrived; Lysandro tries to translate all of that into mutual-aid wall practice just as the party arrives.
+
+**Why the south still does not know:** Hester is the first sealed proof moving south. Mirathorn has festival gravity, courier overload, and no clean picture yet; the people with the best information are staying inside Mireward or trapped at Edge.
+
+---
+
+## F4. Edge support refugee wave — S23 north-gate crisis *(locked sketch)*
+
+**Purpose:** First **visible** siege pressure at Mireward — not abstract packet text. Civilian refugees the town **sent north** return broken, half-glassy, ahead of a **meat-monster flank** the Edge siege did not need to hold them.
+
+### Broad strokes
+
+| Beat | Detail |
+|------|--------|
+| **Who they were** | **Mireward civilians** — not soldiers — who traveled to **Edge of the World** as **support**: cooks, menders, tally-clerks, teamsters, shrine-tenders, charter folk proving the town still cared. |
+| **Why they went** | Edge had become **run-down**; crown maintenance coin thinned; Mireward had an **embarrassing recent streak** of defiant **sky-levy** protests (*"we won't pay to arm a ghost fort"*). The column was guilt, pride, and politics marching north together. |
+| **Why they're back** | Edge is **pinned / under siege**. A **large band of meat-things** — **not** needed to hold the main siege line — was cut loose or spilled **south** to **harry stragglers** and push panic down the road. |
+| **March state** | They have been moving **as fast as they can** for **2 days**. Exhausted, dehydrated, some barefoot, carts abandoned, children carried. |
+| **Glassy split** | About **half** show **glassy or worsening eyes** — delayed blink, wrong focus, humming fragments. The clear-eyed are **terrified of the glassy**, not only of the monsters behind. |
+| **Horror core** | Folk who **couldn't keep up** did not simply die. Witnesses describe them **standing up wrong**, **joining** the shuffling line, or **walking back north** when called. Glassy folk **get worse** if forced to march hard — more song, less answer. |
+| **Ostensible lead** | **Brin Holloway** — former sky-levy loudmouth who organized the relief train; now counting wrong because he keeps losing people. Hub: `NPCs/brin_holloway/`. |
+| **Column size (S23 lock)** | **55 souls at the north apron**: about **51 on foot** plus **2 carts** with **4 people** aboard. Brin says **58**, then **51**, then "fifty-odd"; he is counting the dead, the missing, and the glassy differently each time. Enough to **break capacity**; not enough to be an army. |
+
+**Political hit at arrival:** **Salla Vey** gets a head-count nightmare; **Orric Tane** gets proof the festival can't absorb this; **Nera Coalstep** gets the enemy **minutes not hours** behind; **Lysandro** gets neighbors he may recognize by name.
+
+### Alarm shape at the north end
+
+1. **Wrong alarm:** first shout sounds like a raid — "North road! Something on the north road!" The town looks to the wall before it understands the gate.
+2. **Wrong kind of threat:** the pitch changes into names, children, and "don't touch her eyes." It is civilians, not soldiers.
+3. **Brin breaks through:** he reaches the first competent authority and makes the clock explicit: **"Not a few minutes. Minutes."**
+
+**Brin's count, if challenged:** "Fifty-eight when we crossed the last mile marker. Fifty-one if you only count the ones still answering to their names. Fifty-odd if you want the truth fast."
+
+**Lysandro's action:** he does not hold the gate line. He works the town: bell codes, bucket lines, rope, cressets, wall practice, named neighbors. His job is making Mireward react before Salla / Orric / Nera finish arguing. Table line: **"You can calm the festival after the gate decision. Pick one."**
+
+### Meat-monster flank (broad strokes only)
+
+- **Not** the main siege engine — **expendable pressure**: herd stragglers, spread glassy conversion, **test** whether Mireward opens or panics.
+- **Look:** Wrong meat — too much of it, stitched wrong, **too many mouths**, shambling fast when it smells fear; wrong hymn-breath in the dark.
+- **Tactics:** Don't need to take the wall tonight; need to **arrive with the refugees** or **immediately after** the column is admitted / denied.
+- **Mechanics:** Canonical sheets live under `Elderwyld/Shephards Flock/Statblocks and Tokens/` — see that folder's README. **Suggested flank mix:** 2× `sewer_meat_creature_statblock_cr3.md`, 1× `corrupted_meat_golem_statblock_cr3.md`, skirmish with `meat_worm_statblock_cr_half.md` or `aberrant_meat_wing_statblock_cr1.md` as needed.
+
+### Road clock
+
+| Time from Brin's arrival | Escalation |
+|--------------------------|------------|
+| **0 min** | Vanguard reaches the north apron; alarm flips from "raid" to "civilians." |
+| **1–2 min** | Gate argument starts; Lysandro mobilizes townsfolk instead of waiting for command. |
+| **3–5 min** | First meat appears at the road bend / tree line; wrong hymn on the wind. |
+| **6–8 min** | Main flank body arrives: suggested table mix is 2× sewer meat creatures + 1× corrupted meat golem, with worms or wings as pressure. |
+| **8+ min** | If the gate is still unresolved, glassy people at the rear begin walking north toward the sound. |
+
+### On-the-fly marcher kit *(roll or pick; combine tables A–G)*
+
+Roll **F + G** for a name, then **A–E** for role, eyes, hook, need, and voice tags. Brin Holloway is the fixed lead — do not reroll his name.
+
+**A. March role** *(why they went north)*
+
+| d8 | Role | Tell |
+|----|------|------|
+| 1 | **Cook / kettle hand** | Smells of ash and old broth; burns on forearms |
+| 2 | **Mender / seamstress** | Thread in teeth; mends while walking |
+| 3 | **Tally-clerk / store hand** | Ink-stained fingers; keeps a list that won't balance |
+| 4 | **Teamster / cart minder** | Whip hand; talks to horses that aren't there |
+| 5 | **Shrine-tender / candle keeper** | Wax on cuffs; prayers too fast |
+| 6 | **Charter speaker / sky-levy type** | Old protest sash hidden; ashamed now |
+| 7 | **Teen runner** | Fast legs; saw the back of the column worst |
+| 8 | **Child-bearer / kin anchor** | Carrying someone else's shoes; won't set them down |
+
+**B. Eye status** *(pick per NPC; ~half column glassy)*
+
+| d6 | Status | Play |
+|----|--------|------|
+| 1–2 | **Clear-eyed, breaking** | Shakes, hyper-alert, flinches at humming |
+| 3 | **Early glassy** | Delayed blink; answers one beat late |
+| 4 | **Worsening** | Wrong verse under breath; resists restraint |
+| 5 | **Deep glassy** | Stares through people; walks toward north if unheld |
+| 6 | **Turned / lost on road** | *(off-screen or at rear)* — party hears, doesn't meet yet |
+
+**C. Horror story hook** *(one sentence they volunteer or scream)*
+
+| d8 | Hook |
+|----|------|
+| 1 | "She tripped. They didn't eat her. She **stood up** and walked **with** them." |
+| 2 | "He begged us to leave him. Then he **hummed** the same song as the things behind." |
+| 3 | "We tied him to the cart. The knots **loosened themselves**." |
+| 4 | "The slow ones weren't left behind — they were **collected**." |
+| 5 | "Their eyes went shiny **before** the meat showed up." |
+| 6 | "The children stopped crying. That's when I knew." |
+| 7 | "Edge gate closed on us. Said they had **no room for soft hands**." |
+| 8 | "Brin said keep moving. I looked back once. **No one was running.**" |
+
+**D. What they need right now**
+
+| d6 | Need |
+|----|------|
+| 1 | Water |
+| 2 | A place to **collapse** — not a bed, a floor |
+| 3 | Someone to **take the glassy** off their hands |
+| 4 | Permission to **enter** — "don't make us die on the apron" |
+| 5 | A **lie** that help is coming north |
+| 6 | Revenge — "close the gate on us if you want, but **kill what's behind us**" |
+
+**E. Quality tags** *(stack 1–2 for voice)*
+
+| Tag | Voice |
+|-----|-------|
+| **Ashamed** | "We did this to ourselves." |
+| **Defiant** | "Open the damn gate — we bled for your pride once." |
+| **Numb** | Short answers; can't stop walking in place |
+| **Parent** | Only talks about one missing name |
+| **Believer** | Blames music / Shepherd / saints — not sure which |
+| **Denier** | "It's exhaustion. Not the same as the city sickness." |
+| **Accuser** | Points at **Orric** / **Salla** / **Lysandro** by role |
+| **Useful** | Knows fen path, cart axle, or Edge gate layout |
+
+**F. First name** *(Mireward Reach civilians — d20; stranger than city names)*
+
+| d20 | First name |
+|-----|------------|
+| 1 | **Brindle** |
+| 2 | **Tallow** |
+| 3 | **Kesset** |
+| 4 | **Moth** |
+| 5 | **Orra** |
+| 6 | **Fenner** |
+| 7 | **Patch** |
+| 8 | **Wicket** |
+| 9 | **Sabley** |
+| 10 | **Noll** |
+| 11 | **Tamsin-of-Bells** *(nickname-as-name)* |
+| 12 | **Cairn** |
+| 13 | **Joryn** |
+| 14 | **Mirel** |
+| 15 | **Kettle-Jon** |
+| 16 | **Vessa** |
+| 17 | **Rook** |
+| 18 | **Larkspur** |
+| 19 | **Sedgewick** |
+| 20 | **Thim** |
+
+**G. Last name** *(Reach road-town families — d20; use like handles if needed)*
+
+| d20 | Last name |
+|-----|-----------|
+| 1 | **Bellgrease** |
+| 2 | **Mudpenny** |
+| 3 | **Cartwake** |
+| 4 | **Saints-Quarrel** |
+| 5 | **Tallowhand** |
+| 6 | **Sedgehook** |
+| 7 | **Candle-Under-Rain** |
+| 8 | **Wainwrong** |
+| 9 | **Scalebreak** |
+| 10 | **Kettle** |
+| 11 | **Tax-Hush** |
+| 12 | **Reedbent** |
+| 13 | **Apronfall** |
+| 14 | **Bellweather** |
+| 15 | **Toll-Refuser** |
+| 16 | **Vell** |
+| 17 | **Voss** |
+| 18 | **Holloway** |
+| 19 | **Coalstep** |
+| 20 | **Rast** |
+
+**Name notes:** Tables **F** and **G** should sound like families that became names through **work, protest, road accidents, and old charter jokes**, not clean city genealogies. Last names with hyphens may be true surnames, nicknames, or what Brin writes down when he cannot remember the legal name. Reused town names (**Vell**, **Kettle**, **Voss**, **Holloway**, **Coalstep**, **Rast**) make marchers possible kin of established NPCs — use for instant soap or ignore duplicate if unwanted. **Commander Vale** is Reach military title + surname elsewhere; avoid introducing a civilian refugee named **Vale** unless intentional.
+
+### Scene affordances
+
+- Brin arrives **with** or **just before** the north alarm — refugees on the **north road** visible from south gate / wall walk.
+- **Karsemine** / **Ephanna** / **Stafl** each have a lane: scout the rear, sense magic/music, Reach jargon for "this is real."
+- **Maera** may want to shelter glassy kin; **Salla** wants quarantine tallies; split the town instantly.
+- **Orin upstairs** humming the **same wrong fragment** — red herring or real connection; GM pick.
+- One glassy refugee **almost** enters with the clear — **moral choke** at the gate.
+
+**Promotion:** When locked after play → optional `NPCs/brin_holloway/` dossier + `Mireward_Location_Dossiers/north_gate_apron.md`. Until then, **this block + Brin seed**.
 
 ---
 
@@ -232,11 +438,11 @@ Someone **did** report upstream and was ignored/buried — festival press, requi
 
 ## F3. Ironveil family — Mireward natives *(C2 table canon; expand in campaign dossier)*
 
-**Purpose:** **Homecoming soap** when **Captain Lysandra Ironveil** returns north. Mireward is **her birthplace**; Mirathorn is **her rank**. Gate scene **S22:** **Lysandro Ironveil** (**father**) on the wall walk.
+**Purpose:** **Homecoming soap** when **Captain Lysandra Ironveil** returns north. Mireward is **her birthplace**; Mirathorn is **her rank**. Gate scene **S22:** **Lysandro Ironveil** (**father**) on the wall walk. Fuller voice / S23 use now lives in `Elderwyld/Cities and Towns/Mireward/NPCs/lysandro_ironveil/`.
 
 | Name | Role | Soap handle |
 |------|------|-------------|
-| **Lysandro Ironveil** | Gate emeritus, **father** | Loud sincere anti-authoritarian; **Lysa**; stories that mortify |
+| **Lysandro Ironveil** | Precision-parts maker / merchant, first-family wall volunteer, **father** | Loud sincere anti-authoritarian; **Lysa**; maker metaphors; free action plus real vigilance |
 | **Merrow Ironveil** | Fuller, mother | Mock reeve speeches; pride as criticism |
 | **Torr Ironveil** | Retired tithe clerk, **grandfather** | Quiet; fixes her strap; framed commendation hidden |
 | **Calyx Ironveil** | Younger brother (~22) | Green gate kid; wants Mirathorn Guard; unanswered petitions |
@@ -246,7 +452,7 @@ Someone **did** report upstream and was ignored/buried — festival press, requi
 **Full timeline, secrets, embarrassment table:**  
 `Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/lysandra_ironveil_mireward_history.md`
 
-**Seed (Lysandro):** `Elderwyld/Cities and Towns/Mireward/NPCs/lysandro_ironveil/character_seed.md`
+**Lysandro hub:** `Elderwyld/Cities and Towns/Mireward/NPCs/lysandro_ironveil/README.md`
 
 ---
 
@@ -265,9 +471,9 @@ Someone **did** report upstream and was ignored/buried — festival press, requi
 
 | # | Question | Decision |
 |---|----------|----------|
-| 1 | Who runs Mireward? | TBD: reeve / mayor / **sergeant-emeritus council** / joint |
+| 1 | Who runs Mireward? | **LOCKED for S23 open — contested joint authority:** Reeve **Salla Vey** holds crown stores / paper; Mayor **Orric Tane** holds civilian calm; **Nera Coalstep** holds practical wall defense; **Lysandro** translates it into mutual-aid action (§F1). |
 | 2 | Primary refugee fear? | **LOCKED — mix:** (1) **capacity / displacement**, (2) **fen + abandoned-hamlet pressure**, (3) **Shepherd's Shadow** undertone (meat / wrong verse / well — d100 51–60), (4) **human-scale:** Orin + family **misread** at the inn (§F2). Not one headline fear — **stacked**. |
-| 3 | Edge of the World already sending people here? | TBD |
+| 3 | Edge of the World already sending people here? | **LOCKED — yes:** Hester already delivered a detailed local Edge packet to Mireward, then continued south with the sealed Mirathorn tube (§F1). Edge is pinned / under siege pressure, not just worried. |
 | 4 | Did Raucous Saints pass through? | TBD |
 | 5 | One hamlet name to care about? | TBD |
 | 6 | Southbound suppression — incompetence or named blocker? | TBD |

@@ -8,9 +8,9 @@ campaign_id: null
 temporal_scope: evergreen
 session: 21
 origin_session: 21
-last_updated_session: 21
+last_updated_session: 23
 source_class: seed_reference
-table_note: "Hub in build. Table canon: named S21, ~5 days north of end-S21 camp. Mechanics/lore in scaffold until promoted to gazetteer and dossiers."
+table_note: "Hub in build. Table canon: named S21, ~5 days north of end-S21 camp. S23 authority NPCs now have setting-side hubs under NPCs/."
 ---
 
 # Mireward — Elderwyld (location hub)
@@ -39,9 +39,16 @@ table_note: "Hub in build. Table canon: named S21, ~5 days north of end-S21 camp
 2. `Elderwyld/Roads/mireward_reach_road_d100_encounter_table.md` — travel on the Reach.
 3. `Longmont Campaign/Campaign 2/Journey - Mireward Reach (Campaign 2).md` — party distances and camp state.
 4. `Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/lysandra_ironveil_mireward_history.md` — **Ironveil family / Lysandra homecoming soap** (C2 table canon from S22 gate).
-5. `Elderwyld/Cities and Towns/Mireward/NPCs/lysandro_ironveil/character_seed.md` — gate emeritus (Lysandra’s **father**).
-6. `Elderwyld/Cities and Towns/Mossford/README.md` — target hub shape when promotion begins.
-7. `Elderwyld/Cities and Towns/Edge of the World/README.md` — farther-north rumor stub.
+5. `Elderwyld/Cities and Towns/Mireward/NPCs/lysandro_ironveil/README.md` — Lysandra's **father**; S23 south-gate voice (start hub README, then dossier/seed).
+6. `Elderwyld/Cities and Towns/Mireward/NPCs/salla_vey/README.md` — crown reeve; holds Hester's Edge packet.
+7. `Elderwyld/Cities and Towns/Mireward/NPCs/orric_tane/README.md` — civilian mayor; counter-festival face.
+8. `Elderwyld/Cities and Towns/Mireward/NPCs/nera_coalstep/README.md` — acting wall defense lead.
+9. `Elderwyld/Cities and Towns/Mireward/NPCs/delwen_rast/README.md` — ferry / causeway head.
+10. `Elderwyld/Cities and Towns/Mireward/NPCs/maera_vell/README.md` — The Last Dry Bed innkeeper.
+11. `Elderwyld/Cities and Towns/Mireward/NPCs/private_hester/README.md` — Reach courier (S22 road + Mireward delivery).
+12. `Elderwyld/Cities and Towns/Mireward/NPCs/brin_holloway/README.md` — Edge support refugee column lead (S23 north crisis).
+13. `Elderwyld/Cities and Towns/Mossford/README.md` — target hub shape when promotion begins.
+14. `Elderwyld/Cities and Towns/Edge of the World/README.md` — farther-north rumor stub.
 
 ---
 
@@ -52,7 +59,7 @@ table_note: "Hub in build. Table canon: named S21, ~5 days north of end-S21 camp
 | Build scaffold | `Mireward_PLACE_BUILD_SCAFFOLD.md` | **exists** |
 | Map key / gazetteer | `Mireward_Map_Key_and_Gazetteer.md` | pending |
 | Location dossiers | `Mireward_Location_Dossiers/` | pending |
-| Anchor NPCs | `NPCs/` | **in progress** — `lysandro_ironveil/character_seed.md` |
+| Anchor NPCs | `NPCs/` | **in progress** — eight S23 hubs + `brin_holloway/` refugee lead |
 
 ---
 
