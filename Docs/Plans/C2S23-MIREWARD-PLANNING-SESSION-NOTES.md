@@ -22,6 +22,7 @@
 | G | 2026-06-06 | Remaining Mireward S23 NPC hubs created | Cursor corpus edit, `Docs/CONVENTION-NPC-Hub-Package.md` | Added README + character_seed hubs for Salla Vey, Orric Tane, Nera Coalstep, Delwen Rast, Maera Vell, Orin Vell, Private Hester; updated Mireward location README + scaffold §F table. | Design north-side combat; optional dossiers for authority cluster later |
 | H | 2026-06-06 | Edge support refugee wave locked | Cursor planning + scaffold §F4 + `brin_holloway` hub | Civilian column sent north to Edge (guilt / sky-levy defiance); fleeing south ahead of meat-monster flank; ~half glassy-eyed; Brin Holloway named lead; on-the-fly marcher tables in scaffold | Wire into opening beat map + combat |
 | I | 2026-06-06 | North-gate count and clock tightened | Cursor planning + scaffold / Brin seed edits | S23 table lock: **55 civilians**, Brin's unreliable **58 / 51 / fifty-odd** counts, meat flank **3–8 minute road clock**, Lysandro mobilizing town reaction while party handles gate / road pressure | Finish opening beat map; decide exact gate/apron tactical layout |
+| J | 2026-06-06 | Siege behavior + layout packet authored from operator decisions | ChatGPT GitHub connector writes | Added `Docs/Plans/C2S23-Mireward-Siege-Behavior-Layout/` with locked anchors, authority matrix, panic model, layout/site cards, pressure interfaces, prep inventory, and table-use decisions. Operator locked: civic tithe compound, south-apron festival commons, ferry-causeway inside north gate on east-west river, emergency consensus, treatment-first glassy-eye instinct, Bell/Shrine as remembered site. | Optional next packet: refugee names / bad counts, mutual-aid roster, pressure clocks, treatment table, Bell/Shrine consensus scene card |
 
 ---
 
@@ -58,53 +59,3 @@ Log each manifest query run before answering a prep question batch:
 | Phase | Path | Mode | Preview ok? | Committed? | Notes |
 |-------|------|------|-------------|------------|-------|
 | | | create / append | | | |
-
----
-
-## Open loops for Session 23 table
-
-- **LOCKED — contested authority:** Reeve Salla Vey / Mayor Orric Tane / Nera Coalstep / Lysandro mutual-aid (scaffold §F1, §H knob 1).
-- First promoted dossier scope: Reach Gate / mud apron vs The Last Dry Bed vs tithe barn / crown compound.
-- **LOCKED:** Edge being **under siege** reached Mireward via Hester before she continued south; the detailed packet + recipients live in `Mireward_PLACE_BUILD_SCAFFOLD.md` §F1.
-- **LOCKED:** Edge support refugee wave — Brin Holloway lead, **55 civilians**, ~half glassy, meat-monster flank **minutes** behind; generic marcher tables and road clock in scaffold §F4.
-- How Mireward’s counter-festival / bard presence changes the opening siege pressure and later relief options.
-- How to seed the roving Celtic punk battlewagon as later siege-break / northbound escort without making it solve this session too early.
-- North-side **combat beat map** — alarm timing, enemy tier, gate vs apron fight.
-- Whether every prep question gets live-query telemetry or only manifest packets.
-
----
-
-## S23 opening — Hester / north combat *(locked pieces)*
-
-| Piece | Status | Where |
-|-------|--------|-------|
-| Hester delivered Edge packet to Mireward; continued south | Locked | Scaffold §F1; `private_hester/` |
-| Authority cluster + Lysandro voice | Locked | Scaffold §F, §F3; NPC hubs |
-| Edge support refugees + Brin Holloway | Locked | Scaffold §F4; `brin_holloway/` |
-| Refugee count / alarm clock / Lysandro mobilization | Locked | Scaffold §F4; `brin_holloway/` |
-| Layout v0 north–south road | Open | Handoff §3D |
-| Opening beat map + combat | Open | Handoff §3E |
-| Counter-festival / bard NPC | Open | Handoff §3C |
-| Battlewagon seed | Open | Handoff §3F |
-| Thrin omen + S22 thread pick | Open | Handoff §5 |
-
----
-
-## Friction / backlog captures
-
-| Symptom | Likely cause | Logged to |
-|---------|--------------|-----------|
-| Live-query trace artifacts omit token usage / estimated cost fields, so cost-as-signal cannot be compared for this run | `run_live_query_telemetry_trace` writes model and answer trace but not telemetry cost | Session notes; candidate harness follow-up |
-| | | `Backlog.md` or capability inventory |
-
----
-
-## Mireward build checklist (Mossford target shape)
-
-- [ ] Read `Mireward_PLACE_BUILD_SCAFFOLD.md` + S22 recap family
-- [ ] Create `Mireward_Map_Key_and_Gazetteer.md` (preview → commit)
-- [ ] Create first location dossier(s) under `Mireward_Location_Dossiers/`
-- [ ] Append `README.md` hub index with promoted paths
-- [ ] NPC seeds as needed (`NPCs/<slug>/character_seed.md`)
-- [ ] Re-run manifest query on 2–3 Mireward prep questions; log packets above
-- [ ] Session 23 prep brief draft (operator-owned; link sources)
