@@ -4,9 +4,9 @@ title: C2 Live Control Surface v0 — Query Pane
 document_class: plan
 plan_kind: product_sprint_plan
 status: active
-version: 2.0
+version: 2.1
 created_at: "2026-05-25T03:11:00Z"
-last_updated_at: "2026-05-30T19:30:00Z"
+last_updated_at: "2026-06-02T00:00:00Z"
 ---
 
 # C2 Live Control Surface v0 — Query Pane
@@ -14,6 +14,8 @@ last_updated_at: "2026-05-30T19:30:00Z"
 ## Thesis
 
 DungeonBuddy is evolving from a repo-agent workflow into a live GM control surface.
+
+After **`9f7ef87`** (2026-06-02), dogfood retrieval spans **182 routes** via `c2s23_dogfood_full_manifest.json` (C2 hub satellites + full Elderwyld, `world_evidence` authority). Hub-world gold cohort: **10/10**. Switch: `DMB_C2S23_DOGFOOD_DEFAULTS=1`. Slim 43-route manifest retained for regression. See `Docs/Plans/HANDOFF-self-continuity-2026-06-02-c2s23-hub-world-dogfood.md`.
 
 The core architectural direction is locked:
 

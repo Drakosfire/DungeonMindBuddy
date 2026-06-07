@@ -30,6 +30,9 @@ from src.live_play.surface_layout_invariants import (
 )
 
 SCHEMA_VERSION = "0.1.0"
+DEFAULT_PLANNING_MANIFEST_PATH = (
+    "evals/c2_live_prep/benchmarks/c2s23_planning_corpus_manifest.json"
+)
 
 
 def _now_utc() -> str:
@@ -249,6 +252,7 @@ def build_live_packet(
         "planning_beats": planning_beats,
         "surface_catalog": _default_surface_catalog(),
         "context_packets": [],
+        "planning_manifest_path": DEFAULT_PLANNING_MANIFEST_PATH,
     }
 
 

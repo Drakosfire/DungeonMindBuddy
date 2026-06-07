@@ -18,10 +18,11 @@
 
     <div class="callout callout-neutral serve-hint">
       <strong>How to run</strong>
-      Serve from the <strong>repo root</strong> so corpus and artifact links resolve:
-      <code>cd DungeonMindBuddy && python -m http.server 8765</code>
+      From this folder:
+      <code>python serve.py</code>
       then open
-      <a href="/evals/c2_live_prep/mireward-prep/index.html">/evals/c2_live_prep/mireward-prep/index.html</a>
+      <a href="/">http://localhost:8765/</a>
+      — lands on this command board; corpus links still resolve from repo root.
       Markdown links open in an in-page preview popup (requires HTTP — not <code>file://</code>).
     </div>
 
@@ -68,6 +69,10 @@
     <h2>Practice panes</h2>
     <p class="muted">Click a card to open the pane.</p>
     <div class="grid-2">
+      <a class="card pane-card" href="combat.html">
+        <div class="card-hd">Combat tracker</div>
+        <div class="card-bd muted">North Reach Gate initiative order and HP tracker for PCs, allies, and locked enemy roster.</div>
+      </a>
       <a class="card pane-card" href="live-notes.html">
         <div class="card-hd">Live notes</div>
         <div class="card-bd muted">Persisted scratch pad — survives reload via localStorage.</div>

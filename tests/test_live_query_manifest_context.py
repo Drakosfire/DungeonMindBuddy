@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import builtins
+import json
 import shutil
 from pathlib import Path
 
@@ -187,6 +188,11 @@ def test_context_lookup_without_manifest_defaults_is_truthful_when_dogfood_off(
     isolated_session_23: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.delenv("DMB_C2S23_DOGFOOD_DEFAULTS", raising=False)
+    packet_path = isolated_session_23 / "live_packet.json"
+    packet = json.loads(packet_path.read_text(encoding="utf-8"))
+    for key in ("planning_manifest_path", "active_manifest_path", "manifest_path"):
+        packet.pop(key, None)
+    packet_path.write_text(json.dumps(packet, indent=2) + "\n", encoding="utf-8")
     body = process_live_query(
         "What Session 22 outcomes matter for Session 23 prep?",
         base=isolated_session_23,

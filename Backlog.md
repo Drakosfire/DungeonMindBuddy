@@ -7,6 +7,18 @@ Project-specific learnings, ideas, and follow-ups for the DungeonMindBuddy repo 
 
 Sort newest → oldest within each status; promote with `/promote`; archive with `/done` or `/drop`.
 
+## [IDEA] Command board — live combat drilldown proved useful at table — captured 2026-06-07
+
+**Context:** C2S23 Mireward North Reach Gate dogfood in `evals/c2_live_prep/mireward-prep/`: the static combat tracker evolved during live prep/play into a circular initiative barrel with HP in view, AC, statblock links, dead bucket, grouped enemies, import/export state, and virtual Top/Bottom of Round markers. User feedback: this was the first live-tested tool in the project that “felt like it helped,” especially quick statblock reference plus visible HP/turn order.
+
+**Insight:** The useful surface was not a broad dashboard; it was a command-board slice with immediate combat affordances and drilldown depth. The center of gravity is likely “current live context + fast deeper lookup”: turn order, HP, active/next actor, statblocks, and state persistence all visible without leaving the flow. The command board should be home for these focused slices or should launch them as first-class adjacent surfaces, but the design lesson is the same: show the GM the operational layer first, then make deeper canon/mechanics one click away.
+
+**Action:** When planning the next command-board iteration, carry forward this combat slice as a product lesson: (1) treat statblocks and entity details as drilldowns from live rows, (2) keep HP/turn state in the main view, (3) model turn order as a stable circular barrel with virtual markers, (4) prefer small live-use surfaces over generic dashboards, and (5) preserve import/export/local persistence so dogfood state survives at-table edits.
+
+**Surfaces when:** Command board planning; live-play control surface design; combat tracker promotion from eval static page into DungeonBuddy product; deciding whether a feature belongs on the command board or in a launched sub-surface; designing entity/statblock drilldowns.
+
+**Refs:** `evals/c2_live_prep/mireward-prep/combat.html`; `evals/c2_live_prep/mireward-prep/assets/prep.js`; `evals/c2_live_prep/mireward-prep/assets/prep.css`; `evals/c2_live_prep/mireward-prep/saves/mireward-north-reach-gate-combat-state.json`.
+
 ## [IDEA] Corpus ingest — monster & ecology layer (scattered, unorganized) — captured 2026-06-02
 
 **Context:** C2S23 dogfood-full live-query probe: “What is a float goat?” returned honest “no admitted evidence” despite float goats appearing in Session 6 recap, `Campaign 2 Notes.md`, C1 `bubbles_the_float_goat` hub, etc. Those routes sit outside the planning manifest window (S21–23) and were never organized as a discoverable world/ecology layer.

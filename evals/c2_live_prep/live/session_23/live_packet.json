@@ -17,6 +17,7 @@
     "prep_architect",
     "post_session"
   ],
+  "planning_manifest_path": "evals/c2_live_prep/benchmarks/c2s23_planning_corpus_manifest.json",
   "known_roll_tables": [],
   "current_state_seed": {
     "day_label": "Session 23",

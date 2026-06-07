@@ -2,15 +2,24 @@
 
 ## Reanchor Block
 
-- [x] Active slice: `L5_projection_command_architecture`
+- [x] Active slice: `L5_projection_command_architecture` + C2S23 retrieval dogfood
 - [x] L4 shell remains green on `main`
-- [x] Last green artifact: PR #95 (`02c0f9f`) — C2S23 activated planning corpus manifest (`src.live_play.planning_corpus_manifest`; `evals/c2_live_prep/benchmarks/c2s23_planning_corpus_manifest.json`, schema-valid, **43 entries** + bootstrapped `evals/c2_live_prep/live/session_23/*`; `tests/test_planning_corpus_manifest.py` **22 passed**)
-- [ ] Next gate: **Step 0** — complete Session 22 ingest (breadcrumb → session memory); then query/admission **over** the manifest (roadmap PR93 / git PR96)
+- [x] Last green artifact: **`9f7ef87`** (2026-06-02) — dogfood-full hub+world retrieval manifest (**182 routes**, `world_evidence` role, hub-world gold **10/10**; `tests/test_planning_corpus_manifest.py` + `test_manifest_context_query.py` + `test_ingested_corpus_library.py` → **71 passed**)
+- [x] Session 22 ingest: canonical recap `Session 22 - Mireward Road and Lysandro` — normalized, breadcrumbed, session memory on disk (re-verify `_normalized/` for duplicates before materialize reruns)
+- [ ] Next gate: **PR94 instrumented dogfood re-run** vs manual baseline; **Mirathorn civic hub ingest spec** (user: ingest before scoring); atomic doc-sync for ROADMAP/PLAN forward sequence
+- [ ] Dogfood-full default for live-control Session 23 prep — still behind `DMB_C2S23_DOGFOOD_DEFAULTS=1` (design decision pending)
 - [ ] Re-read `STUDY-c2-live-play-cursor-handoff-process.md` before UI expansion work
+- [ ] Handoff: `Docs/Plans/HANDOFF-self-continuity-2026-06-02-c2s23-hub-world-dogfood.md`
 
 ---
 
 ## Session Log (append newest first)
+
+### 2026-06-02 (UTC) — Dogfood-full hub+world retrieval on `main`
+
+- Commit **`9f7ef87`** pushed to `origin/main`: `world_evidence`, `build_dogfood_full_manifest()`, layer-aware scoring, hub-world gold (**10/10**), ingested corpus library + canvas, live probe artifacts (`evals/c2_live_prep/artifacts/runs/2026-06-02/`).
+- Live probes: S22 play-fact queries correct on dogfood-full (slim had S21 bleed); Mirathorn governance retrieval miss on manifest-present world docs — user chose **corpus ingest** over scoring patch; float goat honest gap — ecology ingest backlog.
+- Next: doc-sync ROADMAP/PLAN; prime-agent prioritization per self-continuity handoff.
 
 ### 2026-05-30 (UTC) — PR #95 merged + doc-sync; Step 0 ingest started
 
