@@ -8,9 +8,9 @@ campaign_id: null
 temporal_scope: evergreen
 session: null
 origin_session: null
-last_updated_session: null
+last_updated_session: 23
 source_class: seed_reference
-table_note: "Mechanical index for cult meat threats. Faction lore: `../The cult of the Great  Shephard.md`."
+table_note: "Mechanical index for cult meat threats. Faction lore: `../The cult of the Great  Shephard.md`. Mireward siege additions added for C2S23 planning."
 ---
 
 # Shepherd's Flock — statblocks and tokens
@@ -21,7 +21,9 @@ table_note: "Mechanical index for cult meat threats. Faction lore: `../The cult 
 2. `Elderwyld/Shephards Flock/Statblocks and Tokens/sewer_meat_creature_statblock_cr3.md` — baseline **CR 3** shambling meat humanoid (Sewer Meat Thing).
 3. `Elderwyld/Shephards Flock/Statblocks and Tokens/corrupted_meat_golem_statblock_cr3.md` — **CR 3** bruiser / elite flank piece.
 4. `Elderwyld/Shephards Flock/Statblocks and Tokens/fleshborn_hybrid_statblock_cr3.md` — **CR 3** shock troop (when present).
-5. `Elderwyld/Shephards Flock/Statblocks and Tokens/Tokens/Cultist and Corrupted Meat Token Sheet.md` — VTT token references.
+5. `Elderwyld/Shephards Flock/Statblocks and Tokens/tripod_null_calf_statblock_cr5.md` — **CR 5** large three-limbed alien siege scout / gate-marker for Mireward.
+6. `Elderwyld/Shephards Flock/Statblocks and Tokens/latch_harrow_statblock_cr8.md` — **CR 8** later-wave siege breaker / breach-clock monster.
+7. `Elderwyld/Shephards Flock/Statblocks and Tokens/Tokens/Cultist and Corrupted Meat Token Sheet.md` — VTT token references.
 
 ## Mechanical sheets (priority — highest first)
 
@@ -33,6 +35,8 @@ table_note: "Mechanical index for cult meat threats. Faction lore: `../The cult 
 | **4 — skirmisher** | `Elderwyld/Shephards Flock/Statblocks and Tokens/aberrant_meat_wing_statblock_cr1.md` | **CR 1** flying harasser. |
 | **5 — swarm / worm** | `Elderwyld/Shephards Flock/Statblocks and Tokens/meat_worm_statblock_cr_half.md` | **CR 1/2** worm heap for density. |
 | **6 — cultist** | `Elderwyld/Shephards Flock/Statblocks and Tokens/shephards_flock_cultist_statblock_cr1.md` | **CR 1** human cultist minion. |
+| **7 — Mireward siege scout** | `Elderwyld/Shephards Flock/Statblocks and Tokens/tripod_null_calf_statblock_cr5.md` | **CR 5** large three-limbed alien scout; pins carts / braces / civilians and can mark the north gate. |
+| **8 — Mireward siege breaker** | `Elderwyld/Shephards Flock/Statblocks and Tokens/latch_harrow_statblock_cr8.md` | **CR 8** later-wave gate breaker; converts structure attacks into Breach Clock progress. |
 | **NPC hub** | `Elderwyld/Shephards Flock/NPCs/dustwalker/dustwalker_statblock.md` | Named lieutenant sheet + interrogation profile. |
 
 ## Session recaps (no pinned default)
