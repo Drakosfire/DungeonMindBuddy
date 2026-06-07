@@ -23,6 +23,7 @@
 | H | 2026-06-06 | Edge support refugee wave locked | Cursor planning + scaffold §F4 + `brin_holloway` hub | Civilian column sent north to Edge (guilt / sky-levy defiance); fleeing south ahead of meat-monster flank; ~half glassy-eyed; Brin Holloway named lead; on-the-fly marcher tables in scaffold | Wire into opening beat map + combat |
 | I | 2026-06-06 | North-gate count and clock tightened | Cursor planning + scaffold / Brin seed edits | S23 table lock: **55 civilians**, Brin's unreliable **58 / 51 / fifty-odd** counts, meat flank **3–8 minute road clock**, Lysandro mobilizing town reaction while party handles gate / road pressure | Finish opening beat map; decide exact gate/apron tactical layout |
 | J | 2026-06-06 | Siege behavior + layout packet authored from operator decisions | ChatGPT GitHub connector writes | Added `Docs/Plans/C2S23-Mireward-Siege-Behavior-Layout/` with locked anchors, authority matrix, panic model, layout/site cards, pressure interfaces, prep inventory, and table-use decisions. Operator locked: civic tithe compound, south-apron festival commons, ferry-causeway inside north gate on east-west river, emergency consensus, treatment-first glassy-eye instinct, Bell/Shrine as remembered site. | Optional next packet: refugee names / bad counts, mutual-aid roster, pressure clocks, treatment table, Bell/Shrine consensus scene card |
+| K | 2026-06-06 | Siege mechanics + new monster documents captured | ChatGPT GitHub connector writes | Added `tripod_null_calf_statblock_cr5.md` and `latch_harrow_statblock_cr8.md`; updated Shepherd's Flock statblock hub; added `07-siege-mechanics-threat-inventory.md`; updated siege packet README. Operator locked: Tripod appears on-screen, north gate is focus, bardic help arrives as bagpipes out of morning mist when things get dire, glassy civilians are infected/dreaming/signal-receivers but curable, all can be cured if cure line is protected, short rest pressure is harsh. | Decide if Latch-Harrow appears in S23 or remains later-wave / cliffhanger; decide who first hears the bagpipes; optionally wire new statblocks into prep UI statblocks pane. |
 
 ---
 
@@ -58,4 +59,27 @@ Log each manifest query run before answering a prep question batch:
 
 | Phase | Path | Mode | Preview ok? | Committed? | Notes |
 |-------|------|------|-------------|------------|-------|
-| | | create / append | | | |
+| S23 siege monsters | `corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/tripod_null_calf_statblock_cr5.md` | create | yes | yes | CR 5 large three-limbed alien scout; appears on-screen; can mark north gate. |
+| S23 siege monsters | `corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/latch_harrow_statblock_cr8.md` | create | yes | yes | CR 8 later-wave siege breaker; north-gate breach-clock monster. |
+| S23 siege monsters | `corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/README.md` | update | yes | yes | Indexed Tripod Null-Calf and Latch-Harrow. |
+| S23 siege mechanics | `Docs/Plans/C2S23-Mireward-Siege-Behavior-Layout/07-siege-mechanics-threat-inventory.md` | create | yes | yes | Captures Cure Line, bagpipe escalation, harsh rest pressure, threat ladder, and table handling. |
+| S23 siege mechanics | `Docs/Plans/C2S23-Mireward-Siege-Behavior-Layout/README.md` | update | yes | yes | Added locked decisions and new packet file. |
+
+---
+
+## Current S23 siege locks — mechanics layer
+
+- **North gate focus:** North gate remains the central tactical object. The Latch-Harrow can redirect toward Bell / Shrine, tithe barn, or ferry chain only if the party is not challenged enough.
+- **Tripod reveal:** Tripod Null-Calf appears on-screen as a large three-limbed alien scout / geometry-breaker.
+- **Tripod → Latch chain:** Tripod's `Mark the Gate` can make the Latch-Harrow's later `Siege Adaptation` feel earned.
+- **Glassy truth:** Glassy civilians are infected, dreaming, and receiving a signal. They are curable and should not be default enemies.
+- **Cure Line:** Track curing as a 0–6 shared clock. The dramatic question is whether the party protects the cure process under pressure.
+- **Bardic escalation:** Bardic counter-music arrives late, when things get dire: bagpipes out of the morning mist.
+- **Rest:** Short rest pressure is harsh. Rest before cure/gate stabilization advances siege clocks and causes visible cost.
+
+## Remaining small decisions
+
+- Decide whether Latch-Harrow appears in Session 23 or is held as a later-wave cliffhanger.
+- Decide who first hears the bagpipes: Stafl, Lysandra, Thrin, or a newly cured civilian.
+- Decide exact cure flavor at table: magic, medicine, song, purge, name-recognition, or combined ritual.
+- Decide how the Tripod exits if driven off: reflection, mud, wall-crawl, or impossible geometry.
