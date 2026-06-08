@@ -1,0 +1,135 @@
+[
+  {
+    "gate_name": "orphan",
+    "passed": true,
+    "detail": {
+      "total_units": 14,
+      "orphan_count": 12,
+      "orphan_rate": 0.8571,
+      "fail_threshold": 1.0,
+      "warn_threshold": 0.5,
+      "warned": true,
+      "orphans": [
+        {
+          "unit_id": "625f8741b1960edf",
+          "unit_type": "prose",
+          "ordering_key": 0,
+          "text_preview": "Aberrant Meatwing"
+        },
+        {
+          "unit_id": "2f4e0db74ccd21b5",
+          "unit_type": "prose",
+          "ordering_key": 1,
+          "text_preview": "Medium, Aberration, Chaotic Evil"
+        },
+        {
+          "unit_id": "94a254f74988a500",
+          "unit_type": "prose",
+          "ordering_key": 2,
+          "text_preview": "![](images/0.jpg)"
+        },
+        {
+          "unit_id": "12c9812d8847dfe2",
+          "unit_type": "prose",
+          "ordering_key": 3,
+          "text_preview": "The Aberrant Meatwing is a grotesque fusion of sinew and wings, gliding ominousl"
+        },
+        {
+          "unit_id": "0281721387257da3",
+          "unit_type": "prose",
+          "ordering_key": 4,
+          "text_preview": "Armor Class : 11\nHit Points: 18 Hit Dice : 2d10+6\nSpeed: walk : 20, fly : 50"
+        },
+        {
+          "unit_id": "4d5bbee38bc33283",
+          "unit_type": "table",
+          "ordering_key": 5,
+          "text_preview": "<table><tr><td>STR</td><td>DEX</td><td>CON</td><td>INT</td><td>WIS</td><td>CHA</"
+        },
+        {
+          "unit_id": "1d65802d090a9a86",
+          "unit_type": "prose",
+          "ordering_key": 6,
+          "text_preview": "Saving Throws : str : 2, dex : 4, wis : 2"
+        },
+        {
+          "unit_id": "f83ec7ff9b6802c4",
+          "unit_type": "prose",
+          "ordering_key": 7,
+          "text_preview": "Skills : perception : 4"
+        },
+        {
+          "unit_id": "57f6d89d0891b8ce",
+          "unit_type": "prose",
+          "ordering_key": 8,
+          "text_preview": "Resistances :"
+        },
+        {
+          "unit_id": "fc057656963dc1fb",
+          "unit_type": "prose",
+          "ordering_key": 9,
+          "text_preview": "Senses : darkvision : 60"
+        }
+      ]
+    }
+  },
+  {
+    "gate_name": "bleed",
+    "passed": true,
+    "detail": {
+      "total_units": 14,
+      "overlap_count": 0,
+      "overlaps": []
+    }
+  },
+  {
+    "gate_name": "table_integrity",
+    "passed": true,
+    "detail": {
+      "table_unit_count": 1,
+      "issue_count": 0,
+      "issues": []
+    }
+  },
+  {
+    "gate_name": "unit_size",
+    "passed": true,
+    "detail": {
+      "total_units": 14,
+      "min_chars": 20,
+      "max_chars": 5000,
+      "max_table_chars": 12000,
+      "undersized_count": 4,
+      "oversized_count": 0,
+      "undersized_ratio": 0.2857,
+      "undersized_fail_ratio": 1.0,
+      "undersized": [
+        {
+          "unit_id": "625f8741b1960edf",
+          "unit_type": "prose",
+          "char_count": 17,
+          "text_preview": "Aberrant Meatwing"
+        },
+        {
+          "unit_id": "94a254f74988a500",
+          "unit_type": "prose",
+          "char_count": 17,
+          "text_preview": "![](images/0.jpg)"
+        },
+        {
+          "unit_id": "57f6d89d0891b8ce",
+          "unit_type": "prose",
+          "char_count": 13,
+          "text_preview": "Resistances :"
+        },
+        {
+          "unit_id": "dcfbefd1932e0404",
+          "unit_type": "prose",
+          "char_count": 11,
+          "text_preview": "Languages :"
+        }
+      ],
+      "oversized": []
+    }
+  }
+]

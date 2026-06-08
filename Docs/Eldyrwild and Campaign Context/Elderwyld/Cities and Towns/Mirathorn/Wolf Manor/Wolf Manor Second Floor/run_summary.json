@@ -1,0 +1,106 @@
+[
+  {
+    "label": "Wolf Manor Second Floor_p0",
+    "pdf": "/media/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/Docs/Eldyrwild and Campaign Context/Elderwyld/Cities and Towns/Mirathorn/Wolf Manor/Wolf Manor Second Floor.pdf",
+    "page": 0,
+    "elapsed_sec": 9.439,
+    "error": null,
+    "stage_a": {
+      "gates_passed": true,
+      "node_count": 2,
+      "table_count": 0,
+      "content_hash": "9192a11b9b3362922b7e460e92917601d9058b386682ec59f8e5560f09691236",
+      "gate_details": [
+        {
+          "gate_name": "coverage",
+          "passed": true,
+          "detail": {
+            "raw_content_chars": 0,
+            "ast_content_chars": 0,
+            "ratio": 1.0,
+            "threshold": 0.95
+          }
+        },
+        {
+          "gate_name": "ordering",
+          "passed": true,
+          "detail": {
+            "leaf_count": 1,
+            "inversion_count": 0,
+            "inversions": []
+          }
+        },
+        {
+          "gate_name": "table_parse",
+          "passed": true,
+          "detail": {
+            "raw_table_count": 0,
+            "ast_table_count": 0,
+            "count_match": true,
+            "raw_row_counts": [],
+            "ast_row_counts": [],
+            "row_mismatches": []
+          }
+        }
+      ]
+    },
+    "stage_b": {
+      "unit_count": 1,
+      "gates_passed": true,
+      "salvage_score": 1.0,
+      "gate_details": [
+        {
+          "gate_name": "orphan",
+          "passed": true,
+          "detail": {
+            "total_units": 1,
+            "orphan_count": 0,
+            "note": "single-unit page exempted"
+          }
+        },
+        {
+          "gate_name": "bleed",
+          "passed": true,
+          "detail": {
+            "total_units": 1,
+            "overlap_count": 0,
+            "overlaps": []
+          }
+        },
+        {
+          "gate_name": "table_integrity",
+          "passed": true,
+          "detail": {
+            "table_unit_count": 0,
+            "issue_count": 0,
+            "issues": []
+          }
+        },
+        {
+          "gate_name": "unit_size",
+          "passed": true,
+          "detail": {
+            "total_units": 1,
+            "min_chars": 20,
+            "max_chars": 5000,
+            "max_table_chars": 12000,
+            "undersized_count": 1,
+            "oversized_count": 0,
+            "undersized_ratio": 1.0,
+            "undersized_fail_ratio": 1.0,
+            "undersized": [
+              {
+                "unit_id": "ec53e1c2b87802d3",
+                "unit_type": "prose",
+                "char_count": 17,
+                "text_preview": "![](images/0.jpg)"
+              }
+            ],
+            "oversized": []
+          }
+        }
+      ]
+    },
+    "all_gates_passed": true
+  }
+]

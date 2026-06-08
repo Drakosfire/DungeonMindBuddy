@@ -1,0 +1,145 @@
+{
+  "page_fingerprint": "f3354f71d00a240e5742334fb8284841c6d3f2f800db38c2056a1151dffb47f0",
+  "content_hash": "d6ab4f6a90fbac0abf88660f2923c56cc4f575e178141eff90c79d2be1388179",
+  "root": {
+    "node_type": "root",
+    "level": 0,
+    "text": "",
+    "source_line_start": 0,
+    "source_line_end": 56,
+    "children": [
+      {
+        "node_type": "paragraph",
+        "level": 0,
+        "text": "GLOWBERRY TART GOLEM",
+        "source_line_start": 1,
+        "source_line_end": 2
+      },
+      {
+        "node_type": "paragraph",
+        "level": 0,
+        "text": "Medium, Construct, Animated Pastry, Chaotic Neutral",
+        "source_line_start": 4,
+        "source_line_end": 5
+      },
+      {
+        "node_type": "image_ref",
+        "level": 0,
+        "text": "![](images/0.jpg)",
+        "source_line_start": 6,
+        "source_line_end": 7
+      },
+      {
+        "node_type": "paragraph",
+        "level": 0,
+        "text": "CRAFTED USING ARCANE-INFUSED FAE FLOUR, GLOWBERRY TART GOLEMS ARE THE WHIMSICAL YET FORMIDABLE GUARDIANS OF MAGICAL CONFECTIONS. THEY SHUFFLE ON BUTTERY PASTRY LEGS, THEIR CENTERS GLEAMING WITH AN ENCHANTING GLOW. DESPITE THEIR TASTY APPEARANCE, THESE GOLEMS PROTECT THE UNIQUE FLAVORS OF THEIR EXISTENCE WITH STICKY FEROCITY.",
+        "source_line_start": 11,
+        "source_line_end": 12
+      },
+      {
+        "node_type": "paragraph",
+        "level": 0,
+        "text": "Armor Class : 12\nHit Points: 60 Hit Dice : 8d8+24\nSpeed: walk : 20",
+        "source_line_start": 14,
+        "source_line_end": 17
+      },
+      {
+        "node_type": "table",
+        "level": 0,
+        "text": "<table><tr><td>STR</td><td>DEX</td><td>CON</td><td>INT</td><td>WIS</td><td>CHA</td></tr><tr><td>13</td><td>14</td><td>16</td><td>6</td><td>10</td><td>12</td></tr></table>",
+        "source_line_start": 19,
+        "source_line_end": 20
+      },
+      {
+        "node_type": "paragraph",
+        "level": 0,
+        "text": "Saving Throws : str : 4, dex : 5, wis : 3",
+        "source_line_start": 22,
+        "source_line_end": 23
+      },
+      {
+        "node_type": "paragraph",
+        "level": 0,
+        "text": "Skills : perception : 2",
+        "source_line_start": 25,
+        "source_line_end": 26
+      },
+      {
+        "node_type": "paragraph",
+        "level": 0,
+        "text": "Resistances :",
+        "source_line_start": 28,
+        "source_line_end": 29
+      },
+      {
+        "node_type": "paragraph",
+        "level": 0,
+        "text": "Senses : darkvision : 60",
+        "source_line_start": 31,
+        "source_line_end": 32
+      },
+      {
+        "node_type": "paragraph",
+        "level": 0,
+        "text": "Languages : Understands the language of its creator but cannot speak",
+        "source_line_start": 34,
+        "source_line_end": 35
+      },
+      {
+        "node_type": "paragraph",
+        "level": 0,
+        "text": "Challenge Rating : 4 (1100)",
+        "source_line_start": 37,
+        "source_line_end": 38
+      },
+      {
+        "node_type": "heading",
+        "level": 2,
+        "text": "ACTIONS",
+        "source_line_start": 40,
+        "source_line_end": 41,
+        "children": [
+          {
+            "node_type": "paragraph",
+            "level": 0,
+            "text": "Berry Splash : 'The Glowberry Tart Golem throws a sticky concoction of berry glaze in a 15-foot cone. Each creature in that area must make a DC 13 Dexterity saving throw, taking 14 (4d6) acid damage on a failed save, or half as much damage on a successful one. The ground in the area becomes slick with glaze, requiring a DC 10 Dexterity saving throw from anyone passing through or falling prone.",
+            "source_line_start": 43,
+            "source_line_end": 44
+          },
+          {
+            "node_type": "paragraph",
+            "level": 0,
+            "text": "Pastry Pummel : ‘Melee Weapon Attack: +5 to hit, reach 5 ft., one target. Hit: 9 (2d6 + 2) bludgeoning damage. The target must succeed on a DC 13 Strength saving throw or be restrained as the tart’s sticky crust holds them in place until they use their action to escape.",
+            "source_line_start": 46,
+            "source_line_end": 47
+          }
+        ]
+      },
+      {
+        "node_type": "heading",
+        "level": 2,
+        "text": "LEGENDARY ACTIONS",
+        "source_line_start": 49,
+        "source_line_end": 50,
+        "children": [
+          {
+            "node_type": "paragraph",
+            "level": 0,
+            "text": "The Glowberry Tart Golem can take 1 legendary action, choosing from the options below. Only one legendary action option can be used at a time and only at the end of another creature's turn. The Glowberry Tart Golem regains spent legendary actions at the start of its turn.",
+            "source_line_start": 52,
+            "source_line_end": 53
+          },
+          {
+            "node_type": "paragraph",
+            "level": 0,
+            "text": "Glowberry Tendril : ‘A tendril emerges from the jelly and strikes out with sticky sugar to strike and draw the target closer. Melee Weapon Attack +7 to hit, 20 ft, one target. On Hit 2d8 +3 fire damage, STR save or be pulled 10 ft closer. If within 5 feet, fire damage from the intense heat radiating off the tarts molten berry filling and golden crust.’",
+            "source_line_start": 55,
+            "source_line_end": 56
+          }
+        ]
+      }
+    ]
+  },
+  "node_count": 19,
+  "table_count": 1
+}

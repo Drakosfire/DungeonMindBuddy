@@ -1,0 +1,423 @@
+{
+  "stage_a": {
+    "gates_passed": true,
+    "node_count": 18,
+    "table_count": 0,
+    "content_hash": "0edb9327a5346a8f50026f66bb6d8a2e55022004cd37664dbe0a077bb13d4db6",
+    "gate_details": [
+      {
+        "gate_name": "coverage",
+        "passed": true,
+        "detail": {
+          "raw_content_chars": 769,
+          "ast_content_chars": 769,
+          "ratio": 1.0,
+          "threshold": 0.95
+        }
+      },
+      {
+        "gate_name": "ordering",
+        "passed": true,
+        "detail": {
+          "leaf_count": 17,
+          "inversion_count": 0,
+          "inversions": []
+        }
+      },
+      {
+        "gate_name": "table_parse",
+        "passed": true,
+        "detail": {
+          "raw_table_count": 0,
+          "ast_table_count": 0,
+          "count_match": true,
+          "raw_row_counts": [],
+          "ast_row_counts": [],
+          "row_mismatches": []
+        }
+      }
+    ]
+  },
+  "stage_b": {
+    "units": [
+      {
+        "unit_id": "78d46149a206ebaa06812d32b1a2cd3655a723479cd76ab85a74f8cc5224a917",
+        "unit_type": "prose",
+        "text": "![](images/0.jpg)",
+        "structural_path": [],
+        "ordering_key": 0,
+        "page_fingerprint": "0b41a51cbcd2260a1b3e6338acfd64c306485fae36583e7e56985ac2f2dbdc35",
+        "content_hash": "c677736a74e2c31c881f5694921f60c254795dcd1c2625d47967117900d6aece",
+        "source_line_start": 0,
+        "source_line_end": 1,
+        "anomaly_flags": [
+          "undersized",
+          "no_heading_parent"
+        ],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "4c041d77cfd077041a27c7654c944e642760933b23605a915eb138a5538f9731",
+        "unit_type": "prose",
+        "text": "Owner",
+        "structural_path": [],
+        "ordering_key": 1,
+        "page_fingerprint": "0b41a51cbcd2260a1b3e6338acfd64c306485fae36583e7e56985ac2f2dbdc35",
+        "content_hash": "9ddfe389fba2702bb3eed6b3f5da62bfe6691d52ee43b2ac8bd2b4aaa16aa1d1",
+        "source_line_start": 5,
+        "source_line_end": 6,
+        "anomaly_flags": [
+          "undersized",
+          "no_heading_parent"
+        ],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "4f85f3b42ec09dcdc5d875101b607e0913f35e343db20a3e5b67968fabef6fa9",
+        "unit_type": "prose",
+        "text": "GROBNOK",
+        "structural_path": [],
+        "ordering_key": 2,
+        "page_fingerprint": "0b41a51cbcd2260a1b3e6338acfd64c306485fae36583e7e56985ac2f2dbdc35",
+        "content_hash": "dcf7b00ab6293d4505ce8253cfd143153bf18f8aafa70095adf2e4bd9ecaa07f",
+        "source_line_start": 8,
+        "source_line_end": 9,
+        "anomaly_flags": [
+          "undersized",
+          "no_heading_parent"
+        ],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "1803e15fff373a548dc56174e1ac7e5fd0f04d676428eac63ebe1daca3c10bc1",
+        "unit_type": "prose",
+        "text": "Owner Grobnik",
+        "structural_path": [],
+        "ordering_key": 3,
+        "page_fingerprint": "0b41a51cbcd2260a1b3e6338acfd64c306485fae36583e7e56985ac2f2dbdc35",
+        "content_hash": "5f779c7076c995cae671fc8746e14e8a9c41ad493649e3ecbcc3e3e6243890c4",
+        "source_line_start": 11,
+        "source_line_end": 12,
+        "anomaly_flags": [
+          "undersized",
+          "no_heading_parent"
+        ],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "b36298683311606fa1b3996e5d7529b57c6cdcc879c509851bccbc9c7530249d",
+        "unit_type": "prose",
+        "text": "Species Goblin\nClass Bard",
+        "structural_path": [],
+        "ordering_key": 4,
+        "page_fingerprint": "0b41a51cbcd2260a1b3e6338acfd64c306485fae36583e7e56985ac2f2dbdc35",
+        "content_hash": "c9cdd19a37d1f0bb0bdd44cbbaf4adeb10a805884b466834b9d93997d34fb4fc",
+        "source_line_start": 14,
+        "source_line_end": 16,
+        "anomaly_flags": [
+          "no_heading_parent"
+        ],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "4b64feb10201e6306275f38da4b6969a5f410169d9be63ec02ae3be199110f37",
+        "unit_type": "prose",
+        "text": "Description A small, wiry goblin with neon-green hair, sharp teeth, and a mashed-up steampunk outfit perpetually stained with mysterious fluids from crazy concoctions.",
+        "structural_path": [],
+        "ordering_key": 5,
+        "page_fingerprint": "0b41a51cbcd2260a1b3e6338acfd64c306485fae36583e7e56985ac2f2dbdc35",
+        "content_hash": "fe86e2df087a7e8315b8d179f05eab934353e51dfe6da21c76e7bb9924e84d42",
+        "source_line_start": 18,
+        "source_line_end": 19,
+        "anomaly_flags": [
+          "no_heading_parent"
+        ],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "1c2f40b4ac99fd836d5c3cf80e6a7e69d8a820197914ceb6586c7e41325a26b1",
+        "unit_type": "prose",
+        "text": "Personality Charismatic, chaotic, and brimming with wild energy, Grobnik has a talent for making friends and enemies in equal measure.",
+        "structural_path": [],
+        "ordering_key": 6,
+        "page_fingerprint": "0b41a51cbcd2260a1b3e6338acfd64c306485fae36583e7e56985ac2f2dbdc35",
+        "content_hash": "f3621840bbd8f85412a3871131850ae65f089d085d19cb6dea68fa22ac986d8c",
+        "source_line_start": 21,
+        "source_line_end": 22,
+        "anomaly_flags": [
+          "no_heading_parent"
+        ],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "7f0f719462c3e8fe71e6740b7b1809527176e774000863450d1f9537bc4d191c",
+        "unit_type": "prose",
+        "text": "Secrets Grobnik is rumored to have a stash of magical crystals that can create hallucinatory light shows.",
+        "structural_path": [],
+        "ordering_key": 7,
+        "page_fingerprint": "0b41a51cbcd2260a1b3e6338acfd64c306485fae36583e7e56985ac2f2dbdc35",
+        "content_hash": "cc6efd2f571127b8871e7869cd60290dc0900407a54c42ee2f816daeaabab61f",
+        "source_line_start": 24,
+        "source_line_end": 25,
+        "anomaly_flags": [
+          "no_heading_parent"
+        ],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "5ce0a2dac469ec100eae18b080d4a6955de80f6fc9ffb23eea3c948839af387a",
+        "unit_type": "prose",
+        "text": "Secrets He once accidentally concocted a potion that made everyone in the club glow for a week.",
+        "structural_path": [],
+        "ordering_key": 8,
+        "page_fingerprint": "0b41a51cbcd2260a1b3e6338acfd64c306485fae36583e7e56985ac2f2dbdc35",
+        "content_hash": "22af33c356c80be04252ca07c4786067cf2c1fe4330bd686008bfdd002303487",
+        "source_line_start": 27,
+        "source_line_end": 28,
+        "anomaly_flags": [
+          "no_heading_parent"
+        ],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "be1199af9bdc191e12ebc0b0cba94cab9ca255b701ea6d3183443255578f351d",
+        "unit_type": "prose",
+        "text": "![](images/1.jpg)",
+        "structural_path": [],
+        "ordering_key": 9,
+        "page_fingerprint": "0b41a51cbcd2260a1b3e6338acfd64c306485fae36583e7e56985ac2f2dbdc35",
+        "content_hash": "11ffe0e4215bad6abad3bdf9e723f573926031cfe86a0dd54561008c48a2ec91",
+        "source_line_start": 29,
+        "source_line_end": 30,
+        "anomaly_flags": [
+          "undersized",
+          "no_heading_parent"
+        ],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "808d3289b5b059055ad42bbbd0455e5854184467c919111d662fd97b5c1cd1a0",
+        "unit_type": "prose",
+        "text": "EMPLOYEES",
+        "structural_path": [],
+        "ordering_key": 10,
+        "page_fingerprint": "0b41a51cbcd2260a1b3e6338acfd64c306485fae36583e7e56985ac2f2dbdc35",
+        "content_hash": "e8db806ea9ea95d352ba1e1c70a871f373768de75fac7d5217f8ce906f20b83b",
+        "source_line_start": 34,
+        "source_line_end": 35,
+        "anomaly_flags": [
+          "undersized",
+          "no_heading_parent"
+        ],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "f487020549de3def3c7d7b329c9d96b087823fba8549b619a0adce71839b8c8d",
+        "unit_type": "prose",
+        "text": "GLIMMETRIX",
+        "structural_path": [],
+        "ordering_key": 11,
+        "page_fingerprint": "0b41a51cbcd2260a1b3e6338acfd64c306485fae36583e7e56985ac2f2dbdc35",
+        "content_hash": "301fe8154ffeabac8f468e497429e64951b8eb26e7f0217f8a93f5fb5362dcf0",
+        "source_line_start": 37,
+        "source_line_end": 38,
+        "anomaly_flags": [
+          "undersized",
+          "no_heading_parent"
+        ],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "e6ed27dd5f642bf07951cbc17a23a990f8b53496f9b728bd79c001f83fa5da71",
+        "unit_type": "prose",
+        "text": "Employee Glimmetrix",
+        "structural_path": [],
+        "ordering_key": 12,
+        "page_fingerprint": "0b41a51cbcd2260a1b3e6338acfd64c306485fae36583e7e56985ac2f2dbdc35",
+        "content_hash": "90ea863152f0155ee44242edcccd1c83ca9018ac9b768d7d5a63526df8138783",
+        "source_line_start": 40,
+        "source_line_end": 41,
+        "anomaly_flags": [
+          "undersized",
+          "no_heading_parent"
+        ],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "8089d88a7506dcbc8d811c88671e2b409007b35a093cd7fd8e840b7b2ef4257a",
+        "unit_type": "prose",
+        "text": "Role DJ",
+        "structural_path": [],
+        "ordering_key": 13,
+        "page_fingerprint": "0b41a51cbcd2260a1b3e6338acfd64c306485fae36583e7e56985ac2f2dbdc35",
+        "content_hash": "5e15f16922726786eb9bdab16b5b392e21c12bb1f32c0fff83f08e425fc3fcc5",
+        "source_line_start": 43,
+        "source_line_end": 44,
+        "anomaly_flags": [
+          "undersized",
+          "no_heading_parent"
+        ],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "1bfc709a6a86a28d46741ec2dfeea794e9036566e3b06f064139bfc0e4f1c2f4",
+        "unit_type": "prose",
+        "text": "Species Hobgoblin",
+        "structural_path": [],
+        "ordering_key": 14,
+        "page_fingerprint": "0b41a51cbcd2260a1b3e6338acfd64c306485fae36583e7e56985ac2f2dbdc35",
+        "content_hash": "482c128a52666e1e13135de5c51d92fb51ef268996faebc79d5388ae093c4e24",
+        "source_line_start": 46,
+        "source_line_end": 47,
+        "anomaly_flags": [
+          "undersized",
+          "no_heading_parent"
+        ],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "15522ce97adbbafbcf8719b99b194c72fe67a0a859c22ed013ccb3b03837e3b4",
+        "unit_type": "prose",
+        "text": "Description A tall, muscular hobgoblin with an intricate, brass-knobbed DJ helmet and a thick apron covered in glowing glyphs.\nPersonality Stoic and unflappable, but deeply passionate about his beats.",
+        "structural_path": [],
+        "ordering_key": 15,
+        "page_fingerprint": "0b41a51cbcd2260a1b3e6338acfd64c306485fae36583e7e56985ac2f2dbdc35",
+        "content_hash": "d23d5f711d858d7181caf9af37ddb1a1d04d5c31f686957a8f538f439a21daa6",
+        "source_line_start": 49,
+        "source_line_end": 51,
+        "anomaly_flags": [
+          "no_heading_parent"
+        ],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "62b8c2a90e23cda16bad564914335584a692a10ecebcc9191b61e30f20098b51",
+        "unit_type": "prose",
+        "text": "Personality\nStoic and unflappable, but deeply passionate about his beats.",
+        "structural_path": [],
+        "ordering_key": 16,
+        "page_fingerprint": "0b41a51cbcd2260a1b3e6338acfd64c306485fae36583e7e56985ac2f2dbdc35",
+        "content_hash": "7cfc1595941a6418ca4281cf1a472f5bad41e9e4d522828274b6c54b9bdce521",
+        "source_line_start": 53,
+        "source_line_end": 55,
+        "anomaly_flags": [
+          "no_heading_parent"
+        ],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      }
+    ],
+    "gates_passed": true,
+    "gate_details": [
+      {
+        "gate_name": "orphan",
+        "passed": true,
+        "detail": {
+          "total_units": 17,
+          "orphan_count": 0,
+          "orphan_rate": 0.0,
+          "fail_threshold": 1.0,
+          "warn_threshold": 0.5,
+          "warned": false,
+          "orphans": []
+        }
+      },
+      {
+        "gate_name": "bleed",
+        "passed": true,
+        "detail": {
+          "total_units": 17,
+          "overlap_count": 0,
+          "overlaps": []
+        }
+      },
+      {
+        "gate_name": "table_integrity",
+        "passed": true,
+        "detail": {
+          "table_unit_count": 0,
+          "issue_count": 0,
+          "issues": []
+        }
+      },
+      {
+        "gate_name": "unit_size",
+        "passed": true,
+        "detail": {
+          "total_units": 17,
+          "min_chars": 20,
+          "max_chars": 5000,
+          "max_table_chars": 12000,
+          "undersized_count": 10,
+          "oversized_count": 0,
+          "undersized_ratio": 0.5882,
+          "undersized_fail_ratio": 1.0,
+          "undersized": [
+            {
+              "unit_id": "01171cb5927791f6",
+              "unit_type": "prose",
+              "char_count": 17,
+              "text_preview": "![](images/0.jpg)"
+            },
+            {
+              "unit_id": "cbb38b03e6581e50",
+              "unit_type": "prose",
+              "char_count": 5,
+              "text_preview": "Owner"
+            },
+            {
+              "unit_id": "80396fd703518006",
+              "unit_type": "prose",
+              "char_count": 7,
+              "text_preview": "GROBNOK"
+            },
+            {
+              "unit_id": "719c63170efd0701",
+              "unit_type": "prose",
+              "char_count": 13,
+              "text_preview": "Owner Grobnik"
+            },
+            {
+              "unit_id": "6ff6cc4847ac192d",
+              "unit_type": "prose",
+              "char_count": 17,
+              "text_preview": "![](images/1.jpg)"
+            },
+            {
+              "unit_id": "6ed182dc8e72f729",
+              "unit_type": "prose",
+              "char_count": 9,
+              "text_preview": "EMPLOYEES"
+            },
+            {
+              "unit_id": "d08a09b1131bb346",
+              "unit_type": "prose",
+              "char_count": 10,
+              "text_preview": "GLIMMETRIX"
+            },
+            {
+              "unit_id": "94c425ded7e54804",
+              "unit_type": "prose",
+              "char_count": 19,
+              "text_preview": "Employee Glimmetrix"
+            },
+            {
+              "unit_id": "aa2fb85afa06a25c",
+              "unit_type": "prose",
+              "char_count": 7,
+              "text_preview": "Role DJ"
+            },
+            {
+              "unit_id": "a195f7dec4935919",
+              "unit_type": "prose",
+              "char_count": 17,
+              "text_preview": "Species Hobgoblin"
+            }
+          ],
+          "oversized": []
+        }
+      }
+    ],
+    "salvage_score": 1.0
+  },
+  "all_gates_passed": true
+}

@@ -1,0 +1,343 @@
+{
+  "unit_count": 16,
+  "units": [
+    {
+      "unit_id": "4d452e034f791165074b40e3a567cf6416b17573f2f584192865d3bfca78db88",
+      "unit_type": "prose",
+      "text": "Flamekissed Brioche Golem",
+      "structural_path": [],
+      "ordering_key": 0,
+      "page_fingerprint": "edda51a2103798a19d328373107a75a71cdf0337535d5a85d5df33c152d93921",
+      "content_hash": "9e59a992e8c885351bc29f44c04d982129fb26f64899cc877d091a88e991bc28",
+      "source_line_start": 1,
+      "source_line_end": 2,
+      "anomaly_flags": [
+        "no_heading_parent"
+      ],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    },
+    {
+      "unit_id": "49e8791d32b783822e53a14880c5ba1179e3ad648d281b06f1bce6390039d477",
+      "unit_type": "prose",
+      "text": "Medium, Construct, Fae Animated, Neutral",
+      "structural_path": [],
+      "ordering_key": 1,
+      "page_fingerprint": "edda51a2103798a19d328373107a75a71cdf0337535d5a85d5df33c152d93921",
+      "content_hash": "476bcba3c6e57a8c6e9e9c8d03402751b8033a2fc5e6f9464409275816f94869",
+      "source_line_start": 4,
+      "source_line_end": 5,
+      "anomaly_flags": [
+        "no_heading_parent"
+      ],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    },
+    {
+      "unit_id": "98a26057fcf8a4c2bc121a1695142b647b6351521ee4f1731a1cda8e57ece0d6",
+      "unit_type": "prose",
+      "text": "![](images/0.jpg)",
+      "structural_path": [],
+      "ordering_key": 2,
+      "page_fingerprint": "edda51a2103798a19d328373107a75a71cdf0337535d5a85d5df33c152d93921",
+      "content_hash": "c677736a74e2c31c881f5694921f60c254795dcd1c2625d47967117900d6aece",
+      "source_line_start": 6,
+      "source_line_end": 7,
+      "anomaly_flags": [
+        "undersized",
+        "no_heading_parent"
+      ],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    },
+    {
+      "unit_id": "4b1406330f71b3328024788ed70e37d3efbf6d31e2ea5c9b9f6ade54350eda73",
+      "unit_type": "prose",
+      "text": "AT THE BASE OF THE PLATTER RESTS THE FLAMEKISSED BRIOCHE Golem, ITS DEEP AMBER CRUSTS GLOWING FAINTLY AS THOUGH STILL WARM FROM DRAGONFIRE OVENS. THE BRIOCHE, WITH RICH BUTTERY FOLDS AND A SUBTLE SMOKINESS, SYMBOLIZES THE STRENGTH OF MIRATHORN—STURDY, ENDURING, AND BUILT TO SUPPORT DREAMS. DUSTINGS OF EMBER ASH ADORN ITS EDGES, GIVING IT THE APPEARANCE OF FRESHLY LAID BRICKS KISSED BY FIRELIGHT. THE AROMA OF TOASTED CINNAMON AND MOLTEN SUGAR WAFTS CONSTANTLY FROM THE CREATURE, EVOKING HEARTH AND HOME.",
+      "structural_path": [],
+      "ordering_key": 3,
+      "page_fingerprint": "edda51a2103798a19d328373107a75a71cdf0337535d5a85d5df33c152d93921",
+      "content_hash": "a46845e27331ee89828d43590015a59ae27973c91183a5a3fa030b39d98f0d12",
+      "source_line_start": 11,
+      "source_line_end": 12,
+      "anomaly_flags": [
+        "no_heading_parent"
+      ],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    },
+    {
+      "unit_id": "156a910e416b57ee715ca2e38e25edc47dc6b48a03c61f8b55cfc761f087051d",
+      "unit_type": "prose",
+      "text": "Armor Class : 11\nHit Points: 22 Hit Dice : 4d8 + 4",
+      "structural_path": [],
+      "ordering_key": 4,
+      "page_fingerprint": "edda51a2103798a19d328373107a75a71cdf0337535d5a85d5df33c152d93921",
+      "content_hash": "9716583db6d45ef104b5eba577c2d22336cc70585ff13771558e492e8c53daf9",
+      "source_line_start": 14,
+      "source_line_end": 16,
+      "anomaly_flags": [
+        "no_heading_parent"
+      ],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    },
+    {
+      "unit_id": "99c4d708295587d110ba199857ae1afafe5f8d2f0af593b119107f9abe181076",
+      "unit_type": "table",
+      "text": "Speed: walk : 20 — <table><tr><td>STR</td><td>DEX</td><td>CON</td><td>INT</td><td>WIS</td><td>CHA</td></tr><tr><td>13</td><td>9</td><td>12</td><td>3</td><td>10</td><td>6</td></tr></table>",
+      "structural_path": [
+        "Speed: walk : 20"
+      ],
+      "ordering_key": 5,
+      "page_fingerprint": "edda51a2103798a19d328373107a75a71cdf0337535d5a85d5df33c152d93921",
+      "content_hash": "5d4cfd09954942993f64a12c8b5d375171db344059c025aa08c58bf120c63fd1",
+      "source_line_start": 18,
+      "source_line_end": 22,
+      "anomaly_flags": [],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    },
+    {
+      "unit_id": "f1a528086e63968178267ab60917e22aae028e0ab3ae4716116f5c9ebf683170",
+      "unit_type": "prose",
+      "text": "Saving Throws : str : 3, dex : 0, wis : 2",
+      "structural_path": [
+        "Speed: walk : 20"
+      ],
+      "ordering_key": 6,
+      "page_fingerprint": "edda51a2103798a19d328373107a75a71cdf0337535d5a85d5df33c152d93921",
+      "content_hash": "797008321541cc3ac212629baa00892728f722fd1ba2aba4321d00373e925e35",
+      "source_line_start": 24,
+      "source_line_end": 25,
+      "anomaly_flags": [],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    },
+    {
+      "unit_id": "5f7c63a75b2d8a6102a005bcd0805ccdfecb92e325cdd1d6f9f3fd8b6c684f5d",
+      "unit_type": "prose",
+      "text": "Skills : perception : 2",
+      "structural_path": [
+        "Speed: walk : 20"
+      ],
+      "ordering_key": 7,
+      "page_fingerprint": "edda51a2103798a19d328373107a75a71cdf0337535d5a85d5df33c152d93921",
+      "content_hash": "3e35eb81ceea5dd1b00c73ee47b8803af0669dd502137ccaf60476e4f68b6eec",
+      "source_line_start": 27,
+      "source_line_end": 28,
+      "anomaly_flags": [],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    },
+    {
+      "unit_id": "b30aaf2d3252b5b75420eb4e21043b10f8d5400685396ec9d5a7a1701357c78f",
+      "unit_type": "prose",
+      "text": "Resistances :",
+      "structural_path": [
+        "Speed: walk : 20"
+      ],
+      "ordering_key": 8,
+      "page_fingerprint": "edda51a2103798a19d328373107a75a71cdf0337535d5a85d5df33c152d93921",
+      "content_hash": "48168db49032d8b5431291e26ecea04489f1af36e6a3d7a41471df6146d1d6b0",
+      "source_line_start": 30,
+      "source_line_end": 31,
+      "anomaly_flags": [
+        "undersized"
+      ],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    },
+    {
+      "unit_id": "cd35447f29640999bd8754dd29b61db51d03e7dde009f85c463fbc9fd3f3a6e7",
+      "unit_type": "prose",
+      "text": "Senses : darkvision : 60",
+      "structural_path": [
+        "Speed: walk : 20"
+      ],
+      "ordering_key": 9,
+      "page_fingerprint": "edda51a2103798a19d328373107a75a71cdf0337535d5a85d5df33c152d93921",
+      "content_hash": "064e15d7da2cf4f725ef9f6249035b70f4dd0f1175a8fed5b6cdabf80e05b75c",
+      "source_line_start": 33,
+      "source_line_end": 34,
+      "anomaly_flags": [],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    },
+    {
+      "unit_id": "618681e6a8fa762922bfad6b0fecf1f0a7cf8d5eff741b53c608004bbb539250",
+      "unit_type": "prose",
+      "text": "Languages : understands the languages of its creator but can't speak",
+      "structural_path": [
+        "Speed: walk : 20"
+      ],
+      "ordering_key": 10,
+      "page_fingerprint": "edda51a2103798a19d328373107a75a71cdf0337535d5a85d5df33c152d93921",
+      "content_hash": "475456af75c6aa533a38cb95f73f5447b7c78856b6b1fba39d8d491db49c4973",
+      "source_line_start": 36,
+      "source_line_end": 37,
+      "anomaly_flags": [],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    },
+    {
+      "unit_id": "5ce063bc2e9a02d03648501289c25a8f1f4e56bb121f50e85b7ec5db656dc7d3",
+      "unit_type": "prose",
+      "text": "Challenge Rating : 2 (450)",
+      "structural_path": [
+        "Speed: walk : 20"
+      ],
+      "ordering_key": 11,
+      "page_fingerprint": "edda51a2103798a19d328373107a75a71cdf0337535d5a85d5df33c152d93921",
+      "content_hash": "0c52f07130c7ae73e5a2dbe304214e8930b7f03d8e63b184b6f7dd01a781b548",
+      "source_line_start": 39,
+      "source_line_end": 40,
+      "anomaly_flags": [],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    },
+    {
+      "unit_id": "0317b67c32b365edf6397a27a4a969374022c05f0a259ea95dd0540c5146e97e",
+      "unit_type": "prose",
+      "text": "ACTIONS — Smoky Crust Slam : 'The brioche golem slams its hardened crust into a target. Melee Weapon Attack: +3 to hit, reach 5 ft., one target. Hit: 9 (2d6 + 2) bludgeoning damage. The target must succeed on a DC 11 Strength saving throw or be knocked prone.",
+      "structural_path": [
+        "ACTIONS"
+      ],
+      "ordering_key": 12,
+      "page_fingerprint": "edda51a2103798a19d328373107a75a71cdf0337535d5a85d5df33c152d93921",
+      "content_hash": "741dd60d2669a5ee8d15c23195a3e668d60a7d36b14d6f3f319663008f340ec2",
+      "source_line_start": 42,
+      "source_line_end": 46,
+      "anomaly_flags": [],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    },
+    {
+      "unit_id": "9664ce8023de2c6f3e6c5e04ae47ce20a4e12d6a05ebda77fbef54cd19d36018",
+      "unit_type": "prose",
+      "text": "Fae Flour Burst : 'The golem releases a burst of enchanted fae flour in a 10-foot radius. Each creature in that area must succeed on a DC 11 Constitution saving throw or be blinded until the end of its next turn by the flour. On a success, creatures are immune to this effect for 24 hours.",
+      "structural_path": [
+        "ACTIONS"
+      ],
+      "ordering_key": 13,
+      "page_fingerprint": "edda51a2103798a19d328373107a75a71cdf0337535d5a85d5df33c152d93921",
+      "content_hash": "2e086c63ced1544ade7bc5e0fc460dd66aa17a930266065a147d086ece36cf26",
+      "source_line_start": 48,
+      "source_line_end": 49,
+      "anomaly_flags": [],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    },
+    {
+      "unit_id": "03ef79d514763f8eaaf99e7f73110db1721e4aee0b05db0c09cbd06213faaa74",
+      "unit_type": "prose",
+      "text": "Legendary Actions — The Flamekissed Brioche Golem can take 1 legendary action, choosing from the options below. Only one legendary action can be used at a time and only at the end of another creature's turn. It regains the spent legendary action at the start of its turn.",
+      "structural_path": [
+        "Legendary Actions"
+      ],
+      "ordering_key": 14,
+      "page_fingerprint": "edda51a2103798a19d328373107a75a71cdf0337535d5a85d5df33c152d93921",
+      "content_hash": "1339eba348430140adbc7f4f6f4d4975c0749217fdb8abc9ea14ad83a3d5a07a",
+      "source_line_start": 51,
+      "source_line_end": 55,
+      "anomaly_flags": [],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    },
+    {
+      "unit_id": "a64639acf3ffa27cad09d8ce15b0bbd13ee568ead7121c969341eacb62d5f24f",
+      "unit_type": "prose",
+      "text": "Flickering Ember Charm : 'The golem emits a flickering glow from its ember-kissed crusts, attempting to charm one creature within 30 feet that can see the light. The target must succeed on a DC 11 Wisdom saving throw or be charmed by the golem for 1 minute, regarding it with fascination as if captivated by the gentle warmth of a fireplace.'",
+      "structural_path": [
+        "Legendary Actions"
+      ],
+      "ordering_key": 15,
+      "page_fingerprint": "edda51a2103798a19d328373107a75a71cdf0337535d5a85d5df33c152d93921",
+      "content_hash": "d0068f43f1834d07f7300bfa474ae41f26830a5d6e7d9a0f0358a9e29ec49783",
+      "source_line_start": 57,
+      "source_line_end": 58,
+      "anomaly_flags": [],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    }
+  ],
+  "gate_diagnostics": [
+    {
+      "gate_name": "orphan",
+      "passed": true,
+      "detail": {
+        "total_units": 16,
+        "orphan_count": 5,
+        "orphan_rate": 0.3125,
+        "fail_threshold": 1.0,
+        "warn_threshold": 0.5,
+        "warned": false,
+        "orphans": [
+          {
+            "unit_id": "4d452e034f791165",
+            "unit_type": "prose",
+            "ordering_key": 0,
+            "text_preview": "Flamekissed Brioche Golem"
+          },
+          {
+            "unit_id": "49e8791d32b78382",
+            "unit_type": "prose",
+            "ordering_key": 1,
+            "text_preview": "Medium, Construct, Fae Animated, Neutral"
+          },
+          {
+            "unit_id": "98a26057fcf8a4c2",
+            "unit_type": "prose",
+            "ordering_key": 2,
+            "text_preview": "![](images/0.jpg)"
+          },
+          {
+            "unit_id": "4b1406330f71b332",
+            "unit_type": "prose",
+            "ordering_key": 3,
+            "text_preview": "AT THE BASE OF THE PLATTER RESTS THE FLAMEKISSED BRIOCHE Golem, ITS DEEP AMBER C"
+          },
+          {
+            "unit_id": "156a910e416b57ee",
+            "unit_type": "prose",
+            "ordering_key": 4,
+            "text_preview": "Armor Class : 11\nHit Points: 22 Hit Dice : 4d8 + 4"
+          }
+        ]
+      }
+    },
+    {
+      "gate_name": "bleed",
+      "passed": true,
+      "detail": {
+        "total_units": 16,
+        "overlap_count": 0,
+        "overlaps": []
+      }
+    },
+    {
+      "gate_name": "table_integrity",
+      "passed": true,
+      "detail": {
+        "table_unit_count": 1,
+        "issue_count": 0,
+        "issues": []
+      }
+    },
+    {
+      "gate_name": "unit_size",
+      "passed": true,
+      "detail": {
+        "total_units": 16,
+        "min_chars": 20,
+        "max_chars": 5000,
+        "max_table_chars": 12000,
+        "undersized_count": 2,
+        "oversized_count": 0,
+        "undersized_ratio": 0.125,
+        "undersized_fail_ratio": 1.0,
+        "undersized": [
+          {
+            "unit_id": "98a26057fcf8a4c2",
+            "unit_type": "prose",
+            "char_count": 17,
+            "text_preview": "![](images/0.jpg)"
+          },
+          {
+            "unit_id": "b30aaf2d3252b5b7",
+            "unit_type": "prose",
+            "char_count": 13,
+            "text_preview": "Resistances :"
+          }
+        ],
+        "oversized": []
+      }
+    }
+  ],
+  "gates_passed": true,
+  "salvage_score": 1.0
+}

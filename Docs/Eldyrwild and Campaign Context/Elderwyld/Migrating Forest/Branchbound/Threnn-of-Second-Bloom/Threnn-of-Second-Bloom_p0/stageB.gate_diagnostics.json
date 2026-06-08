@@ -1,0 +1,62 @@
+[
+  {
+    "gate_name": "orphan",
+    "passed": true,
+    "detail": {
+      "total_units": 20,
+      "orphan_count": 0,
+      "orphan_rate": 0.0,
+      "fail_threshold": 1.0,
+      "warn_threshold": 0.5,
+      "warned": false,
+      "orphans": []
+    }
+  },
+  {
+    "gate_name": "bleed",
+    "passed": true,
+    "detail": {
+      "total_units": 20,
+      "overlap_count": 0,
+      "overlaps": []
+    }
+  },
+  {
+    "gate_name": "table_integrity",
+    "passed": true,
+    "detail": {
+      "table_unit_count": 1,
+      "issue_count": 0,
+      "issues": []
+    }
+  },
+  {
+    "gate_name": "unit_size",
+    "passed": true,
+    "detail": {
+      "total_units": 20,
+      "min_chars": 20,
+      "max_chars": 5000,
+      "max_table_chars": 12000,
+      "undersized_count": 2,
+      "oversized_count": 0,
+      "undersized_ratio": 0.1,
+      "undersized_fail_ratio": 1.0,
+      "undersized": [
+        {
+          "unit_id": "4d26795365513f05",
+          "unit_type": "prose",
+          "char_count": 17,
+          "text_preview": "![](images/0.jpg)"
+        },
+        {
+          "unit_id": "cb65738206c409cd",
+          "unit_type": "prose",
+          "char_count": 16,
+          "text_preview": "Armor Class : 15"
+        }
+      ],
+      "oversized": []
+    }
+  }
+]

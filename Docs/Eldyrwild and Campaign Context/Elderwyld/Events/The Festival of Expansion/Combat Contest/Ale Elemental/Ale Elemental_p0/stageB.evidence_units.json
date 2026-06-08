@@ -1,0 +1,321 @@
+{
+  "unit_count": 13,
+  "units": [
+    {
+      "unit_id": "e66605eafb5ef470de41e8c9686f336f6ad1735a0974f081d8ae3a6d8d645403",
+      "unit_type": "prose",
+      "text": "![](images/0.jpg)",
+      "structural_path": [],
+      "ordering_key": 0,
+      "page_fingerprint": "30b86d7fe55cd245d8c074533ebb9fe4490f4963b27fb544d60596834673cd48",
+      "content_hash": "c677736a74e2c31c881f5694921f60c254795dcd1c2625d47967117900d6aece",
+      "source_line_start": 0,
+      "source_line_end": 1,
+      "anomaly_flags": [
+        "undersized",
+        "no_heading_parent"
+      ],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    },
+    {
+      "unit_id": "d48143b436b08cf789b4b8d592d90d2e4468ac0310bceae31526df7ec472b8be",
+      "unit_type": "prose",
+      "text": "BORN FROM CENTURIES OF TAVERN REVELRY AND ERRANT MAGIC, THE ALE ELEMENTAL LURCHES THROUGH THE WORLD AS A SLOSHING, FOAM-BODIED PRANKSTER. KEGS AND RIVERBANKS QUIVER AT ITS PASSING, AND FEW CAN WITHSTAND THE CHAOS OF ITS FROTHY ERUPTIONS AND INTOXICATING AURA. THOUGH NOT THE MIGHTIEST OF ELEMENTALS, IT LEAVES A TRAIL OF LAUGHTER, CONFUSION, SUDS, AND BRUISED EGOS. MANY AN ADVENTURER HAS SLIPPED, STAGGERED, OR FOUND THEIR VISION CLOUDED BY THE LEGENDARY ALE ELEMENTAL'S UNPREDICTABLE ANTICS.\nArmor Class : 13\nHit Points: 40 Hit Dice : 7d8+7\nSpeed: walk : 30",
+      "structural_path": [],
+      "ordering_key": 1,
+      "page_fingerprint": "30b86d7fe55cd245d8c074533ebb9fe4490f4963b27fb544d60596834673cd48",
+      "content_hash": "d7bb6f410aa25c633e74b3b4e3b0b9d8c7709712b24cb9805b79156d8f2c5616",
+      "source_line_start": 5,
+      "source_line_end": 9,
+      "anomaly_flags": [
+        "no_heading_parent"
+      ],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    },
+    {
+      "unit_id": "d9aa0339fddcbeb9b08136b55fa1ede5b6d739e13b85fcc2f17aae176e1d2f10",
+      "unit_type": "table",
+      "text": "<table><tr><td>STR</td><td>DEX</td><td>CON</td><td>INT</td><td>WIS</td><td>CHA</td></tr><tr><td>14</td><td>15</td><td>12</td><td>6</td><td>10</td><td>14</td></tr></table>",
+      "structural_path": [],
+      "ordering_key": 2,
+      "page_fingerprint": "30b86d7fe55cd245d8c074533ebb9fe4490f4963b27fb544d60596834673cd48",
+      "content_hash": "d1030533fbb96d54c0453a0b3073b898128d7523e9a4aec2b3ea18c8e8e75ccc",
+      "source_line_start": 11,
+      "source_line_end": 12,
+      "anomaly_flags": [
+        "no_heading_parent"
+      ],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    },
+    {
+      "unit_id": "50acf8bc30a884156420742ca65df87888ec336daa3e276912d3716d9b829c2e",
+      "unit_type": "prose",
+      "text": "Saving Throws : str : 2, dex : 2, wis : 0",
+      "structural_path": [],
+      "ordering_key": 3,
+      "page_fingerprint": "30b86d7fe55cd245d8c074533ebb9fe4490f4963b27fb544d60596834673cd48",
+      "content_hash": "c6d3400e0b1468c9fe5876462279ce81b8c2d865ab287c0552ae89aee6b01f5f",
+      "source_line_start": 14,
+      "source_line_end": 15,
+      "anomaly_flags": [
+        "no_heading_parent"
+      ],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    },
+    {
+      "unit_id": "91aeaa51834ae2035a186838cbb60aba0ee305cf7b30b83dfdcf1d8f11f17ad3",
+      "unit_type": "prose",
+      "text": "Skills : perception : 2",
+      "structural_path": [],
+      "ordering_key": 4,
+      "page_fingerprint": "30b86d7fe55cd245d8c074533ebb9fe4490f4963b27fb544d60596834673cd48",
+      "content_hash": "3e35eb81ceea5dd1b00c73ee47b8803af0669dd502137ccaf60476e4f68b6eec",
+      "source_line_start": 17,
+      "source_line_end": 18,
+      "anomaly_flags": [
+        "no_heading_parent"
+      ],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    },
+    {
+      "unit_id": "19229f5116d37f53174add5c410162f9d8552d5595dcb55a0190f243de6c0cc2",
+      "unit_type": "prose",
+      "text": "Resistances :",
+      "structural_path": [],
+      "ordering_key": 5,
+      "page_fingerprint": "30b86d7fe55cd245d8c074533ebb9fe4490f4963b27fb544d60596834673cd48",
+      "content_hash": "48168db49032d8b5431291e26ecea04489f1af36e6a3d7a41471df6146d1d6b0",
+      "source_line_start": 20,
+      "source_line_end": 21,
+      "anomaly_flags": [
+        "undersized",
+        "no_heading_parent"
+      ],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    },
+    {
+      "unit_id": "bf1eba4e64b4108be6435d04c47793eb278eb652ea9b03a99c1e6bf9c093f41c",
+      "unit_type": "prose",
+      "text": "Senses : darkvision : 60",
+      "structural_path": [],
+      "ordering_key": 6,
+      "page_fingerprint": "30b86d7fe55cd245d8c074533ebb9fe4490f4963b27fb544d60596834673cd48",
+      "content_hash": "064e15d7da2cf4f725ef9f6249035b70f4dd0f1175a8fed5b6cdabf80e05b75c",
+      "source_line_start": 23,
+      "source_line_end": 24,
+      "anomaly_flags": [
+        "no_heading_parent"
+      ],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    },
+    {
+      "unit_id": "c47069553d2764789fe9cd3a08d7df71abdd4899ecedf40e4914426c4182df60",
+      "unit_type": "prose",
+      "text": "Languages : understands Common and Primordial but can't speak",
+      "structural_path": [],
+      "ordering_key": 7,
+      "page_fingerprint": "30b86d7fe55cd245d8c074533ebb9fe4490f4963b27fb544d60596834673cd48",
+      "content_hash": "4d98de52415c691203807144496c75eb89c6ca780321a8e9172d9e6a05564cb3",
+      "source_line_start": 26,
+      "source_line_end": 27,
+      "anomaly_flags": [
+        "no_heading_parent"
+      ],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    },
+    {
+      "unit_id": "0e01570cef4f2757c3dd60c3d5987dba0347a2c25ab552499966837c33b69d51",
+      "unit_type": "prose",
+      "text": "Challenge Rating : 4 (1100)",
+      "structural_path": [],
+      "ordering_key": 8,
+      "page_fingerprint": "30b86d7fe55cd245d8c074533ebb9fe4490f4963b27fb544d60596834673cd48",
+      "content_hash": "b2b673dfdee7e433281a82ffad7951a83433774a9846aaff122c4b6721ba192e",
+      "source_line_start": 29,
+      "source_line_end": 30,
+      "anomaly_flags": [
+        "no_heading_parent"
+      ],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    },
+    {
+      "unit_id": "30bb74b4f9f242b098cdd365f8666e375c8bbea8a61f89b25f28062112fe1d35",
+      "unit_type": "prose",
+      "text": "ACTIONS — Sudsy Slam : ‘Melee Weapon Attack: +5 to hit, reach 5 ft., one target. Hit: 10 (2d6+3) bludgeoning damage and the target must succeed on a DC 13 Dexterity saving throw or fall prone as frothy ale gushes beneath their feet.",
+      "structural_path": [
+        "ACTIONS"
+      ],
+      "ordering_key": 9,
+      "page_fingerprint": "30b86d7fe55cd245d8c074533ebb9fe4490f4963b27fb544d60596834673cd48",
+      "content_hash": "b87571a1e354f7854151d3cb061190938bd2f9dd1a9c2a5bb6194f3357602d9b",
+      "source_line_start": 32,
+      "source_line_end": 36,
+      "anomaly_flags": [],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    },
+    {
+      "unit_id": "896543a080b1f1f122c788c87b648f61f47ead5813aebea250c73ea6f08cbd61",
+      "unit_type": "prose",
+      "text": "Foam Splash (Recharge 5-6) : 'The elemental belches forth a cone of frothy, sticky ale. Each creature in a 15-foot cone must make a DC 13 Dexterity saving throw. On a failure, the creature falls prone and is soaked in ale, gaining disadvantage on Stealth checks for 1 minute. On a success, the creature remains standing but suffers the Stealth penalty.",
+      "structural_path": [
+        "ACTIONS"
+      ],
+      "ordering_key": 10,
+      "page_fingerprint": "30b86d7fe55cd245d8c074533ebb9fe4490f4963b27fb544d60596834673cd48",
+      "content_hash": "a5e77f627a2a0f51e0cab2192f2467b495a738416f27a73e1134019c2ea298e8",
+      "source_line_start": 38,
+      "source_line_end": 39,
+      "anomaly_flags": [],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    },
+    {
+      "unit_id": "5ab182c84363a5559a198a727ce98eac66f31eb263a7b40bebdd58ea53c821ea",
+      "unit_type": "prose",
+      "text": "Drunken Aura : 'A 10-foot aura of intoxicating vapor surrounds the elemental. At the start of each creature's turn in the aura, roll a d4: on a 1 or 2, the creature has disadvantage on attack rolls until the end of their turn",
+      "structural_path": [
+        "ACTIONS"
+      ],
+      "ordering_key": 11,
+      "page_fingerprint": "30b86d7fe55cd245d8c074533ebb9fe4490f4963b27fb544d60596834673cd48",
+      "content_hash": "9ec05473a2422d2fab2cf427180f1cae2002f189e64ab860b136f862aeeb9a85",
+      "source_line_start": 41,
+      "source_line_end": 42,
+      "anomaly_flags": [],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    },
+    {
+      "unit_id": "c0e1fccf66c7f7a8fd6ce2b8e4a507bedab05f506af7b705fb0daca3da96e263",
+      "unit_type": "prose",
+      "text": "Ale Surge : ‘When the Ale Elemental is hit by a melee attack, it may burst in a spray of ale (no action required). The attacker must succeed on a DC 12 Constitution saving throw or be blinded (beer in the eyes!) until the end of their next turn.",
+      "structural_path": [
+        "ACTIONS"
+      ],
+      "ordering_key": 12,
+      "page_fingerprint": "30b86d7fe55cd245d8c074533ebb9fe4490f4963b27fb544d60596834673cd48",
+      "content_hash": "cfc4ef13555719b9a745b1e7dcc4736778405df81a3dd5e7bdbb16adec70508d",
+      "source_line_start": 44,
+      "source_line_end": 45,
+      "anomaly_flags": [],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+    }
+  ],
+  "gate_diagnostics": [
+    {
+      "gate_name": "orphan",
+      "passed": true,
+      "detail": {
+        "total_units": 13,
+        "orphan_count": 9,
+        "orphan_rate": 0.6923,
+        "fail_threshold": 1.0,
+        "warn_threshold": 0.5,
+        "warned": true,
+        "orphans": [
+          {
+            "unit_id": "e66605eafb5ef470",
+            "unit_type": "prose",
+            "ordering_key": 0,
+            "text_preview": "![](images/0.jpg)"
+          },
+          {
+            "unit_id": "d48143b436b08cf7",
+            "unit_type": "prose",
+            "ordering_key": 1,
+            "text_preview": "BORN FROM CENTURIES OF TAVERN REVELRY AND ERRANT MAGIC, THE ALE ELEMENTAL LURCHE"
+          },
+          {
+            "unit_id": "d9aa0339fddcbeb9",
+            "unit_type": "table",
+            "ordering_key": 2,
+            "text_preview": "<table><tr><td>STR</td><td>DEX</td><td>CON</td><td>INT</td><td>WIS</td><td>CHA</"
+          },
+          {
+            "unit_id": "50acf8bc30a88415",
+            "unit_type": "prose",
+            "ordering_key": 3,
+            "text_preview": "Saving Throws : str : 2, dex : 2, wis : 0"
+          },
+          {
+            "unit_id": "91aeaa51834ae203",
+            "unit_type": "prose",
+            "ordering_key": 4,
+            "text_preview": "Skills : perception : 2"
+          },
+          {
+            "unit_id": "19229f5116d37f53",
+            "unit_type": "prose",
+            "ordering_key": 5,
+            "text_preview": "Resistances :"
+          },
+          {
+            "unit_id": "bf1eba4e64b4108b",
+            "unit_type": "prose",
+            "ordering_key": 6,
+            "text_preview": "Senses : darkvision : 60"
+          },
+          {
+            "unit_id": "c47069553d276478",
+            "unit_type": "prose",
+            "ordering_key": 7,
+            "text_preview": "Languages : understands Common and Primordial but can't speak"
+          },
+          {
+            "unit_id": "0e01570cef4f2757",
+            "unit_type": "prose",
+            "ordering_key": 8,
+            "text_preview": "Challenge Rating : 4 (1100)"
+          }
+        ]
+      }
+    },
+    {
+      "gate_name": "bleed",
+      "passed": true,
+      "detail": {
+        "total_units": 13,
+        "overlap_count": 0,
+        "overlaps": []
+      }
+    },
+    {
+      "gate_name": "table_integrity",
+      "passed": true,
+      "detail": {
+        "table_unit_count": 1,
+        "issue_count": 0,
+        "issues": []
+      }
+    },
+    {
+      "gate_name": "unit_size",
+      "passed": true,
+      "detail": {
+        "total_units": 13,
+        "min_chars": 20,
+        "max_chars": 5000,
+        "max_table_chars": 12000,
+        "undersized_count": 2,
+        "oversized_count": 0,
+        "undersized_ratio": 0.1538,
+        "undersized_fail_ratio": 1.0,
+        "undersized": [
+          {
+            "unit_id": "e66605eafb5ef470",
+            "unit_type": "prose",
+            "char_count": 17,
+            "text_preview": "![](images/0.jpg)"
+          },
+          {
+            "unit_id": "19229f5116d37f53",
+            "unit_type": "prose",
+            "char_count": 13,
+            "text_preview": "Resistances :"
+          }
+        ],
+        "oversized": []
+      }
+    }
+  ],
+  "gates_passed": true,
+  "salvage_score": 1.0
+}

@@ -1,0 +1,941 @@
+{
+  "units": [
+    {
+      "unit_id": "4b1bcea7e64ec2cd2589a2d069a27c6988475dc9e34ec03a0ccfc3780876c89a",
+      "unit_type": "prose",
+      "text": "Grit and Grime — PULSATING HAVEN FOR GOBLINS AND THEIR KIN, GRITE AND GRIME ELECTRIFIES THE ATMOSPHERE WITH WILD ENERGY AND THE THRUM OF ELECTRONIC DANCE MUSIC. SPRAWLING GEARS AND SPARKING COILS GIVE IT A DISTINCTLY STEAMPUNK AMBIANCE. GRIT AND GRIME WAS ONCE AN ABANDONED FACTORY BEFORE A PARTICULARLY ENTERPRISING GOBLIN",
+      "structural_path": [
+        "Grit and Grime"
+      ],
+      "ordering_key": 0,
+      "page_fingerprint": "5f3604786e49d9982206e3d1e25f055fc828bf4ec51a883bcaee1b90baceec55",
+      "content_hash": "c6f7c6a8cfefec11921c2de3465046f05fd08be2f8f8cd8bcab0eeef0bd0e7d0",
+      "source_line_start": 1,
+      "source_line_end": 5,
+      "anomaly_flags": [],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200",
+      "page_fingerprints": [
+        "5f3604786e49d9982206e3d1e25f055fc828bf4ec51a883bcaee1b90baceec55"
+      ],
+      "source_unit_ids": [
+        "4b1bcea7e64ec2cd2589a2d069a27c6988475dc9e34ec03a0ccfc3780876c89a"
+      ]
+    },
+    {
+      "unit_id": "31c96625d56fbf58e927261931fe42246d26ee66ea3b5ab41a7280f14b936d57",
+      "unit_type": "prose",
+      "text": "NAMED GROBNOK SAW ITS POTENTIAL FOR PROFIT—AND RAMBUNCTIOUS REVERLY. GATHERING FELLOW GOBLINOIDS, HE TRANSFORMED IT INTO THE SENSATIONAL DANCE HUB IT IS TODAY. NOTORIOUS FOR ITS RAUCOUS PARTIES AND OTHERWORLDLY DJ SETS, GRIT AND GRIME IS WHERE GOBLINS AND ASSORTED CREATURES UNWIND LIKE NOWHERE ELSE.",
+      "structural_path": [
+        "Grit and Grime"
+      ],
+      "ordering_key": 1,
+      "page_fingerprint": "5f3604786e49d9982206e3d1e25f055fc828bf4ec51a883bcaee1b90baceec55",
+      "content_hash": "4ed795d96c179f4b14d50db8edcf373e49c066b62376f29581b743cf4e6ea7d7",
+      "source_line_start": 7,
+      "source_line_end": 8,
+      "anomaly_flags": [],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200",
+      "page_fingerprints": [
+        "5f3604786e49d9982206e3d1e25f055fc828bf4ec51a883bcaee1b90baceec55"
+      ],
+      "source_unit_ids": [
+        "31c96625d56fbf58e927261931fe42246d26ee66ea3b5ab41a7280f14b936d57"
+      ]
+    },
+    {
+      "unit_id": "7cfdcc2a3fd0d2defb93a1bca9a1098daa354ba5019bea07378373c60d4aede2",
+      "unit_type": "prose",
+      "text": "![](images/0.jpg)\n\n![](images/0.jpg)",
+      "structural_path": [
+        "Grit and Grime"
+      ],
+      "ordering_key": 2,
+      "page_fingerprint": "5f3604786e49d9982206e3d1e25f055fc828bf4ec51a883bcaee1b90baceec55",
+      "content_hash": "1c8a8bcda2ec414c7d5f609e4ebc532e726c6562d49afa8e4d2e92b18b76fd34",
+      "source_line_start": 9,
+      "source_line_end": 1,
+      "anomaly_flags": [
+        "undersized",
+        "cross_page_join"
+      ],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200",
+      "page_fingerprints": [
+        "5f3604786e49d9982206e3d1e25f055fc828bf4ec51a883bcaee1b90baceec55",
+        "0b41a51cbcd2260a1b3e6338acfd64c306485fae36583e7e56985ac2f2dbdc35"
+      ],
+      "join_metadata": {
+        "join_type": "paragraph",
+        "merged_unit_id": "01171cb5927791f6c39575f8478623597a48421c00be05bd14c88e4015beabf3"
+      },
+      "source_unit_ids": [
+        "7cfdcc2a3fd0d2defb93a1bca9a1098daa354ba5019bea07378373c60d4aede2",
+        "01171cb5927791f6c39575f8478623597a48421c00be05bd14c88e4015beabf3"
+      ]
+    },
+    {
+      "unit_id": "f7142abb02b22050f259f433fa48314aafea6d75d01de5353ce0239259df9774",
+      "unit_type": "table",
+      "text": "<table><tr><td>Size</td><td>Large</td></tr><tr><td>Town</td><td>Gnarled Hollow</td></tr><tr><td>District</td><td>The Rustbelt</td></tr><tr><td>Street</td><td>Shadow Lane</td></tr><tr><td>Type</td><td>Nightclub</td></tr><tr><td>Store Hours</td><td>5 PM - 5 AM</td></tr><tr><td>Store Services</td><td>VIP Room</td></tr><tr><td>Store Services</td><td>Special Lighting Effects</td></tr><tr><td>Store Specialties</td><td>Gbbblin Ale</td></tr><tr><td>Store Specialties</td><td>Wobble Tonic</td></tr><tr><td>Store Rumors</td><td>Some say Grobnek uses enchanted mushrooms to give the club its trippy, euphoric atmosphere.</td></tr><tr><td>Store Rumors</td><td>There are whispers that the DJ&#x27;s beats have a mind-controlling element, making goblins more energetic.</td></tr><tr><td>Store Reputation</td><td>Notorious for its raucous parties and otherworldly DJ sets, Grit and Grime is where goblins and assorted creatures unwind like nowhere else.</td></tr></table>",
+      "structural_path": [
+        "Grit and Grime"
+      ],
+      "ordering_key": 3,
+      "page_fingerprint": "5f3604786e49d9982206e3d1e25f055fc828bf4ec51a883bcaee1b90baceec55",
+      "content_hash": "5ecd349f2aa32821c8df4968fd39c56161263a036d73b9b623951de71a991375",
+      "source_line_start": 14,
+      "source_line_end": 15,
+      "anomaly_flags": [],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200",
+      "page_fingerprints": [
+        "5f3604786e49d9982206e3d1e25f055fc828bf4ec51a883bcaee1b90baceec55"
+      ],
+      "table_group_id": "19650e43e89cb70e55df8d36efd5bfee15d7a766f6e953c1694ffc801d1e340c",
+      "source_unit_ids": [
+        "f7142abb02b22050f259f433fa48314aafea6d75d01de5353ce0239259df9774"
+      ]
+    },
+    {
+      "unit_id": "cbb38b03e6581e50a13c991913639c18800a9bf621310d032896c75d1b7b53dc",
+      "unit_type": "prose",
+      "text": "Owner",
+      "structural_path": [
+        "Grit and Grime"
+      ],
+      "ordering_key": 1,
+      "page_fingerprint": "0b41a51cbcd2260a1b3e6338acfd64c306485fae36583e7e56985ac2f2dbdc35",
+      "content_hash": "9ddfe389fba2702bb3eed6b3f5da62bfe6691d52ee43b2ac8bd2b4aaa16aa1d1",
+      "source_line_start": 5,
+      "source_line_end": 6,
+      "anomaly_flags": [
+        "undersized"
+      ],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200",
+      "page_fingerprints": [
+        "0b41a51cbcd2260a1b3e6338acfd64c306485fae36583e7e56985ac2f2dbdc35"
+      ],
+      "source_unit_ids": [
+        "cbb38b03e6581e50a13c991913639c18800a9bf621310d032896c75d1b7b53dc"
+      ]
+    },
+    {
+      "unit_id": "80396fd7035180064ed5a8ab6d76f63c700000a4be2475f6fb1c4b74375c2eeb",
+      "unit_type": "prose",
+      "text": "GROBNOK",
+      "structural_path": [
+        "Grit and Grime"
+      ],
+      "ordering_key": 2,
+      "page_fingerprint": "0b41a51cbcd2260a1b3e6338acfd64c306485fae36583e7e56985ac2f2dbdc35",
+      "content_hash": "dcf7b00ab6293d4505ce8253cfd143153bf18f8aafa70095adf2e4bd9ecaa07f",
+      "source_line_start": 8,
+      "source_line_end": 9,
+      "anomaly_flags": [
+        "undersized"
+      ],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200",
+      "page_fingerprints": [
+        "0b41a51cbcd2260a1b3e6338acfd64c306485fae36583e7e56985ac2f2dbdc35"
+      ],
+      "source_unit_ids": [
+        "80396fd7035180064ed5a8ab6d76f63c700000a4be2475f6fb1c4b74375c2eeb"
+      ]
+    },
+    {
+      "unit_id": "719c63170efd0701cb3742f186c6e1d84575c1e960b96df4244dd384df241c7b",
+      "unit_type": "prose",
+      "text": "Owner Grobnik",
+      "structural_path": [
+        "Grit and Grime"
+      ],
+      "ordering_key": 3,
+      "page_fingerprint": "0b41a51cbcd2260a1b3e6338acfd64c306485fae36583e7e56985ac2f2dbdc35",
+      "content_hash": "5f779c7076c995cae671fc8746e14e8a9c41ad493649e3ecbcc3e3e6243890c4",
+      "source_line_start": 11,
+      "source_line_end": 12,
+      "anomaly_flags": [
+        "undersized"
+      ],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200",
+      "page_fingerprints": [
+        "0b41a51cbcd2260a1b3e6338acfd64c306485fae36583e7e56985ac2f2dbdc35"
+      ],
+      "source_unit_ids": [
+        "719c63170efd0701cb3742f186c6e1d84575c1e960b96df4244dd384df241c7b"
+      ]
+    },
+    {
+      "unit_id": "26b192bef6b3b32c5843d91db5775054d71b18709bfc8f3c7ef9655a2b2cc73f",
+      "unit_type": "prose",
+      "text": "Species Goblin\nClass Bard",
+      "structural_path": [
+        "Grit and Grime"
+      ],
+      "ordering_key": 4,
+      "page_fingerprint": "0b41a51cbcd2260a1b3e6338acfd64c306485fae36583e7e56985ac2f2dbdc35",
+      "content_hash": "c9cdd19a37d1f0bb0bdd44cbbaf4adeb10a805884b466834b9d93997d34fb4fc",
+      "source_line_start": 14,
+      "source_line_end": 16,
+      "anomaly_flags": [],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200",
+      "page_fingerprints": [
+        "0b41a51cbcd2260a1b3e6338acfd64c306485fae36583e7e56985ac2f2dbdc35"
+      ],
+      "source_unit_ids": [
+        "26b192bef6b3b32c5843d91db5775054d71b18709bfc8f3c7ef9655a2b2cc73f"
+      ]
+    },
+    {
+      "unit_id": "80693272cb1391eff22fec92da3c89ba9bb9f60ccfb2dabf9d7785fcdf090e11",
+      "unit_type": "prose",
+      "text": "Description A small, wiry goblin with neon-green hair, sharp teeth, and a mashed-up steampunk outfit perpetually stained with mysterious fluids from crazy concoctions.",
+      "structural_path": [
+        "Grit and Grime"
+      ],
+      "ordering_key": 5,
+      "page_fingerprint": "0b41a51cbcd2260a1b3e6338acfd64c306485fae36583e7e56985ac2f2dbdc35",
+      "content_hash": "fe86e2df087a7e8315b8d179f05eab934353e51dfe6da21c76e7bb9924e84d42",
+      "source_line_start": 18,
+      "source_line_end": 19,
+      "anomaly_flags": [],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200",
+      "page_fingerprints": [
+        "0b41a51cbcd2260a1b3e6338acfd64c306485fae36583e7e56985ac2f2dbdc35"
+      ],
+      "source_unit_ids": [
+        "80693272cb1391eff22fec92da3c89ba9bb9f60ccfb2dabf9d7785fcdf090e11"
+      ]
+    },
+    {
+      "unit_id": "e54482297dcc803edc2395454db5e9e122c9c103adea53e0149c6dbad5e14a11",
+      "unit_type": "prose",
+      "text": "Personality Charismatic, chaotic, and brimming with wild energy, Grobnik has a talent for making friends and enemies in equal measure.",
+      "structural_path": [
+        "Grit and Grime"
+      ],
+      "ordering_key": 6,
+      "page_fingerprint": "0b41a51cbcd2260a1b3e6338acfd64c306485fae36583e7e56985ac2f2dbdc35",
+      "content_hash": "f3621840bbd8f85412a3871131850ae65f089d085d19cb6dea68fa22ac986d8c",
+      "source_line_start": 21,
+      "source_line_end": 22,
+      "anomaly_flags": [],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200",
+      "page_fingerprints": [
+        "0b41a51cbcd2260a1b3e6338acfd64c306485fae36583e7e56985ac2f2dbdc35"
+      ],
+      "source_unit_ids": [
+        "e54482297dcc803edc2395454db5e9e122c9c103adea53e0149c6dbad5e14a11"
+      ]
+    },
+    {
+      "unit_id": "cb6aa6ee3100bef255209ce9c1cf217b51128885d4cf71cc909cbbdc808dfe4e",
+      "unit_type": "prose",
+      "text": "Secrets Grobnik is rumored to have a stash of magical crystals that can create hallucinatory light shows.",
+      "structural_path": [
+        "Grit and Grime"
+      ],
+      "ordering_key": 7,
+      "page_fingerprint": "0b41a51cbcd2260a1b3e6338acfd64c306485fae36583e7e56985ac2f2dbdc35",
+      "content_hash": "cc6efd2f571127b8871e7869cd60290dc0900407a54c42ee2f816daeaabab61f",
+      "source_line_start": 24,
+      "source_line_end": 25,
+      "anomaly_flags": [],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200",
+      "page_fingerprints": [
+        "0b41a51cbcd2260a1b3e6338acfd64c306485fae36583e7e56985ac2f2dbdc35"
+      ],
+      "source_unit_ids": [
+        "cb6aa6ee3100bef255209ce9c1cf217b51128885d4cf71cc909cbbdc808dfe4e"
+      ]
+    },
+    {
+      "unit_id": "3401a69558c803f00fe71f2c555907a44fba68849d04dc5f77e133a31636aff3",
+      "unit_type": "prose",
+      "text": "Secrets He once accidentally concocted a potion that made everyone in the club glow for a week.",
+      "structural_path": [
+        "Grit and Grime"
+      ],
+      "ordering_key": 8,
+      "page_fingerprint": "0b41a51cbcd2260a1b3e6338acfd64c306485fae36583e7e56985ac2f2dbdc35",
+      "content_hash": "22af33c356c80be04252ca07c4786067cf2c1fe4330bd686008bfdd002303487",
+      "source_line_start": 27,
+      "source_line_end": 28,
+      "anomaly_flags": [],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200",
+      "page_fingerprints": [
+        "0b41a51cbcd2260a1b3e6338acfd64c306485fae36583e7e56985ac2f2dbdc35"
+      ],
+      "source_unit_ids": [
+        "3401a69558c803f00fe71f2c555907a44fba68849d04dc5f77e133a31636aff3"
+      ]
+    },
+    {
+      "unit_id": "6ff6cc4847ac192daeb4c25f7e2d7d290f1aca8a4fe86679f1a7e8ad5572f582",
+      "unit_type": "prose",
+      "text": "![](images/1.jpg)",
+      "structural_path": [
+        "Grit and Grime"
+      ],
+      "ordering_key": 9,
+      "page_fingerprint": "0b41a51cbcd2260a1b3e6338acfd64c306485fae36583e7e56985ac2f2dbdc35",
+      "content_hash": "11ffe0e4215bad6abad3bdf9e723f573926031cfe86a0dd54561008c48a2ec91",
+      "source_line_start": 29,
+      "source_line_end": 30,
+      "anomaly_flags": [
+        "undersized"
+      ],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200",
+      "page_fingerprints": [
+        "0b41a51cbcd2260a1b3e6338acfd64c306485fae36583e7e56985ac2f2dbdc35"
+      ],
+      "source_unit_ids": [
+        "6ff6cc4847ac192daeb4c25f7e2d7d290f1aca8a4fe86679f1a7e8ad5572f582"
+      ]
+    },
+    {
+      "unit_id": "6ed182dc8e72f72969f659d7b4e0ab752bddb7a4e9008a796d3462e895c426ec",
+      "unit_type": "prose",
+      "text": "EMPLOYEES",
+      "structural_path": [
+        "Grit and Grime"
+      ],
+      "ordering_key": 10,
+      "page_fingerprint": "0b41a51cbcd2260a1b3e6338acfd64c306485fae36583e7e56985ac2f2dbdc35",
+      "content_hash": "e8db806ea9ea95d352ba1e1c70a871f373768de75fac7d5217f8ce906f20b83b",
+      "source_line_start": 34,
+      "source_line_end": 35,
+      "anomaly_flags": [
+        "undersized"
+      ],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200",
+      "page_fingerprints": [
+        "0b41a51cbcd2260a1b3e6338acfd64c306485fae36583e7e56985ac2f2dbdc35"
+      ],
+      "source_unit_ids": [
+        "6ed182dc8e72f72969f659d7b4e0ab752bddb7a4e9008a796d3462e895c426ec"
+      ]
+    },
+    {
+      "unit_id": "d08a09b1131bb346ab23d33817d9207d894cde5178c1fb2b696699b8e7c300e5",
+      "unit_type": "prose",
+      "text": "GLIMMETRIX",
+      "structural_path": [
+        "Grit and Grime"
+      ],
+      "ordering_key": 11,
+      "page_fingerprint": "0b41a51cbcd2260a1b3e6338acfd64c306485fae36583e7e56985ac2f2dbdc35",
+      "content_hash": "301fe8154ffeabac8f468e497429e64951b8eb26e7f0217f8a93f5fb5362dcf0",
+      "source_line_start": 37,
+      "source_line_end": 38,
+      "anomaly_flags": [
+        "undersized"
+      ],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200",
+      "page_fingerprints": [
+        "0b41a51cbcd2260a1b3e6338acfd64c306485fae36583e7e56985ac2f2dbdc35"
+      ],
+      "source_unit_ids": [
+        "d08a09b1131bb346ab23d33817d9207d894cde5178c1fb2b696699b8e7c300e5"
+      ]
+    },
+    {
+      "unit_id": "94c425ded7e54804a6afe19c62e6eb420f2f078d9dcf8e5770f68523896aee5b",
+      "unit_type": "prose",
+      "text": "Employee Glimmetrix",
+      "structural_path": [
+        "Grit and Grime"
+      ],
+      "ordering_key": 12,
+      "page_fingerprint": "0b41a51cbcd2260a1b3e6338acfd64c306485fae36583e7e56985ac2f2dbdc35",
+      "content_hash": "90ea863152f0155ee44242edcccd1c83ca9018ac9b768d7d5a63526df8138783",
+      "source_line_start": 40,
+      "source_line_end": 41,
+      "anomaly_flags": [
+        "undersized"
+      ],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200",
+      "page_fingerprints": [
+        "0b41a51cbcd2260a1b3e6338acfd64c306485fae36583e7e56985ac2f2dbdc35"
+      ],
+      "source_unit_ids": [
+        "94c425ded7e54804a6afe19c62e6eb420f2f078d9dcf8e5770f68523896aee5b"
+      ]
+    },
+    {
+      "unit_id": "aa2fb85afa06a25cda806cdcf58ba7a6a9f642f772a89a40cb5e40937b188070",
+      "unit_type": "prose",
+      "text": "Role DJ",
+      "structural_path": [
+        "Grit and Grime"
+      ],
+      "ordering_key": 13,
+      "page_fingerprint": "0b41a51cbcd2260a1b3e6338acfd64c306485fae36583e7e56985ac2f2dbdc35",
+      "content_hash": "5e15f16922726786eb9bdab16b5b392e21c12bb1f32c0fff83f08e425fc3fcc5",
+      "source_line_start": 43,
+      "source_line_end": 44,
+      "anomaly_flags": [
+        "undersized"
+      ],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200",
+      "page_fingerprints": [
+        "0b41a51cbcd2260a1b3e6338acfd64c306485fae36583e7e56985ac2f2dbdc35"
+      ],
+      "source_unit_ids": [
+        "aa2fb85afa06a25cda806cdcf58ba7a6a9f642f772a89a40cb5e40937b188070"
+      ]
+    },
+    {
+      "unit_id": "a195f7dec493591932d27e4a68e0510d920472ae7b4f5ec13bdefe3133e2f9f4",
+      "unit_type": "prose",
+      "text": "Species Hobgoblin",
+      "structural_path": [
+        "Grit and Grime"
+      ],
+      "ordering_key": 14,
+      "page_fingerprint": "0b41a51cbcd2260a1b3e6338acfd64c306485fae36583e7e56985ac2f2dbdc35",
+      "content_hash": "482c128a52666e1e13135de5c51d92fb51ef268996faebc79d5388ae093c4e24",
+      "source_line_start": 46,
+      "source_line_end": 47,
+      "anomaly_flags": [
+        "undersized"
+      ],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200",
+      "page_fingerprints": [
+        "0b41a51cbcd2260a1b3e6338acfd64c306485fae36583e7e56985ac2f2dbdc35"
+      ],
+      "source_unit_ids": [
+        "a195f7dec493591932d27e4a68e0510d920472ae7b4f5ec13bdefe3133e2f9f4"
+      ]
+    },
+    {
+      "unit_id": "a388e3fa9e47301fef84b09df19978f41ab6217e465a58fc57938d5730d1235d",
+      "unit_type": "prose",
+      "text": "Description A tall, muscular hobgoblin with an intricate, brass-knobbed DJ helmet and a thick apron covered in glowing glyphs.\nPersonality Stoic and unflappable, but deeply passionate about his beats.",
+      "structural_path": [
+        "Grit and Grime"
+      ],
+      "ordering_key": 15,
+      "page_fingerprint": "0b41a51cbcd2260a1b3e6338acfd64c306485fae36583e7e56985ac2f2dbdc35",
+      "content_hash": "d23d5f711d858d7181caf9af37ddb1a1d04d5c31f686957a8f538f439a21daa6",
+      "source_line_start": 49,
+      "source_line_end": 51,
+      "anomaly_flags": [],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200",
+      "page_fingerprints": [
+        "0b41a51cbcd2260a1b3e6338acfd64c306485fae36583e7e56985ac2f2dbdc35"
+      ],
+      "source_unit_ids": [
+        "a388e3fa9e47301fef84b09df19978f41ab6217e465a58fc57938d5730d1235d"
+      ]
+    },
+    {
+      "unit_id": "8526f6afa903462ef9fcd06e816d9e38ec9d7db0b9c122a60e7f88f2df90fd9e",
+      "unit_type": "prose",
+      "text": "Personality\nStoic and unflappable, but deeply passionate about his beats.",
+      "structural_path": [
+        "Grit and Grime"
+      ],
+      "ordering_key": 16,
+      "page_fingerprint": "0b41a51cbcd2260a1b3e6338acfd64c306485fae36583e7e56985ac2f2dbdc35",
+      "content_hash": "7cfc1595941a6418ca4281cf1a472f5bad41e9e4d522828274b6c54b9bdce521",
+      "source_line_start": 53,
+      "source_line_end": 55,
+      "anomaly_flags": [],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200",
+      "page_fingerprints": [
+        "0b41a51cbcd2260a1b3e6338acfd64c306485fae36583e7e56985ac2f2dbdc35"
+      ],
+      "source_unit_ids": [
+        "8526f6afa903462ef9fcd06e816d9e38ec9d7db0b9c122a60e7f88f2df90fd9e"
+      ]
+    },
+    {
+      "unit_id": "1176a89e52c4abf5db55da9ba2794f8d0b99a40d2154afcc15d5134b8941edec",
+      "unit_type": "prose",
+      "text": "![](images/0.jpg)",
+      "structural_path": [],
+      "ordering_key": 0,
+      "page_fingerprint": "437cf8fd546ae851c7cddfbac4a7ccfad5fb0dd359c01832ca3a43fe99a7b939",
+      "content_hash": "c677736a74e2c31c881f5694921f60c254795dcd1c2625d47967117900d6aece",
+      "source_line_start": 0,
+      "source_line_end": 1,
+      "anomaly_flags": [
+        "undersized",
+        "no_heading_parent"
+      ],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200",
+      "page_fingerprints": [
+        "437cf8fd546ae851c7cddfbac4a7ccfad5fb0dd359c01832ca3a43fe99a7b939"
+      ],
+      "source_unit_ids": [
+        "1176a89e52c4abf5db55da9ba2794f8d0b99a40d2154afcc15d5134b8941edec"
+      ]
+    },
+    {
+      "unit_id": "7c7327d2fd3b65ee65531e3492ec70f91372275a5100e8d17d67e1a394427b04",
+      "unit_type": "prose",
+      "text": "BOGBUG — Employee\nRole\nSpecies\nDescription",
+      "structural_path": [
+        "BOGBUG"
+      ],
+      "ordering_key": 1,
+      "page_fingerprint": "437cf8fd546ae851c7cddfbac4a7ccfad5fb0dd359c01832ca3a43fe99a7b939",
+      "content_hash": "3eaa5fdf110a2acd366a5b26239ccdbd795f1e5be3375799cbbeca5f194b7ce5",
+      "source_line_start": 5,
+      "source_line_end": 12,
+      "anomaly_flags": [],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200",
+      "page_fingerprints": [
+        "437cf8fd546ae851c7cddfbac4a7ccfad5fb0dd359c01832ca3a43fe99a7b939"
+      ],
+      "source_unit_ids": [
+        "7c7327d2fd3b65ee65531e3492ec70f91372275a5100e8d17d67e1a394427b04"
+      ]
+    },
+    {
+      "unit_id": "a53287a12ffe360aafbbea7758d3f1f214368d90eb81627af98172738be37242",
+      "unit_type": "prose",
+      "text": "Personality",
+      "structural_path": [
+        "BOGBUG"
+      ],
+      "ordering_key": 2,
+      "page_fingerprint": "437cf8fd546ae851c7cddfbac4a7ccfad5fb0dd359c01832ca3a43fe99a7b939",
+      "content_hash": "9af46a81979eca507bff969433b1d9f482a5ef4c4e9f885f384a6c27b85f20fd",
+      "source_line_start": 14,
+      "source_line_end": 15,
+      "anomaly_flags": [
+        "undersized"
+      ],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200",
+      "page_fingerprints": [
+        "437cf8fd546ae851c7cddfbac4a7ccfad5fb0dd359c01832ca3a43fe99a7b939"
+      ],
+      "source_unit_ids": [
+        "a53287a12ffe360aafbbea7758d3f1f214368d90eb81627af98172738be37242"
+      ]
+    },
+    {
+      "unit_id": "724a69c839b02580956f4d1c948a1c7cb9e823e28f8917e87c30311757be54f4",
+      "unit_type": "prose",
+      "text": "Bogbug\nDancer\nGoblin",
+      "structural_path": [
+        "BOGBUG"
+      ],
+      "ordering_key": 3,
+      "page_fingerprint": "437cf8fd546ae851c7cddfbac4a7ccfad5fb0dd359c01832ca3a43fe99a7b939",
+      "content_hash": "817477618af5a5f4a56491d6f479fd47162a3760419afd66eea39f442e8281ac",
+      "source_line_start": 17,
+      "source_line_end": 20,
+      "anomaly_flags": [],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200",
+      "page_fingerprints": [
+        "437cf8fd546ae851c7cddfbac4a7ccfad5fb0dd359c01832ca3a43fe99a7b939"
+      ],
+      "source_unit_ids": [
+        "724a69c839b02580956f4d1c948a1c7cb9e823e28f8917e87c30311757be54f4"
+      ]
+    },
+    {
+      "unit_id": "0cb2f2dd515b3c9b2e3165281e67cc6550985a60e81896f826f0ae6c97f40830",
+      "unit_type": "prose",
+      "text": "A lithe goblin with mesmerizing, neon-painted skin and wild hair, constantly in motion to the beat.",
+      "structural_path": [
+        "BOGBUG"
+      ],
+      "ordering_key": 4,
+      "page_fingerprint": "437cf8fd546ae851c7cddfbac4a7ccfad5fb0dd359c01832ca3a43fe99a7b939",
+      "content_hash": "2290bf08dbc15744d282a645d70ffbcb74c98974c510b0b2293f41d3a8abc1ab",
+      "source_line_start": 22,
+      "source_line_end": 23,
+      "anomaly_flags": [],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200",
+      "page_fingerprints": [
+        "437cf8fd546ae851c7cddfbac4a7ccfad5fb0dd359c01832ca3a43fe99a7b939"
+      ],
+      "source_unit_ids": [
+        "0cb2f2dd515b3c9b2e3165281e67cc6550985a60e81896f826f0ae6c97f40830"
+      ]
+    },
+    {
+      "unit_id": "63e163f5561d7f3d3a281fb8f9a1d71f0ac461ad615683a179d1c268a28a5e6e",
+      "unit_type": "prose",
+      "text": "Eccentric and exuberant, Bogbug lives to perform and entertain.",
+      "structural_path": [
+        "BOGBUG"
+      ],
+      "ordering_key": 5,
+      "page_fingerprint": "437cf8fd546ae851c7cddfbac4a7ccfad5fb0dd359c01832ca3a43fe99a7b939",
+      "content_hash": "9fc0c0233f99c78f555e97c75de519aceb9ec2ee05148141e324aa1b66e628a4",
+      "source_line_start": 25,
+      "source_line_end": 26,
+      "anomaly_flags": [],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200",
+      "page_fingerprints": [
+        "437cf8fd546ae851c7cddfbac4a7ccfad5fb0dd359c01832ca3a43fe99a7b939"
+      ],
+      "source_unit_ids": [
+        "63e163f5561d7f3d3a281fb8f9a1d71f0ac461ad615683a179d1c268a28a5e6e"
+      ]
+    },
+    {
+      "unit_id": "cfc41c0532c386ccbfb992f6141ef404c1e9270e9b9b8d581228546e1ca34787",
+      "unit_type": "prose",
+      "text": "![](images/1.jpg)",
+      "structural_path": [
+        "BOGBUG"
+      ],
+      "ordering_key": 6,
+      "page_fingerprint": "437cf8fd546ae851c7cddfbac4a7ccfad5fb0dd359c01832ca3a43fe99a7b939",
+      "content_hash": "11ffe0e4215bad6abad3bdf9e723f573926031cfe86a0dd54561008c48a2ec91",
+      "source_line_start": 27,
+      "source_line_end": 28,
+      "anomaly_flags": [
+        "undersized"
+      ],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200",
+      "page_fingerprints": [
+        "437cf8fd546ae851c7cddfbac4a7ccfad5fb0dd359c01832ca3a43fe99a7b939"
+      ],
+      "source_unit_ids": [
+        "cfc41c0532c386ccbfb992f6141ef404c1e9270e9b9b8d581228546e1ca34787"
+      ]
+    },
+    {
+      "unit_id": "f8f69f80d9b95d19a0b6d332052d1128ab106677a75c1590b68c820902782ff4",
+      "unit_type": "prose",
+      "text": "THRAXX — Employee Thraxx\nRole Bugbear Bouncer\nSpecies Bugbear",
+      "structural_path": [
+        "THRAXX"
+      ],
+      "ordering_key": 7,
+      "page_fingerprint": "437cf8fd546ae851c7cddfbac4a7ccfad5fb0dd359c01832ca3a43fe99a7b939",
+      "content_hash": "7d93ba6c21184e5679119b8b06e3dd335f8c7970bd2ea80009630bb1b6c091f7",
+      "source_line_start": 32,
+      "source_line_end": 38,
+      "anomaly_flags": [],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200",
+      "page_fingerprints": [
+        "437cf8fd546ae851c7cddfbac4a7ccfad5fb0dd359c01832ca3a43fe99a7b939"
+      ],
+      "source_unit_ids": [
+        "f8f69f80d9b95d19a0b6d332052d1128ab106677a75c1590b68c820902782ff4"
+      ]
+    },
+    {
+      "unit_id": "958f8a5839919fae714cf296f8af207797fb7f19896c3ff7e886e1bdfd4c501d",
+      "unit_type": "prose",
+      "text": "Species Bugbear\nDescription A massive, intimidating bugbear with a mechanical arm and an uncanny knack for sniffing out troublemakers.\nPersonality Gruff but fair, Thraxx takes his job seriously but enjoys the occasional dance.",
+      "structural_path": [
+        "THRAXX"
+      ],
+      "ordering_key": 8,
+      "page_fingerprint": "437cf8fd546ae851c7cddfbac4a7ccfad5fb0dd359c01832ca3a43fe99a7b939",
+      "content_hash": "62e520068cd9c4ce7d30578693bb4baf0fa5a4e7310dec66591063d2b0e53666",
+      "source_line_start": 40,
+      "source_line_end": 43,
+      "anomaly_flags": [],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200",
+      "page_fingerprints": [
+        "437cf8fd546ae851c7cddfbac4a7ccfad5fb0dd359c01832ca3a43fe99a7b939"
+      ],
+      "source_unit_ids": [
+        "958f8a5839919fae714cf296f8af207797fb7f19896c3ff7e886e1bdfd4c501d"
+      ]
+    },
+    {
+      "unit_id": "19083d97b7675a2cffa69ef32cd8cde8751f7d52955124f9d825e9881b4e76d6",
+      "unit_type": "prose",
+      "text": "CUSTOMERS — SKIZZLE — Description: A jittery goblin always up for a dance. Known for her fast footwork and faster wit.\nInfluence: Regular",
+      "structural_path": [
+        "SKIZZLE"
+      ],
+      "ordering_key": 9,
+      "page_fingerprint": "437cf8fd546ae851c7cddfbac4a7ccfad5fb0dd359c01832ca3a43fe99a7b939",
+      "content_hash": "a0b6ee35529ce2883dfeeec1c1e40e41bac044f401e41540eaa77f44afa503a8",
+      "source_line_start": 45,
+      "source_line_end": 53,
+      "anomaly_flags": [],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200",
+      "page_fingerprints": [
+        "437cf8fd546ae851c7cddfbac4a7ccfad5fb0dd359c01832ca3a43fe99a7b939"
+      ],
+      "source_unit_ids": [
+        "19083d97b7675a2cffa69ef32cd8cde8751f7d52955124f9d825e9881b4e76d6"
+      ]
+    },
+    {
+      "unit_id": "14e90df3427a6e0f6ce6547bd227d80dd0c54753f117a9a1e857573c7dae12e8",
+      "unit_type": "prose",
+      "text": "ZORAK BEATCRUSHER — Description: An ancient hobgoblin who claims to have been partying since the first beats were dropped.\nInfluence: Legendary",
+      "structural_path": [
+        "ZORAK BEATCRUSHER"
+      ],
+      "ordering_key": 10,
+      "page_fingerprint": "437cf8fd546ae851c7cddfbac4a7ccfad5fb0dd359c01832ca3a43fe99a7b939",
+      "content_hash": "f7f7c571b56e275496f35afd7d75b878a56372b5c47663b1d023946a15231a64",
+      "source_line_start": 55,
+      "source_line_end": 60,
+      "anomaly_flags": [],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200",
+      "page_fingerprints": [
+        "437cf8fd546ae851c7cddfbac4a7ccfad5fb0dd359c01832ca3a43fe99a7b939"
+      ],
+      "source_unit_ids": [
+        "14e90df3427a6e0f6ce6547bd227d80dd0c54753f117a9a1e857573c7dae12e8"
+      ]
+    },
+    {
+      "unit_id": "89e8609652e875556d117b599f6155ebc440837a8f02b9fa1866dd748208aee7",
+      "unit_type": "prose",
+      "text": "STORE QUESTS — THE GEAR GRIND — Description: A goblin inventor working on a colossal musical contraption needs rare cogwheels that only form deep within the Crystal Caverns. Retrieve them without getting ensnared by the cave's enchanted flora.",
+      "structural_path": [
+        "THE GEAR GRIND"
+      ],
+      "ordering_key": 11,
+      "page_fingerprint": "437cf8fd546ae851c7cddfbac4a7ccfad5fb0dd359c01832ca3a43fe99a7b939",
+      "content_hash": "02a420751816d9bf76bc905a4464e6f320e4f1354e32ce8ff60ba42878ccc985",
+      "source_line_start": 62,
+      "source_line_end": 69,
+      "anomaly_flags": [],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200",
+      "page_fingerprints": [
+        "437cf8fd546ae851c7cddfbac4a7ccfad5fb0dd359c01832ca3a43fe99a7b939"
+      ],
+      "source_unit_ids": [
+        "89e8609652e875556d117b599f6155ebc440837a8f02b9fa1866dd748208aee7"
+      ]
+    },
+    {
+      "unit_id": "aadaf53b3bd9b4ef10cb95bf74d4a2b9ffc5ae6c001dd4c799eabc2da9bb25a2",
+      "unit_type": "prose",
+      "text": "Reward: A rare, vibrating crystal that enhances any auditory experience, making music sound divine.",
+      "structural_path": [
+        "THE GEAR GRIND"
+      ],
+      "ordering_key": 12,
+      "page_fingerprint": "437cf8fd546ae851c7cddfbac4a7ccfad5fb0dd359c01832ca3a43fe99a7b939",
+      "content_hash": "d487ea416bfcfa4175fb5f9c80cbd687974f8e2764d4dcec4882e0c0d8c8c23d",
+      "source_line_start": 71,
+      "source_line_end": 72,
+      "anomaly_flags": [],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200",
+      "page_fingerprints": [
+        "437cf8fd546ae851c7cddfbac4a7ccfad5fb0dd359c01832ca3a43fe99a7b939"
+      ],
+      "source_unit_ids": [
+        "aadaf53b3bd9b4ef10cb95bf74d4a2b9ffc5ae6c001dd4c799eabc2da9bb25a2"
+      ]
+    },
+    {
+      "unit_id": "6f642a2ac7611da7825f0ce62c4ef336642535f707a1eca930c0a8b3394053ca",
+      "unit_type": "prose",
+      "text": "SERVICES — VIP ROOM — Description: A luxurious, secluded area with private service and premium drinks.\nPrice: 25 gold per hour",
+      "structural_path": [
+        "VIP ROOM"
+      ],
+      "ordering_key": 13,
+      "page_fingerprint": "437cf8fd546ae851c7cddfbac4a7ccfad5fb0dd359c01832ca3a43fe99a7b939",
+      "content_hash": "5f2b31f84568f925aef20d6e4a2c3a712480eb817cff190e646b2c3e7a96a858",
+      "source_line_start": 74,
+      "source_line_end": 82,
+      "anomaly_flags": [],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200",
+      "page_fingerprints": [
+        "437cf8fd546ae851c7cddfbac4a7ccfad5fb0dd359c01832ca3a43fe99a7b939"
+      ],
+      "source_unit_ids": [
+        "6f642a2ac7611da7825f0ce62c4ef336642535f707a1eca930c0a8b3394053ca"
+      ]
+    },
+    {
+      "unit_id": "d563f4ba10d78dc0184aad58d56ce7e2ad5c13e7f013b3302ddcef414cff60a1",
+      "unit_type": "prose",
+      "text": "SPECIAL LIGHTING EFFECTS — Description: Customized light shows for your personal dance experience.",
+      "structural_path": [
+        "SPECIAL LIGHTING EFFECTS"
+      ],
+      "ordering_key": 14,
+      "page_fingerprint": "437cf8fd546ae851c7cddfbac4a7ccfad5fb0dd359c01832ca3a43fe99a7b939",
+      "content_hash": "d557059c211e4a502d317c0f162308a6c075ab66b53f17c637bbefb921f8226e",
+      "source_line_start": 84,
+      "source_line_end": 88,
+      "anomaly_flags": [],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200",
+      "page_fingerprints": [
+        "437cf8fd546ae851c7cddfbac4a7ccfad5fb0dd359c01832ca3a43fe99a7b939"
+      ],
+      "source_unit_ids": [
+        "d563f4ba10d78dc0184aad58d56ce7e2ad5c13e7f013b3302ddcef414cff60a1"
+      ]
+    },
+    {
+      "unit_id": "7c5a396e35a5442b9841bc81df29dab3dd48ba90f1e22c286f2aaefe9ec51421",
+      "unit_type": "prose",
+      "text": "Price: 10 gold per hour",
+      "structural_path": [
+        "SPECIAL LIGHTING EFFECTS"
+      ],
+      "ordering_key": 15,
+      "page_fingerprint": "437cf8fd546ae851c7cddfbac4a7ccfad5fb0dd359c01832ca3a43fe99a7b939",
+      "content_hash": "d5c4a5cd974bebe6fc865f884e2c9e376c00b822f266cbebc161f3e391aa09bf",
+      "source_line_start": 90,
+      "source_line_end": 91,
+      "anomaly_flags": [],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200",
+      "page_fingerprints": [
+        "437cf8fd546ae851c7cddfbac4a7ccfad5fb0dd359c01832ca3a43fe99a7b939"
+      ],
+      "source_unit_ids": [
+        "7c5a396e35a5442b9841bc81df29dab3dd48ba90f1e22c286f2aaefe9ec51421"
+      ]
+    },
+    {
+      "unit_id": "c7a15ecf64799c603042fa1ea59ceafda736cea3f2d355e416581cab63fb1503",
+      "unit_type": "prose",
+      "text": "SPECIALTIES — GBBBLIN ALE — Description: A potent, buzzing brew that makes even the grouchiest goblin dance.",
+      "structural_path": [
+        "GBBBLIN ALE"
+      ],
+      "ordering_key": 0,
+      "page_fingerprint": "057cf535fbf44407e8a6b752426be3990fd665d5097f31e74ef43785cc89cb98",
+      "content_hash": "979c268b6f2fb8ae2c4d78d6c482982976056ed07193acd925590b968498b720",
+      "source_line_start": 1,
+      "source_line_end": 8,
+      "anomaly_flags": [],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200",
+      "page_fingerprints": [
+        "057cf535fbf44407e8a6b752426be3990fd665d5097f31e74ef43785cc89cb98"
+      ],
+      "source_unit_ids": [
+        "c7a15ecf64799c603042fa1ea59ceafda736cea3f2d355e416581cab63fb1503"
+      ]
+    },
+    {
+      "unit_id": "2574c15041de410ee08d7d4b3359c47ce3e99a7b06e3803f3fb1100e9a7700b5",
+      "unit_type": "prose",
+      "text": "Price: 5 gold per mug",
+      "structural_path": [
+        "GBBBLIN ALE"
+      ],
+      "ordering_key": 1,
+      "page_fingerprint": "057cf535fbf44407e8a6b752426be3990fd665d5097f31e74ef43785cc89cb98",
+      "content_hash": "8d76d4b3783b3ce0a523871217fb87f93a1e091edfd2faa932ef4fa355c73efc",
+      "source_line_start": 10,
+      "source_line_end": 11,
+      "anomaly_flags": [],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200",
+      "page_fingerprints": [
+        "057cf535fbf44407e8a6b752426be3990fd665d5097f31e74ef43785cc89cb98"
+      ],
+      "source_unit_ids": [
+        "2574c15041de410ee08d7d4b3359c47ce3e99a7b06e3803f3fb1100e9a7700b5"
+      ]
+    },
+    {
+      "unit_id": "5ae74c00bb6ab49054e988105d6471f5796804c88db05f83a322928975bbc176",
+      "unit_type": "prose",
+      "text": "WOBBLE TONIC — Description: A fizzy drink that makes your steps lighter and rhythm smoother.",
+      "structural_path": [
+        "WOBBLE TONIC"
+      ],
+      "ordering_key": 2,
+      "page_fingerprint": "057cf535fbf44407e8a6b752426be3990fd665d5097f31e74ef43785cc89cb98",
+      "content_hash": "7ba19cea2584009e13f222ea643b70b56262f3efebe5a1fd89bef045e485e2e1",
+      "source_line_start": 13,
+      "source_line_end": 17,
+      "anomaly_flags": [],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200",
+      "page_fingerprints": [
+        "057cf535fbf44407e8a6b752426be3990fd665d5097f31e74ef43785cc89cb98"
+      ],
+      "source_unit_ids": [
+        "5ae74c00bb6ab49054e988105d6471f5796804c88db05f83a322928975bbc176"
+      ]
+    },
+    {
+      "unit_id": "dfa983c639892840582295fcd98126b007a25c7ebe5139820723c430a05cdb78",
+      "unit_type": "prose",
+      "text": "Price: 7 gold per bottle",
+      "structural_path": [
+        "WOBBLE TONIC"
+      ],
+      "ordering_key": 3,
+      "page_fingerprint": "057cf535fbf44407e8a6b752426be3990fd665d5097f31e74ef43785cc89cb98",
+      "content_hash": "ea2f97b63af3556de40dc5f9e0816265185f8f92e37f2b6d981d6dbaf3f9ee02",
+      "source_line_start": 19,
+      "source_line_end": 20,
+      "anomaly_flags": [],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200",
+      "page_fingerprints": [
+        "057cf535fbf44407e8a6b752426be3990fd665d5097f31e74ef43785cc89cb98"
+      ],
+      "source_unit_ids": [
+        "dfa983c639892840582295fcd98126b007a25c7ebe5139820723c430a05cdb78"
+      ]
+    },
+    {
+      "unit_id": "fde07a8cf4d298f41361d3b938fee2c1f53079092516b0a3a5e5560281e52e88",
+      "unit_type": "prose",
+      "text": "SECURITY — SPROCKET — Description: A nimble automaton with gears for brains and an impressive array of non-lethal dissuasion techniques.",
+      "structural_path": [
+        "SPROCKET"
+      ],
+      "ordering_key": 4,
+      "page_fingerprint": "057cf535fbf44407e8a6b752426be3990fd665d5097f31e74ef43785cc89cb98",
+      "content_hash": "385ca563827d23d6c1d5421222a47494d0daf96aa86158d828eb62b02f6c90d9",
+      "source_line_start": 22,
+      "source_line_end": 29,
+      "anomaly_flags": [],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200",
+      "page_fingerprints": [
+        "057cf535fbf44407e8a6b752426be3990fd665d5097f31e74ef43785cc89cb98"
+      ],
+      "source_unit_ids": [
+        "fde07a8cf4d298f41361d3b938fee2c1f53079092516b0a3a5e5560281e52e88"
+      ]
+    },
+    {
+      "unit_id": "534ab2628813b462565f9b720b709bcfa2d2a8e9f0c54fff97a8ddeafe93bbcf",
+      "unit_type": "prose",
+      "text": "Mechanics: Can instantly subdue any unruly patron and eject them from the premises, no fuss.",
+      "structural_path": [
+        "SPROCKET"
+      ],
+      "ordering_key": 5,
+      "page_fingerprint": "057cf535fbf44407e8a6b752426be3990fd665d5097f31e74ef43785cc89cb98",
+      "content_hash": "f81812ae9b7c5e9f62ceca503afde55b0226d391802f706d93fa87d9ab125479",
+      "source_line_start": 31,
+      "source_line_end": 32,
+      "anomaly_flags": [],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200",
+      "page_fingerprints": [
+        "057cf535fbf44407e8a6b752426be3990fd665d5097f31e74ef43785cc89cb98"
+      ],
+      "source_unit_ids": [
+        "534ab2628813b462565f9b720b709bcfa2d2a8e9f0c54fff97a8ddeafe93bbcf"
+      ]
+    },
+    {
+      "unit_id": "e8bbed4abdee5c7f1cce8ddf4d4d2f348fe9adca71388720494c9e0a50181e6e",
+      "unit_type": "table",
+      "text": "INVENTORY — <table><tr><td>Name</td><td>Type</td><td>Cost</td><td>Properties</td></tr><tr><td>Glowstick Staff</td><td>Light Source</td><td>15 gold</td><td>Emits a soft, pulsing light, Available in multiple colors</td></tr><tr><td>Steampunk Goggles</td><td>Accessory</td><td>20 gold</td><td>Protects eyes from flashing lights, Mechanical zoom feature</td></tr><tr><td>Sonic Boots</td><td>Footwear</td><td>30 gold</td><td>Enhances dance moves, Subtle sound effects</td></tr><tr><td>Rhythm Bandana</td><td>Accessory</td><td>10 gold</td><td>Syncs with music, Gives sense of rhythm and timing</td></tr><tr><td>Neon Face Paint</td><td>Cosmetic</td><td>5 gold</td><td>Glows in the dark, Non-toxic and easy to wash off</td></tr><tr><td>Vibroblade</td><td>Sword</td><td>50 gold</td><td>Creates harmonic vibrations, Silent when used with music playing</td></tr><tr><td>Grognok&#x27;s Brew</td><td>Potion</td><td>10 gold</td><td>Boosts energy, Tastes like fizzy pears</td></tr><tr><td>Beatbox Cube</td><td>Music Box</td><td>100 gold</td><td>Plays endless loops of catchy tunes, Magically adjusts volume based on ambiance</td></tr><tr><td>Confetti Bomb</td><td>Party Item</td><td>3 gold</td><td>Explodes in a shower of colorful confetti, Harmless fun</td></tr></table>",
+      "structural_path": [
+        "INVENTORY"
+      ],
+      "ordering_key": 6,
+      "page_fingerprint": "057cf535fbf44407e8a6b752426be3990fd665d5097f31e74ef43785cc89cb98",
+      "content_hash": "2af31fb53d2cdef700514b8016f68214561f1699b22a29242ec119c563fc0af1",
+      "source_line_start": 34,
+      "source_line_end": 38,
+      "anomaly_flags": [],
+      "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200",
+      "page_fingerprints": [
+        "057cf535fbf44407e8a6b752426be3990fd665d5097f31e74ef43785cc89cb98"
+      ],
+      "table_group_id": "c4bdffa1558281f7aa15808e52737740e2678e835e8b573d1ca6230f9a98b14a",
+      "source_unit_ids": [
+        "e8bbed4abdee5c7f1cce8ddf4d4d2f348fe9adca71388720494c9e0a50181e6e"
+      ]
+    }
+  ]
+}

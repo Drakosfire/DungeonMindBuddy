@@ -1,0 +1,11 @@
+{
+  "page_fingerprint": "77f608a2aa6b3f96abb8463242fe6ae1d2ce8f7cbc710938308e26b14768030e",
+  "source_pdf": "/media/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/Docs/Eldyrwild and Campaign Context/Elderwyld/Cities and Towns/Mirathorn/Sewers/Aberrant Meat Wing.pdf",
+  "page_index": 0,
+  "model_id": "deepseek-ai/DeepSeek-OCR-2",
+  "prompt": "<image>\n<|grounding|>Convert the document to markdown.",
+  "raw_markdown": "\nAberrant Meatwing\n\n\nMedium, Aberration, Chaotic Evil\n\n![](images/0.jpg)\n\n\n\n\nThe Aberrant Meatwing is a grotesque fusion of sinew and wings, gliding ominously through the air. Its body continuously emanates a tantalizing aroma of cooking meat, which is both hypnotic and revolting. While it seems to be constantly roasting itself, this creature is anything but tasty; its scent is a lure for the unwary.\n\n\nArmor Class : 11\nHit Points: 18 Hit Dice : 2d10+6\nSpeed: walk : 20, fly : 50\n\n\n<table><tr><td>STR</td><td>DEX</td><td>CON</td><td>INT</td><td>WIS</td><td>CHA</td></tr><tr><td>12</td><td>14</td><td>16</td><td>8</td><td>10</td><td>12</td></tr></table>\n\n\nSaving Throws : str : 2, dex : 4, wis : 2\n\n\nSkills : perception : 4\n\n\nResistances :\n\n\nSenses : darkvision : 60\n\n\nLanguages :\n\n\nChallenge Rating : 1 (200)\n\n\n## ACTIONS\n\n\nMeat Splat : 'The Aberrant Meatwing hurls a glob of superheated meat at a target within 20 feet. The target must succeed on a DC 13 Dexterity saving throw or take 1d6 fire damage.\n\n\nHypnotic Aroma : 'All creatures within 30 feet of the Aberrant Meatwing must succeed on a DC 13 Wisdom saving throw or be charmed for 1 minute. While charmed in this way, a creature has disadvantage on Perception checks and is drawn towards the enticing aroma. The creature can repeat the saving throw at the end of each of its turns, ending the effect on itself with a successful save.",
+  "inference_elapsed_sec": 13.346,
+  "content_hash": "184b9c4e4be3e068af3df837dbfe10fa940e0d6c2227f896eef7161cb9e54d4f",
+  "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+}

@@ -1,0 +1,187 @@
+[
+  {
+    "label": "eliteCorruptedGuard_p0",
+    "pdf": "/media/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/Docs/Eldyrwild and Campaign Context/Elderwyld/Cities and Towns/Mirathorn/Sewers/eliteCorruptedGuard.pdf",
+    "page": 0,
+    "elapsed_sec": 21.588,
+    "error": null,
+    "stage_a": {
+      "gates_passed": true,
+      "node_count": 17,
+      "table_count": 1,
+      "content_hash": "1cbd90caae5641cd0104aed024e2c4dc610a22e141af73aab84f7133e0f7b7f5",
+      "gate_details": [
+        {
+          "gate_name": "coverage",
+          "passed": true,
+          "detail": {
+            "raw_content_chars": 862,
+            "ast_content_chars": 862,
+            "ratio": 1.0,
+            "threshold": 0.95
+          }
+        },
+        {
+          "gate_name": "ordering",
+          "passed": true,
+          "detail": {
+            "leaf_count": 15,
+            "inversion_count": 0,
+            "inversions": []
+          }
+        },
+        {
+          "gate_name": "table_parse",
+          "passed": true,
+          "detail": {
+            "raw_table_count": 1,
+            "ast_table_count": 1,
+            "count_match": true,
+            "raw_row_counts": [
+              2
+            ],
+            "ast_row_counts": [
+              2
+            ],
+            "row_mismatches": []
+          }
+        }
+      ]
+    },
+    "stage_b": {
+      "unit_count": 15,
+      "gates_passed": true,
+      "salvage_score": 1.0,
+      "gate_details": [
+        {
+          "gate_name": "orphan",
+          "passed": true,
+          "detail": {
+            "total_units": 15,
+            "orphan_count": 12,
+            "orphan_rate": 0.8,
+            "fail_threshold": 1.0,
+            "warn_threshold": 0.5,
+            "warned": true,
+            "orphans": [
+              {
+                "unit_id": "436ccae842cab770",
+                "unit_type": "prose",
+                "ordering_key": 0,
+                "text_preview": "Elite Corrupted Guard"
+              },
+              {
+                "unit_id": "157881518b5caef4",
+                "unit_type": "prose",
+                "ordering_key": 1,
+                "text_preview": "Medium, Humanoid, Human, Chaotic Evil"
+              },
+              {
+                "unit_id": "eab6c07f53915566",
+                "unit_type": "prose",
+                "ordering_key": 2,
+                "text_preview": "![](images/0.jpg)"
+              },
+              {
+                "unit_id": "99361a63aa23d3c4",
+                "unit_type": "prose",
+                "ordering_key": 3,
+                "text_preview": "Elite Corrupted Guards were once honorable soldiers, but dark magic has warped t"
+              },
+              {
+                "unit_id": "d77d11997164eb0c",
+                "unit_type": "prose",
+                "ordering_key": 4,
+                "text_preview": "Armor Class : 12\nHit Points: 25 Hit Dice : 5d8\nSpeed: walk : 30"
+              },
+              {
+                "unit_id": "913306874e03a06d",
+                "unit_type": "table",
+                "ordering_key": 5,
+                "text_preview": "<table><tr><td>STR</td><td>DEX</td><td>CON</td><td>INT</td><td>WIS</td><td>CHA</"
+              },
+              {
+                "unit_id": "74186f5cdecebd9b",
+                "unit_type": "prose",
+                "ordering_key": 6,
+                "text_preview": "Saving Throws : str : 4, dex : 3, wis : 2"
+              },
+              {
+                "unit_id": "7ef29749376b23b7",
+                "unit_type": "prose",
+                "ordering_key": 7,
+                "text_preview": "Skills : perception : 3"
+              },
+              {
+                "unit_id": "41ba597f4936447c",
+                "unit_type": "prose",
+                "ordering_key": 8,
+                "text_preview": "Resistances :"
+              },
+              {
+                "unit_id": "821db8cbf43a31ad",
+                "unit_type": "prose",
+                "ordering_key": 9,
+                "text_preview": "Senses : darkvision : 60"
+              }
+            ]
+          }
+        },
+        {
+          "gate_name": "bleed",
+          "passed": true,
+          "detail": {
+            "total_units": 15,
+            "overlap_count": 0,
+            "overlaps": []
+          }
+        },
+        {
+          "gate_name": "table_integrity",
+          "passed": true,
+          "detail": {
+            "table_unit_count": 1,
+            "issue_count": 0,
+            "issues": []
+          }
+        },
+        {
+          "gate_name": "unit_size",
+          "passed": true,
+          "detail": {
+            "total_units": 15,
+            "min_chars": 20,
+            "max_chars": 5000,
+            "max_table_chars": 12000,
+            "undersized_count": 3,
+            "oversized_count": 0,
+            "undersized_ratio": 0.2,
+            "undersized_fail_ratio": 1.0,
+            "undersized": [
+              {
+                "unit_id": "eab6c07f53915566",
+                "unit_type": "prose",
+                "char_count": 17,
+                "text_preview": "![](images/0.jpg)"
+              },
+              {
+                "unit_id": "41ba597f4936447c",
+                "unit_type": "prose",
+                "char_count": 13,
+                "text_preview": "Resistances :"
+              },
+              {
+                "unit_id": "bea956bdacc16482",
+                "unit_type": "prose",
+                "char_count": 18,
+                "text_preview": "Languages : Common"
+              }
+            ],
+            "oversized": []
+          }
+        }
+      ]
+    },
+    "all_gates_passed": true
+  }
+]

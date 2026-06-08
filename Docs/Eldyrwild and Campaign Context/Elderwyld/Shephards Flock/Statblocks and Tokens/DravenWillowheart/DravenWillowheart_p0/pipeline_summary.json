@@ -1,0 +1,454 @@
+{
+  "stage_a": {
+    "gates_passed": true,
+    "node_count": 23,
+    "table_count": 1,
+    "content_hash": "3b62ce4c2ee3bbab29a8499b3b1e53d3dd08ed50ff31b250a5527333744a2030",
+    "gate_details": [
+      {
+        "gate_name": "coverage",
+        "passed": true,
+        "detail": {
+          "raw_content_chars": 1878,
+          "ast_content_chars": 1878,
+          "ratio": 1.0,
+          "threshold": 0.95
+        }
+      },
+      {
+        "gate_name": "ordering",
+        "passed": true,
+        "detail": {
+          "leaf_count": 18,
+          "inversion_count": 0,
+          "inversions": []
+        }
+      },
+      {
+        "gate_name": "table_parse",
+        "passed": true,
+        "detail": {
+          "raw_table_count": 1,
+          "ast_table_count": 1,
+          "count_match": true,
+          "raw_row_counts": [
+            2
+          ],
+          "ast_row_counts": [
+            2
+          ],
+          "row_mismatches": []
+        }
+      }
+    ]
+  },
+  "stage_b": {
+    "units": [
+      {
+        "unit_id": "fe881464daa0cff1d395e735011c7d0b70f86c070ee9fa691dc7d395710a9f6b",
+        "unit_type": "prose",
+        "text": "CORRUPTED PROFESSOR'S ASSISTANT:",
+        "structural_path": [],
+        "ordering_key": 0,
+        "page_fingerprint": "729469b4e8fc679801feb99c2d9e3f9bffc4e14485d5859fa390ffba165043b9",
+        "content_hash": "08a1f52ea69c69a027bfc9e2923441776c7040d5528a7cec168e60cd021f6f84",
+        "source_line_start": 1,
+        "source_line_end": 2,
+        "anomaly_flags": [
+          "no_heading_parent"
+        ],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "d3a3f2485dc094d3eae8238dcb77cccdfddcc28bbb19af7e16cc09802f304885",
+        "unit_type": "prose",
+        "text": "DRAVEN WILLOWCREST",
+        "structural_path": [],
+        "ordering_key": 1,
+        "page_fingerprint": "729469b4e8fc679801feb99c2d9e3f9bffc4e14485d5859fa390ffba165043b9",
+        "content_hash": "8cc0e33d953947e2f0c2b011643a3c48d7b65512f30a84b2c4f706581783c9ed",
+        "source_line_start": 4,
+        "source_line_end": 5,
+        "anomaly_flags": [
+          "undersized",
+          "no_heading_parent"
+        ],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "bf66a9378c5d7288cd503dbf18fb2ce0b9379ac0ca7a39193721c87f2e0a6bc4",
+        "unit_type": "prose",
+        "text": "Medium, Humanoid, Human, Chaotic Neutral",
+        "structural_path": [],
+        "ordering_key": 2,
+        "page_fingerprint": "729469b4e8fc679801feb99c2d9e3f9bffc4e14485d5859fa390ffba165043b9",
+        "content_hash": "04bed049ff6aae5379029dd5695d188bf54a7b55409446108f9e93347bb56a72",
+        "source_line_start": 7,
+        "source_line_end": 8,
+        "anomaly_flags": [
+          "no_heading_parent"
+        ],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "b83b1f2848f668478c74c44aae98f0827b286e5dc929e8cb06735ea1a23fd6c1",
+        "unit_type": "prose",
+        "text": "![](images/0.jpg)",
+        "structural_path": [],
+        "ordering_key": 3,
+        "page_fingerprint": "729469b4e8fc679801feb99c2d9e3f9bffc4e14485d5859fa390ffba165043b9",
+        "content_hash": "c677736a74e2c31c881f5694921f60c254795dcd1c2625d47967117900d6aece",
+        "source_line_start": 9,
+        "source_line_end": 10,
+        "anomaly_flags": [
+          "undersized",
+          "no_heading_parent"
+        ],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "ec4d16bb015ed7a44565724efae1d57fc8ad8d8edb6790bed9d7dbdf37deceda",
+        "unit_type": "prose",
+        "text": "DRAVEN WILLOWCREST WAS ONCE A BUDDING NECROMANCER AT THE PRESTIGIOUS STORMSPIRE ACADEMY. WITH A SHARP MIND AND A THIRST FOR KNOWLEDGE, HE WAS AN INVALUABLE ASSISTANT TO HIS PROFESSOR, DELVING INTO FORBIDDEN TOMES AND INCANTATIONS. TRAGICALLY, HIS AMBITION LED HIM INTO THE CLUTCHES OF A SINISTER CULT, MASKED UNDER THE GUISE OF AN ACADEMIC STUDY GROUP. NOW CORRUPTED, DRAVEN'S PALE FORM MOVES THROUGH THE SHADOWS OF THE ACADEMY, SERVING AS A COVERT AGENT FOR THE CULT WHILE CONTINUING TO ASSIST HIS OBLIVIOUS PROFESSOR. HIS EYES, ENCIRCLED BY THE SHADOWS OF ENDLESS NIGHTS SPENT IN DARK REVERIE, NOW GLINT WITH A SUBTLE, SINISTER AWARENESS. PERHAPS SOME PART OF HIS NOBLE SPIRIT REMAINS, BUT IT IS SHROUDED BENEATH LAYERS OF MALIGN INFLUENCE.\nArmor Class : 12\nHit Points: 22 Hit Dice : 4d8+4\nSpeed: walk : 30",
+        "structural_path": [],
+        "ordering_key": 4,
+        "page_fingerprint": "729469b4e8fc679801feb99c2d9e3f9bffc4e14485d5859fa390ffba165043b9",
+        "content_hash": "bbde1f0f64f85d0d24549758880016891df5f01bf9affaa06589107313a00b8c",
+        "source_line_start": 14,
+        "source_line_end": 18,
+        "anomaly_flags": [
+          "no_heading_parent"
+        ],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "3d8440654f2a16e4f39b82ffc5e8d8dd7393c60315346752741edfeafb293aae",
+        "unit_type": "table",
+        "text": "<table><tr><td>STR</td><td>DEX</td><td>CON</td><td>INT</td><td>WIS</td><td>CHA</td></tr><tr><td>9</td><td>12</td><td>13</td><td>16</td><td>10</td><td>14</td></tr></table>",
+        "structural_path": [],
+        "ordering_key": 5,
+        "page_fingerprint": "729469b4e8fc679801feb99c2d9e3f9bffc4e14485d5859fa390ffba165043b9",
+        "content_hash": "e05004aaa11384244cf692923898252ac8477f44e48ef12b667f7699b3aad5e2",
+        "source_line_start": 20,
+        "source_line_end": 21,
+        "anomaly_flags": [
+          "no_heading_parent"
+        ],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "95614cd64ecbe6fd990c714d37bd359a2ac58e1c02ac36c50648b46d10d086d5",
+        "unit_type": "prose",
+        "text": "Saving Throws : str : 2, dex : 3, wis : 2",
+        "structural_path": [],
+        "ordering_key": 6,
+        "page_fingerprint": "729469b4e8fc679801feb99c2d9e3f9bffc4e14485d5859fa390ffba165043b9",
+        "content_hash": "c93aebaae7562d3250157f7f12b9c1774dcad86c47fc5ec421e5820b58f6c475",
+        "source_line_start": 23,
+        "source_line_end": 24,
+        "anomaly_flags": [
+          "no_heading_parent"
+        ],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "9f16f43e082a511fc8aa3a3e4f5c055ccf31b1c757aa846322897ef9a03d8e99",
+        "unit_type": "prose",
+        "text": "Skills : perception : 2",
+        "structural_path": [],
+        "ordering_key": 7,
+        "page_fingerprint": "729469b4e8fc679801feb99c2d9e3f9bffc4e14485d5859fa390ffba165043b9",
+        "content_hash": "3e35eb81ceea5dd1b00c73ee47b8803af0669dd502137ccaf60476e4f68b6eec",
+        "source_line_start": 26,
+        "source_line_end": 27,
+        "anomaly_flags": [
+          "no_heading_parent"
+        ],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "ad6e55372742017071fe7820efff8edb0955cc3f26236b52a31f9a4d77c606be",
+        "unit_type": "prose",
+        "text": "Resistances :",
+        "structural_path": [],
+        "ordering_key": 8,
+        "page_fingerprint": "729469b4e8fc679801feb99c2d9e3f9bffc4e14485d5859fa390ffba165043b9",
+        "content_hash": "48168db49032d8b5431291e26ecea04489f1af36e6a3d7a41471df6146d1d6b0",
+        "source_line_start": 29,
+        "source_line_end": 30,
+        "anomaly_flags": [
+          "undersized",
+          "no_heading_parent"
+        ],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "19226233c0fe13c77f6b321e504a1a5cbea147fc477b1eee27741dca5e9d3c4c",
+        "unit_type": "prose",
+        "text": "Senses : darkvision : 60",
+        "structural_path": [],
+        "ordering_key": 9,
+        "page_fingerprint": "729469b4e8fc679801feb99c2d9e3f9bffc4e14485d5859fa390ffba165043b9",
+        "content_hash": "064e15d7da2cf4f725ef9f6249035b70f4dd0f1175a8fed5b6cdabf80e05b75c",
+        "source_line_start": 32,
+        "source_line_end": 33,
+        "anomaly_flags": [
+          "no_heading_parent"
+        ],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "b48159572fea69eb5c4ddfb881e836f4064a9d2c64f2d6b520dc7a6c7c3837b7",
+        "unit_type": "prose",
+        "text": "Languages : Common, Draconic",
+        "structural_path": [],
+        "ordering_key": 10,
+        "page_fingerprint": "729469b4e8fc679801feb99c2d9e3f9bffc4e14485d5859fa390ffba165043b9",
+        "content_hash": "50a49475ec6a4fa23f847506ecc87183662cdfc2ff6dd6e08e4851d10dc16d68",
+        "source_line_start": 35,
+        "source_line_end": 36,
+        "anomaly_flags": [
+          "no_heading_parent"
+        ],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "0196043719df4a1c74e212bb1de2643bc9677776361bc327f36f97a44c6a0a3b",
+        "unit_type": "prose",
+        "text": "Challenge Rating : 2 (450)",
+        "structural_path": [],
+        "ordering_key": 11,
+        "page_fingerprint": "729469b4e8fc679801feb99c2d9e3f9bffc4e14485d5859fa390ffba165043b9",
+        "content_hash": "0c52f07130c7ae73e5a2dbe304214e8930b7f03d8e63b184b6f7dd01a781b548",
+        "source_line_start": 38,
+        "source_line_end": 39,
+        "anomaly_flags": [
+          "no_heading_parent"
+        ],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "3cdbc2151e9add8459788a2aeb9413404b5c28489b292be965082196a2770d8a",
+        "unit_type": "prose",
+        "text": "ACTIONS — Eldritch Bolt : 'Draven hurls a bolt of necrotic energy at one creature he can see within 60 feet. The target must make a DC 13 Dexterity saving throw, taking 2d6 necrotic damage on a failed save, or half as much on a successful one.",
+        "structural_path": [
+          "ACTIONS"
+        ],
+        "ordering_key": 12,
+        "page_fingerprint": "729469b4e8fc679801feb99c2d9e3f9bffc4e14485d5859fa390ffba165043b9",
+        "content_hash": "f59e5256423e8d471a4a10abd5d80cfa8e3ce9f2fa32b989d8f17f97df173264",
+        "source_line_start": 41,
+        "source_line_end": 45,
+        "anomaly_flags": [],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "5f42d93bd26c62134253d9b360f10bbf8e82c2f9fff5878b2e85425f78561538",
+        "unit_type": "prose",
+        "text": "Arcane Strike : 'Draven makes a melee spell attack with a +5 bonus. On a hit, the target takes 1d8 + 2 necrotic damage.",
+        "structural_path": [
+          "ACTIONS"
+        ],
+        "ordering_key": 13,
+        "page_fingerprint": "729469b4e8fc679801feb99c2d9e3f9bffc4e14485d5859fa390ffba165043b9",
+        "content_hash": "7bf93f42feb9fde8235c4216a88510d2269fb9fdb2880bf8f983996401319cb6",
+        "source_line_start": 47,
+        "source_line_end": 48,
+        "anomaly_flags": [],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "b7f5c71a0964f390289437715fe1c3c8f6aa8a03baa730f527de50953a2849db",
+        "unit_type": "prose",
+        "text": "CANTRIPS — Chill Touch : 'Draven creates a ghostly, skeletal hand in the space of a creature within range. Make a ranged spell attack against the creature to assail it with the chill of the grave. On a hit, the target takes 1d8 necrotic damage, and it can't regain hit points until the start of your next turn,'.",
+        "structural_path": [
+          "CANTRIPS"
+        ],
+        "ordering_key": 14,
+        "page_fingerprint": "729469b4e8fc679801feb99c2d9e3f9bffc4e14485d5859fa390ffba165043b9",
+        "content_hash": "707a2c7315413f29acd81f77dec02e30d9b7c2f3f13065ab4b361a3671d9f8bb",
+        "source_line_start": 50,
+        "source_line_end": 54,
+        "anomaly_flags": [],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "c8f928a08f5e7eba41d909f1fd224ffe0031b9d46f3b73409a8ea80945a374a1",
+        "unit_type": "prose",
+        "text": "Known Spells — Ray of Sickness : 'Level : 1st A ray of sickening greenish energy lashes out toward a creature within range. On a hit, the target takes 2d8 poison damage and must make a Constitution saving throw. On a failed save, it is also poisoned until the end of your next turn.,'",
+        "structural_path": [
+          "Known Spells"
+        ],
+        "ordering_key": 15,
+        "page_fingerprint": "729469b4e8fc679801feb99c2d9e3f9bffc4e14485d5859fa390ffba165043b9",
+        "content_hash": "a5b4f8f94231cd7cb9218787683d16cd2a2637b1c20bb074e8d84917f08b0609",
+        "source_line_start": 56,
+        "source_line_end": 60,
+        "anomaly_flags": [],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "91527226d4d77a2ec6156bfee1403086f76cd9bf5262d64b2400e40bb648461f",
+        "unit_type": "prose",
+        "text": "Cause Fear : 'Level : 1st You awaken the sense of mortality in one creature you can see within range. The target must succeed on a Wisdom saving throw or become frightened of you until the spell ends.,'",
+        "structural_path": [
+          "Known Spells"
+        ],
+        "ordering_key": 16,
+        "page_fingerprint": "729469b4e8fc679801feb99c2d9e3f9bffc4e14485d5859fa390ffba165043b9",
+        "content_hash": "5f5626c6244df43855e4afedafef4015c0471093ea53ec9fd6038cf63dc74f42",
+        "source_line_start": 62,
+        "source_line_end": 63,
+        "anomaly_flags": [],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      },
+      {
+        "unit_id": "89aa25e330ba2407bff2aa124d0e5afbd9ab2f9c8baf0889310f460506c13aae",
+        "unit_type": "prose",
+        "text": "SPELL SLOTS — 1st level: '2,'",
+        "structural_path": [
+          "SPELL SLOTS"
+        ],
+        "ordering_key": 17,
+        "page_fingerprint": "729469b4e8fc679801feb99c2d9e3f9bffc4e14485d5859fa390ffba165043b9",
+        "content_hash": "a45a20e89387c6e2944e35835c2e1f39b6f9624d0720f178eff5f95b407f4e0a",
+        "source_line_start": 65,
+        "source_line_end": 69,
+        "anomaly_flags": [],
+        "content_version": "deepseek-ai/DeepSeek-OCR-2-dpi200"
+      }
+    ],
+    "gates_passed": true,
+    "gate_details": [
+      {
+        "gate_name": "orphan",
+        "passed": true,
+        "detail": {
+          "total_units": 18,
+          "orphan_count": 12,
+          "orphan_rate": 0.6667,
+          "fail_threshold": 1.0,
+          "warn_threshold": 0.5,
+          "warned": true,
+          "orphans": [
+            {
+              "unit_id": "fe881464daa0cff1",
+              "unit_type": "prose",
+              "ordering_key": 0,
+              "text_preview": "CORRUPTED PROFESSOR'S ASSISTANT:"
+            },
+            {
+              "unit_id": "d3a3f2485dc094d3",
+              "unit_type": "prose",
+              "ordering_key": 1,
+              "text_preview": "DRAVEN WILLOWCREST"
+            },
+            {
+              "unit_id": "bf66a9378c5d7288",
+              "unit_type": "prose",
+              "ordering_key": 2,
+              "text_preview": "Medium, Humanoid, Human, Chaotic Neutral"
+            },
+            {
+              "unit_id": "b83b1f2848f66847",
+              "unit_type": "prose",
+              "ordering_key": 3,
+              "text_preview": "![](images/0.jpg)"
+            },
+            {
+              "unit_id": "ec4d16bb015ed7a4",
+              "unit_type": "prose",
+              "ordering_key": 4,
+              "text_preview": "DRAVEN WILLOWCREST WAS ONCE A BUDDING NECROMANCER AT THE PRESTIGIOUS STORMSPIRE "
+            },
+            {
+              "unit_id": "3d8440654f2a16e4",
+              "unit_type": "table",
+              "ordering_key": 5,
+              "text_preview": "<table><tr><td>STR</td><td>DEX</td><td>CON</td><td>INT</td><td>WIS</td><td>CHA</"
+            },
+            {
+              "unit_id": "95614cd64ecbe6fd",
+              "unit_type": "prose",
+              "ordering_key": 6,
+              "text_preview": "Saving Throws : str : 2, dex : 3, wis : 2"
+            },
+            {
+              "unit_id": "9f16f43e082a511f",
+              "unit_type": "prose",
+              "ordering_key": 7,
+              "text_preview": "Skills : perception : 2"
+            },
+            {
+              "unit_id": "ad6e553727420170",
+              "unit_type": "prose",
+              "ordering_key": 8,
+              "text_preview": "Resistances :"
+            },
+            {
+              "unit_id": "19226233c0fe13c7",
+              "unit_type": "prose",
+              "ordering_key": 9,
+              "text_preview": "Senses : darkvision : 60"
+            }
+          ]
+        }
+      },
+      {
+        "gate_name": "bleed",
+        "passed": true,
+        "detail": {
+          "total_units": 18,
+          "overlap_count": 0,
+          "overlaps": []
+        }
+      },
+      {
+        "gate_name": "table_integrity",
+        "passed": true,
+        "detail": {
+          "table_unit_count": 1,
+          "issue_count": 0,
+          "issues": []
+        }
+      },
+      {
+        "gate_name": "unit_size",
+        "passed": true,
+        "detail": {
+          "total_units": 18,
+          "min_chars": 20,
+          "max_chars": 5000,
+          "max_table_chars": 12000,
+          "undersized_count": 3,
+          "oversized_count": 0,
+          "undersized_ratio": 0.1667,
+          "undersized_fail_ratio": 1.0,
+          "undersized": [
+            {
+              "unit_id": "d3a3f2485dc094d3",
+              "unit_type": "prose",
+              "char_count": 18,
+              "text_preview": "DRAVEN WILLOWCREST"
+            },
+            {
+              "unit_id": "b83b1f2848f66847",
+              "unit_type": "prose",
+              "char_count": 17,
+              "text_preview": "![](images/0.jpg)"
+            },
+            {
+              "unit_id": "ad6e553727420170",
+              "unit_type": "prose",
+              "char_count": 13,
+              "text_preview": "Resistances :"
+            }
+          ],
+          "oversized": []
+        }
+      }
+    ],
+    "salvage_score": 1.0
+  },
+  "all_gates_passed": true
+}

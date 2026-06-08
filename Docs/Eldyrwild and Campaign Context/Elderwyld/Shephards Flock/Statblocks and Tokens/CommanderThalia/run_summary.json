@@ -1,0 +1,157 @@
+[
+  {
+    "label": "CommanderThalia_p0",
+    "pdf": "/media/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/Docs/Eldyrwild and Campaign Context/Elderwyld/Shephards Flock/Statblocks and Tokens/CommanderThalia.pdf",
+    "page": 0,
+    "elapsed_sec": 21.045,
+    "error": null,
+    "stage_a": {
+      "gates_passed": true,
+      "node_count": 11,
+      "table_count": 1,
+      "content_hash": "6621b0aee8e5eda49b7d621c13cdb375047584cb0e4ba054acfc76ac3a821af9",
+      "gate_details": [
+        {
+          "gate_name": "coverage",
+          "passed": true,
+          "detail": {
+            "raw_content_chars": 1052,
+            "ast_content_chars": 1052,
+            "ratio": 1.0,
+            "threshold": 0.95
+          }
+        },
+        {
+          "gate_name": "ordering",
+          "passed": true,
+          "detail": {
+            "leaf_count": 9,
+            "inversion_count": 0,
+            "inversions": []
+          }
+        },
+        {
+          "gate_name": "table_parse",
+          "passed": true,
+          "detail": {
+            "raw_table_count": 1,
+            "ast_table_count": 1,
+            "count_match": true,
+            "raw_row_counts": [
+              2
+            ],
+            "ast_row_counts": [
+              2
+            ],
+            "row_mismatches": []
+          }
+        }
+      ]
+    },
+    "stage_b": {
+      "unit_count": 9,
+      "gates_passed": true,
+      "salvage_score": 1.0,
+      "gate_details": [
+        {
+          "gate_name": "orphan",
+          "passed": true,
+          "detail": {
+            "total_units": 9,
+            "orphan_count": 7,
+            "orphan_rate": 0.7778,
+            "fail_threshold": 1.0,
+            "warn_threshold": 0.5,
+            "warned": true,
+            "orphans": [
+              {
+                "unit_id": "70f260cfa95a7e3a",
+                "unit_type": "prose",
+                "ordering_key": 0,
+                "text_preview": "Commander Thalia Ashenvale\nMedium, Humanoid, Human, Lawful Neutral"
+              },
+              {
+                "unit_id": "70f3a31926f77d82",
+                "unit_type": "prose",
+                "ordering_key": 1,
+                "text_preview": "![](images/0.jpg)"
+              },
+              {
+                "unit_id": "970cb53d3f627f60",
+                "unit_type": "prose",
+                "ordering_key": 2,
+                "text_preview": "Commander Thalia Ashenvale is a tall, statuesque Human with sharp, chiseled feat"
+              },
+              {
+                "unit_id": "1b5666dd3a66d5ee",
+                "unit_type": "prose",
+                "ordering_key": 3,
+                "text_preview": "Armor Class : 13\nHit Points: 38 Hit Dice : 5d8+10\nSpeed: walk : 30"
+              },
+              {
+                "unit_id": "ee1b35ac336a7f4d",
+                "unit_type": "table",
+                "ordering_key": 4,
+                "text_preview": "<table><tr><td>STR</td><td>DEX</td><td>CON</td><td>INT</td><td>WIS</td><td>CHA</"
+              },
+              {
+                "unit_id": "bdb5c10de22edd38",
+                "unit_type": "prose",
+                "ordering_key": 5,
+                "text_preview": "Saving Throws : str : 4, dex : 3, wis : 1"
+              },
+              {
+                "unit_id": "70eebbaf02d5163a",
+                "unit_type": "prose",
+                "ordering_key": 6,
+                "text_preview": "Skills : perception : 4\nResistances :\nSenses : darkvision : 60\nLanguages : Commo"
+              }
+            ]
+          }
+        },
+        {
+          "gate_name": "bleed",
+          "passed": true,
+          "detail": {
+            "total_units": 9,
+            "overlap_count": 0,
+            "overlaps": []
+          }
+        },
+        {
+          "gate_name": "table_integrity",
+          "passed": true,
+          "detail": {
+            "table_unit_count": 1,
+            "issue_count": 0,
+            "issues": []
+          }
+        },
+        {
+          "gate_name": "unit_size",
+          "passed": true,
+          "detail": {
+            "total_units": 9,
+            "min_chars": 20,
+            "max_chars": 5000,
+            "max_table_chars": 12000,
+            "undersized_count": 1,
+            "oversized_count": 0,
+            "undersized_ratio": 0.1111,
+            "undersized_fail_ratio": 1.0,
+            "undersized": [
+              {
+                "unit_id": "70f3a31926f77d82",
+                "unit_type": "prose",
+                "char_count": 17,
+                "text_preview": "![](images/0.jpg)"
+              }
+            ],
+            "oversized": []
+          }
+        }
+      ]
+    },
+    "all_gates_passed": true
+  }
+]

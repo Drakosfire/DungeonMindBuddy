@@ -1,0 +1,122 @@
+{
+  "page_fingerprint": "a16a9cf243fedcfe00a03769ef5bc9e08763af84733a3f99a526c90de52e4f51",
+  "content_hash": "80f917aa2dec30493527b62a3db971133e9f87772ae2c7de724d878af7f996d6",
+  "root": {
+    "node_type": "root",
+    "level": 0,
+    "text": "",
+    "source_line_start": 0,
+    "source_line_end": 48,
+    "children": [
+      {
+        "node_type": "paragraph",
+        "level": 0,
+        "text": "Stone Colossus",
+        "source_line_start": 1,
+        "source_line_end": 2
+      },
+      {
+        "node_type": "paragraph",
+        "level": 0,
+        "text": "Large, Elemental, Neutral",
+        "source_line_start": 4,
+        "source_line_end": 5
+      },
+      {
+        "node_type": "image_ref",
+        "level": 0,
+        "text": "![](images/0.jpg)",
+        "source_line_start": 6,
+        "source_line_end": 7
+      },
+      {
+        "node_type": "paragraph",
+        "level": 0,
+        "text": "THE STONE COLOSSUS LOOMS AS A SLOW-MOVING JUGGERNAUT OF FUSED BOULDERS AND GLOWING MOLTEN SEAMS, ITS STEPS SENDING TREMORS THROUGH EARTH AND BONE ALIKE. A LIVING MONUMENT TO RAW FORCE, IT CRUSHES BARRIERS AND COMPETITORS WITH UNWAVERING RESOLVE, SHAPING THE BATTLEFIELD WITH WALL-RAISING POWER AND SHATTERING THE GROUND BENEATH ITS FOES. THE MERE ACT OF ITS ADVANCE IS AN EVENT—INEVITABLE, IMPLACABLE, AND THRILLING TO BEHOLD IN THE ARENA'S THUNDEROUS ATMOSPHERE.\nArmor Class : 12\nHit Points: 38 Hit Dice : 7d10+7\nSpeed: walk : 30",
+        "source_line_start": 11,
+        "source_line_end": 15
+      },
+      {
+        "node_type": "table",
+        "level": 0,
+        "text": "<table><tr><td>STR</td><td>DEX</td><td>CON</td><td>INT</td><td>WIS</td><td>CHA</td></tr><tr><td>20</td><td>8</td><td>13</td><td>6</td><td>12</td><td>6</td></tr></table>",
+        "source_line_start": 17,
+        "source_line_end": 18
+      },
+      {
+        "node_type": "paragraph",
+        "level": 0,
+        "text": "Saving Throws : str : 5, dex : -1, wis : 1",
+        "source_line_start": 20,
+        "source_line_end": 21
+      },
+      {
+        "node_type": "paragraph",
+        "level": 0,
+        "text": "Skills : perception : 2",
+        "source_line_start": 23,
+        "source_line_end": 24
+      },
+      {
+        "node_type": "paragraph",
+        "level": 0,
+        "text": "Resistances :",
+        "source_line_start": 26,
+        "source_line_end": 27
+      },
+      {
+        "node_type": "paragraph",
+        "level": 0,
+        "text": "Senses : darkvision : 60",
+        "source_line_start": 29,
+        "source_line_end": 30
+      },
+      {
+        "node_type": "paragraph",
+        "level": 0,
+        "text": "Languages : Terran, understands but does not speak Common Challenge Rating : 3 (700)",
+        "source_line_start": 32,
+        "source_line_end": 33
+      },
+      {
+        "node_type": "heading",
+        "level": 2,
+        "text": "ACTIONS",
+        "source_line_start": 35,
+        "source_line_end": 36,
+        "children": [
+          {
+            "node_type": "paragraph",
+            "level": 0,
+            "text": "Slam: ‘Melee Weapon Attack: +7 to hit, reach 5 ft., one target. Hit: 16 (2d10+5) bludgeoning damage. The target must succeed on a DC 15 Strength saving throw or be knocked prone.",
+            "source_line_start": 38,
+            "source_line_end": 39
+          },
+          {
+            "node_type": "paragraph",
+            "level": 0,
+            "text": "Earthshatter (Recharge 5–6) : ‘The Stone Colossus slams both fists into the ground. Each creature within 15 feet of it must make a DC 15 Dexterity saving throw, taking 13 (3d8) bludgeoning damage and falling prone on a failed save, or half as much damage and not falling prone on a successful one. The ground in the area becomes difficult terrain until cleared.",
+            "source_line_start": 41,
+            "source_line_end": 42
+          },
+          {
+            "node_type": "paragraph",
+            "level": 0,
+            "text": "Raise Wall (1/Short Rest) : ‘The Colossus raises a wall of stone (15 ft. long, 10 ft. high, 1 ft. thick) from the ground as an action. The wall provides total cover and blocks line of sight. After 3 rounds, the wall crumbles to rubble, creating difficult terrain.",
+            "source_line_start": 44,
+            "source_line_end": 45
+          },
+          {
+            "node_type": "paragraph",
+            "level": 0,
+            "text": "Unstoppable Advance : ‘The Colossus is immune to being restrained, grappled, slowed, or pushed by non-legendary effects. At the start of each of its turns, it automatically ends any such effects currently affecting it.",
+            "source_line_start": 47,
+            "source_line_end": 48
+          }
+        ]
+      }
+    ]
+  },
+  "node_count": 16,
+  "table_count": 1
+}
