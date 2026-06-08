@@ -28,7 +28,8 @@ Use the corpus tree under `Longmont Campaign/Campaign 1/Session Recaps/`. For la
 
 | Priority | Path | Role |
 |----------|------|------|
-| None yet | _No statblock satellite in this campaign hub._ | Use recap/timeline only for continuity; do not infer AC/HP/CR from this README. |
+| **1 — setting export** | `Elderwyld/Shephards Flock/Statblocks and Tokens/sewer_meat_creature_statblock_cr3.md` | **CR 3** Sewer Meat Thing — canonical mechanical sheet for this entity family. |
+| **2 — tier index** | `Elderwyld/Shephards Flock/Statblocks and Tokens/README.md` | Full cult/meat threat ladder (golem, hybrid, wing, worm, cultist). |
 
 ## Package notes
 

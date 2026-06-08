@@ -1,85 +1,40 @@
 {
   "schema": "dmb_c2s23_manifest_query_context_run_v1",
-  "generated_at": "2026-06-02T16:13:17Z",
+  "generated_at": "2026-06-06T20:42:11Z",
   "manifest_path": "evals/c2_live_prep/benchmarks/c2s23_dogfood_full_manifest.json",
-  "questions_path": "evals/c2_live_prep/benchmarks/c2s23_hub_world_questions.seed.json",
-  "packet_count": 10,
+  "questions_path": "evals/c2_live_prep/benchmarks/c2s23_dogfood_questions.seed.json",
+  "packet_count": 22,
   "all_preconditions_present": true,
   "packets": [
     {
-      "question_id": "hub-stat-01",
-      "intent_class": "cross_session_planning",
-      "retrieved_count": 23,
-      "admitted_count": 12,
-      "rejected_count": 0,
-      "capability_status": "unknown",
-      "blocked_or_missing_count": 0
-    },
-    {
-      "question_id": "hub-stat-02",
-      "intent_class": "cross_session_planning",
-      "retrieved_count": 23,
-      "admitted_count": 12,
-      "rejected_count": 0,
-      "capability_status": "unknown",
-      "blocked_or_missing_count": 0
-    },
-    {
-      "question_id": "hub-dossier-01",
-      "intent_class": "cross_session_planning",
-      "retrieved_count": 23,
-      "admitted_count": 12,
-      "rejected_count": 0,
-      "capability_status": "unknown",
-      "blocked_or_missing_count": 0
-    },
-    {
-      "question_id": "hub-timeline-01",
-      "intent_class": "cross_session_planning",
-      "retrieved_count": 23,
-      "admitted_count": 12,
-      "rejected_count": 0,
-      "capability_status": "unknown",
-      "blocked_or_missing_count": 0
-    },
-    {
-      "question_id": "world-loc-01",
-      "intent_class": "cross_session_planning",
-      "retrieved_count": 23,
-      "admitted_count": 12,
-      "rejected_count": 0,
-      "capability_status": "unknown",
-      "blocked_or_missing_count": 0
-    },
-    {
-      "question_id": "world-road-01",
-      "intent_class": "cross_session_planning",
-      "retrieved_count": 23,
-      "admitted_count": 12,
-      "rejected_count": 0,
-      "capability_status": "unknown",
-      "blocked_or_missing_count": 0
-    },
-    {
-      "question_id": "auth-world-01",
+      "question_id": "s22-ingest-01",
       "intent_class": "play_fact_retrieval",
-      "retrieved_count": 23,
+      "retrieved_count": 24,
       "admitted_count": 10,
       "rejected_count": 12,
       "capability_status": "unknown",
       "blocked_or_missing_count": 0
     },
     {
-      "question_id": "auth-hub-01",
+      "question_id": "s22-ingest-02",
       "intent_class": "play_fact_retrieval",
-      "retrieved_count": 23,
+      "retrieved_count": 24,
       "admitted_count": 10,
       "rejected_count": 12,
       "capability_status": "unknown",
       "blocked_or_missing_count": 0
     },
     {
-      "question_id": "xlayer-01",
+      "question_id": "s22-ingest-03",
+      "intent_class": "ingest_state_check",
+      "retrieved_count": 24,
+      "admitted_count": 10,
+      "rejected_count": 12,
+      "capability_status": "unknown",
+      "blocked_or_missing_count": 0
+    },
+    {
+      "question_id": "xsession-01",
       "intent_class": "cross_session_planning",
       "retrieved_count": 23,
       "admitted_count": 12,
@@ -88,7 +43,160 @@
       "blocked_or_missing_count": 0
     },
     {
-      "question_id": "manifest-02",
+      "question_id": "xsession-02",
+      "intent_class": "cross_session_planning",
+      "retrieved_count": 23,
+      "admitted_count": 12,
+      "rejected_count": 0,
+      "capability_status": "unknown",
+      "blocked_or_missing_count": 0
+    },
+    {
+      "question_id": "xsession-03",
+      "intent_class": "cross_session_planning",
+      "retrieved_count": 23,
+      "admitted_count": 12,
+      "rejected_count": 0,
+      "capability_status": "unknown",
+      "blocked_or_missing_count": 0
+    },
+    {
+      "question_id": "roll-01",
+      "intent_class": "cross_session_planning",
+      "retrieved_count": 23,
+      "admitted_count": 12,
+      "rejected_count": 0,
+      "capability_status": "unknown",
+      "blocked_or_missing_count": 0
+    },
+    {
+      "question_id": "roll-02",
+      "intent_class": "capability_check",
+      "retrieved_count": 23,
+      "admitted_count": 12,
+      "rejected_count": 4,
+      "capability_status": "missing",
+      "blocked_or_missing_count": 1
+    },
+    {
+      "question_id": "roll-03",
+      "intent_class": "cross_session_planning",
+      "retrieved_count": 23,
+      "admitted_count": 12,
+      "rejected_count": 0,
+      "capability_status": "unknown",
+      "blocked_or_missing_count": 0
+    },
+    {
+      "question_id": "loc-01",
+      "intent_class": "cross_session_planning",
+      "retrieved_count": 23,
+      "admitted_count": 12,
+      "rejected_count": 0,
+      "capability_status": "unknown",
+      "blocked_or_missing_count": 0
+    },
+    {
+      "question_id": "loc-02",
+      "intent_class": "capability_check",
+      "retrieved_count": 23,
+      "admitted_count": 12,
+      "rejected_count": 6,
+      "capability_status": "missing",
+      "blocked_or_missing_count": 1
+    },
+    {
+      "question_id": "npc-01",
+      "intent_class": "cross_session_planning",
+      "retrieved_count": 23,
+      "admitted_count": 12,
+      "rejected_count": 0,
+      "capability_status": "unknown",
+      "blocked_or_missing_count": 0
+    },
+    {
+      "question_id": "npc-02",
+      "intent_class": "capability_check",
+      "retrieved_count": 23,
+      "admitted_count": 12,
+      "rejected_count": 5,
+      "capability_status": "unknown",
+      "blocked_or_missing_count": 1
+    },
+    {
+      "question_id": "npc-03",
+      "intent_class": "play_fact_retrieval",
+      "retrieved_count": 23,
+      "admitted_count": 9,
+      "rejected_count": 12,
+      "capability_status": "unknown",
+      "blocked_or_missing_count": 0
+    },
+    {
+      "question_id": "town-01",
+      "intent_class": "cross_session_planning",
+      "retrieved_count": 23,
+      "admitted_count": 12,
+      "rejected_count": 0,
+      "capability_status": "unknown",
+      "blocked_or_missing_count": 0
+    },
+    {
+      "question_id": "town-02",
+      "intent_class": "cross_session_planning",
+      "retrieved_count": 23,
+      "admitted_count": 12,
+      "rejected_count": 0,
+      "capability_status": "unknown",
+      "blocked_or_missing_count": 0
+    },
+    {
+      "question_id": "auth-01",
+      "intent_class": "play_fact_retrieval",
+      "retrieved_count": 17,
+      "admitted_count": 10,
+      "rejected_count": 12,
+      "capability_status": "unknown",
+      "blocked_or_missing_count": 0
+    },
+    {
+      "question_id": "auth-02",
+      "intent_class": "authority_check",
+      "retrieved_count": 23,
+      "admitted_count": 9,
+      "rejected_count": 12,
+      "capability_status": "unknown",
+      "blocked_or_missing_count": 0
+    },
+    {
+      "question_id": "auth-03",
+      "intent_class": "cross_session_planning",
+      "retrieved_count": 23,
+      "admitted_count": 12,
+      "rejected_count": 0,
+      "capability_status": "unknown",
+      "blocked_or_missing_count": 0
+    },
+    {
+      "question_id": "auth-04",
+      "intent_class": "capability_check",
+      "retrieved_count": 23,
+      "admitted_count": 12,
+      "rejected_count": 3,
+      "capability_status": "unknown",
+      "blocked_or_missing_count": 1
+    },
+    {
+      "question_id": "auth-05",
+      "intent_class": "authority_check",
+      "retrieved_count": 23,
+      "admitted_count": 10,
+      "rejected_count": 11,
+      "capability_status": "unknown",
+      "blocked_or_missing_count": 0
+    },
+    {
+      "question_id": "manifest-01",
       "intent_class": "capability_check",
       "retrieved_count": 23,
       "admitted_count": 12,

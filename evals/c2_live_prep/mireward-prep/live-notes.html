@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Live notes — Mireward prep</title>
+  <link rel="stylesheet" href="assets/prep.css" />
+</head>
+<body>
+  <div class="wrap">
+    <nav id="site-nav" class="site-nav"></nav>
+
+    <h1>Live notes</h1>
+    <p class="lead muted">Persisted in browser localStorage (prefix <code class="mono">mireward-prep.</code>).</p>
+
+    <div class="callout callout-info">
+      <strong>Authority</strong>
+      <span class="pill pill-warn">live_observation</span>
+      — not canon until recap write or corpus promotion.
+    </div>
+
+    <details class="scratch-band" id="scratch-band" open>
+      <summary>
+        Scratch pad
+        <span class="pill pill-warn">live_observation</span>
+        <span class="scratch-preview" id="scratch-preview"></span>
+      </summary>
+      <div class="scratch-body">
+        <p class="muted">Table beats, impressions, things players say. Edits save automatically.</p>
+        <textarea id="scratch-pad" rows="4" placeholder="Session 23 — gate queue, Lysandro beat, player lines…"></textarea>
+      </div>
+    </details>
+
+    <h2>Planning sections</h2>
+    <div class="grid-2">
+      <div class="field">
+        <label for="prep-thoughts">GM prep thoughts</label>
+        <textarea id="prep-thoughts" rows="4" placeholder="Tone, pacing, gate foreground…"></textarea>
+      </div>
+      <div class="field">
+        <label for="decisions">Decisions locked</label>
+        <textarea id="decisions" rows="4" placeholder="Decisions made this planning session…"></textarea>
+      </div>
+      <div class="field">
+        <label for="open-questions">Open questions</label>
+        <textarea id="open-questions" rows="4"></textarea>
+      </div>
+      <div class="field">
+        <label for="promote-later">Promote later</label>
+        <p class="muted">Chunks for gazetteer/dossiers — <a data-repo="corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/Mireward_PLACE_BUILD_SCAFFOLD.md">scaffold</a></p>
+        <textarea id="promote-later" rows="4"></textarea>
+      </div>
+    </div>
+    <div class="field">
+      <label for="friction">Friction / backlog</label>
+      <textarea id="friction" rows="3"></textarea>
+    </div>
+  </div>
+  <script src="assets/prep-markdown.js"></script>
+  <script src="assets/prep.js"></script>
+  <script>
+    MirewardPrep.initNav("live-notes");
+    MirewardPrep.wireRepoLinks();
+    MirewardPrep.initScratchBand();
+    MirewardPrep.bindTextarea("prepThoughts", document.getElementById("prep-thoughts"), "");
+    MirewardPrep.bindTextarea("decisions", document.getElementById("decisions"), "");
+    MirewardPrep.bindTextarea(
+      "openQuestions",
+      document.getElementById("open-questions"),
+      "- Who runs Mireward: reeve / mayor / sergeant-emeritus council / joint?\n- Edge of the World already sending refugees here?\n- Rest in town vs one night only?"
+    );
+    MirewardPrep.bindTextarea(
+      "promoteLater",
+      document.getElementById("promote-later"),
+      "- Gazetteer skeleton + Reach Gate dossier (preview ready — awaiting apply)\n- Last Dry Bed dossier deferred\n- README hub index append after commit"
+    );
+    MirewardPrep.bindTextarea(
+      "friction",
+      document.getElementById("friction"),
+      "- Live-query traces lack cost telemetry fields\n- Live Control UI has no location write pane yet"
+    );
+  </script>
+</body>
+</html>

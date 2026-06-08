@@ -339,6 +339,11 @@
       },
       "minItems": 2
     },
+    "planning_manifest_path": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Repo-relative activated planning corpus manifest for context_lookup."
+    },
     "context_packets": {
       "type": "array",
       "items": {

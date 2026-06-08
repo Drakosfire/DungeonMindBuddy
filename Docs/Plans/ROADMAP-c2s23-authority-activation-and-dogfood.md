@@ -3,15 +3,16 @@ document_id: dmb-roadmap-c2s23-authority-activation-and-dogfood
 title: C2S23 Authority Activation and Dogfood Roadmap
 document_class: roadmap
 status: active
-version: 0.2
+version: 0.3
 created_at: "2026-05-30T03:45:00Z"
-last_updated_at: "2026-05-30T21:15:00Z"
+last_updated_at: "2026-06-02T00:00:00Z"
 ---
 
 # C2S23 Authority Activation and Dogfood Roadmap
 
 ## Changelog
 
+- **2026-06-02** (`9f7ef87`): **Dogfood-full hub+world retrieval** — sibling manifest `c2s23_dogfood_full_manifest.json` (**182 routes**: slim + C2 hub satellites + full Elderwyld), `world_evidence` role, layer-aware scoring, hub-world gold **10/10**, `DMB_C2S23_DOGFOOD_DEFAULTS=1` wiring. Slim 43-route manifest retained for regression. Live probes: S22 play facts fixed vs slim; Mirathorn governance miss → corpus ingest backlog (not scoring-only). Next: PR94 instrumented re-run; Mirathorn civic hub ingest spec.
 - **2026-05-30** (`02c0f9f`): **PR95 merged** — C2S23 activated planning corpus manifest (`src.live_play.planning_corpus_manifest`, schema-valid artifact, bootstrapped `session_23` workspace). Next: Step 0 Session 22 ingest completion (breadcrumb → session memory) then query/admission over manifest (git PR96 / roadmap PR93).
 
 ## Purpose

@@ -15,6 +15,11 @@ import type {
 
 const baseUrl = (import.meta.env.VITE_LIVE_API_BASE_URL as string | undefined) ?? "";
 
+/** Repo-relative path passed to POST /api/live/query for context_lookup grounding. */
+export const DEFAULT_PLANNING_MANIFEST_PATH =
+  (import.meta.env.VITE_LIVE_PLANNING_MANIFEST_PATH as string | undefined)?.trim() ||
+  "evals/c2_live_prep/benchmarks/c2s23_planning_corpus_manifest.json";
+
 function htmlInsteadOfJsonHint(): string {
   return (
     "The API returned an HTML page instead of JSON. Usually the L3 server is not running, " +
@@ -123,6 +128,7 @@ export async function postLiveQuery(
       session,
       mode: "live",
       text,
+      manifest_path: DEFAULT_PLANNING_MANIFEST_PATH,
     }),
   });
 }

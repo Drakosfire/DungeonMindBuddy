@@ -1,13 +1,13 @@
 # Ingested corpus library
 
 - **schema:** `dmb_ingested_corpus_library_v1`
-- **generated_at:** 2026-06-02T16:13:17Z
+- **generated_at:** 2026-06-06T23:11:15Z
 - **corpus_root:** `corpus/eldyrwild-markdown`
 
 ## Summary
 
 - Campaigns indexed: **2**
-- Total corpus `.md` files: **363**
+- Total corpus `.md` files: **388**
 - Session pipeline tiers:
   - `breadcrumb_memory`: 5 sessions
   - `full_with_staging`: 2 sessions
@@ -95,7 +95,7 @@ Sessions: **22** | Prep docs: **19**
 
 ## Elderwyld (world layer)
 
-- Markdown files: **101**
+- Markdown files: **126**
 - Top-level dirs: Cities and Towns, Events, Inns and Shops, Item Cards, Migrating Forest, Roads, Shephards Flock, Wilderness
 
 ## Live workspaces (eval)

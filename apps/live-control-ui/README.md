@@ -13,6 +13,7 @@ React surface shell for the C2 Live Control product. The UI talks only to the me
 |----------|---------|---------|
 | `VITE_LIVE_API_BASE_URL` | `""` (same-origin) | API base URL when not using the Vite dev proxy |
 | `VITE_LIVE_API_PROXY_TARGET` | `http://127.0.0.1:8000` | Dev-server proxy target (see `vite.config.ts`) |
+| `VITE_LIVE_PLANNING_MANIFEST_PATH` | `evals/c2_live_prep/benchmarks/c2s23_planning_corpus_manifest.json` | Repo-relative manifest for Chat `context_lookup` (hub/world dogfood: set to `c2s23_dogfood_full_manifest.json`) |
 
 **L3 server (repo `.env`):** live turns are classified with an LLM (`src/live_play/classify_live_turn.py`). Requires `OPENAI_API_KEY` via `src/bootstrap_env`. Optional: `LIVE_TURN_CLASSIFIER_MODEL`, `MODEL_POLICY.json` action `live_turn_classifier` (defaults to `cheapest`). Set `LIVE_TURN_CLASSIFIER_ALLOW_HEURISTIC_FALLBACK=1` only for offline/deterministic runs (pytest sets this automatically).
 
