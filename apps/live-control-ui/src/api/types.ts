@@ -462,6 +462,52 @@ export interface StatblockDraftArtifactView {
   updated_at: string;
 }
 
+export interface StoredStatblockDraftRecord {
+  schema_version: "dmb_statblock_draft_record_v1";
+  artifact_id: string;
+  title: string;
+  campaign_id: string;
+  session: number;
+  stored_at: string;
+  updated_at: string;
+  storage_path: string;
+  artifact: StatblockDraftArtifactView;
+}
+
+export interface StoredStatblockDraftSummary {
+  artifact_id: string;
+  title: string;
+  draft_id: string;
+  review_status: string;
+  lifecycle_state: string;
+  storage_status: string;
+  corpus_status: string;
+  stored_at: string;
+  updated_at: string;
+  storage_path: string;
+}
+
+export interface StoreStatblockDraftRequest {
+  artifact: StatblockDraftArtifactView;
+  source: "workbench";
+}
+
+export interface StoreStatblockDraftResponse {
+  schema_version: "dmb_statblock_draft_store_v1";
+  record: StoredStatblockDraftRecord;
+  diagnostics: string[];
+}
+
+export interface ListStatblockDraftsResponse {
+  schema_version: "dmb_statblock_draft_list_v1";
+  drafts: StoredStatblockDraftSummary[];
+}
+
+export interface ReadStatblockDraftResponse {
+  schema_version: "dmb_statblock_draft_read_v1";
+  record: StoredStatblockDraftRecord;
+}
+
 export interface StatblockWorkbenchSampleResponse {
   schema_version: "dmb_statblock_workbench_sample_v1";
   mode: "sample_mock";

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Annotated, Any, Literal
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, HTTPException, Path, Query, Request
 from pydantic import BaseModel, Field
 
 from apps.live_control_server.config import repo_root, session_dir
@@ -30,6 +30,17 @@ from src.live_play.projections import (
 from src.live_play.projections.artifacts import ArtifactReadError
 from src.live_play.resolve_roll import RollResolveError, resolve_roll_from_packet
 
+from apps.live_control_server.services.statblock_draft_store import (
+    ListStatblockDraftsResponse,
+    ReadStatblockDraftResponse,
+    StatblockDraftNotFoundError,
+    StoreStatblockDraftRequest,
+    StoreStatblockDraftResponse,
+    UnsafeArtifactIdError,
+    list_statblock_drafts,
+    read_statblock_draft,
+    store_statblock_draft,
+)
 from apps.live_control_server.services.statblock_workbench import (
     StatblockWorkbenchCommandRequest,
     StatblockWorkbenchCommandResponse,
@@ -126,6 +137,62 @@ def post_statblock_workbench_command(
     response = execute_statblock_workbench_command(body)
     if response.artifact is None:
         raise HTTPException(status_code=502, detail=response.model_dump(mode="json"))
+    return response.model_dump(mode="json")
+
+
+@router.post(
+    "/statblocks/workbench/drafts",
+    response_model=StoreStatblockDraftResponse,
+)
+def post_statblock_workbench_draft(
+    body: StoreStatblockDraftRequest,
+) -> dict[str, Any]:
+    base = session_dir()
+    packet, _, _, _ = load_session(base)
+    try:
+        record = store_statblock_draft(
+            base=base,
+            campaign_id=str(packet["campaign_id"]),
+            session=int(packet["session"]),
+            artifact=body.artifact,
+        )
+    except UnsafeArtifactIdError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    response = StoreStatblockDraftResponse(
+        record=record,
+        diagnostics=[
+            "stored as non-corpus draft artifact",
+            "no corpus write, ingestion, or combat mutation occurred",
+        ],
+    )
+    return response.model_dump(mode="json")
+
+
+@router.get(
+    "/statblocks/workbench/drafts",
+    response_model=ListStatblockDraftsResponse,
+)
+def get_statblock_workbench_drafts() -> dict[str, Any]:
+    response = ListStatblockDraftsResponse(
+        drafts=list_statblock_drafts(base=session_dir())
+    )
+    return response.model_dump(mode="json")
+
+
+@router.get(
+    "/statblocks/workbench/drafts/{artifact_id}",
+    response_model=ReadStatblockDraftResponse,
+)
+def get_statblock_workbench_draft(
+    artifact_id: Annotated[str, Path(min_length=1)],
+) -> dict[str, Any]:
+    try:
+        record = read_statblock_draft(base=session_dir(), artifact_id=artifact_id)
+    except UnsafeArtifactIdError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except StatblockDraftNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    response = ReadStatblockDraftResponse(record=record)
     return response.model_dump(mode="json")
 
 
