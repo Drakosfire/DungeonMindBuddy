@@ -1,22 +1,22 @@
-# HANDOFF — DungeonBuddy StatBlockGenerator proxy/client seam
+# HANDOFF — DungeonBuddy statblock lifecycle seam
 
 **Created:** 2026-06-08  
-**Updated:** 2026-06-08  
+**Updated:** 2026-06-09  
 **Repo:** `Drakosfire/DungeonMindBuddy`  
 **Target base branch:** `main`  
-**Suggested next branch:** `codex/dungeonbuddy-statblockgenerator-proxy-client`  
-**Depends on:** DungeonMindServer PR #9 / `72e565b91d0611b1f786c540270ffda469e17654` — Implement StatBlockGenerator v2 draft API  
-**Also depends on:** DungeonMindServer PR #10 / `17ed495d7cebbff28c833788a5cccf3b3728eb53` — Add StatBlockGenerator v2 `render-draft` endpoint  
-**Security dependency:** `Drakosfire/DungeonMindServer/Docs/Plans/HANDOFF-statblockgenerator-v2-internal-api-key.md` — lock v2 endpoints behind an internal API key before production use  
+**Suggested next branch:** `codex/dungeonbuddy-statblock-lifecycle-seam`  
+**Depends on:** production DungeonMindServer StatBlock v2 deploy, commit `b3cae86` — v2 draft/render API + internal key lockdown  
+**Read first:** `Docs/Plans/REPORT-to-design-agent-statblock-v2-production-deploy-2026-06-09.md`  
+**Primary design:** `Docs/Design/DESIGN-statblock-lifecycle-agentic-workbench.md`  
 **Related roadmap:** `Docs/Plans/PLAN-command-board-combat-statblock-generator-roadmap.md`  
 **Related design:** `Docs/Design/DESIGN-command-board-combat-statblock-generator-integration.md`  
-**Mode:** Consumer seam implementation handoff. Keep this slice narrow.
+**Mode:** Consumer seam + lifecycle bones implementation handoff. Keep this slice narrow.
 
 ---
 
 ## 0. Re-anchor
 
-DungeonMindServer now exposes the first v2 StatBlockGenerator producer contract:
+DungeonMindServer production now exposes the live v2 StatBlockGenerator producer contract:
 
 ```text
 GET  /api/statblockgenerator/v2/health
@@ -31,17 +31,45 @@ Those endpoints return or wrap live-combat draft envelopes with:
 - deterministic combat defaults;
 - warnings;
 - provenance;
-- lifecycle state.
+- lifecycle state;
+- review status.
 
-The next DungeonBuddy PR should create the **consumer seam**. It should not yet build the Combat Pane generator UI, rewrite combat state, or add corpus promotion.
+The endpoints require `X-DungeonBuddy-Internal-Key`, injected server-side only by Buddy. The browser must never receive this key.
 
-**Security re-anchor:** DungeonMindServer is internet-reachable. The v2 endpoints are intended for internal product consumers, not public anonymous callers. DungeonBuddy should be designed to call them through a Buddy-owned backend/proxy that injects an internal API key server-side only. The browser must never receive this key.
+The next DungeonBuddy PR should create the **statblock lifecycle seam**: v2 producer client/provider + Buddy-side `StatblockDraftArtifact` bones + command names for future agent operations.
+
+It should not yet build the Workbench UI, Combat Pane generator UI, corpus promotion, ingestion, or combat mutation.
 
 ---
 
-## 1. Long-term architecture position
+## 1. Product north star
 
-Choose **Option B** from the design discussion:
+The goal is not only to call StatBlockGenerator. The goal is to make the existing StatBlockGenerator workflow API-driven, agent-operable, and visible through dedicated DungeonBuddy surfaces.
+
+North-star lifecycle:
+
+```text
+idea / planning need
+→ description draft
+→ human approval
+→ statblock generation job
+→ review surface
+→ stored draft artifact
+→ corpus promotion preview
+→ corpus write
+→ breadcrumb + semantic ingestion
+→ command-board retrieval
+→ statblock drilldown
+→ add to combat
+```
+
+The core object is a `StatblockDraftArtifact`, not a loose string response.
+
+---
+
+## 2. Architecture position
+
+Use Option B:
 
 ```text
 DungeonBuddy frontend
@@ -53,22 +81,22 @@ Do **not** make the live-control frontend call DungeonMindServer directly as the
 
 Why:
 
-1. DungeonBuddy should own command-board state, live-session state, corpus references, and request shaping.
+1. DungeonBuddy should own command-board state, live-session state, corpus references, breadcrumbs, and request shaping.
 2. DungeonMindServer should own generation internals and the StatBlockGenerator producer contract.
-3. DungeonBuddy may eventually become part of DungeonMindServer. If that happens, the proxy/client layer can collapse into an internal service call.
+3. DungeonBuddy may eventually become part of DungeonMindServer. If so, the proxy/client layer can collapse into an internal service call.
 4. If DungeonBuddy remains separate, it should avoid managing anything beyond routing frontend requests, enriching them with live/corpus context, and managing state.
 5. This keeps the frontend stable if the generator service moves from HTTP to in-process calls later.
 6. This keeps service credentials out of frontend code and browser-visible config.
 
 Practical rule for this PR:
 
-> Build a thin Buddy-owned adapter boundary. Do not duplicate StatBlockGenerator logic in DungeonBuddy. Do not expose the internal API key to the browser.
+> Build a thin Buddy-owned adapter boundary and draft artifact model. Do not duplicate StatBlockGenerator logic in DungeonBuddy. Do not expose the internal API key to the browser.
 
 ---
 
-## 2. PR goal
+## 3. PR goal
 
-Add a typed StatBlockGenerator client/proxy seam in DungeonBuddy that can call the DungeonMindServer v2 draft API or a mock provider through the same interface.
+Add the first Buddy statblock lifecycle seam.
 
 Minimum product flow for this PR:
 
@@ -77,25 +105,29 @@ Buddy frontend/backend code builds a StatBlockDraftRequest
 → Buddy backend/proxy attaches internal service credential
 → Buddy proxy/client sends it to DungeonMindServer v2 generate-draft / render-draft or mock provider
 → Buddy receives StatBlockDraftResponse
-→ tests assert markdown/defaults/warnings/provenance are preserved
+→ Buddy maps it into StatblockDraftArtifact
+→ tests assert markdown/defaults/warnings/provenance/breadcrumbs/status are preserved
 ```
 
-No UI yet unless it is a tiny dev-only smoke surface. Prefer tests and a boring adapter first.
+No UI yet unless it is a tiny dev-only smoke surface. Prefer tests, fixtures, and boring adapters first.
 
 ---
 
-## 3. Design boundaries
+## 4. Design boundaries
 
 ### DungeonBuddy owns
 
 - frontend request routing;
 - server-side proxy/client call into DungeonMindServer;
 - internal API-key injection, never browser exposure;
+- draft artifact creation and lifecycle state;
+- future agent command interface;
 - live command-board state;
 - encounter/session context assembly;
-- corpus/source refs;
+- corpus/source refs and breadcrumbs;
 - decision to accept a generated draft into live combat state;
-- later decision to promote a reviewed draft into corpus through Buddy's safe write path.
+- later decision to promote a reviewed draft into corpus through Buddy's safe write path;
+- later ingestion into the Semantic Knowledge Layer.
 
 ### DungeonMindServer owns
 
@@ -112,23 +144,29 @@ No UI yet unless it is a tiny dev-only smoke surface. Prefer tests and a boring 
 - CR/balance math beyond passing through server warnings;
 - markdown rendering from raw `StatBlockDetails`;
 - corpus statblock writes;
+- Semantic Knowledge Layer ingestion;
 - Combat Pane UI;
+- Workbench UI;
 - initiative-barrel insertion.
 
 ---
 
-## 4. Recommended implementation shape
+## 5. Recommended implementation shape
 
-This depends on the current live-control architecture, so the exact file paths may shift. The important shape is provider separation and keeping the service credential server-side.
+Exact paths may shift with current live-control architecture. The important shape is provider separation, artifact mapping, command-name definitions, and server-side credential handling.
 
-Likely frontend-adjacent type/client files:
+Likely files:
 
 ```text
 apps/live-control-ui/src/api/statblockGenerator/types.ts
 apps/live-control-ui/src/api/statblockGenerator/client.ts
 apps/live-control-ui/src/api/statblockGenerator/mockProvider.ts
-apps/live-control-ui/src/api/statblockGenerator/fixtures/statblockDraftResponse.fixture.json
+apps/live-control-ui/src/api/statblockGenerator/artifactMapper.ts
+apps/live-control-ui/src/api/statblockGenerator/lifecycleCommands.ts
+apps/live-control-ui/src/api/statblockGenerator/fixtures/generatedDraftResponse.fixture.json
+apps/live-control-ui/src/api/statblockGenerator/fixtures/renderedDraftResponse.fixture.json
 apps/live-control-ui/src/api/statblockGenerator/__tests__/client.test.ts
+apps/live-control-ui/src/api/statblockGenerator/__tests__/artifactMapper.test.ts
 ```
 
 If the HTTP provider would require the internal key, do **not** put that provider in browser-executed code. Prefer a Buddy backend/proxy handler.
@@ -145,16 +183,16 @@ or as live commands:
 
 ```text
 POST /api/live/commands
-command_type: statblock_generator.health
-command_type: statblock_generator.generate_draft
-command_type: statblock_generator.render_draft
+command_type: statblock.generator.health
+command_type: statblock.draft.generate
+command_type: statblock.draft.render
 ```
 
 Do not overbuild the routing layer in this PR. A thin internal service/client with tests is enough if the command endpoint shape is not settled.
 
 ---
 
-## 5. Contract types to mirror from DungeonMindServer
+## 6. Contract types to mirror from DungeonMindServer
 
 Mirror the v2 API contract as TypeScript types. Keep names close to the server models so drift is obvious.
 
@@ -212,11 +250,113 @@ export interface StatBlockDraft {
 }
 ```
 
-For the first Buddy PR, `statblock` may remain `unknown` or a partial structural type. Do not try to recreate the full Python `StatBlockDetails` tree unless an existing generated schema already exists.
+For the first Buddy PR, `statblock` may remain `unknown` or a partial structural type. Do not recreate the full Python `StatBlockDetails` tree unless an existing generated schema already exists.
 
 ---
 
-## 6. Client / provider interface
+## 7. Buddy-side artifact bones
+
+Add a Buddy-side artifact wrapper around the server response.
+
+```ts
+export interface StatblockDraftArtifact {
+  artifact_id: string;
+  draft_id: string;
+  title: string;
+
+  markdown: string;
+  structured_statblock: unknown;
+  combat_defaults: CombatDefaults;
+  warnings: ReviewWarning[];
+  provenance: DraftProvenance;
+
+  review_status: StatblockReviewStatus;
+  lifecycle_state: StatblockLifecycleState;
+  storage_status: StatblockStorageStatus;
+  corpus_status: StatblockCorpusStatus;
+
+  source_refs: SourceRef[];
+  breadcrumbs: StatblockBreadcrumb[];
+
+  created_by: "human" | "agent" | "planning_task" | "combat_task";
+  created_at: string;
+  updated_at: string;
+}
+```
+
+Lifecycle/status enums:
+
+```ts
+export type StatblockLifecycleState =
+  | "description_requested"
+  | "description_drafted"
+  | "description_approved"
+  | "generation_requested"
+  | "live_draft"
+  | "needs_review"
+  | "reviewed"
+  | "stored_artifact"
+  | "promotion_previewed"
+  | "corpus_promoted"
+  | "indexed"
+  | "combat_ready";
+
+export type StatblockStorageStatus =
+  | "not_stored"
+  | "stored_draft"
+  | "exported"
+  | "archived";
+
+export type StatblockCorpusStatus =
+  | "not_promoted"
+  | "promotion_previewed"
+  | "promotion_confirmed"
+  | "write_failed"
+  | "indexed"
+  | "retrievable";
+```
+
+Artifact mapping rules:
+
+- `artifact.markdown = response.draft.markdown`
+- `artifact.structured_statblock = response.draft.statblock`
+- `artifact.combat_defaults = response.draft.combat_defaults`
+- `artifact.warnings = response.draft.warnings`
+- `artifact.provenance = response.draft.provenance`
+- `artifact.review_status = response.draft.review_status`
+- `artifact.lifecycle_state = "live_draft"` initially
+- `artifact.storage_status = "not_stored"` initially
+- `artifact.corpus_status = "not_promoted"` initially
+- `artifact.source_refs = response.draft.provenance.source_refs`
+- `artifact.breadcrumbs` may be empty initially but the field must exist
+
+---
+
+## 8. Agent command-name constants
+
+Define command names now, even if most are not implemented yet.
+
+```ts
+export const STATBLOCK_COMMANDS = {
+  GENERATOR_HEALTH: "statblock.generator.health",
+  DESCRIPTION_REQUEST: "statblock.description.request",
+  DESCRIPTION_APPROVE: "statblock.description.approve",
+  DRAFT_GENERATE: "statblock.draft.generate",
+  DRAFT_RENDER: "statblock.draft.render",
+  DRAFT_REVIEW: "statblock.draft.review",
+  DRAFT_STORE: "statblock.draft.store",
+  CORPUS_PREVIEW_PROMOTE: "statblock.corpus.preview_promote",
+  CORPUS_CONFIRM_PROMOTE: "statblock.corpus.confirm_promote",
+  CORPUS_INGEST: "statblock.corpus.ingest",
+  COMBAT_ADD: "statblock.combat.add",
+} as const;
+```
+
+Immediate implementation may only wire health/generate/render. The namespace should still point to the full lifecycle.
+
+---
+
+## 9. Client / provider interface
 
 Create a provider-neutral interface:
 
@@ -235,29 +375,27 @@ MockStatBlockGeneratorProvider
 DungeonMindServerStatBlockGeneratorProvider // server-side only if it uses internal API key
 ```
 
-The mock provider should return stable fixtures. The HTTP provider should call the v2 DungeonMindServer endpoints.
-
-Configuration should allow selecting mock vs HTTP without changing consumer code.
+The mock provider should return stable fixtures. The HTTP provider should call the live v2 DungeonMindServer endpoints.
 
 Suggested env/config names:
 
 ```text
 DUNGEONMIND_SERVER_URL
-DUNGEONMIND_INTERNAL_API_KEY
+DUNGEONBUDDY_INTERNAL_API_KEY
 STATBLOCK_GENERATOR_PROVIDER=mock|http
 ```
 
-Header name should match the DungeonMindServer security PR. Suggested header if no existing convention wins:
+Header:
 
 ```text
 X-DungeonBuddy-Internal-Key: <secret>
 ```
 
-Use whatever naming convention already exists in the repo if there is one.
+Use existing repo conventions if they differ.
 
 ---
 
-## 7. Proxy principle
+## 10. Proxy principle
 
 If this slice includes a Buddy backend route, its job is only to:
 
@@ -265,41 +403,39 @@ If this slice includes a Buddy backend route, its job is only to:
 2. enrich it minimally if explicitly available;
 3. attach the internal API key from server-side config;
 4. call the provider;
-5. return the v2 response envelope unchanged or with a tiny Buddy wrapper;
-6. record logs suitable for debugging without logging secrets.
+5. map the response to `StatblockDraftArtifact` if requested by that route;
+6. return the v2 response envelope or artifact wrapper;
+7. record logs suitable for debugging without logging secrets.
 
 It should not mutate corpus. It should not save generated drafts. It should not insert into combat. It should not rewrite statblock markdown. It must not return the internal API key or server-side config to the frontend.
 
-This keeps the long-term boundary clean whether DungeonBuddy merges into DungeonMindServer or remains a separate state/router service.
-
 ---
 
-## 8. Smoke fixture
+## 11. Fixtures
 
-Add one Buddy-side fixture modeled on the server response envelope.
-
-Suggested file:
+Add two Buddy-side fixtures modeled on the server response envelope:
 
 ```text
-apps/live-control-ui/src/api/statblockGenerator/fixtures/statblockDraftResponse.fixture.json
+apps/live-control-ui/src/api/statblockGenerator/fixtures/generatedDraftResponse.fixture.json
+apps/live-control-ui/src/api/statblockGenerator/fixtures/renderedDraftResponse.fixture.json
 ```
 
-It should include:
+Each should include:
 
 - `success: true`;
 - `draft.lifecycle_state: live_draft`;
 - non-empty `draft.markdown`;
 - `draft.combat_defaults.name`, `armor_class`, `hit_points`, `primary_actions`;
-- at least one warning;
+- warnings array;
 - provenance with `mode`, `source_refs`, `generated_at`, `adapter_version`, and `generator`.
 
-This does not need to be a real generated monster. It just needs to pin the consumer shape.
+These do not need to be real generated monsters. They need to pin the consumer shape.
 
 ---
 
-## 9. Test expectations
+## 12. Test expectations
 
-Add tests that prove the seam, not the final product.
+Add tests that prove the seam and artifact mapping, not the final product.
 
 Minimum tests:
 
@@ -309,8 +445,8 @@ Minimum tests:
    - draft has markdown, combat defaults, warnings, provenance.
 
 2. **Mock provider smoke**
-   - `generateDraft()` returns the fixture;
-   - `renderDraft()` returns the fixture or a render-specific fixture;
+   - `generateDraft()` returns generated fixture;
+   - `renderDraft()` returns rendered fixture;
    - consumers can read `combat_defaults` without inspecting `statblock`.
 
 3. **HTTP/server provider request shape**
@@ -320,23 +456,32 @@ Minimum tests:
    - tests mock `fetch` / request library, no live network call.
 
 4. **Internal key handling**
-   - server-side HTTP provider includes the configured internal API-key header;
+   - server-side HTTP provider includes `X-DungeonBuddy-Internal-Key`;
    - provider refuses or clearly errors if configured for HTTP without required key;
    - tests assert the key is not included in any frontend-exposed fixture/config object;
    - logs/errors do not include the key value.
 
-5. **Error envelope handling**
+5. **Artifact mapper**
+   - response maps to `StatblockDraftArtifact`;
+   - markdown, structured statblock, combat defaults, warnings, provenance, and source refs are preserved;
+   - storage status starts as `not_stored`;
+   - corpus status starts as `not_promoted`;
+   - breadcrumbs field exists even if empty.
+
+6. **Error envelope handling**
    - `success=false` response preserves `error.code`, `error.message`, and `timestamp`;
    - provider does not throw away server-side contract errors.
 
 Optional:
 
-6. **Buddy proxy smoke** if a backend route is added
-   - frontend request → Buddy route → mocked provider → same envelope back.
+7. **Buddy proxy smoke** if a backend route is added
+   - frontend request → Buddy route → mocked provider → same envelope/artifact back.
 
 ---
 
-## 10. Out of scope
+## 13. Out of scope
+
+Do not build the Workbench UI.
 
 Do not build the Combat Pane generator UI.
 
@@ -346,7 +491,9 @@ Do not add combat entity insertion.
 
 Do not add corpus promotion.
 
-Do not add generated-draft persistence.
+Do not add Semantic Knowledge Layer ingestion.
+
+Do not add generated-draft persistence beyond typed artifact construction.
 
 Do not duplicate StatBlockGenerator Pydantic validation in TypeScript beyond lightweight shape checks.
 
@@ -356,7 +503,7 @@ Do not store internal secrets in frontend `.env` variables, bundle-time config, 
 
 ---
 
-## 11. Acceptance criteria
+## 14. Acceptance criteria
 
 The next PR is ready when:
 
@@ -366,19 +513,22 @@ The next PR is ready when:
 - tests prove health, generate-draft, and render-draft request paths without live network calls;
 - server-side HTTP calls include the internal API-key header from server-side config;
 - no browser-visible code or fixture contains the internal key;
-- a successful draft response fixture preserves markdown, combat defaults, warnings, and provenance;
+- `StatblockDraftArtifact` type exists;
+- lifecycle/storage/corpus status enums exist;
+- lifecycle command-name constants exist;
+- artifact mapper preserves markdown, structured statblock, combat defaults, warnings, provenance, source refs, and status defaults;
 - error envelope handling is covered;
 - no UI/product flow depends on this yet;
-- no corpus or combat-state mutation occurs.
+- no corpus, ingestion, or combat-state mutation occurs.
 
 ---
 
-## 12. Suggested PR description
+## 15. Suggested PR description
 
 ```markdown
 ### Motivation
 
-DungeonMindServer now exposes StatBlockGenerator v2 draft/render APIs. This PR adds the DungeonBuddy consumer seam so the command board can eventually request generated or rendered statblock drafts through a Buddy-owned adapter/proxy rather than coupling the frontend directly to generator internals or exposing service credentials in the browser.
+DungeonMindServer now exposes live StatBlockGenerator v2 draft/render APIs. This PR adds the DungeonBuddy statblock lifecycle seam so Buddy can request or render statblock drafts through a server-side adapter, map the response into a Buddy draft artifact, and prepare for future agent-operable review, storage, corpus promotion, retrieval, and combat hydration workflows.
 
 ### Description
 
@@ -386,8 +536,11 @@ DungeonMindServer now exposes StatBlockGenerator v2 draft/render APIs. This PR a
 - Added a provider-neutral `StatBlockGeneratorProvider` interface.
 - Added mock and server-side HTTP providers for health, generate-draft, and render-draft.
 - Added internal API-key header injection in the server-side provider/proxy.
-- Added fixture draft responses used by tests.
-- Added tests for fixture shape, mock provider behavior, HTTP route shape, internal-key handling, and error envelope preservation.
+- Added `StatblockDraftArtifact` type and lifecycle/storage/corpus status enums.
+- Added statblock lifecycle command-name constants for future agent operations.
+- Added generated/rendered draft fixtures used by tests.
+- Added an artifact mapper from `StatBlockDraftResponse` to `StatblockDraftArtifact`.
+- Added tests for fixture shape, mock provider behavior, HTTP route shape, internal-key handling, artifact mapping, and error envelope preservation.
 
 ### Testing
 
@@ -396,15 +549,12 @@ DungeonMindServer now exposes StatBlockGenerator v2 draft/render APIs. This PR a
 
 ---
 
-## 13. Design note for the agent
+## 16. Design note for the agent
 
-Keep the seam boring.
+Keep the seam boring but future-shaped.
 
-The important decision is architectural, not visual: DungeonBuddy owns state/routing/context and server-side credential handling; DungeonMindServer owns generation and v2 producer auth. This PR should make that boundary real with types, providers, fixtures, and tests.
+The important decision is architectural, not visual: DungeonBuddy owns state/routing/context, server-side credential handling, draft artifact lifecycle, breadcrumbs, and future corpus promotion. DungeonMindServer owns generation and v2 producer auth.
 
-Once this lands, the next useful slice is either:
+The API call produces a draft. Buddy turns that draft into an artifact. Corpus promotion turns the artifact into campaign knowledge. The Semantic Knowledge Layer makes it retrievable. The command board makes it usable at the table.
 
-1. a tiny developer smoke surface that calls the provider and renders returned markdown/defaults; or
-2. a `StatblockView` integration that can call `generateDraft()` or `renderDraft()` from a known source statblock.
-
-Do not jump straight to inline combat generation until this seam is proven.
+Do not jump straight to inline combat generation until this lifecycle seam is proven.
