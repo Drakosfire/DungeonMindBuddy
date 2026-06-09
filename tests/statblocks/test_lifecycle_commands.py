@@ -36,3 +36,7 @@ def test_package_exports_agent_command_constants_and_status_types() -> None:
     assert statblocks.StatblockReviewStatus is not None
     assert statblocks.StatblockStorageStatus is not None
     assert statblocks.StatblockCorpusStatus is not None
+    assert statblocks.StatblockLifecycleService is not None
+    assert statblocks.StatblockLifecycleCommandRequest is not None
+    assert statblocks.StatblockLifecycleCommandResult is not None
+    assert statblocks.CommandStatus is not None
