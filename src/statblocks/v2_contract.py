@@ -39,10 +39,16 @@ class OutputOptions(_PermissiveModel):
     include_markdown: bool = True
     include_json: bool = True
     include_combat_defaults: bool = True
+    include_review_warnings: bool = True
+    persist: bool = False
     style: str | None = None
 
 
 class SourceRef(_PermissiveModel):
+    id: str | None = None
+    kind: str | None = None
+    label: str | None = None
+    reason: str | None = None
     source_type: str | None = None
     source_id: str | None = None
     title: str | None = None
@@ -79,17 +85,21 @@ class TerrainContext(_PermissiveModel):
 
 
 class StatBlockDraftRequest(_PermissiveModel):
+    request_id: str | None = None
     mode: DraftMode = "generate_from_prompt"
     intent: DraftIntent | None = None
+    prompt: str | None = None
     encounter_context: EncounterContext | None = None
     terrain_context: TerrainContext | None = None
     source_refs: list[SourceRef] = Field(default_factory=list)
     source_statblock: dict[str, Any] | None = None
     existing_draft: dict[str, Any] | None = None
+    revision_instructions: list[str] = Field(default_factory=list)
     output_options: OutputOptions = Field(default_factory=OutputOptions)
 
 
 class StatBlockDraftRenderRequest(_PermissiveModel):
+    request_id: str | None = None
     mode: DraftMode = "render_existing"
     statblock: dict[str, Any]
     output_options: OutputOptions = Field(default_factory=OutputOptions)
@@ -101,9 +111,19 @@ class CombatDefaults(_PermissiveModel):
     armor_class: int | str | None = None
     hit_points: int | str | None = None
     initiative_bonus: int | None = None
+    passive_perception: int | str | None = None
+    speed_summary: str | None = None
+    # Compatibility field for early Buddy code and hand-authored fixtures; prefer
+    # ``speed_summary`` when hydrating combat UI from production v2 responses.
     speed: str | None = None
+    senses_summary: str | None = None
     primary_actions: list[str] = Field(default_factory=list)
+    suggested_tactics: list[str] = Field(default_factory=list)
     legendary_actions: int | None = None
+
+    @property
+    def effective_speed_summary(self) -> str | None:
+        return self.speed_summary or self.speed
 
 
 class ReviewWarning(_PermissiveModel):
@@ -114,11 +134,13 @@ class ReviewWarning(_PermissiveModel):
 
 
 class DraftProvenance(_PermissiveModel):
+    request_id: str | None = None
     mode: DraftMode | str
     generator: str | None = None
     generated_at: str | None = None
     source_refs: list[SourceRef] = Field(default_factory=list)
     generation_info: dict[str, Any] = Field(default_factory=dict)
+    persistence_request: dict[str, Any] | None = None
 
 
 class StatBlockDraft(_PermissiveModel):
@@ -156,6 +178,10 @@ class StatBlockDraftResponse(_PermissiveModel):
 class StatBlockGeneratorHealth(_PermissiveModel):
     ok: bool | None = None
     status: str | None = None
-    version: str | None = None
     service: str | None = None
+    contract: str | None = None
+    version: str | None = None
+    generator_ready: bool | None = None
+    openai_configured: bool | None = None
+    supports: list[str] = Field(default_factory=list)
     timestamp: str | None = None

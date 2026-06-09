@@ -25,3 +25,14 @@ def test_statblock_lifecycle_command_values_are_unique() -> None:
     assert len(commands.STATBLOCK_LIFECYCLE_COMMANDS) == len(
         set(commands.STATBLOCK_LIFECYCLE_COMMANDS)
     )
+
+
+def test_package_exports_agent_command_constants_and_status_types() -> None:
+    import src.statblocks as statblocks
+
+    assert statblocks.STATBLOCK_DRAFT_GENERATE == "statblock.draft.generate"
+    assert "statblock.draft.render" in statblocks.STATBLOCK_LIFECYCLE_COMMANDS
+    assert statblocks.StatblockLifecycleState is not None
+    assert statblocks.StatblockReviewStatus is not None
+    assert statblocks.StatblockStorageStatus is not None
+    assert statblocks.StatblockCorpusStatus is not None

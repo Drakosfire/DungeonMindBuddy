@@ -185,7 +185,37 @@ def test_mock_provider_records_requests_and_returns_stable_responses() -> None:
     )
 
     assert health.status == "ok"
+    assert health.contract == "command_board_draft_v2"
+    assert health.generator_ready is True
+    assert health.supports == ["generate-draft", "render-draft"]
     assert isinstance(generated, StatBlockDraftResponse)
     assert isinstance(rendered, StatBlockDraftResponse)
+    assert generated.draft is not None
+    assert rendered.draft is not None
+    assert generated.draft.draft_id == "mock-generated-draft"
+    assert rendered.draft.draft_id == "mock-rendered-draft"
+    assert rendered.draft.provenance.mode == "render_existing"
     assert provider.generate_requests[0].mode == "quick_reinforcement"
     assert provider.render_requests[0].statblock == {"name": "Mock"}
+
+
+def test_mock_provider_does_not_reuse_generate_response_for_render_unless_overridden() -> (
+    None
+):
+    generate_response = StatBlockDraftResponse.model_validate(
+        _fixture("generated_draft_response.fixture.json")
+    )
+    provider = MockStatBlockGeneratorProvider(generate_response=generate_response)
+
+    generated = provider.generate_draft(
+        StatBlockDraftRequest(mode="generate_from_prompt")
+    )
+    rendered = provider.render_draft(
+        StatBlockDraftRenderRequest(statblock={"name": "Mock"})
+    )
+
+    assert generated.draft is not None
+    assert rendered.draft is not None
+    assert generated.draft.draft_id == "draft-generated-ember-wolf"
+    assert rendered.draft.draft_id == "mock-rendered-draft"
+    assert rendered.draft.provenance.mode == "render_existing"

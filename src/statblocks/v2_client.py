@@ -15,6 +15,7 @@ from src.statblocks.v2_contract import (
 
 DEFAULT_DUNGEONMIND_SERVER_URL = "https://www.dungeonmind.net"
 INTERNAL_KEY_HEADER = "X-DungeonBuddy-Internal-Key"
+_DEFAULT_RENDER_RESPONSE = object()
 
 
 class StatBlockGeneratorClientConfigError(ValueError):
@@ -161,13 +162,23 @@ class MockStatBlockGeneratorProvider:
         *,
         health_response: StatBlockGeneratorHealth | None = None,
         generate_response: StatBlockDraftResponse | None = None,
-        render_response: StatBlockDraftResponse | None = None,
+        render_response: StatBlockDraftResponse
+        | None
+        | object = _DEFAULT_RENDER_RESPONSE,
     ) -> None:
         self.health_response = health_response or StatBlockGeneratorHealth(
-            ok=True, status="ok", service="mock-statblock-generator"
+            ok=True,
+            status="ok",
+            service="mock-statblock-generator",
+            contract="command_board_draft_v2",
+            generator_ready=True,
+            openai_configured=False,
+            supports=["generate-draft", "render-draft"],
         )
         self.generate_response = generate_response
-        self.render_response = render_response or generate_response
+        self.render_response = (
+            None if render_response is _DEFAULT_RENDER_RESPONSE else render_response
+        )
         self.generate_requests: list[StatBlockDraftRequest] = []
         self.render_requests: list[StatBlockDraftRenderRequest] = []
 
@@ -214,7 +225,13 @@ def _mock_success_response(draft_id: str, *, mode: str) -> StatBlockDraftRespons
                     "name": "Mock Statblock",
                     "armor_class": 12,
                     "hit_points": 7,
+                    "passive_perception": 10,
+                    "speed_summary": "30 ft.",
+                    "senses_summary": "passive Perception 10",
                     "primary_actions": ["Mock Strike"],
+                    "suggested_tactics": [
+                        "Use as a deterministic server-side test double."
+                    ],
                 },
                 "warnings": [],
                 "provenance": {
