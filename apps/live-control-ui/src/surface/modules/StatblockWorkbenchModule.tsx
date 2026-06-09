@@ -1,11 +1,36 @@
 import { useEffect, useState } from "react";
 
-import { getStatblockWorkbenchSample } from "../../api/liveApi";
+import {
+  getStatblockWorkbenchSample,
+  postStatblockWorkbenchCommand,
+} from "../../api/liveApi";
 import type {
   StatblockCombatDefaults,
   StatblockDraftArtifactView,
-  StatblockWorkbenchSampleResponse,
+  StatblockWorkbenchAction,
+  StatblockWorkbenchCommandType,
 } from "../../api/types";
+
+interface WorkbenchState {
+  schema_version: string;
+  mode: string;
+  artifact: StatblockDraftArtifactView;
+  command_status: string;
+  diagnostics: string[];
+  available_actions: StatblockWorkbenchAction[];
+}
+
+type PendingCommand = StatblockWorkbenchCommandType | null;
+
+function pendingLabel(command: PendingCommand): string | null {
+  if (command === "statblock.draft.generate") {
+    return "Running mock generate command…";
+  }
+  if (command === "statblock.draft.render") {
+    return "Running mock render command…";
+  }
+  return null;
+}
 
 function formatLabel(value: string): string {
   return value
@@ -58,7 +83,13 @@ function CombatDefaults({ defaults }: { defaults: StatblockCombatDefaults }) {
   );
 }
 
-function StatusRail({ artifact, commandStatus }: { artifact: StatblockDraftArtifactView; commandStatus: string }) {
+function StatusRail({
+  artifact,
+  commandStatus,
+}: {
+  artifact: StatblockDraftArtifactView;
+  commandStatus: string;
+}) {
   const statuses = [
     ["Command", commandStatus],
     ["Lifecycle", artifact.lifecycle_state],
@@ -80,7 +111,17 @@ function StatusRail({ artifact, commandStatus }: { artifact: StatblockDraftArtif
   );
 }
 
-function ReadyWorkbench({ response }: { response: StatblockWorkbenchSampleResponse }) {
+function ReadyWorkbench({
+  response,
+  pendingCommand,
+  commandError,
+  onRunCommand,
+}: {
+  response: WorkbenchState;
+  pendingCommand: PendingCommand;
+  commandError: string | null;
+  onRunCommand: (commandType: StatblockWorkbenchCommandType) => void;
+}) {
   const artifact = response.artifact;
 
   return (
@@ -96,6 +137,33 @@ function ReadyWorkbench({ response }: { response: StatblockWorkbenchSampleRespon
         </div>
         <span className="badge">{response.mode}</span>
       </header>
+
+      <section className="statblock-command-row" aria-label="Mock statblock commands">
+        <button
+          type="button"
+          onClick={() => onRunCommand("statblock.draft.generate")}
+          disabled={pendingCommand !== null}
+        >
+          Generate mock draft
+        </button>
+        <button
+          type="button"
+          onClick={() => onRunCommand("statblock.draft.render")}
+          disabled={pendingCommand !== null}
+        >
+          Render mock draft
+        </button>
+        {pendingLabel(pendingCommand) ? (
+          <span className="statblock-command-status" role="status">
+            {pendingLabel(pendingCommand)}
+          </span>
+        ) : null}
+      </section>
+      {commandError ? (
+        <p className="statblock-command-error" role="alert">
+          Unable to run Workbench command: {commandError}
+        </p>
+      ) : null}
 
       <StatusRail artifact={artifact} commandStatus={response.command_status} />
 
@@ -179,9 +247,11 @@ function ReadyWorkbench({ response }: { response: StatblockWorkbenchSampleRespon
 }
 
 export function StatblockWorkbenchModule() {
-  const [response, setResponse] = useState<StatblockWorkbenchSampleResponse | null>(null);
+  const [response, setResponse] = useState<WorkbenchState | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [pendingCommand, setPendingCommand] = useState<PendingCommand>(null);
+  const [commandError, setCommandError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -207,6 +277,48 @@ export function StatblockWorkbenchModule() {
       active = false;
     };
   }, []);
+
+  const runCommand = (commandType: StatblockWorkbenchCommandType) => {
+    setPendingCommand(commandType);
+    setCommandError(null);
+    postStatblockWorkbenchCommand({
+      command_type: commandType,
+      requested_by: "human",
+      breadcrumbs: [
+        {
+          label: "surface:statblock_workbench",
+          source: "live_control_ui",
+          metadata: {
+            trigger:
+              commandType === "statblock.draft.generate"
+                ? "generate_mock_draft"
+                : "render_mock_statblock",
+          },
+        },
+      ],
+      as_artifact: true,
+    })
+      .then((commandResponse) => {
+        if (commandResponse.artifact) {
+          setResponse({
+            schema_version: commandResponse.schema_version,
+            mode: commandResponse.mode,
+            artifact: commandResponse.artifact,
+            command_status: commandResponse.command_status,
+            diagnostics: commandResponse.diagnostics,
+            available_actions: commandResponse.available_actions,
+          });
+        } else {
+          setCommandError("Command completed without a draft artifact.");
+        }
+      })
+      .catch((err: unknown) => {
+        setCommandError(err instanceof Error ? err.message : String(err));
+      })
+      .finally(() => {
+        setPendingCommand(null);
+      });
+  };
 
   if (loading) {
     return (
@@ -235,5 +347,12 @@ export function StatblockWorkbenchModule() {
     );
   }
 
-  return <ReadyWorkbench response={response} />;
+  return (
+    <ReadyWorkbench
+      response={response}
+      pendingCommand={pendingCommand}
+      commandError={commandError}
+      onRunCommand={runCommand}
+    />
+  );
 }

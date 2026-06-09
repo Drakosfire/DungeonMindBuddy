@@ -11,6 +11,8 @@ import type {
   LiveSurfaceResponse,
   ResolvedRollResponse,
   SurfaceLayout,
+  StatblockWorkbenchCommandRequest,
+  StatblockWorkbenchCommandResponse,
   StatblockWorkbenchSampleResponse,
 } from "./types";
 
@@ -167,5 +169,18 @@ export async function rebuildPacket(): Promise<{
 export async function getStatblockWorkbenchSample(): Promise<StatblockWorkbenchSampleResponse> {
   return apiFetch<StatblockWorkbenchSampleResponse>(
     "/api/live/statblocks/workbench/sample",
+  );
+}
+
+export async function postStatblockWorkbenchCommand(
+  request: StatblockWorkbenchCommandRequest,
+): Promise<StatblockWorkbenchCommandResponse> {
+  return apiFetch<StatblockWorkbenchCommandResponse>(
+    "/api/live/statblocks/workbench/command",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(request),
+    },
   );
 }

@@ -1,8 +1,12 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import userEvent from "@testing-library/user-event";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import * as liveApi from "../../api/liveApi";
-import type { StatblockWorkbenchSampleResponse } from "../../api/types";
+import type {
+  StatblockWorkbenchCommandResponse,
+  StatblockWorkbenchSampleResponse,
+} from "../../api/types";
 import { StatblockWorkbenchModule } from "./StatblockWorkbenchModule";
 
 const sampleResponse: StatblockWorkbenchSampleResponse = {
@@ -66,7 +70,43 @@ const sampleResponse: StatblockWorkbenchSampleResponse = {
   },
 };
 
+function commandResponseFor(
+  title: string,
+  markdown: string,
+): StatblockWorkbenchCommandResponse {
+  return {
+    schema_version: "dmb_statblock_workbench_command_v1",
+    mode: "mock_command",
+    command_status: "ok",
+    diagnostics: ["command endpoint uses MockStatBlockGeneratorProvider only"],
+    available_actions: sampleResponse.available_actions,
+    artifact: {
+      ...sampleResponse.artifact,
+      artifact_id: `statblock-draft-${title}`,
+      draft_id: `draft-${title}`,
+      title,
+      markdown,
+      structured_statblock: { name: title },
+      combat_defaults: {
+        ...sampleResponse.artifact.combat_defaults,
+        name: title,
+        primary_actions: title.includes("Clockwork")
+          ? ["Gearhook Slam", "Bog Vent"]
+          : ["Bite"],
+      },
+      provenance: {
+        generator: "mock-statblock-generator",
+        mode: title.includes("Clockwork") ? "render_existing" : "generate_from_prompt",
+      },
+    },
+  };
+}
+
 describe("StatblockWorkbenchModule", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it("renders the read-only sample artifact lifecycle surface", async () => {
     vi.spyOn(liveApi, "getStatblockWorkbenchSample").mockResolvedValue(sampleResponse);
 
@@ -95,6 +135,94 @@ describe("StatblockWorkbenchModule", () => {
     const combatButton = screen.getByRole("button", { name: "Add to combat" });
     expect(storeButton).toBeDisabled();
     expect(combatButton).toBeDisabled();
-    expect(within(storeButton.closest(".statblock-action-card") as HTMLElement).getByText(/read-only sample mode/)).toBeInTheDocument();
+    expect(
+      within(storeButton.closest(".statblock-action-card") as HTMLElement).getByText(
+        /read-only sample mode/,
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("runs generate command and replaces the displayed artifact", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(liveApi, "getStatblockWorkbenchSample").mockResolvedValue(sampleResponse);
+    let resolveCommand!: (response: StatblockWorkbenchCommandResponse) => void;
+    const commandPromise = new Promise<StatblockWorkbenchCommandResponse>((resolve) => {
+      resolveCommand = resolve;
+    });
+    const commandSpy = vi
+      .spyOn(liveApi, "postStatblockWorkbenchCommand")
+      .mockReturnValue(commandPromise);
+
+    render(<StatblockWorkbenchModule />);
+
+    await screen.findByText("Sample / mock / read-only");
+    await user.click(screen.getByRole("button", { name: "Generate mock draft" }));
+
+    expect(commandSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        command_type: "statblock.draft.generate",
+        requested_by: "human",
+        as_artifact: true,
+      }),
+    );
+    expect(screen.getByText(/Running mock generate command/)).toBeInTheDocument();
+    resolveCommand(
+      commandResponseFor(
+        "Generated Obsidian Thornling",
+        "## Generated Obsidian Thornling\nA fresh mock generated draft.",
+      ),
+    );
+    await screen.findByText(/A fresh mock generated draft/);
+    expect(screen.getAllByText("Generated Obsidian Thornling").length).toBeGreaterThan(
+      0,
+    );
+    expect(screen.queryByText(/Claw\. Bite\. Shifting stone\./)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Store draft" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Add to combat" })).toBeDisabled();
+  });
+
+  it("runs render command and replaces the displayed artifact", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(liveApi, "getStatblockWorkbenchSample").mockResolvedValue(sampleResponse);
+    vi.spyOn(liveApi, "postStatblockWorkbenchCommand").mockResolvedValue(
+      commandResponseFor(
+        "Rendered Clockwork Mire Sentinel",
+        "## Rendered Clockwork Mire Sentinel\nGearhook Slam. Bog Vent.",
+      ),
+    );
+
+    render(<StatblockWorkbenchModule />);
+
+    await screen.findByText("Sample / mock / read-only");
+    await user.click(screen.getByRole("button", { name: "Render mock draft" }));
+
+    await screen.findByText(/Gearhook Slam\. Bog Vent\./);
+    expect(liveApi.postStatblockWorkbenchCommand).toHaveBeenCalledWith(
+      expect.objectContaining({ command_type: "statblock.draft.render" }),
+    );
+    expect(
+      screen.getAllByText("Rendered Clockwork Mire Sentinel").length,
+    ).toBeGreaterThan(0);
+    expect(screen.getByRole("button", { name: "Store draft" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Add to combat" })).toBeDisabled();
+  });
+
+  it("keeps the existing artifact visible when a command fails", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(liveApi, "getStatblockWorkbenchSample").mockResolvedValue(sampleResponse);
+    vi.spyOn(liveApi, "postStatblockWorkbenchCommand").mockRejectedValue(
+      new Error("mock command failed safely"),
+    );
+
+    render(<StatblockWorkbenchModule />);
+
+    await screen.findByText("Sample / mock / read-only");
+    await user.click(screen.getByRole("button", { name: "Generate mock draft" }));
+
+    await screen.findByText(/Unable to run Workbench command: mock command failed safely/);
+    expect(screen.getAllByText("Geomantic Drake Juvenile").length).toBeGreaterThan(0);
+    expect(screen.getByText(/Claw\. Bite\. Shifting stone\./)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Store draft" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Add to combat" })).toBeDisabled();
   });
 });
