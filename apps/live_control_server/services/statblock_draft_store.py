@@ -145,11 +145,8 @@ def store_statblock_draft(
     path = _draft_path(base, artifact_id)
     existing_stored_at = timestamp
     if path.is_file():
-        try:
-            existing = StoredStatblockDraftRecord.model_validate(load_json(path))
-            existing_stored_at = existing.stored_at
-        except Exception:
-            existing_stored_at = timestamp
+        existing = StoredStatblockDraftRecord.model_validate(load_json(path))
+        existing_stored_at = existing.stored_at
 
     stored_artifact = artifact.model_copy(
         update={

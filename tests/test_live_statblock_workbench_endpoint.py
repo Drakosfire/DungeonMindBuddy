@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import shutil
 from pathlib import Path
 
 from fastapi.testclient import TestClient
@@ -151,12 +150,36 @@ def test_statblock_workbench_command_endpoint_does_not_expose_internal_key(
 
 def _temp_live_session(tmp_path: Path, monkeypatch) -> Path:
     session_dir = tmp_path / "session_22"
-    shutil.copytree(LIVE_SESSION_FIXTURE, session_dir)
-    drafts_dir = session_dir / "statblock_drafts"
-    if drafts_dir.exists():
-        shutil.rmtree(drafts_dir)
+    session_dir.mkdir()
+    for filename in (
+        "live_packet.json",
+        "surface_layout.json",
+        "event_log.jsonl",
+        "job_queue.jsonl",
+    ):
+        (session_dir / filename).write_bytes((LIVE_SESSION_FIXTURE / filename).read_bytes())
     monkeypatch.setenv(SESSION_DIR_ENV, str(session_dir))
     return session_dir
+
+
+def _snapshot_files(base: Path) -> dict[str, bytes]:
+    return {
+        path.relative_to(base).as_posix(): path.read_bytes()
+        for path in base.rglob("*")
+        if path.is_file()
+    }
+
+
+def _assert_only_statblock_drafts_changed(
+    before: dict[str, bytes], after: dict[str, bytes]
+) -> None:
+    changed = {
+        path
+        for path in before.keys() | after.keys()
+        if before.get(path) != after.get(path)
+    }
+    assert changed
+    assert all(path.startswith("statblock_drafts/") for path in changed)
 
 
 def _sample_artifact(client: TestClient) -> dict:
@@ -167,10 +190,7 @@ def _sample_artifact(client: TestClient) -> dict:
 
 def test_statblock_workbench_store_list_and_read_draft(tmp_path, monkeypatch) -> None:
     session_dir = _temp_live_session(tmp_path, monkeypatch)
-    event_log_before = (session_dir / "event_log.jsonl").read_bytes()
-    job_queue_before = (session_dir / "job_queue.jsonl").read_bytes()
-    packet_before = (session_dir / "live_packet.json").read_bytes()
-    layout_before = (session_dir / "surface_layout.json").read_bytes()
+    files_before = _snapshot_files(session_dir)
     client = TestClient(create_app())
     artifact = _sample_artifact(client)
 
@@ -212,10 +232,54 @@ def test_statblock_workbench_store_list_and_read_draft(tmp_path, monkeypatch) ->
     assert read_record["artifact"]["source_refs"] == artifact["source_refs"]
     assert read_record["artifact"]["breadcrumbs"] == artifact["breadcrumbs"]
 
-    assert (session_dir / "event_log.jsonl").read_bytes() == event_log_before
-    assert (session_dir / "job_queue.jsonl").read_bytes() == job_queue_before
-    assert (session_dir / "live_packet.json").read_bytes() == packet_before
-    assert (session_dir / "surface_layout.json").read_bytes() == layout_before
+    _assert_only_statblock_drafts_changed(files_before, _snapshot_files(session_dir))
+
+
+def test_statblock_workbench_overwrite_preserves_stored_at_and_replaces_artifact(
+    tmp_path, monkeypatch
+) -> None:
+    session_dir = _temp_live_session(tmp_path, monkeypatch)
+    files_before = _snapshot_files(session_dir)
+    client = TestClient(create_app())
+    artifact = _sample_artifact(client)
+
+    first_response = client.post(
+        "/api/live/statblocks/workbench/drafts",
+        json={"artifact": artifact, "source": "workbench"},
+    )
+    assert first_response.status_code == 200
+    first_record = first_response.json()["record"]
+
+    replacement_artifact = {
+        **artifact,
+        "title": "Replacement Stored Draft",
+        "markdown": "## Replacement Stored Draft\nUpdated artifact body.",
+        "storage_status": "not_stored",
+        "lifecycle_state": "live_draft",
+        "corpus_status": "not_promoted",
+    }
+    second_response = client.post(
+        "/api/live/statblocks/workbench/drafts",
+        json={"artifact": replacement_artifact, "source": "workbench"},
+    )
+
+    assert second_response.status_code == 200
+    second_record = second_response.json()["record"]
+    assert second_record["stored_at"] == first_record["stored_at"]
+    assert second_record["updated_at"] >= first_record["updated_at"]
+    assert second_record["artifact_id"] == first_record["artifact_id"]
+    assert second_record["artifact"]["title"] == "Replacement Stored Draft"
+    assert second_record["artifact"]["markdown"] == "## Replacement Stored Draft\nUpdated artifact body."
+    assert second_record["artifact"]["lifecycle_state"] == "stored_artifact"
+    assert second_record["artifact"]["storage_status"] == "stored_draft"
+    assert second_record["artifact"]["corpus_status"] == "not_promoted"
+
+    read_response = client.get(
+        f"/api/live/statblocks/workbench/drafts/{artifact['artifact_id']}"
+    )
+    assert read_response.status_code == 200
+    assert read_response.json()["record"]["artifact"]["title"] == "Replacement Stored Draft"
+    _assert_only_statblock_drafts_changed(files_before, _snapshot_files(session_dir))
 
 
 def test_statblock_workbench_unsafe_draft_id_rejected(tmp_path, monkeypatch) -> None:
