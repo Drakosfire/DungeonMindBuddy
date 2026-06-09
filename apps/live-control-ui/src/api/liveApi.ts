@@ -11,6 +11,7 @@ import type {
   LiveSurfaceResponse,
   ResolvedRollResponse,
   SurfaceLayout,
+  StatblockWorkbenchSampleResponse,
 } from "./types";
 
 const baseUrl = (import.meta.env.VITE_LIVE_API_BASE_URL as string | undefined) ?? "";
@@ -161,4 +162,10 @@ export async function rebuildPacket(): Promise<{
   job: import("./types").LiveJob;
 }> {
   return apiFetch("/api/live/rebuild-packet", { method: "POST" });
+}
+
+export async function getStatblockWorkbenchSample(): Promise<StatblockWorkbenchSampleResponse> {
+  return apiFetch<StatblockWorkbenchSampleResponse>(
+    "/api/live/statblocks/workbench/sample",
+  );
 }

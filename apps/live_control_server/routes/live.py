@@ -30,9 +30,23 @@ from src.live_play.projections import (
 from src.live_play.projections.artifacts import ArtifactReadError
 from src.live_play.resolve_roll import RollResolveError, resolve_roll_from_packet
 
+from src.statblocks.lifecycle_artifact import (
+    StatblockBreadcrumb,
+    StatblockDraftArtifact,
+)
+from src.statblocks.lifecycle_commands import STATBLOCK_DRAFT_GENERATE
+from src.statblocks.lifecycle_service import (
+    StatblockLifecycleCommandRequest,
+    StatblockLifecycleService,
+)
+from src.statblocks.v2_client import MockStatBlockGeneratorProvider
+from src.statblocks.v2_contract import StatBlockDraftResponse
+
 router = APIRouter(prefix="/api/live", tags=["live"])
 INSPECTABLE_TARGET_TYPE = Literal["event", "roll_table"]
-FORBIDDEN_PATH_QUERY_FIELDS = frozenset({"source_path", "file_path", "path", "absolute_path", "relative_path"})
+FORBIDDEN_PATH_QUERY_FIELDS = frozenset(
+    {"source_path", "file_path", "path", "absolute_path", "relative_path"}
+)
 
 
 class LiveQueryRequest(BaseModel):
@@ -45,6 +59,24 @@ class LiveQueryRequest(BaseModel):
 
 class ResolveRollRequest(BaseModel):
     command: str = Field(min_length=1)
+
+
+class StatblockWorkbenchAction(BaseModel):
+    action_id: str
+    label: str
+    enabled: bool = False
+    disabled_reason: str | None = None
+
+
+class StatblockWorkbenchSampleResponse(BaseModel):
+    schema_version: Literal["dmb_statblock_workbench_sample_v1"] = (
+        "dmb_statblock_workbench_sample_v1"
+    )
+    mode: Literal["sample_mock"] = "sample_mock"
+    artifact: StatblockDraftArtifact
+    command_status: str
+    diagnostics: list[str] = Field(default_factory=list)
+    available_actions: list[StatblockWorkbenchAction] = Field(default_factory=list)
 
 
 def _reject_forbidden_query_fields(request: Request) -> None:
@@ -75,7 +107,9 @@ def _target_from_session(
                 label=label,
                 source_status="authoritative",
             )
-        raise HTTPException(status_code=404, detail=f"unknown target id for event: {target_id}")
+        raise HTTPException(
+            status_code=404, detail=f"unknown target id for event: {target_id}"
+        )
 
     for row in packet.get("known_roll_tables", []):
         if row.get("table_id") != target_id:
@@ -87,7 +121,200 @@ def _target_from_session(
             label=title,
             source_status="authoritative",
         )
-    raise HTTPException(status_code=404, detail=f"unknown target id for roll_table: {target_id}")
+    raise HTTPException(
+        status_code=404, detail=f"unknown target id for roll_table: {target_id}"
+    )
+
+
+def _statblock_workbench_future_actions() -> list[StatblockWorkbenchAction]:
+    future_pr_reason = (
+        "Disabled in PR3: future lifecycle PR will make this action durable."
+    )
+    return [
+        StatblockWorkbenchAction(
+            action_id="store_draft",
+            label="Store draft",
+            disabled_reason=future_pr_reason,
+        ),
+        StatblockWorkbenchAction(
+            action_id="preview_corpus_promotion",
+            label="Preview corpus promotion",
+            disabled_reason=future_pr_reason,
+        ),
+        StatblockWorkbenchAction(
+            action_id="promote_to_corpus",
+            label="Promote to corpus",
+            disabled_reason=future_pr_reason,
+        ),
+        StatblockWorkbenchAction(
+            action_id="ingest_to_semantic_layer",
+            label="Ingest to Semantic Knowledge Layer",
+            disabled_reason=future_pr_reason,
+        ),
+        StatblockWorkbenchAction(
+            action_id="add_to_combat",
+            label="Add to combat",
+            disabled_reason=future_pr_reason,
+        ),
+    ]
+
+
+def _statblock_workbench_sample_draft_response() -> StatBlockDraftResponse:
+    return StatBlockDraftResponse.model_validate(
+        {
+            "success": True,
+            "draft": {
+                "draft_id": "mock-generated-draft",
+                "lifecycle_state": "live_draft",
+                "review_status": "needs_dm_review",
+                "markdown": (
+                    "## Geomantic Drake Juvenile\n"
+                    "*Medium dragon, unaligned*\n\n"
+                    "**Armor Class** 15 (natural armor)\n"
+                    "**Hit Points** 68 (8d8 + 32)\n"
+                    "**Speed** 30 ft., burrow 10 ft.\n\n"
+                    "### Actions\n"
+                    "**Bite.** Melee Weapon Attack: +5 to hit, one target.\n\n"
+                    "**Stone Skitter.** The drake shifts loose earth around one creature."
+                ),
+                "statblock": {
+                    "name": "Geomantic Drake Juvenile",
+                    "size": "Medium",
+                    "type": "dragon",
+                    "challenge_rating": "3",
+                },
+                "combat_defaults": {
+                    "name": "Geomantic Drake Juvenile",
+                    "armor_class": 15,
+                    "hit_points": 68,
+                    "initiative_bonus": 2,
+                    "passive_perception": 13,
+                    "speed_summary": "30 ft., burrow 10 ft.",
+                    "senses_summary": "darkvision 60 ft., passive Perception 13",
+                    "primary_actions": ["Bite", "Stone Skitter"],
+                    "suggested_tactics": [
+                        "Open from partial cover in broken stone.",
+                        "Use burrow movement to pressure isolated backline targets.",
+                    ],
+                },
+                "warnings": [
+                    {
+                        "code": "sample_needs_dm_review",
+                        "message": "Review damage math and terrain effect wording before table use.",
+                        "severity": "warning",
+                        "path": "actions",
+                    }
+                ],
+                "provenance": {
+                    "request_id": "live-control-statblock-workbench-sample",
+                    "mode": "generate_from_prompt",
+                    "generator": "mock-statblock-generator",
+                    "generated_at": "2026-06-09T00:00:00Z",
+                    "source_refs": [
+                        {
+                            "id": "sample-source-geomantic-drake",
+                            "kind": "corpus_note",
+                            "label": "Geomantic drake juvenile statblock seed",
+                            "path": "corpus/eldyrwild-markdown/Elderwyld/Wilderness/geomantic_drake_juvenile_statblock.md",
+                            "reason": "Sample provenance only; not read or written by endpoint.",
+                        }
+                    ],
+                    "generation_info": {
+                        "sample": True,
+                        "provider": "MockStatBlockGeneratorProvider",
+                    },
+                },
+            },
+            "timestamp": "2026-06-09T00:00:00Z",
+        }
+    )
+
+
+def _statblock_workbench_sample_command() -> StatblockLifecycleCommandRequest:
+    return StatblockLifecycleCommandRequest(
+        command_type=STATBLOCK_DRAFT_GENERATE,
+        requested_by="agent",
+        breadcrumbs=[
+            StatblockBreadcrumb(label="campaign:c2", source="sample_fixture"),
+            StatblockBreadcrumb(label="session:23", source="sample_fixture"),
+            StatblockBreadcrumb(
+                label="surface:statblock_workbench", source="live_control"
+            ),
+            StatblockBreadcrumb(label="source:mock_provider", source="mock_provider"),
+        ],
+        payload={
+            "request_id": "live-control-statblock-workbench-sample",
+            "mode": "generate_from_prompt",
+            "prompt": (
+                "Create a combat-ready Elderwyld geomantic drake juvenile draft "
+                "for read-only Workbench review."
+            ),
+            "intent": {
+                "mode": "generate_from_prompt",
+                "creature_name": "Geomantic Drake Juvenile",
+                "challenge_rating": "3",
+                "role": "skirmisher",
+                "tone": "Elderwyld wilderness hazard",
+            },
+            "encounter_context": {
+                "party_level": 5,
+                "party_size": 4,
+                "encounter_role": "mobile terrain-pressure threat",
+                "environment": "conical hills night camp",
+                "constraints": [
+                    "show as sample only",
+                    "do not persist",
+                    "do not add to combat",
+                ],
+            },
+            "source_refs": [
+                {
+                    "id": "sample-source-geomantic-drake",
+                    "kind": "corpus_note",
+                    "label": "Geomantic drake juvenile statblock seed",
+                    "path": "corpus/eldyrwild-markdown/Elderwyld/Wilderness/geomantic_drake_juvenile_statblock.md",
+                    "reason": "Sample provenance only; not read or written by endpoint.",
+                }
+            ],
+            "output_options": {
+                "include_markdown": True,
+                "include_json": True,
+                "include_combat_defaults": True,
+                "include_review_warnings": True,
+                "persist": False,
+                "style": "live-control-workbench-sample",
+            },
+        },
+    )
+
+
+@router.get(
+    "/statblocks/workbench/sample",
+    response_model=StatblockWorkbenchSampleResponse,
+)
+def get_statblock_workbench_sample() -> dict[str, Any]:
+    service = StatblockLifecycleService(
+        MockStatBlockGeneratorProvider(
+            generate_response=_statblock_workbench_sample_draft_response()
+        )
+    )
+    result = service.execute(_statblock_workbench_sample_command())
+    if result.artifact is None:
+        raise HTTPException(
+            status_code=502,
+            detail="mock statblock lifecycle command did not produce a draft artifact",
+        )
+    response = StatblockWorkbenchSampleResponse(
+        artifact=result.artifact,
+        command_status=result.status,
+        diagnostics=[
+            "sample endpoint uses MockStatBlockGeneratorProvider only",
+            "artifact is read-only and not persisted",
+            *result.diagnostics,
+        ],
+        available_actions=_statblock_workbench_future_actions(),
+    )
+    return response.model_dump(mode="json")
 
 
 @router.post("/query")
@@ -100,7 +327,9 @@ def post_live_query(body: LiveQueryRequest) -> dict[str, Any]:
             detail="campaign_id/session do not match loaded live packet",
         )
     try:
-        return process_live_query(body.text, base=base, request_manifest_path=body.manifest_path)
+        return process_live_query(
+            body.text, base=base, request_manifest_path=body.manifest_path
+        )
     except LiveRowValidationError as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
@@ -230,7 +459,9 @@ def post_resolve_roll(body: ResolveRollRequest) -> dict[str, Any]:
 
     _, _, events_after, jobs_after = load_session(base)
     if len(events_after) != len(events_before) or len(jobs_after) != len(jobs_before):
-        raise HTTPException(status_code=500, detail="resolve-roll must not append events or jobs")
+        raise HTTPException(
+            status_code=500, detail="resolve-roll must not append events or jobs"
+        )
 
     return {
         "table_id": resolved.table_id,

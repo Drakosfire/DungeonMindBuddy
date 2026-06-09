@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { getArtifact, getCapabilities, postCommand } from "./liveApi";
+import { getArtifact, getCapabilities, getStatblockWorkbenchSample, postCommand } from "./liveApi";
 import type { ProjectionCommand, ProjectionWriteResult } from "./types";
 
 function mockJsonResponse(payload: unknown): Response {
@@ -51,6 +51,26 @@ describe("liveApi artifact/capability helpers", () => {
     expect(String(url)).not.toContain("file_path");
     expect(String(url)).not.toContain("absolute_path");
     expect(String(url)).not.toContain("relative_path");
+  });
+
+
+  it("getStatblockWorkbenchSample calls expected sample endpoint", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      mockJsonResponse({
+        schema_version: "dmb_statblock_workbench_sample_v1",
+        mode: "sample_mock",
+        artifact: {},
+        command_status: "ok",
+        diagnostics: [],
+        available_actions: [],
+      }),
+    );
+
+    await getStatblockWorkbenchSample();
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    const [url] = fetchSpy.mock.calls[0];
+    expect(String(url)).toBe("/api/live/statblocks/workbench/sample");
   });
 
   it("postCommand posts command body unchanged to commands endpoint", async () => {

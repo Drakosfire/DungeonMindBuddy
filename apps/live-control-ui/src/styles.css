@@ -979,3 +979,155 @@ button:disabled {
     display: block;
   }
 }
+
+.statblock-workbench {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.statblock-workbench-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.statblock-workbench-header .eyebrow {
+  margin: 0 0 0.2rem;
+  color: #9fb8ff;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.statblock-status-grid,
+.statblock-defaults-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: 0.5rem;
+  margin: 0;
+}
+
+.statblock-status-grid div,
+.statblock-default-row {
+  border: 1px solid #2f3749;
+  border-radius: 8px;
+  background: #121621;
+  padding: 0.5rem;
+}
+
+.statblock-status-grid dt,
+.statblock-defaults-grid dt {
+  color: #9aa3b5;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+}
+
+.statblock-status-grid dd,
+.statblock-defaults-grid dd {
+  margin: 0.25rem 0 0;
+  color: #eef3ff;
+}
+
+.statblock-section {
+  border-top: 1px solid #252b38;
+  padding-top: 0.85rem;
+}
+
+.statblock-section h3 {
+  margin: 0 0 0.55rem;
+  font-size: 0.95rem;
+}
+
+.statblock-markdown-preview,
+.statblock-json-details pre {
+  margin: 0;
+  padding: 0.65rem;
+  border-radius: 8px;
+  background: #0f1218;
+  color: #dde5f5;
+  overflow: auto;
+  white-space: pre-wrap;
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
+.statblock-markdown-preview {
+  max-height: 28rem;
+}
+
+.statblock-warning-list,
+.statblock-breadcrumb-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.statblock-warning-list li,
+.statblock-breadcrumb-list li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  align-items: center;
+  border: 1px solid #2f3749;
+  border-radius: 8px;
+  background: #121621;
+  padding: 0.5rem;
+}
+
+.statblock-breadcrumb-list li {
+  display: inline-flex;
+  width: fit-content;
+}
+
+.statblock-breadcrumb-list small {
+  color: #9aa3b5;
+}
+
+.badge.warning {
+  border-color: #66512a;
+  background: #2c2112;
+  color: #ffd27d;
+}
+
+.statblock-split-section {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.statblock-json-details {
+  border: 1px solid #2f3749;
+  border-radius: 8px;
+  background: #121621;
+  padding: 0.55rem;
+}
+
+.statblock-json-details summary {
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.statblock-json-details pre {
+  margin-top: 0.5rem;
+}
+
+.statblock-action-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: 0.6rem;
+}
+
+.statblock-action-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.statblock-action-card small {
+  color: #9aa3b5;
+}
