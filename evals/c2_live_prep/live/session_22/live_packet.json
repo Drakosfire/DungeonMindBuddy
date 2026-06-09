@@ -292,6 +292,15 @@
       "config_schema": null
     },
     {
+      "module_id": "statblock_workbench",
+      "title": "Statblock Workbench",
+      "default_slot": "main",
+      "required": false,
+      "enabled_by_default": false,
+      "description": "Read-only statblock draft artifact review surface.",
+      "config_schema": null
+    },
+    {
       "module_id": "queue",
       "title": "Queue",
       "default_slot": "bottom",

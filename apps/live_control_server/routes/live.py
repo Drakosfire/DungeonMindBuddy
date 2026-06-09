@@ -30,9 +30,16 @@ from src.live_play.projections import (
 from src.live_play.projections.artifacts import ArtifactReadError
 from src.live_play.resolve_roll import RollResolveError, resolve_roll_from_packet
 
+from apps.live_control_server.services.statblock_workbench import (
+    StatblockWorkbenchSampleResponse,
+    build_statblock_workbench_sample_response,
+)
+
 router = APIRouter(prefix="/api/live", tags=["live"])
 INSPECTABLE_TARGET_TYPE = Literal["event", "roll_table"]
-FORBIDDEN_PATH_QUERY_FIELDS = frozenset({"source_path", "file_path", "path", "absolute_path", "relative_path"})
+FORBIDDEN_PATH_QUERY_FIELDS = frozenset(
+    {"source_path", "file_path", "path", "absolute_path", "relative_path"}
+)
 
 
 class LiveQueryRequest(BaseModel):
@@ -75,7 +82,9 @@ def _target_from_session(
                 label=label,
                 source_status="authoritative",
             )
-        raise HTTPException(status_code=404, detail=f"unknown target id for event: {target_id}")
+        raise HTTPException(
+            status_code=404, detail=f"unknown target id for event: {target_id}"
+        )
 
     for row in packet.get("known_roll_tables", []):
         if row.get("table_id") != target_id:
@@ -87,7 +96,21 @@ def _target_from_session(
             label=title,
             source_status="authoritative",
         )
-    raise HTTPException(status_code=404, detail=f"unknown target id for roll_table: {target_id}")
+    raise HTTPException(
+        status_code=404, detail=f"unknown target id for roll_table: {target_id}"
+    )
+
+
+@router.get(
+    "/statblocks/workbench/sample",
+    response_model=StatblockWorkbenchSampleResponse,
+)
+def get_statblock_workbench_sample() -> dict[str, Any]:
+    try:
+        response = build_statblock_workbench_sample_response()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    return response.model_dump(mode="json")
 
 
 @router.post("/query")
@@ -100,7 +123,9 @@ def post_live_query(body: LiveQueryRequest) -> dict[str, Any]:
             detail="campaign_id/session do not match loaded live packet",
         )
     try:
-        return process_live_query(body.text, base=base, request_manifest_path=body.manifest_path)
+        return process_live_query(
+            body.text, base=base, request_manifest_path=body.manifest_path
+        )
     except LiveRowValidationError as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
@@ -230,7 +255,9 @@ def post_resolve_roll(body: ResolveRollRequest) -> dict[str, Any]:
 
     _, _, events_after, jobs_after = load_session(base)
     if len(events_after) != len(events_before) or len(jobs_after) != len(jobs_before):
-        raise HTTPException(status_code=500, detail="resolve-roll must not append events or jobs")
+        raise HTTPException(
+            status_code=500, detail="resolve-roll must not append events or jobs"
+        )
 
     return {
         "table_id": resolved.table_id,

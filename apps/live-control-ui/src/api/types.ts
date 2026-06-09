@@ -406,3 +406,67 @@ export interface RecapIngestStatus {
   ingest_report: Record<string, unknown>;
   entity_spelling_audit: Array<Record<string, unknown>>;
 }
+
+export interface StatblockWorkbenchAction {
+  action_id: string;
+  label: string;
+  enabled: boolean;
+  disabled_reason: string | null;
+}
+
+export interface StatblockBreadcrumb {
+  label: string;
+  source?: string | null;
+  target?: string | null;
+  metadata?: Record<string, unknown>;
+}
+
+export interface StatblockCombatDefaults {
+  name?: string | null;
+  armor_class?: number | string | null;
+  hit_points?: number | string | null;
+  initiative_bonus?: number | null;
+  passive_perception?: number | string | null;
+  speed_summary?: string | null;
+  speed?: string | null;
+  senses_summary?: string | null;
+  primary_actions?: string[];
+  suggested_tactics?: string[];
+  legendary_actions?: number | null;
+}
+
+export interface StatblockReviewWarning {
+  code?: string | null;
+  message: string;
+  severity?: string;
+  path?: string | null;
+}
+
+export interface StatblockDraftArtifactView {
+  artifact_id: string;
+  draft_id: string;
+  title: string;
+  markdown: string;
+  structured_statblock: Record<string, unknown>;
+  combat_defaults: StatblockCombatDefaults;
+  warnings: StatblockReviewWarning[];
+  provenance: Record<string, unknown>;
+  review_status: string;
+  lifecycle_state: string;
+  storage_status: string;
+  corpus_status: string;
+  source_refs: Array<Record<string, unknown>>;
+  breadcrumbs: StatblockBreadcrumb[];
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface StatblockWorkbenchSampleResponse {
+  schema_version: "dmb_statblock_workbench_sample_v1";
+  mode: "sample_mock";
+  artifact: StatblockDraftArtifactView;
+  command_status: string;
+  diagnostics: string[];
+  available_actions: StatblockWorkbenchAction[];
+}

@@ -15,6 +15,15 @@
       "config": {}
     },
     {
+      "module_id": "statblock_workbench",
+      "slot": "main",
+      "order": 2,
+      "enabled": false,
+      "collapsed": false,
+      "size": "1fr",
+      "config": {}
+    },
+    {
       "module_id": "record",
       "slot": "sidebar",
       "order": 0,
