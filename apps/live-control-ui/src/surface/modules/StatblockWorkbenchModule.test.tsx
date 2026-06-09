@@ -1,11 +1,14 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import * as liveApi from "../../api/liveApi";
 import type {
+  ListStatblockDraftsResponse,
+  ReadStatblockDraftResponse,
   StatblockWorkbenchCommandResponse,
   StatblockWorkbenchSampleResponse,
+  StoreStatblockDraftResponse,
 } from "../../api/types";
 import { StatblockWorkbenchModule } from "./StatblockWorkbenchModule";
 
@@ -102,7 +105,48 @@ function commandResponseFor(
   };
 }
 
+const emptyDraftsResponse: ListStatblockDraftsResponse = {
+  schema_version: "dmb_statblock_draft_list_v1",
+  drafts: [],
+};
+
+function storedResponseFor(artifact = sampleResponse.artifact): StoreStatblockDraftResponse {
+  const storedArtifact = {
+    ...artifact,
+    lifecycle_state: "stored_artifact",
+    storage_status: "stored_draft",
+    corpus_status: "not_promoted",
+    updated_at: "2026-06-09T01:00:00Z",
+  };
+  return {
+    schema_version: "dmb_statblock_draft_store_v1",
+    diagnostics: ["stored as non-corpus draft artifact"],
+    record: {
+      schema_version: "dmb_statblock_draft_record_v1",
+      artifact_id: storedArtifact.artifact_id,
+      title: storedArtifact.title,
+      campaign_id: "c2",
+      session: 22,
+      stored_at: "2026-06-09T01:00:00Z",
+      updated_at: "2026-06-09T01:00:00Z",
+      storage_path: `statblock_drafts/${storedArtifact.artifact_id}.json`,
+      artifact: storedArtifact,
+    },
+  };
+}
+
+function readResponseFor(artifact = sampleResponse.artifact): ReadStatblockDraftResponse {
+  return {
+    schema_version: "dmb_statblock_draft_read_v1",
+    record: storedResponseFor(artifact).record,
+  };
+}
+
 describe("StatblockWorkbenchModule", () => {
+  beforeEach(() => {
+    vi.spyOn(liveApi, "listStatblockWorkbenchDrafts").mockResolvedValue(emptyDraftsResponse);
+  });
+
   afterEach(() => {
     vi.restoreAllMocks();
   });
@@ -115,7 +159,7 @@ describe("StatblockWorkbenchModule", () => {
     expect(screen.getByText(/Loading read-only sample artifact/i)).toBeInTheDocument();
 
     await waitFor(() => {
-      expect(screen.getByText("Sample / mock / read-only")).toBeInTheDocument();
+      expect(screen.getByText("Mock / non-corpus draft lane")).toBeInTheDocument();
     });
 
     expect(screen.getByText(/Lifecycle preview for/i)).toBeInTheDocument();
@@ -133,13 +177,9 @@ describe("StatblockWorkbenchModule", () => {
 
     const storeButton = screen.getByRole("button", { name: "Store draft" });
     const combatButton = screen.getByRole("button", { name: "Add to combat" });
-    expect(storeButton).toBeDisabled();
+    expect(storeButton).toBeEnabled();
     expect(combatButton).toBeDisabled();
-    expect(
-      within(storeButton.closest(".statblock-action-card") as HTMLElement).getByText(
-        /read-only sample mode/,
-      ),
-    ).toBeInTheDocument();
+    expect(screen.getByText("No stored statblock drafts yet.")).toBeInTheDocument();
   });
 
   it("runs generate command and replaces the displayed artifact", async () => {
@@ -155,7 +195,7 @@ describe("StatblockWorkbenchModule", () => {
 
     render(<StatblockWorkbenchModule />);
 
-    await screen.findByText("Sample / mock / read-only");
+    await screen.findByText("Mock / non-corpus draft lane");
     await user.click(screen.getByRole("button", { name: "Generate mock draft" }));
 
     expect(commandSpy).toHaveBeenCalledWith(
@@ -177,7 +217,7 @@ describe("StatblockWorkbenchModule", () => {
       0,
     );
     expect(screen.queryByText(/Claw\. Bite\. Shifting stone\./)).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Store draft" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Store draft" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "Add to combat" })).toBeDisabled();
   });
 
@@ -193,7 +233,7 @@ describe("StatblockWorkbenchModule", () => {
 
     render(<StatblockWorkbenchModule />);
 
-    await screen.findByText("Sample / mock / read-only");
+    await screen.findByText("Mock / non-corpus draft lane");
     await user.click(screen.getByRole("button", { name: "Render mock draft" }));
 
     await screen.findByText(/Gearhook Slam\. Bog Vent\./);
@@ -203,7 +243,7 @@ describe("StatblockWorkbenchModule", () => {
     expect(
       screen.getAllByText("Rendered Clockwork Mire Sentinel").length,
     ).toBeGreaterThan(0);
-    expect(screen.getByRole("button", { name: "Store draft" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Store draft" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "Add to combat" })).toBeDisabled();
   });
 
@@ -216,13 +256,105 @@ describe("StatblockWorkbenchModule", () => {
 
     render(<StatblockWorkbenchModule />);
 
-    await screen.findByText("Sample / mock / read-only");
+    await screen.findByText("Mock / non-corpus draft lane");
     await user.click(screen.getByRole("button", { name: "Generate mock draft" }));
 
     await screen.findByText(/Unable to run Workbench command: mock command failed safely/);
     expect(screen.getAllByText("Geomantic Drake Juvenile").length).toBeGreaterThan(0);
     expect(screen.getByText(/Claw\. Bite\. Shifting stone\./)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Store draft" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Store draft" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "Add to combat" })).toBeDisabled();
   });
+
+  it("stores the current draft and refreshes the stored draft list", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(liveApi, "getStatblockWorkbenchSample").mockResolvedValue(sampleResponse);
+    const stored = storedResponseFor();
+    vi.spyOn(liveApi, "storeStatblockWorkbenchDraft").mockResolvedValue(stored);
+    vi.mocked(liveApi.listStatblockWorkbenchDrafts)
+      .mockResolvedValueOnce(emptyDraftsResponse)
+      .mockResolvedValueOnce({
+        schema_version: "dmb_statblock_draft_list_v1",
+        drafts: [{
+          artifact_id: stored.record.artifact_id,
+          title: stored.record.title,
+          draft_id: stored.record.artifact.draft_id,
+          review_status: stored.record.artifact.review_status,
+          lifecycle_state: stored.record.artifact.lifecycle_state,
+          storage_status: stored.record.artifact.storage_status,
+          corpus_status: stored.record.artifact.corpus_status,
+          stored_at: stored.record.stored_at,
+          updated_at: stored.record.updated_at,
+          storage_path: stored.record.storage_path,
+        }],
+      });
+
+    render(<StatblockWorkbenchModule />);
+
+    await screen.findByText("Mock / non-corpus draft lane");
+    await user.click(screen.getByRole("button", { name: "Store draft" }));
+
+    expect(liveApi.storeStatblockWorkbenchDraft).toHaveBeenCalledWith({
+      artifact: sampleResponse.artifact,
+      source: "workbench",
+    });
+    await screen.findByText("stored_artifact");
+    expect(screen.getAllByText("stored_draft").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("not_promoted").length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/statblock_drafts\/statblock-draft-test\.json/).length).toBeGreaterThan(0);
+  });
+
+  it("keeps the current artifact visible when storing fails", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(liveApi, "getStatblockWorkbenchSample").mockResolvedValue(sampleResponse);
+    vi.spyOn(liveApi, "storeStatblockWorkbenchDraft").mockRejectedValue(new Error("unsafe id"));
+
+    render(<StatblockWorkbenchModule />);
+
+    await screen.findByText("Mock / non-corpus draft lane");
+    await user.click(screen.getByRole("button", { name: "Store draft" }));
+
+    await screen.findByText(/Unable to store draft: unsafe id/);
+    expect(screen.getAllByText("Geomantic Drake Juvenile").length).toBeGreaterThan(0);
+    expect(screen.getByText(/Claw\. Bite\. Shifting stone\./)).toBeInTheDocument();
+  });
+
+  it("loads a stored draft into the Workbench display", async () => {
+    const user = userEvent.setup();
+    const loadedArtifact = {
+      ...sampleResponse.artifact,
+      artifact_id: "statblock-draft-loaded",
+      title: "Loaded Mire Adept",
+      markdown: "## Loaded Mire Adept\nLoaded from storage.",
+      lifecycle_state: "stored_artifact",
+      storage_status: "stored_draft",
+    };
+    vi.spyOn(liveApi, "getStatblockWorkbenchSample").mockResolvedValue(sampleResponse);
+    vi.mocked(liveApi.listStatblockWorkbenchDrafts).mockResolvedValue({
+      schema_version: "dmb_statblock_draft_list_v1",
+      drafts: [{
+        artifact_id: "statblock-draft-loaded",
+        title: "Loaded Mire Adept",
+        draft_id: "draft-loaded",
+        review_status: "needs_dm_review",
+        lifecycle_state: "stored_artifact",
+        storage_status: "stored_draft",
+        corpus_status: "not_promoted",
+        stored_at: "2026-06-09T01:00:00Z",
+        updated_at: "2026-06-09T01:00:00Z",
+        storage_path: "statblock_drafts/statblock-draft-loaded.json",
+      }],
+    });
+    vi.spyOn(liveApi, "getStatblockWorkbenchDraft").mockResolvedValue(readResponseFor(loadedArtifact));
+
+    render(<StatblockWorkbenchModule />);
+
+    await screen.findByText("Loaded Mire Adept");
+    await user.click(screen.getByRole("button", { name: "Load" }));
+
+    expect(liveApi.getStatblockWorkbenchDraft).toHaveBeenCalledWith("statblock-draft-loaded");
+    await screen.findByText(/Loaded from storage/);
+    expect(screen.getAllByText("Loaded Mire Adept").length).toBeGreaterThan(0);
+  });
+
 });

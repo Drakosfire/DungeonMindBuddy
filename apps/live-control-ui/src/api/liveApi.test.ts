@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { getArtifact, getCapabilities, getStatblockWorkbenchSample, postCommand, postStatblockWorkbenchCommand } from "./liveApi";
-import type { ProjectionCommand, ProjectionWriteResult } from "./types";
+import { getArtifact, getCapabilities, getStatblockWorkbenchDraft, getStatblockWorkbenchSample, listStatblockWorkbenchDrafts, postCommand, postStatblockWorkbenchCommand, storeStatblockWorkbenchDraft } from "./liveApi";
+import type { ProjectionCommand, ProjectionWriteResult, StoreStatblockDraftRequest } from "./types";
 
 function mockJsonResponse(payload: unknown): Response {
   return {
@@ -99,6 +99,67 @@ describe("liveApi artifact/capability helpers", () => {
     expect(init?.method).toBe("POST");
     expect(init?.headers).toEqual({ "Content-Type": "application/json" });
     expect(JSON.parse(String(init?.body))).toEqual(request);
+  });
+
+
+  it("storeStatblockWorkbenchDraft posts draft body to Workbench drafts endpoint", async () => {
+    const request: StoreStatblockDraftRequest = {
+      source: "workbench",
+      artifact: {
+        artifact_id: "statblock-draft-test",
+        draft_id: "draft-test",
+        title: "Test",
+        markdown: "## Test",
+        structured_statblock: {},
+        combat_defaults: {},
+        warnings: [],
+        provenance: {},
+        review_status: "needs_dm_review",
+        lifecycle_state: "live_draft",
+        storage_status: "not_stored",
+        corpus_status: "not_promoted",
+        source_refs: [],
+        breadcrumbs: [],
+        created_by: "agent",
+        created_at: "2026-06-09T00:00:00Z",
+        updated_at: "2026-06-09T00:00:00Z",
+      },
+    };
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      mockJsonResponse({ schema_version: "dmb_statblock_draft_store_v1", record: {}, diagnostics: [] }),
+    );
+
+    await storeStatblockWorkbenchDraft(request);
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchSpy.mock.calls[0];
+    expect(String(url)).toBe("/api/live/statblocks/workbench/drafts");
+    expect(init?.method).toBe("POST");
+    expect(JSON.parse(String(init?.body))).toEqual(request);
+  });
+
+  it("listStatblockWorkbenchDrafts calls expected drafts endpoint", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      mockJsonResponse({ schema_version: "dmb_statblock_draft_list_v1", drafts: [] }),
+    );
+
+    await listStatblockWorkbenchDrafts();
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    const [url] = fetchSpy.mock.calls[0];
+    expect(String(url)).toBe("/api/live/statblocks/workbench/drafts");
+  });
+
+  it("getStatblockWorkbenchDraft encodes artifact id in read endpoint", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      mockJsonResponse({ schema_version: "dmb_statblock_draft_read_v1", record: {} }),
+    );
+
+    await getStatblockWorkbenchDraft("statblock:draft test");
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    const [url] = fetchSpy.mock.calls[0];
+    expect(String(url)).toBe("/api/live/statblocks/workbench/drafts/statblock%3Adraft%20test");
   });
 
   it("postCommand posts command body unchanged to commands endpoint", async () => {

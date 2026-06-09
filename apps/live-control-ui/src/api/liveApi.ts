@@ -11,6 +11,10 @@ import type {
   LiveSurfaceResponse,
   ResolvedRollResponse,
   SurfaceLayout,
+  ListStatblockDraftsResponse,
+  ReadStatblockDraftResponse,
+  StoreStatblockDraftRequest,
+  StoreStatblockDraftResponse,
   StatblockWorkbenchCommandRequest,
   StatblockWorkbenchCommandResponse,
   StatblockWorkbenchSampleResponse,
@@ -182,5 +186,33 @@ export async function postStatblockWorkbenchCommand(
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(request),
     },
+  );
+}
+
+
+export async function storeStatblockWorkbenchDraft(
+  request: StoreStatblockDraftRequest,
+): Promise<StoreStatblockDraftResponse> {
+  return apiFetch<StoreStatblockDraftResponse>(
+    "/api/live/statblocks/workbench/drafts",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(request),
+    },
+  );
+}
+
+export async function listStatblockWorkbenchDrafts(): Promise<ListStatblockDraftsResponse> {
+  return apiFetch<ListStatblockDraftsResponse>(
+    "/api/live/statblocks/workbench/drafts",
+  );
+}
+
+export async function getStatblockWorkbenchDraft(
+  artifactId: string,
+): Promise<ReadStatblockDraftResponse> {
+  return apiFetch<ReadStatblockDraftResponse>(
+    `/api/live/statblocks/workbench/drafts/${encodeURIComponent(artifactId)}`,
   );
 }
