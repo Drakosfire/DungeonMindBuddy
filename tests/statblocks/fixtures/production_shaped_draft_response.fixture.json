@@ -1,0 +1,60 @@
+{
+  "success": true,
+  "draft": {
+    "draft_id": "draft-prod-shaped-reed-cloaked-goblin-outrider",
+    "lifecycle_state": "live_draft",
+    "review_status": "needs_dm_review",
+    "markdown": "## Reed-Cloaked Goblin Outrider\n*Small humanoid, neutral evil*\n\n**Armor Class** 15\n**Hit Points** 27\n\n### Actions\n**Reed Spear.** Melee or Ranged Weapon Attack.\n**Bog Skirmish.** The outrider moves through reeds without provoking opportunity attacks.",
+    "statblock": {
+      "name": "Reed-Cloaked Goblin Outrider",
+      "size": "Small",
+      "type": "humanoid",
+      "armor_class": 15,
+      "hit_points": 27,
+      "speed": "30 ft., swim 20 ft.",
+      "senses": "darkvision 60 ft., passive Perception 12",
+      "actions": [
+        {"name": "Reed Spear", "description": "Melee or Ranged Weapon Attack."},
+        {"name": "Bog Skirmish", "description": "Move through reeds without provoking opportunity attacks."}
+      ]
+    },
+    "combat_defaults": {
+      "name": "Reed-Cloaked Goblin Outrider",
+      "armor_class": 15,
+      "hit_points": 27,
+      "initiative_bonus": 3,
+      "passive_perception": 12,
+      "speed_summary": "30 ft., swim 20 ft.",
+      "senses_summary": "darkvision 60 ft., passive Perception 12",
+      "primary_actions": ["Reed Spear", "Bog Skirmish"],
+      "suggested_tactics": ["Skirmish from reed cover.", "Use swim speed to flank along marsh channels."]
+    },
+    "warnings": [
+      {"code": "review_cr", "message": "Review CR and damage output before table use.", "severity": "warning"}
+    ],
+    "provenance": {
+      "request_id": "prod-smoke-generate-from-prompt-basic",
+      "mode": "generate_from_prompt",
+      "generator": "statblock_draft_adapter.generate_from_prompt",
+      "generated_at": "2026-06-09T15:00:00Z",
+      "source_refs": [
+        {
+          "id": "source-prod-smoke-prompt",
+          "kind": "prompt",
+          "label": "Production smoke prompt",
+          "reason": "Live deploy smoke coverage",
+          "source_type": "prompt",
+          "source_id": "prod-smoke-prompt",
+          "title": "generate_from_prompt.basic.json"
+        }
+      ],
+      "generation_info": {
+        "generated": true,
+        "model": "gpt-4o-2024-08-06",
+        "contract": "command_board_draft_v2"
+      },
+      "persistence_request": {"persist": false}
+    }
+  },
+  "timestamp": "2026-06-09T15:00:01Z"
+}
