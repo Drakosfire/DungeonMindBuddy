@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { getArtifact, getCapabilities, getStatblockWorkbenchSample, postCommand } from "./liveApi";
+import { getArtifact, getCapabilities, getStatblockWorkbenchSample, postCommand, postStatblockWorkbenchCommand } from "./liveApi";
 import type { ProjectionCommand, ProjectionWriteResult } from "./types";
 
 function mockJsonResponse(payload: unknown): Response {
@@ -71,6 +71,34 @@ describe("liveApi artifact/capability helpers", () => {
     expect(fetchSpy).toHaveBeenCalledTimes(1);
     const [url] = fetchSpy.mock.calls[0];
     expect(String(url)).toBe("/api/live/statblocks/workbench/sample");
+  });
+
+
+  it("postStatblockWorkbenchCommand posts command body to Workbench command endpoint", async () => {
+    const request = {
+      command_type: "statblock.draft.generate" as const,
+      requested_by: "human" as const,
+      as_artifact: true,
+    };
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      mockJsonResponse({
+        schema_version: "dmb_statblock_workbench_command_v1",
+        mode: "mock_command",
+        artifact: null,
+        command_status: "ok",
+        diagnostics: [],
+        available_actions: [],
+      }),
+    );
+
+    await postStatblockWorkbenchCommand(request);
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchSpy.mock.calls[0];
+    expect(String(url)).toBe("/api/live/statblocks/workbench/command");
+    expect(init?.method).toBe("POST");
+    expect(init?.headers).toEqual({ "Content-Type": "application/json" });
+    expect(JSON.parse(String(init?.body))).toEqual(request);
   });
 
   it("postCommand posts command body unchanged to commands endpoint", async () => {

@@ -31,8 +31,11 @@ from src.live_play.projections.artifacts import ArtifactReadError
 from src.live_play.resolve_roll import RollResolveError, resolve_roll_from_packet
 
 from apps.live_control_server.services.statblock_workbench import (
+    StatblockWorkbenchCommandRequest,
+    StatblockWorkbenchCommandResponse,
     StatblockWorkbenchSampleResponse,
     build_statblock_workbench_sample_response,
+    execute_statblock_workbench_command,
 )
 
 router = APIRouter(prefix="/api/live", tags=["live"])
@@ -110,6 +113,19 @@ def get_statblock_workbench_sample() -> dict[str, Any]:
         response = build_statblock_workbench_sample_response()
     except RuntimeError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
+    return response.model_dump(mode="json")
+
+
+@router.post(
+    "/statblocks/workbench/command",
+    response_model=StatblockWorkbenchCommandResponse,
+)
+def post_statblock_workbench_command(
+    body: StatblockWorkbenchCommandRequest,
+) -> dict[str, Any]:
+    response = execute_statblock_workbench_command(body)
+    if response.artifact is None:
+        raise HTTPException(status_code=502, detail=response.model_dump(mode="json"))
     return response.model_dump(mode="json")
 
 

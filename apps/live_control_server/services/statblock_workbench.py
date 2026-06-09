@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -8,7 +8,10 @@ from src.statblocks.lifecycle_artifact import (
     StatblockBreadcrumb,
     StatblockDraftArtifact,
 )
-from src.statblocks.lifecycle_commands import STATBLOCK_DRAFT_GENERATE
+from src.statblocks.lifecycle_commands import (
+    STATBLOCK_DRAFT_GENERATE,
+    STATBLOCK_DRAFT_RENDER,
+)
 from src.statblocks.lifecycle_service import (
     StatblockLifecycleCommandRequest,
     StatblockLifecycleService,
@@ -35,6 +38,29 @@ class StatblockWorkbenchSampleResponse(BaseModel):
     available_actions: list[StatblockWorkbenchAction] = Field(default_factory=list)
 
 
+class StatblockWorkbenchCommandRequest(BaseModel):
+    command_type: Literal[
+        "statblock.draft.generate",
+        "statblock.draft.render",
+    ]
+    payload: dict[str, Any] = Field(default_factory=dict)
+    requested_by: Literal["human", "agent", "planning_task", "combat_task"] = "human"
+    breadcrumbs: list[StatblockBreadcrumb] = Field(default_factory=list)
+    as_artifact: bool = True
+
+
+class StatblockWorkbenchCommandResponse(BaseModel):
+    schema_version: Literal["dmb_statblock_workbench_command_v1"] = (
+        "dmb_statblock_workbench_command_v1"
+    )
+    mode: Literal["mock_command"] = "mock_command"
+    artifact: StatblockDraftArtifact | None = None
+    command_status: str
+    diagnostics: list[str] = Field(default_factory=list)
+    available_actions: list[StatblockWorkbenchAction] = Field(default_factory=list)
+    error: dict[str, Any] | None = None
+
+
 def build_statblock_workbench_sample_response() -> StatblockWorkbenchSampleResponse:
     service = StatblockLifecycleService(
         MockStatBlockGeneratorProvider(
@@ -54,6 +80,61 @@ def build_statblock_workbench_sample_response() -> StatblockWorkbenchSampleRespo
             *result.diagnostics,
         ],
         available_actions=_statblock_workbench_future_actions(),
+    )
+
+
+def execute_statblock_workbench_command(
+    body: StatblockWorkbenchCommandRequest,
+) -> StatblockWorkbenchCommandResponse:
+    service = StatblockLifecycleService(
+        MockStatBlockGeneratorProvider(
+            generate_response=_statblock_workbench_generate_draft_response(),
+            render_response=_statblock_workbench_render_draft_response(),
+        )
+    )
+    command_request = StatblockLifecycleCommandRequest(
+        command_type=body.command_type,
+        requested_by=body.requested_by,
+        breadcrumbs=[
+            *body.breadcrumbs,
+            StatblockBreadcrumb(
+                label="surface:statblock_workbench", source="live_control"
+            ),
+            StatblockBreadcrumb(label="source:mock_provider", source="mock_provider"),
+            StatblockBreadcrumb(label=f"command:{body.command_type}", source="mock_provider"),
+        ],
+        payload=body.payload or _default_workbench_command_payload(body.command_type),
+        as_artifact=body.as_artifact,
+    )
+    result = service.execute(command_request)
+    diagnostics = [
+        "command endpoint uses MockStatBlockGeneratorProvider only",
+        "artifact is mock-backed and non-persistent",
+        "no corpus write, Semantic Knowledge Layer ingestion, or combat mutation occurred",
+        *result.diagnostics,
+    ]
+    if result.artifact is not None:
+        return StatblockWorkbenchCommandResponse(
+            artifact=result.artifact,
+            command_status=result.status,
+            diagnostics=diagnostics,
+            available_actions=_statblock_workbench_future_actions(),
+        )
+
+    error = (
+        result.error.model_dump(mode="json")
+        if result.error is not None
+        else {
+            "code": "missing_artifact",
+            "message": "statblock lifecycle command did not produce a draft artifact",
+        }
+    )
+    return StatblockWorkbenchCommandResponse(
+        artifact=None,
+        command_status=result.status,
+        diagnostics=diagnostics,
+        available_actions=_statblock_workbench_future_actions(),
+        error=error,
     )
 
 
@@ -217,3 +298,140 @@ def _statblock_workbench_sample_command() -> StatblockLifecycleCommandRequest:
             },
         },
     )
+
+
+def _statblock_workbench_generate_draft_response() -> StatBlockDraftResponse:
+    return _statblock_workbench_sample_draft_response()
+
+
+def _statblock_workbench_render_draft_response() -> StatBlockDraftResponse:
+    return StatBlockDraftResponse.model_validate(
+        {
+            "success": True,
+            "draft": {
+                "draft_id": "mock-rendered-clockwork-mire-sentinel",
+                "lifecycle_state": "live_draft",
+                "review_status": "needs_dm_review",
+                "markdown": (
+                    "## Rendered Clockwork Mire Sentinel\n"
+                    "*Large construct, unaligned*\n\n"
+                    "**Armor Class** 17 (plated reeds)\n"
+                    "**Hit Points** 95 (10d10 + 40)\n"
+                    "**Speed** 25 ft., swim 20 ft.\n\n"
+                    "### Actions\n"
+                    "**Gearhook Slam.** Melee Weapon Attack: +7 to hit, one target.\n\n"
+                    "**Bog Vent.** The sentinel vents scalding mist in a 15-foot cone."
+                ),
+                "statblock": {
+                    "name": "Rendered Clockwork Mire Sentinel",
+                    "size": "Large",
+                    "type": "construct",
+                    "challenge_rating": "5",
+                },
+                "combat_defaults": {
+                    "name": "Rendered Clockwork Mire Sentinel",
+                    "armor_class": 17,
+                    "hit_points": 95,
+                    "initiative_bonus": 0,
+                    "passive_perception": 12,
+                    "speed_summary": "25 ft., swim 20 ft.",
+                    "senses_summary": "blindsight 30 ft., passive Perception 12",
+                    "primary_actions": ["Gearhook Slam", "Bog Vent"],
+                    "suggested_tactics": [
+                        "Anchor a flooded choke point and punish clustered movement.",
+                        "Use Bog Vent after grappling a front-line defender.",
+                    ],
+                },
+                "warnings": [
+                    {
+                        "code": "rendered_mock_needs_dm_review",
+                        "message": "Validate rendered recharge cadence before durable storage.",
+                        "severity": "warning",
+                        "path": "actions.bog_vent",
+                    }
+                ],
+                "provenance": {
+                    "request_id": "live-control-statblock-workbench-render",
+                    "mode": "render_existing",
+                    "generator": "mock-statblock-generator",
+                    "generated_at": "2026-06-09T00:00:00Z",
+                    "source_refs": [
+                        {
+                            "id": "sample-source-clockwork-mire-sentinel",
+                            "kind": "render_source",
+                            "label": "Clockwork mire sentinel render input",
+                            "path": "workbench/mock/render-input",
+                            "reason": "Mock render provenance only; not read or written by endpoint.",
+                        }
+                    ],
+                    "generation_info": {
+                        "generated": False,
+                        "sample": True,
+                        "provider": "MockStatBlockGeneratorProvider",
+                    },
+                },
+            },
+            "timestamp": "2026-06-09T00:00:00Z",
+        }
+    )
+
+
+def _default_workbench_command_payload(command_type: str) -> dict[str, Any]:
+    if command_type == STATBLOCK_DRAFT_RENDER:
+        return {
+            "request_id": "live-control-statblock-workbench-render",
+            "mode": "render_existing",
+            "statblock": {
+                "name": "Rendered Clockwork Mire Sentinel",
+                "size": "Large",
+                "type": "construct",
+                "challenge_rating": "5",
+            },
+            "output_options": {
+                "include_markdown": True,
+                "include_json": True,
+                "include_combat_defaults": True,
+                "include_review_warnings": True,
+                "persist": False,
+                "style": "live-control-workbench-command-render",
+            },
+            "source_refs": [
+                {
+                    "id": "sample-source-clockwork-mire-sentinel",
+                    "kind": "render_source",
+                    "label": "Clockwork mire sentinel render input",
+                    "path": "workbench/mock/render-input",
+                    "reason": "Mock render provenance only; not read or written by endpoint.",
+                }
+            ],
+        }
+    return {
+        "request_id": "live-control-statblock-workbench-generate",
+        "mode": "generate_from_prompt",
+        "prompt": (
+            "Create a combat-ready Elderwyld geomantic drake juvenile draft "
+            "for interactive mock Workbench review."
+        ),
+        "intent": {
+            "mode": "generate_from_prompt",
+            "creature_name": "Geomantic Drake Juvenile",
+            "challenge_rating": "3",
+            "role": "skirmisher",
+            "tone": "Elderwyld wilderness hazard",
+        },
+        "encounter_context": {
+            "party_level": 5,
+            "party_size": 4,
+            "encounter_role": "mobile terrain-pressure threat",
+            "environment": "conical hills night camp",
+            "constraints": ["show as mock only", "do not persist", "do not add to combat"],
+        },
+        "output_options": {
+            "include_markdown": True,
+            "include_json": True,
+            "include_combat_defaults": True,
+            "include_review_warnings": True,
+            "persist": False,
+            "style": "live-control-workbench-command-generate",
+        },
+    }

@@ -470,3 +470,25 @@ export interface StatblockWorkbenchSampleResponse {
   diagnostics: string[];
   available_actions: StatblockWorkbenchAction[];
 }
+
+export type StatblockWorkbenchCommandType =
+  | "statblock.draft.generate"
+  | "statblock.draft.render";
+
+export interface StatblockWorkbenchCommandRequest {
+  command_type: StatblockWorkbenchCommandType;
+  payload?: Record<string, unknown>;
+  requested_by?: "human" | "agent" | "planning_task" | "combat_task";
+  breadcrumbs?: StatblockBreadcrumb[];
+  as_artifact?: boolean;
+}
+
+export interface StatblockWorkbenchCommandResponse {
+  schema_version: "dmb_statblock_workbench_command_v1";
+  mode: "mock_command";
+  artifact: StatblockDraftArtifactView | null;
+  command_status: string;
+  diagnostics: string[];
+  available_actions: StatblockWorkbenchAction[];
+  error?: Record<string, unknown> | null;
+}
