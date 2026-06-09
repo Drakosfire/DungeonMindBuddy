@@ -14,8 +14,8 @@ const sampleResponse: StatblockWorkbenchSampleResponse = {
     {
       action_id: "store_draft",
       label: "Store draft",
-      enabled: false,
-      disabled_reason: "Disabled in PR3: future lifecycle PR will make this action durable.",
+      enabled: true,
+      disabled_reason: null,
     },
     {
       action_id: "add_to_combat",
@@ -95,6 +95,6 @@ describe("StatblockWorkbenchModule", () => {
     const combatButton = screen.getByRole("button", { name: "Add to combat" });
     expect(storeButton).toBeDisabled();
     expect(combatButton).toBeDisabled();
-    expect(within(storeButton.closest(".statblock-action-card") as HTMLElement).getByText(/future lifecycle PR/)).toBeInTheDocument();
+    expect(within(storeButton.closest(".statblock-action-card") as HTMLElement).getByText(/read-only sample mode/)).toBeInTheDocument();
   });
 });

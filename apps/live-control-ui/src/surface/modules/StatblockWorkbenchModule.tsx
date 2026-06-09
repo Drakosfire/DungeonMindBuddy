@@ -148,14 +148,19 @@ function ReadyWorkbench({ response }: { response: StatblockWorkbenchSampleRespon
       <section className="statblock-section">
         <h3>Future actions</h3>
         <div className="statblock-action-row">
-          {response.available_actions.map((action) => (
-            <div key={action.action_id} className="statblock-action-card">
-              <button type="button" disabled={!action.enabled}>
-                {action.label}
-              </button>
-              {action.disabled_reason ? <small>{action.disabled_reason}</small> : null}
-            </div>
-          ))}
+          {response.available_actions.map((action) => {
+            const disabledReason =
+              action.disabled_reason ??
+              "Disabled in read-only sample mode; future PRs will add handlers.";
+            return (
+              <div key={action.action_id} className="statblock-action-card">
+                <button type="button" disabled aria-disabled="true">
+                  {action.label}
+                </button>
+                <small>{disabledReason}</small>
+              </div>
+            );
+          })}
         </div>
       </section>
 

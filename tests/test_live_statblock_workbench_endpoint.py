@@ -54,3 +54,5 @@ def test_statblock_workbench_sample_endpoint_does_not_expose_internal_key(
     body_text = response.text
     assert "super-secret-test-key" not in body_text
     assert "DUNGEONBUDDY_INTERNAL_API_KEY" not in body_text
+    assert "DUNGEONMIND_SERVER_URL" not in body_text
+    assert "X-DungeonBuddy-Internal-Key" not in body_text
