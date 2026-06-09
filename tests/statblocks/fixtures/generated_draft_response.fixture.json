@@ -1,0 +1,40 @@
+{
+  "success": true,
+  "draft": {
+    "draft_id": "draft-generated-ember-wolf",
+    "lifecycle_state": "live_draft",
+    "review_status": "needs_dm_review",
+    "markdown": "## Ember Wolf\n*Medium elemental beast, unaligned*\n\n**Armor Class** 14\n**Hit Points** 45\n\n### Actions\n**Searing Bite.** Melee Weapon Attack that deals fire damage.",
+    "statblock": {
+      "name": "Ember Wolf",
+      "size": "Medium",
+      "type": "elemental beast",
+      "armor_class": 14,
+      "hit_points": 45,
+      "actions": [
+        {"name": "Searing Bite", "description": "Melee Weapon Attack that deals fire damage."}
+      ]
+    },
+    "combat_defaults": {
+      "name": "Ember Wolf",
+      "armor_class": 14,
+      "hit_points": 45,
+      "initiative_bonus": 2,
+      "speed": "40 ft.",
+      "primary_actions": ["Searing Bite", "Cinder Howl"]
+    },
+    "warnings": [
+      {"code": "review_damage", "message": "Review fire damage against the party tier.", "severity": "warning", "path": "actions.0"}
+    ],
+    "provenance": {
+      "mode": "generate_from_prompt",
+      "generator": "StatBlockGenerator v2",
+      "generated_at": "2026-06-09T12:00:00Z",
+      "source_refs": [
+        {"source_type": "prompt", "source_id": "operator-request-1", "title": "Operator prompt", "excerpt": "Create an ember wolf skirmisher."}
+      ],
+      "generation_info": {"model_family": "fixture", "schema_version": "v2"}
+    }
+  },
+  "timestamp": "2026-06-09T12:00:01Z"
+}
