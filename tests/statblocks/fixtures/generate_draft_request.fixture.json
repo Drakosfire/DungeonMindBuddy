@@ -1,0 +1,27 @@
+{
+  "request_id": "buddy-smoke-generate-ember-wolf",
+  "mode": "generate_from_prompt",
+  "prompt": "Create a CR 1 ember wolf skirmisher for a volcanic road encounter.",
+  "intent": {
+    "mode": "generate_from_prompt",
+    "creature_name": "Ember Wolf",
+    "challenge_rating": "1",
+    "role": "skirmisher",
+    "tone": "dangerous but table-ready"
+  },
+  "source_refs": [
+    {
+      "id": "buddy-smoke-prompt",
+      "kind": "prompt",
+      "label": "Buddy smoke prompt",
+      "reason": "Developer seam test"
+    }
+  ],
+  "output_options": {
+    "include_markdown": true,
+    "include_json": true,
+    "include_combat_defaults": true,
+    "include_review_warnings": true,
+    "persist": false
+  }
+}
