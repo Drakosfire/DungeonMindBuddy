@@ -24,6 +24,12 @@ from src.statblocks.lifecycle_commands import (
     STATBLOCK_GENERATOR_HEALTH as STATBLOCK_GENERATOR_HEALTH,
     STATBLOCK_LIFECYCLE_COMMANDS as STATBLOCK_LIFECYCLE_COMMANDS,
 )
+from src.statblocks.lifecycle_service import (
+    CommandStatus as CommandStatus,
+    StatblockLifecycleCommandRequest as StatblockLifecycleCommandRequest,
+    StatblockLifecycleCommandResult as StatblockLifecycleCommandResult,
+    StatblockLifecycleService as StatblockLifecycleService,
+)
 from src.statblocks.v2_client import (
     DungeonMindServerStatBlockGeneratorClient as DungeonMindServerStatBlockGeneratorClient,
     MockStatBlockGeneratorProvider as MockStatBlockGeneratorProvider,
@@ -46,6 +52,10 @@ from src.statblocks.v2_contract import (
 __all__ = [
     "CombatDefaults",
     "ContractError",
+    "StatblockLifecycleService",
+    "StatblockLifecycleCommandResult",
+    "StatblockLifecycleCommandRequest",
+    "CommandStatus",
     "DraftMode",
     "DraftProvenance",
     "DungeonMindServerStatBlockGeneratorClient",

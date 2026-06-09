@@ -80,7 +80,15 @@ def main(argv: list[str] | None = None) -> int:
             error=ContractError(
                 code="live_generate_confirmation_required",
                 message="Refusing live statblock generation without --confirm-live-generate.",
+                details={
+                    "safe_default": "mock",
+                    "confirmation_flag": "--confirm-live-generate",
+                },
             ),
+            diagnostics=[
+                "mock provider is safe for local smoke checks",
+                "HTTP generate may call OpenAI through DungeonMindServer",
+            ],
         )
         return _emit_result(result, allow_error=args.allow_error)
 

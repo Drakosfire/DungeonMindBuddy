@@ -5,6 +5,7 @@ import json
 import pytest
 
 from scripts import statblock_lifecycle_smoke
+from src.statblocks.v2_contract import StatBlockGeneratorHealth
 
 
 def _json_from_stdout(stdout: str) -> dict[str, object]:
@@ -73,3 +74,39 @@ def test_http_generate_fixture_requires_confirmation_before_provider_constructio
     assert exit_code == 1
     assert output["status"] == "error"
     assert output["error"]["code"] == "live_generate_confirmation_required"  # type: ignore[index]
+    assert output["error"]["details"]["safe_default"] == "mock"  # type: ignore[index]
+    assert "mock provider is safe" in output["diagnostics"][0]  # type: ignore[index]
+
+
+def test_http_health_uses_http_provider_constructor_without_live_network(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    constructed = False
+    closed = False
+
+    class FakeHTTPProvider:
+        def __init__(self) -> None:
+            nonlocal constructed
+            constructed = True
+
+        def health(self) -> StatBlockGeneratorHealth:
+            return StatBlockGeneratorHealth(status="ok", service="fake-http")
+
+        def close(self) -> None:
+            nonlocal closed
+            closed = True
+
+    monkeypatch.setattr(
+        statblock_lifecycle_smoke,
+        "DungeonMindServerStatBlockGeneratorClient",
+        FakeHTTPProvider,
+    )
+
+    exit_code = statblock_lifecycle_smoke.main(["health", "--provider", "http"])
+
+    output = _json_from_stdout(capsys.readouterr().out)
+    assert exit_code == 0
+    assert constructed is True
+    assert closed is True
+    assert output["status"] == "ok"
+    assert output["health"]["service"] == "fake-http"  # type: ignore[index]
