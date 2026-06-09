@@ -301,7 +301,75 @@ def _statblock_workbench_sample_command() -> StatblockLifecycleCommandRequest:
 
 
 def _statblock_workbench_generate_draft_response() -> StatBlockDraftResponse:
-    return _statblock_workbench_sample_draft_response()
+    return StatBlockDraftResponse.model_validate(
+        {
+            "success": True,
+            "draft": {
+                "draft_id": "mock-generated-obsidian-thornling",
+                "lifecycle_state": "live_draft",
+                "review_status": "needs_dm_review",
+                "markdown": (
+                    "## Generated Obsidian Thornling\n"
+                    "*Small plant, unaligned*\n\n"
+                    "**Armor Class** 14 (glassy bark)\n"
+                    "**Hit Points** 45 (10d6 + 10)\n"
+                    "**Speed** 35 ft., climb 20 ft.\n\n"
+                    "### Actions\n"
+                    "**Splinter Thorn.** Ranged Weapon Attack: +6 to hit, one target.\n\n"
+                    "**Root Snare.** The thornling lashes obsidian roots around a creature."
+                ),
+                "statblock": {
+                    "name": "Generated Obsidian Thornling",
+                    "size": "Small",
+                    "type": "plant",
+                    "challenge_rating": "2",
+                },
+                "combat_defaults": {
+                    "name": "Generated Obsidian Thornling",
+                    "armor_class": 14,
+                    "hit_points": 45,
+                    "initiative_bonus": 3,
+                    "passive_perception": 12,
+                    "speed_summary": "35 ft., climb 20 ft.",
+                    "senses_summary": "tremorsense 30 ft., passive Perception 12",
+                    "primary_actions": ["Splinter Thorn", "Root Snare"],
+                    "suggested_tactics": [
+                        "Skirmish from bramble cover and retreat up ruined stone.",
+                        "Use Root Snare to hold a target inside hazardous undergrowth.",
+                    ],
+                },
+                "warnings": [
+                    {
+                        "code": "generated_mock_needs_dm_review",
+                        "message": "Review root restraint wording before table use.",
+                        "severity": "warning",
+                        "path": "actions.root_snare",
+                    }
+                ],
+                "provenance": {
+                    "request_id": "live-control-statblock-workbench-generate",
+                    "mode": "generate_from_prompt",
+                    "generator": "mock-statblock-generator",
+                    "generated_at": "2026-06-09T00:00:00Z",
+                    "source_refs": [
+                        {
+                            "id": "sample-source-obsidian-thornling",
+                            "kind": "prompt_seed",
+                            "label": "Obsidian thornling generated mock prompt",
+                            "path": "workbench/mock/generate-prompt",
+                            "reason": "Mock generate provenance only; not read or written by endpoint.",
+                        }
+                    ],
+                    "generation_info": {
+                        "generated": True,
+                        "sample": True,
+                        "provider": "MockStatBlockGeneratorProvider",
+                    },
+                },
+            },
+            "timestamp": "2026-06-09T00:00:00Z",
+        }
+    )
 
 
 def _statblock_workbench_render_draft_response() -> StatBlockDraftResponse:
@@ -409,21 +477,21 @@ def _default_workbench_command_payload(command_type: str) -> dict[str, Any]:
         "request_id": "live-control-statblock-workbench-generate",
         "mode": "generate_from_prompt",
         "prompt": (
-            "Create a combat-ready Elderwyld geomantic drake juvenile draft "
-            "for interactive mock Workbench review."
+            "Create a combat-ready obsidian thornling draft for interactive "
+            "mock Workbench review."
         ),
         "intent": {
             "mode": "generate_from_prompt",
-            "creature_name": "Geomantic Drake Juvenile",
-            "challenge_rating": "3",
-            "role": "skirmisher",
-            "tone": "Elderwyld wilderness hazard",
+            "creature_name": "Generated Obsidian Thornling",
+            "challenge_rating": "2",
+            "role": "skirmisher-controller",
+            "tone": "Elderwyld bramble hazard",
         },
         "encounter_context": {
-            "party_level": 5,
+            "party_level": 4,
             "party_size": 4,
-            "encounter_role": "mobile terrain-pressure threat",
-            "environment": "conical hills night camp",
+            "encounter_role": "mobile bramble-control threat",
+            "environment": "obsidian-choked ruin trail",
             "constraints": ["show as mock only", "do not persist", "do not add to combat"],
         },
         "output_options": {

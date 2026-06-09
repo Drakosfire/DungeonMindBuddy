@@ -68,8 +68,10 @@ def _post_workbench_command(client: TestClient, command_type: str):
 def test_statblock_workbench_generate_command_returns_mock_artifact() -> None:
     client = TestClient(create_app())
 
+    sample_response = client.get("/api/live/statblocks/workbench/sample")
     response = _post_workbench_command(client, "statblock.draft.generate")
 
+    assert sample_response.status_code == 200
     assert response.status_code == 200
     body = response.json()
     assert body["schema_version"] == "dmb_statblock_workbench_command_v1"
@@ -77,7 +79,8 @@ def test_statblock_workbench_generate_command_returns_mock_artifact() -> None:
     assert body["command_status"] == "ok"
     assert body["artifact"]
     artifact = body["artifact"]
-    assert artifact["title"] == "Geomantic Drake Juvenile"
+    assert artifact["title"] == "Generated Obsidian Thornling"
+    assert artifact["title"] != sample_response.json()["artifact"]["title"]
     assert artifact["markdown"]
     assert artifact["combat_defaults"]
     assert artifact["lifecycle_state"] == "live_draft"
