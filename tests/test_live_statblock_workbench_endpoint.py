@@ -332,3 +332,130 @@ def test_statblock_workbench_draft_endpoints_do_not_expose_internal_key(
         assert "DUNGEONBUDDY_INTERNAL_API_KEY" not in body_text
         assert "DUNGEONMIND_SERVER_URL" not in body_text
         assert "X-DungeonBuddy-Internal-Key" not in body_text
+
+
+def _store_sample_draft(client: TestClient) -> dict:
+    artifact = _sample_artifact(client)
+    response = client.post(
+        "/api/live/statblocks/workbench/drafts",
+        json={"artifact": artifact, "source": "workbench"},
+    )
+    assert response.status_code == 200
+    return response.json()["record"]
+
+
+def test_statblock_workbench_corpus_preview_for_stored_draft(tmp_path, monkeypatch) -> None:
+    session_dir = _temp_live_session(tmp_path, monkeypatch)
+    client = TestClient(create_app())
+    record = _store_sample_draft(client)
+    files_before = _snapshot_files(session_dir)
+
+    response = client.post(
+        f"/api/live/statblocks/workbench/drafts/{record['artifact_id']}/corpus-preview",
+        json={"include_writer_allowlist_check": True},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["schema_version"] == "dmb_statblock_corpus_promotion_preview_v1"
+    assert body["artifact_id"] == record["artifact_id"]
+    assert body["draft_id"] == record["artifact"]["draft_id"]
+    assert body["campaign_id"] == "longmont-c2"
+    assert body["session"] == 22
+    assert body["source_record_path"] == record["storage_path"]
+    assert body["proposed_corpus_relpath"].startswith(
+        "Longmont Campaign/Campaign 2/Statblocks/generated/"
+    )
+    assert body["proposed_corpus_display_path"].startswith(
+        "corpus/eldyrwild-markdown/"
+    )
+    assert not Path(body["proposed_corpus_relpath"]).is_absolute()
+    assert body["frontmatter"]["schema_version"] == "dmb_corpus_statblock_v1"
+    assert body["frontmatter"]["corpus_status"] == "promotion_previewed"
+    assert body["frontmatter"]["source_record_path"] == record["storage_path"]
+    assert body["frontmatter_text"].startswith("---\n")
+    assert "\n---" in body["frontmatter_text"]
+    assert body["full_markdown"].startswith(body["frontmatter_text"])
+    assert record["artifact"]["markdown"] in body["full_markdown"]
+    assert body["breadcrumbs"] == record["artifact"]["breadcrumbs"]
+    assert body["source_refs"] == record["artifact"]["source_refs"]
+    assert body["combat_defaults"] == record["artifact"]["combat_defaults"]
+    assert body["preview_token"]
+    assert body["validation"]["proposed_path_safe"] is True
+    assert body["validation"]["writer_allowed_now"] is not None
+    warning_codes = {warning["code"] for warning in body["warnings"]}
+    assert "writer_allowlist_pending" in warning_codes
+    assert all(action["enabled"] is False for action in body["available_actions"])
+    diagnostics = " ".join(body["diagnostics"])
+    assert "no corpus write" in diagnostics
+    assert "no Semantic Knowledge Layer ingestion" in diagnostics
+    assert "no stored draft mutation" in diagnostics
+    assert _snapshot_files(session_dir) == files_before
+
+
+def test_statblock_workbench_corpus_preview_missing_draft_returns_404(tmp_path, monkeypatch) -> None:
+    _temp_live_session(tmp_path, monkeypatch)
+    client = TestClient(create_app())
+
+    response = client.post(
+        "/api/live/statblocks/workbench/drafts/not-found/corpus-preview",
+        json={"include_writer_allowlist_check": True},
+    )
+
+    assert response.status_code == 404
+
+
+def test_statblock_workbench_corpus_preview_unsafe_id_rejected(tmp_path, monkeypatch) -> None:
+    _temp_live_session(tmp_path, monkeypatch)
+    client = TestClient(create_app())
+
+    response = client.post(
+        "/api/live/statblocks/workbench/drafts/~evil/corpus-preview",
+        json={"include_writer_allowlist_check": True},
+    )
+
+    assert response.status_code == 422
+
+
+def test_statblock_workbench_corpus_preview_warns_for_missing_breadcrumbs(tmp_path, monkeypatch) -> None:
+    _temp_live_session(tmp_path, monkeypatch)
+    client = TestClient(create_app())
+    artifact = {**_sample_artifact(client), "breadcrumbs": []}
+    store_response = client.post(
+        "/api/live/statblocks/workbench/drafts",
+        json={"artifact": artifact, "source": "workbench"},
+    )
+    assert store_response.status_code == 200
+    record = store_response.json()["record"]
+
+    response = client.post(
+        f"/api/live/statblocks/workbench/drafts/{record['artifact_id']}/corpus-preview",
+        json={"include_writer_allowlist_check": False},
+    )
+
+    assert response.status_code == 200
+    warning_codes = {warning["code"] for warning in response.json()["warnings"]}
+    assert "missing_breadcrumbs" in warning_codes
+    assert response.json()["validation"]["writer_allowed_now"] is None
+
+
+def test_statblock_workbench_corpus_preview_does_not_expose_internal_key(
+    tmp_path, monkeypatch
+) -> None:
+    _temp_live_session(tmp_path, monkeypatch)
+    monkeypatch.setenv("DUNGEONBUDDY_INTERNAL_API_KEY", "super-secret-test-key")
+    monkeypatch.setenv("DUNGEONMIND_SERVER_URL", "https://example.invalid")
+    client = TestClient(create_app())
+    record = _store_sample_draft(client)
+
+    response = client.post(
+        f"/api/live/statblocks/workbench/drafts/{record['artifact_id']}/corpus-preview",
+        json={"include_writer_allowlist_check": True},
+    )
+
+    assert response.status_code == 200
+    body_text = response.text
+    assert "super-secret-test-key" not in body_text
+    assert "DUNGEONBUDDY_INTERNAL_API_KEY" not in body_text
+    assert "DUNGEONMIND_SERVER_URL" not in body_text
+    assert "X-DungeonBuddy-Internal-Key" not in body_text

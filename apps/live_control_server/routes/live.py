@@ -30,6 +30,11 @@ from src.live_play.projections import (
 from src.live_play.projections.artifacts import ArtifactReadError
 from src.live_play.resolve_roll import RollResolveError, resolve_roll_from_packet
 
+from apps.live_control_server.services.statblock_corpus_preview import (
+    StatblockCorpusPromotionPreviewRequest,
+    StatblockCorpusPromotionPreviewResponse,
+    build_statblock_corpus_promotion_preview,
+)
 from apps.live_control_server.services.statblock_draft_store import (
     ListStatblockDraftsResponse,
     ReadStatblockDraftResponse,
@@ -193,6 +198,33 @@ def get_statblock_workbench_draft(
     except StatblockDraftNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     response = ReadStatblockDraftResponse(record=record)
+    return response.model_dump(mode="json")
+
+
+@router.post(
+    "/statblocks/workbench/drafts/{artifact_id}/corpus-preview",
+    response_model=StatblockCorpusPromotionPreviewResponse,
+)
+def post_statblock_workbench_draft_corpus_preview(
+    artifact_id: Annotated[str, Path(min_length=1)],
+    body: StatblockCorpusPromotionPreviewRequest | None = None,
+) -> dict[str, Any]:
+    base = session_dir()
+    packet, _, _, _ = load_session(base)
+    request = body or StatblockCorpusPromotionPreviewRequest()
+    try:
+        response = build_statblock_corpus_promotion_preview(
+            base=base,
+            packet=packet,
+            artifact_id=artifact_id,
+            include_writer_allowlist_check=request.include_writer_allowlist_check,
+        )
+    except UnsafeArtifactIdError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except StatblockDraftNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail="statblock corpus preview failed") from exc
     return response.model_dump(mode="json")
 
 

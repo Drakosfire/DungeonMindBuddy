@@ -8,6 +8,7 @@ import type {
   ReadStatblockDraftResponse,
   StatblockWorkbenchCommandResponse,
   StatblockWorkbenchSampleResponse,
+  StatblockCorpusPromotionPreviewResponse,
   StoreStatblockDraftResponse,
 } from "../../api/types";
 import { StatblockWorkbenchModule } from "./StatblockWorkbenchModule";
@@ -139,6 +140,39 @@ function readResponseFor(artifact = sampleResponse.artifact): ReadStatblockDraft
   return {
     schema_version: "dmb_statblock_draft_read_v1",
     record: storedResponseFor(artifact).record,
+  };
+}
+
+function previewResponseFor(artifact = storedResponseFor().record.artifact): StatblockCorpusPromotionPreviewResponse {
+  const frontmatter = "---\nschema_version: dmb_corpus_statblock_v1\ntitle: Geomantic Drake Juvenile\ncorpus_status: promotion_previewed\n---";
+  return {
+    schema_version: "dmb_statblock_corpus_promotion_preview_v1",
+    preview_id: "preview-token-123",
+    artifact_id: artifact.artifact_id,
+    draft_id: artifact.draft_id,
+    title: artifact.title,
+    campaign_id: "longmont-c2",
+    session: 22,
+    source_record_path: `statblock_drafts/${artifact.artifact_id}.json`,
+    corpus_root_display: "corpus/eldyrwild-markdown",
+    proposed_corpus_relpath: "Longmont Campaign/Campaign 2/Statblocks/generated/geomantic_drake_juvenile.md",
+    proposed_corpus_display_path: "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Statblocks/generated/geomantic_drake_juvenile.md",
+    frontmatter: { schema_version: "dmb_corpus_statblock_v1", corpus_status: "promotion_previewed" },
+    frontmatter_text: frontmatter,
+    markdown_body: `# ${artifact.title}\n\n${artifact.markdown}`,
+    full_markdown: `${frontmatter}\n\n# ${artifact.title}\n\n${artifact.markdown}`,
+    breadcrumbs: artifact.breadcrumbs,
+    source_refs: artifact.source_refs,
+    combat_defaults: artifact.combat_defaults,
+    warnings: [{ code: "writer_allowlist_pending", message: "Writer allowlist pending.", severity: "info" }],
+    validation: { ok: true, proposed_path_safe: true, writer_allowed_now: false, writer_reason: "not allowed yet" },
+    preview_token: "abc123previewtoken",
+    diagnostics: ["preview only; no corpus write occurred"],
+    available_actions: [
+      { action_id: "confirm_corpus_write", label: "Confirm corpus write", enabled: false, disabled_reason: "Future PR will require an explicit confirmation token." },
+      { action_id: "ingest_to_semantic_layer", label: "Ingest to Semantic Knowledge Layer", enabled: false, disabled_reason: "Disabled until corpus write exists." },
+      { action_id: "add_to_combat", label: "Add to combat", enabled: false, disabled_reason: "Disabled until corpus-backed Statblock View/combat integration exists." },
+    ],
   };
 }
 
@@ -355,6 +389,126 @@ describe("StatblockWorkbenchModule", () => {
     expect(liveApi.getStatblockWorkbenchDraft).toHaveBeenCalledWith("statblock-draft-loaded");
     await screen.findByText(/Loaded from storage/);
     expect(screen.getAllByText("Loaded Mire Adept").length).toBeGreaterThan(0);
+  });
+
+
+  it("disables corpus promotion preview until the draft is stored", async () => {
+    vi.spyOn(liveApi, "getStatblockWorkbenchSample").mockResolvedValue(sampleResponse);
+
+    render(<StatblockWorkbenchModule />);
+
+    await screen.findByText("Mock / non-corpus draft lane");
+    expect(screen.getByRole("button", { name: "Preview corpus promotion" })).toBeDisabled();
+    expect(screen.getByText("Store this draft before previewing corpus promotion.")).toBeInTheDocument();
+  });
+
+  it("previews corpus promotion for a stored draft and keeps future write actions disabled", async () => {
+    const user = userEvent.setup();
+    const stored = storedResponseFor();
+    vi.spyOn(liveApi, "getStatblockWorkbenchSample").mockResolvedValue(sampleResponse);
+    vi.spyOn(liveApi, "storeStatblockWorkbenchDraft").mockResolvedValue(stored);
+    vi.spyOn(liveApi, "previewStatblockCorpusPromotion").mockResolvedValue(previewResponseFor(stored.record.artifact));
+    vi.mocked(liveApi.listStatblockWorkbenchDrafts)
+      .mockResolvedValueOnce(emptyDraftsResponse)
+      .mockResolvedValueOnce({
+        schema_version: "dmb_statblock_draft_list_v1",
+        drafts: [{
+          artifact_id: stored.record.artifact_id,
+          title: stored.record.title,
+          draft_id: stored.record.artifact.draft_id,
+          review_status: stored.record.artifact.review_status,
+          lifecycle_state: stored.record.artifact.lifecycle_state,
+          storage_status: stored.record.artifact.storage_status,
+          corpus_status: stored.record.artifact.corpus_status,
+          stored_at: stored.record.stored_at,
+          updated_at: stored.record.updated_at,
+          storage_path: stored.record.storage_path,
+        }],
+      });
+
+    render(<StatblockWorkbenchModule />);
+
+    await screen.findByText("Mock / non-corpus draft lane");
+    await user.click(screen.getByRole("button", { name: "Store draft" }));
+    await screen.findByText("stored_artifact");
+    expect(screen.getByRole("button", { name: "Preview corpus promotion" })).toBeEnabled();
+
+    await user.click(screen.getByRole("button", { name: "Preview corpus promotion" }));
+
+    expect(liveApi.previewStatblockCorpusPromotion).toHaveBeenCalledWith("statblock-draft-test", {
+      include_writer_allowlist_check: true,
+    });
+    expect((await screen.findAllByText("Corpus promotion preview")).length).toBeGreaterThan(1);
+    expect(screen.getAllByText(/Longmont Campaign\/Campaign 2\/Statblocks\/generated\/geomantic_drake_juvenile\.md/).length).toBeGreaterThan(0);
+    expect(screen.getByText("abc123previewtoken")).toBeInTheDocument();
+    expect(screen.getAllByText(/schema_version: dmb_corpus_statblock_v1/).length).toBeGreaterThan(0);
+    expect(screen.getByText(/writer_allowlist_pending/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Confirm corpus write" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Ingest to Semantic Knowledge Layer" })).toBeDisabled();
+    expect(screen.getAllByRole("button", { name: "Add to combat" }).every((button) => button.hasAttribute("disabled"))).toBe(true);
+  });
+
+  it("keeps the artifact visible when corpus preview fails", async () => {
+    const user = userEvent.setup();
+    const storedArtifact = storedResponseFor().record.artifact;
+    vi.spyOn(liveApi, "getStatblockWorkbenchSample").mockResolvedValue({
+      ...sampleResponse,
+      artifact: storedArtifact,
+      command_status: "loaded_stored_draft",
+    });
+    vi.spyOn(liveApi, "previewStatblockCorpusPromotion").mockRejectedValue(new Error("preview failed safely"));
+
+    render(<StatblockWorkbenchModule />);
+
+    await screen.findByText("Mock / non-corpus draft lane");
+    await user.click(screen.getByRole("button", { name: "Preview corpus promotion" }));
+
+    await screen.findByText(/Unable to preview corpus promotion: preview failed safely/);
+    expect(screen.getAllByText("Geomantic Drake Juvenile").length).toBeGreaterThan(0);
+    expect(screen.getByText(/Claw\. Bite\. Shifting stone\./)).toBeInTheDocument();
+  });
+
+  it("clears an existing corpus preview when loading a different stored draft", async () => {
+    const user = userEvent.setup();
+    const storedArtifact = storedResponseFor().record.artifact;
+    const loadedArtifact = {
+      ...storedArtifact,
+      artifact_id: "statblock-draft-loaded",
+      title: "Loaded Mire Adept",
+      markdown: "## Loaded Mire Adept\nLoaded from storage.",
+    };
+    vi.spyOn(liveApi, "getStatblockWorkbenchSample").mockResolvedValue({
+      ...sampleResponse,
+      artifact: storedArtifact,
+      command_status: "loaded_stored_draft",
+    });
+    vi.mocked(liveApi.listStatblockWorkbenchDrafts).mockResolvedValue({
+      schema_version: "dmb_statblock_draft_list_v1",
+      drafts: [{
+        artifact_id: "statblock-draft-loaded",
+        title: "Loaded Mire Adept",
+        draft_id: "draft-loaded",
+        review_status: "needs_dm_review",
+        lifecycle_state: "stored_artifact",
+        storage_status: "stored_draft",
+        corpus_status: "not_promoted",
+        stored_at: "2026-06-09T01:00:00Z",
+        updated_at: "2026-06-09T01:00:00Z",
+        storage_path: "statblock_drafts/statblock-draft-loaded.json",
+      }],
+    });
+    vi.spyOn(liveApi, "previewStatblockCorpusPromotion").mockResolvedValue(previewResponseFor(storedArtifact));
+    vi.spyOn(liveApi, "getStatblockWorkbenchDraft").mockResolvedValue(readResponseFor(loadedArtifact));
+
+    render(<StatblockWorkbenchModule />);
+
+    await screen.findByText("Mock / non-corpus draft lane");
+    await user.click(screen.getByRole("button", { name: "Preview corpus promotion" }));
+    await screen.findByText("abc123previewtoken");
+    await user.click(screen.getByRole("button", { name: "Load" }));
+
+    await screen.findByText(/Loaded from storage/);
+    expect(screen.queryByText("abc123previewtoken")).not.toBeInTheDocument();
   });
 
 });

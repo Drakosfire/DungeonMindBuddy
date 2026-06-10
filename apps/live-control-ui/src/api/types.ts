@@ -508,6 +508,49 @@ export interface ReadStatblockDraftResponse {
   record: StoredStatblockDraftRecord;
 }
 
+export interface StatblockPromotionWarning {
+  code: string;
+  message: string;
+  severity: "info" | "warning" | "error";
+}
+
+export interface StatblockCorpusPromotionPreviewRequest {
+  include_writer_allowlist_check?: boolean;
+}
+
+export interface StatblockCorpusPromotionPreviewValidation {
+  ok: boolean;
+  proposed_path_safe: boolean;
+  writer_allowed_now?: boolean | null;
+  writer_reason?: string | null;
+}
+
+export interface StatblockCorpusPromotionPreviewResponse {
+  schema_version: "dmb_statblock_corpus_promotion_preview_v1";
+  preview_id: string;
+  artifact_id: string;
+  draft_id: string;
+  title: string;
+  campaign_id: string;
+  session: number;
+  source_record_path: string;
+  corpus_root_display: string;
+  proposed_corpus_relpath: string;
+  proposed_corpus_display_path: string;
+  frontmatter: Record<string, unknown>;
+  frontmatter_text: string;
+  markdown_body: string;
+  full_markdown: string;
+  breadcrumbs: StatblockBreadcrumb[];
+  source_refs: Array<Record<string, unknown>>;
+  combat_defaults: StatblockCombatDefaults;
+  warnings: StatblockPromotionWarning[];
+  validation: StatblockCorpusPromotionPreviewValidation;
+  preview_token: string;
+  diagnostics: string[];
+  available_actions: StatblockWorkbenchAction[];
+}
+
 export interface StatblockWorkbenchSampleResponse {
   schema_version: "dmb_statblock_workbench_sample_v1";
   mode: "sample_mock";
