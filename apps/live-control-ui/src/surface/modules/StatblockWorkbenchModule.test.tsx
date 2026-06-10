@@ -597,6 +597,9 @@ describe("StatblockWorkbenchModule", () => {
     await screen.findByText("Corpus write result");
     expect(screen.getByText("fingerprint-123")).toBeInTheDocument();
     expect(screen.getAllByText("promotion_confirmed").length).toBeGreaterThan(0);
+    expect(screen.queryByText("writer-confirm-token")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Write corpus file" })).not.toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Confirm corpus write" }).every((button) => button.hasAttribute("disabled"))).toBe(true);
     expect(screen.getAllByRole("button", { name: "Add to combat" }).every((button) => button.hasAttribute("disabled"))).toBe(true);
   });
 

@@ -657,6 +657,7 @@ export function StatblockWorkbenchModule() {
     })
       .then((commit) => {
         setCorpusWriteResult(commit);
+        setCorpusWritePrepare(null);
         setResponse((current) => current ? { ...current, artifact: commit.stored_record.artifact, command_status: "corpus_written" } : current);
         setShowWriteConfirm(false);
         return refreshStoredDrafts();
