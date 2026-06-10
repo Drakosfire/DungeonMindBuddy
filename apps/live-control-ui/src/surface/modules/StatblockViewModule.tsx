@@ -28,11 +28,14 @@ function retrievalLabel(status?: string | null): string {
 function DisabledActions({ actions }: { actions: StatblockWorkbenchAction[] }) {
   return (
     <div className="statblock-view-actions" aria-label="Future actions">
-      {actions.map((action) => (
-        <button key={action.action_id} type="button" disabled={!action.enabled} title={action.disabled_reason ?? undefined}>
-          {action.label}
-        </button>
-      ))}
+      {actions.map((action) => {
+        const disabledReason = action.disabled_reason ?? "Statblock View is read-only in PR111.";
+        return (
+          <button key={action.action_id} type="button" disabled title={disabledReason}>
+            {action.label}
+          </button>
+        );
+      })}
     </div>
   );
 }

@@ -68,8 +68,8 @@ function detailFor(artifactId: string, title: string): GeneratedStatblockDetailR
       {
         action_id: "add_to_combat",
         label: "Add to current combat",
-        enabled: false,
-        disabled_reason: "Disabled until PR112 combat integration.",
+        enabled: true,
+        disabled_reason: null,
       },
     ],
     diagnostics: [],
@@ -139,6 +139,7 @@ describe("StatblockViewModule", () => {
     expect(screen.getByText(/generated\/statblock-one\.md/)).toBeInTheDocument();
     const addButton = screen.getByRole("button", { name: "Add to current combat" });
     expect(addButton).toBeDisabled();
+    expect(addButton).toHaveAttribute("title", "Statblock View is read-only in PR111.");
   });
 
   it("selects a different statblock and updates detail", async () => {
