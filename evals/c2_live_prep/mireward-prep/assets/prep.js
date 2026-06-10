@@ -4,11 +4,15 @@
 (function () {
   const STORAGE_PREFIX = "mireward-prep.";
   const REPO_UP = "../../../";
-  const PREP_WEB_PREFIX = "/evals/c2_live_prep/mireward-prep/";
+  const PREP_WEB_PREFIX = location.pathname.startsWith("/evals/c2_live_prep/mireward-prep/")
+    ? "/evals/c2_live_prep/mireward-prep/"
+    : "/";
 
   const NAV = [
-    { id: "index", label: "Command board", href: "index.html" },
-    { id: "combat", label: "Combat", href: "combat.html" },
+    { id: "index", label: "Index", href: "index.html" },
+    { id: "live-play", label: "Live play", href: "live-play.html" },
+    { id: "retrieval", label: "Retrieval", href: "retrieval.html" },
+    { id: "combat", label: "Combat tracker", href: "combat.html" },
     { id: "live-notes", label: "Live notes", href: "live-notes.html" },
     { id: "timeline", label: "Timeline", href: "timeline.html" },
     { id: "locations", label: "Locations", href: "locations.html" },
@@ -279,7 +283,7 @@
         "error",
         repoRelative,
         "Markdown preview needs the local HTTP server (fetch is blocked on file://). " +
-          "Run: cd evals/c2_live_prep/mireward-prep && python serve.py — then open http://localhost:8765/"
+          "Run the live-control UI dev server and open http://localhost:5173/."
       );
       return;
     }
@@ -379,7 +383,7 @@
 
       if (isFileProtocol()) {
         host.innerHTML =
-          '<div class="callout callout-warn"><strong>Cannot embed on file://</strong><p>Run <code>python serve.py</code> in <code>evals/c2_live_prep/mireward-prep</code> and open <code>http://localhost:8765/</code> so roll tables load inline.</p></div>';
+          '<div class="callout callout-warn"><strong>Cannot embed on file://</strong><p>Run the live-control UI dev server and open <code>http://localhost:5173/</code> so roll tables load inline.</p></div>';
         return;
       }
 
