@@ -9,6 +9,8 @@ import type {
   StatblockWorkbenchCommandResponse,
   StatblockWorkbenchSampleResponse,
   StatblockCorpusPromotionPreviewResponse,
+  StatblockCorpusWriteCommitResponse,
+  StatblockCorpusWritePrepareResponse,
   StoreStatblockDraftResponse,
 } from "../../api/types";
 import { StatblockWorkbenchModule } from "./StatblockWorkbenchModule";
@@ -173,6 +175,60 @@ function previewResponseFor(artifact = storedResponseFor().record.artifact): Sta
       { action_id: "ingest_to_semantic_layer", label: "Ingest to Semantic Knowledge Layer", enabled: false, disabled_reason: "Disabled until corpus write exists." },
       { action_id: "add_to_combat", label: "Add to combat", enabled: false, disabled_reason: "Disabled until corpus-backed Statblock View/combat integration exists." },
     ],
+  };
+}
+
+
+function writePrepareResponseFor(artifact = storedResponseFor().record.artifact): StatblockCorpusWritePrepareResponse {
+  const preview = previewResponseFor(artifact);
+  return {
+    schema_version: "dmb_statblock_corpus_write_prepare_v1",
+    artifact_id: preview.artifact_id,
+    draft_id: preview.draft_id,
+    title: preview.title,
+    preview_token: preview.preview_token,
+    proposed_corpus_relpath: preview.proposed_corpus_relpath,
+    proposed_corpus_display_path: preview.proposed_corpus_display_path,
+    writer_ok: true,
+    writer_phase: "preview",
+    writer_confirm_token: "writer-confirm-token",
+    writer_diff: "--- /dev/null\n+++ b/Longmont Campaign/Campaign 2/Statblocks/generated/geomantic_drake_juvenile.md\n+# Geomantic Drake Juvenile\n",
+    new_size_bytes: 512,
+    warnings: preview.warnings,
+    diagnostics: ["corpus writer dry-run only; no corpus file was written"],
+    available_actions: [{ action_id: "confirm_corpus_write", label: "Confirm corpus write", enabled: true, disabled_reason: null }],
+  };
+}
+
+function writeCommitResponseFor(artifact = storedResponseFor().record.artifact): StatblockCorpusWriteCommitResponse {
+  const preview = previewResponseFor(artifact);
+  const promotedArtifact = {
+    ...artifact,
+    lifecycle_state: "corpus_promoted" as const,
+    corpus_status: "promotion_confirmed" as const,
+  };
+  return {
+    schema_version: "dmb_statblock_corpus_write_commit_v1",
+    artifact_id: preview.artifact_id,
+    draft_id: preview.draft_id,
+    title: preview.title,
+    preview_token: preview.preview_token,
+    proposed_corpus_relpath: preview.proposed_corpus_relpath,
+    proposed_corpus_display_path: preview.proposed_corpus_display_path,
+    writer_ok: true,
+    writer_phase: "committed",
+    bytes_written: 512,
+    new_corpus_fingerprint: "fingerprint-123",
+    stored_record: {
+      ...storedResponseFor(promotedArtifact).record,
+      corpus_relpath: preview.proposed_corpus_relpath,
+      corpus_display_path: preview.proposed_corpus_display_path,
+      corpus_written_at: "2026-06-09T02:00:00Z",
+      corpus_preview_token: preview.preview_token,
+      artifact: promotedArtifact,
+    },
+    diagnostics: ["corpus markdown file written with corpus writer confirm_token"],
+    available_actions: [],
   };
 }
 
@@ -482,6 +538,68 @@ describe("StatblockWorkbenchModule", () => {
     expect(screen.getByRole("button", { name: "Ingest to Semantic Knowledge Layer" })).toBeDisabled();
     expect(screen.getAllByRole("button", { name: "Add to combat" }).every((button) => button.hasAttribute("disabled"))).toBe(true);
   });
+
+  it("prepares and confirms corpus write with writer confirm token", async () => {
+    const user = userEvent.setup();
+    const storedArtifact = storedResponseFor().record.artifact;
+    const preview = previewResponseFor(storedArtifact);
+    const prepare = writePrepareResponseFor(storedArtifact);
+    const commit = writeCommitResponseFor(storedArtifact);
+    vi.spyOn(liveApi, "getStatblockWorkbenchSample").mockResolvedValue({
+      ...sampleResponse,
+      artifact: storedArtifact,
+      command_status: "loaded_stored_draft",
+    });
+    vi.spyOn(liveApi, "previewStatblockCorpusPromotion").mockResolvedValue(preview);
+    vi.spyOn(liveApi, "prepareStatblockCorpusWrite").mockResolvedValue(prepare);
+    vi.spyOn(liveApi, "commitStatblockCorpusWrite").mockResolvedValue(commit);
+    vi.mocked(liveApi.listStatblockWorkbenchDrafts)
+      .mockResolvedValueOnce(emptyDraftsResponse)
+      .mockResolvedValueOnce({
+        schema_version: "dmb_statblock_draft_list_v1",
+        drafts: [{
+          artifact_id: commit.stored_record.artifact_id,
+          title: commit.stored_record.title,
+          draft_id: commit.stored_record.artifact.draft_id,
+          review_status: commit.stored_record.artifact.review_status,
+          lifecycle_state: commit.stored_record.artifact.lifecycle_state,
+          storage_status: commit.stored_record.artifact.storage_status,
+          corpus_status: commit.stored_record.artifact.corpus_status,
+          stored_at: commit.stored_record.stored_at,
+          updated_at: commit.stored_record.updated_at,
+          storage_path: commit.stored_record.storage_path,
+          corpus_relpath: commit.stored_record.corpus_relpath,
+        }],
+      });
+
+    render(<StatblockWorkbenchModule />);
+
+    await screen.findByText("Mock / non-corpus draft lane");
+    await user.click(screen.getByRole("button", { name: "Preview corpus promotion" }));
+    await screen.findByText("abc123previewtoken");
+    await user.click(screen.getByRole("button", { name: "Prepare corpus write" }));
+
+    expect(liveApi.prepareStatblockCorpusWrite).toHaveBeenCalledWith("statblock-draft-test", {
+      preview_token: "abc123previewtoken",
+    });
+    await screen.findByText("Corpus write preparation");
+    expect(screen.getByText("writer-confirm-token")).toBeInTheDocument();
+    expect(screen.getAllByText(/Geomantic Drake Juvenile/).length).toBeGreaterThan(0);
+    expect(liveApi.commitStatblockCorpusWrite).not.toHaveBeenCalled();
+
+    await user.click(screen.getAllByRole("button", { name: "Confirm corpus write" }).find((button) => !button.hasAttribute("disabled"))!);
+    await user.click(screen.getByRole("button", { name: "Write corpus file" }));
+
+    expect(liveApi.commitStatblockCorpusWrite).toHaveBeenCalledWith("statblock-draft-test", {
+      preview_token: "abc123previewtoken",
+      writer_confirm_token: "writer-confirm-token",
+    });
+    await screen.findByText("Corpus write result");
+    expect(screen.getByText("fingerprint-123")).toBeInTheDocument();
+    expect(screen.getAllByText("promotion_confirmed").length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: "Add to combat" }).every((button) => button.hasAttribute("disabled"))).toBe(true);
+  });
+
 
   it("keeps the artifact visible when corpus preview fails", async () => {
     const user = userEvent.setup();

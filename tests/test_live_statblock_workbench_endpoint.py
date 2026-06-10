@@ -384,7 +384,7 @@ def test_statblock_workbench_corpus_preview_for_stored_draft(tmp_path, monkeypat
     assert body["validation"]["proposed_path_safe"] is True
     assert body["validation"]["writer_allowed_now"] is not None
     warning_codes = {warning["code"] for warning in body["warnings"]}
-    assert "writer_allowlist_pending" in warning_codes
+    assert "writer_allowlist_pending" not in warning_codes
     assert all(action["enabled"] is False for action in body["available_actions"])
     diagnostics = " ".join(body["diagnostics"])
     assert "no corpus write" in diagnostics
@@ -459,3 +459,181 @@ def test_statblock_workbench_corpus_preview_does_not_expose_internal_key(
     assert "DUNGEONBUDDY_INTERNAL_API_KEY" not in body_text
     assert "DUNGEONMIND_SERVER_URL" not in body_text
     assert "X-DungeonBuddy-Internal-Key" not in body_text
+
+
+def test_statblock_workbench_corpus_write_prepare_returns_dry_run_token(
+    tmp_path, monkeypatch
+) -> None:
+    session_dir = _temp_live_session(tmp_path, monkeypatch)
+    corpus_dir = tmp_path / "corpus"
+    monkeypatch.setattr(
+        "apps.live_control_server.services.statblock_corpus_write.corpus_root",
+        lambda: corpus_dir,
+    )
+    client = TestClient(create_app())
+    record = _store_sample_draft(client)
+    preview_response = client.post(
+        f"/api/live/statblocks/workbench/drafts/{record['artifact_id']}/corpus-preview",
+        json={"include_writer_allowlist_check": True},
+    )
+    assert preview_response.status_code == 200
+    preview = preview_response.json()
+    files_before = _snapshot_files(session_dir)
+
+    response = client.post(
+        f"/api/live/statblocks/workbench/drafts/{record['artifact_id']}/corpus-write/prepare",
+        json={"preview_token": preview["preview_token"]},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["schema_version"] == "dmb_statblock_corpus_write_prepare_v1"
+    assert body["writer_ok"] is True
+    assert body["writer_phase"] == "preview"
+    assert body["writer_confirm_token"]
+    assert "+++ b/" in body["writer_diff"]
+    assert record["artifact"]["title"] in body["writer_diff"]
+    assert body["new_size_bytes"] > 0
+    assert not (corpus_dir / body["proposed_corpus_relpath"]).exists()
+    assert _snapshot_files(session_dir) == files_before
+
+
+def test_statblock_workbench_corpus_write_prepare_rejects_mismatched_preview_token(
+    tmp_path, monkeypatch
+) -> None:
+    _temp_live_session(tmp_path, monkeypatch)
+    corpus_dir = tmp_path / "corpus"
+    monkeypatch.setattr(
+        "apps.live_control_server.services.statblock_corpus_write.corpus_root",
+        lambda: corpus_dir,
+    )
+    client = TestClient(create_app())
+    record = _store_sample_draft(client)
+
+    response = client.post(
+        f"/api/live/statblocks/workbench/drafts/{record['artifact_id']}/corpus-write/prepare",
+        json={"preview_token": "wrong-preview-token"},
+    )
+
+    assert response.status_code == 422
+    assert not list(corpus_dir.rglob("*.md"))
+
+
+def test_statblock_workbench_corpus_write_commit_writes_file_and_updates_record(
+    tmp_path, monkeypatch
+) -> None:
+    session_dir = _temp_live_session(tmp_path, monkeypatch)
+    corpus_dir = tmp_path / "corpus"
+    monkeypatch.setattr(
+        "apps.live_control_server.services.statblock_corpus_write.corpus_root",
+        lambda: corpus_dir,
+    )
+    client = TestClient(create_app())
+    record = _store_sample_draft(client)
+    preview = client.post(
+        f"/api/live/statblocks/workbench/drafts/{record['artifact_id']}/corpus-preview",
+        json={"include_writer_allowlist_check": True},
+    ).json()
+    files_before = _snapshot_files(session_dir)
+    prepare = client.post(
+        f"/api/live/statblocks/workbench/drafts/{record['artifact_id']}/corpus-write/prepare",
+        json={"preview_token": preview["preview_token"]},
+    ).json()
+
+    response = client.post(
+        f"/api/live/statblocks/workbench/drafts/{record['artifact_id']}/corpus-write/commit",
+        json={
+            "preview_token": preview["preview_token"],
+            "writer_confirm_token": prepare["writer_confirm_token"],
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["schema_version"] == "dmb_statblock_corpus_write_commit_v1"
+    assert body["writer_ok"] is True
+    assert body["writer_phase"] == "committed"
+    corpus_path = corpus_dir / body["proposed_corpus_relpath"]
+    assert corpus_path.is_file()
+    assert corpus_path.read_text(encoding="utf-8") == preview["full_markdown"]
+    stored_record = body["stored_record"]
+    assert stored_record["artifact"]["lifecycle_state"] == "corpus_promoted"
+    assert stored_record["artifact"]["storage_status"] == "stored_draft"
+    assert stored_record["artifact"]["corpus_status"] == "promotion_confirmed"
+    assert stored_record["corpus_relpath"] == body["proposed_corpus_relpath"]
+    assert stored_record["corpus_written_at"]
+    after = _snapshot_files(session_dir)
+    changed = {
+        path
+        for path in files_before.keys() | after.keys()
+        if files_before.get(path) != after.get(path)
+    }
+    assert changed == {f"statblock_drafts/{record['artifact_id']}.json"}
+
+
+def test_statblock_workbench_corpus_write_commit_rejects_wrong_token_without_record_update(
+    tmp_path, monkeypatch
+) -> None:
+    session_dir = _temp_live_session(tmp_path, monkeypatch)
+    corpus_dir = tmp_path / "corpus"
+    monkeypatch.setattr(
+        "apps.live_control_server.services.statblock_corpus_write.corpus_root",
+        lambda: corpus_dir,
+    )
+    client = TestClient(create_app())
+    record = _store_sample_draft(client)
+    preview = client.post(
+        f"/api/live/statblocks/workbench/drafts/{record['artifact_id']}/corpus-preview",
+        json={"include_writer_allowlist_check": True},
+    ).json()
+    files_before = _snapshot_files(session_dir)
+
+    response = client.post(
+        f"/api/live/statblocks/workbench/drafts/{record['artifact_id']}/corpus-write/commit",
+        json={
+            "preview_token": preview["preview_token"],
+            "writer_confirm_token": "wrong-writer-token",
+        },
+    )
+
+    assert response.status_code == 409
+    assert _snapshot_files(session_dir) == files_before
+    assert not list(corpus_dir.rglob("*.md"))
+
+
+def test_statblock_workbench_corpus_write_does_not_expose_internal_key(
+    tmp_path, monkeypatch
+) -> None:
+    _temp_live_session(tmp_path, monkeypatch)
+    corpus_dir = tmp_path / "corpus"
+    monkeypatch.setattr(
+        "apps.live_control_server.services.statblock_corpus_write.corpus_root",
+        lambda: corpus_dir,
+    )
+    monkeypatch.setenv("DUNGEONBUDDY_INTERNAL_API_KEY", "super-secret-test-key")
+    monkeypatch.setenv("DUNGEONMIND_SERVER_URL", "https://example.invalid")
+    client = TestClient(create_app())
+    record = _store_sample_draft(client)
+    preview = client.post(
+        f"/api/live/statblocks/workbench/drafts/{record['artifact_id']}/corpus-preview",
+        json={"include_writer_allowlist_check": True},
+    ).json()
+    prepare_response = client.post(
+        f"/api/live/statblocks/workbench/drafts/{record['artifact_id']}/corpus-write/prepare",
+        json={"preview_token": preview["preview_token"]},
+    )
+    commit_response = client.post(
+        f"/api/live/statblocks/workbench/drafts/{record['artifact_id']}/corpus-write/commit",
+        json={
+            "preview_token": preview["preview_token"],
+            "writer_confirm_token": prepare_response.json()["writer_confirm_token"],
+        },
+    )
+
+    assert prepare_response.status_code == 200
+    assert commit_response.status_code == 200
+    for body_text in (prepare_response.text, commit_response.text):
+        assert "super-secret-test-key" not in body_text
+        assert "DUNGEONBUDDY_INTERNAL_API_KEY" not in body_text
+        assert "DUNGEONMIND_SERVER_URL" not in body_text
+        assert "X-DungeonBuddy-Internal-Key" not in body_text

@@ -2,9 +2,11 @@ import { useCallback, useEffect, useState } from "react";
 
 import {
   getStatblockWorkbenchDraft,
+  commitStatblockCorpusWrite,
   getStatblockWorkbenchSample,
   listStatblockWorkbenchDrafts,
   postStatblockWorkbenchCommand,
+  prepareStatblockCorpusWrite,
   previewStatblockCorpusPromotion,
   storeStatblockWorkbenchDraft,
 } from "../../api/liveApi";
@@ -12,6 +14,8 @@ import type {
   ListStatblockDraftsResponse,
   StatblockCombatDefaults,
   StatblockCorpusPromotionPreviewResponse,
+  StatblockCorpusWriteCommitResponse,
+  StatblockCorpusWritePrepareResponse,
   StatblockDraftArtifactView,
   StatblockWorkbenchAction,
   StatblockWorkbenchCommandType,
@@ -216,6 +220,46 @@ function CorpusPreviewPanel({ preview }: { preview: StatblockCorpusPromotionPrev
   );
 }
 
+
+function CorpusWritePreparePanel({ prepare }: { prepare: StatblockCorpusWritePrepareResponse }) {
+  return (
+    <section className="statblock-section statblock-corpus-write-section">
+      <h3>Corpus write preparation</h3>
+      <p className="module-muted">This is the corpus writer dry-run. No file is written until confirmation.</p>
+      <dl className="statblock-status-grid">
+        <div><dt>Proposed path</dt><dd><code>{prepare.proposed_corpus_display_path}</code></dd></div>
+        <div><dt>Writer phase</dt><dd>{prepare.writer_phase ?? "—"}</dd></div>
+        <div><dt>New size bytes</dt><dd>{prepare.new_size_bytes ?? "—"}</dd></div>
+        <div><dt>Writer confirm token</dt><dd><code>{prepare.writer_confirm_token ?? "—"}</code></dd></div>
+      </dl>
+      <h4>Writer diff</h4>
+      <pre className="statblock-markdown-preview">{prepare.writer_diff ?? "No writer diff available."}</pre>
+      {prepare.diagnostics.length ? <ul className="module-list">{prepare.diagnostics.map((diagnostic) => <li key={diagnostic}>{diagnostic}</li>)}</ul> : null}
+    </section>
+  );
+}
+
+function CorpusWriteResultPanel({ result }: { result: StatblockCorpusWriteCommitResponse }) {
+  return (
+    <section className="statblock-section statblock-corpus-write-section">
+      <h3>Corpus write result</h3>
+      <dl className="statblock-status-grid">
+        <div><dt>Corpus display path</dt><dd><code>{result.proposed_corpus_display_path}</code></dd></div>
+        <div><dt>Corpus-relative path</dt><dd><code>{result.proposed_corpus_relpath}</code></dd></div>
+        <div><dt>Bytes written</dt><dd>{result.bytes_written ?? "—"}</dd></div>
+        <div><dt>New corpus fingerprint</dt><dd><code>{result.new_corpus_fingerprint ?? "—"}</code></dd></div>
+        <div><dt>Stored record corpus status</dt><dd>{result.stored_record.artifact.corpus_status}</dd></div>
+      </dl>
+      <div className="statblock-action-row">
+        <div className="statblock-action-card"><button type="button" disabled>Ingest to Semantic Knowledge Layer</button><small>Disabled until a future ingestion/retrieval PR.</small></div>
+        <div className="statblock-action-card"><button type="button" disabled>Verify retrieval</button><small>Disabled until a future retrieval verification PR.</small></div>
+        <div className="statblock-action-card"><button type="button" disabled>Add to combat</button><small>Disabled until corpus-backed combat integration exists.</small></div>
+      </div>
+      {result.diagnostics.length ? <ul className="module-list">{result.diagnostics.map((diagnostic) => <li key={diagnostic}>{diagnostic}</li>)}</ul> : null}
+    </section>
+  );
+}
+
 function ReadyWorkbench({
   response,
   pendingCommand,
@@ -230,6 +274,16 @@ function ReadyWorkbench({
   corpusPreview,
   pendingPreview,
   previewError,
+  corpusWritePrepare,
+  corpusWriteResult,
+  pendingWritePrepare,
+  pendingWriteCommit,
+  writeError,
+  showWriteConfirm,
+  onPrepareCorpusWrite,
+  onRequestCorpusWriteConfirm,
+  onCancelCorpusWriteConfirm,
+  onCommitCorpusWrite,
   onRunCommand,
   onStoreDraft,
   onLoadDraft,
@@ -248,6 +302,16 @@ function ReadyWorkbench({
   corpusPreview: StatblockCorpusPromotionPreviewResponse | null;
   pendingPreview: boolean;
   previewError: string | null;
+  corpusWritePrepare: StatblockCorpusWritePrepareResponse | null;
+  corpusWriteResult: StatblockCorpusWriteCommitResponse | null;
+  pendingWritePrepare: boolean;
+  pendingWriteCommit: boolean;
+  writeError: string | null;
+  showWriteConfirm: boolean;
+  onPrepareCorpusWrite: () => void;
+  onRequestCorpusWriteConfirm: () => void;
+  onCancelCorpusWriteConfirm: () => void;
+  onCommitCorpusWrite: () => void;
   onRunCommand: (commandType: StatblockWorkbenchCommandType) => void;
   onStoreDraft: () => void;
   onLoadDraft: (artifactId: string) => void;
@@ -256,7 +320,10 @@ function ReadyWorkbench({
   const artifact = response.artifact;
   const futureActions = response.available_actions.filter((action) => !["store_draft", "preview_corpus_promotion"].includes(action.action_id));
   const storeDisabled = pendingCommand !== null || pendingStore || pendingPreview || artifact.storage_status === "stored_draft";
-  const previewDisabled = pendingCommand !== null || pendingStore || pendingPreview || pendingLoadId !== null || artifact.storage_status !== "stored_draft";
+  const anyWritePending = pendingWritePrepare || pendingWriteCommit;
+  const previewDisabled = pendingCommand !== null || pendingStore || pendingPreview || pendingLoadId !== null || anyWritePending || artifact.storage_status !== "stored_draft";
+  const prepareWriteDisabled = previewDisabled || !corpusPreview;
+  const commitReady = Boolean(corpusWritePrepare?.writer_ok && corpusWritePrepare.writer_confirm_token);
 
   return (
     <div className="module-panel statblock-workbench" data-module-id="statblock_workbench">
@@ -308,11 +375,35 @@ function ReadyWorkbench({
         {previewError ? <p className="statblock-command-error" role="alert">Unable to preview corpus promotion: {previewError}</p> : null}
       </section>
 
+      <section className="statblock-section statblock-storage-section">
+        <h3>Corpus write</h3>
+        <button type="button" onClick={onPrepareCorpusWrite} disabled={prepareWriteDisabled}>
+          {pendingWritePrepare ? "Preparing corpus write…" : "Prepare corpus write"}
+        </button>
+        <p className="module-muted">Runs the corpus writer dry-run and returns the real writer confirm token without writing.</p>
+        {commitReady ? (
+          showWriteConfirm ? (
+            <div className="statblock-action-card">
+              <p>Confirm corpus mutation for <code>{corpusWritePrepare?.proposed_corpus_display_path}</code>.</p>
+              <button type="button" onClick={onCommitCorpusWrite} disabled={pendingWriteCommit}>
+                {pendingWriteCommit ? "Writing corpus file…" : "Write corpus file"}
+              </button>
+              <button type="button" onClick={onCancelCorpusWriteConfirm} disabled={pendingWriteCommit}>Cancel</button>
+            </div>
+          ) : (
+            <button type="button" onClick={onRequestCorpusWriteConfirm} disabled={pendingWriteCommit}>Confirm corpus write</button>
+          )
+        ) : null}
+        {writeError ? <p className="statblock-command-error" role="alert">Unable to write corpus file: {writeError}</p> : null}
+      </section>
+
       <StatusRail artifact={artifact} commandStatus={response.command_status} />
 
       <StoredDraftsList drafts={storedDrafts} loading={storedDraftsLoading} error={storedDraftsError} pendingLoadId={pendingLoadId} onLoadDraft={onLoadDraft} />
 
       {corpusPreview ? <CorpusPreviewPanel preview={corpusPreview} /> : null}
+      {corpusWritePrepare ? <CorpusWritePreparePanel prepare={corpusWritePrepare} /> : null}
+      {corpusWriteResult ? <CorpusWriteResultPanel result={corpusWriteResult} /> : null}
 
       <section className="statblock-section">
         <h3>Markdown preview</h3>
@@ -399,6 +490,12 @@ export function StatblockWorkbenchModule() {
   const [corpusPreview, setCorpusPreview] = useState<StatblockCorpusPromotionPreviewResponse | null>(null);
   const [pendingPreview, setPendingPreview] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
+  const [corpusWritePrepare, setCorpusWritePrepare] = useState<StatblockCorpusWritePrepareResponse | null>(null);
+  const [corpusWriteResult, setCorpusWriteResult] = useState<StatblockCorpusWriteCommitResponse | null>(null);
+  const [pendingWritePrepare, setPendingWritePrepare] = useState(false);
+  const [pendingWriteCommit, setPendingWriteCommit] = useState(false);
+  const [writeError, setWriteError] = useState<string | null>(null);
+  const [showWriteConfirm, setShowWriteConfirm] = useState(false);
 
   const refreshStoredDrafts = useCallback(() => {
     setStoredDraftsLoading(true);
@@ -408,6 +505,13 @@ export function StatblockWorkbenchModule() {
       .catch((err: unknown) => setStoredDraftsError(err instanceof Error ? err.message : String(err)))
       .finally(() => setStoredDraftsLoading(false));
   }, []);
+
+  const clearCorpusWriteState = () => {
+    setCorpusWritePrepare(null);
+    setCorpusWriteResult(null);
+    setWriteError(null);
+    setShowWriteConfirm(false);
+  };
 
   useEffect(() => {
     let active = true;
@@ -448,6 +552,7 @@ export function StatblockWorkbenchModule() {
     setStoreMessage(null);
     setCorpusPreview(null);
     setPreviewError(null);
+    clearCorpusWriteState();
     postStatblockWorkbenchCommand({
       command_type: commandType,
       requested_by: "human",
@@ -483,6 +588,7 @@ export function StatblockWorkbenchModule() {
     setStoreMessage(null);
     setCorpusPreview(null);
     setPreviewError(null);
+    clearCorpusWriteState();
     storeStatblockWorkbenchDraft({ artifact: response.artifact, source: "workbench" })
       .then((storeResponse) => {
         setResponse((current) => current ? { ...current, artifact: storeResponse.record.artifact, command_status: "stored" } : current);
@@ -499,6 +605,7 @@ export function StatblockWorkbenchModule() {
     setStoreMessage(null);
     setCorpusPreview(null);
     setPreviewError(null);
+    clearCorpusWriteState();
     getStatblockWorkbenchDraft(artifactId)
       .then((readResponse) => {
         setResponse((current) => current ? { ...current, artifact: readResponse.record.artifact, command_status: "loaded_stored_draft" } : {
@@ -520,9 +627,42 @@ export function StatblockWorkbenchModule() {
     setPendingPreview(true);
     setPreviewError(null);
     previewStatblockCorpusPromotion(response.artifact.artifact_id, { include_writer_allowlist_check: true })
-      .then((preview) => setCorpusPreview(preview))
+      .then((preview) => {
+        setCorpusPreview(preview);
+        clearCorpusWriteState();
+      })
       .catch((err: unknown) => setPreviewError(err instanceof Error ? err.message : String(err)))
       .finally(() => setPendingPreview(false));
+  };
+
+  const prepareCorpusWrite = () => {
+    if (!response?.artifact || !corpusPreview) return;
+    setPendingWritePrepare(true);
+    setWriteError(null);
+    setCorpusWriteResult(null);
+    setShowWriteConfirm(false);
+    prepareStatblockCorpusWrite(response.artifact.artifact_id, { preview_token: corpusPreview.preview_token })
+      .then((prepare) => setCorpusWritePrepare(prepare))
+      .catch((err: unknown) => setWriteError(err instanceof Error ? err.message : String(err)))
+      .finally(() => setPendingWritePrepare(false));
+  };
+
+  const commitCorpusWrite = () => {
+    if (!response?.artifact || !corpusWritePrepare?.writer_confirm_token) return;
+    setPendingWriteCommit(true);
+    setWriteError(null);
+    commitStatblockCorpusWrite(response.artifact.artifact_id, {
+      preview_token: corpusWritePrepare.preview_token,
+      writer_confirm_token: corpusWritePrepare.writer_confirm_token,
+    })
+      .then((commit) => {
+        setCorpusWriteResult(commit);
+        setResponse((current) => current ? { ...current, artifact: commit.stored_record.artifact, command_status: "corpus_written" } : current);
+        setShowWriteConfirm(false);
+        return refreshStoredDrafts();
+      })
+      .catch((err: unknown) => setWriteError(err instanceof Error ? err.message : String(err)))
+      .finally(() => setPendingWriteCommit(false));
   };
 
   if (loading) {
@@ -550,6 +690,16 @@ export function StatblockWorkbenchModule() {
       corpusPreview={corpusPreview}
       pendingPreview={pendingPreview}
       previewError={previewError}
+      corpusWritePrepare={corpusWritePrepare}
+      corpusWriteResult={corpusWriteResult}
+      pendingWritePrepare={pendingWritePrepare}
+      pendingWriteCommit={pendingWriteCommit}
+      writeError={writeError}
+      showWriteConfirm={showWriteConfirm}
+      onPrepareCorpusWrite={prepareCorpusWrite}
+      onRequestCorpusWriteConfirm={() => setShowWriteConfirm(true)}
+      onCancelCorpusWriteConfirm={() => setShowWriteConfirm(false)}
+      onCommitCorpusWrite={commitCorpusWrite}
       onRunCommand={runCommand}
       onStoreDraft={storeCurrentDraft}
       onLoadDraft={loadStoredDraft}

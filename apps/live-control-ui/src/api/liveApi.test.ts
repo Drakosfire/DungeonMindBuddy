@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { getArtifact, getCapabilities, getStatblockWorkbenchDraft, getStatblockWorkbenchSample, listStatblockWorkbenchDrafts, postCommand, postStatblockWorkbenchCommand, previewStatblockCorpusPromotion, storeStatblockWorkbenchDraft } from "./liveApi";
+import { commitStatblockCorpusWrite, getArtifact, getCapabilities, getStatblockWorkbenchDraft, getStatblockWorkbenchSample, listStatblockWorkbenchDrafts, postCommand, postStatblockWorkbenchCommand, prepareStatblockCorpusWrite, previewStatblockCorpusPromotion, storeStatblockWorkbenchDraft } from "./liveApi";
 import type { ProjectionCommand, ProjectionWriteResult, StoreStatblockDraftRequest } from "./types";
 
 function mockJsonResponse(payload: unknown): Response {
@@ -181,6 +181,40 @@ describe("liveApi artifact/capability helpers", () => {
     expect(init?.headers).toEqual({ "Content-Type": "application/json" });
     expect(JSON.parse(String(init?.body))).toEqual({ include_writer_allowlist_check: false });
   });
+
+  it("prepareStatblockCorpusWrite posts encoded prepare request", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      mockJsonResponse({ schema_version: "dmb_statblock_corpus_write_prepare_v1" }),
+    );
+
+    await prepareStatblockCorpusWrite("statblock:draft test", {
+      preview_token: "preview-token",
+    });
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchSpy.mock.calls[0];
+    expect(String(url)).toBe("/api/live/statblocks/workbench/drafts/statblock%3Adraft%20test/corpus-write/prepare");
+    expect(init?.method).toBe("POST");
+    expect(init?.headers).toEqual({ "Content-Type": "application/json" });
+    expect(JSON.parse(String(init?.body))).toEqual({ preview_token: "preview-token" });
+  });
+
+  it("commitStatblockCorpusWrite posts encoded commit request", async () => {
+    const request = { preview_token: "preview-token", writer_confirm_token: "writer-token" };
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      mockJsonResponse({ schema_version: "dmb_statblock_corpus_write_commit_v1" }),
+    );
+
+    await commitStatblockCorpusWrite("statblock:draft test", request);
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchSpy.mock.calls[0];
+    expect(String(url)).toBe("/api/live/statblocks/workbench/drafts/statblock%3Adraft%20test/corpus-write/commit");
+    expect(init?.method).toBe("POST");
+    expect(init?.headers).toEqual({ "Content-Type": "application/json" });
+    expect(JSON.parse(String(init?.body))).toEqual(request);
+  });
+
 
   it("postCommand posts command body unchanged to commands endpoint", async () => {
     const command: ProjectionCommand = {

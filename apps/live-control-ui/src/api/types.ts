@@ -471,6 +471,10 @@ export interface StoredStatblockDraftRecord {
   stored_at: string;
   updated_at: string;
   storage_path: string;
+  corpus_relpath?: string | null;
+  corpus_display_path?: string | null;
+  corpus_written_at?: string | null;
+  corpus_preview_token?: string | null;
   artifact: StatblockDraftArtifactView;
 }
 
@@ -485,6 +489,10 @@ export interface StoredStatblockDraftSummary {
   stored_at: string;
   updated_at: string;
   storage_path: string;
+  corpus_relpath?: string | null;
+  corpus_display_path?: string | null;
+  corpus_written_at?: string | null;
+  corpus_preview_token?: string | null;
 }
 
 export interface StoreStatblockDraftRequest {
@@ -547,6 +555,50 @@ export interface StatblockCorpusPromotionPreviewResponse {
   warnings: StatblockPromotionWarning[];
   validation: StatblockCorpusPromotionPreviewValidation;
   preview_token: string;
+  diagnostics: string[];
+  available_actions: StatblockWorkbenchAction[];
+}
+
+export interface StatblockCorpusWritePrepareRequest {
+  preview_token?: string | null;
+}
+
+export interface StatblockCorpusWritePrepareResponse {
+  schema_version: "dmb_statblock_corpus_write_prepare_v1";
+  artifact_id: string;
+  draft_id: string;
+  title: string;
+  preview_token: string;
+  proposed_corpus_relpath: string;
+  proposed_corpus_display_path: string;
+  writer_ok: boolean;
+  writer_phase?: string | null;
+  writer_confirm_token?: string | null;
+  writer_diff?: string | null;
+  new_size_bytes?: number | null;
+  warnings: StatblockPromotionWarning[];
+  diagnostics: string[];
+  available_actions: StatblockWorkbenchAction[];
+}
+
+export interface StatblockCorpusWriteCommitRequest {
+  preview_token: string;
+  writer_confirm_token: string;
+}
+
+export interface StatblockCorpusWriteCommitResponse {
+  schema_version: "dmb_statblock_corpus_write_commit_v1";
+  artifact_id: string;
+  draft_id: string;
+  title: string;
+  preview_token: string;
+  proposed_corpus_relpath: string;
+  proposed_corpus_display_path: string;
+  writer_ok: boolean;
+  writer_phase?: string | null;
+  bytes_written?: number | null;
+  new_corpus_fingerprint?: string | null;
+  stored_record: StoredStatblockDraftRecord;
   diagnostics: string[];
   available_actions: StatblockWorkbenchAction[];
 }
