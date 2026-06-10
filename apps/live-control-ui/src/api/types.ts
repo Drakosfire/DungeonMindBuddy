@@ -406,3 +406,423 @@ export interface RecapIngestStatus {
   ingest_report: Record<string, unknown>;
   entity_spelling_audit: Array<Record<string, unknown>>;
 }
+
+export interface StatblockWorkbenchAction {
+  action_id: string;
+  label: string;
+  enabled: boolean;
+  disabled_reason: string | null;
+}
+
+export interface StatblockBreadcrumb {
+  label: string;
+  source?: string | null;
+  target?: string | null;
+  metadata?: Record<string, unknown>;
+}
+
+export interface StatblockCombatDefaults {
+  name?: string | null;
+  armor_class?: number | string | null;
+  hit_points?: number | string | null;
+  initiative_bonus?: number | null;
+  passive_perception?: number | string | null;
+  speed_summary?: string | null;
+  speed?: string | null;
+  senses_summary?: string | null;
+  primary_actions?: string[];
+  suggested_tactics?: string[];
+  legendary_actions?: number | null;
+}
+
+export interface StatblockReviewWarning {
+  code?: string | null;
+  message: string;
+  severity?: string;
+  path?: string | null;
+}
+
+export interface StatblockDraftArtifactView {
+  artifact_id: string;
+  draft_id: string;
+  title: string;
+  markdown: string;
+  structured_statblock: Record<string, unknown>;
+  combat_defaults: StatblockCombatDefaults;
+  warnings: StatblockReviewWarning[];
+  provenance: Record<string, unknown>;
+  review_status: string;
+  lifecycle_state: string;
+  storage_status: string;
+  corpus_status: string;
+  source_refs: Array<Record<string, unknown>>;
+  breadcrumbs: StatblockBreadcrumb[];
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface StoredStatblockDraftRecord {
+  schema_version: "dmb_statblock_draft_record_v1";
+  artifact_id: string;
+  title: string;
+  campaign_id: string;
+  session: number;
+  stored_at: string;
+  updated_at: string;
+  storage_path: string;
+  corpus_relpath?: string | null;
+  corpus_display_path?: string | null;
+  corpus_written_at?: string | null;
+  corpus_preview_token?: string | null;
+  retrieval_status?: string | null;
+  retrieval_manifest_path?: string | null;
+  retrieval_activated_at?: string | null;
+  retrieval_verified_at?: string | null;
+  retrieval_query?: string | null;
+  retrieval_evidence_path?: string | null;
+  retrieval_evidence_score?: number | null;
+  artifact: StatblockDraftArtifactView;
+}
+
+export interface StoredStatblockDraftSummary {
+  artifact_id: string;
+  title: string;
+  draft_id: string;
+  review_status: string;
+  lifecycle_state: string;
+  storage_status: string;
+  corpus_status: string;
+  stored_at: string;
+  updated_at: string;
+  storage_path: string;
+  corpus_relpath?: string | null;
+  corpus_display_path?: string | null;
+  corpus_written_at?: string | null;
+  corpus_preview_token?: string | null;
+  retrieval_status?: string | null;
+  retrieval_manifest_path?: string | null;
+  retrieval_activated_at?: string | null;
+  retrieval_verified_at?: string | null;
+  retrieval_query?: string | null;
+  retrieval_evidence_path?: string | null;
+  retrieval_evidence_score?: number | null;
+}
+
+export interface StoreStatblockDraftRequest {
+  artifact: StatblockDraftArtifactView;
+  source: "workbench";
+}
+
+export interface StoreStatblockDraftResponse {
+  schema_version: "dmb_statblock_draft_store_v1";
+  record: StoredStatblockDraftRecord;
+  diagnostics: string[];
+}
+
+export interface ListStatblockDraftsResponse {
+  schema_version: "dmb_statblock_draft_list_v1";
+  drafts: StoredStatblockDraftSummary[];
+}
+
+export interface ReadStatblockDraftResponse {
+  schema_version: "dmb_statblock_draft_read_v1";
+  record: StoredStatblockDraftRecord;
+}
+
+
+export interface GeneratedStatblockListItem {
+  artifact_id: string;
+  draft_id: string;
+  title: string;
+  campaign_id: string;
+  session: number;
+  review_status: string;
+  lifecycle_state: string;
+  storage_status: string;
+  corpus_status: string;
+  retrieval_status?: string | null;
+  corpus_relpath: string;
+  corpus_display_path: string;
+  corpus_written_at?: string | null;
+  retrieval_verified_at?: string | null;
+  armor_class?: number | string | null;
+  hit_points?: number | string | null;
+  challenge_rating?: string | null;
+  creature_type?: string | null;
+  primary_actions: string[];
+  warning_count: number;
+}
+
+export interface GeneratedStatblockListResponse {
+  schema_version: "dmb_generated_statblock_list_v1";
+  statblocks: GeneratedStatblockListItem[];
+  diagnostics: string[];
+}
+
+export interface GeneratedStatblockDetailResponse {
+  schema_version: "dmb_generated_statblock_detail_v1";
+  artifact_id: string;
+  draft_id: string;
+  title: string;
+  stored_record: StoredStatblockDraftRecord;
+  corpus_relpath: string;
+  corpus_display_path: string;
+  corpus_markdown: string;
+  corpus_markdown_bytes: number;
+  corpus_file_fingerprint?: string | null;
+  combat_defaults: StatblockCombatDefaults;
+  warnings: StatblockReviewWarning[];
+  provenance: Record<string, unknown>;
+  breadcrumbs: StatblockBreadcrumb[];
+  source_refs: Array<Record<string, unknown>>;
+  retrieval: Record<string, unknown>;
+  available_actions: StatblockWorkbenchAction[];
+  diagnostics: string[];
+}
+
+export type CombatTeam = "pc" | "ally" | "enemy" | "neutral";
+
+export interface CombatEntity {
+  id: string;
+  name: string;
+  team: CombatTeam;
+  order: number;
+  init?: number | null;
+  ac?: number | string | null;
+  hp?: number | string | null;
+  max_hp?: number | string | null;
+  temp_hp?: number | null;
+  defeated: boolean;
+  notes: string;
+  conditions: string[];
+  tags: string[];
+  statblock_path?: string | null;
+  statblock_artifact_id?: string | null;
+  statblock_title?: string | null;
+  corpus_fingerprint?: string | null;
+  source: "corpus" | "generated_pending" | "manual" | "imported";
+  provenance: Array<Record<string, unknown>>;
+}
+
+export interface CombatEncounterState {
+  schema: "dmb_combat_encounter_state_v1";
+  campaign_id: string;
+  session: number;
+  encounter_id: string;
+  title: string;
+  round: number;
+  active_turn_entity_id?: string | null;
+  round_start_entity_id?: string | null;
+  queue_model: "circular_barrel_v1";
+  entities: CombatEntity[];
+  groups: Array<Record<string, unknown>>;
+  provenance: Array<Record<string, unknown>>;
+  updated_at: string;
+}
+
+
+export interface CombatEntityPatchRequest {
+  name?: string | null;
+  team?: CombatTeam | null;
+  init?: number | null;
+  ac?: number | string | null;
+  hp?: number | string | null;
+  max_hp?: number | string | null;
+  temp_hp?: number | null;
+  defeated?: boolean | null;
+  notes?: string | null;
+  conditions?: string[] | null;
+}
+
+export interface CombatHpDeltaRequest {
+  action: "damage" | "heal" | "set_temp_hp";
+  amount: number;
+}
+
+export interface CombatTurnRequest {
+  direction?: "next" | "previous";
+}
+
+export interface CombatSetActiveRequest {
+  entity_id?: string | null;
+}
+
+export interface CombatMutationResponse {
+  schema_version: "dmb_combat_mutation_v1";
+  encounter: CombatEncounterState;
+  diagnostics: string[];
+}
+
+export interface AddGeneratedStatblockCombatRequest {
+  team?: CombatTeam;
+  count?: number;
+  name_override?: string | null;
+  initiative?: number | null;
+  insert_after_entity_id?: string | null;
+  group_key?: string | null;
+  notes?: string | null;
+  hp_override?: number | null;
+  max_hp_override?: number | null;
+}
+
+export interface AddGeneratedStatblockCombatResponse {
+  schema_version: "dmb_add_generated_statblock_to_combat_v1";
+  added_entities: CombatEntity[];
+  encounter: CombatEncounterState;
+  diagnostics: string[];
+}
+
+export interface StatblockPromotionWarning {
+  code: string;
+  message: string;
+  severity: "info" | "warning" | "error";
+}
+
+export interface StatblockCorpusPromotionPreviewRequest {
+  include_writer_allowlist_check?: boolean;
+}
+
+export interface StatblockCorpusPromotionPreviewValidation {
+  ok: boolean;
+  proposed_path_safe: boolean;
+  writer_allowed_now?: boolean | null;
+  writer_reason?: string | null;
+}
+
+export interface StatblockCorpusPromotionPreviewResponse {
+  schema_version: "dmb_statblock_corpus_promotion_preview_v1";
+  preview_id: string;
+  artifact_id: string;
+  draft_id: string;
+  title: string;
+  campaign_id: string;
+  session: number;
+  source_record_path: string;
+  corpus_root_display: string;
+  proposed_corpus_relpath: string;
+  proposed_corpus_display_path: string;
+  frontmatter: Record<string, unknown>;
+  frontmatter_text: string;
+  markdown_body: string;
+  full_markdown: string;
+  breadcrumbs: StatblockBreadcrumb[];
+  source_refs: Array<Record<string, unknown>>;
+  combat_defaults: StatblockCombatDefaults;
+  warnings: StatblockPromotionWarning[];
+  validation: StatblockCorpusPromotionPreviewValidation;
+  preview_token: string;
+  diagnostics: string[];
+  available_actions: StatblockWorkbenchAction[];
+}
+
+export interface StatblockCorpusWritePrepareRequest {
+  preview_token?: string | null;
+}
+
+export interface StatblockCorpusWritePrepareResponse {
+  schema_version: "dmb_statblock_corpus_write_prepare_v1";
+  artifact_id: string;
+  draft_id: string;
+  title: string;
+  preview_token: string;
+  proposed_corpus_relpath: string;
+  proposed_corpus_display_path: string;
+  writer_ok: boolean;
+  writer_phase?: string | null;
+  writer_confirm_token?: string | null;
+  writer_diff?: string | null;
+  new_size_bytes?: number | null;
+  warnings: StatblockPromotionWarning[];
+  diagnostics: string[];
+  available_actions: StatblockWorkbenchAction[];
+}
+
+export interface StatblockCorpusWriteCommitRequest {
+  preview_token: string;
+  writer_confirm_token: string;
+}
+
+export interface StatblockCorpusWriteCommitResponse {
+  schema_version: "dmb_statblock_corpus_write_commit_v1";
+  artifact_id: string;
+  draft_id: string;
+  title: string;
+  preview_token: string;
+  proposed_corpus_relpath: string;
+  proposed_corpus_display_path: string;
+  writer_ok: boolean;
+  writer_phase?: string | null;
+  bytes_written?: number | null;
+  new_corpus_fingerprint?: string | null;
+  stored_record: StoredStatblockDraftRecord;
+  diagnostics: string[];
+  available_actions: StatblockWorkbenchAction[];
+}
+
+
+export interface StatblockRetrievalActivationResponse {
+  schema_version: "dmb_statblock_retrieval_activation_v1";
+  artifact_id: string;
+  draft_id: string;
+  title: string;
+  corpus_relpath: string;
+  corpus_display_path: string;
+  manifest_overlay_path: string;
+  manifest_entry: Record<string, unknown>;
+  stored_record: StoredStatblockDraftRecord;
+  diagnostics: string[];
+  available_actions: StatblockWorkbenchAction[];
+}
+
+export interface StatblockRetrievalVerifyRequest {
+  query?: string | null;
+}
+
+export interface StatblockRetrievalVerifyResponse {
+  schema_version: "dmb_statblock_retrieval_verify_v1";
+  artifact_id: string;
+  draft_id: string;
+  title: string;
+  query: string;
+  status: "verified" | "retrieved_not_admitted" | "not_found";
+  corpus_relpath: string;
+  manifest_overlay_path: string;
+  admitted_evidence: Array<Record<string, unknown>>;
+  rejected_evidence: Array<Record<string, unknown>>;
+  retrieval_trace: Record<string, unknown>;
+  stored_record?: StoredStatblockDraftRecord | null;
+  diagnostics: string[];
+  available_actions: StatblockWorkbenchAction[];
+}
+
+export interface StatblockWorkbenchSampleResponse {
+  schema_version: "dmb_statblock_workbench_sample_v1";
+  mode: "sample_mock";
+  artifact: StatblockDraftArtifactView;
+  command_status: string;
+  diagnostics: string[];
+  available_actions: StatblockWorkbenchAction[];
+}
+
+export type StatblockWorkbenchCommandType =
+  | "statblock.draft.generate"
+  | "statblock.draft.render";
+
+export interface StatblockWorkbenchCommandRequest {
+  command_type: StatblockWorkbenchCommandType;
+  payload?: Record<string, unknown>;
+  requested_by?: "human" | "agent" | "planning_task" | "combat_task";
+  breadcrumbs?: StatblockBreadcrumb[];
+  as_artifact?: boolean;
+}
+
+export interface StatblockWorkbenchCommandResponse {
+  schema_version: "dmb_statblock_workbench_command_v1";
+  mode: "mock_command";
+  artifact: StatblockDraftArtifactView | null;
+  command_status: string;
+  diagnostics: string[];
+  available_actions: StatblockWorkbenchAction[];
+  error?: Record<string, unknown> | null;
+}

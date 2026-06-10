@@ -1,0 +1,40 @@
+{
+  "success": true,
+  "draft": {
+    "draft_id": "draft-rendered-clockwork-scout",
+    "lifecycle_state": "live_draft",
+    "review_status": "warnings",
+    "markdown": "## Clockwork Scout\n*Small construct, unaligned*\n\n**Armor Class** 15\n**Hit Points** 22\n\n### Actions\n**Needle Dart.** Ranged Weapon Attack with a clockwork dart.",
+    "statblock": {
+      "name": "Clockwork Scout",
+      "size": "Small",
+      "type": "construct",
+      "armor_class": 15,
+      "hit_points": 22,
+      "actions": [
+        {"name": "Needle Dart", "description": "Ranged Weapon Attack with a clockwork dart."}
+      ]
+    },
+    "combat_defaults": {
+      "name": "Clockwork Scout",
+      "armor_class": 15,
+      "hit_points": 22,
+      "initiative_bonus": 3,
+      "speed": "30 ft., climb 20 ft.",
+      "primary_actions": ["Needle Dart", "Alarm Chirp"]
+    },
+    "warnings": [
+      {"code": "render_only", "message": "Rendered from existing structured input; review source balance.", "severity": "info"}
+    ],
+    "provenance": {
+      "mode": "render_existing",
+      "generator": "StatBlockGenerator v2",
+      "generated_at": "2026-06-09T12:05:00Z",
+      "source_refs": [
+        {"source_type": "structured_statblock", "source_id": "clockwork-scout-json", "title": "Clockwork Scout JSON"}
+      ],
+      "generation_info": {"renderer": "fixture", "schema_version": "v2"}
+    }
+  },
+  "timestamp": "2026-06-09T12:05:01Z"
+}

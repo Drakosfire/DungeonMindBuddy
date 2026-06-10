@@ -9,8 +9,34 @@ import type {
   ProjectionTarget,
   LiveQueryResponse,
   LiveSurfaceResponse,
+  AddGeneratedStatblockCombatRequest,
+  AddGeneratedStatblockCombatResponse,
+  CombatEncounterState,
+  CombatEntityPatchRequest,
+  CombatHpDeltaRequest,
+  CombatMutationResponse,
+  CombatSetActiveRequest,
+  CombatTurnRequest,
+  GeneratedStatblockDetailResponse,
+  GeneratedStatblockListResponse,
   ResolvedRollResponse,
   SurfaceLayout,
+  ListStatblockDraftsResponse,
+  ReadStatblockDraftResponse,
+  StatblockCorpusPromotionPreviewRequest,
+  StatblockCorpusPromotionPreviewResponse,
+  StatblockCorpusWriteCommitRequest,
+  StatblockCorpusWriteCommitResponse,
+  StatblockCorpusWritePrepareRequest,
+  StatblockCorpusWritePrepareResponse,
+  StatblockRetrievalActivationResponse,
+  StatblockRetrievalVerifyRequest,
+  StatblockRetrievalVerifyResponse,
+  StoreStatblockDraftRequest,
+  StoreStatblockDraftResponse,
+  StatblockWorkbenchCommandRequest,
+  StatblockWorkbenchCommandResponse,
+  StatblockWorkbenchSampleResponse,
 } from "./types";
 
 const baseUrl = (import.meta.env.VITE_LIVE_API_BASE_URL as string | undefined) ?? "";
@@ -161,4 +187,193 @@ export async function rebuildPacket(): Promise<{
   job: import("./types").LiveJob;
 }> {
   return apiFetch("/api/live/rebuild-packet", { method: "POST" });
+}
+
+export async function getStatblockWorkbenchSample(): Promise<StatblockWorkbenchSampleResponse> {
+  return apiFetch<StatblockWorkbenchSampleResponse>(
+    "/api/live/statblocks/workbench/sample",
+  );
+}
+
+export async function postStatblockWorkbenchCommand(
+  request: StatblockWorkbenchCommandRequest,
+): Promise<StatblockWorkbenchCommandResponse> {
+  return apiFetch<StatblockWorkbenchCommandResponse>(
+    "/api/live/statblocks/workbench/command",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(request),
+    },
+  );
+}
+
+
+export async function storeStatblockWorkbenchDraft(
+  request: StoreStatblockDraftRequest,
+): Promise<StoreStatblockDraftResponse> {
+  return apiFetch<StoreStatblockDraftResponse>(
+    "/api/live/statblocks/workbench/drafts",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(request),
+    },
+  );
+}
+
+export async function listStatblockWorkbenchDrafts(): Promise<ListStatblockDraftsResponse> {
+  return apiFetch<ListStatblockDraftsResponse>(
+    "/api/live/statblocks/workbench/drafts",
+  );
+}
+
+export async function getStatblockWorkbenchDraft(
+  artifactId: string,
+): Promise<ReadStatblockDraftResponse> {
+  return apiFetch<ReadStatblockDraftResponse>(
+    `/api/live/statblocks/workbench/drafts/${encodeURIComponent(artifactId)}`,
+  );
+}
+
+
+
+export async function listGeneratedStatblocks(): Promise<GeneratedStatblockListResponse> {
+  return apiFetch<GeneratedStatblockListResponse>(
+    "/api/live/statblocks/view/generated",
+  );
+}
+
+export async function getGeneratedStatblock(
+  artifactId: string,
+): Promise<GeneratedStatblockDetailResponse> {
+  return apiFetch<GeneratedStatblockDetailResponse>(
+    `/api/live/statblocks/view/generated/${encodeURIComponent(artifactId)}`,
+  );
+}
+
+export async function getCurrentCombat(): Promise<CombatEncounterState> {
+  return apiFetch<CombatEncounterState>("/api/live/combat/current");
+}
+
+export async function addGeneratedStatblockToCombat(
+  artifactId: string,
+  request: AddGeneratedStatblockCombatRequest,
+): Promise<AddGeneratedStatblockCombatResponse> {
+  return apiFetch<AddGeneratedStatblockCombatResponse>(
+    `/api/live/statblocks/view/generated/${encodeURIComponent(artifactId)}/combat/add`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(request),
+    },
+  );
+}
+
+export async function previewStatblockCorpusPromotion(
+  artifactId: string,
+  request: StatblockCorpusPromotionPreviewRequest = {},
+): Promise<StatblockCorpusPromotionPreviewResponse> {
+  return apiFetch<StatblockCorpusPromotionPreviewResponse>(
+    `/api/live/statblocks/workbench/drafts/${encodeURIComponent(artifactId)}/corpus-preview`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(request),
+    },
+  );
+}
+
+
+export async function prepareStatblockCorpusWrite(
+  artifactId: string,
+  request: StatblockCorpusWritePrepareRequest = {},
+): Promise<StatblockCorpusWritePrepareResponse> {
+  return apiFetch<StatblockCorpusWritePrepareResponse>(
+    `/api/live/statblocks/workbench/drafts/${encodeURIComponent(artifactId)}/corpus-write/prepare`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(request),
+    },
+  );
+}
+
+export async function commitStatblockCorpusWrite(
+  artifactId: string,
+  request: StatblockCorpusWriteCommitRequest,
+): Promise<StatblockCorpusWriteCommitResponse> {
+  return apiFetch<StatblockCorpusWriteCommitResponse>(
+    `/api/live/statblocks/workbench/drafts/${encodeURIComponent(artifactId)}/corpus-write/commit`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(request),
+    },
+  );
+}
+
+export async function activateStatblockRetrieval(
+  artifactId: string,
+): Promise<StatblockRetrievalActivationResponse> {
+  return apiFetch<StatblockRetrievalActivationResponse>(
+    `/api/live/statblocks/workbench/drafts/${encodeURIComponent(artifactId)}/retrieval/activate`,
+    { method: "POST", body: JSON.stringify({}) },
+  );
+}
+
+export async function verifyStatblockRetrieval(
+  artifactId: string,
+  request: StatblockRetrievalVerifyRequest = {},
+): Promise<StatblockRetrievalVerifyResponse> {
+  return apiFetch<StatblockRetrievalVerifyResponse>(
+    `/api/live/statblocks/workbench/drafts/${encodeURIComponent(artifactId)}/retrieval/verify`,
+    { method: "POST", body: JSON.stringify(request) },
+  );
+}
+
+
+export async function patchCombatEntity(
+  entityId: string,
+  request: CombatEntityPatchRequest,
+): Promise<CombatMutationResponse> {
+  return apiFetch<CombatMutationResponse>(
+    `/api/live/combat/current/entities/${encodeURIComponent(entityId)}`,
+    { method: "PATCH", body: JSON.stringify(request) },
+  );
+}
+
+export async function applyCombatHpDelta(
+  entityId: string,
+  request: CombatHpDeltaRequest,
+): Promise<CombatMutationResponse> {
+  return apiFetch<CombatMutationResponse>(
+    `/api/live/combat/current/entities/${encodeURIComponent(entityId)}/hp-delta`,
+    { method: "POST", body: JSON.stringify(request) },
+  );
+}
+
+export async function sortCombatInitiative(): Promise<CombatMutationResponse> {
+  return apiFetch<CombatMutationResponse>("/api/live/combat/current/sort-initiative", {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
+}
+
+export async function setCombatActiveTurn(
+  request: CombatSetActiveRequest,
+): Promise<CombatMutationResponse> {
+  return apiFetch<CombatMutationResponse>("/api/live/combat/current/active-turn", {
+    method: "POST",
+    body: JSON.stringify(request),
+  });
+}
+
+export async function advanceCombatTurn(
+  request: CombatTurnRequest = { direction: "next" },
+): Promise<CombatMutationResponse> {
+  return apiFetch<CombatMutationResponse>("/api/live/combat/current/turn", {
+    method: "POST",
+    body: JSON.stringify(request),
+  });
 }

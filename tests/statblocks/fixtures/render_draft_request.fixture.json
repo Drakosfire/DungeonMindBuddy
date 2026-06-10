@@ -1,0 +1,43 @@
+{
+  "request_id": "buddy-smoke-render-clockwork-scout",
+  "mode": "render_existing",
+  "statblock": {
+    "name": "Clockwork Scout",
+    "size": "Small",
+    "type": "construct",
+    "alignment": "unaligned",
+    "armor_class": 13,
+    "hit_points": 18,
+    "speed": "30 ft.",
+    "abilities": {
+      "str": 8,
+      "dex": 15,
+      "con": 12,
+      "int": 6,
+      "wis": 12,
+      "cha": 5
+    },
+    "challenge_rating": "1/2",
+    "actions": [
+      {
+        "name": "Gearblade",
+        "desc": "Melee Weapon Attack: +4 to hit, reach 5 ft., one target. Hit: 5 (1d6 + 2) slashing damage."
+      }
+    ]
+  },
+  "output_options": {
+    "include_markdown": true,
+    "include_json": true,
+    "include_combat_defaults": true,
+    "include_review_warnings": true,
+    "persist": false
+  },
+  "source_refs": [
+    {
+      "id": "buddy-smoke-render",
+      "kind": "fixture",
+      "label": "Buddy smoke render fixture",
+      "reason": "Developer seam test"
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+from __future__ import annotations
+
+STATBLOCK_GENERATOR_HEALTH = "statblock.generator.health"
+STATBLOCK_DESCRIPTION_REQUEST = "statblock.description.request"
+STATBLOCK_DESCRIPTION_APPROVE = "statblock.description.approve"
+STATBLOCK_DRAFT_GENERATE = "statblock.draft.generate"
+STATBLOCK_DRAFT_RENDER = "statblock.draft.render"
+STATBLOCK_DRAFT_REVIEW = "statblock.draft.review"
+STATBLOCK_DRAFT_STORE = "statblock.draft.store"
+STATBLOCK_CORPUS_PREVIEW_PROMOTE = "statblock.corpus.preview_promote"
+STATBLOCK_CORPUS_CONFIRM_PROMOTE = "statblock.corpus.confirm_promote"
+STATBLOCK_CORPUS_INGEST = "statblock.corpus.ingest"
+STATBLOCK_COMBAT_ADD = "statblock.combat.add"
+
+STATBLOCK_LIFECYCLE_COMMANDS: tuple[str, ...] = (
+    STATBLOCK_GENERATOR_HEALTH,
+    STATBLOCK_DESCRIPTION_REQUEST,
+    STATBLOCK_DESCRIPTION_APPROVE,
+    STATBLOCK_DRAFT_GENERATE,
+    STATBLOCK_DRAFT_RENDER,
+    STATBLOCK_DRAFT_REVIEW,
+    STATBLOCK_DRAFT_STORE,
+    STATBLOCK_CORPUS_PREVIEW_PROMOTE,
+    STATBLOCK_CORPUS_CONFIRM_PROMOTE,
+    STATBLOCK_CORPUS_INGEST,
+    STATBLOCK_COMBAT_ADD,
+)

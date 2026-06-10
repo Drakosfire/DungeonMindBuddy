@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Annotated, Any, Literal
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, HTTPException, Path, Query, Request
 from pydantic import BaseModel, Field
 
 from apps.live_control_server.config import repo_root, session_dir
@@ -30,9 +30,80 @@ from src.live_play.projections import (
 from src.live_play.projections.artifacts import ArtifactReadError
 from src.live_play.resolve_roll import RollResolveError, resolve_roll_from_packet
 
+from apps.live_control_server.services.statblock_corpus_preview import (
+    StatblockCorpusPromotionPreviewRequest,
+    StatblockCorpusPromotionPreviewResponse,
+    build_statblock_corpus_promotion_preview,
+)
+from apps.live_control_server.services.statblock_corpus_write import (
+    CorpusWriterCommitError,
+    PreviewTokenMismatchError,
+    StatblockCorpusWriteCommitRequest,
+    StatblockCorpusWriteCommitResponse,
+    StatblockCorpusWritePrepareRequest,
+    StatblockCorpusWritePrepareResponse,
+    commit_statblock_corpus_write,
+    prepare_statblock_corpus_write,
+)
+from apps.live_control_server.services.statblock_retrieval_activation import (
+    RetrievalNotActivatedError,
+    StatblockRetrievalActivationError,
+    StatblockRetrievalActivationResponse,
+    StatblockRetrievalVerifyRequest,
+    StatblockRetrievalVerifyResponse,
+    activate_statblock_retrieval,
+    verify_statblock_retrieval,
+)
+from apps.live_control_server.services.statblock_draft_store import (
+    ListStatblockDraftsResponse,
+    ReadStatblockDraftResponse,
+    StatblockDraftNotFoundError,
+    StoreStatblockDraftRequest,
+    StoreStatblockDraftResponse,
+    UnsafeArtifactIdError,
+    list_statblock_drafts,
+    read_statblock_draft,
+    store_statblock_draft,
+)
+
+from apps.live_control_server.services.combat_state import (
+    AddGeneratedStatblockCombatRequest,
+    AddGeneratedStatblockCombatResponse,
+    CombatEncounterState,
+    CombatEntityNotFoundError,
+    CombatEntityPatchRequest,
+    CombatHpDeltaRequest,
+    CombatMutationResponse,
+    CombatSetActiveRequest,
+    CombatTurnRequest,
+    add_generated_statblock_to_combat,
+    advance_combat_turn,
+    apply_combat_hp_delta,
+    load_or_initialize_current_combat,
+    patch_combat_entity,
+    set_active_combat_turn,
+    sort_combat_initiative,
+)
+from apps.live_control_server.services.statblock_view import (
+    GeneratedStatblockDetailResponse,
+    GeneratedStatblockListResponse,
+    StatblockViewError,
+    list_generated_statblocks,
+    read_generated_statblock,
+)
+from apps.live_control_server.services.statblock_workbench import (
+    StatblockWorkbenchCommandRequest,
+    StatblockWorkbenchCommandResponse,
+    StatblockWorkbenchSampleResponse,
+    build_statblock_workbench_sample_response,
+    execute_statblock_workbench_command,
+)
+
 router = APIRouter(prefix="/api/live", tags=["live"])
 INSPECTABLE_TARGET_TYPE = Literal["event", "roll_table"]
-FORBIDDEN_PATH_QUERY_FIELDS = frozenset({"source_path", "file_path", "path", "absolute_path", "relative_path"})
+FORBIDDEN_PATH_QUERY_FIELDS = frozenset(
+    {"source_path", "file_path", "path", "absolute_path", "relative_path"}
+)
 
 
 class LiveQueryRequest(BaseModel):
@@ -75,7 +146,9 @@ def _target_from_session(
                 label=label,
                 source_status="authoritative",
             )
-        raise HTTPException(status_code=404, detail=f"unknown target id for event: {target_id}")
+        raise HTTPException(
+            status_code=404, detail=f"unknown target id for event: {target_id}"
+        )
 
     for row in packet.get("known_roll_tables", []):
         if row.get("table_id") != target_id:
@@ -87,7 +160,388 @@ def _target_from_session(
             label=title,
             source_status="authoritative",
         )
-    raise HTTPException(status_code=404, detail=f"unknown target id for roll_table: {target_id}")
+    raise HTTPException(
+        status_code=404, detail=f"unknown target id for roll_table: {target_id}"
+    )
+
+
+
+
+@router.get(
+    "/statblocks/view/generated",
+    response_model=GeneratedStatblockListResponse,
+)
+def get_generated_statblock_view_list() -> dict[str, Any]:
+    try:
+        response = list_generated_statblocks(base=session_dir(), root=repo_root())
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail="generated statblock list failed") from exc
+    return response.model_dump(mode="json")
+
+
+@router.get(
+    "/statblocks/view/generated/{artifact_id}",
+    response_model=GeneratedStatblockDetailResponse,
+)
+def get_generated_statblock_view_detail(
+    artifact_id: Annotated[str, Path(min_length=1)],
+) -> dict[str, Any]:
+    try:
+        response = read_generated_statblock(
+            base=session_dir(), root=repo_root(), artifact_id=artifact_id
+        )
+    except UnsafeArtifactIdError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except StatblockDraftNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except StatblockViewError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail="generated statblock read failed") from exc
+    return response.model_dump(mode="json")
+
+
+@router.get(
+    "/combat/current",
+    response_model=CombatEncounterState,
+)
+def get_current_combat() -> dict[str, Any]:
+    base = session_dir()
+    packet, _, _, _ = load_session(base)
+    response = load_or_initialize_current_combat(base=base, packet=packet)
+    return response.model_dump(mode="json")
+
+
+@router.patch(
+    "/combat/current/entities/{entity_id}",
+    response_model=CombatMutationResponse,
+)
+def patch_current_combat_entity(
+    entity_id: Annotated[str, Path(min_length=1)],
+    body: CombatEntityPatchRequest,
+) -> dict[str, Any]:
+    base = session_dir()
+    packet, _, _, _ = load_session(base)
+    try:
+        response = patch_combat_entity(
+            base=base, packet=packet, entity_id=entity_id, patch=body
+        )
+    except CombatEntityNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return response.model_dump(mode="json")
+
+
+@router.post(
+    "/combat/current/entities/{entity_id}/hp-delta",
+    response_model=CombatMutationResponse,
+)
+def post_current_combat_entity_hp_delta(
+    entity_id: Annotated[str, Path(min_length=1)],
+    body: CombatHpDeltaRequest,
+) -> dict[str, Any]:
+    base = session_dir()
+    packet, _, _, _ = load_session(base)
+    try:
+        response = apply_combat_hp_delta(
+            base=base, packet=packet, entity_id=entity_id, delta=body
+        )
+    except CombatEntityNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return response.model_dump(mode="json")
+
+
+@router.post(
+    "/combat/current/sort-initiative",
+    response_model=CombatMutationResponse,
+)
+def post_current_combat_sort_initiative() -> dict[str, Any]:
+    base = session_dir()
+    packet, _, _, _ = load_session(base)
+    response = sort_combat_initiative(base=base, packet=packet)
+    return response.model_dump(mode="json")
+
+
+@router.post(
+    "/combat/current/active-turn",
+    response_model=CombatMutationResponse,
+)
+def post_current_combat_active_turn(body: CombatSetActiveRequest) -> dict[str, Any]:
+    base = session_dir()
+    packet, _, _, _ = load_session(base)
+    try:
+        response = set_active_combat_turn(base=base, packet=packet, request=body)
+    except CombatEntityNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return response.model_dump(mode="json")
+
+
+@router.post(
+    "/combat/current/turn",
+    response_model=CombatMutationResponse,
+)
+def post_current_combat_turn(body: CombatTurnRequest | None = None) -> dict[str, Any]:
+    base = session_dir()
+    packet, _, _, _ = load_session(base)
+    request = body or CombatTurnRequest()
+    response = advance_combat_turn(base=base, packet=packet, request=request)
+    return response.model_dump(mode="json")
+
+
+@router.post(
+    "/statblocks/view/generated/{artifact_id}/combat/add",
+    response_model=AddGeneratedStatblockCombatResponse,
+)
+def post_generated_statblock_combat_add(
+    artifact_id: Annotated[str, Path(min_length=1)],
+    body: AddGeneratedStatblockCombatRequest | None = None,
+) -> dict[str, Any]:
+    base = session_dir()
+    packet, _, _, _ = load_session(base)
+    request = body or AddGeneratedStatblockCombatRequest()
+    try:
+        response = add_generated_statblock_to_combat(
+            base=base,
+            root=repo_root(),
+            packet=packet,
+            artifact_id=artifact_id,
+            request=request,
+        )
+    except UnsafeArtifactIdError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except StatblockDraftNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except StatblockViewError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail="generated statblock combat add failed") from exc
+    return response.model_dump(mode="json")
+
+@router.get(
+    "/statblocks/workbench/sample",
+    response_model=StatblockWorkbenchSampleResponse,
+)
+def get_statblock_workbench_sample() -> dict[str, Any]:
+    try:
+        response = build_statblock_workbench_sample_response()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    return response.model_dump(mode="json")
+
+
+@router.post(
+    "/statblocks/workbench/command",
+    response_model=StatblockWorkbenchCommandResponse,
+)
+def post_statblock_workbench_command(
+    body: StatblockWorkbenchCommandRequest,
+) -> dict[str, Any]:
+    response = execute_statblock_workbench_command(body)
+    if response.artifact is None:
+        raise HTTPException(status_code=502, detail=response.model_dump(mode="json"))
+    return response.model_dump(mode="json")
+
+
+@router.post(
+    "/statblocks/workbench/drafts",
+    response_model=StoreStatblockDraftResponse,
+)
+def post_statblock_workbench_draft(
+    body: StoreStatblockDraftRequest,
+) -> dict[str, Any]:
+    base = session_dir()
+    packet, _, _, _ = load_session(base)
+    try:
+        record = store_statblock_draft(
+            base=base,
+            campaign_id=str(packet["campaign_id"]),
+            session=int(packet["session"]),
+            artifact=body.artifact,
+        )
+    except UnsafeArtifactIdError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    response = StoreStatblockDraftResponse(
+        record=record,
+        diagnostics=[
+            "stored as non-corpus draft artifact",
+            "no corpus write, ingestion, or combat mutation occurred",
+        ],
+    )
+    return response.model_dump(mode="json")
+
+
+@router.get(
+    "/statblocks/workbench/drafts",
+    response_model=ListStatblockDraftsResponse,
+)
+def get_statblock_workbench_drafts() -> dict[str, Any]:
+    response = ListStatblockDraftsResponse(
+        drafts=list_statblock_drafts(base=session_dir())
+    )
+    return response.model_dump(mode="json")
+
+
+@router.get(
+    "/statblocks/workbench/drafts/{artifact_id}",
+    response_model=ReadStatblockDraftResponse,
+)
+def get_statblock_workbench_draft(
+    artifact_id: Annotated[str, Path(min_length=1)],
+) -> dict[str, Any]:
+    try:
+        record = read_statblock_draft(base=session_dir(), artifact_id=artifact_id)
+    except UnsafeArtifactIdError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except StatblockDraftNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    response = ReadStatblockDraftResponse(record=record)
+    return response.model_dump(mode="json")
+
+
+@router.post(
+    "/statblocks/workbench/drafts/{artifact_id}/corpus-preview",
+    response_model=StatblockCorpusPromotionPreviewResponse,
+)
+def post_statblock_workbench_draft_corpus_preview(
+    artifact_id: Annotated[str, Path(min_length=1)],
+    body: StatblockCorpusPromotionPreviewRequest | None = None,
+) -> dict[str, Any]:
+    base = session_dir()
+    packet, _, _, _ = load_session(base)
+    request = body or StatblockCorpusPromotionPreviewRequest()
+    try:
+        response = build_statblock_corpus_promotion_preview(
+            base=base,
+            packet=packet,
+            artifact_id=artifact_id,
+            include_writer_allowlist_check=request.include_writer_allowlist_check,
+        )
+    except UnsafeArtifactIdError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except StatblockDraftNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail="statblock corpus preview failed") from exc
+    return response.model_dump(mode="json")
+
+
+@router.post(
+    "/statblocks/workbench/drafts/{artifact_id}/corpus-write/prepare",
+    response_model=StatblockCorpusWritePrepareResponse,
+)
+def post_statblock_workbench_draft_corpus_write_prepare(
+    artifact_id: Annotated[str, Path(min_length=1)],
+    body: StatblockCorpusWritePrepareRequest | None = None,
+) -> dict[str, Any]:
+    base = session_dir()
+    packet, _, _, _ = load_session(base)
+    request = body or StatblockCorpusWritePrepareRequest()
+    try:
+        response = prepare_statblock_corpus_write(
+            base=base,
+            packet=packet,
+            artifact_id=artifact_id,
+            expected_preview_token=request.preview_token,
+        )
+    except UnsafeArtifactIdError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except StatblockDraftNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except PreviewTokenMismatchError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail="statblock corpus write prepare failed") from exc
+    return response.model_dump(mode="json")
+
+
+@router.post(
+    "/statblocks/workbench/drafts/{artifact_id}/corpus-write/commit",
+    response_model=StatblockCorpusWriteCommitResponse,
+)
+def post_statblock_workbench_draft_corpus_write_commit(
+    artifact_id: Annotated[str, Path(min_length=1)],
+    body: StatblockCorpusWriteCommitRequest,
+) -> dict[str, Any]:
+    base = session_dir()
+    packet, _, _, _ = load_session(base)
+    try:
+        response = commit_statblock_corpus_write(
+            base=base,
+            packet=packet,
+            artifact_id=artifact_id,
+            preview_token=body.preview_token,
+            writer_confirm_token=body.writer_confirm_token,
+        )
+    except UnsafeArtifactIdError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except StatblockDraftNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except PreviewTokenMismatchError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except CorpusWriterCommitError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail="statblock corpus write commit failed") from exc
+    return response.model_dump(mode="json")
+
+
+@router.post(
+    "/statblocks/workbench/drafts/{artifact_id}/retrieval/activate",
+    response_model=StatblockRetrievalActivationResponse,
+)
+def post_statblock_workbench_draft_retrieval_activate(
+    artifact_id: Annotated[str, Path(min_length=1)],
+) -> dict[str, Any]:
+    base = session_dir()
+    packet, _, _, _ = load_session(base)
+    try:
+        response = activate_statblock_retrieval(
+            base=base, root=repo_root(), packet=packet, artifact_id=artifact_id
+        )
+    except UnsafeArtifactIdError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except StatblockDraftNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except StatblockRetrievalActivationError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail="statblock retrieval activation failed") from exc
+    return response.model_dump(mode="json")
+
+
+@router.post(
+    "/statblocks/workbench/drafts/{artifact_id}/retrieval/verify",
+    response_model=StatblockRetrievalVerifyResponse,
+)
+def post_statblock_workbench_draft_retrieval_verify(
+    artifact_id: Annotated[str, Path(min_length=1)],
+    body: StatblockRetrievalVerifyRequest | None = None,
+) -> dict[str, Any]:
+    base = session_dir()
+    packet, _, _, _ = load_session(base)
+    request = body or StatblockRetrievalVerifyRequest()
+    try:
+        response = verify_statblock_retrieval(
+            base=base,
+            root=repo_root(),
+            packet=packet,
+            artifact_id=artifact_id,
+            query=request.query,
+        )
+    except UnsafeArtifactIdError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except StatblockDraftNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RetrievalNotActivatedError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except StatblockRetrievalActivationError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail="statblock retrieval verification failed") from exc
+    return response.model_dump(mode="json")
 
 
 @router.post("/query")
@@ -100,7 +554,9 @@ def post_live_query(body: LiveQueryRequest) -> dict[str, Any]:
             detail="campaign_id/session do not match loaded live packet",
         )
     try:
-        return process_live_query(body.text, base=base, request_manifest_path=body.manifest_path)
+        return process_live_query(
+            body.text, base=base, request_manifest_path=body.manifest_path
+        )
     except LiveRowValidationError as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
@@ -230,7 +686,9 @@ def post_resolve_roll(body: ResolveRollRequest) -> dict[str, Any]:
 
     _, _, events_after, jobs_after = load_session(base)
     if len(events_after) != len(events_before) or len(jobs_after) != len(jobs_before):
-        raise HTTPException(status_code=500, detail="resolve-roll must not append events or jobs")
+        raise HTTPException(
+            status_code=500, detail="resolve-roll must not append events or jobs"
+        )
 
     return {
         "table_id": resolved.table_id,

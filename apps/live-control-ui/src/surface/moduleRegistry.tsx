@@ -10,9 +10,12 @@ import type {
 import { IngestionModule } from "../modules/IngestionModule";
 import { SourcesModule } from "../modules/SourcesModule";
 import { ChatModule } from "./modules/ChatModule";
+import { CombatRosterModule } from "./modules/CombatRosterModule";
 import { NowModule } from "./modules/NowModule";
 import { RecordModule } from "./modules/RecordModule";
 import { RollStackModule } from "./modules/RollStackModule";
+import { StatblockWorkbenchModule } from "./modules/StatblockWorkbenchModule";
+import { StatblockViewModule } from "./modules/StatblockViewModule";
 import { TimelineModule } from "./modules/TimelineModule";
 import { UnsupportedModule } from "./modules/UnsupportedModule";
 import type { PaneTarget } from "./targetTypes";
@@ -78,6 +81,12 @@ export function ModuleContent({
       return <IngestionModule campaignId={context.campaignId} session={context.session} />;
     case "sources":
       return <SourcesModule campaignId={context.campaignId} session={context.session} />;
+    case "statblock_workbench":
+      return <StatblockWorkbenchModule />;
+    case "statblock_view":
+      return <StatblockViewModule />;
+    case "combat_roster":
+      return <CombatRosterModule />;
     default:
       return (
         <UnsupportedModule
