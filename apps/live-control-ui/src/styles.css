@@ -1178,3 +1178,95 @@ button:disabled {
 .statblock-stored-draft-card code {
   overflow-wrap: anywhere;
 }
+
+.statblock-view-grid {
+  display: grid;
+  grid-template-columns: minmax(14rem, 0.75fr) minmax(0, 1.5fr);
+  gap: 1rem;
+}
+
+.statblock-view-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.statblock-view-list button {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.2rem;
+  text-align: left;
+}
+
+.statblock-view-list button.selected,
+.statblock-view-detail section {
+  border-color: #4f6fbb;
+}
+
+.statblock-view-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.statblock-view-detail section {
+  border: 1px solid #2f3749;
+  border-radius: 8px;
+  padding: 0.75rem;
+  background: #121621;
+}
+
+.statblock-view-status {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.statblock-view-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+  gap: 0.5rem;
+}
+
+.statblock-view-summary dd {
+  margin: 0;
+  font-weight: 700;
+}
+
+.statblock-add-combat-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: 0.6rem;
+}
+
+.statblock-add-combat-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.statblock-add-combat-form input,
+.statblock-add-combat-form select,
+.statblock-add-combat-form textarea {
+  border-radius: 6px;
+  border: 1px solid #3a4358;
+  background: #0f1218;
+  color: inherit;
+  padding: 0.45rem;
+}
+
+.statblock-add-combat-form textarea {
+  min-height: 4rem;
+  resize: vertical;
+}
+
+.statblock-view-markdown {
+  max-height: 22rem;
+  overflow: auto;
+  white-space: pre-wrap;
+}

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { activateStatblockRetrieval, commitStatblockCorpusWrite, getArtifact, getCapabilities, getGeneratedStatblock, getStatblockWorkbenchDraft, getStatblockWorkbenchSample, listGeneratedStatblocks, listStatblockWorkbenchDrafts, postCommand, postStatblockWorkbenchCommand, prepareStatblockCorpusWrite, previewStatblockCorpusPromotion, storeStatblockWorkbenchDraft, verifyStatblockRetrieval } from "./liveApi";
+import { activateStatblockRetrieval, addGeneratedStatblockToCombat, commitStatblockCorpusWrite, getArtifact, getCapabilities, getCurrentCombat, getGeneratedStatblock, getStatblockWorkbenchDraft, getStatblockWorkbenchSample, listGeneratedStatblocks, listStatblockWorkbenchDrafts, postCommand, postStatblockWorkbenchCommand, prepareStatblockCorpusWrite, previewStatblockCorpusPromotion, storeStatblockWorkbenchDraft, verifyStatblockRetrieval } from "./liveApi";
 import type { ProjectionCommand, ProjectionWriteResult, StoreStatblockDraftRequest } from "./types";
 
 function mockJsonResponse(payload: unknown): Response {
@@ -184,6 +184,34 @@ describe("liveApi artifact/capability helpers", () => {
     expect(fetchSpy).toHaveBeenCalledTimes(1);
     const [url] = fetchSpy.mock.calls[0];
     expect(String(url)).toBe("/api/live/statblocks/view/generated/statblock%3Adraft%20test");
+  });
+
+  it("getCurrentCombat calls expected current combat endpoint", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      mockJsonResponse({ schema: "dmb_combat_encounter_state_v1", entities: [] }),
+    );
+
+    await getCurrentCombat();
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    const [url] = fetchSpy.mock.calls[0];
+    expect(String(url)).toBe("/api/live/combat/current");
+  });
+
+  it("addGeneratedStatblockToCombat posts encoded add request", async () => {
+    const request = { team: "enemy" as const, count: 2, initiative: 17 };
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      mockJsonResponse({ schema_version: "dmb_add_generated_statblock_to_combat_v1" }),
+    );
+
+    await addGeneratedStatblockToCombat("statblock:draft test", request);
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchSpy.mock.calls[0];
+    expect(String(url)).toBe("/api/live/statblocks/view/generated/statblock%3Adraft%20test/combat/add");
+    expect(init?.method).toBe("POST");
+    expect(init?.headers).toEqual({ "Content-Type": "application/json" });
+    expect(JSON.parse(String(init?.body))).toEqual(request);
   });
 
   it("previewStatblockCorpusPromotion posts encoded preview request", async () => {
