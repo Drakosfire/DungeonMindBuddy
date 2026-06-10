@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import {
   getStatblockWorkbenchDraft,
+  activateStatblockRetrieval,
   commitStatblockCorpusWrite,
   getStatblockWorkbenchSample,
   listStatblockWorkbenchDrafts,
@@ -9,6 +10,7 @@ import {
   prepareStatblockCorpusWrite,
   previewStatblockCorpusPromotion,
   storeStatblockWorkbenchDraft,
+  verifyStatblockRetrieval,
 } from "../../api/liveApi";
 import type {
   ListStatblockDraftsResponse,
@@ -17,6 +19,8 @@ import type {
   StatblockCorpusWriteCommitResponse,
   StatblockCorpusWritePrepareResponse,
   StatblockDraftArtifactView,
+  StatblockRetrievalActivationResponse,
+  StatblockRetrievalVerifyResponse,
   StatblockWorkbenchAction,
   StatblockWorkbenchCommandType,
   StoredStatblockDraftSummary,
@@ -251,14 +255,89 @@ function CorpusWriteResultPanel({ result }: { result: StatblockCorpusWriteCommit
         <div><dt>Stored record corpus status</dt><dd>{result.stored_record.artifact.corpus_status}</dd></div>
       </dl>
       <div className="statblock-action-row">
-        <div className="statblock-action-card"><button type="button" disabled>Ingest to Semantic Knowledge Layer</button><small>Disabled until a future ingestion/retrieval PR.</small></div>
-        <div className="statblock-action-card"><button type="button" disabled>Verify retrieval</button><small>Disabled until a future retrieval verification PR.</small></div>
+        <div className="statblock-action-card"><button type="button" disabled>Open in Statblock View</button><small>Disabled until a future corpus-backed Statblock View PR.</small></div>
         <div className="statblock-action-card"><button type="button" disabled>Add to combat</button><small>Disabled until corpus-backed combat integration exists.</small></div>
       </div>
       {result.diagnostics.length ? <ul className="module-list">{result.diagnostics.map((diagnostic) => <li key={diagnostic}>{diagnostic}</li>)}</ul> : null}
     </section>
   );
 }
+
+function RetrievalPanel({
+  activation,
+  verification,
+  pendingActivation,
+  pendingVerification,
+  error,
+  canActivate,
+  canVerify,
+  onActivate,
+  onVerify,
+}: {
+  activation: StatblockRetrievalActivationResponse | null;
+  verification: StatblockRetrievalVerifyResponse | null;
+  pendingActivation: boolean;
+  pendingVerification: boolean;
+  error: string | null;
+  canActivate: boolean;
+  canVerify: boolean;
+  onActivate: () => void;
+  onVerify: () => void;
+}) {
+  const entry = activation?.manifest_entry ?? null;
+  const evidence = verification?.admitted_evidence?.[0] ?? null;
+  return (
+    <section className="statblock-section statblock-storage-section">
+      <h3>Retrieval activation</h3>
+      <p className="module-muted">Activates the generated corpus file in the session-scoped manifest overlay; no vector index or combat mutation runs.</p>
+      <div className="statblock-action-row">
+        <button type="button" onClick={onActivate} disabled={!canActivate || pendingActivation || pendingVerification}>
+          {pendingActivation ? "Activating retrieval…" : "Activate retrieval"}
+        </button>
+        <button type="button" onClick={onVerify} disabled={!canVerify || pendingActivation || pendingVerification}>
+          {pendingVerification ? "Verifying retrieval…" : "Verify retrieval"}
+        </button>
+        <button type="button" disabled>Open in Statblock View</button>
+        <button type="button" disabled>Add to combat</button>
+      </div>
+      {!canActivate && !canVerify ? <p className="module-muted">Confirm the corpus write before activating retrieval.</p> : null}
+      {error ? <p className="statblock-command-error" role="alert">Unable to verify retrieval: {error}</p> : null}
+      {activation ? (
+        <>
+          <dl className="statblock-status-grid">
+            <div><dt>Overlay path</dt><dd><code>{activation.manifest_overlay_path}</code></dd></div>
+            <div><dt>Source id</dt><dd><code>{String(entry?.source_id ?? "—")}</code></dd></div>
+            <div><dt>Route</dt><dd><code>{String(entry?.route ?? "—")}</code></dd></div>
+            <div><dt>Authority</dt><dd>{String(entry?.authority ?? "—")}</dd></div>
+            <div><dt>Source role</dt><dd>{String(entry?.source_role ?? "—")}</dd></div>
+            <div><dt>Allowed uses</dt><dd>{displayValue(entry?.allowed_uses)}</dd></div>
+            <div><dt>Forbidden uses</dt><dd>{displayValue(entry?.forbidden_uses)}</dd></div>
+          </dl>
+          <JsonDetails title="Lexical terms" value={entry?.lexical_terms ?? []} />
+          {activation.diagnostics.length ? <ul className="module-list">{activation.diagnostics.map((diagnostic) => <li key={diagnostic}>{diagnostic}</li>)}</ul> : null}
+        </>
+      ) : null}
+      {verification ? (
+        <>
+          <h4>{verification.status === "verified" ? "Retrieval verified" : "Retrieval verification result"}</h4>
+          <dl className="statblock-status-grid">
+            <div><dt>Status</dt><dd>{verification.status}</dd></div>
+            <div><dt>Query</dt><dd>{verification.query}</dd></div>
+            <div><dt>Admitted evidence</dt><dd>{verification.admitted_evidence.length}</dd></div>
+            <div><dt>Rejected evidence</dt><dd>{verification.rejected_evidence.length}</dd></div>
+            <div><dt>Matched path</dt><dd><code>{String(evidence?.path ?? verification.stored_record?.retrieval_evidence_path ?? "—")}</code></dd></div>
+            <div><dt>Line range</dt><dd>{evidence?.line_start ? `${String(evidence.line_start)}–${String(evidence.line_end ?? evidence.line_start)}` : "—"}</dd></div>
+            <div><dt>Evidence score</dt><dd>{String(evidence?.evidence_score ?? verification.stored_record?.retrieval_evidence_score ?? "—")}</dd></div>
+          </dl>
+          <h4>Evidence excerpt</h4>
+          <pre className="statblock-markdown-preview">{String(evidence?.text_excerpt ?? "No admitted evidence excerpt returned.")}</pre>
+          {verification.diagnostics.length ? <ul className="module-list">{verification.diagnostics.map((diagnostic) => <li key={diagnostic}>{diagnostic}</li>)}</ul> : null}
+        </>
+      ) : null}
+    </section>
+  );
+}
+
 
 function ReadyWorkbench({
   response,
@@ -280,10 +359,17 @@ function ReadyWorkbench({
   pendingWriteCommit,
   writeError,
   showWriteConfirm,
+  retrievalActivation,
+  retrievalVerification,
+  pendingRetrievalActivation,
+  pendingRetrievalVerification,
+  retrievalError,
   onPrepareCorpusWrite,
   onRequestCorpusWriteConfirm,
   onCancelCorpusWriteConfirm,
   onCommitCorpusWrite,
+  onActivateRetrieval,
+  onVerifyRetrieval,
   onRunCommand,
   onStoreDraft,
   onLoadDraft,
@@ -308,21 +394,33 @@ function ReadyWorkbench({
   pendingWriteCommit: boolean;
   writeError: string | null;
   showWriteConfirm: boolean;
+  retrievalActivation: StatblockRetrievalActivationResponse | null;
+  retrievalVerification: StatblockRetrievalVerifyResponse | null;
+  pendingRetrievalActivation: boolean;
+  pendingRetrievalVerification: boolean;
+  retrievalError: string | null;
   onPrepareCorpusWrite: () => void;
   onRequestCorpusWriteConfirm: () => void;
   onCancelCorpusWriteConfirm: () => void;
   onCommitCorpusWrite: () => void;
+  onActivateRetrieval: () => void;
+  onVerifyRetrieval: () => void;
   onRunCommand: (commandType: StatblockWorkbenchCommandType) => void;
   onStoreDraft: () => void;
   onLoadDraft: (artifactId: string) => void;
   onPreviewCorpusPromotion: () => void;
 }) {
   const artifact = response.artifact;
-  const futureActions = response.available_actions.filter((action) => !["store_draft", "preview_corpus_promotion"].includes(action.action_id));
+  const futureActions = response.available_actions.filter((action) => !["store_draft", "preview_corpus_promotion", "ingest_to_semantic_layer", "add_to_combat"].includes(action.action_id));
   const storeDisabled = pendingCommand !== null || pendingStore || pendingPreview || artifact.storage_status === "stored_draft";
+  const anyRetrievalPending = pendingRetrievalActivation || pendingRetrievalVerification;
   const anyWritePending = pendingWritePrepare || pendingWriteCommit;
   const previewDisabled = pendingCommand !== null || pendingStore || pendingPreview || pendingLoadId !== null || anyWritePending || artifact.storage_status !== "stored_draft";
-  const prepareWriteDisabled = previewDisabled || !corpusPreview;
+  const prepareWriteDisabled = previewDisabled || !corpusPreview || anyRetrievalPending;
+  const retrievalStatus = retrievalVerification?.stored_record?.retrieval_status ?? retrievalActivation?.stored_record.retrieval_status ?? null;
+  const retrievalAlreadyActivated = Boolean(retrievalActivation) || retrievalStatus === "manifest_activated" || retrievalStatus === "retrieval_verified";
+  const canActivateRetrieval = artifact.corpus_status === "promotion_confirmed" && !retrievalAlreadyActivated && !anyWritePending && !pendingStore && pendingCommand === null;
+  const canVerifyRetrieval = retrievalAlreadyActivated && !anyWritePending && !pendingStore && pendingCommand === null;
   const commitReady = Boolean(corpusWritePrepare?.writer_ok && corpusWritePrepare.writer_confirm_token);
 
   return (
@@ -396,6 +494,18 @@ function ReadyWorkbench({
         ) : null}
         {writeError ? <p className="statblock-command-error" role="alert">Unable to write corpus file: {writeError}</p> : null}
       </section>
+
+      <RetrievalPanel
+        activation={retrievalActivation}
+        verification={retrievalVerification}
+        pendingActivation={pendingRetrievalActivation}
+        pendingVerification={pendingRetrievalVerification}
+        error={retrievalError}
+        canActivate={canActivateRetrieval}
+        canVerify={canVerifyRetrieval}
+        onActivate={onActivateRetrieval}
+        onVerify={onVerifyRetrieval}
+      />
 
       <StatusRail artifact={artifact} commandStatus={response.command_status} />
 
@@ -496,6 +606,11 @@ export function StatblockWorkbenchModule() {
   const [pendingWriteCommit, setPendingWriteCommit] = useState(false);
   const [writeError, setWriteError] = useState<string | null>(null);
   const [showWriteConfirm, setShowWriteConfirm] = useState(false);
+  const [retrievalActivation, setRetrievalActivation] = useState<StatblockRetrievalActivationResponse | null>(null);
+  const [retrievalVerification, setRetrievalVerification] = useState<StatblockRetrievalVerifyResponse | null>(null);
+  const [pendingRetrievalActivation, setPendingRetrievalActivation] = useState(false);
+  const [pendingRetrievalVerification, setPendingRetrievalVerification] = useState(false);
+  const [retrievalError, setRetrievalError] = useState<string | null>(null);
 
   const refreshStoredDrafts = useCallback(() => {
     setStoredDraftsLoading(true);
@@ -506,11 +621,18 @@ export function StatblockWorkbenchModule() {
       .finally(() => setStoredDraftsLoading(false));
   }, []);
 
+  const clearRetrievalState = () => {
+    setRetrievalActivation(null);
+    setRetrievalVerification(null);
+    setRetrievalError(null);
+  };
+
   const clearCorpusWriteState = () => {
     setCorpusWritePrepare(null);
     setCorpusWriteResult(null);
     setWriteError(null);
     setShowWriteConfirm(false);
+    clearRetrievalState();
   };
 
   useEffect(() => {
@@ -658,12 +780,44 @@ export function StatblockWorkbenchModule() {
       .then((commit) => {
         setCorpusWriteResult(commit);
         setCorpusWritePrepare(null);
+        clearRetrievalState();
         setResponse((current) => current ? { ...current, artifact: commit.stored_record.artifact, command_status: "corpus_written" } : current);
         setShowWriteConfirm(false);
         return refreshStoredDrafts();
       })
       .catch((err: unknown) => setWriteError(err instanceof Error ? err.message : String(err)))
       .finally(() => setPendingWriteCommit(false));
+  };
+
+  const activateRetrieval = () => {
+    if (!response?.artifact) return;
+    setPendingRetrievalActivation(true);
+    setRetrievalError(null);
+    setRetrievalVerification(null);
+    activateStatblockRetrieval(response.artifact.artifact_id)
+      .then((activation) => {
+        setRetrievalActivation(activation);
+        setResponse((current) => current ? { ...current, command_status: "retrieval_activated" } : current);
+        return refreshStoredDrafts();
+      })
+      .catch((err: unknown) => setRetrievalError(err instanceof Error ? err.message : String(err)))
+      .finally(() => setPendingRetrievalActivation(false));
+  };
+
+  const verifyRetrieval = () => {
+    if (!response?.artifact) return;
+    setPendingRetrievalVerification(true);
+    setRetrievalError(null);
+    verifyStatblockRetrieval(response.artifact.artifact_id, {})
+      .then((verification) => {
+        setRetrievalVerification(verification);
+        if (verification.stored_record) {
+          setResponse((current) => current ? { ...current, command_status: "retrieval_verified" } : current);
+        }
+        return refreshStoredDrafts();
+      })
+      .catch((err: unknown) => setRetrievalError(err instanceof Error ? err.message : String(err)))
+      .finally(() => setPendingRetrievalVerification(false));
   };
 
   if (loading) {
@@ -697,10 +851,17 @@ export function StatblockWorkbenchModule() {
       pendingWriteCommit={pendingWriteCommit}
       writeError={writeError}
       showWriteConfirm={showWriteConfirm}
+      retrievalActivation={retrievalActivation}
+      retrievalVerification={retrievalVerification}
+      pendingRetrievalActivation={pendingRetrievalActivation}
+      pendingRetrievalVerification={pendingRetrievalVerification}
+      retrievalError={retrievalError}
       onPrepareCorpusWrite={prepareCorpusWrite}
       onRequestCorpusWriteConfirm={() => setShowWriteConfirm(true)}
       onCancelCorpusWriteConfirm={() => setShowWriteConfirm(false)}
       onCommitCorpusWrite={commitCorpusWrite}
+      onActivateRetrieval={activateRetrieval}
+      onVerifyRetrieval={verifyRetrieval}
       onRunCommand={runCommand}
       onStoreDraft={storeCurrentDraft}
       onLoadDraft={loadStoredDraft}

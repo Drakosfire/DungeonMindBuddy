@@ -41,6 +41,13 @@ class StoredStatblockDraftRecord(BaseModel):
     corpus_display_path: str | None = None
     corpus_written_at: str | None = None
     corpus_preview_token: str | None = None
+    retrieval_status: str | None = None
+    retrieval_manifest_path: str | None = None
+    retrieval_activated_at: str | None = None
+    retrieval_verified_at: str | None = None
+    retrieval_query: str | None = None
+    retrieval_evidence_path: str | None = None
+    retrieval_evidence_score: float | None = None
     artifact: StatblockDraftArtifact
 
 
@@ -59,6 +66,13 @@ class StoredStatblockDraftSummary(BaseModel):
     corpus_display_path: str | None = None
     corpus_written_at: str | None = None
     corpus_preview_token: str | None = None
+    retrieval_status: str | None = None
+    retrieval_manifest_path: str | None = None
+    retrieval_activated_at: str | None = None
+    retrieval_verified_at: str | None = None
+    retrieval_query: str | None = None
+    retrieval_evidence_path: str | None = None
+    retrieval_evidence_score: float | None = None
 
 
 class StoreStatblockDraftRequest(BaseModel):
@@ -140,6 +154,13 @@ def _summary_from_record(record: StoredStatblockDraftRecord) -> StoredStatblockD
         corpus_display_path=record.corpus_display_path,
         corpus_written_at=record.corpus_written_at,
         corpus_preview_token=record.corpus_preview_token,
+        retrieval_status=record.retrieval_status,
+        retrieval_manifest_path=record.retrieval_manifest_path,
+        retrieval_activated_at=record.retrieval_activated_at,
+        retrieval_verified_at=record.retrieval_verified_at,
+        retrieval_query=record.retrieval_query,
+        retrieval_evidence_path=record.retrieval_evidence_path,
+        retrieval_evidence_score=record.retrieval_evidence_score,
     )
 
 
