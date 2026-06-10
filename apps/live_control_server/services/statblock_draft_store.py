@@ -37,6 +37,10 @@ class StoredStatblockDraftRecord(BaseModel):
     stored_at: str
     updated_at: str
     storage_path: str
+    corpus_relpath: str | None = None
+    corpus_display_path: str | None = None
+    corpus_written_at: str | None = None
+    corpus_preview_token: str | None = None
     artifact: StatblockDraftArtifact
 
 
@@ -51,6 +55,10 @@ class StoredStatblockDraftSummary(BaseModel):
     stored_at: str
     updated_at: str
     storage_path: str
+    corpus_relpath: str | None = None
+    corpus_display_path: str | None = None
+    corpus_written_at: str | None = None
+    corpus_preview_token: str | None = None
 
 
 class StoreStatblockDraftRequest(BaseModel):
@@ -128,6 +136,10 @@ def _summary_from_record(record: StoredStatblockDraftRecord) -> StoredStatblockD
         stored_at=record.stored_at,
         updated_at=record.updated_at,
         storage_path=record.storage_path,
+        corpus_relpath=record.corpus_relpath,
+        corpus_display_path=record.corpus_display_path,
+        corpus_written_at=record.corpus_written_at,
+        corpus_preview_token=record.corpus_preview_token,
     )
 
 
@@ -189,3 +201,12 @@ def read_statblock_draft(*, base: Path, artifact_id: str) -> StoredStatblockDraf
     if not path.is_file():
         raise StatblockDraftNotFoundError("statblock draft not found")
     return StoredStatblockDraftRecord.model_validate(load_json(path))
+
+
+def update_statblock_draft_record(*, base: Path, record: StoredStatblockDraftRecord) -> StoredStatblockDraftRecord:
+    artifact_id = _validate_artifact_id(record.artifact_id)
+    path = _draft_path(base, artifact_id)
+    if not path.is_file():
+        raise StatblockDraftNotFoundError("statblock draft not found")
+    write_json(path, record.model_dump(mode="json"))
+    return record

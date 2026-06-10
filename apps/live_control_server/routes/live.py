@@ -35,6 +35,16 @@ from apps.live_control_server.services.statblock_corpus_preview import (
     StatblockCorpusPromotionPreviewResponse,
     build_statblock_corpus_promotion_preview,
 )
+from apps.live_control_server.services.statblock_corpus_write import (
+    CorpusWriterCommitError,
+    PreviewTokenMismatchError,
+    StatblockCorpusWriteCommitRequest,
+    StatblockCorpusWriteCommitResponse,
+    StatblockCorpusWritePrepareRequest,
+    StatblockCorpusWritePrepareResponse,
+    commit_statblock_corpus_write,
+    prepare_statblock_corpus_write,
+)
 from apps.live_control_server.services.statblock_draft_store import (
     ListStatblockDraftsResponse,
     ReadStatblockDraftResponse,
@@ -225,6 +235,66 @@ def post_statblock_workbench_draft_corpus_preview(
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except Exception as exc:
         raise HTTPException(status_code=500, detail="statblock corpus preview failed") from exc
+    return response.model_dump(mode="json")
+
+
+@router.post(
+    "/statblocks/workbench/drafts/{artifact_id}/corpus-write/prepare",
+    response_model=StatblockCorpusWritePrepareResponse,
+)
+def post_statblock_workbench_draft_corpus_write_prepare(
+    artifact_id: Annotated[str, Path(min_length=1)],
+    body: StatblockCorpusWritePrepareRequest | None = None,
+) -> dict[str, Any]:
+    base = session_dir()
+    packet, _, _, _ = load_session(base)
+    request = body or StatblockCorpusWritePrepareRequest()
+    try:
+        response = prepare_statblock_corpus_write(
+            base=base,
+            packet=packet,
+            artifact_id=artifact_id,
+            expected_preview_token=request.preview_token,
+        )
+    except UnsafeArtifactIdError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except StatblockDraftNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except PreviewTokenMismatchError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail="statblock corpus write prepare failed") from exc
+    return response.model_dump(mode="json")
+
+
+@router.post(
+    "/statblocks/workbench/drafts/{artifact_id}/corpus-write/commit",
+    response_model=StatblockCorpusWriteCommitResponse,
+)
+def post_statblock_workbench_draft_corpus_write_commit(
+    artifact_id: Annotated[str, Path(min_length=1)],
+    body: StatblockCorpusWriteCommitRequest,
+) -> dict[str, Any]:
+    base = session_dir()
+    packet, _, _, _ = load_session(base)
+    try:
+        response = commit_statblock_corpus_write(
+            base=base,
+            packet=packet,
+            artifact_id=artifact_id,
+            preview_token=body.preview_token,
+            writer_confirm_token=body.writer_confirm_token,
+        )
+    except UnsafeArtifactIdError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except StatblockDraftNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except PreviewTokenMismatchError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except CorpusWriterCommitError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail="statblock corpus write commit failed") from exc
     return response.model_dump(mode="json")
 
 

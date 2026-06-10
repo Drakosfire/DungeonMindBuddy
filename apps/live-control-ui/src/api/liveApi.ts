@@ -15,6 +15,10 @@ import type {
   ReadStatblockDraftResponse,
   StatblockCorpusPromotionPreviewRequest,
   StatblockCorpusPromotionPreviewResponse,
+  StatblockCorpusWriteCommitRequest,
+  StatblockCorpusWriteCommitResponse,
+  StatblockCorpusWritePrepareRequest,
+  StatblockCorpusWritePrepareResponse,
   StoreStatblockDraftRequest,
   StoreStatblockDraftResponse,
   StatblockWorkbenchCommandRequest,
@@ -226,6 +230,35 @@ export async function previewStatblockCorpusPromotion(
 ): Promise<StatblockCorpusPromotionPreviewResponse> {
   return apiFetch<StatblockCorpusPromotionPreviewResponse>(
     `/api/live/statblocks/workbench/drafts/${encodeURIComponent(artifactId)}/corpus-preview`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(request),
+    },
+  );
+}
+
+
+export async function prepareStatblockCorpusWrite(
+  artifactId: string,
+  request: StatblockCorpusWritePrepareRequest = {},
+): Promise<StatblockCorpusWritePrepareResponse> {
+  return apiFetch<StatblockCorpusWritePrepareResponse>(
+    `/api/live/statblocks/workbench/drafts/${encodeURIComponent(artifactId)}/corpus-write/prepare`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(request),
+    },
+  );
+}
+
+export async function commitStatblockCorpusWrite(
+  artifactId: string,
+  request: StatblockCorpusWriteCommitRequest,
+): Promise<StatblockCorpusWriteCommitResponse> {
+  return apiFetch<StatblockCorpusWriteCommitResponse>(
+    `/api/live/statblocks/workbench/drafts/${encodeURIComponent(artifactId)}/corpus-write/commit`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },

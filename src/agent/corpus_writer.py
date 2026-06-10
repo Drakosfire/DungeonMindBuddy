@@ -79,6 +79,9 @@ _MIREWARD_LOCATION_DOSSIER_RE = re.compile(
 _PREP_SESSION_APPEND_RE = re.compile(
     r"^Longmont Campaign/Campaign \d+/Session Prep/[^/]+\.md$"
 )
+_GENERATED_STATBLOCK_CREATE_RE = re.compile(
+    r"^Longmont Campaign/Campaign \d+/Statblocks/generated/[a-z0-9_]+\.md$"
+)
 _LONGMONT_CAMPAIGN_PATH_RE = re.compile(r"^(Longmont Campaign/Campaign \d+)(?:/|$)")
 _LONGMONT_CAMPAIGN_ID_RE = re.compile(r"^longmont-c(\d+)$", re.IGNORECASE)
 
@@ -159,12 +162,15 @@ def is_writable_corpus_path(rel_path: str, mode: str) -> tuple[bool, str]:
             return True, ""
         if _MIREWARD_LOCATION_DOSSIER_RE.match(cleaned):
             return True, ""
+        if _GENERATED_STATBLOCK_CREATE_RE.match(cleaned):
+            return True, ""
         return False, (
             "create mode is not allowed for this path (allowed: "
             "`**/Session Recaps/{Session NN - <slug>.md,_normalized/Session NN - <slug>.md,_breadcrumbed/Session NN - <slug>.{breadcrumbed,frontmatter_seed}.md,_session_memory/Session NN - <slug>.records_meta.{jsonl,json}}`, "
             "Elderwyld `.../Cities and Towns/<town>/NPCs/<slug>/{README.md,character_seed.md}`, "
             "Mireward `.../Mireward/{Mireward_Map_Key_and_Gazetteer.md,Mireward_Location_Dossiers/<safe_slug>.md}`, "
             "campaign `.../NPCs/<slug>/{README.md,timeline.md,*_character_dossier.md}`, "
+            "campaign `.../Statblocks/generated/<safe_slug>.md`, "
             "or `Elderwyld/Locations/<stub>.md`)."
         )
     if (
