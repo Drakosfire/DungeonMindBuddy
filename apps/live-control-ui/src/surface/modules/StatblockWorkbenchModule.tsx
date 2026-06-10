@@ -413,28 +413,38 @@ export function StatblockWorkbenchModule() {
     let active = true;
     setLoading(true);
     setError(null);
-    Promise.all([getStatblockWorkbenchSample(), listStatblockWorkbenchDrafts()])
-      .then(([sample, draftList]) => {
-        if (active) {
-          setResponse(sample);
-          setStoredDrafts(draftList.drafts);
-        }
+    setStoredDraftsLoading(true);
+    setStoredDraftsError(null);
+
+    getStatblockWorkbenchSample()
+      .then((sample) => {
+        if (active) setResponse(sample);
       })
       .catch((err: unknown) => {
         if (active) setError(err instanceof Error ? err.message : String(err));
       })
       .finally(() => {
-        if (active) {
-          setLoading(false);
-          setStoredDraftsLoading(false);
-        }
+        if (active) setLoading(false);
       });
+
+    listStatblockWorkbenchDrafts()
+      .then((draftList) => {
+        if (active) setStoredDrafts(draftList.drafts);
+      })
+      .catch((err: unknown) => {
+        if (active) setStoredDraftsError(err instanceof Error ? err.message : String(err));
+      })
+      .finally(() => {
+        if (active) setStoredDraftsLoading(false);
+      });
+
     return () => { active = false; };
   }, []);
 
   const runCommand = (commandType: StatblockWorkbenchCommandType) => {
     setPendingCommand(commandType);
     setCommandError(null);
+    setStoreError(null);
     setStoreMessage(null);
     setCorpusPreview(null);
     setPreviewError(null);

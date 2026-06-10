@@ -216,6 +216,18 @@ describe("StatblockWorkbenchModule", () => {
     expect(screen.getByText("No stored statblock drafts yet.")).toBeInTheDocument();
   });
 
+  it("renders the sample artifact even when stored drafts fail to load", async () => {
+    vi.spyOn(liveApi, "getStatblockWorkbenchSample").mockResolvedValue(sampleResponse);
+    vi.mocked(liveApi.listStatblockWorkbenchDrafts).mockRejectedValue(new Error("draft list unavailable"));
+
+    render(<StatblockWorkbenchModule />);
+
+    await screen.findByText("Mock / non-corpus draft lane");
+    expect(screen.getAllByText("Geomantic Drake Juvenile").length).toBeGreaterThan(0);
+    expect(screen.getByText(/Unable to load stored drafts: draft list unavailable/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Store draft" })).toBeEnabled();
+  });
+
   it("runs generate command and replaces the displayed artifact", async () => {
     const user = userEvent.setup();
     vi.spyOn(liveApi, "getStatblockWorkbenchSample").mockResolvedValue(sampleResponse);
@@ -351,6 +363,29 @@ describe("StatblockWorkbenchModule", () => {
     await screen.findByText(/Unable to store draft: unsafe id/);
     expect(screen.getAllByText("Geomantic Drake Juvenile").length).toBeGreaterThan(0);
     expect(screen.getByText(/Claw\. Bite\. Shifting stone\./)).toBeInTheDocument();
+  });
+
+  it("clears a stale storage error when generating a new draft", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(liveApi, "getStatblockWorkbenchSample").mockResolvedValue(sampleResponse);
+    vi.spyOn(liveApi, "storeStatblockWorkbenchDraft").mockRejectedValue(new Error("unsafe id"));
+    vi.spyOn(liveApi, "postStatblockWorkbenchCommand").mockResolvedValue(
+      commandResponseFor(
+        "Generated Obsidian Thornling",
+        "## Generated Obsidian Thornling\nSplinter Thorn.",
+      ),
+    );
+
+    render(<StatblockWorkbenchModule />);
+
+    await screen.findByText("Mock / non-corpus draft lane");
+    await user.click(screen.getByRole("button", { name: "Store draft" }));
+    await screen.findByText(/Unable to store draft: unsafe id/);
+
+    await user.click(screen.getByRole("button", { name: "Generate mock draft" }));
+
+    await screen.findByText(/Splinter Thorn\./);
+    expect(screen.queryByText(/Unable to store draft: unsafe id/)).not.toBeInTheDocument();
   });
 
   it("loads a stored draft into the Workbench display", async () => {
