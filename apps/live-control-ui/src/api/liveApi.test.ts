@@ -1,6 +1,29 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { activateStatblockRetrieval, addGeneratedStatblockToCombat, commitStatblockCorpusWrite, getArtifact, getCapabilities, getCurrentCombat, getGeneratedStatblock, getStatblockWorkbenchDraft, getStatblockWorkbenchSample, listGeneratedStatblocks, listStatblockWorkbenchDrafts, postCommand, postStatblockWorkbenchCommand, prepareStatblockCorpusWrite, previewStatblockCorpusPromotion, storeStatblockWorkbenchDraft, verifyStatblockRetrieval } from "./liveApi";
+import {
+  activateStatblockRetrieval,
+  addGeneratedStatblockToCombat,
+  advanceCombatTurn,
+  applyCombatHpDelta,
+  commitStatblockCorpusWrite,
+  getArtifact,
+  getCapabilities,
+  getCurrentCombat,
+  getGeneratedStatblock,
+  getStatblockWorkbenchDraft,
+  getStatblockWorkbenchSample,
+  listGeneratedStatblocks,
+  listStatblockWorkbenchDrafts,
+  patchCombatEntity,
+  postCommand,
+  postStatblockWorkbenchCommand,
+  prepareStatblockCorpusWrite,
+  previewStatblockCorpusPromotion,
+  setCombatActiveTurn,
+  sortCombatInitiative,
+  storeStatblockWorkbenchDraft,
+  verifyStatblockRetrieval,
+} from "./liveApi";
 import type { ProjectionCommand, ProjectionWriteResult, StoreStatblockDraftRequest } from "./types";
 
 function mockJsonResponse(payload: unknown): Response {
@@ -196,6 +219,35 @@ describe("liveApi artifact/capability helpers", () => {
     expect(fetchSpy).toHaveBeenCalledTimes(1);
     const [url] = fetchSpy.mock.calls[0];
     expect(String(url)).toBe("/api/live/combat/current");
+  });
+
+  it("combat roster mutation helpers call expected endpoints", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      mockJsonResponse({
+        schema_version: "dmb_combat_mutation_v1",
+        encounter: { entities: [] },
+        diagnostics: [],
+      }),
+    );
+
+    await patchCombatEntity("entity:one", { notes: "bloodied" });
+    await applyCombatHpDelta("entity:one", { action: "damage", amount: 7 });
+    await sortCombatInitiative();
+    await setCombatActiveTurn({ entity_id: "entity:one" });
+    await advanceCombatTurn({ direction: "previous" });
+
+    expect(fetchSpy).toHaveBeenCalledTimes(5);
+    expect(String(fetchSpy.mock.calls[0][0])).toBe(
+      "/api/live/combat/current/entities/entity%3Aone",
+    );
+    expect(fetchSpy.mock.calls[0][1]?.method).toBe("PATCH");
+    expect(String(fetchSpy.mock.calls[1][0])).toBe(
+      "/api/live/combat/current/entities/entity%3Aone/hp-delta",
+    );
+    expect(fetchSpy.mock.calls[1][1]?.method).toBe("POST");
+    expect(String(fetchSpy.mock.calls[2][0])).toBe("/api/live/combat/current/sort-initiative");
+    expect(String(fetchSpy.mock.calls[3][0])).toBe("/api/live/combat/current/active-turn");
+    expect(String(fetchSpy.mock.calls[4][0])).toBe("/api/live/combat/current/turn");
   });
 
   it("addGeneratedStatblockToCombat posts encoded add request", async () => {

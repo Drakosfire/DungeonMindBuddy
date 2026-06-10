@@ -44,6 +44,15 @@
       "config": {}
     },
     {
+      "module_id": "combat_roster",
+      "slot": "main",
+      "order": 4,
+      "enabled": false,
+      "collapsed": false,
+      "size": "1fr",
+      "config": {}
+    },
+    {
       "module_id": "now",
       "slot": "sidebar",
       "order": 1,

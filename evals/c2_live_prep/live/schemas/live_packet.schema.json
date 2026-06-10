@@ -301,6 +301,7 @@
               "sources",
               "statblock_workbench",
               "statblock_view",
+              "combat_roster",
               "queue"
             ]
           },

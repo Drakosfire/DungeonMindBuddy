@@ -70,8 +70,19 @@ from apps.live_control_server.services.combat_state import (
     AddGeneratedStatblockCombatRequest,
     AddGeneratedStatblockCombatResponse,
     CombatEncounterState,
+    CombatEntityNotFoundError,
+    CombatEntityPatchRequest,
+    CombatHpDeltaRequest,
+    CombatMutationResponse,
+    CombatSetActiveRequest,
+    CombatTurnRequest,
     add_generated_statblock_to_combat,
+    advance_combat_turn,
+    apply_combat_hp_delta,
     load_or_initialize_current_combat,
+    patch_combat_entity,
+    set_active_combat_turn,
+    sort_combat_initiative,
 )
 from apps.live_control_server.services.statblock_view import (
     GeneratedStatblockDetailResponse,
@@ -198,6 +209,85 @@ def get_current_combat() -> dict[str, Any]:
     base = session_dir()
     packet, _, _, _ = load_session(base)
     response = load_or_initialize_current_combat(base=base, packet=packet)
+    return response.model_dump(mode="json")
+
+
+@router.patch(
+    "/combat/current/entities/{entity_id}",
+    response_model=CombatMutationResponse,
+)
+def patch_current_combat_entity(
+    entity_id: Annotated[str, Path(min_length=1)],
+    body: CombatEntityPatchRequest,
+) -> dict[str, Any]:
+    base = session_dir()
+    packet, _, _, _ = load_session(base)
+    try:
+        response = patch_combat_entity(
+            base=base, packet=packet, entity_id=entity_id, patch=body
+        )
+    except CombatEntityNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return response.model_dump(mode="json")
+
+
+@router.post(
+    "/combat/current/entities/{entity_id}/hp-delta",
+    response_model=CombatMutationResponse,
+)
+def post_current_combat_entity_hp_delta(
+    entity_id: Annotated[str, Path(min_length=1)],
+    body: CombatHpDeltaRequest,
+) -> dict[str, Any]:
+    base = session_dir()
+    packet, _, _, _ = load_session(base)
+    try:
+        response = apply_combat_hp_delta(
+            base=base, packet=packet, entity_id=entity_id, delta=body
+        )
+    except CombatEntityNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return response.model_dump(mode="json")
+
+
+@router.post(
+    "/combat/current/sort-initiative",
+    response_model=CombatMutationResponse,
+)
+def post_current_combat_sort_initiative() -> dict[str, Any]:
+    base = session_dir()
+    packet, _, _, _ = load_session(base)
+    response = sort_combat_initiative(base=base, packet=packet)
+    return response.model_dump(mode="json")
+
+
+@router.post(
+    "/combat/current/active-turn",
+    response_model=CombatMutationResponse,
+)
+def post_current_combat_active_turn(body: CombatSetActiveRequest) -> dict[str, Any]:
+    base = session_dir()
+    packet, _, _, _ = load_session(base)
+    try:
+        response = set_active_combat_turn(base=base, packet=packet, request=body)
+    except CombatEntityNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return response.model_dump(mode="json")
+
+
+@router.post(
+    "/combat/current/turn",
+    response_model=CombatMutationResponse,
+)
+def post_current_combat_turn(body: CombatTurnRequest | None = None) -> dict[str, Any]:
+    base = session_dir()
+    packet, _, _, _ = load_session(base)
+    request = body or CombatTurnRequest()
+    response = advance_combat_turn(base=base, packet=packet, request=request)
     return response.model_dump(mode="json")
 
 

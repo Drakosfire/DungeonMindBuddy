@@ -57,6 +57,38 @@ class CombatEncounterState(BaseModel):
     updated_at: str
 
 
+class CombatEntityPatchRequest(BaseModel):
+    name: str | None = None
+    team: CombatTeam | None = None
+    init: int | None = None
+    ac: int | str | None = None
+    hp: int | str | None = None
+    max_hp: int | str | None = None
+    temp_hp: int | None = Field(default=None, ge=0)
+    defeated: bool | None = None
+    notes: str | None = None
+    conditions: list[str] | None = None
+
+
+class CombatHpDeltaRequest(BaseModel):
+    action: Literal["damage", "heal", "set_temp_hp"]
+    amount: int = Field(ge=0)
+
+
+class CombatTurnRequest(BaseModel):
+    direction: Literal["next", "previous"] = "next"
+
+
+class CombatSetActiveRequest(BaseModel):
+    entity_id: str | None = None
+
+
+class CombatMutationResponse(BaseModel):
+    schema_version: Literal["dmb_combat_mutation_v1"] = "dmb_combat_mutation_v1"
+    encounter: CombatEncounterState
+    diagnostics: list[str] = Field(default_factory=list)
+
+
 class AddGeneratedStatblockCombatRequest(BaseModel):
     team: CombatTeam = "enemy"
     count: int = Field(default=1, ge=1, le=20)
@@ -284,6 +316,210 @@ def add_generated_statblock_to_combat(
         encounter=encounter,
         diagnostics=[
             "added generated statblock to current combat from combat_defaults",
+            "wrote only combat/current_combat.json",
+        ],
+    )
+
+
+class CombatEntityNotFoundError(ValueError):
+    pass
+
+
+def _find_entity(encounter: CombatEncounterState, entity_id: str) -> CombatEntity:
+    for entity in encounter.entities:
+        if entity.id == entity_id:
+            return entity
+    raise CombatEntityNotFoundError(f"combat entity not found: {entity_id}")
+
+
+def _touch_and_write(
+    *,
+    base: Path,
+    encounter: CombatEncounterState,
+    source: str,
+    diagnostics: list[str],
+) -> CombatMutationResponse:
+    encounter.updated_at = _utc_now()
+    encounter.provenance.append(
+        {
+            "source": source,
+            "updated_at": encounter.updated_at,
+            "writes": [COMBAT_REL_PATH.as_posix()],
+        }
+    )
+    write_current_combat(base=base, encounter=encounter)
+    return CombatMutationResponse(encounter=encounter, diagnostics=diagnostics)
+
+
+def _load_mutable_current_combat(*, base: Path, packet: dict[str, Any]) -> CombatEncounterState:
+    return load_or_initialize_current_combat(base=base, packet=packet)
+
+
+def patch_combat_entity(
+    *,
+    base: Path,
+    packet: dict[str, Any],
+    entity_id: str,
+    patch: CombatEntityPatchRequest,
+) -> CombatMutationResponse:
+    encounter = _load_mutable_current_combat(base=base, packet=packet)
+    entity = _find_entity(encounter, entity_id)
+    updates = patch.model_dump(exclude_unset=True, mode="json")
+    if "conditions" in updates:
+        updates["conditions"] = [
+            str(item).strip() for item in updates["conditions"] if str(item).strip()
+        ]
+    for key, value in updates.items():
+        setattr(entity, key, value)
+    return _touch_and_write(
+        base=base,
+        encounter=encounter,
+        source="combat_entity_patch",
+        diagnostics=["patched combat entity", "wrote only combat/current_combat.json"],
+    )
+
+
+def _as_int(value: int | str | None) -> int | None:
+    if isinstance(value, int):
+        return value
+    if isinstance(value, str):
+        stripped = value.strip()
+        if stripped.lstrip("-").isdigit():
+            return int(stripped)
+    return None
+
+
+def apply_combat_hp_delta(
+    *,
+    base: Path,
+    packet: dict[str, Any],
+    entity_id: str,
+    delta: CombatHpDeltaRequest,
+) -> CombatMutationResponse:
+    encounter = _load_mutable_current_combat(base=base, packet=packet)
+    entity = _find_entity(encounter, entity_id)
+    hp = _as_int(entity.hp)
+    max_hp = _as_int(entity.max_hp)
+    if delta.action == "set_temp_hp":
+        entity.temp_hp = delta.amount
+    elif hp is None:
+        raise ValueError(f"combat entity hp is not numeric: {entity_id}")
+    elif delta.action == "damage":
+        remaining = delta.amount
+        if entity.temp_hp:
+            absorbed = min(entity.temp_hp, remaining)
+            entity.temp_hp -= absorbed
+            remaining -= absorbed
+        entity.hp = max(0, hp - remaining)
+        if entity.hp == 0:
+            entity.defeated = True
+    elif delta.action == "heal":
+        healed = hp + delta.amount
+        entity.hp = min(healed, max_hp) if max_hp is not None else healed
+        if _as_int(entity.hp) and _as_int(entity.hp) > 0:
+            entity.defeated = False
+    return _touch_and_write(
+        base=base,
+        encounter=encounter,
+        source="combat_hp_delta",
+        diagnostics=[
+            f"applied {delta.action} to combat entity",
+            "wrote only combat/current_combat.json",
+        ],
+    )
+
+
+def sort_combat_initiative(
+    *,
+    base: Path,
+    packet: dict[str, Any],
+) -> CombatMutationResponse:
+    encounter = _load_mutable_current_combat(base=base, packet=packet)
+    encounter.entities.sort(
+        key=lambda entity: (
+            entity.init is None,
+            -(entity.init or 0),
+            entity.order,
+            entity.name.lower(),
+        )
+    )
+    _renumber(encounter)
+    if encounter.entities and encounter.active_turn_entity_id not in {
+        entity.id for entity in encounter.entities
+    }:
+        encounter.active_turn_entity_id = encounter.entities[0].id
+    if encounter.active_turn_entity_id and encounter.round_start_entity_id is None:
+        encounter.round_start_entity_id = encounter.active_turn_entity_id
+    return _touch_and_write(
+        base=base,
+        encounter=encounter,
+        source="combat_sort_initiative",
+        diagnostics=["sorted combat roster by initiative", "wrote only combat/current_combat.json"],
+    )
+
+
+def set_active_combat_turn(
+    *,
+    base: Path,
+    packet: dict[str, Any],
+    request: CombatSetActiveRequest,
+) -> CombatMutationResponse:
+    encounter = _load_mutable_current_combat(base=base, packet=packet)
+    if request.entity_id is not None:
+        _find_entity(encounter, request.entity_id)
+    encounter.active_turn_entity_id = request.entity_id
+    if request.entity_id and encounter.round_start_entity_id is None:
+        encounter.round_start_entity_id = request.entity_id
+    return _touch_and_write(
+        base=base,
+        encounter=encounter,
+        source="combat_set_active_turn",
+        diagnostics=["set active combat turn", "wrote only combat/current_combat.json"],
+    )
+
+
+def advance_combat_turn(
+    *,
+    base: Path,
+    packet: dict[str, Any],
+    request: CombatTurnRequest,
+) -> CombatMutationResponse:
+    encounter = _load_mutable_current_combat(base=base, packet=packet)
+    if not encounter.entities:
+        encounter.active_turn_entity_id = None
+        return _touch_and_write(
+            base=base,
+            encounter=encounter,
+            source="combat_advance_turn",
+            diagnostics=["combat roster is empty", "wrote only combat/current_combat.json"],
+        )
+    ids = [entity.id for entity in encounter.entities]
+    if encounter.active_turn_entity_id not in ids:
+        encounter.active_turn_entity_id = ids[0]
+        if encounter.round_start_entity_id is None:
+            encounter.round_start_entity_id = ids[0]
+        return _touch_and_write(
+            base=base,
+            encounter=encounter,
+            source="combat_advance_turn",
+            diagnostics=["initialized active combat turn", "wrote only combat/current_combat.json"],
+        )
+    index = ids.index(encounter.active_turn_entity_id)
+    step = 1 if request.direction == "next" else -1
+    next_index = (index + step) % len(ids)
+    if request.direction == "next" and next_index == 0:
+        encounter.round += 1
+        encounter.round_start_entity_id = ids[0]
+    elif request.direction == "previous" and index == 0 and encounter.round > 1:
+        encounter.round -= 1
+        encounter.round_start_entity_id = ids[0]
+    encounter.active_turn_entity_id = ids[next_index]
+    return _touch_and_write(
+        base=base,
+        encounter=encounter,
+        source="combat_advance_turn",
+        diagnostics=[
+            f"moved combat turn {request.direction}",
             "wrote only combat/current_combat.json",
         ],
     )

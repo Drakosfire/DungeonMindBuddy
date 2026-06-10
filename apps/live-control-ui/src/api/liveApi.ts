@@ -12,6 +12,11 @@ import type {
   AddGeneratedStatblockCombatRequest,
   AddGeneratedStatblockCombatResponse,
   CombatEncounterState,
+  CombatEntityPatchRequest,
+  CombatHpDeltaRequest,
+  CombatMutationResponse,
+  CombatSetActiveRequest,
+  CombatTurnRequest,
   GeneratedStatblockDetailResponse,
   GeneratedStatblockListResponse,
   ResolvedRollResponse,
@@ -325,4 +330,50 @@ export async function verifyStatblockRetrieval(
     `/api/live/statblocks/workbench/drafts/${encodeURIComponent(artifactId)}/retrieval/verify`,
     { method: "POST", body: JSON.stringify(request) },
   );
+}
+
+
+export async function patchCombatEntity(
+  entityId: string,
+  request: CombatEntityPatchRequest,
+): Promise<CombatMutationResponse> {
+  return apiFetch<CombatMutationResponse>(
+    `/api/live/combat/current/entities/${encodeURIComponent(entityId)}`,
+    { method: "PATCH", body: JSON.stringify(request) },
+  );
+}
+
+export async function applyCombatHpDelta(
+  entityId: string,
+  request: CombatHpDeltaRequest,
+): Promise<CombatMutationResponse> {
+  return apiFetch<CombatMutationResponse>(
+    `/api/live/combat/current/entities/${encodeURIComponent(entityId)}/hp-delta`,
+    { method: "POST", body: JSON.stringify(request) },
+  );
+}
+
+export async function sortCombatInitiative(): Promise<CombatMutationResponse> {
+  return apiFetch<CombatMutationResponse>("/api/live/combat/current/sort-initiative", {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
+}
+
+export async function setCombatActiveTurn(
+  request: CombatSetActiveRequest,
+): Promise<CombatMutationResponse> {
+  return apiFetch<CombatMutationResponse>("/api/live/combat/current/active-turn", {
+    method: "POST",
+    body: JSON.stringify(request),
+  });
+}
+
+export async function advanceCombatTurn(
+  request: CombatTurnRequest = { direction: "next" },
+): Promise<CombatMutationResponse> {
+  return apiFetch<CombatMutationResponse>("/api/live/combat/current/turn", {
+    method: "POST",
+    body: JSON.stringify(request),
+  });
 }
