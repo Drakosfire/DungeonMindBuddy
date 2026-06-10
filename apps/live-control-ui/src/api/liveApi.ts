@@ -13,6 +13,8 @@ import type {
   SurfaceLayout,
   ListStatblockDraftsResponse,
   ReadStatblockDraftResponse,
+  StatblockCorpusPromotionPreviewRequest,
+  StatblockCorpusPromotionPreviewResponse,
   StoreStatblockDraftRequest,
   StoreStatblockDraftResponse,
   StatblockWorkbenchCommandRequest,
@@ -214,5 +216,20 @@ export async function getStatblockWorkbenchDraft(
 ): Promise<ReadStatblockDraftResponse> {
   return apiFetch<ReadStatblockDraftResponse>(
     `/api/live/statblocks/workbench/drafts/${encodeURIComponent(artifactId)}`,
+  );
+}
+
+
+export async function previewStatblockCorpusPromotion(
+  artifactId: string,
+  request: StatblockCorpusPromotionPreviewRequest = {},
+): Promise<StatblockCorpusPromotionPreviewResponse> {
+  return apiFetch<StatblockCorpusPromotionPreviewResponse>(
+    `/api/live/statblocks/workbench/drafts/${encodeURIComponent(artifactId)}/corpus-preview`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(request),
+    },
   );
 }

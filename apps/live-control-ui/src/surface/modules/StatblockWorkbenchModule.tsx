@@ -5,11 +5,13 @@ import {
   getStatblockWorkbenchSample,
   listStatblockWorkbenchDrafts,
   postStatblockWorkbenchCommand,
+  previewStatblockCorpusPromotion,
   storeStatblockWorkbenchDraft,
 } from "../../api/liveApi";
 import type {
   ListStatblockDraftsResponse,
   StatblockCombatDefaults,
+  StatblockCorpusPromotionPreviewResponse,
   StatblockDraftArtifactView,
   StatblockWorkbenchAction,
   StatblockWorkbenchCommandType,
@@ -146,6 +148,74 @@ function StoredDraftsList({
   );
 }
 
+function CorpusPreviewPanel({ preview }: { preview: StatblockCorpusPromotionPreviewResponse }) {
+  return (
+    <section className="statblock-section statblock-corpus-preview-section">
+      <h3>Corpus promotion preview</h3>
+      <p className="module-muted">Preview only: this draft is not yet corpus canon and is not yet retrievable.</p>
+      <dl className="statblock-status-grid">
+        <div>
+          <dt>Proposed corpus path</dt>
+          <dd><code>{preview.proposed_corpus_display_path}</code></dd>
+        </div>
+        <div>
+          <dt>Corpus-relative path</dt>
+          <dd><code>{preview.proposed_corpus_relpath}</code></dd>
+        </div>
+        <div>
+          <dt>Validation</dt>
+          <dd>{preview.validation.ok ? "ok" : "needs review"}</dd>
+        </div>
+        <div>
+          <dt>Preview token</dt>
+          <dd><code>{preview.preview_token}</code></dd>
+        </div>
+      </dl>
+
+      <h4>Warnings</h4>
+      {preview.warnings.length ? (
+        <ul className="statblock-warning-list">
+          {preview.warnings.map((warning) => (
+            <li key={warning.code}>
+              <span className={`badge ${warning.severity === "error" ? "error" : "warning"}`}>{warning.severity}</span>
+              <code>{warning.code}</code>
+              <span>{warning.message}</span>
+            </li>
+          ))}
+        </ul>
+      ) : <p className="module-muted">No promotion preview warnings.</p>}
+
+      <h4>Frontmatter</h4>
+      <pre className="statblock-markdown-preview">{preview.frontmatter_text}</pre>
+
+      <h4>Full markdown preview</h4>
+      <pre className="statblock-markdown-preview">{preview.full_markdown}</pre>
+
+      <div className="statblock-split-section">
+        <JsonDetails title="Breadcrumbs" value={preview.breadcrumbs} />
+        <JsonDetails title="Source refs" value={preview.source_refs} />
+      </div>
+
+      {preview.diagnostics.length ? (
+        <>
+          <h4>Preview diagnostics</h4>
+          <ul className="module-list">{preview.diagnostics.map((diagnostic) => <li key={diagnostic}>{diagnostic}</li>)}</ul>
+        </>
+      ) : null}
+
+      <h4>Future actions</h4>
+      <div className="statblock-action-row">
+        {preview.available_actions.map((action) => (
+          <div key={action.action_id} className="statblock-action-card">
+            <button type="button" disabled aria-disabled="true">{action.label}</button>
+            <small>{action.disabled_reason ?? "Disabled until a future lifecycle PR."}</small>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function ReadyWorkbench({
   response,
   pendingCommand,
@@ -157,9 +227,13 @@ function ReadyWorkbench({
   storedDraftsError,
   pendingStore,
   pendingLoadId,
+  corpusPreview,
+  pendingPreview,
+  previewError,
   onRunCommand,
   onStoreDraft,
   onLoadDraft,
+  onPreviewCorpusPromotion,
 }: {
   response: WorkbenchState;
   pendingCommand: PendingCommand;
@@ -171,13 +245,18 @@ function ReadyWorkbench({
   storedDraftsError: string | null;
   pendingStore: boolean;
   pendingLoadId: string | null;
+  corpusPreview: StatblockCorpusPromotionPreviewResponse | null;
+  pendingPreview: boolean;
+  previewError: string | null;
   onRunCommand: (commandType: StatblockWorkbenchCommandType) => void;
   onStoreDraft: () => void;
   onLoadDraft: (artifactId: string) => void;
+  onPreviewCorpusPromotion: () => void;
 }) {
   const artifact = response.artifact;
-  const futureActions = response.available_actions.filter((action) => action.action_id !== "store_draft");
-  const storeDisabled = pendingCommand !== null || pendingStore || artifact.storage_status === "stored_draft";
+  const futureActions = response.available_actions.filter((action) => !["store_draft", "preview_corpus_promotion"].includes(action.action_id));
+  const storeDisabled = pendingCommand !== null || pendingStore || pendingPreview || artifact.storage_status === "stored_draft";
+  const previewDisabled = pendingCommand !== null || pendingStore || pendingPreview || pendingLoadId !== null || artifact.storage_status !== "stored_draft";
 
   return (
     <div className="module-panel statblock-workbench" data-module-id="statblock_workbench">
@@ -216,9 +295,24 @@ function ReadyWorkbench({
         {storeError ? <p className="statblock-command-error" role="alert">Unable to store draft: {storeError}</p> : null}
       </section>
 
+      <section className="statblock-section statblock-storage-section">
+        <h3>Corpus promotion preview</h3>
+        <button type="button" onClick={onPreviewCorpusPromotion} disabled={previewDisabled}>
+          {pendingPreview ? "Previewing corpus promotion…" : "Preview corpus promotion"}
+        </button>
+        {artifact.storage_status !== "stored_draft" ? (
+          <p className="module-muted">Store this draft before previewing corpus promotion.</p>
+        ) : (
+          <p className="module-muted">Builds a deterministic preview only; no corpus write, ingestion, or combat mutation occurs.</p>
+        )}
+        {previewError ? <p className="statblock-command-error" role="alert">Unable to preview corpus promotion: {previewError}</p> : null}
+      </section>
+
       <StatusRail artifact={artifact} commandStatus={response.command_status} />
 
       <StoredDraftsList drafts={storedDrafts} loading={storedDraftsLoading} error={storedDraftsError} pendingLoadId={pendingLoadId} onLoadDraft={onLoadDraft} />
+
+      {corpusPreview ? <CorpusPreviewPanel preview={corpusPreview} /> : null}
 
       <section className="statblock-section">
         <h3>Markdown preview</h3>
@@ -302,6 +396,9 @@ export function StatblockWorkbenchModule() {
   const [storedDraftsLoading, setStoredDraftsLoading] = useState(true);
   const [storedDraftsError, setStoredDraftsError] = useState<string | null>(null);
   const [pendingLoadId, setPendingLoadId] = useState<string | null>(null);
+  const [corpusPreview, setCorpusPreview] = useState<StatblockCorpusPromotionPreviewResponse | null>(null);
+  const [pendingPreview, setPendingPreview] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
 
   const refreshStoredDrafts = useCallback(() => {
     setStoredDraftsLoading(true);
@@ -316,29 +413,41 @@ export function StatblockWorkbenchModule() {
     let active = true;
     setLoading(true);
     setError(null);
-    Promise.all([getStatblockWorkbenchSample(), listStatblockWorkbenchDrafts()])
-      .then(([sample, draftList]) => {
-        if (active) {
-          setResponse(sample);
-          setStoredDrafts(draftList.drafts);
-        }
+    setStoredDraftsLoading(true);
+    setStoredDraftsError(null);
+
+    getStatblockWorkbenchSample()
+      .then((sample) => {
+        if (active) setResponse(sample);
       })
       .catch((err: unknown) => {
         if (active) setError(err instanceof Error ? err.message : String(err));
       })
       .finally(() => {
-        if (active) {
-          setLoading(false);
-          setStoredDraftsLoading(false);
-        }
+        if (active) setLoading(false);
       });
+
+    listStatblockWorkbenchDrafts()
+      .then((draftList) => {
+        if (active) setStoredDrafts(draftList.drafts);
+      })
+      .catch((err: unknown) => {
+        if (active) setStoredDraftsError(err instanceof Error ? err.message : String(err));
+      })
+      .finally(() => {
+        if (active) setStoredDraftsLoading(false);
+      });
+
     return () => { active = false; };
   }, []);
 
   const runCommand = (commandType: StatblockWorkbenchCommandType) => {
     setPendingCommand(commandType);
     setCommandError(null);
+    setStoreError(null);
     setStoreMessage(null);
+    setCorpusPreview(null);
+    setPreviewError(null);
     postStatblockWorkbenchCommand({
       command_type: commandType,
       requested_by: "human",
@@ -372,6 +481,8 @@ export function StatblockWorkbenchModule() {
     setPendingStore(true);
     setStoreError(null);
     setStoreMessage(null);
+    setCorpusPreview(null);
+    setPreviewError(null);
     storeStatblockWorkbenchDraft({ artifact: response.artifact, source: "workbench" })
       .then((storeResponse) => {
         setResponse((current) => current ? { ...current, artifact: storeResponse.record.artifact, command_status: "stored" } : current);
@@ -386,6 +497,8 @@ export function StatblockWorkbenchModule() {
     setPendingLoadId(artifactId);
     setStoreError(null);
     setStoreMessage(null);
+    setCorpusPreview(null);
+    setPreviewError(null);
     getStatblockWorkbenchDraft(artifactId)
       .then((readResponse) => {
         setResponse((current) => current ? { ...current, artifact: readResponse.record.artifact, command_status: "loaded_stored_draft" } : {
@@ -400,6 +513,16 @@ export function StatblockWorkbenchModule() {
       })
       .catch((err: unknown) => setStoreError(err instanceof Error ? err.message : String(err)))
       .finally(() => setPendingLoadId(null));
+  };
+
+  const previewCurrentDraft = () => {
+    if (!response?.artifact || response.artifact.storage_status !== "stored_draft") return;
+    setPendingPreview(true);
+    setPreviewError(null);
+    previewStatblockCorpusPromotion(response.artifact.artifact_id, { include_writer_allowlist_check: true })
+      .then((preview) => setCorpusPreview(preview))
+      .catch((err: unknown) => setPreviewError(err instanceof Error ? err.message : String(err)))
+      .finally(() => setPendingPreview(false));
   };
 
   if (loading) {
@@ -424,9 +547,13 @@ export function StatblockWorkbenchModule() {
       storedDraftsError={storedDraftsError}
       pendingStore={pendingStore}
       pendingLoadId={pendingLoadId}
+      corpusPreview={corpusPreview}
+      pendingPreview={pendingPreview}
+      previewError={previewError}
       onRunCommand={runCommand}
       onStoreDraft={storeCurrentDraft}
       onLoadDraft={loadStoredDraft}
+      onPreviewCorpusPromotion={previewCurrentDraft}
     />
   );
 }
