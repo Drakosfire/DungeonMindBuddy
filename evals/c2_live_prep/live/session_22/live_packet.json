@@ -301,6 +301,15 @@
       "config_schema": null
     },
     {
+      "module_id": "statblock_view",
+      "title": "Statblock View",
+      "default_slot": "main",
+      "required": false,
+      "enabled_by_default": false,
+      "description": "Read-only corpus-backed generated statblock viewer.",
+      "config_schema": null
+    },
+    {
       "module_id": "queue",
       "title": "Queue",
       "default_slot": "bottom",

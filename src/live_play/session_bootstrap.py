@@ -159,6 +159,15 @@ def _default_surface_catalog() -> list[dict[str, Any]]:
             "config_schema": None,
         },
         {
+            "module_id": "statblock_view",
+            "title": "Statblock View",
+            "default_slot": "main",
+            "required": False,
+            "enabled_by_default": False,
+            "description": "Read-only corpus-backed generated statblock viewer.",
+            "config_schema": None,
+        },
+        {
             "module_id": "queue",
             "title": "Queue",
             "default_slot": "bottom",
@@ -186,6 +195,7 @@ def _default_surface_layout(
             {"module_id": "chat", "slot": "main", "order": 0, "enabled": True, "collapsed": False, "size": "2fr", "config": {}},
             {"module_id": "ingestion", "slot": "main", "order": 1, "enabled": True, "collapsed": False, "size": "1fr", "config": {}},
             {"module_id": "statblock_workbench", "slot": "main", "order": 2, "enabled": False, "collapsed": False, "size": "1fr", "config": {}},
+            {"module_id": "statblock_view", "slot": "main", "order": 3, "enabled": False, "collapsed": False, "size": "1fr", "config": {}},
             {"module_id": "record", "slot": "sidebar", "order": 0, "enabled": True, "collapsed": True, "size": "1fr", "config": {"tail_count": 50}},
             {"module_id": "now", "slot": "sidebar", "order": 1, "enabled": True, "collapsed": True, "size": None, "config": {}},
             {"module_id": "open_loops", "slot": "sidebar", "order": 2, "enabled": True, "collapsed": True, "size": None, "config": {}},

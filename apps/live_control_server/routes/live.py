@@ -65,6 +65,14 @@ from apps.live_control_server.services.statblock_draft_store import (
     read_statblock_draft,
     store_statblock_draft,
 )
+
+from apps.live_control_server.services.statblock_view import (
+    GeneratedStatblockDetailResponse,
+    GeneratedStatblockListResponse,
+    StatblockViewError,
+    list_generated_statblocks,
+    read_generated_statblock,
+)
 from apps.live_control_server.services.statblock_workbench import (
     StatblockWorkbenchCommandRequest,
     StatblockWorkbenchCommandResponse,
@@ -138,6 +146,41 @@ def _target_from_session(
         status_code=404, detail=f"unknown target id for roll_table: {target_id}"
     )
 
+
+
+
+@router.get(
+    "/statblocks/view/generated",
+    response_model=GeneratedStatblockListResponse,
+)
+def get_generated_statblock_view_list() -> dict[str, Any]:
+    try:
+        response = list_generated_statblocks(base=session_dir(), root=repo_root())
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail="generated statblock list failed") from exc
+    return response.model_dump(mode="json")
+
+
+@router.get(
+    "/statblocks/view/generated/{artifact_id}",
+    response_model=GeneratedStatblockDetailResponse,
+)
+def get_generated_statblock_view_detail(
+    artifact_id: Annotated[str, Path(min_length=1)],
+) -> dict[str, Any]:
+    try:
+        response = read_generated_statblock(
+            base=session_dir(), root=repo_root(), artifact_id=artifact_id
+        )
+    except UnsafeArtifactIdError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except StatblockDraftNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except StatblockViewError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail="generated statblock read failed") from exc
+    return response.model_dump(mode="json")
 
 @router.get(
     "/statblocks/workbench/sample",
