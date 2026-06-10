@@ -6,6 +6,7 @@
 **Session dir:** `evals/c2_live_prep/live/session_22`  
 **Backend URL:** `http://127.0.0.1:8000`  
 **Frontend URL:** `http://127.0.0.1:5173`  
+**Generation source validated:** lifecycle mechanics only / real DungeonMindServer generation / both
 
 ## Environment checks
 
@@ -17,6 +18,7 @@
 - [ ] Frontend dev server started successfully.
 - [ ] Dogfood reset dry-run reviewed.
 - [ ] Dogfood reset apply run completed, if needed.
+- [ ] If generated corpus was purged, `--yes-delete-generated-corpus` was used intentionally after reviewing the printed file list.
 
 ## Lifecycle checklist
 

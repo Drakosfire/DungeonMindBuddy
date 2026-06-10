@@ -82,13 +82,14 @@ uv run python scripts/live_dogfood_reset.py \
   --apply
 ```
 
-Generated corpus files are not deleted by default. If a run must also remove generated statblock markdown, use the narrow corpus purge flag. It only applies to `corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Statblocks/generated/*.md`:
+Generated corpus files are not deleted by default. Treat generated corpus purge as a high-intent cleanup command for throwaway dogfood artifacts only. If a run must also remove generated statblock markdown, use the narrow corpus purge flag plus the second confirmation flag. It only applies to `corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Statblocks/generated/*.md`, prints the purge count, and still lists each planned deletion before applying:
 
 ```bash
 uv run python scripts/live_dogfood_reset.py \
   --session-dir evals/c2_live_prep/live/session_22 \
   --apply \
-  --purge-generated-corpus
+  --purge-generated-corpus \
+  --yes-delete-generated-corpus
 ```
 
 The script refuses unsafe paths such as `/`, the home directory, the repo root, `evals/`, and live-session parent directories. It also requires `live_packet.json` inside the session directory.
@@ -215,7 +216,7 @@ git diff --check
 
 ## Known limitations
 
-- Workbench generation may still be mock-backed unless a later PR swaps in live DungeonMindServer provider calls.
+- Workbench generation may still be mock-backed unless a later PR swaps in live DungeonMindServer provider calls. Mark each dogfood run as validating lifecycle mechanics only, real DungeonMindServer generation, or both.
 - Statblock View reads generated corpus-backed statblocks only.
 - Combat Roster manages one current combat state, not multiple encounters.
 - Combat Roster does not yet provide statblock drilldown from rows.

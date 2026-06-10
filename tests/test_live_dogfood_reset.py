@@ -113,3 +113,45 @@ def test_corpus_purge_requires_explicit_flag_and_deletes_only_markdown(tmp_path:
     assert not (generated / "dogfood-drake.md").exists()
     assert (generated / "notes.txt").exists()
     assert (session_dir / "live_packet.json").exists()
+
+
+def test_apply_corpus_purge_requires_second_confirmation_flag(tmp_path: Path) -> None:
+    root = _repo(tmp_path)
+    session_dir = _session(root)
+    generated = _add_generated_corpus(root)
+
+    result = main(
+        [
+            "--repo-root",
+            str(root),
+            "--session-dir",
+            str(session_dir),
+            "--apply",
+            "--purge-generated-corpus",
+        ]
+    )
+
+    assert result == 2
+    assert (generated / "dogfood-drake.md").exists()
+
+
+def test_apply_corpus_purge_with_second_confirmation_deletes_markdown_only(tmp_path: Path) -> None:
+    root = _repo(tmp_path)
+    session_dir = _session(root)
+    generated = _add_generated_corpus(root)
+
+    result = main(
+        [
+            "--repo-root",
+            str(root),
+            "--session-dir",
+            str(session_dir),
+            "--apply",
+            "--purge-generated-corpus",
+            "--yes-delete-generated-corpus",
+        ]
+    )
+
+    assert result == 0
+    assert not (generated / "dogfood-drake.md").exists()
+    assert (generated / "notes.txt").exists()

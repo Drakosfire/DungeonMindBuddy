@@ -41,16 +41,21 @@ def check_session(session_dir: Path) -> bool:
 
     layout_path = session_dir / "surface_layout.json"
     if layout_path.is_file():
-        data = json.loads(layout_path.read_text(encoding="utf-8"))
-        modules = {row.get("module_id"): row for row in data.get("modules", []) if isinstance(row, dict)}
-        for module_id in EXPECTED_MODULES:
-            row = modules.get(module_id)
-            if row is None:
-                ok = False
-                print(f"module {module_id}: missing from surface_layout.json")
-            else:
-                state = "enabled" if row.get("enabled") else "present but disabled"
-                print(f"module {module_id}: {state}")
+        try:
+            data = json.loads(layout_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as exc:
+            ok = False
+            print(f"surface_layout.json: invalid JSON ({exc.msg} at line {exc.lineno}, column {exc.colno})")
+        else:
+            modules = {row.get("module_id"): row for row in data.get("modules", []) if isinstance(row, dict)}
+            for module_id in EXPECTED_MODULES:
+                row = modules.get(module_id)
+                if row is None:
+                    ok = False
+                    print(f"module {module_id}: missing from surface_layout.json")
+                else:
+                    state = "enabled" if row.get("enabled") else "present but disabled"
+                    print(f"module {module_id}: {state}")
 
     for rel in (
         "statblock_drafts",

@@ -137,7 +137,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--purge-generated-corpus",
         action="store_true",
-        help="Also delete generated statblock markdown files from the approved generated corpus folder.",
+        help="Plan generated statblock markdown deletion from the approved generated corpus folder.",
+    )
+    parser.add_argument(
+        "--yes-delete-generated-corpus",
+        action="store_true",
+        help="Second confirmation required with --purge-generated-corpus and --apply before corpus markdown is deleted.",
     )
     return parser.parse_args(argv)
 
@@ -145,6 +150,10 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     try:
+        if args.purge_generated_corpus and args.apply and not args.yes_delete_generated_corpus:
+            raise ValueError(
+                "--purge-generated-corpus with --apply also requires --yes-delete-generated-corpus"
+            )
         session_dir = _session_dir_from_args(args.session_dir)
         plan = build_plan(
             session_dir=session_dir,
@@ -162,6 +171,16 @@ def main(argv: list[str] | None = None) -> int:
     if not plan.targets:
         print("No dogfood artifacts found.")
         return 0
+
+    if plan.generated_corpus_targets:
+        print(
+            "GENERATED CORPUS PURGE REQUESTED: "
+            f"{len(plan.generated_corpus_targets)} markdown file(s) under the approved generated statblock folder."
+        )
+        if not args.apply:
+            print("Corpus purge is dry-run only unless --apply is provided.")
+        elif not args.yes_delete_generated_corpus:
+            print("Corpus purge requires --yes-delete-generated-corpus with --apply.")
 
     print("Planned deletions:")
     for target in plan.targets:
