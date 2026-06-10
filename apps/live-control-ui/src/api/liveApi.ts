@@ -9,6 +9,8 @@ import type {
   ProjectionTarget,
   LiveQueryResponse,
   LiveSurfaceResponse,
+  GeneratedStatblockDetailResponse,
+  GeneratedStatblockListResponse,
   ResolvedRollResponse,
   SurfaceLayout,
   ListStatblockDraftsResponse,
@@ -226,6 +228,21 @@ export async function getStatblockWorkbenchDraft(
   );
 }
 
+
+
+export async function listGeneratedStatblocks(): Promise<GeneratedStatblockListResponse> {
+  return apiFetch<GeneratedStatblockListResponse>(
+    "/api/live/statblocks/view/generated",
+  );
+}
+
+export async function getGeneratedStatblock(
+  artifactId: string,
+): Promise<GeneratedStatblockDetailResponse> {
+  return apiFetch<GeneratedStatblockDetailResponse>(
+    `/api/live/statblocks/view/generated/${encodeURIComponent(artifactId)}`,
+  );
+}
 
 export async function previewStatblockCorpusPromotion(
   artifactId: string,

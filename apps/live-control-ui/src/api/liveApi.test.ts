@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { activateStatblockRetrieval, commitStatblockCorpusWrite, getArtifact, getCapabilities, getStatblockWorkbenchDraft, getStatblockWorkbenchSample, listStatblockWorkbenchDrafts, postCommand, postStatblockWorkbenchCommand, prepareStatblockCorpusWrite, previewStatblockCorpusPromotion, storeStatblockWorkbenchDraft, verifyStatblockRetrieval } from "./liveApi";
+import { activateStatblockRetrieval, commitStatblockCorpusWrite, getArtifact, getCapabilities, getGeneratedStatblock, getStatblockWorkbenchDraft, getStatblockWorkbenchSample, listGeneratedStatblocks, listStatblockWorkbenchDrafts, postCommand, postStatblockWorkbenchCommand, prepareStatblockCorpusWrite, previewStatblockCorpusPromotion, storeStatblockWorkbenchDraft, verifyStatblockRetrieval } from "./liveApi";
 import type { ProjectionCommand, ProjectionWriteResult, StoreStatblockDraftRequest } from "./types";
 
 function mockJsonResponse(payload: unknown): Response {
@@ -160,6 +160,30 @@ describe("liveApi artifact/capability helpers", () => {
     expect(fetchSpy).toHaveBeenCalledTimes(1);
     const [url] = fetchSpy.mock.calls[0];
     expect(String(url)).toBe("/api/live/statblocks/workbench/drafts/statblock%3Adraft%20test");
+  });
+
+  it("listGeneratedStatblocks calls expected generated view endpoint", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      mockJsonResponse({ schema_version: "dmb_generated_statblock_list_v1", statblocks: [], diagnostics: [] }),
+    );
+
+    await listGeneratedStatblocks();
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    const [url] = fetchSpy.mock.calls[0];
+    expect(String(url)).toBe("/api/live/statblocks/view/generated");
+  });
+
+  it("getGeneratedStatblock encodes artifact id in generated view endpoint", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      mockJsonResponse({ schema_version: "dmb_generated_statblock_detail_v1" }),
+    );
+
+    await getGeneratedStatblock("statblock:draft test");
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    const [url] = fetchSpy.mock.calls[0];
+    expect(String(url)).toBe("/api/live/statblocks/view/generated/statblock%3Adraft%20test");
   });
 
   it("previewStatblockCorpusPromotion posts encoded preview request", async () => {

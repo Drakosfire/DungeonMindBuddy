@@ -530,6 +530,57 @@ export interface ReadStatblockDraftResponse {
   record: StoredStatblockDraftRecord;
 }
 
+
+export interface GeneratedStatblockListItem {
+  artifact_id: string;
+  draft_id: string;
+  title: string;
+  campaign_id: string;
+  session: number;
+  review_status: string;
+  lifecycle_state: string;
+  storage_status: string;
+  corpus_status: string;
+  retrieval_status?: string | null;
+  corpus_relpath: string;
+  corpus_display_path: string;
+  corpus_written_at?: string | null;
+  retrieval_verified_at?: string | null;
+  armor_class?: number | string | null;
+  hit_points?: number | string | null;
+  challenge_rating?: string | null;
+  creature_type?: string | null;
+  primary_actions: string[];
+  warning_count: number;
+}
+
+export interface GeneratedStatblockListResponse {
+  schema_version: "dmb_generated_statblock_list_v1";
+  statblocks: GeneratedStatblockListItem[];
+  diagnostics: string[];
+}
+
+export interface GeneratedStatblockDetailResponse {
+  schema_version: "dmb_generated_statblock_detail_v1";
+  artifact_id: string;
+  draft_id: string;
+  title: string;
+  stored_record: StoredStatblockDraftRecord;
+  corpus_relpath: string;
+  corpus_display_path: string;
+  corpus_markdown: string;
+  corpus_markdown_bytes: number;
+  corpus_file_fingerprint?: string | null;
+  combat_defaults: StatblockCombatDefaults;
+  warnings: StatblockReviewWarning[];
+  provenance: Record<string, unknown>;
+  breadcrumbs: StatblockBreadcrumb[];
+  source_refs: Array<Record<string, unknown>>;
+  retrieval: Record<string, unknown>;
+  available_actions: StatblockWorkbenchAction[];
+  diagnostics: string[];
+}
+
 export interface StatblockPromotionWarning {
   code: string;
   message: string;

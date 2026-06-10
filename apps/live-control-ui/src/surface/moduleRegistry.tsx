@@ -14,6 +14,7 @@ import { NowModule } from "./modules/NowModule";
 import { RecordModule } from "./modules/RecordModule";
 import { RollStackModule } from "./modules/RollStackModule";
 import { StatblockWorkbenchModule } from "./modules/StatblockWorkbenchModule";
+import { StatblockViewModule } from "./modules/StatblockViewModule";
 import { TimelineModule } from "./modules/TimelineModule";
 import { UnsupportedModule } from "./modules/UnsupportedModule";
 import type { PaneTarget } from "./targetTypes";
@@ -81,6 +82,8 @@ export function ModuleContent({
       return <SourcesModule campaignId={context.campaignId} session={context.session} />;
     case "statblock_workbench":
       return <StatblockWorkbenchModule />;
+    case "statblock_view":
+      return <StatblockViewModule />;
     default:
       return (
         <UnsupportedModule

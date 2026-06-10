@@ -35,6 +35,15 @@
       }
     },
     {
+      "module_id": "statblock_view",
+      "slot": "main",
+      "order": 3,
+      "enabled": false,
+      "collapsed": false,
+      "size": "1fr",
+      "config": {}
+    },
+    {
       "module_id": "now",
       "slot": "sidebar",
       "order": 1,

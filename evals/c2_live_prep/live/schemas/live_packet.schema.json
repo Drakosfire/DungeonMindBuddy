@@ -300,6 +300,7 @@
               "ingestion",
               "sources",
               "statblock_workbench",
+              "statblock_view",
               "queue"
             ]
           },
