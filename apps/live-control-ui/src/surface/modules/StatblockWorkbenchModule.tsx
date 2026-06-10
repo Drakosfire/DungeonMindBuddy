@@ -418,8 +418,9 @@ function ReadyWorkbench({
   const previewDisabled = pendingCommand !== null || pendingStore || pendingPreview || pendingLoadId !== null || anyWritePending || artifact.storage_status !== "stored_draft";
   const prepareWriteDisabled = previewDisabled || !corpusPreview || anyRetrievalPending;
   const retrievalStatus = retrievalVerification?.stored_record?.retrieval_status ?? retrievalActivation?.stored_record.retrieval_status ?? null;
-  const canActivateRetrieval = artifact.corpus_status === "promotion_confirmed" && !anyWritePending && !pendingStore && pendingCommand === null;
-  const canVerifyRetrieval = (Boolean(retrievalActivation) || retrievalStatus === "manifest_activated" || retrievalStatus === "retrieval_verified") && !anyWritePending && !pendingStore && pendingCommand === null;
+  const retrievalAlreadyActivated = Boolean(retrievalActivation) || retrievalStatus === "manifest_activated" || retrievalStatus === "retrieval_verified";
+  const canActivateRetrieval = artifact.corpus_status === "promotion_confirmed" && !retrievalAlreadyActivated && !anyWritePending && !pendingStore && pendingCommand === null;
+  const canVerifyRetrieval = retrievalAlreadyActivated && !anyWritePending && !pendingStore && pendingCommand === null;
   const commitReady = Boolean(corpusWritePrepare?.writer_ok && corpusWritePrepare.writer_confirm_token);
 
   return (

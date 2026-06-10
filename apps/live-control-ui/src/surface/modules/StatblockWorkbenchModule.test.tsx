@@ -11,6 +11,8 @@ import type {
   StatblockCorpusPromotionPreviewResponse,
   StatblockCorpusWriteCommitResponse,
   StatblockCorpusWritePrepareResponse,
+  StatblockRetrievalActivationResponse,
+  StatblockRetrievalVerifyResponse,
   StoreStatblockDraftResponse,
 } from "../../api/types";
 import { StatblockWorkbenchModule } from "./StatblockWorkbenchModule";
@@ -228,6 +230,76 @@ function writeCommitResponseFor(artifact = storedResponseFor().record.artifact):
       artifact: promotedArtifact,
     },
     diagnostics: ["corpus markdown file written with corpus writer confirm_token"],
+    available_actions: [],
+  };
+}
+
+function retrievalActivationResponseFor(
+  commit = writeCommitResponseFor(),
+): StatblockRetrievalActivationResponse {
+  const route = `corpus/eldyrwild-markdown/${commit.proposed_corpus_relpath}`;
+  return {
+    schema_version: "dmb_statblock_retrieval_activation_v1",
+    artifact_id: commit.artifact_id,
+    draft_id: commit.draft_id,
+    title: commit.title,
+    corpus_relpath: commit.proposed_corpus_relpath,
+    corpus_display_path: commit.proposed_corpus_display_path,
+    manifest_overlay_path: "statblock_retrieval/generated_statblocks_manifest.json",
+    manifest_entry: {
+      source_id: `generated_statblock-${commit.artifact_id}`,
+      source_role: "world_evidence",
+      authority: "canon_play",
+      route,
+      route_exists: true,
+      allowed_uses: ["planning_context", "statblock_lookup", "mechanical_reference"],
+      forbidden_uses: ["play_facts"],
+      lexical_terms: ["Geomantic Drake Juvenile", "statblock", "armor class", "hit points", "primary actions"],
+    },
+    stored_record: {
+      ...commit.stored_record,
+      retrieval_status: "manifest_activated",
+      retrieval_manifest_path: "statblock_retrieval/generated_statblocks_manifest.json",
+      retrieval_activated_at: "2026-06-09T02:05:00Z",
+    },
+    diagnostics: ["generated-statblock manifest overlay updated"],
+    available_actions: [],
+  };
+}
+
+function retrievalVerifyResponseFor(
+  activation = retrievalActivationResponseFor(),
+): StatblockRetrievalVerifyResponse {
+  const path = String(activation.manifest_entry.route);
+  return {
+    schema_version: "dmb_statblock_retrieval_verify_v1",
+    artifact_id: activation.artifact_id,
+    draft_id: activation.draft_id,
+    title: activation.title,
+    query: 'What are the statblock details for "Geomantic Drake Juvenile"?',
+    status: "verified",
+    corpus_relpath: activation.corpus_relpath,
+    manifest_overlay_path: activation.manifest_overlay_path,
+    admitted_evidence: [{
+      path,
+      source_role: "world_evidence",
+      authority: "canon_play",
+      line_start: 12,
+      line_end: 18,
+      text_excerpt: "Geomantic Drake Juvenile Armor Class 15 Hit Points 68 Bite Stone Skitter",
+      evidence_score: 42.5,
+    }],
+    rejected_evidence: [],
+    retrieval_trace: { top_manifest_entries: [{ route: path }] },
+    stored_record: {
+      ...activation.stored_record,
+      retrieval_status: "retrieval_verified",
+      retrieval_verified_at: "2026-06-09T02:06:00Z",
+      retrieval_query: 'What are the statblock details for "Geomantic Drake Juvenile"?',
+      retrieval_evidence_path: path,
+      retrieval_evidence_score: 42.5,
+    },
+    diagnostics: ["retrieval verification status: verified"],
     available_actions: [],
   };
 }
@@ -601,6 +673,50 @@ describe("StatblockWorkbenchModule", () => {
     expect(screen.queryByRole("button", { name: "Write corpus file" })).not.toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: "Confirm corpus write" }).every((button) => button.hasAttribute("disabled"))).toBe(true);
     expect(screen.getAllByRole("button", { name: "Add to combat" }).every((button) => button.hasAttribute("disabled"))).toBe(true);
+  });
+
+
+  it("activates and verifies retrieval from the Workbench panel", async () => {
+    const user = userEvent.setup();
+    const commit = writeCommitResponseFor(storedResponseFor().record.artifact);
+    const activation = retrievalActivationResponseFor(commit);
+    const verification = retrievalVerifyResponseFor(activation);
+    vi.spyOn(liveApi, "getStatblockWorkbenchSample").mockResolvedValue({
+      ...sampleResponse,
+      artifact: commit.stored_record.artifact,
+      command_status: "corpus_written",
+    });
+    vi.spyOn(liveApi, "activateStatblockRetrieval").mockResolvedValue(activation);
+    vi.spyOn(liveApi, "verifyStatblockRetrieval").mockResolvedValue(verification);
+
+    render(<StatblockWorkbenchModule />);
+
+    await screen.findByText("Mock / non-corpus draft lane");
+    const activateButton = screen.getByRole("button", { name: "Activate retrieval" });
+    const verifyButton = screen.getByRole("button", { name: "Verify retrieval" });
+    expect(activateButton).toBeEnabled();
+    expect(verifyButton).toBeDisabled();
+
+    await user.click(activateButton);
+
+    expect(liveApi.activateStatblockRetrieval).toHaveBeenCalledWith("statblock-draft-test");
+    await screen.findByText("statblock_retrieval/generated_statblocks_manifest.json");
+    expect(screen.getByText(`generated_statblock-${commit.artifact_id}`)).toBeInTheDocument();
+    expect(screen.getByText(`corpus/eldyrwild-markdown/${commit.proposed_corpus_relpath}`)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Activate retrieval" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Verify retrieval" })).toBeEnabled();
+
+    await user.click(screen.getByRole("button", { name: "Verify retrieval" }));
+
+    expect(liveApi.verifyStatblockRetrieval).toHaveBeenCalledWith("statblock-draft-test", {});
+    await screen.findByText("Retrieval verified");
+    expect(screen.getByText("verified")).toBeInTheDocument();
+    expect(screen.getAllByText(`corpus/eldyrwild-markdown/${commit.proposed_corpus_relpath}`).length).toBeGreaterThan(0);
+    expect(screen.getByText("12–18")).toBeInTheDocument();
+    expect(screen.getByText(/Armor Class 15 Hit Points 68/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Activate retrieval" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Verify retrieval" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Add to combat" })).toBeDisabled();
   });
 
 
