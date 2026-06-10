@@ -45,8 +45,8 @@ function RosterRow({
   active: boolean;
   onRefresh: (encounter: CombatEncounterState) => void;
 }) {
-  const [damage, setDamage] = useState("0");
-  const [heal, setHeal] = useState("0");
+  const [damage, setDamage] = useState("1");
+  const [heal, setHeal] = useState("1");
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -68,6 +68,11 @@ function RosterRow({
     const parsed = Number.parseInt(value, 10);
     return Number.isFinite(parsed) ? parsed : null;
   }
+
+  const damageAmount = Number.parseInt(damage, 10);
+  const healAmount = Number.parseInt(heal, 10);
+  const canApplyDamage = busy === null && Number.isFinite(damageAmount) && damageAmount > 0;
+  const canApplyHeal = busy === null && Number.isFinite(healAmount) && healAmount > 0;
 
   return (
     <tr className={active ? "combat-roster-active-row" : undefined}>
@@ -156,12 +161,12 @@ function RosterRow({
           />
           <button
             type="button"
-            disabled={busy !== null}
+            disabled={!canApplyDamage}
             onClick={() =>
               mutate("damage", () =>
                 applyCombatHpDelta(entity.id, {
                   action: "damage",
-                  amount: Number.parseInt(damage, 10) || 0,
+                  amount: damageAmount,
                 }),
               )
             }
@@ -177,12 +182,12 @@ function RosterRow({
           />
           <button
             type="button"
-            disabled={busy !== null}
+            disabled={!canApplyHeal}
             onClick={() =>
               mutate("heal", () =>
                 applyCombatHpDelta(entity.id, {
                   action: "heal",
-                  amount: Number.parseInt(heal, 10) || 0,
+                  amount: healAmount,
                 }),
               )
             }

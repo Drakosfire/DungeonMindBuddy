@@ -72,7 +72,7 @@ class CombatEntityPatchRequest(BaseModel):
 
 class CombatHpDeltaRequest(BaseModel):
     action: Literal["damage", "heal", "set_temp_hp"]
-    amount: int = Field(ge=0)
+    amount: int = Field(gt=0, le=999)
 
 
 class CombatTurnRequest(BaseModel):
@@ -401,7 +401,7 @@ def apply_combat_hp_delta(
     hp = _as_int(entity.hp)
     max_hp = _as_int(entity.max_hp)
     if delta.action == "set_temp_hp":
-        entity.temp_hp = delta.amount
+        entity.temp_hp = max(entity.temp_hp or 0, delta.amount)
     elif hp is None:
         raise ValueError(f"combat entity hp is not numeric: {entity_id}")
     elif delta.action == "damage":
@@ -411,13 +411,9 @@ def apply_combat_hp_delta(
             entity.temp_hp -= absorbed
             remaining -= absorbed
         entity.hp = max(0, hp - remaining)
-        if entity.hp == 0:
-            entity.defeated = True
     elif delta.action == "heal":
         healed = hp + delta.amount
         entity.hp = min(healed, max_hp) if max_hp is not None else healed
-        if _as_int(entity.hp) and _as_int(entity.hp) > 0:
-            entity.defeated = False
     return _touch_and_write(
         base=base,
         encounter=encounter,
@@ -444,12 +440,9 @@ def sort_combat_initiative(
         )
     )
     _renumber(encounter)
-    if encounter.entities and encounter.active_turn_entity_id not in {
-        entity.id for entity in encounter.entities
-    }:
+    if encounter.entities:
         encounter.active_turn_entity_id = encounter.entities[0].id
-    if encounter.active_turn_entity_id and encounter.round_start_entity_id is None:
-        encounter.round_start_entity_id = encounter.active_turn_entity_id
+        encounter.round_start_entity_id = encounter.entities[0].id
     return _touch_and_write(
         base=base,
         encounter=encounter,
