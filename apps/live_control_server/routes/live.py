@@ -66,6 +66,13 @@ from apps.live_control_server.services.statblock_draft_store import (
     store_statblock_draft,
 )
 
+from apps.live_control_server.services.combat_state import (
+    AddGeneratedStatblockCombatRequest,
+    AddGeneratedStatblockCombatResponse,
+    CombatEncounterState,
+    add_generated_statblock_to_combat,
+    load_or_initialize_current_combat,
+)
 from apps.live_control_server.services.statblock_view import (
     GeneratedStatblockDetailResponse,
     GeneratedStatblockListResponse,
@@ -180,6 +187,47 @@ def get_generated_statblock_view_detail(
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     except Exception as exc:
         raise HTTPException(status_code=500, detail="generated statblock read failed") from exc
+    return response.model_dump(mode="json")
+
+
+@router.get(
+    "/combat/current",
+    response_model=CombatEncounterState,
+)
+def get_current_combat() -> dict[str, Any]:
+    base = session_dir()
+    packet, _, _, _ = load_session(base)
+    response = load_or_initialize_current_combat(base=base, packet=packet)
+    return response.model_dump(mode="json")
+
+
+@router.post(
+    "/statblocks/view/generated/{artifact_id}/combat/add",
+    response_model=AddGeneratedStatblockCombatResponse,
+)
+def post_generated_statblock_combat_add(
+    artifact_id: Annotated[str, Path(min_length=1)],
+    body: AddGeneratedStatblockCombatRequest | None = None,
+) -> dict[str, Any]:
+    base = session_dir()
+    packet, _, _, _ = load_session(base)
+    request = body or AddGeneratedStatblockCombatRequest()
+    try:
+        response = add_generated_statblock_to_combat(
+            base=base,
+            root=repo_root(),
+            packet=packet,
+            artifact_id=artifact_id,
+            request=request,
+        )
+    except UnsafeArtifactIdError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except StatblockDraftNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except StatblockViewError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail="generated statblock combat add failed") from exc
     return response.model_dump(mode="json")
 
 @router.get(

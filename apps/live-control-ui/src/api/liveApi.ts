@@ -9,6 +9,9 @@ import type {
   ProjectionTarget,
   LiveQueryResponse,
   LiveSurfaceResponse,
+  AddGeneratedStatblockCombatRequest,
+  AddGeneratedStatblockCombatResponse,
+  CombatEncounterState,
   GeneratedStatblockDetailResponse,
   GeneratedStatblockListResponse,
   ResolvedRollResponse,
@@ -241,6 +244,24 @@ export async function getGeneratedStatblock(
 ): Promise<GeneratedStatblockDetailResponse> {
   return apiFetch<GeneratedStatblockDetailResponse>(
     `/api/live/statblocks/view/generated/${encodeURIComponent(artifactId)}`,
+  );
+}
+
+export async function getCurrentCombat(): Promise<CombatEncounterState> {
+  return apiFetch<CombatEncounterState>("/api/live/combat/current");
+}
+
+export async function addGeneratedStatblockToCombat(
+  artifactId: string,
+  request: AddGeneratedStatblockCombatRequest,
+): Promise<AddGeneratedStatblockCombatResponse> {
+  return apiFetch<AddGeneratedStatblockCombatResponse>(
+    `/api/live/statblocks/view/generated/${encodeURIComponent(artifactId)}/combat/add`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(request),
+    },
   );
 }
 

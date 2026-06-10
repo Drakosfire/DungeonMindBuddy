@@ -581,6 +581,65 @@ export interface GeneratedStatblockDetailResponse {
   diagnostics: string[];
 }
 
+export type CombatTeam = "pc" | "ally" | "enemy" | "neutral";
+
+export interface CombatEntity {
+  id: string;
+  name: string;
+  team: CombatTeam;
+  order: number;
+  init?: number | null;
+  ac?: number | string | null;
+  hp?: number | string | null;
+  max_hp?: number | string | null;
+  temp_hp?: number | null;
+  defeated: boolean;
+  notes: string;
+  conditions: string[];
+  tags: string[];
+  statblock_path?: string | null;
+  statblock_artifact_id?: string | null;
+  statblock_title?: string | null;
+  corpus_fingerprint?: string | null;
+  source: "corpus" | "generated_pending" | "manual" | "imported";
+  provenance: Array<Record<string, unknown>>;
+}
+
+export interface CombatEncounterState {
+  schema: "dmb_combat_encounter_state_v1";
+  campaign_id: string;
+  session: number;
+  encounter_id: string;
+  title: string;
+  round: number;
+  active_turn_entity_id?: string | null;
+  round_start_entity_id?: string | null;
+  queue_model: "circular_barrel_v1";
+  entities: CombatEntity[];
+  groups: Array<Record<string, unknown>>;
+  provenance: Array<Record<string, unknown>>;
+  updated_at: string;
+}
+
+export interface AddGeneratedStatblockCombatRequest {
+  team?: CombatTeam;
+  count?: number;
+  name_override?: string | null;
+  initiative?: number | null;
+  insert_after_entity_id?: string | null;
+  group_key?: string | null;
+  notes?: string | null;
+  hp_override?: number | null;
+  max_hp_override?: number | null;
+}
+
+export interface AddGeneratedStatblockCombatResponse {
+  schema_version: "dmb_add_generated_statblock_to_combat_v1";
+  added_entities: CombatEntity[];
+  encounter: CombatEncounterState;
+  diagnostics: string[];
+}
+
 export interface StatblockPromotionWarning {
   code: string;
   message: string;

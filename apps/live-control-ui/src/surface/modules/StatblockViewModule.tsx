@@ -1,7 +1,16 @@
-import { useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 
-import { getGeneratedStatblock, listGeneratedStatblocks } from "../../api/liveApi";
+import {
+  addGeneratedStatblockToCombat,
+  getCurrentCombat,
+  getGeneratedStatblock,
+  listGeneratedStatblocks,
+} from "../../api/liveApi";
 import type {
+  AddGeneratedStatblockCombatRequest,
+  AddGeneratedStatblockCombatResponse,
+  CombatEncounterState,
+  CombatTeam,
   GeneratedStatblockDetailResponse,
   GeneratedStatblockListItem,
   GeneratedStatblockListResponse,
@@ -26,10 +35,14 @@ function retrievalLabel(status?: string | null): string {
 }
 
 function DisabledActions({ actions }: { actions: StatblockWorkbenchAction[] }) {
+  const futureActions = actions.filter((action) => action.action_id !== "add_to_combat");
+  if (futureActions.length === 0) {
+    return null;
+  }
   return (
     <div className="statblock-view-actions" aria-label="Future actions">
-      {actions.map((action) => {
-        const disabledReason = action.disabled_reason ?? "Statblock View is read-only in PR111.";
+      {futureActions.map((action) => {
+        const disabledReason = action.disabled_reason ?? "Future Statblock View workflow.";
         return (
           <button key={action.action_id} type="button" disabled title={disabledReason}>
             {action.label}
@@ -71,10 +84,136 @@ function StatblockList({
   );
 }
 
-function Detail({ detail }: { detail: GeneratedStatblockDetailResponse }) {
+function AddToCombatPanel({
+  detail,
+  onAdded,
+}: {
+  detail: GeneratedStatblockDetailResponse;
+  onAdded: (response: AddGeneratedStatblockCombatResponse) => void;
+}) {
+  const [team, setTeam] = useState<CombatTeam>("enemy");
+  const [count, setCount] = useState("1");
+  const [initiative, setInitiative] = useState("");
+  const [nameOverride, setNameOverride] = useState("");
+  const [notes, setNotes] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+
+  useEffect(() => {
+    setError(null);
+    setSuccess(null);
+  }, [detail.artifact_id]);
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSubmitting(true);
+    setError(null);
+    setSuccess(null);
+    const parsedCount = Number.parseInt(count, 10);
+    const parsedInitiative = initiative.trim() === "" ? null : Number.parseInt(initiative, 10);
+    const request: AddGeneratedStatblockCombatRequest = {
+      team,
+      count: Number.isFinite(parsedCount) ? parsedCount : 1,
+    };
+    if (parsedInitiative !== null && Number.isFinite(parsedInitiative)) {
+      request.initiative = parsedInitiative;
+    }
+    if (nameOverride.trim()) {
+      request.name_override = nameOverride.trim();
+    }
+    if (notes.trim()) {
+      request.notes = notes.trim();
+    }
+    try {
+      const response = await addGeneratedStatblockToCombat(detail.artifact_id, request);
+      const names = response.added_entities.map((entity) => entity.name).join(", ");
+      setSuccess(`Added ${names} to current combat.`);
+      onAdded(response);
+    } catch (caught: unknown) {
+      setError(caught instanceof Error ? caught.message : String(caught));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <section aria-label="Add to current combat">
+      <h4>Add to current combat</h4>
+      <form className="statblock-add-combat-form" onSubmit={submit}>
+        <label>
+          Team
+          <select value={team} onChange={(event) => setTeam(event.target.value as CombatTeam)}>
+            <option value="enemy">Enemy</option>
+            <option value="ally">Ally</option>
+            <option value="neutral">Neutral</option>
+            <option value="pc">PC</option>
+          </select>
+        </label>
+        <label>
+          Count
+          <input type="number" min="1" max="20" value={count} onChange={(event) => setCount(event.target.value)} />
+        </label>
+        <label>
+          Initiative
+          <input type="number" value={initiative} onChange={(event) => setInitiative(event.target.value)} placeholder="optional" />
+        </label>
+        <label>
+          Name override
+          <input value={nameOverride} onChange={(event) => setNameOverride(event.target.value)} placeholder={detail.combat_defaults.name ?? detail.title} />
+        </label>
+        <label>
+          Notes
+          <textarea value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Optional combat notes" />
+        </label>
+        <button type="submit" disabled={submitting}>{submitting ? "Adding…" : "Add to current combat"}</button>
+      </form>
+      {success ? <p className="module-success">{success}</p> : null}
+      {error ? <p className="module-error">Unable to add to combat: {error}</p> : null}
+    </section>
+  );
+}
+
+function CurrentCombatReadback({ encounter }: { encounter: CombatEncounterState | null }) {
+  if (!encounter) {
+    return (
+      <section aria-label="Current combat snapshot">
+        <h4>Current combat snapshot</h4>
+        <p className="module-muted">Current combat has not loaded yet.</p>
+      </section>
+    );
+  }
+  const recent = encounter.entities.slice(-5);
+  return (
+    <section aria-label="Current combat snapshot">
+      <h4>Current combat snapshot</h4>
+      <p>Round {encounter.round} · {encounter.entities.length} combatant{encounter.entities.length === 1 ? "" : "s"}</p>
+      {recent.length === 0 ? (
+        <p className="module-muted">No combatants in current combat.</p>
+      ) : (
+        <ul>
+          {recent.map((entity) => (
+            <li key={entity.id}>
+              {entity.name} · {entity.team} · AC {formatMaybe(entity.ac)} · HP {formatMaybe(entity.hp)}/{formatMaybe(entity.max_hp)}
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+function Detail({
+  detail,
+  encounter,
+  onAdded,
+}: {
+  detail: GeneratedStatblockDetailResponse;
+  encounter: CombatEncounterState | null;
+  onAdded: (response: AddGeneratedStatblockCombatResponse) => void;
+}) {
   const combat = detail.combat_defaults;
-  const addAction = detail.available_actions.find((action) => action.action_id === "add_to_combat");
-  const actions = addAction ? [addAction, ...detail.available_actions.filter((action) => action.action_id !== "add_to_combat")] : detail.available_actions;
+  const actions = detail.available_actions;
   return (
     <article className="statblock-view-detail">
       <header>
@@ -86,8 +225,11 @@ function Detail({ detail }: { detail: GeneratedStatblockDetailResponse }) {
       <section aria-label="Status rail" className="statblock-view-status">
         <span>Corpus-backed ✅</span>
         <span>{retrievalLabel(String(detail.retrieval.status ?? ""))}</span>
-        <span>Combat-ready ❌ future PR</span>
+        <span>Combat-ready ✅</span>
       </section>
+
+      <AddToCombatPanel detail={detail} onAdded={onAdded} />
+      <CurrentCombatReadback encounter={encounter} />
 
       <section aria-label="Combat summary">
         <h4>Combat summary</h4>
@@ -141,10 +283,12 @@ export function StatblockViewModule() {
   const [list, setList] = useState<GeneratedStatblockListResponse | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detail, setDetail] = useState<GeneratedStatblockDetailResponse | null>(null);
+  const [encounter, setEncounter] = useState<CombatEncounterState | null>(null);
   const [loadingList, setLoadingList] = useState(true);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [listError, setListError] = useState<string | null>(null);
   const [detailError, setDetailError] = useState<string | null>(null);
+  const [combatError, setCombatError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -162,6 +306,23 @@ export function StatblockViewModule() {
       })
       .finally(() => {
         if (!cancelled) setLoadingList(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    getCurrentCombat()
+      .then((response) => {
+        if (!cancelled) {
+          setEncounter(response);
+          setCombatError(null);
+        }
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) setCombatError(error instanceof Error ? error.message : String(error));
       });
     return () => {
       cancelled = true;
@@ -199,13 +360,14 @@ export function StatblockViewModule() {
   return (
     <div className="module-panel statblock-view" data-module-id="statblock_view">
       <header className="statblock-view-header">
-        <p className="eyebrow">Read-only consumer surface</p>
+        <p className="eyebrow">Combat consumer surface</p>
         <h2 className="module-title">Statblock View</h2>
-        <p className="module-muted">Browse corpus-backed generated statblocks. Add to combat stays disabled until the next lifecycle slice.</p>
+        <p className="module-muted">Browse corpus-backed generated statblocks and add them to current combat.</p>
       </header>
 
       {loadingList ? <p className="module-muted">Loading generated statblocks…</p> : null}
       {listError ? <p className="module-error">Unable to load generated statblocks: {listError}</p> : null}
+      {combatError ? <p className="module-error">Unable to load current combat: {combatError}</p> : null}
       {list?.diagnostics.length ? <ul className="module-muted">{list.diagnostics.map((diagnostic) => <li key={diagnostic}>{diagnostic}</li>)}</ul> : null}
       {!loadingList && !listError && statblocks.length === 0 ? <p className="module-muted">No corpus-backed generated statblocks yet.</p> : null}
 
@@ -215,7 +377,7 @@ export function StatblockViewModule() {
           <div>
             {loadingDetail ? <p className="module-muted">Loading selected statblock…</p> : null}
             {detailError ? <p className="module-error">Unable to load selected statblock: {detailError}</p> : null}
-            {!loadingDetail && !detailError && detail ? <Detail detail={detail} /> : null}
+            {!loadingDetail && !detailError && detail ? <Detail detail={detail} encounter={encounter} onAdded={(response) => setEncounter(response.encounter)} /> : null}
             {!loadingDetail && !detailError && !detail ? <p className="module-muted">Select a statblock.</p> : null}
           </div>
         </div>
