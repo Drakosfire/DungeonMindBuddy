@@ -621,6 +621,39 @@ export interface CombatEncounterState {
   updated_at: string;
 }
 
+
+export interface CombatEntityPatchRequest {
+  name?: string | null;
+  team?: CombatTeam | null;
+  init?: number | null;
+  ac?: number | string | null;
+  hp?: number | string | null;
+  max_hp?: number | string | null;
+  temp_hp?: number | null;
+  defeated?: boolean | null;
+  notes?: string | null;
+  conditions?: string[] | null;
+}
+
+export interface CombatHpDeltaRequest {
+  action: "damage" | "heal" | "set_temp_hp";
+  amount: number;
+}
+
+export interface CombatTurnRequest {
+  direction?: "next" | "previous";
+}
+
+export interface CombatSetActiveRequest {
+  entity_id?: string | null;
+}
+
+export interface CombatMutationResponse {
+  schema_version: "dmb_combat_mutation_v1";
+  encounter: CombatEncounterState;
+  diagnostics: string[];
+}
+
 export interface AddGeneratedStatblockCombatRequest {
   team?: CombatTeam;
   count?: number;

@@ -249,3 +249,68 @@ def test_combat_responses_do_not_expose_secret_environment(tmp_path, monkeypatch
         assert "DUNGEONBUDDY_INTERNAL_API_KEY" not in text
         assert "DUNGEONMIND_SERVER_URL" not in text
         assert "X-DungeonBuddy-Internal-Key" not in text
+
+
+def test_combat_roster_mutations_persist_only_current_combat(tmp_path, monkeypatch) -> None:
+    session_dir = _temp_live_session(tmp_path, monkeypatch)
+    monkeypatch.setattr("apps.live_control_server.routes.live.repo_root", lambda: tmp_path)
+    client = TestClient(create_app())
+    first_record = _store_sample(client, artifact_id="first-combatant")
+    second_record = _store_sample(client, artifact_id="second-combatant")
+    _promote_record(session_dir, tmp_path, first_record)
+    _promote_record(session_dir, tmp_path, second_record)
+    first = client.post(
+        "/api/live/statblocks/view/generated/first-combatant/combat/add",
+        json={"initiative": 9},
+    ).json()["added_entities"][0]
+    second = client.post(
+        "/api/live/statblocks/view/generated/second-combatant/combat/add",
+        json={"initiative": 18},
+    ).json()["added_entities"][0]
+
+    before = _snapshot_files(session_dir)
+    patch = client.patch(
+        f"/api/live/combat/current/entities/{first['id']}",
+        json={"notes": "bloodied", "conditions": ["prone"], "temp_hp": 5},
+    )
+    assert patch.status_code == 200
+    damaged = client.post(
+        f"/api/live/combat/current/entities/{first['id']}/hp-delta",
+        json={"action": "damage", "amount": 10},
+    )
+    assert damaged.status_code == 200
+    first_after = next(
+        e for e in damaged.json()["encounter"]["entities"] if e["id"] == first["id"]
+    )
+    assert first_after["temp_hp"] == 0
+    assert first_after["hp"] == 71
+    assert first_after["notes"] == "bloodied"
+    assert first_after["conditions"] == ["prone"]
+
+    sorted_response = client.post("/api/live/combat/current/sort-initiative", json={})
+    assert sorted_response.status_code == 200
+    assert [e["id"] for e in sorted_response.json()["encounter"]["entities"]] == [
+        second["id"],
+        first["id"],
+    ]
+
+    active_response = client.post(
+        "/api/live/combat/current/active-turn", json={"entity_id": second["id"]}
+    )
+    assert active_response.status_code == 200
+    assert active_response.json()["encounter"]["active_turn_entity_id"] == second["id"]
+
+    turn_response = client.post("/api/live/combat/current/turn", json={"direction": "next"})
+    assert turn_response.status_code == 200
+    assert turn_response.json()["encounter"]["active_turn_entity_id"] == first["id"]
+
+    after = _snapshot_files(session_dir)
+    changed = {path for path, content in after.items() if before.get(path) != content}
+    assert changed == {"combat/current_combat.json"}
+
+
+def test_combat_roster_unknown_entity_returns_404(tmp_path, monkeypatch) -> None:
+    _temp_live_session(tmp_path, monkeypatch)
+    client = TestClient(create_app())
+    response = client.patch("/api/live/combat/current/entities/unknown", json={"notes": "x"})
+    assert response.status_code == 404

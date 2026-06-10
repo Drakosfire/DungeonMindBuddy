@@ -310,6 +310,15 @@
       "config_schema": null
     },
     {
+      "module_id": "combat_roster",
+      "title": "Combat Roster",
+      "default_slot": "main",
+      "required": false,
+      "enabled_by_default": false,
+      "description": "Table-facing current combat roster and turn tracker.",
+      "config_schema": null
+    },
+    {
       "module_id": "queue",
       "title": "Queue",
       "default_slot": "bottom",

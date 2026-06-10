@@ -10,6 +10,7 @@ import type {
 import { IngestionModule } from "../modules/IngestionModule";
 import { SourcesModule } from "../modules/SourcesModule";
 import { ChatModule } from "./modules/ChatModule";
+import { CombatRosterModule } from "./modules/CombatRosterModule";
 import { NowModule } from "./modules/NowModule";
 import { RecordModule } from "./modules/RecordModule";
 import { RollStackModule } from "./modules/RollStackModule";
@@ -84,6 +85,8 @@ export function ModuleContent({
       return <StatblockWorkbenchModule />;
     case "statblock_view":
       return <StatblockViewModule />;
+    case "combat_roster":
+      return <CombatRosterModule />;
     default:
       return (
         <UnsupportedModule

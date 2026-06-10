@@ -1270,3 +1270,59 @@ button:disabled {
   overflow: auto;
   white-space: pre-wrap;
 }
+
+.combat-roster-turn-rail {
+  align-items: end;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.combat-roster-turn-rail > div {
+  border: 1px solid var(--border-subtle, #d6d3d1);
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.75rem;
+}
+
+.combat-roster-turn-rail strong,
+.combat-roster-turn-rail span {
+  display: block;
+}
+
+.combat-roster-table-wrap {
+  overflow-x: auto;
+}
+
+.combat-roster-table {
+  border-collapse: collapse;
+  min-width: 1080px;
+  width: 100%;
+}
+
+.combat-roster-table th,
+.combat-roster-table td {
+  border-top: 1px solid var(--border-subtle, #d6d3d1);
+  padding: 0.45rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+.combat-roster-active-row {
+  background: rgba(251, 191, 36, 0.14);
+}
+
+.combat-roster-short-input {
+  max-width: 4.5rem;
+}
+
+.combat-roster-delta-controls {
+  display: grid;
+  gap: 0.25rem;
+  grid-template-columns: 4rem auto;
+}
+
+.combat-roster textarea {
+  min-height: 3rem;
+  min-width: 10rem;
+}
