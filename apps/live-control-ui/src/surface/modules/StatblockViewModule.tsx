@@ -377,7 +377,16 @@ export function StatblockViewModule() {
           <div>
             {loadingDetail ? <p className="module-muted">Loading selected statblock…</p> : null}
             {detailError ? <p className="module-error">Unable to load selected statblock: {detailError}</p> : null}
-            {!loadingDetail && !detailError && detail ? <Detail detail={detail} encounter={encounter} onAdded={(response) => setEncounter(response.encounter)} /> : null}
+            {!loadingDetail && !detailError && detail ? (
+              <Detail
+                detail={detail}
+                encounter={encounter}
+                onAdded={(response) => {
+                  setEncounter(response.encounter);
+                  setCombatError(null);
+                }}
+              />
+            ) : null}
             {!loadingDetail && !detailError && !detail ? <p className="module-muted">Select a statblock.</p> : null}
           </div>
         </div>

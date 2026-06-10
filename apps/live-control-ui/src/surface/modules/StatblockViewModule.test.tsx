@@ -251,6 +251,23 @@ describe("StatblockViewModule", () => {
     expect(screen.getByText(/Round 1 · 1 combatant/)).toBeInTheDocument();
   });
 
+  it("clears a stale current-combat load error after a successful add", async () => {
+    vi.spyOn(liveApi, "getCurrentCombat").mockRejectedValue(new Error("combat read failed safely"));
+    vi.spyOn(liveApi, "listGeneratedStatblocks").mockResolvedValue(listResponse);
+    vi.spyOn(liveApi, "getGeneratedStatblock").mockResolvedValue(detailFor("statblock-one", "Geomantic Drake Juvenile"));
+    vi.spyOn(liveApi, "addGeneratedStatblockToCombat").mockResolvedValue(addResponseFor());
+
+    render(<StatblockViewModule />);
+
+    expect(await screen.findByText(/Unable to load current combat: combat read failed safely/)).toBeInTheDocument();
+    await userEvent.click(await screen.findByRole("button", { name: "Add to current combat" }));
+
+    expect(await screen.findByText("Added Geomantic Drake Juvenile to current combat.")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.queryByText(/Unable to load current combat: combat read failed safely/)).not.toBeInTheDocument();
+    });
+  });
+
   it("sends changed add-to-combat options", async () => {
     mockCurrentCombat();
     vi.spyOn(liveApi, "listGeneratedStatblocks").mockResolvedValue(listResponse);
