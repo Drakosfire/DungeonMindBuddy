@@ -475,6 +475,13 @@ export interface StoredStatblockDraftRecord {
   corpus_display_path?: string | null;
   corpus_written_at?: string | null;
   corpus_preview_token?: string | null;
+  retrieval_status?: string | null;
+  retrieval_manifest_path?: string | null;
+  retrieval_activated_at?: string | null;
+  retrieval_verified_at?: string | null;
+  retrieval_query?: string | null;
+  retrieval_evidence_path?: string | null;
+  retrieval_evidence_score?: number | null;
   artifact: StatblockDraftArtifactView;
 }
 
@@ -493,6 +500,13 @@ export interface StoredStatblockDraftSummary {
   corpus_display_path?: string | null;
   corpus_written_at?: string | null;
   corpus_preview_token?: string | null;
+  retrieval_status?: string | null;
+  retrieval_manifest_path?: string | null;
+  retrieval_activated_at?: string | null;
+  retrieval_verified_at?: string | null;
+  retrieval_query?: string | null;
+  retrieval_evidence_path?: string | null;
+  retrieval_evidence_score?: number | null;
 }
 
 export interface StoreStatblockDraftRequest {
@@ -599,6 +613,42 @@ export interface StatblockCorpusWriteCommitResponse {
   bytes_written?: number | null;
   new_corpus_fingerprint?: string | null;
   stored_record: StoredStatblockDraftRecord;
+  diagnostics: string[];
+  available_actions: StatblockWorkbenchAction[];
+}
+
+
+export interface StatblockRetrievalActivationResponse {
+  schema_version: "dmb_statblock_retrieval_activation_v1";
+  artifact_id: string;
+  draft_id: string;
+  title: string;
+  corpus_relpath: string;
+  corpus_display_path: string;
+  manifest_overlay_path: string;
+  manifest_entry: Record<string, unknown>;
+  stored_record: StoredStatblockDraftRecord;
+  diagnostics: string[];
+  available_actions: StatblockWorkbenchAction[];
+}
+
+export interface StatblockRetrievalVerifyRequest {
+  query?: string | null;
+}
+
+export interface StatblockRetrievalVerifyResponse {
+  schema_version: "dmb_statblock_retrieval_verify_v1";
+  artifact_id: string;
+  draft_id: string;
+  title: string;
+  query: string;
+  status: "verified" | "retrieved_not_admitted" | "not_found";
+  corpus_relpath: string;
+  manifest_overlay_path: string;
+  admitted_evidence: Array<Record<string, unknown>>;
+  rejected_evidence: Array<Record<string, unknown>>;
+  retrieval_trace: Record<string, unknown>;
+  stored_record?: StoredStatblockDraftRecord | null;
   diagnostics: string[];
   available_actions: StatblockWorkbenchAction[];
 }

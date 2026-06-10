@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { commitStatblockCorpusWrite, getArtifact, getCapabilities, getStatblockWorkbenchDraft, getStatblockWorkbenchSample, listStatblockWorkbenchDrafts, postCommand, postStatblockWorkbenchCommand, prepareStatblockCorpusWrite, previewStatblockCorpusPromotion, storeStatblockWorkbenchDraft } from "./liveApi";
+import { activateStatblockRetrieval, commitStatblockCorpusWrite, getArtifact, getCapabilities, getStatblockWorkbenchDraft, getStatblockWorkbenchSample, listStatblockWorkbenchDrafts, postCommand, postStatblockWorkbenchCommand, prepareStatblockCorpusWrite, previewStatblockCorpusPromotion, storeStatblockWorkbenchDraft, verifyStatblockRetrieval } from "./liveApi";
 import type { ProjectionCommand, ProjectionWriteResult, StoreStatblockDraftRequest } from "./types";
 
 function mockJsonResponse(payload: unknown): Response {
@@ -212,6 +212,36 @@ describe("liveApi artifact/capability helpers", () => {
     expect(String(url)).toBe("/api/live/statblocks/workbench/drafts/statblock%3Adraft%20test/corpus-write/commit");
     expect(init?.method).toBe("POST");
     expect(init?.headers).toEqual({ "Content-Type": "application/json" });
+    expect(JSON.parse(String(init?.body))).toEqual(request);
+  });
+
+
+  it("activateStatblockRetrieval posts encoded activation request", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      mockJsonResponse({ schema_version: "dmb_statblock_retrieval_activation_v1" }),
+    );
+
+    await activateStatblockRetrieval("statblock:draft test");
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchSpy.mock.calls[0];
+    expect(String(url)).toBe("/api/live/statblocks/workbench/drafts/statblock%3Adraft%20test/retrieval/activate");
+    expect(init?.method).toBe("POST");
+    expect(JSON.parse(String(init?.body))).toEqual({});
+  });
+
+  it("verifyStatblockRetrieval posts encoded verification request", async () => {
+    const request = { query: "Find generated statblock AC" };
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      mockJsonResponse({ schema_version: "dmb_statblock_retrieval_verify_v1" }),
+    );
+
+    await verifyStatblockRetrieval("statblock:draft test", request);
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchSpy.mock.calls[0];
+    expect(String(url)).toBe("/api/live/statblocks/workbench/drafts/statblock%3Adraft%20test/retrieval/verify");
+    expect(init?.method).toBe("POST");
     expect(JSON.parse(String(init?.body))).toEqual(request);
   });
 

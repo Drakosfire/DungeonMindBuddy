@@ -45,6 +45,15 @@ from apps.live_control_server.services.statblock_corpus_write import (
     commit_statblock_corpus_write,
     prepare_statblock_corpus_write,
 )
+from apps.live_control_server.services.statblock_retrieval_activation import (
+    RetrievalNotActivatedError,
+    StatblockRetrievalActivationError,
+    StatblockRetrievalActivationResponse,
+    StatblockRetrievalVerifyRequest,
+    StatblockRetrievalVerifyResponse,
+    activate_statblock_retrieval,
+    verify_statblock_retrieval,
+)
 from apps.live_control_server.services.statblock_draft_store import (
     ListStatblockDraftsResponse,
     ReadStatblockDraftResponse,
@@ -295,6 +304,62 @@ def post_statblock_workbench_draft_corpus_write_commit(
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     except Exception as exc:
         raise HTTPException(status_code=500, detail="statblock corpus write commit failed") from exc
+    return response.model_dump(mode="json")
+
+
+@router.post(
+    "/statblocks/workbench/drafts/{artifact_id}/retrieval/activate",
+    response_model=StatblockRetrievalActivationResponse,
+)
+def post_statblock_workbench_draft_retrieval_activate(
+    artifact_id: Annotated[str, Path(min_length=1)],
+) -> dict[str, Any]:
+    base = session_dir()
+    packet, _, _, _ = load_session(base)
+    try:
+        response = activate_statblock_retrieval(
+            base=base, root=repo_root(), packet=packet, artifact_id=artifact_id
+        )
+    except UnsafeArtifactIdError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except StatblockDraftNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except StatblockRetrievalActivationError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail="statblock retrieval activation failed") from exc
+    return response.model_dump(mode="json")
+
+
+@router.post(
+    "/statblocks/workbench/drafts/{artifact_id}/retrieval/verify",
+    response_model=StatblockRetrievalVerifyResponse,
+)
+def post_statblock_workbench_draft_retrieval_verify(
+    artifact_id: Annotated[str, Path(min_length=1)],
+    body: StatblockRetrievalVerifyRequest | None = None,
+) -> dict[str, Any]:
+    base = session_dir()
+    packet, _, _, _ = load_session(base)
+    request = body or StatblockRetrievalVerifyRequest()
+    try:
+        response = verify_statblock_retrieval(
+            base=base,
+            root=repo_root(),
+            packet=packet,
+            artifact_id=artifact_id,
+            query=request.query,
+        )
+    except UnsafeArtifactIdError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except StatblockDraftNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RetrievalNotActivatedError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except StatblockRetrievalActivationError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail="statblock retrieval verification failed") from exc
     return response.model_dump(mode="json")
 
 

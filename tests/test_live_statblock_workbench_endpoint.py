@@ -637,3 +637,164 @@ def test_statblock_workbench_corpus_write_does_not_expose_internal_key(
         assert "DUNGEONBUDDY_INTERNAL_API_KEY" not in body_text
         assert "DUNGEONMIND_SERVER_URL" not in body_text
         assert "X-DungeonBuddy-Internal-Key" not in body_text
+
+
+def _commit_sample_corpus_write(client: TestClient, record: dict) -> dict:
+    preview = client.post(
+        f"/api/live/statblocks/workbench/drafts/{record['artifact_id']}/corpus-preview",
+        json={"include_writer_allowlist_check": True},
+    ).json()
+    prepare = client.post(
+        f"/api/live/statblocks/workbench/drafts/{record['artifact_id']}/corpus-write/prepare",
+        json={"preview_token": preview["preview_token"]},
+    ).json()
+    response = client.post(
+        f"/api/live/statblocks/workbench/drafts/{record['artifact_id']}/corpus-write/commit",
+        json={
+            "preview_token": preview["preview_token"],
+            "writer_confirm_token": prepare["writer_confirm_token"],
+        },
+    )
+    assert response.status_code == 200
+    return response.json()
+
+
+def test_statblock_workbench_retrieval_activation_requires_confirmed_corpus_write(
+    tmp_path, monkeypatch
+) -> None:
+    session_dir = _temp_live_session(tmp_path, monkeypatch)
+    monkeypatch.setattr("apps.live_control_server.routes.live.repo_root", lambda: tmp_path)
+    client = TestClient(create_app())
+    record = _store_sample_draft(client)
+    files_before = _snapshot_files(session_dir)
+
+    response = client.post(
+        f"/api/live/statblocks/workbench/drafts/{record['artifact_id']}/retrieval/activate",
+        json={},
+    )
+
+    assert response.status_code == 409
+    assert "corpus write is not confirmed" in response.json()["detail"]
+    assert not (session_dir / "statblock_retrieval" / "generated_statblocks_manifest.json").exists()
+    assert _snapshot_files(session_dir) == files_before
+
+
+def test_statblock_workbench_retrieval_activation_writes_generated_manifest_overlay(
+    tmp_path, monkeypatch
+) -> None:
+    session_dir = _temp_live_session(tmp_path, monkeypatch)
+    corpus_dir = tmp_path / "corpus" / "eldyrwild-markdown"
+    monkeypatch.setattr(
+        "apps.live_control_server.services.statblock_corpus_write.corpus_root",
+        lambda: corpus_dir,
+    )
+    monkeypatch.setattr("apps.live_control_server.routes.live.repo_root", lambda: tmp_path)
+    client = TestClient(create_app())
+    record = _store_sample_draft(client)
+    commit = _commit_sample_corpus_write(client, record)
+    corpus_path = corpus_dir / commit["proposed_corpus_relpath"]
+    corpus_before = corpus_path.read_bytes()
+    files_before = _snapshot_files(session_dir)
+
+    response = client.post(
+        f"/api/live/statblocks/workbench/drafts/{record['artifact_id']}/retrieval/activate",
+        json={},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["schema_version"] == "dmb_statblock_retrieval_activation_v1"
+    assert body["manifest_overlay_path"] == "statblock_retrieval/generated_statblocks_manifest.json"
+    entry = body["manifest_entry"]
+    assert entry["route"] == f"corpus/eldyrwild-markdown/{commit['proposed_corpus_relpath']}"
+    assert entry["source_role"] == "world_evidence"
+    assert entry["authority"] == "canon_play"
+    assert entry["route_exists"] is True
+    terms = {term.lower() for term in entry["lexical_terms"]}
+    assert {"statblock", "armor class", "hit points", "challenge rating", "primary actions"} <= terms
+    overlay_path = session_dir / "statblock_retrieval" / "generated_statblocks_manifest.json"
+    assert overlay_path.is_file()
+    overlay = overlay_path.read_text(encoding="utf-8")
+    assert "dmb_generated_statblock_manifest_overlay_v1" in overlay
+    assert body["stored_record"]["retrieval_status"] == "manifest_activated"
+    assert corpus_path.read_bytes() == corpus_before
+    after = _snapshot_files(session_dir)
+    changed = {
+        path
+        for path in files_before.keys() | after.keys()
+        if files_before.get(path) != after.get(path)
+    }
+    assert changed == {
+        f"statblock_drafts/{record['artifact_id']}.json",
+        "statblock_retrieval/generated_statblocks_manifest.json",
+    }
+
+
+def test_statblock_workbench_retrieval_verify_requires_activation(
+    tmp_path, monkeypatch
+) -> None:
+    _temp_live_session(tmp_path, monkeypatch)
+    corpus_dir = tmp_path / "corpus" / "eldyrwild-markdown"
+    monkeypatch.setattr(
+        "apps.live_control_server.services.statblock_corpus_write.corpus_root",
+        lambda: corpus_dir,
+    )
+    monkeypatch.setattr("apps.live_control_server.routes.live.repo_root", lambda: tmp_path)
+    client = TestClient(create_app())
+    record = _store_sample_draft(client)
+    _commit_sample_corpus_write(client, record)
+
+    response = client.post(
+        f"/api/live/statblocks/workbench/drafts/{record['artifact_id']}/retrieval/verify",
+        json={},
+    )
+
+    assert response.status_code == 409
+    assert "not activated" in response.json()["detail"]
+    read_response = client.get(f"/api/live/statblocks/workbench/drafts/{record['artifact_id']}")
+    assert read_response.json()["record"].get("retrieval_status") is None
+
+
+def test_statblock_workbench_retrieval_verify_admits_generated_statblock_evidence(
+    tmp_path, monkeypatch
+) -> None:
+    session_dir = _temp_live_session(tmp_path, monkeypatch)
+    corpus_dir = tmp_path / "corpus" / "eldyrwild-markdown"
+    monkeypatch.setattr(
+        "apps.live_control_server.services.statblock_corpus_write.corpus_root",
+        lambda: corpus_dir,
+    )
+    monkeypatch.setattr("apps.live_control_server.routes.live.repo_root", lambda: tmp_path)
+    client = TestClient(create_app())
+    record = _store_sample_draft(client)
+    commit = _commit_sample_corpus_write(client, record)
+    activate = client.post(
+        f"/api/live/statblocks/workbench/drafts/{record['artifact_id']}/retrieval/activate",
+        json={},
+    )
+    assert activate.status_code == 200
+    files_before = _snapshot_files(session_dir)
+
+    response = client.post(
+        f"/api/live/statblocks/workbench/drafts/{record['artifact_id']}/retrieval/verify",
+        json={"query": "Generated statblock armor class hit points primary actions"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["schema_version"] == "dmb_statblock_retrieval_verify_v1"
+    assert body["status"] == "verified"
+    expected_route = f"corpus/eldyrwild-markdown/{commit['proposed_corpus_relpath']}"
+    matched = [e for e in body["admitted_evidence"] if e["path"] == expected_route]
+    assert matched
+    assert matched[0]["line_start"] is not None
+    assert "Geomantic Drake" in matched[0]["text_excerpt"] or "Armor Class" in matched[0]["text_excerpt"]
+    assert body["stored_record"]["retrieval_status"] == "retrieval_verified"
+    assert body["stored_record"]["retrieval_query"]
+    after = _snapshot_files(session_dir)
+    changed = {
+        path
+        for path in files_before.keys() | after.keys()
+        if files_before.get(path) != after.get(path)
+    }
+    assert changed == {f"statblock_drafts/{record['artifact_id']}.json"}

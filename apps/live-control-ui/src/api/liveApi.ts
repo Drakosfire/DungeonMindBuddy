@@ -19,6 +19,9 @@ import type {
   StatblockCorpusWriteCommitResponse,
   StatblockCorpusWritePrepareRequest,
   StatblockCorpusWritePrepareResponse,
+  StatblockRetrievalActivationResponse,
+  StatblockRetrievalVerifyRequest,
+  StatblockRetrievalVerifyResponse,
   StoreStatblockDraftRequest,
   StoreStatblockDraftResponse,
   StatblockWorkbenchCommandRequest,
@@ -264,5 +267,24 @@ export async function commitStatblockCorpusWrite(
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(request),
     },
+  );
+}
+
+export async function activateStatblockRetrieval(
+  artifactId: string,
+): Promise<StatblockRetrievalActivationResponse> {
+  return apiFetch<StatblockRetrievalActivationResponse>(
+    `/api/live/statblocks/workbench/drafts/${encodeURIComponent(artifactId)}/retrieval/activate`,
+    { method: "POST", body: JSON.stringify({}) },
+  );
+}
+
+export async function verifyStatblockRetrieval(
+  artifactId: string,
+  request: StatblockRetrievalVerifyRequest = {},
+): Promise<StatblockRetrievalVerifyResponse> {
+  return apiFetch<StatblockRetrievalVerifyResponse>(
+    `/api/live/statblocks/workbench/drafts/${encodeURIComponent(artifactId)}/retrieval/verify`,
+    { method: "POST", body: JSON.stringify(request) },
   );
 }
