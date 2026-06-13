@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
@@ -15,9 +16,17 @@ from src.statblocks.lifecycle_commands import (
 from src.statblocks.lifecycle_service import (
     StatblockLifecycleCommandRequest,
     StatblockLifecycleService,
+    _safe_message,
 )
-from src.statblocks.v2_client import MockStatBlockGeneratorProvider
+from src.statblocks.v2_client import (
+    MockStatBlockGeneratorProvider,
+    StatBlockGeneratorClientConfigError,
+    StatBlockGeneratorProvider,
+    statblock_generator_provider_from_env,
+)
 from src.statblocks.v2_contract import StatBlockDraftResponse
+
+WorkbenchCommandMode = Literal["mock_command", "http_command"]
 
 
 class StatblockWorkbenchAction(BaseModel):
@@ -53,7 +62,7 @@ class StatblockWorkbenchCommandResponse(BaseModel):
     schema_version: Literal["dmb_statblock_workbench_command_v1"] = (
         "dmb_statblock_workbench_command_v1"
     )
-    mode: Literal["mock_command"] = "mock_command"
+    mode: WorkbenchCommandMode = "mock_command"
     artifact: StatblockDraftArtifact | None = None
     command_status: str
     diagnostics: list[str] = Field(default_factory=list)
@@ -86,12 +95,13 @@ def build_statblock_workbench_sample_response() -> StatblockWorkbenchSampleRespo
 def execute_statblock_workbench_command(
     body: StatblockWorkbenchCommandRequest,
 ) -> StatblockWorkbenchCommandResponse:
-    service = StatblockLifecycleService(
-        MockStatBlockGeneratorProvider(
-            generate_response=_statblock_workbench_generate_draft_response(),
-            render_response=_statblock_workbench_render_draft_response(),
-        )
-    )
+    try:
+        mode, provider = _resolve_workbench_command_provider()
+    except StatBlockGeneratorClientConfigError as exc:
+        return _workbench_command_config_error_response(body, mode=_mode_from_env(), exc=exc)
+
+    source = "mock_provider" if mode == "mock_command" else "http_provider"
+    service = StatblockLifecycleService(provider)
     command_request = StatblockLifecycleCommandRequest(
         command_type=body.command_type,
         requested_by=body.requested_by,
@@ -100,21 +110,21 @@ def execute_statblock_workbench_command(
             StatblockBreadcrumb(
                 label="surface:statblock_workbench", source="live_control"
             ),
-            StatblockBreadcrumb(label="source:mock_provider", source="mock_provider"),
-            StatblockBreadcrumb(label=f"command:{body.command_type}", source="mock_provider"),
+            StatblockBreadcrumb(label=f"source:{source}", source=source),
+            StatblockBreadcrumb(label=f"command:{body.command_type}", source=source),
         ],
-        payload=body.payload or _default_workbench_command_payload(body.command_type),
+        payload=_resolve_workbench_command_payload(body.command_type, body.payload),
         as_artifact=body.as_artifact,
     )
     result = service.execute(command_request)
     diagnostics = [
-        "command endpoint uses MockStatBlockGeneratorProvider only",
-        "artifact is mock-backed and non-persistent",
+        *_workbench_command_diagnostics(mode),
         "no corpus write, Semantic Knowledge Layer ingestion, or combat mutation occurred",
         *result.diagnostics,
     ]
     if result.artifact is not None:
         return StatblockWorkbenchCommandResponse(
+            mode=mode,
             artifact=result.artifact,
             command_status=result.status,
             diagnostics=diagnostics,
@@ -130,11 +140,71 @@ def execute_statblock_workbench_command(
         }
     )
     return StatblockWorkbenchCommandResponse(
+        mode=mode,
         artifact=None,
         command_status=result.status,
         diagnostics=diagnostics,
         available_actions=_statblock_workbench_future_actions(),
         error=error,
+    )
+
+
+def _mode_from_env() -> WorkbenchCommandMode:
+    provider = os.environ.get("STATBLOCK_GENERATOR_PROVIDER", "mock").strip().lower()
+    return "http_command" if provider == "http" else "mock_command"
+
+
+def _resolve_workbench_command_provider() -> tuple[
+    WorkbenchCommandMode, StatBlockGeneratorProvider
+]:
+    provider_env = os.environ.get("STATBLOCK_GENERATOR_PROVIDER", "mock").strip().lower()
+    if provider_env == "mock":
+        return (
+            "mock_command",
+            MockStatBlockGeneratorProvider(
+                generate_response=_statblock_workbench_generate_draft_response(),
+                render_response=_statblock_workbench_render_draft_response(),
+            ),
+        )
+    if provider_env == "http":
+        return "http_command", statblock_generator_provider_from_env()
+    raise StatBlockGeneratorClientConfigError(
+        "STATBLOCK_GENERATOR_PROVIDER must be 'mock' or 'http'"
+    )
+
+
+def _workbench_command_diagnostics(mode: WorkbenchCommandMode) -> list[str]:
+    if mode == "http_command":
+        return [
+            "command endpoint uses DungeonMindServerStatBlockGeneratorClient",
+            "artifact is HTTP-backed and non-persistent",
+        ]
+    return [
+        "command endpoint uses MockStatBlockGeneratorProvider",
+        "artifact is mock-backed and non-persistent",
+    ]
+
+
+def _workbench_command_config_error_response(
+    body: StatblockWorkbenchCommandRequest,
+    *,
+    mode: WorkbenchCommandMode,
+    exc: StatBlockGeneratorClientConfigError,
+) -> StatblockWorkbenchCommandResponse:
+    return StatblockWorkbenchCommandResponse(
+        mode=mode,
+        artifact=None,
+        command_status="error",
+        diagnostics=[
+            "command endpoint failed to resolve statblock generator provider",
+            exc.__class__.__name__,
+        ],
+        available_actions=_statblock_workbench_future_actions(),
+        error={
+            "code": "provider_config_error",
+            "message": _safe_message(str(exc)),
+            "details": {"command_type": body.command_type},
+        },
     )
 
 
@@ -444,6 +514,39 @@ def _statblock_workbench_render_draft_response() -> StatBlockDraftResponse:
     )
 
 
+def _resolve_workbench_command_payload(
+    command_type: str, payload: dict[str, Any] | None
+) -> dict[str, Any]:
+    defaults = _default_workbench_command_payload(command_type)
+    if not payload:
+        resolved = defaults
+    elif command_type == STATBLOCK_DRAFT_RENDER and "statblock" not in payload:
+        resolved = {**defaults, **payload}
+    else:
+        resolved = payload
+    if command_type == STATBLOCK_DRAFT_GENERATE:
+        return _normalize_generate_workbench_payload(resolved)
+    return resolved
+
+
+def _normalize_generate_workbench_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    """Ensure production v2 required fields exist (intent.summary is mandatory remotely)."""
+    normalized = dict(payload)
+    prompt = str(normalized.get("prompt") or "").strip()
+    intent_raw = normalized.get("intent")
+    intent = dict(intent_raw) if isinstance(intent_raw, dict) else {}
+    summary = str(intent.get("summary") or "").strip()
+    if not summary:
+        if prompt:
+            intent["summary"] = prompt
+        elif str(intent.get("creature_name") or "").strip():
+            creature_name = str(intent["creature_name"]).strip()
+            intent["summary"] = f"Generate {creature_name} for table use."
+    if intent:
+        normalized["intent"] = intent
+    return normalized
+
+
 def _default_workbench_command_payload(command_type: str) -> dict[str, Any]:
     if command_type == STATBLOCK_DRAFT_RENDER:
         return {
@@ -482,6 +585,10 @@ def _default_workbench_command_payload(command_type: str) -> dict[str, Any]:
         ),
         "intent": {
             "mode": "generate_from_prompt",
+            "summary": (
+                "Create a combat-ready obsidian thornling draft for interactive "
+                "mock Workbench review."
+            ),
             "creature_name": "Generated Obsidian Thornling",
             "challenge_rating": "2",
             "role": "skirmisher-controller",

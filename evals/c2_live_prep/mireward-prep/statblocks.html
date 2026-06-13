@@ -21,6 +21,13 @@
       <br><strong>Shared rule:</strong> meat monsters resist poison and are vulnerable to fire.
     </div>
 
+    <div class="callout callout-neutral">
+      <strong>Statblock generator</strong>
+      Open the right-side <button type="button" data-open-toolbox="statblock">Command toolbox</button>
+      from any static page to generate mock reinforcements, render full sheets, accept into
+      <a href="combat.html">combat.html</a>, or promote to corpus.
+    </div>
+
     <div class="stats">
       <div class="stat"><div class="val">8</div><div class="lbl">indexed meat/cult/siege sheets</div></div>
       <div class="stat"><div class="val">CR 3–8</div><div class="lbl">usable threat tier</div></div>
@@ -59,9 +66,12 @@
       </div>
     </div>
 
-    <h2>Rendered Sheets</h2>
+    <div id="statblock-dynamic-surface"></div>
 
-    <details class="fold" open>
+    <h2>Rendered Sheets</h2>
+    <p class="muted">Curated Shepherd's Flock roster for this prep surface. Expand a row to load the embedded corpus sheet.</p>
+
+    <details class="fold">
       <summary>Sewer Meat Creature (CR 3) <span class="pill pill-neutral">baseline</span></summary>
       <div class="fold-bd">
         <div class="table-summary">
@@ -72,7 +82,7 @@
       </div>
     </details>
 
-    <details class="fold" open>
+    <details class="fold">
       <summary>Corrupted Meat Golem (CR 3) <span class="pill pill-neutral">bruiser</span></summary>
       <div class="fold-bd">
         <div class="table-summary">
@@ -127,7 +137,7 @@
       </div>
     </details>
 
-    <details class="fold" open>
+    <details class="fold">
       <summary>Tripod Null-Calf (CR 5) <span class="pill pill-warn">alien scout</span></summary>
       <div class="fold-bd">
         <div class="table-summary">
@@ -151,6 +161,7 @@
 
     <h2>Source Index</h2>
     <p><a data-repo="corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/README.md">Shepherd's Flock statblocks and tokens README</a></p>
+    <p><a data-repo="corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Statblocks/generated/">Campaign 2 generated statblocks</a> (toolbox promotes land here; not auto-listed above yet).</p>
     <p><a data-repo="corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/Mireward_PLACE_BUILD_SCAFFOLD.md">Mireward scaffold §F4</a> for the north-gate road clock and locked encounter roster.</p>
     <p><a data-repo="Docs/Plans/C2S23-Mireward-Siege-Behavior-Layout/07-siege-mechanics-threat-inventory.md">Siege mechanics + threat inventory</a> for Cure Line, bagpipes, harsh rest pressure, Tripod, and Latch-Harrow handling.</p>
   </div>
@@ -158,6 +169,76 @@
   <script src="assets/prep.js"></script>
   <script>
     MirewardPrep.initNav("statblocks");
+    (function initStatblockDynamicSurface() {
+      var host = document.getElementById("statblock-dynamic-surface");
+      if (!host) return;
+
+      var GENERATED_ROOT =
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Statblocks/generated/";
+      var DRAFT_KEY = "mireward-prep.statblockDogfood.lastDraft";
+      var artifact = null;
+      try {
+        var raw = localStorage.getItem(DRAFT_KEY);
+        if (raw) artifact = JSON.parse(raw);
+      } catch (e) {
+        artifact = null;
+      }
+
+      function esc(text) {
+        return String(text)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;");
+      }
+
+      var html =
+        '<div class="callout callout-neutral">' +
+        "<strong>Static index</strong> " +
+        "Rendered Sheets below is hand-curated for the north-gate roster. " +
+        "Auto-crawling corpus statblocks (including new toolbox promotes) is backlog — " +
+        'open <a data-repo="' +
+        esc(GENERATED_ROOT) +
+        '">Campaign 2 Statblocks/generated/</a> for promoted files.' +
+        "</div>";
+
+      if (artifact) {
+        var title = artifact.title || "Generated statblock";
+        var corpusStatus = artifact.corpus_status || "not_promoted";
+        var corpusPath = artifact.corpus_display_path || "";
+        var isPromoted =
+          corpusStatus === "promotion_confirmed" ||
+          (corpusPath && corpusStatus !== "not_promoted");
+        if (isPromoted && corpusPath) {
+          var fileLabel = corpusPath.split("/").pop() || corpusPath;
+          html +=
+            '<details class="fold">' +
+            '<summary>' +
+            esc(title) +
+            ' <span class="pill pill-success">toolbox promote</span></summary>' +
+            '<div class="fold-bd">' +
+            '<div class="table-summary">' +
+            '<span class="pill pill-info">last promote in this browser</span>' +
+            '<a data-repo="' +
+            esc(corpusPath) +
+            '" data-md-embed-link="1">source</a>' +
+            "</div>" +
+            '<div class="md-content md-embed" data-md-embed="' +
+            esc(corpusPath) +
+            '"></div>' +
+            "</div></details>";
+        } else {
+          html +=
+            '<div class="callout callout-info">' +
+            "<strong>Toolbox draft (not promoted)</strong> " +
+            esc(title) +
+            ' — open the <button type="button" data-open-toolbox="statblock">Command toolbox</button> to preview or promote.' +
+            "</div>";
+        }
+      }
+
+      host.innerHTML = html;
+    })();
     MirewardPrep.wireRepoLinks();
     MirewardPrep.initMarkdownEmbeds();
   </script>

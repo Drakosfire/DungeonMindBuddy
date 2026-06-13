@@ -4,6 +4,9 @@ from fastapi import FastAPI
 
 from apps.live_control_server.routes.live import router as live_router
 from apps.live_control_server.routes.recap_ingest import router as recap_ingest_router
+from src.bootstrap_env import load_dungeonmindbuddy_dotenv
+
+load_dungeonmindbuddy_dotenv()
 
 
 def create_app() -> FastAPI:

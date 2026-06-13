@@ -47,8 +47,8 @@
         <div class="card-bd muted">Fast table notes and unresolved decisions, persisted locally so the board can survive reloads.</div>
       </a>
       <a class="card pane-card" href="statblocks.html">
-        <div class="card-hd">Statblock drilldown <span class="pill pill-neutral">reference_tool</span></div>
-        <div class="card-bd muted">Rendered Shepherd's Flock sheets and quick-pick threat roles for the meat flank.</div>
+        <div class="card-hd">Statblock drilldown <span class="pill pill-info">reference</span></div>
+        <div class="card-bd muted">Rendered Shepherd's Flock sheets and quick-pick threat roles. Mock generation lives in the right-side Command toolbox on every page.</div>
       </a>
       <a class="card pane-card" href="roll-tables.html">
         <div class="card-hd">Roll tables <span class="pill pill-neutral">reference_tool</span></div>
@@ -56,21 +56,21 @@
       </a>
     </div>
 
-    <h2>Product bridge</h2>
+    <h2>Legacy surface reference</h2>
     <div class="grid-2">
       <div class="card">
-        <div class="card-hd">Live-control surface <span class="pill pill-info">react app</span></div>
+        <div class="card-hd">React live-control surface <span class="pill pill-neutral">idea mine</span></div>
         <div class="card-bd">
-          <p class="muted">Session 23 live-control now loads the imported North Reach Gate combat into the Combat Roster module.</p>
+          <p class="muted">The old React surface remains useful for mining module/API ideas, but the static Command Board is the primary at-table product path.</p>
           <div class="file-row"><span class="label">Backend state</span><a data-repo="evals/c2_live_prep/live/session_23/combat/current_combat.json">current_combat.json</a></div>
           <div class="file-row"><span class="label">Surface layout</span><a data-repo="evals/c2_live_prep/live/session_23/surface_layout.json">session_23/surface_layout.json</a></div>
         </div>
       </div>
       <div class="card">
-        <div class="card-hd">Bridge proof <span class="pill pill-success">loaded</span></div>
+        <div class="card-hd">Bridge proof <span class="pill pill-neutral">reference</span></div>
         <div class="card-bd">
-          <p class="muted">Static save was converted into live-control combat state without mutating the saved snapshot.</p>
-          <div class="file-row"><span class="label">Static save</span><a data-repo="evals/c2_live_prep/mireward-prep/saves/mireward-north-reach-gate-combat-state.json">mireward-north-reach-gate-combat-state.json</a></div>
+          <p class="muted">The bridge work proves schema ideas and save safety, but new Command Board work should target the static localStorage tracker first.</p>
+          <div class="file-row"><span class="label">Static save</span><a data-repo="evals/c2_live_prep/mireward-prep/saves/combat/longmont-c2__session_22__north_reach_gate__combat_state_v1.json">longmont-c2__session_22__north_reach_gate__combat_state_v1.json</a></div>
           <div class="file-row"><span class="label">Bridge script</span><a data-repo="scripts/bridge_mireward_static_combat.py">bridge_mireward_static_combat.py</a></div>
         </div>
       </div>

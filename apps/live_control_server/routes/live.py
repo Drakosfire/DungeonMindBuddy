@@ -84,6 +84,20 @@ from apps.live_control_server.services.combat_state import (
     set_active_combat_turn,
     sort_combat_initiative,
 )
+from apps.live_control_server.services.combat_saves import (
+    CombatSaveNotFoundError,
+    CombatSaveSlotResponse,
+    LoadCombatSaveRequest,
+    NewCombatEncounterRequest,
+    SaveCurrentCombatRequest,
+    UnsafeSaveIdError,
+    list_combat_backups,
+    list_combat_saves,
+    load_combat_save,
+    new_combat_encounter,
+    save_current_as,
+    unload_current_combat,
+)
 from apps.live_control_server.services.statblock_view import (
     GeneratedStatblockDetailResponse,
     GeneratedStatblockListResponse,
@@ -288,6 +302,65 @@ def post_current_combat_turn(body: CombatTurnRequest | None = None) -> dict[str,
     packet, _, _, _ = load_session(base)
     request = body or CombatTurnRequest()
     response = advance_combat_turn(base=base, packet=packet, request=request)
+    return response.model_dump(mode="json")
+
+
+class CombatSavesListResponse(BaseModel):
+    schema_version: Literal["dmb_combat_saves_list_v1"] = "dmb_combat_saves_list_v1"
+    saves: list[Any] = Field(default_factory=list)
+    backups: list[str] = Field(default_factory=list)
+
+
+@router.get("/combat/saves", response_model=CombatSavesListResponse)
+def get_combat_saves() -> dict[str, Any]:
+    base = session_dir()
+    return {
+        "saves": [summary.model_dump(mode="json") for summary in list_combat_saves(base)],
+        "backups": list_combat_backups(base),
+    }
+
+
+@router.post("/combat/current/load", response_model=CombatSaveSlotResponse)
+def post_combat_current_load(body: LoadCombatSaveRequest) -> dict[str, Any]:
+    base = session_dir()
+    packet, _, _, _ = load_session(base)
+    try:
+        response = load_combat_save(base=base, packet=packet, save_id=body.save_id)
+    except UnsafeSaveIdError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except CombatSaveNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return response.model_dump(mode="json")
+
+
+@router.post("/combat/current/unload", response_model=CombatSaveSlotResponse)
+def post_combat_current_unload() -> dict[str, Any]:
+    base = session_dir()
+    packet, _, _, _ = load_session(base)
+    response = unload_current_combat(base=base, packet=packet)
+    return response.model_dump(mode="json")
+
+
+@router.post("/combat/current/new", response_model=CombatSaveSlotResponse)
+def post_combat_current_new(
+    body: NewCombatEncounterRequest | None = None,
+) -> dict[str, Any]:
+    base = session_dir()
+    packet, _, _, _ = load_session(base)
+    request = body or NewCombatEncounterRequest()
+    response = new_combat_encounter(base=base, packet=packet, request=request)
+    return response.model_dump(mode="json")
+
+
+@router.post("/combat/saves", response_model=CombatSaveSlotResponse)
+def post_combat_save_current(body: SaveCurrentCombatRequest) -> dict[str, Any]:
+    base = session_dir()
+    try:
+        response = save_current_as(base=base, request=body)
+    except UnsafeSaveIdError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except CombatSaveNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
     return response.model_dump(mode="json")
 
 

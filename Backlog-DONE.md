@@ -11,6 +11,18 @@ Sort newest → oldest within each status.
 
 ## DONE
 
+## [DONE] Command board — statblock mock dogfood + HTTP provider wire — completed 2026-06-13
+
+**Implemented:** Static Command Board toolbox drawer with StatBlockGenerator v2 payload; `statblock_workbench.py` env-driven provider (`mock_command` / `http_command`); `intent.summary` contract fix; corpus promote with single Confirm (prepare→commit internal), promoted-state UX, statblocks page collapsed by default; live HTTP generation (Palisade Gnawer); dogfood corpus files under `Statblocks/generated/`.
+
+**Refs:** `Docs/Plans/HANDOFF-pr115-statblock-mock-dogfood-then-api-wire.md` §16; `evals/c2_live_prep/mireward-prep/assets/prep.js`; `apps/live_control_server/services/statblock_workbench.py`; `tests/test_live_statblock_workbench_endpoint.py`.
+
+## [DONE] Command board — combat state storage contract — completed 2026-06-12
+
+**Implemented:** localStorage-first; canonical bootstrap/export path `saves/combat/{campaign_id}__session_{NN}__{encounter_slug}__combat_state_v1.json`; schema `mireward_combat_state_v1`; loader profile on `#combat-tracker` data attrs; Vite `/saves/` middleware; legacy bootstrap fallback; migrated S22 snapshot; export uses canonical filename; statblock draft stays localStorage-only.
+
+**Refs:** `evals/c2_live_prep/mireward-prep/saves/combat/longmont-c2__session_22__north_reach_gate__combat_state_v1.json`; `prep.js`; `combat.html`; `vite.config.ts`; `combat_saves.py`.
+
 ## [DONE] Mirathorn — day-by-day timeline + comms while party away — completed 2026-05-23
 
 **Context:** Party northbound after S21; rockie-talkie beats needed backing for Session 22 travel and turnaround prep. Original stub `Mirathorn — While You Were Away.md` (2026-04-23).

@@ -7,6 +7,18 @@ Project-specific learnings, ideas, and follow-ups for the DungeonMindBuddy repo 
 
 Sort newest → oldest within each status; promote with `/promote`; archive with `/done` or `/drop`.
 
+## [IDEA] Command board — dynamic statblocks page (corpus crawl + live refresh) — captured 2026-06-12
+
+**Context:** C2S23 static Command Board dogfood (`evals/c2_live_prep/mireward-prep/statblocks.html` + toolbox drawer). **Generate** is wired (`mock_command` default; `http_command` when `STATBLOCK_GENERATOR_PROVIDER=http`) — live Palisade Gnawer proven 2026-06-13. **Promote to corpus** is a real two-phase `write_corpus_file` commit to `Longmont Campaign/Campaign 2/Statblocks/generated/<slug>.md` (single Confirm button; already-exists handled). After promote, combat tracker can link the corpus path, but `statblocks.html` stays unchanged — hand-curated `<details>` + `data-md-embed` paths. Evidence: `generated_obsidian_thornling.md` and `palisade_gnawer.md` exist on disk but do not appear on the page.
+
+**Insight:** The statblocks reference page and the corpus promotion lane are disconnected. Operators expect promote → visible on statblocks page. A static HTML index will always drift; the page should discover statblocks from corpus layout (existing sheets + generated lane) and refresh when new files land.
+
+**Action:** (1) Replace or supplement hardcoded "Rendered Sheets" on `statblocks.html` with a dynamic index built from a corpus crawl — at minimum Shepherd's Flock statblock paths already referenced today, plus `.../Statblocks/generated/*.md` and any other campaign statblock directories the Mireward prep surface should surface. (2) Define crawl rules (glob/allowlist paths, frontmatter `document_class: statblock`, title/CR extraction for `<summary>` labels). (3) On page load (and after toolbox promote success), re-fetch or re-run the index so newly promoted files appear without manual HTML edits — options: client-side fetch of a manifest endpoint, Vite middleware directory listing, or a small backend `/api/live/statblocks/index` that walks allowed corpus prefixes. (4) Keep optional "Quick Picks" / encounter-context cards as curated overlays if still useful; generated section can be automatic. (5) Dogfood: promote from toolbox → new row/embed appears on statblocks page without refresh (or with one lightweight poll/event).
+
+**Surfaces when:** Command board statblock dogfood; corpus promote UX; `statblocks.html` edits; wiring real StatblockGenerator API; deciding how live-control-ui StatblockView module relates to static prep pages.
+
+**Refs:** `evals/c2_live_prep/mireward-prep/statblocks.html`; `evals/c2_live_prep/mireward-prep/assets/prep.js` (`promoteCurrentArtifactToCorpus`, `initMarkdownEmbeds`); `apps/live_control_server/services/statblock_corpus_write.py`; `apps/live_control_server/services/statblock_corpus_preview.py`; `src/agent/corpus_writer.py` (Statblocks/generated allowlist); `corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Statblocks/generated/`; `Docs/Plans/HANDOFF-pr115-statblock-mock-dogfood-then-api-wire.md`.
+
 ## [IDEA] Command board — live combat drilldown proved useful at table — captured 2026-06-07
 
 **Context:** C2S23 Mireward North Reach Gate dogfood in `evals/c2_live_prep/mireward-prep/`: the static combat tracker evolved during live prep/play into a circular initiative barrel with HP in view, AC, statblock links, dead bucket, grouped enemies, import/export state, and virtual Top/Bottom of Round markers. User feedback: this was the first live-tested tool in the project that “felt like it helped,” especially quick statblock reference plus visible HP/turn order.

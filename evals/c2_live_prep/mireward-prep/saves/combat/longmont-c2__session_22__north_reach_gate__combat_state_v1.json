@@ -1,5 +1,8 @@
 {
-  "schema": "mireward_north_reach_gate_combat_state_v1",
+  "schema": "mireward_combat_state_v1",
+  "campaign_id": "longmont-c2",
+  "session": 22,
+  "encounter_slug": "north_reach_gate",
   "exportedAt": "2026-06-07T17:42:00Z",
   "source": "browser localStorage mireward-prep.combat.northReachGate (captured by agent from open combat tab)",
   "state": {

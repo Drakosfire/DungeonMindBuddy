@@ -68,6 +68,13 @@ function mirewardPrepStaticPlugin() {
           serveFile(res, resolve(mirewardPrepRoot, prepAlias));
           return;
         }
+        if (pathname.startsWith("/saves/")) {
+          const savePath = safeResolve(mirewardPrepRoot, pathname.slice(1));
+          if (savePath) {
+            serveFile(res, savePath);
+            return;
+          }
+        }
         if (pathname.startsWith("/assets/")) {
           const assetPath = safeResolve(resolve(mirewardPrepRoot, "assets"), pathname.slice("/assets/".length));
           if (assetPath) {

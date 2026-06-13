@@ -4,11 +4,20 @@ import {
   advanceCombatTurn,
   applyCombatHpDelta,
   getCurrentCombat,
+  listCombatSaves,
+  loadCombatSave,
+  newCombatEncounter,
   patchCombatEntity,
   setCombatActiveTurn,
   sortCombatInitiative,
+  unloadCurrentCombat,
 } from "../../api/liveApi";
-import type { CombatEncounterState, CombatEntity, CombatTeam } from "../../api/types";
+import type {
+  CombatEncounterState,
+  CombatEntity,
+  CombatSaveSummary,
+  CombatTeam,
+} from "../../api/types";
 
 function valueText(value: unknown): string {
   if (value === null || value === undefined || value === "") return "—";
@@ -247,6 +256,22 @@ export function CombatRosterModule() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [saves, setSaves] = useState<CombatSaveSummary[]>([]);
+  const [backupCount, setBackupCount] = useState(0);
+  const [selectedSave, setSelectedSave] = useState("");
+  const [slotStatus, setSlotStatus] = useState<string | null>(null);
+
+  function refreshSaves() {
+    listCombatSaves()
+      .then((response) => {
+        setSaves(response.saves);
+        setBackupCount(response.backups.length);
+        setSelectedSave((current) => current || response.saves[0]?.save_id || "");
+      })
+      .catch(() => {
+        /* save listing is non-critical; leave roster usable */
+      });
+  }
 
   useEffect(() => {
     let alive = true;
@@ -260,10 +285,29 @@ export function CombatRosterModule() {
       .finally(() => {
         if (alive) setLoading(false);
       });
+    refreshSaves();
     return () => {
       alive = false;
     };
   }, []);
+
+  async function slotMutate(
+    label: string,
+    run: () => Promise<{ encounter: CombatEncounterState; diagnostics: string[] }>,
+  ) {
+    setBusy(label);
+    setError(null);
+    try {
+      const response = await run();
+      setEncounter(response.encounter);
+      setSlotStatus(response.diagnostics.join(" · "));
+      refreshSaves();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : String(caught));
+    } finally {
+      setBusy(null);
+    }
+  }
 
   const active = useMemo(() => activeActor(encounter), [encounter]);
   const next = useMemo(() => nextActor(encounter), [encounter]);
@@ -288,6 +332,51 @@ export function CombatRosterModule() {
       {error ? <p className="module-error">Combat roster error: {error}</p> : null}
       {encounter ? (
         <>
+          <section className="combat-roster-save-rail" aria-label="Combat save slots">
+            <label>
+              <span className="eyebrow">Save slot</span>
+              <select
+                aria-label="Combat save slot"
+                value={selectedSave}
+                onChange={(event) => setSelectedSave(event.target.value)}
+                disabled={busy !== null || saves.length === 0}
+              >
+                {saves.length === 0 ? <option value="">No saved encounters</option> : null}
+                {saves.map((save) => (
+                  <option key={save.save_id} value={save.save_id}>
+                    {save.title} ({save.entity_count})
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button
+              type="button"
+              disabled={busy !== null || !selectedSave}
+              onClick={() => slotMutate("load", () => loadCombatSave({ save_id: selectedSave }))}
+            >
+              Load
+            </button>
+            <button
+              type="button"
+              disabled={busy !== null}
+              onClick={() => slotMutate("unload", () => unloadCurrentCombat())}
+            >
+              Unload
+            </button>
+            <button
+              type="button"
+              disabled={busy !== null}
+              onClick={() => {
+                const title = window.prompt("New encounter title", "New Combat");
+                if (title === null) return;
+                slotMutate("new", () => newCombatEncounter({ title: title || undefined }));
+              }}
+            >
+              New
+            </button>
+            <span className="module-muted">{backupCount} backup(s)</span>
+          </section>
+          {slotStatus ? <p className="module-muted">{slotStatus}</p> : null}
           <section className="combat-roster-turn-rail" aria-label="Combat turn controls">
             <div>
               <span className="eyebrow">Round</span>
