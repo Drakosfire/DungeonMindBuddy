@@ -91,6 +91,33 @@
       "collapsed": true,
       "size": null,
       "config": {}
+    },
+    {
+      "module_id": "combat_roster",
+      "slot": "main",
+      "order": 2,
+      "enabled": true,
+      "collapsed": false,
+      "size": "1fr",
+      "config": {}
+    },
+    {
+      "module_id": "statblock_workbench",
+      "slot": "main",
+      "order": 3,
+      "enabled": true,
+      "collapsed": false,
+      "size": "1fr",
+      "config": {}
+    },
+    {
+      "module_id": "statblock_view",
+      "slot": "main",
+      "order": 4,
+      "enabled": true,
+      "collapsed": false,
+      "size": "1fr",
+      "config": {}
     }
   ]
 }

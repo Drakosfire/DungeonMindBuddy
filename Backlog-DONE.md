@@ -11,6 +11,24 @@ Sort newest → oldest within each status.
 
 ## DONE
 
+## [DONE] Command board — dynamic roll-tables page (corpus table crawl) — completed 2026-06-13
+
+**Implemented:** Read-only `GET /api/live/roll-tables/index` walks allowlisted Session 22 prep tables, Mireward scaffold excerpt, road tables, and wilderness d100 tables; static `roll-tables.html` renders grouped dynamic sections with inline markdown embeds/excerpts.
+
+**Refs:** `apps/live_control_server/services/roll_table_corpus_index.py`; `evals/c2_live_prep/mireward-prep/roll-tables.html`; `evals/c2_live_prep/mireward-prep/assets/prep.js` (`initRollTableCorpusIndex`); `tests/test_roll_table_corpus_index.py`.
+
+## [DONE] Command board — dynamic NPC page (corpus hub crawl) — completed 2026-06-13
+
+**Implemented:** Read-only `GET /api/live/npcs/index` walks allowlisted Mireward setting NPC hubs and Campaign 2 NPC hubs; static `npcs.html` renders corpus-backed Mireward + Campaign 2 sections; each NPC row links hub/seed/dossier/timeline paths and embeds the primary seed or dossier inline.
+
+**Refs:** `apps/live_control_server/services/npc_corpus_index.py`; `evals/c2_live_prep/mireward-prep/npcs.html`; `evals/c2_live_prep/mireward-prep/assets/prep.js` (`initNpcCorpusIndex`); `tests/test_npc_corpus_index.py`.
+
+## [DONE] Command board — dynamic statblocks page (corpus crawl + live refresh) — completed 2026-06-13
+
+**Implemented:** Read-only `GET /api/live/statblocks/index` walks allowlisted Shepherd's Flock statblock paths and Campaign 2 `Statblocks/generated/*.md`; static `statblocks.html` renders Generated + Rendered Sheets sections from API; toolbox promote calls `refreshStatblockCorpusIndex()` so new files appear without HTML edits.
+
+**Refs:** `apps/live_control_server/services/statblock_corpus_index.py`; `evals/c2_live_prep/mireward-prep/assets/prep.js` (`initStatblockCorpusIndex`); `tests/test_statblock_corpus_index.py`.
+
 ## [DONE] Command board — statblock mock dogfood + HTTP provider wire — completed 2026-06-13
 
 **Implemented:** Static Command Board toolbox drawer with StatBlockGenerator v2 payload; `statblock_workbench.py` env-driven provider (`mock_command` / `http_command`); `intent.summary` contract fix; corpus promote with single Confirm (prepare→commit internal), promoted-state UX, statblocks page collapsed by default; live HTTP generation (Palisade Gnawer); dogfood corpus files under `Statblocks/generated/`.

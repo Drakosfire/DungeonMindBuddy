@@ -3,13 +3,14 @@ document_id: dmb-handoff-pr115-statblock-mock-dogfood-then-api-wire
 title: "HANDOFF — Command Board statblock generation dogfood, step by step"
 document_class: planning
 plan_kind: handoff
-status: partial — mock + HTTP wired; dynamic statblocks index still open
-version: 2.1
+status: partial — dynamic command-board indexes done; React `/surface` still non-primary
+version: 2.4
 created_at: "2026-06-12T00:00:00Z"
-last_updated_at: "2026-06-13T00:00:00Z"
+last_updated_at: "2026-06-13T21:11:00Z"
 branch_anchor: cursor/c2s23-mireward-prep-ui
 related_design:
   - Docs/Design/DESIGN-command-board-combat-statblock-generator-integration.md
+  - Docs/Design/DESIGN-mireward-command-board-shell.md
 related_plan:
   - Docs/Plans/PLAN-command-board-combat-statblock-generator-roadmap.md
 related_runbook:
@@ -56,7 +57,9 @@ Use these terms exactly:
 | **Root launcher** | `http://127.0.0.1:5173/`. |
 | **Live Play / Command Board Home** | `/live-play`. |
 | **Combat Tracker** | `/combat.html`; browser-local `localStorage` combat state. |
-| **Statblock Page** | `/statblocks.html`; rendered corpus sheets plus mock generator dogfood panel. |
+| **Statblock Page** | `/statblocks.html`; dynamic rendered corpus sheets plus mock generator dogfood panel. |
+| **NPC Page** | `/npcs.html`; dynamic cast index from allowlisted NPC corpus hubs. |
+| **Roll Tables Page** | `/roll-tables.html`; dynamic table index from allowlisted roll-table corpus paths. |
 | **React live-control surface** | `/surface`; legacy/idea-mining surface, **not primary**. |
 
 Current implementation touchpoints:
@@ -473,8 +476,13 @@ Known provider seam:
   `.../Statblocks/generated/`).
 - **Done:** Toolbox drawer on static Command Board; single **Confirm corpus write**
   (prepare→commit internal); promoted-state UX (toast, banner, **In corpus** pill).
-- **Open:** `statblocks.html` still hand-curated — promoted files do not auto-appear
-  (see Backlog IDEA: dynamic statblocks page).
+- **Done (2026-06-13):** Dynamic statblocks page crawls allowlisted corpus paths via
+  `GET /api/live/statblocks/index`; toolbox promote refreshes the list in-place.
+- **Done (2026-06-13):** Dynamic NPC page crawls allowlisted Mireward + Campaign 2
+  NPC hubs via `GET /api/live/npcs/index`; rows embed primary seed/dossier docs.
+- **Done (2026-06-13):** Dynamic roll-tables page crawls allowlisted Session 22,
+  Mireward scaffold, roads, and wilderness table paths via
+  `GET /api/live/roll-tables/index`; rows embed table markdown/excerpts.
 
 Real-provider environment:
 
@@ -529,6 +537,8 @@ Current known environment caveat:
 Primary static Command Board files:
 
 - `evals/c2_live_prep/mireward-prep/live-play.html`
+- `evals/c2_live_prep/mireward-prep/npcs.html`
+- `evals/c2_live_prep/mireward-prep/roll-tables.html`
 - `evals/c2_live_prep/mireward-prep/statblocks.html`
 - `evals/c2_live_prep/mireward-prep/combat.html`
 - `evals/c2_live_prep/mireward-prep/assets/prep.js`
@@ -537,10 +547,16 @@ Primary static Command Board files:
 Backend/mock contract files:
 
 - `apps/live_control_server/services/statblock_workbench.py`
+- `apps/live_control_server/services/npc_corpus_index.py`
+- `apps/live_control_server/services/roll_table_corpus_index.py`
+- `apps/live_control_server/services/statblock_corpus_index.py`
 - `apps/live_control_server/routes/live.py`
 - `src/statblocks/v2_client.py`
 - `src/statblocks/v2_contract.py`
 - `tests/test_live_statblock_workbench_endpoint.py`
+- `tests/test_npc_corpus_index.py`
+- `tests/test_roll_table_corpus_index.py`
+- `tests/test_statblock_corpus_index.py`
 
 Dogfood notes:
 
@@ -560,7 +576,9 @@ Dogfood notes:
 | Promote UX (toast, Done, In corpus, already-exists) | ✅ | Single Confirm button; no separate Prepare step |
 | Statblocks page collapsed by default | ✅ | `statblocks.html` |
 | Live Palisade Gnawer generation | ✅ | HTTP smoke; artifact + corpus file on disk |
-| Dynamic statblocks index after promote | ⏳ | Backlog IDEA — static HTML still manual |
+| Dynamic statblocks index after promote | ✅ | `statblock_corpus_index.py`; `GET /api/live/statblocks/index`; `initStatblockCorpusIndex()` |
+| Dynamic NPC index from corpus hubs | ✅ | `npc_corpus_index.py`; `GET /api/live/npcs/index`; `initNpcCorpusIndex()` |
+| Dynamic roll-table index from corpus paths | ✅ | `roll_table_corpus_index.py`; `GET /api/live/roll-tables/index`; `initRollTableCorpusIndex()` |
 
 **Operator caveat:** use one origin consistently (`127.0.0.1` vs `localhost`) so
 localStorage draft state matches between tabs.

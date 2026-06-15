@@ -10,7 +10,7 @@
     "event_log.jsonl",
     "job_queue.jsonl"
   ],
-  "generated_at": "2026-06-02T23:29:51Z",
+  "generated_at": "2026-06-12T14:42:38Z",
   "now": {
     "day_label": "Session 23",
     "party_position": "From recap bootstrap",
@@ -29,7 +29,10 @@
     "roll_stack",
     "timeline",
     "queue",
-    "sources"
+    "sources",
+    "combat_roster",
+    "statblock_workbench",
+    "statblock_view"
   ],
   "queued_job_count": 0,
   "recent_event_count": 2

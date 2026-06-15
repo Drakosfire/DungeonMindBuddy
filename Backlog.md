@@ -7,17 +7,29 @@ Project-specific learnings, ideas, and follow-ups for the DungeonMindBuddy repo 
 
 Sort newest → oldest within each status; promote with `/promote`; archive with `/done` or `/drop`.
 
-## [IDEA] Command board — dynamic statblocks page (corpus crawl + live refresh) — captured 2026-06-12
+## [IDEA] Command Board — composable editable prep surface (Notion-class) — captured 2026-06-13
 
-**Context:** C2S23 static Command Board dogfood (`evals/c2_live_prep/mireward-prep/statblocks.html` + toolbox drawer). **Generate** is wired (`mock_command` default; `http_command` when `STATBLOCK_GENERATOR_PROVIDER=http`) — live Palisade Gnawer proven 2026-06-13. **Promote to corpus** is a real two-phase `write_corpus_file` commit to `Longmont Campaign/Campaign 2/Statblocks/generated/<slug>.md` (single Confirm button; already-exists handled). After promote, combat tracker can link the corpus path, but `statblocks.html` stays unchanged — hand-curated `<details>` + `data-md-embed` paths. Evidence: `generated_obsidian_thornling.md` and `palisade_gnawer.md` exist on disk but do not appear on the page.
+**Context:** C2S23 dogfood on the static Mireward Command Board (`evals/c2_live_prep/mireward-prep/`) proved combat-first drilldowns and corpus-backed index panes. Operator now wants the next major upgrade: fully editable, composable GM workspace — inline edits, drop-in blocks, line editing, media — in the Notion / Confluence / dynamic-markdown-editor class.
 
-**Insight:** The statblocks reference page and the corpus promotion lane are disconnected. Operators expect promote → visible on statblocks page. A static HTML index will always drift; the page should discover statblocks from corpus layout (existing sheets + generated lane) and refresh when new files land.
+**Insight:** Read-only accordions + markdown embeds solved file-hopping but not authoring at the table. The product likely needs a block-based document surface wired to corpus write safety (two-phase commit, allowlists), not more static HTML. DungeonMind Canvas (layout/registry work in the wider monorepo) and mature OSS block editors (BlockNote, TipTap, etc.) are both credible foundations — choosing wrong duplicates the `/surface` false start.
 
-**Action:** (1) Replace or supplement hardcoded "Rendered Sheets" on `statblocks.html` with a dynamic index built from a corpus crawl — at minimum Shepherd's Flock statblock paths already referenced today, plus `.../Statblocks/generated/*.md` and any other campaign statblock directories the Mireward prep surface should surface. (2) Define crawl rules (glob/allowlist paths, frontmatter `document_class: statblock`, title/CR extraction for `<summary>` labels). (3) On page load (and after toolbox promote success), re-fetch or re-run the index so newly promoted files appear without manual HTML edits — options: client-side fetch of a manifest endpoint, Vite middleware directory listing, or a small backend `/api/live/statblocks/index` that walks allowed corpus prefixes. (4) Keep optional "Quick Picks" / encounter-context cards as curated overlays if still useful; generated section can be automatic. (5) Dogfood: promote from toolbox → new row/embed appears on statblocks page without refresh (or with one lightweight poll/event).
+**Action:** Primary-agent research spike per `Docs/Plans/HANDOFF-composable-editable-command-board-research.md` → build-vs-adopt recommendation, OSS matrix, Canvas audit, write-path diagram, phased migration off static prep. Implementation waits on operator approval of R1 scope.
 
-**Surfaces when:** Command board statblock dogfood; corpus promote UX; `statblocks.html` edits; wiring real StatblockGenerator API; deciding how live-control-ui StatblockView module relates to static prep pages.
+**Surfaces when:** Planning editable prep UI; evaluating block editors; extending Canvas Constructor or monorepo canvas engine; replacing `data-md-embed` read-only rows; designing corpus write UX at the table; user mentions Notion-like wiki or inline corpus edits.
 
-**Refs:** `evals/c2_live_prep/mireward-prep/statblocks.html`; `evals/c2_live_prep/mireward-prep/assets/prep.js` (`promoteCurrentArtifactToCorpus`, `initMarkdownEmbeds`); `apps/live_control_server/services/statblock_corpus_write.py`; `apps/live_control_server/services/statblock_corpus_preview.py`; `src/agent/corpus_writer.py` (Statblocks/generated allowlist); `corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Statblocks/generated/`; `Docs/Plans/HANDOFF-pr115-statblock-mock-dogfood-then-api-wire.md`.
+**Refs:** `Docs/Plans/HANDOFF-composable-editable-command-board-research.md`; `Docs/Design/DESIGN-tiptap-role-in-command-board.md`; `Docs/Design/DESIGN-tiptap-command-board-architecture.md`; `Docs/Design/DESIGN-mireward-command-board-shell.md`; `Docs/Plans/C2S23-MIREWARD-DOGFOOD-NOTES.md`; `Docs/Plans/PLAN-canvas-constructor.md`; `evals/c2_live_prep/mireward-prep/assets/prep.js`; `src/agent/corpus_writer.py`.
+
+## [IDEA] Corpus storage — DB or indexing/query layer for dynamic knowledge store — captured 2026-06-13
+
+**Context:** Dynamic command-board indexes now exist for statblocks, NPCs, and roll tables, but each new surface is adding another hand-built filesystem crawl over corpus markdown. The user flagged that this is starting to look like either a database migration problem or an indexing-tool problem.
+
+**Insight:** The corpus is becoming a dynamic knowledge store: entities, hubs, statblocks, timelines, recaps, generated artifacts, and table-facing command-board slices all want query semantics richer than "walk these directories and parse frontmatter." Before more bespoke crawlers accumulate, investigate whether the right next layer is a DB-backed store, a dedicated indexer, GraphQL, or a similar query surface over the corpus.
+
+**Action:** Design investigation: compare DB migration vs. filesystem-backed indexing service vs. GraphQL-style API over the existing corpus. Include query needs from command board pages (`NPCs`, `statblocks`, future locations/factions), planner retrieval, corpus writer safety, provenance, cache invalidation, and how source-of-truth markdown remains auditable.
+
+**Surfaces when:** Adding a third dynamic command-board corpus page; designing corpus query APIs; considering GraphQL or entity search; replacing bespoke filesystem crawlers; planning a dynamic knowledge-store architecture.
+
+**Refs:** `apps/live_control_server/services/statblock_corpus_index.py`; `apps/live_control_server/services/npc_corpus_index.py`; `apps/live_control_server/services/roll_table_corpus_index.py`; `evals/c2_live_prep/mireward-prep/npcs.html`; `evals/c2_live_prep/mireward-prep/roll-tables.html`; `evals/c2_live_prep/mireward-prep/statblocks.html`.
 
 ## [IDEA] Command board — live combat drilldown proved useful at table — captured 2026-06-07
 

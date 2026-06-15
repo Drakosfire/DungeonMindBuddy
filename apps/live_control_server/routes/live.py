@@ -98,6 +98,22 @@ from apps.live_control_server.services.combat_saves import (
     save_current_as,
     unload_current_combat,
 )
+from apps.live_control_server.services.location_corpus_index import (
+    LocationCorpusIndexResponse,
+    build_location_corpus_index,
+)
+from apps.live_control_server.services.npc_corpus_index import (
+    NpcCorpusIndexResponse,
+    build_npc_corpus_index,
+)
+from apps.live_control_server.services.roll_table_corpus_index import (
+    RollTableCorpusIndexResponse,
+    build_roll_table_corpus_index,
+)
+from apps.live_control_server.services.statblock_corpus_index import (
+    StatblockCorpusIndexResponse,
+    build_statblock_corpus_index,
+)
 from apps.live_control_server.services.statblock_view import (
     GeneratedStatblockDetailResponse,
     GeneratedStatblockListResponse,
@@ -179,6 +195,54 @@ def _target_from_session(
     )
 
 
+
+
+@router.get(
+    "/locations/index",
+    response_model=LocationCorpusIndexResponse,
+)
+def get_location_corpus_index() -> dict[str, Any]:
+    try:
+        response = build_location_corpus_index(root=repo_root())
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail="location corpus index failed") from exc
+    return response.model_dump(mode="json")
+
+
+@router.get(
+    "/roll-tables/index",
+    response_model=RollTableCorpusIndexResponse,
+)
+def get_roll_table_corpus_index() -> dict[str, Any]:
+    try:
+        response = build_roll_table_corpus_index(root=repo_root())
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail="roll table corpus index failed") from exc
+    return response.model_dump(mode="json")
+
+
+@router.get(
+    "/npcs/index",
+    response_model=NpcCorpusIndexResponse,
+)
+def get_npc_corpus_index() -> dict[str, Any]:
+    try:
+        response = build_npc_corpus_index(root=repo_root())
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail="npc corpus index failed") from exc
+    return response.model_dump(mode="json")
+
+
+@router.get(
+    "/statblocks/index",
+    response_model=StatblockCorpusIndexResponse,
+)
+def get_statblock_corpus_index() -> dict[str, Any]:
+    try:
+        response = build_statblock_corpus_index(root=repo_root())
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail="statblock corpus index failed") from exc
+    return response.model_dump(mode="json")
 
 
 @router.get(

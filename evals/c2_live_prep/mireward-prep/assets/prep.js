@@ -6,6 +6,7 @@
   const COMBAT_STORAGE_KEY = "combat.northReachGate";
   const COMBAT_STATE_UPDATED_EVENT = "mireward-prep:combat-state-updated";
   const STATBLOCK_DOGFOOD_DRAFT_KEY = "statblockDogfood.lastDraft";
+  const STATBLOCK_CORPUS_INDEX_REFRESH_EVENT = "mireward-prep:statblock-corpus-index-refresh";
   const REPO_UP = "../../../";
   const PREP_WEB_PREFIX = location.pathname.startsWith("/evals/c2_live_prep/mireward-prep/")
     ? "/evals/c2_live_prep/mireward-prep/"
@@ -349,6 +350,24 @@
                 : detail && detail.error && detail.error.message
                   ? detail.error.message
                   : "HTTP " + res.status;
+          throw new Error(message);
+        }
+        return data;
+      });
+    });
+  }
+
+  function apiGetJson(url) {
+    return fetch(url).then(function (res) {
+      return res.json().then(function (data) {
+        if (!res.ok) {
+          var detail = data && data.detail;
+          var message =
+            typeof detail === "string"
+              ? detail
+              : detail && detail.message
+                ? detail.message
+                : "HTTP " + res.status;
           throw new Error(message);
         }
         return data;
@@ -789,6 +808,617 @@
             "</p></div>";
         });
     });
+  }
+
+  function rollTableSectionTag(item) {
+    if (item.section === "session_22") return ["S22", "pill-info"];
+    if (item.section === "mireward_scaffold") return ["scaffold", "pill-warn"];
+    if (item.section === "roads") return ["road", "pill-neutral"];
+    if (item.section === "wilderness") return ["wilderness", "pill-neutral"];
+    return ["table", "pill-neutral"];
+  }
+
+  function rollTableSummaryLabel(item) {
+    var title = String(item.title || "").trim();
+    if (!title) return "Roll table";
+    var sessionMatch = title.match(/^Session\s+\d+\s+[—-]\s+(.+)$/i);
+    if (sessionMatch) return sessionMatch[1];
+    return title;
+  }
+
+  function renderRollTableIndexDetails(item) {
+    var tag = rollTableSectionTag(item);
+    var summaryText = rollTableSummaryLabel(item);
+    var embedAttrs = "";
+    if (item.embed_start) {
+      embedAttrs += ' data-md-start="' + escapeHtml(item.embed_start) + '"';
+    }
+    if (item.embed_end) {
+      embedAttrs += ' data-md-end="' + escapeHtml(item.embed_end) + '"';
+    }
+
+    var html =
+      '<details class="fold rolltable-row">' +
+      "<summary>" +
+      escapeHtml(summaryText) +
+      "</summary>" +
+      '<div class="fold-bd">';
+
+    html += '<div class="table-summary rolltable-row-meta">';
+    html +=
+      '<span class="pill ' +
+      escapeHtml(tag[1]) +
+      '">' +
+      escapeHtml(tag[0]) +
+      "</span>";
+    if (item.table_id) {
+      html += '<span class="pill pill-neutral">' + escapeHtml(item.table_id) + "</span>";
+    }
+    if (item.dice) {
+      html += '<span class="pill pill-info">' + escapeHtml(item.dice) + "</span>";
+    }
+    html +=
+      '<a data-repo="' +
+      escapeHtml(item.corpus_display_path) +
+      '" data-md-embed-link="1">source</a>';
+    html += "</div>";
+
+    if (item.table_note) {
+      html += '<p class="muted rolltable-row-note">' + escapeHtml(item.table_note) + "</p>";
+    }
+
+    html +=
+      '<div class="md-content md-embed" data-md-embed="' +
+      escapeHtml(item.corpus_display_path) +
+      '"' +
+      embedAttrs +
+      "></div>";
+    html += "</div></details>";
+    return html;
+  }
+
+  function renderRollTableIndexSection(title, items, options) {
+    options = options || {};
+    if (!items.length) return "";
+    var openAttr = options.open ? " open" : "";
+    var mutedClass = options.muted ? " fold-muted" : "";
+    var html =
+      '<details class="fold fold-section' +
+      mutedClass +
+      '"' +
+      openAttr +
+      ">" +
+      "<summary>" +
+      escapeHtml(title) +
+      ' <span class="pill pill-neutral">' +
+      items.length +
+      "</span></summary>" +
+      '<div class="fold-bd rolltable-index-list">';
+    items.forEach(function (entry) {
+      html += renderRollTableIndexDetails(entry);
+    });
+    html += "</div></details>";
+    return html;
+  }
+
+  function initRollTableCorpusIndex(options) {
+    options = options || {};
+    var host = document.getElementById("rolltable-corpus-index");
+    if (!host) return;
+
+    if (isFileProtocol()) {
+      host.innerHTML =
+        '<div class="callout callout-warn"><strong>Cannot load roll-table index on file://</strong><p>Run the Vite dev server at <code>http://127.0.0.1:5173/roll-tables.html</code>.</p></div>';
+      return;
+    }
+
+    if (!options.silent) {
+      host.innerHTML = '<p class="muted">Loading corpus roll tables…</p>';
+    }
+
+    apiGetJson("/api/live/roll-tables/index")
+      .then(function (body) {
+        var items = Array.isArray(body.roll_tables) ? body.roll_tables : [];
+        var session22 = items.filter(function (entry) {
+          return entry.section === "session_22";
+        });
+        var scaffold = items.filter(function (entry) {
+          return entry.section === "mireward_scaffold";
+        });
+        var roads = items.filter(function (entry) {
+          return entry.section === "roads";
+        });
+        var wilderness = items.filter(function (entry) {
+          return entry.section === "wilderness";
+        });
+        var html = "";
+
+        html += renderRollTableIndexSection("Session 22 table tools", session22, { open: true });
+        html += renderRollTableIndexSection("Mireward scaffold excerpts", scaffold, { open: true });
+        html += renderRollTableIndexSection("Road and name tables", roads, { open: false });
+        html += renderRollTableIndexSection("Wilderness tables", wilderness, { open: false });
+
+        if (!items.length) {
+          html += '<p class="muted">No roll tables indexed yet.</p>';
+        }
+
+        if (body.diagnostics && body.diagnostics.length) {
+          html += '<details class="fold fold-section fold-muted"><summary>Index diagnostics</summary><div class="fold-bd"><ul class="rolltable-diagnostics">';
+          body.diagnostics.forEach(function (diagnostic) {
+            html += "<li>" + escapeHtml(diagnostic) + "</li>";
+          });
+          html += "</ul></div></details>";
+        }
+
+        host.innerHTML = html;
+        wireRepoLinks();
+        initMarkdownEmbeds();
+
+        var countHost = document.getElementById("rolltable-index-count");
+        if (countHost) {
+          countHost.textContent = items.length + " indexed";
+        }
+      })
+      .catch(function (err) {
+        host.innerHTML =
+          '<div class="callout callout-warn"><strong>Could not load roll-table index</strong><p>' +
+          escapeHtml((err && err.message) || "Request failed.") +
+          "</p></div>";
+      });
+  }
+
+  function locationSummaryLabel(item) {
+    var title = String(item.title || "").trim();
+    if (!title) return "Location";
+    title = title.replace(/\s*—\s*location hub(?:\s*\([^)]*\))?/i, "");
+    title = title.replace(/\s*\(location hub[^)]*\)/i, "");
+    title = title.replace(/\s*—\s*place build scaffold/i, "");
+    return title.trim() || String(item.title || "Location");
+  }
+
+  function locationSectionTag(item) {
+    if (item.section === "mireward") return ["Mireward", "pill-info"];
+    if (item.section === "reach_travel") return ["reach", "pill-neutral"];
+    if (item.section === "mossford_reference") return ["Mossford", "pill-warn"];
+    if (item.section === "related_hubs") return ["related", "pill-neutral"];
+    return ["place", "pill-neutral"];
+  }
+
+  function locationDocKindPill(item) {
+    var kind = String(item.subject_doc_kind || "").trim();
+    if (!kind) return "";
+    var cls = kind === "hub_index" ? "pill-info" : kind === "location_dossier" ? "pill-success" : "pill-neutral";
+    return '<span class="pill ' + cls + '">' + escapeHtml(kind.replace(/_/g, " ")) + "</span>";
+  }
+
+  function renderLocationIndexDetails(item) {
+    var tag = locationSectionTag(item);
+    var summaryText = locationSummaryLabel(item);
+    var embedAttrs = "";
+    if (item.embed_start) {
+      embedAttrs += ' data-md-start="' + escapeHtml(item.embed_start) + '"';
+    }
+    if (item.embed_end) {
+      embedAttrs += ' data-md-end="' + escapeHtml(item.embed_end) + '"';
+    }
+
+    var html =
+      '<details class="fold location-row">' +
+      "<summary>" +
+      escapeHtml(summaryText) +
+      "</summary>" +
+      '<div class="fold-bd">';
+
+    html += '<div class="table-summary location-row-meta">';
+    html +=
+      '<span class="pill ' +
+      escapeHtml(tag[1]) +
+      '">' +
+      escapeHtml(tag[0]) +
+      "</span>";
+    html += locationDocKindPill(item);
+    if (item.document_class) {
+      html +=
+        '<span class="pill pill-neutral">' + escapeHtml(item.document_class) + "</span>";
+    }
+    if (item.canon_layer) {
+      html += '<span class="pill pill-neutral">' + escapeHtml(item.canon_layer) + "</span>";
+    }
+    html +=
+      '<a data-repo="' +
+      escapeHtml(item.corpus_display_path) +
+      '" data-md-embed-link="1">source</a>';
+    if (item.hub_path && item.hub_path !== item.corpus_display_path) {
+      html += '<a data-repo="' + escapeHtml(item.hub_path) + '">hub</a>';
+    }
+    html += "</div>";
+
+    if (item.table_note) {
+      html += '<p class="muted location-row-note">' + escapeHtml(item.table_note) + "</p>";
+    }
+
+    html +=
+      '<div class="md-content md-embed" data-md-embed="' +
+      escapeHtml(item.corpus_display_path) +
+      '"' +
+      embedAttrs +
+      "></div>";
+    html += "</div></details>";
+    return html;
+  }
+
+  function renderLocationIndexSection(title, items, options) {
+    options = options || {};
+    if (!items.length) return "";
+    var openAttr = options.open ? " open" : "";
+    var mutedClass = options.muted ? " fold-muted" : "";
+    var html =
+      '<details class="fold fold-section' +
+      mutedClass +
+      '"' +
+      openAttr +
+      ">" +
+      "<summary>" +
+      escapeHtml(title) +
+      ' <span class="pill pill-neutral">' +
+      items.length +
+      "</span></summary>" +
+      '<div class="fold-bd location-index-list">';
+    items.forEach(function (entry) {
+      html += renderLocationIndexDetails(entry);
+    });
+    html += "</div></details>";
+    return html;
+  }
+
+  function initLocationCorpusIndex(options) {
+    options = options || {};
+    var host = document.getElementById("location-corpus-index");
+    if (!host) return;
+
+    if (isFileProtocol()) {
+      host.innerHTML =
+        '<div class="callout callout-warn"><strong>Cannot load location index on file://</strong><p>Run the Vite dev server at <code>http://127.0.0.1:5173/locations.html</code>.</p></div>';
+      return;
+    }
+
+    if (!options.silent) {
+      host.innerHTML = '<p class="muted">Loading corpus locations…</p>';
+    }
+
+    apiGetJson("/api/live/locations/index")
+      .then(function (body) {
+        var items = Array.isArray(body.locations) ? body.locations : [];
+        var mireward = items.filter(function (entry) {
+          return entry.section === "mireward";
+        });
+        var reach = items.filter(function (entry) {
+          return entry.section === "reach_travel";
+        });
+        var mossford = items.filter(function (entry) {
+          return entry.section === "mossford_reference";
+        });
+        var related = items.filter(function (entry) {
+          return entry.section === "related_hubs";
+        });
+        var html = "";
+
+        html += renderLocationIndexSection("Mireward hub & build", mireward, { open: true });
+        html += renderLocationIndexSection("Reach & travel context", reach, { open: true });
+        html += renderLocationIndexSection("Mossford reference shape", mossford, { open: false });
+        html += renderLocationIndexSection("Related location hubs", related, { open: false });
+
+        if (!items.length) {
+          html += '<p class="muted">No location docs indexed yet.</p>';
+        }
+
+        if (body.diagnostics && body.diagnostics.length) {
+          html += '<details class="fold fold-section fold-muted"><summary>Index diagnostics</summary><div class="fold-bd"><ul class="location-diagnostics">';
+          body.diagnostics.forEach(function (diagnostic) {
+            html += "<li>" + escapeHtml(diagnostic) + "</li>";
+          });
+          html += "</ul></div></details>";
+        }
+
+        host.innerHTML = html;
+        wireRepoLinks();
+        initMarkdownEmbeds();
+
+        var countHost = document.getElementById("location-index-count");
+        if (countHost) {
+          countHost.textContent = items.length + " indexed";
+        }
+      })
+      .catch(function (err) {
+        host.innerHTML =
+          '<div class="callout callout-warn"><strong>Could not load location index</strong><p>' +
+          escapeHtml((err && err.message) || "Request failed.") +
+          "</p></div>";
+      });
+  }
+
+  function npcIndexSummaryLabel(item) {
+    var title = String(item.title || "").trim();
+    return title.split(" — ")[0] || title || item.slug || "NPC";
+  }
+
+  function npcSectionTag(item) {
+    if (item.section === "campaign_2") return ["campaign", "pill-success"];
+    if (item.section === "mireward_setting") return ["Mireward", "pill-warn"];
+    return ["corpus", "pill-neutral"];
+  }
+
+  function renderNpcPathLink(path, label) {
+    if (!path) return "";
+    return (
+      '<a data-repo="' +
+      escapeHtml(path) +
+      '">' +
+      escapeHtml(label) +
+      "</a>"
+    );
+  }
+
+  function renderNpcIndexDetails(item) {
+    var tag = npcSectionTag(item);
+    var summaryText = npcIndexSummaryLabel(item);
+    var primaryPath = item.primary_doc_path || item.hub_path;
+    var seen = {};
+    var links = [
+      ["hub", item.hub_path],
+      ["primary", item.primary_doc_path],
+      ["seed", item.seed_path],
+      ["dossier", item.dossier_path],
+      ["timeline", item.timeline_path],
+    ].filter(function (entry) {
+      var path = entry[1];
+      if (!path || seen[path]) return false;
+      seen[path] = true;
+      return true;
+    });
+
+    var html =
+      '<details class="fold npc-row">' +
+      "<summary>" +
+      escapeHtml(summaryText) +
+      ' <span class="pill ' +
+      escapeHtml(tag[1]) +
+      '">' +
+      escapeHtml(tag[0]) +
+      "</span>" +
+      "</summary>" +
+      '<div class="fold-bd">';
+
+    if (item.table_note) {
+      html += '<p class="muted npc-row-note">' + escapeHtml(item.table_note) + "</p>";
+    }
+
+    html += '<div class="table-summary npc-row-meta">';
+    links.forEach(function (entry) {
+      html += renderNpcPathLink(entry[1], entry[0]);
+    });
+    html += "</div>";
+
+    if (primaryPath) {
+      html +=
+        '<div class="md-content md-embed" data-md-embed="' +
+        escapeHtml(primaryPath) +
+        '"></div>';
+    }
+
+    html += "</div></details>";
+    return html;
+  }
+
+  function renderNpcIndexSection(title, items, options) {
+    options = options || {};
+    if (!items.length) return "";
+    var openAttr = options.open ? " open" : "";
+    var mutedClass = options.muted ? " fold-muted" : "";
+    var html =
+      '<details class="fold fold-section' +
+      mutedClass +
+      '"' +
+      openAttr +
+      ">" +
+      "<summary>" +
+      escapeHtml(title) +
+      ' <span class="pill pill-neutral">' +
+      items.length +
+      "</span></summary>" +
+      '<div class="fold-bd npc-index-list">';
+    items.forEach(function (entry) {
+      html += renderNpcIndexDetails(entry);
+    });
+    html += "</div></details>";
+    return html;
+  }
+
+  function initNpcCorpusIndex(options) {
+    options = options || {};
+    var host = document.getElementById("npc-corpus-index");
+    if (!host) return;
+
+    if (isFileProtocol()) {
+      host.innerHTML =
+        '<div class="callout callout-warn"><strong>Cannot load NPC index on file://</strong><p>Run the Vite dev server at <code>http://127.0.0.1:5173/npcs.html</code>.</p></div>';
+      return;
+    }
+
+    if (!options.silent) {
+      host.innerHTML = '<p class="muted">Loading corpus NPCs…</p>';
+    }
+
+    apiGetJson("/api/live/npcs/index")
+      .then(function (body) {
+        var items = Array.isArray(body.npcs) ? body.npcs : [];
+        var mireward = items.filter(function (entry) {
+          return entry.section === "mireward_setting";
+        });
+        var campaign = items.filter(function (entry) {
+          return entry.section === "campaign_2";
+        });
+        var html = "";
+
+        html += renderNpcIndexSection("Mireward table faces", mireward, { open: true });
+        html += renderNpcIndexSection("Campaign 2 recurring NPCs", campaign, { open: false });
+
+        if (!mireward.length && !campaign.length) {
+          html += '<p class="muted">No NPC hubs indexed yet.</p>';
+        }
+
+        if (body.diagnostics && body.diagnostics.length) {
+          html += '<details class="fold fold-section fold-muted"><summary>Index diagnostics</summary><div class="fold-bd"><ul class="npc-diagnostics">';
+          body.diagnostics.forEach(function (diagnostic) {
+            html += "<li>" + escapeHtml(diagnostic) + "</li>";
+          });
+          html += "</ul></div></details>";
+        }
+
+        host.innerHTML = html;
+        wireRepoLinks();
+        initMarkdownEmbeds();
+
+        var countHost = document.getElementById("npc-index-count");
+        if (countHost) {
+          countHost.textContent = items.length + " indexed";
+        }
+      })
+      .catch(function (err) {
+        host.innerHTML =
+          '<div class="callout callout-warn"><strong>Could not load NPC index</strong><p>' +
+          escapeHtml((err && err.message) || "Request failed.") +
+          "</p></div>";
+      });
+  }
+
+  function statblockIndexSummaryLabel(item) {
+    var title = String(item.title || "").trim();
+    var shortTitle = title.split(" — ")[0] || title;
+    if (/\(CR\s/i.test(title) || /\bCR\s[\d/]/i.test(title)) {
+      return shortTitle;
+    }
+    if (item.challenge_rating) {
+      return shortTitle + " (CR " + item.challenge_rating + ")";
+    }
+    return shortTitle || "Statblock";
+  }
+
+  function renderStatblockIndexDetails(item) {
+    var pillClass = item.role_pill_class || "pill-neutral";
+    var roleTag = item.role_tag || "";
+    var summaryText = statblockIndexSummaryLabel(item);
+    return (
+      '<details class="fold statblock-row">' +
+      "<summary>" +
+      escapeHtml(summaryText) +
+      (roleTag
+        ? ' <span class="pill ' + escapeHtml(pillClass) + '">' + escapeHtml(roleTag) + "</span>"
+        : "") +
+      "</summary>" +
+      '<div class="fold-bd">' +
+      '<div class="table-summary statblock-row-meta">' +
+      '<a data-repo="' +
+      escapeHtml(item.corpus_display_path) +
+      '" data-md-embed-link="1">corpus file</a>' +
+      "</div>" +
+      '<div class="md-content md-embed" data-md-embed="' +
+      escapeHtml(item.corpus_display_path) +
+      '"></div>' +
+      "</div></details>"
+    );
+  }
+
+  function renderStatblockIndexSection(title, items, options) {
+    options = options || {};
+    if (!items.length) return "";
+    var openAttr = options.open ? " open" : "";
+    var mutedClass = options.muted ? " fold-muted" : "";
+    var html =
+      '<details class="fold fold-section' +
+      mutedClass +
+      '"' +
+      openAttr +
+      ">" +
+      "<summary>" +
+      escapeHtml(title) +
+      ' <span class="pill pill-neutral">' +
+      items.length +
+      "</span></summary>" +
+      '<div class="fold-bd statblock-index-list">';
+    items.forEach(function (entry) {
+      html += renderStatblockIndexDetails(entry);
+    });
+    html += "</div></details>";
+    return html;
+  }
+
+  function initStatblockCorpusIndex(options) {
+    options = options || {};
+    var host = document.getElementById("statblock-corpus-index");
+    if (!host) return;
+
+    if (isFileProtocol()) {
+      host.innerHTML =
+        '<div class="callout callout-warn"><strong>Cannot load corpus index on file://</strong><p>Run the Vite dev server at <code>http://127.0.0.1:5173/statblocks.html</code>.</p></div>';
+      return;
+    }
+
+    if (!options.silent) {
+      host.innerHTML = '<p class="muted">Loading corpus statblocks…</p>';
+    }
+
+    apiGetJson("/api/live/statblocks/index")
+      .then(function (body) {
+        var items = Array.isArray(body.statblocks) ? body.statblocks : [];
+        var generated = items.filter(function (entry) {
+          return entry.section === "generated";
+        });
+        var flock = items.filter(function (entry) {
+          return entry.section === "shepherds_flock";
+        });
+        var html = "";
+
+        html += renderStatblockIndexSection("Generated from toolbox", generated, { open: true });
+        html += renderStatblockIndexSection("Shepherd's Flock sheets", flock, { open: false });
+
+        if (!generated.length && !flock.length) {
+          html += '<p class="muted">No statblocks indexed yet.</p>';
+        }
+
+        if (body.diagnostics && body.diagnostics.length) {
+          html += '<details class="fold fold-section fold-muted"><summary>Index diagnostics</summary><div class="fold-bd"><ul class="statblock-diagnostics">';
+          body.diagnostics.forEach(function (diagnostic) {
+            html += "<li>" + escapeHtml(diagnostic) + "</li>";
+          });
+          html += "</ul></div></details>";
+        }
+
+        host.innerHTML = html;
+        wireRepoLinks();
+        initMarkdownEmbeds();
+
+        var countHost = document.getElementById("statblock-index-count");
+        if (countHost) {
+          countHost.textContent = items.length + " indexed";
+        }
+
+        document.dispatchEvent(
+          new CustomEvent(STATBLOCK_CORPUS_INDEX_REFRESH_EVENT, {
+            detail: { count: items.length },
+          })
+        );
+      })
+      .catch(function (err) {
+        host.innerHTML =
+          '<div class="callout callout-warn"><strong>Could not load statblock index</strong><p>' +
+          escapeHtml((err && err.message) || "Request failed.") +
+          "</p></div>";
+      });
+  }
+
+  function refreshStatblockCorpusIndex() {
+    initStatblockCorpusIndex({ silent: true });
   }
 
   function renderDogfoodArtifact(artifact, options) {
@@ -1415,6 +2045,7 @@
                 ".";
             showStatblockToast(successMessage, "saved");
             showToolboxStatus(successMessage, "saved");
+            refreshStatblockCorpusIndex();
           });
         })
         .catch(function (err) {
@@ -3058,6 +3689,11 @@
     wireRepoLinks: wireRepoLinks,
     initRollTableToggle: initRollTableToggle,
     initMarkdownEmbeds: initMarkdownEmbeds,
+    initRollTableCorpusIndex: initRollTableCorpusIndex,
+    initLocationCorpusIndex: initLocationCorpusIndex,
+    initNpcCorpusIndex: initNpcCorpusIndex,
+    initStatblockCorpusIndex: initStatblockCorpusIndex,
+    refreshStatblockCorpusIndex: refreshStatblockCorpusIndex,
     initToolbox: initToolbox,
     initStatblockGeneratorDogfood: initStatblockGeneratorDogfood,
     initCombatTracker: initCombatTracker,
