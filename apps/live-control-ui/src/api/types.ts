@@ -654,6 +654,43 @@ export interface CombatMutationResponse {
   diagnostics: string[];
 }
 
+export interface CombatSaveSummary {
+  save_id: string;
+  title: string;
+  encounter_id: string;
+  entity_count: number;
+  round: number;
+  updated_at?: string | null;
+}
+
+export interface CombatSavesListResponse {
+  schema_version: "dmb_combat_saves_list_v1";
+  saves: CombatSaveSummary[];
+  backups: string[];
+}
+
+export interface CombatSaveSlotResponse {
+  schema_version: "dmb_combat_save_slot_v1";
+  encounter: CombatEncounterState;
+  saves: CombatSaveSummary[];
+  backups: string[];
+  diagnostics: string[];
+}
+
+export interface LoadCombatSaveRequest {
+  save_id: string;
+}
+
+export interface NewCombatEncounterRequest {
+  title?: string | null;
+  encounter_id?: string | null;
+}
+
+export interface SaveCurrentCombatRequest {
+  save_id: string;
+  title?: string | null;
+}
+
 export interface AddGeneratedStatblockCombatRequest {
   team?: CombatTeam;
   count?: number;

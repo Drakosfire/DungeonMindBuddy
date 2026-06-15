@@ -7,6 +7,30 @@ Project-specific learnings, ideas, and follow-ups for the DungeonMindBuddy repo 
 
 Sort newest → oldest within each status; promote with `/promote`; archive with `/done` or `/drop`.
 
+## [IDEA] Command Board — composable editable prep surface (Notion-class) — captured 2026-06-13
+
+**Context:** C2S23 dogfood on the static Mireward Command Board (`evals/c2_live_prep/mireward-prep/`) proved combat-first drilldowns and corpus-backed index panes. Operator now wants the next major upgrade: fully editable, composable GM workspace — inline edits, drop-in blocks, line editing, media — in the Notion / Confluence / dynamic-markdown-editor class.
+
+**Insight:** Read-only accordions + markdown embeds solved file-hopping but not authoring at the table. The product likely needs a block-based document surface wired to corpus write safety (two-phase commit, allowlists), not more static HTML. DungeonMind Canvas (layout/registry work in the wider monorepo) and mature OSS block editors (BlockNote, TipTap, etc.) are both credible foundations — choosing wrong duplicates the `/surface` false start.
+
+**Action:** Primary-agent research spike per `Docs/Plans/HANDOFF-composable-editable-command-board-research.md` → build-vs-adopt recommendation, OSS matrix, Canvas audit, write-path diagram, phased migration off static prep. Implementation waits on operator approval of R1 scope.
+
+**Surfaces when:** Planning editable prep UI; evaluating block editors; extending Canvas Constructor or monorepo canvas engine; replacing `data-md-embed` read-only rows; designing corpus write UX at the table; user mentions Notion-like wiki or inline corpus edits.
+
+**Refs:** `Docs/Plans/HANDOFF-composable-editable-command-board-research.md`; `Docs/Design/DESIGN-tiptap-role-in-command-board.md`; `Docs/Design/DESIGN-tiptap-command-board-architecture.md`; `Docs/Design/DESIGN-mireward-command-board-shell.md`; `Docs/Plans/C2S23-MIREWARD-DOGFOOD-NOTES.md`; `Docs/Plans/PLAN-canvas-constructor.md`; `evals/c2_live_prep/mireward-prep/assets/prep.js`; `src/agent/corpus_writer.py`.
+
+## [IDEA] Corpus storage — DB or indexing/query layer for dynamic knowledge store — captured 2026-06-13
+
+**Context:** Dynamic command-board indexes now exist for statblocks, NPCs, and roll tables, but each new surface is adding another hand-built filesystem crawl over corpus markdown. The user flagged that this is starting to look like either a database migration problem or an indexing-tool problem.
+
+**Insight:** The corpus is becoming a dynamic knowledge store: entities, hubs, statblocks, timelines, recaps, generated artifacts, and table-facing command-board slices all want query semantics richer than "walk these directories and parse frontmatter." Before more bespoke crawlers accumulate, investigate whether the right next layer is a DB-backed store, a dedicated indexer, GraphQL, or a similar query surface over the corpus.
+
+**Action:** Design investigation: compare DB migration vs. filesystem-backed indexing service vs. GraphQL-style API over the existing corpus. Include query needs from command board pages (`NPCs`, `statblocks`, future locations/factions), planner retrieval, corpus writer safety, provenance, cache invalidation, and how source-of-truth markdown remains auditable.
+
+**Surfaces when:** Adding a third dynamic command-board corpus page; designing corpus query APIs; considering GraphQL or entity search; replacing bespoke filesystem crawlers; planning a dynamic knowledge-store architecture.
+
+**Refs:** `apps/live_control_server/services/statblock_corpus_index.py`; `apps/live_control_server/services/npc_corpus_index.py`; `apps/live_control_server/services/roll_table_corpus_index.py`; `evals/c2_live_prep/mireward-prep/npcs.html`; `evals/c2_live_prep/mireward-prep/roll-tables.html`; `evals/c2_live_prep/mireward-prep/statblocks.html`.
+
 ## [IDEA] Command board — live combat drilldown proved useful at table — captured 2026-06-07
 
 **Context:** C2S23 Mireward North Reach Gate dogfood in `evals/c2_live_prep/mireward-prep/`: the static combat tracker evolved during live prep/play into a circular initiative barrel with HP in view, AC, statblock links, dead bucket, grouped enemies, import/export state, and virtual Top/Bottom of Round markers. User feedback: this was the first live-tested tool in the project that “felt like it helped,” especially quick statblock reference plus visible HP/turn order.

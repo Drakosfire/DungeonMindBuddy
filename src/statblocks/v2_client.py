@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import os
-from typing import Protocol
+from typing import Any, Protocol
 
 import httpx
 
@@ -16,6 +16,27 @@ from src.statblocks.v2_contract import (
 DEFAULT_DUNGEONMIND_SERVER_URL = "https://www.dungeonmind.net"
 INTERNAL_KEY_HEADER = "X-DungeonBuddy-Internal-Key"
 _DEFAULT_RENDER_RESPONSE = object()
+
+
+def _format_remote_validation_detail(remote_detail: object) -> str | None:
+    if isinstance(remote_detail, str):
+        return remote_detail.strip() or None
+    if not isinstance(remote_detail, list):
+        return None
+    parts: list[str] = []
+    for item in remote_detail:
+        if not isinstance(item, dict):
+            continue
+        loc = item.get("loc")
+        msg = str(item.get("msg") or "").strip()
+        if not msg:
+            continue
+        if isinstance(loc, list) and loc:
+            loc_text = ".".join(str(part) for part in loc if part not in {"body", "query", "path"})
+            parts.append(f"{loc_text}: {msg}" if loc_text else msg)
+        else:
+            parts.append(msg)
+    return "; ".join(parts) if parts else None
 
 
 class StatBlockGeneratorClientConfigError(ValueError):
@@ -127,13 +148,26 @@ class DungeonMindServerStatBlockGeneratorClient:
         except Exception as exc:  # noqa: BLE001 - convert malformed remote failures into local envelope
             if response.status_code < 400:
                 raise
+            details: dict[str, Any] = {"parse_error": exc.__class__.__name__}
+            message = f"StatBlockGenerator returned HTTP {response.status_code}"
+            try:
+                raw = response.json()
+                if isinstance(raw, dict):
+                    remote_detail = raw.get("detail")
+                    if remote_detail is not None:
+                        details["remote_detail"] = remote_detail
+                        formatted = _format_remote_validation_detail(remote_detail)
+                        if formatted:
+                            message = f"StatBlockGenerator returned HTTP {response.status_code}: {formatted}"
+            except Exception:  # noqa: BLE001 - fall back to generic message
+                pass
             return StatBlockDraftResponse(
                 success=False,
                 draft=None,
                 error=ContractError(
                     code=f"http_{response.status_code}",
-                    message=f"StatBlockGenerator returned HTTP {response.status_code}",
-                    details={"parse_error": exc.__class__.__name__},
+                    message=message,
+                    details=details,
                 ),
             )
 

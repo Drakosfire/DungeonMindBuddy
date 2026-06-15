@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
 from fastapi.testclient import TestClient
 
 from apps.live_control_server.config import SESSION_DIR_ENV
@@ -9,6 +10,12 @@ from apps.live_control_server.main import create_app
 
 ROOT = Path(__file__).resolve().parents[1]
 LIVE_SESSION_FIXTURE = ROOT / "evals/c2_live_prep/live/session_22"
+
+
+@pytest.fixture(autouse=True)
+def _workbench_tests_default_mock_provider(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Isolate workbench tests from operator .env using STATBLOCK_GENERATOR_PROVIDER=http."""
+    monkeypatch.setenv("STATBLOCK_GENERATOR_PROVIDER", "mock")
 
 
 def test_statblock_workbench_sample_endpoint_returns_mock_artifact() -> None:
@@ -98,6 +105,107 @@ def test_statblock_workbench_generate_command_returns_mock_artifact() -> None:
     assert "non-persistent" in diagnostics
 
 
+def test_statblock_workbench_generate_normalizes_missing_intent_summary(
+    monkeypatch,
+) -> None:
+    from apps.live_control_server.services.statblock_workbench import (
+        _normalize_generate_workbench_payload,
+    )
+
+    normalized = _normalize_generate_workbench_payload(
+        {
+            "mode": "generate_from_prompt",
+            "prompt": "Palisade Gnawer siege beast",
+            "intent": {
+                "mode": "generate_from_prompt",
+                "creature_name": "Palisade Gnawer",
+                "challenge_rating": "5",
+            },
+        }
+    )
+
+    assert normalized["intent"]["summary"] == "Palisade Gnawer siege beast"
+
+
+def test_statblock_workbench_http_generate_backfills_summary_for_remote_v2(
+    monkeypatch,
+) -> None:
+    seen: dict[str, object] = {}
+
+    class FakeHTTPProvider:
+        def generate_draft(self, request):
+            from src.statblocks.v2_contract import StatBlockDraftResponse
+
+            seen["summary"] = request.intent.summary if request.intent else None
+            return StatBlockDraftResponse.model_validate(
+                {
+                    "success": True,
+                    "draft": {
+                        "draft_id": "summary-backfill-test",
+                        "lifecycle_state": "live_draft",
+                        "review_status": "needs_dm_review",
+                        "markdown": "## Summary Backfill Test",
+                        "statblock": {"name": "Summary Backfill Test"},
+                        "combat_defaults": {
+                            "name": "Summary Backfill Test",
+                            "armor_class": 12,
+                            "hit_points": 10,
+                            "passive_perception": 10,
+                            "speed_summary": "30 ft.",
+                            "senses_summary": "passive Perception 10",
+                            "primary_actions": ["Mock Strike"],
+                            "suggested_tactics": ["Test."],
+                        },
+                        "warnings": [],
+                        "provenance": {
+                            "mode": "generate_from_prompt",
+                            "generator": "fake-http",
+                            "source_refs": [],
+                            "generation_info": {},
+                        },
+                    },
+                    "timestamp": "2026-06-09T00:00:00Z",
+                }
+            )
+
+        def render_draft(self, request):
+            return self.generate_draft(request)
+
+        def health(self):
+            from src.statblocks.v2_contract import StatBlockGeneratorHealth
+
+            return StatBlockGeneratorHealth(status="ok", service="fake-http")
+
+    monkeypatch.setenv("STATBLOCK_GENERATOR_PROVIDER", "http")
+    monkeypatch.setenv("DUNGEONBUDDY_INTERNAL_API_KEY", "test-key")
+    monkeypatch.setattr(
+        "apps.live_control_server.services.statblock_workbench.statblock_generator_provider_from_env",
+        lambda: FakeHTTPProvider(),
+    )
+    client = TestClient(create_app())
+    response = client.post(
+        "/api/live/statblocks/workbench/command",
+        json={
+            "command_type": "statblock.draft.generate",
+            "requested_by": "human",
+            "as_artifact": True,
+            "payload": {
+                "mode": "generate_from_prompt",
+                "prompt": "Palisade Gnawer siege beast",
+                "intent": {
+                    "mode": "generate_from_prompt",
+                    "creature_name": "Palisade Gnawer",
+                    "challenge_rating": "5",
+                },
+            },
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["artifact"]["title"] == "Summary Backfill Test"
+    assert seen["summary"] == "Palisade Gnawer siege beast"
+
+
 def test_statblock_workbench_render_command_returns_different_mock_artifact() -> None:
     client = TestClient(create_app())
 
@@ -116,6 +224,29 @@ def test_statblock_workbench_render_command_returns_different_mock_artifact() ->
     diagnostics = " ".join(render_body["diagnostics"])
     assert "mock" in diagnostics.lower()
     assert "non-persistent" in diagnostics
+
+
+def test_statblock_workbench_render_command_merges_partial_static_payload() -> None:
+    client = TestClient(create_app())
+
+    response = client.post(
+        "/api/live/statblocks/workbench/command",
+        json={
+            "command_type": "statblock.draft.render",
+            "requested_by": "human",
+            "as_artifact": True,
+            "payload": {
+                "request_id": "command-board-dogfood-partial",
+                "mode": "render_existing",
+                "surface": "command_board_static",
+            },
+        },
+    )
+
+    assert response.status_code == 200
+    artifact = response.json()["artifact"]
+    assert artifact["title"] == "Rendered Clockwork Mire Sentinel"
+    assert "Gearhook Slam" in artifact["markdown"]
 
 
 def test_statblock_workbench_unsupported_command_is_rejected() -> None:
@@ -146,6 +277,169 @@ def test_statblock_workbench_command_endpoint_does_not_expose_internal_key(
         assert "DUNGEONMIND_SERVER_URL" not in body_text
         assert "X-DungeonBuddy-Internal-Key" not in body_text
 
+
+def test_statblock_workbench_generate_command_uses_http_provider(
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("STATBLOCK_GENERATOR_PROVIDER", "http")
+    monkeypatch.setenv("DUNGEONBUDDY_INTERNAL_API_KEY", "test-http-provider-key")
+
+    http_generate_response = {
+        "success": True,
+        "draft": {
+            "draft_id": "http-generated-ember-wolf",
+            "lifecycle_state": "live_draft",
+            "review_status": "needs_dm_review",
+            "markdown": "## HTTP Ember Wolf\n*Medium elemental beast, unaligned*",
+            "statblock": {
+                "name": "HTTP Ember Wolf",
+                "size": "Medium",
+                "type": "elemental beast",
+                "challenge_rating": "3",
+            },
+            "combat_defaults": {
+                "name": "HTTP Ember Wolf",
+                "armor_class": 14,
+                "hit_points": 45,
+                "initiative_bonus": 2,
+                "passive_perception": 12,
+                "speed_summary": "40 ft.",
+                "senses_summary": "passive Perception 12",
+                "primary_actions": ["Searing Bite"],
+                "suggested_tactics": ["Harass isolated targets."],
+            },
+            "warnings": [],
+            "provenance": {
+                "request_id": "http-provider-test",
+                "mode": "generate_from_prompt",
+                "generator": "fake-http-statblock-generator",
+                "generated_at": "2026-06-09T00:00:00Z",
+                "source_refs": [],
+                "generation_info": {"provider": "FakeHTTPProvider"},
+            },
+        },
+        "timestamp": "2026-06-09T00:00:00Z",
+    }
+
+    class FakeHTTPProvider:
+        def generate_draft(self, request):
+            from src.statblocks.v2_contract import StatBlockDraftResponse
+
+            return StatBlockDraftResponse.model_validate(http_generate_response)
+
+        def render_draft(self, request):
+            raise AssertionError("render should not be called in generate test")
+
+        def health(self):
+            from src.statblocks.v2_contract import StatBlockGeneratorHealth
+
+            return StatBlockGeneratorHealth(status="ok", service="fake-http")
+
+    monkeypatch.setattr(
+        "apps.live_control_server.services.statblock_workbench.statblock_generator_provider_from_env",
+        lambda: FakeHTTPProvider(),
+    )
+    client = TestClient(create_app())
+
+    response = _post_workbench_command(client, "statblock.draft.generate")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["mode"] == "http_command"
+    assert body["command_status"] == "ok"
+    artifact = body["artifact"]
+    assert artifact["title"] == "HTTP Ember Wolf"
+    assert artifact["title"] != "Generated Obsidian Thornling"
+    diagnostics = " ".join(body["diagnostics"])
+    assert "DungeonMindServerStatBlockGeneratorClient" in diagnostics
+    assert "HTTP-backed" in diagnostics
+    breadcrumbs = {crumb["label"] for crumb in artifact["breadcrumbs"]}
+    assert "source:http_provider" in breadcrumbs
+
+
+def test_statblock_workbench_http_provider_missing_key_returns_config_error(
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("STATBLOCK_GENERATOR_PROVIDER", "http")
+    monkeypatch.delenv("DUNGEONBUDDY_INTERNAL_API_KEY", raising=False)
+    client = TestClient(create_app())
+
+    response = _post_workbench_command(client, "statblock.draft.generate")
+
+    assert response.status_code == 502
+    body = response.json()["detail"]
+    assert body["mode"] == "http_command"
+    assert body["command_status"] == "error"
+    assert body["artifact"] is None
+    assert body["error"]["code"] == "provider_config_error"
+    assert "DUNGEONBUDDY_INTERNAL_API_KEY" in body["error"]["message"]
+    assert "Generated Obsidian Thornling" not in response.text
+    assert "Obsidian Thornling" not in response.text
+
+
+def test_statblock_workbench_http_command_does_not_expose_internal_key(
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("STATBLOCK_GENERATOR_PROVIDER", "http")
+    monkeypatch.setenv("DUNGEONBUDDY_INTERNAL_API_KEY", "super-secret-test-key")
+
+    class FakeHTTPProvider:
+        def generate_draft(self, request):
+            from src.statblocks.v2_contract import StatBlockDraftResponse
+
+            return StatBlockDraftResponse.model_validate(
+                {
+                    "success": True,
+                    "draft": {
+                        "draft_id": "http-key-redaction-test",
+                        "lifecycle_state": "live_draft",
+                        "review_status": "needs_dm_review",
+                        "markdown": "## HTTP Key Redaction Test",
+                        "statblock": {"name": "HTTP Key Redaction Test"},
+                        "combat_defaults": {
+                            "name": "HTTP Key Redaction Test",
+                            "armor_class": 12,
+                            "hit_points": 10,
+                            "passive_perception": 10,
+                            "speed_summary": "30 ft.",
+                            "senses_summary": "passive Perception 10",
+                            "primary_actions": ["Mock Strike"],
+                            "suggested_tactics": ["Test redaction."],
+                        },
+                        "warnings": [],
+                        "provenance": {
+                            "mode": "generate_from_prompt",
+                            "generator": "fake-http",
+                            "source_refs": [],
+                            "generation_info": {},
+                        },
+                    },
+                    "timestamp": "2026-06-09T00:00:00Z",
+                }
+            )
+
+        def render_draft(self, request):
+            return self.generate_draft(request)
+
+        def health(self):
+            from src.statblocks.v2_contract import StatBlockGeneratorHealth
+
+            return StatBlockGeneratorHealth(status="ok", service="fake-http")
+
+    monkeypatch.setattr(
+        "apps.live_control_server.services.statblock_workbench.statblock_generator_provider_from_env",
+        lambda: FakeHTTPProvider(),
+    )
+    client = TestClient(create_app())
+
+    response = _post_workbench_command(client, "statblock.draft.generate")
+
+    assert response.status_code == 200
+    body_text = response.text
+    assert "super-secret-test-key" not in body_text
+    assert "DUNGEONBUDDY_INTERNAL_API_KEY" not in body_text
+    assert "DUNGEONMIND_SERVER_URL" not in body_text
+    assert "X-DungeonBuddy-Internal-Key" not in body_text
 
 
 def _temp_live_session(tmp_path: Path, monkeypatch) -> Path:

@@ -6,160 +6,67 @@
   <title>Statblocks — Mireward prep</title>
   <link rel="stylesheet" href="assets/prep.css" />
 </head>
-<body>
+<body class="statblocks-page">
   <div class="wrap">
     <nav id="site-nav" class="site-nav"></nav>
 
-    <h1>Statblocks</h1>
-    <p class="lead">Shepherd's Flock meat threats and Mireward siege monsters for the S23 north-gate pressure stack. These are reference tools, not proof of what has appeared in play.</p>
+    <header class="statblocks-header">
+      <h1>Statblocks</h1>
+      <p class="lead">Expand a row to load the corpus sheet inline. Reference only — not proof of what appeared in play.</p>
+      <div class="statblocks-toolbar">
+        <button type="button" class="primary" data-open-toolbox="statblock">Command toolbox</button>
+        <a class="statblocks-toolbar-link" href="combat.html">Combat tracker</a>
+        <span class="pill pill-neutral statblocks-count" id="statblock-index-count">…</span>
+      </div>
+    </header>
 
-    <div class="callout callout-info">
-      <strong>Locked North Reach Gate combat roster</strong>
-      Outside the North Reach Gate: <strong>2x Sewer Meat Creature</strong>, <strong>1x Corrupted Meat Golem</strong>,
-      <strong>2x Tripod Null-Calf</strong>, <strong>2x Fleshborn Hybrid</strong>, and <strong>10x Aberrant Meatwing</strong>.
-      Hold the <strong>Latch-Harrow (CR 8)</strong> for later-wave breach pressure unless the gate needs a hard cliffhanger.
-      <br><strong>Shared rule:</strong> meat monsters resist poison and are vulnerable to fire.
+    <div id="statblock-corpus-index" class="statblock-corpus-index">
+      <p class="muted">Loading corpus statblocks…</p>
     </div>
 
-    <div class="stats">
-      <div class="stat"><div class="val">8</div><div class="lbl">indexed meat/cult/siege sheets</div></div>
-      <div class="stat"><div class="val">CR 3–8</div><div class="lbl">usable threat tier</div></div>
-      <div class="stat"><div class="val">3–8</div><div class="lbl">minute road clock</div></div>
-    </div>
-
-    <h2>Quick Picks</h2>
-    <div class="grid-2">
-      <div class="card">
-        <div class="card-hd">Main body</div>
-        <div class="card-bd">
-          <p><strong>2x Sewer Meat Creature + 1x Corrupted Meat Golem + 2x Fleshborn Hybrid.</strong></p>
-          <p class="muted">Baseline bodies, one bruiser, and two grapple / consume shock troops in the North Reach Gate crush.</p>
-        </div>
-      </div>
-      <div class="card">
-        <div class="card-hd">Air pressure</div>
-        <div class="card-bd">
-          <p><strong>10x Aberrant Meatwing.</strong></p>
-          <p class="muted">Use flight to pressure bell lines, cure helpers, clustered civilians, and ranged concentration.</p>
-        </div>
-      </div>
-      <div class="card">
-        <div class="card-hd">Alien geometry</div>
-        <div class="card-bd">
-          <p><strong>2x Tripod Null-Calf.</strong></p>
-          <p class="muted">Pin carts / rope lines, rotate facing, threaten civilians, and mark the north gate for later siege adaptation.</p>
-        </div>
-      </div>
-      <div class="card">
-        <div class="card-hd">Later-wave breach monster</div>
-        <div class="card-bd">
-          <p><strong>Use as a north-gate clock crisis.</strong></p>
-          <p class="muted">Latch-Harrow converts structure attacks into Breach Clock progress; redirect to Bell/Shrine, tithe barn, or ferry chain only if needed.</p>
-        </div>
-      </div>
-    </div>
-
-    <h2>Rendered Sheets</h2>
-
-    <details class="fold" open>
-      <summary>Sewer Meat Creature (CR 3) <span class="pill pill-neutral">baseline</span></summary>
+    <details class="fold fold-section fold-muted">
+      <summary>S23 north-gate encounter mix</summary>
       <div class="fold-bd">
-        <div class="table-summary">
-          <span class="pill pill-info">default herd / sewer meat thing</span>
-          <a data-repo="corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/sewer_meat_creature_statblock_cr3.md" data-md-embed-link="1">source</a>
-        </div>
-        <div class="md-content md-embed" data-md-embed="corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/sewer_meat_creature_statblock_cr3.md"></div>
+        <p class="muted statblocks-encounter-lede">
+          Locked opening outside the North Reach Gate. Meat resists poison; vulnerable to fire.
+        </p>
+        <dl class="statblocks-encounter-dl">
+          <div>
+            <dt>Main body</dt>
+            <dd>2× Sewer Meat Creature, 1× Corrupted Meat Golem, 2× Fleshborn Hybrid</dd>
+          </div>
+          <div>
+            <dt>Air pressure</dt>
+            <dd>10× Aberrant Meatwing</dd>
+          </div>
+          <div>
+            <dt>Alien geometry</dt>
+            <dd>2× Tripod Null-Calf</dd>
+          </div>
+          <div>
+            <dt>Reserve breach</dt>
+            <dd>Latch-Harrow (CR 8) — later-wave clock crisis unless the gate needs a cliffhanger</dd>
+          </div>
+        </dl>
       </div>
     </details>
 
-    <details class="fold" open>
-      <summary>Corrupted Meat Golem (CR 3) <span class="pill pill-neutral">bruiser</span></summary>
+    <details class="fold fold-section fold-muted">
+      <summary>Corpus &amp; planning sources</summary>
       <div class="fold-bd">
-        <div class="table-summary">
-          <span class="pill pill-info">anchor / hulk</span>
-          <a data-repo="corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/corrupted_meat_golem_statblock_cr3.md" data-md-embed-link="1">source</a>
-        </div>
-        <div class="md-content md-embed" data-md-embed="corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/corrupted_meat_golem_statblock_cr3.md"></div>
+        <div class="file-row"><span class="label">Shepherd's Flock index</span><a data-repo="corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/README.md">Statblocks and Tokens README</a></div>
+        <div class="file-row"><span class="label">Generated lane</span><a data-repo="corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Statblocks/generated/">Campaign 2 Statblocks/generated/</a></div>
+        <div class="file-row"><span class="label">North-gate scaffold</span><a data-repo="corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/Mireward_PLACE_BUILD_SCAFFOLD.md">Mireward scaffold §F4</a></div>
+        <div class="file-row"><span class="label">Siege mechanics</span><a data-repo="Docs/Plans/C2S23-Mireward-Siege-Behavior-Layout/07-siege-mechanics-threat-inventory.md">Threat inventory + clocks</a></div>
       </div>
     </details>
-
-    <details class="fold">
-      <summary>Fleshborn Hybrid (CR 3) <span class="pill pill-neutral">shock troop</span></summary>
-      <div class="fold-bd">
-        <div class="table-summary">
-          <span class="pill pill-info">grapples / consume pressure</span>
-          <a data-repo="corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/fleshborn_hybrid_statblock_cr3.md" data-md-embed-link="1">source</a>
-        </div>
-        <div class="md-content md-embed" data-md-embed="corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/fleshborn_hybrid_statblock_cr3.md"></div>
-      </div>
-    </details>
-
-    <details class="fold">
-      <summary>Aberrant Meatwing (CR 1) <span class="pill pill-neutral">skirmisher</span></summary>
-      <div class="fold-bd">
-        <div class="table-summary">
-          <span class="pill pill-info">flight / charm pressure</span>
-          <a data-repo="corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/aberrant_meat_wing_statblock_cr1.md" data-md-embed-link="1">source</a>
-        </div>
-        <div class="md-content md-embed" data-md-embed="corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/aberrant_meat_wing_statblock_cr1.md"></div>
-      </div>
-    </details>
-
-    <details class="fold">
-      <summary>Meat Worm / Corrupted Heap (CR 1/2) <span class="pill pill-neutral">swarm pressure</span></summary>
-      <div class="fold-bd">
-        <div class="table-summary">
-          <span class="pill pill-info">cart wheels / civilian panic</span>
-          <a data-repo="corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/meat_worm_statblock_cr_half.md" data-md-embed-link="1">source</a>
-        </div>
-        <div class="md-content md-embed" data-md-embed="corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/meat_worm_statblock_cr_half.md"></div>
-      </div>
-    </details>
-
-    <details class="fold">
-      <summary>Shepherd's Flock Cultist (CR 1) <span class="pill pill-neutral">human minion</span></summary>
-      <div class="fold-bd">
-        <div class="table-summary">
-          <span class="pill pill-info">voice / fear / psychic pressure</span>
-          <a data-repo="corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/shephards_flock_cultist_statblock_cr1.md" data-md-embed-link="1">source</a>
-        </div>
-        <div class="md-content md-embed" data-md-embed="corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/shephards_flock_cultist_statblock_cr1.md"></div>
-      </div>
-    </details>
-
-    <details class="fold" open>
-      <summary>Tripod Null-Calf (CR 5) <span class="pill pill-warn">alien scout</span></summary>
-      <div class="fold-bd">
-        <div class="table-summary">
-          <span class="pill pill-info">three-limbed geometry / mark the gate</span>
-          <a data-repo="corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/tripod_null_calf_statblock_cr5.md" data-md-embed-link="1">source</a>
-        </div>
-        <div class="md-content md-embed" data-md-embed="corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/tripod_null_calf_statblock_cr5.md"></div>
-      </div>
-    </details>
-
-    <details class="fold">
-      <summary>Latch-Harrow (CR 8) <span class="pill pill-warn">siege breaker</span></summary>
-      <div class="fold-bd">
-        <div class="table-summary">
-          <span class="pill pill-info">north-gate breach clock</span>
-          <a data-repo="corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/latch_harrow_statblock_cr8.md" data-md-embed-link="1">source</a>
-        </div>
-        <div class="md-content md-embed" data-md-embed="corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/latch_harrow_statblock_cr8.md"></div>
-      </div>
-    </details>
-
-    <h2>Source Index</h2>
-    <p><a data-repo="corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/README.md">Shepherd's Flock statblocks and tokens README</a></p>
-    <p><a data-repo="corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/Mireward_PLACE_BUILD_SCAFFOLD.md">Mireward scaffold §F4</a> for the north-gate road clock and locked encounter roster.</p>
-    <p><a data-repo="Docs/Plans/C2S23-Mireward-Siege-Behavior-Layout/07-siege-mechanics-threat-inventory.md">Siege mechanics + threat inventory</a> for Cure Line, bagpipes, harsh rest pressure, Tripod, and Latch-Harrow handling.</p>
   </div>
   <script src="assets/prep-markdown.js"></script>
   <script src="assets/prep.js"></script>
   <script>
     MirewardPrep.initNav("statblocks");
     MirewardPrep.wireRepoLinks();
-    MirewardPrep.initMarkdownEmbeds();
+    MirewardPrep.initStatblockCorpusIndex();
   </script>
 </body>
 </html>

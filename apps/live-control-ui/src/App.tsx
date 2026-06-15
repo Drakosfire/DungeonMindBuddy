@@ -16,8 +16,51 @@ import { SurfaceShell } from "./surface/SurfaceShell";
 import type { PaneTarget } from "./surface/targetTypes";
 
 type LoadStatus = "loading" | "ready" | "error";
+type AppRoute = "index" | "surface";
 
-export function App() {
+function currentRoute(): AppRoute {
+  const path = window.location.pathname.replace(/\/+$/, "") || "/";
+  if (path === "/surface" || path === "/live-control") return "surface";
+  return "index";
+}
+
+function MirewardIndex() {
+  return (
+    <main className="launcher-root">
+      <header className="launcher-header">
+        <h1>Mireward local tools</h1>
+        <p>C2 Session 23 launcher. Choose the surface you actually want to use.</p>
+      </header>
+
+      <section className="launcher-grid" aria-label="Main surfaces">
+        <a className="launcher-card primary" href="/live-play">
+          <span className="launcher-kicker">Live Play</span>
+          <strong>Command board</strong>
+          <span>At-table launch surface for combat, notes, statblocks, roll tables, and bridge proof links.</span>
+        </a>
+        <a className="launcher-card" href="/retrieval">
+          <span className="launcher-kicker">Retrieval</span>
+          <strong>Dogfood surface</strong>
+          <span>Source links, authority labels, planning packets, and retrieval context checks.</span>
+        </a>
+        <a className="launcher-card" href="/surface">
+          <span className="launcher-kicker">Live Control</span>
+          <strong>React surface</strong>
+          <span>The configurable live-control UI with combat roster, statblock workbench, chat, and record modules.</span>
+        </a>
+      </section>
+
+      <section className="launcher-note">
+        <p>
+          This Vite app serves all UI on <code>5173</code>. The FastAPI backend remains API-only on{" "}
+          <code>8000</code>, and the React live-control surface lives at <code>/surface</code>.
+        </p>
+      </section>
+    </main>
+  );
+}
+
+function LiveControlApp() {
   const [status, setStatus] = useState<LoadStatus>("loading");
   const [error, setError] = useState<string | null>(null);
   const [catalog, setCatalog] = useState<SurfaceModuleDefinition[]>([]);
@@ -146,4 +189,10 @@ export function App() {
       />
     </main>
   );
+}
+
+export function App() {
+  const route = currentRoute();
+  if (route === "index") return <MirewardIndex />;
+  return <LiveControlApp />;
 }

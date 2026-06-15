@@ -11,6 +11,7 @@ vi.mock("./api/liveApi");
 describe("App inspector integration", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    window.history.pushState({}, "", "/");
     vi.mocked(liveApi.getSurface).mockResolvedValue({
       catalog: mockCatalog,
       layout: mockLayout,
@@ -23,8 +24,28 @@ describe("App inspector integration", () => {
     vi.mocked(liveApi.getCapabilities).mockResolvedValue(makeCapabilityResponse());
   });
 
+  it("renders the launcher at the root route", () => {
+    render(<App />);
+
+    expect(screen.getByRole("heading", { name: /mireward local tools/i })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /live play command board/i })).toHaveAttribute(
+      "href",
+      "/live-play",
+    );
+    expect(screen.getByRole("link", { name: /retrieval dogfood surface/i })).toHaveAttribute(
+      "href",
+      "/retrieval",
+    );
+    expect(screen.getByRole("link", { name: /live control react surface/i })).toHaveAttribute(
+      "href",
+      "/surface",
+    );
+    expect(liveApi.getSurface).not.toHaveBeenCalled();
+  });
+
   it("opens empty inspector from app chrome control", async () => {
     const user = userEvent.setup();
+    window.history.pushState({}, "", "/surface");
     render(<App />);
 
     await waitFor(() => {

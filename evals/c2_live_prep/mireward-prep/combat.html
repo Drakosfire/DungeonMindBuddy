@@ -7,7 +7,13 @@
   <link rel="stylesheet" href="assets/prep.css" />
 </head>
 <body>
-  <div class="wrap combat-wrap">
+  <div
+    class="wrap combat-wrap"
+    id="combat-tracker"
+    data-combat-save-campaign="longmont-c2"
+    data-combat-save-session="22"
+    data-combat-save-encounter="north_reach_gate"
+  >
     <nav id="site-nav" class="site-nav"></nav>
 
     <h1>North Reach Gate combat tracker</h1>
@@ -27,7 +33,7 @@
       <button type="button" data-combat-action="import-state">Import state</button>
       <button type="button" data-combat-action="reset-all" class="danger">Reset combat state</button>
       <input id="combat-import-file" class="combat-import-file" type="file" accept="application/json,.json" />
-      <span id="combat-save-status" class="combat-save-status">Loads browser state, or auto-restores from saves/mireward-north-reach-gate-combat-state.json if empty.</span>
+      <span id="combat-save-status" class="combat-save-status">Loads browser localStorage first, then saves/combat/longmont-c2__session_22__north_reach_gate__combat_state_v1.json if empty.</span>
     </div>
 
     <div class="combat-meta">
@@ -44,6 +50,7 @@
         <div class="card-bd">
           <div class="file-row"><span class="label">Threat roster</span><a data-repo="Docs/Plans/C2S23-Mireward-Siege-Behavior-Layout/07-siege-mechanics-threat-inventory.md">siege mechanics + threat inventory</a></div>
           <div class="file-row"><span class="label">Statblock pane</span><a href="statblocks.html">statblocks.html</a></div>
+          <div class="file-row"><span class="label">Generator</span><a href="#" data-open-toolbox="statblock">Command toolbox · Statblock</a></div>
         </div>
       </div>
     </div>

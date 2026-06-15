@@ -15,8 +15,13 @@ import type {
   CombatEntityPatchRequest,
   CombatHpDeltaRequest,
   CombatMutationResponse,
+  CombatSavesListResponse,
+  CombatSaveSlotResponse,
   CombatSetActiveRequest,
   CombatTurnRequest,
+  LoadCombatSaveRequest,
+  NewCombatEncounterRequest,
+  SaveCurrentCombatRequest,
   GeneratedStatblockDetailResponse,
   GeneratedStatblockListResponse,
   ResolvedRollResponse,
@@ -373,6 +378,43 @@ export async function advanceCombatTurn(
   request: CombatTurnRequest = { direction: "next" },
 ): Promise<CombatMutationResponse> {
   return apiFetch<CombatMutationResponse>("/api/live/combat/current/turn", {
+    method: "POST",
+    body: JSON.stringify(request),
+  });
+}
+
+export async function listCombatSaves(): Promise<CombatSavesListResponse> {
+  return apiFetch<CombatSavesListResponse>("/api/live/combat/saves");
+}
+
+export async function loadCombatSave(
+  request: LoadCombatSaveRequest,
+): Promise<CombatSaveSlotResponse> {
+  return apiFetch<CombatSaveSlotResponse>("/api/live/combat/current/load", {
+    method: "POST",
+    body: JSON.stringify(request),
+  });
+}
+
+export async function unloadCurrentCombat(): Promise<CombatSaveSlotResponse> {
+  return apiFetch<CombatSaveSlotResponse>("/api/live/combat/current/unload", {
+    method: "POST",
+  });
+}
+
+export async function newCombatEncounter(
+  request: NewCombatEncounterRequest = {},
+): Promise<CombatSaveSlotResponse> {
+  return apiFetch<CombatSaveSlotResponse>("/api/live/combat/current/new", {
+    method: "POST",
+    body: JSON.stringify(request),
+  });
+}
+
+export async function saveCurrentCombatAs(
+  request: SaveCurrentCombatRequest,
+): Promise<CombatSaveSlotResponse> {
+  return apiFetch<CombatSaveSlotResponse>("/api/live/combat/saves", {
     method: "POST",
     body: JSON.stringify(request),
   });

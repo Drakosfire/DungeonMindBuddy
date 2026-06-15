@@ -11,6 +11,36 @@ Sort newest → oldest within each status.
 
 ## DONE
 
+## [DONE] Command board — dynamic roll-tables page (corpus table crawl) — completed 2026-06-13
+
+**Implemented:** Read-only `GET /api/live/roll-tables/index` walks allowlisted Session 22 prep tables, Mireward scaffold excerpt, road tables, and wilderness d100 tables; static `roll-tables.html` renders grouped dynamic sections with inline markdown embeds/excerpts.
+
+**Refs:** `apps/live_control_server/services/roll_table_corpus_index.py`; `evals/c2_live_prep/mireward-prep/roll-tables.html`; `evals/c2_live_prep/mireward-prep/assets/prep.js` (`initRollTableCorpusIndex`); `tests/test_roll_table_corpus_index.py`.
+
+## [DONE] Command board — dynamic NPC page (corpus hub crawl) — completed 2026-06-13
+
+**Implemented:** Read-only `GET /api/live/npcs/index` walks allowlisted Mireward setting NPC hubs and Campaign 2 NPC hubs; static `npcs.html` renders corpus-backed Mireward + Campaign 2 sections; each NPC row links hub/seed/dossier/timeline paths and embeds the primary seed or dossier inline.
+
+**Refs:** `apps/live_control_server/services/npc_corpus_index.py`; `evals/c2_live_prep/mireward-prep/npcs.html`; `evals/c2_live_prep/mireward-prep/assets/prep.js` (`initNpcCorpusIndex`); `tests/test_npc_corpus_index.py`.
+
+## [DONE] Command board — dynamic statblocks page (corpus crawl + live refresh) — completed 2026-06-13
+
+**Implemented:** Read-only `GET /api/live/statblocks/index` walks allowlisted Shepherd's Flock statblock paths and Campaign 2 `Statblocks/generated/*.md`; static `statblocks.html` renders Generated + Rendered Sheets sections from API; toolbox promote calls `refreshStatblockCorpusIndex()` so new files appear without HTML edits.
+
+**Refs:** `apps/live_control_server/services/statblock_corpus_index.py`; `evals/c2_live_prep/mireward-prep/assets/prep.js` (`initStatblockCorpusIndex`); `tests/test_statblock_corpus_index.py`.
+
+## [DONE] Command board — statblock mock dogfood + HTTP provider wire — completed 2026-06-13
+
+**Implemented:** Static Command Board toolbox drawer with StatBlockGenerator v2 payload; `statblock_workbench.py` env-driven provider (`mock_command` / `http_command`); `intent.summary` contract fix; corpus promote with single Confirm (prepare→commit internal), promoted-state UX, statblocks page collapsed by default; live HTTP generation (Palisade Gnawer); dogfood corpus files under `Statblocks/generated/`.
+
+**Refs:** `Docs/Plans/HANDOFF-pr115-statblock-mock-dogfood-then-api-wire.md` §16; `evals/c2_live_prep/mireward-prep/assets/prep.js`; `apps/live_control_server/services/statblock_workbench.py`; `tests/test_live_statblock_workbench_endpoint.py`.
+
+## [DONE] Command board — combat state storage contract — completed 2026-06-12
+
+**Implemented:** localStorage-first; canonical bootstrap/export path `saves/combat/{campaign_id}__session_{NN}__{encounter_slug}__combat_state_v1.json`; schema `mireward_combat_state_v1`; loader profile on `#combat-tracker` data attrs; Vite `/saves/` middleware; legacy bootstrap fallback; migrated S22 snapshot; export uses canonical filename; statblock draft stays localStorage-only.
+
+**Refs:** `evals/c2_live_prep/mireward-prep/saves/combat/longmont-c2__session_22__north_reach_gate__combat_state_v1.json`; `prep.js`; `combat.html`; `vite.config.ts`; `combat_saves.py`.
+
 ## [DONE] Mirathorn — day-by-day timeline + comms while party away — completed 2026-05-23
 
 **Context:** Party northbound after S21; rockie-talkie beats needed backing for Session 22 travel and turnaround prep. Original stub `Mirathorn — While You Were Away.md` (2026-04-23).

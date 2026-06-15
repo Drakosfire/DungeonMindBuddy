@@ -4,6 +4,7 @@
   "prompt": "Create a CR 1 ember wolf skirmisher for a volcanic road encounter.",
   "intent": {
     "mode": "generate_from_prompt",
+    "summary": "Create a CR 1 ember wolf skirmisher for a volcanic road encounter.",
     "creature_name": "Ember Wolf",
     "challenge_rating": "1",
     "role": "skirmisher",

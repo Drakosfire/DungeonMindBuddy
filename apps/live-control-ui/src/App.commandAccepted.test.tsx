@@ -30,6 +30,7 @@ vi.mock("./surface/InspectorPane", () => ({
 describe("App command accepted callback", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    window.history.pushState({}, "", "/surface");
     vi.mocked(liveApi.getSurface).mockResolvedValue({
       catalog: mockCatalog,
       layout: mockLayout,

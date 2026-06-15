@@ -61,6 +61,7 @@ class SourceRef(_PermissiveModel):
 
 class DraftIntent(_PermissiveModel):
     mode: DraftMode = "generate_from_prompt"
+    summary: str | None = None
     prompt: str | None = None
     creature_name: str | None = None
     challenge_rating: str | None = None

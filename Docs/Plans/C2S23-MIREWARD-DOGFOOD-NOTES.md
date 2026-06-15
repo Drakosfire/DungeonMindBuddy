@@ -4,10 +4,12 @@
 
 **Scope:** Queries asked, files opened, panes used, Cursor actions taken, friction observed, and follow-up product ideas. This is **not canon** and not a prep source by itself.
 
-**Last updated:** 2026-06-06 (prep slice committed)
+**Last updated:** 2026-06-13 (dynamic indexes for statblocks, NPCs, roll tables, locations; shell design doc)
 
 **Related planning docs:**
 
+- `Docs/Design/DESIGN-mireward-command-board-shell.md` — navigation, toolbox drawer, corpus index, accordion UX decisions
+- `Docs/Plans/HANDOFF-composable-editable-command-board-research.md` — next major upgrade: editable/composable prep surface (research handoff)
 - `Docs/Plans/C2S23-MIREWARD-PLANNING-SESSION-NOTES.md`
 - `Docs/Plans/HANDOFF-c2s23-mireward-planning-cursor-first.md`
 - `Docs/Plans/HANDOFF-c2s23-hester-edge-opening-combat.md`
@@ -28,6 +30,11 @@ Add a row when an action changes planning state, reveals friction, or suggests a
 | 2026-06-06 | Cursor chat + corpus | Lock S23 north-gate opening (party, refugees, clock, Lysandro) | Scaffold §F4; `brin_holloway/character_seed.md`; session notes | Table-ready lock: 55 souls, Brin count drift, 3–8 min meat clock, Lysandro as mobilizer | First draft prose was loose; required a tighten pass before corpus capture | Prompt pattern: "capture + tighten" as explicit operator ask |
 | 2026-06-06 | Static prep UI | Build / refresh `mireward-prep` panes | `index.html`, `timeline.html`, `npcs.html`, `roll-tables.html`, `statblocks.html`, `prep.js`, `prep.css` | Command board reflects north-gate lock; inline markdown embeds for tables and statblocks | Roll-table internal codes (`T-DIL-G`) unreadable; `data-repo` paths drifted from canonical corpus; embeds scrolled inside fixed-height boxes | Human titles on pane cards; link checker; full-height expand when `<details open>` |
 | 2026-06-06 | Git | Commit scoped prep slice | `cursor/c2s23-mireward-prep-ui` | 47 files pushed; unrelated working-tree dirt left unstaged | Large unrelated deletions in `Docs/Eldyrwild and Campaign Context/` would have polluted PR if not scoped | Scoped staging discipline for mixed worktrees |
+| 2026-06-13 | Static Command Board | Full statblock generator dogfood: root launcher → generate → accept → combat add/remove → corpus promote | `statblocks.html`, toolbox drawer in `prep.js`, `POST /api/live/statblocks/workbench/command`, corpus `Statblocks/generated/` | Operator confirmed end-to-end flow at table; Palisade Gnawer + Gatekisser + Obsidian Thornling on disk | Promoted files did not appear on statblocks page until dynamic index landed; `localhost` vs `127.0.0.1` localStorage mismatch caused false "buttons unchanged" reports | Dynamic corpus index (`GET /api/live/statblocks/index`) + refresh after promote |
+| 2026-06-13 | Static Command Board | Replace hand-curated NPC pane with corpus-backed dynamic index | `npcs.html`, `prep.js`, `GET /api/live/npcs/index`, Mireward + Campaign 2 NPC hubs | NPC page now reads allowlisted corpus hubs and embeds each primary seed/dossier inline | Static NPC cards duplicated corpus facts and required manual refresh when hubs changed | Reuse this pattern for other prep panes that are currently hand-maintained link dashboards |
+| 2026-06-13 | Static Command Board | Replace hand-curated roll-table pane with corpus-backed dynamic index | `roll-tables.html`, `prep.js`, `GET /api/live/roll-tables/index`, Session 22 prep tables, roads, wilderness, Mireward scaffold excerpt | Roll-table page now reads allowlisted corpus table paths and embeds each table or excerpt inline | Static roll-table cards duplicated file lists and hid broader table inventory | DB/indexing/query-layer investigation is now more urgent before adding more bespoke crawlers |
+| 2026-06-13 | Design capture | Document Command Board shell decisions (nav, toolbar, toolbox drawer, index/accordion patterns) | `Docs/Design/DESIGN-mireward-command-board-shell.md`; recent prep page rework | Single reference for why top nav + page toolbar + right drawer coexist; roll-table summary title rule; dynamic vs hand-authored blocks | Without a decisions doc, each new pane re-debates the same chrome | Link from handoffs when adding panes or toolbox tools |
+| 2026-06-13 | Static Command Board | Apply shell pattern to Locations pane | `locations.html`, `location_corpus_index.py`, `GET /api/live/locations/index` | 19 corpus rows: Mireward hub/scaffold/F4 excerpt, reach journey + road table, Mossford reference dossiers, Edge stub | Old card grid duplicated scaffold districts and omitted Mossford reference shape | Auto-pick up Mireward dossiers when `Mireward_Location_Dossiers/` promotes |
 
 ---
 
@@ -95,7 +102,9 @@ Use this for IDE actions that mattered: opening panes, editing notes, using mark
 | Corpus scaffold + NPC seeds | Durable locks after tighten pass | **High value** — correct promotion target for table facts |
 | `mireward-prep/index.html` command board | At-a-glance S23 lock + corpus entry points | **High value** once refreshed |
 | `roll-tables.html` inline embeds | Gate/travel tables without file hopping | **High value** after human-title fix |
+| `roll-tables.html` dynamic index | Corpus-backed table lookup without hand-maintained embeds | **High value** — third proof point for a shared corpus query layer |
 | `statblocks.html` | Combat mechanical reference | **High value** — should stay a first-class pane |
+| `npcs.html` | Table-facing cast index | **High value** after dynamic index — should stay corpus-backed instead of hand-curated |
 | Manifest / live-query harness | Used earlier (steps A–B); not re-run this block | Neutral — retrieval already logged in session notes |
 | RulesIngestion Mark III (subagent) | One PDF promotion attempt | **Blocked locally** — fallback path worked |
 
