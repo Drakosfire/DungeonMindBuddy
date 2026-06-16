@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Markdown theme fixtures — Mireward prep</title>
+  <link rel="stylesheet" href="assets/prep.css" />
+  <link rel="stylesheet" href="assets/prep-markdown-themes.css" />
+  <style>
+    .theme-fixture-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 16px;
+      align-items: start;
+    }
+
+    .theme-fixture-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 12px 0 18px;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <nav id="site-nav" class="site-nav"></nav>
+
+    <h1>Markdown theme fixtures</h1>
+    <p class="lead">Visual dogfood for command, statblock, and plain Markdown themes.</p>
+
+    <div class="callout callout-info">
+      <strong>Fixture page</strong>
+      This page is for visual review only. It is not an at-table play surface.
+    </div>
+
+    <section class="card">
+      <div class="card-hd">Modal preview dogfood</div>
+      <div class="card-bd">
+        <p class="muted">Open the shared sample through the existing Markdown modal path.</p>
+        <div class="theme-fixture-actions">
+          <a data-repo="evals/c2_live_prep/mireward-prep/fixtures/markdown-theme-sample.md">Open sample in Markdown modal</a>
+          <button type="button" data-fixture-theme="command">Open command modal</button>
+          <button type="button" data-fixture-theme="statblock">Open statblock modal</button>
+          <button type="button" data-fixture-theme="plain">Open plain modal</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="theme-fixture-grid" aria-label="Markdown theme comparison">
+      <article class="card">
+        <div class="card-hd">Command theme</div>
+        <div class="card-bd">
+          <div
+            class="md-embed"
+            data-md-embed="evals/c2_live_prep/mireward-prep/fixtures/markdown-theme-sample.md"
+            data-md-theme="command"
+          ></div>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="card-hd">Statblock theme</div>
+        <div class="card-bd">
+          <div
+            class="md-embed"
+            data-md-embed="evals/c2_live_prep/mireward-prep/fixtures/markdown-theme-sample.md"
+            data-md-theme="statblock"
+          ></div>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="card-hd">Plain theme</div>
+        <div class="card-bd">
+          <div
+            class="md-embed"
+            data-md-embed="evals/c2_live_prep/mireward-prep/fixtures/markdown-theme-sample.md"
+            data-md-theme="plain"
+          ></div>
+        </div>
+      </article>
+    </section>
+  </div>
+  <script src="assets/prep-markdown.js"></script>
+  <script src="assets/prep-markdown-themes.js"></script>
+  <script src="assets/prep.js"></script>
+  <script>
+    const fixtureMarkdownPath = "evals/c2_live_prep/mireward-prep/fixtures/markdown-theme-sample.md";
+
+    function openFixtureTheme(themeId) {
+      fetch(MirewardPrep.repoHref(fixtureMarkdownPath))
+        .then(function (res) {
+          if (!res.ok) throw new Error("HTTP " + res.status);
+          return res.text();
+        })
+        .then(function (text) {
+          MirewardPrep.openMarkdownFromText(
+            "Markdown theme fixture · " + themeId,
+            "Fixture sample",
+            text,
+            { theme: themeId }
+          );
+        })
+        .catch(function (err) {
+          MirewardPrep.openMarkdownFromText(
+            "Markdown theme fixture · " + themeId,
+            "Fixture sample",
+            "Could not load fixture markdown: " + err.message,
+            { theme: themeId }
+          );
+        });
+    }
+
+    MirewardPrep.initNav("markdown-theme-fixtures");
+    MirewardPrep.wireRepoLinks();
+    MirewardPrep.initMarkdownEmbeds();
+
+    document.querySelectorAll("[data-fixture-theme]").forEach(function (button) {
+      button.addEventListener("click", function () {
+        openFixtureTheme(button.getAttribute("data-fixture-theme"));
+      });
+    });
+  </script>
+</body>
+</html>

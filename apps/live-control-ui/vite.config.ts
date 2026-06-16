@@ -34,6 +34,9 @@ const prepPageAliases: Record<string, string> = {
   "/npcs.html": "npcs.html",
   "/roll-tables.html": "roll-tables.html",
   "/statblocks.html": "statblocks.html",
+  "/markdown-theme-fixtures": "markdown-theme-fixtures.html",
+  "/markdown-theme-fixtures/": "markdown-theme-fixtures.html",
+  "/markdown-theme-fixtures.html": "markdown-theme-fixtures.html",
 };
 
 function safeResolve(base: string, requestPath: string): string | null {
