@@ -810,7 +810,9 @@
     document.querySelectorAll("[data-md-embed]").forEach(function (host) {
       const rel = host.getAttribute("data-md-embed");
       if (!rel) return;
+      if (host.dataset.mdEmbedLoading === "true" || host.dataset.mdEmbedLoaded === "true") return;
 
+      host.dataset.mdEmbedLoading = "true";
       const themeId = markdownEmbedThemeId(host);
       const rawLink = host.parentElement && host.parentElement.querySelector("[data-md-embed-link]");
       if (rawLink) {
@@ -824,6 +826,7 @@
           themeId,
           '<div class="callout callout-warn"><strong>Cannot embed on file://</strong><p>Run the live-control UI dev server and open <code>http://localhost:5173/</code> so roll tables load inline.</p></div>'
         );
+        host.dataset.mdEmbedLoading = "false";
         return;
       }
 
@@ -845,8 +848,11 @@
             window.MirewardMarkdown.render(excerptMarkdown(text, start, end))
           );
           wireMarkdownBodyLinks(content, rel);
+          host.dataset.mdEmbedLoading = "false";
+          host.dataset.mdEmbedLoaded = "true";
         })
         .catch(function (err) {
+          host.dataset.mdEmbedLoading = "false";
           setMarkdownEmbedMessage(
             host,
             themeId,
