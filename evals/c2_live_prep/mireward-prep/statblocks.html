@@ -53,6 +53,18 @@
     </details>
 
     <details class="fold fold-section fold-muted">
+      <summary>Statblock theme embed dogfood</summary>
+      <div class="fold-bd">
+        <p class="muted">Inline statblock-themed Markdown preview for the north-gate meat baseline.</p>
+        <div
+          class="md-embed"
+          data-md-embed="corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/sewer_meat_creature_statblock_cr3.md"
+          data-md-theme="statblock"
+        ></div>
+      </div>
+    </details>
+
+    <details class="fold fold-section fold-muted">
       <summary>Corpus &amp; planning sources</summary>
       <div class="fold-bd">
         <div class="file-row"><span class="label">Shepherd's Flock index</span><a data-repo="corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/README.md">Statblocks and Tokens README</a></div>
@@ -68,6 +80,7 @@
   <script>
     MirewardPrep.initNav("statblocks");
     MirewardPrep.wireRepoLinks();
+    MirewardPrep.initMarkdownEmbeds();
     MirewardPrep.initStatblockCorpusIndex();
   </script>
 </body>

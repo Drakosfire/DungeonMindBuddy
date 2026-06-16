@@ -77,6 +77,13 @@
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
 }
 
+.md-embed > .md-content.md-theme-command {
+  padding: 0;
+  border: 0;
+  box-shadow: none;
+  background: transparent;
+}
+
 .md-content.md-theme-command h1,
 .md-content.md-theme-command h2,
 .md-content.md-theme-command h3 {
