@@ -788,11 +788,30 @@
     return out;
   }
 
+  function markdownEmbedThemeId(el) {
+    if (!el || !el.getAttribute) return "command";
+    return el.getAttribute("data-md-theme") || "command";
+  }
+
+  function setMarkdownEmbedContent(host, themeId, html) {
+    if (!host) return null;
+    host.innerHTML = '<div class="md-content"></div>';
+    const content = host.querySelector(".md-content");
+    applyMarkdownContentTheme(content, themeId || "command");
+    content.innerHTML = html;
+    return content;
+  }
+
+  function setMarkdownEmbedMessage(host, themeId, html) {
+    setMarkdownEmbedContent(host, themeId, html);
+  }
+
   function initMarkdownEmbeds() {
     document.querySelectorAll("[data-md-embed]").forEach(function (host) {
       const rel = host.getAttribute("data-md-embed");
       if (!rel) return;
 
+      const themeId = markdownEmbedThemeId(host);
       const rawLink = host.parentElement && host.parentElement.querySelector("[data-md-embed-link]");
       if (rawLink) {
         rawLink.setAttribute("data-repo", rel);
@@ -800,12 +819,15 @@
       }
 
       if (isFileProtocol()) {
-        host.innerHTML =
-          '<div class="callout callout-warn"><strong>Cannot embed on file://</strong><p>Run the live-control UI dev server and open <code>http://localhost:5173/</code> so roll tables load inline.</p></div>';
+        setMarkdownEmbedMessage(
+          host,
+          themeId,
+          '<div class="callout callout-warn"><strong>Cannot embed on file://</strong><p>Run the live-control UI dev server and open <code>http://localhost:5173/</code> so roll tables load inline.</p></div>'
+        );
         return;
       }
 
-      host.innerHTML = '<p class="muted">Loading table…</p>';
+      setMarkdownEmbedMessage(host, themeId, '<p class="muted">Loading table…</p>');
       fetch(repoHref(rel))
         .then(function (res) {
           if (!res.ok) throw new Error("HTTP " + res.status + " for " + rel);
@@ -817,14 +839,21 @@
           }
           const start = host.getAttribute("data-md-start") || "";
           const end = host.getAttribute("data-md-end") || "";
-          host.innerHTML = window.MirewardMarkdown.render(excerptMarkdown(text, start, end));
-          wireMarkdownBodyLinks(host, rel);
+          const content = setMarkdownEmbedContent(
+            host,
+            themeId,
+            window.MirewardMarkdown.render(excerptMarkdown(text, start, end))
+          );
+          wireMarkdownBodyLinks(content, rel);
         })
         .catch(function (err) {
-          host.innerHTML =
+          setMarkdownEmbedMessage(
+            host,
+            themeId,
             '<div class="callout callout-warn"><strong>Could not embed table</strong><p>' +
-            escapeHtml((err && err.message) || "Failed to load markdown file.") +
-            "</p></div>";
+              escapeHtml((err && err.message) || "Failed to load markdown file.") +
+              "</p></div>"
+          );
         });
     });
   }

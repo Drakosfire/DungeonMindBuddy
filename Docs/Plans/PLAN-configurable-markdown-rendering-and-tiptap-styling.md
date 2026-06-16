@@ -280,11 +280,11 @@ Make inline `data-md-embed` blocks use the same theme system.
 
 In `initMarkdownEmbeds` / render path:
 
-- [ ] Read `data-md-theme` from embed element.
-- [ ] Apply theme to the rendered `.md-embed` or contained `.md-content`.
-- [ ] Keep lazy loading behavior unchanged.
-- [ ] Preserve current file:// guard.
-- [ ] Preserve existing line-range embed behavior.
+- [x] Read `data-md-theme` from embed element.
+- [x] Apply theme to the rendered `.md-embed` or contained `.md-content`.
+- [x] Keep lazy loading behavior unchanged.
+- [x] Preserve current file:// guard.
+- [x] Preserve existing line-range embed behavior.
 
 Example HTML:
 
