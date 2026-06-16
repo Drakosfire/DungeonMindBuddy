@@ -201,6 +201,19 @@
     document.body.classList.remove("md-viewer-open");
   }
 
+  function applyMarkdownContentTheme(el, themeId) {
+    const resolvedThemeId = themeId || "command";
+    const tools = window.MirewardMarkdownThemeTools;
+    if (!el || !tools || typeof tools.applyMarkdownTheme !== "function") {
+      if (el && resolvedThemeId && el.setAttribute) {
+        el.setAttribute("data-md-theme", resolvedThemeId);
+      }
+      return resolvedThemeId;
+    }
+
+    return tools.applyMarkdownTheme(el, resolvedThemeId);
+  }
+
   function setMarkdownViewerState(kind, repoRelative, message, viewerMeta) {
     viewerMeta = viewerMeta || {};
     const root = ensureMarkdownModal();
@@ -224,6 +237,9 @@
     }
 
     if (!body) return;
+
+    const themeId = viewerMeta.theme || "command";
+    applyMarkdownContentTheme(body, themeId);
 
     if (kind === "loading") {
       body.innerHTML = '<p class="md-viewer-status">' + escapeHtml(message) + "</p>";
@@ -299,12 +315,13 @@
     return window.MirewardMarkdown.render(markdown);
   }
 
-  function openMarkdownFromText(displayTitle, sourceLabel, markdownText) {
+  function openMarkdownFromText(displayTitle, sourceLabel, markdownText, options) {
     const markdown = String(markdownText || "");
     const viewerMeta = {
       displayTitle: displayTitle || "Statblock draft",
       sourceLabel: sourceLabel || "Generated draft",
       hideRaw: true,
+      theme: (options && options.theme) || "command",
     };
     if (!markdown.trim()) {
       setMarkdownViewerState("error", "", "No markdown content to preview.", viewerMeta);
@@ -322,14 +339,16 @@
       openMarkdownFromText(
         (entity && entity.name) || "Generated combatant",
         "Generated draft · local combat tracker",
-        "No stored markdown for this combatant."
+        "No stored markdown for this combatant.",
+        { theme: "statblock" }
       );
       return;
     }
     openMarkdownFromText(
       entity.generatedTitle || entity.name,
       "Generated draft · local combat tracker",
-      entity.generatedMarkdown
+      entity.generatedMarkdown,
+      { theme: "statblock" }
     );
   }
 
@@ -1844,7 +1863,8 @@
       openMarkdownFromText(
         currentArtifact.title || "Statblock draft",
         "Command Board statblock generator",
-        currentArtifact.markdown
+        currentArtifact.markdown,
+        { theme: "statblock" }
       );
     }
 
