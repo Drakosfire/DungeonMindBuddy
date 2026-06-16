@@ -219,14 +219,14 @@ Make the existing Markdown modal styleable by config without changing renderer o
 
 Modify `setMarkdownViewerState(kind, repoRelative, message, viewerMeta)`:
 
-- [ ] Read `viewerMeta.theme`.
-- [ ] Get `#md-viewer-body`.
-- [ ] Clear previous theme classes and inline `--md-*` variables.
-- [ ] Apply chosen theme class.
-- [ ] Apply theme variables with `style.setProperty`.
-- [ ] Add `data-md-theme="<themeId>"`.
-- [ ] Render existing HTML exactly as before.
-- [ ] Keep `wireMarkdownBodyLinks(body, repoRelative)` unchanged.
+- [x] Read `viewerMeta.theme`.
+- [x] Get `#md-viewer-body`.
+- [x] Clear previous theme classes and inline `--md-*` variables.
+- [x] Apply chosen theme class.
+- [x] Apply theme variables with `style.setProperty`.
+- [x] Add `data-md-theme="<themeId>"`.
+- [x] Render existing HTML exactly as before.
+- [x] Keep `wireMarkdownBodyLinks(body, repoRelative)` unchanged.
 
 Suggested helper:
 
@@ -641,15 +641,15 @@ Acceptance checks:
 
 - [ ] Add `prep-markdown-themes.js`.
 - [ ] Add `prep-markdown-themes.css`.
-- [ ] Load both on pages that use Markdown viewer/embed.
-- [ ] Add helper functions to `prep.js`.
+- [x] Load both on pages that use Markdown viewer/embed.
+- [x] Add helper functions to `prep.js`.
 
 ### Step B — Wire modal viewer
 
-- [ ] Accept `viewerMeta.theme`.
-- [ ] Apply theme to `#md-viewer-body`.
-- [ ] Use command theme by default.
-- [ ] Use statblock theme for generated statblock preview.
+- [x] Accept `viewerMeta.theme`.
+- [x] Apply theme to `#md-viewer-body`.
+- [x] Use command theme by default.
+- [x] Use statblock theme for generated statblock preview.
 
 ### Step C — Wire embeds
 
