@@ -798,6 +798,6 @@ Once v1 is proven:
 - [ ] Add Tiptap semantic node parity.
 - [ ] Add Markdown export from Tiptap with semantic syntax.
 - [ ] Add theme config endpoint.
-- [x] Add screenshot/visual regression fixtures.
+- [ ] Add screenshot/visual regression fixtures.
 - [ ] Add print preview mode.
 - [ ] Add page/handout rendering mode using Canvas compatibility rules.

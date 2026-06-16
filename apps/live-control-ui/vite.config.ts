@@ -35,7 +35,6 @@ const prepPageAliases: Record<string, string> = {
   "/roll-tables.html": "roll-tables.html",
   "/statblocks.html": "statblocks.html",
   "/markdown-theme-fixtures": "markdown-theme-fixtures.html",
-  "/markdown-theme-fixtures/": "markdown-theme-fixtures.html",
   "/markdown-theme-fixtures.html": "markdown-theme-fixtures.html",
 };
 
