@@ -1,40 +1,40 @@
-.md-content {
+.md-content[data-md-theme] {
   color: var(--md-fg, var(--fg));
   background: var(--md-bg, transparent);
 }
 
-.md-content h1,
-.md-content h2,
-.md-content h3,
-.md-content h4 {
+.md-content[data-md-theme] h1,
+.md-content[data-md-theme] h2,
+.md-content[data-md-theme] h3,
+.md-content[data-md-theme] h4 {
   color: var(--md-heading, var(--md-fg, var(--fg)));
 }
 
-.md-content a {
+.md-content[data-md-theme] a {
   color: var(--md-accent, var(--accent));
 }
 
-.md-content table {
+.md-content[data-md-theme] table {
   width: 100%;
   border-collapse: collapse;
   margin: 0.75rem 0;
 }
 
-.md-content th,
-.md-content td {
+.md-content[data-md-theme] th,
+.md-content[data-md-theme] td {
   border: 1px solid var(--md-border, var(--border));
   padding: 0.4rem 0.55rem;
   vertical-align: top;
 }
 
-.md-content blockquote {
+.md-content[data-md-theme] blockquote {
   margin: 0.75rem 0;
   padding: 0.6rem 0.85rem;
   border-left: 4px solid var(--md-accent, var(--accent));
   background: var(--md-surface, var(--bg-input));
 }
 
-.md-content code {
+.md-content[data-md-theme] code {
   font-family: var(--mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
   color: var(--md-fg, var(--fg));
   background: var(--md-surface, var(--bg-input));
@@ -43,7 +43,7 @@
   padding: 0.05rem 0.25rem;
 }
 
-.md-content pre {
+.md-content[data-md-theme] pre {
   overflow-x: auto;
   margin: 0.75rem 0;
   padding: 0.75rem;
@@ -52,19 +52,19 @@
   background: var(--md-surface, var(--bg-input));
 }
 
-.md-content pre code {
+.md-content[data-md-theme] pre code {
   display: block;
   padding: 0;
   border: 0;
   background: transparent;
 }
 
-.md-content ul,
-.md-content ol {
+.md-content[data-md-theme] ul,
+.md-content[data-md-theme] ol {
   padding-left: 1.4rem;
 }
 
-.md-content hr {
+.md-content[data-md-theme] hr {
   border: 0;
   border-top: 1px solid var(--md-border, var(--border));
   margin: 1rem 0;
