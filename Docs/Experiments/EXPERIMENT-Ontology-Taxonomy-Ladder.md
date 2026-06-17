@@ -128,6 +128,18 @@ Tiptap may change how `SourceDocument` and `SourceBlock` are produced. It should
 - Keep smoke and branch checks working.
 - Add no graph logic yet.
 
+## Baseline Case Manifest
+
+Rung 1 baseline cases are tracked in:
+
+`evals/graph_memory_layer/baseline_cases.json`
+
+Human-readable index:
+
+`evals/graph_memory_layer/BASELINE-INDEX.md`
+
+These cases define the graph-native failure families future ladder rungs must preserve, measure, or improve before promotion.
+
 ### Rung 2: Taxonomy Before Ontology
 
 Define controlled vocabularies before defining graph edges. Initial vocabulary areas include:
