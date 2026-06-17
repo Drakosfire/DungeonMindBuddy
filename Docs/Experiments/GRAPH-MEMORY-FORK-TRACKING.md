@@ -1,6 +1,7 @@
 # Graph Memory Experiment Fork Tracking
 
 Status: active experiment
+Fork enforcement status: bootstrap-only / not yet active
 Canonical repo: Drakosfire/DungeonMindBuddy (upstream remote not configured locally)
 Experiment fork: local-only experiment branch stack (origin remote not configured locally)
 Experiment root branch: experiment/graph-memory-layer
@@ -16,6 +17,8 @@ Last verified: 2026-06-16
 No experiment work should be committed directly to canonical `main`.
 
 Current local verification: no Git remotes are configured in this checkout, so this PR uses the local experiment branch fallback until a fork remote is available.
+
+This first scaffold PR is a bootstrap PR targeting `main`; strict fork/branch enforcement begins with the next Graph Memory experiment PR. If the hosted PR branch name differs from `graph-exp/00-fork-tracking-baseline`, treat this document as the contract to use for subsequent stacked experiment branches rather than evidence that enforcement is already active for this bootstrap PR.
 
 ## Branch Contract
 
@@ -53,6 +56,16 @@ $ git status --short
 $ git log -1 --oneline
 01772eb graph experiment design
 ```
+
+## Future Strict Git-Context Check
+
+Future PRs should run the smoke runner with strict git-context validation once the experiment fork/branch stack is active:
+
+```bash
+uv run python -m evals.graph_memory_layer.run_smoke --check-git-context
+```
+
+The strict check is intentionally opt-in for this bootstrap PR because fork enforcement is not yet active.
 
 ## Safety Rules
 

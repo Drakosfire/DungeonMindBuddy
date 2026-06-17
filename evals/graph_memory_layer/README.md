@@ -25,6 +25,12 @@ The smoke runner must not require an OpenAI key, environment variables, network 
 uv run python -m evals.graph_memory_layer.run_smoke
 ```
 
+Once fork enforcement is active for later stacked PRs, also run:
+
+```bash
+uv run python -m evals.graph_memory_layer.run_smoke --check-git-context
+```
+
 ## Future PRs
 
 Later phases may add graph materialization, graph reports, graph-shadow retrieval, entity candidates, relationship candidates, taxonomy governance, and live retrieval shadow mode.

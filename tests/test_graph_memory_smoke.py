@@ -16,6 +16,7 @@ def test_graph_memory_smoke_runner_exits_zero() -> None:
 
     assert result.returncode == 0, result.stdout + result.stderr
     assert "no-LLM baseline scaffold: ready" in result.stdout
+    assert "Docs/Design/EXPERIMENT-dungeonbuddy-graph.md" in result.stdout
 
 
 def test_graph_memory_scaffold_files_exist() -> None:

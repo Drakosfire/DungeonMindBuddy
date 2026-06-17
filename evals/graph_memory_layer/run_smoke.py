@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import argparse
+import subprocess
 from pathlib import Path
 
 
@@ -19,6 +21,8 @@ REQUIRED_DIRS = (
     REPO_ROOT / "evals" / "graph_memory_layer" / "artifacts",
     REPO_ROOT / "evals" / "graph_memory_layer" / "artifacts" / "baseline",
 )
+EXPECTED_STACKED_BRANCH = "graph-exp/00-fork-tracking-baseline"
+FORBIDDEN_BRANCHES = {"main", "master"}
 
 
 def find_experiment_doc() -> Path | None:
@@ -31,14 +35,55 @@ def find_experiment_doc() -> Path | None:
             continue
         for candidate in sorted(directory.iterdir()):
             name = candidate.name.lower()
-            if candidate.is_file() and "graph" in name and "memory" in name:
+            is_experiment_plan = name.startswith("experiment") or "experiment" in name
+            if not (
+                candidate.is_file()
+                and is_experiment_plan
+                and "graph" in name
+                and "fork-tracking" not in name
+            ):
+                continue
+            if "memory" in name:
+                return candidate
+            heading = candidate.read_text(encoding="utf-8", errors="ignore")[:500].lower()
+            if "graph" in heading and "memory" in heading:
                 return candidate
     return None
 
 
+def current_branch() -> str | None:
+    """Return the current Git branch name, or None when Git is unavailable."""
+    result = subprocess.run(
+        ["git", "branch", "--show-current"],
+        cwd=REPO_ROOT,
+        check=False,
+        text=True,
+        capture_output=True,
+    )
+    if result.returncode != 0:
+        return None
+    branch = result.stdout.strip()
+    return branch or None
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--check-git-context",
+        action="store_true",
+        help=(
+            "enforce the future Graph Memory stacked branch contract; "
+            "intended for post-bootstrap experiment PRs"
+        ),
+    )
+    return parser.parse_args()
+
+
 def main() -> int:
+    args = parse_args()
     experiment_doc = find_experiment_doc()
     missing: list[str] = []
+    failures: list[str] = []
 
     if not TRACKING_DOC.is_file():
         missing.append(str(TRACKING_DOC.relative_to(REPO_ROOT)))
@@ -49,19 +94,45 @@ def main() -> int:
         if not directory.is_dir():
             missing.append(str(directory.relative_to(REPO_ROOT)))
 
+    branch = current_branch() if args.check_git_context else None
+    if args.check_git_context:
+        if branch is None:
+            failures.append("unable to determine current Git branch")
+        elif branch in FORBIDDEN_BRANCHES:
+            failures.append(f"current branch must not be {branch!r}")
+        elif branch != EXPECTED_STACKED_BRANCH:
+            failures.append(
+                "current branch is "
+                f"{branch!r}; expected {EXPECTED_STACKED_BRANCH!r}"
+            )
+
     print("Graph Memory Layer smoke check")
     print(f"- fork tracking doc: {'found' if TRACKING_DOC.is_file() else 'missing'}")
-    print(f"- experiment doc: {'found' if experiment_doc is not None else 'missing'}")
+    if experiment_doc is None:
+        print("- experiment doc: missing")
+    else:
+        print(f"- experiment doc: found ({experiment_doc.relative_to(REPO_ROOT)})")
     print(
         "- baseline artifacts dir: "
         f"{'found' if REQUIRED_DIRS[-1].is_dir() else 'missing'}"
     )
+    if args.check_git_context:
+        print(
+            "- git context: "
+            f"{'ready' if not failures else 'blocked'}"
+            f" ({branch or 'unknown'})"
+        )
 
-    if missing:
+    if missing or failures:
         print("- no-LLM baseline scaffold: blocked")
-        print("Missing required scaffold paths:")
-        for path in missing:
-            print(f"  - {path}")
+        if missing:
+            print("Missing required scaffold paths:")
+            for path in missing:
+                print(f"  - {path}")
+        if failures:
+            print("Git context failures:")
+            for failure in failures:
+                print(f"  - {failure}")
         return 1
 
     print("- no-LLM baseline scaffold: ready")
