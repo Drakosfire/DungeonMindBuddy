@@ -503,6 +503,18 @@ Acceptance checks:
 
 Add DungeonBuddy-specific semantic blocks only after wrapper theming is proven.
 
+### Semantic callout coverage
+
+- [x] Add blockquote-compatible semantic callout syntax.
+- [x] Add `read-aloud`, `gm-note`, `rules`, and `warning` callouts.
+- [x] Style semantic callouts across `command`, `statblock`, and `plain`.
+- [x] Add semantic callouts to the fixture sample.
+- [ ] Add Tiptap semantic node parity.
+
+> Note: `gm-note` is semantic presentation only. It is not privacy or access
+> control, and future player-facing/Tiptap surfaces must not treat it as hidden
+> content automatically.
+
 Candidate syntax:
 
 ```md
@@ -624,6 +636,22 @@ Acceptance checks:
 - [ ] Test table-heavy markdown file.
 - [ ] Test file:// guard still works.
 - [ ] Test mobile width.
+
+
+### Fixture coverage
+
+- [x] Add a visual fixture page for Markdown themes.
+- [x] Include command/statblock/plain comparisons.
+- [x] Include table/list/code/blockquote/link samples.
+- [x] Include inline embed dogfood.
+- [x] Include modal preview dogfood.
+
+> PR 119 adds the fixture surface; browser visual review remains pending.
+
+### Manual fixture review notes
+
+- [x] PR 119 fixture page loaded and exposed first visual issue: `command` and `plain` appeared nearly identical in inline embeds.
+- [x] PR 120 differentiates `command` and `plain` through theme CSS only.
 
 ### Regression tests
 

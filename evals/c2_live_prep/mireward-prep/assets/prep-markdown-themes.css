@@ -34,6 +34,31 @@
   background: var(--md-surface, var(--bg-input));
 }
 
+.md-content[data-md-theme] .md-callout {
+  margin: 0.85rem 0;
+  padding: 0.75rem 0.9rem;
+  border: 1px solid var(--md-callout-border, var(--md-border, var(--border)));
+  border-left-width: 4px;
+  border-radius: var(--radius, 8px);
+  background: var(--md-callout-bg, var(--md-surface, var(--bg-input)));
+}
+
+.md-content[data-md-theme] .md-callout-label {
+  margin-bottom: 0.35rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.md-content[data-md-theme] .md-callout-body > :first-child {
+  margin-top: 0;
+}
+
+.md-content[data-md-theme] .md-callout-body > :last-child {
+  margin-bottom: 0;
+}
+
 .md-content[data-md-theme] code {
   font-family: var(--mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
   color: var(--md-fg, var(--fg));
@@ -91,13 +116,59 @@
   letter-spacing: 0.01em;
 }
 
+.md-content.md-theme-command h2,
+.md-content.md-theme-command h3 {
+  padding-bottom: 0.18rem;
+  border-bottom: 1px solid rgba(122, 162, 247, 0.22);
+}
+
+.md-content.md-theme-command h2 {
+  margin-top: 1.15rem;
+}
+
+.md-content.md-theme-command a {
+  font-weight: 600;
+  text-decoration-thickness: 0.08em;
+  text-underline-offset: 0.18em;
+}
+
 .md-content.md-theme-command th {
   color: var(--md-heading, var(--fg));
   background: rgba(122, 162, 247, 0.08);
 }
 
 .md-content.md-theme-command blockquote {
+  border-left-color: rgba(122, 162, 247, 0.72);
   border-radius: 0 var(--radius, 8px) var(--radius, 8px) 0;
+  background: rgba(122, 162, 247, 0.06);
+}
+
+.md-content.md-theme-command .md-callout-read-aloud {
+  --md-callout-border: rgba(122, 162, 247, 0.72);
+  --md-callout-bg: rgba(122, 162, 247, 0.07);
+}
+
+.md-content.md-theme-command .md-callout-gm-note {
+  --md-callout-border: rgba(187, 154, 247, 0.72);
+  --md-callout-bg: rgba(187, 154, 247, 0.07);
+}
+
+.md-content.md-theme-command .md-callout-rules {
+  --md-callout-border: rgba(125, 207, 255, 0.72);
+  --md-callout-bg: rgba(125, 207, 255, 0.06);
+}
+
+.md-content.md-theme-command .md-callout-warning {
+  --md-callout-border: rgba(255, 158, 100, 0.85);
+  --md-callout-bg: rgba(255, 158, 100, 0.08);
+}
+
+.md-content.md-theme-command code {
+  color: var(--md-accent, var(--accent));
+}
+
+.md-content.md-theme-command pre {
+  background: rgba(15, 17, 21, 0.52);
 }
 
 .md-content.md-theme-statblock {
@@ -152,11 +223,68 @@
   font-style: italic;
 }
 
+.md-content.md-theme-statblock .md-callout {
+  background: rgba(255, 249, 237, 0.74);
+  border-color: var(--md-border, #c0ad6a);
+}
+
+.md-content.md-theme-statblock .md-callout-label {
+  color: var(--md-heading, #58180d);
+  font-family: "Bookinsanity", "Book Antiqua", Georgia, serif;
+}
+
+.md-content.md-theme-statblock .md-callout-warning {
+  border-left-color: var(--md-accent, #a11d18);
+}
+
 .md-content.md-theme-statblock code,
 .md-content.md-theme-statblock pre {
   font-family: var(--mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
 }
 
 .md-content.md-theme-plain {
+  background: transparent;
+  box-shadow: none;
+}
+
+.md-content.md-theme-plain h1,
+.md-content.md-theme-plain h2,
+.md-content.md-theme-plain h3,
+.md-content.md-theme-plain h4 {
+  color: var(--md-fg, var(--fg));
+  letter-spacing: normal;
+}
+
+.md-content.md-theme-plain blockquote {
+  border-left-width: 2px;
+  border-left-color: var(--border);
+  border-radius: 0;
+  background: transparent;
+}
+
+.md-content.md-theme-plain .md-callout {
+  border-color: var(--border);
+  border-left-width: 3px;
+  background: transparent;
+  box-shadow: none;
+}
+
+.md-content.md-theme-plain .md-callout-label {
+  color: var(--fg);
+}
+
+.md-content.md-theme-plain th {
+  color: var(--md-fg, var(--fg));
+  background: transparent;
+  font-weight: 600;
+}
+
+.md-content.md-theme-plain code {
+  border-color: var(--border);
+  background: transparent;
+}
+
+.md-content.md-theme-plain pre {
+  border-color: var(--border);
   background: transparent;
 }

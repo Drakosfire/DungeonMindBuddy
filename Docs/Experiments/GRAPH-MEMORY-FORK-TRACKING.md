@@ -18,7 +18,7 @@ No experiment work should be committed directly to canonical `main`.
 
 Current local verification: no Git remotes are configured in this checkout, so this PR uses the local experiment branch fallback until a fork remote is available.
 
-This first scaffold PR is a bootstrap PR targeting `main`; strict fork/branch enforcement begins with the next Graph Memory experiment PR. Strict mode accepts the experiment root branch (`experiment/graph-memory-layer`) and stacked branches matching `graph-exp/*`; use `--expected-branch` when a handoff needs one exact branch.
+This first scaffold PR is a bootstrap PR targeting `main`; strict fork/branch enforcement begins with the next Graph Memory experiment PR. If the hosted PR branch name differs from `graph-exp/00-fork-tracking-baseline`, treat this document as the contract to use for subsequent stacked experiment branches rather than evidence that enforcement is already active for this bootstrap PR.
 
 ## Branch Contract
 
@@ -63,12 +63,6 @@ Future PRs should run the smoke runner with strict git-context validation once t
 
 ```bash
 uv run python -m evals.graph_memory_layer.run_smoke --check-git-context
-```
-
-The strict check accepts `experiment/graph-memory-layer` and any `graph-exp/*` stacked branch. It rejects `main`, `master`, and arbitrary non-experiment branches. To enforce a specific handoff branch, pass `--expected-branch` with `--check-git-context`:
-
-```bash
-uv run python -m evals.graph_memory_layer.run_smoke --check-git-context --expected-branch graph-exp/01-freeze-baseline-reports
 ```
 
 The strict check is intentionally opt-in for this bootstrap PR because fork enforcement is not yet active.
