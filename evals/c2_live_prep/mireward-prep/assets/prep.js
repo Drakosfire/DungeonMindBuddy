@@ -23,6 +23,7 @@
     { id: "npcs", label: "NPCs", href: "npcs.html" },
     { id: "roll-tables", label: "Roll tables", href: "roll-tables.html" },
     { id: "statblocks", label: "Statblocks", href: "statblocks.html" },
+    { id: "markdown-theme-fixtures", label: "Theme fixtures", href: "markdown-theme-fixtures.html" },
   ];
 
   function isFileProtocol() {

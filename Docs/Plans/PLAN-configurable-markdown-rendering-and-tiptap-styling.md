@@ -625,6 +625,17 @@ Acceptance checks:
 - [ ] Test file:// guard still works.
 - [ ] Test mobile width.
 
+
+### Fixture coverage
+
+- [x] Add a visual fixture page for Markdown themes.
+- [x] Include command/statblock/plain comparisons.
+- [x] Include table/list/code/blockquote/link samples.
+- [x] Include inline embed dogfood.
+- [x] Include modal preview dogfood.
+
+> PR 119 adds the fixture surface; browser visual review remains pending.
+
 ### Regression tests
 
 - [ ] Existing Command Board nav unchanged.
