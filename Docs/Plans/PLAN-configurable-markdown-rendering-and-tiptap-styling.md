@@ -503,6 +503,18 @@ Acceptance checks:
 
 Add DungeonBuddy-specific semantic blocks only after wrapper theming is proven.
 
+### Semantic callout coverage
+
+- [x] Add blockquote-compatible semantic callout syntax.
+- [x] Add `read-aloud`, `gm-note`, `rules`, and `warning` callouts.
+- [x] Style semantic callouts across `command`, `statblock`, and `plain`.
+- [x] Add semantic callouts to the fixture sample.
+- [ ] Add Tiptap semantic node parity.
+
+> Note: `gm-note` is semantic presentation only. It is not privacy or access
+> control, and future player-facing/Tiptap surfaces must not treat it as hidden
+> content automatically.
+
 Candidate syntax:
 
 ```md

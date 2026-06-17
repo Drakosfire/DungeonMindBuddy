@@ -37,6 +37,51 @@
     return s;
   }
 
+  const CALLOUT_TYPES = {
+    "read-aloud": { type: "read-aloud", label: "Read aloud" },
+    readaloud: { type: "read-aloud", label: "Read aloud" },
+    "read-aloud-text": { type: "read-aloud", label: "Read aloud" },
+    "gm-note": { type: "gm-note", label: "GM note" },
+    gm: { type: "gm-note", label: "GM note" },
+    "dm-note": { type: "gm-note", label: "GM note" },
+    dm: { type: "gm-note", label: "GM note" },
+    rules: { type: "rules", label: "Rules" },
+    rule: { type: "rules", label: "Rules" },
+    "rules-note": { type: "rules", label: "Rules" },
+    warning: { type: "warning", label: "Warning" },
+    warn: { type: "warning", label: "Warning" },
+    danger: { type: "warning", label: "Warning" },
+  };
+
+  function renderCallout(quoteLines) {
+    if (!quoteLines.length) return "";
+    const marker = quoteLines[0].match(/^\s*\[!([A-Za-z0-9_-]+)\]\s*(.*)$/);
+    if (!marker) return "";
+
+    const callout = CALLOUT_TYPES[marker[1].toLowerCase()];
+    if (!callout) return "";
+
+    const customLabel = marker[2].trim();
+    const label = customLabel || callout.label;
+    const bodyLines = quoteLines.slice(1);
+    const bodyHtml = renderMarkdown(bodyLines.join("\n"));
+
+    return (
+      '<aside class="md-callout md-callout-' +
+      callout.type +
+      '" data-md-callout="' +
+      callout.type +
+      '">' +
+      '<div class="md-callout-label">' +
+      inlineMarkdown(label) +
+      "</div>" +
+      '<div class="md-callout-body">' +
+      bodyHtml +
+      "</div>" +
+      "</aside>"
+    );
+  }
+
   function isTableRow(line) {
     return /^\s*\|/.test(line);
   }
@@ -127,7 +172,7 @@
           quote.push(lines[i].replace(/^>\s?/, ""));
           i++;
         }
-        out.push("<blockquote><p>" + inlineMarkdown(quote.join(" ")) + "</p></blockquote>");
+        out.push(renderCallout(quote) || "<blockquote><p>" + inlineMarkdown(quote.join(" ")) + "</p></blockquote>");
         continue;
       }
 
