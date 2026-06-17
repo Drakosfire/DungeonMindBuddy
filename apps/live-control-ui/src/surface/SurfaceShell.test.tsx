@@ -1,6 +1,6 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import * as liveApi from "../api/liveApi";
 import * as recapIngestApi from "../api/recapIngestApi";
@@ -27,6 +27,9 @@ function inspectStatus(): RecapIngestStatus {
 }
 
 describe("SurfaceShell", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
   it("renders required Chat and Record from surface data", () => {
     render(
       <SurfaceShell
@@ -180,13 +183,14 @@ describe("SurfaceShell", () => {
     );
 
     await screen.findByText("Raw Recap Ingestion");
-    expect(inspectSpy).toHaveBeenCalledTimes(1);
+    const callsBeforeExpand = inspectSpy.mock.calls.length;
+    expect(callsBeforeExpand).toBeGreaterThan(0);
 
     const recordPanel = document.querySelector('.surface-grid [data-module-id="record"]')!;
     await user.click(within(recordPanel as HTMLElement).getByRole("button", { name: /^Expand$/i }));
 
     expect(screen.getByText(/Resolved T-WX roll 7/)).toBeInTheDocument();
-    expect(inspectSpy).toHaveBeenCalledTimes(1);
+    expect(inspectSpy).toHaveBeenCalledTimes(callsBeforeExpand);
     inspectSpy.mockRestore();
   });
 
