@@ -19,6 +19,20 @@ Lead paragraph with **bold**, *italic*, `inline code`, and a [relative Markdown 
 
 > Read-aloud-ish prose goes here. This is not semantic syntax yet; it is only a blockquote fixture.
 
+## Semantic Callout Fixtures
+
+> [!READ-ALOUD]
+> The rain hisses against the crystal road. Something massive moves beneath the swampwater.
+
+> [!GM-NOTE]
+> If the party hesitates, advance the breach clock by 1.
+
+> [!RULES]
+> Treat this as difficult terrain. Fire damage suppresses regeneration until the end of the next round.
+
+> [!WARNING]
+> The gate will fail in 3 rounds unless reinforced.
+
 ## Table Fixture
 
 | Creature | Role | CR | Notes |
