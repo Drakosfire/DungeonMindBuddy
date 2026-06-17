@@ -4,7 +4,7 @@
 
 **Scope:** Queries asked, files opened, panes used, Cursor actions taken, friction observed, and follow-up product ideas. This is **not canon** and not a prep source by itself.
 
-**Last updated:** 2026-06-13 (dynamic indexes for statblocks, NPCs, roll tables, locations; shell design doc)
+**Last updated:** 2026-06-17 (semantic callout dogfood and Live Play density pass)
 
 **Related planning docs:**
 
@@ -36,6 +36,7 @@ Add a row when an action changes planning state, reveals friction, or suggests a
 | 2026-06-13 | Design capture | Document Command Board shell decisions (nav, toolbar, toolbox drawer, index/accordion patterns) | `Docs/Design/DESIGN-mireward-command-board-shell.md`; recent prep page rework | Single reference for why top nav + page toolbar + right drawer coexist; roll-table summary title rule; dynamic vs hand-authored blocks | Without a decisions doc, each new pane re-debates the same chrome | Link from handoffs when adding panes or toolbox tools |
 | 2026-06-13 | Static Command Board | Apply shell pattern to Locations pane | `locations.html`, `location_corpus_index.py`, `GET /api/live/locations/index` | 19 corpus rows: Mireward hub/scaffold/F4 excerpt, reach journey + road table, Mossford reference dossiers, Edge stub | Old card grid duplicated scaffold districts and omitted Mossford reference shape | Auto-pick up Mireward dossiers when `Mireward_Location_Dossiers/` promotes |
 | 2026-06-17 | Static Command Board | Dogfooded semantic Markdown callouts in live-play runbook | `live-play.html`; `c2s23-north-gate-callout-runbook.md`; semantic callout renderer | Added a command-themed Markdown embed with read-aloud, GM note, rules, and warning blocks for the S23 north-gate opening | Proves callouts in an actual at-table surface instead of only the fixture page | Review during/after play for scan speed and collapse/default-open guidance |
+| 2026-06-17 | Static Command Board | Tidied Live Play page after semantic callout dogfood | `live-play.html`; north-gate runbook | Reduced redundant launch/source/provenance sections so Live Play reads as a cockpit instead of a source index | Semantic callouts are useful, but surrounding page chrome must stay sparse | Continue reviewing scan speed during/after table use |
 
 ---
 
@@ -92,6 +93,7 @@ Use this for IDE actions that mattered: opening panes, editing notes, using mark
 | Creative planning output was useful but too loose for corpus on first pass. | Operator needed an explicit "tighten then capture" cycle. | Two-step skill: `plan-beat` (prose) → `capture-beat` (scaffold/NPC seed edits). | idea |
 | Static HTML prep UI does not auto-update when corpus scaffold changes. | Operator must remember to ask for HTML refresh after narrative locks. | Scaffold-derived pane generation or manifest-driven prep board. | idea |
 | Mixed worktree (500+ unrelated paths) risked over-broad commits. | Scoped staging saved the PR from accidental deletions. | Agent commit skill: always show staged diff stat + explicit allowlist before commit. | ready |
+| Live Play became busy once runbook, source links, provenance, and launch cards coexisted. | At-table surfaces need ruthless information hierarchy. | Adopt a Command Board page rule: primary actions first, live runbook second, provenance collapsed by default. | ready |
 
 ---
 

@@ -516,6 +516,8 @@ Add DungeonBuddy-specific semantic blocks only after wrapper theming is proven.
 - [x] Add semantic callouts to fixture sample.
 - [x] Add semantic callouts to a real Live Play runbook.
 - [x] Embed the Live Play runbook through the existing `data-md-embed` path.
+- [x] Review first Live Play dogfood pass for page density.
+- [x] Tidy Live Play page so semantic callouts sit in a sparse at-table cockpit instead of a redundant source index.
 - [ ] Review semantic callouts during/after an actual table session.
 - [ ] Add Tiptap semantic node parity.
 

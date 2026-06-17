@@ -37,11 +37,11 @@
     </div>
 
     <h2>At-table launch</h2>
-    <p class="muted">Open these first. Everything below is supporting prep, provenance, or fallback context.</p>
+    <p class="muted">Open these first. Everything below supports the opening scene or deeper reference checks.</p>
     <div class="grid-2">
       <a class="card pane-card" href="combat.html">
         <div class="card-hd">North Reach Gate combat tracker <span class="pill pill-success">primary</span></div>
-        <div class="card-bd muted">Initiative barrel, HP, active turn, grouped meat threats, import/export, and browser persistence for the opening fight.</div>
+        <div class="card-bd muted">Initiative barrel, HP, active turn, grouped meat threats, and browser persistence for the opening fight.</div>
       </a>
       <a class="card pane-card" href="live-notes.html">
         <div class="card-hd">Live notes <span class="pill pill-info">scratch</span></div>
@@ -49,7 +49,7 @@
       </a>
       <a class="card pane-card" href="statblocks.html">
         <div class="card-hd">Statblock drilldown <span class="pill pill-info">reference</span></div>
-        <div class="card-bd muted">Rendered Shepherd's Flock sheets and quick-pick threat roles. Mock generation lives in the right-side Command toolbox on every page.</div>
+        <div class="card-bd muted">Rendered Shepherd's Flock sheets and quick-pick threat roles.</div>
       </a>
       <a class="card pane-card" href="roll-tables.html">
         <div class="card-hd">Roll tables <span class="pill pill-neutral">reference_tool</span></div>
@@ -57,42 +57,15 @@
       </a>
     </div>
 
-    <h2>Legacy surface reference</h2>
-
-    <div class="grid-2">
-      <div class="card">
-        <div class="card-hd">React live-control surface <span class="pill pill-neutral">idea mine</span></div>
-        <div class="card-bd">
-          <p class="muted">The old React surface remains useful for mining module/API ideas, but the static Command Board is the primary at-table product path.</p>
-          <div class="file-row"><span class="label">Backend state</span><a data-repo="evals/c2_live_prep/live/session_23/combat/current_combat.json">current_combat.json</a></div>
-          <div class="file-row"><span class="label">Surface layout</span><a data-repo="evals/c2_live_prep/live/session_23/surface_layout.json">session_23/surface_layout.json</a></div>
-        </div>
-      </div>
-      <div class="card">
-        <div class="card-hd">Bridge proof <span class="pill pill-neutral">reference</span></div>
-        <div class="card-bd">
-          <p class="muted">The bridge work proves schema ideas and save safety, but new Command Board work should target the static localStorage tracker first.</p>
-          <div class="file-row"><span class="label">Static save</span><a data-repo="evals/c2_live_prep/mireward-prep/saves/combat/longmont-c2__session_22__north_reach_gate__combat_state_v1.json">longmont-c2__session_22__north_reach_gate__combat_state_v1.json</a></div>
-          <div class="file-row"><span class="label">Bridge script</span><a data-repo="scripts/bridge_mireward_static_combat.py">bridge_mireward_static_combat.py</a></div>
-        </div>
-      </div>
-    </div>
-
-    <h2>Current table lock</h2>
-    <div class="callout callout-info">
-      <strong>S23 north-gate crisis</strong>
-      Party arrives with six level-5 PCs, two equal-level NPCs, and Lysandro. A shout goes up from the north end:
-      first alarm, then civilian names, then Brin Holloway forcing the count and clock. The column is **55 souls**,
-      about half glassy, with meat-things minutes behind. Lysandro's job is to make Mireward react before the town's
-      authorities finish arguing.
-    </div>
+    <h2>North-gate opening</h2>
+    <p class="muted">
+      Party outside the south approach · 55 Edge refugees at the north apron · 3–8 minutes before the meat flank.
+    </p>
 
     <details class="fold fold-section" open>
-      <summary>North-gate semantic callout runbook</summary>
+      <summary>North-gate opening runbook</summary>
       <div class="fold-bd">
-        <p class="muted">
-          Real at-table dogfood for semantic Markdown callouts: read-aloud, GM note, rules, and warning blocks.
-        </p>
+        <p class="muted">Opening read-aloud, GM reminders, pressure clocks, and escalation triggers.</p>
         <div
           class="md-embed"
           data-md-embed="evals/c2_live_prep/mireward-prep/content/c2s23-north-gate-callout-runbook.md"
@@ -100,27 +73,9 @@
         ></div>
       </div>
     </details>
-    <div class="grid-2">
-      <div class="card">
-        <div class="card-hd">Refugees and clock <span class="pill pill-warn">planning_scaffold</span></div>
-        <div class="card-bd">
-          <p class="muted">Locked count, alarm shape, Brin's unreliable numbers, Lysandro mobilization, road clock.</p>
-          <div class="file-row"><span class="label">Scaffold §F4</span><a data-repo="corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/Mireward_PLACE_BUILD_SCAFFOLD.md">Mireward_PLACE_BUILD_SCAFFOLD.md</a></div>
-          <div class="file-row"><span class="label">Planning notes</span><a data-repo="Docs/Plans/C2S23-MIREWARD-PLANNING-SESSION-NOTES.md">C2S23 session notes</a></div>
-        </div>
-      </div>
-      <div class="card">
-        <div class="card-hd">Meat threat ladder <span class="pill pill-neutral">reference_tool</span></div>
-        <div class="card-bd">
-          <p class="muted">Canonical Shepherd's Flock statblocks for the north-road flank.</p>
-          <div class="file-row"><span class="label">Threat index</span><a data-repo="corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/README.md">Statblocks and Tokens README</a></div>
-          <div class="file-row"><span class="label">Baseline meat</span><a data-repo="corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/sewer_meat_creature_statblock_cr3.md">sewer_meat_creature_statblock_cr3.md</a></div>
-        </div>
-      </div>
-    </div>
 
     <h2>Supporting panes</h2>
-    <p class="muted">Open these when the table asks for deeper context or when prep needs a source check.</p>
+    <p class="muted">Open these when the table needs broader context beyond the immediate launch actions.</p>
     <div class="grid-2">
       <a class="card pane-card" href="timeline.html">
         <div class="card-hd">Planned timeline</div>
@@ -136,40 +91,54 @@
       </a>
     </div>
 
-    <h2>Authority quick reference</h2>
-    <p><span class="pill pill-success">canon_play</span> S22 recap, Lysandro gate beat</p>
-    <p><span class="pill pill-info">derived_memory</span> Session memory JSONL for retrieval</p>
-    <p><span class="pill pill-warn">planning_scaffold</span> Scaffold, S22 prep runbooks — not play facts</p>
-    <p><span class="pill pill-neutral">reference_tool</span> Promoted gazetteer/dossiers, d100 tables</p>
+    <details class="fold fold-section fold-muted">
+      <summary>Reference, provenance, and legacy surfaces</summary>
+      <div class="fold-bd">
+        <h3>Authority</h3>
+        <p><span class="pill pill-success">canon_play</span> S22 recap, Lysandro gate beat</p>
+        <p><span class="pill pill-info">derived_memory</span> Session memory JSONL for retrieval</p>
+        <p><span class="pill pill-warn">planning_scaffold</span> Scaffold, S22 prep runbooks — not play facts</p>
+        <p><span class="pill pill-neutral">reference_tool</span> Promoted gazetteer/dossiers, d100 tables</p>
+        <div class="callout callout-warn">
+          <strong>Do not cite as past play</strong>
+          <a data-repo="corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/Mireward_PLACE_BUILD_SCAFFOLD.md">Mireward_PLACE_BUILD_SCAFFOLD.md</a>
+          and the gazetteer promotion preview are planning/reference until promoted and narrated at the table.
+        </div>
 
-    <div class="callout callout-warn">
-      <strong>Do not cite as past play</strong>
-      <a data-repo="corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/Mireward_PLACE_BUILD_SCAFFOLD.md">Mireward_PLACE_BUILD_SCAFFOLD.md</a>
-      and the gazetteer promotion preview are planning/reference until promoted and narrated at the table.
-    </div>
+        <h3>Source artifacts</h3>
+        <div class="file-row"><span class="label">Session notes</span><a data-repo="Docs/Plans/C2S23-MIREWARD-PLANNING-SESSION-NOTES.md">C2S23-MIREWARD-PLANNING-SESSION-NOTES.md</a></div>
+        <div class="file-row"><span class="label">Handoff</span><a data-repo="Docs/Plans/HANDOFF-c2s23-mireward-planning-cursor-first.md">HANDOFF-c2s23-mireward-planning-cursor-first.md</a></div>
+        <div class="file-row"><span class="label">Scaffold §F4</span><a data-repo="corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/Mireward_PLACE_BUILD_SCAFFOLD.md">Mireward_PLACE_BUILD_SCAFFOLD.md</a></div>
+        <div class="file-row"><span class="label">Threat index</span><a data-repo="corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/README.md">Statblocks and Tokens README</a></div>
+        <div class="file-row"><span class="label">Baseline meat</span><a data-repo="corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/sewer_meat_creature_statblock_cr3.md">sewer_meat_creature_statblock_cr3.md</a></div>
+        <div class="file-row"><span class="label">Gazetteer promotion preview</span><a data-repo="evals/c2_live_prep/artifacts/runs/2026-06-06/mireward_gazetteer_gate_promotion_preview.json">mireward_gazetteer_gate_promotion_preview.json</a></div>
+        <div class="file-row"><span class="label">loc-01 packet</span><a data-repo="evals/c2_live_prep/artifacts/runs/2026-06-06/c2s23_manifest_query_context_packet_loc-01.json">c2s23_manifest_query_context_packet_loc-01.json</a></div>
+        <div class="file-row"><span class="label">town-01 packet</span><a data-repo="evals/c2_live_prep/artifacts/runs/2026-06-06/c2s23_manifest_query_context_packet_town-01.json">c2s23_manifest_query_context_packet_town-01.json</a></div>
+        <div class="file-row"><span class="label">npc-01 packet</span><a data-repo="evals/c2_live_prep/artifacts/runs/2026-06-06/c2s23_manifest_query_context_packet_npc-01.json">c2s23_manifest_query_context_packet_npc-01.json</a></div>
+        <div class="file-row"><span class="label">Live query — opening location</span><a data-repo="evals/c2_live_prep/artifacts/runs/2026-06-06/live_query_loc_01_mireward_opening.json">live_query_loc_01_mireward_opening.json</a></div>
+        <div class="file-row"><span class="label">Live query — town/economy</span><a data-repo="evals/c2_live_prep/artifacts/runs/2026-06-06/live_query_town_01_mireward_opening.json">live_query_town_01_mireward_opening.json</a></div>
+        <div class="file-row"><span class="label">Live query — Lysandra state</span><a data-repo="evals/c2_live_prep/artifacts/runs/2026-06-06/live_query_npc_01_lysandra_state.json">live_query_npc_01_lysandra_state.json</a></div>
 
-    <h2>Source artifacts</h2>
-    <div class="file-row"><span class="label">Session notes</span><a data-repo="Docs/Plans/C2S23-MIREWARD-PLANNING-SESSION-NOTES.md">C2S23-MIREWARD-PLANNING-SESSION-NOTES.md</a></div>
-    <div class="file-row"><span class="label">Handoff</span><a data-repo="Docs/Plans/HANDOFF-c2s23-mireward-planning-cursor-first.md">HANDOFF-c2s23-mireward-planning-cursor-first.md</a></div>
-    <div class="file-row"><span class="label">Gazetteer promotion preview</span><a data-repo="evals/c2_live_prep/artifacts/runs/2026-06-06/mireward_gazetteer_gate_promotion_preview.json">mireward_gazetteer_gate_promotion_preview.json</a></div>
-    <div class="file-row"><span class="label">loc-01 packet</span><a data-repo="evals/c2_live_prep/artifacts/runs/2026-06-06/c2s23_manifest_query_context_packet_loc-01.json">c2s23_manifest_query_context_packet_loc-01.json</a></div>
-    <div class="file-row"><span class="label">town-01 packet</span><a data-repo="evals/c2_live_prep/artifacts/runs/2026-06-06/c2s23_manifest_query_context_packet_town-01.json">c2s23_manifest_query_context_packet_town-01.json</a></div>
-    <div class="file-row"><span class="label">npc-01 packet</span><a data-repo="evals/c2_live_prep/artifacts/runs/2026-06-06/c2s23_manifest_query_context_packet_npc-01.json">c2s23_manifest_query_context_packet_npc-01.json</a></div>
-    <div class="file-row"><span class="label">Live query — opening location</span><a data-repo="evals/c2_live_prep/artifacts/runs/2026-06-06/live_query_loc_01_mireward_opening.json">live_query_loc_01_mireward_opening.json</a></div>
-    <div class="file-row"><span class="label">Live query — town/economy</span><a data-repo="evals/c2_live_prep/artifacts/runs/2026-06-06/live_query_town_01_mireward_opening.json">live_query_town_01_mireward_opening.json</a></div>
-    <div class="file-row"><span class="label">Live query — Lysandra state</span><a data-repo="evals/c2_live_prep/artifacts/runs/2026-06-06/live_query_npc_01_lysandra_state.json">live_query_npc_01_lysandra_state.json</a></div>
+        <h3>Corpus entry points</h3>
+        <div class="file-row"><span class="label">Mireward hub README</span><a data-repo="corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/README.md">README.md</a></div>
+        <div class="file-row"><span class="label">Place build scaffold</span><a data-repo="corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/Mireward_PLACE_BUILD_SCAFFOLD.md">Mireward_PLACE_BUILD_SCAFFOLD.md</a></div>
+        <div class="file-row"><span class="label">Brin Holloway seed</span><a data-repo="corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/brin_holloway/character_seed.md">brin_holloway/character_seed.md</a></div>
+        <div class="file-row"><span class="label">Lysandro dossier</span><a data-repo="corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/lysandro_ironveil/lysandro_ironveil_character_dossier.md">lysandro_ironveil_character_dossier.md</a></div>
+        <div class="file-row"><span class="label">S22 recap</span><a data-repo="corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md">Session 22 - Mireward Road and Lysandro.md</a></div>
+        <div class="file-row"><span class="label">Journey — Mireward Reach</span><a data-repo="corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Journey - Mireward Reach (Campaign 2).md">Journey - Mireward Reach (Campaign 2).md</a></div>
+        <div class="file-row"><span class="label">Lysandro character seed</span><a data-repo="corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/lysandro_ironveil/character_seed.md">character_seed.md</a></div>
+        <div class="file-row"><span class="label">Shepherd's Flock statblocks</span><a data-repo="corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/README.md">Statblocks and Tokens README</a></div>
+        <div class="file-row"><span class="label">Corrupted meat golem</span><a data-repo="corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/corrupted_meat_golem_statblock_cr3.md">corrupted_meat_golem_statblock_cr3.md</a></div>
+        <div class="file-row"><span class="label">Fleshborn hybrid</span><a data-repo="corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/fleshborn_hybrid_statblock_cr3.md">fleshborn_hybrid_statblock_cr3.md</a></div>
 
-    <h3>Corpus entry points</h3>
-    <div class="file-row"><span class="label">Mireward hub README</span><a data-repo="corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/README.md">README.md</a></div>
-    <div class="file-row"><span class="label">Place build scaffold</span><a data-repo="corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/Mireward_PLACE_BUILD_SCAFFOLD.md">Mireward_PLACE_BUILD_SCAFFOLD.md</a></div>
-    <div class="file-row"><span class="label">Brin Holloway seed</span><a data-repo="corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/brin_holloway/character_seed.md">brin_holloway/character_seed.md</a></div>
-    <div class="file-row"><span class="label">Lysandro dossier</span><a data-repo="corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/lysandro_ironveil/lysandro_ironveil_character_dossier.md">lysandro_ironveil_character_dossier.md</a></div>
-    <div class="file-row"><span class="label">S22 recap</span><a data-repo="corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md">Session 22 - Mireward Road and Lysandro.md</a></div>
-    <div class="file-row"><span class="label">Journey — Mireward Reach</span><a data-repo="corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Journey - Mireward Reach (Campaign 2).md">Journey - Mireward Reach (Campaign 2).md</a></div>
-    <div class="file-row"><span class="label">Lysandro character seed</span><a data-repo="corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/lysandro_ironveil/character_seed.md">character_seed.md</a></div>
-    <div class="file-row"><span class="label">Shepherd's Flock statblocks</span><a data-repo="corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/README.md">Statblocks and Tokens README</a></div>
-    <div class="file-row"><span class="label">Corrupted meat golem</span><a data-repo="corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/corrupted_meat_golem_statblock_cr3.md">corrupted_meat_golem_statblock_cr3.md</a></div>
-    <div class="file-row"><span class="label">Fleshborn hybrid</span><a data-repo="corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/fleshborn_hybrid_statblock_cr3.md">fleshborn_hybrid_statblock_cr3.md</a></div>
+        <h3>Legacy / bridge references</h3>
+        <p class="muted">The old React surface and bridge proof remain useful for mining module/API ideas, but the static Command Board is the primary at-table product path.</p>
+        <div class="file-row"><span class="label">Backend state</span><a data-repo="evals/c2_live_prep/live/session_23/combat/current_combat.json">current_combat.json</a></div>
+        <div class="file-row"><span class="label">Surface layout</span><a data-repo="evals/c2_live_prep/live/session_23/surface_layout.json">session_23/surface_layout.json</a></div>
+        <div class="file-row"><span class="label">Static save</span><a data-repo="evals/c2_live_prep/mireward-prep/saves/combat/longmont-c2__session_22__north_reach_gate__combat_state_v1.json">longmont-c2__session_22__north_reach_gate__combat_state_v1.json</a></div>
+        <div class="file-row"><span class="label">Bridge script</span><a data-repo="scripts/bridge_mireward_static_combat.py">bridge_mireward_static_combat.py</a></div>
+      </div>
+    </details>
 
     <p class="footer-note">Scaffold items are prep until narrated at the table; statblocks are reference tooling.</p>
   </div>
