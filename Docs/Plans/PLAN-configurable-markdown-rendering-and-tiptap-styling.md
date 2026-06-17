@@ -636,6 +636,11 @@ Acceptance checks:
 
 > PR 119 adds the fixture surface; browser visual review remains pending.
 
+### Manual fixture review notes
+
+- [x] PR 119 fixture page loaded and exposed first visual issue: `command` and `plain` appeared nearly identical in inline embeds.
+- [x] PR 120 differentiates `command` and `plain` through theme CSS only.
+
 ### Regression tests
 
 - [ ] Existing Command Board nav unchanged.
