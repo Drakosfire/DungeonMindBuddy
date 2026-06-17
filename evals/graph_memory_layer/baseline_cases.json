@@ -1,0 +1,268 @@
+{
+  "version": "0.1",
+  "status": "baseline_case_manifest",
+  "workstream": "ontology_taxonomy_ladder",
+  "purpose": "Freeze graph-memory hard cases before taxonomy, ontology IR, materialization, or shadow retrieval work.",
+  "cases": [
+    {
+      "case_id": "C1S1_ROSTER_IDENTITY_ROUTING",
+      "title": "Roster identity routing: party and NPC identity bundle",
+      "campaign": "C1",
+      "session": "S1",
+      "failure_family": "roster_identity",
+      "current_risk": "Roster-style questions may require identity bundles that span party members, NPCs, routes, and hubs rather than one lexical sentence match.",
+      "why_graph_native": "A graph can represent participants, aliases, route attachments, and hub relationships separately from the text that mentions them.",
+      "future_graph_expectation": "A future graph-expanded retrieval path should measure whether roster and hub identity links improve recall while keeping each candidate evidence item source-unit grounded.",
+      "must_preserve": [
+        "source-grounded evidence only",
+        "no graph summary admitted as source evidence",
+        "no production retrieval behavior change in this rung"
+      ],
+      "must_improve_or_measure": [
+        "roster-style recall",
+        "party and NPC precision",
+        "route and hub identity traceability"
+      ],
+      "expected_future_trace": [
+        "query asks for a roster or identity bundle",
+        "graph resolves relevant participant or route nodes",
+        "graph proposes linked source-unit candidates",
+        "candidate evidence remains source-unit grounded"
+      ],
+      "notes": "Baseline definition only; this PR does not regenerate retrieval outputs or assert a complete roster."
+    },
+    {
+      "case_id": "C1S2_CLEAN_CONTROL",
+      "title": "Clean control: preserve a known low-risk retrieval case",
+      "campaign": "C1",
+      "session": "S2",
+      "failure_family": "clean_control",
+      "current_risk": "Graph expansion could add unnecessary context to a case that current retrieval already handles cleanly enough for baseline comparison.",
+      "why_graph_native": "A graph needs negative and control cases so expansion can be rejected when direct evidence is already sufficient.",
+      "future_graph_expectation": "Future graph work should show that graph-assisted paths do not degrade clean/control retrieval, citation grounding, or answer focus.",
+      "must_preserve": [
+        "clean direct evidence remains preferred",
+        "no graph summary admitted as source evidence",
+        "no production retrieval behavior change in this rung"
+      ],
+      "must_improve_or_measure": [
+        "control-case non-regression",
+        "unnecessary expansion rate",
+        "citation-grounded precision"
+      ],
+      "expected_future_trace": [
+        "query has direct source-unit support",
+        "graph expansion is measured but not blindly admitted",
+        "irrelevant expanded candidates are rejected or ranked below direct evidence"
+      ],
+      "notes": "This is a control-family baseline; future reports should attach real current-system outputs before promotion."
+    },
+    {
+      "case_id": "C1S3_LOCATION_HIERARCHY_STONEBRIDGE_RIVERS_EDGE",
+      "title": "Location hierarchy: Stonebridge / Rivers Edge Pub",
+      "campaign": "C1",
+      "session": "S3",
+      "failure_family": "location_hierarchy",
+      "current_risk": "Facts tied to a sublocation may not retrieve when the query names the parent location, or parent-location retrieval may over-attract unrelated sibling facts.",
+      "why_graph_native": "A graph can represent LOCATED_IN / CONTAINS_LOCATION separately from lexical route labels.",
+      "future_graph_expectation": "A graph-expanded retrieval path should connect Rivers Edge Pub evidence to Stonebridge queries without flooding unrelated Stonebridge context.",
+      "must_preserve": [
+        "source-grounded evidence only",
+        "no graph summary admitted as source evidence",
+        "no production retrieval behavior change in this rung"
+      ],
+      "must_improve_or_measure": [
+        "parent-to-sublocation recall",
+        "sibling-location precision",
+        "expansion traceability"
+      ],
+      "expected_future_trace": [
+        "query mentions parent location",
+        "graph resolves parent location node",
+        "graph traverses contained sublocation edge",
+        "candidate evidence remains source-unit grounded"
+      ],
+      "notes": "Baseline definition only; this PR does not regenerate retrieval outputs."
+    },
+    {
+      "case_id": "C1S13_ALIAS_IDENTITY_DRAVEN_NECROMANCER",
+      "title": "Alias identity bridge: Draven / necromancer role reference",
+      "campaign": "C1",
+      "session": "S13",
+      "failure_family": "alias_identity_bridge",
+      "current_risk": "Role, name, and alias-like references may fail to meet at retrieval time, while unsafe merging could collapse distinct entities without source support.",
+      "why_graph_native": "A graph can model alias candidates, role labels, and identity links with provenance and lifecycle state instead of treating every shared label as a merge.",
+      "future_graph_expectation": "Future graph work should measure whether name/role bridges improve recall while preserving merge caution and source-grounded traceability.",
+      "must_preserve": [
+        "no unsafe entity merge",
+        "source-grounded evidence only",
+        "no graph summary admitted as source evidence"
+      ],
+      "must_improve_or_measure": [
+        "alias-to-name recall",
+        "role-reference precision",
+        "identity-link provenance"
+      ],
+      "expected_future_trace": [
+        "query mentions a role or name variant",
+        "graph evaluates candidate identity or alias edge",
+        "edge provenance and lifecycle state are visible",
+        "candidate evidence remains source-unit grounded"
+      ],
+      "notes": "The case names the intended bridge focus; it does not assert a confirmed alias beyond existing source-backed artifacts."
+    },
+    {
+      "case_id": "C2S22_FINAL_BEAT_SESSION_RECALL",
+      "title": "Session-scoped final beat recall",
+      "campaign": "C2",
+      "session": "S22",
+      "failure_family": "session_scoped_final_beat",
+      "current_risk": "Questions such as the last thing that happened in a session may need session-bound ordering rather than topical similarity alone.",
+      "why_graph_native": "A graph can represent session membership, sequence, and final-beat candidate relationships separately from lexical overlap.",
+      "future_graph_expectation": "Future graph work should measure whether session-scoped ordering improves final-beat retrieval without pulling in neighboring-session events.",
+      "must_preserve": [
+        "session scope remains explicit",
+        "source-grounded evidence only",
+        "no production retrieval behavior change in this rung"
+      ],
+      "must_improve_or_measure": [
+        "final-beat recall",
+        "session-boundary precision",
+        "ordering traceability"
+      ],
+      "expected_future_trace": [
+        "query asks for the final beat of a session",
+        "graph resolves the session node",
+        "graph evaluates ordered source units or session-memory records",
+        "candidate evidence remains source-unit grounded"
+      ],
+      "notes": "Baseline definition only; future comparisons should attach measured outputs for the exact session artifacts used."
+    },
+    {
+      "case_id": "SESSION20_BREADCRUMB_NATURAL_QUERY",
+      "title": "Breadcrumb natural-language query over session-memory records",
+      "session": "S20",
+      "failure_family": "breadcrumb_natural_query",
+      "current_risk": "Natural-language questions over breadcrumbed or session-memory records may miss relevant context when query terms differ from normalized breadcrumb labels.",
+      "why_graph_native": "A graph can connect normalized breadcrumbs, routes, source units, and session-memory records while preserving the original evidence anchors.",
+      "future_graph_expectation": "Future graph work should measure whether breadcrumb-to-route relationships improve natural-query recall without overriding source-grounded citations.",
+      "must_preserve": [
+        "breadcrumb normalization does not become source evidence",
+        "source-grounded evidence only",
+        "no production retrieval behavior change in this rung"
+      ],
+      "must_improve_or_measure": [
+        "natural-query recall over breadcrumbed records",
+        "breadcrumb expansion precision",
+        "route-to-source traceability"
+      ],
+      "expected_future_trace": [
+        "query uses natural language rather than exact breadcrumb labels",
+        "graph resolves related breadcrumb or route nodes",
+        "graph proposes source-backed records",
+        "candidate evidence remains source-unit grounded"
+      ],
+      "notes": "Retained as a baseline family if session-memory breadcrumb records remain relevant; uncertain details should be clarified by later measured reports."
+    },
+    {
+      "case_id": "UNRESOLVED_HOOK_RESURFACING",
+      "title": "Unresolved hook resurfacing through relationships",
+      "failure_family": "unresolved_hook_resurfacing",
+      "current_risk": "Unresolved hooks may not share lexical query terms with the later situation where they should resurface.",
+      "why_graph_native": "A graph can represent hook status, related entities, locations, threats, and sessions as traversable relationships with explicit source support.",
+      "future_graph_expectation": "Future graph reports should measure whether unresolved hooks can be surfaced as candidates through relationships without treating inferred relevance as source truth.",
+      "must_preserve": [
+        "unresolved status remains explicit",
+        "inferred relevance is not source evidence",
+        "no production retrieval behavior change in this rung"
+      ],
+      "must_improve_or_measure": [
+        "hook resurfacing recall",
+        "relationship-path precision",
+        "authority and lifecycle traceability"
+      ],
+      "expected_future_trace": [
+        "query mentions a related entity, place, or threat",
+        "graph evaluates unresolved hook relationships",
+        "graph reports the path and source support",
+        "candidate evidence remains source-unit grounded"
+      ],
+      "notes": "Baseline definition only; no unresolved-hook registry is introduced in this PR."
+    },
+    {
+      "case_id": "HIGH_DEGREE_HUB_OVER_ATTRACTION",
+      "title": "High-degree hub over-attraction control",
+      "failure_family": "hub_over_attraction",
+      "current_risk": "Broad hubs may connect to many records and flood retrieval context when graph expansion treats every edge as equally useful.",
+      "why_graph_native": "A graph can expose node degree, edge type, and expansion path so broad hubs can be measured, capped, or rejected.",
+      "future_graph_expectation": "Future graph work should measure hub expansion cost and precision before any hub-driven retrieval path is promoted.",
+      "must_preserve": [
+        "broad hub links do not override direct evidence",
+        "source-grounded evidence only",
+        "no production retrieval behavior change in this rung"
+      ],
+      "must_improve_or_measure": [
+        "high-degree hub candidate volume",
+        "hub expansion precision",
+        "admission and rejection traceability"
+      ],
+      "expected_future_trace": [
+        "query touches a broad hub",
+        "graph reports hub degree or expansion fan-out",
+        "graph caps or rejects low-value sibling candidates in shadow reports",
+        "candidate evidence remains source-unit grounded"
+      ],
+      "notes": "This is a safety baseline for graph expansion; it does not define hub thresholds."
+    },
+    {
+      "case_id": "AUTHORITY_BOUNDARY_GM_PREP_VS_PLAYED_TRUTH",
+      "title": "Authority boundary: GM prep versus played truth",
+      "failure_family": "authority_boundary",
+      "current_risk": "Prep notes, rumors, candidate facts, and played events can be conflated unless authority state and evidence role are explicit.",
+      "why_graph_native": "A graph can keep authority state, visibility state, evidence role, and source references attached to nodes or edges instead of flattening them into one truth bucket.",
+      "future_graph_expectation": "Future graph work should measure whether authority boundaries remain visible and prevent unsafe promotion of prep or rumor into played canon.",
+      "must_preserve": [
+        "played, prep, rumor, candidate, and source-supported states remain distinguishable",
+        "no graph summary admitted as source evidence",
+        "no production retrieval behavior change in this rung"
+      ],
+      "must_improve_or_measure": [
+        "authority-state precision",
+        "evidence-role traceability",
+        "unsafe promotion detection"
+      ],
+      "expected_future_trace": [
+        "query touches facts with different authority states",
+        "graph reports authority and evidence roles",
+        "graph prevents unsupported promotion in shadow output",
+        "candidate evidence remains source-unit grounded"
+      ],
+      "notes": "This case defines an authority-boundary evaluation need; taxonomy values arrive in a later rung."
+    },
+    {
+      "case_id": "CITATION_GROUNDING_NO_SUMMARY_AS_SOURCE",
+      "title": "Citation grounding: graph summaries are never source evidence",
+      "failure_family": "citation_grounding",
+      "current_risk": "Graph reports, summaries, or derived nodes could be mistakenly cited as source evidence instead of the underlying source units.",
+      "why_graph_native": "A graph can distinguish derived summaries and relationships from source anchors, but validators must enforce that distinction.",
+      "future_graph_expectation": "Future graph reports and retrieval traces must cite source artifacts for evidence and treat graph summaries only as navigation or diagnostic aids.",
+      "must_preserve": [
+        "no graph summary admitted as source evidence",
+        "citations point to source artifacts or source units",
+        "no production retrieval behavior change in this rung"
+      ],
+      "must_improve_or_measure": [
+        "source-citation coverage",
+        "derived-summary rejection",
+        "source-anchor traceability"
+      ],
+      "expected_future_trace": [
+        "query is expanded through graph-derived structure",
+        "graph report identifies derived nodes separately from source anchors",
+        "answer evidence cites only source-backed artifacts",
+        "graph summary remains diagnostic rather than evidentiary"
+      ],
+      "notes": "This baseline case is a promotion gate for all later graph reports and shadow retrieval work."
+    }
+  ]
+}

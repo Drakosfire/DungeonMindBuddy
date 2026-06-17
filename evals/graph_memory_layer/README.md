@@ -27,6 +27,14 @@ Run the scaffold-only/default smoke check during bootstrap work:
 uv run python -m evals.graph_memory_layer.run_smoke
 ```
 
+Validate the frozen baseline case manifest with the no-LLM baseline validator:
+
+```bash
+uv run python -m evals.graph_memory_layer.validate_baseline_cases
+```
+
+This validation is standard-library only and safe for scaffold/baseline work.
+
 Once fork enforcement is active for later stacked PRs, run strict branch-policy validation:
 
 ```bash
