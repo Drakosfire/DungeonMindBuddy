@@ -21,7 +21,8 @@ REQUIRED_DIRS = (
     REPO_ROOT / "evals" / "graph_memory_layer" / "artifacts",
     REPO_ROOT / "evals" / "graph_memory_layer" / "artifacts" / "baseline",
 )
-EXPECTED_STACKED_BRANCH = "graph-exp/00-fork-tracking-baseline"
+EXPERIMENT_ROOT_BRANCH = "experiment/graph-memory-layer"
+STACKED_BRANCH_PREFIX = "graph-exp/"
 FORBIDDEN_BRANCHES = {"main", "master"}
 
 
@@ -51,6 +52,38 @@ def find_experiment_doc() -> Path | None:
     return None
 
 
+def validate_git_branch(
+    branch: str | None, expected_branch: str | None = None
+) -> list[str]:
+    """Validate the current branch against the Graph Memory experiment policy."""
+    failures: list[str] = []
+
+    if branch is None:
+        return ["unable to determine current Git branch"]
+
+    if branch in FORBIDDEN_BRANCHES:
+        failures.append(f"current branch must not be {branch!r}")
+        return failures
+
+    if expected_branch is not None:
+        if branch != expected_branch:
+            failures.append(f"current branch is {branch!r}; expected {expected_branch!r}")
+        return failures
+
+    if branch == EXPERIMENT_ROOT_BRANCH:
+        return failures
+
+    if branch.startswith(STACKED_BRANCH_PREFIX):
+        return failures
+
+    failures.append(
+        "current branch must be "
+        f"{EXPERIMENT_ROOT_BRANCH!r} or start with {STACKED_BRANCH_PREFIX!r}; "
+        f"got {branch!r}"
+    )
+    return failures
+
+
 def current_branch() -> str | None:
     """Return the current Git branch name, or None when Git is unavailable."""
     result = subprocess.run(
@@ -72,11 +105,21 @@ def parse_args() -> argparse.Namespace:
         "--check-git-context",
         action="store_true",
         help=(
-            "enforce the future Graph Memory stacked branch contract; "
+            "enforce the future Graph Memory experiment branch contract; "
             "intended for post-bootstrap experiment PRs"
         ),
     )
-    return parser.parse_args()
+    parser.add_argument(
+        "--expected-branch",
+        help=(
+            "require one exact Git branch when --check-git-context is enabled; "
+            "intended for handoff-specific validation"
+        ),
+    )
+    args = parser.parse_args()
+    if args.expected_branch and not args.check_git_context:
+        parser.error("--expected-branch requires --check-git-context")
+    return args
 
 
 def main() -> int:
@@ -96,15 +139,9 @@ def main() -> int:
 
     branch = current_branch() if args.check_git_context else None
     if args.check_git_context:
-        if branch is None:
-            failures.append("unable to determine current Git branch")
-        elif branch in FORBIDDEN_BRANCHES:
-            failures.append(f"current branch must not be {branch!r}")
-        elif branch != EXPECTED_STACKED_BRANCH:
-            failures.append(
-                "current branch is "
-                f"{branch!r}; expected {EXPECTED_STACKED_BRANCH!r}"
-            )
+        failures.extend(
+            validate_git_branch(branch, expected_branch=args.expected_branch)
+        )
 
     print("Graph Memory Layer smoke check")
     print(f"- fork tracking doc: {'found' if TRACKING_DOC.is_file() else 'missing'}")
