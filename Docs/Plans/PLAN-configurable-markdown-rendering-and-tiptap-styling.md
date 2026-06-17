@@ -511,6 +511,10 @@ Add DungeonBuddy-specific semantic blocks only after wrapper theming is proven.
 - [x] Add semantic callouts to the fixture sample.
 - [ ] Add Tiptap semantic node parity.
 
+> Note: `gm-note` is semantic presentation only. It is not privacy or access
+> control, and future player-facing/Tiptap surfaces must not treat it as hidden
+> content automatically.
+
 Candidate syntax:
 
 ```md
