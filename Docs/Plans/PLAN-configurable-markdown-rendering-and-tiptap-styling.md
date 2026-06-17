@@ -511,6 +511,14 @@ Add DungeonBuddy-specific semantic blocks only after wrapper theming is proven.
 - [x] Add semantic callouts to the fixture sample.
 - [ ] Add Tiptap semantic node parity.
 
+### Semantic callout dogfood coverage
+
+- [x] Add semantic callouts to fixture sample.
+- [x] Add semantic callouts to a real Live Play runbook.
+- [x] Embed the Live Play runbook through the existing `data-md-embed` path.
+- [ ] Review semantic callouts during/after an actual table session.
+- [ ] Add Tiptap semantic node parity.
+
 ### Semantic callout regression coverage
 
 - [x] Add renderer regression tests for canonical semantic callouts.
