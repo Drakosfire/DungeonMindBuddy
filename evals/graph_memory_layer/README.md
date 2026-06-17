@@ -21,14 +21,22 @@ The smoke runner must not require an OpenAI key, environment variables, network 
 
 ## Expected Commands
 
+Run the scaffold-only/default smoke check during bootstrap work:
+
 ```bash
 uv run python -m evals.graph_memory_layer.run_smoke
 ```
 
-Once fork enforcement is active for later stacked PRs, also run:
+Once fork enforcement is active for later stacked PRs, run strict branch-policy validation:
 
 ```bash
 uv run python -m evals.graph_memory_layer.run_smoke --check-git-context
+```
+
+Strict git-context mode accepts the experiment root branch (`experiment/graph-memory-layer`) and any stacked branch that starts with `graph-exp/`. For a handoff that must be validated against one exact branch, add `--expected-branch`:
+
+```bash
+uv run python -m evals.graph_memory_layer.run_smoke --check-git-context --expected-branch graph-exp/01-freeze-baseline-reports
 ```
 
 ## Future PRs
