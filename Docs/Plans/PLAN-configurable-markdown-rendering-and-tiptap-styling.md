@@ -511,6 +511,15 @@ Add DungeonBuddy-specific semantic blocks only after wrapper theming is proven.
 - [x] Add semantic callouts to the fixture sample.
 - [ ] Add Tiptap semantic node parity.
 
+### Semantic callout regression coverage
+
+- [x] Add renderer regression tests for canonical semantic callouts.
+- [x] Add renderer regression tests for callout aliases.
+- [x] Add renderer regression tests for ordinary blockquote fallback.
+- [x] Add renderer regression tests for unknown callout fallback.
+- [x] Add renderer regression tests for escaping inside labels/body.
+- [ ] Add Tiptap semantic node parity.
+
 > Note: `gm-note` is semantic presentation only. It is not privacy or access
 > control, and future player-facing/Tiptap surfaces must not treat it as hidden
 > content automatically.

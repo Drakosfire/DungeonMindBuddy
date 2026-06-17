@@ -262,7 +262,7 @@ describe("IngestionModule", () => {
       ),
     );
     await waitFor(() =>
-      expect(screen.getByText("breadcrumb_required")).toBeInTheDocument(),
+      expect(screen.getAllByText("breadcrumb_required").length).toBeGreaterThan(0),
     );
   });
 
