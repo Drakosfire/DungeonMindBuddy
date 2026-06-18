@@ -59,6 +59,8 @@ export function TiptapCalloutBridgeSpike({ onEditorToolsChange }: TiptapCalloutB
     onUpdate: ({ editor: nextEditor }) => {
       const tiptapJson = nextEditor.getJSON();
       const now = new Date().toISOString();
+      setCommitResult(null);
+      setWriteStatus("");
       setWorkingState((current) => {
         const nextState = {
           ...current,
@@ -94,6 +96,8 @@ export function TiptapCalloutBridgeSpike({ onEditorToolsChange }: TiptapCalloutB
     setWorkingState(resetState);
     setLocalStateStatus("Reset to starter");
     setCopyMessage("");
+    setCommitResult(null);
+    setWriteStatus("");
   }, [editor]);
 
   const copyMarkdown = useCallback(async () => {
@@ -280,7 +284,11 @@ export function TiptapCalloutBridgeSpike({ onEditorToolsChange }: TiptapCalloutB
           <input
             id="tiptap-target-path"
             value={targetRelpath}
-            onChange={(event) => setTargetRelpath(event.target.value)}
+            onChange={(event) => {
+              setTargetRelpath(event.target.value);
+              setCommitResult(null);
+              setWriteStatus("");
+            }}
           />
           <div className="tiptap-local-actions">
             <button type="button" onClick={prepareFileWrite}>Prepare file write</button>

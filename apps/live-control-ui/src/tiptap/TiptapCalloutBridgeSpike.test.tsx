@@ -148,6 +148,20 @@ describe("semantic callout Markdown bridge", () => {
     expect(screen.getByText(/Target path changed after prepare/)).toBeInTheDocument();
   });
 
+  it("clears prior commit success when the target changes", async () => {
+    render(<TiptapCalloutBridgeSpike />);
+    fireEvent.click(screen.getByRole("button", { name: "Prepare file write" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Commit reviewed file write" })).toBeEnabled());
+    fireEvent.click(screen.getByRole("button", { name: "Commit reviewed file write" }));
+    expect(await screen.findByText(/Local draft remains available/)).toBeInTheDocument();
+    expect(screen.getByText("fingerprint")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Target path"), { target: { value: `${preparedResponse.target_relpath}-changed` } });
+
+    expect(screen.queryByText(/Local draft remains available/)).not.toBeInTheDocument();
+    expect(screen.queryByText("fingerprint")).not.toBeInTheDocument();
+  });
+
   it("shows prepare errors", async () => {
     prepareMock.mockRejectedValueOnce(new Error("unsafe target"));
     render(<TiptapCalloutBridgeSpike />);
