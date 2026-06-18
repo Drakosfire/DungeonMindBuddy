@@ -55,4 +55,28 @@ describe("App inspector integration", () => {
     expect(screen.getByText(/Select a timeline ref or record event to inspect/i)).toBeInTheDocument();
   });
 
+  it("renders the shared editor toolbar collapsed on the Tiptap spike route", async () => {
+    const user = userEvent.setup();
+    window.history.pushState({}, "", "/tiptap-callout-spike");
+    render(<App />);
+
+    expect(screen.getByRole("button", { name: "Edit" })).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByRole("button", { name: "Tools" })).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByRole("navigation", { name: "Command board navigation" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Live play" })).toHaveAttribute(
+      "href",
+      "/evals/c2_live_prep/mireward-prep/live-play.html",
+    );
+
+    await user.click(screen.getByRole("button", { name: "Edit" }));
+
+    expect(screen.getByRole("button", { name: "Edit" })).toHaveAttribute("aria-expanded", "true");
+    expect(await screen.findByRole("button", { name: /Insert Read aloud/ })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /Lock editing/ }));
+
+    expect(screen.getByRole("button", { name: /Unlock editing/ })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: /Insert Read aloud/ })).toBeDisabled();
+  });
+
 });

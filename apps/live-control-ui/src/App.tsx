@@ -11,6 +11,7 @@ import type {
   SurfaceLayout,
   SurfaceModuleDefinition,
 } from "./api/types";
+import { AppChrome, type AppChromeTools } from "./chrome/AppChrome";
 import { InspectorPane, type InspectorPaneState } from "./surface/InspectorPane";
 import { SurfaceShell } from "./surface/SurfaceShell";
 import type { PaneTarget } from "./surface/targetTypes";
@@ -64,6 +65,16 @@ function MirewardIndex() {
         </p>
       </section>
     </main>
+  );
+}
+
+function TiptapSpikeRoute() {
+  const [editorTools, setEditorTools] = useState<AppChromeTools | null>(null);
+
+  return (
+    <AppChrome activeRoute="tiptap-callout-spike" editorTools={editorTools}>
+      <TiptapCalloutBridgeSpike onEditorToolsChange={setEditorTools} />
+    </AppChrome>
   );
 }
 
@@ -151,33 +162,41 @@ function LiveControlApp() {
 
   if (status === "loading") {
     return (
-      <main className="app-status">
-        <p>Loading live surface…</p>
-      </main>
+      <AppChrome activeRoute="surface">
+        <main className="app-status">
+          <p>Loading live surface…</p>
+        </main>
+      </AppChrome>
     );
   }
 
   if (status === "error" || !layout || !state || !planView) {
     return (
-      <main className="app-status app-error">
-        <h1>Live Control</h1>
-        <p>{error ?? "Unable to load session surface."}</p>
-        <p className="module-muted">
-          Start the L3 server with{" "}
-          <code>uv run uvicorn apps.live_control_server.main:app --reload</code> and ensure
-          session files are available.
-        </p>
-      </main>
+      <AppChrome activeRoute="surface">
+        <main className="app-status app-error">
+          <h1>Live Control</h1>
+          <p>{error ?? "Unable to load session surface."}</p>
+          <p className="module-muted">
+            Start the L3 server with{" "}
+            <code>uv run uvicorn apps.live_control_server.main:app --reload</code> and ensure
+            session files are available.
+          </p>
+        </main>
+      </AppChrome>
     );
   }
 
   return (
-    <main className="app-root">
-      <div className="app-chrome">
-        <button type="button" onClick={handleOpenInspector}>
-          Inspector
-        </button>
-      </div>
+    <AppChrome
+      activeRoute="surface"
+      pageActions={[
+        {
+          id: "surface-inspector",
+          label: "Inspector",
+          onClick: handleOpenInspector,
+        },
+      ]}
+    >
       <SurfaceShell
         catalog={catalog}
         layout={layout}
@@ -194,13 +213,19 @@ function LiveControlApp() {
         onClose={handleCloseInspector}
         onCommandAccepted={handleCommandAccepted}
       />
-    </main>
+    </AppChrome>
   );
 }
 
 export function App() {
   const route = currentRoute();
-  if (route === "index") return <MirewardIndex />;
-  if (route === "tiptap-callout-spike") return <TiptapCalloutBridgeSpike />;
+  if (route === "index") {
+    return (
+      <AppChrome activeRoute="index">
+        <MirewardIndex />
+      </AppChrome>
+    );
+  }
+  if (route === "tiptap-callout-spike") return <TiptapSpikeRoute />;
   return <LiveControlApp />;
 }

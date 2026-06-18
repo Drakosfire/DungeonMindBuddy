@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 
+import type { AppChromeTools } from "../chrome/AppChrome";
 import { CalloutNode } from "./extensions/CalloutNode";
 import {
   CALLOUT_KINDS,
@@ -43,17 +44,60 @@ export const initialCalloutContent = {
   ],
 };
 
-export function TiptapCalloutBridgeSpike() {
+interface TiptapCalloutBridgeSpikeProps {
+  onEditorToolsChange?: (tools: AppChromeTools | null) => void;
+}
+
+export function TiptapCalloutBridgeSpike({ onEditorToolsChange }: TiptapCalloutBridgeSpikeProps) {
   const [json, setJson] = useState<unknown>(initialCalloutContent);
+  const [isEditorLocked, setIsEditorLocked] = useState(false);
   const editor = useEditor({
     extensions: [StarterKit, CalloutNode],
     content: initialCalloutContent,
+    editable: !isEditorLocked,
     onUpdate: ({ editor: nextEditor }) => setJson(nextEditor.getJSON()),
   });
 
-  const insertCallout = (kind: CalloutKind) => {
+  const insertCallout = useCallback((kind: CalloutKind) => {
     editor?.chain().focus().insertCallout({ kind }).run();
-  };
+  }, [editor]);
+
+  const toggleEditorLock = useCallback(() => {
+    const nextLocked = !isEditorLocked;
+    setIsEditorLocked(nextLocked);
+    editor?.setEditable(!nextLocked);
+  }, [editor, isEditorLocked]);
+
+  useEffect(() => {
+    onEditorToolsChange?.({
+      pinnedActions: [
+        {
+          id: "tiptap-edit-lock",
+          eyebrow: isEditorLocked ? "Editing locked" : "Editing unlocked",
+          label: isEditorLocked ? "Unlock editing" : "Lock editing",
+          onClick: toggleEditorLock,
+          disabled: !editor,
+          pressed: isEditorLocked,
+        },
+      ],
+      sections: [
+        {
+          id: "tiptap-insert-blocks",
+          title: "Insert blocks",
+          defaultOpen: true,
+          actions: CALLOUT_KINDS.map((kind) => ({
+            id: `insert-${kind}`,
+            eyebrow: "Insert",
+            label: defaultCalloutLabel(kind),
+            onClick: () => insertCallout(kind),
+            disabled: !editor || isEditorLocked,
+          })),
+        },
+      ],
+    });
+
+    return () => onEditorToolsChange?.(null);
+  }, [editor, insertCallout, isEditorLocked, onEditorToolsChange, toggleEditorLock]);
 
   return (
     <main className="tiptap-spike-page">
@@ -72,14 +116,8 @@ export function TiptapCalloutBridgeSpike() {
             <p className="tiptap-spike-kicker">Working board state</p>
             <h2 id="editor-heading">Editor</h2>
           </div>
-          <div className="tiptap-spike-toolbar" aria-label="Insert semantic callout">
-            {CALLOUT_KINDS.map((kind) => (
-              <button key={kind} type="button" onClick={() => insertCallout(kind)} disabled={!editor}>
-                {defaultCalloutLabel(kind)}
-              </button>
-            ))}
-          </div>
         </div>
+
         <div className="tiptap-spike-editor md-content md-theme-command" data-md-theme="command" data-testid="tiptap-editor">
           <EditorContent editor={editor} />
         </div>

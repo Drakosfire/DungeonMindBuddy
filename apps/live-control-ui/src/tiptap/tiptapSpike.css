@@ -35,13 +35,6 @@
   box-shadow: var(--shadow, 0 12px 30px rgba(0, 0, 0, 0.2));
 }
 
-.tiptap-spike-toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 0.5rem;
-}
-
 .tiptap-spike-editor {
   margin-top: 1rem;
   border: 1px solid var(--border, #2a3142);
@@ -79,6 +72,5 @@
 @media (max-width: 800px) {
   .tiptap-spike-header,
   .tiptap-spike-section-heading { display: block; }
-  .tiptap-spike-toolbar { justify-content: flex-start; margin-top: 0.75rem; }
   .tiptap-spike-grid { grid-template-columns: 1fr; }
 }

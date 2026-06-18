@@ -30,8 +30,286 @@ code {
   background: #1c1214;
 }
 
-.app-root {
+.app-shell {
   min-height: 100vh;
+}
+
+.app-wrap {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 16px 20px 48px;
+}
+
+.app-site-nav {
+  position: sticky;
+  top: 10px;
+  z-index: 20;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 10px;
+  border: 1px solid #2a3142;
+  border-radius: 10px;
+  margin-bottom: 20px;
+  background: rgba(18, 20, 26, 0.94);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.22);
+  backdrop-filter: blur(10px);
+}
+
+.app-site-nav a {
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px solid #2a3142;
+  color: #9aa3b5;
+  font-size: 13px;
+  text-decoration: none;
+}
+
+.app-site-nav a:hover {
+  color: #e8eaef;
+  border-color: #565f89;
+}
+
+.app-site-nav a.active {
+  color: #e8eaef;
+  border-color: #7aa2f7;
+  background: rgba(122, 162, 247, 0.08);
+}
+
+.app-edit-actions button span,
+.app-tools-actions button span {
+  color: #9aa3b5;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.app-edit-toolbox-toggle {
+  position: fixed;
+  left: 0;
+  top: 50%;
+  z-index: 850;
+  transform: translateY(-50%);
+  border: 1px solid #2a3142;
+  border-left: none;
+  border-radius: 0 8px 8px 0;
+  background: rgba(22, 25, 34, 0.96);
+  color: #e8eaef;
+  padding: 10px 10px 10px 8px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  box-shadow: 4px 0 16px rgba(0, 0, 0, 0.25);
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+}
+
+.app-edit-toolbox-toggle:hover,
+.app-edit-toolbox.open .app-edit-toolbox-toggle {
+  border-color: #7aa2f7;
+  color: #7aa2f7;
+}
+
+.app-edit-toolbox-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 855;
+  background: rgba(8, 10, 14, 0.45);
+}
+
+.app-edit-toolbox-backdrop[hidden] {
+  display: none !important;
+}
+
+.app-edit-toolbox-drawer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  z-index: 860;
+  width: min(440px, 94vw);
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid #2a3142;
+  background: #171b24;
+  box-shadow: 12px 0 40px rgba(0, 0, 0, 0.35);
+  transform: translateX(-100%);
+  transition: transform 0.2s ease;
+}
+
+.app-edit-toolbox.open .app-edit-toolbox-drawer {
+  transform: translateX(0);
+}
+
+.app-edit-toolbox-hd,
+.app-tools-toolbox-hd {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px 10px;
+  border-bottom: 1px solid #2a3142;
+  flex-shrink: 0;
+}
+
+.app-edit-toolbox-eyebrow,
+.app-tools-toolbox-eyebrow {
+  margin-bottom: 2px;
+  color: #565f89;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.app-edit-toolbox-title,
+.app-tools-toolbox-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.app-edit-toolbox-close,
+.app-tools-toolbox-close {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  padding: 0;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.app-edit-toolbox-nav,
+.app-tools-toolbox-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 10px 16px;
+  border-bottom: 1px solid #2a3142;
+  flex-shrink: 0;
+}
+
+.app-edit-toolbox-nav-btn,
+.app-tools-toolbox-nav-btn {
+  border-radius: 999px;
+  background: #1d212d;
+  color: #9aa3b5;
+  padding: 5px 12px;
+  font-size: 12px;
+}
+
+.app-edit-toolbox-nav-btn.active,
+.app-tools-toolbox-nav-btn.active {
+  border-color: #7aa2f7;
+  color: #7aa2f7;
+  background: rgba(122, 162, 247, 0.12);
+}
+
+.app-edit-toolbox-body,
+.app-tools-toolbox-body {
+  flex: 1;
+  overflow: auto;
+  padding: 14px 16px 18px;
+}
+
+.app-edit-fold,
+.app-tools-fold {
+  border: 1px solid #2a3142;
+  border-radius: 8px;
+  margin: 8px 0;
+  background: #161922;
+}
+
+.app-edit-fold summary,
+.app-tools-fold summary {
+  cursor: pointer;
+  padding: 10px 12px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.app-edit-fold-bd,
+.app-tools-fold-bd {
+  padding: 0 12px 12px;
+}
+
+.app-edit-actions,
+.app-tools-actions {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.app-edit-actions button,
+.app-tools-actions button {
+  display: grid;
+  gap: 0.15rem;
+  justify-items: start;
+  width: 100%;
+  text-align: left;
+}
+
+.app-edit-empty,
+.app-tools-empty {
+  margin: 0;
+  color: #9aa3b5;
+  font-size: 13px;
+}
+
+.app-tools-toolbox-toggle {
+  position: fixed;
+  right: 0;
+  top: 50%;
+  z-index: 850;
+  transform: translateY(-50%);
+  border: 1px solid #2a3142;
+  border-right: none;
+  border-radius: 8px 0 0 8px;
+  background: rgba(22, 25, 34, 0.96);
+  color: #e8eaef;
+  padding: 10px 8px 10px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  box-shadow: -4px 0 16px rgba(0, 0, 0, 0.25);
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+}
+
+.app-tools-toolbox-toggle:hover,
+.app-tools-toolbox.open .app-tools-toolbox-toggle {
+  border-color: #7aa2f7;
+  color: #7aa2f7;
+}
+
+.app-tools-toolbox-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 855;
+  background: rgba(8, 10, 14, 0.45);
+}
+
+.app-tools-toolbox-backdrop[hidden] {
+  display: none !important;
+}
+
+.app-tools-toolbox-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 860;
+  width: min(440px, 94vw);
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid #2a3142;
+  background: #171b24;
+  box-shadow: -12px 0 40px rgba(0, 0, 0, 0.35);
+  transform: translateX(100%);
+  transition: transform 0.2s ease;
+}
+
+.app-tools-toolbox.open .app-tools-toolbox-drawer {
+  transform: translateX(0);
 }
 
 .launcher-root {
@@ -104,14 +382,6 @@ code {
   border-radius: 8px;
   background: #181b24;
   color: #9aa3b5;
-}
-
-.app-chrome {
-  max-width: 1400px;
-  margin: 0 auto;
-  padding: 0.75rem 1rem 0;
-  display: flex;
-  justify-content: flex-end;
 }
 
 .surface-shell {
@@ -1030,6 +1300,17 @@ button:disabled {
 }
 
 @media (max-width: 900px) {
+  .app-site-nav {
+    position: static;
+  }
+
+  .app-edit-toolbox-toggle,
+  .app-tools-toolbox-toggle {
+    top: auto;
+    bottom: 72px;
+    transform: none;
+  }
+
   .surface-grid {
     grid-template-columns: 1fr;
   }

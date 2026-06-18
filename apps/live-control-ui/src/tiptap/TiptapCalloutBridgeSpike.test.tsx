@@ -1,4 +1,5 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
+import { vi } from "vitest";
 
 import { TiptapCalloutBridgeSpike } from "./TiptapCalloutBridgeSpike";
 import {
@@ -62,5 +63,31 @@ describe("semantic callout Markdown bridge", () => {
     expect(screen.getByRole("heading", { name: "Editor JSON" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Exported Markdown" })).toBeInTheDocument();
     expect(await screen.findAllByText("Read aloud")).not.toHaveLength(0);
+  });
+
+  it("registers editor tools for the app chrome", async () => {
+    const handleEditorToolsChange = vi.fn();
+
+    render(<TiptapCalloutBridgeSpike onEditorToolsChange={handleEditorToolsChange} />);
+
+    await waitFor(() => {
+      expect(handleEditorToolsChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          pinnedActions: expect.arrayContaining([
+            expect.objectContaining({ id: "tiptap-edit-lock", label: "Lock editing" }),
+          ]),
+          sections: expect.arrayContaining([
+            expect.objectContaining({ id: "tiptap-insert-blocks", title: "Insert blocks" }),
+          ]),
+        }),
+      );
+    });
+  });
+
+  it("does not render page-local tool copy", () => {
+    render(<TiptapCalloutBridgeSpike />);
+
+    expect(screen.queryByText("Callouts")).not.toBeInTheDocument();
+    expect(screen.queryByText("Insert semantic Markdown blocks.")).not.toBeInTheDocument();
   });
 });
