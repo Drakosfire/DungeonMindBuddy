@@ -89,6 +89,15 @@ export function isTiptapWorkingBoardState(value: unknown): value is TiptapWorkin
   );
 }
 
+function deriveWorkingBoardMarkdown(
+  state: TiptapWorkingBoardState,
+): TiptapWorkingBoardState {
+  return {
+    ...state,
+    exported_markdown: tiptapJsonToSemanticMarkdown(state.tiptap_json),
+  };
+}
+
 export function readTiptapWorkingBoardState(
   storage: Pick<Storage, "getItem">,
 ): TiptapWorkingBoardState | null {
@@ -96,7 +105,9 @@ export function readTiptapWorkingBoardState(
     const stored = storage.getItem(TIPTAP_WORKING_BOARD_KEY);
     if (stored === null) return null;
     const parsed: unknown = JSON.parse(stored);
-    return isTiptapWorkingBoardState(parsed) ? parsed : null;
+    return isTiptapWorkingBoardState(parsed)
+      ? deriveWorkingBoardMarkdown(parsed)
+      : null;
   } catch {
     return null;
   }

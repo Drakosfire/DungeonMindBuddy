@@ -37,6 +37,20 @@ describe("Tiptap local working-board state", () => {
     expect(storage.getItem).toHaveBeenCalledWith(TIPTAP_WORKING_BOARD_KEY);
   });
 
+  it("re-derives exported Markdown from stored Tiptap JSON", () => {
+    const state = {
+      ...buildInitialWorkingBoardState("2026-06-18T12:00:00.000Z"),
+      exported_markdown: "stale unsafe markdown",
+    };
+
+    const loaded = readTiptapWorkingBoardState({
+      getItem: () => JSON.stringify(state),
+    });
+
+    expect(loaded?.exported_markdown).toContain("## North-gate opening spike");
+    expect(loaded?.exported_markdown).not.toContain("stale unsafe markdown");
+  });
+
   it("rejects malformed JSON", () => {
     expect(readTiptapWorkingBoardState({ getItem: () => "{bad" })).toBeNull();
   });
