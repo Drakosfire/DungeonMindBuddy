@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import type { Content } from "@tiptap/core";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 
@@ -39,7 +40,7 @@ export function TiptapCalloutBridgeSpike({ onEditorToolsChange }: TiptapCalloutB
   const [isEditorLocked, setIsEditorLocked] = useState(false);
   const editor = useEditor({
     extensions: [StarterKit, CalloutNode],
-    content: workingState.tiptap_json,
+    content: workingState.tiptap_json as Content,
     editable: !isEditorLocked,
     onUpdate: ({ editor: nextEditor }) => {
       const tiptapJson = nextEditor.getJSON();
