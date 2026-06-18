@@ -629,6 +629,17 @@ Acceptance checks:
 - [ ] Save target is visible.
 - [ ] Export selected Tiptap range to Markdown remains possible.
 
+### Tiptap bridge spike coverage
+
+- [x] Add isolated Tiptap spike surface.
+- [x] Add `callout` node with `kind` attribute.
+- [x] Render Tiptap callouts with existing `.md-callout-*` classes.
+- [x] Export Tiptap callout nodes to semantic Markdown blockquote syntax.
+- [x] Keep Tiptap JSON as working board state only.
+- [ ] Parse arbitrary Markdown into Tiptap nodes.
+- [ ] Save Tiptap state to session/campaign storage.
+- [ ] Add canon corpus write flow.
+
 ---
 
 ## 14. Phase 9 — Testing Plan

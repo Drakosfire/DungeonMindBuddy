@@ -14,13 +14,15 @@ import type {
 import { InspectorPane, type InspectorPaneState } from "./surface/InspectorPane";
 import { SurfaceShell } from "./surface/SurfaceShell";
 import type { PaneTarget } from "./surface/targetTypes";
+import { TiptapCalloutBridgeSpike } from "./tiptap/TiptapCalloutBridgeSpike";
 
 type LoadStatus = "loading" | "ready" | "error";
-type AppRoute = "index" | "surface";
+type AppRoute = "index" | "surface" | "tiptap-callout-spike";
 
 function currentRoute(): AppRoute {
   const path = window.location.pathname.replace(/\/+$/, "") || "/";
   if (path === "/surface" || path === "/live-control") return "surface";
+  if (path === "/tiptap-callout-spike") return "tiptap-callout-spike";
   return "index";
 }
 
@@ -47,6 +49,11 @@ function MirewardIndex() {
           <span className="launcher-kicker">Live Control</span>
           <strong>React surface</strong>
           <span>The configurable live-control UI with combat roster, statblock workbench, chat, and record modules.</span>
+        </a>
+        <a className="launcher-card" href="/tiptap-callout-spike">
+          <span className="launcher-kicker">Developer Spike</span>
+          <strong>Tiptap callout bridge</strong>
+          <span>Editable semantic callouts, live editor JSON, and Markdown export without canon writes.</span>
         </a>
       </section>
 
@@ -194,5 +201,6 @@ function LiveControlApp() {
 export function App() {
   const route = currentRoute();
   if (route === "index") return <MirewardIndex />;
+  if (route === "tiptap-callout-spike") return <TiptapCalloutBridgeSpike />;
   return <LiveControlApp />;
 }
