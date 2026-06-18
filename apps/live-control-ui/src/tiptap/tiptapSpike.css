@@ -1,4 +1,12 @@
 .tiptap-spike-page {
+  --fg: var(--text, #e8eaef);
+  --fg-mute: var(--text-muted, #9aa3b5);
+  --border: #2a3142;
+  --bg-card: var(--panel, #171b24);
+  --bg-input: #12141a;
+  --accent: #7aa2f7;
+  --radius: 10px;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   width: min(1440px, calc(100% - 2rem));
   margin: 0 auto;
   padding: 2rem 0 3rem;
@@ -36,6 +44,14 @@
 }
 
 .tiptap-spike-editor {
+  --fg: var(--text, #e8eaef);
+  --fg-mute: var(--text-muted, #9aa3b5);
+  --border: #2a3142;
+  --bg-card: var(--panel, #171b24);
+  --bg-input: #12141a;
+  --accent: #7aa2f7;
+  --radius: 10px;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   margin-top: 1rem;
   border: 1px solid var(--border, #2a3142);
   border-radius: var(--radius, 10px);

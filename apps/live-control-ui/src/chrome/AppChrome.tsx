@@ -61,114 +61,110 @@ export function AppChrome({ activeRoute, pageActions = [], editorTools, children
         {children}
       </div>
 
-      <div className={`app-edit-toolbox${isEditOpen ? " open" : ""}`}>
-        <button
-          type="button"
-          className="app-edit-toolbox-toggle"
-          onClick={() => setIsEditOpen((current) => !current)}
-          aria-expanded={isEditOpen}
-          aria-controls="app-edit-toolbox-drawer"
-          title="Edit"
-        >
-          Edit
-        </button>
-        <div
-          className="app-edit-toolbox-backdrop"
-          hidden={!isEditOpen}
-          onClick={() => setIsEditOpen(false)}
-          aria-hidden="true"
-        />
-        <aside id="app-edit-toolbox-drawer" className="app-edit-toolbox-drawer" aria-label="Edit toolbar">
-          <header className="app-edit-toolbox-hd">
-            <div>
-              <div className="app-edit-toolbox-eyebrow">Command Board</div>
-              <h2 className="app-edit-toolbox-title">Edit</h2>
-            </div>
-            <button
-              type="button"
-              className="app-edit-toolbox-close"
-              onClick={() => setIsEditOpen(false)}
-              aria-label="Close Edit"
-            >
-              x
-            </button>
-          </header>
-          <nav className="app-edit-toolbox-nav" aria-label="Edit tool groups">
-            <button type="button" className="app-edit-toolbox-nav-btn active">
-              {hasEditTools ? "Tiptap" : "No tools"}
-            </button>
-          </nav>
-          <div className="app-edit-toolbox-body">
-            {hasEditTools ? (
-              <>
-                {pinnedActions.length > 0 ? (
-                  <details className="app-edit-fold" open>
-                    <summary>Edit state</summary>
-                    <div className="app-edit-fold-bd app-edit-actions">
-                      {pinnedActions.map((action) => (
-                        <ChromeActionButton key={action.id} action={action} />
-                      ))}
-                    </div>
-                  </details>
-                ) : null}
+      {hasEditTools ? (
+        <div className={`app-edit-toolbox${isEditOpen ? " open" : ""}`}>
+          <button
+            type="button"
+            className="app-edit-toolbox-toggle"
+            onClick={() => setIsEditOpen((current) => !current)}
+            aria-expanded={isEditOpen}
+            aria-controls="app-edit-toolbox-drawer"
+            title="Edit"
+          >
+            Edit
+          </button>
+          <div
+            className="app-edit-toolbox-backdrop"
+            hidden={!isEditOpen}
+            onClick={() => setIsEditOpen(false)}
+            aria-hidden="true"
+          />
+          <aside id="app-edit-toolbox-drawer" className="app-edit-toolbox-drawer" aria-label="Edit toolbar">
+            <header className="app-edit-toolbox-hd">
+              <div>
+                <div className="app-edit-toolbox-eyebrow">Command Board</div>
+                <h2 className="app-edit-toolbox-title">Edit</h2>
+              </div>
+              <button
+                type="button"
+                className="app-edit-toolbox-close"
+                onClick={() => setIsEditOpen(false)}
+                aria-label="Close Edit"
+              >
+                x
+              </button>
+            </header>
+            <nav className="app-edit-toolbox-nav" aria-label="Edit tool groups">
+              <button type="button" className="app-edit-toolbox-nav-btn active">
+                Tiptap
+              </button>
+            </nav>
+            <div className="app-edit-toolbox-body">
+              {pinnedActions.length > 0 ? (
+                <details className="app-edit-fold" open>
+                  <summary>Edit state</summary>
+                  <div className="app-edit-fold-bd app-edit-actions">
+                    {pinnedActions.map((action) => (
+                      <ChromeActionButton key={action.id} action={action} />
+                    ))}
+                  </div>
+                </details>
+              ) : null}
 
-                {sections.map((section) => (
-                  <details key={section.id} className="app-edit-fold" open={section.defaultOpen}>
-                    <summary>{section.title}</summary>
-                    <div className="app-edit-fold-bd app-edit-actions">
-                      {section.actions.map((action) => (
-                        <ChromeActionButton key={action.id} action={action} />
-                      ))}
-                    </div>
-                  </details>
-                ))}
-              </>
-            ) : (
-              <p className="app-edit-empty">No edit tools for this surface.</p>
-            )}
-          </div>
-        </aside>
-      </div>
-
-      <div className={`app-tools-toolbox${isToolsOpen ? " open" : ""}`}>
-        <button
-          type="button"
-          className="app-tools-toolbox-toggle"
-          onClick={() => setIsToolsOpen((current) => !current)}
-          aria-expanded={isToolsOpen}
-          aria-controls="app-tools-toolbox-drawer"
-          title="Tools"
-        >
-          Tools
-        </button>
-        <div
-          className="app-tools-toolbox-backdrop"
-          hidden={!isToolsOpen}
-          onClick={() => setIsToolsOpen(false)}
-          aria-hidden="true"
-        />
-        <aside id="app-tools-toolbox-drawer" className="app-tools-toolbox-drawer" aria-label="Tools toolbar">
-          <header className="app-tools-toolbox-hd">
-            <div>
-              <div className="app-tools-toolbox-eyebrow">Command Board</div>
-              <h2 className="app-tools-toolbox-title">Tools</h2>
+              {sections.map((section) => (
+                <details key={section.id} className="app-edit-fold" open={section.defaultOpen}>
+                  <summary>{section.title}</summary>
+                  <div className="app-edit-fold-bd app-edit-actions">
+                    {section.actions.map((action) => (
+                      <ChromeActionButton key={action.id} action={action} />
+                    ))}
+                  </div>
+                </details>
+              ))}
             </div>
-            <button
-              type="button"
-              className="app-tools-toolbox-close"
-              onClick={() => setIsToolsOpen(false)}
-              aria-label="Close Tools"
-            >
-              x
-            </button>
-          </header>
-          <nav className="app-tools-toolbox-nav" aria-label="Tool groups">
-            <button type="button" className="app-tools-toolbox-nav-btn active">
-              {hasPageTools ? "Page" : "No tools"}
-            </button>
-          </nav>
-          <div className="app-tools-toolbox-body">
-            {hasPageTools ? (
+          </aside>
+        </div>
+      ) : null}
+
+      {hasPageTools ? (
+        <div className={`app-tools-toolbox${isToolsOpen ? " open" : ""}`}>
+          <button
+            type="button"
+            className="app-tools-toolbox-toggle"
+            onClick={() => setIsToolsOpen((current) => !current)}
+            aria-expanded={isToolsOpen}
+            aria-controls="app-tools-toolbox-drawer"
+            title="Tools"
+          >
+            Tools
+          </button>
+          <div
+            className="app-tools-toolbox-backdrop"
+            hidden={!isToolsOpen}
+            onClick={() => setIsToolsOpen(false)}
+            aria-hidden="true"
+          />
+          <aside id="app-tools-toolbox-drawer" className="app-tools-toolbox-drawer" aria-label="Tools toolbar">
+            <header className="app-tools-toolbox-hd">
+              <div>
+                <div className="app-tools-toolbox-eyebrow">Command Board</div>
+                <h2 className="app-tools-toolbox-title">Tools</h2>
+              </div>
+              <button
+                type="button"
+                className="app-tools-toolbox-close"
+                onClick={() => setIsToolsOpen(false)}
+                aria-label="Close Tools"
+              >
+                x
+              </button>
+            </header>
+            <nav className="app-tools-toolbox-nav" aria-label="Tool groups">
+              <button type="button" className="app-tools-toolbox-nav-btn active">
+                Page
+              </button>
+            </nav>
+            <div className="app-tools-toolbox-body">
               <details className="app-tools-fold" open>
                 <summary>Page tools</summary>
                 <div className="app-tools-fold-bd app-tools-actions">
@@ -177,12 +173,10 @@ export function AppChrome({ activeRoute, pageActions = [], editorTools, children
                   ))}
                 </div>
               </details>
-            ) : (
-              <p className="app-tools-empty">No tools for this surface.</p>
-            )}
-          </div>
-        </aside>
-      </div>
+            </div>
+          </aside>
+        </div>
+      ) : null}
     </div>
   );
 }

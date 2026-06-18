@@ -40,6 +40,8 @@ describe("App inspector integration", () => {
       "href",
       "/surface",
     );
+    expect(screen.queryByRole("button", { name: "Edit" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Tools" })).not.toBeInTheDocument();
     expect(liveApi.getSurface).not.toHaveBeenCalled();
   });
 
@@ -49,8 +51,10 @@ describe("App inspector integration", () => {
     render(<App />);
 
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: /inspector/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Tools" })).toBeInTheDocument();
     });
+    expect(screen.queryByRole("button", { name: "Edit" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Tools" }));
     await user.click(screen.getByRole("button", { name: /inspector/i }));
     expect(screen.getByText(/Select a timeline ref or record event to inspect/i)).toBeInTheDocument();
   });
@@ -61,7 +65,7 @@ describe("App inspector integration", () => {
     render(<App />);
 
     expect(screen.getByRole("button", { name: "Edit" })).toHaveAttribute("aria-expanded", "false");
-    expect(screen.getByRole("button", { name: "Tools" })).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByRole("button", { name: "Tools" })).not.toBeInTheDocument();
     expect(screen.getByRole("navigation", { name: "Command board navigation" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Live play" })).toHaveAttribute(
       "href",
