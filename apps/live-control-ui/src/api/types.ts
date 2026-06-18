@@ -797,6 +797,52 @@ export interface StatblockCorpusWriteCommitResponse {
   available_actions: StatblockWorkbenchAction[];
 }
 
+export interface TiptapMarkdownWritePrepareRequest {
+  document_id: string;
+  title: string;
+  target_relpath: string;
+  markdown: string;
+}
+
+export interface TiptapMarkdownWritePrepareResponse {
+  schema_version: "dmb_tiptap_markdown_write_prepare_v1";
+  document_id: string;
+  title: string;
+  target_relpath: string;
+  target_display_path: string;
+  file_exists: boolean;
+  writer_ok: boolean;
+  writer_phase?: string | null;
+  writer_confirm_token?: string | null;
+  writer_diff?: string | null;
+  existing_size_bytes?: number | null;
+  new_size_bytes?: number | null;
+  warnings: string[];
+  diagnostics: string[];
+}
+
+export interface TiptapMarkdownWriteCommitRequest {
+  document_id: string;
+  title: string;
+  target_relpath: string;
+  markdown: string;
+  writer_confirm_token: string;
+}
+
+export interface TiptapMarkdownWriteCommitResponse {
+  schema_version: "dmb_tiptap_markdown_write_commit_v1";
+  document_id: string;
+  title: string;
+  target_relpath: string;
+  target_display_path: string;
+  writer_ok: boolean;
+  writer_phase?: string | null;
+  bytes_written?: number | null;
+  file_fingerprint?: string | null;
+  backup_relpath?: string | null;
+  diagnostics: string[];
+}
+
 
 export interface StatblockRetrievalActivationResponse {
   schema_version: "dmb_statblock_retrieval_activation_v1";

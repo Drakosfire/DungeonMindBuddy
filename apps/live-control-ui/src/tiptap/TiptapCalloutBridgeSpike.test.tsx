@@ -6,10 +6,47 @@ import {
   normalizeCalloutKind,
   tiptapJsonToSemanticMarkdown,
 } from "./markdown/calloutMarkdown";
+import { commitTiptapMarkdownWrite, prepareTiptapMarkdownWrite } from "../api/liveApi";
+
+vi.mock("../api/liveApi", () => ({
+  prepareTiptapMarkdownWrite: vi.fn(),
+  commitTiptapMarkdownWrite: vi.fn(),
+}));
+
+const prepareMock = vi.mocked(prepareTiptapMarkdownWrite);
+const commitMock = vi.mocked(commitTiptapMarkdownWrite);
+
+const preparedResponse = {
+  schema_version: "dmb_tiptap_markdown_write_prepare_v1" as const,
+  document_id: "north-gate-callout-spike",
+  title: "North-gate callout spike",
+  target_relpath: "evals/c2_live_prep/mireward-prep/content/tiptap/north-gate-callout-spike.md",
+  target_display_path: "evals/c2_live_prep/mireward-prep/content/tiptap/north-gate-callout-spike.md",
+  file_exists: false,
+  writer_ok: true,
+  writer_phase: "prepare",
+  writer_confirm_token: "confirm-token",
+  writer_diff: "+> [!READ-ALOUD]\n",
+  warnings: [],
+  diagnostics: ["dry-run only; no file was written"],
+};
 
 describe("semantic callout Markdown bridge", () => {
   beforeEach(() => {
     window.localStorage.clear();
+    vi.clearAllMocks();
+    prepareMock.mockResolvedValue(preparedResponse);
+    commitMock.mockResolvedValue({
+      schema_version: "dmb_tiptap_markdown_write_commit_v1",
+      document_id: preparedResponse.document_id,
+      title: preparedResponse.title,
+      target_relpath: preparedResponse.target_relpath,
+      target_display_path: preparedResponse.target_display_path,
+      writer_ok: true,
+      bytes_written: 42,
+      file_fingerprint: "fingerprint",
+      diagnostics: [],
+    });
   });
 
   it.each([
@@ -70,8 +107,52 @@ describe("semantic callout Markdown bridge", () => {
     expect(screen.getByText(/No backend or corpus write happens here/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Reset local draft" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Copy Markdown" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Write to file|Commit/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Commit reviewed file write" })).toBeDisabled();
     expect(await screen.findAllByText("Read aloud")).not.toHaveLength(0);
+  });
+
+  it("renders the explicit file write boundary without calling the backend", () => {
+    render(<TiptapCalloutBridgeSpike />);
+    expect(screen.getByText(/Preparing a write asks the backend/)).toBeInTheDocument();
+    expect(screen.getByText(/Committing writes the reviewed Markdown to disk/)).toBeInTheDocument();
+    expect(prepareMock).not.toHaveBeenCalled();
+    expect(commitMock).not.toHaveBeenCalled();
+  });
+
+  it("prepares derived Markdown, shows its diff, and commits the reviewed token", async () => {
+    render(<TiptapCalloutBridgeSpike />);
+    fireEvent.click(screen.getByRole("button", { name: "Prepare file write" }));
+
+    await waitFor(() => expect(prepareMock).toHaveBeenCalledWith(expect.objectContaining({
+      document_id: "north-gate-callout-spike",
+      title: "North-gate callout spike",
+      target_relpath: preparedResponse.target_relpath,
+      markdown: expect.stringContaining("> [!READ-ALOUD]"),
+    })));
+    expect(await screen.findByText("+> [!READ-ALOUD]", { exact: false })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Commit reviewed file write" }));
+    await waitFor(() => expect(commitMock).toHaveBeenCalledWith(expect.objectContaining({
+      writer_confirm_token: "confirm-token",
+      markdown: expect.stringContaining("> [!READ-ALOUD]"),
+    })));
+    expect(await screen.findByText(/Local draft remains available/)).toBeInTheDocument();
+  });
+
+  it("disables commit when the target changes after prepare", async () => {
+    render(<TiptapCalloutBridgeSpike />);
+    fireEvent.click(screen.getByRole("button", { name: "Prepare file write" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Commit reviewed file write" })).toBeEnabled());
+    fireEvent.change(screen.getByLabelText("Target path"), { target: { value: `${preparedResponse.target_relpath}-changed` } });
+    expect(screen.getByRole("button", { name: "Commit reviewed file write" })).toBeDisabled();
+    expect(screen.getByText(/Target path changed after prepare/)).toBeInTheDocument();
+  });
+
+  it("shows prepare errors", async () => {
+    prepareMock.mockRejectedValueOnce(new Error("unsafe target"));
+    render(<TiptapCalloutBridgeSpike />);
+    fireEvent.click(screen.getByRole("button", { name: "Prepare file write" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("unsafe target");
   });
 
   it("resets and saves the starter content locally", async () => {
