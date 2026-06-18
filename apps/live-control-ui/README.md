@@ -67,6 +67,15 @@ Expect answer containing `Hail dent`, badges `fast_live` and `roll_result`, and 
 
 Layout changes persist through `PUT /api/live/surface/layout` only (no localStorage authority).
 
+## Tiptap callout spike state
+
+The isolated `/tiptap-callout-spike` route is an intentional exception to the
+layout rule above: its editable working-board document is stored only in browser
+`localStorage`. Tiptap JSON is the editable source, and semantic Markdown is a
+derived export. The spike performs no backend or corpus writes. See
+[`src/tiptap/state/README.md`](src/tiptap/state/README.md) for the schema and
+data-flow boundary.
+
 ## Backend regression
 
 From repo root:

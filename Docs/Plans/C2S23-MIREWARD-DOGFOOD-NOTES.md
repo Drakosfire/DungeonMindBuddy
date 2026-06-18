@@ -4,7 +4,7 @@
 
 **Scope:** Queries asked, files opened, panes used, Cursor actions taken, friction observed, and follow-up product ideas. This is **not canon** and not a prep source by itself.
 
-**Last updated:** 2026-06-17 (semantic callout dogfood and Live Play density pass)
+**Last updated:** 2026-06-18 (Tiptap local working-board persistence)
 
 **Related planning docs:**
 
@@ -38,6 +38,7 @@ Add a row when an action changes planning state, reveals friction, or suggests a
 | 2026-06-17 | Static Command Board | Dogfooded semantic Markdown callouts in live-play runbook | `live-play.html`; `c2s23-north-gate-callout-runbook.md`; semantic callout renderer | Added a command-themed Markdown embed with read-aloud, GM note, rules, and warning blocks for the S23 north-gate opening | Proves callouts in an actual at-table surface instead of only the fixture page | Review during/after play for scan speed and collapse/default-open guidance |
 | 2026-06-17 | Static Command Board | Tidied Live Play page after semantic callout dogfood | `live-play.html`; north-gate runbook | Reduced redundant launch/source/provenance sections so Live Play reads as a cockpit instead of a source index | Semantic callouts are useful, but surrounding page chrome must stay sparse | Continue reviewing scan speed during/after table use |
 | 2026-06-17 | React live-control UI | Prototyped Tiptap semantic callout bridge | `TiptapCalloutBridgeSpike`; `CalloutNode`; semantic Markdown exporter | Confirmed Tiptap can represent read-aloud / GM note / rules / warning as editable nodes while reusing Markdown callout classes | Need follow-up decision on Markdown import, storage target, and whether editing belongs in static Command Board or React control surface | Keep the spike isolated until those product decisions are made |
+| 2026-06-18 | React live-control UI | Persisted the Tiptap spike as browser-local working-board state | `TiptapCalloutBridgeSpike`; `tiptapLocalState`; semantic Markdown exporter | Schema-versioned Tiptap JSON and its derived Markdown now survive reloads, with reset/copy actions and an explicit no-backend/no-corpus boundary | Hardcoded campaign/session/document identity is intentional for the spike; localStorage is browser/origin-specific | Add backend Markdown prepare/commit only in a separate follow-up slice |
 
 ---
 
