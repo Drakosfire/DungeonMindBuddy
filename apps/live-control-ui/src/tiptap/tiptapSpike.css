@@ -1,0 +1,92 @@
+.tiptap-spike-page {
+  --fg: var(--text, #e8eaef);
+  --fg-mute: var(--text-muted, #9aa3b5);
+  --border: #2a3142;
+  --bg-card: var(--panel, #171b24);
+  --bg-input: #12141a;
+  --accent: #7aa2f7;
+  --radius: 10px;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  width: min(1440px, calc(100% - 2rem));
+  margin: 0 auto;
+  padding: 2rem 0 3rem;
+}
+
+.tiptap-spike-header,
+.tiptap-spike-section-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.tiptap-spike-header { margin-bottom: 1.25rem; }
+.tiptap-spike-header h1,
+.tiptap-spike-section-heading h2 { margin: 0; }
+.tiptap-spike-header p { max-width: 68ch; }
+
+.tiptap-spike-kicker {
+  margin: 0 0 0.35rem;
+  color: var(--accent, #a9f0c8);
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.tiptap-spike-panel,
+.tiptap-spike-note {
+  padding: 1rem;
+  border: 1px solid var(--border, #2a3142);
+  border-radius: var(--radius, 10px);
+  background: var(--panel, #171b24);
+  box-shadow: var(--shadow, 0 12px 30px rgba(0, 0, 0, 0.2));
+}
+
+.tiptap-spike-editor {
+  --fg: var(--text, #e8eaef);
+  --fg-mute: var(--text-muted, #9aa3b5);
+  --border: #2a3142;
+  --bg-card: var(--panel, #171b24);
+  --bg-input: #12141a;
+  --accent: #7aa2f7;
+  --radius: 10px;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  margin-top: 1rem;
+  border: 1px solid var(--border, #2a3142);
+  border-radius: var(--radius, 10px);
+}
+
+.tiptap-spike-editor .ProseMirror {
+  min-height: 280px;
+  padding: 1rem;
+  outline: none;
+}
+
+.tiptap-spike-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin: 1rem 0;
+}
+
+.tiptap-spike-panel pre {
+  max-height: 34rem;
+  margin: 0.75rem 0 0;
+  padding: 0.85rem;
+  overflow: auto;
+  border: 1px solid var(--border, #2a3142);
+  border-radius: 8px;
+  background: var(--bg-input, #12141a);
+  color: var(--text, #e8eaef);
+  white-space: pre-wrap;
+}
+
+.tiptap-spike-note h2 { margin-top: 0; }
+.tiptap-spike-note p { margin-bottom: 0; }
+
+@media (max-width: 800px) {
+  .tiptap-spike-header,
+  .tiptap-spike-section-heading { display: block; }
+  .tiptap-spike-grid { grid-template-columns: 1fr; }
+}
