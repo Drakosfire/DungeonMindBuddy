@@ -72,8 +72,31 @@ function markdownMarks(value: unknown): JsonMark[] {
   return value.map(asNode).filter((mark): mark is JsonMark => mark !== null);
 }
 
+function escapeMarkdownLineStart(line: string): string {
+  return line
+    .replace(/^(\s{0,3})(#{1,6})(\s|$)/, "$1\\$2$3")
+    .replace(/^(\s{0,3})(>)/, "$1\\$2")
+    .replace(/^(\s{0,3})(-{3,})(\s*)$/, "$1\\$2$3")
+    .replace(/^(\s{0,3})(=+)(\s*)$/, "$1\\$2$3")
+    .replace(/^(\s{0,3})([-+=])(\s|$)/, "$1\\$2$3")
+    .replace(/^(\s{0,3})(\d+)([.)])(\s|$)/, "$1$2\\$3$4");
+}
+
 function escapeMarkdownText(text: string): string {
-  return text.replace(/[\\`*_[\]()]/g, "\\$&");
+  return text
+    .replace(/[\\`*_[\]()]/g, "\\$&")
+    .split("\n")
+    .map(escapeMarkdownLineStart)
+    .join("\n");
+}
+
+function normalizeSingleLineText(value: string): string {
+  return value.replace(/\s+/g, " ").trim();
+}
+
+function calloutLabel(value: unknown): string {
+  if (typeof value !== "string") return "";
+  return escapeMarkdownText(normalizeSingleLineText(value)).replace(/>/g, "\\>");
 }
 
 function codeSpan(text: string): string {
@@ -83,9 +106,22 @@ function codeSpan(text: string): string {
   return `${delimiter}${padding}${text}${padding}${delimiter}`;
 }
 
-function linkHref(value: unknown): string | null {
-  if (typeof value !== "string" || value.length === 0) return null;
-  return value.replace(/ /g, "%20").replace(/[()]/g, "\\$&");
+function escapeMarkdownHref(href: string): string {
+  return href.replace(/ /g, "%20").replace(/[()]/g, "\\$&");
+}
+
+function safeMarkdownHref(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+
+  const href = value.trim();
+  if (!href || /[\u0000-\u001F\u007F]/.test(href) || href.startsWith("//")) return null;
+
+  const schemeMatch = href.match(/^([a-z][a-z0-9+.-]*):/i);
+  if (schemeMatch && !["http", "https", "mailto"].includes(schemeMatch[1].toLowerCase())) {
+    return null;
+  }
+
+  return escapeMarkdownHref(href);
 }
 
 function serializeTextWithMarks(text: string, marks: JsonMark[]): string {
@@ -99,7 +135,7 @@ function serializeTextWithMarks(text: string, marks: JsonMark[]): string {
   }
 
   const link = marks.find((mark) => mark.type === "link");
-  const href = linkHref(link?.attrs?.href);
+  const href = safeMarkdownHref(link?.attrs?.href);
   return href ? `[${result}](${href})` : result;
 }
 
@@ -131,7 +167,7 @@ function serializeListItem(node: JsonNode, marker: string): string {
 
 function serializeCallout(node: JsonNode): string {
   const kind = normalizeCalloutKind(node.attrs?.kind);
-  const label = typeof node.attrs?.label === "string" ? node.attrs.label.trim() : "";
+  const label = calloutLabel(node.attrs?.label);
   const marker = `> [!${calloutKindToMarkdownMarker(kind)}]${label ? ` ${label}` : ""}`;
   const body = childNodes(node).map(serializeNode).filter(Boolean).join("\n\n");
   return body ? `${marker}\n${indentLines(body, "> ")}` : marker;
